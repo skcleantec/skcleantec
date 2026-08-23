@@ -1,0 +1,4 @@
+# Android SDK 경로 (Android Studio가 자동 생성)
+sdk.dir=C\:\\Users\\user\\AppData\\Local\\Android\\Sdk
+# 기본 API 호스트 (로그인 화면 pyo 계정만 스테이징 선택)
+cbiseo.apiBaseUrl=https://www.cbiseo.com

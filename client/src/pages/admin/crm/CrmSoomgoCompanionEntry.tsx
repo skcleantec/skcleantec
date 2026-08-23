@@ -3,6 +3,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { getToken, subscribeAdminAuth } from '../../../stores/auth';
 import { TenantCapabilitiesProvider } from '../../../hooks/useTenantCapabilities';
 import { useStandaloneTenantCapabilities } from '../../../hooks/useStandaloneTenantCapabilities';
+import { StaffAppPcOnlyScreen } from '../../../components/auth/StaffAppPcOnlyScreen';
+import { isCbiseoStaffNativeApp } from '../../../utils/cbiseoNativeApp';
 import { CrmSoomgoCompanionPage } from './CrmSoomgoCompanionPage';
 
 export function CrmSoomgoCompanionEntry() {
@@ -20,6 +22,10 @@ export function CrmSoomgoCompanionEntry() {
 
   if (!token) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (isCbiseoStaffNativeApp()) {
+    return <StaffAppPcOnlyScreen />;
   }
 
   return (

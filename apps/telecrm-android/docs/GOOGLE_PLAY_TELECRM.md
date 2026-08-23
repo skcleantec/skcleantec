@@ -2,7 +2,8 @@
 
 > **앱 표시명:** `청소비서(마케터)`  
 > **Play 패키지명(applicationId):** `com.cbiseo.marketer`  
-> **브랜드:** 사용자·Play·설치 화면에 **skcleantec 사용 금지** — `.cursor/rules/no-skcleantec-branding.mdc`
+> **브랜드:** 사용자·Play·설치 화면에 **skcleantec 사용 금지** — `.cursor/rules/no-skcleantec-branding.mdc`  
+> **Play 개발자 계정:** Morgan Pyo · 계정 ID `7331486328299394690` — [`docs/GOOGLE_PLAY_CONSOLE.md`](../../../docs/GOOGLE_PLAY_CONSOLE.md)
 
 ---
 

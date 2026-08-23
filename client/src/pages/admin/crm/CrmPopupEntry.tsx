@@ -6,6 +6,8 @@ import {
 } from '../../../hooks/useTenantCapabilities';
 import { useStandaloneTenantCapabilities } from '../../../hooks/useStandaloneTenantCapabilities';
 import { arrangeCrmPopupLeftHalf, fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
+import { StaffAppPcOnlyScreen } from '../../../components/auth/StaffAppPcOnlyScreen';
+import { isCbiseoStaffNativeApp } from '../../../utils/cbiseoNativeApp';
 import { registerTelecrmPopupWindow } from '../../../utils/openTelecrmWindow';
 import { CrmPage } from './CrmPage';
 
@@ -51,6 +53,10 @@ export function CrmPopupEntry() {
 
   if (!token) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (isCbiseoStaffNativeApp()) {
+    return <StaffAppPcOnlyScreen />;
   }
 
   return (

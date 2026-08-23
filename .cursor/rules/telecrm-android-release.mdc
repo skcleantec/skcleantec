@@ -8,6 +8,7 @@ alwaysApply: false
 
 **Play Store 없이** GitHub Release APK + **Railway 매니페스트** + 고정 설치 페이지 `/telecrm-app` 로 배포한다.  
 **Play (`com.cbiseo.marketer`)** 진행·버전 이력은 **`apps/telecrm-android/docs/RELEASE_PROGRESS.md`** 에 버전별로 누적 기록한다.  
+**Play Console 개발자 계정:** Morgan Pyo · 계정 ID `7331486328299394690` — **`docs/GOOGLE_PLAY_CONSOLE.md`**  
 APK·`versionCode`·GitHub Release만 올리고 **Railway Variables를 안 바꾸면** 앱 자동 업데이트·설치 페이지가 **옛 APK**를 가리킨다 — **우회 금지**.
 
 ## 에이전트 의무 — 진행 기록 (필수)

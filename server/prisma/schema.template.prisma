@@ -323,6 +323,7 @@ model Tenant {
   platformReferrersAsPartner PlatformReferrer[] @relation("PlatformReferrerPartnerTenant")
   referrerCommissionAccruals PlatformReferrerCommissionAccrual[]
   platformBoardPosts         PlatformBoardPost[]
+  staffAppFcmTokens          StaffAppFcmToken[]
 
   @@map("tenants")
 }
@@ -1470,6 +1471,7 @@ model User {
   inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
   inquiryStatusEventsAsActor      InquiryStatusEvent[]   @relation("InquiryStatusEventActor")
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
+  staffAppFcmTokens            StaffAppFcmToken[]
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
   quotationsCreated             Quotation[]            @relation("QuotationCreatedBy")
@@ -1572,6 +1574,24 @@ model TeamLeaderWebPushSubscription {
 
   @@index([userId])
   @@map("team_leader_web_push_subscriptions")
+}
+
+/// Google Play 「청소비서」 업무 앱 FCM 토큰 (com.cbiseo.app)
+model StaffAppFcmToken {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  userId      String   @map("user_id")
+  token       String   @unique @db.Text
+  appId       String   @default("com.cbiseo.app") @map("app_id") @db.VarChar(64)
+  deviceLabel String?  @map("device_label") @db.VarChar(128)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@map("staff_app_fcm_tokens")
 }
 
 /// 팀장당 1팀 (팀원은 로그인 없음, 마스터·휴무만 관리)

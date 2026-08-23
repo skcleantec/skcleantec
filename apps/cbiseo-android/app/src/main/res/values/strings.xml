@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">청소비서</string>
+    <string name="login_title">청소비서 업무</string>
+    <string name="login_subtitle">업체 코드와 PC와 같은 아이디로 로그인합니다.</string>
+    <string name="label_tenant_slug">업체 코드</string>
+    <string name="label_login_id">아이디</string>
+    <string name="label_password">비밀번호</string>
+    <string name="action_login">로그인</string>
+    <string name="server_preset_production">운영</string>
+    <string name="server_preset_staging">스테이징</string>
+    <string name="server_preset_hint">테스트 계정(pyo)만 서버를 선택할 수 있습니다.</string>
+    <string name="role_not_supported">이 계정은 앱에서 이용할 수 없습니다. 팀장·마케터·관리자 계정으로 로그인해 주세요.</string>
+</resources>

@@ -1,0 +1,50 @@
+---
+description: 청소비서 업무 Android(com.cbiseo.app) — WebView 셸·FCM·Play·CRM 제외 정책
+globs: apps/cbiseo-android/**,docs/CBISEO_ANDROID_APP.md,docs/GOOGLE_PLAY_CONSOLE.md,shared/cbiseoStaffAppPolicy.ts,client/src/utils/cbiseoNativeApp.ts,server/src/modules/push/staffAppPush.*
+alwaysApply: false
+---
+
+# 청소비서 업무 Android — `com.cbiseo.app` (필수)
+
+> **전략 문서:** `docs/CBISEO_ANDROID_APP.md`  
+> **Play 계정:** Morgan Pyo · `7331486328299394690` — `docs/GOOGLE_PLAY_CONSOLE.md`  
+> **전화 앱(별도):** `com.cbiseo.marketer` — `.cursor/rules/telecrm-android-release.mdc`
+
+## 제품 정책 (고정)
+
+1. **Play 앱 `청소비서` (`com.cbiseo.app`)** — WebView로 **`/team/*` + `/admin/*`** (CRM 제외). UI·기능 변경은 **웹 배포만**.
+2. **CRM `/admin/crm`** — **PC 전용**. 앱 WebView·딥링크에서 **차단·안내**.
+3. **전화·CallLog·dispatch** — **`com.cbiseo.marketer` 전용**. 업무 앱에 통화 권한·텔레CRM UI **넣지 않음**.
+4. **팀장-only 분리 앱 (`com.cbiseo.team`)** — **만들지 않음**.
+
+## 알림
+
+- 포그라운드: 기존 **`/ws` + `inbox:refresh`** + 페이지 silent refetch (`.cursor/rules/team-realtime-websocket.mdc`).
+- 백그라운드: **FCM** — `StaffAppFcmToken` + `POST /api/push/staff-app/register`.
+- `notifyInboxRefresh` 호출부와 **동일 userId**에 FCM fan-out (Phase 3+).
+- 레거시 **Web Push(VAPID)** 재도입 금지.
+
+## Android 셸
+
+- 코드: **`apps/cbiseo-android/`** — telecrm-android **복붙 전체 금지**; WebView·FCM·로그인만.
+- 로그인 후 **`/api/auth/me` role** → `/team/dashboard` 또는 `/admin/dashboard`.
+- JWT → `localStorage` `sk_team_token` / `sk_admin_token` 주입 + `CbiseoApp` JS 브릿지.
+- 권한: **INTERNET, POST_NOTIFICATIONS** 수준 — CALL_PHONE·READ_CALL_LOG **금지**.
+
+## Play 릴리스 (에이전트)
+
+`versionCode` bump·AAB·Play 업로드 완료 시:
+
+1. **`apps/cbiseo-android/docs/RELEASE_PROGRESS.md`** 최상단 갱신
+2. Firebase·`google-services.json` 변경 시 문서에 기록 (비밀 커밋 금지)
+3. **웹-only 변경**은 Play 재배포 **불필요** — 문서에 혼동 없게 구분
+
+## 멀티테넌트
+
+- FCM register·발송: **`tenantId` + `userId`** 필수 — `.cursor/rules/multitenant-safety.mdc`
+
+## 금지
+
+- 업무 앱에 CRM WebView·숨고 CRM 탭
+- 업무 앱에 telecrm `TelecrmRealtimeService`·CallScreening 이식
+- Play·UI에 skcleantec 브랜드

@@ -2,6 +2,7 @@
 
 > **패키지:** `com.cbiseo.marketer` · **표시명:** `청소비서(마케터)`  
 > **Play 가이드:** [`GOOGLE_PLAY_TELECRM.md`](./GOOGLE_PLAY_TELECRM.md)  
+> **Play 개발자 계정:** Morgan Pyo · 계정 ID `7331486328299394690` — [`docs/GOOGLE_PLAY_CONSOLE.md`](../../../docs/GOOGLE_PLAY_CONSOLE.md)  
 > **Gradle 버전 소스:** `app/build.gradle.kts`
 
 ---

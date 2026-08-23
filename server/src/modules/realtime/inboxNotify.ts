@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { sendJsonToUser } from './realtimeHub.js';
+import { notifyStaffAppFcmRefresh } from '../push/staffAppPushNotify.js';
 
 /** 메시지함 갱신 — 클라이언트가 GET으로 다시 불러오도록 신호만 보냄 */
 export async function notifyInboxRefresh(userIds: string[]): Promise<void> {
@@ -24,4 +25,5 @@ export async function notifyInboxRefresh(userIds: string[]): Promise<void> {
   for (const id of regularIds) {
     sendJsonToUser(id, { type: 'inbox:refresh' }, tenantByUser.get(id));
   }
+  void notifyStaffAppFcmRefresh(regularIds, tenantByUser);
 }
