@@ -113,12 +113,18 @@ async function postStaffLogin(url: string, body: Record<string, string>) {
   return res.json() as Promise<StaffLoginResponse>;
 }
 
-export async function loginWithGoogleOAuth(tenantSlug: string, idToken: string) {
-  return postStaffLogin(`${API}/auth/oauth/google`, { tenantSlug, idToken });
+export async function loginWithGoogleOAuth(idToken: string, tenantSlug?: string) {
+  const body: Record<string, string> = { idToken };
+  const slug = tenantSlug?.trim();
+  if (slug) body.tenantSlug = slug;
+  return postStaffLogin(`${API}/auth/oauth/google`, body);
 }
 
-export async function loginWithKakaoOAuth(tenantSlug: string, code: string, redirectUri: string) {
-  return postStaffLogin(`${API}/auth/oauth/kakao`, { tenantSlug, code, redirectUri });
+export async function loginWithKakaoOAuth(code: string, redirectUri: string, tenantSlug?: string) {
+  const body: Record<string, string> = { code, redirectUri };
+  const slug = tenantSlug?.trim();
+  if (slug) body.tenantSlug = slug;
+  return postStaffLogin(`${API}/auth/oauth/kakao`, body);
 }
 
 export async function getMe(token: string): Promise<AuthMeSnapshot> {

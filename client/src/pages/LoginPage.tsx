@@ -15,7 +15,6 @@ import {
   fetchKakaoSignupOAuthConfig,
   getLoginKakaoRedirectUri,
   KAKAO_LOGIN_OAUTH_STATE_KEY,
-  KAKAO_LOGIN_OAUTH_TENANT_KEY,
 } from '../api/authSignupOAuth';
 import { GoogleSignupButton } from '../components/auth/GoogleSignupButton';
 import { KakaoSignupButton } from '../components/auth/KakaoSignupButton';
@@ -356,6 +355,11 @@ export function LoginPage() {
   const applyAdminStaffLogin = useCallback(
     (data: StaffLoginResponse) => {
       const resumeFrom = resolveLoginResumeLocation(location.state);
+      const tenantSlugFromResponse = (data.tenant as { slug?: string } | undefined)?.slug?.trim();
+      if (tenantSlugFromResponse) {
+        saveTenantSlug(tenantSlugFromResponse);
+        setTenantSlug(tenantSlugFromResponse);
+      }
       persistLoginCredentials(false);
       const token = data.token;
       const user = data.user;
@@ -410,30 +414,17 @@ export function LoginPage() {
     const savedState = sessionStorage.getItem(KAKAO_LOGIN_OAUTH_STATE_KEY)?.trim() ?? '';
     const returnedState = searchParams.get('state')?.trim() ?? '';
     sessionStorage.removeItem(KAKAO_LOGIN_OAUTH_STATE_KEY);
-    const savedTenant = sessionStorage.getItem(KAKAO_LOGIN_OAUTH_TENANT_KEY)?.trim().toLowerCase() ?? '';
-    sessionStorage.removeItem(KAKAO_LOGIN_OAUTH_TENANT_KEY);
 
     if (!savedState || savedState !== returnedState) {
       setError('카카오 인증 상태가 올바르지 않습니다. 다시 시도해 주세요.');
       return;
     }
 
-    const slug =
-      savedTenant ||
-      searchParams.get('tenant')?.trim().toLowerCase() ||
-      tenantSlug.trim().toLowerCase();
-    if (!slug) {
-      setError('업체 코드를 입력한 뒤 카카오 로그인을 다시 시도해 주세요.');
-      return;
-    }
-    if (slug !== tenantSlug.trim().toLowerCase()) {
-      setTenantSlug(slug);
-    }
-
     setOauthVerifying(true);
     setError('');
     sessionProbeGen.current += 1;
-    void loginWithKakaoOAuth(slug, code, getLoginKakaoRedirectUri())
+    const slugHint = tenantSlug.trim() || undefined;
+    void loginWithKakaoOAuth(code, getLoginKakaoRedirectUri(), slugHint)
       .then((data) => {
         applyAdminStaffLogin(data);
       })
@@ -446,16 +437,12 @@ export function LoginPage() {
   }, [applyAdminStaffLogin, location.pathname, location.search, location.state, navigate, tenantSlug]);
 
   const handleGoogleLogin = async (idToken: string) => {
-    const slug = tenantSlug.trim();
-    if (!slug) {
-      setError('업체 코드를 입력한 뒤 Google 로그인을 이용해 주세요.');
-      return;
-    }
     sessionProbeGen.current += 1;
     setError('');
     setLoading(true);
     try {
-      const data = await loginWithGoogleOAuth(slug, idToken);
+      const slugHint = tenantSlug.trim() || undefined;
+      const data = await loginWithGoogleOAuth(idToken, slugHint);
       applyAdminStaffLogin(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다.');
@@ -490,6 +477,11 @@ export function LoginPage() {
         persistLoginCredentials(true);
         clearResumeLocation();
         navigate(resolveCrewResumePath(resumeFrom), { replace: true });
+        return;
+      }
+
+      if (!tenantSlug.trim()) {
+        setError('아이디·비밀번호 로그인은 업체 코드가 필요합니다.');
         return;
       }
 
@@ -591,8 +583,7 @@ export function LoginPage() {
                 role="status"
               >
                 <p>
-                  카카오로 업체 개설이 완료되었습니다. 아래에서 업체 코드를 확인한 뒤 「카카오로 로그인」으로
-                  접속해 주세요.
+                  카카오로 업체 개설이 완료되었습니다. 아래 「카카오로 로그인」으로 바로 접속해 주세요.
                 </p>
               </div>
             ) : signupGoogleComplete ? (
@@ -601,8 +592,7 @@ export function LoginPage() {
                 role="status"
               >
                 <p>
-                  Google로 업체 개설이 완료되었습니다. 아래에서 업체 코드를 확인한 뒤 「Google로 로그인」으로
-                  접속해 주세요.
+                  Google로 업체 개설이 완료되었습니다. 아래 「Google로 로그인」으로 바로 접속해 주세요.
                 </p>
               </div>
             ) : signupComplete ? (
@@ -674,36 +664,15 @@ export function LoginPage() {
                 </button>
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="login-tenant" className="block text-fluid-xs font-medium text-slate-600">
-                  업체 코드
-                </label>
-                <input
-                  id="login-tenant"
-                  type="text"
-                  value={tenantSlug}
-                  onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
-                  onFocus={onFieldFocus}
-                  className={inputClass}
-                  placeholder="업체코드를 넣어주세요"
-                  autoComplete="organization"
-                  enterKeyHint="next"
-                  required
-                />
-              </div>
-
               {!crewLoginMode && snsOAuthEnabled ? (
                 <div className="space-y-2">
-                  <p className="text-fluid-2xs text-slate-500">
-                    관리자(ADMIN) — Google·카카오 로그인
-                    {!tenantSlug.trim() ? ' · 업체 코드 입력 후 이용' : ''}
-                  </p>
+                  <p className="text-fluid-2xs text-slate-500">SNS로 가입한 관리자 — 업체 코드 없이 로그인</p>
                   <div className="space-y-2">
                     {googleOAuthEnabled && googleClientId ? (
                       <GoogleSignupButton
                         mode="login"
                         clientId={googleClientId}
-                        disabled={!tenantSlug.trim() || loading || oauthVerifying}
+                        disabled={loading || oauthVerifying}
                         onCredential={handleGoogleLogin}
                         onError={setError}
                       />
@@ -712,7 +681,6 @@ export function LoginPage() {
                       <KakaoSignupButton
                         mode="login"
                         restApiKey={kakaoRestApiKey}
-                        tenantSlug={tenantSlug}
                         disabled={loading || oauthVerifying}
                       />
                     ) : null}
@@ -730,6 +698,24 @@ export function LoginPage() {
                   </div>
                 </div>
               ) : null}
+
+              <div className="space-y-1.5">
+                <label htmlFor="login-tenant" className="block text-fluid-xs font-medium text-slate-600">
+                  업체 코드
+                </label>
+                <input
+                  id="login-tenant"
+                  type="text"
+                  value={tenantSlug}
+                  onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
+                  onFocus={onFieldFocus}
+                  className={inputClass}
+                  placeholder="업체코드를 넣어주세요"
+                  autoComplete="organization"
+                  enterKeyHint="next"
+                  required={crewLoginMode || !snsOAuthEnabled}
+                />
+              </div>
 
               <div className="space-y-1.5">
                 <label htmlFor="login-id" className="block text-fluid-xs font-medium text-slate-600">

@@ -31,10 +31,10 @@ const oauthLoginUserSelect = {
   tenantId: true,
 } as const;
 
-export async function findAdminUserForOAuthLogin(
-  tenantId: string,
+export async function resolveAdminOAuthLogin(
   provider: AuthIdentityProvider,
   providerSub: string,
+  tenantSlugOptional?: string,
 ) {
   const identity = await prisma.userAuthIdentity.findUnique({
     where: {
@@ -42,6 +42,7 @@ export async function findAdminUserForOAuthLogin(
     },
     include: {
       user: { select: oauthLoginUserSelect },
+      tenant: true,
     },
   });
 
@@ -52,9 +53,10 @@ export async function findAdminUserForOAuthLogin(
     );
   }
 
-  if (identity.tenantId !== tenantId) {
+  const slugHint = tenantSlugOptional?.trim().toLowerCase();
+  if (slugHint && slugHint !== identity.tenant.slug) {
     throw new AuthSignupOAuthError(
-      '이 Google·카카오 계정은 다른 업체 코드로 가입되어 있습니다. 업체 코드를 확인해 주세요.',
+      `이 Google·카카오 계정은 업체 코드「${identity.tenant.slug}」로 가입되어 있습니다. 업체 코드를 확인해 주세요.`,
       401,
     );
   }
@@ -71,7 +73,23 @@ export async function findAdminUserForOAuthLogin(
     );
   }
 
-  return user;
+  return { user, tenant: identity.tenant };
+}
+
+/** @deprecated resolveAdminOAuthLogin 사용 */
+export async function findAdminUserForOAuthLogin(
+  tenantId: string,
+  provider: AuthIdentityProvider,
+  providerSub: string,
+) {
+  const result = await resolveAdminOAuthLogin(provider, providerSub);
+  if (result.tenant.id !== tenantId) {
+    throw new AuthSignupOAuthError(
+      '이 Google·카카오 계정은 다른 업체 코드로 가입되어 있습니다. 업체 코드를 확인해 주세요.',
+      401,
+    );
+  }
+  return result.user;
 }
 
 export async function createUserAuthIdentity(

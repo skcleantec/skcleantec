@@ -120,17 +120,18 @@
 
 | body | 필수 |
 |------|------|
-| `tenantSlug` | ✅ |
+| `tenantSlug` | 선택 — SNS 계정으로 업체 자동 식별 (입력 시 일치 검증) |
 | `idToken` / `code` | ✅ |
 
 **처리**
 
 1. `resolveTenantBySlug(tenantSlug)`
 2. `assertTenantStaffLoginAllowed`
-3. id_token 검증 → `providerSub`
-4. `UserAuthIdentity` + `User` where `tenantId` + provider + sub
-5. `role === ADMIN` (및 active) 확인
-6. JWT 발급 — 기존 `POST /api/auth/login`과 **동일 payload**
+3. id_token/code 검증 → `providerSub`
+4. `UserAuthIdentity` where `provider` + sub → **tenant·User 자동 결정** (`tenantSlug` 생략 가능)
+5. (선택) `tenantSlug` 입력 시 가입 업체와 불일치하면 401
+6. `role === ADMIN` (및 active) 확인
+7. JWT 발급 — 기존 `POST /api/auth/login`과 **동일 payload**
 
 **에러**
 

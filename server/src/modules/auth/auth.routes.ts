@@ -289,13 +289,16 @@ router.post('/team-login', loginWithPassword);
 router.post('/oauth/google', async (req, res) => {
   try {
     const body = req.body as { tenantSlug?: string; idToken?: string };
-    const tenantSlug = typeof body.tenantSlug === 'string' ? body.tenantSlug : '';
+    const tenantSlug = typeof body.tenantSlug === 'string' ? body.tenantSlug.trim() : '';
     const idToken = typeof body.idToken === 'string' ? body.idToken : '';
-    if (!tenantSlug.trim() || !idToken.trim()) {
-      res.status(400).json({ error: '업체 코드와 Google 인증 정보가 필요합니다.' });
+    if (!idToken.trim()) {
+      res.status(400).json({ error: 'Google 인증 정보가 필요합니다.' });
       return;
     }
-    const { user, tenant } = await loginAdminWithGoogleOAuth(tenantSlug, idToken);
+    const { user, tenant } = await loginAdminWithGoogleOAuth(
+      idToken,
+      tenantSlug || undefined,
+    );
     await sendStaffLoginSuccess(res, user, tenant);
   } catch (e) {
     if (e instanceof AuthSignupOAuthError) {
@@ -309,14 +312,18 @@ router.post('/oauth/google', async (req, res) => {
 router.post('/oauth/kakao', async (req, res) => {
   try {
     const body = req.body as { tenantSlug?: string; code?: string; redirectUri?: string };
-    const tenantSlug = typeof body.tenantSlug === 'string' ? body.tenantSlug : '';
+    const tenantSlug = typeof body.tenantSlug === 'string' ? body.tenantSlug.trim() : '';
     const code = typeof body.code === 'string' ? body.code : '';
     const redirectUri = typeof body.redirectUri === 'string' ? body.redirectUri : '';
-    if (!tenantSlug.trim() || !code.trim() || !redirectUri.trim()) {
-      res.status(400).json({ error: '업체 코드와 카카오 인증 정보가 필요합니다.' });
+    if (!code.trim() || !redirectUri.trim()) {
+      res.status(400).json({ error: '카카오 인증 정보가 필요합니다.' });
       return;
     }
-    const { user, tenant } = await loginAdminWithKakaoOAuth(tenantSlug, code, redirectUri);
+    const { user, tenant } = await loginAdminWithKakaoOAuth(
+      code,
+      redirectUri,
+      tenantSlug || undefined,
+    );
     await sendStaffLoginSuccess(res, user, tenant);
   } catch (e) {
     if (e instanceof AuthSignupOAuthError) {
