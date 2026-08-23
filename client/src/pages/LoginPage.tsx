@@ -515,41 +515,42 @@ export function LoginPage() {
   return (
     <div
       ref={scrollRef}
-      className="login-surface relative flex min-h-dvh min-h-screen w-full flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#f8f7f4]"
+      className="login-surface relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#f8f7f4] sm:h-auto sm:max-h-none sm:min-h-dvh"
+      onFocusCapture={onFieldFocus}
     >
       <div
         className="pointer-events-none fixed inset-0 z-0 bg-[#f8f7f4] bg-left-top bg-repeat bg-[length:320px_auto]"
         style={{ backgroundImage: `url(${LOGIN_BACKGROUND_SRC})` }}
         aria-hidden
       />
-      <div className="relative z-10 flex min-h-dvh min-h-screen flex-col items-stretch justify-start px-4 pt-[max(1.25rem,env(safe-area-inset-top))] sm:items-center sm:justify-center sm:py-14">
-        <div className="login-scroll-content mx-auto w-full max-w-[420px] pb-4 sm:pb-0">
-          <div className="login-brand-block relative mb-5 text-center sm:mb-8">
+      <div className="relative z-10 flex w-full flex-col items-stretch justify-start px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:px-4 sm:py-8 lg:py-10">
+        <div className="login-scroll-content mx-auto w-full max-w-[420px]">
+          <div className="login-brand-block relative mb-3 pt-1 text-center sm:mb-6 sm:pt-0">
             <div
-              className="login-brand-mist pointer-events-none absolute inset-x-[-10%] -top-4 bottom-[-0.5rem] overflow-visible sm:inset-x-[-14%]"
+              className="login-brand-mist pointer-events-none absolute inset-x-[-10%] bottom-[-0.5rem] top-0 hidden overflow-visible sm:inset-x-[-14%] sm:block sm:-top-4"
               aria-hidden
             >
               <div className="absolute left-1/2 top-1/2 h-44 w-[120%] max-w-none -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-[radial-gradient(ellipse_80%_60%_at_50%_45%,rgba(203,213,225,0.35),rgba(241,245,249,0.12)_42%,transparent_70%)] blur-3xl motion-safe:animate-login-mist-drift motion-reduce:opacity-45" />
               <div className="absolute left-1/2 top-[44%] h-28 w-full max-w-none -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-[radial-gradient(ellipse_70%_55%_at_42%_48%,rgba(255,255,255,0.6),rgba(226,232,240,0.18)_48%,transparent_68%)] blur-2xl motion-safe:animate-login-mist-drift motion-reduce:opacity-40 [animation-delay:-7s]" />
             </div>
-            <div className="relative space-y-3 py-1">
-              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.34em] text-slate-400 motion-safe:animate-login-subline-shine motion-reduce:animate-none motion-reduce:opacity-90">
+            <div className="relative space-y-2 py-0.5 sm:space-y-3 sm:py-1">
+              <p className="login-brand-subline-en text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-slate-400 sm:text-[0.6875rem] sm:tracking-[0.34em] motion-safe:animate-login-subline-shine motion-reduce:animate-none motion-reduce:opacity-90">
                 {PLATFORM_NAME_EN}
               </p>
               <div className="relative inline-block px-1">
                 <span
-                  className="pointer-events-none absolute inset-x-[-14%] -inset-y-4 -z-10 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.55),rgba(203,213,225,0.2)_42%,transparent_72%)] blur-2xl motion-safe:animate-login-silver-sparkle motion-reduce:opacity-40"
+                  className="pointer-events-none absolute inset-x-[-14%] -inset-y-2 -z-10 hidden rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.55),rgba(203,213,225,0.2)_42%,transparent_72%)] blur-2xl motion-safe:animate-login-silver-sparkle motion-reduce:opacity-40 sm:-inset-y-4 sm:block"
                   aria-hidden
                 />
-                <h1 className="text-[1.75rem] font-bold sm:text-[2rem]">
+                <h1 className="text-[1.5rem] font-bold sm:text-[2rem]">
                   <span
-                    className="inline-block tracking-[0.2em] sm:tracking-[0.24em] bg-[linear-gradient(105deg,#475569_0%,#94a3b8_24%,#f8fafc_48%,#cbd5e1_52%,#64748b_76%,#334155_100%)] bg-[length:280%_100%] bg-clip-text text-transparent motion-safe:animate-login-title-sheen motion-reduce:animate-none motion-reduce:bg-none motion-reduce:text-slate-800"
+                    className="inline-block tracking-[0.16em] sm:tracking-[0.24em] bg-[linear-gradient(105deg,#475569_0%,#94a3b8_24%,#f8fafc_48%,#cbd5e1_52%,#64748b_76%,#334155_100%)] bg-[length:280%_100%] bg-clip-text text-transparent motion-safe:animate-login-title-sheen motion-reduce:animate-none motion-reduce:bg-none motion-reduce:text-slate-800"
                   >
                     {PLATFORM_NAME}
                   </span>
                 </h1>
               </div>
-              <div className="flex items-center justify-center gap-3 pt-0.5" aria-hidden>
+              <div className="login-brand-divider hidden items-center justify-center gap-3 pt-0.5 sm:flex" aria-hidden>
                 <span className="h-px w-9 origin-center bg-gradient-to-r from-transparent via-slate-300/80 to-slate-400/50 motion-safe:animate-login-line-grow motion-reduce:scale-x-100 motion-reduce:opacity-70" />
                 <span className="h-1 w-1 rounded-full bg-slate-300/80 motion-safe:animate-login-subline-shine motion-reduce:opacity-80 [animation-delay:-1.5s]" />
                 <span className="h-px w-9 origin-center bg-gradient-to-l from-transparent via-slate-300/80 to-slate-400/50 motion-safe:animate-login-line-grow motion-reduce:scale-x-100 motion-reduce:opacity-70 [animation-delay:-2.5s]" />
@@ -557,8 +558,8 @@ export function LoginPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] backdrop-blur-md sm:p-8">
-            <div className="mb-6 border-b border-slate-100 pb-5 text-center">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] backdrop-blur-md sm:rounded-3xl sm:p-8">
+            <div className="mb-4 border-b border-slate-100 pb-4 text-center sm:mb-6 sm:pb-5">
               {tenantBrand ? (
                 <p className="mb-1.5 inline-flex max-w-full items-center justify-center truncate rounded-full bg-slate-100 px-3 py-1 text-fluid-2xs font-semibold text-slate-700">
                   {tenantBrand.displayName}
@@ -641,7 +642,7 @@ export function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-5">
               <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-slate-50/50 px-3 py-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-fluid-xs font-medium text-slate-800">팀원계정로그인</p>
@@ -708,7 +709,6 @@ export function LoginPage() {
                   type="text"
                   value={tenantSlug}
                   onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
-                  onFocus={onFieldFocus}
                   className={inputClass}
                   placeholder="업체코드를 넣어주세요"
                   autoComplete="organization"
@@ -726,7 +726,6 @@ export function LoginPage() {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  onFocus={onFieldFocus}
                   className={inputClass}
                   placeholder={crewLoginMode ? '그룹 로그인 ID' : '아이디를 적어주세요'}
                   autoComplete="username"
@@ -754,7 +753,6 @@ export function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onFocus={onFieldFocus}
                   className={inputClass}
                   autoComplete="current-password"
                   enterKeyHint="done"
@@ -829,13 +827,14 @@ export function LoginPage() {
             </Link>
           </div>
 
-          <p className="mt-6 text-center text-fluid-2xs text-slate-500">
+          <p className="login-page-footer mt-3 text-center text-fluid-2xs text-slate-500 sm:mt-6">
             <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
               {PLATFORM_NAME} 운영 콘솔
             </Link>
-          </p>
-          <p className="mt-4 text-center text-fluid-2xs text-slate-400">
-            © {new Date().getFullYear()} {PLATFORM_NAME}
+            <span className="mx-1.5 text-slate-300" aria-hidden>
+              ·
+            </span>
+            <span className="text-slate-400">© {new Date().getFullYear()} {PLATFORM_NAME}</span>
           </p>
         </div>
       </div>
