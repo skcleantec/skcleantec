@@ -43,7 +43,7 @@ object StaffWebSessionSync {
         return raw.trim().removeSurrounding("\"").replace("\\\"", "\"")
     }
 
-    private const val CAPTURE_SCRIPT = """
+    private val CAPTURE_SCRIPT = """
         (function(){
           try {
             var admin = localStorage.getItem('sk_admin_token') || '';
@@ -53,7 +53,7 @@ object StaffWebSessionSync {
         })();
     """.trimIndent()
 
-    private const val TENANT_SLUG_SCRIPT = """
+    private val TENANT_SLUG_SCRIPT = """
         (function(){
           try { return localStorage.getItem('sk_tenant_slug') || ''; }
           catch (e) { return ''; }
