@@ -77,17 +77,21 @@
 
 | 작업 | 내용 |
 |------|------|
-| Google Cloud OAuth 클라이언트 | Railway Variables |
-| `POST /api/public/auth-signup/oauth/google/start` | id_token 또는 code exchange |
+| Google Cloud OAuth 클라이언트 | Railway Variables — [GOOGLE_SETUP.md](./GOOGLE_SETUP.md) |
+| `GET/POST /api/public/auth-signup/oauth/google/*` | config + id_token verify → `signupToken` |
 | complete에 `provider` + `providerSub` 저장 | `UserAuthIdentity` |
-| `/signup` 1단계 Google 버튼 | TenantSignupPage |
+| `/signup` Google 버튼 | TenantSignupPage |
 | 비밀번호 필드 SNS 시 숨김 | UI_FLOW |
 
 **완료 기준**
 
+- [x] 서버 verify·signupToken·complete·`UserAuthIdentity` 연동
+- [x] `/signup` Google 버튼·비밀번호 숨김·OTP 유지
+- [x] `GOOGLE_SETUP.md` · `.env.example`
+- [ ] Railway `GOOGLE_OAUTH_CLIENT_ID` 설정 + staging E2E
 - [ ] Google로 가입 → 사업자 단계 → 테넌트 생성
 - [ ] 동일 Google sub 재가입 → 409
-- [ ] `passwordHash` null ADMIN 로그인 불가 (아직 Phase 6 전)
+- [ ] `passwordHash` null ADMIN 로그인 불가 (Phase 6 전)
 
 ---
 

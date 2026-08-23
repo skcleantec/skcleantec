@@ -16,6 +16,7 @@
 | **[DATA_MODEL.md](./DATA_MODEL.md)** | Prisma 스키마·마이그레이션 설계 |
 | **[API.md](./API.md)** | 공개·인증 API 계약 |
 | **[UI_FLOW.md](./UI_FLOW.md)** | `/signup` 위저드 화면·필드·검증 |
+| **[GOOGLE_SETUP.md](./GOOGLE_SETUP.md)** | Google Cloud Console · Railway Variables · E2E |
 
 ---
 

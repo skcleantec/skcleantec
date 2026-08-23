@@ -22,6 +22,8 @@ import {
   buildPlatformVerificationEmailSubject,
   buildPlatformVerificationEmailText,
 } from '../../lib/platformTransactionalEmail.js';
+import { verifySignupOAuthToken, type SignupOAuthTokenPayload } from '../auth-signup/signupOAuthToken.service.js';
+import type { SignupOAuthIdentityInput } from './tenantSignup.service.js';
 
 export type TenantSignupFormPayload = {
   slug: string;
@@ -35,6 +37,8 @@ export type TenantSignupFormPayload = {
   selectedPlan: string;
   referrerCode?: string;
   referrerFromLink?: boolean;
+  /** Phase 4 — Google/Kakao verify 후 발급 */
+  signupToken?: string;
 };
 
 function parseSignupPlan(body: TenantSignupFormPayload): TenantPlanId {
@@ -47,7 +51,7 @@ function parseSignupPlan(body: TenantSignupFormPayload): TenantPlanId {
 
 function parseSignupFormFields(
   body: TenantSignupFormPayload,
-  opts: { requireTerms: boolean },
+  opts: { requireTerms: boolean; signupOAuth?: SignupOAuthTokenPayload | null },
 ): SelfServeTenantSignupInput {
   if (opts.requireTerms && !body.memberTermsAgreed) {
     throw new EmailVerificationError('회원사 이용약관에 동의해 주세요.');
@@ -56,7 +60,7 @@ function parseSignupFormFields(
   const contactEmail = normalizeVerificationEmail(body.contactEmail);
   assertValidTenantLoginId(body.adminLoginId);
   const password = body.adminPassword.trim();
-  if (password.length < 4) {
+  if (!opts.signupOAuth && password.length < 4) {
     throw new EmailVerificationError('비밀번호는 4자 이상 입력해 주세요.');
   }
   const selectedPlan = parseSignupPlan(body);
@@ -64,7 +68,7 @@ function parseSignupFormFields(
     slug: body.slug,
     name: body.name,
     adminLoginId: body.adminLoginId,
-    adminPassword: password,
+    adminPassword: opts.signupOAuth ? '' : password,
     adminName: body.adminName,
     contactEmail,
     contactPhone,
@@ -75,22 +79,27 @@ function parseSignupFormFields(
   };
 }
 
-/** 인증번호 발송 — 약관 동의는 최종 가입 시에만 확인 */
-function parseSignupFormForVerificationSend(body: TenantSignupFormPayload): SelfServeTenantSignupInput {
-  return parseSignupFormFields(body, { requireTerms: false });
-}
-
 export async function sendTenantSignupVerificationCode(
   body: TenantSignupFormPayload,
   requestIp?: string | null,
 ) {
-  const parsed = parseSignupFormForVerificationSend(body);
+  const signupOAuth = body.signupToken?.trim()
+    ? verifySignupOAuthToken(body.signupToken.trim())
+    : null;
+  const parsed = parseSignupFormFields(body, { requireTerms: false, signupOAuth });
   const slugCheck = await isTenantSlugAvailableForSignup(parsed.slug);
   if (!slugCheck.available) {
     throw new TenantSignupError(slugCheck.reason ?? '업체 코드를 사용할 수 없습니다.', 409);
   }
 
-  const passwordHash = await bcrypt.hash(parsed.adminPassword, 10);
+  const passwordHash = signupOAuth ? null : await bcrypt.hash(parsed.adminPassword, 10);
+  const oauthPayload = signupOAuth
+    ? {
+        oauthProvider: signupOAuth.provider,
+        oauthProviderSub: signupOAuth.providerSub,
+        oauthProviderEmail: signupOAuth.providerEmail,
+      }
+    : {};
   return sendEmailVerificationCode({
     purpose: 'TENANT_SIGNUP',
     email: parsed.contactEmail,
@@ -107,6 +116,7 @@ export async function sendTenantSignupVerificationCode(
       signupIp: requestIp?.trim() || null,
       referrerCode: parsed.referrerCode ?? null,
       referrerFromLink: parsed.referrerFromLink ?? false,
+      ...oauthPayload,
     },
     mailSubject: buildPlatformVerificationEmailSubject('TENANT_SIGNUP'),
     mailHtml: (code) =>
@@ -133,13 +143,27 @@ type StoredSignupPayload = {
   adminName: string;
   contactEmail: string;
   contactPhone: string;
-  passwordHash: string;
+  passwordHash: string | null;
+  oauthProvider?: 'google' | 'kakao' | null;
+  oauthProviderSub?: string | null;
+  oauthProviderEmail?: string | null;
   memberTermsAgreedAt?: string | null;
   selectedPlan: string;
   signupIp: string | null;
   referrerCode?: string | null;
   referrerFromLink?: boolean;
 };
+
+function readOAuthIdentityFromPayload(payload: StoredSignupPayload): SignupOAuthIdentityInput | undefined {
+  const provider = payload.oauthProvider;
+  const providerSub = payload.oauthProviderSub?.trim();
+  if ((provider !== 'google' && provider !== 'kakao') || !providerSub) return undefined;
+  return {
+    provider,
+    providerSub,
+    providerEmail: payload.oauthProviderEmail?.trim().toLowerCase() || null,
+  };
+}
 
 export async function completeTenantSignupWithVerification(input: {
   challengeId: string;
@@ -180,6 +204,10 @@ export async function provisionTenantSelfServeFromVerifiedPayload(
     throw new TenantSignupError('올바른 이용 플랜을 선택해 주세요.');
   }
   const agreedAt = new Date().toISOString();
+  const oauthIdentity = readOAuthIdentityFromPayload(payload);
+  if (!payload.passwordHash && !oauthIdentity) {
+    throw new TenantSignupError('가입 방식 정보가 올바르지 않습니다. 인증번호를 다시 받아 주세요.');
+  }
   return provisionTenantSelfServe({
     slug: payload.slug,
     name: payload.name,
@@ -190,11 +218,12 @@ export async function provisionTenantSelfServeFromVerifiedPayload(
     contactPhone: payload.contactPhone,
     memberTermsAgreed: true,
     signupIp: payload.signupIp,
-    passwordHash: payload.passwordHash,
+    passwordHash: payload.passwordHash ?? undefined,
     emailVerifiedAt: agreedAt,
     selectedPlan,
     referrerCode: payload.referrerCode ?? null,
     referrerFromLink: Boolean(payload.referrerFromLink),
     signupBusiness: opts.signupBusiness,
+    oauthIdentity,
   });
 }

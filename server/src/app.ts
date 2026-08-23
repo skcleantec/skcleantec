@@ -81,6 +81,7 @@ import platformBoardRoutes from './modules/platform-board/platformBoard.routes.j
 import publicPlatformBoardRoutes from './modules/platform-board/publicPlatformBoard.routes.js';
 import publicRssRoutes from './modules/public-seo/publicRss.routes.js';
 import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.routes.js';
+import authSignupPublicRoutes from './modules/auth-signup/authSignup.public.routes.js';
 import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.public.routes.js';
 import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
 import staffAppPushRoutes from './modules/push/staffAppPush.routes.js';
@@ -221,6 +222,7 @@ app.use('/api/public/customer-boards', publicPlatformBoardRoutes);
 app.use(publicRssRoutes);
 app.use('/api/public/legal', platformLegalPublicRoutes);
 app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
+app.use('/api/public/auth-signup', authSignupPublicRoutes);
 app.use('/api/public/signup-inquiries', platformSignupInquiryPublicRoutes);
 app.use('/api/public/password-reset', tenantPasswordResetPublicRoutes);
 mountCustomModuleRoutes(app);

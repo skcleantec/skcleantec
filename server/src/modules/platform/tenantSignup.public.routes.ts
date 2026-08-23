@@ -11,6 +11,7 @@ import {
 } from '../platform/tenantSignupEmail.service.js';
 import { TENANT_SELF_SIGNUP_PLAN_IDS } from './tenantSignup.constants.js';
 import { EmailVerificationError } from './emailVerification.service.js';
+import { AuthSignupOAuthError } from '../auth-signup/signupOAuth.errors.js';
 import { validateReferrerCodeForPublic } from '../platform-referrals/platformReferralAttribution.service.js';
 import { parseSignupBusinessPayload } from '../auth-signup/signupBusiness.service.js';
 import { uploadSignupBusinessRegistrationImage } from '../auth-signup/signupBusinessUpload.service.js';
@@ -41,11 +42,12 @@ function readSignupBody(body: Record<string, unknown>): TenantSignupFormPayload 
     selectedPlan: String(body.selectedPlan ?? 'free'),
     referrerCode: body.referrerCode != null ? String(body.referrerCode) : undefined,
     referrerFromLink: Boolean(body.referrerFromLink),
+    signupToken: body.signupToken != null ? String(body.signupToken) : undefined,
   };
 }
 
 function handleSignupError(e: unknown, res: import('express').Response) {
-  if (e instanceof TenantSignupError || e instanceof EmailVerificationError) {
+  if (e instanceof TenantSignupError || e instanceof EmailVerificationError || e instanceof AuthSignupOAuthError) {
     res.status(e.statusCode).json({ error: e.message });
     return;
   }

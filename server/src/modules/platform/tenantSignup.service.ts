@@ -28,6 +28,13 @@ import {
   parseSignupBusinessPayload,
 } from '../auth-signup/signupBusiness.service.js';
 import type { SignupBusinessInput } from '../auth-signup/signupBusiness.validation.js';
+import { createUserAuthIdentity } from '../auth-signup/signupOAuthIdentity.service.js';
+
+export type SignupOAuthIdentityInput = {
+  provider: 'google' | 'kakao';
+  providerSub: string;
+  providerEmail: string | null;
+};
 
 export class TenantSignupError extends Error {
   constructor(
@@ -57,6 +64,8 @@ export type SelfServeTenantSignupInput = {
   referrerFromLink?: boolean;
   /** Phase 2 — 사업자 구분 (complete 시 필수) */
   signupBusiness?: SignupBusinessInput;
+  /** Phase 4 — Google/Kakao SNS 가입 */
+  oauthIdentity?: SignupOAuthIdentityInput;
 };
 
 export async function isTenantSlugAvailableForSignup(slugRaw: string): Promise<{
@@ -93,8 +102,16 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   if (!input.memberTermsAgreed) {
     throw new TenantSignupError('회원사 이용약관에 동의해 주세요.');
   }
-  if (!input.emailVerifiedAt || !input.passwordHash) {
+  if (!input.emailVerifiedAt) {
     throw new TenantSignupError('이메일 인증을 완료한 뒤 가입해 주세요.');
+  }
+  const hasPassword = Boolean(input.passwordHash);
+  const hasOAuth = Boolean(input.oauthIdentity);
+  if (!hasPassword && !hasOAuth) {
+    throw new TenantSignupError('비밀번호 또는 Google·카카오 인증 후 가입해 주세요.');
+  }
+  if (hasPassword && hasOAuth) {
+    throw new TenantSignupError('가입 방식이 올바르지 않습니다. 다시 시도해 주세요.');
   }
 
   let selectedPlan: TenantPlanId;
@@ -124,7 +141,9 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
 
   const contactEmail = normalizeVerificationEmail(input.contactEmail);
   const contactPhone = normalizeSignupPhone(input.contactPhone);
-  const passwordHash = input.passwordHash;
+  const passwordHash = input.passwordHash ?? null;
+  const oauthIdentity = input.oauthIdentity;
+  const authMethod = oauthIdentity?.provider ?? 'password';
 
   const recentSameEmail = await prisma.tenant.count({
     where: {
@@ -169,6 +188,8 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
                 emailVerifiedAt: agreedAt,
                 memberTermsAgreedAt: agreedAt,
                 memberTermsAgreedIp: input.signupIp?.trim() || null,
+                authMethod,
+                adminRealName: adminName,
               },
             ),
             subscription: {
@@ -219,6 +240,16 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
         ...signupBusiness,
       });
 
+      if (oauthIdentity) {
+        await createUserAuthIdentity(tx, {
+          tenantId: tenant.id,
+          userId: admin.id,
+          provider: oauthIdentity.provider,
+          providerSub: oauthIdentity.providerSub,
+          providerEmail: oauthIdentity.providerEmail,
+        });
+      }
+
       return { tenant, admin };
       },
       { maxWait: 15_000, timeout: 30_000 },
@@ -229,6 +260,12 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
     }
     if (e instanceof Error && e.name === 'SignupBusinessValidationError') {
       throw new TenantSignupError(e.message);
+    }
+    if (typeof e === 'object' && e && 'code' in e && (e as { code?: string }).code === 'P2002') {
+      throw new TenantSignupError(
+        '이미 청소비서에 가입된 Google·카카오 계정입니다. 로그인을 이용해 주세요.',
+        409,
+      );
     }
     throw e;
   }

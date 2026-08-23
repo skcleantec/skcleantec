@@ -20,6 +20,8 @@ export type TenantSignupPayload = {
   selectedPlan: string;
   referrerCode?: string;
   referrerFromLink?: boolean;
+  /** Phase 4 — Google verify 후 15분 유효 signupToken */
+  signupToken?: string;
 };
 
 export type TenantReferrerValidation = {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
 import {
@@ -18,6 +18,7 @@ import {
   type SignupBusinessType,
 } from '@shared/authSignup';
 import { TenantBrandLogo } from '../components/brand/TenantBrandLogo';
+import { GoogleSignupButton } from '../components/auth/GoogleSignupButton';
 import { LegalDocumentViewerModal } from '../components/auth/LegalDocumentViewerModal';
 import { ImageThumbLightbox } from '../components/ui/ImageThumbLightbox';
 import {
@@ -27,6 +28,7 @@ import {
   uploadTenantSignupBusinessRegistration,
   validateTenantSignupReferrer,
 } from '../api/tenantSignup';
+import { fetchGoogleSignupOAuthConfig, verifyGoogleSignupIdToken } from '../api/authSignupOAuth';
 import { fetchSignupLegalDocuments, type PublicLegalDocument } from '../api/platformLegal';
 import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
 
@@ -77,6 +79,26 @@ export function TenantSignupPage() {
   const [individualUsageNote, setIndividualUsageNote] = useState('');
   const [businessUploading, setBusinessUploading] = useState(false);
   const businessFileRef = useRef<HTMLInputElement | null>(null);
+  const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState('');
+  const [signupToken, setSignupToken] = useState('');
+  const [oauthProviderEmail, setOauthProviderEmail] = useState<string | null>(null);
+  const [oauthVerifying, setOauthVerifying] = useState(false);
+
+  const oauthActive = signupToken.trim().length > 0;
+
+  const resetVerificationProgress = useCallback(() => {
+    setCodeSent(false);
+    setChallengeId('');
+    setVerificationCode('');
+  }, []);
+
+  const clearSignupOAuth = useCallback(() => {
+    setSignupToken('');
+    setOauthProviderEmail(null);
+    resetVerificationProgress();
+    setInfo('Google 연결을 해제했습니다. 이메일·비밀번호로 가입할 수 있습니다.');
+  }, [resetVerificationProgress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +110,24 @@ export function TenantSignupPage() {
         if (!cancelled) {
           setLegalLoadErr(e instanceof Error ? e.message : '약관을 불러오지 못했습니다.');
         }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchGoogleSignupOAuthConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        setGoogleOAuthEnabled(cfg.enabled && cfg.clientId.trim().length > 0);
+        setGoogleClientId(cfg.clientId.trim());
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setGoogleOAuthEnabled(false);
+        setGoogleClientId('');
       });
     return () => {
       cancelled = true;
@@ -203,7 +243,7 @@ export function TenantSignupPage() {
       slug,
       name,
       adminLoginId,
-      adminPassword,
+      adminPassword: oauthActive ? '' : adminPassword,
       adminName,
       contactEmail,
       contactPhone,
@@ -211,6 +251,7 @@ export function TenantSignupPage() {
       selectedPlan,
       referrerCode: referrerCode.trim() || undefined,
       referrerFromLink,
+      signupToken: oauthActive ? signupToken : undefined,
     }),
     [
       slug,
@@ -223,18 +264,47 @@ export function TenantSignupPage() {
       selectedPlan,
       referrerCode,
       referrerFromLink,
+      oauthActive,
+      signupToken,
     ],
   );
 
   const handlePlanChange = (plan: TenantPlanId) => {
     setSelectedPlan(plan);
-    if (codeSent || challengeId) {
-      setCodeSent(false);
-      setChallengeId('');
-      setVerificationCode('');
-      setInfo('플랜을 변경했습니다. 인증번호를 다시 받아 주세요.');
+    if (codeSent || challengeId || oauthActive) {
+      if (oauthActive) {
+        clearSignupOAuth();
+      } else {
+        resetVerificationProgress();
+      }
+      setInfo('플랜을 변경했습니다. Google 인증·이메일 인증번호를 다시 진행해 주세요.');
     }
   };
+
+  const handleGoogleCredential = async (idToken: string) => {
+    setError('');
+    setInfo('');
+    setOauthVerifying(true);
+    try {
+      const verified = await verifyGoogleSignupIdToken(idToken);
+      setSignupToken(verified.signupToken);
+      setOauthProviderEmail(verified.providerEmail);
+      resetVerificationProgress();
+      setInfo(
+        verified.providerEmail
+          ? `Google 계정(${verified.providerEmail})이 연결되었습니다. 담당자 이메일 인증을 이어서 진행해 주세요.`
+          : 'Google 계정이 연결되었습니다. 담당자 이메일 인증을 이어서 진행해 주세요.',
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google 인증에 실패했습니다.');
+    } finally {
+      setOauthVerifying(false);
+    }
+  };
+
+  const handleGoogleButtonError = useCallback((message: string) => {
+    setError(message);
+  }, []);
 
   const showVerificationError = (message: string) => {
     setError(message);
@@ -256,7 +326,11 @@ export function TenantSignupPage() {
     if (!isValidTenantLoginId(loginId)) {
       return tenantLoginIdErrorMessage();
     }
-    if (adminPassword.trim().length < 4) {
+    if (oauthActive) {
+      if (!signupToken.trim()) {
+        return 'Google 인증이 만료되었습니다. 「Google로 시작」을 다시 눌러 주세요.';
+      }
+    } else if (adminPassword.trim().length < 4) {
       return '관리자 비밀번호를 4자 이상 입력한 뒤 인증번호를 받아 주세요.';
     }
     const email = contactEmail.trim();
@@ -336,7 +410,10 @@ export function TenantSignupPage() {
         memberTermsAgreed: true,
         ...signupBusinessPayload,
       });
-      navigate(`/login?tenant=${encodeURIComponent(result.tenant.slug)}&signup=1`, { replace: true });
+      navigate(
+        `/login?tenant=${encodeURIComponent(result.tenant.slug)}&signup=${oauthActive ? 'google' : '1'}`,
+        { replace: true },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : '가입에 실패했습니다.');
     } finally {
@@ -360,7 +437,7 @@ export function TenantSignupPage() {
             </div>
             <h1 className="mt-4 text-fluid-lg font-semibold text-slate-900">청소비서 가입하기</h1>
             <p className="mt-2 text-fluid-2xs leading-relaxed text-slate-500">
-              플랜을 선택한 뒤 이메일 인증으로 가입합니다. 가입 후{' '}
+              Google 또는 이메일·비밀번호로 시작한 뒤 담당자 이메일 인증으로 가입을 완료합니다. 가입 후{' '}
               <strong>{TENANT_SIGNUP_PAID_TRIAL_DAYS}일(약 2개월)</strong> 동안 코인 제한 없이 이용할 수
               있습니다. 유료 플랜은 같은 기간 요금 없이 체험됩니다.
             </p>
@@ -371,6 +448,54 @@ export function TenantSignupPage() {
             onFocusCapture={onFieldFocus}
             className="space-y-4 rounded-2xl border border-slate-200/90 bg-white/95 p-5 shadow-xl shadow-slate-900/5"
           >
+            {googleOAuthEnabled && googleClientId ? (
+              <div className="space-y-3">
+                {oauthActive ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2.5">
+                    <p className="text-fluid-xs font-semibold text-emerald-900">Google 계정 연결됨</p>
+                    {oauthProviderEmail ? (
+                      <p className="mt-0.5 text-fluid-2xs text-emerald-800">{oauthProviderEmail}</p>
+                    ) : null}
+                    <p className="mt-1 text-fluid-2xs leading-relaxed text-emerald-900/80">
+                      관리자 비밀번호는 설정하지 않습니다. 담당자 이메일 OTP로 본인 확인 후 가입을
+                      마무리해 주세요.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={clearSignupOAuth}
+                      className="mt-2 text-fluid-2xs font-semibold text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                    >
+                      다른 방식으로 가입
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-fluid-2xs leading-relaxed text-slate-600">
+                      업체 최고 관리자(ADMIN) 계정만 Google로 개설할 수 있습니다.
+                    </p>
+                    <GoogleSignupButton
+                      clientId={googleClientId}
+                      disabled={oauthVerifying || loading || sendingCode}
+                      onCredential={(credential) => {
+                        void handleGoogleCredential(credential);
+                      }}
+                      onError={handleGoogleButtonError}
+                    />
+                    {oauthVerifying ? (
+                      <p className="text-center text-fluid-2xs text-slate-500">Google 계정 확인 중…</p>
+                    ) : null}
+                  </>
+                )}
+                {!oauthActive ? (
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-slate-200" aria-hidden />
+                    <span className="shrink-0 text-fluid-2xs text-slate-400">또는 이메일·비밀번호로 가입</span>
+                    <div className="h-px flex-1 bg-slate-200" aria-hidden />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block sm:col-span-1">
                 <span className="mb-1 block text-fluid-xs font-medium text-slate-600">업체 코드</span>
@@ -479,17 +604,19 @@ export function TenantSignupPage() {
               </label>
             </div>
 
-            <label className="block">
-              <span className="mb-1 block text-fluid-xs font-medium text-slate-600">관리자 비밀번호</span>
-              <input
-                type="password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                className={inputClass}
-                minLength={4}
-                required
-              />
-            </label>
+            {!oauthActive ? (
+              <label className="block">
+                <span className="mb-1 block text-fluid-xs font-medium text-slate-600">관리자 비밀번호</span>
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className={inputClass}
+                  minLength={4}
+                  required
+                />
+              </label>
+            ) : null}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
@@ -501,6 +628,11 @@ export function TenantSignupPage() {
                   className={inputClass}
                   required
                 />
+                {oauthActive ? (
+                  <p className="mt-1 text-fluid-2xs leading-relaxed text-slate-500">
+                    Google에 등록된 이메일과 다를 수 있습니다. 본인 확인용 이메일을 인증해 주세요.
+                  </p>
+                ) : null}
               </label>
               <label className="block">
                 <span className="mb-1 block text-fluid-xs font-medium text-slate-600">담당자 휴대폰</span>
