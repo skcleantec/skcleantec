@@ -144,9 +144,10 @@ export function LoginPage() {
   const [oauthVerifying, setOauthVerifying] = useState(false);
   const kakaoLoginCallbackHandledRef = useRef(false);
   const staffNativeApp = isCbiseoStaffNativeApp();
-  const oauthAvailable = googleOAuthEnabled || kakaoOAuthEnabled;
-  /** GSI·카카오 redirect는 Android WebView에서 불안정 — 업무 앱은 네이티브 로그인 사용 */
-  const showSnsOAuthLogin = oauthAvailable && !staffNativeApp;
+  const showGoogleOAuthLogin = googleOAuthEnabled && !!googleClientId && !staffNativeApp;
+  const showKakaoOAuthLogin = kakaoOAuthEnabled && !!kakaoRestApiKey;
+  /** 팀원(크루) 모드·앱 WebView(Google GSI 불가)에서는 해당 SNS만 숨김 — 카카오 redirect는 앱에서 가능 */
+  const showSnsOAuthSection = !crewLoginMode && (showGoogleOAuthLogin || showKakaoOAuthLogin);
   const [tenantBrand, setTenantBrand] = useState<{ displayName: string; loginSubtitle: string | null } | null>(null);
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
 
@@ -180,20 +181,21 @@ export function LoginPage() {
   }, [tenantSlug]);
 
   useEffect(() => {
-    if (staffNativeApp) return;
     let cancelled = false;
-    void fetchGoogleSignupOAuthConfig()
-      .then((cfg) => {
-        if (cancelled) return;
-        setGoogleOAuthEnabled(cfg.enabled);
-        setGoogleClientId(cfg.clientId);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setGoogleOAuthEnabled(false);
-          setGoogleClientId('');
-        }
-      });
+    if (!staffNativeApp) {
+      void fetchGoogleSignupOAuthConfig()
+        .then((cfg) => {
+          if (cancelled) return;
+          setGoogleOAuthEnabled(cfg.enabled);
+          setGoogleClientId(cfg.clientId);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setGoogleOAuthEnabled(false);
+            setGoogleClientId('');
+          }
+        });
+    }
     void fetchKakaoSignupOAuthConfig()
       .then((cfg) => {
         if (cancelled) return;
@@ -671,11 +673,11 @@ export function LoginPage() {
                 </button>
               </div>
 
-              {!crewLoginMode && showSnsOAuthLogin ? (
+              {!crewLoginMode && showSnsOAuthSection ? (
                 <div className="space-y-2">
                   <p className="text-fluid-2xs text-slate-500">SNS로 가입한 관리자 — 업체 코드 없이 로그인</p>
                   <div className="space-y-2">
-                    {googleOAuthEnabled && googleClientId ? (
+                    {showGoogleOAuthLogin ? (
                       <GoogleSignupButton
                         mode="login"
                         clientId={googleClientId}
@@ -684,7 +686,7 @@ export function LoginPage() {
                         onError={setError}
                       />
                     ) : null}
-                    {kakaoOAuthEnabled && kakaoRestApiKey ? (
+                    {showKakaoOAuthLogin ? (
                       <KakaoSignupButton
                         mode="login"
                         restApiKey={kakaoRestApiKey}
@@ -692,6 +694,11 @@ export function LoginPage() {
                       />
                     ) : null}
                   </div>
+                  {staffNativeApp && showKakaoOAuthLogin && !showGoogleOAuthLogin ? (
+                    <p className="text-fluid-2xs text-slate-500">
+                      Google 로그인은 PC 브라우저에서 이용해 주세요.
+                    </p>
+                  ) : null}
                   {oauthVerifying ? (
                     <p className="text-center text-fluid-2xs text-slate-500">카카오 로그인 확인 중…</p>
                   ) : null}
@@ -719,7 +726,7 @@ export function LoginPage() {
                   placeholder="업체코드를 넣어주세요"
                   autoComplete="organization"
                   enterKeyHint="next"
-                  required={crewLoginMode || !showSnsOAuthLogin}
+                  required={crewLoginMode || !showSnsOAuthSection}
                 />
               </div>
 
