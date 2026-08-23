@@ -518,7 +518,7 @@ export function LoginPage() {
       className="login-surface relative min-h-dvh min-h-screen overflow-y-auto overscroll-y-contain bg-slate-100"
     >
       <div
-        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="pointer-events-none absolute inset-0 bg-left-top bg-repeat bg-[length:320px_auto]"
         style={{ backgroundImage: `url(${LOGIN_BACKGROUND_SRC})` }}
         aria-hidden
       />
