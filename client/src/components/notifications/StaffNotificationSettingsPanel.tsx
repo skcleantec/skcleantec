@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { StaffAppPushKind } from '@shared/staffAppPush';
+import {
+  isCbiseoStaffNativeApp,
+  requestCbiseoStaffNotificationPermission,
+} from '../../utils/cbiseoNativeApp';
 
 export type StaffNotificationSettingItem = {
   kind: StaffAppPushKind;
@@ -68,6 +72,19 @@ export function StaffNotificationSettingsPanel({
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
         앱 푸시 알림을 종류별로 켜거나 끌 수 있습니다. 관리자가 「필수」로 지정한 알림은 끌 수 없습니다.
       </div>
+
+      {isCbiseoStaffNativeApp() ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-fluid-2xs text-amber-900">알림이 안 오면 기기 알림 허용이 필요합니다.</p>
+          <button
+            type="button"
+            onClick={() => requestCbiseoStaffNotificationPermission()}
+            className="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            알림 허용
+          </button>
+        </div>
+      ) : null}
 
       {err ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-2xs text-red-800">

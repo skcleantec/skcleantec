@@ -8,21 +8,22 @@
         <item name="android:navigationBarColor">#FFFFFF</item>
     </style>
 
-    <!-- API 30 이하 cold start + 스플래시 Activity 본문 -->
     <style name="Theme.CbiseoApp.Splash" parent="Theme.CbiseoApp">
-        <item name="android:windowBackground">@drawable/splash_screen</item>
+        <item name="android:windowBackground">@drawable/splash_screen_bg</item>
         <item name="android:statusBarColor">@color/splash_window_bg</item>
         <item name="android:navigationBarColor">@color/splash_window_bg</item>
     </style>
 
     <style name="Theme.CbiseoApp.SplashContent" parent="Theme.CbiseoApp">
-        <item name="android:windowBackground">@drawable/splash_screen</item>
+        <item name="android:windowBackground">@drawable/splash_screen_bg</item>
         <item name="android:statusBarColor">@color/splash_window_bg</item>
         <item name="android:navigationBarColor">@color/splash_window_bg</item>
     </style>
 
-    <!-- 로그인 — 2번 패턴 배경 -->
-    <style name="Theme.CbiseoApp.Login" parent="Theme.CbiseoApp">
+    <style name="Theme.CbiseoApp.Login" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#121828</item>
+        <item name="colorPrimaryVariant">#121828</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
         <item name="android:windowBackground">@drawable/login_background</item>
         <item name="android:colorBackground">@android:color/transparent</item>
         <item name="colorSurface">@android:color/transparent</item>

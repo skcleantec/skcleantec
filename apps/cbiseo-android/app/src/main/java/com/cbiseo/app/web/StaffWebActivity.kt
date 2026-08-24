@@ -4,19 +4,24 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
+import com.cbiseo.app.api.ApiEnvironment
 import com.cbiseo.app.auth.LoginActivity
 import com.cbiseo.app.auth.TokenStore
 import com.cbiseo.app.bridge.CbiseoAppBridge
@@ -28,17 +33,23 @@ class StaffWebActivity : AppCompatActivity() {
     private lateinit var binding: ActivityStaffWebBinding
     private val tokenStore by lazy { TokenStore.get(this) }
     private var sessionBootstrapDone = false
-    private var staffPushPathSeen = false
+    private var staffSessionActive = false
     private var pendingStaffPushRegistration = false
-    private var notificationPermissionAsked = false
+    private var permissionLaunchInFlight = false
+    private var permissionDialogCompleted = false
+    private var notificationSettingsPromptShown = false
     private var openingLoginScreen = false
     private var pendingPushPath: String? = null
     private var systemBarsBottomPx = 0
+    private lateinit var appBridge: CbiseoAppBridge
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { _ ->
+        permissionLaunchInFlight = false
+        permissionDialogCompleted = true
         StaffFcmRegistrar.registerToken(this)
+        maybePromptOpenNotificationSettings()
     }
 
     companion object {
@@ -85,14 +96,22 @@ class StaffWebActivity : AppCompatActivity() {
         pendingPushPath = intent.getStringExtra(EXTRA_PUSH_PATH)
 
         val token = tokenStore.getToken()
-        val apiBaseUrl = tokenStore.getApiBaseUrl()
+        val apiBaseUrl = resolveApiBaseUrl()
         val role = tokenStore.getRole()
         val homePath = StaffRoleResolver.homePathForRole(role)
 
-        if (token.isNullOrBlank() || apiBaseUrl.isNullOrBlank() || homePath == null) {
+        if (token.isNullOrBlank() || homePath == null) {
             openLoginScreen(clearSession = false)
             return
         }
+
+        staffSessionActive = true
+        StaffFcmRegistrar.ensureChannels(applicationContext)
+
+        appBridge = CbiseoAppBridge(
+            onRequestGoogleLogin = {},
+            onRequestNotificationPermission = { ensureStaffPushRegistration() },
+        )
 
         val webView = binding.staffWebView
         activeWebView = webView
@@ -100,7 +119,7 @@ class StaffWebActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
-        webView.addJavascriptInterface(CbiseoAppBridge(onRequestGoogleLogin = {}), "CbiseoApp")
+        webView.addJavascriptInterface(appBridge, "CbiseoApp")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -133,8 +152,7 @@ class StaffWebActivity : AppCompatActivity() {
                 }
 
                 syncSafeAreaToWebView()
-                maybeRegisterStaffPush(current, apiBaseUrl)
-
+                maybeRegisterStaffPushFromWeb(current, apiBaseUrl)
                 flushPendingPushPath()
             }
         }
@@ -145,31 +163,31 @@ class StaffWebActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webViewInForeground = true
-        val apiBaseUrl = tokenStore.getApiBaseUrl()?.trim()?.trimEnd('/').orEmpty()
-        val current = binding.staffWebView.url.orEmpty()
-        if (sessionBootstrapDone && apiBaseUrl.isNotBlank()) {
-            if (StaffWebSessionSync.urlMatchesApiBase(current, apiBaseUrl)) {
-                maybeRegisterStaffPush(current, apiBaseUrl)
-            } else if (pendingStaffPushRegistration && staffPushPathSeen) {
-                ensureStaffPushRegistration()
-            }
+        if (staffSessionActive) {
+            ensureStaffPushRegistration()
         }
     }
 
-    /** 팀·관리 화면 진입 시 FCM 토큰 서버 등록(재시도 포함). */
-    private fun maybeRegisterStaffPush(currentUrl: String, apiBaseUrl: String) {
+    override fun onPostResume() {
+        super.onPostResume()
+        if (staffSessionActive && pendingStaffPushRegistration) {
+            ensureStaffPushRegistration()
+        }
+    }
+
+    /** WebView /team·/admin 로드 시에도 한 번 더 시도 */
+    private fun maybeRegisterStaffPushFromWeb(currentUrl: String, apiBaseUrl: String) {
         if (StaffWebSessionSync.isStaffWebLoginUrl(currentUrl, apiBaseUrl)) return
         if (!StaffWebSessionSync.isStaffAppHomeUrl(currentUrl, apiBaseUrl)) return
-        staffPushPathSeen = true
         ensureStaffPushRegistration()
     }
 
     /**
-     * onPageFinished는 onResume 전에 올 수 있어 권한 팝업이 무시될 수 있다.
-     * RESUMED 상태에서만 요청하고, 실패 시 onResume에서 재시도한다.
+     * 로그인된 업무 WebView — URL과 무관하게 onResume/onPostResume에서 알림 권한·FCM 등록.
+     * permissionDialogCompleted 는 시스템 팝업 응답 후에만 true.
      */
     private fun ensureStaffPushRegistration() {
-        if (!staffPushPathSeen || isFinishing || isDestroyed) return
+        if (!staffSessionActive || isFinishing || isDestroyed) return
         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
             pendingStaffPushRegistration = true
             return
@@ -182,17 +200,49 @@ class StaffWebActivity : AppCompatActivity() {
                 Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
             if (!granted) {
-                if (!notificationPermissionAsked) {
-                    notificationPermissionAsked = true
+                if (!permissionLaunchInFlight && !permissionDialogCompleted) {
+                    permissionLaunchInFlight = true
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
                     StaffFcmRegistrar.registerToken(this)
+                    maybePromptOpenNotificationSettings()
                 }
                 return
             }
         }
         StaffFcmRegistrar.registerToken(this)
     }
+
+    /** 「다시 묻지 않음」 등으로 팝업이 더 이상 안 뜰 때 설정 화면 안내 */
+    private fun maybePromptOpenNotificationSettings() {
+        if (notificationSettingsPromptShown || isFinishing || isDestroyed) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) return
+        if (!permissionDialogCompleted) return
+        if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+            return
+        }
+        notificationSettingsPromptShown = true
+        AlertDialog.Builder(this)
+            .setTitle(getString(com.cbiseo.app.R.string.notification_permission_title))
+            .setMessage(getString(com.cbiseo.app.R.string.notification_permission_settings_message))
+            .setPositiveButton(getString(com.cbiseo.app.R.string.open_settings)) { _, _ ->
+                startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", packageName, null)
+                    },
+                )
+            }
+            .setNegativeButton(getString(com.cbiseo.app.R.string.later), null)
+            .show()
+    }
+
+    private fun resolveApiBaseUrl(): String =
+        ApiEnvironment.normalize(tokenStore.getApiBaseUrl()) ?: ApiEnvironment.PRODUCTION_URL
 
     override fun onPause() {
         webViewInForeground = false
@@ -247,6 +297,7 @@ class StaffWebActivity : AppCompatActivity() {
     private fun openLoginScreen(clearSession: Boolean) {
         if (openingLoginScreen || isFinishing) return
         openingLoginScreen = true
+        staffSessionActive = false
         if (clearSession) tokenStore.clearSession()
         startActivity(
             Intent(this, LoginActivity::class.java).apply {

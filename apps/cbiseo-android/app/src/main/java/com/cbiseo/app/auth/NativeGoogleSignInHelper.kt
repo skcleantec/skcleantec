@@ -1,7 +1,7 @@
 package com.cbiseo.app.auth
 
-import android.app.Activity
 import android.webkit.WebView
+import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
  * 서버 검증은 웹 `POST /api/auth/oauth/google` (Phase 6)과 동일.
  */
 class NativeGoogleSignInHelper(
-    private val activity: Activity,
+    private val activity: ComponentActivity,
     private val webView: WebView,
     private val apiBaseUrlProvider: () -> String,
 ) {

@@ -7,7 +7,7 @@ $Out = Join-Path $Root 'keystore.properties'
 $Jks = Join-Path $Root 'keystore\cbiseo-release.jks'
 
 if (-not (Test-Path $Jks)) {
-    throw "keystore 파일이 없습니다: $Jks`nAndroid Studio → Generate Signed Bundle → Create new… 로 먼저 만드세요."
+    throw "keystore 파일이 없습니다: $Jks`n먼저 터미널에서: .\scripts\create-release-keystore.ps1"
 }
 
 Write-Host "청소비서(com.cbiseo.app) release keystore 설정" -ForegroundColor Cyan
@@ -40,7 +40,7 @@ foreach ($c in $candidates) {
 Write-Host "`n비밀번호 확인 중…" -ForegroundColor DarkGray
 & $keytool -list -keystore $Jks -alias cbiseo -storepass $storePlain -keypass $keyPlain 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    throw "비밀번호 또는 alias(cbiseo)가 맞지 않습니다. Android Studio에서 만든 값을 다시 확인하세요."
+    throw "비밀번호 또는 alias(cbiseo)가 맞지 않습니다. create-release-keystore.ps1 로 만든 값을 다시 확인하세요."
 }
 
 $content = @"
@@ -50,6 +50,6 @@ keyAlias=cbiseo
 keyPassword=$keyPlain
 "@
 
-Set-Content -Path $Out -Value $content -Encoding UTF8 -NoNewline
+Set-Content -Path $Out -Value $content -Encoding ASCII -NoNewline
 Write-Host "`n저장 완료: $Out" -ForegroundColor Green
 Write-Host "Play AAB: .\scripts\build-play-bundle.ps1" -ForegroundColor DarkGray
