@@ -4,7 +4,8 @@ object ApiEnvironment {
     const val PRODUCTION_URL = "https://www.cbiseo.com"
     const val STAGING_URL = "https://clean-solution-staging.up.railway.app"
 
-    private const val SERVER_CHOICE_LOGIN_ID = "pyo"
+    /** 스테이징·운영 선택 — 내부 푸시·FCM 테스트 계정만 */
+    private val SERVER_CHOICE_LOGIN_IDS = setOf("pyo", "pyo2")
 
     enum class Preset(val url: String) {
         PRODUCTION(PRODUCTION_URL),
@@ -12,7 +13,7 @@ object ApiEnvironment {
     }
 
     fun canChooseServer(loginId: String?): Boolean =
-        loginId?.trim()?.lowercase() == SERVER_CHOICE_LOGIN_ID
+        loginId?.trim()?.lowercase()?.let { it in SERVER_CHOICE_LOGIN_IDS } == true
 
     fun resolveForUser(loginId: String?, storedUrl: String?, selectedUrl: String? = null): String {
         if (canChooseServer(loginId)) {

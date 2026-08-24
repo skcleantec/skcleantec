@@ -28,6 +28,7 @@ class LoginActivity : AppCompatActivity() {
     private var serverPresetBound = false
     private var loginPageBootstrapped = false
     private var finishingAfterAuth = false
+    private var draftLoginId: String? = null
     private lateinit var nativeGoogleSignIn: NativeGoogleSignInHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,23 +42,32 @@ class LoginActivity : AppCompatActivity() {
             apiBaseUrlProvider = { selectedApiBaseUrl() },
         )
 
-        setupServerPresetForPyo()
+        setupServerPreset()
         setupLoginWebView()
         loadLoginPage()
     }
 
-    private fun setupServerPresetForPyo() {
-        val storedLoginId = tokenStore.getLoginId().orEmpty()
-        if (!ApiEnvironment.canChooseServer(storedLoginId)) {
+    private fun setupServerPreset() {
+        refreshServerPresetVisibility()
+        binding.serverPresetGroup.addOnButtonCheckedListener { _: MaterialButtonToggleGroup, _: Int, isChecked: Boolean ->
+            if (!isChecked || !loginPageBootstrapped) return@addOnButtonCheckedListener
+            loadLoginPage(reload = true)
+        }
+    }
+
+    private fun effectiveLoginIdForServerChoice(): String? {
+        val draft = draftLoginId?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
+        val stored = tokenStore.getLoginId()?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
+        return draft ?: stored
+    }
+
+    private fun refreshServerPresetVisibility() {
+        if (!ApiEnvironment.canChooseServer(effectiveLoginIdForServerChoice())) {
             binding.serverPresetSection.visibility = View.GONE
             return
         }
         binding.serverPresetSection.visibility = View.VISIBLE
         ensureServerPresetBound()
-        binding.serverPresetGroup.addOnButtonCheckedListener { _: MaterialButtonToggleGroup, _: Int, isChecked: Boolean ->
-            if (!isChecked || !loginPageBootstrapped) return@addOnButtonCheckedListener
-            loadLoginPage(reload = true)
-        }
     }
 
     private fun ensureServerPresetBound() {
@@ -90,7 +100,13 @@ class LoginActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.addJavascriptInterface(
-            CbiseoAppBridge(onRequestGoogleLogin = { nativeGoogleSignIn.requestGoogleLogin() }),
+            CbiseoAppBridge(
+                onRequestGoogleLogin = { nativeGoogleSignIn.requestGoogleLogin() },
+                onLoginIdDraftChanged = { raw ->
+                    draftLoginId = raw.trim().lowercase().takeIf { it.isNotBlank() }
+                    refreshServerPresetVisibility()
+                },
+            ),
             "CbiseoApp",
         )
 
@@ -116,6 +132,10 @@ class LoginActivity : AppCompatActivity() {
 
                 if (!current.startsWith(apiBaseUrl)) return
 
+                if (StaffWebSessionSync.isStaffWebLoginUrl(current, apiBaseUrl)) {
+                    bindLoginIdDraftWatcher(webView)
+                }
+
                 if (StaffWebSessionSync.isStaffAppHomeUrl(current, apiBaseUrl)) {
                     tryFinishLoginFromWeb(webView, apiBaseUrl)
                 }
@@ -135,6 +155,14 @@ class LoginActivity : AppCompatActivity() {
         )
     }
 
+    private fun bindLoginIdDraftWatcher(webView: WebView) {
+        webView.evaluateJavascript(LOGIN_ID_DRAFT_WATCHER_SCRIPT, null)
+        StaffWebSessionSync.readLoginIdFromWebView(webView) { loginId ->
+            draftLoginId = loginId
+            refreshServerPresetVisibility()
+        }
+    }
+
     private fun tryFinishLoginFromWeb(webView: WebView, apiBaseUrl: String) {
         if (finishingAfterAuth) return
         StaffWebSessionSync.captureFromWebView(webView) { captured ->
@@ -142,10 +170,13 @@ class LoginActivity : AppCompatActivity() {
             val role = captured?.role ?: JwtPayload.roleFromToken(token)
             if (token.isNullOrBlank() || StaffRoleResolver.homePathForRole(role) == null) return@captureFromWebView
             finishingAfterAuth = true
+            val loginId = JwtPayload.emailFromToken(token)
+                ?: draftLoginId
+                ?: tokenStore.getLoginId().orEmpty()
             tokenStore.saveSession(
                 token = token,
                 tenantSlug = captured.tenantSlug.orEmpty(),
-                loginId = tokenStore.getLoginId().orEmpty(),
+                loginId = loginId,
                 userName = null,
                 userId = null,
                 role = role,
@@ -163,5 +194,20 @@ class LoginActivity : AppCompatActivity() {
         } else {
             super.onBackPressed()
         }
+    }
+
+    companion object {
+        private val LOGIN_ID_DRAFT_WATCHER_SCRIPT = """
+            (function(){
+              var el = document.getElementById('login-id');
+              if (!el || el.dataset.cbiseoPresetBound) return;
+              el.dataset.cbiseoPresetBound = '1';
+              function notify() {
+                try { CbiseoApp.notifyLoginIdDraft(el.value || ''); } catch (e) {}
+              }
+              el.addEventListener('input', notify);
+              notify();
+            })();
+        """.trimIndent()
     }
 }

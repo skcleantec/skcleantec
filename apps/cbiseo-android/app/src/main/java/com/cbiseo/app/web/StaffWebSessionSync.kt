@@ -11,6 +11,12 @@ object StaffWebSessionSync {
         val tenantSlug: String?,
     )
 
+    fun readLoginIdFromWebView(webView: WebView, onResult: (String?) -> Unit) {
+        webView.evaluateJavascript(READ_LOGIN_ID_SCRIPT) { raw ->
+            onResult(decodeJsString(raw)?.trim()?.lowercase()?.takeIf { it.isNotBlank() })
+        }
+    }
+
     fun captureFromWebView(webView: WebView, onResult: (CapturedSession?) -> Unit) {
         webView.evaluateJavascript(CAPTURE_SCRIPT) { raw ->
             val token = decodeJsString(raw)?.takeIf { it.isNotBlank() }
@@ -57,6 +63,15 @@ object StaffWebSessionSync {
         (function(){
           try { return localStorage.getItem('sk_tenant_slug') || ''; }
           catch (e) { return ''; }
+        })();
+    """.trimIndent()
+
+    private val READ_LOGIN_ID_SCRIPT = """
+        (function(){
+          try {
+            var el = document.getElementById('login-id');
+            return el && el.value ? el.value : '';
+          } catch (e) { return ''; }
         })();
     """.trimIndent()
 }
