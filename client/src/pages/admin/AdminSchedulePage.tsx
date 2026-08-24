@@ -2596,7 +2596,7 @@ export function AdminSchedulePage() {
                         <div className="text-[11px] sm:text-xs text-slate-500">
                           오전 근무 가능{' '}
                           <span className="tabular-nums">
-                            ({stats[selectedDate].morningWorkingCount ?? (stats[selectedDate].morningWorkingNames ?? []).length}명)
+                            ({(stats[selectedDate].morningWorkingNames ?? []).length}명)
                           </span>
                         </div>
                         <p className="mt-0.5 text-[11px] sm:text-xs text-slate-800 font-normal leading-snug break-words">
@@ -2609,7 +2609,7 @@ export function AdminSchedulePage() {
                           <span className="tabular-nums">
                             ({(stats[selectedDate].availableMorningNames ?? []).length}명)
                           </span>
-                          <span className="text-slate-400"> · 이미 오전 일정에 배정된 팀장은 제외</span>
+                          <span className="text-slate-400"> · 이미 오전 일정에 배정된 팀장·팀원은 제외</span>
                         </div>
                         <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
                           {(stats[selectedDate].availableMorningNames ?? []).length > 0
@@ -2621,7 +2621,7 @@ export function AdminSchedulePage() {
                         <div className="text-[11px] sm:text-xs text-slate-500">
                           오후 근무 가능{' '}
                           <span className="tabular-nums">
-                            ({stats[selectedDate].afternoonWorkingCount ?? (stats[selectedDate].afternoonWorkingNames ?? []).length}명)
+                            ({(stats[selectedDate].afternoonWorkingNames ?? []).length}명)
                           </span>
                         </div>
                         <p className="mt-0.5 text-[11px] sm:text-xs text-slate-800 font-normal leading-snug break-words">
@@ -2634,7 +2634,7 @@ export function AdminSchedulePage() {
                           <span className="tabular-nums">
                             ({(stats[selectedDate].availableAfternoonNames ?? []).length}명)
                           </span>
-                          <span className="text-slate-400"> · 이미 오후 일정에 배정된 팀장은 제외</span>
+                          <span className="text-slate-400"> · 이미 오후 일정에 배정된 팀장·팀원은 제외</span>
                         </div>
                         <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
                           {(stats[selectedDate].availableAfternoonNames ?? []).length > 0

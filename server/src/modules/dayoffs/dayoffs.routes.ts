@@ -22,10 +22,11 @@ import {
 import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { loadShareMetaMapForInquiries } from '../tenant-partners/tenantInquiryShare.service.js';
 import {
-  countAvailableFieldStaffByDateRange,
+  listAvailableFieldStaffByDateRange,
   crewUnitsForInquiry,
   tenantActiveTeamMemberWhere,
 } from '../inquiries/crewMemberCapacity.helpers.js';
+import { parseCrewMemberNoteToNames } from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 import { resolveLeaderMorningAfternoon } from '../schedule/scheduleDayAvailability.helpers.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
@@ -142,6 +143,18 @@ router.delete('/me', teamAuthMiddleware, async (req, res) => {
   });
   res.json({ ok: true });
 });
+
+function mergePersonNames(a: string[], b: string[]): string[] {
+  return [...a, ...b].sort((x, y) => x.localeCompare(y, 'ko'));
+}
+
+function firstTeamMemberIdByName(members: Array<{ id: string; name: string }>): Map<string, string> {
+  const idByName = new Map<string, string>();
+  for (const m of members) {
+    if (!idByName.has(m.name)) idByName.set(m.name, m.id);
+  }
+  return idByName;
+}
 
 function kstDateKey(d: Date): string {
   return dateToYmdKst(d);
@@ -318,7 +331,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     inquiries,
     activeTeamMembers,
     leaderSlots,
-    crewAvailableByDate,
+    crewAvailableRowsByDate,
     closureRows,
     slotToAdjustmentRows,
     asCsRows,
@@ -348,6 +361,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
         preferredTime: true,
         betweenScheduleSlot: true,
         crewMemberCount: true,
+        crewMemberNote: true,
         assignments: {
           select: {
             teamLeaderId: true,
@@ -358,12 +372,13 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     }),
     prisma.teamMember.findMany({
       where: tenantActiveTeamMemberWhere(tenantId),
-      select: { id: true, hireDate: true, resignationDate: true },
+      select: { id: true, name: true, hireDate: true, resignationDate: true, sortOrder: true, createdAt: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     prisma.scheduleDayLeaderSlot.findMany({
       where: { tenantId, date: { gte: startDate, lte: endDate } },
     }),
-    countAvailableFieldStaffByDateRange(prisma, startDate, endDate, tenantId),
+    listAvailableFieldStaffByDateRange(prisma, startDate, endDate, tenantId),
     prisma.scheduleDayClosure.findMany({
       where: { tenantId, date: { gte: startDate, lte: endDate } },
       select: { date: true, scope: true },
@@ -407,6 +422,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     });
 
   const toDateKey = kstDateKey;
+  const memberIdByName = firstTeamMemberIdByName(activeTeamMembers);
 
   const byDate: Record<
     string,
@@ -419,7 +435,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
       availableNames: string[];
       availableMorningNames: string[];
       availableAfternoonNames: string[];
-      /** 오전·오후 슬롯에 근무 가능한 팀장 전원(이름, 표시용) */
+      /** 오전·오후 슬롯 근무 가능 팀장·팀원 이름(표시용). TO 건수와 별개 */
       morningWorkingNames: string[];
       afternoonWorkingNames: string[];
       availableMorningLeaderIds: string[];
@@ -565,12 +581,39 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
 
     const morningWorkingLeaders = dayLeaders.filter((t) => leaderSlotsFor(t.id).morning);
     const afternoonWorkingLeaders = dayLeaders.filter((t) => leaderSlotsFor(t.id).afternoon);
-    const morningWorkingNames = [...morningWorkingLeaders]
-      .map((t) => t.name)
-      .sort((a, b) => a.localeCompare(b, 'ko'));
-    const afternoonWorkingNames = [...afternoonWorkingLeaders]
-      .map((t) => t.name)
-      .sort((a, b) => a.localeCompare(b, 'ko'));
+
+    const availableMembers = crewAvailableRowsByDate.get(key) ?? [];
+    const morningAssignedMemberIds = new Set<string>();
+    const afternoonAssignedMemberIds = new Set<string>();
+    for (const inv of dayInquiries) {
+      if (!inquiryCountsForTo(inv)) continue;
+      const assignedMemberIds = parseCrewMemberNoteToNames(inv.crewMemberNote)
+        .map((n) => memberIdByName.get(n))
+        .filter((id): id is string => Boolean(id));
+      if (consumesMorningSlot(inv)) {
+        for (const id of assignedMemberIds) morningAssignedMemberIds.add(id);
+      }
+      if (consumesAfternoonSlot(inv)) {
+        for (const id of assignedMemberIds) afternoonAssignedMemberIds.add(id);
+      }
+    }
+
+    const memberWorkingNames = availableMembers.map((m) => m.name);
+    const availableMorningMemberNames = availableMembers
+      .filter((m) => !morningAssignedMemberIds.has(m.id))
+      .map((m) => m.name);
+    const availableAfternoonMemberNames = availableMembers
+      .filter((m) => !afternoonAssignedMemberIds.has(m.id))
+      .map((m) => m.name);
+
+    const morningWorkingNames = mergePersonNames(
+      morningWorkingLeaders.map((t) => t.name),
+      memberWorkingNames
+    );
+    const afternoonWorkingNames = mergePersonNames(
+      afternoonWorkingLeaders.map((t) => t.name),
+      memberWorkingNames
+    );
 
     const availableMorningLeaders = dayLeaders.filter(
       (t) => leaderSlotsFor(t.id).morning && !morningAssignedIds.has(t.id)
@@ -583,7 +626,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     const assignableAfternoonSlot = afternoonWorkingCount - afternoonOccupied;
     const unassignedTotal = assignableMorning + assignableAfternoonSlot;
 
-    const crewAvailable = crewAvailableByDate.get(key) ?? 0;
+    const crewAvailable = availableMembers.length;
     const crewDemand = dayInquiries
       .filter((inv) => inquiryCountsForTo(inv))
       .reduce((sum, inv) => sum + crewUnitsForInquiry(inv.crewMemberCount), 0);
@@ -601,8 +644,14 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
       totalTeamLeaders: dayLeaders.length,
       assignedCount: assignedIds.size,
       availableNames: availableLeaders.map((t) => t.name),
-      availableMorningNames: availableMorningLeaders.map((t) => t.name),
-      availableAfternoonNames: availableAfternoonLeaders.map((t) => t.name),
+      availableMorningNames: mergePersonNames(
+        availableMorningLeaders.map((t) => t.name),
+        availableMorningMemberNames
+      ),
+      availableAfternoonNames: mergePersonNames(
+        availableAfternoonLeaders.map((t) => t.name),
+        availableAfternoonMemberNames
+      ),
       morningWorkingNames,
       afternoonWorkingNames,
       availableMorningLeaderIds: availableMorningLeaders.map((t) => t.id),
