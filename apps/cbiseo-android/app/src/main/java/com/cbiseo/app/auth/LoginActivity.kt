@@ -14,7 +14,6 @@ import com.cbiseo.app.api.ApiEnvironment
 import com.cbiseo.app.bridge.CbiseoAppBridge
 import com.cbiseo.app.databinding.ActivityLoginBinding
 import com.cbiseo.app.session.StaffRoleResolver
-import com.cbiseo.app.push.StaffFcmRegistrar
 import com.cbiseo.app.web.StaffWebActivity
 import com.cbiseo.app.web.StaffWebSessionSync
 import com.google.android.material.button.MaterialButtonToggleGroup
@@ -192,7 +191,7 @@ class LoginActivity : AppCompatActivity() {
                 role = role,
                 apiBaseUrl = apiBaseUrl,
             )
-            StaffFcmRegistrar.requestPermissionAndRegister(this)
+            // 알림 권한은 LoginActivity.finish() 직전에 요청하면 팝업이 취소됨 → StaffWebActivity에서 처리
             startActivity(Intent(this, StaffWebActivity::class.java))
             finish()
         }
@@ -205,11 +204,6 @@ class LoginActivity : AppCompatActivity() {
         } else {
             super.onBackPressed()
         }
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        StaffFcmRegistrar.onRequestPermissionsResult(this, requestCode)
     }
 
     companion object {

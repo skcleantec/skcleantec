@@ -1,5 +1,6 @@
 package com.cbiseo.app.web
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
@@ -7,6 +8,7 @@ import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -26,6 +28,12 @@ class StaffWebActivity : AppCompatActivity() {
     private var openingLoginScreen = false
     private var pendingPushPath: String? = null
     private var systemBarsBottomPx = 0
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { _ ->
+        StaffFcmRegistrar.registerToken(this)
+    }
 
     companion object {
         const val EXTRA_PUSH_PATH = "push_path"
@@ -143,11 +151,15 @@ class StaffWebActivity : AppCompatActivity() {
         if (StaffWebSessionSync.isStaffWebLoginUrl(currentUrl, apiBaseUrl)) return
         val path = currentUrl.removePrefix(apiBaseUrl)
         if (!path.startsWith("/team/") && !path.startsWith("/admin/")) return
-        if (!fcmPermissionRequested) {
-            fcmPermissionRequested = true
-            StaffFcmRegistrar.requestPermissionAndRegister(this)
-        } else {
+        if (fcmPermissionRequested) {
             StaffFcmRegistrar.registerToken(this)
+            return
+        }
+        fcmPermissionRequested = true
+        // onPageFinished는 resume 전에 올 수 있음 — 팝업은 resumed 이후에 요청
+        window.decorView.post {
+            if (isFinishing || isDestroyed) return@post
+            StaffFcmRegistrar.requestPermissionAndRegister(this, notificationPermissionLauncher)
         }
     }
 
@@ -211,15 +223,6 @@ class StaffWebActivity : AppCompatActivity() {
             },
         )
         finish()
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        StaffFcmRegistrar.onRequestPermissionsResult(this, requestCode)
     }
 
     override fun onDestroy() {
