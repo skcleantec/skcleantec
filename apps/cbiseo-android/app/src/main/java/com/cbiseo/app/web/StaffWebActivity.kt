@@ -25,6 +25,7 @@ class StaffWebActivity : AppCompatActivity() {
     private var fcmRegistered = false
     private var openingLoginScreen = false
     private var pendingPushPath: String? = null
+    private var systemBarsBottomPx = 0
 
     companion object {
         const val EXTRA_PUSH_PATH = "push_path"
@@ -117,6 +118,8 @@ class StaffWebActivity : AppCompatActivity() {
                     return
                 }
 
+                syncSafeAreaToWebView()
+
                 if (!fcmRegistered && current.contains(homePath)) {
                     fcmRegistered = true
                     StaffFcmRegistrar.requestPermissionAndRegister(this@StaffWebActivity)
@@ -162,15 +165,23 @@ class StaffWebActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.setPadding(0, bars.top, 0, bars.bottom)
-            injectSafeAreaCss(bars.bottom)
+            systemBarsBottomPx = bars.bottom
+            syncSafeAreaToWebView()
             insets
         }
+        ViewCompat.requestApplyInsets(binding.root)
+    }
+
+    private fun syncSafeAreaToWebView() {
+        injectSafeAreaCss(systemBarsBottomPx)
     }
 
     private fun injectSafeAreaCss(bottomPx: Int) {
+        val density = resources.displayMetrics.density
+        val bottomDp = if (density > 0f) bottomPx / density else 0f
         activeWebView?.post {
             activeWebView?.evaluateJavascript(
-                "try{document.documentElement.classList.add('cbiseo-staff-app');document.documentElement.style.setProperty('--cbiseo-safe-area-bottom','${bottomPx}px');}catch(e){}",
+                "try{document.documentElement.classList.add('cbiseo-staff-app');document.documentElement.style.setProperty('--cbiseo-safe-area-bottom','${bottomDp}px');}catch(e){}",
                 null,
             )
         }

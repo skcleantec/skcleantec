@@ -11,7 +11,7 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 5 |
+| **최신 versionCode** | 6 |
 | **최신 versionName** | `1.0.0` |
 | **Play 내부 테스트** | **진행 중** — pyo/pyo2 스테이징 선택·FCM Phase 2 |
 | **FCM 발송** | 코드 ✅ · Firebase Console·Railway **설정 대기** |

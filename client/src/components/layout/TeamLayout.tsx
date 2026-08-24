@@ -1133,6 +1133,10 @@ export function TeamLayout() {
           }}
           onSessionExpired={() => {
             clearTeamToken();
+            if (isCbiseoStaffNativeApp()) {
+              window.location.replace('/login');
+              return;
+            }
             navigate('/login', { replace: true, state: { sessionExpired: true } });
           }}
         />
