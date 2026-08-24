@@ -338,6 +338,9 @@ model Tenant {
   staffAppFcmTokens          StaffAppFcmToken[]
   signupBusiness             TenantSignupBusiness?
   userAuthIdentities         UserAuthIdentity[]
+  notificationPolicy         TenantNotificationPolicy?
+  userNotificationPreferences UserNotificationPreference[]
+  notificationDeliveryLogs   NotificationDeliveryLog[]
 
   @@map("tenants")
 }
@@ -1588,6 +1591,8 @@ model User {
   quickPasteAiUsageLogs        QuickPasteAiUsageLog[]
   planUpgradeRequestsRequested TenantPlanUpgradeRequest[] @relation("TenantPlanUpgradeRequestRequester")
   platformBoardPosts           PlatformBoardPost[]
+  notificationPreferences        UserNotificationPreference[]
+  notificationDeliveryLogs     NotificationDeliveryLog[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
@@ -1649,6 +1654,46 @@ model StaffAppFcmToken {
 
   @@index([tenantId, userId])
   @@map("staff_app_fcm_tokens")
+}
+
+/// 테넌트 알림 정책 — 종류별 on/off·필수·반복 주기 (관리자 설정)
+model TenantNotificationPolicy {
+  tenantId  String   @id @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  policy    Json     @default("{}")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_notification_policies")
+}
+
+/// 사용자(팀장 등) 푸시 on/off — mandatory 종류는 서버에서 무시
+model UserNotificationPreference {
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kinds     Json     @default("{}")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([tenantId, userId])
+  @@map("user_notification_preferences")
+}
+
+/// cron·반복 알림 dedupe (해피콜 등)
+model NotificationDeliveryLog {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  kind      String   @db.VarChar(32)
+  dedupeKey String   @map("dedupe_key") @db.VarChar(160)
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, dedupeKey])
+  @@index([tenantId, kind, sentAt])
+  @@map("notification_delivery_logs")
 }
 
 /// 팀장당 1팀 (팀원은 로그인 없음, 마스터·휴무만 관리)
