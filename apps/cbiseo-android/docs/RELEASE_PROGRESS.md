@@ -11,9 +11,9 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 6 |
+| **최신 versionCode** | 7 |
 | **최신 versionName** | `1.0.0` |
-| **Play 내부 테스트** | **진행 중** — pyo/pyo2 스테이징 선택·FCM Phase 2 |
+| **Play 내부 테스트** | **진행 중** — pyo/pyo2 스테이징 · 배정·일정·금액·취소 FCM |
 | **FCM 발송** | 코드 ✅ · Firebase Console·Railway **설정 대기** |
 | **WebView 셸** | Phase 1 ✅ |
 | **Google 로그인** | 앱 WebView GSI ❌ → **네이티브 Sign-In** ✅ (Phase 8) |
@@ -22,6 +22,20 @@
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 7) — 2026-08-24
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | 배정·취소 PATCH FCM · 일정·금액·취소 변경 알림(푸시+팀장 팝업) · FCM 토큰 재등록 · 포그라운드 알림 배너 |
+| **AAB** | `dist/cbiseo-play-1.0.0-7.aab` |
+
+### v1.0.0 (versionCode 6) — 2026-08-24
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | 팀장 최초 정보 입력 모달 — Galaxy 하단 내비게이션 바 safe area · 저장 버튼 스크롤 영역 이동 |
+| **AAB** | `dist/cbiseo-play-1.0.0-6.aab` |
 
 ### v1.0.0 (versionCode 5) — 2026-08-24
 
