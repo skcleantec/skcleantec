@@ -2,6 +2,7 @@ import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../../constants/crewCapacity'
 import { SonEomneungNalIcon } from '../../schedule/SonEomneungNalIcon';
 import { HelpTooltip } from '../../ui/HelpTooltip';
 import { SON_EOMNEUNG_NAL_HELP } from '../../../utils/sonEomneungNal';
+import { SCHEDULE_LEADER_SINGLE_SLOT_LEGEND_SWATCH_CLASS } from '../../../utils/scheduleLeaderDayAssignmentBalance';
 import { scheduleLegendSlotHelpText } from './scheduleHelpShared';
 
 /** 스케줄 좌측 범례 · 도움말 모달 공통 */
@@ -13,7 +14,7 @@ export function ScheduleLegendItems({ compact = false }: { compact?: boolean }) 
       }`}
     >
       <span className="inline-flex items-center gap-1.5">
-        <span className="h-2 w-2.5 shrink-0 rounded-sm border-2 border-slate-400 bg-slate-100 ring-1 ring-slate-200" />
+        <span className={SCHEDULE_LEADER_SINGLE_SLOT_LEGEND_SWATCH_CLASS} />
         <span>
           팀장 <span className="font-semibold text-slate-800">오전·오후 1건</span>
           {compact ? '' : ' (추가 배정 검토)'}

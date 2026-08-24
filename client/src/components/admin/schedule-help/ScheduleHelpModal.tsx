@@ -340,7 +340,7 @@ function ScheduleHelpListTab() {
           카드 <strong className="text-slate-700">왼쪽 굵은 띠</strong> 색 = 시간대(노랑·파랑·보라).{' '}
           <strong className="text-slate-700">빨간 테두리</strong> = 대기·미제출 등,{' '}
           <strong className="text-slate-700">노란 테두리</strong> = 보류,{' '}
-          <strong className="text-slate-700">연분홍 배경</strong> = 팀장 당일 1건(추가 배정 검토).
+          <strong className="text-slate-700">진한 회색 배경</strong> = 팀장 당일 1건(추가 배정 검토).
         </p>
       </HelpSection>
 
