@@ -88,15 +88,41 @@ object StaffWebSessionSync {
         }
     }
 
+    /** www.cbiseo.com ↔ cbiseo.com 등 호스트 표기 차이 허용 */
+    fun urlMatchesApiBase(url: String, apiBaseUrl: String): Boolean {
+        val current = url.trim().trimEnd('/')
+        val base = apiBaseUrl.trim().trimEnd('/')
+        if (current.startsWith(base)) return true
+        return runCatching {
+            val currentUri = android.net.Uri.parse(current)
+            val baseUri = android.net.Uri.parse(base)
+            val currentHost = currentUri.host?.lowercase()?.removePrefix("www.") ?: return false
+            val baseHost = baseUri.host?.lowercase()?.removePrefix("www.") ?: return false
+            currentUri.scheme == baseUri.scheme && currentHost == baseHost
+        }.getOrDefault(false)
+    }
+
+    private fun pathFromApiUrl(url: String, apiBaseUrl: String): String? {
+        if (!urlMatchesApiBase(url, apiBaseUrl)) return null
+        val current = url.trim().trimEnd('/')
+        val base = apiBaseUrl.trim().trimEnd('/')
+        val path = if (current.startsWith(base)) {
+            current.removePrefix(base)
+        } else {
+            runCatching {
+                android.net.Uri.parse(current).path.orEmpty()
+            }.getOrDefault("")
+        }
+        return path.substringBefore('?').substringBefore('#')
+    }
+
     fun isStaffAppHomeUrl(url: String, apiBaseUrl: String): Boolean {
-        if (!url.startsWith(apiBaseUrl)) return false
-        val path = url.removePrefix(apiBaseUrl).substringBefore('?').substringBefore('#')
+        val path = pathFromApiUrl(url, apiBaseUrl) ?: return false
         return path.startsWith("/team/") || path.startsWith("/admin/")
     }
 
     fun isStaffWebLoginUrl(url: String, apiBaseUrl: String): Boolean {
-        if (!url.startsWith(apiBaseUrl)) return false
-        val path = url.removePrefix(apiBaseUrl).substringBefore('?').substringBefore('#')
+        val path = pathFromApiUrl(url, apiBaseUrl) ?: return false
         return path == "/login" || path.startsWith("/login/")
     }
 
