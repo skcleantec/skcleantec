@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- clean-buddy-app-icon.png 배경(블루)과 동일 -->
-    <color name="ic_launcher_background">#1190FD</color>
+    <color name="ic_launcher_background">#0C89FD</color>
 </resources>

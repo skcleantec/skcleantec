@@ -16,7 +16,6 @@ TARGETS: dict[Path, int] = {
     ROOT / 'apps/cbiseo-android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png': 512,
 }
 
-
 def main() -> None:
     if not MASTER.is_file():
         raise SystemExit(f'Master missing: {MASTER}')
