@@ -35,7 +35,7 @@ android {
         applicationId = "com.cbiseo.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
+        versionCode = 3
         versionName = "1.0.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
