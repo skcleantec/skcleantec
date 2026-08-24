@@ -7,13 +7,13 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-08-23)
+## 현재 상태 (최종 갱신: 2026-08-24)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 1 |
+| **최신 versionCode** | 5 |
 | **최신 versionName** | `1.0.0` |
-| **Play 내부 테스트** | **진행 중** — keystore → AAB → Console 업로드 |
+| **Play 내부 테스트** | **진행 중** — pyo/pyo2 스테이징 선택·FCM Phase 2 |
 | **FCM 발송** | 코드 ✅ · Firebase Console·Railway **설정 대기** |
 | **WebView 셸** | Phase 1 ✅ |
 | **Google 로그인** | 앱 WebView GSI ❌ → **네이티브 Sign-In** ✅ (Phase 8) |
@@ -22,6 +22,24 @@
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 5) — 2026-08-24
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | pyo/pyo2 테스트 계정 **운영·스테이징** 선택 UI · React 로그인 폼 감지 수정 · 푸시 Phase 2 |
+| **AAB** | `dist/cbiseo-play-1.0.0-5.aab` |
+
+### v1.0.0 (versionCode 4) — 2026-08-24
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | 알림 Phase 2 · FCM 유형별 payload · 해피콜 cron 연동 |
+| **AAB** | `dist/cbiseo-play-1.0.0-4.aab` |
+
+---
+
+## 버전 로그 (이전)
 
 ### v1.0.0 (versionCode 1) — 2026-08-23
 
