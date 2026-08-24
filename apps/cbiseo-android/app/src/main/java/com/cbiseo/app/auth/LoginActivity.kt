@@ -61,18 +61,16 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun setupServerPreset() {
-        applyServerPresetVisibility()
+        binding.serverPresetSection.visibility = View.GONE
         binding.serverPresetGroup.addOnButtonCheckedListener { _: MaterialButtonToggleGroup, _: Int, isChecked: Boolean ->
             if (!isChecked || !loginPageBootstrapped || suppressPresetListener) return@addOnButtonCheckedListener
             switchLoginServerIfNeeded()
         }
     }
 
-    private fun effectiveLoginIdForServerChoice(): String? {
-        val draft = draftLoginId?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
-        val stored = tokenStore.getLoginId()?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
-        return draft ?: stored
-    }
+    /** 로그인 폼에 입력 중인 아이디만 본다 (저장된 세션 loginId로는 선택창을 띄우지 않음) */
+    private fun effectiveLoginIdForServerChoice(): String? =
+        draftLoginId?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
 
     /** pyo/pyo2 입력 직후 즉시 UI·WebView를 건드리지 않도록 디바운스 */
     private fun scheduleServerPresetVisibilityRefresh() {
@@ -85,6 +83,7 @@ class LoginActivity : AppCompatActivity() {
     private fun applyServerPresetVisibility() {
         if (!ApiEnvironment.canChooseServer(effectiveLoginIdForServerChoice())) {
             binding.serverPresetSection.visibility = View.GONE
+            serverPresetBound = false
             return
         }
         binding.serverPresetSection.visibility = View.VISIBLE
