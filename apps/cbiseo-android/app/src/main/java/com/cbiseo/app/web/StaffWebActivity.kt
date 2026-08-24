@@ -183,8 +183,7 @@ class StaffWebActivity : AppCompatActivity() {
     }
 
     /**
-     * 로그인된 업무 WebView — URL과 무관하게 onResume/onPostResume에서 알림 권한·FCM 등록.
-     * permissionDialogCompleted 는 시스템 팝업 응답 후에만 true.
+     * Firebase: FCM 토큰은 알림 권한과 무관 — 항상 서버 등록 후 권한 팝업.
      */
     private fun ensureStaffPushRegistration() {
         if (!staffSessionActive || isFinishing || isDestroyed) return
@@ -194,23 +193,27 @@ class StaffWebActivity : AppCompatActivity() {
         }
         pendingStaffPushRegistration = false
 
+        StaffFcmRegistrar.registerToken(this)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
-                if (!permissionLaunchInFlight && !permissionDialogCompleted) {
-                    permissionLaunchInFlight = true
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    StaffFcmRegistrar.registerToken(this)
-                    maybePromptOpenNotificationSettings()
-                }
+            if (granted) return
+            if (permissionLaunchInFlight || permissionDialogCompleted) {
+                maybePromptOpenNotificationSettings()
                 return
             }
+            permissionLaunchInFlight = true
+            window.decorView.post {
+                if (isFinishing || isDestroyed) {
+                    permissionLaunchInFlight = false
+                    return@post
+                }
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
-        StaffFcmRegistrar.registerToken(this)
     }
 
     /** 「다시 묻지 않음」 등으로 팝업이 더 이상 안 뜰 때 설정 화면 안내 */

@@ -50,7 +50,7 @@ object StaffPushNotificationHelper {
         val safeTitle = title.ifBlank { context.getString(R.string.app_name) }
         val safeBody = body.ifBlank { context.getString(R.string.fcm_default_body) }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_notify)
             .setContentTitle(safeTitle)
             .setContentText(safeBody)
             .setStyle(NotificationCompat.BigTextStyle().bigText(safeBody))
