@@ -52,9 +52,13 @@ export interface ScheduleStatsByDate {
   availableNames: string[];
   availableMorningNames?: string[];
   availableAfternoonNames?: string[];
-  /** 오전·오후 슬롯 근무 가능 팀장·팀원 이름(표시용). TO 건수와 별개 */
+  /** 오전·오후 슬롯 근무 가능 팀장 이름(표시용) */
   morningWorkingNames?: string[];
   afternoonWorkingNames?: string[];
+  /** 당일 근무 가능 팀원 이름(표시용). TO 건수와 별개 */
+  workingMemberNames?: string[];
+  availableMorningMemberNames?: string[];
+  availableAfternoonMemberNames?: string[];
   /** 해당일 오전 슬롯에 배정 가능한 팀장 id (스케줄 상세 담당자 선택용) */
   availableMorningLeaderIds?: string[];
   /** 해당일 오후 슬롯에 배정 가능한 팀장 id */

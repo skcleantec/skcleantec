@@ -767,6 +767,40 @@ function isTodayYmd(year: number, month: number, day: number): boolean {
   return t.getFullYear() === year && t.getMonth() + 1 === month && t.getDate() === day;
 }
 
+function formatSlotPersonNames(names: string[] | undefined): string {
+  return (names ?? []).length > 0 ? (names ?? []).join(', ') : '—';
+}
+
+function SlotPersonNameBlock({
+  label,
+  names,
+  hint,
+  emphasis,
+}: {
+  label: string;
+  names: string[] | undefined;
+  hint?: string;
+  emphasis?: boolean;
+}) {
+  const list = names ?? [];
+  return (
+    <div>
+      <div className="text-fluid-2xs sm:text-fluid-xs text-slate-500">
+        {label}{' '}
+        <span className="tabular-nums">({list.length}명)</span>
+        {hint ? <span className="text-slate-400"> · {hint}</span> : null}
+      </div>
+      <p
+        className={`mt-0.5 text-fluid-2xs sm:text-fluid-xs font-normal leading-snug break-words ${
+          emphasis ? 'text-blue-700' : 'text-slate-800'
+        }`}
+      >
+        {formatSlotPersonNames(list)}
+      </p>
+    </div>
+  );
+}
+
 function isFullDayClosure(s: ScheduleStatsByDate | undefined): boolean {
   if (!s) return false;
   if (s.closureScope === 'FULL') return true;
@@ -2592,55 +2626,47 @@ export function AdminSchedulePage() {
                       );
                     })()}
                     <div className="space-y-2 border-t border-slate-200/90 pt-2">
-                      <div>
-                        <div className="text-[11px] sm:text-xs text-slate-500">
-                          오전 근무 가능{' '}
-                          <span className="tabular-nums">
-                            ({(stats[selectedDate].morningWorkingNames ?? []).length}명)
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-[11px] sm:text-xs text-slate-800 font-normal leading-snug break-words">
-                          {(stats[selectedDate].morningWorkingNames ?? []).length > 0
-                            ? (stats[selectedDate].morningWorkingNames ?? []).join(', ')
-                            : '—'}
-                        </p>
-                        <div className="mt-1.5 text-[11px] sm:text-xs text-slate-500">
-                          오전 추가 배정 가능{' '}
-                          <span className="tabular-nums">
-                            ({(stats[selectedDate].availableMorningNames ?? []).length}명)
-                          </span>
-                          <span className="text-slate-400"> · 이미 오전 일정에 배정된 팀장·팀원은 제외</span>
-                        </div>
-                        <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
-                          {(stats[selectedDate].availableMorningNames ?? []).length > 0
-                            ? (stats[selectedDate].availableMorningNames ?? []).join(', ')
-                            : '—'}
-                        </p>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2 space-y-2">
+                        <div className="text-fluid-2xs sm:text-fluid-xs font-semibold text-slate-800">팀장</div>
+                        <SlotPersonNameBlock
+                          label="오전 근무 가능"
+                          names={stats[selectedDate].morningWorkingNames}
+                        />
+                        <SlotPersonNameBlock
+                          label="오전 추가 배정 가능"
+                          names={stats[selectedDate].availableMorningNames}
+                          hint="이미 오전 일정에 배정된 팀장은 제외"
+                          emphasis
+                        />
+                        <SlotPersonNameBlock
+                          label="오후 근무 가능"
+                          names={stats[selectedDate].afternoonWorkingNames}
+                        />
+                        <SlotPersonNameBlock
+                          label="오후 추가 배정 가능"
+                          names={stats[selectedDate].availableAfternoonNames}
+                          hint="이미 오후 일정에 배정된 팀장은 제외"
+                          emphasis
+                        />
                       </div>
-                      <div>
-                        <div className="text-[11px] sm:text-xs text-slate-500">
-                          오후 근무 가능{' '}
-                          <span className="tabular-nums">
-                            ({(stats[selectedDate].afternoonWorkingNames ?? []).length}명)
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-[11px] sm:text-xs text-slate-800 font-normal leading-snug break-words">
-                          {(stats[selectedDate].afternoonWorkingNames ?? []).length > 0
-                            ? (stats[selectedDate].afternoonWorkingNames ?? []).join(', ')
-                            : '—'}
-                        </p>
-                        <div className="mt-1.5 text-[11px] sm:text-xs text-slate-500">
-                          오후 추가 배정 가능{' '}
-                          <span className="tabular-nums">
-                            ({(stats[selectedDate].availableAfternoonNames ?? []).length}명)
-                          </span>
-                          <span className="text-slate-400"> · 이미 오후 일정에 배정된 팀장·팀원은 제외</span>
-                        </div>
-                        <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
-                          {(stats[selectedDate].availableAfternoonNames ?? []).length > 0
-                            ? (stats[selectedDate].availableAfternoonNames ?? []).join(', ')
-                            : '—'}
-                        </p>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2 space-y-2">
+                        <div className="text-fluid-2xs sm:text-fluid-xs font-semibold text-slate-800">팀원</div>
+                        <SlotPersonNameBlock
+                          label="당일 근무 가능"
+                          names={stats[selectedDate].workingMemberNames}
+                        />
+                        <SlotPersonNameBlock
+                          label="오전 추가 배정 가능"
+                          names={stats[selectedDate].availableMorningMemberNames}
+                          hint="이미 오전 일정에 배정된 팀원은 제외"
+                          emphasis
+                        />
+                        <SlotPersonNameBlock
+                          label="오후 추가 배정 가능"
+                          names={stats[selectedDate].availableAfternoonMemberNames}
+                          hint="이미 오후 일정에 배정된 팀원은 제외"
+                          emphasis
+                        />
                       </div>
                     </div>
                   </div>
