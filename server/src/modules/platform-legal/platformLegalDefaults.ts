@@ -99,4 +99,57 @@ ${LEGAL_HEADER}
 <p>본 방침이 변경되는 경우 서비스 내 공지 등 합리적인 방법으로 안내합니다.</p>
 `.trim(),
   },
+  {
+    slug: 'account-deletion',
+    title: '청소비서 계정 및 데이터 삭제 안내',
+    documentType: 'MEMBER_TERMS',
+    contentHtml: `
+${LEGAL_HEADER}
+<p><strong>앱 이름:</strong> 청소비서 (Android 패키지 <code>com.cbiseo.app</code>)<br />
+<strong>운영사:</strong> (주)서비스브릿지 · <strong>문의:</strong> <a href="mailto:cbiseo@service-bridges.com">cbiseo@service-bridges.com</a></p>
+
+<p>본 페이지는 Google Play 스토어 등록정보에 표시되며, 청소비서 가입 업체 직원(팀장·마케터·관리자) 계정 및 관련 데이터 삭제를 요청하는 방법을 안내합니다.</p>
+
+<h2>1. 소속 업체 직원 계정 삭제(비활성)</h2>
+<p>청소비서는 B2B 업무 앱입니다. 개별 직원 계정은 소속 업체 관리자가 관리합니다.</p>
+<ol>
+  <li>직원 본인은 소속 업체 <strong>관리자</strong>에게 계정 삭제(비활성)를 요청합니다.</li>
+  <li>관리자는 청소비서 웹(<a href="https://www.cbiseo.com">www.cbiseo.com</a>)에 로그인합니다.</li>
+  <li><strong>관리 → 팀장/직원 관리</strong>에서 해당 계정을 <strong>비활성(삭제)</strong> 처리합니다.</li>
+  <li>비활성 후 해당 아이디로 앱·웹 로그인이 불가능합니다.</li>
+</ol>
+
+<h2>2. 업체(테넌트) 전체 해지 및 데이터 삭제</h2>
+<p>업체 전체 서비스 해지·데이터 삭제는 업체 관리자만 요청할 수 있습니다.</p>
+<ol>
+  <li>업체 관리자가 <a href="mailto:cbiseo@service-bridges.com">cbiseo@service-bridges.com</a> 으로 아래 정보를 보냅니다.
+    <ul>
+      <li>업체명 · 업체 코드</li>
+      <li>요청자 성함 · 직책 · 연락처</li>
+      <li>삭제 요청 사유</li>
+    </ul>
+  </li>
+  <li>운영팀이 본인 확인 후 처리합니다(영업일 기준 수일 소요).</li>
+  <li>처리 완료 시 해당 업체 계정·업무 데이터 삭제 또는 익명화·보관 정책에 따라 조치합니다.</li>
+</ol>
+
+<h2>3. 삭제·보관되는 데이터</h2>
+<table>
+  <thead>
+    <tr><th>구분</th><th>데이터 유형</th><th>처리</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>삭제</td><td>로그인 계정(아이디), 이름·이메일·연락처, 업무 이용 기록(접수·배정·스케줄 등), Android 푸시(FCM) 토큰</td><td>계정 비활성 또는 업체 해지 시 삭제·익명화</td></tr>
+    <tr><td>법령상 보관</td><td>세법·전자상거래 등 관련 법령에 따른 거래·정산·세금계산서 관련 기록</td><td>법정 보관 기간 경과 후 파기</td></tr>
+    <tr><td>백업</td><td>운영 백업본</td><td>백업 주기에 따라 자동 삭제(통상 30~90일 이내)</td></tr>
+  </tbody>
+</table>
+
+<h2>4. 처리 기간</h2>
+<p>직원 계정 비활성: 관리자 처리 즉시 · 업체 전체 삭제: 요청 접수 후 <strong>영업일 7일 이내</strong> 1차 회신, 확인 완료 후 <strong>영업일 30일 이내</strong> 삭제 조치를 목표로 합니다.</p>
+
+<h2>5. 관련 문서</h2>
+<p>개인정보 처리에 관한 상세 내용은 <a href="/legal/member-privacy">회원사 개인정보 처리방침</a>을 참고하세요.</p>
+`.trim(),
+  },
 ];
