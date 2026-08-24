@@ -69,6 +69,7 @@ import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
   buildLeaderSlotAssignmentCountMapsForDayItems,
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
+  SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
@@ -2271,7 +2272,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             <div
               className={
                 detailLeaderSingleSlotAssignment
-                  ? 'mt-1.5 space-y-1 rounded-lg border border-slate-300 bg-slate-100/95 px-2.5 py-2 ring-1 ring-slate-200/80 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5'
+                  ? `mt-1.5 space-y-1 rounded-lg ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS} px-2.5 py-2 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5`
                   : 'mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5'
               }
             >
@@ -2343,7 +2344,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 </p>
               ) : null}
               {detailLeaderSingleSlotAssignment ? (
-                <p className="text-[11px] font-semibold text-slate-700 leading-snug">
+                <p className="text-fluid-2xs font-semibold text-slate-900 leading-snug">
                   배정된 팀장 중 이날 오전 또는 오후 한 슬롯에만 1건 있는 사람이 있습니다. 반대 슬롯·사이 추가
                   배정 여부를 검토하세요.
                 </p>

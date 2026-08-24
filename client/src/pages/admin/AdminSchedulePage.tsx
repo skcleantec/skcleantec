@@ -112,6 +112,7 @@ import {
   buildLeaderAfternoonAssignmentCounts,
   buildLeaderSlotAssignmentCountMapsForDayItems,
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
+  SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 
 const ScheduleInquiryDetailModal = lazy(() =>
@@ -419,7 +420,7 @@ function ScheduleDayListItem({
       : bucket === 'afternoon'
         ? 'border-l-[6px] border-sky-600'
         : 'border-l-[6px] border-violet-500';
-  /** 팀장 오전 1건 강조(회색)가 아닐 때만 쓰는 슬롯별 배경 */
+  /** 팀장 한 슬롯 1건 강조가 아닐 때만 쓰는 슬롯별 배경 */
   const slotBgTint =
     bucket === 'morning'
       ? 'bg-amber-50/50'
@@ -474,17 +475,11 @@ function ScheduleDayListItem({
   return (
     <div
       className={`text-left w-full py-2 pl-3 pr-2 rounded-xl flex gap-2 border shadow-sm text-fluid-sm transition-all duration-200 hover:shadow-md hover:translate-y-[-0.5px] ${slotLeftBorder} ${
-        emphasizeOneRoomInList && !leaderSingleSlotAssignment
-          ? 'border-red-300/90 ring-1 ring-red-200/80'
-          : leaderSingleSlotAssignment
-            ? 'border-slate-300/90'
-            : 'border-slate-200/90'
-      } ${
         leaderSingleSlotAssignment
-          ? 'bg-slate-100/95'
+          ? SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS
           : emphasizeOneRoomInList
-            ? 'bg-red-50/30'
-            : slotBgTint
+            ? 'border-red-300/90 ring-1 ring-red-200/80 bg-red-50/30'
+            : `border-slate-200/90 ${slotBgTint}`
       } ${
         isPreOrder ? 'ring-1 ring-red-500' : ''
       } ${
