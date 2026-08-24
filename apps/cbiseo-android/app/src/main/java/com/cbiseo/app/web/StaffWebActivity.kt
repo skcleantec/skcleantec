@@ -3,6 +3,8 @@ package com.cbiseo.app.web
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
@@ -10,9 +12,11 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.Lifecycle
 import com.cbiseo.app.auth.LoginActivity
 import com.cbiseo.app.auth.TokenStore
 import com.cbiseo.app.bridge.CbiseoAppBridge
@@ -24,7 +28,9 @@ class StaffWebActivity : AppCompatActivity() {
     private lateinit var binding: ActivityStaffWebBinding
     private val tokenStore by lazy { TokenStore.get(this) }
     private var sessionBootstrapDone = false
-    private var fcmPermissionRequested = false
+    private var staffPushPathSeen = false
+    private var pendingStaffPushRegistration = false
+    private var notificationPermissionAsked = false
     private var openingLoginScreen = false
     private var pendingPushPath: String? = null
     private var systemBarsBottomPx = 0
@@ -119,7 +125,7 @@ class StaffWebActivity : AppCompatActivity() {
                     return
                 }
 
-                if (!current.startsWith(apiBaseUrl)) return
+                if (!StaffWebSessionSync.urlMatchesApiBase(current, apiBaseUrl)) return
 
                 if (StaffWebSessionSync.isStaffWebLoginUrl(current, apiBaseUrl)) {
                     openLoginScreen(clearSession = true)
@@ -141,26 +147,51 @@ class StaffWebActivity : AppCompatActivity() {
         webViewInForeground = true
         val apiBaseUrl = tokenStore.getApiBaseUrl()?.trim()?.trimEnd('/').orEmpty()
         val current = binding.staffWebView.url.orEmpty()
-        if (sessionBootstrapDone && apiBaseUrl.isNotBlank() && current.startsWith(apiBaseUrl)) {
-            maybeRegisterStaffPush(current, apiBaseUrl)
+        if (sessionBootstrapDone && apiBaseUrl.isNotBlank()) {
+            if (StaffWebSessionSync.urlMatchesApiBase(current, apiBaseUrl)) {
+                maybeRegisterStaffPush(current, apiBaseUrl)
+            } else if (pendingStaffPushRegistration && staffPushPathSeen) {
+                ensureStaffPushRegistration()
+            }
         }
     }
 
     /** 팀·관리 화면 진입 시 FCM 토큰 서버 등록(재시도 포함). */
     private fun maybeRegisterStaffPush(currentUrl: String, apiBaseUrl: String) {
         if (StaffWebSessionSync.isStaffWebLoginUrl(currentUrl, apiBaseUrl)) return
-        val path = currentUrl.removePrefix(apiBaseUrl)
-        if (!path.startsWith("/team/") && !path.startsWith("/admin/")) return
-        if (fcmPermissionRequested) {
-            StaffFcmRegistrar.registerToken(this)
+        if (!StaffWebSessionSync.isStaffAppHomeUrl(currentUrl, apiBaseUrl)) return
+        staffPushPathSeen = true
+        ensureStaffPushRegistration()
+    }
+
+    /**
+     * onPageFinished는 onResume 전에 올 수 있어 권한 팝업이 무시될 수 있다.
+     * RESUMED 상태에서만 요청하고, 실패 시 onResume에서 재시도한다.
+     */
+    private fun ensureStaffPushRegistration() {
+        if (!staffPushPathSeen || isFinishing || isDestroyed) return
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            pendingStaffPushRegistration = true
             return
         }
-        fcmPermissionRequested = true
-        // onPageFinished는 resume 전에 올 수 있음 — 팝업은 resumed 이후에 요청
-        window.decorView.post {
-            if (isFinishing || isDestroyed) return@post
-            StaffFcmRegistrar.requestPermissionAndRegister(this, notificationPermissionLauncher)
+        pendingStaffPushRegistration = false
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                if (!notificationPermissionAsked) {
+                    notificationPermissionAsked = true
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    StaffFcmRegistrar.registerToken(this)
+                }
+                return
+            }
         }
+        StaffFcmRegistrar.registerToken(this)
     }
 
     override fun onPause() {
