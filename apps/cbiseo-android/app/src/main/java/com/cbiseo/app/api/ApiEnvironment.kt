@@ -12,8 +12,11 @@ object ApiEnvironment {
         STAGING(STAGING_URL),
     }
 
-    fun canChooseServer(loginId: String?): Boolean =
-        loginId?.trim()?.lowercase()?.let { it in SERVER_CHOICE_LOGIN_IDS } == true
+    fun canChooseServer(loginId: String?): Boolean {
+        val id = loginId?.trim()?.lowercase() ?: return false
+        // pyo2 입력 중 "pyo"에서 먼저 뜨지 않도록 완성형만 허용
+        return id == "pyo" || id == "pyo2"
+    }
 
     fun resolveForUser(loginId: String?, storedUrl: String?, selectedUrl: String? = null): String {
         if (canChooseServer(loginId)) {
