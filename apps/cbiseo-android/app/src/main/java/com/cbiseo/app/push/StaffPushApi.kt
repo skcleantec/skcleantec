@@ -2,6 +2,7 @@ package com.cbiseo.app.push
 
 import android.content.Context
 import android.util.Log
+import com.cbiseo.app.api.ApiEnvironment
 import com.cbiseo.app.auth.TokenStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,8 +25,8 @@ object StaffPushApi {
         runCatching {
             val store = TokenStore.get(context.applicationContext)
             val jwt = store.getToken()?.trim().orEmpty()
-            val baseUrl = store.getApiBaseUrl()?.trim()?.trimEnd('/').orEmpty()
-            if (jwt.isBlank() || baseUrl.isBlank()) return@runCatching
+            val baseUrl = ApiEnvironment.normalize(store.getApiBaseUrl()) ?: ApiEnvironment.PRODUCTION_URL
+            if (jwt.isBlank()) return@runCatching
 
             val body = JSONObject()
                 .put("token", fcmToken)

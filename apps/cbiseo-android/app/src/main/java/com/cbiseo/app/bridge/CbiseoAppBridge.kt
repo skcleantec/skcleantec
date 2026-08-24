@@ -8,6 +8,7 @@ import android.webkit.JavascriptInterface
 class CbiseoAppBridge(
     private val onRequestGoogleLogin: () -> Unit,
     private val onLoginIdDraftChanged: (String) -> Unit = {},
+    private val onRequestNotificationPermission: () -> Unit = {},
 ) {
     @JavascriptInterface
     fun isNativeApp(): Boolean = true
@@ -25,5 +26,11 @@ class CbiseoAppBridge(
     @JavascriptInterface
     fun requestGoogleLogin() {
         Handler(Looper.getMainLooper()).post { onRequestGoogleLogin() }
+    }
+
+    /** 팀·관리 레이아웃 마운트 시 네이티브 알림 권한·FCM 등록 */
+    @JavascriptInterface
+    fun requestNotificationPermission() {
+        Handler(Looper.getMainLooper()).post { onRequestNotificationPermission() }
     }
 }

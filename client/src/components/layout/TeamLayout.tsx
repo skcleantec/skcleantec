@@ -29,7 +29,7 @@ import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
-import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
+import { isCbiseoStaffNativeApp, requestCbiseoStaffNotificationPermission } from '../../utils/cbiseoNativeApp';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
@@ -446,6 +446,10 @@ export function TeamLayout() {
       document.documentElement.classList.add('cbiseo-staff-app');
     }
   }, []);
+  useEffect(() => {
+    if (!teamToken || !isCbiseoStaffNativeApp()) return;
+    requestCbiseoStaffNotificationPermission();
+  }, [teamToken]);
   const previewKey = teamPreviewDepsKey(location.search);
   const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const [userName, setUserName] = useState<string | null>(null);

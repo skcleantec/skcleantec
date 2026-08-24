@@ -22,7 +22,7 @@ import {
 } from '../../utils/prefetchAdminPages';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
-import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
+import { isCbiseoStaffNativeApp, requestCbiseoStaffNotificationPermission } from '../../utils/cbiseoNativeApp';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import {
   useInboxRealtime,
@@ -242,6 +242,10 @@ export function AdminLayout() {
       document.documentElement.classList.add('cbiseo-staff-app');
     }
   }, []);
+  useEffect(() => {
+    if (!adminToken || !isCbiseoStaffNativeApp()) return;
+    requestCbiseoStaffNotificationPermission();
+  }, [adminToken]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [reviewPaybackUnseenCount, setReviewPaybackUnseenCount] = useState(0);

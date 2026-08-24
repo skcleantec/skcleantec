@@ -13,6 +13,8 @@ declare global {
       requestGoogleLogin?: () => void;
       /** FCM 토큰을 서버 register API로 전달 (네이티브가 호출) */
       onFcmToken?: (token: string) => void;
+      /** Android — 알림 권한 요청 + FCM 토큰 서버 등록 */
+      requestNotificationPermission?: () => void;
     };
     /** Android 네이티브 Google 로그인 콜백 — LoginPage/GoogleSignupButton에서 등록 */
     __cbiseoNativeGoogleLogin?: (idToken: string) => void;
@@ -33,6 +35,16 @@ export function isCbiseoStaffNativeApp(): boolean {
 /** 업무 앱에서 PC 전용 admin 경로인지 (CRM 등) */
 export function isPcOnlyPathInStaffApp(pathname: string): boolean {
   return isCbiseoStaffNativeApp() && isStaffAppPcOnlyAdminPath(pathname);
+}
+
+/** Android 업무 앱 — 네이티브 알림 권한 팝업·FCM 등록 트리거 */
+export function requestCbiseoStaffNotificationPermission(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.CbiseoApp?.requestNotificationPermission?.();
+  } catch {
+    /* WebView 브릿지 미연결 */
+  }
 }
 
 export const STAFF_APP_CRM_PC_MESSAGE =
