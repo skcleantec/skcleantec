@@ -1765,6 +1765,7 @@ router.patch('/:id', async (req, res) => {
         changeLogId: createdChangeLogId ?? undefined,
         actorId: user?.userId ?? null,
         scheduleAlertKind: createdChangeLogAlertKind,
+        affectedTeamLeaderIds: inquiry.assignments.map((a) => a.teamLeaderId),
       });
     }
     queueHouseholdLedgerInquirySync(prisma, { tenantId, inquiryId: id });

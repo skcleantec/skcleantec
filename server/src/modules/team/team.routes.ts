@@ -1402,6 +1402,7 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
     changeLogId: cancelLog.id,
     actorId,
     scheduleAlertKind: 'cancel',
+    affectedTeamLeaderIds: inquiry.assignments.map((a) => a.teamLeaderId),
   });
   const staff = await prisma.user.findMany({
     where: { tenantId, isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },

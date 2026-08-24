@@ -69,23 +69,33 @@ async function notifyScheduleAlertToStaff(params: {
   kind: ScheduleAlertKind;
   lines: string[];
   actorId?: string | null;
+  /** 취소·보류 PATCH 등으로 Assignment 행이 이미 지워진 뒤 알릴 담당 팀장 */
+  affectedTeamLeaderIds?: string[];
 }): Promise<void> {
   const wsPayload = buildScheduleAlertWsPayload(params);
   broadcastJsonToStaff(wsPayload, params.tenantId);
 
-  if (!params.inquiryId) return;
-
-  const assigns = await prisma.assignment.findMany({
-    where: { inquiryId: params.inquiryId, tenantId: params.tenantId },
-    select: { teamLeaderId: true },
-  });
-  const leaderIds: string[] = [];
-  const seen = new Set<string>();
-  for (const a of assigns) {
-    if (!a.teamLeaderId || seen.has(a.teamLeaderId)) continue;
-    if (params.actorId && a.teamLeaderId === params.actorId) continue;
-    seen.add(a.teamLeaderId);
-    leaderIds.push(a.teamLeaderId);
+  let leaderIds: string[] = [];
+  if (params.affectedTeamLeaderIds && params.affectedTeamLeaderIds.length > 0) {
+    const seen = new Set<string>();
+    for (const id of params.affectedTeamLeaderIds) {
+      if (!id || seen.has(id)) continue;
+      if (params.actorId && id === params.actorId) continue;
+      seen.add(id);
+      leaderIds.push(id);
+    }
+  } else if (params.inquiryId) {
+    const assigns = await prisma.assignment.findMany({
+      where: { inquiryId: params.inquiryId, tenantId: params.tenantId },
+      select: { teamLeaderId: true },
+    });
+    const seen = new Set<string>();
+    for (const a of assigns) {
+      if (!a.teamLeaderId || seen.has(a.teamLeaderId)) continue;
+      if (params.actorId && a.teamLeaderId === params.actorId) continue;
+      seen.add(a.teamLeaderId);
+      leaderIds.push(a.teamLeaderId);
+    }
   }
   if (leaderIds.length === 0) return;
 
@@ -94,17 +104,23 @@ async function notifyScheduleAlertToStaff(params: {
     select: { id: true, role: true },
   });
   const pushByUserId: Record<string, StaffAppPushPayload> = {};
-  for (const u of users) {
-    pushByUserId[u.id] = buildScheduleAlertPushPayload({
-      customerName: params.customerName,
-      inquiryId: params.inquiryId,
-      kind: params.kind,
-      summary: wsPayload.summary,
-      role: u.role,
-    });
+  if (params.inquiryId) {
+    for (const u of users) {
+      pushByUserId[u.id] = buildScheduleAlertPushPayload({
+        customerName: params.customerName,
+        inquiryId: params.inquiryId,
+        kind: params.kind,
+        summary: wsPayload.summary,
+        role: u.role,
+      });
+    }
   }
 
-  await notifyStaffInboxRefresh(params.tenantId, leaderIds, pushByUserId);
+  await notifyStaffInboxRefresh(
+    params.tenantId,
+    leaderIds,
+    Object.keys(pushByUserId).length > 0 ? pushByUserId : undefined,
+  );
 
   for (const id of leaderIds) {
     sendJsonToUser(id, wsPayload, params.tenantId);
@@ -124,6 +140,8 @@ export function notifyChangeLogToStaff(params: {
   changeLogId?: string;
   actorId?: string | null;
   scheduleAlertKind?: ScheduleAlertKind | null;
+  /** PATCH 직전 담당 팀장 — 취소·보류로 Assignment 삭제 후에도 알림 대상 유지 */
+  affectedTeamLeaderIds?: string[];
 }): void {
   const lines = params.lines.filter(Boolean);
   if (lines.length === 0) return;
@@ -143,6 +161,7 @@ export function notifyChangeLogToStaff(params: {
       kind,
       lines,
       actorId: params.actorId,
+      affectedTeamLeaderIds: params.affectedTeamLeaderIds,
     }).catch((e) => console.error('[schedule-alert-notify] team leaders', e));
   }
 
