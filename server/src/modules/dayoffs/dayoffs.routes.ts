@@ -144,8 +144,8 @@ router.delete('/me', teamAuthMiddleware, async (req, res) => {
   res.json({ ok: true });
 });
 
-function mergePersonNames(a: string[], b: string[]): string[] {
-  return [...a, ...b].sort((x, y) => x.localeCompare(y, 'ko'));
+function sortPersonNames(names: string[]): string[] {
+  return [...names].sort((a, b) => a.localeCompare(b, 'ko'));
 }
 
 function firstTeamMemberIdByName(members: Array<{ id: string; name: string }>): Map<string, string> {
@@ -435,9 +435,13 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
       availableNames: string[];
       availableMorningNames: string[];
       availableAfternoonNames: string[];
-      /** 오전·오후 슬롯 근무 가능 팀장·팀원 이름(표시용). TO 건수와 별개 */
+      /** 오전·오후 슬롯 근무 가능 팀장 이름(표시용) */
       morningWorkingNames: string[];
       afternoonWorkingNames: string[];
+      /** 당일 근무 가능 팀원 이름(표시용). TO 건수와 별개 */
+      workingMemberNames: string[];
+      availableMorningMemberNames: string[];
+      availableAfternoonMemberNames: string[];
       availableMorningLeaderIds: string[];
       availableAfternoonLeaderIds: string[];
       /** 오전 슬롯 소진 건수(일반 오전 + 사이청소→오전 확정) */
@@ -598,22 +602,16 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
       }
     }
 
-    const memberWorkingNames = availableMembers.map((m) => m.name);
-    const availableMorningMemberNames = availableMembers
-      .filter((m) => !morningAssignedMemberIds.has(m.id))
-      .map((m) => m.name);
-    const availableAfternoonMemberNames = availableMembers
-      .filter((m) => !afternoonAssignedMemberIds.has(m.id))
-      .map((m) => m.name);
+    const workingMemberNames = sortPersonNames(availableMembers.map((m) => m.name));
+    const availableMorningMemberNames = sortPersonNames(
+      availableMembers.filter((m) => !morningAssignedMemberIds.has(m.id)).map((m) => m.name)
+    );
+    const availableAfternoonMemberNames = sortPersonNames(
+      availableMembers.filter((m) => !afternoonAssignedMemberIds.has(m.id)).map((m) => m.name)
+    );
 
-    const morningWorkingNames = mergePersonNames(
-      morningWorkingLeaders.map((t) => t.name),
-      memberWorkingNames
-    );
-    const afternoonWorkingNames = mergePersonNames(
-      afternoonWorkingLeaders.map((t) => t.name),
-      memberWorkingNames
-    );
+    const morningWorkingNames = sortPersonNames(morningWorkingLeaders.map((t) => t.name));
+    const afternoonWorkingNames = sortPersonNames(afternoonWorkingLeaders.map((t) => t.name));
 
     const availableMorningLeaders = dayLeaders.filter(
       (t) => leaderSlotsFor(t.id).morning && !morningAssignedIds.has(t.id)
@@ -644,16 +642,13 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
       totalTeamLeaders: dayLeaders.length,
       assignedCount: assignedIds.size,
       availableNames: availableLeaders.map((t) => t.name),
-      availableMorningNames: mergePersonNames(
-        availableMorningLeaders.map((t) => t.name),
-        availableMorningMemberNames
-      ),
-      availableAfternoonNames: mergePersonNames(
-        availableAfternoonLeaders.map((t) => t.name),
-        availableAfternoonMemberNames
-      ),
+      availableMorningNames: availableMorningLeaders.map((t) => t.name),
+      availableAfternoonNames: availableAfternoonLeaders.map((t) => t.name),
       morningWorkingNames,
       afternoonWorkingNames,
+      workingMemberNames,
+      availableMorningMemberNames,
+      availableAfternoonMemberNames,
       availableMorningLeaderIds: availableMorningLeaders.map((t) => t.id),
       availableAfternoonLeaderIds: availableAfternoonLeaders.map((t) => t.id),
       morningOccupied,
@@ -692,6 +687,8 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
         unassignedTotal: 0,
         availableMorningNames: [],
         availableAfternoonNames: [],
+        availableMorningMemberNames: [],
+        availableAfternoonMemberNames: [],
         availableMorningLeaderIds: [],
         availableAfternoonLeaderIds: [],
         availableNames: [],
@@ -708,6 +705,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
         assignableMorning: 0,
         unassignedTotal: cur.assignableAfternoonSlot ?? 0,
         availableMorningNames: [],
+        availableMorningMemberNames: [],
         availableMorningLeaderIds: [],
         manualClosed: false,
         closureScope: 'MORNING',
@@ -718,6 +716,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
         assignableAfternoonSlot: 0,
         unassignedTotal: cur.assignableMorning ?? 0,
         availableAfternoonNames: [],
+        availableAfternoonMemberNames: [],
         availableAfternoonLeaderIds: [],
         manualClosed: false,
         closureScope: 'AFTERNOON',
