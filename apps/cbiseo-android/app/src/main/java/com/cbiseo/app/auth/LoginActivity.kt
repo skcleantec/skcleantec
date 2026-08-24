@@ -157,10 +157,19 @@ class LoginActivity : AppCompatActivity() {
 
     private fun bindLoginIdDraftWatcher(webView: WebView) {
         webView.evaluateJavascript(LOGIN_ID_DRAFT_WATCHER_SCRIPT, null)
-        StaffWebSessionSync.readLoginIdFromWebView(webView) { loginId ->
-            draftLoginId = loginId
-            refreshServerPresetVisibility()
-        }
+        scheduleLoginIdDraftSync(webView, delayMs = 400L)
+        scheduleLoginIdDraftSync(webView, delayMs = 1200L)
+    }
+
+    private fun scheduleLoginIdDraftSync(webView: WebView, delayMs: Long) {
+        webView.postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+            StaffWebSessionSync.readLoginIdFromWebView(webView) { loginId ->
+                draftLoginId = loginId
+                refreshServerPresetVisibility()
+            }
+            webView.evaluateJavascript(LOGIN_ID_DRAFT_WATCHER_SCRIPT, null)
+        }, delayMs)
     }
 
     private fun tryFinishLoginFromWeb(webView: WebView, apiBaseUrl: String) {
@@ -197,16 +206,42 @@ class LoginActivity : AppCompatActivity() {
     }
 
     companion object {
+        /** React `/login` — onPageFinished 시점엔 #login-id 가 아직 없을 수 있음 */
         private val LOGIN_ID_DRAFT_WATCHER_SCRIPT = """
             (function(){
-              var el = document.getElementById('login-id');
-              if (!el || el.dataset.cbiseoPresetBound) return;
-              el.dataset.cbiseoPresetBound = '1';
-              function notify() {
-                try { CbiseoApp.notifyLoginIdDraft(el.value || ''); } catch (e) {}
+              if (window.__cbiseoLoginIdWatcher) {
+                window.__cbiseoLoginIdDraftRescan && window.__cbiseoLoginIdDraftRescan();
+                return;
               }
-              el.addEventListener('input', notify);
-              notify();
+              window.__cbiseoLoginIdWatcher = true;
+              var last = '';
+              function push(v) {
+                var next = (v || '').trim();
+                if (next === last) return;
+                last = next;
+                try { CbiseoApp.notifyLoginIdDraft(next); } catch (e) {}
+              }
+              function bind(el) {
+                if (!el || el.dataset.cbiseoPresetBound) return;
+                el.dataset.cbiseoPresetBound = '1';
+                el.addEventListener('input', function(){ push(el.value); });
+                el.addEventListener('change', function(){ push(el.value); });
+                push(el.value);
+              }
+              function rescan() {
+                bind(document.getElementById('login-id'));
+              }
+              window.__cbiseoLoginIdDraftRescan = rescan;
+              rescan();
+              try {
+                new MutationObserver(rescan).observe(document.documentElement, { childList: true, subtree: true });
+              } catch (e) {}
+              var n = 0;
+              var t = setInterval(function(){
+                rescan();
+                n += 1;
+                if (n >= 30) clearInterval(t);
+              }, 500);
             })();
         """.trimIndent()
     }
