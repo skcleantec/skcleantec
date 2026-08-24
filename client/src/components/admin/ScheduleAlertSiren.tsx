@@ -40,6 +40,7 @@ function SirenIcon({ className }: { className?: string }) {
 const KIND_CHIP: Record<ScheduleAlertItem['kind'], string> = {
   date: 'bg-blue-50 text-blue-800 border-blue-200',
   cancel: 'bg-rose-50 text-rose-800 border-rose-200',
+  cost: 'bg-amber-50 text-amber-900 border-amber-200',
 };
 
 type Props = {

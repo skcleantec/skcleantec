@@ -87,7 +87,7 @@ export type ScheduleAlertRtPayload = {
   changeLogId: string;
   inquiryId: string | null;
   customerName: string;
-  kind: 'date' | 'cancel';
+  kind: 'date' | 'cancel' | 'cost';
   summary: string;
 };
 
@@ -95,7 +95,8 @@ function parseScheduleAlertPayload(d: unknown): ScheduleAlertRtPayload | null {
   if (!d || typeof d !== 'object') return null;
   const o = d as Record<string, unknown>;
   if (o.type !== 'schedule-alert:new') return null;
-  const kind = o.kind === 'date' || o.kind === 'cancel' ? o.kind : null;
+  const kind =
+    o.kind === 'date' || o.kind === 'cancel' || o.kind === 'cost' ? o.kind : null;
   if (!kind || typeof o.changeLogId !== 'string') return null;
   return {
     type: 'schedule-alert:new',

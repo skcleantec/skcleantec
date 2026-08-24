@@ -6,6 +6,7 @@ export type { StaffAppPushKind };
 
 export const NOTIFICATION_KIND_ORDER: StaffAppPushKind[] = [
   'assignment',
+  'schedule_alert',
   'happy_call',
   'message',
   'cs',
@@ -38,7 +39,7 @@ export type UserNotificationPreferencesDto = {
 function defaultKindRule(kind: StaffAppPushKind): NotificationKindRule {
   const base: NotificationKindRule = {
     enabled: true,
-    mandatory: kind === 'assignment' || kind === 'happy_call',
+    mandatory: kind === 'assignment' || kind === 'schedule_alert' || kind === 'happy_call',
     defaultPush: true,
     repeatEnabled: false,
     repeatIntervalMinutes: 60,
@@ -58,7 +59,7 @@ function defaultKindRule(kind: StaffAppPushKind): NotificationKindRule {
   if (kind === 'generic') {
     return { ...base, mandatory: false, defaultPush: true, enabled: true };
   }
-  if (kind === 'assignment') {
+  if (kind === 'assignment' || kind === 'schedule_alert') {
     return { ...base, mandatory: true, repeatEnabled: false };
   }
   return base;
@@ -154,6 +155,7 @@ export function buildTeamNotificationSettingsView(
 }> {
   const labels: Record<StaffAppPushKind, string> = {
     assignment: '접수 배정',
+    schedule_alert: '일정·금액·취소',
     happy_call: '해피콜',
     message: '1:1 메시지',
     cs: 'C/S',
@@ -162,6 +164,7 @@ export function buildTeamNotificationSettingsView(
   };
   const descriptions: Record<StaffAppPushKind, string> = {
     assignment: '접수가 팀장에게 배정·재배정될 때',
+    schedule_alert: '담당 접수의 일정·금액·취소 변경 시',
     happy_call: '예약일 전날 마감 전·미완(마감 초과) 시',
     message: '관리·팀 간 1:1 메시지 수신 시',
     cs: 'C/S 접수·상태 변경 시',

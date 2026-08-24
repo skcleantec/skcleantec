@@ -768,15 +768,11 @@ export function TeamLayout() {
   const teamTo = (path: string) => `${path}${previewQuery}`;
 
   const [scheduleAlertRefreshKey, setScheduleAlertRefreshKey] = useState(0);
-  const openScheduleFromAlert = useCallback(
-    (inquiryId: string, preferredDate: string | null) => {
-      const base = teamTo('/team/schedule');
-      const sep = base.includes('?') ? '&' : '?';
-      const parts = [`openInquiry=${encodeURIComponent(inquiryId)}`];
-      if (preferredDate) parts.unshift(`day=${encodeURIComponent(preferredDate)}`);
-      navigate(`${base}${sep}${parts.join('&')}`);
+  const openInquiryFromAlert = useCallback(
+    (inquiryId: string) => {
+      navigate(teamTo(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`));
     },
-    [navigate, previewQuery],
+    [navigate, teamTo],
   );
 
   const navShared = {
@@ -940,7 +936,7 @@ export function TeamLayout() {
                           team
                           variant="gnb-chip"
                           refreshKey={scheduleAlertRefreshKey}
-                          onOpenSchedule={openScheduleFromAlert}
+                          onOpenSchedule={(inquiryId) => openInquiryFromAlert(inquiryId)}
                         />
                       </div>
                       <div className="hidden sm:block">
@@ -949,7 +945,7 @@ export function TeamLayout() {
                           team
                           variant="header"
                           refreshKey={scheduleAlertRefreshKey}
-                          onOpenSchedule={openScheduleFromAlert}
+                          onOpenSchedule={(inquiryId) => openInquiryFromAlert(inquiryId)}
                         />
                       </div>
                     </>
@@ -1059,7 +1055,7 @@ export function TeamLayout() {
             <TeamScheduleAlertBanner
               token={teamToken}
               onDismiss={() => setScheduleAlertRefreshKey((k) => k + 1)}
-              onOpenSchedule={openScheduleFromAlert}
+              onOpenInquiry={openInquiryFromAlert}
             />
           ) : null}
           <Outlet />

@@ -1,4 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
+import { buildScheduleAlertPushPayload } from '../../lib/staffAppPush.helpers.js';
+import type { StaffAppPushPayload } from '../../lib/staffAppPush.helpers.js';
 import { broadcastJsonToStaff, sendJsonToUser } from './realtimeHub.js';
 import type { ChangeLogCategory } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import {
@@ -7,6 +9,7 @@ import {
 } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { filterMarketerOnlyChangeLogLines } from '../inquiries/internalCustomerTone.js';
 import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
+import { notifyStaffInboxRefresh } from './navBadgeNotify.js';
 
 export type ChangeLogWsPayload = {
   type: 'changelog:new';
@@ -58,7 +61,7 @@ function buildScheduleAlertWsPayload(params: {
   };
 }
 
-function notifyScheduleAlertToStaff(params: {
+async function notifyScheduleAlertToStaff(params: {
   tenantId: string;
   customerName: string;
   inquiryId: string | null;
@@ -66,24 +69,46 @@ function notifyScheduleAlertToStaff(params: {
   kind: ScheduleAlertKind;
   lines: string[];
   actorId?: string | null;
-}): void {
-  const payload = buildScheduleAlertWsPayload(params);
-  broadcastJsonToStaff(payload, params.tenantId);
+}): Promise<void> {
+  const wsPayload = buildScheduleAlertWsPayload(params);
+  broadcastJsonToStaff(wsPayload, params.tenantId);
 
   if (!params.inquiryId) return;
-  void (async () => {
-    const assigns = await prisma.assignment.findMany({
-      where: { inquiryId: params.inquiryId as string, tenantId: params.tenantId },
-      select: { teamLeaderId: true },
+
+  const assigns = await prisma.assignment.findMany({
+    where: { inquiryId: params.inquiryId, tenantId: params.tenantId },
+    select: { teamLeaderId: true },
+  });
+  const leaderIds: string[] = [];
+  const seen = new Set<string>();
+  for (const a of assigns) {
+    if (!a.teamLeaderId || seen.has(a.teamLeaderId)) continue;
+    if (params.actorId && a.teamLeaderId === params.actorId) continue;
+    seen.add(a.teamLeaderId);
+    leaderIds.push(a.teamLeaderId);
+  }
+  if (leaderIds.length === 0) return;
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: leaderIds }, tenantId: params.tenantId },
+    select: { id: true, role: true },
+  });
+  const pushByUserId: Record<string, StaffAppPushPayload> = {};
+  for (const u of users) {
+    pushByUserId[u.id] = buildScheduleAlertPushPayload({
+      customerName: params.customerName,
+      inquiryId: params.inquiryId,
+      kind: params.kind,
+      summary: wsPayload.summary,
+      role: u.role,
     });
-    const seen = new Set<string>();
-    for (const a of assigns) {
-      if (!a.teamLeaderId || seen.has(a.teamLeaderId)) continue;
-      if (params.actorId && a.teamLeaderId === params.actorId) continue;
-      seen.add(a.teamLeaderId);
-      sendJsonToUser(a.teamLeaderId, payload, params.tenantId);
-    }
-  })().catch((e) => console.error('[schedule-alert-notify] team leaders', e));
+  }
+
+  await notifyStaffInboxRefresh(params.tenantId, leaderIds, pushByUserId);
+
+  for (const id of leaderIds) {
+    sendJsonToUser(id, wsPayload, params.tenantId);
+  }
 }
 
 /**
@@ -110,7 +135,7 @@ export function notifyChangeLogToStaff(params: {
 
   const kind = params.scheduleAlertKind ?? resolveScheduleAlertKind(lines);
   if (kind && params.changeLogId) {
-    notifyScheduleAlertToStaff({
+    void notifyScheduleAlertToStaff({
       tenantId: params.tenantId,
       customerName: params.customerName,
       inquiryId: params.inquiryId,
@@ -118,7 +143,7 @@ export function notifyChangeLogToStaff(params: {
       kind,
       lines,
       actorId: params.actorId,
-    });
+    }).catch((e) => console.error('[schedule-alert-notify] team leaders', e));
   }
 
   const teamLines = filterMarketerOnlyChangeLogLines(lines);

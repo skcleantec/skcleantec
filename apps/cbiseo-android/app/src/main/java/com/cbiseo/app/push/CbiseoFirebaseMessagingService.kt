@@ -30,7 +30,7 @@ class CbiseoFirebaseMessagingService : FirebaseMessagingService() {
             if (path.isNotBlank()) {
                 StaffWebActivity.dispatchNavigateToWebView(path)
             }
-            if (kind == "assignment" || kind == "happy_call") {
+            if (kind == "assignment" || kind == "happy_call" || kind == "schedule_alert") {
                 val notificationId = (kind + path + title).hashCode()
                 StaffPushNotificationHelper.showNavigateNotification(
                     context = applicationContext,

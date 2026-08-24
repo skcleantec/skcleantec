@@ -2,6 +2,7 @@
 
 export type StaffAppPushKind =
   | 'assignment'
+  | 'schedule_alert'
   | 'message'
   | 'cs'
   | 'db_marketplace'
@@ -73,6 +74,28 @@ export function buildGenericStaffAppPushPayload(): StaffAppPushPayload {
 }
 
 export type AssignmentPushVariant = 'new' | 'removed';
+
+import type { ScheduleAlertKind } from './scheduleAlerts';
+import { SCHEDULE_ALERT_KIND_LABELS } from './scheduleAlerts';
+
+export function buildScheduleAlertPushPayload(params: {
+  customerName: string;
+  inquiryId: string;
+  kind: ScheduleAlertKind;
+  summary: string;
+  role: string | null | undefined;
+}): StaffAppPushPayload {
+  const name = params.customerName.trim() || '고객';
+  const title = SCHEDULE_ALERT_KIND_LABELS[params.kind];
+  const summary = params.summary.trim();
+  const body = summary ? `${name} · ${summary}` : `${name}님 ${title}`;
+  return {
+    kind: 'schedule_alert',
+    title,
+    body,
+    path: staffAppAssignmentPathForRole(params.role, params.inquiryId),
+  };
+}
 
 export function buildAssignmentPushPayload(params: {
   customerName: string;
