@@ -181,6 +181,7 @@ export async function postDbListingMessage(
     buyerTenantId: listing.buyerTenantId,
     buyerExternalCompanyId: listing.buyerExternalCompanyId,
     authorUserId: viewer.userId,
+    push: { variant: 'message', listingId: listing.id },
   });
 
   return {

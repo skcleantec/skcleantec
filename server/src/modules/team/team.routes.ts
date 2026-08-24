@@ -772,7 +772,15 @@ router.post('/cs/:id/acknowledge', async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(serializeCsReportRow(updated));
-  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : [], report.tenantId);
+  void notifyCsReportNavBadges(
+    updated.inquiryId,
+    updated.forwardedToUserId ? [updated.forwardedToUserId] : [],
+    report.tenantId,
+    {
+      variant: 'updated',
+      customerName: updated.inquiry?.customerName ?? '고객',
+    },
+  );
 });
 
 /** 담당 C/S 수정 — 접수·처리중·완료만 (RECEIVED로는 변경 불가) */
@@ -819,7 +827,15 @@ router.patch('/cs/:id', async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(serializeCsReportRow(updated));
-  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : [], updated.tenantId);
+  void notifyCsReportNavBadges(
+    updated.inquiryId,
+    updated.forwardedToUserId ? [updated.forwardedToUserId] : [],
+    updated.tenantId,
+    {
+      variant: 'updated',
+      customerName: updated.inquiry?.customerName ?? '고객',
+    },
+  );
   if (Object.prototype.hasOwnProperty.call(built.data, 'asServiceDate')) {
     void getEmployedStaffUserIds(updated.tenantId).then((ids) => notifyInboxRefresh(ids));
   }

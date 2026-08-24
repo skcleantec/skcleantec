@@ -13,10 +13,11 @@
 |------|-----|
 | **최신 versionCode** | 1 |
 | **최신 versionName** | `1.0.0` |
-| **Play 내부 테스트** | 미업로드 — [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) |
+| **Play 내부 테스트** | **진행 중** — keystore → AAB → Console 업로드 |
 | **FCM 발송** | 코드 ✅ · Firebase Console·Railway **설정 대기** |
 | **WebView 셸** | Phase 1 ✅ |
-| **SNS(Google/카카오) 로그인** | WebView ❌ — 네이티브 `LoginActivity`(아이디·비밀번호) 또는 PC 브라우저 |
+| **Google 로그인** | 앱 WebView GSI ❌ → **네이티브 Sign-In** ✅ (Phase 8) |
+| **카카오 로그인** | WebView redirect ✅ |
 
 ---
 
@@ -30,7 +31,21 @@
 | **서버** | `StaffAppFcmToken` · `POST/DELETE /api/push/staff-app/register` |
 | **웹** | `isCbiseoStaffNativeApp` · CRM PC 전용 차단 |
 | **Play** | Console 앱 생성 **대기** |
-| **TODO** | Firebase · FCM 발송 · Play 내부 테스트 AAB |
+| **TODO** | keystore · `build-play-bundle.ps1` · Play **내부 테스트** 업로드 |
+
+---
+
+## 내부 테스트 — 지금 할 일 (순서)
+
+| # | 작업 | 상태 |
+|---|------|------|
+| 1 | `.\scripts\create-release-keystore.ps1` → `keystore/cbiseo-release.jks` | ☐ |
+| 2 | `.\scripts\init-keystore-properties.ps1` → `keystore.properties` | ☐ |
+| 3 | `.\scripts\build-play-bundle.ps1` → `dist/cbiseo-play-1.0.0-1.aab` | ☐ |
+| 4 | [Play Console](https://play.google.com/console) → `com.cbiseo.app` 앱 (없으면 생성) | ☐ |
+| 5 | **앱 콘텐츠** · 스토어 등록정보 ( [`GOOGLE_PLAY_CBISEO.md`](./GOOGLE_PLAY_CBISEO.md) §5~6 ) | ☐ |
+| 6 | **테스트 → 내부 테스트** → AAB 업로드 → 출시 | ☐ |
+| 7 | 테스터 Gmail 추가 → 설치 링크로 실기기 검증 | ☐ |
 
 ---
 

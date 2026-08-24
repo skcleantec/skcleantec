@@ -28,6 +28,8 @@ import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
+import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
+import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
@@ -438,6 +440,12 @@ export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
   const location = useLocation();
+  useStaffAppPushNavigation(Boolean(teamToken));
+  useEffect(() => {
+    if (isCbiseoStaffNativeApp()) {
+      document.documentElement.classList.add('cbiseo-staff-app');
+    }
+  }, []);
   const previewKey = teamPreviewDepsKey(location.search);
   const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const [userName, setUserName] = useState<string | null>(null);
@@ -974,6 +982,11 @@ export function TeamLayout() {
                     teamTrainingMenu={
                       userRole === 'TEAM_LEADER' && teamTrainingAvailable
                         ? { href: teamTo('/team/training') }
+                        : null
+                    }
+                    teamNotificationSettingsHref={
+                      userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER'
+                        ? teamTo('/team/notification-settings')
                         : null
                     }
                     onLogout={handleLogout}

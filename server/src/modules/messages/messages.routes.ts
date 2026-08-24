@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
+import { buildMessagePushPayload } from '../../lib/staffAppPush.helpers.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
@@ -640,7 +641,12 @@ router.post('/', async (req, res) => {
     },
   });
   res.status(201).json(msg);
-  notifyInboxRefresh([userId, receiverId]);
+  notifyInboxRefresh([userId, receiverId], {
+    [receiverId]: buildMessagePushPayload({
+      senderName: msg.sender.name,
+      receiverRole: receiver.role,
+    }),
+  });
 });
 
 export default router;

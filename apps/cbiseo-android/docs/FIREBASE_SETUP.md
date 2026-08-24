@@ -52,6 +52,8 @@ apps/cbiseo-android/app/google-services.json
 
 6. Android Studio **Sync / Run** — Gradle이 Google Services 플러그인을 자동 적용합니다.
 
+**Android Studio Run:** debug·release 모두 패키지 **`com.cbiseo.app`** (Firebase 등록과 동일). debug·release APK는 폰에 **동시 설치 불가** — Play AAB 테스트 전 debug 앱을 지우고 설치.
+
 ---
 
 ## 3. 서버 FCM 발송 (Railway)
@@ -87,9 +89,9 @@ apps/cbiseo-android/app/google-services.json
 |------|------|
 | 로그인 후 홈 로드 | `StaffFcmRegistrar` — 알림 권한 + FCM 토큰 |
 | `POST /api/push/staff-app/register` | JWT + 토큰 저장 |
-| 서버 `notifyInboxRefresh` | FCM multicast + `inbox:refresh` data |
-| 앱 포그라운드 | WebView `cbiseo:inbox-refresh` → 기존 silent refetch |
-| 앱 백그라운드 | 시스템 알림 → 탭 시 `StaffWebActivity` |
+| 서버 `notifyInboxRefresh` | FCM `sendEach` — data `staff-app:navigate` (수신자별 title/body/path) |
+| 앱 포그라운드 | `cbiseo:inbox-refresh` + (path 있으면) `cbiseo:navigate` |
+| 앱 백그라운드 | `StaffPushNotificationHelper` 시스템 알림 → 탭 시 `EXTRA_PUSH_PATH` |
 
 ---
 

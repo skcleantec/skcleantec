@@ -8,6 +8,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.cbiseo.app.auth.LoginActivity
 import com.cbiseo.app.auth.TokenStore
 import com.cbiseo.app.bridge.CbiseoAppBridge
@@ -21,10 +24,20 @@ class StaffWebActivity : AppCompatActivity() {
     private var sessionBootstrapDone = false
     private var fcmRegistered = false
     private var openingLoginScreen = false
+    private var pendingPushPath: String? = null
 
     companion object {
+        const val EXTRA_PUSH_PATH = "push_path"
+
         @Volatile
         private var activeWebView: WebView? = null
+
+        @Volatile
+        private var webViewInForeground = false
+
+        fun isWebViewActive(): Boolean = activeWebView != null
+
+        fun isWebViewInForeground(): Boolean = webViewInForeground && activeWebView != null
 
         fun dispatchInboxRefreshToWebView() {
             activeWebView?.post {
@@ -34,13 +47,27 @@ class StaffWebActivity : AppCompatActivity() {
                 )
             }
         }
+
+        fun dispatchNavigateToWebView(path: String) {
+            if (path.isBlank()) return
+            val escaped = path.replace("\\", "\\\\").replace("'", "\\'")
+            activeWebView?.post {
+                activeWebView?.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('cbiseo:navigate',{detail:{path:'$escaped'}}));",
+                    null,
+                )
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityStaffWebBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyWindowInsets()
+        pendingPushPath = intent.getStringExtra(EXTRA_PUSH_PATH)
 
         val token = tokenStore.getToken()
         val apiBaseUrl = tokenStore.getApiBaseUrl()
@@ -94,10 +121,59 @@ class StaffWebActivity : AppCompatActivity() {
                     fcmRegistered = true
                     StaffFcmRegistrar.requestPermissionAndRegister(this@StaffWebActivity)
                 }
+
+                flushPendingPushPath()
             }
         }
 
         webView.loadUrl("about:blank")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webViewInForeground = true
+    }
+
+    override fun onPause() {
+        webViewInForeground = false
+        super.onPause()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val path = intent.getStringExtra(EXTRA_PUSH_PATH)
+        if (path.isNullOrBlank()) return
+        if (sessionBootstrapDone && activeWebView != null) {
+            dispatchNavigateToWebView(path)
+        } else {
+            pendingPushPath = path
+        }
+    }
+
+    private fun flushPendingPushPath() {
+        val path = pendingPushPath ?: return
+        pendingPushPath = null
+        dispatchInboxRefreshToWebView()
+        dispatchNavigateToWebView(path)
+    }
+
+    private fun applyWindowInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(0, bars.top, 0, bars.bottom)
+            injectSafeAreaCss(bars.bottom)
+            insets
+        }
+    }
+
+    private fun injectSafeAreaCss(bottomPx: Int) {
+        activeWebView?.post {
+            activeWebView?.evaluateJavascript(
+                "try{document.documentElement.classList.add('cbiseo-staff-app');document.documentElement.style.setProperty('--cbiseo-safe-area-bottom','${bottomPx}px');}catch(e){}",
+                null,
+            )
+        }
     }
 
     private fun openLoginScreen(clearSession: Boolean) {
@@ -133,6 +209,7 @@ class StaffWebActivity : AppCompatActivity() {
         val script = buildString {
             append("try{")
             append("localStorage.setItem('cbiseo_staff_app','1');")
+            append("document.documentElement.classList.add('cbiseo-staff-app');")
             if (StaffRoleResolver.usesTeamToken(role)) {
                 append("localStorage.setItem('sk_team_token','$escaped');")
             }

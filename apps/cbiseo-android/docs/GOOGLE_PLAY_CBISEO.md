@@ -18,7 +18,7 @@
 | **앱 / 게임** | 앱 |
 | **무료 / 유료** | 무료 |
 | **카테고리** | 비즈니스 |
-| **앱 아이콘 (512×512)** | `client/public/brand/clean-secretary-logo.png` (PNG, 검정 배경 포함) |
+| **앱 아이콘 (512×512)** | `client/public/brand/clean-buddy-app-icon.png` (청소비서 캐릭터) |
 
 > 패키지명은 **한 번 정하면 변경 불가**. AAB의 `applicationId`와 **완전히 동일**해야 합니다.
 
@@ -55,28 +55,29 @@
 
 ---
 
-## 3. 업로드 키 (keystore) 준비
+## 3. 업로드 키 (keystore) — **터미널만**
 
 Play AAB는 **release 서명**이 필요합니다. (Play **앱 서명** ON 권장 — Google이 배포 키 관리)
 
+> **에이전트·개발자:** Android Studio **Generate Signed Bundle** 대신 **아래 PowerShell 3단계만** 사용 — `.cursor/rules/cbiseo-android-play-terminal.mdc`
+
 ### 3.1 keystore 생성 (최초 1회)
 
-**Android Studio:**
+```powershell
+cd apps\cbiseo-android
+.\scripts\create-release-keystore.ps1
+```
 
-1. `apps/cbiseo-android` 열기
-2. **Build → Generate Signed App Bundle / APK…**
-3. **Android App Bundle** → **Create new…**
-4. 저장 예: `apps/cbiseo-android/keystore/cbiseo-release.jks`
-5. **Alias:** `cbiseo` · 비밀번호는 팀 비밀 관리 도구에만 보관
+- 출력: `keystore/cbiseo-release.jks` · alias **`cbiseo`**
+- 비밀번호: 팀 비밀 관리 도구에만 보관 (git 금지)
 
 ### 3.2 `keystore.properties` (로컬, git 커밋 금지)
 
 ```powershell
-cd apps\cbiseo-android
 .\scripts\init-keystore-properties.ps1
 ```
 
-또는 `keystore.properties.example` → `keystore.properties` 복사 후 비밀번호 입력.
+(위 keystore와 **동일 비밀번호** 입력)
 
 ### 3.3 Firebase (FCM, 권장)
 
@@ -159,7 +160,7 @@ https://www.cbiseo.com/legal/member-privacy
 
 | 자산 | 권장 |
 |------|------|
-| **앱 아이콘** | 512×512 PNG — `client/public/brand/clean-secretary-logo.png` |
+| **앱 아이콘** | 512×512 PNG — `client/public/brand/clean-buddy-app-icon.png` (또는 `icons/app-icon-512.png`) |
 | **스크린샷 (휴대전화)** | 최소 2장 — 로그인 화면 + 팀장/관리 대시보드(WebView) |
 | **기능 그래픽** | 1024×500 (선택, 프로덕션 전 권장) |
 
@@ -222,7 +223,15 @@ https://www.cbiseo.com/legal/member-privacy
 |------|------|
 | 사용자 데이터 수집·공유? | **예** (자사 서버 업무 목적) |
 | 전송 중 암호화 | **예** (HTTPS) |
-| 사용자 데이터 삭제 요청 | **예** — `cbiseo@service-bridges.com` |
+| 사용자 데이터 삭제 요청 | **예** — 아래 **계정 삭제 URL** · `cbiseo@service-bridges.com` |
+
+#### 계정 삭제 URL (Play Console 필수)
+
+```
+https://www.cbiseo.com/legal/account-deletion
+```
+
+> 데이터 보안 **「계정 URL 삭제」** 필드에 위 URL 입력. `ensureDefaultPlatformLegalDocuments`로 서버 기동·첫 조회 시 DB에 자동 생성됩니다.
 
 #### 수집 유형 (체크)
 

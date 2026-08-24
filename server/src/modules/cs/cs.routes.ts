@@ -122,7 +122,10 @@ router.post('/submit', async (req, res) => {
     id: report.id,
     ...(inquiryId ? { inquiryId } : {}),
   });
-  void notifyCsReportNavBadges(report.inquiryId, undefined, report.tenantId);
+  void notifyCsReportNavBadges(report.inquiryId, undefined, report.tenantId, {
+    variant: 'new',
+    customerName: report.customerName,
+  });
 });
 
 /** 관리자·마케터: C/S 목록 (접수일 필터·페이지네이션) */
@@ -189,7 +192,7 @@ router.post('/:id/forward', authMiddleware, requireStaffPermission('cs.edit'), a
 
   const existing = await prisma.csReport.findFirst({
     where: { id, tenantId },
-    select: { id: true, inquiryId: true, forwardedToUserId: true },
+    select: { id: true, inquiryId: true, forwardedToUserId: true, customerName: true },
   });
   if (!existing) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
@@ -223,10 +226,15 @@ router.post('/:id/forward', authMiddleware, requireStaffPermission('cs.edit'), a
     include: csReportFullInclude,
   });
   res.json(serializeCsReportRow(updated));
-  void notifyCsReportNavBadges(updated.inquiryId, [
-    prevForward,
-    updated.forwardedToUserId,
-  ], tenantId);
+  void notifyCsReportNavBadges(
+    updated.inquiryId,
+    [prevForward, updated.forwardedToUserId],
+    tenantId,
+    {
+      variant: updated.forwardedToUserId ? 'forwarded' : 'updated',
+      customerName: updated.customerName,
+    },
+  );
 });
 
 /** 관리자·마케터: C/S 상세 열람 — 접수(RECEIVED)면 처리중(PROCESSING)으로 자동 전환(미확인 배지 해제) */
@@ -260,6 +268,7 @@ router.post('/:id/acknowledge', authMiddleware, requireStaffPermission('cs.edit'
     updated.inquiryId,
     updated.forwardedToUserId ? [updated.forwardedToUserId] : [],
     tenantId,
+    { variant: 'updated', customerName: updated.customerName },
   );
 });
 
@@ -318,6 +327,7 @@ router.patch('/:id', authMiddleware, requireStaffPermission('cs.edit'), async (r
     updated.inquiryId,
     updated.forwardedToUserId ? [updated.forwardedToUserId] : [],
     tenantId,
+    { variant: 'updated', customerName: updated.customerName },
   );
   if (Object.prototype.hasOwnProperty.call(built.data, 'asServiceDate')) {
     void getEmployedStaffUserIds(tenantId).then((ids) => notifyInboxRefresh(ids));
@@ -352,7 +362,7 @@ router.delete('/:id', authMiddleware, requireStaffPermission('cs.delete'), async
 
   const existing = await prisma.csReport.findFirst({
     where: { id, tenantId },
-    select: { id: true, inquiryId: true, forwardedToUserId: true, tenantId: true },
+    select: { id: true, inquiryId: true, forwardedToUserId: true, tenantId: true, customerName: true },
   });
   if (!existing) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
@@ -364,6 +374,7 @@ router.delete('/:id', authMiddleware, requireStaffPermission('cs.delete'), async
     existing.inquiryId,
     existing.forwardedToUserId ? [existing.forwardedToUserId] : [],
     existing.tenantId,
+    { variant: 'updated', customerName: existing.customerName },
   );
   res.json({ ok: true });
 });
