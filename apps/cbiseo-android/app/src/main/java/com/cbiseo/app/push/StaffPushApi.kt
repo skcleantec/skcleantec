@@ -50,7 +50,7 @@ object StaffPushApi {
             }
             Log.i(TAG, "FCM token registered with server")
         }.onFailure { e ->
-            Log.w(TAG, "FCM token registration failed", e)
+            Log.e(TAG, "FCM token registration failed: ${e.message}", e)
         }
     }
 

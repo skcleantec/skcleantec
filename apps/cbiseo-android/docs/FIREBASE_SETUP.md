@@ -115,9 +115,37 @@ cd apps\cbiseo-android
 | 증상 | 확인 |
 |------|------|
 | Gradle «google-services.json 없음» | `app/google-services.json` 경로 |
-| 토큰 DB에 없음 | JWT 유효·알림 권한·스테이징 URL(pyo 계정) |
+| **`hasRegisteredToken: false`** (status API) | Play **v14+** 앱 로그인 · `probe-staff-push-status.mjs` 로 확인 |
+| 토큰 DB에 없음 | JWT 유효 · **FCM 토큰은 권한 없이도 등록** (v14) · Logcat `StaffFcmRegistrar` |
 | 푸시 없음·WS만 됨 | Railway `FIREBASE_SERVICE_ACCOUNT_JSON` · redeploy |
+| **알림 권한 팝업 없음** | v14+ · 설정→앱→청소비서→알림 · 팀 **알림 설정** 「알림 허용」 |
+| **Play AAB 알림 안 보임** | Firebase Console → Android 앱 → **SHA-1**(Play 앱 서명 인증서) 추가 |
+| 알림 아이콘 깨짐/미표시 | 컬러 launcher 대신 `ic_stat_notify`(흰색) 사용 — v14 |
 | `registration-token-not-registered` | 서버가 stale 토큰 자동 삭제 — 앱 재로그인 |
+
+### status API 점검 (PowerShell)
+
+```powershell
+# 1) 로그인 (tenant·아이디·비번을 실제 값으로)
+$login = Invoke-RestMethod -Method POST -Uri "https://www.cbiseo.com/api/auth/login" `
+  -ContentType "application/json" `
+  -Body '{"tenantSlug":"cbiseo","email":"cbiseo","password":"1234"}'
+
+# 2) 상태 — JWT는 $login.token (문자열 "로그인_JWT" 아님!)
+Invoke-RestMethod -Uri "https://www.cbiseo.com/api/push/staff-app/status" `
+  -Headers @{ Authorization = "Bearer $($login.token)" }
+```
+
+| 필드 | true/false 의미 |
+|------|-----------------|
+| `fcmServerConfigured` | 서버 Firebase Admin OK |
+| `hasRegisteredToken` | **이 폰·앱에서 FCM 등록 완료** |
+
+### Play 앱 서명 SHA-1 (Firebase Console)
+
+1. Play Console → 앱 → **설정 → 앱 무결성** → **앱 서명 키 인증서** SHA-1 복사
+2. Firebase Console → 프로젝트 설정 → Android `com.cbiseo.app` → **SHA 인증서 지문 추가**
+3. (로컬 AAB 테스트 시) `.\gradlew.bat signingReport` → `playRelease` SHA-1도 추가
 
 ---
 
