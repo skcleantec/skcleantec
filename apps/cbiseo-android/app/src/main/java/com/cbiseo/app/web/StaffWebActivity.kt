@@ -22,7 +22,7 @@ class StaffWebActivity : AppCompatActivity() {
     private lateinit var binding: ActivityStaffWebBinding
     private val tokenStore by lazy { TokenStore.get(this) }
     private var sessionBootstrapDone = false
-    private var fcmRegistered = false
+    private var fcmPermissionRequested = false
     private var openingLoginScreen = false
     private var pendingPushPath: String? = null
     private var systemBarsBottomPx = 0
@@ -119,11 +119,7 @@ class StaffWebActivity : AppCompatActivity() {
                 }
 
                 syncSafeAreaToWebView()
-
-                if (!fcmRegistered && current.contains(homePath)) {
-                    fcmRegistered = true
-                    StaffFcmRegistrar.requestPermissionAndRegister(this@StaffWebActivity)
-                }
+                maybeRegisterStaffPush(current, apiBaseUrl)
 
                 flushPendingPushPath()
             }
@@ -135,6 +131,24 @@ class StaffWebActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webViewInForeground = true
+        val apiBaseUrl = tokenStore.getApiBaseUrl()?.trim()?.trimEnd('/').orEmpty()
+        val current = binding.staffWebView.url.orEmpty()
+        if (sessionBootstrapDone && apiBaseUrl.isNotBlank() && current.startsWith(apiBaseUrl)) {
+            maybeRegisterStaffPush(current, apiBaseUrl)
+        }
+    }
+
+    /** 팀·관리 화면 진입 시 FCM 토큰 서버 등록(재시도 포함). */
+    private fun maybeRegisterStaffPush(currentUrl: String, apiBaseUrl: String) {
+        if (StaffWebSessionSync.isStaffWebLoginUrl(currentUrl, apiBaseUrl)) return
+        val path = currentUrl.removePrefix(apiBaseUrl)
+        if (!path.startsWith("/team/") && !path.startsWith("/admin/")) return
+        if (!fcmPermissionRequested) {
+            fcmPermissionRequested = true
+            StaffFcmRegistrar.requestPermissionAndRegister(this)
+        } else {
+            StaffFcmRegistrar.registerToken(this)
+        }
     }
 
     override fun onPause() {

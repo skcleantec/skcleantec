@@ -1,6 +1,7 @@
 package com.cbiseo.app.push
 
 import android.content.Context
+import android.util.Log
 import com.cbiseo.app.auth.TokenStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,9 +44,14 @@ object StaffPushApi {
                 if (!response.isSuccessful) {
                     val raw = response.body?.string().orEmpty()
                     val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
-                    throw IllegalStateException(err?.takeIf { it.isNotBlank() } ?: "알림 등록 실패")
+                    throw IllegalStateException(err?.takeIf { it.isNotBlank() } ?: "알림 등록 실패 (${response.code})")
                 }
             }
+            Log.i(TAG, "FCM token registered with server")
+        }.onFailure { e ->
+            Log.w(TAG, "FCM token registration failed", e)
         }
     }
+
+    private const val TAG = "StaffPushApi"
 }

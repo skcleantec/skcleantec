@@ -6,9 +6,11 @@ import {
 import { notifyStaffInboxRefresh } from '../realtime/navBadgeNotify.js';
 
 /**
- * 접수 PATCH 후 푸시 등 — Web Push는 사용하지 않음. (실시간은 `notifyInboxRefresh` / WS)
+ * 접수 PATCH — 팀장 배정·해제·재배정 시 FCM(assignment) + WS 갱신.
+ * POST /assignments 와 동일하게 `notifyNewAssignmentForInquiry` 를 사용한다.
  */
-export async function notifyAfterInquiryPatch(_params: {
+export async function notifyAfterInquiryPatch(params: {
+  tenantId: string;
   inquiryBefore: { assignments: { teamLeaderId: string }[] };
   inquiryAfter: {
     id: string;
@@ -17,7 +19,21 @@ export async function notifyAfterInquiryPatch(_params: {
     assignments: { teamLeaderId: string }[];
   };
   lines: string[];
-}): Promise<void> {}
+}): Promise<void> {
+  void params.lines;
+  const beforeSet = new Set(params.inquiryBefore.assignments.map((a) => a.teamLeaderId));
+  const afterSet = new Set(params.inquiryAfter.assignments.map((a) => a.teamLeaderId));
+  const newTeamLeaderIds = [...afterSet].filter((id) => !beforeSet.has(id));
+  const previousTeamLeaderIds = [...beforeSet].filter((id) => !afterSet.has(id));
+  if (newTeamLeaderIds.length === 0 && previousTeamLeaderIds.length === 0) return;
+
+  await notifyNewAssignmentForInquiry(
+    params.tenantId,
+    params.inquiryAfter.id,
+    newTeamLeaderIds,
+    previousTeamLeaderIds,
+  );
+}
 
 /**
  * 팀장 배정·재배정 직후: 해당 팀장(및 직전 담당)에게 WS `inbox:refresh` + 유형별 FCM.

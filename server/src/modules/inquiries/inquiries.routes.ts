@@ -1752,13 +1752,9 @@ router.patch('/:id', async (req, res) => {
     if (createdCsReport) {
       void notifyCsReportNavBadges(id, undefined, tenantId);
     }
-    if (wantsTeamSync || operatingCompanyChanged) {
-      const leaderIds = new Set<string>();
-      for (const a of inquiry.assignments) leaderIds.add(a.teamLeaderId);
-      if (wantsTeamSync) {
-        for (const tid of teamLeaderIds) leaderIds.add(tid);
-      }
-      void notifyStaffInboxRefresh(tenantId, [...leaderIds]);
+    if (operatingCompanyChanged) {
+      const leaderIds = inquiry.assignments.map((a) => a.teamLeaderId);
+      void notifyStaffInboxRefresh(tenantId, leaderIds);
     }
     if (lines.length > 0) {
       notifyChangeLogToStaff({
@@ -1829,6 +1825,7 @@ router.patch('/:id', async (req, res) => {
     );
   }
   void notifyAfterInquiryPatch({
+    tenantId,
     inquiryBefore: {
       assignments: inquiry.assignments.map((a) => ({ teamLeaderId: a.teamLeaderId })),
     },
