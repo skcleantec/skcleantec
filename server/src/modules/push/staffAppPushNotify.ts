@@ -87,11 +87,23 @@ export async function notifyStaffAppFcmRefresh(
       if (messages.length === 0) continue;
 
       const response = await fcm.sendEach(
-        messages.map((m) => ({
-          token: m.token,
-          data: m.data,
-          android: { priority: 'high' as const },
-        })),
+        messages.map((m) => {
+          const title = m.data.title?.trim() || '청소비서';
+          const body = m.data.body?.trim() || '새 알림이 있습니다.';
+          return {
+            token: m.token,
+            data: m.data,
+            // data-only는 Android 백그라운드에서 onMessageReceived가 안 불려 알림이 안 보임
+            notification: { title, body },
+            android: {
+              priority: 'high' as const,
+              notification: {
+                channelId: 'cbiseo_staff_default',
+                priority: 'high' as const,
+              },
+            },
+          };
+        }),
       );
 
       response.responses.forEach((res, idx) => {

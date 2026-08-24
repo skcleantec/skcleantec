@@ -43,6 +43,8 @@ object StaffFcmRegistrar {
                     arrayOf(Manifest.permission.POST_NOTIFICATIONS),
                     REQUEST_NOTIFICATIONS,
                 )
+                // 알림 권한과 무관하게 FCM 토큰은 서버에 등록 (권한 허용 후 표시 가능)
+                registerToken(activity)
                 return
             }
         }
