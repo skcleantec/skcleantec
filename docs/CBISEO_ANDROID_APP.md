@@ -88,8 +88,10 @@
 | P1 | 정보공유 인계 | 「DB가 인계되었습니다」 |
 | P2 | 해피콜·스케줄 알림 | cron/기존 스케줄 알림 연동 |
 
-- **포그라운드:** WS `inbox:refresh` → 페이지 silent refetch (`.cursor/rules/team-realtime-websocket.mdc`)
-- **백그라운드:** FCM data/notification → 탭 시 deep link (`/team/assignments`, `/admin/messages` 등)
+- **포그라운드:** WS `inbox:refresh` → 페이지 silent refetch (`.cursor/rules/team-realtime-websocket.mdc`). FCM `staff-app:navigate` 수신 시 `cbiseo:navigate` 로 해당 화면 이동.
+- **백그라운드:** FCM **data-only** (`type: staff-app:navigate`, `kind`, `title`, `body`, `path`) → 네이티브 알림 표시 → 탭 시 `StaffWebActivity` + WebView `cbiseo:navigate`
+
+**P0 구현 (Phase 5):** 배정·1:1 메시지 — 규약 `shared/staffAppPush.ts`, 수신자별 문구·경로 (`/team/assignments?openInquiry=`, `/admin/messages` 등).
 
 ### 4.2 DB · API
 
@@ -114,7 +116,7 @@
 | **2** | FCM 토큰 register API + `StaffAppFcmToken` 마이그레이션 | ✅ |
 | **3** | Firebase Admin 발송 + Android FCM SDK (코드) | ✅ — **Console·Railway 설정 필요** |
 | **4** | Play 내부 테스트 · 스토어 등록 | [`FIREBASE_SETUP.md`](../apps/cbiseo-android/docs/FIREBASE_SETUP.md) |
-| **5** | 푸시 딥링크·문구 세분화 | 예정 |
+| **5** | 푸시 딥링크·문구 세분화 (P0 배정·메시지) + 하단 safe-area | ✅ P0 — P1(C/S·정보공유) 예정 |
 
 ---
 
@@ -125,8 +127,9 @@
 | Android 셸 | `apps/cbiseo-android/` |
 | **Firebase·FCM 설정** | [`apps/cbiseo-android/docs/FIREBASE_SETUP.md`](../apps/cbiseo-android/docs/FIREBASE_SETUP.md) |
 | Play 가이드 | `apps/cbiseo-android/docs/GOOGLE_PLAY_CBISEO.md` |
-| 정책 상수 | `shared/cbiseoStaffAppPolicy.ts` |
-| 클라이언트 감지 | `client/src/utils/cbiseoNativeApp.ts` |
+| 정책 상수 | `shared/cbiseoStaffAppPolicy.ts` · `shared/staffAppPush.ts` |
+| 클라이언트 감지 | `client/src/utils/cbiseoNativeApp.ts` · `hooks/useStaffAppPushNavigation.ts` |
+| Android 알림·딥링크 | `StaffPushNotificationHelper.kt` · `StaffWebActivity.kt` |
 | 서버 push | `server/src/modules/push/staffAppPush.*` |
 | 에이전트 규칙 | `.cursor/rules/cbiseo-android-app.mdc` |
 | 전화 앱 (별도) | `apps/telecrm-android/` · `docs/TELECRM_ANDROID_APP.md` |

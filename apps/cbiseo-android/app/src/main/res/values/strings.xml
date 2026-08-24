@@ -9,6 +9,9 @@
     <string name="action_login">로그인</string>
     <string name="server_preset_production">운영</string>
     <string name="server_preset_staging">스테이징</string>
-    <string name="server_preset_hint">테스트 계정(pyo)만 서버를 선택할 수 있습니다.</string>
+    <string name="server_preset_hint">테스트 계정(pyo, pyo2)만 서버를 선택할 수 있습니다.</string>
     <string name="role_not_supported">이 계정은 앱에서 이용할 수 없습니다. 팀장·마케터·관리자 계정으로 로그인해 주세요.</string>
+    <string name="fcm_default_channel_name">청소비서 알림</string>
+    <string name="fcm_default_channel_description">배정·메시지 등 업무 알림</string>
+    <string name="fcm_default_body">새 알림이 있습니다. 탭하여 확인하세요.</string>
 </resources>

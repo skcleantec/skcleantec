@@ -21,6 +21,8 @@ import {
   prefetchTeamLeadersSettlementPages,
 } from '../../utils/prefetchAdminPages';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
+import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
+import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import {
   useInboxRealtime,
@@ -234,6 +236,12 @@ export function AdminLayout() {
     [navigate],
   );
   const location = useLocation();
+  useStaffAppPushNavigation(Boolean(adminToken));
+  useEffect(() => {
+    if (isCbiseoStaffNativeApp()) {
+      document.documentElement.classList.add('cbiseo-staff-app');
+    }
+  }, []);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [reviewPaybackUnseenCount, setReviewPaybackUnseenCount] = useState(0);
@@ -1128,6 +1136,9 @@ export function AdminLayout() {
                 loading={meProfileLoading}
                 showStagingDbImport={showStagingDbImportMenu}
                 onStagingDbImport={() => setStagingDbImportModalOpen(true)}
+                teamNotificationSettingsHref={
+                  meRole === 'ADMIN' || meRole === 'MARKETER' ? '/admin/notification-settings' : null
+                }
                 onSaved={(next) => {
                   setMeName(next.name);
                   setMePhone(next.phone);
@@ -1394,6 +1405,9 @@ export function AdminLayout() {
               loading={meProfileLoading}
               showStagingDbImport={showStagingDbImportMenu}
               onStagingDbImport={() => setStagingDbImportModalOpen(true)}
+              teamNotificationSettingsHref={
+                meRole === 'ADMIN' || meRole === 'MARKETER' ? '/admin/notification-settings' : null
+              }
               onSaved={(next) => {
                 setMeName(next.name);
                 setMePhone(next.phone);

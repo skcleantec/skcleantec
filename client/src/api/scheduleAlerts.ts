@@ -1,6 +1,6 @@
 import { API } from './apiPrefix';
 
-export type ScheduleAlertKind = 'date' | 'cancel';
+export type ScheduleAlertKind = 'date' | 'cancel' | 'cost';
 
 export type ScheduleAlertItem = {
   id: string;

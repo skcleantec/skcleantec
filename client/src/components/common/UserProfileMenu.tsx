@@ -39,6 +39,7 @@ export function UserProfileMenu({
   teamEContractMenu,
   /** `/team/training` — SK 팀장·등록된 PDF 있을 때 */
   teamTrainingMenu,
+  teamNotificationSettingsHref,
 }: {
   token: string | null;
   me: MeUser | null;
@@ -60,6 +61,7 @@ export function UserProfileMenu({
   onStagingDbImport?: () => void;
   teamEContractMenu?: TeamEContractDropdown | null;
   teamTrainingMenu?: TeamTrainingDropdown | null;
+  teamNotificationSettingsHref?: string | null;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -210,6 +212,15 @@ export function UserProfileMenu({
                 className="block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900"
               >
                 현장팀장 교육자료
+              </Link>
+            ) : null}
+            {teamNotificationSettingsHref ? (
+              <Link
+                to={teamNotificationSettingsHref}
+                onClick={() => setMenuOpen(false)}
+                className="block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900"
+              >
+                알림 설정
               </Link>
             ) : null}
             {showStagingDbImport && onStagingDbImport ? (

@@ -72,6 +72,11 @@ export const TeamSchedulePage = lazyWithRetry(() =>
 export const TeamMessagesPage = lazyWithRetry(() =>
   import('../pages/team/TeamMessagesPage').then((m) => ({ default: m.TeamMessagesPage }))
 );
+export const TeamNotificationSettingsPage = lazyWithRetry(() =>
+  import('../pages/team/TeamNotificationSettingsPage').then((m) => ({
+    default: m.TeamNotificationSettingsPage,
+  }))
+);
 export const TeamDayOffsPage = lazyWithRetry(() =>
   import('../pages/team/TeamDayOffsPage').then((m) => ({ default: m.TeamDayOffsPage }))
 );
@@ -210,6 +215,16 @@ export const AdminTenantCompanyOutboundEmailPage = lazyWithRetry(() =>
 export const AdminOperatingCompanyPolicyPage = lazyWithRetry(() =>
   import('../pages/admin/AdminOperatingCompanyPolicyPage').then((m) => ({
     default: m.AdminOperatingCompanyPolicyPage,
+  }))
+);
+export const AdminNotificationPolicyPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminNotificationPolicyPage').then((m) => ({
+    default: m.AdminNotificationPolicyPage,
+  }))
+);
+export const AdminNotificationSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminNotificationSettingsPage').then((m) => ({
+    default: m.AdminNotificationSettingsPage,
   }))
 );
 export const AdminStaffAccessSettingsPage = lazyWithRetry(() =>

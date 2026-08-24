@@ -59,7 +59,8 @@
     "db:migrate-cs-images": "tsx scripts/migrate-cs-images-to-cloudinary.ts",
     "db:purge:inquiries": "tsx scripts/purge-all-inquiries.ts",
     "cron:inspection-retention": "tsx scripts/run-inspection-retention.ts",
-    "cron:billing-daily": "tsx scripts/run-billing-daily.ts"
+    "cron:billing-daily": "tsx scripts/run-billing-daily.ts",
+    "cron:happy-call-reminders": "tsx scripts/run-happy-call-reminders.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

@@ -31,6 +31,28 @@ html, body {
   flex-direction: column;
 }
 
+/** Google Play 청소비서 앱 WebView — 하단 시스템 내비게이션 바 여백 */
+html.cbiseo-staff-app {
+  --cbiseo-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html.cbiseo-staff-app .staff-app-surface {
+  padding-bottom: max(0.75rem, var(--cbiseo-safe-area-bottom, 0px));
+}
+
+html.cbiseo-staff-app .modal-mobile-fullscreen-panel {
+  padding-bottom: max(0px, var(--cbiseo-safe-area-bottom, 0px));
+}
+
+/** 업무 앱 WebView — env(safe-area)가 0인 Galaxy 등에서 네이티브 inset 변수 사용 */
+html.cbiseo-staff-app .modal-mobile-safe-overlay {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px));
+}
+
+html.cbiseo-staff-app .profile-onboarding-modal-footer {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px));
+}
+
 /**
  * iOS Safari·PWA: input font-size < 16px 포커스 시 페이지 자동 확대.
  * blur 후에는 배율이 자동 복원되지 않아 pinch-out 필요 → 터치 기기 입력은 16px 고정으로 예방.

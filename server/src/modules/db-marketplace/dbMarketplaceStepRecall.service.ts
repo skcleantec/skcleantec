@@ -8,11 +8,12 @@ import {
 } from '../tenant-partners/tenantInquiryShareBalance.helpers.js';
 import { stampTenantShareCancelFeeDirection } from '../tenant-partners/tenantPartnerSettlement.service.js';
 import { invalidateExternalSettlementOverviewPayableCache } from '../external-companies/externalSettlementOverviewCache.js';
-import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { DbMarketplaceError } from './dbMarketplace.service.js';
 import {
   activeStaffAdminMarketerUserIds,
+  buildDbMarketplacePushMeta,
   externalPartnerUserIds,
+  notifyDbMarketplaceRecalled,
 } from './dbMarketplaceNotify.service.js';
 import { assertRootSellerCanRecall } from './dbMarketplaceChain.helpers.js';
 import { reverseDbMarketplaceFeeLedgerInTx } from './dbMarketplaceFeeLedger.service.js';
@@ -370,7 +371,9 @@ export async function stepRecallDbListing(opts: {
       notifyUserIds.add(id);
     }
   }
-  if (notifyUserIds.size > 0) await notifyInboxRefresh([...notifyUserIds]);
+  if (notifyUserIds.size > 0) {
+    await notifyDbMarketplaceRecalled(notifyUserIds, buildDbMarketplacePushMeta('recalled', listing));
+  }
 
   if (operatingCompanyId && buyerExternalCompanyId) {
     invalidateExternalSettlementOverviewPayableCache(opts.sellerTenantId, operatingCompanyId);

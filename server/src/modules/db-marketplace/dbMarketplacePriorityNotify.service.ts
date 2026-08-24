@@ -1,11 +1,12 @@
 import type { InquiryDbListingOfferMode } from '@prisma/client';
 import type { DbMarketplaceAudienceRef } from './dbMarketplaceNotify.service.js';
+import { notifyInboxRefreshWithPush } from '../notifications/staffAppPushDispatch.helpers.js';
+import { buildDbMarketplacePushPayload } from '../../lib/staffAppPush.helpers.js';
 import {
   activeStaffAdminMarketerUserIds,
   externalPartnerUserIds,
   notifyDbMarketplaceSellerAdmins,
 } from './dbMarketplaceNotify.service.js';
-import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { audienceRefFromRow, type PriorityAudienceRow } from './dbMarketplacePriority.helpers.js';
 
 async function userIdsForAudience(
@@ -36,7 +37,11 @@ export async function notifyDbMarketplacePriorityRank(opts: {
   for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) {
     userIds.add(id);
   }
-  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+  if (userIds.size > 0) {
+    await notifyInboxRefreshWithPush([...userIds], (role) =>
+      buildDbMarketplacePushPayload({ variant: 'listing_published', role }),
+    );
+  }
 }
 
 /** 3순위 소진 — 장바구니 복귀, 판매자만 */

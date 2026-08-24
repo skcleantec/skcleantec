@@ -7,6 +7,7 @@ import {
   type ExternalCompanyOnboarding,
 } from '../../api/auth';
 import { onboardingContactNameForForm } from '@shared/profileOnboarding';
+import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 
 export type ProfileOnboardingInitial = {
   role: string;
@@ -146,15 +147,29 @@ export function ProfileOnboardingModal({
   if (!open) return null;
 
   const previewSrc = imagePreview ?? existingImageUrl;
+  const staffNativeApp = isCbiseoStaffNativeApp();
+
+  const saveButtonEl = (
+    <button
+      type="button"
+      disabled={saving}
+      onClick={() => void submit()}
+      className="min-h-11 w-full rounded-lg bg-slate-900 py-2.5 text-fluid-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+    >
+      {saving ? '저장 중…' : '저장하고 시작하기'}
+    </button>
+  );
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[700] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      className={`fixed inset-0 z-[700] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4${
+        staffNativeApp ? ' modal-mobile-safe-overlay' : ''
+      }`}
       role="dialog"
       aria-modal
       aria-labelledby="profile-onboarding-title"
     >
-      <div className="flex max-h-[min(94dvh,760px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl sm:rounded-2xl">
+      <div className="flex max-h-[min(calc(94dvh-env(safe-area-inset-bottom,0px)-var(--cbiseo-safe-area-bottom,0px)),760px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl sm:max-h-[min(94dvh,760px)] sm:rounded-2xl">
         <div className="shrink-0 border-b border-gray-200 px-4 py-4 sm:px-5">
           <h2 id="profile-onboarding-title" className="text-fluid-base font-semibold text-gray-900">
             {title}
@@ -293,18 +308,19 @@ export function ProfileOnboardingModal({
               </section>
             ) : null}
           </div>
+
+          {staffNativeApp ? (
+            <div className="profile-onboarding-modal-footer mt-4 border-t border-gray-100 pt-4">
+              {saveButtonEl}
+            </div>
+          ) : null}
         </div>
 
-        <div className="shrink-0 border-t border-gray-100 px-4 py-3 sm:px-5">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void submit()}
-            className="w-full rounded-lg bg-slate-900 py-2.5 text-fluid-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-          >
-            {saving ? '저장 중…' : '저장하고 시작하기'}
-          </button>
-        </div>
+        {!staffNativeApp ? (
+          <div className="profile-onboarding-modal-footer shrink-0 border-t border-gray-100 px-4 pt-3 sm:px-5">
+            {saveButtonEl}
+          </div>
+        ) : null}
       </div>
     </div>,
     document.body,

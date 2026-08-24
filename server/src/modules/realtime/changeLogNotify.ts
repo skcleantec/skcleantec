@@ -1,4 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
+import { buildScheduleAlertPushPayload } from '../../lib/staffAppPush.helpers.js';
+import type { StaffAppPushPayload } from '../../lib/staffAppPush.helpers.js';
 import { broadcastJsonToStaff, sendJsonToUser } from './realtimeHub.js';
 import type { ChangeLogCategory } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import {
@@ -7,6 +9,7 @@ import {
 } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { filterMarketerOnlyChangeLogLines } from '../inquiries/internalCustomerTone.js';
 import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
+import { notifyStaffInboxRefresh } from './navBadgeNotify.js';
 
 export type ChangeLogWsPayload = {
   type: 'changelog:new';
@@ -58,7 +61,7 @@ function buildScheduleAlertWsPayload(params: {
   };
 }
 
-function notifyScheduleAlertToStaff(params: {
+async function notifyScheduleAlertToStaff(params: {
   tenantId: string;
   customerName: string;
   inquiryId: string | null;
@@ -66,14 +69,24 @@ function notifyScheduleAlertToStaff(params: {
   kind: ScheduleAlertKind;
   lines: string[];
   actorId?: string | null;
-}): void {
-  const payload = buildScheduleAlertWsPayload(params);
-  broadcastJsonToStaff(payload, params.tenantId);
+  /** 취소·보류 PATCH 등으로 Assignment 행이 이미 지워진 뒤 알릴 담당 팀장 */
+  affectedTeamLeaderIds?: string[];
+}): Promise<void> {
+  const wsPayload = buildScheduleAlertWsPayload(params);
+  broadcastJsonToStaff(wsPayload, params.tenantId);
 
-  if (!params.inquiryId) return;
-  void (async () => {
+  let leaderIds: string[] = [];
+  if (params.affectedTeamLeaderIds && params.affectedTeamLeaderIds.length > 0) {
+    const seen = new Set<string>();
+    for (const id of params.affectedTeamLeaderIds) {
+      if (!id || seen.has(id)) continue;
+      if (params.actorId && id === params.actorId) continue;
+      seen.add(id);
+      leaderIds.push(id);
+    }
+  } else if (params.inquiryId) {
     const assigns = await prisma.assignment.findMany({
-      where: { inquiryId: params.inquiryId as string, tenantId: params.tenantId },
+      where: { inquiryId: params.inquiryId, tenantId: params.tenantId },
       select: { teamLeaderId: true },
     });
     const seen = new Set<string>();
@@ -81,9 +94,37 @@ function notifyScheduleAlertToStaff(params: {
       if (!a.teamLeaderId || seen.has(a.teamLeaderId)) continue;
       if (params.actorId && a.teamLeaderId === params.actorId) continue;
       seen.add(a.teamLeaderId);
-      sendJsonToUser(a.teamLeaderId, payload, params.tenantId);
+      leaderIds.push(a.teamLeaderId);
     }
-  })().catch((e) => console.error('[schedule-alert-notify] team leaders', e));
+  }
+  if (leaderIds.length === 0) return;
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: leaderIds }, tenantId: params.tenantId },
+    select: { id: true, role: true },
+  });
+  const pushByUserId: Record<string, StaffAppPushPayload> = {};
+  if (params.inquiryId) {
+    for (const u of users) {
+      pushByUserId[u.id] = buildScheduleAlertPushPayload({
+        customerName: params.customerName,
+        inquiryId: params.inquiryId,
+        kind: params.kind,
+        summary: wsPayload.summary,
+        role: u.role,
+      });
+    }
+  }
+
+  await notifyStaffInboxRefresh(
+    params.tenantId,
+    leaderIds,
+    Object.keys(pushByUserId).length > 0 ? pushByUserId : undefined,
+  );
+
+  for (const id of leaderIds) {
+    sendJsonToUser(id, wsPayload, params.tenantId);
+  }
 }
 
 /**
@@ -99,6 +140,8 @@ export function notifyChangeLogToStaff(params: {
   changeLogId?: string;
   actorId?: string | null;
   scheduleAlertKind?: ScheduleAlertKind | null;
+  /** PATCH 직전 담당 팀장 — 취소·보류로 Assignment 삭제 후에도 알림 대상 유지 */
+  affectedTeamLeaderIds?: string[];
 }): void {
   const lines = params.lines.filter(Boolean);
   if (lines.length === 0) return;
@@ -110,7 +153,7 @@ export function notifyChangeLogToStaff(params: {
 
   const kind = params.scheduleAlertKind ?? resolveScheduleAlertKind(lines);
   if (kind && params.changeLogId) {
-    notifyScheduleAlertToStaff({
+    void notifyScheduleAlertToStaff({
       tenantId: params.tenantId,
       customerName: params.customerName,
       inquiryId: params.inquiryId,
@@ -118,7 +161,8 @@ export function notifyChangeLogToStaff(params: {
       kind,
       lines,
       actorId: params.actorId,
-    });
+      affectedTeamLeaderIds: params.affectedTeamLeaderIds,
+    }).catch((e) => console.error('[schedule-alert-notify] team leaders', e));
   }
 
   const teamLines = filterMarketerOnlyChangeLogLines(lines);

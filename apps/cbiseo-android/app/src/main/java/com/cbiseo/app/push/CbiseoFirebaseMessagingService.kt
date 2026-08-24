@@ -11,8 +11,46 @@ class CbiseoFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        if (message.data["type"] != "inbox:refresh") return
-        StaffWebActivity.dispatchInboxRefreshToWebView()
+        val data = message.data
+        when (data["type"]) {
+            "staff-app:navigate" -> handleNavigatePush(data)
+            "inbox:refresh" -> StaffWebActivity.dispatchInboxRefreshToWebView()
+            else -> Unit
+        }
+    }
+
+    private fun handleNavigatePush(data: Map<String, String>) {
+        val title = data["title"].orEmpty()
+        val body = data["body"].orEmpty()
+        val path = data["path"].orEmpty()
+        val kind = data["kind"].orEmpty()
+
+        if (StaffWebActivity.isWebViewInForeground()) {
+            StaffWebActivity.dispatchInboxRefreshToWebView()
+            if (path.isNotBlank()) {
+                StaffWebActivity.dispatchNavigateToWebView(path)
+            }
+            if (kind == "assignment" || kind == "happy_call" || kind == "schedule_alert") {
+                val notificationId = (kind + path + title).hashCode()
+                StaffPushNotificationHelper.showNavigateNotification(
+                    context = applicationContext,
+                    title = title.ifBlank { "청소비서" },
+                    body = body.ifBlank { "새 알림이 있습니다." },
+                    path = path,
+                    notificationId = notificationId,
+                )
+            }
+            return
+        }
+
+        val notificationId = (kind + path + title).hashCode()
+        StaffPushNotificationHelper.showNavigateNotification(
+            context = applicationContext,
+            title = title,
+            body = body,
+            path = path,
+            notificationId = notificationId,
+        )
     }
 
     override fun onDeletedMessages() {

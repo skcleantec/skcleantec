@@ -44,6 +44,7 @@ import {
   TeamDashboardPage,
   TeamSchedulePage,
   TeamMessagesPage,
+  TeamNotificationSettingsPage,
   TeamDayOffsPage,
   TeamCsPage,
   TeamAssignmentListPage,
@@ -84,6 +85,8 @@ import {
   AdminTenantCompanyBusinessPage,
   AdminTenantCompanyOutboundEmailPage,
   AdminOperatingCompanyPolicyPage,
+  AdminNotificationPolicyPage,
+  AdminNotificationSettingsPage,
   AdminStaffAccessSettingsPage,
   AdminExternalSettlementPage,
   AdminPageSettingsPage,
@@ -285,6 +288,8 @@ function App() {
               element={<SuspensePage><AdminTenantCompanyOutboundEmailPage /></SuspensePage>}
             />
             <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
+            <Route path="notification-policy" element={<SuspensePage><AdminNotificationPolicyPage /></SuspensePage>} />
+            <Route path="notification-settings" element={<SuspensePage><AdminNotificationSettingsPage /></SuspensePage>} />
             <Route path="staff-access" element={<SuspensePage><AdminStaffAccessSettingsPage /></SuspensePage>} />
             <Route
               path="inspection-template"
@@ -477,6 +482,7 @@ function App() {
           />
           <Route path="cs" element={<SuspensePage><TeamCsPage /></SuspensePage>} />
           <Route path="messages" element={<SuspensePage><TeamMessagesPage /></SuspensePage>} />
+          <Route path="notification-settings" element={<SuspensePage><TeamNotificationSettingsPage /></SuspensePage>} />
           <Route path="e-contracts" element={<SuspensePage><TeamEContractListPage /></SuspensePage>} />
           <Route path="training" element={<SuspensePage><TeamTrainingMaterialPage /></SuspensePage>} />
           <Route path="quotations/new" element={<SuspensePage><TeamQuotationEditorPage /></SuspensePage>} />

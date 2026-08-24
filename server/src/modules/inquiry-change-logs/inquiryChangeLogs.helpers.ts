@@ -2,7 +2,7 @@ import type { InquiryChangeLog, Inquiry } from '@prisma/client';
 
 /** 변경 유형 — 클라이언트 색·아이콘·필터에 사용 */
 export type ChangeLogCategory = 'date' | 'cost' | 'extra' | 'team' | 'status' | 'etc';
-export type ScheduleAlertKind = 'date' | 'cancel';
+export type ScheduleAlertKind = 'date' | 'cancel' | 'cost';
 
 export type ChangeHistoryItemDto = {
   id: string;
@@ -34,11 +34,13 @@ export function categorizeChangeLine(line: string): ChangeLogCategory {
   return 'etc';
 }
 
-/** 일정 긴급 알림(사이렌) — 취소·날짜 변경만. 보류 등 제외 */
+/** 일정 긴급 알림(사이렌) — 취소·날짜·금액 변경. 보류 등 제외 */
 export function resolveScheduleAlertKind(lines: string[]): ScheduleAlertKind | null {
   if (lines.length === 0) return null;
-  if (categorizeLines(lines).includes('date')) return 'date';
   if (lines.some((l) => /취소|CANCELLED/.test(l))) return 'cancel';
+  const categories = categorizeLines(lines);
+  if (categories.includes('date')) return 'date';
+  if (categories.includes('cost')) return 'cost';
   return null;
 }
 

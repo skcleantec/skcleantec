@@ -1,12 +1,58 @@
 import { prisma } from '../../lib/prisma.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { sendJsonToUser } from '../realtime/realtimeHub.js';
+import {
+  buildDbMarketplacePushPayload,
+  type DbMarketplacePushVariant,
+} from '../../lib/staffAppPush.helpers.js';
+import { buildPushByUserIdForUsers } from '../notifications/staffAppPushDispatch.helpers.js';
 
 export type DbMarketplaceAudienceRef = {
   audienceKind: string;
   partnerTenantId: string | null;
   externalCompanyId: string | null;
 };
+
+export type DbMarketplacePushMeta = {
+  variant: DbMarketplacePushVariant;
+  listingId?: string | null;
+  customerName?: string | null;
+};
+
+export function buildDbMarketplacePushMeta(
+  variant: DbMarketplacePushVariant,
+  listing?: { id: string; inquiry?: { customerName?: string | null } | null } | null,
+): DbMarketplacePushMeta {
+  return {
+    variant,
+    listingId: listing?.id,
+    customerName: listing?.inquiry?.customerName ?? null,
+  };
+}
+
+export async function notifyDbMarketplaceRecalled(
+  userIds: Iterable<string>,
+  pushMeta: DbMarketplacePushMeta,
+): Promise<void> {
+  await notifyDbMarketplaceUserIds(userIds, { ...pushMeta, variant: 'recalled' });
+}
+
+async function notifyDbMarketplaceUserIds(
+  userIds: Iterable<string>,
+  pushMeta: DbMarketplacePushMeta,
+): Promise<void> {
+  const ids = [...new Set([...userIds].filter(Boolean))];
+  if (ids.length === 0) return;
+  const pushByUserId = await buildPushByUserIdForUsers(ids, (role) =>
+    buildDbMarketplacePushPayload({
+      variant: pushMeta.variant,
+      role,
+      listingId: pushMeta.listingId,
+      customerName: pushMeta.customerName,
+    }),
+  );
+  await notifyInboxRefresh(ids, pushByUserId);
+}
 
 export async function activeStaffAdminMarketerUserIds(tenantId: string): Promise<string[]> {
   const rows = await prisma.user.findMany({
@@ -87,9 +133,12 @@ function mapAudiences(
 }
 
 /** 판매자 테넌트 관리자만 — 장바구니 배지·내 판매 탭 */
-export async function notifyDbMarketplaceSellerAdmins(tenantId: string): Promise<void> {
+export async function notifyDbMarketplaceSellerAdmins(
+  tenantId: string,
+  pushMeta?: DbMarketplacePushMeta,
+): Promise<void> {
   const userIds = await activeStaffAdminMarketerUserIds(tenantId);
-  if (userIds.length > 0) await notifyInboxRefresh(userIds);
+  await notifyDbMarketplaceUserIds(userIds, pushMeta ?? { variant: 'listing_published' });
 }
 
 /** 게시·철회·노출 변경 — 판매자 + 구매 가능 시청자 */
@@ -97,6 +146,7 @@ export async function notifyDbMarketplaceBroadcast(opts: {
   sellerTenantId: string;
   visibility: string;
   audiences: DbMarketplaceAudienceRef[];
+  push?: DbMarketplacePushMeta;
 }): Promise<void> {
   const userIds = new Set<string>();
   for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
@@ -107,7 +157,7 @@ export async function notifyDbMarketplaceBroadcast(opts: {
   })) {
     userIds.add(id);
   }
-  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+  await notifyDbMarketplaceUserIds(userIds, opts.push ?? { variant: 'listing_published' });
 }
 
 export async function notifyDbMarketplaceBuyerRequested(opts: {
@@ -116,6 +166,7 @@ export async function notifyDbMarketplaceBuyerRequested(opts: {
   audiences: DbMarketplaceAudienceRef[];
   buyerTenantId: string | null;
   buyerExternalCompanyId: string | null;
+  push?: DbMarketplacePushMeta;
 }): Promise<void> {
   const userIds = new Set<string>();
   for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
@@ -134,7 +185,7 @@ export async function notifyDbMarketplaceBuyerRequested(opts: {
       userIds.add(id);
     }
   }
-  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+  await notifyDbMarketplaceUserIds(userIds, opts.push ?? { variant: 'purchase_requested' });
 }
 
 export async function notifyDbMarketplaceConfirmed(opts: {
@@ -167,7 +218,12 @@ export async function notifyDbMarketplaceConfirmed(opts: {
     }
   }
 
-  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+  const pushMeta: DbMarketplacePushMeta = {
+    variant: 'confirmed',
+    listingId: opts.handoff?.listingId,
+    customerName: opts.handoff?.customerName,
+  };
+  await notifyDbMarketplaceUserIds(userIds, pushMeta);
 
   if (opts.handoff && buyerUserIds.length > 0) {
     const payload = {
@@ -196,6 +252,7 @@ export async function notifyDbMarketplaceSellerDeclined(opts: {
   audiences: DbMarketplaceAudienceRef[];
   buyerTenantId: string | null;
   buyerExternalCompanyId: string | null;
+  push?: DbMarketplacePushMeta;
 }): Promise<void> {
   const userIds = new Set<string>();
   for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
@@ -214,7 +271,7 @@ export async function notifyDbMarketplaceSellerDeclined(opts: {
       userIds.add(id);
     }
   }
-  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+  await notifyDbMarketplaceUserIds(userIds, opts.push ?? { variant: 'declined' });
 }
 
 /** listing Q&A 등록 — 판매자·시청자·구매 신청자(해당 시) 갱신 */
@@ -225,6 +282,7 @@ export async function notifyDbMarketplaceMessagePosted(opts: {
   buyerTenantId: string | null;
   buyerExternalCompanyId: string | null;
   authorUserId: string;
+  push?: DbMarketplacePushMeta;
 }): Promise<void> {
   const userIds = new Set<string>();
   for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
@@ -244,7 +302,7 @@ export async function notifyDbMarketplaceMessagePosted(opts: {
     }
   }
   userIds.delete(opts.authorUserId);
-  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+  await notifyDbMarketplaceUserIds(userIds, opts.push ?? { variant: 'message' });
 }
 
 /** listing hold 생성·해제 — 판매자·시청자·(해제 시) 이전 예약자 갱신 */
@@ -255,6 +313,7 @@ export async function notifyDbMarketplaceHoldChanged(opts: {
   buyerTenantId: string | null;
   buyerExternalCompanyId: string | null;
   authorUserId: string | null;
+  push?: DbMarketplacePushMeta;
 }): Promise<void> {
   const userIds = new Set<string>();
   for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
@@ -274,5 +333,5 @@ export async function notifyDbMarketplaceHoldChanged(opts: {
     }
   }
   if (opts.authorUserId) userIds.delete(opts.authorUserId);
-  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+  await notifyDbMarketplaceUserIds(userIds, opts.push ?? { variant: 'hold' });
 }

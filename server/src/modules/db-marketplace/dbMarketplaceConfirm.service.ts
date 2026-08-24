@@ -6,18 +6,16 @@ import {
   mapTenantCoinError,
 } from '../tenants/tenantCoin.service.js';
 import { createTenantInquiryShare, TenantInquiryShareError } from '../tenant-partners/tenantInquiryShare.service.js';
-import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyInboxRefreshWithPush } from '../notifications/staffAppPushDispatch.helpers.js';
+import { buildAssignmentPushPayload, buildDbMarketplacePushPayload } from '../../lib/staffAppPush.helpers.js';
 import { DbMarketplaceError } from './dbMarketplace.service.js';
-import {
-  assertBuyerCanViewListing,
-  type DbMarketplaceBuyerContext,
-} from './dbMarketplaceBuyerAccess.js';
 import {
   notifyDbMarketplaceBuyerRequested,
   notifyDbMarketplaceConfirmed,
   notifyDbMarketplaceSellerDeclined,
   activeStaffAdminMarketerUserIds,
   externalPartnerUserIds,
+  buildDbMarketplacePushMeta,
 } from './dbMarketplaceNotify.service.js';
 import { expireStaleOpenDbListings } from './dbMarketplaceExpire.service.js';
 import { invalidateExternalSettlementOverviewPayableCache } from '../external-companies/externalSettlementOverviewCache.js';
@@ -31,6 +29,10 @@ import {
   notifyDbMarketplacePriorityRank,
 } from './dbMarketplacePriorityNotify.service.js';
 import { resolveBuyerPriorityRank } from './dbMarketplacePriority.helpers.js';
+import {
+  assertBuyerCanViewListing,
+  type DbMarketplaceBuyerContext,
+} from './dbMarketplaceBuyerAccess.js';
 
 export type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 
@@ -96,6 +98,7 @@ export async function confirmDbListingBuyer(listingId: string, buyer: DbMarketpl
       audiences: updated.audiences,
       buyerTenantId: updated.buyerTenantId,
       buyerExternalCompanyId: updated.buyerExternalCompanyId,
+      push: buildDbMarketplacePushMeta('purchase_requested', updated),
     });
 
     return updated;
@@ -175,7 +178,18 @@ async function assignExternalCompanyBuyer(opts: {
     });
   });
 
-  await notifyInboxRefresh([partnerUser.id]);
+  const inquiry = await prisma.inquiry.findFirst({
+    where: { id: opts.inquiryId, tenantId: opts.tenantId },
+    select: { customerName: true },
+  });
+  await notifyInboxRefreshWithPush([partnerUser.id], () =>
+    buildAssignmentPushPayload({
+      customerName: inquiry?.customerName ?? '고객',
+      inquiryId: opts.inquiryId,
+      role: 'EXTERNAL_PARTNER',
+      variant: 'new',
+    }),
+  );
 }
 
 export async function confirmDbListingSeller(
@@ -450,7 +464,11 @@ export async function declineDbListingBuyer(listingId: string, buyer: DbMarketpl
       refreshUserIds.add(id);
     }
   }
-  if (refreshUserIds.size > 0) await notifyInboxRefresh([...refreshUserIds]);
+  if (refreshUserIds.size > 0) {
+    await notifyInboxRefreshWithPush([...refreshUserIds], (role) =>
+      buildDbMarketplacePushPayload({ variant: 'declined', role, listingId }),
+    );
+  }
 
   return updated;
 }
@@ -600,7 +618,9 @@ export async function declineDbListingSeller(
       }
     }
     if (declinedUserIds.size > 0) {
-      await notifyInboxRefresh([...declinedUserIds]);
+      await notifyInboxRefreshWithPush([...declinedUserIds], (role) =>
+        buildDbMarketplacePushPayload({ variant: 'declined', role, listingId }),
+      );
     }
   } else {
     await notifyDbMarketplaceSellerDeclined({
@@ -609,6 +629,7 @@ export async function declineDbListingSeller(
       audiences: listing.audiences,
       buyerTenantId,
       buyerExternalCompanyId,
+      push: buildDbMarketplacePushMeta('declined', { id: listingId }),
     });
   }
 
