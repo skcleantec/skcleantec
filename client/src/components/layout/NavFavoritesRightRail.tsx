@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import type { MobileNavFavoriteItem } from './MobileNavFavoritesFab';
@@ -187,12 +187,16 @@ export function NavFavoritesRightRail({
   const dockTopRef = useRef<number | null>(null);
   const [dockTop, setDockTop] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const draggingRef = useRef(false);
 
   const pointerAnchorRef = useRef<'favorites' | 'bell' | null>(null);
   const pointerIdRef = useRef<number | null>(null);
   const dragOffsetRef = useRef({ y: 0 });
   const pressMovedRef = useRef(false);
   const holdTimerRef = useRef<number | null>(null);
+  const captureTargetRef = useRef<HTMLElement | null>(null);
+  const endPressListenersRef = useRef<(() => void) | null>(null);
+  const endDragListenersRef = useRef<(() => void) | null>(null);
 
   const slotCount = withChangelogSlot ? 2 : 1;
   const stackHeight =
@@ -247,50 +251,28 @@ export function NavFavoritesRightRail({
     return () => window.removeEventListener('resize', onResize);
   }, [clampDockTop]);
 
-  const beginDockPointer = useCallback(
-    (anchor: 'favorites' | 'bell', evt: ReactPointerEvent<HTMLButtonElement>) => {
-      pointerAnchorRef.current = anchor;
-      pressMovedRef.current = false;
-      pointerIdRef.current = evt.pointerId;
-      const rect = dockRef.current?.getBoundingClientRect() ?? evt.currentTarget.getBoundingClientRect();
-      dragOffsetRef.current = { y: evt.clientY - rect.top };
-      if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = window.setTimeout(() => {
-        setDragging(true);
-        try {
-          navigator.vibrate?.(12);
-        } catch {
-          /* ignore */
-        }
-      }, 420);
-    },
-    [],
-  );
+  const clearPressListeners = useCallback(() => {
+    endPressListenersRef.current?.();
+    endPressListenersRef.current = null;
+  }, []);
 
-  useEffect(() => {
-    const onMove = (evt: PointerEvent) => {
-      if (pointerIdRef.current == null || evt.pointerId !== pointerIdRef.current) return;
-      if (dragging) {
-        evt.preventDefault();
-        const next = clampDockTop(evt.clientY - dragOffsetRef.current.y);
-        dockTopRef.current = next;
-        setDockTop(next);
-        return;
-      }
-      if (Math.abs(evt.movementX) + Math.abs(evt.movementY) > 2) {
-        pressMovedRef.current = true;
-      }
-    };
+  const clearDragListeners = useCallback(() => {
+    endDragListenersRef.current?.();
+    endDragListenersRef.current = null;
+  }, []);
 
-    const onUp = (evt: PointerEvent) => {
-      if (pointerIdRef.current == null || evt.pointerId !== pointerIdRef.current) return;
-      if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
+  const finishDockPointer = useCallback(
+    (evt: PointerEvent, wasDragging: boolean) => {
+      try {
+        captureTargetRef.current?.releasePointerCapture(evt.pointerId);
+      } catch {
+        /* ignore */
+      }
+      captureTargetRef.current = null;
       const anchor = pointerAnchorRef.current;
-      const wasDragging = dragging;
-      const moved = pressMovedRef.current;
       pointerIdRef.current = null;
       pointerAnchorRef.current = null;
-      pressMovedRef.current = false;
+      draggingRef.current = false;
       setDragging(false);
 
       if (wasDragging && dockTopRef.current != null) {
@@ -302,23 +284,126 @@ export function NavFavoritesRightRail({
         } catch {
           /* ignore */
         }
+        pressMovedRef.current = false;
         return;
       }
 
-      if (!moved && anchor === 'favorites') {
+      if (!pressMovedRef.current && anchor === 'favorites') {
         openPanel();
       }
-    };
+      pressMovedRef.current = false;
+    },
+    [openPanel],
+  );
 
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-    };
-  }, [clampDockTop, dragging, openPanel]);
+  const attachDragListeners = useCallback(
+    (pointerId: number) => {
+      clearDragListeners();
+      const onMove = (evt: PointerEvent) => {
+        if (pointerIdRef.current == null || evt.pointerId !== pointerId) return;
+        evt.preventDefault();
+        const next = clampDockTop(evt.clientY - dragOffsetRef.current.y);
+        dockTopRef.current = next;
+        setDockTop(next);
+      };
+      const onUp = (evt: PointerEvent) => {
+        if (pointerIdRef.current == null || evt.pointerId !== pointerId) return;
+        clearDragListeners();
+        finishDockPointer(evt, true);
+      };
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+      endDragListenersRef.current = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+    },
+    [clampDockTop, clearDragListeners, finishDockPointer],
+  );
+
+  const beginDockPointer = useCallback(
+    (anchor: 'favorites' | 'bell', evt: ReactPointerEvent<HTMLButtonElement>) => {
+      if (evt.button !== 0) return;
+      clearPressListeners();
+      clearDragListeners();
+      if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
+
+      const pointerId = evt.pointerId;
+      pointerAnchorRef.current = anchor;
+      pressMovedRef.current = false;
+      pointerIdRef.current = pointerId;
+      captureTargetRef.current = evt.currentTarget;
+      const rect = dockRef.current?.getBoundingClientRect() ?? evt.currentTarget.getBoundingClientRect();
+      dragOffsetRef.current = { y: evt.clientY - rect.top };
+
+      const down = { x: evt.clientX, y: evt.clientY };
+
+      const onEarlyMove = (moveEvt: PointerEvent) => {
+        if (pointerIdRef.current == null || moveEvt.pointerId !== pointerId) return;
+        const dx = Math.abs(moveEvt.clientX - down.x);
+        const dy = Math.abs(moveEvt.clientY - down.y);
+        if (dx + dy > 8) {
+          pressMovedRef.current = true;
+          if (holdTimerRef.current != null) {
+            window.clearTimeout(holdTimerRef.current);
+            holdTimerRef.current = null;
+          }
+        }
+      };
+
+      const onEarlyUp = (upEvt: PointerEvent) => {
+        if (pointerIdRef.current == null || upEvt.pointerId !== pointerId) return;
+        if (holdTimerRef.current != null) {
+          window.clearTimeout(holdTimerRef.current);
+          holdTimerRef.current = null;
+        }
+        clearPressListeners();
+        if (!draggingRef.current) {
+          finishDockPointer(upEvt, false);
+        }
+      };
+
+      window.addEventListener('pointermove', onEarlyMove, { passive: true });
+      window.addEventListener('pointerup', onEarlyUp);
+      window.addEventListener('pointercancel', onEarlyUp);
+      endPressListenersRef.current = () => {
+        window.removeEventListener('pointermove', onEarlyMove);
+        window.removeEventListener('pointerup', onEarlyUp);
+        window.removeEventListener('pointercancel', onEarlyUp);
+      };
+
+      holdTimerRef.current = window.setTimeout(() => {
+        holdTimerRef.current = null;
+        if (pointerIdRef.current !== pointerId) return;
+        clearPressListeners();
+        draggingRef.current = true;
+        setDragging(true);
+        try {
+          captureTargetRef.current?.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        try {
+          navigator.vibrate?.(12);
+        } catch {
+          /* ignore */
+        }
+        attachDragListeners(pointerId);
+      }, 420);
+    },
+    [attachDragListeners, clearDragListeners, clearPressListeners, finishDockPointer],
+  );
+
+  useLayoutEffect(
+    () => () => {
+      if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
+      clearPressListeners();
+      clearDragListeners();
+    },
+    [clearDragListeners, clearPressListeners],
+  );
 
   const bellPointerDown = useCallback(
     (evt: ReactPointerEvent<HTMLButtonElement>) => {

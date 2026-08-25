@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   MOBILE_STAFF_DOCK_BTN_PX,
   MOBILE_STAFF_DOCK_GAP_PX,
 } from '../components/layout/mobileStaffDockStyles';
 
 export type StaffMobileFabAnchor = 'favorites' | 'bell';
+
+const HOLD_MS = 420;
+const HOLD_CANCEL_MOVE_PX = 8;
 
 type Options = {
   storageKey: string;
@@ -19,14 +22,23 @@ export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap 
   const [fabTop, setFabTop] = useState<number | null>(null);
   const fabTopRef = useRef<number | null>(null);
   const [fabDragging, setFabDragging] = useState(false);
+  const fabDraggingRef = useRef(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
   const fabDragOffsetRef = useRef({ y: 0 });
   const fabPressMovedRef = useRef(false);
   const fabPointerAnchorRef = useRef<StaffMobileFabAnchor | null>(null);
+  const fabCaptureTargetRef = useRef<HTMLElement | null>(null);
   const fabStackRef = useRef<HTMLDivElement | null>(null);
   const [fabBellMount, setFabBellMount] = useState<HTMLDivElement | null>(null);
   const stackCountRef = useRef(stackCount);
+  const endPressListenersRef = useRef<(() => void) | null>(null);
+  const endDragListenersRef = useRef<(() => void) | null>(null);
+  const onFavoritesTapRef = useRef(onFavoritesTap);
+
+  useEffect(() => {
+    onFavoritesTapRef.current = onFavoritesTap;
+  }, [onFavoritesTap]);
 
   useEffect(() => {
     stackCountRef.current = stackCount;
@@ -43,6 +55,17 @@ export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap 
     const maxY = Math.max(minY, window.innerHeight - margin - stackHeight);
     return Math.min(maxY, Math.max(minY, stackTop));
   }, []);
+
+  const persistFabTop = useCallback(
+    (y: number) => {
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify({ v: 1, y }));
+      } catch {
+        /* ignore */
+      }
+    },
+    [storageKey],
+  );
 
   useEffect(() => {
     fabTopRef.current = fabTop;
@@ -82,69 +105,153 @@ export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap 
     return () => window.removeEventListener('resize', onResize);
   }, [clampFabTop]);
 
-  const beginFabPointer = useCallback(
-    (anchor: StaffMobileFabAnchor, evt: ReactPointerEvent<HTMLButtonElement>) => {
-      fabPointerAnchorRef.current = anchor;
+  const clearPressListeners = useCallback(() => {
+    endPressListenersRef.current?.();
+    endPressListenersRef.current = null;
+  }, []);
+
+  const clearDragListeners = useCallback(() => {
+    endDragListenersRef.current?.();
+    endDragListenersRef.current = null;
+  }, []);
+
+  const finishPointer = useCallback(
+    (evt: PointerEvent, wasDragging: boolean) => {
+      try {
+        fabCaptureTargetRef.current?.releasePointerCapture(evt.pointerId);
+      } catch {
+        /* ignore */
+      }
+      fabCaptureTargetRef.current = null;
+      fabPointerIdRef.current = null;
+      const tapAnchor = fabPointerAnchorRef.current;
+      fabPointerAnchorRef.current = null;
+      fabDraggingRef.current = false;
+      setFabDragging(false);
+
+      if (wasDragging) {
+        const y = fabTopRef.current;
+        if (y != null) persistFabTop(y);
+        return;
+      }
+
+      if (!fabPressMovedRef.current && tapAnchor === 'favorites') {
+        onFavoritesTapRef.current?.();
+      }
       fabPressMovedRef.current = false;
-      fabPointerIdRef.current = evt.pointerId;
-      const container = fabStackRef.current;
-      const rect = container?.getBoundingClientRect() ?? evt.currentTarget.getBoundingClientRect();
-      fabDragOffsetRef.current = { y: evt.clientY - rect.top };
-      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
-      fabHoldTimerRef.current = window.setTimeout(() => setFabDragging(true), 420);
     },
-    [],
+    [persistFabTop],
   );
 
-  useEffect(() => {
-    const onMove = (evt: PointerEvent) => {
-      if (fabPointerIdRef.current == null || evt.pointerId !== fabPointerIdRef.current) return;
-      if (fabDragging) {
+  const attachDragListeners = useCallback(
+    (pointerId: number) => {
+      clearDragListeners();
+      const onMove = (evt: PointerEvent) => {
+        if (fabPointerIdRef.current == null || evt.pointerId !== pointerId) return;
         evt.preventDefault();
         const next = clampFabTop(evt.clientY - fabDragOffsetRef.current.y);
         fabTopRef.current = next;
         setFabTop(next);
-        return;
-      }
-      if (Math.abs(evt.movementX) + Math.abs(evt.movementY) > 2) {
-        fabPressMovedRef.current = true;
-      }
-    };
-    const onUp = (evt: PointerEvent) => {
-      if (fabPointerIdRef.current == null || evt.pointerId !== fabPointerIdRef.current) return;
-      if (fabHoldTimerRef.current != null) {
-        window.clearTimeout(fabHoldTimerRef.current);
-        fabHoldTimerRef.current = null;
-      }
-      const wasDragging = fabDragging;
-      const tapAnchor = fabPointerAnchorRef.current;
-      fabPointerIdRef.current = null;
-      fabPointerAnchorRef.current = null;
-      setFabDragging(false);
-      if (wasDragging) {
-        const y = fabTopRef.current;
-        if (y != null) {
-          try {
-            window.localStorage.setItem(storageKey, JSON.stringify({ v: 1, y }));
-          } catch {
-            /* ignore */
+      };
+      const onUp = (evt: PointerEvent) => {
+        if (fabPointerIdRef.current == null || evt.pointerId !== pointerId) return;
+        clearDragListeners();
+        finishPointer(evt, true);
+      };
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+      endDragListenersRef.current = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+    },
+    [clampFabTop, clearDragListeners, finishPointer],
+  );
+
+  const beginFabPointer = useCallback(
+    (anchor: StaffMobileFabAnchor, evt: ReactPointerEvent<HTMLButtonElement>) => {
+      if (evt.button !== 0) return;
+      clearPressListeners();
+      clearDragListeners();
+      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
+
+      const pointerId = evt.pointerId;
+      fabPointerAnchorRef.current = anchor;
+      fabPressMovedRef.current = false;
+      fabPointerIdRef.current = pointerId;
+      fabCaptureTargetRef.current = evt.currentTarget;
+      const container = fabStackRef.current;
+      const rect = container?.getBoundingClientRect() ?? evt.currentTarget.getBoundingClientRect();
+      fabDragOffsetRef.current = { y: evt.clientY - rect.top };
+
+      const down = { x: evt.clientX, y: evt.clientY };
+
+      const onEarlyMove = (moveEvt: PointerEvent) => {
+        if (fabPointerIdRef.current == null || moveEvt.pointerId !== pointerId) return;
+        const dx = Math.abs(moveEvt.clientX - down.x);
+        const dy = Math.abs(moveEvt.clientY - down.y);
+        if (dx + dy > HOLD_CANCEL_MOVE_PX) {
+          fabPressMovedRef.current = true;
+          if (fabHoldTimerRef.current != null) {
+            window.clearTimeout(fabHoldTimerRef.current);
+            fabHoldTimerRef.current = null;
           }
         }
-        return;
-      }
-      if (!fabPressMovedRef.current && tapAnchor === 'favorites') {
-        onFavoritesTap?.();
-      }
-    };
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-    };
-  }, [clampFabTop, fabDragging, onFavoritesTap, storageKey]);
+      };
+
+      const onEarlyUp = (upEvt: PointerEvent) => {
+        if (fabPointerIdRef.current == null || upEvt.pointerId !== pointerId) return;
+        if (fabHoldTimerRef.current != null) {
+          window.clearTimeout(fabHoldTimerRef.current);
+          fabHoldTimerRef.current = null;
+        }
+        clearPressListeners();
+        if (!fabDraggingRef.current) {
+          finishPointer(upEvt, false);
+        }
+      };
+
+      window.addEventListener('pointermove', onEarlyMove, { passive: true });
+      window.addEventListener('pointerup', onEarlyUp);
+      window.addEventListener('pointercancel', onEarlyUp);
+      endPressListenersRef.current = () => {
+        window.removeEventListener('pointermove', onEarlyMove);
+        window.removeEventListener('pointerup', onEarlyUp);
+        window.removeEventListener('pointercancel', onEarlyUp);
+      };
+
+      fabHoldTimerRef.current = window.setTimeout(() => {
+        fabHoldTimerRef.current = null;
+        if (fabPointerIdRef.current !== pointerId) return;
+        clearPressListeners();
+        fabDraggingRef.current = true;
+        setFabDragging(true);
+        try {
+          fabCaptureTargetRef.current?.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        try {
+          navigator.vibrate?.(12);
+        } catch {
+          /* ignore */
+        }
+        attachDragListeners(pointerId);
+      }, HOLD_MS);
+    },
+    [attachDragListeners, clearDragListeners, clearPressListeners, finishPointer],
+  );
+
+  useLayoutEffect(
+    () => () => {
+      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
+      clearPressListeners();
+      clearDragListeners();
+    },
+    [clearDragListeners, clearPressListeners],
+  );
 
   return {
     fabTop,

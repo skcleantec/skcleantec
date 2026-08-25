@@ -1,6 +1,7 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useRef,
   useCallback,
   useSyncExternalStore,
@@ -107,6 +108,8 @@ const ADMIN_MOBILE_FAB_PX = MOBILE_STAFF_DOCK_BTN_PX;
 const ADMIN_MOBILE_FAB_GAP = MOBILE_STAFF_DOCK_GAP_PX;
 /** 스케줄 버튼 top − 이 값 = 발주서 버튼 top (한 줄로 붙음) */
 const ADMIN_MOBILE_FAB_ISSUE_TOP_OFFSET = ADMIN_MOBILE_FAB_PX + ADMIN_MOBILE_FAB_GAP;
+const ADMIN_MOBILE_FAB_HOLD_MS = 420;
+const ADMIN_MOBILE_FAB_HOLD_CANCEL_MOVE_PX = 8;
 
 /** 발주서 발급 FAB 아이콘 */
 function OrderIssueFabIcon({ className }: { className?: string }) {
@@ -313,10 +316,14 @@ export function AdminLayout() {
     () => initialSession?.profileOnboardingInitial ?? { role: 'MARKETER' },
   );
   const [fabDragging, setFabDragging] = useState(false);
+  const fabDraggingRef = useRef(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
   const fabDragOffsetRef = useRef({ y: 0 });
   const fabPressMovedRef = useRef(false);
+  const fabCaptureTargetRef = useRef<HTMLElement | null>(null);
+  const endFabPressListenersRef = useRef<(() => void) | null>(null);
+  const endFabDragListenersRef = useRef<(() => void) | null>(null);
   /** 길게 눌러 이동을 시작한 버튼 — 탭 시 이동·열기 경로 */
   const fabPointerAnchorRef = useRef<'schedule' | 'issue' | 'bell' | 'favorites' | null>(null);
   const openMobileFavoritesRef = useRef<(() => void) | null>(null);
@@ -822,47 +829,30 @@ export function AdminLayout() {
     return () => window.removeEventListener('resize', onResize);
   }, [clampFabTop]);
 
-  const beginFabPointer = useCallback(
-    (anchor: 'schedule' | 'issue' | 'bell' | 'favorites', evt: ReactPointerEvent<HTMLButtonElement>) => {
-      fabPointerAnchorRef.current = anchor;
-      fabPressMovedRef.current = false;
-      fabPointerIdRef.current = evt.pointerId;
-      const container = fabStackRef.current;
-      const rect = container?.getBoundingClientRect() ?? evt.currentTarget.getBoundingClientRect();
-      fabDragOffsetRef.current = { y: evt.clientY - rect.top };
-      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
-      fabHoldTimerRef.current = window.setTimeout(() => setFabDragging(true), 420);
-    },
-    []
-  );
+  const clearFabPressListeners = useCallback(() => {
+    endFabPressListenersRef.current?.();
+    endFabPressListenersRef.current = null;
+  }, []);
 
-  useEffect(() => {
-    const onMove = (evt: PointerEvent) => {
-      if (fabPointerIdRef.current == null || evt.pointerId !== fabPointerIdRef.current) return;
-      if (fabDragging) {
-        evt.preventDefault();
-        const next = clampFabTop(evt.clientY - fabDragOffsetRef.current.y);
-        fabTopRef.current = next;
-        setFabTop(next);
-        return;
+  const clearFabDragListeners = useCallback(() => {
+    endFabDragListenersRef.current?.();
+    endFabDragListenersRef.current = null;
+  }, []);
+
+  const finishFabPointer = useCallback(
+    (evt: PointerEvent, wasDragging: boolean) => {
+      try {
+        fabCaptureTargetRef.current?.releasePointerCapture(evt.pointerId);
+      } catch {
+        /* ignore */
       }
-      const dx = Math.abs(evt.movementX);
-      const dy = Math.abs(evt.movementY);
-      if (dx + dy > 2) {
-        fabPressMovedRef.current = true;
-      }
-    };
-    const onUp = (evt: PointerEvent) => {
-      if (fabPointerIdRef.current == null || evt.pointerId !== fabPointerIdRef.current) return;
-      if (fabHoldTimerRef.current != null) {
-        window.clearTimeout(fabHoldTimerRef.current);
-        fabHoldTimerRef.current = null;
-      }
-      const wasDragging = fabDragging;
-      const tapAnchor = fabPointerAnchorRef.current;
+      fabCaptureTargetRef.current = null;
       fabPointerIdRef.current = null;
+      const tapAnchor = fabPointerAnchorRef.current;
       fabPointerAnchorRef.current = null;
+      fabDraggingRef.current = false;
       setFabDragging(false);
+
       if (wasDragging) {
         const y = fabTopRef.current;
         if (y != null) {
@@ -874,6 +864,7 @@ export function AdminLayout() {
         }
         return;
       }
+
       if (!fabPressMovedRef.current) {
         if (tapAnchor === 'issue') {
           const pid = getScheduleDetailInquiryIdForOrderFab();
@@ -890,16 +881,120 @@ export function AdminLayout() {
           openMobileFavoritesRef.current?.();
         }
       }
-    };
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-    };
-  }, [clampFabTop, fabDragging, navigate, location.pathname]);
+      fabPressMovedRef.current = false;
+    },
+    [fabStorageKey, location.pathname, navigate],
+  );
+
+  const attachFabDragListeners = useCallback(
+    (pointerId: number) => {
+      clearFabDragListeners();
+      const onMove = (evt: PointerEvent) => {
+        if (fabPointerIdRef.current == null || evt.pointerId !== pointerId) return;
+        evt.preventDefault();
+        const next = clampFabTop(evt.clientY - fabDragOffsetRef.current.y);
+        fabTopRef.current = next;
+        setFabTop(next);
+      };
+      const onUp = (evt: PointerEvent) => {
+        if (fabPointerIdRef.current == null || evt.pointerId !== pointerId) return;
+        clearFabDragListeners();
+        finishFabPointer(evt, true);
+      };
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+      endFabDragListenersRef.current = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+    },
+    [clampFabTop, clearFabDragListeners, finishFabPointer],
+  );
+
+  const beginFabPointer = useCallback(
+    (anchor: 'schedule' | 'issue' | 'bell' | 'favorites', evt: ReactPointerEvent<HTMLButtonElement>) => {
+      if (evt.button !== 0) return;
+      clearFabPressListeners();
+      clearFabDragListeners();
+      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
+
+      const pointerId = evt.pointerId;
+      fabPointerAnchorRef.current = anchor;
+      fabPressMovedRef.current = false;
+      fabPointerIdRef.current = pointerId;
+      fabCaptureTargetRef.current = evt.currentTarget;
+      const container = fabStackRef.current;
+      const rect = container?.getBoundingClientRect() ?? evt.currentTarget.getBoundingClientRect();
+      fabDragOffsetRef.current = { y: evt.clientY - rect.top };
+
+      const down = { x: evt.clientX, y: evt.clientY };
+
+      const onEarlyMove = (moveEvt: PointerEvent) => {
+        if (fabPointerIdRef.current == null || moveEvt.pointerId !== pointerId) return;
+        const dx = Math.abs(moveEvt.clientX - down.x);
+        const dy = Math.abs(moveEvt.clientY - down.y);
+        if (dx + dy > ADMIN_MOBILE_FAB_HOLD_CANCEL_MOVE_PX) {
+          fabPressMovedRef.current = true;
+          if (fabHoldTimerRef.current != null) {
+            window.clearTimeout(fabHoldTimerRef.current);
+            fabHoldTimerRef.current = null;
+          }
+        }
+      };
+
+      const onEarlyUp = (upEvt: PointerEvent) => {
+        if (fabPointerIdRef.current == null || upEvt.pointerId !== pointerId) return;
+        if (fabHoldTimerRef.current != null) {
+          window.clearTimeout(fabHoldTimerRef.current);
+          fabHoldTimerRef.current = null;
+        }
+        clearFabPressListeners();
+        if (!fabDraggingRef.current) {
+          finishFabPointer(upEvt, false);
+        }
+      };
+
+      window.addEventListener('pointermove', onEarlyMove, { passive: true });
+      window.addEventListener('pointerup', onEarlyUp);
+      window.addEventListener('pointercancel', onEarlyUp);
+      endFabPressListenersRef.current = () => {
+        window.removeEventListener('pointermove', onEarlyMove);
+        window.removeEventListener('pointerup', onEarlyUp);
+        window.removeEventListener('pointercancel', onEarlyUp);
+      };
+
+      fabHoldTimerRef.current = window.setTimeout(() => {
+        fabHoldTimerRef.current = null;
+        if (fabPointerIdRef.current !== pointerId) return;
+        clearFabPressListeners();
+        fabDraggingRef.current = true;
+        setFabDragging(true);
+        try {
+          fabCaptureTargetRef.current?.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        try {
+          navigator.vibrate?.(12);
+        } catch {
+          /* ignore */
+        }
+        attachFabDragListeners(pointerId);
+      }, ADMIN_MOBILE_FAB_HOLD_MS);
+    },
+    [attachFabDragListeners, clearFabDragListeners, clearFabPressListeners, finishFabPointer],
+  );
+
+  useLayoutEffect(
+    () => () => {
+      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
+      clearFabPressListeners();
+      clearFabDragListeners();
+    },
+    [clearFabDragListeners, clearFabPressListeners],
+  );
 
   return (
     <NavFavoritesProvider app="admin" tenantSlug={tenantSlug} userId={meUserId}>
