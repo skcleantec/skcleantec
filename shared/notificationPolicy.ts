@@ -25,7 +25,7 @@ export const NOTIFICATION_KIND_LABELS: Record<StaffAppPushKind, string> = {
 export const NOTIFICATION_KIND_DESCRIPTIONS: Record<StaffAppPushKind, string> = {
   assignment: '접수가 팀장에게 배정·재배정될 때',
   schedule_alert: '담당 접수의 일정·금액·취소 변경 시',
-  happy_call: '예약일 전날 마감 전·미완(마감 초과) 시 — 반복 알림 설정 가능',
+  happy_call: '청소일 전날 18:00(KST)부터 미완 시 매시간 알림(완료까지)',
   message: '관리·팀 간 1:1 메시지 수신 시',
   cs: 'C/S 접수·상태 변경 시',
   db_marketplace: '정보공유(DB) 인계·승인 등',
@@ -46,7 +46,7 @@ export type NotificationKindRule = {
   repeatIntervalMinutes: number;
   /** 접수(inquiry)당 최대 반복 횟수 */
   repeatMaxPerInquiry: number;
-  /** 해피콜: 마감(전날 23:59) 전 N분 알림 — 예: [720, 120] = 12시간·2시간 전 */
+  /** 해피콜: (레거시 UI) 마감 전 N분 알림 — 현재 cron은 전날 18:00부터 시간당 1회 */
   remindBeforeDeadlineMinutes: number[];
 };
 
@@ -78,8 +78,8 @@ function defaultKindRule(kind: StaffAppPushKind): NotificationKindRule {
       mandatory: true,
       repeatEnabled: true,
       repeatIntervalMinutes: 60,
-      repeatMaxPerInquiry: 5,
-      remindBeforeDeadlineMinutes: [720, 120],
+      repeatMaxPerInquiry: 24,
+      remindBeforeDeadlineMinutes: [],
     };
   }
   if (kind === 'generic') {

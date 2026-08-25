@@ -83,15 +83,20 @@ apps/cbiseo-android/app/google-services.json
 
 ---
 
-## 4. 앱 측 FCM 흐름 (구현됨)
+## 4. 앱 측 FCM 흐름 (Play **v21+**)
+
+> **장애 원인·해결·운영 지침:** [`server/src/modules/push/STAFF_APP_PUSH.md`](../../server/src/modules/push/STAFF_APP_PUSH.md)
 
 | 단계 | 설명 |
 |------|------|
-| 로그인 후 홈 로드 | `StaffFcmRegistrar` — 알림 권한 + FCM 토큰 |
-| `POST /api/push/staff-app/register` | JWT + 토큰 저장 |
-| 서버 `notifyInboxRefresh` | FCM `sendEach` — data `staff-app:navigate` (수신자별 title/body/path) |
-| 앱 포그라운드 | `cbiseo:inbox-refresh` + (path 있으면) `cbiseo:navigate` |
-| 앱 백그라운드 | `StaffPushNotificationHelper` 시스템 알림 → 탭 시 `EXTRA_PUSH_PATH` |
+| 앱 기동 | `StaffPushRegistration.prefetchToken()` + `onNewToken` → **토큰 캐시** |
+| 웹 로그인·레이아웃 | `CbiseoApp.syncAuthToken(jwt)` → **TokenStore** |
+| 홈·알림 설정 | `StaffPushRegistration.registerNow()` — **네이티브** FCM + **네이티브 POST** `/register` |
+| 상태 UI | `getPushRegisterStatus()` **폴링** (CustomEvent 사용 안 함) |
+| 백업 | 캐시 토큰 + 웹 `registerStaffAppFcmToken()` (네이티브 POST 실패 시) |
+| 서버 `notifyInboxRefresh` | FCM `sendEach` — data `staff-app:navigate` |
+| 앱 포그라운드 | WS `cbiseo:inbox-refresh` + (path 있으면) `cbiseo:navigate` |
+| 앱 백그라운드 | `StaffPushNotificationHelper` → 탭 시 `EXTRA_PUSH_PATH` |
 
 ---
 
@@ -115,8 +120,9 @@ cd apps\cbiseo-android
 | 증상 | 확인 |
 |------|------|
 | Gradle «google-services.json 없음» | `app/google-services.json` 경로 |
-| **`hasRegisteredToken: false`** (status API) | Play **v14+** 앱 로그인 · `probe-staff-push-status.mjs` 로 확인 |
-| 토큰 DB에 없음 | JWT 유효 · **FCM 토큰은 권한 없이도 등록** (v14) · Logcat `StaffFcmRegistrar` |
+| **`hasRegisteredToken: false`** (status API) | Play **v21+** · 알림 설정 「서버 등록 새로고침」 · `probe-staff-push-status.mjs` |
+| 12초 후 「응답 없음」 | **v20 이하** 또는 **웹 미배포** — v21 + Railway 최신 웹 필요 |
+| 토큰 DB에 없음 | JWT (`syncAuthToken`) · Logcat `StaffPushRegistration` · GPS/SHA-1 |
 | 푸시 없음·WS만 됨 | Railway `FIREBASE_SERVICE_ACCOUNT_JSON` · redeploy |
 | **알림 권한 팝업 없음** | v14+ · 설정→앱→청소비서→알림 · 팀 **알림 설정** 「알림 허용」 |
 | **Play AAB 알림 안 보임** | Firebase Console → Android 앱 → **SHA-1**(Play 앱 서명 인증서) 추가 |

@@ -256,7 +256,7 @@ class LoginActivity : AppCompatActivity() {
                 role = role,
                 apiBaseUrl = apiBaseUrl,
             )
-            StaffFcmRegistrar.registerToken(applicationContext)
+            StaffFcmRegistrar.registerTokenForce(applicationContext, jwtOverride = token)
             startActivity(Intent(this, StaffWebActivity::class.java))
             finish()
         }

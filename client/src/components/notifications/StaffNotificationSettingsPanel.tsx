@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { StaffAppPushKind } from '@shared/staffAppPush';
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import {
+  ensureCbiseoStaffPushRegistered,
   getCbiseoStaffAppVersionCode,
   isCbiseoStaffNativeApp,
   registerCbiseoStaffPushWithPoll,
@@ -75,6 +76,25 @@ export function StaffNotificationSettingsPanel({
     refreshPushStatus();
   }, [refreshPushStatus]);
 
+  /** 미등록이면 설정 화면 진입 시에도 자동 등록 (버튼 없이) */
+  useEffect(() => {
+    if (!authToken || !isCbiseoStaffNativeApp()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const status = await fetchStaffAppPushStatus(authToken);
+        if (cancelled || status.hasRegisteredToken) return;
+        await ensureCbiseoStaffPushRegistered(authToken);
+        if (!cancelled) refreshPushStatus();
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, refreshPushStatus]);
+
   const syncPushToken = async () => {
     if (!authToken) {
       setPushSyncErr('로그인 세션이 없습니다.');
@@ -129,8 +149,7 @@ export function StaffNotificationSettingsPanel({
       {isCbiseoStaffNativeApp() ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 space-y-2">
           <p className="text-fluid-2xs text-amber-900">
-            앱 푸시는 「기기 알림 허용」과 「서버 등록」이 모두 필요합니다. 아래가 「등록 완료」여야
-            알림이 옵니다.
+            로그인하면 푸시 등록은 <strong>자동</strong>으로 진행됩니다. 「기기 알림 허용」만 켜 두면 됩니다.
             {appVersionCode != null ? (
               <>
                 {' '}
@@ -146,7 +165,7 @@ export function StaffNotificationSettingsPanel({
           ) : pushStatus ? (
             <p className="text-fluid-2xs text-amber-900">
               서버 등록:{' '}
-              <strong>{pushStatus.hasRegisteredToken ? '완료' : '미등록'}</strong>
+              <strong>{pushStatus.hasRegisteredToken ? '완료 (자동)' : '등록 중…'}</strong>
               {pushStatus.hasRegisteredToken && pushStatus.deviceLabel
                 ? ` · ${pushStatus.deviceLabel}`
                 : ''}
@@ -172,7 +191,7 @@ export function StaffNotificationSettingsPanel({
               onClick={syncPushToken}
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
             >
-              서버 등록 새로고침
+              등록 다시 시도
             </button>
             <button
               type="button"

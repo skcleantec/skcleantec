@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { getTeamOfficeMessages, sendTeamToManagement } from '../../api/messages';
 import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
@@ -28,6 +28,8 @@ function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: Scro
 export function TeamMessagesPage() {
   const token = getTeamToken();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openMessageFromUrl = searchParams.get('openMessage');
   const previewKey = teamPreviewDepsKey(location.search);
   const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const [myId, setMyId] = useState<string | null>(null);
@@ -82,6 +84,20 @@ export function TeamMessagesPage() {
     setLoading(true);
     loadMessages();
   }, [loadMessages]);
+
+  useEffect(() => {
+    if (!openMessageFromUrl || messages.length === 0) return;
+    const el = document.getElementById(`team-msg-${openMessageFromUrl}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('openMessage');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [openMessageFromUrl, messages, setSearchParams]);
 
   const pollMessages = useCallback(() => {
     if (!token) return;
@@ -155,7 +171,7 @@ export function TeamMessagesPage() {
             messages.map((m) => {
               const isMine = myId != null && m.senderId === myId;
               return (
-                <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                <div key={m.id} id={`team-msg-${m.id}`} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                       isMine ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'

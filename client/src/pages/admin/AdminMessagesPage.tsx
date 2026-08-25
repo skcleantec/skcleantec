@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { broadcastToField, getConversations, getMessages, sendMessage } from '../../api/messages';
 import { getToken } from '../../stores/auth';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
@@ -197,6 +198,9 @@ function MineMessageMeta({ message }: { message: Message }) {
 
 export function AdminMessagesPage() {
   const token = getToken();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openUserFromUrl = searchParams.get('openUser');
+  const openMessageFromUrl = searchParams.get('openMessage');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -239,6 +243,33 @@ export function AdminMessagesPage() {
     setConversationsLoading(true);
     void loadConversations({ refreshBadges: false }).finally(() => setConversationsLoading(false));
   }, [token, loadConversations]);
+
+  useEffect(() => {
+    if (!openUserFromUrl) return;
+    setSelectedId(openUserFromUrl);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('openUser');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [openUserFromUrl, setSearchParams]);
+
+  useEffect(() => {
+    if (!openMessageFromUrl || messages.length === 0) return;
+    const el = document.getElementById(`admin-msg-${openMessageFromUrl}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('openMessage');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [openMessageFromUrl, messages, setSearchParams]);
 
   useEffect(() => {
     if (!token || !selectedId) {
@@ -668,7 +699,7 @@ export function AdminMessagesPage() {
                   const isMine = m.senderId !== selectedId;
                   if (!isMine) {
                     return (
-                      <div key={m.id} className="kakaotalk-message-row-other">
+                      <div key={m.id} id={`admin-msg-${m.id}`} className="kakaotalk-message-row-other">
                         <AvatarCircle name={m.sender.name} photoUrl={m.sender.staffIdCardUrl} size={34} />
                         <div className="flex min-w-0 max-w-[calc(100%-50px)] flex-col gap-0.5">
                           <span className="ml-0.5 text-[11px] font-bold text-slate-700">{m.sender.name}</span>
@@ -684,7 +715,7 @@ export function AdminMessagesPage() {
                   }
 
                   return (
-                    <div key={m.id} className="kakaotalk-message-row-mine">
+                    <div key={m.id} id={`admin-msg-${m.id}`} className="kakaotalk-message-row-mine">
                       <div className="flex min-w-0 items-end justify-end gap-1.5">
                         <MineMessageMeta message={m} />
                         <div className="kakaotalk-bubble kakaotalk-bubble-mine">{m.content}</div>

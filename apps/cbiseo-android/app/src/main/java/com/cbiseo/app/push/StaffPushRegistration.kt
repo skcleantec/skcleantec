@@ -34,6 +34,10 @@ object StaffPushRegistration {
                 if (token.length >= 20) {
                     StaffPushTokenCache.save(context, token)
                     Log.i(TAG, "FCM prefetch ok (${token.length} chars)")
+                    val jwt = TokenStore.get(context).getToken()?.trim().orEmpty()
+                    if (jwt.isNotBlank()) {
+                        registerNow(context, source = "prefetch", jwtOverride = null, knownFcmToken = token)
+                    }
                 }
             }.onFailure { e ->
                 Log.w(TAG, "FCM prefetch skipped: ${e.message}")
