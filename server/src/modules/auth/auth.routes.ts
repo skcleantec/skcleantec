@@ -58,6 +58,11 @@ import {
   loginAdminWithGoogleOAuth,
   loginAdminWithKakaoOAuth,
 } from '../auth-signup/signupOAuthLogin.service.js';
+import {
+  linkKakaoToAdminUser,
+  listOAuthIdentitiesForUser,
+  unlinkKakaoFromAdminUser,
+} from '../auth-signup/signupOAuthAccountLink.service.js';
 
 const profileOnboardingUpload = multer({
   storage: multer.memoryStorage(),
@@ -325,6 +330,83 @@ router.post('/oauth/kakao', async (req, res) => {
       tenantSlug || undefined,
     );
     await sendStaffLoginSuccess(res, user, tenant);
+  } catch (e) {
+    if (e instanceof AuthSignupOAuthError) {
+      res.status(e.statusCode).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.get('/oauth/identities', authMiddleware, async (req, res) => {
+  try {
+    const auth = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = getTenantIdFromAuth(auth);
+    if (!tenantId) {
+      res.status(403).json({ error: '테넌트 정보가 없습니다.' });
+      return;
+    }
+    const items = await listOAuthIdentitiesForUser(auth.userId, tenantId);
+    res.json({ items });
+  } catch (e) {
+    if (e instanceof AuthSignupOAuthError) {
+      res.status(e.statusCode).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.post('/oauth/kakao/link', authMiddleware, async (req, res) => {
+  try {
+    const auth = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = getTenantIdFromAuth(auth);
+    if (!tenantId) {
+      res.status(403).json({ error: '테넌트 정보가 없습니다.' });
+      return;
+    }
+    const body = req.body as { code?: string; redirectUri?: string; password?: string };
+    const code = typeof body.code === 'string' ? body.code : '';
+    const redirectUri = typeof body.redirectUri === 'string' ? body.redirectUri : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (!code.trim() || !redirectUri.trim()) {
+      res.status(400).json({ error: '카카오 인증 정보가 필요합니다.' });
+      return;
+    }
+    const result = await linkKakaoToAdminUser({
+      userId: auth.userId,
+      tenantId,
+      password,
+      code,
+      redirectUri,
+    });
+    res.json(result);
+  } catch (e) {
+    if (e instanceof AuthSignupOAuthError) {
+      res.status(e.statusCode).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.post('/oauth/kakao/unlink', authMiddleware, async (req, res) => {
+  try {
+    const auth = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = getTenantIdFromAuth(auth);
+    if (!tenantId) {
+      res.status(403).json({ error: '테넌트 정보가 없습니다.' });
+      return;
+    }
+    const body = req.body as { password?: string };
+    const password = typeof body.password === 'string' ? body.password : '';
+    await unlinkKakaoFromAdminUser({
+      userId: auth.userId,
+      tenantId,
+      password,
+    });
+    res.json({ ok: true });
   } catch (e) {
     if (e instanceof AuthSignupOAuthError) {
       res.status(e.statusCode).json({ error: e.message });

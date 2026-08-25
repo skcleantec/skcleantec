@@ -227,6 +227,11 @@ export const AdminNotificationSettingsPage = lazyWithRetry(() =>
     default: m.AdminNotificationSettingsPage,
   }))
 );
+export const AdminKakaoLinkPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminKakaoLinkPage').then((m) => ({
+    default: m.AdminKakaoLinkPage,
+  }))
+);
 export const AdminStaffAccessSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminStaffAccessSettingsPage').then((m) => ({
     default: m.AdminStaffAccessSettingsPage,

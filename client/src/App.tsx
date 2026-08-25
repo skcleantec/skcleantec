@@ -87,6 +87,7 @@ import {
   AdminOperatingCompanyPolicyPage,
   AdminNotificationPolicyPage,
   AdminNotificationSettingsPage,
+  AdminKakaoLinkPage,
   AdminStaffAccessSettingsPage,
   AdminExternalSettlementPage,
   AdminPageSettingsPage,
@@ -289,7 +290,10 @@ function App() {
             />
             <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
             <Route path="notification-policy" element={<SuspensePage><AdminNotificationPolicyPage /></SuspensePage>} />
-            <Route path="notification-settings" element={<SuspensePage><AdminNotificationSettingsPage /></SuspensePage>} />
+            <Route
+              path="notification-settings"
+              element={<Navigate to="/admin/notification-settings" replace />}
+            />
             <Route path="staff-access" element={<SuspensePage><AdminStaffAccessSettingsPage /></SuspensePage>} />
             <Route
               path="inspection-template"
@@ -345,6 +349,14 @@ function App() {
           <Route path="teams/holidays" element={<Navigate to="/admin/team-leaders/holiday-calendar" replace />} />
           <Route path="teams/leader-stats" element={<Navigate to="/admin/team-leaders/leader-stats" replace />} />
           <Route path="messages" element={<SuspensePage><AdminMessagesPage /></SuspensePage>} />
+          <Route
+            path="notification-settings"
+            element={<SuspensePage><AdminNotificationSettingsPage /></SuspensePage>}
+          />
+          <Route
+            path="account/kakao-link"
+            element={<SuspensePage><AdminKakaoLinkPage /></SuspensePage>}
+          />
           <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />} />
           <Route path="orderforms/followup" element={<Navigate to="/admin/inquiries/followup" replace />} />

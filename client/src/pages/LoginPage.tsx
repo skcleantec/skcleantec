@@ -78,6 +78,14 @@ function resolveAdminResumePath(from: RouterLocation | undefined): string {
   return fallback;
 }
 
+function staffOAuthLoginErrorMessage(err: unknown, fallback: string): string {
+  const msg = err instanceof Error ? err.message : fallback;
+  if (msg.includes('연결된 Google·카카오 계정이 없습니다')) {
+    return `${msg} 기존 아이디·비밀번호로 로그인한 뒤, 프로필 메뉴의 「카카오 계정 연결」에서 연결할 수 있습니다.`;
+  }
+  return msg;
+}
+
 function resolveTeamResumePath(from: RouterLocation | undefined): string {
   const fallback = '/team/dashboard';
   if (!from?.pathname) return fallback;
@@ -432,7 +440,7 @@ export function LoginPage() {
         applyAdminStaffLogin(data);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : '카카오 로그인에 실패했습니다.');
+        setError(staffOAuthLoginErrorMessage(err, '카카오 로그인에 실패했습니다.'));
       })
       .finally(() => {
         setOauthVerifying(false);
@@ -448,7 +456,7 @@ export function LoginPage() {
       const data = await loginWithGoogleOAuth(idToken, slugHint);
       applyAdminStaffLogin(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다.');
+      setError(staffOAuthLoginErrorMessage(err, 'Google 로그인에 실패했습니다.'));
     } finally {
       setLoading(false);
     }

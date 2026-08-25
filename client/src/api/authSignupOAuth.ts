@@ -4,6 +4,7 @@ const API = '/api/public/auth-signup';
 
 export const KAKAO_SIGNUP_OAUTH_STATE_KEY = 'cbiseo_signup_kakao_oauth_state';
 export const KAKAO_LOGIN_OAUTH_STATE_KEY = 'cbiseo_login_kakao_oauth_state';
+export const KAKAO_LINK_OAUTH_STATE_KEY = 'cbiseo_link_kakao_oauth_state';
 export const KAKAO_LOGIN_OAUTH_TENANT_KEY = 'cbiseo_login_kakao_oauth_tenant';
 
 export type GoogleSignupOAuthConfig = {
@@ -60,12 +61,22 @@ export function getLoginKakaoRedirectUri(): string {
   return `${window.location.origin}/login`;
 }
 
+/** 기존 ADMIN 계정 카카오 연결 redirect_uri */
+export function getLinkKakaoRedirectUri(): string {
+  if (typeof window === 'undefined') return '';
+  return `${window.location.origin}/admin/account/kakao-link`;
+}
+
 export function buildKakaoSignupAuthorizeUrl(restApiKey: string, state: string): string {
   return buildKakaoAuthorizeUrl(restApiKey, state, getSignupKakaoRedirectUri());
 }
 
 export function buildKakaoLoginAuthorizeUrl(restApiKey: string, state: string): string {
   return buildKakaoAuthorizeUrl(restApiKey, state, getLoginKakaoRedirectUri());
+}
+
+export function buildKakaoLinkAuthorizeUrl(restApiKey: string, state: string): string {
+  return buildKakaoAuthorizeUrl(restApiKey, state, getLinkKakaoRedirectUri());
 }
 
 function buildKakaoAuthorizeUrl(restApiKey: string, state: string, redirectUri: string): string {

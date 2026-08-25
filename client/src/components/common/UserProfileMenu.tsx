@@ -41,6 +41,7 @@ export function UserProfileMenu({
   /** `/team/training` — SK 팀장·등록된 PDF 있을 때 */
   teamTrainingMenu,
   teamNotificationSettingsHref,
+  adminKakaoLinkHref,
 }: {
   token: string | null;
   me: MeUser | null;
@@ -63,6 +64,8 @@ export function UserProfileMenu({
   teamEContractMenu?: TeamEContractDropdown | null;
   teamTrainingMenu?: TeamTrainingDropdown | null;
   teamNotificationSettingsHref?: string | null;
+  /** ADMIN — 기존 계정 카카오 연결 */
+  adminKakaoLinkHref?: string | null;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -223,6 +226,15 @@ export function UserProfileMenu({
                 className="block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900"
               >
                 알림 설정
+              </Link>
+            ) : null}
+            {adminKakaoLinkHref ? (
+              <Link
+                to={adminKakaoLinkHref}
+                onClick={() => setMenuOpen(false)}
+                className="block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              >
+                카카오 계정 연결
               </Link>
             ) : null}
             {showStagingDbImport && onStagingDbImport ? (

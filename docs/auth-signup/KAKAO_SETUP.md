@@ -33,31 +33,63 @@
 
 OFF면 `KOE004` 에러.
 
-### Step 2 — REST API 키 + Redirect URI (필수 · 가입의 핵심)
+### Step 2 — REST API 키 + Redirect URI (필수 · **최대 10개**)
 
 ```text
 앱 설정 → 앱 → 플랫폼 키 → Default REST API 키 (대표) → 수정/상세
 ```
 
-**「카카오 로그인 리다이렉트 URI」** (또는 **리다이렉트 URI**)에 **전부** 등록 — **`/signup` 포함**, 끝 `/` 없음:
+카카오 Developers는 **REST API 키당 Redirect URI를 최대 10개**까지만 등록할 수 있습니다.  
+10칸이 꽉 차면 **`+`로 더 추가되지 않습니다** — 기존 항목을 **`−`로 삭제**한 뒤 다시 저장해야 합니다.
+
+**앱 코드**는 브라우저 `{origin}` 기준으로 아래 **3종 경로**만 redirect 합니다. 등록 URI는 **한 글자도** 같아야 합니다 (`KOE006` = 불일치, 끝 `/` 금지).
+
+| 경로 | 용도 |
+|------|------|
+| `{origin}/signup` | 신규 ADMIN 카카오 가입 |
+| `{origin}/login` | 카카오 로그인 |
+| `{origin}/admin/account/kakao-link` | 기존 ADMIN 계정 카카오 **연결** |
+
+#### ✅ 운영 표준 — Redirect URI 10칸 (2026-03 적용)
+
+청소비서 Kakao 앱에 **아래 10개만** 등록하는 것을 표준으로 합니다. (스크린샷·콘솔과 동일)
 
 ```text
-https://clean-solution-staging.up.railway.app/signup
-https://clean-solution-staging.up.railway.app/login
-https://www.cbiseo.com/signup
-https://www.cbiseo.com/login
-https://cbiseo.com/signup
-https://cbiseo.com/login
-https://skcleantec.com/signup
-https://skcleantec.com/login
-https://www.skcleantec.com/signup
-https://www.skcleantec.com/login
-http://localhost:5173/signup
-http://localhost:5173/login
-http://localhost:5174/signup
+ 1. https://clean-solution-staging.up.railway.app/signup
+ 2. https://www.cbiseo.com/signup
+ 3. https://cbiseo.com/signup
+ 4. http://localhost:5173/signup
+ 5. https://cbiseo.com/login
+ 6. https://www.cbiseo.com/login
+ 7. https://www.cbiseo.com/admin/account/kakao-link
+ 8. https://clean-solution-staging.up.railway.app/login
+ 9. https://clean-solution-staging.up.railway.app/admin/account/kakao-link
+10. http://localhost:5173/admin/account/kakao-link
 ```
 
-앱 코드의 redirect는 **`{현재 origin}/signup`** 과 **한 글자도 같아야** 합니다 (`KOE006` = 불일치).
+| 환경 | signup | login | kakao-link |
+|------|:------:|:-----:|:----------:|
+| **스테이징** (`clean-solution-staging…`) | ✅ #1 | ✅ #8 | ✅ #9 |
+| **운영 www** (`www.cbiseo.com`) | ✅ #2 | ✅ #6 | ✅ #7 |
+| **운영 non-www** (`cbiseo.com`) | ✅ #3 | ✅ #5 | ❌ (10칸 한도) |
+| **로컬** (`localhost:5173`) | ✅ #4 | ❌ (10칸 한도) | ✅ #10 |
+
+**의도적으로 빼 둔 것 (10칸 한도)**
+
+| 제외 URI | 이유 |
+|----------|------|
+| `skcleantec.com` · `www.skcleantec.com` | 레거시 도메인 — cbiseo.com 기준 운영 |
+| `http://localhost:5174/*` | 로컬은 **5173 포트만** 사용 (`npm run dev` 기본) |
+| `https://cbiseo.com/admin/account/kakao-link` | 10칸 한도 — **연결·로그인은 `www.cbiseo.com`에서** 진행 |
+| `http://localhost:5173/login` | 10칸 한도 — 로컬 **카카오 로그인**이 필요하면 아래 「칸 교체」 참고 |
+
+**10칸을 바꿔야 할 때 (칸 교체)**
+
+- 로컬에서 **카카오 로그인**까지 테스트: `#10` `…/admin/account/kakao-link` 를 **`http://localhost:5173/login`** 으로 **일시 교체** (연결 E2E는 스테이징·운영 www에서 검증).
+- `cbiseo.com`(www 없음)에서 **카카오 계정 연결** 필요: `#4` 로컬 signup 등 **덜 쓰는 칸**과 `https://cbiseo.com/admin/account/kakao-link` **교체**.
+- 새 도메인·경로 추가 시: **반드시 기존 1칸 삭제** 후 추가 — 목록 전체를 위 표준 10개와 맞춰 유지.
+
+등록 후 콘솔에서 **저장** → ADMIN **카카오 계정 연결** 또는 **카카오 로그인**으로 `{origin}`이 위 표와 일치하는지 확인합니다.
 
 ### Step 3 — 클라이언트 시크릿 (거의 필수)
 
@@ -107,8 +139,30 @@ KAKAO_OAUTH_CLIENT_SECRET="…"   # Step 3 ON일 때
 | `KAKAO_REST_API_KEY` | ✅ | 플랫폼 키 화면 REST API 키 |
 | `KAKAO_OAUTH_CLIENT_SECRET` | 보통 ✅ | REST API 키 상세, secret ON일 때 |
 | `KAKAO_OAUTH_REST_API_KEY` | | 가입 전용 키 분리 시 (있으면 REST API 키보다 우선) |
+| `KAKAO_ADMIN_KEY` | | (선택) 연결 해제 시 카카오 Developers 쪽 연동 끊기 — 없으면 DB만 해제 |
 
 변경 후 **redeploy** / `npm run dev` 재시작.
+
+---
+
+## 4.1 기존 ADMIN 계정 카카오 연결 (Phase 6+)
+
+- **경로**: 로그인 후 프로필 메뉴 → **카카오 계정 연결** (`/admin/account/kakao-link`)
+- **API**: `POST /api/auth/oauth/kakao/link` · `POST /api/auth/oauth/kakao/unlink` (비밀번호 확인 필수)
+- **Redirect URI**: Step 2 **운영 표준 10칸** 중 `#7` · `#9` · `#10` (`{origin}/admin/account/kakao-link`)
+- **대상**: ADMIN만 (마케터·팀장은 2차)
+- **권장 접속 URL**: `https://www.cbiseo.com` (www) — non-www·로컬은 10칸 한도로 kakao-link URI가 없을 수 있음
+
+**E2E**
+
+1. **`https://www.cbiseo.com`** (또는 스테이징)에서 ADMIN 아이디·비밀번호 로그인
+2. 프로필 → **카카오 계정 연결** → 카카오 인증 → 비밀번호 확인 → **연결 완료**
+3. 로그아웃 후 **카카오로 로그인** 성공
+
+**연결 해제 (선택 — 카카오 앱 목록까지 끊기)**
+
+- Railway·`server/.env`에 **`KAKAO_ADMIN_KEY`** (Kakao Developers **Admin 키**, REST API 키와 다름) 설정
+- 없으면 청소비서 DB만 해제 — 기능상 문제 없음
 
 ---
 
@@ -135,12 +189,15 @@ GET /api/public/auth-signup/oauth/kakao/config
 
 | 증상 | 조치 |
 |------|------|
+| Redirect URI **더 추가 안 됨** | **10칸 한도** — Step 2 표준 목록·「칸 교체」 참고, `−`로 삭제 후 추가 |
 | 카카오 버튼 없음 | `KAKAO_REST_API_KEY` + redeploy |
-| `KOE006` / redirect_uri mismatch | **REST API 키** 하위 Redirect URI에 `{origin}/signup` 추가 |
+| `KOE006` / redirect_uri mismatch | 접속 `{origin}`+경로가 Step 2 **10칸 목록과 한 글자도 동일**한지 확인 (`www`·`http`·포트·끝 `/`) |
 | `KOE004` | 카카오 로그인 **사용 설정 OFF** |
 | token 실패 / invalid_client | **클라이언트 시크릿** ON → Railway `KAKAO_OAUTH_CLIENT_SECRET` |
-| 「인증 상태가 올바르지 않음」 | state 만료 — 다시 「카카오로 시작」 |
-| 409 재가입 | 동일 카카오 id 정책 |
+| 「인증 상태가 올바르지 않음」 | state 만료 — 다시 「카카오로 시작」·「연결하기」 |
+| 409 재가입 / 이미 연결 | 동일 카카오 id 정책 |
+| non-www·로컬에서 **계정 연결** `KOE006` | kakao-link URI 없음(한도) — **`www.cbiseo.com` 또는 스테이징**에서 연결 |
+| 로컬 **카카오 로그인** `KOE006` | `localhost:5173/login` 미등록(한도) — 스테이징에서 로그인 테스트 또는 Step 2 「칸 교체」 |
 
 ---
 
