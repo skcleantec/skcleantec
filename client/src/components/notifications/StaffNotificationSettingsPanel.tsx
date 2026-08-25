@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import type { StaffAppPushKind } from '@shared/staffAppPush';
 import {
   isCbiseoStaffNativeApp,
+  registerCbiseoStaffPushToken,
   requestCbiseoStaffNotificationPermission,
 } from '../../utils/cbiseoNativeApp';
+import { fetchStaffAppPushStatus, type StaffAppPushStatus } from '../../api/staffAppPush';
 
 export type StaffNotificationSettingItem = {
   kind: StaffAppPushKind;
@@ -16,6 +18,7 @@ export type StaffNotificationSettingItem = {
 };
 
 type StaffNotificationSettingsPanelProps = {
+  authToken?: string | null;
   loadItems: () => Promise<StaffNotificationSettingItem[]>;
   saveToggle: (kind: StaffAppPushKind, push: boolean) => Promise<StaffNotificationSettingItem[]>;
   backHref?: string;
@@ -23,6 +26,7 @@ type StaffNotificationSettingsPanelProps = {
 };
 
 export function StaffNotificationSettingsPanel({
+  authToken,
   loadItems,
   saveToggle,
   backHref,
@@ -33,6 +37,9 @@ export function StaffNotificationSettingsPanel({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [pushStatus, setPushStatus] = useState<StaffAppPushStatus | null>(null);
+  const [pushStatusLoading, setPushStatusLoading] = useState(false);
+  const [pushSyncMsg, setPushSyncMsg] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -45,6 +52,32 @@ export function StaffNotificationSettingsPanel({
   useEffect(() => {
     load();
   }, [load]);
+
+  const refreshPushStatus = useCallback(() => {
+    if (!authToken || !isCbiseoStaffNativeApp()) {
+      setPushStatus(null);
+      return;
+    }
+    setPushStatusLoading(true);
+    fetchStaffAppPushStatus(authToken)
+      .then(setPushStatus)
+      .catch(() => setPushStatus(null))
+      .finally(() => setPushStatusLoading(false));
+  }, [authToken]);
+
+  useEffect(() => {
+    refreshPushStatus();
+  }, [refreshPushStatus]);
+
+  const syncPushToken = () => {
+    registerCbiseoStaffPushToken();
+    requestCbiseoStaffNotificationPermission();
+    setPushSyncMsg('기기에 알림 등록을 요청했습니다. 10초 후 아래 상태를 새로고침하세요.');
+    window.setTimeout(() => {
+      refreshPushStatus();
+      setPushSyncMsg(null);
+    }, 10_000);
+  };
 
   const togglePush = async (kind: StaffAppPushKind, next: boolean) => {
     const row = items.find((i) => i.kind === kind);
@@ -74,15 +107,49 @@ export function StaffNotificationSettingsPanel({
       </div>
 
       {isCbiseoStaffNativeApp() ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-fluid-2xs text-amber-900">알림이 안 오면 기기 알림 허용이 필요합니다.</p>
-          <button
-            type="button"
-            onClick={() => requestCbiseoStaffNotificationPermission()}
-            className="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
-          >
-            알림 허용
-          </button>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 space-y-2">
+          <p className="text-fluid-2xs text-amber-900">
+            앱 푸시는 「기기 알림 허용」과 「서버 등록」이 모두 필요합니다. 아래가 「등록 완료」여야
+            알림이 옵니다.
+          </p>
+          {pushStatusLoading ? (
+            <p className="text-fluid-2xs text-amber-800">등록 상태 확인 중…</p>
+          ) : pushStatus ? (
+            <p className="text-fluid-2xs text-amber-900">
+              서버 등록:{' '}
+              <strong>{pushStatus.hasRegisteredToken ? '완료' : '미등록'}</strong>
+              {pushStatus.hasRegisteredToken && pushStatus.deviceLabel
+                ? ` · ${pushStatus.deviceLabel}`
+                : ''}
+              {!pushStatus.fcmServerConfigured ? ' · 서버 FCM 미설정' : ''}
+            </p>
+          ) : null}
+          {pushSyncMsg ? (
+            <p className="text-fluid-2xs text-emerald-800">{pushSyncMsg}</p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => requestCbiseoStaffNotificationPermission()}
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              알림 허용
+            </button>
+            <button
+              type="button"
+              onClick={syncPushToken}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              서버 등록 새로고침
+            </button>
+            <button
+              type="button"
+              onClick={refreshPushStatus}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              상태 확인
+            </button>
+          </div>
         </div>
       ) : null}
 

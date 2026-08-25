@@ -7,7 +7,7 @@ import com.cbiseo.app.web.StaffWebActivity
 
 class CbiseoFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
-        StaffFcmRegistrar.registerToken(applicationContext)
+        StaffFcmRegistrar.registerToken(applicationContext, token.trim())
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

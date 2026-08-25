@@ -29,5 +29,5 @@ export async function notifyInboxRefresh(
   for (const id of regularIds) {
     sendJsonToUser(id, { type: 'inbox:refresh' }, tenantByUser.get(id));
   }
-  void notifyStaffAppFcmRefresh(regularIds, tenantByUser, pushByUserId);
+  await notifyStaffAppFcmRefresh(regularIds, tenantByUser, pushByUserId);
 }

@@ -9,6 +9,7 @@ class CbiseoAppBridge(
     private val onRequestGoogleLogin: () -> Unit,
     private val onLoginIdDraftChanged: (String) -> Unit = {},
     private val onRequestNotificationPermission: () -> Unit = {},
+    private val onRegisterPushToken: () -> Unit = {},
 ) {
     @JavascriptInterface
     fun isNativeApp(): Boolean = true
@@ -28,9 +29,15 @@ class CbiseoAppBridge(
         Handler(Looper.getMainLooper()).post { onRequestGoogleLogin() }
     }
 
-    /** 팀·관리 레이아웃 마운트 시 네이티브 알림 권한·FCM 등록 */
+    /** 팀·관리 레이아웃 — 알림 권한 팝업·FCM 서버 등록 */
     @JavascriptInterface
     fun requestNotificationPermission() {
         Handler(Looper.getMainLooper()).post { onRequestNotificationPermission() }
+    }
+
+    /** WebView 홈 로드 후 FCM 토큰 서버 등록 강제 재시도 */
+    @JavascriptInterface
+    fun registerPushToken() {
+        Handler(Looper.getMainLooper()).post { onRegisterPushToken() }
     }
 }

@@ -44,9 +44,18 @@ export async function notifyStaffAppFcmRefresh(
   }
   if (allowedUserIds.size === 0) return;
 
+  const tenantIds = [
+    ...new Set(
+      [...allowedUserIds]
+        .map((id) => tenantByUser.get(id))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
   const tokens = await prisma.staffAppFcmToken.findMany({
     where: {
       userId: { in: [...allowedUserIds] },
+      tenantId: { in: tenantIds },
       appId: CBISEO_STAFF_APP_PACKAGE,
     },
     select: { id: true, token: true, userId: true, tenantId: true },
@@ -59,6 +68,8 @@ export async function notifyStaffAppFcmRefresh(
 
   const tokensByTenant = new Map<string, typeof tokens>();
   for (const row of tokens) {
+    const expectedTenantId = tenantByUser.get(row.userId);
+    if (!expectedTenantId || row.tenantId !== expectedTenantId) continue;
     const list = tokensByTenant.get(row.tenantId) ?? [];
     list.push(row);
     tokensByTenant.set(row.tenantId, list);
@@ -86,33 +97,38 @@ export async function notifyStaffAppFcmRefresh(
 
       if (messages.length === 0) continue;
 
-      const response = await fcm.sendEach(
-        messages.map((m) => {
-          const title = m.data.title?.trim() || '청소비서';
-          const body = m.data.body?.trim() || '새 알림이 있습니다.';
-          return {
-            token: m.token,
-            data: m.data,
-            // data-only는 Android 백그라운드에서 onMessageReceived가 안 불려 알림이 안 보임
-            notification: { title, body },
-            android: {
-              priority: 'high' as const,
-              notification: {
-                channelId: 'cbiseo_staff_default',
+      try {
+        const response = await fcm.sendEach(
+          messages.map((m) => {
+            const title = m.data.title?.trim() || '청소비서';
+            const body = m.data.body?.trim() || '새 알림이 있습니다.';
+            return {
+              token: m.token,
+              data: m.data,
+              notification: { title, body },
+              android: {
                 priority: 'high' as const,
+                notification: {
+                  channelId: 'cbiseo_staff_default',
+                  priority: 'high' as const,
+                },
               },
-            },
-          };
-        }),
-      );
+            };
+          }),
+        );
 
-      response.responses.forEach((res, idx) => {
-        if (res.success) return;
-        const code = res.error?.code;
-        if (code && STALE_FCM_ERROR_CODES.has(code)) {
-          staleTokenValues.push(chunk[idx]!.token);
-        }
-      });
+        response.responses.forEach((res, idx) => {
+          if (res.success) return;
+          const code = res.error?.code;
+          if (code && STALE_FCM_ERROR_CODES.has(code)) {
+            staleTokenValues.push(messages[idx]!.token);
+          } else if (code) {
+            console.warn('[fcm] send failed', code, messages[idx]?.token?.slice(0, 12));
+          }
+        });
+      } catch (err) {
+        console.error('[fcm] sendEach failed', err);
+      }
     }
   }
 

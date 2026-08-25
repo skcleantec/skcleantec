@@ -33,6 +33,7 @@ export function TeamNotificationSettingsPage() {
 
   return (
     <StaffNotificationSettingsPanel
+      authToken={token}
       loadItems={loadItems}
       saveToggle={saveToggle}
       backHref="/team/dashboard"

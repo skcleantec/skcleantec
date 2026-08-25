@@ -15,6 +15,8 @@ declare global {
       onFcmToken?: (token: string) => void;
       /** Android — 알림 권한 요청 + FCM 토큰 서버 등록 */
       requestNotificationPermission?: () => void;
+      /** Android — FCM 토큰 서버 등록만 강제 재시도 */
+      registerPushToken?: () => void;
     };
     /** Android 네이티브 Google 로그인 콜백 — LoginPage/GoogleSignupButton에서 등록 */
     __cbiseoNativeGoogleLogin?: (idToken: string) => void;
@@ -42,6 +44,16 @@ export function requestCbiseoStaffNotificationPermission(): void {
   if (typeof window === 'undefined') return;
   try {
     window.CbiseoApp?.requestNotificationPermission?.();
+  } catch {
+    /* WebView 브릿지 미연결 */
+  }
+}
+
+/** Android — FCM 토큰 서버 등록 강제 (홈·설정에서 호출) */
+export function registerCbiseoStaffPushToken(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.CbiseoApp?.registerPushToken?.();
   } catch {
     /* WebView 브릿지 미연결 */
   }

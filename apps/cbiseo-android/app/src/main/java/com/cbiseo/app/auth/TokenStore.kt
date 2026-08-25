@@ -32,7 +32,7 @@ class TokenStore private constructor(context: Context) {
             .putString(KEY_USER_ID, userId)
             .putString(KEY_ROLE, role)
             .putString(KEY_API_BASE_URL, apiBaseUrl)
-            .apply()
+            .commit()
     }
 
     fun getApiBaseUrl(): String? = prefs.getString(KEY_API_BASE_URL, null)?.takeIf { it.isNotBlank() }

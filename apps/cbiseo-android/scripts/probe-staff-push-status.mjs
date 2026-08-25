@@ -42,7 +42,7 @@ async function main() {
     console.log('✅ 서버 FCM Admin 설정됨');
   }
   if (!status.hasRegisteredToken) {
-    console.log('❌ 이 계정에 등록된 FCM 토큰 없음 → Play 앱 로그인·v14+ 설치·알림 허용');
+    console.log('❌ 이 계정에 등록된 FCM 토큰 없음 → Play 앱 v17+ 로그인 후 「알림 설정」에서 서버 등록 새로고침');
   } else {
     console.log(`✅ FCM 토큰 등록됨 (${status.deviceLabel ?? 'device'}) @ ${status.tokenUpdatedAt}`);
   }
