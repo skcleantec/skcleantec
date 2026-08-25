@@ -94,6 +94,45 @@ object StaffFcmRegistrar {
         )
     }
 
+    /**
+     * WebView — FCM 토큰만 발급 후 `cbiseo:fcm-token` 이벤트로 웹이 POST /register (네이티브 OkHttp 우회).
+     */
+    fun requestFcmTokenForWeb(
+        context: android.content.Context,
+        timeoutMs: Long = 12_000L,
+        onResult: (ok: Boolean, token: String?, message: String) -> Unit,
+    ) {
+        var finished = false
+        val finish: (Boolean, String?, String) -> Unit = finish@{ ok, token, message ->
+            if (finished) return@finish
+            finished = true
+            mainHandler.post { onResult(ok, token, message) }
+        }
+        val timeoutRunnable = Runnable {
+            Log.w(TAG, "FCM token fetch timed out after ${timeoutMs}ms")
+            finish(false, null, "FCM 토큰 발급 시간 초과 — Google Play 서비스 업데이트·앱 재설치")
+        }
+        mainHandler.postDelayed(timeoutRunnable, timeoutMs)
+
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            mainHandler.removeCallbacks(timeoutRunnable)
+            if (!task.isSuccessful) {
+                val msg = task.exception?.message?.takeIf { it.isNotBlank() }
+                    ?: "FCM 토큰 발급 실패 — Firebase SHA·google-services.json 확인"
+                Log.w(TAG, "FCM token fetch failed", task.exception)
+                finish(false, null, msg)
+                return@addOnCompleteListener
+            }
+            val token = task.result?.trim().orEmpty()
+            if (token.length < 20) {
+                finish(false, null, "FCM 토큰이 비어 있습니다 — Google Play 서비스 확인")
+                return@addOnCompleteListener
+            }
+            Log.i(TAG, "FCM token for web (${token.length} chars)")
+            finish(true, token, "FCM 토큰 발급")
+        }
+    }
+
     /** 로그아웃 시 서버 FCM 토큰 삭제 — JWT clear 전에 호출 */
     fun unregisterToken(context: android.content.Context) {
         val jwt = TokenStore.get(context).getToken()?.trim().orEmpty()

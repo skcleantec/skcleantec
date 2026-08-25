@@ -161,8 +161,8 @@ class StaffWebActivity : AppCompatActivity() {
                 }
 
                 syncSafeAreaToWebView()
-                if (staffSessionActive) {
-                    StaffFcmRegistrar.registerToken(this@StaffWebActivity)
+                if (staffSessionActive && sessionBootstrapDone) {
+                    registerPushFromWebSession(showToast = false)
                 }
                 flushPendingPushPath()
             }
@@ -174,33 +174,34 @@ class StaffWebActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webViewInForeground = true
-        if (staffSessionActive) {
-            StaffFcmRegistrar.registerToken(this)
+        if (staffSessionActive && sessionBootstrapDone) {
+            registerPushFromWebSession(showToast = false)
         }
     }
 
     override fun onPostResume() {
         super.onPostResume()
         StaffNotificationPermission.promptOnAppOpen(this, notificationPermissionLauncher)
-        if (staffSessionActive) {
-            StaffFcmRegistrar.registerToken(this)
+        if (staffSessionActive && sessionBootstrapDone) {
+            registerPushFromWebSession(showToast = false)
             maybePromptOpenNotificationSettings()
         }
     }
 
-    /** Firebase: FCM 토큰은 알림 권한과 무관 — 로그인 세션 있으면 항상 서버 등록 */
+    /** FCM 토큰은 네이티브, 서버 POST는 WebView fetch (상태 API와 동일 경로) */
     private fun registerPushFromWebSession(showToast: Boolean) {
-        syncSessionFromWebView { jwt ->
-            StaffFcmRegistrar.registerTokenForce(
-                context = this,
-                jwtOverride = jwt,
-                onResult = { ok, message ->
-                    notifyWebPushRegisterResult(ok, message)
-                    if (showToast && !isFinishing && !isDestroyed) {
-                        Toast.makeText(this, message, if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
-                    }
-                },
-            )
+        StaffFcmRegistrar.requestFcmTokenForWeb(this) { ok, token, message ->
+            if (ok && !token.isNullOrBlank()) {
+                notifyWebFcmToken(token, android.os.Build.MODEL)
+                if (showToast && !isFinishing && !isDestroyed) {
+                    Toast.makeText(this, "FCM 토큰 발급 · 서버 등록 중…", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                notifyWebPushRegisterResult(false, message)
+                if (showToast && !isFinishing && !isDestroyed) {
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -211,6 +212,18 @@ class StaffWebActivity : AppCompatActivity() {
                 tokenStore.updateJwt(token)
             }
             onReady(token ?: tokenStore.getToken())
+        }
+    }
+
+    private fun notifyWebFcmToken(token: String, deviceLabel: String) {
+        val escapedToken = token.replace("\\", "\\\\").replace("'", "\\'")
+        val escapedLabel = deviceLabel.replace("\\", "\\\\").replace("'", "\\'")
+        activeWebView?.post {
+            activeWebView?.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('cbiseo:fcm-token'," +
+                    "{detail:{token:'$escapedToken',deviceLabel:'$escapedLabel'}}));",
+                null,
+            )
         }
     }
 

@@ -22,6 +22,7 @@ import {
 } from '../../utils/prefetchAdminPages';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
+import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import { isCbiseoStaffNativeApp, registerCbiseoStaffPushToken } from '../../utils/cbiseoNativeApp';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import {
@@ -242,6 +243,7 @@ export function AdminLayout() {
       document.documentElement.classList.add('cbiseo-staff-app');
     }
   }, []);
+  useStaffAppNativePushRegister(adminToken);
   useEffect(() => {
     if (!adminToken || !isCbiseoStaffNativeApp()) return;
     const t = window.setTimeout(() => registerCbiseoStaffPushToken(), 2500);
