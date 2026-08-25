@@ -33,6 +33,7 @@ export function AdminNotificationSettingsPage() {
 
   return (
     <StaffNotificationSettingsPanel
+      authToken={token}
       loadItems={loadItems}
       saveToggle={saveToggle}
       backHref="/admin/dashboard"

@@ -44,6 +44,10 @@ router.post('/staff-app/register', async (req, res) => {
     typeof req.body?.appId === 'string' && req.body.appId.trim()
       ? req.body.appId.trim()
       : CBISEO_STAFF_APP_PACKAGE;
+  if (appId !== CBISEO_STAFF_APP_PACKAGE) {
+    res.status(400).json({ error: '지원하지 않는 앱 ID입니다.' });
+    return;
+  }
   const deviceLabel =
     typeof req.body?.deviceLabel === 'string' ? req.body.deviceLabel.trim().slice(0, 128) : null;
 

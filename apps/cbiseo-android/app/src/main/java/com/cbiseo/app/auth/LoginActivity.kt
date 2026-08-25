@@ -10,8 +10,11 @@ import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.cbiseo.app.R
+import com.cbiseo.app.push.StaffFcmRegistrar
+import com.cbiseo.app.push.StaffNotificationPermission
 import com.cbiseo.app.api.ApiEnvironment
 import com.cbiseo.app.bridge.CbiseoAppBridge
 import com.cbiseo.app.databinding.ActivityLoginBinding
@@ -39,6 +42,10 @@ class LoginActivity : AppCompatActivity() {
     private val presetVisibilityHandler = Handler(Looper.getMainLooper())
     private var presetVisibilityRunnable: Runnable? = null
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { _ -> }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
@@ -53,6 +60,11 @@ class LoginActivity : AppCompatActivity() {
         setupServerPreset()
         setupLoginWebView()
         loadLoginPage()
+    }
+
+    override fun onPostResume() {
+        super.onPostResume()
+        StaffNotificationPermission.promptOnAppOpen(this, notificationPermissionLauncher)
     }
 
     override fun onDestroy() {
@@ -243,6 +255,7 @@ class LoginActivity : AppCompatActivity() {
                 role = role,
                 apiBaseUrl = apiBaseUrl,
             )
+            StaffFcmRegistrar.registerToken(applicationContext)
             startActivity(Intent(this, StaffWebActivity::class.java))
             finish()
         }

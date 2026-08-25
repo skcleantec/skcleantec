@@ -137,13 +137,13 @@ export async function runHappyCallReminderJob(opts?: {
       });
 
       if (!dryRun) {
+        await notifyInboxRefresh([leaderId], { [leaderId]: payload });
         await recordNotificationDelivery({
           tenantId: tenant.id,
           userId: leaderId,
           kind: 'happy_call',
           dedupeKey,
         });
-        notifyInboxRefresh([leaderId], { [leaderId]: payload });
       }
       pushesSent += 1;
     }

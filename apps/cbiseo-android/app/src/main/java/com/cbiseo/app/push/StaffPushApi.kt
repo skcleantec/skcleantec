@@ -23,35 +23,77 @@ object StaffPushApi {
 
     suspend fun registerToken(context: Context, fcmToken: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
+            postRegister(context, fcmToken)
+            Log.i(TAG, "FCM token registered with server")
+        }.onFailure { e ->
+            Log.e(TAG, "FCM token registration failed: ${e.message}", e)
+        }.map { }
+    }
+
+    suspend fun unregisterToken(context: Context, fcmToken: String? = null): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
             val store = TokenStore.get(context.applicationContext)
             val jwt = store.getToken()?.trim().orEmpty()
             val baseUrl = ApiEnvironment.normalize(store.getApiBaseUrl()) ?: ApiEnvironment.PRODUCTION_URL
-            if (jwt.isBlank()) return@runCatching
+            if (jwt.isBlank()) {
+                Log.w(TAG, "FCM unregister skipped: no JWT")
+                return@runCatching
+            }
 
             val body = JSONObject()
-                .put("token", fcmToken)
-                .put("appId", "com.cbiseo.app")
-                .put("deviceLabel", android.os.Build.MODEL)
-                .toString()
-                .toRequestBody(jsonMedia)
+            if (!fcmToken.isNullOrBlank()) {
+                body.put("token", fcmToken.trim())
+            }
+            val requestBody = body.toString().toRequestBody(jsonMedia)
 
             val request = Request.Builder()
                 .url("$baseUrl/api/push/staff-app/register")
                 .header("Authorization", "Bearer $jwt")
-                .post(body)
+                .delete(requestBody)
                 .build()
 
             client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
+                if (!response.isSuccessful && response.code != 404) {
                     val raw = response.body?.string().orEmpty()
                     val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
-                    throw IllegalStateException(err?.takeIf { it.isNotBlank() } ?: "알림 등록 실패 (${response.code})")
+                    throw IllegalStateException(err?.takeIf { it.isNotBlank() } ?: "알림 해제 실패 (${response.code})")
                 }
             }
-            Log.i(TAG, "FCM token registered with server")
+            Log.i(TAG, "FCM token unregistered from server")
         }.onFailure { e ->
-            Log.e(TAG, "FCM token registration failed: ${e.message}", e)
+            Log.w(TAG, "FCM token unregister failed: ${e.message}")
+        }.map { }
+    }
+
+    private fun postRegister(context: Context, fcmToken: String) {
+        val store = TokenStore.get(context.applicationContext)
+        val jwt = store.getToken()?.trim().orEmpty()
+        val baseUrl = ApiEnvironment.normalize(store.getApiBaseUrl()) ?: ApiEnvironment.PRODUCTION_URL
+        if (jwt.isBlank()) {
+            throw IllegalStateException("로그인 JWT 없음 — FCM 등록 보류")
         }
+
+        val body = JSONObject()
+            .put("token", fcmToken)
+            .put("appId", "com.cbiseo.app")
+            .put("deviceLabel", android.os.Build.MODEL)
+            .toString()
+            .toRequestBody(jsonMedia)
+
+        val request = Request.Builder()
+            .url("$baseUrl/api/push/staff-app/register")
+            .header("Authorization", "Bearer $jwt")
+            .post(body)
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                val raw = response.body?.string().orEmpty()
+                val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
+                throw IllegalStateException(err?.takeIf { it.isNotBlank() } ?: "알림 등록 실패 (${response.code})")
+            }
+        }
+        Log.i(TAG, "FCM token registered with server (base=$baseUrl)")
     }
 
     private const val TAG = "StaffPushApi"

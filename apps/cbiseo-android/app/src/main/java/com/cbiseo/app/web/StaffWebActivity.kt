@@ -3,7 +3,6 @@ package com.cbiseo.app.web
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -16,17 +15,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.lifecycle.Lifecycle
 import com.cbiseo.app.api.ApiEnvironment
 import com.cbiseo.app.auth.LoginActivity
 import com.cbiseo.app.auth.TokenStore
 import com.cbiseo.app.bridge.CbiseoAppBridge
 import com.cbiseo.app.databinding.ActivityStaffWebBinding
 import com.cbiseo.app.push.StaffFcmRegistrar
+import com.cbiseo.app.push.StaffNotificationPermission
+import com.cbiseo.app.push.StaffPushIntentExtras
 import com.cbiseo.app.session.StaffRoleResolver
 
 class StaffWebActivity : AppCompatActivity() {
@@ -34,9 +33,6 @@ class StaffWebActivity : AppCompatActivity() {
     private val tokenStore by lazy { TokenStore.get(this) }
     private var sessionBootstrapDone = false
     private var staffSessionActive = false
-    private var pendingStaffPushRegistration = false
-    private var permissionLaunchInFlight = false
-    private var permissionDialogCompleted = false
     private var notificationSettingsPromptShown = false
     private var openingLoginScreen = false
     private var pendingPushPath: String? = null
@@ -46,9 +42,9 @@ class StaffWebActivity : AppCompatActivity() {
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { _ ->
-        permissionLaunchInFlight = false
-        permissionDialogCompleted = true
-        StaffFcmRegistrar.registerToken(this)
+        if (staffSessionActive) {
+            StaffFcmRegistrar.registerToken(this)
+        }
         maybePromptOpenNotificationSettings()
     }
 
@@ -93,7 +89,8 @@ class StaffWebActivity : AppCompatActivity() {
         binding = ActivityStaffWebBinding.inflate(layoutInflater)
         setContentView(binding.root)
         applyWindowInsets()
-        pendingPushPath = intent.getStringExtra(EXTRA_PUSH_PATH)
+        pendingPushPath = StaffPushIntentExtras.pushPathFrom(intent)
+            ?: intent.getStringExtra(EXTRA_PUSH_PATH)
 
         val token = tokenStore.getToken()
         val apiBaseUrl = resolveApiBaseUrl()
@@ -107,10 +104,21 @@ class StaffWebActivity : AppCompatActivity() {
 
         staffSessionActive = true
         StaffFcmRegistrar.ensureChannels(applicationContext)
+        StaffFcmRegistrar.registerToken(applicationContext)
 
         appBridge = CbiseoAppBridge(
             onRequestGoogleLogin = {},
-            onRequestNotificationPermission = { ensureStaffPushRegistration() },
+            onRequestNotificationPermission = {
+                StaffNotificationPermission.promptFromUserAction(this, notificationPermissionLauncher)
+                if (staffSessionActive) {
+                    StaffFcmRegistrar.registerTokenForce(this)
+                }
+            },
+            onRegisterPushToken = {
+                if (staffSessionActive) {
+                    StaffFcmRegistrar.registerTokenForce(this)
+                }
+            },
         )
 
         val webView = binding.staffWebView
@@ -152,7 +160,9 @@ class StaffWebActivity : AppCompatActivity() {
                 }
 
                 syncSafeAreaToWebView()
-                maybeRegisterStaffPushFromWeb(current, apiBaseUrl)
+                if (staffSessionActive) {
+                    StaffFcmRegistrar.registerToken(this@StaffWebActivity)
+                }
                 flushPendingPushPath()
             }
         }
@@ -164,68 +174,25 @@ class StaffWebActivity : AppCompatActivity() {
         super.onResume()
         webViewInForeground = true
         if (staffSessionActive) {
-            ensureStaffPushRegistration()
+            StaffFcmRegistrar.registerToken(this)
         }
     }
 
     override fun onPostResume() {
         super.onPostResume()
-        if (staffSessionActive && pendingStaffPushRegistration) {
-            ensureStaffPushRegistration()
+        StaffNotificationPermission.promptOnAppOpen(this, notificationPermissionLauncher)
+        if (staffSessionActive) {
+            StaffFcmRegistrar.registerToken(this)
+            maybePromptOpenNotificationSettings()
         }
     }
 
-    /** WebView /team·/admin 로드 시에도 한 번 더 시도 */
-    private fun maybeRegisterStaffPushFromWeb(currentUrl: String, apiBaseUrl: String) {
-        if (StaffWebSessionSync.isStaffWebLoginUrl(currentUrl, apiBaseUrl)) return
-        if (!StaffWebSessionSync.isStaffAppHomeUrl(currentUrl, apiBaseUrl)) return
-        ensureStaffPushRegistration()
-    }
-
-    /**
-     * Firebase: FCM 토큰은 알림 권한과 무관 — 항상 서버 등록 후 권한 팝업.
-     */
-    private fun ensureStaffPushRegistration() {
-        if (!staffSessionActive || isFinishing || isDestroyed) return
-        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-            pendingStaffPushRegistration = true
-            return
-        }
-        pendingStaffPushRegistration = false
-
-        StaffFcmRegistrar.registerToken(this)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
-            if (granted) return
-            if (permissionLaunchInFlight || permissionDialogCompleted) {
-                maybePromptOpenNotificationSettings()
-                return
-            }
-            permissionLaunchInFlight = true
-            window.decorView.post {
-                if (isFinishing || isDestroyed) {
-                    permissionLaunchInFlight = false
-                    return@post
-                }
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-
-    /** 「다시 묻지 않음」 등으로 팝업이 더 이상 안 뜰 때 설정 화면 안내 */
+    /** Firebase: FCM 토큰은 알림 권한과 무관 — 로그인 세션 있으면 항상 서버 등록 */
     private fun maybePromptOpenNotificationSettings() {
         if (notificationSettingsPromptShown || isFinishing || isDestroyed) return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val granted = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
-        if (granted) return
-        if (!permissionDialogCompleted) return
+        if (StaffNotificationPermission.isGranted(this)) return
+        if (!StaffNotificationPermission.hasPromptedThisProcess()) return
         if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
             return
         }
@@ -255,7 +222,8 @@ class StaffWebActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val path = intent.getStringExtra(EXTRA_PUSH_PATH)
+        val path = StaffPushIntentExtras.pushPathFrom(intent)
+            ?: intent.getStringExtra(EXTRA_PUSH_PATH)
         if (path.isNullOrBlank()) return
         if (sessionBootstrapDone && activeWebView != null) {
             dispatchNavigateToWebView(path)
@@ -301,7 +269,10 @@ class StaffWebActivity : AppCompatActivity() {
         if (openingLoginScreen || isFinishing) return
         openingLoginScreen = true
         staffSessionActive = false
-        if (clearSession) tokenStore.clearSession()
+        if (clearSession) {
+            StaffFcmRegistrar.unregisterToken(applicationContext)
+            tokenStore.clearSession()
+        }
         startActivity(
             Intent(this, LoginActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
