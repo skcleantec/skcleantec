@@ -1,12 +1,21 @@
-/** 모바일(lg 미만) — 우측 FAB·GNB 톤 (기본 40px · 50%는 너무 작아 30px 중간값) */
+/** 모바일(lg 미만) — 우측 FAB·GNB 톤 (터치 최소 ~44px) */
 
-export const MOBILE_STAFF_DOCK_BTN_PX = 30;
-export const MOBILE_STAFF_DOCK_GAP_PX = 2;
+export const MOBILE_STAFF_DOCK_BTN_PX = 44;
+export const MOBILE_STAFF_DOCK_GAP_PX = 4;
+
+/** data-staff-fab-anchor — 스택 div 위임 pointer 처리용 */
+export const STAFF_FAB_ANCHOR_ATTR = 'data-staff-fab-anchor';
+
+export function readStaffFabAnchor(el: EventTarget | null): string | null {
+  if (!(el instanceof Element)) return null;
+  const btn = el.closest(`button[${STAFF_FAB_ANCHOR_ATTR}]`);
+  return btn?.getAttribute(STAFF_FAB_ANCHOR_ATTR) ?? null;
+}
 
 export const MOBILE_STAFF_DOCK_BTN_CLASS =
-  'relative flex h-[30px] w-[30px] shrink-0 touch-none items-center justify-center rounded-full transition-[transform,box-shadow,colors] active:scale-[0.94] touch-manipulation';
+  'relative flex h-[44px] w-[44px] shrink-0 touch-manipulation items-center justify-center rounded-full transition-[transform,box-shadow,colors] active:scale-[0.94]';
 
-export const MOBILE_STAFF_DOCK_ICON_CLASS = 'h-3.5 w-3.5';
+export const MOBILE_STAFF_DOCK_ICON_CLASS = 'h-5 w-5';
 
 /** max-lg — 상단 GNB 메뉴 칩 (기본 대비 약 75%) */
 export const MOBILE_GNB_ITEM_BASE =
