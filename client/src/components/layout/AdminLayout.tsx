@@ -1103,6 +1103,7 @@ export function AdminLayout() {
                 teamNotificationSettingsHref={
                   meRole === 'ADMIN' || meRole === 'MARKETER' ? '/admin/notification-settings' : null
                 }
+                adminKakaoLinkHref={meRole === 'ADMIN' ? '/admin/account/kakao-link' : null}
                 onSaved={(next) => {
                   setMeName(next.name);
                   setMePhone(next.phone);
@@ -1372,6 +1373,7 @@ export function AdminLayout() {
               teamNotificationSettingsHref={
                 meRole === 'ADMIN' || meRole === 'MARKETER' ? '/admin/notification-settings' : null
               }
+              adminKakaoLinkHref={meRole === 'ADMIN' ? '/admin/account/kakao-link' : null}
               onSaved={(next) => {
                 setMeName(next.name);
                 setMePhone(next.phone);

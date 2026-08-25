@@ -87,6 +87,7 @@ import {
   AdminOperatingCompanyPolicyPage,
   AdminNotificationPolicyPage,
   AdminNotificationSettingsPage,
+  AdminKakaoLinkPage,
   AdminStaffAccessSettingsPage,
   AdminExternalSettlementPage,
   AdminPageSettingsPage,
@@ -351,6 +352,10 @@ function App() {
           <Route
             path="notification-settings"
             element={<SuspensePage><AdminNotificationSettingsPage /></SuspensePage>}
+          />
+          <Route
+            path="account/kakao-link"
+            element={<SuspensePage><AdminKakaoLinkPage /></SuspensePage>}
           />
           <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />} />

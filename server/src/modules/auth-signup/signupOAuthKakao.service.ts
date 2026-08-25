@@ -117,7 +117,39 @@ export async function resolveKakaoOAuthCredentialsFromCode(codeRaw: string, redi
   }
 
   const accessToken = await exchangeKakaoAuthorizationCode(code, redirectUri);
-  return fetchKakaoUserProfile(accessToken);
+  const profile = await fetchKakaoUserProfile(accessToken);
+  return { ...profile, accessToken };
+}
+
+function getKakaoAdminKey(): string {
+  return process.env.KAKAO_ADMIN_KEY?.trim() || '';
+}
+
+/** 카카오 Developers 연결 해제 — Admin 키 없으면 DB만 해제 (로그만) */
+export async function unlinkKakaoUserAtProvider(providerSub: string): Promise<void> {
+  const adminKey = getKakaoAdminKey();
+  if (!adminKey) return;
+
+  const params = new URLSearchParams({
+    target_id_type: 'user_id',
+    target_id: providerSub.trim(),
+  });
+
+  try {
+    const res = await fetch('https://kapi.kakao.com/v1/user/unlink', {
+      method: 'POST',
+      headers: {
+        Authorization: `KakaoAK ${adminKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+      },
+      body: params.toString(),
+    });
+    if (!res.ok) {
+      console.warn('[kakao-oauth] provider unlink failed', res.status, providerSub);
+    }
+  } catch (e) {
+    console.warn('[kakao-oauth] provider unlink error', e);
+  }
 }
 
 export async function verifyKakaoSignupAuthorizationCode(codeRaw: string, redirectUriRaw: string) {
