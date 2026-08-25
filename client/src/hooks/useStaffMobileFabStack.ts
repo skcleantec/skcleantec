@@ -1,27 +1,14 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   MOBILE_STAFF_DOCK_BTN_PX,
   MOBILE_STAFF_DOCK_GAP_PX,
-  readStaffFabAnchor,
 } from '../components/layout/mobileStaffDockStyles';
+import {
+  useStaffMobileFabBeginPointer,
+  useStaffMobileFabPressRefs,
+} from './staffMobileFabPointer';
 
 export type StaffMobileFabAnchor = 'favorites' | 'bell';
-
-const HOLD_MS = 360;
-/** 롱프레스 후 세로 드래그 — 이 정도 움직이면 홀드 대기 없이 드래그 시작 */
-const EARLY_DRAG_MS = 220;
-const EARLY_DRAG_DY_PX = 5;
-/** 가로 스크롤 의도 — 홀드 취소 */
-const HORIZONTAL_CANCEL_DX_PX = 18;
-
-const FAB_STACK_ACTIVE_CLASS = 'touch-none select-none';
 
 type Options = {
   storageKey: string;
@@ -36,18 +23,11 @@ export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap 
   const [fabTop, setFabTop] = useState<number | null>(null);
   const fabTopRef = useRef<number | null>(null);
   const [fabDragging, setFabDragging] = useState(false);
-  const fabDraggingRef = useRef(false);
-  const fabPointerIdRef = useRef<number | null>(null);
-  const fabHoldTimerRef = useRef<number | null>(null);
-  const fabDragOffsetRef = useRef({ y: 0 });
-  const fabPressMovedRef = useRef(false);
-  const fabPointerAnchorRef = useRef<StaffMobileFabAnchor | null>(null);
   const fabStackRef = useRef<HTMLDivElement | null>(null);
   const [fabBellMount, setFabBellMount] = useState<HTMLDivElement | null>(null);
   const stackCountRef = useRef(stackCount);
-  const endPressListenersRef = useRef<(() => void) | null>(null);
-  const endDragListenersRef = useRef<(() => void) | null>(null);
   const onFavoritesTapRef = useRef(onFavoritesTap);
+  const pressRefs = useStaffMobileFabPressRefs();
 
   useEffect(() => {
     onFavoritesTapRef.current = onFavoritesTap;
@@ -73,13 +53,6 @@ export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap 
     fabTopRef.current = next;
     const el = fabStackRef.current;
     if (el) el.style.top = `${next}px`;
-  }, []);
-
-  const setFabStackActiveDom = useCallback((active: boolean) => {
-    const el = fabStackRef.current;
-    if (!el) return;
-    if (active) el.classList.add(FAB_STACK_ACTIVE_CLASS);
-    else el.classList.remove(FAB_STACK_ACTIVE_CLASS);
   }, []);
 
   const persistFabTop = useCallback(
@@ -131,191 +104,20 @@ export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap 
     return () => window.removeEventListener('resize', onResize);
   }, [clampFabTop]);
 
-  const clearPressListeners = useCallback(() => {
-    endPressListenersRef.current?.();
-    endPressListenersRef.current = null;
-  }, []);
-
-  const clearDragListeners = useCallback(() => {
-    endDragListenersRef.current?.();
-    endDragListenersRef.current = null;
-  }, []);
-
-  const releaseFabCapture = useCallback((pointerId: number) => {
-    try {
-      fabStackRef.current?.releasePointerCapture(pointerId);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const finishPointer = useCallback(
-    (evt: PointerEvent, wasDragging: boolean) => {
-      releaseFabCapture(evt.pointerId);
-      fabPointerIdRef.current = null;
-      const tapAnchor = fabPointerAnchorRef.current;
-      fabPointerAnchorRef.current = null;
-      fabDraggingRef.current = false;
-      setFabDragging(false);
-      setFabStackActiveDom(false);
-
-      if (wasDragging) {
-        const y = fabTopRef.current;
-        if (y != null) {
-          setFabTop(y);
-          persistFabTop(y);
-        }
-        return;
-      }
-
-      if (!fabPressMovedRef.current && tapAnchor === 'favorites') {
+  const beginFabPointer = useStaffMobileFabBeginPointer(pressRefs, {
+    stackRef: fabStackRef,
+    topRef: fabTopRef,
+    clampTop: clampFabTop,
+    applyTopDom: applyFabTopDom,
+    setTopState: setFabTop,
+    persistTop: persistFabTop,
+    setDraggingState: setFabDragging,
+    onTap: (anchor) => {
+      if (anchor === 'favorites') {
         onFavoritesTapRef.current?.();
       }
-      fabPressMovedRef.current = false;
     },
-    [persistFabTop, releaseFabCapture, setFabStackActiveDom],
-  );
-
-  const attachDragListeners = useCallback(
-    (pointerId: number) => {
-      clearDragListeners();
-      const onMove = (evt: PointerEvent) => {
-        if (fabPointerIdRef.current == null || evt.pointerId !== pointerId) return;
-        evt.preventDefault();
-        applyFabTopDom(clampFabTop(evt.clientY - fabDragOffsetRef.current.y));
-      };
-      const onUp = (evt: PointerEvent) => {
-        if (fabPointerIdRef.current == null || evt.pointerId !== pointerId) return;
-        clearDragListeners();
-        finishPointer(evt, true);
-      };
-      window.addEventListener('pointermove', onMove, { passive: false });
-      window.addEventListener('pointerup', onUp);
-      window.addEventListener('pointercancel', onUp);
-      endDragListenersRef.current = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onUp);
-      };
-    },
-    [applyFabTopDom, clampFabTop, clearDragListeners, finishPointer],
-  );
-
-  const beginFabPointer = useCallback(
-    (anchor: StaffMobileFabAnchor, evt: ReactPointerEvent<HTMLDivElement>) => {
-      if (evt.button !== 0) return;
-      const stack = fabStackRef.current;
-      if (!stack) return;
-
-      evt.preventDefault();
-      clearPressListeners();
-      clearDragListeners();
-      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
-
-      const pointerId = evt.pointerId;
-      const downAt = Date.now();
-      fabPointerAnchorRef.current = anchor;
-      fabPressMovedRef.current = false;
-      fabPointerIdRef.current = pointerId;
-      setFabStackActiveDom(true);
-
-      const rect = stack.getBoundingClientRect();
-      fabDragOffsetRef.current = { y: evt.clientY - rect.top };
-
-      try {
-        stack.setPointerCapture(pointerId);
-      } catch {
-        /* ignore */
-      }
-
-      const down = { x: evt.clientX, y: evt.clientY };
-
-      const enterDragMode = () => {
-        if (fabDraggingRef.current || fabPointerIdRef.current !== pointerId) return;
-        clearPressListeners();
-        if (fabHoldTimerRef.current != null) {
-          window.clearTimeout(fabHoldTimerRef.current);
-          fabHoldTimerRef.current = null;
-        }
-        fabDraggingRef.current = true;
-        setFabDragging(true);
-        try {
-          navigator.vibrate?.(12);
-        } catch {
-          /* ignore */
-        }
-        attachDragListeners(pointerId);
-      };
-
-      const onEarlyMove = (moveEvt: PointerEvent) => {
-        if (fabPointerIdRef.current == null || moveEvt.pointerId !== pointerId) return;
-        const dx = Math.abs(moveEvt.clientX - down.x);
-        const dy = Math.abs(moveEvt.clientY - down.y);
-        if (dx + dy > 4) fabPressMovedRef.current = true;
-
-        if (fabDraggingRef.current) return;
-
-        if (dx > HORIZONTAL_CANCEL_DX_PX && dx > dy * 1.2) {
-          if (fabHoldTimerRef.current != null) {
-            window.clearTimeout(fabHoldTimerRef.current);
-            fabHoldTimerRef.current = null;
-          }
-          return;
-        }
-
-        const elapsed = Date.now() - downAt;
-        if (dy >= EARLY_DRAG_DY_PX && dy >= dx && elapsed >= EARLY_DRAG_MS) {
-          enterDragMode();
-        }
-      };
-
-      const onEarlyUp = (upEvt: PointerEvent) => {
-        if (fabPointerIdRef.current == null || upEvt.pointerId !== pointerId) return;
-        if (fabHoldTimerRef.current != null) {
-          window.clearTimeout(fabHoldTimerRef.current);
-          fabHoldTimerRef.current = null;
-        }
-        clearPressListeners();
-        if (!fabDraggingRef.current) {
-          finishPointer(upEvt, false);
-        }
-      };
-
-      window.addEventListener('pointermove', onEarlyMove, { passive: true });
-      window.addEventListener('pointerup', onEarlyUp);
-      window.addEventListener('pointercancel', onEarlyUp);
-      endPressListenersRef.current = () => {
-        window.removeEventListener('pointermove', onEarlyMove);
-        window.removeEventListener('pointerup', onEarlyUp);
-        window.removeEventListener('pointercancel', onEarlyUp);
-      };
-
-      fabHoldTimerRef.current = window.setTimeout(() => {
-        fabHoldTimerRef.current = null;
-        enterDragMode();
-      }, HOLD_MS);
-    },
-    [attachDragListeners, clearDragListeners, clearPressListeners, finishPointer, setFabStackActiveDom],
-  );
-
-  const onFabStackPointerDown = useCallback(
-    (evt: ReactPointerEvent<HTMLDivElement>) => {
-      const raw = readStaffFabAnchor(evt.target);
-      if (raw !== 'favorites' && raw !== 'bell') return;
-      beginFabPointer(raw, evt);
-    },
-    [beginFabPointer],
-  );
-
-  useLayoutEffect(
-    () => () => {
-      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
-      clearPressListeners();
-      clearDragListeners();
-      setFabStackActiveDom(false);
-    },
-    [clearDragListeners, clearPressListeners, setFabStackActiveDom],
-  );
+  });
 
   return {
     fabTop,
@@ -325,6 +127,6 @@ export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap 
     setFabBellMount,
     fabSafeRight,
     showMobileFabStack: fabTop != null,
-    onFabStackPointerDown,
+    beginFabPointer,
   };
 }

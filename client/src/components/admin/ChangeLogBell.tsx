@@ -17,7 +17,6 @@ import { staffDesktopDockButtonClass } from '../layout/staffRightRailStyles';
 import {
   MOBILE_STAFF_DOCK_BTN_CLASS,
   MOBILE_STAFF_DOCK_ICON_CLASS,
-  STAFF_FAB_ANCHOR_ATTR,
 } from '../layout/mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from '../layout/staffRightRailStyles';
 
@@ -29,8 +28,7 @@ const BTN_PRIMARY_SM =
 
 /** lg 미만 — AdminLayout·TeamLayout 모바일 FAB 스택 안에 embed */
 export type ChangeLogBellMobileStackProps = {
-  /** 미지정 시 스택 div pointer 위임(data-staff-fab-anchor=bell) */
-  onPointerDown?: (evt: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerDown: (evt: React.PointerEvent<HTMLButtonElement>) => void;
   dragging?: boolean;
   /** FAB 스택 flex 내부 마운트 지점 (데스크톱 fixed와 분리) */
   mountNode?: HTMLDivElement | null;
@@ -154,6 +152,18 @@ export function ChangeLogBell({
   const startYRef = useRef(0);
   const latestTopRef = useRef<number | null>(posTop);
   const prevDockDraggingRef = useRef(false);
+  const prevMobileStackDraggingRef = useRef(false);
+
+  useEffect(() => {
+    const dragging = mobileStack?.dragging ?? false;
+    if (prevMobileStackDraggingRef.current && !dragging && mobileStack) {
+      suppressClickRef.current = true;
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
+    prevMobileStackDraggingRef.current = dragging;
+  }, [mobileStack]);
 
   const clampTop = (y: number) => {
     const margin = 56;
@@ -163,7 +173,7 @@ export function ChangeLogBell({
 
   const onBellPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (mobileStack) {
-      mobileStack.onPointerDown?.(e);
+      mobileStack.onPointerDown(e);
       return;
     }
     if (onDockDesktop && desktopDock) {
@@ -371,7 +381,6 @@ export function ChangeLogBell({
   const bellButton = (
     <button
       type="button"
-      {...(mobileStack ? { [STAFF_FAB_ANCHOR_ATTR]: 'bell' } : {})}
       onClick={(e) => {
         if (suppressClickRef.current || bellDragging) {
           e.preventDefault();
