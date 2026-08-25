@@ -19,6 +19,8 @@ UPDATE_STATE_PATH = APP_DATA_DIR / 'update.state.json'
 UPDATE_LOG_PATH = APP_DATA_DIR / 'update.log'
 UPDATE_CACHE_DIR = APP_DATA_DIR / 'update-cache'
 STALE_CHAT_QUEUE_PATH = APP_DATA_DIR / 'stale_chat_queue.json'
+RECONTACT_QUEUE_PATH = APP_DATA_DIR / 'recontact_queue.json'
+COMBINED_QUEUE_PATH = APP_DATA_DIR / 'combined_queue.json'
 
 MANIFEST_URL_CANDIDATES: tuple[str, ...] = (
     'https://www.cbiseo.com/api/public/soomgo-automation/manifest',

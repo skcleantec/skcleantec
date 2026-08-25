@@ -1,9 +1,11 @@
 ---
-description: SK클린텍 프로젝트 핵심 코딩 규칙 - 모듈화, 이식성, 안정성
+description: CBISEO(청소비서) 프로젝트 핵심 코딩 규칙 - 모듈화, 이식성, 안정성
 alwaysApply: true
 ---
 
-# SK클린텍 프로젝트 규칙
+# CBISEO (청소비서) 프로젝트 규칙
+
+> **프로젝트명:** CBISEO / 청소비서 — SK클린텍·skcleantec를 **플랫폼·가이드·예시명**으로 쓰지 않음. **`.cursor/rules/cbiseo-project-identity.mdc`**
 
 ## 0. URL·화면 유지 (**최우선**)
 

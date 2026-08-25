@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import time
 
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -13,6 +14,69 @@ from automation.selectors import URLS
 from automation.window_layout import ensure_soomgo_mobile_layout
 
 logger = logging.getLogger(__name__)
+
+_CHAT_LIST_READY_SELECTOR = (
+    'ul.css-19wxjby > li, main ul > li, ul[class*="css-"] > li, a[href*="/pro/chats/"]'
+)
+_CHAT_ROOM_READY_SELECTOR = (
+    '.chat-room, .chat-messages, .chat-messages-container, section.chatbody-section, '
+    'textarea, [role="textbox"], [contenteditable="true"]'
+)
+
+
+def wait_document_usable(driver, timeout: float = 12) -> bool:
+    """SPA — interactive 이상이면 진행 (complete만 기다리면 멈춤)"""
+    try:
+        WebDriverWait(driver, timeout).until(
+            lambda d: d.execute_script(
+                "return document.readyState === 'interactive' "
+                "|| document.readyState === 'complete'"
+            )
+        )
+        return True
+    except TimeoutException:
+        return False
+
+
+def navigate_get(driver, url: str, *, page_timeout: int = 45) -> bool:
+    """driver.get + 타임아웃 시 window.stop (eager 로드·느린 리소스 대응)"""
+    try:
+        driver.set_page_load_timeout(page_timeout)
+        driver.get(url)
+        return True
+    except TimeoutException:
+        logger.warning('navigate_get timeout — partial load continues: %s', url)
+        try:
+            driver.execute_script('window.stop();')
+        except Exception:
+            pass
+        return True
+    except WebDriverException as exc:
+        logger.warning('navigate_get failed: %s — %s', url, exc)
+        return False
+
+
+def wait_for_chat_list_elements(driver, timeout: float = 15) -> bool:
+    try:
+        wait_document_usable(driver, min(timeout, 8))
+        WebDriverWait(driver, timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, _CHAT_LIST_READY_SELECTOR))
+        )
+        return True
+    except TimeoutException:
+        return False
+
+
+def wait_for_chat_room_elements(driver, timeout: float = 15) -> bool:
+    try:
+        wait_document_usable(driver, min(timeout, 8))
+        WebDriverWait(driver, timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, _CHAT_ROOM_READY_SELECTOR))
+        )
+        return True
+    except TimeoutException:
+        return False
+
 
 _VERIFY_CHAT_SHELL_JS = """
 return (function() {
@@ -207,15 +271,7 @@ def detect_chat_room_blocker(driver) -> str:
 
 
 def _wait_for_chat_room_ready(driver, delay: float) -> None:
-    WebDriverWait(driver, 12).until(
-        lambda d: d.execute_script('return document.readyState') == 'complete'
-    )
-    WebDriverWait(driver, 12).until(
-        EC.presence_of_element_located((
-            By.CSS_SELECTOR,
-            '.chat-room, .chat-messages, .chat-messages-container, section.chatbody-section, textarea',
-        ))
-    )
+    wait_for_chat_room_elements(driver, timeout=15)
     time.sleep(delay * 0.45)
 
 
@@ -241,7 +297,9 @@ def recover_chat_list_workspace(driver, delay: float = 1.0, *, log=None) -> bool
 
         was_on_list = is_on_chat_list_url(driver.current_url)
         if not was_on_list:
-            driver.get(URLS['CHAT_LIST'])
+            if not navigate_get(driver, URLS['CHAT_LIST'], page_timeout=45):
+                _log('[목록 복구] URL 이동 실패')
+                return False
             ensure_soomgo_mobile_layout(driver)
 
         dismiss_blocking_overlays(driver, delay * 0.35, max_rounds=3)
@@ -251,12 +309,9 @@ def recover_chat_list_workspace(driver, delay: float = 1.0, *, log=None) -> bool
             _log('[세션] 로그인 페이지 — 재로그인이 필요합니다.')
             return False
 
-        WebDriverWait(driver, 12).until(
-            EC.presence_of_element_located((
-                By.CSS_SELECTOR,
-                'ul.css-19wxjby > li, main ul > li, ul[class*="css-"] > li, a[href*="/pro/chats/"]',
-            ))
-        )
+        if not wait_for_chat_list_elements(driver, timeout=15):
+            _log('[목록 복구] 채팅 목록 요소 대기 시간 초과')
+            return False
         return is_on_chat_list_url(driver.current_url)
     except Exception as e:
         _log(f'[목록 복구] 실패: {type(e).__name__}')
@@ -313,8 +368,7 @@ def _reload_current_chat_room(driver, delay: float) -> bool:
 
 
 def _open_via_get(driver, chat_url: str, delay: float) -> str:
-    driver.set_page_load_timeout(60)
-    driver.get(chat_url)
+    navigate_get(driver, chat_url, page_timeout=45)
     time.sleep(delay * 0.7)
     return 'get'
 
@@ -339,22 +393,29 @@ def open_chat_room_direct(
 
     chat_url = URLS['CHAT_ROOM'].format(chat_id=cid)
     try:
-        driver.set_page_load_timeout(60)
-        driver.get(chat_url)
-        WebDriverWait(driver, 15).until(
-            lambda d: d.execute_script('return document.readyState') == 'complete'
-        )
-        time.sleep(delay)
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((
-                By.CSS_SELECTOR,
-                "textarea, [role='textbox'], .chat-messages, header",
-            ))
-        )
+        if not navigate_get(driver, chat_url, page_timeout=45):
+            _log('[채팅방] URL 이동 실패')
+            return False
+        ensure_soomgo_mobile_layout(driver)
+        dismiss_blocking_overlays(driver, delay * 0.35, max_rounds=3)
+        if not wait_for_chat_room_elements(driver, timeout=15):
+            _log('[채팅방] 메시지·입력 영역 대기 시간 초과 (부분 로드로 계속)')
+        time.sleep(delay * 0.5)
         if is_login_url(driver.current_url):
             _log('[세션] 방 입장 중 로그인 페이지로 이동됨')
             return False
-        return is_in_chat_room_url(driver.current_url)
+        shell = verify_chat_room_shell(driver)
+        if shell.get('emptyShell'):
+            _log('[채팅방] 빈 화면 — 새로고침 후 재확인')
+            _reload_current_chat_room(driver, delay)
+        if not is_in_chat_room_url(driver.current_url):
+            _log(f'[채팅방] URL 확인 실패: {driver.current_url}')
+            return False
+        blocker = detect_chat_room_blocker(driver)
+        if blocker in ('not_found', 'gone', 'invalid'):
+            _log(f'[채팅방] 진입 불가 ({blocker})')
+            return False
+        return True
     except Exception as e:
         _log(f'[채팅방] 이동 실패: {type(e).__name__}')
         return False

@@ -10,11 +10,10 @@ import time
 from typing import List, Dict, Optional, Set
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 
+from automation.chat_navigation import navigate_get, wait_document_usable, wait_for_chat_list_elements
 from automation.selectors import CHAT_LIST, SYSTEM_MESSAGES
 
 logger = logging.getLogger(__name__)
@@ -548,7 +547,9 @@ return (function(deltaY, toTop) {
     );
     var atBottom = false;
     if (target && target.scrollTop !== undefined) {
-        atBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 12;
+        var scrollable = target.scrollHeight > target.clientHeight + 4;
+        atBottom = scrollable &&
+            target.scrollTop + target.clientHeight >= target.scrollHeight - 12;
     }
     return { ok: true, moved: moved, atBottom: atBottom, before: before, after: after };
 })(arguments[0], arguments[1]);
@@ -607,20 +608,23 @@ return (function() {
     }
     var ul = pickUl();
     if (!ul) {
-        return { ok: false, atBottom: true, scrollTop: 0, scrollHeight: 0, clientHeight: 0, remaining: 0 };
+        return { ok: false, atBottom: false, scrollable: false, scrollTop: 0, scrollHeight: 0, clientHeight: 0, remaining: 0 };
     }
     var target = findScrollable(ul) || ul;
     if (!target || target.scrollTop === undefined) {
-        return { ok: false, atBottom: true, scrollTop: 0, scrollHeight: 0, clientHeight: 0, remaining: 0 };
+        return { ok: false, atBottom: false, scrollable: false, scrollTop: 0, scrollHeight: 0, clientHeight: 0, remaining: 0 };
     }
     var scrollTop = target.scrollTop;
     var scrollHeight = target.scrollHeight;
     var clientHeight = target.clientHeight;
     var remaining = scrollHeight - scrollTop - clientHeight;
-    var atBottom = remaining <= 12;
+    var scrollable = scrollHeight > clientHeight + 4;
+    // 가상 스크롤: scrollHeight≈clientHeight 이면 아직 전체 목록 바닥이 아님
+    var atBottom = scrollable && remaining <= 12;
     return {
         ok: true,
         atBottom: atBottom,
+        scrollable: scrollable,
         scrollTop: scrollTop,
         scrollHeight: scrollHeight,
         clientHeight: clientHeight,
@@ -717,19 +721,19 @@ class ChatListManager:
                             'new_message_count': 0,
                             'text': preview_text,
                         })
-                self.driver.get(list_url)
+                navigate_get(self.driver, list_url, page_timeout=45)
                 self._wait_for_page_ready(timeout=15)
                 time.sleep(0.5)
             except StaleElementReferenceException:
                 try:
-                    self.driver.get(list_url)
+                    navigate_get(self.driver, list_url, page_timeout=45)
                     self._wait_for_page_ready(timeout=15)
                 except Exception:
                     pass
             except Exception as e:
                 logger.warning(f'[click_fallback] {idx + 1}번째 항목 실패: {type(e).__name__}: {e}')
                 try:
-                    self.driver.get(list_url)
+                    navigate_get(self.driver, list_url, page_timeout=45)
                     self._wait_for_page_ready(timeout=15)
                 except Exception:
                     pass
@@ -796,17 +800,13 @@ class ChatListManager:
         return 0
 
     def _wait_for_page_ready(self, timeout: int = 10) -> bool:
-        """페이지 로드 및 JavaScript 렌더링 완료 대기"""
+        """SPA 채팅 목록 — interactive + li 요소 (complete만 기다리면 멈춤)"""
         try:
-            WebDriverWait(self.driver, timeout).until(
-                lambda d: d.execute_script('return document.readyState') == 'complete'
-            )
-            WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, CHAT_LIST['PAGE_READY_INDICATOR'])
-                )
-            )
-            time.sleep(0.5)
+            wait_document_usable(self.driver, min(timeout, 8))
+            if not wait_for_chat_list_elements(self.driver, timeout=timeout):
+                logger.warning(f'[페이지 대기] {timeout}초 타임아웃 - 채팅방 요소 없음')
+                return False
+            time.sleep(0.3)
             return True
         except TimeoutException:
             logger.warning(f'[페이지 대기] {timeout}초 타임아웃 - 채팅방 요소 없음')
@@ -920,12 +920,14 @@ class ChatListManager:
                 return result
         except Exception as e:
             logger.debug('[get_scroll_state] %s', e)
-        return {'ok': False, 'atBottom': True, 'remaining': 0}
+        return {'ok': False, 'atBottom': False, 'scrollable': False, 'remaining': 0}
 
     def is_at_bottom(self, tolerance: int = 12) -> bool:
         state = self.get_scroll_state()
         if not state.get('ok'):
-            return True
+            return False
+        if not state.get('scrollable', True):
+            return False
         if state.get('atBottom'):
             return True
         remaining = state.get('remaining')

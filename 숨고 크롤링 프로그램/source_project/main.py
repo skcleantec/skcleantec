@@ -68,8 +68,8 @@ class SoomgoAutomationApp:
     def __init__(self, root):
         self.root = root
         self.root.title(f'{APP_DISPLAY_NAME} v{APP_VERSION}')
-        self.root.geometry('700x800')
         self.root.resizable(True, True)
+        self._apply_main_window_geometry()
         self.browser = BrowserManager()
         self.current_feature = None
         self.delete_feature = None
@@ -109,21 +109,49 @@ class SoomgoAutomationApp:
             self.run_apply_update(force=True)
         else:
             clear_failed_update_state()
-    def create_widgets(self):
-        '''GUI 위젯 생성'''
-        container = ttk.Frame(self.root)
-        container.pack(fill=tk.BOTH, expand=True)
+    def _apply_main_window_geometry(self):
+        '''메인 창 — 한눈에 보이는 크기·화면 중앙'''
+        width, height = 1080, 920
+        self.root.update_idletasks()
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        width = min(width, max(880, sw - 48))
+        height = min(height, max(780, sh - 48))
+        x = max(0, (sw - width) // 2)
+        y = max(0, (sh - height) // 2)
+        self.root.geometry(f'{width}x{height}+{x}+{y}')
+        self.root.minsize(880, 780)
 
-        self.main_canvas = tk.Canvas(container, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(container, orient='vertical', command=self.main_canvas.yview)
-        main_frame = ttk.Frame(self.main_canvas, padding='15')
+    LOG_PANEL_WIDTH = 360
+
+    def create_widgets(self):
+        '''GUI 위젯 생성 — 좌측 컨트롤(넓게) / 우측 로그(고정 폭)'''
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
+        outer = ttk.Frame(self.root)
+        outer.pack(fill=tk.BOTH, expand=True)
+        outer.rowconfigure(0, weight=1)
+        outer.columnconfigure(0, weight=1)
+        outer.columnconfigure(1, weight=0, minsize=self.LOG_PANEL_WIDTH)
+
+        left_wrap = ttk.Frame(outer)
+        left_wrap.grid(row=0, column=0, sticky='nsew')
+        left_wrap.rowconfigure(0, weight=1)
+        left_wrap.columnconfigure(0, weight=1)
+
+        self.main_canvas = tk.Canvas(left_wrap, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(
+            left_wrap, orient='vertical', command=self.main_canvas.yview
+        )
+        main_frame = ttk.Frame(self.main_canvas, padding='12')
         self._main_scroll_window = self.main_canvas.create_window(
             (0, 0), window=main_frame, anchor='nw'
         )
 
         self.main_canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.main_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.main_canvas.grid(row=0, column=0, sticky='nsew')
+        scrollbar.grid(row=0, column=1, sticky='ns')
 
         main_frame.bind('<Configure>', self._on_main_scroll_configure)
         self.main_canvas.bind('<Configure>', self._on_main_canvas_configure)
@@ -135,8 +163,13 @@ class SoomgoAutomationApp:
         self.create_login_section(main_frame)
         ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=10)
         self.create_feature_cards(main_frame)
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=10)
-        self.create_log_section(main_frame)
+
+        log_wrap = ttk.Frame(outer, width=self.LOG_PANEL_WIDTH, padding='6')
+        log_wrap.grid(row=0, column=1, sticky='ns')
+        log_wrap.grid_propagate(False)
+        log_wrap.columnconfigure(0, weight=1)
+        log_wrap.rowconfigure(0, weight=1)
+        self.create_log_section(log_wrap)
 
     def _on_main_scroll_configure(self, event=None):
         self.main_canvas.configure(scrollregion=self.main_canvas.bbox('all'))
@@ -488,6 +521,10 @@ class SoomgoAutomationApp:
         self.f1_run_btn.pack(side = 'right', padx = 5)
         self.f1_stop_btn = ttk.Button(btn_frame, text = '중지', command = self.stop_recontact, width = 12, state = 'disabled')
         self.f1_stop_btn.pack(side = 'right', padx = 5)
+        self.f1_resume_btn = ttk.Button(
+            btn_frame, text='이어하기', command=self.run_recontact_resume, width=12, state='disabled'
+        )
+        self.f1_resume_btn.pack(side='right', padx=5)
 
     
     def create_combined_card(self, parent):
@@ -523,6 +560,12 @@ class SoomgoAutomationApp:
         self.f2_run_btn.pack(side = 'right', padx = 5)
         self.f2_stop_btn = ttk.Button(btn_frame, text = '중지', command = self.stop_feature, width = 12, state = 'disabled')
         self.f2_stop_btn.pack(side = 'right', padx = 5)
+        self.f2_resume_btn = ttk.Button(
+            btn_frame, text='이어하기', command=self.run_combined_resume, width=12, state='disabled'
+        )
+        self.f2_resume_btn.pack(side='right', padx=5)
+        self.refresh_recontact_resume_button()
+        self.refresh_combined_resume_button()
 
     
     def create_delete_card(self, parent):
@@ -648,14 +691,22 @@ class SoomgoAutomationApp:
 
     
     def create_log_section(self, parent):
-        '''로그 섹션 생성'''
-        frame = ttk.LabelFrame(parent, text = '로그', padding = '10')
-        frame.pack(fill = 'x', pady = 5)
-        self.log_text = scrolledtext.ScrolledText(frame, height = 10, state = 'disabled')
-        self.log_text.pack(fill = 'x')
+        '''로그 섹션 생성 (우측 패널 전체 높이)'''
+        frame = ttk.LabelFrame(parent, text='로그', padding='8')
+        frame.grid(row=0, column=0, sticky='nsew')
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+
+        self.log_text = scrolledtext.ScrolledText(
+            frame, state='disabled', wrap=tk.WORD
+        )
+        self.log_text.grid(row=0, column=0, sticky='nsew')
+
         btn_frame = ttk.Frame(frame)
-        btn_frame.pack(fill = 'x', pady = (5, 0))
-        ttk.Button(btn_frame, text = '로그 지우기', command = self.clear_log).pack(side = 'right')
+        btn_frame.grid(row=1, column=0, sticky='ew', pady=(6, 0))
+        ttk.Button(btn_frame, text='로그 지우기', command=self.clear_log).pack(
+            side='right'
+        )
 
     
     def open_recontact_settings(self):
@@ -667,6 +718,7 @@ class SoomgoAutomationApp:
         if dialog.result:
             self.recontact_settings = dialog.result
             self.update_recontact_summary()
+            self.persist_app_config()
             self.log('재접촉 설정 저장됨')
             return None
 
@@ -678,8 +730,23 @@ class SoomgoAutomationApp:
         if dialog.result:
             self.combined_settings = dialog.result
             self.update_combined_summary()
+            self.persist_app_config()
             self.log('이모지/견적조회 설정 저장됨')
             return None
+
+    def persist_app_config(self):
+        '''설정 다이얼로그 저장 시 config.json 동기화'''
+        try:
+            self.config['delay_seconds'] = self.get_delay()
+        except Exception:
+            pass
+        self.config['recontact'] = (
+            self.recontact_settings.copy() if self.recontact_settings else {}
+        )
+        self.config['combined'] = (
+            self.combined_settings.copy() if self.combined_settings else {}
+        )
+        save_config(self.config)
 
     
     def update_recontact_summary(self):
@@ -862,7 +929,12 @@ class SoomgoAutomationApp:
             return False, 'browser'
 
         delay = self.get_delay()
-        if not login_to_soomgo(self.browser.driver, email, password, delay):
+
+        def login_log(message: str) -> None:
+            self.root.after(0, lambda m=message: self.log(m))
+
+        self.root.after(0, lambda: self.log('Chrome 시작 완료 — 숨고 로그인 진행'))
+        if not login_to_soomgo(self.browser.driver, email, password, delay, log=login_log):
             self.browser.stop()
             return False, 'auth'
 
@@ -969,10 +1041,47 @@ class SoomgoAutomationApp:
         self.f2_run_btn.config(state = state)
         if running:
             self.f2_stop_btn.config(state = 'normal')
+            self.f1_resume_btn.config(state='disabled')
+            self.f2_resume_btn.config(state='disabled')
             return None
         self.f2_stop_btn.config(state='disabled')
+        self.refresh_recontact_resume_button()
+        self.refresh_combined_resume_button()
 
-    def run_recontact(self):
+    def refresh_recontact_resume_button(self):
+        try:
+            from features.feature_run_queue import (
+                FEATURE_RECONTACT,
+                get_queue_summary,
+                has_resumable_queue,
+            )
+
+            if has_resumable_queue(FEATURE_RECONTACT):
+                self.f1_resume_btn.config(state='normal')
+            else:
+                self.f1_resume_btn.config(state='disabled')
+        except Exception:
+            pass
+
+    def refresh_combined_resume_button(self):
+        try:
+            from features.feature_run_queue import (
+                FEATURE_COMBINED,
+                get_queue_summary,
+                has_resumable_queue,
+            )
+
+            if has_resumable_queue(FEATURE_COMBINED):
+                self.f2_resume_btn.config(state='normal')
+                summary = get_queue_summary(FEATURE_COMBINED)
+                self.f2_status_var.set(f'이어하기 가능 · {summary}')
+                self.f2_status_label.config(foreground='orange')
+            else:
+                self.f2_resume_btn.config(state='disabled')
+        except Exception:
+            pass
+
+    def run_recontact(self, *, resume: bool = False):
         '''재접촉 기능 실행'''
         if not self.check_login():
             return
@@ -1036,24 +1145,52 @@ class SoomgoAutomationApp:
             )
         self.log(', '.join(log_parts) + ')')
 
+        if resume:
+            from features.feature_run_queue import (
+                FEATURE_RECONTACT,
+                get_queue_summary,
+                has_resumable_queue,
+            )
+
+            if not has_resumable_queue(FEATURE_RECONTACT):
+                messagebox.showinfo('이어하기', '이어할 재접촉 작업이 없습니다.')
+                self.set_buttons_state(False)
+                self.refresh_recontact_resume_button()
+                return
+            if not messagebox.askyesno(
+                '이어하기',
+                f'저장된 재접촉 작업을 이어합니다.\n{get_queue_summary(FEATURE_RECONTACT)}\n\n'
+                '현재 설정(텍스트·전송순서)이 적용됩니다.\n'
+                '이미 잘못 보낸 말풍선은 숨고에서 수동 정리가 필요할 수 있습니다.\n\n'
+                '계속하시겠습니까?',
+            ):
+                self.set_buttons_state(False)
+                return
+            self.log(f'재접촉 이어하기 — {get_queue_summary(FEATURE_RECONTACT)}')
+
         def feature_thread():
             try:
                 delay = self.get_delay()
                 feature = RecontactFeature(self.browser.driver, delay)
                 feature.set_log_callback(lambda msg: self.root.after(0, lambda m=msg: self.log(m)))
                 self.current_feature = feature
-                count = feature.run(self.recontact_settings)
-                self.root.after(0, lambda: self.log(f'재접촉 완료: {count}건 처리'))
+                count = feature.run(self.recontact_settings, resume=resume)
+                label = '재접촉 이어하기 완료' if resume else '재접촉 완료'
+                self.root.after(0, lambda: self.log(f'{label}: {count}건 처리'))
             except Exception as e:
                 self.root.after(0, lambda: self.log(f'재접촉 오류: {e}'))
             finally:
                 self.current_feature = None
                 self.root.after(0, lambda: self.set_buttons_state(False))
+                self.root.after(0, self.refresh_recontact_resume_button)
 
         self.feature_thread = threading.Thread(target=feature_thread, daemon=True)
         self.feature_thread.start()
 
-    def run_combined(self):
+    def run_recontact_resume(self):
+        self.run_recontact(resume=True)
+
+    def run_combined(self, *, resume: bool = False):
         '''이모지/견적조회 통합 기능 실행'''
         if not self.check_login():
             return
@@ -1073,7 +1210,31 @@ class SoomgoAutomationApp:
         test_mode = self.test_mode_var.get()
         mode_text = '[테스트 모드] ' if test_mode else ''
         self.set_buttons_state(True)
-        self.log(f'{mode_text}이모지/견적조회 시작 (상위 {max_count}개 확인)')
+
+        if resume:
+            from features.feature_run_queue import (
+                FEATURE_COMBINED,
+                get_queue_summary,
+                has_resumable_queue,
+            )
+
+            if not has_resumable_queue(FEATURE_COMBINED):
+                messagebox.showinfo('이어하기', '이어할 이모지/견적조회 작업이 없습니다.')
+                self.set_buttons_state(False)
+                self.refresh_combined_resume_button()
+                return
+            if not messagebox.askyesno(
+                '이어하기',
+                f'저장된 작업을 이어합니다.\n{get_queue_summary(FEATURE_COMBINED)}\n\n'
+                '현재 설정(텍스트·이미지 순서)이 적용됩니다.\n'
+                '이미 잘못 보낸 말풍선은 숨고에서 수동 정리가 필요할 수 있습니다.\n\n'
+                '계속하시겠습니까?',
+            ):
+                self.set_buttons_state(False)
+                return
+            self.log(f'{mode_text}이모지/견적조회 이어하기 — {get_queue_summary(FEATURE_COMBINED)}')
+        else:
+            self.log(f'{mode_text}이모지/견적조회 시작 (상위 {max_count}개 확인)')
 
         def feature_thread():
             try:
@@ -1083,16 +1244,20 @@ class SoomgoAutomationApp:
                 feature.set_stats_callback(lambda stats: self.root.after(0, lambda s=stats: self.update_combined_stats(s)))
                 feature.test_mode = test_mode
                 self.current_feature = feature
-                feature.run(self.combined_settings)
+                feature.run(self.combined_settings, resume=resume)
             except Exception as e:
                 self.root.after(0, lambda: self.log(f'통합 기능 오류: {e}'))
             finally:
                 self.current_feature = None
                 self.root.after(0, lambda: self.set_buttons_state(False))
                 self.root.after(0, lambda: self.update_combined_stats({}))
+                self.root.after(0, self.refresh_combined_resume_button)
 
         self.feature_thread = threading.Thread(target=feature_thread, daemon=True)
         self.feature_thread.start()
+
+    def run_combined_resume(self):
+        self.run_combined(resume=True)
 
     
     def stop_feature(self):
@@ -1115,10 +1280,17 @@ class SoomgoAutomationApp:
         '''통합 기능 처리 기록 초기화'''
         if self.current_feature and hasattr(self.current_feature, 'clear_processed'):
             self.current_feature.clear_processed()
+        try:
+            from features.feature_run_queue import FEATURE_COMBINED, clear_feature_queue
+
+            clear_feature_queue(FEATURE_COMBINED)
+        except Exception:
+            pass
         self.f2_emoji_count_var.set('이모지: 0개')
         self.f2_quote_count_var.set('견적조회: 0개')
         self.f2_total_count_var.set('총: 0명')
-        self.log('처리 기록 초기화 완료')
+        self.refresh_combined_resume_button()
+        self.log('처리 기록·이어하기 큐 초기화 완료')
 
     
     def update_combined_stats(self = None, stats = None):

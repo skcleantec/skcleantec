@@ -11,7 +11,7 @@ URLS = {
 LOGIN = {
     'EMAIL_INPUT': "input[type='email'], input[name='email'], input[placeholder*='이메일']",
     'PASSWORD_INPUT': "input[type='password'], input[name='password']",
-    'LOGIN_BUTTON': "button[type='submit'], button:has-text('로그인')" }
+    'LOGIN_BUTTON': "button[type='submit'], form button[type='button'], form button" }
 CHAT_LIST = {
     'TAB_ALL': "[role='tab']:has-text('전체'), li:has-text('전체')",
     'TAB_UNREAD': "[role='tab']:has-text('안 읽음'), li:has-text('안 읽음')",

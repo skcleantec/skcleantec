@@ -15,9 +15,6 @@ from datetime import datetime, date, timezone, timedelta
 from logging.handlers import RotatingFileHandler
 from typing import Callable, List, Dict, Optional
 
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from urllib3.exceptions import ReadTimeoutError, MaxRetryError, ProtocolError, NewConnectionError
 
@@ -29,10 +26,31 @@ from features.content_sender import (
     normalize_recontact_content,
     process_send_order,
 )
+from features.feature_run_queue import (
+    FEATURE_RECONTACT,
+    clear_feature_queue,
+    create_queue_from_chats,
+    finalize_queue_if_complete,
+    get_pending_items,
+    get_queue_summary,
+    load_feature_queue,
+    mark_item_done,
+    mark_queue_interrupted,
+    pending_to_chat_infos,
+    save_feature_queue,
+)
 
 from automation.chat_list import ChatListManager
 from automation.chat_room import ChatRoomManager
+from automation.chat_navigation import (
+    navigate_get,
+    open_chat_room_direct,
+    recover_chat_list_workspace,
+    wait_for_chat_list_elements,
+)
+from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import URLS
+from automation.window_layout import ensure_soomgo_mobile_layout
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +82,10 @@ PERIOD_CHOICES = tuple(PERIOD_LABEL_TO_DAYS.keys())
 KST = timezone(timedelta(hours=9))
 # 가상 스크롤 목록에서 연속 N건이 기간 밖일 때만 수집 종료 (1건 오판으로 조기 종료 방지)
 CONSECUTIVE_OUT_OF_PERIOD_STOP = 8
-DEFAULT_MAX_SCROLLS = 150
+# 연속 N회 스크롤해도 visible chat_id 가 늘지 않으면 수집 종료 (원본: 10회 시도)
+SCROLL_LOAD_MAX_ATTEMPTS = 10
+SCROLL_LOAD_MAX_CONSECUTIVE_FAILURES = 3
+DEFAULT_MAX_SCROLLS = 200
 
 
 def resolve_recontact_period(settings: dict) -> tuple[int, str]:
@@ -149,6 +170,7 @@ class RecontactFeature:
         self.debug_logger = None
         self._start_time = None
         self.images_folder = os.path.join(get_base_path(), 'images')
+        self._run_queue: Optional[dict] = None
 
     def set_log_callback(self, callback: Callable[[str], None]):
         self.log_callback = callback
@@ -286,77 +308,115 @@ class RecontactFeature:
                 return kw
         return ''
 
-    def _scroll_and_wait_for_load(self, max_scroll_attempts: int = 30) -> bool:
+    def _scroll_and_wait_for_load(
+        self,
+        max_scroll_attempts: int = SCROLL_LOAD_MAX_ATTEMPTS,
+        max_consecutive_failures: int = SCROLL_LOAD_MAX_CONSECUTIVE_FAILURES,
+    ) -> bool:
         """
-        동적 로딩 감지 스크롤.
-        가상 스크롤은 새 ID 추가뿐 아니라 visible ID 집합·순서가 바뀌면 성공으로 본다.
+        원본과 동일: scroll_down 후 visible chat_id 집합에 새 ID가 추가될 때만 성공.
+        순서·scrollTop 변경만으로는 성공 처리하지 않음 (가상 스크롤 무한 루프 방지).
         """
+        scroll_start = time.time()
+        consecutive_failures = 0
+        self._debug(
+            f'[_scroll_and_wait_for_load] 시작 (max={max_scroll_attempts}, '
+            f'max_failures={max_consecutive_failures})'
+        )
+
         try:
             before_ids = self.chat_list.get_visible_chat_ids()
-            before_list = self.chat_list.get_visible_chat_id_list()
+        except Exception as e:
+            self._debug(f'[_scroll_and_wait_for_load] get_visible_chat_ids 실패: {e}', 'ERROR')
+            return False
 
-            self.log(
-                f'[스크롤] 현재 {len(before_ids)}개, 동적 스크롤 시작...',
-                gui=False,
+        self.log(
+            f'[스크롤] 현재 {len(before_ids)}개, 동적 스크롤 시작...',
+            gui=False,
+        )
+
+        for attempt in range(max_scroll_attempts):
+            if not self.running:
+                self._debug('[_scroll_and_wait_for_load] running=False, 중단')
+                return False
+
+            attempt_start = time.time()
+            self._debug(
+                f'[_scroll_and_wait_for_load] 스크롤 시도 {attempt + 1}/{max_scroll_attempts} '
+                f'(연속실패: {consecutive_failures})'
             )
 
-            for attempt in range(max_scroll_attempts):
-                if not self.running:
-                    return False
+            try:
+                self.chat_list.scroll_down_detailed(500)
+                scroll_success = True
+            except Exception as e:
+                self._debug(f'[_scroll_and_wait_for_load] scroll_down 오류: {e}', 'ERROR')
+                scroll_success = False
 
-                self.chat_list.scroll_down(500)
-                time.sleep(0.35)
+            scroll_elapsed = time.time() - attempt_start
+            self._debug(
+                f'[_scroll_and_wait_for_load] scroll_down 결과: {scroll_success} '
+                f'({scroll_elapsed:.2f}s)'
+            )
 
-                after_ids = self.chat_list.get_visible_chat_ids()
-                after_list = self.chat_list.get_visible_chat_id_list()
-
-                if after_ids != before_ids or after_list != before_list:
-                    new_ids = after_ids - before_ids
+            if not scroll_success or scroll_elapsed > 10:
+                consecutive_failures += 1
+                self._debug(
+                    f'[_scroll_and_wait_for_load] 스크롤 실패/지연 (연속실패: '
+                    f'{consecutive_failures}/{max_consecutive_failures})',
+                    'WARNING',
+                )
+                if consecutive_failures >= max_consecutive_failures:
                     self.log(
-                        f'[스크롤] 로딩 감지! '
-                        f'새 {len(new_ids)}개 / 목록 변경 ({attempt + 1}회 스크롤)',
+                        f'[스크롤] 연속 {max_consecutive_failures}회 실패로 종료',
                         gui=False,
                     )
-                    return True
+                    return False
+                continue
+
+            consecutive_failures = 0
+            time.sleep(0.3)
 
             try:
-                li_elements = self.chat_list._find_chat_list_elements()
-                if li_elements:
-                    self.driver.execute_script(
-                        "arguments[0].scrollIntoView({block: 'end', behavior: 'auto'});",
-                        li_elements[-1],
-                    )
-                    time.sleep(0.45)
-                    after_ids = self.chat_list.get_visible_chat_ids()
-                    after_list = self.chat_list.get_visible_chat_id_list()
-                    if after_ids != before_ids or after_list != before_list:
-                        self.log('[스크롤] scrollIntoView 후 목록 변경 감지', gui=False)
-                        return True
-            except Exception:
-                pass
+                after_ids = self.chat_list.get_visible_chat_ids()
+            except Exception as e:
+                self._debug(
+                    f'[_scroll_and_wait_for_load] 스크롤 후 get_visible_chat_ids 실패: {e}',
+                    'ERROR',
+                )
+                continue
 
-            self.log(f'[스크롤] {max_scroll_attempts}회 시도 후 추가 로딩 없음', gui=False)
-            return False
-        except Exception as e:
-            self._debug(f'[_scroll_and_wait_for_load] 오류: {type(e).__name__}: {e}', 'ERROR')
-            return False
+            new_ids = after_ids - before_ids
+            if not new_ids:
+                continue
+
+            elapsed = time.time() - scroll_start
+            self._debug(
+                f'[_scroll_and_wait_for_load] 로딩 감지! 새 {len(new_ids)}개 (소요: {elapsed:.2f}s)'
+            )
+            self.log(
+                f'[스크롤] 로딩 감지! 새 {len(new_ids)}개 ({attempt + 1}회 스크롤)',
+                gui=False,
+            )
+            return True
+
+        elapsed = time.time() - scroll_start
+        self._debug(
+            f'[_scroll_and_wait_for_load] 종료 - 추가 로딩 없음 (소요: {elapsed:.2f}s)'
+        )
+        self.log(
+            f'[스크롤] {max_scroll_attempts}회 스크롤 후 추가 로딩 없음',
+            gui=False,
+        )
+        return False
 
     def _wait_for_chat_list_ready(self, timeout: int = 15) -> bool:
         try:
-            WebDriverWait(self.driver, timeout).until(
-                lambda d: d.execute_script('return document.readyState') == 'complete'
-            )
-            WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located((
-                    By.CSS_SELECTOR,
-                    'ul.css-19wxjby > li, main ul > li, ul[class*="css-"] > li, a[href*="/pro/chats/"]',
-                ))
-            )
+            if not wait_for_chat_list_elements(self.driver, timeout=timeout):
+                self.log(f'[페이지 로드] {timeout}초 타임아웃 - 채팅방 요소 없음')
+                return False
             time.sleep(0.5)
             return self.chat_list.get_chat_count() > 0
-        except TimeoutException:
-            self.log(f'[페이지 로드] {timeout}초 타임아웃')
-            return False
         except Exception as e:
             self.log(f'[페이지 로드] 오류: {type(e).__name__}')
             return False
@@ -364,9 +424,11 @@ class RecontactFeature:
     def _safe_navigate(self, url: str, max_retries: int = 3) -> bool:
         for attempt in range(max_retries):
             try:
-                self.driver.set_page_load_timeout(60)
-                self.driver.get(url)
+                if not navigate_get(self.driver, url, page_timeout=45):
+                    raise WebDriverException('navigate_get failed')
                 if '/pro/chats' in url and '/pro/chats/' not in url:
+                    ensure_soomgo_mobile_layout(self.driver)
+                    dismiss_blocking_overlays(self.driver, self.delay * 0.35, max_rounds=2)
                     if self._wait_for_chat_list_ready():
                         return True
                     if attempt < max_retries - 1:
@@ -384,26 +446,19 @@ class RecontactFeature:
                 time.sleep((attempt + 1) * 2)
         return False
 
-    def _safe_navigate_to_chat(self, chat_url: str, max_retries: int = 3) -> bool:
-        for attempt in range(max_retries):
-            try:
-                self.driver.set_page_load_timeout(60)
-                self.driver.get(chat_url)
-                WebDriverWait(self.driver, 15).until(
-                    lambda d: d.execute_script('return document.readyState') == 'complete'
-                )
-                time.sleep(self.delay)
-                WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, "textarea, [role='textbox'], .chat-messages")
-                    )
-                )
-                return True
-            except Exception as e:
-                self.log(f'[채팅방 이동] 실패 ({attempt + 1}/{max_retries}): {type(e).__name__}', gui=False)
-                if attempt < max_retries - 1:
-                    time.sleep(2)
-        return False
+    def _enter_chat_room(self, chat_id: str, display_name: str) -> bool:
+        ok = open_chat_room_direct(
+            self.driver,
+            chat_id,
+            self.delay,
+            log=lambda msg: self.log(msg, gui=True),
+        )
+        if not ok:
+            return False
+        ensure_soomgo_mobile_layout(self.driver)
+        dismiss_blocking_overlays(self.driver, self.delay * 0.5, max_rounds=3)
+        time.sleep(self.delay * 0.4)
+        return True
 
     def _collect_matching_chats(
         self,
@@ -425,7 +480,6 @@ class RecontactFeature:
         loop_count = 0
         scroll_count = 0
         consecutive_out_of_period = 0
-        max_scrolls = self._max_scrolls_for_period(period_days)
 
         try:
             self.chat_list.scroll_to_top()
@@ -434,29 +488,57 @@ class RecontactFeature:
             self.log(f'[수집] 초기화 중 오류: {type(e).__name__}')
 
         self.log(
-            f'[1단계] 키워드 매칭 채팅방 수집 시작 (기간: {period_text}, '
-            f'최대 스크롤 {max_scrolls}회)'
+            f'[1단계] 키워드 매칭 채팅방 수집 시작 (기간: {period_text})'
         )
 
-        while self.running and scroll_count <= max_scrolls:
-            loop_count += 1
-            if loop_count > 1000:
-                self.log('[수집] 루프 한계 도달, 수집 종료')
-                break
+        try:
+            while self.running:
+                loop_count += 1
+                if loop_count > 1000:
+                    self.log('[수집] 루프 한계 도달, 수집 종료')
+                    break
 
-            try:
-                chat_items = self.chat_list.get_chat_items(exclude_ids=checked_chat_ids)
-            except Exception as e:
-                self.log(f'[수집 중단] 채팅 목록 가져오기 실패: {type(e).__name__}')
-                break
+                try:
+                    chat_items = self.chat_list.get_chat_items(exclude_ids=checked_chat_ids)
+                except Exception as e:
+                    self.log(f'[수집 중단] 채팅 목록 가져오기 실패: {type(e).__name__}')
+                    break
 
-            debug_info = getattr(self.chat_list, 'last_extraction_debug', '')
-            if chat_items and 'click_fallback=' in debug_info and loop_count == 1:
-                self.log(f'[스캔] 클릭 방식으로 채팅방 {len(chat_items)}개 ID 수집')
-
-            if not chat_items:
                 debug_info = getattr(self.chat_list, 'last_extraction_debug', '')
-                if checked_chat_ids and self.chat_list.get_chat_count() > 0:
+                if chat_items and 'click_fallback=' in debug_info and loop_count == 1:
+                    self.log(f'[스캔] 클릭 방식으로 채팅방 {len(chat_items)}개 ID 수집')
+
+                if not chat_items:
+                    if checked_chat_ids and self.chat_list.get_chat_count() > 0:
+                        try:
+                            if self._scroll_and_wait_for_load():
+                                scroll_count += 1
+                                continue
+                        except Exception as e:
+                            self.log(f'[수집 중단] 스크롤 중 오류: {type(e).__name__}')
+                            break
+                        self.log('[스캔] 더 이상 로드할 채팅방 없음')
+                        break
+
+                    current_url = ''
+                    try:
+                        current_url = self.driver.current_url
+                    except Exception:
+                        pass
+                    chat_count = self.chat_list.get_chat_count()
+                    detail = f' (URL: {current_url}, li={chat_count}'
+                    if debug_info:
+                        detail += f', {debug_info}'
+                    detail += ')'
+                    self.log('[스캔] 채팅방을 찾을 수 없음 - DOM 추출 실패' + detail)
+                    break
+
+                current_chat_ids = {
+                    item.get('chat_id') for item in chat_items if item.get('chat_id')
+                }
+                new_chat_ids = current_chat_ids - previous_chat_ids
+
+                if not new_chat_ids and previous_chat_ids:
                     try:
                         if self._scroll_and_wait_for_load():
                             scroll_count += 1
@@ -467,154 +549,142 @@ class RecontactFeature:
                     self.log('[스캔] 더 이상 로드할 채팅방 없음')
                     break
 
-                current_url = ''
-                try:
-                    current_url = self.driver.current_url
-                except Exception:
-                    pass
-                chat_count = self.chat_list.get_chat_count()
-                detail = f' (URL: {current_url}, li={chat_count}'
-                if debug_info:
-                    detail += f', {debug_info}'
-                detail += ')'
-                self.log('[스캔] 채팅방을 찾을 수 없음 - DOM 추출 실패' + detail)
-                break
+                if new_chat_ids:
+                    self.log(
+                        f'[스캔] 채팅방 {len(chat_items)}개 로드됨, 확인: {len(new_chat_ids)}개',
+                        gui=False,
+                    )
 
-            current_chat_ids = {item.get('chat_id') for item in chat_items if item.get('chat_id')}
-            new_chat_ids = current_chat_ids - previous_chat_ids
+                period_ended = False
+                for item in chat_items:
+                    if not self.running:
+                        break
 
-            if not new_chat_ids and previous_chat_ids:
+                    chat_id = item.get('chat_id')
+                    if not chat_id or chat_id in checked_chat_ids:
+                        continue
+
+                    checked_chat_ids.add(chat_id)
+                    checked_count += 1
+
+                    if checked_count % 50 == 0:
+                        self.log(
+                            f'[스캔] 진행… 스캔 {checked_count}건, '
+                            f'매칭 {len(matching_chats)}건 (스크롤 {scroll_count}회)'
+                        )
+
+                    nickname = item.get('nickname', '')
+                    text = item.get('text', '')
+                    last_message = item.get('last_message', '')
+                    last_message_type = item.get('last_message_type', '')
+                    message_time = self._resolve_message_time(item)
+                    display_name = nickname or f'ID:{chat_id}'
+                    row_text = text or ''
+
+                    if self._is_out_of_period(message_time, period_days):
+                        consecutive_out_of_period += 1
+                        self.log(
+                            f'[기간 스킵] {display_name} 범위 밖 '
+                            f'(시간: {message_time or "미상"}, 연속 {consecutive_out_of_period}건)',
+                            gui=False,
+                        )
+                        if consecutive_out_of_period >= CONSECUTIVE_OUT_OF_PERIOD_STOP:
+                            self.log(
+                                f'[기간 종료] 연속 {consecutive_out_of_period}건이 '
+                                f'기간({period_text}) 밖 — 수집 종료'
+                            )
+                            period_ended = True
+                            break
+                        continue
+
+                    consecutive_out_of_period = 0
+
+                    if (
+                        hired_me_enabled
+                        and contains_hired_me(row_text, last_message, marker=hired_me_filter_text)
+                    ):
+                        hired_me_skip_count += 1
+                        self.log(
+                            f'[내 고용 스킵] {display_name} - 이미 고용된 고객 '
+                            f'(감지: "{hired_me_filter_text}")',
+                            gui=False,
+                        )
+                        continue
+
+                    if (
+                        hired_other_enabled
+                        and hired_other_ready
+                        and hired_other_system_message
+                        and hired_other_system_message in row_text
+                    ):
+                        preview = row_text[:60].replace('\n', ' ')
+                        self.log(
+                            f'[다른 고수 고용] "{hired_other_system_message}" 감지 | '
+                            f'채팅: {display_name} | 행미리보기: {preview}',
+                            gui=False,
+                        )
+                        matching_chats.append({
+                            'chat_id': chat_id,
+                            'nickname': nickname,
+                            'display_name': display_name,
+                            'match_type': 'hired_other',
+                            'matched_keyword': hired_other_system_message,
+                            'row_text': row_text,
+                        })
+                        self.log(f"  → 다른 고수 고용 매칭! 수집됨: {display_name}")
+                        continue
+
+                    if last_message_type == 'SYSTEM':
+                        continue
+
+                    if not general_ready:
+                        continue
+
+                    last_message_clean = (last_message or '').strip()
+                    if not last_message_clean:
+                        self.log(
+                            f'[키워드 스킵] {display_name} - 마지막 메시지 없음',
+                            gui=False,
+                        )
+                        continue
+
+                    matched_keyword = self._match_any_keyword(
+                        last_message_clean, keywords, display_name
+                    )
+                    if matched_keyword:
+                        matching_chats.append({
+                            'chat_id': chat_id,
+                            'nickname': nickname,
+                            'display_name': display_name,
+                            'match_type': 'keyword',
+                            'matched_keyword': matched_keyword,
+                            'row_text': row_text,
+                        })
+                        self.log(f"  → 키워드 '{matched_keyword}' 매칭! 수집됨: {display_name}")
+
+                previous_chat_ids.update(current_chat_ids)
+
+                if period_ended:
+                    break
+
                 try:
                     if self._scroll_and_wait_for_load():
                         scroll_count += 1
                         continue
-                    self.log('[스캔] 더 이상 로드할 채팅방 없음')
-                    break
                 except Exception as e:
                     self.log(f'[수집 중단] 스크롤 중 오류: {type(e).__name__}')
                     break
 
-            if new_chat_ids:
-                self.log(f'[스캔] 채팅방 {len(chat_items)}개 로드됨, 확인: {len(new_chat_ids)}개', gui=False)
-
-            period_ended = False
-            for item in chat_items:
-                if not self.running:
-                    break
-
-                chat_id = item.get('chat_id')
-                if not chat_id or chat_id in checked_chat_ids:
-                    continue
-
-                checked_chat_ids.add(chat_id)
-                checked_count += 1
-
-                nickname = item.get('nickname', '')
-                text = item.get('text', '')
-                last_message = item.get('last_message', '')
-                last_message_type = item.get('last_message_type', '')
-                message_time = self._resolve_message_time(item)
-                display_name = nickname or f'ID:{chat_id}'
-                row_text = text or ''
-
-                if self._is_out_of_period(message_time, period_days):
-                    consecutive_out_of_period += 1
-                    self.log(
-                        f'[기간 스킵] {display_name} 범위 밖 '
-                        f'(시간: {message_time or "미상"}, 연속 {consecutive_out_of_period}건)',
-                        gui=False,
-                    )
-                    if consecutive_out_of_period >= CONSECUTIVE_OUT_OF_PERIOD_STOP:
-                        self.log(
-                            f'[기간 종료] 연속 {consecutive_out_of_period}건이 '
-                            f'기간({period_text}) 밖 — 수집 종료'
-                        )
-                        period_ended = True
-                        break
-                    continue
-
-                consecutive_out_of_period = 0
-
-                if (
-                    hired_me_enabled
-                    and contains_hired_me(row_text, last_message, marker=hired_me_filter_text)
-                ):
-                    hired_me_skip_count += 1
-                    self.log(
-                        f'[내 고용 스킵] {display_name} - 이미 고용된 고객 '
-                        f'(감지: "{hired_me_filter_text}")',
-                        gui=False,
-                    )
-                    continue
-
-                if (
-                    hired_other_enabled
-                    and hired_other_ready
-                    and hired_other_system_message
-                    and hired_other_system_message in row_text
-                ):
-                    preview = row_text[:60].replace('\n', ' ')
-                    self.log(
-                        f'[다른 고수 고용] "{hired_other_system_message}" 감지 | '
-                        f'채팅: {display_name} | 행미리보기: {preview}',
-                        gui=False,
-                    )
-                    matching_chats.append({
-                        'chat_id': chat_id,
-                        'nickname': nickname,
-                        'display_name': display_name,
-                        'match_type': 'hired_other',
-                        'matched_keyword': hired_other_system_message,
-                        'row_text': row_text,
-                    })
-                    self.log(f"  → 다른 고수 고용 매칭! 수집됨: {display_name}")
-                    continue
-
-                if last_message_type == 'SYSTEM':
-                    continue
-
-                if not general_ready:
-                    continue
-
-                last_message_clean = (last_message or '').strip()
-                if not last_message_clean:
-                    self.log(
-                        f'[키워드 스킵] {display_name} - 마지막 메시지 없음',
-                        gui=False,
-                    )
-                    continue
-
-                matched_keyword = self._match_any_keyword(
-                    last_message_clean, keywords, display_name
-                )
-                if matched_keyword:
-                    matching_chats.append({
-                        'chat_id': chat_id,
-                        'nickname': nickname,
-                        'display_name': display_name,
-                        'match_type': 'keyword',
-                        'matched_keyword': matched_keyword,
-                        'row_text': row_text,
-                    })
-                    self.log(f"  → 키워드 '{matched_keyword}' 매칭! 수집됨: {display_name}")
-
-            previous_chat_ids.update(current_chat_ids)
-
-            if period_ended:
-                break
-
-            if self._scroll_and_wait_for_load():
-                scroll_count += 1
-            else:
                 self.log('[스캔] 더 이상 로드할 채팅방 없음')
                 break
+        finally:
+            if hired_me_skip_count:
+                self.log(f'[1단계] 내 고용 스킵: {hired_me_skip_count}건', gui=False)
+            self.log(
+                f'[1단계 완료] {checked_count}개 스캔, {len(matching_chats)}개 매칭됨 '
+                f'(스크롤 {scroll_count}회)'
+            )
 
-        if hired_me_skip_count:
-            self.log(f'[1단계] 내 고용 스킵: {hired_me_skip_count}건', gui=False)
-        self.log(
-            f'[1단계 완료] {checked_count}개 스캔, {len(matching_chats)}개 매칭됨 '
-            f'(스크롤 {scroll_count}회)'
-        )
         return matching_chats
 
     def _process_collected_chats(
@@ -626,16 +696,23 @@ class RecontactFeature:
         hired_other_send_order: List[str],
         hired_me_enabled: bool,
         hired_me_filter_text: str,
+        queue: Optional[dict] = None,
     ) -> int:
         if not matching_chats:
             self.log('[2단계] 처리할 매칭 채팅방 없음')
             return 0
 
-        self.log(f'[2단계] {len(matching_chats)}개 채팅방 처리 시작')
+        total = len(matching_chats)
+        order_hint = ''
+        if send_order:
+            order_hint = f" (일반 {' → '.join(send_order[:4])}{'…' if len(send_order) > 4 else ''})"
+        self.log(f'[2단계] {total}개 채팅방 순차 전송 시작{order_hint}')
         processed_count = 0
+        interrupted = False
 
         for idx, chat_info in enumerate(matching_chats, 1):
             if not self.running:
+                interrupted = True
                 break
 
             chat_id = chat_info['chat_id']
@@ -653,20 +730,27 @@ class RecontactFeature:
                     f'(감지: "{hired_me_filter_text}")',
                     gui=False,
                 )
+                if queue is not None:
+                    mark_item_done(queue, chat_id)
+                    save_feature_queue(FEATURE_RECONTACT, queue)
                 continue
 
             type_label = '다른 고수 고용' if match_type == 'hired_other' else '재접촉'
             self.log(
-                f"[{idx}/{len(matching_chats)}] {display_name} "
-                f"({type_label}, 조건: '{matched_keyword}') 처리 중..."
+                f"[{idx}/{total}] {display_name} "
+                f"({type_label}, 조건: '{matched_keyword}') — 채팅방 입장"
             )
 
-            chat_url = f'https://soomgo.com/pro/chats/{chat_id}'
-            if not self._safe_navigate_to_chat(chat_url):
+            if not self._enter_chat_room(chat_id, display_name):
                 self.log(f'  → 채팅방 이동 실패: {display_name}')
                 continue
 
-            time.sleep(self.delay * 0.5)
+            active_order = (
+                hired_other_send_order if match_type == 'hired_other' else send_order
+            )
+            self.log(
+                f'  → 전송 시작 ({type_label}, {len(active_order)}단계)'
+            )
             if match_type == 'hired_other':
                 send_ok = process_send_order(
                     self.chat_room,
@@ -690,13 +774,34 @@ class RecontactFeature:
                 self.chat_room.toggle_favorite()
                 processed_count += 1
                 self.log(f'  → [{type_label}] 처리 완료: {display_name}')
+                if queue is not None:
+                    mark_item_done(queue, chat_id)
+                    save_feature_queue(FEATURE_RECONTACT, queue)
             else:
                 self.log(f'  → [{type_label}] 메시지/이미지 전송 실패: {display_name}')
 
-        self.log(f'[2단계 완료] {processed_count}/{len(matching_chats)}개 처리 완료')
+        self.log(f'[2단계 완료] {processed_count}/{total}개 처리 완료')
+
+        if queue is not None:
+            if interrupted and get_pending_items(queue):
+                mark_queue_interrupted(queue, FEATURE_RECONTACT)
+                self.log(
+                    f'[중지] {get_queue_summary(FEATURE_RECONTACT)} — '
+                    '설정 변경 후 「이어하기」를 사용하세요.'
+                )
+            elif finalize_queue_if_complete(FEATURE_RECONTACT, queue):
+                self.log('[완료] 저장된 작업 큐를 비웠습니다.')
+
         return processed_count
 
-    def run(self, settings: dict = None, keyword: str = None, message: str = None, period_days: int = PERIOD_TODAY) -> int:
+    def run(
+        self,
+        settings: dict = None,
+        keyword: str = None,
+        message: str = None,
+        period_days: int = PERIOD_TODAY,
+        resume: bool = False,
+    ) -> int:
         """재접촉 실행 (settings dict 또는 레거시 인자)"""
         if settings is None:
             legacy_label = '오늘'
@@ -749,7 +854,7 @@ class RecontactFeature:
 
             keywords_display = ', '.join(keywords[:5]) + ('...' if len(keywords) > 5 else '')
             self.log(
-                f'재접촉 기능 시작 [v3.5] - 키워드: [{keywords_display}] '
+                f'재접촉 기능 시작 [v3.8] - 키워드: [{keywords_display}] '
                 f'({len(keywords)}개), 기간: {period_text}'
             )
             self.log(f'[키워드 전체 목록] {keywords}', gui=False)
@@ -770,6 +875,34 @@ class RecontactFeature:
                 return 0
 
             time.sleep(self.delay * 2)
+
+            if resume:
+                queue = load_feature_queue(FEATURE_RECONTACT)
+                pending = get_pending_items(queue) if queue else []
+                if not queue or not pending:
+                    self.log('이어할 재접촉 작업이 없습니다.')
+                    if queue:
+                        clear_feature_queue(FEATURE_RECONTACT)
+                    return 0
+                self._run_queue = queue
+                self.log(f'[이어하기] {get_queue_summary(FEATURE_RECONTACT)}')
+                matching_chats = pending_to_chat_infos(queue)
+                processed_count = self._process_collected_chats(
+                    matching_chats,
+                    texts,
+                    send_order,
+                    hired_other_texts,
+                    hired_other_send_order,
+                    hired_me_enabled,
+                    hired_me_filter_text,
+                    queue=queue,
+                )
+                if not self.running:
+                    self.log('재접촉 기능 중지됨')
+                else:
+                    self.log(f'재접촉 이어하기 완료 - 처리: {processed_count}건')
+                return processed_count
+
             matching_chats = self._collect_matching_chats(
                 keywords,
                 period_days,
@@ -782,20 +915,21 @@ class RecontactFeature:
                 hired_me_filter_text,
             )
 
+            self.log(f'[1단계 완료] {len(matching_chats)}건 수집 — 2단계 전송 시작')
+
+            if not matching_chats:
+                self.log('매칭된 채팅방 없음')
+                return 0
+
+            queue = create_queue_from_chats(FEATURE_RECONTACT, matching_chats)
+            self._run_queue = queue
+            try:
+                save_feature_queue(FEATURE_RECONTACT, queue)
+            except Exception as e:
+                self.log(f'[1→2단계] 큐 저장 오류: {type(e).__name__} — 전송은 계속합니다')
+
             if not self.running:
-                self.log('재접촉 기능 중지됨')
-                if matching_chats:
-                    self.log(f'[중지] 수집된 {len(matching_chats)}개 채팅방 처리 진행')
-                    processed_count = self._process_collected_chats(
-                        matching_chats,
-                        texts,
-                        send_order,
-                        hired_other_texts,
-                        hired_other_send_order,
-                        hired_me_enabled,
-                        hired_me_filter_text,
-                    )
-                return processed_count
+                self.log(f'[중지] 수집된 {len(matching_chats)}건 — 2단계 전송 진행')
 
             processed_count = self._process_collected_chats(
                 matching_chats,
@@ -805,8 +939,12 @@ class RecontactFeature:
                 hired_other_send_order,
                 hired_me_enabled,
                 hired_me_filter_text,
+                queue=queue,
             )
-            self.log(f'재접촉 기능 완료 - 처리한 채팅방: {processed_count}개')
+            if not self.running:
+                self.log('재접촉 기능 중지됨')
+            else:
+                self.log(f'재접촉 기능 완료 - 처리한 채팅방: {processed_count}개')
             return processed_count
 
         except (TimeoutException, ReadTimeoutError, MaxRetryError, ProtocolError, NewConnectionError) as e:
