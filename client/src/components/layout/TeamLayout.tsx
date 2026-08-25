@@ -481,6 +481,7 @@ export function TeamLayout() {
   const {
     fabTop,
     fabDragging,
+    fabPressActive,
     fabStackRef,
     fabBellMount,
     setFabBellMount,
@@ -1076,7 +1077,7 @@ export function TeamLayout() {
             <div
               ref={fabStackRef}
               className={`fixed z-[120] lg:hidden flex flex-col items-end gap-0.5 ${
-                fabDragging ? 'touch-none' : ''
+                fabDragging || fabPressActive ? 'touch-none select-none' : ''
               }`}
               style={{
                 top: fabTop ?? undefined,

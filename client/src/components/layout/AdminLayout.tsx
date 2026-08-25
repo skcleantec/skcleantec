@@ -109,7 +109,9 @@ const ADMIN_MOBILE_FAB_GAP = MOBILE_STAFF_DOCK_GAP_PX;
 /** 스케줄 버튼 top − 이 값 = 발주서 버튼 top (한 줄로 붙음) */
 const ADMIN_MOBILE_FAB_ISSUE_TOP_OFFSET = ADMIN_MOBILE_FAB_PX + ADMIN_MOBILE_FAB_GAP;
 const ADMIN_MOBILE_FAB_HOLD_MS = 420;
-const ADMIN_MOBILE_FAB_HOLD_CANCEL_MOVE_PX = 8;
+const ADMIN_MOBILE_FAB_EARLY_DRAG_MS = 280;
+const ADMIN_MOBILE_FAB_EARLY_DRAG_DY_PX = 6;
+const ADMIN_MOBILE_FAB_HORIZONTAL_CANCEL_DX_PX = 14;
 
 /** 발주서 발급 FAB 아이콘 */
 function OrderIssueFabIcon({ className }: { className?: string }) {
@@ -316,6 +318,7 @@ export function AdminLayout() {
     () => initialSession?.profileOnboardingInitial ?? { role: 'MARKETER' },
   );
   const [fabDragging, setFabDragging] = useState(false);
+  const [fabPressActive, setFabPressActive] = useState(false);
   const fabDraggingRef = useRef(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
@@ -785,6 +788,12 @@ export function AdminLayout() {
     return Math.min(maxY, Math.max(minY, stackTop));
   }, []);
 
+  const applyFabTopDom = useCallback((next: number) => {
+    fabTopRef.current = next;
+    const el = fabStackRef.current;
+    if (el) el.style.top = `${next}px`;
+  }, []);
+
   useEffect(() => {
     fabTopRef.current = fabTop;
   }, [fabTop]);
@@ -852,10 +861,12 @@ export function AdminLayout() {
       fabPointerAnchorRef.current = null;
       fabDraggingRef.current = false;
       setFabDragging(false);
+      setFabPressActive(false);
 
       if (wasDragging) {
         const y = fabTopRef.current;
         if (y != null) {
+          setFabTop(y);
           try {
             window.localStorage.setItem(fabStorageKey, JSON.stringify({ v: 2, y }));
           } catch {
@@ -892,9 +903,7 @@ export function AdminLayout() {
       const onMove = (evt: PointerEvent) => {
         if (fabPointerIdRef.current == null || evt.pointerId !== pointerId) return;
         evt.preventDefault();
-        const next = clampFabTop(evt.clientY - fabDragOffsetRef.current.y);
-        fabTopRef.current = next;
-        setFabTop(next);
+        applyFabTopDom(clampFabTop(evt.clientY - fabDragOffsetRef.current.y));
       };
       const onUp = (evt: PointerEvent) => {
         if (fabPointerIdRef.current == null || evt.pointerId !== pointerId) return;
@@ -910,7 +919,7 @@ export function AdminLayout() {
         window.removeEventListener('pointercancel', onUp);
       };
     },
-    [clampFabTop, clearFabDragListeners, finishFabPointer],
+    [applyFabTopDom, clampFabTop, clearFabDragListeners, finishFabPointer],
   );
 
   const beginFabPointer = useCallback(
@@ -921,26 +930,59 @@ export function AdminLayout() {
       if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
 
       const pointerId = evt.pointerId;
+      const downAt = Date.now();
       fabPointerAnchorRef.current = anchor;
       fabPressMovedRef.current = false;
       fabPointerIdRef.current = pointerId;
       fabCaptureTargetRef.current = evt.currentTarget;
+      setFabPressActive(true);
       const container = fabStackRef.current;
       const rect = container?.getBoundingClientRect() ?? evt.currentTarget.getBoundingClientRect();
       fabDragOffsetRef.current = { y: evt.clientY - rect.top };
 
       const down = { x: evt.clientX, y: evt.clientY };
 
+      const enterDragMode = () => {
+        if (fabDraggingRef.current || fabPointerIdRef.current !== pointerId) return;
+        clearFabPressListeners();
+        if (fabHoldTimerRef.current != null) {
+          window.clearTimeout(fabHoldTimerRef.current);
+          fabHoldTimerRef.current = null;
+        }
+        fabDraggingRef.current = true;
+        setFabDragging(true);
+        try {
+          fabCaptureTargetRef.current?.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        try {
+          navigator.vibrate?.(12);
+        } catch {
+          /* ignore */
+        }
+        attachFabDragListeners(pointerId);
+      };
+
       const onEarlyMove = (moveEvt: PointerEvent) => {
         if (fabPointerIdRef.current == null || moveEvt.pointerId !== pointerId) return;
         const dx = Math.abs(moveEvt.clientX - down.x);
         const dy = Math.abs(moveEvt.clientY - down.y);
-        if (dx + dy > ADMIN_MOBILE_FAB_HOLD_CANCEL_MOVE_PX) {
-          fabPressMovedRef.current = true;
+        if (dx + dy > 4) fabPressMovedRef.current = true;
+
+        if (fabDraggingRef.current) return;
+
+        if (dx > ADMIN_MOBILE_FAB_HORIZONTAL_CANCEL_DX_PX && dx > dy * 1.2) {
           if (fabHoldTimerRef.current != null) {
             window.clearTimeout(fabHoldTimerRef.current);
             fabHoldTimerRef.current = null;
           }
+          return;
+        }
+
+        const elapsed = Date.now() - downAt;
+        if (dy >= ADMIN_MOBILE_FAB_EARLY_DRAG_DY_PX && dy >= dx && elapsed >= ADMIN_MOBILE_FAB_EARLY_DRAG_MS) {
+          enterDragMode();
         }
       };
 
@@ -967,21 +1009,7 @@ export function AdminLayout() {
 
       fabHoldTimerRef.current = window.setTimeout(() => {
         fabHoldTimerRef.current = null;
-        if (fabPointerIdRef.current !== pointerId) return;
-        clearFabPressListeners();
-        fabDraggingRef.current = true;
-        setFabDragging(true);
-        try {
-          fabCaptureTargetRef.current?.setPointerCapture(pointerId);
-        } catch {
-          /* ignore */
-        }
-        try {
-          navigator.vibrate?.(12);
-        } catch {
-          /* ignore */
-        }
-        attachFabDragListeners(pointerId);
+        enterDragMode();
       }, ADMIN_MOBILE_FAB_HOLD_MS);
     },
     [attachFabDragListeners, clearFabDragListeners, clearFabPressListeners, finishFabPointer],
@@ -1557,7 +1585,7 @@ export function AdminLayout() {
         <div
           ref={fabStackRef}
           className={`fixed z-[120] lg:hidden flex flex-col items-end gap-0.5 ${
-            fabDragging ? 'touch-none' : ''
+            fabDragging || fabPressActive ? 'touch-none select-none' : ''
           }`}
           style={{
             top: fabTop ?? undefined,
