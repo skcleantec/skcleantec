@@ -7,6 +7,7 @@ import {
 } from '../../api/scheduleAlerts';
 import { SCHEDULE_ALERT_KIND_LABELS } from '@shared/scheduleAlerts';
 import { useScheduleAlertRealtime, type ScheduleAlertRtPayload } from '../../hooks/useInboxRealtime';
+import { STAFF_APP_SAFE_OVERLAY, STAFF_APP_SAFE_OVERLAY_PAD } from '../../utils/staffAppSafeArea';
 
 type Props = {
   token: string;
@@ -102,7 +103,7 @@ export function TeamScheduleAlertBanner({ token, onDismiss, onOpenInquiry }: Pro
     liveAlert && typeof document !== 'undefined'
       ? createPortal(
           <div
-            className="fixed inset-0 z-[85] flex items-end justify-center bg-black/40 p-3 sm:items-center"
+            className={`${STAFF_APP_SAFE_OVERLAY} fixed inset-0 z-[85] flex items-end justify-center bg-black/40 ${STAFF_APP_SAFE_OVERLAY_PAD}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-schedule-alert-title"

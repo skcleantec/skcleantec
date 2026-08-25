@@ -36,6 +36,11 @@ html.cbiseo-staff-app {
   --cbiseo-safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+html.cbiseo-staff-app body {
+  box-sizing: border-box;
+  padding-bottom: var(--cbiseo-safe-area-bottom, 0px);
+}
+
 html.cbiseo-staff-app .staff-app-surface {
   padding-bottom: max(0.75rem, var(--cbiseo-safe-area-bottom, 0px));
 }
@@ -44,9 +49,16 @@ html.cbiseo-staff-app .modal-mobile-fullscreen-panel {
   padding-bottom: max(0px, var(--cbiseo-safe-area-bottom, 0px));
 }
 
-/** 업무 앱 WebView — env(safe-area)가 0인 Galaxy 등에서 네이티브 inset 변수 사용 */
+/** fixed 풀스크린 오버레이·하단 시트 — Galaxy WebView env(safe-area)=0 대비 */
+html.cbiseo-staff-app .cbiseo-staff-safe-overlay,
 html.cbiseo-staff-app .modal-mobile-safe-overlay {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px)) !important;
+  box-sizing: border-box;
+}
+
+/** fixed bottom FAB·토스트 — 내비 바 위로 */
+html.cbiseo-staff-app .cbiseo-staff-fab-bottom {
+  bottom: calc(5rem + max(env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px))) !important;
 }
 
 html.cbiseo-staff-app .profile-onboarding-modal-footer {

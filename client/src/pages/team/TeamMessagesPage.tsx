@@ -9,6 +9,7 @@ import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { STAFF_APP_SAFE_PB } from '../../utils/staffAppSafeArea';
 
 interface Message {
   id: string;
@@ -196,7 +197,7 @@ export function TeamMessagesPage() {
         </div>
         <form
           onSubmit={handleSend}
-          className="shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          className={`shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4 ${STAFF_APP_SAFE_PB}`}
         >
           {sendError && (
             <p className="text-sm text-red-600 mb-2" role="alert">

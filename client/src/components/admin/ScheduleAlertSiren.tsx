@@ -9,6 +9,7 @@ import {
 } from '../../api/scheduleAlerts';
 import { SCHEDULE_ALERT_KIND_LABELS } from '@shared/scheduleAlerts';
 import { useScheduleAlertRealtime, type ScheduleAlertRtPayload } from '../../hooks/useInboxRealtime';
+import { STAFF_APP_SAFE_OVERLAY } from '../../utils/staffAppSafeArea';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { ModalCloseButton } from './ModalCloseButton';
 import { MOBILE_GNB_ITEM_BASE } from '../layout/mobileStaffDockStyles';
@@ -173,7 +174,7 @@ export function ScheduleAlertSiren({
   const panel = open
     ? createPortal(
         <div
-          className="fixed inset-0 z-[650] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          className={`${STAFF_APP_SAFE_OVERLAY} fixed inset-0 z-[650] flex items-end justify-center bg-black/40 p-0 pb-[max(0.75rem,env(safe-area-inset-bottom,0px),var(--cbiseo-safe-area-bottom,0px))] sm:items-center sm:p-4`}
           onClick={() => setOpen(false)}
         >
           <div
@@ -265,7 +266,7 @@ export function ScheduleAlertSiren({
         className={
           variant === 'header'
             ? 'absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border border-rose-200 bg-white p-3 shadow-lg'
-            : 'fixed bottom-20 right-3 z-[130] w-64 rounded-lg border border-rose-200 bg-white p-3 shadow-lg lg:hidden'
+            : 'cbiseo-staff-fab-bottom fixed bottom-20 right-3 z-[130] w-64 rounded-lg border border-rose-200 bg-white p-3 shadow-lg lg:hidden'
         }
       >
         <p className="text-fluid-2xs font-semibold text-rose-700">
