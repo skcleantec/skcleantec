@@ -30,7 +30,7 @@ import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
-import { isCbiseoStaffNativeApp, registerCbiseoStaffPushToken } from '../../utils/cbiseoNativeApp';
+import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
@@ -448,11 +448,6 @@ export function TeamLayout() {
     }
   }, []);
   useStaffAppNativePushRegister(teamToken);
-  useEffect(() => {
-    if (!teamToken || !isCbiseoStaffNativeApp()) return;
-    const t = window.setTimeout(() => registerCbiseoStaffPushToken(), 2500);
-    return () => window.clearTimeout(t);
-  }, [teamToken]);
   const previewKey = teamPreviewDepsKey(location.search);
   const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const [userName, setUserName] = useState<string | null>(null);

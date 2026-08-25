@@ -47,12 +47,31 @@ export function isHappyCallOverdue(
   return now > happyCallDeadlineEnd(preferredDate);
 }
 
+/** 해피콜 반복 알림 시작: 작업일(예약일) 전날 KST 18:00 */
+export function happyCallReminderWindowStart(preferredDate: Date): Date {
+  const workYmd = kstYmdFromDate(preferredDate);
+  const prevYmd = addDaysToYmdKst(workYmd, -1);
+  return new Date(`${prevYmd}T18:00:00+09:00`);
+}
+
+/** 전날 18:00 ~ 미완 구간(마감 전·후 포함) */
+export function isHappyCallInHourlyReminderWindow(
+  now: Date,
+  preferredDate: Date | null,
+  happyCallCompletedAt: Date | null,
+  status: string,
+): boolean {
+  if (!isHappyCallEligible(status, preferredDate) || happyCallCompletedAt) return false;
+  if (!preferredDate) return false;
+  return now >= happyCallReminderWindowStart(preferredDate);
+}
+
 /** 마감 전이지만 미완(주의) */
 export function isHappyCallPendingBeforeDeadline(
   now: Date,
   preferredDate: Date | null,
   happyCallCompletedAt: Date | null,
-  status: string
+  status: string,
 ): boolean {
   if (!isHappyCallEligible(status, preferredDate) || happyCallCompletedAt) return false;
   if (!preferredDate) return false;

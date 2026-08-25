@@ -93,12 +93,14 @@
 
 **P0 구현 (Phase 5):** 배정·1:1 메시지 — 규약 `shared/staffAppPush.ts`, 수신자별 문구·경로 (`/team/assignments?openInquiry=`, `/admin/messages` 등).
 
-### 4.2 DB · API
+### 4.2 DB · API · 등록 (Play v21+)
 
 - 모델: `StaffAppFcmToken` (`tenantId`, `userId`, `token`, `appId=com.cbiseo.app`)
-- `POST /api/push/staff-app/register` — 로그인·FCM 토큰 갱신
+- `POST /api/push/staff-app/register` — **네이티브 OkHttp** 1차 (웹 POST는 백업)
+- `GET /api/push/staff-app/status` — `hasRegisteredToken` 점검
 - `DELETE /api/push/staff-app/register` — 로그아웃
-- env: `FIREBASE_SERVICE_ACCOUNT_JSON` (또는 경로) — **미설정 시 WS만**, 등록 API는 동작
+- env: `FIREBASE_SERVICE_ACCOUNT_JSON` — **미설정 시 WS만**, 등록 API는 동작
+- **장애·해결·지침:** [`server/src/modules/push/STAFF_APP_PUSH.md`](../server/src/modules/push/STAFF_APP_PUSH.md) (2025-08 CustomEvent 실패 → v21 네이티브 오케스트레이터)
 
 ### 4.3 레거시 Web Push
 
@@ -130,7 +132,7 @@
 | 정책 상수 | `shared/cbiseoStaffAppPolicy.ts` · `shared/staffAppPush.ts` |
 | 클라이언트 감지 | `client/src/utils/cbiseoNativeApp.ts` · `hooks/useStaffAppPushNavigation.ts` |
 | Android 알림·딥링크 | `StaffPushNotificationHelper.kt` · `StaffWebActivity.kt` |
-| 서버 push | `server/src/modules/push/staffAppPush.*` |
+| 서버 push | `server/src/modules/push/staffAppPush.*` · **`STAFF_APP_PUSH.md`** |
 | 에이전트 규칙 | `.cursor/rules/cbiseo-android-app.mdc` |
 | 전화 앱 (별도) | `apps/telecrm-android/` · `docs/TELECRM_ANDROID_APP.md` |
 

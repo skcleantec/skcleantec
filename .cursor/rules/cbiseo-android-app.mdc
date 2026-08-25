@@ -21,6 +21,7 @@ alwaysApply: false
 
 - 포그라운드: 기존 **`/ws` + `inbox:refresh`** + 페이지 silent refetch (`.cursor/rules/team-realtime-websocket.mdc`).
 - 백그라운드: **FCM** — `StaffAppFcmToken` + `POST /api/push/staff-app/register`.
+- **등록 (Play v21+):** `StaffPushRegistration` 네이티브 오케스트레이터 — CustomEvent 등록 경로 **금지**. 상세: **`server/src/modules/push/STAFF_APP_PUSH.md`**
 - `notifyInboxRefresh` 호출부와 **동일 userId**에 FCM fan-out (Phase 3+).
 - 레거시 **Web Push(VAPID)** 재도입 금지.
 
@@ -32,6 +33,8 @@ alwaysApply: false
 - 권한: **INTERNET, POST_NOTIFICATIONS** 수준 — CALL_PHONE·READ_CALL_LOG **금지**.
 
 ## Play 릴리스 (에이전트)
+
+> **keystore·AAB는 터미널만** — `.cursor/rules/cbiseo-android-play-terminal.mdc`
 
 `versionCode` bump·AAB·Play 업로드 완료 시:
 

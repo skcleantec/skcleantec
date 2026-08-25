@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
-import { buildScheduleAlertPushPayload } from '../../lib/staffAppPush.helpers.js';
+import { buildScheduleAlertPushPayload, buildInquiryChangePushPayload } from '../../lib/staffAppPush.helpers.js';
 import type { StaffAppPushPayload } from '../../lib/staffAppPush.helpers.js';
 import { broadcastJsonToStaff, sendJsonToUser } from './realtimeHub.js';
 import type { ChangeLogCategory } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
@@ -152,6 +152,9 @@ export function notifyChangeLogToStaff(params: {
   );
 
   const kind = params.scheduleAlertKind ?? resolveScheduleAlertKind(lines);
+  const scheduleAlertHandled =
+    Boolean(kind && params.changeLogId && params.inquiryId);
+
   if (kind && params.changeLogId) {
     void notifyScheduleAlertToStaff({
       tenantId: params.tenantId,
@@ -178,12 +181,41 @@ export function notifyChangeLogToStaff(params: {
       where: { inquiryId: params.inquiryId as string, tenantId: params.tenantId },
       select: { teamLeaderId: true },
     });
+    const leaderIds: string[] = [];
     const seen = new Set<string>();
     for (const a of assigns) {
       if (a.teamLeaderId && !seen.has(a.teamLeaderId)) {
         seen.add(a.teamLeaderId);
-        sendJsonToUser(a.teamLeaderId, teamPayload, params.tenantId);
+        leaderIds.push(a.teamLeaderId);
       }
+    }
+    if (leaderIds.length === 0) return;
+
+    const summary =
+      teamLines.length === 1 ? teamLines[0] : `${teamLines[0]} 외 ${teamLines.length - 1}건`;
+
+    if (!scheduleAlertHandled && params.inquiryId) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: leaderIds }, tenantId: params.tenantId },
+        select: { id: true, role: true },
+      });
+      const pushByUserId: Record<string, StaffAppPushPayload> = {};
+      for (const u of users) {
+        if (params.actorId && u.id === params.actorId) continue;
+        pushByUserId[u.id] = buildInquiryChangePushPayload({
+          customerName: params.customerName,
+          inquiryId: params.inquiryId,
+          summary,
+          role: u.role,
+        });
+      }
+      if (Object.keys(pushByUserId).length > 0) {
+        await notifyStaffInboxRefresh(params.tenantId, leaderIds, pushByUserId);
+      }
+    }
+
+    for (const id of leaderIds) {
+      sendJsonToUser(id, teamPayload, params.tenantId);
     }
   })().catch((e) => console.error('[changelog-notify] team leaders', e));
 }

@@ -645,6 +645,8 @@ router.post('/', async (req, res) => {
     [receiverId]: buildMessagePushPayload({
       senderName: msg.sender.name,
       receiverRole: receiver.role,
+      senderUserId: msg.senderId,
+      messageId: msg.id,
     }),
   });
 });

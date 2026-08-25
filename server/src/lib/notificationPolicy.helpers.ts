@@ -52,8 +52,8 @@ function defaultKindRule(kind: StaffAppPushKind): NotificationKindRule {
       mandatory: true,
       repeatEnabled: true,
       repeatIntervalMinutes: 60,
-      repeatMaxPerInquiry: 5,
-      remindBeforeDeadlineMinutes: [720, 120],
+      repeatMaxPerInquiry: 24,
+      remindBeforeDeadlineMinutes: [],
     };
   }
   if (kind === 'generic') {

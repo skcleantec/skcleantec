@@ -23,7 +23,7 @@ import {
 import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
-import { isCbiseoStaffNativeApp, registerCbiseoStaffPushToken } from '../../utils/cbiseoNativeApp';
+import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import {
   useInboxRealtime,
@@ -244,11 +244,6 @@ export function AdminLayout() {
     }
   }, []);
   useStaffAppNativePushRegister(adminToken);
-  useEffect(() => {
-    if (!adminToken || !isCbiseoStaffNativeApp()) return;
-    const t = window.setTimeout(() => registerCbiseoStaffPushToken(), 2500);
-    return () => window.clearTimeout(t);
-  }, [adminToken]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [reviewPaybackUnseenCount, setReviewPaybackUnseenCount] = useState(0);

@@ -1,14 +1,13 @@
 import { prisma } from '../../lib/prisma.js';
 import {
-  happyCallDeadlineEnd,
+  happyCallReminderWindowStart,
   isHappyCallEligible,
+  isHappyCallInHourlyReminderWindow,
   isHappyCallOverdue,
 } from '../inquiries/happyCall.helpers.js';
 import { buildHappyCallPushPayload } from '../../lib/staffAppPush.helpers.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import {
-  countNotificationDeliveries,
-  getLatestNotificationDelivery,
   getTenantNotificationPolicy,
   getUserNotificationPreferences,
   recordNotificationDelivery,
@@ -22,6 +21,7 @@ export type HappyCallReminderJobResult = {
   dryRun: boolean;
 };
 
+/** 15분 cron — 전날 18:00 KST부터 미완 시 시간당 1회 (완료까지) */
 export async function runHappyCallReminderJob(opts?: {
   dryRun?: boolean;
 }): Promise<HappyCallReminderJobResult> {
@@ -38,7 +38,7 @@ export async function runHappyCallReminderJob(opts?: {
   for (const tenant of tenants) {
     const policy = await getTenantNotificationPolicy(tenant.id);
     const rule = policy.kinds.happy_call;
-    if (!rule?.enabled) continue;
+    if (!rule?.enabled || !rule.repeatEnabled) continue;
 
     const assignments = await prisma.assignment.findMany({
       where: { tenantId: tenant.id },
@@ -61,68 +61,34 @@ export async function runHappyCallReminderJob(opts?: {
       if (!inv?.preferredDate) continue;
       if (!isHappyCallEligible(inv.status, inv.preferredDate)) continue;
       if (inv.happyCallCompletedAt) continue;
-
-      const leaderId = row.teamLeaderId;
-      const deadline = happyCallDeadlineEnd(inv.preferredDate);
-      const overdue = isHappyCallOverdue(now, inv.preferredDate, inv.happyCallCompletedAt, inv.status);
-
-      let variant: 'reminder' | 'overdue' | null = null;
-      let dedupeKey: string | null = null;
-
-      if (overdue && rule.repeatEnabled) {
-        const prefix = `happy_call:${inv.id}:overdue:`;
-        const sentCount = await countNotificationDeliveries({
-          tenantId: tenant.id,
-          userId: leaderId,
-          dedupeKeyPrefix: prefix,
-        });
-        if (sentCount >= rule.repeatMaxPerInquiry) {
-          skipped += 1;
-          continue;
-        }
-        const lastSent = await getLatestNotificationDelivery({
-          tenantId: tenant.id,
-          userId: leaderId,
-          dedupeKeyPrefix: prefix,
-        });
-        if (lastSent) {
-          const elapsedMin = (now.getTime() - lastSent.getTime()) / 60_000;
-          if (elapsedMin < rule.repeatIntervalMinutes) {
-            skipped += 1;
-            continue;
-          }
-        }
-        variant = 'overdue';
-        dedupeKey = `${prefix}${sentCount + 1}`;
-      } else if (!overdue && rule.remindBeforeDeadlineMinutes.length > 0) {
-        const msUntilDeadline = deadline.getTime() - now.getTime();
-        if (msUntilDeadline <= 0) continue;
-        const minutesLeft = msUntilDeadline / 60_000;
-        const matched = rule.remindBeforeDeadlineMinutes.find(
-          (m) => minutesLeft <= m && minutesLeft > m - 20,
-        );
-        if (!matched) continue;
-        dedupeKey = `happy_call:${inv.id}:remind:${matched}`;
-        const existing = await prisma.notificationDeliveryLog.findUnique({
-          where: {
-            tenantId_userId_dedupeKey: {
-              tenantId: tenant.id,
-              userId: leaderId,
-              dedupeKey,
-            },
-          },
-          select: { id: true },
-        });
-        if (existing) {
-          skipped += 1;
-          continue;
-        }
-        variant = 'reminder';
-      } else {
+      if (!isHappyCallInHourlyReminderWindow(now, inv.preferredDate, inv.happyCallCompletedAt, inv.status)) {
+        skipped += 1;
         continue;
       }
 
-      if (!variant || !dedupeKey) continue;
+      const leaderId = row.teamLeaderId;
+      const windowStart = happyCallReminderWindowStart(inv.preferredDate);
+      const hourIndex = Math.floor((now.getTime() - windowStart.getTime()) / 3_600_000);
+      if (hourIndex < 0) {
+        skipped += 1;
+        continue;
+      }
+
+      const dedupeKey = `happy_call:${inv.id}:hourly:${hourIndex}`;
+      const existing = await prisma.notificationDeliveryLog.findUnique({
+        where: {
+          tenantId_userId_dedupeKey: {
+            tenantId: tenant.id,
+            userId: leaderId,
+            dedupeKey,
+          },
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        skipped += 1;
+        continue;
+      }
 
       const userPref = await getUserNotificationPreferences(tenant.id, leaderId);
       if (!shouldSendPushToUser('happy_call', policy, userPref)) {
@@ -130,10 +96,11 @@ export async function runHappyCallReminderJob(opts?: {
         continue;
       }
 
+      const overdue = isHappyCallOverdue(now, inv.preferredDate, inv.happyCallCompletedAt, inv.status);
       const payload = buildHappyCallPushPayload({
         customerName: inv.customerName,
         inquiryId: inv.id,
-        variant,
+        variant: overdue ? 'overdue' : 'reminder',
       });
 
       if (!dryRun) {

@@ -37,8 +37,20 @@ export function isTeamSideStaffRole(role: string | null | undefined): boolean {
   return role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER';
 }
 
-export function staffAppMessagesPathForRole(role: string | null | undefined): string {
-  return isTeamSideStaffRole(role) ? '/team/messages' : '/admin/messages';
+export function staffAppMessagesPathForRole(
+  role: string | null | undefined,
+  opts?: { partnerUserId?: string | null; messageId?: string | null },
+): string {
+  const base = isTeamSideStaffRole(role) ? '/team/messages' : '/admin/messages';
+  const params = new URLSearchParams();
+  if (!isTeamSideStaffRole(role) && opts?.partnerUserId?.trim()) {
+    params.set('openUser', opts.partnerUserId.trim());
+  }
+  if (opts?.messageId?.trim()) {
+    params.set('openMessage', opts.messageId.trim());
+  }
+  const q = params.toString();
+  return q ? `${base}?${q}` : base;
 }
 
 export function staffAppAssignmentPathForRole(
@@ -119,13 +131,34 @@ export function buildAssignmentPushPayload(params: {
 export function buildMessagePushPayload(params: {
   senderName: string;
   receiverRole: string | null | undefined;
+  senderUserId: string;
+  messageId: string;
 }): StaffAppPushPayload {
   const sender = params.senderName.trim() || '관리자';
   return {
     kind: 'message',
     title: '새 메시지',
     body: `${sender}님의 메시지가 도착했습니다.`,
-    path: staffAppMessagesPathForRole(params.receiverRole),
+    path: staffAppMessagesPathForRole(params.receiverRole, {
+      partnerUserId: params.senderUserId,
+      messageId: params.messageId,
+    }),
+  };
+}
+
+export function buildInquiryChangePushPayload(params: {
+  customerName: string;
+  inquiryId: string;
+  summary: string;
+  role: string | null | undefined;
+}): StaffAppPushPayload {
+  const name = params.customerName.trim() || '고객';
+  const summary = params.summary.trim();
+  return {
+    kind: 'schedule_alert',
+    title: '접수 변경',
+    body: summary ? `${name} · ${summary}` : `${name}님 접수가 변경되었습니다.`,
+    path: staffAppAssignmentPathForRole(params.role, params.inquiryId),
   };
 }
 
@@ -140,14 +173,14 @@ export function buildHappyCallPushPayload(params: {
     return {
       kind: 'happy_call',
       title: '해피콜 미완',
-      body: `${name}님 해피콜 마감이 지났습니다.`,
+      body: `${name}님 해피콜을 지금 진행해 주세요.`,
       path: `/team/assignments?${q}`,
     };
   }
   return {
     kind: 'happy_call',
     title: '해피콜 안내',
-    body: `${name}님 해피콜 마감이 다가옵니다.`,
+    body: `${name}님 해피콜을 진행해 주세요.`,
     path: `/team/assignments?${q}`,
   };
 }
