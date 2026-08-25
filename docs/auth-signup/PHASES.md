@@ -121,16 +121,31 @@
 |------|------|
 | `POST /api/auth/oauth/google` `{ tenantSlug, ... }` | `auth.routes.ts` 또는 `auth-signup` |
 | `POST /api/auth/oauth/kakao` | 동일 |
-| `LoginPage` — 업체 코드 + SNS (ADMIN 안내) | client |
+| `LoginPage` — SNS (연결된 스태프) | client |
 | JWT 발급 — 기존 login과 동일 payload | |
 
 **완료 기준**
 
-- [x] `POST /api/auth/oauth/google|kakao` · ADMIN JWT 발급
-- [x] `/login` Google·카카오 버튼 (업체 코드 후)
+- [x] `POST /api/auth/oauth/google|kakao` · 스태프 JWT 발급 (ADMIN·MARKETER·TEAM_LEADER·EXTERNAL_PARTNER)
+- [x] `/login` Google·카카오 버튼
 - [ ] 가입한 ADMIN — 업체 코드 + SNS → `/admin/dashboard`
 - [ ] 다른 업체 slug + 같은 SNS → 401/403
-- [ ] 팀장 계정 + SNS 시도 → 거부
+
+---
+
+## Phase 6b — 기존 스태프 카카오 연결 ✅
+
+| 작업 | 내용 |
+|------|------|
+| `GET /oauth/identities` · `POST /oauth/kakao/link` · `unlink` | ADMIN·MARKETER·TEAM_LEADER·EXTERNAL_PARTNER |
+| `/admin/account/kakao-link` · 프로필 메뉴 | admin·team JWT |
+| `resolveStaffOAuthLogin` · `linkKakaoToStaffUser` | server |
+
+**완료 기준**
+
+- [x] 마케터·팀장·타업체 프로필 → 카카오 연결 (비밀번호 확인)
+- [x] 연결 후 `/login` 카카오·Google → 역할별 `/admin` 또는 `/team`
+- [ ] 스테이징 E2E (마케터·팀장 각 1건)
 
 ---
 

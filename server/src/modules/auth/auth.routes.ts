@@ -59,9 +59,9 @@ import {
   loginAdminWithKakaoOAuth,
 } from '../auth-signup/signupOAuthLogin.service.js';
 import {
-  linkKakaoToAdminUser,
+  linkKakaoToStaffUser,
   listOAuthIdentitiesForUser,
-  unlinkKakaoFromAdminUser,
+  unlinkKakaoFromStaffUser,
 } from '../auth-signup/signupOAuthAccountLink.service.js';
 
 const profileOnboardingUpload = multer({
@@ -374,7 +374,7 @@ router.post('/oauth/kakao/link', authMiddleware, async (req, res) => {
       res.status(400).json({ error: '카카오 인증 정보가 필요합니다.' });
       return;
     }
-    const result = await linkKakaoToAdminUser({
+    const result = await linkKakaoToStaffUser({
       userId: auth.userId,
       tenantId,
       password,
@@ -401,7 +401,7 @@ router.post('/oauth/kakao/unlink', authMiddleware, async (req, res) => {
     }
     const body = req.body as { password?: string };
     const password = typeof body.password === 'string' ? body.password : '';
-    await unlinkKakaoFromAdminUser({
+    await unlinkKakaoFromStaffUser({
       userId: auth.userId,
       tenantId,
       password,

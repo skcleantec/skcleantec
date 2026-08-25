@@ -5,6 +5,7 @@ import { TeamLayout } from './components/layout/TeamLayout';
 import { CrewLayout } from './components/layout/CrewLayout';
 import { FeatureGate } from './components/auth/FeatureGate';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { StaffKakaoLinkRoute } from './components/auth/StaffKakaoLinkRoute';
 import { TeamProtectedRoute } from './components/auth/TeamProtectedRoute';
 import { CrewProtectedRoute } from './components/auth/CrewProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
@@ -199,6 +200,16 @@ function App() {
         </Route>
         <Route path="/admin/login" element={<Navigate to="/login" replace />} />
         <Route
+          path="/admin/account/kakao-link"
+          element={
+            <StaffKakaoLinkRoute>
+              <SuspensePage>
+                <AdminKakaoLinkPage />
+              </SuspensePage>
+            </StaffKakaoLinkRoute>
+          }
+        />
+        <Route
           path="/admin"
           element={
             <ProtectedRoute>
@@ -352,10 +363,6 @@ function App() {
           <Route
             path="notification-settings"
             element={<SuspensePage><AdminNotificationSettingsPage /></SuspensePage>}
-          />
-          <Route
-            path="account/kakao-link"
-            element={<SuspensePage><AdminKakaoLinkPage /></SuspensePage>}
           />
           <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />} />

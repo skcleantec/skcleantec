@@ -6,7 +6,13 @@ import {
   unlinkKakaoUserAtProvider,
 } from './signupOAuthKakao.service.js';
 
-async function assertAdminPasswordVerified(userId: string, tenantId: string, passwordRaw: string) {
+const STAFF_OAUTH_LINK_ROLES = ['ADMIN', 'MARKETER', 'TEAM_LEADER', 'EXTERNAL_PARTNER'] as const;
+
+async function assertStaffPasswordVerifiedForOAuthLink(
+  userId: string,
+  tenantId: string,
+  passwordRaw: string,
+) {
   const password = passwordRaw.trim();
   if (!password) {
     throw new AuthSignupOAuthError('비밀번호를 입력해 주세요.', 400);
@@ -20,8 +26,11 @@ async function assertAdminPasswordVerified(userId: string, tenantId: string, pas
   if (!user?.isActive) {
     throw new AuthSignupOAuthError('계정을 찾을 수 없습니다.', 404);
   }
-  if (user.role !== 'ADMIN') {
-    throw new AuthSignupOAuthError('관리자(ADMIN) 계정만 카카오 연결을 이용할 수 있습니다.', 403);
+  if (!STAFF_OAUTH_LINK_ROLES.includes(user.role as (typeof STAFF_OAUTH_LINK_ROLES)[number])) {
+    throw new AuthSignupOAuthError(
+      '관리자·마케터·팀장 계정만 카카오 연결을 이용할 수 있습니다.',
+      403,
+    );
   }
   if (!user.passwordHash) {
     throw new AuthSignupOAuthError(
@@ -48,14 +57,14 @@ export async function listOAuthIdentitiesForUser(userId: string, tenantId: strin
   });
 }
 
-export async function linkKakaoToAdminUser(input: {
+export async function linkKakaoToStaffUser(input: {
   userId: string;
   tenantId: string;
   password: string;
   code: string;
   redirectUri: string;
 }) {
-  await assertAdminPasswordVerified(input.userId, input.tenantId, input.password);
+  await assertStaffPasswordVerifiedForOAuthLink(input.userId, input.tenantId, input.password);
 
   const existingOwn = await prisma.userAuthIdentity.findUnique({
     where: {
@@ -110,12 +119,17 @@ export async function linkKakaoToAdminUser(input: {
   };
 }
 
-export async function unlinkKakaoFromAdminUser(input: {
+/** @deprecated linkKakaoToStaffUser 사용 */
+export async function linkKakaoToAdminUser(input: Parameters<typeof linkKakaoToStaffUser>[0]) {
+  return linkKakaoToStaffUser(input);
+}
+
+export async function unlinkKakaoFromStaffUser(input: {
   userId: string;
   tenantId: string;
   password: string;
 }) {
-  await assertAdminPasswordVerified(input.userId, input.tenantId, input.password);
+  await assertStaffPasswordVerifiedForOAuthLink(input.userId, input.tenantId, input.password);
 
   const identity = await prisma.userAuthIdentity.findUnique({
     where: {
@@ -136,4 +150,9 @@ export async function unlinkKakaoFromAdminUser(input: {
   await unlinkKakaoUserAtProvider(identity.providerSub);
 
   return { ok: true as const };
+}
+
+/** @deprecated unlinkKakaoFromStaffUser 사용 */
+export async function unlinkKakaoFromAdminUser(input: Parameters<typeof unlinkKakaoFromStaffUser>[0]) {
+  return unlinkKakaoFromStaffUser(input);
 }

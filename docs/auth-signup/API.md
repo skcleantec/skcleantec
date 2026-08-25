@@ -130,8 +130,8 @@
 3. id_token/code 검증 → `providerSub`
 4. `UserAuthIdentity` where `provider` + sub → **tenant·User 자동 결정** (`tenantSlug` 생략 가능)
 5. (선택) `tenantSlug` 입력 시 가입 업체와 불일치하면 401
-6. `role === ADMIN` (및 active) 확인
-7. JWT 발급 — 기존 `POST /api/auth/login`과 **동일 payload**
+6. `role` ∈ **ADMIN · MARKETER · TEAM_LEADER · EXTERNAL_PARTNER** (및 active, 입사·퇴사·팀장 플랜 등 기존 login 규칙)
+7. JWT 발급 — 기존 `POST /api/auth/login`과 **동일 payload** (팀장·타업체는 team JWT)
 
 **에러**
 

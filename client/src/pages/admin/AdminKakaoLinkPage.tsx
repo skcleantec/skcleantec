@@ -14,10 +14,17 @@ import {
 } from '../../api/authOAuthLink';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import { getToken } from '../../stores/auth';
+import { getTeamToken } from '../../stores/teamAuth';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 
+function resolveStaffKakaoLinkAuthToken(): string | null {
+  return getToken() ?? getTeamToken();
+}
+
 export function AdminKakaoLinkPage() {
-  const token = getToken();
+  const token = resolveStaffKakaoLinkAuthToken();
+  const backHref = getToken() ? '/admin/dashboard' : '/team/dashboard';
+  const backLabel = getToken() ? '← 대시보드' : '← 팀 대시보드';
   const location = useLocation();
   const navigate = useNavigate();
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
@@ -182,15 +189,15 @@ export function AdminKakaoLinkPage() {
     >
       <div className="login-scroll-content rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
         <Link
-          to="/admin/dashboard"
+          to={backHref}
           className="text-fluid-xs text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
         >
-          ← 대시보드
+          {backLabel}
         </Link>
         <h1 className="mt-3 text-fluid-sm font-semibold text-slate-900">카카오 계정 연결</h1>
         <p className="mt-2 text-fluid-2xs leading-snug text-slate-600">
-          아이디·비밀번호로 가입한 관리자 계정에 카카오 로그인을 연결합니다. 연결 전 본인 확인을 위해
-          비밀번호가 필요합니다.
+          아이디·비밀번호로 사용 중인 관리자·마케터·팀장 계정에 카카오 로그인을 연결합니다. 연결 전 본인
+          확인을 위해 비밀번호가 필요합니다.
         </p>
 
         {loading ? (

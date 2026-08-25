@@ -987,6 +987,11 @@ export function TeamLayout() {
                         ? teamTo('/team/notification-settings')
                         : null
                     }
+                    adminKakaoLinkHref={
+                      userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER'
+                        ? '/admin/account/kakao-link'
+                        : null
+                    }
                     onLogout={handleLogout}
                     onSessionExpired={() => {
                       clearTeamToken();
