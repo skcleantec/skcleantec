@@ -138,7 +138,11 @@ class StaffWebActivity : AppCompatActivity() {
                     openLoginScreen(clearSession = true)
                     return true
                 }
-                if (url.startsWith("http://") || url.startsWith("https://")) return false
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    if (StaffWebSessionSync.urlMatchesApiBase(url, apiBaseUrl)) return false
+                    openExternalUrl(url)
+                    return true
+                }
                 return true
             }
 
@@ -274,6 +278,15 @@ class StaffWebActivity : AppCompatActivity() {
 
     private fun syncSafeAreaToWebView() {
         StaffWindowInsets.injectSafeAreaCss(activeWebView, systemBarsBottomPx)
+    }
+
+    private fun openExternalUrl(url: String) {
+        if (url.isBlank()) return
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }.onFailure {
+            Toast.makeText(this, "링크를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun openLoginScreen(clearSession: Boolean) {

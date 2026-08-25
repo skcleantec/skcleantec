@@ -1,4 +1,4 @@
-import { API, apiErrorMessage } from './apiPrefix';
+import { API } from './apiPrefix';
 import { isLikelyNetworkFailure } from './fetchNetwork';
 import { AuthSessionExpiredError, invalidateAuthMeCache } from './auth';
 
@@ -15,6 +15,14 @@ function authHeaders(token: string): HeadersInit {
   };
 }
 
+type OAuthApiErrorBody = { error?: string; code?: string };
+
+function throwIfOAuthTokenExpired(res: Response, data: OAuthApiErrorBody): void {
+  if (res.status === 401 && data.code === 'token_expired') {
+    throw new AuthSessionExpiredError();
+  }
+}
+
 export async function fetchOAuthIdentities(token: string): Promise<OAuthIdentityItem[]> {
   let res: Response;
   try {
@@ -27,11 +35,11 @@ export async function fetchOAuthIdentities(token: string): Promise<OAuthIdentity
     }
     throw e instanceof Error ? e : new Error(String(e));
   }
-  if (res.status === 401) throw new AuthSessionExpiredError();
+  const data = (await res.json()) as { items?: OAuthIdentityItem[]; code?: string; error?: string };
+  throwIfOAuthTokenExpired(res, data);
   if (!res.ok) {
-    throw new Error(await apiErrorMessage(res, '연결 상태를 불러오지 못했습니다.'));
+    throw new Error(data.error ?? '연결 상태를 불러오지 못했습니다.');
   }
-  const data = (await res.json()) as { items?: OAuthIdentityItem[] };
   return Array.isArray(data.items) ? data.items : [];
 }
 
@@ -52,8 +60,14 @@ export async function linkKakaoOAuthAccount(
     }
     throw e instanceof Error ? e : new Error(String(e));
   }
-  if (res.status === 401) throw new AuthSessionExpiredError();
-  const data = (await res.json()) as { error?: string; provider?: 'kakao'; providerEmail?: string | null; linkedAt?: string };
+  const data = (await res.json()) as {
+    error?: string;
+    code?: string;
+    provider?: 'kakao';
+    providerEmail?: string | null;
+    linkedAt?: string;
+  };
+  throwIfOAuthTokenExpired(res, data);
   if (!res.ok) {
     throw new Error(data.error ?? '카카오 계정 연결에 실패했습니다.');
   }
@@ -79,8 +93,8 @@ export async function unlinkKakaoOAuthAccount(token: string, password: string): 
     }
     throw e instanceof Error ? e : new Error(String(e));
   }
-  if (res.status === 401) throw new AuthSessionExpiredError();
-  const data = (await res.json()) as { error?: string };
+  const data = (await res.json()) as OAuthApiErrorBody;
+  throwIfOAuthTokenExpired(res, data);
   if (!res.ok) {
     throw new Error(data.error ?? '카카오 연결 해제에 실패했습니다.');
   }
