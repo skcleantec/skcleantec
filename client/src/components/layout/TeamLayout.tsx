@@ -481,13 +481,12 @@ export function TeamLayout() {
   const {
     fabTop,
     fabDragging,
-    fabPressActive,
     fabStackRef,
     fabBellMount,
     setFabBellMount,
     fabSafeRight,
     showMobileFabStack,
-    beginFabPointer,
+    onFabStackPointerDown,
   } = useStaffMobileFabStack({
     storageKey: TEAM_MOBILE_FAB_STORAGE_KEY,
     stackCount: 2,
@@ -1076,13 +1075,12 @@ export function TeamLayout() {
           {showTeamMobileFabStack ? (
             <div
               ref={fabStackRef}
-              className={`fixed z-[120] lg:hidden flex flex-col items-end gap-0.5 ${
-                fabDragging || fabPressActive ? 'touch-none select-none' : ''
-              }`}
+              className="fixed z-[120] lg:hidden flex flex-col items-end gap-1"
               style={{
                 top: fabTop ?? undefined,
                 right: fabSafeRight,
               }}
+              onPointerDown={onFabStackPointerDown}
             >
               <TeamMobileNavFavoritesAccess
                 teamTo={teamTo}
@@ -1090,7 +1088,7 @@ export function TeamLayout() {
                 registerOpen={(fn) => {
                   openMobileFavoritesRef.current = fn;
                 }}
-                fabStack={{ onPointerDown: (evt) => beginFabPointer('favorites', evt) }}
+                inFabStack
               />
               <div ref={setFabBellMount} className="contents" aria-hidden={!teamToken} />
             </div>
@@ -1107,7 +1105,6 @@ export function TeamLayout() {
             mobileStack={
               showTeamMobileFabStack
                 ? {
-                    onPointerDown: (evt) => beginFabPointer('bell', evt),
                     dragging: fabDragging,
                     mountNode: fabBellMount,
                   }

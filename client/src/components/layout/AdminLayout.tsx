@@ -85,6 +85,7 @@ import {
   MOBILE_STAFF_DOCK_BTN_PX,
   MOBILE_STAFF_DOCK_GAP_PX,
   MOBILE_STAFF_DOCK_ICON_CLASS,
+  readStaffFabAnchor,
 } from './mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from './staffRightRailStyles';
 
@@ -108,10 +109,13 @@ const ADMIN_MOBILE_FAB_PX = MOBILE_STAFF_DOCK_BTN_PX;
 const ADMIN_MOBILE_FAB_GAP = MOBILE_STAFF_DOCK_GAP_PX;
 /** 스케줄 버튼 top − 이 값 = 발주서 버튼 top (한 줄로 붙음) */
 const ADMIN_MOBILE_FAB_ISSUE_TOP_OFFSET = ADMIN_MOBILE_FAB_PX + ADMIN_MOBILE_FAB_GAP;
-const ADMIN_MOBILE_FAB_HOLD_MS = 420;
-const ADMIN_MOBILE_FAB_EARLY_DRAG_MS = 280;
-const ADMIN_MOBILE_FAB_EARLY_DRAG_DY_PX = 6;
-const ADMIN_MOBILE_FAB_HORIZONTAL_CANCEL_DX_PX = 14;
+const ADMIN_MOBILE_FAB_HOLD_MS = 360;
+const ADMIN_MOBILE_FAB_EARLY_DRAG_MS = 220;
+const ADMIN_MOBILE_FAB_EARLY_DRAG_DY_PX = 5;
+const ADMIN_MOBILE_FAB_HORIZONTAL_CANCEL_DX_PX = 18;
+const ADMIN_FAB_STACK_ACTIVE_CLASS = 'touch-none select-none';
+
+type AdminMobileFabAnchor = 'schedule' | 'issue' | 'bell' | 'favorites';
 
 /** 발주서 발급 FAB 아이콘 */
 function OrderIssueFabIcon({ className }: { className?: string }) {
@@ -318,17 +322,15 @@ export function AdminLayout() {
     () => initialSession?.profileOnboardingInitial ?? { role: 'MARKETER' },
   );
   const [fabDragging, setFabDragging] = useState(false);
-  const [fabPressActive, setFabPressActive] = useState(false);
   const fabDraggingRef = useRef(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
   const fabDragOffsetRef = useRef({ y: 0 });
   const fabPressMovedRef = useRef(false);
-  const fabCaptureTargetRef = useRef<HTMLElement | null>(null);
   const endFabPressListenersRef = useRef<(() => void) | null>(null);
   const endFabDragListenersRef = useRef<(() => void) | null>(null);
   /** 길게 눌러 이동을 시작한 버튼 — 탭 시 이동·열기 경로 */
-  const fabPointerAnchorRef = useRef<'schedule' | 'issue' | 'bell' | 'favorites' | null>(null);
+  const fabPointerAnchorRef = useRef<AdminMobileFabAnchor | null>(null);
   const openMobileFavoritesRef = useRef<(() => void) | null>(null);
   const fabStackRef = useRef<HTMLDivElement | null>(null);
   const [fabBellMount, setFabBellMount] = useState<HTMLDivElement | null>(null);
@@ -794,6 +796,13 @@ export function AdminLayout() {
     if (el) el.style.top = `${next}px`;
   }, []);
 
+  const setFabStackActiveDom = useCallback((active: boolean) => {
+    const el = fabStackRef.current;
+    if (!el) return;
+    if (active) el.classList.add(ADMIN_FAB_STACK_ACTIVE_CLASS);
+    else el.classList.remove(ADMIN_FAB_STACK_ACTIVE_CLASS);
+  }, []);
+
   useEffect(() => {
     fabTopRef.current = fabTop;
   }, [fabTop]);
@@ -848,20 +857,23 @@ export function AdminLayout() {
     endFabDragListenersRef.current = null;
   }, []);
 
+  const releaseFabCapture = useCallback((pointerId: number) => {
+    try {
+      fabStackRef.current?.releasePointerCapture(pointerId);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const finishFabPointer = useCallback(
     (evt: PointerEvent, wasDragging: boolean) => {
-      try {
-        fabCaptureTargetRef.current?.releasePointerCapture(evt.pointerId);
-      } catch {
-        /* ignore */
-      }
-      fabCaptureTargetRef.current = null;
+      releaseFabCapture(evt.pointerId);
       fabPointerIdRef.current = null;
       const tapAnchor = fabPointerAnchorRef.current;
       fabPointerAnchorRef.current = null;
       fabDraggingRef.current = false;
       setFabDragging(false);
-      setFabPressActive(false);
+      setFabStackActiveDom(false);
 
       if (wasDragging) {
         const y = fabTopRef.current;
@@ -894,7 +906,7 @@ export function AdminLayout() {
       }
       fabPressMovedRef.current = false;
     },
-    [fabStorageKey, location.pathname, navigate],
+    [fabStorageKey, location.pathname, navigate, releaseFabCapture, setFabStackActiveDom],
   );
 
   const attachFabDragListeners = useCallback(
@@ -923,8 +935,12 @@ export function AdminLayout() {
   );
 
   const beginFabPointer = useCallback(
-    (anchor: 'schedule' | 'issue' | 'bell' | 'favorites', evt: ReactPointerEvent<HTMLButtonElement>) => {
+    (anchor: AdminMobileFabAnchor, evt: ReactPointerEvent<HTMLDivElement>) => {
       if (evt.button !== 0) return;
+      const stack = fabStackRef.current;
+      if (!stack) return;
+
+      evt.preventDefault();
       clearFabPressListeners();
       clearFabDragListeners();
       if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
@@ -934,11 +950,16 @@ export function AdminLayout() {
       fabPointerAnchorRef.current = anchor;
       fabPressMovedRef.current = false;
       fabPointerIdRef.current = pointerId;
-      fabCaptureTargetRef.current = evt.currentTarget;
-      setFabPressActive(true);
-      const container = fabStackRef.current;
-      const rect = container?.getBoundingClientRect() ?? evt.currentTarget.getBoundingClientRect();
+      setFabStackActiveDom(true);
+
+      const rect = stack.getBoundingClientRect();
       fabDragOffsetRef.current = { y: evt.clientY - rect.top };
+
+      try {
+        stack.setPointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
 
       const down = { x: evt.clientX, y: evt.clientY };
 
@@ -951,11 +972,6 @@ export function AdminLayout() {
         }
         fabDraggingRef.current = true;
         setFabDragging(true);
-        try {
-          fabCaptureTargetRef.current?.setPointerCapture(pointerId);
-        } catch {
-          /* ignore */
-        }
         try {
           navigator.vibrate?.(12);
         } catch {
@@ -1012,7 +1028,23 @@ export function AdminLayout() {
         enterDragMode();
       }, ADMIN_MOBILE_FAB_HOLD_MS);
     },
-    [attachFabDragListeners, clearFabDragListeners, clearFabPressListeners, finishFabPointer],
+    [attachFabDragListeners, clearFabDragListeners, clearFabPressListeners, finishFabPointer, setFabStackActiveDom],
+  );
+
+  const onFabStackPointerDown = useCallback(
+    (evt: ReactPointerEvent<HTMLDivElement>) => {
+      const raw = readStaffFabAnchor(evt.target);
+      if (
+        raw !== 'favorites' &&
+        raw !== 'bell' &&
+        raw !== 'issue' &&
+        raw !== 'schedule'
+      ) {
+        return;
+      }
+      beginFabPointer(raw, evt);
+    },
+    [beginFabPointer],
   );
 
   useLayoutEffect(
@@ -1020,8 +1052,9 @@ export function AdminLayout() {
       if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
       clearFabPressListeners();
       clearFabDragListeners();
+      setFabStackActiveDom(false);
     },
-    [clearFabDragListeners, clearFabPressListeners],
+    [clearFabDragListeners, clearFabPressListeners, setFabStackActiveDom],
   );
 
   return (
@@ -1584,13 +1617,12 @@ export function AdminLayout() {
           {showMobileFabStack && (
         <div
           ref={fabStackRef}
-          className={`fixed z-[120] lg:hidden flex flex-col items-end gap-0.5 ${
-            fabDragging || fabPressActive ? 'touch-none select-none' : ''
-          }`}
+          className="fixed z-[120] lg:hidden flex flex-col items-end gap-1"
           style={{
             top: fabTop ?? undefined,
             right: fabSafeRight,
           }}
+          onPointerDown={onFabStackPointerDown}
         >
           <AdminMobileNavFavoritesAccess
             navCtx={navCtx}
@@ -1599,14 +1631,14 @@ export function AdminLayout() {
             registerOpen={(fn) => {
               openMobileFavoritesRef.current = fn;
             }}
-            fabStack={{ onPointerDown: (evt) => beginFabPointer('favorites', evt) }}
+            inFabStack
           />
           {showOrderIssueFab && (
             <button
               type="button"
+              data-staff-fab-anchor="issue"
               aria-label="발주서 발급으로 이동"
               title={fabDragging ? '세로 위치 이동 중' : '발주서 발급 (길게 눌러 세로 위치만 이동)'}
-              onPointerDown={(evt) => beginFabPointer('issue', evt)}
               className={`${MOBILE_STAFF_DOCK_BTN_CLASS} border border-amber-600/70 bg-amber-400 text-amber-950 shadow-[0_2px_8px_rgba(180,83,9,0.28),0_1px_2px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/30 active:shadow-sm ${
                 fabDragging ? 'cursor-grabbing' : 'cursor-pointer'
               }`}
@@ -1617,9 +1649,9 @@ export function AdminLayout() {
           {showScheduleFab && (
             <button
               type="button"
+              data-staff-fab-anchor="schedule"
               aria-label="스케줄 바로가기"
               title={fabDragging ? '세로 위치 이동 중' : '스케줄 바로가기 (길게 눌러 세로 위치만 이동)'}
-              onPointerDown={(evt) => beginFabPointer('schedule', evt)}
               className={`${MOBILE_STAFF_DOCK_BTN_CLASS} bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-[0_3px_10px_rgba(29,78,216,0.32),0_1px_3px_rgba(15,23,42,0.14)] ring-1 ring-inset ring-white/15 active:shadow-[0_2px_8px_rgba(29,78,216,0.26),0_1px_2px_rgba(15,23,42,0.12)] ${
                 fabDragging ? 'cursor-grabbing' : 'cursor-pointer'
               }`}
@@ -1687,7 +1719,6 @@ export function AdminLayout() {
           mobileStack={
             showMobileFabStack
               ? {
-                  onPointerDown: (evt) => beginFabPointer('bell', evt),
                   dragging: fabDragging,
                   mountNode: fabBellMount,
                 }

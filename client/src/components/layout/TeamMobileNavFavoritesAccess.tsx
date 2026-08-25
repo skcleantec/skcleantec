@@ -6,14 +6,12 @@ export function TeamMobileNavFavoritesAccess({
   teamTo,
   visibility,
   registerOpen,
-  fabStack,
+  inFabStack,
 }: {
   teamTo: (path: string) => string;
   visibility: TeamNavVisibility;
   registerOpen?: (open: () => void) => void;
-  fabStack?: {
-    onPointerDown: (e: import('react').PointerEvent<HTMLButtonElement>) => void;
-  };
+  inFabStack?: boolean;
 }) {
   const { ready, items } = useTeamMobileNavFavoriteItems(teamTo, visibility);
   return (
@@ -21,7 +19,7 @@ export function TeamMobileNavFavoritesAccess({
       ready={ready}
       items={items}
       registerOpen={registerOpen}
-      fabStack={fabStack}
+      inFabStack={inFabStack}
     />
   );
 }

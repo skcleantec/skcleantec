@@ -17,6 +17,7 @@ import { staffDesktopDockButtonClass } from '../layout/staffRightRailStyles';
 import {
   MOBILE_STAFF_DOCK_BTN_CLASS,
   MOBILE_STAFF_DOCK_ICON_CLASS,
+  STAFF_FAB_ANCHOR_ATTR,
 } from '../layout/mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from '../layout/staffRightRailStyles';
 
@@ -26,9 +27,10 @@ const BELL_POS_STORAGE_KEY = 'changeLogBellTopPx';
 const BTN_PRIMARY_SM =
   'shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
-/** lg 미만 — AdminLayout 모바일 FAB 스택 안에 embed */
+/** lg 미만 — AdminLayout·TeamLayout 모바일 FAB 스택 안에 embed */
 export type ChangeLogBellMobileStackProps = {
-  onPointerDown: (evt: React.PointerEvent<HTMLButtonElement>) => void;
+  /** 미지정 시 스택 div pointer 위임(data-staff-fab-anchor=bell) */
+  onPointerDown?: (evt: React.PointerEvent<HTMLButtonElement>) => void;
   dragging?: boolean;
   /** FAB 스택 flex 내부 마운트 지점 (데스크톱 fixed와 분리) */
   mountNode?: HTMLDivElement | null;
@@ -161,7 +163,7 @@ export function ChangeLogBell({
 
   const onBellPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (mobileStack) {
-      mobileStack.onPointerDown(e);
+      mobileStack.onPointerDown?.(e);
       return;
     }
     if (onDockDesktop && desktopDock) {
@@ -369,6 +371,7 @@ export function ChangeLogBell({
   const bellButton = (
     <button
       type="button"
+      {...(mobileStack ? { [STAFF_FAB_ANCHOR_ATTR]: 'bell' } : {})}
       onClick={(e) => {
         if (suppressClickRef.current || bellDragging) {
           e.preventDefault();
@@ -433,9 +436,9 @@ export function ChangeLogBell({
         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
       {unseen > 0 && (
-        <span className={`absolute -right-1 -top-1 flex items-center justify-center rounded-full bg-red-600 font-bold text-white ring-2 ring-white ${
+        <span className={`absolute -right-0.5 -top-0.5 flex items-center justify-center rounded-full bg-red-600 font-bold text-white ring-2 ring-white ${
           mobileStack
-            ? 'min-h-[14px] min-w-[14px] px-0.5 text-[9px] leading-none'
+            ? 'min-h-[16px] min-w-[16px] px-0.5 text-[10px] leading-none'
             : 'min-h-[18px] min-w-[18px] px-1 text-[10px]'
         }`}>
           {unseen > 99 ? '99+' : unseen}
