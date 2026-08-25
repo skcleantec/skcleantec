@@ -21,6 +21,7 @@ import com.cbiseo.app.databinding.ActivityLoginBinding
 import com.cbiseo.app.session.StaffRoleResolver
 import com.cbiseo.app.web.StaffWebActivity
 import com.cbiseo.app.web.StaffWebSessionSync
+import com.cbiseo.app.web.StaffWindowInsets
 import com.google.android.material.button.MaterialButtonToggleGroup
 
 /**
@@ -37,6 +38,7 @@ class LoginActivity : AppCompatActivity() {
     private var suppressPresetListener = false
     private var loadedLoginApiBaseUrl: String? = null
     private var pendingFormRestore: StaffWebSessionSync.LoginFormDraft? = null
+    private var navBarBottomPx = 0
     private lateinit var nativeGoogleSignIn: NativeGoogleSignInHelper
 
     private val presetVisibilityHandler = Handler(Looper.getMainLooper())
@@ -50,6 +52,9 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        StaffWindowInsets.apply(this, binding.root, binding.loginWebView) { px ->
+            navBarBottomPx = px
+        }
 
         nativeGoogleSignIn = NativeGoogleSignInHelper(
             activity = this,
@@ -187,6 +192,7 @@ class LoginActivity : AppCompatActivity() {
                     loadedLoginApiBaseUrl = apiBaseUrl
                     bindLoginIdDraftWatcher(webView)
                     restorePendingLoginForm(webView)
+                    StaffWindowInsets.injectSafeAreaCss(webView, navBarBottomPx)
                 }
 
                 if (StaffWebSessionSync.isStaffAppHomeUrl(current, apiBaseUrl)) {

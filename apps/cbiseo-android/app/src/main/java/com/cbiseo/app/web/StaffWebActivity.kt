@@ -16,9 +16,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 import com.cbiseo.app.api.ApiEnvironment
 import com.cbiseo.app.auth.LoginActivity
 import com.cbiseo.app.auth.TokenStore
@@ -87,10 +84,11 @@ class StaffWebActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityStaffWebBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applyWindowInsets()
+        StaffWindowInsets.apply(this, binding.root, binding.staffWebView) { px ->
+            systemBarsBottomPx = px
+        }
         pendingPushPath = StaffPushIntentExtras.pushPathFrom(intent)
             ?: intent.getStringExtra(EXTRA_PUSH_PATH)
 
@@ -274,30 +272,8 @@ class StaffWebActivity : AppCompatActivity() {
         dispatchNavigateToWebView(path)
     }
 
-    private fun applyWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(0, bars.top, 0, bars.bottom)
-            systemBarsBottomPx = bars.bottom
-            syncSafeAreaToWebView()
-            insets
-        }
-        ViewCompat.requestApplyInsets(binding.root)
-    }
-
     private fun syncSafeAreaToWebView() {
-        injectSafeAreaCss(systemBarsBottomPx)
-    }
-
-    private fun injectSafeAreaCss(bottomPx: Int) {
-        val density = resources.displayMetrics.density
-        val bottomDp = if (density > 0f) bottomPx / density else 0f
-        activeWebView?.post {
-            activeWebView?.evaluateJavascript(
-                "try{document.documentElement.classList.add('cbiseo-staff-app');document.documentElement.style.setProperty('--cbiseo-safe-area-bottom','${bottomDp}px');}catch(e){}",
-                null,
-            )
-        }
+        StaffWindowInsets.injectSafeAreaCss(activeWebView, systemBarsBottomPx)
     }
 
     private fun openLoginScreen(clearSession: Boolean) {
