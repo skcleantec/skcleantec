@@ -21,6 +21,20 @@ from automation.chat_list import ChatListManager
 from automation.chat_room import ChatRoomManager
 from automation.processed_tracker import ProcessedTracker
 from features.content_sender import process_send_order
+from features.feature_run_queue import (
+    FEATURE_COMBINED,
+    clear_feature_queue,
+    create_queue_from_chats,
+    finalize_queue_if_complete,
+    get_pending_items,
+    get_queue_summary,
+    load_feature_queue,
+    mark_item_done,
+    mark_queue_interrupted,
+    pending_to_chat_infos,
+    restore_tracker_from_queue,
+    save_queue_with_tracker,
+)
 from automation.selectors import URLS, SYSTEM_MESSAGES
 
 logger = logging.getLogger(__name__)
@@ -46,6 +60,7 @@ class CombinedFeature:
         self.log_callback: Optional[Callable[[str], None]] = None
         self.stats_callback: Optional[Callable[[dict], None]] = None
         self.start_time = None
+        self._run_queue: Optional[dict] = None
         self.images_folder = os.path.join(get_base_path(), 'images')
 
     def _get_numeric_folders(self) -> List[int]:
@@ -342,14 +357,19 @@ class CombinedFeature:
         emoji_send_order: List[str],
         quote_texts: Dict[str, str],
         quote_send_order: List[str],
+        queue: Optional[dict] = None,
     ):
         if not matching_chats:
             self.log('[2단계] 처리할 매칭 채팅방 없음')
             return
 
-        self.log(f'[2단계] {len(matching_chats)}개 채팅방 처리 시작')
+        total = len(matching_chats)
+        self.log(f'[2단계] {total}개 채팅방 처리 시작')
+        interrupted = False
+
         for idx, chat_info in enumerate(matching_chats, 1):
             if not self.running:
+                interrupted = True
                 break
 
             chat_id = chat_info['chat_id']
@@ -358,40 +378,63 @@ class CombinedFeature:
             display_name = chat_info['display_name']
 
             if nickname and self.tracker.is_processed(nickname):
-                self.log(f'[{idx}/{len(matching_chats)}] {display_name} - 이미 처리됨, 스킵')
+                self.log(f'[{idx}/{total}] {display_name} - 이미 처리됨, 스킵')
+                if queue is not None:
+                    mark_item_done(queue, chat_id)
+                    save_queue_with_tracker(FEATURE_COMBINED, queue, self.tracker)
                 continue
 
             prefix = '[테스트] ' if self.test_mode else ''
-            self.log(f'{prefix}[{idx}/{len(matching_chats)}] {display_name} ({match_type}) 처리 시작')
+            self.log(f'{prefix}[{idx}/{total}] {display_name} ({match_type}) 처리 시작')
 
             chat_url = f'https://soomgo.com/pro/chats/{chat_id}'
             if not self._safe_navigate_to_chat(chat_url):
                 self.log(f'  → 채팅방 이동 실패: {display_name}')
                 continue
 
+            handled = False
             if match_type == 'emoji':
                 if self._process_chat_content(emoji_texts, emoji_send_order):
                     if nickname:
                         self.tracker.mark_processed(nickname, 'emoji')
                     msg = '[테스트] 처리 완료 (실제 전송 안됨): ' if self.test_mode else '[이모지] 처리 완료: '
                     self.log(f'{msg}{display_name}')
+                    handled = True
                 self._update_stats()
-                continue
 
-            if match_type == 'quote':
+            elif match_type == 'quote':
                 my_messages = self.chat_room.get_my_sent_messages()
                 already_sent = any(msg.strip().startswith('🌟오늘') for msg in my_messages)
                 if already_sent:
                     self.log(f'  → 이미 이모티콘 메시지 발송됨 - 스킵: {display_name}')
+                    if queue is not None:
+                        mark_item_done(queue, chat_id)
+                        save_queue_with_tracker(FEATURE_COMBINED, queue, self.tracker)
                     continue
                 if self._process_chat_content(quote_texts, quote_send_order):
                     if nickname:
                         self.tracker.mark_processed(nickname, 'quote')
                     msg = '[테스트] 처리 완료 (실제 전송 안됨): ' if self.test_mode else '[견적조회] 처리 완료: '
                     self.log(f'{msg}{display_name}')
+                    handled = True
                 self._update_stats()
 
+            if handled and queue is not None:
+                mark_item_done(queue, chat_id)
+                save_queue_with_tracker(FEATURE_COMBINED, queue, self.tracker)
+
         self.log('[2단계 완료] 처리 종료')
+
+        if queue is not None:
+            if interrupted and get_pending_items(queue):
+                save_queue_with_tracker(FEATURE_COMBINED, queue, self.tracker)
+                mark_queue_interrupted(queue, FEATURE_COMBINED)
+                self.log(
+                    f'[중지] {get_queue_summary(FEATURE_COMBINED)} — '
+                    '설정 변경 후 「이어하기」를 사용하세요.'
+                )
+            elif finalize_queue_if_complete(FEATURE_COMBINED, queue):
+                self._run_queue = None
 
     def _process_cycle(
         self,
@@ -409,13 +452,35 @@ class CombinedFeature:
             emoji, emoji_enabled, quote_enabled, max_count, quote_system_message
         )
         if not self.running:
+            if matching_chats:
+                queue = create_queue_from_chats(FEATURE_COMBINED, matching_chats)
+                self._run_queue = queue
+                save_queue_with_tracker(FEATURE_COMBINED, queue, self.tracker)
+                mark_queue_interrupted(queue, FEATURE_COMBINED)
+                self.log(
+                    f'[중지] 수집 {len(matching_chats)}건 저장 — '
+                    '설정 변경 후 「이어하기」를 사용하세요.'
+                )
             return
+
+        if not matching_chats:
+            self.log('사이클 완료 (매칭 없음)')
+            return
+
+        queue = create_queue_from_chats(FEATURE_COMBINED, matching_chats)
+        self._run_queue = queue
+        save_queue_with_tracker(FEATURE_COMBINED, queue, self.tracker)
         self._process_collected_chats(
-            matching_chats, emoji_texts, emoji_send_order, quote_texts, quote_send_order
+            matching_chats,
+            emoji_texts,
+            emoji_send_order,
+            quote_texts,
+            quote_send_order,
+            queue=queue,
         )
         self.log('사이클 완료')
 
-    def run(self, settings: dict = None, **kwargs) -> dict:
+    def run(self, settings: dict = None, resume: bool = False, **kwargs) -> dict:
         """통합 기능 실행 (settings dict 또는 개별 인자 지원)"""
         if settings is None:
             settings = kwargs if kwargs else {}
@@ -463,6 +528,34 @@ class CombinedFeature:
                 return self.tracker.get_stats()
 
             time.sleep(self.delay * 2)
+
+            if resume:
+                queue = load_feature_queue(FEATURE_COMBINED)
+                pending = get_pending_items(queue) if queue else []
+                if not queue or not pending:
+                    self.log('이어할 이모지/견적조회 작업이 없습니다.')
+                    if queue:
+                        clear_feature_queue(FEATURE_COMBINED)
+                else:
+                    self._run_queue = queue
+                    restore_tracker_from_queue(self.tracker, queue)
+                    self._update_stats()
+                    self.log(f'[이어하기] {get_queue_summary(FEATURE_COMBINED)}')
+                    self._process_collected_chats(
+                        pending_to_chat_infos(queue),
+                        emoji_texts,
+                        emoji_send_order,
+                        quote_texts,
+                        quote_send_order,
+                        queue=queue,
+                    )
+                    if not self.running:
+                        stats = self.tracker.get_stats()
+                        self.log(
+                            f"통합 기능 중지 — 이모지: {stats['emoji_count']}개, "
+                            f"견적조회: {stats['quote_count']}개"
+                        )
+                        return stats
 
             while self.running:
                 self._process_cycle(

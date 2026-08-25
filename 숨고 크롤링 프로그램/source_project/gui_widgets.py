@@ -16,6 +16,82 @@ def _text_sort_key(key):
         return 0
 
 
+def _center_toplevel(window: tk.Toplevel, width: int, height: int) -> None:
+    """화면에 맞춘 크기·중앙 배치"""
+    window.update_idletasks()
+    sw = window.winfo_screenwidth()
+    sh = window.winfo_screenheight()
+    w = min(width, max(520, sw - 48))
+    h = min(height, max(420, sh - 80))
+    x = max(0, (sw - w) // 2)
+    y = max(0, (sh - h) // 2)
+    window.geometry(f'{w}x{h}+{x}+{y}')
+    window.minsize(min(560, w), min(400, h))
+
+
+class DialogScrollShell:
+    """설정 팝업 — 본문 스크롤 + 하단 저장/취소 고정"""
+
+    def __init__(self, dialog: tk.Toplevel):
+        self.dialog = dialog
+        dialog.rowconfigure(0, weight=1)
+        dialog.columnconfigure(0, weight=1)
+
+        body_wrap = ttk.Frame(dialog)
+        body_wrap.grid(row=0, column=0, sticky='nsew')
+        body_wrap.rowconfigure(0, weight=1)
+        body_wrap.columnconfigure(0, weight=1)
+
+        self.canvas = tk.Canvas(body_wrap, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(
+            body_wrap, orient='vertical', command=self.canvas.yview
+        )
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        self.canvas.grid(row=0, column=0, sticky='nsew')
+        scrollbar.grid(row=0, column=1, sticky='ns')
+
+        self.body = ttk.Frame(self.canvas, padding='12')
+        self._canvas_window = self.canvas.create_window(
+            (0, 0), window=self.body, anchor='nw'
+        )
+        self.body.bind('<Configure>', self._on_body_configure)
+        self.canvas.bind('<Configure>', self._on_canvas_configure)
+        self._bind_mousewheel(self.canvas)
+        self._bind_mousewheel(self.body)
+
+        self.footer = ttk.Frame(dialog, padding=(12, 6, 12, 12))
+        self.footer.grid(row=1, column=0, sticky='ew')
+
+    def _on_body_configure(self, _event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox('all'))
+
+    def _on_canvas_configure(self, event):
+        self.canvas.itemconfig(self._canvas_window, width=event.width)
+
+    def _bind_mousewheel(self, widget):
+        def _on_mousewheel(event):
+            if self.canvas.bbox('all') is None:
+                return
+            content_h = int(self.canvas.bbox('all')[3])
+            if content_h <= self.canvas.winfo_height():
+                return
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
+
+        widget.bind(
+            '<Enter>',
+            lambda _e: self.canvas.bind_all('<MouseWheel>', _on_mousewheel),
+        )
+        widget.bind('<Leave>', lambda _e: self.canvas.unbind_all('<MouseWheel>'))
+
+    def add_footer_buttons(self, save_cmd, cancel_cmd) -> None:
+        ttk.Button(self.footer, text='취소', command=cancel_cmd, width=14).pack(
+            side='right', padx=(4, 0)
+        )
+        ttk.Button(self.footer, text='저장', command=save_cmd, width=14).pack(
+            side='right', padx=4
+        )
+
+
 def _resolve_get_base_path(get_base_path_fn=None):
     if get_base_path_fn is not None:
         return get_base_path_fn
@@ -359,7 +435,6 @@ class RecontactSettingsDialog(tk.Toplevel):
     def __init__(self, parent, current_settings: dict, get_base_path_fn=None):
         super().__init__(parent)
         self.title('재접촉 설정')
-        self.geometry('750x900')
         self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
@@ -369,14 +444,13 @@ class RecontactSettingsDialog(tk.Toplevel):
         self._get_base_path = _resolve_get_base_path(get_base_path_fn)
         self.images_folder = os.path.join(self._get_base_path(), 'images')
 
+        self._shell = DialogScrollShell(self)
         self.create_widgets()
+        self._shell.add_footer_buttons(self.save, self.cancel)
         self.load_settings()
         self.load_images_info()
 
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() - self.winfo_width()) // 2
-        y = (self.winfo_screenheight() - self.winfo_height()) // 2
-        self.geometry(f'+{x}+{y}')
+        _center_toplevel(self, 680, 620)
 
     def get_image_folders(self) -> list:
         folders = []
@@ -430,8 +504,7 @@ class RecontactSettingsDialog(tk.Toplevel):
             self.hired_other_send_order.update_available_items()
 
     def create_widgets(self):
-        main_frame = ttk.Frame(self, padding='15')
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame = self._shell.body
 
         keyword_label_frame = ttk.Frame(main_frame)
         keyword_label_frame.pack(fill='x', pady=(0, 5))
@@ -492,7 +565,7 @@ class RecontactSettingsDialog(tk.Toplevel):
         ).pack(side='left', padx=10)
 
         notebook = ttk.Notebook(main_frame)
-        notebook.pack(fill='both', expand=True, pady=(0, 10))
+        notebook.pack(fill='x', pady=(0, 8))
 
         general_tab = ttk.Frame(notebook, padding='10')
         notebook.add(general_tab, text='일반 재접촉')
@@ -506,22 +579,14 @@ class RecontactSettingsDialog(tk.Toplevel):
         notebook.add(hired_other_tab, text='다른 고수 고용')
         self._create_hired_other_tab(hired_other_tab)
 
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill='x', pady=(10, 0))
-        ttk.Button(btn_frame, text='저장', command=self.save, width=15).pack(
-            side='right', padx=5
-        )
-        ttk.Button(btn_frame, text='취소', command=self.cancel, width=15).pack(
-            side='right', padx=5
-        )
-
     def _create_general_tab(self, parent):
-        text_frame = ttk.LabelFrame(parent, text='텍스트 설정', padding='10')
-        text_frame.pack(fill='both', expand=True, pady=(0, 10))
+        text_frame = ttk.LabelFrame(parent, text='텍스트 설정', padding='8')
+        text_frame.pack(fill='x', pady=(0, 8))
         self.general_text_editor = TextEditorFrame(
             text_frame, on_texts_changed=self.on_general_texts_changed
         )
-        self.general_text_editor.pack(fill='both', expand=True)
+        self.general_text_editor.pack(fill='x')
+        self.general_text_editor.text_widget.configure(height=7)
 
         order_frame = ttk.LabelFrame(parent, text='전송 순서 설정', padding='10')
         order_frame.pack(fill='x')
@@ -593,12 +658,13 @@ class RecontactSettingsDialog(tk.Toplevel):
             font=('', 8),
         ).pack(anchor='w', pady=(5, 0))
 
-        text_frame = ttk.LabelFrame(parent, text='텍스트 설정', padding='10')
-        text_frame.pack(fill='both', expand=True, pady=(0, 10))
+        text_frame = ttk.LabelFrame(parent, text='텍스트 설정', padding='8')
+        text_frame.pack(fill='x', pady=(0, 8))
         self.hired_other_text_editor = TextEditorFrame(
             text_frame, on_texts_changed=self.on_hired_other_texts_changed
         )
-        self.hired_other_text_editor.pack(fill='both', expand=True)
+        self.hired_other_text_editor.pack(fill='x')
+        self.hired_other_text_editor.text_widget.configure(height=7)
 
         order_frame = ttk.LabelFrame(parent, text='전송 순서 설정', padding='10')
         order_frame.pack(fill='x')
@@ -742,7 +808,6 @@ class CombinedSettingsDialog(tk.Toplevel):
     def __init__(self, parent, current_settings: dict, get_base_path_fn=None):
         super().__init__(parent)
         self.title('이모지/견적조회 설정')
-        self.geometry('750x900')
         self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
@@ -752,14 +817,13 @@ class CombinedSettingsDialog(tk.Toplevel):
         self._get_base_path = _resolve_get_base_path(get_base_path_fn)
         self.images_folder = os.path.join(self._get_base_path(), 'images')
 
+        self._shell = DialogScrollShell(self)
         self.create_widgets()
+        self._shell.add_footer_buttons(self.save, self.cancel)
         self.load_settings()
         self.load_images_info()
 
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() - self.winfo_width()) // 2
-        y = (self.winfo_screenheight() - self.winfo_height()) // 2
-        self.geometry(f'+{x}+{y}')
+        _center_toplevel(self, 680, 620)
 
     def get_image_folders(self) -> list:
         """이미지 폴더 목록 반환 (숫자 폴더만)"""
@@ -819,8 +883,7 @@ class CombinedSettingsDialog(tk.Toplevel):
             self.quote_send_order.update_available_items()
 
     def create_widgets(self):
-        main_frame = ttk.Frame(self, padding='15')
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame = self._shell.body
 
         img_frame = ttk.LabelFrame(main_frame, text='공통 이미지 설정', padding='10')
         img_frame.pack(fill='x', pady=(0, 10))
@@ -846,7 +909,7 @@ class CombinedSettingsDialog(tk.Toplevel):
         ).pack(side='left', padx=10)
 
         notebook = ttk.Notebook(main_frame)
-        notebook.pack(fill='both', expand=True, pady=(0, 10))
+        notebook.pack(fill='x', pady=(0, 8))
 
         emoji_tab = ttk.Frame(notebook, padding='10')
         notebook.add(emoji_tab, text='이모지 조건')
@@ -857,7 +920,7 @@ class CombinedSettingsDialog(tk.Toplevel):
         self.create_quote_tab(quote_tab)
 
         common_frame = ttk.LabelFrame(main_frame, text='공통 설정', padding='10')
-        common_frame.pack(fill='x', pady=(5, 10))
+        common_frame.pack(fill='x', pady=(4, 0))
 
         count_row = ttk.Frame(common_frame)
         count_row.pack(fill='x', pady=5)
@@ -876,15 +939,6 @@ class CombinedSettingsDialog(tk.Toplevel):
             text='(상위 N개 채팅방만 확인 후 새로고침)',
             font=('', 8),
         ).pack(side='left')
-
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill='x')
-        ttk.Button(btn_frame, text='저장', command=self.save, width=15).pack(
-            side='right', padx=5
-        )
-        ttk.Button(btn_frame, text='취소', command=self.cancel, width=15).pack(
-            side='right', padx=5
-        )
 
     def open_images_folder(self):
         """이미지 폴더 열기"""
@@ -908,12 +962,13 @@ class CombinedSettingsDialog(tk.Toplevel):
             side='left', padx=10
         )
 
-        text_frame = ttk.LabelFrame(parent, text='텍스트 설정', padding='10')
-        text_frame.pack(fill='both', expand=True, pady=(0, 10))
+        text_frame = ttk.LabelFrame(parent, text='텍스트 설정', padding='8')
+        text_frame.pack(fill='x', pady=(0, 8))
         self.emoji_text_editor = TextEditorFrame(
             text_frame, on_texts_changed=self.on_emoji_texts_changed
         )
-        self.emoji_text_editor.pack(fill='both', expand=True)
+        self.emoji_text_editor.pack(fill='x')
+        self.emoji_text_editor.text_widget.configure(height=7)
 
         order_frame = ttk.LabelFrame(parent, text='전송 순서 설정', padding='10')
         order_frame.pack(fill='x', pady=(0, 0))
@@ -954,12 +1009,13 @@ class CombinedSettingsDialog(tk.Toplevel):
             foreground='gray',
         ).pack(anchor='w')
 
-        text_frame = ttk.LabelFrame(parent, text='텍스트 설정', padding='10')
-        text_frame.pack(fill='both', expand=True, pady=(0, 10))
+        text_frame = ttk.LabelFrame(parent, text='텍스트 설정', padding='8')
+        text_frame.pack(fill='x', pady=(0, 8))
         self.quote_text_editor = TextEditorFrame(
             text_frame, on_texts_changed=self.on_quote_texts_changed
         )
-        self.quote_text_editor.pack(fill='both', expand=True)
+        self.quote_text_editor.pack(fill='x')
+        self.quote_text_editor.text_widget.configure(height=7)
 
         order_frame = ttk.LabelFrame(parent, text='전송 순서 설정', padding='10')
         order_frame.pack(fill='x', pady=(0, 0))

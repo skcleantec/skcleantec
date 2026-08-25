@@ -119,3 +119,33 @@ class ProcessedTracker:
         self._check_date_reset()
         return self.processed_today.copy()
 
+    def export_state(self) -> dict:
+        '''이어하기 큐 저장용'''
+        self._check_date_reset()
+        processed = {}
+        for nickname, row in self.processed_today.items():
+            processed[nickname] = dict(row)
+        return {
+            'current_date': self.current_date.isoformat(),
+            'processed_today': processed,
+            'emoji_count': self.emoji_count,
+            'quote_count': self.quote_count,
+        }
+
+    def import_state(self, data: dict) -> None:
+        '''이어하기 큐에서 복원'''
+        if not data:
+            return
+        try:
+            raw_date = data.get('current_date')
+            if raw_date:
+                self.current_date = date.fromisoformat(str(raw_date))
+        except (TypeError, ValueError):
+            self.current_date = date.today()
+        self.processed_today = {}
+        for nickname, row in (data.get('processed_today') or {}).items():
+            if nickname and isinstance(row, dict):
+                self.processed_today[str(nickname)] = dict(row)
+        self.emoji_count = int(data.get('emoji_count') or 0)
+        self.quote_count = int(data.get('quote_count') or 0)
+
