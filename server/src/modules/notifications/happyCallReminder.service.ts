@@ -31,7 +31,7 @@ export async function runHappyCallReminderJob(opts?: {
   let skipped = 0;
 
   const tenants = await prisma.tenant.findMany({
-    where: { status: 'ACTIVE' },
+    where: { status: { in: ['ACTIVE', 'TRIAL'] } },
     select: { id: true },
   });
 
