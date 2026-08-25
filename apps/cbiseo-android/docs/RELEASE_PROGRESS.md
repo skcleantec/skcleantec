@@ -11,7 +11,8 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 24 |
+| **최신 versionCode** | 25 |
+| **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
 | **Play 내부 테스트** | **진행 중** — pyo/pyo2 스테이징 · 배정·일정·금액·취소 FCM |
 | **FCM 발송** | 코드 ✅ · Firebase Console·Railway **설정 대기** |
@@ -22,6 +23,13 @@
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 25) — 2026-08-25
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | **targetSdk / compileSdk 36** (Play API 정책) · WebView 외부 링크(카카오톡 채널 등) Intent 처리 |
+| **AAB** | `dist/cbiseo-play-1.0.0-25.aab` |
 
 ### v1.0.0 (versionCode 24) — 2026-08-25
 

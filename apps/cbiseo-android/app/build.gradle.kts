@@ -29,13 +29,13 @@ val apiBaseUrl =
 
 android {
     namespace = "com.cbiseo.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.cbiseo.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 24
+        targetSdk = 36
+        versionCode = 25
         versionName = "1.0.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
