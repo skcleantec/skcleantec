@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { StaffAppPushKind } from '@shared/staffAppPush';
 import {
+  getCbiseoStaffAppVersionCode,
   isCbiseoStaffNativeApp,
   registerCbiseoStaffPushToken,
   requestCbiseoStaffNotificationPermission,
+  subscribeCbiseoPushRegisterResult,
 } from '../../utils/cbiseoNativeApp';
 import { fetchStaffAppPushStatus, type StaffAppPushStatus } from '../../api/staffAppPush';
 
@@ -40,6 +42,8 @@ export function StaffNotificationSettingsPanel({
   const [pushStatus, setPushStatus] = useState<StaffAppPushStatus | null>(null);
   const [pushStatusLoading, setPushStatusLoading] = useState(false);
   const [pushSyncMsg, setPushSyncMsg] = useState<string | null>(null);
+  const [pushSyncErr, setPushSyncErr] = useState<string | null>(null);
+  const appVersionCode = isCbiseoStaffNativeApp() ? getCbiseoStaffAppVersionCode() : null;
 
   const load = useCallback(() => {
     setLoading(true);
@@ -69,14 +73,25 @@ export function StaffNotificationSettingsPanel({
     refreshPushStatus();
   }, [refreshPushStatus]);
 
+  useEffect(() => {
+    if (!isCbiseoStaffNativeApp()) return;
+    return subscribeCbiseoPushRegisterResult((detail) => {
+      if (detail.ok) {
+        setPushSyncErr(null);
+        setPushSyncMsg(detail.message ?? '서버 등록 완료');
+        refreshPushStatus();
+      } else {
+        setPushSyncMsg(null);
+        setPushSyncErr(detail.message ?? '서버 등록 실패');
+      }
+    });
+  }, [refreshPushStatus]);
+
   const syncPushToken = () => {
+    setPushSyncErr(null);
     registerCbiseoStaffPushToken();
     requestCbiseoStaffNotificationPermission();
-    setPushSyncMsg('기기에 알림 등록을 요청했습니다. 10초 후 아래 상태를 새로고침하세요.');
-    window.setTimeout(() => {
-      refreshPushStatus();
-      setPushSyncMsg(null);
-    }, 10_000);
+    setPushSyncMsg('기기에 알림 등록을 요청했습니다…');
   };
 
   const togglePush = async (kind: StaffAppPushKind, next: boolean) => {
@@ -111,6 +126,13 @@ export function StaffNotificationSettingsPanel({
           <p className="text-fluid-2xs text-amber-900">
             앱 푸시는 「기기 알림 허용」과 「서버 등록」이 모두 필요합니다. 아래가 「등록 완료」여야
             알림이 옵니다.
+            {appVersionCode != null ? (
+              <>
+                {' '}
+                (앱 빌드 <strong>{appVersionCode}</strong>
+                {appVersionCode < 19 ? ' — 19 이상 업데이트 필요' : ''})
+              </>
+            ) : null}
           </p>
           {pushStatusLoading ? (
             <p className="text-fluid-2xs text-amber-800">등록 상태 확인 중…</p>
@@ -126,6 +148,9 @@ export function StaffNotificationSettingsPanel({
           ) : null}
           {pushSyncMsg ? (
             <p className="text-fluid-2xs text-emerald-800">{pushSyncMsg}</p>
+          ) : null}
+          {pushSyncErr ? (
+            <p className="text-fluid-2xs text-red-800">{pushSyncErr}</p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <button

@@ -3,6 +3,7 @@ package com.cbiseo.app.bridge
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
+import com.cbiseo.app.BuildConfig
 
 /** WebView JS — client/src/utils/cbiseoNativeApp.ts */
 class CbiseoAppBridge(
@@ -16,6 +17,9 @@ class CbiseoAppBridge(
 
     @JavascriptInterface
     fun getPlatform(): String = "android"
+
+    @JavascriptInterface
+    fun getAppVersionCode(): Int = BuildConfig.VERSION_CODE
 
     /** 로그인 폼 아이디 입력 — pyo/py2일 때만 서버 선택 UI 표시 */
     @JavascriptInterface

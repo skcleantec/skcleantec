@@ -17,6 +17,8 @@ declare global {
       requestNotificationPermission?: () => void;
       /** Android — FCM 토큰 서버 등록만 강제 재시도 */
       registerPushToken?: () => void;
+      /** Android — versionCode (Play 내부 테스트 빌드 확인) */
+      getAppVersionCode?: () => number;
     };
     /** Android 네이티브 Google 로그인 콜백 — LoginPage/GoogleSignupButton에서 등록 */
     __cbiseoNativeGoogleLogin?: (idToken: string) => void;
@@ -57,6 +59,31 @@ export function registerCbiseoStaffPushToken(): void {
   } catch {
     /* WebView 브릿지 미연결 */
   }
+}
+
+export function getCbiseoStaffAppVersionCode(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const code = window.CbiseoApp?.getAppVersionCode?.();
+    return typeof code === 'number' && Number.isFinite(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
+
+export type CbiseoPushRegisterDetail = { ok?: boolean; message?: string };
+
+/** Android 네이티브 FCM 서버 등록 결과 — StaffNotificationSettingsPanel */
+export function subscribeCbiseoPushRegisterResult(
+  onResult: (detail: CbiseoPushRegisterDetail) => void,
+): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<CbiseoPushRegisterDetail>).detail;
+    onResult(detail ?? {});
+  };
+  window.addEventListener('cbiseo:push-register', handler);
+  return () => window.removeEventListener('cbiseo:push-register', handler);
 }
 
 export const STAFF_APP_CRM_PC_MESSAGE =
