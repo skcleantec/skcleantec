@@ -92,6 +92,17 @@ export function StaffNotificationSettingsPanel({
     registerCbiseoStaffPushToken();
     requestCbiseoStaffNotificationPermission();
     setPushSyncMsg('기기에 알림 등록을 요청했습니다…');
+    window.setTimeout(() => {
+      setPushSyncMsg((prev) => (prev === '기기에 알림 등록을 요청했습니다…' ? null : prev));
+      setPushSyncErr((prev) => {
+        if (prev) return prev;
+        const code = getCbiseoStaffAppVersionCode();
+        if (code == null || code < 19) {
+          return 'Play 앱 v19가 아직 설치되지 않았거나, 내부 테스트 업데이트가 반영되지 않았습니다. Play에서 v19 설치 후 다시 시도해 주세요.';
+        }
+        return '앱에서 등록 결과를 받지 못했습니다. 앱을 완전히 종료 후 다시 열고, Firebase SHA-1(업로드 키) 등록 여부를 확인해 주세요.';
+      });
+    }, 12_000);
   };
 
   const togglePush = async (kind: StaffAppPushKind, next: boolean) => {
@@ -132,7 +143,9 @@ export function StaffNotificationSettingsPanel({
                 (앱 빌드 <strong>{appVersionCode}</strong>
                 {appVersionCode < 19 ? ' — 19 이상 업데이트 필요' : ''})
               </>
-            ) : null}
+            ) : (
+              <> (앱 빌드 확인 불가 — Play v19 미설치 가능)</>
+            )}
           </p>
           {pushStatusLoading ? (
             <p className="text-fluid-2xs text-amber-800">등록 상태 확인 중…</p>
