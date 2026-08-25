@@ -1,8 +1,6 @@
 package com.cbiseo.app.auth
 
 import android.content.Intent
-import android.graphics.BitmapFactory
-import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,10 +32,12 @@ class SplashActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        // Android 12+ 기본 원형 런처 아이콘 스플래시 → Theme.SplashScreen + splash_icon_blank 로 대체
+        installSplashScreen().setOnExitAnimationListener { provider ->
+            provider.remove()
+        }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
-        applySplashBackground()
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             StaffNotificationPermission.isGranted(this)
@@ -84,14 +84,19 @@ class SplashActivity : AppCompatActivity() {
         }
     }
 
-    private fun applySplashBackground() {
-        val bitmap = BitmapFactory.decodeResource(resources, R.drawable.splash_screen_bg) ?: return
-        val drawable = BitmapDrawable(resources, bitmap)
-        findViewById<android.view.View>(android.R.id.content).background = drawable
-        window.setBackgroundDrawable(drawable.constantState?.newDrawable()?.mutate())
-    }
-
     private fun routeNext() {
+        if (!OnboardingPrefs.isCompleted(this)) {
+            startActivity(Intent(this, OnboardingActivity::class.java).apply {
+                StaffPushIntentExtras.pushPathFrom(intent)?.let { pushPath ->
+                    putExtra(StaffWebActivity.EXTRA_PUSH_PATH, pushPath)
+                }
+            })
+            finish()
+            @Suppress("DEPRECATION")
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+            return
+        }
+
         val token = tokenStore.getToken()
         val role = tokenStore.getRole()
         val target = if (!token.isNullOrBlank() && StaffRoleResolver.homePathForRole(role) != null) {
@@ -110,6 +115,7 @@ class SplashActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val SPLASH_MIN_MS = 800L
+        /** 직사각형 스플래시 PNG가 충분히 보이도록 */
+        private const val SPLASH_MIN_MS = 2_000L
     }
 }

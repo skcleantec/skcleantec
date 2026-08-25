@@ -38,6 +38,11 @@
         </activity>
 
         <activity
+            android:name=".auth.OnboardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.CbiseoApp.Onboarding" />
+
+        <activity
             android:name=".auth.LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"

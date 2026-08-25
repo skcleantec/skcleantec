@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ 기본 원형 런처 아이콘 스플래시 대신 — 아무것도 그리지 않음 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <size

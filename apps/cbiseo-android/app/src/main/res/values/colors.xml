@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_window_bg">#8EC5E8</color>
+    <color name="brand_blue">#10ADFF</color>
+    <color name="splash_window_bg">#10ADFF</color>
+    <color name="onboarding_bg">#10ADFF</color>
+    <color name="onboarding_title">#0F172A</color>
+    <color name="onboarding_body">#475569</color>
+    <color name="onboarding_primary">#0F172A</color>
+    <color name="onboarding_dot_active">#FFFFFF</color>
+    <color name="onboarding_dot_inactive">#66FFFFFF</color>
+    <color name="onboarding_footer_divider">#33FFFFFF</color>
+    <color name="onboarding_footer_gradient_top">#10ADFF</color>
 </resources>
