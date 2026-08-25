@@ -13,18 +13,16 @@ import {
   type OAuthIdentityItem,
 } from '../../api/authOAuthLink';
 import { isAuthSessionExpiredError } from '../../api/auth';
-import { getToken } from '../../stores/auth';
-import { getTeamToken } from '../../stores/teamAuth';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
-
-function resolveStaffKakaoLinkAuthToken(): string | null {
-  return getToken() ?? getTeamToken();
-}
+import { resolveStaffKakaoLinkAuthToken } from '../../utils/staffKakaoLinkAuth';
+import { parseJwtPayload } from '../../utils/jwtPayload';
 
 export function AdminKakaoLinkPage() {
   const token = resolveStaffKakaoLinkAuthToken();
-  const backHref = getToken() ? '/admin/dashboard' : '/team/dashboard';
-  const backLabel = getToken() ? '← 대시보드' : '← 팀 대시보드';
+  const tokenRole = token ? parseJwtPayload<{ role?: string }>(token)?.role : null;
+  const isTeamStaff = tokenRole === 'TEAM_LEADER' || tokenRole === 'EXTERNAL_PARTNER';
+  const backHref = isTeamStaff ? '/team/dashboard' : '/admin/dashboard';
+  const backLabel = isTeamStaff ? '← 팀 대시보드' : '← 대시보드';
   const location = useLocation();
   const navigate = useNavigate();
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
@@ -35,12 +33,14 @@ export function AdminKakaoLinkPage() {
   const [identities, setIdentities] = useState<OAuthIdentityItem[]>([]);
   const [password, setPassword] = useState('');
   const [pendingCode, setPendingCode] = useState<string | null>(null);
+  const [unlinkConfirm, setUnlinkConfirm] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const oauthCallbackHandledRef = useRef(false);
 
   const kakaoIdentity = identities.find((row) => row.provider === 'kakao') ?? null;
+  const canSubmitPasswordAction = password.trim().length > 0 && !busy;
 
   const reloadIdentities = useCallback(async () => {
     if (!token) return;
@@ -155,13 +155,13 @@ export function AdminKakaoLinkPage() {
 
   const handleUnlink = async () => {
     if (!token) return;
-    if (!window.confirm('카카오 연결을 해제하면 카카오로 로그인할 수 없습니다. 계속할까요?')) return;
     setBusy(true);
     setError('');
     setMessage('');
     try {
       await unlinkKakaoOAuthAccount(token, password);
       setPassword('');
+      setUnlinkConfirm(false);
       setMessage('카카오 연결이 해제되었습니다.');
       await reloadIdentities();
     } catch (e) {
@@ -196,18 +196,26 @@ export function AdminKakaoLinkPage() {
         </Link>
         <h1 className="mt-3 text-fluid-sm font-semibold text-slate-900">카카오 계정 연결</h1>
         <p className="mt-2 text-fluid-2xs leading-snug text-slate-600">
-          아이디·비밀번호로 사용 중인 관리자·마케터·팀장 계정에 카카오 로그인을 연결합니다. 연결 전 본인
-          확인을 위해 비밀번호가 필요합니다.
+          아이디·비밀번호로 사용 중인 관리자·마케터·팀장 계정에 카카오 로그인을 연결합니다. 연결·해제
+          전 본인 확인을 위해 비밀번호가 필요합니다.
         </p>
 
         {loading ? (
           <p className="mt-6 text-fluid-xs text-slate-500">불러오는 중…</p>
-        ) : !kakaoEnabled ? (
-          <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-2xs text-amber-900">
-            카카오 로그인이 아직 설정되지 않았습니다. 운영 설정을 확인해 주세요.
-          </p>
         ) : (
           <div className="mt-4 space-y-4">
+            {!kakaoEnabled && !kakaoIdentity ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-2xs text-amber-900">
+                카카오 로그인이 아직 설정되지 않았습니다. 운영 설정을 확인해 주세요.
+              </p>
+            ) : null}
+
+            {!kakaoEnabled && kakaoIdentity ? (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs text-slate-700">
+                새 카카오 연결은 일시적으로 불가합니다. 아래에서 기존 연결 해제는 계속할 수 있습니다.
+              </p>
+            ) : null}
+
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
               <p className="text-fluid-2xs font-medium text-slate-700">연결 상태</p>
               {kakaoIdentity ? (
@@ -233,37 +241,82 @@ export function AdminKakaoLinkPage() {
               </p>
             ) : null}
 
-            <label className="block">
-              <span className="mb-1 block text-fluid-2xs font-medium text-slate-600">비밀번호 확인</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="login-field-input w-full min-h-10 rounded-lg border border-slate-300 px-3 text-fluid-xs"
-                placeholder="현재 비밀번호"
-                autoComplete="current-password"
-              />
-            </label>
+            {(kakaoIdentity || pendingCode) && (
+              <>
+                <label className="block">
+                  <span className="mb-1 block text-fluid-2xs font-medium text-slate-600">
+                    비밀번호 확인
+                  </span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (unlinkConfirm) setUnlinkConfirm(false);
+                    }}
+                    className="login-field-input w-full min-h-10 rounded-lg border border-slate-300 px-3 text-fluid-xs"
+                    placeholder="현재 비밀번호"
+                    autoComplete="current-password"
+                  />
+                </label>
+                {!canSubmitPasswordAction && !pendingCode ? (
+                  <p className="text-fluid-2xs text-slate-500">
+                    연결 해제하려면 위에 로그인 비밀번호를 입력한 뒤 버튼을 눌러 주세요.
+                  </p>
+                ) : null}
+              </>
+            )}
 
             {pendingCode ? (
               <button
                 type="button"
                 onClick={() => void completeLink()}
-                disabled={busy || !password.trim()}
+                disabled={!canSubmitPasswordAction}
                 className="min-h-10 w-full rounded-lg bg-slate-900 px-4 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
                 {busy ? '연결 중…' : '연결 완료'}
               </button>
             ) : kakaoIdentity ? (
-              <button
-                type="button"
-                onClick={() => void handleUnlink()}
-                disabled={busy || !password.trim()}
-                className="min-h-10 w-full rounded-lg border border-red-300 bg-white px-4 text-fluid-xs font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-              >
-                {busy ? '처리 중…' : '카카오 연결 해제'}
-              </button>
-            ) : (
+              unlinkConfirm ? (
+                <div className="space-y-2 rounded-lg border border-red-200 bg-red-50/60 p-3">
+                  <p className="text-fluid-2xs leading-snug text-red-900">
+                    카카오 연결을 해제하면 카카오로 로그인할 수 없습니다. 계속할까요?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUnlinkConfirm(false)}
+                      disabled={busy}
+                      className="min-h-10 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleUnlink()}
+                      disabled={!canSubmitPasswordAction}
+                      className="min-h-10 flex-1 rounded-lg bg-red-700 px-3 text-fluid-xs font-medium text-white hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {busy ? '처리 중…' : '해제 확인'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canSubmitPasswordAction) return;
+                    setError('');
+                    setMessage('');
+                    setUnlinkConfirm(true);
+                  }}
+                  disabled={!canSubmitPasswordAction}
+                  className="min-h-10 w-full rounded-lg border border-red-300 bg-white px-4 text-fluid-xs font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  카카오 연결 해제
+                </button>
+              )
+            ) : kakaoEnabled ? (
               <button
                 type="button"
                 onClick={startKakaoLink}
@@ -275,7 +328,7 @@ export function AdminKakaoLinkPage() {
                 </span>
                 카카오 계정 연결하기
               </button>
-            )}
+            ) : null}
           </div>
         )}
       </div>
