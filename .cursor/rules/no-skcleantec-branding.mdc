@@ -1,13 +1,15 @@
 ---
-description: 사용자·상담사 대면 브랜딩·경로에 skcleantec/SKCleantec 금지 — 청소비서·Cbiseo 사용
+description: 사용자·상담사·에이전트 문서에 skcleantec/SK클린텍 금지 — CBISEO·청소비서·Cbiseo 사용
 alwaysApply: true
 ---
 
 # 브랜딩·경로 — skcleantec / SKCleantec 사용 금지
 
+> **플랫폼 정체성:** 이 저장소는 **CBISEO(청소비서) 프로젝트** — **SK클린텍 프로젝트가 아님**. 에이전트·가이드·예시: **`.cursor/rules/cbiseo-project-identity.mdc`**
+
 ## 원칙
 
-- **SK클린텍·SKCleantec·skcleantec** 는 **테넌트(업체) 내부명**이다. **상담사·고객·설치 프로그램·CRM 안내**에는 쓰지 않는다.
+- **SK클린텍·SKCleantec·skcleantec** 는 **테넌트(업체) 내부명·레거시 경로**다. **플랫폼명·프로젝트명·상담사·고객·설치 프로그램·CRM·에이전트 가이드 예시**에는 쓰지 않는다.
 - 대면 제품명·설치 경로·트레이·설정 폴더·에러 메시지·릴리스 안내 문구는 **「청소비서」** 와 **「Cbiseo」** (또는 cbiseo.com) 기준으로 통일한다.
 
 ## 필수 표기

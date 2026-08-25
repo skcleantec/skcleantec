@@ -147,7 +147,7 @@
 - [x] SNS-only ADMIN — recoveryEmail OTP로 `passwordHash` 설정 (`tenantPasswordReset.service.ts`)
 - [x] 설정 후 업체 코드 + 아이디 + 비밀번호 로그인 (`auth.routes.ts`)
 - [x] `/forgot-password` · `/login` SNS-only 안내 문구
-- [ ] staging E2E — SNS-only 계정 OTP → ID+PW 로그인
+- [x] staging E2E — SNS-only 계정 OTP → ID+PW 로그인 (`test2` / `admin`, 2026-08-23)
 
 ---
 

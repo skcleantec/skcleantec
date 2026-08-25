@@ -1,0 +1,48 @@
+---
+description: 청소비서 Android Play — keystore·AAB는 터미널 스크립트만 (에이전트 필수)
+globs: apps/cbiseo-android/**,docs/GOOGLE_PLAY_CONSOLE.md,apps/cbiseo-android/docs/GOOGLE_PLAY_CBISEO.md
+alwaysApply: false
+---
+
+# Play keystore · AAB — 터미널 전용 (에이전트)
+
+## 원칙
+
+- **Play upload keystore·AAB**는 **항상 터미널 스크립트**로 만든다.
+- **Android Studio → Generate Signed App Bundle / APK** 로 keystore·AAB를 만드는 절차를 **1순위·기본 안내로 쓰지 않는다.**
+- 에이전트는 사용자에게 GUI만 안내하고 끝내지 않는다 — **가능하면 직접 `Shell`로 스크립트를 실행**한다.
+
+## 표준 순서 (`apps/cbiseo-android`)
+
+```powershell
+cd apps\cbiseo-android
+.\scripts\create-release-keystore.ps1    # 최초 1회 — keystore/cbiseo-release.jks
+.\scripts\init-keystore-properties.ps1   # keystore.properties (git 금지)
+.\scripts\build-play-bundle.ps1          # dist/cbiseo-play-{versionName}-{versionCode}.aab
+```
+
+| 단계 | 산출물 |
+|------|--------|
+| 1 | `keystore/cbiseo-release.jks` · alias `cbiseo` |
+| 2 | `keystore.properties` |
+| 3 | `dist/cbiseo-play-*.aab` → Play Console **내부 테스트** 업로드 |
+
+## Play Console (복붙)
+
+| 항목 | 값 |
+|------|-----|
+| 패키지 | `com.cbiseo.app` |
+| 표시명 | `청소비서` |
+| **무료 / 유료** | **무료** (SaaS 이용료는 `www.cbiseo.com` — Play Billing 없음) |
+| 광고 | 아니오 |
+
+## 금지
+
+- keystore·`keystore.properties`·비밀번호 **git 커밋**
+- Studio GUI를 Play 릴리스 **유일** 경로로 안내
+- `versionCode` bump·AAB 빌드 후 **`RELEASE_PROGRESS.md` 미갱신**
+
+## 참고
+
+- [`apps/cbiseo-android/docs/GOOGLE_PLAY_CBISEO.md`](../../apps/cbiseo-android/docs/GOOGLE_PLAY_CBISEO.md)
+- [`.cursor/rules/cbiseo-android-app.mdc`](./cbiseo-android-app.mdc)

@@ -1,0 +1,62 @@
+---
+description: 프로젝트 정체성 — CBISEO(청소비서)·Cbiseo. SK클린텍/skcleantec를 프로젝트명·예시·가이드에 쓰지 않음 (에이전트 필수)
+alwaysApply: true
+---
+
+# 프로젝트 정체성 — CBISEO (청소비서)
+
+## 한 줄
+
+이 저장소·제품·플랫폼은 **CBISEO / 청소비서 / Cbiseo** 프로젝트이다.  
+**「SK클린텍 프로젝트」가 아니다.** 에이전트·문서·가이드·예시·링크 문구에 SK클린텍을 **프로젝트명처럼** 넣지 않는다.
+
+> 사용자 대면 UI·설치 경로 브랜딩 상세: **`.cursor/rules/no-skcleantec-branding.mdc`**
+
+---
+
+## 올바른 이름 (에이전트·문서·대화)
+
+| 맥락 | 사용 |
+|------|------|
+| **프로젝트·플랫폼** | **CBISEO**, **청소비서**, **Cbiseo** |
+| **운영 도메인** | `www.cbiseo.com`, `cbiseo.com` |
+| **Android 업무 앱** | 청소비서 · `com.cbiseo.app` |
+| **Android 전화 앱** | 청소비서(마케터) · `com.cbiseo.marketer` |
+| **문서 제목·README·가이드** | 「CBISEO …」「청소비서 …」 — **「SK클린텍 …」 금지** |
+| **에이전트 답변 예시** | 업체 코드 `cbiseo`, URL `cbiseo.com` — **`sk`·SK클린텍을 기본 예시로 쓰지 않음** |
+
+---
+
+## 금지 (에이전트·신규·수정 문서)
+
+- 「**SK클린텍 프로젝트**」「SKCleantec 프로젝트 규칙」 등 **저장소 전체를 SK클린텍이라 부르기**
+- 가이드·체크리스트·Figma brief·링크 설명에 **SK클린텍을 대표 업체·대표 브랜드 예시**로 반복
+- `PROJECT_GUIDE`, `ARCHITECTURE`, `docs/*`, `agent/*`, `.cursor/rules/*` **신규 문구**에 SK클린텍를 **제품명·플랫폼명**처럼 사용
+- 사용자에게 보이는 **마크다운 링크 텍스트**에 SK클린텍 (경로만 `github.com/.../skcleantec` 인 경우는 아래 예외)
+
+---
+
+## SK클린텍 / sk / skcleantec — 허용 범위 (레거시·인프라만)
+
+| 항목 | 설명 |
+|------|------|
+| **GitHub repo 경로** | `github.com/.../skcleantec` — URL 자체. **링크 문구·제목에는 CBISEO** |
+| **로컬 폴더** | `c:\skcleantec` 등 — 클론 경로. **「CBISEO 저장소」라고 안내** |
+| **테넌트 slug `sk`** | DB·시드·멀티테넌트 **데이터** 레거시. UI·가이드 **기본 예시는 `cbiseo`** |
+| **SK클린텍** | **한 테넌트(업체) 내부명** — 플랫폼·앱·문서 **대표명 아님** |
+
+---
+
+## 에이전트 체크리스트
+
+1. 답변·가이드·예시 계정·URL이 **cbiseo.com / 업체 코드 cbiseo** 기준인가?
+2. 「SK클린텍 프로젝트」라고 **소개·요약**하지 않았는가?
+3. 새 markdown·HTML 가이드 제목에 **SK클린텍** 없는가?
+4. 사용자 대면 문구는 **청소비서·Cbiseo** 인가? (**`.cursor/rules/no-skcleantec-branding.mdc`**)
+
+---
+
+## 참고
+
+- 플랫폼 개요: `docs/MULTI_TENANT_PLATFORM.md`, `docs/CBISEO_ANDROID_APP.md`
+- 코딩 공통 규칙: **`.cursor/rules/project-standards.mdc`** (CBISEO 프로젝트 규칙)
