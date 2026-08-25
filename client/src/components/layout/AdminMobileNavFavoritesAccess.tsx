@@ -1,4 +1,5 @@
 import type { MarketerPermissionMap } from '@shared/marketerPermissions';
+import type { PointerEvent } from 'react';
 import type { AdminNavContext } from '../../constants/adminNav';
 import { useAdminMobileNavFavoriteItems } from './AdminNavFavoriteGnbLinks';
 import { MobileNavFavoritesAccess } from './MobileNavFavoritesFab';
@@ -8,7 +9,9 @@ type Props = {
   role: string | null | undefined;
   marketerPermissions: MarketerPermissionMap | null | undefined;
   registerOpen?: (open: () => void) => void;
-  inFabStack?: boolean;
+  fabStack?: {
+    onPointerDown: (e: PointerEvent<HTMLButtonElement>) => void;
+  };
 };
 
 /** AdminLayout FAB 스택 — 모바일 즐겨찾기 ★ (NavFavoritesProvider 하위) */
@@ -17,7 +20,7 @@ export function AdminMobileNavFavoritesAccess({
   role,
   marketerPermissions,
   registerOpen,
-  inFabStack,
+  fabStack,
 }: Props) {
   const { ready, items } = useAdminMobileNavFavoriteItems(navCtx, role, marketerPermissions);
   return (
@@ -25,7 +28,7 @@ export function AdminMobileNavFavoritesAccess({
       ready={ready}
       items={items}
       registerOpen={registerOpen}
-      inFabStack={inFabStack}
+      fabStack={fabStack}
     />
   );
 }

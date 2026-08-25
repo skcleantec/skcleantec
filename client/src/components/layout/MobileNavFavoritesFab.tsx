@@ -4,7 +4,6 @@ import { NavLink } from 'react-router-dom';
 import {
   MOBILE_STAFF_DOCK_BTN_CLASS,
   MOBILE_STAFF_DOCK_ICON_CLASS,
-  STAFF_FAB_ANCHOR_ATTR,
 } from './mobileStaffDockStyles';
 
 export type MobileNavFavoriteItem = {
@@ -161,19 +160,20 @@ function MobileNavFavoritesSheet({
 
 type FabButtonProps = {
   count: number;
+  onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onOpen: () => void;
   /** admin/team FAB 스택 — 탭은 부모 pointerup에서 처리 */
   deferTapToParent?: boolean;
 };
 
-function MobileNavFavoritesFabButton({ count, onOpen, deferTapToParent }: FabButtonProps) {
+function MobileNavFavoritesFabButton({ count, onPointerDown, onOpen, deferTapToParent }: FabButtonProps) {
   return (
     <button
       type="button"
-      {...{ [STAFF_FAB_ANCHOR_ATTR]: 'favorites' }}
       aria-label={count > 0 ? `즐겨찾기 ${count}개 — 메뉴 열기` : '즐겨찾기 — 메뉴 열기'}
       title="즐겨찾기 (길게 눌러 세로 위치 이동)"
       onClick={deferTapToParent ? undefined : onOpen}
+      onPointerDown={onPointerDown}
       className={`${MOBILE_STAFF_DOCK_BTN_CLASS} border border-violet-300/50 bg-gradient-to-b from-violet-500 to-violet-700 text-white shadow-[0_2px_8px_rgba(109,40,217,0.35),0_1px_2px_rgba(15,23,42,0.12)] ring-1 ring-inset ring-white/20 active:shadow-sm`}
     >
       <StarFabIcon className={MOBILE_STAFF_DOCK_ICON_CLASS} />
@@ -191,9 +191,6 @@ type AccessProps = {
   ready: boolean;
   /** admin/team FAB 스택: pointerup에서 open 호출 */
   registerOpen?: (open: () => void) => void;
-  /** FAB 스택 안 — 스택 div가 pointer 위임 */
-  inFabStack?: boolean;
-  /** @deprecated inFabStack 사용 */
   fabStack?: {
     onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void;
   };
@@ -206,7 +203,6 @@ export function MobileNavFavoritesAccess({
   items,
   ready,
   registerOpen,
-  inFabStack,
   fabStack,
   standalone = false,
 }: AccessProps) {
@@ -220,8 +216,6 @@ export function MobileNavFavoritesAccess({
 
   if (!ready) return null;
 
-  const inStack = inFabStack || Boolean(fabStack);
-
   return (
     <>
       {standalone ? (
@@ -234,8 +228,13 @@ export function MobileNavFavoritesAccess({
         >
           <MobileNavFavoritesFabButton count={items.length} onOpen={openPanel} />
         </div>
-      ) : inStack ? (
-        <MobileNavFavoritesFabButton count={items.length} onOpen={openPanel} deferTapToParent />
+      ) : fabStack ? (
+        <MobileNavFavoritesFabButton
+          count={items.length}
+          onOpen={openPanel}
+          onPointerDown={fabStack.onPointerDown}
+          deferTapToParent
+        />
       ) : null}
       <MobileNavFavoritesSheet open={open} onClose={closePanel} items={items} />
     </>
