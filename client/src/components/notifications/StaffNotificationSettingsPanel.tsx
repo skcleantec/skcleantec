@@ -46,12 +46,20 @@ export function StaffNotificationSettingsPanel({
   const [pushSyncErr, setPushSyncErr] = useState<string | null>(null);
   const appVersionCode = isCbiseoStaffNativeApp() ? getCbiseoStaffAppVersionCode() : null;
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const load = useCallback((opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setLoading(true);
     loadItems()
-      .then(setItems)
-      .catch(() => setErr('알림 설정을 불러오지 못했습니다.'))
-      .finally(() => setLoading(false));
+      .then((next) => {
+        setItems(next);
+        setErr(null);
+      })
+      .catch(() => {
+        if (!silent) setErr('알림 설정을 불러오지 못했습니다.');
+      })
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
   }, [loadItems]);
 
   useEffect(() => {
@@ -136,7 +144,7 @@ export function StaffNotificationSettingsPanel({
     }
   };
 
-  if (loading) {
+  if (loading && items.length === 0) {
     return <div className="py-8 text-center text-fluid-xs text-slate-500">불러오는 중…</div>;
   }
 

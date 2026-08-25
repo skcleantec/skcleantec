@@ -81,6 +81,8 @@ export const ADMIN_PATH_PERMISSION_RULES: AdminPathPermissionRule[] = [
   { prefix: '/admin/advertising', permissions: ['ads.sessions', 'ads.analytics', 'ads.settings'] },
   { prefix: '/admin/db-marketplace', permissions: ['marketplace.view'] },
   { prefix: '/admin/messages', permissions: ['messages.send'] },
+  /** 프로필 · 개인 앱 푸시 ON/OFF — 마케터·관리자 공통 */
+  { prefix: '/admin/notification-settings', permissions: [], marketerOpen: true },
   { prefix: '/admin/schedule', permissions: ['schedule.edit.inquiry'] },
   { prefix: '/admin/dashboard', permissions: ['inquiry.view'] },
 ];
