@@ -35,7 +35,7 @@ android {
         applicationId = "com.cbiseo.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20
+        versionCode = 21
         versionName = "1.0.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
@@ -99,9 +99,11 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.android.gms:play-services-auth:21.3.0")
+    implementation("com.google.android.gms:play-services-base:18.5.0")
     implementation("com.google.firebase:firebase-messaging-ktx")
 }
 
