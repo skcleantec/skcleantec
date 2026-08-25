@@ -21,9 +21,13 @@ object StaffPushApi {
 
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
-    suspend fun registerToken(context: Context, fcmToken: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun registerToken(
+        context: Context,
+        fcmToken: String,
+        jwtOverride: String? = null,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            postRegister(context, fcmToken)
+            postRegister(context, fcmToken, jwtOverride)
             Log.i(TAG, "FCM token registered with server")
         }.onFailure { e ->
             Log.e(TAG, "FCM token registration failed: ${e.message}", e)
@@ -65,9 +69,10 @@ object StaffPushApi {
         }.map { }
     }
 
-    private fun postRegister(context: Context, fcmToken: String) {
+    private fun postRegister(context: Context, fcmToken: String, jwtOverride: String? = null) {
         val store = TokenStore.get(context.applicationContext)
-        val jwt = store.getToken()?.trim().orEmpty()
+        val jwt = jwtOverride?.trim()?.takeIf { it.isNotBlank() }
+            ?: store.getToken()?.trim().orEmpty()
         val baseUrl = ApiEnvironment.normalize(store.getApiBaseUrl()) ?: ApiEnvironment.PRODUCTION_URL
         if (jwt.isBlank()) {
             throw IllegalStateException("로그인 JWT 없음 — FCM 등록 보류")

@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -111,12 +112,12 @@ class StaffWebActivity : AppCompatActivity() {
             onRequestNotificationPermission = {
                 StaffNotificationPermission.promptFromUserAction(this, notificationPermissionLauncher)
                 if (staffSessionActive) {
-                    StaffFcmRegistrar.registerTokenForce(this)
+                    registerPushFromWebSession(showToast = false)
                 }
             },
             onRegisterPushToken = {
                 if (staffSessionActive) {
-                    StaffFcmRegistrar.registerTokenForce(this)
+                    registerPushFromWebSession(showToast = true)
                 }
             },
         )
@@ -184,6 +185,42 @@ class StaffWebActivity : AppCompatActivity() {
         if (staffSessionActive) {
             StaffFcmRegistrar.registerToken(this)
             maybePromptOpenNotificationSettings()
+        }
+    }
+
+    /** Firebase: FCM 토큰은 알림 권한과 무관 — 로그인 세션 있으면 항상 서버 등록 */
+    private fun registerPushFromWebSession(showToast: Boolean) {
+        syncSessionFromWebView { jwt ->
+            StaffFcmRegistrar.registerTokenForce(
+                context = this,
+                jwtOverride = jwt,
+                onResult = { ok, message ->
+                    notifyWebPushRegisterResult(ok, message)
+                    if (showToast && !isFinishing && !isDestroyed) {
+                        Toast.makeText(this, message, if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
+                    }
+                },
+            )
+        }
+    }
+
+    private fun syncSessionFromWebView(onReady: (String?) -> Unit) {
+        StaffWebSessionSync.captureFromWebView(binding.staffWebView) { captured ->
+            val token = captured?.token?.trim()?.takeIf { it.isNotBlank() }
+            if (!token.isNullOrBlank()) {
+                tokenStore.updateJwt(token)
+            }
+            onReady(token ?: tokenStore.getToken())
+        }
+    }
+
+    private fun notifyWebPushRegisterResult(ok: Boolean, message: String) {
+        val escaped = message.replace("\\", "\\\\").replace("'", "\\'")
+        activeWebView?.post {
+            activeWebView?.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('cbiseo:push-register',{detail:{ok:${ok},message:'$escaped'}}));",
+                null,
+            )
         }
     }
 

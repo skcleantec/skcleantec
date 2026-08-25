@@ -15,6 +15,13 @@ class TokenStore private constructor(context: Context) {
 
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)?.takeIf { it.isNotBlank() }
 
+    /** WebView localStorage JWT → FCM 등록 직전 동기화 */
+    fun updateJwt(token: String) {
+        val trimmed = token.trim()
+        if (trimmed.isBlank()) return
+        prefs.edit().putString(KEY_TOKEN, trimmed).commit()
+    }
+
     fun saveSession(
         token: String,
         tenantSlug: String,
