@@ -71,7 +71,24 @@ export function getCbiseoStaffAppVersionCode(): number | null {
   }
 }
 
+export type CbiseoFcmTokenDetail = { token?: string; deviceLabel?: string };
+
 export type CbiseoPushRegisterDetail = { ok?: boolean; message?: string };
+
+/** Android — FCM 토큰 수신 (서버 POST는 WebView fetch) */
+export function subscribeCbiseoFcmToken(
+  onToken: (detail: { token: string; deviceLabel?: string }) => void,
+): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<CbiseoFcmTokenDetail>).detail;
+    const token = detail?.token?.trim();
+    if (!token || token.length < 20) return;
+    onToken({ token, deviceLabel: detail?.deviceLabel });
+  };
+  window.addEventListener('cbiseo:fcm-token', handler);
+  return () => window.removeEventListener('cbiseo:fcm-token', handler);
+}
 
 /** Android 네이티브 FCM 서버 등록 결과 — StaffNotificationSettingsPanel */
 export function subscribeCbiseoPushRegisterResult(

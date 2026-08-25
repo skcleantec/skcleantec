@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { StaffAppPushKind } from '@shared/staffAppPush';
+import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import {
   getCbiseoStaffAppVersionCode,
   isCbiseoStaffNativeApp,
@@ -69,6 +70,8 @@ export function StaffNotificationSettingsPanel({
       .finally(() => setPushStatusLoading(false));
   }, [authToken]);
 
+  useStaffAppNativePushRegister(authToken);
+
   useEffect(() => {
     refreshPushStatus();
   }, [refreshPushStatus]);
@@ -97,10 +100,10 @@ export function StaffNotificationSettingsPanel({
       setPushSyncErr((prev) => {
         if (prev) return prev;
         const code = getCbiseoStaffAppVersionCode();
-        if (code == null || code < 19) {
-          return 'Play 앱 v19가 아직 설치되지 않았거나, 내부 테스트 업데이트가 반영되지 않았습니다. Play에서 v19 설치 후 다시 시도해 주세요.';
+        if (code == null || code < 20) {
+          return 'Play 앱 v20이 아직 설치되지 않았습니다. v20 설치 후 다시 시도해 주세요.';
         }
-        return '앱에서 등록 결과를 받지 못했습니다. 앱을 완전히 종료 후 다시 열고, Firebase SHA-1(업로드 키) 등록 여부를 확인해 주세요.';
+        return 'FCM 토큰 또는 서버 등록 응답이 없습니다. 앱을 완전히 종료 후 다시 열어 주세요.';
       });
     }, 12_000);
   };
@@ -141,10 +144,10 @@ export function StaffNotificationSettingsPanel({
               <>
                 {' '}
                 (앱 빌드 <strong>{appVersionCode}</strong>
-                {appVersionCode < 19 ? ' — 19 이상 업데이트 필요' : ''})
+                {appVersionCode < 20 ? ' — 20 이상 업데이트 필요' : ''})
               </>
             ) : (
-              <> (앱 빌드 확인 불가 — Play v19 미설치 가능)</>
+              <> (앱 빌드 확인 불가 — Play v20 미설치 가능)</>
             )}
           </p>
           {pushStatusLoading ? (
