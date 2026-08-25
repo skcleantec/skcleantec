@@ -118,15 +118,17 @@
 
 ---
 
-## 7. LoginPage (Phase 6)
+## 7. LoginPage (Phase 6 / 2차)
 
-**ADMIN SNS 로그인** — `/login` 하단 또는 업체 코드 아래:
+**스태프 SNS 로그인** — `/login` 하단 (크루 모드 제외):
 
 ```
-[ Google ] [ 카카오 ]  ← 업체 코드 입력 후 활성
+[ Google ] [ 카카오 ]  ← 연결(link)된 계정은 업체 코드 없이도 가능
 ```
 
-- 팀장·마케터: 버튼 **숨김** 또는 disabled + 툴팁 「관리자가 발급한 아이디로 로그인」
+- **가입**은 ADMIN만 (`/signup`) — 마케터·팀장·타업체는 관리자가 아이디 생성
+- **로그인**: ADMIN·MARKETER·TEAM_LEADER·EXTERNAL_PARTNER — **프로필에서 카카오 연결 후** Google·카카오 버튼 사용
+- 미연결 시 오류 안내 → 「카카오 계정 연결」 (`/admin/account/kakao-link`)
 
 ---
 

@@ -363,7 +363,7 @@ export function LoginPage() {
     };
   }, [navigate, location.state, location.search]);
 
-  const applyAdminStaffLogin = useCallback(
+  const applyStaffOAuthLogin = useCallback(
     (data: StaffLoginResponse) => {
       const resumeFrom = resolveLoginResumeLocation(location.state);
       const tenantSlugFromResponse = (data.tenant as { slug?: string } | undefined)?.slug?.trim();
@@ -375,6 +375,16 @@ export function LoginPage() {
       const token = data.token;
       const user = data.user;
       const role = user?.role;
+
+      if (role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER') {
+        clearToken();
+        clearCrewToken();
+        setTeamToken(token);
+        clearResumeLocation();
+        navigate(resolveTeamResumePath(resumeFrom), { replace: true });
+        return;
+      }
+
       if (role === 'ADMIN' || role === 'MARKETER') {
         clearTeamToken();
         clearCrewToken();
@@ -437,7 +447,7 @@ export function LoginPage() {
     const slugHint = tenantSlug.trim() || undefined;
     void loginWithKakaoOAuth(code, getLoginKakaoRedirectUri(), slugHint)
       .then((data) => {
-        applyAdminStaffLogin(data);
+        applyStaffOAuthLogin(data);
       })
       .catch((err) => {
         setError(staffOAuthLoginErrorMessage(err, '카카오 로그인에 실패했습니다.'));
@@ -445,7 +455,7 @@ export function LoginPage() {
       .finally(() => {
         setOauthVerifying(false);
       });
-  }, [applyAdminStaffLogin, location.pathname, location.search, location.state, navigate, tenantSlug]);
+  }, [applyStaffOAuthLogin, location.pathname, location.search, location.state, navigate, tenantSlug]);
 
   const handleGoogleLogin = async (idToken: string) => {
     sessionProbeGen.current += 1;
@@ -454,7 +464,7 @@ export function LoginPage() {
     try {
       const slugHint = tenantSlug.trim() || undefined;
       const data = await loginWithGoogleOAuth(idToken, slugHint);
-      applyAdminStaffLogin(data);
+      applyStaffOAuthLogin(data);
     } catch (err) {
       setError(staffOAuthLoginErrorMessage(err, 'Google 로그인에 실패했습니다.'));
     } finally {
@@ -509,7 +519,7 @@ export function LoginPage() {
         return;
       }
       if (role === 'ADMIN' || role === 'MARKETER') {
-        applyAdminStaffLogin(data);
+        applyStaffOAuthLogin(data);
         return;
       }
       setError('지원하지 않는 계정 유형입니다.');
@@ -681,7 +691,9 @@ export function LoginPage() {
 
               {!crewLoginMode && showSnsOAuthSection ? (
                 <div className="space-y-2">
-                  <p className="text-fluid-2xs text-slate-500">SNS로 가입한 관리자 — 업체 코드 없이 로그인</p>
+                  <p className="text-fluid-2xs text-slate-500">
+                    SNS로 연결한 계정 — 업체 코드 없이 로그인 (관리자·마케터·팀장)
+                  </p>
                   <div className="space-y-2">
                     {showGoogleOAuthLogin ? (
                       <GoogleSignupButton

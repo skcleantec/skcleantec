@@ -20,6 +20,8 @@ export async function assertOAuthProviderSubAvailableForSignup(
   }
 }
 
+const STAFF_OAUTH_LOGIN_ROLES = ['ADMIN', 'MARKETER', 'TEAM_LEADER', 'EXTERNAL_PARTNER'] as const;
+
 const oauthLoginUserSelect = {
   id: true,
   email: true,
@@ -29,9 +31,11 @@ const oauthLoginUserSelect = {
   isTenantOwner: true,
   platformSupportAccessId: true,
   tenantId: true,
+  hireDate: true,
+  resignationDate: true,
 } as const;
 
-export async function resolveAdminOAuthLogin(
+export async function resolveStaffOAuthLogin(
   provider: AuthIdentityProvider,
   providerSub: string,
   tenantSlugOptional?: string,
@@ -56,7 +60,7 @@ export async function resolveAdminOAuthLogin(
   const slugHint = tenantSlugOptional?.trim().toLowerCase();
   if (slugHint && slugHint !== identity.tenant.slug) {
     throw new AuthSignupOAuthError(
-      `이 Google·카카오 계정은 업체 코드「${identity.tenant.slug}」로 가입되어 있습니다. 업체 코드를 확인해 주세요.`,
+      `이 Google·카카오 계정은 업체 코드「${identity.tenant.slug}」로 연결되어 있습니다. 업체 코드를 확인해 주세요.`,
       401,
     );
   }
@@ -66,14 +70,23 @@ export async function resolveAdminOAuthLogin(
     throw new AuthSignupOAuthError('계정을 찾을 수 없거나 비활성입니다.', 401);
   }
 
-  if (user.role !== 'ADMIN') {
+  if (!STAFF_OAUTH_LOGIN_ROLES.includes(user.role as (typeof STAFF_OAUTH_LOGIN_ROLES)[number])) {
     throw new AuthSignupOAuthError(
-      '관리자(ADMIN) 계정만 Google·카카오 로그인을 이용할 수 있습니다.',
+      '관리자·마케터·팀장 계정만 Google·카카오 로그인을 이용할 수 있습니다.',
       401,
     );
   }
 
   return { user, tenant: identity.tenant };
+}
+
+/** @deprecated resolveStaffOAuthLogin 사용 */
+export async function resolveAdminOAuthLogin(
+  provider: AuthIdentityProvider,
+  providerSub: string,
+  tenantSlugOptional?: string,
+) {
+  return resolveStaffOAuthLogin(provider, providerSub, tenantSlugOptional);
 }
 
 /** @deprecated resolveAdminOAuthLogin 사용 */

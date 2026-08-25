@@ -48,7 +48,7 @@ OFF면 `KOE004` 에러.
 |------|------|
 | `{origin}/signup` | 신규 ADMIN 카카오 가입 |
 | `{origin}/login` | 카카오 로그인 |
-| `{origin}/admin/account/kakao-link` | 기존 ADMIN 계정 카카오 **연결** |
+| `{origin}/admin/account/kakao-link` | 기존 ADMIN·마케터·팀장 계정 카카오 **연결** |
 
 #### ✅ 운영 표준 — Redirect URI 10칸 (2026-03 적용)
 
@@ -145,19 +145,19 @@ KAKAO_OAUTH_CLIENT_SECRET="…"   # Step 3 ON일 때
 
 ---
 
-## 4.1 기존 ADMIN 계정 카카오 연결 (Phase 6+)
+## 4.1 기존 스태프 계정 카카오 연결 (Phase 6+ / 2차)
 
 - **경로**: 로그인 후 프로필 메뉴 → **카카오 계정 연결** (`/admin/account/kakao-link`)
 - **API**: `POST /api/auth/oauth/kakao/link` · `POST /api/auth/oauth/kakao/unlink` (비밀번호 확인 필수)
 - **Redirect URI**: Step 2 **운영 표준 10칸** 중 `#7` · `#9` · `#10` (`{origin}/admin/account/kakao-link`)
-- **대상**: ADMIN만 (마케터·팀장은 2차)
+- **대상**: **ADMIN · MARKETER · TEAM_LEADER · EXTERNAL_PARTNER** (관리·팀 JWT 모두 API 호출 가능)
 - **권장 접속 URL**: `https://www.cbiseo.com` (www) — non-www·로컬은 10칸 한도로 kakao-link URI가 없을 수 있음
 
 **E2E**
 
-1. **`https://www.cbiseo.com`** (또는 스테이징)에서 ADMIN 아이디·비밀번호 로그인
+1. **`https://www.cbiseo.com`** (또는 스테이징)에서 해당 역할 아이디·비밀번호 로그인 (관리·마케터 → `/admin`, 팀장·타업체 → `/team`)
 2. 프로필 → **카카오 계정 연결** → 카카오 인증 → 비밀번호 확인 → **연결 완료**
-3. 로그아웃 후 **카카오로 로그인** 성공
+3. 로그아웃 후 **카카오로 로그인** 성공 (팀장·타업체 → 팀 앱, 관리·마케터 → 관리 앱)
 
 **연결 해제 (선택 — 카카오 앱 목록까지 끊기)**
 

@@ -11,7 +11,7 @@
 
 | 문서 | 내용 |
 |------|------|
-| **[POLICY.md](./POLICY.md)** | **확정 정책** — SNS 범위, ADMIN만, 실명, 이메일 OTP, 사업자 분기 |
+| **[POLICY.md](./POLICY.md)** | **확정 정책** — SNS 범위, 가입(ADMIN)·연결(스태프), 실명, 이메일 OTP, 사업자 분기 |
 | **[PHASES.md](./PHASES.md)** | **단계별 구현 순서** — Phase 0~8 체크리스트 |
 | **[DATA_MODEL.md](./DATA_MODEL.md)** | Prisma 스키마·마이그레이션 설계 |
 | **[API.md](./API.md)** | 공개·인증 API 계약 |
