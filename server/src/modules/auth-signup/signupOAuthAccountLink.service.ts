@@ -41,7 +41,7 @@ async function assertStaffPasswordVerifiedForOAuthLink(
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
-    throw new AuthSignupOAuthError('비밀번호가 일치하지 않습니다.', 401);
+    throw new AuthSignupOAuthError('비밀번호가 일치하지 않습니다.', 403);
   }
 }
 
