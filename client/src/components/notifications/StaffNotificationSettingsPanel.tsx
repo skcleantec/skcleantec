@@ -5,9 +5,8 @@ import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePush
 import {
   getCbiseoStaffAppVersionCode,
   isCbiseoStaffNativeApp,
-  registerCbiseoStaffPushToken,
+  registerCbiseoStaffPushWithPoll,
   requestCbiseoStaffNotificationPermission,
-  subscribeCbiseoPushRegisterResult,
 } from '../../utils/cbiseoNativeApp';
 import { fetchStaffAppPushStatus, type StaffAppPushStatus } from '../../api/staffAppPush';
 
@@ -76,36 +75,28 @@ export function StaffNotificationSettingsPanel({
     refreshPushStatus();
   }, [refreshPushStatus]);
 
-  useEffect(() => {
-    if (!isCbiseoStaffNativeApp()) return;
-    return subscribeCbiseoPushRegisterResult((detail) => {
-      if (detail.ok) {
+  const syncPushToken = async () => {
+    if (!authToken) {
+      setPushSyncErr('로그인 세션이 없습니다.');
+      return;
+    }
+    setPushSyncErr(null);
+    setPushSyncMsg('등록 중…');
+    requestCbiseoStaffNotificationPermission();
+    try {
+      const result = await registerCbiseoStaffPushWithPoll(authToken);
+      if (result.ok) {
+        setPushSyncMsg(result.message);
         setPushSyncErr(null);
-        setPushSyncMsg(detail.message ?? '서버 등록 완료');
         refreshPushStatus();
       } else {
         setPushSyncMsg(null);
-        setPushSyncErr(detail.message ?? '서버 등록 실패');
+        setPushSyncErr(result.message);
       }
-    });
-  }, [refreshPushStatus]);
-
-  const syncPushToken = () => {
-    setPushSyncErr(null);
-    registerCbiseoStaffPushToken();
-    requestCbiseoStaffNotificationPermission();
-    setPushSyncMsg('기기에 알림 등록을 요청했습니다…');
-    window.setTimeout(() => {
-      setPushSyncMsg((prev) => (prev === '기기에 알림 등록을 요청했습니다…' ? null : prev));
-      setPushSyncErr((prev) => {
-        if (prev) return prev;
-        const code = getCbiseoStaffAppVersionCode();
-        if (code == null || code < 20) {
-          return 'Play 앱 v20이 아직 설치되지 않았습니다. v20 설치 후 다시 시도해 주세요.';
-        }
-        return 'FCM 토큰 또는 서버 등록 응답이 없습니다. 앱을 완전히 종료 후 다시 열어 주세요.';
-      });
-    }, 12_000);
+    } catch (e) {
+      setPushSyncMsg(null);
+      setPushSyncErr(e instanceof Error ? e.message : '서버 등록 실패');
+    }
   };
 
   const togglePush = async (kind: StaffAppPushKind, next: boolean) => {
@@ -144,10 +135,10 @@ export function StaffNotificationSettingsPanel({
               <>
                 {' '}
                 (앱 빌드 <strong>{appVersionCode}</strong>
-                {appVersionCode < 20 ? ' — 20 이상 업데이트 필요' : ''})
+                {appVersionCode < 21 ? ' — 21 이상 업데이트 필요' : ''})
               </>
             ) : (
-              <> (앱 빌드 확인 불가 — Play v20 미설치 가능)</>
+              <> (앱 빌드 확인 불가 — Play v21 미설치 가능)</>
             )}
           </p>
           {pushStatusLoading ? (

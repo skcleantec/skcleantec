@@ -1,47 +1,62 @@
-package com.cbiseo.app.bridge
-
-import android.os.Handler
-import android.os.Looper
-import android.webkit.JavascriptInterface
-import com.cbiseo.app.BuildConfig
-
-/** WebView JS — client/src/utils/cbiseoNativeApp.ts */
-class CbiseoAppBridge(
-    private val onRequestGoogleLogin: () -> Unit,
-    private val onLoginIdDraftChanged: (String) -> Unit = {},
-    private val onRequestNotificationPermission: () -> Unit = {},
-    private val onRegisterPushToken: () -> Unit = {},
-) {
-    @JavascriptInterface
-    fun isNativeApp(): Boolean = true
-
-    @JavascriptInterface
-    fun getPlatform(): String = "android"
-
-    @JavascriptInterface
-    fun getAppVersionCode(): Int = BuildConfig.VERSION_CODE
-
-    /** 로그인 폼 아이디 입력 — pyo/py2일 때만 서버 선택 UI 표시 */
-    @JavascriptInterface
-    fun notifyLoginIdDraft(raw: String) {
-        Handler(Looper.getMainLooper()).post { onLoginIdDraftChanged(raw) }
-    }
-
-    /** WebView GSI 실패 시 — 네이티브 Google Sign-In (Phase 8) */
-    @JavascriptInterface
-    fun requestGoogleLogin() {
-        Handler(Looper.getMainLooper()).post { onRequestGoogleLogin() }
-    }
-
-    /** 팀·관리 레이아웃 — 알림 권한 팝업·FCM 서버 등록 */
-    @JavascriptInterface
-    fun requestNotificationPermission() {
-        Handler(Looper.getMainLooper()).post { onRequestNotificationPermission() }
-    }
-
-    /** WebView 홈 로드 후 FCM 토큰 서버 등록 강제 재시도 */
-    @JavascriptInterface
-    fun registerPushToken() {
-        Handler(Looper.getMainLooper()).post { onRegisterPushToken() }
-    }
-}
+package com.cbiseo.app.bridge
+
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import com.cbiseo.app.BuildConfig
+import com.cbiseo.app.push.StaffPushRegistrationStatus
+import com.cbiseo.app.push.StaffPushTokenCache
+
+/** WebView JS — client/src/utils/cbiseoNativeApp.ts */
+class CbiseoAppBridge(
+    private val appContext: Context,
+    private val onRequestGoogleLogin: () -> Unit,
+    private val onLoginIdDraftChanged: (String) -> Unit = {},
+    private val onRequestNotificationPermission: () -> Unit = {},
+    private val onRegisterPushToken: () -> Unit = {},
+    private val onSyncAuthToken: (String) -> Unit = {},
+) {
+    @JavascriptInterface
+    fun isNativeApp(): Boolean = true
+
+    @JavascriptInterface
+    fun getPlatform(): String = "android"
+
+    @JavascriptInterface
+    fun getAppVersionCode(): Int = BuildConfig.VERSION_CODE
+
+    /** WebView localStorage JWT → TokenStore (FCM 서버 등록용) */
+    @JavascriptInterface
+    fun syncAuthToken(jwt: String) {
+        Handler(Looper.getMainLooper()).post { onSyncAuthToken(jwt.trim()) }
+    }
+
+    /** 네이티브 FCM 등록 진행 상태 — CustomEvent 대신 JS 폴링 */
+    @JavascriptInterface
+    fun getPushRegisterStatus(): String = StaffPushRegistrationStatus.toJson()
+
+    /** onNewToken·prefetch 캐시 — 웹 POST 백업용 */
+    @JavascriptInterface
+    fun getCachedFcmToken(): String = StaffPushTokenCache.get(appContext).orEmpty()
+
+    @JavascriptInterface
+    fun notifyLoginIdDraft(raw: String) {
+        Handler(Looper.getMainLooper()).post { onLoginIdDraftChanged(raw) }
+    }
+
+    @JavascriptInterface
+    fun requestGoogleLogin() {
+        Handler(Looper.getMainLooper()).post { onRequestGoogleLogin() }
+    }
+
+    @JavascriptInterface
+    fun requestNotificationPermission() {
+        Handler(Looper.getMainLooper()).post { onRequestNotificationPermission() }
+    }
+
+    @JavascriptInterface
+    fun registerPushToken() {
+        Handler(Looper.getMainLooper()).post { onRegisterPushToken() }
+    }
+}

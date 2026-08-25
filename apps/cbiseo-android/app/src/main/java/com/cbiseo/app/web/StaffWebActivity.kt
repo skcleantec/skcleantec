@@ -27,6 +27,7 @@ import com.cbiseo.app.databinding.ActivityStaffWebBinding
 import com.cbiseo.app.push.StaffFcmRegistrar
 import com.cbiseo.app.push.StaffNotificationPermission
 import com.cbiseo.app.push.StaffPushIntentExtras
+import com.cbiseo.app.push.StaffPushRegistration
 import com.cbiseo.app.session.StaffRoleResolver
 
 class StaffWebActivity : AppCompatActivity() {
@@ -108,6 +109,7 @@ class StaffWebActivity : AppCompatActivity() {
         StaffFcmRegistrar.registerToken(applicationContext)
 
         appBridge = CbiseoAppBridge(
+            appContext = applicationContext,
             onRequestGoogleLogin = {},
             onRequestNotificationPermission = {
                 StaffNotificationPermission.promptFromUserAction(this, notificationPermissionLauncher)
@@ -120,6 +122,7 @@ class StaffWebActivity : AppCompatActivity() {
                     registerPushFromWebSession(showToast = true)
                 }
             },
+            onSyncAuthToken = { jwt -> tokenStore.updateJwt(jwt) },
         )
 
         val webView = binding.staffWebView
@@ -188,20 +191,24 @@ class StaffWebActivity : AppCompatActivity() {
         }
     }
 
-    /** FCM 토큰은 네이티브, 서버 POST는 WebView fetch (상태 API와 동일 경로) */
+    /** Firebase 권장: 네이티브에서 FCM 토큰 + POST /register (WebView JWT 동기화 후) */
     private fun registerPushFromWebSession(showToast: Boolean) {
-        StaffFcmRegistrar.requestFcmTokenForWeb(this) { ok, token, message ->
-            if (ok && !token.isNullOrBlank()) {
-                notifyWebFcmToken(token, android.os.Build.MODEL)
-                if (showToast && !isFinishing && !isDestroyed) {
-                    Toast.makeText(this, "FCM 토큰 발급 · 서버 등록 중…", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                notifyWebPushRegisterResult(false, message)
-                if (showToast && !isFinishing && !isDestroyed) {
-                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                }
-            }
+        syncSessionFromWebView { jwt ->
+            StaffPushRegistration.registerNow(
+                context = applicationContext,
+                source = "webSession",
+                jwtOverride = jwt,
+                knownFcmToken = null,
+                onFinished = { ok, message ->
+                    if (showToast && !isFinishing && !isDestroyed) {
+                        Toast.makeText(
+                            this,
+                            message,
+                            if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                },
+            )
         }
     }
 
@@ -212,28 +219,6 @@ class StaffWebActivity : AppCompatActivity() {
                 tokenStore.updateJwt(token)
             }
             onReady(token ?: tokenStore.getToken())
-        }
-    }
-
-    private fun notifyWebFcmToken(token: String, deviceLabel: String) {
-        val escapedToken = token.replace("\\", "\\\\").replace("'", "\\'")
-        val escapedLabel = deviceLabel.replace("\\", "\\\\").replace("'", "\\'")
-        activeWebView?.post {
-            activeWebView?.evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('cbiseo:fcm-token'," +
-                    "{detail:{token:'$escapedToken',deviceLabel:'$escapedLabel'}}));",
-                null,
-            )
-        }
-    }
-
-    private fun notifyWebPushRegisterResult(ok: Boolean, message: String) {
-        val escaped = message.replace("\\", "\\\\").replace("'", "\\'")
-        activeWebView?.post {
-            activeWebView?.evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('cbiseo:push-register',{detail:{ok:${ok},message:'$escaped'}}));",
-                null,
-            )
         }
     }
 

@@ -150,6 +150,7 @@ class LoginActivity : AppCompatActivity() {
         webView.settings.domStorageEnabled = true
         webView.addJavascriptInterface(
             CbiseoAppBridge(
+                appContext = applicationContext,
                 onRequestGoogleLogin = { nativeGoogleSignIn.requestGoogleLogin() },
                 onLoginIdDraftChanged = { raw ->
                     draftLoginId = raw.trim().lowercase().takeIf { it.isNotBlank() }
