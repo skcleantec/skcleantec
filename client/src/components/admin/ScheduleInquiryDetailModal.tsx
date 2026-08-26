@@ -50,6 +50,7 @@ import { MoveInTimingFieldGroup } from '../orderform/MoveInTimingFieldGroup';
 import {
   normalizeProfessionalOptionIds,
   parseProfessionalOptionSelections,
+  resolveEffectiveProfessionalOptionIdsFromInquiry,
   selectionIdsFromSelections,
   serializeProfessionalOptionSelections,
   type ProfessionalSpecialtyOption,
@@ -872,7 +873,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       // 카탈로그 미로드 시 id를 버리지 않음(빈 catalog normalize → [] PATCH 회귀 방지)
       professionalOptionIds: selectionIdsFromSelections(
-        parseProfessionalOptionSelections(it.professionalOptionIds),
+        parseProfessionalOptionSelections(
+          resolveEffectiveProfessionalOptionIdsFromInquiry(it),
+          professionalCatalog,
+        ),
       ),
       leadSource: inquiryEditLeadSourceFromItem(it.source),
     };
@@ -880,10 +884,30 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
 
-  const savedProfSelections = useMemo(
-    () => parseProfessionalOptionSelections(item?.professionalOptionIds),
-    [item?.professionalOptionIds],
+  const effectiveProfOptionRaw = useMemo(
+    () => (item ? resolveEffectiveProfessionalOptionIdsFromInquiry(item) : undefined),
+    [item?.professionalOptionIds, item?.orderForm?.customerSubmissionSnapshot],
   );
+
+  const savedProfSelections = useMemo(
+    () => parseProfessionalOptionSelections(effectiveProfOptionRaw, professionalCatalog),
+    [effectiveProfOptionRaw, professionalCatalog],
+  );
+
+  const showProfOptionsAmountReview = useMemo(() => {
+    if (isCreate || !item) return false;
+    if (item.profOptionsAmountReviewCompleted) return false;
+    if (savedProfSelections.length > 0) {
+      return Boolean(item.profOptionsAmountReviewPending ?? true);
+    }
+    return Boolean(item.profOptionsAmountReviewPending);
+  }, [
+    isCreate,
+    item,
+    item?.profOptionsAmountReviewCompleted,
+    item?.profOptionsAmountReviewPending,
+    savedProfSelections.length,
+  ]);
 
   useEffect(() => {
     if (!isCreate || externalIntake) return;
@@ -1319,7 +1343,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       professionalOptionIds: selectionIdsFromSelections(
-        parseProfessionalOptionSelections(it.professionalOptionIds),
+        parseProfessionalOptionSelections(
+          resolveEffectiveProfessionalOptionIdsFromInquiry(it),
+          professionalCatalog,
+        ),
       ),
       leadSource: inquiryEditLeadSourceFromItem(it.source),
     });
@@ -2013,7 +2040,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         if (patch.serviceDepositAmount === effDeposit) delete patch.serviceDepositAmount;
         if (patch.serviceBalanceAmount === effBalance) delete patch.serviceBalanceAmount;
         const prevProfIds = selectionIdsFromSelections(
-          parseProfessionalOptionSelections(item.professionalOptionIds),
+          parseProfessionalOptionSelections(
+            resolveEffectiveProfessionalOptionIdsFromInquiry(item),
+            professionalCatalog,
+          ),
         );
         const nextProfIds = editForm.professionalOptionIds;
         const sameProf =
@@ -2035,7 +2065,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       if (patch.professionalOptionIds !== undefined) {
         const prevById = new Map(
           parseProfessionalOptionSelections(
-            !isCreate && item ? item.professionalOptionIds : undefined,
+            !isCreate && item ? resolveEffectiveProfessionalOptionIdsFromInquiry(item) : undefined,
+            professionalCatalog,
           ).map((s) => [s.id, s]),
         );
         patch.professionalOptionIds = serializeProfessionalOptionSelections(
@@ -2413,7 +2444,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         {item?.orderForm?.customerAnswers ? (
           <OrderFormCustomAnswers template={item.orderForm.template} answers={item.orderForm.customerAnswers} />
         ) : null}
-        {!isCreate && item?.profOptionsAmountReviewPending && token ? (
+        {!isCreate && item && showProfOptionsAmountReview && token ? (
           <ProfOptionsAmountReviewApplyPanel
             token={token}
             inquiryId={item.id}

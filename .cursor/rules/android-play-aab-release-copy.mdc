@@ -1,0 +1,67 @@
+---
+description: Play AAB 빌드 완료 시 출시명·출시노트 복붙 블록 필수 (에이전트)
+globs: apps/cbiseo-android/**,apps/telecrm-android/**,docs/GOOGLE_PLAY_CONSOLE.md,apps/cbiseo-android/docs/**,apps/telecrm-android/docs/**
+alwaysApply: false
+---
+
+# Play AAB — 출시명 · 출시노트 복붙 (필수)
+
+## 언제
+
+**`bundlePlayRelease` / `build-play-bundle.ps1` 등으로 AAB(또는 Play 업로드용 번들)를 만들었거나, 사용자에게 AAB 경로를 보고할 때** — **반드시** Play Console **「버전 세부정보」**에 넣을 **출시명**·**출시 노트**를 **복붙용 코드 블록**으로 함께 준다. AAB만 알려주고 끝내지 않는다.
+
+## 에이전트 응답 형식 (고정)
+
+사용자 답변 맨 아래에 아래 **두 블록**을 **항상** 포함한다. (한국어 · 비개발자 문체 · 이번 빌드 변경만)
+
+```markdown
+### Play Console — 출시명 (복붙)
+
+\`\`\`
+v{versionName} ({versionCode}) · {한 줄 요약}
+\`\`\`
+
+### Play Console — 출시 노트 (복붙)
+
+\`\`\`
+· {사용자에게 보이는 변경 1}
+· {변경 2 — 있으면}
+· {버그 수정 — 있으면}
+\`\`\`
+```
+
+## 작성 규칙
+
+| 항목 | 규칙 |
+|------|------|
+| **출시명** | `app/build.gradle.kts`의 `versionName`·`versionCode`와 **일치**. 형식 `v1.0.0 (27) · 요약` 권장. 50자 내외. |
+| **출시 노트** | `·` 불릿 2~5줄. **팀장/마케터/고객** 관점. API·클래스명·파일명 **금지**. |
+| **범위** | **이번 커밋/빌드**에 포함된 앱·서버 변경만. 웹만 바뀐 건 Play 노트에 **넣지 않음** (업무 앱 WebView는 서버 배포로 반영). |
+| **앱 구분** | `com.cbiseo.app`(청소비서) vs `com.cbiseo.marketer`(전화) 혼동 금지 — 이번 AAB 패키지에 맞게 작성. |
+
+## 예시 (`com.cbiseo.app` · versionCode 27)
+
+**출시명**
+```
+v1.0.0 (27) · 해피콜 알림 팀장 전용
+```
+
+**출시 노트**
+```
+· 해피콜 알림이 팀장·타업체 담당에게만 가도록 수정했습니다.
+· 다른 아이디로 로그인할 때 이전 계정 알림이 남지 않도록 개선했습니다.
+· 마케터 계정으로 접속 중에는 해피콜 알림이 울리지 않습니다.
+```
+
+## 함께 할 일 (기존 룰과 병행)
+
+| 앱 | 추가 의무 |
+|----|-----------|
+| **청소비서** `com.cbiseo.app` | AAB 경로 + **`.cursor/rules/cbiseo-android-play-terminal.mdc`** · `RELEASE_PROGRESS.md` 갱신 |
+| **전화** `com.cbiseo.marketer` | **`.cursor/rules/telecrm-android-release.mdc`** · Railway `TELECRM_APP_*` · `RELEASE_PROGRESS.md` |
+
+## 금지
+
+- AAB 파일 경로만 전달하고 출시명/노트 **생략**
+- 영문만·개발 용어만 있는 노트
+- 확인하지 않은 변경을 출시 노트에 **추측**으로 적기

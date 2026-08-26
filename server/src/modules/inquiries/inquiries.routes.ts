@@ -44,6 +44,7 @@ import {
   applyProfOptionAmountsToInquiry,
   attachProfOptionsReviewStatusDisplay,
   enrichInquiriesProfOptionsReviewStatus,
+  healInquiryProfessionalOptionIdsFromSnapshot,
   previewProfOptionAmountLinesForInquiry,
   shouldClearProfOptionsAmountReviewOnPatch,
 } from './inquiryProfOptionsAmount.service.js';
@@ -649,6 +650,7 @@ router.get('/:id', async (req, res) => {
     return;
   }
   await syncInquiryAddressGeo(prisma, id);
+  await healInquiryProfessionalOptionIdsFromSnapshot(prisma, tenantId, id);
   const inquiryFresh = await prisma.inquiry.findFirst({
     where: { id, tenantId },
     include: inquiryDetailInclude,

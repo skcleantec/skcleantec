@@ -18,6 +18,7 @@ APK·`versionCode`·GitHub Release만 올리고 **Railway Variables를 안 바�
 1. **`apps/telecrm-android/docs/RELEASE_PROGRESS.md`** 최상단 **「현재 상태」** 표와 **「버전 로그」** 에 **새 항목 추가** (최신 first). AAB 경로·SHA256·Play 트랙·git 커밋·변경 요약·미완료 TODO 포함.
 2. 템플릿은 해당 MD 파일 **「새 버전 항목 템플릿」** 절을 따른다.
 3. 기록만 하고 **끝내지 않는다** — 아래 Railway·릴리스 체크리스트도 이어서 수행.
+4. **Play AAB/APK 빌드를 사용자에게 보고할 때** — **`.cursor/rules/android-play-aab-release-copy.mdc`** 출시명·출시 노트 **복붙 블록** 필수.
 
 ## 에이전트 의무 — 릴리스 완료 = Variables 갱신까지
 

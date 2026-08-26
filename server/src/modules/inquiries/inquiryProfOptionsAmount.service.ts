@@ -3,6 +3,9 @@ import { prisma } from '../../lib/prisma.js';
 import {
   parseProfessionalOptionSelectionsRaw,
   filterActiveProfessionalOptionSelections,
+  filterExistingProfessionalOptionSelections,
+  resolveEffectiveProfessionalOptionIds,
+  serializeProfessionalOptionSelectionsJson,
   type ProfessionalOptionSelectionInput,
 } from '../orderform/specialtyOptions.js';
 import {
@@ -19,10 +22,78 @@ export type InquiryProfOptionsReviewRow = {
   orderForm?: {
     totalAmount: number | null;
     submittedAt: Date | string | null;
+    customerSubmissionSnapshot?: unknown;
   } | null;
   extraCharges?: Array<{ description: string }>;
   additionalReceipts?: Array<{ id: string; description?: string }>;
 };
+
+/** 표시·금액 API — 스냅샷 fallback 반영 */
+export function withEffectiveProfessionalOptionIds<T extends InquiryProfOptionsReviewRow>(
+  row: T,
+): T {
+  const effective = resolveEffectiveProfessionalOptionIds(row);
+  if (parseProfessionalOptionSelectionsRaw(row.professionalOptionIds).length > 0) return row;
+  if (parseProfessionalOptionSelectionsRaw(effective).length === 0) return row;
+  return { ...row, professionalOptionIds: effective };
+}
+
+/**
+ * Inquiry.professionalOptionIds 가 비었는데 발주서 스냅샷에 선택이 있으면 DB에 복원한다.
+ * @returns 복원 여부
+ */
+export async function healInquiryProfessionalOptionIdsFromSnapshot(
+  prisma: PrismaClient,
+  tenantId: string,
+  inquiryId: string,
+): Promise<boolean> {
+  const row = await prisma.inquiry.findFirst({
+    where: { id: inquiryId, tenantId },
+    select: {
+      professionalOptionIds: true,
+      orderForm: { select: { customerSubmissionSnapshot: true, submittedAt: true } },
+    },
+  });
+  if (!row?.orderForm?.submittedAt) return false;
+  if (parseProfessionalOptionSelectionsRaw(row.professionalOptionIds).length > 0) return false;
+
+  const fromSnap = resolveEffectiveProfessionalOptionIds(row);
+  const snapSelections = parseProfessionalOptionSelectionsRaw(fromSnap);
+  if (snapSelections.length === 0) return false;
+
+  const filtered = await filterExistingProfessionalOptionSelections(
+    prisma,
+    tenantId,
+    snapSelections,
+  );
+  if (filtered.length === 0) return false;
+
+  await prisma.inquiry.updateMany({
+    where: { id: inquiryId, tenantId },
+    data: {
+      professionalOptionIds: serializeProfessionalOptionSelectionsJson(filtered),
+      profOptionsAmountReviewPending: true,
+    },
+  });
+  return true;
+}
+
+async function loadInquiryProfessionalOptionIdsForAmountOps(
+  prisma: PrismaClient,
+  tenantId: string,
+  inquiryId: string,
+): Promise<unknown> {
+  await healInquiryProfessionalOptionIdsFromSnapshot(prisma, tenantId, inquiryId);
+  const inquiry = await prisma.inquiry.findFirst({
+    where: { id: inquiryId, tenantId },
+    select: {
+      professionalOptionIds: true,
+      orderForm: { select: { customerSubmissionSnapshot: true } },
+    },
+  });
+  if (!inquiry) throw new Error('NOT_FOUND');
+  return resolveEffectiveProfessionalOptionIds(inquiry);
+}
 
 async function loadProfOptionAppliedAmountByDescription(
   inquiryId: string,
@@ -68,8 +139,13 @@ export function resolveProfOptionsAmountReviewPendingForDisplay(
 ): boolean {
   if (row.orderForm?.submittedAt == null) return false;
 
-  const selections = parseProfessionalOptionSelectionsRaw(row.professionalOptionIds);
-  if (selections.length === 0) return false;
+  const selections = parseProfessionalOptionSelectionsRaw(
+    resolveEffectiveProfessionalOptionIds(row),
+  );
+  if (selections.length === 0) {
+    /** DB 플래그만 남은 드리프트(스냅샷 미포함 목록 등) — 제출 대기 유지 */
+    return row.profOptionsAmountReviewPending === true;
+  }
 
   /** 반영된 전문시공 항목(extraCharge·추가결재)이 있으면 DB 플래그와 무관하게 완료 */
   if (inquiryHasProfOptionAmountApplied(row)) return false;
@@ -90,14 +166,15 @@ export function resolveProfOptionsAmountReviewPendingForDisplay(
 export function attachProfOptionsReviewStatusDisplay<T extends InquiryProfOptionsReviewRow>(
   row: T,
 ): T & { profOptionsAmountReviewPending: boolean; profOptionsAmountReviewCompleted: boolean } {
-  const pending = resolveProfOptionsAmountReviewPendingForDisplay(row);
+  const rowEffective = withEffectiveProfessionalOptionIds(row);
+  const pending = resolveProfOptionsAmountReviewPendingForDisplay(rowEffective);
   const hasSelections =
-    parseProfessionalOptionSelectionsRaw(row.professionalOptionIds).length > 0;
+    parseProfessionalOptionSelectionsRaw(rowEffective.professionalOptionIds).length > 0;
   const completed = Boolean(
     hasSelections && row.orderForm?.submittedAt != null && !pending,
   );
   return {
-    ...row,
+    ...rowEffective,
     profOptionsAmountReviewPending: pending,
     profOptionsAmountReviewCompleted: completed,
   };
@@ -232,16 +309,16 @@ export async function previewProfOptionAmountLinesForInquiry(params: {
   tenantId: string;
   inquiryId: string;
 }): Promise<{ lines: ProfOptionAmountLinePreview[] }> {
-  const inquiry = await prisma.inquiry.findFirst({
-    where: { id: params.inquiryId, tenantId: params.tenantId },
-    select: { professionalOptionIds: true },
-  });
-  if (!inquiry) throw new Error('NOT_FOUND');
+  const professionalOptionIds = await loadInquiryProfessionalOptionIdsForAmountOps(
+    prisma,
+    params.tenantId,
+    params.inquiryId,
+  );
 
   const drafts = await buildProfOptionAmountLineDrafts(
     prisma,
     params.tenantId,
-    inquiry.professionalOptionIds,
+    professionalOptionIds,
   );
   const existingByDesc = await loadProfOptionAppliedAmountByDescription(params.inquiryId);
 
@@ -371,10 +448,16 @@ export async function applyProfOptionAmountsToInquiry(params: {
     throw new Error('NOT_FOUND');
   }
 
+  const professionalOptionIds = await loadInquiryProfessionalOptionIdsForAmountOps(
+    prisma,
+    params.tenantId,
+    params.inquiryId,
+  );
+
   const drafts = await buildProfOptionAmountLineDrafts(
     prisma,
     params.tenantId,
-    inquiry.professionalOptionIds,
+    professionalOptionIds,
   );
   const amountByOptionId = new Map<string, number>();
   if (params.lineAmounts?.length) {
