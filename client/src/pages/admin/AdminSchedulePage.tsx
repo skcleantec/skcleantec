@@ -27,6 +27,8 @@ import {
   isPureRegionCalendar,
   splitCustomCalendarsByTabRow,
 } from '../../utils/customCalendarClassification';
+import { inquiryHasNoDeposit } from '../../utils/inquiryDepositDisplay';
+import { NoDepositIcon } from '../../components/ui/NoDepositIcon';
 import type { CustomCalendarCreateFocus } from '../../components/admin/CustomCalendarCreateModal';
 import { computeRegionalDaySlotStats } from '../../utils/regionalSlotStats';
 import { inquiryBelongsOnRegionalCalendar } from '../../utils/scheduleSlotOccupancy';
@@ -499,6 +501,7 @@ function ScheduleDayListItem({
         {item.dbListing ? (
           <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly className="shrink-0" />
         ) : null}
+        {inquiryHasNoDeposit(item) ? <NoDepositIcon /> : null}
       </div>
       <div className="min-w-0 flex-1 flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2 min-w-0">

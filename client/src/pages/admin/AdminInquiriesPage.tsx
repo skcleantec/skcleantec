@@ -171,6 +171,7 @@ import {
   inquiryListHasCustomerSpecialNotes,
   inquiryListHasOrderFormPhotos,
 } from '../../utils/inquiryListAttachmentFlags';
+import { inquiryDepositPresence } from '../../utils/inquiryDepositDisplay';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import {
@@ -653,6 +654,23 @@ function InquiryListAttachmentOx({
   );
 }
 
+function InquiryListDepositMark({ item }: { item: InquiryItem }) {
+  const presence = inquiryDepositPresence(item);
+  if (presence === 'unknown') {
+    return (
+      <span
+        className="inline-flex min-w-[1.125rem] items-center justify-center text-[10px] text-slate-300 xl:text-fluid-2xs"
+        title="예약금 미정"
+      >
+        —
+      </span>
+    );
+  }
+  return (
+    <InquiryListAttachmentOx yes={presence === 'yes'} shortLabel="예약금" />
+  );
+}
+
 /** 모바일 카드 목록 — pin tier·해피콜 강조 */
 function inquiryMobileCardShellClass(item: InquiryItem, prevItem?: InquiryItem | null): string {
   const pinStyle = inquiryListPinTierStyle(item);
@@ -931,7 +949,7 @@ export function AdminInquiriesPage() {
   const appliedSearchQuery = searchParams.get('q') ?? '';
   const [searchInput, setSearchInput] = useState(() => searchParams.get('q') ?? '');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
-  const listTableWidthRem = (hasInspectionModule ? 90 : 84) + 8;
+  const listTableWidthRem = (hasInspectionModule ? 90 : 84) + 12;
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const [customCalendars, setCustomCalendars] = useState<UserCustomCalendarItem[]>([]);
   const [listQuickEdit, setListQuickEdit] = useState<{
@@ -3341,6 +3359,12 @@ export function AdminInquiriesPage() {
                             {inquiryListStatusBadgeText(item)}
                             </span>
                         <span
+                          className="inline-flex items-center gap-0.5 rounded-md bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600 ring-1 ring-slate-200/80"
+                          title="예약금 있음 O · 없음 X · 미정 —"
+                        >
+                          예약금 <InquiryListDepositMark item={item} />
+                        </span>
+                        <span
                           className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600 ring-1 ring-slate-200/80"
                           title="고객 발주 특이사항 · 발주서 첨부 사진"
                         >
@@ -3579,6 +3603,7 @@ export function AdminInquiriesPage() {
                     <col className="w-[6%]" />
                     <col className="w-[3%]" />
                     <col className="w-[3%]" />
+                    <col className="w-[3%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col style={{ width: '14%' }} />
@@ -3596,6 +3621,7 @@ export function AdminInquiriesPage() {
                     <col className="w-[7%]" />
                     <col className="w-[6%]" />
                     <col className="w-[7%]" />
+                    <col className="w-[3%]" />
                     <col className="w-[3%]" />
                     <col className="w-[3%]" />
                     <col className="w-[8%]" />
@@ -3644,6 +3670,12 @@ export function AdminInquiriesPage() {
                     onSort={handleListSort}
                     className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
+                  <th
+                    className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    title="예약금 있음 O · 없음 X · 미정 —"
+                  >
+                    예약금
+                  </th>
                   <th
                     className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
                     title="고객 발주 특이사항"
@@ -3873,6 +3905,18 @@ export function AdminInquiriesPage() {
                           <InquiryProfOptionsReviewListBadge item={item} />
                         </div>
                       ) : null}
+                    </td>
+                    <td
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
+                      title={
+                        inquiryDepositPresence(item) === 'yes'
+                          ? '예약금 있음'
+                          : inquiryDepositPresence(item) === 'no'
+                            ? '예약금 없음'
+                            : '예약금 미정'
+                      }
+                    >
+                      <InquiryListDepositMark item={item} />
                     </td>
                     <td
                       className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
