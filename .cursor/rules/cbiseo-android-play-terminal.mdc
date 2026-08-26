@@ -27,6 +27,10 @@ cd apps\cbiseo-android
 | 2 | `keystore.properties` |
 | 3 | `dist/cbiseo-play-*.aab` → Play Console **내부 테스트** 업로드 |
 
+## AAB 빌드 후 — 출시명 · 출시 노트 (필수)
+
+AAB 경로를 보고할 때 **`.cursor/rules/android-play-aab-release-copy.mdc`** 에 따라 Play Console **출시명**·**출시 노트** **복붙용 코드 블록**을 **반드시** 같은 답변에 포함한다.
+
 ## Play Console (복붙)
 
 | 항목 | 값 |
@@ -41,6 +45,7 @@ cd apps\cbiseo-android
 - keystore·`keystore.properties`·비밀번호 **git 커밋**
 - Studio GUI를 Play 릴리스 **유일** 경로로 안내
 - `versionCode` bump·AAB 빌드 후 **`RELEASE_PROGRESS.md` 미갱신**
+- AAB만 전달하고 **Play 출시명·출시 노트 복붙 블록 생략** — **`.cursor/rules/android-play-aab-release-copy.mdc`**
 
 ## 참고
 

@@ -39,8 +39,9 @@ alwaysApply: false
 `versionCode` bump·AAB·Play 업로드 완료 시:
 
 1. **`apps/cbiseo-android/docs/RELEASE_PROGRESS.md`** 최상단 갱신
-2. Firebase·`google-services.json` 변경 시 문서에 기록 (비밀 커밋 금지)
-3. **웹-only 변경**은 Play 재배포 **불필요** — 문서에 혼동 없게 구분
+2. **Play Console 출시명·출시 노트** — **`.cursor/rules/android-play-aab-release-copy.mdc`** (복붙 블록 필수)
+3. Firebase·`google-services.json` 변경 시 문서에 기록 (비밀 커밋 금지)
+4. **웹-only 변경**은 Play 재배포 **불필요** — 문서에 혼동 없게 구분
 
 ## 멀티테넌트
 
