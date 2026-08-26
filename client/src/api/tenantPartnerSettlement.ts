@@ -122,6 +122,7 @@ export type TenantPartnerSettlementPaymentsResponse = {
     memo: string | null;
     actorName: string | null;
     actorRole: string | null;
+    confirmedByTenantName?: string | null;
   }>;
 };
 

@@ -104,6 +104,69 @@ const shareAccrualSelect = {
   targetInquiry: { select: { status: true } },
 } as const;
 
+/**
+ * 파트너 정산 결재 단일 원천 — 판매(수금) 업체 SELLER 기록만 유효.
+ * BUYER(구매) 탭은 파트너의 SELLER 수금을 그대로 조회한다.
+ */
+function partnerSettlementPaymentWhere(
+  viewerTenantId: string,
+  partnerTenantId: string,
+  role: TenantPartnerSettlementRole,
+): Prisma.TenantPartnerSettlementPaymentWhereInput {
+  if (role === 'SELLER') {
+    return {
+      tenantId: viewerTenantId,
+      partnerTenantId,
+      role: 'SELLER',
+    };
+  }
+  return {
+    tenantId: partnerTenantId,
+    partnerTenantId: viewerTenantId,
+    role: 'SELLER',
+  };
+}
+
+async function loadPaidAmountByPartner(
+  viewerTenantId: string,
+  role: TenantPartnerSettlementRole,
+  partnerIds: string[],
+): Promise<Map<string, number>> {
+  const paidByPartner = new Map<string, number>();
+  for (const pid of partnerIds) paidByPartner.set(pid, 0);
+  if (partnerIds.length === 0) return paidByPartner;
+
+  if (role === 'SELLER') {
+    const paidRows = await prisma.tenantPartnerSettlementPayment.groupBy({
+      by: ['partnerTenantId'],
+      where: {
+        tenantId: viewerTenantId,
+        role: 'SELLER',
+        partnerTenantId: { in: partnerIds },
+      },
+      _sum: { amount: true },
+    });
+    for (const r of paidRows) {
+      paidByPartner.set(r.partnerTenantId, r._sum.amount ?? 0);
+    }
+    return paidByPartner;
+  }
+
+  const paidRows = await prisma.tenantPartnerSettlementPayment.groupBy({
+    by: ['tenantId'],
+    where: {
+      partnerTenantId: viewerTenantId,
+      role: 'SELLER',
+      tenantId: { in: partnerIds },
+    },
+    _sum: { amount: true },
+  });
+  for (const r of paidRows) {
+    paidByPartner.set(r.tenantId, r._sum.amount ?? 0);
+  }
+  return paidByPartner;
+}
+
 /** 예약일 기준 순수수료 — 활성 +, 취소·보류 0 (취소는 −수수료로 미수에 반영하지 않음) */
 export function signedShareTransferFee(share: ShareAccrualRow): number {
   const fee = share.transferFee ?? 0;
@@ -259,13 +322,11 @@ export async function getSettlementOverview(
     accruedByPartner.set(pid, (accruedByPartner.get(pid) ?? 0) + signed);
   }
 
-  const paidRows = await prisma.tenantPartnerSettlementPayment.groupBy({
-    by: ['partnerTenantId'],
-    where: { tenantId: viewerTenantId, role },
-    _sum: { amount: true },
-  });
-  const paidByPartner = new Map<string, number>();
-  for (const r of paidRows) paidByPartner.set(r.partnerTenantId, r._sum.amount ?? 0);
+  const paidByPartner = await loadPaidAmountByPartner(
+    viewerTenantId,
+    role,
+    [...partnerMeta.keys()],
+  );
 
   const items: SettlementOverviewRow[] = [];
   for (const [partnerTenantId, meta] of partnerMeta) {
@@ -369,9 +430,7 @@ export async function getSettlementPartnerDetail(opts: {
 
   const paidBeforeAgg = await prisma.tenantPartnerSettlementPayment.aggregate({
     where: {
-      tenantId: viewerTenantId,
-      partnerTenantId,
-      role,
+      ...partnerSettlementPaymentWhere(viewerTenantId, partnerTenantId, role),
       paidAt: { lt: from },
     },
     _sum: { amount: true },
@@ -380,9 +439,7 @@ export async function getSettlementPartnerDetail(opts: {
 
   const paymentRows = await prisma.tenantPartnerSettlementPayment.findMany({
     where: {
-      tenantId: viewerTenantId,
-      partnerTenantId,
-      role,
+      ...partnerSettlementPaymentWhere(viewerTenantId, partnerTenantId, role),
       paidAt: { gte: from, lte: to },
     },
     orderBy: { paidAt: 'desc' },
@@ -423,6 +480,7 @@ export async function getSettlementPartnerDetail(opts: {
       memo: r.memo ?? null,
       actorName: r.actor?.name ?? null,
       actorRole: r.actor?.role ?? null,
+      confirmedByTenantName: role === 'BUYER' ? partner.partnerName : null,
     })),
     items: periodItems,
   };
@@ -452,9 +510,7 @@ export async function getPartnerSettlementPayments(opts: {
 
   const paymentRows = await prisma.tenantPartnerSettlementPayment.findMany({
     where: {
-      tenantId: opts.viewerTenantId,
-      partnerTenantId: opts.partnerTenantId,
-      role: opts.role,
+      ...partnerSettlementPaymentWhere(opts.viewerTenantId, opts.partnerTenantId, opts.role),
       ...(Object.keys(paidAtWhere).length > 0 ? { paidAt: paidAtWhere } : {}),
     },
     orderBy: [{ paidAt: 'desc' }],
@@ -482,6 +538,7 @@ export async function getPartnerSettlementPayments(opts: {
       memo: r.memo ?? null,
       actorName: r.actor?.name ?? null,
       actorRole: r.actor?.role ?? null,
+      confirmedByTenantName: opts.role === 'BUYER' ? partner.partnerName : null,
     })),
   };
 }
@@ -521,9 +578,7 @@ export async function getPartnerSettlementMonthlyOverview(opts: {
 
   const paymentRows = await prisma.tenantPartnerSettlementPayment.findMany({
     where: {
-      tenantId: opts.viewerTenantId,
-      partnerTenantId: opts.partnerTenantId,
-      role: opts.role,
+      ...partnerSettlementPaymentWhere(opts.viewerTenantId, opts.partnerTenantId, opts.role),
       paidAt: { gte: startDate, lte: endDate },
     },
     select: { amount: true, paidAt: true },
@@ -541,9 +596,7 @@ export async function getPartnerSettlementMonthlyOverview(opts: {
   }, 0);
   const paidBeforeAgg = await prisma.tenantPartnerSettlementPayment.aggregate({
     where: {
-      tenantId: opts.viewerTenantId,
-      partnerTenantId: opts.partnerTenantId,
-      role: opts.role,
+      ...partnerSettlementPaymentWhere(opts.viewerTenantId, opts.partnerTenantId, opts.role),
       paidAt: { lt: startDate },
     },
     _sum: { amount: true },
@@ -602,6 +655,12 @@ export async function recordSettlementPayment(opts: {
       '정산 금액은 0이 아닌 정수여야 합니다. 과납·오기입 보정은 마이너스 금액으로 입력할 수 있습니다.',
     );
   }
+  if (opts.role !== 'SELLER') {
+    throw new TenantPartnerSettlementError(
+      '정산(입금 확인)은 판매(수금) 업체에서만 기록합니다. 구매 탭에는 자동 반영됩니다.',
+      400,
+    );
+  }
   const partner = await assertPartnerInTenant(opts.viewerTenantId, opts.partnerTenantId);
   const amountInt = Math.trunc(opts.amount);
   const row = await prisma.tenantPartnerSettlementPayment.create({
@@ -609,7 +668,7 @@ export async function recordSettlementPayment(opts: {
       tenantId: opts.viewerTenantId,
       partnerTenantId: opts.partnerTenantId,
       partnershipId: partner.partnershipId,
-      role: opts.role,
+      role: 'SELLER',
       amount: amountInt,
       memo: opts.memo?.trim() || null,
       actorId: opts.viewerUserId,

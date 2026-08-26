@@ -117,7 +117,20 @@ type HistoryRow = {
   paidAt: string;
   memo: string | null;
   actorName: string | null;
+  confirmedByTenantName?: string | null;
 };
+
+function formatHistoryActorLabel(
+  tab: TenantPartnerSettlementRole,
+  partnerName: string,
+  row: HistoryRow,
+): string {
+  if (tab === 'BUYER') {
+    const who = row.actorName?.trim();
+    return who ? `${row.confirmedByTenantName ?? partnerName} · ${who}` : (row.confirmedByTenantName ?? partnerName);
+  }
+  return row.actorName ?? '-';
+}
 
 function mergeHistoryRows(prev: HistoryRow[], next: HistoryRow[]): HistoryRow[] {
   const map = new Map<string, HistoryRow>();
@@ -225,7 +238,7 @@ export function AdminTenantPartnerSettlementPage() {
     }
     return {
       payable: '지급할 누적금액',
-      paid: '지급한 금액',
+      paid: '판매 업체 입금 확인',
       remaining: '미지급 잔액',
     };
   }, [tab]);
@@ -307,6 +320,7 @@ export function AdminTenantPartnerSettlementPage() {
           paidAt: p.paidAt,
           memo: p.memo,
           actorName: p.actorName,
+          confirmedByTenantName: p.confirmedByTenantName ?? null,
         })),
       );
       setHistoryRows(merged);
@@ -433,7 +447,7 @@ export function AdminTenantPartnerSettlementPage() {
       const payYmd = /^\d{4}-\d{2}-\d{2}$/.test(payDateInput) ? payDateInput.trim() : kstTodayYmd();
       const result = await postTenantPartnerSettlementPayment(token, {
         partnerTenantId: selected.partnerTenantId,
-        role: tab,
+        role: 'SELLER',
         amount: payConfirm.inputAmount,
         memo: payMemoInput.trim() || undefined,
         paidDate: payYmd,
@@ -474,6 +488,8 @@ export function AdminTenantPartnerSettlementPage() {
           <span className="font-medium text-gray-700">전 기간 누적(정산 기준 수수료 − 전체 정산)</span>
           입니다. 일반 연계는 예약일, 정보공유는 인계 확정일 기준이며{' '}
           <span className="font-medium text-gray-700">취소·회수 건</span>은 미수에 반영하지 않습니다(순 0).
+          <span className="font-medium text-gray-700"> 입금 확인은 판매(수금) 업체에서만</span> 기록하며, 구매 탭에는
+          자동 반영됩니다.
           판매 탭에서 미수가 <span className="font-medium text-gray-700">마이너스(−)</span>이면 이미 받은
           수수료를 상대 업체에 돌려줘야 한다는 뜻입니다.
         </p>
@@ -559,14 +575,16 @@ export function AdminTenantPartnerSettlementPage() {
                       <strong className="tabular-nums text-rose-700">{won(r.remainingAmount)}</strong>
                     </p>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => openPayModal(r)}
-                      className="rounded bg-gray-900 px-2 py-1.5 text-[11px] font-medium text-white"
-                    >
-                      정산
-                    </button>
+                  <div className={`mt-3 grid gap-1.5 ${tab === 'SELLER' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    {tab === 'SELLER' ? (
+                      <button
+                        type="button"
+                        onClick={() => openPayModal(r)}
+                        className="rounded bg-gray-900 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                      >
+                        입금 확인
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void openHistoryModal(r)}
@@ -616,13 +634,15 @@ export function AdminTenantPartnerSettlementPage() {
                       <td className="px-3 py-2 text-right tabular-nums text-rose-700">{won(r.remainingAmount)}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openPayModal(r)}
-                            className="rounded bg-gray-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-gray-800"
-                          >
-                            정산
-                          </button>
+                          {tab === 'SELLER' ? (
+                            <button
+                              type="button"
+                              onClick={() => openPayModal(r)}
+                              className="rounded bg-gray-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                            >
+                              입금 확인
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => void openHistoryModal(r)}
@@ -659,8 +679,10 @@ export function AdminTenantPartnerSettlementPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
           <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">정산 처리</h3>
-              <p className="mt-1 text-xs text-gray-600">{selected.partnerName}</p>
+              <h3 className="text-sm font-semibold text-gray-900">입금 확인</h3>
+              <p className="mt-1 text-xs text-gray-600">
+                {selected.partnerName} — 상대 구매 탭에 동일 금액이 자동 반영됩니다.
+              </p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2">
               {payFormError ? (
@@ -771,7 +793,7 @@ export function AdminTenantPartnerSettlementPage() {
       {payConfirm && selected ? (
         <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-lg bg-white border border-gray-200 p-4">
-            <h4 className="text-sm font-semibold text-gray-900">정산완료 확인 - {selected.partnerName}</h4>
+            <h4 className="text-sm font-semibold text-gray-900">입금 확인 — {selected.partnerName}</h4>
             <p className="mt-2 text-sm flex justify-between">
               <span>현재 {labels.remaining}</span>
               <strong>{won(payConfirm.currentRemaining)}</strong>
@@ -820,7 +842,12 @@ export function AdminTenantPartnerSettlementPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex w-full max-w-3xl max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900">정산내역 - {selected.partnerName}</h3>
+              <h3 className="text-sm font-semibold text-gray-900">
+                정산내역 — {selected.partnerName}
+                {tab === 'BUYER' ? (
+                  <span className="ml-1 font-normal text-gray-500">(판매 업체 입금 확인)</span>
+                ) : null}
+              </h3>
               <button type="button" onClick={() => setHistoryModalOpen(false)} className="text-xs text-gray-500">
                 닫기
               </button>
@@ -842,7 +869,10 @@ export function AdminTenantPartnerSettlementPage() {
                             {won(p.amount)}
                           </strong>
                         </p>
-                        <p className="mt-1 text-gray-700">처리자: {p.actorName ?? '-'}</p>
+                        <p className="mt-1 text-gray-700">
+                          {tab === 'BUYER' ? '입금 확인' : '처리자'}:{' '}
+                          {formatHistoryActorLabel(tab, selected.partnerName, p)}
+                        </p>
                         <p className="mt-1 text-gray-700">메모: {p.memo ?? '-'}</p>
                       </div>
                     ))}
@@ -853,7 +883,7 @@ export function AdminTenantPartnerSettlementPage() {
                         <tr className="bg-gray-50 text-gray-600">
                           <th className="px-3 py-2 text-center">정산일</th>
                           <th className="px-3 py-2 text-center">금액</th>
-                          <th className="px-3 py-2 text-center">처리자</th>
+                          <th className="px-3 py-2 text-center">{tab === 'BUYER' ? '입금 확인' : '처리자'}</th>
                           <th className="px-3 py-2 text-center">메모</th>
                         </tr>
                       </thead>
@@ -866,7 +896,9 @@ export function AdminTenantPartnerSettlementPage() {
                             >
                               {won(p.amount)}
                             </td>
-                            <td className="px-3 py-2 text-center">{p.actorName ?? '-'}</td>
+                            <td className="px-3 py-2 text-center">
+                              {formatHistoryActorLabel(tab, selected.partnerName, p)}
+                            </td>
                             <td className="px-3 py-2 text-center">{p.memo ?? '-'}</td>
                           </tr>
                         ))}
