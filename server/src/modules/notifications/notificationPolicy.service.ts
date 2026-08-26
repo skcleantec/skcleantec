@@ -70,9 +70,10 @@ export async function loadPushFilterContext(
 ): Promise<{
   tenantPolicy: TenantNotificationPolicyDto;
   userPrefsById: Map<string, UserNotificationPreferencesDto>;
+  userRolesById: Map<string, string>;
 }> {
   const uniqueIds = [...new Set(userIds.filter(Boolean))];
-  const [tenantPolicy, prefRows] = await Promise.all([
+  const [tenantPolicy, prefRows, userRows] = await Promise.all([
     getTenantNotificationPolicy(tenantId),
     uniqueIds.length
       ? prisma.userNotificationPreference.findMany({
@@ -80,12 +81,22 @@ export async function loadPushFilterContext(
           select: { userId: true, kinds: true },
         })
       : Promise.resolve([]),
+    uniqueIds.length
+      ? prisma.user.findMany({
+          where: { tenantId, id: { in: uniqueIds } },
+          select: { id: true, role: true },
+        })
+      : Promise.resolve([]),
   ]);
   const userPrefsById = new Map<string, UserNotificationPreferencesDto>();
   for (const row of prefRows) {
     userPrefsById.set(row.userId, mergeUserNotificationPreferences(row.kinds));
   }
-  return { tenantPolicy, userPrefsById };
+  const userRolesById = new Map<string, string>();
+  for (const row of userRows) {
+    userRolesById.set(row.id, row.role);
+  }
+  return { tenantPolicy, userPrefsById, userRolesById };
 }
 
 export async function recordNotificationDelivery(params: {

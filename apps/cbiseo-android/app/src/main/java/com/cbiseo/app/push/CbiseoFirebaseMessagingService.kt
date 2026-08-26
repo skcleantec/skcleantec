@@ -3,6 +3,8 @@ package com.cbiseo.app.push
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.cbiseo.app.auth.TokenStore
+import com.cbiseo.app.session.StaffRoleResolver
 import com.cbiseo.app.web.StaffWebActivity
 
 class CbiseoFirebaseMessagingService : FirebaseMessagingService() {
@@ -24,6 +26,11 @@ class CbiseoFirebaseMessagingService : FirebaseMessagingService() {
         val body = data["body"].orEmpty()
         val path = data["path"].orEmpty()
         val kind = data["kind"].orEmpty()
+
+        if (kind == "happy_call" && !StaffRoleResolver.canReceiveHappyCallPush(TokenStore.get(this).getRole())) {
+            Log.i(TAG, "happy_call push suppressed for role=${TokenStore.get(this).getRole()}")
+            return
+        }
 
         if (StaffWebActivity.isWebViewInForeground()) {
             StaffWebActivity.dispatchInboxRefreshToWebView()

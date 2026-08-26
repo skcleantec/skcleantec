@@ -253,18 +253,28 @@ class LoginActivity : AppCompatActivity() {
             val loginId = JwtPayload.emailFromToken(token)
                 ?: draftLoginId
                 ?: tokenStore.getLoginId().orEmpty()
-            tokenStore.saveSession(
-                token = token,
-                tenantSlug = captured.tenantSlug.orEmpty(),
-                loginId = loginId,
-                userName = null,
-                userId = null,
-                role = role,
-                apiBaseUrl = apiBaseUrl,
-            )
-            StaffFcmRegistrar.registerTokenForce(applicationContext, jwtOverride = token)
-            startActivity(Intent(this, StaffWebActivity::class.java))
-            finish()
+            val oldJwt = tokenStore.getToken()?.trim()?.takeIf { it.isNotBlank() }
+            fun openStaffHome() {
+                tokenStore.saveSession(
+                    token = token,
+                    tenantSlug = captured.tenantSlug.orEmpty(),
+                    loginId = loginId,
+                    userName = null,
+                    userId = null,
+                    role = role,
+                    apiBaseUrl = apiBaseUrl,
+                )
+                StaffFcmRegistrar.registerTokenForce(applicationContext, jwtOverride = token)
+                startActivity(Intent(this, StaffWebActivity::class.java))
+                finish()
+            }
+            if (oldJwt != null && oldJwt != token.trim()) {
+                StaffFcmRegistrar.unregisterBeforeAccountSwitch(applicationContext, oldJwt) {
+                    openStaffHome()
+                }
+            } else {
+                openStaffHome()
+            }
         }
     }
 

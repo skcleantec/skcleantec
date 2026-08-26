@@ -188,5 +188,45 @@ object StaffFcmRegistrar {
 
     }
 
+
+
+    /** 다른 아이디로 로그인하기 전 — 이전 계정 FCM 등록 해제(동일 기기 토큰 잔류 방지) */
+
+    fun unregisterBeforeAccountSwitch(
+
+        context: android.content.Context,
+
+        oldJwt: String,
+
+        onComplete: () -> Unit,
+
+    ) {
+
+        val jwt = oldJwt.trim()
+
+        if (jwt.isBlank()) {
+
+            onComplete()
+
+            return
+
+        }
+
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+
+            val token = task.result?.trim()?.takeIf { it.length >= 20 }
+
+            CoroutineScope(Dispatchers.Main).launch {
+
+                StaffPushApi.unregisterToken(context, token, jwtOverride = jwt)
+
+                onComplete()
+
+            }
+
+        }
+
+    }
+
 }
 

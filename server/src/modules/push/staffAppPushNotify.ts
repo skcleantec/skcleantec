@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma.js';
 import { CBISEO_STAFF_APP_PACKAGE } from '../../lib/cbiseoStaffAppPolicy.constants.js';
 import {
   buildGenericStaffAppPushPayload,
+  canReceiveHappyCallPush,
   staffAppPushDataRecord,
   type StaffAppPushPayload,
 } from '../../lib/staffAppPush.helpers.js';
@@ -87,6 +88,8 @@ export async function notifyStaffAppFcmRefresh(
       for (const row of chunk) {
         const payload = pushByUserId?.[row.userId] ?? generic;
         const kind = (payload.kind ?? 'generic') as StaffAppPushKind;
+        const userRole = filterCtx.userRolesById.get(row.userId);
+        if (kind === 'happy_call' && !canReceiveHappyCallPush(userRole)) continue;
         const userPref = filterCtx.userPrefsById.get(row.userId) ?? null;
         if (!shouldSendPushToUser(kind, filterCtx.tenantPolicy, userPref)) continue;
         messages.push({
