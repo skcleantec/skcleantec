@@ -6,8 +6,8 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
-import { clearToken, getToken, subscribeAdminAuth } from '../../stores/auth';
-import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
+import { getToken, subscribeAdminAuth } from '../../stores/auth';
+import { getTeamToken, setTeamToken } from '../../stores/teamAuth';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { notifyInquiriesSubNavBadgesRefresh } from '../../utils/adminInquiriesNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
@@ -23,6 +23,7 @@ import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
+import { performStaffLogout } from '../../utils/staffLogout';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import {
   useInboxRealtime,
@@ -223,6 +224,19 @@ export function AdminLayout() {
   useEffect(() => {
     navigateRef.current = navigate;
   });
+
+  const handleLogout = () => {
+    void performStaffLogout().finally(() => {
+      navigate('/login');
+    });
+  };
+
+  const handleSessionExpired = () => {
+    void performStaffLogout().finally(() => {
+      navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
+    });
+  };
+
   const goAdminHomeWithRefresh = useCallback(() => {
     if (isStandalonePwa()) {
       assignStaffHomePath('/admin/dashboard');
@@ -539,11 +553,11 @@ export function AdminLayout() {
           setEffectiveStaffAdmin(false);
           setMeUserId(null);
           setBillingDunningOpen(false);
-          clearToken();
-          clearTeamToken();
-          navigate('/login', {
-            replace: true,
-            state: { billingAccessBlocked: true, billingMessage: e.message },
+          void performStaffLogout().finally(() => {
+            navigate('/login', {
+              replace: true,
+              state: { billingAccessBlocked: true, billingMessage: e.message },
+            });
           });
           return;
         }
@@ -568,8 +582,7 @@ export function AdminLayout() {
           setIsTenantOwner(false);
           setIsSuperAdmin(false);
           setCanCrmSettings(false);
-          clearToken();
-          navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
+          handleSessionExpired();
           return;
         }
       })
@@ -737,12 +750,6 @@ export function AdminLayout() {
   const { connected: navWsConnected } = useInboxRealtime(adminToken, fetchNavBadges, Boolean(adminToken));
   /** 웹소켓 연결 시 폴링 끔, 끊기면 15초 폴백 */
   useVisibilityInterval(fetchNavBadges, navWsConnected ? 0 : 15000);
-
-  const handleLogout = () => {
-    clearToken();
-    clearTeamToken();
-    navigate('/login');
-  };
 
   const navClass = ({ isActive }: { isActive: boolean }) => adminGnbItemClass(isActive);
 
@@ -1112,11 +1119,7 @@ export function AdminLayout() {
                   setMeVehicleNumber(next.vehicleNumber);
                 }}
                 onLogout={handleLogout}
-                onSessionExpired={() => {
-                  clearToken();
-                  clearTeamToken();
-                  navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
-                }}
+                onSessionExpired={handleSessionExpired}
               />
             </div>
           </div>
@@ -1384,11 +1387,7 @@ export function AdminLayout() {
                 setMeVehicleNumber(next.vehicleNumber);
               }}
               onLogout={handleLogout}
-              onSessionExpired={() => {
-                clearToken();
-                clearTeamToken();
-                navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
-              }}
+              onSessionExpired={handleSessionExpired}
             />
           </div>
           </div>
@@ -1481,9 +1480,7 @@ export function AdminLayout() {
         token={adminToken}
         onSessionExpired={() => {
           setStagingDbImportModalOpen(false);
-          clearToken();
-          clearTeamToken();
-          navigate('/login', { replace: true, state: { sessionExpired: true } });
+          handleSessionExpired();
         }}
       />
       <BillingDunningModal
@@ -1512,11 +1509,7 @@ export function AdminLayout() {
               })
               .catch(() => {});
           }}
-          onSessionExpired={() => {
-            clearToken();
-            clearTeamToken();
-            navigate('/login', { replace: true, state: { sessionExpired: true } });
-          }}
+          onSessionExpired={handleSessionExpired}
         />
       ) : null}
       {adminToken && (

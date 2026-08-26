@@ -34,6 +34,8 @@ class CbiseoAppBridge(
 
     private val onSyncAuthToken: (String) -> Unit = {},
 
+    private val onNotifyStaffLogout: () -> Unit = {},
+
 ) {
 
     @JavascriptInterface
@@ -117,6 +119,18 @@ class CbiseoAppBridge(
     fun registerPushToken() {
 
         Handler(Looper.getMainLooper()).post { onRegisterPushToken() }
+
+    }
+
+
+
+    /** WebView 로그아웃 — FCM 서버 해제·TokenStore 정리 (localStorage 비우기 전 호출) */
+
+    @JavascriptInterface
+
+    fun notifyStaffLogout() {
+
+        Handler(Looper.getMainLooper()).post { onNotifyStaffLogout() }
 
     }
 

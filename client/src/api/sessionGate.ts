@@ -16,9 +16,8 @@
  * URL·라우트 유지 룰을 지키기 위해 현재 `pathname + search + hash`를 sessionStorage에
  * 임시 보관해 두고, 로그인 페이지가 `from`을 우선으로 복귀할 수 있도록 한다.
  */
-import { clearToken } from '../stores/auth';
-import { clearTeamToken } from '../stores/teamAuth';
 import { clearCrewToken } from '../stores/crewAuth';
+import { performStaffLogout } from '../utils/staffLogout';
 
 const RESUME_KEY = 'sk_resume_after_login';
 
@@ -90,37 +89,25 @@ export function notifyAuthRejected(
 
   rememberResume();
 
-  switch (actualScope) {
-    case 'admin':
-      clearToken();
-      break;
-    case 'team':
-      clearTeamToken();
-      break;
-    case 'crew':
-      clearCrewToken();
-      break;
-    default:
-      // 알 수 없으면 보수적으로 모두 비운다 (재로그인하면 됨)
-      clearToken();
-      clearTeamToken();
-      clearCrewToken();
-      break;
+  const redirectToLogin = () => {
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      setTimeout(() => {
+        if (window.location.pathname.startsWith('/login')) return;
+        window.location.replace('/login');
+      }, 60);
+    }
+  };
+
+  if (actualScope === 'crew') {
+    clearCrewToken();
+    redirectToLogin();
+    return;
   }
 
-  /**
-   * 라우트 가드가 토큰 변경을 감지해 자동으로 `/login`으로 보낸다.
-   * 다만 빈 화면처럼 가드 밖이라면 직접 이동시킨다.
-   */
-  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-    /**
-     * 라우터의 Navigate가 이 변화에 반응할 수 있도록 storage 이벤트가 먼저 흐르게 마이크로태스크 대기.
-     */
-    setTimeout(() => {
-      if (window.location.pathname.startsWith('/login')) return;
-      window.location.replace('/login');
-    }, 60);
-  }
+  void performStaffLogout().finally(() => {
+    if (actualScope === 'unknown') clearCrewToken();
+    redirectToLogin();
+  });
 }
 
 /**

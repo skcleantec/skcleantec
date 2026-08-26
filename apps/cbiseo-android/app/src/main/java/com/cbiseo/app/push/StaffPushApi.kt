@@ -34,10 +34,15 @@ object StaffPushApi {
         }.map { }
     }
 
-    suspend fun unregisterToken(context: Context, fcmToken: String? = null): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun unregisterToken(
+        context: Context,
+        fcmToken: String? = null,
+        jwtOverride: String? = null,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val store = TokenStore.get(context.applicationContext)
-            val jwt = store.getToken()?.trim().orEmpty()
+            val jwt = jwtOverride?.trim()?.takeIf { it.isNotBlank() }
+                ?: store.getToken()?.trim().orEmpty()
             val baseUrl = ApiEnvironment.normalize(store.getApiBaseUrl()) ?: ApiEnvironment.PRODUCTION_URL
             if (jwt.isBlank()) {
                 Log.w(TAG, "FCM unregister skipped: no JWT")

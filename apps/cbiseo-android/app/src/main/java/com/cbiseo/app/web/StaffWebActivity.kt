@@ -121,6 +121,7 @@ class StaffWebActivity : AppCompatActivity() {
                 }
             },
             onSyncAuthToken = { jwt -> tokenStore.updateJwt(jwt) },
+            onNotifyStaffLogout = { clearStaffSessionForWebLogout() },
         )
 
         val webView = binding.staffWebView
@@ -135,8 +136,8 @@ class StaffWebActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString().orEmpty()
                 if (StaffWebSessionSync.isStaffWebLoginUrl(url, apiBaseUrl)) {
-                    openLoginScreen(clearSession = true)
-                    return true
+                    clearStaffSessionForWebLogout()
+                    return false
                 }
                 if (url.startsWith("http://") || url.startsWith("https://")) {
                     if (StaffWebSessionSync.urlMatchesApiBase(url, apiBaseUrl)) return false
@@ -144,6 +145,16 @@ class StaffWebActivity : AppCompatActivity() {
                     return true
                 }
                 return true
+            }
+
+            override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                super.doUpdateVisitedHistory(view, url, isReload)
+                val current = url ?: return
+                if (!sessionBootstrapDone) return
+                if (!StaffWebSessionSync.urlMatchesApiBase(current, apiBaseUrl)) return
+                if (StaffWebSessionSync.isStaffWebLoginUrl(current, apiBaseUrl)) {
+                    clearStaffSessionForWebLogout()
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -161,7 +172,7 @@ class StaffWebActivity : AppCompatActivity() {
                 if (!StaffWebSessionSync.urlMatchesApiBase(current, apiBaseUrl)) return
 
                 if (StaffWebSessionSync.isStaffWebLoginUrl(current, apiBaseUrl)) {
-                    openLoginScreen(clearSession = true)
+                    clearStaffSessionForWebLogout()
                     return
                 }
 
@@ -195,7 +206,9 @@ class StaffWebActivity : AppCompatActivity() {
 
     /** Firebase 권장: 네이티브에서 FCM 토큰 + POST /register (WebView JWT 동기화 후) */
     private fun registerPushFromWebSession(showToast: Boolean) {
+        if (!staffSessionActive) return
         syncSessionFromWebView { jwt ->
+            if (jwt.isNullOrBlank()) return@syncSessionFromWebView
             StaffPushRegistration.registerNow(
                 context = applicationContext,
                 source = "webSession",
@@ -219,9 +232,21 @@ class StaffWebActivity : AppCompatActivity() {
             val token = captured?.token?.trim()?.takeIf { it.isNotBlank() }
             if (!token.isNullOrBlank()) {
                 tokenStore.updateJwt(token)
+                onReady(token)
+            } else {
+                // WebView JWT 없음 — TokenStore 잔여 JWT로 재등록하지 않음
+                onReady(null)
             }
-            onReady(token ?: tokenStore.getToken())
         }
+    }
+
+    /** SPA 로그아웃·/login — FCM 해제 후 WebView 로그인 화면 유지 */
+    private fun clearStaffSessionForWebLogout() {
+        if (!staffSessionActive && tokenStore.getToken().isNullOrBlank()) return
+        staffSessionActive = false
+        val jwt = tokenStore.getToken()?.trim()
+        StaffFcmRegistrar.unregisterToken(applicationContext, jwtOverride = jwt)
+        tokenStore.clearSession()
     }
 
     /** Firebase: FCM 토큰은 알림 권한과 무관 — 로그인 세션 있으면 항상 서버 등록 */
@@ -292,10 +317,10 @@ class StaffWebActivity : AppCompatActivity() {
     private fun openLoginScreen(clearSession: Boolean) {
         if (openingLoginScreen || isFinishing) return
         openingLoginScreen = true
-        staffSessionActive = false
         if (clearSession) {
-            StaffFcmRegistrar.unregisterToken(applicationContext)
-            tokenStore.clearSession()
+            clearStaffSessionForWebLogout()
+        } else {
+            staffSessionActive = false
         }
         startActivity(
             Intent(this, LoginActivity::class.java).apply {
