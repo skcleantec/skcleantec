@@ -186,6 +186,28 @@ export function selectionIdsFromSelections(sel: ProfessionalOptionSelection[]): 
   return sel.map((s) => s.id);
 }
 
+/** 고객 발주 제출 스냅샷 fields.professionalOptionIds */
+export function extractProfessionalOptionIdsFromSubmissionSnapshot(snapshot: unknown): unknown {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const fields = (snapshot as { fields?: unknown }).fields;
+  if (!fields || typeof fields !== 'object') return null;
+  return (fields as { professionalOptionIds?: unknown }).professionalOptionIds ?? null;
+}
+
+/** Inquiry 저장값 우선, 비어 있으면 발주서 제출 스냅샷에서 복원 */
+export function resolveEffectiveProfessionalOptionIdsFromInquiry(item: {
+  professionalOptionIds?: unknown;
+  orderForm?: { customerSubmissionSnapshot?: unknown } | null;
+}): unknown {
+  const direct = parseProfessionalOptionSelections(item.professionalOptionIds);
+  if (direct.length > 0) return item.professionalOptionIds;
+  const fromSnap = extractProfessionalOptionIdsFromSubmissionSnapshot(
+    item.orderForm?.customerSubmissionSnapshot,
+  );
+  if (fromSnap != null && parseProfessionalOptionSelections(fromSnap).length > 0) return fromSnap;
+  return item.professionalOptionIds;
+}
+
 export function resolveSelectionUnitAmount(
   sel: ProfessionalOptionSelection,
   catalog: ProfessionalSpecialtyOption[]

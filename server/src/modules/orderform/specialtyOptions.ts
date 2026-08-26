@@ -45,6 +45,30 @@ export function parseProfessionalOptionIdsRaw(body: unknown): string[] {
   return parseProfessionalOptionSelectionsRaw(body).map((s) => s.id);
 }
 
+/** 고객 발주 제출 스냅샷 fields.professionalOptionIds */
+export function extractProfessionalOptionIdsFromSubmissionSnapshot(snapshot: unknown): unknown {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const fields = (snapshot as { fields?: unknown }).fields;
+  if (!fields || typeof fields !== 'object') return null;
+  return (fields as { professionalOptionIds?: unknown }).professionalOptionIds ?? null;
+}
+
+/** Inquiry 저장값 우선, 비어 있으면 발주서 제출 스냅샷에서 복원 */
+export function resolveEffectiveProfessionalOptionIds(row: {
+  professionalOptionIds: unknown;
+  orderForm?: { customerSubmissionSnapshot?: unknown } | null;
+}): unknown {
+  const direct = parseProfessionalOptionSelectionsRaw(row.professionalOptionIds);
+  if (direct.length > 0) return row.professionalOptionIds;
+  const fromSnap = extractProfessionalOptionIdsFromSubmissionSnapshot(
+    row.orderForm?.customerSubmissionSnapshot,
+  );
+  if (fromSnap != null && parseProfessionalOptionSelectionsRaw(fromSnap).length > 0) {
+    return fromSnap;
+  }
+  return row.professionalOptionIds;
+}
+
 /** 루트에서의 깊이: 루트=0, 직계=1, 손자=2 … */
 export async function professionalOptionDepthFromRoot(
   prisma: PrismaClient,
