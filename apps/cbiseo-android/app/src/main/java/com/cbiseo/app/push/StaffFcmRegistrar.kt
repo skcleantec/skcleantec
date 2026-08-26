@@ -164,9 +164,11 @@ object StaffFcmRegistrar {
 
 
 
-    fun unregisterToken(context: android.content.Context) {
+    fun unregisterToken(context: android.content.Context, jwtOverride: String? = null) {
 
-        val jwt = TokenStore.get(context).getToken()?.trim().orEmpty()
+        val jwt = jwtOverride?.trim()?.takeIf { it.isNotBlank() }
+
+            ?: TokenStore.get(context).getToken()?.trim().orEmpty()
 
         if (jwt.isBlank()) return
 
@@ -176,7 +178,7 @@ object StaffFcmRegistrar {
 
             CoroutineScope(Dispatchers.Main).launch {
 
-                StaffPushApi.unregisterToken(context, token)
+                StaffPushApi.unregisterToken(context, token, jwtOverride = jwt)
 
                 StaffPushTokenCache.clear(context)
 

@@ -17,6 +17,8 @@ declare global {
       getPushRegisterStatus?: () => string;
       getCachedFcmToken?: () => string;
       getAppVersionCode?: () => number;
+      /** WebView 로그아웃 — 네이티브 FCM·TokenStore 정리 */
+      notifyStaffLogout?: () => void;
     };
     __cbiseoNativeGoogleLogin?: (idToken: string) => void;
     __cbiseoNativeGoogleLoginError?: (message: string) => void;
@@ -61,6 +63,16 @@ export function registerCbiseoStaffPushToken(): void {
   if (typeof window === 'undefined') return;
   try {
     window.CbiseoApp?.registerPushToken?.();
+  } catch {
+    /* WebView 브릿지 미연결 */
+  }
+}
+
+/** 로그아웃 직전 — 네이티브 TokenStore JWT로 FCM 해제 (웹 localStorage 비우기 전 호출) */
+export function notifyCbiseoStaffLogout(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.CbiseoApp?.notifyStaffLogout?.();
   } catch {
     /* WebView 브릿지 미연결 */
   }

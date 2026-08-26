@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
-import { getToken, clearToken } from '../../stores/auth';
-import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
+import { getToken } from '../../stores/auth';
+import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { getTeamMe, getTeamNavBadges, type TeamViewerMe } from '../../api/team';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
@@ -31,6 +31,7 @@ import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation';
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
+import { performStaffLogout } from '../../utils/staffLogout';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
@@ -441,6 +442,23 @@ export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const handleLogout = () => {
+    void performStaffLogout().finally(() => {
+      navigate('/login');
+    });
+  };
+
+  const handleSessionExpired = () => {
+    void performStaffLogout().finally(() => {
+      if (isCbiseoStaffNativeApp()) {
+        window.location.replace('/login');
+        return;
+      }
+      navigate('/login', { replace: true, state: { sessionExpired: true } });
+    });
+  };
+
   useStaffAppPushNavigation(Boolean(teamToken));
   useEffect(() => {
     if (isCbiseoStaffNativeApp()) {
@@ -632,8 +650,7 @@ export function TeamLayout() {
         setTenantSlug(null);
         setTeamTrainingAvailable(false);
         if (isAuthSessionExpiredError(e)) {
-          clearTeamToken();
-          navigate('/login', { replace: true, state: { sessionExpired: true } });
+          handleSessionExpired();
         }
       });
   }, [teamToken, navigate, location.search, capturePreviewKey, isPreviewFetchStale]);
@@ -698,17 +715,6 @@ export function TeamLayout() {
     useCallback((p) => setRosterAckBanner(p), []),
     Boolean(teamToken),
   );
-
-  const handleLogout = () => {
-    const a = getToken();
-    const t = getTeamToken();
-    const sameDual = Boolean(a && t && a === t);
-    clearTeamToken();
-    if (sameDual) {
-      clearToken();
-    }
-    navigate('/login');
-  };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `${MOBILE_GNB_ITEM_BASE} ${
@@ -993,10 +999,7 @@ export function TeamLayout() {
                         : null
                     }
                     onLogout={handleLogout}
-                    onSessionExpired={() => {
-                      clearTeamToken();
-                      navigate('/login', { replace: true, state: { sessionExpired: true } });
-                    }}
+                    onSessionExpired={handleSessionExpired}
                   />
                 </>
               )}
@@ -1134,14 +1137,7 @@ export function TeamLayout() {
             setProfileOnboardingRequired(false);
             reloadTeamMe();
           }}
-          onSessionExpired={() => {
-            clearTeamToken();
-            if (isCbiseoStaffNativeApp()) {
-              window.location.replace('/login');
-              return;
-            }
-            navigate('/login', { replace: true, state: { sessionExpired: true } });
-          }}
+          onSessionExpired={handleSessionExpired}
         />
       ) : null}
       <TeamDesktopNavFavoritesAccess
