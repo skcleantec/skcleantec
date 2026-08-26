@@ -16,4 +16,8 @@ object StaffRoleResolver {
         role == "TEAM_LEADER" ||
             role == "EXTERNAL_PARTNER" ||
             usesAdminToken(role)
+
+    /** 해피콜 FCM — 팀장·타업체 담당만 */
+    fun canReceiveHappyCallPush(role: String?): Boolean =
+        role == "TEAM_LEADER" || role == "EXTERNAL_PARTNER"
 }

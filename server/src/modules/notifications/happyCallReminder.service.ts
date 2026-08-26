@@ -5,7 +5,7 @@ import {
   isHappyCallInHourlyReminderWindow,
   isHappyCallOverdue,
 } from '../inquiries/happyCall.helpers.js';
-import { buildHappyCallPushPayload } from '../../lib/staffAppPush.helpers.js';
+import { buildHappyCallPushPayload, canReceiveHappyCallPush } from '../../lib/staffAppPush.helpers.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import {
   getTenantNotificationPolicy,
@@ -56,6 +56,16 @@ export async function runHappyCallReminderJob(opts?: {
       },
     });
 
+    const leaderIds = [...new Set(assignments.map((a) => a.teamLeaderId))];
+    const leaderRows =
+      leaderIds.length > 0
+        ? await prisma.user.findMany({
+            where: { tenantId: tenant.id, id: { in: leaderIds } },
+            select: { id: true, role: true },
+          })
+        : [];
+    const leaderRoleById = new Map(leaderRows.map((u) => [u.id, u.role]));
+
     for (const row of assignments) {
       const inv = row.inquiry;
       if (!inv?.preferredDate) continue;
@@ -67,6 +77,10 @@ export async function runHappyCallReminderJob(opts?: {
       }
 
       const leaderId = row.teamLeaderId;
+      if (!canReceiveHappyCallPush(leaderRoleById.get(leaderId))) {
+        skipped += 1;
+        continue;
+      }
       const windowStart = happyCallReminderWindowStart(inv.preferredDate);
       const hourIndex = Math.floor((now.getTime() - windowStart.getTime()) / 3_600_000);
       if (hourIndex < 0) {
