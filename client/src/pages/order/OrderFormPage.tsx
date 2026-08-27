@@ -198,6 +198,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     return resolveOrderFormTokenFromLocation() ?? routeToken ?? '';
   }, [routeToken]);
   const isEditor = Boolean(editor);
+  /** 고객 self-service 발주서만 청소일·시간대 동의 모달·consent (마케터 발급·선입력 작성 제외) */
+  const customerScheduleAckEnabled = !isEditor;
   const isCreate = Boolean(editor?.create);
   const isInline = Boolean(editor?.inline);
   const skOpsUi = useMemo(
@@ -371,6 +373,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const submitAfterValidationRef = useRef<(() => Promise<void>) | null>(null);
   const submitFormElRef = useRef<HTMLFormElement | null>(null);
   const resumeSubmitAfterAckRef = useRef(false);
+  /** 제출하기 경로에서 연 ACK만 true — 날짜·시간 선택 동의만으로는 form submit 재개 금지 */
+  const submitResumeAfterServiceDateAckRef = useRef(false);
+  const submitResumeAfterTimeSlotAckRef = useRef(false);
   const [serviceDateConsent, setServiceDateConsent] = useState<{ at: string; date: string } | null>(
     null,
   );
@@ -484,11 +489,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   }, [profSelectionIds, professionalOptions]);
 
   const cancelTimeSlotAck = useCallback(() => {
+    submitResumeAfterTimeSlotAckRef.current = false;
     setPendingTimeSlot(null);
     setTimeSlotAckOpen(false);
   }, []);
 
   const cancelServiceDateAck = useCallback(() => {
+    submitResumeAfterServiceDateAckRef.current = false;
     setPendingServiceDate(null);
     setServiceDateAckOpen(false);
     setServiceDateConsent(null);
@@ -503,11 +510,22 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
     setPendingServiceDate(null);
     setServiceDateAckOpen(false);
-    resumeSubmitAfterAckRef.current = true;
+    if (submitResumeAfterServiceDateAckRef.current) {
+      submitResumeAfterServiceDateAckRef.current = false;
+      resumeSubmitAfterAckRef.current = true;
+    }
   }, [pendingServiceDate]);
 
   const handleCustomerPreferredDateChange = useCallback(
     (v: string) => {
+      if (!customerScheduleAckEnabled) {
+        setForm((f) => ({
+          ...f,
+          preferredDate: v,
+          preferredTime: v.trim() ? '' : '',
+        }));
+        return;
+      }
       if (!v.trim()) {
         setServiceDateConsent(null);
         setPendingServiceDate(null);
@@ -522,7 +540,36 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       setPendingServiceDate(v);
       setServiceDateAckOpen(true);
     },
-    [serviceDateConsent?.date],
+    [customerScheduleAckEnabled, serviceDateConsent?.date],
+  );
+
+  const handleEditorPreferredTimeChange = useCallback((raw: string) => {
+    if (raw === '') {
+      setForm((f) => ({ ...f, preferredTime: '' }));
+      return;
+    }
+    if (!isValidOrderTimeSlot(raw)) return;
+    setForm((f) => ({ ...f, preferredTime: raw }));
+  }, []);
+
+  const handleCustomerPreferredTimeChange = useCallback(
+    (raw: string) => {
+      if (!customerScheduleAckEnabled) {
+        handleEditorPreferredTimeChange(raw);
+        return;
+      }
+      if (raw === '') {
+        setTimeSlotConsent(null);
+        setForm((f) => ({ ...f, preferredTime: '' }));
+        return;
+      }
+      if (!isValidOrderTimeSlot(raw)) return;
+      if (raw === form.preferredTime) return;
+      setTimeSlotConsent(null);
+      setPendingTimeSlot(raw);
+      setTimeSlotAckOpen(true);
+    },
+    [customerScheduleAckEnabled, form.preferredTime, handleEditorPreferredTimeChange],
   );
 
   const confirmAreaBasisAck = useCallback(() => {
@@ -559,17 +606,32 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
     setPendingTimeSlot(null);
     setTimeSlotAckOpen(false);
-    resumeSubmitAfterAckRef.current = true;
+    if (submitResumeAfterTimeSlotAckRef.current) {
+      submitResumeAfterTimeSlotAckRef.current = false;
+      resumeSubmitAfterAckRef.current = true;
+    }
   }, [pendingTimeSlot]);
 
   useEffect(() => {
+    if (!customerScheduleAckEnabled) return;
     if (!resumeSubmitAfterAckRef.current) return;
     resumeSubmitAfterAckRef.current = false;
     const t = window.setTimeout(() => {
       submitFormElRef.current?.requestSubmit();
     }, 0);
     return () => window.clearTimeout(t);
-  }, [serviceDateConsent, timeSlotConsent]);
+  }, [customerScheduleAckEnabled, serviceDateConsent, timeSlotConsent]);
+
+  useEffect(() => {
+    if (customerScheduleAckEnabled) return;
+    setServiceDateAckOpen(false);
+    setTimeSlotAckOpen(false);
+    setPendingServiceDate(null);
+    setPendingTimeSlot(null);
+    submitResumeAfterServiceDateAckRef.current = false;
+    submitResumeAfterTimeSlotAckRef.current = false;
+    resumeSubmitAfterAckRef.current = false;
+  }, [customerScheduleAckEnabled]);
 
   useEffect(() => {
     if (!timeSlotAckOpen) return;
@@ -1162,23 +1224,27 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       }
 
       if (
+        customerScheduleAckEnabled &&
         !scheduleLockedByAdmin &&
         stdFieldOn('preferredDate') &&
         useDate &&
         normalizeOrderFormYmd(serviceDateConsent?.date) !== useDate
       ) {
+        submitResumeAfterServiceDateAckRef.current = true;
         setPendingServiceDate(useDate);
         setServiceDateAckOpen(true);
         setSubmitting(false);
         return;
       }
       if (
+        customerScheduleAckEnabled &&
         !scheduleLockedByAdmin &&
         stdFieldOn('preferredTime') &&
         useTime &&
         isValidOrderTimeSlot(useTime) &&
         timeSlotConsent?.slot !== useTime
       ) {
+        submitResumeAfterTimeSlotAckRef.current = true;
         setPendingTimeSlot(useTime as OrderTimeSlot);
         setTimeSlotAckOpen(true);
         setSubmitting(false);
@@ -1189,13 +1255,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       const submitConsents: OrderFormSubmissionConsents = {
         guideTerms: guideTermsConsent ? { agreedAt: guideTermsConsent.at } : undefined,
       };
-      if (!scheduleLockedByAdmin && stdFieldOn('preferredDate') && serviceDateConsent) {
+      if (customerScheduleAckEnabled && !scheduleLockedByAdmin && stdFieldOn('preferredDate') && serviceDateConsent) {
         submitConsents.serviceDate = {
           agreedAt: serviceDateConsent.at,
           preferredDate: serviceDateConsent.date,
         };
       }
-      if (!scheduleLockedByAdmin && stdFieldOn('preferredTime') && timeSlotConsent) {
+      if (customerScheduleAckEnabled && !scheduleLockedByAdmin && stdFieldOn('preferredTime') && timeSlotConsent) {
         submitConsents.timeSlot = {
           agreedAt: timeSlotConsent.at,
           preferredTime: timeSlotConsent.slot,
@@ -2114,11 +2180,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <YmdSelect
                 className={inputCls}
                 value={form.preferredDate}
-                onChange={
-                  isEditor
-                    ? (v) => setForm((f) => ({ ...f, preferredDate: v }))
-                    : handleCustomerPreferredDateChange
-                }
+                onChange={handleCustomerPreferredDateChange}
                 minYmd={kstTodayYmd()}
                 idPrefix="orderform-pref"
                 allowEmpty
@@ -2153,19 +2215,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <select
                 className={inputCls}
                 value={form.preferredTime}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === '') {
-                    setTimeSlotConsent(null);
-                    setForm((f) => ({ ...f, preferredTime: '' }));
-                    return;
-                  }
-                  if (!isValidOrderTimeSlot(v)) return;
-                  if (v === form.preferredTime) return;
-                  setTimeSlotConsent(null);
-                  setPendingTimeSlot(v);
-                  setTimeSlotAckOpen(true);
-                }}
+                onChange={(e) => handleCustomerPreferredTimeChange(e.target.value)}
               >
                 <option value="">선택하기</option>
                 {timeSlotOptions.map((o) => (
@@ -2946,7 +2996,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         ) : null}
 
-        {serviceDateAckOpen && pendingServiceDate ? (
+        {customerScheduleAckEnabled && serviceDateAckOpen && pendingServiceDate ? (
           <div
             className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
             role="dialog"
@@ -3089,7 +3139,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         ) : null}
 
-        {timeSlotAckOpen && pendingTimeSlot ? (
+        {customerScheduleAckEnabled && timeSlotAckOpen && pendingTimeSlot ? (
           <div
             className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
             role="dialog"
