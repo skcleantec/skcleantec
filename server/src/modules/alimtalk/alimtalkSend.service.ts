@@ -8,7 +8,7 @@ import {
   type AlimtalkTemplateCode,
 } from '../../lib/alimtalkPolicy.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
-import { readSolapiConfig, sendSolapiAlimtalk } from './alimtalkSolapi.client.js';
+import { describeSolapiConfigGap, readSolapiConfig, sendSolapiAlimtalk } from './alimtalkSolapi.client.js';
 import {
   resolveAlimtalkCustomerContextFromInquiry,
   resolveAlimtalkCustomerContextFromOrderForm,
@@ -68,7 +68,7 @@ async function executeAlimtalkSend(params: {
 
   const cfg = readSolapiConfig();
   if (!cfg) {
-    return { ok: false, error: '솔라피 발송 설정이 완료되지 않았습니다.' };
+    return { ok: false, error: describeSolapiConfigGap() ?? '솔라피 발송 설정이 완료되지 않았습니다.' };
   }
 
   const pendingLog = await prisma.alimtalkSendLog.create({

@@ -41,6 +41,17 @@ export function readSolapiConfig(): {
   return { apiKey, apiSecret, pfId, from };
 }
 
+/** Railway·로컬 `server/.env`에 넣을 SOLAPI_* 누락 항목 안내 */
+export function describeSolapiConfigGap(): string | null {
+  const missing: string[] = [];
+  if (!process.env.SOLAPI_API_KEY?.trim()) missing.push('SOLAPI_API_KEY');
+  if (!process.env.SOLAPI_API_SECRET?.trim()) missing.push('SOLAPI_API_SECRET');
+  if (!process.env.SOLAPI_KAKAO_PFID?.trim()) missing.push('SOLAPI_KAKAO_PFID');
+  if (!process.env.SOLAPI_FROM_NUMBER?.trim()) missing.push('SOLAPI_FROM_NUMBER');
+  if (missing.length === 0) return null;
+  return `솔라피 발송 설정이 완료되지 않았습니다. 서버 환경변수를 확인해 주세요: ${missing.join(', ')}`;
+}
+
 const ENV_TEMPLATE_MAP: Record<AlimtalkTemplateCode, string> = {
   CBISEO_CUST_ORDER_LINK: 'SOLAPI_ALIMTALK_TEMPLATE_ORDER_LINK',
   CBISEO_CUST_ORDER_DONE: 'SOLAPI_ALIMTALK_TEMPLATE_ORDER_DONE',

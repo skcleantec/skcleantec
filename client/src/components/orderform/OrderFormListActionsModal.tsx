@@ -56,6 +56,8 @@ function ActionSection({ title, children }: { title: string; children: React.Rea
 export function OrderFormListActionsModal(props: {
   order: OrderForm;
   resendBusy: boolean;
+  alimtalkBusy?: boolean;
+  showAlimtalk?: boolean;
   onClose: () => void;
   onPreviewMessage: () => void;
   onPreviewLink: () => void;
@@ -64,12 +66,15 @@ export function OrderFormListActionsModal(props: {
   onPhotos: () => void;
   onSubmissionViewer: () => void;
   onResendEmail: () => void;
+  onSendAlimtalk?: () => void;
   onDelete: () => void;
   canResendEmail: boolean;
 }) {
   const {
     order,
     resendBusy,
+    alimtalkBusy = false,
+    showAlimtalk = false,
     onClose,
     onPreviewMessage,
     onPreviewLink,
@@ -78,6 +83,7 @@ export function OrderFormListActionsModal(props: {
     onPhotos,
     onSubmissionViewer,
     onResendEmail,
+    onSendAlimtalk,
     onDelete,
     canResendEmail,
   } = props;
@@ -109,6 +115,22 @@ export function OrderFormListActionsModal(props: {
       tone: 'default',
       onClick: closeThen(onOpenNewTab),
     },
+    ...(showAlimtalk && onSendAlimtalk
+      ? [
+          {
+            key: 'alimtalk',
+            label: alimtalkBusy ? '알림톡 발송 중…' : '발주서 알림톡 발송',
+            description: order.customerPhone?.trim()
+              ? '발주 링크 안내 알림톡 1건 (수동)'
+              : '고객 연락처가 없어 발송할 수 없습니다',
+            tone: 'warning' as const,
+            disabled: alimtalkBusy || !order.customerPhone?.trim(),
+            onClick: () => {
+              onSendAlimtalk();
+            },
+          },
+        ]
+      : []),
   ];
 
   const manage: ActionItem[] = [

@@ -310,6 +310,7 @@ export function AdminOrderFormPage() {
   // 발급 폼 — 선택 양식의 폼을 인라인으로 렌더(OrderFormPage create 모드)
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const [alimtalkSending, setAlimtalkSending] = useState(false);
+  const [alimtalkListBusyId, setAlimtalkListBusyId] = useState<string | null>(null);
   const [alimtalkHint, setAlimtalkHint] = useState('');
   const hasAlimtalk = useHasTenantFeature('mod_alimtalk');
   /** 발급 완료 후 인라인 폼을 초기화하기 위한 remount 키 */
@@ -589,13 +590,20 @@ export function AdminOrderFormPage() {
     );
   };
 
-  const handleSendOrderLinkAlimtalk = async () => {
-    if (!token || !newOrder) return;
-    setAlimtalkSending(true);
-    setAlimtalkHint('');
+  const handleSendOrderLinkAlimtalk = async (order: OrderForm, opts?: { closeListModal?: boolean }) => {
+    if (!token) return;
+    const setBusy = (busy: boolean) => {
+      if (opts?.closeListModal) {
+        setAlimtalkListBusyId(busy ? order.id : null);
+      } else {
+        setAlimtalkSending(busy);
+      }
+    };
+    setBusy(true);
+    if (!opts?.closeListModal) setAlimtalkHint('');
     try {
-      const result = await sendOrderFormOrderLinkAlimtalk(token, newOrder.id, {
-        toPhone: newOrder.customerPhone,
+      const result = await sendOrderFormOrderLinkAlimtalk(token, order.id, {
+        toPhone: order.customerPhone,
       });
       const chargeLabel =
         result.chargeStatus === 'FREE'
@@ -603,11 +611,17 @@ export function AdminOrderFormPage() {
           : result.chargeStatus === 'PAID'
             ? '선불 차감'
             : result.chargeStatus;
-      setAlimtalkHint(`알림톡을 발송했습니다. (${chargeLabel})`);
+      const msg = `알림톡을 발송했습니다. (${chargeLabel})`;
+      if (opts?.closeListModal) {
+        alert(msg);
+        setListActionsOrder(null);
+      } else {
+        setAlimtalkHint(msg);
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : '알림톡 발송에 실패했습니다.');
     } finally {
-      setAlimtalkSending(false);
+      setBusy(false);
     }
   };
 
@@ -904,7 +918,7 @@ export function AdminOrderFormPage() {
                     showAlimtalk={hasAlimtalk}
                     alimtalkSending={alimtalkSending}
                     alimtalkHint={alimtalkHint}
-                    onSendAlimtalk={handleSendOrderLinkAlimtalk}
+                    onSendAlimtalk={hasAlimtalk && newOrder ? () => void handleSendOrderLinkAlimtalk(newOrder) : undefined}
                   />
                 </div>
               ) : null}
@@ -1375,6 +1389,8 @@ export function AdminOrderFormPage() {
         <OrderFormListActionsModal
           order={listActionsOrderResolved}
           resendBusy={resendEmailBusyId === listActionsOrderResolved.id}
+          alimtalkBusy={alimtalkListBusyId === listActionsOrderResolved.id}
+          showAlimtalk={hasAlimtalk}
           canResendEmail={canResendOrderFormSubmissionEmail(listActionsOrderResolved)}
           onClose={() => setListActionsOrder(null)}
           onPreviewMessage={() =>
@@ -1391,6 +1407,9 @@ export function AdminOrderFormPage() {
             })
           }
           onResendEmail={() => void handleResendSubmissionEmail(listActionsOrderResolved)}
+          onSendAlimtalk={() =>
+            void handleSendOrderLinkAlimtalk(listActionsOrderResolved, { closeListModal: true })
+          }
           onDelete={() => openDeleteModal(listActionsOrderResolved)}
         />
       ) : null}
