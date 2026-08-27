@@ -1,5 +1,5 @@
 ---
-description: 인프라 현황·호스팅/DB 방향 — Railway(싱가포르 이전 예정)·Supabase 서울 보조 백업·향후 한국 근접 리전
+description: 인프라 현황·호스팅/DB 방향 — Railway 싱가포르(운영)·Supabase 서울 보조 백업·향후 한국 근접 리전
 alwaysApply: true
 ---
 
@@ -11,8 +11,8 @@ alwaysApply: true
 ## 배경 (왜 이렇게 가는가)
 
 - 제품: **여러 청소 업체가 쓰는 멀티테넌트 SaaS**(단일 PostgreSQL + `tenant_id` 행 격리). 이 구조는 초기~중기 SaaS 표준이며 당분간 유지한다.
-- 운영 중 Railway 에서 **간헐적 지연·페이지 미표시** 이슈를 겪음. 원인은 (1) 호스팅 리전 거리, (2) 코드 병목(예: 과거 대시보드 unbounded 쿼리 504 — 해결됨), (3) 앱·DB 결합 중 복합.
-- 현재 Railway 리전은 **US 계열**. 한국 사용자 기준으로 느리다.
+- 운영 중 Railway 에서 **간헐적 지연·페이지 미표시** 이슈를 겪음. 원인은 (1) 호스팅 리전 거리(과거 US → **현재 싱가포르 이전 완료**), (2) 코드 병목(예: 과거 대시보드 unbounded 쿼리 504 — 해결됨), (3) 앱·DB 결합 중 복합.
+- **현재 운영 Railway 리전은 싱가포르(Southeast Asia)** — 앱·Postgres 동일 리전. 한국 왕복 ~70~90ms 수준(US 대비 개선). 더 낮추려면 Fly.io 도쿄·국내 IaaS 검토(아래 2차).
 
 ## 현재 결정된 방향
 
@@ -21,9 +21,9 @@ alwaysApply: true
    - Railway 가 다운되면 `DATABASE_URL` 만 Supabase 로 바꿔 전환. 자동화: `.github/workflows/db-sync-supabase.yml`. 가이드: `docs/DB_BACKUP_SUPABASE.md`.
    - DB 는 항상 **표준 PostgreSQL + `DATABASE_URL` 한 줄**로만 접속 → 어디로든 `pg_dump`/`pg_restore` 로 이전 가능하게 유지(벤더 종속 회피). 복사 스크립트: `scripts/copy-prod-db-to-staging.ps1`.
 
-2. **속도 개선 — 1차: Railway 싱가포르 이전 (예정)**
-   - 앱 + Postgres 를 **둘 다** Railway **싱가포르(Southeast Asia)** 로 옮긴다(앱↔DB 같은 리전 필수, 한쪽만 옮기면 역효과).
-   - 싱가포르가 Railway 리전 중 한국에 가장 가깝다(한국 왕복 ~70~90ms vs US ~130~180ms). 절차: `docs/RAILWAY_SINGAPORE_MIGRATION.md`.
+2. **속도 개선 — 1차: Railway 싱가포르 이전 (적용 완료)**
+   - 앱 + Postgres **Railway 싱가포르(Southeast Asia)** 운영 중(앱↔DB 같은 리전).
+   - 이전 절차·롤백 참고: `docs/RAILWAY_SINGAPORE_MIGRATION.md`. **남은 지연은 주로 API·페이로드·클라이언트 병목** — 리전만으로 해결되지 않음.
 
 3. **속도 개선 — 2차: 더 빠르게 필요 시 (검토)**
    - Railway 에는 한국·일본 리전이 없다. 더 빠르게 하려면 Railway 를 떠난다:

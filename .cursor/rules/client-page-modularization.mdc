@@ -1,0 +1,64 @@
+---
+description: 클라이언트 pages — 거대 페이지 금지·오케스트레이션만 (필수)
+alwaysApply: true
+---
+
+# 클라이언트 페이지 — 모듈화 (서버 원칙의 클라이언트 적용)
+
+> **서버:** `.cursor/rules/project-standards.mdc` §2 — 한 파일·한 라우트에 도메인 로직 몰아넣기 금지  
+> **본 룰:** 동일 원칙을 **`client/src/pages/**`** 에 명시. **「페이지 = 화면 전부」** 로 두면 접수·스케줄·급여처럼 **5천 줄**까지 커진다.
+
+## 절대 원칙
+
+1. **`pages/*.tsx`는 오케스트레이션만** — URL·필터 state wiring, 데이터 fetch 트igger, 레이아웃·Suspense. 표/카드/모달 **마크업·비즈니스 UI는 하위 컴포넌트·훅**.
+2. **한 페이지 파일에 새 기능 100줄 이상 JSX/로직을 연속 추가하지 않는다.** 추가 전 **추출할 파일 경로**를 정한 뒤 작업한다.
+3. **신규 화면**도 처음부터 `Page` + `components/<domain>/` + `hooks/useXxx.ts` + `utils/` 구조로 만든다. 「나중에 쪼개기」 금지.
+
+## 줄 수 가이드 (에이전트·PR 자가 점검)
+
+| 구분 | 권장 | **이상 시 (신규 코드 추가 전)** |
+|------|------|----------------------------------|
+| `client/src/pages/**/*.tsx` | **~600줄 이하** | 800줄 넘으면 **같은 PR에서** 목록·필터·모달 중 하나를 반드시 분리 |
+| `client/src/components/**/XxxModal.tsx` | **~800줄 이하** | 1,000줄 넘으면 섹션별 파일로 분리 (`inquiry-edit/` 패턴) |
+
+- **레거시 거대 파일**(접수·스케줄·급여·ScheduleInquiryDetailModal): **기능 동작을 깨지 않는 한** 신규 코드는 **페이지에 넣지 않고** 인접 모듈에만 추가. 대규모 분할 리팩터는 **별도 작업·충분한 회귀 테스트** 후.
+
+## 어디에 두나
+
+| 역할 | 위치 |
+|------|------|
+| 목록 표·모바일 카드 | `components/<domain>/` (예: `InquiryListTable.tsx`) |
+| 필터·URL 동기화 | `hooks/useInquiryListFilters.ts` 등 |
+| API 호출·silent refresh | `hooks/` + 기존 `api/` |
+| 편집 폼 섹션 | `components/admin/inquiry-edit/` 처럼 **도메인 폴더** |
+| 페이지 | `fetch` 조합, `useSearchParams`, GNB 연동, children 배치만 |
+
+## 금지 패턴
+
+- 페이지 안 **수천 줄 `items.map` 인라인 JSX** — row는 `memo`된 `XxxListRow` 컴포넌트.
+- **같은 모달을 pages에서 eager import** — 스케줄처럼 `lazy()` + `Suspense` (접수 목록과 패턴 맞추기).
+- 「이번 티켓만 빠르게」 페이지 하단에 **또 다른 모달·필터 블록** 추가.
+- 서버는 `modules/`로 쪼개 놓고 **클라만 한 파일**에 CRUD·필터·집계·WS 전부 유지.
+
+## 왜 거대화가 생겼는지 (회고 — 반복 금지)
+
+- §2가 **서버 `modules/`** 중심이라 **클라 `pages/` 한도·검사가 없었음**.
+- 기능마다 **URL 유지·필터·모바일 표·WS silent refresh**가 같은 파일에 누적.
+- `inquiry-edit/` 등 **일부만 추출**하고 목록·상태는 페이지에 잔류.
+- **양면 동기화**(`inquiry-edit-dual-surface-sync`) 때문에 공통 모듈 추출 없이 양쪽 페이지에 복붙된 구간도 있음.
+- **줄 수 CI·PR 체크 없음** → 경고 없이 성장.
+
+## 새 기능·수정 체크리스트
+
+1. 손대는 `pages/*.tsx`가 **800줄 이상**인가? → 이번 변경을 **새 파일**로 넣을 수 있는가?
+2. 추가분이 **표/카드/모달/필터** 중 하나인가? → `components/` 또는 `hooks/`에 파일 생성.
+3. **두 화면**(스케줄·접수 목록 등)에 같은 UI인가? → 공통 추출 후 **dual-surface** 규칙 준수.
+4. 페이지 diff가 **+80줄** 넘는가? → PR 설명에 **분리한 파일 경로** 명시.
+
+## 참고 (레거시 — 분할 시 복사 기준)
+
+| 화면 | 페이지 | 이미 추출된 모듈 |
+|------|--------|------------------|
+| 접수 목록 | `AdminInquiriesPage.tsx` | `components/admin/inquiry-edit/*`, `ScheduleInquiryDetailModal` |
+| 스케줄 | `AdminSchedulePage.tsx` | map/detail lazy, `ScheduleInquiryDetailModal` |
+| 접수 편집 | `ScheduleInquiryDetailModal.tsx` | `inquiry-edit/*` 섹션 |

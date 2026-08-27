@@ -1,6 +1,8 @@
 import { prisma } from '../../lib/prisma.js';
 import {
+  happyCallCronPreferredDateRange,
   happyCallReminderWindowStart,
+  HAPPY_CALL_INELIGIBLE_STATUSES,
   isHappyCallEligible,
   isHappyCallInHourlyReminderWindow,
   isHappyCallOverdue,
@@ -27,6 +29,10 @@ export async function runHappyCallReminderJob(opts?: {
 }): Promise<HappyCallReminderJobResult> {
   const dryRun = Boolean(opts?.dryRun);
   const now = new Date();
+  const preferredDateRange = happyCallCronPreferredDateRange(now);
+  if (!preferredDateRange) {
+    return { tenantsScanned: 0, pushesSent: 0, skipped: 0, dryRun };
+  }
   let pushesSent = 0;
   let skipped = 0;
 
@@ -41,7 +47,14 @@ export async function runHappyCallReminderJob(opts?: {
     if (!rule?.enabled || !rule.repeatEnabled) continue;
 
     const assignments = await prisma.assignment.findMany({
-      where: { tenantId: tenant.id },
+      where: {
+        tenantId: tenant.id,
+        inquiry: {
+          preferredDate: { gte: preferredDateRange.gte, lte: preferredDateRange.lte },
+          happyCallCompletedAt: null,
+          status: { notIn: [...HAPPY_CALL_INELIGIBLE_STATUSES] },
+        },
+      },
       select: {
         teamLeaderId: true,
         inquiry: {
