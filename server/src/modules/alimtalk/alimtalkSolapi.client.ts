@@ -39,6 +39,16 @@ type SolapiSendManyDetailResponse = {
   }[];
 };
 
+/** Solapi message status — 2000=접수, 3000=처리중, 4000=발송중 (접수 성공으로 간주) */
+function normalizeSolapiStatusCode(code: unknown): string {
+  if (code == null || code === '') return '';
+  return String(code);
+}
+
+function isSolapiAcceptanceSuccess(statusCode: string): boolean {
+  return statusCode === '2000' || statusCode === '3000' || statusCode === '4000';
+}
+
 function formatSolapiSendFailure(json: SolapiSendManyDetailResponse, httpStatus: number): string {
   const failed = json.failedMessageList?.[0];
   if (failed?.statusMessage) {
@@ -118,6 +128,7 @@ export async function sendSolapiAlimtalk(input: SolapiSendMessageInput): Promise
   }
 
   const body = {
+    showMessageList: true,
     messages: [
       {
         to: input.to,
@@ -145,16 +156,19 @@ export async function sendSolapiAlimtalk(input: SolapiSendMessageInput): Promise
 
     const first = json.messageList?.[0];
     const failed = json.failedMessageList?.[0];
-    const statusCode = first?.statusCode ?? failed?.statusCode;
-    const ok =
-      res.ok &&
-      Boolean(first?.messageId) &&
-      (statusCode === '2000' || statusCode === '3000' || statusCode === '4000');
+    const statusCode = normalizeSolapiStatusCode(first?.statusCode ?? failed?.statusCode);
+    const registeredSuccess = json.groupInfo?.count?.registeredSuccess ?? 0;
+    const registeredFailed = json.groupInfo?.count?.registeredFailed ?? 0;
+    const hasRegistrationFailure = Boolean(failed) || registeredFailed > 0;
+    const acceptedByStatus = Boolean(first) && isSolapiAcceptanceSuccess(statusCode);
+    const acceptedByGroupCount =
+      res.ok && registeredSuccess > 0 && registeredFailed === 0 && !failed;
+    const ok = res.ok && !hasRegistrationFailure && (acceptedByStatus || acceptedByGroupCount);
 
     if (!ok) {
       return {
         ok: false,
-        statusCode,
+        statusCode: statusCode || undefined,
         solapiGroupId: json.groupInfo?.groupId,
         errorMessage: formatSolapiSendFailure(json, res.status),
       };
@@ -163,7 +177,7 @@ export async function sendSolapiAlimtalk(input: SolapiSendMessageInput): Promise
     return {
       ok: true,
       messageId: first?.messageId,
-      statusCode,
+      statusCode: statusCode || undefined,
       channelType: first?.type,
       solapiGroupId: json.groupInfo?.groupId,
     };

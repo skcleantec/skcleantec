@@ -10,6 +10,7 @@ import {
 import { getOrCreateOrderFormConfig } from '../tenants/tenantConfigSeed.service.js';
 import { formatWonAmount } from './alimtalkPhone.js';
 import type { AlimtalkTemplateCode } from '../../lib/alimtalkPolicy.js';
+import { preferredPublicLinkTenantSlug } from '../../lib/publicLinkTenantSlug.js';
 
 type OrderFormWithBrand = OrderForm & {
   operatingCompany: OperatingCompany | null;
@@ -104,7 +105,7 @@ export async function buildOrderLinkAlimtalkVariables(params: AlimtalkTemplateBu
     '#{업체명}': trust?.companyName ?? brandDisplay,
     '#{문의전화}': trust?.phone?.trim() ?? '—',
     '#{발주토큰}': order.token,
-    '#{업체코드}': tenant.slug,
+    '#{업체코드}': preferredPublicLinkTenantSlug(tenant.slug),
     '#{브랜드코드}': brandSlug,
   };
 }
@@ -136,7 +137,7 @@ export async function buildOrderDoneAlimtalkVariables(
     '#{업체명}': trust?.companyName ?? brandDisplay,
     '#{문의전화}': trust?.phone?.trim() ?? '—',
     '#{발주토큰}': order.token,
-    '#{업체코드}': tenant.slug,
+    '#{업체코드}': preferredPublicLinkTenantSlug(tenant.slug),
     '#{브랜드코드}': brandSlug,
   };
 }
@@ -167,7 +168,7 @@ export async function buildScheduleD2AlimtalkVariables(
     '#{업체명}': trust?.companyName ?? brandDisplay,
     '#{문의전화}': trust?.phone?.trim() ?? '—',
     '#{발주토큰}': order.token,
-    '#{업체코드}': tenant.slug,
+    '#{업체코드}': preferredPublicLinkTenantSlug(tenant.slug),
     '#{브랜드코드}': brandSlug,
   };
 }

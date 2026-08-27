@@ -60,6 +60,7 @@ import {
   TeamQuotationEditorPage,
   TeamCardPaymentPage,
   OrderFormPage,
+  OrderFormQueryEntry,
   OrderFormPrefillEditorPage,
   OrderInfoPage,
   CsReportPage,
@@ -427,6 +428,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/order" element={<SuspensePage><OrderFormQueryEntry /></SuspensePage>} />
         <Route path="/order/:token" element={<SuspensePage><OrderFormPage /></SuspensePage>} />
         <Route path="/info" element={<SuspensePage><OrderInfoPage /></SuspensePage>} />
         <Route path="/help" element={<SuspensePage><HelpPage /></SuspensePage>} />

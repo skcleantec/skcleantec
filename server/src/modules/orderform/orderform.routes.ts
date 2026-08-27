@@ -1177,6 +1177,7 @@ router.post(
       logId: result.logId,
       messageId: result.messageId,
       chargeStatus: result.chargeStatus,
+      publicUrl: result.publicUrl,
     });
   },
 );

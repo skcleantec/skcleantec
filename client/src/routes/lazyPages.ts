@@ -119,6 +119,9 @@ export const TeamCardPaymentPage = lazyWithRetry(() =>
 export const OrderFormPage = lazyWithRetry(() =>
   import('../pages/order/OrderFormPage').then((m) => ({ default: m.OrderFormPage }))
 );
+export const OrderFormQueryEntry = lazyWithRetry(() =>
+  import('../pages/order/OrderFormQueryEntry').then((m) => ({ default: m.OrderFormQueryEntry }))
+);
 export const OrderFormPrefillEditorPage = lazyWithRetry(() =>
   import('../pages/order/OrderFormPage').then((m) => ({ default: m.OrderFormPrefillEditorPage }))
 );

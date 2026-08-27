@@ -40,6 +40,9 @@ export async function resolveTenantBySlug(slugRaw: string) {
   if (!tenant && slug === DEFAULT_TENANT_SLUG) {
     tenant = await prisma.tenant.findUnique({ where: { slug: LEGACY_SK_TENANT_SLUG } });
   }
+  if (!tenant && slug === LEGACY_SK_TENANT_SLUG) {
+    tenant = await prisma.tenant.findUnique({ where: { slug: DEFAULT_TENANT_SLUG } });
+  }
   if (!tenant) throw new TenantNotFoundError('업체를 찾을 수 없습니다.');
   return tenant;
 }

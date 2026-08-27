@@ -78,6 +78,10 @@ import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateForma
 import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes, hasOrderFormBuildingTypeChoice } from '../../utils/orderFormOneRoom';
 import { resolvePublicTenantSlug, resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
+import {
+  normalizeOrderFormRouteToken,
+  resolveOrderFormTokenFromLocation,
+} from '../../utils/orderFormPublicRouteToken';
 import { oneRoomLabelForOpsUi, skCleantecOpsUiEnabled } from '@shared/custom/skcleantecOpsUi';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -184,7 +188,16 @@ export interface OrderFormEditorContext {
 }
 
 export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = {}) {
-  const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const { token: routeToken } = useParams<{ token: string }>();
+  const token = useMemo(() => {
+    const fromPath = normalizeOrderFormRouteToken(routeToken);
+    if (fromPath) return fromPath;
+    return resolveOrderFormTokenFromLocation() ?? routeToken ?? '';
+  }, [routeToken]);
+  const isEditor = Boolean(editor);
+  const isCreate = Boolean(editor?.create);
+  const isInline = Boolean(editor?.inline);
   const skOpsUi = useMemo(
     () => skCleantecOpsUiEnabled({ tenantSlug: resolvePublicTenantSlug(), slugOnly: true }),
     [],
@@ -194,9 +207,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     () => (skOpsUi ? { omitAutoPhrase: true as const } : undefined),
     [skOpsUi],
   );
-  const isEditor = Boolean(editor);
-  const isCreate = Boolean(editor?.create);
-  const isInline = Boolean(editor?.inline);
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [prefillSaving, setPrefillSaving] = useState(false);
   const [prefillSavedOpen, setPrefillSavedOpen] = useState(false);
@@ -626,6 +636,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const createTemplateId = editor?.create?.templateId;
   const createPendingInquiryId = editor?.create?.pendingInquiryId;
   const createCrmSeed = editor?.create?.crmSeed;
+
+  useEffect(() => {
+    if (isEditor) return;
+    const fromPath = normalizeOrderFormRouteToken(routeToken);
+    if (fromPath) return;
+    const recovered = resolveOrderFormTokenFromLocation();
+    if (!recovered) return;
+    navigate(`/order/${encodeURIComponent(recovered)}${window.location.search}`, { replace: true });
+  }, [routeToken, isEditor, navigate]);
+
   useEffect(() => {
     let loader: Promise<OrderFormPublic | null> | null = null;
     if (isCreate && editorAuthToken) {

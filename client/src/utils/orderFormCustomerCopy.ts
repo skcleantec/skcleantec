@@ -22,6 +22,7 @@ import {
   composeCustomerLinkMessageTitle,
 } from '@shared/publicBrandTitles';
 import { appendPublicQuery } from './publicTenantQuery';
+import { preferredPublicLinkTenantSlug } from '@shared/publicLinkTenantSlug';
 import { getReviewPaybackPublicUrl } from './reviewPaybackCustomerCopy';
 
 type FormMsgDefaultKey = keyof typeof ORDER_FORM_CONFIG_DEFAULTS;
@@ -210,8 +211,9 @@ export function getOrderFormPublicUrl(
   const base =
     origin ??
     (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
+  const linkTenant = tenantSlug ? preferredPublicLinkTenantSlug(tenantSlug) : null;
   return appendPublicQuery(`${base}/order/${encodeURIComponent(orderToken)}`, {
-    tenantSlug,
+    tenantSlug: linkTenant,
     brandSlug,
   });
 }

@@ -16,6 +16,8 @@ import {
 import { normalizeAlimtalkPhone } from './alimtalkPhone.js';
 import { buildAlimtalkVariables } from './alimtalkTemplateRegistry.js';
 import { validateAlimtalkTemplateVariables } from './alimtalkVariableValidation.js';
+import { buildOrderFormAlimtalkPublicUrl } from './alimtalkPublicUrl.js';
+import { validateOptionalPublicTenantSlug, PublicTenantAccessError } from '../tenants/publicTenantAccess.js';
 import {
   applyAlimtalkCharge,
   isTenantAlimtalkTemplateEnabled,
@@ -24,7 +26,7 @@ import {
 } from './alimtalkWallet.service.js';
 
 export type TriggerAlimtalkResult =
-  | { ok: true; logId: string; messageId?: string; chargeStatus: string }
+  | { ok: true; logId: string; messageId?: string; chargeStatus: string; publicUrl?: string }
   | { ok: false; error: string };
 
 type TenantGateRow = Pick<Tenant, 'id' | 'slug' | 'plan' | 'status'>;
@@ -162,7 +164,25 @@ export async function triggerAlimtalkOrderLink(
   const variableError = validateAlimtalkTemplateVariables(templateCode, variables);
   if (variableError) return { ok: false, error: variableError };
 
-  return executeAlimtalkSend({
+  if (variables['#{발주토큰}'] !== ctx.order.token) {
+    return { ok: false, error: '발주 링크 토큰이 올바르지 않습니다.' };
+  }
+  try {
+    await validateOptionalPublicTenantSlug(ctx.billingTenantId, variables['#{업체코드}']);
+  } catch (e) {
+    if (e instanceof PublicTenantAccessError) {
+      return { ok: false, error: `발주 링크 업체 코드 오류: ${e.message}` };
+    }
+    throw e;
+  }
+
+  const publicUrl = buildOrderFormAlimtalkPublicUrl({
+    token: ctx.order.token,
+    tenantSlug: ctx.customerFacingTenant.slug,
+    brandSlug: variables['#{브랜드코드}'],
+  });
+
+  const result = await executeAlimtalkSend({
     billingTenantId: ctx.billingTenantId,
     tenant: ctx.billingTenant,
     templateCode,
@@ -172,6 +192,8 @@ export async function triggerAlimtalkOrderLink(
     customerFacingTenantId: ctx.customerFacingTenant.id,
     customerFacingOperatingCompanyId: ctx.customerFacingOperatingCompanyId,
   });
+  if (!result.ok) return result;
+  return { ...result, publicUrl };
 }
 
 export type TriggerAlimtalkOrderDoneInput = {
