@@ -18,6 +18,10 @@ import { ScheduleHelpCustomCalendarAddFlowPreview } from './ScheduleHelpCustomCa
 import { ScheduleHelpCustomCalendarPreview } from './ScheduleHelpCustomCalendarPreview';
 import { ScheduleHelpDayListPreview } from './ScheduleHelpDayListPreview';
 import { ScheduleHelpScreenshotFigure } from './ScheduleHelpScreenshotFigure';
+import {
+  buildScheduleListCardColorHelpRows,
+  buildScheduleListSectionHelpRows,
+} from './ScheduleListColorLegendSamples';
 import { ScheduleLegendItems } from './ScheduleLegendItems';
 import {
   SCHEDULE_HELP_CALENDAR_CALLOUTS,
@@ -253,14 +257,34 @@ function ScheduleHelpListTab() {
     HelpUiRow({ tokenId: 'schedule-marketplace-cart', meaning: '정보공유 등록 중 — 마우스를 올리면 단계 표시' }),
   ];
 
+  const sectionColorRows = buildScheduleListSectionHelpRows();
+  const cardColorRows = buildScheduleListCardColorHelpRows();
+
   return (
     <div className="space-y-4">
+      <p className="text-fluid-2xs sm:text-fluid-xs text-slate-600 leading-snug rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-2">
+        아래 색 설명은 <strong className="text-slate-800">달력 범례</strong>와 다릅니다.{' '}
+        <strong className="text-slate-800">선택한 날 일정 목록</strong>의 구역·카드 칸 색을 뜻합니다.
+      </p>
+
       <HelpSection title="선택한 날 — 목록 미리보기 (실제 UI)">
         <ScheduleHelpDayListPreview />
         <p className="text-fluid-2xs text-slate-500 leading-snug">
           PC에서는 달력 <strong className="text-slate-700">오른쪽</strong>, 모바일에서는 달력{' '}
           <strong className="text-slate-700">아래</strong>에 같은 구조의 목록이 나타납니다. 카드를 누르면 접수
           상세 모달이 열립니다.
+        </p>
+      </HelpSection>
+
+      <HelpSection title="목록 구역 색 (위 → 아래)">
+        <HelpTable rows={sectionColorRows} />
+      </HelpSection>
+
+      <HelpSection title="접수 카드 칸 색">
+        <HelpTable rows={cardColorRows} />
+        <p className="text-fluid-2xs text-slate-500 leading-snug">
+          카드 왼쪽 <strong className="text-slate-700">굵은 띠</strong>와 배경색은 같은 시간대(오전·오후·사이·조율)를
+          나타냅니다. 팀장 1건 강조·처리 전·보류·취소 표시는 시간대 색 위에 겹쳐집니다.
         </p>
       </HelpSection>
 
@@ -336,12 +360,6 @@ function ScheduleHelpListTab() {
             },
           ]}
         />
-        <p className="text-fluid-2xs text-slate-500 leading-snug">
-          카드 <strong className="text-slate-700">왼쪽 굵은 띠</strong> 색 = 시간대(노랑·파랑·보라).{' '}
-          <strong className="text-slate-700">빨간 테두리</strong> = 대기·미제출 등,{' '}
-          <strong className="text-slate-700">노란 테두리</strong> = 보류,{' '}
-          <strong className="text-slate-700">진한 회색 배경</strong> = 팀장 당일 1건(추가 배정 검토).
-        </p>
       </HelpSection>
 
       <HelpSection title="선택한 날 — 상단 버튼">

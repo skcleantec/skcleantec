@@ -116,6 +116,18 @@ import {
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
   SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
+import {
+  SCHEDULE_LIST_CARD_BORDER_BASE,
+  SCHEDULE_LIST_CARD_CANCELLED,
+  SCHEDULE_LIST_CARD_COORD_PULSE,
+  SCHEDULE_LIST_CARD_ON_HOLD_BG,
+  SCHEDULE_LIST_CARD_ON_HOLD_RING,
+  SCHEDULE_LIST_CARD_PRE_ORDER_RING,
+  SCHEDULE_LIST_CARD_SK_ONE_ROOM,
+  scheduleListCardSlotBgTint,
+  scheduleListCardSlotLeftBorder,
+  type ScheduleListCardBucket,
+} from '../../components/admin/schedule-help/scheduleListColorLegend';
 
 const ScheduleInquiryDetailModal = lazy(() =>
   import('../../components/admin/ScheduleInquiryDetailModal').then((m) => ({
@@ -415,20 +427,10 @@ function ScheduleDayListItem({
   const isSide = isSideCleaningTime(item.preferredTime);
   const isCoord = isCoordinationTime(item.preferredTime);
   const isCoordUnconfirmed = isCoord && bucket === 'other';
-  /** 왼쪽 띠만 — 오전/오후/사이 구분 유지 */
-  const slotLeftBorder =
-    bucket === 'morning'
-      ? 'border-l-[6px] border-amber-500'
-      : bucket === 'afternoon'
-        ? 'border-l-[6px] border-sky-600'
-        : 'border-l-[6px] border-violet-500';
-  /** 팀장 한 슬롯 1건 강조가 아닐 때만 쓰는 슬롯별 배경 */
-  const slotBgTint =
-    bucket === 'morning'
-      ? 'bg-amber-50/50'
-      : bucket === 'afternoon'
-        ? 'bg-sky-50/50'
-        : 'bg-violet-50/40';
+  const slotBucket: ScheduleListCardBucket =
+    bucket === 'morning' ? 'morning' : bucket === 'afternoon' ? 'afternoon' : 'other';
+  const slotLeftBorder = scheduleListCardSlotLeftBorder(slotBucket);
+  const slotBgTint = scheduleListCardSlotBgTint(slotBucket);
   /** 사이청소는 오전·오후로 분류돼도 배지는 항상 「사이」(보라) 유지 */
   const slotBadgeClass = scheduleSlotBadgeClass(
     bucket === 'morning' ? 'morning' : bucket === 'afternoon' ? 'afternoon' : 'other',
@@ -480,16 +482,16 @@ function ScheduleDayListItem({
         leaderSingleSlotAssignment
           ? SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS
           : emphasizeOneRoomInList
-            ? 'border-red-300/90 ring-1 ring-red-200/80 bg-red-50/30'
-            : `border-slate-200/90 ${slotBgTint}`
+            ? SCHEDULE_LIST_CARD_SK_ONE_ROOM
+            : `${SCHEDULE_LIST_CARD_BORDER_BASE} ${slotBgTint}`
       } ${
-        isPreOrder ? 'ring-1 ring-red-500' : ''
+        isPreOrder ? SCHEDULE_LIST_CARD_PRE_ORDER_RING : ''
       } ${
         isOnHold
-          ? `ring-1 ring-amber-500${!leaderSingleSlotAssignment ? ' bg-amber-50/40' : ''}`
+          ? `${SCHEDULE_LIST_CARD_ON_HOLD_RING}${!leaderSingleSlotAssignment ? ` ${SCHEDULE_LIST_CARD_ON_HOLD_BG}` : ''}`
           : ''
-      } ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}${
-        isCoordUnconfirmed ? ' motion-safe:animate-pulse' : ''
+      } ${isCancelled ? SCHEDULE_LIST_CARD_CANCELLED : ''}${
+        isCoordUnconfirmed ? ` ${SCHEDULE_LIST_CARD_COORD_PULSE}` : ''
       }`}
     >
       <div className="shrink-0 self-center flex flex-col items-center gap-0.5">
