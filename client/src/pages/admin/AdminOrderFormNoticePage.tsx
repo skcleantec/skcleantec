@@ -8,6 +8,7 @@ import { parseGuideFromStoredContent } from '../../utils/orderGuideParse';
 import { ORDER_FORM_CONFIG_DEFAULTS, orderFormConfigLine } from '../../constants/orderFormConfigDefaults';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { ORDER_FORM_GUIDE_PLACEHOLDERS } from '@shared/orderFormGuidePlaceholders';
+import { ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS } from '@shared/operatingCompanyCancellationPolicy';
 
 function cloneSections(s: GuideSection[]): GuideSection[] {
   return s.map((sec) => ({ title: sec.title, items: [...sec.items] }));
@@ -74,6 +75,25 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
     if (!confirm('기본 안내(초기 문구)로 모두 바꿀까요? 저장하지 않은 편집 내용은 사라집니다.')) return;
     setSections(cloneSections(ORDER_GUIDE_DEFAULT_SECTIONS));
     setInfoLinkText(ORDER_FORM_CONFIG_DEFAULTS.infoLinkText);
+  };
+
+  const insertCancellationGuideBlock = () => {
+    setSections((prev) => {
+      const next = cloneSections(prev);
+      const idx = next.findIndex((s) => /취소|변경/.test(s.title));
+      const target = idx >= 0 ? next[idx]! : null;
+      if (target) {
+        const block = [...ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS];
+        const withoutDupes = target.items.filter((line) => !block.includes(line));
+        target.items = [...block, ...withoutDupes];
+        return next;
+      }
+      next.unshift({
+        title: '취소·변경 안내',
+        items: [...ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS],
+      });
+      return next;
+    });
   };
 
   const addSection = () => {
@@ -191,6 +211,13 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
                 </li>
               ))}
             </ul>
+            <button
+              type="button"
+              onClick={insertCancellationGuideBlock}
+              className="mt-2 text-xs px-2.5 py-1.5 rounded border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+            >
+              취소·변경 섹션에 무위약·위약 치환코드 블록 삽입
+            </button>
           </section>
 
           <div className="flex items-center justify-between">

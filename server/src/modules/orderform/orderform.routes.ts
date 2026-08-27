@@ -129,7 +129,7 @@ import {
   upsertOrderFormBrandCustomerLinkConfig,
 } from './orderFormBrandCustomerLink.service.js';
 import { notifyOrderFormCustomerLinkConfigRefresh } from './orderFormCustomerLinkNotify.js';
-import { resolvePublicFormConfigForOrderForm } from './orderFormPublicFormConfig.js';
+import { resolvePublicFormConfigForOrderForm, normalizeGuidePreferredDateYmd } from './orderFormPublicFormConfig.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 import {
   ensureCrmQuoteBreakdownTemplateField,
@@ -809,6 +809,7 @@ async function buildEditableOrderPayload(
     prisma,
     form.tenantId,
     form.operatingCompanyId,
+    { preferredDateYmd: normalizeGuidePreferredDateYmd(form.preferredDate) },
   );
   const template = await getPublicTemplateForForm(prisma, form.tenantId, form.templateId);
   const publicBranding = await resolvePublicBrandingForCustomer({
@@ -2553,6 +2554,7 @@ router.get('/by-token/:token', async (req, res) => {
       prisma,
       form.tenantId,
       form.operatingCompanyId,
+      { preferredDateYmd: normalizeGuidePreferredDateYmd(form.preferredDate) },
     );
     const publicBranding = await resolvePublicBrandingForCustomer({
       db: prisma,
@@ -2958,6 +2960,7 @@ router.post('/submit/:token', async (req, res) => {
     prisma,
     submitTenantId,
     form.operatingCompanyId,
+    { preferredDateYmd: useDateStr || null },
   );
   const needsServiceDateConsent = !adminDateLocked && tplOn('preferredDate') && Boolean(useDateStr);
   const needsTimeSlotConsent = !adminDateLocked && tplOn('preferredTime') && Boolean(useTimeStr);

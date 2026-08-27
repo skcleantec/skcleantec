@@ -17,6 +17,8 @@ import { normalizeAlimtalkPhone } from './alimtalkPhone.js';
 import { buildAlimtalkVariables } from './alimtalkTemplateRegistry.js';
 import { validateAlimtalkTemplateVariables } from './alimtalkVariableValidation.js';
 import { buildOrderFormAlimtalkPublicUrl } from './alimtalkPublicUrl.js';
+import { kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { resolveScheduleD2DeadlineForInquiry } from './alimtalkScheduleD2.helpers.js';
 import { validateOptionalPublicTenantSlug, PublicTenantAccessError } from '../tenants/publicTenantAccess.js';
 import {
   applyAlimtalkCharge,
@@ -275,6 +277,14 @@ export async function triggerAlimtalkScheduleD2(
   });
   if (existing) {
     return { ok: false, error: '이미 발송된 건입니다.' };
+  }
+
+  const deadline = await resolveScheduleD2DeadlineForInquiry(input.inquiryId);
+  if ('error' in deadline) {
+    return { ok: false, error: deadline.error };
+  }
+  if (deadline.deadlineYmd !== kstTodayYmd()) {
+    return { ok: false, error: '무위약 마감일이 오늘이 아니어서 발송할 수 없습니다.' };
   }
 
   const phone = normalizeAlimtalkPhone(ctx.inquiry.customerPhone ?? ctx.order.customerPhone);

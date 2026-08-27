@@ -197,6 +197,6 @@ export const ALIMTALK_TEMPLATE_SEED: {
       ? '[고객] 발주서 작성·예약 안내'
       : code === 'CBISEO_CUST_ORDER_DONE'
         ? '[고객] 예약(발주서) 접수 완료'
-        : '[고객] 예약 일정 확인(청소 2일 전)',
+        : '[고객] 예약 일정 확인(무위약 마감일)',
   triggerType: code === 'CBISEO_CUST_ORDER_LINK' ? 'manual' : 'auto',
 }));

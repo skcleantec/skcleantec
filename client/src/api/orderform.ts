@@ -151,6 +151,8 @@ export async function getOrderFormCustomerSubmission(
   return res.json();
 }
 
+import type { OperatingCompanyCancellationPolicy } from '@shared/operatingCompanyCancellationPolicy';
+
 export interface OrderFormConfigPublic {
   formTitle: string;
   priceLabel: string | null;
@@ -169,6 +171,8 @@ export interface OrderFormConfigPublic {
   serviceDateAckTitle?: string | null;
   serviceDateAckBody?: string | null;
   serviceDateAckConsentHint?: string | null;
+  /** 브랜드 위약 정책 — ACK·안내 치환코드 확장용 */
+  guidePolicy?: OperatingCompanyCancellationPolicy;
   /** DB 원본 — 관리 설정용 partial */
   timeSlotLabelsJson?: Record<string, string> | null;
   /** 고객 API — resolve된 4키 라벨 */

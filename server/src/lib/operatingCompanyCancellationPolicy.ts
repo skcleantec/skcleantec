@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import {
   renderCancellationPolicyText,
   resolveOperatingCompanyCancellationPolicy,
+  type OperatingCompanyCancellationPolicy,
 } from './operatingCompanyCancellationPolicyCore.js';
 import {
   buildGuidePlaceholderContextFromPolicy,
@@ -15,10 +16,20 @@ import {
 
 type Db = PrismaClient;
 
-export function guidePlaceholderContextFromConfig(configRaw: unknown): GuidePlaceholderContext {
+function guideContextFromConfig(
+  configRaw: unknown,
+  opts?: { preferredDateYmd?: string | null },
+): GuidePlaceholderContext {
   const config = parseOperatingCompanyConfig(configRaw);
   const policy = resolveOperatingCompanyCancellationPolicy(config.cancellationPolicy);
-  return buildGuidePlaceholderContextFromPolicy(policy);
+  return buildGuidePlaceholderContextFromPolicy(policy, opts);
+}
+
+export function guidePlaceholderContextFromConfig(
+  configRaw: unknown,
+  opts?: { preferredDateYmd?: string | null },
+): GuidePlaceholderContext {
+  return guideContextFromConfig(configRaw, opts);
 }
 
 export function cancellationPolicyTextFromConfig(configRaw: unknown): string {
@@ -27,36 +38,82 @@ export function cancellationPolicyTextFromConfig(configRaw: unknown): string {
   return renderCancellationPolicyText(policy);
 }
 
-export async function loadGuidePlaceholderContextForBrand(
+export async function loadCancellationPolicyForBrand(
   db: Db,
   tenantId: string,
-  opts?: { operatingCompanyId?: string | null; brandSlug?: string | null },
-): Promise<GuidePlaceholderContext> {
+  opts?: {
+    operatingCompanyId?: string | null;
+    brandSlug?: string | null;
+  },
+): Promise<OperatingCompanyCancellationPolicy> {
   const ocId = opts?.operatingCompanyId?.trim();
   const brandSlug = opts?.brandSlug?.trim().toLowerCase();
   try {
     if (brandSlug) {
       const oc = await getOperatingCompanyBySlug(db, tenantId, brandSlug);
-      return guidePlaceholderContextFromConfig(oc.config);
+      const config = parseOperatingCompanyConfig(oc.config);
+      return resolveOperatingCompanyCancellationPolicy(config.cancellationPolicy);
     }
     if (ocId) {
       const row = await db.operatingCompany.findFirst({
         where: { id: ocId, tenantId },
         select: { config: true },
       });
-      if (row) return guidePlaceholderContextFromConfig(row.config);
+      if (row) {
+        const config = parseOperatingCompanyConfig(row.config);
+        return resolveOperatingCompanyCancellationPolicy(config.cancellationPolicy);
+      }
     }
     const defaultId = await getDefaultOperatingCompanyId(db, tenantId);
     const row = await db.operatingCompany.findFirst({
       where: { id: defaultId, tenantId },
       select: { config: true },
     });
-    if (row) return guidePlaceholderContextFromConfig(row.config);
+    if (row) {
+      const config = parseOperatingCompanyConfig(row.config);
+      return resolveOperatingCompanyCancellationPolicy(config.cancellationPolicy);
+    }
+  } catch {
+    /* fall through */
+  }
+  return resolveOperatingCompanyCancellationPolicy(undefined);
+}
+
+export async function loadGuidePlaceholderContextForBrand(
+  db: Db,
+  tenantId: string,
+  opts?: {
+    operatingCompanyId?: string | null;
+    brandSlug?: string | null;
+    preferredDateYmd?: string | null;
+  },
+): Promise<GuidePlaceholderContext> {
+  const ocId = opts?.operatingCompanyId?.trim();
+  const brandSlug = opts?.brandSlug?.trim().toLowerCase();
+  try {
+    if (brandSlug) {
+      const oc = await getOperatingCompanyBySlug(db, tenantId, brandSlug);
+      return guideContextFromConfig(oc.config, { preferredDateYmd: opts?.preferredDateYmd });
+    }
+    if (ocId) {
+      const row = await db.operatingCompany.findFirst({
+        where: { id: ocId, tenantId },
+        select: { config: true },
+      });
+      if (row) return guideContextFromConfig(row.config, { preferredDateYmd: opts?.preferredDateYmd });
+    }
+    const defaultId = await getDefaultOperatingCompanyId(db, tenantId);
+    const row = await db.operatingCompany.findFirst({
+      where: { id: defaultId, tenantId },
+      select: { config: true },
+    });
+    if (row) return guideContextFromConfig(row.config, { preferredDateYmd: opts?.preferredDateYmd });
   } catch {
     /* fall through */
   }
   return buildGuidePlaceholderContextFromPolicy(
     resolveOperatingCompanyCancellationPolicy(undefined),
+    { preferredDateYmd: opts?.preferredDateYmd },
   );
 }
 

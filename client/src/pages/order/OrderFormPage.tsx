@@ -66,6 +66,8 @@ import {
   ORDER_BUILDING_TYPE_OPTIONS,
   ORDER_BUILDING_TYPE_RESIDING,
 } from '../../constants/orderFormBuilding';
+import type { OperatingCompanyCancellationPolicy } from '@shared/operatingCompanyCancellationPolicy';
+import { expandOrderFormCustomerText } from '@shared/orderFormGuidePlaceholders';
 import {
   normalizeOrderFormYmd,
   parseMoveInTiming,
@@ -299,6 +301,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       serviceDateAckTitle?: string | null;
       serviceDateAckBody?: string | null;
       serviceDateAckConsentHint?: string | null;
+      guidePolicy?: OperatingCompanyCancellationPolicy;
       timeSlotLabels?: Record<'오전' | '오후' | '사이청소', string>;
       timeSlotLabelsJson?: Record<string, string> | null;
     };
@@ -429,6 +432,21 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     () => buildOrderTimeSlotOptions(timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson),
     [timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
   );
+  const serviceDateAckBodyExpanded = useMemo(() => {
+    const raw = orderFormConfigLine(
+      order?.formConfig?.serviceDateAckBody,
+      ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckBody,
+    );
+    const policy = order?.formConfig?.guidePolicy;
+    if (!policy) return raw;
+    return expandOrderFormCustomerText(raw, policy, {
+      preferredDateYmd: pendingServiceDate,
+    });
+  }, [
+    order?.formConfig?.serviceDateAckBody,
+    order?.formConfig?.guidePolicy,
+    pendingServiceDate,
+  ]);
 
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
   const profSelectionSummary = useMemo(
@@ -2981,12 +2999,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   </div>
                 </div>
                 <div id="service-date-ack-desc" className="px-5 py-4 text-fluid-sm leading-relaxed text-gray-700 sm:px-6">
-                  <OrderFormModalFormattedText
-                    text={orderFormConfigLine(
-                      order?.formConfig?.serviceDateAckBody,
-                      ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckBody,
-                    )}
-                  />
+                  <OrderFormModalFormattedText text={serviceDateAckBodyExpanded} />
                   <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950">
                     <OrderFormModalFormattedText
                       text={ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckConsentHint}

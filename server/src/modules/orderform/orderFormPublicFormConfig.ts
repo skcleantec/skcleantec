@@ -5,12 +5,28 @@ import {
   resolveOrderTimeSlotLabels,
   type OrderTimeSlotLabels,
 } from '../../lib/orderFormTimeSlotLabels.js';
-import { expandGuidePlaceholders } from '../../lib/orderFormGuidePlaceholders.js';
-import { loadGuidePlaceholderContextForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
+import { expandOrderFormCustomerText } from '../../lib/orderFormGuidePlaceholders.js';
+import {
+  loadCancellationPolicyForBrand,
+  loadGuidePlaceholderContextForBrand,
+} from '../../lib/operatingCompanyCancellationPolicy.js';
 import { getOrCreateOrderFormConfig } from '../tenants/tenantConfigSeed.service.js';
 import { getOrCreateOrderFormBrandCustomerLinkConfig } from './orderFormBrandCustomerLink.service.js';
 
 type Db = PrismaClient;
+
+/** 발주·접수 preferredDate → YYYY-MM-DD (치환코드 마감일) */
+export function normalizeGuidePreferredDateYmd(raw: unknown): string | null {
+  if (raw == null) return null;
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return raw.toISOString().slice(0, 10);
+  }
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m?.[1] ?? null;
+}
 
 export type PublicFormConfig = {
   formTitle: string;
@@ -30,6 +46,8 @@ export type PublicFormConfig = {
   serviceDateAckConsentHint: string;
   /** 고객 발주서 시간대 선택지 표시 라벨(저장값 3개 고정) */
   timeSlotLabels: OrderTimeSlotLabels;
+  /** 브랜드 위약 정책 — 치환코드 확장(발주 ACK 등) */
+  guidePolicy?: import('../../lib/operatingCompanyCancellationPolicyCore.js').OperatingCompanyCancellationPolicy;
 };
 
 type FormConfigRow = {
@@ -122,6 +140,7 @@ export async function resolvePublicFormConfigForOrderForm(
   db: Db,
   tenantId: string,
   operatingCompanyId?: string | null,
+  opts?: { preferredDateYmd?: string | null },
 ): Promise<PublicFormConfig> {
   const tenantCfg = await getOrCreateOrderFormConfig(db, tenantId);
   const ocId = operatingCompanyId?.trim();
@@ -135,13 +154,23 @@ export async function resolvePublicFormConfigForOrderForm(
     }
   }
   const resolved = resolvedPublicFormConfig(row);
-  const guideCtx = await loadGuidePlaceholderContextForBrand(db, tenantId, {
+  const guidePolicy = await loadCancellationPolicyForBrand(db, tenantId, {
     operatingCompanyId: ocId,
   });
+  const expandOpts = { preferredDateYmd: opts?.preferredDateYmd ?? null };
   return {
     ...resolved,
-    serviceDateAckBody: expandGuidePlaceholders(resolved.serviceDateAckBody, guideCtx),
-    timeSlotAckBody: expandGuidePlaceholders(resolved.timeSlotAckBody, guideCtx),
-    submitSuccessBody: expandGuidePlaceholders(resolved.submitSuccessBody, guideCtx),
+    guidePolicy,
+    serviceDateAckBody: resolved.serviceDateAckBody,
+    timeSlotAckBody: expandOrderFormCustomerText(
+      resolved.timeSlotAckBody,
+      guidePolicy,
+      expandOpts,
+    ),
+    submitSuccessBody: expandOrderFormCustomerText(
+      resolved.submitSuccessBody,
+      guidePolicy,
+      expandOpts,
+    ),
   };
 }

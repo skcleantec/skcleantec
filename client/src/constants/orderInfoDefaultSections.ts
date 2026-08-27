@@ -1,11 +1,13 @@
 /** 서버 `guideDefaults`와 동일 — `/info` 폴백·안내사항 편집 초기값 */
+import { ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS } from '@shared/operatingCompanyCancellationPolicy';
+
 export type GuideSection = { title: string; items: string[] };
 
 export const ORDER_GUIDE_DEFAULT_SECTIONS: GuideSection[] = [
   {
     title: '취소·변경 안내',
     items: [
-      '{{cancellationPolicy}}',
+      ...ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS,
       '예약일 14일 이내 취소 시 예약금은 반환되지 않음을 양해 부탁드립니다.',
     ],
   },

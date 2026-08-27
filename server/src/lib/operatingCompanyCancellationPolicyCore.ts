@@ -229,3 +229,78 @@ export function renderFreeChangeDaysBeforeLine(
   if (freeChangeDaysBefore == null || freeChangeDaysBefore <= 0) return null;
   return `날짜 변경은 청소일 기준 ${freeChangeDaysBefore}일 전까지 신청하셔야 위약금 없이 변경 가능합니다.`;
 }
+
+export function renderPenaltyTierLine(tier: CancellationPolicyTier): string {
+  return renderTierLine(tier);
+}
+
+export function renderPenaltyLinesOnly(
+  policy: OperatingCompanyCancellationPolicy,
+): string[] {
+  if (!policy.enabled) return [];
+  const tiers = [...policy.tiers].sort(
+    (a, b) => b.daysBefore - a.daysBefore || a.sortOrder - b.sortOrder,
+  );
+  const lines: string[] = [];
+  for (const tier of tiers) {
+    const line = renderTierLine(tier);
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function subtractDaysFromYmd(ymd: string, days: number): string | null {
+  if (!YMD_RE.test(ymd) || days < 0 || !Number.isFinite(days)) return null;
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  dt.setUTCDate(dt.getUTCDate() - days);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;
+
+export function formatYmdWithWeekdayKo(ymd: string): string | null {
+  if (!YMD_RE.test(ymd)) return null;
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  const w = WEEKDAY_KO[dt.getUTCDay()] ?? '';
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}(${w})`;
+}
+
+export function computeFreeChangeDeadlineYmd(
+  preferredDateYmd: string | null | undefined,
+  freeChangeDaysBefore: number | null | undefined,
+): string | null {
+  const pref = preferredDateYmd?.trim();
+  if (!pref || !YMD_RE.test(pref)) return null;
+  if (freeChangeDaysBefore == null || freeChangeDaysBefore <= 0) return null;
+  return subtractDaysFromYmd(pref, freeChangeDaysBefore);
+}
+
+export function penaltyLineGuideToken(daysBefore: number): string {
+  return `{{penaltyLine:${Math.max(0, Math.floor(daysBefore))}}}`;
+}
+
+export function buildPenaltyLineMap(
+  policy: OperatingCompanyCancellationPolicy,
+): Map<number, string> {
+  const map = new Map<number, string>();
+  if (!policy.enabled) return map;
+  for (const tier of policy.tiers) {
+    const line = renderTierLine(tier);
+    if (line) map.set(tier.daysBefore, line);
+  }
+  return map;
+}
+
+export const ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS: readonly string[] = [
+  '{{freeChangeDaysLine}}',
+  '{{penaltyLine:2}}',
+  '{{penaltyLine:1}}',
+  '{{penaltyLine:0}}',
+];

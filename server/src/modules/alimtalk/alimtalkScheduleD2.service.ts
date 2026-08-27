@@ -3,15 +3,21 @@ import { prisma } from '../../lib/prisma.js';
 import { addDaysToKstYmd, kstDayRangeYmd, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { ALIMTALK_MODULE_ID, alimtalkPlanAllowsFeature } from '../../lib/alimtalkPolicy.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
-import { resolveAlimtalkCustomerContextFromInquiry } from './alimtalkCustomerContext.service.js';
 import {
   ALIMTALK_SCHEDULE_D2_ELIGIBLE_STATUSES,
   triggerAlimtalkScheduleD2,
 } from './alimtalkSend.service.js';
 import { isTenantAlimtalkTemplateEnabled } from './alimtalkWallet.service.js';
+import {
+  resolveScheduleD2DeadlineForInquiry,
+  SCHEDULE_D2_PREFERRED_DATE_SCAN_MAX_DAYS,
+} from './alimtalkScheduleD2.helpers.js';
 
 export type AlimtalkScheduleD2JobResult = {
-  targetYmd: string;
+  /** 무위약 마감일 = 발송 기준일 (KST) */
+  deadlineYmd: string;
+  preferredDateScanFrom: string;
+  preferredDateScanTo: string;
   tenantsScanned: number;
   candidates: number;
   sent: number;
@@ -26,11 +32,18 @@ export async function runAlimtalkScheduleD2Job(opts?: {
   now?: Date;
 }): Promise<AlimtalkScheduleD2JobResult> {
   const dryRun = Boolean(opts?.dryRun);
-  const todayYmd = kstTodayYmd();
-  const targetYmd = addDaysToKstYmd(todayYmd, 2);
-  const range = kstDayRangeYmd(targetYmd);
+  const deadlineYmd = kstTodayYmd();
+  const preferredDateScanFrom = addDaysToKstYmd(deadlineYmd, 1);
+  const preferredDateScanTo = addDaysToKstYmd(
+    deadlineYmd,
+    SCHEDULE_D2_PREFERRED_DATE_SCAN_MAX_DAYS,
+  );
+  const rangeFrom = kstDayRangeYmd(preferredDateScanFrom);
+  const rangeTo = kstDayRangeYmd(preferredDateScanTo);
   const result: AlimtalkScheduleD2JobResult = {
-    targetYmd,
+    deadlineYmd,
+    preferredDateScanFrom,
+    preferredDateScanTo,
     tenantsScanned: 0,
     candidates: 0,
     sent: 0,
@@ -40,11 +53,11 @@ export async function runAlimtalkScheduleD2Job(opts?: {
     errors: [],
   };
 
-  if (!range) return result;
+  if (!rangeFrom || !rangeTo) return result;
 
   const inquiries = await prisma.inquiry.findMany({
     where: {
-      preferredDate: { gte: range.gte, lte: range.lte },
+      preferredDate: { gte: rangeFrom.gte, lte: rangeTo.lte },
       status: { in: ALIMTALK_SCHEDULE_D2_ELIGIBLE_STATUSES as InquiryStatus[] },
       customerPhone: { not: '' },
       tenant: { status: { in: ['ACTIVE', 'TRIAL'] } },
@@ -57,30 +70,26 @@ export async function runAlimtalkScheduleD2Job(opts?: {
     orderBy: [{ tenantId: 'asc' }, { createdAt: 'asc' }],
   });
 
-  result.candidates = inquiries.length;
-
   const billingTenantIds = new Set<string>();
-  for (const row of inquiries) {
-    const ctx = await resolveAlimtalkCustomerContextFromInquiry(row.id);
-    if ('error' in ctx) continue;
-    billingTenantIds.add(ctx.billingTenantId);
-  }
-  result.tenantsScanned = billingTenantIds.size;
-
   const licensedCache = new Map<string, boolean>();
   const templateCache = new Map<string, boolean>();
 
   for (const row of inquiries) {
-    const ctx = await resolveAlimtalkCustomerContextFromInquiry(row.id);
-    if ('error' in ctx) {
-      result.skipped += 1;
+    const deadline = await resolveScheduleD2DeadlineForInquiry(row.id);
+    if ('error' in deadline) {
+      continue;
+    }
+    if (deadline.deadlineYmd !== deadlineYmd) {
       continue;
     }
 
-    const billingTenantId = ctx.billingTenantId;
+    result.candidates += 1;
+    const billingTenantId = deadline.ctx.billingTenantId;
+    billingTenantIds.add(billingTenantId);
+
     let licensed = licensedCache.get(billingTenantId);
     if (licensed === undefined) {
-      if (!alimtalkPlanAllowsFeature(ctx.billingTenant.plan)) {
+      if (!alimtalkPlanAllowsFeature(deadline.ctx.billingTenant.plan)) {
         licensed = false;
       } else {
         licensed = await isFeatureEnabled(billingTenantId, ALIMTALK_MODULE_ID);
@@ -120,5 +129,6 @@ export async function runAlimtalkScheduleD2Job(opts?: {
     }
   }
 
+  result.tenantsScanned = billingTenantIds.size;
   return result;
 }

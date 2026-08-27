@@ -47,6 +47,11 @@ export function validateAlimtalkTemplateVariables(
     if (!isUsablePhoneDisplay(variables['#{문의전화}'])) {
       return '문의 전화번호가 없습니다. 설정 → 업체등록정보 또는 브랜드 등록 전화를 입력해 주세요.';
     }
+    if (templateCode === 'CBISEO_CUST_SCHEDULE_D2') {
+      if (!isUsableAlimtalkText(variables['#{무위약마감일}'])) {
+        return '무위약 마감일을 계산할 수 없습니다. 청소일·브랜드 위약 기준일을 확인해 주세요.';
+      }
+    }
     return null;
   }
 

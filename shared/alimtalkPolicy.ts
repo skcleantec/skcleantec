@@ -19,7 +19,7 @@ export type AlimtalkTemplateCode = (typeof ALIMTALK_TEMPLATE_CODES)[number];
 export const ALIMTALK_TEMPLATE_LABELS: Record<AlimtalkTemplateCode, string> = {
   CBISEO_CUST_ORDER_LINK: '발주 링크 안내 (수동)',
   CBISEO_CUST_ORDER_DONE: '발주 제출 완료 (자동)',
-  CBISEO_CUST_SCHEDULE_D2: '청소 2일 전 (자동)',
+  CBISEO_CUST_SCHEDULE_D2: '무위약 마감일 (자동)',
 };
 
 export const ALIMTALK_UNIT_PRICE_ATA_KRW = 20;

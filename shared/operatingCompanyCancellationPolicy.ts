@@ -241,6 +241,86 @@ export function renderCancellationPolicyText(
   return renderCancellationPolicyLines(policy).join('\n');
 }
 
+/** 구간별 위약 1줄 — 치환코드·미리보기 공용 */
+export function renderPenaltyTierLine(tier: CancellationPolicyTier): string {
+  return renderTierLine(tier);
+}
+
+/** 무위약 기준일 줄 제외 — 위약 구간 줄만 (daysBefore 내림차순) */
+export function renderPenaltyLinesOnly(
+  policy: OperatingCompanyCancellationPolicy,
+): string[] {
+  if (!policy.enabled) return [];
+  const tiers = [...policy.tiers].sort(
+    (a, b) => b.daysBefore - a.daysBefore || a.sortOrder - b.sortOrder,
+  );
+  const lines: string[] = [];
+  for (const tier of tiers) {
+    const line = renderTierLine(tier);
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** YYYY-MM-DD − N일 (달력) */
+export function subtractDaysFromYmd(ymd: string, days: number): string | null {
+  if (!YMD_RE.test(ymd) || days < 0 || !Number.isFinite(days)) return null;
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  dt.setUTCDate(dt.getUTCDate() - days);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;
+
+export function formatYmdWithWeekdayKo(ymd: string): string | null {
+  if (!YMD_RE.test(ymd)) return null;
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  const w = WEEKDAY_KO[dt.getUTCDay()] ?? '';
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}(${w})`;
+}
+
+export function computeFreeChangeDeadlineYmd(
+  preferredDateYmd: string | null | undefined,
+  freeChangeDaysBefore: number | null | undefined,
+): string | null {
+  const pref = preferredDateYmd?.trim();
+  if (!pref || !YMD_RE.test(pref)) return null;
+  if (freeChangeDaysBefore == null || freeChangeDaysBefore <= 0) return null;
+  return subtractDaysFromYmd(pref, freeChangeDaysBefore);
+}
+
+/** `{{penaltyLine:N}}` 토큰 — N = daysBefore */
+export function penaltyLineGuideToken(daysBefore: number): string {
+  return `{{penaltyLine:${Math.max(0, Math.floor(daysBefore))}}}`;
+}
+
+export function buildPenaltyLineMap(
+  policy: OperatingCompanyCancellationPolicy,
+): Map<number, string> {
+  const map = new Map<number, string>();
+  if (!policy.enabled) return map;
+  for (const tier of policy.tiers) {
+    const line = renderTierLine(tier);
+    if (line) map.set(tier.daysBefore, line);
+  }
+  return map;
+}
+
+/** 발주서 안내사항 — 취소·변경 섹션 기본 항목(치환코드) */
+export const ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS: readonly string[] = [
+  '{{freeChangeDaysLine}}',
+  '{{penaltyLine:2}}',
+  '{{penaltyLine:1}}',
+  '{{penaltyLine:0}}',
+];
+
 export function emptyOperatingCompanyCancellationPolicyForm(): OperatingCompanyCancellationPolicy {
   return {
     enabled: true,

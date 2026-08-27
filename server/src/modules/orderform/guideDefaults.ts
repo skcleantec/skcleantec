@@ -1,11 +1,13 @@
 /** `/info` 고객 안내 — DB에 본문이 없을 때 사용 (클라이언트 기본과 동일 구조 유지) */
+import { ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS } from '../../lib/operatingCompanyCancellationPolicyCore.js';
+
 export type GuideSection = { title: string; items: string[] };
 
 export const DEFAULT_GUIDE_SECTIONS: GuideSection[] = [
   {
     title: '취소·변경 안내',
     items: [
-      '{{cancellationPolicy}}',
+      ...ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS,
       '예약일 14일 이내 취소 시 예약금은 반환되지 않음을 양해 부탁드립니다.',
     ],
   },

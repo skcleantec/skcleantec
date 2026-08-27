@@ -1,6 +1,8 @@
 import {
+  buildPenaltyLineMap,
   createCancellationPolicyTierId,
   formatCancellationDaysBeforeLabel,
+  penaltyLineGuideToken,
   renderCancellationPolicyLines,
   renderFreeChangeDaysBeforeLine,
   type CancellationPenaltyKind,
@@ -9,14 +11,16 @@ import {
 } from '@shared/operatingCompanyCancellationPolicy';
 import {
   GUIDE_PLACEHOLDER_CANCELLATION_POLICY,
+  GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_BEFORE,
   GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE,
+  GUIDE_PLACEHOLDER_PENALTY_LINES,
+  ORDER_FORM_GUIDE_PLACEHOLDERS,
 } from '@shared/orderFormGuidePlaceholders';
 
 const KIND_OPTIONS: { value: CancellationPenaltyKind; label: string }[] = [
   { value: 'percent', label: '위약금 %' },
   { value: 'no_cancel', label: '취소·변경 불가' },
   { value: 'deposit_forfeit', label: '예약금 몰수' },
-  { value: 'custom', label: '직접 입력' },
 ];
 
 function moveTier(tiers: CancellationPolicyTier[], from: number, dir: -1 | 1): CancellationPolicyTier[] {
@@ -35,6 +39,10 @@ export function OperatingCompanyCancellationPolicyFields(props: {
   const { value, onChange } = props;
   const previewLines = renderCancellationPolicyLines(value);
   const freeChangePreview = renderFreeChangeDaysBeforeLine(value.freeChangeDaysBefore);
+  const penaltyLineMap = buildPenaltyLineMap(value);
+  const penaltyTokens = [...value.tiers]
+    .sort((a, b) => b.daysBefore - a.daysBefore)
+    .map((t) => penaltyLineGuideToken(t.daysBefore));
 
   const updateTier = (index: number, patch: Partial<CancellationPolicyTier>) => {
     onChange({
@@ -66,9 +74,9 @@ export function OperatingCompanyCancellationPolicyFields(props: {
     });
   };
 
-  const copyToken = async () => {
+  const copyToken = async (token: string) => {
     try {
-      await navigator.clipboard.writeText(GUIDE_PLACEHOLDER_CANCELLATION_POLICY);
+      await navigator.clipboard.writeText(token);
     } catch {
       /* ignore */
     }
@@ -77,11 +85,8 @@ export function OperatingCompanyCancellationPolicyFields(props: {
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500 leading-relaxed">
-        브랜드별 취소·변경 위약 구간입니다. 안내사항·발주 확인 문구에{' '}
-        <code className="rounded bg-gray-100 px-1 font-mono text-[12px]">
-          {GUIDE_PLACEHOLDER_CANCELLATION_POLICY}
-        </code>{' '}
-        치환코드를 넣으면 아래 설정이 자동으로 반영됩니다.
+        브랜드별 취소·변경 위약 구간입니다. 문장은 시스템 고정 템플릿으로 생성되며, 안내사항·발주 확인에는
+        아래 <strong>치환코드</strong>를 넣으면 설정값이 자동 반영됩니다.
       </p>
 
       <label className="flex items-center gap-2 text-sm">
@@ -97,8 +102,7 @@ export function OperatingCompanyCancellationPolicyFields(props: {
       <section className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 space-y-2">
         <h3 className="text-sm font-semibold text-gray-900">날짜 변경 가능 기준일</h3>
         <p className="text-xs text-gray-600 leading-relaxed">
-          청소일 며칠 <strong>전</strong>까지 위약금 없이 변경·취소할 수 있는지 설정합니다. 청소날짜 확인
-          모달·안내사항에 아래 문장이 반영됩니다.
+          청소일 며칠 <strong>전</strong>까지 위약금 없이 변경·취소할 수 있는지 설정합니다.
         </p>
         <label className="block text-sm">
           <span className="font-medium text-gray-800">기준일 (일)</span>
@@ -127,9 +131,10 @@ export function OperatingCompanyCancellationPolicyFields(props: {
           <p className="text-xs text-gray-500">기준일을 입력하면 미리보기가 표시됩니다.</p>
         )}
         <p className="text-xs text-gray-500">
-          청소날짜 확인 문구 편집 시{' '}
-          <code className="rounded bg-white px-1 font-mono text-[12px]">{GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE}</code>{' '}
-          치환코드를 쓸 수 있습니다.
+          치환코드:{' '}
+          <code className="rounded bg-white px-1 font-mono text-[12px]">{GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE}</code>
+          ,{' '}
+          <code className="rounded bg-white px-1 font-mono text-[12px]">{GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_BEFORE}</code>
         </p>
       </section>
 
@@ -180,7 +185,7 @@ export function OperatingCompanyCancellationPolicyFields(props: {
                 <label className="text-xs text-gray-600 flex-1 min-w-[7rem]">
                   유형
                   <select
-                    value={tier.kind}
+                    value={tier.kind === 'custom' ? 'percent' : tier.kind}
                     onChange={(e) =>
                       updateTier(index, { kind: e.target.value as CancellationPenaltyKind })
                     }
@@ -193,7 +198,7 @@ export function OperatingCompanyCancellationPolicyFields(props: {
                     ))}
                   </select>
                 </label>
-                {tier.kind === 'percent' ? (
+                {tier.kind === 'percent' || tier.kind === 'custom' ? (
                   <label className="text-xs text-gray-600">
                     %
                     <input
@@ -203,12 +208,18 @@ export function OperatingCompanyCancellationPolicyFields(props: {
                       value={tier.percent ?? 0}
                       onChange={(e) =>
                         updateTier(index, {
+                          kind: 'percent',
                           percent: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
                         })
                       }
                       className="mt-0.5 block w-16 border border-gray-300 rounded px-2 py-1 text-sm"
                     />
                   </label>
+                ) : null}
+                {tier.kind === 'custom' ? (
+                  <p className="w-full text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    레거시 「직접 입력」 구간입니다. % 또는 다른 유형으로 바꾸면 고정 템플릿 문장으로 표시됩니다.
+                  </p>
                 ) : null}
                 <div className="flex items-end gap-1 ml-auto pt-4">
                   <button
@@ -238,33 +249,25 @@ export function OperatingCompanyCancellationPolicyFields(props: {
                   </button>
                 </div>
               </div>
-              {tier.kind === 'custom' ? (
-                <textarea
-                  rows={2}
-                  value={tier.customText ?? ''}
-                  onChange={(e) => updateTier(index, { customText: e.target.value })}
-                  placeholder="표시할 문구를 직접 입력"
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
-                />
+              {penaltyLineMap.get(tier.daysBefore) ? (
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  <code className="rounded bg-white px-1 font-mono text-[11px]">
+                    {penaltyLineGuideToken(tier.daysBefore)}
+                  </code>{' '}
+                  → {penaltyLineMap.get(tier.daysBefore)}
+                </p>
               ) : null}
-              <input
-                type="text"
-                value={tier.note ?? ''}
-                onChange={(e) => updateTier(index, { note: e.target.value })}
-                placeholder="보조 설명 (선택)"
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs"
-              />
             </div>
           ))}
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm font-medium text-gray-800">미리보기</span>
+          <span className="text-sm font-medium text-gray-800">전체 미리보기</span>
           <button
             type="button"
-            onClick={() => void copyToken()}
+            onClick={() => void copyToken(GUIDE_PLACEHOLDER_CANCELLATION_POLICY)}
             className="text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
           >
             {GUIDE_PLACEHOLDER_CANCELLATION_POLICY} 복사
@@ -282,6 +285,32 @@ export function OperatingCompanyCancellationPolicyFields(props: {
         ) : (
           <p className="text-xs text-gray-500">정책이 꺼져 있거나 구간이 없습니다.</p>
         )}
+
+        <div className="border-t border-slate-200 pt-2 space-y-1.5">
+          <p className="text-xs font-medium text-gray-800">치환코드 (구간별)</p>
+          <ul className="space-y-1 text-xs text-gray-600">
+            {ORDER_FORM_GUIDE_PLACEHOLDERS.filter((p) =>
+              [
+                GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE,
+                GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_BEFORE,
+                GUIDE_PLACEHOLDER_PENALTY_LINES,
+                GUIDE_PLACEHOLDER_CANCELLATION_POLICY,
+                ...penaltyTokens,
+              ].includes(p.token),
+            ).map((p) => (
+              <li key={p.token} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <button
+                  type="button"
+                  onClick={() => void copyToken(p.token)}
+                  className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-[11px] hover:bg-gray-50"
+                >
+                  {p.token}
+                </button>
+                <span>{p.description}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );

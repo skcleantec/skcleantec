@@ -3,6 +3,11 @@ import { parseOperatingCompanyConfig } from '../operating-companies/operatingCom
 import { resolvePublicOrderFormCompanyTrust } from '../orderform/publicOrderFormCompanyTrust.js';
 import { prisma } from '../../lib/prisma.js';
 import {
+  computeFreeChangeDeadlineYmd,
+  formatYmdWithWeekdayKo,
+} from '../../lib/operatingCompanyCancellationPolicyCore.js';
+import { loadCancellationPolicyForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
+import {
   labelForTimeSlotFromLabels,
   parseOrderTimeSlotLabelsJson,
   resolveOrderTimeSlotLabels,
@@ -159,12 +164,25 @@ export async function buildScheduleD2AlimtalkVariables(
     preferredTime: inquiry.preferredTime ?? order.preferredTime,
   });
 
+  const preferredDateYmd = formatPreferredDateYmd(inquiry.preferredDate);
+  const policy = await loadCancellationPolicyForBrand(prisma, tenant.id, {
+    operatingCompanyId,
+  });
+  const deadlineYmd =
+    preferredDateYmd !== '—'
+      ? computeFreeChangeDeadlineYmd(preferredDateYmd, policy.freeChangeDaysBefore)
+      : null;
+  const deadlineLabel = deadlineYmd
+    ? formatYmdWithWeekdayKo(deadlineYmd) ?? deadlineYmd
+    : '—';
+
   return {
     '#{고객명}': inquiry.customerName?.trim() || order.customerName?.trim() || '고객',
     '#{브랜드명}': brandDisplay || trust?.companyName || '',
-    '#{청소일}': formatPreferredDateYmd(inquiry.preferredDate),
+    '#{청소일}': preferredDateYmd,
     '#{시간대}': timeLabel,
     '#{주소}': formatInquiryAddress(inquiry.address, inquiry.addressDetail),
+    '#{무위약마감일}': deadlineLabel,
     '#{업체명}': trust?.companyName ?? brandDisplay,
     '#{문의전화}': trust?.phone?.trim() ?? '—',
     '#{발주토큰}': order.token,
