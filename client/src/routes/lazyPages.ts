@@ -225,6 +225,11 @@ export const AdminNotificationPolicyPage = lazyWithRetry(() =>
     default: m.AdminNotificationPolicyPage,
   }))
 );
+export const AdminAlimtalkPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminAlimtalkPage').then((m) => ({
+    default: m.AdminAlimtalkPage,
+  }))
+);
 export const AdminNotificationSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminNotificationSettingsPage').then((m) => ({
     default: m.AdminNotificationSettingsPage,

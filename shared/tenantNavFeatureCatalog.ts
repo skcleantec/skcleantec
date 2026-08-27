@@ -173,6 +173,12 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
         moduleId: 'mod_inspection',
         group: '설정',
       },
+      {
+        label: '알림톡',
+        path: '/admin/team-leaders/alimtalk',
+        moduleId: 'mod_alimtalk',
+        group: '설정',
+      },
     ],
   },
 ];

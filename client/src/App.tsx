@@ -88,6 +88,7 @@ import {
   AdminTenantCompanyOutboundEmailPage,
   AdminOperatingCompanyPolicyPage,
   AdminNotificationPolicyPage,
+  AdminAlimtalkPage,
   AdminNotificationSettingsPage,
   AdminKakaoLinkPage,
   AdminStaffAccessSettingsPage,
@@ -302,6 +303,14 @@ function App() {
             />
             <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
             <Route path="notification-policy" element={<SuspensePage><AdminNotificationPolicyPage /></SuspensePage>} />
+            <Route
+              path="alimtalk"
+              element={
+                <FeatureGate module="mod_alimtalk">
+                  <SuspensePage><AdminAlimtalkPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
             <Route
               path="notification-settings"
               element={<Navigate to="/admin/notification-settings" replace />}

@@ -129,6 +129,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '앱·푸시 알림 정책',
       },
       {
+        to: '/admin/team-leaders/alimtalk',
+        label: '알림톡',
+        title: '알림톡 이용·충전·발송 설정',
+      },
+      {
         to: '/admin/team-leaders/inspection-template',
         label: '검수템플릿',
         title: '현장 검수 체크리스트 템플릿',

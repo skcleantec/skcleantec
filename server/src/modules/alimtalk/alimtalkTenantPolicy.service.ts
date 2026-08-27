@@ -8,6 +8,12 @@ import {
 } from '../../lib/alimtalkPolicy.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { getAlimtalkWalletView, ensureTenantAlimtalkDefaults, listRecentAlimtalkChargeLogs, applyPlatformAlimtalkTopUp } from './alimtalkWallet.service.js';
+import {
+  approveAlimtalkChargeRequest,
+  listPendingAlimtalkChargeRequestsForTenant,
+  upsertTenantAlimtalkTemplateSettings,
+  type AlimtalkChargeRequestDto,
+} from './alimtalkChargeRequest.service.js';
 
 export type AlimtalkChargeLogDto = {
   id: string;
@@ -28,6 +34,7 @@ export type AlimtalkSettingsForPlatform = {
   prepaidBalanceKrw: number;
   templates: { code: string; label: string; enabled: boolean }[];
   recentChargeLogs: AlimtalkChargeLogDto[];
+  pendingChargeRequests: AlimtalkChargeRequestDto[];
 };
 
 export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<AlimtalkSettingsForPlatform> {
@@ -48,6 +55,7 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
   const settings = await prisma.tenantAlimtalkTemplateSetting.findMany({ where: { tenantId } });
   const settingMap = new Map(settings.map((s) => [s.templateCode, s.isEnabled]));
   const recentChargeLogs = await listRecentAlimtalkChargeLogs(tenantId, 10);
+  const pendingChargeRequests = await listPendingAlimtalkChargeRequestsForTenant(tenantId);
 
   return {
     licensed,
@@ -70,6 +78,7 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
       memo: log.memo,
       createdAt: log.createdAt.toISOString(),
     })),
+    pendingChargeRequests,
   };
 }
 
@@ -110,16 +119,7 @@ export async function saveAlimtalkPolicyForPlatform(
   }
 
   if (Array.isArray(input.templates)) {
-    for (const t of input.templates) {
-      if (!ALIMTALK_TEMPLATE_CODES.includes(t.code as (typeof ALIMTALK_TEMPLATE_CODES)[number])) {
-        continue;
-      }
-      await prisma.tenantAlimtalkTemplateSetting.upsert({
-        where: { tenantId_templateCode: { tenantId, templateCode: t.code } },
-        create: { tenantId, templateCode: t.code, isEnabled: t.enabled },
-        update: { isEnabled: t.enabled },
-      });
-    }
+    await upsertTenantAlimtalkTemplateSettings(tenantId, input.templates);
   }
 
   return getAlimtalkSettingsForPlatform(tenantId);
@@ -127,14 +127,23 @@ export async function saveAlimtalkPolicyForPlatform(
 
 export async function chargeAlimtalkWalletForPlatform(
   tenantId: string,
-  input: { amountKrw: number; memo?: string | null },
+  input: { amountKrw: number; memo?: string | null; chargeRequestId?: string | null },
   actorPlatformUserId?: string | null,
 ): Promise<AlimtalkSettingsForPlatform> {
-  await applyPlatformAlimtalkTopUp({
-    tenantId,
-    amountKrw: input.amountKrw,
-    memo: input.memo,
-    actorPlatformUserId,
-  });
+  if (input.chargeRequestId) {
+    await approveAlimtalkChargeRequest({
+      tenantId,
+      chargeRequestId: input.chargeRequestId,
+      actorPlatformUserId,
+      memo: input.memo,
+    });
+  } else {
+    await applyPlatformAlimtalkTopUp({
+      tenantId,
+      amountKrw: input.amountKrw,
+      memo: input.memo,
+      actorPlatformUserId,
+    });
+  }
   return getAlimtalkSettingsForPlatform(tenantId);
 }

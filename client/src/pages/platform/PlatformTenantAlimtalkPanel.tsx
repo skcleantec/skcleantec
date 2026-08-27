@@ -40,6 +40,7 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [charging, setCharging] = useState(false);
+  const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [chargeAmountKrw, setChargeAmountKrw] = useState<number>(ALIMTALK_CHARGE_UNIT_KRW);
   const [chargeMemo, setChargeMemo] = useState('');
   const [error, setError] = useState('');
@@ -124,6 +125,28 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
     }
   };
 
+  const handleApproveChargeRequest = async (requestId: string, amountKrw: number) => {
+    const token = getPlatformToken();
+    if (!token || !tenantId) return;
+    setApprovingRequestId(requestId);
+    setMessage('');
+    setError('');
+    try {
+      const data = await postPlatformTenantAlimtalkCharge(token, tenantId, {
+        chargeRequestId: requestId,
+        amountKrw,
+        memo: '충전 신청 승인',
+      });
+      setSettings(data);
+      setMessage(`${amountKrw.toLocaleString('ko-KR')}원 충전 신청을 반영했습니다.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '충전 신청 승인 실패');
+    } finally {
+      setApprovingRequestId(null);
+    }
+  };
+
   if (loading) {
     return <p className="text-sm text-gray-500">알림톡 설정 불러오는 중…</p>;
   }
@@ -138,7 +161,7 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
           <div>
             <h2 className="text-base font-semibold text-gray-900">알림톡 라이선스</h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              Standard 이상 플랜에서만 발송 가능합니다. 별도 옵션으로 활성화합니다.
+              Standard 이상 플랜은 기본 ON입니다. 해당 업체만 끄려면 토글을 OFF하세요.
             </p>
           </div>
           <PlatformToggle
@@ -202,6 +225,33 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
           입금 확인 후 반영합니다. {ALIMTALK_CHARGE_UNIT_KRW.toLocaleString('ko-KR')}원 단위, 1회 최대{' '}
           {ALIMTALK_CHARGE_MAX_KRW.toLocaleString('ko-KR')}원.
         </p>
+        {settings?.pendingChargeRequests?.length ? (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <h3 className="text-xs font-medium text-amber-900">업체 충전 신청 (대기)</h3>
+            <ul className="mt-2 space-y-2">
+              {settings.pendingChargeRequests.map((req) => (
+                <li
+                  key={req.id}
+                  className="flex flex-wrap items-center justify-between gap-2 text-xs text-amber-950"
+                >
+                  <span className="tabular-nums">
+                    {req.amountKrw.toLocaleString('ko-KR')}원 ·{' '}
+                    {new Date(req.createdAt).toLocaleString('ko-KR')}
+                    {req.memo ? ` · ${req.memo}` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    className={BTN_PRIMARY}
+                    disabled={disabled || approvingRequestId === req.id}
+                    onClick={() => void handleApproveChargeRequest(req.id, req.amountKrw)}
+                  >
+                    {approvingRequestId === req.id ? '반영 중…' : '입금 확인 · 반영'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {CHARGE_PRESETS_KRW.map((amount) => (
             <button

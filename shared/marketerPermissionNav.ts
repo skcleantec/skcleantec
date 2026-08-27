@@ -57,6 +57,7 @@ export const ADMIN_PATH_PERMISSION_RULES: AdminPathPermissionRule[] = [
   { prefix: '/admin/team-leaders/leader-stats', permissions: ['admin.users'] },
   { prefix: '/admin/team-leaders/team-members', permissions: ['admin.users'] },
   { prefix: '/admin/team-leaders/holiday-calendar', permissions: ['admin.users'] },
+  { prefix: '/admin/team-leaders/alimtalk', permissions: [], adminRoleOnly: true },
   { prefix: '/admin/team-leaders', permissions: ['admin.users'] },
   { prefix: '/admin/service-zones', permissions: ['admin.serviceZones'] },
   { prefix: '/admin/inquiries/bulk-excel', permissions: ['inquiry.excelImport'] },

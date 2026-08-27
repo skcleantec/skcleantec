@@ -323,6 +323,7 @@ model Tenant {
   alimtalkTemplateSettings TenantAlimtalkTemplateSetting[]
   alimtalkSendLogs AlimtalkSendLog[]
   alimtalkWalletChargeLogs AlimtalkWalletChargeLog[]
+  alimtalkChargeRequests AlimtalkChargeRequest[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
   billingProfile TenantBillingProfile?
@@ -4357,4 +4358,22 @@ model AlimtalkWalletChargeLog {
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@map("alimtalk_wallet_charge_logs")
+}
+
+/// 테넌트 알림톡 충전 신청 (입금 확인 후 플랫폼 승인)
+model AlimtalkChargeRequest {
+  id                  String    @id @default(uuid())
+  tenantId            String    @map("tenant_id")
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amountKrw           Int       @map("amount_krw")
+  memo                String?   @db.Text
+  status              String    @db.VarChar(16)
+  requestedByUserId   String?   @map("requested_by_user_id")
+  reviewedAt          DateTime? @map("reviewed_at")
+  actorPlatformUserId String?   @map("actor_platform_user_id") @db.VarChar(64)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId, status, createdAt(sort: Desc)])
+  @@map("alimtalk_charge_requests")
 }

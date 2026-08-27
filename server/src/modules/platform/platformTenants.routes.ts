@@ -334,12 +334,21 @@ router.patch('/:id/alimtalk-policy', platformSuperAdminOnly, async (req, res) =>
 
 router.post('/:id/alimtalk-policy/charge', platformSuperAdminOnly, async (req, res) => {
   try {
-    const body = req.body as { amountKrw?: number; memo?: string };
+    const body = req.body as { amountKrw?: number; memo?: string; chargeRequestId?: string };
+    const chargeRequestId = body.chargeRequestId?.trim() || null;
     const amountKrw = Number(body.amountKrw);
     const platformUser = (req as PlatformScopedRequest).platformUser;
+    if (!chargeRequestId && !Number.isFinite(amountKrw)) {
+      res.status(400).json({ error: '충전 금액이 올바르지 않습니다.' });
+      return;
+    }
     const settings = await chargeAlimtalkWalletForPlatform(
       req.params.id,
-      { amountKrw, memo: body.memo },
+      {
+        amountKrw: Number.isFinite(amountKrw) ? amountKrw : 0,
+        memo: body.memo,
+        chargeRequestId,
+      },
       platformUser?.platformUserId ?? null,
     );
     res.json(settings);

@@ -404,11 +404,6 @@ export async function resetTenantFeaturesFromPlan(tenantId: string) {
   const telecrmRow = await getTelecrmFeatureRow(tenantId);
   const telecrmWasLicensed = telecrmRow?.enabled === true;
   const preservedTelecrmMeta = await readTelecrmMetaForPreserve(tenantId);
-  const alimtalkRow = await prisma.tenantFeature.findUnique({
-    where: { tenantId_moduleId: { tenantId, moduleId: 'mod_alimtalk' } },
-    select: { enabled: true },
-  });
-  const alimtalkWasLicensed = alimtalkRow?.enabled === true;
 
   const planModules = modulesForPlan(tenant.plan);
   await prisma.$transaction([
@@ -430,16 +425,6 @@ export async function resetTenantFeaturesFromPlan(tenantId: string) {
     });
   } else {
     await restoreTelecrmMetaIfMissing(tenantId, preservedTelecrmMeta);
-  }
-
-  if (alimtalkWasLicensed && !planModules.includes('mod_alimtalk')) {
-    await prisma.tenantFeature.create({
-      data: {
-        tenantId,
-        moduleId: 'mod_alimtalk',
-        enabled: true,
-      },
-    });
   }
 }
 
