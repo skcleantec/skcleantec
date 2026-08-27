@@ -1,7 +1,10 @@
 # Railway US → 싱가포르 리전 이전 가이드 (앱 + Postgres)
 
+> **현재 상태 (2026): 운영·스테이징 앱 + Postgres 는 Railway 싱가포르(Southeast Asia) 기준.**  
+> 아래는 **과거 US → SG 이전** 절차·롤백 참고용. 신규 배포 시 리전이 SG 인지 Railway 대시보드에서 확인.
+
 한국 사용자 체감 속도를 위해 **앱 서비스 + Postgres 를 둘 다 Railway 싱가포르(Southeast Asia)** 로 옮기는 절차.
-현재 리전은 **US 계열**이며, 싱가포르가 Railway 리전 중 한국에 가장 가깝다(한국 왕복 약 70~90ms, US는 130~180ms).
+싱가포르가 Railway 리전 중 한국에 가장 가깝다(한국 왕복 약 70~90ms, US는 130~180ms).
 
 > Railway 에는 한국·일본 리전이 없다. 그보다 더 빠르게 하려면 Railway 를 떠나야 한다(Fly.io 도쿄 ~30ms, NCP/AWS 서울 ~5~20ms). 자세한 배경은 `.cursor/rules/infra-hosting-db-plan.mdc`.
 

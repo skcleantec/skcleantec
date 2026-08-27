@@ -1,4 +1,5 @@
 import { kstDayRangeYmd } from './inquiryListDateRange.js';
+import type { InquiryStatus } from '@prisma/client';
 
 /** KST 기준 날짜 문자열 */
 export function kstYmdFromDate(d: Date): string {
@@ -20,7 +21,7 @@ export function happyCallDeadlineEnd(preferredDate: Date): Date {
   return r.lte;
 }
 
-const HAPPY_CALL_BLOCK = new Set([
+const HAPPY_CALL_BLOCK = new Set<InquiryStatus>([
   'CANCELLED',
   'ON_HOLD',
   'PENDING',
@@ -31,7 +32,7 @@ const HAPPY_CALL_BLOCK = new Set([
 
 export function isHappyCallEligible(status: string, preferredDate: Date | null): boolean {
   if (!preferredDate) return false;
-  if (HAPPY_CALL_BLOCK.has(status)) return false;
+  if (HAPPY_CALL_BLOCK.has(status as InquiryStatus)) return false;
   return true;
 }
 
@@ -65,6 +66,25 @@ export function isHappyCallInHourlyReminderWindow(
   if (!preferredDate) return false;
   return now >= happyCallReminderWindowStart(preferredDate);
 }
+
+/** 15분 cron DB 조회용 — 과거 예약일 전량 스캔 방지 */
+export function happyCallCronPreferredDateRange(now: Date): { gte: Date; lte: Date } | null {
+  const todayYmd = kstYmdFromDate(now);
+  const tomorrowYmd = addDaysToYmdKst(todayYmd, 1);
+  const todayRange = kstDayRangeYmd(todayYmd);
+  const tomorrowRange = kstDayRangeYmd(tomorrowYmd);
+  if (!todayRange || !tomorrowRange) return null;
+
+  const eveStart = new Date(`${todayYmd}T18:00:00+09:00`);
+  if (now >= eveStart) {
+    /** 오늘 18:00~ — 내일 작업(전날 18:00 알림 창) + 오늘 작업(당일 미완·연체) */
+    return { gte: todayRange.gte, lte: tomorrowRange.lte };
+  }
+  /** 18:00 이전 — 어제 18:00부터 열린 「오늘」 작업 미완만 후보 */
+  return { gte: todayRange.gte, lte: todayRange.lte };
+}
+
+export const HAPPY_CALL_INELIGIBLE_STATUSES: InquiryStatus[] = [...HAPPY_CALL_BLOCK];
 
 /** 마감 전이지만 미완(주의) */
 export function isHappyCallPendingBeforeDeadline(
