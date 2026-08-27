@@ -1,16 +1,18 @@
 /** 선택일 일정 목록 — 구역 헤더·접수 카드 색 (도움말·실제 목록 공통) */
 
-import { SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS } from '../../../utils/scheduleLeaderDayAssignmentBalance';
+import { SCHEDULE_ALL_DAY_HIGHLIGHT_CLASS, SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS } from '../../../utils/scheduleLeaderDayAssignmentBalance';
 
-export type ScheduleListCardBucket = 'morning' | 'afternoon' | 'other';
+export type ScheduleListCardBucket = 'allday' | 'morning' | 'afternoon' | 'other';
 
 export const SCHEDULE_LIST_SLOT_LEFT_BORDER: Record<ScheduleListCardBucket, string> = {
+  allday: 'border-l-[6px] border-emerald-600',
   morning: 'border-l-[6px] border-amber-500',
   afternoon: 'border-l-[6px] border-sky-600',
   other: 'border-l-[6px] border-violet-500',
 };
 
 export const SCHEDULE_LIST_SLOT_BG_TINT: Record<ScheduleListCardBucket, string> = {
+  allday: 'bg-emerald-50/60',
   morning: 'bg-amber-50/50',
   afternoon: 'bg-sky-50/50',
   other: 'bg-violet-50/40',
@@ -50,7 +52,15 @@ export const SCHEDULE_LIST_SECTION_LEGEND: readonly ScheduleListSectionLegendIte
     dotClass: 'h-2 w-2 rounded-full bg-rose-500 shrink-0',
     titleClass: 'text-fluid-xs font-bold text-rose-950',
     meaning:
-      '팀장이 아직 없는 자사 접수입니다. 아래에 미배정·오전 / ·오후 / ·사이·조율·미확정으로 나뉩니다.',
+      '팀장이 아직 없는 자사 접수입니다. 아래에 미배정·종일 / ·오전 / ·오후 / ·사이·조율·미확정으로 나뉩니다.',
+  },
+  {
+    title: '종일 일정',
+    headerBarClass: 'bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5',
+    dotClass: 'h-2 w-2 rounded-full bg-emerald-600 shrink-0',
+    titleClass: 'text-fluid-xs font-bold text-emerald-950',
+    meaning:
+      '하루 종일 한 건만 수행하는 접수입니다. 오전·오후 TO 슬롯을 모두 사용합니다. 관리자·마케터만 지정할 수 있습니다.',
   },
   {
     title: '정보공유',
@@ -122,6 +132,11 @@ export type ScheduleListCardColorLegendItem = {
 
 /** 접수 카드 칸 배경·띠·테두리 — ScheduleDayListItem과 동일 계열 */
 export const SCHEDULE_LIST_CARD_COLOR_LEGEND: readonly ScheduleListCardColorLegendItem[] = [
+  {
+    sampleLabel: '종일',
+    cardClass: `${SCHEDULE_LIST_SLOT_LEFT_BORDER.allday} border ${SCHEDULE_LIST_CARD_BORDER_BASE} ${SCHEDULE_ALL_DAY_HIGHLIGHT_CLASS}`,
+    meaning: '종일 일정 — 왼쪽 emerald 띠·연한 초록 배경·진한 테두리(오전/오후 TO 모두 사용)',
+  },
   {
     sampleLabel: '오전',
     cardClass: `${SCHEDULE_LIST_SLOT_LEFT_BORDER.morning} border ${SCHEDULE_LIST_CARD_BORDER_BASE} ${SCHEDULE_LIST_SLOT_BG_TINT.morning}`,

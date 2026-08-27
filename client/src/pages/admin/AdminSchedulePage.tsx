@@ -114,6 +114,7 @@ import {
   buildLeaderAfternoonAssignmentCounts,
   buildLeaderSlotAssignmentCountMapsForDayItems,
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
+  SCHEDULE_ALL_DAY_HIGHLIGHT_CLASS,
   SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS,
   SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
@@ -327,27 +328,30 @@ function sortScheduleItemsByCustomer(items: ScheduleItem[]): ScheduleItem[] {
 type ExternalCompanyDayBucket = {
   companyId: string;
   label: string;
+  allday: ScheduleItem[];
   morning: ScheduleItem[];
   afternoon: ScheduleItem[];
   other: ScheduleItem[];
 };
 
 function buildLinkedExternalCompanyBuckets(
+  allday: ScheduleItem[],
   morning: ScheduleItem[],
   afternoon: ScheduleItem[],
   other: ScheduleItem[],
 ): ExternalCompanyDayBucket[] {
   const map = new Map<string, ExternalCompanyDayBucket>();
-  const touch = (slot: 'morning' | 'afternoon' | 'other', item: ScheduleItem) => {
+  const touch = (slot: 'allday' | 'morning' | 'afternoon' | 'other', item: ScheduleItem) => {
     const co = primaryLinkedExternalCompany(item);
     if (!co) return;
     let b = map.get(co.id);
     if (!b) {
-      b = { companyId: co.id, label: co.label, morning: [], afternoon: [], other: [] };
+      b = { companyId: co.id, label: co.label, allday: [], morning: [], afternoon: [], other: [] };
       map.set(co.id, b);
     }
     b[slot].push(item);
   };
+  for (const item of allday) touch('allday', item);
   for (const item of morning) touch('morning', item);
   for (const item of afternoon) touch('afternoon', item);
   for (const item of other) touch('other', item);
@@ -358,6 +362,7 @@ function buildLinkedExternalCompanyBuckets(
     return a.companyId.localeCompare(b.companyId);
   });
   for (const b of out) {
+    b.allday = sortScheduleItemsByCustomer(b.allday);
     b.morning = sortScheduleItemsByCustomer(b.morning);
     b.afternoon = sortScheduleItemsByCustomer(b.afternoon);
     b.other = sortScheduleItemsByCustomer(b.other);
@@ -428,25 +433,40 @@ function ScheduleDayListItem({
   const isSide = isSideCleaningTime(item.preferredTime);
   const isCoord = isCoordinationTime(item.preferredTime);
   const isCoordUnconfirmed = isCoord && bucket === 'other';
+  const isAllDay = bucket === 'allday';
   const slotBucket: ScheduleListCardBucket =
-    bucket === 'morning' ? 'morning' : bucket === 'afternoon' ? 'afternoon' : 'other';
+    bucket === 'allday'
+      ? 'allday'
+      : bucket === 'morning'
+        ? 'morning'
+        : bucket === 'afternoon'
+          ? 'afternoon'
+          : 'other';
   const slotLeftBorder = scheduleListCardSlotLeftBorder(slotBucket);
   const slotBgTint = scheduleListCardSlotBgTint(slotBucket);
   /** 사이청소는 오전·오후로 분류돼도 배지는 항상 「사이」(보라) 유지 */
   const slotBadgeClass = scheduleSlotBadgeClass(
-    bucket === 'morning' ? 'morning' : bucket === 'afternoon' ? 'afternoon' : 'other',
+    bucket === 'allday'
+      ? 'allday'
+      : bucket === 'morning'
+        ? 'morning'
+        : bucket === 'afternoon'
+          ? 'afternoon'
+          : 'other',
     isSide,
     isCoord,
   );
-  const slotLabelShort = isCoord
-    ? '조율'
-    : isSide
-      ? '사이'
-      : bucket === 'morning'
-        ? '오전'
-        : bucket === 'afternoon'
-          ? '오후'
-          : '기타';
+  const slotLabelShort = isAllDay
+    ? '종일'
+    : isCoord
+      ? '조율'
+      : isSide
+        ? '사이'
+        : bucket === 'morning'
+          ? '오전'
+          : bucket === 'afternoon'
+            ? '오후'
+            : '기타';
   const leaderNamesJoined = formatScheduleLeaderSummary(item);
   const crewN = item.crewMemberCount ?? 0;
   const crewNote = item.crewMemberNote?.trim() ?? '';
@@ -471,20 +491,24 @@ function ScheduleDayListItem({
     item.happyCallCompletedAt,
     hasAssignment
   );
-  const leaderSingleSlotAssignment = scheduleItemHasLeaderWithSingleSlotAssignmentOnDay(
-    item,
-    leaderMorningAssignmentCountsForDay,
-    leaderAfternoonAssignmentCountsForDay,
-  );
+  const leaderSingleSlotAssignment =
+    !isAllDay &&
+    scheduleItemHasLeaderWithSingleSlotAssignmentOnDay(
+      item,
+      leaderMorningAssignmentCountsForDay,
+      leaderAfternoonAssignmentCountsForDay,
+    );
 
   return (
     <div
       className={`text-left w-full py-2 pl-3 pr-2 rounded-xl flex gap-2 border shadow-sm text-fluid-sm transition-all duration-200 hover:shadow-md hover:translate-y-[-0.5px] ${slotLeftBorder} ${
-        leaderSingleSlotAssignment
-          ? `${SCHEDULE_LIST_CARD_BORDER_BASE} ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS}`
-          : emphasizeOneRoomInList
-            ? SCHEDULE_LIST_CARD_SK_ONE_ROOM
-            : `${SCHEDULE_LIST_CARD_BORDER_BASE} ${slotBgTint}`
+        isAllDay
+          ? `${SCHEDULE_LIST_CARD_BORDER_BASE} ${SCHEDULE_ALL_DAY_HIGHLIGHT_CLASS}`
+          : leaderSingleSlotAssignment
+            ? `${SCHEDULE_LIST_CARD_BORDER_BASE} ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS}`
+            : emphasizeOneRoomInList
+              ? SCHEDULE_LIST_CARD_SK_ONE_ROOM
+              : `${SCHEDULE_LIST_CARD_BORDER_BASE} ${slotBgTint}`
       } ${
         isPreOrder ? SCHEDULE_LIST_CARD_PRE_ORDER_RING : ''
       } ${
@@ -2686,15 +2710,20 @@ export function AdminSchedulePage() {
                 const dayListAll = byDate[selectedDate] ?? [];
                 const dayList = dayListAll.filter((i) => i.status !== 'CANCELLED' && i.status !== 'ON_HOLD');
                 const shelfInactive = dayListAll.filter((i) => i.status === 'CANCELLED' || i.status === 'ON_HOLD');
+                const alldayList = dayList.filter((i) => getScheduleTimeBucket(i) === 'allday');
                 const morningList = dayList.filter((i) => getScheduleTimeBucket(i) === 'morning');
                 const afternoonList = dayList.filter((i) => getScheduleTimeBucket(i) === 'afternoon');
                 const otherList = dayList.filter((i) => getScheduleTimeBucket(i) === 'other');
 
+                const alldayOwn = alldayList.filter(inquiryCountsAsOwnTeamAssignment);
                 const morningOwn = morningList.filter(inquiryCountsAsOwnTeamAssignment);
                 const afternoonOwn = afternoonList.filter(inquiryCountsAsOwnTeamAssignment);
                 const otherOwn = otherList.filter(inquiryCountsAsOwnTeamAssignment);
 
                 const unassignedOwnAll = dayList.filter(inquiryCountsAsUnassignedOwn);
+                const unassignedOwnAllday = sortScheduleItemsByCustomer(
+                  unassignedOwnAll.filter((i) => getScheduleTimeBucket(i) === 'allday'),
+                );
                 const unassignedOwnMorning = sortScheduleItemsByCustomer(
                   unassignedOwnAll.filter((i) => getScheduleTimeBucket(i) === 'morning')
                 );
@@ -2707,6 +2736,9 @@ export function AdminSchedulePage() {
                 const unassignedOwn = unassignedOwnAll;
 
                 const marketplaceOwnAll = dayList.filter(inquiryCountsAsDbMarketplaceOwnSchedule);
+                const marketplaceOwnAllday = sortScheduleItemsByCustomer(
+                  marketplaceOwnAll.filter((i) => getScheduleTimeBucket(i) === 'allday'),
+                );
                 const marketplaceOwnMorning = sortScheduleItemsByCustomer(
                   marketplaceOwnAll.filter((i) => getScheduleTimeBucket(i) === 'morning'),
                 );
@@ -2717,10 +2749,14 @@ export function AdminSchedulePage() {
                   marketplaceOwnAll.filter((i) => getScheduleTimeBucket(i) === 'other'),
                 );
 
+                const alldayExt = alldayList.filter(inquiryHasExternalAssignment);
                 const morningExt = morningList.filter(inquiryHasExternalAssignment);
                 const afternoonExt = afternoonList.filter(inquiryHasExternalAssignment);
                 const otherExt = otherList.filter(inquiryHasExternalAssignment);
 
+                const alldayPartner = sortScheduleItemsByCustomer(
+                  alldayList.filter(inquiryHasActivePartnerShareSource),
+                );
                 const morningPartner = sortScheduleItemsByCustomer(
                   morningList.filter(inquiryHasActivePartnerShareSource),
                 );
@@ -2731,30 +2767,40 @@ export function AdminSchedulePage() {
                   otherList.filter(inquiryHasActivePartnerShareSource),
                 );
                 const partnerTotal =
-                  morningPartner.length + afternoonPartner.length + otherPartner.length;
+                  alldayPartner.length +
+                  morningPartner.length +
+                  afternoonPartner.length +
+                  otherPartner.length;
 
+                const alldayExtUnassigned = alldayExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
                 const morningExtUnassigned = morningExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
                 const afternoonExtUnassigned = afternoonExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
                 const otherExtUnassigned = otherExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
 
+                const alldayExtUnassignedSorted = sortScheduleItemsByCustomer(alldayExtUnassigned);
                 const morningExtUnassignedSorted = sortScheduleItemsByCustomer(morningExtUnassigned);
                 const afternoonExtUnassignedSorted = sortScheduleItemsByCustomer(afternoonExtUnassigned);
                 const otherExtUnassignedSorted = sortScheduleItemsByCustomer(otherExtUnassigned);
 
                 const extUnassignedTotal =
-                  morningExtUnassigned.length + afternoonExtUnassigned.length + otherExtUnassigned.length;
+                  alldayExtUnassigned.length +
+                  morningExtUnassigned.length +
+                  afternoonExtUnassigned.length +
+                  otherExtUnassigned.length;
 
+                const alldayExtAssigned = alldayExt.filter(inquiryHasExternalCompanyLinked);
                 const morningExtAssigned = morningExt.filter(inquiryHasExternalCompanyLinked);
                 const afternoonExtAssigned = afternoonExt.filter(inquiryHasExternalCompanyLinked);
                 const otherExtAssigned = otherExt.filter(inquiryHasExternalCompanyLinked);
 
                 const linkedCompanyBuckets = buildLinkedExternalCompanyBuckets(
+                  alldayExtAssigned,
                   morningExtAssigned,
                   afternoonExtAssigned,
                   otherExtAssigned,
                 );
 
-                const extTotal = morningExt.length + afternoonExt.length + otherExt.length;
+                const extTotal = alldayExt.length + morningExt.length + afternoonExt.length + otherExt.length;
 
                 return (
                   <div className="flex flex-col gap-4">
@@ -2767,6 +2813,38 @@ export function AdminSchedulePage() {
                           <span className="text-[11px] font-bold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{unassignedOwn.length}건</span>
                         </div>
                         <div className="flex flex-col gap-3">
+                          {unassignedOwnAllday.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-emerald-600/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-emerald-950">미배정 · 종일</span>
+                                <span className="text-fluid-2xs text-emerald-900/80 tabular-nums">
+                                  {unassignedOwnAllday.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {unassignedOwnAllday.map((item) => (
+                                  <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderMorningAssignmentCountsForDay={leaderMorningAssignmentCountsForSelectedDate}
+                                    leaderAfternoonAssignmentCountsForDay={leaderAfternoonAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {unassignedOwnMorning.length > 0 && (
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
@@ -2880,6 +2958,38 @@ export function AdminSchedulePage() {
                           </span>
                         </div>
                         <div className="flex flex-col gap-3">
+                          {marketplaceOwnAllday.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-emerald-600/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-emerald-950">정보공유 · 종일</span>
+                                <span className="text-fluid-2xs text-emerald-900/80 tabular-nums">
+                                  {marketplaceOwnAllday.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {marketplaceOwnAllday.map((item) => (
+                                  <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderMorningAssignmentCountsForDay={leaderMorningAssignmentCountsForSelectedDate}
+                                    leaderAfternoonAssignmentCountsForDay={leaderAfternoonAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {marketplaceOwnMorning.length > 0 && (
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
@@ -2976,6 +3086,37 @@ export function AdminSchedulePage() {
                               </div>
                             </div>
                           )}
+                        </div>
+                      </div>
+                    )}
+                    {alldayOwn.length > 0 && (
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-2.5 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5 w-full">
+                          <span className="h-2 w-2 rounded-full bg-emerald-600 shrink-0" />
+                          <span className="text-fluid-xs font-bold text-emerald-950 flex-1">종일 일정</span>
+                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{alldayOwn.length}건</span>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          {alldayOwn.map((item) => (
+                            <ScheduleDayListItem
+                              key={item.id}
+                              oneRoomLabel={oneRoomLabel}
+                              skOneRoomHighlight={skOpsUi}
+                              item={item}
+                              profCatalog={profCatalog}
+                              viewerRole={meRole}
+                              leaderMorningAssignmentCountsForDay={leaderMorningAssignmentCountsForSelectedDate}
+                              leaderAfternoonAssignmentCountsForDay={leaderAfternoonAssignmentCountsForSelectedDate}
+                              onPick={() => {
+                                setMemoModalItem(null);
+                                setDetailItem(item);
+                              }}
+                              onOpenMemo={() => {
+                                setDetailItem(null);
+                                setMemoModalItem(item);
+                              }}
+                            />
+                          ))}
                         </div>
                       </div>
                     )}
@@ -3089,6 +3230,38 @@ export function AdminSchedulePage() {
                           <ChevronDownIcon className="h-4 w-4 shrink-0 text-indigo-700 transition-transform group-open:rotate-180" />
                         </summary>
                         <div className="flex flex-col gap-3 px-3 pb-3 pt-1 border-t border-indigo-300/50">
+                          {alldayPartner.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-emerald-600/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-emerald-950">종일</span>
+                                <span className="text-fluid-2xs text-emerald-900/80 tabular-nums">
+                                  {alldayPartner.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {alldayPartner.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderMorningAssignmentCountsForDay={leaderMorningAssignmentCountsForSelectedDate}
+                                    leaderAfternoonAssignmentCountsForDay={leaderAfternoonAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {morningPartner.length > 0 && (
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
@@ -3209,6 +3382,38 @@ export function AdminSchedulePage() {
                                 <span className="text-fluid-2xs text-indigo-900/80 tabular-nums">{extUnassignedTotal}건</span>
                               </div>
                               <div className="flex flex-col gap-3">
+                                {alldayExtUnassigned.length > 0 && (
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-2 border-b border-emerald-600/70 pb-1">
+                                      <span className="text-fluid-xs font-bold text-emerald-950">종일</span>
+                                      <span className="text-fluid-2xs text-emerald-900/80 tabular-nums">
+                                        {alldayExtUnassigned.length}건
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      {alldayExtUnassignedSorted.map((item) => (
+                                        <ScheduleDayListItem
+                                          oneRoomLabel={oneRoomLabel}
+                                          skOneRoomHighlight={skOpsUi}
+                                          key={item.id}
+                                          item={item}
+                                          profCatalog={profCatalog}
+                                          viewerRole={meRole}
+                                          leaderMorningAssignmentCountsForDay={leaderMorningAssignmentCountsForSelectedDate}
+                                          leaderAfternoonAssignmentCountsForDay={leaderAfternoonAssignmentCountsForSelectedDate}
+                                          onPick={() => {
+                                            setMemoModalItem(null);
+                                            setDetailItem(item);
+                                          }}
+                                          onOpenMemo={() => {
+                                            setDetailItem(null);
+                                            setMemoModalItem(item);
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                                 {morningExtUnassigned.length > 0 && (
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
@@ -3310,7 +3515,10 @@ export function AdminSchedulePage() {
                           )}
                           {linkedCompanyBuckets.map((bucket) => {
                             const bucketTotal =
-                              bucket.morning.length + bucket.afternoon.length + bucket.other.length;
+                              bucket.allday.length +
+                              bucket.morning.length +
+                              bucket.afternoon.length +
+                              bucket.other.length;
                             return (
                               <details
                                 key={`${selectedDate ?? 'day'}-ext-co-${bucket.companyId}`}
@@ -3328,6 +3536,38 @@ export function AdminSchedulePage() {
                                   <ChevronDownIcon className="h-4 w-4 shrink-0 text-indigo-700 transition-transform group-open/extco:rotate-180" />
                                 </summary>
                                 <div className="flex flex-col gap-2.5 px-2.5 pb-2.5 pt-1 border-t border-indigo-200/70">
+                                  {bucket.allday.length > 0 && (
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 mb-1.5 border-b border-emerald-600/60 pb-1">
+                                        <span className="text-fluid-2xs font-bold text-emerald-950">종일</span>
+                                        <span className="text-fluid-2xs text-emerald-900/75 tabular-nums">
+                                          {bucket.allday.length}건
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                        {bucket.allday.map((item) => (
+                                          <ScheduleDayListItem
+                                            oneRoomLabel={oneRoomLabel}
+                                            skOneRoomHighlight={skOpsUi}
+                                            key={item.id}
+                                            item={item}
+                                            profCatalog={profCatalog}
+                                            viewerRole={meRole}
+                                            leaderMorningAssignmentCountsForDay={leaderMorningAssignmentCountsForSelectedDate}
+                                            leaderAfternoonAssignmentCountsForDay={leaderAfternoonAssignmentCountsForSelectedDate}
+                                            onPick={() => {
+                                              setMemoModalItem(null);
+                                              setDetailItem(item);
+                                            }}
+                                            onOpenMemo={() => {
+                                              setDetailItem(null);
+                                              setMemoModalItem(item);
+                                            }}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                   {bucket.morning.length > 0 && (
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2 mb-1.5 border-b border-amber-500/60 pb-1">

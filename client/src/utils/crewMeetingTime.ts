@@ -9,7 +9,11 @@ export function isMorningBucketForTeamMeeting(item: {
     getScheduleTimeBucket({
       preferredTime: item.preferredTime ?? '',
       betweenScheduleSlot: item.betweenScheduleSlot ?? null,
-    }) === 'morning'
+    }) === 'morning' ||
+    getScheduleTimeBucket({
+      preferredTime: item.preferredTime ?? '',
+      betweenScheduleSlot: item.betweenScheduleSlot ?? null,
+    }) === 'allday'
   );
 }
 

@@ -45,6 +45,7 @@ export function labelForTimeSlotFromLabels(
   labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ): string {
   if (value == null || value === '') return '—';
+  if (value === '종일') return '종일';
   if (isOrderTimeSlotValue(value)) {
     return resolveOrderTimeSlotLabels(labels)[value];
   }
@@ -57,6 +58,7 @@ export function shortTimeSlotLabelFromLabels(
   _labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ): string {
   if (value == null || value === '') return '-';
+  if (value === '종일') return '종일';
   if (value === '사이청소') return '사이';
   if (value === '조율') return '조율';
   if (value === '오전' || value === '오후') return value;

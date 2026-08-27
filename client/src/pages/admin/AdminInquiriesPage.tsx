@@ -98,6 +98,7 @@ import {
 } from '../../components/inquiries/inquiriesUiParts';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
+import { buildStaffInquiryTimeSlotSelectOptions } from '../../utils/staffInquiryTimeSlotOptions';
 import {
   ORDER_BUILDING_TYPE_OPTIONS,
 } from '../../constants/orderFormBuilding';
@@ -889,7 +890,7 @@ function patchInquiryProfReviewInList(
 
 export function AdminInquiriesPage() {
   const token = getToken();
-  const { options: timeSlotOptions, shortLabelFor: shortTimeSlotLabelForTenant } = useOrderFormTimeSlotLabels();
+  const { labels: orderFormTimeSlotLabels, shortLabelFor: shortTimeSlotLabelForTenant } = useOrderFormTimeSlotLabels();
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const { map: brandMsgConfigMap, tenantFallback: brandMsgTenantFallback, loading: brandMsgConfigLoading } =
@@ -1096,6 +1097,10 @@ export function AdminInquiriesPage() {
       marketerPermissions: staffMe?.marketerPermissions ?? null,
     };
   }, [ready, userId, role, userName, userPhone, userEmail, staffMe?.marketerPermissions]);
+  const timeSlotOptions = useMemo(
+    () => buildStaffInquiryTimeSlotSelectOptions(orderFormTimeSlotLabels, me?.role),
+    [orderFormTimeSlotLabels, me?.role],
+  );
   const canDeleteInquiry = canDeleteInquiryFromMe(staffMe);
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
@@ -4816,7 +4821,13 @@ export function AdminInquiriesPage() {
                     </div>
 
                     <div>
-                      <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">희망 시간대 및 시각</label>
+                      <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
+                        희망 시간대 및 시각
+                        <HelpTooltip
+                          className="ml-1 align-middle"
+                          text="종일은 관리자·마케터만 선택할 수 있습니다. 하루 한 건만 수행하며 오전·오후 TO를 모두 사용합니다."
+                        />
+                      </label>
                       <div className="flex items-stretch gap-2">
                         <select
                           value={editForm.preferredTime}

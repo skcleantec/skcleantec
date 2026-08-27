@@ -4,6 +4,7 @@
  */
 
 import { inquiryExcludedFromInternalToByDbListing } from '../../lib/dbMarketplaceSchedule.js';
+import { isAllDayPreferredTime } from '../../lib/scheduleAllDayTime.js';
 import {
   countsForCoordinationCalendarBadge,
   countsForSideCleaningCalendarBadge,
@@ -31,6 +32,7 @@ function isPlainPreferredTimeUnset(preferredTime: string | null | undefined): bo
 /** 일반(비 사이·조율) 접수의 오전 슬롯 여부 — 기존 스케줄 통계와 동일 규칙 */
 export function isPlainMorningSlot(t: string | null | undefined): boolean {
   const s = t || '';
+  if (isAllDayPreferredTime(s)) return false;
   if (isBetweenSlotPreferredTime(s)) return false;
   if (s.includes('오전')) return true;
   if (s.includes('오후')) return false;
@@ -42,6 +44,7 @@ export function consumesMorningSlot(inquiry: {
   preferredTime: string | null;
   betweenScheduleSlot: string | null;
 }): boolean {
+  if (isAllDayPreferredTime(inquiry.preferredTime)) return true;
   if (isBetweenSlotPreferredTime(inquiry.preferredTime)) {
     return inquiry.betweenScheduleSlot === '오전';
   }
@@ -55,6 +58,7 @@ export function consumesAfternoonSlot(inquiry: {
   preferredTime: string | null;
   betweenScheduleSlot: string | null;
 }): boolean {
+  if (isAllDayPreferredTime(inquiry.preferredTime)) return true;
   if (isBetweenSlotPreferredTime(inquiry.preferredTime)) {
     return inquiry.betweenScheduleSlot === '오후';
   }

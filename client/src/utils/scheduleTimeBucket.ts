@@ -1,11 +1,12 @@
 import type { ScheduleItem } from '../api/schedule';
+import { isAllDayPreferredTime } from '@shared/scheduleAllDayTime';
 import {
   isBetweenSlotPreferredTime,
   isCoordinationPreferredTime,
   isSideCleaningPreferredTime,
 } from '@shared/scheduleBetweenSlotTime';
 
-export type ScheduleTimeBucket = 'morning' | 'afternoon' | 'other';
+export type ScheduleTimeBucket = 'allday' | 'morning' | 'afternoon' | 'other';
 
 export function isSideCleaningTime(t: string | null | undefined): boolean {
   return isSideCleaningPreferredTime(t);
@@ -28,6 +29,7 @@ export function getScheduleTimeBucket(
     item.betweenScheduleSlot && String(item.betweenScheduleSlot).trim() !== ''
       ? String(item.betweenScheduleSlot).trim()
       : null;
+  if (isAllDayPreferredTime(t)) return 'allday';
   if (isBetweenSlotPreferredTime(item.preferredTime)) {
     if (bss === '오전') return 'morning';
     if (bss === '오후') return 'afternoon';

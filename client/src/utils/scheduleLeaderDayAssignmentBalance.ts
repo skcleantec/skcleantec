@@ -39,7 +39,12 @@ function addAssignmentCountsForItems(
   const byDate = new Map<string, Map<string, number>>();
   for (const item of items) {
     if (!shouldCountItemForLeaderSlotBalance(item)) continue;
-    if (getScheduleTimeBucket(item) !== bucketFilter) continue;
+    const bucket = getScheduleTimeBucket(item);
+    if (bucketFilter === 'morning') {
+      if (bucket !== 'morning' && bucket !== 'allday') continue;
+    } else if (bucket !== 'afternoon' && bucket !== 'allday') {
+      continue;
+    }
     const ymd = item.preferredDate ? formatPreferredDateInputYmd(item.preferredDate) : '';
     if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) continue;
     let m = byDate.get(ymd);
@@ -97,8 +102,8 @@ export function buildLeaderSlotAssignmentCountMapsForDayItems(
   for (const item of dayItems) {
     if (!shouldCountItemForLeaderSlotBalance(item)) continue;
     const bucket = getScheduleTimeBucket(item);
-    if (bucket === 'morning') incrementLeaderCountsForItem(morning, item);
-    else if (bucket === 'afternoon') incrementLeaderCountsForItem(afternoon, item);
+    if (bucket === 'morning' || bucket === 'allday') incrementLeaderCountsForItem(morning, item);
+    if (bucket === 'afternoon' || bucket === 'allday') incrementLeaderCountsForItem(afternoon, item);
   }
   return { morning, afternoon };
 }
@@ -117,6 +122,22 @@ export const SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS =
 /** 범례 색 샘플 — 카드 강조와 동일 계열 */
 export const SCHEDULE_LEADER_SINGLE_SLOT_LEGEND_SWATCH_CLASS =
   'h-2.5 w-3 shrink-0 rounded-sm border-2 border-slate-700 bg-slate-50 ring-1 ring-slate-800/85';
+
+/** 종일 일정 — 오전/오후 1건 강조와 별도 (emerald) */
+export const SCHEDULE_ALL_DAY_HIGHLIGHT_CLASS =
+  'border-2 border-emerald-700 bg-emerald-50/90 ring-2 ring-emerald-800/75 ring-offset-1 ring-offset-white shadow-md shadow-emerald-500/25';
+
+export const SCHEDULE_ALL_DAY_BADGE_CLASS =
+  'inline-flex shrink-0 items-center rounded-md border-2 border-emerald-700 bg-emerald-800 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow-sm sm:text-[11px]';
+
+export const SCHEDULE_ALL_DAY_LEGEND_SWATCH_CLASS =
+  'h-2.5 w-3 shrink-0 rounded-sm border-2 border-emerald-700 bg-emerald-50 ring-1 ring-emerald-800/80';
+
+export function scheduleItemIsAllDayBucket(
+  item: Pick<ScheduleItem, 'preferredTime' | 'betweenScheduleSlot'>,
+): boolean {
+  return getScheduleTimeBucket(item) === 'allday';
+}
 
 /**
  * 해당 슬롯(오전/오후) 일정 — 배정된 자사 팀장 중 그날 **이 슬롯만** 1건·반대 슬롯 0건이면 true.

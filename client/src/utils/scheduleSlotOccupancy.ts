@@ -1,5 +1,6 @@
 import type { ScheduleItem } from '../api/schedule';
 import { inquiryExcludedFromInternalToByDbListing } from '@shared/dbMarketplaceSchedule';
+import { isAllDayPreferredTime } from '@shared/scheduleAllDayTime';
 import { isBetweenSlotPreferredTime } from '@shared/scheduleBetweenSlotTime';
 
 /** server `scheduleSlot.helpers` 와 동일 — 슬롯 점유·팀장 드롭다운 필터 */
@@ -9,6 +10,7 @@ function isPlainPreferredTimeUnset(preferredTime: string | null | undefined): bo
 
 function isPlainMorningSlot(t: string | null | undefined): boolean {
   const s = t || '';
+  if (isAllDayPreferredTime(s)) return false;
   if (isBetweenSlotPreferredTime(s)) return false;
   if (s.includes('오전')) return true;
   if (s.includes('오후')) return false;
@@ -17,6 +19,7 @@ function isPlainMorningSlot(t: string | null | undefined): boolean {
 }
 
 export function consumesMorningSlot(item: Pick<ScheduleItem, 'preferredTime' | 'betweenScheduleSlot'>): boolean {
+  if (isAllDayPreferredTime(item.preferredTime)) return true;
   if (isBetweenSlotPreferredTime(item.preferredTime)) {
     return item.betweenScheduleSlot === '오전';
   }
@@ -25,6 +28,7 @@ export function consumesMorningSlot(item: Pick<ScheduleItem, 'preferredTime' | '
 }
 
 export function consumesAfternoonSlot(item: Pick<ScheduleItem, 'preferredTime' | 'betweenScheduleSlot'>): boolean {
+  if (isAllDayPreferredTime(item.preferredTime)) return true;
   if (isBetweenSlotPreferredTime(item.preferredTime)) {
     return item.betweenScheduleSlot === '오후';
   }

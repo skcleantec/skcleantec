@@ -70,13 +70,18 @@ import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
   buildLeaderSlotAssignmentCountMapsForDayItems,
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
+  scheduleItemIsAllDayBucket,
+  SCHEDULE_ALL_DAY_BADGE_CLASS,
+  SCHEDULE_ALL_DAY_HIGHLIGHT_CLASS,
   SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS,
   SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
+import { buildStaffInquiryTimeSlotSelectOptions } from '../../utils/staffInquiryTimeSlotOptions';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
 import { useTenantCapabilities, useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { YmdSelect } from '../ui/DateQuerySelects';
+import { HelpTooltip } from '../ui/HelpTooltip';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { PropertyTypeSticker } from '../ui/PropertyTypeSticker';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
@@ -521,7 +526,7 @@ function initialTeamLeaderIdsForEdit(assignments: ScheduleItem['assignments']): 
 export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProps) {
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const { tenantSlug } = useTenantCapabilities();
-  const { options: timeSlotOptions } = useOrderFormTimeSlotLabels();
+  const { labels: orderFormTimeSlotLabels } = useOrderFormTimeSlotLabels();
   const isCreate = props.mode === 'create';
   const item = !isCreate ? props.item : null;
   const distanceJuanLabel = item ? distanceFromJuanLabel(item) : null;
@@ -543,6 +548,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     onClose,
     onSaved,
   } = props;
+  const timeSlotOptions = useMemo(
+    () => buildStaffInquiryTimeSlotSelectOptions(orderFormTimeSlotLabels, currentUserRole),
+    [orderFormTimeSlotLabels, currentUserRole],
+  );
   const onInquiryRefresh = isCreate
     ? undefined
     : (props as { onInquiryRefresh?: () => void | Promise<void> }).onInquiryRefresh;
@@ -1022,6 +1031,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     });
     if (bucket === 'morning') return m;
     if (bucket === 'afternoon') return a;
+    if (bucket === 'allday') {
+      const morningSet = new Set(m);
+      return a.filter((id) => morningSet.has(id));
+    }
     /** 사이·조율 미확정 — 휴무 팀장 제외. 오전·오후 가용 ID 합집합(중복 제거). null이면 휴무 포함 전원 노출됨 */
     return [...new Set([...m, ...a])];
   }, [dayStat, editForm.preferredTime, editForm.betweenScheduleSlot]);
@@ -1071,7 +1084,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ? slotOccupiedLeaderIds.morning
           : bucket === 'afternoon'
             ? slotOccupiedLeaderIds.afternoon
-            : new Set([...slotOccupiedLeaderIds.morning, ...slotOccupiedLeaderIds.afternoon])
+            : bucket === 'allday'
+              ? new Set([...slotOccupiedLeaderIds.morning, ...slotOccupiedLeaderIds.afternoon])
+              : new Set([...slotOccupiedLeaderIds.morning, ...slotOccupiedLeaderIds.afternoon])
         : null;
       /** 팀장 드롭다운에는 타업체 계정 제외 — 타업체는 「정산」의 타업체 담당에서만 지정 */
       const base =
@@ -2180,6 +2195,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
   const detailLeaderSingleSlotAssignment = useMemo(() => {
     if (!item) return false;
+    if (scheduleItemIsAllDayBucket(item)) return false;
     return scheduleItemHasLeaderWithSingleSlotAssignmentOnDay(
       item,
       effectiveLeaderMorningAssignmentCountsByLeaderId,
@@ -2190,6 +2206,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     effectiveLeaderMorningAssignmentCountsByLeaderId,
     effectiveLeaderAfternoonAssignmentCountsByLeaderId,
   ]);
+
+  const detailAllDayAssignment = useMemo(() => {
+    if (!item) return false;
+    return scheduleItemIsAllDayBucket(item);
+  }, [item]);
 
   const detailHeaderAreaShort = useMemo(() => {
     if (isCreate || !item) return '—';
@@ -2303,14 +2324,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           {!isCreate && item ? (
             <div
               className={
-                detailLeaderSingleSlotAssignment
-                  ? `mt-1.5 space-y-1 rounded-lg ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS} px-2.5 py-2 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5`
-                  : 'mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5'
+                detailAllDayAssignment
+                  ? `mt-1.5 space-y-1 rounded-lg ${SCHEDULE_ALL_DAY_HIGHLIGHT_CLASS} px-2.5 py-2 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5`
+                  : detailLeaderSingleSlotAssignment
+                    ? `mt-1.5 space-y-1 rounded-lg ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS} px-2.5 py-2 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5`
+                    : 'mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5'
               }
             >
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-                  {detailLeaderSingleSlotAssignment ? (
+                  {detailAllDayAssignment ? (
+                    <span className={SCHEDULE_ALL_DAY_BADGE_CLASS} title="종일 일정 — 오전·오후 TO 모두 사용">
+                      종일
+                    </span>
+                  ) : detailLeaderSingleSlotAssignment ? (
                     <span className={SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS} title="이 슬롯 팀장 1건 — 추가 배정 검토">
                       1건
                     </span>
@@ -2606,7 +2633,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 </div>
 
                 <div>
-                  <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">희망 시간대 및 시각</label>
+                  <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
+                    희망 시간대 및 시각
+                    <HelpTooltip
+                      className="ml-1 align-middle"
+                      text="종일은 관리자·마케터만 선택할 수 있습니다. 하루 한 건만 수행하며 오전·오후 TO를 모두 사용합니다. 구체적 시각은 팀장 출근·입장 시간 안내용입니다."
+                    />
+                  </label>
                   <div className="flex items-stretch gap-2">
                     <select
                       value={editForm.preferredTime}

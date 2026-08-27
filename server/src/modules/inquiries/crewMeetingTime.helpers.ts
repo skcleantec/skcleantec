@@ -3,9 +3,11 @@
  * `client/src/utils/scheduleTimeBucket.ts` 의 getScheduleTimeBucket 과 동일 규칙.
  */
 import { isBetweenSlotPreferredTime } from '../../lib/scheduleBetweenSlotTime.js';
+import { isAllDayPreferredTime } from '../../lib/scheduleAllDayTime.js';
 
 export function isMorningPreferenceForCrewMeeting(preferredTime: string | null, betweenScheduleSlot: string | null): boolean {
   const t = preferredTime || '';
+  if (isAllDayPreferredTime(t)) return true;
   const bss =
     betweenScheduleSlot && String(betweenScheduleSlot).trim() !== ''
       ? String(betweenScheduleSlot).trim()

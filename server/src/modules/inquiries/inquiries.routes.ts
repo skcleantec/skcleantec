@@ -61,6 +61,8 @@ import {
   parseInternalCustomerToneInput,
 } from './internalCustomerTone.js';
 import { isBetweenSlotPreferredTime } from '../schedule/scheduleSlot.helpers.js';
+import { isAllDayPreferredTime } from '../../lib/scheduleAllDayTime.js';
+import { assertPatchInquiryScheduleSlotConflict } from './inquiryScheduleSlotConflict.helpers.js';
 import {
   filterExistingProfessionalOptionSelections,
   parseProfessionalOptionSelectionsRaw,
@@ -1322,11 +1324,37 @@ router.patch('/:id', async (req, res) => {
     data.preferredTime !== undefined
       ? String(data.preferredTime)
       : String(inquiry.preferredTime ?? '');
+  if (isAllDayPreferredTime(mergedTime)) {
+    if (user.role !== 'ADMIN' && user.role !== 'MARKETER') {
+      res.status(403).json({ error: '종일 시간대는 관리자·마케터만 설정할 수 있습니다.' });
+      return;
+    }
+    data.betweenScheduleSlot = null;
+  }
   if (!isBetweenSlotPreferredTime(mergedTime)) {
     data.betweenScheduleSlot = null;
   }
   if (data.betweenScheduleSlot != null && !isBetweenSlotPreferredTime(mergedTime)) {
     res.status(400).json({ error: '사이청소·조율 접수만 오전/오후 일정을 확정할 수 있습니다.' });
+    return;
+  }
+
+  const mergedBetweenForSlot = isBetweenSlotPreferredTime(mergedTime)
+    ? data.betweenScheduleSlot !== undefined
+      ? (data.betweenScheduleSlot as string | null)
+      : inquiry.betweenScheduleSlot
+    : null;
+  const slotConflict = await assertPatchInquiryScheduleSlotConflict(
+    prisma,
+    tenantId,
+    id,
+    mergedPreferredDate as Date | null,
+    mergedTime.trim() ? mergedTime.trim() : null,
+    mergedBetweenForSlot,
+    effectiveTeamLeaderIds,
+  );
+  if (slotConflict) {
+    res.status(400).json({ error: slotConflict });
     return;
   }
 
