@@ -25,7 +25,7 @@ function scheduleStatusClass(status: string) {
 }
 
 const ACTION_BTN =
-  'rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed';
+  'rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[12px] text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed';
 
 type Props = {
   schedule: BillingScheduleRow[];
@@ -122,7 +122,7 @@ export function PlatformTenantBillingScheduleTable({
                       {statusLabel}
                     </span>
                     {row.adjustment ? (
-                      <div className="mt-0.5 text-[10px] text-violet-700 truncate max-w-[100px] mx-auto" title={row.adjustment.reason}>
+                      <div className="mt-0.5 text-[11px] text-violet-700 truncate max-w-[100px] mx-auto" title={row.adjustment.reason}>
                         {TENANT_BILLING_ADJUSTMENT_TYPE_LABEL[row.adjustment.type]}
                       </div>
                     ) : null}

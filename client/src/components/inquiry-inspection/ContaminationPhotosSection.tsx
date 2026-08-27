@@ -317,7 +317,7 @@ export function ContaminationPhotosSection({
               </button>
             </div>
             {pendingUploadCount > 0 ? (
-              <p className="pointer-events-none mx-auto mt-1 max-w-lg text-center text-[10px] text-sky-200/90">
+              <p className="pointer-events-none mx-auto mt-1 max-w-lg text-center text-[11px] text-sky-200/90">
                 백그라운드 저장 {pendingUploadCount}건
               </p>
             ) : null}
@@ -325,7 +325,7 @@ export function ContaminationPhotosSection({
 
           <div className="absolute inset-x-0 top-[4.25rem] z-10 px-4">
             <div className="pointer-events-none mx-auto max-w-lg rounded-xl border border-amber-400/40 bg-black/55 px-4 py-3 backdrop-blur-md">
-              <p className="text-[11px] font-bold tracking-wide text-amber-300">촬영 가이드</p>
+              <p className="text-[12px] font-bold tracking-wide text-amber-300">촬영 가이드</p>
               <p className="mt-1.5 text-sm font-medium leading-snug text-white">
                 오염·손상이 심한 부분을 가까이에서 선명하게 촬영해 주세요. 여러 장 연속 촬영할 수 있습니다.
               </p>
@@ -345,7 +345,7 @@ export function ContaminationPhotosSection({
               <span className="block h-[3.25rem] w-[3.25rem] rounded-full bg-amber-500" />
             </button>
           </div>
-          <p className="mt-2 text-center text-[11px] text-gray-400">
+          <p className="mt-2 text-center text-[12px] text-gray-400">
             셔터를 누르면 바로 저장됩니다 · 추가 {directEntries.length}장
             {pendingUploadCount > 0 ? ` · 업로드 ${pendingUploadCount}건` : ''}
           </p>
@@ -422,7 +422,7 @@ export function ContaminationPhotosSection({
               className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400 bg-sky-100 text-sky-900 touch-manipulation disabled:opacity-45 active:scale-95"
             >
               {sharing ? (
-                <span className="text-[10px] font-semibold leading-none">…</span>
+                <span className="text-[11px] font-semibold leading-none">…</span>
               ) : (
                 <ShareOutlineIcon className="h-4 w-4 shrink-0" />
               )}
@@ -478,7 +478,7 @@ export function ContaminationPhotosSection({
                     type="button"
                     disabled={disabled}
                     onClick={() => void handleDeleteDirect(entry.itemId, entry.photo.id)}
-                    className="absolute -right-1 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-rose-300 bg-white text-[10px] font-bold text-rose-700 shadow-sm touch-manipulation"
+                    className="absolute -right-1 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-rose-300 bg-white text-[11px] font-bold text-rose-700 shadow-sm touch-manipulation"
                     aria-label="삭제"
                   >
                     ×

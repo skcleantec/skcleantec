@@ -20,12 +20,12 @@ export type DbMarketplaceHelpActionRow = {
 /** ① 정보 받기 */
 export const DB_MARKETPLACE_RECEIVE_ACTIONS: readonly DbMarketplaceHelpActionRow[] = [
   {
-    sample: <span className="rounded-md bg-sky-700 px-2.5 py-1 text-[11px] font-semibold text-white">받기</span>,
+    sample: <span className="rounded-md bg-sky-700 px-2.5 py-1 text-[12px] font-semibold text-white">받기</span>,
     meaning: '화면 상단 구분을 「받기」로 두면 다른 업체가 공유한 접수를 찾습니다.',
     when: '상단 구분',
   },
   {
-    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium">목록</span>,
+    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium">목록</span>,
     meaning: '받을 수 있는 공유 접수 목록입니다. 인수 신청 전에는 지역·일정·표시 금액만 보입니다.',
     when: '받기 · 목록 탭',
   },
@@ -36,18 +36,18 @@ export const DB_MARKETPLACE_RECEIVE_ACTIONS: readonly DbMarketplaceHelpActionRow
     when: '받을 목록 · 일괄 선택',
   },
   {
-    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium">진행</span>,
+    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium">진행</span>,
     meaning: '인수 신청을 보낸 뒤 상대 업체의 「인계 확정」을 기다리는 접수입니다.',
     when: '받기 · 진행 탭',
   },
   {
-    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium">완료</span>,
+    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium">완료</span>,
     meaning: '인수가 완료되어 연락처·주소 등 전체 정보와 연결된 접수를 볼 수 있습니다.',
     when: '받기 · 완료 탭',
   },
   {
     sample: (
-      <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white pointer-events-none">
+      <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-[12px] font-medium text-white pointer-events-none">
         인수 신청
       </span>
     ),
@@ -57,7 +57,7 @@ export const DB_MARKETPLACE_RECEIVE_ACTIONS: readonly DbMarketplaceHelpActionRow
   },
   {
     sample: (
-      <span className="rounded-lg border border-amber-300 px-2.5 py-1 text-[11px] font-medium text-amber-900 pointer-events-none">
+      <span className="rounded-lg border border-amber-300 px-2.5 py-1 text-[12px] font-medium text-amber-900 pointer-events-none">
         거절하기
       </span>
     ),
@@ -71,7 +71,7 @@ export const DB_MARKETPLACE_RECEIVE_ACTIONS: readonly DbMarketplaceHelpActionRow
 export const DB_MARKETPLACE_INQUIRY_DETAIL_ACTIONS: readonly DbMarketplaceHelpActionRow[] = [
   {
     sample: (
-      <span className="rounded-lg border border-violet-200 bg-violet-50/50 px-2 py-1 text-[10px] font-semibold text-violet-950">
+      <span className="rounded-lg border border-violet-200 bg-violet-50/50 px-2 py-1 text-[11px] font-semibold text-violet-950">
         정보공유 — 공유 등록
       </span>
     ),
@@ -81,7 +81,7 @@ export const DB_MARKETPLACE_INQUIRY_DETAIL_ACTIONS: readonly DbMarketplaceHelpAc
   },
   {
     sample: (
-      <span className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[10px] text-slate-800 pointer-events-none">
+      <span className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] text-slate-800 pointer-events-none">
         수수료 (원)
       </span>
     ),
@@ -96,7 +96,7 @@ export const DB_MARKETPLACE_INQUIRY_DETAIL_ACTIONS: readonly DbMarketplaceHelpAc
   },
   {
     sample: (
-      <span className="rounded-md border border-violet-300 bg-white px-2 py-1 text-[11px] font-medium text-violet-900 pointer-events-none">
+      <span className="rounded-md border border-violet-300 bg-white px-2 py-1 text-[12px] font-medium text-violet-900 pointer-events-none">
         노출 대상
       </span>
     ),
@@ -105,7 +105,7 @@ export const DB_MARKETPLACE_INQUIRY_DETAIL_ACTIONS: readonly DbMarketplaceHelpAc
   },
   {
     sample: (
-      <span className="rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white pointer-events-none">
+      <span className="rounded-md bg-slate-900 px-2 py-1 text-[12px] font-medium text-white pointer-events-none">
         정보공유 게시
       </span>
     ),
@@ -114,7 +114,7 @@ export const DB_MARKETPLACE_INQUIRY_DETAIL_ACTIONS: readonly DbMarketplaceHelpAc
   },
   {
     sample: (
-      <span className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-700 pointer-events-none">
+      <span className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[12px] text-gray-700 pointer-events-none">
         공유 철회
       </span>
     ),
@@ -124,10 +124,10 @@ export const DB_MARKETPLACE_INQUIRY_DETAIL_ACTIONS: readonly DbMarketplaceHelpAc
   {
     sample: (
       <>
-        <span className="rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white pointer-events-none">
+        <span className="rounded-md bg-slate-900 px-2 py-1 text-[12px] font-medium text-white pointer-events-none">
           인계 확정
         </span>
-        <span className="rounded-md border border-amber-300 bg-white px-2 py-1 text-[11px] text-amber-900 pointer-events-none">
+        <span className="rounded-md border border-amber-300 bg-white px-2 py-1 text-[12px] text-amber-900 pointer-events-none">
           인수 신청 거절
         </span>
       </>
@@ -143,7 +143,7 @@ export const DB_MARKETPLACE_INQUIRY_DETAIL_ACTIONS: readonly DbMarketplaceHelpAc
   },
   {
     sample: (
-      <span className="text-[10px] font-medium text-sky-800 underline pointer-events-none">
+      <span className="text-[11px] font-medium text-sky-800 underline pointer-events-none">
         스케줄에서 접수 보기
       </span>
     ),
@@ -155,7 +155,7 @@ export const DB_MARKETPLACE_INQUIRY_DETAIL_ACTIONS: readonly DbMarketplaceHelpAc
 /** ② 정보 공유하기 */
 export const DB_MARKETPLACE_SHARE_ACTIONS: readonly DbMarketplaceHelpActionRow[] = [
   {
-    sample: <span className="rounded-md bg-violet-700 px-2.5 py-1 text-[11px] font-semibold text-white">공유</span>,
+    sample: <span className="rounded-md bg-violet-700 px-2.5 py-1 text-[12px] font-semibold text-white">공유</span>,
     meaning: '내가 공유하는 접수를 관리하는 구분입니다.',
     when: '상단 구분',
   },
@@ -167,7 +167,7 @@ export const DB_MARKETPLACE_SHARE_ACTIONS: readonly DbMarketplaceHelpActionRow[]
   },
   {
     sample: (
-      <span className="rounded-md border border-violet-300 bg-white px-2 py-1 text-[11px] font-medium text-violet-900 pointer-events-none">
+      <span className="rounded-md border border-violet-300 bg-white px-2 py-1 text-[12px] font-medium text-violet-900 pointer-events-none">
         노출 대상
       </span>
     ),
@@ -187,7 +187,7 @@ export const DB_MARKETPLACE_SHARE_ACTIONS: readonly DbMarketplaceHelpActionRow[]
     when: '공유 · 준비 탭',
   },
   {
-    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium">공유중</span>,
+    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium">공유중</span>,
     meaning: '다른 업체에 공개 중인 접수입니다. 「공유 준비로」 되돌리거나 「공유 철회」할 수 있습니다.',
     when: '공유 · 공유중 탭',
   },
@@ -197,7 +197,7 @@ export const DB_MARKETPLACE_SHARE_ACTIONS: readonly DbMarketplaceHelpActionRow[]
     when: '공유 · 공유중 탭',
   },
   {
-    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium">대기</span>,
+    sample: <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium">대기</span>,
     meaning: '인수 업체가 신청한 접수입니다. 아래 「인계 확정」 또는 「신청 거절」을 선택합니다.',
     when: '공유 · 대기 탭',
   },

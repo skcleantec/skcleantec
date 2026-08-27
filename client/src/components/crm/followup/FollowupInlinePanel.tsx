@@ -322,7 +322,7 @@ export function FollowupInlinePanel({
       />
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <p className="border-b border-slate-100 px-2 py-1 text-[10px] text-slate-500 lg:hidden">
+        <p className="border-b border-slate-100 px-2 py-1 text-[11px] text-slate-500 lg:hidden">
           표는 좌우로 스크롤할 수 있습니다.
         </p>
         {shouldShowListBlockingLoading(loading, items.length) ? (
@@ -390,7 +390,7 @@ export function FollowupInlinePanel({
 
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block space-y-0.5 sm:col-span-2">
-              <span className="text-[11px] font-medium text-gray-700">고객명</span>
+              <span className="text-[12px] font-medium text-gray-700">고객명</span>
               <input
                 type="text"
                 value={draft.customerName}
@@ -399,7 +399,7 @@ export function FollowupInlinePanel({
               />
             </label>
             <label className="block space-y-0.5">
-              <span className="text-[11px] font-medium text-gray-700">닉네임</span>
+              <span className="text-[12px] font-medium text-gray-700">닉네임</span>
               <input
                 type="text"
                 value={draft.nickname}
@@ -408,7 +408,7 @@ export function FollowupInlinePanel({
               />
             </label>
             <label className="block space-y-0.5">
-              <span className="text-[11px] font-medium text-gray-700">상태</span>
+              <span className="text-[12px] font-medium text-gray-700">상태</span>
               <select
                 value={draft.status}
                 onChange={(e) =>
@@ -424,7 +424,7 @@ export function FollowupInlinePanel({
               </select>
             </label>
             <label className="block space-y-0.5">
-              <span className="text-[11px] font-medium text-gray-700">연락처</span>
+              <span className="text-[12px] font-medium text-gray-700">연락처</span>
               <input
                 type="text"
                 value={draft.contactPhone}
@@ -433,7 +433,7 @@ export function FollowupInlinePanel({
               />
             </label>
             <label className="block space-y-0.5">
-              <span className="text-[11px] font-medium text-gray-700">안심번호</span>
+              <span className="text-[12px] font-medium text-gray-700">안심번호</span>
               <input
                 type="text"
                 value={draft.safePhone}
@@ -442,7 +442,7 @@ export function FollowupInlinePanel({
               />
             </label>
             <label className="block space-y-0.5 sm:col-span-2">
-              <span className="text-[11px] font-medium text-gray-700">입주청소 희망일</span>
+              <span className="text-[12px] font-medium text-gray-700">입주청소 희망일</span>
               <input
                 type="date"
                 value={draft.preferredMoveInCleanYmd}
@@ -474,7 +474,7 @@ export function FollowupInlinePanel({
               />
             </div>
             <label className="block space-y-0.5 sm:col-span-2">
-              <span className="text-[11px] font-medium text-gray-700">메모</span>
+              <span className="text-[12px] font-medium text-gray-700">메모</span>
               <textarea
                 value={draft.memo}
                 onChange={(e) => setDraft((d) => (d ? { ...d, memo: e.target.value } : d))}

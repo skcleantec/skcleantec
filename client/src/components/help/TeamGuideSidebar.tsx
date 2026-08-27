@@ -40,7 +40,7 @@ export function TeamGuideSidebar({
                 type="button"
                 onClick={() => onRoleChange(role)}
                 className={`
-                  flex-1 rounded px-2 py-1.5 text-[11px] font-semibold transition-all
+                  flex-1 rounded px-2 py-1.5 text-[12px] font-semibold transition-all
                   ${
                     isActive
                       ? 'bg-white text-slate-900 shadow-sm'
@@ -79,10 +79,10 @@ export function TeamGuideSidebar({
                   }`}
                 >
                   <span className="flex items-baseline gap-1.5">
-                    <span className={`shrink-0 text-[10px] font-bold ${active ? 'text-blue-100' : 'text-teal-700'}`}>
+                    <span className={`shrink-0 text-[11px] font-bold ${active ? 'text-blue-100' : 'text-teal-700'}`}>
                       {chapter.id}
                     </span>
-                    <span className="min-w-0 truncate text-[11px] font-medium leading-snug">{chapter.title}</span>
+                    <span className="min-w-0 truncate text-[12px] font-medium leading-snug">{chapter.title}</span>
                   </span>
                 </button>
               </li>
@@ -93,14 +93,14 @@ export function TeamGuideSidebar({
 
       {cmsCategories.length > 0 && onCmsSectionSelect ? (
         <div className="shrink-0 border-t border-slate-200 p-1.5">
-          <p className="px-2 py-1 text-[10px] font-semibold text-slate-500">카테고리 글</p>
+          <p className="px-2 py-1 text-[11px] font-semibold text-slate-500">카테고리 글</p>
           <ul className="space-y-0.5">
             {cmsCategories.map((cat) => (
               <li key={cat.id}>
                 <button
                   type="button"
                   onClick={() => onCmsSectionSelect(cat.slug)}
-                  className="w-full rounded-md px-2 py-1.5 text-left text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                  className="w-full rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-slate-700 transition-colors hover:bg-slate-100"
                 >
                   {cat.label}
                   {cat.articleCount > 0 ? (

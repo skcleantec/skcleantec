@@ -152,7 +152,7 @@ function ImageUploadField({
   return (
     <div className="space-y-1.5">
       <span className="text-fluid-xs font-semibold text-slate-700">{label}</span>
-      <p className="text-[11px] leading-relaxed text-slate-500">{hint}</p>
+      <p className="text-[12px] leading-relaxed text-slate-500">{hint}</p>
       {url ? (
         <img
           src={url}
@@ -350,7 +350,7 @@ export function PlatformPartnerPromoSettingsPage() {
       <div className={`${CARD_SECTION} space-y-3`}>
         <div>
           <h2 className="text-fluid-sm font-bold text-slate-900">표시 순서 기본값</h2>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+          <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
             노출 대상별 기본 순서입니다. 「고정순서」는 아래 목록 순서(↑↓)대로, 「랜덤」은 조회마다 무작위로 섞입니다.
             배너별로 개별 지정하면 해당 배너만 고정·랜덤을 덮어씁니다.
           </p>
@@ -413,20 +413,20 @@ export function PlatformPartnerPromoSettingsPage() {
                         </button>
                       </div>
                     </td>
-                    <td className="px-2 py-2 text-center text-[11px]">
+                    <td className="px-2 py-2 text-center text-[12px]">
                       {PLATFORM_PROMO_ORDER_MODE_OVERRIDE_LABELS[item.orderModeOverride ?? 'INHERIT']}
                     </td>
                     <td className="max-w-[10rem] truncate px-2 py-2 text-center" title={item.title}>
                       {item.title}
                     </td>
                     <td className="px-2 py-2 text-center">{item.scheduleStatus ?? '—'}</td>
-                    <td className="px-2 py-2 text-center text-[11px]">
+                    <td className="px-2 py-2 text-center text-[12px]">
                       {item.showToExternalPartner ? formatPlatformPromoTeamMenus(item) : ''}
                       {item.showToExternalPartner && item.showToTenantStaff ? ' / ' : ''}
                       {item.showToTenantStaff ? '테넌트 대시보드' : ''}
                       {!item.showToExternalPartner && !item.showToTenantStaff ? '—' : ''}
                     </td>
-                    <td className="px-2 py-2 text-center text-[11px] tabular-nums">
+                    <td className="px-2 py-2 text-center text-[12px] tabular-nums">
                       {item.startsAt ? new Date(item.startsAt).toLocaleString('ko-KR') : '즉시'}
                       <br />~ {item.endsAt ? new Date(item.endsAt).toLocaleString('ko-KR') : '무기한'}
                     </td>
@@ -496,7 +496,7 @@ export function PlatformPartnerPromoSettingsPage() {
                       value={form.startsAt}
                       onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
                     />
-                    <span className="text-[11px] text-slate-500">비우면 즉시 게시</span>
+                    <span className="text-[12px] text-slate-500">비우면 즉시 게시</span>
                   </label>
                   <label className="block space-y-1">
                     <span className="text-fluid-xs font-semibold text-slate-700">게시 종료</span>
@@ -524,7 +524,7 @@ export function PlatformPartnerPromoSettingsPage() {
                   />
                   <span>
                     <span className="font-medium text-slate-800">게시 기간 제한 없음</span>
-                    <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
+                    <span className="mt-0.5 block text-[12px] leading-relaxed text-slate-500">
                       종료일 없이 게시합니다. 「게시 활성」을 끄거나 배너를 삭제할 때까지 계속 노출됩니다.
                     </span>
                   </span>
@@ -542,7 +542,7 @@ export function PlatformPartnerPromoSettingsPage() {
                 </label>
                 {form.showToExternalPartner ? (
                   <div className="ml-5 space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
-                    <p className="text-[11px] font-medium text-slate-600">타업체 노출 메뉴</p>
+                    <p className="text-[12px] font-medium text-slate-600">타업체 노출 메뉴</p>
                     {PLATFORM_PROMO_TEAM_MENUS.map((menu) => {
                       const key =
                         menu.id === 'dashboard'
@@ -590,7 +590,7 @@ export function PlatformPartnerPromoSettingsPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] leading-relaxed text-slate-500">
+                <p className="text-[12px] leading-relaxed text-slate-500">
                   「기본 따름」은 위 플랫폼 설정(타업체·테넌트)을 사용합니다. 고정순서는 목록 ↑↓ 순서를 유지하고, 랜덤은
                   무작위 풀에 포함됩니다.
                 </p>

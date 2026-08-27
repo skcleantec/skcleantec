@@ -114,7 +114,7 @@ export function InspectionItemCard({
             type="button"
             disabled={busy}
             onClick={() => onToggleNa(!item.notApplicable)}
-            className={`shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium touch-manipulation ${
+            className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium touch-manipulation ${
               item.notApplicable
                 ? 'border-amber-500 bg-amber-50 text-amber-900'
                 : 'border-gray-300 bg-gray-50 text-gray-600'
@@ -127,7 +127,7 @@ export function InspectionItemCard({
 
       {item.notApplicable ? (
         <div className="space-y-1 bg-amber-50/40 px-3 py-2.5">
-          <p className="text-[10px] leading-snug text-amber-900/90">{INSPECTION_NA_CUSTOMER_NOTICE}</p>
+          <p className="text-[11px] leading-snug text-amber-900/90">{INSPECTION_NA_CUSTOMER_NOTICE}</p>
           <p className="text-fluid-2xs text-gray-700">{formatInspectionNaReason(item.naReason)}</p>
         </div>
       ) : showSplit ? (
@@ -233,7 +233,7 @@ function renderPhotoColumn(params: {
   return (
     <div className={`flex min-w-0 flex-col ${params.split ? 'min-h-[7.5rem]' : ''}`}>
       <div
-        className={`border-b px-2 py-1.5 text-center text-[10px] font-bold tracking-wide ${headerTone}`}
+        className={`border-b px-2 py-1.5 text-center text-[11px] font-bold tracking-wide ${headerTone}`}
       >
         {params.label}
         {hasPhotos ? (
@@ -293,7 +293,7 @@ function renderPhotoColumn(params: {
                     type="button"
                     disabled={params.busy}
                     onClick={() => params.onDeletePhoto(p.id)}
-                    className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900/90 text-[10px] font-bold text-white touch-manipulation"
+                    className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900/90 text-[11px] font-bold text-white touch-manipulation"
                     aria-label="사진 삭제"
                   >
                     ×
@@ -304,7 +304,7 @@ function renderPhotoColumn(params: {
           </div>
         ) : (
           <div
-            className={`flex w-full flex-1 items-center justify-center rounded-md border border-dashed px-2 py-4 text-center text-[10px] ${emptyTone}`}
+            className={`flex w-full flex-1 items-center justify-center rounded-md border border-dashed px-2 py-4 text-center text-[11px] ${emptyTone}`}
           >
             없음
           </div>
@@ -313,7 +313,7 @@ function renderPhotoColumn(params: {
 
       {!params.readOnly && (
         <label
-          className={`mx-1.5 mb-1.5 flex cursor-pointer items-center justify-center rounded-md border py-1.5 text-[10px] font-semibold touch-manipulation active:scale-[0.98] has-[:disabled]:opacity-50 ${addTone} ${params.split ? '' : 'mt-1'}`}
+          className={`mx-1.5 mb-1.5 flex cursor-pointer items-center justify-center rounded-md border py-1.5 text-[11px] font-semibold touch-manipulation active:scale-[0.98] has-[:disabled]:opacity-50 ${addTone} ${params.split ? '' : 'mt-1'}`}
         >
           + 사진 추가
           <input
@@ -701,7 +701,7 @@ export function InspectionHeaderBlock({
     <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4">
       <h2 className="text-fluid-base font-bold text-blue-950">{title}</h2>
       <p className="mt-2 text-fluid-xs text-blue-900/90">{intro}</p>
-      <dl className="mt-3 grid grid-cols-3 gap-x-1.5 gap-y-0.5 text-[10px] leading-snug text-gray-800 sm:gap-x-2 sm:text-fluid-xs">
+      <dl className="mt-3 grid grid-cols-3 gap-x-1.5 gap-y-0.5 text-[11px] leading-snug text-gray-800 sm:gap-x-2 sm:text-fluid-xs">
         <div className="min-w-0">
           <dt className="text-gray-500">고객명</dt>
           <dd className="truncate font-medium">{checklist.inquiryHeader?.customerName ?? '—'}</dd>

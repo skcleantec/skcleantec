@@ -44,7 +44,7 @@ function ScheduleMarketplaceCardDemo({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-fluid-2xs font-semibold text-slate-900">{name}</p>
-          <p className="mt-0.5 text-[9px] text-slate-500 sm:text-[10px]">{meta}</p>
+          <p className="mt-0.5 text-[9px] text-slate-500 sm:text-[11px]">{meta}</p>
         </div>
       </div>
     </div>
@@ -53,7 +53,7 @@ function ScheduleMarketplaceCardDemo({
 
 /** 스케줄 — 정보공유 구역 미리보기 (실제 UI 조합) */
 export function DbMarketplaceHelpSchedulePreviewInner({ enlarged = false }: { enlarged?: boolean }) {
-  const t = enlarged ? 'text-fluid-xs' : 'text-[11px] sm:text-fluid-2xs';
+  const t = enlarged ? 'text-fluid-xs' : 'text-[12px] sm:text-fluid-2xs';
   return (
     <div className={`overflow-hidden rounded-lg border border-slate-200 bg-slate-50/80 shadow-sm pointer-events-none select-none ${t}`}>
       <div className="border-b border-slate-200 bg-white px-2.5 py-2 sm:px-3">
@@ -72,13 +72,13 @@ export function DbMarketplaceHelpSchedulePreviewInner({ enlarged = false }: { en
       </div>
 
       <div className="space-y-3 p-2 sm:p-2.5">
-        <p className="text-[9px] text-slate-400 sm:text-[10px]">… 팀장 미배정 · 오전/오후 일정 …</p>
+        <p className="text-[9px] text-slate-400 sm:text-[11px]">… 팀장 미배정 · 오전/오후 일정 …</p>
 
         <div>
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50 px-2.5 py-1.5">
             <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
             <span className="flex-1 text-fluid-xs font-bold text-violet-950">정보공유</span>
-            <span className="rounded-md bg-violet-100/80 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-violet-700">
+            <span className="rounded-md bg-violet-100/80 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-violet-700">
               3건
             </span>
           </div>

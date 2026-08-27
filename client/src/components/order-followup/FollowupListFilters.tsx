@@ -91,12 +91,12 @@ export function FollowupListFilters({
   const summary = useMemo(() => followupFilterSummary(filters), [filters]);
 
   const segBtn = (active: boolean) =>
-    `rounded-md px-2 py-0.5 text-[10px] font-semibold transition-all ${
+    `rounded-md px-2 py-0.5 text-[11px] font-semibold transition-all ${
       active ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
     }`;
 
   const chipBtn = (active: boolean) =>
-    `rounded-full border px-2 py-0.5 text-[10px] font-semibold touch-manipulation transition-all ${
+    `rounded-full border px-2 py-0.5 text-[11px] font-semibold touch-manipulation transition-all ${
       active
         ? 'border-slate-800 bg-slate-900 text-white'
         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
@@ -108,7 +108,7 @@ export function FollowupListFilters({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           aria-expanded={expanded}
         >
           <span className="text-slate-400" aria-hidden>
@@ -117,7 +117,7 @@ export function FollowupListFilters({
           필터
         </button>
         {!expanded ? (
-          <span className="min-w-0 flex-1 truncate text-[10px] text-slate-600" title={summary}>
+          <span className="min-w-0 flex-1 truncate text-[11px] text-slate-600" title={summary}>
             {summary}
           </span>
         ) : null}
@@ -195,13 +195,13 @@ export function FollowupListFilters({
               value={filterCustomerName}
               onChange={(e) => onFilterCustomerNameChange(e.target.value)}
               placeholder="고객명 검색"
-              className="min-w-[8rem] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              className="min-w-[8rem] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
             />
             {filterCustomerName.trim() ? (
               <button
                 type="button"
                 onClick={() => onFilterCustomerNameChange('')}
-                className="shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-600 hover:bg-slate-50"
+                className="shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
               >
                 초기화
               </button>

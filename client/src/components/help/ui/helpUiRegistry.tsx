@@ -328,7 +328,7 @@ export function HelpUiEmbed({ tokenId }: { tokenId: string }) {
   const render = HELP_UI_REGISTRY[tokenId as HelpUiTokenId];
   if (!render) {
     return (
-      <span className="inline-flex rounded border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-800">
+      <span className="inline-flex rounded border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800">
         UI:{tokenId}
       </span>
     );

@@ -69,7 +69,7 @@ export function CrmSoomgoUpdateStrip({
             <CrmIconSoomgo className="h-4 w-4" />
           </span>
           <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+            className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${
               tone === 'rose' ? 'bg-rose-100 text-rose-900' : 'bg-amber-100 text-amber-900'
             }`}
           >
@@ -90,7 +90,7 @@ export function CrmSoomgoUpdateStrip({
               type="button"
               disabled={updateBusy}
               onClick={onOpenSoomgoBar}
-              className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`rounded-lg border bg-white px-2.5 py-1 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
                 tone === 'rose'
                   ? 'border-rose-300 text-rose-900 hover:bg-rose-50'
                   : 'border-amber-300 text-amber-900 hover:bg-amber-50'
@@ -103,7 +103,7 @@ export function CrmSoomgoUpdateStrip({
             type="button"
             disabled={updateBusy}
             onClick={onRequestUpdate}
-            className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`rounded-lg border bg-white px-2.5 py-1 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
               tone === 'rose'
                 ? 'border-rose-300 text-rose-900 hover:bg-rose-50'
                 : 'border-amber-300 text-amber-900 hover:bg-amber-50'
@@ -116,7 +116,7 @@ export function CrmSoomgoUpdateStrip({
               href={downloadUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold ${
+              className={`rounded-lg border bg-white px-2.5 py-1 text-[12px] font-semibold ${
                 updateBusy ? 'pointer-events-none opacity-50' : ''
               } ${
                 tone === 'rose'
@@ -131,7 +131,7 @@ export function CrmSoomgoUpdateStrip({
             type="button"
             disabled={updateBusy}
             onClick={onRefresh}
-            className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`rounded-lg border bg-white px-2.5 py-1 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
               tone === 'rose'
                 ? 'border-rose-300 text-rose-900 hover:bg-rose-50'
                 : 'border-amber-300 text-amber-900 hover:bg-amber-50'

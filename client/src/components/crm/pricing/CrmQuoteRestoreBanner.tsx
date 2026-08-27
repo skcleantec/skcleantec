@@ -28,7 +28,7 @@ export function CrmQuoteRestoreBanner({
   const total = quote.payload.grandTotalWon;
   const who = quote.updatedByName ?? quote.createdByName ?? '마케터';
   return (
-    <div className="shrink-0 border-b border-amber-200/80 bg-amber-50/90 px-2 py-1.5 text-[10px] text-amber-950">
+    <div className="shrink-0 border-b border-amber-200/80 bg-amber-50/90 px-2 py-1.5 text-[11px] text-amber-950">
       <p className="font-semibold">
         편집 중 견적(미전송) · {fmtWhen(quote.updatedAt)}
         {who ? ` · ${who}` : ''}

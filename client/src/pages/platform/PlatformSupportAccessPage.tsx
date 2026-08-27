@@ -298,12 +298,12 @@ export function PlatformSupportAccessPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-sm font-semibold text-gray-900">{row.loginId}</span>
                           {!row.isActive ? (
-                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">비활성</span>
+                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">비활성</span>
                           ) : null}
                         </div>
                         <p className="mt-0.5 text-sm text-gray-700">{row.name}</p>
                         {row.memo ? <p className="mt-1 text-xs text-gray-500">{row.memo}</p> : null}
-                        <p className="mt-2 text-[11px] text-gray-400">
+                        <p className="mt-2 text-[12px] text-gray-400">
                           마지막 접속 {formatWhen(row.lastUsedAt)} · 생성 {formatWhen(row.createdAt)}
                         </p>
                       </div>

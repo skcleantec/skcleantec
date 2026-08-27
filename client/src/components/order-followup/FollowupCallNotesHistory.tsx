@@ -46,14 +46,14 @@ function CallNoteBodyPreview({ body }: { body: string }) {
 
   return (
     <>
-      <p className="whitespace-pre-wrap break-words text-[11px] leading-snug text-gray-800 line-clamp-4">
+      <p className="whitespace-pre-wrap break-words text-[12px] leading-snug text-gray-800 line-clamp-4">
         {trimmed}
       </p>
       {long ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-1 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-700 hover:bg-gray-50"
+          className="mt-1 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
         >
           크게 보기
         </button>
@@ -172,7 +172,7 @@ export function FollowupCallNotesHistory({
     <ul className="space-y-2">
       {items.map((row) => (
         <li key={row.id} className="rounded-lg border border-gray-200 bg-gray-50/80 p-2.5">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
             <span className="tabular-nums text-gray-700">{fmtNoteTime(row.createdAt)}</span>
             <span>· {authorLabel(row.author)}</span>
             {row.phone ? (

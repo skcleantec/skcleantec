@@ -58,7 +58,7 @@ export function InquiryPartnerSwapModalShell({
           <h3 id={titleId} className="text-fluid-sm font-semibold text-gray-900 sm:text-base">
             {title}
           </h3>
-          <p className="mt-0.5 text-[10px] leading-snug text-gray-600 sm:hidden">{descriptionMobile ?? description}</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-gray-600 sm:hidden">{descriptionMobile ?? description}</p>
           <p className="mt-1 hidden text-fluid-xs text-gray-600 sm:block">{description}</p>
         </div>
         <div className="max-h-[min(60vh,28rem)] min-h-[9rem] flex-1 overflow-y-auto overscroll-y-contain px-3 py-2 sm:max-h-[min(65vh,28rem)] sm:min-h-[12rem] sm:px-5 sm:py-3">

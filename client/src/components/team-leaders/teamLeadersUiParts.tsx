@@ -94,7 +94,7 @@ export function MarketerAdminLevelBadge({ level }: { level: 'LIMITED' | 'FULL' }
   const cls = level === 'FULL' ? 'bg-blue-100 text-blue-800' : 'bg-sky-100 text-sky-800';
   const label = level === 'FULL' ? '전체' : '일부';
   return (
-    <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>
+    <span className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>
   );
 }
 

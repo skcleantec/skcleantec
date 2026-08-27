@@ -55,7 +55,7 @@ function presetStepCount(steps: SoomgoMessageStep[]): { texts: number; images: n
 
 function PresetPreview({ steps }: { steps: SoomgoMessageStep[] }) {
   if (steps.length === 0) {
-    return <span className="text-[10px] text-slate-400">내용 없음</span>;
+    return <span className="text-[11px] text-slate-400">내용 없음</span>;
   }
 
   const firstText = steps.find((s) => s.type === 'text');
@@ -67,11 +67,11 @@ function PresetPreview({ steps }: { steps: SoomgoMessageStep[] }) {
   return (
     <div className="min-w-0 space-y-1">
       {firstText ? (
-        <p className="line-clamp-2 text-[10px] leading-snug text-slate-600" title={firstText.text}>
+        <p className="line-clamp-2 text-[11px] leading-snug text-slate-600" title={firstText.text}>
           {firstText.text}
         </p>
       ) : (
-        <p className="text-[10px] text-slate-400">텍스트 없음</p>
+        <p className="text-[11px] text-slate-400">텍스트 없음</p>
       )}
       <div className="flex flex-wrap items-center gap-1.5">
         {thumbUrls.length > 0 ? (
@@ -249,7 +249,7 @@ export function CrmSoomgoDrawer({
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {error ? (
-          <p className="mb-2 shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700">
+          <p className="mb-2 shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[12px] text-rose-700">
             {error}
           </p>
         ) : null}
@@ -259,14 +259,14 @@ export function CrmSoomgoDrawer({
           <div className="space-y-2 border-b border-slate-100 pb-2">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-[11px] font-semibold text-slate-800">프리셋</p>
-                <p className="text-[10px] text-slate-500">⋮⋮ 드래그로 내 프리셋 순서 변경</p>
+                <p className="text-[12px] font-semibold text-slate-800">프리셋</p>
+                <p className="text-[11px] text-slate-500">⋮⋮ 드래그로 내 프리셋 순서 변경</p>
               </div>
               {onOpenPresetSettings ? (
                 <button
                   type="button"
                   onClick={onOpenPresetSettings}
-                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
                 >
                   편집
                 </button>
@@ -301,7 +301,7 @@ export function CrmSoomgoDrawer({
           </div>
 
           {presetsLoading ? (
-            <p className="py-4 text-center text-[11px] text-slate-400">프리셋 불러오는 중…</p>
+            <p className="py-4 text-center text-[12px] text-slate-400">프리셋 불러오는 중…</p>
           ) : activePresets.length > 0 ? (
             <PresetDragReorderList
               className="space-y-2"
@@ -336,7 +336,7 @@ export function CrmSoomgoDrawer({
                       onClick={() => void handlePreset(preset)}
                       className={[
                         'flex w-[72px] shrink-0 flex-col items-center justify-center rounded-lg px-1 py-2 text-center transition',
-                        'border border-sky-200/90 bg-white text-[10px] font-semibold leading-tight text-sky-900',
+                        'border border-sky-200/90 bg-white text-[11px] font-semibold leading-tight text-sky-900',
                         'hover:border-sky-400 hover:bg-sky-50 disabled:opacity-40',
                         isBusy ? 'animate-pulse border-sky-400 bg-sky-100' : '',
                       ].join(' ')}
@@ -358,7 +358,7 @@ export function CrmSoomgoDrawer({
             />
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-4 text-center">
-              <p className="text-[11px] text-slate-600">
+              <p className="text-[12px] text-slate-600">
                 {presetView === 'personal'
                   ? '내 프리셋이 없습니다.'
                   : presetView === 'shared'
@@ -369,18 +369,18 @@ export function CrmSoomgoDrawer({
                 <button
                   type="button"
                   onClick={onOpenPresetSettings}
-                  className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-semibold text-white hover:bg-slate-700"
+                  className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-700"
                 >
                   프리셋 추가
                 </button>
               ) : (
-                <p className="mt-1 text-[10px] text-slate-500">설정 → 숨고 프리셋에서 추가해 주세요.</p>
+                <p className="mt-1 text-[11px] text-slate-500">설정 → 숨고 프리셋에서 추가해 주세요.</p>
               )}
             </div>
           )}
 
           {!sequenceSupported && activePresets.length > 0 ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-900">
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
               프리셋(이미지·순차 전송)은 숨고 연동 v2.1.0 이상이 필요합니다. 위 「직접 보내기」는 사용할 수 있습니다.
             </p>
           ) : null}
@@ -389,8 +389,8 @@ export function CrmSoomgoDrawer({
         {/* 직접 입력 — 하단 고정 (프리셋 스크롤과 분리) */}
         <section className="z-10 mt-2 shrink-0 rounded-2xl border border-sky-200/90 bg-gradient-to-b from-sky-50/80 to-white p-3 shadow-sm ring-1 ring-white/80">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold text-sky-950">직접 보내기</p>
-            <span className="text-[10px] text-sky-700/80">채팅방 연결 후 전송</span>
+            <p className="text-[12px] font-semibold text-sky-950">직접 보내기</p>
+            <span className="text-[11px] text-sky-700/80">채팅방 연결 후 전송</span>
           </div>
           <textarea
             value={message}
@@ -406,12 +406,12 @@ export function CrmSoomgoDrawer({
             }}
           />
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[10px] text-slate-400">Ctrl+Enter로 전송</span>
+            <span className="text-[11px] text-slate-400">Ctrl+Enter로 전송</span>
             <button
               type="button"
               disabled={sendDisabled || !message.trim()}
               onClick={() => void handleSend()}
-              className="rounded-lg bg-sky-600 px-4 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-40"
+              className="rounded-lg bg-sky-600 px-4 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-40"
             >
               {sending ? '전송 중…' : '메시지 보내기'}
             </button>

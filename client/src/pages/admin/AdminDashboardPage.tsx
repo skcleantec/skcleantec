@@ -118,10 +118,10 @@ export function AdminDashboardPage() {
             {tenantName ? <span className="text-fluid-lg font-medium text-slate-400 tracking-normal shrink-0">Dashboard</span> : null}
           </h1>
         </PageTitleWithFavorite>
-        <span className="shrink-0 inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-600 tracking-widest uppercase ring-1 ring-inset ring-indigo-500/10">
+        <span className="shrink-0 inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600 tracking-widest uppercase ring-1 ring-inset ring-indigo-500/10">
           Workspace
         </span>
-        <span className="text-[11px] font-medium text-slate-400 hidden sm:block shrink-0">
+        <span className="text-[12px] font-medium text-slate-400 hidden sm:block shrink-0">
           {new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}
         </span>
       </div>

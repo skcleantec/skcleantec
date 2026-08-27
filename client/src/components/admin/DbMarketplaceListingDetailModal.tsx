@@ -41,15 +41,15 @@ function DbMarketplacePublishAudienceBlock({
     <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-3 space-y-2">
       <p className="text-fluid-xs font-semibold text-violet-950">게시 대상</p>
       {visibility === 'ALL' ? (
-        <p className="text-[11px] leading-relaxed text-violet-900">
+        <p className="text-[12px] leading-relaxed text-violet-900">
           연결된 전체 파트너·등록 타업체에 노출됩니다.
         </p>
       ) : audiences && audiences.length > 0 ? (
         <ul className="space-y-1.5">
           {audiences.map((a) => (
-            <li key={a.id} className="flex flex-wrap items-center gap-1.5 text-[11px] text-violet-950">
+            <li key={a.id} className="flex flex-wrap items-center gap-1.5 text-[12px] text-violet-950">
               <span
-                className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
                   a.audienceKind === 'PARTNER_TENANT'
                     ? 'bg-sky-100 text-sky-800'
                     : 'bg-amber-100 text-amber-900'
@@ -62,7 +62,7 @@ function DbMarketplacePublishAudienceBlock({
           ))}
         </ul>
       ) : (
-        <p className="text-[11px] text-gray-500">지정된 업체가 없습니다.</p>
+        <p className="text-[12px] text-gray-500">지정된 업체가 없습니다.</p>
       )}
     </div>
   );
@@ -96,7 +96,7 @@ function DbMarketplaceDetailNavButton({
     <Link
       to={to}
       onClick={onClick}
-      className={`inline-flex min-h-[2.125rem] items-center justify-center rounded-lg border px-3 py-1.5 text-[11px] font-semibold leading-snug shadow-sm transition-colors touch-manipulation ${dbMarketplaceDetailNavToneClass(tone)}`}
+      className={`inline-flex min-h-[2.125rem] items-center justify-center rounded-lg border px-3 py-1.5 text-[12px] font-semibold leading-snug shadow-sm transition-colors touch-manipulation ${dbMarketplaceDetailNavToneClass(tone)}`}
     >
       {children}
     </Link>
@@ -383,13 +383,13 @@ export function DbMarketplaceListingDetailModal({
           {error ? <p className="text-red-600">{error}</p> : null}
 
           {d.platformSuspended ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-800">
               플랫폼에 의해 일시 중지된 건입니다. 인수 신청할 수 없습니다.
             </p>
           ) : null}
 
           {canBuyerDecline ? (
-            <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
+            <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[12px] text-violet-900">
               순위 노출 — 현재 {d.currentPriorityRank}순위 인수 후보입니다. 인수하지 않으면 「거절하기」를
               이용하세요.
             </p>
@@ -432,7 +432,7 @@ export function DbMarketplaceListingDetailModal({
                         {linkedLabel}
                       </DbMarketplaceDetailNavButton>
                     ) : d.targetInquiryId && !linkedInquiryPath ? (
-                      <p className="w-full text-[11px] text-gray-600">연결 접수 ID: {d.targetInquiryId}</p>
+                      <p className="w-full text-[12px] text-gray-600">연결 접수 ID: {d.targetInquiryId}</p>
                     ) : null}
                     {sellerSchedulePath ? (
                       <DbMarketplaceDetailNavButton to={sellerSchedulePath} onClick={onClose}>
@@ -462,7 +462,7 @@ export function DbMarketplaceListingDetailModal({
                   </div>
                 );
               })()}
-              <p className="text-[10px] text-emerald-800/80">
+              <p className="text-[11px] text-emerald-800/80">
                 정보공유 수수료는 인계 확정 시 파트너·타업체 정산에 반영됩니다. 연쇄 공유 건은 앞선 공유 수수료가 합산됩니다.
               </p>
             </div>
@@ -473,16 +473,16 @@ export function DbMarketplaceListingDetailModal({
           {showQna ? (
             <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
               <p className="text-fluid-xs font-semibold text-slate-900">인수 전 문의</p>
-              <p className="text-[10px] text-gray-500 leading-relaxed">
+              <p className="text-[11px] text-gray-500 leading-relaxed">
                 전화·이메일·주소 전체 등 연락처는 적지 마세요. 인수 신청 전 질문·답변만 남겨 주세요.
               </p>
               {messagesLoading && messages.length === 0 ? (
-                <p className="text-[11px] text-gray-500">문의 불러오는 중…</p>
+                <p className="text-[12px] text-gray-500">문의 불러오는 중…</p>
               ) : null}
-              {messagesError ? <p className="text-[11px] text-red-600">{messagesError}</p> : null}
+              {messagesError ? <p className="text-[12px] text-red-600">{messagesError}</p> : null}
               <div className="max-h-44 overflow-y-auto space-y-2 rounded-lg bg-gray-50 p-2">
                 {messages.map((m) => (
-                  <div key={m.id} className="text-[11px]">
+                  <div key={m.id} className="text-[12px]">
                     <p className="font-medium text-slate-800">
                       {m.authorRole === 'SELLER' ? '공유' : '인수'} · {m.authorName}
                       <span className="ml-2 font-normal text-gray-400">
@@ -493,7 +493,7 @@ export function DbMarketplaceListingDetailModal({
                   </div>
                 ))}
                 {messages.length === 0 && !messagesLoading && !messagesError ? (
-                  <p className="text-[11px] text-gray-400">아직 문의가 없습니다.</p>
+                  <p className="text-[12px] text-gray-400">아직 문의가 없습니다.</p>
                 ) : null}
               </div>
               {canWriteMessages ? (
@@ -504,19 +504,19 @@ export function DbMarketplaceListingDetailModal({
                     rows={3}
                     maxLength={2000}
                     placeholder="문의 내용을 입력하세요"
-                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-[11px]"
+                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-[12px]"
                   />
                   <button
                     type="button"
                     disabled={busy || !messageInput.trim()}
                     onClick={() => void sendMessage()}
-                    className="rounded-lg bg-slate-800 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+                    className="rounded-lg bg-slate-800 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-slate-700 disabled:opacity-50"
                   >
                     문의 등록
                   </button>
                 </div>
               ) : d.status === 'CONFIRMED' ? (
-                <p className="text-[10px] text-gray-500">확정 완료 — 문의 이력만 조회합니다.</p>
+                <p className="text-[11px] text-gray-500">확정 완료 — 문의 이력만 조회합니다.</p>
               ) : null}
             </div>
           ) : null}

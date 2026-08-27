@@ -78,7 +78,7 @@ export function OperatingCompanyCancellationPolicyFields(props: {
     <div className="space-y-4">
       <p className="text-xs text-gray-500 leading-relaxed">
         브랜드별 취소·변경 위약 구간입니다. 안내사항·발주 확인 문구에{' '}
-        <code className="rounded bg-gray-100 px-1 font-mono text-[11px]">
+        <code className="rounded bg-gray-100 px-1 font-mono text-[12px]">
           {GUIDE_PLACEHOLDER_CANCELLATION_POLICY}
         </code>{' '}
         치환코드를 넣으면 아래 설정이 자동으로 반영됩니다.
@@ -128,7 +128,7 @@ export function OperatingCompanyCancellationPolicyFields(props: {
         )}
         <p className="text-xs text-gray-500">
           청소날짜 확인 문구 편집 시{' '}
-          <code className="rounded bg-white px-1 font-mono text-[11px]">{GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE}</code>{' '}
+          <code className="rounded bg-white px-1 font-mono text-[12px]">{GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE}</code>{' '}
           치환코드를 쓸 수 있습니다.
         </p>
       </section>

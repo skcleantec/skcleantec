@@ -13,7 +13,7 @@ function formatDuration(sec: number): string {
 function StatChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5 px-3">
-      <span className="text-[10px] font-medium text-white/55">{label}</span>
+      <span className="text-[11px] font-medium text-white/55">{label}</span>
       <span className="text-fluid-xs font-semibold tabular-nums text-white">{value}</span>
     </div>
   );
@@ -46,7 +46,7 @@ export function CrmHeaderStats({ refreshKey = 0 }: { refreshKey?: number }) {
   if (!stats) {
     return (
       <div className="flex min-w-0 flex-1 items-center justify-center overflow-x-auto">
-        <span className="text-[11px] text-white/40">집계…</span>
+        <span className="text-[12px] text-white/40">집계…</span>
       </div>
     );
   }

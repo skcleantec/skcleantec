@@ -193,7 +193,7 @@ export function OutboundEmailSetupWizard({
               key={step.id}
               type="button"
               onClick={() => onWizardStepChange(step.id)}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
+              className={`rounded-full px-2.5 py-1 text-[12px] font-medium border transition-colors ${
                 active
                   ? 'border-slate-900 bg-slate-900 text-white'
                   : done
@@ -271,7 +271,7 @@ export function OutboundEmailSetupWizard({
                 href={GOOGLE_APP_PASSWORDS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-50"
+                className="mt-2 inline-flex rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[12px] font-semibold text-indigo-900 hover:bg-indigo-50"
               >
                 Google 앱 비밀번호 발급 →
               </a>
@@ -281,7 +281,7 @@ export function OutboundEmailSetupWizard({
                 href={NAVER_SECURITY_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-50"
+                className="mt-2 inline-flex rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-[12px] font-semibold text-emerald-900 hover:bg-emerald-50"
               >
                 네이버 보안설정(앱 비밀번호) →
               </a>

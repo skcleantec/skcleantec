@@ -126,7 +126,7 @@ export function DashboardChangeHistory({ token, variant = 'default', compact = f
             </svg>
             접수 변경 이력
           </h2>
-          <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-500/10 shrink-0">
+          <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500 ring-1 ring-inset ring-slate-500/10 shrink-0">
             {showArchiveLink ? (
               <Link
                 to="/admin/team-leaders/change-history"
@@ -172,13 +172,13 @@ export function DashboardChangeHistory({ token, variant = 'default', compact = f
                 </span>
                 
                 {isCompact ? (
-                  <div className="flex flex-col gap-0.5 text-[11px] leading-snug min-w-0">
+                  <div className="flex flex-col gap-0.5 text-[12px] leading-snug min-w-0">
                     <div className="flex items-start justify-between gap-1">
                       <span className="font-semibold text-slate-800 truncate">{row.actorName ?? '시스템'}</span>
                       {isTenantOwnerOrSuper ? (
                         <button
                           type="button"
-                          className="shrink-0 text-[10px] text-red-600 hover:underline font-semibold"
+                          className="shrink-0 text-[11px] text-red-600 hover:underline font-semibold"
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeleteTarget(row);
@@ -189,27 +189,27 @@ export function DashboardChangeHistory({ token, variant = 'default', compact = f
                         </button>
                       ) : null}
                     </div>
-                    <span className="inline-flex w-fit max-w-full items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600 truncate">
+                    <span className="inline-flex w-fit max-w-full items-center rounded bg-slate-100 px-1.5 py-px text-[11px] font-medium text-slate-600 truncate">
                       {row.customerName}
                     </span>
                     <span className="text-slate-600 font-medium line-clamp-2">{row.summaryLine}</span>
-                    <span className="text-[10px] text-gray-400 tabular-nums">{formatWhen(row.createdAt)}</span>
+                    <span className="text-[11px] text-gray-400 tabular-nums">{formatWhen(row.createdAt)}</span>
                   </div>
                 ) : (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-fluid-sm">
                     <div className="flex items-center flex-wrap gap-2">
                       <span className="font-semibold text-slate-800">{row.actorName ?? '시스템'}</span>
-                      <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                      <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
                         {row.customerName}
                       </span>
                       <span className="text-slate-600 break-words font-medium">{row.summaryLine}</span>
                     </div>
                     <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                      <span className="text-[11px] text-gray-400 tabular-nums">{formatWhen(row.createdAt)}</span>
+                      <span className="text-[12px] text-gray-400 tabular-nums">{formatWhen(row.createdAt)}</span>
                       {isTenantOwnerOrSuper && (
                         <button
                           type="button"
-                          className="text-[11px] text-red-600 hover:underline font-semibold"
+                          className="text-[12px] text-red-600 hover:underline font-semibold"
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeleteTarget(row);

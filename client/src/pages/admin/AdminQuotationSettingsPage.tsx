@@ -360,7 +360,7 @@ export function AdminQuotationSettingsPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-slate-900">{row.name}</span>
                       {!row.isActive && (
-                        <span className="text-[11px] font-medium rounded-full bg-slate-100 text-slate-600 px-2 py-0.5">
+                        <span className="text-[12px] font-medium rounded-full bg-slate-100 text-slate-600 px-2 py-0.5">
                           비활성
                         </span>
                       )}

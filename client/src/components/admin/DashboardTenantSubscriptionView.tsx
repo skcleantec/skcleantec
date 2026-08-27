@@ -59,7 +59,7 @@ export function DashboardTenantSubscriptionView({
   const detailLink = canOpenSubscription ? (
     <Link
       to={TENANT_SUBSCRIPTION_ADMIN_PATH}
-      className="shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 touch-manipulation"
+      className="shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[12px] font-semibold text-indigo-700 hover:bg-indigo-100 touch-manipulation"
     >
       자세히
     </Link>
@@ -90,18 +90,18 @@ export function DashboardTenantSubscriptionView({
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
               <span className="truncate text-fluid-2xs font-semibold text-slate-800">계정·서비스</span>
-              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-px text-[10px] font-semibold capitalize text-slate-600 ring-1 ring-inset ring-slate-600/10">
+              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-px text-[11px] font-semibold capitalize text-slate-600 ring-1 ring-inset ring-slate-600/10">
                 {tenant.planLabel}
               </span>
             </div>
-            <p className="mt-0.5 truncate text-[11px] leading-snug text-slate-500 tabular-nums" title={usageSummary}>
+            <p className="mt-0.5 truncate text-[12px] leading-snug text-slate-500 tabular-nums" title={usageSummary}>
               {usageSummary}
             </p>
             {billing ? (
               <TenantBillingDashboardStatusLine
                 billing={billing}
                 variant="inline"
-                className="mt-0.5 min-w-0 truncate text-[10px]"
+                className="mt-0.5 min-w-0 truncate text-[11px]"
                 onUnpaidClick={() => setPaymentGuideOpen(true)}
               />
             ) : null}
@@ -136,7 +136,7 @@ export function DashboardTenantSubscriptionView({
               계정 및 서비스 이용 현황
             </span>
           </div>
-          <span className="inline-flex shrink-0 items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-700 ring-1 ring-inset ring-slate-700/10">
+          <span className="inline-flex shrink-0 items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold capitalize text-slate-700 ring-1 ring-inset ring-slate-700/10">
             {tenant.planLabel}
           </span>
         </div>

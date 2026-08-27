@@ -138,7 +138,7 @@ export function TeamNavFavoriteDrawerStrip({
 
   return (
     <div className="mb-2 border-b border-white/10 pb-2">
-      <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200/80">즐겨찾기</p>
+      <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-amber-200/80">즐겨찾기</p>
       <div className="flex flex-wrap gap-1.5">
         {entries.map((entry) => (
           <NavLink

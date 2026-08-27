@@ -173,7 +173,7 @@ export function SoomgoMessagePresetEditor({
                         <img src={url} alt="" className="h-14 w-14 rounded border object-cover" />
                         <button
                           type="button"
-                          className="absolute -right-1 -top-1 rounded-full bg-rose-600 px-1 text-[10px] text-white"
+                          className="absolute -right-1 -top-1 rounded-full bg-rose-600 px-1 text-[11px] text-white"
                           onClick={() =>
                             patchStep(stepIndex, {
                               ...step,

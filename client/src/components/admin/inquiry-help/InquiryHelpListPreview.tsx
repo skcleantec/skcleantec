@@ -5,7 +5,7 @@ import { InquiryStatusChipPreview } from '../../inquiries/inquiriesUiParts';
 export function InquiryHelpListPreview() {
   return (
     <div className="pointer-events-none select-none overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-slate-100 bg-slate-50/80 px-2 py-1 text-[10px] text-slate-600">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-slate-100 bg-slate-50/80 px-2 py-1 text-[11px] text-slate-600">
         <span className="font-medium text-slate-700">목록 상단 고정</span>
         {([0, 1, 2, 3] as const).map((tier) => (
           <span key={tier} className="inline-flex items-center gap-1">
@@ -19,7 +19,7 @@ export function InquiryHelpListPreview() {
         ))}
       </div>
       <div className="hidden lg:block overflow-x-auto">
-        <table className="w-full min-w-[28rem] border-collapse text-[10px]">
+        <table className="w-full min-w-[28rem] border-collapse text-[11px]">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-slate-500">
               <th className="px-2 py-1 text-center font-medium">접수일</th>
@@ -65,11 +65,11 @@ export function InquiryHelpListPreview() {
       <div className="lg:hidden p-2 space-y-1.5">
         <div className="rounded-lg border border-rose-100 bg-rose-50/90 p-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-slate-900">김○○ · 미제출</span>
-            <span className="rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold text-white">전화</span>
+            <span className="text-[12px] font-semibold text-slate-900">김○○ · 미제출</span>
+            <span className="rounded bg-indigo-600 px-2 py-0.5 text-[11px] font-semibold text-white">전화</span>
           </div>
         </div>
-        <p className="text-[10px] text-slate-500 px-0.5">카드 본문 탭 → 상세 · 하단 상태·팀장 변경</p>
+        <p className="text-[11px] text-slate-500 px-0.5">카드 본문 탭 → 상세 · 하단 상태·팀장 변경</p>
       </div>
     </div>
   );

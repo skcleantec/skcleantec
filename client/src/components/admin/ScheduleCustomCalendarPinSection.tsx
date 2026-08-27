@@ -127,32 +127,32 @@ export function ScheduleCustomCalendarPinSection({
                     <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${t.dot}`} aria-hidden />
                     <span className="font-medium text-gray-900">{cal.name}</span>
                     {zoneLinked ? (
-                      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-900">
+                      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-medium text-violet-900">
                         권역
                       </span>
                     ) : null}
                     {auto ? (
-                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800">
+                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-medium text-blue-800">
                         자동
                       </span>
                     ) : manual ? (
-                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
                         수동
                       </span>
                     ) : null}
                   </span>
                   {(cal.regions.length > 0 || cal.externalCompanyIds.length > 0) && (
-                    <span className="mt-0.5 block truncate text-[11px] text-gray-500">
+                    <span className="mt-0.5 block truncate text-[12px] text-gray-500">
                       {[...cal.regions, ...(cal.externalCompanyIds.length ? ['타업체'] : [])].join(' · ')}
                     </span>
                   )}
                   {zonePinTakenByOther ? (
-                    <span className="mt-0.5 block text-[11px] text-gray-500">
+                    <span className="mt-0.5 block text-[12px] text-gray-500">
                       다른 권역 캘린더가 이미 지정되어 있습니다. 먼저 해제해 주세요.
                     </span>
                   ) : null}
                   {manual && zoneLinked ? (
-                    <span className="mt-0.5 block text-[11px] font-medium text-violet-800">
+                    <span className="mt-0.5 block text-[12px] font-medium text-violet-800">
                       이 권역 기준으로 팀장을 배정합니다.
                     </span>
                   ) : null}

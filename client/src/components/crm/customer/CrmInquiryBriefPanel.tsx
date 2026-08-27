@@ -148,24 +148,24 @@ export function CrmInquiryBriefPanel({
 
       <dl className="grid gap-2 rounded-xl border border-emerald-100/80 bg-white/80 p-3 text-fluid-xs text-gray-700 sm:grid-cols-2">
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-wide text-emerald-700/80">연락처</dt>
+          <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">연락처</dt>
           <dd className="tabular-nums">{inquiry.customerPhone}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-wide text-emerald-700/80">주소</dt>
+          <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">주소</dt>
           <dd className="truncate" title={inquiry.address}>
             {inquiry.address || '—'}
           </dd>
         </div>
         {inquiry.areaPyeong ? (
           <div>
-            <dt className="text-[10px] font-bold uppercase tracking-wide text-emerald-700/80">평수</dt>
+            <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">평수</dt>
             <dd>{inquiry.areaPyeong}평</dd>
           </div>
         ) : null}
         {inquiry.preferredDate ? (
           <div>
-            <dt className="text-[10px] font-bold uppercase tracking-wide text-emerald-700/80">희망일</dt>
+            <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">희망일</dt>
             <dd>
               {fmtYmd(inquiry.preferredDate)}
               {inquiry.preferredTime ? ` · ${inquiry.preferredTime}` : ''}
@@ -182,9 +182,9 @@ export function CrmInquiryBriefPanel({
             {formatWon(of.balanceAmount)}
           </p>
           {of.submittedAt ? (
-            <p className="text-[10px] text-amber-800/80">제출 {fmtDate(of.submittedAt)}</p>
+            <p className="text-[11px] text-amber-800/80">제출 {fmtDate(of.submittedAt)}</p>
           ) : (
-            <p className="text-[10px] font-medium text-amber-800">미제출 발주서</p>
+            <p className="text-[11px] font-medium text-amber-800">미제출 발주서</p>
           )}
           {of.optionNote ? (
             <p className="whitespace-pre-wrap text-fluid-xs text-amber-950">{of.optionNote}</p>

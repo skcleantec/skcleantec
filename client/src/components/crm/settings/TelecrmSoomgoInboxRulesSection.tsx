@@ -86,7 +86,7 @@ function RuleKeywordList({
               key={row.id}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2"
             >
-              <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-slate-600">
+              <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-slate-600">
                 <input
                   type="checkbox"
                   checked={row.enabled !== false}
@@ -108,7 +108,7 @@ function RuleKeywordList({
                 type="button"
                 disabled={busy}
                 onClick={() => removeRule(row.id)}
-                className="shrink-0 rounded border border-red-200 bg-white px-2 py-1 text-[10px] font-medium text-red-700 hover:bg-red-50 disabled:opacity-40"
+                className="shrink-0 rounded border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-50 disabled:opacity-40"
               >
                 삭제
               </button>

@@ -57,7 +57,7 @@ export function PwaAddToHomeButton({ compact = false }: { compact?: boolean }) {
         onClick={() => void handleClick()}
         className={
           compact
-            ? 'inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1.5 text-[10px] font-semibold leading-none text-slate-600 transition hover:border-sky-300 hover:bg-sky-50/80 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 min-h-8'
+            ? 'inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1.5 text-[11px] font-semibold leading-none text-slate-600 transition hover:border-sky-300 hover:bg-sky-50/80 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 min-h-8'
             : 'flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 text-fluid-xs font-semibold text-slate-700 transition hover:border-sky-300 hover:bg-sky-50/80 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2'
         }
         title="홈 화면에 추가"

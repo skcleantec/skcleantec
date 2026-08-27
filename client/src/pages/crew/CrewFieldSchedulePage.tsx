@@ -241,7 +241,7 @@ export function CrewFieldSchedulePage() {
               const v = e.target.value;
               if (YMD_RE.test(v)) setSelectedYmd(v);
             }}
-            className="min-w-0 flex-1 min-h-[30px] sm:min-h-0 py-0.5 px-1.5 sm:py-1 sm:px-2 border border-gray-300 rounded text-[13px] sm:text-sm text-gray-900 bg-white tabular-nums"
+            className="min-w-0 flex-1 min-h-[30px] sm:min-h-0 py-0.5 px-1.5 sm:py-1 sm:px-2 border border-gray-300 rounded text-[14px] sm:text-sm text-gray-900 bg-white tabular-nums"
           />
           <button
             type="button"

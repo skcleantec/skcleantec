@@ -381,7 +381,7 @@ export function TeamDbMarketplacePage() {
                     {formatWon(resolveMarketplaceServiceBalance(row))}
                   </td>
                   <td className="px-2 py-2 text-center">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${MARKETPLACE_STATUS_CLASS[row.status] ?? ''}`}>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[12px] ${MARKETPLACE_STATUS_CLASS[row.status] ?? ''}`}>
                       {MARKETPLACE_STATUS_LABEL[row.status] ?? row.status}
                     </span>
                   </td>

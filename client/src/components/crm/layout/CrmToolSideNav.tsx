@@ -71,7 +71,7 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg shadow-slate-900/20">
         {!collapsed ? (
           <div className="border-b border-slate-800 px-3 py-2.5">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-200">도구</p>
+            <p className="truncate text-[12px] font-semibold uppercase tracking-wide text-slate-200">도구</p>
           </div>
         ) : (
           <div className="flex h-10 items-center justify-center border-b border-slate-800" aria-hidden>
@@ -112,7 +112,7 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
                     ) : null}
                   </span>
                   {!collapsed ? (
-                    <span className="min-w-0 truncate text-[11px] font-medium">
+                    <span className="min-w-0 truncate text-[12px] font-medium">
                       {item.loading ? '가져오는 중…' : item.label}
                     </span>
                   ) : null}
@@ -135,7 +135,7 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
             aria-expanded={!collapsed}
           >
             <PanelCollapseIcon className="h-[18px] w-[18px] shrink-0" />
-            {!collapsed ? <span className="text-[11px] font-medium text-slate-200">메뉴 접기</span> : null}
+            {!collapsed ? <span className="text-[12px] font-medium text-slate-200">메뉴 접기</span> : null}
           </button>
         </div>
       </div>

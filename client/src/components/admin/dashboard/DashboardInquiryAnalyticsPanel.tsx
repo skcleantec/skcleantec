@@ -166,7 +166,7 @@ export function DashboardInquiryAnalyticsPanel({
             {monthTitleKo(breakdown.monthKey)} · KST
           </p>
         </div>
-        <span className="inline-flex shrink-0 items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-inset ring-violet-700/10">
+        <span className="inline-flex shrink-0 items-center rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-inset ring-violet-700/10">
           그래프
         </span>
       </div>

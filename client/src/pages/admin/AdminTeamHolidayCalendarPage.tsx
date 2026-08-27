@@ -329,19 +329,19 @@ export function AdminTeamHolidayCalendarPage() {
                         {d}
                       </span>
                       {holiday && (
-                        <span className="text-[10px] font-medium text-rose-700 bg-rose-50 px-1 rounded border border-rose-200 shrink-0">
+                        <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-1 rounded border border-rose-200 shrink-0">
                           공휴
                         </span>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-0.5 mt-auto">
                       {tl > 0 && (
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                        <span className="text-[11px] px-1 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
                           팀장 {tl}
                         </span>
                       )}
                       {tm > 0 && (
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-sky-100 text-sky-900 border border-sky-400">
+                        <span className="text-[11px] px-1 py-0.5 rounded bg-sky-100 text-sky-900 border border-sky-400">
                           팀원 {tm}
                         </span>
                       )}

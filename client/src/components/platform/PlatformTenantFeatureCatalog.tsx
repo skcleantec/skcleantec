@@ -56,7 +56,7 @@ function ModuleBadge({
 }) {
   if (!moduleId) {
     return (
-      <span className="inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
+      <span className="inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">
         기본 포함
       </span>
     );
@@ -66,13 +66,13 @@ function ModuleBadge({
   const label = TENANT_FEATURE_MODULES[moduleId]?.label ?? moduleId;
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
-      <span className="text-[10px] text-gray-500">{label}</span>
-      <span className="font-mono text-[10px] text-gray-400">{moduleId}</span>
+      <span className="text-[11px] text-gray-500">{label}</span>
+      <span className="font-mono text-[11px] text-gray-400">{moduleId}</span>
       {tier === 'core' || meta?.locked ? (
-        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">잠금</span>
+        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-500">잠금</span>
       ) : null}
       {meta && !meta.inPlan ? (
-        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600">플랜 외</span>
+        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-600">플랜 외</span>
       ) : null}
     </span>
   );
@@ -120,7 +120,7 @@ function MenuRow({
     <li className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50/80">
       <div className="min-w-0 flex-1">
         <div className="text-sm text-gray-900">{row.label}</div>
-        <div className="mt-0.5 font-mono text-[10px] text-gray-400 truncate">{row.path}</div>
+        <div className="mt-0.5 font-mono text-[11px] text-gray-400 truncate">{row.path}</div>
         {showToggle ? (
           <div className="mt-1">
             <ModuleBadge moduleId={row.moduleId} features={features} />
@@ -137,7 +137,7 @@ function MenuRow({
             size="sm"
           />
         ) : (
-          <span className="text-[10px] text-gray-400 px-1">{row.moduleId ? '' : '항상'}</span>
+          <span className="text-[11px] text-gray-400 px-1">{row.moduleId ? '' : '항상'}</span>
         )}
       </div>
     </li>

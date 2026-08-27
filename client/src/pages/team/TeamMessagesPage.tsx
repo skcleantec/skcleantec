@@ -180,7 +180,7 @@ export function TeamMessagesPage() {
                   >
                     <div className="font-medium text-xs opacity-80 mb-0.5">{m.sender.name}</div>
                     <div className="break-words">{m.content}</div>
-                    <div className="text-[11px] opacity-70 mt-1 flex items-center gap-2 tabular-nums">
+                    <div className="text-[12px] opacity-70 mt-1 flex items-center gap-2 tabular-nums">
                       <span>{formatDateTimeCompactWithWeekday(m.createdAt)}</span>
                       {isMine && !m.batchId && (
                         <span className={m.readAt ? 'text-blue-300' : 'text-gray-400'}>

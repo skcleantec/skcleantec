@@ -125,7 +125,7 @@ export function TelecrmSoomgoCallAutoMessageSection() {
     <div className="space-y-3">
       <div>
         <p className="text-fluid-sm font-semibold text-gray-900">통화 시 자동 안내 (내 계정)</p>
-        <p className="mt-1 text-[11px] leading-snug text-gray-600">
+        <p className="mt-1 text-[12px] leading-snug text-gray-600">
           CRM 「통화」 버튼을 누를 때 숨고 채팅으로 먼저 보낼 안내입니다. 브랜드별 ON/OFF·문구를
           설정할 수 있으며, 브랜드에 저장하지 않으면 <strong>내 기본</strong> 문구를 따릅니다. 통화
           시도마다 전송됩니다(쿨다운 없음).
@@ -139,19 +139,19 @@ export function TelecrmSoomgoCallAutoMessageSection() {
         defaultOptionLabel="내 기본"
       />
       {fallbackFromDefault ? (
-        <p className="text-[11px] text-amber-700">
+        <p className="text-[12px] text-amber-700">
           이 브랜드 전용 설정이 없습니다 — 아래는 내 기본 미리보기입니다. 저장하면 브랜드별로
           생성됩니다.
         </p>
       ) : null}
 
       {msg ? (
-        <p className="rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-[11px] text-green-800">
+        <p className="rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-[12px] text-green-800">
           {msg}
         </p>
       ) : null}
       {error ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">
+        <p className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] text-red-700">
           {error}
         </p>
       ) : null}
@@ -167,13 +167,13 @@ export function TelecrmSoomgoCallAutoMessageSection() {
             />
             <span className="text-fluid-xs font-medium text-gray-900">{SOOMGO_CALL_AUTO_TRIGGER_LABEL}</span>
           </label>
-          <span className="min-w-0 flex-1 truncate text-[10px] text-gray-500">
+          <span className="min-w-0 flex-1 truncate text-[11px] text-gray-500">
             통화 버튼 클릭 시 · {stepCount > 0 ? `${stepCount}스텝` : '미설정'} · {placeholderHint}
           </span>
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="shrink-0 rounded border border-gray-200 px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-50"
+            className="shrink-0 rounded border border-gray-200 px-2 py-0.5 text-[11px] text-gray-600 hover:bg-gray-50"
           >
             {expanded ? '접기' : '편집'}
           </button>
@@ -181,7 +181,7 @@ export function TelecrmSoomgoCallAutoMessageSection() {
             type="button"
             disabled={busy}
             onClick={() => void save()}
-            className="shrink-0 rounded bg-slate-900 px-2 py-0.5 text-[10px] text-white disabled:opacity-50"
+            className="shrink-0 rounded bg-slate-900 px-2 py-0.5 text-[11px] text-white disabled:opacity-50"
           >
             저장
           </button>

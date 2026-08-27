@@ -15,11 +15,11 @@ function FlowNode({ node, compact }: { node: OrderIssueFlowNode; compact?: boole
         compact ? 'min-w-[4.5rem]' : 'min-w-[5.5rem] sm:min-w-[6.5rem]'
       }`}
     >
-      <p className={`font-semibold leading-snug ${compact ? 'text-[10px]' : 'text-fluid-2xs sm:text-fluid-xs'}`}>
+      <p className={`font-semibold leading-snug ${compact ? 'text-[11px]' : 'text-fluid-2xs sm:text-fluid-xs'}`}>
         {node.title}
       </p>
       {node.subtitle ? (
-        <p className={`mt-0.5 text-slate-600 leading-snug ${compact ? 'text-[9px]' : 'text-[10px] sm:text-fluid-2xs'}`}>
+        <p className={`mt-0.5 text-slate-600 leading-snug ${compact ? 'text-[9px]' : 'text-[11px] sm:text-fluid-2xs'}`}>
           {node.subtitle}
         </p>
       ) : null}

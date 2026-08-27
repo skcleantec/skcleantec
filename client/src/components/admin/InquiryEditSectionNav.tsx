@@ -329,7 +329,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
             role="separator"
             aria-label="길게 눌러 위젯 위치를 세로로 이동"
           >
-            <span className="text-[10px] font-bold leading-none tracking-tighter text-gray-400" aria-hidden>
+            <span className="text-[11px] font-bold leading-none tracking-tighter text-gray-400" aria-hidden>
               ⋮
               <br />
               ⋮
@@ -360,7 +360,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
                 key={num}
                 type="button"
                 onClick={() => onJumpTo(num)}
-                className="flex h-7 w-full min-h-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-gray-700 hover:bg-white/25 active:bg-white/35 sm:h-8 sm:text-fluid-2xs touch-manipulation"
+                className="flex h-7 w-full min-h-0 items-center justify-center rounded-md text-[12px] font-semibold tabular-nums text-gray-700 hover:bg-white/25 active:bg-white/35 sm:h-8 sm:text-fluid-2xs touch-manipulation"
                 title={hint ? `${num}. ${hint}` : `${num}번 섹션`}
                 aria-label={hint ? `${num}번, ${hint}` : `${num}번 섹션으로 이동`}
               >

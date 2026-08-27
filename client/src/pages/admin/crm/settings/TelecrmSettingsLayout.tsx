@@ -110,7 +110,7 @@ export function TelecrmSettingsLayout() {
             showShared={canShared}
           />
           {location.pathname.endsWith('/soomgo-presets') ? (
-            <p className="mt-2 text-[11px] text-gray-500">
+            <p className="mt-2 text-[12px] text-gray-500">
               {catalogScope === 'personal'
                 ? '본인 숨고 메시지 프리셋입니다.'
                 : '업체 공유 숨고 메시지 프리셋입니다.'}

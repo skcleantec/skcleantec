@@ -59,7 +59,7 @@ export function KoreanRegionPicker({
             >
               지역 선택
               {value.length > 0 ? (
-                <span className="rounded-full bg-violet-200 px-1.5 py-0.5 text-[11px] tabular-nums">
+                <span className="rounded-full bg-violet-200 px-1.5 py-0.5 text-[12px] tabular-nums">
                   {value.length}
                 </span>
               ) : null}

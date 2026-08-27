@@ -36,7 +36,7 @@ export function CrmColumn({
           <CrmColumnIcon accent={accent} />
           <div className="min-w-0 flex-1">
             <h2 className="text-fluid-xs font-bold tracking-tight text-slate-900">{title}</h2>
-            {subtitle ? <p className="text-[10px] text-slate-500 leading-tight">{subtitle}</p> : null}
+            {subtitle ? <p className="text-[11px] text-slate-500 leading-tight">{subtitle}</p> : null}
           </div>
           {headerAction ? <div className="ml-auto shrink-0">{headerAction}</div> : null}
         </div>

@@ -103,13 +103,13 @@ function InboxOneLineRow({
             <span className="h-1.5 w-1.5 shrink-0" aria-hidden />
           )}
           {hiredMe ? <SoomgoHiredMeBadge /> : null}
-          <span className="truncate text-[11px] font-semibold text-slate-900" title={displayName}>
+          <span className="truncate text-[12px] font-semibold text-slate-900" title={displayName}>
             {displayName}
           </span>
         </div>
       </td>
       <td className="min-w-0 px-1 py-1 align-middle">
-        <span className="block truncate text-[10px] text-slate-600" title={`[${kindLabel}] ${chatPreview}`}>
+        <span className="block truncate text-[11px] text-slate-600" title={`[${kindLabel}] ${chatPreview}`}>
           {chatPreview}
         </span>
       </td>
@@ -190,7 +190,7 @@ export function CrmSoomgoAlertDrawer({
     >
       <div className="flex min-h-[min(72vh,640px)] flex-col gap-2">
         <div className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
             <CrmIconBell className="h-3.5 w-3.5 text-sky-600" />
             <span>
               대기 <strong className="tabular-nums">{pendingCount}</strong>건
@@ -222,8 +222,8 @@ export function CrmSoomgoAlertDrawer({
         {items.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-10 text-center">
             <CrmIconBell className="mb-2 h-8 w-8 text-slate-300" />
-            <p className="text-[11px] font-medium text-slate-700">대기 중인 알림이 없습니다</p>
-            <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+            <p className="text-[12px] font-medium text-slate-700">대기 중인 알림이 없습니다</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
               숨고 채팅 목록에서 <strong>오른쪽 미읽음 배지</strong>가 있거나 견적 읽음인 건만 표시됩니다. 열기·읽음 시
               사라지며, 📌 고정은 유지됩니다.
             </p>

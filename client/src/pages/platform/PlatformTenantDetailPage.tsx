@@ -413,7 +413,7 @@ export function PlatformTenantDetailPage() {
                   className={`${INPUT_BASE} font-mono`}
                   spellCheck={false}
                 />
-                <p className="mt-1 text-[10px] text-amber-700">
+                <p className="mt-1 text-[11px] text-amber-700">
                   변경 시 로그인 URL·서브도메인·북마크가 바뀝니다.
                 </p>
               </div>
@@ -533,7 +533,7 @@ export function PlatformTenantDetailPage() {
                     ].join(' ')}
                   >
                     {desc.recommended ? (
-                      <span className="absolute right-3 top-3 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white">
+                      <span className="absolute right-3 top-3 rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white">
                         추천
                       </span>
                     ) : null}
@@ -550,9 +550,9 @@ export function PlatformTenantDetailPage() {
                       {desc.label}
                       {isSelected ? ' ✓' : ''}
                     </div>
-                    <p className="mb-2 text-[11px] text-gray-500">{desc.tagline}</p>
-                    <p className="mb-2 text-[11px] font-medium text-gray-700">{desc.monthlyPriceHint}</p>
-                    <p className="mb-2 text-[10px] text-gray-500">{desc.annualPriceHint}</p>
+                    <p className="mb-2 text-[12px] text-gray-500">{desc.tagline}</p>
+                    <p className="mb-2 text-[12px] font-medium text-gray-700">{desc.monthlyPriceHint}</p>
+                    <p className="mb-2 text-[11px] text-gray-500">{desc.annualPriceHint}</p>
                     <ul className="space-y-1">
                       {desc.features.map((f) => (
                         <li key={f} className="text-xs text-gray-600">
@@ -562,7 +562,7 @@ export function PlatformTenantDetailPage() {
                     </ul>
                     <ul className="mt-2 space-y-0.5 border-t border-gray-100 pt-2">
                       {limits.map((line) => (
-                        <li key={line} className="text-[10px] text-gray-400">
+                        <li key={line} className="text-[11px] text-gray-400">
                           {line}
                         </li>
                       ))}
@@ -646,7 +646,7 @@ export function PlatformTenantDetailPage() {
                     placeholder={row.placeholder}
                     className={INPUT_BASE}
                   />
-                  <p className="mt-1 text-[10px] text-gray-400">{row.hint}</p>
+                  <p className="mt-1 text-[11px] text-gray-400">{row.hint}</p>
                 </div>
               ))}
             </div>

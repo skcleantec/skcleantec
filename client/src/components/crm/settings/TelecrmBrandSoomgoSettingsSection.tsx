@@ -177,7 +177,7 @@ export function TelecrmBrandSoomgoSettingsSection() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-fluid-sm font-semibold text-gray-900">{draft.brand.displayName}</p>
-                <p className="text-[11px] text-gray-500">{draft.brand.slug}</p>
+                <p className="text-[12px] text-gray-500">{draft.brand.slug}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button

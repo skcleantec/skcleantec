@@ -52,8 +52,8 @@ function ProfOptionMoveButtons({
 }) {
   const btnClass =
     size === 'xs'
-      ? 'px-1 py-0.5 text-[10px] leading-none'
-      : 'px-1.5 py-0.5 text-[11px] leading-none';
+      ? 'px-1 py-0.5 text-[11px] leading-none'
+      : 'px-1.5 py-0.5 text-[12px] leading-none';
   return (
     <span className="flex gap-0.5 shrink-0">
       <button
@@ -327,12 +327,12 @@ export function AdminOrderFormSpecialtySettingsPage({
 
         <div className="border border-gray-200 rounded p-2.5 bg-gray-50 mb-4">
           <h3 className="text-xs font-semibold text-gray-800 mb-0.5">대분류 추가</h3>
-          <p className="text-[11px] text-gray-500 mb-2 leading-snug">
+          <p className="text-[12px] text-gray-500 mb-2 leading-snug">
             섹션 제목만 여기서 추가합니다. 가격·세부는 각 카드에서 「+ 상세」로 넣습니다.
           </p>
           <div className="flex flex-wrap gap-1.5 items-end">
             <div className="flex-1 min-w-[120px]">
-              <label className="block text-[10px] text-gray-600 mb-0.5">항목명</label>
+              <label className="block text-[11px] text-gray-600 mb-0.5">항목명</label>
               <input
                 type="text"
                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs"
@@ -342,7 +342,7 @@ export function AdminOrderFormSpecialtySettingsPage({
               />
             </div>
             <div className="flex-1 min-w-[100px]">
-              <label className="block text-[10px] text-gray-600 mb-0.5">보조 안내 (선택)</label>
+              <label className="block text-[11px] text-gray-600 mb-0.5">보조 안내 (선택)</label>
               <input
                 type="text"
                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs"
@@ -352,11 +352,11 @@ export function AdminOrderFormSpecialtySettingsPage({
               />
             </div>
             <div className="w-14">
-              <label className="block text-[10px] text-gray-600 mb-0.5">이모지</label>
+              <label className="block text-[11px] text-gray-600 mb-0.5">이모지</label>
               <ProfOptionEmojiPicker value={newEmoji} onChange={setNewEmoji} compact />
             </div>
             <div>
-              <label className="block text-[10px] text-gray-600 mb-0.5">색</label>
+              <label className="block text-[11px] text-gray-600 mb-0.5">색</label>
               <div className="flex gap-0.5 items-center">
                 <input
                   type="color"
@@ -367,7 +367,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                 />
                 <input
                   type="text"
-                  className="w-[4.5rem] px-1 py-1 border border-gray-300 rounded text-[10px] font-mono"
+                  className="w-[4.5rem] px-1 py-1 border border-gray-300 rounded text-[11px] font-mono"
                   value={newColor}
                   onChange={(e) => setNewColor(e.target.value)}
                   placeholder="#2563eb"
@@ -408,7 +408,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                           onChange={(e) => setEditDraft((d) => ({ ...d, label: e.target.value }))}
                         />
                         {!root.parentId && (
-                          <label className="flex items-center gap-1 text-[11px] text-gray-600 leading-none">
+                          <label className="flex items-center gap-1 text-[12px] text-gray-600 leading-none">
                             <input
                               type="checkbox"
                               checked={editDraft.isGroup}
@@ -498,7 +498,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                               }`}
                             >
                               {isSection && (
-                                <span className="text-[10px] font-normal text-gray-500 mr-0.5">[대분류]</span>
+                                <span className="text-[11px] font-normal text-gray-500 mr-0.5">[대분류]</span>
                               )}
                               {root.emoji ? <span className="mr-0.5">{root.emoji}</span> : null}
                               <span className="break-words">{root.label}</span>
@@ -514,7 +514,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                 </span>
                               ) : null}
                             </p>
-                            <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                            <p className="text-[11px] text-gray-400 leading-tight mt-0.5">
                               {rootIdx + 1}번째 · {root.id.slice(0, 8)}…
                               {!rootEffective && rootSelfOn ? ' · 상위 비활성' : null}
                             </p>
@@ -524,7 +524,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                           <button
                             type="button"
                             onClick={() => startEdit(root)}
-                            className="text-[11px] text-gray-700 px-1.5 py-0.5 border border-gray-300 rounded leading-none"
+                            className="text-[12px] text-gray-700 px-1.5 py-0.5 border border-gray-300 rounded leading-none"
                           >
                             수정
                           </button>
@@ -532,14 +532,14 @@ export function AdminOrderFormSpecialtySettingsPage({
                             type="button"
                             onClick={() => void handleToggle(root)}
                             disabled={togglingIds.has(root.id) || reordering}
-                            className="text-[11px] text-gray-600 px-1.5 py-0.5 border border-gray-300 rounded leading-none disabled:opacity-40"
+                            className="text-[12px] text-gray-600 px-1.5 py-0.5 border border-gray-300 rounded leading-none disabled:opacity-40"
                           >
                             {rootSelfOn ? '비활성' : '활성'}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(root)}
-                            className="text-[11px] text-red-600 px-1.5 py-0.5 border border-red-200 rounded leading-none"
+                            className="text-[12px] text-red-600 px-1.5 py-0.5 border border-red-200 rounded leading-none"
                           >
                             삭제
                           </button>
@@ -548,7 +548,7 @@ export function AdminOrderFormSpecialtySettingsPage({
 
                       <div className="mt-1.5 ml-0.5 pl-1.5 border-l-2 border-gray-200 space-y-1">
                           {children.length === 0 ? (
-                            <div className="flex items-center gap-1 text-[10px] text-gray-500 leading-none">
+                            <div className="flex items-center gap-1 text-[11px] text-gray-500 leading-none">
                               <span>상세 없음</span>
                               <HelpTooltip className="shrink-0" text={SPECIALTY_EMPTY_CHILDREN_HELP} />
                             </div>
@@ -565,13 +565,13 @@ export function AdminOrderFormSpecialtySettingsPage({
                                     <div className="flex flex-wrap gap-0.5">
                                       <input
                                         type="text"
-                                        className="flex-1 min-w-[100px] text-[11px] px-1.5 py-0.5 border border-gray-300 rounded"
+                                        className="flex-1 min-w-[100px] text-[12px] px-1.5 py-0.5 border border-gray-300 rounded"
                                         value={editDraft.label}
                                         onChange={(e) => setEditDraft((d) => ({ ...d, label: e.target.value }))}
                                       />
                                       <input
                                         type="text"
-                                        className="w-[4.5rem] text-[11px] px-1.5 py-0.5 border border-gray-300 rounded text-right tabular-nums"
+                                        className="w-[4.5rem] text-[12px] px-1.5 py-0.5 border border-gray-300 rounded text-right tabular-nums"
                                         value={editDraft.priceAmount}
                                         onChange={(e) =>
                                           setEditDraft((d) => ({ ...d, priceAmount: e.target.value }))
@@ -592,14 +592,14 @@ export function AdminOrderFormSpecialtySettingsPage({
                                       />
                                       <button
                                         type="button"
-                                        className="text-[11px] px-1.5 py-0.5 bg-gray-800 text-white rounded leading-none"
+                                        className="text-[12px] px-1.5 py-0.5 bg-gray-800 text-white rounded leading-none"
                                         onClick={saveEdit}
                                       >
                                         저장
                                       </button>
                                       <button
                                         type="button"
-                                        className="text-[11px] px-1.5 py-0.5 border border-gray-300 rounded leading-none"
+                                        className="text-[12px] px-1.5 py-0.5 border border-gray-300 rounded leading-none"
                                         onClick={() => setEditingId(null)}
                                       >
                                         취소
@@ -607,7 +607,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] leading-tight">
+                                  <div className="flex flex-wrap items-center justify-between gap-1 text-[12px] leading-tight">
                                     <span className="flex items-center gap-1 min-w-0">
                                       <ProfOptionMoveButtons
                                         size="xs"
@@ -672,7 +672,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                         <div className="flex flex-wrap gap-0.5">
                                           <input
                                             type="text"
-                                            className="flex-1 min-w-[90px] text-[11px] px-1.5 py-0.5 border border-gray-300 rounded"
+                                            className="flex-1 min-w-[90px] text-[12px] px-1.5 py-0.5 border border-gray-300 rounded"
                                             value={editDraft.label}
                                             onChange={(e) =>
                                               setEditDraft((d) => ({ ...d, label: e.target.value }))
@@ -680,7 +680,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                           />
                                           <input
                                             type="text"
-                                            className="w-[4.5rem] text-[11px] px-1.5 py-0.5 border border-gray-300 rounded text-right tabular-nums"
+                                            className="w-[4.5rem] text-[12px] px-1.5 py-0.5 border border-gray-300 rounded text-right tabular-nums"
                                             value={editDraft.priceAmount}
                                             onChange={(e) =>
                                               setEditDraft((d) => ({ ...d, priceAmount: e.target.value }))
@@ -703,14 +703,14 @@ export function AdminOrderFormSpecialtySettingsPage({
                                           />
                                           <button
                                             type="button"
-                                            className="text-[11px] px-1.5 py-0.5 bg-gray-800 text-white rounded leading-none"
+                                            className="text-[12px] px-1.5 py-0.5 bg-gray-800 text-white rounded leading-none"
                                             onClick={saveEdit}
                                           >
                                             저장
                                           </button>
                                           <button
                                             type="button"
-                                            className="text-[11px] px-1.5 py-0.5 border border-gray-300 rounded leading-none"
+                                            className="text-[12px] px-1.5 py-0.5 border border-gray-300 rounded leading-none"
                                             onClick={() => setEditingId(null)}
                                           >
                                             취소
@@ -720,7 +720,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                     ) : (
                                       <div
                                         key={gc.id}
-                                        className="flex flex-wrap items-center justify-between gap-1 text-[10px] leading-tight"
+                                        className="flex flex-wrap items-center justify-between gap-1 text-[11px] leading-tight"
                                       >
                                         <span className="flex items-center gap-1 min-w-0">
                                           <ProfOptionMoveButtons
@@ -782,7 +782,7 @@ export function AdminOrderFormSpecialtySettingsPage({
 
                                   {canAddGrandchild ? (
                                     childParentId === ch.id ? (
-                                      <div className="p-1.5 bg-amber-50/80 border border-amber-200 rounded text-[11px] space-y-1">
+                                      <div className="p-1.5 bg-amber-50/80 border border-amber-200 rounded text-[12px] space-y-1">
                                         <p className="font-medium text-gray-800 leading-tight">
                                           「{ch.label}」 하위 금액
                                         </p>
@@ -793,7 +793,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                             </label>
                                             <input
                                               type="text"
-                                              className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[11px]"
+                                              className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[12px]"
                                               value={childLabel}
                                               onChange={(e) => setChildLabel(e.target.value)}
                                               placeholder="예: 전자레인지"
@@ -805,7 +805,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                             </label>
                                             <input
                                               type="text"
-                                              className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[11px] text-right tabular-nums"
+                                              className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[12px] text-right tabular-nums"
                                               value={childPriceAmount}
                                               onChange={(e) => setChildPriceAmount(e.target.value)}
                                               placeholder="50000"
@@ -818,7 +818,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                             </label>
                                             <input
                                               type="text"
-                                              className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[11px]"
+                                              className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[12px]"
                                               value={childPriceHint}
                                               onChange={(e) => setChildPriceHint(e.target.value)}
                                               placeholder="선택"
@@ -849,14 +849,14 @@ export function AdminOrderFormSpecialtySettingsPage({
                                             <div className="flex gap-0.5 sm:ml-auto pt-0.5">
                                               <button
                                                 type="button"
-                                                className="px-1.5 py-0.5 bg-gray-800 text-white rounded text-[11px] leading-none"
+                                                className="px-1.5 py-0.5 bg-gray-800 text-white rounded text-[12px] leading-none"
                                                 onClick={() => handleAddChild(ch.id)}
                                               >
                                                 저장
                                               </button>
                                               <button
                                                 type="button"
-                                                className="px-1.5 py-0.5 border border-gray-300 rounded text-[11px] leading-none"
+                                                className="px-1.5 py-0.5 border border-gray-300 rounded text-[12px] leading-none"
                                                 onClick={() => setChildParentId(null)}
                                               >
                                                 취소
@@ -868,7 +868,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                     ) : (
                                       <button
                                         type="button"
-                                        className="mt-0.5 w-full text-left text-[10px] font-medium text-blue-800 border border-dashed border-blue-300 rounded px-1.5 py-1 bg-blue-50/50 hover:bg-blue-50 leading-tight"
+                                        className="mt-0.5 w-full text-left text-[11px] font-medium text-blue-800 border border-dashed border-blue-300 rounded px-1.5 py-1 bg-blue-50/50 hover:bg-blue-50 leading-tight"
                                         onClick={() => {
                                           setChildParentId(ch.id);
                                           setChildLabel('');
@@ -888,7 +888,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                           })}
 
                           {childParentId === root.id ? (
-                            <div className="p-2 bg-amber-50/80 border border-amber-200 rounded text-[11px] space-y-1">
+                            <div className="p-2 bg-amber-50/80 border border-amber-200 rounded text-[12px] space-y-1">
                               <p className="font-medium text-gray-800 leading-tight">
                                 「{root.label}」 상세 추가
                               </p>
@@ -899,7 +899,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                   </label>
                                   <input
                                     type="text"
-                                    className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[11px]"
+                                    className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[12px]"
                                     value={childLabel}
                                     onChange={(e) => setChildLabel(e.target.value)}
                                     placeholder="예: 가전내부분해"
@@ -911,7 +911,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                   </label>
                                   <input
                                     type="text"
-                                    className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[11px] text-right tabular-nums"
+                                    className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[12px] text-right tabular-nums"
                                     value={childPriceAmount}
                                     onChange={(e) => setChildPriceAmount(e.target.value)}
                                     placeholder="선택"
@@ -924,7 +924,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                                   </label>
                                   <input
                                     type="text"
-                                    className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[11px]"
+                                    className="w-full px-1.5 py-0.5 border border-gray-300 rounded text-[12px]"
                                     value={childPriceHint}
                                     onChange={(e) => setChildPriceHint(e.target.value)}
                                     placeholder="선택"
@@ -955,14 +955,14 @@ export function AdminOrderFormSpecialtySettingsPage({
                                   <div className="flex gap-0.5 sm:ml-auto pt-0.5">
                                     <button
                                       type="button"
-                                      className="px-2 py-0.5 bg-gray-800 text-white rounded text-[11px] leading-none"
+                                      className="px-2 py-0.5 bg-gray-800 text-white rounded text-[12px] leading-none"
                                       onClick={() => handleAddChild(root.id)}
                                     >
                                       저장
                                     </button>
                                     <button
                                       type="button"
-                                      className="px-2 py-0.5 border border-gray-300 rounded text-[11px] leading-none"
+                                      className="px-2 py-0.5 border border-gray-300 rounded text-[12px] leading-none"
                                       onClick={() => setChildParentId(null)}
                                     >
                                       취소
@@ -974,7 +974,7 @@ export function AdminOrderFormSpecialtySettingsPage({
                           ) : (
                             <button
                               type="button"
-                              className="w-full text-left text-[10px] font-medium text-blue-800 border border-dashed border-blue-300 rounded px-1.5 py-1 bg-blue-50/40 hover:bg-blue-50 leading-tight"
+                              className="w-full text-left text-[11px] font-medium text-blue-800 border border-dashed border-blue-300 rounded px-1.5 py-1 bg-blue-50/40 hover:bg-blue-50 leading-tight"
                               onClick={() => {
                                 setChildParentId(root.id);
                                 setChildLabel('');

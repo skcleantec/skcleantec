@@ -166,7 +166,7 @@ export function CrewHomePage() {
         <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
           <h2 className="text-sm font-semibold text-slate-900 shrink-0">사무실 공지</h2>
           {staffNoticesLoading ? (
-            <span className="text-[10px] text-slate-400 truncate">불러오는 중…</span>
+            <span className="text-[11px] text-slate-400 truncate">불러오는 중…</span>
           ) : null}
         </div>
         {!staffNoticesLoading && staffNotices.length === 0 ? (
@@ -178,7 +178,7 @@ export function CrewHomePage() {
             {staffNotices.map((n) => (
               <li key={n.id} className="rounded-lg border border-slate-100 bg-slate-50/90 px-2.5 py-2 text-xs min-w-0">
                 <p className="font-medium text-slate-800 whitespace-pre-wrap break-words">{n.content}</p>
-                <p className="mt-1 text-[10px] text-slate-500 tabular-nums truncate" title={n.sender.name}>
+                <p className="mt-1 text-[11px] text-slate-500 tabular-nums truncate" title={n.sender.name}>
                   {n.sender.name} · {formatDateTimeCompactWithWeekday(n.createdAt)}
                 </p>
               </li>

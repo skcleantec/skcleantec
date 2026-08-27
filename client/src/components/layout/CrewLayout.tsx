@@ -307,7 +307,7 @@ export function CrewLayout() {
                 </NavLink>
               ) : null}
             </div>
-            <p className="mt-1 text-[10px] text-gray-400 sm:hidden px-0.5">
+            <p className="mt-1 text-[11px] text-gray-400 sm:hidden px-0.5">
               <CrewUiLine id="crew.layout.navScrollHint" />
             </p>
           </nav>

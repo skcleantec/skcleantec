@@ -47,7 +47,7 @@ export function DashboardTelecrmBlock({ variant = 'card' }: { variant?: Dashboar
   if (!token) return null;
 
   const compactBtn =
-    'shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold touch-manipulation whitespace-nowrap';
+    'shrink-0 rounded-lg px-2.5 py-1 text-[12px] font-semibold touch-manipulation whitespace-nowrap';
 
   const accessModalEl = (
     <TelecrmAccessModal
@@ -67,11 +67,11 @@ export function DashboardTelecrmBlock({ variant = 'card' }: { variant?: Dashboar
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-fluid-2xs font-semibold text-violet-950">텔레CRM</h2>
             {openError ? (
-              <p className="truncate text-[11px] text-rose-700" role="alert">
+              <p className="truncate text-[12px] text-rose-700" role="alert">
                 {openError}
               </p>
             ) : (
-              <p className="truncate text-[11px] text-slate-500">숨고·미소 연동 · 한 창 상담·마케팅</p>
+              <p className="truncate text-[12px] text-slate-500">숨고·미소 연동 · 한 창 상담·마케팅</p>
             )}
           </div>
           <button

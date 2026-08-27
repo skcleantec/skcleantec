@@ -364,7 +364,7 @@ export function AdminAdvertisingPage() {
                     setMarketerFilter('');
                     resetHistoryPageInUrl();
                   }}
-                  className="shrink-0 whitespace-nowrap text-[10px] text-gray-600 underline hover:text-gray-900"
+                  className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900"
                 >
                   해제
                 </button>

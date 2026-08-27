@@ -144,10 +144,10 @@ function OpsPrimaryBox({
       <div className="text-left">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className={`text-[11px] font-semibold ${theme.title}`}>{metric.label}</p>
-            <p className="mt-0.5 text-[10px] text-slate-500">{metric.description}</p>
+            <p className={`text-[12px] font-semibold ${theme.title}`}>{metric.label}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">{metric.description}</p>
           </div>
-          <span className="shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-slate-600">
+          <span className="shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
             {metric.total}건
           </span>
         </div>
@@ -171,10 +171,10 @@ function OpsHourlyChip({ metric }: { metric: OpsHourlyMetric }) {
       title={metric.description}
     >
       <div className="flex items-center justify-between gap-1">
-        <span className="truncate text-[10px] font-medium text-slate-600">{metric.label}</span>
-        <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{metric.total}건</span>
+        <span className="truncate text-[11px] font-medium text-slate-600">{metric.label}</span>
+        <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{metric.total}건</span>
       </div>
-      <p className="truncate text-[11px] font-semibold tabular-nums text-slate-900 leading-tight">
+      <p className="truncate text-[12px] font-semibold tabular-nums text-slate-900 leading-tight">
         {metric.peakCount > 0 ? `${metric.peakLabel} · ${metric.peakCount}건` : '—'}
       </p>
       <HourlyBarChart hourly={metric.hourly} peakHour={metric.peakHour} accentClass={accent} size="sm" />
@@ -302,7 +302,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
               key={opt.days}
               type="button"
               onClick={() => setDays(opt.days)}
-              className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${
+              className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
                 days === opt.days
                   ? 'bg-slate-900 text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -315,13 +315,13 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
       </div>
 
       {data && !loading ? (
-        <p className="mb-2 lg:mb-3 text-[10px] text-slate-500 truncate">
+        <p className="mb-2 lg:mb-3 text-[11px] text-slate-500 truncate">
           {data.periodStartYmd} ~ {data.periodEndYmd}
         </p>
       ) : null}
 
       {error ? (
-        <p className="rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2 text-[11px] text-rose-700">{error}</p>
+        <p className="rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2 text-[12px] text-rose-700">{error}</p>
       ) : loading ? (
         <div className="flex gap-2 overflow-x-auto pb-0.5 lg:grid lg:grid-cols-2 lg:gap-3">
           {Array.from({ length: 2 }).map((_, i) => (
@@ -345,7 +345,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
                   e.stopPropagation();
                   setHeatmapOpen((v) => !v);
                 }}
-                className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-indigo-100 bg-indigo-50/40 px-2.5 py-1.5 text-left text-[10px] font-medium text-indigo-800"
+                className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-indigo-100 bg-indigo-50/40 px-2.5 py-1.5 text-left text-[11px] font-medium text-indigo-800"
               >
                 <span className="truncate">
                   요일×시간 히트맵
@@ -362,7 +362,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
               </div>
             ) : null}
             {data.openBacklog.total > 0 || data.conversionByHour.peakRatePct > 0 ? (
-              <p className="mt-2 truncate text-[10px] text-slate-600">
+              <p className="mt-2 truncate text-[11px] text-slate-600">
                 {data.openBacklog.total > 0 ? (
                   <span>
                     미처리 <strong className="tabular-nums text-amber-800">{data.openBacklog.total}</strong>건
@@ -394,7 +394,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
                         e.stopPropagation();
                         setHeatmapOpen((v) => !v);
                       }}
-                      className="flex w-full items-center justify-between gap-2 text-left text-[10px] font-medium text-indigo-800/80 hover:text-indigo-900"
+                      className="flex w-full items-center justify-between gap-2 text-left text-[11px] font-medium text-indigo-800/80 hover:text-indigo-900"
                     >
                       <span>
                         요일×시간 히트맵
@@ -418,7 +418,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
               boxId="followup_absent"
               footer={
                 data.openBacklog.total > 0 || data.conversionByHour.peakRatePct > 0 ? (
-                  <div className="space-y-1 text-[10px] text-slate-600">
+                  <div className="space-y-1 text-[11px] text-slate-600">
                     {data.openBacklog.total > 0 ? (
                       <p>
                         현재 미처리{' '}
@@ -452,7 +452,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
 
           {secondaryMetrics.length > 0 ? (
             <div className="mt-3 border-t border-slate-100 pt-3">
-              <p className="mb-1.5 text-[10px] font-medium text-slate-500">보조 지표</p>
+              <p className="mb-1.5 text-[11px] font-medium text-slate-500">보조 지표</p>
               <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                 {secondaryMetrics.map((m) => (
                   <OpsHourlyChip key={m.id} metric={m} />

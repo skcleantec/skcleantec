@@ -115,7 +115,7 @@ export function CustomCalendarTabsBar({
         <button
           type="button"
           onClick={() => onSelect(null)}
-          className={`inline-flex items-center justify-center gap-0.5 rounded border px-1 py-0 text-[9px] font-semibold leading-none tabular-nums touch-manipulation min-[440px]:text-[10px] sm:px-1.5 ${rowMeta.btn} ${
+          className={`inline-flex items-center justify-center gap-0.5 rounded border px-1 py-0 text-[9px] font-semibold leading-none tabular-nums touch-manipulation min-[440px]:text-[11px] sm:px-1.5 ${rowMeta.btn} ${
             activeId != null ? rowMeta.btnActive : ''
           } ${sidebar ? 'w-full min-h-[26px] py-1' : 'shrink-0'}`}
           title={rowMeta.title}
@@ -129,7 +129,7 @@ export function CustomCalendarTabsBar({
           <button
             type="button"
             onClick={onClickAdd}
-            className="shrink-0 inline-flex items-center justify-center rounded border border-gray-300 bg-white px-1 py-0 text-[9px] font-semibold leading-none text-gray-800 tabular-nums hover:bg-gray-50 min-[440px]:text-[10px] sm:px-1.5"
+            className="shrink-0 inline-flex items-center justify-center rounded border border-gray-300 bg-white px-1 py-0 text-[9px] font-semibold leading-none text-gray-800 tabular-nums hover:bg-gray-50 min-[440px]:text-[11px] sm:px-1.5"
             title={addButtonTitle ?? (isPartnerRow ? '파트너 캘린더 추가' : isCompanyRow ? '업체 캘린더 추가' : '지역 캘린더 추가')}
           >
             +추가
@@ -140,7 +140,7 @@ export function CustomCalendarTabsBar({
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className={`shrink-0 inline-flex items-center justify-center rounded border px-1 py-0 text-[9px] font-semibold leading-none tabular-nums transition-colors min-[440px]:text-[10px] sm:px-1.5 ${
+            className={`shrink-0 inline-flex items-center justify-center rounded border px-1 py-0 text-[9px] font-semibold leading-none tabular-nums transition-colors min-[440px]:text-[11px] sm:px-1.5 ${
               activeId == null
                 ? 'bg-gray-900 text-white border-gray-900'
                 : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
@@ -166,7 +166,7 @@ export function CustomCalendarTabsBar({
               <button
                 type="button"
                 onClick={() => onSelect(active ? null : c.id)}
-                className={`inline-flex min-w-0 max-w-[min(11rem,calc(100vw-5rem))] items-center rounded border px-1 py-0 text-[9px] font-semibold leading-none transition-colors min-[440px]:max-w-[13rem] min-[440px]:text-[10px] sm:max-w-[15rem] sm:px-1.5 ${
+                className={`inline-flex min-w-0 max-w-[min(11rem,calc(100vw-5rem))] items-center rounded border px-1 py-0 text-[9px] font-semibold leading-none transition-colors min-[440px]:max-w-[13rem] min-[440px]:text-[11px] sm:max-w-[15rem] sm:px-1.5 ${
                   active ? t.tabActive : t.tabIdle
                 }`}
                 title={`${c.name} — ${hint}`}

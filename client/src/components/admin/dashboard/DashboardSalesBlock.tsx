@@ -101,7 +101,7 @@ export function DashboardSalesBlock({
 
         {!loading && dailyChartItems.length > 0 ? (
           <div className="min-w-0 rounded-lg lg:rounded-xl border border-slate-100 bg-slate-50/40 p-2 lg:p-3 col-span-2 sm:col-span-1">
-            <h3 className="text-[11px] lg:text-fluid-2xs font-semibold text-gray-700 mb-1.5 lg:mb-2 flex items-center gap-1.5">
+            <h3 className="text-[12px] lg:text-fluid-2xs font-semibold text-gray-700 mb-1.5 lg:mb-2 flex items-center gap-1.5">
               <span className="w-1.5 h-3 rounded-full bg-blue-500" />
               최근 7일 매출
             </h3>
@@ -168,7 +168,7 @@ export function DashboardSalesBlock({
           <button
             type="button"
             onClick={() => setTeamPanelsOpen((v) => !v)}
-            className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-2 text-left text-[11px] font-medium text-slate-700 touch-manipulation"
+            className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-2 text-left text-[12px] font-medium text-slate-700 touch-manipulation"
           >
             <span>현장·운영 인원 현황</span>
             <span className="shrink-0 text-slate-400">{teamPanelsOpen ? '접기' : '펼치기'}</span>

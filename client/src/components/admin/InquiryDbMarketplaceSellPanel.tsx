@@ -339,14 +339,14 @@ export function InquiryDbMarketplaceSellPanel({
         }
     : null;
 
-  const panelMetaText = 'text-[10px] leading-snug text-gray-600 sm:text-[11px]';
+  const panelMetaText = 'text-[11px] leading-snug text-gray-600 sm:text-[12px]';
   const panelBtn =
-    'rounded-md border px-2 py-1 text-[10px] font-medium disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[11px]';
+    'rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[12px]';
 
   return (
     <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-2 space-y-1.5 sm:rounded-xl sm:p-3 sm:space-y-2">
       <div className="flex items-center gap-1">
-        <p className="text-[10px] font-semibold leading-tight text-violet-900 sm:text-xs">
+        <p className="text-[11px] font-semibold leading-tight text-violet-900 sm:text-xs">
           <span className="sm:hidden">정보공유</span>
           <span className="hidden sm:inline">정보공유 — 공유 등록</span>
         </p>
@@ -423,14 +423,14 @@ export function InquiryDbMarketplaceSellPanel({
         <div className="flex flex-wrap gap-x-2 gap-y-0.5 sm:gap-x-3 sm:gap-y-1">
           <Link
             to={`/admin/db-marketplace?side=share&tab=${listing.status === 'DRAFT' ? 'draft' : 'open'}&openListing=${encodeURIComponent(listing.id)}`}
-            className="inline-block text-[10px] font-medium text-violet-800 underline hover:text-violet-950 sm:text-[11px]"
+            className="inline-block text-[11px] font-medium text-violet-800 underline hover:text-violet-950 sm:text-[12px]"
           >
             <span className="sm:hidden">목록</span>
             <span className="hidden sm:inline">정보공유 목록에서 보기</span>
           </Link>
           <Link
             to={`/admin/schedule?openInquiry=${encodeURIComponent(inquiryId)}`}
-            className="inline-block text-[10px] font-medium text-sky-800 underline hover:text-sky-950 sm:text-[11px]"
+            className="inline-block text-[11px] font-medium text-sky-800 underline hover:text-sky-950 sm:text-[12px]"
           >
             <span className="sm:hidden">스케줄</span>
             <span className="hidden sm:inline">스케줄에서 접수 보기</span>
@@ -510,7 +510,7 @@ export function InquiryDbMarketplaceSellPanel({
       {canEdit ? (
         <>
           <div className="flex items-end gap-2 sm:block">
-            <label className="mb-0 shrink-0 text-[10px] text-gray-600 sm:mb-1 sm:block sm:text-[11px]">
+            <label className="mb-0 shrink-0 text-[11px] text-gray-600 sm:mb-1 sm:block sm:text-[12px]">
               <span className="sm:hidden">{isResale ? '이번 수수료' : '수수료'}</span>
               <span className="hidden sm:inline">
                 {isResale ? '이번 공유 수수료 (원)' : '수수료 (원)'}
@@ -520,7 +520,7 @@ export function InquiryDbMarketplaceSellPanel({
             <input
               value={listingFeeInput}
               onChange={(e) => setListingFeeInput(e.target.value)}
-              className={`min-w-0 flex-1 rounded-md border px-2 py-1 text-[11px] sm:w-full sm:rounded-lg sm:py-1.5 sm:text-fluid-xs ${
+              className={`min-w-0 flex-1 rounded-md border px-2 py-1 text-[12px] sm:w-full sm:rounded-lg sm:py-1.5 sm:text-fluid-xs ${
                 listingFeeInput.trim() && !listingFeeValid
                   ? 'border-red-300 focus:border-red-400'
                   : 'border-gray-300'

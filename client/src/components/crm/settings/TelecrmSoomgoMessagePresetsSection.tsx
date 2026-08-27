@@ -51,7 +51,7 @@ function PresetOrderPanel({
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-fluid-xs font-semibold text-slate-800">표시 순서</p>
-        <p className="text-[10px] text-slate-500">⋮⋮ 드래그 후 항목 사이에 놓기</p>
+        <p className="text-[11px] text-slate-500">⋮⋮ 드래그 후 항목 사이에 놓기</p>
       </div>
       <PresetDragReorderList
         items={saved}
@@ -69,7 +69,7 @@ function PresetOrderPanel({
             <span className="min-w-0 flex-1 truncate text-fluid-xs font-medium text-slate-800">
               {draft.label.trim() || `프리셋 ${index + 1}`}
             </span>
-            <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{index + 1}</span>
+            <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{index + 1}</span>
           </div>
         )}
       />

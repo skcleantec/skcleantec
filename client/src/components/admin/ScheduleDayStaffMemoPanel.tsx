@@ -101,7 +101,7 @@ export function ScheduleDayStaffMemoPanel({ token, date }: Props) {
         <span className="flex items-center gap-2 min-w-0">
           <span>당일 공유 메모</span>
           {hasMemo ? (
-            <span className="inline-flex items-center rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-semibold text-white leading-none shrink-0">
+            <span className="inline-flex items-center rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white leading-none shrink-0">
               메모 있음
             </span>
           ) : null}

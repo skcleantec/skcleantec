@@ -65,7 +65,7 @@ export function DashboardTenantSubscriptionBlock({ variant = 'card' }: { variant
   if (error || !data) {
     if (variant === 'row') {
       return (
-        <div className="px-3 py-2.5 text-[11px] text-rose-600">
+        <div className="px-3 py-2.5 text-[12px] text-rose-600">
           {error ?? '가입 정보를 불러오지 못했습니다.'}
         </div>
       );

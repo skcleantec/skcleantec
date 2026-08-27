@@ -83,12 +83,12 @@ function ScheduleHelpCalendarCellDemo() {
     <div className="mx-auto w-full max-w-[9.5rem] rounded-xl border border-slate-200/80 bg-white px-2 py-1.5 shadow-sm">
       <div className="flex items-center justify-between gap-1">
         <span className="inline-flex items-center gap-0.5">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white tabular-nums">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white tabular-nums">
             15
           </span>
           <SonEomneungNalIcon />
         </span>
-        <span className="text-[10px] font-semibold text-rose-600">일</span>
+        <span className="text-[11px] font-semibold text-rose-600">일</span>
       </div>
       <div className="mt-1.5 flex flex-col gap-1">
         <div className="flex overflow-hidden rounded-md border border-slate-200/50 text-[9px] font-bold tabular-nums">
@@ -115,7 +115,7 @@ function ScheduleHelpCalendarCellDemo() {
           </span>
           <span className="font-bold">1</span>
         </div>
-        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-violet-700 leading-none shrink-0">
+        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[11px] font-semibold text-violet-700 leading-none shrink-0">
           <span className="flex items-center gap-0.5">
             <span className="text-[9px]" aria-hidden>
               ⚡
@@ -124,7 +124,7 @@ function ScheduleHelpCalendarCellDemo() {
           </span>
           <span className="font-bold">1</span>
         </div>
-        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-teal-800 leading-none shrink-0 motion-safe:animate-pulse">
+        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[11px] font-semibold text-teal-800 leading-none shrink-0 motion-safe:animate-pulse">
           <span className="flex items-center gap-0.5">
             <span className="text-[9px]" aria-hidden>
               ◇
@@ -204,7 +204,7 @@ function ScheduleHelpCalendarTab() {
           rows={[
             {
               sample: (
-                <span className="inline-flex overflow-hidden rounded-md border border-slate-200 text-[10px] font-bold">
+                <span className="inline-flex overflow-hidden rounded-md border border-slate-200 text-[11px] font-bold">
                   <span className="bg-amber-50 px-1.5 py-0.5 text-amber-900">AM 2</span>
                   <span className="border-l border-slate-200 bg-sky-50 px-1.5 py-0.5 text-sky-900">PM 1</span>
                 </span>
@@ -213,7 +213,7 @@ function ScheduleHelpCalendarTab() {
             },
             {
               sample: (
-                <span className="inline-flex overflow-hidden rounded-md border border-slate-200 text-[10px] font-bold">
+                <span className="inline-flex overflow-hidden rounded-md border border-slate-200 text-[11px] font-bold">
                   <span className="bg-rose-50 px-1.5 py-0.5 text-rose-700">AM -1</span>
                 </span>
               ),
@@ -221,14 +221,14 @@ function ScheduleHelpCalendarTab() {
             },
             {
               sample: (
-                <span className="text-[10px] font-semibold text-slate-500">
+                <span className="text-[11px] font-semibold text-slate-500">
                   <span aria-hidden>👥</span> 팀원 4
                 </span>
               ),
               meaning: '휴무를 뺀 크루 잔여. 표준 접수는 팀원 2명 단위로 집계됩니다.',
             },
             {
-              sample: <span className="text-[10px] font-semibold text-slate-500">마감</span>,
+              sample: <span className="text-[11px] font-semibold text-slate-500">마감</span>,
               meaning: '「일정마감」으로 막아 둔 날 또는 구간입니다.',
             },
             {
@@ -328,31 +328,31 @@ function ScheduleHelpListTab() {
             {
               sample: (
                 <span className="inline-flex gap-1">
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">아</span>
-                  <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-bold text-pink-800">원</span>
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-700">아</span>
+                  <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[11px] font-bold text-pink-800">원</span>
                 </span>
               ),
               meaning: '건물 유형(아파트·원룸 등) 스티커',
             },
             {
-              sample: <span className="rounded bg-fuchsia-100 px-1.5 py-0.5 text-[10px] font-semibold text-fuchsia-900">수기</span>,
+              sample: <span className="rounded bg-fuchsia-100 px-1.5 py-0.5 text-[11px] font-semibold text-fuchsia-900">수기</span>,
               meaning: '대시보드·간편 수기 등록 접수',
             },
             {
               sample: (
-                <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
+                <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">
                   해피콜 완료
                 </span>
               ),
               meaning: '작업 전날 밤까지 해피콜 완료 (팀장 배정·예약일 있을 때)',
             },
             {
-              sample: <span className="font-bold text-rose-600 text-[10px]">미제출</span>,
+              sample: <span className="font-bold text-rose-600 text-[11px]">미제출</span>,
               meaning: '발주서 미제출 등 아직 본 일정이 아닌 접수',
             },
             {
               sample: (
-                <span className="rounded-md border border-blue-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                <span className="rounded-md border border-blue-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-blue-700">
                   메모
                 </span>
               ),
@@ -428,7 +428,7 @@ function ScheduleHelpCustomTab() {
         <HelpTable
           rows={[
             {
-              sample: <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${chip.tabActive}`}>강남</span>,
+              sample: <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${chip.tabActive}`}>강남</span>,
               meaning: '캘린더 이름 — 상단 탭·달력 칩에 표시됩니다.',
             },
             {
@@ -445,7 +445,7 @@ function ScheduleHelpCustomTab() {
             },
             {
               sample: (
-                <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${chip.badge}`}>
+                <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold ${chip.badge}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${chip.dot}`} />
                   5
                 </span>

@@ -55,7 +55,7 @@ export function PropertyTypeSticker({
       {typeLabel ? <TypeStickerChip label={typeLabel} title={typeFull || typeLabel} /> : null}
       {showOneRoom ? (
         emphasizeOneRoom ? (
-          <span className="inline-flex items-center gap-0.5 rounded-md bg-gradient-to-r from-red-50 to-blue-50 px-1.5 py-0.5 text-[10px] font-extrabold text-red-900 ring-2 ring-red-400/90 shadow-sm">
+          <span className="inline-flex items-center gap-0.5 rounded-md bg-gradient-to-r from-red-50 to-blue-50 px-1.5 py-0.5 text-[11px] font-extrabold text-red-900 ring-2 ring-red-400/90 shadow-sm">
             <img src={SK_TAEGEUK_FLAG_ASSET} alt="" className="size-3.5 object-contain" aria-hidden />
             {oneRoomTitle}
           </span>

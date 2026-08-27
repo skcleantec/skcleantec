@@ -35,7 +35,7 @@ function hasInquiriesNavBadge(items: AdminSideNavItem[]): boolean {
 
 function mobileNavLinkClass(isActive: boolean): string {
   return [
-    'group flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition-all touch-manipulation',
+    'group flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[14px] transition-all touch-manipulation',
     isActive
       ? 'bg-blue-50/80 font-semibold text-blue-700'
       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
@@ -174,7 +174,7 @@ function AdminInquiriesMobileMenuSheet({
                           />
                           <span className="min-w-0 flex-1 truncate">{item.label}</span>
                           {badge > 0 ? (
-                            <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums shadow-sm">
+                            <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] font-bold text-white tabular-nums shadow-sm">
                               {badge > 99 ? '99+' : badge}
                             </span>
                           ) : null}
@@ -187,7 +187,7 @@ function AdminInquiriesMobileMenuSheet({
 
               return (
                 <li key={item.label} className="pt-1">
-                  <div className="mb-0.5 mt-1 px-2.5 text-[11px] font-bold tracking-wider text-slate-400/80 uppercase">
+                  <div className="mb-0.5 mt-1 px-2.5 text-[12px] font-bold tracking-wider text-slate-400/80 uppercase">
                     {item.label}
                   </div>
                   <ul className="space-y-0.5">

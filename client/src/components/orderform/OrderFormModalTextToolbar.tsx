@@ -344,7 +344,7 @@ export function OrderFormModalTextToolbar({
           className="gap-0.5 px-1"
         >
           <span className="font-semibold">T</span>
-          <span className="text-[10px] opacity-70">▼</span>
+          <span className="text-[11px] opacity-70">▼</span>
         </ToolBtn>
         <ToolBtn
           title="글자색"

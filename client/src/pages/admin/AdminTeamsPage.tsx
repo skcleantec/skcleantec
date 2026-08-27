@@ -1130,9 +1130,9 @@ export function AdminTeamsPage() {
                 />
                 <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-3 space-y-2">
                   <p className="text-xs font-medium text-gray-800">사원증 사진</p>
-                  <p className="text-[11px] text-gray-500 leading-snug">
+                  <p className="text-[12px] text-gray-500 leading-snug">
                     모바일 인증용으로 관리자가 등록합니다. (Cloudinary 저장) 로컬에서 실패하면{' '}
-                    <code className="text-[10px]">server/.env</code>의 CLOUDINARY 설정을 확인하세요.
+                    <code className="text-[11px]">server/.env</code>의 CLOUDINARY 설정을 확인하세요.
                   </p>
                   {editMemberModal.staffIdCardUrl ? (
                     <img
@@ -1244,7 +1244,7 @@ export function AdminTeamsPage() {
                           }
                           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                         />
-                        <p className="text-[10px] text-gray-400 mt-1">해당일부터 스케줄·배정에서 제외됩니다.</p>
+                        <p className="text-[11px] text-gray-400 mt-1">해당일부터 스케줄·배정에서 제외됩니다.</p>
                       </div>
                     </div>
                   ) : null}

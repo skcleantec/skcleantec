@@ -200,7 +200,7 @@ function marketerAdminLevelBadge(level: MarketerAdminLevel) {
       ? 'bg-blue-100 text-blue-800'
       : 'bg-sky-100 text-sky-800';
   return (
-    <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
+    <span className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>
       {level === 'FULL' ? '전체' : '일부'}
     </span>
   );
@@ -2134,7 +2134,7 @@ export function AdminTeamLeadersPage() {
                   모바일에서 본인 아이디로 로그인해 고객에게 보여 주며 인증할 때 사용할 수 있도록 관리자가 등록합니다.
                   이미지는 Cloudinary에 저장됩니다.{' '}
                   <span className="text-amber-800">
-                    로컬에서 안 되면 서버 <code className="text-[11px]">server/.env</code>에 CLOUDINARY 설정을
+                    로컬에서 안 되면 서버 <code className="text-[12px]">server/.env</code>에 CLOUDINARY 설정을
                     확인하세요.
                   </span>
                 </p>

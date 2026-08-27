@@ -339,7 +339,7 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
               />
               <span>
                 <span className="font-medium text-gray-900">{ALIMTALK_TEMPLATE_LABELS[code]}</span>
-                <span className="mt-0.5 block font-mono text-[10px] text-gray-400">{code}</span>
+                <span className="mt-0.5 block font-mono text-[11px] text-gray-400">{code}</span>
               </span>
             </label>
           ))}

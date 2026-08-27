@@ -290,7 +290,7 @@ export function AdminCollapsibleSectionSideNav({
         {!collapsed ? (
           <div className="border-b border-slate-800 px-3 py-2.5">
             <p
-              className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-200"
+              className="truncate text-[12px] font-semibold uppercase tracking-wide text-slate-200"
               title={title}
             >
               {title}
@@ -324,7 +324,7 @@ export function AdminCollapsibleSectionSideNav({
           >
             <PanelCollapseIcon className="h-[18px] w-[18px] shrink-0" />
             {!collapsed ? (
-              <span className="text-[11px] font-medium text-slate-200">메뉴 접기</span>
+              <span className="text-[12px] font-medium text-slate-200">메뉴 접기</span>
             ) : null}
           </button>
         </div>

@@ -67,7 +67,7 @@ function TeamDashboardSummaryTile({
       title={typeof label === 'string' ? label : undefined}
     >
       <div className={`text-base font-bold tabular-nums leading-none sm:text-lg ${accentNum}`}>{count}</div>
-      <div className="mt-1 w-full truncate text-center text-[10px] font-medium leading-tight text-slate-500 sm:text-fluid-2xs">
+      <div className="mt-1 w-full truncate text-center text-[11px] font-medium leading-tight text-slate-500 sm:text-fluid-2xs">
         {label}
       </div>
     </div>
@@ -215,7 +215,7 @@ export function TeamDashboardPage() {
                 count={count}
                 accent="slate"
                 label={
-                  <TeamBiLine id="team.dashboard.summaryTotal" koClassName="text-[10px] sm:text-fluid-2xs" />
+                  <TeamBiLine id="team.dashboard.summaryTotal" koClassName="text-[11px] sm:text-fluid-2xs" />
                 }
               />
             );
@@ -227,7 +227,7 @@ export function TeamDashboardPage() {
                 count={count}
                 accent="blue"
                 label={
-                  <TeamBiLine id="team.dashboard.summaryToday" koClassName="text-[10px] sm:text-fluid-2xs" />
+                  <TeamBiLine id="team.dashboard.summaryToday" koClassName="text-[11px] sm:text-fluid-2xs" />
                 }
               />
             );
@@ -283,22 +283,22 @@ export function TeamDashboardPage() {
                         <TeamInquiryAreaListBadge item={item} />
                       </div>
                       {memoSubtitle ? (
-                        <p className="mt-px line-clamp-1 text-[11px] text-gray-700 sm:mt-0.5 sm:text-fluid-xs" title={memoTrim}>
+                        <p className="mt-px line-clamp-1 text-[12px] text-gray-700 sm:mt-0.5 sm:text-fluid-xs" title={memoTrim}>
                           {memoTrim}
                         </p>
                       ) : null}
                       {item.memo?.trim() ? (
                         <p
-                          className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-indigo-900/90 sm:mt-1 sm:text-fluid-2xs"
+                          className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-indigo-900/90 sm:mt-1 sm:text-fluid-2xs"
                           title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                         >
                           {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                         </p>
                       ) : null}
-                      <div className="mt-px text-[11px] leading-snug text-gray-700 sm:mt-0.5 sm:text-fluid-sm">
+                      <div className="mt-px text-[12px] leading-snug text-gray-700 sm:mt-0.5 sm:text-fluid-sm">
                         {formatScheduleLine(item, timeSlotLabels)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
                       </div>
-                      <div className="mt-0.5 truncate text-[10px] text-gray-600 sm:mt-1 sm:text-fluid-xs">
+                      <div className="mt-0.5 truncate text-[11px] text-gray-600 sm:mt-1 sm:text-fluid-xs">
                         {item.address}
                         {item.addressDetail ? ` ${item.addressDetail}` : ''}
                       </div>
@@ -307,13 +307,13 @@ export function TeamDashboardPage() {
                     <a
                       href={`tel:${item.customerPhone}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="shrink-0 rounded-md bg-blue-600 px-2.5 py-1 text-[11px] font-medium text-white sm:rounded-lg sm:px-4 sm:py-2 sm:text-fluid-sm"
+                      className="shrink-0 rounded-md bg-blue-600 px-2.5 py-1 text-[12px] font-medium text-white sm:rounded-lg sm:px-4 sm:py-2 sm:text-fluid-sm"
                     >
                       <TeamBiInline id="team.common.phone" />
                     </a>
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1 sm:mt-2 sm:gap-2">
-                    <span className="inline-block rounded px-1.5 py-px text-[10px] bg-blue-200 text-blue-800 sm:px-2 sm:py-0.5 sm:text-fluid-xs">
+                    <span className="inline-block rounded px-1.5 py-px text-[11px] bg-blue-200 text-blue-800 sm:px-2 sm:py-0.5 sm:text-fluid-xs">
                       {STATUS_LABELS[item.status] ?? item.status}
                     </span>
                     <TeamHappyCallBadge item={item} />
@@ -343,7 +343,7 @@ export function TeamDashboardPage() {
               return (
                 <div key={dateKey} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between gap-2 bg-gray-50 px-3 py-2 text-gray-700 sm:px-4 sm:py-2.5">
-                    <span className="text-[11px] font-medium tabular-nums leading-tight sm:text-fluid-xs">
+                    <span className="text-[12px] font-medium tabular-nums leading-tight sm:text-fluid-xs">
                       {(() => {
                         const hint = relativeDateHint(dateKey);
                         const compact = formatDateCompactWithWeekday(dateKey);
@@ -379,7 +379,7 @@ export function TeamDashboardPage() {
                             </div>
                             {memoSubtitle ? (
                               <div
-                                className="mt-px line-clamp-1 truncate text-[10px] text-gray-600 sm:mt-0.5 sm:text-fluid-2xs"
+                                className="mt-px line-clamp-1 truncate text-[11px] text-gray-600 sm:mt-0.5 sm:text-fluid-2xs"
                                 title={memoTrim}
                               >
                                 {memoTrim}
@@ -387,29 +387,29 @@ export function TeamDashboardPage() {
                             ) : null}
                             {item.memo?.trim() ? (
                               <div
-                                className="mt-px line-clamp-1 truncate text-[10px] text-indigo-900/85 sm:mt-0.5 sm:text-fluid-2xs"
+                                className="mt-px line-clamp-1 truncate text-[11px] text-indigo-900/85 sm:mt-0.5 sm:text-fluid-2xs"
                                 title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                               >
                                 {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                               </div>
                             ) : null}
-                            <div className="mt-px truncate text-[11px] leading-snug text-gray-500 sm:text-fluid-xs">
+                            <div className="mt-px truncate text-[12px] leading-snug text-gray-500 sm:text-fluid-xs">
                               {formatScheduleLine(item, timeSlotLabels)} · {item.address}
                               {item.addressDetail ? ` ${item.addressDetail}` : ''}
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-2">
-                              <span className="inline-block rounded px-1.5 py-px text-[10px] bg-gray-200 text-gray-800 sm:px-2 sm:py-0.5 sm:text-fluid-2xs">
+                              <span className="inline-block rounded px-1.5 py-px text-[11px] bg-gray-200 text-gray-800 sm:px-2 sm:py-0.5 sm:text-fluid-2xs">
                                 {STATUS_LABELS[item.status] ?? item.status}
                               </span>
                               <TeamHappyCallBadge item={item} />
                               <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                             </div>
-                            <TeamCoLeadersListHint item={item} viewerId={myId} className="mt-0.5 text-[10px] text-gray-600 sm:mt-1 sm:text-fluid-2xs" />
+                            <TeamCoLeadersListHint item={item} viewerId={myId} className="mt-0.5 text-[11px] text-gray-600 sm:mt-1 sm:text-fluid-2xs" />
                           </div>
                           <a
                             href={`tel:${item.customerPhone}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="ml-1 shrink-0 self-start rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium text-white sm:ml-2 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-fluid-xs"
+                            className="ml-1 shrink-0 self-start rounded-md bg-blue-600 px-2 py-1 text-[12px] font-medium text-white sm:ml-2 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-fluid-xs"
                           >
                             <TeamBiInline id="team.common.phone" />
                           </a>

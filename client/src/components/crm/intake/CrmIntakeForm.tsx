@@ -265,7 +265,7 @@ export function CrmIntakeForm({
   return (
     <div className="space-y-2.5">
       {soomgoHiredOther ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-950">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[12px] leading-snug text-amber-950">
           <span className="font-semibold text-amber-900">다른 고수 고용</span>
           {' '}
           — 숨고 채팅 목록에 「다른 고수를 고용함」이 표시됩니다. 재연락·통화를 권장하지 않습니다.
@@ -273,7 +273,7 @@ export function CrmIntakeForm({
       ) : null}
       <div className="grid grid-cols-2 gap-2">
         <label className="block min-w-0 space-y-0.5">
-          <span className="text-[11px] font-medium text-slate-600">닉네임 · 호칭</span>
+          <span className="text-[12px] font-medium text-slate-600">닉네임 · 호칭</span>
           <input
             type="text"
             value={nickname}
@@ -284,10 +284,10 @@ export function CrmIntakeForm({
           />
         </label>
         <label className="block min-w-0 space-y-0.5">
-          <span className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-slate-600">
+          <span className="flex flex-wrap items-center gap-1.5 text-[12px] font-medium text-slate-600">
             <span>고객명</span>
             {soomgoHiredOther ? (
-              <span className="rounded border border-amber-200 bg-amber-100 px-1.5 py-0 text-[10px] font-semibold text-amber-900">
+              <span className="rounded border border-amber-200 bg-amber-100 px-1.5 py-0 text-[11px] font-semibold text-amber-900">
                 다른 고수 고용
               </span>
             ) : null}
@@ -302,12 +302,12 @@ export function CrmIntakeForm({
           />
         </label>
       </div>
-      <p className="text-[10px] leading-snug text-slate-500">
+      <p className="text-[11px] leading-snug text-slate-500">
         최초 통화는 닉네임만으로 저장 가능합니다. 고객명은 통화·발주서 확인 후 입력하세요.
       </p>
 
       <fieldset>
-        <legend className="mb-1 text-[11px] font-semibold text-slate-700">처리 구분</legend>
+        <legend className="mb-1 text-[12px] font-semibold text-slate-700">처리 구분</legend>
         <div className="flex flex-wrap gap-1">
           {KIND_OPTIONS.map((opt) => (
             <button
@@ -316,7 +316,7 @@ export function CrmIntakeForm({
               title={opt.hint}
               onClick={() => setKind(opt.value)}
               disabled={saving}
-              className={`rounded-md border px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors ${
+              className={`rounded-md border px-2 py-1 text-[12px] font-semibold whitespace-nowrap transition-colors ${
                 kind === opt.value
                   ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/80'
@@ -339,13 +339,13 @@ export function CrmIntakeForm({
             : null
         }
         disabled={saving}
-        labelClassName="text-[11px] font-medium text-slate-600"
+        labelClassName="text-[12px] font-medium text-slate-600"
         className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 ? '' : ''}`}
         showHelp
       />
 
       <label className="block space-y-0.5">
-        <span className="text-[11px] font-medium text-slate-600">유입 경로 *</span>
+        <span className="text-[12px] font-medium text-slate-600">유입 경로 *</span>
         <InquiryLeadSourceSelect
           value={leadSource}
           onChange={setLeadSource}
@@ -357,7 +357,7 @@ export function CrmIntakeForm({
 
       {kind === 'received' ? (
         <label className="block space-y-0.5">
-          <span className="text-[11px] font-medium text-slate-600">주소 * (예약완료)</span>
+          <span className="text-[12px] font-medium text-slate-600">주소 * (예약완료)</span>
           <input
             type="text"
             value={address}
@@ -372,7 +372,7 @@ export function CrmIntakeForm({
       <button
         type="button"
         onClick={() => setShowMore((v) => !v)}
-        className="text-[11px] font-medium text-sky-700 hover:underline"
+        className="text-[12px] font-medium text-sky-700 hover:underline"
       >
         {showMore ? '추가 필드 접기' : kind === 'received' ? '평수·희망일 등 추가' : '주소·희망일 등 추가'}
       </button>
@@ -380,7 +380,7 @@ export function CrmIntakeForm({
       {showMore ? (
         <div className="space-y-2 rounded-lg border border-emerald-100/80 bg-emerald-50/30 p-2.5">
           <label className="block space-y-0.5">
-            <span className="text-[11px] font-medium text-slate-600">평수</span>
+            <span className="text-[12px] font-medium text-slate-600">평수</span>
             <input
               type="text"
               inputMode="decimal"
@@ -393,7 +393,7 @@ export function CrmIntakeForm({
           </label>
           <div className="grid grid-cols-3 gap-2">
             <label className="block min-w-0 space-y-0.5">
-              <span className="text-[11px] font-medium text-slate-600">방</span>
+              <span className="text-[12px] font-medium text-slate-600">방</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -405,7 +405,7 @@ export function CrmIntakeForm({
               />
             </label>
             <label className="block min-w-0 space-y-0.5">
-              <span className="text-[11px] font-medium text-slate-600">화장실</span>
+              <span className="text-[12px] font-medium text-slate-600">화장실</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -417,7 +417,7 @@ export function CrmIntakeForm({
               />
             </label>
             <label className="block min-w-0 space-y-0.5">
-              <span className="text-[11px] font-medium text-slate-600">베란다</span>
+              <span className="text-[12px] font-medium text-slate-600">베란다</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -431,7 +431,7 @@ export function CrmIntakeForm({
           </div>
           {kind !== 'received' ? (
             <label className="block space-y-0.5">
-              <span className="text-[11px] font-medium text-slate-600">주소</span>
+              <span className="text-[12px] font-medium text-slate-600">주소</span>
               <input
                 type="text"
                 value={address}
@@ -442,7 +442,7 @@ export function CrmIntakeForm({
             </label>
           ) : null}
           <label className="block space-y-0.5">
-            <span className="text-[11px] font-medium text-slate-600">입주청소 희망일</span>
+            <span className="text-[12px] font-medium text-slate-600">입주청소 희망일</span>
             <input
               type="date"
               value={preferredMoveInCleanYmd}
@@ -457,7 +457,7 @@ export function CrmIntakeForm({
             disabled={saving}
             highlight={soomgoImportFlashKey > 0 && requestMemo.trim().length > 0}
           />
-          <label className="flex items-center gap-1.5 text-[11px] text-slate-700">
+          <label className="flex items-center gap-1.5 text-[12px] text-slate-700">
             <input
               type="checkbox"
               checked={goldDb}
@@ -471,20 +471,20 @@ export function CrmIntakeForm({
       ) : null}
 
       {!permissionsLoading && !canSave ? (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[12px] text-amber-900">
           <strong>{crmIntakePermissionLabel(kind)}</strong> 권한이 필요합니다.
         </p>
       ) : null}
 
-      {msg ? <p className="text-[11px] text-green-700">{msg}</p> : null}
-      {err ? <p className="text-[11px] text-red-600">{err}</p> : null}
+      {msg ? <p className="text-[12px] text-green-700">{msg}</p> : null}
+      {err ? <p className="text-[12px] text-red-600">{err}</p> : null}
 
       <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2">
         <button
           type="button"
           disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit({ keepForm: false })}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? '저장 중…' : '저장'}
         </button>
@@ -494,7 +494,7 @@ export function CrmIntakeForm({
             disabled={saving || permissionsLoading || !canSave}
             onClick={() => void submit({ keepForm: false, incrementDefer: true })}
             title="저장 후 부재 횟수 +1"
-            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
           >
             {saving ? '저장 중…' : '부재+1'}
           </button>
@@ -503,7 +503,7 @@ export function CrmIntakeForm({
           type="button"
           disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit({ keepForm: true })}
-          className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
+          className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[12px] font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
         >
           저장 후 계속
         </button>
@@ -511,7 +511,7 @@ export function CrmIntakeForm({
           <button
             type="button"
             onClick={() => onOpenOrderIssue(lastInquiryId)}
-            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-medium text-sky-900 hover:bg-sky-100"
+            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[12px] font-medium text-sky-900 hover:bg-sky-100"
           >
             발주서
           </button>

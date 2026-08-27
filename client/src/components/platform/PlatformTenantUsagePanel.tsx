@@ -61,7 +61,7 @@ function UsageTableRow({
                 style={{ width: `${Math.min(100, pct ?? 0)}%` }}
               />
             </div>
-            <p className="text-[10px] leading-snug text-gray-500">
+            <p className="text-[11px] leading-snug text-gray-500">
               {over ? (
                 <span className="font-medium text-rose-700">포함량 초과</span>
               ) : pct != null && pct >= 85 ? (
@@ -72,7 +72,7 @@ function UsageTableRow({
             </p>
           </div>
         ) : (
-          <span className="text-[10px] text-gray-500">포함량 무제한</span>
+          <span className="text-[11px] text-gray-500">포함량 무제한</span>
         )}
       </td>
     </tr>
@@ -189,7 +189,7 @@ export function PlatformTenantUsagePanel({ tenantId, compact }: Props) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <h3 className="text-sm font-semibold text-gray-900">활성 기능 모듈</h3>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-700">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-medium tabular-nums text-slate-700">
                   {data.enabledServices.length}개
                 </span>
               </div>
@@ -229,7 +229,7 @@ export function PlatformTenantUsagePanel({ tenantId, compact }: Props) {
         </details>
       ) : null}
 
-      <p className="text-[11px] leading-relaxed text-gray-500">{data.billingNote ?? TENANT_BILLING_NOTE}</p>
+      <p className="text-[12px] leading-relaxed text-gray-500">{data.billingNote ?? TENANT_BILLING_NOTE}</p>
     </div>
   );
 }

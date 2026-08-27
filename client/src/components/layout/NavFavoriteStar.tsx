@@ -84,7 +84,7 @@ export function NavFavoriteStar({ navKey, label, onDark = false, compact = false
         <span
           role="status"
           className={[
-            'pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-medium shadow-sm',
+            'pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium shadow-sm',
             onDark ? 'bg-slate-800 text-amber-100 ring-1 ring-white/10' : 'bg-slate-900 text-white',
           ].join(' ')}
         >

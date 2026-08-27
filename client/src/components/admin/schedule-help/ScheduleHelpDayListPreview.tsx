@@ -38,10 +38,10 @@ export function ScheduleHelpDayListPreview() {
         <div>
           <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-2 py-1.5">
             <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" aria-hidden />
-            <span className="text-[10px] font-bold text-rose-950 sm:text-fluid-2xs">팀장 미배정</span>
+            <span className="text-[11px] font-bold text-rose-950 sm:text-fluid-2xs">팀장 미배정</span>
           </div>
           <div className="space-y-1 rounded-md border border-rose-100 bg-white p-1.5">
-            <p className="px-1 text-[9px] font-semibold text-amber-800 sm:text-[10px]">미배정 · 오전</p>
+            <p className="px-1 text-[9px] font-semibold text-amber-800 sm:text-[11px]">미배정 · 오전</p>
             <div
               className={`rounded-xl border p-2 shadow-sm ${scheduleListCardSlotLeftBorder('morning')} ${SCHEDULE_LIST_CARD_BORDER_BASE} ${scheduleListCardSlotBgTint('morning')} ${SCHEDULE_LIST_CARD_PRE_ORDER_RING}`}
             >
@@ -51,7 +51,7 @@ export function ScheduleHelpDayListPreview() {
                 <ScheduleUnassignedChip />
                 <span className="font-bold text-rose-600 text-[9px]">미제출</span>
               </div>
-              <p className="mt-1 text-[9px] text-slate-500 sm:text-[10px]">강남구 · 33평 · 오전 · 미배정</p>
+              <p className="mt-1 text-[9px] text-slate-500 sm:text-[11px]">강남구 · 33평 · 오전 · 미배정</p>
             </div>
           </div>
         </div>
@@ -59,7 +59,7 @@ export function ScheduleHelpDayListPreview() {
         <div>
           <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-2 py-1.5">
             <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden />
-            <span className="text-[10px] font-bold text-amber-950 sm:text-fluid-2xs">오전 일정</span>
+            <span className="text-[11px] font-bold text-amber-950 sm:text-fluid-2xs">오전 일정</span>
           </div>
           <div className="space-y-1 rounded-md border border-amber-100 bg-white p-1.5">
             <div
@@ -70,7 +70,7 @@ export function ScheduleHelpDayListPreview() {
                 <span className="text-fluid-2xs font-semibold text-slate-900">박○○</span>
                 <span className="text-[9px] font-medium text-slate-800">홍팀장</span>
               </div>
-              <p className="mt-1 text-[9px] text-slate-600 sm:text-[10px]">서초구 · 40평 · 팀장 1건(회색 강조)</p>
+              <p className="mt-1 text-[9px] text-slate-600 sm:text-[11px]">서초구 · 40평 · 팀장 1건(회색 강조)</p>
             </div>
           </div>
         </div>
@@ -78,7 +78,7 @@ export function ScheduleHelpDayListPreview() {
         <div>
           <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50 px-2 py-1.5">
             <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" aria-hidden />
-            <span className="text-[10px] font-bold text-sky-950 sm:text-fluid-2xs">오후 일정</span>
+            <span className="text-[11px] font-bold text-sky-950 sm:text-fluid-2xs">오후 일정</span>
           </div>
           <div className="rounded-md border border-sky-100 bg-white p-1.5">
             <div
@@ -92,7 +92,7 @@ export function ScheduleHelpDayListPreview() {
                   해피콜 완료
                 </span>
               </div>
-              <p className="mt-1 text-[9px] text-slate-500 sm:text-[10px]">송파구 · 28평 · 오후 · 홍팀장 / 팀원 2명</p>
+              <p className="mt-1 text-[9px] text-slate-500 sm:text-[11px]">송파구 · 28평 · 오후 · 홍팀장 / 팀원 2명</p>
             </div>
           </div>
         </div>

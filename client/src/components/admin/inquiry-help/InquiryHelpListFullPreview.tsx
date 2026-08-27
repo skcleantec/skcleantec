@@ -25,7 +25,7 @@ import { InquiryHelpZoomableFigure } from './InquiryHelpZoomableFigure';
 function Ox({ yes }: { yes: boolean; label?: string }) {
   return (
     <span
-      className={`inline-flex min-w-[1.125rem] items-center justify-center rounded px-0.5 py-px text-[10px] font-bold tabular-nums ${
+      className={`inline-flex min-w-[1.125rem] items-center justify-center rounded px-0.5 py-px text-[11px] font-bold tabular-nums ${
         yes ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
       }`}
     >
@@ -35,7 +35,7 @@ function Ox({ yes }: { yes: boolean; label?: string }) {
 }
 
 const ACTION_BTN =
-  'inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold leading-tight shadow-sm';
+  'inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold leading-tight shadow-sm';
 
 function QuickEditCell({ children, label }: { children: ReactNode; label: string }) {
   return (
@@ -50,7 +50,7 @@ function QuickEditCell({ children, label }: { children: ReactNode; label: string
 
 /** PC 표 + 모바일 카드 — 도움말용 전체 아이콘·배지 예시 (데모 데이터) */
 export function InquiryHelpListFullPreviewInner({ enlarged = false }: { enlarged?: boolean }) {
-  const textScale = enlarged ? 'text-fluid-xs' : 'text-[10px]';
+  const textScale = enlarged ? 'text-fluid-xs' : 'text-[11px]';
   return (
     <div className={`pointer-events-none select-none space-y-2 ${enlarged ? 'p-1' : ''}`}>
       <div className={`flex flex-wrap items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 ${textScale} text-slate-600`}>
@@ -195,17 +195,17 @@ export function InquiryHelpListFullPreviewInner({ enlarged = false }: { enlarged
                 viewerRole="ADMIN"
                 nameClassName="font-semibold text-slate-900"
               />
-              <span className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] text-white tabular-nums">
+              <span className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[11px] text-white tabular-nums">
                 {INQUIRY_HELP_DEMO.inquiryNumber}
               </span>
               <OperatingCompanyBadge company={INQUIRY_HELP_DEMO.operatingCompany} />
               <InquiryDbMarketplaceBadge dbListing={INQUIRY_HELP_DEMO_DB_LISTING} iconOnly />
-              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] ring-1 ring-slate-200">입주</span>
-              <span className="rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-800 ring-1 ring-violet-200">cbiseo</span>
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] ring-1 ring-slate-200">입주</span>
+              <span className="rounded-full bg-violet-50 px-1.5 py-0.5 text-[11px] text-violet-800 ring-1 ring-violet-200">cbiseo</span>
             </div>
-            <p className="text-[10px] text-slate-500">접수 08-07 · {INQUIRY_HELP_DEMO.marketer} · 33평 · 오전</p>
-            <p className="text-[10px] text-slate-600">{INQUIRY_HELP_DEMO.addressShort}</p>
-            <div className="flex flex-wrap gap-1 text-[10px]">
+            <p className="text-[11px] text-slate-500">접수 08-07 · {INQUIRY_HELP_DEMO.marketer} · 33평 · 오전</p>
+            <p className="text-[11px] text-slate-600">{INQUIRY_HELP_DEMO.addressShort}</p>
+            <div className="flex flex-wrap gap-1 text-[11px]">
               <InquiryStatusChipPreview status="ORDER_FORM_PENDING" />
               <span className="rounded bg-slate-50 px-1.5 ring-1 ring-slate-200">
                 특이 <Ox yes={false} label="특이" /> · 사진 <Ox yes={true} label="사진" />

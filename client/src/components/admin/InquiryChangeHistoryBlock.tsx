@@ -51,7 +51,7 @@ export function InquiryChangeHistoryBlock({
       <ul className="space-y-3 text-sm">
         {entries.map((log) => (
           <li key={log.id} className="border-l-2 border-amber-300 pl-3">
-            <div className="text-[11px] text-amber-800/80 tabular-nums flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+            <div className="text-[12px] text-amber-800/80 tabular-nums flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
               <span>{formatDateTimeCompactWithWeekday(log.createdAt)}</span>
               {log.actor?.name ? (
                 <span className="font-medium text-amber-950">· {log.actor.name}</span>

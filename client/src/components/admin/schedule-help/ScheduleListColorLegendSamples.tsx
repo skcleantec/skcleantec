@@ -22,7 +22,7 @@ export function ScheduleListSectionHeaderSample({ item }: { item: ScheduleListSe
 export function ScheduleListCardColorSample({ item }: { item: ScheduleListCardColorLegendItem }) {
   return (
     <div
-      className={`min-w-[7.5rem] max-w-[9rem] rounded-xl border py-1.5 pl-2 pr-1.5 text-[10px] font-semibold text-slate-800 shadow-sm ${item.cardClass}`}
+      className={`min-w-[7.5rem] max-w-[9rem] rounded-xl border py-1.5 pl-2 pr-1.5 text-[11px] font-semibold text-slate-800 shadow-sm ${item.cardClass}`}
     >
       {item.sampleLabel}
     </div>
@@ -33,7 +33,7 @@ export function ScheduleListLeaderSingleSlotSwatch() {
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className={SCHEDULE_LEADER_SINGLE_SLOT_LEGEND_SWATCH_CLASS} aria-hidden />
-      <span className="text-[10px] text-slate-700">팀장 1건</span>
+      <span className="text-[11px] text-slate-700">팀장 1건</span>
     </span>
   );
 }

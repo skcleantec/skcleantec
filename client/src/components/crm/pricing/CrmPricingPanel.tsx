@@ -96,7 +96,7 @@ function OrderOptionTreeSection({
             ▶
           </span>
           <span
-            className={`min-w-0 flex-1 truncate font-semibold text-amber-900 ${depth === 0 ? 'text-[10px]' : 'text-[9px]'}`}
+            className={`min-w-0 flex-1 truncate font-semibold text-amber-900 ${depth === 0 ? 'text-[11px]' : 'text-[9px]'}`}
             title={node.label}
           >
             {node.label}
@@ -127,12 +127,12 @@ function OrderOptionTreeSection({
                     className={`flex w-full items-center gap-2 py-1 text-left transition-colors hover:bg-amber-50/60 ${pad}`}
                   >
                     <span
-                      className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-900"
+                      className="min-w-0 flex-1 truncate text-[12px] font-medium text-gray-900"
                       title={row.label}
                     >
                       {row.label}
                     </span>
-                    <span className="shrink-0 text-[11px] font-bold tabular-nums text-amber-700">
+                    <span className="shrink-0 text-[12px] font-bold tabular-nums text-amber-700">
                       {row.price}
                     </span>
                   </button>
@@ -498,7 +498,7 @@ export function CrmPricingPanel({
               return next;
             });
           }}
-          className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-right text-[10px] tabular-nums"
+          className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-right text-[11px] tabular-nums"
           title="안내 금액 (직접 입력)"
         />
         {showReset ? (
@@ -536,13 +536,13 @@ export function CrmPricingPanel({
           />
         ) : null}
         {quoteSaveError ? (
-          <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[10px] text-red-700">{quoteSaveError}</p>
+          <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[11px] text-red-700">{quoteSaveError}</p>
         ) : null}
         {quoteSaving ? (
           <p className="shrink-0 border-b border-amber-50 px-2 py-0.5 text-[9px] text-amber-700/80">견적 저장 중…</p>
         ) : null}
         {quoteFinalizeError ? (
-          <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[10px] text-red-700">{quoteFinalizeError}</p>
+          <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[11px] text-red-700">{quoteFinalizeError}</p>
         ) : null}
         {learningContext ? (
           <div className="shrink-0 border-b border-amber-100/80 px-2 py-1.5">
@@ -560,10 +560,10 @@ export function CrmPricingPanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="항목 검색…"
-              className="w-full rounded-md border border-amber-200/80 bg-white py-1 pl-7 pr-2 text-[11px] outline-none focus:border-amber-400"
+              className="w-full rounded-md border border-amber-200/80 bg-white py-1 pl-7 pr-2 text-[12px] outline-none focus:border-amber-400"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-amber-900/90">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-amber-900/90">
             <span className="font-semibold">평당 {formatWon(pricePerPyeong)}</span>
             {minimumTotalAmount > 0 ? (
               <span className="text-amber-800/70">· 최소 {formatWon(minimumTotalAmount)}</span>
@@ -575,7 +575,7 @@ export function CrmPricingPanel({
                 value={pyeong}
                 onChange={(e) => onPyeongChange(e.target.value)}
                 placeholder="평수"
-                className="w-14 rounded border border-amber-200/80 bg-white px-1.5 py-0.5 text-center text-[11px] tabular-nums"
+                className="w-14 rounded border border-amber-200/80 bg-white px-1.5 py-0.5 text-center text-[12px] tabular-nums"
               />
               <span>평</span>
             </span>
@@ -604,12 +604,12 @@ export function CrmPricingPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
           {loading ? (
-            <p className="text-[11px] text-gray-500">불러오는 중…</p>
+            <p className="text-[12px] text-gray-500">불러오는 중…</p>
           ) : error ? (
-            <p className="text-[11px] text-red-600">{error}</p>
+            <p className="text-[12px] text-red-600">{error}</p>
           ) : isOrderformCategory ? (
             orderOptionTree.length === 0 ? (
-              <div className="space-y-2 text-[11px] text-gray-500">
+              <div className="space-y-2 text-[12px] text-gray-500">
                 <p>전문시공 옵션이 없습니다.</p>
                 {onOpenSettings ? (
                   <CrmActionButton accent="pricing" onClick={onOpenSettings}>
@@ -632,7 +632,7 @@ export function CrmPricingPanel({
               </ul>
             )
           ) : priceMenuItems.length === 0 ? (
-            <div className="space-y-2 text-[11px] text-gray-500">
+            <div className="space-y-2 text-[12px] text-gray-500">
               <p>항목이 없습니다.</p>
               {onOpenSettings ? (
                 <CrmActionButton accent="pricing" onClick={onOpenSettings}>
@@ -649,10 +649,10 @@ export function CrmPricingPanel({
                     onClick={row.onAdd}
                     className="flex w-full items-center gap-2 py-1.5 text-left transition-colors hover:bg-amber-50/60"
                   >
-                    <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-900" title={row.label}>
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-gray-900" title={row.label}>
                       {row.label}
                     </span>
-                    <span className="shrink-0 text-[11px] font-bold tabular-nums text-amber-700">{row.price}</span>
+                    <span className="shrink-0 text-[12px] font-bold tabular-nums text-amber-700">{row.price}</span>
                   </button>
                   {row.sublabel ? (
                     <p className="pb-1 pl-0 text-[9px] text-gray-400 line-clamp-1" title={row.sublabel}>
@@ -675,7 +675,7 @@ export function CrmPricingPanel({
               </p>
               <ul className="space-y-1">
                 {estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0 ? (
-                  <li className="flex items-center gap-1 text-[10px]">
+                  <li className="flex items-center gap-1 text-[11px]">
                     <span className="min-w-0 flex-1 truncate font-medium text-gray-800" title={`${pyeongNum}평 기본견적`}>
                       {pyeongNum}평 기본견적
                     </span>
@@ -692,7 +692,7 @@ export function CrmPricingPanel({
                             return next;
                           });
                         }}
-                        className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-right text-[10px] tabular-nums"
+                        className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-right text-[11px] tabular-nums"
                         title="기본견적 금액 (직접 입력)"
                       />
                       {showBaseAmountReset ? (
@@ -709,7 +709,7 @@ export function CrmPricingPanel({
                   </li>
                 ) : null}
                 {quoteLines.map((line) => (
-                  <li key={line.key} className="flex items-center gap-1 text-[10px]">
+                  <li key={line.key} className="flex items-center gap-1 text-[11px]">
                     <button
                       type="button"
                       title="제거"
@@ -741,7 +741,7 @@ export function CrmPricingPanel({
                   type="button"
                   onClick={onSendSoomgoQuote}
                   disabled={soomgoQuoteSending || (grandTotal == null && quoteLines.length === 0 && estimatedBase == null)}
-                  className="inline-flex items-center rounded-md bg-sky-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-sky-700 disabled:opacity-40"
+                  className="inline-flex items-center rounded-md bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-40"
                   title="설정된 견적보내기 서식으로 숨고 채팅 전송"
                 >
                   {soomgoQuoteSending ? '전송 중…' : '견적보내기'}
@@ -752,7 +752,7 @@ export function CrmPricingPanel({
                   type="button"
                   onClick={onFinalizeHold}
                   disabled={quoteFinalizing || (grandTotal == null && quoteLines.length === 0 && estimatedBase == null)}
-                  className="inline-flex items-center rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                  className="inline-flex items-center rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
                   title="견적 확정 + 부재/보류 등록 (처리구분: 부재·보류)"
                 >
                   {quoteFinalizing ? '저장 중…' : '견적 저장 · 보류'}
@@ -762,7 +762,7 @@ export function CrmPricingPanel({
                 type="button"
                 onClick={() => void copyAll()}
                 disabled={grandTotal == null && quoteLines.length === 0}
-                className="inline-flex items-center gap-1 rounded-md border border-amber-300/80 bg-white px-2 py-1 text-[10px] font-semibold text-amber-900 transition-colors hover:bg-amber-50 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-md border border-amber-300/80 bg-white px-2 py-1 text-[11px] font-semibold text-amber-900 transition-colors hover:bg-amber-50 disabled:opacity-40"
               >
                 <CrmIconCopy className="h-3 w-3" />
                 {copiedAll ? '복사됨' : '전체 복사'}
@@ -774,7 +774,7 @@ export function CrmPricingPanel({
                     setQuoteLines([]);
                     setAmountDrafts({});
                   }}
-                  className="text-[10px] text-gray-500 underline hover:text-gray-800"
+                  className="text-[11px] text-gray-500 underline hover:text-gray-800"
                 >
                   비우기
                 </button>

@@ -319,10 +319,10 @@ export function AdminStaffAccessSettingsPage() {
                                 <span className="block text-sm text-gray-900">{perm.label}</span>
                                 <span className="block text-xs text-gray-500 mt-0.5">{perm.description}</span>
                                 {locked ? (
-                                  <span className="block text-[11px] text-slate-500 mt-1">ADMIN 전용 — 부여 불가</span>
+                                  <span className="block text-[12px] text-slate-500 mt-1">ADMIN 전용 — 부여 불가</span>
                                 ) : null}
                                 {modOff ? (
-                                  <span className="block text-[11px] text-gray-400 mt-1">기능 미사용 중</span>
+                                  <span className="block text-[12px] text-gray-400 mt-1">기능 미사용 중</span>
                                 ) : null}
                               </label>
                             </li>
@@ -353,7 +353,7 @@ export function AdminStaffAccessSettingsPage() {
         )}
       </section>
 
-      <section className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-[11px] text-slate-600 leading-relaxed">
+      <section className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-[12px] text-slate-600 leading-relaxed">
         <p className="font-medium text-slate-800 mb-1">항상 관리자(ADMIN)만 가능</p>
         <ul className="list-disc list-inside space-y-0.5">
           <li>다른 마케터 권한 변경(본 화면)</li>

@@ -36,7 +36,7 @@ export function TenantInquiryShareBadge({ share, className = '', compact = false
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-tight sm:text-fluid-2xs ${
+      className={`inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-medium leading-tight sm:text-fluid-2xs ${
         revoked
           ? 'border-gray-300 bg-gray-100 text-gray-600 line-through decoration-gray-400'
           : isSource

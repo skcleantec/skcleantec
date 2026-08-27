@@ -67,13 +67,13 @@ export function ScheduleCustomCalendarSidebar({
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="shrink-0 border-b border-slate-100 px-2 py-1.5">
-        <h2 className="font-semibold text-slate-900 text-[12px] leading-tight">맞춤 캘린더</h2>
+        <h2 className="font-semibold text-slate-900 text-[13px] leading-tight">맞춤 캘린더</h2>
         {activeFilterLabels.length > 0 ? (
-          <p className="mt-0.5 truncate text-[10px] text-slate-500 leading-tight" title={activeFilterLabels.join(' ∩ ')}>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500 leading-tight" title={activeFilterLabels.join(' ∩ ')}>
             {activeFilterLabels.join(' ∩ ')}
           </p>
         ) : (
-          <p className="mt-0.5 text-[10px] text-slate-400 leading-tight">지역 · 업체 · 파트너 필터</p>
+          <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">지역 · 업체 · 파트너 필터</p>
         )}
       </div>
 
@@ -86,7 +86,7 @@ export function ScheduleCustomCalendarSidebar({
               className="flex w-full items-center justify-between rounded border border-dashed border-slate-300 bg-slate-50/80 px-2 py-1 min-h-[28px] touch-manipulation hover:bg-slate-100/80"
               aria-expanded={addExpanded}
             >
-              <span className="text-[11px] font-semibold text-slate-800">캘린더 추가</span>
+              <span className="text-[12px] font-semibold text-slate-800">캘린더 추가</span>
               <span className="text-base font-light leading-none text-slate-600" aria-hidden>
                 {addExpanded ? '−' : '+'}
               </span>
@@ -100,9 +100,9 @@ export function ScheduleCustomCalendarSidebar({
                       onAddRegion();
                       setAddExpanded(false);
                     }}
-                    className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] text-slate-700 hover:bg-slate-100 min-h-[26px] touch-manipulation leading-tight"
+                    className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[12px] text-slate-700 hover:bg-slate-100 min-h-[26px] touch-manipulation leading-tight"
                   >
-                    <span className="w-2 text-center text-[10px] text-slate-400">—</span>
+                    <span className="w-2 text-center text-[11px] text-slate-400">—</span>
                     지역 캘린더
                   </button>
                 </li>
@@ -113,9 +113,9 @@ export function ScheduleCustomCalendarSidebar({
                       onAddCompany();
                       setAddExpanded(false);
                     }}
-                    className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] text-slate-700 hover:bg-slate-100 min-h-[26px] touch-manipulation leading-tight"
+                    className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[12px] text-slate-700 hover:bg-slate-100 min-h-[26px] touch-manipulation leading-tight"
                   >
-                    <span className="w-2 text-center text-[10px] text-slate-400">—</span>
+                    <span className="w-2 text-center text-[11px] text-slate-400">—</span>
                     업체 캘린더
                   </button>
                 </li>
@@ -127,9 +127,9 @@ export function ScheduleCustomCalendarSidebar({
                         onAddPartner();
                         setAddExpanded(false);
                       }}
-                      className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] text-slate-700 hover:bg-slate-100 min-h-[26px] touch-manipulation leading-tight"
+                      className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[12px] text-slate-700 hover:bg-slate-100 min-h-[26px] touch-manipulation leading-tight"
                     >
-                      <span className="w-2 text-center text-[10px] text-slate-400">—</span>
+                      <span className="w-2 text-center text-[11px] text-slate-400">—</span>
                       파트너 캘린더
                     </button>
                   </li>
@@ -146,8 +146,8 @@ export function ScheduleCustomCalendarSidebar({
             !hasActiveFilter ? 'font-semibold text-slate-900' : ''
           }`}
         >
-          <span className="shrink-0 w-2 text-center text-[10px] text-slate-400">—</span>
-          <span className="text-[11px] leading-tight">전체</span>
+          <span className="shrink-0 w-2 text-center text-[11px] text-slate-400">—</span>
+          <span className="text-[12px] leading-tight">전체</span>
         </button>
 
         <ScheduleCustomCalendarListSection
@@ -189,7 +189,7 @@ export function ScheduleCustomCalendarSidebar({
       <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-2 py-1.5">
         <Link
           to="/admin/service-zones"
-          className="block text-center text-[10px] font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline py-0.5 leading-tight"
+          className="block text-center text-[11px] font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline py-0.5 leading-tight"
         >
           서비스 권역 관리
         </Link>

@@ -19,7 +19,7 @@ const CREATE_MODAL_CALLOUTS: ScheduleHelpCalloutDef[] = [
 function StepHeading({ n, title }: { n: string; title: string }) {
   return (
     <p className="text-fluid-2xs sm:text-fluid-xs font-semibold text-slate-800">
-      <span className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+      <span className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">
         {n}
       </span>
       {title}
@@ -31,17 +31,17 @@ function SidebarAddMenuMock() {
   return (
     <div className="mx-auto max-w-[14rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 px-2 py-1.5">
-        <h3 className="text-[12px] font-semibold text-slate-900">맞춤 캘린더</h3>
+        <h3 className="text-[13px] font-semibold text-slate-900">맞춤 캘린더</h3>
       </div>
       <div className="space-y-1 px-2 py-1.5">
         <div className="flex w-full items-center justify-between rounded border border-dashed border-sky-300 bg-sky-50/80 px-2 py-1 min-h-[28px]">
-          <span className="text-[11px] font-semibold text-sky-900">캘린더 추가</span>
+          <span className="text-[12px] font-semibold text-sky-900">캘린더 추가</span>
           <span className="text-base font-light leading-none text-sky-700">−</span>
         </div>
         <ul className="space-y-0.5 rounded border border-slate-100 bg-slate-50/80 px-1 py-1">
-          <li className="rounded bg-violet-50 px-1.5 py-1 text-[11px] font-medium text-violet-900">— 지역 캘린더</li>
-          <li className="px-1.5 py-1 text-[11px] text-slate-700">— 업체 캘린더</li>
-          <li className="px-1.5 py-1 text-[11px] text-slate-700">— 파트너 캘린더</li>
+          <li className="rounded bg-violet-50 px-1.5 py-1 text-[12px] font-medium text-violet-900">— 지역 캘린더</li>
+          <li className="px-1.5 py-1 text-[12px] text-slate-700">— 업체 캘린더</li>
+          <li className="px-1.5 py-1 text-[12px] text-slate-700">— 파트너 캘린더</li>
         </ul>
       </div>
     </div>
@@ -54,30 +54,30 @@ function CreateModalMock() {
     <div className="mx-auto max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md">
       <div className="border-b border-slate-100 px-3 py-2.5 sm:px-4">
         <h3 className="text-fluid-sm font-semibold text-slate-900">지역 캘린더 추가</h3>
-        <p className="mt-0.5 text-[10px] text-slate-500 leading-snug">지역·서비스 권역 기준으로 접수를 필터링할 캘린더를 만듭니다.</p>
+        <p className="mt-0.5 text-[11px] text-slate-500 leading-snug">지역·서비스 권역 기준으로 접수를 필터링할 캘린더를 만듭니다.</p>
       </div>
       <div className="space-y-2 p-3 sm:p-4">
         <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
-          <p className="mb-1 text-[11px] font-medium text-slate-800">캘린더 이름</p>
-          <div className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] text-slate-900">강남·송파</div>
+          <p className="mb-1 text-[12px] font-medium text-slate-800">캘린더 이름</p>
+          <div className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-[12px] text-slate-900">강남·송파</div>
         </div>
         <div className={`rounded-lg border p-2.5 space-y-1.5 ${violet.tabIdle}`}>
-          <p className="text-[11px] font-medium text-slate-800">서비스 권역 연결</p>
-          <div className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] text-slate-700">연결 안 함 (지역 직접 선택)</div>
+          <p className="text-[12px] font-medium text-slate-800">서비스 권역 연결</p>
+          <div className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-[12px] text-slate-700">연결 안 함 (지역 직접 선택)</div>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-2.5 space-y-1.5">
-          <p className="text-[11px] font-medium text-slate-800">시 · 구 선택</p>
+          <p className="text-[12px] font-medium text-slate-800">시 · 구 선택</p>
           <div className="flex flex-wrap gap-1">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-700">서울 강남구</span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-700">서울 송파구</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">서울 강남구</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">서울 송파구</span>
           </div>
-          <label className="flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] text-slate-700">
+          <label className="flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-700">
             <span className="inline-block h-3.5 w-3.5 rounded border border-slate-300 bg-white" />
             배정된 건은 지역 배지(건수)에서 제외
           </label>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-2.5">
-          <p className="mb-1.5 text-[11px] font-medium text-slate-800">탭 색상</p>
+          <p className="mb-1.5 text-[12px] font-medium text-slate-800">탭 색상</p>
           <div className="flex gap-1.5">
             {(['teal', 'violet', 'rose'] as const).map((key) => {
               const t = customCalendarColorTokens(key);
@@ -97,8 +97,8 @@ function CreateModalMock() {
           </div>
         </div>
         <div className="flex justify-end gap-1.5 pt-0.5">
-          <span className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[11px] text-slate-700">취소</span>
-          <span className="rounded bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white">생성</span>
+          <span className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[12px] text-slate-700">취소</span>
+          <span className="rounded bg-slate-900 px-3 py-1.5 text-[12px] font-medium text-white">생성</span>
         </div>
       </div>
     </div>
@@ -114,8 +114,8 @@ function MobileMenuMock() {
         </svg>
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold text-slate-900">≡ 맞춤 캘린더 메뉴</p>
-        <p className="text-[10px] text-slate-500">접수 검색 · 캘린더 추가 · 필터 목록</p>
+        <p className="text-[12px] font-semibold text-slate-900">≡ 맞춤 캘린더 메뉴</p>
+        <p className="text-[11px] text-slate-500">접수 검색 · 캘린더 추가 · 필터 목록</p>
       </div>
     </div>
   );

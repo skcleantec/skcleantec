@@ -558,25 +558,25 @@ export function TeamAssignmentListPage() {
                           <TeamInquiryCollectibleListBadge item={item} />
                           <TeamInquiryAreaListBadge item={item} />
                           {item.inquiryNumber ? (
-                            <span className="shrink-0 rounded bg-gray-100 px-1 py-px font-mono text-[10px] tabular-nums text-gray-700 sm:text-fluid-2xs">
+                            <span className="shrink-0 rounded bg-gray-100 px-1 py-px font-mono text-[11px] tabular-nums text-gray-700 sm:text-fluid-2xs">
                               {item.inquiryNumber}
                             </span>
                           ) : null}
                         </div>
                         {memoSubtitle ? (
-                          <p className="mt-px line-clamp-1 text-[10px] text-gray-700 sm:text-fluid-xs" title={memoTrim}>
+                          <p className="mt-px line-clamp-1 text-[11px] text-gray-700 sm:text-fluid-xs" title={memoTrim}>
                             {memoTrim}
                           </p>
                         ) : null}
                         {item.memo?.trim() ? (
                           <p
-                            className="mt-px line-clamp-1 text-[10px] leading-snug text-indigo-900/90 sm:text-fluid-2xs"
+                            className="mt-px line-clamp-1 text-[11px] leading-snug text-indigo-900/90 sm:text-fluid-2xs"
                             title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                           >
                             {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                           </p>
                         ) : null}
-                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray-600 sm:text-fluid-xs" title={addrFull}>
+                        <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-gray-600 sm:text-fluid-xs" title={addrFull}>
                           {metaLine}
                         </p>
                         <div className="mt-0.5 flex flex-wrap items-center gap-1">
@@ -588,7 +588,7 @@ export function TeamAssignmentListPage() {
                           <TeamCoLeadersListHint
                             item={item}
                             viewerId={myId}
-                            className="text-[10px] text-gray-600 sm:text-fluid-2xs"
+                            className="text-[11px] text-gray-600 sm:text-fluid-2xs"
                           />
                         </div>
                       </div>
@@ -596,7 +596,7 @@ export function TeamAssignmentListPage() {
                         <a
                           href={`tel:${item.customerPhone}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded-md bg-blue-600 px-2 py-1 text-center text-[11px] font-medium text-white hover:bg-blue-700 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-fluid-xs"
+                          className="rounded-md bg-blue-600 px-2 py-1 text-center text-[12px] font-medium text-white hover:bg-blue-700 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-fluid-xs"
                         >
                           <TeamBiInline id="team.common.phone" />
                         </a>
@@ -604,7 +604,7 @@ export function TeamAssignmentListPage() {
                           <a
                             href={`tel:${mk.phone}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-center text-[10px] font-medium text-blue-700 sm:text-fluid-2xs"
+                            className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-center text-[11px] font-medium text-blue-700 sm:text-fluid-2xs"
                             title={teamBiPlain('team.assign.marketerPhone')}
                           >
                             <TeamBiInline id="team.assign.marketerPhone" />

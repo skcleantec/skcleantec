@@ -12,7 +12,7 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   const text = value?.trim() || '—';
   return (
     <div>
-      <dt className="text-[11px] font-medium text-gray-500">{label}</dt>
+      <dt className="text-[12px] font-medium text-gray-500">{label}</dt>
       <dd className="mt-0.5 text-sm text-gray-900 break-words">{text}</dd>
     </div>
   );
@@ -42,7 +42,7 @@ export function PlatformTenantSignupBusinessSection({
           ) : null}
         </div>
         {signupBusiness ? (
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] font-semibold text-slate-700">
             {signupBusinessTypeLabel(signupBusiness.businessType as SignupBusinessType)}
           </span>
         ) : null}
@@ -74,7 +74,7 @@ export function PlatformTenantSignupBusinessSection({
               <Field label="대표자명" value={signupBusiness.representativeName} />
               <Field label="사업장 주소" value={signupBusiness.addressLine} />
               <div className="sm:col-span-2">
-                <dt className="text-[11px] font-medium text-gray-500">사업자등록증</dt>
+                <dt className="text-[12px] font-medium text-gray-500">사업자등록증</dt>
                 <dd className="mt-1">
                   {signupBusiness.businessRegistrationImageUrl ? (
                     <ImageThumbLightbox

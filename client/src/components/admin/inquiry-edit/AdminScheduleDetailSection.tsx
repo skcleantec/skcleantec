@@ -69,7 +69,7 @@ export function AdminScheduleDetailSection({
         <summary className={`cursor-pointer list-none touch-manipulation ${inqEditSectionHeader}`}>
           <span className="flex items-center justify-between gap-2">
             <span>{displayTitle}</span>
-            <span className="shrink-0 text-[10px] font-normal text-gray-400" aria-hidden>
+            <span className="shrink-0 text-[11px] font-normal text-gray-400" aria-hidden>
               {open ? '접기 ▲' : '펼치기 ▼'}
             </span>
           </span>

@@ -91,7 +91,7 @@ export function TelemarketingSessionBlock({ variant = 'card' }: { variant?: Dash
 
   const settleButtonClass =
     variant === 'row'
-      ? 'rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation whitespace-nowrap'
+      ? 'rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-2.5 py-1 text-[12px] font-semibold text-white shadow-sm hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation whitespace-nowrap'
       : undefined;
 
   if (variant === 'row') {
@@ -103,7 +103,7 @@ export function TelemarketingSessionBlock({ variant = 'card' }: { variant?: Dash
           </span>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-fluid-2xs font-semibold text-amber-950">텔레마케팅 · 광고비</h2>
-            <p className="truncate text-[11px] text-slate-500">
+            <p className="truncate text-[12px] text-slate-500">
               {error
                 ? error
                 : loading

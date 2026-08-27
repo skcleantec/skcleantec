@@ -7,7 +7,7 @@ import { ORDER_ISSUE_HELP_CAPTION } from './orderIssueHelpShared';
 function PreviewShell({ enlarged, children }: { enlarged?: boolean; children: ReactNode }) {
   return (
     <div
-      className={`pointer-events-none select-none space-y-3 ${enlarged ? 'text-fluid-xs' : 'text-[11px] sm:text-fluid-2xs'}`}
+      className={`pointer-events-none select-none space-y-3 ${enlarged ? 'text-fluid-xs' : 'text-[12px] sm:text-fluid-2xs'}`}
     >
       {children}
     </div>

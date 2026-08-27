@@ -148,15 +148,15 @@ export function TelecrmCallActivityPage() {
         ) : null}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl bg-slate-50 p-3 text-center">
-            <div className="text-[11px] text-slate-500">팀 연결</div>
+            <div className="text-[12px] text-slate-500">팀 연결</div>
             <div className="text-lg font-semibold tabular-nums text-slate-900">{totals.connected}</div>
           </div>
           <div className="rounded-xl bg-slate-50 p-3 text-center">
-            <div className="text-[11px] text-slate-500">팀 미연결</div>
+            <div className="text-[12px] text-slate-500">팀 미연결</div>
             <div className="text-lg font-semibold tabular-nums text-slate-900">{totals.noAnswer}</div>
           </div>
           <div className="rounded-xl bg-slate-50 p-3 text-center col-span-2 sm:col-span-2">
-            <div className="text-[11px] text-slate-500">팀 연결 시간</div>
+            <div className="text-[12px] text-slate-500">팀 연결 시간</div>
             <div className="text-lg font-semibold tabular-nums text-slate-900">{formatDuration(totals.duration)}</div>
           </div>
         </div>

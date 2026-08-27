@@ -51,7 +51,7 @@ function HelpActionTable({ rows }: { rows: readonly OrderIssueHelpActionRow[] })
               <td className="py-2 pr-3">
                 <div className="flex flex-wrap items-center gap-1">{row.sample}</div>
                 {row.when ? (
-                  <p className="mt-1 text-[10px] leading-snug text-violet-700">표시: {row.when}</p>
+                  <p className="mt-1 text-[11px] leading-snug text-violet-700">표시: {row.when}</p>
                 ) : null}
               </td>
               <td className="py-2 text-slate-600 leading-snug">{row.meaning}</td>

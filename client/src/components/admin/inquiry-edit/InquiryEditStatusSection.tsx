@@ -182,7 +182,7 @@ export function InquiryEditStatusSection({
               </div>
             ) : null}
             {!isCreate && item && isInquiryLinkedOrderFormPendingSubmit(item) ? (
-              <p className="col-span-1 sm:col-span-2 lg:col-span-4 text-[12px] text-slate-500">
+              <p className="col-span-1 sm:col-span-2 lg:col-span-4 text-[13px] text-slate-500">
                 발주서 <span className="font-medium text-slate-600">미제출</span>
                 {' — '}
                 고객이 제출하면 접수 상태로 바뀝니다.
@@ -315,7 +315,7 @@ export function InquiryEditStatusSection({
                 <button
                   type="button"
                   onClick={() => setExpandedTextarea('specialNotes')}
-                  className="text-[12px] font-medium text-blue-600 hover:text-blue-800"
+                  className="text-[13px] font-medium text-blue-600 hover:text-blue-800"
                 >
                   크게보기 &rarr;
                 </button>
@@ -333,7 +333,7 @@ export function InquiryEditStatusSection({
                 <button
                   type="button"
                   onClick={() => setExpandedTextarea('memo')}
-                  className="text-[12px] font-medium text-blue-600 hover:text-blue-800"
+                  className="text-[13px] font-medium text-blue-600 hover:text-blue-800"
                 >
                   크게보기 &rarr;
                 </button>

@@ -300,7 +300,7 @@ export function PreferredDateCalendarModal({
               {WEEKDAYS.map((w, wi) => (
                 <div
                   key={w}
-                  className={`py-1 px-0.5 text-center text-[10px] sm:text-fluid-2xs font-semibold bg-gray-50 ${
+                  className={`py-1 px-0.5 text-center text-[11px] sm:text-fluid-2xs font-semibold bg-gray-50 ${
                     wi === 0 ? 'text-rose-600' : wi === 6 ? 'text-slate-600' : 'text-gray-600'
                   }`}
                 >
@@ -371,7 +371,7 @@ export function PreferredDateCalendarModal({
                         <span
                           className={
                             today
-                              ? 'inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-gray-900 text-[10px] font-bold text-white'
+                              ? 'inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-gray-900 text-[11px] font-bold text-white'
                               : isPast
                                 ? 'text-fluid-xs font-semibold text-gray-400 line-through tabular-nums'
                                 : 'text-fluid-xs font-semibold text-gray-900 tabular-nums'
@@ -386,7 +386,7 @@ export function PreferredDateCalendarModal({
                         </span>
                       </div>
                       {!isPast && st && !statsError && (
-                        <div className="mt-0.5 tabular-nums text-[9px] sm:text-[10px] text-gray-600">
+                        <div className="mt-0.5 tabular-nums text-[9px] sm:text-[11px] text-gray-600">
                           <span
                             className={am < 0 ? 'text-rose-800 font-semibold' : 'text-amber-900/90'}
                           >

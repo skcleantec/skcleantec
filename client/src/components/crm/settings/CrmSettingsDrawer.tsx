@@ -138,7 +138,7 @@ export function CrmSettingsDrawer({
             showPersonal={canEditPersonal}
             showShared={canEditShared}
           />
-          <p className="mt-2 text-[11px] text-gray-500">
+          <p className="mt-2 text-[12px] text-gray-500">
             {tab === 'soomgo-presets'
               ? catalogScope === 'personal'
                 ? '본인 숨고 메시지 매크로입니다. 「통화」 탭에서 통화 시 숨고 자동 안내(브랜드별)를 설정합니다.'

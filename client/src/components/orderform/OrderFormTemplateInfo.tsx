@@ -59,11 +59,11 @@ export function OrderFormCustomAnswers({
   if (compact) {
     return (
       <section className={`min-w-0 border-b border-gray-100 py-1 ${className}`}>
-        <h3 className="mb-px text-[11px] font-semibold text-gray-500">발주서 추가 정보</h3>
+        <h3 className="mb-px text-[12px] font-semibold text-gray-500">발주서 추가 정보</h3>
         <dl className="space-y-px">
           {entries.map((e) => (
             <div key={e.key} className="flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0 leading-tight">
-              <dt className="shrink-0 text-[11px] font-medium text-gray-500">{e.label}</dt>
+              <dt className="shrink-0 text-[12px] font-medium text-gray-500">{e.label}</dt>
               <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-fluid-2xs text-gray-900">{e.value}</dd>
             </div>
           ))}

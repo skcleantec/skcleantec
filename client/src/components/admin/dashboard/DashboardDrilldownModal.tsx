@@ -574,7 +574,7 @@ function SummaryRow({ items }: { items: Array<{ label: string; value: string }> 
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
       {items.map((item) => (
         <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
-          <p className="text-[10px] text-gray-500">{item.label}</p>
+          <p className="text-[11px] text-gray-500">{item.label}</p>
           <p className="text-fluid-sm font-bold text-slate-900 tabular-nums">{item.value}</p>
         </div>
       ))}

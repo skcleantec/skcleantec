@@ -124,7 +124,7 @@ export function OrderIssueHelpListFilterChip({
   return (
     <HelpUiShell>
       <span
-        className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium sm:text-fluid-2xs ${
+        className={`inline-flex rounded-full border px-2.5 py-1 text-[12px] font-medium sm:text-fluid-2xs ${
           active ? 'border-gray-800 bg-gray-900 text-white' : 'border-gray-200 bg-white text-gray-700'
         }`}
       >
@@ -139,7 +139,7 @@ export function OrderIssueHelpFormListStatusBadge({ submitted }: { submitted: bo
   return (
     <HelpUiShell>
       <span
-        className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium sm:text-fluid-2xs ${
+        className={`inline-flex rounded-full px-2 py-0.5 text-[12px] font-medium sm:text-fluid-2xs ${
           submitted ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200' : 'bg-amber-50 text-amber-900 ring-1 ring-amber-200'
         }`}
       >
@@ -168,7 +168,7 @@ export function OrderIssueHelpEmailResendButton(props: Omit<ButtonHTMLAttributes
     <HelpUiShell>
       <button
         type="button"
-        className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-800 shadow-sm sm:text-fluid-2xs"
+        className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 shadow-sm sm:text-fluid-2xs"
         {...previewProps()}
         {...props}
       >

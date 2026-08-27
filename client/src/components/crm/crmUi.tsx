@@ -208,7 +208,7 @@ export function CrmSegmentItem({
       type="button"
       onClick={onClick}
       className={`inline-flex items-center gap-1 rounded-lg font-semibold transition-all whitespace-nowrap ${
-        compact ? 'px-2 py-1 text-[11px]' : 'gap-1.5 px-3 py-2 text-fluid-xs'
+        compact ? 'px-2 py-1 text-[12px]' : 'gap-1.5 px-3 py-2 text-fluid-xs'
       } ${active ? tone.segmentActive : 'text-slate-600 hover:bg-white/80'}`}
     >
       {icon ? <span className={`shrink-0 ${active ? 'opacity-95' : 'opacity-70'}`}>{icon}</span> : null}
@@ -239,7 +239,7 @@ export function CrmChip({
       title={title}
       onClick={onClick}
       className={`font-semibold whitespace-nowrap transition-all ${
-        compact ? 'rounded-md px-2 py-0.5 text-[10px]' : 'rounded-lg px-3 py-1.5 text-fluid-xs'
+        compact ? 'rounded-md px-2 py-0.5 text-[11px]' : 'rounded-lg px-3 py-1.5 text-fluid-xs'
       } ${active ? tone.chipActive : tone.chipIdle}`}
     >
       {children}
@@ -279,7 +279,7 @@ export function CrmSectionLabel({
   const color =
     accent === 'intake' ? 'text-emerald-700' : accent === 'script' ? 'text-violet-700' : 'text-amber-800';
   return (
-    <p className={`mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide ${color}`}>
+    <p className={`mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide ${color}`}>
       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" aria-hidden />
       {children}
     </p>

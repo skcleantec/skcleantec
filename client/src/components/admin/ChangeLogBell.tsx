@@ -64,7 +64,7 @@ function CategoryChips({ categories }: { categories: ChangeLogCategory[] }) {
         return (
           <span
             key={c}
-            className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none ${m.chip}`}
+            className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[11px] font-medium leading-none ${m.chip}`}
           >
             {m.label}
           </span>
@@ -447,8 +447,8 @@ export function ChangeLogBell({
       {unseen > 0 && (
         <span className={`absolute -right-0.5 -top-0.5 flex items-center justify-center rounded-full bg-red-600 font-bold text-white ring-2 ring-white ${
           mobileStack
-            ? 'min-h-[16px] min-w-[16px] px-0.5 text-[10px] leading-none'
-            : 'min-h-[18px] min-w-[18px] px-1 text-[10px]'
+            ? 'min-h-[16px] min-w-[16px] px-0.5 text-[11px] leading-none'
+            : 'min-h-[18px] min-w-[18px] px-1 text-[11px]'
         }`}>
           {unseen > 99 ? '99+' : unseen}
         </span>

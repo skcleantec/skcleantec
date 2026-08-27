@@ -92,7 +92,7 @@ export function ProfOptionEmojiPicker({ value, onChange, className = '', compact
             role="listbox"
             aria-label="청소 관련 이모지"
           >
-            <p className="text-[10px] text-gray-500 mb-1.5 px-0.5">청소·시공 관련 이모지</p>
+            <p className="text-[11px] text-gray-500 mb-1.5 px-0.5">청소·시공 관련 이모지</p>
             <div className="grid grid-cols-8 gap-0.5 max-h-40 overflow-y-auto overscroll-contain">
               {CLEANING_PROF_OPTION_EMOJIS.map((em) => (
                 <button
@@ -114,7 +114,7 @@ export function ProfOptionEmojiPicker({ value, onChange, className = '', compact
             </div>
             <button
               type="button"
-              className="mt-1.5 w-full text-[10px] text-gray-500 py-1 hover:text-gray-800"
+              className="mt-1.5 w-full text-[11px] text-gray-500 py-1 hover:text-gray-800"
               onClick={() => {
                 onChange('');
                 setOpen(false);

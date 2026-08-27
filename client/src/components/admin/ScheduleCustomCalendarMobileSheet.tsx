@@ -109,7 +109,7 @@ export function ScheduleCustomCalendarDesktopMenuTrigger({
       <span className="min-w-0 flex-1">
         <span className="block text-fluid-xs font-semibold text-white">맞춤 캘린더</span>
         <span
-          className="mt-0.5 block truncate text-[10px] leading-snug text-slate-400"
+          className="mt-0.5 block truncate text-[11px] leading-snug text-slate-400"
           title={activeLabels.length > 0 ? activeLabels.join(' · ') : undefined}
         >
           {activeLabels.length > 0 ? activeLabels.join(' · ') : '지역 · 업체 · 파트너 필터'}
@@ -256,7 +256,7 @@ export function ScheduleCustomCalendarMobileSheet({
               맞춤 캘린더
             </h2>
             {activeFilterLabels.length > 0 ? (
-              <p className="mt-0.5 truncate text-[10px] text-slate-500 leading-tight">
+              <p className="mt-0.5 truncate text-[11px] text-slate-500 leading-tight">
                 {activeFilterLabels.join(' ∩ ')}
               </p>
             ) : null}
@@ -281,7 +281,7 @@ export function ScheduleCustomCalendarMobileSheet({
                 className="flex w-full items-center justify-between rounded-xl border border-dashed border-slate-300 bg-slate-50/80 px-3 py-2.5 min-h-[38px] touch-manipulation hover:bg-slate-100/80 transition-colors"
                 aria-expanded={addExpanded}
               >
-                <span className="text-[11px] font-semibold text-slate-800">캘린더 추가</span>
+                <span className="text-[12px] font-semibold text-slate-800">캘린더 추가</span>
                 <span className="text-base font-light leading-none text-slate-600" aria-hidden>
                   {addExpanded ? '−' : '+'}
                 </span>
@@ -292,9 +292,9 @@ export function ScheduleCustomCalendarMobileSheet({
                     <button
                       type="button"
                       onClick={handleAddRegion}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] text-slate-700 hover:bg-slate-100 min-h-[34px] touch-manipulation leading-tight transition-colors"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-slate-700 hover:bg-slate-100 min-h-[34px] touch-manipulation leading-tight transition-colors"
                     >
-                      <span className="w-2.5 text-center text-[10px] text-slate-400">—</span>
+                      <span className="w-2.5 text-center text-[11px] text-slate-400">—</span>
                       지역 캘린더
                     </button>
                   </li>
@@ -302,9 +302,9 @@ export function ScheduleCustomCalendarMobileSheet({
                     <button
                       type="button"
                       onClick={handleAddCompany}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] text-slate-700 hover:bg-slate-100 min-h-[34px] touch-manipulation leading-tight transition-colors"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-slate-700 hover:bg-slate-100 min-h-[34px] touch-manipulation leading-tight transition-colors"
                     >
-                      <span className="w-2.5 text-center text-[10px] text-slate-400">—</span>
+                      <span className="w-2.5 text-center text-[11px] text-slate-400">—</span>
                       업체 캘린더
                     </button>
                   </li>
@@ -313,9 +313,9 @@ export function ScheduleCustomCalendarMobileSheet({
                       <button
                         type="button"
                         onClick={handleAddPartner}
-                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] text-slate-700 hover:bg-slate-100 min-h-[34px] touch-manipulation leading-tight transition-colors"
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-slate-700 hover:bg-slate-100 min-h-[34px] touch-manipulation leading-tight transition-colors"
                       >
-                        <span className="w-2.5 text-center text-[10px] text-slate-400">—</span>
+                        <span className="w-2.5 text-center text-[11px] text-slate-400">—</span>
                         파트너 캘린더
                       </button>
                     </li>
@@ -334,8 +334,8 @@ export function ScheduleCustomCalendarMobileSheet({
                 : ''
             }`}
           >
-            <span className="shrink-0 w-2 text-center text-[10px] text-slate-400">—</span>
-            <span className="text-[11px] leading-tight">전체</span>
+            <span className="shrink-0 w-2 text-center text-[11px] text-slate-400">—</span>
+            <span className="text-[12px] leading-tight">전체</span>
           </button>
 
           <ScheduleCustomCalendarListSection
@@ -378,7 +378,7 @@ export function ScheduleCustomCalendarMobileSheet({
           <Link
             to="/admin/service-zones"
             onClick={onClose}
-            className="block text-center text-[10px] font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline py-0.5 leading-tight"
+            className="block text-center text-[11px] font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline py-0.5 leading-tight"
           >
             서비스 권역 관리
           </Link>

@@ -799,7 +799,7 @@ export function TeamLayout() {
   }, [location.pathname, location.search]);
 
   const drawerNavClass = ({ isActive }: { isActive: boolean }) =>
-    `group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition-all touch-manipulation ${
+    `group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[14px] transition-all touch-manipulation ${
       isActive
         ? 'bg-blue-600 font-semibold text-white shadow-sm shadow-blue-900/20'
         : 'text-slate-300 hover:bg-white/10 hover:text-white'
@@ -848,7 +848,7 @@ export function TeamLayout() {
                 onClick={openMarketplaceHandoffConfirmedInquiry}
                 className="flex w-full items-center justify-center bg-gradient-to-r from-emerald-600 to-green-600 px-10 py-1.5 hover:from-emerald-700 hover:to-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-12"
               >
-                <p className="max-w-4xl text-center text-[11px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
+                <p className="max-w-4xl text-center text-[12px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
                   구매한 접수건이 인계가 완료되었습니다
                   {marketplaceHandoffConfirmedAlert.customerName ? (
                     <span className="font-normal text-emerald-50">

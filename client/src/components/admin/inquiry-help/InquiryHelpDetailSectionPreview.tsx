@@ -60,7 +60,7 @@ function Btn({
             ? 'border-indigo-300 bg-indigo-600 text-white'
             : 'border-slate-200 bg-white text-slate-800';
   return (
-    <span className={`inline-flex items-center rounded-lg border px-2 py-1 text-[10px] font-medium ${cls}`}>
+    <span className={`inline-flex items-center rounded-lg border px-2 py-1 text-[11px] font-medium ${cls}`}>
       {children}
     </span>
   );
@@ -68,7 +68,7 @@ function Btn({
 
 function PreviewRoot({ enlarged, children }: { enlarged?: boolean; children: ReactNode }) {
   return (
-    <div className={`pointer-events-none select-none ${enlarged ? 'text-fluid-xs' : 'text-[11px] sm:text-fluid-2xs'}`}>
+    <div className={`pointer-events-none select-none ${enlarged ? 'text-fluid-xs' : 'text-[12px] sm:text-fluid-2xs'}`}>
       {children}
     </div>
   );
@@ -98,7 +98,7 @@ function MockYmdCompact({ y, m, d }: { y: number; m: number; d: number }) {
 
 function MockScheduleSectionPreview({ enlarged = false }: { enlarged?: boolean }) {
   const label = enlarged ? 'text-fluid-sm font-semibold text-slate-700 mb-1.5' : 'text-fluid-xs font-semibold text-slate-700 mb-1';
-  const link = enlarged ? 'text-fluid-xs font-medium text-blue-600' : 'text-[11px] font-medium text-blue-600';
+  const link = enlarged ? 'text-fluid-xs font-medium text-blue-600' : 'text-[12px] font-medium text-blue-600';
   const boxPad = enlarged ? 'p-3 sm:p-4' : 'p-2 sm:p-3';
   const readBox = enlarged ? 'text-fluid-sm' : 'text-fluid-2xs';
 
@@ -142,7 +142,7 @@ function MockScheduleSectionPreview({ enlarged = false }: { enlarged?: boolean }
                   이사 날짜
                   <span className="ml-1 font-normal text-slate-400">(선택)</span>
                 </label>
-                <label className="flex items-center gap-1.5 text-[11px] text-slate-600 sm:text-fluid-2xs">
+                <label className="flex items-center gap-1.5 text-[12px] text-slate-600 sm:text-fluid-2xs">
                   <span className="inline-block h-3.5 w-3.5 rounded border border-slate-300 bg-white" />
                   미정 (추후 확정)
                 </label>
@@ -178,7 +178,7 @@ export function InquiryHelpDetailSectionPreviewInner({
   id: InquiryHelpDetailPreviewId;
   enlarged?: boolean;
 }) {
-  const t = enlarged ? 'text-fluid-2xs' : 'text-[10px]';
+  const t = enlarged ? 'text-fluid-2xs' : 'text-[11px]';
 
   switch (id) {
     case 'assignment-overview':

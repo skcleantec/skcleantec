@@ -92,7 +92,7 @@ export function CrmScriptAiCenterPanel({
               <button
                 type="button"
                 onClick={() => selectTab('ai')}
-                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1 ${
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-semibold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1 ${
                   tab === 'ai'
                     ? 'crm-ai-shimmer border border-violet-300/70 bg-gradient-to-r from-violet-600 via-sky-500 to-cyan-500 text-white shadow-md shadow-violet-400/35 crm-ai-glow-ring'
                     : 'text-slate-600 hover:bg-white/80'

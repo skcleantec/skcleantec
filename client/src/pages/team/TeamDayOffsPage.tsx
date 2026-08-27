@@ -231,8 +231,8 @@ export function TeamDayOffsPage() {
                 >
                   {d}
                   {isOff ? (
-                    <span className="block text-[10px] leading-tight">
-                      <TeamBiLine id="team.dayoffs.cellLabel" koClassName="text-[10px] leading-tight text-red-700" />
+                    <span className="block text-[11px] leading-tight">
+                      <TeamBiLine id="team.dayoffs.cellLabel" koClassName="text-[11px] leading-tight text-red-700" />
                     </span>
                   ) : null}
                 </div>

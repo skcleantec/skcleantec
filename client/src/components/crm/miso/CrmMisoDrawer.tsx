@@ -51,7 +51,7 @@ export function CrmMisoDrawer({
       subtitle="에뮬레이터 미소 채팅방으로 전송"
     >
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
-        <p className="rounded-lg border border-violet-100 bg-violet-50/80 px-2.5 py-1.5 text-[11px] text-violet-900">
+        <p className="rounded-lg border border-violet-100 bg-violet-50/80 px-2.5 py-1.5 text-[12px] text-violet-900">
           {inChatHint}
         </p>
         <textarea
@@ -62,7 +62,7 @@ export function CrmMisoDrawer({
           disabled={sendDisabled}
           className="min-h-[120px] w-full resize-y rounded-xl border border-slate-200 px-3 py-2 text-fluid-xs text-slate-900 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:opacity-50"
         />
-        {error ? <p className="text-[11px] text-rose-600">{error}</p> : null}
+        {error ? <p className="text-[12px] text-rose-600">{error}</p> : null}
         <div className="mt-auto flex gap-2 pt-1">
           <button
             type="button"

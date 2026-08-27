@@ -110,7 +110,7 @@ export function TelecrmGeneralSettingsPage() {
                 placeholder="0 — 미적용"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
               />
-              <span className="text-[10px] text-gray-500">0이면 평수×평당만 사용합니다.</span>
+              <span className="text-[11px] text-gray-500">0이면 평수×평당만 사용합니다.</span>
             </label>
             <label className="block space-y-1">
               <span className="text-fluid-xs font-medium text-gray-700">예약금 (원)</span>

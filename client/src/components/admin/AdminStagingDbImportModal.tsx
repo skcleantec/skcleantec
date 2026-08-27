@@ -145,7 +145,7 @@ export function AdminStagingDbImportModal({ open, onClose, token, onSessionExpir
           <div className="mt-3 rounded border border-gray-100 bg-gray-50 px-3 py-2 text-fluid-2xs text-gray-700 space-y-2">
             <div>
               <p className="font-medium text-gray-800">운영(덤프 소스)</p>
-              <p className="font-mono text-[11px] break-all">{preflight.sourceLabel}</p>
+              <p className="font-mono text-[12px] break-all">{preflight.sourceLabel}</p>
               <p>
                 접수 {preflight.source.inquiryCount} · tenant {preflight.source.tenantCount} · user{' '}
                 {preflight.source.userCount}
@@ -154,7 +154,7 @@ export function AdminStagingDbImportModal({ open, onClose, token, onSessionExpir
             </div>
             <div>
               <p className="font-medium text-gray-800">스테이징(복원 대상)</p>
-              <p className="font-mono text-[11px] break-all">{preflight.targetLabel}</p>
+              <p className="font-mono text-[12px] break-all">{preflight.targetLabel}</p>
               <p>
                 접수 {preflight.target.inquiryCount} · tenant {preflight.target.tenantCount} · user{' '}
                 {preflight.target.userCount}

@@ -483,7 +483,7 @@ export function TeamInquiryBrandListBadge({
   });
   return (
     <span
-      className={`inline-flex h-5 min-w-[1.625rem] shrink-0 items-center justify-center rounded-md px-1 text-[10px] font-bold leading-none tracking-tight ring-1 ring-inset sm:text-fluid-2xs ${colorCls} ${className}`}
+      className={`inline-flex h-5 min-w-[1.625rem] shrink-0 items-center justify-center rounded-md px-1 text-[11px] font-bold leading-none tracking-tight ring-1 ring-inset sm:text-fluid-2xs ${colorCls} ${className}`}
       title={oc.name}
     >
       {short}
@@ -552,7 +552,7 @@ export function TeamInquirySpecialNotesListBadge({
   if (!preview) return null;
   return (
     <span
-      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold leading-none text-violet-800 ring-1 ring-violet-300/80 ${className}`}
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-bold leading-none text-violet-800 ring-1 ring-violet-300/80 ${className}`}
       title={preview}
       aria-label="특이사항"
     >
@@ -983,8 +983,8 @@ export function TeamAssignedLeadersBlock({
   if (compact) {
     return (
       <section className="min-w-0 border-b border-gray-100 py-1">
-        <h3 className="mb-px text-[11px] font-semibold text-gray-500">
-          <TeamBiLine id="team.modal.section.assignedLeaders" koClassName="text-[11px] font-semibold text-gray-500" />
+        <h3 className="mb-px text-[12px] font-semibold text-gray-500">
+          <TeamBiLine id="team.modal.section.assignedLeaders" koClassName="text-[12px] font-semibold text-gray-500" />
         </h3>
         <div className="space-y-px">{rows}</div>
       </section>
@@ -1025,7 +1025,7 @@ function TeamModalSection({
   if (compact) {
     return (
       <section className="min-w-0 border-b border-gray-100 py-1 last:border-b-0">
-        <h3 className="mb-px text-[11px] font-semibold text-gray-500">{title}</h3>
+        <h3 className="mb-px text-[12px] font-semibold text-gray-500">{title}</h3>
         <div className="space-y-px">{children}</div>
       </section>
     );
@@ -1056,14 +1056,14 @@ function TeamModalRow({
     if (compactStacked) {
       return (
         <div className="min-w-0 leading-tight">
-          <div className="text-[11px] font-medium text-gray-500">{label}</div>
+          <div className="text-[12px] font-medium text-gray-500">{label}</div>
           <div className="mt-px min-w-0 break-words text-fluid-2xs text-gray-900">{children}</div>
         </div>
       );
     }
     return (
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0 leading-tight">
-        <div className="shrink-0 text-[11px] font-medium text-gray-500">{label}</div>
+        <div className="shrink-0 text-[12px] font-medium text-gray-500">{label}</div>
         <div className="min-w-0 flex-1 break-words text-fluid-2xs text-gray-900">{children}</div>
       </div>
     );
@@ -1646,7 +1646,7 @@ export function TeamInquiryDetailModal({
                       label={
                         <TeamBiLine
                           id="team.modal.section.orderNotes"
-                          koClassName="text-[11px] font-medium text-gray-500"
+                          koClassName="text-[12px] font-medium text-gray-500"
                         />
                       }
                     >
@@ -2025,7 +2025,7 @@ export function TeamInquiryDetailModal({
                     id="team.modal.prefDateHint"
                     koClassName={
                       isExternalCompact
-                        ? 'text-[11px] leading-snug text-blue-900/75'
+                        ? 'text-[12px] leading-snug text-blue-900/75'
                         : 'text-fluid-2xs text-blue-900/80'
                     }
                   />
@@ -2277,16 +2277,16 @@ export function TeamInquiryDetailModal({
                 </summary>
                 <div className={`${EXTERNAL_DETAILS_BODY} space-y-1.5`}>
                   <div>
-                    <p className="mb-px text-[11px] font-medium text-gray-500">
-                      <TeamBiLine id="team.modal.consultationMemoLabel" koClassName="text-[11px] font-medium text-gray-500" />
+                    <p className="mb-px text-[12px] font-medium text-gray-500">
+                      <TeamBiLine id="team.modal.consultationMemoLabel" koClassName="text-[12px] font-medium text-gray-500" />
                     </p>
                     <div className={EXTERNAL_PLAIN_TEXT}>
                       {item.consultationMemo?.trim() ? item.consultationMemo.trim() : '—'}
                     </div>
                   </div>
                   <div>
-                    <p className="mb-px text-[11px] font-medium text-gray-500">
-                      <TeamBiLine id="team.modal.consultationThumbsLabel" koClassName="text-[11px] font-medium text-gray-500" />
+                    <p className="mb-px text-[12px] font-medium text-gray-500">
+                      <TeamBiLine id="team.modal.consultationThumbsLabel" koClassName="text-[12px] font-medium text-gray-500" />
                     </p>
                     {teamToken ? (
                       <InquiryConsultationPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded hideThumbLabel />

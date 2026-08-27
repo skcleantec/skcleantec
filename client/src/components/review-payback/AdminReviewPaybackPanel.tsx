@@ -91,7 +91,7 @@ function ReviewCaptureListPreview({ images }: { images: ReviewPaybackImageItem[]
       />
       {extra > 0 ? (
         <span
-          className="pointer-events-none absolute -bottom-0.5 -right-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-slate-900/90 px-1 text-[10px] font-bold leading-none text-white tabular-nums ring-2 ring-white"
+          className="pointer-events-none absolute -bottom-0.5 -right-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-slate-900/90 px-1 text-[11px] font-bold leading-none text-white tabular-nums ring-2 ring-white"
           title={`총 ${images.length}장`}
           aria-label={`외 ${extra}장`}
         >
@@ -279,7 +279,7 @@ export function AdminReviewPaybackPanel({ token }: Props) {
               type="button"
               disabled={unseenOnly}
               onClick={() => setFilterStatus(c.value)}
-              className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-45 ${
+              className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-45 ${
                 filterStatus === c.value && !unseenOnly
                   ? 'border-slate-800 bg-slate-900 text-white'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
@@ -294,7 +294,7 @@ export function AdminReviewPaybackPanel({ token }: Props) {
               setUnseenOnly((v) => !v);
               if (!unseenOnly) setFilterStatus('');
             }}
-            className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
+            className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
               unseenOnly
                 ? 'border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-200/50'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
@@ -390,7 +390,7 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                         <div className="font-semibold text-slate-900">{row.customerName}</div>
                         <div className="text-slate-500 font-medium tabular-nums">{displayPhone(row.customerPhone)}</div>
                         {row.inquiry?.inquiryNumber ? (
-                          <div className="text-slate-500 font-mono text-[11px] tabular-nums mt-0.5">{row.inquiry.inquiryNumber}</div>
+                          <div className="text-slate-500 font-mono text-[12px] tabular-nums mt-0.5">{row.inquiry.inquiryNumber}</div>
                         ) : null}
                       </td>
                       <td className="px-2 py-2.5 text-slate-700 font-medium">
@@ -403,16 +403,16 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                       </td>
                       <td className="px-2 py-2.5 text-center">
                         <span
-                          className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold ${statusTone(row.status)}`}
+                          className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold ${statusTone(row.status)}`}
                         >
                           {STATUS_LABEL[row.status]}
                         </span>
                         {row.handledBy?.name ? (
-                          <div className="mt-0.5 text-[10px] text-slate-500 font-medium">{row.handledBy.name}</div>
+                          <div className="mt-0.5 text-[11px] text-slate-500 font-medium">{row.handledBy.name}</div>
                         ) : null}
                       </td>
                       <td className="px-2 py-2.5 text-center">
-                        <div className="flex flex-wrap justify-center gap-1.5 [&>a]:inline-flex [&>a]:items-center [&>a]:rounded-lg [&>a]:border [&>a]:px-2.5 [&>a]:py-1 [&>a]:text-[10px] [&>a]:font-semibold [&>a]:shadow-sm [&>a]:transition-all [&>a]:duration-150 hover:[&>a]:scale-[1.03] active:[&>a]:scale-[0.97]">
+                        <div className="flex flex-wrap justify-center gap-1.5 [&>a]:inline-flex [&>a]:items-center [&>a]:rounded-lg [&>a]:border [&>a]:px-2.5 [&>a]:py-1 [&>a]:text-[11px] [&>a]:font-semibold [&>a]:shadow-sm [&>a]:transition-all [&>a]:duration-150 hover:[&>a]:scale-[1.03] active:[&>a]:scale-[0.97]">
                           {row.inquiry?.id ? (
                             <Link
                               to={`/admin/inquiries?openInquiry=${encodeURIComponent(row.inquiry.id)}`}
@@ -474,7 +474,7 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                       {formatDateCompactWithWeekday(row.submittedAt)}
                     </p>
                   </div>
-                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold ${statusTone(row.status)}`}>
+                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${statusTone(row.status)}`}>
                     {STATUS_LABEL[row.status]}
                   </span>
                 </div>

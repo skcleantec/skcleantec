@@ -174,7 +174,7 @@ export function InquiryConsultationPhotosPanel({
                 galleryIndex={items.findIndex((p) => p.id === photo.id)}
               />
               <div
-                className="px-1 py-0.5 text-[10px] leading-tight text-gray-600 truncate"
+                className="px-1 py-0.5 text-[11px] leading-tight text-gray-600 truncate"
                 title={photo.uploadedBy.name}
               >
                 {photo.uploadedBy.name}
@@ -182,7 +182,7 @@ export function InquiryConsultationPhotosPanel({
               {variant === 'admin' ? (
                 <button
                   type="button"
-                  className="absolute top-0.5 right-0.5 z-10 px-1 py-0.5 rounded bg-black/55 text-white text-[10px] hover:bg-black/70 touch-manipulation"
+                  className="absolute top-0.5 right-0.5 z-10 px-1 py-0.5 rounded bg-black/55 text-white text-[11px] hover:bg-black/70 touch-manipulation"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDeleteTarget(photo);

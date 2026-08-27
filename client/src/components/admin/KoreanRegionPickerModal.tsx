@@ -169,7 +169,7 @@ export function KoreanRegionPickerModal({ open, onClose, value, onApply }: Props
 
               <div className="space-y-2">
                 <p className="text-xs font-medium text-slate-600">시·군·구 개별 선택</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
+                <p className="text-[12px] text-slate-500 leading-snug">
                   위 「전체」 없이 아래만 골라도 됩니다. 여러 시·도에서 섞어 선택할 수 있습니다.
                 </p>
                 {renderCityGrid(activeGroup)}
@@ -179,7 +179,7 @@ export function KoreanRegionPickerModal({ open, onClose, value, onApply }: Props
         </div>
 
         <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-3 space-y-2">
-          <p className="text-[11px] font-medium text-slate-600">선택한 지역</p>
+          <p className="text-[12px] font-medium text-slate-600">선택한 지역</p>
           <div className="flex flex-wrap gap-1.5 min-h-[2rem] max-h-24 overflow-y-auto">
             {draft.length === 0 ? (
               <span className="text-xs text-slate-400">선택된 지역이 없습니다.</span>
@@ -187,7 +187,7 @@ export function KoreanRegionPickerModal({ open, onClose, value, onApply }: Props
               draft.map((r) => (
                 <span
                   key={r}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 pl-2.5 pr-1 py-0.5 text-[11px] text-slate-800"
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 pl-2.5 pr-1 py-0.5 text-[12px] text-slate-800"
                 >
                   <span>{r}</span>
                   <button

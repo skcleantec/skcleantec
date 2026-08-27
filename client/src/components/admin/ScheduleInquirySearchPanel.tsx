@@ -74,8 +74,8 @@ export function ScheduleInquirySearchPanel({
     <div className={className}>
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="shrink-0 border-b border-slate-100 px-2.5 py-2">
-          <h2 className="font-semibold text-slate-900 text-[12px] leading-tight">접수 검색</h2>
-          <p className="mt-0.5 text-[10px] text-slate-400 leading-tight">고객명 · 전화 · 접수번호 · 주소</p>
+          <h2 className="font-semibold text-slate-900 text-[13px] leading-tight">접수 검색</h2>
+          <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">고객명 · 전화 · 접수번호 · 주소</p>
         </div>
         <div className="px-2.5 py-2">
           <input
@@ -97,11 +97,11 @@ export function ScheduleInquirySearchPanel({
           {showResults ? (
             <div className="mt-2 min-w-0">
               {loading ? (
-                <p className="py-2 text-center text-[11px] text-slate-500">검색 중…</p>
+                <p className="py-2 text-center text-[12px] text-slate-500">검색 중…</p>
               ) : error ? (
-                <p className="py-2 text-center text-[11px] text-rose-600">{error}</p>
+                <p className="py-2 text-center text-[12px] text-rose-600">{error}</p>
               ) : items.length === 0 ? (
-                <p className="py-2 text-center text-[11px] text-slate-500">검색 결과가 없습니다.</p>
+                <p className="py-2 text-center text-[12px] text-slate-500">검색 결과가 없습니다.</p>
               ) : (
                 <ul
                   className="max-h-[min(40vh,16rem)] space-y-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
@@ -125,19 +125,19 @@ export function ScheduleInquirySearchPanel({
                           onClick={() => handlePick(item)}
                           className="flex w-full min-w-0 flex-col rounded-lg border border-slate-100 bg-slate-50/80 px-2 py-1.5 text-left hover:border-sky-200 hover:bg-sky-50/60 active:bg-sky-100/50 touch-manipulation"
                         >
-                          <span className="truncate text-[11px] font-semibold text-slate-900" title={label}>
+                          <span className="truncate text-[12px] font-semibold text-slate-900" title={label}>
                             {label}
                             {item.inquiryNumber ? (
-                              <span className="ml-1 font-mono text-[10px] font-medium text-slate-500 tabular-nums">
+                              <span className="ml-1 font-mono text-[11px] font-medium text-slate-500 tabular-nums">
                                 {item.inquiryNumber}
                               </span>
                             ) : null}
                           </span>
-                          <span className="mt-0.5 truncate text-[10px] text-slate-600" title={item.customerPhone}>
+                          <span className="mt-0.5 truncate text-[11px] text-slate-600" title={item.customerPhone}>
                             {item.customerPhone}
                             {addr ? ` · ${addr}` : ''}
                           </span>
-                          <span className="mt-0.5 text-[10px] text-slate-500 tabular-nums">
+                          <span className="mt-0.5 text-[11px] text-slate-500 tabular-nums">
                             {dateLabel}
                             {timeLabel ? ` · ${timeLabel}` : ''}
                           </span>

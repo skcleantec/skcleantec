@@ -58,7 +58,7 @@ export function InquiryEditProfessionalOptionsPanel({
             sum={savedDisplay.sum}
             className="text-fluid-2xs text-violet-950"
           />
-          <p className="mt-1.5 text-[10px] leading-snug text-violet-800/90">
+          <p className="mt-1.5 text-[11px] leading-snug text-violet-800/90">
             아래 체크 목록은 수정용입니다. 대분류를 펼쳐야 세부 항목이 보일 수 있습니다.
           </p>
         </div>
@@ -121,7 +121,7 @@ export function InquiryEditProfessionalOptionsPanel({
                       {root.emoji ? `${root.emoji} ` : null}
                       {root.label}
                     </span>
-                    <span className="mt-0.5 block text-[10px] text-gray-500">
+                    <span className="mt-0.5 block text-[11px] text-gray-500">
                       선택 시 세부 항목이 표시됩니다.
                     </span>
                   </span>
@@ -164,7 +164,7 @@ export function InquiryEditProfessionalOptionsPanel({
                               <span className="min-w-0">
                                 {o.emoji ? <span className="mr-0.5">{o.emoji}</span> : null}
                                 <span className="font-medium text-gray-700">{o.label}</span>
-                                <span className="mt-0.5 block text-[10px] text-gray-500">
+                                <span className="mt-0.5 block text-[11px] text-gray-500">
                                   선택 시 세부 금액 항목
                                 </span>
                               </span>

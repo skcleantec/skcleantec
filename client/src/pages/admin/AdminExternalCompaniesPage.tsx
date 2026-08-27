@@ -69,7 +69,7 @@ function externalCompanyMobileLine(row: ExternalCompanyListItem): { line: string
 }
 
 const externalMobileActionBtn =
-  'shrink-0 rounded border px-2 py-1 text-[11px] font-medium leading-none touch-manipulation whitespace-nowrap';
+  'shrink-0 rounded border px-2 py-1 text-[12px] font-medium leading-none touch-manipulation whitespace-nowrap';
 
 export function AdminExternalCompaniesPage() {
   const token = getToken();
@@ -500,7 +500,7 @@ export function AdminExternalCompaniesPage() {
                       >
                         <span className="font-semibold text-gray-900">{row.name}</span>
                         {isExternalCompanyUsageDisabled(row.usageDisabledAt) ? (
-                          <span className="ml-1 inline-flex align-middle rounded bg-amber-50 border border-amber-200 px-1 py-px text-[10px] font-medium text-amber-900">
+                          <span className="ml-1 inline-flex align-middle rounded bg-amber-50 border border-amber-200 px-1 py-px text-[11px] font-medium text-amber-900">
                             사용안함
                           </span>
                         ) : null}
@@ -572,7 +572,7 @@ export function AdminExternalCompaniesPage() {
                           {row.name}
                         </span>
                         {isExternalCompanyUsageDisabled(row.usageDisabledAt) ? (
-                          <span className="ml-2 inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                          <span className="ml-2 inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[12px] font-medium text-amber-900">
                             사용 안 함
                           </span>
                         ) : null}

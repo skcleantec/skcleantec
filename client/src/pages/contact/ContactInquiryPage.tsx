@@ -80,7 +80,7 @@ function ContactPlatformFooter() {
   return (
     <footer className="mt-8">
       <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-4 py-5 text-center shadow-sm">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Powered by</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Powered by</p>
         <p className="mt-1.5 text-fluid-sm font-semibold text-slate-800">
           청소전문 솔루션 <span className="text-slate-900">청소비서</span>
         </p>

@@ -32,7 +32,7 @@ export function ProfOptionSelectionSummary({
         ))}
       </ul>
       {sum > 0 && !hideSumLine ? (
-        <p className="text-[11px] font-medium text-gray-700 mt-2 tabular-nums">
+        <p className="text-[12px] font-medium text-gray-700 mt-2 tabular-nums">
           추가 금액 합계 {sum.toLocaleString('ko-KR')}원
         </p>
       ) : null}

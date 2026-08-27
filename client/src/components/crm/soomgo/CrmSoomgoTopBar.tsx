@@ -72,7 +72,7 @@ export function CrmSoomgoTopBar({
         </div>
 
         {!bridgeUp ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11px] text-amber-900">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[12px] text-amber-900">
             <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold">브릿지 미실행</span>
             <span className="hidden min-w-0 truncate sm:inline" title={SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE}>
               「청소비서 숨고 연동」프로그램 실행 후 연결
@@ -96,7 +96,7 @@ export function CrmSoomgoTopBar({
             </button>
           </div>
         ) : outdated ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11px] text-rose-900">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[12px] text-rose-900">
             <span className="rounded-full bg-rose-100 px-2 py-0.5 font-semibold">업데이트 필요</span>
             <span className="hidden min-w-0 truncate sm:inline">
               {currentLabel && latestLabel
@@ -132,7 +132,7 @@ export function CrmSoomgoTopBar({
             </button>
           </div>
         ) : softUpdate ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11px] text-amber-900">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[12px] text-amber-900">
             <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold">
               {updateReady ? '업데이트 준비됨' : updatePhase === 'downloading' ? '다운로드 중' : '새 버전'}
             </span>
@@ -174,7 +174,7 @@ export function CrmSoomgoTopBar({
             </button>
           </div>
         ) : (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[10px]">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[11px]">
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">브릿지 연결</span>
             {status?.appVersion ? (
               <span className="rounded-full bg-white px-2 py-0.5 text-slate-600 ring-1 ring-sky-100">
@@ -224,7 +224,7 @@ export function CrmSoomgoTopBar({
               type="button"
               disabled={busy}
               onClick={() => void onRestartBridge()}
-              className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-50"
+              className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-[12px] font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-50"
             >
               재시작
             </button>
@@ -233,7 +233,7 @@ export function CrmSoomgoTopBar({
             <button
               type="button"
               onClick={onOpenSettings}
-              className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-medium text-sky-800 hover:bg-sky-50"
+              className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-[12px] font-medium text-sky-800 hover:bg-sky-50"
             >
               계정·연동
             </button>
@@ -242,14 +242,14 @@ export function CrmSoomgoTopBar({
             type="button"
             disabled={busy || !bridgeUp || outdated || useBlocked}
             onClick={() => void onOpenSoomgo()}
-            className="rounded-lg bg-sky-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+            className="rounded-lg bg-sky-600 px-3 py-1 text-[12px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
           >
             {busy ? '연결 중…' : inRoom ? '채팅 유지' : '채팅 열기 / 로그인'}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-[12px] text-slate-600 hover:bg-slate-50"
             aria-label="숨고 연동 바 닫기"
           >
             닫기
@@ -258,16 +258,16 @@ export function CrmSoomgoTopBar({
       </div>
 
       {busyLabel ? (
-        <p className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-medium text-amber-900">
+        <p className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2 text-[12px] font-medium text-amber-900">
           <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" aria-hidden />
           {busyLabel} Chrome 숨고 창을 건드리지 마세요.
         </p>
       ) : null}
       {pageHint && !error && !busyLabel ? (
-        <p className="border-t border-sky-100/80 bg-white/60 px-4 py-1.5 text-[11px] text-sky-800">{pageHint}</p>
+        <p className="border-t border-sky-100/80 bg-white/60 px-4 py-1.5 text-[12px] text-sky-800">{pageHint}</p>
       ) : null}
       {error ? (
-        <p className="border-t border-rose-100 bg-rose-50 px-4 py-1.5 text-[11px] text-rose-700">{error}</p>
+        <p className="border-t border-rose-100 bg-rose-50 px-4 py-1.5 text-[12px] text-rose-700">{error}</p>
       ) : null}
     </div>
   );

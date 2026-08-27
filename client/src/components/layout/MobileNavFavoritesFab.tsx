@@ -108,7 +108,7 @@ function MobileNavFavoritesSheet({
               즐겨찾기
             </h2>
             {items.length > 0 ? (
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-200">
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-200">
                 {items.length}
               </span>
             ) : null}
@@ -149,7 +149,7 @@ function MobileNavFavoritesSheet({
             </ul>
           )}
         </div>
-        <p className="shrink-0 border-t border-white/10 px-4 py-2 text-center text-[10px] text-slate-400">
+        <p className="shrink-0 border-t border-white/10 px-4 py-2 text-center text-[11px] text-slate-400">
           아래 ★ 버튼 또는 화면 제목 옆 ★로 관리
         </p>
       </div>
@@ -178,7 +178,7 @@ function MobileNavFavoritesFabButton({ count, onPointerDown, onOpen, deferTapToP
     >
       <StarFabIcon className={MOBILE_STAFF_DOCK_ICON_CLASS} />
       {count > 0 ? (
-        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-[10px] font-bold leading-none text-slate-950 tabular-nums ring-1 ring-violet-700">
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-[11px] font-bold leading-none text-slate-950 tabular-nums ring-1 ring-violet-700">
           {count > 9 ? '9+' : count}
         </span>
       ) : null}

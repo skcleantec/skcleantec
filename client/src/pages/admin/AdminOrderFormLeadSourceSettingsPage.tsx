@@ -173,7 +173,7 @@ export function AdminOrderFormLeadSourceSettingsPage({
                     <button
                       type="button"
                       disabled={busy || idx === 0}
-                      className="rounded border border-gray-300 px-1.5 py-0.5 text-[11px] disabled:opacity-30"
+                      className="rounded border border-gray-300 px-1.5 py-0.5 text-[12px] disabled:opacity-30"
                       onClick={() => void move(row, -1)}
                       aria-label="위로"
                     >
@@ -182,7 +182,7 @@ export function AdminOrderFormLeadSourceSettingsPage({
                     <button
                       type="button"
                       disabled={busy || idx === activeItems.length - 1}
-                      className="rounded border border-gray-300 px-1.5 py-0.5 text-[11px] disabled:opacity-30"
+                      className="rounded border border-gray-300 px-1.5 py-0.5 text-[12px] disabled:opacity-30"
                       onClick={() => void move(row, 1)}
                       aria-label="아래로"
                     >

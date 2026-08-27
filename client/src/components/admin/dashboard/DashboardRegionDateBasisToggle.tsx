@@ -23,7 +23,7 @@ export function DashboardRegionDateBasisToggle({ value, onChange, className = ''
             e.stopPropagation();
             onChange(opt.id);
           }}
-          className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+          className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition ${
             value === opt.id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
           }`}
         >

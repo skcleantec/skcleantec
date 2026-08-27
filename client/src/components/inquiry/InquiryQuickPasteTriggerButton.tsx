@@ -21,7 +21,7 @@ export function InquiryQuickPasteTriggerButton({
     size === 'compact'
       ? 'h-auto w-auto gap-1.5 rounded-lg px-3 py-2 text-fluid-xs shadow-sm shadow-violet-500/20'
       : size === 'responsive-compact'
-        ? 'min-h-8 w-auto gap-1 lg:gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 lg:px-3 lg:py-2 text-[11px] sm:text-fluid-2xs lg:text-fluid-xs shadow-sm shadow-violet-500/20 whitespace-nowrap'
+        ? 'min-h-8 w-auto gap-1 lg:gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 lg:px-3 lg:py-2 text-[12px] sm:text-fluid-2xs lg:text-fluid-xs shadow-sm shadow-violet-500/20 whitespace-nowrap'
       : size === 'row'
         ? 'min-h-9 min-w-0 flex-1 gap-1 rounded-md px-1.5 py-1 text-fluid-2xs shadow-sm shadow-violet-500/20'
         : 'min-h-11 w-full gap-2 rounded-xl px-4 py-2.5 text-fluid-sm shadow-md shadow-violet-500/25';

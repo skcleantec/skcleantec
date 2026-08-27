@@ -168,7 +168,7 @@ function CapturePhotoThumb({
         />
         {pending ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-black/45">
-            <span className="text-[10px] font-semibold text-white">저장</span>
+            <span className="text-[11px] font-semibold text-white">저장</span>
           </div>
         ) : null}
         {onToggleFlag ? (
@@ -763,7 +763,7 @@ export function TeamPreCleanWizard({
               </button>
             </div>
             {pendingUploadCount > 0 ? (
-              <p className="pointer-events-none mx-auto mt-1 max-w-lg text-center text-[10px] text-sky-200/90">
+              <p className="pointer-events-none mx-auto mt-1 max-w-lg text-center text-[11px] text-sky-200/90">
                 백그라운드 저장 {pendingUploadCount}건 — 촬영은 계속할 수 있습니다
               </p>
             ) : null}
@@ -778,7 +778,7 @@ export function TeamPreCleanWizard({
               }`}
             >
               <p
-                className={`text-[11px] font-bold tracking-wide ${
+                className={`text-[12px] font-bold tracking-wide ${
                   isBeforePhase ? 'text-sky-300' : 'text-emerald-300'
                 }`}
               >
@@ -786,7 +786,7 @@ export function TeamPreCleanWizard({
               </p>
               <p className="mt-1.5 text-sm font-medium leading-snug text-white">{hint}</p>
               {!isBeforePhase && currentBeforePhoto ? (
-                <p className="mt-2 text-[11px] leading-snug text-emerald-100/90">
+                <p className="mt-2 text-[12px] leading-snug text-emerald-100/90">
                   왼쪽 하단 「청소 전」 사진과 같은 각도로 맞춰 촬영해 주세요.
                 </p>
               ) : null}
@@ -795,7 +795,7 @@ export function TeamPreCleanWizard({
 
           {!isBeforePhase && (
             <div className="pointer-events-auto absolute bottom-4 left-4 z-10">
-              <p className="mb-1 text-[10px] font-semibold tracking-wide text-sky-200">청소 전 참고</p>
+              <p className="mb-1 text-[11px] font-semibold tracking-wide text-sky-200">청소 전 참고</p>
               {currentBeforePhoto ? (
                 <ImageThumbLightbox
                   src={currentBeforePhoto.secureUrl}
@@ -822,7 +822,7 @@ export function TeamPreCleanWizard({
               <button
                 type="button"
                 onClick={() => setShowCapturedPhotos((open) => !open)}
-                className="pointer-events-auto absolute bottom-4 right-3 z-10 flex min-h-9 items-center gap-1.5 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm touch-manipulation active:scale-[0.98]"
+                className="pointer-events-auto absolute bottom-4 right-3 z-10 flex min-h-9 items-center gap-1.5 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur-sm touch-manipulation active:scale-[0.98]"
                 aria-expanded={showCapturedPhotos}
                 aria-label={`촬영 목록 ${areaBeforeEntries.length}장`}
               >
@@ -840,13 +840,13 @@ export function TeamPreCleanWizard({
               {showCapturedPhotos ? (
                 <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 max-h-[38%] border-t border-white/15 bg-black/88 px-3 pb-3 pt-2 backdrop-blur-md">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-[10px] text-gray-300">
+                    <p className="text-[11px] text-gray-300">
                       등록 {areaBeforeEntries.length}장 · ☆ 오염 심함 표시
                     </p>
                     <button
                       type="button"
                       onClick={() => setShowCapturedPhotos(false)}
-                      className="rounded-full px-2 py-1 text-[10px] font-semibold text-gray-300 touch-manipulation"
+                      className="rounded-full px-2 py-1 text-[11px] font-semibold text-gray-300 touch-manipulation"
                     >
                       접기
                     </button>
@@ -893,7 +893,7 @@ export function TeamPreCleanWizard({
               type="button"
               disabled={busy || capturing || itemIndex === 0}
               onClick={() => setItemIndex((i) => Math.max(0, i - 1))}
-              className="flex h-12 min-w-[3.5rem] flex-col items-center justify-center rounded-xl text-[11px] text-gray-300 touch-manipulation disabled:opacity-40"
+              className="flex h-12 min-w-[3.5rem] flex-col items-center justify-center rounded-xl text-[12px] text-gray-300 touch-manipulation disabled:opacity-40"
             >
               <span className="text-lg leading-none">←</span>
               이전
@@ -913,13 +913,13 @@ export function TeamPreCleanWizard({
               type="button"
               disabled={busy || capturing}
               onClick={() => void handleItemNa()}
-              className="flex h-12 min-w-[3.5rem] flex-col items-center justify-center rounded-xl text-[11px] text-amber-200 touch-manipulation disabled:opacity-50"
+              className="flex h-12 min-w-[3.5rem] flex-col items-center justify-center rounded-xl text-[12px] text-amber-200 touch-manipulation disabled:opacity-50"
             >
               해당
               <span>없음</span>
             </button>
           </div>
-          <p className="mt-2 text-center text-[11px] text-gray-400">
+          <p className="mt-2 text-center text-[12px] text-gray-400">
             셔터를 누르면 바로 다음 항목으로 이동합니다
             {isBeforePhase && areaBeforeEntries.length > 0 ? ' · 우하단에서 촬영 목록 확인' : ''}
           </p>
@@ -991,7 +991,7 @@ export function TeamPreCleanWizard({
                     />
                   )}
                   {complete && !area.notApplicable && (
-                    <span className="text-[10px] font-medium text-emerald-700">완료</span>
+                    <span className="text-[11px] font-medium text-emerald-700">완료</span>
                   )}
                 </div>
               </div>
@@ -1010,7 +1010,7 @@ export function TeamPreCleanWizard({
                     return (
                       <li
                         key={it.id}
-                        className={`truncate text-[10px] leading-tight ${
+                        className={`truncate text-[11px] leading-tight ${
                           done ? 'font-medium text-emerald-700' : 'text-gray-600'
                         }`}
                         title={it.label}
@@ -1031,7 +1031,7 @@ export function TeamPreCleanWizard({
                       type="button"
                       disabled={busy}
                       onClick={() => void handleUndoAreaNa(area.id)}
-                      className="min-h-[28px] rounded-lg border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] touch-manipulation disabled:opacity-50"
+                      className="min-h-[28px] rounded-lg border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] touch-manipulation disabled:opacity-50"
                     >
                       해당없음 해제
                     </button>
@@ -1041,7 +1041,7 @@ export function TeamPreCleanWizard({
                         type="button"
                         disabled={busy || !items.length}
                         onClick={() => void startCapture(area.id)}
-                        className="min-h-[32px] rounded-lg bg-gray-900 px-2 py-1 text-[11px] font-semibold text-white touch-manipulation disabled:opacity-50"
+                        className="min-h-[32px] rounded-lg bg-gray-900 px-2 py-1 text-[12px] font-semibold text-white touch-manipulation disabled:opacity-50"
                       >
                         {isBeforePhase ? '촬영 시작' : '청소 후 촬영'}
                       </button>
@@ -1061,7 +1061,7 @@ export function TeamPreCleanWizard({
                           type="button"
                           disabled={busy}
                           onClick={() => void handleAreaNa(area.id)}
-                          className="min-h-[28px] min-w-0 rounded-lg border border-amber-400 bg-amber-50 px-1 py-0.5 text-[10px] font-medium leading-tight text-amber-900 touch-manipulation disabled:opacity-50"
+                          className="min-h-[28px] min-w-0 rounded-lg border border-amber-400 bg-amber-50 px-1 py-0.5 text-[11px] font-medium leading-tight text-amber-900 touch-manipulation disabled:opacity-50"
                         >
                           해당없음
                         </button>

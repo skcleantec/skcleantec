@@ -14,9 +14,9 @@ function FlowNode({ node, compact }: { node: QuotationSendFlowNode; compact?: bo
         compact ? 'min-w-[4rem]' : 'min-w-[4.5rem] sm:min-w-[5.5rem]'
       }`}
     >
-      <p className={`font-semibold leading-snug ${compact ? 'text-[10px]' : 'text-fluid-2xs'}`}>{node.title}</p>
+      <p className={`font-semibold leading-snug ${compact ? 'text-[11px]' : 'text-fluid-2xs'}`}>{node.title}</p>
       {node.subtitle ? (
-        <p className={`mt-0.5 text-slate-600 leading-snug ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
+        <p className={`mt-0.5 text-slate-600 leading-snug ${compact ? 'text-[9px]' : 'text-[11px]'}`}>
           {node.subtitle}
         </p>
       ) : null}

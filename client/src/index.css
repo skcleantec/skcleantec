@@ -17,10 +17,10 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
-/** PWA(standalone) — iOS가 본문 글자를 키우는 것 방지 + rem 기준 소폭 축소 */
+/** PWA(standalone) — iOS 텍스트 자동 확대 방지, rem 기준은 브라우저와 동일(16px) */
 @media (display-mode: standalone) {
   html {
-    font-size: 15px;
+    font-size: 16px;
   }
 }
 
@@ -80,7 +80,7 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 /** PWA 목록 필터 select — 전역 16px 강제보다 컴팩트(줌 위험은 text-size-adjust 100%로 완화) */
 @media (display-mode: standalone) and (hover: none) and (pointer: coarse) {
   .staff-app-surface [data-staff-list-filter] select {
-    font-size: 14px !important;
+    font-size: 15px !important;
   }
 }
 
@@ -267,7 +267,7 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 
   .login-page-footer {
     margin-top: 0.75rem !important;
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
   }
 }
 
@@ -517,7 +517,7 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
 }
 
@@ -630,7 +630,7 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
   white-space: pre-wrap;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   padding: 9px 13px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
 }
 
@@ -651,21 +651,21 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 }
 
 .kakaotalk-unread-indicator {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #b8a200;
   line-height: 1;
 }
 
 .kakaotalk-read-indicator {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: #64748b;
   line-height: 1;
 }
 
 .kakaotalk-time-indicator {
-  font-size: 10px;
+  font-size: 11px;
   color: #4b5b6e;
   line-height: 1;
   white-space: nowrap;
@@ -696,7 +696,7 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
   border-radius: 21px;
   border: 1.5px solid #dde5ef;
   background: #ffffff;
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   color: #1e293b;
 }
@@ -712,7 +712,7 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
   background: #fee500;
   color: #0f172a;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   border: none;
   cursor: pointer;
   flex-shrink: 0;
@@ -728,7 +728,7 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 
 .kakaotalk-send-error {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #dc2626;
 }

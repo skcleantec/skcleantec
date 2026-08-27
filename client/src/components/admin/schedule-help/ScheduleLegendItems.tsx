@@ -10,7 +10,7 @@ export function ScheduleLegendItems({ compact = false }: { compact?: boolean }) 
   return (
     <div
       className={`flex flex-wrap items-center text-slate-600 ${
-        compact ? 'gap-x-3 gap-y-1 text-[10px] leading-snug' : 'gap-x-5 gap-y-2 text-fluid-xs leading-relaxed'
+        compact ? 'gap-x-3 gap-y-1 text-[11px] leading-snug' : 'gap-x-5 gap-y-2 text-fluid-xs leading-relaxed'
       }`}
     >
       <span className="inline-flex items-center gap-1.5">

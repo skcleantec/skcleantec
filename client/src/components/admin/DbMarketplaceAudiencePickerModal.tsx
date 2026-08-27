@@ -180,7 +180,7 @@ export function DbMarketplaceAudiencePickerModal({
 
   const renderPrioritySelect = (rank: 1 | 2 | 3, required: boolean) => (
     <label key={rank} className="flex flex-col gap-1">
-      <span className="text-[11px] font-medium text-gray-700">
+      <span className="text-[12px] font-medium text-gray-700">
         {rank}순위{required ? '' : ' (선택)'}
       </span>
       <select
@@ -194,7 +194,7 @@ export function DbMarketplaceAudiencePickerModal({
             return next;
           });
         }}
-        className="min-h-[2.5rem] w-full rounded-lg border border-gray-200 px-2 text-[11px] sm:min-h-9"
+        className="min-h-[2.5rem] w-full rounded-lg border border-gray-200 px-2 text-[12px] sm:min-h-9"
       >
         <option value="">{required ? '업체 선택' : '—'}</option>
         {allOptions.map((o) => (
@@ -220,17 +220,17 @@ export function DbMarketplaceAudiencePickerModal({
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {description ? (
-            <p className="text-[11px] text-gray-600 leading-relaxed">{description}</p>
+            <p className="text-[12px] text-gray-600 leading-relaxed">{description}</p>
           ) : null}
-          {loading ? <p className="text-[11px] text-gray-500">업체 목록 불러오는 중…</p> : null}
-          {loadError ? <p className="text-[11px] text-red-600">{loadError}</p> : null}
+          {loading ? <p className="text-[12px] text-gray-500">업체 목록 불러오는 중…</p> : null}
+          {loadError ? <p className="text-[12px] text-red-600">{loadError}</p> : null}
           <div className="flex gap-2">
             {(['ALL', 'SELECTED'] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => setVisibility(v)}
-                className={`min-h-[2.5rem] flex-1 rounded-lg px-3 py-2 text-[11px] font-medium sm:min-h-0 sm:flex-none sm:py-1.5 ${
+                className={`min-h-[2.5rem] flex-1 rounded-lg px-3 py-2 text-[12px] font-medium sm:min-h-0 sm:flex-none sm:py-1.5 ${
                   visibility === v ? 'bg-slate-900 text-white' : 'border border-gray-200 text-gray-600'
                 }`}
               >
@@ -239,7 +239,7 @@ export function DbMarketplaceAudiencePickerModal({
             ))}
           </div>
           {visibility === 'ALL' ? (
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[12px] text-gray-500">
               ACTIVE 파트너·등록 타업체 전체에 노출됩니다. 연결·등록되지 않은 업체는 볼 수 없습니다.
             </p>
           ) : null}
@@ -251,7 +251,7 @@ export function DbMarketplaceAudiencePickerModal({
                     key={m}
                     type="button"
                     onClick={() => setOfferMode(m)}
-                    className={`min-h-[2.5rem] flex-1 rounded-lg px-2 py-2 text-[11px] font-medium sm:min-h-0 sm:py-1.5 ${
+                    className={`min-h-[2.5rem] flex-1 rounded-lg px-2 py-2 text-[12px] font-medium sm:min-h-0 sm:py-1.5 ${
                       offerMode === m ? 'bg-violet-700 text-white' : 'border border-gray-200 text-gray-600'
                     }`}
                   >
@@ -260,7 +260,7 @@ export function DbMarketplaceAudiencePickerModal({
                 ))}
               </div>
               {offerMode === 'SIMULTANEOUS' ? (
-                <div className="max-h-[min(40vh,16rem)] overflow-y-auto space-y-2 text-[11px]">
+                <div className="max-h-[min(40vh,16rem)] overflow-y-auto space-y-2 text-[12px]">
                   {!loading && partnerOptions.length === 0 && externalCompanies.length === 0 ? (
                     <p className="text-gray-500">
                       연결된 파트너·등록 타업체가 없습니다. 「연결된 전체」를 사용하세요.
@@ -306,7 +306,7 @@ export function DbMarketplaceAudiencePickerModal({
                   ) : null}
                 </div>
               ) : (
-                <div className="space-y-2 text-[11px]">
+                <div className="space-y-2 text-[12px]">
                   <p className="text-gray-500 leading-relaxed">
                     1순위 업체만 먼저 「받을 목록」에 표시됩니다. 현재 순위 업체가 거절하면 2·3순위로
                     넘어갑니다. 3순위까지 거절되면 공유 준비로 돌아갑니다.
@@ -321,7 +321,7 @@ export function DbMarketplaceAudiencePickerModal({
           <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
             <button
               type="button"
-              className="min-h-[2.75rem] w-full rounded-lg px-3 py-2 text-[11px] text-gray-600 sm:min-h-0 sm:w-auto"
+              className="min-h-[2.75rem] w-full rounded-lg px-3 py-2 text-[12px] text-gray-600 sm:min-h-0 sm:w-auto"
               onClick={onClose}
             >
               취소
@@ -329,7 +329,7 @@ export function DbMarketplaceAudiencePickerModal({
             <button
               type="button"
               disabled={busy || loading}
-              className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50 sm:min-h-0 sm:w-auto"
+              className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-3 py-2 text-[12px] font-medium text-white disabled:opacity-50 sm:min-h-0 sm:w-auto"
               onClick={handleConfirm}
             >
               {confirmLabel}

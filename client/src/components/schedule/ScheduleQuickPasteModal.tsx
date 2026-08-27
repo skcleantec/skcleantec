@@ -394,7 +394,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
           <div className="relative flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-sm">
+                <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 px-2 py-0.5 text-[11px] font-bold tracking-wide text-white shadow-sm">
                   <SparkleIcon className="h-3 w-3" />
                   AI
                 </span>
@@ -704,7 +704,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                   ].find((s) => s && rawText.includes(s));
                   const rhbSnippet = fromRaw || fromServer || null;
                   return (
-                    <p className="border-b border-slate-100 bg-violet-50/60 px-2.5 py-1 text-[11px] leading-snug text-violet-900">
+                    <p className="border-b border-slate-100 bg-violet-50/60 px-2.5 py-1 text-[12px] leading-snug text-violet-900">
                       <span className="font-semibold">원문 예시 </span>
                       {rhbSnippet ? (
                         <span>「{rhbSnippet}」</span>

@@ -552,14 +552,14 @@ export function CustomCalendarCreateModal({
                     <span
                       className={`h-6 w-6 shrink-0 rounded-full border border-black/10 sm:h-7 sm:w-7 ${t.dot}`}
                     />
-                    <span className="w-full truncate text-[8px] font-medium text-gray-700 min-[380px]:text-[9px] sm:text-[10px] leading-tight">
+                    <span className="w-full truncate text-[8px] font-medium text-gray-700 min-[380px]:text-[9px] sm:text-[11px] leading-tight">
                       {label}
                     </span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-2 text-[10px] text-gray-500 leading-snug">
+            <p className="mt-2 text-[11px] text-gray-500 leading-snug">
               선택: <span className="font-medium text-gray-700">{CUSTOM_CALENDAR_COLOR_LABEL_KO[colorKey]}</span>
             </p>
           </div>

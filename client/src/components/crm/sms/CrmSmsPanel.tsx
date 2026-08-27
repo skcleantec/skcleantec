@@ -140,7 +140,7 @@ export function CrmSmsPanel({
           </CrmSegmentItem>
         </CrmSegment>
 
-        <p className="text-[10px] leading-relaxed text-slate-500">
+        <p className="text-[11px] leading-relaxed text-slate-500">
           치환: {'{고객명}'} {'{연락처}'} {'{평수}'} {'{예상가}'} {'{발주서링크}'}
           {inquiryId && !orderLink ? (
             <button type="button" className="ml-1 text-violet-700 underline" onClick={onOpenOrderIssue}>

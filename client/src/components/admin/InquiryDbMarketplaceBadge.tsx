@@ -68,7 +68,7 @@ export function InquiryDbMarketplaceBadge({
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1 rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-violet-900 sm:text-fluid-2xs ${className}`}
+      className={`inline-flex max-w-full items-center gap-1 rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium leading-tight text-violet-900 sm:text-fluid-2xs ${className}`}
       title={compact ? label : undefined}
     >
       <DbMarketplaceCartIcon dimmed className="h-3.5 w-3.5" />

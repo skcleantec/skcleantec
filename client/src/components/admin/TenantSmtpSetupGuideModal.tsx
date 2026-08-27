@@ -85,7 +85,7 @@ export function TenantSmtpSetupGuideModal({ onClose, companyName, title, intro }
                       href={GOOGLE_APP_PASSWORDS_URL}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-100"
+                      className="mt-2 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[12px] font-semibold text-indigo-900 hover:bg-indigo-100"
                     >
                       Google 앱 비밀번호 발급 →
                     </a>

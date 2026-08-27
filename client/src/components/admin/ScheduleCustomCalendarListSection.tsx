@@ -30,7 +30,7 @@ export function ScheduleCustomCalendarListSection({
 }: ScheduleCustomCalendarListSectionProps) {
   return (
     <section className="mb-4">
-      <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400/80 px-1 leading-none">{title}</h3>
+      <h3 className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-slate-400/80 px-1 leading-none">{title}</h3>
       <ul className="space-y-0.5" role="list">
         {calendars.map((cal) => {
           const t = customCalendarColorTokens(cal.colorKey);

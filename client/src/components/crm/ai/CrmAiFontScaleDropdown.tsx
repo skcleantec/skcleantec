@@ -48,7 +48,7 @@ export function CrmAiFontScaleDropdown({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center gap-1 rounded-lg border border-violet-200/80 bg-white/90 font-semibold text-violet-900 shadow-sm transition hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1 ${
-          compact ? 'px-1.5 py-1 text-[10px]' : 'px-2 py-1 text-[11px]'
+          compact ? 'px-1.5 py-1 text-[11px]' : 'px-2 py-1 text-[12px]'
         }`}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -73,12 +73,12 @@ export function CrmAiFontScaleDropdown({
                 role="option"
                 aria-selected={selected}
                 onClick={() => selectPreset(preset.id)}
-                className={`flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[11px] transition hover:bg-violet-50 focus-visible:outline-none focus-visible:bg-violet-50 ${
+                className={`flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[12px] transition hover:bg-violet-50 focus-visible:outline-none focus-visible:bg-violet-50 ${
                   selected ? 'bg-violet-50/80 font-semibold text-violet-900' : 'text-slate-700'
                 }`}
               >
                 <span>{preset.label}</span>
-                <span className="tabular-nums text-[10px] text-slate-400">
+                <span className="tabular-nums text-[11px] text-slate-400">
                   {crmAiFontPercent(preset.scale)}%
                 </span>
               </button>

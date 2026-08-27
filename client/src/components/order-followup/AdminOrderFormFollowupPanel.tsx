@@ -263,7 +263,7 @@ function statusToneClass(status: OrderFollowupStatus): string {
 }
 
 const STATUS_BADGE_BASE =
-  'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] sm:text-fluid-2xs font-semibold tabular-nums';
+  'inline-flex items-center rounded-md px-2 py-0.5 text-[12px] sm:text-fluid-2xs font-semibold tabular-nums';
 
 function StatusBadge({ status }: { status: OrderFollowupStatus }) {
   return (
@@ -316,9 +316,9 @@ function StatusBadgeWithMemo({
       </button>
       <span
         role="tooltip"
-        className="pointer-events-none absolute right-0 left-auto top-full z-30 mt-1 hidden w-64 max-w-[min(18rem,80vw)] whitespace-pre-wrap break-all rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-[11px] leading-5 text-gray-700 shadow-lg lg:group-hover:block"
+        className="pointer-events-none absolute right-0 left-auto top-full z-30 mt-1 hidden w-64 max-w-[min(18rem,80vw)] whitespace-pre-wrap break-all rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-[12px] leading-5 text-gray-700 shadow-lg lg:group-hover:block"
       >
-        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-400">
           메모
         </span>
         {preview}
@@ -344,7 +344,7 @@ function FollowupMemoCell({
       <button
         type="button"
         onClick={() => onOpenMemo(row)}
-        className="mx-auto block max-w-full truncate text-[11px] text-slate-700 hover:text-sky-800"
+        className="mx-auto block max-w-full truncate text-[12px] text-slate-700 hover:text-sky-800"
         title="클릭하면 전체 메모"
       >
         {short}
@@ -991,7 +991,7 @@ export function AdminOrderFormFollowupPanel({
               <button
                 type="button"
                 onClick={() => setFilterGoldDbOnly((v) => !v)}
-                className={`shrink-0 rounded-full border px-3 py-1 text-[11px] sm:text-fluid-2xs font-semibold touch-manipulation sm:ml-auto transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
+                className={`shrink-0 rounded-full border px-3 py-1 text-[12px] sm:text-fluid-2xs font-semibold touch-manipulation sm:ml-auto transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
                   filterGoldDbOnly
                     ? 'border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-200/50'
                     : 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50 hover:border-amber-300'
@@ -1008,7 +1008,7 @@ export function AdminOrderFormFollowupPanel({
                     setFilterStatus(next);
                     if (next === '') setFilterGoldDbOnly(false);
                   }}
-                  className={`rounded-full border px-3 py-1 text-[11px] sm:text-fluid-2xs font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
+                  className={`rounded-full border px-3 py-1 text-[12px] sm:text-fluid-2xs font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
                     (c.value === '' && filterStatus === '') || c.value === filterStatus
                       ? 'border-slate-800 bg-slate-900 text-white'
                       : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
@@ -1075,17 +1075,17 @@ export function AdminOrderFormFollowupPanel({
                         <span className="font-semibold">{row.customerName}</span>
                         {row.nickname?.trim() ? (
                           <>
-                            <span className="mx-1 text-[11px] font-normal text-slate-400" aria-hidden>
+                            <span className="mx-1 text-[12px] font-normal text-slate-400" aria-hidden>
                               ·
                             </span>
-                            <span className="text-[11px] font-normal text-slate-500">
+                            <span className="text-[12px] font-normal text-slate-500">
                               {row.nickname}
                             </span>
                           </>
                         ) : null}
                         {summarizeFollowupIntakeExtras(row) ? (
                           <p
-                            className="mt-0.5 text-[10px] font-normal text-slate-500 truncate"
+                            className="mt-0.5 text-[11px] font-normal text-slate-500 truncate"
                             title={summarizeFollowupIntakeExtras(row)}
                           >
                             {summarizeFollowupIntakeExtras(row)}
@@ -1100,10 +1100,10 @@ export function AdminOrderFormFollowupPanel({
                       <td className="py-2.5 px-2 text-slate-700 truncate max-w-[6rem] font-medium">
                         {row.handledBy?.name ?? '—'}
                       </td>
-                      <td className="py-2.5 px-2 text-slate-500 text-[11px] tabular-nums truncate" title={formatDateCompactWithWeekday(row.createdAt)}>
+                      <td className="py-2.5 px-2 text-slate-500 text-[12px] tabular-nums truncate" title={formatDateCompactWithWeekday(row.createdAt)}>
                         {formatDateCompactWithWeekday(row.createdAt)}
                       </td>
-                      <td className="py-2.5 px-2 text-slate-500 text-[11px] tabular-nums truncate" title={
+                      <td className="py-2.5 px-2 text-slate-500 text-[12px] tabular-nums truncate" title={
                         row.preferredMoveInCleaningDate
                           ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
                           : ''
@@ -1178,13 +1178,13 @@ export function AdminOrderFormFollowupPanel({
                         <span>{row.customerName}</span>
                         {row.nickname?.trim() ? (
                           <>
-                            <span className="mx-0.5 text-[10px] font-normal text-slate-400" aria-hidden>
+                            <span className="mx-0.5 text-[11px] font-normal text-slate-400" aria-hidden>
                               ·
                             </span>
-                            <span className="text-[10px] font-normal text-slate-500">{row.nickname}</span>
+                            <span className="text-[11px] font-normal text-slate-500">{row.nickname}</span>
                           </>
                         ) : null}
-                        <span className="ml-1.5 text-[10px] font-normal tabular-nums text-slate-500">
+                        <span className="ml-1.5 text-[11px] font-normal tabular-nums text-slate-500">
                           {displayPhone(row.customerPhone)}
                         </span>
                       </p>
@@ -1193,7 +1193,7 @@ export function AdminOrderFormFollowupPanel({
                       <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                     </div>
                   </div>
-                  <p className="mt-1 text-[10px] leading-snug text-slate-500">
+                  <p className="mt-1 text-[11px] leading-snug text-slate-500">
                     <span className="font-medium tabular-nums">부재 {row.deferCount}회</span>
                     <span className="text-slate-300"> · </span>
                     <span>담당 {row.handledBy?.name ?? '—'}</span>
@@ -1209,7 +1209,7 @@ export function AdminOrderFormFollowupPanel({
                   </p>
                   {summarizeFollowupIntakeExtras(row) ? (
                     <p
-                      className="mt-0.5 text-[10px] leading-snug text-slate-600 truncate"
+                      className="mt-0.5 text-[11px] leading-snug text-slate-600 truncate"
                       title={summarizeFollowupIntakeExtras(row)}
                     >
                       {summarizeFollowupIntakeExtras(row)}
@@ -1220,10 +1220,10 @@ export function AdminOrderFormFollowupPanel({
                       <FollowupMemoCell row={row} onOpenMemo={setMemoView} />
                     </div>
                   ) : null}
-                  <div className="mt-1.5 flex flex-wrap gap-1 border-t border-slate-100/80 pt-1.5 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm">
+                  <div className="mt-1.5 flex flex-wrap gap-1 border-t border-slate-100/80 pt-1.5 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-0.5 [&>button]:text-[11px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm">
                     <Link
                       to="/admin/inquiries/order-issue"
-                      className="inline-flex items-center rounded-md border border-emerald-100 bg-emerald-50/40 px-2 py-0.5 text-[10px] font-semibold leading-tight text-emerald-700"
+                      className="inline-flex items-center rounded-md border border-emerald-100 bg-emerald-50/40 px-2 py-0.5 text-[11px] font-semibold leading-tight text-emerald-700"
                     >
                       발주서
                     </Link>
@@ -1302,17 +1302,17 @@ export function AdminOrderFormFollowupPanel({
                         className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2 text-left"
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                          <span className="text-[11px] font-semibold text-gray-800">
+                          <span className="text-[12px] font-semibold text-gray-800">
                             {actionLabelKo(log.action)}
                           </span>
-                          <time className="text-[10px] tabular-nums text-gray-500">
+                          <time className="text-[11px] tabular-nums text-gray-500">
                             {formatDateTimeCompactWithWeekday(log.createdAt)}
                           </time>
                         </div>
-                        <p className="text-[11px] text-gray-600 mt-0.5">
+                        <p className="text-[12px] text-gray-600 mt-0.5">
                           {log.actor.name} · {roleLabelKo(log.actor.role)} · {log.actor.email}
                         </p>
-                        <p className="text-[11px] text-gray-700 mt-1 whitespace-pre-wrap break-words leading-relaxed">
+                        <p className="text-[12px] text-gray-700 mt-1 whitespace-pre-wrap break-words leading-relaxed">
                           {logDetailDescription(log)}
                         </p>
                       </li>
@@ -1429,7 +1429,7 @@ export function AdminOrderFormFollowupPanel({
                         value={editMemo}
                         onChange={(e) => setEditMemo(e.target.value)}
                         rows={10}
-                        className="min-h-[min(32vh,280px)] w-full resize-y rounded-lg border border-gray-200 px-2.5 py-2 text-[11px] leading-snug text-gray-900"
+                        className="min-h-[min(32vh,280px)] w-full resize-y rounded-lg border border-gray-200 px-2.5 py-2 text-[12px] leading-snug text-gray-900"
                       />
                     </div>
                   ) : (
@@ -1497,7 +1497,7 @@ export function AdminOrderFormFollowupPanel({
                               type="button"
                               disabled={savingEdit}
                               onClick={() => void connectInquiryToFollowup(row.id)}
-                              className="shrink-0 rounded-md bg-indigo-700 px-2 py-1 text-[11px] font-medium text-white hover:bg-indigo-800 disabled:opacity-40"
+                              className="shrink-0 rounded-md bg-indigo-700 px-2 py-1 text-[12px] font-medium text-white hover:bg-indigo-800 disabled:opacity-40"
                             >
                               연결
                             </button>
@@ -1696,7 +1696,7 @@ export function AdminOrderFormFollowupPanel({
               <div className="min-h-[min(36vh,300px)] min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-3">
                 {memoViewTab === 'followupMemo' ? (
                   memoView.memo?.trim() ? (
-                    <p className="whitespace-pre-wrap break-words text-[11px] leading-snug text-gray-800">
+                    <p className="whitespace-pre-wrap break-words text-[12px] leading-snug text-gray-800">
                       {memoView.memo}
                     </p>
                   ) : (

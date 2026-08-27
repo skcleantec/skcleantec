@@ -644,7 +644,7 @@ function InquiryListAttachmentOx({
 }) {
   return (
     <span
-      className={`inline-flex min-w-[1.125rem] items-center justify-center rounded px-0.5 py-px text-[10px] font-bold tabular-nums xl:min-w-[1.25rem] xl:text-fluid-2xs ${
+      className={`inline-flex min-w-[1.125rem] items-center justify-center rounded px-0.5 py-px text-[11px] font-bold tabular-nums xl:min-w-[1.25rem] xl:text-fluid-2xs ${
         yes ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
       }`}
       title={`${shortLabel}: ${yes ? '있음' : '없음'}`}
@@ -659,7 +659,7 @@ function InquiryListDepositMark({ item }: { item: InquiryItem }) {
   if (presence === 'unknown') {
     return (
       <span
-        className="inline-flex min-w-[1.125rem] items-center justify-center text-[10px] text-slate-300 xl:text-fluid-2xs"
+        className="inline-flex min-w-[1.125rem] items-center justify-center text-[11px] text-slate-300 xl:text-fluid-2xs"
         title="예약금 미정"
       >
         —
@@ -711,7 +711,7 @@ function inquiryListPinRowTitle(item: InquiryItem): string {
 
 /** PC·모바일 접수 목록 행 작업 버튼 */
 const INQUIRY_LIST_ACTION_BTN =
-  'inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold leading-tight shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 xl:px-2.5 xl:text-fluid-2xs';
+  'inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold leading-tight shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 xl:px-2.5 xl:text-fluid-2xs';
 
 function formatDistanceFromJuan(item: InquiryItem): string {
   const km = item.distanceFromJuanKm;
@@ -802,13 +802,13 @@ function InquiryListMarketerDisplay({ item }: { item: InquiryItem }) {
 const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
 const TEAM_LEADER_FILTER_UNASSIGNED = '__unassigned__';
 const INQUIRY_LIST_FILTER_LABEL_CLASS =
-  'text-[10px] leading-tight text-slate-600 whitespace-nowrap shrink-0 sm:text-fluid-2xs';
+  'text-[11px] leading-tight text-slate-600 whitespace-nowrap shrink-0 sm:text-fluid-2xs';
 const INQUIRY_LIST_FILTER_SELECT_CLASS =
-  'min-w-[4.75rem] max-w-[7rem] rounded border border-slate-300 bg-white px-1 py-0.5 text-[10px] leading-tight text-slate-900 sm:min-w-[5.25rem] sm:max-w-[7.5rem] sm:text-fluid-2xs';
+  'min-w-[4.75rem] max-w-[7rem] rounded border border-slate-300 bg-white px-1 py-0.5 text-[11px] leading-tight text-slate-900 sm:min-w-[5.25rem] sm:max-w-[7.5rem] sm:text-fluid-2xs';
 const INQUIRY_LIST_DATE_LABEL_CLASS =
-  'shrink-0 text-[10px] leading-tight text-slate-600 sm:text-fluid-2xs';
+  'shrink-0 text-[11px] leading-tight text-slate-600 sm:text-fluid-2xs';
 const INQUIRY_LIST_DATE_SELECT_CLASS =
-  'rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] leading-tight text-slate-900 sm:text-fluid-2xs';
+  'rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] leading-tight text-slate-900 sm:text-fluid-2xs';
 const INQUIRY_LIST_SEARCH_ROW_CLASS =
   'relative z-[2] flex min-w-0 flex-row items-stretch gap-1 sm:gap-1.5';
 const INQUIRY_LIST_SEARCH_INPUT_CLASS =
@@ -2618,7 +2618,7 @@ export function AdminInquiriesPage() {
                 <button
                   type="button"
                   onClick={openListIntakeModal}
-                  className="inline-flex min-h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2 sm:px-2.5 py-1 text-[11px] sm:text-fluid-2xs lg:text-fluid-xs font-medium text-sky-700 shadow-sm transition-all hover:border-sky-300 hover:bg-sky-100 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1 whitespace-nowrap"
+                  className="inline-flex min-h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2 sm:px-2.5 py-1 text-[12px] sm:text-fluid-2xs lg:text-fluid-xs font-medium text-sky-700 shadow-sm transition-all hover:border-sky-300 hover:bg-sky-100 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1 whitespace-nowrap"
                   title="일반 워크플로우(부재/보류/입금)로 신규 등록"
                 >
                   일반 등록
@@ -2920,7 +2920,7 @@ export function AdminInquiriesPage() {
                           next.delete('marketerStatsDay');
                         });
                       }}
-                      className="shrink-0 whitespace-nowrap text-[11px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
+                      className="shrink-0 whitespace-nowrap text-[12px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
                     >
                       접수자 필터 해제
                     </button>
@@ -2932,7 +2932,7 @@ export function AdminInquiriesPage() {
                         setMarketerStatsDay('');
                         patchInquiryListSearchParams((next) => next.delete('marketerStatsDay'));
                       }}
-                      className="shrink-0 whitespace-nowrap text-[11px] text-blue-700 underline hover:text-blue-900 sm:text-fluid-xs"
+                      className="shrink-0 whitespace-nowrap text-[12px] text-blue-700 underline hover:text-blue-900 sm:text-fluid-xs"
                     >
                       확정 집계 해제
                     </button>
@@ -2948,7 +2948,7 @@ export function AdminInquiriesPage() {
                           next.delete('collaborationMarketerId');
                         });
                       }}
-                      className="shrink-0 whitespace-nowrap text-[11px] text-violet-700 underline hover:text-violet-900 sm:text-fluid-xs"
+                      className="shrink-0 whitespace-nowrap text-[12px] text-violet-700 underline hover:text-violet-900 sm:text-fluid-xs"
                     >
                       협업 집계 해제
                     </button>
@@ -2986,7 +2986,7 @@ export function AdminInquiriesPage() {
                   <button
                     type="button"
                     onClick={() => setTeamLeaderFilterId('')}
-                    className="shrink-0 whitespace-nowrap text-[11px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
+                    className="shrink-0 whitespace-nowrap text-[12px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
                   >
                     배정 필터 해제
                   </button>
@@ -3047,7 +3047,7 @@ export function AdminInquiriesPage() {
                     <button
                       type="button"
                       onClick={() => setOperatingCompanyFilterId('')}
-                      className="shrink-0 whitespace-nowrap text-[11px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
+                      className="shrink-0 whitespace-nowrap text-[12px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
                     >
                       브랜드 필터 해제
                     </button>
@@ -3081,7 +3081,7 @@ export function AdminInquiriesPage() {
                   <button
                     type="button"
                     onClick={() => setSourceFilterId('')}
-                    className="shrink-0 whitespace-nowrap text-[11px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
+                    className="shrink-0 whitespace-nowrap text-[12px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
                   >
                     유입 필터 해제
                   </button>
@@ -3186,7 +3186,7 @@ export function AdminInquiriesPage() {
             </form>
           </div>
           {!marketerStatsDay && !collaborationStatsDay ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/80 bg-slate-50/80 px-2 py-1 text-[10px] text-slate-600 sm:text-fluid-2xs">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/80 bg-slate-50/80 px-2 py-1 text-[11px] text-slate-600 sm:text-fluid-2xs">
               <span className="font-medium text-slate-700">목록 상단 고정</span>
               <span className="hidden text-slate-500 md:inline">(날짜·상태 필터와 무관)</span>
               {([0, 1, 2, 3] as const).map((tier) => (
@@ -3388,7 +3388,7 @@ export function AdminInquiriesPage() {
                     >
                       <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3">
                         <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-                          <span className="w-7 shrink-0 text-left text-[10px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
+                          <span className="w-7 shrink-0 text-left text-[11px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
                             상태
                           </span>
                           <StatusQuickPicker
@@ -3399,7 +3399,7 @@ export function AdminInquiriesPage() {
                           />
                         </div>
                         <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-                          <span className="w-7 shrink-0 text-left text-[10px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
+                          <span className="w-7 shrink-0 text-left text-[11px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
                             배정
                           </span>
                           <select
@@ -3427,7 +3427,7 @@ export function AdminInquiriesPage() {
                                       ? '보류 건에는 분배할 수 없습니다.'
                                       : undefined
                             }
-                            className="min-h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 sm:min-h-[34px] sm:px-2 sm:py-1 sm:text-fluid-2xs md:text-fluid-xs"
+                            className="min-h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 sm:min-h-[34px] sm:px-2 sm:py-1 sm:text-fluid-2xs md:text-fluid-xs"
                           >
                             <option value="">미배정</option>
                             {filterableTeamLeaders.map((tl) => (
@@ -3639,13 +3639,13 @@ export function AdminInquiriesPage() {
                     onSort={handleListSort}
                     className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
-                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
-                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">서비스</th>
-                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">유입</th>
+                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
+                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">서비스</th>
+                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">유입</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">주소</th>
-                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-[11px]">
+                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-[12px]">
                     평수
                   </th>
                   <InquiryListSortTh
@@ -3671,19 +3671,19 @@ export function AdminInquiriesPage() {
                     className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
                   <th
-                    className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
                     title="예약금 있음 O · 없음 X · 미정 —"
                   >
                     예약금
                   </th>
                   <th
-                    className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
                     title="고객 발주 특이사항"
                   >
                     <span className="line-clamp-2 break-keep leading-tight">특이사항</span>
                   </th>
                   <th
-                    className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
                     title="발주서 고객 첨부 사진"
                   >
                     <span className="line-clamp-2 break-keep leading-tight">사진첨부</span>
@@ -3781,12 +3781,12 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[9px] leading-snug text-slate-600 break-keep whitespace-normal xl:text-[10px] ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[9px] leading-snug text-slate-600 break-keep whitespace-normal xl:text-[11px] ${pBorder}`}
                     >
                       <InquiryListMarketerDisplay item={item} />
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[10px] font-medium leading-tight xl:text-fluid-2xs ${pBorder} ${
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[11px] font-medium leading-tight xl:text-fluid-2xs ${pBorder} ${
                         inquiryListServiceKindLabel(item) === '에어컨'
                           ? 'text-sky-800'
                           : 'text-slate-600'
@@ -3795,7 +3795,7 @@ export function AdminInquiriesPage() {
                       {inquiryListServiceKindLabel(item)}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-0.5 py-0.5 align-middle text-center text-[10px] leading-tight text-slate-600 xl:px-1 xl:text-fluid-2xs ${pBorder}`}
+                      className={`min-w-0 truncate px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight text-slate-600 xl:px-1 xl:text-fluid-2xs ${pBorder}`}
                       title={formatInquiryLeadPlatformLabel(item.source)}
                     >
                       {!isInquirySourceHiddenFromUi(item.source)
@@ -3843,7 +3843,7 @@ export function AdminInquiriesPage() {
                       <span className="block break-keep">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[10px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 2xl:text-[11px] ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 2xl:text-[12px] ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -4262,7 +4262,7 @@ export function AdminInquiriesPage() {
                   {orderCustomerPreview.order.customerName} · 총액{' '}
                   {orderCustomerPreview.order.totalAmount.toLocaleString('ko-KR')}원
                   {orderCustomerPreview.order.createdBy ? (
-                    <span className="mt-0.5 block text-[11px] text-slate-500">
+                    <span className="mt-0.5 block text-[12px] text-slate-500">
                       담당: {labelOrderFormIssuer(orderCustomerPreview.order.createdBy)}
                     </span>
                   ) : null}
@@ -4796,7 +4796,7 @@ export function AdminInquiriesPage() {
                           type="button"
                           disabled={!token}
                           onClick={() => setInquiryEditPreferredCalOpen(true)}
-                          className="text-[12px] font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                          className="text-[13px] font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
                         >
                           달력·분배 가능일 &rarr;
                         </button>
@@ -4915,7 +4915,7 @@ export function AdminInquiriesPage() {
                           orderForm: editItem.orderForm,
                         })}
                       </div>
-                      <p className="mt-1.5 text-[12px] text-slate-500">
+                      <p className="mt-1.5 text-[13px] text-slate-500">
                         고객이 발주서 11항에 작성한 내용입니다. 서식·금액 등은 발주서 본문에서 확인하세요.
                       </p>
                     </div>
@@ -4928,7 +4928,7 @@ export function AdminInquiriesPage() {
                       <button
                         type="button"
                         onClick={() => setExpandedTextarea('specialNotes')}
-                        className="text-[12px] font-medium text-blue-600 hover:text-blue-800"
+                        className="text-[13px] font-medium text-blue-600 hover:text-blue-800"
                       >
                         크게보기 &rarr;
                       </button>
@@ -5032,7 +5032,7 @@ export function AdminInquiriesPage() {
                         </option>
                       ))}
                     </select>
-                    <p id="inq-edit-settlement-external-hint" className="text-[11px] text-slate-500 mt-1">
+                    <p id="inq-edit-settlement-external-hint" className="text-[12px] text-slate-500 mt-1">
                       {externalBlockedByPartnerShare
                         ? '파트너 연계 중에는 타업체 담당을 지정할 수 없습니다. 연계를 취소한 뒤 선택하세요.'
                         : '타업체를 선택하면 자사 팀장·파트너 연계와 동시에 지정할 수 없습니다. 수수료는 아래 입력란에만 해당합니다.'}
@@ -5155,7 +5155,7 @@ export function AdminInquiriesPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedTextarea('memo')}
-                    className="text-[12px] font-medium text-blue-600 hover:text-blue-800"
+                    className="text-[13px] font-medium text-blue-600 hover:text-blue-800"
                   >
                     크게보기 &rarr;
                   </button>

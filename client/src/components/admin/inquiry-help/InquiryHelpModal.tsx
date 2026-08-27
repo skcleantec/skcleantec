@@ -102,7 +102,7 @@ function HelpUiRow({ tokenId, meaning }: { tokenId: HelpUiTokenId; meaning: stri
 }
 
 const HELP_ACTION_BTN =
-  'inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold leading-tight text-slate-800 shadow-sm';
+  'inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold leading-tight text-slate-800 shadow-sm';
 
 function HelpActionTable({ rows }: { rows: readonly InquiryHelpActionRow[] }) {
   return (
@@ -120,7 +120,7 @@ function HelpActionTable({ rows }: { rows: readonly InquiryHelpActionRow[] }) {
               <td className="py-2 pr-3">
                 <span className={HELP_ACTION_BTN}>{row.label}</span>
                 {row.when ? (
-                  <p className="mt-1 text-[10px] text-violet-700 leading-snug">표시: {row.when}</p>
+                  <p className="mt-1 text-[11px] text-violet-700 leading-snug">표시: {row.when}</p>
                 ) : null}
               </td>
               <td className="py-2 text-slate-600 leading-snug">{row.meaning}</td>
@@ -203,11 +203,11 @@ function InquiryHelpListTab() {
         <HelpTable
           rows={[
             {
-              sample: <span className="text-[10px] text-rose-700">행 연한 빨강</span>,
+              sample: <span className="text-[11px] text-rose-700">행 연한 빨강</span>,
               meaning: '해피콜 기한 초과(HC초과) — 팀장 배정·예약일 있을 때',
             },
             {
-              sample: <span className="text-[10px] text-amber-700">행 노란 테두리</span>,
+              sample: <span className="text-[11px] text-amber-700">행 노란 테두리</span>,
               meaning: '해피콜 대기 또는 보류(ON_HOLD)',
             },
             HelpUiRow({ tokenId: 'inq-hint-pin-pending', meaning: '미제출 pin tier — rose 계열 강조' }),
@@ -221,7 +221,7 @@ function InquiryHelpListTab() {
             HelpUiRow({ tokenId: 'inq-btn-manual', meaning: '수동접수 — 스케줄과 동일 상세 폼으로 즉시 등록' }),
             {
               sample: (
-                <span className="inline-flex min-h-8 items-center rounded-lg border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700">
+                <span className="inline-flex min-h-8 items-center rounded-lg border border-sky-200 bg-sky-50 px-2 py-1 text-[12px] font-medium text-sky-700">
                   일반 등록
                 </span>
               ),
@@ -307,7 +307,7 @@ function InquiryHelpListTab() {
             },
             {
               sample: (
-                <span className="rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-800 ring-1 ring-violet-200">
+                <span className="rounded-full bg-violet-50 px-1.5 py-0.5 text-[11px] text-violet-800 ring-1 ring-violet-200">
                   cbiseo
                 </span>
               ),
@@ -315,7 +315,7 @@ function InquiryHelpListTab() {
             },
             {
               sample: (
-                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-slate-200">
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-slate-200">
                   입주
                 </span>
               ),
@@ -329,8 +329,8 @@ function InquiryHelpListTab() {
             {
               sample: (
                 <span className="inline-flex gap-0.5">
-                  <span className="rounded bg-emerald-100 px-1 text-[10px] font-bold text-emerald-800">O</span>
-                  <span className="rounded bg-slate-100 px-1 text-[10px] font-bold text-slate-400">X</span>
+                  <span className="rounded bg-emerald-100 px-1 text-[11px] font-bold text-emerald-800">O</span>
+                  <span className="rounded bg-slate-100 px-1 text-[11px] font-bold text-slate-400">X</span>
                 </span>
               ),
               meaning: '특이사항 · 사진첨부 — 고객 발주서 기준 O/X(관리자 6번 특이와 별개)',
@@ -349,7 +349,7 @@ function InquiryHelpListTab() {
             },
             {
               sample: (
-                <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px]">홍팀장</span>
+                <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px]">홍팀장</span>
               ),
               meaning: '팀장 열 — 드롭다운으로 배정·변경(권한·상태에 따름)',
             },
@@ -380,27 +380,27 @@ function InquiryHelpListTab() {
         <HelpTable
           rows={[
             {
-              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-blue-700">고객 발송</span>,
+              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-700">고객 발송</span>,
               meaning: '미제출 — 메시지·발주 링크·새 창 미리보기 통합 모달',
             },
             {
-              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-emerald-700">입금완료</span>,
+              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-emerald-700">입금완료</span>,
               meaning: '입금대기 행 — 입금 확인 처리',
             },
             {
-              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-blue-600">수정</span>,
+              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-600">수정</span>,
               meaning: '접수 상세와 동일 폼 — 빠른 수정',
             },
             {
-              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-violet-700">클레임</span>,
+              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-violet-700">클레임</span>,
               meaning: '클레임 메모 등록·보기',
             },
             {
-              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">발주서</span>,
+              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">발주서</span>,
               meaning: '발주서 열기·재발송',
             },
             {
-              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-red-600">삭제</span>,
+              sample: <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-red-600">삭제</span>,
               meaning: '비밀번호 확인 후 삭제(역할·상태에 따름)',
             },
           ]}

@@ -34,7 +34,7 @@ export function DashboardHappyPendingStatPreview() {
 
 export function DashboardRealtimeBadge() {
   return (
-    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
       실시간 집계
     </span>
   );

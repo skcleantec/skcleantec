@@ -352,12 +352,12 @@ export function AdminOrderFormCustomerPreviewPage() {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-amber-50 px-3 py-2">
-            <p className="text-[11px] font-medium text-amber-950">실제 고객 발주서 화면</p>
+            <p className="text-[12px] font-medium text-amber-950">실제 고객 발주서 화면</p>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => void bumpIframe()}
-                className="rounded border border-amber-300 bg-white px-2 py-1 text-[11px] font-medium text-amber-950 hover:bg-amber-100"
+                className="rounded border border-amber-300 bg-white px-2 py-1 text-[12px] font-medium text-amber-950 hover:bg-amber-100"
               >
                 고객 화면 새로고침
               </button>
@@ -366,7 +366,7 @@ export function AdminOrderFormCustomerPreviewPage() {
                   href={iframeSrc}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] font-medium text-blue-700 underline"
+                  className="text-[12px] font-medium text-blue-700 underline"
                 >
                   새 탭
                 </a>
@@ -389,7 +389,7 @@ export function AdminOrderFormCustomerPreviewPage() {
               <p className="p-4 text-fluid-sm text-gray-600">미리보기 주소를 불러오지 못했습니다.</p>
             )}
           </div>
-          <p className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-1.5 text-center text-[10px] text-gray-500">
+          <p className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-1.5 text-center text-[11px] text-gray-500">
             안내사항·전문 시공 등 저장 후에는 「고객 화면 새로고침」으로 반영하세요.
           </p>
         </div>
@@ -408,7 +408,7 @@ export function AdminOrderFormCustomerPreviewPage() {
                   role="tab"
                   aria-selected={activePanel === id}
                   onClick={() => setPanel(id)}
-                  className={`shrink-0 rounded border px-2 py-1 text-[10px] font-medium sm:text-[11px] ${
+                  className={`shrink-0 rounded border px-2 py-1 text-[11px] font-medium sm:text-[12px] ${
                     activePanel === id
                       ? 'border-blue-600 bg-blue-600 text-white'
                       : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
@@ -420,7 +420,7 @@ export function AdminOrderFormCustomerPreviewPage() {
             </div>
           </div>
           <div className="shrink-0 border-b border-gray-100 px-3 py-2 sm:px-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">편집</p>
+            <p className="text-[12px] font-medium uppercase tracking-wide text-gray-400">편집</p>
             <h3 className="text-fluid-sm font-semibold text-gray-900">{panelTitle[activePanel]}</h3>
           </div>
           <div
@@ -430,7 +430,7 @@ export function AdminOrderFormCustomerPreviewPage() {
           >
             {activePanel === 'title' && (
               <div className="space-y-3">
-                <p className="rounded border border-blue-100 bg-blue-50 px-2.5 py-2 text-[11px] leading-relaxed text-blue-900">
+                <p className="rounded border border-blue-100 bg-blue-50 px-2.5 py-2 text-[12px] leading-relaxed text-blue-900">
                   이 제목은 <b>기본 발주서</b>의 제목입니다. 「발주서 양식」에서 만든 다른 발주서로 발급하면, 그 양식에 지정한 <b>제목·아이콘이 우선</b> 표시됩니다.
                 </p>
                 <label className="block text-fluid-xs font-medium text-gray-700">폼 제목</label>
@@ -455,7 +455,7 @@ export function AdminOrderFormCustomerPreviewPage() {
               <div className="space-y-5">
                 <section>
                   <h4 className="mb-2 text-fluid-xs font-semibold text-gray-800">견적 기본</h4>
-                  <p className="mb-2 text-[11px] text-gray-500">
+                  <p className="mb-2 text-[12px] text-gray-500">
                     왼쪽 금액은 서버에서 {DEMO_PYEONG}평·추가 옵션 합계와 예약금을 반영해 미리보기 발주서와 동기화됩니다.
                   </p>
                   <div className="grid max-w-md grid-cols-2 gap-3">

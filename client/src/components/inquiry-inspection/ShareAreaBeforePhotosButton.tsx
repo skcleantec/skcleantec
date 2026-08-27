@@ -94,7 +94,7 @@ export function ShareAreaBeforePhotosButton({
 
   const sizeClass =
     size === 'compact'
-      ? 'min-h-[28px] px-1 py-0.5 text-[10px] leading-tight font-medium'
+      ? 'min-h-[28px] px-1 py-0.5 text-[11px] leading-tight font-medium'
       : 'min-h-[36px] px-2 py-1.5 text-fluid-2xs font-medium';
 
   return (

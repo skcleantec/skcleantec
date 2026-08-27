@@ -72,7 +72,7 @@ export function ScheduleHelpAnnotatedPanel({ callouts, children, className = '',
         {sorted.map((c) => (
           <span
             key={`anchor-${c.id}`}
-            className="absolute z-10 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black leading-none text-white ring-2 ring-white shadow-md"
+            className="absolute z-10 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-500 text-[11px] font-black leading-none text-white ring-2 ring-white shadow-md"
             style={{ left: `${c.anchorX}%`, top: `${c.anchorY}%` }}
             aria-hidden
           >
@@ -90,7 +90,7 @@ export function ScheduleHelpAnnotatedPanel({ callouts, children, className = '',
             }}
             className="flex items-start gap-1 rounded-md border border-amber-400 bg-white px-1.5 py-1 shadow-sm sm:gap-1.5 sm:px-2 sm:py-1.5"
           >
-            <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white sm:h-[18px] sm:w-[18px] sm:text-[10px]">
+            <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white sm:h-[18px] sm:w-[18px] sm:text-[11px]">
               {c.id}
             </span>
             <span className="min-w-0 text-[8px] font-semibold leading-snug text-slate-900 sm:text-[9px]">{c.label}</span>

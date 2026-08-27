@@ -111,7 +111,7 @@ export function DbMarketplaceAmountSummaryBlock({
   showSellerFee?: boolean;
 }) {
   const rows = marketplaceAmountSummaryRows(row);
-  const text = compact ? 'text-fluid-2xs' : 'text-[10px] sm:text-[11px]';
+  const text = compact ? 'text-fluid-2xs' : 'text-[11px] sm:text-[12px]';
 
   return (
     <div className={`space-y-0.5 tabular-nums text-gray-700 ${text}`}>
@@ -142,7 +142,7 @@ export function DbMarketplaceResaleFeeBreakdown({
   const prior = Math.max(0, Math.round(priorFeesTotal));
   const hop = Math.max(0, Math.round(listingFee));
   const total = Math.max(0, Math.round(buyerTotalFee));
-  const text = compact ? 'text-fluid-2xs' : 'text-[10px] sm:text-[11px]';
+  const text = compact ? 'text-fluid-2xs' : 'text-[11px] sm:text-[12px]';
 
   return (
     <div className={`rounded-md border border-violet-200 bg-violet-50/60 p-2 space-y-0.5 tabular-nums ${text}`}>

@@ -50,7 +50,7 @@ export function renderHelpInline(text: string, keyPrefix: string): ReactNode[] {
       parts.push(
         <span
           key={`${keyPrefix}-ui-bad-${i}`}
-          className="text-[10px] text-amber-700"
+          className="text-[11px] text-amber-700"
           title="알 수 없는 UI 토큰"
         >
           {match[0]}

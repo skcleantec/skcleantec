@@ -659,16 +659,16 @@ export function TenantSignupPage() {
                           </span>
                           <span className="text-fluid-2xs text-slate-600">{presentation.monthlyPriceHint}</span>
                           {isPaid ? (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
                               {TENANT_SIGNUP_PAID_TRIAL_DAYS}일 무료
                             </span>
                           ) : (
-                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-800">
+                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
                               코인 {TENANT_SIGNUP_PAID_TRIAL_DAYS}일 무제한
                             </span>
                           )}
                           {presentation.recommended ? (
-                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-800">
+                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
                               추천
                             </span>
                           ) : null}

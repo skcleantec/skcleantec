@@ -21,7 +21,7 @@ export function SkCleantecScheduleOneRoomIndicator({
 
   return (
     <div
-      className={`flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-bold text-slate-800 leading-none shrink-0 ${className}`}
+      className={`flex justify-center sm:justify-between items-center text-[9px] sm:text-[11px] font-bold text-slate-800 leading-none shrink-0 ${className}`}
       title={title}
     >
       <span className="flex items-center gap-0.5 min-w-0">

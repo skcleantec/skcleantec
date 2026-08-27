@@ -655,7 +655,7 @@ export function InquirySettlementPanel({
   }
 
   const rowPad = compact ? 'px-0 py-0.5' : 'px-3 py-2 sm:px-4';
-  const rowLabelSize = compact ? 'text-[11px]' : 'text-fluid-xs';
+  const rowLabelSize = compact ? 'text-[12px]' : 'text-fluid-xs';
   const rowValueSize = compact ? 'text-fluid-2xs' : '';
   const row = (label: string, value: string, tone?: 'muted' | 'accent' | 'plus' | 'minus') => (
     <div className={`flex min-w-0 items-baseline justify-between gap-2 ${rowPad}`}>
@@ -700,7 +700,7 @@ export function InquirySettlementPanel({
         }`}
       >
       {compact ? (
-        <h3 className="mb-px text-[11px] font-semibold text-gray-500">결제 금액 내역</h3>
+        <h3 className="mb-px text-[12px] font-semibold text-gray-500">결제 금액 내역</h3>
       ) : (
       <header
         className="flex items-center justify-between border-b border-blue-200 bg-blue-50 px-3 py-2 sm:px-4"
@@ -747,7 +747,7 @@ export function InquirySettlementPanel({
               <span>{it.description}</span>
               <span
                 className={`ml-1 shrink-0 rounded border border-gray-200 bg-gray-50 px-1 py-px font-medium text-gray-600 tabular-nums ${
-                  compact ? 'text-[10px]' : 'text-[10px] sm:text-fluid-2xs'
+                  compact ? 'text-[11px]' : 'text-[11px] sm:text-fluid-2xs'
                 }`}
               >
                 {it.settlementChannel === 'FIELD_RECEIVED' ? '현장' : '회사입금'}
@@ -802,7 +802,7 @@ export function InquirySettlementPanel({
             </p>
           </div>
           ) : (
-            <p className="text-[11px] font-medium text-gray-500">레거시 추가 금액</p>
+            <p className="text-[12px] font-medium text-gray-500">레거시 추가 금액</p>
           )}
           <ul className={compact ? 'space-y-px' : 'divide-y divide-amber-100/80 bg-white'}>
             {items.map((it) => (
@@ -867,7 +867,7 @@ export function InquirySettlementPanel({
             ) : null}
           </span>
           {!compact ? (
-          <span className="shrink-0 rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium tabular-nums text-gray-600 sm:text-fluid-2xs">
+          <span className="shrink-0 rounded border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-medium tabular-nums text-gray-600 sm:text-fluid-2xs">
             <span className="group-open:hidden">펼치기</span>
             <span className="hidden group-open:inline">접기</span>
           </span>
@@ -1104,8 +1104,8 @@ function AmountQuickChips({
   const baseBtn =
     'shrink-0 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 tabular-nums';
   const sizePad = compact
-    ? 'h-6 min-h-0 px-1.5 text-[10px] leading-none sm:h-7 sm:px-2 sm:text-fluid-2xs'
-    : 'h-6 min-h-0 px-1.5 text-[10px] leading-none sm:h-7 sm:px-2 sm:text-fluid-2xs md:h-8 md:px-2.5 md:text-fluid-xs';
+    ? 'h-6 min-h-0 px-1.5 text-[11px] leading-none sm:h-7 sm:px-2 sm:text-fluid-2xs'
+    : 'h-6 min-h-0 px-1.5 text-[11px] leading-none sm:h-7 sm:px-2 sm:text-fluid-2xs md:h-8 md:px-2.5 md:text-fluid-xs';
   return (
     <div
       className={`${

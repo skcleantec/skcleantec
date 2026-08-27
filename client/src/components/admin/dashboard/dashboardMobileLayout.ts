@@ -7,4 +7,4 @@ export const dashboardSectionHeader =
 
 export const dashboardSectionTitle = 'text-fluid-xs lg:text-fluid-sm font-semibold text-slate-900';
 
-export const dashboardSectionSubtitle = 'text-[11px] lg:text-fluid-2xs text-gray-500 mt-0.5 lg:mt-1';
+export const dashboardSectionSubtitle = 'text-[12px] lg:text-fluid-2xs text-gray-500 mt-0.5 lg:mt-1';

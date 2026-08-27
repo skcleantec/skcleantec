@@ -130,7 +130,7 @@ export function DashboardTeamPanelsGrid({
               {kstMonthTitleKo()} · 접수 이번 달(KST) · 취소 제외 · 팀장 배정(1차)
             </p>
           </div>
-          <span className="inline-flex shrink-0 items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+          <span className="inline-flex shrink-0 items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
             실시간
           </span>
         </div>
@@ -157,9 +157,9 @@ export function DashboardTeamPanelsGrid({
                 <>
                   <div className="min-w-0 sm:pr-3">
                     <p className="text-fluid-2xs font-semibold text-gray-700 mb-0.5">누적 거리 (주안)</p>
-                    <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">배정 건 중 좌표 있는 거리 합(km)</p>
+                    <p className="text-[11px] text-gray-400 mb-1.5 leading-tight">배정 건 중 좌표 있는 거리 합(km)</p>
                     {bySumKm.length === 0 ? (
-                      <p className="text-[10px] text-amber-800/90 bg-amber-50/80 rounded-lg px-2 py-2 leading-snug">
+                      <p className="text-[11px] text-amber-800/90 bg-amber-50/80 rounded-lg px-2 py-2 leading-snug">
                         등록된 좌표가 없습니다.
                       </p>
                     ) : (
@@ -169,7 +169,7 @@ export function DashboardTeamPanelsGrid({
                             key={`km-${row.teamLeaderId}`}
                             className="flex items-center gap-2 px-2 py-1 text-fluid-2xs rounded-lg hover:bg-slate-50 transition-colors"
                           >
-                            <span className="w-5 h-5 shrink-0 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-[10px]">
+                            <span className="w-5 h-5 shrink-0 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-[11px]">
                               {idx + 1}
                             </span>
                             <span className="flex-1 min-w-0 truncate text-gray-800 font-medium" title={row.name}>
@@ -177,7 +177,7 @@ export function DashboardTeamPanelsGrid({
                             </span>
                             <span className="shrink-0 tabular-nums font-bold text-slate-800">
                               {fmtKm(row.sumKmFromJuan ?? 0)}
-                              <span className="text-slate-400 font-normal ml-0.5 text-[10px]">km</span>
+                              <span className="text-slate-400 font-normal ml-0.5 text-[11px]">km</span>
                             </span>
                           </li>
                         ))}
@@ -186,20 +186,20 @@ export function DashboardTeamPanelsGrid({
                   </div>
                   <div className="min-w-0 sm:pl-3">
                     <p className="text-fluid-2xs font-semibold text-gray-700 mb-0.5">배정 건수</p>
-                    <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">동일 조건 배정 완료 목록</p>
+                    <p className="text-[11px] text-gray-400 mb-1.5 leading-tight">동일 조건 배정 완료 목록</p>
                     <ul className="space-y-0.5 max-h-40 lg:max-h-52 overflow-y-auto overscroll-y-contain">
                       {byJob.map((row, idx) => (
                         <li
                           key={`job-${row.teamLeaderId}`}
                           className="flex items-center gap-2 px-2 py-1 text-fluid-2xs rounded-lg hover:bg-slate-50 transition-colors"
                         >
-                          <span className="w-5 h-5 shrink-0 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-[10px]">
+                          <span className="w-5 h-5 shrink-0 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-[11px]">
                             {idx + 1}
                           </span>
                           <span className="flex-1 min-w-0 truncate text-gray-800 font-medium" title={row.name}>
                             {row.name}
                           </span>
-                          <span className="shrink-0 tabular-nums font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full text-[10px]">
+                          <span className="shrink-0 tabular-nums font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full text-[11px]">
                             {row.jobCount}건
                           </span>
                         </li>
@@ -226,7 +226,7 @@ export function DashboardTeamPanelsGrid({
               {new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)} (KST)
             </p>
           </div>
-          <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-700/10">
+          <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-700/10">
             오늘
           </span>
         </div>
@@ -239,7 +239,7 @@ export function DashboardTeamPanelsGrid({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 sm:divide-x sm:divide-gray-100">
             <div className="min-w-0 sm:pr-3">
               <p className="text-fluid-2xs font-semibold text-gray-700 mb-0.5">팀장 휴무</p>
-              <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">오늘 휴무 신청 처리된 팀장 목록</p>
+              <p className="text-[11px] text-gray-400 mb-1.5 leading-tight">오늘 휴무 신청 처리된 팀장 목록</p>
               {(stats?.teamLeaderDayOffToday?.length ?? 0) === 0 ? (
                 <p className="text-fluid-2xs text-gray-400 bg-gray-50/50 rounded-lg p-2.5 text-center border border-dashed border-gray-100">
                   휴무인 팀장이 없습니다.
@@ -257,7 +257,7 @@ export function DashboardTeamPanelsGrid({
             </div>
             <div className="min-w-0 sm:pl-3">
               <p className="text-fluid-2xs font-semibold text-gray-700 mb-0.5">팀원 · 일일 명단 제외</p>
-              <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">조장 일일 명단에 오늘 미포함 (배정 후보 제외)</p>
+              <p className="text-[11px] text-gray-400 mb-1.5 leading-tight">조장 일일 명단에 오늘 미포함 (배정 후보 제외)</p>
               {!stats?.dailyRosterModeActive ? (
                 <p className="text-fluid-2xs text-gray-400 bg-gray-50/50 rounded-lg p-2.5 text-center border border-dashed border-gray-100 leading-snug">
                   일일 명단 모드가 활성화된 크루 그룹이 없습니다.

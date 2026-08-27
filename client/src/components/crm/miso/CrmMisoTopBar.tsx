@@ -63,14 +63,14 @@ export function CrmMisoTopBar({
           </span>
           <span className="text-fluid-xs font-bold text-violet-950">미소 연동</span>
           {skeleton ? (
-            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800">
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-800">
               골격
             </span>
           ) : null}
         </div>
 
         {!bridgeUp ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11px] text-amber-900">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[12px] text-amber-900">
             <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold">브릿지 미실행</span>
             <span className="hidden min-w-0 truncate sm:inline" title={MISO_BRIDGE_NOT_RUNNING_MESSAGE}>
               청소비서 미소 연동(17891) 실행 후 연결
@@ -84,7 +84,7 @@ export function CrmMisoTopBar({
             </button>
           </div>
         ) : (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[10px]">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[11px]">
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">브릿지 연결</span>
             {status?.appVersion ? (
               <span className="rounded-full bg-white px-2 py-0.5 text-slate-600 ring-1 ring-violet-100">
@@ -128,7 +128,7 @@ export function CrmMisoTopBar({
               type="button"
               disabled={busy}
               onClick={() => void onStartEmulator()}
-              className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-medium text-violet-800 hover:bg-violet-50 disabled:opacity-50"
+              className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[12px] font-medium text-violet-800 hover:bg-violet-50 disabled:opacity-50"
             >
               에뮬 시작
             </button>
@@ -137,21 +137,21 @@ export function CrmMisoTopBar({
             type="button"
             disabled={busy || !bridgeUp}
             onClick={() => void onOpenMiso()}
-            className="rounded-lg bg-violet-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+            className="rounded-lg bg-violet-600 px-3 py-1 text-[12px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
           >
             {busy ? '연결 중…' : listCount > 0 ? '목록 새로고침' : '채팅 목록 열기'}
           </button>
           <button
             type="button"
             onClick={() => void onRefresh()}
-            className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[12px] text-slate-600 hover:bg-slate-50"
           >
             새로고침
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[12px] text-slate-600 hover:bg-slate-50"
             aria-label="미소 연동 바 닫기"
           >
             닫기
@@ -160,25 +160,25 @@ export function CrmMisoTopBar({
       </div>
 
       {automationActive ? (
-        <p className="border-t border-amber-200 bg-amber-50 px-4 py-1.5 text-[11px] font-medium text-amber-900">
+        <p className="border-t border-amber-200 bg-amber-50 px-4 py-1.5 text-[12px] font-medium text-amber-900">
           브릿지 자동화 실행 중 — 에뮬레이터 마우스/터치가 잠시 안 먹을 수 있습니다. 완료될 때까지 기다려 주세요.
         </p>
       ) : null}
       {busyLabel ? (
-        <p className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-medium text-amber-900">
+        <p className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2 text-[12px] font-medium text-amber-900">
           <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" aria-hidden />
           {busyLabel} 에뮬레이터·미소 앱을 건드리지 마세요.
         </p>
       ) : null}
       {!error && !busyLabel && pageHint ? (
-        <p className="border-t border-violet-100/80 bg-white/60 px-4 py-1.5 text-[11px] text-violet-800">{pageHint}</p>
+        <p className="border-t border-violet-100/80 bg-white/60 px-4 py-1.5 text-[12px] text-violet-800">{pageHint}</p>
       ) : null}
       {listCount > 0 ? (
         <div className="border-t border-violet-100/80 bg-white/80 px-4 py-2">
-          <p className="mb-1 text-[10px] font-semibold text-violet-900">
+          <p className="mb-1 text-[11px] font-semibold text-violet-900">
             최근 채팅 — 행 클릭 시 정보 가져오기
           </p>
-          <ul className="max-h-24 space-y-1 overflow-y-auto text-[10px] text-slate-700">
+          <ul className="max-h-24 space-y-1 overflow-y-auto text-[11px] text-slate-700">
             {chatItems.slice(0, 8).map((item) => (
               <li key={item.chatId}>
                 <button
@@ -198,12 +198,12 @@ export function CrmMisoTopBar({
         </div>
       ) : null}
       {status?.notes?.length ? (
-        <p className="border-t border-amber-100 bg-amber-50/80 px-4 py-1.5 text-[11px] text-amber-900">
+        <p className="border-t border-amber-100 bg-amber-50/80 px-4 py-1.5 text-[12px] text-amber-900">
           {status.notes.join(' · ')}
         </p>
       ) : null}
       {error ? (
-        <p className="border-t border-rose-100 bg-rose-50 px-4 py-1.5 text-[11px] text-rose-700">{error}</p>
+        <p className="border-t border-rose-100 bg-rose-50 px-4 py-1.5 text-[12px] text-rose-700">{error}</p>
       ) : null}
     </div>
   );

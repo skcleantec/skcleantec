@@ -145,20 +145,20 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
     <div className="space-y-3 border-t border-gray-200 pt-4">
       <div>
         <p className="text-fluid-sm font-semibold text-gray-900">{SOOMGO_QUOTE_AUTO_TRIGGER_LABEL}</p>
-        <p className="mt-1 text-[11px] leading-snug text-gray-600">
+        <p className="mt-1 text-[12px] leading-snug text-gray-600">
           CRM 견적 패널의 「견적보내기」 버튼으로 숨고 채팅에 보낼 메시지입니다. 브랜드별로 다르게
           설정할 수 있으며, 페이백 금액은 설정 → <strong>기본 단가</strong> 탭에서 입력합니다.
         </p>
       </div>
 
-      <label className="flex flex-wrap items-center gap-2 text-[11px] text-gray-700">
+      <label className="flex flex-wrap items-center gap-2 text-[12px] text-gray-700">
         {!hideBrandSelector ? (
           <>
             <span className="font-medium">브랜드</span>
             <select
               value={brandId}
               onChange={(e) => setBrandId(e.target.value)}
-              className="min-w-[8rem] rounded border border-gray-300 bg-white px-2 py-1 text-[11px]"
+              className="min-w-[8rem] rounded border border-gray-300 bg-white px-2 py-1 text-[12px]"
             >
               <option value="default">업체 기본</option>
               {brands.map((b) => (
@@ -175,12 +175,12 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
       </label>
 
       {msg ? (
-        <p className="rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-[11px] text-green-800">
+        <p className="rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-[12px] text-green-800">
           {msg}
         </p>
       ) : null}
       {error ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">
+        <p className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] text-red-700">
           {error}
         </p>
       ) : null}
@@ -196,14 +196,14 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
             />
             <span className="text-fluid-xs font-medium text-gray-900">사용</span>
           </label>
-          <span className="min-w-0 flex-1 truncate text-[10px] text-gray-500">
+          <span className="min-w-0 flex-1 truncate text-[11px] text-gray-500">
             CRM 「견적보내기」 클릭 시
             {stepCount > 0 ? ` · ${stepCount}스텝` : ' · 미설정'}
           </span>
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="shrink-0 rounded border border-gray-200 px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-50"
+            className="shrink-0 rounded border border-gray-200 px-2 py-0.5 text-[11px] text-gray-600 hover:bg-gray-50"
           >
             {expanded ? '접기' : '편집'}
           </button>
@@ -211,14 +211,14 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
             type="button"
             disabled={busy}
             onClick={() => void save()}
-            className="shrink-0 rounded bg-slate-900 px-2 py-0.5 text-[10px] text-white disabled:opacity-50"
+            className="shrink-0 rounded bg-slate-900 px-2 py-0.5 text-[11px] text-white disabled:opacity-50"
           >
             저장
           </button>
         </div>
         {expanded ? (
           <div className="border-t border-gray-100 bg-gray-50/80 px-2 pb-2 pt-1">
-            <p className="mb-2 text-[10px] text-gray-500">치환: {placeholderHint}</p>
+            <p className="mb-2 text-[11px] text-gray-500">치환: {placeholderHint}</p>
             <SoomgoMessagePresetEditor
               draft={draft}
               index={0}

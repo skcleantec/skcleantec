@@ -201,7 +201,7 @@ export function ScheduleDayAvailabilityModal({ open, date, token, onClose, onSav
                               {l.name}
                             </button>
                             {l.hasUserDayOff && (
-                              <span className="ml-1 text-[10px] text-amber-800 bg-amber-50 px-1 rounded">휴무등록</span>
+                              <span className="ml-1 text-[11px] text-amber-800 bg-amber-50 px-1 rounded">휴무등록</span>
                             )}
                           </td>
                           <td className="text-center py-2 px-1">
@@ -268,7 +268,7 @@ export function ScheduleDayAvailabilityModal({ open, date, token, onClose, onSav
                               {m.name}
                             </button>
                             {m.hasTeamMemberDayOff && (
-                              <span className="ml-1 text-[10px] text-amber-800 bg-amber-50 px-1 rounded">휴무등록</span>
+                              <span className="ml-1 text-[11px] text-amber-800 bg-amber-50 px-1 rounded">휴무등록</span>
                             )}
                           </td>
                           <td className="text-center py-1.5 px-1">

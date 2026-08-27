@@ -124,7 +124,7 @@ export function CrmCustomerHistoryPanel({
                     {row.lastAddress}
                   </p>
                 ) : null}
-                <p className="mt-1 text-[10px] font-medium text-emerald-700/80">
+                <p className="mt-1 text-[11px] font-medium text-emerald-700/80">
                   접수 {row.inquiryCount}건 · 최근 {fmtDate(row.latestAt)}
                 </p>
               </button>
@@ -144,7 +144,7 @@ export function CrmCustomerHistoryPanel({
             : '이 연락처로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'}
         </div>
         {data.latestQuote ? (
-          <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-[11px] text-sky-950">
+          <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-[12px] text-sky-950">
             <p className="font-semibold">보낸 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
             {data.latestQuote.payload.grandTotalWon != null ? (
               <p className="tabular-nums">{formatTelecrmQuoteWon(data.latestQuote.payload.grandTotalWon)}</p>
@@ -154,7 +154,7 @@ export function CrmCustomerHistoryPanel({
             ) : null}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] text-slate-600">
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-[12px] text-slate-600">
             보낸 견적 없음 — 견적보내기를 한 적이 없습니다.
           </p>
         )}
@@ -188,7 +188,7 @@ export function CrmCustomerHistoryPanel({
       </div>
 
       {data.latestQuote ? (
-        <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-[11px] text-sky-950">
+        <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-[12px] text-sky-950">
           <p className="font-semibold">보낸 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
           {data.latestQuote.payload.grandTotalWon != null ? (
             <p className="tabular-nums">{formatTelecrmQuoteWon(data.latestQuote.payload.grandTotalWon)}</p>
@@ -199,7 +199,7 @@ export function CrmCustomerHistoryPanel({
           <p className="mt-0.5 text-sky-800/70">견적보내기로 고객에게 전송한 금액입니다.</p>
         </div>
       ) : (
-        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] text-slate-600">
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-[12px] text-slate-600">
           보낸 견적 없음 — 견적보내기를 한 적이 없습니다.
         </p>
       )}
@@ -233,7 +233,7 @@ export function CrmCustomerHistoryPanel({
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-fluid-xs font-medium text-gray-900">{row.customerName}</span>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusChipClass(row.status)}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusChipClass(row.status)}`}
                     >
                       {inquiryStatusLabel(row.status)}
                     </span>
@@ -267,7 +267,7 @@ export function CrmCustomerHistoryPanel({
                 {fmtDate(row.createdAt)}
                 {row.memo ? <p className="line-clamp-1 text-gray-600">{row.memo}</p> : null}
                 {onSelectFollowup ? (
-                  <p className="mt-0.5 text-[10px] font-medium text-emerald-700">탭하여 CRM에 가져오기</p>
+                  <p className="mt-0.5 text-[11px] font-medium text-emerald-700">탭하여 CRM에 가져오기</p>
                 ) : null}
                 </button>
               </li>

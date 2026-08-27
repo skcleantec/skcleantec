@@ -2326,12 +2326,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   ) : null}
                   <div className="flex shrink-0 items-center">
                     {item.happyCallCompletedAt ? (
-                      <span className="inline-flex items-center rounded border border-green-200 bg-green-50 px-1 py-px text-[10px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-semibold leading-tight text-green-800">
+                      <span className="inline-flex items-center rounded border border-green-200 bg-green-50 px-1 py-px text-[11px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-semibold leading-tight text-green-800">
                         HC완료
                       </span>
                     ) : detailHappyCallEligible ? (
                       <span
-                        className={`inline-flex items-center rounded border px-1 py-px text-[10px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-semibold leading-tight ${
+                        className={`inline-flex items-center rounded border px-1 py-px text-[11px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-semibold leading-tight ${
                           detailHappyTone === 'overdue'
                             ? 'border-red-300 bg-red-50 text-red-700'
                             : 'border-amber-200 bg-amber-50 text-amber-900'
@@ -2340,7 +2340,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                         {detailHappyTone === 'overdue' ? 'HC초과' : 'HC미완'}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded border border-gray-200 bg-gray-50 px-1 py-px text-[10px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-medium leading-tight text-gray-500">
+                      <span className="inline-flex items-center rounded border border-gray-200 bg-gray-50 px-1 py-px text-[11px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-medium leading-tight text-gray-500">
                         HC—
                       </span>
                     )}
@@ -2350,7 +2350,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   <button
                     type="button"
                     onClick={() => setCopyInfoViewOpen(true)}
-                    className="inline-flex items-center rounded-md border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-slate-800 hover:bg-slate-100 active:bg-slate-200 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
+                    className="inline-flex items-center rounded-md border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium leading-tight text-slate-800 hover:bg-slate-100 active:bg-slate-200 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     title="고객·현장·일정·금액 요약을 한 화면에서 봅니다."
                   >
                     보기
@@ -2358,7 +2358,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   <button
                     type="button"
                     onClick={() => void copyInquiryInfo()}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-tight text-gray-700 hover:bg-gray-50 active:bg-gray-100 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
+                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] font-medium leading-tight text-gray-700 hover:bg-gray-50 active:bg-gray-100 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
                     aria-live="polite"
                   >
@@ -2368,7 +2368,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </div>
               {detailHeaderMetaCompact ? (
                 <p
-                  className="truncate text-[10px] leading-tight text-gray-500 sm:text-fluid-2xs"
+                  className="truncate text-[11px] leading-tight text-gray-500 sm:text-fluid-2xs"
                   title={detailHeaderMetaCompact}
                 >
                   {detailHeaderMetaCompact}
@@ -2435,7 +2435,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   }`}
                 >
                   <span className="block font-medium">{opt.label}</span>
-                  <span className="mt-0.5 block text-[11px] font-normal text-gray-600">{opt.hint}</span>
+                  <span className="mt-0.5 block text-[12px] font-normal text-gray-600">{opt.hint}</span>
                 </button>
               ))}
             </div>
@@ -2568,7 +2568,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                       type="button"
                       disabled={isCreate && preferredDateLocked}
                       onClick={() => setPreferredDateCalOpen(true)}
-                      className="text-[12px] font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                      className="text-[13px] font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
                     >
                       달력·분배 가능일 &rarr;
                     </button>
@@ -2643,7 +2643,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                         <option value="오전">오전에 청소</option>
                         <option value="오후">오후에 청소</option>
                       </select>
-                      <p className="text-[12px] text-slate-500">
+                      <p className="text-[13px] text-slate-500">
                         {isCoordinationTime(editForm.preferredTime)
                           ? '조율은 시간대와 무관하게 마지막에 배치하기 쉽습니다. 확정 시 해당 시간대 청소 가능 인원에서 1건을 사용합니다.'
                           : '확정 시 해당 시간대 청소 가능 인원에서 1건을 사용합니다.'}
@@ -3136,7 +3136,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <>
                 {crewSwapMyNameOptions.length > 1 ? (
                   <div className="mb-2 rounded-md border border-gray-200 bg-gray-50 p-2 sm:mb-4 sm:rounded-lg sm:p-3">
-                    <p className="mb-1.5 text-[10px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
+                    <p className="mb-1.5 text-[11px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
                       ① 이 접수에서 맞바꿀 팀원
                     </p>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -3158,7 +3158,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   </div>
                 ) : null}
 
-                <p className="mb-1.5 text-[10px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
+                <p className="mb-1.5 text-[11px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
                   {crewSwapMyNameOptions.length > 1 ? '② 상대 접수 선택' : '상대 접수 선택'}
                 </p>
                 <ul className="space-y-2 sm:space-y-3">
@@ -3186,26 +3186,26 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                               nameClassName="block truncate text-fluid-xs font-medium text-gray-900 sm:text-fluid-sm"
                             />
                             {it.inquiryNumber ? (
-                              <span className="ml-0.5 text-[10px] font-normal text-gray-600 tabular-nums sm:ml-1 sm:text-fluid-xs">
+                              <span className="ml-0.5 text-[11px] font-normal text-gray-600 tabular-nums sm:ml-1 sm:text-fluid-xs">
                                 (#{it.inquiryNumber})
                               </span>
                             ) : null}
                           </span>
-                          <span className="mt-0.5 block text-[10px] text-gray-600 sm:text-fluid-xs">
+                          <span className="mt-0.5 block text-[11px] text-gray-600 sm:text-fluid-xs">
                             팀장 {formatScheduleItemAssignmentLeaders(it)}
                           </span>
-                          <span className="mt-0.5 block text-[10px] text-gray-500 sm:text-fluid-xs">
+                          <span className="mt-0.5 block text-[11px] text-gray-500 sm:text-fluid-xs">
                             {crewPreviewLabel(it)}
                           </span>
                         </div>
 
                         {!hasNames ? (
-                          <p className="mt-1.5 text-[10px] text-amber-800 sm:mt-2 sm:text-fluid-2xs">
+                          <p className="mt-1.5 text-[11px] text-amber-800 sm:mt-2 sm:text-fluid-2xs">
                             팀원 이름이 비어 있어 교환할 수 없습니다.
                           </p>
                         ) : multiPartner ? (
                           <div className="mt-2 border-t border-gray-200 pt-2 sm:mt-3 sm:pt-3">
-                            <p className="mb-1.5 text-[10px] font-medium text-gray-700 sm:mb-2 sm:text-fluid-2xs">
+                            <p className="mb-1.5 text-[11px] font-medium text-gray-700 sm:mb-2 sm:text-fluid-2xs">
                               맞바꿀 상대 팀원
                             </p>
                             <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -3302,7 +3302,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <>
                 {leaderSwapMyOptions.length > 1 ? (
                   <div className="mb-2 rounded-md border border-gray-200 bg-gray-50 p-2 sm:mb-4 sm:rounded-lg sm:p-3">
-                    <p className="mb-1.5 text-[10px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
+                    <p className="mb-1.5 text-[11px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
                       ① 이 접수에서 맞바꿀 팀장
                     </p>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -3324,7 +3324,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   </div>
                 ) : null}
 
-                <p className="mb-1.5 text-[10px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
+                <p className="mb-1.5 text-[11px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
                   {leaderSwapMyOptions.length > 1 ? '② 상대 접수 선택' : '상대 접수 선택'}
                 </p>
                 <ul className="space-y-2 sm:space-y-3">
@@ -3351,22 +3351,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                               nameClassName="block truncate text-fluid-xs font-medium text-gray-900 sm:text-fluid-sm"
                             />
                             {it.inquiryNumber ? (
-                              <span className="ml-0.5 text-[10px] font-normal text-gray-600 tabular-nums sm:ml-1 sm:text-fluid-xs">
+                              <span className="ml-0.5 text-[11px] font-normal text-gray-600 tabular-nums sm:ml-1 sm:text-fluid-xs">
                                 (#{it.inquiryNumber})
                               </span>
                             ) : null}
                           </span>
-                          <span className="mt-0.5 block text-[10px] text-gray-600 sm:text-fluid-xs">
+                          <span className="mt-0.5 block text-[11px] text-gray-600 sm:text-fluid-xs">
                             팀장 {formatScheduleItemAssignmentLeaders(it)}
                           </span>
-                          <span className="mt-0.5 block text-[10px] text-gray-500 sm:text-fluid-xs">
+                          <span className="mt-0.5 block text-[11px] text-gray-500 sm:text-fluid-xs">
                             {crewPreviewLabel(it)}
                           </span>
                         </div>
 
                         {multiPartner ? (
                           <div className="mt-2 border-t border-gray-200 pt-2 sm:mt-3 sm:pt-3">
-                            <p className="mb-1.5 text-[10px] font-medium text-gray-700 sm:mb-2 sm:text-fluid-2xs">
+                            <p className="mb-1.5 text-[11px] font-medium text-gray-700 sm:mb-2 sm:text-fluid-2xs">
                               맞바꿀 상대 팀장
                             </p>
                             <div className="flex flex-wrap gap-1.5 sm:gap-2">

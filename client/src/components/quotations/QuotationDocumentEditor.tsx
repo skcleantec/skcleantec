@@ -33,10 +33,10 @@ const A4_MIN_HEIGHT = '297mm';
 const DOC_MARGIN = '48px';
 
 const docInput =
-  'w-full min-w-0 bg-transparent border-0 border-b border-dashed border-slate-300/90 px-0 py-0.5 text-[13px] leading-snug text-slate-900 placeholder:text-slate-400 focus:border-slate-700 focus:outline-none focus:ring-0';
+  'w-full min-w-0 bg-transparent border-0 border-b border-dashed border-slate-300/90 px-0 py-0.5 text-[14px] leading-snug text-slate-900 placeholder:text-slate-400 focus:border-slate-700 focus:outline-none focus:ring-0';
 
 const docCellInput =
-  'w-full min-w-0 bg-white/90 border border-slate-200/80 rounded-sm px-1.5 py-1 text-[12px] text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200';
+  'w-full min-w-0 bg-white/90 border border-slate-200/80 rounded-sm px-1.5 py-1 text-[13px] text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200';
 
 /** 품목표 서식 격자 */
 const gridCell = 'border border-slate-300';
@@ -95,7 +95,7 @@ function RepresentativeWithSeal({
   repName,
   sealUrl,
   sealWidth,
-  className = 'text-[12px] text-slate-800',
+  className = 'text-[13px] text-slate-800',
 }: {
   repName: string;
   sealUrl: string | null;
@@ -319,10 +319,10 @@ export function QuotationDocumentEditor({
             <header className="shrink-0 text-center border-b border-slate-200 pb-5 mb-5">
               <div className="mb-3 flex flex-wrap justify-center gap-2">
                 {showBrandSelector && (
-                  <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-[11px] text-slate-600 shadow-sm">
+                  <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-[12px] text-slate-600 shadow-sm">
                     <span className="font-medium whitespace-nowrap">영업 브랜드</span>
                     <select
-                      className="min-w-[140px] max-w-[220px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200 disabled:cursor-default disabled:bg-slate-50"
+                      className="min-w-[140px] max-w-[220px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[13px] text-slate-800 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200 disabled:cursor-default disabled:bg-slate-50"
                       value={operatingCompanyId}
                       onChange={(e) => onOperatingCompanyChange(e.target.value)}
                       disabled={operatingCompanies.length <= 1}
@@ -335,10 +335,10 @@ export function QuotationDocumentEditor({
                     </select>
                   </label>
                 )}
-                <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-[11px] text-slate-600 shadow-sm">
+                <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-[12px] text-slate-600 shadow-sm">
                   <span className="font-medium whitespace-nowrap">문서 유형</span>
                   <select
-                    className="min-w-[100px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200"
+                    className="min-w-[100px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[13px] text-slate-800 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200"
                     value={documentType}
                     onChange={(e) => onDocumentTypeChange(e.target.value as QuotationDocumentType)}
                   >
@@ -354,19 +354,19 @@ export function QuotationDocumentEditor({
                 {documentTitle}
               </h2>
               {quoteNumber && (
-                <p className="mt-2 text-[11px] text-slate-500 font-mono tabular-nums tracking-wide">
+                <p className="mt-2 text-[12px] text-slate-500 font-mono tabular-nums tracking-wide">
                   No. {quoteNumber}
                 </p>
               )}
             </header>
 
             {/* ── 본문(가변) ── */}
-            <div className="flex-1 flex flex-col min-h-0 text-[13px] leading-relaxed">
+            <div className="flex-1 flex flex-col min-h-0 text-[14px] leading-relaxed">
               {/* 공급자 / 공급받는자 */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="border border-slate-300 bg-[#f9fafb] p-3 min-h-[100px]">
-                  <p className="text-[10px] font-bold text-slate-500 mb-2 tracking-wide">공급자</p>
-                  <div className="space-y-0.5 text-[12px] text-slate-800">
+                  <p className="text-[11px] font-bold text-slate-500 mb-2 tracking-wide">공급자</p>
+                  <div className="space-y-0.5 text-[13px] text-slate-800">
                     {supplierLines[0] && supplierLines[0] !== '—' ? (
                       <p>{supplierLines[0]}</p>
                     ) : supplierLines[0] === '—' ? (
@@ -386,7 +386,7 @@ export function QuotationDocumentEditor({
                 </div>
 
                 <div className="border border-slate-300 bg-[#f9fafb] p-3 min-h-[100px]">
-                  <p className="text-[10px] font-bold text-slate-500 mb-2 tracking-wide">
+                  <p className="text-[11px] font-bold text-slate-500 mb-2 tracking-wide">
                     공급받는자
                   </p>
                   <div className="space-y-1.5">
@@ -432,7 +432,7 @@ export function QuotationDocumentEditor({
               </div>
 
               {/* 작성일 · 유효기간 */}
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-slate-600 mb-4">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-slate-600 mb-4">
                 <p>
                   작성일:{' '}
                   <span className="text-slate-800 tabular-nums">{formatDocDate(createdAt)}</span>
@@ -442,7 +442,7 @@ export function QuotationDocumentEditor({
                     <span>유효기간:</span>
                     <input
                       type="date"
-                      className="rounded-sm border border-slate-200 bg-white px-1.5 py-0.5 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none"
+                      className="rounded-sm border border-slate-200 bg-white px-1.5 py-0.5 text-[13px] text-slate-800 focus:border-slate-500 focus:outline-none"
                       value={validUntil}
                       onChange={(e) => onValidUntilChange(e.target.value)}
                     />
@@ -455,36 +455,36 @@ export function QuotationDocumentEditor({
 
               {/* 품목 표 — 고정 행 서식 */}
               <div className="overflow-x-auto -mx-0.5 mb-4 rounded-md overflow-hidden border-2 border-slate-400 shadow-sm">
-                <table className="w-full border-collapse text-[12px]">
+                <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="bg-gradient-to-r from-slate-800 to-slate-700 text-white">
                       <th
-                        className={`w-9 ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                        className={`w-9 ${gridHeadCell} px-1 py-2 text-center text-[11px] font-bold tracking-wide`}
                       >
                         No
                       </th>
                       <th
-                        className={`${gridHeadCell} px-2 py-2 text-left text-[10px] font-bold tracking-wide`}
+                        className={`${gridHeadCell} px-2 py-2 text-left text-[11px] font-bold tracking-wide`}
                       >
                         품목
                       </th>
                       <th
-                        className={`w-12 ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                        className={`w-12 ${gridHeadCell} px-1 py-2 text-center text-[11px] font-bold tracking-wide`}
                       >
                         수량
                       </th>
                       <th
-                        className={`w-[68px] ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                        className={`w-[68px] ${gridHeadCell} px-1 py-2 text-center text-[11px] font-bold tracking-wide`}
                       >
                         단가
                       </th>
                       <th
-                        className={`w-[68px] ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                        className={`w-[68px] ${gridHeadCell} px-1 py-2 text-center text-[11px] font-bold tracking-wide`}
                       >
                         부가세
                       </th>
                       <th
-                        className={`w-[76px] ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                        className={`w-[76px] ${gridHeadCell} px-1 py-2 text-center text-[11px] font-bold tracking-wide`}
                       >
                         금액
                       </th>
@@ -509,7 +509,7 @@ export function QuotationDocumentEditor({
                           } ${isBlankRow ? 'bg-slate-50/40' : ''} hover:bg-sky-50/30 transition-colors`}
                         >
                           <td
-                            className={`${gridCell} px-1 py-1.5 text-center text-[11px] font-medium text-slate-500 tabular-nums align-middle`}
+                            className={`${gridCell} px-1 py-1.5 text-center text-[12px] font-medium text-slate-500 tabular-nums align-middle`}
                           >
                             {idx + 1}
                           </td>
@@ -539,14 +539,14 @@ export function QuotationDocumentEditor({
                             />
                           </td>
                           <td
-                            className={`${gridCell} px-1.5 py-1.5 text-right text-[11px] tabular-nums align-middle text-indigo-700/90 font-medium`}
+                            className={`${gridCell} px-1.5 py-1.5 text-right text-[12px] tabular-nums align-middle text-indigo-700/90 font-medium`}
                           >
                             {supply != null
                               ? `${lineCalc.vatAmount.toLocaleString('ko-KR')}원`
                               : '—'}
                           </td>
                           <td
-                            className={`${gridCell} px-1.5 py-1.5 text-right text-[11px] tabular-nums align-middle font-semibold text-slate-900`}
+                            className={`${gridCell} px-1.5 py-1.5 text-right text-[12px] tabular-nums align-middle font-semibold text-slate-900`}
                           >
                             {supply != null
                               ? `${lineCalc.grandAmount.toLocaleString('ko-KR')}원`
@@ -557,7 +557,7 @@ export function QuotationDocumentEditor({
                               <button
                                 type="button"
                                 onClick={() => removeLineAt(idx)}
-                                className="text-[10px] text-rose-600 hover:text-rose-800 leading-none"
+                                className="text-[11px] text-rose-600 hover:text-rose-800 leading-none"
                                 aria-label="행 삭제"
                               >
                                 ✕
@@ -584,11 +584,11 @@ export function QuotationDocumentEditor({
 
               {/* 비고 */}
               <div className="mb-2">
-                <p className="text-[12px] font-bold text-slate-700 underline underline-offset-2 mb-1">
+                <p className="text-[13px] font-bold text-slate-700 underline underline-offset-2 mb-1">
                   비고
                 </p>
                 <textarea
-                  className="w-full min-h-[3.5rem] resize-y bg-transparent border border-dashed border-slate-300 rounded-sm px-2 py-1 text-[12px] text-slate-800 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+                  className="w-full min-h-[3.5rem] resize-y bg-transparent border border-dashed border-slate-300 rounded-sm px-2 py-1 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
                   rows={2}
                   placeholder="견적서 본문에 표시할 내용"
                   value={memo}
@@ -598,7 +598,7 @@ export function QuotationDocumentEditor({
 
               {/* ── 하단 합계·과세 (공문 하단 고정) ── */}
               <footer className="shrink-0 mt-auto pt-4 border-t border-slate-200">
-                <div className="mb-3 space-y-1 text-[11px] text-slate-600 tabular-nums text-right">
+                <div className="mb-3 space-y-1 text-[12px] text-slate-600 tabular-nums text-right">
                   <div className="flex justify-end gap-8">
                     <span>소계</span>
                     <span className="w-24">{subtotal.toLocaleString('ko-KR')}원</span>
@@ -606,7 +606,7 @@ export function QuotationDocumentEditor({
                   <label className="flex justify-end items-center gap-8">
                     <span>할인</span>
                     <input
-                      className="w-24 rounded-sm border border-slate-200 bg-white px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:border-slate-500 focus:outline-none"
+                      className="w-24 rounded-sm border border-slate-200 bg-white px-1.5 py-0.5 text-right text-[12px] tabular-nums focus:border-slate-500 focus:outline-none"
                       inputMode="numeric"
                       placeholder="0"
                       value={discountAmount}
@@ -622,8 +622,8 @@ export function QuotationDocumentEditor({
                 </div>
 
                 <fieldset className="mb-3">
-                  <legend className="text-[11px] font-semibold text-slate-600 mb-1.5">과세 구분</legend>
-                  <div className="flex flex-wrap gap-4 text-[12px] text-slate-800">
+                  <legend className="text-[12px] font-semibold text-slate-600 mb-1.5">과세 구분</legend>
+                  <div className="flex flex-wrap gap-4 text-[13px] text-slate-800">
                     <label className="inline-flex items-center gap-1.5 cursor-pointer">
                       <input
                         type="radio"
@@ -647,33 +647,33 @@ export function QuotationDocumentEditor({
                   </div>
                 </fieldset>
 
-                <div className="grid grid-cols-3 border border-slate-300 text-center text-[12px] mb-2">
+                <div className="grid grid-cols-3 border border-slate-300 text-center text-[13px] mb-2">
                   <div className="border-r border-slate-300 bg-[#f3f4f6] py-2">
-                    <p className="text-[10px] font-bold text-slate-500 mb-1">공급가액</p>
+                    <p className="text-[11px] font-bold text-slate-500 mb-1">공급가액</p>
                     <p className="font-semibold tabular-nums text-slate-900">
                       {supplyTotal.toLocaleString('ko-KR')}원
                     </p>
                   </div>
                   <div className="border-r border-slate-300 bg-[#f3f4f6] py-2">
-                    <p className="text-[10px] font-bold text-slate-500 mb-1">부가세</p>
+                    <p className="text-[11px] font-bold text-slate-500 mb-1">부가세</p>
                     <p className="font-semibold tabular-nums text-slate-900">
                       {vatAmount.toLocaleString('ko-KR')}원
                     </p>
                   </div>
                   <div className="bg-[#e5e7eb] py-2">
-                    <p className="text-[10px] font-bold text-slate-600 mb-1">합계금액</p>
-                    <p className="text-[14px] font-bold tabular-nums text-slate-900">
+                    <p className="text-[11px] font-bold text-slate-600 mb-1">합계금액</p>
+                    <p className="text-[15px] font-bold tabular-nums text-slate-900">
                       {grandTotal.toLocaleString('ko-KR')}원
                     </p>
                   </div>
                 </div>
-                <p className="text-right text-[10px] text-slate-500 mb-4">({vatModeLabel(vatMode)})</p>
+                <p className="text-right text-[11px] text-slate-500 mb-4">({vatModeLabel(vatMode)})</p>
 
-                <p className="text-center text-[13px] text-slate-800 font-medium tracking-wide">
+                <p className="text-center text-[14px] text-slate-800 font-medium tracking-wide">
                   {closingPhrase}
                 </p>
                 {footerNotice?.trim() && (
-                  <p className="mt-3 text-[11px] text-slate-500 leading-relaxed whitespace-pre-wrap text-center">
+                  <p className="mt-3 text-[12px] text-slate-500 leading-relaxed whitespace-pre-wrap text-center">
                     {footerNotice.trim()}
                   </p>
                 )}

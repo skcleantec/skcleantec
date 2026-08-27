@@ -101,7 +101,7 @@ export function QuickPasteReviewField({
       <div className="flex items-center justify-between gap-1">
         <div className="min-w-0 flex flex-wrap items-center gap-0.5">
           <span
-            className={`font-semibold ${dense ? 'text-[11px]' : 'text-fluid-2xs'} ${
+            className={`font-semibold ${dense ? 'text-[12px]' : 'text-fluid-2xs'} ${
               showAlert ? 'text-amber-900' : 'text-slate-700'
             }`}
           >
@@ -131,7 +131,7 @@ export function QuickPasteReviewField({
             type="button"
             onClick={onMarkWrong}
             className={`shrink-0 rounded-md border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 ${
-              dense ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-fluid-2xs'
+              dense ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-fluid-2xs'
             }`}
           >
             수정
@@ -180,7 +180,7 @@ export function QuickPasteReviewField({
                 type="button"
                 onClick={onConfirmEdit}
                 className={`flex-1 rounded-lg bg-violet-700 font-semibold text-white ${
-                  dense ? 'min-h-7 text-[10px]' : 'min-h-8 text-fluid-2xs'
+                  dense ? 'min-h-7 text-[11px]' : 'min-h-8 text-fluid-2xs'
                 }`}
               >
                 저장
@@ -189,7 +189,7 @@ export function QuickPasteReviewField({
                 type="button"
                 onClick={onCancelEdit}
                 className={`rounded-lg border border-slate-200 text-slate-600 ${
-                  dense ? 'min-h-7 px-2 text-[10px]' : 'min-h-8 px-2.5 text-fluid-2xs'
+                  dense ? 'min-h-7 px-2 text-[11px]' : 'min-h-8 px-2.5 text-fluid-2xs'
                 }`}
               >
                 취소

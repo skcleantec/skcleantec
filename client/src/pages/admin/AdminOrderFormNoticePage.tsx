@@ -179,7 +179,7 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
             <p className="text-xs text-gray-600 leading-relaxed">
               아래 코드를 안내 항목에 넣으면, 고객이 보는 화면에서{' '}
               <strong>영업 브랜드 → 위약금</strong> 탭에 설정한 문구로 바뀝니다. 브랜드는 발주 링크·/info 의{' '}
-              <code className="rounded bg-white px-1 font-mono text-[11px]">?brand=</code> 기준입니다.
+              <code className="rounded bg-white px-1 font-mono text-[12px]">?brand=</code> 기준입니다.
             </p>
             <ul className="space-y-1.5">
               {ORDER_FORM_GUIDE_PLACEHOLDERS.map((p) => (

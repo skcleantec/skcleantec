@@ -159,11 +159,11 @@ function LeaderAccrualKpiTile({
         ? 'border-emerald-200 bg-emerald-50/80'
         : 'border-gray-200 bg-white';
   const pad = compact ? 'px-1 py-0.5' : 'px-2 py-1.5';
-  const labelCls = compact ? 'text-[8px]' : 'text-[10px] sm:text-fluid-2xs';
+  const labelCls = compact ? 'text-[8px]' : 'text-[11px] sm:text-fluid-2xs';
   const valueCls =
     accent === 'rose'
-      ? `font-semibold text-rose-900 ${compact ? 'text-[11px]' : 'text-fluid-xs sm:text-fluid-sm'}`
-      : `font-semibold text-gray-900 ${compact ? 'text-[10px]' : 'text-fluid-xs'}`;
+      ? `font-semibold text-rose-900 ${compact ? 'text-[12px]' : 'text-fluid-xs sm:text-fluid-sm'}`
+      : `font-semibold text-gray-900 ${compact ? 'text-[11px]' : 'text-fluid-xs'}`;
 
   return (
     <div className={`rounded-lg border text-center min-w-0 ${border} ${pad}`} title={title}>
@@ -326,7 +326,7 @@ function LeaderMonthAccrualDashboard({
               </div>
             </div>
           </div>
-          <p className="mt-2 text-[11px] text-gray-500 leading-snug">
+          <p className="mt-2 text-[12px] text-gray-500 leading-snug">
             예약일이 귀속 월에 포함된 배정 접수만 집계합니다. 미정산·일반 = max(0, 예상−입금). 미정산·추가 =
             예상−입금(회사입금 가산·현장수금 차감 순액이라 음수 가능).
           </p>
@@ -2023,7 +2023,7 @@ export function AdminPayrollPage() {
                     ].map((row) => (
                       <li key={row.title} className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${row.badgeClass}`}>
+                          <span className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border ${row.badgeClass}`}>
                             {row.title}
                           </span>
                           <span className="text-gray-600 tabular-nums">{row.count}명</span>
@@ -2079,7 +2079,7 @@ export function AdminPayrollPage() {
                                   onClick={() => setCrewExpenseDetailId(row.id)}
                                   title={`${row.memberName} · ${fmtWon(row.amount)} · ${row.crewGroupName}${row.memo ? ` · ${row.memo}` : ''}`}
                                 >
-                                  <div className="flex min-w-0 flex-nowrap items-center gap-x-2 gap-y-0 overflow-hidden text-[11px]">
+                                  <div className="flex min-w-0 flex-nowrap items-center gap-x-2 gap-y-0 overflow-hidden text-[12px]">
                                     <span className="shrink-0 font-semibold text-gray-900 truncate max-w-[20vw] sm:max-w-[9rem]">
                                       {row.memberName}
                                     </span>
@@ -2183,7 +2183,7 @@ export function AdminPayrollPage() {
                             {adminSharedExpenseItems.map((row) => (
                               <li
                                 key={row.id}
-                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[11px]"
+                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[12px]"
                               >
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
                                   <span className="font-semibold tabular-nums text-gray-900 shrink-0">{fmtWon(row.amount)}</span>
@@ -2295,7 +2295,7 @@ export function AdminPayrollPage() {
                             {adminPersonalExpenseItems.map((row) => (
                               <li
                                 key={row.id}
-                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[11px]"
+                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[12px]"
                               >
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
                                   <span className="font-semibold tabular-nums text-gray-900 shrink-0">{fmtWon(row.amount)}</span>
@@ -2599,7 +2599,7 @@ export function AdminPayrollPage() {
                             {incomeDepositItems.map((row) => (
                               <li
                                 key={row.id}
-                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[11px]"
+                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[12px]"
                               >
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
                                   <span className="font-semibold tabular-nums text-gray-900 shrink-0">{fmtWon(row.amount)}</span>
@@ -2707,7 +2707,7 @@ export function AdminPayrollPage() {
                                         <span className="font-semibold text-gray-900 truncate min-w-0">{r.name}</span>
                                         <span className="shrink-0 font-bold tabular-nums text-emerald-900">{fmtWon(r.partialNet)}</span>
                                       </div>
-                                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-600 tabular-nums">
+                                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-gray-600 tabular-nums">
                                         {r.cycleStartYmd ? (
                                           <>
                                             <span>{compactPeriod(r.cycleStartYmd, r.partialEndYmd)}</span>
@@ -2727,12 +2727,12 @@ export function AdminPayrollPage() {
                                         )}
                                       </div>
                                       {r.poolSettlementComplete && r.payMonthKey ? (
-                                        <div className="mt-1 text-[10px] text-emerald-800">
+                                        <div className="mt-1 text-[11px] text-emerald-800">
                                           귀속 {r.payMonthKey} 정산완료 기록
                                         </div>
                                       ) : null}
                                       {r.notes.length > 0 && r.cycleStartYmd ? (
-                                        <div className="mt-1 text-[10px] text-amber-800 leading-snug break-words">
+                                        <div className="mt-1 text-[11px] text-amber-800 leading-snug break-words">
                                           {r.notes.join(' · ')}
                                         </div>
                                       ) : null}
@@ -2787,7 +2787,7 @@ export function AdminPayrollPage() {
                                         <span className="font-semibold text-gray-900 truncate min-w-0">{m.name}</span>
                                         <span className="shrink-0 font-bold tabular-nums text-violet-900">{fmtWon(m.accruedEstimate)}</span>
                                       </div>
-                                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-600 tabular-nums">
+                                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-gray-600 tabular-nums">
                                         {m.cycleStartYmd ? (
                                           <>
                                             <span>{compactPeriod(m.cycleStartYmd, m.partialEndYmd)}</span>
@@ -2977,7 +2977,7 @@ export function AdminPayrollPage() {
                                       <td className="border-b border-gray-100 px-2 py-2 text-center sticky left-0 z-10 bg-white border-r group-hover:bg-gray-50">
                                         <div className="flex flex-col items-center gap-1 min-w-0 max-w-[14rem] mx-auto">
                                           <span
-                                            className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                                            className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass(r.kind)}`}
                                           >
                                             {r.roleLabel}
                                           </span>
@@ -3047,12 +3047,12 @@ export function AdminPayrollPage() {
                                               <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
                                                 <span className="tabular-nums font-semibold">{fmtWon(amt)}</span>
                                                 {r.kind === 'POOL_MEMBER' && r.jobCount != null && !settled ? (
-                                                  <span className="text-[10px] text-gray-600 tabular-nums">
+                                                  <span className="text-[11px] text-gray-600 tabular-nums">
                                                     {r.jobCount}일
                                                   </span>
                                                 ) : null}
                                                 {settled ? (
-                                                  <span className="text-[10px] text-gray-500 font-medium">
+                                                  <span className="text-[11px] text-gray-500 font-medium">
                                                     정산완료
                                                   </span>
                                                 ) : null}
@@ -3109,7 +3109,7 @@ export function AdminPayrollPage() {
                               <div className="flex items-start justify-between gap-2 min-w-0">
                                 <div className="min-w-0 flex flex-col gap-1">
                                   <span
-                                    className={`inline-flex w-fit shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                                    className={`inline-flex w-fit shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass(r.kind)}`}
                                   >
                                     {r.roleLabel}
                                   </span>
@@ -3302,7 +3302,7 @@ export function AdminPayrollPage() {
                                           <span className="block truncate" title={row.category}>
                                             {row.category}
                                             {row.entryKind === 'accrual' ? (
-                                              <span className="ml-1 text-[10px] font-normal text-violet-700">(장부)</span>
+                                              <span className="ml-1 text-[11px] font-normal text-violet-700">(장부)</span>
                                             ) : null}
                                           </span>
                                         </td>
@@ -3396,7 +3396,7 @@ export function AdminPayrollPage() {
                                     <p className="mt-1 font-medium text-gray-900">
                                       {row.category}
                                       {row.entryKind === 'accrual' ? (
-                                        <span className="ml-1 text-[10px] font-normal text-violet-700">(장부)</span>
+                                        <span className="ml-1 text-[11px] font-normal text-violet-700">(장부)</span>
                                       ) : null}
                                     </p>
                                     <p className="mt-0.5 text-gray-600 break-words">{row.summary}</p>
@@ -3460,13 +3460,13 @@ export function AdminPayrollPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span
-                              className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                              className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass(r.kind)}`}
                             >
                               {r.roleLabel}
                             </span>
                             <span className="font-medium text-gray-900 truncate">{r.name}</span>
                             {r.poolSettlementComplete ? (
-                              <span className="inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200">
+                              <span className="inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200">
                                 정산완료
                               </span>
                             ) : null}
@@ -3486,7 +3486,7 @@ export function AdminPayrollPage() {
                             ) : null}
                           </div>
                           {r.notes.length > 0 ? (
-                            <p className="mt-1 text-[11px] text-amber-800 leading-snug">{r.notes.join(' · ')}</p>
+                            <p className="mt-1 text-[12px] text-amber-800 leading-snug">{r.notes.join(' · ')}</p>
                           ) : null}
                         </div>
                         <div className="text-right shrink-0">{poolPayrollAmountCell(r)}</div>
@@ -3530,13 +3530,13 @@ export function AdminPayrollPage() {
                   <div className="px-3 py-2.5">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                        className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass(r.kind)}`}
                       >
                         {r.roleLabel}
                       </span>
                       <span className="font-medium text-gray-900 truncate">{r.name}</span>
                     </div>
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] tabular-nums text-gray-900">
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px] tabular-nums text-gray-900">
                       <dt className="text-gray-500">배정건수</dt>
                       <dd className="text-right">{r.leaderMonthAssignedJobCount ?? 0}건</dd>
                       <dt className="text-gray-500">매출</dt>
@@ -3580,13 +3580,13 @@ export function AdminPayrollPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span
-                              className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                              className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass(r.kind)}`}
                             >
                               {r.roleLabel}
                             </span>
                             <span className="font-medium text-gray-900 truncate">{r.name}</span>
                             {r.marketerSettlementComplete ? (
-                              <span className="inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200">
+                              <span className="inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200">
                                 정산완료
                               </span>
                             ) : null}
@@ -3605,7 +3605,7 @@ export function AdminPayrollPage() {
                             등록 월급 {fmtWon(r.marketerMonthlySalary ?? null)} · 합계 {fmtWon(r.amount)}
                           </div>
                           {r.notes.length > 0 ? (
-                            <p className="mt-1 text-[11px] text-amber-800 leading-snug">{r.notes.join(' · ')}</p>
+                            <p className="mt-1 text-[12px] text-amber-800 leading-snug">{r.notes.join(' · ')}</p>
                           ) : null}
                         </div>
                         <div className="text-right shrink-0">
@@ -3703,7 +3703,7 @@ export function AdminPayrollPage() {
                           <td className="border-b border-gray-100 px-1 py-1.5 text-center sticky left-0 z-[1] bg-white group-hover:bg-gray-50 border-r border-gray-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] align-middle">
                             <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 min-w-0">
                               <span
-                                className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                                className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass(r.kind)}`}
                               >
                                 {r.roleLabel}
                               </span>
@@ -3739,14 +3739,14 @@ export function AdminPayrollPage() {
                               <button
                                 type="button"
                                 onClick={() => openLeaderDetail(r, { focusAddPayment: true })}
-                                className="rounded-md border border-blue-600 bg-blue-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap touch-manipulation"
+                                className="rounded-md border border-blue-600 bg-blue-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap touch-manipulation"
                               >
                                 정산
                               </button>
                               <button
                                 type="button"
                                 onClick={() => openLeaderDetail(r)}
-                                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[10px] font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap touch-manipulation"
+                                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap touch-manipulation"
                               >
                                 정산내역
                               </button>
@@ -3828,7 +3828,7 @@ export function AdminPayrollPage() {
                           <td className="border-b border-gray-100 px-1.5 py-1.5 text-center sticky left-0 z-[1] bg-white group-hover:bg-gray-50 border-r border-gray-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] align-middle">
                             <div className="flex flex-col items-center gap-1 min-w-0">
                               <span
-                                className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                                className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass(r.kind)}`}
                               >
                                 {r.roleLabel}
                               </span>
@@ -3869,7 +3869,7 @@ export function AdminPayrollPage() {
                                   <span className="inline-flex flex-col items-center gap-0.5">
                                     <span>{r.jobCount != null ? r.jobCount : '—'}</span>
                                     {(r.poolManualExtraDays ?? 0) > 0 ? (
-                                      <span className="text-[10px] text-blue-700 leading-none">
+                                      <span className="text-[11px] text-blue-700 leading-none">
                                         +수기{r.poolManualExtraDays}
                                       </span>
                                     ) : null}
@@ -3898,7 +3898,7 @@ export function AdminPayrollPage() {
                                 <button
                                   type="button"
                                   onClick={() => openAdjustModal(r)}
-                                  className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
+                                  className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
                                 >
                                   설정
                                 </button>
@@ -3910,7 +3910,7 @@ export function AdminPayrollPage() {
                                     Boolean(r.poolSettlementComplete)
                                   }
                                   onClick={() => void settlePoolMemberRow(r)}
-                                  className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
+                                  className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[11px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
                                 >
                                   {settlingMemberId === r.id
                                     ? '…'
@@ -3924,7 +3924,7 @@ export function AdminPayrollPage() {
                                 <button
                                   type="button"
                                   onClick={() => openMarketerDetail(r)}
-                                  className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
+                                  className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
                                 >
                                   급여상세
                                 </button>
@@ -3937,7 +3937,7 @@ export function AdminPayrollPage() {
                                     r.amount == null
                                   }
                                   onClick={() => openMarketerSettleModal(r)}
-                                  className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
+                                  className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[11px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
                                 >
                                   {r.marketerSettlementComplete ? '완료' : '정산완료'}
                                 </button>
@@ -3947,7 +3947,7 @@ export function AdminPayrollPage() {
                             )}
                           </td>
                           <td
-                            className="border-b border-gray-100 px-1.5 py-1.5 text-center text-[11px] text-gray-600 truncate"
+                            className="border-b border-gray-100 px-1.5 py-1.5 text-center text-[12px] text-gray-600 truncate"
                             title={r.notes.join(' · ') || undefined}
                           >
                             {r.notes.length ? r.notes.join(' · ') : '—'}
@@ -4009,7 +4009,7 @@ export function AdminPayrollPage() {
                 <ModalCloseButton onClick={closePoolMemberDetail} />
                 <div className="pr-10 flex flex-wrap items-center gap-2 gap-y-1">
                   <span
-                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass('POOL_MEMBER')}`}
+                    className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass('POOL_MEMBER')}`}
                   >
                     현장
                   </span>
@@ -4157,7 +4157,7 @@ export function AdminPayrollPage() {
                                             <td className="border-b border-gray-100 px-2 py-1.5 text-right tabular-nums font-medium text-gray-900">
                                               {fmtWon(row.amount)}
                                             </td>
-                                            <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-700 tabular-nums">
+                                            <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[12px] text-gray-700 tabular-nums">
                                               {fmtIsoDateTimeKst(row.settledAt)}
                                             </td>
                                           </tr>
@@ -4174,7 +4174,7 @@ export function AdminPayrollPage() {
                                             {fmtWon(row.amount)}
                                           </span>
                                         </div>
-                                        <div className="mt-1 text-[11px] text-gray-600 tabular-nums">
+                                        <div className="mt-1 text-[12px] text-gray-600 tabular-nums">
                                           {fmtIsoDateTimeKst(row.settledAt)}
                                         </div>
                                       </li>
@@ -4306,7 +4306,7 @@ export function AdminPayrollPage() {
                                         {customerLineLabel(line)}
                                       </td>
                                       <td
-                                        className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-600 truncate"
+                                        className="border-b border-gray-100 px-2 py-1.5 text-center text-[12px] text-gray-600 truncate"
                                         title={line.crewMemberNote ?? ''}
                                       >
                                         {line.crewMemberNote?.trim() ? line.crewMemberNote : '—'}
@@ -4327,7 +4327,7 @@ export function AdminPayrollPage() {
                                     {customerLineLabel(line)}
                                   </div>
                                   {line.crewMemberNote?.trim() ? (
-                                    <div className="mt-1 text-[11px] text-gray-600 line-clamp-2" title={line.crewMemberNote}>
+                                    <div className="mt-1 text-[12px] text-gray-600 line-clamp-2" title={line.crewMemberNote}>
                                       {line.crewMemberNote}
                                     </div>
                                   ) : null}
@@ -4367,7 +4367,7 @@ export function AdminPayrollPage() {
                 <ModalCloseButton onClick={closeLeaderDetail} />
                 <div className="pr-10 flex flex-wrap items-center gap-2 gap-y-1">
                   <span
-                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass('TEAM_LEADER')}`}
+                    className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass('TEAM_LEADER')}`}
                   >
                     팀장
                   </span>
@@ -4451,18 +4451,18 @@ export function AdminPayrollPage() {
                       {(() => {
                         const settleLine = leaderSettlementProfileLine(leaderDetail);
                         return settleLine ? (
-                          <p className="text-[11px] text-gray-800 leading-snug border-t border-gray-200 pt-2 mt-2">
+                          <p className="text-[12px] text-gray-800 leading-snug border-t border-gray-200 pt-2 mt-2">
                             <span className="font-medium text-gray-900">사용자 등록 접수 정산 규칙</span>{' '}
                             <span className="tabular-nums">{settleLine}</span>
                           </p>
                         ) : (
-                          <p className="text-[11px] text-gray-500 leading-snug border-t border-gray-200 pt-2 mt-2">
+                          <p className="text-[12px] text-gray-500 leading-snug border-t border-gray-200 pt-2 mt-2">
                             사용자 등록에서 일반 정산·추가결재 회사 몫을 설정하면 목록에 함께 표시됩니다.
                           </p>
                         );
                       })()}
                       {leaderDetail.contractSalary != null ? (
-                        <p className="text-[11px] text-gray-600">
+                        <p className="text-[12px] text-gray-600">
                           참고·사용자 등록 월 급여액{' '}
                           <strong className="tabular-nums">{fmtWon(leaderDetail.contractSalary)}</strong>
                         </p>
@@ -4497,7 +4497,7 @@ export function AdminPayrollPage() {
                                     <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-800">
                                       {compactPayDate(row.paidOnYmd)}
                                     </td>
-                                    <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px]">
+                                    <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[12px]">
                                       {row.settlementBucket === 'ADDITIONAL_RECEIPT_SETTLEMENT' ? (
                                         <span className="font-medium text-violet-800">추가결재</span>
                                       ) : (
@@ -4508,7 +4508,7 @@ export function AdminPayrollPage() {
                                       {Number(row.amount).toLocaleString('ko-KR')}
                                     </td>
                                     <td
-                                      className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-600 truncate"
+                                      className="border-b border-gray-100 px-2 py-1.5 text-center text-[12px] text-gray-600 truncate"
                                       title={row.memo ?? ''}
                                     >
                                       {row.memo?.trim() ? row.memo : '—'}
@@ -4523,7 +4523,7 @@ export function AdminPayrollPage() {
                                             amount: row.amount,
                                           })
                                         }
-                                        className="text-[11px] font-medium text-red-700 hover:underline"
+                                        className="text-[12px] font-medium text-red-700 hover:underline"
                                       >
                                         삭제
                                       </button>
@@ -4623,7 +4623,7 @@ export function AdminPayrollPage() {
                               <td className="border-b border-gray-100 px-2 py-1.5 text-center text-gray-800">
                                 {row.monthLabel}
                               </td>
-                              <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px]">
+                              <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[12px]">
                                 {row.settlementBucket === 'ADDITIONAL_RECEIPT_SETTLEMENT' ? (
                                   <span className="font-medium text-violet-800">추가결재</span>
                                 ) : (
@@ -4637,7 +4637,7 @@ export function AdminPayrollPage() {
                                 {Number(row.amount).toLocaleString('ko-KR')}
                               </td>
                               <td
-                                className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-600 truncate"
+                                className="border-b border-gray-100 px-2 py-1.5 text-center text-[12px] text-gray-600 truncate"
                                 title={row.memo ?? ''}
                               >
                                 {row.memo?.trim() ? row.memo : '—'}
@@ -5122,7 +5122,7 @@ export function AdminPayrollPage() {
                 <ModalCloseButton onClick={closeMarketerDetail} />
                 <div className="pr-10 flex flex-wrap items-center gap-2 gap-y-1">
                   <span
-                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(marketerDetailForRow.kind)}`}
+                    className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold border ${roleBadgeClass(marketerDetailForRow.kind)}`}
                   >
                     {marketerDetailForRow.roleLabel}
                   </span>
@@ -5196,7 +5196,7 @@ export function AdminPayrollPage() {
                         {marketerDetail.settlement.memo?.trim() ? (
                           <div className="text-gray-800 whitespace-pre-wrap">메모: {marketerDetail.settlement.memo}</div>
                         ) : null}
-                        <div className="text-[11px] text-emerald-800 tabular-nums">
+                        <div className="text-[12px] text-emerald-800 tabular-nums">
                           {fmtIsoDateTimeKst(marketerDetail.settlement.settledAt)}
                         </div>
                       </div>
@@ -5256,12 +5256,12 @@ export function AdminPayrollPage() {
                                       : '—'}
                                   </td>
                                   <td
-                                    className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-600 truncate max-w-[8rem]"
+                                    className="border-b border-gray-100 px-2 py-1.5 text-center text-[12px] text-gray-600 truncate max-w-[8rem]"
                                     title={row.memo ?? ''}
                                   >
                                     {row.memo?.trim() ? row.memo : '—'}
                                   </td>
-                                  <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-700 tabular-nums">
+                                  <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[12px] text-gray-700 tabular-nums">
                                     {fmtIsoDateTimeKst(row.settledAt)}
                                   </td>
                                 </tr>
@@ -5276,20 +5276,20 @@ export function AdminPayrollPage() {
                                 <span className="font-medium text-gray-900">{row.monthLabel}</span>
                                 <span className="font-semibold tabular-nums text-emerald-900">{fmtWon(row.settledAmount)}</span>
                               </div>
-                              <div className="text-[11px] text-gray-600 tabular-nums space-x-2">
+                              <div className="text-[12px] text-gray-600 tabular-nums space-x-2">
                                 <span>이월 {Number(row.openingCarryForward).toLocaleString('ko-KR')}원</span>
                                 <span>·</span>
                                 <span>월급 {fmtWon(row.scheduledMonthlySalary)}</span>
                               </div>
                               {row.remainderCarriedForward > 0 ? (
-                                <div className="text-[11px] text-amber-900 font-medium tabular-nums">
+                                <div className="text-[12px] text-amber-900 font-medium tabular-nums">
                                   차월 이월 {Number(row.remainderCarriedForward).toLocaleString('ko-KR')}원
                                 </div>
                               ) : null}
                               {row.memo?.trim() ? (
-                                <div className="text-[11px] text-gray-700 whitespace-pre-wrap">메모: {row.memo}</div>
+                                <div className="text-[12px] text-gray-700 whitespace-pre-wrap">메모: {row.memo}</div>
                               ) : null}
-                              <div className="text-[11px] text-gray-600 tabular-nums">{fmtIsoDateTimeKst(row.settledAt)}</div>
+                              <div className="text-[12px] text-gray-600 tabular-nums">{fmtIsoDateTimeKst(row.settledAt)}</div>
                             </li>
                           ))}
                         </ul>

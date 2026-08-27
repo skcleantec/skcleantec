@@ -164,7 +164,7 @@ export function ScheduleAlertSiren({
       >
         <SirenIcon className="h-4 w-4" />
         {active ? (
-          <span className="absolute -right-1 -top-1 min-w-[1.1rem] rounded-full bg-yellow-300 px-1 text-[10px] font-bold leading-tight text-rose-950 tabular-nums ring-2 ring-slate-900">
+          <span className="absolute -right-1 -top-1 min-w-[1.1rem] rounded-full bg-yellow-300 px-1 text-[11px] font-bold leading-tight text-rose-950 tabular-nums ring-2 ring-slate-900">
             {unseen > 99 ? '99+' : unseen}
           </span>
         ) : null}
@@ -204,7 +204,7 @@ export function ScheduleAlertSiren({
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${KIND_CHIP[item.kind]}`}
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${KIND_CHIP[item.kind]}`}
                         >
                           {SCHEDULE_ALERT_KIND_LABELS[item.kind]}
                         </span>

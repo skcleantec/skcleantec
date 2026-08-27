@@ -212,7 +212,7 @@ export function AdminDevPreviewLinks({
                           onClick={() => goTeamLeader(u.id)}
                         >
                           {u.name}
-                          <span className="ml-1 text-[10px] text-gray-400">{u.email}</span>
+                          <span className="ml-1 text-[11px] text-gray-400">{u.email}</span>
                         </button>
                       </li>
                     ))
@@ -251,7 +251,7 @@ export function AdminDevPreviewLinks({
                           onClick={() => void goCrew(g.loginId)}
                         >
                           <span className="font-medium">{g.name}</span>
-                          <span className="ml-1 text-[10px] text-gray-500">{g.loginId}</span>
+                          <span className="ml-1 text-[11px] text-gray-500">{g.loginId}</span>
                         </button>
                       </li>
                     ))

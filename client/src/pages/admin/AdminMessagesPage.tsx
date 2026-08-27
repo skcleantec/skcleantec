@@ -127,7 +127,7 @@ function AvatarCircle({
 
   const { bg, text } = getAvatarColors(name);
   const initial = name.trim().charAt(0) || '?';
-  const fontSize = size <= 36 ? 13 : 15;
+  const fontSize = size <= 36 ? 14 : 16;
   const shellStyle = {
     width: size,
     height: size,
@@ -408,7 +408,7 @@ export function AdminMessagesPage() {
             cursor: 'pointer',
           }}
         >
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span>📢</span>
             현장 공지(일괄 발송)
           </span>
@@ -434,14 +434,14 @@ export function AdminMessagesPage() {
                 }}
               >
                 <legend className="sr-only">공지 수신 대상</legend>
-                <p style={{ fontSize: 12, color: '#64748b', fontWeight: 500, marginBottom: 8 }}>수신 대상을 1개 이상 선택하세요.</p>
+                <p style={{ fontSize: 13, color: '#64748b', fontWeight: 500, marginBottom: 8 }}>수신 대상을 1개 이상 선택하세요.</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px' }}>
                   {[
                     { label: '팀장', value: toTeamLeaders, set: setToTeamLeaders },
                     { label: '외부업체', value: toExternalPartners, set: setToExternalPartners },
                     { label: '팀원(크루)', value: toCrew, set: setToCrew },
                   ].map(({ label, value, set }) => (
-                    <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                    <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={value}
@@ -469,7 +469,7 @@ export function AdminMessagesPage() {
                     borderRadius: 10,
                     border: '1px solid #cbd5e1',
                     padding: '10px 14px',
-                    fontSize: 14,
+                    fontSize: 15,
                     outline: 'none',
                   }}
                   disabled={broadcasting}
@@ -484,7 +484,7 @@ export function AdminMessagesPage() {
                     background: '#fbbf24',
                     color: '#0f172a',
                     fontWeight: 700,
-                    fontSize: 14,
+                    fontSize: 15,
                     border: 'none',
                     cursor: 'pointer',
                     opacity: (broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew)) ? 0.5 : 1,
@@ -497,7 +497,7 @@ export function AdminMessagesPage() {
               </div>
             </form>
             {broadcastError && (
-              <p style={{ marginTop: 8, fontSize: 12, color: '#dc2626', fontWeight: 600 }} role="alert">
+              <p style={{ marginTop: 8, fontSize: 13, color: '#dc2626', fontWeight: 600 }} role="alert">
                 {broadcastError}
               </p>
             )}
@@ -544,7 +544,7 @@ export function AdminMessagesPage() {
               flexShrink: 0,
             }}
           >
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#1e293b' }}>대화 목록</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: '#1e293b' }}>대화 목록</span>
           </div>
 
           {/* 대화 목록 */}
@@ -558,11 +558,11 @@ export function AdminMessagesPage() {
             }}
           >
             {conversationsLoading && conversations.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
+              <div style={{ padding: 24, textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
                 대화 목록 불러오는 중…
               </div>
             ) : conversations.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
+              <div style={{ padding: 24, textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
                 대화 상대가 없습니다.
               </div>
             ) : (
@@ -597,17 +597,17 @@ export function AdminMessagesPage() {
                     <AvatarCircle name={c.name} photoUrl={c.staffIdCardUrl} size={42} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 2 }}>
-                        <span style={{ fontWeight: 700, fontSize: 13, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                           {c.name}
                         </span>
                         {c.lastMessage && (
-                          <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
+                          <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>
                             {formatTimeForList(c.lastMessage.createdAt)}
                           </span>
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                        <span style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                        <span style={{ fontSize: 13, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                           {c.lastMessage ? c.lastMessage.content : '대화 시작하기'}
                         </span>
                         {c.unreadCount > 0 && (
@@ -618,7 +618,7 @@ export function AdminMessagesPage() {
                               borderRadius: 9,
                               background: '#ef4444',
                               color: '#fff',
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: 700,
                               display: 'flex',
                               alignItems: 'center',
@@ -685,10 +685,10 @@ export function AdminMessagesPage() {
                 </button>
                 <AvatarCircle name={selected.name} photoUrl={selected.staffIdCardUrl} size={34} />
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {selected.name}
                   </div>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
                     {fieldPartnerRoleLabel(selected.role)}
                   </div>
                 </div>
@@ -702,7 +702,7 @@ export function AdminMessagesPage() {
                       <div key={m.id} id={`admin-msg-${m.id}`} className="kakaotalk-message-row-other">
                         <AvatarCircle name={m.sender.name} photoUrl={m.sender.staffIdCardUrl} size={34} />
                         <div className="flex min-w-0 max-w-[calc(100%-50px)] flex-col gap-0.5">
-                          <span className="ml-0.5 text-[11px] font-bold text-slate-700">{m.sender.name}</span>
+                          <span className="ml-0.5 text-[12px] font-bold text-slate-700">{m.sender.name}</span>
                           <div className="flex min-w-0 items-end gap-1.5">
                             <div className="kakaotalk-bubble kakaotalk-bubble-other">{m.content}</div>
                             <span className="kakaotalk-time-indicator pb-0.5">
@@ -763,7 +763,7 @@ export function AdminMessagesPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#4b5b6e',
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: 500,
                 flexDirection: 'column',
                 gap: 8,

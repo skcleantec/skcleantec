@@ -235,8 +235,8 @@ export function CrewDayOffsPage() {
                 >
                   {d}
                   {isOff ? (
-                    <span className="block text-[10px] leading-tight">
-                      <CrewUiLine id="crew.dayoffs.cellLabel" className="text-[10px] text-red-700" />
+                    <span className="block text-[11px] leading-tight">
+                      <CrewUiLine id="crew.dayoffs.cellLabel" className="text-[11px] text-red-700" />
                     </span>
                   ) : null}
                 </button>

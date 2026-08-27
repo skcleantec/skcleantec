@@ -172,14 +172,14 @@ export function CrmScriptPanel({
     });
 
   const inner = loading ? (
-    <p className="px-2 py-1.5 text-[11px] text-gray-500">불러오는 중…</p>
+    <p className="px-2 py-1.5 text-[12px] text-gray-500">불러오는 중…</p>
   ) : error ? (
-    <p className="px-2 py-1.5 text-[11px] text-red-600">{error}</p>
+    <p className="px-2 py-1.5 text-[12px] text-red-600">{error}</p>
   ) : categories.length === 0 ? (
     <div className="space-y-2 px-2 py-1.5">
-      <p className="text-[11px] text-gray-500">등록된 스크립트가 없습니다.</p>
+      <p className="text-[12px] text-gray-500">등록된 스크립트가 없습니다.</p>
       {onOpenSettings ? (
-        <CrmActionButton accent="script" onClick={onOpenSettings} className="!px-2 !py-1 !text-[10px]">
+        <CrmActionButton accent="script" onClick={onOpenSettings} className="!px-2 !py-1 !text-[11px]">
           설정에서 스크립트 추가
         </CrmActionButton>
       ) : null}
@@ -209,7 +209,7 @@ export function CrmScriptPanel({
           variant="solid"
           onClick={() => void copyScript()}
           disabled={!body}
-          className="!shrink-0 !px-2 !py-1 !text-[10px]"
+          className="!shrink-0 !px-2 !py-1 !text-[11px]"
         >
           <CrmIconCopy className="h-3 w-3" />
           {copied ? '복사됨' : '복사'}
@@ -225,7 +225,7 @@ export function CrmScriptPanel({
                 key={t.id}
                 type="button"
                 onClick={() => setTabId(t.id)}
-                className={`rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors ${
                   activeTab?.id === t.id
                     ? 'bg-violet-600 text-white shadow-sm'
                     : 'text-violet-700 hover:bg-violet-50'
@@ -236,11 +236,11 @@ export function CrmScriptPanel({
             ))}
           </div>
         ) : activeTab ? (
-          <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-violet-800" title={activeTab.label}>
+          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-violet-800" title={activeTab.label}>
             {activeTab.label}
           </span>
         ) : null}
-        <div className="ml-auto flex shrink-0 items-center gap-1 text-[10px] text-gray-500">
+        <div className="ml-auto flex shrink-0 items-center gap-1 text-[11px] text-gray-500">
           <span>글자</span>
           <button
             type="button"

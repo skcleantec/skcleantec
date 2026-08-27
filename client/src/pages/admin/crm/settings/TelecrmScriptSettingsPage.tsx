@@ -326,7 +326,7 @@ export function TelecrmScriptSettingsPage({
                         />
                         <button
                           type="button"
-                          className="text-[10px] text-red-600 px-0.5"
+                          className="text-[11px] text-red-600 px-0.5"
                           onClick={() => {
                             setDeleteTarget({ kind: 'tab', row: t });
                             setDeletePassword('');

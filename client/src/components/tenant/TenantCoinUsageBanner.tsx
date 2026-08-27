@@ -69,13 +69,13 @@ export function TenantCoinUsageBanner({
                 ) : null}
               </>
             )}
-            <p className="text-[11px] opacity-80">
+            <p className="text-[12px] opacity-80">
               {TENANT_COIN_CHARGE_RULES_SUMMARY} · 매월 1일(KST) 리셋
             </p>
             {showDetailLink ? (
               <Link
                 to={TENANT_SUBSCRIPTION_ADMIN_PATH}
-                className="inline-block text-[11px] font-semibold text-indigo-700 underline-offset-2 hover:underline"
+                className="inline-block text-[12px] font-semibold text-indigo-700 underline-offset-2 hover:underline"
               >
                 가입정보에서 자세히 보기
               </Link>
@@ -106,7 +106,7 @@ export function TenantCoinUsageBanner({
               </span>
             )}
           </p>
-          <p className="mt-0.5 hidden text-[11px] leading-snug opacity-80 sm:block">
+          <p className="mt-0.5 hidden text-[12px] leading-snug opacity-80 sm:block">
             {TENANT_COIN_CHARGE_RULES_SUMMARY} · 매월 1일 리셋
             {level === 'over' ? ' · 코인 부족 시 발주·상태 전환 불가' : null}
           </p>
@@ -114,7 +114,7 @@ export function TenantCoinUsageBanner({
         {showDetailLink ? (
           <Link
             to={TENANT_SUBSCRIPTION_ADMIN_PATH}
-            className="shrink-0 text-[11px] font-semibold text-indigo-700 underline-offset-2 hover:underline"
+            className="shrink-0 text-[12px] font-semibold text-indigo-700 underline-offset-2 hover:underline"
           >
             가입정보
           </Link>

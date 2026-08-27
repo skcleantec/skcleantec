@@ -38,18 +38,18 @@ function TimelineRow({ row }: { row: TelecrmContactTimelineItemDto }) {
     >
       <div className="flex min-w-0 items-start gap-2">
         <span
-          className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold leading-none ${kindBadgeClass(row.kind, row.active)}`}
+          className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold leading-none ${kindBadgeClass(row.kind, row.active)}`}
         >
           {row.active ? '진행' : '이력'}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-fluid-xs font-semibold text-slate-900">{display.title}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-500">
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-slate-500">
             <span className="tabular-nums">{fmtWhen(row.at)}</span>
             {row.actorName ? <span className="font-medium text-slate-700">{row.actorName}</span> : null}
           </p>
           {display.detail ? (
-            <p className="mt-1 text-[11px] leading-snug text-slate-600 line-clamp-3" title={display.detail}>
+            <p className="mt-1 text-[12px] leading-snug text-slate-600 line-clamp-3" title={display.detail}>
               {display.detail}
             </p>
           ) : null}
@@ -90,7 +90,7 @@ export function CrmContactHistoryDrawer({
       subtitle={[label, region].filter(Boolean).join(' · ')}
     >
       {activeCount > 0 ? (
-        <p className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-medium text-sky-800">
+        <p className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] font-medium text-sky-800">
           접촉 진행 {activeCount}건
         </p>
       ) : null}
@@ -127,7 +127,7 @@ export function CrmContactHistoryReopenChip({
     <button
       type="button"
       onClick={onOpen}
-      className="fixed bottom-24 right-3 z-[90] rounded-full border border-emerald-300/80 bg-white px-3 py-2 text-[11px] font-semibold text-emerald-800 shadow-lg hover:bg-emerald-50"
+      className="fixed bottom-24 right-3 z-[90] rounded-full border border-emerald-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-emerald-800 shadow-lg hover:bg-emerald-50"
     >
       접촉 이력 {count}건{activeCount > 0 ? ` · 진행 ${activeCount}` : ''}
     </button>

@@ -305,12 +305,12 @@ export function ReviewPaybackPage() {
             key={step.title}
             className="rounded-xl border border-slate-200/80 bg-white/70 px-3 py-3 text-center shadow-sm"
           >
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Step {idx + 1}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Step {idx + 1}</p>
             <p className="mt-0.5 text-fluid-xs font-semibold text-slate-800">{step.title}</p>
           </div>
         ))}
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-3 py-3 text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Step 3</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Step 3</p>
           <p className="mt-0.5 text-fluid-xs font-medium text-slate-500">{STEPS[2].title}</p>
         </div>
       </div>
@@ -350,7 +350,7 @@ export function ReviewPaybackPage() {
                 <p className="text-fluid-xs text-slate-500 mt-0.5">여러 장 선택 가능 · 고화질 사진은 자동 압축됩니다</p>
               </div>
               {images.length > 0 ? (
-                <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[12px] font-semibold text-emerald-800">
                   {images.length}장
                 </span>
               ) : null}

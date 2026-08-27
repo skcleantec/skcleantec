@@ -49,8 +49,8 @@ export function NavFavoriteDrawerStrip({
       <p
         className={
           variant === 'dark'
-            ? 'mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200/80'
-            : 'mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700/80'
+            ? 'mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-amber-200/80'
+            : 'mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700/80'
         }
       >
         즐겨찾기

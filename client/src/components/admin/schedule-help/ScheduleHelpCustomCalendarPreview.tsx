@@ -20,11 +20,11 @@ export function ScheduleHelpCustomCalendarPreview() {
           <div className="space-y-2 min-w-0">
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-2.5 py-2">
-                <h3 className="font-semibold text-slate-900 text-[12px] leading-tight">접수 검색</h3>
-                <p className="mt-0.5 text-[10px] text-slate-400 leading-tight">고객명 · 전화 · 접수번호 · 주소</p>
+                <h3 className="font-semibold text-slate-900 text-[13px] leading-tight">접수 검색</h3>
+                <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">고객명 · 전화 · 접수번호 · 주소</p>
               </div>
               <div className="px-2.5 py-2">
-                <div className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-400">
+                <div className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] text-slate-400">
                   2자 이상 입력
                 </div>
               </div>
@@ -32,20 +32,20 @@ export function ScheduleHelpCustomCalendarPreview() {
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-2 py-1.5">
-                <h3 className="font-semibold text-slate-900 text-[12px] leading-tight">맞춤 캘린더</h3>
-                <p className="mt-0.5 text-[10px] text-slate-400 leading-tight">지역 · 업체 · 파트너 필터</p>
+                <h3 className="font-semibold text-slate-900 text-[13px] leading-tight">맞춤 캘린더</h3>
+                <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">지역 · 업체 · 파트너 필터</p>
               </div>
               <div className="space-y-2 px-2 py-1.5">
                 <div className="flex w-full items-center justify-between rounded border border-dashed border-slate-300 bg-slate-50/80 px-2 py-1 min-h-[28px]">
-                  <span className="text-[11px] font-semibold text-slate-800">캘린더 추가</span>
+                  <span className="text-[12px] font-semibold text-slate-800">캘린더 추가</span>
                   <span className="text-base font-light leading-none text-slate-600">+</span>
                 </div>
                 <div className="flex w-full items-center gap-1 rounded px-1 py-0.5 min-h-[26px] font-semibold text-slate-900">
-                  <span className="w-2 text-center text-[10px] text-slate-400">—</span>
-                  <span className="text-[11px]">전체</span>
+                  <span className="w-2 text-center text-[11px] text-slate-400">—</span>
+                  <span className="text-[12px]">전체</span>
                 </div>
                 <div>
-                  <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400/80">지역별</p>
+                  <p className="mb-1 px-1 text-[12px] font-bold uppercase tracking-wider text-slate-400/80">지역별</p>
                   <ul className="space-y-0.5">
                     {MOCK_REGION_CALENDARS.map((cal) => {
                       const t = customCalendarColorTokens(cal.colorKey);
@@ -57,7 +57,7 @@ export function ScheduleHelpCustomCalendarPreview() {
                             }`}
                           >
                             <span className={`h-2 w-2 shrink-0 rounded-full border border-black/10 ${t.dot}`} />
-                            <span className="truncate text-[11px]">{cal.name}</span>
+                            <span className="truncate text-[12px]">{cal.name}</span>
                           </div>
                         </li>
                       );
@@ -65,11 +65,11 @@ export function ScheduleHelpCustomCalendarPreview() {
                   </ul>
                 </div>
                 <div>
-                  <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400/80">업체별</p>
-                  <p className="pl-3 py-1 text-[10px] text-slate-400">등록된 캘린더 없음</p>
+                  <p className="mb-1 px-1 text-[12px] font-bold uppercase tracking-wider text-slate-400/80">업체별</p>
+                  <p className="pl-3 py-1 text-[11px] text-slate-400">등록된 캘린더 없음</p>
                 </div>
               </div>
-              <div className="border-t border-slate-100 bg-slate-50/80 px-2 py-1.5 text-center text-[10px] font-medium text-slate-500">
+              <div className="border-t border-slate-100 bg-slate-50/80 px-2 py-1.5 text-center text-[11px] font-medium text-slate-500">
                 서비스 권역 관리
               </div>
             </div>
@@ -77,7 +77,7 @@ export function ScheduleHelpCustomCalendarPreview() {
 
           <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-end gap-0.5 overflow-x-auto bg-slate-100 px-1 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <span className="shrink-0 rounded-t-md border border-slate-200 border-b-white bg-white px-2 py-0.5 text-[10px] font-medium text-slate-900">
+              <span className="shrink-0 rounded-t-md border border-slate-200 border-b-white bg-white px-2 py-0.5 text-[11px] font-medium text-slate-900">
                 전체
               </span>
               {MOCK_REGION_CALENDARS.map((cal) => {
@@ -85,7 +85,7 @@ export function ScheduleHelpCustomCalendarPreview() {
                 return (
                   <span
                     key={`tab-${cal.id}`}
-                    className={`shrink-0 rounded-t-md border px-2 py-0.5 text-[10px] font-medium ${
+                    className={`shrink-0 rounded-t-md border px-2 py-0.5 text-[11px] font-medium ${
                       cal.active ? `${t.tabActive} border-b-transparent` : `${t.tabIdle} border-transparent border-b-slate-200`
                     }`}
                   >

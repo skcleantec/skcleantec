@@ -30,7 +30,7 @@ export function DbMarketplaceStatusBadge({
   return (
     <span
       className={`inline-block shrink-0 rounded-full font-medium ${
-        compact ? 'px-1.5 py-0 text-fluid-2xs' : 'px-2 py-0.5 text-[11px]'
+        compact ? 'px-1.5 py-0 text-fluid-2xs' : 'px-2 py-0.5 text-[12px]'
       } ${MARKETPLACE_STATUS_CLASS[status] ?? 'bg-slate-100 text-slate-700'}`}
     >
       {MARKETPLACE_STATUS_LABEL[status] ?? status}
@@ -62,7 +62,7 @@ export const marketplaceDeclineBulkButtonClass =
   'min-h-[2.75rem] flex-1 rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:min-h-0 sm:flex-none';
 
 export const marketplaceCartAddButtonClass =
-  'rounded-md bg-violet-700 px-2 py-1 text-[10px] font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[11px]';
+  'rounded-md bg-violet-700 px-2 py-1 text-[11px] font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[12px]';
 
 export const marketplaceRevertToCartButtonClass =
   'min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:min-h-0 sm:flex-none';

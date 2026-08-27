@@ -534,7 +534,7 @@ function ScheduleDayListItem({
                 ) : null}
               </span>
               {phoneForExtra ? (
-                <span className="text-[10px] text-slate-500 tabular-nums truncate max-w-[min(100%,14rem)]">
+                <span className="text-[11px] text-slate-500 tabular-nums truncate max-w-[min(100%,14rem)]">
                   {phoneForExtra}
                 </span>
               ) : null}
@@ -564,7 +564,7 @@ function ScheduleDayListItem({
               showScheduleMemoBadge ||
               distanceLabel ||
               intakeMarketerName) && (
-              <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[10px] sm:text-fluid-2xs font-normal">
+              <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[11px] sm:text-fluid-2xs font-normal">
                 {item.inquiryNumber ? (
                   <span className="text-slate-400 tabular-nums leading-none shrink-0">{item.inquiryNumber}</span>
                 ) : null}
@@ -588,7 +588,7 @@ function ScheduleDayListItem({
                 ) : null}
                 {showScheduleMemoBadge ? (
                   <span
-                    className="text-[9px] sm:text-[10px] leading-none font-medium text-slate-700 bg-white/80 border border-slate-200/80 rounded px-1.5 py-0.5 max-w-[min(10rem,38vw)] truncate shadow-sm"
+                    className="text-[9px] sm:text-[11px] leading-none font-medium text-slate-700 bg-white/80 border border-slate-200/80 rounded px-1.5 py-0.5 max-w-[min(10rem,38vw)] truncate shadow-sm"
                     title={scheduleMemoLine}
                   >
                     {scheduleMemoLine}
@@ -622,7 +622,7 @@ function ScheduleDayListItem({
               </span>
             ) : null}
             {isPreOrder && (
-              <span className="text-[10px] font-semibold text-red-600 shrink-0">
+              <span className="text-[11px] font-semibold text-red-600 shrink-0">
                 {item.status === 'ORDER_FORM_PENDING'
                   ? '미제출'
                   : item.status === 'DEPOSIT_COMPLETED'
@@ -633,7 +633,7 @@ function ScheduleDayListItem({
             <button
               type="button"
               onClick={onOpenMemo}
-              className={`shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
+              className={`shrink-0 px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors ${
                 hasScheduleMemo
                   ? 'border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100'
                   : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
@@ -750,7 +750,7 @@ function MobileCollapsePanel({
           compact ? 'px-2.5 py-1 min-h-[28px]' : 'px-2.5 py-1.5 min-h-[32px]'
         }`}
       >
-        <span className="text-[11px] font-semibold leading-tight text-slate-800">{title}</span>
+        <span className="text-[12px] font-semibold leading-tight text-slate-800">{title}</span>
         <span className="flex shrink-0 items-center gap-1.5">
           {titleExtra}
           <ChevronDownIcon className="h-3.5 w-3.5 text-slate-500 transition-transform group-open:rotate-180" />
@@ -1743,7 +1743,7 @@ export function AdminSchedulePage() {
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="h-8 min-w-0 w-[4.5rem] shrink-0 px-1.5 py-0 border border-slate-200 rounded-md text-[11px] leading-none bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 lg:h-auto lg:w-auto lg:px-3 lg:py-2 lg:rounded-lg lg:text-fluid-sm"
+            className="h-8 min-w-0 w-[4.5rem] shrink-0 px-1.5 py-0 border border-slate-200 rounded-md text-[12px] leading-none bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 lg:h-auto lg:w-auto lg:px-3 lg:py-2 lg:rounded-lg lg:text-fluid-sm"
           >
             {yearOptions.map((y) => (
               <option key={y} value={y}>
@@ -1754,7 +1754,7 @@ export function AdminSchedulePage() {
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="h-8 min-w-0 w-[3.25rem] shrink-0 px-1.5 py-0 border border-slate-200 rounded-md text-[11px] leading-none bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 lg:h-auto lg:min-w-[5.5rem] lg:w-auto lg:px-3 lg:py-2 lg:rounded-lg lg:text-fluid-sm"
+            className="h-8 min-w-0 w-[3.25rem] shrink-0 px-1.5 py-0 border border-slate-200 rounded-md text-[12px] leading-none bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 lg:h-auto lg:min-w-[5.5rem] lg:w-auto lg:px-3 lg:py-2 lg:rounded-lg lg:text-fluid-sm"
           >
             {monthOptions.map((m) => (
               <option key={m} value={m}>
@@ -1788,12 +1788,12 @@ export function AdminSchedulePage() {
               compact
               title="팀장 슬롯 초과"
               titleExtra={
-                <span className="rounded-full bg-rose-200 px-1.5 py-px text-[10px] font-bold tabular-nums text-rose-900">
+                <span className="rounded-full bg-rose-200 px-1.5 py-px text-[11px] font-bold tabular-nums text-rose-900">
                   {leaderSlotDeficitKeysInMonth.length}일
                 </span>
               }
               className="border-0 bg-rose-50/90 text-rose-950 shadow-none"
-              bodyClassName="px-2.5 pb-2 pt-0 text-[10px] leading-snug"
+              bodyClassName="px-2.5 pb-2 pt-0 text-[11px] leading-snug"
             >
               오전·오후 잔여(TO)가 마이너스인 날입니다. 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
               <button
@@ -1811,7 +1811,7 @@ export function AdminSchedulePage() {
           <MobileCollapsePanel
             compact
             title="캘린더 셀 표시"
-            className="border-0 bg-white shadow-none text-[10px] leading-snug text-slate-600"
+            className="border-0 bg-white shadow-none text-[11px] leading-snug text-slate-600"
             bodyClassName="px-2 pb-1.5 pt-0"
           >
             <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
@@ -1864,12 +1864,12 @@ export function AdminSchedulePage() {
               className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs leading-snug text-rose-950 shadow-sm"
             >
               <span className="font-semibold">팀장 슬롯 초과</span>
-              <p className="mt-1 whitespace-nowrap truncate text-[11px]">
+              <p className="mt-1 whitespace-nowrap truncate text-[12px]">
                 이번 달{' '}
                 <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>일 · 오전·오후
                 잔여(TO) 마이너스
               </p>
-              <p className="mt-1 text-[11px] font-medium tabular-nums text-rose-900">
+              <p className="mt-1 text-[12px] font-medium tabular-nums text-rose-900">
                 {leaderSlotDeficitKeysInMonth.map((key, index) => {
                   const day = Number(key.split('-')[2]);
                   return (
@@ -1970,7 +1970,7 @@ export function AdminSchedulePage() {
                 <button
                   type="button"
                   onClick={() => selectCustomCalendarTab(null)}
-                  className={`shrink-0 rounded-t-md border px-1.5 sm:px-2 py-0.5 text-[10px] font-medium leading-tight transition-colors whitespace-nowrap ${
+                  className={`shrink-0 rounded-t-md border px-1.5 sm:px-2 py-0.5 text-[11px] font-medium leading-tight transition-colors whitespace-nowrap ${
                     !activeRegionCalendar && !activeCompanyCalendar && !activePartnerCalendar
                       ? 'relative z-10 -mb-px border-slate-200 border-b-white bg-white text-slate-900'
                       : 'border-transparent border-b-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-50'
@@ -1990,7 +1990,7 @@ export function AdminSchedulePage() {
                       type="button"
                       title={cal.name}
                       onClick={() => selectCustomCalendarTab(cal)}
-                      className={`shrink-0 rounded-t-md border px-1.5 sm:px-2 py-0.5 text-[10px] font-medium leading-tight transition-colors whitespace-nowrap ${
+                      className={`shrink-0 rounded-t-md border px-1.5 sm:px-2 py-0.5 text-[11px] font-medium leading-tight transition-colors whitespace-nowrap ${
                         isActive
                           ? `${tokens.tabActive} relative z-10 -mb-px border-b-transparent`
                           : `${tokens.tabIdle} border-transparent border-b-slate-200`
@@ -2116,7 +2116,7 @@ export function AdminSchedulePage() {
                       </span>
                       {sonDay ? <SonEomneungNalIcon /> : null}
                     </span>
-                    <span className={`text-[10px] font-semibold leading-none shrink-0 ${weekdayColor}`}>
+                    <span className={`text-[11px] font-semibold leading-none shrink-0 ${weekdayColor}`}>
                       {weekdayKoFromYmd(year, month, d)}
                     </span>
                   </div>
@@ -2130,7 +2130,7 @@ export function AdminSchedulePage() {
                       return (
                         <span
                           key={cal.id}
-                          className={`inline-flex w-full max-sm:justify-center items-center gap-0.5 rounded px-1 py-px text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums sm:w-auto sm:shrink-0 ${t.badge}`}
+                          className={`inline-flex w-full max-sm:justify-center items-center gap-0.5 rounded px-1 py-px text-[9px] sm:text-[11px] font-semibold leading-none tabular-nums sm:w-auto sm:shrink-0 ${t.badge}`}
                           title={`${cal.name} — ${total}건`}
                         >
                           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.dot}`} />
@@ -2148,7 +2148,7 @@ export function AdminSchedulePage() {
                     return (
                       <span
                         key={b.id}
-                        className={`inline-flex w-full max-sm:justify-center items-center gap-0.5 rounded px-1 py-px text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums sm:w-auto sm:shrink-0 ${t.badge}`}
+                        className={`inline-flex w-full max-sm:justify-center items-center gap-0.5 rounded px-1 py-px text-[9px] sm:text-[11px] font-semibold leading-none tabular-nums sm:w-auto sm:shrink-0 ${t.badge}`}
                         title={`${b.name} · ${b.regions?.join(', ') ?? ''} — ${b.count}건`}
                       >
                         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.dot}`} />
@@ -2206,7 +2206,7 @@ export function AdminSchedulePage() {
                       {/* AM / PM 슬롯 — 모바일: 세로 2줄(잘림 방지) / sm+: 가로 캡슐 */}
                       <div className="flex w-full min-w-0 flex-col overflow-hidden rounded-md border border-slate-200/50 font-sans leading-none tabular-nums shrink-0 sm:inline-flex sm:flex-row">
                         <div
-                          className={`flex min-w-0 flex-1 items-center justify-between gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-1 text-[8px] sm:text-[10px] font-bold ${
+                          className={`flex min-w-0 flex-1 items-center justify-between gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-1 text-[8px] sm:text-[11px] font-bold ${
                             morningRem < 0
                               ? 'bg-rose-50 text-rose-700'
                               : isSlotFull
@@ -2224,7 +2224,7 @@ export function AdminSchedulePage() {
                           <span className="shrink-0">{morningRem}</span>
                         </div>
                         <div
-                          className={`flex min-w-0 flex-1 items-center justify-between gap-0.5 border-t border-slate-200/50 px-1 py-0.5 sm:border-l sm:border-t-0 sm:px-1.5 sm:py-1 text-[8px] sm:text-[10px] font-bold ${
+                          className={`flex min-w-0 flex-1 items-center justify-between gap-0.5 border-t border-slate-200/50 px-1 py-0.5 sm:border-l sm:border-t-0 sm:px-1.5 sm:py-1 text-[8px] sm:text-[11px] font-bold ${
                             afternoonRem < 0
                               ? 'bg-rose-50 text-rose-700'
                               : isSlotFull
@@ -2246,11 +2246,11 @@ export function AdminSchedulePage() {
                       {/* 가용 팀원 수 */}
                       {dayStats && dayStats.crewRemaining != null && (
                         <div
-                          className="flex items-center justify-center sm:justify-between text-[9px] sm:text-[10px] font-semibold text-slate-500 leading-none shrink-0"
+                          className="flex items-center justify-center sm:justify-between text-[9px] sm:text-[11px] font-semibold text-slate-500 leading-none shrink-0"
                           title={`휴무 ${dayStats.crewDayOffCount ?? 0}명 · 잔여 ${dayStats.crewRemaining ?? 0}명 · 표준(2명) 접수 약 ${dayStats.additionalStandardJobsByCrew ?? 0}건 가능`}
                         >
                           <span className="flex items-center gap-0.5">
-                            <span className="text-[9px] sm:text-[10px]" aria-hidden>
+                            <span className="text-[9px] sm:text-[11px]" aria-hidden>
                               👥
                             </span>
                             <span className="sm:hidden">팀원</span>
@@ -2273,7 +2273,7 @@ export function AdminSchedulePage() {
 
                       {/* 미배정 & 사이청소 */}
                       {unassignedCount > 0 && (
-                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-bold text-red-600 leading-none shrink-0">
+                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[11px] font-bold text-red-600 leading-none shrink-0">
                           <span className="flex items-center gap-0.5">
                             <span aria-hidden>⚠️</span>
                             <span className="sm:hidden">미배</span>
@@ -2283,7 +2283,7 @@ export function AdminSchedulePage() {
                         </div>
                       )}
                       {sideOrderCount > 0 && (
-                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-violet-700 leading-none shrink-0">
+                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[11px] font-semibold text-violet-700 leading-none shrink-0">
                           <span className="flex items-center gap-0.5">
                             <span className="text-[9px]" aria-hidden>
                               ⚡
@@ -2295,7 +2295,7 @@ export function AdminSchedulePage() {
                         </div>
                       )}
                       {coordinationOrderCount > 0 && (
-                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-teal-800 leading-none shrink-0 motion-safe:animate-pulse">
+                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[11px] font-semibold text-teal-800 leading-none shrink-0 motion-safe:animate-pulse">
                           <span className="flex items-center gap-0.5">
                             <span className="text-[9px]" aria-hidden>
                               ◇
@@ -2755,7 +2755,7 @@ export function AdminSchedulePage() {
                           <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
                           <span className="text-fluid-xs font-bold text-rose-950 flex-1">팀장 미배정</span>
                           <HelpTooltip className="shrink-0" text={SCHEDULE_UNASSIGNED_SECTION_HELP} />
-                          <span className="text-[10px] font-bold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{unassignedOwn.length}건</span>
+                          <span className="text-[11px] font-bold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{unassignedOwn.length}건</span>
                         </div>
                         <div className="flex flex-col gap-3">
                           {unassignedOwnMorning.length > 0 && (
@@ -2866,7 +2866,7 @@ export function AdminSchedulePage() {
                           <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
                           <span className="text-fluid-xs font-bold text-violet-950 flex-1">정보공유</span>
                           <HelpTooltip className="shrink-0" text={SCHEDULE_MARKETPLACE_SECTION_HELP} />
-                          <span className="text-[10px] font-bold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">
+                          <span className="text-[11px] font-bold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">
                             {marketplaceOwnAll.length}건
                           </span>
                         </div>
@@ -2975,7 +2975,7 @@ export function AdminSchedulePage() {
                         <div className="flex items-center gap-2 mb-2.5 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 w-full">
                           <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
                           <span className="text-fluid-xs font-bold text-amber-950 flex-1">오전 일정</span>
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{morningOwn.length}건</span>
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{morningOwn.length}건</span>
                         </div>
                         <div className="flex flex-col gap-1.5">
                           {morningOwn.map((item) => (
@@ -3006,7 +3006,7 @@ export function AdminSchedulePage() {
                         <div className="flex items-center gap-2 mb-2.5 bg-sky-50 border border-sky-100 rounded-lg px-3 py-1.5 w-full">
                           <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0" />
                           <span className="text-fluid-xs font-bold text-sky-950 flex-1">오후 일정</span>
-                          <span className="text-[10px] font-bold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{afternoonOwn.length}건</span>
+                          <span className="text-[11px] font-bold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{afternoonOwn.length}건</span>
                         </div>
                         <div className="flex flex-col gap-1.5">
                           {afternoonOwn.map((item) => (
@@ -3037,7 +3037,7 @@ export function AdminSchedulePage() {
                         <div className="flex items-center gap-2 mb-2.5 bg-violet-50 border border-violet-100 rounded-lg px-3 py-1.5 w-full">
                           <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
                           <span className="text-fluid-xs font-bold text-violet-950 flex-1">사이 · 일정 미확정</span>
-                          <span className="text-[10px] font-bold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{otherOwn.length}건</span>
+                          <span className="text-[11px] font-bold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{otherOwn.length}건</span>
                         </div>
                         <p className="text-fluid-xs text-slate-500 mb-2 px-1">
                           사이청소·조율인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다.

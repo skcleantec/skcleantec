@@ -1629,7 +1629,7 @@ export function CrmPage() {
                 </div>
               ) : null}
               {hasUnsavedDraft ? (
-                <span className="order-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-amber-100 ring-1 ring-inset ring-amber-300/30 sm:order-none">
+                <span className="order-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-amber-100 ring-1 ring-inset ring-amber-300/30 sm:order-none">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
                   미저장
                 </span>
@@ -1917,7 +1917,7 @@ export function CrmPage() {
                       contactHistoryDismissedKeyRef.current = null;
                       setContactHistoryOpen(true);
                     }}
-                    className="rounded-lg border border-emerald-300/80 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1"
+                    className="rounded-lg border border-emerald-300/80 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1"
                   >
                     접촉 이력 {contactTimelineItems.length}건
                     {contactTimelineActiveCount > 0 ? ` · 진행 ${contactTimelineActiveCount}` : ''}

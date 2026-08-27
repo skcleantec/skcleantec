@@ -71,7 +71,7 @@ export function TenantUsageGauge({ used, limit, unit, label = '이용 코인', u
         <span className="block text-sm font-extrabold tabular-nums leading-none text-slate-800">
           {isUnlimited ? '무제한' : `${used.toLocaleString()}${unit}`}
         </span>
-        <span className="mt-1 block text-[10px] font-medium text-slate-400">
+        <span className="mt-1 block text-[11px] font-medium text-slate-400">
           {isUnlimited
             ? label
             : limit != null
@@ -79,11 +79,11 @@ export function TenantUsageGauge({ used, limit, unit, label = '이용 코인', u
               : label}
         </span>
         {!isUnlimited && fillPercent != null ? (
-          <span className="mt-0.5 block text-[10px] tabular-nums text-slate-500">
+          <span className="mt-0.5 block text-[11px] tabular-nums text-slate-500">
             {level === 'over' ? '포함량 초과' : `${fillPercent}% 사용`}
           </span>
         ) : isUnlimited ? (
-          <span className="mt-0.5 block text-[10px] tabular-nums text-indigo-600">
+          <span className="mt-0.5 block text-[11px] tabular-nums text-indigo-600">
             이번 달 {used.toLocaleString()}
             {unit} 사용
           </span>

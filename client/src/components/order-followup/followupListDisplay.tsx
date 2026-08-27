@@ -33,7 +33,7 @@ function statusToneClass(status: OrderFollowupStatus): string {
 }
 
 const STATUS_BADGE_BASE =
-  'inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums';
+  'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums';
 
 export function FollowupStatusBadge({ status }: { status: OrderFollowupStatus }) {
   return (
@@ -80,8 +80,8 @@ export function FollowupStatusBadgeWithMemo({
           <path d="M4 5h16v11H7l-3 3V5z" />
         </svg>
       </button>
-      <span className="pointer-events-none absolute right-0 left-auto top-full z-30 mt-1 hidden w-64 max-w-[min(18rem,80vw)] whitespace-pre-wrap break-all rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-[11px] leading-5 text-gray-700 shadow-lg group-hover:block">
-        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+      <span className="pointer-events-none absolute right-0 left-auto top-full z-30 mt-1 hidden w-64 max-w-[min(18rem,80vw)] whitespace-pre-wrap break-all rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-[12px] leading-5 text-gray-700 shadow-lg group-hover:block">
+        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-400">
           메모
         </span>
         {preview}
@@ -103,7 +103,7 @@ export function FollowupMemoCell({
   }
   const short = memo.length > 56 ? `${memo.slice(0, 56)}…` : memo;
   if (!onOpenMemo) {
-    return <span className="block truncate text-[11px] text-slate-700">{short}</span>;
+    return <span className="block truncate text-[12px] text-slate-700">{short}</span>;
   }
   return (
     <CrmHoverTextPreview text={memo} label="메모 · 숨고 요청·견적">
@@ -113,7 +113,7 @@ export function FollowupMemoCell({
           e.stopPropagation();
           onOpenMemo(row);
         }}
-        className="mx-auto block max-w-full truncate text-[11px] text-slate-700 hover:text-sky-800"
+        className="mx-auto block max-w-full truncate text-[12px] text-slate-700 hover:text-sky-800"
       >
         {short}
       </button>

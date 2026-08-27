@@ -332,7 +332,7 @@ export function CrewTeamExpensesTab({
                           <button
                             type="button"
                             onClick={() => void remove(row.id)}
-                            className="text-red-700 text-[11px] font-medium px-2 py-1 rounded border border-red-200 hover:bg-red-50 shrink-0"
+                            className="text-red-700 text-[12px] font-medium px-2 py-1 rounded border border-red-200 hover:bg-red-50 shrink-0"
                           >
                             삭제
                           </button>

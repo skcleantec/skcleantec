@@ -80,7 +80,7 @@ export function ScheduleInquiryMemoModal({ token, item, onClose, onSaved }: Prop
         <h2 id="schedule-memo-title" className="text-base font-semibold text-gray-900 pr-10 mb-1">
           일정 메모
         </h2>
-        <p className="text-[11px] text-gray-500 mb-2 leading-snug">
+        <p className="text-[12px] text-gray-500 mb-2 leading-snug">
           스케줄 목록에만 표시됩니다. 특이사항·발주서 메모와는 별도입니다.
         </p>
         <p className="text-xs text-gray-500 mb-3">

@@ -70,7 +70,7 @@ function RegionRowBar({
       <div className="mb-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
         <div className="h-full rounded-full bg-red-500" style={{ width: `${widthPct}%` }} />
       </div>
-      <p className="mb-2 text-[10px] text-slate-400 tabular-nums">{formatCurrencyKo(salesAmount)}</p>
+      <p className="mb-2 text-[11px] text-slate-400 tabular-nums">{formatCurrencyKo(salesAmount)}</p>
     </div>
   );
 }
@@ -139,15 +139,15 @@ export function DashboardSidoRegionModal({
             {monthTitle} · {dashboardRegionDateBasisLabel(dateBasis)} 기준 · 접수 주소 · KST
           </p>
           {!isMetro ? (
-            <p className="mt-1 text-[10px] text-slate-400">시·군 행을 누르면 구 단위로 펼칩니다.</p>
+            <p className="mt-1 text-[11px] text-slate-400">시·군 행을 누르면 구 단위로 펼칩니다.</p>
           ) : null}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
-              <p className="text-[10px] text-gray-500">건수</p>
+              <p className="text-[11px] text-gray-500">건수</p>
               <p className="text-fluid-sm font-bold text-slate-900 tabular-nums">{totalCount}건</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
-              <p className="text-[10px] text-gray-500">매출 합계</p>
+              <p className="text-[11px] text-gray-500">매출 합계</p>
               <p className="text-fluid-sm font-bold text-slate-900 tabular-nums">{formatCurrencyKo(totalSales)}</p>
             </div>
           </div>

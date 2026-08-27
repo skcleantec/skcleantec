@@ -22,7 +22,7 @@ export function FollowupListTable({
 }) {
   return (
     <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-      <table className="w-full min-w-[780px] border-collapse text-center text-[11px] table-fixed">
+      <table className="w-full min-w-[780px] border-collapse text-center text-[12px] table-fixed">
         <colgroup>
           <col style={{ width: '12%' }} />
           <col style={{ width: '10%' }} />
@@ -67,7 +67,7 @@ export function FollowupListTable({
                 <td className="py-2 px-1.5 font-medium text-slate-900 truncate">
                   <span className="font-semibold">{row.customerName}</span>
                   {row.nickname?.trim() ? (
-                    <span className="block text-[10px] font-normal text-slate-500 truncate">
+                    <span className="block text-[11px] font-normal text-slate-500 truncate">
                       {row.nickname}
                     </span>
                   ) : null}

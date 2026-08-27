@@ -593,28 +593,28 @@ export function AdminExternalSettlementPage() {
                     <button
                       type="button"
                       onClick={() => openPayModal(r)}
-                      className="rounded bg-gray-900 px-2 py-1.5 text-[11px] font-medium text-white"
+                      className="rounded bg-gray-900 px-2 py-1.5 text-[12px] font-medium text-white"
                     >
                       정산
                     </button>
                     <button
                       type="button"
                       onClick={() => void openHistoryModal(r)}
-                      className="rounded border border-gray-300 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700"
+                      className="rounded border border-gray-300 bg-white px-2 py-1.5 text-[12px] font-medium text-gray-700"
                     >
                       정산내역
                     </button>
                     <button
                       type="button"
                       onClick={() => void openPeriodModal(r)}
-                      className="rounded border border-blue-300 bg-blue-50 px-2 py-1.5 text-[11px] font-medium text-blue-700"
+                      className="rounded border border-blue-300 bg-blue-50 px-2 py-1.5 text-[12px] font-medium text-blue-700"
                     >
                       기간별정산
                     </button>
                     <button
                       type="button"
                       onClick={() => void openDetailModal(r)}
-                      className="rounded border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-[11px] font-medium text-indigo-700"
+                      className="rounded border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-[12px] font-medium text-indigo-700"
                     >
                       정산상세내역
                     </button>
@@ -699,7 +699,7 @@ export function AdminExternalSettlementPage() {
                 현재 누적 미수금:{' '}
                 <strong className="text-rose-700 tabular-nums">{won(selected.remainingAmount)}</strong>
                 {selected.remainingAmount < 0 ? (
-                  <span className="block mt-0.5 text-[11px] text-gray-500">
+                  <span className="block mt-0.5 text-[12px] text-gray-500">
                     음수는 과납 등으로 미수가 마이너스인 상태입니다. 0으로 맞출 때 동일 금액을 앞에{' '}
                     <span className="font-medium text-gray-700">-</span> 를 붙여 입력하세요.
                   </span>
@@ -715,7 +715,7 @@ export function AdminExternalSettlementPage() {
                   onChange={(e) => setPayDateInput(e.target.value)}
                   className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
                 />
-                <p className="mt-0.5 text-[11px] text-gray-400">기본은 오늘 날짜이며, 변경 시 해당일로 정산·내역에 저장됩니다.</p>
+                <p className="mt-0.5 text-[12px] text-gray-400">기본은 오늘 날짜이며, 변경 시 해당일로 정산·내역에 저장됩니다.</p>
               </div>
               <label className="block text-xs text-gray-500 mb-1">정산 금액</label>
               <input
@@ -766,7 +766,7 @@ export function AdminExternalSettlementPage() {
                   정정
                 </button>
               </div>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[12px] text-gray-400">
                 일반 정산은 양수만 입력합니다. 잘못 입력한 정산을 되돌리거나 미수가 음수일 때는 「− 마이너스」 또는 앞에{' '}
                 <span className="font-medium text-gray-600">-</span> 를 붙인 정수를 입력할 수 있습니다. 「만·십만·백만」은
                 현재 부호를 유지한 채 금액만 더합니다.
@@ -959,7 +959,7 @@ export function AdminExternalSettlementPage() {
                       <span className="text-gray-700">목록 누적 미수 (현재)</span>
                       <strong className="tabular-nums text-rose-700">{won(selected.remainingAmount)}</strong>
                     </p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                    <p className="mt-1 text-[12px] leading-relaxed text-gray-500">
                       아래 표는 월별 발생·정산 흐름입니다. 「당월 차액」은 그달 발생−그달 정산만 보여 주며,
                       「기말 누적」은 조회 연도 시작 이전 이월을 포함한 누적 미수입니다.
                     </p>
@@ -1081,7 +1081,7 @@ export function AdminExternalSettlementPage() {
                       <strong className="tabular-nums text-rose-700">{won(detailSummary.remainingAmount)}</strong>
                     </p>
                     {detailSummary.month === currentMonthKey ? (
-                      <p className="border-t border-gray-200 pt-1 text-[11px] leading-relaxed text-gray-500">
+                      <p className="border-t border-gray-200 pt-1 text-[12px] leading-relaxed text-gray-500">
                         목록의 누적 미수금({won(selected.remainingAmount)})은 진행·예약완료 건의 수수료에서
                         정산완료액을 뺀 금액입니다. 취소 건은 미수 합계에서 제외됩니다(정산 반영 0원).
                       </p>
@@ -1121,7 +1121,7 @@ export function AdminExternalSettlementPage() {
                         <p className="font-semibold text-gray-900">
                           {idx + 1}. {it.customerName}
                           {it.viaMarketplace ? (
-                            <span className="ml-1.5 inline-block rounded bg-violet-100 px-1 py-0.5 text-[10px] font-semibold text-violet-800">
+                            <span className="ml-1.5 inline-block rounded bg-violet-100 px-1 py-0.5 text-[11px] font-semibold text-violet-800">
                               정보공유
                             </span>
                           ) : null}
@@ -1163,7 +1163,7 @@ export function AdminExternalSettlementPage() {
                             <td className="px-3 py-2 text-center">
                               {it.customerName}
                               {it.viaMarketplace ? (
-                                <span className="ml-1 inline-block rounded bg-violet-100 px-1 py-0.5 text-[10px] font-semibold text-violet-800">
+                                <span className="ml-1 inline-block rounded bg-violet-100 px-1 py-0.5 text-[11px] font-semibold text-violet-800">
                                   정보공유
                                 </span>
                               ) : null}

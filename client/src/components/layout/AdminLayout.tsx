@@ -890,7 +890,7 @@ export function AdminLayout() {
           className="fixed bottom-4 right-4 z-[60] max-w-sm rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-fluid-xs text-amber-950 shadow-lg hover:bg-amber-100"
         >
           {reviewPaybackToast}
-          <span className="mt-1 block text-[10px] text-amber-800">탭하여 페이백/리뷰 목록 열기</span>
+          <span className="mt-1 block text-[11px] text-amber-800">탭하여 페이백/리뷰 목록 열기</span>
         </button>
       ) : null}
       <div className="staff-top-safe shrink-0 relative z-20">
@@ -913,7 +913,7 @@ export function AdminLayout() {
                   onClick={() => openCelebrateInquiry(celebration.inquiryId!)}
                   className="flex w-full items-center justify-center px-10 py-1.5 sm:px-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80"
                 >
-                  <p className="text-center text-[11px] sm:text-xs font-medium leading-tight max-w-4xl [text-wrap:pretty]">
+                  <p className="text-center text-[12px] sm:text-xs font-medium leading-tight max-w-4xl [text-wrap:pretty]">
                     {formatCelebrateBannerFromConfig(celebration)}
                     <span className="font-normal text-amber-100/90"> · 탭하여 접수 상세</span>
                   </p>
@@ -924,7 +924,7 @@ export function AdminLayout() {
                   aria-live="polite"
                   className="flex items-center justify-center px-10 py-1.5 sm:px-12"
                 >
-                  <p className="text-center text-[11px] sm:text-xs font-medium leading-tight max-w-4xl [text-wrap:pretty]">
+                  <p className="text-center text-[12px] sm:text-xs font-medium leading-tight max-w-4xl [text-wrap:pretty]">
                     {formatCelebrateBannerFromConfig(celebration)}
                   </p>
                 </div>
@@ -959,7 +959,7 @@ export function AdminLayout() {
                 onClick={openLandingContactLeads}
                 className="flex w-full items-center justify-center bg-gradient-to-r from-red-600 to-red-700 px-10 py-1.5 hover:from-red-700 hover:to-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-12"
               >
-                <p className="max-w-4xl text-center text-[11px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
+                <p className="max-w-4xl text-center text-[12px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
                   {landingContactAlert.customerName ? (
                     <>
                       <span className="font-bold">{landingContactAlert.customerName}</span>님 랜딩 문의가
@@ -1005,7 +1005,7 @@ export function AdminLayout() {
                 onClick={openMarketplaceHandoffPending}
                 className="flex w-full items-center justify-center bg-gradient-to-r from-orange-500 to-amber-500 px-10 py-1.5 hover:from-orange-600 hover:to-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-12"
               >
-                <p className="max-w-4xl text-center text-[11px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
+                <p className="max-w-4xl text-center text-[12px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
                   거래처가 정보를 인계 요청합니다
                   {marketplaceSellerPendingCount > 1
                     ? ` · ${marketplaceSellerPendingCount}건`
@@ -1043,7 +1043,7 @@ export function AdminLayout() {
                 onClick={openMarketplaceHandoffConfirmedInquiry}
                 className="flex w-full items-center justify-center bg-gradient-to-r from-emerald-600 to-green-600 px-10 py-1.5 hover:from-emerald-700 hover:to-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-12"
               >
-                <p className="max-w-4xl text-center text-[11px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
+                <p className="max-w-4xl text-center text-[12px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
                   구매한 접수건이 인계가 완료되었습니다
                   {marketplaceHandoffConfirmedAlert.customerName ? (
                     <span className="font-normal text-emerald-50">

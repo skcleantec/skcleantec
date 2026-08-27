@@ -130,7 +130,7 @@ function CompactDatePreset({
             key={opt.id}
             type="button"
             onClick={() => onPresetChange(opt.id)}
-            className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium whitespace-nowrap sm:text-fluid-2xs ${
+            className={`shrink-0 rounded px-2 py-1 text-[11px] font-medium whitespace-nowrap sm:text-fluid-2xs ${
               preset === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >

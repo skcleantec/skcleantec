@@ -19,7 +19,7 @@ export function CrmQuoteSentBanner({ quote }: { quote: TelecrmConsultationQuoteD
   const total = quote.payload.grandTotalWon;
   const who = quote.updatedByName ?? quote.createdByName ?? '마케터';
   return (
-    <div className="shrink-0 border-b border-sky-200/80 bg-sky-50/90 px-2 py-1.5 text-[10px] text-sky-950">
+    <div className="shrink-0 border-b border-sky-200/80 bg-sky-50/90 px-2 py-1.5 text-[11px] text-sky-950">
       <p className="font-semibold">
         보낸 견적 · {fmtWhen(quote.updatedAt)}
         {who ? ` · ${who}` : ''}

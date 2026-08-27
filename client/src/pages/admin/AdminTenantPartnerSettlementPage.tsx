@@ -580,7 +580,7 @@ export function AdminTenantPartnerSettlementPage() {
                       <button
                         type="button"
                         onClick={() => openPayModal(r)}
-                        className="rounded bg-gray-900 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                        className="rounded bg-gray-900 px-2 py-1.5 text-[12px] font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                       >
                         입금 확인
                       </button>
@@ -588,21 +588,21 @@ export function AdminTenantPartnerSettlementPage() {
                     <button
                       type="button"
                       onClick={() => void openHistoryModal(r)}
-                      className="rounded border border-gray-300 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700"
+                      className="rounded border border-gray-300 bg-white px-2 py-1.5 text-[12px] font-medium text-gray-700"
                     >
                       정산내역
                     </button>
                     <button
                       type="button"
                       onClick={() => void openPeriodModal(r)}
-                      className="rounded border border-blue-300 bg-blue-50 px-2 py-1.5 text-[11px] font-medium text-blue-700"
+                      className="rounded border border-blue-300 bg-blue-50 px-2 py-1.5 text-[12px] font-medium text-blue-700"
                     >
                       기간별정산
                     </button>
                     <button
                       type="button"
                       onClick={() => void openDetailModal(r)}
-                      className="rounded border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-[11px] font-medium text-indigo-700"
+                      className="rounded border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-[12px] font-medium text-indigo-700"
                     >
                       정산상세내역
                     </button>
@@ -694,7 +694,7 @@ export function AdminTenantPartnerSettlementPage() {
                 현재 누적 {labels.remaining}:{' '}
                 <strong className="text-rose-700 tabular-nums">{won(selected.remainingAmount)}</strong>
                 {selected.remainingAmount < 0 ? (
-                  <span className="block mt-0.5 text-[11px] text-gray-500">
+                  <span className="block mt-0.5 text-[12px] text-gray-500">
                     {tab === 'SELLER'
                       ? '마이너스는 이미 받은 금액이 미수보다 많다는 뜻입니다(정보공유 회수 후 흔함). 상대 업체에 돌려준 뒤 같은 금액을 − 로 결재 입력해 0에 맞추세요.'
                       : '음수는 과납 등으로 잔액이 마이너스인 상태입니다. 0으로 맞출 때 동일 금액을 앞에 − 를 붙여 입력하세요.'}
@@ -1062,7 +1062,7 @@ export function AdminTenantPartnerSettlementPage() {
                       <strong className="tabular-nums text-rose-700">{won(detailSummary.remainingAmount)}</strong>
                     </p>
                     {detailSummary.month === currentMonthKey ? (
-                      <p className="border-t border-gray-200 pt-1 text-[11px] leading-relaxed text-gray-500">
+                      <p className="border-t border-gray-200 pt-1 text-[12px] leading-relaxed text-gray-500">
                         목록의 {labels.remaining}({won(selected.remainingAmount)})은 정산 기준 수수료에서
                         정산완료액을 뺀 금액입니다. 취소 건은 미수 합계에서 제외됩니다(정산 반영 0원).
                       </p>
@@ -1102,7 +1102,7 @@ export function AdminTenantPartnerSettlementPage() {
                         <p className="font-semibold text-gray-900">
                           {idx + 1}. {it.customerName}
                           {it.viaMarketplace ? (
-                            <span className="ml-1.5 inline-block rounded bg-violet-100 px-1 py-0.5 text-[10px] font-semibold text-violet-800">
+                            <span className="ml-1.5 inline-block rounded bg-violet-100 px-1 py-0.5 text-[11px] font-semibold text-violet-800">
                               정보공유
                             </span>
                           ) : null}
@@ -1144,7 +1144,7 @@ export function AdminTenantPartnerSettlementPage() {
                             <td className="px-3 py-2 text-center">
                               {it.customerName}
                               {it.viaMarketplace ? (
-                                <span className="ml-1 inline-block rounded bg-violet-100 px-1 py-0.5 text-[10px] font-semibold text-violet-800">
+                                <span className="ml-1 inline-block rounded bg-violet-100 px-1 py-0.5 text-[11px] font-semibold text-violet-800">
                                   정보공유
                                 </span>
                               ) : null}

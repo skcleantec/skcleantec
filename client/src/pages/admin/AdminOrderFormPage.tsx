@@ -1068,7 +1068,7 @@ export function AdminOrderFormPage() {
                       key={c.v}
                       type="button"
                       onClick={() => setListSubmitStatus(c.v === listSubmitStatus && c.v !== 'all' ? 'all' : c.v)}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] sm:text-fluid-2xs font-medium touch-manipulation ${
+                      className={`rounded-full border px-2.5 py-1 text-[12px] sm:text-fluid-2xs font-medium touch-manipulation ${
                         listSubmitStatus === c.v
                           ? 'border-gray-800 bg-gray-900 text-white'
                           : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
@@ -1348,7 +1348,7 @@ export function AdminOrderFormPage() {
                 <p className="mt-1 text-sm text-gray-500">
                   {previewModal.order.customerName} · 총액 {previewModal.order.totalAmount.toLocaleString('ko-KR')}원
                   {previewModal.order.createdBy ? (
-                    <span className="block text-[11px] text-gray-500 mt-0.5">
+                    <span className="block text-[12px] text-gray-500 mt-0.5">
                       담당: {labelOrderFormIssuer(previewModal.order.createdBy)}
                     </span>
                   ) : null}

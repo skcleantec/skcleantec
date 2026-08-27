@@ -378,7 +378,7 @@ export function EContractPublicSignPage() {
           role="note"
           aria-live="polite"
         >
-          <p className="text-[12px] font-semibold leading-snug text-gray-950">
+          <p className="text-[13px] font-semibold leading-snug text-gray-950">
             위 번호와 얼굴이 함께 보이도록 셀카를 촬영해 업로드해 주세요. 이 번호는 계약서 부록에도 기록됩니다.
           </p>
         </div>
@@ -411,7 +411,7 @@ export function EContractPublicSignPage() {
 
       <label className="mt-8 flex cursor-pointer gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
         <input type="checkbox" checked={agree} onChange={(ev) => setAgree(ev.target.checked)} />
-        <span className="text-[11px] text-gray-800">
+        <span className="text-[12px] text-gray-800">
           위 계약 내용 및 본인이 기재한 을 정보·서명·본인 확인 절차를 이해하였으며 동의합니다.
         </span>
       </label>

@@ -88,7 +88,7 @@ function UsageTableRow({
                 style={{ width: `${Math.min(100, pct ?? 0)}%` }}
               />
             </div>
-            <p className="text-[10px] leading-snug text-gray-500">
+            <p className="text-[11px] leading-snug text-gray-500">
               {over ? (
                 <span className="font-medium text-rose-700">포함량 초과</span>
               ) : pct != null && pct >= 85 ? (
@@ -99,7 +99,7 @@ function UsageTableRow({
             </p>
           </div>
         ) : (
-          <span className="text-[10px] text-gray-500">포함량 무제한</span>
+          <span className="text-[11px] text-gray-500">포함량 무제한</span>
         )}
       </td>
     </tr>
@@ -306,7 +306,7 @@ export function AdminTenantSubscriptionPage() {
                       : 'border-slate-200 bg-slate-50',
                 ].join(' ')}
               >
-                <p className="text-[11px] font-medium text-slate-600">{chip.label}</p>
+                <p className="text-[12px] font-medium text-slate-600">{chip.label}</p>
                 <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">{chip.value}</p>
               </div>
             ));
@@ -319,7 +319,7 @@ export function AdminTenantSubscriptionPage() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <h2 className="text-base font-semibold text-gray-900">사용 중인 서비스</h2>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-700">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-medium tabular-nums text-slate-700">
                 {data.enabledServices.length}개
               </span>
             </div>

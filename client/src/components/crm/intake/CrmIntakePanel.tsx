@@ -57,10 +57,10 @@ function CrmPhoneField({
   return (
     <div className="space-y-0.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold text-emerald-800">{label}</span>
+        <span className="text-[12px] font-semibold text-emerald-800">{label}</span>
         <div className="flex flex-wrap items-center gap-2">
           {onPhoneUnknownChange ? (
-            <label className="flex cursor-pointer items-center gap-1 text-[10px] font-medium text-slate-600">
+            <label className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-slate-600">
               <input
                 type="checkbox"
                 checked={phoneUnknown}
@@ -74,7 +74,7 @@ function CrmPhoneField({
             <button
               type="button"
               onClick={onClear}
-              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"
             >
               연락처 지우기
             </button>
@@ -94,7 +94,7 @@ function CrmPhoneField({
           <button
             type="button"
             onClick={onCall}
-            className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+            className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-600 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-emerald-700"
           >
             {callLabel}
           </button>
@@ -489,7 +489,7 @@ export function CrmIntakePanel({
               />
             ) : (
               <label className="block space-y-0.5">
-                <span className="text-[11px] font-semibold text-emerald-800">고객 이름 검색</span>
+                <span className="text-[12px] font-semibold text-emerald-800">고객 이름 검색</span>
                 <input
                   type="text"
                   value={nameSearch}
@@ -555,7 +555,7 @@ export function CrmIntakePanel({
 
         <div className="border-t border-emerald-100/80 pt-2">
           {soomgoImportBanner ? (
-            <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-2 text-[11px] leading-snug text-sky-950">
+            <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-2 text-[12px] leading-snug text-sky-950">
               <p className="font-semibold text-sky-900">가져온 정보</p>
               <p className="mt-0.5 whitespace-pre-wrap">{soomgoImportBanner}</p>
             </div>

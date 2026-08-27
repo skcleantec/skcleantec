@@ -165,7 +165,7 @@ export function PlatformTenantTelecrmPanel({ tenantId, disabled, onSaved }: Prop
             onChange={(e) => setAdditionalSeats(Math.max(0, Number(e.target.value) || 0))}
             className={INPUT_BASE}
           />
-          <p className="mt-1 text-[10px] text-gray-400">
+          <p className="mt-1 text-[11px] text-gray-400">
             최대 {maxSeats}명 (기본 {TELECRM_DEFAULT_INCLUDED_SEATS} + 추가 {additionalSeats})
           </p>
         </div>

@@ -31,12 +31,12 @@ export function CrmRequestMemoField({
     <>
       <label className="block space-y-0.5">
         <span className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-medium text-slate-600">요청 메모</span>
+          <span className="text-[12px] font-medium text-slate-600">요청 메모</span>
           {hasContent ? (
             <button
               type="button"
               onClick={() => setPreviewOpen(true)}
-              className="shrink-0 rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-800 hover:bg-sky-100"
+              className="shrink-0 rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-800 hover:bg-sky-100"
             >
               크게 보기
             </button>
@@ -70,7 +70,7 @@ export function CrmRequestMemoField({
                   >
                     요청 메모
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-gray-500">고객 요청 모달에서 가져온 전체 내용</p>
+                  <p className="mt-0.5 text-[12px] text-gray-500">고객 요청 모달에서 가져온 전체 내용</p>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4">
                   <p className="whitespace-pre-wrap break-words text-fluid-sm leading-relaxed text-gray-800">

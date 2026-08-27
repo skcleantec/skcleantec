@@ -147,7 +147,7 @@ export function DbMarketplaceSideSegment<T extends string>({
           title={opt.longLabel}
           aria-selected={active === opt.id}
           onClick={() => onChange(opt.id)}
-          className={`relative shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap sm:px-3 sm:py-1.5 sm:text-fluid-xs ${
+          className={`relative shrink-0 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors whitespace-nowrap sm:px-3 sm:py-1.5 sm:text-fluid-xs ${
             active === opt.id
               ? opt.id === 'share'
                 ? 'bg-violet-700 text-white shadow-sm'
@@ -216,7 +216,7 @@ export function DbMarketplaceTabBar<T extends string>({
             title={opt.longLabel}
             aria-selected={active === opt.id}
             onClick={() => onChange(opt.id)}
-            className={`relative shrink-0 rounded-md px-2 py-1 text-[10px] font-medium transition-colors whitespace-nowrap sm:px-2.5 sm:py-1.5 sm:text-fluid-2xs ${
+            className={`relative shrink-0 rounded-md px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap sm:px-2.5 sm:py-1.5 sm:text-fluid-2xs ${
               active === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >

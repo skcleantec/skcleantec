@@ -85,7 +85,7 @@ export function SignupAuthMethodBadge({
 }) {
   return (
     <span
-      className={`inline-block max-w-full truncate rounded px-2 py-0.5 text-[11px] font-semibold ${getSignupAuthBadgeClass(category)}`}
+      className={`inline-block max-w-full truncate rounded px-2 py-0.5 text-[12px] font-semibold ${getSignupAuthBadgeClass(category)}`}
       title={title ?? label}
     >
       {label}

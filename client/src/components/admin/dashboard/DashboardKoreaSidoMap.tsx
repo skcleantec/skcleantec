@@ -76,7 +76,7 @@ export function DashboardKoreaSidoMap({ items, className = '', onSidoClick }: Pr
         })}
       </svg>
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
         <span>
           총 {total.toLocaleString('ko-KR')}건 · 접수 주소 기준 시·도
           {clickable ? ' · 색칠된 지역 클릭 시 구·군·시 상세' : ''}

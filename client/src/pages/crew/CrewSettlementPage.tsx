@@ -466,7 +466,7 @@ function CrewSettlementSheetTable({
                   {settlementLbl}
                 </span>
               </div>
-              <span className="text-[10px] text-gray-600 tabular-nums leading-tight block">
+              <span className="text-[11px] text-gray-600 tabular-nums leading-tight block">
                 {t('crew.settlement.sheetMobileStats', statsVars(r))}
               </span>
             </div>
@@ -549,7 +549,7 @@ function CrewSettlementSheetTable({
                   </td>
                   <td className="border-b border-gray-100 px-2 py-1.5 text-center align-middle">
                     <span
-                      className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border leading-tight ${settlementBadgeClass(Boolean(row.poolSettlementComplete))}`}
+                      className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold border leading-tight ${settlementBadgeClass(Boolean(row.poolSettlementComplete))}`}
                     >
                       {settlementLbl}
                     </span>
@@ -575,7 +575,7 @@ function CrewSettlementSheetTable({
 function DetailStatRow({ labelId, value }: { labelId: Parameters<typeof CrewBiLine>[0]['id']; value: string }) {
   const t = useCrewText();
   return (
-    <div className="flex justify-between gap-2 text-[11px] min-w-0 leading-snug">
+    <div className="flex justify-between gap-2 text-[12px] min-w-0 leading-snug">
       <span className="text-gray-500 shrink-0">{t(labelId)}</span>
       <span className="text-gray-900 tabular-nums text-right truncate font-medium">{value}</span>
     </div>
@@ -657,12 +657,12 @@ function CrewSettlementDetailModal({
         <div className="shrink-0 flex items-start justify-between gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl sm:rounded-t-xl">
           <div className="min-w-0">
             <div className="text-fluid-xs font-semibold text-gray-900 truncate">{heading}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">
+            <div className="text-[11px] text-gray-500 mt-0.5">
               <CrewBiLine
                 id="crew.settlement.detailMonthHeading"
                 vars={{ ym: month }}
                 koClassName="block"
-                thClassName="block text-[10px]"
+                thClassName="block text-[11px]"
               />
             </div>
           </div>
@@ -737,7 +737,7 @@ function CrewSettlementDetailModal({
                   </p>
                 ) : (
                   <div className="overflow-x-auto rounded border border-gray-200">
-                    <table className="w-full min-w-[280px] table-fixed border-collapse text-[10px] sm:text-fluid-2xs">
+                    <table className="w-full min-w-[280px] table-fixed border-collapse text-[11px] sm:text-fluid-2xs">
                       <thead>
                         <tr className="bg-gray-100 text-gray-700">
                           <th className="border-b px-1 py-1 text-center font-medium w-[22%]">
@@ -785,12 +785,12 @@ function CrewSettlementDetailModal({
                 ) : (
                   <ul className="rounded border border-gray-200 divide-y divide-gray-100 bg-white">
                     {data.crewExpenseLines.map((ex) => (
-                      <li key={ex.id} className="px-2 py-1.5 text-[11px] space-y-0.5">
+                      <li key={ex.id} className="px-2 py-1.5 text-[12px] space-y-0.5">
                         <div className="flex justify-between gap-2 tabular-nums">
                           <span className="font-semibold text-gray-900">{fmtWon(ex.amount)}</span>
                           <span className="text-gray-500 shrink-0">{fmtIsoShort(ex.createdAt)}</span>
                         </div>
-                        <div className="text-[10px] text-gray-600 truncate leading-snug">
+                        <div className="text-[11px] text-gray-600 truncate leading-snug">
                           <span className="font-medium text-gray-700">{t('crew.settlement.detailExpenseGroup')}</span>
                           <span>: {ex.crewGroupName}</span>
                           <span className="mx-1 text-gray-300">·</span>
@@ -802,7 +802,7 @@ function CrewSettlementDetailModal({
                           </span>
                         </div>
                         {ex.memo?.trim() ? (
-                          <div className="text-[10px] text-gray-700 whitespace-pre-wrap break-words">
+                          <div className="text-[11px] text-gray-700 whitespace-pre-wrap break-words">
                             <span className="font-medium text-gray-600">
                               {t('crew.settlement.detailExpenseMemo')}
                             </span>
@@ -820,27 +820,27 @@ function CrewSettlementDetailModal({
                   <CrewBiLine id="crew.settlement.detailSectionSettlement" />
                 </h3>
                 {data.settlement ? (
-                  <div className="text-[11px] space-y-1">
+                  <div className="text-[12px] space-y-1">
                     <div className="text-emerald-800 font-medium">
                       <CrewBiLine id="crew.settlement.detailSettled" />
                     </div>
                     <div className="tabular-nums flex flex-wrap items-baseline gap-x-1 gap-y-0">
                       <CrewBiInline id="crew.settlement.detailPaidAmount" className="text-gray-600" />
                       <strong>{fmtWon(data.settlement.amount)}</strong>
-                      <span className="text-gray-500 text-[10px]">{fmtIsoShort(data.settlement.settledAt)}</span>
+                      <span className="text-gray-500 text-[11px]">{fmtIsoShort(data.settlement.settledAt)}</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-[11px] text-amber-900 font-medium">
+                  <div className="text-[12px] text-amber-900 font-medium">
                     <CrewBiLine id="crew.settlement.detailNotSettled" />
                   </div>
                 )}
-                <div className="text-[10px] text-gray-600 pt-1 border-t border-gray-100 mt-1 flex flex-wrap gap-x-1 items-baseline">
+                <div className="text-[11px] text-gray-600 pt-1 border-t border-gray-100 mt-1 flex flex-wrap gap-x-1 items-baseline">
                   <CrewBiInline id="crew.settlement.detailHistorySum" className="font-medium text-gray-700" />
                   <span className="tabular-nums">{fmtWon(data.paymentHistory.totalPaid)}</span>
                 </div>
                 {data.paymentHistory.items.length > 0 ? (
-                  <ul className="mt-1 max-h-28 overflow-y-auto text-[10px] text-gray-700 space-y-0.5">
+                  <ul className="mt-1 max-h-28 overflow-y-auto text-[11px] text-gray-700 space-y-0.5">
                     {data.paymentHistory.items.slice(0, 12).map((it, idx) => (
                       <li key={`${it.monthKey}-${idx}`} className="flex justify-between gap-2 tabular-nums">
                         <span>{it.monthKey}</span>
@@ -853,10 +853,10 @@ function CrewSettlementDetailModal({
 
               {data.notes.length > 0 ? (
                 <section className="space-y-1">
-                  <p className="text-[10px] text-gray-500">
+                  <p className="text-[11px] text-gray-500">
                     <CrewBiLine id="crew.settlement.detailNotesKoNotice" />
                   </p>
-                  <ul className="text-[11px] text-gray-800 bg-amber-50/60 border border-amber-100 rounded px-2 py-1.5 space-y-1 list-disc list-inside">
+                  <ul className="text-[12px] text-gray-800 bg-amber-50/60 border border-amber-100 rounded px-2 py-1.5 space-y-1 list-disc list-inside">
                     {data.notes.map((n, i) => (
                       <li key={i} className="whitespace-pre-wrap">
                         {n}

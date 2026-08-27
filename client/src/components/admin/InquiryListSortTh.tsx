@@ -19,7 +19,7 @@ function SortGlyph({ active, dir }: { active: boolean; dir: InquiryListSortDir }
     );
   }
   return (
-    <span className="ml-0.5 inline-block text-[10px] leading-none text-slate-700" aria-hidden>
+    <span className="ml-0.5 inline-block text-[11px] leading-none text-slate-700" aria-hidden>
       {dir === 'asc' ? '↑' : '↓'}
     </span>
   );

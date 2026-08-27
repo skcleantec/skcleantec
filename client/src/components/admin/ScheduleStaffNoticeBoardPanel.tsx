@@ -81,7 +81,7 @@ export function ScheduleStaffNoticeBoardPanel({ token, canEdit }: Props) {
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-fluid-xs font-semibold text-amber-950">공유 메모</p>
         {hasMemo ? (
-          <span className="inline-flex items-center rounded-full bg-amber-600/90 px-1.5 py-px text-[10px] font-semibold text-white leading-none">
+          <span className="inline-flex items-center rounded-full bg-amber-600/90 px-1.5 py-px text-[11px] font-semibold text-white leading-none">
             공지
           </span>
         ) : null}

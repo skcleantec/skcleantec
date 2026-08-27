@@ -66,9 +66,9 @@ function MetricCard({ metric }: { metric: OpsHourlyMetric }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-fluid-2xs font-semibold text-slate-800">{metric.label}</p>
-          <p className="mt-0.5 text-[10px] text-slate-500">{metric.description}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">{metric.description}</p>
         </div>
-        <span className="shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-slate-600">
+        <span className="shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
           {metric.total}건
         </span>
       </div>
