@@ -4315,6 +4315,8 @@ model TenantAlimtalkTemplateSetting {
   tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   templateCode String  @map("template_code") @db.VarChar(64)
   isEnabled    Boolean @default(true) @map("is_enabled")
+  /** SCHEDULE_D2 — 위약금 발생일 며칠 전 발송 (null = 기본 1) */
+  scheduleD2DaysBeforePenalty Int? @map("schedule_d2_days_before_penalty")
 
   @@id([tenantId, templateCode])
   @@map("tenant_alimtalk_template_settings")

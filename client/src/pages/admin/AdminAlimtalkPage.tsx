@@ -8,10 +8,16 @@ import {
 } from '@shared/alimtalkPolicy';
 import { formatAlimtalkTemplateHelpText } from '@shared/alimtalkTemplateHelp';
 import {
+  DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY,
+  SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX,
+} from '@shared/alimtalkScheduleD2Timing';
+import {
+  getTenantAlimtalkSendLogs,
   getTenantAlimtalkSettings,
   patchTenantAlimtalkSettings,
   postTenantAlimtalkChargeRequest,
   TENANT_ALIMTALK_CHARGE_PRESETS_KRW,
+  type AlimtalkSendLogListItem,
   type TenantAlimtalkSettings,
 } from '../../api/alimtalk';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
@@ -29,6 +35,25 @@ const BTN_SECONDARY =
 
 const CARD =
   'rounded-xl border border-gray-200 bg-white p-3 sm:p-4 space-y-3';
+
+function formatSendLogStatus(row: AlimtalkSendLogListItem): { label: string; className: string } {
+  if (row.status === 'success') {
+    if (row.deliveredChannel === 'LMS') {
+      return { label: 'LMS 대체', className: 'text-amber-700' };
+    }
+    return { label: '알림톡', className: 'text-emerald-700' };
+  }
+  if (row.status === 'pending') {
+    return { label: '처리 중', className: 'text-gray-500' };
+  }
+  return { label: '실패', className: 'text-red-700' };
+}
+
+function formatPreferredDateShort(ymd: string | null): string {
+  if (!ymd) return '—';
+  const [, m, d] = ymd.split('-');
+  return `${Number(m)}/${Number(d)}`;
+}
 
 function formatBankLine(bank: TenantAlimtalkSettings['bank']): string | null {
   const parts = [bank.bankName, bank.accountNumber, bank.accountHolder].filter(Boolean);
@@ -49,6 +74,9 @@ export function AdminAlimtalkPage() {
   const [requesting, setRequesting] = useState(false);
   const [chargeAmountKrw, setChargeAmountKrw] = useState<number>(ALIMTALK_CHARGE_UNIT_KRW);
   const [chargeMemo, setChargeMemo] = useState('');
+  const [scheduleD2DaysBeforePenalty, setScheduleD2DaysBeforePenalty] = useState<string>('');
+  const [sendLogs, setSendLogs] = useState<AlimtalkSendLogListItem[]>([]);
+  const [sendLogsTotal, setSendLogsTotal] = useState(0);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -70,6 +98,21 @@ export function AdminAlimtalkPage() {
         }
       }
       setTemplateEnabled(next);
+      const stored = data.scheduleD2DaysBeforePenalty;
+      setScheduleD2DaysBeforePenalty(
+        stored == null ? String(DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY) : String(stored),
+      );
+      try {
+        const logs = await getTenantAlimtalkSendLogs(token, {
+          templateCode: 'CBISEO_CUST_SCHEDULE_D2',
+          limit: 30,
+        });
+        setSendLogs(logs.items);
+        setSendLogsTotal(logs.total);
+      } catch {
+        setSendLogs([]);
+        setSendLogsTotal(0);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '알림톡 설정 불러오기 실패');
     } finally {
@@ -87,14 +130,47 @@ export function AdminAlimtalkPage() {
     setMessage('');
     setError('');
     try {
+      const trimmed = scheduleD2DaysBeforePenalty.trim();
+      let scheduleOffset: number | null;
+      if (trimmed === '') {
+        scheduleOffset = null;
+      } else {
+        const n = Number.parseInt(trimmed, 10);
+        if (
+          !Number.isFinite(n) ||
+          !Number.isInteger(n) ||
+          n < 0 ||
+          n > SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX
+        ) {
+          throw new Error(
+            `발송 시점은 0~${SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX}일 사이로 입력해 주세요.`,
+          );
+        }
+        scheduleOffset = n === DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY ? null : n;
+      }
       const data = await patchTenantAlimtalkSettings(token, {
         templates: ALIMTALK_TEMPLATE_CODES.map((code) => ({
           code,
           enabled: templateEnabled[code],
         })),
+        scheduleD2DaysBeforePenalty: scheduleOffset,
       });
       setSettings(data);
-      setMessage('알림톡 종류 설정을 저장했습니다.');
+      const stored = data.scheduleD2DaysBeforePenalty;
+      setScheduleD2DaysBeforePenalty(
+        stored == null ? String(DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY) : String(stored),
+      );
+      try {
+        const logs = await getTenantAlimtalkSendLogs(token, {
+          templateCode: 'CBISEO_CUST_SCHEDULE_D2',
+          limit: 30,
+        });
+        setSendLogs(logs.items);
+        setSendLogsTotal(logs.total);
+      } catch {
+        /* 발송 목록 갱신 실패는 저장 성공과 분리 */
+      }
+      setMessage('알림톡 설정을 저장했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -313,6 +389,35 @@ export function AdminAlimtalkPage() {
                 </label>
               ))}
             </div>
+
+            {templateEnabled.CBISEO_CUST_SCHEDULE_D2 ? (
+              <div className="space-y-2 border-t border-gray-100 pt-3">
+                <h3 className="text-fluid-xs font-semibold text-gray-900">일정 확인 알림 — 발송 시점</h3>
+                <p className="text-fluid-2xs text-gray-500">
+                  위약금 발생일 기준 며칠 전에 보낼지 지정합니다. 매일 오후{' '}
+                  {settings.scheduleD2SendHourKst}시(KST)에 자동 발송됩니다. 알림톡 본문의 무위약
+                  마감일과 발송일은 다를 수 있습니다.
+                </p>
+                <label className="flex flex-wrap items-center gap-2 text-fluid-xs text-gray-700">
+                  위약금 발생일
+                  <input
+                    type="number"
+                    min={0}
+                    max={SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX}
+                    className="w-20 min-h-9 rounded-lg border border-gray-200 px-2 py-1 text-center tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50"
+                    value={scheduleD2DaysBeforePenalty}
+                    disabled={!editable || saving}
+                    onChange={(e) => setScheduleD2DaysBeforePenalty(e.target.value)}
+                  />
+                  일 전
+                </label>
+                <p className="text-fluid-2xs text-gray-400">
+                  기본값 {DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY}일(위약 적용 하루 전). 0이면 위약
+                  발생 당일 오후 {settings.scheduleD2SendHourKst}시에 발송합니다.
+                </p>
+              </div>
+            ) : null}
+
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" className={BTN_SECONDARY} disabled={saving} onClick={() => void load()}>
                 새로고침
@@ -327,6 +432,82 @@ export function AdminAlimtalkPage() {
               </button>
             </div>
           </section>
+
+          {templateEnabled.CBISEO_CUST_SCHEDULE_D2 ? (
+            <section className={CARD}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-fluid-sm font-semibold text-gray-900">최근 일정 확인 알림 발송</h2>
+                <span className="text-fluid-2xs text-gray-400 tabular-nums">
+                  최근 30건 · 전체 {sendLogsTotal.toLocaleString('ko-KR')}건
+                </span>
+              </div>
+              {sendLogs.length === 0 ? (
+                <p className="text-fluid-2xs text-gray-500">아직 발송 내역이 없습니다.</p>
+              ) : (
+                <>
+                  <p className="text-fluid-2xs text-gray-500 lg:hidden">표는 좌우로 스크롤할 수 있습니다.</p>
+                  <div
+                    className="-mx-4 w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:px-0"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                  >
+                    <table className="w-full min-w-[640px] table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs">
+                      <colgroup>
+                        <col className="w-[22%]" />
+                        <col className="w-[18%]" />
+                        <col className="w-[24%]" />
+                        <col className="w-[14%]" />
+                        <col className="w-[22%]" />
+                      </colgroup>
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+                          <th className="px-2 py-2 text-center font-medium">발송 시각</th>
+                          <th className="px-2 py-2 text-center font-medium">접수번호</th>
+                          <th className="px-2 py-2 text-center font-medium">고객 · 청소일</th>
+                          <th className="px-2 py-2 text-center font-medium">결과</th>
+                          <th className="px-2 py-2 text-center font-medium">비고</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sendLogs.map((row) => {
+                          const status = formatSendLogStatus(row);
+                          return (
+                            <tr key={row.id} className="border-b border-gray-100 text-gray-700">
+                              <td className="px-2 py-2 text-center tabular-nums">
+                                {new Date(row.createdAt).toLocaleString('ko-KR')}
+                              </td>
+                              <td
+                                className="px-2 py-2 text-center truncate"
+                                title={row.inquiryNumber ?? undefined}
+                              >
+                                {row.inquiryNumber ?? '—'}
+                              </td>
+                              <td
+                                className="px-2 py-2 text-center truncate"
+                                title={row.customerName ?? undefined}
+                              >
+                                {row.customerName ?? '—'} · {formatPreferredDateShort(row.preferredDateYmd)}
+                              </td>
+                              <td className={`px-2 py-2 text-center font-medium ${status.className}`}>
+                                {status.label}
+                              </td>
+                              <td
+                                className="px-2 py-2 text-center truncate text-gray-500"
+                                title={row.errorMessage ?? row.toPhone}
+                              >
+                                {row.status === 'failed'
+                                  ? row.errorMessage ?? '발송 실패'
+                                  : row.toPhone}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </section>
+          ) : null}
         </>
       )}
     </div>

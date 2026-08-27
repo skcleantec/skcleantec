@@ -3,6 +3,12 @@ import {
   computeFreeChangeDeadlineYmd,
   formatYmdWithWeekdayKo,
 } from '../../lib/operatingCompanyCancellationPolicyCore.js';
+import {
+  computeFirstPenaltyStartYmd,
+  computeScheduleD2SendYmd,
+  DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY,
+  resolveScheduleD2DaysBeforePenalty,
+} from '../../lib/alimtalkScheduleD2Timing.js';
 import { loadCancellationPolicyForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
 import {
   resolveAlimtalkCustomerContextFromInquiry,
@@ -26,17 +32,35 @@ export function formatAlimtalkFreeChangeDeadlineLabel(deadlineYmd: string): stri
   return formatYmdWithWeekdayKo(deadlineYmd) ?? deadlineYmd;
 }
 
-export type ScheduleD2DeadlineResolved = {
-  deadlineYmd: string;
-  deadlineLabel: string;
+export async function loadTenantScheduleD2DaysBeforePenalty(
+  tenantId: string,
+): Promise<number | null> {
+  const row = await prisma.tenantAlimtalkTemplateSetting.findUnique({
+    where: {
+      tenantId_templateCode: { tenantId, templateCode: 'CBISEO_CUST_SCHEDULE_D2' },
+    },
+    select: { scheduleD2DaysBeforePenalty: true },
+  });
+  return row?.scheduleD2DaysBeforePenalty ?? null;
+}
+
+export type ScheduleD2SendResolved = {
+  sendYmd: string;
+  firstPenaltyStartYmd: string;
+  deadlineYmd: string | null;
+  deadlineLabel: string | null;
   preferredDateYmd: string;
-  freeChangeDaysBefore: number;
+  daysBeforePenalty: number;
+  effectiveDaysBeforePenalty: number;
   ctx: AlimtalkCustomerContext;
 };
 
-export async function resolveScheduleD2DeadlineForInquiry(
+/** @deprecated resolveScheduleD2SendForInquiry 사용 */
+export type ScheduleD2DeadlineResolved = ScheduleD2SendResolved;
+
+export async function resolveScheduleD2SendForInquiry(
   inquiryId: string,
-): Promise<ScheduleD2DeadlineResolved | { error: string }> {
+): Promise<ScheduleD2SendResolved | { error: string }> {
   const ctx = await resolveAlimtalkCustomerContextFromInquiry(inquiryId);
   if ('error' in ctx) return { error: ctx.error };
 
@@ -46,19 +70,34 @@ export async function resolveScheduleD2DeadlineForInquiry(
   const policy = await loadCancellationPolicyForBrand(prisma, ctx.billingTenantId, {
     operatingCompanyId: ctx.customerFacingOperatingCompanyId,
   });
-  const freeChangeDaysBefore = policy.freeChangeDaysBefore;
-  if (freeChangeDaysBefore == null || freeChangeDaysBefore <= 0) {
-    return { error: '무위약 변경 기준일이 설정되지 않아 발송할 수 없습니다.' };
+
+  const firstPenaltyStartYmd = computeFirstPenaltyStartYmd(preferredDateYmd, policy);
+  if (!firstPenaltyStartYmd) {
+    return { error: '위약금 발생일을 계산할 수 없어 발송할 수 없습니다.' };
   }
 
-  const deadlineYmd = computeFreeChangeDeadlineYmd(preferredDateYmd, freeChangeDaysBefore);
-  if (!deadlineYmd) return { error: '무위약 마감일을 계산할 수 없습니다.' };
+  const storedOffset = await loadTenantScheduleD2DaysBeforePenalty(ctx.billingTenantId);
+  const effectiveDaysBeforePenalty = resolveScheduleD2DaysBeforePenalty(storedOffset);
+  const sendYmd = computeScheduleD2SendYmd(preferredDateYmd, policy, storedOffset);
+  if (!sendYmd) return { error: '일정 확인 알림 발송일을 계산할 수 없습니다.' };
+
+  const deadlineYmd = computeFreeChangeDeadlineYmd(preferredDateYmd, policy.freeChangeDaysBefore);
 
   return {
+    sendYmd,
+    firstPenaltyStartYmd,
     deadlineYmd,
-    deadlineLabel: formatAlimtalkFreeChangeDeadlineLabel(deadlineYmd),
+    deadlineLabel: deadlineYmd ? formatAlimtalkFreeChangeDeadlineLabel(deadlineYmd) : null,
     preferredDateYmd,
-    freeChangeDaysBefore,
+    daysBeforePenalty: storedOffset ?? DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY,
+    effectiveDaysBeforePenalty,
     ctx,
   };
+}
+
+/** @deprecated resolveScheduleD2SendForInquiry */
+export async function resolveScheduleD2DeadlineForInquiry(
+  inquiryId: string,
+): Promise<ScheduleD2SendResolved | { error: string }> {
+  return resolveScheduleD2SendForInquiry(inquiryId);
 }

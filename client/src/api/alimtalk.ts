@@ -3,6 +3,7 @@ import {
   ALIMTALK_CHARGE_UNIT_KRW,
   type AlimtalkTemplateCode,
 } from '@shared/alimtalkPolicy';
+import { SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX } from '@shared/alimtalkScheduleD2Timing';
 import { API, apiErrorMessage } from './apiPrefix';
 
 export type TenantAlimtalkChargeRequest = {
@@ -33,6 +34,8 @@ export type TenantAlimtalkSettings = {
     paymentGuideText: string | null;
   };
   templates: { code: string; label: string; enabled: boolean }[];
+  scheduleD2DaysBeforePenalty: number | null;
+  scheduleD2SendHourKst: number;
   pendingChargeRequest: TenantAlimtalkChargeRequest | null;
   recentChargeRequests: TenantAlimtalkChargeRequest[];
   recentChargeLogs: {
@@ -42,6 +45,20 @@ export type TenantAlimtalkSettings = {
     memo: string | null;
     createdAt: string;
   }[];
+};
+
+export type AlimtalkSendLogListItem = {
+  id: string;
+  createdAt: string;
+  templateCode: string;
+  inquiryId: string | null;
+  inquiryNumber: string | null;
+  customerName: string | null;
+  preferredDateYmd: string | null;
+  toPhone: string;
+  status: 'success' | 'failed' | 'pending';
+  deliveredChannel: string | null;
+  errorMessage: string | null;
 };
 
 function authHeaders(token: string) {
@@ -56,7 +73,10 @@ export async function getTenantAlimtalkSettings(token: string): Promise<TenantAl
 
 export async function patchTenantAlimtalkSettings(
   token: string,
-  body: { templates: { code: AlimtalkTemplateCode; enabled: boolean }[] },
+  body: {
+    templates?: { code: AlimtalkTemplateCode; enabled: boolean }[];
+    scheduleD2DaysBeforePenalty?: number | null;
+  },
 ): Promise<TenantAlimtalkSettings> {
   const res = await fetch(`${API}/alimtalk/settings`, {
     method: 'PATCH',
@@ -68,6 +88,22 @@ export async function patchTenantAlimtalkSettings(
     throw new Error(data.error ?? '알림톡 설정 저장 실패');
   }
   return res.json() as Promise<TenantAlimtalkSettings>;
+}
+
+export async function getTenantAlimtalkSendLogs(
+  token: string,
+  params?: { templateCode?: AlimtalkTemplateCode; limit?: number; offset?: number },
+): Promise<{ items: AlimtalkSendLogListItem[]; total: number }> {
+  const qs = new URLSearchParams();
+  if (params?.templateCode) qs.set('templateCode', params.templateCode);
+  if (params?.limit != null) qs.set('limit', String(params.limit));
+  if (params?.offset != null) qs.set('offset', String(params.offset));
+  const query = qs.toString();
+  const res = await fetch(`${API}/alimtalk/send-logs${query ? `?${query}` : ''}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '발송 내역 조회 실패'));
+  return res.json() as Promise<{ items: AlimtalkSendLogListItem[]; total: number }>;
 }
 
 export async function postTenantAlimtalkChargeRequest(
@@ -92,3 +128,5 @@ export const TENANT_ALIMTALK_CHARGE_PRESETS_KRW = [
   ALIMTALK_CHARGE_UNIT_KRW * 3,
   ALIMTALK_CHARGE_MAX_KRW,
 ] as const;
+
+export { SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX };

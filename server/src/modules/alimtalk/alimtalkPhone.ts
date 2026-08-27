@@ -17,3 +17,12 @@ export function normalizeAlimtalkPhone(raw: string | null | undefined): string |
 export function formatWonAmount(n: number): string {
   return Number(n).toLocaleString('ko-KR');
 }
+
+/** 목록 표시용 — 010-****-5678 */
+export function maskAlimtalkPhone(raw: string | null | undefined): string {
+  const normalized = normalizeAlimtalkPhone(raw) ?? String(raw ?? '').replace(/\D/g, '');
+  if (normalized.length < 8) return '—';
+  const head = normalized.slice(0, 3);
+  const tail = normalized.slice(-4);
+  return `${head}-****-${tail}`;
+}

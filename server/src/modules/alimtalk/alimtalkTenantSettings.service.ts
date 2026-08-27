@@ -8,6 +8,10 @@ import {
   alimtalkMonthlyFreeQuotaForPlan,
   alimtalkPlanAllowsFeature,
 } from '../../lib/alimtalkPolicy.js';
+import {
+  parseScheduleD2DaysBeforePenaltyInput,
+  SCHEDULE_D2_SEND_HOUR_KST,
+} from '../../lib/alimtalkScheduleD2Timing.js';
 import { ensurePlatformBillingSettings } from '../billing/tenantBilling.service.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import {
@@ -46,6 +50,8 @@ export type AlimtalkSettingsForTenantAdmin = {
   canSend: boolean;
   bank: AlimtalkBankGuideDto;
   templates: { code: string; label: string; enabled: boolean }[];
+  scheduleD2DaysBeforePenalty: number | null;
+  scheduleD2SendHourKst: number;
   pendingChargeRequest: AlimtalkChargeRequestDto | null;
   recentChargeRequests: AlimtalkChargeRequestDto[];
   recentChargeLogs: {
@@ -90,6 +96,7 @@ export async function getAlimtalkSettingsForTenantAdmin(
 
   const settings = await prisma.tenantAlimtalkTemplateSetting.findMany({ where: { tenantId } });
   const settingMap = new Map(settings.map((s) => [s.templateCode, s.isEnabled]));
+  const scheduleD2Row = settings.find((s) => s.templateCode === 'CBISEO_CUST_SCHEDULE_D2');
 
   const [recentChargeLogs, pendingChargeRequest, recentChargeRequests] = await Promise.all([
     listRecentAlimtalkChargeLogs(tenantId, 10),
@@ -127,6 +134,8 @@ export async function getAlimtalkSettingsForTenantAdmin(
       label: ALIMTALK_TEMPLATE_LABELS[code],
       enabled: settingMap.get(code) !== false,
     })),
+    scheduleD2DaysBeforePenalty: scheduleD2Row?.scheduleD2DaysBeforePenalty ?? null,
+    scheduleD2SendHourKst: SCHEDULE_D2_SEND_HOUR_KST,
     pendingChargeRequest,
     recentChargeRequests,
     recentChargeLogs: mapChargeLogs(recentChargeLogs),
@@ -135,7 +144,10 @@ export async function getAlimtalkSettingsForTenantAdmin(
 
 export async function saveAlimtalkTemplatesForTenantAdmin(
   tenantId: string,
-  templates: { code: string; enabled: boolean }[],
+  input: {
+    templates?: { code: string; enabled: boolean }[];
+    scheduleD2DaysBeforePenalty?: number | null;
+  },
 ): Promise<AlimtalkSettingsForTenantAdmin> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
@@ -149,7 +161,32 @@ export async function saveAlimtalkTemplatesForTenantAdmin(
   }
 
   await ensureTenantAlimtalkDefaults(tenantId, tenant.plan);
-  await upsertTenantAlimtalkTemplateSettings(tenantId, templates);
+
+  if (input.templates) {
+    await upsertTenantAlimtalkTemplateSettings(tenantId, input.templates);
+  }
+
+  if (input.scheduleD2DaysBeforePenalty !== undefined) {
+    const parsed = parseScheduleD2DaysBeforePenaltyInput(input.scheduleD2DaysBeforePenalty);
+    if ('error' in parsed) {
+      throw new Error(parsed.error);
+    }
+    await prisma.tenantAlimtalkTemplateSetting.upsert({
+      where: {
+        tenantId_templateCode: { tenantId, templateCode: 'CBISEO_CUST_SCHEDULE_D2' },
+      },
+      create: {
+        tenantId,
+        templateCode: 'CBISEO_CUST_SCHEDULE_D2',
+        isEnabled: true,
+        scheduleD2DaysBeforePenalty: parsed.value,
+      },
+      update: {
+        scheduleD2DaysBeforePenalty: parsed.value,
+      },
+    });
+  }
+
   return getAlimtalkSettingsForTenantAdmin(tenantId);
 }
 

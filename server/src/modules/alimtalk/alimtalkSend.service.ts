@@ -18,7 +18,8 @@ import { buildAlimtalkVariables } from './alimtalkTemplateRegistry.js';
 import { validateAlimtalkTemplateVariables } from './alimtalkVariableValidation.js';
 import { buildOrderFormAlimtalkPublicUrl } from './alimtalkPublicUrl.js';
 import { kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
-import { resolveScheduleD2DeadlineForInquiry } from './alimtalkScheduleD2.helpers.js';
+import { isScheduleD2SendWindowOpen } from '../../lib/alimtalkScheduleD2Timing.js';
+import { resolveScheduleD2SendForInquiry } from './alimtalkScheduleD2.helpers.js';
 import { validateOptionalPublicTenantSlug, PublicTenantAccessError } from '../tenants/publicTenantAccess.js';
 import {
   applyAlimtalkCharge,
@@ -254,6 +255,8 @@ export type TriggerAlimtalkScheduleD2Input = {
   inquiryId: string;
   /** @deprecated resolver가 §3.1 기준 billing tenant를 결정합니다 */
   tenantId?: string;
+  /** cron 경로 — sendYmd·18:00 가드는 job에서 이미 검증 */
+  skipSendYmdGuard?: boolean;
 };
 
 export async function triggerAlimtalkScheduleD2(
@@ -279,12 +282,17 @@ export async function triggerAlimtalkScheduleD2(
     return { ok: false, error: '이미 발송된 건입니다.' };
   }
 
-  const deadline = await resolveScheduleD2DeadlineForInquiry(input.inquiryId);
-  if ('error' in deadline) {
-    return { ok: false, error: deadline.error };
+  const resolved = await resolveScheduleD2SendForInquiry(input.inquiryId);
+  if ('error' in resolved) {
+    return { ok: false, error: resolved.error };
   }
-  if (deadline.deadlineYmd !== kstTodayYmd()) {
-    return { ok: false, error: '무위약 마감일이 오늘이 아니어서 발송할 수 없습니다.' };
+  if (!input.skipSendYmdGuard) {
+    if (resolved.sendYmd !== kstTodayYmd()) {
+      return { ok: false, error: '일정 확인 알림 발송일이 오늘이 아니어서 발송할 수 없습니다.' };
+    }
+    if (!isScheduleD2SendWindowOpen()) {
+      return { ok: false, error: '일정 확인 알림은 오후 6시(KST) 이후에 발송할 수 있습니다.' };
+    }
   }
 
   const phone = normalizeAlimtalkPhone(ctx.inquiry.customerPhone ?? ctx.order.customerPhone);

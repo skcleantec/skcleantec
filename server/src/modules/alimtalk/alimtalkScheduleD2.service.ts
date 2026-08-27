@@ -1,4 +1,5 @@
 import type { InquiryStatus } from '@prisma/client';
+import { isScheduleD2SendWindowOpen } from '../../lib/alimtalkScheduleD2Timing.js';
 import { prisma } from '../../lib/prisma.js';
 import { addDaysToKstYmd, kstDayRangeYmd, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { ALIMTALK_MODULE_ID, alimtalkPlanAllowsFeature } from '../../lib/alimtalkPolicy.js';
@@ -9,15 +10,16 @@ import {
 } from './alimtalkSend.service.js';
 import { isTenantAlimtalkTemplateEnabled } from './alimtalkWallet.service.js';
 import {
-  resolveScheduleD2DeadlineForInquiry,
+  resolveScheduleD2SendForInquiry,
   SCHEDULE_D2_PREFERRED_DATE_SCAN_MAX_DAYS,
 } from './alimtalkScheduleD2.helpers.js';
 
 export type AlimtalkScheduleD2JobResult = {
-  /** 무위약 마감일 = 발송 기준일 (KST) */
-  deadlineYmd: string;
+  /** 테넌트 offset 반영 발송 기준일 (KST) */
+  sendYmd: string;
   preferredDateScanFrom: string;
   preferredDateScanTo: string;
+  sendWindowOpen: boolean;
   tenantsScanned: number;
   candidates: number;
   sent: number;
@@ -30,20 +32,25 @@ export type AlimtalkScheduleD2JobResult = {
 export async function runAlimtalkScheduleD2Job(opts?: {
   dryRun?: boolean;
   now?: Date;
+  /** true면 18:00 KST 시각 가드 생략 (dry-run·수동 테스트) */
+  skipTimeWindow?: boolean;
 }): Promise<AlimtalkScheduleD2JobResult> {
   const dryRun = Boolean(opts?.dryRun);
-  const deadlineYmd = kstTodayYmd();
-  const preferredDateScanFrom = addDaysToKstYmd(deadlineYmd, 1);
+  const now = opts?.now ?? new Date();
+  const sendYmd = kstTodayYmd();
+  const sendWindowOpen = opts?.skipTimeWindow || isScheduleD2SendWindowOpen(now);
+  const preferredDateScanFrom = sendYmd;
   const preferredDateScanTo = addDaysToKstYmd(
-    deadlineYmd,
+    sendYmd,
     SCHEDULE_D2_PREFERRED_DATE_SCAN_MAX_DAYS,
   );
   const rangeFrom = kstDayRangeYmd(preferredDateScanFrom);
   const rangeTo = kstDayRangeYmd(preferredDateScanTo);
   const result: AlimtalkScheduleD2JobResult = {
-    deadlineYmd,
+    sendYmd,
     preferredDateScanFrom,
     preferredDateScanTo,
+    sendWindowOpen,
     tenantsScanned: 0,
     candidates: 0,
     sent: 0,
@@ -52,6 +59,10 @@ export async function runAlimtalkScheduleD2Job(opts?: {
     dryRun,
     errors: [],
   };
+
+  if (!sendWindowOpen) {
+    return result;
+  }
 
   if (!rangeFrom || !rangeTo) return result;
 
@@ -75,21 +86,21 @@ export async function runAlimtalkScheduleD2Job(opts?: {
   const templateCache = new Map<string, boolean>();
 
   for (const row of inquiries) {
-    const deadline = await resolveScheduleD2DeadlineForInquiry(row.id);
-    if ('error' in deadline) {
+    const resolved = await resolveScheduleD2SendForInquiry(row.id);
+    if ('error' in resolved) {
       continue;
     }
-    if (deadline.deadlineYmd !== deadlineYmd) {
+    if (resolved.sendYmd !== sendYmd) {
       continue;
     }
 
     result.candidates += 1;
-    const billingTenantId = deadline.ctx.billingTenantId;
+    const billingTenantId = resolved.ctx.billingTenantId;
     billingTenantIds.add(billingTenantId);
 
     let licensed = licensedCache.get(billingTenantId);
     if (licensed === undefined) {
-      if (!alimtalkPlanAllowsFeature(deadline.ctx.billingTenant.plan)) {
+      if (!alimtalkPlanAllowsFeature(resolved.ctx.billingTenant.plan)) {
         licensed = false;
       } else {
         licensed = await isFeatureEnabled(billingTenantId, ALIMTALK_MODULE_ID);
@@ -116,7 +127,7 @@ export async function runAlimtalkScheduleD2Job(opts?: {
       continue;
     }
 
-    const send = await triggerAlimtalkScheduleD2({ inquiryId: row.id });
+    const send = await triggerAlimtalkScheduleD2({ inquiryId: row.id, skipSendYmdGuard: false });
     if (send.ok) {
       result.sent += 1;
     } else if (send.error === '이미 발송된 건입니다.') {
