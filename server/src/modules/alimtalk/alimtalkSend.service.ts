@@ -15,6 +15,7 @@ import {
 } from './alimtalkCustomerContext.service.js';
 import { normalizeAlimtalkPhone } from './alimtalkPhone.js';
 import { buildAlimtalkVariables } from './alimtalkTemplateRegistry.js';
+import { validateAlimtalkTemplateVariables } from './alimtalkVariableValidation.js';
 import {
   applyAlimtalkCharge,
   isTenantAlimtalkTemplateEnabled,
@@ -158,6 +159,9 @@ export async function triggerAlimtalkOrderLink(
     brandOperatingCompanyId: ctx.customerFacingOperatingCompanyId,
   });
 
+  const variableError = validateAlimtalkTemplateVariables(templateCode, variables);
+  if (variableError) return { ok: false, error: variableError };
+
   return executeAlimtalkSend({
     billingTenantId: ctx.billingTenantId,
     tenant: ctx.billingTenant,
@@ -205,6 +209,9 @@ export async function triggerAlimtalkOrderDone(
     brandOperatingCompany: ctx.brandOperatingCompany,
     brandOperatingCompanyId: ctx.customerFacingOperatingCompanyId,
   });
+
+  const variableError = validateAlimtalkTemplateVariables(templateCode, variables);
+  if (variableError) return { ok: false, error: variableError };
 
   return executeAlimtalkSend({
     billingTenantId: ctx.billingTenantId,
@@ -260,6 +267,9 @@ export async function triggerAlimtalkScheduleD2(
     brandOperatingCompany: ctx.brandOperatingCompany,
     brandOperatingCompanyId: ctx.customerFacingOperatingCompanyId,
   });
+
+  const variableError = validateAlimtalkTemplateVariables(templateCode, variables);
+  if (variableError) return { ok: false, error: variableError };
 
   return executeAlimtalkSend({
     billingTenantId: ctx.billingTenantId,

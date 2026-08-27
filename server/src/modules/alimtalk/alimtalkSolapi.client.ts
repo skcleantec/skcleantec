@@ -18,7 +18,47 @@ export type SolapiSendResult = {
   statusCode?: string;
   errorMessage?: string;
   channelType?: string;
+  solapiGroupId?: string;
 };
+
+type SolapiSendManyDetailResponse = {
+  errorCode?: string;
+  errorMessage?: string;
+  groupInfo?: { groupId?: string; count?: { registeredSuccess?: number; registeredFailed?: number } };
+  failedMessageList?: {
+    statusCode?: string;
+    statusMessage?: string;
+    to?: string;
+    from?: string;
+  }[];
+  messageList?: {
+    messageId?: string;
+    statusCode?: string;
+    statusMessage?: string;
+    type?: string;
+  }[];
+};
+
+function formatSolapiSendFailure(json: SolapiSendManyDetailResponse, httpStatus: number): string {
+  const failed = json.failedMessageList?.[0];
+  if (failed?.statusMessage) {
+    const code = failed.statusCode ? ` [${failed.statusCode}]` : '';
+    return `${failed.statusMessage}${code}`;
+  }
+  if (json.errorMessage) return json.errorMessage;
+  const pending = json.messageList?.[0];
+  if (pending?.statusMessage && pending.statusCode !== '2000') {
+    const code = pending.statusCode ? ` [${pending.statusCode}]` : '';
+    return `${pending.statusMessage}${code}`;
+  }
+  if (json.groupInfo?.count?.registeredSuccess === 0) {
+    return (
+      '솔라피에 접수된 발송 건이 없습니다. pfId·templateId·발신번호·템플릿 승인 상태를 솔라피 콘솔에서 확인해 주세요.' +
+      (json.groupInfo.groupId ? ` (그룹 ${json.groupInfo.groupId})` : '')
+    );
+  }
+  return `솔라피 발송 실패 (HTTP ${httpStatus})`;
+}
 
 function solapiAuthHeader(apiKey: string, apiSecret: string): string {
   const date = new Date().toISOString();
@@ -93,7 +133,7 @@ export async function sendSolapiAlimtalk(input: SolapiSendMessageInput): Promise
   };
 
   try {
-    const res = await fetch('https://api.solapi.com/messages/v4/send-many', {
+    const res = await fetch('https://api.solapi.com/messages/v4/send-many/detail', {
       method: 'POST',
       headers: {
         Authorization: solapiAuthHeader(cfg.apiKey, cfg.apiSecret),
@@ -101,30 +141,31 @@ export async function sendSolapiAlimtalk(input: SolapiSendMessageInput): Promise
       },
       body: JSON.stringify(body),
     });
-    const json = (await res.json()) as {
-      errorCode?: string;
-      errorMessage?: string;
-      failedMessageList?: { statusMessage?: string; statusCode?: string }[];
-      groupInfo?: { count?: { total?: number } };
-      messageList?: { messageId?: string; statusCode?: string; statusMessage?: string; type?: string }[];
-    };
+    const json = (await res.json()) as SolapiSendManyDetailResponse;
 
-    if (!res.ok) {
+    const first = json.messageList?.[0];
+    const failed = json.failedMessageList?.[0];
+    const statusCode = first?.statusCode ?? failed?.statusCode;
+    const ok =
+      res.ok &&
+      Boolean(first?.messageId) &&
+      (statusCode === '2000' || statusCode === '3000' || statusCode === '4000');
+
+    if (!ok) {
       return {
         ok: false,
-        errorMessage: json.errorMessage || json.failedMessageList?.[0]?.statusMessage || `HTTP ${res.status}`,
+        statusCode,
+        solapiGroupId: json.groupInfo?.groupId,
+        errorMessage: formatSolapiSendFailure(json, res.status),
       };
     }
 
-    const first = json.messageList?.[0];
-    const statusCode = first?.statusCode ?? json.failedMessageList?.[0]?.statusCode;
-    const ok = statusCode === '2000' || statusCode === '3000' || statusCode === '4000';
     return {
-      ok,
+      ok: true,
       messageId: first?.messageId,
       statusCode,
       channelType: first?.type,
-      errorMessage: ok ? undefined : first?.statusMessage || json.errorMessage || '발송 실패',
+      solapiGroupId: json.groupInfo?.groupId,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : '솔라피 API 호출 실패' };
