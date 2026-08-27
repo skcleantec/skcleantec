@@ -20,6 +20,12 @@ import {
   listCrmEligibleUsersForTenant,
   saveTelecrmPolicyForPlatform,
 } from '../telecrm/telecrmTenantPolicy.service.js';
+import {
+  getAlimtalkSettingsForPlatform,
+  saveAlimtalkPolicyForPlatform,
+  chargeAlimtalkWalletForPlatform,
+} from '../alimtalk/alimtalkTenantPolicy.service.js';
+import type { PlatformScopedRequest } from './platformAuth.middleware.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { getTenantSubscriptionForAdmin } from '../tenants/tenantSubscription.service.js';
 
@@ -283,6 +289,71 @@ router.get('/:id/telecrm-policy', async (req, res) => {
       return;
     }
     throw e;
+  }
+});
+
+router.get('/:id/alimtalk-policy', async (req, res) => {
+  try {
+    const settings = await getAlimtalkSettingsForPlatform(req.params.id);
+    res.json(settings);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    if (e instanceof Error && e.message === 'Tenant not found') {
+      res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.patch('/:id/alimtalk-policy', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const body = req.body as {
+      licensed?: boolean;
+      monthlyFreeEnabled?: boolean;
+      templates?: { code: string; enabled: boolean }[];
+    };
+    const settings = await saveAlimtalkPolicyForPlatform(req.params.id, body);
+    res.json(settings);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    if (e instanceof Error && e.message === 'Tenant not found') {
+      res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '알림톡 정책 저장에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.post('/:id/alimtalk-policy/charge', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const body = req.body as { amountKrw?: number; memo?: string };
+    const amountKrw = Number(body.amountKrw);
+    const platformUser = (req as PlatformScopedRequest).platformUser;
+    const settings = await chargeAlimtalkWalletForPlatform(
+      req.params.id,
+      { amountKrw, memo: body.memo },
+      platformUser?.platformUserId ?? null,
+    );
+    res.json(settings);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    if (e instanceof Error && e.message === 'Tenant not found') {
+      res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '충전 반영에 실패했습니다.';
+    res.status(400).json({ error: msg });
   }
 });
 

@@ -319,6 +319,10 @@ model Tenant {
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
   telecrmAiUsageLogs TelecrmAiUsageLog[]
   telecrmAiSummaries TelecrmAiSummary[]
+  alimtalkWallet TenantAlimtalkWallet?
+  alimtalkTemplateSettings TenantAlimtalkTemplateSetting[]
+  alimtalkSendLogs AlimtalkSendLog[]
+  alimtalkWalletChargeLogs AlimtalkWalletChargeLog[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
   billingProfile TenantBillingProfile?
@@ -4275,4 +4279,82 @@ model TelecrmAiSummary {
   @@unique([tenantId, chatId, contentHash])
   @@index([tenantId, inquiryId])
   @@map("telecrm_ai_summaries")
+}
+
+/// 플랫폼 공통 솔라피 알림톡 서식 (카카오 승인 templateId)
+model AlimtalkTemplate {
+  id               String   @id @default(uuid())
+  code             String   @unique @db.VarChar(64)
+  solapiTemplateId String   @map("solapi_template_id") @db.VarChar(64)
+  name             String   @db.VarChar(200)
+  triggerType      String   @map("trigger_type") @db.VarChar(32)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("alimtalk_templates")
+}
+
+/// 테넌트 알림톡 선불·월 무료 사용량 (브랜드 공유)
+model TenantAlimtalkWallet {
+  tenantId             String   @id @map("tenant_id")
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  prepaidBalanceKrw    Int      @default(0) @map("prepaid_balance_krw")
+  monthlyFreeUsed      Int      @default(0) @map("monthly_free_used")
+  monthlyFreePeriodYm  String   @default("") @map("monthly_free_period_ym") @db.VarChar(7)
+  monthlyFreeEnabled   Boolean  @default(true) @map("monthly_free_enabled")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_alimtalk_wallets")
+}
+
+/// 테넌트별 템플릿 ON/OFF
+model TenantAlimtalkTemplateSetting {
+  tenantId     String  @map("tenant_id")
+  tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateCode String  @map("template_code") @db.VarChar(64)
+  isEnabled    Boolean @default(true) @map("is_enabled")
+
+  @@id([tenantId, templateCode])
+  @@map("tenant_alimtalk_template_settings")
+}
+
+/// 알림톡 발송·과금 로그
+model AlimtalkSendLog {
+  id                          String   @id @default(uuid())
+  tenantId                    String   @map("tenant_id")
+  tenant                      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateCode                String   @map("template_code") @db.VarChar(64)
+  orderFormId                 String?  @map("order_form_id")
+  inquiryId                   String?  @map("inquiry_id")
+  toPhone                     String   @map("to_phone") @db.VarChar(32)
+  solapiMessageId             String?  @map("solapi_message_id") @db.VarChar(64)
+  chargeStatus                String   @map("charge_status") @db.VarChar(16)
+  deliveredChannel            String?  @map("delivered_channel") @db.VarChar(8)
+  freeUnitsConsumed           Int      @default(0) @map("free_units_consumed")
+  tenantUnitPriceKrw          Int      @default(0) @map("tenant_unit_price_krw")
+  customerFacingTenantId      String?  @map("customer_facing_tenant_id")
+  customerFacingOperatingCompanyId String? @map("customer_facing_operating_company_id")
+  errorMessage                String?  @map("error_message") @db.Text
+  createdAt                   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, templateCode, orderFormId])
+  @@index([tenantId, templateCode, inquiryId])
+  @@map("alimtalk_send_logs")
+}
+
+/// 플랫폼 알림톡 선불 충전 이력
+model AlimtalkWalletChargeLog {
+  id                    String   @id @default(uuid())
+  tenantId              String   @map("tenant_id")
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amountKrw             Int      @map("amount_krw")
+  balanceAfterKrw       Int      @map("balance_after_krw")
+  memo                  String?  @db.Text
+  actorPlatformUserId   String?  @map("actor_platform_user_id") @db.VarChar(64)
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("alimtalk_wallet_charge_logs")
 }

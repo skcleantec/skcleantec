@@ -84,6 +84,9 @@ import {
 } from '../ops-analytics/kstHourListFilter.js';
 import { orderFormIdsMatchingKstHour } from '../ops-analytics/kstHourFilterQueries.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
+import { requireFeature } from '../tenants/requireTenantFeature.js';
+import { ALIMTALK_MODULE_ID } from '../../lib/alimtalkPolicy.js';
+import { triggerAlimtalkOrderDone, triggerAlimtalkOrderLink } from '../alimtalk/alimtalkSend.service.js';
 import {
   assertTenantAllowsPublicService,
   PublicTenantAccessError,
@@ -1142,6 +1145,41 @@ router.post('/:id/resend-submission-email', authMiddleware, requireStaffPermissi
     additionalResults: result.additionalResults,
   });
 });
+
+/** 관리자/마케터: 발주 링크 알림톡 수동 발송 */
+router.post(
+  '/:id/alimtalk/order-link',
+  authMiddleware,
+  requireStaffPermission('orderform.issue', 'orderform.edit'),
+  requireFeature(ALIMTALK_MODULE_ID),
+  async (req, res) => {
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = await requireTenantIdFromAuth(res, user);
+    if (!tenantId) return;
+    const rawId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (!/^[0-9a-f-]{36}$/i.test(rawId)) {
+      res.status(400).json({ error: '유효한 발주서 id가 필요합니다.' });
+      return;
+    }
+    const body = req.body as { toPhone?: string | null };
+    const result = await triggerAlimtalkOrderLink({
+      tenantId,
+      orderFormId: rawId,
+      toPhone: body?.toPhone,
+      actorUserId: user.userId,
+    });
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.json({
+      ok: true,
+      logId: result.logId,
+      messageId: result.messageId,
+      chargeStatus: result.chargeStatus,
+    });
+  },
+);
 
 /** 관리자/마케터: 접수 강제 매칭 후보(고객 제출 완료 발주서) */
 router.get('/force-match-candidates', authMiddleware, requireStaffPermission('orderform.issue', 'orderform.edit'), async (req, res) => {
@@ -3317,6 +3355,22 @@ router.post('/submit/:token', async (req, res) => {
       depositAmount: emailTarget.depositAmount,
       balanceAmount: emailTarget.balanceAmount,
       customerSubmissionSnapshot: customerSubmissionSnapshot,
+    });
+  }
+
+  if (changedInquiryId) {
+    void triggerAlimtalkOrderDone({
+      tenantId: submitTenantId,
+      orderFormId: form.id,
+      inquiryId: changedInquiryId,
+      toPhone: body.customerPhone,
+    }).catch((e) => {
+      console.error('[alimtalk] order done auto send failed', {
+        tenantId: submitTenantId,
+        orderFormId: form.id,
+        inquiryId: changedInquiryId,
+        error: e instanceof Error ? e.message : String(e),
+      });
     });
   }
 

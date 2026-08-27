@@ -13,6 +13,10 @@ type Props = {
   onNewIssue: () => void;
   showPrefill?: boolean;
   compact?: boolean;
+  showAlimtalk?: boolean;
+  alimtalkSending?: boolean;
+  alimtalkHint?: string;
+  onSendAlimtalk?: () => void | Promise<void>;
 };
 
 export function OrderFormIssueCompleteCard({
@@ -27,6 +31,10 @@ export function OrderFormIssueCompleteCard({
   onNewIssue,
   showPrefill = true,
   compact = false,
+  showAlimtalk = false,
+  alimtalkSending = false,
+  alimtalkHint,
+  onSendAlimtalk,
 }: Props) {
   return (
     <div
@@ -57,14 +65,14 @@ export function OrderFormIssueCompleteCard({
         <button
           type="button"
           onClick={() => void onCopyMessage()}
-          className="rounded-md bg-gray-800 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-900"
+          className="rounded-md bg-gray-800 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
         >
           메시지 복사
         </button>
         <button
           type="button"
           onClick={() => void onCopyLink()}
-          className="rounded-md bg-gray-700 px-4 py-2 text-fluid-sm text-white shadow-sm hover:bg-gray-800"
+          className="rounded-md bg-gray-700 px-4 py-2 text-fluid-sm text-white shadow-sm hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
         >
           링크 복사
         </button>
@@ -81,21 +89,32 @@ export function OrderFormIssueCompleteCard({
           <button
             type="button"
             onClick={onPrefill}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-emerald-700"
+            className="rounded-md bg-emerald-600 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
           >
             미리 작성
+          </button>
+        ) : null}
+        {showAlimtalk && onSendAlimtalk ? (
+          <button
+            type="button"
+            onClick={() => void onSendAlimtalk()}
+            disabled={alimtalkSending}
+            className="rounded-md bg-yellow-500 px-4 py-2 text-fluid-sm font-medium text-gray-900 shadow-sm hover:bg-yellow-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {alimtalkSending ? '알림톡 발송 중…' : '알림톡 발송'}
           </button>
         ) : null}
         <button
           type="button"
           onClick={onNewIssue}
-          className="rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-fluid-sm font-medium text-sky-900 shadow-sm hover:bg-sky-100"
+          className="rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-fluid-sm font-medium text-sky-900 shadow-sm hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
         >
           새로 발급
         </button>
       </div>
 
       <p className="text-fluid-2xs text-gray-600">
+        {alimtalkHint ? <span className="block mb-1 text-emerald-800">{alimtalkHint}</span> : null}
         메시지 복사 후 카카오톡·문자로 보내세요. 문구는{' '}
         <Link
           to="/admin/inquiries/order-customer-link"

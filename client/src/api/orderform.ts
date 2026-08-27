@@ -817,6 +817,29 @@ export async function resendOrderFormSubmissionEmail(
   };
 }
 
+export async function sendOrderFormOrderLinkAlimtalk(
+  authToken: string,
+  orderFormId: string,
+  body?: { toPhone?: string | null },
+): Promise<{ ok: boolean; logId: string; messageId?: string; chargeStatus: string }> {
+  const res = await fetch(`${API}/orderforms/${encodeURIComponent(orderFormId)}/alimtalk/order-link`, {
+    method: 'POST',
+    headers: headers(authToken),
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    ok?: boolean;
+    logId?: string;
+    messageId?: string;
+    chargeStatus?: string;
+  };
+  if (!res.ok) {
+    throw new Error(data.error || '알림톡 발송에 실패했습니다.');
+  }
+  return data as { ok: boolean; logId: string; messageId?: string; chargeStatus: string };
+}
+
 /** 공개: 고객 발주서 — 전문 시공 옵션 (활성만) */
 export async function getPublicProfessionalOptions(): Promise<{ items: ProfessionalSpecialtyOptionDto[] }> {
   const res = await fetch(appendPublicQuery(`${API}/orderforms/professional-options`));

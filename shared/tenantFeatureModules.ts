@@ -22,6 +22,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_telecrm: { label: '텔레CRM', tier: 'premium' as const, defaultOn: false },
   mod_landing_inquiry: { label: '랜딩 문의내역', tier: 'premium' as const, defaultOn: false },
     mod_quick_paste: { label: '빠른등록', tier: 'standard' as const, defaultOn: true },
+  mod_alimtalk: { label: '알림톡', tier: 'standard' as const, defaultOn: false },
 } as const;
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;

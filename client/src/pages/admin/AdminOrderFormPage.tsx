@@ -22,6 +22,7 @@ import {
   deleteOrderForm,
   getAdminOrderFormPhotos,
   resendOrderFormSubmissionEmail,
+  sendOrderFormOrderLinkAlimtalk,
   type OrderForm,
   type OrderFormIssuerOption,
   type OrderFormListDatePreset,
@@ -31,6 +32,7 @@ import { getInquiries } from '../../api/inquiries';
 import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
 import { getToken } from '../../stores/auth';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
@@ -307,6 +309,9 @@ export function AdminOrderFormPage() {
 
   // 발급 폼 — 선택 양식의 폼을 인라인으로 렌더(OrderFormPage create 모드)
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
+  const [alimtalkSending, setAlimtalkSending] = useState(false);
+  const [alimtalkHint, setAlimtalkHint] = useState('');
+  const hasAlimtalk = useHasTenantFeature('mod_alimtalk');
   /** 발급 완료 후 인라인 폼을 초기화하기 위한 remount 키 */
   const [issueFormKey, setIssueFormKey] = useState(0);
   const issueCompleteRef = useRef<HTMLDivElement>(null);
@@ -539,12 +544,14 @@ export function AdminOrderFormPage() {
   /** 인라인 발급 폼에서 발주서가 생성되면 호출 — 완료 카드 표시(폼 remount 없음 → 스크롤 유지) */
   const handleOrderCreated = (order: OrderForm) => {
     pendingIssueScrollRef.current = true;
+    setAlimtalkHint('');
     setNewOrder(order);
   };
 
   const startNewIssue = () => {
     pendingIssueScrollRef.current = false;
     setNewOrder(null);
+    setAlimtalkHint('');
     setPendingLinkId('');
     setIssueLeadSource(defaultScheduleLeadSourceLabel(staffTenantSlug) || '');
     setIssueFormKey((k) => k + 1);
@@ -580,6 +587,28 @@ export function AdminOrderFormPage() {
       brandSlug,
       brandDisplayName,
     );
+  };
+
+  const handleSendOrderLinkAlimtalk = async () => {
+    if (!token || !newOrder) return;
+    setAlimtalkSending(true);
+    setAlimtalkHint('');
+    try {
+      const result = await sendOrderFormOrderLinkAlimtalk(token, newOrder.id, {
+        toPhone: newOrder.customerPhone,
+      });
+      const chargeLabel =
+        result.chargeStatus === 'FREE'
+          ? '월 무료'
+          : result.chargeStatus === 'PAID'
+            ? '선불 차감'
+            : result.chargeStatus;
+      setAlimtalkHint(`알림톡을 발송했습니다. (${chargeLabel})`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '알림톡 발송에 실패했습니다.');
+    } finally {
+      setAlimtalkSending(false);
+    }
   };
 
   const handleCopyPreviewModal = async () => {
@@ -872,6 +901,10 @@ export function AdminOrderFormPage() {
                     onOpenNewTab={() => openInNewTab(newOrder)}
                     onPrefill={() => navigate(`/admin/order-prefill/${newOrder.id}`)}
                     onNewIssue={startNewIssue}
+                    showAlimtalk={hasAlimtalk}
+                    alimtalkSending={alimtalkSending}
+                    alimtalkHint={alimtalkHint}
+                    onSendAlimtalk={handleSendOrderLinkAlimtalk}
                   />
                 </div>
               ) : null}

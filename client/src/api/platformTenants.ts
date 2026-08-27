@@ -332,6 +332,71 @@ export async function patchPlatformTenantTelecrmPolicy(
   return res.json() as Promise<PlatformTelecrmPolicyResponse>;
 }
 
+export type PlatformAlimtalkPolicyResponse = {
+  licensed: boolean;
+  planAllows: boolean;
+  plan: string;
+  monthlyFreeEnabled: boolean;
+  monthlyFreeQuota: number;
+  monthlyFreeUsed: number;
+  monthlyFreeRemaining: number;
+  prepaidBalanceKrw: number;
+  templates: { code: string; label: string; enabled: boolean }[];
+  recentChargeLogs: {
+    id: string;
+    amountKrw: number;
+    balanceAfterKrw: number;
+    memo: string | null;
+    createdAt: string;
+  }[];
+};
+
+export async function getPlatformTenantAlimtalkPolicy(token: string, tenantId: string) {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/alimtalk-policy`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '알림톡 정책 조회 실패'));
+  return res.json() as Promise<PlatformAlimtalkPolicyResponse>;
+}
+
+export async function patchPlatformTenantAlimtalkPolicy(
+  token: string,
+  tenantId: string,
+  body: {
+    licensed?: boolean;
+    monthlyFreeEnabled?: boolean;
+    templates?: { code: string; enabled: boolean }[];
+  },
+) {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/alimtalk-policy`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? '알림톡 정책 저장 실패');
+  }
+  return res.json() as Promise<PlatformAlimtalkPolicyResponse>;
+}
+
+export async function postPlatformTenantAlimtalkCharge(
+  token: string,
+  tenantId: string,
+  body: { amountKrw: number; memo?: string },
+) {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/alimtalk-policy/charge`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? '충전 반영 실패');
+  }
+  return res.json() as Promise<PlatformAlimtalkPolicyResponse>;
+}
+
 export async function getPlatformTenantSubscription(
   token: string,
   tenantId: string,

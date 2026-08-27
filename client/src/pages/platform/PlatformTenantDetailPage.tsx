@@ -14,6 +14,7 @@ import {
 import { PlatformTenantAdminsSection } from './PlatformTenantAdminsSection';
 import { PlatformTenantBillingPanel } from './PlatformTenantBillingPanel';
 import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
+import { PlatformTenantAlimtalkPanel } from './PlatformTenantAlimtalkPanel';
 import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
 import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
 import { PlatformTenantSignupBusinessSection } from '../../components/platform/PlatformTenantSignupBusinessSection';
@@ -110,7 +111,7 @@ export function PlatformTenantDetailPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [planSubTab, setPlanSubTab] = useState<'modules' | 'crm'>('modules');
+  const [planSubTab, setPlanSubTab] = useState<'modules' | 'crm' | 'alimtalk'>('modules');
   const [configForm, setConfigForm] = useState<TenantConfigFormFields>(EMPTY_TENANT_CONFIG_FORM);
   const [configJson, setConfigJson] = useState('{}');
   const [configErr, setConfigErr] = useState('');
@@ -467,6 +468,7 @@ export function PlatformTenantDetailPage() {
               [
                 { id: 'modules' as const, label: '플랜 · 기능 모듈' },
                 { id: 'crm' as const, label: 'CRM · 연동' },
+                { id: 'alimtalk' as const, label: '알림톡' },
               ] as const
             ).map((tab) => (
               <button
@@ -487,6 +489,14 @@ export function PlatformTenantDetailPage() {
 
           {planSubTab === 'crm' && id ? (
             <PlatformTenantTelecrmPanel
+              tenantId={id}
+              disabled={saving}
+              onSaved={() => void load()}
+            />
+          ) : null}
+
+          {planSubTab === 'alimtalk' && id ? (
+            <PlatformTenantAlimtalkPanel
               tenantId={id}
               disabled={saving}
               onSaved={() => void load()}
