@@ -114,6 +114,7 @@ import {
   buildLeaderAfternoonAssignmentCounts,
   buildLeaderSlotAssignmentCountMapsForDayItems,
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
+  SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS,
   SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import {
@@ -480,7 +481,7 @@ function ScheduleDayListItem({
     <div
       className={`text-left w-full py-2 pl-3 pr-2 rounded-xl flex gap-2 border shadow-sm text-fluid-sm transition-all duration-200 hover:shadow-md hover:translate-y-[-0.5px] ${slotLeftBorder} ${
         leaderSingleSlotAssignment
-          ? SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS
+          ? `${SCHEDULE_LIST_CARD_BORDER_BASE} ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS}`
           : emphasizeOneRoomInList
             ? SCHEDULE_LIST_CARD_SK_ONE_ROOM
             : `${SCHEDULE_LIST_CARD_BORDER_BASE} ${slotBgTint}`
@@ -504,6 +505,14 @@ function ScheduleDayListItem({
           <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly className="shrink-0" />
         ) : null}
         {inquiryHasNoDeposit(item) ? <NoDepositIcon /> : null}
+        {leaderSingleSlotAssignment ? (
+          <span
+            className={SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS}
+            title="이 슬롯에 배정된 팀장 중, 이날 오전·오후 한쪽만 1건인 사람이 있습니다. 추가 배정을 검토하세요."
+          >
+            1건
+          </span>
+        ) : null}
       </div>
       <div className="min-w-0 flex-1 flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2 min-w-0">

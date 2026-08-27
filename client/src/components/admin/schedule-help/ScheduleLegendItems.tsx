@@ -17,7 +17,7 @@ export function ScheduleLegendItems({ compact = false }: { compact?: boolean }) 
         <span className={SCHEDULE_LEADER_SINGLE_SLOT_LEGEND_SWATCH_CLASS} />
         <span>
           팀장 <span className="font-semibold text-slate-800">오전·오후 1건</span>
-          {compact ? '' : ' (추가 배정 검토)'}
+          {compact ? '' : ' (진한 테두리·1건 뱃지)'}
         </span>
       </span>
       <span className="inline-flex items-center gap-1.5">

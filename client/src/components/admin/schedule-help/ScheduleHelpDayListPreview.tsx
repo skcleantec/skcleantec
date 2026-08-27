@@ -1,5 +1,8 @@
 import { HelpUiEmbed } from '../../help/ui/helpUiRegistry';
-import { SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS } from '../../../utils/scheduleLeaderDayAssignmentBalance';
+import {
+  SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS,
+  SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS,
+} from '../../../utils/scheduleLeaderDayAssignmentBalance';
 import {
   ScheduleCloseDayButton,
   ScheduleSlotBadge,
@@ -63,14 +66,15 @@ export function ScheduleHelpDayListPreview() {
           </div>
           <div className="space-y-1 rounded-md border border-amber-100 bg-white p-1.5">
             <div
-              className={`rounded-xl border p-2 shadow-sm ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS}`}
+              className={`rounded-xl border p-2 shadow-sm ${scheduleListCardSlotLeftBorder('morning')} ${SCHEDULE_LIST_CARD_BORDER_BASE} ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS}`}
             >
               <div className="flex flex-wrap items-center gap-1">
                 <ScheduleSlotBadge label="오전" bucket="morning" />
+                <span className={SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS}>1건</span>
                 <span className="text-fluid-2xs font-semibold text-slate-900">박○○</span>
                 <span className="text-[9px] font-medium text-slate-800">홍팀장</span>
               </div>
-              <p className="mt-1 text-[9px] text-slate-600 sm:text-[11px]">서초구 · 40평 · 팀장 1건(회색 강조)</p>
+              <p className="mt-1 text-[9px] text-slate-600 sm:text-[11px]">서초구 · 40평 · 진한 테두리·1건 뱃지</p>
             </div>
           </div>
         </div>

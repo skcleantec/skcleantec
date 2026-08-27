@@ -70,6 +70,7 @@ import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
   buildLeaderSlotAssignmentCountMapsForDayItems,
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
+  SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS,
   SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
@@ -2309,6 +2310,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             >
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+                  {detailLeaderSingleSlotAssignment ? (
+                    <span className={SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS} title="이 슬롯 팀장 1건 — 추가 배정 검토">
+                      1건
+                    </span>
+                  ) : null}
                   <CustomerNameWithInternalTone
                     name={item.customerName}
                     tone={editForm.internalCustomerTone}

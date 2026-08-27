@@ -105,14 +105,18 @@ export function buildLeaderSlotAssignmentCountMapsForDayItems(
 
 /**
  * 당일 한 슬롯만 1건인 팀장 카드·상세 배너.
- * 오전(amber-50)·오후(sky-50) 틴트와 구분되도록 진한 슬레이트.
+ * 시간대 왼쪽 색 띠(amber/sky)는 유지하고, 연한 채움 + 진한 테두리·ring으로 눈에 띄게.
  */
 export const SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS =
-  'border-slate-600 bg-slate-400 ring-1 ring-slate-500/80';
+  'border-2 border-slate-700 bg-slate-50 ring-2 ring-slate-800/90 ring-offset-1 ring-offset-white shadow-md shadow-slate-500/40';
+
+/** 목록·상세 「1건」 뱃지 — 회색 강조와 동일 계열 */
+export const SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS =
+  'inline-flex shrink-0 items-center rounded-md border-2 border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow-sm sm:text-[11px]';
 
 /** 범례 색 샘플 — 카드 강조와 동일 계열 */
 export const SCHEDULE_LEADER_SINGLE_SLOT_LEGEND_SWATCH_CLASS =
-  'h-2 w-2.5 shrink-0 rounded-sm border-2 border-slate-600 bg-slate-400 ring-1 ring-slate-500';
+  'h-2.5 w-3 shrink-0 rounded-sm border-2 border-slate-700 bg-slate-50 ring-1 ring-slate-800/85';
 
 /**
  * 해당 슬롯(오전/오후) 일정 — 배정된 자사 팀장 중 그날 **이 슬롯만** 1건·반대 슬롯 0건이면 true.

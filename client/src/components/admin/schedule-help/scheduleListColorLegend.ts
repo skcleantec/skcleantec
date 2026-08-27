@@ -139,9 +139,9 @@ export const SCHEDULE_LIST_CARD_COLOR_LEGEND: readonly ScheduleListCardColorLege
   },
   {
     sampleLabel: '팀장 1건',
-    cardClass: `${SCHEDULE_LIST_SLOT_LEFT_BORDER.morning} ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS}`,
+    cardClass: `${SCHEDULE_LIST_SLOT_LEFT_BORDER.morning} ${SCHEDULE_LIST_CARD_BORDER_BASE} ${SCHEDULE_LEADER_SINGLE_SLOT_HIGHLIGHT_CLASS}`,
     meaning:
-      '그날 해당 슬롯(오전 또는 오후)에 팀장 배정이 1건뿐일 때 — 추가 배정을 검토하세요. 시간대 색 대신 진한 회색으로 덮습니다.',
+      '그날 해당 슬롯(오전 또는 오후)에 팀장 배정 1건뿐 — 왼쪽 시간대 띠 유지, 연한 배경·진한 테두리·「1건」 뱃지. 추가 배정 검토.',
   },
   {
     sampleLabel: '처리 전',
