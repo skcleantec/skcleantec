@@ -34,4 +34,4 @@ export const MOBILE_GNB_SCROLL_BTN_CLASS =
 export const MOBILE_GNB_SCROLL_ICON_CLASS = 'h-3 w-3 lg:h-4 lg:w-4';
 
 /** 팀장 모바일 하단 pill 네비 — FAB clamp·main pb 공통 (Galaxy safe-area 포함) */
-export const TEAM_MOBILE_BOTTOM_NAV_RESERVE_PX = 64;
+export const TEAM_MOBILE_BOTTOM_NAV_RESERVE_PX = 72;

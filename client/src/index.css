@@ -753,7 +753,17 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 
 /** 팀장 모바일 하단 pill 네비 — Galaxy/WebView safe-area */
 :root {
-  --team-mobile-bottom-nav-offset: calc(3.25rem + max(12px, env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px)));
+  /* pill + glass padding + nav safe-area + 스크롤 여유 */
+  --team-mobile-bottom-nav-offset: calc(
+    3.5rem + max(16px, env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px))
+  );
+}
+
+/** TeamLayout Outlet 하단 — main 스크롤이 네비 높이만큼 더 내려가게 */
+.team-mobile-bottom-nav-scroll-spacer {
+  height: var(--team-mobile-bottom-nav-offset);
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .team-mobile-bottom-nav {

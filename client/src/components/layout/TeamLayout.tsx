@@ -33,7 +33,10 @@ import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePush
 import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { performStaffLogout } from '../../utils/staffLogout';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
-import { TEAM_MOBILE_BOTTOM_NAV_MAIN_PB } from '../../utils/staffAppSafeArea';
+import {
+  TEAM_MOBILE_BOTTOM_NAV_MAIN_SCROLL_PB,
+  TEAM_MOBILE_BOTTOM_NAV_SCROLL_SPACER,
+} from '../../utils/staffAppSafeArea';
 import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
 import { NavFavoritesProvider } from '../../hooks/useNavFavorites';
@@ -961,7 +964,9 @@ export function TeamLayout() {
         </>
       ) : null}
       </div>
-      <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-3 sm:px-4 lg:px-5 lg:pr-12 py-2 sm:py-3 lg:py-4 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
+      <main
+        className={`staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-3 sm:px-4 lg:px-5 lg:pr-12 py-2 sm:py-3 lg:py-4 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0 ${TEAM_MOBILE_BOTTOM_NAV_MAIN_SCROLL_PB}`}
+      >
         {isExternalPartner && teamMobilePromos.length > 0 ? (
           <div className="mb-2 w-full min-w-0 shrink-0 sm:mb-3 lg:hidden">
             <PlatformPromoCarousel items={teamMobilePromos} />
@@ -973,7 +978,7 @@ export function TeamLayout() {
           </div>
         ) : null}
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug, telecrm: null }}>
-          <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${TEAM_MOBILE_BOTTOM_NAV_MAIN_PB}`}>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') ? (
               <TeamScheduleAlertBanner
                 token={teamToken}
@@ -982,6 +987,7 @@ export function TeamLayout() {
               />
             ) : null}
             <Outlet />
+            <div className={`${TEAM_MOBILE_BOTTOM_NAV_SCROLL_SPACER} lg:hidden`} aria-hidden="true" />
           </div>
         </TenantCapabilitiesProvider>
       </main>
