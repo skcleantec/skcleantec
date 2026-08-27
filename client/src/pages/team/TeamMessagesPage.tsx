@@ -138,7 +138,7 @@ export function TeamMessagesPage() {
   };
 
   return (
-    <div className="flex flex-col min-w-0 gap-2 flex-1 min-h-0 h-full overflow-hidden sm:gap-3">
+    <div className="flex flex-col min-w-0 gap-2 flex-1 min-h-0 overflow-hidden sm:gap-3">
       <PageTitleWithFavorite label="메시지">
         <h1>
           <TeamBiLine id="team.messages.title" />

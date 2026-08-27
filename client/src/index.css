@@ -726,9 +726,290 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
   opacity: 0.6;
 }
 
-.kakaotalk-send-error {
-  margin: 0;
-  font-size: 13px;
+/** 팀장 스케줄 모바일 캘린더 — 7열 칸: 이름만, 읽을 수 있는 고정 px (fluid 상속 방지) */
+.team-schedule-mobile-cal-chip {
+  font-size: 10px;
+  line-height: 11px;
+  letter-spacing: -0.02em;
   font-weight: 600;
-  color: #dc2626;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+.team-schedule-mobile-cal-daynum {
+  font-size: 9px;
+  line-height: 10px;
+  font-weight: 600;
+}
+
+/** 팀장 스케줄 캘린더 — 주(행) 구분 가로줄 (첨부 레퍼런스 수준) */
+.team-schedule-cal-row-divider {
+  border-top: 1px solid #94a3b8;
+}
+
+.team-schedule-cal-head-divider {
+  border-bottom: 1px solid #94a3b8;
+}
+
+/** 팀장 모바일 하단 pill 네비 — Galaxy/WebView safe-area */
+:root {
+  --team-mobile-bottom-nav-offset: calc(3.25rem + max(12px, env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px)));
+}
+
+.team-mobile-bottom-nav {
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px));
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+}
+
+body.team-mobile-bottom-nav-suppressed .team-mobile-bottom-nav {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(110%);
+}
+
+/** 다크 glass — floating pill (얇·투명) */
+.team-mobile-bottom-nav-glass {
+  background: linear-gradient(
+    180deg,
+    rgba(28, 28, 32, 0.28) 0%,
+    rgba(12, 12, 14, 0.18) 100%
+  );
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  backdrop-filter: blur(22px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  overflow: visible;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .team-mobile-bottom-nav-glass:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(28, 28, 32, 0.42) 0%,
+      rgba(12, 12, 14, 0.32) 100%
+    );
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+}
+
+.team-mobile-bottom-nav-tab-inner {
+  transition:
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+  overflow: visible;
+}
+
+.team-mobile-bottom-nav-tab-icon {
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.18s ease;
+}
+
+.team-mobile-bottom-nav-tab-icon-feature {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.team-mobile-bottom-nav-tab-icon-active {
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.team-mobile-bottom-nav-tab-label {
+  color: rgba(255, 255, 255, 0.38);
+  transition: color 0.18s ease;
+}
+
+.team-mobile-bottom-nav-tab-label-feature {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.team-mobile-bottom-nav-tab-label-active {
+  color: rgba(255, 255, 255, 0.94);
+  font-weight: 600;
+}
+
+.team-mobile-bottom-nav-tab-idle {
+  background: transparent;
+}
+
+.team-mobile-bottom-nav-tab-feature {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.team-mobile-bottom-nav-tab-active {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 1px 8px rgba(0, 0, 0, 0.12);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .team-mobile-bottom-nav-tab-idle:hover,
+  .team-mobile-bottom-nav-tab-feature:hover {
+    background: rgba(255, 255, 255, 0.11);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .team-mobile-bottom-nav-tab-idle:hover .team-mobile-bottom-nav-tab-icon,
+  .team-mobile-bottom-nav-tab-feature:hover .team-mobile-bottom-nav-tab-icon {
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .team-mobile-bottom-nav-tab-idle:hover .team-mobile-bottom-nav-tab-label,
+  .team-mobile-bottom-nav-tab-feature:hover .team-mobile-bottom-nav-tab-label {
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  .team-mobile-bottom-nav-tab-active:hover {
+    background: rgba(255, 255, 255, 0.28);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 2px 10px rgba(0, 0, 0, 0.16);
+  }
+
+  .team-mobile-bottom-nav-tab-active:hover .team-mobile-bottom-nav-tab-icon {
+    color: #fff;
+  }
+
+  .team-mobile-bottom-nav-tab-active:hover .team-mobile-bottom-nav-tab-label {
+    color: #fff;
+  }
+}
+
+.team-mobile-bottom-nav-tab-idle:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.team-mobile-bottom-nav-tab-active:active {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/** 모바일 FAB — glass 원형 (색상 tint 유지, 하단 pill 네비와 동일 질감) */
+.staff-mobile-fab-glass {
+  overflow: visible;
+  isolation: isolate;
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.staff-mobile-fab-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.04) 55%);
+  z-index: 0;
+}
+
+.staff-mobile-fab-glass-violet {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.68) 0%, rgba(91, 33, 182, 0.76) 100%);
+  border: 1px solid rgba(196, 181, 253, 0.42);
+  color: #fff;
+  box-shadow:
+    0 8px 22px rgba(109, 40, 217, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.staff-mobile-fab-glass-amber {
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.82) 0%, rgba(245, 158, 11, 0.88) 100%);
+  border: 1px solid rgba(180, 83, 9, 0.45);
+  color: rgb(69 26 3);
+  box-shadow:
+    0 8px 22px rgba(180, 83, 9, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.staff-mobile-fab-glass-blue {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.72) 0%, rgba(30, 64, 175, 0.8) 100%);
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  color: #fff;
+  box-shadow:
+    0 8px 22px rgba(29, 78, 216, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.staff-mobile-fab-glass-emerald {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.72) 0%, rgba(4, 120, 87, 0.8) 100%);
+  border: 1px solid rgba(110, 231, 183, 0.38);
+  color: #fff;
+  box-shadow:
+    0 8px 22px rgba(5, 150, 105, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.staff-mobile-fab-glass-white-emerald {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(241, 245, 249, 0.68) 100%);
+  border: 1px solid rgba(209, 213, 219, 0.72);
+  color: rgb(4 120 87);
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.staff-mobile-fab-glass-slate {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(248, 250, 252, 0.66) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: rgb(71 85 105);
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .staff-mobile-fab-glass-violet:hover {
+    background: linear-gradient(180deg, rgba(167, 139, 250, 0.82) 0%, rgba(109, 40, 217, 0.88) 100%);
+    box-shadow:
+      0 10px 26px rgba(109, 40, 217, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  }
+
+  .staff-mobile-fab-glass-amber:hover {
+    background: linear-gradient(180deg, rgba(252, 211, 77, 0.9) 0%, rgba(245, 158, 11, 0.94) 100%);
+  }
+
+  .staff-mobile-fab-glass-blue:hover {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.82) 0%, rgba(37, 99, 235, 0.88) 100%);
+  }
+
+  .staff-mobile-fab-glass-emerald:hover {
+    background: linear-gradient(180deg, rgba(52, 211, 153, 0.82) 0%, rgba(5, 150, 105, 0.88) 100%);
+  }
+
+  .staff-mobile-fab-glass-white-emerald:hover {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(236, 253, 245, 0.78) 100%);
+  }
+
+  .staff-mobile-fab-glass-slate:hover {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(241, 245, 249, 0.82) 100%);
+    color: rgb(15 23 42);
+  }
+}
+
+.staff-mobile-fab-glass-violet:active {
+  box-shadow:
+    0 4px 14px rgba(109, 40, 217, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.staff-mobile-fab-glass-amber:active,
+.staff-mobile-fab-glass-blue:active,
+.staff-mobile-fab-glass-emerald:active {
+  box-shadow:
+    0 4px 14px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }

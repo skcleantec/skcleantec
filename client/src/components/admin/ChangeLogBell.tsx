@@ -17,6 +17,9 @@ import { staffDesktopDockButtonClass } from '../layout/staffRightRailStyles';
 import {
   MOBILE_STAFF_DOCK_BTN_CLASS,
   MOBILE_STAFF_DOCK_ICON_CLASS,
+  STAFF_MOBILE_FAB_BADGE_CLASS,
+  STAFF_MOBILE_FAB_GLASS_EMERALD,
+  STAFF_MOBILE_FAB_GLASS_WHITE_EMERALD,
 } from '../layout/mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from '../layout/staffRightRailStyles';
 
@@ -378,6 +381,17 @@ export function ChangeLogBell({
   const bellDragging =
     mobileStack?.dragging ?? (onDockDesktop && desktopDock ? desktopDock.dragging : dragging);
 
+  const unseenBadge =
+    unseen > 0 ? (
+      <span
+        className={`${STAFF_MOBILE_FAB_BADGE_CLASS} bg-red-600 text-white ring-2 ring-white ${
+          mobileStack ? 'text-[10px]' : 'text-[11px]'
+        }`}
+      >
+        {unseen > 99 ? '99+' : unseen}
+      </span>
+    ) : null;
+
   const bellButton = (
     <button
       type="button"
@@ -415,11 +429,9 @@ export function ChangeLogBell({
               dragging: bellDragging,
             })
           : mobileStack
-            ? `${MOBILE_STAFF_DOCK_BTN_CLASS} border shadow-md ${
-                unseen > 0
-                  ? 'border-emerald-600/80 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white shadow-[0_2px_8px_rgba(5,150,105,0.32),0_1px_2px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/20 hover:from-emerald-400 hover:to-emerald-600'
-                  : 'border-gray-300 bg-white text-emerald-700 hover:bg-emerald-50/80'
-              } ${bellDragging ? 'scale-110 cursor-grabbing ring-2 ring-emerald-400' : 'cursor-pointer'} ${
+            ? `${MOBILE_STAFF_DOCK_BTN_CLASS} ${
+                unseen > 0 ? STAFF_MOBILE_FAB_GLASS_EMERALD : STAFF_MOBILE_FAB_GLASS_WHITE_EMERALD
+              } ${bellDragging ? 'scale-110 cursor-grabbing ring-2 ring-emerald-400/80' : 'cursor-pointer'} ${
                 blink && unseen > 0 && !bellDragging ? 'animate-pulse' : ''
               }`
             : `relative flex h-10 w-10 shrink-0 touch-none items-center justify-center rounded-full border shadow-md transition-[transform,box-shadow,colors] active:scale-[0.94] ${
@@ -444,15 +456,7 @@ export function ChangeLogBell({
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
-      {unseen > 0 && (
-        <span className={`absolute -right-0.5 -top-0.5 flex items-center justify-center rounded-full bg-red-600 font-bold text-white ring-2 ring-white ${
-          mobileStack
-            ? 'min-h-[16px] min-w-[16px] px-0.5 text-[11px] leading-none'
-            : 'min-h-[18px] min-w-[18px] px-1 text-[11px]'
-        }`}>
-          {unseen > 99 ? '99+' : unseen}
-        </span>
-      )}
+      {!mobileStack ? unseenBadge : null}
     </button>
   );
 
@@ -479,9 +483,12 @@ export function ChangeLogBell({
 
   const mobileBellLayer =
     mobileStack != null ? (
-      <div className="relative">
+      <div className="relative shrink-0">
         {toastBubble}
-        {bellButton}
+        <div className="relative h-[44px] w-[44px]">
+          {bellButton}
+          {unseenBadge}
+        </div>
       </div>
     ) : null;
 

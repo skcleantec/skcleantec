@@ -84,6 +84,8 @@ import {
   MOBILE_STAFF_DOCK_BTN_PX,
   MOBILE_STAFF_DOCK_GAP_PX,
   MOBILE_STAFF_DOCK_ICON_CLASS,
+  STAFF_MOBILE_FAB_GLASS_AMBER,
+  STAFF_MOBILE_FAB_GLASS_BLUE,
 } from './mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from './staffRightRailStyles';
 import {
@@ -1451,7 +1453,7 @@ export function AdminLayout() {
               aria-label="발주서 발급으로 이동"
               title={fabDragging ? '세로 위치 이동 중' : '발주서 발급 (길게 눌러 세로 위치만 이동)'}
               onPointerDown={(evt) => beginFabPointer('issue', evt)}
-              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} border border-amber-600/70 bg-amber-400 text-amber-950 shadow-[0_2px_8px_rgba(180,83,9,0.28),0_1px_2px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/30 active:shadow-sm ${
+              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} ${STAFF_MOBILE_FAB_GLASS_AMBER} ${
                 fabDragging ? 'cursor-grabbing' : 'cursor-pointer'
               }`}
             >
@@ -1464,7 +1466,7 @@ export function AdminLayout() {
               aria-label="스케줄 바로가기"
               title={fabDragging ? '세로 위치 이동 중' : '스케줄 바로가기 (길게 눌러 세로 위치만 이동)'}
               onPointerDown={(evt) => beginFabPointer('schedule', evt)}
-              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-[0_3px_10px_rgba(29,78,216,0.32),0_1px_3px_rgba(15,23,42,0.14)] ring-1 ring-inset ring-white/15 active:shadow-[0_2px_8px_rgba(29,78,216,0.26),0_1px_2px_rgba(15,23,42,0.12)] ${
+              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} ${STAFF_MOBILE_FAB_GLASS_BLUE} ${
                 fabDragging ? 'cursor-grabbing' : 'cursor-pointer'
               }`}
             >

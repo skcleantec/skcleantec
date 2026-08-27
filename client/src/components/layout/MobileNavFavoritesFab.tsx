@@ -4,6 +4,8 @@ import { NavLink } from 'react-router-dom';
 import {
   MOBILE_STAFF_DOCK_BTN_CLASS,
   MOBILE_STAFF_DOCK_ICON_CLASS,
+  STAFF_MOBILE_FAB_BADGE_CLASS,
+  STAFF_MOBILE_FAB_GLASS_VIOLET,
 } from './mobileStaffDockStyles';
 
 export type MobileNavFavoriteItem = {
@@ -168,21 +170,26 @@ type FabButtonProps = {
 
 function MobileNavFavoritesFabButton({ count, onPointerDown, onOpen, deferTapToParent }: FabButtonProps) {
   return (
-    <button
-      type="button"
-      aria-label={count > 0 ? `즐겨찾기 ${count}개 — 메뉴 열기` : '즐겨찾기 — 메뉴 열기'}
-      title="즐겨찾기 (길게 눌러 세로 위치 이동)"
-      onClick={deferTapToParent ? undefined : onOpen}
-      onPointerDown={onPointerDown}
-      className={`${MOBILE_STAFF_DOCK_BTN_CLASS} border border-violet-300/50 bg-gradient-to-b from-violet-500 to-violet-700 text-white shadow-[0_2px_8px_rgba(109,40,217,0.35),0_1px_2px_rgba(15,23,42,0.12)] ring-1 ring-inset ring-white/20 active:shadow-sm`}
-    >
-      <StarFabIcon className={MOBILE_STAFF_DOCK_ICON_CLASS} />
+    <div className="relative h-[44px] w-[44px] shrink-0">
+      <button
+        type="button"
+        aria-label={count > 0 ? `즐겨찾기 ${count}개 — 메뉴 열기` : '즐겨찾기 — 메뉴 열기'}
+        title="즐겨찾기 (길게 눌러 세로 위치 이동)"
+        onClick={deferTapToParent ? undefined : onOpen}
+        onPointerDown={onPointerDown}
+        className={`${MOBILE_STAFF_DOCK_BTN_CLASS} ${STAFF_MOBILE_FAB_GLASS_VIOLET}`}
+      >
+        <StarFabIcon className={MOBILE_STAFF_DOCK_ICON_CLASS} />
+      </button>
       {count > 0 ? (
-        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-[11px] font-bold leading-none text-slate-950 tabular-nums ring-1 ring-violet-700">
+        <span
+          className={`${STAFF_MOBILE_FAB_BADGE_CLASS} bg-amber-400 text-slate-950 ring-1 ring-violet-800/40`}
+          aria-hidden
+        >
           {count > 9 ? '9+' : count}
         </span>
       ) : null}
-    </button>
+    </div>
   );
 }
 

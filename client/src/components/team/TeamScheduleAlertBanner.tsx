@@ -8,6 +8,7 @@ import {
 import { SCHEDULE_ALERT_KIND_LABELS } from '@shared/scheduleAlerts';
 import { useScheduleAlertRealtime, type ScheduleAlertRtPayload } from '../../hooks/useInboxRealtime';
 import { STAFF_APP_SAFE_OVERLAY, STAFF_APP_SAFE_OVERLAY_PAD } from '../../utils/staffAppSafeArea';
+import { useSuppressTeamMobileBottomNav } from '../../hooks/useSuppressTeamMobileBottomNav';
 
 type Props = {
   token: string;
@@ -55,6 +56,8 @@ function AlertCardBody({
 export function TeamScheduleAlertBanner({ token, onDismiss, onOpenInquiry }: Props) {
   const [items, setItems] = useState<ScheduleAlertItem[]>([]);
   const [liveAlert, setLiveAlert] = useState<ScheduleAlertRtPayload | null>(null);
+
+  useSuppressTeamMobileBottomNav(!!liveAlert);
 
   const reload = useCallback(() => {
     getScheduleAlertPending(token, { limit: 5, team: true })

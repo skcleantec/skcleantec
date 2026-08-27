@@ -7,6 +7,7 @@ import type {
   HouseholdLedgerEntryPayload,
 } from '../../api/teamHouseholdLedger';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
+import { useSuppressTeamMobileBottomNav } from '../../hooks/useSuppressTeamMobileBottomNav';
 import { kstTodayYmd } from '../../utils/dateFormat';
 
 export type HouseholdLedgerModalInitial = Partial<HouseholdLedgerEntryPayload> & {
@@ -47,6 +48,8 @@ export function TeamHouseholdLedgerEntryModal({
   const [occurredOn, setOccurredOn] = useState(kstTodayYmd());
   const [memo, setMemo] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useSuppressTeamMobileBottomNav(open);
 
   useEffect(() => {
     if (!open) return;

@@ -16,10 +16,12 @@ type Options = {
   stackCount: number;
   /** 짧은 탭 — favorites만(종은 ChangeLogBell onClick) */
   onFavoritesTap?: () => void;
+  /** 하단 고정 UI(팀장 bottom nav 등) — FAB maxY에서 제외 */
+  bottomReservePx?: number;
 };
 
 /** AdminLayout·TeamLayout 공통 — 모바일 우측 FAB 세로 스택(길게 눌러 이동) */
-export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap }: Options) {
+export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap, bottomReservePx = 0 }: Options) {
   const [fabTop, setFabTop] = useState<number | null>(null);
   const fabTopRef = useRef<number | null>(null);
   const [fabDragging, setFabDragging] = useState(false);
@@ -39,13 +41,18 @@ export function useStaffMobileFabStack({ storageKey, stackCount, onFavoritesTap 
 
   const fabSafeRight = 'max(12px, env(safe-area-inset-right, 0px))';
 
+  const bottomReserveRef = useRef(bottomReservePx);
+  useEffect(() => {
+    bottomReserveRef.current = bottomReservePx;
+  }, [bottomReservePx]);
+
   const clampFabTop = useCallback((stackTop: number) => {
     if (typeof window === 'undefined') return stackTop;
     const count = stackCountRef.current;
     const stackHeight = count * MOBILE_STAFF_DOCK_BTN_PX + Math.max(0, count - 1) * MOBILE_STAFF_DOCK_GAP_PX;
     const margin = 12;
     const minY = 72;
-    const maxY = Math.max(minY, window.innerHeight - margin - stackHeight);
+    const maxY = Math.max(minY, window.innerHeight - margin - stackHeight - bottomReserveRef.current);
     return Math.min(maxY, Math.max(minY, stackTop));
   }, []);
 

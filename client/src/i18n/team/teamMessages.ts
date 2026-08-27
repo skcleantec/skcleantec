@@ -5,6 +5,7 @@ export const teamMessages = {
   'team.layout.brand': { ko: 'SK클린텍'},
   'team.layout.partnerSuffix': { ko: '협력사'},
   'team.layout.nav.dashboard': { ko: '대시보드'},
+  'team.layout.nav.dashboardShort': { ko: '홈'},
   'team.layout.nav.assignments': { ko: '배정목록'},
   'team.layout.nav.assignmentsShort': { ko: '배정'},
   'team.layout.nav.schedule': { ko: '스케줄'},

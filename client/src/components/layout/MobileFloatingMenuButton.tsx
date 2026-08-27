@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
+import { STAFF_MOBILE_FAB_GLASS_BASE, STAFF_MOBILE_FAB_GLASS_SLATE } from './mobileStaffDockStyles';
 
 const MOBILE_FLOATING_MENU_SIZE_PX = 40;
 
@@ -8,8 +9,7 @@ const MOBILE_FLOATING_MENU_SIZE_PX = 40;
 export const Z_MOBILE_FLOATING_MENU = 118;
 export const Z_ABOVE_MOBILE_FLOATING_MENU = 'z-[120]';
 
-const MOBILE_MENU_BUTTON_SURFACE =
-  'rounded-full border border-slate-200 bg-white text-slate-600 shadow-[0_4px_14px_rgba(15,23,42,0.12),0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-inset ring-white/80 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.94] touch-manipulation';
+const MOBILE_MENU_BUTTON_SURFACE = `${STAFF_MOBILE_FAB_GLASS_BASE} ${STAFF_MOBILE_FAB_GLASS_SLATE} touch-manipulation`;
 
 export type MobileFloatingMenuButtonProps = {
   onClick: () => void;
@@ -43,8 +43,9 @@ export function MobileInlineMenuButton({
       aria-label={ariaLabel}
       title={title}
       className={[
-        'relative flex lg:hidden h-9 w-9 shrink-0 items-center justify-center',
+        'relative flex lg:hidden h-9 w-9 shrink-0 items-center justify-center rounded-full',
         MOBILE_MENU_BUTTON_SURFACE,
+        'active:scale-[0.94]',
         className,
       ].join(' ')}
     >
@@ -81,8 +82,9 @@ export function MobileFloatingMenuButton({
       aria-label={ariaLabel}
       title={title}
       className={[
-        'fixed z-[118] flex lg:hidden shrink-0 items-center justify-center',
+        'fixed z-[118] flex lg:hidden shrink-0 items-center justify-center rounded-full',
         MOBILE_MENU_BUTTON_SURFACE,
+        'active:scale-[0.94]',
         className,
       ].join(' ')}
       style={{

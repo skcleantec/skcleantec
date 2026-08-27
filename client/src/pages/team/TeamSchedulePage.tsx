@@ -35,6 +35,11 @@ import {
   TeamInquiryServiceKindListBadge,
 } from './teamInquiryShared';
 import { TeamCrewMemberContactChips } from '../../components/team/TeamCrewMemberContactChips';
+import {
+  TeamScheduleCalendarJobChip,
+  TeamScheduleCalendarJobOverflowChip,
+} from '../../components/team/TeamScheduleCalendarJobChip';
+import { TEAM_SCHEDULE_CALENDAR_MAX_VISIBLE_CHIPS } from '../../utils/teamScheduleCalendarCell';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import type { ScheduleItem } from '../../api/schedule';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
@@ -77,6 +82,22 @@ function monthOptionLabel(m: number): string {
 
 function isTeamScheduleInactiveStatus(status: string): boolean {
   return status === 'CANCELLED' || status === 'ON_HOLD';
+}
+
+/** 캘린더 날짜 숫자 — 오늘은 파란 원, 일정 유무와 무관하게 동일 규칙 */
+function teamScheduleCalendarDayNumClass(opts: {
+  isToday: boolean;
+  isHoliday: boolean;
+  sonDay: boolean;
+  isSaturday: boolean;
+}): string {
+  if (opts.isToday) {
+    return 'inline-flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-blue-600 px-0.5 font-bold text-white tabular-nums';
+  }
+  if (opts.isHoliday) return 'text-red-600';
+  if (opts.sonDay) return 'text-teal-700 font-bold';
+  if (opts.isSaturday) return 'text-blue-600';
+  return 'text-gray-800';
 }
 
 function TeamScheduleChevron({ className }: { className?: string }) {
@@ -159,6 +180,16 @@ export function TeamSchedulePage() {
 
   /** UTC `toISOString` 날짜는 KST 자정 전후로 하루 밀려 어제 칸에 링이 감 — 한국 달력 오늘과 맞춤 */
   const todayStr = kstTodayYmd();
+
+  /** 이번 달을 볼 때는 오늘 날짜를 기본 선택 — 하단 일정 목록 바로 확인 */
+  useEffect(() => {
+    const [y, m] = todayStr.split('-').map((part) => Number(part));
+    if (year === y && month === m) {
+      setSelectedDate(todayStr);
+    } else {
+      setSelectedDate(null);
+    }
+  }, [year, month, todayStr]);
 
   const withDate = items.filter((i) => i.preferredDate);
   const byDate = withDate.reduce<Record<string, InquiryItem[]>>((acc, item) => {
@@ -328,12 +359,12 @@ export function TeamSchedulePage() {
             <TeamBiLine id="team.schedule.legendTealNumbers" koClassName="text-fluid-2xs font-normal text-gray-500 inline-block" />
           </span>
         </h2>
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm max-lg:-mx-3 max-lg:rounded-none max-lg:border-x-0">
           <div className="flex gap-2 border-b border-gray-100 p-2 sm:p-3" data-staff-list-filter>
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-fluid-2xs sm:px-3 sm:py-2.5 sm:text-fluid-sm"
+              className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-fluid-2xs sm:px-3 sm:py-2.5 sm:text-fluid-sm"
             >
               {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
                 <option key={y} value={y}>
@@ -344,7 +375,7 @@ export function TeamSchedulePage() {
             <select
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-fluid-2xs sm:px-3 sm:py-2.5 sm:text-fluid-sm"
+              className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-fluid-2xs sm:px-3 sm:py-2.5 sm:text-fluid-sm"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                 <option key={m} value={m}>
@@ -352,74 +383,152 @@ export function TeamSchedulePage() {
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => {
+                const [y, m] = todayStr.split('-').map((part) => Number(part));
+                setYear(y);
+                setMonth(m);
+                setSelectedDate(todayStr);
+              }}
+              className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-fluid-2xs font-semibold text-blue-800 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 sm:px-3 sm:py-2.5 sm:text-fluid-sm"
+              title={formatDateCompactWithWeekday(todayStr)}
+            >
+              <TeamBiInline id="team.datePreset.today" />
+            </button>
           </div>
-          <div className="grid grid-cols-7 text-center text-calendar-xs [word-break:keep-all]">
-            {TEAM_WEEKDAY_HEADERS.map((label, wi) => (
-              <div
-                key={`${label}-${wi}`}
-                className={`py-1.5 px-1 sm:py-2 sm:px-2 font-medium min-w-0 leading-tight ${wi === 6 ? 'text-blue-600' : 'text-gray-500'}`}
-              >
-                <span className="block">{label}</span>
-              </div>
-            ))}
-            {calendarDays.map((d, i) => {
-              if (d === null) {
+          <div className="text-center [word-break:keep-all]">
+            <div className="grid grid-cols-7 text-calendar-xs team-schedule-cal-head-divider">
+              {TEAM_WEEKDAY_HEADERS.map((label, wi) => (
+                <div
+                  key={`${label}-${wi}`}
+                  className={`py-1.5 px-1 sm:py-2 sm:px-2 font-medium min-w-0 leading-tight ${wi === 6 ? 'text-blue-600' : 'text-gray-500'}`}
+                >
+                  <span className="block">{label}</span>
+                </div>
+              ))}
+            </div>
+            {/* 모바일: 건별 chip(최대 4) + +N, chip 탭 → 상세 모달 */}
+            <div className="grid grid-cols-7 lg:hidden">
+              {calendarDays.map((d, i) => {
+                const rowDivider = i >= 7 ? 'team-schedule-cal-row-divider' : '';
+                if (d === null) {
+                  return (
+                    <div
+                      key={`m-e-${i}`}
+                      className={`min-h-[clamp(2.5rem,1.5rem+8vmin,3.25rem)] min-w-0 bg-gray-50/50 ${rowDivider}`}
+                    />
+                  );
+                }
+                const key = getDateKey(d);
+                const dayItemsAll = byDate[key] || [];
+                const dayItems = dayItemsAll.filter((row) => !isTeamScheduleInactiveStatus(row.status));
+                const hasEvents = dayItems.length > 0;
+                const isToday = key === todayStr;
+                const isSelected = selectedDate === key;
+                const isSaturday = i % 7 === 6;
+                const isHoliday = isPublicHoliday(year, month, d);
+                const sonDay = isSonEomneungNal(year, month, d);
+                const dayNumClass = teamScheduleCalendarDayNumClass({
+                  isToday,
+                  isHoliday,
+                  sonDay,
+                  isSaturday,
+                });
+                const visibleItems = dayItems.slice(0, TEAM_SCHEDULE_CALENDAR_MAX_VISIBLE_CHIPS);
+                const overflowCount = Math.max(0, dayItems.length - TEAM_SCHEDULE_CALENDAR_MAX_VISIBLE_CHIPS);
                 return (
                   <div
-                    key={`e-${i}`}
-                    className="min-h-[clamp(2.5rem,1.5rem+8vmin,3.25rem)] min-w-0 bg-gray-50/50"
-                  />
-                );
-              }
-              const key = getDateKey(d);
-              const dayItemsAll = byDate[key] || [];
-              const dayItems = dayItemsAll.filter((i) => !isTeamScheduleInactiveStatus(i.status));
-              const hasEvents = dayItems.length > 0;
-              const isToday = key === todayStr;
-              const isSelected = selectedDate === key;
-              const isSaturday = i % 7 === 6;
-              const isHoliday = isPublicHoliday(year, month, d);
-              const sonDay = isSonEomneungNal(year, month, d);
-              const dayNumClass = isHoliday
-                ? 'text-red-600'
-                : sonDay
-                  ? 'text-teal-700 font-bold'
-                  : hasEvents
-                    ? 'text-blue-700'
-                    : isSaturday
-                      ? 'text-blue-600'
-                      : 'text-gray-800';
-              const weekdayClass = isHoliday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-600';
-              return (
-                <div
-                  key={key}
-                  onClick={() => setSelectedDate(isSelected ? null : key)}
-                  className={`min-h-[clamp(2.5rem,1.5rem+8vmin,3.25rem)] min-w-0 px-1.5 py-0.5 sm:px-2 sm:py-1 pt-[clamp(1.1rem,2.8vmin,1.35rem)] relative flex flex-col items-center justify-center cursor-pointer touch-manipulation overflow-visible ${
-                    hasEvents ? 'bg-blue-50' : ''
-                  } ${isToday ? 'ring-1 ring-blue-400 ring-inset' : ''} ${isSelected ? 'bg-blue-200' : 'active:bg-gray-100'}`}
-                >
-                  <span
-                    title={sonDay ? teamBiPlain('team.schedule.legendTealTooltip') : undefined}
-                    className="absolute top-0.5 left-1 right-1 text-center text-calendar-2xs font-medium leading-tight tabular-nums inline-flex items-center justify-center flex-wrap gap-x-0.5 gap-y-0 min-w-0"
+                    key={`m-${key}`}
+                    onClick={() => setSelectedDate(isSelected ? null : key)}
+                    className={`${hasEvents ? 'min-h-[clamp(4.5rem,3rem+14vmin,6rem)]' : 'min-h-[clamp(2.75rem,1.75rem+9vmin,3.5rem)]'} min-w-0 px-0.5 py-0.5 pt-[clamp(1.1rem,2.8vmin,1.35rem)] relative flex flex-col items-stretch cursor-pointer touch-manipulation overflow-hidden ${rowDivider} ${
+                      isToday ? 'bg-blue-50/60 ring-1 ring-blue-300 ring-inset' : ''
+                    } ${isSelected && !isToday ? 'bg-slate-100' : ''} ${isSelected && isToday ? 'bg-blue-100/80' : ''} active:bg-gray-100`}
                   >
-                    <span className={`inline-flex items-center gap-0.5 shrink-0 ${dayNumClass}`}>
-                      <span>{d}</span>
-                      {sonDay ? <SonEomneungNalIcon /> : null}
+                    <span
+                      title={sonDay ? teamBiPlain('team.schedule.legendTealTooltip') : undefined}
+                      className="team-schedule-mobile-cal-daynum absolute top-px left-px right-px text-center tabular-nums inline-flex items-center justify-center flex-wrap gap-x-px gap-y-0 min-w-0"
+                    >
+                      <span className={`shrink-0 ${dayNumClass}`}>
+                        <span>{d}</span>
+                        {sonDay && !isToday ? <SonEomneungNalIcon /> : null}
+                      </span>
                     </span>
-                    <span className={weekdayClass}>{weekdayKoFromYmd(year, month, d)}</span>
-                  </span>
-                  {hasEvents ? (
-                    <span className="text-calendar-2xs text-blue-600 font-medium inline-flex justify-center">
-                      <TeamBiLine
-                        id="team.schedule.jobsCount"
-                        vars={{ count: String(dayItems.length) }}
-                        koClassName="text-calendar-2xs text-blue-600 font-medium"
-                      />
+                    {hasEvents ? (
+                      <div className="mt-auto flex min-w-0 flex-col gap-0.5 pb-0.5">
+                        {visibleItems.map((item) => (
+                          <TeamScheduleCalendarJobChip
+                            key={item.id}
+                            item={item}
+                            onOpenDetail={setDetailItem}
+                          />
+                        ))}
+                        <TeamScheduleCalendarJobOverflowChip count={overflowCount} />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+            {/* PC: 기존 N건 표시 */}
+            <div className="hidden lg:grid grid-cols-7 text-calendar-xs">
+              {calendarDays.map((d, i) => {
+                const rowDivider = i >= 7 ? 'team-schedule-cal-row-divider' : '';
+                if (d === null) {
+                  return (
+                    <div
+                      key={`d-e-${i}`}
+                      className={`min-h-[clamp(2.5rem,1.5rem+8vmin,3.25rem)] min-w-0 bg-gray-50/50 ${rowDivider}`}
+                    />
+                  );
+                }
+                const key = getDateKey(d);
+                const dayItemsAll = byDate[key] || [];
+                const dayItems = dayItemsAll.filter((row) => !isTeamScheduleInactiveStatus(row.status));
+                const hasEvents = dayItems.length > 0;
+                const isToday = key === todayStr;
+                const isSelected = selectedDate === key;
+                const isSaturday = i % 7 === 6;
+                const isHoliday = isPublicHoliday(year, month, d);
+                const sonDay = isSonEomneungNal(year, month, d);
+                const dayNumClass = teamScheduleCalendarDayNumClass({
+                  isToday,
+                  isHoliday,
+                  sonDay,
+                  isSaturday,
+                });
+                const weekdayClass = isHoliday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-600';
+                return (
+                  <div
+                    key={`d-${key}`}
+                    onClick={() => setSelectedDate(isSelected ? null : key)}
+                    className={`min-h-[clamp(2.5rem,1.5rem+8vmin,3.25rem)] min-w-0 px-1.5 py-0.5 sm:px-2 sm:py-1 pt-[clamp(1.1rem,2.8vmin,1.35rem)] relative flex flex-col items-center justify-center cursor-pointer touch-manipulation overflow-visible ${rowDivider} ${
+                      isToday ? 'bg-blue-50/60 ring-1 ring-blue-300 ring-inset' : ''
+                    } ${isSelected && !isToday ? 'bg-slate-100' : ''} ${isSelected && isToday ? 'bg-blue-100/80' : ''} active:bg-gray-100`}
+                  >
+                    <span
+                      title={sonDay ? teamBiPlain('team.schedule.legendTealTooltip') : undefined}
+                      className="absolute top-0.5 left-1 right-1 text-center text-calendar-2xs font-medium leading-tight tabular-nums inline-flex items-center justify-center flex-wrap gap-x-0.5 gap-y-0 min-w-0"
+                    >
+                      <span className={`shrink-0 ${dayNumClass}`}>
+                        <span>{d}</span>
+                        {sonDay && !isToday ? <SonEomneungNalIcon /> : null}
+                      </span>
+                      <span className={weekdayClass}>{weekdayKoFromYmd(year, month, d)}</span>
                     </span>
-                  ) : null}
-                </div>
-              );
-            })}
+                    {hasEvents ? (
+                      <span className="text-calendar-2xs text-blue-600 font-medium inline-flex justify-center">
+                        <TeamBiLine
+                          id="team.schedule.jobsCount"
+                          vars={{ count: String(dayItems.length) }}
+                          koClassName="text-calendar-2xs text-blue-600 font-medium"
+                        />
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
           </div>
           {selectedDate && (() => {
             const dayListAll = byDate[selectedDate] ?? [];

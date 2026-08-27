@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
+import { useSuppressTeamMobileBottomNav } from '../../hooks/useSuppressTeamMobileBottomNav';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
@@ -1114,6 +1115,7 @@ export function TeamInquiryDetailModal({
   const [shareCopyHint, setShareCopyHint] = useState<string | null>(null);
   const detailScrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus: onDetailFieldFocus } = useModalScrollKeyboardAvoidance(detailScrollRef, true);
+  useSuppressTeamMobileBottomNav(true);
 
   useEffect(() => {
     setItem(initialItem);

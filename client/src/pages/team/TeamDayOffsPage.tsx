@@ -11,6 +11,7 @@ import {
   teamT,
 } from '../../i18n/team/teamI18n';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { useSuppressTeamMobileBottomNav } from '../../hooks/useSuppressTeamMobileBottomNav';
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -68,6 +69,7 @@ export function TeamDayOffsPage() {
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState<DayOffConfirmModal>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  useSuppressTeamMobileBottomNav(!!confirmModal);
   const [selfEditAllowed, setSelfEditAllowed] = useState(true);
   const [profileReady, setProfileReady] = useState(false);
   /** 느린 초기 GET이 저장 직후 상태를 덮어쓰지 않도록 요청 세대 구분 */

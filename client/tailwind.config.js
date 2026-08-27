@@ -16,6 +16,7 @@ export default {
         'fluid-xl': ['clamp(1.1875rem, 0.9125rem + 1.25vw, 1.5625rem)', { lineHeight: '1.35' }],
         'fluid-2xl': ['clamp(1.3125rem, 1.0125rem + 1.5vw, 1.6875rem)', { lineHeight: '1.25' }],
         /** 7열 그리드 캘린더 — 창이 좁아질 때 vw만으로는 부족해 vmin으로 가로·세로 동시 반응 (+1px) */
+        'calendar-3xs': ['clamp(0.4375rem, 0.05rem + 1.55vmin, 0.5625rem)', { lineHeight: '1.05' }],
         'calendar-2xs': ['clamp(0.5625rem, 0.1825rem + 2.4vmin, 0.75rem)', { lineHeight: '1.15' }],
         'calendar-xs': ['clamp(0.625rem, 0.2825rem + 2.9vmin, 0.8125rem)', { lineHeight: '1.2' }],
       },
