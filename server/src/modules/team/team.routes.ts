@@ -73,6 +73,7 @@ import {
 } from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
 import {
   filterCrewNamesForLeader,
+  resolveCrewLeaderIdForCrewMember,
   resolveSharedCrewMeetingForLeader,
   usesPerLeaderCrewMeeting,
 } from '../inquiries/inquiryCrewLeaderAssignment.helpers.js';
@@ -374,7 +375,7 @@ async function attachCrewMembers<
       crewMeetingTime?: string | null;
       crewMeetingTimeUpdatedAt?: Date | null;
     }>;
-    crewLeaderAssignments?: Array<{ crewMemberName: string; teamLeaderId: string }>;
+    crewLeaderAssignments?: Array<{ crewMemberName: string; teamLeaderId: string; sortOrder?: number }>;
   },
 >(
   items: T[],
@@ -400,7 +401,7 @@ async function attachCrewMembers<
   const inquiryIds = items.map((it) => it.id).filter((id): id is string => Boolean(id));
   let leaderAssignmentsByInquiry = new Map<
     string,
-    Array<{ crewMemberName: string; teamLeaderId: string }>
+    Array<{ crewMemberName: string; teamLeaderId: string; sortOrder?: number }>
   >();
   if (inquiryIds.length > 0) {
     const missing = items.some((it) => !it.crewLeaderAssignments);
@@ -413,7 +414,11 @@ async function attachCrewMembers<
       leaderAssignmentsByInquiry = new Map();
       for (const r of rows) {
         const list = leaderAssignmentsByInquiry.get(r.inquiryId) ?? [];
-        list.push({ crewMemberName: r.crewMemberName, teamLeaderId: r.teamLeaderId });
+        list.push({
+          crewMemberName: r.crewMemberName,
+          teamLeaderId: r.teamLeaderId,
+          sortOrder: r.sortOrder,
+        });
         leaderAssignmentsByInquiry.set(r.inquiryId, list);
       }
     }
@@ -487,6 +492,7 @@ async function attachCrewMembers<
     }
   }
   const enriched = items.map((it) => {
+    const parsedNames = parseCrewNames(it.crewMemberNote);
     const leaderAssignments =
       it.crewLeaderAssignments ?? (it.id ? leaderAssignmentsByInquiry.get(it.id) : undefined) ?? [];
     const shared = it.crewMeetingTimeShared !== false;
@@ -498,11 +504,8 @@ async function attachCrewMembers<
     const timeByMember = new Map(
       (it.crewMemberMeetingTimes ?? []).map((r) => [r.teamMemberId, r.meetingTime] as const),
     );
-    const leaderByName = new Map(
-      leaderAssignments.map((a) => [a.crewMemberName, a.teamLeaderId] as const),
-    );
     const visibleNames = filterCrewNamesForLeader(
-      parseCrewNames(it.crewMemberNote),
+      parsedNames,
       viewerTeamLeaderId,
       leaderAssignments,
     );
@@ -510,6 +513,7 @@ async function attachCrewMembers<
       ...it,
       crewMeetingTime: sharedTime,
       crewMembers: visibleNames.map((name) => {
+        const nameIndex = parsedNames.indexOf(name);
         const mem = memberByName.get(name);
         const teamMemberId = mem?.id ?? null;
         let meetingTime: string | null = null;
@@ -525,7 +529,10 @@ async function attachCrewMembers<
           homeAddress: mem?.homeAddress ?? null,
           homeAddressDetail: mem?.homeAddressDetail ?? null,
           meetingTime,
-          assignedTeamLeaderId: leaderByName.get(name) ?? null,
+          assignedTeamLeaderId:
+            resolveCrewLeaderIdForCrewMember(parsedNames, nameIndex, leaderAssignments) ??
+            viewerTeamLeaderId ??
+            null,
         };
       }),
     };
@@ -1078,7 +1085,8 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
           },
         },
         crewLeaderAssignments: {
-          select: { crewMemberName: true, teamLeaderId: true },
+          orderBy: { sortOrder: 'asc' as const },
+          select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
         },
         crewMemberMeetingTimes: {
           select: { teamMemberId: true, meetingTime: true, teamMember: { select: { name: true } } },

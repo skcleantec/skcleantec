@@ -101,14 +101,24 @@ export function buildCrewLeaderAssignmentRows(params: {
 /** DB에 남은 팀원→팀장 매핑을 현재 teamLeaderIds에 맞게 재매핑 (팀장 교체 시 구 id 제거) */
 export function resolveCrewMemberLeaderIdsFromExisting(params: {
   names: string[];
-  existing: Array<{ crewMemberName: string; teamLeaderId: string }>;
+  existing: Array<{ crewMemberName: string; teamLeaderId: string; sortOrder?: number }>;
   teamLeaderIds: string[];
   soloTeamLeaderIds: string[];
 }): string[] {
   const nonSolo = nonSoloLeaderIds(params.teamLeaderIds, params.soloTeamLeaderIds);
   const fallback = nonSolo[0] ?? '';
   const nonSoloSet = new Set(nonSolo);
-  const byName = new Map(params.existing.map((r) => [r.crewMemberName, r.teamLeaderId] as const));
+  const existing = [...params.existing].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const byName = new Map(existing.map((r) => [r.crewMemberName, r.teamLeaderId] as const));
+  if (existing.length > 0 && existing.length === params.names.length) {
+    return params.names.map((name, i) => {
+      const prev = existing[i]?.teamLeaderId;
+      if (prev && nonSoloSet.has(prev)) return prev;
+      const byKey = byName.get(name);
+      if (byKey && nonSoloSet.has(byKey)) return byKey;
+      return fallback;
+    });
+  }
   return params.names
     .map((name) => {
       const prev = byName.get(name);
@@ -135,7 +145,7 @@ export async function syncInquiryCrewLeaderAssignments(
     const existing = await db.inquiryCrewLeaderAssignment.findMany({
       where: { tenantId, inquiryId },
       orderBy: { sortOrder: 'asc' },
-      select: { crewMemberName: true, teamLeaderId: true },
+      select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
     });
     if (existing.length > 0) {
       leaderIds = resolveCrewMemberLeaderIdsFromExisting({
@@ -182,11 +192,33 @@ export async function clearAssignmentCrewMeetingTimes(
 export function filterCrewNamesForLeader(
   names: string[],
   leaderId: string | undefined,
-  leaderAssignments: Array<{ crewMemberName: string; teamLeaderId: string }>,
+  leaderAssignments: Array<{ crewMemberName: string; teamLeaderId: string; sortOrder?: number }>,
 ): string[] {
-  if (!leaderId || leaderAssignments.length === 0) return names;
-  const byName = new Map(leaderAssignments.map((a) => [a.crewMemberName, a.teamLeaderId] as const));
+  if (!leaderId) return names;
+  if (leaderAssignments.length === 0) return names;
+
+  const sorted = [...leaderAssignments].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  if (sorted.length === names.length) {
+    return names.filter((_, i) => sorted[i]?.teamLeaderId === leaderId);
+  }
+
+  const byName = new Map(sorted.map((a) => [a.crewMemberName, a.teamLeaderId] as const));
   return names.filter((n) => byName.get(n) === leaderId);
+}
+
+export function resolveCrewLeaderIdForCrewMember(
+  names: string[],
+  nameIndex: number,
+  leaderAssignments: Array<{ crewMemberName: string; teamLeaderId: string; sortOrder?: number }>,
+): string | null {
+  if (nameIndex < 0 || nameIndex >= names.length) return null;
+  const sorted = [...leaderAssignments].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  if (sorted.length === names.length && sorted[nameIndex]) {
+    return sorted[nameIndex]!.teamLeaderId;
+  }
+  const name = names[nameIndex]!;
+  const byName = new Map(sorted.map((a) => [a.crewMemberName, a.teamLeaderId] as const));
+  return byName.get(name) ?? null;
 }
 
 export function resolveSharedCrewMeetingForLeader(

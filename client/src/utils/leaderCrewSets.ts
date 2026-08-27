@@ -25,28 +25,46 @@ export function initLeaderCrewSetsFromInquiry(params: {
   soloTeamLeaderIds: string[];
   crewMemberNote?: string | null;
   crewMemberCount?: number | null;
-  crewLeaderAssignments?: Array<{ crewMemberName: string; teamLeaderId: string }>;
+  crewLeaderAssignments?: Array<{ crewMemberName: string; teamLeaderId: string; sortOrder?: number | null }>;
 }): LeaderCrewSet[] {
   const leaders = params.teamLeaderIds.length > 0 ? [...params.teamLeaderIds] : [''];
   const soloSet = new Set(params.soloTeamLeaderIds);
   const allNames = parseCrewMemberNoteToNames(params.crewMemberNote);
-  const byName = new Map(
-    (params.crewLeaderAssignments ?? []).map((a) => [a.crewMemberName, a.teamLeaderId] as const),
+  const assignments = [...(params.crewLeaderAssignments ?? [])].sort(
+    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
   );
+  const byName = new Map(assignments.map((a) => [a.crewMemberName, a.teamLeaderId] as const));
   const trimmedLeaders = leaders.map((id) => id.trim()).filter(Boolean);
   const nonSoloLeaders = trimmedLeaders.filter((id) => !soloSet.has(id));
   const totalCount = params.crewMemberCount ?? 0;
 
   const namesByLeader = new Map<string, string[]>();
-  for (const name of allNames) {
-    let lid = byName.get(name);
-    if (!lid || !trimmedLeaders.includes(lid)) {
-      lid = nonSoloLeaders[0] ?? trimmedLeaders[0] ?? '';
+
+  /** 저장 시 note 순서 ↔ sortOrder 가 1:1 — 이름 키보다 우선(동명·표기 차이 방지) */
+  if (assignments.length > 0 && assignments.length === allNames.length) {
+    for (let i = 0; i < allNames.length; i++) {
+      const name = allNames[i]!;
+      const row = assignments[i]!;
+      let lid = row.teamLeaderId?.trim() ?? '';
+      if (!lid || !trimmedLeaders.includes(lid) || soloSet.has(lid)) continue;
+      const arr = namesByLeader.get(lid) ?? [];
+      arr.push(name);
+      namesByLeader.set(lid, arr);
     }
-    if (!lid || soloSet.has(lid)) continue;
-    const arr = namesByLeader.get(lid) ?? [];
-    arr.push(name);
-    namesByLeader.set(lid, arr);
+  } else {
+    for (const name of allNames) {
+      let lid = byName.get(name)?.trim();
+      if (!lid || !trimmedLeaders.includes(lid)) {
+        lid = undefined;
+      }
+      if (!lid) {
+        lid = nonSoloLeaders[0] ?? trimmedLeaders[0] ?? '';
+      }
+      if (!lid || soloSet.has(lid)) continue;
+      const arr = namesByLeader.get(lid) ?? [];
+      arr.push(name);
+      namesByLeader.set(lid, arr);
+    }
   }
 
   return leaders.map((teamLeaderId) => {
@@ -113,7 +131,7 @@ export function buildLeaderCrewFormFieldsFromInquiry(params: {
   soloTeamLeaderIds: string[];
   crewMemberNote?: string | null;
   crewMemberCount?: number | null;
-  crewLeaderAssignments?: Array<{ crewMemberName: string; teamLeaderId: string }>;
+  crewLeaderAssignments?: Array<{ crewMemberName: string; teamLeaderId: string; sortOrder?: number | null }>;
 }): {
   leaderCrewSets: LeaderCrewSet[];
   teamLeaderIds: string[];

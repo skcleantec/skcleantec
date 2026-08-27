@@ -406,6 +406,12 @@ export function formatRoomInfo(r: number | null, b: number | null, v: number | n
 }
 
 export function formatCrewInfo(item: InquiryItem): string {
+  const fromMembers = (item.crewMembers ?? []).map((m) => m.name.trim()).filter(Boolean);
+  if (fromMembers.length > 0) {
+    const note = fromMembers.join('/');
+    const base = fillTeamTemplate(teamT('team.modal.crewCount'), { count: String(fromMembers.length) });
+    return note ? `${base} · ${note}` : base;
+  }
   const n = item.crewMemberCount ?? 0;
   const tokens = item.crewMemberNote
     ?.split(/[,·/|]/g)

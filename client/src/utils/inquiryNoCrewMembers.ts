@@ -62,16 +62,26 @@ export function needsExplicitCrewLeaderPick(
 
 export function initCrewMemberLeaderIdsFromInquiry(
   names: string[],
-  crewLeaderAssignments: Array<{ crewMemberName: string; teamLeaderId: string }> | undefined,
+  crewLeaderAssignments: Array<{ crewMemberName: string; teamLeaderId: string; sortOrder?: number | null }> | undefined,
   teamLeaderIds: string[],
   soloTeamLeaderIds: string[],
   externalTeamLeaderId?: string | null,
 ): string[] {
   const nonSolo = nonSoloLeaderIds(teamLeaderIds, soloTeamLeaderIds, externalTeamLeaderId);
   const fallback = nonSolo[0] ?? '';
-  const byName = new Map(
-    (crewLeaderAssignments ?? []).map((a) => [a.crewMemberName, a.teamLeaderId] as const),
+  const assignments = [...(crewLeaderAssignments ?? [])].sort(
+    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
   );
+  const byName = new Map(assignments.map((a) => [a.crewMemberName, a.teamLeaderId] as const));
+  if (assignments.length > 0 && assignments.length === names.length) {
+    return names.map((raw, i) => {
+      const name = raw.trim();
+      if (!name) return fallback;
+      const lid = assignments[i]?.teamLeaderId?.trim();
+      if (lid && nonSolo.includes(lid)) return lid;
+      return byName.get(name) ?? fallback;
+    });
+  }
   return names.map((raw) => {
     const name = raw.trim();
     if (!name) return fallback;

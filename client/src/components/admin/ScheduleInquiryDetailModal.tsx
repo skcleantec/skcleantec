@@ -2132,6 +2132,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         }
       } else {
         await updateInquiry(token, item!.id, patch);
+        await onInquiryRefresh?.();
       }
       setSaving(false);
       if (opts?.closeParent === false) {

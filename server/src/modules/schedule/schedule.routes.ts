@@ -274,6 +274,10 @@ const scheduleListSelectLite = {
       teamLeader: { select: assignmentTeamLeaderSelect },
     },
   },
+  crewLeaderAssignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
+  },
 } as const;
 
 /** preferredDate 조회 — 하루 단위는 KST(Asia/Seoul)와 동일하게 맞춤 (말일 일정 누락 방지) */
@@ -348,6 +352,10 @@ router.get('/', async (req, res) => {
           assignments: {
             orderBy: { sortOrder: 'asc' },
             include: { teamLeader: { select: assignmentTeamLeaderSelect } },
+          },
+          crewLeaderAssignments: {
+            orderBy: { sortOrder: 'asc' as const },
+            select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
           },
           orderForm: {
             select: {
