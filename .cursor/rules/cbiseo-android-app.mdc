@@ -52,3 +52,4 @@ alwaysApply: false
 - 업무 앱에 CRM WebView·숨고 CRM 탭
 - 업무 앱에 telecrm `TelecrmRealtimeService`·CallScreening 이식
 - Play·UI에 skcleantec 브랜드
+- **PWA 「홈 화면에 추가」 설치 유도** — 푸시(FCM)는 Play 앱 전용. 로그인·알림 설정 등은 `PlayStoreStaffAppLink` / `CBISEO_STAFF_APP_PLAY_STORE_URL` 사용

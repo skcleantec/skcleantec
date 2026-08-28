@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { StaffAppPushKind } from '@shared/staffAppPush';
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
+import { PlayStoreStaffAppBanner } from '../auth/PlayStoreStaffAppLink';
 import {
   ensureCbiseoStaffPushRegistered,
   getCbiseoStaffAppVersionCode,
@@ -210,7 +211,9 @@ export function StaffNotificationSettingsPanel({
             </button>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <PlayStoreStaffAppBanner />
+      )}
 
       {err ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-2xs text-red-800">

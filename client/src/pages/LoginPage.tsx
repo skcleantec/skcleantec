@@ -34,7 +34,7 @@ import {
   clearResumeLocation,
 } from '../api/sessionGate';
 import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
-import { PwaAddToHomeButton } from '../components/auth/PwaAddToHomeButton';
+import { PlayStoreStaffAppLink } from '../components/auth/PlayStoreStaffAppLink';
 import { LOGIN_BACKGROUND_SRC } from '@shared/brandLogo';
 import { ORDER_FORM_PLATFORM_FOOTER } from '@shared/orderFormPlatformFooter';
 
@@ -797,7 +797,7 @@ export function LoginPage() {
                   로그인 정보 저장
                 </label>
                 <div className="shrink-0 md:hidden">
-                  <PwaAddToHomeButton compact />
+                  <PlayStoreStaffAppLink compact />
                 </div>
               </div>
 

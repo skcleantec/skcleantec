@@ -135,6 +135,16 @@
 | 서버 push | `server/src/modules/push/staffAppPush.*` · **`STAFF_APP_PUSH.md`** |
 | 에이전트 규칙 | `.cursor/rules/cbiseo-android-app.mdc` |
 | 전화 앱 (별도) | `apps/telecrm-android/` · `docs/TELECRM_ANDROID_APP.md` |
+| Play CTA (웹) | `client/src/components/auth/PlayStoreStaffAppLink.tsx` |
+
+### 6.1 웹 설치 CTA — Play 우선 (PWA 설치 유도 금지)
+
+| 구분 | 정책 |
+|------|------|
+| **주 앱** | Google Play **`청소비서`** (`com.cbiseo.app`) — FCM·백그라운드 알림 |
+| **PWA 홈 화면 추가** | **신규 설치 유도하지 않음** — Web Push 미구현 |
+| **PWA 런타임** | `manifest.webmanifest`·`isStandalonePwa()` **유지** — 기존 사용자·safe-area |
+| **URL 상수** | `CBISEO_STAFF_APP_PLAY_STORE_URL` in `shared/cbiseoStaffAppPolicy.ts` |
 
 ---
 

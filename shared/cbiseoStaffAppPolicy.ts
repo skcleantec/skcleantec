@@ -3,6 +3,9 @@
 /** Play applicationId */
 export const CBISEO_STAFF_APP_PACKAGE = 'com.cbiseo.app';
 
+/** Google Play 상세 페이지 (웹·앱 설치 CTA 단일 소스) */
+export const CBISEO_STAFF_APP_PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${CBISEO_STAFF_APP_PACKAGE}`;
+
 /** Play 스토어 표시명 */
 export const CBISEO_STAFF_APP_DISPLAY_NAME = '청소비서';
 

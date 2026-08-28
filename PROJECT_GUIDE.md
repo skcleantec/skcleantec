@@ -330,7 +330,8 @@ server/
 
 ### 4.4 모바일 대응
 - 반응형 CSS (Tailwind)
-- PWA(Progressive Web App) 고려 → 홈 화면 추가, 오프라인 캐시
+- **현장·푸시 알림:** Google Play **`청소비서`** 앱(`com.cbiseo.app`) 설치 — FCM 푸시·백그라운드 알림
+- **브라우저:** PC·태블릿·iOS 등 웹 이용 가능. **PWA 홈 화면 추가는 설치 유도하지 않음** (푸시 미지원)
 - 터치 친화적 버튼/캘린더 UI
 
 ---
