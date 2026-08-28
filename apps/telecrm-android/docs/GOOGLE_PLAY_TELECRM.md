@@ -66,6 +66,18 @@ Play Console → **테스트 → 내부 테스트** → **새 버전 만들기**
 | applicationId | `app/build.gradle.kts` → **`com.cbiseo.marketer`** |
 | versionCode / Name | 동일 파일 |
 
+### Play 거절 — `REQUEST_INSTALL_PACKAGES` (시정 조치)
+
+Google 메일에 **버전 코드 19** 등 **구버전**이 적히면, **최신 AAB(v28+)는 이미 권한이 없을 수 있습니다.** 예전 번들이 **어떤 트랙에든** 남아 있으면 전체 제출이 거절됩니다.
+
+1. **출시 → App Bundle 탐색기** — 위반 버전 코드(19 등) 확인
+2. **내부·비공개·공개·프로덕션** 각 트랙 → 구버전 **제거** 또는 **포함되지 않음**
+3. **v28** (`0.7.8-internal`) AAB만 포함 — `dist/telecrm-play-0.7.8-internal-28.aab`
+4. 임시보관 초안에 위반 번들만 있으면 **초안 삭제** 후 v28만 재업로드
+5. **게시 개요** → **검토 제출**
+
+> sideload APK(`assembleSideloadRelease`)는 Play에 업로드하지 않습니다.
+
 ---
 
 ## 4. 스토어 등록정보 (복붙용)
@@ -274,7 +286,7 @@ YouTube **비공개(unlisted)** 업로드 후 URL을 Play에 붙여넣기.
 ## 7. 테스트 트랙
 
 1. **내부 테스트** — 사무실 Gmail
-2. **비공개 테스트** — 상담사 (현재 v27 AAB)
+2. **비공개 테스트** — 상담사 (v28 AAB · targetSdk 36)
 3. **프로덕션** — 심사 후 공개
 
 > **versionCode**는 트랙 간 **전역 유일** — 내부에 올린 번호와 같으면 비공개 업로드 거부 → 매번 +1.
