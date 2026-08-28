@@ -1,6 +1,7 @@
 /**
- * PC(lg+) 랜딩 — 카카오톡 채널 상담 FAB (길게 눌러 위치 이동)
+ * PC(lg+) 공개 화면 — 카카오톡 채널 상담 FAB (길게 눌러 위치 이동)
  * channelPublicId: _vnxjSX · shared/platformSupport.ts 와 동일
+ * 표시: 랜딩 `/`, 로그인·가입 등 공개 SPA 경로 (업무 `/admin`·`/team` 제외)
  */
 (function initKakaoConsultFab() {
   'use strict';
@@ -328,9 +329,29 @@
     fabEl = null;
   }
 
+  /** @returns {boolean} */
+  function isFabPathAllowed() {
+    var path = window.location.pathname || '/';
+    if (path === '/' || path === '/index.html') return true;
+    if (path === '/login' || path === '/signup' || path === '/forgot-password') return true;
+    if (path.indexOf('/legal/') === 0) return true;
+    if (path.indexOf('/r/') === 0) return true;
+    return false;
+  }
+
   function syncVisibility() {
-    if (pcMq.matches) mountFab();
+    if (pcMq.matches && isFabPathAllowed()) mountFab();
     else unmountFab();
+  }
+
+  function patchHistoryMethod(methodName) {
+    var original = history[methodName];
+    if (typeof original !== 'function') return;
+    history[methodName] = function patchedHistoryMethod() {
+      var result = original.apply(this, arguments);
+      syncVisibility();
+      return result;
+    };
   }
 
   if (typeof pcMq.addEventListener === 'function') {
@@ -338,6 +359,10 @@
   } else if (typeof pcMq.addListener === 'function') {
     pcMq.addListener(syncVisibility);
   }
+
+  window.addEventListener('popstate', syncVisibility);
+  patchHistoryMethod('pushState');
+  patchHistoryMethod('replaceState');
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', syncVisibility);

@@ -21,7 +21,8 @@ try {
   });
   if (!initRes?.ok()) throw new Error(`kakao-init.js HTTP ${initRes?.status()}`);
 
-  await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const pagePath = process.argv[3]?.trim() || '/';
+  await page.goto(`${baseUrl}${pagePath}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForSelector('#cbiseo-kakao-consult-fab', { timeout: 10000 });
 
   const fab = await page.evaluate(() => {
@@ -36,7 +37,7 @@ try {
     };
   });
 
-  console.log(JSON.stringify({ ok: fab.ok, baseUrl, fab }, null, 2));
+  console.log(JSON.stringify({ ok: fab.ok, baseUrl, pagePath, fab }, null, 2));
   process.exit(fab.ok ? 0 : 1);
 } catch (e) {
   console.error('FAIL:', e instanceof Error ? e.message : e);
