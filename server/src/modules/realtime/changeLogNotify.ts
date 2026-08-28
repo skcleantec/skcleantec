@@ -9,7 +9,7 @@ import {
 } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { filterMarketerOnlyChangeLogLines } from '../inquiries/internalCustomerTone.js';
 import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
-import { notifyStaffInboxRefresh } from './navBadgeNotify.js';
+import { notifyStaffInboxRefresh, notifyScheduleAlertToOfficeStaff } from './navBadgeNotify.js';
 
 export type ChangeLogWsPayload = {
   type: 'changelog:new';
@@ -74,6 +74,17 @@ async function notifyScheduleAlertToStaff(params: {
 }): Promise<void> {
   const wsPayload = buildScheduleAlertWsPayload(params);
   broadcastJsonToStaff(wsPayload, params.tenantId);
+
+  if (params.inquiryId && (params.kind === 'date' || params.kind === 'cancel')) {
+    void notifyScheduleAlertToOfficeStaff({
+      tenantId: params.tenantId,
+      customerName: params.customerName,
+      inquiryId: params.inquiryId,
+      kind: params.kind,
+      summary: wsPayload.summary,
+      actorId: params.actorId,
+    }).catch((e) => console.error('[schedule-alert-notify] office staff', e));
+  }
 
   let leaderIds: string[] = [];
   if (params.affectedTeamLeaderIds && params.affectedTeamLeaderIds.length > 0) {

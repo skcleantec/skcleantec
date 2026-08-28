@@ -63,6 +63,7 @@ import {
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import { notifyOrderFormSubmitToStaff } from '../realtime/navBadgeNotify.js';
 import {
   buildCustomerOrderFormSubmitChangeLines,
   createInquiryChangeLogInTx,
@@ -3315,6 +3316,19 @@ router.post('/submit/:token', async (req, res) => {
       inquiryNumber: celebrateRow.inquiryNumber,
       source: celebrateRow.source,
     });
+    const marketerRow = form.createdById
+      ? await prisma.user.findFirst({
+          where: { id: form.createdById, tenantId: submitTenantId },
+          select: { name: true },
+        })
+      : null;
+    void notifyOrderFormSubmitToStaff({
+      tenantId: submitTenantId,
+      inquiryId: celebrateRow.id,
+      customerName: submitCustomerName,
+      orderFormCreatedById: form.createdById,
+      marketerName: marketerRow?.name ?? '담당자',
+    }).catch((e) => console.error('[order-form-submit-push]', e));
   }
   if (changedInquiryId) {
     const assigns = await prisma.assignment.findMany({

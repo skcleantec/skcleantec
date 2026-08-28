@@ -5,6 +5,7 @@ import type { StaffAppPushKind } from './staffAppPush';
 export const NOTIFICATION_KIND_ORDER: StaffAppPushKind[] = [
   'assignment',
   'schedule_alert',
+  'order_form_submit',
   'happy_call',
   'message',
   'cs',
@@ -15,6 +16,7 @@ export const NOTIFICATION_KIND_ORDER: StaffAppPushKind[] = [
 export const NOTIFICATION_KIND_LABELS: Record<StaffAppPushKind, string> = {
   assignment: '접수 배정',
   schedule_alert: '일정·금액·취소',
+  order_form_submit: '발주서 접수',
   happy_call: '해피콜',
   message: '1:1 메시지',
   cs: 'C/S',
@@ -24,7 +26,8 @@ export const NOTIFICATION_KIND_LABELS: Record<StaffAppPushKind, string> = {
 
 export const NOTIFICATION_KIND_DESCRIPTIONS: Record<StaffAppPushKind, string> = {
   assignment: '접수가 팀장에게 배정·재배정될 때',
-  schedule_alert: '담당 접수의 일정·금액·취소 변경 시',
+  schedule_alert: '접수 일정 변경·예약 취소 시 (마케터·관리자 전원)',
+  order_form_submit: '고객이 발주서를 제출해 접수될 때',
   happy_call: '청소일 전날 18:00(KST)부터 미완 시 매시간 알림(완료까지)',
   message: '관리·팀 간 1:1 메시지 수신 시',
   cs: 'C/S 접수·상태 변경 시',

@@ -1,14 +1,79 @@
 import { prisma } from '../../lib/prisma.js';
 import type { StaffAppPushPayload, CsPushVariant } from '../../lib/staffAppPush.helpers.js';
-import { buildCsPushPayload } from '../../lib/staffAppPush.helpers.js';
+import {
+  buildCsPushPayload,
+  buildOrderFormSubmitPushPayload,
+  buildScheduleAlertPushPayload,
+} from '../../lib/staffAppPush.helpers.js';
 import { notifyInboxRefresh } from './inboxNotify.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { buildPushByUserIdForUsers } from '../notifications/staffAppPushDispatch.helpers.js';
+import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 
 export type CsPushContext = {
   variant: CsPushVariant;
   customerName: string;
 };
+
+/** 재직 중 ADMIN만 — 발주서 접수 등 관리자 전용 알림 */
+export async function getEmployedAdminUserIds(tenantId: string): Promise<string[]> {
+  const todayYmd = kstTodayYmd();
+  const usersRaw = await prisma.user.findMany({
+    where: { tenantId, isActive: true, role: 'ADMIN' },
+    select: { id: true, hireDate: true, resignationDate: true },
+  });
+  return usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)).map((u) => u.id);
+}
+
+/** 고객 발주서 제출 — 발급 마케터 + ADMIN FCM */
+export async function notifyOrderFormSubmitToStaff(params: {
+  tenantId: string;
+  inquiryId: string;
+  customerName: string;
+  orderFormCreatedById: string | null;
+  marketerName: string;
+}): Promise<void> {
+  const adminIds = await getEmployedAdminUserIds(params.tenantId);
+  const targetIds = [...new Set([...adminIds, ...(params.orderFormCreatedById ? [params.orderFormCreatedById] : [])])];
+  if (targetIds.length === 0) return;
+
+  const pushByUserId = await buildPushByUserIdForUsers(targetIds, (role) =>
+    buildOrderFormSubmitPushPayload({
+      customerName: params.customerName,
+      marketerName: params.marketerName,
+      inquiryId: params.inquiryId,
+      role,
+    }),
+  );
+  notifyInboxRefresh(targetIds, pushByUserId);
+}
+
+/** 일정 변경·취소 — 테넌트 재직 마케터·ADMIN 전원 FCM (행위자 제외) */
+export async function notifyScheduleAlertToOfficeStaff(params: {
+  tenantId: string;
+  customerName: string;
+  inquiryId: string;
+  kind: ScheduleAlertKind;
+  summary: string;
+  actorId?: string | null;
+}): Promise<void> {
+  if (params.kind !== 'date' && params.kind !== 'cancel') return;
+
+  const staffIds = await getEmployedStaffUserIds(params.tenantId);
+  const targetIds = staffIds.filter((id) => !params.actorId || id !== params.actorId);
+  if (targetIds.length === 0) return;
+
+  const pushByUserId = await buildPushByUserIdForUsers(targetIds, (role) =>
+    buildScheduleAlertPushPayload({
+      customerName: params.customerName,
+      inquiryId: params.inquiryId,
+      kind: params.kind,
+      summary: params.summary,
+      role,
+    }),
+  );
+  notifyInboxRefresh(targetIds, pushByUserId);
+}
 
 /** 재직 중 ADMIN·MARKETER — 급여·지출 등 스태프 화면용 WS 알림 대상 (테넌트 한정) */
 export async function getEmployedStaffUserIds(tenantId: string): Promise<string[]> {

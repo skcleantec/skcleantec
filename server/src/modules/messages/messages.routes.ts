@@ -15,7 +15,7 @@ router.use(authMiddleware);
 
 type PartnerRow = { id: string; name: string; role: string; staffIdCardUrl: string | null };
 
-const messageSenderSelect = { id: true, name: true, staffIdCardUrl: true } as const;
+const messageSenderSelect = { id: true, name: true, staffIdCardUrl: true, role: true } as const;
 
 type MessageSenderDto = { id: string; name: string; staffIdCardUrl: string | null };
 
@@ -644,6 +644,7 @@ router.post('/', async (req, res) => {
   notifyInboxRefresh([userId, receiverId], {
     [receiverId]: buildMessagePushPayload({
       senderName: msg.sender.name,
+      senderRole: msg.sender.role,
       receiverRole: receiver.role,
       senderUserId: msg.senderId,
       messageId: msg.id,

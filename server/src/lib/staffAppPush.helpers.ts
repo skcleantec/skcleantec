@@ -1,8 +1,11 @@
 /** @see shared/staffAppPush.ts — FCM·WebView 딥링크 공통 규약 (동기화) */
 
+import type { ScheduleAlertKind } from '../modules/inquiry-change-logs/inquiryChangeLogs.helpers.js';
+
 export type StaffAppPushKind =
   | 'assignment'
   | 'schedule_alert'
+  | 'order_form_submit'
   | 'message'
   | 'cs'
   | 'db_marketplace'
@@ -88,13 +91,24 @@ export function buildGenericStaffAppPushPayload(): StaffAppPushPayload {
 
 export type AssignmentPushVariant = 'new' | 'removed';
 
-import type { ScheduleAlertKind } from '../modules/inquiry-change-logs/inquiryChangeLogs.helpers.js';
-
 const SCHEDULE_ALERT_KIND_LABELS: Record<ScheduleAlertKind, string> = {
   date: '일정변경',
   cancel: '취소',
   cost: '금액변경',
 };
+
+function buildScheduleAlertPushBody(params: {
+  customerName: string;
+  kind: ScheduleAlertKind;
+  summary: string;
+}): string {
+  const name = params.customerName.trim() || '고객';
+  if (params.kind === 'date') return `${name}의 예약날짜가 변경되었습니다.`;
+  if (params.kind === 'cancel') return `${name}의 예약건이 취소되었습니다.`;
+  const title = SCHEDULE_ALERT_KIND_LABELS[params.kind];
+  const summary = params.summary.trim();
+  return summary ? `${name} · ${summary}` : `${name}님 ${title}`;
+}
 
 export function buildScheduleAlertPushPayload(params: {
   customerName: string;
@@ -103,14 +117,32 @@ export function buildScheduleAlertPushPayload(params: {
   summary: string;
   role: string | null | undefined;
 }): StaffAppPushPayload {
-  const name = params.customerName.trim() || '고객';
-  const title = SCHEDULE_ALERT_KIND_LABELS[params.kind];
-  const summary = params.summary.trim();
-  const body = summary ? `${name} · ${summary}` : `${name}님 ${title}`;
+  const title =
+    params.kind === 'date'
+      ? '일정 변경'
+      : params.kind === 'cancel'
+        ? '예약 취소'
+        : SCHEDULE_ALERT_KIND_LABELS[params.kind];
   return {
     kind: 'schedule_alert',
     title,
-    body,
+    body: buildScheduleAlertPushBody(params),
+    path: staffAppAssignmentPathForRole(params.role, params.inquiryId),
+  };
+}
+
+export function buildOrderFormSubmitPushPayload(params: {
+  customerName: string;
+  marketerName: string;
+  inquiryId: string;
+  role: string | null | undefined;
+}): StaffAppPushPayload {
+  const customer = params.customerName.trim() || '고객';
+  const marketer = params.marketerName.trim() || '담당자';
+  return {
+    kind: 'order_form_submit',
+    title: '발주서 접수',
+    body: `${customer}님의 발주서가 접수됐습니다.-${marketer}`,
     path: staffAppAssignmentPathForRole(params.role, params.inquiryId),
   };
 }
@@ -136,15 +168,19 @@ export function buildAssignmentPushPayload(params: {
 
 export function buildMessagePushPayload(params: {
   senderName: string;
+  senderRole?: string | null;
   receiverRole: string | null | undefined;
   senderUserId: string;
   messageId: string;
 }): StaffAppPushPayload {
   const sender = params.senderName.trim() || '관리자';
+  const body = isTeamSideStaffRole(params.senderRole)
+    ? `${sender}의 메세지가 도착했습니다.`
+    : `${sender}님의 메시지가 도착했습니다.`;
   return {
     kind: 'message',
     title: '새 메시지',
-    body: `${sender}님의 메시지가 도착했습니다.`,
+    body,
     path: staffAppMessagesPathForRole(params.receiverRole, {
       partnerUserId: params.senderUserId,
       messageId: params.messageId,
@@ -203,7 +239,7 @@ export function buildCsPushPayload(params: {
   let body = `${name}님 C/S가 갱신되었습니다.`;
   if (params.variant === 'new') {
     title = 'C/S 접수';
-    body = `${name}님 C/S가 접수되었습니다.`;
+    body = `${name}의 C/S가 접수됐습니다.`;
   } else if (params.variant === 'forwarded') {
     title = 'C/S 전달';
     body = `${name}님 C/S가 전달되었습니다.`;
