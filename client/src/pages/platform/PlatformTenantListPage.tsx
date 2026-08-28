@@ -232,6 +232,31 @@ function AiUsageUnderBar({ row }: { row: PlatformCoinUsageRow }) {
   );
 }
 
+function AlimtalkUsageLine({ row }: { row: PlatformCoinUsageRow }) {
+  if (!row.alimtalkPlanAllows) {
+    return (
+      <div className="mt-2 border-t border-dashed border-slate-200 pt-2 text-fluid-2xs text-slate-400">
+        알림톡: 플랜 미지원
+      </div>
+    );
+  }
+
+  const freePart =
+    row.alimtalkMonthlyFreeQuota > 0
+      ? ` · 무료 ${row.alimtalkMonthlyFreeUsed.toLocaleString('ko-KR')}/${row.alimtalkMonthlyFreeQuota.toLocaleString('ko-KR')}`
+      : '';
+
+  return (
+    <div className="mt-2 border-t border-dashed border-violet-200/80 pt-2 text-fluid-2xs text-slate-600">
+      <span className="font-semibold text-violet-800">알림톡</span>{' '}
+      <span className="tabular-nums">
+        {row.alimtalkSentCount.toLocaleString('ko-KR')}건{freePart} · 잔액{' '}
+        {row.alimtalkPrepaidBalanceKrw.toLocaleString('ko-KR')}원
+      </span>
+    </div>
+  );
+}
+
 export function PlatformTenantListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<PlatformCoinUsageRow[]>([]);
@@ -335,7 +360,7 @@ export function PlatformTenantListPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">업체 관리</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {periodYm} 기준 · 업체 목록과 코인·AI(빠른등록) 사용량을 한 화면에서 확인합니다. 요약을 누르면 목록이
+            {periodYm} 기준 · 업체 목록과 코인·AI·알림톡 사용량을 한 화면에서 확인합니다. 요약을 누르면 목록이
             필터됩니다.
           </p>
         </div>
@@ -602,6 +627,7 @@ export function PlatformTenantListPage() {
                         <td className="px-3 py-2.5 text-left">
                           <UsageBar row={row} />
                           <AiUsageUnderBar row={row} />
+                          <AlimtalkUsageLine row={row} />
                         </td>
                         <td className="px-2 py-2.5 text-center tabular-nums text-gray-600">
                           {row.unlimited ? (
@@ -666,6 +692,7 @@ export function PlatformTenantListPage() {
                   <div className="mt-2">
                     <UsageBar row={row} />
                     <AiUsageUnderBar row={row} />
+                    <AlimtalkUsageLine row={row} />
                   </div>
                 </div>
               ))}

@@ -33,6 +33,11 @@ export type PlatformCoinUsageRow = {
   aiUsers: PlatformAiUsageUserBreakdown[];
   telecrmAiUsageCount: number;
   telecrmAiUsers: PlatformAiUsageUserBreakdown[];
+  alimtalkSentCount: number;
+  alimtalkMonthlyFreeUsed: number;
+  alimtalkMonthlyFreeQuota: number;
+  alimtalkPrepaidBalanceKrw: number;
+  alimtalkPlanAllows: boolean;
   signupAuthMethod: TenantSignupAuthMethod;
   signupAuthLabel: string;
   signupAuthCategory: TenantSignupAuthCategory;

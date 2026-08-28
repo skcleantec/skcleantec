@@ -8,6 +8,7 @@ import {
 import { isSignupCoinGraceActive } from '../tenants/tenantSignupGrace.js';
 import { kstPeriodYmFromDate } from '../tenants/tenantCoin.service.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
+import { alimtalkMonthlyFreeQuotaForPlan, alimtalkPlanAllowsFeature } from '../../lib/alimtalkPolicy.js';
 import {
   loadOwnerAuthProvidersByTenant,
   resolveTenantSignupAuthMethodForPlatform,
@@ -40,6 +41,11 @@ export type PlatformCoinUsageRow = {
   aiUsers: PlatformAiUsageUserBreakdown[];
   telecrmAiUsageCount: number;
   telecrmAiUsers: PlatformAiUsageUserBreakdown[];
+  alimtalkSentCount: number;
+  alimtalkMonthlyFreeUsed: number;
+  alimtalkMonthlyFreeQuota: number;
+  alimtalkPrepaidBalanceKrw: number;
+  alimtalkPlanAllows: boolean;
   signupAuthMethod: TenantSignupAuthMethod;
   signupAuthLabel: string;
   signupAuthCategory: TenantSignupAuthCategory;
@@ -153,7 +159,7 @@ export async function listPlatformCoinUsage(
 
   const monthRange = kstMonthRangeYm(periodYm);
 
-  const [tenants, spentGroups, aiUsageGroups, aiUserGroups, telecrmAiUsageGroups, telecrmAiUserGroups, ownerAuthProvidersByTenant] =
+  const [tenants, spentGroups, aiUsageGroups, aiUserGroups, telecrmAiUsageGroups, telecrmAiUserGroups, alimtalkSentGroups, alimtalkFreeGroups, alimtalkWallets, ownerAuthProvidersByTenant] =
     await Promise.all([
     prisma.tenant.findMany({
       select: {
@@ -198,6 +204,30 @@ export async function listPlatformCoinUsage(
       where: monthRange ? { createdAt: monthRange } : {},
       _count: { id: true },
     }),
+    prisma.alimtalkSendLog.groupBy({
+      by: ['tenantId'],
+      where: {
+        chargeStatus: { in: ['FREE', 'PAID'] },
+        ...(monthRange ? { createdAt: monthRange } : {}),
+      },
+      _count: { id: true },
+    }),
+    prisma.alimtalkSendLog.groupBy({
+      by: ['tenantId'],
+      where: {
+        chargeStatus: 'FREE',
+        ...(monthRange ? { createdAt: monthRange } : {}),
+      },
+      _count: { id: true },
+    }),
+    prisma.tenantAlimtalkWallet.findMany({
+      select: {
+        tenantId: true,
+        prepaidBalanceKrw: true,
+        monthlyFreeUsed: true,
+        monthlyFreePeriodYm: true,
+      },
+    }),
     loadOwnerAuthProvidersByTenant(),
   ]);
 
@@ -215,6 +245,20 @@ export async function listPlatformCoinUsage(
   for (const g of telecrmAiUsageGroups) {
     telecrmAiUsageByTenant.set(g.tenantId, g._count.id ?? 0);
   }
+
+  const alimtalkSentByTenant = new Map<string, number>();
+  for (const g of alimtalkSentGroups) {
+    alimtalkSentByTenant.set(g.tenantId, g._count.id ?? 0);
+  }
+
+  const alimtalkFreeByTenant = new Map<string, number>();
+  for (const g of alimtalkFreeGroups) {
+    alimtalkFreeByTenant.set(g.tenantId, g._count.id ?? 0);
+  }
+
+  const alimtalkWalletByTenant = new Map(
+    alimtalkWallets.map((w) => [w.tenantId, w] as const),
+  );
 
   const aiUserIds = [
     ...new Set([
@@ -320,6 +364,13 @@ export async function listPlatformCoinUsage(
       ownerAuthProvidersByTenant,
       t.id,
     );
+    const alimtalkPlanAllows = alimtalkPlanAllowsFeature(planId);
+    const alimtalkMonthlyFreeQuota = alimtalkMonthlyFreeQuotaForPlan(planId);
+    const wallet = alimtalkWalletByTenant.get(t.id);
+    const alimtalkMonthlyFreeUsed =
+      wallet?.monthlyFreePeriodYm === periodYm
+        ? wallet.monthlyFreeUsed
+        : (alimtalkFreeByTenant.get(t.id) ?? 0);
     return {
       tenantId: t.id,
       slug: t.slug,
@@ -336,6 +387,11 @@ export async function listPlatformCoinUsage(
       aiUsers: aiUsersByTenant.get(t.id) ?? [],
       telecrmAiUsageCount,
       telecrmAiUsers: telecrmAiUsersByTenant.get(t.id) ?? [],
+      alimtalkSentCount: alimtalkSentByTenant.get(t.id) ?? 0,
+      alimtalkMonthlyFreeUsed,
+      alimtalkMonthlyFreeQuota,
+      alimtalkPrepaidBalanceKrw: wallet?.prepaidBalanceKrw ?? 0,
+      alimtalkPlanAllows,
       signupAuthMethod: signupAuth.method,
       signupAuthLabel: signupAuth.label,
       signupAuthCategory: signupAuth.category,
