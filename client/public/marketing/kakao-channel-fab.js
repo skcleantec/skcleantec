@@ -9,6 +9,8 @@
   var PC_QUERY = '(min-width: 1024px)';
   var STORAGE_KEY = 'cbiseo:kakao-consult-fab:v1';
   var CHANNEL_PUBLIC_ID = '_vnxjSX';
+  var CHANNEL_SEARCH_ID = 'cbiseo';
+  var CHANNEL_HOME_URL = 'https://pf.kakao.com/_vnxjSX';
   var CHAT_FALLBACK_URL = 'https://pf.kakao.com/_vnxjSX/chat';
   var HOLD_MS = 420;
   var HOLD_CANCEL_MOVE_PX = 10;
@@ -54,7 +56,20 @@
       '.cbiseo-kakao-fab-dragging{cursor:grabbing;transform:scale(1.04);box-shadow:0 8px 24px rgba(15,23,42,.28);}' +
       '#' +
       FAB_ID +
-      ' img{display:block;width:28px;height:28px;pointer-events:none;user-select:none;-webkit-user-drag:none;}';
+      ' img{display:block;width:28px;height:28px;pointer-events:none;user-select:none;-webkit-user-drag:none;}' +
+      '#cbiseo-kakao-chat-guide{position:fixed;z-index:111;right:24px;bottom:92px;max-width:min(340px,calc(100vw - 48px));' +
+      'padding:12px 14px;border-radius:12px;background:#0f172a;color:#f8fafc;font-size:13px;line-height:1.45;' +
+      'box-shadow:0 8px 24px rgba(15,23,42,.28);}' +
+      '#cbiseo-kakao-chat-guide strong{display:block;margin-bottom:6px;font-size:14px;}' +
+      '#cbiseo-kakao-chat-guide ul{margin:0 0 10px 18px;padding:0;}' +
+      '#cbiseo-kakao-chat-guide li{margin:2px 0;}' +
+      '#cbiseo-kakao-chat-guide-actions{display:flex;flex-wrap:wrap;gap:6px;}' +
+      '#cbiseo-kakao-chat-guide-actions a,#cbiseo-kakao-chat-guide-actions button{' +
+      'min-height:32px;padding:0 10px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;border:none;font-family:inherit;}' +
+      '#cbiseo-kakao-chat-guide-actions a{display:inline-flex;align-items:center;background:#FEE500;color:#0f172a;text-decoration:none;}' +
+      '#cbiseo-kakao-chat-guide-actions a:hover{filter:brightness(.96);}' +
+      '#cbiseo-kakao-chat-guide-actions button{background:transparent;color:#cbd5e1;border:1px solid #475569;}' +
+      '#cbiseo-kakao-chat-guide-actions button:hover{background:#1e293b;}';
     document.head.appendChild(styleEl);
   }
 
@@ -122,7 +137,59 @@
     }
   }
 
-  function openChat() {
+  function dismissChatGuide() {
+    var el = document.getElementById('cbiseo-kakao-chat-guide');
+    if (el) el.remove();
+  }
+
+  function showChatGuide() {
+    ensureStyles();
+    dismissChatGuide();
+    var box = document.createElement('div');
+    box.id = 'cbiseo-kakao-chat-guide';
+    box.setAttribute('role', 'status');
+    box.innerHTML =
+      '<strong>카카오톡 PC에서 상담을 이어가세요</strong>' +
+      '<ul>' +
+      '<li>뜬 작은 창은 카카오 안내 페이지입니다(오류 아님).</li>' +
+      '<li>카카오톡 PC <b>알림</b> 또는 <b>채널</b> 탭 → <b>@' +
+      CHANNEL_SEARCH_ID +
+      '</b> → 1:1 채팅</li>' +
+      '<li>채널이 없으면 @' +
+      CHANNEL_SEARCH_ID +
+      ' 검색 후 친구 추가</li>' +
+      '</ul>' +
+      '<div id="cbiseo-kakao-chat-guide-actions">' +
+      '<a href="' +
+      CHANNEL_HOME_URL +
+      '" target="_blank" rel="noopener noreferrer">채널 홈 열기</a>' +
+      '<button type="button" data-close-guide>닫기</button>' +
+      '</div>';
+    box.querySelector('[data-close-guide]').addEventListener('click', dismissChatGuide);
+    document.body.appendChild(box);
+    window.setTimeout(dismissChatGuide, 15000);
+  }
+
+  /** PC 카카오톡 앱 직접 실행 시도(미설치·미등록 시 무시) */
+  function tryOpenKakaoTalkPcApp() {
+    var schemes = [
+      'kakaotalk://plusfriend/talk/chat/@' + CHANNEL_SEARCH_ID,
+      'kakaoplus://plusfriend/talk/chat/@' + CHANNEL_SEARCH_ID,
+      'kakaotalk://plusfriend/talk/chat/' + CHANNEL_PUBLIC_ID,
+    ];
+    var link = document.createElement('a');
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    for (var i = 0; i < schemes.length; i++) {
+      link.href = schemes[i];
+      link.click();
+    }
+    window.setTimeout(function removeDeepLinkAnchor() {
+      link.remove();
+    }, 0);
+  }
+
+  function openChatViaSdk() {
     tryInitKakaoSdk();
     try {
       if (
@@ -133,12 +200,19 @@
         typeof window.Kakao.Channel.chat === 'function'
       ) {
         window.Kakao.Channel.chat({ channelPublicId: CHANNEL_PUBLIC_ID });
-        return;
+        return true;
       }
     } catch (_e) {
       /* fallback below */
     }
     window.open(CHAT_FALLBACK_URL, '_blank', 'noopener,noreferrer');
+    return false;
+  }
+
+  function openChat() {
+    showChatGuide();
+    tryOpenKakaoTalkPcApp();
+    window.setTimeout(openChatViaSdk, 400);
   }
 
   function bindPointer(el) {
