@@ -4,28 +4,25 @@
         <item name="colorPrimary">#121828</item>
         <item name="colorPrimaryVariant">#121828</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="android:statusBarColor">#121828</item>
-        <item name="android:navigationBarColor">#FFFFFF</item>
+        <!-- edge-to-edge: enableEdgeToEdge() + SystemBarStyle — solid bar color 금지 (API 35+ deprecated) -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
     </style>
 
     <style name="Theme.CbiseoApp.Splash" parent="Theme.CbiseoApp">
         <item name="android:windowBackground">@drawable/splash_window_layer</item>
-        <item name="android:statusBarColor">@color/splash_window_bg</item>
-        <item name="android:navigationBarColor">@color/splash_window_bg</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="Theme.CbiseoApp.SplashContent" parent="Theme.CbiseoApp">
         <item name="android:windowBackground">@drawable/splash_window_layer</item>
-        <item name="android:statusBarColor">@color/splash_window_bg</item>
-        <item name="android:navigationBarColor">@color/splash_window_bg</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="Theme.CbiseoApp.Onboarding" parent="Theme.CbiseoApp">
         <item name="android:windowBackground">@color/onboarding_bg</item>
-        <item name="android:statusBarColor">@color/onboarding_bg</item>
-        <item name="android:navigationBarColor">@color/onboarding_bg</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
@@ -49,8 +46,10 @@
         <item name="android:windowBackground">@drawable/login_background</item>
         <item name="android:colorBackground">@android:color/transparent</item>
         <item name="colorSurface">@android:color/transparent</item>
-        <item name="android:statusBarColor">#B8D9F2</item>
-        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

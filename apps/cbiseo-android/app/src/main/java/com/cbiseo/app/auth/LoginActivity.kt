@@ -52,7 +52,7 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        StaffWindowInsets.apply(this, binding.root, binding.loginWebView) { px ->
+        StaffWindowInsets.applyLogin(this, binding.root, binding.loginWebView) { px ->
             navBarBottomPx = px
         }
 

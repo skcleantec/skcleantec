@@ -35,7 +35,7 @@ android {
         applicationId = "com.cbiseo.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 27
+        versionCode = 28
         versionName = "1.0.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
@@ -91,6 +91,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.viewpager2:viewpager2:1.1.0")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.core:core-splashscreen:1.0.1")

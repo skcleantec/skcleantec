@@ -86,7 +86,7 @@ class StaffWebActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityStaffWebBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        StaffWindowInsets.apply(this, binding.root, binding.staffWebView) { px ->
+        StaffWindowInsets.applyStaffWeb(this, binding.root, binding.staffWebView) { px ->
             systemBarsBottomPx = px
         }
         pendingPushPath = StaffPushIntentExtras.pushPathFrom(intent)

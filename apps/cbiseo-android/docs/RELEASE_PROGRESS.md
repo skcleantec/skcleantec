@@ -7,18 +7,15 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-08-25)
+## 현재 상태 (최종 갱신: 2026-08-28)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 25 |
+| **최신 versionCode** | 28 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 내부 테스트** | **진행 중** — pyo/pyo2 스테이징 · 배정·일정·금액·취소 FCM |
-| **FCM 발송** | 코드 ✅ · Firebase Console·Railway **설정 대기** |
-| **WebView 셸** | Phase 1 ✅ |
-| **Google 로그인** | 앱 WebView GSI ❌ → **네이티브 Sign-In** ✅ (Phase 8) |
-| **카카오 로그인** | WebView redirect ✅ |
+| **Play 프로덕션** | v25 출시 완료 · v28 edge-to-edge AAB 빌드 대기 |
+| **Play 경고** | v25 「더 넓은 화면」·지원 중단 API → v28 `enableEdgeToEdge` 대응 |
 
 ---
 

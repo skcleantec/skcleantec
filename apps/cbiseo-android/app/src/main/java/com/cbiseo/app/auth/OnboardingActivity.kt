@@ -12,6 +12,7 @@ import com.cbiseo.app.databinding.ActivityOnboardingBinding
 import com.cbiseo.app.push.StaffFcmRegistrar
 import com.cbiseo.app.push.StaffPushIntentExtras
 import com.cbiseo.app.session.StaffRoleResolver
+import com.cbiseo.app.ui.CbiseoEdgeToEdge
 import com.cbiseo.app.web.StaffWebActivity
 import kotlin.math.roundToInt
 
@@ -43,8 +44,10 @@ class OnboardingActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CbiseoEdgeToEdge.enableSplashOrOnboarding(this)
         binding = ActivityOnboardingBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        CbiseoEdgeToEdge.applyPaddingInsets(binding.onboardingFooter, applyBottom = true)
 
         val adapter = OnboardingSlideAdapter(slides)
         binding.onboardingPager.adapter = adapter

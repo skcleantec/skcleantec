@@ -12,6 +12,7 @@ import com.cbiseo.app.push.StaffFcmRegistrar
 import com.cbiseo.app.push.StaffPushIntentExtras
 import com.cbiseo.app.push.StaffNotificationPermission
 import com.cbiseo.app.session.StaffRoleResolver
+import com.cbiseo.app.ui.CbiseoEdgeToEdge
 import com.cbiseo.app.web.StaffWebActivity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -37,6 +38,7 @@ class SplashActivity : AppCompatActivity() {
             provider.remove()
         }
         super.onCreate(savedInstanceState)
+        CbiseoEdgeToEdge.enableSplashOrOnboarding(this)
         setContentView(R.layout.activity_splash)
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
