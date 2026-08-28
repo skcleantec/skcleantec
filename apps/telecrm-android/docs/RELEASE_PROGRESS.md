@@ -57,7 +57,7 @@
 |------|------|
 | **Play 트랙** | **공개 테스트** — v19(`REQUEST_INSTALL_PACKAGES`) 대체 |
 | **AAB** | `dist/telecrm-play-0.7.9-internal-29.aab` |
-| **SHA256** | (빌드 출력) |
+| **SHA256** | `95ffe55b5bb0e801676824cddadcc5a0de17ccdbe5d9205fedadc33a9761e489` |
 | **Git** | — |
 | **변경 요약** | targetSdk 36 유지 · `REQUEST_INSTALL_PACKAGES` sideload 전용 manifest · v19 정책 위반 대체 |
 | **검증** | play merged manifest 권한 없음 · AAB 빌드 |
