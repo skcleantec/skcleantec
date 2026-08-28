@@ -102,6 +102,10 @@ export default defineConfig(({ command, mode }) => {
             });
           },
         },
+        '/marketing/kakao-init.js': {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
       },
     },
   };

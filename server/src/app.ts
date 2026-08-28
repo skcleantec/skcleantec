@@ -1,5 +1,6 @@
 import './env.js';
 import express from 'express';
+import { getKakaoJavaScriptKey } from './lib/kakaoJsKey.js';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -338,6 +339,12 @@ if (clientDir) {
         res.type('json').send(marketingSlotsStateJson);
       });
     }
+    app.get('/marketing/kakao-init.js', (_req, res) => {
+      const key = getKakaoJavaScriptKey();
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.type('application/javascript');
+      res.send(`window.__CBISEO_KAKAO_JS_KEY__=${JSON.stringify(key)};`);
+    });
     app.use(
       '/marketing',
       express.static(marketingDir, {
