@@ -30,7 +30,7 @@
 | 패키지 | `com.skcleantec.telecrm.internal` | **`com.cbiseo.marketer`** |
 | Gradle flavor | `sideload` (`assembleSideloadRelease`) | **`play`** (`bundlePlayRelease`) |
 | APK 자동 업데이트 | `/api/public/telecrm-app/manifest` | **없음** (Play Store) |
-| `REQUEST_INSTALL_PACKAGES` | sideload APK에 포함 | **Play AAB에서 제거** (`app/src/play/AndroidManifest.xml`) |
+| `REQUEST_INSTALL_PACKAGES` | sideload APK에 포함 (`app/src/sideload/AndroidManifest.xml`) | **Play AAB에 없음** (main manifest 미포함) |
 | 표시명 | 청소비서 전화 | **청소비서(마케터)** |
 | 덮어쓰기 | — | **불가** (패키지가 다름 → 기존 앱 삭제 후 새로 설치) |
 
@@ -48,7 +48,7 @@ Play 등록 **전**에 Gradle `applicationId`를 `com.cbiseo.marketer`로 맞춘
 
 ## 3. AAB 빌드 · 업로드
 
-Play 배포본은 **`play` product flavor** 로 빌드합니다. sideload APK 자동 업데이트·`REQUEST_INSTALL_PACKAGES` 권한은 **Play AAB에 포함되지 않습니다** (업데이트는 Play Store).
+Play 배포본은 **`play` product flavor** 로 빌드합니다. sideload APK 자동 업데이트·`REQUEST_INSTALL_PACKAGES` 권한은 **Play AAB에 포함되지 않습니다** (`sideload` flavor manifest 전용).
 
 ```powershell
 cd apps\telecrm-android

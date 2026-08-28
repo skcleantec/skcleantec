@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <!-- Play 배포본: sideload APK 자동 설치 권한 제거 (업데이트는 Play Store) -->
-    <uses-permission
-        android:name="android.permission.REQUEST_INSTALL_PACKAGES"
-        tools:node="remove" />
-</manifest>
