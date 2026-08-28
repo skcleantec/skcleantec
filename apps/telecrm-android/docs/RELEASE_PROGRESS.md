@@ -11,11 +11,12 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 28 |
-| **최신 versionName** | `0.7.8-internal` |
+| **최신 versionCode** | 29 |
+| **최신 versionName** | `0.7.9-internal` |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
+| **Play 공개 테스트** | v29 AAB · v19 대체 업로드 대기 |
 | **Play 내부 테스트** | v25 (`0.7.5-internal`) 업로드됨 |
-| **Play 비공개 테스트** | v28 AAB 빌드 · Play 업로드 대기 |
+| **Play 비공개 테스트** | v28 이전 · v29로 통합 권장 |
 | **Play 프로덕션** | 미출시 |
 | **sideload (`/telecrm-app`)** | `sideload` flavor · v27 유지 (Railway 미갱신) |
 
@@ -49,6 +50,20 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v29 · `0.7.9-internal` — 2026-08-28
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | **공개 테스트** — v19(`REQUEST_INSTALL_PACKAGES`) 대체 |
+| **AAB** | `dist/telecrm-play-0.7.9-internal-29.aab` |
+| **SHA256** | (빌드 출력) |
+| **Git** | — |
+| **변경 요약** | targetSdk 36 유지 · `REQUEST_INSTALL_PACKAGES` sideload 전용 manifest · v19 정책 위반 대체 |
+| **검증** | play merged manifest 권한 없음 · AAB 빌드 |
+| **메모** | 공개 테스트 트랙에서 v19 제거 후 v29만 출시 |
+
+---
 
 ### v28 · `0.7.8-internal` — 2026-08-28
 
