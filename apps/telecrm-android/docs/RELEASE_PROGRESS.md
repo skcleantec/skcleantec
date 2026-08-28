@@ -7,16 +7,17 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-08-20)
+## 현재 상태 (최종 갱신: 2026-08-28)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 27 |
-| **최신 versionName** | `0.7.7-internal` |
+| **최신 versionCode** | 28 |
+| **최신 versionName** | `0.7.8-internal` |
+| **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **Play 내부 테스트** | v25 (`0.7.5-internal`) 업로드됨 |
-| **Play 비공개 테스트** | v27 AAB 빌드 완료 · 업로드 대기 |
+| **Play 비공개 테스트** | v28 AAB 빌드 · Play 업로드 대기 |
 | **Play 프로덕션** | 미출시 |
-| **sideload (`/telecrm-app`)** | `sideload` flavor · 레거시 패키지와 별도 |
+| **sideload (`/telecrm-app`)** | `sideload` flavor · v27 유지 (Railway 미갱신) |
 
 ---
 
@@ -48,6 +49,20 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v28 · `0.7.8-internal` — 2026-08-28
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | **비공개 테스트** 업로드용 · targetSdk 36 (Android 16) |
+| **AAB** | `dist/telecrm-play-0.7.8-internal-28.aab` |
+| **SHA256** | `d0160a2309149fc2a46780b5ab055e00356394f6ed9e98d9d1fceec1c08ce52e` |
+| **Git** | — |
+| **변경 요약** | `compileSdk`/`targetSdk` 35→36 · Play API 정책(2026-08-31) 대응 · 기능 변경 없음 |
+| **검증** | AAB 빌드 성공 · Play Console target API 경고 해소 목표 |
+| **메모** | sideload Railway `TELECRM_APP_*`는 v27 유지 (Play 전용 bump) |
+
+---
 
 ### v27 · `0.7.7-internal` — 2026-08-20
 

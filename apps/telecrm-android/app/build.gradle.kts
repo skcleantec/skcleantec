@@ -5,6 +5,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Windows — repo 내 app/build 잠금(Defender·동기화·IDE) 회피
+if (System.getProperty("os.name").contains("Windows", ignoreCase = true)) {
+    System.getenv("LOCALAPPDATA")?.let { localAppData ->
+        layout.buildDirectory.set(file("$localAppData/TelecrmAndroidBuild/app"))
+    }
+}
+
 val localProps = Properties()
 val localFile = rootProject.file("local.properties")
 if (localFile.exists()) {
@@ -22,14 +29,14 @@ val apiBaseUrl =
 
 android {
     namespace = "com.skcleantec.telecrm"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.cbiseo.marketer"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 27
-        versionName = "0.7.7-internal"
+        targetSdk = 36
+        versionCode = 28
+        versionName = "0.7.8-internal"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "ADMIN_TOKEN_KEY", "\"sk_admin_token\"")
     }

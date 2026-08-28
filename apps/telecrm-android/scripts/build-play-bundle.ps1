@@ -37,7 +37,9 @@ Write-Host 'Tip: Close Android Studio if clean/build fails (file lock).' -Foregr
 & .\gradlew.bat bundlePlayRelease --no-daemon
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$src = Join-Path $Root 'app\build\outputs\bundle\playRelease\app-play-release.aab'
+$src = (Join-Path $PSScriptRoot 'build-paths.ps1')
+. $src
+$src = Get-TelecrmPlayReleaseAabPath
 if (-not (Test-Path $src)) {
     throw "AAB not found: $src"
 }
