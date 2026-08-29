@@ -17,7 +17,7 @@
 | **Play 프로덕션** | v25 출시 완료 · **v30 AAB** 빌드 → Console 업로드 대기 |
 | **Play 경고** | v28 edge-to-edge + v30 Material 1.14.0·테마 bar color attr 제거 |
 | **최신 AAB** | `dist/cbiseo-play-1.0.0-30.aab` |
-| **AAB SHA256** | _(빌드 후 `Get-FileHash`로 갱신)_ |
+| **AAB SHA256** | `5a0772a2cfeae19352204b5849ef13302f55639d32551e20582ad8d7c1fb9098` |
 
 ---
 
@@ -29,7 +29,7 @@
 |------|------|
 | **범위** | v26~29 누적 + **WebView 배너 캐시 무력화**(`LOAD_NO_CACHE`·앱 재개 시 배너 재조회) · Material **1.14.0** · 테마 deprecated bar color attr 제거 |
 | **Play** | v25 대비 — edge-to-edge · FCM 로그아웃 정리 · 해피콜 팀장 전용 · 대시보드 홍보배너 갱신 |
-| **AAB** | `dist/cbiseo-play-1.0.0-30.aab` |
+| **AAB** | `dist/cbiseo-play-1.0.0-30.aab` · SHA256 `5a0772a2cfeae19352204b5849ef13302f55639d32551e20582ad8d7c1fb9098` |
 
 ### v1.0.0 (versionCode 29) — 2026-08-28
 
