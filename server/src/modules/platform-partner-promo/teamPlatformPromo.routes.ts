@@ -8,12 +8,18 @@ const router = Router();
 /** GET /platform-promos/active — teamAuthMiddleware 이후 마운트 */
 router.get('/platform-promos/active', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  if (user.role !== 'EXTERNAL_PARTNER') {
+  let audience: 'external_partner' | 'tenant_staff' | null = null;
+  if (user.role === 'EXTERNAL_PARTNER') {
+    audience = 'external_partner';
+  } else if (user.role === 'TEAM_LEADER') {
+    audience = 'tenant_staff';
+  }
+  if (!audience) {
     res.json({ items: [] });
     return;
   }
-  const items = await listActivePlatformPromos(prisma, 'external_partner');
-  res.setHeader('Cache-Control', 'private, max-age=60');
+  const items = await listActivePlatformPromos(prisma, audience);
+  res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
   res.json({ items });
 });
 

@@ -26,11 +26,14 @@ function PromoSlide({
   imageUrl,
   className = '',
   edgeToEdge = false,
+  eagerLoad = false,
 }: {
   item: PlatformPromoActiveItem;
   imageUrl: string;
   className?: string;
   edgeToEdge?: boolean;
+  /** 상단 롤링 배너 — WebView·모바일 Safari에서 lazy 미로드 방지 */
+  eagerLoad?: boolean;
 }) {
   const frameClass = edgeToEdge
     ? 'block h-full w-full overflow-hidden'
@@ -41,8 +44,9 @@ function PromoSlide({
       src={imageUrl}
       alt=""
       className={`block h-full w-full object-cover ${className}`}
-      loading="lazy"
+      loading={eagerLoad ? 'eager' : 'lazy'}
       decoding="async"
+      {...(eagerLoad ? { fetchPriority: 'high' as const } : {})}
     />
   );
 
@@ -128,6 +132,7 @@ function PlatformPromoSlider({
                 item={item}
                 imageUrl={platformPromoBannerImageUrl(item)}
                 edgeToEdge
+                eagerLoad
               />
             </div>
           ))}

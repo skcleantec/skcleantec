@@ -78,6 +78,7 @@ function toLocalInput(iso: string | null): string {
 }
 
 function formFromItem(item: PlatformPromoAdminItem): FormState {
+  const showDevices = item.showOnMobile && item.showOnDesktop;
   return {
     title: item.title,
     imageUrl: platformPromoBannerImageUrl(item),
@@ -87,8 +88,8 @@ function formFromItem(item: PlatformPromoAdminItem): FormState {
     endsAt: toLocalInput(item.endsAt),
     noPeriodLimit: !item.endsAt,
     isActive: item.isActive,
-    showOnMobile: item.showOnMobile,
-    showOnDesktop: item.showOnDesktop,
+    showOnMobile: showDevices || item.showOnMobile || item.showOnDesktop,
+    showOnDesktop: showDevices || item.showOnMobile || item.showOnDesktop,
     showToExternalPartner: item.showToExternalPartner,
     showToTenantStaff: item.showToTenantStaff,
     showOnTeamDashboard: item.showOnTeamDashboard !== false,
@@ -119,7 +120,7 @@ function formToBody(form: FormState): PlatformPromoUpsertBody {
     endsAt: form.noPeriodLimit ? null : toIsoOrNull(form.endsAt),
     isActive: form.isActive,
     showOnMobile: form.showOnMobile,
-    showOnDesktop: form.showOnDesktop,
+    showOnDesktop: form.showOnMobile,
     showToExternalPartner: form.showToExternalPartner,
     showToTenantStaff: form.showToTenantStaff,
     showOnTeamDashboard: form.showOnTeamDashboard,
@@ -601,18 +602,19 @@ export function PlatformPartnerPromoSettingsPage() {
                   <input
                     type="checkbox"
                     checked={form.showOnMobile}
-                    onChange={(e) => setForm((f) => ({ ...f, showOnMobile: e.target.checked }))}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        showOnMobile: e.target.checked,
+                        showOnDesktop: e.target.checked,
+                      }))
+                    }
                   />
-                  모바일 (롤링 배너)
+                  모바일·PC (동일 배너 — 롤링·대시보드)
                 </label>
-                <label className="flex items-center gap-2 text-fluid-xs">
-                  <input
-                    type="checkbox"
-                    checked={form.showOnDesktop}
-                    onChange={(e) => setForm((f) => ({ ...f, showOnDesktop: e.target.checked }))}
-                  />
-                  PC (가로형 5:2 — 타업체·테넌트 대시보드)
-                </label>
+                <p className="text-[12px] leading-relaxed text-slate-500">
+                  이미지는 한 장만 올리며, 모바일 상단 롤링과 PC 대시보드에 같이 노출됩니다.
+                </p>
                 <label className="flex items-center gap-2 text-fluid-xs">
                   <input
                     type="checkbox"

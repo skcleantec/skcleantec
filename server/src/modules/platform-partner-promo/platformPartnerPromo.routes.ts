@@ -155,7 +155,7 @@ router.post('/', async (req, res) => {
         endsAt,
         isActive: parseBool(req.body?.isActive, true),
         showOnMobile: parseBool(req.body?.showOnMobile, true),
-        showOnDesktop: parseBool(req.body?.showOnDesktop, true),
+        showOnDesktop: parseBool(req.body?.showOnDesktop, parseBool(req.body?.showOnMobile, true)),
         showToExternalPartner: parseBool(req.body?.showToExternalPartner, true),
         showToTenantStaff: parseBool(req.body?.showToTenantStaff, false),
         showOnTeamDashboard: parseBool(req.body?.showOnTeamDashboard, true),
@@ -195,6 +195,12 @@ router.patch('/:id', async (req, res) => {
       });
       data.mobileImageUrl = urls.mobileImageUrl;
       data.desktopImageUrl = urls.desktopImageUrl;
+      if (urls.mobileImageUrl.trim() && !urls.desktopImageUrl.trim()) {
+        data.desktopImageUrl = urls.mobileImageUrl;
+      }
+      if (urls.desktopImageUrl.trim() && !urls.mobileImageUrl.trim()) {
+        data.mobileImageUrl = urls.desktopImageUrl;
+      }
     }
     if (req.body?.linkUrl !== undefined) data.linkUrl = parsePromoLinkUrl(req.body.linkUrl);
     if (req.body?.linkTarget !== undefined) data.linkTarget = parsePromoLinkTarget(req.body.linkTarget);
@@ -202,10 +208,13 @@ router.patch('/:id', async (req, res) => {
     if (req.body?.endsAt !== undefined) data.endsAt = parseOptionalDate(req.body.endsAt);
     if (req.body?.isActive !== undefined) data.isActive = parseBool(req.body.isActive, existing.isActive);
     if (req.body?.showOnMobile !== undefined) {
-      data.showOnMobile = parseBool(req.body.showOnMobile, existing.showOnMobile);
-    }
-    if (req.body?.showOnDesktop !== undefined) {
-      data.showOnDesktop = parseBool(req.body.showOnDesktop, existing.showOnDesktop);
+      const show = parseBool(req.body.showOnMobile, existing.showOnMobile);
+      data.showOnMobile = show;
+      data.showOnDesktop = show;
+    } else if (req.body?.showOnDesktop !== undefined) {
+      const show = parseBool(req.body.showOnDesktop, existing.showOnDesktop);
+      data.showOnMobile = show;
+      data.showOnDesktop = show;
     }
     if (req.body?.showToExternalPartner !== undefined) {
       data.showToExternalPartner = parseBool(req.body.showToExternalPartner, existing.showToExternalPartner);

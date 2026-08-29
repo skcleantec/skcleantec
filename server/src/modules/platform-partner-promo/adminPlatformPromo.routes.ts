@@ -13,7 +13,7 @@ router.get('/active', authMiddleware, async (req, res) => {
     return;
   }
   const items = await listActivePlatformPromos(prisma, 'tenant_staff');
-  res.setHeader('Cache-Control', 'private, max-age=60');
+  res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
   res.json({ items });
 });
 

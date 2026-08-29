@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useVisibilityInterval } from './useVisibilityInterval';
 import {
   fetchAdminActivePlatformPromos,
   fetchTeamActivePlatformPromos,
@@ -32,6 +33,9 @@ export function usePlatformPromos(surface: 'admin' | 'team', teamPreviewSearch =
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  /** 플랫폼 배너 변경 후 탭 복귀·WebView 전환 시 목록 재조회 (API private cache 60s 보완) */
+  useVisibilityInterval(refresh, 45_000);
 
   return { items, loading, refresh };
 }

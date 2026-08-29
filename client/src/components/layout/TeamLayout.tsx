@@ -660,6 +660,8 @@ export function TeamLayout() {
   );
   const teamMobilePromos = useMemo(() => filterPromosForMobile(teamPromoForPage), [teamPromoForPage]);
   const teamDesktopPromos = useMemo(() => filterPromosForDesktop(teamPromoForPage), [teamPromoForPage]);
+  const showTeamPlatformPromoBanners =
+    isExternalPartner || userRole === 'TEAM_LEADER' || previewTeamLeader;
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
   const showDbMarketplace =
     isExternalPartner && Boolean(tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace'));
@@ -967,12 +969,12 @@ export function TeamLayout() {
       <main
         className={`staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-3 sm:px-4 lg:px-5 lg:pr-12 py-2 sm:py-3 lg:py-4 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0 ${TEAM_MOBILE_BOTTOM_NAV_MAIN_SCROLL_PB}`}
       >
-        {isExternalPartner && teamMobilePromos.length > 0 ? (
+        {showTeamPlatformPromoBanners && teamMobilePromos.length > 0 ? (
           <div className="mb-2 w-full min-w-0 shrink-0 sm:mb-3 lg:hidden">
             <PlatformPromoCarousel items={teamMobilePromos} />
           </div>
         ) : null}
-        {isExternalPartner && teamDesktopPromos.length > 0 ? (
+        {showTeamPlatformPromoBanners && teamDesktopPromos.length > 0 ? (
           <div className="mb-3 hidden w-full min-w-0 shrink-0 sm:mb-4 lg:block">
             <PlatformPromoDashboardCard items={teamDesktopPromos} layout="banner" />
           </div>

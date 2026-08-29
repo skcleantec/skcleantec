@@ -34,7 +34,9 @@ export type PlatformPromoImageFields = {
 
 /** 저장소에 mobile/desktop 두 칸이 있어도 표시·업로드는 하나의 URL로 통일 */
 export function platformPromoBannerImageUrl(item: PlatformPromoImageFields): string {
-  return (item.mobileImageUrl ?? item.desktopImageUrl ?? '').trim();
+  const mobile = item.mobileImageUrl?.trim();
+  const desktop = item.desktopImageUrl?.trim();
+  return mobile || desktop || '';
 }
 
 export function platformPromoHasBannerImage(item: PlatformPromoImageFields): boolean {

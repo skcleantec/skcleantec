@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardStats, getDashboardInquiryBreakdown, type DashboardStats, type DashboardInquiryBreakdown } from '../../api/dashboard';
 import { getToken } from '../../stores/auth';
@@ -15,7 +15,7 @@ import {
 import type { DashboardDrillKind, DashboardDrillRequest } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 import { kstMonthKeyNow } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 import { useTelecrmDashboardVisible } from '../../hooks/useTelecrmDashboardVisible';
-import { usePlatformPromos } from '../../hooks/usePlatformPromos';
+import { usePlatformPromos, filterPromosForMobile, filterPromosForDesktop } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../../components/platformPromo/PlatformPromoDisplay';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 
@@ -25,6 +25,8 @@ export function AdminDashboardPage() {
   const { tenantName } = useAdminStaffSession();
   const showTelecrmDashboard = useTelecrmDashboardVisible();
   const { items: promoItems } = usePlatformPromos('admin');
+  const mobilePromoItems = useMemo(() => filterPromosForMobile(promoItems), [promoItems]);
+  const desktopPromoItems = useMemo(() => filterPromosForDesktop(promoItems), [promoItems]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [breakdown, setBreakdown] = useState<DashboardInquiryBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,7 +136,7 @@ export function AdminDashboardPage() {
 
       {/* 모바일 — 기존 세로 순서 유지 */}
       <div className="lg:hidden space-y-4">
-        {promoItems.length > 0 ? <PlatformPromoCarousel items={promoItems} /> : null}
+        {mobilePromoItems.length > 0 ? <PlatformPromoCarousel items={mobilePromoItems} /> : null}
         <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
         <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />
         <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} compact />
@@ -150,8 +152,8 @@ export function AdminDashboardPage() {
           {salesAnalytics}
         </div>
         <aside className="min-w-0 self-start space-y-5">
-          {promoItems.length > 0 ? (
-            <PlatformPromoDashboardCard items={promoItems} layout="banner" />
+          {desktopPromoItems.length > 0 ? (
+            <PlatformPromoDashboardCard items={desktopPromoItems} layout="banner" />
           ) : null}
           <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
           {token ? <DashboardChangeHistory token={token} variant="sidebar" /> : null}
