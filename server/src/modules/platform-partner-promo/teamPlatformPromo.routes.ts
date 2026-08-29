@@ -19,7 +19,9 @@ router.get('/platform-promos/active', async (req, res) => {
     return;
   }
   const items = await listActivePlatformPromos(prisma, audience);
-  res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
+  res.setHeader('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.json({ items });
 });
 

@@ -189,9 +189,14 @@ export function PlatformPromoCarousel({ items }: { items: PlatformPromoActiveIte
     () => items.filter((item) => item.showOnMobile && platformPromoHasBannerImage(item)),
     [items],
   );
+  const slideKey = useMemo(
+    () => slides.map((s) => `${s.id}:${s.updatedAt ?? ''}:${platformPromoBannerImageUrl(s)}`).join('|'),
+    [slides],
+  );
 
   return (
     <PlatformPromoSlider
+      key={slideKey}
       slides={slides}
       frameClass="relative aspect-[5/2] w-full min-w-0 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/80"
     />
@@ -210,11 +215,15 @@ export function PlatformPromoDashboardCard({
     () => items.filter((item) => item.showOnDesktop && platformPromoHasBannerImage(item)),
     [items],
   );
+  const slideKey = useMemo(
+    () => slides.map((s) => `${s.id}:${s.updatedAt ?? ''}:${platformPromoBannerImageUrl(s)}`).join('|'),
+    [slides],
+  );
 
   const frameClass =
     layout === 'banner'
       ? 'relative aspect-[5/2] w-full overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80'
       : 'relative aspect-square w-full max-w-[220px] overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80';
 
-  return <PlatformPromoSlider slides={slides} frameClass={frameClass} />;
+  return <PlatformPromoSlider key={slideKey} slides={slides} frameClass={frameClass} />;
 }

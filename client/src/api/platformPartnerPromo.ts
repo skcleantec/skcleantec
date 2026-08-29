@@ -26,6 +26,11 @@ export type PlatformPromoActiveItem = {
 
 const PROMO_FETCH: RequestInit = { cache: 'no-store' };
 
+function withPromoCacheBust(url: string): string {
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}cb=${Date.now()}`;
+}
+
 export type PlatformPromoAdminItem = PlatformPromoActiveItem & {
   title: string;
   startsAt: string | null;
@@ -183,7 +188,7 @@ export async function uploadPlatformPartnerPromoImage(file: File): Promise<strin
 export async function fetchAdminActivePlatformPromos(): Promise<PlatformPromoActiveItem[]> {
   const token = getToken();
   if (!token) return [];
-  const res = await fetch(`${API}/admin/platform-promos/active`, {
+  const res = await fetch(withPromoCacheBust(`${API}/admin/platform-promos/active`), {
     ...PROMO_FETCH,
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -196,7 +201,7 @@ export async function fetchTeamActivePlatformPromos(search?: string): Promise<Pl
   const token = getTeamToken();
   if (!token) return [];
   const url = withTeamPreviewQuery(`${API}/team/platform-promos/active`, search);
-  const res = await fetch(url, {
+  const res = await fetch(withPromoCacheBust(url), {
     ...PROMO_FETCH,
     headers: { Authorization: `Bearer ${token}` },
   });

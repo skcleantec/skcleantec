@@ -10,6 +10,7 @@ import android.provider.Settings
 import android.widget.Toast
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.result.contract.ActivityResultContracts
@@ -130,6 +131,8 @@ class StaffWebActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
+        /** SPA fetch·이미지 — WebView HTTP 캐시로 배너 등 API가 오래 남는 문제 방지 */
+        webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         webView.addJavascriptInterface(appBridge, "CbiseoApp")
 
         webView.webViewClient = object : WebViewClient() {

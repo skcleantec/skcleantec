@@ -74,15 +74,24 @@ export function usePlatformPromos(surface: 'admin' | 'team', teamPreviewSearch =
 
   useEffect(() => {
     const onExternalRefresh = () => void refresh();
+    const onSurfaceVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
     window.addEventListener('cbiseo:inbox-refresh', onExternalRefresh);
     window.addEventListener('cbiseo:staff-resume', onExternalRefresh);
+    window.addEventListener('focus', onExternalRefresh);
+    window.addEventListener('pageshow', onExternalRefresh);
+    document.addEventListener('visibilitychange', onSurfaceVisible);
     return () => {
       window.removeEventListener('cbiseo:inbox-refresh', onExternalRefresh);
       window.removeEventListener('cbiseo:staff-resume', onExternalRefresh);
+      window.removeEventListener('focus', onExternalRefresh);
+      window.removeEventListener('pageshow', onExternalRefresh);
+      document.removeEventListener('visibilitychange', onSurfaceVisible);
     };
   }, [refresh]);
 
-  const pollMs = isCbiseoStaffNativeApp() ? 15_000 : 45_000;
+  const pollMs = isCbiseoStaffNativeApp() ? 8_000 : 45_000;
   useVisibilityInterval(refresh, pollMs);
 
   return { items, loading, refresh };

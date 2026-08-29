@@ -13,7 +13,9 @@ router.get('/active', authMiddleware, async (req, res) => {
     return;
   }
   const items = await listActivePlatformPromos(prisma, 'tenant_staff');
-  res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
+  res.setHeader('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.json({ items });
 });
 
