@@ -63,7 +63,8 @@ export function LoginCredentialsCopySheet({
                 로그인 안내
               </h2>
               <p className="mt-0.5 text-fluid-xs text-gray-500">
-                아래 내용을 복사해 팀장·마케터·타업체 담당자에게 전달하세요.
+                아래 내용을 복사해 팀장·마케터에게 전달하세요. Google Play 앱 설치·로그인·카카오 연결
+                방법이 포함됩니다.
               </p>
             </div>
             <ModalCloseButton onClick={onClose} />
@@ -102,7 +103,14 @@ export function LoginCredentialsCopySheet({
               </section>
             ))}
             <p className="text-fluid-xs leading-relaxed text-gray-500">
-              로그인 후 본인 정보 입력 화면이 나오면 안내에 따라 작성해야 이용할 수 있습니다.
+              {credentials.accountLabel === '팀장' || credentials.accountLabel === '마케터' ? (
+                <>
+                  팀장·마케터는 Google Play 「청소비서」 앱 설치 후 로그인하는 것을 권장합니다. 카카오
+                  연결은 로그인 뒤 프로필 메뉴의 「카카오 계정 연결」에서 할 수 있습니다.
+                </>
+              ) : (
+                <>로그인 후 본인 정보 입력 화면이 나오면 안내에 따라 작성해야 이용할 수 있습니다.</>
+              )}
             </p>
           </div>
         </div>

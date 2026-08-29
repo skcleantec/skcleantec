@@ -1782,7 +1782,7 @@ export function AdminTeamLeadersPage() {
                     type="button"
                     onClick={openEditLoginCopySheet}
                     className="shrink-0 rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-100 active:bg-slate-200"
-                    title="업체 코드·아이디·비밀번호 로그인 안내 복사"
+                    title="Google Play 앱 설치·로그인·카카오 연결 안내 복사"
                   >
                     로그인 안내 복사
                   </button>
@@ -1842,8 +1842,8 @@ export function AdminTeamLeadersPage() {
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
                     <p className="text-fluid-xs font-medium text-gray-800">청소비서 로그인 안내 복사</p>
                     <p className="text-fluid-2xs text-gray-500 leading-snug">
-                      업체 코드·아이디·접속 주소를 카톡 등으로 전달할 때 사용합니다. 비밀번호는 등록 직후·여기서 새로
-                      입력한 경우에만 복사문에 포함됩니다.
+                      Google Play 앱 설치, 업체 코드·아이디·비밀번호, 카카오 계정 연결 방법이 포함됩니다.
+                      비밀번호는 등록 직후·여기서 새로 입력한 경우에만 복사문에 포함됩니다.
                     </p>
                     <button
                       type="button"
