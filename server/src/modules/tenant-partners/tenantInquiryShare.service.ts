@@ -21,6 +21,7 @@ import {
 import { computeMarketplaceServiceBalanceAmount } from '../../lib/dbMarketplaceAmount.js';
 import { clearInternalInquiryAssignments } from '../assignments/clearInternalInquiryAssignments.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { stampTenantShareCancelFeeDirection } from './tenantPartnerSettlement.service.js';
 
 export class TenantInquiryShareError extends Error {
   constructor(
@@ -533,8 +534,11 @@ export async function revokeTenantInquiryShare(opts: {
 
   const targetInquiry = await prisma.inquiry.findFirst({
     where: { id: share.targetInquiryId, tenantId: share.targetTenantId },
-    select: { customerName: true, inquiryNumber: true },
+    select: { customerName: true, inquiryNumber: true, status: true },
   });
+  if (targetInquiry?.status === 'COMPLETED') {
+    throw new TenantInquiryShareError('구매자 측 작업이 완료된 접수는 연계를 취소할 수 없습니다.', 400);
+  }
 
   const partnerName =
     share.partnership.tenantLow.id === opts.viewerTenantId
@@ -551,6 +555,15 @@ export async function revokeTenantInquiryShare(opts: {
       { ...share, syncStatus: 'REVOKED' },
       source,
     );
+    if (targetInquiry && targetInquiry.status !== 'CANCELLED') {
+      await tx.inquiry.update({
+        where: { id: share.targetInquiryId },
+        data: { status: 'CANCELLED' },
+      });
+      await stampTenantShareCancelFeeDirection(tx, share.targetInquiryId);
+    } else if (targetInquiry) {
+      await stampTenantShareCancelFeeDirection(tx, share.targetInquiryId);
+    }
     await tx.inquiryChangeLog.create({
       data: {
         inquiryId: share.sourceInquiryId,
@@ -560,14 +573,28 @@ export async function revokeTenantInquiryShare(opts: {
       },
     });
     if (targetInquiry) {
-      await tx.inquiryChangeLog.create({
-        data: {
-          inquiryId: share.targetInquiryId,
-          customerName: targetInquiry.customerName,
-          actorId: null,
-          lines: [`[파트너연계] ${partnerName}에서 접수 연계가 취소되었습니다. (연계 취소됨)`],
-        },
-      });
+      if (targetInquiry.status !== 'CANCELLED') {
+        await tx.inquiryChangeLog.create({
+          data: {
+            inquiryId: share.targetInquiryId,
+            customerName: targetInquiry.customerName,
+            actorId: null,
+            lines: [
+              `[파트너연계] ${partnerName}에서 접수 연계가 취소되었습니다. (연계 취소됨)`,
+              '연계 취소로 접수가 취소 처리되었습니다.',
+            ],
+          },
+        });
+      } else {
+        await tx.inquiryChangeLog.create({
+          data: {
+            inquiryId: share.targetInquiryId,
+            customerName: targetInquiry.customerName,
+            actorId: null,
+            lines: [`[파트너연계] ${partnerName}에서 접수 연계가 취소되었습니다. (연계 취소됨)`],
+          },
+        });
+      }
     }
   });
 

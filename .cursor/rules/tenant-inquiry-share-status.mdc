@@ -1,0 +1,126 @@
+---
+description: 파트너 접수 연계(TenantInquiryShare) ↔ mirror 접수 status — 연계·취소·정산 불변 규칙 (필수)
+globs: "server/src/modules/tenant-partners/**,server/src/modules/db-marketplace/**,server/src/modules/inquiries/**,client/src/pages/admin/AdminSchedulePage.tsx,client/src/components/admin/TenantInquiryShare*,docs/TENANT_DB_EXCHANGE.md"
+alwaysApply: true
+---
+
+# 파트너 연계 — share 상태 ↔ 접수 status (필수·회귀 금지)
+
+> **배경**: `TenantInquiryShare.syncStatus`만 `REVOKED`로 두고 mirror `Inquiry.status`를 `RECEIVED`로 남기면, 수신 업체 **스케줄 오전·오후에 그대로 노출**되면서 배지만 「연계 취소됨」이 됨 — **멀티테넌트 전체 장애**급.  
+> **단일 기준 문서**: `docs/TENANT_DB_EXCHANGE.md` §3.5 · 본 룰과 **항상 동기화**.
+
+---
+
+## 1) 두 축을 혼동하지 않는다
+
+| 축 | 필드 | 의미 |
+|----|------|------|
+| **연계(share) 상태** | `TenantInquiryShare.syncStatus` | `ACTIVE` · `PAUSED` · `REVOKED` |
+| **접수(inquiry) 상태** | `Inquiry.status` (송신·수신 **각각**) | `RECEIVED` · `CANCELLED` · `COMPLETED` · … |
+
+- **스케줄·오전/오후 목록**은 **`Inquiry.status`만** 본다 (`CANCELLED`·`ON_HOLD` 제외).
+- **「연계 취소됨」 배지**는 **`syncStatus === 'REVOKED'`** 로 그린다.
+- **share만 REVOKED + mirror가 RECEIVED** 조합은 **금지** (버그).
+
+---
+
+## 2) 정상 상태 매트릭스
+
+### 2.1 연계 활성 (`syncStatus = ACTIVE`)
+
+| 쪽 | 접수 | 스케줄·목록 | 정산 |
+|----|------|-------------|------|
+| **송신(source)** | 원청이 운영 (`RECEIVED` 등) | 송신 스케줄에 표시 | `transferFee` 순수수료 집계 |
+| **수신(target mirror)** | 송신과 **동기화** (상태·필드) | 수신 스케줄에 표시 | mirror 잔금 = 총액−예약금−`transferFee` |
+
+- `COMPLETED` / `CANCELLED`는 **양방향 동기화** (`tenantInquirySync`) — 한쪽만 바꾸지 않는다.
+
+### 2.2 연계 취소 (`syncStatus = REVOKED`)
+
+| 쪽 | 접수 status | 스케줄·목록 | 정산 |
+|----|-------------|-------------|------|
+| **송신(source)** | **취소하지 않음** — 원청이 다시 핸들링 | 송신 스케줄·접수 목록 **유지** | share `REVOKED` → **순수수료 0** (`signedShareTransferFee`) |
+| **수신(target mirror)** | **`CANCELLED` 필수** (이미 `COMPLETED`면 취소 API 거부) | **오전·오후·종일 목록에서 제외** → **「취소·보류」** 선반 | `stampTenantShareCancelFeeDirection` → `cancelFeeDirection` 기록 |
+
+**연계 취소 후 기대 UX (수신 업체)**  
+- mirror 접수는 **목록에 남되** `status = CANCELLED` → **취소 구역**  
+- 배지 **「연계 취소됨」** (`TenantInquiryShareBadge`)  
+- **활성 일정(오전/오후)에는 절대 남지 않음**
+
+**연계 취소 후 기대 UX (송신 업체)**  
+- 원본 접수는 **그대로 운영** (배정·스케줄·현장)  
+- share `REVOKED` → 파트너 정산 미수 **0** 방향
+
+### 2.3 일시 중지 (`syncStatus = PAUSED`)
+
+- 신규 sync·share 금지. **접수 status를 자동 `CANCELLED`로 바꾸지 않음** (연계 취소와 다름).
+
+---
+
+## 3) 연계 취소 API — 트랜잭션 체크리스트 (필수)
+
+아래 **네 가지를 한 트랜잭션**에서 처리한다. **하나라도 빠지면 금지.**
+
+1. `tenantInquiryShare.syncStatus` → **`REVOKED`**
+2. `applyMirrorBalanceForShare` — REVOKED 시 mirror **잔금 원청 기준으로 복원**
+3. mirror `Inquiry.status` → **`CANCELLED`** (`COMPLETED`는 사전 거부)
+4. **`stampTenantShareCancelFeeDirection(tx, targetInquiryId)`**
+5. 송신·수신 **변경 이력** + (기존) `notifyTenantShareRevoked`
+
+### 구현 위치 (반드시 동일 패턴)
+
+| 경로 | 파일 |
+|------|------|
+| **접수연계 취소** | `revokeTenantInquiryShare` — `tenantInquiryShare.service.ts` |
+| **정보공유 완전 회수** | `undoPartnerBuyerForListingInTx` — `dbMarketplaceStepRecall.service.ts` |
+
+- **정보공유 CONFIRMED listing**이 붙은 share는 `revoke` **거부** → 「완전 회수」만 사용 (기존 가드 유지).
+- 새 취소·회수 코드를 추가할 때 **위 두 함수 중 하나를 재사용**하거나, **동일 5단계를 복붙하지 말고 공통 helper로 추출**.
+
+---
+
+## 4) UI·스케줄 (클라이언트)
+
+- **활성 일정**: `AdminSchedulePage` — `status !== 'CANCELLED' && status !== 'ON_HOLD'` (`dayList`)
+- **취소·보류 선반**: `shelfInactive` — `CANCELLED` 또는 `ON_HOLD`
+- **`syncStatus === 'REVOKED'`만으로 일정에서 빼지 않는다** — **반드시 mirror `CANCELLED`**.
+- 배지: `TenantInquiryShareBadge` — `REVOKED` → 「연계 취소됨」 (취소 선반에서도 표시 가능)
+
+---
+
+## 5) 정산 (결재)
+
+- **활성 share**: `signedShareTransferFee` — `transferFee` 양수/취소 시 부호 규칙 (`signedExternalSettlementFee` 패턴)
+- **REVOKED share**: 순수수료 **항상 0** (미수 0)
+- **연계 취소 시**: `cancelFeeDirection` **null 금지** — `stampTenantShareCancelFeeDirection` 호출
+- 정보공유 회수 시 **자동 결제(+환불) 생성 금지** — fee ledger `REVERSED`만 (이중 결재 방지)
+
+---
+
+## 6) 변경·PR·배포 체크리스트
+
+1. share를 `REVOKED`로 바꾸는 **모든** 코드 경로에서 mirror **`CANCELLED`** + **`stampTenantShareCancelFeeDirection`** 확인
+2. 송신 원본을 **실수로 `CANCELLED`하지 않았는지** 확인
+3. 스테이징: 연계 → 수신 스케줄 노출 → 취소 → **수신 오전/오후에서 즉시 사라지고 취소 선반으로** 이동
+4. 송신: 취소 후에도 **동일 접수 스케줄·배정 가능**
+5. 파트너 정산: REVOKED 후 **미수 0**, `cancelFeeDirection` 채워짐
+6. 기존 운영 데이터: `scripts/backfill-revoked-share-target-cancelled.ts` — `REVOKED` + mirror ≠ `CANCELLED`/`COMPLETED` 스캔
+
+---
+
+## 7) 금지 (다시 도입하지 않음)
+
+- `revoke` / 회수 시 **share만 REVOKED**하고 mirror **`RECEIVED` 유지**
+- UI에서 **`REVOKED` 배지만으로 “취소된 것처럼”** 보이게 하고 **status는 활성**으로 두기
+- 연계 취소 시 **송신 원본까지 `CANCELLED`**
+- `cancelFeeDirection` 없이 REVOKED만 저장
+- 정보공유 회수와 접수연계 취소 **서로 다른 status 규칙** 적용
+
+---
+
+## 참고
+
+- 스케줄 필터: `client/src/pages/admin/AdminSchedulePage.tsx` (`dayList` / `shelfInactive`)
+- 배지: `client/src/components/admin/TenantInquiryShareBadge.tsx`
+- 정산 fee: `tenantPartnerSettlement.service.ts` — `signedShareTransferFee`, `stampTenantShareCancelFeeDirection`
+- 아키텍처·API: `.cursor/rules/tenant-db-exchange.mdc`, `docs/TENANT_DB_EXCHANGE.md`

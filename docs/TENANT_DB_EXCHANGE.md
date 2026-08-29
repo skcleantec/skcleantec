@@ -90,9 +90,13 @@
 
 ### 3.5 접수 연계 취소(회수)
 
-- 송신 테넌트 `POST /shares/:id/revoke` → `syncStatus = REVOKED`, 정산 fee 0.
-- 수신 mirror 접수는 **목록 유지** + 「연계 취소됨」 배지.
-- 정보공유(마켓) 확정 후 생성된 share도 동일 API로 회수.
+- 송신 `POST /shares/:id/revoke` 또는 정보공유 **완전 회수** → share `syncStatus = REVOKED`.
+- **수신 mirror** `Inquiry.status` → **`CANCELLED`** (이미 `COMPLETED`면 취소·회수 **거부**).
+- **송신 원본**은 **취소하지 않음** — 원청이 다시 핸들링.
+- **`stampTenantShareCancelFeeDirection`** 필수 — `cancelFeeDirection` null 금지.
+- 수신 UI: mirror **목록 유지** + **취소·보류 선반** + 「연계 취소됨」 배지 — **오전·오후 활성 일정에는 미표시**.
+- 정산: REVOKED → 순수수료 **0** (`signedShareTransferFee`).
+- **불변 규칙·체크리스트**: `.cursor/rules/tenant-inquiry-share-status.mdc`
 
 ---
 

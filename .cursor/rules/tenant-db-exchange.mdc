@@ -19,6 +19,7 @@ alwaysApply: false
 3. **수신 접수번호는 독립 채번** — 송신 번호는 스냅샷·배지만.
 4. **정산**: 판매자 = 받을/받은/잔액, 구매자 = 쌓인/지급/잔액 (타업체 `payable` 패턴).
 5. **플랫폼**이 partnership/share **일시 중지** 가능.
+6. **연계 취소(`REVOKED`)** → mirror **`CANCELLED` + 취소 선반 + `cancelFeeDirection`** — 송신 원본은 유지. **상세·체크리스트: `.cursor/rules/tenant-inquiry-share-status.mdc` (alwaysApply)**.
 
 ---
 
