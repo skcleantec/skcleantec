@@ -5,6 +5,9 @@ import {
   fetchTeamActivePlatformPromos,
   type PlatformPromoActiveItem,
 } from '../api/platformPartnerPromo';
+import { subscribeAdminAuth, getToken } from '../stores/auth';
+import { subscribeTeamAuth, getTeamToken } from '../stores/teamAuth';
+import { isCbiseoStaffNativeApp } from '../utils/cbiseoNativeApp';
 import {
   platformPromoTeamMenuFromPath,
   promoVisibleOnTeamMenu,
@@ -16,6 +19,10 @@ export function usePlatformPromos(surface: 'admin' | 'team', teamPreviewSearch =
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    const hasAuth =
+      surface === 'admin' ? Boolean(getToken()) : Boolean(getTeamToken());
+    if (!hasAuth) return;
+
     setLoading(true);
     try {
       const rows =
@@ -34,8 +41,49 @@ export function usePlatformPromos(surface: 'admin' | 'team', teamPreviewSearch =
     void refresh();
   }, [refresh]);
 
-  /** 플랫폼 배너 변경 후 탭 복귀·WebView 전환 시 목록 재조회 (API private cache 60s 보완) */
-  useVisibilityInterval(refresh, 45_000);
+  /** Android WebView — native localStorage 주입이 fetch보다 늦을 수 있음 */
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+    const id = window.setInterval(() => {
+      if (cancelled || attempts >= 20) {
+        clearInterval(id);
+        return;
+      }
+      attempts += 1;
+      const hasAuth =
+        surface === 'admin' ? Boolean(getToken()) : Boolean(getTeamToken());
+      if (hasAuth) {
+        void refresh();
+        clearInterval(id);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [surface, refresh]);
+
+  useEffect(() => {
+    const unsub =
+      surface === 'admin'
+        ? subscribeAdminAuth(() => void refresh())
+        : subscribeTeamAuth(() => void refresh());
+    return unsub;
+  }, [surface, refresh]);
+
+  useEffect(() => {
+    const onExternalRefresh = () => void refresh();
+    window.addEventListener('cbiseo:inbox-refresh', onExternalRefresh);
+    window.addEventListener('cbiseo:staff-resume', onExternalRefresh);
+    return () => {
+      window.removeEventListener('cbiseo:inbox-refresh', onExternalRefresh);
+      window.removeEventListener('cbiseo:staff-resume', onExternalRefresh);
+    };
+  }, [refresh]);
+
+  const pollMs = isCbiseoStaffNativeApp() ? 15_000 : 45_000;
+  useVisibilityInterval(refresh, pollMs);
 
   return { items, loading, refresh };
 }
@@ -63,4 +111,13 @@ export function filterPromosForTeamPath(items: PlatformPromoActiveItem[], pathna
   const menu = platformPromoTeamMenuFromPath(pathname);
   if (!menu) return [];
   return filterPromosForTeamMenu(items, menu);
+}
+
+/** 자사 팀장 앱 — 테넌트 스태프 배너는 /team/dashboard 에서 타업체 메뉴 플래그 없이 노출 */
+export function filterPromosForTeamLeaderPath(
+  items: PlatformPromoActiveItem[],
+  pathname: string,
+): PlatformPromoActiveItem[] {
+  if (pathname === '/team/dashboard') return items;
+  return [];
 }

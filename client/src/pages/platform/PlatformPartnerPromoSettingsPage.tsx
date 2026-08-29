@@ -570,7 +570,7 @@ export function PlatformPartnerPromoSettingsPage() {
                     checked={form.showToTenantStaff}
                     onChange={(e) => setForm((f) => ({ ...f, showToTenantStaff: e.target.checked }))}
                   />
-                  테넌트 대시보드 (/admin/dashboard)
+                  테넌트 (관리 대시보드·팀장 앱 /admin · /team/dashboard)
                 </label>
               </fieldset>
               <fieldset className="space-y-2">

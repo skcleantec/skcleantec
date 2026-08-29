@@ -15,6 +15,7 @@ export type PlatformPromoActiveDto = {
   showOnTeamDashboard: boolean;
   showOnTeamAssignments: boolean;
   showOnTeamSchedule: boolean;
+  updatedAt: string;
 };
 
 export type PlatformPromoAdminDto = PlatformPromoActiveDto & {
@@ -82,6 +83,7 @@ export function serializeActivePromo(row: PlatformPartnerPromo): PlatformPromoAc
     showOnTeamDashboard: row.showOnTeamDashboard,
     showOnTeamAssignments: row.showOnTeamAssignments,
     showOnTeamSchedule: row.showOnTeamSchedule,
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 

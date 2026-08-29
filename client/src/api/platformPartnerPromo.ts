@@ -21,7 +21,10 @@ export type PlatformPromoActiveItem = {
   showOnTeamDashboard?: boolean;
   showOnTeamAssignments?: boolean;
   showOnTeamSchedule?: boolean;
+  updatedAt?: string;
 };
+
+const PROMO_FETCH: RequestInit = { cache: 'no-store' };
 
 export type PlatformPromoAdminItem = PlatformPromoActiveItem & {
   title: string;
@@ -181,6 +184,7 @@ export async function fetchAdminActivePlatformPromos(): Promise<PlatformPromoAct
   const token = getToken();
   if (!token) return [];
   const res = await fetch(`${API}/admin/platform-promos/active`, {
+    ...PROMO_FETCH,
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return [];
@@ -193,6 +197,7 @@ export async function fetchTeamActivePlatformPromos(search?: string): Promise<Pl
   if (!token) return [];
   const url = withTeamPreviewQuery(`${API}/team/platform-promos/active`, search);
   const res = await fetch(url, {
+    ...PROMO_FETCH,
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return [];

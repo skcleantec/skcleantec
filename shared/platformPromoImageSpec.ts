@@ -30,13 +30,20 @@ export function platformPromoImageHint(spec: {
 export type PlatformPromoImageFields = {
   mobileImageUrl?: string | null;
   desktopImageUrl?: string | null;
+  /** 이미지 교체·WebView CDN 캐시 회피 */
+  updatedAt?: string | null;
 };
 
 /** 저장소에 mobile/desktop 두 칸이 있어도 표시·업로드는 하나의 URL로 통일 */
 export function platformPromoBannerImageUrl(item: PlatformPromoImageFields): string {
   const mobile = item.mobileImageUrl?.trim();
   const desktop = item.desktopImageUrl?.trim();
-  return mobile || desktop || '';
+  const base = mobile || desktop || '';
+  if (!base) return '';
+  const version = item.updatedAt?.trim();
+  if (!version) return base;
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}v=${encodeURIComponent(version)}`;
 }
 
 export function platformPromoHasBannerImage(item: PlatformPromoImageFields): boolean {

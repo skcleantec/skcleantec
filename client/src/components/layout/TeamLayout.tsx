@@ -37,7 +37,7 @@ import {
   TEAM_MOBILE_BOTTOM_NAV_MAIN_SCROLL_PB,
   TEAM_MOBILE_BOTTOM_NAV_SCROLL_SPACER,
 } from '../../utils/staffAppSafeArea';
-import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
+import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath, filterPromosForTeamLeaderPath } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
 import { NavFavoritesProvider } from '../../hooks/useNavFavorites';
 import {
@@ -654,10 +654,14 @@ export function TeamLayout() {
   const showHouseholdLedger =
     !isExternalPartner && (userRole === 'TEAM_LEADER' || previewTeamLeader);
   const { items: teamPromoItems } = usePlatformPromos('team', location.search);
-  const teamPromoForPage = useMemo(
-    () => filterPromosForTeamPath(teamPromoItems, location.pathname),
-    [teamPromoItems, location.pathname],
-  );
+  const teamPromoForPage = useMemo(() => {
+    const isTeamLeaderAudience =
+      (userRole === 'TEAM_LEADER' || previewTeamLeader) && !previewExternal;
+    if (isTeamLeaderAudience) {
+      return filterPromosForTeamLeaderPath(teamPromoItems, location.pathname);
+    }
+    return filterPromosForTeamPath(teamPromoItems, location.pathname);
+  }, [teamPromoItems, location.pathname, userRole, previewTeamLeader, previewExternal]);
   const teamMobilePromos = useMemo(() => filterPromosForMobile(teamPromoForPage), [teamPromoForPage]);
   const teamDesktopPromos = useMemo(() => filterPromosForDesktop(teamPromoForPage), [teamPromoForPage]);
   const showTeamPlatformPromoBanners =

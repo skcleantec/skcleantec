@@ -163,8 +163,9 @@ class StaffWebActivity : AppCompatActivity() {
                 if (!sessionBootstrapDone) {
                     if (current == "about:blank") {
                         sessionBootstrapDone = true
-                        injectWebSession(webView, token, role)
-                        webView.loadUrl("$apiBaseUrl$homePath")
+                        injectWebSession(webView, token, role) {
+                            webView.loadUrl("$apiBaseUrl$homePath")
+                        }
                     }
                     return
                 }
@@ -192,6 +193,12 @@ class StaffWebActivity : AppCompatActivity() {
         webViewInForeground = true
         if (staffSessionActive && sessionBootstrapDone) {
             registerPushFromWebSession(showToast = false)
+            activeWebView?.post {
+                activeWebView?.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('cbiseo:staff-resume'));",
+                    null,
+                )
+            }
         }
     }
 
@@ -337,7 +344,7 @@ class StaffWebActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun injectWebSession(webView: WebView, token: String, role: String?) {
+    private fun injectWebSession(webView: WebView, token: String, role: String?, onDone: (() -> Unit)? = null) {
         val escaped = token.replace("\\", "\\\\").replace("'", "\\'")
         val script = buildString {
             append("try{")
@@ -349,9 +356,11 @@ class StaffWebActivity : AppCompatActivity() {
             if (StaffRoleResolver.usesAdminToken(role)) {
                 append("localStorage.setItem('sk_admin_token','$escaped');")
             }
+            append("window.dispatchEvent(new Event('sk_team_auth'));")
+            append("window.dispatchEvent(new Event('sk_admin_auth'));")
             append("}catch(e){}")
         }
-        webView.evaluateJavascript(script, null)
+        webView.evaluateJavascript(script) { onDone?.invoke() }
     }
 
     @Deprecated("Deprecated in Java")
