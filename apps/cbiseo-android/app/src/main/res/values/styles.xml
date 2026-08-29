@@ -4,9 +4,7 @@
         <item name="colorPrimary">#121828</item>
         <item name="colorPrimaryVariant">#121828</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <!-- edge-to-edge: enableEdgeToEdge() + SystemBarStyle — solid bar color 금지 (API 35+ deprecated) -->
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- edge-to-edge: Activity에서 enableEdgeToEdge() — statusBarColor/navigationBarColor 테마 attr 사용 금지 (API 35+ deprecated) -->
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:enforceNavigationBarContrast">false</item>
     </style>
@@ -46,8 +44,6 @@
         <item name="android:windowBackground">@drawable/login_background</item>
         <item name="android:colorBackground">@android:color/transparent</item>
         <item name="colorSurface">@android:color/transparent</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:windowLightStatusBar">true</item>

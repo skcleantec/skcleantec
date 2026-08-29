@@ -6,8 +6,6 @@
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_blank</item>
         <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="android:windowBackground">@drawable/splash_window_layer</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:windowLightStatusBar">false</item>

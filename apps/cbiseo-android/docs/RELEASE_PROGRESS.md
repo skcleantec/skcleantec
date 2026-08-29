@@ -7,19 +7,45 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-08-28)
+## 현재 상태 (최종 갱신: 2026-08-29)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 28 |
+| **최신 versionCode** | 30 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 프로덕션** | v25 출시 완료 · v28 edge-to-edge AAB 빌드 대기 |
-| **Play 경고** | v25 「더 넓은 화면」·지원 중단 API → v28 `enableEdgeToEdge` 대응 |
+| **Play 프로덕션** | v25 출시 완료 · **v30 AAB** 빌드 → Console 업로드 대기 |
+| **Play 경고** | v28 edge-to-edge + v30 Material 1.14.0·테마 bar color attr 제거 |
+| **최신 AAB** | `dist/cbiseo-play-1.0.0-30.aab` |
+| **AAB SHA256** | _(빌드 후 `Get-FileHash`로 갱신)_ |
 
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 30) — 2026-08-29
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | v26~29 누적 + **WebView 배너 캐시 무력화**(`LOAD_NO_CACHE`·앱 재개 시 배너 재조회) · Material **1.14.0** · 테마 deprecated bar color attr 제거 |
+| **Play** | v25 대비 — edge-to-edge · FCM 로그아웃 정리 · 해피콜 팀장 전용 · 대시보드 홍보배너 갱신 |
+| **AAB** | `dist/cbiseo-play-1.0.0-30.aab` |
+
+### v1.0.0 (versionCode 29) — 2026-08-28
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | Material **1.14.0** · 테마 `statusBarColor`/`navigationBarColor` attr 제거 · activity/core bump |
+| **Play** | v25 deprecated API 경고(라이브러리·테마 attr) 추가 대응 — v28 edge-to-edge 유지 |
+| **AAB** | `dist/cbiseo-play-1.0.0-29.aab` · SHA256 `d897ec1608082ba61b6bbbe2e26c5b6db0c606f5008d518d605c1e84604541fc5` |
+
+### v1.0.0 (versionCode 28) — 2026-08-28
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | Android 15 edge-to-edge — `enableEdgeToEdge()` · transparent system bars · WindowInsets |
+| **Play** | v25 「더 넓은 화면」·`statusBarColor`/`navigationBarColor` deprecated 경고 대응 |
+| **AAB** | `dist/cbiseo-play-1.0.0-28.aab` · SHA256 `023a2d4e92c733d4bd7dcce01016d6e3ae169fbe54ab98d545fc60920b7a6898` |
 
 ### v1.0.0 (versionCode 25) — 2026-08-25
 

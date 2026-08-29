@@ -48,6 +48,23 @@ if (Test-Path $src) {
     Write-Host "AAB: $dest"
 } else {
     Write-Warning "AAB not found at $src"
+    exit 1
+}
+
+$keytool = Join-Path $env:JAVA_HOME 'bin\keytool.exe'
+if (-not (Test-Path $keytool)) {
+    $keytool = 'keytool'
+}
+$expectedSha1 = '0B:9B:50:76:45:E4:40:71:88:92:44:43:4A:B8:97:FB:C8:7C:64:93'
+$aabSha1Line = & $keytool -printcert -jarfile $dest 2>&1 | Select-String 'SHA1:'
+if ($aabSha1Line) {
+    $aabSha1 = ($aabSha1Line -replace '\s*SHA1:\s*', '').Trim().ToUpperInvariant()
+    Write-Host "Upload key SHA1: $aabSha1" -ForegroundColor Cyan
+    if ($aabSha1 -ne $expectedSha1) {
+        Write-Host 'ERROR: AAB signing key mismatch — Play expects cbiseo-release.jks (not telecrm-release.jks).' -ForegroundColor Red
+        exit 1
+    }
+    Write-Host 'Signing key OK (com.cbiseo.app upload key)' -ForegroundColor Green
 }
 
 Write-Host 'Upload: Play Console > Testing > Internal testing > Create new release'

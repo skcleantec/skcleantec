@@ -11,7 +11,7 @@ import androidx.core.view.WindowInsetsCompat
 
 /**
  * Android 15(API 35)+ edge-to-edge — Play Console 「더 넓은 화면」·지원 중단 API 경고 대응.
- * `android:statusBarColor` / `navigationBarColor` 대신 transparent + SystemBarStyle 사용.
+ * 테마 `statusBarColor`/`navigationBarColor` 없이 Activity `enableEdgeToEdge()` + SystemBarStyle 만 사용.
  */
 object CbiseoEdgeToEdge {
     fun enableDefault(activity: ComponentActivity) {
