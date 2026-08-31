@@ -6,7 +6,7 @@ import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisib
 import { useSuppressTeamMobileBottomNav } from '../../hooks/useSuppressTeamMobileBottomNav';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
-import { formatDateCompactWithWeekday, formatPreferredDateInputYmd } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, formatPreferredDateInputYmd, kstTodayYmd, addDaysToKstYmd } from '../../utils/dateFormat';
 import { formatInquiryMoveInSummary } from '../../utils/orderFormMoveInDisplay';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
@@ -764,21 +764,17 @@ export function buildTeamInquiryShareClipText(
   return body ? `${header}\n\n${body}\n${footer}` : `${header}\n${footer}`;
 }
 
-/** 오늘·내일·N일 후 등만 (없으면 null) */
+/** 오늘·내일·N일 후 등만 (없으면 null) — KST 달력 기준 */
 export function relativeDateHint(dateStr: string): string | null {
-  const parts = dateStr.split('-').map(Number);
-  const y = parts[0];
-  const mo = parts[1];
-  const da = parts[2];
-  if (!y || !mo || !da) return null;
-  const dNorm = new Date(y, mo - 1, da);
-  dNorm.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.floor((dNorm.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-  if (diff === 0) return teamBiPlain('team.inquiry.relative.today');
-  if (diff === 1) return teamBiPlain('team.inquiry.relative.tomorrow');
-  if (diff === 2) return teamBiPlain('team.inquiry.relative.dayAfter');
+  const trimmed = dateStr.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  const todayStr = kstTodayYmd();
+  if (trimmed === todayStr) return teamBiPlain('team.inquiry.relative.today');
+  if (trimmed === addDaysToKstYmd(todayStr, 1)) return teamBiPlain('team.inquiry.relative.tomorrow');
+  if (trimmed === addDaysToKstYmd(todayStr, 2)) return teamBiPlain('team.inquiry.relative.dayAfter');
+  const fromMs = new Date(`${todayStr}T12:00:00+09:00`).getTime();
+  const toMs = new Date(`${trimmed}T12:00:00+09:00`).getTime();
+  const diff = Math.round((toMs - fromMs) / 86400000);
   if (diff > 0 && diff <= 7) {
     const v = String(diff);
     return fillTeamTemplate(teamT('team.inquiry.relative.inDays'), { days: v });
