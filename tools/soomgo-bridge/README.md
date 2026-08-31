@@ -126,6 +126,7 @@ GitHub Actions: 태그 `soomgo-bridge-v*` 푸시 시 Setup+ZIP 자동 빌드
 | 목록 가로 밀림 · 하단 검은 여백 · 입력 불가 | **v2.2.28 미만** 또는 구버전 viewport 버그 → CRM **「업데이트」**로 **Setup 2.2.28+** 설치 |
 | 레이아웃 깨짐 지속 | 트레이 **「청소비서 숨고 연동」** 완전 종료 → 재실행 → 텔레CRM **숨고 연동** 다시 ON |
 | Chrome이 CRM에 가려짐 | **숨고 연동** OFF → ON (2분할 재배치) |
+| `ZoneInfoNotFoundError: Asia/Seoul` | **v2.2.53 미만** — 번들 Python에 `tzdata` 없음 → CRM **「업데이트」**로 **Setup 2.2.53+** 설치 |
 
 **운영**: 작업 중 Chrome 숨고 창을 **닫거나 크기 변경하지 않음**. CRM 헤더 **「채팅 목록 열기」**로 목록 복귀.
 

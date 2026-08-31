@@ -22,6 +22,7 @@ REQUIRED_PACK_FILES: tuple[str, ...] = (
     'automation/chat_room_opened_at.py',
     'automation/preferred_date_parser.py',
     'automation/stale_chat_cleanup.py',
+    'automation/kst.py',
     'automation/overlay_modals.py',
     'automation/soomgo_text_filters.py',
     'automation/chat_list_watcher.py',

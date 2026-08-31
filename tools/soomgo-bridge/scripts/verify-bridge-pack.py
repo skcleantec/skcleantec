@@ -21,6 +21,7 @@ REQUIRED_FILES: tuple[str, ...] = (
     'automation/chat_room_opened_at.py',
     'automation/preferred_date_parser.py',
     'automation/stale_chat_cleanup.py',
+    'automation/kst.py',
     'automation/overlay_modals.py',
     'automation/navigation.py',
     'automation/browser.py',
@@ -48,9 +49,10 @@ def verify_imports(root: Path) -> None:
     from automation.selectors import SOOMGO_DISPLAY_NAME_JS  # noqa: F401
     from automation.overlay_modals import dismiss_blocking_overlays  # noqa: F401
     from automation.preferred_date_parser import StaleChatVerdict, evaluate_stale_chat  # noqa: F401
+    from automation.kst import KST, kst_today  # noqa: F401
     if not SOOMGO_DISPLAY_NAME_JS.strip():
         raise RuntimeError('SOOMGO_DISPLAY_NAME_JS is empty')
-    _ = dismiss_blocking_overlays, StaleChatVerdict, evaluate_stale_chat
+    _ = dismiss_blocking_overlays, StaleChatVerdict, evaluate_stale_chat, KST, kst_today()
 
 
 def main() -> int:

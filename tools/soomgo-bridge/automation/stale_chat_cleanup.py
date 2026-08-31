@@ -3,11 +3,10 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from automation.chat_list_enumerate import enumerate_chat_list
+from automation.kst import kst_today
 from automation.chat_room import ChatRoomManager
 from automation.chat_room_leave import leave_current_chat_room
 from automation.chat_room_opened_at import extract_chat_room_opened_at
@@ -17,12 +16,6 @@ from automation.navigation import ensure_chat_workspace, open_chat_room_by_id
 from automation.preferred_date_parser import StaleChatVerdict, evaluate_stale_chat
 
 logger = logging.getLogger(__name__)
-
-KST = ZoneInfo('Asia/Seoul')
-
-
-def _kst_today() -> datetime.date:
-    return datetime.now(KST).date()
 
 
 def _verdict_to_dict(
@@ -70,7 +63,7 @@ def evaluate_current_chat_room(
 
     chat_id = room.get_current_chat_id() or ''
     nickname = room.get_nickname()
-    today = _kst_today()
+    today = kst_today()
 
     hints = list_hints or {}
     hired_me = bool(hints.get('hiredMe'))
@@ -107,7 +100,7 @@ def scan_stale_chats(
     delay: float = 0.45,
 ) -> dict[str, Any]:
     """채팅 목록 전체 스캔 — dry-run 또는 실제 나가기."""
-    today = _kst_today()
+    today = kst_today()
     if not goto_chat_list(driver, force_list=True):
         return {'ok': False, 'error': '숨고 채팅 목록으로 이동하지 못했습니다.'}
 

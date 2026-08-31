@@ -120,10 +120,9 @@ def parse_chat_date_label(label: str, *, today: date) -> date | None:
 
 def extract_chat_room_opened_at(driver, *, today: date | None = None) -> date | None:
     """현재 채팅방 DOM — 스크롤 최상단 근처 첫 날짜 구분선."""
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
+    from automation.kst import kst_today
 
-    kst_today = today or datetime.now(ZoneInfo('Asia/Seoul')).date()
+    kst_today_value = today or kst_today()
     try:
         raw: dict[str, Any] = driver.execute_script(_EXTRACT_OPENED_AT_JS, 16, 420) or {}
     except Exception as e:
@@ -136,7 +135,7 @@ def extract_chat_room_opened_at(driver, *, today: date | None = None) -> date | 
     for label in labels:
         if not isinstance(label, str):
             continue
-        d = parse_chat_date_label(label, today=kst_today)
+        d = parse_chat_date_label(label, today=kst_today_value)
         if d:
             parsed.append(d)
     if not parsed:
