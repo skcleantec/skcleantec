@@ -142,6 +142,10 @@ class StaffWebActivity : AppCompatActivity() {
                     clearStaffSessionForWebLogout()
                     return false
                 }
+                if (isExternalSchemeUrl(url)) {
+                    openExternalUrl(url)
+                    return true
+                }
                 if (url.startsWith("http://") || url.startsWith("https://")) {
                     if (StaffWebSessionSync.urlMatchesApiBase(url, apiBaseUrl)) return false
                     openExternalUrl(url)
@@ -315,10 +319,24 @@ class StaffWebActivity : AppCompatActivity() {
         StaffWindowInsets.injectSafeAreaCss(activeWebView, systemBarsBottomPx)
     }
 
+    private fun isExternalSchemeUrl(url: String): Boolean {
+        val lower = url.lowercase()
+        return lower.startsWith("tel:") ||
+            lower.startsWith("mailto:") ||
+            lower.startsWith("sms:") ||
+            lower.startsWith("smsto:")
+    }
+
     private fun openExternalUrl(url: String) {
         if (url.isBlank()) return
         runCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            val intent =
+                if (url.lowercase().startsWith("tel:")) {
+                    Intent(Intent.ACTION_DIAL, Uri.parse(url))
+                } else {
+                    Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                }
+            startActivity(intent)
         }.onFailure {
             Toast.makeText(this, "링크를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
         }

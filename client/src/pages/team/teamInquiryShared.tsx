@@ -6,7 +6,7 @@ import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisib
 import { useSuppressTeamMobileBottomNav } from '../../hooks/useSuppressTeamMobileBottomNav';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
-import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, formatPreferredDateInputYmd } from '../../utils/dateFormat';
 import { formatInquiryMoveInSummary } from '../../utils/orderFormMoveInDisplay';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
@@ -1159,7 +1159,9 @@ export function TeamInquiryDetailModal({
       cancelled = true;
     };
   }, [teamToken, item.id, previewKey]);
-  const [preferredDateInput, setPreferredDateInput] = useState(item.preferredDate?.slice(0, 10) ?? '');
+  const [preferredDateInput, setPreferredDateInput] = useState(
+    formatPreferredDateInputYmd(item.preferredDate) || '',
+  );
   const [preferredDateSaving, setPreferredDateSaving] = useState(false);
   /** 서버 저장값과 별도 — 시간 입력 중 경고·PATCH 방지 */
   const [crewMeetingSharedDraft, setCrewMeetingSharedDraft] = useState(

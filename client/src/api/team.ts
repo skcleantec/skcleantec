@@ -36,6 +36,7 @@ export async function getTeamInquiries(token: string, params?: TeamInquiriesList
   const q = qs.toString();
   const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries${q ? `?${q}` : ''}`), {
     headers: headers(token),
+    cache: 'no-store',
   });
   if (!res.ok) throw new Error('담당 건을 불러올 수 없습니다.');
   return res.json() as Promise<{ items: unknown[]; total?: number }>;
@@ -85,7 +86,10 @@ export async function getTeamMe(token: string): Promise<TeamViewerMe> {
 
 export async function getTeamSchedule(token: string, start: string, end: string) {
   const q = new URLSearchParams({ start, end }).toString();
-  const res = await fetch(withTeamPreviewQuery(`${API}/team/schedule?${q}`), { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/schedule?${q}`), {
+    headers: headers(token),
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error('스케줄을 불러올 수 없습니다.');
   return res.json();
 }

@@ -2,6 +2,7 @@ package com.cbiseo.app.auth
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -10,6 +11,7 @@ import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.cbiseo.app.R
@@ -169,6 +171,26 @@ class LoginActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString().orEmpty()
                 if (url.startsWith("http://") || url.startsWith("https://")) return false
+                val lower = url.lowercase()
+                if (
+                    lower.startsWith("tel:") ||
+                    lower.startsWith("mailto:") ||
+                    lower.startsWith("sms:") ||
+                    lower.startsWith("smsto:")
+                ) {
+                    runCatching {
+                        val intent =
+                            if (lower.startsWith("tel:")) {
+                                Intent(Intent.ACTION_DIAL, Uri.parse(url))
+                            } else {
+                                Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            }
+                        startActivity(intent)
+                    }.onFailure {
+                        Toast.makeText(this@LoginActivity, "링크를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    return true
+                }
                 return true
             }
 
