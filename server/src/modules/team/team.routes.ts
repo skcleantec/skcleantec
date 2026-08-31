@@ -103,6 +103,8 @@ import teamLeaderHouseholdLedgerRoutes from '../team-leader-household-ledger/tea
 import {
   serializeTeamInquiryOperatingCompanies,
   serializeTeamInquiryOperatingCompany,
+  serializeTeamInquiryPreferredDatesKst,
+  serializeTeamInquiryPreferredDateKst,
 } from './teamInquiryResponse.helpers.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import { whereExcludeHandedOffSourceInquiriesForTeamViewer } from '../inquiries/inquiryHandedOffFromInternal.js';
@@ -1616,7 +1618,7 @@ router.get('/inquiries/:id', async (req, res) => {
   const handoffOpts = await marketplaceHandoffViewerOptions(user);
   const withShare = await attachTenantShareMetaToInquiry(tenantId, item);
   const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiry(tenantId, withShare, handoffOpts);
-  res.json(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(withHandoff)));
+  res.json(serializeTeamInquiryPreferredDateKst(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(withHandoff))));
 });
 
 router.get('/inquiries', async (req, res) => {
@@ -1655,9 +1657,11 @@ router.get('/inquiries', async (req, res) => {
     const withShare = await attachTenantShareMetaToInquiries(tenantId, items);
     const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, withShare, handoffOpts);
     res.json({
-      items: serializeTeamInquiryOperatingCompanies(
-        attachInspectionSummaries(
-          withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+      items: serializeTeamInquiryPreferredDatesKst(
+        serializeTeamInquiryOperatingCompanies(
+          attachInspectionSummaries(
+            withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+          ),
         ),
       ),
     });
@@ -1681,9 +1685,11 @@ router.get('/inquiries', async (req, res) => {
       user.role,
     );
     res.json({
-      items: serializeTeamInquiryOperatingCompanies(
-        attachInspectionSummaries(
-          items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+      items: serializeTeamInquiryPreferredDatesKst(
+        serializeTeamInquiryOperatingCompanies(
+          attachInspectionSummaries(
+            items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+          ),
         ),
       ),
       total,
@@ -1745,7 +1751,7 @@ router.get('/schedule', async (req, res) => {
   const withCrew = await attachCrewMembers(rows, tenantId, userId);
   const items = attachInspectionSummaries(withCrew);
   res.json({
-    items: serializeTeamInquiryOperatingCompanies(items),
+    items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(items)),
   });
 });
 

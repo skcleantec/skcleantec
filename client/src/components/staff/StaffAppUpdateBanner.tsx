@@ -45,7 +45,7 @@ export function StaffAppUpdateBanner() {
           <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 p-3 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={() => openStaffAppPlayStore()}
+              onClick={() => openStaffAppPlayStore(manifest.playStoreUrl)}
               className="min-h-10 rounded-lg border border-slate-300 px-4 text-fluid-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
               Play Store에서 열기

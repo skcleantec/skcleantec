@@ -4,6 +4,8 @@
  */
 export function formatPreferredDateInputYmd(isoDate: string | null | undefined): string {
   if (!isoDate) return '';
+  const trimmed = isoDate.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
   const d = new Date(isoDate);
   if (Number.isNaN(d.getTime())) return isoDate.slice(0, 10);
   return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
