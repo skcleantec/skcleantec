@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { isAuthSessionExpiredError, updateMyProfile } from '../../api/auth';
+import { StaffAppProfileUpdateRow } from '../staff/StaffAppProfileUpdateRow';
 
 type TeamEContractDropdown = {
   listHref: string;
@@ -247,6 +248,7 @@ export function UserProfileMenu({
                 운영 DB 가져오기
               </button>
             ) : null}
+            <StaffAppProfileUpdateRow onMenuClose={() => setMenuOpen(false)} />
             <button
               type="button"
               onClick={onLogout}

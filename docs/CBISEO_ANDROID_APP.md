@@ -69,6 +69,7 @@
 |-----------|-----------|-----------|
 | UI·업무 로직·API | **웹만** | 불필요 |
 | FCM payload·딥링크 규약 | 서버 + (필요 시) 셸 | 드묾 |
+| **Play In-App Update** (셸·FCM·브릿지) | **AAB + Railway `STAFF_APP_*`** | 필요 |
 | targetSdk·권한·WebView 보안 | **AAB 재업로드** | 필요 |
 | Firebase 프로젝트·google-services | 셸 재빌드 | 필요 |
 

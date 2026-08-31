@@ -16,6 +16,8 @@ import com.cbiseo.app.push.StaffPushRegistrationStatus
 
 import com.cbiseo.app.push.StaffPushTokenCache
 
+import com.cbiseo.app.update.StaffAppUpdateCoordinator
+
 
 
 /** WebView JS — client/src/utils/cbiseoNativeApp.ts */
@@ -36,6 +38,8 @@ class CbiseoAppBridge(
 
     private val onNotifyStaffLogout: () -> Unit = {},
 
+    private val updateCoordinator: StaffAppUpdateCoordinator? = null,
+
 ) {
 
     @JavascriptInterface
@@ -53,6 +57,80 @@ class CbiseoAppBridge(
     @JavascriptInterface
 
     fun getAppVersionCode(): Int = BuildConfig.VERSION_CODE
+
+
+
+    @JavascriptInterface
+
+    fun getAppVersionName(): String = BuildConfig.VERSION_NAME
+
+
+
+    /** Play In-App Update 상태 JSON — client/utils/staffAppUpdate.ts */
+
+    @JavascriptInterface
+
+    fun getAppUpdateStatusJson(): String =
+
+        updateCoordinator?.getStatusJson().orEmpty()
+
+
+
+    @JavascriptInterface
+
+    fun refreshAppUpdateStatus() {
+
+        Handler(Looper.getMainLooper()).post {
+
+            updateCoordinator?.refreshPlayUpdateStatus(markChecked = false)
+
+        }
+
+    }
+
+
+
+    /** flexible(기본) | immediate */
+
+    @JavascriptInterface
+
+    fun startAppUpdate(mode: String) {
+
+        Handler(Looper.getMainLooper()).post {
+
+            updateCoordinator?.requestStartUpdate(mode)
+
+        }
+
+    }
+
+
+
+    @JavascriptInterface
+
+    fun completeFlexibleAppUpdate() {
+
+        Handler(Looper.getMainLooper()).post {
+
+            updateCoordinator?.completeFlexibleUpdate()
+
+        }
+
+    }
+
+
+
+    @JavascriptInterface
+
+    fun openPlayStore() {
+
+        Handler(Looper.getMainLooper()).post {
+
+            updateCoordinator?.openPlayStore()
+
+        }
+
+    }
 
 
 
@@ -135,4 +213,3 @@ class CbiseoAppBridge(
     }
 
 }
-

@@ -35,7 +35,7 @@ android {
         applicationId = "com.cbiseo.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 31
+        versionCode = 32
         versionName = "1.0.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
@@ -107,6 +107,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.3.0")
     implementation("com.google.android.gms:play-services-base:18.5.0")
     implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("com.google.android.play:app-update:2.1.0")
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
 }
 
 if (file("google-services.json").exists()) {

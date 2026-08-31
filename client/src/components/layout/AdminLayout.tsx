@@ -66,6 +66,8 @@ import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 import { AdminVolumeStatsButton } from '../admin/AdminVolumeStatsButton';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
+import { StaffAppUpdateBanner } from '../staff/StaffAppUpdateBanner';
+import { StaffAppUpdateProvider } from '../staff/StaffAppUpdateProvider';
 import type { TelecrmUserCapabilities } from '@shared/telecrmTenantPolicy';
 import {
   AdminStaffSessionProvider,
@@ -873,6 +875,7 @@ export function AdminLayout() {
   });
 
   return (
+    <StaffAppUpdateProvider>
     <NavFavoritesProvider app="admin" tenantSlug={tenantSlug} userId={meUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
@@ -1403,6 +1406,7 @@ export function AdminLayout() {
             사용하고, 작업 후 로그아웃해 주세요.
           </div>
         ) : null}
+        <StaffAppUpdateBanner />
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan, tenantSlug, telecrm: tenantTelecrm }}>
           <AdminStaffSessionProvider
             value={{
@@ -1549,5 +1553,6 @@ export function AdminLayout() {
       />
     </div>
     </NavFavoritesProvider>
+    </StaffAppUpdateProvider>
   );
 }

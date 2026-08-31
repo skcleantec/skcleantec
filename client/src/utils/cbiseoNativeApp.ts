@@ -17,6 +17,12 @@ declare global {
       getPushRegisterStatus?: () => string;
       getCachedFcmToken?: () => string;
       getAppVersionCode?: () => number;
+      getAppVersionName?: () => string;
+      getAppUpdateStatusJson?: () => string;
+      refreshAppUpdateStatus?: () => void;
+      startAppUpdate?: (mode: 'flexible' | 'immediate') => void;
+      completeFlexibleAppUpdate?: () => void;
+      openPlayStore?: () => void;
       /** WebView 로그아웃 — 네이티브 FCM·TokenStore 정리 */
       notifyStaffLogout?: () => void;
     };
