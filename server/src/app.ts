@@ -325,6 +325,13 @@ if (clientDir) {
     if (process.env.NODE_ENV !== 'production') {
       console.info('[app] marketing 랜딩:', marketingDir);
     }
+    /** 레거시 카카오 채널 FAB — SPA index.html에서 제거됐어도 구 배포 static 잔존 시 404 */
+    app.get('/marketing/kakao-init.js', (_req, res) => {
+      res.status(404).type('text/plain').send('removed');
+    });
+    app.get('/marketing/kakao-channel-fab.js', (_req, res) => {
+      res.status(404).type('text/plain').send('removed');
+    });
     const marketingSlotsState = path.join(marketingDir, '.image-slots.state.json');
     if (fs.existsSync(marketingSlotsState)) {
       let marketingSlotsStateJson = '{}';
