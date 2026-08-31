@@ -140,6 +140,7 @@ class StaffWebActivity : AppCompatActivity() {
             },
             onSyncAuthToken = { jwt -> tokenStore.updateJwt(jwt) },
             onNotifyStaffLogout = { clearStaffSessionForWebLogout() },
+            onOpenExternalUrl = { url -> openExternalUrl(url) },
             updateCoordinator = updateCoordinator,
         )
 
@@ -159,6 +160,16 @@ class StaffWebActivity : AppCompatActivity() {
                 if (StaffWebSessionSync.isStaffWebLoginUrl(url, apiBaseUrl)) {
                     clearStaffSessionForWebLogout()
                     return false
+                }
+                val externalFromQuery = runCatching {
+                    request?.url?.getQueryParameter("cbiseoOpenExternal") == "1"
+                }.getOrDefault(false)
+                if (externalFromQuery) {
+                    val cleaned = runCatching {
+                        request?.url?.buildUpon()?.clearQuery()?.build()?.toString()
+                    }.getOrNull()?.takeIf { it.isNotBlank() } ?: url.substringBefore('?')
+                    openExternalUrl(cleaned)
+                    return true
                 }
                 if (isExternalSchemeUrl(url)) {
                     openExternalUrl(url)

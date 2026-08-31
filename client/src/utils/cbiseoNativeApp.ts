@@ -23,6 +23,8 @@ declare global {
       startAppUpdate?: (mode: 'flexible' | 'immediate') => void;
       completeFlexibleAppUpdate?: () => void;
       openPlayStore?: () => void;
+      /** http(s) 등 — 시스템 브라우저(외부)에서 열기 */
+      openExternalUrl?: (url: string) => void;
       /** WebView 로그아웃 — 네이티브 FCM·TokenStore 정리 */
       notifyStaffLogout?: () => void;
     };
@@ -82,6 +84,36 @@ export function notifyCbiseoStaffLogout(): void {
   } catch {
     /* WebView 브릿지 미연결 */
   }
+}
+
+/** 앱 WebView — 배너·프로모 링크를 시스템 브라우저(외부)에서 연다 */
+export function openStaffAppExternalUrl(url: string): void {
+  const trimmed = url.trim();
+  if (!trimmed) return;
+  if (isCbiseoStaffNativeApp()) {
+    try {
+      if (typeof window.CbiseoApp?.openExternalUrl === 'function') {
+        window.CbiseoApp.openExternalUrl(trimmed);
+        return;
+      }
+    } catch {
+      /* WebView 브릿지 미연결 */
+    }
+    /** 구 앱(브릿지 없음) — Android intent URL로 외부 브라우저 유도 */
+    if (/Android/i.test(navigator.userAgent)) {
+      try {
+        const parsed = new URL(trimmed, window.location.origin);
+        const scheme = parsed.protocol.replace(':', '') || 'https';
+        const hostPath = `${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+        window.location.href =
+          `intent://${hostPath}#Intent;scheme=${scheme};action=android.intent.action.VIEW;end`;
+        return;
+      } catch {
+        /* fallback below */
+      }
+    }
+  }
+  window.open(trimmed, '_blank', 'noopener,noreferrer');
 }
 
 export function getCbiseoStaffAppVersionCode(): number | null {
