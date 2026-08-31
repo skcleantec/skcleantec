@@ -164,8 +164,15 @@ NON_CHAT_SESSION_PATH_HINTS = (
 NON_CHAT_PRO_PATH_HINTS = NON_CHAT_SESSION_PATH_HINTS
 
 LOGIN = {
-    'EMAIL_INPUT': "input[type='email'], input[name='email'], input[placeholder*='이메일']",
-    'PASSWORD_INPUT': "input[type='password'], input[name='password']",
+    'EMAIL_INPUT': (
+        "input#email, input[name='email'], input[type='email'], "
+        "input[placeholder*='@'], input[placeholder*='이메일']"
+    ),
+    'PASSWORD_INPUT': "input#password, input[name='password'], input[type='password']",
+    # 이메일 폼 제출 — 소셜(네이버·카카오) 버튼과 구분 (type=submit 단독 사용 금지)
+    'EMAIL_LOGIN_BUTTON': "button[type='submit']",
+    'EMAIL_LOGIN_BUTTON_TEXT': '이메일 로그인',
+    # 하위 호환 alias — login.py 에서 소셜 제외 로직과 함께만 사용
     'LOGIN_BUTTON': "button[type='submit']",
     # 숨고 소셜 로그인 — 「카카오로 시작하기」(해시 class 대비 XPath/JS 병행)
     'KAKAO_BUTTON': (
@@ -174,6 +181,7 @@ LOGIN = {
         "button.css-1mselhc"
     ),
     'KAKAO_BUTTON_TEXT': '카카오',
+    'NAVER_BUTTON_TEXT': '네이버',
     # accounts.kakao.com — 아이디·비밀번호·로그인
     'KAKAO_ID_INPUT': "input[name='loginId'], input#loginId--1, input[id^='loginId']",
     'KAKAO_PASSWORD_INPUT': "input[name='password'], input#loginPassword--2, input[id^='loginPassword'], input[type='password']",
