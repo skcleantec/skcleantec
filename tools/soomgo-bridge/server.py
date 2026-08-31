@@ -534,7 +534,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         _json_response(self, 404, {'ok': False, 'error': 'not found'})
 
     def do_POST(self):  # noqa: N802
-        global _logged_in, _last_error, _extract_in_progress
+        global _logged_in, _last_error, _extract_in_progress, _stale_cleanup_in_progress
         path = urlparse(self.path).path
         body = _read_json(self)
 
@@ -967,7 +967,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'error': '숨고 Chrome 창에서 채팅방을 연 뒤 다시 시도해 주세요.',
                     })
                     return
-                global _stale_cleanup_in_progress
                 _stale_cleanup_in_progress = True
                 try:
                     result = leave_current_if_stale(driver, dry_run=True)
@@ -991,7 +990,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     })
                     return
                 dry_run = body.get('dryRun') is not False and body.get('dry_run') is not False
-                global _stale_cleanup_in_progress
                 _stale_cleanup_in_progress = True
                 try:
                     result = leave_current_if_stale(driver, dry_run=dry_run)
@@ -1021,7 +1019,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     offset = int(offset_raw)
                 except (TypeError, ValueError):
                     offset = 0
-                global _stale_cleanup_in_progress
                 _stale_cleanup_in_progress = True
                 try:
                     result = scan_stale_chats(
