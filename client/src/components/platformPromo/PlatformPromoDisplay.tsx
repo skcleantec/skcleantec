@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlatformPromoActiveItem } from '../../api/platformPartnerPromo';
 import { platformPromoBannerImageUrl, platformPromoHasBannerImage } from '@shared/platformPromoImageSpec';
+import { isCbiseoStaffNativeApp, openStaffAppExternalUrl } from '../../utils/cbiseoNativeApp';
 
 const ROTATE_MS = 4500;
 const SLIDE_MS = 680;
@@ -51,12 +52,20 @@ function PromoSlide({
   );
 
   if (item.linkUrl) {
+    const url = item.linkUrl;
+    const nativeApp = isCbiseoStaffNativeApp();
     return (
       <a
-        href={item.linkUrl}
-        target={item.linkTarget === '_self' ? '_self' : '_blank'}
+        href={url}
+        target={nativeApp ? undefined : item.linkTarget === '_self' ? '_self' : '_blank'}
         rel="noopener noreferrer"
         className={frameClass}
+        data-cbiseo-external="1"
+        onClick={(e) => {
+          if (!nativeApp) return;
+          e.preventDefault();
+          openStaffAppExternalUrl(url);
+        }}
       >
         {img}
       </a>

@@ -38,6 +38,8 @@ class CbiseoAppBridge(
 
     private val onNotifyStaffLogout: () -> Unit = {},
 
+    private val onOpenExternalUrl: (String) -> Unit = {},
+
     private val updateCoordinator: StaffAppUpdateCoordinator? = null,
 
 ) {
@@ -127,6 +129,22 @@ class CbiseoAppBridge(
         Handler(Looper.getMainLooper()).post {
 
             updateCoordinator?.openPlayStore()
+
+        }
+
+    }
+
+
+
+    /** http(s) 등 — Chrome·기본 브라우저 등 외부 앱에서 열기 (프로모 배너 등) */
+
+    @JavascriptInterface
+
+    fun openExternalUrl(url: String) {
+
+        Handler(Looper.getMainLooper()).post {
+
+            onOpenExternalUrl(url.trim())
 
         }
 
