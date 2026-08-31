@@ -16,6 +16,11 @@ REQUIRED_FILES: tuple[str, ...] = (
     'automation/customer_request.py',
     'automation/chat_room.py',
     'automation/chat_list_watcher.py',
+    'automation/chat_list_enumerate.py',
+    'automation/chat_room_leave.py',
+    'automation/chat_room_opened_at.py',
+    'automation/preferred_date_parser.py',
+    'automation/stale_chat_cleanup.py',
     'automation/overlay_modals.py',
     'automation/navigation.py',
     'automation/browser.py',
@@ -31,7 +36,10 @@ def missing_files(root: Path) -> list[str]:
 
 
 def verify_imports(root: Path) -> None:
+    import py_compile
+
     sys.path.insert(0, str(root))
+    py_compile.compile(str(root / 'server.py'), doraise=True)
     from automation.selectors import SOOMGO_DISPLAY_NAME_JS  # noqa: F401
     from automation.overlay_modals import dismiss_blocking_overlays  # noqa: F401
     from automation.customer_request import CustomerRequestManager  # noqa: F401
@@ -39,8 +47,10 @@ def verify_imports(root: Path) -> None:
     from automation.soomgo_text_filters import is_plausible_soomgo_region  # noqa: F401
     from automation.navigation import ensure_chat_workspace, is_logged_in  # noqa: F401
     from automation.window_layout import apply_mobile_viewport  # noqa: F401
+    from automation.stale_chat_cleanup import leave_current_if_stale, scan_stale_chats  # noqa: F401
     if not SOOMGO_DISPLAY_NAME_JS.strip():
         raise RuntimeError('SOOMGO_DISPLAY_NAME_JS is empty')
+    _ = leave_current_if_stale, scan_stale_chats
 
 
 def main() -> int:
