@@ -41,7 +41,7 @@ export function startStaffAppUpdate(mode: 'flexible' | 'immediate'): void {
   } catch {
     /* bridge 미연결 */
   }
-  openStaffAppPlayStore();
+  openStaffAppPlayStore(undefined);
 }
 
 export function completeStaffFlexibleAppUpdate(): void {
@@ -53,16 +53,22 @@ export function completeStaffFlexibleAppUpdate(): void {
   }
 }
 
-export function openStaffAppPlayStore(): void {
+const STAFF_APP_PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.cbiseo.app';
+
+export function openStaffAppPlayStore(playStoreUrl?: string | null): void {
+  const url = playStoreUrl?.trim() || STAFF_APP_PLAY_STORE_URL;
   if (isCbiseoStaffNativeApp()) {
     try {
-      window.CbiseoApp?.openPlayStore?.();
-      return;
+      if (typeof window.CbiseoApp?.openPlayStore === 'function') {
+        window.CbiseoApp.openPlayStore();
+        return;
+      }
     } catch {
       /* fallback below */
     }
   }
-  window.open('https://play.google.com/store/apps/details?id=com.cbiseo.app', '_blank', 'noopener,noreferrer');
+  // Android WebView에서 window.open은 무시되는 경우가 많음 — 동일 탭 이동으로 Play Store 연다.
+  window.location.href = url;
 }
 
 export function getStaffAppVersionNameFromBridge(): string | null {
