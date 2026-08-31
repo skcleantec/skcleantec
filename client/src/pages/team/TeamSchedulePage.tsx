@@ -52,6 +52,7 @@ import {
 } from '../../i18n/team/teamI18n';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
+import { sortInquiriesByScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
 
 /** 관리자 스케줄과 동일 아이콘. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL 로 덮어쓰기 */
 const DEFAULT_SCHEDULE_MAP_ICON =
@@ -198,6 +199,9 @@ export function TeamSchedulePage() {
     acc[key].push(item);
     return acc;
   }, {});
+  for (const key of Object.keys(byDate)) {
+    byDate[key] = sortInquiriesByScheduleTimeBucket(byDate[key]);
+  }
 
   const calendarDays = getCalendarDays(year, month);
   const getDateKey = (d: number) => {

@@ -1644,7 +1644,7 @@ router.get('/inquiries', async (req, res) => {
     const where = await mergeTeamLeaderVisibleInquiryWhere(prisma, userId, baseWhere);
     const rows = await prisma.inquiry.findMany({
       where,
-      orderBy: { preferredDate: 'asc' },
+      orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }, { id: 'asc' }],
       include: teamInquiryInclude,
     });
     const items = await attachProfessionalOptions(
