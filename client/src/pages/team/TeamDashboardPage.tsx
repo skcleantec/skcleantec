@@ -12,7 +12,7 @@ import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPr
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, formatPreferredDateInputYmd, kstTodayYmd } from '../../utils/dateFormat';
 import {
   STATUS_LABELS,
   type InquiryItem,
@@ -134,7 +134,8 @@ export function TeamDashboardPage() {
 
   const withDate = items.filter((i) => i.preferredDate && i.status !== 'CANCELLED');
   const byDate = withDate.reduce<Record<string, InquiryItem[]>>((acc, item) => {
-    const key = item.preferredDate!.slice(0, 10);
+    const key = formatPreferredDateInputYmd(item.preferredDate);
+    if (!key) return acc;
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
     return acc;

@@ -16,7 +16,14 @@ import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabe
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
-import { formatDateCompactWithWeekday, kstTodayYmd, weekdayKoFromYmd } from '../../utils/dateFormat';
+import {
+  formatDateCompactWithWeekday,
+  formatPreferredDateInputYmd,
+  kstMonthRangeYm,
+  kstTodayYmd,
+  parseKstYmdParts,
+  weekdayKoFromYmd,
+} from '../../utils/dateFormat';
 import {
   STATUS_LABELS,
   type InquiryItem,
@@ -60,17 +67,9 @@ const DEFAULT_SCHEDULE_MAP_ICON =
 const scheduleMapIconUrl =
   (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_SCHEDULE_MAP_ICON;
 
-/** 달력 표시 월의 start/end(yyyy-mm-dd) 구함 — 월 단위 팀장 스케줄 조회용 */
-function toDateKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+/** 달력 표시 월의 start/end(yyyy-mm-dd) — KST 달력 기준 (서버 schedule API와 동일) */
 function getMonthRange(year: number, month: number) {
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 0);
-  return { start: toDateKey(start), end: toDateKey(end) };
+  return kstMonthRangeYm(year, month);
 }
 
 function yearOptionLabel(y: number): string {
@@ -120,10 +119,11 @@ export function TeamSchedulePage() {
   const previewKey = teamPreviewDepsKey(location.search);
   const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const now = new Date();
+  const kstTodayParts = parseKstYmdParts(kstTodayYmd());
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(kstTodayParts?.year ?? now.getFullYear());
+  const [month, setMonth] = useState(kstTodayParts?.month ?? now.getMonth() + 1);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
@@ -194,7 +194,8 @@ export function TeamSchedulePage() {
 
   const withDate = items.filter((i) => i.preferredDate);
   const byDate = withDate.reduce<Record<string, InquiryItem[]>>((acc, item) => {
-    const key = item.preferredDate!.slice(0, 10);
+    const key = formatPreferredDateInputYmd(item.preferredDate);
+    if (!key) return acc;
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
     return acc;

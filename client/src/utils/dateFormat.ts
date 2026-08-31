@@ -14,6 +14,28 @@ export function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
+/** KST `YYYY-MM-DD` → { year, month(1–12), day } */
+export function parseKstYmdParts(ymd: string): { year: number; month: number; day: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { year, month, day };
+}
+
+/** KST 달력 기준 월 구간 (팀장 스케줄 API start/end) */
+export function kstMonthRangeYm(year: number, month1to12: number): { start: string; end: string } {
+  const start = `${year}-${String(month1to12).padStart(2, '0')}-01`;
+  const next =
+    month1to12 === 12
+      ? { year: year + 1, month: 1 }
+      : { year, month: month1to12 + 1 };
+  const firstOfNext = `${next.year}-${String(next.month).padStart(2, '0')}-01`;
+  return { start, end: addDaysToKstYmd(firstOfNext, -1) };
+}
+
 /** KST 달력 `YYYY-MM-DD`에 일 수를 더함(음수면 과거). 한국 정오 기준으로 이동해 일 경계 오차를 줄임. */
 export function addDaysToKstYmd(ymd: string, deltaDays: number): string {
   const p = ymd.split('-').map(Number);
