@@ -7,21 +7,29 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-08-29)
+## 현재 상태 (최종 갱신: 2026-08-31)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 30 |
+| **최신 versionCode** | 31 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 프로덕션** | v25 출시 완료 · **v30 AAB** 빌드 → Console 업로드 대기 |
+| **Play 프로덕션** | v25 출시 완료 · **v31 AAB** 빌드 → Console 업로드 대기 |
 | **Play 경고** | v28 edge-to-edge + v30 Material 1.14.0·테마 bar color attr 제거 |
-| **최신 AAB** | `dist/cbiseo-play-1.0.0-30.aab` |
-| **AAB SHA256** | `5a0772a2cfeae19352204b5849ef13302f55639d32551e20582ad8d7c1fb9098` |
+| **최신 AAB** | `dist/cbiseo-play-1.0.0-31.aab` |
+| **AAB SHA256** | `a4e4746ec53b0e1dea9504ef8822dbeba515d36e93a62a15f2212464a6295c13` |
 
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 31) — 2026-08-31
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | WebView **`tel:`/`mailto:`/`sms:` → 다이얼러·외부 앱 Intent** (팀장 전화 버튼 미동작 수정) |
+| **웹(셸 불필요)** | 팀장 대시보드·스케줄 **KST 예약일** 그룹핑·월 범위 통일 (Railway 배포) |
+| **AAB** | `dist/cbiseo-play-1.0.0-31.aab` |
 
 ### v1.0.0 (versionCode 30) — 2026-08-29
 
