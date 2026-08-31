@@ -16,6 +16,8 @@ import { RosterAckBanner } from '../common/RosterAckBanner';
 import { ChangeLogBell } from '../admin/ChangeLogBell';
 import { ScheduleAlertSiren } from '../admin/ScheduleAlertSiren';
 import { TeamScheduleAlertBanner } from '../team/TeamScheduleAlertBanner';
+import { StaffAppUpdateBanner } from '../staff/StaffAppUpdateBanner';
+import { StaffAppUpdateProvider } from '../staff/StaffAppUpdateProvider';
 import {
   getTeamUnseenChangeCount,
   markTeamChangeSeen,
@@ -737,6 +739,7 @@ export function TeamLayout() {
   };
 
   return (
+    <StaffAppUpdateProvider>
     <NavFavoritesProvider app="team" tenantSlug={tenantSlug} userId={viewerUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
@@ -983,6 +986,7 @@ export function TeamLayout() {
             <PlatformPromoDashboardCard items={teamDesktopPromos} layout="banner" />
           </div>
         ) : null}
+        <StaffAppUpdateBanner />
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug, telecrm: null }}>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') ? (
@@ -1082,5 +1086,6 @@ export function TeamLayout() {
       />
     </div>
     </NavFavoritesProvider>
+    </StaffAppUpdateProvider>
   );
 }

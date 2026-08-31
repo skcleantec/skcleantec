@@ -11,17 +11,25 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 31 |
+| **최신 versionCode** | 32 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 프로덕션** | v25 출시 완료 · **v31 AAB** 빌드 → Console 업로드 대기 |
+| **Play 프로덕션** | v25 출시 완료 · **v32 AAB** 빌드 → Console 업로드 대기 |
 | **Play 경고** | v28 edge-to-edge + v30 Material 1.14.0·테마 bar color attr 제거 |
-| **최신 AAB** | `dist/cbiseo-play-1.0.0-31.aab` |
-| **AAB SHA256** | `a4e4746ec53b0e1dea9504ef8822dbeba515d36e93a62a15f2212464a6295c13` |
+| **최신 AAB** | `dist/cbiseo-play-1.0.0-32.aab` |
+| **AAB SHA256** | `1be0d1918ebe39fb95cd302e767156d1e675b086acaa556b06736e1e596eb24d` |
 
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 32) — 2026-08-31
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | **Google Play In-App Update** (선택 FLEXIBLE · 필수 IMMEDIATE) + 웹 배너·프로필 「업데이트 확인」 |
+| **서버** | `GET /api/public/staff-app/manifest` · Railway `STAFF_APP_*` 변수 |
+| **AAB** | `dist/cbiseo-play-1.0.0-32.aab` · SHA256 `1be0d1918ebe39fb95cd302e767156d1e675b086acaa556b06736e1e596eb24d` |
 
 ### v1.0.0 (versionCode 31) — 2026-08-31
 
@@ -29,7 +37,7 @@
 |------|------|
 | **범위** | WebView **`tel:`/`mailto:`/`sms:` → 다이얼러·외부 앱 Intent** (팀장 전화 버튼 미동작 수정) |
 | **웹(셸 불필요)** | 팀장 대시보드·스케줄 **KST 예약일** 그룹핑·월 범위 통일 (Railway 배포) |
-| **AAB** | `dist/cbiseo-play-1.0.0-31.aab` |
+| **AAB** | `dist/cbiseo-play-1.0.0-31.aab` · SHA256 `a4e4746ec53b0e1dea9504ef8822dbeba515d36e93a62a15f2212464a6295c13` |
 
 ### v1.0.0 (versionCode 30) — 2026-08-29
 

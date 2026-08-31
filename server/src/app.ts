@@ -102,6 +102,7 @@ import { telecrmRoutes } from './modules/telecrm/telecrm.routes.js';
 import { getSoomgoBridgeManifest } from './modules/telecrm/soomgoBridgeManifest.js';
 import { getSoomgoAutomationManifest } from './modules/telecrm/soomgoAutomationManifest.js';
 import { getTelecrmAppManifest } from './modules/telecrm/telecrmAppManifest.js';
+import { getStaffAppManifest } from './modules/push/staffAppManifest.js';
 import { renderTelecrmAppInstallPageHtml } from './modules/telecrm/telecrmAppInstallPageHtml.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
@@ -214,6 +215,10 @@ app.get('/api/public/soomgo-automation/manifest', (_req, res) => {
 });
 app.get('/api/public/telecrm-app/manifest', (_req, res) => {
   res.json(getTelecrmAppManifest());
+});
+app.get('/api/public/staff-app/manifest', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json(getStaffAppManifest());
 });
 
 /** 공개 설치 페이지 — 카카오톡 등 SPA 캐시·라우터 없이 HTML 직접 응답 */

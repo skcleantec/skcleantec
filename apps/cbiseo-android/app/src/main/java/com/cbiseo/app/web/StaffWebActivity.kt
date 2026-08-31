@@ -7,12 +7,14 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Base64
 import android.widget.Toast
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +29,8 @@ import com.cbiseo.app.push.StaffNotificationPermission
 import com.cbiseo.app.push.StaffPushIntentExtras
 import com.cbiseo.app.push.StaffPushRegistration
 import com.cbiseo.app.session.StaffRoleResolver
+import com.cbiseo.app.update.StaffAppUpdateCoordinator
+import com.cbiseo.app.update.StaffAppUpdatePrefs
 
 class StaffWebActivity : AppCompatActivity() {
     private lateinit var binding: ActivityStaffWebBinding
@@ -38,6 +42,13 @@ class StaffWebActivity : AppCompatActivity() {
     private var pendingPushPath: String? = null
     private var systemBarsBottomPx = 0
     private lateinit var appBridge: CbiseoAppBridge
+    private var updateCoordinator: StaffAppUpdateCoordinator? = null
+
+    private val appUpdateResultLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        updateCoordinator?.onUpdateFlowResult(result.resultCode == RESULT_OK)
+    }
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -107,6 +118,12 @@ class StaffWebActivity : AppCompatActivity() {
         StaffFcmRegistrar.ensureChannels(applicationContext)
         StaffFcmRegistrar.registerToken(applicationContext)
 
+        updateCoordinator = StaffAppUpdateCoordinator(this) {
+            dispatchAppUpdateStatusToWebView()
+        }.also { coordinator ->
+            coordinator.bindUpdateLauncher(appUpdateResultLauncher)
+        }
+
         appBridge = CbiseoAppBridge(
             appContext = applicationContext,
             onRequestGoogleLogin = {},
@@ -123,6 +140,7 @@ class StaffWebActivity : AppCompatActivity() {
             },
             onSyncAuthToken = { jwt -> tokenStore.updateJwt(jwt) },
             onNotifyStaffLogout = { clearStaffSessionForWebLogout() },
+            updateCoordinator = updateCoordinator,
         )
 
         val webView = binding.staffWebView
@@ -187,6 +205,7 @@ class StaffWebActivity : AppCompatActivity() {
                 syncSafeAreaToWebView()
                 if (staffSessionActive && sessionBootstrapDone) {
                     registerPushFromWebSession(showToast = false)
+                    probeAppUpdateOnWebReady(markDailyCheck = false)
                 }
                 flushPendingPushPath()
             }
@@ -206,6 +225,8 @@ class StaffWebActivity : AppCompatActivity() {
                     null,
                 )
             }
+            probeAppUpdateOnWebReady(markDailyCheck = StaffAppUpdatePrefs.shouldCheckToday(this))
+            updateCoordinator?.resumeStalledImmediateUpdate(appUpdateResultLauncher)
         }
     }
 
@@ -359,10 +380,30 @@ class StaffWebActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        updateCoordinator?.dispose()
+        updateCoordinator = null
         if (activeWebView === binding.staffWebView) {
             activeWebView = null
         }
         super.onDestroy()
+    }
+
+    private fun probeAppUpdateOnWebReady(markDailyCheck: Boolean) {
+        updateCoordinator?.refreshPlayUpdateStatus(markChecked = markDailyCheck) {
+            dispatchAppUpdateStatusToWebView()
+        }
+    }
+
+    private fun dispatchAppUpdateStatusToWebView() {
+        val json = updateCoordinator?.getStatusJson().orEmpty()
+        if (json.isBlank()) return
+        val b64 = Base64.encodeToString(json.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        activeWebView?.post {
+            activeWebView?.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('cbiseo:app-update-status',{detail:JSON.parse(atob('$b64'))}));",
+                null,
+            )
+        }
     }
 
     private fun injectWebSession(webView: WebView, token: String, role: String?, onDone: (() -> Unit)? = null) {
