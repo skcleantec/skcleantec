@@ -168,6 +168,9 @@ export function formatSmtpSendError(e: unknown, ctx?: { smtpHost?: string; smtpU
   if (err.code === 'ECONNECTION' || err.code === 'ETIMEDOUT' || err.code === 'ESOCKET') {
     return 'SMTP 서버에 연결하지 못했습니다. 호스트·포트·방화벽을 확인해 주세요.';
   }
+  if (blob.includes('no recipients defined')) {
+    return '수신 이메일 주소 형식이 올바르지 않습니다. 예: name@example.com';
+  }
   if (err.message?.trim()) return `${err.message.trim()}${loginHint}`;
   return `메일 발송에 실패했습니다. SMTP 설정을 확인해 주세요.${loginHint}`;
 }

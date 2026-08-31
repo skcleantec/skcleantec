@@ -9,6 +9,7 @@ import { allocateNextDocumentNumber, ensureDocumentNumberForType } from './quota
 import {
   buildQuotationEmailDefaultsForRow,
   executeQuotationEmailSend,
+  resolveQuotationEmailRecipient,
 } from './quotationEmailSend.service.js';
 import {
   generateAndStoreQuotationPdf,
@@ -771,12 +772,9 @@ router.post('/:id/send-email', async (req, res) => {
   }
 
   const body = req.body as { to?: string; subject?: string | null; body?: string | null };
-  const to =
-    (typeof body.to === 'string' && body.to.trim()) ||
-    row.customerEmail?.trim() ||
-    '';
-  if (!to) {
-    res.status(400).json({ error: '수신 이메일을 입력해주세요.' });
+  const resolved = resolveQuotationEmailRecipient(body.to, row.customerEmail);
+  if (!resolved.ok) {
+    res.status(400).json({ error: resolved.error });
     return;
   }
 
@@ -784,7 +782,7 @@ router.post('/:id/send-email', async (req, res) => {
     tenantId,
     userId: auth.userId,
     quotationId: id,
-    to,
+    to: resolved.email,
     subject: body.subject,
     body: body.body,
   });
@@ -814,12 +812,9 @@ router.post('/:id/resend-email', async (req, res) => {
   }
 
   const body = req.body as { to?: string; subject?: string | null; body?: string | null };
-  const to =
-    (typeof body.to === 'string' && body.to.trim()) ||
-    row.customerEmail?.trim() ||
-    '';
-  if (!to) {
-    res.status(400).json({ error: '수신 이메일을 입력해주세요.' });
+  const resolved = resolveQuotationEmailRecipient(body.to, row.customerEmail);
+  if (!resolved.ok) {
+    res.status(400).json({ error: resolved.error });
     return;
   }
 
@@ -827,7 +822,7 @@ router.post('/:id/resend-email', async (req, res) => {
     tenantId,
     userId: auth.userId,
     quotationId: id,
-    to,
+    to: resolved.email,
     subject: body.subject,
     body: body.body,
   });

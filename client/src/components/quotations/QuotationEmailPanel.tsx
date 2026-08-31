@@ -14,6 +14,12 @@ import {
 } from '../../api/teamQuotations';
 import { QuotationStatusBadge, qUi } from './quotationUi';
 
+function isValidCustomerEmail(email: string): boolean {
+  const t = email.trim();
+  if (!t || t.length > 320) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
+
 type Props = {
   token: string;
   quotationId: string;
@@ -114,6 +120,10 @@ export function QuotationEmailPanel({
     const to = emailTo.trim();
     if (!to) {
       alert('수신 이메일을 입력해 주세요.');
+      return;
+    }
+    if (!isValidCustomerEmail(to)) {
+      alert('수신 이메일 형식이 올바르지 않습니다. 예: name@example.com');
       return;
     }
     setSending(true);

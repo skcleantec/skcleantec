@@ -1,3 +1,5 @@
+import { assertValidCustomerEmail } from '../../lib/customerEmail.js';
+import { formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
 import { prisma } from '../../lib/prisma.js';
 import { getTenantCompanyProfile } from '../tenants/tenantCompanyProfile.service.js';
 import { sendQuotationEmail } from './quotation.email.service.js';
@@ -27,9 +29,41 @@ export type QuotationEmailSendResult =
   | { ok: true; quotation: ReturnType<typeof serializeQuotation> }
   | { ok: false; status: number; error: string };
 
+/** send-email API — body.to 우선, 없으면 견적서 customerEmail */
+export function resolveQuotationEmailRecipient(
+  bodyTo: unknown,
+  fallbackCustomerEmail: string | null | undefined,
+): { ok: true; email: string } | { ok: false; error: string } {
+  const raw =
+    (typeof bodyTo === 'string' && bodyTo.trim()) ||
+    fallbackCustomerEmail?.trim() ||
+    '';
+  if (!raw) {
+    return { ok: false, error: '수신 이메일을 입력해주세요.' };
+  }
+  try {
+    return { ok: true, email: assertValidCustomerEmail(raw, '수신 이메일') };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : '수신 이메일 형식이 올바르지 않습니다.',
+    };
+  }
+}
+
 export async function executeQuotationEmailSend(
   input: QuotationEmailSendInput,
 ): Promise<QuotationEmailSendResult> {
+  let to: string;
+  try {
+    to = assertValidCustomerEmail(input.to, '수신 이메일');
+  } catch (e) {
+    return {
+      ok: false,
+      status: 400,
+      error: e instanceof Error ? e.message : '수신 이메일 형식이 올바르지 않습니다.',
+    };
+  }
   const row = await prisma.quotation.findFirst({
     where: { id: input.quotationId, tenantId: input.tenantId },
     include: quotationInclude,
@@ -69,7 +103,7 @@ export async function executeQuotationEmailSend(
     sent = await sendQuotationEmail({
       tenantId: input.tenantId,
       quotation: row,
-      to: input.to,
+      to,
       subject,
       body,
       pdfBuffer,
@@ -80,14 +114,14 @@ export async function executeQuotationEmailSend(
         : 'SMTP가 설정되지 않았습니다.';
     }
   } catch (e) {
-    errorMessage = e instanceof Error ? e.message : '이메일 발송에 실패했습니다.';
+    errorMessage = formatSmtpSendError(e);
   }
 
   await prisma.quotationEmailLog.create({
     data: {
       tenantId: input.tenantId,
       quotationId: row.id,
-      to: input.to,
+      to,
       subject,
       bodyPreview: previewBodyForLog(body),
       sentById: input.userId,
@@ -111,7 +145,7 @@ export async function executeQuotationEmailSend(
     where: { id: row.id },
     data: {
       status: 'SENT',
-      customerEmail: input.to,
+      customerEmail: to,
       lastEmailedAt: now,
       ...(row.sentAt ? {} : { sentAt: now }),
     },
