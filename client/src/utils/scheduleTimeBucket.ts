@@ -8,6 +8,33 @@ import {
 
 export type ScheduleTimeBucket = 'allday' | 'morning' | 'afternoon' | 'other';
 
+/** 관리 스케줄 일별 구역 순서(종일 → 오전 → 오후 → 기타)와 동일 */
+const SCHEDULE_TIME_BUCKET_ORDER: Record<ScheduleTimeBucket, number> = {
+  allday: 0,
+  morning: 1,
+  afternoon: 2,
+  other: 3,
+};
+
+export type ScheduleTimeBucketSortable = Pick<
+  ScheduleItem,
+  'preferredTime' | 'betweenScheduleSlot' | 'customerName' | 'id'
+>;
+
+export function compareScheduleTimeBucket(a: ScheduleTimeBucketSortable, b: ScheduleTimeBucketSortable): number {
+  const byBucket =
+    SCHEDULE_TIME_BUCKET_ORDER[getScheduleTimeBucket(a)] -
+    SCHEDULE_TIME_BUCKET_ORDER[getScheduleTimeBucket(b)];
+  if (byBucket !== 0) return byBucket;
+  const byName = (a.customerName ?? '').localeCompare(b.customerName ?? '', 'ko');
+  if (byName !== 0) return byName;
+  return a.id.localeCompare(b.id);
+}
+
+export function sortInquiriesByScheduleTimeBucket<T extends ScheduleTimeBucketSortable>(items: T[]): T[] {
+  return [...items].sort(compareScheduleTimeBucket);
+}
+
 export function isSideCleaningTime(t: string | null | undefined): boolean {
   return isSideCleaningPreferredTime(t);
 }

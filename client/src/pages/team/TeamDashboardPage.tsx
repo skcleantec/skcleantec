@@ -35,6 +35,7 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
+import { sortInquiriesByScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
 
 /** 대시보드 상단 — 모바일 4열×2행 고정 요약 */
 const DASHBOARD_SUMMARY_KEYS = [
@@ -138,6 +139,9 @@ export function TeamDashboardPage() {
     acc[key].push(item);
     return acc;
   }, {});
+  for (const key of Object.keys(byDate)) {
+    byDate[key] = sortInquiriesByScheduleTimeBucket(byDate[key]);
+  }
 
   const sortedDates = Object.keys(byDate).sort();
   const todayItems = byDate[todayStr] || [];
