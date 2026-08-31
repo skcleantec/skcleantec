@@ -132,7 +132,9 @@ export function TeamDashboardPage() {
 
   const todayStr = kstTodayYmd();
 
-  const withDate = items.filter((i) => i.preferredDate && i.status !== 'CANCELLED');
+  const withDate = items.filter(
+    (i) => i.preferredDate && i.status !== 'CANCELLED' && i.status !== 'ON_HOLD',
+  );
   const byDate = withDate.reduce<Record<string, InquiryItem[]>>((acc, item) => {
     const key = formatPreferredDateInputYmd(item.preferredDate);
     if (!key) return acc;

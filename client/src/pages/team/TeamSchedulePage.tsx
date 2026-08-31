@@ -371,7 +371,7 @@ export function TeamSchedulePage() {
               onChange={(e) => setYear(Number(e.target.value))}
               className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-fluid-2xs sm:px-3 sm:py-2.5 sm:text-fluid-sm"
             >
-              {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
+              {[year - 1, year, year + 1].map((y) => (
                 <option key={y} value={y}>
                   {yearOptionLabel(y)}
                 </option>

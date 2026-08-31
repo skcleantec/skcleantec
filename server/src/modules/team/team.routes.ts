@@ -108,6 +108,8 @@ import {
 } from './teamInquiryResponse.helpers.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import { whereExcludeHandedOffSourceInquiriesForTeamViewer } from '../inquiries/inquiryHandedOffFromInternal.js';
+import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { dateToYmdKst } from '../users/userEmployment.js';
 
 const router = Router();
 
@@ -567,6 +569,21 @@ async function attachCrewMembersOne<T extends { id?: string; crewMemberNote: str
   return enriched;
 }
 
+/** PATCH 등 mutation 응답도 GET과 동일하게 preferredDate KST YMD + operatingCompany 직렬화 */
+async function respondTeamInquiryOne<T extends { id?: string; crewMemberNote: string | null } | null>(
+  item: T,
+  tenantId: string,
+  viewerTeamLeaderId?: string,
+) {
+  const enriched = await attachCrewMembersOne(item, tenantId, viewerTeamLeaderId);
+  if (!enriched) return null;
+  return serializeTeamInquiryPreferredDateKst(
+    serializeTeamInquiryOperatingCompany(
+      enriched as Parameters<typeof serializeTeamInquiryOperatingCompany>[0],
+    ),
+  );
+}
+
 type TeamProfessionalOption = {
   id: string;
   label: string;
@@ -972,7 +989,7 @@ router.post('/inquiries/:id/inspection-missed', async (req, res) => {
     where: { id: inquiry.id },
     include: teamInquiryInclude,
   });
-  res.json(await attachCrewMembersOne(refreshed, inquiry.tenantId, userId));
+  res.json(await respondTeamInquiryOne(refreshed, inquiry.tenantId, userId));
 });
 
 /** 팀장: 본인 배정 건 예약일 변경 */
@@ -1005,13 +1022,13 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
     res.status(400).json({ error: '취소된 접수는 예약일을 변경할 수 없습니다.' });
     return;
   }
-  const beforeYmd = inquiry.preferredDate ? inquiry.preferredDate.toISOString().slice(0, 10) : null;
+  const beforeYmd = inquiry.preferredDate ? dateToYmdKst(inquiry.preferredDate) : null;
   if (beforeYmd === ymd) {
     const unchanged = await prisma.inquiry.findUnique({
       where: { id },
       include: teamInquiryInclude,
     });
-    res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId, userId));
+    res.json(await respondTeamInquiryOne(unchanged, inquiry.tenantId, userId));
     return;
   }
 
@@ -1048,7 +1065,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
     res.status(500).json({ error: '예약일 변경 후 조회에 실패했습니다.' });
     return;
   }
-  res.json(await attachCrewMembersOne(updated.inquiry, inquiry.tenantId, userId));
+  res.json(await respondTeamInquiryOne(updated.inquiry, inquiry.tenantId, userId));
 });
 
 /** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST, HH:mm) — 공용 또는 팀원별 */
@@ -1148,7 +1165,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
           where: { id },
           include: teamInquiryInclude,
         });
-        res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId, userId));
+        res.json(await respondTeamInquiryOne(unchanged, inquiry.tenantId, userId));
         return;
       }
       if (modeChanged) {
@@ -1213,7 +1230,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         inquiryId: id,
         lines: logLines,
       });
-      res.json(await attachCrewMembersOne(updated, inquiry.tenantId, userId));
+      res.json(await respondTeamInquiryOne(updated, inquiry.tenantId, userId));
       return;
     }
 
@@ -1266,7 +1283,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         where: { id },
         include: teamInquiryInclude,
       });
-      res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId, userId));
+      res.json(await respondTeamInquiryOne(unchanged, inquiry.tenantId, userId));
       return;
     }
 
@@ -1311,7 +1328,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
       inquiryId: id,
       lines: logLines,
     });
-    res.json(await attachCrewMembersOne(updated, inquiry.tenantId, userId));
+    res.json(await respondTeamInquiryOne(updated, inquiry.tenantId, userId));
   } catch (e: unknown) {
     console.error('[PATCH /team/inquiries/:id/crew-meeting-time]', e);
     const msg = e instanceof Error ? e.message : String(e);
@@ -1709,7 +1726,6 @@ router.get('/schedule', async (req, res) => {
     return;
   }
   const { start, end } = req.query as { start?: string; end?: string };
-  const now = new Date();
   let startDate: Date;
   let endDate: Date;
   if (
@@ -1721,8 +1737,14 @@ router.get('/schedule', async (req, res) => {
     startDate = new Date(`${start}T00:00:00+09:00`);
     endDate = new Date(`${end}T23:59:59.999+09:00`);
   } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const monthKey = kstTodayYmd().slice(0, 7);
+    const range = kstMonthRangeYm(monthKey);
+    if (!range) {
+      res.status(500).json({ error: '스케줄 기간을 계산하지 못했습니다.' });
+      return;
+    }
+    startDate = range.gte;
+    endDate = range.lte;
   }
 
   const brandScope = await buildTeamLeaderInquiryBrandFilter(prisma, tenantId, userId);
@@ -1886,7 +1908,7 @@ router.get('/external-settlement', async (req, res) => {
       customerName: row.customerName,
       address: row.address,
       addressDetail: row.addressDetail ?? null,
-      preferredDate: row.preferredDate ? row.preferredDate.toISOString() : null,
+      preferredDate: row.preferredDate ? dateToYmdKst(row.preferredDate) : null,
       status: row.status,
       isCancelled: false,
       feeAmount: fee,
@@ -1910,7 +1932,7 @@ router.get('/external-settlement', async (req, res) => {
       customerName: row.customerName,
       address: row.address,
       addressDetail: row.addressDetail ?? null,
-      preferredDate: row.preferredDate ? row.preferredDate.toISOString() : null,
+      preferredDate: row.preferredDate ? dateToYmdKst(row.preferredDate) : null,
       status: row.status,
       isCancelled: true,
       feeAmount: fee,
