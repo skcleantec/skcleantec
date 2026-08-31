@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { isAuthSessionExpiredError, updateMyProfile } from '../../api/auth';
-import { KakaoChannelChatLink } from './KakaoChannelChatLink';
 
 type TeamEContractDropdown = {
   listHref: string;
@@ -187,7 +186,6 @@ export function UserProfileMenu({
             >
               도움말 · 문의
             </Link>
-            <KakaoChannelChatLink variant="menu" onNavigate={() => setMenuOpen(false)} />
             {teamEContractMenu ? (
               <div className="border-t border-slate-100 pt-2 mt-1">
                 <p className="px-3 pb-1 text-fluid-2xs font-semibold uppercase tracking-wide text-slate-500">

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { KakaoChannelChatLink } from '../common/KakaoChannelChatLink';
 import { HelpCmsArticleBody } from '../help-cms/HelpCmsArticleBody';
 import { HelpCmsRichEditor } from '../help-cms/HelpCmsRichEditor';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
@@ -184,7 +183,6 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
 
   return (
     <div className="mx-auto max-w-3xl">
-      {isInquiry ? <KakaoChannelChatLink variant="banner" /> : null}
       {/* 필터 · 검색 — 레퍼런스 HELP 스타일 */}
       {view === 'list' ? (
         <div className="mb-4 space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
