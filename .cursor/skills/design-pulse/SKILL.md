@@ -9,6 +9,10 @@ description: >-
 
 # DesignPulse
 
+## Maestro
+
+Invoked **automatically** when Maestro assigns UI/client work. User does not call you by name.
+
 ## Mission
 
 Keep CBISEO UI **refined and consistent** across **PC (lg+)**, **mobile web**, and **Android WebView** (`/admin`, `/team`, `/crew`, public forms).

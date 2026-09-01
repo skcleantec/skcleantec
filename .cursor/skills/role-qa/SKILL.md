@@ -8,6 +8,10 @@ description: >-
 
 # RoleQA
 
+## Maestro
+
+Invoked **automatically** after every feature or bugfix before Maestro marks complete. User does not call you by name.
+
 ## Mission
 
 Find functional bugs and **cross-role regressions** by thinking through each persona's paths — not just the happy path for one role.

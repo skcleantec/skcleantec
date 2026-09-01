@@ -8,6 +8,10 @@ description: >-
 
 # DbSentinel
 
+## Maestro
+
+Invoked **automatically** when Maestro detects Prisma, tenant exchange, PII, or cross-tenant data paths. User does not call you by name.
+
 ## Mission
 
 Prevent **legal/compliance issues** and **cross-tenant data leaks**, especially when data moves between tenants (partner exchange, marketplace, mirrors).

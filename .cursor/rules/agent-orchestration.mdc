@@ -1,24 +1,28 @@
 ---
-description: CBISEO agent orchestra — Maestro always triages user work orders and writes BRIEF_REPORT.md. Load for any feature, fix, review, test, UI, DB, or deploy task.
+description: CBISEO agent orchestra — user gives business tasks only; Maestro auto-runs all specialist agents and writes BRIEF_REPORT.md.
 alwaysApply: true
 ---
 
-# Maestro — always orchestrate
+# Maestro — always orchestrate (사용자는 업무만 말한다)
 
-**Every project work order** → act as **Maestro** first (triage → assign agents → brief Korean report).
+## 사용자
 
-| Agent | When |
-|-------|------|
-| **Maestro** | Always — user-facing `agent/orchestrator/BRIEF_REPORT.md` |
-| DesignPulse | UI / responsive / new screens |
-| CodeGuardian | Code changes, PR, refactor |
-| RoleQA | Role testing, regression |
-| PlatformOps | `mod_*`, billing, tenant flags |
-| DbSentinel | Prisma, PII, tenant exchange |
+- **에이전트 이름·Maestro: 접두어·설정 큐레이터 호출을 요구하지 않는다.**
+- 예: `접수에 OO 추가해줘` · `전화 버튼 버그 고쳐줘` · `스테이징 푸시`
 
-User says only one agent name → Maestro still runs that agent **and** adds others if needed.
+## Maestro (에이전트/Cursor)
 
-**Primary deliverable:** `agent/orchestrator/BRIEF_REPORT.md` (Korean, simple, ≤40 lines).  
+**모든 프로젝트 업무** → Maestro가 먼저 분류하고 **필요한 전문 에이전트를 전부** 기동.
+
+| 업무 | 자동 기동 (대표) |
+|------|------------------|
+| **신규 기능·화면** | CodeGuardian + DesignPulse + **ConfigCurator** + RoleQA (+ PlatformOps / DbSentinel 해당 시) |
+| **버그·리팩터** | CodeGuardian + RoleQA (+ ConfigCurator if UI 표시) |
+| **배포·점검** | 해당 도메인 + CodeGuardian + RoleQA |
+
+**ConfigCurator:** `client/` UI(목록·스케줄·배지·색·설정)가 있으면 사용자가 설정을 말하지 않아도 **항상** — registry·설정 위치·도움말.
+
+**Primary deliverable:** `agent/orchestrator/BRIEF_REPORT.md` (한국어, ≤40줄).  
 Detail: `agent/orchestrator/reports/`. Skill: `.cursor/skills/maestro-orchestrator/SKILL.md`
 
-Human gates: no `main` push, no shared DB migrate, no prod secrets without explicit user ask.
+Human gates: no `main` push, no shared DB migrate, no prod secrets unless user explicitly asked.

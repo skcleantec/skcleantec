@@ -8,6 +8,10 @@ description: >-
 
 # PlatformOps
 
+## Maestro
+
+Invoked **automatically** when Maestro detects `mod_*`, billing, tenant feature, or platform admin work. User does not call you by name.
+
 ## Mission
 
 Ensure every feature is **manageable from the platform layer**: catalogued, gated by plan, observable per tenant, and aligned with billing/settlement rules.

@@ -1,74 +1,46 @@
 # CBISEO Agent Orchestra
 
-English agent names · orchestrated by **Maestro** · activity logged under `agent/orchestrator/`.
+Orchestrated by **Maestro** only from the user's perspective. Users give **business tasks**; Maestro auto-runs specialists.
 
-## Quick invoke (Cursor chat)
+## User speaks (examples)
 
-| Intent | Example prompt |
-|--------|----------------|
-| Full pipeline | `Maestro: review the latest changes end-to-end` |
-| Design only | `DesignPulse: audit TeamSchedulePage mobile + desktop` |
-| Code review | `CodeGuardian: review my diff before merge` |
-| Role testing | `RoleQA: test happy-call assignment as team leader` |
-| Platform ops | `PlatformOps: is mod_tenant_exchange wired for billing?` |
-| DB / legal | `DbSentinel: scan tenant exchange for PII leaks` |
+| User says | Maestro auto-runs |
+|-----------|-------------------|
+| `Add feature X to inquiry list` | CodeGuardian + DesignPulse + **ConfigCurator** + RoleQA |
+| `Fix phone button bug` | CodeGuardian + RoleQA (+ ConfigCurator if UI) |
+| `Push staging` | CodeGuardian (+ gates) |
 
-Skills live in `.cursor/skills/<agent-id>/SKILL.md`. Maestro loads the right skill(s) and writes a run report.
+**Do not** ask users to name agents or prefix `Maestro:`.
 
-## Agents
+## Agents (internal — Maestro dispatches)
 
-| ID | English name | Role |
-|----|--------------|------|
-| `maestro-orchestrator` | **Maestro** | Routes work, merges reports, updates activity log |
-| `design-pulse` | **DesignPulse** | Modern UI research + PC/mobile/app responsive design |
-| `code-guardian` | **CodeGuardian** | Diff review, related code, rules/docs, module balance |
-| `role-qa` | **RoleQA** | Marketer / admin / team-leader scenario testing |
-| `platform-ops` | **PlatformOps** | Tenant feature flags, usage, billing, platform admin |
-| `db-sentinel` | **DbSentinel** | Privacy law watch, tenant isolation, sensitive data exchange |
+| ID | Name | Auto when |
+|----|------|-----------|
+| `code-guardian` | CodeGuardian | Any code change |
+| `design-pulse` | DesignPulse | `client/` UI |
+| `config-curator` | ConfigCurator | `client/` UI lists, schedules, badges, colors, settings |
+| `role-qa` | RoleQA | Every feature/bugfix |
+| `platform-ops` | PlatformOps | `mod_*`, billing, tenant features |
+| `db-sentinel` | DbSentinel | Prisma, PII, tenant exchange |
 
-## Orchestration order (default)
+Skills: `.cursor/skills/<id>/SKILL.md`
+
+## Flow
 
 ```
-User request / PR / feature change
-        │
-        ▼
-    Maestro (triage)
-        │
-   ┌────┴────┬─────────┬──────────┐
-   ▼         ▼         ▼          ▼
-DesignPulse CodeGuardian RoleQA  PlatformOps
-   (UI)      (always on      (after code   (new feature /
-             code change)     stable)       billing touch)
-        │         │         │          │
-        └────┬────┴────┬────┴──────────┘
-             ▼         ▼
-        DbSentinel (schema, PII, tenant exchange, cross-tenant)
-             │
-             ▼
-    Maestro summary → ACTIVITY_LOG.md + reports/
+Business request → Maestro → all applicable agents → BRIEF_REPORT.md
 ```
-
-**Parallel OK:** DesignPulse + CodeGuardian on the same PR.  
-**Sequential:** RoleQA after CodeGuardian fixes; DbSentinel when `server/prisma` or tenant exchange changes.
 
 ## Visibility
 
-After every orchestrated run, Maestro **must**:
+After every run: `agent/orchestrator/BRIEF_REPORT.md` (Korean) + `reports/` + activity log.
 
-1. **Overwrite** `agent/orchestrator/BRIEF_REPORT.md` — **Korean brief report for the user (primary)**
-2. Append one JSON line to `agent/orchestrator/activity-log.jsonl`
-3. Refresh `agent/orchestrator/ACTIVITY_LOG.md`
-4. Save detail report: `agent/orchestrator/reports/YYYY-MM-DD-HHmm-<agent>-<slug>.md`
+## Human gates
 
-## Human approval gates (never bypass)
+No `main` push, shared DB migrate, prod secrets without explicit user ask.
 
-- `main` push, production Railway vars, Play Console submit
-- `prisma migrate deploy` on shared DB (unless user explicitly asked)
-- Destructive git, bulk data delete, tenant provisioning in prod
+## Docs
 
-## Related docs
-
-- User guide (Korean): `docs/AGENT_ORCHESTRATION.md`
+- Korean user guide: `docs/AGENT_ORCHESTRATION.md`
+- Workflow: `agent/orchestrator/ORCHESTRATOR.md`
 - Registry: `agent/orchestrator/registry.json`
-- Workflow detail: `agent/orchestrator/ORCHESTRATOR.md`
-- Existing guide agent (docs only): `agent/GUIDE_AGENT.md` → **GuideRosie** (not in orchestra; manual trigger)
