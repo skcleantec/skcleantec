@@ -230,7 +230,22 @@
         "client/src/components/admin/OperatingCompanyCancellationPolicyFields.tsx",
         "shared/operatingCompanyCancellationPolicy.ts"
       ],
-      "notes": "프리셋 2일(추천)·3일·직접. 미리보기: 청소일 9월 10일이면 → 마감일 낮 12시 알림. 위약 구간은 자세히 details."
+      "notes": "프리셋 2일(추천)·3일·직접. 발주서설정 취소·변경은 {{cancellationPolicy}} 자동 삽입·고객 /info 치환."
+    },
+    {
+      "id": "orderform.guide.cancellationPolicyToken",
+      "labelKo": "취소·변경 안내 · 브랜드 위약 코드",
+      "surfaces": ["admin.orderForm.settings.guide", "public.orderInfo"],
+      "visual": { "type": "placeholder", "token": "emerald-50" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-customer-preview",
+      "helpPath": "client/src/pages/admin/AdminOrderFormNoticePage.tsx",
+      "codeRefs": [
+        "shared/orderFormGuidePlaceholders.ts",
+        "client/src/utils/orderGuideParse.ts"
+      ],
+      "notes": "섹션에 {{cancellationPolicy}} 없으면 자동 삽입. 고객 화면은 브랜드 위약금 문장으로 치환."
     },
     {
       "id": "orderform.public.stickySubmit",

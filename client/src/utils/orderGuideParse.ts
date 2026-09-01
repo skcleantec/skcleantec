@@ -1,3 +1,4 @@
+import { ensureCancellationPolicyPlaceholderInSections } from '@shared/orderFormGuidePlaceholders';
 import type { GuideSection } from '../constants/orderInfoDefaultSections';
 import { ORDER_GUIDE_DEFAULT_SECTIONS } from '../constants/orderInfoDefaultSections';
 
@@ -27,13 +28,15 @@ export function parseGuideFromStoredContent(raw: string | null | undefined): Gui
             if (title || items.length) out.push({ title: title || '안내', items });
           }
         }
-        if (out.length) return out;
+        if (out.length) return ensureCancellationPolicyPlaceholderInSections(out);
       }
     } catch {
       /* 레거시 한 줄 본문 등 */
     }
   }
   const lines = t.split(/\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length) return [{ title: '안내', items: lines }];
+  if (lines.length) {
+    return ensureCancellationPolicyPlaceholderInSections([{ title: '안내', items: lines }]);
+  }
   return cloneDefault();
 }

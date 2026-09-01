@@ -96,7 +96,10 @@ import {
 } from '../tenants/publicTenantAccess.js';
 import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
 import { loadGuidePlaceholderContextForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
-import { expandGuideSections } from '../../lib/orderFormGuidePlaceholders.js';
+import {
+  ensureCancellationPolicyPlaceholderInSections,
+  expandGuideSections,
+} from '../../lib/orderFormGuidePlaceholders.js';
 import {
   parseOrderFormSpaceCount,
   validateOrderFormSpaceCounts,
@@ -327,14 +330,16 @@ function parseGuideSectionsFromDb(raw: string | null | undefined): GuideSection[
             if (title || items.length) out.push({ title: title || '안내', items });
           }
         }
-        if (out.length) return out;
+        if (out.length) return ensureCancellationPolicyPlaceholderInSections(out);
       }
     } catch {
       /* 레거시 본문 */
     }
   }
   const lines = t.split(/\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length) return [{ title: '안내', items: lines }];
+  if (lines.length) {
+    return ensureCancellationPolicyPlaceholderInSections([{ title: '안내', items: lines }]);
+  }
   return DEFAULT_GUIDE_SECTIONS;
 }
 

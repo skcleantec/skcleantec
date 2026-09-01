@@ -313,12 +313,9 @@ export function buildPenaltyLineMap(
   return map;
 }
 
-/** 발주서 안내사항 — 취소·변경 섹션 기본 항목(치환코드) */
+/** 발주서 안내사항 — 취소·변경 섹션 기본 항목(브랜드 위약 전체) */
 export const ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS: readonly string[] = [
-  '{{freeChangeDaysLine}}',
-  '{{penaltyLine:2}}',
-  '{{penaltyLine:1}}',
-  '{{penaltyLine:0}}',
+  '{{cancellationPolicy}}',
 ];
 
 export function emptyOperatingCompanyCancellationPolicyForm(): OperatingCompanyCancellationPolicy {

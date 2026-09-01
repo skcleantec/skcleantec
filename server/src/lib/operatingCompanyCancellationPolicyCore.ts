@@ -299,8 +299,5 @@ export function buildPenaltyLineMap(
 }
 
 export const ORDER_GUIDE_CANCELLATION_DEFAULT_ITEMS: readonly string[] = [
-  '{{freeChangeDaysLine}}',
-  '{{penaltyLine:2}}',
-  '{{penaltyLine:1}}',
-  '{{penaltyLine:0}}',
+  '{{cancellationPolicy}}',
 ];

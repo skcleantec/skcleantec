@@ -204,3 +204,52 @@ export function expandGuideSections<
     items: expandGuideSectionItems(sec.items, ctx),
   }));
 }
+
+export const GUIDE_CANCELLATION_SECTION_TITLE = '취소·변경 안내';
+
+const CANCELLATION_FULL_TOKENS = [
+  GUIDE_PLACEHOLDER_CANCELLATION_POLICY,
+  GUIDE_PLACEHOLDER_CANCELLATION_POLICY_BULLETS,
+] as const;
+
+/** 예전 기본 블록 — 구간 일수가 바뀌면 빠지므로 전체 코드로 교체 */
+const LEGACY_CANCELLATION_LINE_TOKENS = new Set([
+  GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE,
+  GUIDE_PLACEHOLDER_PENALTY_LINES,
+  '{{penaltyLine:0}}',
+  '{{penaltyLine:1}}',
+  '{{penaltyLine:2}}',
+]);
+
+export function sectionTitleLooksLikeCancellation(title: string): boolean {
+  return /취소|변경/.test(title);
+}
+
+export function guideItemsHaveCancellationPolicyToken(items: readonly string[]): boolean {
+  return items.some((line) =>
+    CANCELLATION_FULL_TOKENS.some((tok) => line.includes(tok)),
+  );
+}
+
+/**
+ * 취소·변경 섹션에 `{{cancellationPolicy}}` 가 없으면 넣는다.
+ * 이미 저장된 옛 문구·penaltyLine 개별 코드만 있는 테넌트에도 브랜드 위약이 붙게 한다.
+ */
+export function ensureCancellationPolicyPlaceholderInSections<
+  T extends { title: string; items: string[] },
+>(sections: T[]): T[] {
+  const next = sections.map((s) => ({ ...s, items: [...s.items] }));
+  let idx = next.findIndex((s) => sectionTitleLooksLikeCancellation(s.title));
+  if (idx < 0) {
+    next.unshift({
+      title: GUIDE_CANCELLATION_SECTION_TITLE,
+      items: [GUIDE_PLACEHOLDER_CANCELLATION_POLICY],
+    } as T);
+    return next;
+  }
+  const sec = next[idx]!;
+  if (guideItemsHaveCancellationPolicyToken(sec.items)) return next;
+  const kept = sec.items.filter((line) => !LEGACY_CANCELLATION_LINE_TOKENS.has(line.trim()));
+  sec.items = [GUIDE_PLACEHOLDER_CANCELLATION_POLICY, ...kept];
+  return next;
+}
