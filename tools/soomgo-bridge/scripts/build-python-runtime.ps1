@@ -15,6 +15,8 @@ function Test-RuntimeReady {
     if (-not (Test-Path $PythonExe)) { return $false }
     try {
         & $PythonExe -c "import tkinter; import selenium; import _tkinter" 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) { return $false }
+        & $PythonExe -c "from zoneinfo import ZoneInfo; ZoneInfo('Asia/Seoul')" 2>$null | Out-Null
         return $LASTEXITCODE -eq 0
     } catch {
         return $false
@@ -71,8 +73,8 @@ $Req1 = Join-Path $BridgeRoot 'requirements.txt'
 $Req2 = Join-Path $BridgeRoot 'requirements-desktop.txt'
 & $PythonExe -m pip install -r $Req1 -r $Req2 --no-warn-script-location -q
 
-Write-Host "Verify tkinter + selenium..."
-& $PythonExe -c "import tkinter; import selenium; root = tkinter.Tk(); root.destroy(); print('runtime ok')"
+Write-Host "Verify tkinter + selenium + tzdata..."
+& $PythonExe -c "import tkinter; import selenium; from zoneinfo import ZoneInfo; ZoneInfo('Asia/Seoul'); root = tkinter.Tk(); root.destroy(); print('runtime ok')"
 if ($LASTEXITCODE -ne 0) {
     throw 'Runtime verification failed (tkinter/selenium)'
 }

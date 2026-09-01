@@ -12,23 +12,160 @@ from selenium.common.exceptions import TimeoutException
 from automation.selectors import URLS, LOGIN
 from automation.navigation import ensure_chat_workspace, is_logged_in, is_pro_session_url
 from automation.overlay_modals import dismiss_blocking_overlays
+from automation.window_layout import apply_mobile_viewport
 
 logger = logging.getLogger(__name__)
 
 KAKAO_MANUAL_WAIT_SEC = 180.0
 
+_SOCIAL_LOGIN_NEEDLES = (
+    '네이버',
+    '카카오',
+    '구글',
+    '애플',
+    '페이스북',
+    'naver',
+    'kakao',
+    'google',
+    'apple',
+    'facebook',
+)
 
-def _find_first(driver, selectors_str: str, wait=None):
-    for selector in selectors_str.split(', '):
+_FILL_INPUT_JS = """
+const el = arguments[0];
+const value = String(arguments[1] ?? '');
+const proto = el.tagName === 'TEXTAREA'
+  ? window.HTMLTextAreaElement.prototype
+  : window.HTMLInputElement.prototype;
+const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+if (desc && desc.set) desc.set.call(el, value);
+else el.value = value;
+el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: value }));
+el.dispatchEvent(new Event('change', { bubbles: true }));
+return (el.value || '').trim();
+"""
+
+
+def _split_selectors(selectors_str: str) -> list[str]:
+    return [part.strip() for part in selectors_str.split(',') if part.strip()]
+
+
+def _element_label(el) -> str:
+    try:
+        parts = [
+            el.get_attribute('aria-label') or '',
+            el.get_attribute('title') or '',
+            el.text or '',
+            el.get_attribute('value') or '',
+        ]
+        return ' '.join(parts).strip()
+    except Exception:
+        return ''
+
+
+def _is_social_login_control(el) -> bool:
+    label = _element_label(el).lower()
+    if not label:
+        return False
+    return any(needle in label for needle in _SOCIAL_LOGIN_NEEDLES)
+
+
+def _is_interactable(el) -> bool:
+    try:
+        return bool(el.is_displayed() and el.is_enabled())
+    except Exception:
+        return False
+
+
+def _find_first(driver, selectors_str: str, wait=None, *, require_visible: bool = False):
+    for selector in _split_selectors(selectors_str):
         try:
             if wait:
-                elem = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+                elems = wait.until(
+                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector))
+                )
             else:
-                elem = driver.find_element(By.CSS_SELECTOR, selector)
-            if elem:
+                elems = driver.find_elements(By.CSS_SELECTOR, selector)
+            for elem in elems or []:
+                if require_visible and not _is_interactable(elem):
+                    continue
+                if _is_social_login_control(elem):
+                    continue
                 return elem
         except Exception:
             continue
+    return None
+
+
+def _read_input_value(el) -> str:
+    try:
+        return (el.get_attribute('value') or '').strip()
+    except Exception:
+        return ''
+
+
+def _fill_input(driver, el, value: str) -> bool:
+    value = (value or '').strip()
+    if not value:
+        return False
+    try:
+        driver.execute_script(
+            'arguments[0].scrollIntoView({block:"center", inline:"center"}); arguments[0].focus();',
+            el,
+        )
+    except Exception:
+        pass
+    try:
+        el.clear()
+    except Exception:
+        pass
+    try:
+        el.send_keys(value)
+    except Exception:
+        pass
+    if _read_input_value(el) == value:
+        return True
+    try:
+        actual = driver.execute_script(_FILL_INPUT_JS, el, value)
+        return str(actual or '').strip() == value
+    except Exception as e:
+        logger.warning('fill input via js failed: %s', e)
+        return False
+
+
+def _find_email_login_button(driver, *, timeout: float = 12.0):
+    deadline = time.time() + timeout
+    preferred_text = LOGIN.get('EMAIL_LOGIN_BUTTON_TEXT', '이메일 로그인')
+    while time.time() < deadline:
+        for xpath in (
+            f"//button[contains(normalize-space(.), '{preferred_text}')]",
+            "//form//button[@type='submit']",
+            "//button[@type='submit']",
+        ):
+            try:
+                for el in driver.find_elements(By.XPATH, xpath):
+                    if not _is_interactable(el):
+                        continue
+                    if _is_social_login_control(el):
+                        continue
+                    label = _element_label(el)
+                    if '이메일' in label or preferred_text in label:
+                        return el
+                    if xpath.startswith('//form'):
+                        return el
+            except Exception:
+                continue
+
+        for el in driver.find_elements(By.CSS_SELECTOR, LOGIN.get('EMAIL_LOGIN_BUTTON', LOGIN['LOGIN_BUTTON'])):
+            if not _is_interactable(el):
+                continue
+            if _is_social_login_control(el):
+                continue
+            label = _element_label(el)
+            if preferred_text in label or '이메일' in label:
+                return el
+
+        time.sleep(0.25)
     return None
 
 
@@ -62,7 +199,7 @@ def _scroll_and_click(driver, el) -> bool:
             return False
 
 
-def _click_by_xpath_text(driver, *needles: str) -> bool:
+def _click_by_xpath_text(driver, *needles: str, exclude_social: bool = True) -> bool:
     for needle in needles:
         xpath = (
             f"//button[contains(normalize-space(.), '{needle}')] | "
@@ -75,6 +212,8 @@ def _click_by_xpath_text(driver, *needles: str) -> bool:
             continue
         for el in elems:
             try:
+                if exclude_social and _is_social_login_control(el):
+                    continue
                 if el.is_displayed() and el.is_enabled() and _scroll_and_click(driver, el):
                     logger.info('clicked xpath text=%s', needle)
                     return True
@@ -284,42 +423,66 @@ def login_via_kakao(
 
 
 def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bool:
+    email = (email or '').strip()
+    password = (password or '').strip()
+    if not email or not password:
+        logger.error('email/password empty — abort before clicking login controls')
+        return False
+
     try:
+        apply_mobile_viewport(driver)
         for attempt in range(2):
             driver.get(URLS['LOGIN'])
             time.sleep(delay)
+            apply_mobile_viewport(driver)
             dismiss_blocking_overlays(driver, delay * 0.6)
 
             wait = WebDriverWait(driver, 15)
-            email_input = _find_first(driver, LOGIN['EMAIL_INPUT'], wait)
+            email_input = _find_first(driver, LOGIN['EMAIL_INPUT'], wait, require_visible=True)
             if not email_input:
-                logger.error('email input not found')
+                logger.error('email input not found (attempt %s)', attempt + 1)
                 if attempt == 0:
                     dismiss_blocking_overlays(driver, delay)
                     continue
                 return False
 
             dismiss_blocking_overlays(driver, delay * 0.4)
-            email_input.clear()
-            email_input.send_keys(email)
-            time.sleep(delay * 0.5)
+            if not _fill_input(driver, email_input, email):
+                logger.error('email input fill failed — value not applied (attempt %s)', attempt + 1)
+                if attempt == 0:
+                    dismiss_blocking_overlays(driver, delay)
+                    continue
+                return False
+            time.sleep(delay * 0.35)
 
-            password_input = _find_first(driver, LOGIN['PASSWORD_INPUT'])
+            password_input = _find_first(driver, LOGIN['PASSWORD_INPUT'], require_visible=True)
             if not password_input:
-                logger.error('password input not found')
+                logger.error('password input not found (attempt %s)', attempt + 1)
                 return False
 
             dismiss_blocking_overlays(driver, delay * 0.4)
-            password_input.clear()
-            password_input.send_keys(password)
-            time.sleep(delay * 0.5)
+            if not _fill_input(driver, password_input, password):
+                logger.error('password input fill failed — value not applied (attempt %s)', attempt + 1)
+                if attempt == 0:
+                    dismiss_blocking_overlays(driver, delay)
+                    continue
+                return False
+            time.sleep(delay * 0.35)
 
-            login_button = _find_first(driver, LOGIN['LOGIN_BUTTON'])
+            login_button = _find_email_login_button(driver, timeout=12.0)
             if not login_button:
-                logger.error('login button not found')
+                logger.error('email login button not found (attempt %s)', attempt + 1)
                 return False
 
-            login_button.click()
+            btn_label = _element_label(login_button) or LOGIN.get('EMAIL_LOGIN_BUTTON_TEXT', '이메일 로그인')
+            if _is_social_login_control(login_button):
+                logger.error('refusing to click social login control: %s', btn_label)
+                return False
+
+            logger.info('clicking email login button: %s', btn_label)
+            if not _scroll_and_click(driver, login_button):
+                logger.error('email login button click failed')
+                return False
             time.sleep(delay * 1.5)
             dismiss_blocking_overlays(driver, delay * 0.6)
             time.sleep(delay)
@@ -333,6 +496,14 @@ def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bo
             current_url = driver.current_url.lower()
             if 'login' not in current_url and '/sign' not in current_url and is_pro_session_url(driver.current_url):
                 return True
+
+            if _is_kakao_login_url(current_url) or 'nid.naver.com' in current_url:
+                logger.error(
+                    'unexpected social oauth redirect after email login click (url=%s) — '
+                    'wrong button or empty form',
+                    driver.current_url,
+                )
+                return False
 
             logger.warning('login attempt %s still on login page, retrying after overlay dismiss', attempt + 1)
             dismiss_blocking_overlays(driver, delay)

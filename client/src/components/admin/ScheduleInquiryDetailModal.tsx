@@ -21,6 +21,7 @@ import { getMe } from '../../api/auth';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
+import { InquiryCustomerCallButton } from './InquiryCustomerCallButton';
 import { ScheduleCustomCalendarPinSection } from './ScheduleCustomCalendarPinSection';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import type { ServiceZoneItem } from '../../api/serviceZones';
@@ -2381,6 +2382,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+                  <InquiryCustomerCallButton
+                    phone={editForm.customerPhone || item.customerPhone}
+                    customerName={editForm.customerName || item.customerName}
+                    className="inline-flex items-center rounded-md border border-indigo-500 bg-indigo-600 px-1.5 py-0.5 text-[11px] font-semibold leading-tight text-white hover:bg-indigo-700 active:bg-indigo-800 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
+                  />
                   <button
                     type="button"
                     onClick={() => setCopyInfoViewOpen(true)}

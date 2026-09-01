@@ -35,6 +35,7 @@ import {
 import { InquiryQuickPasteTriggerButton } from '../../components/inquiry/InquiryQuickPasteTriggerButton';
 import { ScheduleQuickPasteModal } from '../../components/schedule/ScheduleQuickPasteModal';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { InquiryCustomerCallButton } from '../../components/admin/InquiryCustomerCallButton';
 import { InquiryHelpModal } from '../../components/admin/inquiry-help/InquiryHelpModal';
 import { InquiryHelpTrigger } from '../../components/admin/inquiry-help/InquiryHelpTrigger';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
@@ -3246,7 +3247,10 @@ export function AdminInquiriesPage() {
           <>
             {!isLgUp ? (
             <>
-            <div className={INQUIRY_MOBILE_CARD_LIST_CLASS}>
+            <div
+              className={`${INQUIRY_MOBILE_CARD_LIST_CLASS}${editItem ? ' pointer-events-none' : ''}`}
+              aria-hidden={editItem ? true : undefined}
+            >
               {items.map((item, idx) => {
                 const addrFull = inquiryListAddressFull(item.address, item.addressDetail);
                 const addrShort = addressListShortSiGu(item.address);
@@ -3256,18 +3260,21 @@ export function AdminInquiriesPage() {
                 return (
                   <div key={item.id} className={inquiryMobileCardShellClass(item, prevItem)}>
                     <div
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${item.customerName} 상세`}
-                      onClick={() => openEdit(item)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          openEdit(item);
-                        }
-                      }}
-                      className={INQUIRY_MOBILE_CARD_BODY_CLASS}
+                      className={`${INQUIRY_MOBILE_CARD_BODY_CLASS} flex items-start gap-1.5 sm:gap-2`}
                     >
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${item.customerName} 상세`}
+                        onClick={() => openEdit(item)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openEdit(item);
+                          }
+                        }}
+                        className="min-w-0 flex-1 cursor-pointer"
+                      >
                       <div className="flex items-start gap-1.5 sm:gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1 sm:gap-2">
@@ -3333,13 +3340,6 @@ export function AdminInquiriesPage() {
                             {addrShort}
                           </p>
                         </div>
-                        <a
-                          href={`tel:${item.customerPhone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="shrink-0 self-start rounded-lg bg-indigo-600 px-2 py-1 text-center text-fluid-2xs font-semibold text-white shadow-sm shadow-indigo-600/10 hover:bg-indigo-700 active:scale-[0.97] sm:rounded-xl sm:px-3.5 sm:py-2 sm:text-fluid-xs lg:hover:scale-[1.03] transition-all duration-200"
-                        >
-                          전화
-                        </a>
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-1 text-fluid-2xs text-slate-700 sm:mt-2 sm:gap-2 sm:text-fluid-xs">
                         <span className="tabular-nums text-slate-800">
@@ -3387,6 +3387,13 @@ export function AdminInquiriesPage() {
                         </span>
                           </div>
                       </div>
+                      <InquiryCustomerCallButton
+                        phone={item.customerPhone}
+                        customerName={item.customerName}
+                        disabled={Boolean(editItem)}
+                        className="shrink-0 self-start rounded-lg bg-indigo-600 px-2 py-1 text-center text-fluid-2xs font-semibold text-white shadow-sm shadow-indigo-600/10 hover:bg-indigo-700 active:scale-[0.97] sm:rounded-xl sm:px-3.5 sm:py-2 sm:text-fluid-xs lg:hover:scale-[1.03] transition-all duration-200"
+                      />
+                    </div>
                     <div
                       className={INQUIRY_MOBILE_CARD_FOOTER_CLASS}
                       onClick={(e) => e.stopPropagation()}

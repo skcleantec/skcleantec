@@ -16,6 +16,12 @@ REQUIRED_FILES: tuple[str, ...] = (
     'automation/customer_request.py',
     'automation/chat_room.py',
     'automation/chat_list_watcher.py',
+    'automation/chat_list_enumerate.py',
+    'automation/chat_room_leave.py',
+    'automation/chat_room_opened_at.py',
+    'automation/preferred_date_parser.py',
+    'automation/stale_chat_cleanup.py',
+    'automation/kst.py',
     'automation/overlay_modals.py',
     'automation/navigation.py',
     'automation/browser.py',
@@ -31,16 +37,22 @@ def missing_files(root: Path) -> list[str]:
 
 
 def verify_imports(root: Path) -> None:
+    import py_compile
+
+    for rel in REQUIRED_FILES:
+        if not rel.endswith('.py'):
+            continue
+        py_compile.compile(str(root / rel), doraise=True)
+
+    # CI·로컬 pre-ZIP 빌드에는 selenium이 없을 수 있음 — 가벼운 모듈만 import 검증.
     sys.path.insert(0, str(root))
     from automation.selectors import SOOMGO_DISPLAY_NAME_JS  # noqa: F401
     from automation.overlay_modals import dismiss_blocking_overlays  # noqa: F401
-    from automation.customer_request import CustomerRequestManager  # noqa: F401
-    from automation.chat_room import ChatRoomManager  # noqa: F401
-    from automation.soomgo_text_filters import is_plausible_soomgo_region  # noqa: F401
-    from automation.navigation import ensure_chat_workspace, is_logged_in  # noqa: F401
-    from automation.window_layout import apply_mobile_viewport  # noqa: F401
+    from automation.preferred_date_parser import StaleChatVerdict, evaluate_stale_chat  # noqa: F401
+    from automation.kst import KST, kst_today  # noqa: F401
     if not SOOMGO_DISPLAY_NAME_JS.strip():
         raise RuntimeError('SOOMGO_DISPLAY_NAME_JS is empty')
+    _ = dismiss_blocking_overlays, StaleChatVerdict, evaluate_stale_chat, KST, kst_today()
 
 
 def main() -> int:

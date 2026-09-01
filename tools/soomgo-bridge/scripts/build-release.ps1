@@ -13,6 +13,15 @@ $SetupName = "SoomgoBridge-Setup-$Version.exe"
 $SetupPath = Join-Path $DistDir $SetupName
 $EnvSnippetPath = Join-Path $DistDir "railway-env-$Version.txt"
 
+$VerifyScript = Join-Path $PSScriptRoot 'verify-bridge-pack.py'
+if (Get-Command python -ErrorAction SilentlyContinue) {
+    Write-Host 'Verify bridge pack (pre-ZIP)...'
+    & python $VerifyScript --root $BridgeRoot
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Bridge pack verification failed before ZIP build'
+    }
+}
+
 # --- ZIP (자동 업데이트 ZIP 폴백·개발용) ---
 $ExcludeDirs = @('__pycache__', 'dist', 'installer', '.git')
 $ExcludeFiles = @('*.pyc', '*.pyo')

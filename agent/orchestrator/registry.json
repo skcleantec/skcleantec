@@ -1,0 +1,76 @@
+{
+  "_comment": "CBISEO agent orchestra — English display names and scopes. Updated by Maestro when agents change.",
+  "_lastUpdated": "2026-09-01",
+  "orchestrator": {
+    "id": "maestro-orchestrator",
+    "displayName": "Maestro",
+    "skillPath": ".cursor/skills/maestro-orchestrator/SKILL.md",
+    "description": "Routes tasks to specialist agents, enforces approval gates, merges reports, updates activity log."
+  },
+  "agents": [
+    {
+      "id": "design-pulse",
+      "displayName": "DesignPulse",
+      "skillPath": ".cursor/skills/design-pulse/SKILL.md",
+      "triggers": ["UI", "design", "responsive", "mobile", "tailwind", "new screen", "modal"],
+      "scope": {
+        "read": ["client/", "docs/UI_DESIGN_GUIDE.md", ".cursor/rules/responsive-ui.mdc", ".cursor/rules/team-mobile-compact-ui.mdc"],
+        "write": ["client/", "docs/UI_DESIGN_GUIDE.md"]
+      },
+      "outputs": ["design audit report", "breakpoint checklist", "optional UI patch"]
+    },
+    {
+      "id": "code-guardian",
+      "displayName": "CodeGuardian",
+      "skillPath": ".cursor/skills/code-guardian/SKILL.md",
+      "triggers": ["PR", "diff", "refactor", "new module", "server change", "regression"],
+      "scope": {
+        "read": ["client/", "server/", "shared/", ".cursor/rules/", "docs/", "PROJECT_GUIDE.md", "ARCHITECTURE.md"],
+        "write": ["client/", "server/", "shared/"]
+      },
+      "outputs": ["review report", "related-file list", "tsc/verify commands run"]
+    },
+    {
+      "id": "role-qa",
+      "displayName": "RoleQA",
+      "skillPath": ".cursor/skills/role-qa/SKILL.md",
+      "triggers": ["test", "QA", "marketer", "team leader", "admin", "regression", "role"],
+      "roles": ["MARKETER", "ADMIN", "TEAM_LEADER", "PLATFORM"],
+      "scope": {
+        "read": ["client/", "server/", "docs/"],
+        "write": ["agent/orchestrator/reports/"]
+      },
+      "outputs": ["role scenario matrix", "bug list", "regression risks"]
+    },
+    {
+      "id": "platform-ops",
+      "displayName": "PlatformOps",
+      "skillPath": ".cursor/skills/platform-ops/SKILL.md",
+      "triggers": ["feature flag", "tenant plan", "billing", "mod_", "platform admin", "usage"],
+      "scope": {
+        "read": ["shared/tenantFeatureModules.ts", "server/src/modules/platform/", "server/src/modules/tenants/", "docs/MULTI_TENANT_PLATFORM.md"],
+        "write": ["shared/tenantFeatureModules.ts", "server/src/modules/platform/", "docs/MULTI_TENANT_PLATFORM.md"]
+      },
+      "outputs": ["feature catalog diff", "tenant enablement checklist", "billing impact note"]
+    },
+    {
+      "id": "db-sentinel",
+      "displayName": "DbSentinel",
+      "skillPath": ".cursor/skills/db-sentinel/SKILL.md",
+      "triggers": ["prisma", "migration", "PII", "privacy", "tenant exchange", "personal data", "GDPR", "PIPA"],
+      "scope": {
+        "read": ["server/prisma/", "server/src/modules/", "docs/TENANT_DB_EXCHANGE.md", "docs/MULTI_TENANT_PLATFORM.md"],
+        "write": ["server/prisma/migrations/", "docs/"]
+      },
+      "outputs": ["compliance note", "tenant isolation audit", "migration safety checklist"]
+    }
+  ],
+  "legacyAgents": [
+    {
+      "id": "guide-rosie",
+      "displayName": "GuideRosie",
+      "workflow": "agent/GUIDE_AGENT.md",
+      "note": "Documentation-only; not part of Maestro pipeline unless user asks."
+    }
+  ]
+}
