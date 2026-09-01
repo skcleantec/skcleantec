@@ -1612,7 +1612,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       className={
         isInline
           ? ''
-          : `login-surface h-dvh min-h-0 overflow-y-auto overscroll-y-contain bg-gray-50 ${!isEditor && !isCreate ? 'pb-44' : 'pb-20'}`
+          : 'login-surface h-dvh min-h-0 overflow-y-auto overscroll-y-contain bg-gray-50 pb-20'
       }
     >
       <div
@@ -1845,7 +1845,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           noValidate
           onSubmit={handleSubmit}
           onFocusCapture={isInline ? undefined : onFieldFocus}
-          className="space-y-4 pb-20"
+          className={isEditor || isCreate ? 'space-y-4 pb-20' : 'space-y-4'}
         >
           {stdFieldOn('customerName') && (
           <div id="order-field-customerName">
@@ -2732,13 +2732,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 : 'fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)]'
             }
           >
-            <div className={isInline ? '' : 'mx-auto max-w-lg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]'}>
+            <div className={isInline ? '' : 'mx-auto max-w-lg px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'}>
             {isCreate ? (
               <button
                 type="button"
                 onClick={handleCreateAndPrefill}
                 disabled={prefillSaving}
-                className="w-full py-3 bg-gray-800 text-white font-medium rounded disabled:opacity-50"
+                className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
                 {prefillSaving ? '발급 중...' : '발급 및 링크 생성'}
               </button>
@@ -2747,7 +2747,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 type="button"
                 onClick={handleSavePrefill}
                 disabled={prefillSaving}
-                className="w-full py-3 bg-gray-800 text-white font-medium rounded disabled:opacity-50"
+                className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
                 {prefillSaving ? '저장 중...' : '선저장 (입력한 항목을 고객에게 잠금)'}
               </button>
@@ -2755,17 +2755,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 bg-gray-800 text-white font-medium rounded disabled:opacity-50"
+                className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
                 {submitting ? '제출 중...' : '제출하기'}
               </button>
             )}
-            {!isInline && !isCreate && !isEditor ? (
-              <>
-                <div className="my-3 border-t border-gray-200" aria-hidden />
-                <OrderFormPlatformFooter />
-              </>
-            ) : null}
             </div>
           </div>
         </form>
@@ -3244,10 +3238,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         </div>
         )}
         {!isEditor ? (
-          <OrderFormCompanyTrustFooter
-            trust={publicCompanyTrust}
-            displayNameFallback={publicBranding?.displayName}
-          />
+          <div className="space-y-3 pb-2">
+            <OrderFormCompanyTrustFooter
+              trust={publicCompanyTrust}
+              displayNameFallback={publicBranding?.displayName}
+            />
+            {!isCreate ? <OrderFormPlatformFooter /> : null}
+          </div>
         ) : null}
       </div>
     </div>

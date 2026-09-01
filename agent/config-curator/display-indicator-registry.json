@@ -186,6 +186,22 @@
       "helpPath": "teamMessages team.schedule.legendTealTooltip",
       "codeRefs": ["client/src/pages/team/TeamSchedulePage.tsx"],
       "notes": "팀장 화면 — tenant 기본값 + 개인 override 검토."
+    },
+    {
+      "id": "orderform.public.stickySubmit",
+      "labelKo": "고객 발주서 하단 제출하기 (고정)",
+      "surfaces": ["public.orderForm"],
+      "visual": { "type": "stickyBar", "token": "gray-800" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": [
+        "client/src/pages/order/OrderFormPage.tsx",
+        "client/src/components/orderform/OrderFormPlatformFooter.tsx",
+        "client/src/components/orderform/OrderFormCompanyTrustFooter.tsx"
+      ],
+      "notes": "고정 막대는 제출 버튼만. 청소비서·업체 사업자 안내는 문서 맨 아래(스크롤). 끄면 제출을 놓침 — 토글 금지."
     }
   ]
 }
