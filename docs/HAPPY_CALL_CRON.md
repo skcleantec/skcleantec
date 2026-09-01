@@ -5,7 +5,7 @@
 > · **고객 일정확인** = 솔라피 **`CBISEO_CUST_SCHEDULE_D2` 알림톡** (매일 **18:00 KST** 이후 1회/건)
 
 **청소일(예약일) 전날 18:00(KST)** 부터 해피콜이 **미완**이면 **1시간마다** 팀장에게 FCM 푸시를 보냅니다(완료까지).  
-마감(전날 23:59 KST) 이후에도 미완이면 동일하게 **매시간** 반복합니다.  
+**예약일이 오늘·내일(KST)인 건만** cron 후보 — **지난 예약일** 미완은 화면에 남을 수 있으나 **푸시 없음**.  
 테넌트 정책(`TenantNotificationPolicy`)·사용자 설정·`NotificationDeliveryLog` dedupe를 따릅니다.
 
 **일정확인 알림톡** 상세·dry-run: `docs/ALIMTALK_SCHEDULE_D2_CRON.md`
@@ -92,8 +92,8 @@ npm run cron:happy-call-reminders -- --dry-run
 |---|---|
 | **시작** | 예약일(청소일) **전날 18:00 KST** |
 | **간격** | **1시간** (`hourIndex` dedupe — cron은 15분마다 돌아도 시간당 1회) |
-| **종료** | `happyCallCompletedAt` 입력 또는 대상 접수 상태 제외 |
-| **연체 미완** | 예약일이 오늘·내일 밖이어도 **최근 60일(KST)** 이내 미완이면 cron 후보 (`HAPPY_CALL_CRON_OVERDUE_LOOKBACK_DAYS`) |
+| **종료** | `happyCallCompletedAt` 입력 · 상태 제외 · **예약일이 어제 이전** (cron 범위 밖) |
+| **지난 내역** | UI 연체 표시 가능, **푸시는 오늘·내일 예약만** |
 | **딥링크** | `/team/assignments?openInquiry=<id>` |
 
 ## 관련 코드
