@@ -7,6 +7,10 @@ export const SK_CLEANTEC_TENANT_SLUGS = ['skcleanteck', 'sk'] as const;
 export const SK_ONE_ROOM_LABEL = '원/투룸';
 export const DEFAULT_ONE_ROOM_LABEL = '원룸';
 
+/** SK 스케줄 캘린더 — 40평대 이상(≥40평) 팀원 배정 미완 표시 */
+export const SK_LARGE_AREA_PYEONG_MIN = 40;
+export const SK_LARGE_AREA_LABEL = '40평+';
+
 export const SK_TAEGEUK_FLAG_ASSET = '/assets/custom/skcleantec/taegeuk-unassigned.png';
 
 export function isSkCleantecTenantSlug(slug: string | null | undefined): boolean {

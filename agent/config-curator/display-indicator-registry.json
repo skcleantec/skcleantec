@@ -160,6 +160,22 @@
       "notes": "mod_db_marketplace 게이트와 별개 — 표시만 끄기."
     },
     {
+      "id": "schedule.skLargeArea40",
+      "labelKo": "SK · 40평+ 팀원 배정 미완 (캘린더)",
+      "surfaces": ["admin.schedule.calendar"],
+      "visual": { "type": "badge", "component": "SkCleantecScheduleLargeAreaIndicator", "token": "amber" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "admin.schedule.calendarLegend",
+      "codeRefs": [
+        "client/src/utils/scheduleLargeAreaDisplay.ts",
+        "client/src/components/admin/SkCleantecScheduleLargeAreaIndicator.tsx",
+        "shared/custom/skcleantecOpsUi.ts"
+      ],
+      "notes": "SK L3 custom_skcleanteck_ops_ui 전용. 해당 접수 팀원 배정 완료 시 셀에서 제외."
+    },
+    {
       "id": "team.schedule.tealNumbers",
       "labelKo": "팀 스케줄 · 손(孫) 일정 숫자 청록색",
       "surfaces": ["team.schedule.calendar"],
