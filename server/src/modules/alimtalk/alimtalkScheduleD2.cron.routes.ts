@@ -16,7 +16,7 @@ function verifyAlimtalkCronSecret(req: Request): boolean {
   return typeof header === 'string' && header.trim() === secret;
 }
 
-/** POST — 매일 18:00 KST (일정 확인 알림톡) */
+/** POST — 매일 낮 12:00 KST 이후 (일정 확인 알림톡) */
 router.post('/alimtalk-schedule-d2', async (req, res) => {
   if (!verifyAlimtalkCronSecret(req)) {
     res.status(401).json({ error: 'Unauthorized' });

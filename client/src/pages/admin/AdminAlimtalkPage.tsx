@@ -8,7 +8,7 @@ import {
 } from '@shared/alimtalkPolicy';
 import { formatAlimtalkTemplateHelpText } from '@shared/alimtalkTemplateHelp';
 import {
-  DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY,
+  formatScheduleD2SendHourKo,
   SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX,
 } from '@shared/alimtalkScheduleD2Timing';
 import {
@@ -99,9 +99,7 @@ export function AdminAlimtalkPage() {
       }
       setTemplateEnabled(next);
       const stored = data.scheduleD2DaysBeforePenalty;
-      setScheduleD2DaysBeforePenalty(
-        stored == null ? String(DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY) : String(stored),
-      );
+      setScheduleD2DaysBeforePenalty(stored == null ? '' : String(stored));
       try {
         const logs = await getTenantAlimtalkSendLogs(token, {
           templateCode: 'CBISEO_CUST_SCHEDULE_D2',
@@ -146,7 +144,7 @@ export function AdminAlimtalkPage() {
             `발송 시점은 0~${SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX}일 사이로 입력해 주세요.`,
           );
         }
-        scheduleOffset = n === DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY ? null : n;
+        scheduleOffset = n;
       }
       const data = await patchTenantAlimtalkSettings(token, {
         templates: ALIMTALK_TEMPLATE_CODES.map((code) => ({
@@ -157,9 +155,7 @@ export function AdminAlimtalkPage() {
       });
       setSettings(data);
       const stored = data.scheduleD2DaysBeforePenalty;
-      setScheduleD2DaysBeforePenalty(
-        stored == null ? String(DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY) : String(stored),
-      );
+      setScheduleD2DaysBeforePenalty(stored == null ? '' : String(stored));
       try {
         const logs = await getTenantAlimtalkSendLogs(token, {
           templateCode: 'CBISEO_CUST_SCHEDULE_D2',
@@ -394,9 +390,9 @@ export function AdminAlimtalkPage() {
               <div className="space-y-2 border-t border-gray-100 pt-3">
                 <h3 className="text-fluid-xs font-semibold text-gray-900">일정 확인 알림 — 발송 시점</h3>
                 <p className="text-fluid-2xs text-gray-500">
-                  위약금 발생일 기준 며칠 전에 보낼지 지정합니다. 매일 오후{' '}
-                  {settings.scheduleD2SendHourKst}시(KST)에 자동 발송됩니다. 알림톡 본문의 무위약
-                  마감일과 발송일은 다를 수 있습니다.
+                  브랜드 위약일(무위약 기준일)이 있으면, 위약금이 없는 마지막 날(무위약 마감일)
+                  매일 {formatScheduleD2SendHourKo(settings.scheduleD2SendHourKst)}(KST)에 자동
+                  발송됩니다. 위약 기준이 없으면 보내지 않습니다.
                 </p>
                 <label className="flex flex-wrap items-center gap-2 text-fluid-xs text-gray-700">
                   위약금 발생일
@@ -404,16 +400,17 @@ export function AdminAlimtalkPage() {
                     type="number"
                     min={0}
                     max={SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX}
-                    className="w-20 min-h-9 rounded-lg border border-gray-200 px-2 py-1 text-center tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50"
+                    className="w-20 min-h-9 rounded-lg border border-gray-200 px-2 py-1 text-center tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
                     value={scheduleD2DaysBeforePenalty}
+                    placeholder="기본"
                     disabled={!editable || saving}
                     onChange={(e) => setScheduleD2DaysBeforePenalty(e.target.value)}
                   />
                   일 전
                 </label>
                 <p className="text-fluid-2xs text-gray-400">
-                  기본값 {DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY}일(위약 적용 하루 전). 0이면 위약
-                  발생 당일 오후 {settings.scheduleD2SendHourKst}시에 발송합니다.
+                  비워 두면 무위약 마감일 당일입니다. 숫자를 넣으면 위약금 발생일 기준 N일 전으로
+                  바꿉니다. 0이면 위약 발생 당일 {formatScheduleD2SendHourKo(settings.scheduleD2SendHourKst)}입니다.
                 </p>
               </div>
             ) : null}

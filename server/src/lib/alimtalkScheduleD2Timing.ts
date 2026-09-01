@@ -8,7 +8,16 @@ import {
   type OperatingCompanyCancellationPolicy,
 } from './operatingCompanyCancellationPolicyCore.js';
 
-export const SCHEDULE_D2_SEND_HOUR_KST = 18;
+/** 무위약 마감일 당일 — 고객이 당일 변경할 수 있도록 낮 12시 */
+export const SCHEDULE_D2_SEND_HOUR_KST = 12;
+
+export function formatScheduleD2SendHourKo(hourKst: number = SCHEDULE_D2_SEND_HOUR_KST): string {
+  if (hourKst === 12) return '낮 12시';
+  if (hourKst === 0) return '밤 12시';
+  if (hourKst < 12) return `오전 ${hourKst}시`;
+  return `오후 ${hourKst - 12 === 0 ? 12 : hourKst - 12}시`;
+}
+
 export const DEFAULT_SCHEDULE_D2_DAYS_BEFORE_PENALTY = 1;
 export const SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX = 14;
 
@@ -56,13 +65,29 @@ export function computeFirstPenaltyStartYmd(
   return null;
 }
 
+/**
+ * 발송일 (KST YYYY-MM-DD).
+ * - 테넌트 offset 미설정(null): **무위약 마감일 당일** (위약금 없는 마지막 날)
+ * - 숫자 지정: 위약금 발생일 − N일 (기존 고급 설정)
+ * - 위약 정책 없음/비활성: 발송 없음
+ */
 export function computeScheduleD2SendYmd(
   preferredDateYmd: string,
   policy: OperatingCompanyCancellationPolicy,
   daysBeforePenaltyStart?: number | null,
 ): string | null {
+  if (!policy.enabled) return null;
+
+  const deadlineYmd = computeFreeChangeDeadlineYmd(preferredDateYmd, policy.freeChangeDaysBefore);
   const penaltyStartYmd = computeFirstPenaltyStartYmd(preferredDateYmd, policy);
-  if (!penaltyStartYmd) return null;
+  const lastFreeYmd =
+    deadlineYmd ?? (penaltyStartYmd ? subtractDaysFromYmd(penaltyStartYmd, 1) : null);
+
+  if (daysBeforePenaltyStart == null) {
+    return lastFreeYmd;
+  }
+
+  if (!penaltyStartYmd) return lastFreeYmd;
   const offset = resolveScheduleD2DaysBeforePenalty(daysBeforePenaltyStart);
   return subtractDaysFromYmd(penaltyStartYmd, offset);
 }
