@@ -202,6 +202,21 @@
         "client/src/components/orderform/OrderFormCompanyTrustFooter.tsx"
       ],
       "notes": "고정 막대는 제출 버튼만. 청소비서·업체 사업자 안내는 문서 맨 아래(스크롤). 끄면 제출을 놓침 — 토글 금지."
+    },
+    {
+      "id": "orderform.public.emailDomainSelect",
+      "labelKo": "고객 발주서 이메일 · 메일 선택",
+      "surfaces": ["public.orderForm"],
+      "visual": { "type": "select", "token": "gray-300" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": [
+        "client/src/components/orderform/OrderFormEmailSplitField.tsx",
+        "client/src/constants/krEmailDomains.ts"
+      ],
+      "notes": "아이디 + 도메인 드롭다운. 맨 아래 「직접 작성」. 목록 순서는 국내 이용 많은 순(네이버·지메일·다음…)."
     }
   ]
 }

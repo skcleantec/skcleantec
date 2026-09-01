@@ -96,6 +96,7 @@ import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
 import { OrderFormCompanyTrustFooter } from '../../components/orderform/OrderFormCompanyTrustFooter';
 import { OrderFormPlatformFooter } from '../../components/orderform/OrderFormPlatformFooter';
+import { OrderFormEmailSplitField } from '../../components/orderform/OrderFormEmailSplitField';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import type { PublicOperatingCompanyBranding, PublicOrderFormCompanyTrust } from '../../api/orderform';
@@ -211,7 +212,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     () => (skOpsUi ? { omitAutoPhrase: true as const } : undefined),
     [skOpsUi],
   );
-  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface({
+    bottomReservePx: isInline ? 0 : 72,
+  });
   const [prefillSaving, setPrefillSaving] = useState(false);
   const [prefillSavedOpen, setPrefillSavedOpen] = useState(false);
   /** 발급(create) 모드 금액 입력 */
@@ -1951,16 +1954,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <div id="order-field-customerEmail">
             <label className="block text-xs text-gray-600 mb-1 mt-3">이메일 (필수) *</label>
             <p className="text-xs text-gray-600 mb-2 leading-relaxed">
-              접수 확인 메일을 보내드립니다. 정확한 주소를 입력해 주세요.
+              접수 확인 메일을 보내드립니다. 아이디만 적고 메일은 목록에서 고르세요.
             </p>
-            <input
-              type="email"
-              className={clsWithLock('customerEmail', inputCls)}
+            <OrderFormEmailSplitField
               value={form.customerEmail}
-              onChange={(e) => setForm((f) => ({ ...f, customerEmail: e.target.value }))}
-              placeholder="example@email.com"
-              autoComplete="email"
+              onChange={(customerEmail) => setForm((f) => ({ ...f, customerEmail }))}
               disabled={lockKey('customerEmail')}
+              inputClassName={clsWithLock('customerEmail', inputCls)}
             />
             </div>
             ) : null}
@@ -2729,7 +2729,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             className={
               isInline
                 ? 'mt-4'
-                : 'fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)]'
+                : 'fixed left-0 right-0 z-20 border-t border-gray-200 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)] bottom-[var(--login-keyboard-inset,0px)]'
             }
           >
             <div className={isInline ? '' : 'mx-auto max-w-lg px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'}>

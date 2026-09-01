@@ -71,8 +71,9 @@ function scheduleEnsureVisible(
   scrollContainer?: HTMLElement | null,
   behavior: ScrollBehavior = 'smooth',
   opts?: EnsureInputVisibleOptions,
+  paddingPx = 20,
 ): void {
-  const run = () => ensureInputVisibleAboveKeyboard(el, scrollContainer, behavior, 20, opts);
+  const run = () => ensureInputVisibleAboveKeyboard(el, scrollContainer, behavior, paddingPx, opts);
   requestAnimationFrame(() => {
     run();
     requestAnimationFrame(run);
@@ -89,11 +90,35 @@ function restoreStaffAppMainScrollTop(savedTop: number): void {
  * scrollRef 루트: overflow-y-auto + login-surface.
  * form 또는 scroll wrapper에 onFocusCapture={onFieldFocus} 한 번만 연결 (input마다 onFocus 불필요).
  */
-export function useLoginScrollSurface(enabled = isMobileKeyboardScrollContext()): {
+export type LoginScrollSurfaceOptions = {
+  enabled?: boolean;
+  /** 하단 고정 CTA 높이(px). 키보드가 올라와도 필드가 버튼에 가리지 않게 */
+  bottomReservePx?: number;
+};
+
+export function useLoginScrollSurface(
+  enabledOrOptions: boolean | LoginScrollSurfaceOptions = isMobileKeyboardScrollContext(),
+): {
   scrollRef: RefObject<HTMLDivElement | null>;
   onFieldFocus: (e: FocusEvent<HTMLElement>) => void;
 } {
+  const isOpts = typeof enabledOrOptions === 'object';
+  const enabled = isOpts
+    ? (enabledOrOptions.enabled ?? isMobileKeyboardScrollContext())
+    : enabledOrOptions;
+  const bottomReservePx = isOpts ? Math.max(0, enabledOrOptions.bottomReservePx ?? 0) : 0;
+  const fieldPaddingPx = 20 + bottomReservePx;
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (root) {
+      root.style.setProperty('--login-sticky-reserve', bottomReservePx ? `${bottomReservePx}px` : '0px');
+    }
+    return () => {
+      scrollRef.current?.style.removeProperty('--login-sticky-reserve');
+    };
+  }, [bottomReservePx]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -108,7 +133,7 @@ export function useLoginScrollSurface(enabled = isMobileKeyboardScrollContext())
 
       const active = document.activeElement;
       if (isFormField(active)) {
-        ensureInputVisibleAboveKeyboard(active, root, 'auto');
+        ensureInputVisibleAboveKeyboard(active, root, 'auto', fieldPaddingPx);
       }
     };
 
@@ -119,14 +144,14 @@ export function useLoginScrollSurface(enabled = isMobileKeyboardScrollContext())
       vv.removeEventListener('scroll', syncKeyboardInset);
       scrollRef.current?.style.removeProperty('--login-keyboard-inset');
     };
-  }, [enabled]);
+  }, [enabled, fieldPaddingPx]);
 
   const onFieldFocus = useCallback(
     (e: FocusEvent<HTMLElement>) => {
       if (!enabled) return;
-      scheduleEnsureVisible(focusedFieldFromEvent(e), scrollRef.current, 'smooth');
+      scheduleEnsureVisible(focusedFieldFromEvent(e), scrollRef.current, 'smooth', undefined, fieldPaddingPx);
     },
-    [enabled],
+    [enabled, fieldPaddingPx],
   );
 
   return { scrollRef, onFieldFocus };
