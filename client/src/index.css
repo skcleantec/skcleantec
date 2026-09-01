@@ -228,7 +228,11 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 }
 
 .login-surface .login-scroll-content {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px), var(--login-keyboard-inset, 0px));
+  padding-bottom: max(
+    1rem,
+    env(safe-area-inset-bottom, 0px),
+    calc(var(--login-keyboard-inset, 0px) + var(--login-sticky-reserve, 0px))
+  );
 }
 
 .login-surface .login-field-input {
