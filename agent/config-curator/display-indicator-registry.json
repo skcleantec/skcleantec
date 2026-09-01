@@ -188,6 +188,51 @@
       "notes": "팀장 화면 — tenant 기본값 + 개인 override 검토."
     },
     {
+      "id": "alimtalk.scheduleD2.sendHour",
+      "labelKo": "일정 확인 알림톡 발송 시각 (낮 12시)",
+      "surfaces": ["admin.alimtalk.settings"],
+      "visual": { "type": "helpText", "token": "slate" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/team-leaders/alimtalk",
+      "helpPath": "shared/alimtalkTemplateHelp.ts",
+      "codeRefs": [
+        "shared/alimtalkScheduleD2Timing.ts",
+        "client/src/pages/admin/AdminAlimtalkPage.tsx"
+      ],
+      "notes": "플랫폼 상수 SCHEDULE_D2_SEND_HOUR_KST=12. 테넌트 변경 없음. 해피콜 전날 18:00 FCM과 혼동 금지. 기준일은 영업브랜드 위약금 탭."
+    },
+    {
+      "id": "alimtalk.scheduleD2.brandCancellationShortcut",
+      "labelKo": "브랜드 위약금 설정 바로가기",
+      "surfaces": ["admin.alimtalk.settings"],
+      "visual": { "type": "linkButton", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/team-leaders/operating-companies?tab=cancellation",
+      "helpPath": "shared/alimtalkTemplateHelp.ts",
+      "codeRefs": [
+        "client/src/components/admin/AlimtalkScheduleD2SendHint.tsx",
+        "client/src/constants/operatingCompanyNav.ts"
+      ],
+      "notes": "일정 확인 알림 ON일 때 표시. N일 전 숫자는 고급 details. 기준일 없으면 안내 배너."
+    },
+    {
+      "id": "operatingCompany.cancellation.freeChangeDeadline",
+      "labelKo": "위약 없이 바꿀 수 있는 마지막 날",
+      "surfaces": ["admin.operatingCompanies.edit.cancellation"],
+      "visual": { "type": "presetChips", "token": "emerald-50" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/team-leaders/operating-companies?tab=cancellation",
+      "helpPath": "client/src/components/admin/OperatingCompanyCancellationPolicyFields.tsx",
+      "codeRefs": [
+        "client/src/components/admin/OperatingCompanyCancellationPolicyFields.tsx",
+        "shared/operatingCompanyCancellationPolicy.ts"
+      ],
+      "notes": "프리셋 2일(추천)·3일·직접. 미리보기: 청소일 9월 10일이면 → 마감일 낮 12시 알림. 위약 구간은 자세히 details."
+    },
+    {
       "id": "orderform.public.stickySubmit",
       "labelKo": "고객 발주서 하단 제출하기 (고정)",
       "surfaces": ["public.orderForm"],

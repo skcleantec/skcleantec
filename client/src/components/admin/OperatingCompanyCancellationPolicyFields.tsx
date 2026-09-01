@@ -1,5 +1,8 @@
+import { Link } from 'react-router-dom';
+import { formatScheduleD2SendHourKo } from '@shared/alimtalkScheduleD2Timing';
 import {
   buildPenaltyLineMap,
+  computeFreeChangeDeadlineYmd,
   createCancellationPolicyTierId,
   formatCancellationDaysBeforeLabel,
   penaltyLineGuideToken,
@@ -16,6 +19,22 @@ import {
   GUIDE_PLACEHOLDER_PENALTY_LINES,
   ORDER_FORM_GUIDE_PLACEHOLDERS,
 } from '@shared/orderFormGuidePlaceholders';
+import { ALIMTALK_SETTINGS_PATH } from '../../constants/operatingCompanyNav';
+
+/** 미리보기용 청소일 — 실제 접수일과 무관 */
+const EXAMPLE_CLEAN_YMD = '2026-09-10';
+const FREE_CHANGE_PRESETS = [2, 3] as const;
+
+const PRESET_BTN =
+  'rounded-lg px-3 py-1.5 text-fluid-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+
+function formatMonthDayKo(ymd: string): string {
+  const parts = ymd.split('-');
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!Number.isFinite(m) || !Number.isFinite(d)) return ymd;
+  return `${m}월 ${d}일`;
+}
 
 const KIND_OPTIONS: { value: CancellationPenaltyKind; label: string }[] = [
   { value: 'percent', label: '위약금 %' },
@@ -39,6 +58,14 @@ export function OperatingCompanyCancellationPolicyFields(props: {
   const { value, onChange } = props;
   const previewLines = renderCancellationPolicyLines(value);
   const freeChangePreview = renderFreeChangeDaysBeforeLine(value.freeChangeDaysBefore);
+  const exampleDeadlineYmd = computeFreeChangeDeadlineYmd(
+    EXAMPLE_CLEAN_YMD,
+    value.freeChangeDaysBefore,
+  );
+  const alimtalkSendPreview =
+    value.enabled && exampleDeadlineYmd
+      ? `청소일 ${formatMonthDayKo(EXAMPLE_CLEAN_YMD)}이면 → ${formatMonthDayKo(exampleDeadlineYmd)} ${formatScheduleD2SendHourKo()}에 일정 확인 알림`
+      : null;
   const penaltyLineMap = buildPenaltyLineMap(value);
   const penaltyTokens = [...value.tiers]
     .sort((a, b) => b.daysBefore - a.daysBefore)
@@ -85,8 +112,8 @@ export function OperatingCompanyCancellationPolicyFields(props: {
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500 leading-relaxed">
-        브랜드별 취소·변경 위약 구간입니다. 문장은 시스템 고정 템플릿으로 생성되며, 안내사항·발주 확인에는
-        아래 <strong>치환코드</strong>를 넣으면 설정값이 자동 반영됩니다.
+        먼저 <strong>위약 없이 바꿀 수 있는 마지막 날</strong>만 정하면 됩니다. 위약 금액 구간과 안내
+        문구 치환코드는 아래 「자세히」에 있습니다.
       </p>
 
       <label className="flex items-center gap-2 text-sm">
@@ -100,44 +127,96 @@ export function OperatingCompanyCancellationPolicyFields(props: {
       </label>
 
       <section className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 space-y-2">
-        <h3 className="text-sm font-semibold text-gray-900">날짜 변경 가능 기준일</h3>
+        <h3 className="text-sm font-semibold text-gray-900">위약 없이 바꿀 수 있는 마지막 날</h3>
         <p className="text-xs text-gray-600 leading-relaxed">
-          청소일 며칠 <strong>전</strong>까지 위약금 없이 변경·취소할 수 있는지 설정합니다.
+          청소일 며칠 <strong>전</strong>까지 위약금 없이 변경·취소할 수 있는지 고릅니다. 그 마지막 날{' '}
+          {formatScheduleD2SendHourKo()}에 일정 확인 알림이 나갑니다.
         </p>
-        <label className="block text-sm">
-          <span className="font-medium text-gray-800">기준일 (일)</span>
-          <input
-            type="number"
-            min={0}
-            max={365}
-            value={value.freeChangeDaysBefore ?? ''}
-            onChange={(e) => {
-              const raw = e.target.value.trim();
-              onChange({
-                ...value,
-                freeChangeDaysBefore: raw === '' ? null : Math.max(0, Number(raw) || 0),
-              });
+        <div className="flex flex-wrap items-center gap-1.5">
+          {FREE_CHANGE_PRESETS.map((days) => {
+            const selected = value.freeChangeDaysBefore === days;
+            return (
+              <button
+                key={days}
+                type="button"
+                disabled={!value.enabled}
+                onClick={() => onChange({ ...value, freeChangeDaysBefore: days })}
+                className={`${PRESET_BTN} ${
+                  selected
+                    ? 'bg-slate-900 text-white hover:bg-slate-800'
+                    : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {days}일{days === 2 ? ' (추천)' : ''}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            disabled={!value.enabled}
+            onClick={() => {
+              if (value.freeChangeDaysBefore === 2 || value.freeChangeDaysBefore === 3) {
+                onChange({ ...value, freeChangeDaysBefore: null });
+              }
             }}
-            className="mt-1 w-full max-w-[8rem] border border-gray-300 rounded px-3 py-2 text-sm bg-white"
-            placeholder="예: 2"
-          />
-          <p className="mt-1 text-xs text-gray-500">비우면 해당 안내를 표시하지 않습니다.</p>
-        </label>
-        {freeChangePreview ? (
+            className={`${PRESET_BTN} ${
+              value.freeChangeDaysBefore !== 2 && value.freeChangeDaysBefore !== 3
+                ? 'bg-slate-900 text-white hover:bg-slate-800'
+                : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            직접
+          </button>
+        </div>
+        {value.freeChangeDaysBefore !== 2 && value.freeChangeDaysBefore !== 3 ? (
+          <label className="block text-sm">
+            <span className="font-medium text-gray-800">며칠 전</span>
+            <input
+              type="number"
+              min={0}
+              max={365}
+              value={value.freeChangeDaysBefore ?? ''}
+              disabled={!value.enabled}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                onChange({
+                  ...value,
+                  freeChangeDaysBefore: raw === '' ? null : Math.max(0, Number(raw) || 0),
+                });
+              }}
+              className="mt-1 w-full max-w-[8rem] border border-gray-300 rounded px-3 py-2 text-sm bg-white disabled:opacity-50"
+              placeholder="예: 4"
+            />
+            <p className="mt-1 text-xs text-gray-500">비우면 안내·알림 기준일이 없습니다.</p>
+          </label>
+        ) : null}
+        {alimtalkSendPreview ? (
           <div className="rounded-md border border-emerald-200 bg-white px-2.5 py-2 text-xs text-gray-800 leading-relaxed">
-            {freeChangePreview}
+            {alimtalkSendPreview}
           </div>
         ) : (
-          <p className="text-xs text-gray-500">기준일을 입력하면 미리보기가 표시됩니다.</p>
+          <p className="text-xs text-gray-500">2일·3일 또는 직접 숫자를 넣으면 알림 미리보기가 나옵니다.</p>
         )}
+        {freeChangePreview ? (
+          <p className="text-xs text-gray-600 leading-relaxed">{freeChangePreview}</p>
+        ) : null}
         <p className="text-xs text-gray-500">
-          치환코드:{' '}
-          <code className="rounded bg-white px-1 font-mono text-[12px]">{GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE}</code>
-          ,{' '}
-          <code className="rounded bg-white px-1 font-mono text-[12px]">{GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_BEFORE}</code>
+          알림 ON/OFF는{' '}
+          <Link
+            to={ALIMTALK_SETTINGS_PATH}
+            className="font-medium text-slate-800 underline decoration-slate-300 underline-offset-2 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded-sm"
+          >
+            알림톡
+          </Link>{' '}
+          화면에서 합니다.
         </p>
       </section>
 
+      <details className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+        <summary className="cursor-pointer text-sm font-medium text-gray-800 hover:text-gray-950">
+          위약 금액 구간 · 안내 문구 (자세히)
+        </summary>
+        <div className="mt-3 space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-gray-800">위약 구간</span>
@@ -312,6 +391,8 @@ export function OperatingCompanyCancellationPolicyFields(props: {
           </ul>
         </div>
       </div>
+        </div>
+      </details>
     </div>
   );
 }

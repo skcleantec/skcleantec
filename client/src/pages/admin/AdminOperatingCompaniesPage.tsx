@@ -1,4 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  OPERATING_COMPANIES_CANCELLATION_TAB,
+} from '../../constants/operatingCompanyNav';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getToken } from '../../stores/auth';
 import {
@@ -58,6 +62,20 @@ function emptyCreateForm(): BrandForm {
   };
 }
 
+function brandFormFromItem(row: OperatingCompanyItem): BrandForm {
+  return {
+    name: row.name,
+    slug: row.slug,
+    displayName: row.config.branding?.displayName ?? '',
+    numberPrefix: row.config.inquiry?.numberPrefix ?? '',
+    publicSubtitle: row.config.orderForm?.publicSubtitle ?? '',
+    badgeColorKey: row.config.branding?.badgeColorKey ?? '',
+    companyRegistration: emptyCompanyRegistrationForm(row.config.companyRegistration),
+    soomgo: emptyOperatingCompanySoomgoForm(row.config.soomgo),
+    cancellationPolicy: resolveOperatingCompanyCancellationPolicy(row.config.cancellationPolicy),
+  };
+}
+
 function soomgoListLabel(config: OperatingCompanyConfig): { text: string; className: string } {
   const sg = config.soomgo;
   if (sg?.configured) {
@@ -104,6 +122,9 @@ function slugFromName(name: string): string {
 
 export function AdminOperatingCompaniesPage() {
   const token = getToken();
+  const [searchParams] = useSearchParams();
+  const preferCancellation = searchParams.get('tab') === OPERATING_COMPANIES_CANCELLATION_TAB;
+  const autoOpenedCancellationRef = useRef(false);
   const [items, setItems] = useState<OperatingCompanyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [listErr, setListErr] = useState<string | null>(null);
@@ -133,21 +154,22 @@ export function AdminOperatingCompaniesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const openEdit = (row: OperatingCompanyItem) => {
+  const openEdit = (row: OperatingCompanyItem, tab?: EditModalTab) => {
     setEditing(row);
-    setEditTab('basic');
-    setEditForm({
-      name: row.name,
-      slug: row.slug,
-      displayName: row.config.branding?.displayName ?? '',
-      numberPrefix: row.config.inquiry?.numberPrefix ?? '',
-      publicSubtitle: row.config.orderForm?.publicSubtitle ?? '',
-      badgeColorKey: row.config.branding?.badgeColorKey ?? '',
-      companyRegistration: emptyCompanyRegistrationForm(row.config.companyRegistration),
-      soomgo: emptyOperatingCompanySoomgoForm(row.config.soomgo),
-      cancellationPolicy: resolveOperatingCompanyCancellationPolicy(row.config.cancellationPolicy),
-    });
+    setEditTab(tab ?? (preferCancellation ? 'cancellation' : 'basic'));
+    setEditForm(brandFormFromItem(row));
   };
+
+  useEffect(() => {
+    if (loading || !preferCancellation || showCreate) return;
+    if (autoOpenedCancellationRef.current) return;
+    if (items.length !== 1) return;
+    autoOpenedCancellationRef.current = true;
+    const row = items[0];
+    setEditing(row);
+    setEditTab('cancellation');
+    setEditForm(brandFormFromItem(row));
+  }, [loading, preferCancellation, items, showCreate]);
 
   const buildConfig = (f: BrandForm): OperatingCompanyConfig => {
     const branding: NonNullable<OperatingCompanyConfig['branding']> = {};
@@ -329,6 +351,16 @@ export function AdminOperatingCompaniesPage() {
 
       {listErr ? (
         <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded px-3 py-2">{listErr}</div>
+      ) : null}
+
+      {preferCancellation && !loading && items.length > 1 && !editing ? (
+        <div
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-emerald-950"
+          role="status"
+        >
+          위약 없이 바꿀 수 있는 마지막 날을 적으려면 브랜드의 「수정」을 누르세요. 위약금 탭이 바로
+          열립니다.
+        </div>
       ) : null}
 
       <div className="bg-white border border-gray-200 rounded-lg">
