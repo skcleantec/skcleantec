@@ -333,7 +333,7 @@ Play 스토어에 표시될 설명(한국어 예시):
 | 항목 | 경로 |
 |------|------|
 | applicationId · 버전 · flavor | `app/build.gradle.kts` (`play` / `sideload`) |
-| Play 권한 오버레이 | `app/src/play/AndroidManifest.xml` |
+| Play 권한 (sideload 전용) | `app/src/sideload/AndroidManifest.xml` |
 | 런처 표시명 | `app/src/main/res/values/strings.xml` → `app_name` |
 | AAB 빌드 | `scripts/build-play-bundle.ps1` |
 | **버전별 진행 기록 (필수)** | `apps/telecrm-android/docs/RELEASE_PROGRESS.md` |

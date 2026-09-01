@@ -7,16 +7,16 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-08-28)
+## 현재 상태 (최종 갱신: 2026-09-01)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 29 |
-| **최신 versionName** | `0.7.9-internal` |
+| **최신 versionCode** | 30 |
+| **최신 versionName** | `0.8.0-internal` |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
-| **Play 공개 테스트** | v29 AAB · v19 대체 업로드 대기 |
+| **Play 공개 테스트** | v30 AAB · API 36 검증 후 업로드 예정 |
 | **Play 내부 테스트** | v25 (`0.7.5-internal`) 업로드됨 |
-| **Play 비공개 테스트** | v28 이전 · v29로 통합 권장 |
+| **Play 비공개 테스트** | v28 이전 · v30으로 통합 권장 |
 | **Play 프로덕션** | 미출시 |
 | **sideload (`/telecrm-app`)** | `sideload` flavor · v27 유지 (Railway 미갱신) |
 
@@ -50,6 +50,20 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v30 · `0.8.0-internal` — 2026-09-01
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | **공개 테스트** 업로드용 · Target API 36 정책 대응 |
+| **AAB** | `dist/telecrm-play-0.8.0-internal-30.aab` |
+| **SHA256** | `b154ffb51bcf8b10a2104283b3570e1da9af22db56561da728b1480257df5f16` |
+| **Git** | — |
+| **변경 요약** | `compileSdk`/`targetSdk` 36 유지 · versionCode +1 · Play API 36 정책 재제출용 |
+| **검증** | bundletool manifest `targetSdkVersion=36` 확인 |
+| **메모** | v19(API 35) 트랙 제거 후 v30만 출시 · 데이터 보안 연락처 선언 동시 제출 |
+
+---
 
 ### v29 · `0.7.9-internal` — 2026-08-28
 
