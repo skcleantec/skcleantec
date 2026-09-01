@@ -27,21 +27,20 @@ export function OrderFormCompanyTrustFooter({ trust, displayNameFallback }: Prop
 
   return (
     <section
-      className="mt-6 rounded-lg border border-gray-200 bg-white px-4 py-3 text-center"
+      className="mt-4 rounded-lg border border-gray-200 bg-white px-3 py-2 text-center"
       aria-label="업체 사업자 정보"
     >
       <p className="text-fluid-xs font-medium text-gray-800">{companyName}</p>
       {hasDetail ? (
-        <div className="mt-2 space-y-0.5">
+        <div className="mt-1 space-y-0">
           {line('대표', trust?.representativeName)}
           {line('사업자등록번호', trust?.businessRegistrationNo)}
           {line('주소', trust?.addressLine)}
           {line('문의', trust?.phone)}
         </div>
       ) : null}
-      <p className="mt-2 text-fluid-2xs leading-relaxed text-gray-500">
-        본 페이지는 위 업체의 공식 예약·발주서입니다. 연락처·상호가 다르면 보이스피싱을 의심하고
-        등록된 번호로 직접 확인해 주세요.
+      <p className="mt-1.5 text-fluid-2xs leading-snug text-gray-500">
+        위 업체 공식 발주서입니다. 연락처·상호가 다르면 등록된 번호로 확인해 주세요.
       </p>
     </section>
   );
