@@ -1,44 +1,34 @@
-# Maestro 브리프 — SK 스케줄 40평+ 캘린더 표시
+# Maestro 요약 레포트
 
-**일시:** 2026-09-01  
-**요청:** SK클린텍 테넌트만 — 스케줄 캘린더에 40평대 이상 접수가 있으면 원룸(태극기) 표시처럼 아이콘 노출, 해당 접수 **팀원 배정 완료** 시 사라짐.
+**일시:** 2026-09-01 17:55 KST  
+**요청:** 위약 알림을 브랜드 위약금에서 정하고, 알림톡에 「브랜드 위약금 설정 바로가기」 추가  
+**상태:** ✅ (코드 반영. **푸시 미요청**)
 
-## 완료
+## 한 줄 결론
 
-- **SK 전용 게이트:** 기존 `useSkCleantecOpsUi()` (`custom_skcleanteck_ops_ui` + slug `sk`/`skcleanteck`)
-- **캘린더 셀:** `40` 배지 + `40평+` 라벨 + 미완 건수 (원룸 태극기 행 바로 아래)
-- **표시 조건:** 당일 활성 일정 중 ≥40평 · 자사 일정(정보공유·파트너·타업체 이관 제외) · **팀원 배정 미완**
-- **제거 조건:** 팀장 배정 + (팀장 단독 또는 `crewMemberCount`만큼 팀원 이름 입력 완료)
-- **ConfigCurator:** `display-indicator-registry.json`에 `schedule.skLargeArea40` 등록
+일정 확인 알림의 **기준일은 영업브랜드 → 위약금**에서 고르고, 알림톡에서는 **바로가기**로 그 화면을 엽니다.
 
-## 변경 파일
+## 잘 된 점
 
-| 파일 | 내용 |
+- 알림톡 ON이면 **브랜드 위약금 설정 바로가기** (`?tab=cancellation`)
+- 브랜드 1개면 위약금 탭 자동 오픈, 여러 개면 안내 후 「수정」이 위약금 탭
+- 2일(추천) / 3일 / 직접 + `청소일 9월 10일이면 → 9월 8일 낮 12시에 알림`
+- 「위약금 발생일 N일 전」은 **고급**으로 접힘
+
+## 주의 · 할 일
+
+| 우선 | 내용 |
 |------|------|
-| `shared/custom/skcleantecOpsUi.ts` | `SK_LARGE_AREA_PYEONG_MIN`, `SK_LARGE_AREA_LABEL` |
-| `client/src/utils/scheduleLargeAreaDisplay.ts` | 평수·배정 완료·캘린더 집계 |
-| `client/src/utils/scheduleOneRoomDisplay.ts` | `scheduleItemCountsAsOwnInternalSchedule` 공통화 |
-| `client/src/components/admin/SkCleantecScheduleLargeAreaIndicator.tsx` | 캘린더 UI |
-| `client/src/pages/admin/AdminSchedulePage.tsx` | 캘린더·모바일 범례 연동 |
+| 1 | 알림톡에서 바로가기 → 위약금 탭이 열리는지 확인 |
+| 2 | 스테이징 반영은 요청 시 |
 
-## 검증
+## 에이전트별 한 줄
 
-- `cd client; npx tsc -b --noEmit` ✅
-
-## 수동 확인 (SK 업체)
-
-1. 스케줄 → 40평 이상 접수가 있는 날 → 캘린더 셀에 **40 / 40평+ / 건수** 표시
-2. 해당 접수 상세에서 팀장·팀원 배정 저장 → 셀 아이콘 건수 감소·0이면 사라짐
-3. 다른 테넌트(cbiseo 등)에서는 표시 없음
-
-## 에이전트
-
-| 역할 | 결과 |
-|------|------|
-| CodeGuardian | SK 게이트·원룸 패턴 재사용, diff 최소 |
-| DesignPulse | 원룸 행과 동일 밀도·amber 구분 |
-| ConfigCurator | 레지스트리 반영 |
-| DbSentinel | DB 변경 없음 |
-| RoleQA | SK 관리자 스케줄 시나리오 위 수동 체크 권장 |
-
-**푸시:** 미요청 — `staging` 반영 필요 시 알려 주세요.
+| 에이전트 | 결과 |
+|----------|------|
+| DesignPulse | 바로가기 CTA · 프리셋 칩 · 고급 접기 |
+| CodeGuardian | URL `tab` 유지 · 페이지 분리 · tsc 통과 |
+| ConfigCurator | 바로가기·마지막 날 registry |
+| RoleQA | 관리자 설정 경로 · 마케터 권한 분기 |
+| PlatformOps | 플랜 변경 없음 |
+| DbSentinel | 스키마 없음 |

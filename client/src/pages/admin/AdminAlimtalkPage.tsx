@@ -20,6 +20,7 @@ import {
   type AlimtalkSendLogListItem,
   type TenantAlimtalkSettings,
 } from '../../api/alimtalk';
+import { AlimtalkScheduleD2SendHint } from '../../components/admin/AlimtalkScheduleD2SendHint';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { getToken } from '../../stores/auth';
@@ -387,32 +388,13 @@ export function AdminAlimtalkPage() {
             </div>
 
             {templateEnabled.CBISEO_CUST_SCHEDULE_D2 ? (
-              <div className="space-y-2 border-t border-gray-100 pt-3">
-                <h3 className="text-fluid-xs font-semibold text-gray-900">일정 확인 알림 — 발송 시점</h3>
-                <p className="text-fluid-2xs text-gray-500">
-                  브랜드 위약일(무위약 기준일)이 있으면, 위약금이 없는 마지막 날(무위약 마감일)
-                  매일 {formatScheduleD2SendHourKo(settings.scheduleD2SendHourKst)}(KST)에 자동
-                  발송됩니다. 위약 기준이 없으면 보내지 않습니다.
-                </p>
-                <label className="flex flex-wrap items-center gap-2 text-fluid-xs text-gray-700">
-                  위약금 발생일
-                  <input
-                    type="number"
-                    min={0}
-                    max={SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX}
-                    className="w-20 min-h-9 rounded-lg border border-gray-200 px-2 py-1 text-center tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
-                    value={scheduleD2DaysBeforePenalty}
-                    placeholder="기본"
-                    disabled={!editable || saving}
-                    onChange={(e) => setScheduleD2DaysBeforePenalty(e.target.value)}
-                  />
-                  일 전
-                </label>
-                <p className="text-fluid-2xs text-gray-400">
-                  비워 두면 무위약 마감일 당일입니다. 숫자를 넣으면 위약금 발생일 기준 N일 전으로
-                  바꿉니다. 0이면 위약 발생 당일 {formatScheduleD2SendHourKo(settings.scheduleD2SendHourKst)}입니다.
-                </p>
-              </div>
+              <AlimtalkScheduleD2SendHint
+                token={token}
+                sendHourLabel={formatScheduleD2SendHourKo(settings.scheduleD2SendHourKst)}
+                daysBeforePenalty={scheduleD2DaysBeforePenalty}
+                onDaysBeforeChange={setScheduleD2DaysBeforePenalty}
+                disabled={!editable || saving}
+              />
             ) : null}
 
             <div className="flex justify-end gap-2 pt-1">
