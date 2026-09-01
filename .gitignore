@@ -38,10 +38,13 @@ server/uploads/
 # 로컬 DB 덤프 (pg_dump 결과 — 절대 커밋 금지)
 *.dump
 
-# IDE — 팀 공유 룰만 추적 (.cursor/rules)
+# IDE — 팀 공유 룰·에이전트 오케스트라 Skills 추적
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/skills/
+!.cursor/skills/**
+!.cursor/AGENTS.md
 .vscode/
 .idea/
 
@@ -66,9 +69,11 @@ apps/telecrm-android/keystore/*.jks
 apps/telecrm-android/keystore/*.keystore
 apps/telecrm-android/app/release/
 
-# 로컬 에이전트 — product/help 빌더 소스만 저장소 포함
+# 로컬 에이전트 — product/help·오케스트라만 저장소 포함
 /agent/*
 !/agent/product/
+!/agent/orchestrator/
+!/agent/orchestrator/**
 !/agent/ADMIN_SCREEN_HELP_AGENT.md
 /agent/product/node_modules/
 /agent/product/output/assets/

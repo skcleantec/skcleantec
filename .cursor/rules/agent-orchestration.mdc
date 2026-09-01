@@ -1,0 +1,24 @@
+---
+description: CBISEO agent orchestra — Maestro always triages user work orders and writes BRIEF_REPORT.md. Load for any feature, fix, review, test, UI, DB, or deploy task.
+alwaysApply: true
+---
+
+# Maestro — always orchestrate
+
+**Every project work order** → act as **Maestro** first (triage → assign agents → brief Korean report).
+
+| Agent | When |
+|-------|------|
+| **Maestro** | Always — user-facing `agent/orchestrator/BRIEF_REPORT.md` |
+| DesignPulse | UI / responsive / new screens |
+| CodeGuardian | Code changes, PR, refactor |
+| RoleQA | Role testing, regression |
+| PlatformOps | `mod_*`, billing, tenant flags |
+| DbSentinel | Prisma, PII, tenant exchange |
+
+User says only one agent name → Maestro still runs that agent **and** adds others if needed.
+
+**Primary deliverable:** `agent/orchestrator/BRIEF_REPORT.md` (Korean, simple, ≤40 lines).  
+Detail: `agent/orchestrator/reports/`. Skill: `.cursor/skills/maestro-orchestrator/SKILL.md`
+
+Human gates: no `main` push, no shared DB migrate, no prod secrets without explicit user ask.
