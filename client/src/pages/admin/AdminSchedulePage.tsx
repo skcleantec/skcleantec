@@ -86,7 +86,9 @@ import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptio
 import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { SkCleantecScheduleOneRoomIndicator } from '../../components/admin/SkCleantecScheduleOneRoomIndicator';
+import { SkCleantecScheduleLargeAreaIndicator } from '../../components/admin/SkCleantecScheduleLargeAreaIndicator';
 import { shouldShowSkOneRoomTaegeuk, scheduleItemIsOneRoom } from '../../utils/scheduleOneRoomDisplay';
+import { shouldShowSkLargeAreaCalendarIndicator } from '../../utils/scheduleLargeAreaDisplay';
 import {
   formatDateCompactWithWeekday,
   formatPreferredDateInputYmd,
@@ -1865,6 +1867,18 @@ export function AdminSchedulePage() {
                   <span className="font-normal text-slate-600">(미배정·타업체 이관 제외)</span>
                 </span>
               ) : null}
+              {skOpsUi ? (
+                <span className="inline-flex items-center gap-1 font-semibold text-amber-900">
+                  <span
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-sm bg-amber-100 text-[9px] font-extrabold ring-1 ring-amber-400/80"
+                    aria-hidden
+                  >
+                    40
+                  </span>
+                  40평+
+                  <span className="font-normal text-slate-600">(팀원 배정 미완)</span>
+                </span>
+              ) : null}
               <span className="font-semibold text-red-600">⚠️ 미배정</span>
               <span className="text-violet-700">⚡ 사이(미배정)</span>
               <span className="inline-flex items-center gap-1">
@@ -2104,6 +2118,7 @@ export function AdminSchedulePage() {
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = activeScheduleItems.filter(inquiryCountsAsUnassignedOwn).length;
                 const skOneRoomTaegeuk = shouldShowSkOneRoomTaegeuk(activeScheduleItems);
+                const skLargeAreaIndicator = shouldShowSkLargeAreaCalendarIndicator(activeScheduleItems);
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
                 const isSunday = i % 7 === 0;
@@ -2302,6 +2317,10 @@ export function AdminSchedulePage() {
                           unassignedCount={skOneRoomTaegeuk.unassignedOneRoomCount}
                           oneRoomLabel={oneRoomLabel}
                         />
+                      ) : null}
+
+                      {skOpsUi && skLargeAreaIndicator.show ? (
+                        <SkCleantecScheduleLargeAreaIndicator count={skLargeAreaIndicator.count} />
                       ) : null}
 
                       {/* 미배정 & 사이청소 */}

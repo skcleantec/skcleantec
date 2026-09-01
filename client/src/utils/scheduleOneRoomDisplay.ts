@@ -64,6 +64,16 @@ export function scheduleItemHasDbMarketplaceListing(
   return item.dbListing != null;
 }
 
+/** 스케줄 목록·캘린더 공통 — 자사 일정(정보공유·파트너·타업체 이관 제외) */
+export function scheduleItemCountsAsOwnInternalSchedule(
+  item: Pick<ScheduleItem, 'assignments' | 'dbListing' | 'tenantShare'>,
+): boolean {
+  if (scheduleItemHasDbMarketplaceListing(item)) return false;
+  if (scheduleItemHasExternalAssignment(item)) return false;
+  if (scheduleItemHasActivePartnerShareSource(item)) return false;
+  return true;
+}
+
 /** 스케줄 목록·캘린더 공통 — 자사 관리 원/투룸(정보공유·파트너·타업체 이관 제외) */
 export function scheduleItemCountsAsOwnOneRoomSchedule(
   item: Pick<ScheduleItem, 'isOneRoom' | 'specialNotes' | 'assignments' | 'dbListing' | 'tenantShare'> & {
@@ -74,10 +84,7 @@ export function scheduleItemCountsAsOwnOneRoomSchedule(
   },
 ): boolean {
   if (!scheduleItemIsOneRoom(item)) return false;
-  if (scheduleItemHasDbMarketplaceListing(item)) return false;
-  if (scheduleItemHasExternalAssignment(item)) return false;
-  if (scheduleItemHasActivePartnerShareSource(item)) return false;
-  return true;
+  return scheduleItemCountsAsOwnInternalSchedule(item);
 }
 
 /** 타업체에만 넘긴 원/투룸 — 자사 인원·태극기 집계에서 제외 */
