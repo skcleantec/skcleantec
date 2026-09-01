@@ -3,7 +3,7 @@
 > Maestro and specialist agents append runs here. Latest status at the top.  
 > Machine log: `activity-log.jsonl` · Detail reports: `reports/`
 
-**Last updated:** 2026-09-01 17:55 KST — 위약 알림 단순화 · 브랜드 위약금 바로가기
+**Last updated:** 2026-09-01 18:30 KST — 발주서설정 취소·변경에 브랜드 위약 코드 자동 삽입
 
 ## Current status
 
