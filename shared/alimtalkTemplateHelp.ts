@@ -18,8 +18,8 @@ export const ALIMTALK_TEMPLATE_HELP: Record<AlimtalkTemplateCode, AlimtalkTempla
   CBISEO_CUST_SCHEDULE_D2: {
     where: '별도 버튼 없음 (스케줄·접수 상태 연동)',
     when:
-      '자동 — 위약금 발생일 기준 N일 전(기본 1일) 매일 오후 6시(KST), 접수당 1회. N은 알림톡 설정에서 변경',
-    note: '알림톡 본문의 무위약 마감일과 발송일은 다를 수 있습니다.',
+      '자동 — 브랜드 위약일(무위약 기준일)이 설정된 접수의 **무위약 마감일 당일** 매일 낮 12시(KST), 접수당 1회',
+    note: '위약 기준일이 없으면 보내지 않습니다. 발송 시점을 위약 발생일 N일 전으로 바꾸려면 알림톡 설정에서 숫자를 넣습니다.',
   },
 };
 

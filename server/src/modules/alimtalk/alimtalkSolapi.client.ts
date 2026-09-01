@@ -112,7 +112,7 @@ const ENV_TEMPLATE_MAP: Record<AlimtalkTemplateCode, string> = {
 export const DEFAULT_SOLAPI_TEMPLATE_IDS: Record<AlimtalkTemplateCode, string> = {
   CBISEO_CUST_ORDER_LINK: 'KA01TP260821085834166DanPJHVm7HA',
   CBISEO_CUST_ORDER_DONE: 'KA01TP2608210907017889JVtrqGLFhq',
-  CBISEO_CUST_SCHEDULE_D2: 'KA01TP260821092336472avWT4PJf0Dn',
+  CBISEO_CUST_SCHEDULE_D2: 'KA01TP260827075253460PXsiB9GyDMa',
 };
 
 export function solapiTemplateIdFromEnv(code: AlimtalkTemplateCode): string | null {

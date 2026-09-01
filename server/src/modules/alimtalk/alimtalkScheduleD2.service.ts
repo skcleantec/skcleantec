@@ -32,7 +32,7 @@ export type AlimtalkScheduleD2JobResult = {
 export async function runAlimtalkScheduleD2Job(opts?: {
   dryRun?: boolean;
   now?: Date;
-  /** true면 18:00 KST 시각 가드 생략 (dry-run·수동 테스트) */
+  /** true면 낮 12:00 KST 시각 가드 생략 (dry-run·수동 테스트) */
   skipTimeWindow?: boolean;
 }): Promise<AlimtalkScheduleD2JobResult> {
   const dryRun = Boolean(opts?.dryRun);

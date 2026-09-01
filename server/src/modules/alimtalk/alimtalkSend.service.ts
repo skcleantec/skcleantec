@@ -18,7 +18,10 @@ import { buildAlimtalkVariables } from './alimtalkTemplateRegistry.js';
 import { validateAlimtalkTemplateVariables } from './alimtalkVariableValidation.js';
 import { buildOrderFormAlimtalkPublicUrl } from './alimtalkPublicUrl.js';
 import { kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
-import { isScheduleD2SendWindowOpen } from '../../lib/alimtalkScheduleD2Timing.js';
+import {
+  formatScheduleD2SendHourKo,
+  isScheduleD2SendWindowOpen,
+} from '../../lib/alimtalkScheduleD2Timing.js';
 import { resolveScheduleD2SendForInquiry } from './alimtalkScheduleD2.helpers.js';
 import { validateOptionalPublicTenantSlug, PublicTenantAccessError } from '../tenants/publicTenantAccess.js';
 import {
@@ -255,7 +258,7 @@ export type TriggerAlimtalkScheduleD2Input = {
   inquiryId: string;
   /** @deprecated resolver가 §3.1 기준 billing tenant를 결정합니다 */
   tenantId?: string;
-  /** cron 경로 — sendYmd·18:00 가드는 job에서 이미 검증 */
+  /** cron 경로 — sendYmd·낮 12시 가드는 job에서 이미 검증 */
   skipSendYmdGuard?: boolean;
 };
 
@@ -291,7 +294,10 @@ export async function triggerAlimtalkScheduleD2(
       return { ok: false, error: '일정 확인 알림 발송일이 오늘이 아니어서 발송할 수 없습니다.' };
     }
     if (!isScheduleD2SendWindowOpen()) {
-      return { ok: false, error: '일정 확인 알림은 오후 6시(KST) 이후에 발송할 수 있습니다.' };
+      return {
+        ok: false,
+        error: `일정 확인 알림은 ${formatScheduleD2SendHourKo()}(KST) 이후에 발송할 수 있습니다.`,
+      };
     }
   }
 
