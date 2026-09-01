@@ -1,68 +1,46 @@
 # Maestro 요약 레포트
 
-> **이 파일만 보면 됩니다.** 상세 기술 내용은 `reports/` 폴더.  
-> Maestro가 매 실행마다 이 파일을 **덮어씁니다.**
-
-**일시:** 2026-09-01 11:40 (KST)  
-**요청:** 첫 Maestro 실행  
-**상태:** ✅ 완료 (운영 확인 2건 남음)
+**일시:** 2026-09-01 15:05 (KST)  
+**요청:** 에이전트를 사용자가 따로 부르지 않고, 기능 만들 때 Maestro가 알아서 전부 돌리게  
+**상태:** ✅ **오케스트라 규칙 전면 수정 완료**
 
 ---
 
 ## 한 줄 결론
 
-코드는 문제 없고(**타입 검사 통과**), 최근 팀장 일정·앱 업데이트·배너 작업은 방향이 맞습니다.  
-**지금 필요한 건** 오케스트라 저장·cron 재배포·main 동기화입니다.
+이제 **업무만 말하면 됩니다** (`OO 기능 만들어줘`). Maestro가 코드·UI·**화면 표시·설정(ConfigCurator)**·역할 테스트 등 **필요한 에이전트를 자동 기동**합니다. ConfigCurator나 Maestro: 를 **따로 지시할 필요 없습니다**.
 
 ---
 
-## 잘 된 점
+## 바뀐 점
 
-- 팀장 **예약일 KST** 표시 수정 — 오전/오후 구역 어긋남 개선
-- **Play 앱 업데이트** UI — 필수/선택 구분, 모바일 모달 규칙 준수
-- **플랫폼 배너** — 팀장·타업체 노출, 캐시 무력화
-- **해피콜 cron** — 오늘·내일 예약만 (연체 과거건 푸시 제외, 의도대로)
-- **연계 취소** — mirror 접수 `CANCELLED` 규칙 반영됨
-
----
-
-## 주의 · 할 일
-
-| 우선 | 내용 | 담당 |
-|------|------|------|
-| 🔴 | Railway **happy-call-cron** 재배포 (해피콜 + 알림톡 D2 같이 돌리기) | 운영 |
-| 🟡 | `main`보다 **7커밋 뒤처짐** — staging에서 맞춘 뒤 배포 | 개발 |
-| 🟡 | 해피콜 **과거 연체**는 앱 푸시 없음 — UI만 표시 (정책 확인) | 기획 |
+| 이전 | 이후 |
+|------|------|
+| `ConfigCurator: …` 따로 호출 | UI 기능 시 Maestro가 **자동** |
+| `Maestro:` 권장 | **접두어 없이** 업무 한 줄만 |
+| BRIEF에 「에이전트 호출하세요」 | **금지** — Maestro가 끝까지 |
 
 ---
 
-## 에이전트별 한 줄
-
-| 에이전트 | 결과 |
-|----------|------|
-| **DesignPulse** | UI 규칙 OK, 추가 수정 불필요 |
-| **CodeGuardian** | tsc 통과, uncommitted·브랜치 정리 필요 |
-| **RoleQA** | 팀장 푸시는 **Play 앱 + 배정** 있어야 함 |
-| **PlatformOps** | 배너·앱 버전은 Railway 변수로 관리 |
-| **DbSentinel** | DB 스키마 변경 없음, 연계 취소 규칙 OK |
-
----
-
-## 상세 보고서 (필요할 때만)
-
-- [전체 요약](reports/2026-09-01-1140-maestro-summary-first-run.md)
-- [코드 점검](reports/2026-09-01-1140-code-guardian-first-run.md)
-- [디자인](reports/2026-09-01-1140-design-pulse-first-run.md)
-- [테스트](reports/2026-09-01-1140-role-qa-first-run.md)
-- [플랫폼](reports/2026-09-01-1140-platform-ops-first-run.md)
-- [DB·법무](reports/2026-09-01-1140-db-sentinel-first-run.md)
-
----
-
-## 다음에 이렇게 지시하세요
+## 당신이 쓰는 말 (예시)
 
 ```
-Maestro: (하고 싶은 일 한 문장)
+접수 목록에 OO 추가해줘
+스케줄 전화 버튼 버그 고쳐줘
+스테이징 푸시
 ```
 
-Maestro가 알아서 에이전트를 고르고, **이 요약 파일**을 갱신합니다.
+---
+
+## 수정한 파일
+
+- `.cursor/skills/maestro-orchestrator/SKILL.md` — 자동 배치표
+- `.cursor/rules/agent-orchestration.mdc`
+- `docs/AGENT_ORCHESTRATION.md`
+- 전 specialist Skill — 「Maestro가 자동 배치」
+
+---
+
+## 상세
+
+- [자동 오케스트레이션 정책](reports/2026-09-01-1505-auto-orchestration-policy.md)

@@ -5,7 +5,7 @@
     "id": "maestro-orchestrator",
     "displayName": "Maestro",
     "skillPath": ".cursor/skills/maestro-orchestrator/SKILL.md",
-    "description": "Routes tasks to specialist agents, enforces approval gates, merges reports, updates activity log."
+    "description": "User gives business tasks only; auto-runs all specialist agents (incl. ConfigCurator on UI), merges BRIEF_REPORT, no per-agent user commands required."
   },
   "agents": [
     {
@@ -63,6 +63,18 @@
         "write": ["server/prisma/migrations/", "docs/"]
       },
       "outputs": ["compliance note", "tenant isolation audit", "migration safety checklist"]
+    },
+    {
+      "id": "config-curator",
+      "displayName": "ConfigCurator",
+      "displayNameKo": "설정 큐레이터",
+      "skillPath": ".cursor/skills/config-curator/SKILL.md",
+      "triggers": ["display settings", "row color", "badge", "icon", "legend", "화면 표시", "색깔", "범례", "설정", "끄고 켜", "ConfigCurator", "설정 큐레이터"],
+      "scope": {
+        "read": ["client/", "agent/config-curator/", "docs/UI_DESIGN_GUIDE.md", "client/src/components/admin/*-help/"],
+        "write": ["agent/config-curator/", "client/src/pages/admin/AdminPageSettingsPage.tsx", "client/src/hooks/", "shared/", "docs/"]
+      },
+      "outputs": ["display-indicator-registry update", "settings placement proposal", "new-feature display checklist", "SETTINGS_ROADMAP notes"]
     }
   ],
   "legacyAgents": [
