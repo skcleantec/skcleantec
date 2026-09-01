@@ -6,7 +6,9 @@ const router = Router();
 
 function verifyAlimtalkCronSecret(req: Request): boolean {
   const secret =
-    process.env.ALIMTALK_CRON_SECRET?.trim() || process.env.BILLING_CRON_SECRET?.trim();
+    process.env.ALIMTALK_CRON_SECRET?.trim() ||
+    process.env.HAPPY_CALL_CRON_SECRET?.trim() ||
+    process.env.BILLING_CRON_SECRET?.trim();
   if (!secret) return false;
   const auth = req.headers.authorization;
   if (auth === `Bearer ${secret}`) return true;

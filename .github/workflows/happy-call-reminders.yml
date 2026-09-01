@@ -1,8 +1,8 @@
-name: Happy call reminders
+name: Staff cron (happy call + schedule alimtalk)
 
 on:
   schedule:
-    # 15분마다 (UTC) — KST 마감·반복 알림용
+    # 15분마다 (UTC) — KST 해피콜 반복·18:00 일정확인 알림톡
     - cron: '*/15 * * * *'
   workflow_dispatch:
 
@@ -21,4 +21,17 @@ jobs:
             exit 0
           fi
           curl -sf -X POST "${BASE_URL%/}/api/admin/cron/happy-call-reminders" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
+      - name: POST alimtalk-schedule-d2
+        env:
+          BASE_URL: ${{ secrets.CBISEO_CRON_BASE_URL }}
+          ALIMTALK_CRON_SECRET: ${{ secrets.ALIMTALK_CRON_SECRET }}
+          HAPPY_CALL_CRON_SECRET: ${{ secrets.HAPPY_CALL_CRON_SECRET }}
+        run: |
+          CRON_SECRET="${ALIMTALK_CRON_SECRET:-$HAPPY_CALL_CRON_SECRET}"
+          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Skip: CBISEO_CRON_BASE_URL or ALIMTALK/HAPPY_CALL cron secret not set"
+            exit 0
+          fi
+          curl -sf -X POST "${BASE_URL%/}/api/admin/cron/alimtalk-schedule-d2" \
             -H "Authorization: Bearer ${CRON_SECRET}"

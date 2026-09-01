@@ -67,21 +67,26 @@ export function isHappyCallInHourlyReminderWindow(
   return now >= happyCallReminderWindowStart(preferredDate);
 }
 
-/** 15분 cron DB 조회용 — 과거 예약일 전량 스캔 방지 */
+/** 15분 cron DB 조회 — 연체 미완 포함, 그 이전 전량 스캔 방지 (KST 일수) */
+export const HAPPY_CALL_CRON_OVERDUE_LOOKBACK_DAYS = 60;
+
+/** 15분 cron DB 조회 — 오늘·내일 예약 + 최근 연체 미완 */
 export function happyCallCronPreferredDateRange(now: Date): { gte: Date; lte: Date } | null {
   const todayYmd = kstYmdFromDate(now);
   const tomorrowYmd = addDaysToYmdKst(todayYmd, 1);
+  const lookbackYmd = addDaysToYmdKst(todayYmd, -HAPPY_CALL_CRON_OVERDUE_LOOKBACK_DAYS);
   const todayRange = kstDayRangeYmd(todayYmd);
   const tomorrowRange = kstDayRangeYmd(tomorrowYmd);
-  if (!todayRange || !tomorrowRange) return null;
+  const lookbackRange = kstDayRangeYmd(lookbackYmd);
+  if (!todayRange || !tomorrowRange || !lookbackRange) return null;
 
   const eveStart = new Date(`${todayYmd}T18:00:00+09:00`);
   if (now >= eveStart) {
-    /** 오늘 18:00~ — 내일 작업(전날 18:00 알림 창) + 오늘 작업(당일 미완·연체) */
-    return { gte: todayRange.gte, lte: tomorrowRange.lte };
+    /** 18:00~ — 내일 작업(전날 18:00 알림) + 오늘·연체 미완(lookback~today) */
+    return { gte: lookbackRange.gte, lte: tomorrowRange.lte };
   }
-  /** 18:00 이전 — 어제 18:00부터 열린 「오늘」 작업 미완만 후보 */
-  return { gte: todayRange.gte, lte: todayRange.lte };
+  /** 18:00 이전 — 오늘 작업 + lookback 이내 연체 미완 (내일 작업 전날 알림은 18:00부터) */
+  return { gte: lookbackRange.gte, lte: todayRange.lte };
 }
 
 export const HAPPY_CALL_INELIGIBLE_STATUSES: InquiryStatus[] = [...HAPPY_CALL_BLOCK];
