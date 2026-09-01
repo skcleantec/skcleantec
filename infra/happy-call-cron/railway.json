@@ -6,7 +6,7 @@
   },
   "deploy": {
     "preDeployCommand": null,
-    "startCommand": "/bin/sh -c 'curl -sf -X POST \"${CRON_BASE_URL}/api/admin/cron/happy-call-reminders\" -H \"Authorization: Bearer ${HAPPY_CALL_CRON_SECRET}\"'",
+    "startCommand": "/bin/sh -c 'curl -sf -X POST \"${CRON_BASE_URL}/api/admin/cron/happy-call-reminders\" -H \"Authorization: Bearer ${HAPPY_CALL_CRON_SECRET}\" && curl -sf -X POST \"${CRON_BASE_URL}/api/admin/cron/alimtalk-schedule-d2\" -H \"Authorization: Bearer ${ALIMTALK_CRON_SECRET:-$HAPPY_CALL_CRON_SECRET}\"'",
     "healthcheckPath": null,
     "restartPolicyType": "NEVER",
     "cronSchedule": "*/15 * * * *"
