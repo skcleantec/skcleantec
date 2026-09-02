@@ -1087,7 +1087,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             ? slotOccupiedLeaderIds.afternoon
             : bucket === 'allday'
               ? new Set([...slotOccupiedLeaderIds.morning, ...slotOccupiedLeaderIds.afternoon])
-              : new Set([...slotOccupiedLeaderIds.morning, ...slotOccupiedLeaderIds.afternoon])
+              : null
         : null;
       /** 팀장 드롭다운에는 타업체 계정 제외 — 타업체는 「정산」의 타업체 담당에서만 지정 */
       const base =
