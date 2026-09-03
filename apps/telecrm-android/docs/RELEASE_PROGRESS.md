@@ -7,18 +7,18 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-09-01)
+## 현재 상태 (최종 갱신: 2026-09-03)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 30 |
-| **최신 versionName** | `0.8.0-internal` |
-| **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
-| **Play 공개 테스트** | v30 AAB · API 36 검증 후 업로드 예정 |
-| **Play 내부 테스트** | v25 (`0.7.5-internal`) 업로드됨 |
-| **Play 비공개 테스트** | v28 이전 · v30으로 통합 권장 |
-| **Play 프로덕션** | 미출시 |
-| **sideload (`/telecrm-app`)** | `sideload` flavor · v27 유지 (Railway 미갱신) |
+| **최신 versionCode** | 32 |
+| **최신 versionName** | `0.8.2-internal` |
+| **targetSdk** | **36** |
+| **Play 공개 테스트** | v30 AAB · API 36 |
+| **Play 내부 테스트** | **v32 AAB 업로드 필요** |
+| **Play 비공개 테스트** | **v32 승격 필요** |
+| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · API 36 |
+| **sideload (`/telecrm-app`)** | v32 APK · GitHub Release · Railway 변수 갱신 |
 
 ---
 
@@ -50,6 +50,21 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v32 · `0.8.2-internal` — 2026-09-03
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | **내부 테스트** 업로드용 AAB |
+| **AAB** | `dist/telecrm-play-0.8.2-internal-32.aab` |
+| **AAB SHA256** | `f60ff3e21d36d54c04487862d7284c20316e13151adadb42c14a2cabc858d893` |
+| **sideload APK** | `dist/telecrm-release-0.8.2-internal.apk` |
+| **APK SHA256** | `2865559bf8ad10c32951eeadd421105443a6b466eee0fe2564db41c70a168056` |
+| **Git** | `c5b62278` — 마케터 앱 필수설정·수신 CRM·관리자 메시지 |
+| **변경 요약** | 필수 설정 잠금 · 수신 이름/상태 · 관리자↔마케터 메시지 · 부재 알림 |
+| **서버/CRM** | batch lookup · call-sessions phone · ADMIN↔MARKETER · 공지 마케터 |
+| **검증** | `verify-admin-marketer-messages` · server/client tsc · AAB/APK 빌드 |
+| **메모** | Release `telecrm-v0.8.2-internal` · Railway staging+production 변수 설정 |
 
 ### v30 · `0.8.0-internal` — 2026-09-01
 
