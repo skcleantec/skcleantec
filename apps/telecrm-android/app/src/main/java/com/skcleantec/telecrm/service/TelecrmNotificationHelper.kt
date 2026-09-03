@@ -23,10 +23,12 @@ object TelecrmNotificationHelper {
     const val CHANNEL_CALL_DISPATCH = "telecrm_call_dispatch"
     const val CHANNEL_INCOMING_CALL = "telecrm_incoming_call"
     const val CHANNEL_SMS_DISPATCH = "telecrm_sms_dispatch"
+    const val CHANNEL_MISSED_CALL = "telecrm_missed_call"
 
     const val NOTIFICATION_ONGOING = 7001
     const val NOTIFICATION_CALL_BASE = 7100
     const val NOTIFICATION_INCOMING_CALL = 7150
+    const val NOTIFICATION_MISSED_BASE = 7400
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -63,6 +65,18 @@ object TelecrmNotificationHelper {
             ).apply {
                 description = context.getString(R.string.notification_channel_incoming_desc)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                enableVibration(true)
+            },
+        )
+
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_MISSED_CALL,
+                context.getString(R.string.notification_channel_missed),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = context.getString(R.string.notification_channel_missed_desc)
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
                 enableVibration(true)
             },
         )
@@ -214,6 +228,47 @@ object TelecrmNotificationHelper {
 
     fun cancelIncomingCall(context: Context) {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_INCOMING_CALL)
+    }
+
+    fun showMissedCall(context: Context, phone: String, lookup: JSONObject?) {
+        ensureChannels(context)
+        val digits = phone.filter { it.isDigit() }
+        if (digits.length < 4) return
+
+        val open = PendingIntent.getActivity(
+            context,
+            NOTIFICATION_MISSED_BASE + digits.hashCode().and(0x7FFF),
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(MainActivity.EXTRA_OPEN_INCOMING_PHONE, digits)
+            },
+            pendingIntentFlags(),
+        )
+        val inq = lookup?.optJSONArray("inquiries")?.optJSONObject(0)
+        val name = inq?.optString("customerName")?.takeIf { it.isNotBlank() }
+            ?: lookup?.optJSONObject("customer")?.optString("name")?.takeIf { it.isNotBlank() }
+        val title = if (!name.isNullOrBlank()) {
+            context.getString(R.string.notification_missed_title_named, name)
+        } else {
+            context.getString(R.string.notification_missed_title)
+        }
+        val body = context.getString(R.string.notification_missed_body, formatPhone(digits))
+        val notification = NotificationCompat.Builder(context, CHANNEL_MISSED_CALL)
+            .setSmallIcon(R.drawable.ic_notification_phone)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
+            .setAutoCancel(true)
+            .setContentIntent(open)
+            .build()
+        NotificationManagerCompat.from(context).notify(
+            NOTIFICATION_MISSED_BASE + digits.hashCode().and(0x7FFF),
+            notification,
+        )
     }
 
     private fun buildIncomingBody(

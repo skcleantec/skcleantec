@@ -67,6 +67,41 @@ class ApiClient(private val baseUrl: String) {
         }
     }
 
+    fun customerLookupBatch(token: String, phones: List<String>): Result<JSONArray> {
+        return runCatching {
+            val arr = JSONArray()
+            phones.distinct().take(30).forEach { arr.put(it) }
+            if (arr.length() == 0) return Result.success(JSONArray())
+            val body = JSONObject().put("phones", arr).toString().toRequestBody(jsonMedia)
+            val request = Request.Builder()
+                .url("$baseUrl/api/crm/customer-lookup/batch")
+                .addHeader("Authorization", "Bearer $token")
+                .post(body)
+                .build()
+            client.newCall(request).execute().use { response ->
+                val raw = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
+                    throw IllegalStateException(err?.takeIf { it.isNotBlank() } ?: "고객 조회 실패")
+                }
+                JSONObject(raw).optJSONArray("items") ?: JSONArray()
+            }
+        }
+    }
+
+    fun listCallSessions(token: String, fromYmd: String, toYmd: String, phone: String): Result<JSONArray> {
+        val digits = java.net.URLEncoder.encode(phone.filter { it.isDigit() }, Charsets.UTF_8.name())
+        return authorizedGet(
+            "/api/crm/call-sessions?from=$fromYmd&to=$toYmd&phone=$digits&limit=50&offset=0",
+            token,
+        ).map { it.optJSONArray("items") ?: JSONArray() }
+    }
+
+    fun getInquiry(token: String, inquiryId: String): Result<JSONObject> {
+        val id = java.net.URLEncoder.encode(inquiryId, Charsets.UTF_8.name())
+        return authorizedGet("/api/inquiries/$id", token)
+    }
+
     fun customerLookup(token: String, phone: String?, name: String?): Result<JSONObject> {
         return runCatching {
             val parts = mutableListOf<String>()

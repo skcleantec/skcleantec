@@ -14,7 +14,12 @@ data class IncomingCallRow(
     val number: String,
     val dateMs: Long,
     val durationSec: Int,
-)
+    val type: Int = android.provider.CallLog.Calls.INCOMING_TYPE,
+) {
+    val isMissed: Boolean
+        get() = type == android.provider.CallLog.Calls.MISSED_TYPE ||
+            type == android.provider.CallLog.Calls.REJECTED_TYPE
+}
 
 data class CallLogRow(
     val id: Long,
@@ -52,8 +57,12 @@ object CallLogReader {
 
     fun readRecentIncoming(context: Context, limit: Int = 25): List<IncomingCallRow> {
         return readRecent(context, limit)
-            .filter { it.type == CallLog.Calls.INCOMING_TYPE }
-            .map { IncomingCallRow(it.id, it.number, it.dateMs, it.durationSec) }
+            .filter {
+                it.type == CallLog.Calls.INCOMING_TYPE ||
+                    it.type == CallLog.Calls.MISSED_TYPE ||
+                    it.type == CallLog.Calls.REJECTED_TYPE
+            }
+            .map { IncomingCallRow(it.id, it.number, it.dateMs, it.durationSec, it.type) }
     }
 
     fun readRecent(context: Context, limit: Int = 25): List<CallLogRow> {

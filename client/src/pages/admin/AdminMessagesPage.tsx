@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { broadcastToField, getConversations, getMessages, sendMessage } from '../../api/messages';
+import { bootstrapAuthMeFromLocal } from '../../api/authMeSnapshot';
 import { getToken } from '../../stores/auth';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -33,6 +34,8 @@ function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: Scro
 function fieldPartnerRoleLabel(role: string): string {
   if (role === 'EXTERNAL_PARTNER') return '외부업체';
   if (role === 'TEAM_LEADER') return '팀장';
+  if (role === 'MARKETER') return '마케터';
+  if (role === 'ADMIN') return '관리자';
   return role;
 }
 
@@ -215,6 +218,8 @@ export function AdminMessagesPage() {
   const [toTeamLeaders, setToTeamLeaders] = useState(true);
   const [toExternalPartners, setToExternalPartners] = useState(false);
   const [toCrew, setToCrew] = useState(false);
+  const [toMarketers, setToMarketers] = useState(false);
+  const canBroadcastToMarketers = bootstrapAuthMeFromLocal(token ?? '')?.role === 'ADMIN';
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -317,6 +322,7 @@ export function AdminMessagesPage() {
         toTeamLeaders,
         toExternalPartners,
         toCrew,
+        toMarketers: canBroadcastToMarketers && toMarketers,
       });
       setBroadcastText('');
       loadConversations();
@@ -440,6 +446,9 @@ export function AdminMessagesPage() {
                     { label: '팀장', value: toTeamLeaders, set: setToTeamLeaders },
                     { label: '외부업체', value: toExternalPartners, set: setToExternalPartners },
                     { label: '팀원(크루)', value: toCrew, set: setToCrew },
+                    ...(canBroadcastToMarketers
+                      ? [{ label: '마케터', value: toMarketers, set: setToMarketers }]
+                      : []),
                   ].map(({ label, value, set }) => (
                     <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
                       <input
@@ -476,7 +485,7 @@ export function AdminMessagesPage() {
                 />
                 <button
                   type="submit"
-                  disabled={broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew)}
+                  disabled={broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew && !(canBroadcastToMarketers && toMarketers))}
                   style={{
                     height: 44,
                     padding: '0 20px',
@@ -487,7 +496,7 @@ export function AdminMessagesPage() {
                     fontSize: 15,
                     border: 'none',
                     cursor: 'pointer',
-                    opacity: (broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew)) ? 0.5 : 1,
+                    opacity: (broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew && !(canBroadcastToMarketers && toMarketers))) ? 0.5 : 1,
                     whiteSpace: 'nowrap',
                     flexShrink: 0,
                   }}

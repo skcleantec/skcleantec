@@ -128,6 +128,40 @@
     <string name="notification_incoming_title_named">%1$s · %2$s</string>
     <string name="notification_incoming_body">%1$s · CRM에서 확인</string>
 
+    <string name="setup_required_title">필수 설정</string>
+    <string name="setup_required_lead">전화·수신·메시지를 쓰려면 아래 설정을 모두 마쳐 주세요. 나중에 건너뛸 수 없습니다.</string>
+    <string name="setup_continue">설정 완료 · 시작하기</string>
+    <string name="setup_status_done">완료</string>
+    <string name="setup_status_needed">필요</string>
+    <string name="setup_item_action">설정하기</string>
+    <string name="setup_item_phone">전화 권한</string>
+    <string name="setup_item_phone_hint">걸기·받기·번호 읽기에 필요합니다.</string>
+    <string name="setup_item_call_log">통화 기록</string>
+    <string name="setup_item_call_log_hint">수신 목록과 부재 전화를 확인합니다.</string>
+    <string name="setup_item_notification">알림</string>
+    <string name="setup_item_notification_hint">수신·부재 전화를 이 휴대폰에만 띄웁니다.</string>
+    <string name="setup_item_fullscreen">전체 화면 알림</string>
+    <string name="setup_item_fullscreen_hint">잠금 화면에서도 고객 정보를 보여 줍니다.</string>
+    <string name="setup_item_battery">배터리 제한 없음</string>
+    <string name="setup_item_battery_hint">백그라운드에서 수신을 놓치지 않게 합니다.</string>
+    <string name="setup_item_call_screening">발신번호·스팸 앱</string>
+    <string name="setup_item_call_screening_hint">청소비서(마케터)를 선택해야 수신 번호가 전달됩니다.</string>
+
+    <string name="incoming_unregistered">미등록</string>
+    <string name="incoming_detail_title">수신 상세</string>
+    <string name="incoming_section_inquiry">간단 접수</string>
+    <string name="incoming_section_calls">이 번호 통화 이력</string>
+    <string name="incoming_section_changes">접수 상태 변화</string>
+    <string name="incoming_no_calls">이 번호로 저장된 통화가 없습니다.</string>
+    <string name="incoming_no_changes">상태 변화가 없습니다.</string>
+    <string name="incoming_no_inquiry">이 번호로 등록된 접수가 없습니다.</string>
+
+    <string name="notification_channel_missed">부재 전화</string>
+    <string name="notification_channel_missed_desc">받지 못한 고객 전화를 이 휴대폰에만 알립니다.</string>
+    <string name="notification_missed_title">부재 전화</string>
+    <string name="notification_missed_title_named">부재 · %1$s</string>
+    <string name="notification_missed_body">%1$s · 수신 목록에서 확인</string>
+
     <string name="galaxy_setup_title">갤럭시 설정 안내</string>
     <string name="galaxy_setup_message">고객 전화가 올 때 CRM 정보를 보려면 아래 설정이 필요합니다.\n\n1. 「발신번호·스팸 앱」→ 청소비서(마케터) 선택 (필수)\n2. PC CRM 화면을 켜 두면 휴대폰 수신 시 PC에 고객 정보가 자동 표시됩니다\n3. 전체 화면 알림·배터리 「제한 없음」 (휴대폰 CRM 화면용)</string>
     <string name="galaxy_setup_call_screening">발신번호·스팸 앱</string>

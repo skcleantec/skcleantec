@@ -71,6 +71,7 @@ export type BroadcastToFieldTargets = {
   toTeamLeaders: boolean;
   toExternalPartners: boolean;
   toCrew: boolean;
+  toMarketers?: boolean;
 };
 
 /** 관리자·마케터: 현장(팀장·외부업체·크루) 대상 공지 — 대상은 플래그로 선택 */
@@ -87,6 +88,7 @@ export async function broadcastToField(
       toTeamLeaders: targets.toTeamLeaders,
       toExternalPartners: targets.toExternalPartners,
       toCrew: targets.toCrew,
+      toMarketers: targets.toMarketers === true,
     }),
   });
   if (!res.ok) {

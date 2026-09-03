@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:name=".TelecrmApplication"
@@ -70,6 +71,13 @@
             android:turnScreenOn="true" />
         <activity
             android:name=".inquiry.InquiryDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".setup.SetupRequiredActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
+        <activity
+            android:name=".incoming.IncomingCallDetailActivity"
             android:exported="false" />
         <activity
             android:name=".main.MainActivity"

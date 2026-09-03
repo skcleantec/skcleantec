@@ -388,6 +388,31 @@ export async function lookupTelecrmCustomer(
   return resolveTelecrmCustomerByPhone(tenantId, operatingCompanyId, rawPhone, 'phone');
 }
 
+const BATCH_LOOKUP_MAX = 30;
+
+export async function lookupTelecrmCustomersBatch(
+  tenantId: string,
+  operatingCompanyId: string,
+  rawPhones: string[],
+): Promise<{ items: Array<{ queryPhone: string } & TelecrmCustomerLookupResult> }> {
+  const seen = new Set<string>();
+  const phones: string[] = [];
+  for (const raw of rawPhones) {
+    const digits = normalizeKrPhoneDigits(typeof raw === 'string' ? raw : '');
+    if (digits.length < 4 || seen.has(digits)) continue;
+    seen.add(digits);
+    phones.push(digits);
+    if (phones.length >= BATCH_LOOKUP_MAX) break;
+  }
+  const items = await Promise.all(
+    phones.map(async (queryPhone) => {
+      const result = await lookupTelecrmCustomer(tenantId, operatingCompanyId, queryPhone);
+      return { queryPhone, ...result };
+    }),
+  );
+  return { items };
+}
+
 export async function searchTelecrmCustomer(
   tenantId: string,
   operatingCompanyId: string,

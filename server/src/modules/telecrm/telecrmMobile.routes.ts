@@ -239,6 +239,8 @@ router.get('/call-sessions', requireStaffPermission('crm.view', 'crm.settings'),
     statusRaw === 'CONNECTED' || statusRaw === 'NO_ANSWER' || statusRaw === 'DIAL_ATTEMPT'
       ? (statusRaw as TelecrmCallSessionStatus)
       : undefined;
+  const phone =
+    typeof req.query.phone === 'string' && req.query.phone.trim() ? req.query.phone.trim() : undefined;
   const targetUserId =
     typeof req.query.userId === 'string' && req.query.userId.trim() ? req.query.userId.trim() : user.userId;
   if (targetUserId !== user.userId) {
@@ -252,6 +254,7 @@ router.get('/call-sessions', requireStaffPermission('crm.view', 'crm.settings'),
     fromYmd: from,
     toYmd: to,
     status,
+    phone,
     limit,
     offset,
     includeUser: targetUserId !== user.userId,

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
@@ -24,6 +25,22 @@ object TelecrmDeviceHints {
             }
             runCatching { context.startActivity(intent) }
         }
+    }
+
+    fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        val pm = context.getSystemService(PowerManager::class.java) ?: return true
+        return pm.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    fun requestIgnoreBatteryOptimizations(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = "package:${context.packageName}".toUri()
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { context.startActivity(request) }
+            .onFailure { openBatteryOptimizationSettings(context) }
     }
 
     fun openBatteryOptimizationSettings(context: Context) {

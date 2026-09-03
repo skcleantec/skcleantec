@@ -2,10 +2,36 @@ import { Router } from 'express';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { requireCrmWorkOperatingCompanyId, requireTelecrmTenant } from './telecrm.helpers.js';
-import { lookupTelecrmCustomer, searchTelecrmCustomer } from './telecrmCustomerLookup.service.js';
+import { lookupTelecrmCustomersBatch, searchTelecrmCustomer } from './telecrmCustomerLookup.service.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
+
+router.post(
+  '/batch',
+  requireStaffPermission('crm.view', 'crm.settings'),
+  async (req, res) => {
+    const tenantId = requireTelecrmTenant(req, res);
+    if (!tenantId) return;
+    const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+    if (!operatingCompanyId) return;
+    const phonesRaw = (req.body as { phones?: unknown })?.phones;
+    const phones = Array.isArray(phonesRaw)
+      ? phonesRaw.filter((p): p is string => typeof p === 'string')
+      : [];
+    if (phones.length === 0) {
+      res.status(400).json({ error: 'phones 배열이 필요합니다.' });
+      return;
+    }
+    try {
+      const result = await lookupTelecrmCustomersBatch(tenantId, operatingCompanyId, phones);
+      res.json(result);
+    } catch (e) {
+      console.error('[telecrm/customer-lookup/batch]', e);
+      res.status(500).json({ error: '고객 이력 일괄 조회에 실패했습니다.' });
+    }
+  },
+);
 
 router.get(
   '/',

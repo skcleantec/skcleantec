@@ -50,6 +50,13 @@ object IncomingCallRouter {
         // 시스템 전화 UI로 받아도 CRM 알림은 잠시 유지(조회 결과 확인용)
     }
 
+    fun onMissed(context: Context, phone: String) {
+        val digits = phone.filter { it.isDigit() }
+        if (digits.length < 4) return
+        val lookup = IncomingCallSession.lookup()?.takeIf { IncomingCallSession.phone() == digits }
+        TelecrmNotificationHelper.showMissedCall(context.applicationContext, digits, lookup)
+    }
+
     fun onIdle(context: Context) {
         activePhone = null
         lookupJob?.cancel()

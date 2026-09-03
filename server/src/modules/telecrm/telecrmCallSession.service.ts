@@ -415,14 +415,18 @@ export async function listTelecrmCallSessions(
     fromYmd: string;
     toYmd: string;
     status?: TelecrmCallSessionStatus;
+    phone?: string;
     limit: number;
     offset: number;
     includeUser?: boolean;
   },
 ): Promise<{ items: TelecrmCallSessionListItem[]; total: number }> {
+  const phoneDigits = opts.phone ? normalizePhone(opts.phone) : '';
+  const phoneSuffix = phoneDigits.length >= 8 ? phoneDigits.slice(-8) : phoneDigits.length >= 4 ? phoneDigits.slice(-4) : '';
   const where = {
     ...rangeWhere(tenantId, opts.fromYmd, opts.toYmd, opts.userId),
     ...(opts.status ? { status: opts.status } : {}),
+    ...(phoneSuffix ? { phone: { endsWith: phoneSuffix } } : {}),
   };
   const [total, rows] = await Promise.all([
     prisma.telecrmCallSession.count({ where }),

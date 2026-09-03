@@ -12,6 +12,8 @@ import androidx.core.content.ContextCompat
 object IncomingCallMonitor {
     private var receiver: BroadcastReceiver? = null
     private var isRinging = false
+    private var lastRingPhone: String? = null
+    private var answeredThisRing = false
 
     fun restart(context: Context) {
         stop(context)
@@ -32,22 +34,31 @@ object IncomingCallMonitor {
                 when (state) {
                     TelephonyManager.EXTRA_STATE_RINGING -> {
                         isRinging = true
+                        answeredThisRing = false
                         val digits = number?.filter { it.isDigit() }.orEmpty()
                         if (digits.length >= 4) {
+                            lastRingPhone = digits
                             IncomingCallRouter.onRinging(app, digits)
                         }
                         // 번호 없음: Android 10+ 잠금 화면 — CallScreeningService 가 번호·CRM UI 담당
                     }
                     TelephonyManager.EXTRA_STATE_OFFHOOK -> {
+                        answeredThisRing = true
                         IncomingCallRouter.onOffHook(app)
                     }
                     TelephonyManager.EXTRA_STATE_IDLE -> {
+                        val missedPhone = lastRingPhone
+                        if (isRinging && !answeredThisRing && !missedPhone.isNullOrBlank()) {
+                            IncomingCallRouter.onMissed(app, missedPhone)
+                        }
                         if (isRinging) {
                             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                                 CallLogSync.syncAfterCall(app)
                             }, 800)
                         }
                         isRinging = false
+                        answeredThisRing = false
+                        lastRingPhone = null
                         IncomingCallRouter.onIdle(app)
                     }
                 }
@@ -67,6 +78,8 @@ object IncomingCallMonitor {
         runCatching { context.applicationContext.unregisterReceiver(r) }
         receiver = null
         isRinging = false
+        answeredThisRing = false
+        lastRingPhone = null
     }
 
     private fun hasPhoneStatePermission(context: Context): Boolean {

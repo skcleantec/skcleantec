@@ -7,11 +7,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -27,13 +24,13 @@ import com.skcleantec.telecrm.dispatch.TelecrmDispatchExecutor
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
 import com.skcleantec.telecrm.realtime.AppEventBus
 import com.skcleantec.telecrm.service.TelecrmAppState
-import com.skcleantec.telecrm.service.TelecrmDeviceHints
 import com.skcleantec.telecrm.service.TelecrmRealtimeService
+import com.skcleantec.telecrm.setup.SetupRequiredActivity
+import com.skcleantec.telecrm.setup.TelecrmRequiredSetup
 import com.skcleantec.telecrm.telephony.CallLogReader
 import com.skcleantec.telecrm.telephony.CallLogSync
 import com.skcleantec.telecrm.telephony.CallReturnMonitor
 import com.skcleantec.telecrm.telephony.IncomingCallMonitor
-import com.skcleantec.telecrm.telephony.TelecrmCallScreeningSetup
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.AppVersion
 import com.skcleantec.telecrm.update.TelecrmApkInstall
@@ -50,8 +47,7 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_PREFILL_INQUIRY_ID = "extra_prefill_inquiry_id"
         const val EXTRA_PREFILL_CUSTOMER_MATCH = "extra_prefill_customer_match"
         const val EXTRA_PREFILL_ACTION = "extra_prefill_action"
-        private const val PREFS_SETUP = "telecrm_setup_hints"
-        private const val KEY_HINT_SHOWN = "galaxy_hints_shown"
+        const val EXTRA_OPEN_INCOMING_PHONE = "extra_open_incoming_phone"
 
         fun prefillIntent(context: Context, payload: TelecrmDispatchPayload): Intent {
             val digits = payload.phone.filter { it.isDigit() }
@@ -72,6 +68,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var apiBaseUrl: String
     private lateinit var apiClient: ApiClient
     private lateinit var dispatchExecutor: TelecrmDispatchExecutor
+    var pendingIncomingPhone: String? = null
+        private set
+
+    fun consumePendingIncomingPhone(): String? {
+        val phone = pendingIncomingPhone
+        pendingIncomingPhone = null
+        return phone
+    }
+
     var pendingCallPhone: String? = null
         private set
 
@@ -113,12 +118,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val callScreeningLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) {
-        syncIncomingCallMonitor()
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val token = intent.getStringExtra(EXTRA_JWT) ?: tokenStore.getToken()
@@ -126,6 +125,11 @@ class MainActivity : AppCompatActivity() {
             ?: ApiEnvironment.resolveForUser(tokenStore.getLoginId(), tokenStore.getApiBaseUrl())
         if (token.isNullOrBlank()) {
             startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+            return
+        }
+        if (!TelecrmRequiredSetup.isComplete(this)) {
+            startActivity(SetupRequiredActivity.intent(this))
             finish()
             return
         }
@@ -139,7 +143,6 @@ class MainActivity : AppCompatActivity() {
 
         bindUserHeader()
         requestRuntimePermissions()
-        binding.root.post { maybeShowGalaxySetupHints() }
 
         binding.logoutButton.setOnClickListener { logout() }
 
@@ -171,6 +174,7 @@ class MainActivity : AppCompatActivity() {
             }
             true
         }
+        captureIncomingPhone(intent)
 
         binding.root.post {
             TelecrmRealtimeService.start(this@MainActivity)
@@ -192,6 +196,7 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        captureIncomingPhone(intent)
         binding.root.post {
             val hadPrefillExtras =
                 intent.getStringExtra(EXTRA_PREFILL_PHONE)?.filter { it.isDigit() }?.length ?: 0 >= 4
@@ -231,6 +236,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!TelecrmRequiredSetup.isComplete(this)) {
+            startActivity(SetupRequiredActivity.intent(this))
+            finish()
+            return
+        }
         TelecrmAppState.isMainInForeground = true
         if (CallLogReader.hasCallLogPermission(this)) {
             Thread { CallLogSync.syncRecent(applicationContext, 24) }.start()
@@ -349,42 +359,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun maybeShowGalaxySetupHints() {
-        val prefs = getSharedPreferences(PREFS_SETUP, MODE_PRIVATE)
-        val needsFullScreen = TelecrmDeviceHints.shouldPromptFullScreenIntent(this)
-        val needsCallScreening = TelecrmCallScreeningSetup.shouldPrompt(this)
-        if (!needsFullScreen && !needsCallScreening) {
-            syncIncomingCallMonitor()
-            return
-        }
-        if (prefs.getBoolean(KEY_HINT_SHOWN, false)) {
-            syncIncomingCallMonitor()
-            return
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.galaxy_setup_title)
-            .setMessage(R.string.galaxy_setup_message)
-            .setPositiveButton(R.string.galaxy_setup_call_screening) { _, _ ->
-                requestCallScreeningRole()
-            }
-            .setNeutralButton(R.string.galaxy_setup_fullscreen) { _, _ ->
-                TelecrmDeviceHints.openFullScreenIntentSettings(this)
-            }
-            .setNegativeButton(R.string.galaxy_setup_battery) { _, _ ->
-                TelecrmDeviceHints.openBatteryOptimizationSettings(this)
-            }
-            .show()
-        prefs.edit { putBoolean(KEY_HINT_SHOWN, true) }
-        syncIncomingCallMonitor()
-    }
-
-    private fun requestCallScreeningRole() {
-        val intent = TelecrmCallScreeningSetup.createRoleRequestIntent(this)
-        if (intent != null) {
-            callScreeningLauncher.launch(intent)
-        } else {
-            TelecrmCallScreeningSetup.openCallScreeningSettings(this)
+    private fun captureIncomingPhone(intent: Intent?) {
+        val digits = intent?.getStringExtra(EXTRA_OPEN_INCOMING_PHONE)?.filter { it.isDigit() }.orEmpty()
+        if (digits.length < 4) return
+        pendingIncomingPhone = digits
+        intent?.removeExtra(EXTRA_OPEN_INCOMING_PHONE)
+        if (::binding.isInitialized) {
+            binding.bottomNav.selectedItemId = R.id.nav_incoming
+            binding.viewPager.currentItem = 1
         }
     }
 

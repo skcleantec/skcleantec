@@ -20,6 +20,8 @@ import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.api.ApiEnvironment
 import com.skcleantec.telecrm.databinding.ActivityLoginBinding
 import com.skcleantec.telecrm.main.MainActivity
+import com.skcleantec.telecrm.setup.SetupRequiredActivity
+import com.skcleantec.telecrm.setup.TelecrmRequiredSetup
 import com.skcleantec.telecrm.ui.AppVersion
 import com.skcleantec.telecrm.update.TelecrmApkInstall
 import com.skcleantec.telecrm.update.TelecrmDistribution
@@ -255,11 +257,14 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun openCrm(token: String, apiBaseUrl: String) {
-        startActivity(
+        val next = if (TelecrmRequiredSetup.isComplete(this)) {
             Intent(this, MainActivity::class.java)
                 .putExtra(MainActivity.EXTRA_API_BASE_URL, apiBaseUrl)
-                .putExtra(MainActivity.EXTRA_JWT, token),
-        )
+                .putExtra(MainActivity.EXTRA_JWT, token)
+        } else {
+            SetupRequiredActivity.intent(this)
+        }
+        startActivity(next)
         finish()
     }
 }

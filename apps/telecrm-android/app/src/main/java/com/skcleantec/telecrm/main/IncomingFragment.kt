@@ -9,21 +9,17 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.api.ApiClient
-import com.skcleantec.telecrm.api.SmsTemplateDto
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.FragmentIncomingBinding
-import com.skcleantec.telecrm.inquiry.InquiryDetailActivity
+import com.skcleantec.telecrm.incoming.IncomingCallDetailActivity
 import com.skcleantec.telecrm.telephony.CallLogReader
-import com.skcleantec.telecrm.telephony.CallLogRow
-import com.skcleantec.telecrm.telephony.CallLogSync
 import com.skcleantec.telecrm.telephony.IncomingCallRow
-import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.SimpleRow
 import com.skcleantec.telecrm.ui.SimpleRowAdapter
-import com.skcleantec.telecrm.ui.SmsTemplateHelper
+import com.skcleantec.telecrm.ui.StatusBadgeTone
 import com.skcleantec.telecrm.ui.TelecrmInquiryLabels
-import com.skcleantec.telecrm.ui.TelecrmLookupDetailRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -36,9 +32,7 @@ class IncomingFragment : Fragment() {
     private val apiClient by lazy { ApiClient.fromContext(requireContext()) }
     private val adapter = SimpleRowAdapter { pos -> onRowClick(pos) }
     private var rows = listOf<IncomingCallRow>()
-    private var selectedLookup: JSONObject? = null
-    private var selectedPhone = ""
-    private var smsTemplates = listOf<SmsTemplateDto>()
+    private val lookupByPhone = mutableMapOf<String, JSONObject>()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -58,30 +52,20 @@ class IncomingFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         binding.incomingList.layoutManager = LinearLayoutManager(requireContext())
         binding.incomingList.adapter = adapter
+        binding.detailPanel.visibility = View.GONE
         binding.grantButton.setOnClickListener {
             permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
         }
-        binding.detailCall.setOnClickListener {
-            val phone = selectedPhone
-            TelecrmCallHelper.dial(requireContext(), phone)
-            val token = tokenStore.getToken() ?: return@setOnClickListener
-            val match = selectedLookup?.optString("match") ?: "unknown"
-            val inquiryId = selectedLookup?.optJSONArray("inquiries")?.optJSONObject(0)?.optString("id")
-            TelecrmCallHelper.logCall(requireContext(), apiClient, token, phone, "INBOUND", inquiryId, match)
-        }
-        binding.detailSms.setOnClickListener { TelecrmCallHelper.openSms(requireContext(), selectedPhone) }
-        binding.detailInquiryButton.setOnClickListener {
-            val lookup = selectedLookup ?: return@setOnClickListener
-            InquiryDetailActivity.open(requireContext(), lookup, 0)
-        }
-        loadSmsTemplates()
         ensurePermission()
     }
 
     override fun onResume() {
         super.onResume()
         if (hasCallLogPermission()) loadCallLog()
-        loadSmsTemplates()
+        val pending = (activity as? MainActivity)?.consumePendingIncomingPhone()
+        if (!pending.isNullOrBlank()) {
+            IncomingCallDetailActivity.open(requireContext(), pending)
+        }
     }
 
     private fun hasCallLogPermission() =
@@ -109,86 +93,71 @@ class IncomingFragment : Fragment() {
             }
             if (_binding == null) return@launch
             rows = loaded
-            adapter.submit(rows.map {
+            bindRows()
+            enrichLookups()
+        }
+    }
+
+    private fun bindRows() {
+        adapter.submit(
+            rows.map { row ->
+                val digits = row.number.filter { it.isDigit() }
+                val lookup = lookupByPhone[digits]
+                val inq = lookup?.optJSONArray("inquiries")?.optJSONObject(0)
+                val name = inq?.optString("customerName")?.takeIf { it.isNotBlank() }
+                    ?: lookup?.optJSONObject("customer")?.optString("name")?.takeIf { it.isNotBlank() }
+                    ?: getString(R.string.incoming_unregistered)
+                val statusCode = inq?.optString("status")
+                val badge = if (inq != null) TelecrmInquiryLabels.statusLabel(statusCode)
+                else getString(R.string.incoming_unregistered)
+                val tone = if (inq != null) TelecrmInquiryLabels.statusTone(statusCode) else StatusBadgeTone.NEUTRAL
+                val whenStr = CallLogReader.formatWhen(row.dateMs)
+                val extra = if (row.isMissed) " · 부재" else if (row.durationSec > 0) " · ${row.durationSec}초" else ""
                 SimpleRow(
-                    title = it.number,
-                    subtitle = "${CallLogReader.formatWhen(it.dateMs)} · ${it.durationSec}초",
+                    title = name,
+                    subtitle = "${formatPhone(digits)} · $whenStr$extra",
+                    badge = badge,
+                    badgeTone = tone,
                 )
-            })
-        }
+            },
+        )
     }
 
-    private fun loadSmsTemplates() {
+    private fun enrichLookups() {
         val token = tokenStore.getToken() ?: return
+        val phones = rows.map { it.number.filter { ch -> ch.isDigit() } }.filter { it.length >= 4 }.distinct()
+        if (phones.isEmpty()) return
         lifecycleScope.launch {
-            smsTemplates = withContext(Dispatchers.IO) { apiClient.getSmsTemplates(token).getOrDefault(emptyList()) }
-            bindIncomingTemplateChips()
-        }
-    }
-
-    private fun bindIncomingTemplateChips() {
-        SmsTemplateHelper.bindTemplateChips(
-            requireContext(),
-            binding.incomingSmsTemplateChips,
-            null,
-            smsTemplates,
-        ) { template -> sendIncomingTemplate(template) }
-    }
-
-    private fun sendIncomingTemplate(template: SmsTemplateDto) {
-        val token = tokenStore.getToken() ?: return
-        lifecycleScope.launch {
-            var ctx = SmsTemplateHelper.placeholderCtxFromLookup(selectedPhone, selectedLookup)
-            val inquiryId = selectedLookup?.optJSONArray("inquiries")?.optJSONObject(0)?.optString("id")
-            ctx = SmsTemplateHelper.enrichOrderLink(apiClient, token, ctx, inquiryId)
-            SmsTemplateHelper.sendTemplate(requireContext(), selectedPhone, template, ctx)
+            val result = withContext(Dispatchers.IO) { apiClient.customerLookupBatch(token, phones) }
+            result.onSuccess { items ->
+                for (i in 0 until items.length()) {
+                    val item = items.optJSONObject(i) ?: continue
+                    val query = item.optString("queryPhone").filter { it.isDigit() }
+                    if (query.length >= 4) lookupByPhone[query] = item
+                }
+                if (_binding != null) bindRows()
+            }
         }
     }
 
     private fun onRowClick(pos: Int) {
         if (pos !in rows.indices) return
         val row = rows[pos]
-        selectedPhone = row.number.filter { it.isDigit() }
-        binding.detailPanel.visibility = View.VISIBLE
-        binding.detailTitle.text = row.number
-        binding.detailBody.text = "조회 중…"
-        binding.detailInquiryButton.visibility = View.GONE
-        bindIncomingTemplateChips()
-        val token = tokenStore.getToken() ?: return
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                apiClient.customerLookup(token, selectedPhone, null)
-            }
-            result.onSuccess { json ->
-                selectedLookup = json
-                val inq = json.optJSONArray("inquiries")?.optJSONObject(0)
-                val customer = json.optJSONObject("customer")
-                val name = inq?.optString("customerName")
-                    ?: customer?.optString("name")
-                    ?: "미등록"
-                val match = TelecrmInquiryLabels.matchLabel(json.optString("match"))
-                binding.detailTitle.text = "$name · $match"
-                binding.detailBody.text = if (inq != null) {
-                    TelecrmLookupDetailRenderer.summaryLines(inq, json).joinToString("\n")
-                } else {
-                    buildString {
-                        append(selectedPhone)
-                        append("\n접수 이력 없음")
-                    }
-                }
-                binding.detailInquiryButton.visibility =
-                    if (inq != null) View.VISIBLE else View.GONE
-                val logRow = CallLogRow(row.id, row.number, row.dateMs, row.durationSec, android.provider.CallLog.Calls.INCOMING_TYPE)
-                CallLogSync.syncKnownRow(
-                    requireContext(),
-                    logRow,
-                    inq?.optString("id"),
-                    json.optString("match"),
-                )
-            }.onFailure {
-                binding.detailBody.text = it.message ?: "조회 실패"
-            }
+        val digits = row.number.filter { it.isDigit() }
+        IncomingCallDetailActivity.open(
+            requireContext(),
+            digits,
+            row.dateMs,
+            row.durationSec,
+            lookupByPhone[digits],
+        )
+    }
+
+    private fun formatPhone(digits: String): String {
+        if (digits.length == 11 && digits.startsWith("010")) {
+            return "${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}"
         }
+        return digits
     }
 
     override fun onDestroyView() {

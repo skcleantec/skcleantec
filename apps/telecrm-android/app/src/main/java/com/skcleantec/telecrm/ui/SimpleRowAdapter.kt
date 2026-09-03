@@ -7,7 +7,12 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.skcleantec.telecrm.R
 
-data class SimpleRow(val title: String, val subtitle: String)
+data class SimpleRow(
+    val title: String,
+    val subtitle: String,
+    val badge: String? = null,
+    val badgeTone: StatusBadgeTone = StatusBadgeTone.NEUTRAL,
+)
 
 class SimpleRowAdapter(
     private val onClick: (Int) -> Unit,
@@ -29,6 +34,15 @@ class SimpleRowAdapter(
         val row = items[position]
         holder.title.text = row.title
         holder.subtitle.text = row.subtitle
+        val badge = row.badge?.takeIf { it.isNotBlank() }
+        if (badge == null) {
+            holder.badge.visibility = View.GONE
+        } else {
+            holder.badge.visibility = View.VISIBLE
+            holder.badge.text = badge
+            holder.badge.setTextColor(holder.itemView.context.getColor(row.badgeTone.fgRes))
+            holder.badge.setBackgroundResource(row.badgeTone.bgRes)
+        }
         holder.itemView.setOnClickListener { onClick(position) }
     }
 
@@ -37,5 +51,6 @@ class SimpleRowAdapter(
     class VH(view: View) : RecyclerView.ViewHolder(view) {
         val title: TextView = view.findViewById(R.id.rowTitle)
         val subtitle: TextView = view.findViewById(R.id.rowSubtitle)
+        val badge: TextView = view.findViewById(R.id.rowBadge)
     }
 }
