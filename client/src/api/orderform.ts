@@ -661,6 +661,24 @@ export async function updateFormConfig(
   }
 }
 
+/** 관리자: 브랜드별 취소·변경 안내 덮어쓰기. items null이면 공통 사용 */
+export async function updateBrandCancellationGuide(
+  authToken: string,
+  operatingCompanyId: string,
+  items: string[] | null,
+): Promise<{ operatingCompanyId: string; cancellationGuideItems: string[] | null }> {
+  const res = await fetch(`${API}/orderforms/form-config/brand-cancellation-guide`, {
+    method: 'PUT',
+    headers: headers(authToken),
+    body: JSON.stringify({ operatingCompanyId, items }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '브랜드 안내 저장에 실패했습니다.');
+  }
+  return res.json();
+}
+
 /** 브랜드별 고객 링크 메시지 설정 */
 export type OrderFormBrandCustomerLinkConfigPublic = Pick<
   OrderFormConfigPublic,

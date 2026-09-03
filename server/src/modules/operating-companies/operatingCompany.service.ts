@@ -73,6 +73,7 @@ function applyConfigPatchFromBody(
       }
       if (
         e.message.includes('cancellationPolicy') ||
+        e.message.includes('cancellationGuideItems') ||
         e.message.includes('위약') ||
         e.message.includes('구간')
       ) {

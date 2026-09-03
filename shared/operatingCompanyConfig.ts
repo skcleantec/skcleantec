@@ -44,6 +44,8 @@ export type OperatingCompanyConfig = {
   companyRegistration?: Partial<TenantCompanyRegistration>;
   /** 브랜드별 취소·변경 위약금 — `{{cancellationPolicy}}` 치환 */
   cancellationPolicy?: OperatingCompanyCancellationPolicy;
+  /** 취소·변경 안내 줄 덮어쓰기. 없으면 업체 공통 안내사항 */
+  cancellationGuideItems?: string[];
 };
 
 export const EMPTY_OPERATING_COMPANY_CONFIG: OperatingCompanyConfig = {};

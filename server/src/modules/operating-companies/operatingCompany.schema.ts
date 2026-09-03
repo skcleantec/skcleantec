@@ -14,6 +14,7 @@ import {
   validateOperatingCompanyCancellationPolicy,
   type OperatingCompanyCancellationPolicy,
 } from '../../lib/operatingCompanyCancellationPolicyCore.js';
+import { normalizeCancellationGuideItems } from '../../lib/orderFormGuidePlaceholders.js';
 import type {
   TenantCompanyRegistrationConfig,
   TenantSmtpConfigStored,
@@ -58,6 +59,8 @@ export type OperatingCompanyConfig = {
   /** 텔레CRM 숨고 — 브랜드별 계정 (DB 저장 · passwordEnc) */
   soomgo?: OperatingCompanySoomgoStored;
   cancellationPolicy?: OperatingCompanyCancellationPolicy;
+  /** 취소·변경 안내 줄 덮어쓰기. 없으면 업체 공통 */
+  cancellationGuideItems?: string[];
 };
 
 /** API 응답용 — 비밀번호 암호문 제외 */
@@ -281,6 +284,14 @@ export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfi
   if ('cancellationPolicy' in o) {
     out.cancellationPolicy = parseCancellationPolicy(o.cancellationPolicy);
   }
+  if ('cancellationGuideItems' in o) {
+    try {
+      const items = normalizeCancellationGuideItems(o.cancellationGuideItems);
+      if (items) out.cancellationGuideItems = items;
+    } catch {
+      throw new Error('cancellationGuideItems 형식이 올바르지 않습니다.');
+    }
+  }
   return out;
 }
 
@@ -321,6 +332,10 @@ export function mergeOperatingCompanyConfig(
       patch.cancellationPolicy !== undefined
         ? patch.cancellationPolicy
         : existing.cancellationPolicy,
+    cancellationGuideItems:
+      'cancellationGuideItems' in patch
+        ? patch.cancellationGuideItems
+        : existing.cancellationGuideItems,
   };
   if (tenantId && merged.companyRegistration) {
     merged.companyRegistration = finalizeCompanyRegistrationSection(merged.companyRegistration, tenantId);
@@ -344,6 +359,9 @@ export function operatingCompanyConfigToJson(config: OperatingCompanyConfig): Re
   }
   if (config.cancellationPolicy) {
     out.cancellationPolicy = config.cancellationPolicy;
+  }
+  if (config.cancellationGuideItems?.length) {
+    out.cancellationGuideItems = config.cancellationGuideItems;
   }
   return out;
 }

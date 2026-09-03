@@ -3,32 +3,23 @@
 > Maestro and specialist agents append runs here. Latest status at the top.  
 > Machine log: `activity-log.jsonl` · Detail reports: `reports/`
 
-**Last updated:** 2026-09-01 19:15 KST — 안내사항 중복 문구·엔터·섹션별 저장
+**Last updated:** 2026-09-03 11:40 KST — 안내 저장 잘림 수정 + 브랜드별 취소·변경
 
 ## Current status
 
 | Agent | Last run (KST) | Status | Summary |
 |-------|----------------|--------|---------|
-| Maestro | 2026-09-01 17:55 | completed | 위약 기준일=브랜드, 알림톡에 바로가기 |
-| DesignPulse | 2026-09-01 17:55 | completed | CTA · 프리셋 · 고급 접기 |
-| CodeGuardian | 2026-09-01 17:55 | completed | URL tab · 추출 · tsc OK |
-| RoleQA | 2026-09-01 17:55 | completed | 1브랜드 자동 / 다브랜드 안내 |
-| PlatformOps | 2026-09-01 16:50 | completed | 기존 알림톡 모듈 · Railway 변수 |
-| ConfigCurator | 2026-09-01 17:55 | completed | shortcut + freeChangeDeadline |
-| DbSentinel | 2026-09-01 16:50 | completed | 스키마 변경 없음 |
+| Maestro | 2026-09-03 11:40 | completed | 0~2단계 구현 |
+| CodeGuardian | 2026-09-03 11:40 | completed | 필터·API·tsc |
+| DesignPulse | 2026-09-03 11:40 | completed | 공통/브랜드 탭 |
+| ConfigCurator | 2026-09-03 11:40 | completed | registry 구현 |
+| RoleQA | 2026-09-03 11:40 | completed | 예약금 줄 유지 |
+| PlatformOps | 2026-09-03 11:40 | completed | 모듈 없음 |
+| DbSentinel | 2026-09-03 11:40 | completed | JSON only |
 
 ## Latest orchestration
 
-**Request:** 위약 알림을 편하게 + 알림톡에 브랜드 위약금 설정 바로가기  
-**Scope:** 알림톡 · 영업브랜드 위약금 탭 (client + shared help)
-
-**Outcome:** ✅ **completed** — 푸시 미요청
+**Request:** 저장 잘림 + 브랜드별을 한 번에  
+**Outcome:** ✅ completed — 푸시 미요청
 
 **Summary report:** [BRIEF_REPORT.md](BRIEF_REPORT.md)
-
-## Recent reports
-
-- [2026-09-01-1755-design-pulse-penalty-shortcut.md](reports/2026-09-01-1755-design-pulse-penalty-shortcut.md)
-- [2026-09-01-1755-code-guardian-penalty-shortcut.md](reports/2026-09-01-1755-code-guardian-penalty-shortcut.md)
-- [2026-09-01-1755-config-curator-penalty-shortcut.md](reports/2026-09-01-1755-config-curator-penalty-shortcut.md)
-- [2026-09-01-1755-role-qa-penalty-shortcut.md](reports/2026-09-01-1755-role-qa-penalty-shortcut.md)

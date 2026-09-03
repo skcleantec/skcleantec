@@ -207,8 +207,15 @@ export function OperatingCompanyCancellationPolicyFields(props: {
             className="font-medium text-slate-800 underline decoration-slate-300 underline-offset-2 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded-sm"
           >
             알림톡
-          </Link>{' '}
-          화면에서 합니다.
+          </Link>
+          에서 합니다. 예약금 반환 등 추가 문장은{' '}
+          <Link
+            to="/admin/inquiries/order-customer-preview?panel=guide"
+            className="font-medium text-slate-800 underline decoration-slate-300 underline-offset-2 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded-sm"
+          >
+            발주서설정 → 안내·동의
+          </Link>
+          에서 브랜드별로 적습니다.
         </p>
       </section>
 

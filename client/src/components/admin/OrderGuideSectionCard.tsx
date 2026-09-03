@@ -11,12 +11,13 @@ export function OrderGuideSectionCard(props: {
   section: GuideSection;
   dirty: boolean;
   saving: boolean;
+  canRemove?: boolean;
   onTitleChange: (title: string) => void;
   onItemsTextChange: (text: string) => void;
   onSave: () => void;
   onRemove: () => void;
 }) {
-  const { section, dirty, saving, onTitleChange, onItemsTextChange, onSave, onRemove } = props;
+  const { section, dirty, saving, canRemove = true, onTitleChange, onItemsTextChange, onSave, onRemove } = props;
   const itemsText = guideItemsToEditorText(section.items);
 
   return (
@@ -31,9 +32,11 @@ export function OrderGuideSectionCard(props: {
             onChange={(e) => onTitleChange(e.target.value)}
           />
         </label>
-        <button type="button" onClick={onRemove} className={`${BTN_GHOST} shrink-0 mt-7`} disabled={saving}>
-          삭제
-        </button>
+        {canRemove ? (
+          <button type="button" onClick={onRemove} className={`${BTN_GHOST} shrink-0 mt-7`} disabled={saving}>
+            삭제
+          </button>
+        ) : null}
       </div>
       <div>
         <label className="block text-sm text-gray-600 mb-1">

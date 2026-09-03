@@ -3,6 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import {
+  applyCancellationGuideBrandOverride,
   buildGuidePlaceholderContextFromPolicy,
   ensureCancellationPolicyPlaceholderInSections,
   expandGuideSectionItems,
@@ -91,6 +92,49 @@ function testCoveredLineDetection() {
     isLineCoveredByCancellationPolicyToken('당일 취소 또는 변경 시 위약금 50%가 적용됩니다.'),
     true,
   );
+  assert.equal(
+    isLineCoveredByCancellationPolicyToken(
+      '예약일 7일 이후 취소 또는 변경 시 예약금은 반환되지 않습니다.',
+    ),
+    false,
+    '예약금 추가 문장은 저장에 남아야 함',
+  );
+  assert.equal(
+    isLineCoveredByCancellationPolicyToken('-----예약금 입금시 위약사항-----'),
+    false,
+  );
+}
+
+function testBrandOverrideKeepsDepositLines() {
+  const sections = ensureCancellationPolicyPlaceholderInSections([
+    {
+      title: '취소·변경 안내',
+      items: [
+        '-----예약금 없이 예약시 위약사항----',
+        GUIDE_PLACEHOLDER_CANCELLATION_POLICY,
+        '-----예약금 입금시 위약사항-----',
+        '예약일 7일 이내 취소 시 예약금반환이 가능합니다',
+        '예약일 7일 이후 취소 또는 변경 시 예약금은 반환되지 않습니다.',
+      ],
+    },
+  ]);
+  const items = sections[0]!.items;
+  assert.ok(items.includes('예약일 7일 이후 취소 또는 변경 시 예약금은 반환되지 않습니다.'));
+  assert.ok(items.includes(GUIDE_PLACEHOLDER_CANCELLATION_POLICY));
+}
+
+function testApplyBrandOverride() {
+  const base = [
+    { title: '취소·변경 안내', items: [GUIDE_PLACEHOLDER_CANCELLATION_POLICY, '공통 7일'] },
+    { title: '서비스 진행 안내', items: ['공통 진행'] },
+  ];
+  const over = applyCancellationGuideBrandOverride(base, [
+    GUIDE_PLACEHOLDER_CANCELLATION_POLICY,
+    '브랜드만 3일 반환',
+  ]);
+  assert.deepEqual(over[0]!.items, [GUIDE_PLACEHOLDER_CANCELLATION_POLICY, '브랜드만 3일 반환']);
+  assert.deepEqual(over[1]!.items, ['공통 진행']);
+  assert.deepEqual(applyCancellationGuideBrandOverride(base, []), base);
 }
 
 testEnsureStripsRealStoredDupes();
@@ -98,4 +142,6 @@ testEnsureStripsDuplicatePreDay();
 testExpandHasSameDayOnce();
 testEnterKeepsBlankLine();
 testCoveredLineDetection();
+testBrandOverrideKeepsDepositLines();
+testApplyBrandOverride();
 console.log('verify-order-guide-cancellation: ok');

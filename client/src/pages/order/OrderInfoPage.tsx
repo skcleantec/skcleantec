@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getPublicOrderGuide } from '../../api/orderform';
+import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import type { GuideSection } from '../../constants/orderInfoDefaultSections';
 import { ORDER_GUIDE_DEFAULT_SECTIONS } from '../../constants/orderInfoDefaultSections';
 import { postOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
@@ -23,12 +25,15 @@ function CircleXIcon({ className }: { className?: string }) {
 }
 
 export function OrderInfoPage() {
+  const [searchParams] = useSearchParams();
+  const brandSlug =
+    searchParams.get('brand')?.trim().toLowerCase() || resolvePublicBrandSlug() || undefined;
   const [sections, setSections] = useState<GuideSection[]>(ORDER_GUIDE_DEFAULT_SECTIONS);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    getPublicOrderGuide()
+    getPublicOrderGuide({ brandSlug })
       .then((data) => {
         if (data.sections?.length) setSections(data.sections);
         setLoadError(false);
@@ -38,7 +43,7 @@ export function OrderInfoPage() {
         setSections(ORDER_GUIDE_DEFAULT_SECTIONS);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [brandSlug]);
 
   const tryLeavePage = useCallback(() => {
     tryLeavePublicPage();

@@ -245,7 +245,21 @@
         "shared/orderFormGuidePlaceholders.ts",
         "client/src/utils/orderGuideParse.ts"
       ],
-      "notes": "코드+옛 한글 위약 문장 중복 제거. 당일=구간 0일 전. 안내사항은 섹션별 저장. Enter 빈줄 유지."
+      "notes": "코드+옛 한글 위약만 제거해야 함. 예약금·추가 문장까지 지우면 안 됨(2026-09-03 점검). 당일=구간 0일 전. 섹션별 저장. 브랜드별 추가 문구는 미구현."
+    },
+    {
+      "id": "orderform.guide.cancellationBrandOverride",
+      "labelKo": "취소·변경 안내 · 브랜드별 추가 문구",
+      "surfaces": ["admin.orderForm.settings.guide", "public.orderInfo", "public.orderForm.guideModal"],
+      "visual": { "type": "placeholder", "token": "slate-100" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-customer-preview?panel=guide",
+      "helpPath": "admin.orderForm.guide.brandOverride",
+      "codeRefs": [
+        "client/src/pages/admin/AdminOrderFormNoticePage.tsx"
+      ],
+      "notes": "공통 infoContent + OperatingCompany.config.cancellationGuideItems 덮어쓰기. 위약 %는 위약금 탭과 분리. 브랜드 2개 이상일 때 안내사항 탭."
     },
     {
       "id": "orderform.public.stickySubmit",

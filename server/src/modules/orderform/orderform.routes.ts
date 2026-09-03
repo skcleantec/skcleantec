@@ -95,11 +95,20 @@ import {
   validateOptionalPublicTenantSlug,
 } from '../tenants/publicTenantAccess.js';
 import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
-import { loadGuidePlaceholderContextForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
 import {
+  loadCancellationGuideItemsForBrand,
+  loadGuidePlaceholderContextForBrand,
+} from '../../lib/operatingCompanyCancellationPolicy.js';
+import {
+  applyCancellationGuideBrandOverride,
   ensureCancellationPolicyPlaceholderInSections,
   expandGuideSections,
+  normalizeCancellationGuideItems,
 } from '../../lib/orderFormGuidePlaceholders.js';
+import {
+  parseOperatingCompanyConfig,
+  operatingCompanyConfigToJson,
+} from '../operating-companies/operatingCompany.schema.js';
 import {
   parseOrderFormSpaceCount,
   validateOrderFormSpaceCounts,
@@ -384,10 +393,16 @@ router.get('/public-guide', async (req, res) => {
       typeof req.query.brand === 'string' ? req.query.brand.trim().toLowerCase() : '';
     const cfg = await getOrCreateOrderFormConfig(prisma, tenantId);
     const sectionsRaw = parseGuideSectionsFromDb(cfg.infoContent);
-    const guideCtx = await loadGuidePlaceholderContextForBrand(prisma, tenantId, {
-      brandSlug: brandSlug || undefined,
-    });
-    const sections = expandGuideSections(sectionsRaw, guideCtx);
+    const [guideCtx, brandGuideItems] = await Promise.all([
+      loadGuidePlaceholderContextForBrand(prisma, tenantId, {
+        brandSlug: brandSlug || undefined,
+      }),
+      loadCancellationGuideItemsForBrand(prisma, tenantId, {
+        brandSlug: brandSlug || undefined,
+      }),
+    ]);
+    const sectionsMerged = applyCancellationGuideBrandOverride(sectionsRaw, brandGuideItems);
+    const sections = expandGuideSections(sectionsMerged, guideCtx);
     const infoLinkText =
       cfg.infoLinkText?.trim() || '[필수] 예약 안내 및 개인정보 제3자 제공 동의';
     res.json({ sections, infoLinkText });
@@ -2240,6 +2255,56 @@ router.get(
     res.json(DEFAULT_FORM_CONFIG);
   }
 });
+
+/** 관리자: 브랜드별 취소·변경 안내 덮어쓰기 (`OperatingCompany.config`) */
+router.put(
+  '/form-config/brand-cancellation-guide',
+  authMiddleware,
+  requireStaffPermission('orderform.formConfig'),
+  async (req, res) => {
+    try {
+      const user = (req as unknown as { user: AuthPayload }).user;
+      const tenantId = await requireTenantIdFromAuth(res, user);
+      if (!tenantId) return;
+      const body = req.body as { operatingCompanyId?: unknown; items?: unknown };
+      const operatingCompanyId =
+        typeof body.operatingCompanyId === 'string' ? body.operatingCompanyId.trim() : '';
+      if (!operatingCompanyId) {
+        res.status(400).json({ error: '영업 브랜드를 선택해 주세요.' });
+        return;
+      }
+      const row = await prisma.operatingCompany.findFirst({
+        where: { id: operatingCompanyId, tenantId },
+        select: { id: true, config: true },
+      });
+      if (!row) {
+        res.status(404).json({ error: '영업 브랜드를 찾을 수 없습니다.' });
+        return;
+      }
+      let items: string[] | undefined;
+      try {
+        items = body.items === null ? undefined : normalizeCancellationGuideItems(body.items);
+      } catch {
+        res.status(400).json({ error: '안내 문구 형식이 올바르지 않습니다.' });
+        return;
+      }
+      const existing = parseOperatingCompanyConfig(row.config);
+      if (items?.length) existing.cancellationGuideItems = items;
+      else delete existing.cancellationGuideItems;
+      await prisma.operatingCompany.update({
+        where: { id: row.id },
+        data: { config: operatingCompanyConfigToJson(existing) as Prisma.InputJsonValue },
+      });
+      res.json({
+        operatingCompanyId: row.id,
+        cancellationGuideItems: existing.cancellationGuideItems ?? null,
+      });
+    } catch (err) {
+      console.error('brand-cancellation-guide put error:', err);
+      res.status(500).json({ error: '브랜드 안내를 저장하지 못했습니다.' });
+    }
+  },
+);
 
 /** 관리자: 폼 메시지 설정 수정 */
 router.put('/form-config', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {

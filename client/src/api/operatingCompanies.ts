@@ -21,6 +21,8 @@ export type OperatingCompanyConfig = {
   inquiry?: { numberPrefix?: string };
   companyRegistration?: Partial<TenantCompanyRegistration>;
   cancellationPolicy?: OperatingCompanyCancellationPolicy;
+  /** 취소·변경 안내 줄 덮어쓰기. 없으면 공통 안내사항 */
+  cancellationGuideItems?: string[];
   soomgo?: {
     email?: string;
     enabled?: boolean;

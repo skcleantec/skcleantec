@@ -20,31 +20,37 @@ function pickPreviewBrand<T extends { isActive: boolean; isDefault: boolean; dis
 export function OrderGuideCancellationPreview(props: {
   token: string | null;
   cancellationSection: GuideSection | undefined;
+  /** 있으면 이 브랜드로 미리보기. 없으면 기본 브랜드 */
+  previewBrand?: { displayName: string; cancellationPolicy?: unknown } | null;
 }) {
-  const { token, cancellationSection } = props;
-  const [brandLabel, setBrandLabel] = useState<string | null>(null);
-  const [policyRaw, setPolicyRaw] = useState<unknown>(undefined);
+  const { token, cancellationSection, previewBrand } = props;
+  const [fetchedLabel, setFetchedLabel] = useState<string | null>(null);
+  const [fetchedPolicy, setFetchedPolicy] = useState<unknown>(undefined);
 
   useEffect(() => {
+    if (previewBrand) return;
     if (!token) return;
     let cancelled = false;
     listOperatingCompanies(token)
       .then((r) => {
         if (cancelled) return;
         const row = pickPreviewBrand(r.items);
-        setBrandLabel(row?.displayName ?? null);
-        setPolicyRaw(row?.config.cancellationPolicy);
+        setFetchedLabel(row?.displayName ?? null);
+        setFetchedPolicy(row?.config.cancellationPolicy);
       })
       .catch(() => {
         if (!cancelled) {
-          setBrandLabel(null);
-          setPolicyRaw(undefined);
+          setFetchedLabel(null);
+          setFetchedPolicy(undefined);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, previewBrand]);
+
+  const brandLabel = previewBrand?.displayName ?? fetchedLabel;
+  const policyRaw = previewBrand ? previewBrand.cancellationPolicy : fetchedPolicy;
 
   const previewLines = useMemo(() => {
     if (!cancellationSection) return [];

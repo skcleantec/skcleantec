@@ -174,19 +174,58 @@ export function guideItemsHaveCancellationPolicyToken(items: readonly string[]):
   );
 }
 
+const LEGACY_HARDCODED_CANCELLATION_KO = new Set([
+  '고객님 사정으로 전일 청소 예약 취소 또는 변경 시 청소비 위약금 30%가 적용됩니다.',
+  '고객님 사정으로 당일 청소 예약 취소 또는 변경 시 청소비 위약금 50%가 적용됩니다.',
+  '당일 취소 또는 변경 시 위약금 50%가 적용됩니다.',
+]);
+
+const FREE_CHANGE_LINE_EXACT_RE =
+  /^날짜 변경은 청소일 기준 \d+일 전까지 신청하셔야 위약금 없이 변경 가능합니다\.?$/;
+
 export function isLineCoveredByCancellationPolicyToken(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
   if (CANCELLATION_FULL_TOKENS.some((tok) => t.includes(tok))) return false;
   if (LEGACY_CANCELLATION_LINE_TOKENS.has(t)) return true;
   if (/^\{\{penaltyLine:\d+\}\}$/.test(t)) return true;
-  if (t.includes('14일')) return false;
-  if (t.startsWith('날짜 변경은 청소일 기준') && t.includes('위약금 없이')) return true;
-  if (t.startsWith('고객님 사정으로') && t.includes('위약금') && t.includes('적용됩니다')) return true;
-  if (/^(당일|전일|\d+일 전).+위약금/.test(t)) return true;
-  if (/취소 또는 변경이 불가합니다\.?$/.test(t)) return true;
-  if (/취소 또는 변경 시 예약금은 반환되지 않습니다\.?$/.test(t)) return true;
+  if (LEGACY_HARDCODED_CANCELLATION_KO.has(t)) return true;
+  if (FREE_CHANGE_LINE_EXACT_RE.test(t)) return true;
   return false;
+}
+
+export const MAX_CANCELLATION_GUIDE_ITEMS = 40;
+export const MAX_CANCELLATION_GUIDE_ITEM_CHARS = 500;
+
+export function normalizeCancellationGuideItems(raw: unknown): string[] | undefined {
+  if (raw == null) return undefined;
+  if (!Array.isArray(raw)) {
+    throw new Error('cancellationGuideItems는 배열이어야 합니다.');
+  }
+  const items = raw
+    .map((x) => String(x ?? '').trim().slice(0, MAX_CANCELLATION_GUIDE_ITEM_CHARS))
+    .filter(Boolean)
+    .slice(0, MAX_CANCELLATION_GUIDE_ITEMS);
+  return items.length ? items : undefined;
+}
+
+export function applyCancellationGuideBrandOverride<T extends { title: string; items: string[] }>(
+  sections: T[],
+  brandItems: string[] | null | undefined,
+): T[] {
+  const items = brandItems?.map((l) => l.trim()).filter(Boolean) ?? [];
+  if (!items.length) return sections;
+  const next = sections.map((s) => ({ ...s, items: [...s.items] }));
+  const idx = next.findIndex((s) => sectionTitleLooksLikeCancellation(s.title));
+  if (idx < 0) {
+    next.unshift({
+      title: GUIDE_CANCELLATION_SECTION_TITLE,
+      items,
+    } as T);
+    return next;
+  }
+  next[idx] = { ...next[idx]!, items };
+  return next;
 }
 
 export function ensureCancellationPolicyPlaceholderInSections<

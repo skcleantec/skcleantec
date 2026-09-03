@@ -91,9 +91,12 @@ export function AdminOrderFormCustomerPreviewPage() {
 
   const setPanel = useCallback(
     (p: DesignerPanel) => {
-      setSearchParams({ panel: p }, { replace: true });
+      const next = new URLSearchParams(searchParams);
+      next.set('panel', p);
+      if (p !== 'guide') next.delete('guideBrand');
+      setSearchParams(next, { replace: true });
     },
-    [setSearchParams]
+    [searchParams, setSearchParams]
   );
 
   const [loading, setLoading] = useState(true);

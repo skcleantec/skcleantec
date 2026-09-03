@@ -79,6 +79,34 @@ export async function loadCancellationPolicyForBrand(
   return resolveOperatingCompanyCancellationPolicy(undefined);
 }
 
+export async function loadCancellationGuideItemsForBrand(
+  db: Db,
+  tenantId: string,
+  opts?: {
+    operatingCompanyId?: string | null;
+    brandSlug?: string | null;
+  },
+): Promise<string[] | undefined> {
+  const ocId = opts?.operatingCompanyId?.trim();
+  const brandSlug = opts?.brandSlug?.trim().toLowerCase();
+  try {
+    if (brandSlug) {
+      const oc = await getOperatingCompanyBySlug(db, tenantId, brandSlug);
+      return parseOperatingCompanyConfig(oc.config).cancellationGuideItems;
+    }
+    if (ocId) {
+      const row = await db.operatingCompany.findFirst({
+        where: { id: ocId, tenantId },
+        select: { config: true },
+      });
+      if (row) return parseOperatingCompanyConfig(row.config).cancellationGuideItems;
+    }
+  } catch {
+    /* fall through */
+  }
+  return undefined;
+}
+
 export async function loadGuidePlaceholderContextForBrand(
   db: Db,
   tenantId: string,
