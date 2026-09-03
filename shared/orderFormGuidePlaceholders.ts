@@ -175,7 +175,13 @@ export function expandGuidePlaceholders(text: string, ctx: GuidePlaceholderConte
   return out;
 }
 
-/** 안내 섹션 item — 치환 후 줄 단위로 펼침 */
+function pushUniqueGuideLine(out: string[], line: string) {
+  const t = line.trim();
+  if (!t || out.includes(t)) return;
+  out.push(t);
+}
+
+/** 안내 섹션 item — 치환 후 줄 단위로 펼침 (같은 문장 중복 제거) */
 export function expandGuideSectionItems(
   items: string[],
   ctx: GuidePlaceholderContext,
@@ -185,12 +191,10 @@ export function expandGuideSectionItems(
     const expanded = expandGuidePlaceholders(item, ctx);
     if (expanded.includes('\n')) {
       for (const line of expanded.split('\n')) {
-        const t = line.trim();
-        if (t) out.push(t);
+        pushUniqueGuideLine(out, line);
       }
     } else {
-      const t = expanded.trim();
-      if (t) out.push(t);
+      pushUniqueGuideLine(out, expanded);
     }
   }
   return out;
@@ -231,9 +235,25 @@ export function guideItemsHaveCancellationPolicyToken(items: readonly string[]):
   );
 }
 
+/** `{{cancellationPolicy}}` 가 있으면 겹치므로 편집본에서 빼는 옛 위약 문장 */
+export function isLineCoveredByCancellationPolicyToken(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  if (CANCELLATION_FULL_TOKENS.some((tok) => t.includes(tok))) return false;
+  if (LEGACY_CANCELLATION_LINE_TOKENS.has(t)) return true;
+  if (/^\{\{penaltyLine:\d+\}\}$/.test(t)) return true;
+  if (t.includes('14일')) return false;
+  if (t.startsWith('날짜 변경은 청소일 기준') && t.includes('위약금 없이')) return true;
+  if (t.startsWith('고객님 사정으로') && t.includes('위약금') && t.includes('적용됩니다')) return true;
+  if (/^(당일|전일|\d+일 전).+위약금/.test(t)) return true;
+  if (/취소 또는 변경이 불가합니다\.?$/.test(t)) return true;
+  if (/취소 또는 변경 시 예약금은 반환되지 않습니다\.?$/.test(t)) return true;
+  return false;
+}
+
 /**
  * 취소·변경 섹션에 `{{cancellationPolicy}}` 가 없으면 넣는다.
- * 이미 저장된 옛 문구·penaltyLine 개별 코드만 있는 테넌트에도 브랜드 위약이 붙게 한다.
+ * 코드와 같은 옛 한글 위약 문장이 겹치면 한글 쪽을 뺀다.
  */
 export function ensureCancellationPolicyPlaceholderInSections<
   T extends { title: string; items: string[] },
@@ -248,8 +268,11 @@ export function ensureCancellationPolicyPlaceholderInSections<
     return next;
   }
   const sec = next[idx]!;
-  if (guideItemsHaveCancellationPolicyToken(sec.items)) return next;
-  const kept = sec.items.filter((line) => !LEGACY_CANCELLATION_LINE_TOKENS.has(line.trim()));
+  const kept = sec.items.filter((line) => !isLineCoveredByCancellationPolicyToken(line));
+  if (guideItemsHaveCancellationPolicyToken(kept)) {
+    sec.items = kept;
+    return next;
+  }
   sec.items = [GUIDE_PLACEHOLDER_CANCELLATION_POLICY, ...kept];
   return next;
 }

@@ -116,6 +116,12 @@ export function expandGuidePlaceholders(text: string, ctx: GuidePlaceholderConte
   return out;
 }
 
+function pushUniqueGuideLine(out: string[], line: string) {
+  const t = line.trim();
+  if (!t || out.includes(t)) return;
+  out.push(t);
+}
+
 export function expandGuideSectionItems(
   items: string[],
   ctx: GuidePlaceholderContext,
@@ -125,12 +131,10 @@ export function expandGuideSectionItems(
     const expanded = expandGuidePlaceholders(item, ctx);
     if (expanded.includes('\n')) {
       for (const line of expanded.split('\n')) {
-        const t = line.trim();
-        if (t) out.push(t);
+        pushUniqueGuideLine(out, line);
       }
     } else {
-      const t = expanded.trim();
-      if (t) out.push(t);
+      pushUniqueGuideLine(out, expanded);
     }
   }
   return out;
@@ -170,6 +174,21 @@ export function guideItemsHaveCancellationPolicyToken(items: readonly string[]):
   );
 }
 
+export function isLineCoveredByCancellationPolicyToken(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  if (CANCELLATION_FULL_TOKENS.some((tok) => t.includes(tok))) return false;
+  if (LEGACY_CANCELLATION_LINE_TOKENS.has(t)) return true;
+  if (/^\{\{penaltyLine:\d+\}\}$/.test(t)) return true;
+  if (t.includes('14일')) return false;
+  if (t.startsWith('날짜 변경은 청소일 기준') && t.includes('위약금 없이')) return true;
+  if (t.startsWith('고객님 사정으로') && t.includes('위약금') && t.includes('적용됩니다')) return true;
+  if (/^(당일|전일|\d+일 전).+위약금/.test(t)) return true;
+  if (/취소 또는 변경이 불가합니다\.?$/.test(t)) return true;
+  if (/취소 또는 변경 시 예약금은 반환되지 않습니다\.?$/.test(t)) return true;
+  return false;
+}
+
 export function ensureCancellationPolicyPlaceholderInSections<
   T extends { title: string; items: string[] },
 >(sections: T[]): T[] {
@@ -183,8 +202,11 @@ export function ensureCancellationPolicyPlaceholderInSections<
     return next;
   }
   const sec = next[idx]!;
-  if (guideItemsHaveCancellationPolicyToken(sec.items)) return next;
-  const kept = sec.items.filter((line) => !LEGACY_CANCELLATION_LINE_TOKENS.has(line.trim()));
+  const kept = sec.items.filter((line) => !isLineCoveredByCancellationPolicyToken(line));
+  if (guideItemsHaveCancellationPolicyToken(kept)) {
+    sec.items = kept;
+    return next;
+  }
   sec.items = [GUIDE_PLACEHOLDER_CANCELLATION_POLICY, ...kept];
   return next;
 }

@@ -245,7 +245,7 @@
         "shared/orderFormGuidePlaceholders.ts",
         "client/src/utils/orderGuideParse.ts"
       ],
-      "notes": "섹션에 {{cancellationPolicy}} 없으면 자동 삽입. 고객 화면은 브랜드 위약금 문장으로 치환."
+      "notes": "코드+옛 한글 위약 문장 중복 제거. 당일=구간 0일 전. 안내사항은 섹션별 저장. Enter 빈줄 유지."
     },
     {
       "id": "orderform.public.stickySubmit",

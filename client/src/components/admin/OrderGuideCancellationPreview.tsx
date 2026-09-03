@@ -69,7 +69,7 @@ export function OrderGuideCancellationPreview(props: {
         >
           영업브랜드 → 위약금
         </Link>
-        에 적은 문구로 바뀝니다.
+        에 적은 문구로 바뀝니다. 당일 위약은 위약금 탭에서 구간 「0일 전」을 두면 아래에 같이 나옵니다.
         {brandLabel ? ` (미리보기 브랜드: ${brandLabel})` : ''}
       </p>
       {previewLines.length ? (
