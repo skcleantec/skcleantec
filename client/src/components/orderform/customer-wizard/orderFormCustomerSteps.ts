@@ -5,6 +5,7 @@ import {
   isOrderFormPrefillLocked,
   isStdFieldOn,
   shouldShowCustomerAddressWizardStep,
+  shouldShowCustomerRoomsWizardStep,
 } from '../../../pages/order/orderFormFieldVisibility';
 import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order/orderFormModel.types';
 import type { OrderFormPublicTemplateField } from '../../../api/orderform';
@@ -141,11 +142,12 @@ export function resolveOrderFormCustomerSteps(args: {
       });
     }
   }
-  if (std('roomCount') && !locked('roomCount')) {
+  if (shouldShowCustomerRoomsWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'rooms',
       kind: 'input',
-      title: '방·욕실 수는 어떻게 되나요?',
+      title: '방·화장실·베란다·주방은 어떻게 되나요?',
+      hint: '없는 공간은 0으로 적어 주세요. 0이거나 비어 있는 칸은 직접 고칠 수 있습니다.',
     });
   }
   if (std('buildingType') && !locked('buildingType')) {
@@ -155,7 +157,10 @@ export function resolveOrderFormCustomerSteps(args: {
       title: '건물 형태는요?',
     });
   }
-  if (std('moveInDate') && !locked('moveInTiming') && !locked('moveInDate') && !locked('moveInDateUndecided')) {
+  if (
+    std('moveInDate') &&
+    (!locked('moveInTiming') || !locked('moveInDate') || !locked('moveInDateUndecided'))
+  ) {
     steps.push({
       id: 'moveIn',
       kind: 'input',
@@ -232,7 +237,14 @@ export function wizardStepIdForSubmitField(fieldId?: string): OrderFormCustomerS
   if (fieldId.includes('preferredTimeDetail')) return 'timeDetail';
   if (fieldId.includes('preferredTime')) return 'time';
   if (fieldId.includes('schedule') || fieldId.includes('preferredDate')) return 'date';
-  if (fieldId.includes('roomCount')) return 'rooms';
+  if (
+    fieldId.includes('roomCount') ||
+    fieldId.includes('balconyCount') ||
+    fieldId.includes('bathroomCount') ||
+    fieldId.includes('kitchenCount')
+  ) {
+    return 'rooms';
+  }
   if (fieldId.includes('building')) return 'building';
   if (fieldId.includes('moveIn')) return 'moveIn';
   if (fieldId.includes('agree')) return 'guide';

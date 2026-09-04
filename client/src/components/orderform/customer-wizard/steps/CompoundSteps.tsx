@@ -341,8 +341,13 @@ export function ReviewStep({
           onEdit={jump('time')}
         />
         <ReviewRow
-          label="방/욕실"
-          value={[form.roomCount && `방 ${form.roomCount}`, form.bathroomCount && `욕실 ${form.bathroomCount}`]
+          label="방·화장실·베란다·주방"
+          value={[
+            form.roomCount !== '' ? `방 ${form.roomCount}` : '',
+            form.bathroomCount !== '' ? `화장실 ${form.bathroomCount}` : '',
+            form.balconyCount !== '' ? `베란다 ${form.balconyCount}` : '',
+            form.kitchenCount !== '' ? `주방 ${form.kitchenCount}` : '',
+          ]
             .filter(Boolean)
             .join(' · ')}
           onEdit={jump('rooms')}

@@ -1,4 +1,9 @@
 import { isMarketerLockedOrderFormAddress } from '@shared/orderFormPendingAddress';
+import {
+  ORDER_FORM_SPACE_COUNT_FIELDS,
+  parseOrderFormSpaceCount,
+  type OrderFormSpaceCountKey,
+} from '@shared/orderFormSpaceCounts';
 import type { OrderFormLoadedOrder } from './orderFormModel.types';
 
 export function isOrderFormAreaLockedFromOrder(order: {
@@ -42,6 +47,32 @@ export function isCustomerAddressLocked(
   prefillMap: Record<string, unknown> | null | undefined,
 ): boolean {
   return !isEditor && isMarketerLockedOrderFormAddress(prefillMap);
+}
+
+/**
+ * 방·베란다·화장실·주방 — 1 이상만 선입력 잠금.
+ * 0·빈 칸은 고객이 고칠 수 있어야 한다.
+ */
+export function isOrderFormSpaceCountLocked(
+  isEditor: boolean,
+  prefillMap: Record<string, unknown> | null | undefined,
+  key: OrderFormSpaceCountKey,
+): boolean {
+  if (isEditor || !prefillMap) return false;
+  const n = parseOrderFormSpaceCount(prefillMap[key]);
+  return n != null && n > 0;
+}
+
+export function shouldShowCustomerRoomsWizardStep(
+  order: OrderFormLoadedOrder | null,
+  isEditor: boolean,
+  skipLocked: boolean,
+): boolean {
+  if (!isStdFieldOn(order, 'roomCount')) return false;
+  if (!skipLocked) return true;
+  return ORDER_FORM_SPACE_COUNT_FIELDS.some(
+    ({ key }) => !isOrderFormSpaceCountLocked(isEditor, order?.prefillAnswers, key),
+  );
 }
 
 /** 도로명만 잠기고 상세주소가 비어 있으면 고객에게 주소 질문을 보여 준다. */

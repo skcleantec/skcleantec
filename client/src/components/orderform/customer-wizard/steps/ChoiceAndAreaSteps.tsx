@@ -4,7 +4,8 @@ import { getPreferredTimeDetailSelectOptions } from '../../../../constants/order
 import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
 import { YmdSelect } from '../../../ui/DateQuerySelects';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
-import { ORDER_FORM_SPACE_COUNT_HINT } from '@shared/orderFormSpaceCounts';
+import { ORDER_FORM_SPACE_COUNT_FIELDS, ORDER_FORM_SPACE_COUNT_HINT } from '@shared/orderFormSpaceCounts';
+import { isOrderFormSpaceCountLocked } from '../../../../pages/order/orderFormFieldVisibility';
 import {
   AREA_BASIS_COST_WARNING,
   ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE,
@@ -202,33 +203,32 @@ export function AreaStep({
   );
 }
 
-export function RoomsStep({ form, setForm, lockKey, step }: CustomerStepBodyProps) {
-  const field = (
-    id: 'roomCount' | 'bathroomCount' | 'balconyCount' | 'kitchenCount',
-    label: string,
-  ) => (
-    <div>
-      <label className="mb-1.5 block text-fluid-xs font-medium text-slate-600" htmlFor={`order-wizard-${id}`}>
-        {label}
-      </label>
-      <input
-        id={`order-wizard-${id}`}
-        inputMode="numeric"
-        className={WIZARD_INPUT_CLS}
-        value={form[id]}
-        disabled={lockKey('roomCount')}
-        onChange={(e) => setForm((f) => ({ ...f, [id]: e.target.value }))}
-        placeholder="0"
-      />
-    </div>
-  );
+export function RoomsStep({ form, setForm, order, step }: CustomerStepBodyProps) {
   return (
     <WizardQuestion title={step.title} hint={step.hint ?? ORDER_FORM_SPACE_COUNT_HINT}>
       <div className="grid grid-cols-2 gap-3">
-        {field('roomCount', '방')}
-        {field('bathroomCount', '욕실')}
-        {field('balconyCount', '발코니')}
-        {field('kitchenCount', '주방')}
+        {ORDER_FORM_SPACE_COUNT_FIELDS.map(({ key, label }) => {
+          const locked = isOrderFormSpaceCountLocked(false, order?.prefillAnswers, key);
+          return (
+            <div key={key}>
+              <label
+                className="mb-1.5 block text-fluid-xs font-medium text-slate-600"
+                htmlFor={`order-field-${key}`}
+              >
+                {label}
+              </label>
+              <input
+                id={`order-field-${key}`}
+                inputMode="numeric"
+                className={WIZARD_INPUT_CLS}
+                value={form[key]}
+                disabled={locked}
+                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+          );
+        })}
       </div>
     </WizardQuestion>
   );

@@ -351,6 +351,21 @@
         "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
       ],
       "notes": "마케터가 도로명만 넣고 상세주소를 비우면 고객에게 상세주소 칸을 보여 줌. 끄면 제출 불가."
+    },
+    {
+      "id": "orderForm.customer.roomsZeroEditable",
+      "labelKo": "방·화장실 0·빈 칸은 고객이 수정",
+      "surfaces": ["public.orderForm.customerWizard"],
+      "visual": { "type": "input", "token": "slate-200" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-issue",
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/pages/order/orderFormFieldVisibility.ts",
+        "client/src/components/orderform/customer-wizard/steps/ChoiceAndAreaSteps.tsx"
+      ],
+      "notes": "1 이상만 잠금. 0·빈 칸이면 질문 노출. 방만 잠겨도 화장실·베란다·주방은 따로 수정."
     }
   ]
 }

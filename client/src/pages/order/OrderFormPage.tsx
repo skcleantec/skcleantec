@@ -2765,7 +2765,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           {stdFieldOn('roomCount') && (
           <div id="order-field-roomCount">
             <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방 *</p>
-            <p className="text-xs text-gray-500 mb-2 leading-relaxed">{ORDER_FORM_SPACE_COUNT_HINT}</p>
+            <p className="text-xs text-gray-500 mb-2 leading-relaxed">
+              {ORDER_FORM_SPACE_COUNT_HINT} 0이거나 비워 둔 칸은 고객이 발주서에서 고칩니다. 1 이상만 넣으면 그 칸은
+              잠깁니다.
+            </p>
             <div className="grid grid-cols-4 gap-2">
             <div>
               <label className={labelCls}>방 *</label>
