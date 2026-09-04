@@ -2765,11 +2765,11 @@ router.post('/submit/:token', async (req, res) => {
   const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
   const tplOn = (key: string) => templateHasSystemField(submitTemplate, key);
 
-  if (tplOn('customerPhone2')) {
-    if (!body.customerPhone2 || !String(body.customerPhone2).trim()) {
-      res.status(400).json({ error: '보조 전화번호를 입력해주세요.' });
-      return;
-    }
+  const customerPhone2Norm =
+    body.customerPhone2 != null ? String(body.customerPhone2).trim() : '';
+  if (!customerPhone2Norm) {
+    res.status(400).json({ error: '보조 전화번호를 입력해주세요.' });
+    return;
   }
 
   let customerEmailNorm: string | null = null;
@@ -3070,7 +3070,7 @@ router.post('/submit/:token', async (req, res) => {
           ? String(body.addressDetail).trim()
           : null,
       customerPhone: String(body.customerPhone ?? ''),
-      customerPhone2: String(body.customerPhone2).trim(),
+      customerPhone2: customerPhone2Norm,
       customerEmail: customerEmailNorm,
       areaPyeong: areaPyeongOut,
       areaBasis: areaBasisNorm,
@@ -3172,7 +3172,7 @@ router.post('/submit/:token', async (req, res) => {
           inquiryNumber,
           customerName: body.customerName || form.customerName,
           customerPhone: body.customerPhone,
-          customerPhone2: tplOn('customerPhone2') ? String(body.customerPhone2).trim() : null,
+          customerPhone2: customerPhone2Norm,
           customerEmail: customerEmailNorm,
           address: body.address,
           addressDetail: body.addressDetail || null,
@@ -3269,7 +3269,7 @@ router.post('/submit/:token', async (req, res) => {
           createdById: form.createdById,
           customerName: body.customerName || form.customerName,
           customerPhone: body.customerPhone,
-          customerPhone2: tplOn('customerPhone2') ? String(body.customerPhone2).trim() : null,
+          customerPhone2: customerPhone2Norm,
           customerEmail: customerEmailNorm,
           address: body.address,
           addressDetail: body.addressDetail || null,

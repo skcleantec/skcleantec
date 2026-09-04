@@ -5,7 +5,10 @@ import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
 import { YmdSelect } from '../../../ui/DateQuerySelects';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { ORDER_FORM_SPACE_COUNT_HINT } from '@shared/orderFormSpaceCounts';
-import { AREA_BASIS_COST_WARNING } from '../../../../pages/order/orderFormModel.types';
+import {
+  AREA_BASIS_COST_WARNING,
+  ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE,
+} from '../../../../pages/order/orderFormModel.types';
 import { WizardChipGrid, WizardChoiceChip, WizardQuestion, WIZARD_INPUT_CLS } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
 
@@ -148,6 +151,9 @@ export function DateStep({ form, handleCustomerPreferredDateChange, step }: Cust
         allowEmpty
         emitOnCompleteOnly
       />
+      <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-2xs font-medium leading-relaxed text-amber-950">
+        {ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE}
+      </p>
     </WizardQuestion>
   );
 }

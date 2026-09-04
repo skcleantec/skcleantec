@@ -80,11 +80,12 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '「주소 검색」으로 선택한 뒤 상세주소를 적어 주세요.',
     });
   }
-  if ((std('customerPhone') && !locked('customerPhone')) || (std('customerPhone2') && !locked('customerPhone2'))) {
+  if ((std('customerPhone') && !locked('customerPhone')) || !locked('customerPhone2')) {
     steps.push({
       id: 'phones',
       kind: 'input',
       title: '연락처를 알려 주세요',
+      hint: '보조 연락처는 필수입니다. 전일 연락이 안 되면 서비스가 취소될 수 있으니 정확하게 적어 주세요.',
     });
   }
   if (std('customerEmail') && !locked('customerEmail')) {
@@ -115,6 +116,7 @@ export function resolveOrderFormCustomerSteps(args: {
       id: 'date',
       kind: 'input',
       title: '희망 청소일은 언제인가요?',
+      hint: '날짜를 정확히 확인해 주세요. 잘못 적으면 위약금이 생길 수 있습니다.',
     });
     if (std('preferredTime') && !locked('preferredTime')) {
       steps.push({

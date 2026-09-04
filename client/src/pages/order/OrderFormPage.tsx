@@ -120,6 +120,7 @@ import { OrderFormCustomerWizard } from '../../components/orderform/customer-wiz
 import type { CustomerWizardShared } from '../../components/orderform/customer-wizard/customerStepTypes';
 import {
   AREA_BASIS_COST_WARNING,
+  ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE,
   EMPTY_ORDER_FORM_FIELDS,
   PROPERTY_TYPE_OPTIONS,
   type OrderFormEditorContext,
@@ -288,8 +289,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     },
     [order],
   );
+  const secondaryPhoneAlwaysRequired = true;
   const showContactSection =
-    stdFieldOn('customerPhone') || stdFieldOn('customerEmail') || stdFieldOn('customerPhone2');
+    stdFieldOn('customerPhone') || stdFieldOn('customerEmail') || secondaryPhoneAlwaysRequired;
   const showPropertyAreaSection = stdFieldOn('propertyType') || stdFieldOn('areaPyeong');
 
   // 시스템 필드의 빌더 편집 선택지(건축물유형·신축구축 옵션 추가 반영). 없으면 표준 기본값 사용.
@@ -968,7 +970,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       if (stdFieldOn('customerPhone') && !form.customerPhone?.trim()) {
         addIssue('대표 전화번호를 입력해주세요.', 'order-field-customerPhone');
       }
-      if (stdFieldOn('customerPhone2') && !form.customerPhoneSecondary?.trim()) {
+      if (!prefillLocked('customerPhone2') && !form.customerPhoneSecondary?.trim()) {
         addIssue('보조 전화번호를 입력해주세요.', 'order-field-customerPhone2');
       }
       const emailTrim = stdFieldOn('customerEmail')
@@ -1157,7 +1159,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         addressDetail: form.addressDetail.trim() || undefined,
         addressSelectedViaSearch: !isEditor && addressViaSearchOk,
         customerPhone: form.customerPhone.trim(),
-        customerPhone2: stdFieldOn('customerPhone2') ? form.customerPhoneSecondary.trim() : undefined,
+        customerPhone2: form.customerPhoneSecondary.trim(),
         customerEmail: emailTrim || undefined,
         areaPyeong: stdFieldOn('areaPyeong') || areaLockedByAdmin ? submitAreaPyeong : undefined,
         areaBasis: stdFieldOn('areaPyeong') || areaLockedByAdmin ? submitAreaBasis : undefined,
@@ -2399,7 +2401,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             />
             </div>
             ) : null}
-            {stdFieldOn('customerPhone2') ? (
             <div id="order-field-customerPhone2">
             <label className="block text-xs text-gray-600 mb-1">보조 연락처 (필수) *</label>
             <input
@@ -2411,7 +2412,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               disabled={lockKey('customerPhone2')}
             />
             </div>
-            ) : null}
             {stdFieldOn('customerEmail') ? (
             <div id="order-field-customerEmail">
             <label className="block text-xs text-gray-600 mb-1 mt-3">이메일 (필수) *</label>
@@ -2649,6 +2649,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 emitOnCompleteOnly
               />
             )}
+            {!isEditor || !dateByCustomer ? (
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium leading-relaxed text-amber-950">
+                {ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE}
+              </p>
+            ) : null}
             {!isEditor && !scheduleLockedByAdmin && serviceDateConsent?.at ? (
               <OrderFormConsentStamp
                 kind="serviceDate"

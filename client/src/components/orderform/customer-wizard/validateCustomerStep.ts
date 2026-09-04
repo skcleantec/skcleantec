@@ -65,7 +65,7 @@ export function validateCustomerStep(args: {
       if (isStdFieldOn(order, 'customerPhone') && !form.customerPhone.trim()) {
         return '대표 전화번호를 입력해주세요.';
       }
-      if (isStdFieldOn(order, 'customerPhone2') && !form.customerPhoneSecondary.trim()) {
+      if (!prefillLocked('customerPhone2') && !form.customerPhoneSecondary.trim()) {
         return '보조 전화번호를 입력해주세요.';
       }
       return null;

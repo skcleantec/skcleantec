@@ -125,3 +125,6 @@ export const PROPERTY_TYPE_OPTIONS = [
 
 export const AREA_BASIS_COST_WARNING =
   '잘못된 평수기입으로 인한 서비스비용변동은 책임지지 않습니다.';
+
+export const ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE =
+  '희망 청소일을 잘못 적으면 위약금·취소 비용이 생길 수 있으며, 그 책임은 업체에 있지 않습니다. 반드시 안내사항(주의사항)을 읽어 주세요.';

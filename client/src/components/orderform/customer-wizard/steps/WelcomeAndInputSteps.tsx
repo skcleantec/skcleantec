@@ -43,7 +43,6 @@ export function NameStep({ form, setForm, lockKey, step }: CustomerStepBodyProps
 }
 
 export function PhonesStep({ form, setForm, lockKey, step, order }: CustomerStepBodyProps) {
-  const showSecondary = isStdFieldOn(order, 'customerPhone2');
   const showPrimary = isStdFieldOn(order, 'customerPhone');
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
@@ -51,7 +50,7 @@ export function PhonesStep({ form, setForm, lockKey, step, order }: CustomerStep
         {showPrimary ? (
         <div>
           <label className="mb-1.5 block text-fluid-xs font-medium text-slate-600" htmlFor="order-wizard-phone">
-            대표 전화
+            대표 전화 *
           </label>
           <input
             id="order-wizard-phone"
@@ -66,23 +65,22 @@ export function PhonesStep({ form, setForm, lockKey, step, order }: CustomerStep
           />
         </div>
         ) : null}
-        {showSecondary ? (
-          <div>
-            <label className="mb-1.5 block text-fluid-xs font-medium text-slate-600" htmlFor="order-wizard-phone2">
-              보조 전화
-            </label>
-            <input
-              id="order-wizard-phone2"
-              type="tel"
-              inputMode="tel"
-              className={WIZARD_INPUT_CLS}
-              value={form.customerPhoneSecondary}
-              disabled={lockKey('customerPhone2')}
-              onChange={(e) => setForm((f) => ({ ...f, customerPhoneSecondary: e.target.value }))}
-              placeholder="없으면 비워 두세요"
-            />
-          </div>
-        ) : null}
+        <div>
+          <label className="mb-1.5 block text-fluid-xs font-medium text-slate-600" htmlFor="order-wizard-phone2">
+            보조 연락처 (필수) *
+          </label>
+          <input
+            id="order-wizard-phone2"
+            type="tel"
+            inputMode="tel"
+            className={WIZARD_INPUT_CLS}
+            value={form.customerPhoneSecondary}
+            disabled={lockKey('customerPhone2')}
+            onChange={(e) => setForm((f) => ({ ...f, customerPhoneSecondary: e.target.value }))}
+            placeholder="예: 배우자, 가족 연락처"
+            required
+          />
+        </div>
       </div>
     </WizardQuestion>
   );

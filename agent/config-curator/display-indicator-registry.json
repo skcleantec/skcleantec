@@ -305,7 +305,22 @@
         "client/src/components/orderform/customer-wizard/OrderFormCustomerWizard.tsx",
         "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
       ],
-      "notes": "질문 수는 발주서 양식 시스템 필드·선입력 잠금에 따라 달라짐. 질문·선택지는 서서히 나타남(움직임 줄이기 시 페이드만). 고객이 끄면 안 됨. 마케터 선입력 화면은 기존 한 장 폼 유지. 다음·제출은 회사정보 위 고정."
+      "notes": "질문 수는 발주서 양식 시스템 필드·선입력 잠금에 따라 달라짐. 질문·선택지는 서서히 나타남(움직임 줄이기 시 페이드만). 고객이 끄면 안 됨. 마케터 선입력 화면은 기존 한 장 폼 유지. 다음·제출은 회사정보 위 고정. 보조 연락처는 항상 필수."
+    },
+    {
+      "id": "orderForm.customer.preferredDatePenaltyNotice",
+      "labelKo": "희망 청소일 위약 주의",
+      "surfaces": ["public.orderForm.customerWizard", "public.orderForm"],
+      "visual": { "type": "banner", "token": "amber-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/pages/order/orderFormModel.types.ts",
+        "client/src/components/orderform/customer-wizard/steps/ChoiceAndAreaSteps.tsx"
+      ],
+      "notes": "날짜 오기재 시 위약·취소 비용은 업체 책임이 아님. 안내사항 필독. 끄면 안 됨."
     }
   ]
 }
