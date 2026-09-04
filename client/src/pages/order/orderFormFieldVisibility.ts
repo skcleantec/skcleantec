@@ -1,10 +1,12 @@
 import { isMarketerLockedOrderFormAddress } from '@shared/orderFormPendingAddress';
+import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_SPACE_COUNT_FIELDS,
   parseOrderFormSpaceCount,
   type OrderFormSpaceCountKey,
 } from '@shared/orderFormSpaceCounts';
-import type { OrderFormLoadedOrder } from './orderFormModel.types';
+import { isPreferredTimeDetailRequired } from '../../constants/orderFormSchedule';
+import type { OrderFormFields, OrderFormLoadedOrder } from './orderFormModel.types';
 
 export function isOrderFormAreaLockedFromOrder(order: {
   areaBasis?: string | null;
@@ -73,6 +75,93 @@ export function shouldShowCustomerRoomsWizardStep(
   return ORDER_FORM_SPACE_COUNT_FIELDS.some(
     ({ key }) => !isOrderFormSpaceCountLocked(isEditor, order?.prefillAnswers, key),
   );
+}
+
+export function isValidOrderFormEmail(raw: unknown): boolean {
+  if (typeof raw !== 'string') return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim().toLowerCase());
+}
+
+/** 형식까지 맞는 이메일만 잠금 — 오기재는 고객이 고친다. */
+export function isOrderFormEmailFieldLocked(
+  isEditor: boolean,
+  prefillMap: Record<string, unknown> | null | undefined,
+): boolean {
+  return (
+    isOrderFormPrefillLocked(isEditor, prefillMap, 'customerEmail') &&
+    isValidOrderFormEmail(prefillMap?.customerEmail)
+  );
+}
+
+export function shouldShowCustomerNameWizardStep(
+  order: OrderFormLoadedOrder | null,
+  isEditor: boolean,
+  skipLocked: boolean,
+): boolean {
+  if (!isStdFieldOn(order, 'customerName')) return false;
+  if (!skipLocked) return true;
+  if (!isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, 'customerName')) return true;
+  const n = order?.prefillAnswers?.customerName;
+  return typeof n === 'string' ? n.trim().length === 0 : true;
+}
+
+export function shouldShowCustomerEmailWizardStep(
+  order: OrderFormLoadedOrder | null,
+  isEditor: boolean,
+  skipLocked: boolean,
+): boolean {
+  if (!isStdFieldOn(order, 'customerEmail')) return false;
+  if (!skipLocked) return true;
+  if (!isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, 'customerEmail')) return true;
+  return !isValidOrderFormEmail(order?.prefillAnswers?.customerEmail);
+}
+
+export function shouldShowCustomerPropertyWizardStep(
+  order: OrderFormLoadedOrder | null,
+  isEditor: boolean,
+  skipLocked: boolean,
+): boolean {
+  if (!isStdFieldOn(order, 'propertyType')) return false;
+  if (!skipLocked) return true;
+  const typeLocked = isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, 'propertyType');
+  const oneLocked = isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, 'isOneRoom');
+  return !typeLocked || !oneLocked;
+}
+
+export function shouldShowCustomerDateWizardStep(
+  order: OrderFormLoadedOrder | null,
+  isEditor: boolean,
+  skipLocked: boolean,
+): boolean {
+  if (!isStdFieldOn(order, 'preferredDate') && !isStdFieldOn(order, 'preferredTime')) return false;
+  if (!skipLocked) return true;
+  return isEditor || !Boolean(order?.preferredDate?.trim());
+}
+
+export function shouldShowCustomerTimeWizardStep(
+  order: OrderFormLoadedOrder | null,
+  isEditor: boolean,
+  skipLocked: boolean,
+): boolean {
+  if (!isStdFieldOn(order, 'preferredTime')) return false;
+  if (!skipLocked) return true;
+  if (isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, 'preferredTime')) {
+    return !isOrderTimeSlotValue(String(order?.prefillAnswers?.preferredTime ?? ''));
+  }
+  const fromOrder = order?.preferredTime?.trim() ?? '';
+  if (fromOrder && isOrderTimeSlotValue(fromOrder)) return false;
+  return true;
+}
+
+export function shouldShowCustomerTimeDetailWizardStep(
+  order: OrderFormLoadedOrder | null,
+  form: OrderFormFields,
+  skipLocked: boolean,
+): boolean {
+  if (!isStdFieldOn(order, 'preferredTimeDetail')) return false;
+  if (skipLocked && order?.preferredTimeDetail?.trim()) return false;
+  const slot = (form.preferredTime.trim() || order?.preferredTime?.trim() || '').trim();
+  return isPreferredTimeDetailRequired(slot);
 }
 
 /** 도로명만 잠기고 상세주소가 비어 있으면 고객에게 주소 질문을 보여 준다. */

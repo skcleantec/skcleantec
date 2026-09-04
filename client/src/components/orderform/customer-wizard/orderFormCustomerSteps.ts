@@ -1,11 +1,16 @@
-import { isPreferredTimeDetailRequired } from '../../../constants/orderFormSchedule';
 import {
   isCustomerAddressLocked,
   isOrderFormAreaLockedFromOrder,
   isOrderFormPrefillLocked,
   isStdFieldOn,
   shouldShowCustomerAddressWizardStep,
+  shouldShowCustomerDateWizardStep,
+  shouldShowCustomerEmailWizardStep,
+  shouldShowCustomerNameWizardStep,
+  shouldShowCustomerPropertyWizardStep,
   shouldShowCustomerRoomsWizardStep,
+  shouldShowCustomerTimeDetailWizardStep,
+  shouldShowCustomerTimeWizardStep,
 } from '../../../pages/order/orderFormFieldVisibility';
 import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order/orderFormModel.types';
 import type { OrderFormPublicTemplateField } from '../../../api/orderform';
@@ -53,7 +58,6 @@ export function resolveOrderFormCustomerSteps(args: {
   const std = (key: string) => isStdFieldOn(order, key);
   const locked = (key: string) =>
     skipLocked && isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, key);
-  const scheduleLocked = skipLocked && !isEditor && Boolean(order?.preferredDate?.trim());
   const areaLocked = skipLocked && !isEditor && isOrderFormAreaLockedFromOrder(order);
   const addressLocked = skipLocked && isCustomerAddressLocked(isEditor, order?.prefillAnswers);
 
@@ -66,7 +70,7 @@ export function resolveOrderFormCustomerSteps(args: {
     },
   ];
 
-  if (std('customerName') && !locked('customerName')) {
+  if (shouldShowCustomerNameWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'name',
       kind: 'input',
@@ -93,7 +97,7 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '보조 연락처는 필수입니다. 전일 연락이 안 되면 서비스가 취소될 수 있으니 정확하게 적어 주세요.',
     });
   }
-  if (std('customerEmail') && !locked('customerEmail')) {
+  if (shouldShowCustomerEmailWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'email',
       kind: 'input',
@@ -101,7 +105,7 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '제출 확인 메일을 받을 수 있습니다.',
     });
   }
-  if (std('propertyType') && !locked('propertyType') && !locked('isOneRoom')) {
+  if (shouldShowCustomerPropertyWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'property',
       kind: 'choice',
@@ -116,31 +120,27 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '반드시 평수로 적어 주세요. 제곱미터만 알고 계시면 평으로 환산합니다.',
     });
   }
-  if ((std('preferredDate') || std('preferredTime')) && !scheduleLocked) {
+  if (shouldShowCustomerDateWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'date',
       kind: 'input',
       title: '희망 청소일은 언제인가요?',
       hint: '날짜를 정확히 확인해 주세요. 잘못 적으면 위약금이 생길 수 있습니다.',
     });
-    if (std('preferredTime') && !locked('preferredTime')) {
-      steps.push({
-        id: 'time',
-        kind: 'choice',
-        title: '오전·오후 중 언제가 좋으세요?',
-      });
-    }
-    if (
-      std('preferredTimeDetail') &&
-      !order?.preferredTimeDetail?.trim() &&
-      isPreferredTimeDetailRequired(form.preferredTime)
-    ) {
-      steps.push({
-        id: 'timeDetail',
-        kind: 'choice',
-        title: '구체적인 시각을 골라 주세요',
-      });
-    }
+  }
+  if (shouldShowCustomerTimeWizardStep(order, isEditor, skipLocked)) {
+    steps.push({
+      id: 'time',
+      kind: 'choice',
+      title: '오전·오후 중 언제가 좋으세요?',
+    });
+  }
+  if (shouldShowCustomerTimeDetailWizardStep(order, form, skipLocked)) {
+    steps.push({
+      id: 'timeDetail',
+      kind: 'choice',
+      title: '구체적인 시각을 골라 주세요',
+    });
   }
   if (shouldShowCustomerRoomsWizardStep(order, isEditor, skipLocked)) {
     steps.push({

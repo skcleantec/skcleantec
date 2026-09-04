@@ -1,4 +1,4 @@
-import { isStdFieldOn } from '../../../../pages/order/orderFormFieldVisibility';
+import { isOrderFormEmailFieldLocked, isStdFieldOn } from '../../../../pages/order/orderFormFieldVisibility';
 import { OrderFormEmailSplitField } from '../../OrderFormEmailSplitField';
 import { WIZARD_INPUT_CLS, WizardQuestion } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
@@ -34,7 +34,7 @@ export function NameStep({ form, setForm, lockKey, step }: CustomerStepBodyProps
         className={WIZARD_INPUT_CLS}
         autoComplete="name"
         value={form.customerName}
-        disabled={lockKey('customerName')}
+        disabled={lockKey('customerName') && Boolean(form.customerName.trim())}
         onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
         placeholder="홍길동"
       />
@@ -86,12 +86,12 @@ export function PhonesStep({ form, setForm, lockKey, step, order }: CustomerStep
   );
 }
 
-export function EmailStep({ form, setForm, lockKey, step }: CustomerStepBodyProps) {
+export function EmailStep({ form, setForm, order, step }: CustomerStepBodyProps) {
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <OrderFormEmailSplitField
         value={form.customerEmail}
-        disabled={lockKey('customerEmail')}
+        disabled={isOrderFormEmailFieldLocked(false, order?.prefillAnswers)}
         onChange={(v) => setForm((f) => ({ ...f, customerEmail: v }))}
         inputClassName={WIZARD_INPUT_CLS}
       />

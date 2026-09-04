@@ -366,6 +366,21 @@
         "client/src/components/orderform/customer-wizard/steps/ChoiceAndAreaSteps.tsx"
       ],
       "notes": "1 이상만 잠금. 0·빈 칸이면 질문 노출. 방만 잠겨도 화장실·베란다·주방은 따로 수정."
+    },
+    {
+      "id": "orderForm.customer.partialScheduleEditable",
+      "labelKo": "청소일만 잠겨도 시간·시각은 고객이 고름",
+      "surfaces": ["public.orderForm.customerWizard"],
+      "visual": { "type": "choice", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-issue",
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/pages/order/orderFormFieldVisibility.ts",
+        "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
+      ],
+      "notes": "발급 청소일이 있어도 시간·사이시각이 비면 해당 질문 노출. 이메일 오기재·건축물 한쪽만 잠금도 질문 유지."
     }
   ]
 }

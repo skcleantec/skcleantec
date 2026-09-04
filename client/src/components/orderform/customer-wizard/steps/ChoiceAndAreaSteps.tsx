@@ -174,7 +174,7 @@ export function AreaStep({
             <WizardChoiceChip
               key={basis}
               selected={form.areaBasis === basis}
-              disabled={lockKey('areaPyeong')}
+              disabled={lockKey('areaBasis')}
               onSelect={() => requestAreaBasisSelection(basis)}
             >
               {basis === '공급' ? '공급면적' : '전용면적'}
