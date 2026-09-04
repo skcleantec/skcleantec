@@ -321,6 +321,36 @@
         "client/src/components/orderform/customer-wizard/steps/ChoiceAndAreaSteps.tsx"
       ],
       "notes": "날짜 오기재 시 위약·취소 비용은 업체 책임이 아님. 안내사항 필독. 끄면 안 됨."
+    },
+    {
+      "id": "orderForm.customer.guideMustReadBeforeSubmit",
+      "labelKo": "안내사항 읽어야 제출하기 활성",
+      "surfaces": ["public.orderForm.customerWizard"],
+      "visual": { "type": "banner", "token": "amber-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/components/orderform/customer-wizard/OrderFormCustomerWizard.tsx",
+        "client/src/components/orderform/customer-wizard/steps/CompoundSteps.tsx"
+      ],
+      "notes": "문구: 안내사항을 읽어주셔야 제출하기가 완료됩니다. 동의 전 제출 버튼 잠금. 끄면 안 됨."
+    },
+    {
+      "id": "orderForm.customer.addressDetailWhenStreetLocked",
+      "labelKo": "도로명 잠금 시 상세주소 질문",
+      "surfaces": ["public.orderForm.customerWizard"],
+      "visual": { "type": "input", "token": "slate-200" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-issue",
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/pages/order/orderFormFieldVisibility.ts",
+        "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
+      ],
+      "notes": "마케터가 도로명만 넣고 상세주소를 비우면 고객에게 상세주소 칸을 보여 줌. 끄면 제출 불가."
     }
   ]
 }

@@ -4,6 +4,7 @@ import {
   isOrderFormAreaLockedFromOrder,
   isOrderFormPrefillLocked,
   isStdFieldOn,
+  shouldShowCustomerAddressWizardStep,
 } from '../../../pages/order/orderFormFieldVisibility';
 import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order/orderFormModel.types';
 import type { OrderFormPublicTemplateField } from '../../../api/orderform';
@@ -72,12 +73,15 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '예약 확인에 쓰이는 이름입니다.',
     });
   }
-  if (std('address') && !addressLocked) {
+  if (shouldShowCustomerAddressWizardStep(order, isEditor, skipLocked)) {
+    const detailOnly = addressLocked && !locked('addressDetail');
     steps.push({
       id: 'address',
       kind: 'input',
-      title: '청소할 주소는 어디인가요?',
-      hint: '「주소 검색」으로 선택한 뒤 상세주소를 적어 주세요.',
+      title: detailOnly ? '상세주소를 알려 주세요' : '청소할 주소는 어디인가요?',
+      hint: detailOnly
+        ? '동·호수, 층, 상호 등을 적어 주세요. 도로명 주소는 상담에서 이미 정해졌습니다.'
+        : '「주소 검색」으로 선택한 뒤 상세주소를 적어 주세요.',
     });
   }
   if ((std('customerPhone') && !locked('customerPhone')) || !locked('customerPhone2')) {
@@ -208,7 +212,7 @@ export function resolveOrderFormCustomerSteps(args: {
     id: 'guide',
     kind: 'guide',
     title: '안내사항을 확인해 주세요',
-    hint: '동의하시면 예약이 확정됩니다.',
+    hint: '안내사항을 읽어주셔야 제출하기가 완료됩니다.',
   });
   return steps;
 }

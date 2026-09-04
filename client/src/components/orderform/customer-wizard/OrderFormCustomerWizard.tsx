@@ -162,13 +162,9 @@ export function OrderFormCustomerWizard({
   const showChoiceNext = currentStep.kind === 'choice' && !stepInvalid;
 
   const trySubmit = () => {
-    if (submitting) return;
+    if (submitting || !shared.guideTermsAt) return;
     if (stepInvalid) {
       setStepError(stepInvalid);
-      if (!shared.guideTermsAt) {
-        shared.markPendingSubmitAfterGuideAgree();
-        shared.setGuideAgreeModalOpen(true);
-      }
       return;
     }
     setStepError(null);
@@ -265,14 +261,21 @@ export function OrderFormCustomerWizard({
                 </button>
               ) : null}
               {currentStep.kind === 'guide' ? (
-                <button
-                  type="button"
-                  className={WIZARD_CTA_CLS}
-                  disabled={submitting}
-                  onClick={trySubmit}
-                >
-                  {submitting ? '제출 중...' : '제출하기'}
-                </button>
+                <div className="w-full space-y-2">
+                  {!shared.guideTermsAt ? (
+                    <p className="text-center text-fluid-2xs font-medium leading-snug text-amber-800">
+                      안내사항을 읽어주셔야 제출하기가 완료됩니다.
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={WIZARD_CTA_CLS}
+                    disabled={submitting || !shared.guideTermsAt}
+                    onClick={trySubmit}
+                  >
+                    {submitting ? '제출 중...' : '제출하기'}
+                  </button>
+                </div>
               ) : currentStep.kind === 'review' ? (
                 <button type="button" className={WIZARD_CTA_CLS} onClick={goNext}>
                   안내 확인하고 제출

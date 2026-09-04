@@ -43,3 +43,16 @@ export function isCustomerAddressLocked(
 ): boolean {
   return !isEditor && isMarketerLockedOrderFormAddress(prefillMap);
 }
+
+/** 도로명만 잠기고 상세주소가 비어 있으면 고객에게 주소 질문을 보여 준다. */
+export function shouldShowCustomerAddressWizardStep(
+  order: OrderFormLoadedOrder | null,
+  isEditor: boolean,
+  skipLocked: boolean,
+): boolean {
+  if (!isStdFieldOn(order, 'address')) return false;
+  if (!skipLocked) return true;
+  const streetLocked = isCustomerAddressLocked(isEditor, order?.prefillAnswers);
+  const detailLocked = isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, 'addressDetail');
+  return !streetLocked || !detailLocked;
+}

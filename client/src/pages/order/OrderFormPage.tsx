@@ -268,8 +268,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   } | null>(null);
   const [guideTermsConsent, setGuideTermsConsent] = useState<{ at: string } | null>(null);
   const wizardGoToRef = useRef<((id: OrderFormCustomerStepId) => void) | null>(null);
-  const pendingSubmitAfterGuideAgreeRef = useRef(false);
-  const handleSubmitRef = useRef<(e: React.FormEvent) => Promise<void>>(async () => {});
   /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
   const [noSpecialNotes, setNoSpecialNotes] = useState(false);
   /** 마케터 작성 시 "청소 날짜 고객 작성" 체크(비워 두면 고객이 직접 선택) */
@@ -1234,7 +1232,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       setSubmitting(false);
     }
   };
-  handleSubmitRef.current = handleSubmit;
 
   /** 현재 폼 값 → 선입력(잠금) payload. 빈 칸은 잠그지 않음(고객이 채움). */
   const buildPrefillPayload = (): OrderFormPrefillPayload => {
@@ -1423,12 +1420,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     setGuideTermsConsent,
   });
   wizardGoToRef.current = customerWizard.goTo;
-
-  useEffect(() => {
-    if (!pendingSubmitAfterGuideAgreeRef.current || !guideTermsConsent) return;
-    pendingSubmitAfterGuideAgreeRef.current = false;
-    void handleSubmitRef.current({ preventDefault() {} } as React.FormEvent);
-  }, [guideTermsConsent]);
 
   const CloseButton = () => (
     <button
@@ -2052,9 +2043,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       submitting,
       guideTermsAt: guideTermsConsent?.at ?? null,
       setGuideAgreeModalOpen,
-      markPendingSubmitAfterGuideAgree: () => {
-        pendingSubmitAfterGuideAgreeRef.current = true;
-      },
       agreeLinkLabel,
       professionalOptions,
       profSelections,
@@ -2355,11 +2343,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <label className={labelCls}>2. 주소(청소해야할 위치) *</label>
             {isCreate ? (
               <p className="text-xs text-gray-500 mb-2 leading-relaxed">
-                발급 시 비워 두면 고객이 발주서에서 직접 입력합니다. 미리 넣으면 고객 화면에서 수정할 수 없습니다(잠금).
+                발급 시 비워 두면 고객이 발주서에서 직접 입력합니다. 도로명만 넣으면 그 칸은 잠기고, 상세주소(동·호수)를
+                비워 두면 고객이 이어서 적습니다.
               </p>
             ) : (
               <p className="text-xs text-gray-600 mb-2 leading-relaxed">
-                「주소 검색」으로 도로명·지번을 선택한 뒤, 아래에 상세주소를 입력해 주세요.
+                「주소 검색」으로 도로명·지번을 선택한 뒤, 아래에 상세주소를 입력해 주세요. 상세주소를 비워 두면 고객이
+                발주서에서 적습니다.
               </p>
             )}
             <AddressSearch

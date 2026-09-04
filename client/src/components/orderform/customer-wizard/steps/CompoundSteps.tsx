@@ -34,27 +34,32 @@ export function AddressStep({
   const detailDisabled = lockKey('addressDetail') || (!addressConfirmedViaSearch && !addressFieldLocked);
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
-      <AddressSearch
-        value={form.address}
-        onChange={(addr) => {
-          setAddressConfirmedViaSearch(true);
-          setForm((f) => ({ ...f, address: addr }));
-        }}
-        placeholder="주소 검색"
-        className="mb-3"
-        mobilePreferred
-        disabled={addressFieldLocked}
-      />
+      {addressFieldLocked ? (
+        <p className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-fluid-sm text-slate-700">
+          {form.address}
+        </p>
+      ) : (
+        <AddressSearch
+          value={form.address}
+          onChange={(addr) => {
+            setAddressConfirmedViaSearch(true);
+            setForm((f) => ({ ...f, address: addr }));
+          }}
+          placeholder="주소 검색"
+          className="mb-3"
+          mobilePreferred
+        />
+      )}
       {!addressFieldLocked && form.address.trim() && !addressConfirmedViaSearch ? (
         <p className="mb-3 text-fluid-2xs text-amber-800">
           「주소 검색」 버튼으로 다시 선택해야 합니다.
         </p>
       ) : null}
-      <label className="mb-1.5 block text-fluid-xs font-medium text-slate-600" htmlFor="order-wizard-addressDetail">
+      <label className="mb-1.5 block text-fluid-xs font-medium text-slate-600" htmlFor="order-field-addressDetail">
         상세주소
       </label>
       <input
-        id="order-wizard-addressDetail"
+        id="order-field-addressDetail"
         className={WIZARD_INPUT_CLS}
         value={form.addressDetail}
         disabled={detailDisabled}
@@ -391,9 +396,17 @@ export function GuideStep({
           </button>
         </div>
       ) : (
-        <button type="button" className={WIZARD_CTA_CLS} onClick={() => setGuideAgreeModalOpen(true)}>
-          {agreeLinkLabel} (자세히 보기)
-        </button>
+        <div className="space-y-3">
+          <p
+            className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-fluid-xs font-medium leading-relaxed text-amber-950"
+            role="status"
+          >
+            안내사항을 읽어주셔야 제출하기가 완료됩니다.
+          </p>
+          <button type="button" className={WIZARD_CTA_CLS} onClick={() => setGuideAgreeModalOpen(true)}>
+            {agreeLinkLabel} (자세히 보기)
+          </button>
+        </div>
       )}
     </WizardQuestion>
   );
