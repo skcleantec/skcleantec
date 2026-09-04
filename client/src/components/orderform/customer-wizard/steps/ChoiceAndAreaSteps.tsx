@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { applyOneRoomToSpecialNotes } from '../../../../utils/orderFormOneRoom';
 import { getPreferredTimeDetailSelectOptions } from '../../../../constants/orderFormPreferredTimeDetail';
 import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
 import { YmdSelect } from '../../../ui/DateQuerySelects';
+import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { ORDER_FORM_SPACE_COUNT_HINT } from '@shared/orderFormSpaceCounts';
 import { AREA_BASIS_COST_WARNING } from '../../../../pages/order/orderFormModel.types';
 import { WizardChipGrid, WizardChoiceChip, WizardQuestion, WIZARD_INPUT_CLS } from '../wizardUi';
@@ -89,7 +91,7 @@ export function TimeStep({
 }: CustomerStepBodyProps) {
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
-      <div className="grid grid-cols-1 gap-2.5">
+      <div className="order-wizard-chip-grid grid grid-cols-1 gap-2.5">
         {timeSlotOptions.map((o) => (
           <WizardChoiceChip
             key={o.value}
@@ -109,7 +111,7 @@ export function TimeDetailStep({ form, setForm, step, goNext }: CustomerStepBody
   const options = slot ? getPreferredTimeDetailSelectOptions(slot) : [];
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="order-wizard-chip-grid grid grid-cols-2 gap-2.5">
         {options.map((o) => (
           <WizardChoiceChip
             key={o.value}
@@ -128,13 +130,23 @@ export function TimeDetailStep({ form, setForm, step, goNext }: CustomerStepBody
 }
 
 export function DateStep({ form, handleCustomerPreferredDateChange, step }: CustomerStepBodyProps) {
+  const todayYmd = kstTodayYmd();
+  useEffect(() => {
+    const raw = form.preferredDate.trim();
+    if (raw && raw < todayYmd) handleCustomerPreferredDateChange('');
+  }, [form.preferredDate, handleCustomerPreferredDateChange, todayYmd]);
+  const value =
+    form.preferredDate.trim() && form.preferredDate.trim() < todayYmd ? '' : form.preferredDate;
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <YmdSelect
         idPrefix="order-wizard-preferredDate"
-        value={form.preferredDate}
+        value={value}
         onChange={handleCustomerPreferredDateChange}
         className="w-full"
+        minYmd={todayYmd}
+        allowEmpty
+        emitOnCompleteOnly
       />
     </WizardQuestion>
   );

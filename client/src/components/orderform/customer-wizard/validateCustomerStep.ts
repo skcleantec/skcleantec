@@ -92,8 +92,12 @@ export function validateCustomerStep(args: {
       }
       return null;
     }
-    case 'date':
-      return form.preferredDate.trim() ? null : '청소날짜(서비스받으실 날짜)를 확인해 주세요.';
+    case 'date': {
+      const date = form.preferredDate.trim();
+      if (!date) return '청소날짜(서비스받으실 날짜)를 확인해 주세요.';
+      if (date < kstTodayYmd()) return '청소일은 오늘(한국 기준)부터 선택할 수 있습니다.';
+      return null;
+    }
     case 'time':
       return isOrderTimeSlotValue(form.preferredTime) ? null : '시간대를 선택해주세요.';
     case 'timeDetail': {

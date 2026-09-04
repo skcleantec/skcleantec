@@ -305,7 +305,7 @@
         "client/src/components/orderform/customer-wizard/OrderFormCustomerWizard.tsx",
         "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
       ],
-      "notes": "질문 수는 발주서 양식 시스템 필드·선입력 잠금에 따라 달라짐. 고객이 끄면 안 됨. 마케터 선입력 화면은 기존 한 장 폼 유지."
+      "notes": "질문 수는 발주서 양식 시스템 필드·선입력 잠금에 따라 달라짐. 질문·선택지는 서서히 나타남(움직임 줄이기 시 페이드만). 고객이 끄면 안 됨. 마케터 선입력 화면은 기존 한 장 폼 유지. 다음·제출은 회사정보 위 고정."
     }
   ]
 }

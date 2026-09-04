@@ -113,7 +113,7 @@ export function OrderFormCustomerWizard({
   submitting: boolean;
   dialogs: ReactNode;
 }) {
-  const { scrollRef, onFieldFocus } = useLoginScrollSurface({ bottomReservePx: 80 });
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface({ bottomReservePx: 200 });
   const [stepError, setStepError] = useState<string | null>(null);
   const [dir, setDir] = useState<'forward' | 'back'>('forward');
   const prevIndexRef = useRef(stepIndex);
@@ -200,7 +200,7 @@ export function OrderFormCustomerWizard({
         className="login-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain"
         onFocusCapture={onFieldFocus}
       >
-        <div className="login-scroll-content mx-auto flex min-h-full max-w-lg flex-col px-4 py-6 pb-28">
+        <div className="login-scroll-content mx-auto flex min-h-full max-w-lg flex-col px-4 py-6 pb-8">
           {leaveHint ? (
             <div
               className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-900"
@@ -223,7 +223,6 @@ export function OrderFormCustomerWizard({
                 title={currentStep.title}
                 hint={currentStep.hint}
                 brandName={brandName}
-                onStart={goNext}
               />
             ) : (
               <StepBody {...shared} step={currentStep} goNext={goNext} goTo={shared.goTo} />
@@ -235,51 +234,65 @@ export function OrderFormCustomerWizard({
               {stepError}
             </p>
           ) : null}
+        </div>
+      </div>
 
-          <div className="mt-auto pt-8">
+      <footer className="sticky z-20 border-t border-slate-200 bg-white/95 backdrop-blur-sm bottom-[var(--login-keyboard-inset,0px)]">
+        <div className="mx-auto max-w-lg space-y-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+          {currentStep.kind === 'welcome' ? (
+            <button type="button" className={WIZARD_CTA_CLS} onClick={goNext}>
+              시작하기
+            </button>
+          ) : showFooter || showChoiceNext ? (
+            <div className="flex gap-2">
+              {currentStep.skippable && stepInvalid ? (
+                <button type="button" className={WIZARD_SECONDARY_CLS} onClick={goNext}>
+                  건너뛰기
+                </button>
+              ) : null}
+              {currentStep.kind === 'guide' ? (
+                <button
+                  type="button"
+                  className={WIZARD_CTA_CLS}
+                  disabled={submitting || Boolean(stepInvalid)}
+                  onClick={() => onSubmit({ preventDefault() {} } as FormEvent)}
+                >
+                  {submitting ? '제출 중...' : '제출하기'}
+                </button>
+              ) : currentStep.kind === 'review' ? (
+                <button type="button" className={WIZARD_CTA_CLS} onClick={goNext}>
+                  안내 확인하고 제출
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={WIZARD_CTA_CLS}
+                  disabled={!currentStep.skippable && Boolean(stepInvalid)}
+                  onClick={tryNext}
+                >
+                  다음
+                </button>
+              )}
+            </div>
+          ) : currentStep.kind === 'choice' ? (
+            <button
+              type="button"
+              className={WIZARD_CTA_CLS}
+              disabled={Boolean(stepInvalid)}
+              onClick={tryNext}
+            >
+              다음
+            </button>
+          ) : null}
+          <div className="[&>section]:mt-0">
             <OrderFormCompanyTrustFooter
               trust={publicCompanyTrust}
               displayNameFallback={publicBranding?.displayName}
             />
-            <OrderFormPlatformFooter />
           </div>
+          <OrderFormPlatformFooter />
         </div>
-      </div>
-
-      {showFooter || showChoiceNext ? (
-        <footer className="sticky z-20 border-t border-slate-200 bg-white/95 backdrop-blur-sm bottom-[var(--login-keyboard-inset,0px)]">
-          <div className="mx-auto flex max-w-lg gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-            {currentStep.skippable && stepInvalid ? (
-              <button type="button" className={WIZARD_SECONDARY_CLS} onClick={goNext}>
-                건너뛰기
-              </button>
-            ) : null}
-            {currentStep.kind === 'guide' ? (
-              <button
-                type="button"
-                className={WIZARD_CTA_CLS}
-                disabled={submitting || Boolean(stepInvalid)}
-                onClick={() => onSubmit({ preventDefault() {} } as FormEvent)}
-              >
-                {submitting ? '제출 중...' : '제출하기'}
-              </button>
-            ) : currentStep.kind === 'review' ? (
-              <button type="button" className={WIZARD_CTA_CLS} onClick={goNext}>
-                안내 확인하고 제출
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={WIZARD_CTA_CLS}
-                disabled={!currentStep.skippable && Boolean(stepInvalid)}
-                onClick={tryNext}
-              >
-                다음
-              </button>
-            )}
-          </div>
-        </footer>
-      ) : null}
+      </footer>
 
       {dialogs}
     </div>

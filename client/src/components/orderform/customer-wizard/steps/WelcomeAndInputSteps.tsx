@@ -1,18 +1,16 @@
 import { isStdFieldOn } from '../../../../pages/order/orderFormFieldVisibility';
 import { OrderFormEmailSplitField } from '../../OrderFormEmailSplitField';
-import { WIZARD_CTA_CLS, WIZARD_INPUT_CLS, WizardQuestion } from '../wizardUi';
+import { WIZARD_INPUT_CLS, WizardQuestion } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
 
 export function WelcomeStep({
   title,
   hint,
   brandName,
-  onStart,
 }: {
   title: string;
   hint?: string;
   brandName?: string | null;
-  onStart: () => void;
 }) {
   return (
     <WizardQuestion title={title} hint={hint}>
@@ -21,9 +19,6 @@ export function WelcomeStep({
           <span className="font-semibold text-slate-900">{brandName}</span>에서 예약 내용을 확인합니다.
         </p>
       ) : null}
-      <button type="button" className={WIZARD_CTA_CLS} onClick={onStart}>
-        시작하기
-      </button>
     </WizardQuestion>
   );
 }

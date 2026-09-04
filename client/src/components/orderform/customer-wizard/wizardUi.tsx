@@ -22,14 +22,16 @@ export function WizardQuestion({
     <div className="space-y-5">
       <div className="space-y-2">
         <h2
-          className="text-2xl font-bold leading-snug tracking-tight text-slate-900 sm:text-3xl"
+          className="order-wizard-q-title text-2xl font-bold leading-snug tracking-tight text-slate-900 sm:text-3xl"
           aria-live="polite"
         >
           {title}
         </h2>
-        {hint ? <p className="text-fluid-sm leading-relaxed text-slate-500">{hint}</p> : null}
+        {hint ? (
+          <p className="order-wizard-q-hint text-fluid-sm leading-relaxed text-slate-500">{hint}</p>
+        ) : null}
       </div>
-      {children}
+      <div className="order-wizard-q-body">{children}</div>
     </div>
   );
 }
@@ -65,5 +67,5 @@ export function WizardChoiceChip({
 }
 
 export function WizardChipGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">{children}</div>;
+  return <div className="order-wizard-chip-grid grid grid-cols-1 gap-2.5 sm:grid-cols-2">{children}</div>;
 }

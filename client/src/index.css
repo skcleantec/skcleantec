@@ -95,12 +95,12 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 }
 
 @keyframes orderWizardIn {
-  from { opacity: 0; transform: translateX(28px); }
+  from { opacity: 0; transform: translateX(12px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes orderWizardInBack {
-  from { opacity: 0; transform: translateX(-28px); }
+  from { opacity: 0; transform: translateX(-12px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
@@ -109,18 +109,52 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
   to { opacity: 1; }
 }
 
+@keyframes orderWizardFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .order-wizard-pane {
-  animation: orderWizardIn 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: orderWizardIn 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .order-wizard-pane-back {
-  animation: orderWizardInBack 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: orderWizardInBack 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+.order-wizard-q-title {
+  animation: orderWizardFadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.order-wizard-q-hint {
+  animation: orderWizardFadeUp 480ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.order-wizard-q-body {
+  animation: orderWizardFadeUp 520ms 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.order-wizard-chip-grid > * {
+  animation: orderWizardFadeUp 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.order-wizard-chip-grid > *:nth-child(1) { animation-delay: 180ms; }
+.order-wizard-chip-grid > *:nth-child(2) { animation-delay: 230ms; }
+.order-wizard-chip-grid > *:nth-child(3) { animation-delay: 280ms; }
+.order-wizard-chip-grid > *:nth-child(4) { animation-delay: 330ms; }
+.order-wizard-chip-grid > *:nth-child(5) { animation-delay: 380ms; }
+.order-wizard-chip-grid > *:nth-child(6) { animation-delay: 430ms; }
+.order-wizard-chip-grid > *:nth-child(7) { animation-delay: 480ms; }
+.order-wizard-chip-grid > *:nth-child(8) { animation-delay: 530ms; }
 
 @media (prefers-reduced-motion: reduce) {
   .order-wizard-pane,
-  .order-wizard-pane-back {
-    animation: orderWizardFade 200ms ease;
+  .order-wizard-pane-back,
+  .order-wizard-q-title,
+  .order-wizard-q-hint,
+  .order-wizard-q-body,
+  .order-wizard-chip-grid > * {
+    animation: orderWizardFade 200ms ease both;
   }
 }
 

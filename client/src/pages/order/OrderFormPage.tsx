@@ -397,6 +397,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const handleCustomerPreferredDateChange = useCallback(
     (v: string) => {
       if (!customerScheduleAckEnabled) {
+        if (v.trim() && v.trim() < kstTodayYmd()) return;
         setForm((f) => ({
           ...f,
           preferredDate: v,
@@ -410,6 +411,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         setServiceDateAckOpen(false);
         setTimeSlotConsent(null);
         setForm((f) => ({ ...f, preferredDate: '', preferredTime: '' }));
+        return;
+      }
+      if (v.trim() < kstTodayYmd()) {
         return;
       }
       setForm((f) => ({ ...f, preferredDate: v, preferredTime: '' }));
@@ -1844,41 +1848,70 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   일정 확인
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                  청소일과 이사일이 다릅니다. 일정을 확인해주세요.
+                  청소일과 이사일이 다릅니다. 아래 버튼으로 해당 날짜를 바꾸거나, 맞다면 이대로 제출할 수 있습니다.
                 </p>
               </div>
-              <div className="flex justify-end gap-2 px-5 py-4 sm:px-6">
-                <button
-                  type="button"
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                  onClick={() => {
-                    setMoveDateMismatchWarnOpen(false);
-                    submitAfterValidationRef.current = null;
-                  }}
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
-                  disabled={submitting}
-                  onClick={async () => {
-                    setMoveDateMismatchWarnOpen(false);
-                    const run = submitAfterValidationRef.current;
-                    submitAfterValidationRef.current = null;
-                    if (!run) return;
-                    setSubmitting(true);
-                    try {
-                      await run();
-                    } catch (e) {
-                      showSubmitError(e instanceof Error ? e.message : '제출에 실패했습니다.');
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
-                >
-                  확인
-                </button>
+              <div className="flex flex-col gap-2 px-5 py-4 sm:px-6">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                    onClick={() => {
+                      setMoveDateMismatchWarnOpen(false);
+                      submitAfterValidationRef.current = null;
+                      if (isEditor) scrollToOrderFormField('orderform-pref-y');
+                      else customerWizard.goTo('date');
+                    }}
+                  >
+                    청소일 수정
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                    onClick={() => {
+                      setMoveDateMismatchWarnOpen(false);
+                      submitAfterValidationRef.current = null;
+                      if (isEditor) scrollToOrderFormField('orderform-move-y');
+                      else customerWizard.goTo('moveIn');
+                    }}
+                  >
+                    이사일 수정
+                  </button>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                    onClick={() => {
+                      setMoveDateMismatchWarnOpen(false);
+                      submitAfterValidationRef.current = null;
+                      if (!isEditor) customerWizard.goPrev();
+                    }}
+                  >
+                    뒤로
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+                    disabled={submitting}
+                    onClick={async () => {
+                      setMoveDateMismatchWarnOpen(false);
+                      const run = submitAfterValidationRef.current;
+                      submitAfterValidationRef.current = null;
+                      if (!run) return;
+                      setSubmitting(true);
+                      try {
+                        await run();
+                      } catch (e) {
+                        showSubmitError(e instanceof Error ? e.message : '제출에 실패했습니다.');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                  >
+                    이대로 제출
+                  </button>
+                </div>
               </div>
             </div>
           </div>
