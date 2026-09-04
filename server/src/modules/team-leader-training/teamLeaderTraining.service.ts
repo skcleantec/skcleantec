@@ -1,4 +1,5 @@
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { destroyStoredObject, fetchStoredObjectBuffer, uploadObjectBuffer } from '../../lib/objectStorage.js';
 import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
 import type { TenantTeamLeaderTrainingConfig } from '../tenants/tenantConfig.schema.js';
 import { teamLeaderTrainingCloudinaryFolder } from './teamLeaderTraining.helpers.js';
@@ -12,28 +13,17 @@ export type TeamLeaderTrainingMeta = {
   updatedAt: string | null;
 };
 
-function buildCloudinaryPrivateDownloadUrl(publicId: string): string {
-  return cloudinary.utils.private_download_url(publicId, '', {
-    resource_type: 'raw',
-    type: 'upload',
-    expires_at: Math.round(Date.now() / 1000) + 3600,
-  });
-}
-
-async function fetchPdfBufferFromCloudinary(publicId: string): Promise<ArrayBuffer> {
-  const url = buildCloudinaryPrivateDownloadUrl(publicId);
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) {
-    console.error('[team-leader-training] cloudinary private download failed', {
-      status: res.status,
-      publicId,
-    });
+async function fetchPdfBufferFromStore(publicId: string): Promise<Buffer> {
+  try {
+    return await fetchStoredObjectBuffer(publicId);
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    console.error('[team-leader-training] store download failed', { publicId, status });
     throw Object.assign(new Error('교육자료 파일을 불러올 수 없습니다.'), {
       code: 'upstream',
-      status: res.status,
+      status,
     });
   }
-  return res.arrayBuffer();
 }
 
 function readTrainingConfig(config: Awaited<ReturnType<typeof getTenantConfig>>): TenantTeamLeaderTrainingConfig | undefined {
@@ -57,13 +47,7 @@ export async function getTeamLeaderTrainingMeta(tenantId: string): Promise<TeamL
 }
 
 async function destroyCloudinaryPdf(publicId: string | undefined): Promise<void> {
-  const id = publicId?.trim();
-  if (!id || !isCloudinaryConfigured()) return;
-  try {
-    await cloudinary.uploader.destroy(id, { resource_type: 'raw' });
-  } catch (e) {
-    console.warn('[team-leader-training] destroy old pdf failed', id, e);
-  }
+  await destroyStoredObject(publicId, 'raw');
 }
 
 export async function uploadTeamLeaderTrainingPdf(params: {
@@ -77,33 +61,25 @@ export async function uploadTeamLeaderTrainingPdf(params: {
 
   const existing = readTrainingConfig(await getTenantConfig(params.tenantId));
   const folder = teamLeaderTrainingCloudinaryFolder(params.tenantId);
-  const result = await new Promise<{ public_id: string; secure_url: string }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'raw',
-        public_id: `training_${Date.now()}`,
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string });
-      },
-    );
-    stream.end(params.buffer);
+  const result = await uploadObjectBuffer({
+    folder,
+    buffer: params.buffer,
+    contentType: 'application/pdf',
+    resourceType: 'raw',
+    fileNameHint: 'training.pdf',
   });
 
   const updatedAt = new Date().toISOString();
   await updateTenantConfig(params.tenantId, {
     teamLeaderTraining: {
-      pdfPublicId: result.public_id,
-      pdfSecureUrl: result.secure_url,
+      pdfPublicId: result.publicId,
+      pdfSecureUrl: result.secureUrl,
       fileName: TEAM_LEADER_TRAINING_PDF_FILENAME,
       updatedAt,
     },
   });
 
-  if (existing?.pdfPublicId && existing.pdfPublicId !== result.public_id) {
+  if (existing?.pdfPublicId && existing.pdfPublicId !== result.publicId) {
     await destroyCloudinaryPdf(existing.pdfPublicId);
   }
 
@@ -124,9 +100,9 @@ export async function fetchTeamLeaderTrainingPdf(params: {
     throw Object.assign(new Error('등록된 교육자료가 없습니다.'), { code: 'not_found' });
   }
 
-  const arrayBuffer = await fetchPdfBufferFromCloudinary(publicId);
+  const buffer = await fetchPdfBufferFromStore(publicId);
   return {
-    buffer: Buffer.from(arrayBuffer),
+    buffer,
     fileName: TEAM_LEADER_TRAINING_PDF_FILENAME,
     updatedAt: training?.updatedAt?.trim() || null,
   };

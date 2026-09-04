@@ -1,6 +1,6 @@
 import { InquiryInspectionStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { destroyStoredObject } from '../../lib/objectStorage.js';
 import {
   INSPECTION_RETENTION_DAYS_DEFAULT,
   inspectionRetentionCutoffDate,
@@ -20,9 +20,8 @@ async function destroyCloudinaryAsset(
   publicId: string,
   resourceType: 'image' | 'raw',
 ): Promise<boolean> {
-  if (!isCloudinaryConfigured()) return false;
   try {
-    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    await destroyStoredObject(publicId, resourceType);
     return true;
   } catch {
     return false;

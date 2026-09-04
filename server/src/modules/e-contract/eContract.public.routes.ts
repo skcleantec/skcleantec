@@ -1,5 +1,5 @@
 import { Router, type Request } from 'express';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
 import {
   completeSubmissionByToken,
   getPublicSignSession,
@@ -63,7 +63,7 @@ router.get('/sign/:token', async (req, res) => {
 
 router.post('/sign/:token/upload-sign', async (req, res) => {
   try {
-    if (!isCloudinaryConfigured()) {
+    if (!isCloudinaryAccountConfigured()) {
       res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
       return;
     }

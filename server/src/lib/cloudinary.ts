@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import { isR2Configured } from './r2.js';
 
 /** CLOUDINARY_URL(cloudinary://KEY:SECRET@CLOUD) 또는 CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET */
 function configure(): void {
@@ -31,8 +32,14 @@ function configure(): void {
 
 configure();
 
-export function isCloudinaryConfigured(): boolean {
+/** Cloudinary 계정만 준비됐는지 — 브라우저 직접 서명 업로드용 */
+export function isCloudinaryAccountConfigured(): boolean {
   return Boolean(cloudinary.config().cloud_name);
+}
+
+/** 웹하드 준비 여부. R2가 있으면 Cloudinary 없이도 서버 업로드 가능 */
+export function isCloudinaryConfigured(): boolean {
+  return isCloudinaryAccountConfigured() || isR2Configured();
 }
 
 export { cloudinary };

@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { destroyStoredObject, uploadObjectBuffer } from '../../lib/objectStorage.js';
 
 export function assertCloudinaryReady(): void {
   if (!isCloudinaryConfigured()) {
@@ -43,48 +44,27 @@ export async function uploadConsultationImageBuffer(params: {
   mimetype: string;
 }) {
   assertCloudinaryReady();
-  const folder = `skcleanteck/inquiries/${params.inquiryId}/consultation`;
-  const result = await new Promise<{
-    public_id: string;
-    secure_url: string;
-    width?: number;
-    height?: number;
-  }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'image',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string; width?: number; height?: number });
-      }
-    );
-    stream.end(params.buffer);
+  const result = await uploadObjectBuffer({
+    folder: `cbiseo/inquiries/${params.inquiryId}/consultation`,
+    buffer: params.buffer,
+    contentType: params.mimetype,
+    resourceType: 'image',
   });
 
   return createConsultationPhotoRecord({
     inquiryId: params.inquiryId,
     uploadedById: params.uploadedById,
-    cloudinaryPublicId: result.public_id,
-    secureUrl: result.secure_url,
-    width: result.width ?? null,
-    height: result.height ?? null,
+    cloudinaryPublicId: result.publicId,
+    secureUrl: result.secureUrl,
+    width: result.width,
+    height: result.height,
   });
 }
 
 export async function deleteConsultationPhotoFromDbAndCloudinary(photoId: string) {
   const row = await prisma.inquiryConsultationPhoto.findUnique({ where: { id: photoId } });
   if (!row) return { deleted: false as const };
-  try {
-    if (isCloudinaryConfigured()) {
-      await cloudinary.uploader.destroy(row.cloudinaryPublicId, { resource_type: 'image' });
-    }
-  } catch (e) {
-    console.error('[consultation-photo] cloudinary destroy:', e);
-  }
+  await destroyStoredObject(row.cloudinaryPublicId, 'image');
   await prisma.inquiryConsultationPhoto.delete({ where: { id: photoId } });
   return { deleted: true as const };
 }

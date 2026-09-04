@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { formatSmtpSendError, resolveSmtpErrorContextForTenant } from '../../lib/tenantSmtp.service.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
 import { tenantCompanySealFolder } from '../../lib/quotationSeal.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
@@ -75,7 +75,7 @@ router.post('/seal-upload-sign', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
   try {
-    if (!isCloudinaryConfigured()) {
+    if (!isCloudinaryAccountConfigured()) {
       res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
       return;
     }

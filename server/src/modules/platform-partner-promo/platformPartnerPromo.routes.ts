@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
 import {
   platformAuthMiddleware,
   platformSuperAdminOnly,
@@ -88,7 +88,7 @@ router.get('/', async (_req, res) => {
 /** POST /api/platform/partner-promos/upload-sign */
 router.post('/upload-sign', async (_req, res) => {
   try {
-    if (!isCloudinaryConfigured()) {
+    if (!isCloudinaryAccountConfigured()) {
       res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
       return;
     }

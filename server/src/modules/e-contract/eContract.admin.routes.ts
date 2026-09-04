@@ -8,7 +8,7 @@ import {
 } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
 import { prisma } from '../../lib/prisma.js';
 import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
 import { parseEContractAudienceInput } from './eContractAudience.helpers.js';
@@ -187,7 +187,7 @@ router.patch('/issuer-profile', async (req, res) => {
 
 router.post('/issuer-profile/upload-sign', async (_req, res) => {
   try {
-    if (!isCloudinaryConfigured()) {
+    if (!isCloudinaryAccountConfigured()) {
       res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
       return;
     }
@@ -625,7 +625,7 @@ router.get('/submissions/:submissionId', async (req, res) => {
 
 router.post('/submissions/:submissionId/upload-sign', async (req, res) => {
   try {
-    if (!isCloudinaryConfigured()) {
+    if (!isCloudinaryAccountConfigured()) {
       res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
       return;
     }

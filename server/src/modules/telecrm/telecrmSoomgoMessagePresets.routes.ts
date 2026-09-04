@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { uploadObjectBuffer } from '../../lib/objectStorage.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { parseSoomgoMessageSteps, SOOMGO_MESSAGE_PRESET_MAX } from '../../lib/soomgoMessagePresets.js';
@@ -428,7 +429,7 @@ router.post('/upload-image', requireStaffPermission('crm.view', 'crm.settings'),
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
   if (!isCloudinaryConfigured()) {
-    res.status(503).json({ error: 'Cloudinary가 설정되지 않았습니다.' });
+    res.status(503).json({ error: '파일 저장소가 준비되지 않았습니다.' });
     return;
   }
   const file = req.file;
@@ -437,17 +438,13 @@ router.post('/upload-image', requireStaffPermission('crm.view', 'crm.settings'),
     return;
   }
   try {
-    const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: `skcleanteck/telecrm/soomgo-presets/${tenantId}`, resource_type: 'image' },
-        (err, uploaded) => {
-          if (err || !uploaded?.secure_url) reject(err ?? new Error('upload failed'));
-          else resolve({ secure_url: uploaded.secure_url });
-        },
-      );
-      stream.end(file.buffer);
+    const result = await uploadObjectBuffer({
+      folder: `cbiseo/telecrm/soomgo-presets/${tenantId}`,
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      resourceType: 'image',
     });
-    res.json({ url: result.secure_url });
+    res.json({ url: result.secureUrl });
   } catch {
     res.status(500).json({ error: '이미지 업로드에 실패했습니다.' });
   }

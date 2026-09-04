@@ -1,4 +1,5 @@
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { uploadObjectBuffer } from '../../lib/objectStorage.js';
 
 export function assertReviewPaybackCloudinaryReady(): void {
   if (!isCloudinaryConfigured()) {
@@ -6,26 +7,16 @@ export function assertReviewPaybackCloudinaryReady(): void {
   }
 }
 
-/** 리뷰 캡처 이미지 — Cloudinary skcleanteck/review-payback */
+/** 리뷰 캡처 이미지 */
 export async function uploadReviewPaybackImageBuffer(
   buffer: Buffer,
   tenantId: string,
 ): Promise<{ secureUrl: string; publicId: string }> {
   assertReviewPaybackCloudinaryReady();
-  const result = await new Promise<{ public_id: string; secure_url: string }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: `skcleanteck/review-payback/${tenantId}`,
-        resource_type: 'image',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'],
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string });
-      },
-    );
-    stream.end(buffer);
+  const result = await uploadObjectBuffer({
+    folder: `cbiseo/review-payback/${tenantId}`,
+    buffer,
+    resourceType: 'image',
   });
-  return { secureUrl: result.secure_url, publicId: result.public_id };
+  return { secureUrl: result.secureUrl, publicId: result.publicId };
 }

@@ -1,6 +1,7 @@
 import type { PrismaClient, ReviewPaybackStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { destroyStoredObject } from '../../lib/objectStorage.js';
 import { generateReviewPaybackToken } from './reviewPayback.token.js';
 import type { ReviewPaybackStatusCode } from './reviewPayback.constants.js';
 import { REVIEW_PAYBACK_STATUSES } from './reviewPayback.constants.js';
@@ -106,11 +107,7 @@ async function destroyReviewPaybackCloudinaryImages(images: ReviewPaybackImageIt
     if (pid) ids.add(pid);
   }
   for (const publicId of ids) {
-    try {
-      await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
-    } catch (e) {
-      console.warn('[review-payback] cloudinary destroy failed:', publicId, e);
-    }
+    await destroyStoredObject(publicId, 'image');
   }
 }
 

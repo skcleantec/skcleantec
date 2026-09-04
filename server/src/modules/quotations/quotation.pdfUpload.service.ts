@@ -1,4 +1,5 @@
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { uploadObjectBuffer } from '../../lib/objectStorage.js';
 
 export async function uploadQuotationPdfBuffer(params: {
   tenantId: string;
@@ -7,23 +8,14 @@ export async function uploadQuotationPdfBuffer(params: {
   buffer: Buffer;
 }): Promise<{ publicId: string; secureUrl: string } | null> {
   if (!isCloudinaryConfigured()) return null;
-  const folder = `skcleanteck/tenants/${params.tenantId}/quotations/${params.quotationId}`;
+  const folder = `cbiseo/tenants/${params.tenantId}/quotations/${params.quotationId}`;
   const safeNo = params.quoteNumber.replace(/[^\w-]/g, '_').slice(0, 32);
-  const result = await new Promise<{ public_id: string; secure_url: string }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'raw',
-        format: 'pdf',
-        public_id: `quote_${safeNo}_${Date.now()}`,
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string });
-      },
-    );
-    stream.end(params.buffer);
+  const result = await uploadObjectBuffer({
+    folder,
+    buffer: params.buffer,
+    contentType: 'application/pdf',
+    resourceType: 'raw',
+    fileNameHint: `quote_${safeNo}.pdf`,
   });
-  return { publicId: result.public_id, secureUrl: result.secure_url };
+  return { publicId: result.publicId, secureUrl: result.secureUrl };
 }

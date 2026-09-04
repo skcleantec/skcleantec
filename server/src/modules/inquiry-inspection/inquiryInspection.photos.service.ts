@@ -1,6 +1,7 @@
 import type { InspectionAreaPhotoPhase } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { destroyStoredObject, uploadObjectBuffer } from '../../lib/objectStorage.js';
 
 export function assertCloudinaryReady(): void {
   if (!isCloudinaryConfigured()) {
@@ -16,26 +17,10 @@ export async function uploadInspectionPhotoBuffer(params: {
   buffer: Buffer;
 }) {
   assertCloudinaryReady();
-  const folder = `skcleanteck/inquiries/${params.inquiryId}/inspection/${params.itemId}/${params.phase.toLowerCase()}`;
-  const result = await new Promise<{
-    public_id: string;
-    secure_url: string;
-    width?: number;
-    height?: number;
-  }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'image',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'],
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string; width?: number; height?: number });
-      }
-    );
-    stream.end(params.buffer);
+  const result = await uploadObjectBuffer({
+    folder: `cbiseo/inquiries/${params.inquiryId}/inspection/${params.itemId}/${params.phase.toLowerCase()}`,
+    buffer: params.buffer,
+    resourceType: 'image',
   });
 
   return prisma.inquiryInspectionAreaPhoto.create({
@@ -43,10 +28,10 @@ export async function uploadInspectionPhotoBuffer(params: {
       itemId: params.itemId,
       phase: params.phase,
       uploadedById: params.uploadedById,
-      cloudinaryPublicId: result.public_id,
-      secureUrl: result.secure_url,
-      width: result.width ?? null,
-      height: result.height ?? null,
+      cloudinaryPublicId: result.publicId,
+      secureUrl: result.secureUrl,
+      width: result.width,
+      height: result.height,
     },
     include: { uploadedBy: { select: { id: true, name: true } } },
   });
@@ -57,23 +42,12 @@ export async function uploadInspectionSignatureBuffer(params: {
   buffer: Buffer;
 }) {
   assertCloudinaryReady();
-  const folder = `skcleanteck/inquiries/${params.inquiryId}/inspection/signature`;
-  const result = await new Promise<{ public_id: string; secure_url: string }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'image',
-        allowed_formats: ['png', 'jpg', 'jpeg', 'webp'],
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string });
-      }
-    );
-    stream.end(params.buffer);
+  const result = await uploadObjectBuffer({
+    folder: `cbiseo/inquiries/${params.inquiryId}/inspection/signature`,
+    buffer: params.buffer,
+    resourceType: 'image',
   });
-  return result;
+  return { public_id: result.publicId, secure_url: result.secureUrl };
 }
 
 export async function deleteInspectionPhoto(params: {
@@ -89,11 +63,7 @@ export async function deleteInspectionPhoto(params: {
     },
   });
   if (!row) return null;
-  try {
-    await cloudinary.uploader.destroy(row.cloudinaryPublicId, { resource_type: 'image' });
-  } catch {
-    /* ignore cloudinary delete errors */
-  }
+  await destroyStoredObject(row.cloudinaryPublicId, 'image');
   await prisma.inquiryInspectionAreaPhoto.delete({ where: { id: row.id } });
   return row;
 }

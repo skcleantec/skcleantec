@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { destroyStoredObject, uploadObjectBuffer } from '../../lib/objectStorage.js';
 
 export async function sumCrewExpensesForMemberMonth(
   teamMemberId: string,
@@ -37,35 +38,20 @@ async function uploadExpenseImageBuffer(params: {
   mimetype: string;
 }) {
   assertCloudinaryReady();
-  const folder = `skcleanteck/crew-expenses/${params.expenseId}`;
-  const result = await new Promise<{
-    public_id: string;
-    secure_url: string;
-    width?: number;
-    height?: number;
-  }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'image',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'],
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string; width?: number; height?: number });
-      },
-    );
-    stream.end(params.buffer);
+  const result = await uploadObjectBuffer({
+    folder: `cbiseo/crew-expenses/${params.expenseId}`,
+    buffer: params.buffer,
+    contentType: params.mimetype,
+    resourceType: 'image',
   });
 
   return prisma.teamCrewGroupExpenseAttachment.create({
     data: {
       expenseId: params.expenseId,
-      cloudinaryPublicId: result.public_id,
-      secureUrl: result.secure_url,
-      width: result.width ?? null,
-      height: result.height ?? null,
+      cloudinaryPublicId: result.publicId,
+      secureUrl: result.secureUrl,
+      width: result.width,
+      height: result.height,
     },
   });
 }
@@ -142,13 +128,7 @@ export async function deleteCrewGroupExpense(crewGroupId: string, expenseId: str
   if (!row) return false;
 
   for (const a of row.attachments) {
-    try {
-      if (isCloudinaryConfigured()) {
-        await cloudinary.uploader.destroy(a.cloudinaryPublicId, { resource_type: 'image' });
-      }
-    } catch (err) {
-      console.error('[crew-expense] cloudinary destroy', err);
-    }
+    await destroyStoredObject(a.cloudinaryPublicId, 'image');
   }
 
   await prisma.teamCrewGroupExpense.delete({ where: { id: expenseId } });

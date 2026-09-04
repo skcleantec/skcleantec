@@ -1,13 +1,9 @@
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { destroyStoredObject, uploadObjectBuffer } from '../../lib/objectStorage.js';
 import { prisma } from '../../lib/prisma.js';
 
 export async function destroyStaffIdCardPublicId(publicId: string | null | undefined): Promise<void> {
-  if (!publicId?.trim() || !isCloudinaryConfigured()) return;
-  try {
-    await cloudinary.uploader.destroy(publicId.trim(), { resource_type: 'image' });
-  } catch (e) {
-    console.warn('[staff-id-card] cloudinary destroy:', e);
-  }
+  await destroyStoredObject(publicId, 'image');
 }
 
 async function uploadStaffIdCardBuffer(params: {
@@ -18,21 +14,13 @@ async function uploadStaffIdCardBuffer(params: {
   if (!isCloudinaryConfigured()) {
     throw new Error('cloudinary_not_configured');
   }
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: params.folder,
-        resource_type: 'image',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve({ publicId: res.public_id, secureUrl: res.secure_url });
-      }
-    );
-    stream.end(params.buffer);
+  const result = await uploadObjectBuffer({
+    folder: params.folder,
+    buffer: params.buffer,
+    contentType: params.mimetype,
+    resourceType: 'image',
   });
+  return { publicId: result.publicId, secureUrl: result.secureUrl };
 }
 
 /** 팀장·마케터 계정 — 사원증 교체 */

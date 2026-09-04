@@ -1,4 +1,5 @@
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { uploadObjectBuffer } from '../../lib/objectStorage.js';
 
 export function assertHelpCmsCloudinaryReady(): void {
   if (!isCloudinaryConfigured()) {
@@ -6,25 +7,15 @@ export function assertHelpCmsCloudinaryReady(): void {
   }
 }
 
-/** 도움말 CMS 본문 이미지 — Cloudinary cbiseo/help-cms */
+/** 도움말 CMS 본문 이미지 */
 export async function uploadHelpCmsImageBuffer(
   buffer: Buffer,
 ): Promise<{ secureUrl: string; publicId: string }> {
   assertHelpCmsCloudinaryReady();
-  const result = await new Promise<{ public_id: string; secure_url: string }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'cbiseo/help-cms',
-        resource_type: 'image',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'],
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string });
-      },
-    );
-    stream.end(buffer);
+  const result = await uploadObjectBuffer({
+    folder: 'cbiseo/help-cms',
+    buffer,
+    resourceType: 'image',
   });
-  return { secureUrl: result.secure_url, publicId: result.public_id };
+  return { secureUrl: result.secureUrl, publicId: result.publicId };
 }

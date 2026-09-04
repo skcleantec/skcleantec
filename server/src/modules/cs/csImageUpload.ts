@@ -1,4 +1,5 @@
-import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { uploadObjectBuffer } from '../../lib/objectStorage.js';
 
 export function assertCsCloudinaryReady(): void {
   if (!isCloudinaryConfigured()) {
@@ -6,23 +7,13 @@ export function assertCsCloudinaryReady(): void {
   }
 }
 
-/** C/S 제출 사진 버퍼를 Cloudinary(skcleanteck/cs)에 업로드하고 secure_url 반환 */
+/** C/S 제출 사진 */
 export async function uploadCsImageBuffer(buffer: Buffer): Promise<{ secureUrl: string; publicId: string }> {
   assertCsCloudinaryReady();
-  const result = await new Promise<{ public_id: string; secure_url: string }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'skcleanteck/cs',
-        resource_type: 'image',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'],
-      },
-      (err, res) => {
-        if (err) reject(err);
-        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
-        else resolve(res as { public_id: string; secure_url: string });
-      },
-    );
-    stream.end(buffer);
+  const result = await uploadObjectBuffer({
+    folder: 'cbiseo/cs',
+    buffer,
+    resourceType: 'image',
   });
-  return { secureUrl: result.secure_url, publicId: result.public_id };
+  return { secureUrl: result.secureUrl, publicId: result.publicId };
 }
