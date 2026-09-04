@@ -34,8 +34,9 @@ export function OrderFormGuideAgreeModal(props: {
   const checkScrollEnd = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight <= 32;
-    setScrolledToEnd(atEnd);
+    const leftover = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // 내용이 뷰보다 짧거나, 모바일 바운스로 끝 근처면 동의 가능
+    setScrolledToEnd(el.scrollHeight <= el.clientHeight + 48 || leftover <= 48);
   }, []);
 
   useEffect(() => {
@@ -64,7 +65,13 @@ export function OrderFormGuideAgreeModal(props: {
     if (!open || loading) return;
     setScrolledToEnd(false);
     const id = window.requestAnimationFrame(() => checkScrollEnd());
-    return () => window.cancelAnimationFrame(id);
+    const t1 = window.setTimeout(checkScrollEnd, 120);
+    const t2 = window.setTimeout(checkScrollEnd, 400);
+    return () => {
+      window.cancelAnimationFrame(id);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, [open, loading, sections, checkScrollEnd]);
 
   useEffect(() => {
@@ -177,6 +184,7 @@ export function OrderFormGuideAgreeModal(props: {
               <p className="mt-6 text-center text-fluid-xs text-gray-500">
                 문의사항은 예약 번호로 연락 부탁드립니다.
               </p>
+              <div className="h-px w-full" aria-hidden />
             </>
           )}
         </div>

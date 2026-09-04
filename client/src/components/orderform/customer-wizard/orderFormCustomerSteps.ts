@@ -213,6 +213,28 @@ export function resolveOrderFormCustomerSteps(args: {
   return steps;
 }
 
+/** 제출 검증 fieldId → 고객 위저드 질문 */
+export function wizardStepIdForSubmitField(fieldId?: string): OrderFormCustomerStepId | null {
+  if (!fieldId) return null;
+  if (fieldId.startsWith('order-field-custom-')) {
+    return `custom:${fieldId.slice('order-field-custom-'.length)}`;
+  }
+  if (fieldId.includes('customerName')) return 'name';
+  if (fieldId.includes('address')) return 'address';
+  if (fieldId.includes('customerPhone') || fieldId.includes('Phone2')) return 'phones';
+  if (fieldId.includes('customerEmail')) return 'email';
+  if (fieldId.includes('propertyType')) return 'property';
+  if (fieldId.includes('area')) return 'area';
+  if (fieldId.includes('preferredTimeDetail')) return 'timeDetail';
+  if (fieldId.includes('preferredTime')) return 'time';
+  if (fieldId.includes('schedule') || fieldId.includes('preferredDate')) return 'date';
+  if (fieldId.includes('roomCount')) return 'rooms';
+  if (fieldId.includes('building')) return 'building';
+  if (fieldId.includes('moveIn')) return 'moveIn';
+  if (fieldId.includes('agree')) return 'guide';
+  return null;
+}
+
 export function isOrderFormCustomerStepId(value: string | null | undefined): value is OrderFormCustomerStepId {
   if (!value) return false;
   if (value.startsWith('custom:')) return true;

@@ -27,6 +27,8 @@ export type CustomerWizardShared = {
   submitting: boolean;
   guideTermsAt: string | null;
   setGuideAgreeModalOpen: (open: boolean) => void;
+  /** 제출하기 → 안내 모달 동의 후 자동 제출 */
+  markPendingSubmitAfterGuideAgree: () => void;
   agreeLinkLabel: string;
   professionalOptions: ProfessionalSpecialtyOptionDto[];
   profSelections: ProfessionalOptionSelection[];

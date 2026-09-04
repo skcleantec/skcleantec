@@ -119,6 +119,10 @@ import { clearOrderFormCustomerDraft } from '../../hooks/useOrderFormCustomerDra
 import { OrderFormCustomerWizard } from '../../components/orderform/customer-wizard/OrderFormCustomerWizard';
 import type { CustomerWizardShared } from '../../components/orderform/customer-wizard/customerStepTypes';
 import {
+  wizardStepIdForSubmitField,
+  type OrderFormCustomerStepId,
+} from '../../components/orderform/customer-wizard/orderFormCustomerSteps';
+import {
   AREA_BASIS_COST_WARNING,
   ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE,
   EMPTY_ORDER_FORM_FIELDS,
@@ -263,6 +267,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     slot: string;
   } | null>(null);
   const [guideTermsConsent, setGuideTermsConsent] = useState<{ at: string } | null>(null);
+  const wizardGoToRef = useRef<((id: OrderFormCustomerStepId) => void) | null>(null);
+  const pendingSubmitAfterGuideAgreeRef = useRef(false);
+  const handleSubmitRef = useRef<(e: React.FormEvent) => Promise<void>>(async () => {});
   /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
   const [noSpecialNotes, setNoSpecialNotes] = useState(false);
   /** 마케터 작성 시 "청소 날짜 고객 작성" 체크(비워 두면 고객이 직접 선택) */
@@ -911,6 +918,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     const fieldId = submitErrorModal?.fieldId;
     setSubmitErrorModal(null);
     if (fieldId) {
+      if (!isEditor) {
+        const stepId = wizardStepIdForSubmitField(fieldId);
+        if (stepId) wizardGoToRef.current?.(stepId);
+      }
       window.setTimeout(() => scrollToOrderFormField(fieldId), 50);
     }
   };
@@ -1223,6 +1234,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       setSubmitting(false);
     }
   };
+  handleSubmitRef.current = handleSubmit;
 
   /** 현재 폼 값 → 선입력(잠금) payload. 빈 칸은 잠그지 않음(고객이 채움). */
   const buildPrefillPayload = (): OrderFormPrefillPayload => {
@@ -1410,6 +1422,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     guideTermsAt: guideTermsConsent?.at ?? null,
     setGuideTermsConsent,
   });
+  wizardGoToRef.current = customerWizard.goTo;
+
+  useEffect(() => {
+    if (!pendingSubmitAfterGuideAgreeRef.current || !guideTermsConsent) return;
+    pendingSubmitAfterGuideAgreeRef.current = false;
+    void handleSubmitRef.current({ preventDefault() {} } as React.FormEvent);
+  }, [guideTermsConsent]);
 
   const CloseButton = () => (
     <button
@@ -2033,6 +2052,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       submitting,
       guideTermsAt: guideTermsConsent?.at ?? null,
       setGuideAgreeModalOpen,
+      markPendingSubmitAfterGuideAgree: () => {
+        pendingSubmitAfterGuideAgreeRef.current = true;
+      },
       agreeLinkLabel,
       professionalOptions,
       profSelections,

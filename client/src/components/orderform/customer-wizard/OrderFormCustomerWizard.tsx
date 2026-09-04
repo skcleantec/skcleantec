@@ -161,9 +161,23 @@ export function OrderFormCustomerWizard({
     currentStep.kind !== 'welcome' && currentStep.kind !== 'choice';
   const showChoiceNext = currentStep.kind === 'choice' && !stepInvalid;
 
+  const trySubmit = () => {
+    if (submitting) return;
+    if (stepInvalid) {
+      setStepError(stepInvalid);
+      if (!shared.guideTermsAt) {
+        shared.markPendingSubmitAfterGuideAgree();
+        shared.setGuideAgreeModalOpen(true);
+      }
+      return;
+    }
+    setStepError(null);
+    onSubmit({ preventDefault() {} } as FormEvent);
+  };
+
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-100">
-      <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900 text-white">
+    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-slate-100">
+      <header className="shrink-0 border-b border-slate-800 bg-slate-900 text-white">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-3 py-2.5">
           <button
             type="button"
@@ -237,7 +251,7 @@ export function OrderFormCustomerWizard({
         </div>
       </div>
 
-      <footer className="sticky z-20 border-t border-slate-200 bg-white/95 backdrop-blur-sm bottom-[var(--login-keyboard-inset,0px)]">
+      <footer className="shrink-0 border-t border-slate-200 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto max-w-lg space-y-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
           {currentStep.kind === 'welcome' ? (
             <button type="button" className={WIZARD_CTA_CLS} onClick={goNext}>
@@ -254,8 +268,8 @@ export function OrderFormCustomerWizard({
                 <button
                   type="button"
                   className={WIZARD_CTA_CLS}
-                  disabled={submitting || Boolean(stepInvalid)}
-                  onClick={() => onSubmit({ preventDefault() {} } as FormEvent)}
+                  disabled={submitting}
+                  onClick={trySubmit}
                 >
                   {submitting ? '제출 중...' : '제출하기'}
                 </button>
