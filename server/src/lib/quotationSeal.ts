@@ -1,3 +1,5 @@
+import { isHttpsHostedImageUrl } from './storedObjectUrl.js';
+
 /** @see shared/quotationSeal.ts — 클라이언트와 동기화 */
 export const QUOTATION_SEAL_SOURCE_PX = 200;
 export const QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT = 48;
@@ -23,10 +25,12 @@ export function tenantCompanySealLooksValid(
   urlRaw: string | null | undefined,
   tenantId: string,
 ): boolean {
-  const url = (urlRaw ?? '').trim().toLowerCase();
+  const url = (urlRaw ?? '').trim();
   const pid = (publicIdRaw ?? '').trim();
-  if (!url || !pid) return false;
+  if (!url || !pid || !isHttpsHostedImageUrl(url)) return false;
+  if (pid.startsWith('r2:')) {
+    return pid.includes(`/tenants/${tenantId}/company-seal`);
+  }
   const prefix = `${tenantCompanySealFolder(tenantId)}/`;
-  if (!pid.startsWith(prefix)) return false;
-  return url.includes('res.cloudinary.com') || url.includes('/image/upload/v');
+  return pid.startsWith(prefix);
 }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
+import { browserImageUpload, uploadBrowserImageToStore } from '../../lib/browserImageUpload.js';
 import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
 import {
   platformAuthMiddleware,
@@ -111,6 +112,28 @@ router.post('/upload-sign', async (_req, res) => {
   } catch (e) {
     console.error('[platform-partner-promo] upload-sign', e);
     res.status(500).json({ error: '업로드 서명에 실패했습니다.' });
+  }
+});
+
+router.post('/upload', browserImageUpload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file?.buffer?.length) {
+      res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
+      return;
+    }
+    const uploaded = await uploadBrowserImageToStore({
+      folder: PLATFORM_PARTNER_PROMO_UPLOAD_FOLDER,
+      file,
+    });
+    res.json({ publicId: uploaded.publicId, secureUrl: uploaded.secureUrl, url: uploaded.secureUrl });
+  } catch (e) {
+    if ((e as { code?: string })?.code === 'storage') {
+      res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
+      return;
+    }
+    console.error('[platform-partner-promo] upload', e);
+    res.status(500).json({ error: '이미지 업로드에 실패했습니다.' });
   }
 });
 

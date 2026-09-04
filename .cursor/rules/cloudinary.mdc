@@ -8,7 +8,7 @@ alwaysApply: true
 ## 정책
 
 - **새로 올리는 파일**은 **Cloudflare R2** (`R2_*` 환경변수). 구현: `server/src/lib/objectStorage.ts`
-- **이미 Cloudinary에 있는 URL**은 그대로 열리게 둔다. `CLOUDINARY_URL`은 직업로드(전자계약 등)가 끝날 때까지 유지.
+- **이미 Cloudinary에 있는 URL**은 그대로 열리게 둔다. `CLOUDINARY_URL`은 옛 파일용으로 당분간 유지.
 - 로컬 `server/uploads/`·Railway Volume만으로 웹하드를 두지 않는다.
 - 설정 절차: `docs/R2_SETUP.md`
 - **API Key / API Secret 은 서버에서만** 사용한다. 클라이언트 번들·저장소·채팅에 **절대 커밋하지 않는다.**
@@ -44,5 +44,5 @@ alwaysApply: true
 ## 코드 추가 시
 
 - 서버 버퍼 업로드는 `uploadObjectBuffer` / `destroyStoredObject` (`server/src/lib/objectStorage.ts`).
-- 브라우저 직접 서명 업로드는 Cloudinary 계정(`isCloudinaryAccountConfigured`)이 필요할 수 있다.
+- 브라우저 업로드(전자계약·업체 도장·플랫폼 배너)는 `POST …/upload` → `uploadBrowserImageToStore` (R2 우선). 옛 `upload-sign`은 Cloudinary 폴백.
 - `cloudinary` npm 패키지는 **서버** `package.json`에만 추가.

@@ -1,3 +1,4 @@
+import { isHttpsHostedImageUrl } from '@shared/storedObjectUrl';
 import { stabilizeEContractParagraphHtml } from './sanitizeEContractHtml';
 
 /**
@@ -32,11 +33,7 @@ function escapeHtml(s: string): string {
 }
 
 function signatureMarkup(url: string): string {
-  const u = url.trim().toLowerCase();
-  const ok =
-    u.length > 0 &&
-    u.startsWith('https://') &&
-    (u.includes('res.cloudinary.com') || u.includes('/image/upload/v'));
+  const ok = isHttpsHostedImageUrl(url);
   if (!ok) {
     return '<span class="e-contract-no-sign text-gray-400">(서명 미리보기: 제출 시 반영)</span>';
   }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { formatSmtpSendError, resolveSmtpErrorContextForTenant } from '../../lib/tenantSmtp.service.js';
+import { browserImageUpload, uploadBrowserImageToStore } from '../../lib/browserImageUpload.js';
 import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
 import { tenantCompanySealFolder } from '../../lib/quotationSeal.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
@@ -98,6 +99,30 @@ router.post('/seal-upload-sign', async (req, res) => {
   } catch (e) {
     console.error('[tenant-company-profile] seal upload-sign', e);
     res.status(500).json({ error: '업로드 서명에 실패했습니다.' });
+  }
+});
+
+router.post('/seal-upload', browserImageUpload.single('file'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  try {
+    const file = req.file;
+    if (!file?.buffer?.length) {
+      res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
+      return;
+    }
+    const uploaded = await uploadBrowserImageToStore({
+      folder: tenantCompanySealFolder(tenantId),
+      file,
+    });
+    res.json(uploaded);
+  } catch (e) {
+    if ((e as { code?: string })?.code === 'storage') {
+      res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
+      return;
+    }
+    console.error('[tenant-company-profile] seal upload', e);
+    res.status(500).json({ error: '파일 업로드에 실패했습니다.' });
   }
 });
 

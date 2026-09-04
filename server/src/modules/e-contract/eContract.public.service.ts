@@ -1,4 +1,5 @@
 import { EContractIssuanceStatus, Prisma } from '@prisma/client';
+import { isLikelyStoredContractImage } from '../../lib/storedObjectUrl.js';
 import { prisma } from '../../lib/prisma.js';
 import { randomUUID } from 'node:crypto';
 import { deriveChallengeDigitsForToken } from './eContract.challenge.js';
@@ -91,11 +92,7 @@ async function maybeMarkExpired(
 }
 
 function isLikelyCloudinaryUrl(urlRaw: unknown, publicIdRaw: unknown): boolean {
-  if (typeof urlRaw !== 'string' || typeof publicIdRaw !== 'string') return false;
-  const u = urlRaw.trim().toLowerCase();
-  const pid = publicIdRaw.trim();
-  if (!pid.startsWith('e_contract/')) return false;
-  return u.includes('res.cloudinary.com') || u.includes('/image/upload/v');
+  return isLikelyStoredContractImage(urlRaw, publicIdRaw, 'e_contract');
 }
 
 /** PENDING 발급 → OPENED (조회 표시만). */

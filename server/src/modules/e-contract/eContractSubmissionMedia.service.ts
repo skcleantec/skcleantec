@@ -1,3 +1,4 @@
+import { isLikelyStoredContractImage } from '../../lib/storedObjectUrl.js';
 import { prisma } from '../../lib/prisma.js';
 
 const SUBMISSION_MEDIA_FOLDER_PREFIX = 'e_contract/issuance/';
@@ -11,15 +12,7 @@ export function submissionMediaUploadFolder(issuanceId: string): string {
 }
 
 function isLikelyCloudinaryUrl(urlRaw: unknown, publicIdRaw: unknown): boolean {
-  const url = typeof urlRaw === 'string' ? urlRaw.trim() : '';
-  const publicId = typeof publicIdRaw === 'string' ? publicIdRaw.trim() : '';
-  if (!url || !publicId) return false;
-  const u = url.toLowerCase();
-  return (
-    u.startsWith('https://') &&
-    (u.includes('res.cloudinary.com') || u.includes('/image/upload/v')) &&
-    publicId.startsWith('e_contract/')
-  );
+  return isLikelyStoredContractImage(urlRaw, publicIdRaw, 'e_contract');
 }
 
 function patchSignatureInMergedHtml(html: string, oldUrl: string | null | undefined, newUrl: string): string {

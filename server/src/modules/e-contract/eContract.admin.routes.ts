@@ -8,6 +8,7 @@ import {
 } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
+import { browserImageUpload, uploadBrowserImageToStore } from '../../lib/browserImageUpload.js';
 import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
 import { prisma } from '../../lib/prisma.js';
 import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
@@ -212,6 +213,28 @@ router.post('/issuer-profile/upload-sign', async (_req, res) => {
   } catch (e) {
     console.error('[e-contract] issuer seal upload-sign', e);
     res.status(500).json({ error: '업로드 서명에 실패했습니다.' });
+  }
+});
+
+router.post('/issuer-profile/upload', browserImageUpload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file?.buffer?.length) {
+      res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
+      return;
+    }
+    const uploaded = await uploadBrowserImageToStore({
+      folder: ISSUER_SEAL_CLOUDINARY_FOLDER,
+      file,
+    });
+    res.json(uploaded);
+  } catch (e) {
+    if ((e as { code?: string })?.code === 'storage') {
+      res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
+      return;
+    }
+    console.error('[e-contract] issuer seal upload', e);
+    res.status(500).json({ error: '파일 업로드에 실패했습니다.' });
   }
 });
 
@@ -660,6 +683,37 @@ router.post('/submissions/:submissionId/upload-sign', async (req, res) => {
   } catch (e) {
     console.error('[e-contract] submission media upload-sign', e);
     res.status(500).json({ error: '업로드 서명에 실패했습니다.' });
+  }
+});
+
+router.post('/submissions/:submissionId/upload', browserImageUpload.single('file'), async (req, res) => {
+  try {
+    const tid = reqTenantId(req);
+    const submission = await prisma.eContractSubmission.findFirst({
+      where: { id: req.params.submissionId, issuance: { definition: { tenantId: tid } } },
+      select: { id: true, issuanceId: true },
+    });
+    if (!submission) {
+      res.status(404).json({ error: '체결 기록을 찾을 수 없습니다.' });
+      return;
+    }
+    const file = req.file;
+    if (!file?.buffer?.length) {
+      res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
+      return;
+    }
+    const uploaded = await uploadBrowserImageToStore({
+      folder: submissionMediaUploadFolder(submission.issuanceId),
+      file,
+    });
+    res.json(uploaded);
+  } catch (e) {
+    if ((e as { code?: string })?.code === 'storage') {
+      res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
+      return;
+    }
+    console.error('[e-contract] submission media upload', e);
+    res.status(500).json({ error: '파일 업로드에 실패했습니다.' });
   }
 });
 

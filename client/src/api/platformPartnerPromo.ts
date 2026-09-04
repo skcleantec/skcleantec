@@ -1,3 +1,4 @@
+import { postBlobToStorage } from '../utils/browserStorageUpload';
 import { API } from './apiPrefix';
 import { getToken } from '../stores/auth';
 import { getTeamToken } from '../stores/teamAuth';
@@ -153,36 +154,15 @@ export async function reorderPlatformPartnerPromos(ids: string[]): Promise<void>
 }
 
 export async function uploadPlatformPartnerPromoImage(file: File): Promise<string> {
-  const signRes = await fetch(`${API}/platform/partner-promos/upload-sign`, {
-    method: 'POST',
-    headers: platformHeaders(),
-    body: JSON.stringify({}),
+  const token = getPlatformToken();
+  const uploaded = await postBlobToStorage({
+    url: `${API}/platform/partner-promos/upload`,
+    blob: file,
+    filename: file.name,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    folderPrefix: 'partner-promo',
   });
-  const signJson = (await signRes.json().catch(() => ({}))) as {
-    cloudName?: string;
-    apiKey?: string;
-    timestamp?: number;
-    signature?: string;
-    folder?: string;
-    error?: string;
-  };
-  if (!signRes.ok) throw new Error(signJson.error ?? '업로드 준비에 실패했습니다.');
-
-  const fd = new FormData();
-  fd.append('file', file, file.name);
-  fd.append('api_key', signJson.apiKey!);
-  fd.append('timestamp', String(signJson.timestamp));
-  fd.append('signature', signJson.signature!);
-  fd.append('folder', signJson.folder!);
-
-  const upl = await fetch(`https://api.cloudinary.com/v1_1/${signJson.cloudName}/image/upload`, {
-    method: 'POST',
-    body: fd,
-  });
-  const uj = (await upl.json().catch(() => ({}))) as { secure_url?: string; error?: { message?: string } };
-  if (!upl.ok) throw new Error(uj.error?.message ?? '이미지 업로드에 실패했습니다.');
-  if (!uj.secure_url) throw new Error('업로드 URL을 받지 못했습니다.');
-  return uj.secure_url;
+  return uploaded.secureUrl;
 }
 
 export async function fetchAdminActivePlatformPromos(): Promise<PlatformPromoActiveItem[]> {

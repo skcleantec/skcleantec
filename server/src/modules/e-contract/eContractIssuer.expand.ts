@@ -1,3 +1,4 @@
+import { isLikelyStoredContractImage } from '../../lib/storedObjectUrl.js';
 import { stabilizeEContractParagraphHtml } from './eContractBodyParagraphStabilize.js';
 
 /** DB·스냅샷과 동기 — Prisma `EContractIssuerStampKind` */
@@ -60,11 +61,7 @@ export function issuerSignatureLooksValid(
 }
 
 function issuerIssuerFolderImageLooksValid(publicIdRaw: string | null | undefined, urlRaw: string | null | undefined): boolean {
-  const url = (urlRaw ?? '').trim().toLowerCase();
-  const pid = (publicIdRaw ?? '').trim();
-  if (!url || !pid) return false;
-  if (!pid.startsWith(ISSUER_SEAL_PUBLIC_ID_PREFIX)) return false;
-  return url.includes('res.cloudinary.com') || url.includes('/image/upload/v');
+  return isLikelyStoredContractImage(urlRaw ?? '', publicIdRaw ?? '', 'e_contract/issuer');
 }
 
 function escapeHtml(s: string): string {

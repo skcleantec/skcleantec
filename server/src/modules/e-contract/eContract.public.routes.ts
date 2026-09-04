@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import { browserImageUpload, uploadBrowserImageToStore } from '../../lib/browserImageUpload.js';
 import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
 import {
   completeSubmissionByToken,
@@ -107,6 +108,44 @@ router.post('/sign/:token/upload-sign', async (req, res) => {
     }
     console.error('[e-contract public] upload-sign', e);
     res.status(500).json({ error: '업로드 서명에 실패했습니다.' });
+  }
+});
+
+router.post('/sign/:token/upload', browserImageUpload.single('file'), async (req, res) => {
+  try {
+    const issuance = await validateIssuanceWritable(req.params.token);
+    const file = req.file;
+    if (!file?.buffer?.length) {
+      res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
+      return;
+    }
+    const folder = await issuanceFolderForUpload(issuance.id);
+    const uploaded = await uploadBrowserImageToStore({ folder, file });
+    res.json(uploaded);
+  } catch (e: unknown) {
+    const code = (e as { code?: string })?.code;
+    if (code === 'storage') {
+      res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
+      return;
+    }
+    if (code === 'not_found') {
+      res.status(404).json({ error: '링크를 찾을 수 없습니다.' });
+      return;
+    }
+    if (code === 'conflict') {
+      res.status(409).json({ error: '이미 체결했습니다.' });
+      return;
+    }
+    if (code === 'gone') {
+      res.status(410).json({ error: '링크가 만료되었습니다.' });
+      return;
+    }
+    if (code === 'forbidden') {
+      res.status(403).json({ error: '링크를 사용할 수 없습니다.' });
+      return;
+    }
+    console.error('[e-contract public] upload', e);
+    res.status(500).json({ error: '파일 업로드에 실패했습니다.' });
   }
 });
 

@@ -1,3 +1,4 @@
+import { isHttpsHostedImageUrl } from '../../lib/storedObjectUrl.js';
 import {
   EC_SIGNER_FREETEXT_ROW_TOKEN,
   expandEcTokenMap,
@@ -27,12 +28,7 @@ export const EC_SIGNER_PLACEHOLDER_KEYS: ReadonlyArray<{ token: string; label: s
 ];
 
 export function signerSignatureUrlLooksValid(urlRaw: string): boolean {
-  const u = urlRaw.trim().toLowerCase();
-  return (
-    u.length > 0 &&
-    u.startsWith('https://') &&
-    (u.includes('res.cloudinary.com') || u.includes('/image/upload/v'))
-  );
+  return isHttpsHostedImageUrl(urlRaw);
 }
 
 function signerToTokenMap(signer: SignerFilledFields): Record<string, string> {
