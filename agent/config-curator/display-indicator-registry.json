@@ -291,6 +291,21 @@
         "client/src/constants/krEmailDomains.ts"
       ],
       "notes": "아이디 + 도메인 드롭다운. 맨 아래 「직접 작성」. 목록 순서는 국내 이용 많은 순(네이버·지메일·다음…)."
+    },
+    {
+      "id": "orderForm.customer.wizardProgress",
+      "labelKo": "고객 발주서 진행 막대",
+      "surfaces": ["public.orderForm.customerWizard"],
+      "visual": { "type": "progressBar", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "admin.inquiries.order-templates (systemFields)",
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/components/orderform/customer-wizard/OrderFormCustomerWizard.tsx",
+        "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
+      ],
+      "notes": "질문 수는 발주서 양식 시스템 필드·선입력 잠금에 따라 달라짐. 고객이 끄면 안 됨. 마케터 선입력 화면은 기존 한 장 폼 유지."
     }
   ]
 }

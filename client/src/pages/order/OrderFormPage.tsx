@@ -10,14 +10,12 @@ import {
   isOrderFormPublicSubmitted,
   saveOrderFormPrefill,
   submitOrderForm,
-  type OrderForm,
   type OrderFormPrefillPayload,
   type OrderFormPublic,
   type OrderFormPublicSubmitted,
-  type OrderFormPublicTemplate,
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
-import { internalCustomerToneForApi, type InternalCustomerTone } from '../../constants/internalCustomerTone';
+import { internalCustomerToneForApi } from '../../constants/internalCustomerTone';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { buildOrderTimeSlotOptions, isPreferredTimeDetailRequired, labelForTimeSlot, type OrderTimeSlot } from '../../constants/orderFormSchedule';
 import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
@@ -66,14 +64,12 @@ import {
   ORDER_BUILDING_TYPE_OPTIONS,
   ORDER_BUILDING_TYPE_RESIDING,
 } from '../../constants/orderFormBuilding';
-import type { OperatingCompanyCancellationPolicy } from '@shared/operatingCompanyCancellationPolicy';
 import { expandOrderFormCustomerText } from '@shared/orderFormGuidePlaceholders';
 import {
   normalizeOrderFormYmd,
   parseMoveInTiming,
   shouldWarnMoveInDateMismatch,
   validateMoveInTimingFields,
-  type MoveInTiming,
 } from '@shared/orderFormMoveInTiming';
 import { MoveInTimingFieldGroup } from '../../components/orderform/MoveInTimingFieldGroup';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
@@ -104,7 +100,6 @@ import {
   composeBrandedOrderFormTitle,
   CUSTOMER_ORDER_FORM_BROWSER_TAB_TITLE,
 } from '@shared/publicBrandTitles';
-import type { CrmOrderIssueSeed } from '../../components/orderform/OrderIssueInlinePanel';
 import {
   isMarketerLockedOrderFormAddress,
   isRealCustomerAddress,
@@ -119,23 +114,23 @@ import { OrderFormAcUnitsField } from '../../components/orderform/OrderFormAcUni
 import { OrderFormModalFormattedText } from '../../components/orderform/OrderFormModalFormattedText';
 import { PUBLIC_PAGE_CLOSE_HINT, tryLeavePublicPage } from '../../utils/publicPageLeave';
 import { scrollToOrderFormField } from '../../utils/preserveScrollAround';
+import { useOrderFormModel } from '../../hooks/useOrderFormModel';
+import { clearOrderFormCustomerDraft } from '../../hooks/useOrderFormCustomerDraft';
+import { OrderFormCustomerWizard } from '../../components/orderform/customer-wizard/OrderFormCustomerWizard';
+import type { CustomerWizardShared } from '../../components/orderform/customer-wizard/customerStepTypes';
+import {
+  AREA_BASIS_COST_WARNING,
+  EMPTY_ORDER_FORM_FIELDS,
+  PROPERTY_TYPE_OPTIONS,
+  type OrderFormEditorContext,
+  type OrderFormFields,
+  type OrderFormLoadedOrder,
+  type SubmitErrorModalState,
+  type SubmitValidationIssue,
+} from './orderFormModel.types';
+import { isOrderFormAreaLockedFromOrder } from './orderFormFieldVisibility';
 
-type SubmitValidationIssue = { message: string; fieldId?: string };
-type SubmitErrorModalState = {
-  messages: string[];
-  fieldId?: string;
-} | null;
-
-const PROPERTY_TYPE_OPTIONS = [
-  { value: '아파트', label: '아파트' },
-  { value: '오피스텔', label: '오피스텔' },
-  { value: '빌라(연립)', label: '빌라(연립)' },
-  { value: '상가', label: '상가' },
-  { value: '기타', label: '기타' },
-] as const;
-
-const AREA_BASIS_COST_WARNING =
-  '잘못된 평수기입으로 인한 서비스비용변동은 책임지지 않습니다.';
+export type { OrderFormEditorContext };
 
 const ORDER_FORM_SCHEDULE_STAR_SRC = '/order-form/schedule-highlight-star.png';
 
@@ -152,42 +147,6 @@ function OrderFormScheduleHighlightLabel({ children }: { children: React.ReactNo
       />
     </span>
   );
-}
-
-function isOrderFormAreaLockedFromOrder(order: {
-  areaBasis?: string | null;
-  areaPyeong?: number | null;
-} | null): boolean {
-  if (!order) return false;
-  const basis = order.areaBasis?.trim();
-  if (basis !== '공급' && basis !== '전용') return false;
-  return order.areaPyeong != null && Number.isFinite(order.areaPyeong) && order.areaPyeong > 0;
-}
-
-/** 마케터 선입력 편집/발급 모드 — 지정 시 고객 폼과 동일 화면을 재사용 */
-export interface OrderFormEditorContext {
-  authToken: string;
-  /** 저장/닫기 시 호출 (목록 등으로 복귀) */
-  onClose?: () => void;
-  /** 기존 발주서 선입력(잠금) 편집 — 발급 후 재작성 */
-  orderFormId?: string;
-  /** 발급(생성)+작성 동시 — 발급 화면 인라인 */
-  create?: {
-    templateId?: string;
-    pendingInquiryId?: string;
-    internalCustomerTone?: InternalCustomerTone;
-    /** 발주서 발급 시 유입 플랫폼(필수) */
-    leadSource?: string;
-    /** 영업 브랜드 — 일반 발급 시 필수. 대기 접수 연결 시 서버가 접수 브랜드 우선 */
-    operatingCompanyId?: string;
-    /** 협업 마케터(선택) */
-    collaborationMarketerId?: string | null;
-    onCreated: (order: OrderForm) => void;
-    /** 텔레CRM — 발급 폼 초기값 */
-    crmSeed?: CrmOrderIssueSeed;
-  };
-  /** 관리자 화면 임베드(크롬리스: 전체화면·고정바·푸터 제거) */
-  inline?: boolean;
 }
 
 export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = {}) {
@@ -228,92 +187,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const [noDeposit, setNoDeposit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<{
-    customerName: string;
-    customerPhone: string;
-    customerPhoneSecondary: string;
-    customerEmail: string;
-    address: string;
-    addressDetail: string;
-    propertyType: string;
-    areaBasis: string;
-    areaPyeong: string;
-    /** 레거시·폼 초기화용 (전용 입력은 평 → areaPyeong 사용, 제출 시 미전송) */
-    exclusiveAreaSqm: string;
-    preferredDate: string;
-    preferredTime: string;
-    preferredTimeDetail: string;
-    roomCount: string;
-    balconyCount: string;
-    bathroomCount: string;
-    kitchenCount: string;
-    buildingType: string;
-    moveInTiming: MoveInTiming | '';
-    moveInDate: string;
-    /** 신축·구축·인테리어 시 이사일 대신 */
-    moveInDateUndecided: boolean;
-    isOneRoom: boolean;
-    specialNotes: string;
-  }>({
-    customerName: '',
-    customerPhone: '',
-    customerPhoneSecondary: '',
-    customerEmail: '',
-    address: '',
-    addressDetail: '',
-    propertyType: '',
-    areaBasis: '',
-    areaPyeong: '',
-    exclusiveAreaSqm: '',
-    preferredDate: '',
-    preferredTime: '',
-    preferredTimeDetail: '',
-    roomCount: '',
-    balconyCount: '',
-    bathroomCount: '',
-    kitchenCount: '',
-    buildingType: '',
-    moveInTiming: '',
-    moveInDate: '',
-    moveInDateUndecided: false,
-    isOneRoom: false,
-    specialNotes: '',
-  });
-  const [order, setOrder] = useState<{
-    customerName: string;
-    totalAmount: number;
-    depositAmount: number;
-    balanceAmount: number;
-    optionNote: string | null;
-    preferredDate: string | null;
-    preferredTime: string | null;
-    preferredTimeDetail: string | null;
-    areaPyeong?: number | null;
-    areaBasis?: string | null;
-    formConfig?: {
-      formTitle?: string;
-      priceLabel?: string | null;
-      reviewEventText?: string | null;
-      footerNotice1?: string | null;
-      footerNotice2?: string | null;
-      infoContent?: string | null;
-      infoLinkText?: string | null;
-      submitSuccessTitle?: string | null;
-      submitSuccessBody?: string | null;
-      timeSlotAckTitle?: string | null;
-      timeSlotAckBody?: string | null;
-      timeSlotAckConsentHint?: string | null;
-      serviceDateAckTitle?: string | null;
-      serviceDateAckBody?: string | null;
-      serviceDateAckConsentHint?: string | null;
-      guidePolicy?: OperatingCompanyCancellationPolicy;
-      timeSlotLabels?: Record<'오전' | '오후' | '사이청소', string>;
-      timeSlotLabelsJson?: Record<string, string> | null;
-    };
-    template?: OrderFormPublicTemplate | null;
-    /** 마케터 선입력 값 {key: value} — 있는 키는 고객 화면에서 읽기전용(잠금) */
-    prefillAnswers?: Record<string, unknown> | null;
-  } | null>(null);
+  const [form, setForm] = useState<OrderFormFields>(EMPTY_ORDER_FORM_FIELDS);
+  const [order, setOrder] = useState<OrderFormLoadedOrder | null>(null);
   const [publicBranding, setPublicBranding] = useState<PublicOperatingCompanyBranding | null>(null);
   const [publicCompanyTrust, setPublicCompanyTrust] = useState<PublicOrderFormCompanyTrust | null>(null);
   /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
@@ -1317,6 +1192,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       const receipt = await getOrderFormByToken(token);
       if (isOrderFormPublicSubmitted(receipt)) {
         setSubmittedReceipt(receipt);
+        clearOrderFormCustomerDraft(token);
       }
       };
 
@@ -1512,6 +1388,23 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
   };
 
+  const customerWizard = useOrderFormModel({
+    token,
+    enabled: !isEditor,
+    loaded: Boolean(order) && !loading,
+    form,
+    setForm,
+    customAnswers,
+    setCustomAnswers,
+    profSelections,
+    setProfSelections,
+    order,
+    customFields: visibleOrderFormCustomFields,
+    isEditor,
+    guideTermsAt: guideTermsConsent?.at ?? null,
+    setGuideTermsConsent,
+  });
+
   const CloseButton = () => (
     <button
       type="button"
@@ -1608,6 +1501,542 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const profLocked = lockKey('professionalOptionIds');
   const moveLocked =
     lockKey('moveInTiming') || lockKey('moveInDate') || lockKey('moveInDateUndecided');
+
+  const pageDialogs = (
+    <>
+
+        {!isEditor ? (
+          <OrderFormGuideAgreeModal
+            open={guideAgreeModalOpen}
+            onClose={() => setGuideAgreeModalOpen(false)}
+            brandSlug={resolvePublicBrandSlug() || undefined}
+            onAgree={() => {
+              setGuideTermsConsent({ at: new Date().toISOString() });
+            }}
+          />
+        ) : null}
+        {prefillSavedOpen ? (
+          <div
+            className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+              <div className="flex flex-col items-center px-6 pb-5 pt-7 text-center">
+                <h2 className="text-base font-semibold tracking-tight text-gray-900">저장했습니다</h2>
+                <p className="mt-2 text-[15px] leading-relaxed text-gray-700">
+                  입력하신 항목은 고객 발주서에서 <span className="font-medium">읽기전용으로 잠깁니다.</span> 비워 둔 항목은 고객이 직접 작성합니다.
+                </p>
+                <p className="mt-2 text-xs text-gray-500">같은 링크로 언제든 다시 수정할 수 있습니다(고객 제출 전).</p>
+              </div>
+              <div className="flex justify-center border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrefillSavedOpen(false);
+                    if (editor?.onClose) editor.onClose();
+                  }}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
+                  autoFocus
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {submitErrorModal ? (
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-submit-error-title"
+            onClick={() => setSubmitErrorModal(null)}
+          >
+            <div
+              className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+              role="presentation"
+            >
+              <div className="flex flex-col items-center px-6 pb-5 pt-7 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 ring-8 ring-amber-50/60">
+                  <svg
+                    className="h-7 w-7 text-amber-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                  </svg>
+                </div>
+                <h2
+                  id="order-submit-error-title"
+                  className="mt-4 text-base font-semibold tracking-tight text-gray-900"
+                >
+                  {submitErrorModal.messages.length > 1
+                    ? '입력하지 않은 항목이 있어요'
+                    : '한 가지 확인이 필요해요'}
+                </h2>
+                {submitErrorModal.messages.length > 1 ? (
+                  <ul className="mt-3 w-full max-h-[40vh] space-y-1.5 overflow-y-auto text-left text-[15px] leading-relaxed text-gray-700">
+                    {submitErrorModal.messages.map((msg, idx) => (
+                      <li key={`${idx}-${msg.slice(0, 24)}`} className="flex gap-2">
+                        <span className="mt-0.5 shrink-0 text-amber-600" aria-hidden>
+                          •
+                        </span>
+                        <span className="min-w-0 break-words">{msg}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-700">
+                    {submitErrorModal.messages[0]}
+                  </p>
+                )}
+                <p className="mt-3 text-xs text-gray-500">
+                  확인을 누르면 첫 번째 미입력 항목으로 이동합니다.
+                </p>
+              </div>
+              <div className="flex gap-2 border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setSubmitErrorModal(null)}
+                  className="min-h-11 flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={dismissSubmitErrorModal}
+                  className="min-h-11 flex-1 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
+                  autoFocus
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {areaBasisAckModal ? (
+          <div
+            className="fixed inset-0 z-[1002] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="area-basis-ack-title"
+          >
+            <div
+              className="flex max-h-[min(92vh,36rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+              role="presentation"
+            >
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-4 pt-5 sm:px-6">
+                <h2
+                  id="area-basis-ack-title"
+                  className="text-base font-semibold tracking-tight text-gray-900"
+                >
+                  {areaBasisAckModal === '공급'
+                    ? '공급면적 (분양 평수)'
+                    : '전용면적 (실제 내 집 공간)'}
+                </h2>
+                <div className="mt-4 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3.5 shadow-sm">
+                  <p className="text-base font-bold leading-snug text-red-950 sm:text-[1.05rem]">
+                    주의: 면적란에는 반드시{' '}
+                    <span className="underline decoration-2 decoration-red-700 underline-offset-2">평수</span>로 적어
+                    주세요.
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-snug text-red-900">
+                    제곱미터(㎡)만 알고 계시면, 평으로 치수 변환(환산)한 값을 입력해야 합니다. ㎡ 그대로 넣지 마세요.
+                  </p>
+                  <div
+                    className="mt-3 border-4 border-red-700 bg-red-100 px-3 py-3.5 shadow-inner"
+                    role="note"
+                  >
+                    <p className="text-center text-fluid-base font-black leading-snug text-red-900 sm:text-lg">
+                      <span className="underline decoration-red-900 decoration-4 underline-offset-[5px]">
+                        분양 때 나오는{' '}
+                        <span className="text-red-800">타입·평형 명칭</span>은 면적란에{' '}
+                        <span className="text-red-950">절대 적지 마세요.</span>
+                      </span>
+                    </p>
+                    <p className="mt-2.5 text-center text-sm font-extrabold leading-snug text-red-950">
+                      <span className="underline decoration-red-800 decoration-2 underline-offset-2">
+                        34평형 · 59㎡형 · ○○A 타입 등 표기는 모두 금지
+                      </span>{' '}
+                      — 등기·계약서의{' '}
+                      <span className="underline decoration-red-900 decoration-[3px] underline-offset-2">
+                        실제 평수(숫자)
+                      </span>
+                      만 적어 주세요.
+                    </p>
+                  </div>
+                  <p className="mt-1.5 text-fluid-xs font-medium text-red-900/90">
+                    참고: 1평 ≈ 3.3058㎡ — 예) 전용 84㎡ → 약 25.4평
+                  </p>
+                </div>
+                <div className="mt-4 space-y-3 text-sm leading-relaxed text-gray-800">
+                  {areaBasisAckModal === '공급' ? (
+                    <>
+                      <p>
+                        공급면적은 &apos;전용면적&apos;에 이웃과 함께 사용하는 &apos;주거 공용면적&apos;을 합친
+                        공간입니다.
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">주거 공용면적이란?</span> 아파트 건물 내에서
+                        다른 세대와 공동으로 사용하는 계단, 복도, 엘리베이터, 1층 현관 등을 말합니다.
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">공식:</span> 공급면적 = 전용면적 + 주거 공용면적
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">특징:</span> 우리가 보통 아파트 크기를 말할 때
+                        &quot;34평형이다&quot;, &quot;25평형이다&quot;라고 부르는 기준이 바로 이 공급면적(분양면적)입니다.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        전용면적은 현관문을 열고 들어가서 나 혼자(우리 가족만) 독점적으로 사용하는 실제 거주 공간을
+                        말합니다.
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">포함되는 공간:</span> 거실, 침실, 주방, 화장실 등
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">제외되는 공간:</span> 발코니(베란다)는
+                        &apos;서비스 면적&apos;으로 분류되어 전용면적에 포함되지 않습니다.
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">특징:</span> 세금 산정(취득세, 재산세 등)이나
+                        청약 자격을 결정할 때 기준이 되는 가장 중요한 면적입니다. 예를 들어 등기에는 &apos;전용 84㎡&apos;
+                        처럼 나오는 경우가 많은데, 발주서에는 그에 맞게{' '}
+                        <span className="font-semibold text-gray-900">평으로 환산한 숫자</span>를 적어 주세요.
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="mt-5 rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-3.5 text-sm font-semibold leading-snug text-amber-950">
+                  <span className="font-bold text-amber-950">안내 · </span>
+                  {AREA_BASIS_COST_WARNING}
+                </div>
+              </div>
+              <div className="shrink-0 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:px-6">
+                <button
+                  type="button"
+                  onClick={confirmAreaBasisAck}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
+                  autoFocus
+                >
+                  확인하였습니다.
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {customerScheduleAckEnabled && serviceDateAckOpen && pendingServiceDate ? (
+          <div
+            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="service-date-ack-title"
+            aria-describedby="service-date-ack-desc"
+            onClick={() => cancelServiceDateAck()}
+          >
+            <div
+              className="w-full max-h-[min(92dvh,640px)] sm:max-h-[85vh] max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="max-h-[min(92dvh,640px)] sm:max-h-[85vh] overflow-y-auto overscroll-y-contain">
+                <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 ring-1 ring-amber-100/80"
+                      aria-hidden
+                    >
+                      <svg
+                        className="h-6 w-6 text-amber-800"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2
+                        id="service-date-ack-title"
+                        className="text-base font-semibold leading-snug tracking-tight text-gray-900"
+                      >
+                        <OrderFormModalFormattedText
+                          text={ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckTitle}
+                          className="break-words leading-snug"
+                        />
+                      </h2>
+                      <p className="mt-1 text-fluid-xs text-gray-500">
+                        선택하신 날짜:{' '}
+                        <span className="font-medium text-gray-800 tabular-nums">
+                          {formatDateCompactWithWeekday(pendingServiceDate)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div id="service-date-ack-desc" className="px-5 py-4 text-fluid-sm leading-relaxed text-gray-700 sm:px-6">
+                  <OrderFormModalFormattedText text={serviceDateAckBodyExpanded} />
+                  <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950">
+                    <OrderFormModalFormattedText
+                      text={ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckConsentHint}
+                      className="break-words leading-relaxed"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">
+                <button
+                  type="button"
+                  onClick={() => cancelServiceDateAck()}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99] sm:w-auto sm:min-w-[7rem] sm:py-2.5"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => confirmServiceDateAck()}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99] sm:w-auto sm:min-w-[11rem] sm:py-2.5"
+                  autoFocus
+                >
+                  동의합니다
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {moveDateMismatchWarnOpen ? (
+          <div
+            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-date-mismatch-title"
+            onClick={() => {
+              setMoveDateMismatchWarnOpen(false);
+              submitAfterValidationRef.current = null;
+            }}
+          >
+            <div
+              className="w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="border-b border-gray-100 bg-gradient-to-b from-amber-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
+                <h2 id="move-date-mismatch-title" className="text-base font-semibold text-gray-900">
+                  일정 확인
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                  청소일과 이사일이 다릅니다. 일정을 확인해주세요.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 px-5 py-4 sm:px-6">
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                  onClick={() => {
+                    setMoveDateMismatchWarnOpen(false);
+                    submitAfterValidationRef.current = null;
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+                  disabled={submitting}
+                  onClick={async () => {
+                    setMoveDateMismatchWarnOpen(false);
+                    const run = submitAfterValidationRef.current;
+                    submitAfterValidationRef.current = null;
+                    if (!run) return;
+                    setSubmitting(true);
+                    try {
+                      await run();
+                    } catch (e) {
+                      showSubmitError(e instanceof Error ? e.message : '제출에 실패했습니다.');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {customerScheduleAckEnabled && timeSlotAckOpen && pendingTimeSlot ? (
+          <div
+            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="time-slot-ack-title"
+            aria-describedby="time-slot-ack-desc"
+            onClick={() => cancelTimeSlotAck()}
+          >
+            <div
+              className="w-full max-h-[min(92dvh,640px)] sm:max-h-[85vh] max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="max-h-[min(92dvh,640px)] sm:max-h-[85vh] overflow-y-auto overscroll-y-contain">
+                <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100/80"
+                      aria-hidden
+                    >
+                      <svg
+                        className="h-6 w-6 text-blue-700"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v6l3 2" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2
+                        id="time-slot-ack-title"
+                        className="text-base font-semibold leading-snug tracking-tight text-gray-900"
+                      >
+                        <OrderFormModalFormattedText
+                          text={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckTitle}
+                          className="break-words leading-snug"
+                        />
+                      </h2>
+                      <p className="mt-1 text-fluid-xs text-gray-500">
+                        선택 예정:{' '}
+                        <span className="font-medium text-gray-800">
+                          {labelForTimeSlot(pendingTimeSlot, timeSlotLabels)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div id="time-slot-ack-desc" className="px-5 py-4 text-fluid-sm leading-relaxed text-gray-700 sm:px-6">
+                  <OrderFormModalFormattedText
+                    text={orderFormConfigLine(
+                      order?.formConfig?.timeSlotAckBody,
+                      ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckBody,
+                    )}
+                  />
+                  <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950">
+                    <OrderFormModalFormattedText
+                      text={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckConsentHint}
+                      className="break-words leading-relaxed"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">
+                <button
+                  type="button"
+                  onClick={() => cancelTimeSlotAck()}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99] sm:w-auto sm:min-w-[7rem] sm:py-2.5"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => confirmTimeSlotAck()}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99] sm:w-auto sm:min-w-[11rem] sm:py-2.5"
+                  autoFocus
+                >
+                  동의하고 선택하기
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+    </>
+  );
+
+  if (!isEditor && customerWizard.currentStep) {
+    const shared: CustomerWizardShared = {
+      token,
+      form,
+      setForm,
+      customAnswers,
+      setCustomAnswers,
+      order,
+      lockKey: customerWizard.lockKey,
+      addressConfirmedViaSearch,
+      setAddressConfirmedViaSearch,
+      addressFieldLocked,
+      oneRoomLabel,
+      propertyTypeOptions,
+      buildingTypeOptions,
+      timeSlotOptions,
+      timeSlotLabels,
+      requestAreaBasisSelection,
+      handleCustomerPreferredDateChange,
+      handleCustomerPreferredTimeChange,
+      submitting,
+      guideTermsAt: guideTermsConsent?.at ?? null,
+      setGuideAgreeModalOpen,
+      agreeLinkLabel,
+      professionalOptions,
+      profSelections,
+      setProfSelections,
+      toggleProfOption,
+      setProfQuantity,
+      setProfUnitAmount,
+      profCatOpen,
+      setProfCatOpen,
+      removeProfInSubtree,
+      visibleCustomFields: visibleOrderFormCustomFields,
+      goTo: customerWizard.goTo,
+      goNext: customerWizard.goNext,
+    };
+    return (
+      <OrderFormCustomerWizard
+        headingTitle={orderFormHeadingTitle}
+        brandName={publicBranding?.displayName}
+        publicBranding={publicBranding}
+        publicCompanyTrust={publicCompanyTrust}
+        leaveHint={leavePageHint}
+        onLeave={handleLeavePage}
+        progressRatio={customerWizard.progressRatio}
+        progressLabel={customerWizard.progressLabel}
+        currentStep={customerWizard.currentStep}
+        stepIndex={customerWizard.stepIndex}
+        goNext={customerWizard.goNext}
+        goPrev={customerWizard.goPrev}
+        canGoBack={customerWizard.stepIndex > 0}
+        timeSlotAckOpen={timeSlotAckOpen}
+        timeSlotConsentAt={timeSlotConsent?.at ?? null}
+        shared={shared}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        dialogs={pageDialogs}
+      />
+    );
+  }
+
 
   return (
     <div
@@ -2764,462 +3193,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         </form>
 
-        {prefillSavedOpen ? (
-          <div
-            className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
-              <div className="flex flex-col items-center px-6 pb-5 pt-7 text-center">
-                <h2 className="text-base font-semibold tracking-tight text-gray-900">저장했습니다</h2>
-                <p className="mt-2 text-[15px] leading-relaxed text-gray-700">
-                  입력하신 항목은 고객 발주서에서 <span className="font-medium">읽기전용으로 잠깁니다.</span> 비워 둔 항목은 고객이 직접 작성합니다.
-                </p>
-                <p className="mt-2 text-xs text-gray-500">같은 링크로 언제든 다시 수정할 수 있습니다(고객 제출 전).</p>
-              </div>
-              <div className="flex justify-center border-t border-gray-100 bg-gray-50/60 px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrefillSavedOpen(false);
-                    if (editor?.onClose) editor.onClose();
-                  }}
-                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
-                  autoFocus
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {submitErrorModal ? (
-          <div
-            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="order-submit-error-title"
-            onClick={() => setSubmitErrorModal(null)}
-          >
-            <div
-              className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
-              onClick={(e) => e.stopPropagation()}
-              role="presentation"
-            >
-              <div className="flex flex-col items-center px-6 pb-5 pt-7 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 ring-8 ring-amber-50/60">
-                  <svg
-                    className="h-7 w-7 text-amber-500"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 9v4" />
-                    <path d="M12 17h.01" />
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                  </svg>
-                </div>
-                <h2
-                  id="order-submit-error-title"
-                  className="mt-4 text-base font-semibold tracking-tight text-gray-900"
-                >
-                  {submitErrorModal.messages.length > 1
-                    ? '입력하지 않은 항목이 있어요'
-                    : '한 가지 확인이 필요해요'}
-                </h2>
-                {submitErrorModal.messages.length > 1 ? (
-                  <ul className="mt-3 w-full max-h-[40vh] space-y-1.5 overflow-y-auto text-left text-[15px] leading-relaxed text-gray-700">
-                    {submitErrorModal.messages.map((msg, idx) => (
-                      <li key={`${idx}-${msg.slice(0, 24)}`} className="flex gap-2">
-                        <span className="mt-0.5 shrink-0 text-amber-600" aria-hidden>
-                          •
-                        </span>
-                        <span className="min-w-0 break-words">{msg}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-700">
-                    {submitErrorModal.messages[0]}
-                  </p>
-                )}
-                <p className="mt-3 text-xs text-gray-500">
-                  확인을 누르면 첫 번째 미입력 항목으로 이동합니다.
-                </p>
-              </div>
-              <div className="flex gap-2 border-t border-gray-100 bg-gray-50/60 px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => setSubmitErrorModal(null)}
-                  className="min-h-11 flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-                >
-                  닫기
-                </button>
-                <button
-                  type="button"
-                  onClick={dismissSubmitErrorModal}
-                  className="min-h-11 flex-1 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
-                  autoFocus
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {areaBasisAckModal ? (
-          <div
-            className="fixed inset-0 z-[1002] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="area-basis-ack-title"
-          >
-            <div
-              className="flex max-h-[min(92vh,36rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
-              onClick={(e) => e.stopPropagation()}
-              role="presentation"
-            >
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-4 pt-5 sm:px-6">
-                <h2
-                  id="area-basis-ack-title"
-                  className="text-base font-semibold tracking-tight text-gray-900"
-                >
-                  {areaBasisAckModal === '공급'
-                    ? '공급면적 (분양 평수)'
-                    : '전용면적 (실제 내 집 공간)'}
-                </h2>
-                <div className="mt-4 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3.5 shadow-sm">
-                  <p className="text-base font-bold leading-snug text-red-950 sm:text-[1.05rem]">
-                    주의: 면적란에는 반드시{' '}
-                    <span className="underline decoration-2 decoration-red-700 underline-offset-2">평수</span>로 적어
-                    주세요.
-                  </p>
-                  <p className="mt-2 text-sm font-semibold leading-snug text-red-900">
-                    제곱미터(㎡)만 알고 계시면, 평으로 치수 변환(환산)한 값을 입력해야 합니다. ㎡ 그대로 넣지 마세요.
-                  </p>
-                  <div
-                    className="mt-3 border-4 border-red-700 bg-red-100 px-3 py-3.5 shadow-inner"
-                    role="note"
-                  >
-                    <p className="text-center text-fluid-base font-black leading-snug text-red-900 sm:text-lg">
-                      <span className="underline decoration-red-900 decoration-4 underline-offset-[5px]">
-                        분양 때 나오는{' '}
-                        <span className="text-red-800">타입·평형 명칭</span>은 면적란에{' '}
-                        <span className="text-red-950">절대 적지 마세요.</span>
-                      </span>
-                    </p>
-                    <p className="mt-2.5 text-center text-sm font-extrabold leading-snug text-red-950">
-                      <span className="underline decoration-red-800 decoration-2 underline-offset-2">
-                        34평형 · 59㎡형 · ○○A 타입 등 표기는 모두 금지
-                      </span>{' '}
-                      — 등기·계약서의{' '}
-                      <span className="underline decoration-red-900 decoration-[3px] underline-offset-2">
-                        실제 평수(숫자)
-                      </span>
-                      만 적어 주세요.
-                    </p>
-                  </div>
-                  <p className="mt-1.5 text-fluid-xs font-medium text-red-900/90">
-                    참고: 1평 ≈ 3.3058㎡ — 예) 전용 84㎡ → 약 25.4평
-                  </p>
-                </div>
-                <div className="mt-4 space-y-3 text-sm leading-relaxed text-gray-800">
-                  {areaBasisAckModal === '공급' ? (
-                    <>
-                      <p>
-                        공급면적은 &apos;전용면적&apos;에 이웃과 함께 사용하는 &apos;주거 공용면적&apos;을 합친
-                        공간입니다.
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-900">주거 공용면적이란?</span> 아파트 건물 내에서
-                        다른 세대와 공동으로 사용하는 계단, 복도, 엘리베이터, 1층 현관 등을 말합니다.
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-900">공식:</span> 공급면적 = 전용면적 + 주거 공용면적
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-900">특징:</span> 우리가 보통 아파트 크기를 말할 때
-                        &quot;34평형이다&quot;, &quot;25평형이다&quot;라고 부르는 기준이 바로 이 공급면적(분양면적)입니다.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        전용면적은 현관문을 열고 들어가서 나 혼자(우리 가족만) 독점적으로 사용하는 실제 거주 공간을
-                        말합니다.
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-900">포함되는 공간:</span> 거실, 침실, 주방, 화장실 등
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-900">제외되는 공간:</span> 발코니(베란다)는
-                        &apos;서비스 면적&apos;으로 분류되어 전용면적에 포함되지 않습니다.
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-900">특징:</span> 세금 산정(취득세, 재산세 등)이나
-                        청약 자격을 결정할 때 기준이 되는 가장 중요한 면적입니다. 예를 들어 등기에는 &apos;전용 84㎡&apos;
-                        처럼 나오는 경우가 많은데, 발주서에는 그에 맞게{' '}
-                        <span className="font-semibold text-gray-900">평으로 환산한 숫자</span>를 적어 주세요.
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="mt-5 rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-3.5 text-sm font-semibold leading-snug text-amber-950">
-                  <span className="font-bold text-amber-950">안내 · </span>
-                  {AREA_BASIS_COST_WARNING}
-                </div>
-              </div>
-              <div className="shrink-0 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:px-6">
-                <button
-                  type="button"
-                  onClick={confirmAreaBasisAck}
-                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
-                  autoFocus
-                >
-                  확인하였습니다.
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {customerScheduleAckEnabled && serviceDateAckOpen && pendingServiceDate ? (
-          <div
-            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="service-date-ack-title"
-            aria-describedby="service-date-ack-desc"
-            onClick={() => cancelServiceDateAck()}
-          >
-            <div
-              className="w-full max-h-[min(92dvh,640px)] sm:max-h-[85vh] max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="max-h-[min(92dvh,640px)] sm:max-h-[85vh] overflow-y-auto overscroll-y-contain">
-                <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 ring-1 ring-amber-100/80"
-                      aria-hidden
-                    >
-                      <svg
-                        className="h-6 w-6 text-amber-800"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect x="3" y="4" width="18" height="18" rx="2" />
-                        <path d="M16 2v4M8 2v4M3 10h18" />
-                      </svg>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h2
-                        id="service-date-ack-title"
-                        className="text-base font-semibold leading-snug tracking-tight text-gray-900"
-                      >
-                        <OrderFormModalFormattedText
-                          text={ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckTitle}
-                          className="break-words leading-snug"
-                        />
-                      </h2>
-                      <p className="mt-1 text-fluid-xs text-gray-500">
-                        선택하신 날짜:{' '}
-                        <span className="font-medium text-gray-800 tabular-nums">
-                          {formatDateCompactWithWeekday(pendingServiceDate)}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div id="service-date-ack-desc" className="px-5 py-4 text-fluid-sm leading-relaxed text-gray-700 sm:px-6">
-                  <OrderFormModalFormattedText text={serviceDateAckBodyExpanded} />
-                  <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950">
-                    <OrderFormModalFormattedText
-                      text={ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckConsentHint}
-                      className="break-words leading-relaxed"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">
-                <button
-                  type="button"
-                  onClick={() => cancelServiceDateAck()}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99] sm:w-auto sm:min-w-[7rem] sm:py-2.5"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={() => confirmServiceDateAck()}
-                  className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99] sm:w-auto sm:min-w-[11rem] sm:py-2.5"
-                  autoFocus
-                >
-                  동의합니다
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {moveDateMismatchWarnOpen ? (
-          <div
-            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="move-date-mismatch-title"
-            onClick={() => {
-              setMoveDateMismatchWarnOpen(false);
-              submitAfterValidationRef.current = null;
-            }}
-          >
-            <div
-              className="w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="border-b border-gray-100 bg-gradient-to-b from-amber-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
-                <h2 id="move-date-mismatch-title" className="text-base font-semibold text-gray-900">
-                  일정 확인
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                  청소일과 이사일이 다릅니다. 일정을 확인해주세요.
-                </p>
-              </div>
-              <div className="flex justify-end gap-2 px-5 py-4 sm:px-6">
-                <button
-                  type="button"
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                  onClick={() => {
-                    setMoveDateMismatchWarnOpen(false);
-                    submitAfterValidationRef.current = null;
-                  }}
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
-                  disabled={submitting}
-                  onClick={async () => {
-                    setMoveDateMismatchWarnOpen(false);
-                    const run = submitAfterValidationRef.current;
-                    submitAfterValidationRef.current = null;
-                    if (!run) return;
-                    setSubmitting(true);
-                    try {
-                      await run();
-                    } catch (e) {
-                      showSubmitError(e instanceof Error ? e.message : '제출에 실패했습니다.');
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {customerScheduleAckEnabled && timeSlotAckOpen && pendingTimeSlot ? (
-          <div
-            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="time-slot-ack-title"
-            aria-describedby="time-slot-ack-desc"
-            onClick={() => cancelTimeSlotAck()}
-          >
-            <div
-              className="w-full max-h-[min(92dvh,640px)] sm:max-h-[85vh] max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="max-h-[min(92dvh,640px)] sm:max-h-[85vh] overflow-y-auto overscroll-y-contain">
-                <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100/80"
-                      aria-hidden
-                    >
-                      <svg
-                        className="h-6 w-6 text-blue-700"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M12 7v6l3 2" />
-                      </svg>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h2
-                        id="time-slot-ack-title"
-                        className="text-base font-semibold leading-snug tracking-tight text-gray-900"
-                      >
-                        <OrderFormModalFormattedText
-                          text={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckTitle}
-                          className="break-words leading-snug"
-                        />
-                      </h2>
-                      <p className="mt-1 text-fluid-xs text-gray-500">
-                        선택 예정:{' '}
-                        <span className="font-medium text-gray-800">
-                          {labelForTimeSlot(pendingTimeSlot, timeSlotLabels)}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div id="time-slot-ack-desc" className="px-5 py-4 text-fluid-sm leading-relaxed text-gray-700 sm:px-6">
-                  <OrderFormModalFormattedText
-                    text={orderFormConfigLine(
-                      order?.formConfig?.timeSlotAckBody,
-                      ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckBody,
-                    )}
-                  />
-                  <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950">
-                    <OrderFormModalFormattedText
-                      text={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckConsentHint}
-                      className="break-words leading-relaxed"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">
-                <button
-                  type="button"
-                  onClick={() => cancelTimeSlotAck()}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99] sm:w-auto sm:min-w-[7rem] sm:py-2.5"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={() => confirmTimeSlotAck()}
-                  className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99] sm:w-auto sm:min-w-[11rem] sm:py-2.5"
-                  autoFocus
-                >
-                  동의하고 선택하기
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+        {pageDialogs}
 
         {!isEditor && !isCreate ? null : (
         <div className="text-xs text-gray-500 mt-8 text-center space-y-1">
