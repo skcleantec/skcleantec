@@ -177,22 +177,12 @@ function AvatarCircle({
 }
 
 function MineMessageMeta({ message }: { message: Message }) {
-  if (message.batchId) {
-    return (
-      <span className="kakaotalk-time-indicator pb-0.5">
-        {formatTimeForList(message.createdAt)}
-      </span>
-    );
-  }
-
   return (
     <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pb-0.5">
       {message.readAt ? (
         <span className="kakaotalk-read-indicator">읽음</span>
       ) : (
-        <span className="kakaotalk-unread-indicator" aria-label="읽지 않음">
-          1
-        </span>
+        <span className="kakaotalk-unread-indicator">안 읽음</span>
       )}
       <span className="kakaotalk-time-indicator">{formatTimeForList(message.createdAt)}</span>
     </div>

@@ -182,11 +182,11 @@ export function TeamMessagesPage() {
                     <div className="break-words">{m.content}</div>
                     <div className="text-[12px] opacity-70 mt-1 flex items-center gap-2 tabular-nums">
                       <span>{formatDateTimeCompactWithWeekday(m.createdAt)}</span>
-                      {isMine && !m.batchId && (
-                        <span className={m.readAt ? 'text-blue-300' : 'text-gray-400'}>
+                      {isMine ? (
+                        <span className={m.readAt ? 'text-blue-200' : 'text-amber-200'}>
                           {m.readAt ? teamBiPlain('team.messages.read') : teamBiPlain('team.messages.unread')}
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>

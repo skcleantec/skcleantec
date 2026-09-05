@@ -351,17 +351,30 @@ router.get('/team-office', async (req, res) => {
     },
   })) as unknown as TeamOfficeRow[];
   const readNow = new Date();
-  await prisma.message.updateMany({
+  const markedIncoming = await prisma.message.updateMany({
     where: { tenantId, senderId: { in: staffIds }, receiverId: myId, readAt: null },
     data: { readAt: readNow },
   });
+  if (markedIncoming.count > 0) {
+    notifyInboxRefresh(staffIds);
+  }
 
+  const batchAnyReadAt = new Map<string, Date>();
+  for (const m of raw) {
+    if (m.senderId === myId && m.batchId && m.readAt) {
+      const prev = batchAnyReadAt.get(m.batchId);
+      if (!prev || m.readAt < prev) batchAnyReadAt.set(m.batchId, m.readAt);
+    }
+  }
   const seenBatch = new Set<string>();
   const collapsed: TeamOfficeRow[] = [];
   for (const m of raw) {
     if (m.senderId === myId && m.batchId) {
       if (seenBatch.has(m.batchId)) continue;
       seenBatch.add(m.batchId);
+      const anyRead = batchAnyReadAt.get(m.batchId);
+      collapsed.push(anyRead && !m.readAt ? { ...m, readAt: anyRead } : m);
+      continue;
     }
     collapsed.push(m);
   }
@@ -638,10 +651,13 @@ router.get('/:userId', async (req, res) => {
   }
 
   const readNow = new Date();
-  await prisma.message.updateMany({
+  const markedIncoming = await prisma.message.updateMany({
     where: { tenantId, senderId: otherId, receiverId: myId, readAt: null },
     data: { readAt: readNow },
   });
+  if (markedIncoming.count > 0) {
+    notifyInboxRefresh([otherId]);
+  }
   const messagesOut = messages.map((m) =>
     m.senderId === otherId && m.receiverId === myId && m.readAt == null ? { ...m, readAt: readNow } : m
   );

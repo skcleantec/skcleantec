@@ -720,8 +720,9 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 .kakaotalk-unread-indicator {
   font-size: 11px;
   font-weight: 700;
-  color: #b8a200;
+  color: #c2410c;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .kakaotalk-read-indicator {

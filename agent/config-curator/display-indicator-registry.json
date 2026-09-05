@@ -426,6 +426,53 @@
         "client/src/pages/admin/AdminSchedulePage.tsx"
       ],
       "notes": "번호 클릭 시 달력 아이콘(미배·사이·조율)·구역 색·페이지설정. 팀장조정≠접수 배정."
+    },
+    {
+      "id": "messages.bubble.readReceipt",
+      "labelKo": "내 메시지 읽음",
+      "surfaces": ["admin.messages.thread", "team.messages.office"],
+      "visual": { "type": "text", "token": "slate-500" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "agent/product/HELP_GUIDE_MARKETER.md#15-스케쥴--메시지--정보공유",
+      "codeRefs": [
+        "client/src/pages/admin/AdminMessagesPage.tsx",
+        "client/src/pages/team/TeamMessagesPage.tsx",
+        "client/src/index.css"
+      ],
+      "notes": "상대가 방을 연 뒤 readAt. 끄면 전달 여부를 모름 — 범례·도움말만."
+    },
+    {
+      "id": "messages.bubble.unreadReceipt",
+      "labelKo": "내 메시지 안 읽음",
+      "surfaces": ["admin.messages.thread", "team.messages.office"],
+      "visual": { "type": "text", "token": "orange-700" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "agent/product/HELP_GUIDE_TEAM.md#11-메시지--teammessages",
+      "codeRefs": [
+        "client/src/pages/admin/AdminMessagesPage.tsx",
+        "client/src/pages/team/TeamMessagesPage.tsx",
+        "client/src/index.css"
+      ],
+      "notes": "관리자 「안 읽음」(주황). 팀장 「읽지 않음」(amber). 목록 빨간 숫자와 별개."
+    },
+    {
+      "id": "messages.conversation.unreadBadge",
+      "labelKo": "대화 목록·GNB 미읽음 숫자",
+      "surfaces": ["admin.messages.list", "admin.gnb.messages", "team.gnb.messages"],
+      "visual": { "type": "badge", "token": "red-500" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "agent/product/HELP_GUIDE_MARKETER.md#15-스케쥴--메시지--정보공유",
+      "codeRefs": [
+        "server/src/modules/messages/messages.routes.ts",
+        "client/src/pages/admin/AdminMessagesPage.tsx"
+      ],
+      "notes": "receiverId+readAt null 건수. 말풍선 읽음 표시와 다름."
     }
   ]
 }
