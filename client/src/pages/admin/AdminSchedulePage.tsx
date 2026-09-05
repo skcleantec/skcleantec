@@ -107,6 +107,7 @@ import {
   SCHEDULE_UNASSIGNED_SECTION_HELP,
 } from '../../components/admin/schedule-help/scheduleHelpShared';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { StaffWorkflowGuideBar } from '../../components/admin/workflow-guide/StaffWorkflowGuideBar';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { isManualIntakeInquiry } from '../../utils/manualIntakeInquiry';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
@@ -1724,6 +1725,7 @@ export function AdminSchedulePage() {
 
   return (
     <div className="flex flex-col gap-2 lg:gap-5 min-w-0">
+      <StaffWorkflowGuideBar surface="schedule" />
       <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
         <div className="hidden lg:flex items-center gap-1.5 shrink-0">
           <PageTitleWithFavorite label="스케쥴">

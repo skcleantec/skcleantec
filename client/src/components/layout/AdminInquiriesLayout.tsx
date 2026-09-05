@@ -16,6 +16,7 @@ import {
 } from '../../utils/filterAdminSideNavByPermissions';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
 import { useInquiriesSubNavBadges } from '../../utils/adminInquiriesNavBadges';
+import { StaffWorkflowGuideBar } from '../admin/workflow-guide/StaffWorkflowGuideBar';
 
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
@@ -105,7 +106,10 @@ export function AdminInquiriesLayout() {
               이 화면에 대한 권한이 없습니다.
             </div>
           ) : (
-            <Outlet />
+            <div className="flex min-w-0 flex-col gap-2">
+              <StaffWorkflowGuideBar surface="inquiry" />
+              <Outlet />
+            </div>
           )}
         </div>
       </div>

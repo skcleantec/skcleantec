@@ -9,6 +9,11 @@ import {
   getCelebrateBarTemplates,
   setCelebrateBarTemplates,
 } from '../../utils/adminCelebrateBarConfig';
+import {
+  getWorkflowGuideState,
+  setWorkflowGuideHidden,
+  WORKFLOW_GUIDE_CHANGE_EVENT,
+} from '../../utils/staffWorkflowGuideStorage';
 
 /**
  * 사용자 등록 → 페이지 설정
@@ -18,11 +23,20 @@ export function AdminPageSettingsPage() {
   const [tplOrder, setTplOrder] = useState(DEFAULT_CELEBRATE_TPL_ORDER);
   const [tplInquiry, setTplInquiry] = useState(DEFAULT_CELEBRATE_TPL_INQUIRY);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [showInquiryGuide, setShowInquiryGuide] = useState(true);
+  const [showScheduleGuide, setShowScheduleGuide] = useState(true);
 
   useEffect(() => {
     const { orderForm, inquiry } = getCelebrateBarTemplates();
     setTplOrder(orderForm);
     setTplInquiry(inquiry);
+    const syncGuide = () => {
+      setShowInquiryGuide(!getWorkflowGuideState('inquiry').hidden);
+      setShowScheduleGuide(!getWorkflowGuideState('schedule').hidden);
+    };
+    syncGuide();
+    window.addEventListener(WORKFLOW_GUIDE_CHANGE_EVENT, syncGuide);
+    return () => window.removeEventListener(WORKFLOW_GUIDE_CHANGE_EVENT, syncGuide);
   }, []);
 
   const handleSave = () => {
@@ -56,6 +70,37 @@ export function AdminPageSettingsPage() {
           {savedMsg}
         </p>
       )}
+
+      <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
+        <h2 className="text-base font-semibold text-gray-900">화면 표시 · 이용 순서</h2>
+        <p className="text-xs text-gray-500 leading-relaxed">
+          서비스접수·스케줄 위에 번호 순서 버튼을 둡니다. 「다시 보지 않기」로 숨긴 안내를 여기서 다시 켤 수 있습니다.
+        </p>
+        <label className="flex items-center gap-2 text-sm text-gray-800">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            checked={showInquiryGuide}
+            onChange={(e) => {
+              setShowInquiryGuide(e.target.checked);
+              setWorkflowGuideHidden('inquiry', !e.target.checked);
+            }}
+          />
+          서비스접수에서 이용 순서 보기
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-800">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            checked={showScheduleGuide}
+            onChange={(e) => {
+              setShowScheduleGuide(e.target.checked);
+              setWorkflowGuideHidden('schedule', !e.target.checked);
+            }}
+          />
+          스케줄에서 이용 순서 보기
+        </label>
+      </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
         <h2 className="text-base font-semibold text-gray-900">접수 축하 상단 바</h2>

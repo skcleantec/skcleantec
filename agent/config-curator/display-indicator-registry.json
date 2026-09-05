@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-01",
+  "_lastUpdated": "2026-09-05",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -396,6 +396,36 @@
         "client/src/components/admin/order-issue/IssueFillRulesSettingsModal.tsx"
       ],
       "notes": "발급 제목 옆 「설정」→모달. 기본 체크=현재 발주서(면적만 마케터+필수). 항목 ? 도움말."
+    },
+    {
+      "id": "admin.workflowGuide.inquiry",
+      "labelKo": "서비스접수 · 이용 순서 안내",
+      "surfaces": ["admin.inquiries.layout"],
+      "visual": { "type": "chip", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/team-leaders/page-settings",
+      "helpPath": "/admin/inquiries",
+      "codeRefs": [
+        "client/src/components/admin/workflow-guide/StaffWorkflowGuideBar.tsx",
+        "client/src/components/layout/AdminInquiriesLayout.tsx"
+      ],
+      "notes": "기본 표시. 접기·다시 보지 않기(localStorage). 페이지 설정에서 복구."
+    },
+    {
+      "id": "admin.workflowGuide.schedule",
+      "labelKo": "스케줄 · 이용 순서 안내",
+      "surfaces": ["admin.schedule"],
+      "visual": { "type": "chip", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/team-leaders/page-settings",
+      "helpPath": "/admin/schedule",
+      "codeRefs": [
+        "client/src/components/admin/workflow-guide/StaffWorkflowGuideBar.tsx",
+        "client/src/pages/admin/AdminSchedulePage.tsx"
+      ],
+      "notes": "팀장조정≠접수 배정. 팀원 지정은 관리자 상세."
     }
   ]
 }

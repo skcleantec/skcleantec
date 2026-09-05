@@ -95,6 +95,7 @@ import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
+import { WORKFLOW_GUIDE_SCROLL_EVENT } from '../../utils/staffWorkflowGuideStorage';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
@@ -603,6 +604,16 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     inquiryEditScrollRef,
     !isPanel,
   );
+  useEffect(() => {
+    const onGuideScroll = (event: Event) => {
+      const section = (event as CustomEvent<{ section?: string }>).detail?.section;
+      if (!section) return;
+      const el = document.getElementById(`inq-edit-sec-${section}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    window.addEventListener(WORKFLOW_GUIDE_SCROLL_EVENT, onGuideScroll);
+    return () => window.removeEventListener(WORKFLOW_GUIDE_SCROLL_EVENT, onGuideScroll);
+  }, []);
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
   const [crewSpacingByMemberName, setCrewSpacingByMemberName] = useState<Record<string, number | null>>({});
   const [occupiedCrewNamesByDate, setOccupiedCrewNamesByDate] = useState<Set<string>>(new Set());

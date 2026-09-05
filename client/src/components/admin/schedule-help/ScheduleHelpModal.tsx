@@ -384,7 +384,10 @@ function ScheduleHelpListTab() {
         <HelpTable
           rows={[
             HelpUiRow({ tokenId: 'schedule-btn-staff-adjust', meaning: '그날 접수 오전↔오후↔사이·조율 시간대 변경' }),
-            HelpUiRow({ tokenId: 'schedule-btn-leader-adjust', meaning: '팀장 배정·교체' }),
+            HelpUiRow({
+              tokenId: 'schedule-btn-leader-adjust',
+              meaning: '그날 팀장 휴무·TO. 접수에 팀장을 붙이려면 카드 → 상세 「배정 · 팀원」',
+            }),
             HelpUiRow({ tokenId: 'schedule-btn-close', meaning: '선택한 날(또는 오전/오후만) 신규 배정 막기' }),
             HelpUiRow({ tokenId: 'schedule-btn-close-release', meaning: '일정마감 해제' }),
             HelpUiRow({ tokenId: 'schedule-btn-map', meaning: '그날 접수 위치 지도' }),

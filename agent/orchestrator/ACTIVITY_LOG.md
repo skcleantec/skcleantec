@@ -1,18 +1,18 @@
 # Agent Orchestra — Activity Dashboard
 
-**Last updated:** 2026-09-05 09:35 KST — 작성 설정 모달
+**Last updated:** 2026-09-05 10:40 KST — 이용 순서 안내
 
 ## Current status
 
 | Agent | Last run (KST) | Status | Summary |
 |-------|----------------|--------|---------|
-| Maestro | 2026-09-05 09:35 | completed | 설정=모달, 미푸시 |
-| CodeGuardian | 2026-09-05 09:35 | completed | 탭 제거·tsc |
-| DesignPulse | 2026-09-05 09:35 | completed | 설정 모달 |
-| ConfigCurator | 2026-09-05 09:35 | completed | 도움말·레지스트리 |
-| RoleQA | 2026-09-05 09:35 | completed | 역할 시나리오 |
-| PlatformOps | 2026-09-04 17:20 | completed | 모듈 없음 |
-| DbSentinel | 2026-09-04 17:20 | completed | JSON migrate |
+| Maestro | 2026-09-05 10:40 | completed | 이용 순서 구현, 미푸시 |
+| CodeGuardian | 2026-09-05 10:40 | completed | 공통 막대·tsc |
+| DesignPulse | 2026-09-05 10:40 | completed | 칩 배너 |
+| ConfigCurator | 2026-09-05 10:40 | completed | 설정·help |
+| RoleQA | 2026-09-05 10:40 | completed | 역할 시나리오 |
+| PlatformOps | 2026-09-05 10:40 | completed | 모듈 없음 |
+| DbSentinel | 2026-09-05 10:40 | completed | localStorage |
 
-**Outcome:** ✅ settings modal  
+**Outcome:** ✅ workflow guide  
 **Summary:** [BRIEF_REPORT.md](BRIEF_REPORT.md)

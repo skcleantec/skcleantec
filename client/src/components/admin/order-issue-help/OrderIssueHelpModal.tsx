@@ -74,6 +74,10 @@ function FlowTab() {
         <HelpActionTable
           rows={[
             {
+              sample: <span className="font-medium text-slate-800">이용 순서</span>,
+              meaning: '서비스접수 위 번호 버튼을 누르면 등록·발주서·배정 화면으로 바로 갑니다.',
+            },
+            {
               sample: <span className="font-medium text-slate-800">설정</span>,
               meaning:
                 '발주서 발급에서 「설정」을 누르면 창이 열립니다. 그 안에서 칸마다 고객·마케터·필수를 켭니다. 처음 체크는 지금 발주서와 같고, 면적은 상담사가 꼭 적습니다.',
