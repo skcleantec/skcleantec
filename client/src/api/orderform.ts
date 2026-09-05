@@ -190,6 +190,8 @@ export interface OrderFormConfigPublic {
   customerLinkBlockOrder?: string[] | null;
   /** 자유 편집 본문 — 있으면 조각 필드보다 우선 */
   customerLinkMessageTemplate?: string | null;
+  /** 발주서 칸별 작성 주체(관리 설정) */
+  issueFillRules?: Record<string, { customer: boolean; marketer: boolean; required: boolean }> | null;
 }
 
 export interface ProfessionalSpecialtyOptionDto {
@@ -302,6 +304,8 @@ export interface OrderFormPublicEditable {
   customAnswers?: Record<string, unknown> | null;
   /** 마케터 선입력 값 {key: value} — 있는 키는 고객 화면에서 읽기전용(잠금) */
   prefillAnswers?: Record<string, unknown> | null;
+  /** 고객이 적을 수 있는지·필수인지 (설정 JSON 전체 아님) */
+  fillRules?: Record<string, { customer: boolean; required: boolean }> | null;
   /** 미제출 상태에서 고객 특이사항 임시 저장(발주서 컬럼). 접수 `specialNotes`와 무관 */
   draftCustomerSpecialNotes?: string | null;
   /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
@@ -530,6 +534,7 @@ export interface OrderFormIssueFormData {
   template: OrderFormPublicTemplate | null;
   professionalOptions: ProfessionalSpecialtyOptionDto[];
   formConfig?: OrderFormConfigPublic;
+  fillRules?: Record<string, { customer: boolean; required: boolean }> | null;
   pendingInquiry?: PendingInquiryPrefill | null;
 }
 

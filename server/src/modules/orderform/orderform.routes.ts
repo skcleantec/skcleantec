@@ -114,6 +114,13 @@ import {
   validateOrderFormSpaceCounts,
 } from '../../lib/orderFormSpaceCounts.js';
 import {
+  fillRuleOf,
+  marketerMustFillAtIssue,
+  mergeOrderFormFillRules,
+  sanitizeOrderFormFillRulesForSave,
+  toPublicFillRules,
+} from '../../lib/orderFormFillRules.js';
+import {
   labelForMoveInTiming,
   parseMoveInTiming,
   validateMoveInTimingFields,
@@ -826,12 +833,16 @@ async function buildEditableOrderPayload(
       select: profOptionSelectPublic,
     }),
   ]);
-  const formConfig = await resolvePublicFormConfigForOrderForm(
-    prisma,
-    form.tenantId,
-    form.operatingCompanyId,
-    { preferredDateYmd: normalizeGuidePreferredDateYmd(form.preferredDate) },
-  );
+  const [formConfig, tenantFormCfg] = await Promise.all([
+    resolvePublicFormConfigForOrderForm(
+      prisma,
+      form.tenantId,
+      form.operatingCompanyId,
+      { preferredDateYmd: normalizeGuidePreferredDateYmd(form.preferredDate) },
+    ),
+    getOrCreateOrderFormConfig(prisma, form.tenantId),
+  ]);
+  const tenantFillRulesRaw = tenantFormCfg.issueFillRules;
   const template = await getPublicTemplateForForm(prisma, form.tenantId, form.templateId);
   const publicBranding = await resolvePublicBrandingForCustomer({
     db: prisma,
@@ -864,6 +875,7 @@ async function buildEditableOrderPayload(
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
     professionalOptions,
     formConfig,
+    fillRules: toPublicFillRules(mergeOrderFormFillRules(tenantFillRulesRaw)),
     template,
     customAnswers: (form.customerAnswers as Record<string, unknown> | null) ?? null,
     prefillAnswers: (form.prefillAnswers as Record<string, unknown> | null) ?? null,
@@ -1318,6 +1330,19 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     return;
   }
   const { areaPyeong: issueAreaPyeong, areaBasis: issueAreaBasis } = areaParsed;
+  const issueFillCfg = await getOrCreateOrderFormConfig(prisma, authTenantId);
+  const issueFillRules = mergeOrderFormFillRules(issueFillCfg.issueFillRules);
+  if (marketerMustFillAtIssue(fillRuleOf(issueFillRules, 'areaPyeong'))) {
+    const areaReady =
+      issueAreaPyeong != null &&
+      Number.isFinite(issueAreaPyeong) &&
+      issueAreaPyeong > 0 &&
+      (issueAreaBasis === '공급' || issueAreaBasis === '전용');
+    if (!areaReady) {
+      res.status(400).json({ error: '면적(공급·전용·평수)은 상담사가 반드시 입력해야 발급됩니다.' });
+      return;
+    }
+  }
   const customerPhoneOpt =
     customerPhoneRaw != null && String(customerPhoneRaw).trim()
       ? String(customerPhoneRaw).trim()
@@ -1736,16 +1761,20 @@ router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issu
     }
   }
 
-  const formConfig = await resolvePublicFormConfigForOrderForm(
-    prisma,
-    tenantId,
-    pendingOperatingCompanyId,
-  );
+  const [formConfig, tenantFormCfg] = await Promise.all([
+    resolvePublicFormConfigForOrderForm(
+      prisma,
+      tenantId,
+      pendingOperatingCompanyId,
+    ),
+    getOrCreateOrderFormConfig(prisma, tenantId),
+  ]);
 
   res.json({
     template,
     professionalOptions,
     formConfig,
+    fillRules: toPublicFillRules(mergeOrderFormFillRules(tenantFormCfg.issueFillRules)),
     pendingInquiry,
   });
 });
@@ -2381,6 +2410,9 @@ router.put('/form-config', authMiddleware, requireStaffPermission('orderform.for
         }),
         ...(body.customerLinkBlockOrder !== undefined && {
           customerLinkBlockOrder: normalizeCustomerLinkBlockOrder(body.customerLinkBlockOrder),
+        }),
+        ...(body.issueFillRules !== undefined && {
+          issueFillRules: sanitizeOrderFormFillRulesForSave(body.issueFillRules) as Prisma.InputJsonValue,
         }),
       },
     });

@@ -2960,6 +2960,8 @@ model OrderFormConfig {
   customerLinkBlockOrder     Json?   @map("customer_link_block_order")
   /// 고객 링크 메시지 전체 본문(자유 편집). 있으면 조각 필드·순서보다 우선
   customerLinkMessageTemplate String? @map("customer_link_message_template") @db.Text
+  /// 발주서 칸별 작성 주체(고객·마케터·필수). null이면 코드 기본값
+  issueFillRules      Json?    @map("issue_fill_rules")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("order_form_config")

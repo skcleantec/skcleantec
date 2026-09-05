@@ -7,6 +7,29 @@ import {
 } from '@shared/orderFormSpaceCounts';
 import { isPreferredTimeDetailRequired } from '../../constants/orderFormSchedule';
 import type { OrderFormFields, OrderFormLoadedOrder } from './orderFormModel.types';
+import {
+  DEFAULT_ORDER_FORM_FILL_RULES,
+  canCustomerWrite,
+  type OrderFormFillRuleKey,
+} from '@shared/orderFormFillRules';
+
+export function customerMayEditFillKey(
+  order: OrderFormLoadedOrder | null | undefined,
+  key: OrderFormFillRuleKey,
+): boolean {
+  const row = order?.fillRules?.[key];
+  if (row) return row.customer !== false;
+  return canCustomerWrite(DEFAULT_ORDER_FORM_FILL_RULES[key]);
+}
+
+export function fillKeyRequiredForCustomer(
+  order: OrderFormLoadedOrder | null | undefined,
+  key: OrderFormFillRuleKey,
+): boolean {
+  const row = order?.fillRules?.[key];
+  if (row) return row.required === true;
+  return DEFAULT_ORDER_FORM_FILL_RULES[key].required;
+}
 
 export function isOrderFormAreaLockedFromOrder(order: {
   areaBasis?: string | null;

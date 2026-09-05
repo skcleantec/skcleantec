@@ -62,6 +62,10 @@ import {
 import { OrderFormPage } from '../order/OrderFormPage';
 import { TenantCoinUsageBannerSection } from '../../components/tenant/TenantCoinUsageBannerSection';
 import { useOrderIssueOperatingCompanies } from '../../hooks/useOrderIssueOperatingCompanies';
+import { IssueFormSectionTabs } from '../../components/admin/order-issue/IssueFormSectionTabs';
+import { IssueFillRulesSettingsPanel } from '../../components/admin/order-issue/IssueFillRulesSettingsPanel';
+import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
+import { isIssueFormSectionId, type IssueFormSectionId } from '@shared/orderFormFillRules';
 
 type Tab = 'issue' | 'followup' | 'list';
 
@@ -137,6 +141,38 @@ export function AdminOrderFormPage() {
   }, [location.pathname]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => parseTabParam(searchParams.get('tab')));
+  const permissions = useMarketerPermissions();
+  const canSaveFillRules =
+    permissions.me?.role === 'ADMIN' || permissions.has('orderform.formConfig');
+  const issueSettingsOpen = searchParams.get('issueView') === 'settings';
+  const issueSection: IssueFormSectionId = isIssueFormSectionId(searchParams.get('issueSection'))
+    ? (searchParams.get('issueSection') as IssueFormSectionId)
+    : 'name';
+  const setIssueSection = useCallback(
+    (id: IssueFormSectionId) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('issueSection', id);
+          next.delete('issueView');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+  const toggleIssueSettings = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (next.get('issueView') === 'settings') next.delete('issueView');
+        else next.set('issueView', 'settings');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
   const [previewModal, setPreviewModal] = useState<null | { kind: 'message' | 'link'; order: OrderForm }>(
     null
   );
@@ -721,6 +757,14 @@ export function AdminOrderFormPage() {
               </PageTitleWithFavorite>
               <OrderIssueHelpTrigger className="shrink-0" onClick={() => setOrderIssueHelpOpen(true)} />
             </div>
+            <div className="mt-3">
+              <IssueFormSectionTabs
+                section={issueSection}
+                settingsOpen={issueSettingsOpen}
+                onSection={setIssueSection}
+                onToggleSettings={toggleIssueSettings}
+              />
+            </div>
           </div>
           <div className="border-b border-gray-100 px-4 py-3 sm:px-6">
             <TenantCoinUsageBannerSection />
@@ -867,6 +911,10 @@ export function AdminOrderFormPage() {
               </div>
               {token ? (
                 <div className="mt-5 border-t border-gray-100 pt-5">
+                  {issueSettingsOpen ? (
+                    <IssueFillRulesSettingsPanel token={token} canSave={canSaveFillRules} />
+                  ) : (
+                    <>
                   <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
                     선택한 양식이 그대로 아래에 표시됩니다. 상담 내용을 미리 채우면 그 항목은 고객 화면에서 잠겨(수정 불가) 보이고, 비워 둔 항목은 고객이 직접 작성합니다.
                   </p>
@@ -878,6 +926,7 @@ export function AdminOrderFormPage() {
                       editor={{
                         authToken: token,
                         inline: true,
+                        issueSection,
                         create: {
                           templateId: issueTemplateId || undefined,
                           pendingInquiryId: pendingLinkId || undefined,
@@ -889,6 +938,8 @@ export function AdminOrderFormPage() {
                         },
                       }}
                     />
+                  )}
+                    </>
                   )}
                 </div>
               ) : null}

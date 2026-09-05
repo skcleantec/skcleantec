@@ -3,6 +3,7 @@ import type { InternalCustomerTone } from '../../constants/internalCustomerTone'
 import type { OperatingCompanyCancellationPolicy } from '@shared/operatingCompanyCancellationPolicy';
 import type { OrderFormPublicTemplate } from '../../api/orderform';
 import type { CrmOrderIssueSeed } from '../../components/orderform/OrderIssueInlinePanel';
+import type { IssueFormSectionId } from '@shared/orderFormFillRules';
 
 export type OrderFormFields = {
   customerName: string;
@@ -89,6 +90,7 @@ export type OrderFormLoadedOrder = {
   };
   template?: OrderFormPublicTemplate | null;
   prefillAnswers?: Record<string, unknown> | null;
+  fillRules?: Record<string, { customer: boolean; required: boolean }> | null;
 };
 
 export type SubmitValidationIssue = { message: string; fieldId?: string };
@@ -102,6 +104,8 @@ export interface OrderFormEditorContext {
   authToken: string;
   onClose?: () => void;
   orderFormId?: string;
+  /** 발급 인라인 — 제목 탭으로 한 칸만 보여 줄 때 */
+  issueSection?: IssueFormSectionId;
   create?: {
     templateId?: string;
     pendingInquiryId?: string;

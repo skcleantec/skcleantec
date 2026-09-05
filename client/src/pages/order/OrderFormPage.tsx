@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   createOrderForm,
+  getFormConfig,
   getOrderFormByToken,
   getOrderFormIssueForm,
   getOrderFormPrefillForm,
@@ -133,7 +134,21 @@ import {
   type SubmitErrorModalState,
   type SubmitValidationIssue,
 } from './orderFormModel.types';
-import { isOrderFormAreaLockedFromOrder } from './orderFormFieldVisibility';
+import {
+  customerMayEditFillKey,
+  fillKeyRequiredForCustomer,
+  isOrderFormAreaLockedFromOrder,
+} from './orderFormFieldVisibility';
+import {
+  DEFAULT_ORDER_FORM_FILL_RULES,
+  canCustomerWrite,
+  canMarketerWrite,
+  fillRuleOf,
+  marketerMustFillAtIssue,
+  mergeOrderFormFillRules,
+  type IssueFormSectionId,
+  type OrderFormFillRules,
+} from '@shared/orderFormFillRules';
 
 export type { OrderFormEditorContext };
 
@@ -167,6 +182,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const customerScheduleAckEnabled = !isEditor;
   const isCreate = Boolean(editor?.create);
   const isInline = Boolean(editor?.inline);
+  const showIssueSection = useCallback(
+    (id: IssueFormSectionId) => {
+      if (!isCreate || !editor?.issueSection) return true;
+      return editor.issueSection === id;
+    },
+    [isCreate, editor?.issueSection],
+  );
   const skOpsUi = useMemo(
     () => skCleantecOpsUiEnabled({ tenantSlug: resolvePublicTenantSlug(), slugOnly: true }),
     [],
@@ -244,6 +266,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     ORDER_FORM_CONFIG_DEFAULTS.infoLinkText,
   );
   const [submitErrorModal, setSubmitErrorModal] = useState<SubmitErrorModalState>(null);
+  const [staffFillRules, setStaffFillRules] = useState<OrderFormFillRules>(DEFAULT_ORDER_FORM_FILL_RULES);
   const [leavePageHint, setLeavePageHint] = useState<string | null>(null);
   /** 면적 기준 선택 전 안내·확인 */
   const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
@@ -602,6 +625,22 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
   const editorAuthToken = editor?.authToken;
   const editorOrderFormId = editor?.orderFormId;
+
+  useEffect(() => {
+    if (!isCreate || !editorAuthToken) return;
+    let cancelled = false;
+    getFormConfig(editorAuthToken)
+      .then((cfg) => {
+        if (cancelled) return;
+        setStaffFillRules(mergeOrderFormFillRules(cfg.issueFillRules));
+      })
+      .catch(() => {
+        if (!cancelled) setStaffFillRules(DEFAULT_ORDER_FORM_FILL_RULES);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreate, editorAuthToken]);
   const createTemplateId = editor?.create?.templateId;
   const createPendingInquiryId = editor?.create?.pendingInquiryId;
   const createCrmSeed = editor?.create?.crmSeed;
@@ -641,6 +680,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             options: [],
             professionalOptions: r.professionalOptions,
             formConfig: r.formConfig,
+            fillRules: r.fillRules ?? null,
             template: r.template,
             customAnswers: null,
             prefillAnswers: null,
@@ -701,6 +741,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           formConfig: data.formConfig,
           template: data.template ?? null,
           prefillAnswers: data.prefillAnswers ?? null,
+          fillRules: data.fillRules ?? null,
         });
         const baseCustom =
           data.customAnswers && typeof data.customAnswers === 'object'
@@ -999,7 +1040,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       let submitExclusiveSqm: number | null = null;
       let submitAreaBasis = form.areaBasis;
       if (stdFieldOn('areaPyeong') || areaLockedByAdmin) {
-        if (areaLockedByAdmin) {
+        if (!customerMayEditFillKey(order, 'areaPyeong')) {
+          if (areaLockedByAdmin) {
+            submitAreaPyeong = order!.areaPyeong!;
+            submitAreaBasis = String(order!.areaBasis).trim();
+          } else if (fillKeyRequiredForCustomer(order, 'areaPyeong')) {
+            addIssue('상담사에게 면적(공급·전용)을 확인해 주세요. 고객이 임의로 고를 수 없습니다.', 'order-field-area');
+          }
+        } else if (areaLockedByAdmin) {
           submitAreaPyeong = order!.areaPyeong!;
           submitAreaBasis = String(order!.areaBasis).trim();
         } else if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
@@ -1308,15 +1356,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       return;
     }
     const basisOk = form.areaBasis === '공급' || form.areaBasis === '전용';
-    if (stdFieldOn('areaPyeong')) {
-      if (!basisOk) {
-        showSubmitError('면적 기준(공급/전용)을 선택하고 평수를 입력해 주세요.', 'order-field-area');
-        return;
-      }
-      const py = parseFloat(form.areaPyeong.replace(/,/g, ''));
-      if (!form.areaPyeong.trim() || !Number.isFinite(py) || py <= 0) {
-        showSubmitError('평수를 양수 숫자로 입력해 주세요.', 'order-field-area');
-        return;
+    const areaFlags = fillRuleOf(staffFillRules, 'areaPyeong');
+    if (stdFieldOn('areaPyeong') && (marketerMustFillAtIssue(areaFlags) || (canMarketerWrite(areaFlags) && (basisOk || form.areaPyeong.trim())))) {
+      if (marketerMustFillAtIssue(areaFlags) || basisOk || form.areaPyeong.trim()) {
+        if (!basisOk) {
+          showSubmitError('면적 기준(공급/전용)을 선택하고 평수를 입력해 주세요.', 'order-field-area');
+          return;
+        }
+        const py = parseFloat(form.areaPyeong.replace(/,/g, ''));
+        if (!form.areaPyeong.trim() || !Number.isFinite(py) || py <= 0) {
+          showSubmitError('평수를 양수 숫자로 입력해 주세요.', 'order-field-area');
+          return;
+        }
       }
     }
     const areaPyeongNum =
@@ -1327,8 +1378,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       showSubmitError('특이사항을 입력하거나 "특이사항 없음"을 체크해 주세요.');
       return;
     }
-    if (stdFieldOn('preferredDate') && !dateByCustomer && !form.preferredDate.trim()) {
-      showSubmitError('청소 날짜를 선택하거나 "고객 작성"을 체크해 주세요.', 'order-field-schedule');
+    const dateFlags = fillRuleOf(staffFillRules, 'preferredDate');
+    if (stdFieldOn('preferredDate') && !form.preferredDate.trim() && !canCustomerWrite(dateFlags)) {
+      showSubmitError('청소 날짜를 선택해 주세요.', 'order-field-schedule');
       return;
     }
     // 날짜를 선택했다면 시간대도 반드시 선택
@@ -2324,7 +2376,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           onFocusCapture={isInline ? undefined : onFieldFocus}
           className={isEditor || isCreate ? 'space-y-4 pb-20' : 'space-y-4'}
         >
-          {stdFieldOn('customerName') && (
+          {showIssueSection('name') && stdFieldOn('customerName') && (
           <div id="order-field-customerName">
             <label className={reqLabelCls}>1. 성함 *</label>
             <input
@@ -2338,7 +2390,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('address') && (
+          {showIssueSection('address') && stdFieldOn('address') && (
           <div id="order-field-address">
             <label className={labelCls}>2. 주소(청소해야할 위치) *</label>
             {isCreate ? (
@@ -2394,7 +2446,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showContactSection && (
+          {showIssueSection('contact') && showContactSection && (
           <div>
             <label className={labelCls}>3. 전화번호 *</label>
             <p className="text-xs text-gray-600 mb-3 leading-relaxed">
@@ -2441,7 +2493,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showPropertyAreaSection && (
+          {showIssueSection('property') && showPropertyAreaSection && (
           <div>
             {stdFieldOn('propertyType') ? (
             <div id="order-field-propertyType">
@@ -2622,7 +2674,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('preferredDate') && (
+          {showIssueSection('date') && stdFieldOn('preferredDate') && (
           <div id="order-field-schedule">
             <OrderFormScheduleHighlightLabel>
               5. 청소날짜(서비스받으실 날짜){isCreate ? ' *' : ''}
@@ -2676,7 +2728,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('preferredTime') && (
+          {showIssueSection('time') && stdFieldOn('preferredTime') && (
           <div>
             <OrderFormScheduleHighlightLabel>
               6. 시간대 선택{isCreate ? ' *' : ''}
@@ -2711,7 +2763,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('preferredTimeDetail') && (
+          {showIssueSection('timeDetail') && stdFieldOn('preferredTimeDetail') && (
           <div id="order-field-preferredTimeDetail">
             <label
               className={
@@ -2762,7 +2814,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('roomCount') && (
+          {showIssueSection('rooms') && stdFieldOn('roomCount') && (
           <div id="order-field-roomCount">
             <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방 *</p>
             <p className="text-xs text-gray-500 mb-2 leading-relaxed">
@@ -2825,7 +2877,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('buildingType') && (
+          {showIssueSection('building') && stdFieldOn('buildingType') && (
           <div id="order-field-buildingType">
             <label className={labelCls}>9. 신축/구축/인테리어/거주 선택 *</label>
             <select
@@ -2852,7 +2904,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('moveInDate') && (
+          {showIssueSection('moveIn') && stdFieldOn('moveInDate') && (
           <div id="order-field-moveInDate">
             <label className={labelCls}>
               10. 이사 날짜
@@ -2894,7 +2946,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('specialNotes') && (
+          {showIssueSection('notes') && stdFieldOn('specialNotes') && (
           <div>
             <label className={reqLabelCls}>11. 특이사항{isCreate ? ' *' : ''}</label>
             {isEditor && (
@@ -3019,7 +3071,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             </div>
           ) : null}
 
-          {stdFieldOn('photos') && !isEditor && (
+          {showIssueSection('photos') && stdFieldOn('photos') && !isEditor && (
           <div>
             <p className={`${labelCls} mb-2`}>12. 현장 사진 첨부 (선택)</p>
             {token ? (
@@ -3028,7 +3080,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {stdFieldOn('professionalOptions') && (
+          {showIssueSection('professional') && stdFieldOn('professionalOptions') && (
           <div>
             <p className={`${labelCls} mb-2`}>{ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL}</p>
             {profLocked ? (

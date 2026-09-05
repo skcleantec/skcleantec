@@ -11,6 +11,7 @@ import {
   shouldShowCustomerRoomsWizardStep,
   shouldShowCustomerTimeDetailWizardStep,
   shouldShowCustomerTimeWizardStep,
+  customerMayEditFillKey,
 } from '../../../pages/order/orderFormFieldVisibility';
 import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order/orderFormModel.types';
 import type { OrderFormPublicTemplateField } from '../../../api/orderform';
@@ -70,7 +71,7 @@ export function resolveOrderFormCustomerSteps(args: {
     },
   ];
 
-  if (shouldShowCustomerNameWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'customerName') && shouldShowCustomerNameWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'name',
       kind: 'input',
@@ -78,7 +79,7 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '예약 확인에 쓰이는 이름입니다.',
     });
   }
-  if (shouldShowCustomerAddressWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'address') && shouldShowCustomerAddressWizardStep(order, isEditor, skipLocked)) {
     const detailOnly = addressLocked && !locked('addressDetail');
     steps.push({
       id: 'address',
@@ -89,7 +90,10 @@ export function resolveOrderFormCustomerSteps(args: {
         : '「주소 검색」으로 선택한 뒤 상세주소를 적어 주세요.',
     });
   }
-  if ((std('customerPhone') && !locked('customerPhone')) || !locked('customerPhone2')) {
+  if (
+    (customerMayEditFillKey(order, 'customerPhone') && std('customerPhone') && !locked('customerPhone')) ||
+    (customerMayEditFillKey(order, 'customerPhone2') && !locked('customerPhone2'))
+  ) {
     steps.push({
       id: 'phones',
       kind: 'input',
@@ -97,7 +101,7 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '보조 연락처는 필수입니다. 전일 연락이 안 되면 서비스가 취소될 수 있으니 정확하게 적어 주세요.',
     });
   }
-  if (shouldShowCustomerEmailWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'customerEmail') && shouldShowCustomerEmailWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'email',
       kind: 'input',
@@ -105,14 +109,18 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '제출 확인 메일을 받을 수 있습니다.',
     });
   }
-  if (shouldShowCustomerPropertyWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'propertyType') && shouldShowCustomerPropertyWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'property',
       kind: 'choice',
       title: '어떤 공간인가요?',
     });
   }
-  if ((std('areaPyeong') || isOrderFormAreaLockedFromOrder(order)) && !areaLocked) {
+  if (
+    customerMayEditFillKey(order, 'areaPyeong') &&
+    (std('areaPyeong') || isOrderFormAreaLockedFromOrder(order)) &&
+    !areaLocked
+  ) {
     steps.push({
       id: 'area',
       kind: 'input',
@@ -120,7 +128,7 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '반드시 평수로 적어 주세요. 제곱미터만 알고 계시면 평으로 환산합니다.',
     });
   }
-  if (shouldShowCustomerDateWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'preferredDate') && shouldShowCustomerDateWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'date',
       kind: 'input',
@@ -128,21 +136,24 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '날짜를 정확히 확인해 주세요. 잘못 적으면 위약금이 생길 수 있습니다.',
     });
   }
-  if (shouldShowCustomerTimeWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'preferredTime') && shouldShowCustomerTimeWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'time',
       kind: 'choice',
       title: '오전·오후 중 언제가 좋으세요?',
     });
   }
-  if (shouldShowCustomerTimeDetailWizardStep(order, form, skipLocked)) {
+  if (
+    customerMayEditFillKey(order, 'preferredTimeDetail') &&
+    shouldShowCustomerTimeDetailWizardStep(order, form, skipLocked)
+  ) {
     steps.push({
       id: 'timeDetail',
       kind: 'choice',
       title: '구체적인 시각을 골라 주세요',
     });
   }
-  if (shouldShowCustomerRoomsWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'roomCount') && shouldShowCustomerRoomsWizardStep(order, isEditor, skipLocked)) {
     steps.push({
       id: 'rooms',
       kind: 'input',
@@ -150,7 +161,7 @@ export function resolveOrderFormCustomerSteps(args: {
       hint: '없는 공간은 0으로 적어 주세요. 0이거나 비어 있는 칸은 직접 고칠 수 있습니다.',
     });
   }
-  if (std('buildingType') && !locked('buildingType')) {
+  if (customerMayEditFillKey(order, 'buildingType') && std('buildingType') && !locked('buildingType')) {
     steps.push({
       id: 'building',
       kind: 'choice',
@@ -158,6 +169,7 @@ export function resolveOrderFormCustomerSteps(args: {
     });
   }
   if (
+    customerMayEditFillKey(order, 'moveInDate') &&
     std('moveInDate') &&
     (!locked('moveInTiming') || !locked('moveInDate') || !locked('moveInDateUndecided'))
   ) {
@@ -167,7 +179,7 @@ export function resolveOrderFormCustomerSteps(args: {
       title: '입주 시기는요?',
     });
   }
-  if (std('specialNotes') && !locked('specialNotes')) {
+  if (customerMayEditFillKey(order, 'specialNotes') && std('specialNotes') && !locked('specialNotes')) {
     steps.push({
       id: 'notes',
       kind: 'input',
@@ -189,7 +201,7 @@ export function resolveOrderFormCustomerSteps(args: {
       customField: cf,
     });
   }
-  if (std('photos')) {
+  if (customerMayEditFillKey(order, 'photos') && std('photos')) {
     steps.push({
       id: 'photos',
       kind: 'input',
@@ -198,7 +210,11 @@ export function resolveOrderFormCustomerSteps(args: {
       skippable: true,
     });
   }
-  if (std('professionalOptions') && !locked('professionalOptionIds')) {
+  if (
+    customerMayEditFillKey(order, 'professionalOptions') &&
+    std('professionalOptions') &&
+    !locked('professionalOptionIds')
+  ) {
     steps.push({
       id: 'professional',
       kind: 'input',

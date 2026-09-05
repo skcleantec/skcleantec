@@ -74,6 +74,11 @@ function FlowTab() {
         <HelpActionTable
           rows={[
             {
+              sample: <span className="font-medium text-slate-800">설정</span>,
+              meaning:
+                '발주서 발급 위 「설정」에서 칸마다 고객·마케터·필수를 켭니다. 처음 체크는 지금 발주서와 같고, 면적은 상담사가 꼭 적습니다.',
+            },
+            {
               sample: <OrderIssueHelpPreviewLinkButton>발주서</OrderIssueHelpPreviewLinkButton>,
               meaning: '고객에게 보내는 작성·확인 폼입니다.',
             },
