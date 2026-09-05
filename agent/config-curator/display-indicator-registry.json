@@ -410,7 +410,7 @@
         "client/src/components/admin/workflow-guide/StaffWorkflowGuideBar.tsx",
         "client/src/components/layout/AdminInquiriesLayout.tsx"
       ],
-      "notes": "기본 표시. 접기·다시 보지 않기(localStorage). 페이지 설정에서 복구."
+      "notes": "번호 클릭 시 사용법·아이콘·색·설정. 접기·다시 보지 않기(localStorage)."
     },
     {
       "id": "admin.workflowGuide.schedule",
@@ -425,7 +425,7 @@
         "client/src/components/admin/workflow-guide/StaffWorkflowGuideBar.tsx",
         "client/src/pages/admin/AdminSchedulePage.tsx"
       ],
-      "notes": "팀장조정≠접수 배정. 팀원 지정은 관리자 상세."
+      "notes": "번호 클릭 시 달력 아이콘(미배·사이·조율)·구역 색·페이지설정. 팀장조정≠접수 배정."
     }
   ]
 }

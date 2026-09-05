@@ -8,18 +8,67 @@ import {
   WORKFLOW_GUIDE_CHANGE_EVENT,
   type WorkflowGuideSurface,
 } from '../../../utils/staffWorkflowGuideStorage';
-import { activeWorkflowStepId, workflowStepsFor } from './workflowGuideSteps';
+import { StaffWorkflowGuideDetail } from './StaffWorkflowGuideDetail';
+import { activeWorkflowStepId, workflowStepsFor, type WorkflowGuideStep } from './workflowGuideSteps';
 
-const CHIP =
-  'shrink-0 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-fluid-2xs font-medium hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+const BAR =
+  'rounded-xl border border-slate-200/90 bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.05)]';
+
+const TITLE =
+  'shrink-0 text-fluid-2xs font-semibold tracking-tight text-slate-900';
+
+const CHIP_BASE =
+  'shrink-0 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-fluid-2xs font-medium tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+
 const CHIP_ON = 'bg-slate-900 text-white hover:bg-slate-800';
-const CHIP_OFF = 'border border-slate-200 bg-white text-slate-700';
+const CHIP_OFF = 'text-slate-500 hover:bg-slate-50 hover:text-slate-800';
+
 const TEXT_BTN =
-  'shrink-0 rounded-md px-1.5 py-0.5 text-fluid-2xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  'shrink-0 rounded-md px-1.5 py-0.5 text-fluid-2xs font-medium text-slate-400 hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
 type Props = {
   surface: WorkflowGuideSurface;
 };
+
+function StepChips({
+  steps,
+  activeId,
+  onStep,
+}: {
+  steps: readonly WorkflowGuideStep[];
+  activeId: string;
+  onStep: (id: string) => void;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5">
+      <span className={TITLE}>이용 순서</span>
+      <span className="hidden h-3 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
+      {steps.map((step, i) => {
+        const on = step.id === activeId;
+        return (
+          <span key={step.id} className="flex shrink-0 items-center gap-1.5">
+            {i > 0 ? <span className="h-px w-3 shrink-0 bg-slate-200" aria-hidden /> : null}
+            <button
+              type="button"
+              className={`${CHIP_BASE} ${on ? CHIP_ON : CHIP_OFF}`}
+              aria-pressed={on}
+              onClick={() => onStep(step.id)}
+            >
+              <span
+                className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full text-fluid-2xs tabular-nums ${
+                  on ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {step.n}
+              </span>
+              {step.label}
+            </button>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 export function StaffWorkflowGuideBar({ surface }: Props) {
   const location = useLocation();
@@ -60,44 +109,20 @@ export function StaffWorkflowGuideBar({ surface }: Props) {
 
   if (hidden) return null;
 
-  if (collapsed) {
-    return (
-      <div className="flex flex-wrap items-center gap-x-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
-        <button type="button" className={TEXT_BTN} onClick={() => setWorkflowGuideCollapsed(surface, false)}>
-          이용 순서
-        </button>
-        <p className="min-w-0 truncate text-fluid-2xs text-slate-500">번호를 눌러 다음 화면으로 갑니다.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
-      <div className="flex min-w-0 items-start gap-2">
+    <div className={BAR}>
+      <div className="flex min-w-0 items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 overflow-x-auto overscroll-x-contain pb-0.5">
-            <span className="shrink-0 text-fluid-2xs font-semibold text-slate-600">이용 순서</span>
-            {steps.map((step) => {
-              const on = step.id === activeId;
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}
-                  aria-pressed={on}
-                  onClick={() => onStep(step.id)}
-                >
-                  <span className="tabular-nums">{step.n}</span>
-                  {step.label}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-1 text-fluid-2xs leading-snug text-slate-600">{activeStep.tip}</p>
+          <StepChips steps={steps} activeId={activeId} onStep={onStep} />
+          {collapsed ? null : <StaffWorkflowGuideDetail step={activeStep} />}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-0.5">
-          <button type="button" className={TEXT_BTN} onClick={() => setWorkflowGuideCollapsed(surface, true)}>
-            접기
+          <button
+            type="button"
+            className={TEXT_BTN}
+            onClick={() => setWorkflowGuideCollapsed(surface, !collapsed)}
+          >
+            {collapsed ? '설명 보기' : '접기'}
           </button>
           <button
             type="button"

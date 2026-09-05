@@ -89,7 +89,7 @@ alwaysApply: true
 
 - **모바일 키보드 — 입력 필드 가시성**: **`.cursor/rules/mobile-keyboard-input-visibility.mdc`**
 - **슬레이트 프리미엄 SaaS**: 심플·간결, `slate` 계열 + 부드러운 shadow·`rounded-xl`/`rounded-2xl`
-- 전역 폰트 **Inter + Noto Sans KR** (`client/src/index.css`)
+- 전역 폰트 **Pretendard Variable** (`client/index.html` · `client/src/index.css`)
 - 관리·팀·크루 **다크 GNB** (`theme-dark-header`), 본문은 밝은 카드
 - 불필요한 장식은 지양; GNB·칩 등 **미세 scale** hover는 허용
 - **PC와 모바일을 항상 함께 고려**해 구현한다. 목록·상세는 **서식을 맞춘 깔끔한 레이아웃**(표/카드 분기, 섹션 정리, 말줄임·요약)으로 만든다.

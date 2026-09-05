@@ -1,6 +1,6 @@
 # Agent Orchestra — Activity Dashboard
 
-**Last updated:** 2026-09-05 10:40 KST — 이용 순서 안내
+**Last updated:** 2026-09-05 11:20 KST — 이용 순서 상세 설명
 
 ## Current status
 
@@ -14,5 +14,5 @@
 | PlatformOps | 2026-09-05 10:40 | completed | 모듈 없음 |
 | DbSentinel | 2026-09-05 10:40 | completed | localStorage |
 
-**Outcome:** ✅ workflow guide  
+**Outcome:** ✅ workflow guide detail  
 **Summary:** [BRIEF_REPORT.md](BRIEF_REPORT.md)

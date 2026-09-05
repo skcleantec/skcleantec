@@ -77,11 +77,10 @@
 `client/src/index.css`:
 
 ```text
-font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-font-size: 17px;  /* html, body */
+font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 ```
 
-Google Fonts: **Inter** + **Noto Sans KR** (`@import` in `index.css`).
+**Pretendard Variable** (jsDelivr, `index.html`). 한글·영문 한 패밀리. 폴백 `Noto Sans KR` / `Malgun Gothic`.
 
 ### 3.2 전역 입력·버튼 (`index.css`)
 
@@ -535,7 +534,7 @@ beginListRefresh({
 ### 새 화면 — 공통
 
 1. [ ] 화면 유형(§2)에 맞는 Primary·강조색
-2. [ ] `text-fluid-*`, Inter/Noto 전역 폰트
+2. [ ] `text-fluid-*`, Pretendard 전역 폰트
 3. [ ] `rounded-xl` / `rounded-2xl` (로그인 카드 `rounded-3xl`)
 4. [ ] `focus-visible` / `label`+`htmlFor`
 5. [ ] `min-w-0`, PC·모바일 동시 설계

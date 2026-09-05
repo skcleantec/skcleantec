@@ -1,7 +1,7 @@
 /** 서비스접수 목록 도움말 — AdminInquiriesPage · InquiryHelpModal 공통 */
 
 export const INQUIRY_PAGE_OVERVIEW_HELP =
-  '전화·발주서·수기 등 모든 접수를 조회·수정하는 화면입니다. 행(또는 모바일 카드)을 누르면 접수 상세 모달이 열립니다. 위 「이용 순서」 버튼을 누르면 등록·발주서·배정 화면으로 바로 갑니다.';
+  '전화·발주서·수기 등 모든 접수를 조회·수정하는 화면입니다. 행(또는 모바일 카드)을 누르면 접수 상세 모달이 열립니다. 위 「이용 순서」 번호를 누르면 사용법·아이콘·색·설정 안내가 나옵니다.';
 
 export type InquiryHelpTabId = 'list' | 'detail';
 
