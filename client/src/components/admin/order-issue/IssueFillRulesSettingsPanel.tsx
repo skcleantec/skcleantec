@@ -20,9 +20,11 @@ const SAVE_BTN =
 type Props = {
   token: string;
   canSave: boolean;
+  /** 모달 헤더가 제목을 맡을 때 */
+  hideTitle?: boolean;
 };
 
-export function IssueFillRulesSettingsPanel({ token, canSave }: Props) {
+export function IssueFillRulesSettingsPanel({ token, canSave, hideTitle }: Props) {
   const [rules, setRules] = useState<OrderFormFillRules>(DEFAULT_ORDER_FORM_FILL_RULES);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -75,10 +77,12 @@ export function IssueFillRulesSettingsPanel({ token, canSave }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-2">
-        <h3 className="text-fluid-sm font-semibold text-slate-900">작성 설정</h3>
-        <HelpTooltip className="mt-0.5 shrink-0" text={ISSUE_FILL_RULES_PAGE_HELP} />
-      </div>
+      {hideTitle ? null : (
+        <div className="flex items-start gap-2">
+          <h3 className="text-fluid-sm font-semibold text-slate-900">작성 설정</h3>
+          <HelpTooltip className="mt-0.5 shrink-0" text={ISSUE_FILL_RULES_PAGE_HELP} />
+        </div>
+      )}
       <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-amber-950">
         면적(공급·전용)은 고객이 구분하기 어렵습니다. 기본은 상담사가 적어야 발급됩니다. 체크는 지금 발주서와 같게
         맞춰 두었습니다.

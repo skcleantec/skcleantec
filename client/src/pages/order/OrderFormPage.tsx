@@ -146,7 +146,6 @@ import {
   fillRuleOf,
   marketerMustFillAtIssue,
   mergeOrderFormFillRules,
-  type IssueFormSectionId,
   type OrderFormFillRules,
 } from '@shared/orderFormFillRules';
 
@@ -182,13 +181,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const customerScheduleAckEnabled = !isEditor;
   const isCreate = Boolean(editor?.create);
   const isInline = Boolean(editor?.inline);
-  const showIssueSection = useCallback(
-    (id: IssueFormSectionId) => {
-      if (!isCreate || !editor?.issueSection) return true;
-      return editor.issueSection === id;
-    },
-    [isCreate, editor?.issueSection],
-  );
   const skOpsUi = useMemo(
     () => skCleantecOpsUiEnabled({ tenantSlug: resolvePublicTenantSlug(), slugOnly: true }),
     [],
@@ -2376,7 +2368,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           onFocusCapture={isInline ? undefined : onFieldFocus}
           className={isEditor || isCreate ? 'space-y-4 pb-20' : 'space-y-4'}
         >
-          {showIssueSection('name') && stdFieldOn('customerName') && (
+          {stdFieldOn('customerName') && (
           <div id="order-field-customerName">
             <label className={reqLabelCls}>1. 성함 *</label>
             <input
@@ -2390,7 +2382,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('address') && stdFieldOn('address') && (
+          {stdFieldOn('address') && (
           <div id="order-field-address">
             <label className={labelCls}>2. 주소(청소해야할 위치) *</label>
             {isCreate ? (
@@ -2446,7 +2438,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('contact') && showContactSection && (
+          {showContactSection && (
           <div>
             <label className={labelCls}>3. 전화번호 *</label>
             <p className="text-xs text-gray-600 mb-3 leading-relaxed">
@@ -2493,7 +2485,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('property') && showPropertyAreaSection && (
+          {showPropertyAreaSection && (
           <div>
             {stdFieldOn('propertyType') ? (
             <div id="order-field-propertyType">
@@ -2674,7 +2666,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('date') && stdFieldOn('preferredDate') && (
+          {stdFieldOn('preferredDate') && (
           <div id="order-field-schedule">
             <OrderFormScheduleHighlightLabel>
               5. 청소날짜(서비스받으실 날짜){isCreate ? ' *' : ''}
@@ -2728,7 +2720,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('time') && stdFieldOn('preferredTime') && (
+          {stdFieldOn('preferredTime') && (
           <div>
             <OrderFormScheduleHighlightLabel>
               6. 시간대 선택{isCreate ? ' *' : ''}
@@ -2763,7 +2755,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('timeDetail') && stdFieldOn('preferredTimeDetail') && (
+          {stdFieldOn('preferredTimeDetail') && (
           <div id="order-field-preferredTimeDetail">
             <label
               className={
@@ -2814,7 +2806,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('rooms') && stdFieldOn('roomCount') && (
+          {stdFieldOn('roomCount') && (
           <div id="order-field-roomCount">
             <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방 *</p>
             <p className="text-xs text-gray-500 mb-2 leading-relaxed">
@@ -2877,7 +2869,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('building') && stdFieldOn('buildingType') && (
+          {stdFieldOn('buildingType') && (
           <div id="order-field-buildingType">
             <label className={labelCls}>9. 신축/구축/인테리어/거주 선택 *</label>
             <select
@@ -2904,7 +2896,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('moveIn') && stdFieldOn('moveInDate') && (
+          {stdFieldOn('moveInDate') && (
           <div id="order-field-moveInDate">
             <label className={labelCls}>
               10. 이사 날짜
@@ -2946,7 +2938,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('notes') && stdFieldOn('specialNotes') && (
+          {stdFieldOn('specialNotes') && (
           <div>
             <label className={reqLabelCls}>11. 특이사항{isCreate ? ' *' : ''}</label>
             {isEditor && (
@@ -3071,7 +3063,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             </div>
           ) : null}
 
-          {showIssueSection('photos') && stdFieldOn('photos') && !isEditor && (
+          {stdFieldOn('photos') && !isEditor && (
           <div>
             <p className={`${labelCls} mb-2`}>12. 현장 사진 첨부 (선택)</p>
             {token ? (
@@ -3080,7 +3072,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {showIssueSection('professional') && stdFieldOn('professionalOptions') && (
+          {stdFieldOn('professionalOptions') && (
           <div>
             <p className={`${labelCls} mb-2`}>{ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL}</p>
             {profLocked ? (

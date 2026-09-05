@@ -62,10 +62,10 @@ import {
 import { OrderFormPage } from '../order/OrderFormPage';
 import { TenantCoinUsageBannerSection } from '../../components/tenant/TenantCoinUsageBannerSection';
 import { useOrderIssueOperatingCompanies } from '../../hooks/useOrderIssueOperatingCompanies';
-import { IssueFormSectionTabs } from '../../components/admin/order-issue/IssueFormSectionTabs';
-import { IssueFillRulesSettingsPanel } from '../../components/admin/order-issue/IssueFillRulesSettingsPanel';
+import { IssueFillRulesSettingsModal } from '../../components/admin/order-issue/IssueFillRulesSettingsModal';
 import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
-import { isIssueFormSectionId, type IssueFormSectionId } from '@shared/orderFormFillRules';
+import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { ISSUE_FILL_RULES_PAGE_HELP } from '@shared/orderFormFillRules';
 
 type Tab = 'issue' | 'followup' | 'list';
 
@@ -145,16 +145,14 @@ export function AdminOrderFormPage() {
   const canSaveFillRules =
     permissions.me?.role === 'ADMIN' || permissions.has('orderform.formConfig');
   const issueSettingsOpen = searchParams.get('issueView') === 'settings';
-  const issueSection: IssueFormSectionId = isIssueFormSectionId(searchParams.get('issueSection'))
-    ? (searchParams.get('issueSection') as IssueFormSectionId)
-    : 'name';
-  const setIssueSection = useCallback(
-    (id: IssueFormSectionId) => {
+  const setIssueSettingsOpen = useCallback(
+    (open: boolean) => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
-          next.set('issueSection', id);
-          next.delete('issueView');
+          next.delete('issueSection');
+          if (open) next.set('issueView', 'settings');
+          else next.delete('issueView');
           return next;
         },
         { replace: true },
@@ -162,17 +160,6 @@ export function AdminOrderFormPage() {
     },
     [setSearchParams],
   );
-  const toggleIssueSettings = useCallback(() => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (next.get('issueView') === 'settings') next.delete('issueView');
-        else next.set('issueView', 'settings');
-        return next;
-      },
-      { replace: true },
-    );
-  }, [setSearchParams]);
   const [previewModal, setPreviewModal] = useState<null | { kind: 'message' | 'link'; order: OrderForm }>(
     null
   );
@@ -751,19 +738,21 @@ export function AdminOrderFormPage() {
       {tab === 'issue' && (
         <div className="min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6 sm:py-5">
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <PageTitleWithFavorite label="발주서 발급">
                 <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">발주서 발급</h2>
               </PageTitleWithFavorite>
               <OrderIssueHelpTrigger className="shrink-0" onClick={() => setOrderIssueHelpOpen(true)} />
-            </div>
-            <div className="mt-3">
-              <IssueFormSectionTabs
-                section={issueSection}
-                settingsOpen={issueSettingsOpen}
-                onSection={setIssueSection}
-                onToggleSettings={toggleIssueSettings}
-              />
+              <span className="ml-auto inline-flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:text-fluid-xs"
+                  onClick={() => setIssueSettingsOpen(true)}
+                >
+                  설정
+                </button>
+                <HelpTooltip className="shrink-0" text={ISSUE_FILL_RULES_PAGE_HELP} />
+              </span>
             </div>
           </div>
           <div className="border-b border-gray-100 px-4 py-3 sm:px-6">
@@ -911,10 +900,6 @@ export function AdminOrderFormPage() {
               </div>
               {token ? (
                 <div className="mt-5 border-t border-gray-100 pt-5">
-                  {issueSettingsOpen ? (
-                    <IssueFillRulesSettingsPanel token={token} canSave={canSaveFillRules} />
-                  ) : (
-                    <>
                   <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
                     선택한 양식이 그대로 아래에 표시됩니다. 상담 내용을 미리 채우면 그 항목은 고객 화면에서 잠겨(수정 불가) 보이고, 비워 둔 항목은 고객이 직접 작성합니다.
                   </p>
@@ -926,7 +911,6 @@ export function AdminOrderFormPage() {
                       editor={{
                         authToken: token,
                         inline: true,
-                        issueSection,
                         create: {
                           templateId: issueTemplateId || undefined,
                           pendingInquiryId: pendingLinkId || undefined,
@@ -939,8 +923,12 @@ export function AdminOrderFormPage() {
                       }}
                     />
                   )}
-                    </>
-                  )}
+                  <IssueFillRulesSettingsModal
+                    open={issueSettingsOpen}
+                    token={token}
+                    canSave={canSaveFillRules}
+                    onClose={() => setIssueSettingsOpen(false)}
+                  />
                 </div>
               ) : null}
               {newOrder ? (

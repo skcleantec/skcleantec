@@ -392,9 +392,10 @@
       "settingsPath": "/admin/inquiries/order-issue?issueView=settings",
       "helpPath": "/admin/inquiries/order-issue",
       "codeRefs": [
-        "client/src/pages/admin/AdminOrderFormPage.tsx"
+        "client/src/pages/admin/AdminOrderFormPage.tsx",
+        "client/src/components/admin/order-issue/IssueFillRulesSettingsModal.tsx"
       ],
-      "notes": "발급 안 제목 탭+설정. 기본 체크=현재 발주서(면적만 마케터+필수). 제목 ? 도움말."
+      "notes": "발급 제목 옆 「설정」→모달. 기본 체크=현재 발주서(면적만 마케터+필수). 항목 ? 도움말."
     }
   ]
 }

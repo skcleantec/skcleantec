@@ -76,7 +76,7 @@ function FlowTab() {
             {
               sample: <span className="font-medium text-slate-800">설정</span>,
               meaning:
-                '발주서 발급 위 「설정」에서 칸마다 고객·마케터·필수를 켭니다. 처음 체크는 지금 발주서와 같고, 면적은 상담사가 꼭 적습니다.',
+                '발주서 발급에서 「설정」을 누르면 창이 열립니다. 그 안에서 칸마다 고객·마케터·필수를 켭니다. 처음 체크는 지금 발주서와 같고, 면적은 상담사가 꼭 적습니다.',
             },
             {
               sample: <OrderIssueHelpPreviewLinkButton>발주서</OrderIssueHelpPreviewLinkButton>,
