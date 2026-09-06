@@ -15,6 +15,11 @@ export const NOTIFICATION_KIND_ORDER: StaffAppPushKind[] = [
   'generic',
 ];
 
+/** 설정 화면에 보이는 종류 — generic 은 푸시를 보내지 않으므로 숨김 */
+export const NOTIFICATION_KIND_ORDER_VISIBLE: StaffAppPushKind[] = NOTIFICATION_KIND_ORDER.filter(
+  (k) => k !== 'generic',
+);
+
 export type NotificationKindRule = {
   enabled: boolean;
   mandatory: boolean;
@@ -58,7 +63,7 @@ function defaultKindRule(kind: StaffAppPushKind): NotificationKindRule {
     };
   }
   if (kind === 'generic') {
-    return { ...base, mandatory: false, defaultPush: true, enabled: true };
+    return { ...base, mandatory: false, defaultPush: false, enabled: false };
   }
   if (kind === 'assignment' || kind === 'schedule_alert') {
     return { ...base, mandatory: true, repeatEnabled: false };
@@ -159,7 +164,7 @@ export function buildTeamNotificationSettingsView(
     schedule_alert: '일정·금액·취소',
     order_form_submit: '발주서 접수',
     happy_call: '해피콜',
-    message: '1:1 메시지',
+    message: '메시지',
     cs: 'C/S',
     db_marketplace: '정보공유(DB)',
     generic: '기타 알림',
@@ -169,12 +174,12 @@ export function buildTeamNotificationSettingsView(
     schedule_alert: '접수 일정 변경·예약 취소 시 (마케터·관리자 전원)',
     order_form_submit: '고객이 발주서를 제출해 접수될 때',
     happy_call: '예약일 전날 마감 전·미완(마감 초과) 시',
-    message: '관리·팀 간 1:1 메시지 수신 시',
+    message: '메시지·현장 공지 수신 시. 보낸 사람과 내용 미리보기가 표시됩니다.',
     cs: 'C/S 접수·상태 변경 시',
     db_marketplace: '정보공유(DB) 인계·승인 등',
-    generic: '위 유형에 해당하지 않는 갱신 알림',
+    generic: '화면 맞춤용. 휴대폰 알림은 보내지 않습니다.',
   };
-  return NOTIFICATION_KIND_ORDER.filter((k) => tenantPolicy.kinds[k]?.enabled).map((kind) => {
+  return NOTIFICATION_KIND_ORDER_VISIBLE.filter((k) => tenantPolicy.kinds[k]?.enabled).map((kind) => {
     const rule = tenantPolicy.kinds[kind];
     const mandatory = Boolean(rule?.mandatory);
     const push = shouldSendPushToUser(kind, tenantPolicy, userPref);

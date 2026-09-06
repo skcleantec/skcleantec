@@ -143,7 +143,9 @@ node scripts/probe-staff-push-status.mjs --base https://www.cbiseo.com --tenant 
 
 ### 4.5 알림 발송 (서버)
 
-- `notifyInboxRefresh(userIds)` 호출부와 **동일 userId**에 FCM fan-out
+- `notifyInboxRefresh(userIds)` — **웹소켓** `inbox:refresh`는 목록·배지 맞춤용으로 항상 보냄
+- **FCM(휴대폰 알림)** 은 `pushByUserId`에 **내용이 있는 페이로드가 있는 사용자만**. 화면 맞춤만 있을 때 「새 알림이 있습니다」 generic 은 **보내지 않음**
+- 메시지·현장 공지: 본문 미리보기 (`보낸사람: 내용`)
 - 규약: `shared/staffAppPush.ts` — `kind`, `title`, `body`, `path`
 - data payload: `type: staff-app:navigate`
 - env 미설정 시 FCM skip, **WS는 계속 동작**

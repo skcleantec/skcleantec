@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-05",
+  "_lastUpdated": "2026-09-06",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -473,6 +473,22 @@
         "client/src/pages/admin/AdminMessagesPage.tsx"
       ],
       "notes": "receiverId+readAt null 건수. 말풍선 읽음 표시와 다름."
+    },
+    {
+      "id": "staffApp.push.typedPreview",
+      "labelKo": "청소비서 앱 푸시 (내용 미리보기)",
+      "surfaces": ["team.notifications.settings", "admin.notifications.policy", "android.fcm"],
+      "visual": { "type": "system", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/team 알림 설정 · /admin 알림 설정",
+      "helpPath": "server/src/modules/push/STAFF_APP_PUSH.md",
+      "codeRefs": [
+        "shared/staffAppPush.ts",
+        "server/src/modules/push/staffAppPushNotify.ts",
+        "shared/notificationPolicy.ts"
+      ],
+      "notes": "화면 맞춤(inbox:refresh)만으로는 휴대폰 알림을 보내지 않음. 메시지·공지는 「보낸사람: 내용」 미리보기. generic(기타 알림) 설정 항목은 숨김."
     }
   ]
 }

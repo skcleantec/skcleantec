@@ -1,7 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { CBISEO_STAFF_APP_PACKAGE } from '../../lib/cbiseoStaffAppPolicy.constants.js';
 import {
-  buildGenericStaffAppPushPayload,
   canReceiveHappyCallPush,
   staffAppPushDataRecord,
   type StaffAppPushPayload,
@@ -24,8 +23,8 @@ const STALE_FCM_ERROR_CODES = new Set([
 ]);
 
 /**
- * `notifyInboxRefresh`와 병행 — 등록된 FCM 토큰으로 알림 (앱 백그라운드).
- * 테넌트·사용자 알림 설정을 반영해 skip.
+ * `notifyInboxRefresh`와 병행 — **내용이 있는** 페이로드만 FCM.
+ * 화면 맞춤(inbox:refresh)만 있을 때는 휴대폰 알림을 보내지 않는다.
  */
 export async function notifyStaffAppFcmRefresh(
   userIds: string[],
@@ -34,12 +33,17 @@ export async function notifyStaffAppFcmRefresh(
 ): Promise<void> {
   const fcm = getStaffAppFcmMessaging();
   if (!fcm) return;
+  if (!pushByUserId || Object.keys(pushByUserId).length === 0) return;
+  const payloads = pushByUserId;
 
   const seen = new Set<string>();
   const allowedUserIds = new Set<string>();
   for (const id of userIds) {
     if (!id || seen.has(id) || id.startsWith('crew:')) continue;
     seen.add(id);
+    const payload = payloads[id];
+    if (!payload || payload.kind === 'generic') continue;
+    if (!payload.title.trim() && !payload.body.trim()) continue;
     if (!tenantByUser.get(id)) continue;
     allowedUserIds.add(id);
   }
@@ -64,7 +68,6 @@ export async function notifyStaffAppFcmRefresh(
 
   if (tokens.length === 0) return;
 
-  const generic = buildGenericStaffAppPushPayload();
   const staleTokenValues: string[] = [];
 
   const tokensByTenant = new Map<string, typeof tokens>();
@@ -86,8 +89,9 @@ export async function notifyStaffAppFcmRefresh(
       const messages: Array<{ token: string; data: Record<string, string> }> = [];
 
       for (const row of chunk) {
-        const payload = pushByUserId?.[row.userId] ?? generic;
-        const kind = (payload.kind ?? 'generic') as StaffAppPushKind;
+        const payload = payloads[row.userId];
+        if (!payload || payload.kind === 'generic') continue;
+        const kind = payload.kind as StaffAppPushKind;
         const userRole = filterCtx.userRolesById.get(row.userId);
         if (kind === 'happy_call' && !canReceiveHappyCallPush(userRole)) continue;
         const userPref = filterCtx.userPrefsById.get(row.userId) ?? null;

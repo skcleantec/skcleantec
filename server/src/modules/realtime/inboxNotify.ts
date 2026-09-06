@@ -3,7 +3,10 @@ import type { StaffAppPushPayload } from '../../lib/staffAppPush.helpers.js';
 import { sendJsonToUser } from './realtimeHub.js';
 import { notifyStaffAppFcmRefresh } from '../push/staffAppPushNotify.js';
 
-/** 메시지함 갱신 — 클라이언트가 GET으로 다시 불러오도록 신호만 보냄 */
+/**
+ * 메시지함 갱신 — 웹소켓 `inbox:refresh`는 항상 보냄.
+ * 휴대폰 FCM은 `pushByUserId`에 **내용 있는 페이로드가 있는 사용자만**.
+ */
 export async function notifyInboxRefresh(
   userIds: string[],
   pushByUserId?: Record<string, StaffAppPushPayload>,

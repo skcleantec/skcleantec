@@ -10,6 +10,7 @@ import {
   NOTIFICATION_KIND_DESCRIPTIONS,
   NOTIFICATION_KIND_LABELS,
   NOTIFICATION_KIND_ORDER,
+  NOTIFICATION_KIND_ORDER_VISIBLE,
   defaultTenantNotificationPolicy,
   type NotificationKindRule,
 } from '@shared/notificationPolicy';
@@ -113,7 +114,7 @@ export function AdminNotificationPolicyPage() {
       ) : null}
 
       <div className="space-y-3">
-        {NOTIFICATION_KIND_ORDER.map((kind) => {
+        {NOTIFICATION_KIND_ORDER_VISIBLE.map((kind) => {
           const rule = policy.kinds[kind];
           const showRepeat = kind === 'happy_call';
           return (

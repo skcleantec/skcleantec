@@ -80,6 +80,19 @@ export function staffAppDbMarketplacePathForRole(
   return `${base}?openListing=${encodeURIComponent(id)}`;
 }
 
+/** 알림 미리보기용 — 줄바꿈·공백을 한 칸으로 줄이고 길이를 자른다 */
+export const STAFF_APP_PUSH_PREVIEW_MAX = 80;
+
+export function previewStaffAppPushText(
+  text: string | null | undefined,
+  maxLen = STAFF_APP_PUSH_PREVIEW_MAX,
+): string {
+  const t = (text ?? '').replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, Math.max(1, maxLen - 1))}…`;
+}
+
 export function buildGenericStaffAppPushPayload(): StaffAppPushPayload {
   return {
     kind: 'generic',
@@ -172,14 +185,20 @@ export function buildMessagePushPayload(params: {
   receiverRole: string | null | undefined;
   senderUserId: string;
   messageId: string;
+  /** 본문 미리보기 — 있으면 `이름: 내용` 으로 표시 */
+  preview?: string | null;
+  title?: string;
 }): StaffAppPushPayload {
   const sender = params.senderName.trim() || '관리자';
-  const body = isTeamSideStaffRole(params.senderRole)
-    ? `${sender}의 메세지가 도착했습니다.`
-    : `${sender}님의 메시지가 도착했습니다.`;
+  const preview = previewStaffAppPushText(params.preview);
+  const body = preview
+    ? `${sender}: ${preview}`
+    : isTeamSideStaffRole(params.senderRole)
+      ? `${sender}의 메세지가 도착했습니다.`
+      : `${sender}님의 메시지가 도착했습니다.`;
   return {
     kind: 'message',
-    title: '새 메시지',
+    title: params.title?.trim() || '새 메시지',
     body,
     path: staffAppMessagesPathForRole(params.receiverRole, {
       partnerUserId: params.senderUserId,
