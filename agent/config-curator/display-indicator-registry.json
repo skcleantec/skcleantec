@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-06",
+  "_lastUpdated": "2026-09-06-omnibox",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -489,6 +489,22 @@
         "shared/notificationPolicy.ts"
       ],
       "notes": "화면 맞춤(inbox:refresh)만으로는 휴대폰 알림을 보내지 않음. 메시지·공지는 「보낸사람: 내용」 미리보기. generic(기타 알림) 설정 항목은 숨김."
+    },
+    {
+      "id": "chrome.omnibox.openInAppChip",
+      "labelKo": "크롬 주소창 「앱에서 열기」 (제거 대상)",
+      "surfaces": ["chrome.omnibox", "www.cbiseo.com"],
+      "visual": { "type": "system", "token": "chrome-chip" },
+      "defaultVisible": false,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "docs/CBISEO_ANDROID_APP.md",
+      "codeRefs": [
+        "client/public/manifest.webmanifest",
+        "client/index.html",
+        "client/src/components/auth/PlayStoreStaffAppLink.tsx"
+      ],
+      "notes": "원인: manifest display standalone + apple-mobile-web-app-capable. 업무는 Play 앱만. 이미 이 PC에 웹앱이 설치돼 있으면 chrome://apps 에서 청소비서를 지워야 칩이 사라짐."
     }
   ]
 }

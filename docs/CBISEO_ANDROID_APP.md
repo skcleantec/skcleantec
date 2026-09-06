@@ -143,8 +143,8 @@
 | 구분 | 정책 |
 |------|------|
 | **주 앱** | Google Play **`청소비서`** (`com.cbiseo.app`) — FCM·백그라운드 알림 |
-| **PWA 홈 화면 추가** | **신규 설치 유도하지 않음** — Web Push 미구현 |
-| **PWA 런타임** | `manifest.webmanifest`·`isStandalonePwa()` **유지** — 기존 사용자·safe-area |
+| **PWA 홈 화면 추가** | **금지** — 매니페스트 `display: browser`, 주소창 「앱에서 열기」 칩 유발 금지 |
+| **PWA 런타임** | `isStandalonePwa()` 만 유지 — 예전에 설치한 웹앱 safe-area |
 | **URL 상수** | `CBISEO_STAFF_APP_PLAY_STORE_URL` in `shared/cbiseoStaffAppPolicy.ts` |
 
 ---

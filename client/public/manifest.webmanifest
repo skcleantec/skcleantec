@@ -1,11 +1,10 @@
 {
   "name": "청소비서",
   "short_name": "청소비서",
-  "description": "청소의시작 - 청소비서",
-  "start_url": "/login",
+  "description": "청소업체 업무는 Google Play 「청소비서」 앱에서 이용합니다.",
+  "start_url": "/",
   "scope": "/",
-  "display": "standalone",
-  "orientation": "portrait",
+  "display": "browser",
   "background_color": "#121828",
   "theme_color": "#121828",
   "lang": "ko",
@@ -21,12 +20,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/icons/app-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ]
 }
