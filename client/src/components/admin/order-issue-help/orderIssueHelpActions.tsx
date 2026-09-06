@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  OrderIssueHelpAlimtalkButton,
   OrderIssueHelpCopyLinkButton,
   OrderIssueHelpCopyMessageButton,
   OrderIssueHelpCreateButton,
@@ -55,7 +56,12 @@ export const ORDER_ISSUE_COMPLETE_ACTIONS: readonly OrderIssueHelpActionRow[] = 
   },
   {
     sample: <OrderIssueHelpCopyLinkButton />,
-    meaning: '공개 발주서 URL만 복사합니다.',
+    meaning: '공개 발주서 URL만 복사합니다. 카카오톡·문자 창에 붙여 넣습니다.',
+  },
+  {
+    sample: <OrderIssueHelpAlimtalkButton />,
+    meaning:
+      '고객 연락처로 링크 안내 알림톡 1건을 바로 보냅니다. 알림톡이 꺼져 있으면 이 버튼이 없고, 「메시지 복사」로 보냅니다.',
   },
   {
     sample: <OrderIssueHelpPrefillButton />,
@@ -96,11 +102,12 @@ export const ORDER_ISSUE_MARKETER_ACTIONS: readonly OrderIssueHelpActionRow[] = 
   {
     sample: (
       <>
+        <OrderIssueHelpAlimtalkButton />
         <OrderIssueHelpCopyMessageButton />
         <OrderIssueHelpCopyLinkButton />
       </>
     ),
-    meaning: '발급 직후 고객에게 링크를 보냅니다.',
+    meaning: '발급 직후 「알림톡 발송」또는 「메시지 복사」·「링크 복사」로 고객에게 링크를 보냅니다.',
     when: '필수',
   },
 ];
@@ -131,11 +138,13 @@ export const ORDER_ISSUE_AFTER_ISSUE_ACTIONS: readonly OrderIssueHelpActionRow[]
   {
     sample: (
       <>
+        <OrderIssueHelpAlimtalkButton />
         <OrderIssueHelpCopyMessageButton />
         <OrderIssueHelpCopyLinkButton />
       </>
     ),
-    meaning: '1단계 — 발급 완료 카드에서 고객에게 전달합니다.',
+    meaning:
+      '1단계 — 「발급 완료」에서 「알림톡 발송」또는 「메시지 복사」·「링크 복사」로 보냅니다.',
   },
   {
     sample: (

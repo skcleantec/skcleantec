@@ -410,7 +410,7 @@
         "client/src/components/admin/workflow-guide/StaffWorkflowGuideBar.tsx",
         "client/src/components/layout/AdminInquiriesLayout.tsx"
       ],
-      "notes": "번호 클릭 시 사용법·아이콘·색·설정. 접기·다시 보지 않기(localStorage)."
+      "notes": "번호 클릭 시 사용법·아이콘·색·설정. 발주서 발급은 「알림톡 발송」과 「메시지 복사」·「링크 복사」를 자세히 안내. 접기·다시 보지 않기(localStorage)."
     },
     {
       "id": "admin.workflowGuide.schedule",
