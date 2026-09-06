@@ -32,6 +32,7 @@ const BLOCK = new Set([
   'DEPOSIT_PENDING',
   'DEPOSIT_COMPLETED',
   'ORDER_FORM_PENDING',
+  'COMPLETED',
 ]);
 
 export function isHappyCallEligible(status: string, preferredDate: string | null | undefined): boolean {
@@ -46,12 +47,16 @@ export function happyCallRowTone(
   status: string,
   preferredDate: string | null | undefined,
   happyCallCompletedAt: string | null | undefined,
-  hasAssignment: boolean
+  hasAssignment: boolean,
+  createdAt?: string | null,
 ): 'overdue' | 'pending' | 'none' {
   if (!hasAssignment || !isHappyCallEligible(status, preferredDate)) return 'none';
   if (happyCallCompletedAt) return 'none';
   const pd = preferredDate ? new Date(preferredDate) : null;
   if (!pd) return 'none';
+  if (createdAt && new Date(createdAt).getTime() > happyCallDeadlineEnd(pd).getTime()) {
+    return 'pending';
+  }
   if (now > happyCallDeadlineEnd(pd)) return 'overdue';
   return 'pending';
 }

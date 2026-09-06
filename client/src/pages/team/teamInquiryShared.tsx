@@ -153,7 +153,14 @@ export function TeamHappyCallBadge({
     );
   }
 
-  const tone = happyCallRowTone(now, item.status, item.preferredDate, item.happyCallCompletedAt, hasAssignment);
+  const tone = happyCallRowTone(
+    now,
+    item.status,
+    item.preferredDate,
+    item.happyCallCompletedAt,
+    hasAssignment,
+    item.createdAt,
+  );
   if (tone === 'overdue') {
     const title = teamT('team.inquiry.happy.titleOverdue');
     return (
