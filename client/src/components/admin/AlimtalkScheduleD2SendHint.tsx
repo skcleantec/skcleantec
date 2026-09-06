@@ -86,8 +86,9 @@ export function AlimtalkScheduleD2SendHint(props: {
             일 전
           </label>
           <p className="text-fluid-2xs text-gray-400 leading-relaxed">
-            비워 두면 마지막 날 당일입니다. 숫자를 넣으면 위약금 발생일 기준 N일 전으로 바꿉니다. 0이면
-            위약 발생 당일 {sendHourLabel}입니다.
+            비워 두는 것이 브랜드 위약 규칙입니다(마지막 날 당일). 여기 숫자는 「위약이 며칠 전인지」가
+            아니라, 그 날보다 <strong className="font-medium text-gray-600">며칠 더 앞당겨</strong> 보낼지입니다.
+            위약 5일 전 브랜드에 5를 넣으면 10일 전에 나갑니다. 0이면 위약 발생 당일 {sendHourLabel}입니다.
           </p>
         </div>
       </details>
