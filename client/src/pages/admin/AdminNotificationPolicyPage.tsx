@@ -168,7 +168,12 @@ export function AdminNotificationPolicyPage() {
                   {showRepeat ? (
                     <div className="border-t border-gray-100 pt-3 space-y-3">
                       <label className="flex items-center justify-between gap-3 text-sm">
-                        <span>마감 초과 후 반복 알림</span>
+                        <span className="flex flex-col gap-0.5">
+                          <span>마감 초과 후 반복 알림</span>
+                          <span className="text-fluid-2xs font-normal text-gray-500">
+                            전날 마감 전에 접수된 건만. 당일 예약은 보내지 않습니다.
+                          </span>
+                        </span>
                         <input
                           type="checkbox"
                           checked={rule.repeatEnabled}

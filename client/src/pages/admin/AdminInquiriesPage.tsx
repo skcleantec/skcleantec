@@ -686,6 +686,7 @@ function inquiryMobileCardShellClass(item: InquiryItem, prevItem?: InquiryItem |
           item.preferredDate,
           item.happyCallCompletedAt,
           hasAssignment,
+          item.createdAt,
         )
       : ('none' as const);
   const base =
@@ -3726,6 +3727,7 @@ export function AdminInquiriesPage() {
                           item.preferredDate,
                           item.happyCallCompletedAt,
                           item.assignments.length > 0,
+                          item.createdAt,
                         )
                       : ('none' as const);
                   const rowBg = pinStyle.isPinned

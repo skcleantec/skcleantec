@@ -28,6 +28,7 @@ const HAPPY_CALL_BLOCK = new Set<InquiryStatus>([
   'DEPOSIT_PENDING',
   'DEPOSIT_COMPLETED',
   'ORDER_FORM_PENDING',
+  'COMPLETED',
 ]);
 
 export function isHappyCallEligible(status: string, preferredDate: Date | null): boolean {
@@ -36,15 +37,26 @@ export function isHappyCallEligible(status: string, preferredDate: Date | null):
   return true;
 }
 
-/** 마감 지남(미완) */
+/** 마감(전날 말일) 이후에 생긴 접수 — 전날 해피콜 창이 없음(당일 예약 등) */
+export function wasCreatedAfterHappyCallDeadline(
+  preferredDate: Date | null,
+  createdAt: Date | null | undefined,
+): boolean {
+  if (!preferredDate || !createdAt) return false;
+  return createdAt.getTime() > happyCallDeadlineEnd(preferredDate).getTime();
+}
+
+/** 마감 지남(미완). 마감 이후 생긴 접수는 초과로 보지 않음 */
 export function isHappyCallOverdue(
   now: Date,
   preferredDate: Date | null,
   happyCallCompletedAt: Date | null,
-  status: string
+  status: string,
+  createdAt?: Date | null,
 ): boolean {
   if (!isHappyCallEligible(status, preferredDate) || happyCallCompletedAt) return false;
   if (!preferredDate) return false;
+  if (wasCreatedAfterHappyCallDeadline(preferredDate, createdAt)) return false;
   return now > happyCallDeadlineEnd(preferredDate);
 }
 
@@ -55,15 +67,21 @@ export function happyCallReminderWindowStart(preferredDate: Date): Date {
   return new Date(`${prevYmd}T18:00:00+09:00`);
 }
 
-/** 전날 18:00 ~ 미완 구간(마감 전·후 포함) */
+/**
+ * 시간당 푸시 후보: 전날 18:00 이후·미완.
+ * 마감 이후 생긴 접수(당일 예약)는 전날 창이 없으므로 제외.
+ * 마감 이후 반복은 호출측에서 `repeatEnabled`·횟수 상한을 검사한다.
+ */
 export function isHappyCallInHourlyReminderWindow(
   now: Date,
   preferredDate: Date | null,
   happyCallCompletedAt: Date | null,
   status: string,
+  createdAt?: Date | null,
 ): boolean {
   if (!isHappyCallEligible(status, preferredDate) || happyCallCompletedAt) return false;
   if (!preferredDate) return false;
+  if (wasCreatedAfterHappyCallDeadline(preferredDate, createdAt)) return false;
   return now >= happyCallReminderWindowStart(preferredDate);
 }
 

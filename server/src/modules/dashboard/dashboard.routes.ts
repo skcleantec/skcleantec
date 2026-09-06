@@ -4,7 +4,7 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { isUserEmployedOnYmd } from '../users/userEmployment.js';
-import { happyCallDeadlineEnd } from '../inquiries/happyCall.helpers.js';
+import { happyCallDeadlineEnd, wasCreatedAfterHappyCallDeadline } from '../inquiries/happyCall.helpers.js';
 import { distanceKmFromJuan } from '../inquiries/inquiryJuanDistance.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
@@ -31,7 +31,6 @@ const HAPPY_CALL_STATS_STATUSES = [
   'RECEIVED',
   'ASSIGNED',
   'IN_PROGRESS',
-  'COMPLETED',
   'CS_PROCESSING',
 ] as const;
 
@@ -173,7 +172,7 @@ router.get('/stats', async (req, res) => {
         status: { in: [...HAPPY_CALL_STATS_STATUSES] },
         assignments: { some: {} },
       },
-      select: { preferredDate: true },
+      select: { preferredDate: true, createdAt: true },
     }),
   ]);
 
@@ -284,8 +283,13 @@ router.get('/stats', async (req, res) => {
   let happyCallPendingBeforeDeadlineCount = 0;
   for (const r of happyCallRows) {
     if (!r.preferredDate) continue;
-    if (nowTs > happyCallDeadlineEnd(r.preferredDate)) happyCallOverdueCount++;
-    else happyCallPendingBeforeDeadlineCount++;
+    if (wasCreatedAfterHappyCallDeadline(r.preferredDate, r.createdAt)) {
+      happyCallPendingBeforeDeadlineCount++;
+    } else if (nowTs > happyCallDeadlineEnd(r.preferredDate)) {
+      happyCallOverdueCount++;
+    } else {
+      happyCallPendingBeforeDeadlineCount++;
+    }
   }
 
   res.json({

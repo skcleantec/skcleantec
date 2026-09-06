@@ -173,7 +173,7 @@ export function buildTeamNotificationSettingsView(
     assignment: '접수가 팀장에게 배정·재배정될 때',
     schedule_alert: '접수 일정 변경·예약 취소 시 (마케터·관리자 전원)',
     order_form_submit: '고객이 발주서를 제출해 접수될 때',
-    happy_call: '예약일 전날 마감 전·미완(마감 초과) 시',
+    happy_call: '예약일 전날 18:00~마감 미완 시. 당일 접수(마감 이후 생성)는 푸시 없음',
     message: '메시지·현장 공지 수신 시. 보낸 사람과 내용 미리보기가 표시됩니다.',
     cs: 'C/S 접수·상태 변경 시',
     db_marketplace: '정보공유(DB) 인계·승인 등',

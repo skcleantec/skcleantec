@@ -5,7 +5,12 @@ import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCall.helpers.js';
+import {
+  happyCallDeadlineEnd,
+  isHappyCallEligible,
+  kstYmdFromDate,
+  wasCreatedAfterHappyCallDeadline,
+} from '../inquiries/happyCall.helpers.js';
 import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.team.routes.js';
 import inquiryConsultationPhotosTeamRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.team.routes.js';
 import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtraCharges.team.routes.js';
@@ -108,7 +113,7 @@ import {
 } from './teamInquiryResponse.helpers.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import { whereExcludeHandedOffSourceInquiriesForTeamViewer } from '../inquiries/inquiryHandedOffFromInternal.js';
-import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 
 const router = Router();
@@ -872,38 +877,59 @@ router.get('/happy-call-stats', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const { userId, role } = user;
   const dayOffExclude = await whereExcludeAdminSlotAdjustInquiries(prisma, userId);
+  const todayRange = kstDayRangeYmd(kstYmdFromDate(new Date()));
   const rows = await prisma.inquiry.findMany({
     where: {
       ...inquiryActiveOnlyWhere(),
       ...whereExcludeHandedOffSourceInquiriesForTeamViewer(role),
-      preferredDate: { not: null },
+      preferredDate: todayRange ? { gte: todayRange.gte } : { not: null },
       happyCallCompletedAt: null,
       status: {
-        notIn: ['CANCELLED', 'ON_HOLD', 'PENDING', 'DEPOSIT_PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'],
+        notIn: [
+          'CANCELLED',
+          'ON_HOLD',
+          'PENDING',
+          'DEPOSIT_PENDING',
+          'DEPOSIT_COMPLETED',
+          'ORDER_FORM_PENDING',
+          'COMPLETED',
+        ],
       },
       assignments: { some: { teamLeaderId: userId } },
       ...(dayOffExclude ?? {}),
     },
-    select: { preferredDate: true },
+    select: { preferredDate: true, createdAt: true },
   });
   const now = new Date();
   let overdueCount = 0;
   let pendingBeforeDeadlineCount = 0;
   for (const r of rows) {
     if (!r.preferredDate) continue;
-    if (now > happyCallDeadlineEnd(r.preferredDate)) overdueCount++;
-    else pendingBeforeDeadlineCount++;
+    if (wasCreatedAfterHappyCallDeadline(r.preferredDate, r.createdAt)) {
+      pendingBeforeDeadlineCount++;
+    } else if (now > happyCallDeadlineEnd(r.preferredDate)) {
+      overdueCount++;
+    } else {
+      pendingBeforeDeadlineCount++;
+    }
   }
   res.json({ overdueCount, pendingBeforeDeadlineCount });
 });
 
 /** 팀장만 — 담당 접수에 대해 해피콜 완료 처리 */
 router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
   const inquiry = await prisma.inquiry.findFirst({
     where: {
       id,
+      tenantId,
       assignments: { some: { teamLeaderId: userId } },
     },
   });
@@ -916,6 +942,7 @@ router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
     return;
   }
   if (inquiry.happyCallCompletedAt) {
+    notifyInboxRefresh([userId]);
     res.json({ ok: true, alreadyCompleted: true });
     return;
   }
@@ -923,6 +950,7 @@ router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
     where: { id },
     data: { happyCallCompletedAt: new Date() },
   });
+  notifyInboxRefresh([userId]);
   res.json({ ok: true });
 });
 

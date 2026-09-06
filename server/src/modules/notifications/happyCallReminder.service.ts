@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import {
   happyCallCronPreferredDateRange,
+  happyCallDeadlineEnd,
   happyCallReminderWindowStart,
   HAPPY_CALL_INELIGIBLE_STATUSES,
   isHappyCallEligible,
@@ -44,7 +45,7 @@ export async function runHappyCallReminderJob(opts?: {
   for (const tenant of tenants) {
     const policy = await getTenantNotificationPolicy(tenant.id);
     const rule = policy.kinds.happy_call;
-    if (!rule?.enabled || !rule.repeatEnabled) continue;
+    if (!rule?.enabled) continue;
 
     const assignments = await prisma.assignment.findMany({
       where: {
@@ -64,6 +65,7 @@ export async function runHappyCallReminderJob(opts?: {
             status: true,
             preferredDate: true,
             happyCallCompletedAt: true,
+            createdAt: true,
           },
         },
       },
@@ -84,9 +86,37 @@ export async function runHappyCallReminderJob(opts?: {
       if (!inv?.preferredDate) continue;
       if (!isHappyCallEligible(inv.status, inv.preferredDate)) continue;
       if (inv.happyCallCompletedAt) continue;
-      if (!isHappyCallInHourlyReminderWindow(now, inv.preferredDate, inv.happyCallCompletedAt, inv.status)) {
+      if (
+        !isHappyCallInHourlyReminderWindow(
+          now,
+          inv.preferredDate,
+          inv.happyCallCompletedAt,
+          inv.status,
+          inv.createdAt,
+        )
+      ) {
         skipped += 1;
         continue;
+      }
+
+      const deadline = happyCallDeadlineEnd(inv.preferredDate);
+      if (now > deadline) {
+        if (!rule.repeatEnabled) {
+          skipped += 1;
+          continue;
+        }
+        const sentCount = await prisma.notificationDeliveryLog.count({
+          where: {
+            tenantId: tenant.id,
+            userId: row.teamLeaderId,
+            kind: 'happy_call',
+            dedupeKey: { startsWith: `happy_call:${inv.id}:` },
+          },
+        });
+        if (sentCount >= rule.repeatMaxPerInquiry) {
+          skipped += 1;
+          continue;
+        }
       }
 
       const leaderId = row.teamLeaderId;
@@ -123,7 +153,13 @@ export async function runHappyCallReminderJob(opts?: {
         continue;
       }
 
-      const overdue = isHappyCallOverdue(now, inv.preferredDate, inv.happyCallCompletedAt, inv.status);
+      const overdue = isHappyCallOverdue(
+        now,
+        inv.preferredDate,
+        inv.happyCallCompletedAt,
+        inv.status,
+        inv.createdAt,
+      );
       const payload = buildHappyCallPushPayload({
         customerName: inv.customerName,
         inquiryId: inv.id,
