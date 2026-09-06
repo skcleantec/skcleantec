@@ -4,8 +4,8 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
-import { buildMessagePushPayload } from '../../lib/staffAppPush.helpers.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyMessageInboxRefresh } from '../notifications/staffAppPushDispatch.helpers.js';
 import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { canMessagePair } from './canMessagePair.js';
@@ -451,7 +451,15 @@ router.post('/team-send', async (req, res) => {
         }
       : null,
   });
-  notifyInboxRefresh([userId, ...staffIds]);
+  const senderName = first?.sender.name?.trim() || '팀장';
+  void notifyMessageInboxRefresh({
+    senderId: userId,
+    senderName,
+    senderRole: role,
+    receiverIds: staffIds,
+    messageId: first?.id ?? '',
+    preview: text,
+  });
 });
 
 /** 관리자·마케터: 현장 계정·크루 그룹 대상 공지(동일 내용) — 수신 대상은 본문 플래그로 선택 */
@@ -531,8 +539,24 @@ router.post('/broadcast-to-leaders', async (req, res) => {
     }
   });
 
-  const notifyUserIds = [userId, ...uniqueReceivers];
-  notifyInboxRefresh(notifyUserIds);
+  const senderRow = await prisma.user.findFirst({
+    where: { id: userId, tenantId },
+    select: { name: true },
+  });
+  const sampleMsg = await prisma.message.findFirst({
+    where: { tenantId, batchId, senderId: userId },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  void notifyMessageInboxRefresh({
+    senderId: userId,
+    senderName: senderRow?.name?.trim() || '관리자',
+    senderRole: role,
+    receiverIds: uniqueReceivers,
+    messageId: sampleMsg?.id ?? '',
+    preview: text,
+    title: '현장 공지',
+  });
   if (crewGroupIds.length > 0) {
     notifyCrewGroupsInboxRefresh(crewGroupIds);
   }
@@ -699,14 +723,13 @@ router.post('/', async (req, res) => {
     },
   });
   res.status(201).json(msg);
-  notifyInboxRefresh([userId, receiverId], {
-    [receiverId]: buildMessagePushPayload({
-      senderName: msg.sender.name,
-      senderRole: msg.sender.role,
-      receiverRole: receiver.role,
-      senderUserId: msg.senderId,
-      messageId: msg.id,
-    }),
+  void notifyMessageInboxRefresh({
+    senderId: userId,
+    senderName: msg.sender.name,
+    senderRole: msg.sender.role,
+    receiverIds: [receiverId],
+    messageId: msg.id,
+    preview: msg.content,
   });
 });
 

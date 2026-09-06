@@ -1,18 +1,18 @@
 # Agent Orchestra — Activity Dashboard
 
-**Last updated:** 2026-09-05 11:50 KST — 메시지 읽음/웹소켓
+**Last updated:** 2026-09-06 09:15 KST — 팀장 푸시 미리보기
 
 ## Current status
 
 | Agent | Last run (KST) | Status | Summary |
 |-------|----------------|--------|---------|
-| Maestro | 2026-09-05 11:50 | completed | 읽음 표시 복구 + 읽음 WS |
-| CodeGuardian | 2026-09-05 11:50 | completed | tenantId·tsc |
-| DesignPulse | — | skipped | 버그·기존 말풍선 글자만 |
-| ConfigCurator | 2026-09-05 11:50 | completed | 읽음 지표 등록 |
-| RoleQA | 2026-09-05 11:50 | completed | API/WS 14항 |
-| PlatformOps | — | skipped | 신규 모듈 없음 |
-| DbSentinel | — | skipped | 스키마 변경 없음 |
+| Maestro | 2026-09-06 09:15 | completed | generic 제거 + 메시지 미리보기 |
+| CodeGuardian | 2026-09-06 09:15 | completed | FCM 폴백 제거, tsc |
+| DesignPulse | 2026-09-06 09:15 | completed | 기타 알림 카드 숨김 |
+| ConfigCurator | 2026-09-06 09:15 | completed | 메시지 미리보기 설정 |
+| RoleQA | 2026-09-06 09:15 | completed | 본인 무푸시·수신 미리보기 |
+| PlatformOps | — | skipped | 모듈 변경 없음 |
+| DbSentinel | — | skipped | 스키마 없음 |
 
-**Outcome:** ✅ message read receipt + WS  
+**Outcome:** ✅ staff push preview  
 **Summary:** [BRIEF_REPORT.md](BRIEF_REPORT.md)
