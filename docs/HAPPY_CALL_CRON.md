@@ -54,7 +54,7 @@ npm run cron:happy-call-reminders -- --dry-run
 4. **Start Command** (Config file 없을 때만 UI 입력):
 
    ```bash
-   /bin/sh -c 'curl -sf -X POST "${CRON_BASE_URL}/api/admin/cron/happy-call-reminders" -H "Authorization: Bearer ${HAPPY_CALL_CRON_SECRET}" && curl -sf -X POST "${CRON_BASE_URL}/api/admin/cron/alimtalk-schedule-d2" -H "Authorization: Bearer ${ALIMTALK_CRON_SECRET:-$HAPPY_CALL_CRON_SECRET}"'
+   /bin/sh -c 'curl -sf -X POST "${CRON_BASE_URL}/api/admin/cron/happy-call-reminders" -H "Authorization: Bearer ${HAPPY_CALL_CRON_SECRET}"; curl -sf -X POST "${CRON_BASE_URL}/api/admin/cron/alimtalk-schedule-d2" -H "Authorization: Bearer ${ALIMTALK_CRON_SECRET:-$HAPPY_CALL_CRON_SECRET}"'
    ```
 
 5. **Variables** (Cron 서비스에만):
