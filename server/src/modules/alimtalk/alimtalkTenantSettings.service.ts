@@ -41,6 +41,7 @@ export type AlimtalkSettingsForTenantAdmin = {
   planAllows: boolean;
   plan: string;
   monthlyFreeEnabled: boolean;
+  monthlyFreeUnlimited: boolean;
   monthlyFreeQuota: number;
   monthlyFreeUsed: number;
   monthlyFreeRemaining: number;
@@ -106,16 +107,20 @@ export async function getAlimtalkSettingsForTenantAdmin(
 
   const monthlyFreeRemaining = wallet?.monthlyFreeRemaining ?? 0;
   const prepaidBalanceKrw = wallet?.prepaidBalanceKrw ?? walletRow.prepaidBalanceKrw;
+  const monthlyFreeUnlimited = wallet?.monthlyFreeUnlimited === true || walletRow.monthlyFreeUnlimited === true;
   const canSend =
     licensed &&
     alimtalkPlanAllowsFeature(tenant.plan) &&
-    (monthlyFreeRemaining >= 3 || prepaidBalanceKrw >= ALIMTALK_UNIT_PRICE_LMS_KRW);
+    (monthlyFreeUnlimited ||
+      monthlyFreeRemaining >= 3 ||
+      prepaidBalanceKrw >= ALIMTALK_UNIT_PRICE_LMS_KRW);
 
   return {
     licensed,
     planAllows: alimtalkPlanAllowsFeature(tenant.plan),
     plan: tenant.plan,
     monthlyFreeEnabled: walletRow.monthlyFreeEnabled,
+    monthlyFreeUnlimited,
     monthlyFreeQuota: wallet?.monthlyFreeQuota ?? alimtalkMonthlyFreeQuotaForPlan(tenant.plan),
     monthlyFreeUsed: wallet?.monthlyFreeUsed ?? 0,
     monthlyFreeRemaining,

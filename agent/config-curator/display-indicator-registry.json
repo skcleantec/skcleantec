@@ -218,6 +218,21 @@
       "notes": "일정 확인 알림 ON일 때 표시. N일 전 숫자는 고급 details. 기준일 없으면 안내 배너."
     },
     {
+      "id": "alimtalk.wallet.monthlyFreeUnlimited",
+      "labelKo": "알림톡 무제한 (플랫폼)",
+      "surfaces": ["platform.tenant.alimtalk", "admin.alimtalk.settings", "platform.tenant.list"],
+      "visual": { "type": "toggle", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/platform/tenants/:id (플랜 · 알림톡)",
+      "helpPath": "docs/알림톡/메시지/솔라피_템플릿_명세.md",
+      "codeRefs": [
+        "client/src/pages/platform/PlatformTenantAlimtalkPanel.tsx",
+        "server/src/modules/alimtalk/alimtalkWallet.service.ts"
+      ],
+      "notes": "업체별 운영 면제. 월 무료·선불 검사 생략. Starter/Free 불가. 업체 화면은 표시만."
+    },
+    {
       "id": "operatingCompany.cancellation.freeChangeDeadline",
       "labelKo": "위약 없이 바꿀 수 있는 마지막 날",
       "surfaces": ["admin.operatingCompanies.edit.cancellation"],

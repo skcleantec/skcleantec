@@ -241,8 +241,9 @@ function AlimtalkUsageLine({ row }: { row: PlatformCoinUsageRow }) {
     );
   }
 
-  const freePart =
-    row.alimtalkMonthlyFreeQuota > 0
+  const freePart = row.alimtalkMonthlyFreeUnlimited
+    ? ` · 무제한 (사용 ${row.alimtalkMonthlyFreeUsed.toLocaleString('ko-KR')}건)`
+    : row.alimtalkMonthlyFreeQuota > 0
       ? ` · 무료 ${row.alimtalkMonthlyFreeUsed.toLocaleString('ko-KR')}/${row.alimtalkMonthlyFreeQuota.toLocaleString('ko-KR')}`
       : '';
 

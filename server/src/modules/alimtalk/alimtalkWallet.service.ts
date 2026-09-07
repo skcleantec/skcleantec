@@ -16,6 +16,7 @@ export type AlimtalkWalletView = {
   monthlyFreeUsed: number;
   monthlyFreePeriodYm: string;
   monthlyFreeEnabled: boolean;
+  monthlyFreeUnlimited: boolean;
   monthlyFreeQuota: number;
   monthlyFreeRemaining: number;
 };
@@ -84,6 +85,7 @@ export async function getAlimtalkWalletView(tenantId: string, plan: string): Pro
   await ensureTenantAlimtalkDefaults(tenantId, plan);
   const wallet = await prisma.tenantAlimtalkWallet.findUniqueOrThrow({ where: { tenantId } });
   const reset = await resetMonthlyFreeIfNeeded(tenantId, plan, wallet);
+  const unlimited = wallet.monthlyFreeUnlimited === true;
   const quota =
     wallet.monthlyFreeEnabled && alimtalkMonthlyFreeQuotaForPlan(plan) > 0
       ? alimtalkMonthlyFreeQuotaForPlan(plan)
@@ -94,6 +96,7 @@ export async function getAlimtalkWalletView(tenantId: string, plan: string): Pro
     monthlyFreeUsed: reset.monthlyFreeUsed,
     monthlyFreePeriodYm: reset.monthlyFreePeriodYm,
     monthlyFreeEnabled: wallet.monthlyFreeEnabled,
+    monthlyFreeUnlimited: unlimited,
     monthlyFreeQuota: quota,
     monthlyFreeRemaining: remaining,
   };
@@ -109,6 +112,9 @@ export async function preflightAlimtalkSend(
   channel: 'ATA' | 'LMS',
 ): Promise<AlimtalkPreflightResult> {
   const wallet = await getAlimtalkWalletView(tenantId, plan);
+  if (wallet.monthlyFreeUnlimited) {
+    return { ok: true, wallet };
+  }
   const needFree = channel === 'LMS' ? ALIMTALK_LMS_FREE_UNITS : 1;
   const needPaid = channel === 'LMS' ? ALIMTALK_UNIT_PRICE_LMS_KRW : ALIMTALK_UNIT_PRICE_ATA_KRW;
   if (wallet.monthlyFreeRemaining >= needFree) {
@@ -133,7 +139,7 @@ export async function applyAlimtalkCharge(params: {
   const unitPrice =
     params.channel === 'LMS' ? ALIMTALK_UNIT_PRICE_LMS_KRW : ALIMTALK_UNIT_PRICE_ATA_KRW;
 
-  if (wallet.monthlyFreeRemaining >= needFree) {
+  if (wallet.monthlyFreeUnlimited || wallet.monthlyFreeRemaining >= needFree) {
     await prisma.tenantAlimtalkWallet.update({
       where: { tenantId: params.tenantId },
       data: { monthlyFreeUsed: wallet.monthlyFreeUsed + needFree },

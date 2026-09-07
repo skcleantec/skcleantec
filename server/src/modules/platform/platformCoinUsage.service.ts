@@ -44,6 +44,7 @@ export type PlatformCoinUsageRow = {
   alimtalkSentCount: number;
   alimtalkMonthlyFreeUsed: number;
   alimtalkMonthlyFreeQuota: number;
+  alimtalkMonthlyFreeUnlimited: boolean;
   alimtalkPrepaidBalanceKrw: number;
   alimtalkPlanAllows: boolean;
   signupAuthMethod: TenantSignupAuthMethod;
@@ -226,6 +227,7 @@ export async function listPlatformCoinUsage(
         prepaidBalanceKrw: true,
         monthlyFreeUsed: true,
         monthlyFreePeriodYm: true,
+        monthlyFreeUnlimited: true,
       },
     }),
     loadOwnerAuthProvidersByTenant(),
@@ -390,6 +392,7 @@ export async function listPlatformCoinUsage(
       alimtalkSentCount: alimtalkSentByTenant.get(t.id) ?? 0,
       alimtalkMonthlyFreeUsed,
       alimtalkMonthlyFreeQuota,
+      alimtalkMonthlyFreeUnlimited: wallet?.monthlyFreeUnlimited === true,
       alimtalkPrepaidBalanceKrw: wallet?.prepaidBalanceKrw ?? 0,
       alimtalkPlanAllows,
       signupAuthMethod: signupAuth.method,

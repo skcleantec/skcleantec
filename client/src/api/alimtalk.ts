@@ -20,6 +20,7 @@ export type TenantAlimtalkSettings = {
   planAllows: boolean;
   plan: string;
   monthlyFreeEnabled: boolean;
+  monthlyFreeUnlimited: boolean;
   monthlyFreeQuota: number;
   monthlyFreeUsed: number;
   monthlyFreeRemaining: number;

@@ -4306,6 +4306,8 @@ model TenantAlimtalkWallet {
   monthlyFreeUsed      Int      @default(0) @map("monthly_free_used")
   monthlyFreePeriodYm  String   @default("") @map("monthly_free_period_ym") @db.VarChar(7)
   monthlyFreeEnabled   Boolean  @default(true) @map("monthly_free_enabled")
+  /** 플랫폼 운영 면제 — 월 무료·선불 잔액 검사 없이 발송 */
+  monthlyFreeUnlimited Boolean  @default(false) @map("monthly_free_unlimited")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("tenant_alimtalk_wallets")
