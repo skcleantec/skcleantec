@@ -337,6 +337,7 @@ export type PlatformAlimtalkPolicyResponse = {
   planAllows: boolean;
   plan: string;
   monthlyFreeEnabled: boolean;
+  monthlyFreeUnlimited: boolean;
   monthlyFreeQuota: number;
   monthlyFreeUsed: number;
   monthlyFreeRemaining: number;
@@ -373,6 +374,7 @@ export async function patchPlatformTenantAlimtalkPolicy(
   body: {
     licensed?: boolean;
     monthlyFreeEnabled?: boolean;
+    monthlyFreeUnlimited?: boolean;
     templates?: { code: string; enabled: boolean }[];
   },
 ) {

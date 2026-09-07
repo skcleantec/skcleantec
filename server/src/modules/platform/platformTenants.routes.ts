@@ -314,6 +314,7 @@ router.patch('/:id/alimtalk-policy', platformSuperAdminOnly, async (req, res) =>
     const body = req.body as {
       licensed?: boolean;
       monthlyFreeEnabled?: boolean;
+      monthlyFreeUnlimited?: boolean;
       templates?: { code: string; enabled: boolean }[];
     };
     const settings = await saveAlimtalkPolicyForPlatform(req.params.id, body);

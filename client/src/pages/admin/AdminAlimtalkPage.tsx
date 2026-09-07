@@ -238,6 +238,11 @@ export function AdminAlimtalkPage() {
                 무료 잔여가 3건 미만이고 선불 잔액이 부족하면 발송이 중단될 수 있습니다. 충전을 신청해 주세요.
               </p>
             ) : null}
+            {settings.monthlyFreeUnlimited ? (
+              <p className="text-fluid-2xs text-emerald-800">
+                플랫폼에서 알림톡을 무제한으로 설정했습니다. 잔액이 없어도 발송됩니다.
+              </p>
+            ) : null}
             <dl className="grid grid-cols-2 gap-2 text-fluid-2xs text-gray-600 sm:grid-cols-4 sm:text-fluid-xs">
               <div>
                 <dt className="text-gray-400">플랜</dt>
@@ -246,14 +251,15 @@ export function AdminAlimtalkPage() {
               <div>
                 <dt className="text-gray-400">이번 달 무료</dt>
                 <dd className="font-medium tabular-nums text-gray-900">
-                  {settings.monthlyFreeUsed.toLocaleString('ko-KR')} /{' '}
-                  {settings.monthlyFreeQuota.toLocaleString('ko-KR')}건
+                  {settings.monthlyFreeUnlimited
+                    ? `${settings.monthlyFreeUsed.toLocaleString('ko-KR')}건 · 무제한`
+                    : `${settings.monthlyFreeUsed.toLocaleString('ko-KR')} / ${settings.monthlyFreeQuota.toLocaleString('ko-KR')}건`}
                 </dd>
               </div>
               <div>
                 <dt className="text-gray-400">무료 잔여</dt>
                 <dd className="font-medium tabular-nums text-gray-900">
-                  {settings.monthlyFreeRemaining.toLocaleString('ko-KR')}건
+                  {settings.monthlyFreeUnlimited ? '무제한' : `${settings.monthlyFreeRemaining.toLocaleString('ko-KR')}건`}
                 </dd>
               </div>
               <div>
@@ -264,10 +270,12 @@ export function AdminAlimtalkPage() {
               </div>
             </dl>
             <p className="text-fluid-2xs text-gray-500">
-              무료 건수는 매월 1일(KST) 리셋됩니다. 초과·대체문자(LMS)는 선불에서 차감(알림톡{' '}
-              {settings.unitPriceAtaKrw.toLocaleString('ko-KR')}원/건, LMS{' '}
-              {settings.unitPriceLmsKrw.toLocaleString('ko-KR')}원/건).
-              {!settings.monthlyFreeEnabled ? ' (운영 설정상 이번 달 무료 제공이 꺼져 있을 수 있습니다.)' : ''}
+              {settings.monthlyFreeUnlimited
+                ? '사용 건수는 매월 1일(KST)에 다시 0부터 셉니다. 무제한이면 선불 잔액을 깎지 않습니다.'
+                : `무료 건수는 매월 1일(KST) 리셋됩니다. 초과·대체문자(LMS)는 선불에서 차감(알림톡 ${settings.unitPriceAtaKrw.toLocaleString('ko-KR')}원/건, LMS ${settings.unitPriceLmsKrw.toLocaleString('ko-KR')}원/건).`}
+              {!settings.monthlyFreeUnlimited && !settings.monthlyFreeEnabled
+                ? ' (운영 설정상 이번 달 무료 제공이 꺼져 있을 수 있습니다.)'
+                : ''}
             </p>
           </section>
 

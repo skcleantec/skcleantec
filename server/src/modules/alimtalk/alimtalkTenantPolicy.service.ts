@@ -28,6 +28,7 @@ export type AlimtalkSettingsForPlatform = {
   planAllows: boolean;
   plan: string;
   monthlyFreeEnabled: boolean;
+  monthlyFreeUnlimited: boolean;
   monthlyFreeQuota: number;
   monthlyFreeUsed: number;
   monthlyFreeRemaining: number;
@@ -62,6 +63,7 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
     planAllows: alimtalkPlanAllowsFeature(tenant.plan),
     plan: tenant.plan,
     monthlyFreeEnabled: walletRow.monthlyFreeEnabled,
+    monthlyFreeUnlimited: wallet?.monthlyFreeUnlimited === true || walletRow.monthlyFreeUnlimited === true,
     monthlyFreeQuota: wallet?.monthlyFreeQuota ?? alimtalkMonthlyFreeQuotaForPlan(tenant.plan),
     monthlyFreeUsed: wallet?.monthlyFreeUsed ?? 0,
     monthlyFreeRemaining: wallet?.monthlyFreeRemaining ?? 0,
@@ -87,6 +89,7 @@ export async function saveAlimtalkPolicyForPlatform(
   input: {
     licensed?: boolean;
     monthlyFreeEnabled?: boolean;
+    monthlyFreeUnlimited?: boolean;
     templates?: { code: string; enabled: boolean }[];
   },
 ): Promise<AlimtalkSettingsForPlatform> {
@@ -111,10 +114,21 @@ export async function saveAlimtalkPolicyForPlatform(
 
   await ensureTenantAlimtalkDefaults(tenantId, tenant.plan);
 
+  if (typeof input.monthlyFreeUnlimited === 'boolean' && input.monthlyFreeUnlimited && !alimtalkPlanAllowsFeature(tenant.plan)) {
+    throw new Error('Starter/Free 플랜에서는 알림톡 무제한을 켤 수 없습니다.');
+  }
+
+  const walletPatch: { monthlyFreeEnabled?: boolean; monthlyFreeUnlimited?: boolean } = {};
   if (typeof input.monthlyFreeEnabled === 'boolean') {
+    walletPatch.monthlyFreeEnabled = input.monthlyFreeEnabled;
+  }
+  if (typeof input.monthlyFreeUnlimited === 'boolean') {
+    walletPatch.monthlyFreeUnlimited = input.monthlyFreeUnlimited;
+  }
+  if (Object.keys(walletPatch).length > 0) {
     await prisma.tenantAlimtalkWallet.update({
       where: { tenantId },
-      data: { monthlyFreeEnabled: input.monthlyFreeEnabled },
+      data: walletPatch,
     });
   }
 

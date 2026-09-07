@@ -32,6 +32,7 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
   const [settings, setSettings] = useState<PlatformAlimtalkPolicyResponse | null>(null);
   const [licensed, setLicensed] = useState(false);
   const [monthlyFreeEnabled, setMonthlyFreeEnabled] = useState(true);
+  const [monthlyFreeUnlimited, setMonthlyFreeUnlimited] = useState(false);
   const [templateEnabled, setTemplateEnabled] = useState<Record<AlimtalkTemplateCode, boolean>>({
     CBISEO_CUST_ORDER_LINK: true,
     CBISEO_CUST_ORDER_DONE: true,
@@ -56,6 +57,7 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
       setSettings(data);
       setLicensed(data.licensed);
       setMonthlyFreeEnabled(data.monthlyFreeEnabled);
+      setMonthlyFreeUnlimited(Boolean(data.monthlyFreeUnlimited));
       const next: Record<AlimtalkTemplateCode, boolean> = {
         CBISEO_CUST_ORDER_LINK: true,
         CBISEO_CUST_ORDER_DONE: true,
@@ -88,6 +90,7 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
       const data = await patchPlatformTenantAlimtalkPolicy(token, tenantId, {
         licensed,
         monthlyFreeEnabled,
+        monthlyFreeUnlimited,
         templates: ALIMTALK_TEMPLATE_CODES.map((code) => ({
           code,
           enabled: templateEnabled[code],
@@ -186,23 +189,37 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
           </div>
           <PlatformToggle
             checked={monthlyFreeEnabled}
-            disabled={disabled || saving || !licensed}
+            disabled={disabled || saving || !licensed || monthlyFreeUnlimited}
             onChange={() => setMonthlyFreeEnabled((v) => !v)}
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">무제한</h3>
+            <p className="mt-0.5 text-xs text-gray-500">
+              켜면 월 무료·충전 잔액과 관계없이 발송합니다. 솔라피 실비는 플랫폼 부담입니다.
+            </p>
+          </div>
+          <PlatformToggle
+            checked={monthlyFreeUnlimited}
+            disabled={disabled || saving || !licensed || !settings?.planAllows}
+            onChange={() => setMonthlyFreeUnlimited((v) => !v)}
           />
         </div>
         {settings && licensed ? (
           <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
             <div>
-              <dt className="text-gray-400">이번 달 무료</dt>
+              <dt className="text-gray-400">이번 달 사용</dt>
               <dd className="font-medium tabular-nums text-gray-900">
-                {settings.monthlyFreeUsed.toLocaleString('ko-KR')} /{' '}
-                {settings.monthlyFreeQuota.toLocaleString('ko-KR')}건
+                {monthlyFreeUnlimited
+                  ? `${settings.monthlyFreeUsed.toLocaleString('ko-KR')}건 · 무제한`
+                  : `${settings.monthlyFreeUsed.toLocaleString('ko-KR')} / ${settings.monthlyFreeQuota.toLocaleString('ko-KR')}건`}
               </dd>
             </div>
             <div>
               <dt className="text-gray-400">무료 잔여</dt>
               <dd className="font-medium tabular-nums text-gray-900">
-                {settings.monthlyFreeRemaining.toLocaleString('ko-KR')}건
+                {monthlyFreeUnlimited ? '무제한' : `${settings.monthlyFreeRemaining.toLocaleString('ko-KR')}건`}
               </dd>
             </div>
             <div>
@@ -224,6 +241,7 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
         <p className="mt-0.5 text-xs text-gray-500">
           입금 확인 후 반영합니다. {ALIMTALK_CHARGE_UNIT_KRW.toLocaleString('ko-KR')}원 단위, 1회 최대{' '}
           {ALIMTALK_CHARGE_MAX_KRW.toLocaleString('ko-KR')}원.
+          {monthlyFreeUnlimited ? ' 무제한이면 잔액이 없어도 발송됩니다.' : ''}
         </p>
         {settings?.pendingChargeRequests?.length ? (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">

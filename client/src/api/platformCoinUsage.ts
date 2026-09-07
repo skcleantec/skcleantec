@@ -36,6 +36,7 @@ export type PlatformCoinUsageRow = {
   alimtalkSentCount: number;
   alimtalkMonthlyFreeUsed: number;
   alimtalkMonthlyFreeQuota: number;
+  alimtalkMonthlyFreeUnlimited: boolean;
   alimtalkPrepaidBalanceKrw: number;
   alimtalkPlanAllows: boolean;
   signupAuthMethod: TenantSignupAuthMethod;
