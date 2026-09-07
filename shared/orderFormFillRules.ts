@@ -161,7 +161,7 @@ export const ORDER_FORM_FILL_RULE_FIELDS: readonly OrderFormFillRuleFieldMeta[] 
     key: 'photos',
     section: 'photos',
     label: '현장 사진',
-    help: '지금은 없어도 제출할 수 있습니다.',
+    help: '지금은 없어도 제출할 수 있습니다. 사진 칸 자체를 없애려면 「발주서 양식」에서 「현장 사진 첨부」를 끄세요.',
   },
   {
     key: 'professionalOptions',
@@ -197,7 +197,8 @@ export const ISSUE_FILL_RULES_PAGE_HELP =
   '· 필수만 켜면: 상담사 또는 고객 중 한 명은 반드시 적습니다. 발급할 때 비워 두어도 됩니다.\n' +
   '· 고객 + 필수: 고객만 적을 수 있고, 꼭 적어야 합니다.\n' +
   '· 마케터 + 필수: 상담사만 적을 수 있고, 비우면 링크가 만들어지지 않습니다.\n\n' +
-  '처음 보이는 체크는 지금 발주서와 같습니다. 면적만 상담사가 꼭 적도록 되어 있습니다.';
+  '처음 보이는 체크는 지금 발주서와 같습니다. 면적만 상담사가 꼭 적도록 되어 있습니다.\n\n' +
+  '고객 발주서에서 사진 칸을 아예 없애려면 「발주서 양식」에서 「현장 사진 첨부」를 끄세요.';
 
 const RULE_KEYS = new Set<string>(ORDER_FORM_FILL_RULE_FIELDS.map((f) => f.key));
 

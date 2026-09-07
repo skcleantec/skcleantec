@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-06-omnibox",
+  "_lastUpdated": "2026-09-07-order-form-photos-section",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -410,7 +410,23 @@
         "client/src/pages/admin/AdminOrderFormPage.tsx",
         "client/src/components/admin/order-issue/IssueFillRulesSettingsModal.tsx"
       ],
-      "notes": "발급 제목 옆 「설정」→모달. 기본 체크=현재 발주서(면적만 마케터+필수). 항목 ? 도움말."
+      "notes": "발급 제목 옆 「설정」→모달. 기본 체크=현재 발주서(면적만 마케터+필수). 항목 ? 도움말. 사진 칸 자체 ON/OFF는 발주서 양식."
+    },
+    {
+      "id": "orderForm.template.section.photos",
+      "labelKo": "고객 발주서 · 현장 사진 첨부",
+      "surfaces": ["admin.inquiries.order-templates", "public.orderForm"],
+      "visual": { "type": "switch", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormSectionToggles.tsx",
+      "codeRefs": [
+        "client/src/components/admin/order-templates/OrderFormSectionToggles.tsx",
+        "shared/orderFormSectionToggles.ts",
+        "client/src/pages/order/orderFormFieldVisibility.ts"
+      ],
+      "notes": "기본 켜짐. 끄면 고객 사진 칸 숨김. 작성 설정의 고객 체크와 별개."
     },
     {
       "id": "admin.workflowGuide.inquiry",

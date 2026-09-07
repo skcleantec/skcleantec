@@ -7,6 +7,7 @@ import {
   TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY,
   TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_META,
 } from '../../lib/telecrmConsultationQuote.js';
+import { isOrderFormSectionToggleKey, isOrderFormSectionToggleOn } from '../../lib/orderFormSectionToggles.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -125,11 +126,14 @@ export async function getPublicTemplateForForm(
   };
 }
 
-/** TEMPLATE 모드 비기본 양식 — 해당 systemField가 템플릿에 있을 때만 true. 기본·레거시는 항상 true */
+/** TEMPLATE 모드 비기본 양식 — 해당 systemField가 템플릿에 있을 때만 true. 기본·레거시는 항상 true. 섹션 토글(사진 등)은 양식별 ON/OFF. */
 export function templateHasSystemField(
   template: PublicOrderTemplate | null | undefined,
   key: string,
 ): boolean {
+  if (isOrderFormSectionToggleKey(key)) {
+    return isOrderFormSectionToggleOn(template, key);
+  }
   if (!template || template.isDefault) return true;
   if (template.renderMode !== 'TEMPLATE') return true;
   return template.systemFields.some((f) => f.systemField === key);

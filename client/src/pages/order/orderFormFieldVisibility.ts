@@ -12,6 +12,10 @@ import {
   canCustomerWrite,
   type OrderFormFillRuleKey,
 } from '@shared/orderFormFillRules';
+import {
+  isOrderFormSectionToggleKey,
+  isOrderFormSectionToggleOn,
+} from '@shared/orderFormSectionToggles';
 
 export function customerMayEditFillKey(
   order: OrderFormLoadedOrder | null | undefined,
@@ -46,6 +50,9 @@ export function isStdFieldOn(
   key: string,
 ): boolean {
   const tpl = order?.template;
+  if (isOrderFormSectionToggleKey(key)) {
+    return isOrderFormSectionToggleOn(tpl, key);
+  }
   if (!tpl || tpl.isDefault) return true;
   const sys = tpl.systemFields;
   if (!sys) return true;

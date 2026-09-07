@@ -10,6 +10,7 @@ import {
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
 import { ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL } from '../../constants/orderFormProfessionalOptions';
+import { isOrderFormSectionOffOptions } from '@shared/orderFormSectionToggles';
 import type {
   OrderFormFieldFillMode,
   OrderFormFieldInputType,
@@ -271,7 +272,7 @@ export function OrderFormTemplatePreview({
         continue;
       }
       if (sys === 'photos') {
-        photos = true;
+        photos = !isOrderFormSectionOffOptions(f.options);
         continue;
       }
       if (sys && SECTION_TOGGLE_SYSTEM_FIELDS.has(sys)) continue;
