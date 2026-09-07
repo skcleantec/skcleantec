@@ -138,6 +138,7 @@ import {
   customerMayEditFillKey,
   fillKeyRequiredForCustomer,
   isOrderFormAreaLockedFromOrder,
+  isStdFieldOn,
 } from './orderFormFieldVisibility';
 import {
   DEFAULT_ORDER_FORM_FILL_RULES,
@@ -296,19 +297,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const formRef = useRef(form);
   formRef.current = form;
 
-  // 선택 표준 항목 표시/숨김 — 규칙은 하나:
-  // - 기본 발주서 / 레거시(템플릿 없음): 표준 폼 전체 표시.
-  // - 내가 만든 발주서(TEMPLATE): 템플릿 systemFields에 넣은 항목만 표시.
-  const stdFieldOn = useCallback(
-    (key: string): boolean => {
-      const tpl = order?.template;
-      if (!tpl || tpl.isDefault) return true;
-      const sys = tpl.systemFields;
-      if (!sys) return true;
-      return sys.some((f) => f.systemField === key);
-    },
-    [order],
-  );
+  // 선택 표준 항목 표시/숨김 — isStdFieldOn (기본 양식 전체 + 섹션 토글 예외)
+  const stdFieldOn = useCallback((key: string): boolean => isStdFieldOn(order, key), [order]);
   const secondaryPhoneAlwaysRequired = true;
   const showContactSection =
     stdFieldOn('customerPhone') || stdFieldOn('customerEmail') || secondaryPhoneAlwaysRequired;
@@ -3063,9 +3053,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             </div>
           ) : null}
 
-          {stdFieldOn('photos') && !isEditor && (
+          {stdFieldOn('photos') && customerMayEditFillKey(order, 'photos') && !isEditor && (
           <div>
-            <p className={`${labelCls} mb-2`}>12. 현장 사진 첨부 (선택)</p>
+            <p className={`${labelCls} mb-2`}>
+              12. 현장 사진 첨부 {fillKeyRequiredForCustomer(order, 'photos') ? '(필수)' : '(선택)'}
+            </p>
             {token ? (
               <OrderFormPhotoSection token={token} disabled={submitting} />
             ) : null}

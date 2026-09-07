@@ -1,18 +1,17 @@
 # Agent Orchestra — Activity Dashboard
 
-**Last updated:** 2026-09-06 10:20 KST — 일정확인 0건 = cron 미호출
+**Last updated:** 2026-09-07 16:55 KST — 고객 발주서 사진첨부 토글 구현
 
 ## Current status
 
 | Agent | Last run (KST) | Status | Summary |
 |-------|----------------|--------|---------|
-| Maestro | 2026-09-06 10:20 | completed | 운영 cron에 D2 연결 |
-| CodeGuardian | 2026-09-06 10:20 | completed | 미호출이 원인, `;` 분리 |
-| DesignPulse | — | skipped | UI 변경 없음 |
-| ConfigCurator | — | skipped | 표시 규칙 변경 없음 |
-| RoleQA | 2026-09-06 10:20 | completed | 12시 이후 목록 재확인 |
-| PlatformOps | 2026-09-06 10:20 | completed | hearty-expression startCommand 수정 |
-| DbSentinel | — | skipped | migrate 없음 |
+| Maestro | 2026-09-07 16:55 | completed | 발주서 양식 스위치 구현 |
+| ConfigCurator | 2026-09-07 16:55 | completed | registry + 도움말 |
+| DesignPulse | 2026-09-07 16:55 | completed | 1줄 스위치 카드 |
+| CodeGuardian | 2026-09-07 16:55 | completed | tsc 통과 |
+| RoleQA | 2026-09-07 16:55 | completed | 관리자 토글 / 고객 숨김 |
+| DbSentinel | 2026-09-07 16:55 | completed | 스키마 없음 |
 
-**Outcome:** ✅ D2 cron wired on production  
+**Outcome:** ✅ implemented  
 **Summary:** [BRIEF_REPORT.md](BRIEF_REPORT.md)

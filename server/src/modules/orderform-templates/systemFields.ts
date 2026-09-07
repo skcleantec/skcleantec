@@ -102,6 +102,7 @@ export const DEFAULT_ORDER_FORM_TEMPLATE_FIELDS: DefaultTemplateFieldSeed[] = [
   { fieldKey: 'bathroomCount', label: '화장실 개수', inputType: 'NUMBER', systemField: 'bathroomCount', options: [], sortOrder: 10 },
   { fieldKey: 'kitchenCount', label: '주방 개수', inputType: 'NUMBER', systemField: 'kitchenCount', options: [], sortOrder: 11 },
   { fieldKey: 'specialNotes', label: '특이사항', inputType: 'TEXTAREA', systemField: 'specialNotes', options: [], sortOrder: 12 },
+  { fieldKey: 'photos', label: '현장 사진 첨부', inputType: 'TEXT', systemField: 'photos', options: [], sortOrder: 14 },
 ];
 
 /** 발행 시 폼에 반드시 매핑돼야 하는 시스템 필드 키(자동 생성 제외) */

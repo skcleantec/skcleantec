@@ -114,12 +114,14 @@ import {
   validateOrderFormSpaceCounts,
 } from '../../lib/orderFormSpaceCounts.js';
 import {
+  canCustomerWrite,
   fillRuleOf,
   marketerMustFillAtIssue,
   mergeOrderFormFillRules,
   sanitizeOrderFormFillRulesForSave,
   toPublicFillRules,
 } from '../../lib/orderFormFillRules.js';
+import { ORDER_FORM_PHOTOS_SECTION_KEY } from '../../lib/orderFormSectionToggles.js';
 import {
   labelForMoveInTiming,
   parseMoveInTiming,
@@ -3541,7 +3543,7 @@ router.post('/by-token/:token/photos', photoUploadFields, async (req, res) => {
   const { token } = req.params;
   const form = await prisma.orderForm.findUnique({
     where: { token },
-    select: { id: true, tenantId: true, submittedAt: true },
+    select: { id: true, tenantId: true, submittedAt: true, templateId: true },
   });
   if (!form) {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
@@ -3555,6 +3557,15 @@ router.post('/by-token/:token/photos', photoUploadFields, async (req, res) => {
   }
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서는 사진을 변경할 수 없습니다.' });
+    return;
+  }
+  const [photoTemplate, photoFormCfg] = await Promise.all([
+    getPublicTemplateForForm(prisma, form.tenantId, form.templateId),
+    getOrCreateOrderFormConfig(prisma, form.tenantId),
+  ]);
+  const photoFill = fillRuleOf(mergeOrderFormFillRules(photoFormCfg.issueFillRules), 'photos');
+  if (!templateHasSystemField(photoTemplate, ORDER_FORM_PHOTOS_SECTION_KEY) || !canCustomerWrite(photoFill)) {
+    res.status(403).json({ error: '이 발주서에서는 사진을 첨부할 수 없습니다.' });
     return;
   }
 

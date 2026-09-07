@@ -28,6 +28,13 @@ import {
   type OrderFormTemplateRenderMode,
 } from '../../api/orderFormTemplates';
 import { ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX } from '@shared/orderFormListSnapshot';
+import {
+  ORDER_FORM_PHOTOS_SECTION_KEY,
+  isOrderFormSectionToggleKey,
+  isOrderFormSectionToggleOn,
+  optionsForOrderFormSectionToggle,
+} from '@shared/orderFormSectionToggles';
+import { OrderFormSectionToggles } from '../../components/admin/order-templates/OrderFormSectionToggles';
 
 type DraftField = Omit<OrderFormTemplateField, 'id' | 'options' | 'placeholder' | 'optionStyle'> & {
   id?: string;
@@ -118,9 +125,11 @@ function draftsToPayload(drafts: DraftField[]): Array<Omit<OrderFormTemplateFiel
     label: d.label,
     helpText: d.helpText && d.helpText.trim() ? d.helpText.trim() : null,
     inputType: d.inputType,
-    options: OPTION_INPUT_TYPES.has(d.inputType)
+    options: isOrderFormSectionToggleKey(d.systemField)
       ? d.options.map((s) => s.trim()).filter(Boolean)
-      : [],
+      : OPTION_INPUT_TYPES.has(d.inputType)
+        ? d.options.map((s) => s.trim()).filter(Boolean)
+        : [],
     placeholder:
       d.inputType === 'TEXTAREA' || d.inputType === 'TEXT'
         ? d.placeholder && d.placeholder.trim()
@@ -220,6 +229,7 @@ export function AdminOrderFormTemplatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [defaultPreviewToken, setDefaultPreviewToken] = useState<string | null>(null);
+  const [defaultPreviewIframeKey, setDefaultPreviewIframeKey] = useState(0);
 
   // 편집 상태
   const [meta, setMeta] = useState({ title: '', icon: '', description: '' });
@@ -261,6 +271,20 @@ export function AdminOrderFormTemplatesPage() {
     return n;
   }, [tenantPromotedKeys, draftPromotedKeys]);
   const promotedSlotsLeft = ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX - otherTemplatePromotedCount - draftPromotedKeys.size;
+  const photosSectionOn = useMemo(
+    () =>
+      isOrderFormSectionToggleOn(
+        {
+          isDefault: selected?.isDefault ?? false,
+          systemFields: drafts
+            .filter((d): d is DraftField & { systemField: string } => Boolean(d.systemField))
+            .map((d) => ({ systemField: d.systemField, options: d.options })),
+        },
+        ORDER_FORM_PHOTOS_SECTION_KEY,
+      ),
+    [drafts, selected?.isDefault],
+  );
+  const itemDraftCount = drafts.filter((d) => !isOrderFormSectionToggleKey(d.systemField)).length;
 
   const loadTemplates = useCallback(async () => {
     if (!token) return;
@@ -346,6 +370,33 @@ export function AdminOrderFormTemplatesPage() {
     setDirty(true);
   }
 
+  function setPhotosSectionOn(on: boolean) {
+    const opts = optionsForOrderFormSectionToggle(on);
+    setDrafts((prev) => {
+      const i = prev.findIndex((d) => d.systemField === ORDER_FORM_PHOTOS_SECTION_KEY);
+      if (i >= 0) {
+        return prev.map((d, idx) => (idx === i ? { ...d, options: opts, label: '현장 사진 첨부' } : d));
+      }
+      return [
+        ...prev,
+        {
+          fieldKey: ORDER_FORM_PHOTOS_SECTION_KEY,
+          label: '현장 사진 첨부',
+          helpText: null,
+          inputType: 'TEXT',
+          required: false,
+          sortOrder: prev.length,
+          systemField: ORDER_FORM_PHOTOS_SECTION_KEY,
+          fillMode: 'CUSTOMER',
+          options: opts,
+          placeholder: null,
+          optionStyle: null,
+        },
+      ];
+    });
+    setDirty(true);
+  }
+
   function addField() {
     setDrafts((prev) => [
       ...prev,
@@ -387,7 +438,10 @@ export function AdminOrderFormTemplatesPage() {
   function moveField(idx: number, dir: -1 | 1) {
     setDrafts((prev) => {
       const next = [...prev];
-      const j = idx + dir;
+      let j = idx + dir;
+      while (j >= 0 && j < next.length && isOrderFormSectionToggleKey(next[j].systemField)) {
+        j += dir;
+      }
       if (j < 0 || j >= next.length) return prev;
       [next[idx], next[j]] = [next[j], next[idx]];
       return next;
@@ -438,6 +492,7 @@ export function AdminOrderFormTemplatesPage() {
       const promoted = await getPromotedOrderFormListFields(token);
       setTenantPromotedKeys(new Set(promoted.map((p) => p.fieldKey)));
       setDirty(false);
+      setDefaultPreviewIframeKey((k) => k + 1);
       flashNotice('저장했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
@@ -502,7 +557,7 @@ export function AdminOrderFormTemplatesPage() {
             <PageTitleWithFavorite label="발주서 양식 관리">
               <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">발주서 양식 관리</h1>
             </PageTitleWithFavorite>
-            <HelpTooltip text="고객에게 보낼 발주서를 직접 만들 수 있습니다. 항목을 자유롭게 추가하되, 발행하려면 필수 항목(고객명·전화·주소·금액·평수·희망일·시간대)을 시스템 필드로 연결해야 합니다." />
+            <HelpTooltip text="고객에게 보낼 발주서를 직접 만들 수 있습니다. 「현장 사진 첨부」는 위에서 켜고 끌 수 있습니다. 항목을 자유롭게 추가하되, 발행하려면 필수 항목(고객명·전화·주소·금액·평수·희망일·시간대)을 시스템 필드로 연결해야 합니다." />
           </div>
           <p className="mt-1 text-fluid-xs text-gray-500">구글폼처럼 항목을 구성하고, 시스템 필드로 연결하면 접수·스케줄에 자동 반영됩니다.</p>
           <p className="mt-1 text-fluid-xs text-gray-400">
@@ -702,8 +757,8 @@ export function AdminOrderFormTemplatesPage() {
 
                 <p className="mt-3 border-t border-gray-100 pt-3 text-fluid-2xs leading-relaxed text-gray-500">
                   {selected.isDefault
-                    ? '기본 발주서는 기존 표준 폼 전체가 고객에게 그대로 표시됩니다. 발주서 이름은 내부 구분용이며, 저장 시 고객 링크용 폼 제목에도 반영됩니다. 고객 제출확인서·확인 메일에는 표시되지 않습니다.'
-                    : '필수 기본 항목(고객명·전화·보조전화·주소·건축물유형·면적·희망일·시간대·신축/구축)이 자동 포함되고, 그 아래 추가한 항목·켠 섹션만 고객에게 보입니다. 발주서 이름은 내부 구분용이며, 고객 제출확인서·확인 메일에는 표시되지 않습니다.'}
+                    ? '기본 발주서는 기존 표준 폼 전체가 고객에게 그대로 표시됩니다. 「현장 사진 첨부」만 아래 스위치로 끌 수 있습니다. 발주서 이름은 내부 구분용이며, 저장 시 고객 링크용 폼 제목에도 반영됩니다. 고객 제출확인서·확인 메일에는 표시되지 않습니다.'
+                    : '필수 기본 항목(고객명·전화·보조전화·주소·건축물유형·면적·희망일·시간대·신축/구축)이 자동 포함되고, 그 아래 추가한 항목과 「고객에게 보일 섹션」에서 켠 항목만 고객에게 보입니다. 발주서 이름은 내부 구분용이며, 고객 제출확인서·확인 메일에는 표시되지 않습니다.'}
                 </p>
               </div>
 
@@ -738,10 +793,12 @@ export function AdminOrderFormTemplatesPage() {
                 )}
               </div>
 
+              <OrderFormSectionToggles photosOn={photosSectionOn} onPhotosChange={setPhotosSectionOn} />
+
               {/* 필드 빌더 */}
               <div className="rounded-lg border border-gray-200 bg-white">
                 <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-lg border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur">
-                  <span className="text-fluid-sm font-medium text-gray-700">항목 구성 ({drafts.length})</span>
+                  <span className="text-fluid-sm font-medium text-gray-700">항목 구성 ({itemDraftCount})</span>
                   <button type="button" onClick={addField} className="rounded-md border border-gray-300 px-3 py-1.5 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50">
                     + 항목 추가
                   </button>
@@ -759,15 +816,16 @@ export function AdminOrderFormTemplatesPage() {
                   </div>
                 ) : (
                   <ul className="divide-y divide-gray-100">
-                    {drafts.map((d, idx) => (
+                    {drafts.map((d, idx) =>
+                      isOrderFormSectionToggleKey(d.systemField) ? null : (
                       <li key={d.id ?? `new-${idx}`} className="p-4">
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <span className="text-fluid-2xs text-gray-400">#{idx + 1}</span>
                           <div className="flex items-center gap-1">
-                            <button type="button" onClick={() => moveField(idx, -1)} disabled={idx === 0} className="rounded border border-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-500 hover:bg-gray-50 disabled:opacity-30">
+                            <button type="button" onClick={() => moveField(idx, -1)} disabled={!drafts.slice(0, idx).some((x) => !isOrderFormSectionToggleKey(x.systemField))} className="rounded border border-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-500 hover:bg-gray-50 disabled:opacity-30">
                               ↑
                             </button>
-                            <button type="button" onClick={() => moveField(idx, 1)} disabled={idx === drafts.length - 1} className="rounded border border-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-500 hover:bg-gray-50 disabled:opacity-30">
+                            <button type="button" onClick={() => moveField(idx, 1)} disabled={!drafts.slice(idx + 1).some((x) => !isOrderFormSectionToggleKey(x.systemField))} className="rounded border border-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-500 hover:bg-gray-50 disabled:opacity-30">
                               ↓
                             </button>
                             <button type="button" onClick={() => removeField(idx)} className="rounded border border-red-200 px-2 py-0.5 text-fluid-2xs text-red-500 hover:bg-red-50">
@@ -804,7 +862,7 @@ export function AdminOrderFormTemplatesPage() {
                               className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
                             >
                               <option value="">연결 안 함 (추가 정보)</option>
-                              {systemFields.map((sf) => {
+                              {systemFields.filter((sf) => !sf.sectionToggle).map((sf) => {
                                 const usedElsewhere = sf.key !== d.systemField && mappedSystemKeys.has(sf.key);
                                 return (
                                   <option key={sf.key} value={sf.key} disabled={usedElsewhere || sf.autoGenerated}>
@@ -988,6 +1046,7 @@ export function AdminOrderFormTemplatesPage() {
                     </div>
                     {defaultPreviewToken ? (
                       <iframe
+                        key={defaultPreviewIframeKey}
                         title="기본 발주서 미리보기"
                         src={appendPublicQuery(
                           `${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`,
