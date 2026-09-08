@@ -22,6 +22,7 @@ import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../../components
 import { TeamQuotationInquiryLinkPanel } from '../../components/quotations/TeamQuotationInquiryLinkPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { TeamHouseholdLedgerInquiryAddPanel } from '../../components/team/TeamHouseholdLedgerInquiryAddPanel';
+import { TeamNaviLaunchButton } from '../../components/team/TeamNaviLaunchButton';
 import { PartnerReceivedBanner } from '../../components/admin/PartnerReceivedBanner';
 import { MarketplaceHandoffBuyerBanner } from '../../components/admin/MarketplaceHandoffBuyerBanner';
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
@@ -1582,6 +1583,7 @@ export function TeamInquiryDetailModal({
                       {item.address}
                       {item.addressDetail ? <span className="text-gray-600"> {item.addressDetail}</span> : null}
                     </span>
+                    <TeamNaviLaunchButton inquiryId={item.id} token={teamToken} compact />
                   </TeamModalRow>
                   <TeamModalRow
                     compact
@@ -1769,6 +1771,7 @@ export function TeamInquiryDetailModal({
                   {item.address}
                   {item.addressDetail ? <span className="text-gray-600"> {item.addressDetail}</span> : null}
                 </p>
+                <TeamNaviLaunchButton inquiryId={item.id} token={teamToken} />
               </TeamModalRow>
             </TeamModalSection>
 

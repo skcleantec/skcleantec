@@ -105,6 +105,7 @@ import {
 } from './teamLeaderDayOffInquiryVisibility.js';
 import teamLeaderTrainingTeamRoutes from '../team-leader-training/teamLeaderTraining.team.routes.js';
 import teamLeaderHouseholdLedgerRoutes from '../team-leader-household-ledger/teamLeaderHouseholdLedger.routes.js';
+import teamNaviRoutes from './teamNavi.routes.js';
 import {
   serializeTeamInquiryOperatingCompanies,
   serializeTeamInquiryOperatingCompany,
@@ -149,6 +150,7 @@ async function marketplaceHandoffViewerOptions(user: AuthPayload) {
 }
 
 router.use(teamAuthMiddleware);
+router.use(teamNaviRoutes);
 router.use(teamPlatformPromoRoutes);
 
 /** 팀 화면 기준 현재 사용자(프리뷰 매핑 반영) */

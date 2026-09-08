@@ -36,6 +36,11 @@ alwaysApply: true
 <button type="button" className={BTN_PRIMARY} disabled={saving}>저장</button>
 ```
 
+## 1.1) 아이콘
+
+- 새 아이콘은 **Iconify `line-md`** 만 — [목록](https://icon-sets.iconify.design/line-md), 컴포넌트 **`LineMdIcon`**.
+- 상세: **`.cursor/rules/iconify-line-md.mdc`**
+
 ## 2) `components/ui` — raw div + Tailwind 우선 금지
 
 목록·필터·툴팁·스크롤 등 **반복 UI**는 새 `div` 조합부터 만들지 않고 **`client/src/components/ui/`** 를 먼저 검색한다.
