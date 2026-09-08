@@ -455,3 +455,34 @@ export async function patchTeamCsReport(
     serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : null,
   };
 }
+
+export type TeamNaviDestination = {
+  lat: number;
+  lng: number;
+  name: string;
+  address: string;
+};
+
+/** 담당 접수 현장 좌표 — 길안내(카카오내비·TMAP) */
+export async function postTeamInquiryNaviDestination(
+  token: string,
+  inquiryId: string,
+): Promise<TeamNaviDestination> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/navi-destination`),
+    { method: 'POST', headers: headers(token) },
+  );
+  const body = (await res.json().catch(() => ({}))) as { error?: string } & Partial<TeamNaviDestination>;
+  if (!res.ok) {
+    throw new Error(body.error || '현장 위치를 찾지 못했습니다.');
+  }
+  if (
+    typeof body.lat !== 'number' ||
+    typeof body.lng !== 'number' ||
+    typeof body.name !== 'string' ||
+    typeof body.address !== 'string'
+  ) {
+    throw new Error('현장 위치를 찾지 못했습니다.');
+  }
+  return { lat: body.lat, lng: body.lng, name: body.name, address: body.address };
+}

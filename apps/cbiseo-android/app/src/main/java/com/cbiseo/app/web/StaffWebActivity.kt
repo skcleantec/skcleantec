@@ -356,7 +356,11 @@ class StaffWebActivity : AppCompatActivity() {
         return lower.startsWith("tel:") ||
             lower.startsWith("mailto:") ||
             lower.startsWith("sms:") ||
-            lower.startsWith("smsto:")
+            lower.startsWith("smsto:") ||
+            lower.startsWith("kakaonavi:") ||
+            lower.startsWith("kakaonavi-sdk:") ||
+            lower.startsWith("tmap:") ||
+            lower.startsWith("intent:")
     }
 
     private fun openExternalUrl(url: String) {
