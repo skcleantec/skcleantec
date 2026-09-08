@@ -40,6 +40,23 @@ import {
   TEAM_CHIP_SCROLL,
   TEAM_PHONE_CTA,
 } from '../../utils/teamTypeScale';
+import {
+  TEAM_DASH_TODAY_BAR,
+  TEAM_DASH_TODAY_CARD,
+  TEAM_DASH_TODAY_COUNT,
+  TEAM_DASH_TODAY_EMPTY,
+  TEAM_DASH_TODAY_HEAD,
+  TEAM_DASH_TODAY_STATUS,
+  TEAM_DASH_TODAY_WRAP,
+  TEAM_DASH_UPCOMING_BAR,
+  TEAM_DASH_UPCOMING_DATE_HEAD,
+  TEAM_DASH_UPCOMING_EMPTY,
+  TEAM_DASH_UPCOMING_GROUP,
+  TEAM_DASH_UPCOMING_HEAD,
+  TEAM_DASH_UPCOMING_ROW,
+  TEAM_DASH_UPCOMING_STATUS,
+  TEAM_DASH_UPCOMING_WRAP,
+} from '../../utils/teamDashboardSectionTone';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { sortInquiriesByScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
@@ -257,23 +274,23 @@ export function TeamDashboardPage() {
         </div>
       </section>
 
-      <section>
-        <h2 className="mb-1.5 flex flex-wrap items-center gap-2 px-1 text-fluid-sm font-semibold text-blue-800 sm:mb-3 sm:text-base">
-          <span className="w-1 h-4 bg-blue-600 rounded shrink-0" />
-          <TeamBiLine id="team.dashboard.sectionToday" koClassName="text-base font-semibold text-blue-800" />
+      <section className={TEAM_DASH_TODAY_WRAP}>
+        <h2 className={TEAM_DASH_TODAY_HEAD}>
+          <span className={TEAM_DASH_TODAY_BAR} />
+          <TeamBiLine id="team.dashboard.sectionToday" koClassName="text-base font-semibold text-sky-950" />
           {todayItems.length > 0 ? (
-            <span className="text-blue-600 font-bold inline-flex items-center">
+            <span className={TEAM_DASH_TODAY_COUNT}>
               <TeamBiLine
                 id="team.dashboard.itemsParen"
                 vars={{ count: String(todayItems.length) }}
-                koClassName="text-blue-600 font-bold text-base"
+                koClassName="text-base font-bold text-sky-700"
               />
             </span>
           ) : null}
         </h2>
         {todayItems.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-fluid-2xs text-gray-500 sm:rounded-xl sm:p-6 sm:text-fluid-sm">
-            <TeamBiLine id="team.dashboard.noToday" koClassName="text-fluid-2xs text-gray-500 sm:text-fluid-sm" />
+          <div className={TEAM_DASH_TODAY_EMPTY}>
+            <TeamBiLine id="team.dashboard.noToday" koClassName="text-fluid-2xs text-sky-800 sm:text-fluid-sm" />
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -284,7 +301,7 @@ export function TeamDashboardPage() {
               return (
                 <div
                   key={item.id}
-                  className="cursor-pointer rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-sm sm:p-4"
+                  className={TEAM_DASH_TODAY_CARD}
                   onClick={() => setDetailItem(item)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -332,7 +349,7 @@ export function TeamDashboardPage() {
                     </a>
                   </div>
                   <div className={`mt-1.5 ${TEAM_CHIP_SCROLL} sm:mt-2`}>
-                    <span className="inline-block rounded px-1.5 py-px text-[11px] bg-blue-200 text-blue-800 sm:px-2 sm:py-0.5 sm:text-fluid-xs">
+                    <span className={TEAM_DASH_TODAY_STATUS}>
                       {STATUS_LABELS[item.status] ?? item.status}
                     </span>
                     <TeamHappyCallBadge item={item} />
@@ -346,22 +363,22 @@ export function TeamDashboardPage() {
         )}
       </section>
 
-      <section>
-        <h2 className="mb-1.5 flex items-center gap-2 px-1 text-fluid-sm font-semibold text-gray-800 sm:mb-3 sm:text-base">
-          <span className="w-1 h-4 bg-gray-400 rounded" />
-          <TeamBiLine id="team.dashboard.sectionUpcoming" koClassName="text-base font-semibold text-gray-800" />
+      <section className={TEAM_DASH_UPCOMING_WRAP}>
+        <h2 className={TEAM_DASH_UPCOMING_HEAD}>
+          <span className={TEAM_DASH_UPCOMING_BAR} />
+          <TeamBiLine id="team.dashboard.sectionUpcoming" koClassName="text-base font-semibold text-orange-950" />
         </h2>
         {upcomingDates.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-fluid-2xs text-gray-500 sm:rounded-xl sm:p-6 sm:text-fluid-sm">
-            <TeamBiLine id="team.dashboard.noUpcoming" koClassName="text-fluid-2xs text-gray-500 sm:text-fluid-sm" />
+          <div className={TEAM_DASH_UPCOMING_EMPTY}>
+            <TeamBiLine id="team.dashboard.noUpcoming" koClassName="text-fluid-2xs text-orange-900 sm:text-fluid-sm" />
           </div>
         ) : (
           <div className="flex flex-col gap-1.5 sm:gap-3">
             {upcomingDates.map((dateKey) => {
               const dayItems = byDate[dateKey] || [];
               return (
-                <div key={dateKey} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between gap-2 bg-gray-50 px-3 py-2 text-gray-700 sm:px-4 sm:py-2.5">
+                <div key={dateKey} className={TEAM_DASH_UPCOMING_GROUP}>
+                  <div className={TEAM_DASH_UPCOMING_DATE_HEAD}>
                     <span className="text-[12px] font-medium tabular-nums leading-tight sm:text-fluid-xs">
                       {(() => {
                         const hint = relativeDateHint(dateKey);
@@ -369,11 +386,11 @@ export function TeamDashboardPage() {
                         return hint ? `${hint} · ${compact}` : compact;
                       })()}
                     </span>
-                    <span className="inline-flex shrink-0 text-fluid-2xs font-semibold text-gray-600 sm:text-fluid-sm">
+                    <span className="inline-flex shrink-0 text-fluid-2xs font-semibold text-orange-800 sm:text-fluid-sm">
                       <TeamBiLine
                         id="team.schedule.jobsCount"
                         vars={{ count: String(dayItems.length) }}
-                        koClassName="text-fluid-2xs font-semibold text-gray-600 sm:text-fluid-sm"
+                        koClassName="text-fluid-2xs font-semibold text-orange-800 sm:text-fluid-sm"
                       />
                     </span>
                   </div>
@@ -386,7 +403,7 @@ export function TeamDashboardPage() {
                         <div
                           key={item.id}
                           onClick={() => setDetailItem(item)}
-                          className="flex items-start justify-between gap-2 px-3 py-2 active:bg-gray-50 sm:items-center sm:px-4 sm:py-3"
+                          className={TEAM_DASH_UPCOMING_ROW}
                         >
                           <div className="min-w-0 flex-1">
                             <div className={TEAM_CARD_TITLE_ROW}>
@@ -422,7 +439,7 @@ export function TeamDashboardPage() {
                               {item.addressDetail ? ` ${item.addressDetail}` : ''}
                             </div>
                             <div className={`mt-1 ${TEAM_CHIP_SCROLL} sm:mt-1.5`}>
-                              <span className="inline-block rounded px-1.5 py-px text-[11px] bg-gray-200 text-gray-800 sm:px-2 sm:py-0.5 sm:text-fluid-2xs">
+                              <span className={TEAM_DASH_UPCOMING_STATUS}>
                                 {STATUS_LABELS[item.status] ?? item.status}
                               </span>
                               <TeamHappyCallBadge item={item} />

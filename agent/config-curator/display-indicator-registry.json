@@ -536,6 +536,30 @@
         "client/src/components/auth/PlayStoreStaffAppLink.tsx"
       ],
       "notes": "원인: manifest display standalone + apple-mobile-web-app-capable. 업무는 Play 앱만. 이미 이 PC에 웹앱이 설치돼 있으면 chrome://apps 에서 청소비서를 지워야 칩이 사라짐."
+    },
+    {
+      "id": "team.dashboard.section.today",
+      "labelKo": "오늘 일정 구역 (하늘색)",
+      "surfaces": ["team.dashboard"],
+      "visual": { "type": "sectionBg", "token": "sky-100" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/utils/teamDashboardSectionTone.ts", "client/src/pages/team/TeamDashboardPage.tsx"],
+      "notes": "오늘=시원한 하늘색 블록. 제목 글자로도 구분. 끄면 오늘/다가오는이 다시 비슷해짐."
+    },
+    {
+      "id": "team.dashboard.section.upcoming",
+      "labelKo": "다가오는 일정 구역 (주황)",
+      "surfaces": ["team.dashboard"],
+      "visual": { "type": "sectionBg", "token": "orange-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/utils/teamDashboardSectionTone.ts", "client/src/pages/team/TeamDashboardPage.tsx"],
+      "notes": "다가오는=따뜻한 주황 블록. 해피콜 경고(앰버)와 겹치지 않게 orange를 씀. 색만으로 구분하지 않음."
     }
   ]
 }
