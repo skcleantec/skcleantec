@@ -6,6 +6,8 @@ import { getToken } from '../../stores/auth';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { PageTitleWithFavorite, StaffPageTitle } from '../../components/layout/NavFavoritePageTitle';
+import { StaffChatComposer } from '../../components/messages/StaffChatComposer';
+import { flattenStaffChatPreview } from '../../utils/staffChatComposer';
 
 interface Conversation {
   id: string;
@@ -607,7 +609,7 @@ export function AdminMessagesPage() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
                         <span style={{ fontSize: 13, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                          {c.lastMessage ? c.lastMessage.content : '대화 시작하기'}
+                          {c.lastMessage ? flattenStaffChatPreview(c.lastMessage.content) : '대화 시작하기'}
                         </span>
                         {c.unreadCount > 0 && (
                           <span
@@ -725,34 +727,19 @@ export function AdminMessagesPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={handleSend} className="kakaotalk-composer">
-                {sendError ? (
-                  <p className="kakaotalk-send-error" role="alert">
-                    {sendError}
-                  </p>
-                ) : null}
-                <div className="kakaotalk-composer-row">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => {
-                      setInput(e.target.value);
-                      if (sendError) setSendError(null);
-                    }}
-                    placeholder="메시지를 입력하세요..."
-                    className="kakaotalk-composer-input"
-                    disabled={sending}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="submit"
-                    disabled={sending || !input.trim()}
-                    className="kakaotalk-composer-send"
-                  >
-                    전송
-                  </button>
-                </div>
-              </form>
+              <StaffChatComposer
+                variant="admin"
+                value={input}
+                onChange={setInput}
+                onSubmit={handleSend}
+                sending={sending}
+                placeholder="메시지를 입력하세요..."
+                sendLabel="전송"
+                error={sendError}
+                onInputActivity={() => {
+                  if (sendError) setSendError(null);
+                }}
+              />
             </>
           ) : (
             <div

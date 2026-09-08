@@ -9,6 +9,7 @@ import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { StaffChatComposer } from '../../components/messages/StaffChatComposer';
 
 interface Message {
   id: string;
@@ -180,7 +181,7 @@ export function TeamMessagesPage() {
                     }`}
                   >
                     <div className="font-medium text-xs opacity-80 mb-0.5">{m.sender.name}</div>
-                    <div className="break-words">{m.content}</div>
+                    <div className="whitespace-pre-wrap break-words">{m.content}</div>
                     <div className="text-[12px] opacity-70 mt-1 flex items-center gap-2 tabular-nums">
                       <span>{formatDateTimeCompactWithWeekday(m.createdAt)}</span>
                       {isMine ? (
@@ -196,34 +197,16 @@ export function TeamMessagesPage() {
           )}
           <div ref={messagesEndRef} />
         </div>
-        <form
+        <StaffChatComposer
+          variant="team"
+          value={input}
+          onChange={setInput}
           onSubmit={handleSend}
-          className="shrink-0 border-t border-gray-200 bg-white p-2 sm:p-4"
-        >
-          {sendError && (
-            <p className="text-sm text-red-600 mb-2" role="alert">
-              {sendError}
-            </p>
-          )}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={teamBiPlain('team.messages.placeholder')}
-              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={sending}
-              autoComplete="off"
-            />
-            <button
-              type="submit"
-              disabled={sending || !input.trim()}
-              className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
-            >
-              <TeamBiInline id="team.messages.send" />
-            </button>
-          </div>
-        </form>
+          sending={sending}
+          placeholder={teamBiPlain('team.messages.placeholder')}
+          sendLabel={<TeamBiInline id="team.messages.send" />}
+          error={sendError}
+        />
       </div>
     </div>
   );
