@@ -560,6 +560,18 @@
       "helpPath": null,
       "codeRefs": ["client/src/utils/teamDashboardSectionTone.ts", "client/src/pages/team/TeamDashboardPage.tsx"],
       "notes": "다가오는=따뜻한 주황 블록. 해피콜 경고(앰버)와 겹치지 않게 orange를 씀. 색만으로 구분하지 않음."
+    },
+    {
+      "id": "team.assign.card.amountRow",
+      "labelKo": "배정 카드 금액 줄 (이름 아래)",
+      "surfaces": ["team.assignments.list"],
+      "visual": { "type": "rowLayout", "token": "amount-second-line" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/pages/team/TeamAssignmentListPage.tsx"],
+      "notes": "이름과 금액을 한 줄에 두면 금액이 이름을 자름. 글자 크기는 그대로, 금액·평·번호만 다음 줄."
     }
   ]
 }

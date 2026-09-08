@@ -561,6 +561,8 @@ export function TeamAssignmentListPage() {
                               ●
                             </span>
                           ) : null}
+                        </div>
+                        <div className={`mt-0.5 ${TEAM_CHIP_SCROLL}`}>
                           <TeamInquirySpecialNotesListBadge item={item} />
                           <TeamInquiryCollectibleListBadge item={item} />
                           <TeamInquiryAreaListBadge item={item} />

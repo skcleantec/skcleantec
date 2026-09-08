@@ -9,7 +9,6 @@ import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
-import { STAFF_APP_SAFE_PB } from '../../utils/staffAppSafeArea';
 
 interface Message {
   id: string;
@@ -138,12 +137,14 @@ export function TeamMessagesPage() {
   };
 
   return (
-    <div className="flex flex-col min-w-0 gap-2 flex-1 min-h-0 overflow-hidden sm:gap-3">
-      <PageTitleWithFavorite label="메시지">
-        <h1>
-          <TeamBiLine id="team.messages.title" />
-        </h1>
-      </PageTitleWithFavorite>
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden sm:gap-3">
+      <div className="shrink-0">
+        <PageTitleWithFavorite label="메시지">
+          <h1>
+            <TeamBiLine id="team.messages.title" />
+          </h1>
+        </PageTitleWithFavorite>
+      </div>
 
       {loadError && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2 shrink-0">{loadError}</p>
@@ -197,7 +198,7 @@ export function TeamMessagesPage() {
         </div>
         <form
           onSubmit={handleSend}
-          className={`shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4 ${STAFF_APP_SAFE_PB}`}
+          className="shrink-0 border-t border-gray-200 bg-white p-2 sm:p-4"
         >
           {sendError && (
             <p className="text-sm text-red-600 mb-2" role="alert">
