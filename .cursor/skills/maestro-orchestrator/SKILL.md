@@ -2,9 +2,9 @@
 name: maestro-orchestrator
 description: >-
   Orchestrates ALL CBISEO specialist agents automatically. User gives only
-  business tasks ("A 기능 만들어줘") — Maestro assigns DesignPulse, CodeGuardian,
-  ConfigCurator, RoleQA, PlatformOps, DbSentinel as needed without user naming
-  agents. Use on EVERY project work order.
+  business tasks ("A 기능 만들어줘") — Maestro runs AppScout first, then
+  DesignPulse, CodeGuardian, ConfigCurator, RoleQA, PlatformOps, DbSentinel
+  as needed without user naming agents. Use on EVERY project work order.
 ---
 
 # Maestro — Agent Orchestra
@@ -27,10 +27,11 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 ## Maestro 실행 순서 (매번)
 
 1. 요청을 **한국어 한 줄**로 재진술.
-2. 아래 **자동 배치표**로 에이전트 목록 확정 (빠짐 없이).
-3. 각 Skill(`.cursor/skills/<id>/SKILL.md`) **실제 실행** — 리포트만 쓰고 코드·카탈로그·테스트 안 하면 **미완료**.
-4. 산출물 병합 → **`agent/orchestrator/BRIEF_REPORT.md`** (사용자용, ≤40줄).
-5. `activity-log.jsonl` · `ACTIVITY_LOG.md` · `reports/` 갱신.
+2. 아래 **자동 배치표**로 에이전트 목록 확정 (빠짐 없이). **AppScout를 맨 앞**에 둔다 (생략 조건은 AppScout 스킬).
+3. **먼저** `.cursor/skills/app-scout/SKILL.md` 실행 — 타 앱 최신 작동방식·인기 모바일 레퍼런스. 이 레포트 없이 화면/방법 구현을 시작하지 않는다.
+4. 나머지 Skill **실제 실행** — 리포트만 쓰고 코드·카탈로그·테스트 안 하면 **미완료**.
+5. 산출물 병합 → **`agent/orchestrator/BRIEF_REPORT.md`** (사용자용, ≤40줄).
+6. `activity-log.jsonl` · `ACTIVITY_LOG.md` · `reports/` 갱신.
 
 ## 자동 배치표 (사용자 지시 없이 적용)
 
@@ -38,8 +39,9 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 
 | 에이전트 | 조건 | 반드시 할 일 |
 |----------|------|-------------|
+| **AppScout** | **항상 맨 앞** | 웹검색·타 앱 최신 작동방식·모바일 인기 디자인 레퍼런스 |
 | **CodeGuardian** | 항상 | 구현·룰·연관 파일·tsc |
-| **DesignPulse** | `client/` UI | PC·모바일·팀 컴팩트 |
+| **DesignPulse** | `client/` UI | AppScout 레퍼런스를 PC·모바일·팀 컴팩트에 적용 |
 | **ConfigCurator** | `client/` UI (목록·스케줄·배지·색·설정·도움말) | registry 등록, 설정 위치, 범례/끄기 설계, help |
 | **RoleQA** | 항상 | 마케터·관리자·팀장 시나리오 |
 | **PlatformOps** | `mod_*`·플랜·GNB·테넌트 기능 | 카탈로그·requireFeature |
@@ -51,6 +53,7 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 
 | 에이전트 | 조건 |
 |----------|------|
+| AppScout | 사용자가 보는 흐름·화면이 바뀌면 **맨 앞** |
 | CodeGuardian | 항상 |
 | RoleQA | 재현·회귀 |
 | ConfigCurator | UI·표시·색·배지 diff 있으면 |
@@ -62,7 +65,8 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 
 ## 병렬 · 순서
 
-- **병렬 OK:** DesignPulse + CodeGuardian + ConfigCurator (같은 기능 설계 단계).
+- **맨 앞 (순차):** AppScout — 방법·타 앱·인기 모바일 레퍼런스. 끝나기 전에 구현 시작 금지.
+- **병렬 OK (AppScout 이후):** DesignPulse + CodeGuardian + ConfigCurator.
 - **순차:** RoleQA는 구현·수정 반영 **후**; DbSentinel은 migrate 전.
 
 ## BRIEF_REPORT.md (사용자용)

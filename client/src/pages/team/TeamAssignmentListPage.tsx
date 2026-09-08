@@ -52,6 +52,13 @@ import {
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
+import {
+  TEAM_CARD_META,
+  TEAM_CARD_TITLE,
+  TEAM_CARD_TITLE_ROW,
+  TEAM_CHIP_SCROLL,
+  TEAM_PHONE_CTA,
+} from '../../utils/teamTypeScale';
 
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -317,7 +324,7 @@ export function TeamAssignmentListPage() {
               : 'border-amber-200 bg-amber-50 text-amber-900'
           }`}
         >
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <div className={TEAM_CHIP_SCROLL}>
             <TeamBiLine id="team.assign.happyIncompleteLead" koClassName="shrink-0 font-medium text-fluid-2xs sm:text-fluid-sm" />
             {happyStats.overdueCount > 0 ? (
               <TeamBiLine
@@ -539,9 +546,9 @@ export function TeamAssignmentListPage() {
                   >
                     <div className="flex items-start gap-1.5">
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1 leading-tight">
+                        <div className={TEAM_CARD_TITLE_ROW}>
                           <TeamInquiryBrandListBadge item={item} />
-                          <span className="truncate text-fluid-2xs font-semibold text-gray-900 sm:text-fluid-sm">
+                          <span className={TEAM_CARD_TITLE} title={primaryLabel}>
                             {primaryLabel}
                           </span>
                           <TeamInquiryServiceKindListBadge item={item} />
@@ -564,22 +571,22 @@ export function TeamAssignmentListPage() {
                           ) : null}
                         </div>
                         {memoSubtitle ? (
-                          <p className="mt-px line-clamp-1 text-[11px] text-gray-700 sm:text-fluid-xs" title={memoTrim}>
+                          <p className={`mt-px ${TEAM_CARD_META} text-gray-700`} title={memoTrim}>
                             {memoTrim}
                           </p>
                         ) : null}
                         {item.memo?.trim() ? (
                           <p
-                            className="mt-px line-clamp-1 text-[11px] leading-snug text-indigo-900/90 sm:text-fluid-2xs"
+                            className={`mt-px ${TEAM_CARD_META} text-indigo-900/90`}
                             title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                           >
                             {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                           </p>
                         ) : null}
-                        <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-gray-600 sm:text-fluid-xs" title={addrFull}>
+                        <p className={`mt-0.5 ${TEAM_CARD_META} text-gray-600`} title={addrFull}>
                           {metaLine}
                         </p>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                        <div className={`mt-0.5 ${TEAM_CHIP_SCROLL}`}>
                           <TeamHappyCallBadge item={item} variant="list" />
                           <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                           {hasInspectionModule ? (
@@ -596,7 +603,7 @@ export function TeamAssignmentListPage() {
                         <a
                           href={`tel:${item.customerPhone}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded-md bg-blue-600 px-2 py-1 text-center text-[12px] font-medium text-white hover:bg-blue-700 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-fluid-xs"
+                          className={`${TEAM_PHONE_CTA} rounded-md bg-blue-600 text-white hover:bg-blue-700 sm:rounded-lg`}
                         >
                           <TeamBiInline id="team.common.phone" />
                         </a>

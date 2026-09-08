@@ -33,6 +33,13 @@ import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
+import {
+  TEAM_CARD_META,
+  TEAM_CARD_TITLE,
+  TEAM_CARD_TITLE_ROW,
+  TEAM_CHIP_SCROLL,
+  TEAM_PHONE_CTA,
+} from '../../utils/teamTypeScale';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { sortInquiriesByScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
@@ -191,7 +198,7 @@ export function TeamDashboardPage() {
           }`}
         >
           <TeamBiLine id="team.dashboard.happyLine" koClassName="text-fluid-sm font-medium" />
-          <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
+          <div className={TEAM_CHIP_SCROLL}>
             {happyStats.overdueCount > 0 ? (
               <TeamBiLine
                 id="team.assign.happyOverdueCases"
@@ -282,30 +289,35 @@ export function TeamDashboardPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1 text-fluid-2xs font-semibold text-gray-900 sm:gap-1.5 sm:text-fluid-sm">
+                      <div className={TEAM_CARD_TITLE_ROW}>
                         <TeamInquiryBrandListBadge item={item} />
-                        <span>{primaryLabel}</span>
+                        <span className={TEAM_CARD_TITLE} title={primaryLabel}>
+                          {primaryLabel}
+                        </span>
                         <TeamInquiryServiceKindListBadge item={item} />
                         <TeamInquiryListAmountNotesBadges item={item} />
                         <TeamInquiryAreaListBadge item={item} />
                       </div>
                       {memoSubtitle ? (
-                        <p className="mt-px line-clamp-1 text-[12px] text-gray-700 sm:mt-0.5 sm:text-fluid-xs" title={memoTrim}>
+                        <p className={`mt-px ${TEAM_CARD_META} text-gray-700`} title={memoTrim}>
                           {memoTrim}
                         </p>
                       ) : null}
                       {item.memo?.trim() ? (
                         <p
-                          className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-indigo-900/90 sm:mt-1 sm:text-fluid-2xs"
+                          className={`mt-0.5 ${TEAM_CARD_META} text-indigo-900/90`}
                           title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                         >
                           {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                         </p>
                       ) : null}
-                      <div className="mt-px text-[12px] leading-snug text-gray-700 sm:mt-0.5 sm:text-fluid-sm">
+                      <div className={`mt-px ${TEAM_CARD_META} text-gray-700`}>
                         {formatScheduleLine(item, timeSlotLabels)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
                       </div>
-                      <div className="mt-0.5 truncate text-[11px] text-gray-600 sm:mt-1 sm:text-fluid-xs">
+                      <div
+                        className={`mt-0.5 ${TEAM_CARD_META} text-gray-600`}
+                        title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`}
+                      >
                         {item.address}
                         {item.addressDetail ? ` ${item.addressDetail}` : ''}
                       </div>
@@ -314,12 +326,12 @@ export function TeamDashboardPage() {
                     <a
                       href={`tel:${item.customerPhone}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="shrink-0 rounded-md bg-blue-600 px-2.5 py-1 text-[12px] font-medium text-white sm:rounded-lg sm:px-4 sm:py-2 sm:text-fluid-sm"
+                      className={`${TEAM_PHONE_CTA} shrink-0 rounded-md bg-blue-600 text-white sm:rounded-lg`}
                     >
                       <TeamBiInline id="team.common.phone" />
                     </a>
                   </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1 sm:mt-2 sm:gap-2">
+                  <div className={`mt-1.5 ${TEAM_CHIP_SCROLL} sm:mt-2`}>
                     <span className="inline-block rounded px-1.5 py-px text-[11px] bg-blue-200 text-blue-800 sm:px-2 sm:py-0.5 sm:text-fluid-xs">
                       {STATUS_LABELS[item.status] ?? item.status}
                     </span>
@@ -377,16 +389,18 @@ export function TeamDashboardPage() {
                           className="flex items-start justify-between gap-2 px-3 py-2 active:bg-gray-50 sm:items-center sm:px-4 sm:py-3"
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-1 text-fluid-2xs font-medium text-gray-900 sm:gap-1.5 sm:text-fluid-sm">
+                            <div className={TEAM_CARD_TITLE_ROW}>
                               <TeamInquiryBrandListBadge item={item} />
-                              <span className="truncate">{primaryLabel}</span>
+                              <span className={TEAM_CARD_TITLE} title={primaryLabel}>
+                                {primaryLabel}
+                              </span>
                               <TeamInquiryServiceKindListBadge item={item} />
                               <TeamInquiryListAmountNotesBadges item={item} />
                               <TeamInquiryAreaListBadge item={item} />
                             </div>
                             {memoSubtitle ? (
                               <div
-                                className="mt-px line-clamp-1 truncate text-[11px] text-gray-600 sm:mt-0.5 sm:text-fluid-2xs"
+                                className={`mt-px ${TEAM_CARD_META} text-gray-600`}
                                 title={memoTrim}
                               >
                                 {memoTrim}
@@ -394,17 +408,20 @@ export function TeamDashboardPage() {
                             ) : null}
                             {item.memo?.trim() ? (
                               <div
-                                className="mt-px line-clamp-1 truncate text-[11px] text-indigo-900/85 sm:mt-0.5 sm:text-fluid-2xs"
+                                className={`mt-px ${TEAM_CARD_META} text-indigo-900/85`}
                                 title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                               >
                                 {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                               </div>
                             ) : null}
-                            <div className="mt-px truncate text-[12px] leading-snug text-gray-500 sm:text-fluid-xs">
+                            <div
+                              className={`mt-px ${TEAM_CARD_META} text-gray-500`}
+                              title={`${formatScheduleLine(item, timeSlotLabels)} · ${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`}
+                            >
                               {formatScheduleLine(item, timeSlotLabels)} · {item.address}
                               {item.addressDetail ? ` ${item.addressDetail}` : ''}
                             </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-2">
+                            <div className={`mt-1 ${TEAM_CHIP_SCROLL} sm:mt-1.5`}>
                               <span className="inline-block rounded px-1.5 py-px text-[11px] bg-gray-200 text-gray-800 sm:px-2 sm:py-0.5 sm:text-fluid-2xs">
                                 {STATUS_LABELS[item.status] ?? item.status}
                               </span>

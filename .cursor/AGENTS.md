@@ -6,8 +6,8 @@ Orchestrated by **Maestro** only from the user's perspective. Users give **busin
 
 | User says | Maestro auto-runs |
 |-----------|-------------------|
-| `Add feature X to inquiry list` | CodeGuardian + DesignPulse + **ConfigCurator** + RoleQA |
-| `Fix phone button bug` | CodeGuardian + RoleQA (+ ConfigCurator if UI) |
+| `Add feature X to inquiry list` | **AppScout** → CodeGuardian + DesignPulse + **ConfigCurator** + RoleQA |
+| `Fix phone button bug` | (화면 바뀌면 AppScout) + CodeGuardian + RoleQA (+ ConfigCurator if UI) |
 | `Push staging` | CodeGuardian (+ gates) |
 
 **Do not** ask users to name agents or prefix `Maestro:`.
@@ -16,8 +16,9 @@ Orchestrated by **Maestro** only from the user's perspective. Users give **busin
 
 | ID | Name | Auto when |
 |----|------|-----------|
+| `app-scout` | AppScout | **First** on feature/UX — competitor flows + popular mobile UI |
 | `code-guardian` | CodeGuardian | Any code change |
-| `design-pulse` | DesignPulse | `client/` UI |
+| `design-pulse` | DesignPulse | `client/` UI (after AppScout) |
 | `config-curator` | ConfigCurator | `client/` UI lists, schedules, badges, colors, settings |
 | `role-qa` | RoleQA | Every feature/bugfix |
 | `platform-ops` | PlatformOps | `mod_*`, billing, tenant features |
@@ -28,7 +29,7 @@ Skills: `.cursor/skills/<id>/SKILL.md`
 ## Flow
 
 ```
-Business request → Maestro → all applicable agents → BRIEF_REPORT.md
+Business request → Maestro → AppScout first → other agents → BRIEF_REPORT.md
 ```
 
 ## Visibility
