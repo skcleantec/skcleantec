@@ -12,12 +12,13 @@ alwaysApply: true
 
 ## Maestro (에이전트/Cursor)
 
-**모든 프로젝트 업무** → Maestro가 먼저 분류하고 **필요한 전문 에이전트를 전부** 기동.
+**모든 프로젝트 업무** → Maestro가 먼저 분류하고 **필요한 전문 에이전트를 전부** 기동.  
+**맨 앞:** AppScout — 타 앱 최신 작동방식·인기 모바일 UI 웹검색 (푸시·오타만 생략).
 
 | 업무 | 자동 기동 (대표) |
 |------|------------------|
-| **신규 기능·화면** | CodeGuardian + DesignPulse + **ConfigCurator** + RoleQA (+ PlatformOps / DbSentinel 해당 시) |
-| **버그·리팩터** | CodeGuardian + RoleQA (+ ConfigCurator if UI 표시) |
+| **신규 기능·화면** | **AppScout** → CodeGuardian + DesignPulse + **ConfigCurator** + RoleQA (+ PlatformOps / DbSentinel 해당 시) |
+| **버그·리팩터** | (화면 바뀌면 AppScout) + CodeGuardian + RoleQA (+ ConfigCurator if UI 표시) |
 | **배포·점검** | 해당 도메인 + CodeGuardian + RoleQA |
 
 **ConfigCurator:** `client/` UI(목록·스케줄·배지·색·설정)가 있으면 사용자가 설정을 말하지 않아도 **항상** — registry·설정 위치·도움말.

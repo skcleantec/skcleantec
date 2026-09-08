@@ -60,6 +60,13 @@ import {
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { sortInquiriesByScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
+import {
+  TEAM_CARD_META,
+  TEAM_CARD_TITLE,
+  TEAM_CARD_TITLE_ROW,
+  TEAM_CHIP_SCROLL,
+  TEAM_PHONE_CTA,
+} from '../../utils/teamTypeScale';
 
 /** 관리자 스케줄과 동일 아이콘. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL 로 덮어쓰기 */
 const DEFAULT_SCHEDULE_MAP_ICON =
@@ -226,27 +233,29 @@ export function TeamSchedulePage() {
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <div className="font-medium text-gray-900 flex flex-wrap items-center gap-1.5">
+            <div className={TEAM_CARD_TITLE_ROW}>
               <TeamInquiryBrandListBadge item={item} />
-              <span>{primaryLabel}</span>
+              <span className={TEAM_CARD_TITLE} title={primaryLabel}>
+                {primaryLabel}
+              </span>
               <TeamInquiryServiceKindListBadge item={item} />
               <TeamInquiryAreaListBadge item={item} />
             </div>
             {memoSubtitle ? (
-              <div className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
+              <div className={`mt-1 ${TEAM_CARD_META} text-gray-700`} title={memoTrim}>
                 {memoTrim}
               </div>
             ) : null}
             {item.memo?.trim() ? (
               <div
-                className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
+                className={`mt-0.5 ${TEAM_CARD_META} text-indigo-900/90`}
                 title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
               >
                 {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
               </div>
             ) : null}
-            <div className="text-fluid-sm text-gray-600 mt-0.5">{item.customerPhone}</div>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-fluid-xs text-gray-600">
+            <div className={`text-fluid-sm text-gray-600 mt-0.5 ${TEAM_CARD_META}`}>{item.customerPhone}</div>
+            <div className={`mt-1 ${TEAM_CHIP_SCROLL} text-fluid-xs text-gray-600`}>
               <span>
                 {teamBiPlain('team.assign.marketerPrefix')} {mk.name}
               </span>
@@ -260,14 +269,17 @@ export function TeamSchedulePage() {
                 </a>
               ) : null}
             </div>
-            <div className="text-fluid-xs text-gray-500 mt-1 break-words">
+            <div
+              className={`text-gray-500 mt-1 ${TEAM_CARD_META}`}
+              title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`}
+            >
               {item.address}
               {item.addressDetail ? ` ${item.addressDetail}` : ''}
             </div>
-            <div className="text-fluid-xs text-gray-500 mt-0.5">
+            <div className={`text-gray-500 mt-0.5 ${TEAM_CARD_META}`}>
               {formatScheduleLine(item, timeSlotLabels)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
             </div>
-            <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
+            <div className={`text-gray-500 mt-0.5 ${TEAM_CARD_META}`} title={formatCrewInfo(item)}>
               {formatCrewInfo(item)}
             </div>
             <div className="mt-1">
@@ -297,7 +309,7 @@ export function TeamSchedulePage() {
             <a
               href={`tel:${item.customerPhone}`}
               onClick={(e) => e.stopPropagation()}
-              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-fluid-xs font-medium text-center"
+              className={`${TEAM_PHONE_CTA} bg-blue-600 text-white rounded-lg text-center`}
             >
               <TeamBiInline id="team.common.phone" />
             </a>
@@ -333,7 +345,7 @@ export function TeamSchedulePage() {
               : 'border-amber-200 bg-amber-50 text-amber-900'
           }`}
         >
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <div className={TEAM_CHIP_SCROLL}>
             <TeamBiLine id="team.schedule.happyIncomplete" koClassName="shrink-0 font-medium text-fluid-2xs sm:text-fluid-sm" />
             {happyStats.overdueCount > 0 ? (
               <TeamBiLine

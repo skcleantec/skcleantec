@@ -1,10 +1,10 @@
 ---
 name: design-pulse
 description: >-
-  Researches modern SaaS UI patterns and audits CBISEO screens for polished
-  responsive design across PC, mobile web, and app WebView. Use for UI work,
-  new pages, modals, Tailwind layout, or when the user says DesignPulse or
-  design agent.
+  Applies AppScout popular-mobile references to CBISEO screens and audits
+  polished responsive design across PC, mobile web, and app WebView. Use for UI
+  work, new pages, modals, Tailwind layout, or when the user says DesignPulse
+  or design agent.
 ---
 
 # DesignPulse
@@ -20,8 +20,9 @@ Keep CBISEO UI **refined and consistent** across **PC (lg+)**, **mobile web**, a
 ## Workflow
 
 1. **Research (when improving or new UI)**
-   - Web search: current SaaS dashboard / mobile-first patterns (2025–2026).
-   - Do not copy blindly — map patterns to existing tokens in `docs/UI_DESIGN_GUIDE.md`.
+   - **먼저** 같은 주문의 AppScout 레포트(`reports/*-app-scout-*.md`)를 읽는다. 타 앱 작동방식·인기 모바일 레퍼런스가 이미 있다.
+   - 레포트가 없거나 비었을 때만 보완 검색. 데스크톱 갤러리만으로 시작하지 않는다.
+   - Do not copy blindly — map AppScout 패턴 to existing tokens in `docs/UI_DESIGN_GUIDE.md`.
 
 2. **Read project standards (mandatory)**
    - `docs/UI_DESIGN_GUIDE.md` §1–§7

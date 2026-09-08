@@ -53,6 +53,7 @@ import { TeamNavIcon } from './TeamNavIcons';
 import { MOBILE_GNB_ITEM_BASE, TEAM_MOBILE_BOTTOM_NAV_RESERVE_PX } from './mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from './staffRightRailStyles';
 import { useStaffMobileFabStack } from '../../hooks/useStaffMobileFabStack';
+import { isTeamMessagesPath } from '../../utils/teamMessagesRoute';
 
 const TEAM_MOBILE_FAB_STORAGE_KEY = 'team_mobile_fab_pos_v1';
 
@@ -666,8 +667,10 @@ export function TeamLayout() {
   }, [teamPromoItems, location.pathname, userRole, previewTeamLeader, previewExternal]);
   const teamMobilePromos = useMemo(() => filterPromosForMobile(teamPromoForPage), [teamPromoForPage]);
   const teamDesktopPromos = useMemo(() => filterPromosForDesktop(teamPromoForPage), [teamPromoForPage]);
+  const hideChromeAlertsOnMessages = isTeamMessagesPath(location.pathname);
   const showTeamPlatformPromoBanners =
-    isExternalPartner || userRole === 'TEAM_LEADER' || previewTeamLeader;
+    !hideChromeAlertsOnMessages &&
+    (isExternalPartner || userRole === 'TEAM_LEADER' || previewTeamLeader);
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
   const showDbMarketplace =
     isExternalPartner && Boolean(tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace'));
@@ -721,6 +724,11 @@ export function TeamLayout() {
     setMobileNavOpen(false);
   }, [location.pathname, location.search]);
 
+  useEffect(() => {
+    document.documentElement.classList.add('cbiseo-team-app');
+    return () => document.documentElement.classList.remove('cbiseo-team-app');
+  }, []);
+
   const drawerNavClass = ({ isActive }: { isActive: boolean }) =>
     `group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[14px] transition-all touch-manipulation ${
       isActive
@@ -749,14 +757,14 @@ export function TeamLayout() {
         <div className="hidden lg:block absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-[800px] h-[350px] rounded-full bg-indigo-500/8 blur-[120px] opacity-80" />
       </div>
       <div className="staff-top-safe sticky top-0 z-40 shrink-0">
-      {rosterAckBanner ? (
+      {rosterAckBanner && !hideChromeAlertsOnMessages ? (
         <RosterAckBanner
           payload={rosterAckBanner}
           onDismiss={dismissRosterAckBanner}
           showThai={!isExternalPartner}
         />
       ) : null}
-      {marketplaceHandoffConfirmedAlert != null ? (
+      {marketplaceHandoffConfirmedAlert != null && !hideChromeAlertsOnMessages ? (
         <div
           className="grid shrink-0 transition-[grid-template-rows] duration-300 ease-out"
           style={{ gridTemplateRows: marketplaceHandoffConfirmedAlertOpen ? '1fr' : '0fr' }}
@@ -989,7 +997,9 @@ export function TeamLayout() {
         <StaffAppUpdateBanner />
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug, telecrm: null }}>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') ? (
+            {teamToken &&
+            !hideChromeAlertsOnMessages &&
+            (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') ? (
               <TeamScheduleAlertBanner
                 token={teamToken}
                 onDismiss={() => setScheduleAlertRefreshKey((k) => k + 1)}

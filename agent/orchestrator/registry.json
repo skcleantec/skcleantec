@@ -1,13 +1,24 @@
 {
   "_comment": "CBISEO agent orchestra — English display names and scopes. Updated by Maestro when agents change.",
-  "_lastUpdated": "2026-09-01",
+  "_lastUpdated": "2026-09-08",
   "orchestrator": {
     "id": "maestro-orchestrator",
     "displayName": "Maestro",
     "skillPath": ".cursor/skills/maestro-orchestrator/SKILL.md",
-    "description": "User gives business tasks only; auto-runs all specialist agents (incl. ConfigCurator on UI), merges BRIEF_REPORT, no per-agent user commands required."
+    "description": "User gives business tasks only; runs AppScout first, then specialists (incl. ConfigCurator on UI), merges BRIEF_REPORT, no per-agent user commands required."
   },
   "agents": [
+    {
+      "id": "app-scout",
+      "displayName": "AppScout",
+      "skillPath": ".cursor/skills/app-scout/SKILL.md",
+      "triggers": ["new feature", "UX", "reference", "타어플", "레퍼런스", "작동방식", "mobile design"],
+      "scope": {
+        "read": ["docs/UI_DESIGN_GUIDE.md", ".cursor/rules/team-mobile-compact-ui.mdc"],
+        "write": ["agent/orchestrator/reports/"]
+      },
+      "outputs": ["competitor flow notes", "popular mobile UI references", "method recommendation"]
+    },
     {
       "id": "design-pulse",
       "displayName": "DesignPulse",
