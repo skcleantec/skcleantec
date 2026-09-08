@@ -7,21 +7,29 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-08-31)
+## 현재 상태 (최종 갱신: 2026-09-08)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 32 |
+| **최신 versionCode** | 33 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 프로덕션** | v25 출시 완료 · **v32 AAB** 빌드 → Console 업로드 대기 |
+| **Play 프로덕션** | v25 출시 완료 · **v33 AAB** 빌드 → Console 업로드 |
 | **Play 경고** | v28 edge-to-edge + v30 Material 1.14.0·테마 bar color attr 제거 |
-| **최신 AAB** | `dist/cbiseo-play-1.0.0-32.aab` |
-| **AAB SHA256** | `1be0d1918ebe39fb95cd302e767156d1e675b086acaa556b06736e1e596eb24d` |
+| **최신 AAB** | `dist/cbiseo-play-1.0.0-33.aab` |
+| **AAB SHA256** | `2cc38ae35cb8bd00768af2849ec1fb8a8fa5b9d5487227a6699a0d7678482141` |
 
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 33) — 2026-09-08
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | WebView **카카오내비·TMAP·`intent:`** 외부 실행 (팀장 접수 상세 길안내) |
+| **웹** | 접수 상세 「길안내」 → 카카오내비 / TMAP · Railway `main`/`staging` |
+| **AAB** | `dist/cbiseo-play-1.0.0-33.aab` · SHA256 `2cc38ae35cb8bd00768af2849ec1fb8a8fa5b9d5487227a6699a0d7678482141` |
 
 ### v1.0.0 (versionCode 32) — 2026-08-31
 
