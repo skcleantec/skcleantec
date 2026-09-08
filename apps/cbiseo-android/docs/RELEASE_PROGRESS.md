@@ -11,17 +11,25 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 33 |
+| **최신 versionCode** | 34 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 프로덕션** | v25 출시 완료 · **v33 AAB** 빌드 → Console 업로드 |
-| **Play 경고** | v28 edge-to-edge + v30 Material 1.14.0·테마 bar color attr 제거 |
-| **최신 AAB** | `dist/cbiseo-play-1.0.0-33.aab` |
-| **AAB SHA256** | `2cc38ae35cb8bd00768af2849ec1fb8a8fa5b9d5487227a6699a0d7678482141` |
+| **Play 프로덕션** | v25 출시 완료 · **v34 AAB** 빌드 → Console 업로드 |
+| **Play 경고** | v32 난독화 1% → v34에서 R8 minify+shrink 적용 |
+| **최신 AAB** | `dist/cbiseo-play-1.0.0-34.aab` |
+| **AAB SHA256** | `6875863bb2eca7cca271e084ab876d7d1f8f84af4b90676641ebc4574b629dc5` |
 
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 34) — 2026-09-08
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | Play **앱 최적화** — R8 난독화·축소 (`minify` + `shrinkResources`) · 길안내 WebView 유지 |
+| **Play** | 난독화 1%(v32) 대응. AAB ~7.8MB → ~4.6MB |
+| **AAB** | `dist/cbiseo-play-1.0.0-34.aab` · SHA256 `6875863bb2eca7cca271e084ab876d7d1f8f84af4b90676641ebc4574b629dc5` |
 
 ### v1.0.0 (versionCode 33) — 2026-09-08
 
