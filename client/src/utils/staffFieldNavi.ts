@@ -1,4 +1,8 @@
-import { isCbiseoStaffNativeApp, openStaffAppExternalUrl } from './cbiseoNativeApp';
+import {
+  getCbiseoStaffAppVersionCode,
+  isCbiseoStaffNativeApp,
+  openStaffAppExternalUrl,
+} from './cbiseoNativeApp';
 
 export type StaffFieldNaviApp = 'kakaonavi' | 'tmap';
 
@@ -20,13 +24,12 @@ export function canLaunchStaffFieldNavi(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+/** Play 38부터 `openNavi` 실구현. WebView는 없는 메서드도 typeof === 'function' 으로 나와 쓰면 안 됨 */
+const STAFF_NAVI_NATIVE_MIN_VERSION = 38;
+
 export function canUseNativeStaffNavi(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return typeof window.CbiseoApp?.openNavi === 'function';
-  } catch {
-    return false;
-  }
+  const code = getCbiseoStaffAppVersionCode();
+  return code !== null && code >= STAFF_NAVI_NATIVE_MIN_VERSION;
 }
 
 export function buildKakaoNaviUrl(dest: StaffFieldNaviDestination): string {
@@ -116,9 +119,12 @@ function openWithoutNavigatingWebView(url: string): void {
 
 export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): void {
   if (canUseNativeStaffNavi()) {
-    window.CbiseoApp?.openNavi?.(app, String(dest.lat), String(dest.lng), dest.name || '현장');
-    return;
+    try {
+      window.CbiseoApp?.openNavi?.(app, String(dest.lat), String(dest.lng), dest.name || '현장');
+      return;
+    } catch {
+      /* 브릿지 실패 → https */
+    }
   }
-  /** 설치된 앱에 openNavi가 없어도 https는 구 셸(v37)이 외부로 연다 */
   openWithoutNavigatingWebView(httpsUrlForStaffFieldNavi(app, dest));
 }

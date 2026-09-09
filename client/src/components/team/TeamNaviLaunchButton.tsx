@@ -4,7 +4,6 @@ import { postTeamInquiryNaviDestination } from '../../api/team';
 import { TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import {
   canLaunchStaffFieldNavi,
-  canUseNativeStaffNavi,
   httpsUrlForStaffFieldNavi,
   launchStaffFieldNavi,
   type StaffFieldNaviApp,
@@ -55,15 +54,14 @@ export function TeamNaviLaunchButton({
   };
 
   const onNativeOrHref = (app: StaffFieldNaviApp, event: MouseEvent<HTMLAnchorElement>) => {
-    if (!dest) {
-      event.preventDefault();
-      return;
-    }
+    event.preventDefault();
+    if (!dest) return;
     writePreferredTeamNavi(app);
     setPreferred(app);
-    if (canUseNativeStaffNavi()) {
-      event.preventDefault();
+    try {
       launchStaffFieldNavi(app, dest);
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : teamBiPlain('team.navi.fail'));
     }
   };
 
