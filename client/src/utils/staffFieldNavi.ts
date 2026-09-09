@@ -56,7 +56,9 @@ export function buildTmapNaviUrl(dest: StaffFieldNaviDestination): string {
 export function buildStaffFieldNaviIntentUrl(
   app: StaffFieldNaviApp,
   dest: StaffFieldNaviDestination,
+  fallbackHttps?: string,
 ): string {
+  const fallback = encodeURIComponent(fallbackHttps ?? httpsUrlForStaffFieldNavi(app, dest));
   if (app === 'kakaonavi') {
     const q = new URLSearchParams({
       name: dest.name,
@@ -64,14 +66,15 @@ export function buildStaffFieldNaviIntentUrl(
       y: String(dest.lat),
       coord_type: 'wgs84',
     });
-    return `intent://navigate?${q.toString()}#Intent;scheme=kakaonavi;package=${KAKAO_NAVI_PKG};end`;
+    return `intent://navigate?${q.toString()}#Intent;scheme=kakaonavi;package=${KAKAO_NAVI_PKG};S.browser_fallback_url=${fallback};end`;
   }
   const q = new URLSearchParams({
+    referrer: 'com.cbiseo.app',
     goalx: String(dest.lng),
     goaly: String(dest.lat),
     goalname: dest.name,
   });
-  return `intent://route?${q.toString()}#Intent;scheme=tmap;package=${TMAP_PKG};end`;
+  return `intent://route?${q.toString()}#Intent;scheme=tmap;package=${TMAP_PKG};S.browser_fallback_url=${fallback};end`;
 }
 
 /** 설치 앱 선택 창 — 카카오내비·TMAP·지도가 geo를 받음. Chrome으로 앱을 죽이지 않음 */
@@ -117,14 +120,49 @@ function openWithoutNavigatingWebView(url: string): void {
   a.remove();
 }
 
-export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): void {
-  if (canUseNativeStaffNavi()) {
-    try {
-      window.CbiseoApp?.openNavi?.(app, String(dest.lat), String(dest.lng), dest.name || '현장');
-      return;
-    } catch {
-      /* 브릿지 실패 → https */
-    }
+function callStaffBridgeOpenExternal(url: string): void {
+  const openExt = window.CbiseoApp?.openExternalUrl;
+  if (!openExt) return;
+  try {
+    openExt(url);
+  } catch {
+    /* 구 앱·R8 제거 */
   }
-  openWithoutNavigatingWebView(httpsUrlForStaffFieldNavi(app, dest));
+}
+
+export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): void {
+  const https = httpsUrlForStaffFieldNavi(app, dest);
+  const intentUrl = buildStaffFieldNaviIntentUrl(app, dest, https);
+
+  if (!isCbiseoStaffNativeApp()) {
+    openWithoutNavigatingWebView(https);
+    return;
+  }
+
+  /**
+   * 38에서 openNavi만 호출하고 return 하면, R8/미구현 시 아무 일도 안 남.
+   * 38에 이미 있는 openExternalUrl(intent://)로 내비를 열고, 안 켜지면 지도 https.
+   */
+  try {
+    const openNavi = window.CbiseoApp?.openNavi;
+    if (openNavi && canUseNativeStaffNavi()) {
+      try {
+        openNavi(app, String(dest.lat), String(dest.lng), dest.name || '현장');
+      } catch {
+        /* openNavi 없음 */
+      }
+    }
+  } catch {
+    /* 브릿지 없음 */
+  }
+  callStaffBridgeOpenExternal(intentUrl);
+  window.setTimeout(() => {
+    if (document.visibilityState !== 'visible') return;
+    callStaffBridgeOpenExternal(https);
+    try {
+      window.location.assign(https);
+    } catch {
+      /* WebView 이동 거부 */
+    }
+  }, 800);
 }

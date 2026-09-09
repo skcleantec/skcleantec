@@ -16,6 +16,7 @@
     <queries>
         <package android:name="com.locnall.KimGiSa" />
         <package android:name="com.skt.tmap.ku" />
+        <package android:name="com.skt.skaf.l001mtm091" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="kakaonavi" />
