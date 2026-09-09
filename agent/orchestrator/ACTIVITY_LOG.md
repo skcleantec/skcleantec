@@ -1,6 +1,6 @@
 # Agent Orchestra — Activity Dashboard
 
-**Last updated:** 2026-09-09 16:15 KST — TMAP BROWSABLE Intent 공식 스킴
+**Last updated:** 2026-09-09 16:25 KST — TMAP 링크 preventDefault 제거
 
 ## Current status
 

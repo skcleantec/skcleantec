@@ -1,10 +1,9 @@
-import { useState, type MouseEvent } from 'react';
+import { useState } from 'react';
 import { LineMdIcon } from '../ui/LineMdIcon';
 import { postTeamInquiryNaviDestination } from '../../api/team';
 import { TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import {
   canLaunchStaffFieldNavi,
-  launchStaffFieldNavi,
   schemeUrlForStaffFieldNavi,
   type StaffFieldNaviApp,
   type StaffFieldNaviDestination,
@@ -53,16 +52,10 @@ export function TeamNaviLaunchButton({
     }
   };
 
-  const onNativeOrHref = (app: StaffFieldNaviApp, event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
+  const onChoiceClick = (app: StaffFieldNaviApp) => {
     if (!dest) return;
     writePreferredTeamNavi(app);
     setPreferred(app);
-    try {
-      launchStaffFieldNavi(app, dest);
-    } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : teamBiPlain('team.navi.fail'));
-    }
   };
 
   const barClass =
@@ -113,8 +106,10 @@ export function TeamNaviLaunchButton({
             <div className="grid gap-2">
               <a
                 href={schemeUrlForStaffFieldNavi('kakaonavi', dest)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={CHOICE}
-                onClick={(event) => onNativeOrHref('kakaonavi', event)}
+                onClick={() => onChoiceClick('kakaonavi')}
               >
                 <LineMdIcon name="navigation-left-up" className="size-6 shrink-0 text-slate-800" />
                 <span className="min-w-0 flex-1">
@@ -130,8 +125,10 @@ export function TeamNaviLaunchButton({
               </a>
               <a
                 href={schemeUrlForStaffFieldNavi('tmap', dest)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={CHOICE}
-                onClick={(event) => onNativeOrHref('tmap', event)}
+                onClick={() => onChoiceClick('tmap')}
               >
                 <LineMdIcon name="compass" className="size-6 shrink-0 text-slate-800" />
                 <span className="min-w-0 flex-1">
