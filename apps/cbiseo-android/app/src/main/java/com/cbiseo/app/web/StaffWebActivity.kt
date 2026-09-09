@@ -2,6 +2,7 @@ package com.cbiseo.app.web
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -24,6 +25,7 @@ import com.cbiseo.app.auth.LoginActivity
 import com.cbiseo.app.auth.TokenStore
 import com.cbiseo.app.bridge.CbiseoAppBridge
 import com.cbiseo.app.databinding.ActivityStaffWebBinding
+import com.cbiseo.app.navi.StaffNaviLauncher
 import com.cbiseo.app.push.StaffFcmRegistrar
 import com.cbiseo.app.push.StaffNotificationPermission
 import com.cbiseo.app.push.StaffPushIntentExtras
@@ -141,6 +143,9 @@ class StaffWebActivity : AppCompatActivity() {
             onSyncAuthToken = { jwt -> tokenStore.updateJwt(jwt) },
             onNotifyStaffLogout = { clearStaffSessionForWebLogout() },
             onOpenExternalUrl = { url -> openExternalUrl(url) },
+            onOpenNavi = { app, lat, lng, name ->
+                StaffNaviLauncher.open(this, app, lat, lng, name)
+            },
             updateCoordinator = updateCoordinator,
         )
 
@@ -374,10 +379,20 @@ class StaffWebActivity : AppCompatActivity() {
                     lower.startsWith("intent:") -> Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                     else -> Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 }
-            if (intent.resolveActivity(packageManager) == null && !lower.startsWith("geo:")) {
-                error("no activity")
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                startActivity(intent)
+            } catch (_: ActivityNotFoundException) {
+                val pkg = intent.`package`
+                if (!pkg.isNullOrBlank()) {
+                    startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                    return
+                }
+                throw ActivityNotFoundException()
             }
-            startActivity(intent)
         }.onFailure {
             Toast.makeText(this, "링크를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
         }

@@ -20,6 +20,15 @@ export function canLaunchStaffFieldNavi(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+export function canUseNativeStaffNavi(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return typeof window.CbiseoApp?.openNavi === 'function';
+  } catch {
+    return false;
+  }
+}
+
 export function buildKakaoNaviUrl(dest: StaffFieldNaviDestination): string {
   const q = new URLSearchParams({
     name: dest.name,
@@ -87,11 +96,18 @@ function openWithoutNavigatingWebView(url: string): void {
 }
 
 export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): void {
+  if (canUseNativeStaffNavi()) {
+    window.CbiseoApp?.openNavi?.(app, String(dest.lat), String(dest.lng), dest.name || '현장');
+    return;
+  }
+  if (isCbiseoStaffNativeApp()) {
+    throw new Error('NEED_STAFF_APP_UPDATE');
+  }
+
   const intentUrl = buildStaffFieldNaviIntentUrl(app, dest);
   const scheme = app === 'kakaonavi' ? buildKakaoNaviUrl(dest) : buildTmapNaviUrl(dest);
   const geo = buildGeoNaviUrl(dest);
 
-  /** https 지도를 먼저 열면 청소비서 화면이 Chrome으로 넘어가 ‘꺼진 것처럼’ 보임 — 쓰지 않음 */
   openWithoutNavigatingWebView(intentUrl);
   window.setTimeout(() => {
     if (document.visibilityState !== 'visible') return;

@@ -7,21 +7,66 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-09-08)
+## 현재 상태 (최종 갱신: 2026-09-09)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 34 |
+| **최신 versionCode** | 38 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 프로덕션** | v25 출시 완료 · **v34 AAB** 빌드 → Console 업로드 |
-| **Play 경고** | v32 난독화 1% → v34에서 R8 minify+shrink 적용 |
-| **최신 AAB** | `dist/cbiseo-play-1.0.0-34.aab` |
-| **AAB SHA256** | `6875863bb2eca7cca271e084ab876d7d1f8f84af4b90676641ebc4574b629dc5` |
+| **Play 프로덕션** | v32 운영 중 · Play에 **37까지 업로드됨** → 다음은 **38** (36 재업로드 불가) |
+| **인앱 업데이트 매니페스트** | `latestVersionCode` **38** 권장 · `minVersionCode` **31** |
+| **Play 경고** | v32 난독화 1% → v34+ R8. **v36 권장 3건** → 아래 표 · `.cursor/rules/play-console-quality.mdc` |
+| **최신 AAB** | `dist/cbiseo-play-1.0.0-38.aab` |
+| **AAB SHA256** | `39d1bcd1bdcfd3c176b7e01da8eecad05495f98fd936e2202189aec6491f8331` |
+
+---
+
+## Play 권장 조치 (출시마다 추가)
+
+> 에이전트: 새 권장은 이 표 + `.cursor/rules/play-console-quality.mdc` 에 남긴다. 같은 유형을 다음 AAB에 재발시키지 않는다.
+
+| 버전 | Play 문구 | 분류 | 조치 |
+|------|-----------|------|------|
+| 32 | 앱 최적화 기준점 미만 · 난독화 1% | 앱 최적화 · 기한 2027-02 | release `minify`+`shrink` (v34+) |
+| 36 | 더 넓은 화면이 표시되지 않을 수 있음 · `enableEdgeToEdge()` 권장 | 사용자 환경 | **코드는 v25부터 적용됨.** v36 대시보드에 남는 것은 Play가 올린 AAB를 다시 본 것 |
+| 36 | `setStatusBarColor` · `setNavigationBarColor` · `LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES` | 사용자 환경 | 우리 코드/테마에는 없음. Material·GMS·`enableEdgeToEdge` 내부 호출(오탐) |
+| 36 | AGP 8.0+ 로 빌드 최적화 | 메모리 사용량 | **이미 AGP 8.7.3.** 내리지 말 것 |
 
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 38) — 2026-09-09
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | **37 위** 필수. 길안내 네이티브 `openNavi` (카카오내비·TMAP). 넓은 화면·R8은 37 유지 |
+| **Play** | 이미 올린 37보다 낮은 36은 콘솔이 거부함 |
+| **AAB** | `dist/cbiseo-play-1.0.0-38.aab` · SHA256 `39d1bcd1bdcfd3c176b7e01da8eecad05495f98fd936e2202189aec6491f8331` |
+
+### v1.0.0 (versionCode 37) — 2026-09-09
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | Play 넓은 화면: `resizeableActivity` · `supports-screens` · `configChanges`. R8 `fullMode` |
+| **Play 권장** | v36 대시보드 대응. edge-to-edge·AGP 8.7.3은 기존 유지 |
+| **AAB** | `dist/cbiseo-play-1.0.0-37.aab` · SHA256 `78efe8f6d7f9331b8c61c38b9d14facf719aa42ed0fe3d403bb733bc5a35e717` |
+
+### v1.0.0 (versionCode 36) — 2026-09-09
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | v35와 동일 (R8 + 길안내). 프로덕션 재제출용 versionCode만 올림 |
+| **Play 권장** | 넓은 화면 2건 + R8 1건 (위 표). 매니페스트·R8 수정은 **다음 versionCode** |
+| **AAB** | `dist/cbiseo-play-1.0.0-36.aab` · SHA256 `298368be476a0d546b34c2ee697105cc366adc7b1d6493af637fa2ebc9d6218b` |
+
+### v1.0.0 (versionCode 35) — 2026-09-08
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | v34와 동일 (R8 + 길안내). Play 재업로드용 versionCode만 올림 |
+| **AAB** | `dist/cbiseo-play-1.0.0-35.aab` · SHA256 `6da73615b688eb906748326c427310bfad0d8bde98bd352e6387e5e04f6108c2` |
 
 ### v1.0.0 (versionCode 34) — 2026-09-08
 

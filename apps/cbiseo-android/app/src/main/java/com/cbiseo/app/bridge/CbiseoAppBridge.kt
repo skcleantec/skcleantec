@@ -40,6 +40,8 @@ class CbiseoAppBridge(
 
     private val onOpenExternalUrl: (String) -> Unit = {},
 
+    private val onOpenNavi: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+
     private val updateCoordinator: StaffAppUpdateCoordinator? = null,
 
 ) {
@@ -145,6 +147,22 @@ class CbiseoAppBridge(
         Handler(Looper.getMainLooper()).post {
 
             onOpenExternalUrl(url.trim())
+
+        }
+
+    }
+
+
+
+    /** 카카오내비·TMAP — 웹 URL이 아니라 네이티브 Intent로 연다 */
+
+    @JavascriptInterface
+
+    fun openNavi(app: String, lat: String, lng: String, name: String) {
+
+        Handler(Looper.getMainLooper()).post {
+
+            onOpenNavi(app.trim(), lat.trim(), lng.trim(), name)
 
         }
 

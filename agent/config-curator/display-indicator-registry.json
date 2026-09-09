@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-07-order-form-photos-section",
+  "_lastUpdated": "2026-09-09-team-navi-native",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -572,6 +572,21 @@
       "helpPath": null,
       "codeRefs": ["client/src/pages/team/TeamAssignmentListPage.tsx"],
       "notes": "이름과 금액을 한 줄에 두면 금액이 이름을 자름. 글자 크기는 그대로, 금액·평·번호만 다음 줄."
+    },
+    {
+      "id": "team.navi.needAppUpdate",
+      "labelKo": "길안내 — 구 앱 업데이트 안내",
+      "surfaces": ["team.inquiry.detail"],
+      "visual": { "type": "modal", "token": "navi-need-update" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": [
+        "client/src/components/team/TeamNaviLaunchButton.tsx",
+        "apps/cbiseo-android/app/src/main/java/com/cbiseo/app/navi/StaffNaviLauncher.kt"
+      ],
+      "notes": "Play v37 이하는 openNavi 브릿지 없음. 시트에 업데이트 안내+Play 버튼. 끄면 길안내가 무반응으로 보임."
     }
   ]
 }

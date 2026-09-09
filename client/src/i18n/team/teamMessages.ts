@@ -117,6 +117,7 @@ export const teamMessages = {
   'team.navi.recent': { ko: '최근 사용'},
   'team.navi.close': { ko: '닫기'},
   'team.navi.opening': { ko: '내비 앱을 여는 중…'},
+  'team.navi.needAppUpdate': { ko: '길안내는 최신 청소비서 앱이 필요합니다. Play 스토어에서 업데이트해 주세요.'},
   'team.navi.phoneOnly': { ko: '길안내는 휴대폰에서 열어 주세요.'},
   'team.navi.fail': { ko: '길안내를 열지 못했습니다.'},
   'team.modal.section.property': { ko: '유형'},
