@@ -217,7 +217,7 @@ app.get('/api/public/telecrm-app/manifest', (_req, res) => {
   res.json(getTelecrmAppManifest());
 });
 app.get('/api/public/staff-app/manifest', (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.setHeader('Cache-Control', 'no-store');
   res.json(getStaffAppManifest());
 });
 

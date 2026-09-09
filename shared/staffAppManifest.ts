@@ -1,7 +1,7 @@
 import { CBISEO_STAFF_APP_PLAY_STORE_URL } from './cbiseoStaffAppPolicy';
 
 /** Play 배포 청소비서 업무 앱 — Railway Variables 단일 소스 */
-export const STAFF_APP_FALLBACK_VERSION_CODE = 32;
+export const STAFF_APP_FALLBACK_VERSION_CODE = 36;
 export const STAFF_APP_FALLBACK_VERSION_NAME = '1.0.0';
 
 export type StaffAppPublicManifest = {
@@ -57,7 +57,7 @@ export function resolveStaffAppUpdateUiKind(
   installStatus?: string,
 ): StaffAppUpdateUiKind {
   if (installStatus === 'DOWNLOADED') return 'downloaded';
-  if (clientVersionCode == null || !Number.isFinite(clientVersionCode)) return 'none';
+  if (clientVersionCode == null || !Number.isFinite(clientVersionCode)) return 'optional';
   if (clientVersionCode < manifest.minVersionCode) return 'required';
   if (clientVersionCode < manifest.latestVersionCode || playUpdateAvailable) return 'optional';
   return 'none';
