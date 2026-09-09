@@ -106,8 +106,6 @@ export function TeamNaviLaunchButton({
             <div className="grid gap-2">
               <a
                 href={schemeUrlForStaffFieldNavi('kakaonavi', dest)}
-                target="_blank"
-                rel="noopener noreferrer"
                 className={CHOICE}
                 onClick={() => onChoiceClick('kakaonavi')}
               >
@@ -125,8 +123,6 @@ export function TeamNaviLaunchButton({
               </a>
               <a
                 href={schemeUrlForStaffFieldNavi('tmap', dest)}
-                target="_blank"
-                rel="noopener noreferrer"
                 className={CHOICE}
                 onClick={() => onChoiceClick('tmap')}
               >

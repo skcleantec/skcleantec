@@ -177,15 +177,6 @@ class StaffWebActivity : AppCompatActivity() {
                     return true
                 }
                 if (isExternalSchemeUrl(url)) {
-                    val lower = url.lowercase()
-                    if (lower.startsWith("tmap:")) {
-                        launchUrlLikeFlutter(url, StaffNaviLauncher.TMAP_PLAY)
-                        return true
-                    }
-                    if (lower.startsWith("kakaonavi:") || lower.startsWith("kakaonavi-sdk:")) {
-                        launchUrlLikeFlutter(url, "https://play.google.com/store/apps/details?id=${StaffNaviLauncher.KAKAO_NAVI_PKG}")
-                        return true
-                    }
                     openExternalUrl(url)
                     return true
                 }
@@ -378,22 +369,6 @@ class StaffWebActivity : AppCompatActivity() {
             lower.startsWith("geo:")
     }
 
-    /** Flutter `launchUrl`과 동일 — https://hanarotg.tistory.com/365 */
-    private fun launchUrlLikeFlutter(url: String, storeFallback: String) {
-        try {
-            startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        } catch (_: ActivityNotFoundException) {
-            startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse(storeFallback))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        } catch (_: Exception) {
-            Toast.makeText(this, "링크를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     private fun openExternalUrl(url: String) {
         if (url.isBlank()) return
         runCatching {
@@ -404,11 +379,7 @@ class StaffWebActivity : AppCompatActivity() {
                     lower.startsWith("intent:") -> Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                     else -> Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 }
-            // Flutter url_launcher와 동일: ACTION_VIEW + NEW_TASK 만 (BROWSABLE 추가하면 TMAP이 안 받을 수 있음)
-            if (lower.startsWith("intent:")) {
-                intent.addCategory(Intent.CATEGORY_BROWSABLE)
-                intent.addCategory(Intent.CATEGORY_DEFAULT)
-            }
+            /** Flutter launchUrl 과 동일 — VIEW + NEW_TASK */
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
                 startActivity(intent)
