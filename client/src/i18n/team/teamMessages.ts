@@ -111,7 +111,7 @@ export const teamMessages = {
   'team.navi.guide': { ko: '길안내'},
   'team.navi.changeApp': { ko: '앱 변경'},
   'team.navi.sheetTitle': { ko: '길안내 앱'},
-  'team.navi.sheetHint': { ko: '카카오내비 또는 TMAP을 고르면 해당 앱으로 안내합니다. 앱이 없으면 지도 앱 목록이 뜹니다.'},
+  'team.navi.sheetHint': { ko: '카카오내비 또는 TMAP을 누르면 길안내가 열립니다. 앱이 없으면 지도로 안내합니다.'},
   'team.navi.kakao': { ko: '카카오내비'},
   'team.navi.tmap': { ko: 'TMAP'},
   'team.navi.recent': { ko: '최근 사용'},
