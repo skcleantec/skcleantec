@@ -366,11 +366,12 @@ class StaffWebActivity : AppCompatActivity() {
     private fun openExternalUrl(url: String) {
         if (url.isBlank()) return
         runCatching {
+            val lower = url.lowercase()
             val intent =
-                if (url.lowercase().startsWith("tel:")) {
-                    Intent(Intent.ACTION_DIAL, Uri.parse(url))
-                } else {
-                    Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                when {
+                    lower.startsWith("tel:") -> Intent(Intent.ACTION_DIAL, Uri.parse(url))
+                    lower.startsWith("intent:") -> Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                    else -> Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 }
             startActivity(intent)
         }.onFailure {

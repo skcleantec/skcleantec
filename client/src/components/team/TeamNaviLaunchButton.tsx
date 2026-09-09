@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { LineMdIcon } from '../ui/LineMdIcon';
 import { postTeamInquiryNaviDestination } from '../../api/team';
@@ -43,12 +43,10 @@ export function TeamNaviLaunchButton({ inquiryId, token, compact }: TeamNaviLaun
     }
   };
 
-  const onGuideClick = () => {
+  const onGuideClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     setError(null);
-    if (preferred && canLaunchStaffFieldNavi()) {
-      void runApp(preferred);
-      return;
-    }
     setSheetOpen(true);
   };
 
@@ -82,7 +80,7 @@ export function TeamNaviLaunchButton({ inquiryId, token, compact }: TeamNaviLaun
       ) : null}
       {sheetOpen
         ? createPortal(
-            <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center">
+            <div className="fixed inset-0 z-[130] flex items-end justify-center sm:items-center">
               <button
                 type="button"
                 className="absolute inset-0 bg-slate-900/40"
