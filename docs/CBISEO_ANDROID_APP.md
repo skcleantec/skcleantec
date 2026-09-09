@@ -68,7 +68,7 @@
 | 변경 종류 | 배포 경로 | Play 심사 |
 |-----------|-----------|-----------|
 | UI·업무 로직·API | **웹만** | 불필요 |
-| **팀장 길안내(카카오내비·TMAP)** | **웹 + Play AAB 38+** (`CbiseoApp.openNavi`) | **필요** — 웹만으로는 구 앱에서 내비가 안 열림 |
+| **팀장 길안내(카카오내비·TMAP)** | **웹 + Play AAB 39+** (`tmap://` → 네이티브 `launchUrl`) | **필요** — 웹만으로는 구 앱에서 내비가 안 열림 |
 | FCM payload·딥링크 규약 | 서버 + (필요 시) 셸 | 드묾 |
 | **Play In-App Update** (셸·FCM·브릿지) | **AAB + Railway `STAFF_APP_*`** | 필요 |
 | targetSdk·권한·WebView 보안 | **AAB 재업로드** | 필요 |
@@ -76,16 +76,16 @@
 
 ### 3.3 팀장 길안내 (카카오내비·TMAP)
 
-웹 `intent://` / `kakaonavi://` 만으로는 WebView가 내비 앱을 못 열거나 Chrome으로 넘어가 **앱이 꺼진 것처럼** 보인다. **Play versionCode 38+** 에서만 네이티브로 연다.
+웹 `intent://` / `kakaonavi://` 만으로는 WebView가 내비 앱을 못 열거나 Chrome으로 넘어가 **앱이 꺼진 것처럼** 보인다. **Play versionCode 39+** 에서 Flutter `launchUrl`과 동일하게 연다 ([티맵·카카오내비 호출](https://hanarotg.tistory.com/365)).
 
 | 계층 | 동작 |
 |------|------|
-| **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만) |
-| **TMAP** | 공식/지원: `tmap://route?referrer=com.skt.Tmap&goalx&goaly&goalname` + Intent `CATEGORY_BROWSABLE`. 패키지 `com.skt.tmap.ku`. 웹은 38에서도 `intent://…;category=BROWSABLE` 로 연다 |
-| **네이티브** | `StaffNaviLauncher` — 패키지 지정 `kakaonavi`/`tmap` Intent. 실패 시 `geo:` → Play 스토어 |
-| **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` |
-| **Play 번호** | 콘솔에 **37까지 업로드됨** → 다음은 **38**. 36 재업로드 불가 |
-| **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE=38` (없으면 코드 폴백 38). **환경변수가 36이면 라이브도 36으로 남음** |
+| **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만). 버튼 `href` = `tmap://route?…` |
+| **TMAP** | `tmap://route?referrer=com.skt.Tmap&goalx={경도}&goaly={위도}&goalname={이름}` — 패키지 고정·BROWSABLE 없음. 없으면 Play `com.skt.tmap.ku` |
+| **네이티브** | `ACTION_VIEW` + `NEW_TASK` (`StaffNaviLauncher` / `launchUrlLikeFlutter`). 실패 시 Play 스토어 |
+| **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` (구버전 `com.skt.skaf.l001mtm091`) |
+| **Play 번호** | 콘솔에 **38까지 업로드됨** → 다음은 **39** |
+| **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE` — Play 39 반영 후 39로. 코드 폴백은 38 유지 |
 
 ---
 

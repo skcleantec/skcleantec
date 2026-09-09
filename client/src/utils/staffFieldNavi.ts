@@ -27,7 +27,7 @@ export function buildKakaoNaviUrl(dest: StaffFieldNaviDestination): string {
   return `kakaonavi://navigate?name=${name}&x=${dest.lng}&y=${dest.lat}&coord_type=wgs84`;
 }
 
-/** TMAP 지원 안내: tmap://route?referrer=com.skt.Tmap&goalx&goaly&goalname */
+/** Android TMAP — https://hanarotg.tistory.com/365 와 동일 */
 export function buildTmapNaviUrl(dest: StaffFieldNaviDestination): string {
   const name = encodeURIComponent(dest.name || '현장');
   return `tmap://route?referrer=${TMAP_REFERRER}&goalx=${dest.lng}&goaly=${dest.lat}&goalname=${name}`;

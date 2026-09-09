@@ -1,26 +1,23 @@
 package com.cbiseo.app.navi
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
-import java.net.URLEncoder
 
 /**
- * TMAP 공식·지원 안내에 맞춘 외부 앱 실행.
+ * Flutter `launchUrl`과 동일한 방식.
+ * 참고: https://hanarotg.tistory.com/365
  *
- * - Android: `tmap://route?referrer=com.skt.Tmap&goalx=경도&goaly=위도&goalname=이름`
- *   (TMAP 지원이 Flutter 연동에 안내한 형식)
- * - 실사용: `goalname`+`goalx`+`goaly`, 또는 SDK 키 `rGoX`/`rGoY`/`rGoName`
- * - Intent에 `CATEGORY_BROWSABLE` 필수. 없으면 TMAP이 받지 않음.
- * - 패키지: `com.skt.tmap.ku` (현행) · `com.skt.skaf.l001mtm091` (구버전)
+ * Android TMAP:
+ * `tmap://route?referrer=com.skt.Tmap&goalx={경도}&goaly={위도}&goalname={이름}`
+ * 패키지 고정·resolveActivity 가드 없음 (있으면 깔린 TMAP을 못 찾음).
  */
 object StaffNaviLauncher {
     const val KAKAO_NAVI_PKG = "com.locnall.KimGiSa"
     const val TMAP_PKG = "com.skt.tmap.ku"
-    const val TMAP_PKG_LEGACY = "com.skt.skaf.l001mtm091"
-    private const val TMAP_REFERRER = "com.skt.Tmap"
+    const val TMAP_PLAY = "https://play.google.com/store/apps/details?id=$TMAP_PKG&hl=ko-KR"
 
     fun open(activity: Activity, app: String, latRaw: String, lngRaw: String, nameRaw: String) {
         val lat = latRaw.toDoubleOrNull()
@@ -31,75 +28,53 @@ object StaffNaviLauncher {
         }
         val name = nameRaw.ifBlank { "현장" }
         if (app.equals("tmap", ignoreCase = true)) {
-            if (openTmap(activity, lat, lng, name)) return
-            Toast.makeText(activity, "TMAP을 열 수 없습니다.", Toast.LENGTH_SHORT).show()
-            startQuietly(
-                activity,
-                marketIntent(TMAP_PKG),
-            )
+            openTmapLikeLaunchUrl(activity, lat, lng, name)
             return
         }
-        if (openKakaoNavi(activity, lat, lng, name)) return
-        Toast.makeText(activity, "카카오내비를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
-        startQuietly(activity, marketIntent(KAKAO_NAVI_PKG))
+        openKakaoNaviLikeLaunchUrl(activity, lat, lng, name)
     }
 
-    fun openTmap(activity: Activity, lat: Double, lng: Double, name: String): Boolean {
-        val encoded = URLEncoder.encode(name, "UTF-8")
-        val uris =
-            listOf(
-                "tmap://route?referrer=$TMAP_REFERRER&goalx=$lng&goaly=$lat&goalname=$encoded",
-                "tmap://route?goalname=$encoded&goalx=$lng&goaly=$lat",
-                "tmap://route?rGoName=$encoded&rGoX=$lng&rGoY=$lat",
-                "tmap://route?goalx=$lng&goaly=$lat&reqCoordType=WGS84&resCoordType=WGS84",
+    /** 글의 `launchUrl(Uri.parse(tmapURL))` 와 동일 */
+    fun openTmapLikeLaunchUrl(activity: Activity, lat: Double, lng: Double, name: String) {
+        val uri =
+            Uri.Builder()
+                .scheme("tmap")
+                .authority("route")
+                .appendQueryParameter("referrer", "com.skt.Tmap")
+                .appendQueryParameter("goalx", lng.toString())
+                .appendQueryParameter("goaly", lat.toString())
+                .appendQueryParameter("goalname", name)
+                .build()
+        try {
+            activity.startActivity(
+                Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
-        val packages = listOf(null, TMAP_PKG, TMAP_PKG_LEGACY)
-        for (uri in uris) {
-            for (pkg in packages) {
-                if (startNaviIntent(activity, uri, pkg)) return true
-            }
+        } catch (_: ActivityNotFoundException) {
+            activity.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(TMAP_PLAY)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         }
-        val launch = activity.packageManager.getLaunchIntentForPackage(TMAP_PKG)
-            ?: activity.packageManager.getLaunchIntentForPackage(TMAP_PKG_LEGACY)
-        if (launch != null) {
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            return startQuietly(activity, launch)
-        }
-        return false
     }
 
-    private fun openKakaoNavi(activity: Activity, lat: Double, lng: Double, name: String): Boolean {
-        val encoded = URLEncoder.encode(name, "UTF-8")
-        val uri = "kakaonavi://navigate?name=$encoded&x=$lng&y=$lat&coord_type=wgs84"
-        if (startNaviIntent(activity, uri, null)) return true
-        return startNaviIntent(activity, uri, KAKAO_NAVI_PKG)
-    }
-
-    private fun startNaviIntent(activity: Activity, uri: String, pkg: String?): Boolean {
-        val intent =
-            Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
-                addCategory(Intent.CATEGORY_BROWSABLE)
-                addCategory(Intent.CATEGORY_DEFAULT)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (!pkg.isNullOrBlank()) setPackage(pkg)
-            }
-        if (activity.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) == null) {
-            return false
-        }
-        return startQuietly(activity, intent)
-    }
-
-    private fun marketIntent(pkg: String): Intent {
-        return Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg"))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    private fun startQuietly(activity: Activity, intent: Intent): Boolean {
-        return try {
-            activity.startActivity(intent)
-            true
-        } catch (_: Exception) {
-            false
+    private fun openKakaoNaviLikeLaunchUrl(activity: Activity, lat: Double, lng: Double, name: String) {
+        val uri =
+            Uri.Builder()
+                .scheme("kakaonavi")
+                .authority("navigate")
+                .appendQueryParameter("name", name)
+                .appendQueryParameter("x", lng.toString())
+                .appendQueryParameter("y", lat.toString())
+                .appendQueryParameter("coord_type", "wgs84")
+                .build()
+        try {
+            activity.startActivity(
+                Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } catch (_: ActivityNotFoundException) {
+            activity.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$KAKAO_NAVI_PKG"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         }
     }
 }

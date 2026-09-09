@@ -11,14 +11,14 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 38 |
+| **최신 versionCode** | 39 |
 | **targetSdk** | **36** (Play 2026-08-31 정책 대응) |
 | **최신 versionName** | `1.0.0` |
-| **Play 프로덕션** | v32 운영 중 · Play에 **37까지 업로드됨** → 다음은 **38** (36 재업로드 불가) |
-| **인앱 업데이트 매니페스트** | `latestVersionCode` **38** 권장 · `minVersionCode` **31** |
+| **Play 프로덕션** | v32 운영 중 · Play에 **38까지 업로드됨** → 다음은 **39** |
+| **인앱 업데이트 매니페스트** | `latestVersionCode` **39** 권장 · `minVersionCode` **31** (Play 반영 후) |
 | **Play 경고** | v32 난독화 1% → v34+ R8. **v36 권장 3건** → 아래 표 · `.cursor/rules/play-console-quality.mdc` |
-| **최신 AAB** | `dist/cbiseo-play-1.0.0-38.aab` |
-| **AAB SHA256** | `39d1bcd1bdcfd3c176b7e01da8eecad05495f98fd936e2202189aec6491f8331` |
+| **최신 AAB** | `dist/cbiseo-play-1.0.0-39.aab` |
+| **AAB SHA256** | `256617fc98dba9f6cda740ee797d636f95dcf44a737e795c2b71a0ce980d193a` |
 
 ---
 
@@ -36,6 +36,15 @@
 ---
 
 ## 버전 로그
+
+### v1.0.0 (versionCode 39) — 2026-09-09
+
+| 항목 | 내용 |
+|------|------|
+| **범위** | 길안내 — Flutter `launchUrl`과 동일 (`tmap://route?referrer=com.skt.Tmap&goalx&goaly&goalname`). 패키지 고정·BROWSABLE·resolveActivity 가드 제거. 없으면 Play `com.skt.tmap.ku` |
+| **참고** | https://hanarotg.tistory.com/365 |
+| **Play** | 38 다음 번호. 웹 `href` `tmap://` + 네이티브 `ACTION_VIEW` |
+| **AAB** | `dist/cbiseo-play-1.0.0-39.aab` · SHA256 `256617fc98dba9f6cda740ee797d636f95dcf44a737e795c2b71a0ce980d193a` |
 
 ### v1.0.0 (versionCode 38) — 2026-09-09
 
