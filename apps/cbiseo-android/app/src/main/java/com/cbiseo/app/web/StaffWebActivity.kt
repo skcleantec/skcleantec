@@ -379,6 +379,13 @@ class StaffWebActivity : AppCompatActivity() {
                     lower.startsWith("intent:") -> Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                     else -> Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 }
+            if (lower.startsWith("tmap:") ||
+                lower.startsWith("kakaonavi:") ||
+                lower.startsWith("intent:")
+            ) {
+                intent.addCategory(Intent.CATEGORY_BROWSABLE)
+                intent.addCategory(Intent.CATEGORY_DEFAULT)
+            }
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
                 startActivity(intent)

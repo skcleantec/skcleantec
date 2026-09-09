@@ -1,12 +1,14 @@
 # Maestro 요약 레포트
 
-**일시:** 2026-09-09 16:00 KST **요청:** TMAP 깔려있는데 구글지도가 앱 안에서 열림 **상태:** ✅
+**일시:** 2026-09-09 16:15 KST **요청:** TMAP을 전혀 호출하지 않음, 문서 전부 조사 후 수정 **상태:** ✅
 
 ## 한 줄 결론
-TMAP을 못 연 게 아니라, 실패 폴백이 **구글 지도를 앱(웹뷰) 안에서** 열고 있었습니다. 이제 TMAP·카카오내비만 **앱 밖**으로 엽니다.
+TMAP은 `tmap://`만내면 거절합니다. 지원/실사용 문서대로 **BROWSABLE Intent** + `referrer=com.skt.Tmap` + `goalx/goaly/goalname`으로 앱 밖에서 엽니다.
 
-## 주의
-| 우선 | 내용 |
-|------|------|
-| 1 | 운영 배포 후 앱 완전 종료→재실행 |
-| 2 | TMAP이 안 열리면 토스트만. 구글지도로 바꾸지 않음 |
+## 근거
+- TMAP 지원(Flutter): `tmap://route?referrer=com.skt.Tmap&goalx&goaly&goalname`, 패키지 `com.skt.tmap.ku`
+- TMAP API: `invokeRoute` / `rGoX`·`rGoY`·`rGoName`
+- 실사용: Intent에 `CATEGORY_BROWSABLE` 없으면 ActivityNotFound
+
+## 할 일
+운영 배포 후 앱 완전 종료→재실행 후 TMAP 버튼. 네이티브 보강은 다음 Play 빌드에 포함, **이번 웹 intent는 38에서도 동작**.
