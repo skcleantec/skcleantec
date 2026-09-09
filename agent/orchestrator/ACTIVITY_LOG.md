@@ -1,6 +1,6 @@
 # Agent Orchestra — Activity Dashboard
 
-**Last updated:** 2026-09-09 16:00 KST — TMAP 구글지도 웹뷰 폴백 제거
+**Last updated:** 2026-09-09 16:15 KST — TMAP BROWSABLE Intent 공식 스킴
 
 ## Current status
 
