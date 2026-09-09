@@ -1,6 +1,6 @@
 # Agent Orchestra — Activity Dashboard
 
-**Last updated:** 2026-09-09 15:50 KST — 38 openNavi 데드엔드 수정
+**Last updated:** 2026-09-09 16:00 KST — TMAP 구글지도 웹뷰 폴백 제거
 
 ## Current status
 

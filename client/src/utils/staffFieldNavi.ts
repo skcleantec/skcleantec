@@ -16,6 +16,8 @@ const KAKAO_NAVI_PKG = 'com.locnall.KimGiSa';
 const TMAP_PKG = 'com.skt.tmap.ku';
 const KAKAO_NAVI_STORE = `https://play.google.com/store/apps/details?id=${KAKAO_NAVI_PKG}`;
 const TMAP_STORE = `https://play.google.com/store/apps/details?id=${TMAP_PKG}`;
+/** TMAP 안드로이드 공식 안내 — 다른 값이면 목적지가 안 잡히거나 앱이 안 열림 */
+const TMAP_REFERRER = 'com.skt.Tmap';
 
 export function canLaunchStaffFieldNavi(): boolean {
   if (typeof window === 'undefined') return false;
@@ -24,7 +26,6 @@ export function canLaunchStaffFieldNavi(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-/** Play 38부터 `openNavi` 실구현. WebView는 없는 메서드도 typeof === 'function' 으로 나와 쓰면 안 됨 */
 const STAFF_NAVI_NATIVE_MIN_VERSION = 38;
 
 export function canUseNativeStaffNavi(): boolean {
@@ -33,51 +34,37 @@ export function canUseNativeStaffNavi(): boolean {
 }
 
 export function buildKakaoNaviUrl(dest: StaffFieldNaviDestination): string {
-  const q = new URLSearchParams({
-    name: dest.name,
-    x: String(dest.lng),
-    y: String(dest.lat),
-    coord_type: 'wgs84',
-  });
-  return `kakaonavi://navigate?${q.toString()}`;
+  const name = encodeURIComponent(dest.name || '현장');
+  return `kakaonavi://navigate?name=${name}&x=${dest.lng}&y=${dest.lat}&coord_type=wgs84`;
 }
 
 export function buildTmapNaviUrl(dest: StaffFieldNaviDestination): string {
-  const q = new URLSearchParams({
-    referrer: 'com.cbiseo.app',
-    goalx: String(dest.lng),
-    goaly: String(dest.lat),
-    goalname: dest.name,
-  });
-  return `tmap://route?${q.toString()}`;
+  const name = encodeURIComponent(dest.name || '현장');
+  return `tmap://route?referrer=${TMAP_REFERRER}&goalx=${dest.lng}&goaly=${dest.lat}&goalname=${name}`;
 }
 
-/** Android intent:// — 패키지 지정으로 카카오내비·TMAP을 직접 연다 */
+export function schemeUrlForStaffFieldNavi(
+  app: StaffFieldNaviApp,
+  dest: StaffFieldNaviDestination,
+): string {
+  return app === 'tmap' ? buildTmapNaviUrl(dest) : buildKakaoNaviUrl(dest);
+}
+
+/** Android intent:// — 지도 https 폴백 넣지 않음(구글지도가 앱 안으로 열림) */
 export function buildStaffFieldNaviIntentUrl(
   app: StaffFieldNaviApp,
   dest: StaffFieldNaviDestination,
-  fallbackHttps?: string,
+  pkg?: string,
 ): string {
-  const fallback = encodeURIComponent(fallbackHttps ?? httpsUrlForStaffFieldNavi(app, dest));
   if (app === 'kakaonavi') {
-    const q = new URLSearchParams({
-      name: dest.name,
-      x: String(dest.lng),
-      y: String(dest.lat),
-      coord_type: 'wgs84',
-    });
-    return `intent://navigate?${q.toString()}#Intent;scheme=kakaonavi;package=${KAKAO_NAVI_PKG};S.browser_fallback_url=${fallback};end`;
+    const name = encodeURIComponent(dest.name || '현장');
+    return `intent://navigate?name=${name}&x=${dest.lng}&y=${dest.lat}&coord_type=wgs84#Intent;scheme=kakaonavi;package=${KAKAO_NAVI_PKG};end`;
   }
-  const q = new URLSearchParams({
-    referrer: 'com.cbiseo.app',
-    goalx: String(dest.lng),
-    goaly: String(dest.lat),
-    goalname: dest.name,
-  });
-  return `intent://route?${q.toString()}#Intent;scheme=tmap;package=${TMAP_PKG};S.browser_fallback_url=${fallback};end`;
+  const name = encodeURIComponent(dest.name || '현장');
+  const target = pkg ?? TMAP_PKG;
+  return `intent://route?referrer=${TMAP_REFERRER}&goalx=${dest.lng}&goaly=${dest.lat}&goalname=${name}#Intent;scheme=tmap;package=${target};end`;
 }
 
-/** 설치 앱 선택 창 — 카카오내비·TMAP·지도가 geo를 받음. Chrome으로 앱을 죽이지 않음 */
 export function buildGeoNaviUrl(dest: StaffFieldNaviDestination): string {
   const label = encodeURIComponent(dest.name || '현장');
   return `geo:${dest.lat},${dest.lng}?q=${dest.lat},${dest.lng}(${label})`;
@@ -87,7 +74,6 @@ export function storeUrlForStaffFieldNavi(app: StaffFieldNaviApp): string {
   return app === 'kakaonavi' ? KAKAO_NAVI_STORE : TMAP_STORE;
 }
 
-/** 구 앱 WebView는 kakaonavi:// 를 무시함 — https만 shouldOverride → 외부 실행 */
 export function buildKakaoMapHttpsUrl(dest: StaffFieldNaviDestination): string {
   const name = encodeURIComponent(dest.name || '현장');
   return `https://map.kakao.com/link/to/${name},${dest.lat},${dest.lng}`;
@@ -126,23 +112,18 @@ function callStaffBridgeOpenExternal(url: string): void {
   try {
     openExt(url);
   } catch {
-    /* 구 앱·R8 제거 */
+    /* 구 앱 */
   }
 }
 
 export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): void {
-  const https = httpsUrlForStaffFieldNavi(app, dest);
-  const intentUrl = buildStaffFieldNaviIntentUrl(app, dest, https);
+  const schemeUrl = schemeUrlForStaffFieldNavi(app, dest);
 
   if (!isCbiseoStaffNativeApp()) {
-    openWithoutNavigatingWebView(https);
+    openWithoutNavigatingWebView(schemeUrl);
     return;
   }
 
-  /**
-   * 38에서 openNavi만 호출하고 return 하면, R8/미구현 시 아무 일도 안 남.
-   * 38에 이미 있는 openExternalUrl(intent://)로 내비를 열고, 안 켜지면 지도 https.
-   */
   try {
     const openNavi = window.CbiseoApp?.openNavi;
     if (openNavi && canUseNativeStaffNavi()) {
@@ -155,14 +136,7 @@ export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNav
   } catch {
     /* 브릿지 없음 */
   }
-  callStaffBridgeOpenExternal(intentUrl);
-  window.setTimeout(() => {
-    if (document.visibilityState !== 'visible') return;
-    callStaffBridgeOpenExternal(https);
-    try {
-      window.location.assign(https);
-    } catch {
-      /* WebView 이동 거부 */
-    }
-  }, 800);
+
+  /** tmap:// · kakaonavi:// 만 외부로. 패키지 intent는 실패 시 스토어가 덮어씀 */
+  callStaffBridgeOpenExternal(schemeUrl);
 }

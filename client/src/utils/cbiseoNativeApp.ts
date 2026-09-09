@@ -96,13 +96,8 @@ export function openStaffAppExternalUrl(url: string): void {
     try {
       window.CbiseoApp?.openExternalUrl?.(trimmed);
     } catch {
-      /* WebView 브릿지 미연결 — 아래 폴백 */
+      /* WebView 브릿지 미연결 */
     }
-    /** WebView는 없는 메서드도 typeof === 'function'. 호출 후 화면이 그대로면 https로 재시도 */
-    window.setTimeout(() => {
-      if (document.visibilityState !== 'visible') return;
-      window.location.assign(trimmed);
-    }, 450);
     return;
   }
   window.open(trimmed, '_blank', 'noopener,noreferrer');

@@ -4,8 +4,8 @@ import { postTeamInquiryNaviDestination } from '../../api/team';
 import { TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import {
   canLaunchStaffFieldNavi,
-  httpsUrlForStaffFieldNavi,
   launchStaffFieldNavi,
+  schemeUrlForStaffFieldNavi,
   type StaffFieldNaviApp,
   type StaffFieldNaviDestination,
 } from '../../utils/staffFieldNavi';
@@ -112,7 +112,7 @@ export function TeamNaviLaunchButton({
           ) : (
             <div className="grid gap-2">
               <a
-                href={httpsUrlForStaffFieldNavi('kakaonavi', dest)}
+                href={schemeUrlForStaffFieldNavi('kakaonavi', dest)}
                 className={CHOICE}
                 onClick={(event) => onNativeOrHref('kakaonavi', event)}
               >
@@ -129,7 +129,7 @@ export function TeamNaviLaunchButton({
                 </span>
               </a>
               <a
-                href={httpsUrlForStaffFieldNavi('tmap', dest)}
+                href={schemeUrlForStaffFieldNavi('tmap', dest)}
                 className={CHOICE}
                 onClick={(event) => onNativeOrHref('tmap', event)}
               >
