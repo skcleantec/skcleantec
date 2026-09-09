@@ -1,8 +1,4 @@
-import {
-  getCbiseoStaffAppVersionCode,
-  isCbiseoStaffNativeApp,
-  openStaffAppExternalUrl,
-} from './cbiseoNativeApp';
+import { isCbiseoStaffNativeApp, openStaffAppExternalUrl } from './cbiseoNativeApp';
 
 export type StaffFieldNaviApp = 'kakaonavi' | 'tmap';
 
@@ -14,7 +10,6 @@ export type StaffFieldNaviDestination = {
 
 const KAKAO_NAVI_PKG = 'com.locnall.KimGiSa';
 const TMAP_PKG = 'com.skt.tmap.ku';
-const TMAP_PKG_LEGACY = 'com.skt.skaf.l001mtm091';
 const KAKAO_NAVI_STORE = `https://play.google.com/store/apps/details?id=${KAKAO_NAVI_PKG}`;
 const TMAP_STORE = `https://play.google.com/store/apps/details?id=${TMAP_PKG}`;
 /** TMAP 지원이 Android 연동에 안내한 referrer */
@@ -25,13 +20,6 @@ export function canLaunchStaffFieldNavi(): boolean {
   if (isCbiseoStaffNativeApp()) return true;
   if (window.matchMedia('(pointer: coarse)').matches) return true;
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-}
-
-const STAFF_NAVI_NATIVE_MIN_VERSION = 38;
-
-export function canUseNativeStaffNavi(): boolean {
-  const code = getCbiseoStaffAppVersionCode();
-  return code !== null && code >= STAFF_NAVI_NATIVE_MIN_VERSION;
 }
 
 export function buildKakaoNaviUrl(dest: StaffFieldNaviDestination): string {
@@ -49,7 +37,7 @@ export function schemeUrlForStaffFieldNavi(
   app: StaffFieldNaviApp,
   dest: StaffFieldNaviDestination,
 ): string {
-  return app === 'tmap' ? buildTmapBrowsableIntentUrl(dest) : buildKakaoNaviUrl(dest);
+  return app === 'tmap' ? buildTmapNaviUrl(dest) : buildKakaoNaviUrl(dest);
 }
 
 /**
@@ -138,48 +126,19 @@ function openWithoutNavigatingWebView(url: string): void {
   a.remove();
 }
 
-function callStaffBridgeOpenExternal(url: string): void {
-  const openExt = window.CbiseoApp?.openExternalUrl;
-  if (!openExt) return;
-  try {
-    openExt(url);
-  } catch {
-    /* 구 앱 */
-  }
-}
-
+/**
+ * 브릿지(openNavi/openExternalUrl)는 WebView에서 호출이 삼켜질 수 있음.
+ * location.assign(tmap://)은 shouldOverride로 네이티브까지 감 (토스트가 안 뜬 이유 = 브릿지 미도달).
+ */
 export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): void {
+  const scheme = schemeUrlForStaffFieldNavi(app, dest);
   if (!isCbiseoStaffNativeApp()) {
-    openWithoutNavigatingWebView(schemeUrlForStaffFieldNavi(app, dest));
+    openWithoutNavigatingWebView(scheme);
     return;
   }
-
   try {
-    const openNavi = window.CbiseoApp?.openNavi;
-    if (openNavi && canUseNativeStaffNavi()) {
-      try {
-        openNavi(app, String(dest.lat), String(dest.lng), dest.name || '현장');
-      } catch {
-        /* openNavi 없음 */
-      }
-    }
+    window.location.assign(scheme);
   } catch {
-    /* 브릿지 없음 */
+    openWithoutNavigatingWebView(scheme);
   }
-
-  if (app === 'tmap') {
-    /** 패키지 없는 BROWSABLE Intent가 깔린 TMAP을 찾음. 패키지 고정은 실패 시 스토어로 감 */
-    callStaffBridgeOpenExternal(buildTmapBrowsableIntentUrlAny(dest));
-    window.setTimeout(() => {
-      if (document.visibilityState !== 'visible') return;
-      callStaffBridgeOpenExternal(buildTmapBrowsableIntentUrl(dest, TMAP_PKG));
-    }, 400);
-    window.setTimeout(() => {
-      if (document.visibilityState !== 'visible') return;
-      callStaffBridgeOpenExternal(buildTmapBrowsableIntentUrl(dest, TMAP_PKG_LEGACY));
-    }, 800);
-    return;
-  }
-
-  callStaffBridgeOpenExternal(buildStaffFieldNaviIntentUrl('kakaonavi', dest));
 }
