@@ -81,6 +81,25 @@ export function storeUrlForStaffFieldNavi(app: StaffFieldNaviApp): string {
   return app === 'kakaonavi' ? KAKAO_NAVI_STORE : TMAP_STORE;
 }
 
+/** 구 앱 WebView는 kakaonavi:// 를 무시함 — https만 shouldOverride → 외부 실행 */
+export function buildKakaoMapHttpsUrl(dest: StaffFieldNaviDestination): string {
+  const name = encodeURIComponent(dest.name || '현장');
+  return `https://map.kakao.com/link/to/${name},${dest.lat},${dest.lng}`;
+}
+
+export function buildTmapHttpsUrl(dest: StaffFieldNaviDestination): string {
+  const q = new URLSearchParams({
+    api: '1',
+    destination: `${dest.lat},${dest.lng}`,
+    travelmode: 'driving',
+  });
+  return `https://www.google.com/maps/dir/?${q.toString()}`;
+}
+
+export function httpsUrlForStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): string {
+  return app === 'kakaonavi' ? buildKakaoMapHttpsUrl(dest) : buildTmapHttpsUrl(dest);
+}
+
 function openWithoutNavigatingWebView(url: string): void {
   if (isCbiseoStaffNativeApp()) {
     openStaffAppExternalUrl(url);
@@ -100,21 +119,6 @@ export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNav
     window.CbiseoApp?.openNavi?.(app, String(dest.lat), String(dest.lng), dest.name || '현장');
     return;
   }
-  if (isCbiseoStaffNativeApp()) {
-    throw new Error('NEED_STAFF_APP_UPDATE');
-  }
-
-  const intentUrl = buildStaffFieldNaviIntentUrl(app, dest);
-  const scheme = app === 'kakaonavi' ? buildKakaoNaviUrl(dest) : buildTmapNaviUrl(dest);
-  const geo = buildGeoNaviUrl(dest);
-
-  openWithoutNavigatingWebView(intentUrl);
-  window.setTimeout(() => {
-    if (document.visibilityState !== 'visible') return;
-    openWithoutNavigatingWebView(scheme);
-  }, 350);
-  window.setTimeout(() => {
-    if (document.visibilityState !== 'visible') return;
-    openWithoutNavigatingWebView(geo);
-  }, 800);
+  /** 설치된 앱에 openNavi가 없어도 https는 구 셸(v37)이 외부로 연다 */
+  openWithoutNavigatingWebView(httpsUrlForStaffFieldNavi(app, dest));
 }

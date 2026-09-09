@@ -130,7 +130,7 @@ class StaffAppUpdateCoordinator(
         val intent = Intent(
             Intent.ACTION_VIEW,
             Uri.parse(PLAY_STORE_URL),
-        )
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { activity.startActivity(intent) }
     }
 
