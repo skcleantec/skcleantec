@@ -9,6 +9,7 @@ import android.widget.Toast
 object StaffNaviLauncher {
     const val KAKAO_NAVI_PKG = "com.locnall.KimGiSa"
     const val TMAP_PKG = "com.skt.tmap.ku"
+    const val TMAP_PKG_LEGACY = "com.skt.skaf.l001mtm091"
 
     fun open(activity: Activity, app: String, latRaw: String, lngRaw: String, nameRaw: String) {
         val lat = latRaw.toDoubleOrNull()
@@ -25,7 +26,7 @@ object StaffNaviLauncher {
                 Uri.Builder()
                     .scheme("tmap")
                     .authority("route")
-                    .appendQueryParameter("referrer", "com.cbiseo.app")
+                    .appendQueryParameter("referrer", "com.skt.Tmap")
                     .appendQueryParameter("goalx", lng.toString())
                     .appendQueryParameter("goaly", lat.toString())
                     .appendQueryParameter("goalname", name)
@@ -41,46 +42,34 @@ object StaffNaviLauncher {
                     .build()
             }
 
-        val navi =
-            Intent(Intent.ACTION_VIEW, uri).apply {
-                setPackage(pkg)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        if (startQuietly(activity, navi)) return
-
+        /** 패키지 고정 없이 먼저 — 깔린 TMAP이 받음. 구글지도 폴백 없음 */
         val naviAny =
             Intent(Intent.ACTION_VIEW, uri).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
         if (startQuietly(activity, naviAny)) return
 
-        val mapsHttps =
-            if (useTmap) {
-                "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving"
-            } else {
-                "https://map.kakao.com/link/to/${Uri.encode(name)},$lat,$lng"
+        val naviPkg =
+            Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage(pkg)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-        if (startQuietly(activity, Intent(Intent.ACTION_VIEW, Uri.parse(mapsHttps)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))) {
-            return
+        if (startQuietly(activity, naviPkg)) return
+
+        if (useTmap) {
+            val legacy =
+                Intent(Intent.ACTION_VIEW, uri).apply {
+                    setPackage(TMAP_PKG_LEGACY)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            if (startQuietly(activity, legacy)) return
         }
 
-        val geo =
-            Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(name)})")).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        if (startQuietly(activity, geo)) return
-
-        val market =
-            Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        if (startQuietly(activity, market)) return
+        Toast.makeText(activity, "내비 앱을 열 수 없습니다.", Toast.LENGTH_SHORT).show()
         startQuietly(
             activity,
-            Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://play.google.com/store/apps/details?id=$pkg"),
-            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     }
 

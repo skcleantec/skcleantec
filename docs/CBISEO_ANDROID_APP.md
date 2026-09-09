@@ -81,8 +81,7 @@
 | 계층 | 동작 |
 |------|------|
 | **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만) |
-| **앱 38+** | `openNavi`를 시도하되 **성공으로 단정하지 않음**. 이어서 38에 있는 `openExternalUrl(intent://)`로 카카오내비·TMAP을 연다. 화면이 그대로면 지도 https |
-| **구 앱 (37 이하)** | 동일하게 `openExternalUrl(intent://)` → 실패 시 카카오맵·Google 지도 https |
+| **앱** | `openExternalUrl(tmap://` · `kakaonavi://)` 로 **앱 밖**에서 연다. 구글지도 https·`location.assign` 금지(WebView 안으로 들어감) |
 | **네이티브** | `StaffNaviLauncher` — 패키지 지정 `kakaonavi`/`tmap` Intent. 실패 시 `geo:` → Play 스토어 |
 | **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` |
 | **Play 번호** | 콘솔에 **37까지 업로드됨** → 다음은 **38**. 36 재업로드 불가 |
