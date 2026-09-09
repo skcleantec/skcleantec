@@ -81,8 +81,8 @@
 | 계층 | 동작 |
 |------|------|
 | **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만) |
-| **앱 38+** | `getAppVersionCode() >= 38` 일 때만 `CbiseoApp.openNavi` (WebView는 없는 메서드도 `typeof === 'function'` 이라 쓰면 링크가 막힘) |
-| **구 앱 (37 이하)** | 카카오맵·Google 지도 **https** 를 `openExternalUrl` / 위치 이동으로 연다. 카카오내비·TMAP 앱 직접 실행은 38 설치 후 |
+| **앱 38+** | `openNavi`를 시도하되 **성공으로 단정하지 않음**. 이어서 38에 있는 `openExternalUrl(intent://)`로 카카오내비·TMAP을 연다. 화면이 그대로면 지도 https |
+| **구 앱 (37 이하)** | 동일하게 `openExternalUrl(intent://)` → 실패 시 카카오맵·Google 지도 https |
 | **네이티브** | `StaffNaviLauncher` — 패키지 지정 `kakaonavi`/`tmap` Intent. 실패 시 `geo:` → Play 스토어 |
 | **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` |
 | **Play 번호** | 콘솔에 **37까지 업로드됨** → 다음은 **38**. 36 재업로드 불가 |

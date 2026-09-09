@@ -383,6 +383,14 @@ class StaffWebActivity : AppCompatActivity() {
             try {
                 startActivity(intent)
             } catch (_: ActivityNotFoundException) {
+                val fallback = intent.getStringExtra("browser_fallback_url")
+                if (!fallback.isNullOrBlank()) {
+                    startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(fallback))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                    return
+                }
                 val pkg = intent.`package`
                 if (!pkg.isNullOrBlank()) {
                     startActivity(
