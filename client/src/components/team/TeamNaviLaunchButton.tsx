@@ -9,6 +9,7 @@ import {
   launchStaffFieldNavi,
   type StaffFieldNaviApp,
 } from '../../utils/staffFieldNavi';
+import { openStaffAppPlayStore } from '../../utils/staffAppUpdate';
 import { readPreferredTeamNavi, writePreferredTeamNavi } from '../../utils/teamPreferredNavi';
 
 type TeamNaviLaunchButtonProps = {
@@ -48,7 +49,12 @@ export function TeamNaviLaunchButton({
       setPreferred(app);
       launchStaffFieldNavi(app, dest);
     } catch (err) {
-      setError(err instanceof Error ? err.message : teamBiPlain('team.navi.fail'));
+      const raw = err instanceof Error ? err.message : '';
+      setError(
+        raw === 'NEED_STAFF_APP_UPDATE'
+          ? teamBiPlain('team.navi.needAppUpdate')
+          : raw || teamBiPlain('team.navi.fail'),
+      );
     } finally {
       setBusy(false);
     }
@@ -117,9 +123,20 @@ export function TeamNaviLaunchButton({
                   <TeamBiInline id="team.navi.sheetHint" />
                 </p>
                 {error ? (
-                  <p className="mb-2 text-fluid-2xs text-red-600" role="alert">
-                    {error}
-                  </p>
+                  <div className="mb-2 space-y-2">
+                    <p className="text-fluid-2xs text-red-600" role="alert">
+                      {error}
+                    </p>
+                    {error === teamBiPlain('team.navi.needAppUpdate') ? (
+                      <button
+                        type="button"
+                        onClick={() => openStaffAppPlayStore()}
+                        className="inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        Play Store에서 업데이트
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
                 {busy ? (
                   <p className="mb-2 text-fluid-2xs text-slate-500" role="status">

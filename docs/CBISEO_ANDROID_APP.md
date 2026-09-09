@@ -38,7 +38,7 @@
 │  · 네이티브 로그인 (업체코드+아이디)         │
 │  · WebView → https://www.cbiseo.com/…    │
 │  · JWT → localStorage (sk_*_token) 주입   │
-│  · CbiseoApp JS 브릿지 (FCM·플랫폼 감지)   │
+│  · CbiseoApp JS 브릿지 (FCM·openNavi·감지) │
 │  · FirebaseMessagingService (FCM)         │
 └────────────────┬─────────────────────────┘
                  │ HTTPS  /api/*  /ws?token=
@@ -68,10 +68,24 @@
 | 변경 종류 | 배포 경로 | Play 심사 |
 |-----------|-----------|-----------|
 | UI·업무 로직·API | **웹만** | 불필요 |
+| **팀장 길안내(카카오내비·TMAP)** | **웹 + Play AAB 38+** (`CbiseoApp.openNavi`) | **필요** — 웹만으로는 구 앱에서 내비가 안 열림 |
 | FCM payload·딥링크 규약 | 서버 + (필요 시) 셸 | 드묾 |
 | **Play In-App Update** (셸·FCM·브릿지) | **AAB + Railway `STAFF_APP_*`** | 필요 |
 | targetSdk·권한·WebView 보안 | **AAB 재업로드** | 필요 |
 | Firebase 프로젝트·google-services | 셸 재빌드 | 필요 |
+
+### 3.3 팀장 길안내 (카카오내비·TMAP)
+
+웹 `intent://` / `kakaonavi://` 만으로는 WebView가 내비 앱을 못 열거나 Chrome으로 넘어가 **앱이 꺼진 것처럼** 보인다. **Play versionCode 38+** 에서만 네이티브로 연다.
+
+| 계층 | 동작 |
+|------|------|
+| **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만) → `CbiseoApp.openNavi` |
+| **구 앱** (`openNavi` 없음) | 「Play 스토어에서 업데이트」 — URL 폴백으로 내비 실행을 시도하지 않음 |
+| **네이티브** | `StaffNaviLauncher` — 패키지 지정 `kakaonavi`/`tmap` Intent. 실패 시 `geo:` → Play 스토어 |
+| **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` |
+| **Play 번호** | 콘솔에 **37까지 업로드됨** → 다음은 **38**. 36 재업로드 불가 |
+| **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE=38` (없으면 코드 폴백 38). **환경변수가 36이면 라이브도 36으로 남음** |
 
 ---
 
