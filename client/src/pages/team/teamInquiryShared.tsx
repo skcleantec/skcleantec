@@ -1583,7 +1583,6 @@ export function TeamInquiryDetailModal({
                       {item.address}
                       {item.addressDetail ? <span className="text-gray-600"> {item.addressDetail}</span> : null}
                     </span>
-                    <TeamNaviLaunchButton inquiryId={item.id} token={teamToken} compact />
                   </TeamModalRow>
                   <TeamModalRow
                     compact
@@ -1771,7 +1770,6 @@ export function TeamInquiryDetailModal({
                   {item.address}
                   {item.addressDetail ? <span className="text-gray-600"> {item.addressDetail}</span> : null}
                 </p>
-                <TeamNaviLaunchButton inquiryId={item.id} token={teamToken} />
               </TeamModalRow>
             </TeamModalSection>
 
@@ -2448,7 +2446,8 @@ export function TeamInquiryDetailModal({
           </div>
         </div>
 
-        <footer className="shrink-0 space-y-1.5 border-t border-gray-200 bg-gray-50 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:rounded-b-2xl sm:px-4">
+        <footer className="shrink-0 space-y-1.5 border-t border-gray-200 bg-gray-50 px-3 py-2 pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))] sm:rounded-b-2xl sm:px-4">
+          <TeamNaviLaunchButton inquiryId={item.id} token={teamToken} variant="bar" />
           {enableHappyCall && hasInspectionModule ? (
             <div className="space-y-1.5">
               <div className="grid grid-cols-2 gap-1.5">

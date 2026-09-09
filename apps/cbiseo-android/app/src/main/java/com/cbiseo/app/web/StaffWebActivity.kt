@@ -360,7 +360,8 @@ class StaffWebActivity : AppCompatActivity() {
             lower.startsWith("kakaonavi:") ||
             lower.startsWith("kakaonavi-sdk:") ||
             lower.startsWith("tmap:") ||
-            lower.startsWith("intent:")
+            lower.startsWith("intent:") ||
+            lower.startsWith("geo:")
     }
 
     private fun openExternalUrl(url: String) {
@@ -373,6 +374,9 @@ class StaffWebActivity : AppCompatActivity() {
                     lower.startsWith("intent:") -> Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                     else -> Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 }
+            if (intent.resolveActivity(packageManager) == null && !lower.startsWith("geo:")) {
+                error("no activity")
+            }
             startActivity(intent)
         }.onFailure {
             Toast.makeText(this, "링크를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
