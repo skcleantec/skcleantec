@@ -63,14 +63,14 @@ export function openStaffAppPlayStore(playStoreUrl?: string | null): void {
   const url = playStoreUrl?.trim() || STAFF_APP_PLAY_STORE_URL;
   if (isCbiseoStaffNativeApp()) {
     try {
-      if (typeof window.CbiseoApp?.openPlayStore === 'function') {
-        window.CbiseoApp.openPlayStore();
-        return;
-      }
+      window.CbiseoApp?.openPlayStore?.();
     } catch {
-      /* fallback below */
+      /* 구 앱은 메서드가 없어도 typeof === 'function' — 실패하면 https */
     }
-    openStaffAppExternalUrl(url);
+    window.setTimeout(() => {
+      if (document.visibilityState !== 'visible') return;
+      openStaffAppExternalUrl(url);
+    }, 450);
     return;
   }
   window.location.href = url;

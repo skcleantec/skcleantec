@@ -94,26 +94,16 @@ export function openStaffAppExternalUrl(url: string): void {
   if (!trimmed) return;
   if (isCbiseoStaffNativeApp()) {
     try {
-      if (typeof window.CbiseoApp?.openExternalUrl === 'function') {
-        window.CbiseoApp.openExternalUrl(trimmed);
-        return;
-      }
+      window.CbiseoApp?.openExternalUrl?.(trimmed);
     } catch {
-      /* WebView 브릿지 미연결 */
+      /* WebView 브릿지 미연결 — 아래 폴백 */
     }
-    /** 구 앱(브릿지 없음) — Android intent URL로 외부 브라우저 유도 */
-    if (/Android/i.test(navigator.userAgent)) {
-      try {
-        const parsed = new URL(trimmed, window.location.origin);
-        const scheme = parsed.protocol.replace(':', '') || 'https';
-        const hostPath = `${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
-        window.location.href =
-          `intent://${hostPath}#Intent;scheme=${scheme};action=android.intent.action.VIEW;end`;
-        return;
-      } catch {
-        /* fallback below */
-      }
-    }
+    /** WebView는 없는 메서드도 typeof === 'function'. 호출 후 화면이 그대로면 https로 재시도 */
+    window.setTimeout(() => {
+      if (document.visibilityState !== 'visible') return;
+      window.location.assign(trimmed);
+    }, 450);
+    return;
   }
   window.open(trimmed, '_blank', 'noopener,noreferrer');
 }
@@ -121,8 +111,9 @@ export function openStaffAppExternalUrl(url: string): void {
 export function getCbiseoStaffAppVersionCode(): number | null {
   if (typeof window === 'undefined') return null;
   try {
-    const code = window.CbiseoApp?.getAppVersionCode?.();
-    return typeof code === 'number' && Number.isFinite(code) ? code : null;
+    const raw = window.CbiseoApp?.getAppVersionCode?.();
+    const code = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(code) ? code : null;
   } catch {
     return null;
   }
