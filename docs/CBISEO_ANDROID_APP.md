@@ -81,7 +81,7 @@
 | 계층 | 동작 |
 |------|------|
 | **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만) |
-| **TMAP** | [Flutter 연동글](https://hanarotg.tistory.com/365)과 동일: Android `tmap://route?referrer=com.skt.Tmap&goalx=경도&goaly=위도&goalname=이름` → `ACTION_VIEW`(launchUrl). queries `com.skt.tmap.ku` · `com.skt.skaf.l001mtm091`. 실패 시 Play. WebView는 `target=_blank` 금지(창 핸들러 없으면 클릭 소실) |
+| **TMAP (공식)** | SK Open API 웹→앱: `https://apis.openapi.sk.com/tmap/app/routes?appKey=&name=&lon=&lat=` ([Q&A](https://openapi.sk.com/qnaCommunity/398), 발급 [openapi.sk.com](https://openapi.sk.com/)). 앱은 `openExternalUrl(https)`로 연다. 네이티브는 TMapTapi `rGoName`/`rGoX`/`rGoY` ([T MAP API](https://tmapapi.tmapmobility.com/main.html)). Railway `TMAP_APP_KEY` 필수 |
 | **네이티브** | `StaffNaviLauncher` — 글과 같이 `ACTION_VIEW`만 (`resolveActivity` 가드 없음). 실패 시 Play |
 | **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` |
 | **Play 번호** | 콘솔에 **37까지 업로드됨** → 다음은 **38**. 36 재업로드 불가 |

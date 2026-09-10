@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-09-team-navi-native",
+  "_lastUpdated": "2026-09-09-tmap-official-app-routes",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -586,7 +586,7 @@
         "client/src/components/team/TeamNaviLaunchButton.tsx",
         "apps/cbiseo-android/app/src/main/java/com/cbiseo/app/navi/StaffNaviLauncher.kt"
       ],
-      "notes": "Play v37 이하는 openNavi 브릿지 없음. 시트에 업데이트 안내+Play 버튼. 끄면 길안내가 무반응으로 보임."
+      "notes": "TMAP은 SK Open API 공식 HTTPS(/tmap/app/routes)+TMAP_APP_KEY. 키 없으면 시트에 tmapNeedKey 안내 후 openNavi."
     }
   ]
 }

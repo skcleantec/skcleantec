@@ -6,17 +6,17 @@ import android.net.Uri
 import android.widget.Toast
 
 /**
- * TMAP — [Flutter 티맵 호출](https://hanarotg.tistory.com/365) 과 동일.
+ * TMAP 공식 TMapTapi 계약.
+ * https://tmapapi.tmapmobility.com/main.html
+ * invokeRoute(destName, fX=경도, fY=위도)
+ * HashMap 필수: rGoName, rGoX(경도), rGoY(위도) — TMapTapi.h
  *
- * Android: `tmap://route?referrer=com.skt.Tmap&goalx=경도&goaly=위도&goalname=이름`
- * 실패 시 Play `com.skt.tmap.ku`
- * queries: `com.skt.tmap.ku`, `com.skt.skaf.l001mtm091`
+ * 웹 공식: GET https://apis.openapi.sk.com/tmap/app/routes?appKey&name&lon&lat
+ * https://openapi.sk.com/qnaCommunity/398
  */
 object StaffNaviLauncher {
     const val KAKAO_NAVI_PKG = "com.locnall.KimGiSa"
     const val TMAP_PKG = "com.skt.tmap.ku"
-    const val TMAP_PKG_LEGACY = "com.skt.skaf.l001mtm091"
-    private const val TMAP_REFERRER = "com.skt.Tmap"
 
     fun open(activity: Activity, app: String, latRaw: String, lngRaw: String, nameRaw: String) {
         val lat = latRaw.toDoubleOrNull()
@@ -27,30 +27,30 @@ object StaffNaviLauncher {
         }
         val name = nameRaw.ifBlank { "현장" }
         if (app.equals("tmap", ignoreCase = true)) {
-            if (openTmapLikeFlutter(activity, lat, lng, name)) return
+            if (openTmapOfficialTapi(activity, lat, lng, name)) return
             startQuietly(activity, playStore(TMAP_PKG))
+            Toast.makeText(activity, "TMAP을 열 수 없어 스토어로 이동합니다.", Toast.LENGTH_SHORT).show()
             return
         }
         if (openKakaoNavi(activity, lat, lng, name)) return
         startQuietly(activity, playStore(KAKAO_NAVI_PKG))
+        Toast.makeText(activity, "카카오내비를 열 수 없어 스토어로 이동합니다.", Toast.LENGTH_SHORT).show()
     }
 
-    /** Flutter `launchUrl(Uri.parse(tmapURL))` 과 같은 Intent */
-    fun openTmapLikeFlutter(activity: Activity, lat: Double, lng: Double, name: String): Boolean {
+    /** 공식 TMapTapi routeInfo 키를 쿼리로 전달 */
+    fun openTmapOfficialTapi(activity: Activity, lat: Double, lng: Double, name: String): Boolean {
         val uri =
             Uri.Builder()
                 .scheme("tmap")
                 .authority("route")
-                .appendQueryParameter("referrer", TMAP_REFERRER)
-                .appendQueryParameter("goalx", lng.toString())
-                .appendQueryParameter("goaly", lat.toString())
-                .appendQueryParameter("goalname", name)
+                .appendQueryParameter("rGoName", name)
+                .appendQueryParameter("rGoX", lng.toString())
+                .appendQueryParameter("rGoY", lat.toString())
                 .build()
-        val intent =
-            Intent(Intent.ACTION_VIEW, uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        return startQuietly(activity, intent)
+        return startQuietly(
+            activity,
+            Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 
     private fun openKakaoNavi(activity: Activity, lat: Double, lng: Double, name: String): Boolean {

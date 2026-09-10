@@ -4,7 +4,7 @@ import { postTeamInquiryNaviDestination } from '../../api/team';
 import { TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import {
   canLaunchStaffFieldNavi,
-  schemeUrlForStaffFieldNavi,
+  launchStaffFieldNavi,
   type StaffFieldNaviApp,
   type StaffFieldNaviDestination,
 } from '../../utils/staffFieldNavi';
@@ -18,7 +18,7 @@ type TeamNaviLaunchButtonProps = {
 };
 
 const CHOICE =
-  'flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left touch-manipulation';
+  'flex min-h-12 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left touch-manipulation hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
 export function TeamNaviLaunchButton({
   inquiryId,
@@ -29,6 +29,7 @@ export function TeamNaviLaunchButton({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [dest, setDest] = useState<StaffFieldNaviDestination | null>(null);
   const [preferred, setPreferred] = useState<StaffFieldNaviApp | null>(() => readPreferredTeamNavi());
 
@@ -40,6 +41,7 @@ export function TeamNaviLaunchButton({
     }
     setBusy(true);
     setError(null);
+    setStatus(null);
     try {
       const next = await postTeamInquiryNaviDestination(token, inquiryId);
       setDest(next);
@@ -52,17 +54,24 @@ export function TeamNaviLaunchButton({
     }
   };
 
-  const onChoiceClick = (app: StaffFieldNaviApp) => {
+  const onLaunch = (app: StaffFieldNaviApp) => {
     if (!dest) return;
     writePreferredTeamNavi(app);
     setPreferred(app);
+    setError(null);
+    if (app === 'tmap' && !dest.tmapAppRoutesUrl) {
+      setStatus(teamBiPlain('team.navi.tmapNeedKey'));
+    } else {
+      setStatus(teamBiPlain('team.navi.opening'));
+    }
+    launchStaffFieldNavi(app, dest);
   };
 
   const barClass =
-    'inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-semibold text-slate-800 touch-manipulation';
+    'inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-semibold text-slate-800 touch-manipulation hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   const inlineClass = compact
-    ? 'inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-xs font-semibold text-slate-800 touch-manipulation'
-    : 'inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-xs font-semibold text-slate-800 touch-manipulation';
+    ? 'inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-xs font-semibold text-slate-800 touch-manipulation hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none'
+    : 'inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-xs font-semibold text-slate-800 touch-manipulation hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   const btnClass = variant === 'bar' ? barClass : inlineClass;
 
   return (
@@ -84,7 +93,7 @@ export function TeamNaviLaunchButton({
             </h2>
             <button
               type="button"
-              className="inline-flex size-11 items-center justify-center rounded-lg text-slate-600 touch-manipulation"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-slate-600 touch-manipulation hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               onClick={() => setOpen(false)}
             >
               <LineMdIcon name="close" className="size-5" title={teamBiPlain('team.navi.close')} />
@@ -98,17 +107,18 @@ export function TeamNaviLaunchButton({
               {error}
             </p>
           ) : null}
+          {status ? (
+            <p className="mb-2 text-fluid-2xs text-slate-600" role="status">
+              {status}
+            </p>
+          ) : null}
           {busy || !dest ? (
             <p className="text-fluid-2xs text-slate-500" role="status">
               <TeamBiInline id="team.navi.opening" />
             </p>
           ) : (
             <div className="grid gap-2">
-              <a
-                href={schemeUrlForStaffFieldNavi('kakaonavi', dest)}
-                className={CHOICE}
-                onClick={() => onChoiceClick('kakaonavi')}
-              >
+              <button type="button" className={CHOICE} onClick={() => onLaunch('kakaonavi')}>
                 <LineMdIcon name="navigation-left-up" className="size-6 shrink-0 text-slate-800" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-fluid-sm font-semibold text-slate-900">
@@ -120,12 +130,8 @@ export function TeamNaviLaunchButton({
                     </span>
                   ) : null}
                 </span>
-              </a>
-              <a
-                href={schemeUrlForStaffFieldNavi('tmap', dest)}
-                className={CHOICE}
-                onClick={() => onChoiceClick('tmap')}
-              >
+              </button>
+              <button type="button" className={CHOICE} onClick={() => onLaunch('tmap')}>
                 <LineMdIcon name="compass" className="size-6 shrink-0 text-slate-800" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-fluid-sm font-semibold text-slate-900">
@@ -137,7 +143,7 @@ export function TeamNaviLaunchButton({
                     </span>
                   ) : null}
                 </span>
-              </a>
+              </button>
             </div>
           )}
         </div>
