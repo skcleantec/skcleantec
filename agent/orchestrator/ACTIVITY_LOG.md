@@ -1,19 +1,19 @@
 # Agent Orchestra — Activity Dashboard
 
-**Last updated:** 2026-09-09 16:25 KST — TMAP 링크 preventDefault 제거
+**Last updated:** 2026-09-10 16:10 KST — 길안내 TMAP만
 
 ## Current status
 
 | Agent | Last run (KST) | Status | Summary |
 |-------|----------------|--------|---------|
-| Maestro | 2026-09-09 14:55 | completed | 원격 SHA 대조 후 v38만 커밋 대상 |
-| AppScout | 2026-09-09 14:55 | completed | 카카오 웹 길안내 종료 · 네이티브 Intent |
-| DesignPulse | 2026-09-09 14:55 | completed | 시트 z-130 · 푸터 bar |
-| CodeGuardian | 2026-09-09 14:55 | completed | tsc 통과 · tenant · FCM · 넓은 화면 |
-| ConfigCurator | 2026-09-09 14:55 | completed | needAppUpdate 등록 |
-| RoleQA | 2026-09-09 14:55 | completed | 401 API 실측 · 폰은 Play 38 이후 |
-| PlatformOps | 2026-09-09 14:55 | skipped | mod_* 없음 |
-| DbSentinel | 2026-09-09 14:55 | completed | tenant+담당만 |
+| Maestro | 2026-09-10 16:10 | completed | 카카오내비 UI 제거 · TMAP만 |
+| AppScout | 2026-09-10 15:55 | completed | 선택 시트 없이 바로 실행 |
+| DesignPulse | 2026-09-10 16:05 | completed | 한 버튼 · 시트 제거 |
+| CodeGuardian | 2026-09-10 16:05 | completed | tsc 통과 · tenant 유지 |
+| ConfigCurator | 2026-09-10 16:05 | completed | registry TMAP만 |
+| RoleQA | 2026-09-10 16:05 | completed | 팀장 TMAP · 카카오맵 유지 |
+| PlatformOps | 2026-09-10 16:05 | skipped | mod_* 없음 |
+| DbSentinel | 2026-09-10 16:05 | skipped | 스키마 변경 없음 |
 
-**Outcome:** ⚠️ 점검은 끝. 푸시·Play 38·Railway 38이 남아 있음  
+**Outcome:** ✅ 웹만으로 카카오내비 선택 UI가 사라짐. 폰 반영은 Railway + 앱 재실행  
 **Summary:** [BRIEF_REPORT.md](BRIEF_REPORT.md)

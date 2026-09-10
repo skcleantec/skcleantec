@@ -68,22 +68,22 @@
 | 변경 종류 | 배포 경로 | Play 심사 |
 |-----------|-----------|-----------|
 | UI·업무 로직·API | **웹만** | 불필요 |
-| **팀장 길안내(카카오내비·TMAP)** | **웹 + Play AAB 38+** (`CbiseoApp.openNavi`) | **필요** — 웹만으로는 구 앱에서 내비가 안 열림 |
+| **팀장 길안내(TMAP)** | **웹 + `TMAP_APP_KEY`** (`openExternalUrl` 공식 HTTPS) | 공식 웹연동은 웹만으로 가능 |
 | FCM payload·딥링크 규약 | 서버 + (필요 시) 셸 | 드묾 |
 | **Play In-App Update** (셸·FCM·브릿지) | **AAB + Railway `STAFF_APP_*`** | 필요 |
 | targetSdk·권한·WebView 보안 | **AAB 재업로드** | 필요 |
 | Firebase 프로젝트·google-services | 셸 재빌드 | 필요 |
 
-### 3.3 팀장 길안내 (카카오내비·TMAP)
+### 3.3 팀장 길안내 (TMAP)
 
-웹 `intent://` / `kakaonavi://` 만으로는 WebView가 내비 앱을 못 열거나 Chrome으로 넘어가 **앱이 꺼진 것처럼** 보인다. **Play versionCode 38+** 에서만 네이티브로 연다.
+팀장 길안내는 **TMAP만** 연동한다. 카카오내비 선택 UI는 없다. 공식 HTTPS(`/tmap/app/routes`)는 `openExternalUrl`로 앱 밖으로 연다. `tmap://`만으로는 WebView가 내비 앱을 못 열거나 Chrome으로 넘어가 **앱이 꺼진 것처럼** 보일 수 있다.
 
 | 계층 | 동작 |
 |------|------|
 | **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만) |
 | **TMAP (공식)** | SK Open API 웹→앱: `https://apis.openapi.sk.com/tmap/app/routes?appKey=&name=&lon=&lat=` ([Q&A](https://openapi.sk.com/qnaCommunity/398), 발급 [openapi.sk.com](https://openapi.sk.com/)). 앱은 `openExternalUrl(https)`로 연다. 네이티브는 TMapTapi `rGoName`/`rGoX`/`rGoY` ([T MAP API](https://tmapapi.tmapmobility.com/main.html)). Railway `TMAP_APP_KEY` 필수 |
 | **네이티브** | `StaffNaviLauncher` — 글과 같이 `ACTION_VIEW`만 (`resolveActivity` 가드 없음). 실패 시 Play |
-| **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` |
+| **패키지** | TMAP `com.skt.tmap.ku` |
 | **Play 번호** | 콘솔에 **37까지 업로드됨** → 다음은 **38**. 36 재업로드 불가 |
 | **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE=38` (없으면 코드 폴백 38). **환경변수가 36이면 라이브도 36으로 남음** |
 

@@ -464,7 +464,7 @@ export type TeamNaviDestination = {
   tmapAppRoutesUrl?: string | null;
 };
 
-/** 담당 접수 현장 좌표 — 길안내(카카오내비·TMAP) */
+/** 담당 접수 현장 좌표 — TMAP 길안내 */
 export async function postTeamInquiryNaviDestination(
   token: string,
   inquiryId: string,

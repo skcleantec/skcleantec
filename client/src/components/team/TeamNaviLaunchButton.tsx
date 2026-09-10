@@ -2,13 +2,7 @@ import { useState } from 'react';
 import { LineMdIcon } from '../ui/LineMdIcon';
 import { postTeamInquiryNaviDestination } from '../../api/team';
 import { TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
-import {
-  canLaunchStaffFieldNavi,
-  launchStaffFieldNavi,
-  type StaffFieldNaviApp,
-  type StaffFieldNaviDestination,
-} from '../../utils/staffFieldNavi';
-import { readPreferredTeamNavi, writePreferredTeamNavi } from '../../utils/teamPreferredNavi';
+import { canLaunchStaffFieldNavi, launchStaffFieldNavi } from '../../utils/staffFieldNavi';
 
 type TeamNaviLaunchButtonProps = {
   inquiryId: string;
@@ -17,23 +11,17 @@ type TeamNaviLaunchButtonProps = {
   variant?: 'inline' | 'bar';
 };
 
-const CHOICE =
-  'flex min-h-12 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left touch-manipulation hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
-
 export function TeamNaviLaunchButton({
   inquiryId,
   token,
   compact,
   variant = 'inline',
 }: TeamNaviLaunchButtonProps) {
-  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [dest, setDest] = useState<StaffFieldNaviDestination | null>(null);
-  const [preferred, setPreferred] = useState<StaffFieldNaviApp | null>(() => readPreferredTeamNavi());
 
-  const loadDest = async () => {
+  const onGuide = async () => {
     if (!token || busy) return;
     if (!canLaunchStaffFieldNavi()) {
       setError(teamBiPlain('team.navi.phoneOnly'));
@@ -41,30 +29,19 @@ export function TeamNaviLaunchButton({
     }
     setBusy(true);
     setError(null);
-    setStatus(null);
+    setStatus(teamBiPlain('team.navi.opening'));
     try {
-      const next = await postTeamInquiryNaviDestination(token, inquiryId);
-      setDest(next);
-      setOpen(true);
+      const dest = await postTeamInquiryNaviDestination(token, inquiryId);
+      if (!dest.tmapAppRoutesUrl) {
+        setStatus(teamBiPlain('team.navi.tmapNeedKey'));
+      }
+      launchStaffFieldNavi(dest);
     } catch (err) {
+      setStatus(null);
       setError(err instanceof Error && err.message ? err.message : teamBiPlain('team.navi.fail'));
-      setOpen(true);
     } finally {
       setBusy(false);
     }
-  };
-
-  const onLaunch = (app: StaffFieldNaviApp) => {
-    if (!dest) return;
-    writePreferredTeamNavi(app);
-    setPreferred(app);
-    setError(null);
-    if (app === 'tmap' && !dest.tmapAppRoutesUrl) {
-      setStatus(teamBiPlain('team.navi.tmapNeedKey'));
-    } else {
-      setStatus(teamBiPlain('team.navi.opening'));
-    }
-    launchStaffFieldNavi(app, dest);
   };
 
   const barClass =
@@ -76,77 +53,19 @@ export function TeamNaviLaunchButton({
 
   return (
     <div className={variant === 'bar' ? 'w-full' : 'mt-1.5 w-full min-w-0'}>
-      <button type="button" className={btnClass} disabled={!token || busy} onClick={() => void loadDest()}>
+      <button type="button" className={btnClass} disabled={!token || busy} onClick={() => void onGuide()}>
         <LineMdIcon name="map-marker" className="size-4 shrink-0 text-slate-700" />
         <TeamBiInline id="team.navi.guide" />
       </button>
-      {error && !open ? (
+      {status ? (
+        <p className="mt-1 w-full text-fluid-2xs text-slate-600" role="status">
+          {status}
+        </p>
+      ) : null}
+      {error ? (
         <p className="mt-1 w-full text-fluid-2xs text-red-600" role="alert">
           {error}
         </p>
-      ) : null}
-      {open ? (
-        <div className="relative z-10 mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h2 className="text-fluid-sm font-semibold text-slate-900">
-              <TeamBiInline id="team.navi.sheetTitle" />
-            </h2>
-            <button
-              type="button"
-              className="inline-flex size-11 items-center justify-center rounded-lg text-slate-600 touch-manipulation hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-              onClick={() => setOpen(false)}
-            >
-              <LineMdIcon name="close" className="size-5" title={teamBiPlain('team.navi.close')} />
-            </button>
-          </div>
-          <p className="mb-3 text-fluid-2xs text-slate-500">
-            <TeamBiInline id="team.navi.sheetHint" />
-          </p>
-          {error ? (
-            <p className="mb-2 text-fluid-2xs text-red-600" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {status ? (
-            <p className="mb-2 text-fluid-2xs text-slate-600" role="status">
-              {status}
-            </p>
-          ) : null}
-          {busy || !dest ? (
-            <p className="text-fluid-2xs text-slate-500" role="status">
-              <TeamBiInline id="team.navi.opening" />
-            </p>
-          ) : (
-            <div className="grid gap-2">
-              <button type="button" className={CHOICE} onClick={() => onLaunch('kakaonavi')}>
-                <LineMdIcon name="navigation-left-up" className="size-6 shrink-0 text-slate-800" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-fluid-sm font-semibold text-slate-900">
-                    <TeamBiInline id="team.navi.kakao" />
-                  </span>
-                  {preferred === 'kakaonavi' ? (
-                    <span className="text-fluid-2xs text-slate-500">
-                      <TeamBiInline id="team.navi.recent" />
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-              <button type="button" className={CHOICE} onClick={() => onLaunch('tmap')}>
-                <LineMdIcon name="compass" className="size-6 shrink-0 text-slate-800" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-fluid-sm font-semibold text-slate-900">
-                    <TeamBiInline id="team.navi.tmap" />
-                  </span>
-                  {preferred === 'tmap' ? (
-                    <span className="text-fluid-2xs text-slate-500">
-                      <TeamBiInline id="team.navi.recent" />
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            </div>
-          )}
-        </div>
       ) : null}
     </div>
   );

@@ -6,7 +6,7 @@ export function readPreferredTeamNavi(): StaffFieldNaviApp | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw === 'kakaonavi' || raw === 'tmap') return raw;
+    if (raw === 'tmap') return raw;
   } catch {
     /* ignore */
   }
