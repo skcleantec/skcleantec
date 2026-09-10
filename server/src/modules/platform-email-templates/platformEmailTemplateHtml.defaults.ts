@@ -33,7 +33,7 @@ export const ORDER_FORM_FOOTER_HTML_DEFAULT =
   `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;border-collapse:separate">
 <tbody><tr><td style="padding:14px 16px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px">
 <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#334155">담당자가 일정을 확인한 뒤 연락드릴 수 있습니다.</p>
-<p style="margin:0;font-size:13px;line-height:1.55;color:#64748b">청소비서는 입주·이사 청소 예약을 돕는 서비스입니다.</p>
+<p style="margin:0;font-size:13px;line-height:1.55;color:#64748b"><strong style="color:#334155">청소비서</strong>는 청소 업체의 <strong style="color:#334155">고객관리 솔루션</strong>입니다. 문의사항은 <strong style="color:#0f172a">담당 업체</strong>에 연락해 주세요.</p>
 </td></tr></tbody></table>`;
 
 export const INSPECTION_INTRO_HTML_DEFAULT =
@@ -49,4 +49,4 @@ export const INSPECTION_FOOTER_HTML_DEFAULT =
 
 export const NOREPLY_NOTICE_HTML_DEFAULT =
   `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#64748b">본 메일은 발신 전용 주소(<strong style="color:#475569">noreply</strong>)로 발송되었으며 <strong style="color:#0f172a">회신되지 않습니다</strong>.</p>` +
-  `<p style="margin:0;font-size:13px;line-height:1.6;color:#64748b">문의·일정 변경 등은 <strong style="color:#0f172a">해당 업체</strong>로만 연락해 주세요.</p>`;
+  `<p style="margin:0;font-size:13px;line-height:1.6;color:#64748b"><strong style="color:#334155">청소비서</strong>는 청소 업체의 <strong style="color:#334155">고객관리 솔루션</strong>입니다. 문의사항은 <strong style="color:#0f172a">담당 업체</strong>에 연락해 주세요.</p>`;

@@ -320,6 +320,9 @@ export function PlatformSettingsEmailTemplatesTab() {
 
           <div className="space-y-1.5">
             <span className="text-fluid-xs font-medium text-gray-800">하단 안내</span>
+            <p className="text-fluid-2xs text-slate-500">
+              청소비서는 고객관리 솔루션입니다. 고객이 플랫폼으로 문의하지 않도록, 담당 업체 연락 안내를 유지하세요.
+            </p>
             <HelpCmsRichEditor
               editorKey={`platform-email-footer-${purpose}`}
               value={form.footerHtml}
@@ -333,6 +336,9 @@ export function PlatformSettingsEmailTemplatesTab() {
 
           <div className="space-y-1.5">
             <span className="text-fluid-xs font-medium text-gray-800">발신 전용(noreply) 안내</span>
+            <p className="text-fluid-2xs text-slate-500">
+              회신 불가와 함께, 문의는 담당 업체로만 안내하세요. 청소비서 고객센터·help 링크는 넣지 않습니다.
+            </p>
             <HelpCmsRichEditor
               editorKey={`platform-email-noreply-${purpose}`}
               value={form.noreplyNoticeHtml}

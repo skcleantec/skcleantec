@@ -94,7 +94,8 @@ export function buildOrderFormSubmissionEmailPlainText(
 
   lines.push(
     '담당자가 일정을 확인한 뒤 연락드릴 수 있습니다.',
-    '본 메일은 발송 전용입니다. 문의는 업체 대표 연락처로 부탁드립니다.',
+    '청소비서는 청소 업체의 고객관리 솔루션입니다. 문의사항은 담당 업체로 연락해 주세요.',
+    '본 메일은 발송 전용입니다.',
   );
   return lines.join('\n');
 }
@@ -129,6 +130,6 @@ export function buildOrderFormSubmissionEmailHtml(input: OrderFormSubmissionEmai
   const intro = `<p style="margin:0 0 12px;line-height:1.6">${escapeHtml(input.customerName.trim() || '고객')}님, 안녕하세요.</p><p style="margin:0 0 16px;line-height:1.6">${escapeHtml(brand)}에 청소 예약(발주서) 접수가 정상적으로 완료되었습니다.</p>`;
   const sections = sectionsForEmail(input).map(renderSectionHtml).join('');
   const footer =
-    '<p style="margin:20px 0 0;line-height:1.6;color:#475569;font-size:13px">담당자가 일정을 확인한 뒤 연락드릴 수 있습니다.<br>본 메일은 발송 전용입니다. 문의는 업체 대표 연락처로 부탁드립니다.</p>';
+    '<p style="margin:20px 0 0;line-height:1.6;color:#475569;font-size:13px">담당자가 일정을 확인한 뒤 연락드릴 수 있습니다.<br>청소비서는 청소 업체의 고객관리 솔루션입니다. 문의사항은 담당 업체로 연락해 주세요.<br>본 메일은 발송 전용입니다.</p>';
   return `<div style="font-family:'Noto Sans KR',Apple SD Gothic Neo,Malgun Gothic,sans-serif;color:#0f172a;font-size:14px;max-width:640px">${intro}${sections}${footer}</div>`;
 }
