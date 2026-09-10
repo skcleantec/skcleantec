@@ -76,14 +76,14 @@
 
 ### 3.3 팀장 길안내 (카카오내비·TMAP)
 
-웹 `intent://` / `kakaonavi://` 만으로는 WebView가 내비 앱을 못 열거나 Chrome으로 넘어가 **앱이 꺼진 것처럼** 보인다. **Play versionCode 39+** 에서 Flutter `launchUrl`과 동일하게 연다 ([티맵·카카오내비 호출](https://hanarotg.tistory.com/365)).
+웹 `tmap://` href는 공식 연동이 아니다. TMAP은 SK Open API HTTPS로 앱 밖에서 연다.
 
 | 계층 | 동작 |
 |------|------|
-| **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만). 버튼 `href` = `tmap://route?…` |
-| **TMAP** | `tmap://route?referrer=com.skt.Tmap&goalx={경도}&goaly={위도}&goalname={이름}` — 패키지 고정·BROWSABLE 없음. 없으면 Play `com.skt.tmap.ku` |
-| **네이티브** | `ACTION_VIEW` + `NEW_TASK` (`StaffNaviLauncher` / `launchUrlLikeFlutter`). 실패 시 Play 스토어 |
-| **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` (구버전 `com.skt.skaf.l001mtm091`) |
+| **웹** | 접수 상세 하단 **길안내** → `POST /api/team/inquiries/:id/navi-destination` (담당·`tenantId`만) |
+| **TMAP (공식)** | SK Open API 웹→앱: `https://apis.openapi.sk.com/tmap/app/routes?appKey=&name=&lon=&lat=` ([Q&A](https://openapi.sk.com/qnaCommunity/398)). 앱은 `openExternalUrl(https)`로 연다. Railway `TMAP_APP_KEY` 필수 |
+| **네이티브** | TMapTapi `rGoName`/`rGoX`/`rGoY` ([T MAP API](https://tmapapi.tmapmobility.com/main.html)). 실패 시 Play |
+| **패키지** | 카카오내비 `com.locnall.KimGiSa` · TMAP `com.skt.tmap.ku` |
 | **Play 번호** | 콘솔에 **38까지 업로드됨** → 다음은 **39** |
 | **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE` — Play 39 반영 후 39로. 코드 폴백은 38 유지 |
 

@@ -120,6 +120,9 @@ export const teamMessages = {
   'team.navi.needAppUpdate': { ko: '길안내는 최신 청소비서 앱이 필요합니다. Play 스토어에서 업데이트해 주세요.'},
   'team.navi.phoneOnly': { ko: '길안내는 휴대폰에서 열어 주세요.'},
   'team.navi.fail': { ko: '길안내를 열지 못했습니다.'},
+  'team.navi.tmapNeedKey': {
+    ko: 'TMAP 공식 앱키가 없어 앱에서 직접 엽니다. 반응이 없으면 관리자에게 TMAP 앱키 설정을 요청해 주세요.',
+  },
   'team.modal.section.property': { ko: '유형'},
   'team.modal.row.area': { ko: '평수'},
   'team.modal.row.rooms': { ko: '방 · 화 · 베'},

@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { buildOfficialTmapAppRoutesUrl } from '../../lib/tmapAppRoutes.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { isInquiryHiddenFromTeamLeaderByAdminSlotAdjust } from './teamLeaderDayOffInquiryVisibility.js';
@@ -8,6 +9,8 @@ export type TeamNaviDestinationDto = {
   lng: number;
   name: string;
   address: string;
+  /** SK Open API 공식 TMAP 앱 실행 URL. TMAP_APP_KEY 없으면 null */
+  tmapAppRoutesUrl: string | null;
 };
 
 export async function resolveTeamNaviDestination(opts: {
@@ -65,6 +68,7 @@ export async function resolveTeamNaviDestination(opts: {
       lng,
       name,
       address: addressLine,
+      tmapAppRoutesUrl: buildOfficialTmapAppRoutesUrl({ name, lon: lng, lat }),
     },
   };
 }

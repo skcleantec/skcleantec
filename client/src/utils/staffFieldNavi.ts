@@ -6,6 +6,8 @@ export type StaffFieldNaviDestination = {
   lat: number;
   lng: number;
   name: string;
+  /** SK Open API 공식 TMAP 앱 URL (`/tmap/app/routes`) */
+  tmapAppRoutesUrl?: string | null;
 };
 
 const KAKAO_NAVI_PKG = 'com.locnall.KimGiSa';
@@ -127,18 +129,34 @@ function openWithoutNavigatingWebView(url: string): void {
 }
 
 /**
- * 브릿지(openNavi/openExternalUrl)는 WebView에서 호출이 삼켜질 수 있음.
- * location.assign(tmap://)은 shouldOverride로 네이티브까지 감 (토스트가 안 뜬 이유 = 브릿지 미도달).
+ * TMAP: SK Open API 공식 HTTPS (`tmap/app/routes`)를 앱 밖으로 연다.
+ * Play 38 `openExternalUrl(https)` 가 이미 있음. `tmap://` href는 공식 문서에 없음.
+ * https://openapi.sk.com/qnaCommunity/398
  */
 export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): void {
-  const scheme = schemeUrlForStaffFieldNavi(app, dest);
-  if (!isCbiseoStaffNativeApp()) {
-    openWithoutNavigatingWebView(scheme);
+  if (app === 'tmap') {
+    const official = dest.tmapAppRoutesUrl?.trim();
+    if (official) {
+      openStaffAppExternalUrl(official);
+      return;
+    }
+    try {
+      window.CbiseoApp?.openNavi?.('tmap', String(dest.lat), String(dest.lng), dest.name);
+      return;
+    } catch {
+      /* 브릿지 없음 */
+    }
+    openStaffAppExternalUrl(storeUrlForStaffFieldNavi('tmap'));
     return;
   }
+
   try {
-    window.location.assign(scheme);
+    window.CbiseoApp?.openNavi?.('kakaonavi', String(dest.lat), String(dest.lng), dest.name);
+    return;
   } catch {
-    openWithoutNavigatingWebView(scheme);
+    /* 브릿지 없음 */
+  }
+  if (!isCbiseoStaffNativeApp()) {
+    openWithoutNavigatingWebView(schemeUrlForStaffFieldNavi('kakaonavi', dest));
   }
 }
