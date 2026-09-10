@@ -118,6 +118,10 @@ export async function notifyStaffAppFcmRefresh(
                 notification: {
                   channelId: 'cbiseo_staff_default',
                   priority: 'high' as const,
+                  sound: 'default',
+                  defaultSound: true,
+                  defaultVibrateTimings: true,
+                  visibility: 'private' as const,
                 },
               },
             };

@@ -2,7 +2,7 @@
 
 import { CBISEO_STAFF_APP_PLAY_STORE_URL } from '../../lib/cbiseoStaffAppPolicy.constants.js';
 
-export const STAFF_APP_FALLBACK_VERSION_CODE = 38;
+export const STAFF_APP_FALLBACK_VERSION_CODE = 39;
 export const STAFF_APP_FALLBACK_VERSION_NAME = '1.0.0';
 
 export type StaffAppPublicManifest = {

@@ -84,8 +84,8 @@
 | **TMAP (공식)** | SK Open API 웹→앱: `https://apis.openapi.sk.com/tmap/app/routes?appKey=&name=&lon=&lat=` ([Q&A](https://openapi.sk.com/qnaCommunity/398), 발급 [openapi.sk.com](https://openapi.sk.com/)). 앱은 `openExternalUrl(https)`로 연다. 네이티브는 TMapTapi `rGoName`/`rGoX`/`rGoY` ([T MAP API](https://tmapapi.tmapmobility.com/main.html)). Railway `TMAP_APP_KEY` 필수 |
 | **네이티브** | `StaffNaviLauncher` — 글과 같이 `ACTION_VIEW`만 (`resolveActivity` 가드 없음). 실패 시 Play |
 | **패키지** | TMAP `com.skt.tmap.ku` |
-| **Play 번호** | 콘솔에 **37까지 업로드됨** → 다음은 **38**. 36 재업로드 불가 |
-| **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE=38` (없으면 코드 폴백 38). **환경변수가 36이면 라이브도 36으로 남음** |
+| **Play 번호** | 콘솔에 **38까지 업로드됨** → 다음은 **39** |
+| **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE=39` (없으면 코드 폴백 39). **환경변수가 옛 값이면 라이브도 옛 번호로 남음** |
 
 ---
 

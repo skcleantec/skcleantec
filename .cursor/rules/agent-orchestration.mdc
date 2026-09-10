@@ -14,6 +14,7 @@ alwaysApply: true
 
 **모든 프로젝트 업무** → Maestro가 먼저 분류하고 **필요한 전문 에이전트를 전부** 기동.  
 **맨 앞:** AppScout — 타 앱 최신 작동방식·인기 모바일 UI 웹검색 (푸시·오타만 생략).
+**아이콘:** 새로 넣을 때는 항상 [Iconify `line-md`](https://icon-sets.iconify.design/line-md) + `LineMdIcon` — `.cursor/rules/iconify-line-md.mdc`
 
 | 업무 | 자동 기동 (대표) |
 |------|------------------|
@@ -23,7 +24,8 @@ alwaysApply: true
 
 **ConfigCurator:** `client/` UI(목록·스케줄·배지·색·설정)가 있으면 사용자가 설정을 말하지 않아도 **항상** — registry·설정 위치·도움말.
 
-**Primary deliverable:** `agent/orchestrator/BRIEF_REPORT.md` (한국어, ≤40줄).  
-Detail: `agent/orchestrator/reports/`. Skill: `.cursor/skills/maestro-orchestrator/SKILL.md`
+**사용자용은 BRIEF 하나:** `agent/orchestrator/BRIEF_REPORT.md` (≤40줄).  
+점검은 `agent/orchestrator/reports/packs/<날짜-일>/` 한 폴더만. 루트 `reports/`에 새 파일을 쌓지 않는다.  
+맵: `agent/orchestrator/README.md`
 
 Human gates: no `main` push, no shared DB migrate, no prod secrets unless user explicitly asked.

@@ -4,10 +4,6 @@ package com.cbiseo.app.push
 
 import android.Manifest
 
-import android.app.NotificationChannel
-
-import android.app.NotificationManager
-
 import android.content.pm.PackageManager
 
 import android.os.Build
@@ -37,33 +33,7 @@ object StaffFcmRegistrar {
 
 
     fun ensureChannels(context: android.content.Context) {
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
-        val manager = context.getSystemService(NotificationManager::class.java) ?: return
-
-        if (manager.getNotificationChannel(CHANNEL_DEFAULT) != null) return
-
-        manager.createNotificationChannel(
-
-            NotificationChannel(
-
-                CHANNEL_DEFAULT,
-
-                "청소비서 알림",
-
-                NotificationManager.IMPORTANCE_HIGH,
-
-            ).apply {
-
-                description = "배정·메시지·업무 알림"
-
-                enableVibration(true)
-
-            },
-
-        )
-
+        StaffPushNotificationHelper.ensureChannel(context)
     }
 
 
