@@ -85,7 +85,7 @@
 | **네이티브** | TMapTapi `rGoName`/`rGoX`/`rGoY` ([T MAP API](https://tmapapi.tmapmobility.com/main.html)). 실패 시 Play |
 | **패키지** | TMAP `com.skt.tmap.ku` |
 | **Play 번호** | 콘솔에 **38까지 업로드됨** → 다음은 **39** |
-| **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE` — Play 39 반영 후 39로. 코드 폴백은 38 유지 |
+| **인앱 매니페스트** | Railway `STAFF_APP_LATEST_VERSION_CODE=39` (없으면 코드 폴백 39). **환경변수가 옛 값이면 라이브도 옛 번호로 남음** |
 
 ---
 

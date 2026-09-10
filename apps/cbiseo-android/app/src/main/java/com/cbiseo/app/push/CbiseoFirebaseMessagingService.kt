@@ -37,24 +37,13 @@ class CbiseoFirebaseMessagingService : FirebaseMessagingService() {
             if (path.isNotBlank()) {
                 StaffWebActivity.dispatchNavigateToWebView(path)
             }
-            if (kind == "assignment" || kind == "happy_call" || kind == "schedule_alert" || kind == "message") {
-                val notificationId = (kind + path + title).hashCode()
-                StaffPushNotificationHelper.showNavigateNotification(
-                    context = applicationContext,
-                    title = title.ifBlank { "청소비서" },
-                    body = body.ifBlank { "새 알림이 있습니다." },
-                    path = path,
-                    notificationId = notificationId,
-                )
-            }
-            return
         }
 
-        val notificationId = (kind + path + title).hashCode()
+        val notificationId = (kind + path + title + body).hashCode()
         StaffPushNotificationHelper.showNavigateNotification(
             context = applicationContext,
-            title = title,
-            body = body,
+            title = title.ifBlank { "청소비서" },
+            body = body.ifBlank { "새 알림이 있습니다." },
             path = path,
             notificationId = notificationId,
         )

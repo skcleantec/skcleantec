@@ -519,7 +519,7 @@
         "server/src/modules/push/staffAppPushNotify.ts",
         "shared/notificationPolicy.ts"
       ],
-      "notes": "화면 맞춤(inbox:refresh)만으로는 휴대폰 알림을 보내지 않음. 메시지·공지는 「보낸사람: 내용」 미리보기. generic(기타 알림) 설정 항목은 숨김."
+      "notes": "메시지 FCM은 앱이 켜져 있어도 트레이+기본 소리. 채널 cbiseo_staff_default(HIGH). 보낸 사람 폰에는 안 울림. 끄기: 알림 설정 → 메시지(필수 아님)."
     },
     {
       "id": "chrome.omnibox.openInAppChip",

@@ -139,7 +139,7 @@ node scripts/probe-staff-push-status.mjs --base https://www.cbiseo.com --tenant 
 | 「로그인 JWT 없음」 | 재로그인 · `syncAuthToken` 웹 배포 여부 |
 | 「FCM 토큰 발급 실패」 | Firebase SHA-1 · `google-services.json` · 앱 재설치 |
 | 등록 OK · 푸시만 없음 | `staffAppPushNotify` · 사용자 알림 설정(kind) · `registration-token-not-registered` 로그 |
-| 앱 켜져 있을 때만 갱신 | **정상** — WS `inbox:refresh`. FCM은 백그라운드·종료용 |
+| 앱 켜져 있을 때만 화면만 갱신·소리 없음 | 구버전 — 메시지·배정은 앱이 켜져 있어도 트레이+소리. Play 재설치 후 확인 |
 
 ### 4.5 알림 발송 (서버)
 
@@ -162,7 +162,7 @@ node scripts/probe-staff-push-status.mjs --base https://www.cbiseo.com --tenant 
 
 - 접수 변경(일반 changelog)은 `schedule_alert` kind + `openInquiry` path
 - 웹: `useStaffAppPushNavigation` (`cbiseo:navigate`) · 접수: `useTeamOpenInquiryDeepLink` / `AdminInquiriesPage`
-- Android: `StaffWebActivity` path 로드 · 포그라운드 heads-up: `assignment`, `schedule_alert`, `happy_call`, `message`
+- Android: `StaffWebActivity` path 로드 · `staff-app:navigate`는 포그라운드에서도 트레이+기본 소리
 
 ---
 

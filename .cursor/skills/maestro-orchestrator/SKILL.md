@@ -29,9 +29,13 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 1. 요청을 **한국어 한 줄**로 재진술.
 2. 아래 **자동 배치표**로 에이전트 목록 확정 (빠짐 없이). **AppScout를 맨 앞**에 둔다 (생략 조건은 AppScout 스킬).
 3. **먼저** `.cursor/skills/app-scout/SKILL.md` 실행 — 타 앱 최신 작동방식·인기 모바일 레퍼런스. 이 레포트 없이 화면/방법 구현을 시작하지 않는다.
+3b. **아이콘이 필요하면** [Iconify `line-md`](https://icon-sets.iconify.design/line-md) 에서 이름을 확인하고 `LineMdIcon`으로 넣는다. 다른 아이콘 세트·임의 SVG를 새로 쓰지 않는다 (`.cursor/rules/iconify-line-md.mdc`).
 4. 나머지 Skill **실제 실행** — 리포트만 쓰고 코드·카탈로그·테스트 안 하면 **미완료**.
-5. 산출물 병합 → **`agent/orchestrator/BRIEF_REPORT.md`** (사용자용, ≤40줄).
-6. `activity-log.jsonl` · `ACTIVITY_LOG.md` · `reports/` 갱신.
+5. 산출물:
+   - **`BRIEF_REPORT.md`만** 사용자용 (덮어쓰기, ≤40줄)
+   - 점검은 **`reports/packs/YYYY-MM-DD-<slug>/` 한 폴더**에만 (루트 `reports/*.md` 신규 금지)
+   - `ACTIVITY_LOG.md`는 **최근 한 일**만 남긴다
+6. 폴더 맵: `agent/orchestrator/README.md`
 
 ## 자동 배치표 (사용자 지시 없이 적용)
 
@@ -86,8 +90,8 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 ## 에이전트별 한 줄
 | 에이전트 | 결과 |  ← 자동 기동됐음을 표로 (사용자는 이름 몰라도 OK)
 
-## 상세 (필요 시)
-- reports/ 링크
+## 상세
+- reports/packs/<이번 일>/
 ```
 
 **금지:** BRIEF에 「ConfigCurator를 따로 호출하세요」 같은 **2차 지시**.  
