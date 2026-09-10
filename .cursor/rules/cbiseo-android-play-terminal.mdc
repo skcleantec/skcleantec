@@ -12,6 +12,8 @@ alwaysApply: false
 - **Android Studio → Generate Signed App Bundle / APK** 로 keystore·AAB를 만드는 절차를 **1순위·기본 안내로 쓰지 않는다.**
 - 에이전트는 사용자에게 GUI만 안내하고 끝내지 않는다 — **가능하면 직접 `Shell`로 스크립트를 실행**한다.
 
+`versionCode`를 올리기 **전**에 **`.cursor/rules/play-console-quality.mdc` 「다음 AAB」** 와 `apps/cbiseo-android/docs/RELEASE_PROGRESS.md` 상단 **다음 AAB** 절을 읽는다. Play 권장(현재 기준: **v39 → 40**)을 같은 빌드에 넣는다.
+
 ## 표준 순서 (`apps/cbiseo-android`)
 
 ```powershell
