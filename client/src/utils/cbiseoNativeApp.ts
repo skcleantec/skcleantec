@@ -25,7 +25,7 @@ declare global {
       openPlayStore?: () => void;
       /** http(s) 등 — 시스템 브라우저(외부)에서 열기 */
       openExternalUrl?: (url: string) => void;
-      /** 카카오내비·TMAP — Play v38+ 네이티브 Intent */
+      /** TMAP — Play v38+ 네이티브 Intent */
       openNavi?: (app: string, lat: string, lng: string, name: string) => void;
       /** WebView 로그아웃 — 네이티브 FCM·TokenStore 정리 */
       notifyStaffLogout?: () => void;

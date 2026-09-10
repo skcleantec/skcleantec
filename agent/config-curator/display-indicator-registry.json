@@ -586,7 +586,7 @@
         "client/src/components/team/TeamNaviLaunchButton.tsx",
         "apps/cbiseo-android/app/src/main/java/com/cbiseo/app/navi/StaffNaviLauncher.kt"
       ],
-      "notes": "TMAP은 SK Open API 공식 HTTPS(/tmap/app/routes)+TMAP_APP_KEY. 키 없으면 시트에 tmapNeedKey 안내 후 openNavi."
+      "notes": "길안내는 TMAP만. 공식 HTTPS(/tmap/app/routes)+TMAP_APP_KEY. 카카오내비 UI 없음."
     }
   ]
 }

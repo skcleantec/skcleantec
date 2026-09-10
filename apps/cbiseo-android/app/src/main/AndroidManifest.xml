@@ -15,16 +15,20 @@
 
     <queries>
         <!-- https://hanarotg.tistory.com/365 — TMAP 패키지 조회 -->
-        <package android:name="com.skt.skaf.l001mtm091" />
         <package android:name="com.skt.tmap.ku" />
-        <package android:name="com.locnall.KimGiSa" />
+        <package android:name="com.skt.skaf.l001mtm091" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <category android:name="android.intent.category.DEFAULT" />
             <data android:scheme="tmap" />
         </intent>
         <intent>
             <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="kakaonavi" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data
+                android:host="com.skt.tmap.ku"
+                android:scheme="tmap" />
         </intent>
         <intent>
             <action android:name="android.intent.action.VIEW" />

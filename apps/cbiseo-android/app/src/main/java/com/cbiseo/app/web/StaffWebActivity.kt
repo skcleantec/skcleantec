@@ -183,7 +183,7 @@ class StaffWebActivity : AppCompatActivity() {
                         return true
                     }
                     if (lower.startsWith("kakaonavi:") || lower.startsWith("kakaonavi-sdk:")) {
-                        launchUrlLikeFlutter(url, "https://play.google.com/store/apps/details?id=${StaffNaviLauncher.KAKAO_NAVI_PKG}")
+                        launchUrlLikeFlutter(url, StaffNaviLauncher.TMAP_PLAY)
                         return true
                     }
                     openExternalUrl(url)

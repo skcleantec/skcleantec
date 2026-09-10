@@ -154,7 +154,7 @@ class CbiseoAppBridge(
 
 
 
-    /** 카카오내비·TMAP — 웹 URL이 아니라 네이티브 Intent로 연다 */
+    /** TMAP — 웹 URL이 아니라 네이티브 Intent로 연다 */
 
     @JavascriptInterface
 

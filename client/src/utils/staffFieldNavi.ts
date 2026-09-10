@@ -1,6 +1,6 @@
 import { isCbiseoStaffNativeApp, openStaffAppExternalUrl } from './cbiseoNativeApp';
 
-export type StaffFieldNaviApp = 'kakaonavi' | 'tmap';
+export type StaffFieldNaviApp = 'tmap';
 
 export type StaffFieldNaviDestination = {
   lat: number;
@@ -10,9 +10,7 @@ export type StaffFieldNaviDestination = {
   tmapAppRoutesUrl?: string | null;
 };
 
-const KAKAO_NAVI_PKG = 'com.locnall.KimGiSa';
 const TMAP_PKG = 'com.skt.tmap.ku';
-const KAKAO_NAVI_STORE = `https://play.google.com/store/apps/details?id=${KAKAO_NAVI_PKG}`;
 const TMAP_STORE = `https://play.google.com/store/apps/details?id=${TMAP_PKG}`;
 /** TMAP 지원이 Android 연동에 안내한 referrer */
 const TMAP_REFERRER = 'com.skt.Tmap';
@@ -24,22 +22,17 @@ export function canLaunchStaffFieldNavi(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-export function buildKakaoNaviUrl(dest: StaffFieldNaviDestination): string {
-  const name = encodeURIComponent(dest.name || '현장');
-  return `kakaonavi://navigate?name=${name}&x=${dest.lng}&y=${dest.lat}&coord_type=wgs84`;
-}
-
-/** Android TMAP — https://hanarotg.tistory.com/365 와 동일 */
+/** Android TMAP — https://hanarotg.tistory.com/365 과 동일 (`referrer=com.skt.Tmap`) */
 export function buildTmapNaviUrl(dest: StaffFieldNaviDestination): string {
   const name = encodeURIComponent(dest.name || '현장');
   return `tmap://route?referrer=${TMAP_REFERRER}&goalx=${dest.lng}&goaly=${dest.lat}&goalname=${name}`;
 }
 
 export function schemeUrlForStaffFieldNavi(
-  app: StaffFieldNaviApp,
+  _app: StaffFieldNaviApp,
   dest: StaffFieldNaviDestination,
 ): string {
-  return app === 'tmap' ? buildTmapNaviUrl(dest) : buildKakaoNaviUrl(dest);
+  return buildTmapNaviUrl(dest);
 }
 
 /**
@@ -72,18 +65,10 @@ export function buildTmapBrowsableIntentUrlAny(dest: StaffFieldNaviDestination):
 }
 
 export function buildStaffFieldNaviIntentUrl(
-  app: StaffFieldNaviApp,
+  _app: StaffFieldNaviApp,
   dest: StaffFieldNaviDestination,
   pkg?: string,
 ): string {
-  if (app === 'kakaonavi') {
-    const name = encodeURIComponent(dest.name || '현장');
-    return (
-      `intent://navigate?name=${name}&x=${dest.lng}&y=${dest.lat}&coord_type=wgs84` +
-      `#Intent;scheme=kakaonavi;package=${KAKAO_NAVI_PKG};` +
-      `category=android.intent.category.BROWSABLE;end`
-    );
-  }
   return buildTmapBrowsableIntentUrl(dest, pkg ?? TMAP_PKG);
 }
 
@@ -92,8 +77,8 @@ export function buildGeoNaviUrl(dest: StaffFieldNaviDestination): string {
   return `geo:${dest.lat},${dest.lng}?q=${dest.lat},${dest.lng}(${label})`;
 }
 
-export function storeUrlForStaffFieldNavi(app: StaffFieldNaviApp): string {
-  return app === 'kakaonavi' ? KAKAO_NAVI_STORE : TMAP_STORE;
+export function storeUrlForStaffFieldNavi(_app: StaffFieldNaviApp = 'tmap'): string {
+  return TMAP_STORE;
 }
 
 export function buildKakaoMapHttpsUrl(dest: StaffFieldNaviDestination): string {
@@ -110,53 +95,25 @@ export function buildTmapHttpsUrl(dest: StaffFieldNaviDestination): string {
   return `https://www.google.com/maps/dir/?${q.toString()}`;
 }
 
-export function httpsUrlForStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): string {
-  return app === 'kakaonavi' ? buildKakaoMapHttpsUrl(dest) : buildTmapHttpsUrl(dest);
-}
-
-function openWithoutNavigatingWebView(url: string): void {
-  if (isCbiseoStaffNativeApp()) {
-    openStaffAppExternalUrl(url);
-    return;
-  }
-  const a = document.createElement('a');
-  a.href = url;
-  a.rel = 'noopener noreferrer';
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+export function httpsUrlForStaffFieldNavi(_app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): string {
+  return buildTmapHttpsUrl(dest);
 }
 
 /**
- * TMAP: SK Open API 공식 HTTPS (`tmap/app/routes`)를 앱 밖으로 연다.
- * Play 38 `openExternalUrl(https)` 가 이미 있음. `tmap://` href는 공식 문서에 없음.
+ * TMAP만. SK Open API 공식 HTTPS (`tmap/app/routes`)를 앱 밖으로 연다.
  * https://openapi.sk.com/qnaCommunity/398
  */
-export function launchStaffFieldNavi(app: StaffFieldNaviApp, dest: StaffFieldNaviDestination): void {
-  if (app === 'tmap') {
-    const official = dest.tmapAppRoutesUrl?.trim();
-    if (official) {
-      openStaffAppExternalUrl(official);
-      return;
-    }
-    try {
-      window.CbiseoApp?.openNavi?.('tmap', String(dest.lat), String(dest.lng), dest.name);
-      return;
-    } catch {
-      /* 브릿지 없음 */
-    }
-    openStaffAppExternalUrl(storeUrlForStaffFieldNavi('tmap'));
+export function launchStaffFieldNavi(dest: StaffFieldNaviDestination): void {
+  const official = dest.tmapAppRoutesUrl?.trim();
+  if (official) {
+    openStaffAppExternalUrl(official);
     return;
   }
-
   try {
-    window.CbiseoApp?.openNavi?.('kakaonavi', String(dest.lat), String(dest.lng), dest.name);
+    window.CbiseoApp?.openNavi?.('tmap', String(dest.lat), String(dest.lng), dest.name);
     return;
   } catch {
     /* 브릿지 없음 */
   }
-  if (!isCbiseoStaffNativeApp()) {
-    openWithoutNavigatingWebView(schemeUrlForStaffFieldNavi('kakaonavi', dest));
-  }
+  openStaffAppExternalUrl(TMAP_STORE);
 }

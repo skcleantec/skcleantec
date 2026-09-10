@@ -5,7 +5,7 @@ import { resolveTeamNaviDestination } from './teamNaviDestination.service.js';
 
 const router = Router();
 
-/** 팀장 담당 접수 → 현장 좌표 (카카오내비·TMAP) */
+/** 팀장 담당 접수 → 현장 좌표 (TMAP) */
 router.post('/inquiries/:id/navi-destination', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await resolveTenantIdFromAuth(user);
