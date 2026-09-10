@@ -25,6 +25,10 @@ export function htmlToPlainTextForEmail(html: string): string {
     .trim();
 }
 
+/** 고객 메일 하단 고정 — 플랫폼으로 문의가 오지 않도록 */
+export const PLATFORM_CUSTOMER_EMAIL_INQUIRY_DISCLAIMER =
+  '청소비서는 청소 업체의 고객관리 솔루션입니다. 문의사항은 담당 업체로 연락해 주세요.';
+
 export type PlatformCustomerEmailLayoutInput = {
   subject: string;
   preheader?: string | null;
@@ -80,6 +84,7 @@ export function wrapPlatformCustomerEmailHtml(input: PlatformCustomerEmailLayout
           </tr>
           <tr>
             <td style="padding:20px 28px 24px;background-color:#f8fafc;border-top:1px solid #e2e8f0;">
+              <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#64748b;">${escapeHtml(PLATFORM_CUSTOMER_EMAIL_INQUIRY_DISCLAIMER)}</p>
               <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">(주)서비스브릿지 · 청소비서 · <a href="https://www.cbiseo.com" style="color:#0284c7;text-decoration:none;">cbiseo.com</a></p>
             </td>
           </tr>
@@ -106,6 +111,7 @@ export function wrapPlatformCustomerEmailPlainText(input: {
     htmlToPlainTextForEmail(input.footerHtml),
     htmlToPlainTextForEmail(input.noreplyNoticeHtml),
     '',
+    PLATFORM_CUSTOMER_EMAIL_INQUIRY_DISCLAIMER,
     '(주)서비스브릿지 · 청소비서 · https://www.cbiseo.com',
   ].filter((p, i, arr) => !(p === '' && arr[i - 1] === ''));
   return parts.join('\n');
