@@ -2561,7 +2561,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           ) : null}
           <div className="col-span-1 sm:col-span-2 flex min-w-0 items-end gap-1.5">
-            <div className="min-w-0 flex-1">
+            <div className="w-[min(100%,13rem)] min-w-0">
               <label className={inqEditLabel}>연락처</label>
               <input
                 value={editForm.customerPhone}
@@ -2579,7 +2579,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             />
           </div>
           <div className="col-span-1 sm:col-span-2 flex min-w-0 items-end gap-1.5">
-            <div className="min-w-0 flex-1">
+            <div className="w-[min(100%,13rem)] min-w-0">
               <label className={inqEditLabel}>보조 연락처</label>
               <input
                 value={editForm.customerPhone2}
