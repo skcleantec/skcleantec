@@ -119,7 +119,7 @@ import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFo
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
-import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
+import { useHasTenantFeature, useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
@@ -674,10 +674,14 @@ function InquiryListDepositMark({ item }: { item: InquiryItem }) {
 }
 
 /** 모바일 카드 목록 — pin tier·해피콜 강조 */
-function inquiryMobileCardShellClass(item: InquiryItem, prevItem?: InquiryItem | null): string {
+function inquiryMobileCardShellClass(
+  item: InquiryItem,
+  prevItem?: InquiryItem | null,
+  isSoloOperator = false,
+): string {
   const pinStyle = inquiryListPinTierStyle(item);
   const isOnHold = item.status === 'ON_HOLD';
-  const hasAssignment = item.assignments.length > 0;
+  const hasAssignment = item.assignments.length > 0 || isSoloOperator;
   const hcTone =
     inquiryListRowUsesHappyCallTone(item) && !isOnHold
       ? happyCallRowTone(
@@ -915,6 +919,8 @@ export function AdminInquiriesPage() {
   );
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const hasExternalCo = useHasTenantFeature('mod_external_co');
+  const { features: tenantFeatures } = useTenantCapabilities();
+  const isSoloOperator = tenantFeatures != null && !tenantFeatures.includes('core_assignments');
   const [quickPasteOpen, setQuickPasteOpen] = useState(false);
   const [inquiryHelpOpen, setInquiryHelpOpen] = useState(false);
   const isLgUp = useIsLgUp();
@@ -3259,7 +3265,7 @@ export function AdminInquiriesPage() {
                 const collabMarketer = inquiryCollaborationMarketerName(item);
                 const prevItem = idx > 0 ? items[idx - 1]! : null;
                 return (
-                  <div key={item.id} className={inquiryMobileCardShellClass(item, prevItem)}>
+                  <div key={item.id} className={inquiryMobileCardShellClass(item, prevItem, isSoloOperator)}>
                     <div
                       className={`${INQUIRY_MOBILE_CARD_BODY_CLASS} flex items-start gap-1.5 sm:gap-2`}
                     >
@@ -3726,7 +3732,7 @@ export function AdminInquiriesPage() {
                           item.status,
                           item.preferredDate,
                           item.happyCallCompletedAt,
-                          item.assignments.length > 0,
+                          item.assignments.length > 0 || isSoloOperator,
                           item.createdAt,
                         )
                       : ('none' as const);

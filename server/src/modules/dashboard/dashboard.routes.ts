@@ -20,6 +20,7 @@ import { loadMarketplaceInquiryRevenueOverrideMap } from '../db-marketplace/dbMa
 import { buildDashboardInquiryBreakdown } from './dashboardInquiryBreakdown.service.js';
 import { buildDashboardSalesBreakdown } from './dashboardSalesBreakdown.service.js';
 import { buildDashboardSettlementSummary } from './dashboardSettlementSummary.service.js';
+import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 
 const router = Router();
 
@@ -74,6 +75,7 @@ router.get('/stats', async (req, res) => {
   const happyCallWindowLte = new Date(`${happyCallWindowEndYmd}T23:59:59.999+09:00`);
 
   const todayOffDbDate = new Date(`${todayYmd}T12:00:00+09:00`);
+  const hasAssignmentsModule = await isFeatureEnabled(tenantId, 'core_assignments');
 
   const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeadersRaw, monthWorkloadInquiries, todayLeaderDayOffRows, rosterRestrictedMembers, rosterOnTodayRows, happyCallRows] =
     await Promise.all([
@@ -170,7 +172,7 @@ router.get('/stats', async (req, res) => {
         },
         happyCallCompletedAt: null,
         status: { in: [...HAPPY_CALL_STATS_STATUSES] },
-        assignments: { some: {} },
+        ...(hasAssignmentsModule ? { assignments: { some: {} } } : {}),
       },
       select: { preferredDate: true, createdAt: true },
     }),

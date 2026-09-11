@@ -8,6 +8,7 @@ import { DashboardSalesBlock } from './DashboardSalesBlock';
 import { DashboardStatCard } from './DashboardStatCard';
 import type { DashboardDrillKind } from './dashboardDrilldownTypes';
 import { kstMonthKeyNow } from './dashboardDrilldownTypes';
+import { useTenantCapabilities } from '../../../hooks/useTenantCapabilities';
 
 export type DashboardAuxBlockVariant = 'card' | 'row';
 
@@ -45,8 +46,10 @@ export function DashboardKpiGrid({
   navigate: NavigateFunction;
   compact?: boolean;
 }) {
+  const { features: tenantFeatures } = useTenantCapabilities();
+  const isSoloOperator = tenantFeatures != null && !tenantFeatures.includes('core_assignments');
   return (
-    <div className={`grid grid-cols-2 lg:grid-cols-4 ${compact ? 'gap-2 lg:gap-3' : 'gap-3 lg:gap-5'}`}>
+    <div className={`grid grid-cols-2 ${isSoloOperator ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} ${compact ? 'gap-2 lg:gap-3' : 'gap-3 lg:gap-5'}`}>
       <DashboardStatCard
         compact={compact}
         label="오늘 접수"
@@ -59,6 +62,7 @@ export function DashboardKpiGrid({
         }
         onClick={() => navigate('/admin/inquiries?datePreset=today')}
       />
+      {isSoloOperator ? null : (
       <DashboardStatCard
         compact={compact}
         label="이번달 미분배"
@@ -74,6 +78,7 @@ export function DashboardKpiGrid({
           navigate(`/admin/inquiries?datePreset=month&month=${encodeURIComponent(mk)}&status=RECEIVED`);
         }}
       />
+      )}
       <DashboardStatCard
         compact={compact}
         label="해피콜 미완(마감 초과)"
