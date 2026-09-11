@@ -311,6 +311,7 @@ function resolveMarketingPaths(): { marketingDir: string; marketingIndexPath: st
 /** 랜딩(`/`)만 검색 노출 — 로그인·앱 SPA 경로는 noindex */
 function shouldNoIndexSpaPath(pathname: string): boolean {
   if (pathname === '/' || pathname === '/index.html') return false;
+  if (pathname === '/education' || pathname === '/education.html') return false;
   if (pathname.startsWith('/api')) return false;
   if (pathname.startsWith('/marketing')) return false;
   if (pathname.startsWith('/help')) return false;
@@ -380,6 +381,26 @@ if (clientDir) {
     };
     app.get('/', sendMarketingLanding);
     app.get('/index.html', sendMarketingLanding);
+    const educationPath = path.join(path.dirname(marketingIndexPath), 'education.html');
+    if (fs.existsSync(educationPath)) {
+      const sendEducationPage = (
+        req: express.Request,
+        res: express.Response,
+        next: express.NextFunction,
+      ) => {
+        if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        if (req.method === 'HEAD') {
+          res.status(200).end();
+          return;
+        }
+        res.sendFile(educationPath, (err) => {
+          if (err && !isBenignClientAbortError(err)) next(err);
+        });
+      };
+      app.get('/education', sendEducationPage);
+      app.get('/education.html', sendEducationPage);
+    }
   }
 
   app.use((req, res, next) => {

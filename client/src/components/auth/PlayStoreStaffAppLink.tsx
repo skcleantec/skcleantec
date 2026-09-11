@@ -6,7 +6,7 @@ import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { isStandalonePwa } from '../../utils/pwaStandalone';
 
 const PLAY_BADGE_SRC =
-  'https://play.google.com/intl/ko/badges/static/images/badges/ko_badge_web_generic.png';
+  '/images/google-play-badge-ko.png';
 
 function isAndroidMobile(): boolean {
   if (typeof navigator === 'undefined') return false;
