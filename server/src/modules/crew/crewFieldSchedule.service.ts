@@ -5,7 +5,10 @@ import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { getDayRosterInRange } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { effectiveCrewMeetingTimeForDisplay } from '../inquiries/crewMeetingTime.helpers.js';
-import { resolveMemberMeetingTimeRaw } from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
+import {
+  resolveCrewFieldMeetingForMember,
+  resolveCrewLeaderIdForCrewMember,
+} from '../inquiries/inquiryCrewLeaderAssignment.helpers.js';
 import { payrollAccrualPeriodForPaymentDate, currentCyclePayYmdKst, payrollCyclePreferredDateWhere, countMatchedWorkUnits } from '../teams/teamMemberPayrollCycle.js';
 import type { CrewWorkCountMode } from '../../lib/crewGroupSettings.js';
 
@@ -76,6 +79,7 @@ export async function buildCrewFieldSchedule(
   const group = await prisma.teamCrewGroup.findUnique({
     where: { id: groupId },
     select: {
+      tenantId: true,
       availabilityMode: true,
       members: {
         include: {
@@ -131,6 +135,7 @@ export async function buildCrewFieldSchedule(
 
   const inquiries = await prisma.inquiry.findMany({
     where: {
+      tenantId: group.tenantId,
       preferredDate: { gte: rangeGte, lte: rangeLte },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
     },
@@ -146,6 +151,10 @@ export async function buildCrewFieldSchedule(
       crewMeetingTimeShared: true,
       crewMeetingTimeUpdatedAt: true,
       crewMemberMeetingTimes: { select: { teamMemberId: true, meetingTime: true } },
+      crewLeaderAssignments: {
+        orderBy: { sortOrder: 'asc' },
+        select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
+      },
       status: true,
       crewMemberNote: true,
       assignments: {
@@ -241,16 +250,27 @@ export async function buildCrewFieldSchedule(
       for (const inq of dayInquiries) {
         const names = parseCrewMemberNoteToNames(inq.crewMemberNote);
         if (!names.some((n) => nameToMemberIdsInGroup(n).includes(mid))) continue;
-        const rawMeeting = resolveMemberMeetingTimeRaw(
-          inq.crewMeetingTimeShared !== false,
-          inq.crewMeetingTime,
-          mid,
-          inq.crewMemberMeetingTimes,
+        const noteName = names.find((n) => nameToMemberIdsInGroup(n).includes(mid));
+        const nameIndex = noteName != null ? names.indexOf(noteName) : -1;
+        const assignedLeaderId = resolveCrewLeaderIdForCrewMember(
+          names,
+          nameIndex,
+          inq.crewLeaderAssignments,
         );
+        const resolved = resolveCrewFieldMeetingForMember({
+          shared: inq.crewMeetingTimeShared !== false,
+          inquiryMeetingTime: inq.crewMeetingTime,
+          inquiryMeetingUpdatedAt: inq.crewMeetingTimeUpdatedAt,
+          memberId: mid,
+          assignedLeaderId,
+          memberTimes: inq.crewMemberMeetingTimes,
+          assignments: inq.assignments,
+          leaderAssignments: inq.crewLeaderAssignments,
+        });
         const effMeeting = effectiveCrewMeetingTimeForDisplay(
           inq.preferredTime,
           inq.betweenScheduleSlot,
-          rawMeeting,
+          resolved.time,
         );
         matched.push({
           inquiryId: inq.id,
@@ -259,7 +279,7 @@ export async function buildCrewFieldSchedule(
           address: inq.address,
           preferredTime: inq.preferredTime,
           crewMeetingTime: effMeeting,
-          crewMeetingTimeEdited: Boolean(inq.crewMeetingTimeUpdatedAt) && Boolean(effMeeting),
+          crewMeetingTimeEdited: resolved.edited && Boolean(effMeeting),
           status: inq.status,
           leaders: inq.assignments.map((a) => ({
             id: a.teamLeader.id,

@@ -57,3 +57,65 @@ export function isValidCrewMeetingHhmm(hhmm: string): boolean {
   const min = Number(m[2]);
   return h >= 0 && h <= 23 && min >= 0 && min <= 59;
 }
+
+/** `<input type="time">` value — 초·한 자리 시가 붙어도 브라우저가 빈 칸으로 그리지 않게 */
+export function timeInputValueFromStored(raw: string | null | undefined): string {
+  if (raw == null) return '';
+  const t = raw.trim();
+  if (!t) return '';
+  return normalizeTimeInputToHhmm(t) ?? '';
+}
+
+export type CrewMeetingDraftMember = {
+  teamMemberId: string | null;
+  meetingTime?: string | null;
+};
+
+export function memberMeetingDraftsFromCrew(
+  members: CrewMeetingDraftMember[] | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of members ?? []) {
+    if (m.teamMemberId && m.meetingTime) {
+      const v = timeInputValueFromStored(m.meetingTime);
+      if (v) out[m.teamMemberId] = v;
+    }
+  }
+  return out;
+}
+
+export function crewMembersMeetingSyncKey(members: CrewMeetingDraftMember[] | undefined): string {
+  return (members ?? [])
+    .map((m) => `${m.teamMemberId ?? ''}\t${m.meetingTime ?? ''}`)
+    .join('|');
+}
+
+export function isCrewMeetingDraftDirty(params: {
+  sharedDraft: boolean;
+  sharedSaved: boolean;
+  crewMeetingDraft: string;
+  savedCrewMeetingTime: string | null | undefined;
+  members: CrewMeetingDraftMember[];
+  memberMeetingDrafts: Record<string, string>;
+}): boolean {
+  if (params.sharedDraft !== params.sharedSaved) return true;
+  if (params.sharedDraft) {
+    const savedRaw = (params.savedCrewMeetingTime ?? '').trim();
+    const savedNorm = savedRaw === '' ? null : normalizeTimeInputToHhmm(savedRaw);
+    const t = params.crewMeetingDraft.trim();
+    if (t === '') return savedRaw !== '';
+    const n = normalizeTimeInputToHhmm(t);
+    if (n === null) return true;
+    return n !== (savedNorm ?? null);
+  }
+  const matched = params.members.filter((m) => m.teamMemberId);
+  for (const m of matched) {
+    const id = m.teamMemberId!;
+    const saved = (m.meetingTime ?? '').trim();
+    const draft = (params.memberMeetingDrafts[id] ?? '').trim();
+    const savedNorm = saved === '' ? null : normalizeTimeInputToHhmm(saved);
+    const draftNorm = draft === '' ? null : normalizeTimeInputToHhmm(draft);
+    if (savedNorm !== draftNorm) return true;
+  }
+  return false;
+}

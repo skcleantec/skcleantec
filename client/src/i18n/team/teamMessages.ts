@@ -144,6 +144,15 @@ export const teamMessages = {
   'team.modal.meetingNoCrew': {
     ko: '투입 팀원이 없습니다. 관리자 스케줄에서 팀원을 먼저 지정해 주세요.',
   },
+  'team.modal.meetingAfternoonOnly': {
+    ko: '오전·종일 접수만 미팅 시각을 넣을 수 있습니다.',
+  },
+  'team.modal.meetingNameUnmatched': {
+    ko: '등록 명단에 없는 이름입니다. 관리자에게 팀원 이름을 맞춰 달라고 하세요.',
+  },
+  'team.modal.meetingLeaderSubsetHint': {
+    ko: '이 화면에 보이는 팀원만 저장됩니다.',
+  },
   'team.modal.section.schedule': { ko: '일정'},
   'team.modal.row.preferredDate': { ko: '예약일'},
   'team.modal.row.preferredTime': { ko: '희망 시간'},
