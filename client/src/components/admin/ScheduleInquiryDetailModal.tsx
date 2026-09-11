@@ -2570,6 +2570,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 inputMode="tel"
               />
             </div>
+            <InquiryCustomerCallButton
+              variant="icon"
+              phone={editForm.customerPhone || item?.customerPhone}
+              customerName={editForm.customerName || item?.customerName}
+              ariaLabel="연락처로 전화"
+              className="mb-px inline-flex size-[34px] shrink-0 items-center justify-center rounded-md border border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-indigo-400"
+            />
+          </div>
+          <div className="col-span-1 sm:col-span-2 flex min-w-0 items-end gap-1.5">
             <div className="min-w-0 flex-1">
               <label className={inqEditLabel}>보조 연락처</label>
               <input
@@ -2580,9 +2589,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               />
             </div>
             <InquiryCustomerCallButton
-              phone={editForm.customerPhone || item?.customerPhone}
+              variant="icon"
+              phone={editForm.customerPhone2 || item?.customerPhone2}
               customerName={editForm.customerName || item?.customerName}
-              className="mb-px inline-flex h-[34px] shrink-0 items-center rounded-md border border-indigo-500 bg-indigo-600 px-2.5 text-fluid-2xs font-semibold text-white hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-indigo-400 sm:text-fluid-xs"
+              ariaLabel="보조 연락처로 전화"
+              className="mb-px inline-flex size-[34px] shrink-0 items-center justify-center rounded-md border border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-indigo-400"
             />
           </div>
           <div className="sm:col-span-2">

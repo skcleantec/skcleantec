@@ -65,7 +65,7 @@ export const INQUIRY_HELP_DETAIL_SECTIONS: readonly InquiryHelpDetailSection[] =
     fields: [
       { name: '성함 · 닉네임', desc: '목록·스케줄에 표시되는 고객명. 내부 톤(색)으로 구분 가능' },
       { name: '유입(리드)', desc: '광고·플랫폼 등 접수 경로 — 목록 유입 열과 연동' },
-      { name: '연락처', desc: '전화·문자. 모바일 목록 「전화」 버튼과 연결' },
+      { name: '연락처 · 보조 연락처', desc: '각 번호 줄 옆에 수화기 버튼이 있습니다. 해당 번호로 겁니다.' },
       { name: '주소 검색', desc: '도로명/지번 검색 후 상세 주소 입력' },
     ],
   },
