@@ -97,7 +97,7 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
     features: [
       '서비스접수·발주서·스케줄',
       '정보공유(DB) 구매',
-      '팀장·배정·맞춤 캘린더 없음',
+      '팀장·배정·맞춤 캘린더 없음 · 접수 상세에서 바로 전화·길안내',
       '월 70코인 (매월 1일 리셋)',
     ],
   },

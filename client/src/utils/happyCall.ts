@@ -41,6 +41,11 @@ export function isHappyCallEligible(status: string, preferredDate: string | null
   return true;
 }
 
+/** 배정 모듈이 없는 1인 업체는 배정 없어도 해피콜 대상으로 본다 */
+export function happyCallAssigneeOk(hasAssignment: boolean, isSoloOperator: boolean): boolean {
+  return hasAssignment || isSoloOperator;
+}
+
 /** 접수 목록 행 강조: overdue | pending | none */
 export function happyCallRowTone(
   now: Date,

@@ -70,6 +70,8 @@ export type InquiryEditStatusSectionProps = {
   occupiedCrewNamesByDate: Set<string>;
   crewSpacingByMemberName: Record<string, number | null>;
   onInquiryRefresh?: () => void;
+  /** false면 자사 팀장·팀원 배정 블록을 숨김 (1인 Free 등) */
+  showTeamAssignment?: boolean;
 };
 
 export function InquiryEditStatusSection({
@@ -104,11 +106,15 @@ export function InquiryEditStatusSection({
   occupiedCrewNamesByDate,
   crewSpacingByMemberName,
   onInquiryRefresh,
+  showTeamAssignment = true,
 }: InquiryEditStatusSectionProps) {
   const [expandedTextarea, setExpandedTextarea] = useState<'specialNotes' | 'memo' | null>(null);
 
   return (
-    <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모" sectionAnchor="status">
+    <AdminScheduleDetailSection
+      title={showTeamAssignment ? '상태 · 배정 · 팀원 · 메모' : '상태 · 메모'}
+      sectionAnchor="status"
+    >
       <div className="space-y-4">
         {/* 상태 및 마케터 그룹 */}
         <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
@@ -208,6 +214,7 @@ export function InquiryEditStatusSection({
           </div>
         </div>
 
+        {showTeamAssignment ? (
         <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 sm:p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-fluid-sm font-semibold text-slate-700 inline-flex items-center gap-1">
@@ -306,6 +313,12 @@ export function InquiryEditStatusSection({
             />
           )}
         </div>
+        ) : (
+          <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-600">
+            1인 사업자는 팀장 배정 없이 접수·스케줄에서 바로 전화·길안내를 씁니다. 팀장이 필요하면 스탠다드부터
+            등록할 수 있습니다.
+          </p>
+        )}
 
         <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">

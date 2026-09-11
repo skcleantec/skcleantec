@@ -40,6 +40,8 @@ import {
 } from '../../components/admin/UserServiceZoneFields';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { TeamLeaderHouseholdDepositPolicyModal } from '../../components/admin/TeamLeaderHouseholdDepositPolicyModal';
+import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
+import { usageLimitForPlan } from '@shared/tenantSubscriptionUsage';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
 
@@ -208,6 +210,8 @@ function marketerAdminLevelBadge(level: MarketerAdminLevel) {
 
 export function AdminTeamLeadersPage() {
   const token = getToken();
+  const { plan } = useTenantCapabilities();
+  const teamLeaderAddBlocked = usageLimitForPlan(plan ?? 'standard', 'teamLeaders') === 0;
   const [searchParams, setSearchParams] = useSearchParams();
   const userTab: UserRegisterTabId = useMemo(
     () => parseUserRegisterTab(searchParams.get('tab')) ?? 'leader',
@@ -369,6 +373,10 @@ export function AdminTeamLeadersPage() {
   const handleSubmit = async (e: React.FormEvent, role: UserRole) => {
     e.preventDefault();
     if (!token) return;
+    if (role === 'TEAM_LEADER' && teamLeaderAddBlocked) {
+      alert('팀장 계정은 스탠다드부터 등록할 수 있습니다.');
+      return;
+    }
     setSubmitLoading(true);
     try {
       const payload: {
@@ -815,7 +823,9 @@ export function AdminTeamLeadersPage() {
             </div>
             <button
               type="button"
+              disabled={teamLeaderAddBlocked}
               onClick={() => {
+                if (teamLeaderAddBlocked) return;
                 if (showForm === 'team') setShowForm(null);
                 else {
                   setForm(emptyRegisterForm());
@@ -824,8 +834,15 @@ export function AdminTeamLeadersPage() {
                   setShowForm('team');
                 }
               }}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xl font-light leading-none text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
-              aria-label={showForm === 'team' ? '팀장 등록 닫기' : '팀장 등록 열기'}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xl font-light leading-none text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50"
+              aria-label={
+                teamLeaderAddBlocked
+                  ? '팀장은 스탠다드부터 등록할 수 있습니다'
+                  : showForm === 'team'
+                    ? '팀장 등록 닫기'
+                    : '팀장 등록 열기'
+              }
+              title={teamLeaderAddBlocked ? '팀장은 스탠다드부터 등록할 수 있습니다' : undefined}
             >
               {showForm === 'team' ? '×' : '+'}
             </button>
@@ -833,7 +850,19 @@ export function AdminTeamLeadersPage() {
           {loading ? (
             <div className="p-8 text-left text-gray-500 lg:text-center">로딩 중...</div>
           ) : teamLeaders.length === 0 && !apiError ? (
-            <div className="p-8 text-left text-gray-500 lg:text-center">등록된 팀장이 없습니다.</div>
+            <div className="p-4 text-left text-fluid-sm text-slate-600 lg:p-8 lg:text-center">
+              {teamLeaderAddBlocked ? (
+                <>
+                  <p className="font-medium text-slate-800">팀장 계정은 스탠다드부터 등록할 수 있습니다.</p>
+                  <p className="mt-1 text-fluid-xs text-slate-500">
+                    Free(1인 사업자)는 팀장 없이 접수·스케줄에서 바로 전화·길안내를 씁니다. 플랜 변경은 플랫폼
+                    담당자에게 문의해 주세요.
+                  </p>
+                </>
+              ) : (
+                '등록된 팀장이 없습니다.'
+              )}
+            </div>
           ) : (
             <>
               <div className="flex flex-col gap-3 p-3 text-left lg:hidden">

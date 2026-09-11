@@ -344,6 +344,44 @@ export async function bulkDeleteInquiriesByMonth(
   return data as { deleted: number };
 }
 
+export type InquiryNaviDestination = {
+  lat: number;
+  lng: number;
+  name: string;
+  address: string;
+  tmapAppRoutesUrl?: string | null;
+};
+
+/** 우리 업체 접수 현장 좌표 — TMAP 길안내. 배정 불필요 */
+export async function postInquiryNaviDestination(
+  token: string,
+  inquiryId: string,
+): Promise<InquiryNaviDestination> {
+  const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/navi-destination`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  const body = (await res.json().catch(() => ({}))) as { error?: string } & Partial<InquiryNaviDestination>;
+  if (!res.ok) {
+    throw new Error(body.error || '현장 위치를 찾지 못했습니다.');
+  }
+  if (
+    typeof body.lat !== 'number' ||
+    typeof body.lng !== 'number' ||
+    typeof body.name !== 'string' ||
+    typeof body.address !== 'string'
+  ) {
+    throw new Error('현장 위치를 찾지 못했습니다.');
+  }
+  return {
+    lat: body.lat,
+    lng: body.lng,
+    name: body.name,
+    address: body.address,
+    tmapAppRoutesUrl: typeof body.tmapAppRoutesUrl === 'string' ? body.tmapAppRoutesUrl : null,
+  };
+}
+
 export async function createInquiry(token: string, data: Record<string, unknown>) {
   const res = await fetch(`${API}/inquiries`, {
     method: 'POST',

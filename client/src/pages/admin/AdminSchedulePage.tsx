@@ -97,7 +97,7 @@ import {
 import { getScheduleTimeBucket, isCoordinationTime, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { formatScheduleLeaderSummary } from '../../utils/scheduleAssigneeDisplay';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
-import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
+import { useHasTenantFeature, useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ScheduleHelpModal } from '../../components/admin/schedule-help/ScheduleHelpModal';
 import { ScheduleHelpTrigger } from '../../components/admin/schedule-help/ScheduleHelpTrigger';
@@ -485,7 +485,9 @@ function ScheduleDayListItem({
     primaryCustomerLabel !== item.customerPhone.trim()
       ? item.customerPhone.trim()
       : '';
-  const hasAssignment = (item.assignments?.length ?? 0) > 0;
+  const { features: tenantFeatures } = useTenantCapabilities();
+  const isSoloOperator = tenantFeatures != null && !tenantFeatures.includes('core_assignments');
+  const hasAssignment = (item.assignments?.length ?? 0) > 0 || isSoloOperator;
   const canHappyCall = isHappyCallEligible(item.status, item.preferredDate);
   const happyTone = happyCallRowTone(
     new Date(),

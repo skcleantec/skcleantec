@@ -227,22 +227,24 @@ export function buildHappyCallPushPayload(params: {
   customerName: string;
   inquiryId: string;
   variant: 'reminder' | 'overdue';
+  path?: string;
 }): StaffAppPushPayload {
   const name = params.customerName.trim() || '고객';
   const q = `openInquiry=${encodeURIComponent(params.inquiryId)}`;
+  const path = params.path ?? `/team/assignments?${q}`;
   if (params.variant === 'overdue') {
     return {
       kind: 'happy_call',
       title: '해피콜 미완',
       body: `${name}님 해피콜을 지금 진행해 주세요.`,
-      path: `/team/assignments?${q}`,
+      path,
     };
   }
   return {
     kind: 'happy_call',
     title: '해피콜 안내',
     body: `${name}님 해피콜을 진행해 주세요.`,
-    path: `/team/assignments?${q}`,
+    path,
   };
 }
 

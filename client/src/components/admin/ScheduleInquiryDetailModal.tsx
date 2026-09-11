@@ -22,6 +22,7 @@ import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
 import { InquiryCustomerCallButton } from './InquiryCustomerCallButton';
+import { TeamNaviLaunchButton } from '../team/TeamNaviLaunchButton';
 import { ScheduleCustomCalendarPinSection } from './ScheduleCustomCalendarPinSection';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import type { ServiceZoneItem } from '../../api/serviceZones';
@@ -527,7 +528,8 @@ function initialTeamLeaderIdsForEdit(assignments: ScheduleItem['assignments']): 
 
 export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProps) {
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
-  const { tenantSlug } = useTenantCapabilities();
+  const { tenantSlug, features: tenantFeatures } = useTenantCapabilities();
+  const isSoloOperator = tenantFeatures != null && !tenantFeatures.includes('core_assignments');
   const { labels: orderFormTimeSlotLabels } = useOrderFormTimeSlotLabels();
   const isCreate = props.mode === 'create';
   const item = !isCreate ? props.item : null;
@@ -684,8 +686,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
   const detailHasAssignment = (item?.assignments?.length ?? 0) > 0;
+  const detailHappyCallAssigneeOk = detailHasAssignment || isSoloOperator;
   const detailHappyCallEligible = Boolean(
-    item && detailHasAssignment && isHappyCallEligible(item.status, item.preferredDate)
+    item && detailHappyCallAssigneeOk && isHappyCallEligible(item.status, item.preferredDate)
   );
   const detailHappyTone = item
     ? happyCallRowTone(
@@ -693,7 +696,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         item.status,
         item.preferredDate,
         item.happyCallCompletedAt ?? null,
-        detailHasAssignment
+        detailHappyCallAssigneeOk,
       )
     : 'none';
 
@@ -2398,6 +2401,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     customerName={editForm.customerName || item.customerName}
                     className="inline-flex items-center rounded-md border border-indigo-500 bg-indigo-600 px-1.5 py-0.5 text-[11px] font-semibold leading-tight text-white hover:bg-indigo-700 active:bg-indigo-800 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                   />
+                  {!isCreate && item ? (
+                    <TeamNaviLaunchButton
+                      inquiryId={item.id}
+                      token={token}
+                      variant="header"
+                      destinationApi="staff"
+                    />
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => setCopyInfoViewOpen(true)}
@@ -2879,6 +2890,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           item={item}
           token={token}
           saving={saving}
+          showTeamAssignment={!isSoloOperator}
           editForm={editForm}
           setEditForm={setEditForm}
           canEditMarketer={canEditMarketer}

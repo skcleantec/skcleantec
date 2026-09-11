@@ -91,6 +91,7 @@ import inquiryConsultationPhotosAdminRoutes from '../inquiry-consultation-photos
 import inquiryExtraChargesAdminRoutes from '../inquiry-extra-charges/inquiryExtraCharges.admin.routes.js';
 import inquiryAdditionalReceiptsAdminRoutes from '../inquiry-additional-receipts/inquiryAdditionalReceipts.admin.routes.js';
 import inquiryInspectionAdminRoutes from '../inquiry-inspection/inquiryInspection.admin.routes.js';
+import inquiryNaviRoutes from './inquiryNavi.routes.js';
 import { buildInquiryPatchCrewRosterAckMessages } from './crewRosterAckMessages.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import {
@@ -686,6 +687,8 @@ router.use('/:inquiryId/inspection', inquiryInspectionAdminRoutes);
 router.use('/:inquiryId/consultation-photos', inquiryConsultationPhotosAdminRoutes);
 router.use('/:inquiryId/extra-charges', inquiryExtraChargesAdminRoutes);
 router.use('/:inquiryId/additional-receipts', inquiryAdditionalReceiptsAdminRoutes);
+
+router.use(inquiryNaviRoutes);
 
 /** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 */
 router.post(
