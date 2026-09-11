@@ -43,17 +43,23 @@ export default defineConfig(({ command, mode }) => {
     configureServer(server: import('vite').ViteDevServer) {
       const marketingIndex = path.join(repoRoot, 'client/public/marketing/index.html');
       if (!fs.existsSync(marketingIndex)) return;
+      const marketingEducation = path.join(repoRoot, 'client/public/marketing/education.html');
       server.middlewares.use((req, res, next) => {
         const url = req.url?.split('?')[0] ?? '';
         if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-        if (url !== '/' && url !== '/index.html') return next();
+        let file = '';
+        if (url === '/' || url === '/index.html') file = marketingIndex;
+        else if ((url === '/education' || url === '/education.html') && fs.existsSync(marketingEducation)) {
+          file = marketingEducation;
+        } else return next();
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
         if (req.method === 'HEAD') {
           res.statusCode = 200;
           res.end();
           return;
         }
-        fs.createReadStream(marketingIndex).pipe(res);
+        fs.createReadStream(file).pipe(res);
       });
     },
   };
