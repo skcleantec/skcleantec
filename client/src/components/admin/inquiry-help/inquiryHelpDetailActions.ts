@@ -39,12 +39,6 @@ export const INQUIRY_HELP_DETAIL_ASSIGNMENT_MODEL: readonly InquiryHelpActionRow
 ];
 
 export const INQUIRY_HELP_DETAIL_HEADER_ACTIONS: readonly InquiryHelpActionRow[] = [
-  btn('전화', '고객 휴대폰으로 바로 겁니다. 휴대폰·앱에서 쓰면 통화 화면이 열립니다.'),
-  btn(
-    '길안내',
-    'TMAP으로 현장 주소를 엽니다. 배정되지 않은 접수도 우리 업체 건이면 됩니다.',
-    '저장된 접수 · 휴대폰',
-  ),
   btn('보기', '고객 정보 시트를 엽니다. 카카오·문자에 붙여넣기 좋은 형식으로 정리되어 있으며, 시트 안에서도 배정·저장·복사가 가능합니다.'),
   btn('복사', '접수 요약(고객·일정·금액 등)을 클립보드에 복사합니다. 「보기」 시트의 「정보 복사」와 유사합니다.'),
   btn('수기등록', '신규 접수 전용 — 체크 시 발주서 없이 수기로 등록하는 모드입니다.', '신규 접수'),
@@ -214,6 +208,11 @@ export const INQUIRY_HELP_DETAIL_CLAIM_ACTIONS: readonly InquiryHelpActionRow[] 
   );
 
 export const INQUIRY_HELP_DETAIL_FOOTER_ACTIONS: readonly InquiryHelpActionRow[] = [
+  btn(
+    '길안내',
+    '저장 버튼 바로 위에서 TMAP으로 현장 주소를 엽니다. 배정되지 않은 접수도 우리 업체 건이면 됩니다.',
+    '저장된 접수 · 휴대폰',
+  ),
   btn('저장 / 저장 중…', '폼 필드(상태·배정·금액·메모 등) 변경을 반영합니다. 목록·스케줄·팀장 화면에 WebSocket으로 갱신됩니다.'),
   btn('등록 / 등록 중…', '신규 접수를 처음 DB에 만듭니다.', '신규 접수'),
   btn('삭제', '1차 확인 → 비밀번호 확인 → 휴지통(또는 영구 삭제 정책). 권한·역할에 따릅니다.'),
