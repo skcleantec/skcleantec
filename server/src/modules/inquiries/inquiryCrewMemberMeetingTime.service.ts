@@ -11,6 +11,20 @@ export function parseCrewMemberNoteToNames(note: string | null | undefined): str
     .filter(Boolean);
 }
 
+/** 현장 메모 이름 ↔ 등록 명단. 한국어 `name` 또는 보조 `nameTh` */
+export function indexTeamMembersByNoteName(
+  members: Array<{ id: string; name: string; nameTh?: string | null }>,
+): Map<string, string> {
+  const idByName = new Map<string, string>();
+  for (const m of members) {
+    const ko = m.name.trim();
+    if (ko && !idByName.has(ko)) idByName.set(ko, m.id);
+    const th = (m.nameTh ?? '').trim();
+    if (th && !idByName.has(th)) idByName.set(th, m.id);
+  }
+  return idByName;
+}
+
 /** note 순서 유지, 이름당 첫 TeamMember id (동명이인은 sortOrder·createdAt 우선) */
 export async function resolveCrewTeamMemberIdsFromNote(
   db: Db,
@@ -22,16 +36,15 @@ export async function resolveCrewTeamMemberIdsFromNote(
   const uniqueNames = [...new Set(names)];
   const members = await db.teamMember.findMany({
     where: {
-      name: { in: uniqueNames },
-      ...tenantActiveTeamMemberWhere(tenantId),
+      AND: [
+        tenantActiveTeamMemberWhere(tenantId),
+        { OR: [{ name: { in: uniqueNames } }, { nameTh: { in: uniqueNames } }] },
+      ],
     },
-    select: { id: true, name: true, sortOrder: true, createdAt: true },
+    select: { id: true, name: true, nameTh: true, sortOrder: true, createdAt: true },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
-  const idByName = new Map<string, string>();
-  for (const m of members) {
-    if (!idByName.has(m.name)) idByName.set(m.name, m.id);
-  }
+  const idByName = indexTeamMembersByNoteName(members);
   const out: Array<{ teamMemberId: string; name: string }> = [];
   const seen = new Set<string>();
   for (const name of names) {

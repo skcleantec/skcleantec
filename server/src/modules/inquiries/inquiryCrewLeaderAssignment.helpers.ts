@@ -271,6 +271,35 @@ export function resolveCrewMeetingEditedForLeader(
   return Boolean(inquiry.crewMeetingTimeUpdatedAt);
 }
 
+/** 크루 현장 일정 — 공용 / 팀장별 배정 / 팀원별 행을 한 규칙으로 읽는다 */
+export function resolveCrewFieldMeetingForMember(params: {
+  shared: boolean;
+  inquiryMeetingTime: string | null;
+  inquiryMeetingUpdatedAt: Date | null;
+  memberId: string;
+  assignedLeaderId: string | null;
+  memberTimes: Array<{ teamMemberId: string; meetingTime: string }>;
+  assignments: Array<{
+    teamLeaderId: string;
+    noCrewMembers: boolean;
+    crewMeetingTime?: string | null;
+    crewMeetingTimeUpdatedAt?: Date | null;
+  }>;
+  leaderAssignments: Array<{ teamLeaderId: string }>;
+}): { time: string | null; edited: boolean } {
+  if (!params.shared) {
+    const time = params.memberTimes.find((x) => x.teamMemberId === params.memberId)?.meetingTime ?? null;
+    return { time, edited: Boolean(params.inquiryMeetingUpdatedAt) && Boolean(time) };
+  }
+  if (usesPerLeaderCrewMeeting(params.assignments, params.leaderAssignments) && params.assignedLeaderId) {
+    const row = params.assignments.find((a) => a.teamLeaderId === params.assignedLeaderId);
+    const time = row?.crewMeetingTime ?? null;
+    return { time, edited: Boolean(row?.crewMeetingTimeUpdatedAt) && Boolean(time) };
+  }
+  const time = params.inquiryMeetingTime;
+  return { time, edited: Boolean(params.inquiryMeetingUpdatedAt) && Boolean(time) };
+}
+
 export async function inquiryHasAnyCrewMeetingTimeExtended(
   db: Db,
   inquiryId: string,

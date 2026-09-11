@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-09-tmap-official-app-routes",
+  "_lastUpdated": "2026-09-11-meeting-time-fix",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -587,6 +587,72 @@
         "apps/cbiseo-android/app/src/main/java/com/cbiseo/app/navi/StaffNaviLauncher.kt"
       ],
       "notes": "길안내는 TMAP만. 공식 HTTPS(/tmap/app/routes)+TMAP_APP_KEY. 카카오내비 UI 없음."
+    },
+    {
+      "id": "team.meeting.shared",
+      "labelKo": "공용 미팅 시간",
+      "surfaces": ["team.inquiry.detail"],
+      "visual": { "type": "field", "token": "input-time" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "team.modal.meetingShared",
+      "codeRefs": [
+        "client/src/pages/team/teamInquiryShared.tsx",
+        "client/src/components/team/TeamInquiryMeetingTimeBlock.tsx"
+      ],
+      "notes": "오후는 칸을 숨기지 않고 비활성+안내. 팀장 여러 명이면 Assignment에 저장. 2026-09-11 수정."
+    },
+    {
+      "id": "team.meeting.perMember",
+      "labelKo": "팀원별 미팅 시간",
+      "surfaces": ["team.inquiry.detail"],
+      "visual": { "type": "field", "token": "input-time-per-member" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "team.modal.meetingPerMemberHint",
+      "codeRefs": [
+        "client/src/pages/team/teamInquiryShared.tsx",
+        "client/src/components/team/TeamInquiryMeetingTimeBlock.tsx"
+      ],
+      "notes": "명단 미매칭은 이름+노란 안내. 저장은 teamMemberId 있는 행만. 2026-09-11."
+    },
+    {
+      "id": "team.meeting.afternoonHint",
+      "labelKo": "오후 접수 미팅 시각 안내",
+      "surfaces": ["team.inquiry.detail"],
+      "visual": { "type": "banner", "token": "amber-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "team.modal.meetingAfternoonOnly",
+      "codeRefs": ["client/src/components/team/TeamInquiryMeetingTimeBlock.tsx"],
+      "notes": "저장 API는 오전·종일만. 끄기 설정 없음."
+    },
+    {
+      "id": "team.meeting.nameUnmatched",
+      "labelKo": "팀원 이름 미매칭 안내",
+      "surfaces": ["team.inquiry.detail"],
+      "visual": { "type": "banner", "token": "amber-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "team.modal.meetingNameUnmatched",
+      "codeRefs": ["client/src/components/team/TeamInquiryMeetingTimeBlock.tsx"],
+      "notes": "띄어쓰기·별칭은 관리자가 명단 이름을 맞출 것. nameTh 매칭은 서버."
+    },
+    {
+      "id": "crew.schedule.meetingTime",
+      "labelKo": "크루 일정 미팅 시각",
+      "surfaces": ["crew.field.schedule"],
+      "visual": { "type": "chip", "token": "tabular-nums" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "crew.schedule.meetingTimeEditedBadge",
+      "codeRefs": ["client/src/pages/crew/CrewFieldSchedulePage.tsx", "server/src/modules/crew/crewFieldSchedule.service.ts"],
+      "notes": "공용·팀장별 Assignment·팀원별 행을 resolveCrewFieldMeetingForMember로 읽음. 오후 카드는 서버에서 숨김."
     }
   ]
 }

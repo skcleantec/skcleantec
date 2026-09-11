@@ -466,12 +466,20 @@ async function attachCrewMembers<
   }
   const members = await prisma.teamMember.findMany({
     where: {
-      name: { in: Array.from(allNames) },
-      ...tenantActiveTeamMemberWhere(tenantId),
+      AND: [
+        tenantActiveTeamMemberWhere(tenantId),
+        {
+          OR: [
+            { name: { in: Array.from(allNames) } },
+            { nameTh: { in: Array.from(allNames) } },
+          ],
+        },
+      ],
     },
     select: {
       id: true,
       name: true,
+      nameTh: true,
       phone: true,
       homeAddress: true,
       homeAddressDetail: true,
@@ -484,23 +492,32 @@ async function attachCrewMembers<
     string,
     { id: string; phone: string | null; homeAddress: string | null; homeAddressDetail: string | null }
   >();
+  const putMemberByName = (
+    key: string,
+    entry: { id: string; phone: string | null; homeAddress: string | null; homeAddressDetail: string | null },
+  ) => {
+    const k = key.trim();
+    if (!k) return;
+    const cur = memberByName.get(k);
+    if (!cur) memberByName.set(k, entry);
+    else if (!cur.phone && entry.phone) memberByName.set(k, { ...cur, phone: entry.phone });
+    else if (!cur.homeAddress && entry.homeAddress) {
+      memberByName.set(k, {
+        ...cur,
+        homeAddress: entry.homeAddress,
+        homeAddressDetail: entry.homeAddressDetail ?? cur.homeAddressDetail,
+      });
+    }
+  };
   for (const m of members) {
-    const cur = memberByName.get(m.name);
     const entry = {
       id: m.id,
       phone: m.phone ?? null,
       homeAddress: m.homeAddress ?? null,
       homeAddressDetail: m.homeAddressDetail ?? null,
     };
-    if (!cur) memberByName.set(m.name, entry);
-    else if (!cur.phone && m.phone) memberByName.set(m.name, { ...cur, phone: m.phone });
-    else if (!cur.homeAddress && m.homeAddress) {
-      memberByName.set(m.name, {
-        ...cur,
-        homeAddress: m.homeAddress,
-        homeAddressDetail: m.homeAddressDetail ?? cur.homeAddressDetail,
-      });
-    }
+    putMemberByName(m.name, entry);
+    putMemberByName(m.nameTh ?? '', entry);
   }
   const enriched = items.map((it) => {
     const parsedNames = parseCrewNames(it.crewMemberNote);
