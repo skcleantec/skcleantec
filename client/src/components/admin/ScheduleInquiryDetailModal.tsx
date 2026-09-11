@@ -2396,19 +2396,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-                  <InquiryCustomerCallButton
-                    phone={editForm.customerPhone || item.customerPhone}
-                    customerName={editForm.customerName || item.customerName}
-                    className="inline-flex items-center rounded-md border border-indigo-500 bg-indigo-600 px-1.5 py-0.5 text-[11px] font-semibold leading-tight text-white hover:bg-indigo-700 active:bg-indigo-800 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
-                  />
-                  {!isCreate && item ? (
-                    <TeamNaviLaunchButton
-                      inquiryId={item.id}
-                      token={token}
-                      variant="header"
-                      destinationApi="staff"
-                    />
-                  ) : null}
                   <button
                     type="button"
                     onClick={() => setCopyInfoViewOpen(true)}
@@ -2573,22 +2560,29 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               />
             </div>
           ) : null}
-          <div>
-            <label className={inqEditLabel}>연락처</label>
-            <input
-              value={editForm.customerPhone}
-              onChange={(e) => setEditForm((p) => ({ ...p, customerPhone: e.target.value }))}
-              className={inqEditInput}
-              inputMode="tel"
-            />
-          </div>
-          <div>
-            <label className={inqEditLabel}>보조 연락처</label>
-            <input
-              value={editForm.customerPhone2}
-              onChange={(e) => setEditForm((p) => ({ ...p, customerPhone2: e.target.value }))}
-              className={inqEditInput}
-              inputMode="tel"
+          <div className="col-span-1 sm:col-span-2 flex min-w-0 items-end gap-1.5">
+            <div className="min-w-0 flex-1">
+              <label className={inqEditLabel}>연락처</label>
+              <input
+                value={editForm.customerPhone}
+                onChange={(e) => setEditForm((p) => ({ ...p, customerPhone: e.target.value }))}
+                className={inqEditInput}
+                inputMode="tel"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <label className={inqEditLabel}>보조 연락처</label>
+              <input
+                value={editForm.customerPhone2}
+                onChange={(e) => setEditForm((p) => ({ ...p, customerPhone2: e.target.value }))}
+                className={inqEditInput}
+                inputMode="tel"
+              />
+            </div>
+            <InquiryCustomerCallButton
+              phone={editForm.customerPhone || item?.customerPhone}
+              customerName={editForm.customerName || item?.customerName}
+              className="mb-px inline-flex h-[34px] shrink-0 items-center rounded-md border border-indigo-500 bg-indigo-600 px-2.5 text-fluid-2xs font-semibold text-white hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-indigo-400 sm:text-fluid-xs"
             />
           </div>
           <div className="sm:col-span-2">
@@ -3051,7 +3045,18 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         />
         </div>
 
-        <div className="relative z-20 flex shrink-0 gap-2 border-t border-gray-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="relative z-20 shrink-0 border-t border-gray-200 bg-white px-5 pt-2 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {!isCreate && item ? (
+            <div className="mb-2">
+              <TeamNaviLaunchButton
+                inquiryId={item.id}
+                token={token}
+                variant="bar"
+                destinationApi="staff"
+              />
+            </div>
+          ) : null}
+          <div className="flex gap-2 py-1">
           {canDeleteInquiry && (
             <button
               type="button"
@@ -3088,8 +3093,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           >
             닫기
           </button>
+          </div>
         </div>
-        </div>
+      </div>
   );
 
   return (
