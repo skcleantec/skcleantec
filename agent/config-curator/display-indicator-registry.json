@@ -656,7 +656,7 @@
     },
     {
       "id": "admin.payroll.asOfPreview",
-      "labelKo": "기준일까지 (근무일·일당 미리보기)",
+      "labelKo": "조회 기간 (근무 횟수·일당 미리보기)",
       "surfaces": ["admin.payroll.pool", "admin.payroll.unsettled", "admin.payroll.help"],
       "visual": { "type": "badge", "token": "amber-50" },
       "defaultVisible": true,
@@ -667,7 +667,7 @@
         "client/src/components/admin/payroll/PayrollAsOfFilter.tsx",
         "client/src/pages/admin/AdminPayrollPage.tsx"
       ],
-      "notes": "기준일이 월급 주기 종료보다 이를 때. 정산완료는 주기 전체만. 끄면 미리보기와 확정이 섞임."
+      "notes": "시작일~종료일이 월급 주기와 다를 때. 정산완료는 주기 전체만. 끄면 미리보기와 확정이 섞임."
     }
   ]
 }

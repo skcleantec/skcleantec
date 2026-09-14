@@ -1,12 +1,12 @@
 import type { PrismaClient } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
-  clipPayrollPeriodToAsOf,
   countMatchedWorkUnits,
   crewMemberNoteIncludesTeamMember,
   payYmdInMonth,
   payrollAccrualPeriodForPaymentDate,
   payrollCyclePreferredDateWhere,
+  type PayrollWorkRange,
 } from '../teams/teamMemberPayrollCycle.js';
 import { loadWorkCountModeByMemberId } from '../teams/crewWorkCount.helpers.js';
 import type { CrewWorkCountMode } from '../../lib/crewGroupSettings.js';
@@ -66,7 +66,7 @@ export async function computePoolMemberPayrollDetail(
   tenantId: string,
   teamMemberId: string,
   monthKey: string,
-  asOfYmd?: string | null,
+  workRange?: PayrollWorkRange | null,
 ): Promise<PoolMemberPayrollComputation | null> {
   if (!MONTH_KEY.test(monthKey) || !kstMonthRangeYm(monthKey)) {
     throw new Error('INVALID_MONTH_KEY');
@@ -115,7 +115,6 @@ export async function computePoolMemberPayrollDetail(
   let accrualEndYmd: string | null = null;
   let accrualCycleEndYmd: string | null = null;
   let poolAsOfClipped = false;
-  let asOfBeforeStart = false;
   let unitAmount: number | null = m.payAmountPerJob;
 
   if (m.monthlyPayDay == null || m.monthlyPayDay < 1 || m.monthlyPayDay > 31) {
@@ -124,16 +123,16 @@ export async function computePoolMemberPayrollDetail(
     payDateYmd = payYmdInMonth(calYear, monthIndex, m.monthlyPayDay);
     const period = payrollAccrualPeriodForPaymentDate(payDateYmd, m.monthlyPayDay);
     if (period) {
-      accrualStartYmd = period.startYmd;
       accrualCycleEndYmd = period.endYmd;
-      const clip = clipPayrollPeriodToAsOf(period, asOfYmd);
-      poolAsOfClipped = clip.clipped;
-      asOfBeforeStart = clip.beforeStart;
-      if (clip.beforeStart) {
-        accrualEndYmd = asOfYmd && asOfYmd < period.startYmd ? asOfYmd : period.startYmd;
-        notes.push('기준일이 이번 산정 시작일 이전입니다.');
+      if (workRange) {
+        accrualStartYmd = workRange.fromYmd;
+        accrualEndYmd = workRange.toYmd;
+        poolAsOfClipped =
+          workRange.fromYmd !== period.startYmd || workRange.toYmd !== period.endYmd;
+        if (poolAsOfClipped) notes.push('조회 기간 근무 횟수×일당');
       } else {
-        accrualEndYmd = clip.endYmd;
+        accrualStartYmd = period.startYmd;
+        accrualEndYmd = period.endYmd;
       }
     }
   }
@@ -149,10 +148,7 @@ export async function computePoolMemberPayrollDetail(
   const workCountMode =
     (await loadWorkCountModeByMemberId(prisma, tenantId, [teamMemberId])).get(teamMemberId) ?? null;
 
-  if (asOfBeforeStart) {
-    autoDays = 0;
-    poolSystemDays = 0;
-  } else if (payDateYmd && accrualStartYmd && accrualEndYmd) {
+  if (payDateYmd && accrualStartYmd && accrualEndYmd) {
     const bounds = payrollCyclePreferredDateWhere(accrualStartYmd, accrualEndYmd);
     const inquiries = await prisma.inquiry.findMany({
       where: {
@@ -193,14 +189,15 @@ export async function computePoolMemberPayrollDetail(
       }));
   }
 
+  const applyManualExtra = !poolAsOfClipped;
   let jobCount: number | null = null;
   if (autoDays !== null) {
-    jobCount = autoDays + manualExtra;
-  } else if (manualExtra > 0) {
+    jobCount = autoDays + (applyManualExtra ? manualExtra : 0);
+  } else if (applyManualExtra && manualExtra > 0) {
     jobCount = manualExtra;
     notes.push('자동 근무일 산정 없음·수기 일만 반영');
   }
-  if (manualExtra > 0) {
+  if (applyManualExtra && manualExtra > 0) {
     notes.push(`수기 추가 근무 ${manualExtra}일`);
   }
   if (workCountMode === 'PER_INQUIRY' && autoDays !== null) {
@@ -222,17 +219,23 @@ export async function computePoolMemberPayrollDetail(
     },
   });
 
-  const crewExpenseTotal = expenseRows.reduce((s, row) => s + row.amount, 0);
-  const ledgerDedMap = await sumLedgerManualPoolMemberDeductionsByMonth(prisma, monthKey, [teamMemberId]);
+  const crewExpenseTotal = poolAsOfClipped
+    ? 0
+    : expenseRows.reduce((s, row) => s + row.amount, 0);
+  const ledgerDedMap = poolAsOfClipped
+    ? new Map<string, number>()
+    : await sumLedgerManualPoolMemberDeductionsByMonth(prisma, monthKey, [teamMemberId]);
   const poolLedgerManualDeductionTotal = ledgerDedMap.get(teamMemberId) ?? 0;
-  const crewExpenseLines: CrewExpenseLedgerLineOut[] = expenseRows.map((row) => ({
-    id: row.id,
-    amount: row.amount,
-    memo: row.memo,
-    createdAt: row.createdAt.toISOString(),
-    crewGroupName: row.group.name,
-    attachmentCount: row.attachments.length,
-  }));
+  const crewExpenseLines: CrewExpenseLedgerLineOut[] = poolAsOfClipped
+    ? []
+    : expenseRows.map((row) => ({
+        id: row.id,
+        amount: row.amount,
+        memo: row.memo,
+        createdAt: row.createdAt.toISOString(),
+        crewGroupName: row.group.name,
+        attachmentCount: row.attachments.length,
+      }));
 
   let amountNet: number | null = null;
   if (amount != null) {
@@ -260,7 +263,7 @@ export async function computePoolMemberPayrollDetail(
     poolAsOfClipped,
     unitAmount,
     poolSystemDays,
-    poolManualExtraDays: manualExtra,
+    poolManualExtraDays: applyManualExtra ? manualExtra : 0,
     workCountMode,
     jobCount,
     amount,

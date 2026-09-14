@@ -8,9 +8,10 @@ import { requireStaffPermission } from '../auth/marketerPermission.middleware.js
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
-  parsePayrollAsOfYmd,
+  parsePayrollYmdRange,
   payYmdInMonth,
   payrollAccrualPeriodForPaymentDate,
+  type PayrollWorkRange,
 } from '../teams/teamMemberPayrollCycle.js';
 import { dateToYmdKst, employmentOverlapsMonthKst } from '../users/userEmployment.js';
 
@@ -78,11 +79,18 @@ function poolMemberInTenantWhere(tenantId: string, teamMemberId?: string) {
   };
 }
 
+function payrollWorkRangeFromReq(req: Request): PayrollWorkRange | null {
+  return parsePayrollYmdRange(
+    typeof req.query.from === 'string' ? req.query.from : null,
+    typeof req.query.to === 'string' ? req.query.to : null,
+  );
+}
+
 router.get('/expense-forward', async (req, res) => {
   const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   try {
-    const asOfYmd = parsePayrollAsOfYmd(typeof req.query.asOf === 'string' ? req.query.asOf : null);
-    const payload = await computePayrollExpenseForward(prisma, tenantId, asOfYmd);
+    const workRange = payrollWorkRangeFromReq(req);
+    const payload = await computePayrollExpenseForward(prisma, tenantId, workRange);
     res.json(payload);
   } catch (e) {
     console.error('[admin/payroll/expense-forward]', e);
@@ -728,13 +736,13 @@ router.get('/sheet', async (req, res) => {
     : [];
 
   if (includePool) {
-    const sheetAsOfYmd = parsePayrollAsOfYmd(typeof req.query.asOf === 'string' ? req.query.asOf : null);
+    const sheetWorkRange = payrollWorkRangeFromReq(req);
     const poolRows = await buildPoolMemberPayrollSheetRows(
       prisma,
       tenantId,
       monthKey,
       poolMembers,
-      sheetAsOfYmd,
+      sheetWorkRange,
     );
     for (const r of poolRows) {
       rows.push(r);
@@ -1074,7 +1082,8 @@ router.get('/sheet', async (req, res) => {
   res.json({
     month: monthKey,
     monthLabel: `${calYear}년 ${calMonthNum}월`,
-    asOfYmd: parsePayrollAsOfYmd(typeof req.query.asOf === 'string' ? req.query.asOf : null),
+    fromYmd: payrollWorkRangeFromReq(req)?.fromYmd ?? null,
+    toYmd: payrollWorkRangeFromReq(req)?.toYmd ?? null,
     rows,
     totals: {
       rowsTotal: rows.length,
@@ -1109,7 +1118,7 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
     return;
   }
 
-  const detailAsOfYmd = parsePayrollAsOfYmd(typeof req.query.asOf === 'string' ? req.query.asOf : null);
+  const detailWorkRange = payrollWorkRangeFromReq(req);
 
   let computation: Awaited<ReturnType<typeof computePoolMemberPayrollDetail>>;
   try {
@@ -1118,7 +1127,7 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
       tenantId,
       teamMemberId,
       monthKey,
-      detailAsOfYmd,
+      detailWorkRange,
     );
     if (!result) {
       res.status(404).json({ error: '풀 팀원을 찾을 수 없습니다.' });

@@ -1,11 +1,11 @@
 import type { PrismaClient } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
-  clipPayrollPeriodToAsOf,
   crewMemberNoteIncludesTeamMember,
   payYmdInMonth,
   payrollAccrualPeriodForPaymentDate,
   payrollCyclePreferredDateWhere,
+  type PayrollWorkRange,
 } from '../teams/teamMemberPayrollCycle.js';
 import { loadWorkCountModeByMemberId } from '../teams/crewWorkCount.helpers.js';
 import type { CrewWorkCountMode } from '../../lib/crewGroupSettings.js';
@@ -23,9 +23,9 @@ export type PoolPayrollSheetRowOut = {
   payDateYmd: string | null;
   accrualStartYmd: string | null;
   accrualEndYmd: string | null;
-  /** 기준일로 자르기 전 주기 종료일. 미클립이면 accrualEndYmd와 같음 */
+  /** 월급 주기 종료일. 조회 기간 미리보기면 accrualEndYmd와 다를 수 있음 */
   accrualCycleEndYmd?: string | null;
-  /** 기준일이 주기 종료일보다 일러 근무일·금액이 미리보기인 경우 */
+  /** 조회 기간이 월급 주기 전체가 아니라 근무 횟수·일당이 미리보기인 경우 */
   poolAsOfClipped?: boolean;
   jobCount: number | null;
   unitAmount: number | null;
@@ -60,7 +60,7 @@ export async function buildPoolMemberPayrollSheetRows(
     sortOrder: number;
     createdAt: Date;
   }[],
-  asOfYmd?: string | null,
+  workRange?: PayrollWorkRange | null,
 ): Promise<PoolPayrollSheetRowOut[]> {
   const range = kstMonthRangeYm(monthKey);
   if (!range) return [];
@@ -107,17 +107,28 @@ export async function buildPoolMemberPayrollSheetRows(
     const payDateYmd = payYmdInMonth(calYear, monthIndex, payDay);
     const period = payrollAccrualPeriodForPaymentDate(payDateYmd, payDay);
     if (!period) continue;
-    const clip = clipPayrollPeriodToAsOf(period, asOfYmd);
+    if (workRange) {
+      periodByPayDay.set(payDay, {
+        startYmd: workRange.fromYmd,
+        endYmd: workRange.toYmd,
+        fullEndYmd: period.endYmd,
+        clipped:
+          workRange.fromYmd !== period.startYmd || workRange.toYmd !== period.endYmd,
+        beforeStart: false,
+      });
+      if (envelopeMin == null || workRange.fromYmd < envelopeMin) envelopeMin = workRange.fromYmd;
+      if (envelopeMax == null || workRange.toYmd > envelopeMax) envelopeMax = workRange.toYmd;
+      continue;
+    }
     periodByPayDay.set(payDay, {
       startYmd: period.startYmd,
-      endYmd: clip.beforeStart ? period.startYmd : clip.endYmd,
+      endYmd: period.endYmd,
       fullEndYmd: period.endYmd,
-      clipped: clip.clipped,
-      beforeStart: clip.beforeStart,
+      clipped: false,
+      beforeStart: false,
     });
-    if (clip.beforeStart) continue;
-    if (envelopeMin == null || clip.startYmd < envelopeMin) envelopeMin = clip.startYmd;
-    if (envelopeMax == null || clip.endYmd > envelopeMax) envelopeMax = clip.endYmd;
+    if (envelopeMin == null || period.startYmd < envelopeMin) envelopeMin = period.startYmd;
+    if (envelopeMax == null || period.endYmd > envelopeMax) envelopeMax = period.endYmd;
   }
 
   const PAYROLL_INQUIRY_BATCH = 2000;
@@ -213,22 +224,22 @@ export async function buildPoolMemberPayrollSheetRows(
       const period = payrollAccrualPeriodForPaymentDate(payDateYmd, m.monthlyPayDay);
       if (period) {
         const stored = periodByPayDay.get(m.monthlyPayDay);
-        accrualStartYmd = period.startYmd;
         accrualCycleEndYmd = period.endYmd;
         poolAsOfClipped = Boolean(stored?.clipped);
-        if (stored?.beforeStart) {
-          accrualEndYmd = asOfYmd && asOfYmd < period.startYmd ? asOfYmd : period.startYmd;
-          autoDays = 0;
-          notes.push('기준일이 이번 산정 시작일 이전입니다.');
+        if (workRange) {
+          accrualStartYmd = workRange.fromYmd;
+          accrualEndYmd = workRange.toYmd;
+          if (poolAsOfClipped) notes.push('조회 기간 근무 횟수×일당');
         } else {
-          accrualEndYmd = stored?.endYmd ?? period.endYmd;
-          if (periodByPayDay.has(m.monthlyPayDay)) {
-            const mode = workCountModeByMemberId.get(m.id);
-            autoDays =
-              mode === 'PER_INQUIRY'
-                ? (inquiryCountByMemberId.get(m.id) ?? 0)
-                : (payrollDaysByMemberId.get(m.id)?.size ?? 0);
-          }
+          accrualStartYmd = period.startYmd;
+          accrualEndYmd = period.endYmd;
+        }
+        if (periodByPayDay.has(m.monthlyPayDay)) {
+          const mode = workCountModeByMemberId.get(m.id);
+          autoDays =
+            mode === 'PER_INQUIRY'
+              ? (inquiryCountByMemberId.get(m.id) ?? 0)
+              : (payrollDaysByMemberId.get(m.id)?.size ?? 0);
         }
       }
     } else {
@@ -240,14 +251,15 @@ export async function buildPoolMemberPayrollSheetRows(
       unitAmount = null;
     }
 
+    const applyManualExtra = !poolAsOfClipped;
     let jobCount: number | null = null;
     if (autoDays !== null) {
-      jobCount = autoDays + manualExtra;
-    } else if (manualExtra > 0) {
+      jobCount = autoDays + (applyManualExtra ? manualExtra : 0);
+    } else if (applyManualExtra && manualExtra > 0) {
       jobCount = manualExtra;
       notes.push('자동 근무일 산정 없음·수기 일만 반영');
     }
-    if (manualExtra > 0) {
+    if (applyManualExtra && manualExtra > 0) {
       notes.push(`수기 추가 근무 ${manualExtra}일`);
     }
     const poolWorkCountMode = workCountModeByMemberId.get(m.id) ?? null;
@@ -259,8 +271,10 @@ export async function buildPoolMemberPayrollSheetRows(
       amount = jobCount * unitAmount;
     }
 
-    const crewExpenseTotal = crewExpenseByPoolMemberId.get(m.id) ?? 0;
-    const poolLedgerManualDeductionTotal = ledgerManualDedByPoolMemberId.get(m.id) ?? 0;
+    const crewExpenseTotal = poolAsOfClipped ? 0 : crewExpenseByPoolMemberId.get(m.id) ?? 0;
+    const poolLedgerManualDeductionTotal = poolAsOfClipped
+      ? 0
+      : ledgerManualDedByPoolMemberId.get(m.id) ?? 0;
     const amountNet =
       amount != null
         ? Math.max(0, amount - crewExpenseTotal - poolLedgerManualDeductionTotal)
@@ -294,7 +308,7 @@ export async function buildPoolMemberPayrollSheetRows(
       amount,
       notes,
       poolSystemDays: autoDays,
-      poolManualExtraDays: manualExtra,
+      poolManualExtraDays: applyManualExtra ? manualExtra : 0,
       poolWorkCountMode,
       poolSettlementComplete: settledAmountByMemberId.has(m.id),
       poolSettledAmount: settledAmountByMemberId.get(m.id) ?? null,

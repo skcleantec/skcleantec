@@ -22,6 +22,29 @@ export function parsePayAsOfYmd(raw: string | null | undefined): string | null {
   return ymd;
 }
 
+export function parsePayYmdRange(
+  fromRaw: string | null | undefined,
+  toRaw: string | null | undefined,
+): { fromYmd: string; toYmd: string } | null {
+  const from = parsePayAsOfYmd(fromRaw);
+  const to = parsePayAsOfYmd(toRaw);
+  if (!from || !to) return null;
+  return from <= to ? { fromYmd: from, toYmd: to } : { fromYmd: to, toYmd: from };
+}
+
+/** 귀속월(YYYY-MM)의 1일~말일 */
+export function kstMonthBoundsYmd(monthKey: string): { fromYmd: string; toYmd: string } | null {
+  const ym = parsePayMonthKey(monthKey);
+  if (!ym) return null;
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(5, 7));
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return {
+    fromYmd: `${ym}-01`,
+    toYmd: `${ym}-${String(last).padStart(2, '0')}`,
+  };
+}
+
 export function parsePayMonthKey(raw: string | null | undefined): string | null {
   if (typeof raw !== 'string') return null;
   const ym = raw.trim();
