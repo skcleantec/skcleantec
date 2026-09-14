@@ -1,9 +1,11 @@
 import type { PrismaClient } from '@prisma/client';
 import {
-  payrollCycleBoundsKst,
+  parsePayrollAsOfYmd,
+  payrollCycleBoundsOnYmd,
   payrollCyclePreferredDateWhere,
   crewMemberNoteIncludesTeamMember,
 } from '../teams/teamMemberPayrollCycle.js';
+import { kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { loadWorkCountModeByMemberId } from '../teams/crewWorkCount.helpers.js';
 import { dateToYmdKst, employmentOverlapsMonthKst } from '../users/userEmployment.js';
 import { sumCrewExpensesByMemberIdsForMonth } from '../crew/crewGroupExpense.service.js';
@@ -129,6 +131,7 @@ export type PayrollExpenseForwardMarketerRow = {
 
 export type PayrollExpenseForwardPayload = {
   todayYmd: string;
+  asOfYmd: string;
   pool: PayrollExpenseForwardPoolRow[];
   marketers: PayrollExpenseForwardMarketerRow[];
   totals: {
@@ -141,8 +144,9 @@ export type PayrollExpenseForwardPayload = {
 export async function computePayrollExpenseForward(
   prismaClient: PrismaClient,
   tenantId: string,
+  asOfYmdRaw?: string | null,
 ): Promise<PayrollExpenseForwardPayload> {
-  const todayYmd = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+  const todayYmd = parsePayrollAsOfYmd(asOfYmdRaw) ?? kstTodayYmd();
 
   const poolMembers = await prismaClient.teamMember.findMany({
     where: {
@@ -172,7 +176,7 @@ export async function computePayrollExpenseForward(
   type PayDayPoolCtx = {
     payDay: number;
     members: typeof poolMembers;
-    bounds: ReturnType<typeof payrollCycleBoundsKst>;
+    bounds: ReturnType<typeof payrollCycleBoundsOnYmd>;
     partialEndYmd: string;
     payMonthKey: string;
     payrollDaysByMemberId: Map<string, Set<string>>;
@@ -188,7 +192,7 @@ export async function computePayrollExpenseForward(
 
   for (const payDay of [...byPayDay.keys()].sort((a, b) => a - b)) {
     const members = byPayDay.get(payDay)!;
-    const bounds = payrollCycleBoundsKst(payDay);
+    const bounds = payrollCycleBoundsOnYmd(payDay, todayYmd);
     const partialEndYmd = bounds.endYmd < todayYmd ? bounds.endYmd : todayYmd;
     const payMonthKey = payMonthKeyAfterAccrualEnd(bounds.endYmd);
     const payrollDaysByMemberId = new Map<string, Set<string>>();
@@ -264,7 +268,7 @@ export async function computePayrollExpenseForward(
 
     if (partialEndYmd < bounds.startYmd) {
       for (const m of members) {
-        const notes: string[] = ['오늘이 이번 급여 산정 시작일 이전입니다.'];
+        const notes: string[] = ['기준일이 이번 산정 시작일 이전입니다.'];
         poolOut.push({
           teamMemberId: m.id,
           name: m.name,
@@ -428,7 +432,7 @@ export async function computePayrollExpenseForward(
 
   for (const payDay of [...marketerByPayDay.keys()].sort((a, b) => a - b)) {
     const group = marketerByPayDay.get(payDay)!;
-    const bounds = payrollCycleBoundsKst(payDay);
+    const bounds = payrollCycleBoundsOnYmd(payDay, todayYmd);
     const payMonthKey = payMonthKeyAfterAccrualEnd(bounds.endYmd);
 
     const userIds = group.map((u) => u.id);
@@ -531,6 +535,7 @@ export async function computePayrollExpenseForward(
 
   return {
     todayYmd,
+    asOfYmd: todayYmd,
     pool: poolOut,
     marketers: marketerOut,
     totals: { poolPartialGross, poolPartialNet, marketerAccrued },

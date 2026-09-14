@@ -16,21 +16,41 @@ export function payYmdInMonth(year: number, monthIndex: number, payDay: number):
   return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+const PAYROLL_YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/** KST 달력 YYYY-MM-DD. 형식·실제 일자가 아니면 null */
+export function parsePayrollAsOfYmd(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const ymd = raw.trim();
+  if (!PAYROLL_YMD.test(ymd)) return null;
+  const y = parseInt(ymd.slice(0, 4), 10);
+  const m = parseInt(ymd.slice(5, 7), 10);
+  const d = parseInt(ymd.slice(8, 10), 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  if (m < 1 || m > 12) return null;
+  const last = daysInGregorianMonth(y, m - 1);
+  if (d < 1 || d > last) return null;
+  return ymd;
+}
+
 /**
  * 월급일(KST 달력 `monthlyPayDay`) 기준 급여 주기 — 시작일·종료일 포함.
- * 「이번 월급일 ~ 다음 월급일 전날」 중 오늘(KST)이 속하는 구간.
+ * 「이번 월급일 ~ 다음 월급일 전날」 중 `asOfYmd`가 속하는 구간.
  */
-export function payrollCycleBoundsKst(monthlyPayDay: number): { startYmd: string; endYmd: string } {
-  const todayYmd = dateToYmdKst(new Date());
-  const ty = parseInt(todayYmd.slice(0, 4), 10);
-  const tm = parseInt(todayYmd.slice(5, 7), 10);
+export function payrollCycleBoundsOnYmd(
+  monthlyPayDay: number,
+  asOfYmd: string,
+): { startYmd: string; endYmd: string } {
+  const ymd = parsePayrollAsOfYmd(asOfYmd) ?? dateToYmdKst(new Date());
+  const ty = parseInt(ymd.slice(0, 4), 10);
+  const tm = parseInt(ymd.slice(5, 7), 10);
   const monthIndex = tm - 1;
 
   const thisMonthPayYmd = payYmdInMonth(ty, monthIndex, monthlyPayDay);
-  const todayNoon = new Date(`${todayYmd}T12:00:00+09:00`).getTime();
+  const asOfNoon = new Date(`${ymd}T12:00:00+09:00`).getTime();
   const thisPayNoon = new Date(`${thisMonthPayYmd}T12:00:00+09:00`).getTime();
 
-  if (todayNoon >= thisPayNoon) {
+  if (asOfNoon >= thisPayNoon) {
     const startYmd = thisMonthPayYmd;
     let ny = ty;
     let nm = tm + 1;
@@ -52,6 +72,30 @@ export function payrollCycleBoundsKst(monthlyPayDay: number): { startYmd: string
   const startYmd = payYmdInMonth(py, pm - 1, monthlyPayDay);
   const endYmd = dateToYmdKst(new Date(new Date(`${thisMonthPayYmd}T12:00:00+09:00`).getTime() - 86400000));
   return { startYmd, endYmd };
+}
+
+/**
+ * 월급일(KST 달력 `monthlyPayDay`) 기준 급여 주기 — 시작일·종료일 포함.
+ * 「이번 월급일 ~ 다음 월급일 전날」 중 오늘(KST)이 속하는 구간.
+ */
+export function payrollCycleBoundsKst(monthlyPayDay: number): { startYmd: string; endYmd: string } {
+  return payrollCycleBoundsOnYmd(monthlyPayDay, dateToYmdKst(new Date()));
+}
+
+/** 귀속 구간을 기준일까지 자름. 기준일이 없으면 원본. */
+export function clipPayrollPeriodToAsOf(
+  period: { startYmd: string; endYmd: string },
+  asOfYmd: string | null | undefined,
+): { startYmd: string; endYmd: string; clipped: boolean; beforeStart: boolean } {
+  const asOf = parsePayrollAsOfYmd(asOfYmd ?? null);
+  if (!asOf) return { ...period, clipped: false, beforeStart: false };
+  if (asOf < period.startYmd) {
+    return { startYmd: period.startYmd, endYmd: period.startYmd, clipped: true, beforeStart: true };
+  }
+  if (asOf < period.endYmd) {
+    return { startYmd: period.startYmd, endYmd: asOf, clipped: true, beforeStart: false };
+  }
+  return { ...period, clipped: false, beforeStart: false };
 }
 
 /** 현재(KST) 급여 주기의 지급일 ymd — `payrollAccrualPeriodForPaymentDate` 키 */

@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
-  countMatchedWorkUnits,
+  clipPayrollPeriodToAsOf,
   crewMemberNoteIncludesTeamMember,
   payYmdInMonth,
   payrollAccrualPeriodForPaymentDate,
@@ -23,6 +23,10 @@ export type PoolPayrollSheetRowOut = {
   payDateYmd: string | null;
   accrualStartYmd: string | null;
   accrualEndYmd: string | null;
+  /** 기준일로 자르기 전 주기 종료일. 미클립이면 accrualEndYmd와 같음 */
+  accrualCycleEndYmd?: string | null;
+  /** 기준일이 주기 종료일보다 일러 근무일·금액이 미리보기인 경우 */
+  poolAsOfClipped?: boolean;
   jobCount: number | null;
   unitAmount: number | null;
   amount: number | null;
@@ -56,6 +60,7 @@ export async function buildPoolMemberPayrollSheetRows(
     sortOrder: number;
     createdAt: Date;
   }[],
+  asOfYmd?: string | null,
 ): Promise<PoolPayrollSheetRowOut[]> {
   const range = kstMonthRangeYm(monthKey);
   if (!range) return [];
@@ -86,16 +91,33 @@ export async function buildPoolMemberPayrollSheetRows(
     poolMembers.map((m) => m.id),
   );
 
-  const periodByPayDay = new Map<number, { startYmd: string; endYmd: string }>();
+  const periodByPayDay = new Map<
+    number,
+    {
+      startYmd: string;
+      endYmd: string;
+      fullEndYmd: string;
+      clipped: boolean;
+      beforeStart: boolean;
+    }
+  >();
   let envelopeMin: string | null = null;
   let envelopeMax: string | null = null;
   for (const payDay of byPayDay.keys()) {
     const payDateYmd = payYmdInMonth(calYear, monthIndex, payDay);
     const period = payrollAccrualPeriodForPaymentDate(payDateYmd, payDay);
     if (!period) continue;
-    periodByPayDay.set(payDay, period);
-    if (envelopeMin == null || period.startYmd < envelopeMin) envelopeMin = period.startYmd;
-    if (envelopeMax == null || period.endYmd > envelopeMax) envelopeMax = period.endYmd;
+    const clip = clipPayrollPeriodToAsOf(period, asOfYmd);
+    periodByPayDay.set(payDay, {
+      startYmd: period.startYmd,
+      endYmd: clip.beforeStart ? period.startYmd : clip.endYmd,
+      fullEndYmd: period.endYmd,
+      clipped: clip.clipped,
+      beforeStart: clip.beforeStart,
+    });
+    if (clip.beforeStart) continue;
+    if (envelopeMin == null || clip.startYmd < envelopeMin) envelopeMin = clip.startYmd;
+    if (envelopeMax == null || clip.endYmd > envelopeMax) envelopeMax = clip.endYmd;
   }
 
   const PAYROLL_INQUIRY_BATCH = 2000;
@@ -120,6 +142,7 @@ export async function buildPoolMemberPayrollSheetRows(
         if (!inq.preferredDate) continue;
         const ymd = dateToYmdKst(inq.preferredDate);
         for (const [payDay, period] of periodByPayDay) {
+          if (period.beforeStart) continue;
           if (ymd < period.startYmd || ymd > period.endYmd) continue;
           const members = byPayDay.get(payDay);
           if (!members?.length) continue;
@@ -171,6 +194,8 @@ export async function buildPoolMemberPayrollSheetRows(
     let payDateYmd: string | null = null;
     let accrualStartYmd: string | null = null;
     let accrualEndYmd: string | null = null;
+    let accrualCycleEndYmd: string | null = null;
+    let poolAsOfClipped = false;
     let autoDays: number | null = null;
     let unitAmount: number | null = m.payAmountPerJob;
     let amount: number | null = null;
@@ -187,14 +212,23 @@ export async function buildPoolMemberPayrollSheetRows(
       payDateYmd = payYmdInMonth(calYear, monthIndex, m.monthlyPayDay);
       const period = payrollAccrualPeriodForPaymentDate(payDateYmd, m.monthlyPayDay);
       if (period) {
+        const stored = periodByPayDay.get(m.monthlyPayDay);
         accrualStartYmd = period.startYmd;
-        accrualEndYmd = period.endYmd;
-        if (periodByPayDay.has(m.monthlyPayDay)) {
-          const mode = workCountModeByMemberId.get(m.id);
-          autoDays =
-            mode === 'PER_INQUIRY'
-              ? (inquiryCountByMemberId.get(m.id) ?? 0)
-              : (payrollDaysByMemberId.get(m.id)?.size ?? 0);
+        accrualCycleEndYmd = period.endYmd;
+        poolAsOfClipped = Boolean(stored?.clipped);
+        if (stored?.beforeStart) {
+          accrualEndYmd = asOfYmd && asOfYmd < period.startYmd ? asOfYmd : period.startYmd;
+          autoDays = 0;
+          notes.push('기준일이 이번 산정 시작일 이전입니다.');
+        } else {
+          accrualEndYmd = stored?.endYmd ?? period.endYmd;
+          if (periodByPayDay.has(m.monthlyPayDay)) {
+            const mode = workCountModeByMemberId.get(m.id);
+            autoDays =
+              mode === 'PER_INQUIRY'
+                ? (inquiryCountByMemberId.get(m.id) ?? 0)
+                : (payrollDaysByMemberId.get(m.id)?.size ?? 0);
+          }
         }
       }
     } else {
@@ -253,6 +287,8 @@ export async function buildPoolMemberPayrollSheetRows(
       payDateYmd,
       accrualStartYmd,
       accrualEndYmd,
+      accrualCycleEndYmd,
+      poolAsOfClipped,
       jobCount,
       unitAmount,
       amount,
