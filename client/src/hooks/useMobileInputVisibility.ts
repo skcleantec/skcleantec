@@ -85,6 +85,42 @@ function restoreStaffAppMainScrollTop(savedTop: number): void {
   if (main) main.scrollTop = savedTop;
 }
 
+/** 1~2px 뷰포트 흔들림은 CSS만 건너뛰고, 키보드 열림/닫힘일 때만 필드 스크롤 */
+const VIEWPORT_INSET_JITTER_PX = 2;
+const VIEWPORT_KEYBOARD_TOGGLE_PX = 48;
+
+function subscribeVisualViewportInset(
+  getRoot: () => HTMLElement | null,
+  cssVar: string,
+  onKeyboardToggle: (root: HTMLElement) => void,
+): () => void {
+  const vv = window.visualViewport;
+  if (!vv) return () => {};
+
+  let lastOverlap = -1;
+  const sync = () => {
+    const root = getRoot();
+    if (!root) return;
+    const overlap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    if (lastOverlap >= 0 && Math.abs(overlap - lastOverlap) < VIEWPORT_INSET_JITTER_PX) {
+      return;
+    }
+    const keyboardToggled =
+      lastOverlap < 0 || Math.abs(overlap - lastOverlap) >= VIEWPORT_KEYBOARD_TOGGLE_PX;
+    lastOverlap = overlap;
+    root.style.setProperty(cssVar, `${overlap}px`);
+    if (keyboardToggled) onKeyboardToggle(root);
+  };
+
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  return () => {
+    vv.removeEventListener('resize', sync);
+    vv.removeEventListener('scroll', sync);
+    getRoot()?.style.removeProperty(cssVar);
+  };
+}
+
 /**
  * 로그인·인증·공개 발주서 등 풀페이지 폼 — 모바일에서만 키보드가 입력칸을 가리지 않게 한다.
  * scrollRef 루트: overflow-y-auto + login-surface.
@@ -122,28 +158,16 @@ export function useLoginScrollSurface(
 
   useEffect(() => {
     if (!enabled) return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-
-    const syncKeyboardInset = () => {
-      const root = scrollRef.current;
-      if (!root) return;
-      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      root.style.setProperty('--login-keyboard-inset', `${Math.round(overlap)}px`);
-
-      const active = document.activeElement;
-      if (isFormField(active)) {
-        ensureInputVisibleAboveKeyboard(active, root, 'auto', fieldPaddingPx);
-      }
-    };
-
-    vv.addEventListener('resize', syncKeyboardInset);
-    vv.addEventListener('scroll', syncKeyboardInset);
-    return () => {
-      vv.removeEventListener('resize', syncKeyboardInset);
-      vv.removeEventListener('scroll', syncKeyboardInset);
-      scrollRef.current?.style.removeProperty('--login-keyboard-inset');
-    };
+    return subscribeVisualViewportInset(
+      () => scrollRef.current,
+      '--login-keyboard-inset',
+      (root) => {
+        const active = document.activeElement;
+        if (isFormField(active)) {
+          ensureInputVisibleAboveKeyboard(active, root, 'auto', fieldPaddingPx);
+        }
+      },
+    );
   }, [enabled, fieldPaddingPx]);
 
   const onFieldFocus = useCallback(
@@ -166,28 +190,16 @@ export function useModalScrollKeyboardAvoidance(
 
   useEffect(() => {
     if (!mobileEnabled) return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-
-    const syncKeyboardInset = () => {
-      const root = scrollRef.current;
-      if (!root) return;
-      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      root.style.setProperty('--modal-keyboard-inset', `${Math.round(overlap)}px`);
-
-      const active = document.activeElement;
-      if (isFormField(active)) {
-        ensureInputVisibleAboveKeyboard(active, root, 'auto', 24, { allowScrollUp: false });
-      }
-    };
-
-    vv.addEventListener('resize', syncKeyboardInset);
-    vv.addEventListener('scroll', syncKeyboardInset);
-    return () => {
-      vv.removeEventListener('resize', syncKeyboardInset);
-      vv.removeEventListener('scroll', syncKeyboardInset);
-      scrollRef.current?.style.removeProperty('--modal-keyboard-inset');
-    };
+    return subscribeVisualViewportInset(
+      () => scrollRef.current,
+      '--modal-keyboard-inset',
+      (root) => {
+        const active = document.activeElement;
+        if (isFormField(active)) {
+          ensureInputVisibleAboveKeyboard(active, root, 'auto', 24, { allowScrollUp: false });
+        }
+      },
+    );
   }, [mobileEnabled, scrollRef]);
 
   const onFieldFocus = useCallback(
@@ -216,30 +228,17 @@ export function useStaffAppEditPanelKeyboardAvoidance(
 
   useEffect(() => {
     if (!mobileEnabled) return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-
-    const syncKeyboardInset = () => {
-      const root = panelScrollRef.current;
-      if (!root) return;
-      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      root.style.setProperty('--modal-keyboard-inset', `${Math.round(overlap)}px`);
-
-      restoreStaffAppMainScrollTop(pinnedMainScrollTopRef.current);
-
-      const active = document.activeElement;
-      if (isFormField(active)) {
-        ensureInputVisibleAboveKeyboard(active, root, 'auto', 24, { allowScrollUp: false });
-      }
-    };
-
-    vv.addEventListener('resize', syncKeyboardInset);
-    vv.addEventListener('scroll', syncKeyboardInset);
-    return () => {
-      vv.removeEventListener('resize', syncKeyboardInset);
-      vv.removeEventListener('scroll', syncKeyboardInset);
-      panelScrollRef.current?.style.removeProperty('--modal-keyboard-inset');
-    };
+    return subscribeVisualViewportInset(
+      () => panelScrollRef.current,
+      '--modal-keyboard-inset',
+      (root) => {
+        restoreStaffAppMainScrollTop(pinnedMainScrollTopRef.current);
+        const active = document.activeElement;
+        if (isFormField(active)) {
+          ensureInputVisibleAboveKeyboard(active, root, 'auto', 24, { allowScrollUp: false });
+        }
+      },
+    );
   }, [mobileEnabled, panelScrollRef]);
 
   const onFieldFocus = useCallback(
