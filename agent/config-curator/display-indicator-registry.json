@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-11-meeting-time-fix",
+  "_lastUpdated": "2026-09-14-payroll-asof",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -653,6 +653,21 @@
       "helpPath": "crew.schedule.meetingTimeEditedBadge",
       "codeRefs": ["client/src/pages/crew/CrewFieldSchedulePage.tsx", "server/src/modules/crew/crewFieldSchedule.service.ts"],
       "notes": "공용·팀장별 Assignment·팀원별 행을 resolveCrewFieldMeetingForMember로 읽음. 오후 카드는 서버에서 숨김."
+    },
+    {
+      "id": "admin.payroll.asOfPreview",
+      "labelKo": "기준일까지 (근무일·일당 미리보기)",
+      "surfaces": ["admin.payroll.pool", "admin.payroll.unsettled", "admin.payroll.help"],
+      "visual": { "type": "badge", "token": "amber-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "client/src/pages/admin/AdminPayrollPage.tsx#PAYROLL_HELP",
+      "codeRefs": [
+        "client/src/components/admin/payroll/PayrollAsOfFilter.tsx",
+        "client/src/pages/admin/AdminPayrollPage.tsx"
+      ],
+      "notes": "기준일이 월급 주기 종료보다 이를 때. 정산완료는 주기 전체만. 끄면 미리보기와 확정이 섞임."
     }
   ]
 }

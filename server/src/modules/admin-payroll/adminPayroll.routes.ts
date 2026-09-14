@@ -8,6 +8,7 @@ import { requireStaffPermission } from '../auth/marketerPermission.middleware.js
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
+  parsePayrollAsOfYmd,
   payYmdInMonth,
   payrollAccrualPeriodForPaymentDate,
 } from '../teams/teamMemberPayrollCycle.js';
@@ -80,7 +81,8 @@ function poolMemberInTenantWhere(tenantId: string, teamMemberId?: string) {
 router.get('/expense-forward', async (req, res) => {
   const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   try {
-    const payload = await computePayrollExpenseForward(prisma, tenantId);
+    const asOfYmd = parsePayrollAsOfYmd(typeof req.query.asOf === 'string' ? req.query.asOf : null);
+    const payload = await computePayrollExpenseForward(prisma, tenantId, asOfYmd);
     res.json(payload);
   } catch (e) {
     console.error('[admin/payroll/expense-forward]', e);
@@ -654,6 +656,8 @@ router.get('/sheet', async (req, res) => {
     payDateYmd: string | null;
     accrualStartYmd: string | null;
     accrualEndYmd: string | null;
+    accrualCycleEndYmd?: string | null;
+    poolAsOfClipped?: boolean;
     jobCount: number | null;
     unitAmount: number | null;
     amount: number | null;
@@ -724,7 +728,14 @@ router.get('/sheet', async (req, res) => {
     : [];
 
   if (includePool) {
-    const poolRows = await buildPoolMemberPayrollSheetRows(prisma, tenantId, monthKey, poolMembers);
+    const sheetAsOfYmd = parsePayrollAsOfYmd(typeof req.query.asOf === 'string' ? req.query.asOf : null);
+    const poolRows = await buildPoolMemberPayrollSheetRows(
+      prisma,
+      tenantId,
+      monthKey,
+      poolMembers,
+      sheetAsOfYmd,
+    );
     for (const r of poolRows) {
       rows.push(r);
     }
@@ -1063,6 +1074,7 @@ router.get('/sheet', async (req, res) => {
   res.json({
     month: monthKey,
     monthLabel: `${calYear}년 ${calMonthNum}월`,
+    asOfYmd: parsePayrollAsOfYmd(typeof req.query.asOf === 'string' ? req.query.asOf : null),
     rows,
     totals: {
       rowsTotal: rows.length,
@@ -1097,9 +1109,17 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
     return;
   }
 
+  const detailAsOfYmd = parsePayrollAsOfYmd(typeof req.query.asOf === 'string' ? req.query.asOf : null);
+
   let computation: Awaited<ReturnType<typeof computePoolMemberPayrollDetail>>;
   try {
-    const result = await computePoolMemberPayrollDetail(prisma, tenantId, teamMemberId, monthKey);
+    const result = await computePoolMemberPayrollDetail(
+      prisma,
+      tenantId,
+      teamMemberId,
+      monthKey,
+      detailAsOfYmd,
+    );
     if (!result) {
       res.status(404).json({ error: '풀 팀원을 찾을 수 없습니다.' });
       return;
@@ -1134,6 +1154,8 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
     payDateYmd: computation.payDateYmd,
     accrualStartYmd: computation.accrualStartYmd,
     accrualEndYmd: computation.accrualEndYmd,
+    accrualCycleEndYmd: computation.accrualCycleEndYmd,
+    poolAsOfClipped: computation.poolAsOfClipped,
     unitAmount: computation.unitAmount,
     poolSystemDays: computation.poolSystemDays,
     poolManualExtraDays: computation.poolManualExtraDays,

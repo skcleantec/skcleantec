@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
+  clipPayrollPeriodToAsOf,
   countMatchedWorkUnits,
   crewMemberNoteIncludesTeamMember,
   payYmdInMonth,
@@ -37,6 +38,8 @@ export type PoolMemberPayrollComputation = {
   payDateYmd: string | null;
   accrualStartYmd: string | null;
   accrualEndYmd: string | null;
+  accrualCycleEndYmd: string | null;
+  poolAsOfClipped: boolean;
   unitAmount: number | null;
   poolSystemDays: number | null;
   poolManualExtraDays: number;
@@ -63,6 +66,7 @@ export async function computePoolMemberPayrollDetail(
   tenantId: string,
   teamMemberId: string,
   monthKey: string,
+  asOfYmd?: string | null,
 ): Promise<PoolMemberPayrollComputation | null> {
   if (!MONTH_KEY.test(monthKey) || !kstMonthRangeYm(monthKey)) {
     throw new Error('INVALID_MONTH_KEY');
@@ -109,6 +113,9 @@ export async function computePoolMemberPayrollDetail(
   let payDateYmd: string | null = null;
   let accrualStartYmd: string | null = null;
   let accrualEndYmd: string | null = null;
+  let accrualCycleEndYmd: string | null = null;
+  let poolAsOfClipped = false;
+  let asOfBeforeStart = false;
   let unitAmount: number | null = m.payAmountPerJob;
 
   if (m.monthlyPayDay == null || m.monthlyPayDay < 1 || m.monthlyPayDay > 31) {
@@ -118,7 +125,16 @@ export async function computePoolMemberPayrollDetail(
     const period = payrollAccrualPeriodForPaymentDate(payDateYmd, m.monthlyPayDay);
     if (period) {
       accrualStartYmd = period.startYmd;
-      accrualEndYmd = period.endYmd;
+      accrualCycleEndYmd = period.endYmd;
+      const clip = clipPayrollPeriodToAsOf(period, asOfYmd);
+      poolAsOfClipped = clip.clipped;
+      asOfBeforeStart = clip.beforeStart;
+      if (clip.beforeStart) {
+        accrualEndYmd = asOfYmd && asOfYmd < period.startYmd ? asOfYmd : period.startYmd;
+        notes.push('기준일이 이번 산정 시작일 이전입니다.');
+      } else {
+        accrualEndYmd = clip.endYmd;
+      }
     }
   }
 
@@ -133,7 +149,10 @@ export async function computePoolMemberPayrollDetail(
   const workCountMode =
     (await loadWorkCountModeByMemberId(prisma, tenantId, [teamMemberId])).get(teamMemberId) ?? null;
 
-  if (payDateYmd && accrualStartYmd && accrualEndYmd) {
+  if (asOfBeforeStart) {
+    autoDays = 0;
+    poolSystemDays = 0;
+  } else if (payDateYmd && accrualStartYmd && accrualEndYmd) {
     const bounds = payrollCyclePreferredDateWhere(accrualStartYmd, accrualEndYmd);
     const inquiries = await prisma.inquiry.findMany({
       where: {
@@ -237,6 +256,8 @@ export async function computePoolMemberPayrollDetail(
     payDateYmd,
     accrualStartYmd,
     accrualEndYmd,
+    accrualCycleEndYmd,
+    poolAsOfClipped,
     unitAmount,
     poolSystemDays,
     poolManualExtraDays: manualExtra,

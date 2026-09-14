@@ -1,3 +1,36 @@
+const PAY_YMD = /^\d{4}-\d{2}-\d{2}$/;
+const PAY_YM = /^\d{4}-\d{2}$/;
+
+export function kstTodayYmd(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+export function kstMonthKeyNow(): string {
+  return kstTodayYmd().slice(0, 7);
+}
+
+export function parsePayAsOfYmd(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const ymd = raw.trim();
+  if (!PAY_YMD.test(ymd)) return null;
+  const y = Number(ymd.slice(0, 4));
+  const m = Number(ymd.slice(5, 7));
+  const d = Number(ymd.slice(8, 10));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  if (m < 1 || m > 12 || d < 1 || d > last) return null;
+  return ymd;
+}
+
+export function parsePayMonthKey(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const ym = raw.trim();
+  if (!PAY_YM.test(ym)) return null;
+  const m = Number(ym.slice(5, 7));
+  if (m < 1 || m > 12) return null;
+  return ym;
+}
+
 /** 급여 지급일 ymd 기준 이전/다음 주기 지급일 (서버 teamMemberPayrollCycle과 동일) */
 export function shiftPayrollCyclePayYmd(
   payYmd: string,

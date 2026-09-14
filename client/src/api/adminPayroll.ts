@@ -27,6 +27,10 @@ export type PayrollSheetRow = {
   payDateYmd: string | null;
   accrualStartYmd: string | null;
   accrualEndYmd: string | null;
+  /** 기준일 클립 전 주기 종료일 */
+  accrualCycleEndYmd?: string | null;
+  /** 기준일까지 미리보기(정산완료 비활성) */
+  poolAsOfClipped?: boolean;
   /** 현장 팀원: 급여 산정 근무일 수(같은 KST 예약일은 1일로 통합). 팀장·마케터는 null */
   jobCount: number | null;
   /** 현장 팀원: 일당(원). 팀장·마케터는 null */
@@ -95,6 +99,7 @@ export type PayrollSheetRow = {
 export type PayrollSheetResponse = {
   month: string;
   monthLabel: string;
+  asOfYmd?: string | null;
   rows: PayrollSheetRow[];
   totals: {
     rowsTotal: number;
@@ -108,12 +113,14 @@ export type PayrollSheetScope = 'pool' | 'staff' | 'leader';
 export async function getAdminPayrollSheet(
   token: string,
   month?: string,
-  opts?: { scope?: PayrollSheetScope },
+  opts?: { scope?: PayrollSheetScope; asOf?: string | null },
 ): Promise<PayrollSheetResponse> {
   const params = new URLSearchParams();
   const mk = month?.trim();
   if (mk && /^\d{4}-\d{2}$/.test(mk)) params.set('month', mk);
   if (opts?.scope) params.set('scope', opts.scope);
+  const asOf = opts?.asOf?.trim();
+  if (asOf && /^\d{4}-\d{2}-\d{2}$/.test(asOf)) params.set('asOf', asOf);
   const q = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API}/admin/payroll/sheet${q}`, { headers: headers(token) });
   if (!res.ok) {
@@ -162,6 +169,7 @@ export type PayrollExpenseForwardMarketerRow = {
 
 export type PayrollExpenseForwardResponse = {
   todayYmd: string;
+  asOfYmd?: string;
   pool: PayrollExpenseForwardPoolRow[];
   marketers: PayrollExpenseForwardMarketerRow[];
   totals: {
@@ -171,8 +179,15 @@ export type PayrollExpenseForwardResponse = {
   };
 };
 
-export async function getPayrollExpenseForward(token: string): Promise<PayrollExpenseForwardResponse> {
-  const res = await fetch(`${API}/admin/payroll/expense-forward`, { headers: headers(token) });
+export async function getPayrollExpenseForward(
+  token: string,
+  asOf?: string | null,
+): Promise<PayrollExpenseForwardResponse> {
+  const params = new URLSearchParams();
+  const asOfYmd = asOf?.trim();
+  if (asOfYmd && /^\d{4}-\d{2}-\d{2}$/.test(asOfYmd)) params.set('asOf', asOfYmd);
+  const q = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${API}/admin/payroll/expense-forward${q}`, { headers: headers(token) });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '실시간 급여 집계를 불러올 수 없습니다.');
@@ -372,6 +387,8 @@ export type PayrollPoolMemberDetailResponse = {
   payDateYmd: string | null;
   accrualStartYmd: string | null;
   accrualEndYmd: string | null;
+  accrualCycleEndYmd?: string | null;
+  poolAsOfClipped?: boolean;
   unitAmount: number | null;
   poolSystemDays: number | null;
   poolManualExtraDays: number;
@@ -397,9 +414,14 @@ export type PayrollPoolMemberDetailResponse = {
 export async function getPayrollPoolMemberDetail(
   token: string,
   teamMemberId: string,
-  month?: string
+  month?: string,
+  asOf?: string | null,
 ): Promise<PayrollPoolMemberDetailResponse> {
-  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  const params = new URLSearchParams();
+  if (month && /^\d{4}-\d{2}$/.test(month.trim())) params.set('month', month.trim());
+  const asOfYmd = asOf?.trim();
+  if (asOfYmd && /^\d{4}-\d{2}-\d{2}$/.test(asOfYmd)) params.set('asOf', asOfYmd);
+  const q = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API}/admin/payroll/pool-member/${encodeURIComponent(teamMemberId)}/detail${q}`, {
     headers: headers(token),
   });
