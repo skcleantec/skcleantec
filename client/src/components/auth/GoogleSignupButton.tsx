@@ -114,6 +114,11 @@ export function GoogleSignupButton({
   onError,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const onCredentialRef = useRef(onCredential);
+  const onErrorRef = useRef(onError);
+  onCredentialRef.current = onCredential;
+  onErrorRef.current = onError;
+  const paintedKeyRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
   const [staticFallback, setStaticFallback] = useState(false);
   const staffNativeApp = isCbiseoStaffNativeApp();
@@ -131,16 +136,20 @@ export function GoogleSignupButton({
           setStaticFallback(true);
           return;
         }
-        onError?.(e instanceof Error ? e.message : 'Google 버튼을 불러오지 못했습니다.');
+        onErrorRef.current?.(e instanceof Error ? e.message : 'Google 버튼을 불러오지 못했습니다.');
       });
     return () => {
       cancelled = true;
     };
-  }, [onError, staffNativeApp]);
+  }, [staffNativeApp]);
 
   useEffect(() => {
     if (!ready || !clientId || !hostRef.current || disabled || staticFallback) return;
     const host = hostRef.current;
+    const paintKey = `${clientId}|${mode}`;
+    if (paintedKeyRef.current === paintKey && host.childElementCount > 0) {
+      return;
+    }
     host.innerHTML = '';
     try {
       window.google?.accounts.id.initialize({
@@ -148,10 +157,10 @@ export function GoogleSignupButton({
         callback: (response) => {
           const credential = response.credential?.trim();
           if (!credential) {
-            onError?.('Google 인증이 취소되었습니다.');
+            onErrorRef.current?.('Google 인증이 취소되었습니다.');
             return;
           }
-          onCredential(credential);
+          onCredentialRef.current(credential);
         },
         auto_select: false,
         cancel_on_tap_outside: true,
@@ -165,14 +174,16 @@ export function GoogleSignupButton({
         width: Math.min(400, host.parentElement?.clientWidth ?? 320),
         locale: 'ko',
       });
+      paintedKeyRef.current = paintKey;
     } catch (e) {
+      paintedKeyRef.current = null;
       if (staffNativeApp) {
         setStaticFallback(true);
         return;
       }
-      onError?.(e instanceof Error ? e.message : 'Google 버튼을 표시하지 못했습니다.');
+      onErrorRef.current?.(e instanceof Error ? e.message : 'Google 버튼을 표시하지 못했습니다.');
     }
-  }, [ready, clientId, disabled, mode, onCredential, onError, staffNativeApp, staticFallback]);
+  }, [ready, clientId, disabled, mode, staffNativeApp, staticFallback]);
 
   if (!clientId) return null;
 
@@ -184,18 +195,18 @@ export function GoogleSignupButton({
         window.__cbiseoNativeGoogleLogin = (token) => {
           const credential = token.trim();
           if (!credential) {
-            onError?.('Google 인증이 취소되었습니다.');
+            onErrorRef.current?.('Google 인증이 취소되었습니다.');
             return;
           }
-          onCredential(credential);
+          onCredentialRef.current(credential);
         };
         window.__cbiseoNativeGoogleLoginError = (message) => {
-          onError?.(message || 'Google 로그인에 실패했습니다.');
+          onErrorRef.current?.(message || 'Google 로그인에 실패했습니다.');
         };
         window.CbiseoApp.requestGoogleLogin();
         return;
       }
-      onError?.(
+      onErrorRef.current?.(
         '앱에서 Google 로그인을 사용할 수 없습니다. 카카오·아이디 로그인 또는 PC 브라우저를 이용해 주세요.',
       );
     };
