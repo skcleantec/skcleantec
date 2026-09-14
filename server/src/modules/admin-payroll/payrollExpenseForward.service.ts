@@ -1,9 +1,9 @@
 import type { PrismaClient } from '@prisma/client';
 import {
-  parsePayrollAsOfYmd,
   payrollCycleBoundsOnYmd,
   payrollCyclePreferredDateWhere,
   crewMemberNoteIncludesTeamMember,
+  type PayrollWorkRange,
 } from '../teams/teamMemberPayrollCycle.js';
 import { kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { loadWorkCountModeByMemberId } from '../teams/crewWorkCount.helpers.js';
@@ -131,7 +131,8 @@ export type PayrollExpenseForwardMarketerRow = {
 
 export type PayrollExpenseForwardPayload = {
   todayYmd: string;
-  asOfYmd: string;
+  fromYmd: string | null;
+  toYmd: string | null;
   pool: PayrollExpenseForwardPoolRow[];
   marketers: PayrollExpenseForwardMarketerRow[];
   totals: {
@@ -141,12 +142,21 @@ export type PayrollExpenseForwardPayload = {
   };
 };
 
+function ymdMax(a: string, b: string): string {
+  return a >= b ? a : b;
+}
+
+function ymdMin(a: string, b: string): string {
+  return a <= b ? a : b;
+}
+
 export async function computePayrollExpenseForward(
   prismaClient: PrismaClient,
   tenantId: string,
-  asOfYmdRaw?: string | null,
+  workRange?: PayrollWorkRange | null,
 ): Promise<PayrollExpenseForwardPayload> {
-  const todayYmd = parsePayrollAsOfYmd(asOfYmdRaw) ?? kstTodayYmd();
+  const todayYmd = kstTodayYmd();
+  const range = workRange ?? null;
 
   const poolMembers = await prismaClient.teamMember.findMany({
     where: {
@@ -177,6 +187,9 @@ export async function computePayrollExpenseForward(
     payDay: number;
     members: typeof poolMembers;
     bounds: ReturnType<typeof payrollCycleBoundsOnYmd>;
+    workStartYmd: string;
+    workEndYmd: string;
+    rangePreview: boolean;
     partialEndYmd: string;
     payMonthKey: string;
     payrollDaysByMemberId: Map<string, Set<string>>;
@@ -192,8 +205,12 @@ export async function computePayrollExpenseForward(
 
   for (const payDay of [...byPayDay.keys()].sort((a, b) => a - b)) {
     const members = byPayDay.get(payDay)!;
-    const bounds = payrollCycleBoundsOnYmd(payDay, todayYmd);
-    const partialEndYmd = bounds.endYmd < todayYmd ? bounds.endYmd : todayYmd;
+    const bounds = payrollCycleBoundsOnYmd(payDay, range?.toYmd ?? todayYmd);
+    const workStartYmd = range ? range.fromYmd : bounds.startYmd;
+    const workEndYmd = range ? range.toYmd : bounds.endYmd < todayYmd ? bounds.endYmd : todayYmd;
+    const rangePreview =
+      workStartYmd !== bounds.startYmd || workEndYmd !== bounds.endYmd;
+    const partialEndYmd = workEndYmd;
     const payMonthKey = payMonthKeyAfterAccrualEnd(bounds.endYmd);
     const payrollDaysByMemberId = new Map<string, Set<string>>();
     const inquiryCountByMemberId = new Map<string, number>();
@@ -205,6 +222,9 @@ export async function computePayrollExpenseForward(
       payDay,
       members,
       bounds,
+      workStartYmd,
+      workEndYmd,
+      rangePreview,
       partialEndYmd,
       payMonthKey,
       payrollDaysByMemberId,
@@ -216,8 +236,8 @@ export async function computePayrollExpenseForward(
   let envelopeGte: Date | null = null;
   let envelopeLte: Date | null = null;
   for (const ctx of poolCtxByPayDay.values()) {
-    if (ctx.partialEndYmd < ctx.bounds.startYmd) continue;
-    const env = payrollCyclePreferredDateWhere(ctx.bounds.startYmd, ctx.partialEndYmd);
+    if (ctx.workEndYmd < ctx.workStartYmd) continue;
+    const env = payrollCyclePreferredDateWhere(ctx.workStartYmd, ctx.workEndYmd);
     if (envelopeGte == null || env.gte < envelopeGte) envelopeGte = env.gte;
     if (envelopeLte == null || env.lte > envelopeLte) envelopeLte = env.lte;
   }
@@ -242,8 +262,8 @@ export async function computePayrollExpenseForward(
         if (!inq.preferredDate) continue;
         const ymd = dateToYmdKst(inq.preferredDate);
         for (const ctx of poolCtxByPayDay.values()) {
-          if (ctx.partialEndYmd < ctx.bounds.startYmd) continue;
-          if (ymd < ctx.bounds.startYmd || ymd > ctx.partialEndYmd) continue;
+          if (ctx.workEndYmd < ctx.workStartYmd) continue;
+          if (ymd < ctx.workStartYmd || ymd > ctx.workEndYmd) continue;
           for (const mem of ctx.members) {
             if (!crewMemberNoteIncludesTeamMember(inq.crewMemberNote, mem)) continue;
             const mode = workCountModeByMemberId.get(mem.id);
@@ -264,17 +284,29 @@ export async function computePayrollExpenseForward(
 
   for (const payDay of [...poolCtxByPayDay.keys()].sort((a, b) => a - b)) {
     const ctx = poolCtxByPayDay.get(payDay)!;
-    const { members, bounds, partialEndYmd, payMonthKey, payrollDaysByMemberId, inquiryCountByMemberId } = ctx;
+    const {
+      members,
+      bounds,
+      workStartYmd,
+      workEndYmd,
+      rangePreview,
+      partialEndYmd,
+      payMonthKey,
+      payrollDaysByMemberId,
+      inquiryCountByMemberId,
+    } = ctx;
 
-    if (partialEndYmd < bounds.startYmd) {
+    if (workEndYmd < workStartYmd) {
       for (const m of members) {
-        const notes: string[] = ['기준일이 이번 산정 시작일 이전입니다.'];
+        const notes: string[] = [
+          range ? '조회 기간이 비어 있습니다.' : '오늘이 이번 산정 시작일 이전입니다.',
+        ];
         poolOut.push({
           teamMemberId: m.id,
           name: m.name,
           monthlyPayDay: payDay,
-          cycleStartYmd: bounds.startYmd,
-          cycleEndYmd: bounds.endYmd,
+          cycleStartYmd: workStartYmd,
+          cycleEndYmd: workEndYmd,
           partialEndYmd,
           payMonthKey,
           autoJobDays: 0,
@@ -330,9 +362,13 @@ export async function computePayrollExpenseForward(
       if (unitAmount == null) {
         notes.push('일당 미설정');
       }
-      jobCount = auto + manualExtra;
-      if (manualExtra > 0) {
+      const applyManualAndExpense = !rangePreview;
+      jobCount = auto + (applyManualAndExpense ? manualExtra : 0);
+      if (applyManualAndExpense && manualExtra > 0) {
         notes.push(`수기 추가 ${manualExtra}일 반영`);
+      }
+      if (rangePreview) {
+        notes.push('조회 기간 근무 횟수×일당');
       }
       if (mode === 'PER_INQUIRY') {
         notes.push('접수 건 기준 집계(크루 그룹 설정)');
@@ -341,8 +377,10 @@ export async function computePayrollExpenseForward(
       if (jobCount != null && unitAmount != null) {
         partialGross = jobCount * unitAmount;
       }
-      const crewExpenseTotal = crewExpMap.get(m.id) ?? 0;
-      const poolLedgerManualDeductionTotal = ledgerDedMap.get(m.id) ?? 0;
+      const crewExpenseTotal = applyManualAndExpense ? crewExpMap.get(m.id) ?? 0 : 0;
+      const poolLedgerManualDeductionTotal = applyManualAndExpense
+        ? ledgerDedMap.get(m.id) ?? 0
+        : 0;
       const partialNet =
         partialGross != null
           ? Math.max(0, partialGross - crewExpenseTotal - poolLedgerManualDeductionTotal)
@@ -360,12 +398,12 @@ export async function computePayrollExpenseForward(
         teamMemberId: m.id,
         name: m.name,
         monthlyPayDay: payDay,
-        cycleStartYmd: bounds.startYmd,
-        cycleEndYmd: bounds.endYmd,
+        cycleStartYmd: workStartYmd,
+        cycleEndYmd: workEndYmd,
         partialEndYmd,
         payMonthKey,
         autoJobDays: auto,
-        manualExtraDays: manualExtra,
+        manualExtraDays: applyManualAndExpense ? manualExtra : 0,
         jobDays: jobCount,
         unitAmount,
         partialGross,
@@ -432,7 +470,7 @@ export async function computePayrollExpenseForward(
 
   for (const payDay of [...marketerByPayDay.keys()].sort((a, b) => a - b)) {
     const group = marketerByPayDay.get(payDay)!;
-    const bounds = payrollCycleBoundsOnYmd(payDay, todayYmd);
+    const bounds = payrollCycleBoundsOnYmd(payDay, range?.toYmd ?? todayYmd);
     const payMonthKey = payMonthKeyAfterAccrualEnd(bounds.endYmd);
 
     const userIds = group.map((u) => u.id);
@@ -454,25 +492,36 @@ export async function computePayrollExpenseForward(
 
       const salary = u.payrollMonthlySalary;
       const settlementComplete = settledSet.has(u.id);
-      const breakdown =
-        computeMarketerAccruedEstimateForAccrualBounds({
-          accrualStartYmd: bounds.startYmd,
-          accrualEndYmd: bounds.endYmd,
-          salary,
-          todayYmd,
-        }) ??
-        (() => {
-          const cdt = inclusiveCalendarDays(bounds.startYmd, bounds.endYmd);
-          return {
-            payMonthKey: payMonthKeyAfterAccrualEnd(bounds.endYmd),
-            partialEndYmd: bounds.endYmd < todayYmd ? bounds.endYmd : todayYmd,
-            cycleDaysTotal: cdt,
-            elapsedDays: 0,
-            rateBasis: 'cycle_days' as const,
-            denominatorDays: cdt > 0 ? cdt : null,
-            accruedEstimate: null,
-          } satisfies MarketerAccruedEstimateBreakdown;
-        })();
+      const cycleDaysTotal = inclusiveCalendarDays(bounds.startYmd, bounds.endYmd);
+      const windowStart = range ? ymdMax(bounds.startYmd, range.fromYmd) : bounds.startYmd;
+      const windowEnd = range
+        ? ymdMin(bounds.endYmd, range.toYmd)
+        : bounds.endYmd < todayYmd
+          ? bounds.endYmd
+          : todayYmd;
+      const elapsedDays =
+        windowEnd < windowStart ? 0 : inclusiveCalendarDays(windowStart, windowEnd);
+      const denominatorDays = cycleDaysTotal > 0 ? cycleDaysTotal : null;
+      let accruedEstimate: number | null = null;
+      if (
+        salary != null &&
+        Number.isFinite(salary) &&
+        salary > 0 &&
+        denominatorDays != null &&
+        denominatorDays > 0 &&
+        elapsedDays > 0
+      ) {
+        accruedEstimate = Math.round((salary * elapsedDays) / denominatorDays);
+      }
+      const breakdown: MarketerAccruedEstimateBreakdown = {
+        payMonthKey,
+        partialEndYmd: windowEnd < windowStart ? bounds.startYmd : windowEnd,
+        cycleDaysTotal,
+        elapsedDays,
+        rateBasis: 'cycle_days',
+        denominatorDays,
+        accruedEstimate,
+      };
 
       marketerOut.push({
         userId: u.id,
@@ -535,7 +584,8 @@ export async function computePayrollExpenseForward(
 
   return {
     todayYmd,
-    asOfYmd: todayYmd,
+    fromYmd: range?.fromYmd ?? null,
+    toYmd: range?.toYmd ?? null,
     pool: poolOut,
     marketers: marketerOut,
     totals: { poolPartialGross, poolPartialNet, marketerAccrued },

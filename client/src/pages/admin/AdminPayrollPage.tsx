@@ -63,6 +63,7 @@ import {
   kstTodayYmd,
   parsePayAsOfYmd,
   parsePayMonthKey,
+  parsePayYmdRange,
 } from '../../utils/payrollCycleClient';
 
 type LedgerManualPayrollLinkKind =
@@ -74,7 +75,7 @@ type LedgerManualPayrollLinkKind =
 
 const PAYROLL_HELP =
   '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·정산·미정산현황을 나누어 볼 수 있습니다.\n\n' +
-  '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 상단 「기준일」을 바꾸면 그 주기 안에서 고른 날까지의 근무일×일당만 미리 보여 줍니다. 「기준일까지」가 붙은 행은 미리보기라 「정산완료」를 할 수 없고, 정산은 월급 주기 전체가 나온 뒤에만 합니다. 상세에서는 「산정내역」과 「지급내역」을 바꿔 볼 수 있으며, 예상 급여가 나온 뒤 「정산완료」로 확정하면 지급 내역에 누적됩니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
+  '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 상단 「조회 기간」에 시작일·종료일을 넣으면 그 구간의 근무 횟수×일당만 보여 줍니다. 「조회 기간」이 붙은 행은 미리보기라 「정산완료」를 할 수 없고, 정산은 월급 주기 전체가 나온 뒤에만 합니다. 기간을 지우면 예전처럼 월급 주기 전체입니다. 상세에서는 「산정내역」과 「지급내역」을 바꿔 볼 수 있으며, 예상 급여가 나온 뒤 「정산완료」로 확정하면 지급 내역에 누적됩니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
   '【팀장 · 수시 지급】고정 급여일이 없어도 됩니다. 귀속 월을 선택한 뒤, 행을 눌러 입금일·금액·메모를 여러 번 기록할 수 있습니다. 「당월 집계」는 해당 귀속 월의 예약일 기준 배정 접수 수·서비스 매출·추가결재 매출과, 사용자 등록 규칙으로 계산한 예상 지급·미정산을 보여 줍니다(취소 접수 제외). 목록의 「당월 지급합」은 등록한 입금액 합계입니다. 사용자 등록의 「월 고정 급여」는 참고용입니다. 지급 행 삭제는 본인 로그인 비밀번호 확인 후에만 가능합니다.\n\n' +
   '【직원(마케터) · 월 고정 + 이월 미정산】사용자 등록의 월 급여·급여일과 동일한 산정기간 표시를 씁니다. 귀속 월 「합계」는 미정산 이월액과 등록 월급을 더한 지급 예정액입니다. 「정산완료」에서 실제 지급 금액을 적으면 부족분은 다음 귀속 월 합계에 자동 반영됩니다. 과거 월 급여 등록값이 바뀌면 이월 추정과 과거와 어긋날 수 있으니, 월급 변경 후에는 정산 기록을 참고해 주세요.\n\n' +
   '【크루 지출】크루 그룹장이 귀속 월·팀원·금액·영수증으로 등록한 지출은 「정산」 탭 지출 영역과 팀원 급여 상세에 나타나며, 현장 팀원 행에서는 예상 급여에서 차감된 실지급 예상으로 표시됩니다. 「정산완료」 시 차감 후 금액이 확정됩니다.\n\n' +
@@ -82,7 +83,7 @@ const PAYROLL_HELP =
   '【관리자 개인 지출】크루 등록 지출 아래 접이식 영역에서 귀속 월별 참고 지출을 추가할 수 있습니다. 급여 산정·차감과는 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
   '【공용 지출】관리자 개인 지출과 같은 방식으로 등록하는 부서·공용 성격 참고 지출입니다. 인건비·현장 팀원 차감과 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
   '【정산 탭】왼쪽은 해당 귀속 월 「지출」(인건비 요약·크루 등록 지출·공용 지출·관리자 개인 지출)입니다. 오른쪽 「수입」에는 예약일 기준 접수 서비스 총액 합계, 해당 월 정산일(KST)에 속하는 「타업체 정산완료」처리 금액(상세 내역 접이식), 실제 입금 수기 「입금 내역」(접수·타업체 자동 집계와 별개 참고용)이 있습니다.\n\n' +
-  '【미정산현황 탭】「기준일」(기본은 오늘, KST)이 속한 「진행 중 급여 주기」의 실시간 추정입니다. 현장 팀원은 등록 월급일 사이클 안에서 기준일까지 집계된 근무일·실지급 추정, 마케터는 미정산일 때 해당 급여 귀속 구간 일수(inclusive)로 월급을 나눈 일할 누적 추정액입니다(주기 마지막 날까지 가면 등록 월급과 일치). 팀장은 수시 입금이라 이 카드에는 넣지 않고 정산 탭 지출 월합에만 반영됩니다.\n\n' +
+  '【미정산현황 탭】기간을 비우면 오늘(KST)이 속한 「진행 중 급여 주기」의 실시간 추정입니다. 시작일·종료일을 넣으면 현장 팀원은 그 구간의 근무 횟수×일당, 마케터는 그 구간과 월급 주기가 겹치는 날만큼의 일할 누적입니다. 팀장은 수시 입금이라 이 카드에는 넣지 않고 정산 탭 지출 월합에만 반영됩니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
 
 function fmtWon(n: number | null | undefined): string {
@@ -488,7 +489,7 @@ function poolAsOfPreviewChip(r: PayrollSheetRow) {
   if (!isPoolAsOfClipped(r)) return null;
   return (
     <span className="inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold border bg-amber-50 text-amber-900 border-amber-200">
-      기준일까지
+      조회 기간
     </span>
   );
 }
@@ -720,9 +721,15 @@ export function AdminPayrollPage() {
     () => parsePayMonthKey(searchParams.get('payMonth')) ?? kstMonthKeyNow(),
     [searchParams],
   );
-  const asOfYmd = useMemo(
-    () => parsePayAsOfYmd(searchParams.get('payAsOf')) ?? kstTodayYmd(),
-    [searchParams],
+  const workFromYmd = parsePayAsOfYmd(searchParams.get('payFrom')) ?? '';
+  const workToYmd = parsePayAsOfYmd(searchParams.get('payTo')) ?? '';
+  const workRange = useMemo(
+    () => parsePayYmdRange(workFromYmd, workToYmd),
+    [workFromYmd, workToYmd],
+  );
+  const workRangeQuery = useMemo(
+    () => (workRange ? { from: workRange.fromYmd, to: workRange.toYmd } : null),
+    [workRange],
   );
   const setMonth = useCallback(
     (ym: string) => {
@@ -739,14 +746,18 @@ export function AdminPayrollPage() {
     },
     [setSearchParams],
   );
-  const setAsOfYmd = useCallback(
-    (ymd: string) => {
+  const setWorkRange = useCallback(
+    (fromYmd: string, toYmd: string) => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
-          const parsed = parsePayAsOfYmd(ymd);
-          if (!parsed || parsed === kstTodayYmd()) next.delete('payAsOf');
-          else next.set('payAsOf', parsed);
+          next.delete('payAsOf');
+          const from = parsePayAsOfYmd(fromYmd);
+          const to = parsePayAsOfYmd(toYmd);
+          if (from) next.set('payFrom', from);
+          else next.delete('payFrom');
+          if (to) next.set('payTo', to);
+          else next.delete('payTo');
           return next;
         },
         { replace: true },
@@ -754,7 +765,7 @@ export function AdminPayrollPage() {
     },
     [setSearchParams],
   );
-  const showAsOfFilter = payrollTab === 'pool' || payrollTab === 'unsettled';
+  const showWorkRangeFilter = payrollTab === 'pool' || payrollTab === 'unsettled';
   const operatingCompanyIdParam = searchParams.get('operatingCompanyId') ?? '';
   const operatingCompanies = useOperatingCompanies(token);
   const [data, setData] = useState<PayrollSheetResponse | null>(null);
@@ -955,7 +966,7 @@ export function AdminPayrollPage() {
       setExpenseForwardError(null);
     }
     try {
-      const fwd = await getPayrollExpenseForward(token, asOfYmd);
+      const fwd = await getPayrollExpenseForward(token, workRangeQuery);
       setExpenseForward(fwd);
       if (!silent) setExpenseForwardError(null);
     } catch (e) {
@@ -966,18 +977,18 @@ export function AdminPayrollPage() {
     } finally {
       if (!silent) setExpenseForwardLoading(false);
     }
-  }, [token, asOfYmd]);
+  }, [token, workRangeQuery]);
 
   const fetchSheetCore = useCallback(async () => {
     if (!token) return;
     const r = await getAdminPayrollSheet(token, month, {
       scope: payrollSheetScopeForTab(payrollTab),
-      asOf: payrollTab === 'pool' ? asOfYmd : null,
+      ...(payrollTab === 'pool' && workRangeQuery ? workRangeQuery : {}),
     });
     setData(r);
     setError(null);
     return r;
-  }, [token, month, payrollTab, asOfYmd]);
+  }, [token, month, payrollTab, workRangeQuery]);
 
   const fetchSettlementExpenseItems = useCallback(async () => {
     if (!token) return;
@@ -1143,7 +1154,7 @@ export function AdminPayrollPage() {
       token,
       memberDetailForRow.id,
       month,
-      payrollTab === 'pool' ? asOfYmd : null,
+      payrollTab === 'pool' ? workRangeQuery : null,
     )
       .then((d) => {
         if (!cancelled) setMemberDetail(d);
@@ -1159,7 +1170,7 @@ export function AdminPayrollPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, memberDetailForRow, month, payrollTab, asOfYmd]);
+  }, [token, memberDetailForRow, month, payrollTab, workRangeQuery]);
 
   useEffect(() => {
     if (!token || !leaderDetailForRow || leaderDetailForRow.kind !== 'TEAM_LEADER') return;
@@ -1469,7 +1480,7 @@ export function AdminPayrollPage() {
             token,
             row.id,
             month,
-            payrollTab === 'pool' ? asOfYmd : null,
+            payrollTab === 'pool' ? workRangeQuery : null,
           );
           setMemberDetail(d);
         }
@@ -1481,7 +1492,7 @@ export function AdminPayrollPage() {
         setSettlingMemberId(null);
       }
     },
-    [token, month, load, memberDetailForRow?.id, payrollTab, asOfYmd]
+    [token, month, load, memberDetailForRow?.id, payrollTab, workRangeQuery]
   );
 
   const submitMarketerSettle = useCallback(async () => {
@@ -1963,8 +1974,14 @@ export function AdminPayrollPage() {
             }}
             className="px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums"
           />
-          {showAsOfFilter ? (
-            <PayrollAsOfFilter value={asOfYmd} onChange={setAsOfYmd} disabled={loading} />
+          {showWorkRangeFilter ? (
+            <PayrollAsOfFilter
+              fromYmd={workFromYmd}
+              toYmd={workToYmd}
+              monthKey={month}
+              onChange={setWorkRange}
+              disabled={loading}
+            />
           ) : null}
           <button
             type="button"
@@ -2721,8 +2738,9 @@ export function AdminPayrollPage() {
                     <div className="min-w-0 w-full space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-2 sm:p-3 shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 pb-2">
                         <h2 className="text-fluid-sm font-semibold text-gray-900">
-                          기준일({formatYmdDot(expenseForward?.asOfYmd ?? expenseForward?.todayYmd ?? asOfYmd)})
-                          기준 진행 중 급여 주기
+                          {expenseForward?.fromYmd && expenseForward?.toYmd
+                            ? `${formatYmdDot(expenseForward.fromYmd)} ~ ${formatYmdDot(expenseForward.toYmd)} 근무 횟수·일당`
+                            : `오늘(${formatYmdDot(expenseForward?.todayYmd ?? kstTodayYmd())}) 기준 진행 중 급여 주기`}
                         </h2>
                         <button
                           type="button"
@@ -3522,7 +3540,7 @@ export function AdminPayrollPage() {
                   </div>
                   {poolAsOfPreviewActive ? (
                     <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-amber-950">
-                      기준일까지 미리보기입니다. 정산완료는 월급 주기 전체 금액입니다.
+                      선택한 기간의 근무 횟수×일당입니다. 정산완료는 월급 주기 전체 금액입니다.
                     </p>
                   ) : null}
 
@@ -3600,7 +3618,7 @@ export function AdminPayrollPage() {
                           Boolean(r.poolSettlementComplete) ||
                           isPoolAsOfClipped(r)
                         }
-                        title={isPoolAsOfClipped(r) ? '기준일까지 미리보기에서는 정산할 수 없습니다.' : undefined}
+                        title={isPoolAsOfClipped(r) ? '조회 기간 미리보기에서는 정산할 수 없습니다.' : undefined}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -3961,7 +3979,7 @@ export function AdminPayrollPage() {
                                   <span className="inline-flex flex-col items-center gap-0.5">
                                     <span>{r.jobCount != null ? r.jobCount : '—'}</span>
                                     {isPoolAsOfClipped(r) ? (
-                                      <span className="text-[11px] text-amber-800 leading-none">기준일까지</span>
+                                      <span className="text-[11px] text-amber-800 leading-none">조회 기간</span>
                                     ) : null}
                                     {(r.poolManualExtraDays ?? 0) > 0 ? (
                                       <span className="text-[11px] text-blue-700 leading-none">
@@ -4007,7 +4025,7 @@ export function AdminPayrollPage() {
                                   }
                                   title={
                                     isPoolAsOfClipped(r)
-                                      ? '기준일까지 미리보기에서는 정산할 수 없습니다.'
+                                      ? '조회 기간 미리보기에서는 정산할 수 없습니다.'
                                       : undefined
                                   }
                                   onClick={() => void settlePoolMemberRow(r)}
@@ -4181,7 +4199,7 @@ export function AdminPayrollPage() {
                       </span>
                       {memberDetail.poolAsOfClipped ? (
                         <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-fluid-xs font-semibold text-amber-900">
-                          기준일까지
+                          조회 기간
                         </span>
                       ) : null}
                       <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-fluid-xs font-semibold tabular-nums text-emerald-900">

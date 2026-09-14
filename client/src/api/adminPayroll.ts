@@ -27,9 +27,9 @@ export type PayrollSheetRow = {
   payDateYmd: string | null;
   accrualStartYmd: string | null;
   accrualEndYmd: string | null;
-  /** 기준일 클립 전 주기 종료일 */
+  /** 월급 주기 종료일. 조회 기간 미리보기면 accrualEndYmd와 다를 수 있음 */
   accrualCycleEndYmd?: string | null;
-  /** 기준일까지 미리보기(정산완료 비활성) */
+  /** 조회 기간이 월급 주기 전체가 아니라 근무 횟수·일당이 미리보기인 경우 */
   poolAsOfClipped?: boolean;
   /** 현장 팀원: 급여 산정 근무일 수(같은 KST 예약일은 1일로 통합). 팀장·마케터는 null */
   jobCount: number | null;
@@ -96,10 +96,22 @@ export type PayrollSheetRow = {
   amountNet?: number | null;
 };
 
+export type PayrollWorkRangeQuery = { from?: string | null; to?: string | null };
+
+function appendPayrollWorkRange(params: URLSearchParams, range?: PayrollWorkRangeQuery | null) {
+  const from = range?.from?.trim();
+  const to = range?.to?.trim();
+  if (from && to && /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    params.set('from', from);
+    params.set('to', to);
+  }
+}
+
 export type PayrollSheetResponse = {
   month: string;
   monthLabel: string;
-  asOfYmd?: string | null;
+  fromYmd?: string | null;
+  toYmd?: string | null;
   rows: PayrollSheetRow[];
   totals: {
     rowsTotal: number;
@@ -113,14 +125,13 @@ export type PayrollSheetScope = 'pool' | 'staff' | 'leader';
 export async function getAdminPayrollSheet(
   token: string,
   month?: string,
-  opts?: { scope?: PayrollSheetScope; asOf?: string | null },
+  opts?: { scope?: PayrollSheetScope } & PayrollWorkRangeQuery,
 ): Promise<PayrollSheetResponse> {
   const params = new URLSearchParams();
   const mk = month?.trim();
   if (mk && /^\d{4}-\d{2}$/.test(mk)) params.set('month', mk);
   if (opts?.scope) params.set('scope', opts.scope);
-  const asOf = opts?.asOf?.trim();
-  if (asOf && /^\d{4}-\d{2}-\d{2}$/.test(asOf)) params.set('asOf', asOf);
+  appendPayrollWorkRange(params, opts);
   const q = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API}/admin/payroll/sheet${q}`, { headers: headers(token) });
   if (!res.ok) {
@@ -169,7 +180,8 @@ export type PayrollExpenseForwardMarketerRow = {
 
 export type PayrollExpenseForwardResponse = {
   todayYmd: string;
-  asOfYmd?: string;
+  fromYmd?: string | null;
+  toYmd?: string | null;
   pool: PayrollExpenseForwardPoolRow[];
   marketers: PayrollExpenseForwardMarketerRow[];
   totals: {
@@ -181,11 +193,10 @@ export type PayrollExpenseForwardResponse = {
 
 export async function getPayrollExpenseForward(
   token: string,
-  asOf?: string | null,
+  range?: PayrollWorkRangeQuery | null,
 ): Promise<PayrollExpenseForwardResponse> {
   const params = new URLSearchParams();
-  const asOfYmd = asOf?.trim();
-  if (asOfYmd && /^\d{4}-\d{2}-\d{2}$/.test(asOfYmd)) params.set('asOf', asOfYmd);
+  appendPayrollWorkRange(params, range);
   const q = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API}/admin/payroll/expense-forward${q}`, { headers: headers(token) });
   if (!res.ok) {
@@ -415,12 +426,11 @@ export async function getPayrollPoolMemberDetail(
   token: string,
   teamMemberId: string,
   month?: string,
-  asOf?: string | null,
+  range?: PayrollWorkRangeQuery | null,
 ): Promise<PayrollPoolMemberDetailResponse> {
   const params = new URLSearchParams();
   if (month && /^\d{4}-\d{2}$/.test(month.trim())) params.set('month', month.trim());
-  const asOfYmd = asOf?.trim();
-  if (asOfYmd && /^\d{4}-\d{2}-\d{2}$/.test(asOfYmd)) params.set('asOf', asOfYmd);
+  appendPayrollWorkRange(params, range);
   const q = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API}/admin/payroll/pool-member/${encodeURIComponent(teamMemberId)}/detail${q}`, {
     headers: headers(token),

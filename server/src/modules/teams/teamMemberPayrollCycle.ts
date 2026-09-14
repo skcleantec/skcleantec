@@ -98,6 +98,19 @@ export function clipPayrollPeriodToAsOf(
   return { ...period, clipped: false, beforeStart: false };
 }
 
+/** 조회 시작일·종료일(양 끝 포함). 한쪽만 있으면 null. 순서가 바뀌면 맞바꾼다. */
+export function parsePayrollYmdRange(
+  fromRaw: string | null | undefined,
+  toRaw: string | null | undefined,
+): { fromYmd: string; toYmd: string } | null {
+  const from = parsePayrollAsOfYmd(fromRaw);
+  const to = parsePayrollAsOfYmd(toRaw);
+  if (!from || !to) return null;
+  return from <= to ? { fromYmd: from, toYmd: to } : { fromYmd: to, toYmd: from };
+}
+
+export type PayrollWorkRange = { fromYmd: string; toYmd: string };
+
 /** 현재(KST) 급여 주기의 지급일 ymd — `payrollAccrualPeriodForPaymentDate` 키 */
 export function currentCyclePayYmdKst(monthlyPayDay: number): string {
   const { endYmd } = payrollCycleBoundsKst(monthlyPayDay);
