@@ -58,6 +58,16 @@ export function HelpCmsArticleBody({ html }: { html: string }) {
           padding-left: 1rem;
           color: #334155;
         }
+        .help-cms-article-body.prose p {
+          margin-top: 0.35em;
+          margin-bottom: 0.35em;
+        }
+        .help-cms-article-body.prose img {
+          display: block;
+          max-width: 100%;
+          height: auto;
+          margin: 0.75rem 0;
+        }
       `}</style>
       <article className={ARTICLE_CLASS}>
         {parts.map((part, index) => {

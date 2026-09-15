@@ -40,6 +40,13 @@ export function normalizeBoardSlug(raw: unknown): string | null {
   return s.length > 0 ? s : null;
 }
 
+/** 한글만 있는 카테고리명도 저장되게 — ASCII가 없으면 자동 슬러그 */
+export function slugFromCategoryLabel(label: string): string {
+  const ascii = normalizeBoardSlug(label);
+  if (ascii) return ascii;
+  return `cat-${Date.now().toString(36)}`;
+}
+
 export function sanitizeBoardBodyHtml(html: string): string {
   return stripDangerousHtml(String(html ?? '').trim());
 }
@@ -74,6 +81,10 @@ export function mapBoardError(msg: string): { status: number; error: string } {
       return { status: 400, error: '카테고리를 확인해 주세요.' };
     case 'VALIDATION':
       return { status: 400, error: '입력 내용을 확인해 주세요.' };
+    case 'DUPLICATE_CATEGORY':
+      return { status: 409, error: '같은 카테고리가 이미 있습니다. 다른 이름을 써 주세요.' };
+    case 'FILE_TYPE':
+      return { status: 400, error: '올릴 수 있는 파일 형식이 아닙니다.' };
     case 'ACCESS_DENIED':
       return { status: 403, error: '열람 권한이 없습니다.' };
     case 'CONTENT_REQUIRED':
