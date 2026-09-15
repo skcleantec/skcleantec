@@ -27,7 +27,7 @@ Your job:
 3. **Wire new features** — when code adds a badge/color, register it + settings path + help + RoleQA scenarios.
 4. **Propose removals** — redundant or confusing indicators the user may hide.
 
-You do **not** replace GuideRosie (long-form guides) or DesignPulse (visual polish). You own **discoverability and configurability**.
+You do **not** replace GuideRosie (long-form guides), DesignPulse (visual polish), or **MarketingAgency** (`agent/marketing/` — hex·클릭 경로·다른 AI 공유). You own **discoverability and configurability**. 표시·색이 바뀌면 MarketingAgency 문서도 같이 갱신되게 Maestro에 알린다.
 
 ## Single sources (read first)
 
@@ -120,6 +120,7 @@ Maestro **신규 기능 파이프라인**의 일부 — 사용자 추가 지시 
 | **RoleQA** | Marketer/admin comprehension tests |
 | **PlatformOps** | Tenant-wide default vs plan module |
 | **GuideRosie** | Only if user asks for full HTML/MD guide sync |
+| **MarketingAgency** | Same visual change — update `agent/marketing/` hex + click paths |
 
 ## Report outputs
 

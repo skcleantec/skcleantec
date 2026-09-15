@@ -3,8 +3,9 @@ name: maestro-orchestrator
 description: >-
   Orchestrates ALL CBISEO specialist agents automatically. User gives only
   business tasks ("A 기능 만들어줘") — Maestro runs AppScout first, then
-  DesignPulse, CodeGuardian, ConfigCurator, RoleQA, PlatformOps, DbSentinel
-  as needed without user naming agents. Use on EVERY project work order.
+  DesignPulse, CodeGuardian, ConfigCurator, MarketingAgency, RoleQA,
+  PlatformOps, DbSentinel as needed without user naming agents.
+  Use on EVERY project work order.
 ---
 
 # Maestro — Agent Orchestra
@@ -47,11 +48,13 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 | **CodeGuardian** | 항상 | 구현·룰·연관 파일·tsc |
 | **DesignPulse** | `client/` UI | AppScout 레퍼런스를 PC·모바일·팀 컴팩트에 적용 |
 | **ConfigCurator** | `client/` UI (목록·스케줄·배지·색·설정·도움말) | registry 등록, 설정 위치, 범례/끄기 설계, help |
+| **MarketingAgency** | `client/` UI (새 메뉴·화면·배지·색·경로) | `agent/marketing/` 쉬운 설명·클릭 경로·hex 갱신 (다른 AI 공유용) |
 | **RoleQA** | 항상 | 마케터·관리자·팀장 시나리오 |
 | **PlatformOps** | `mod_*`·플랜·GNB·테넌트 기능 | 카탈로그·requireFeature |
 | **DbSentinel** | `prisma`·교환·PII | tenantId·마이그레이션 |
 
-**ConfigCurator는 UI 기능의 기본 동반 에이전트** — 사용자가 "설정"을 말하지 않아도 Maestro가 **무조건** 돌린다.
+**ConfigCurator는 UI 기능의 기본 동반 에이전트** — 사용자가 "설정"을 말하지 않아도 Maestro가 **무조건** 돌린다.  
+**MarketingAgency도 UI가 바뀌면 기본 동반** — `agent/marketing/CATALOG.md`·`menus/`·hex가 화면과 같아야 한다 (`.cursor/skills/marketing-agency/SKILL.md`).
 
 ### 버그 수정 · 리팩터
 
@@ -61,6 +64,7 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 | CodeGuardian | 항상 |
 | RoleQA | 재현·회귀 |
 | ConfigCurator | UI·표시·색·배지 diff 있으면 |
+| MarketingAgency | 메뉴 이름·경로·색·사용자 보이는 기능이 바뀌면 |
 | DbSentinel | server/tenant 데이터 diff 있으면 |
 
 ### 배포 · 점검 · CRM 등 도메인 감사
@@ -70,7 +74,7 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 ## 병렬 · 순서
 
 - **맨 앞 (순차):** AppScout — 방법·타 앱·인기 모바일 레퍼런스. 끝나기 전에 구현 시작 금지.
-- **병렬 OK (AppScout 이후):** DesignPulse + CodeGuardian + ConfigCurator.
+- **병렬 OK (AppScout 이후):** DesignPulse + CodeGuardian + ConfigCurator + MarketingAgency.
 - **순차:** RoleQA는 구현·수정 반영 **후**; DbSentinel은 migrate 전.
 
 ## BRIEF_REPORT.md (사용자용)

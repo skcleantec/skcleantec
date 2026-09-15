@@ -76,6 +76,8 @@ apps/telecrm-android/app/release/
 !/agent/orchestrator/**
 !/agent/config-curator/
 !/agent/config-curator/**
+!/agent/marketing/
+!/agent/marketing/**
 !/agent/ADMIN_SCREEN_HELP_AGENT.md
 /agent/product/node_modules/
 /agent/product/output/assets/

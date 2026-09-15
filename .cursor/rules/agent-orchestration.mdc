@@ -18,11 +18,12 @@ alwaysApply: true
 
 | 업무 | 자동 기동 (대표) |
 |------|------------------|
-| **신규 기능·화면** | **AppScout** → CodeGuardian + DesignPulse + **ConfigCurator** + RoleQA (+ PlatformOps / DbSentinel 해당 시) |
-| **버그·리팩터** | (화면 바뀌면 AppScout) + CodeGuardian + RoleQA (+ ConfigCurator if UI 표시) |
+| **신규 기능·화면** | **AppScout** → CodeGuardian + DesignPulse + **ConfigCurator** + **MarketingAgency** + RoleQA (+ PlatformOps / DbSentinel 해당 시) |
+| **버그·리팩터** | (화면 바뀌면 AppScout) + CodeGuardian + RoleQA (+ ConfigCurator / MarketingAgency if UI 표시·색·메뉴) |
 | **배포·점검** | 해당 도메인 + CodeGuardian + RoleQA |
 
-**ConfigCurator:** `client/` UI(목록·스케줄·배지·색·설정)가 있으면 사용자가 설정을 말하지 않아도 **항상** — registry·설정 위치·도움말.
+**ConfigCurator:** `client/` UI(목록·스케줄·배지·색·설정)가 있으면 사용자가 설정을 말하지 않아도 **항상** — registry·설정 위치·도움말.  
+**MarketingAgency:** 같은 UI에서 **메뉴·경로·쉬운 설명·색 hex**를 `agent/marketing/`에 반영 — 다른 AI 마케팅용. 사용자가 이름을 말하지 않아도.
 
 **사용자용은 BRIEF 하나:** `agent/orchestrator/BRIEF_REPORT.md` (≤40줄).  
 점검은 `agent/orchestrator/reports/packs/<날짜-일>/` 한 폴더만. 루트 `reports/`에 새 파일을 쌓지 않는다.  

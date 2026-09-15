@@ -285,7 +285,7 @@ export function PlatformCustomerBoardPostEditPage() {
               onUploadImage={(file) => uploadPlatformCustomerBoardImage(activeSlug, file)}
               onUploadFile={(file) => uploadPlatformCustomerBoardFile(activeSlug, file)}
               onUploadError={setError}
-              placeholder="공지 본문을 입력하세요. Enter는 한 줄, 사진은 툴바 또는 붙여넣기."
+              placeholder="공지 본문을 입력하세요. 마크다운·HTML을 그대로 붙여넣어도 됩니다."
             />
           )}
         </div>

@@ -11,6 +11,7 @@ import { Underline } from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { HelpCmsUiEmbed } from './HelpCmsUiEmbedExtension';
+import { structuredHtmlFromPlainPaste } from './helpCmsPasteHtml';
 
 /** HMR·코드 변경 후에도 확장이 빠진 구 에디터 인스턴스가 남지 않게 */
 const EDITOR_BUILD = 'help-cms-blog-v1';
@@ -58,6 +59,7 @@ export function HelpCmsRichEditor({
   const [localError, setLocalError] = useState('');
   const initialContentRef = useRef(value === '' ? '<p></p>' : value);
   const insertImageRef = useRef<(file: File) => Promise<void>>(async () => {});
+  const insertPastedHtmlRef = useRef<(html: string) => void>(() => {});
 
   const editor = useEditor(
     {
@@ -109,9 +111,18 @@ export function HelpCmsRichEditor({
         handlePaste: (_view, event) => {
           const files = Array.from(event.clipboardData?.files ?? []);
           const image = files.find((f) => f.type.startsWith('image/'));
-          if (!image) return false;
+          if (image) {
+            event.preventDefault();
+            void insertImageRef.current(image);
+            return true;
+          }
+          const clipHtml = event.clipboardData?.getData('text/html')?.trim() ?? '';
+          if (clipHtml) return false;
+          const plain = event.clipboardData?.getData('text/plain') ?? '';
+          const structured = structuredHtmlFromPlainPaste(plain);
+          if (!structured) return false;
           event.preventDefault();
-          void insertImageRef.current(image);
+          insertPastedHtmlRef.current(structured);
           return true;
         },
         handleDrop: (_view, event) => {
@@ -175,6 +186,12 @@ export function HelpCmsRichEditor({
     [editor, uploading],
   );
   insertImageRef.current = insertImage;
+  insertPastedHtmlRef.current = (html) => {
+    if (!editor) return;
+    editor.chain().focus().insertContent(html).run();
+    skipExternalSyncRef.current = true;
+    onChangeRef.current(editor.getHTML());
+  };
 
   const insertAttachment = useCallback(
     async (file: File) => {
@@ -441,6 +458,7 @@ export function HelpCmsRichEditor({
       {enterAsLineBreak ? (
         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-fluid-2xs text-slate-500">
           Enter는 한 줄 내림, Shift+Enter는 문단. 사진·첨부는 툴바 또는 끌어다 넣기.
+          마크다운(# 제목, 표, **굵게**)이나 HTML을 붙여넣으면 서식이 들어갑니다.
         </p>
       ) : null}
       <EditorContent editor={editor} />
