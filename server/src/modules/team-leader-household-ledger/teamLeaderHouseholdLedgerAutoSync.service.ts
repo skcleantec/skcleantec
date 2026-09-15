@@ -6,6 +6,7 @@ import {
   DEFAULT_ADDITIONAL_COMPANY_SHARE_BPS,
   type InquiryPrefillSource,
 } from './teamLeaderHouseholdLedgerPrefill.service.js';
+import { getHouseholdWageSetting, syncHouseholdWageEntries } from './teamLeaderHouseholdWage.service.js';
 
 /** 총액 참고(`total`)는 예약금·잔금과 중복되므로 자동·일괄 반영에서 제외 */
 export const HOUSEHOLD_LEDGER_SYNC_PREFILL_KINDS = new Set<TeamLeaderHouseholdPrefillKind>([
@@ -88,12 +89,22 @@ export async function applyHouseholdLedgerPrefillForInquiryLeader(
   const companyBps =
     leader.teamLeaderAdditionalReceiptCompanyShareBps ?? DEFAULT_ADDITIONAL_COMPANY_SHARE_BPS;
   const teamBps = Math.max(0, Math.min(10000, 10000 - companyBps));
+  const { setting, suppressedWageKeys } = await getHouseholdWageSetting(db, {
+    tenantId: opts.tenantId,
+    teamLeaderId: opts.teamLeaderId,
+  });
   const { suggestedOccurredOn, items } = buildPrefillItemsForInquiry(
     inquiry as InquiryPrefillSource,
     opts.tenantId,
     teamBps,
     { depositAsTeamIncome },
   );
+  if (setting.wageMode === 'BALANCE_PCT' && setting.balanceSharePercent !== 100) {
+    for (const item of items) {
+      if (item.kind !== 'balance') continue;
+      item.amount = Math.max(0, Math.floor((item.amount * setting.balanceSharePercent) / 100));
+    }
+  }
   const itemByKind = new Map(items.map((item) => [item.kind, item]));
   const kinds = applicableSyncKinds(depositAsTeamIncome);
 
@@ -110,7 +121,7 @@ export async function applyHouseholdLedgerPrefillForInquiryLeader(
         inquiryId: opts.inquiryId,
         prefillKind: kind,
       },
-      select: { id: true },
+      select: { id: true, amountLocked: true },
     });
 
     if (!item) {
@@ -128,7 +139,7 @@ export async function applyHouseholdLedgerPrefillForInquiryLeader(
           direction: item.direction,
           occurredOn: suggestedOccurredOn,
           category: item.category,
-          amount: item.amount,
+          ...(existing.amountLocked ? {} : { amount: item.amount }),
           memo: item.memoHint,
         },
       });
@@ -162,6 +173,15 @@ export async function applyHouseholdLedgerPrefillForInquiryLeader(
       },
     });
     removed += r.count;
+  }
+
+  if (setting.wageMode === 'DAILY' || setting.wageMode === 'MONTHLY') {
+    await syncHouseholdWageEntries(db, {
+      tenantId: opts.tenantId,
+      teamLeaderId: opts.teamLeaderId,
+      setting,
+      suppressedWageKeys,
+    });
   }
 
   return { created, updated, removed };

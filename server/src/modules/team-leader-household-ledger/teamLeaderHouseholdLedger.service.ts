@@ -1,6 +1,8 @@
 import type { Prisma, TeamLeaderHouseholdLedgerDirection } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
+  householdWageDailyKey,
+  householdWageMonthlyKey,
   TEAM_LEADER_HOUSEHOLD_EXPENSE_CATEGORIES,
   TEAM_LEADER_HOUSEHOLD_INCOME_CATEGORIES,
 } from './teamLeaderHouseholdLedger.constants.js';
@@ -9,11 +11,18 @@ import {
   parseHouseholdLedgerPaging,
   parseOccurredOnYmd,
 } from './teamLeaderHouseholdLedgerDateRange.js';
+import { HouseholdLedgerValidationError } from './teamLeaderHouseholdLedger.errors.js';
 import {
   isAllowedHouseholdCategory,
   serializeHouseholdLedgerEntry,
 } from './teamLeaderHouseholdLedger.serialize.js';
 import { assertTeamLeaderCanAccessInquiry } from './teamLeaderHouseholdLedgerPrefill.service.js';
+import {
+  getHouseholdWageSetting,
+  listWhereHidingWageKinds,
+  suppressHouseholdWageKey,
+  syncHouseholdWageEntries,
+} from './teamLeaderHouseholdWage.service.js';
 
 const entryInclude = {
   inquiry: { select: { inquiryNumber: true, customerName: true } },
@@ -33,14 +42,30 @@ export async function listHouseholdLedgerEntries(
     day: typeof opts.query.day === 'string' ? opts.query.day : undefined,
   });
   const { limit, offset } = parseHouseholdLedgerPaging(opts.query);
+  const { setting, suppressedWageKeys } = await getHouseholdWageSetting(db, {
+    tenantId: opts.tenantId,
+    teamLeaderId: opts.teamLeaderId,
+  });
+  if (setting.wageMode === 'DAILY' || setting.wageMode === 'MONTHLY') {
+    await syncHouseholdWageEntries(db, {
+      tenantId: opts.tenantId,
+      teamLeaderId: opts.teamLeaderId,
+      setting,
+      suppressedWageKeys,
+    });
+  }
 
   const where: Prisma.TeamLeaderHouseholdLedgerEntryWhereInput = {
     tenantId: opts.tenantId,
     teamLeaderId: opts.teamLeaderId,
     occurredOn: { gte: range.gte, lte: range.lte },
+    ...listWhereHidingWageKinds(setting.wageMode),
   };
 
-  const [items, total, incomeAgg, expenseAgg] = await Promise.all([
+  const wageKind =
+    setting.wageMode === 'DAILY' ? 'wage_daily' : setting.wageMode === 'MONTHLY' ? 'wage_monthly' : 'balance';
+
+  const [items, total, incomeAgg, expenseAgg, wageAgg] = await Promise.all([
     db.teamLeaderHouseholdLedgerEntry.findMany({
       where,
       include: entryInclude,
@@ -57,6 +82,10 @@ export async function listHouseholdLedgerEntries(
       where: { ...where, direction: 'EXPENSE' },
       _sum: { amount: true },
     }),
+    db.teamLeaderHouseholdLedgerEntry.aggregate({
+      where: { ...where, direction: 'INCOME', prefillKind: wageKind },
+      _sum: { amount: true },
+    }),
   ]);
 
   const incomeTotal = incomeAgg._sum.amount ?? 0;
@@ -64,10 +93,12 @@ export async function listHouseholdLedgerEntries(
 
   return {
     range: { loYmd: range.loYmd, hiYmd: range.hiYmd },
+    wageSetting: setting,
     summary: {
       incomeTotal,
       expenseTotal,
       netTotal: incomeTotal - expenseTotal,
+      wageTotal: wageAgg._sum.amount ?? 0,
     },
     items: items.map(serializeHouseholdLedgerEntry),
     total,
@@ -166,9 +197,18 @@ export async function updateHouseholdLedgerEntry(
     await assertTeamLeaderCanAccessInquiry(db, opts.tenantId, opts.teamLeaderId, inquiryId);
   }
 
+  const amountChanged = opts.body.amount != null && amount !== existing.amount;
   const updated = await db.teamLeaderHouseholdLedgerEntry.update({
     where: { id: existing.id },
-    data: { direction, category, amount, occurredOn, memo, inquiryId },
+    data: {
+      direction,
+      category,
+      amount,
+      occurredOn,
+      memo,
+      inquiryId,
+      ...(amountChanged ? { amountLocked: true } : {}),
+    },
     include: entryInclude,
   });
   return serializeHouseholdLedgerEntry(updated);
@@ -180,9 +220,23 @@ export async function deleteHouseholdLedgerEntry(
 ) {
   const existing = await db.teamLeaderHouseholdLedgerEntry.findFirst({
     where: { id: opts.entryId, tenantId: opts.tenantId, teamLeaderId: opts.teamLeaderId },
-    select: { id: true },
+    select: { id: true, prefillKind: true, occurredOn: true },
   });
   if (!existing) throw new HouseholdLedgerValidationError('항목을 찾을 수 없습니다.', 404);
+  if (existing.prefillKind === 'wage_daily') {
+    await suppressHouseholdWageKey(db, {
+      tenantId: opts.tenantId,
+      teamLeaderId: opts.teamLeaderId,
+      key: householdWageDailyKey(existing.occurredOn.toISOString().slice(0, 10)),
+    });
+  }
+  if (existing.prefillKind === 'wage_monthly') {
+    await suppressHouseholdWageKey(db, {
+      tenantId: opts.tenantId,
+      teamLeaderId: opts.teamLeaderId,
+      key: householdWageMonthlyKey(existing.occurredOn.toISOString().slice(0, 7)),
+    });
+  }
   await db.teamLeaderHouseholdLedgerEntry.delete({ where: { id: existing.id } });
 }
 
@@ -193,15 +247,7 @@ export function householdLedgerCategoriesResponse() {
   };
 }
 
-export class HouseholdLedgerValidationError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
-    super(message);
-    this.name = 'HouseholdLedgerValidationError';
-  }
-}
+export { HouseholdLedgerValidationError } from './teamLeaderHouseholdLedger.errors.js';
 
 function parseDirection(raw: unknown): TeamLeaderHouseholdLedgerDirection {
   if (raw === 'INCOME' || raw === 'EXPENSE') return raw;

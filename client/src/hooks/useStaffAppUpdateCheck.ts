@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { StaffAppPublicManifest } from '@shared/staffAppManifest';
 import { fetchStaffAppPublicManifest } from '../api/staffAppManifest';
 import {
@@ -32,7 +32,6 @@ export function useStaffAppUpdateCheck(): StaffAppUpdateCheckState {
     enabled ? readStaffAppPlayUpdateStatus() : null,
   );
   const [optionalDismissed, setOptionalDismissed] = useState(false);
-  const optionalDismissedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const clientVersionCode = playStatus?.clientVersionCode ?? getCbiseoStaffAppVersionCode();
@@ -53,15 +52,9 @@ export function useStaffAppUpdateCheck(): StaffAppUpdateCheckState {
         }
         const nextManifest = await fetchStaffAppPublicManifest();
         setManifest(nextManifest);
-        if (opts?.manual) {
-          optionalDismissedRef.current = false;
-          setOptionalDismissed(false);
-        } else {
-          const stored = isStaffAppOptionalUpdateDismissed(nextManifest.latestVersionCode);
-          const next = optionalDismissedRef.current || stored;
-          optionalDismissedRef.current = next;
-          setOptionalDismissed(next);
-        }
+        setOptionalDismissed(
+          opts?.manual ? false : isStaffAppOptionalUpdateDismissed(nextManifest.latestVersionCode),
+        );
         const cached = readStaffAppPlayUpdateStatus();
         if (cached) setPlayStatus(cached);
       } catch (e) {
@@ -75,7 +68,6 @@ export function useStaffAppUpdateCheck(): StaffAppUpdateCheckState {
 
   const dismissOptional = useCallback(() => {
     if (!manifest) return;
-    optionalDismissedRef.current = true;
     dismissStaffAppOptionalUpdate(manifest.latestVersionCode);
     setOptionalDismissed(true);
   }, [manifest]);
@@ -109,9 +101,7 @@ export function useStaffAppUpdateCheck(): StaffAppUpdateCheckState {
 
   useEffect(() => {
     if (!manifest) return;
-    const next = optionalDismissedRef.current || isStaffAppOptionalUpdateDismissed(manifest.latestVersionCode);
-    optionalDismissedRef.current = next;
-    setOptionalDismissed(next);
+    setOptionalDismissed(isStaffAppOptionalUpdateDismissed(manifest.latestVersionCode));
   }, [manifest]);
 
   return {

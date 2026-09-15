@@ -263,6 +263,7 @@ model Tenant {
   payrollIncomeDeposits PayrollIncomeDeposit[]
   payrollAccountLedgerManualEntries PayrollAccountLedgerManualEntry[]
   teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[]
+  teamLeaderHouseholdWageSettings TeamLeaderHouseholdWageSetting[]
   userCustomCalendars UserCustomCalendar[]
   userCustomCalendarInquiryPins UserCustomCalendarInquiryPin[]
   serviceZones ServiceZone[]
@@ -1569,6 +1570,7 @@ model User {
   payrollAccountLedgerManualEntriesCreated PayrollAccountLedgerManualEntry[] @relation("PayrollAccountLedgerManualEntryCreator")
   payrollLedgerManualEntriesLinked PayrollAccountLedgerManualEntry[] @relation("PayrollLedgerManualLinkedUser")
   teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[] @relation("TeamLeaderHouseholdLedgerOwner")
+  teamLeaderHouseholdWageSettings TeamLeaderHouseholdWageSetting[] @relation("TeamLeaderHouseholdWageSettingOwner")
   csReportsForwardedTo          CsReport[] @relation("CsReportForwardedTo")
   /// 관리자가 생성한 전자계약(팀장) 정의 — `modules/e-contract`
   eContractDefinitionsCreated  EContractDefinition[] @relation("EContractDefinitionCreator")
@@ -2059,6 +2061,13 @@ enum TeamLeaderHouseholdLedgerDirection {
   EXPENSE
 }
 
+/// 팀장 가계부 — 본인 임금 계산 방식 (회사 급여표와 별도)
+enum TeamLeaderHouseholdWageMode {
+  BALANCE_PCT
+  DAILY
+  MONTHLY
+}
+
 /// 팀장 개인 가계부 — 회사 정산과 별도, 본인 수입·지출 기록
 model TeamLeaderHouseholdLedgerEntry {
   id           String                           @id @default(uuid())
@@ -2071,6 +2080,8 @@ model TeamLeaderHouseholdLedgerEntry {
   memo         String?                          @db.Text
   inquiryId    String?                          @map("inquiry_id")
   prefillKind  String?                          @map("prefill_kind") @db.VarChar(32)
+  /// true면 팀장이 금액을 직접 고침 — 자동 동기화가 덮어쓰지 않음
+  amountLocked Boolean                          @default(false) @map("amount_locked")
   createdAt    DateTime                         @default(now()) @map("created_at")
   updatedAt    DateTime                         @updatedAt @map("updated_at")
 
@@ -2081,6 +2092,27 @@ model TeamLeaderHouseholdLedgerEntry {
   @@index([tenantId, teamLeaderId, occurredOn(sort: Desc)], map: "tl_household_ledger_tenant_leader_occurred_idx")
   @@index([tenantId, teamLeaderId, inquiryId], map: "tl_household_ledger_tenant_leader_inquiry_idx")
   @@map("team_leader_household_ledger_entries")
+}
+
+/// 팀장 본인 가계부 임금 설정 — 업체 급여표와 분리
+model TeamLeaderHouseholdWageSetting {
+  id                   String                       @id @default(uuid())
+  tenantId             String                       @map("tenant_id")
+  teamLeaderId         String                       @map("team_leader_id")
+  wageMode             TeamLeaderHouseholdWageMode  @default(BALANCE_PCT) @map("wage_mode")
+  balanceSharePercent  Int                          @default(100) @map("balance_share_percent")
+  dailyAmountWon       Int?                         @map("daily_amount_won")
+  monthlyAmountWon     Int?                         @map("monthly_amount_won")
+  /// 삭제한 일당/월급 줄 키 (`D:YYYY-MM-DD`, `M:YYYY-MM`)
+  suppressedWageKeys   Json                         @default("[]") @map("suppressed_wage_keys")
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
+
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teamLeader User   @relation("TeamLeaderHouseholdWageSettingOwner", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, teamLeaderId], map: "tl_household_wage_setting_tenant_leader_uidx")
+  @@map("team_leader_household_wage_settings")
 }
 
 model TeamMemberDayOff {

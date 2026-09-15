@@ -15,8 +15,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 로그인·메인에서 공통으로 쓰는 sideload 업데이트 흐름.
- * 매니페스트: {apiBaseUrl}/api/public/telecrm-app/manifest
+ * 로그인·메인에서 공통으로 쓰는 업데이트 흐름.
+ * - sideload: 매니페스트 APK 설치
+ * - Play: 인앱 IMMEDIATE + 스토어 필수 대화상자 (닫기·나중에 없음)
  */
 object TelecrmUpdateCoordinator {
     private fun sideloadUpdatesEnabled(): Boolean = TelecrmDistribution.sideloadUpdateEnabled
@@ -24,9 +25,24 @@ object TelecrmUpdateCoordinator {
     private var pendingManifest: TelecrmAppManifest? = null
     private var pendingApiBaseUrl: String? = null
     private var progressDialog: AlertDialog? = null
+    private var playFlowActive = false
+    private var playRequiredDialog: AlertDialog? = null
 
     suspend fun checkOnLogin(activity: AppCompatActivity, apiBaseUrl: String): Boolean {
-        if (!sideloadUpdatesEnabled()) return false
+        if (TelecrmDistribution.isPlayDistribution) {
+            if (playFlowActive) return true
+            when (TelecrmStoreUpdate.startImmediateIfAvailable(activity)) {
+                TelecrmPlayUpdateStart.ImmediateStarted -> {
+                    playFlowActive = true
+                    return true
+                }
+                TelecrmPlayUpdateStart.StoreRequired -> {
+                    showPlayStoreRequiredDialog(activity, manifest = null)
+                    return true
+                }
+                TelecrmPlayUpdateStart.None -> Unit
+            }
+        }
         val manifest = fetchManifestOrNull(apiBaseUrl) ?: return false
         TelecrmUpdatePrefs.markChecked(activity)
         val current = BuildConfig.VERSION_CODE
@@ -34,32 +50,71 @@ object TelecrmUpdateCoordinator {
             showUpdateDialog(activity, manifest, apiBaseUrl, required = true)
             return true
         }
-        if (manifest.isUpdateAvailable(current)) {
+        if (sideloadUpdatesEnabled() && manifest.isUpdateAvailable(current)) {
             showUpdateDialog(activity, manifest, apiBaseUrl, required = false)
         }
         return false
     }
 
     suspend fun checkOnMain(activity: AppCompatActivity, apiBaseUrl: String) {
-        if (!sideloadUpdatesEnabled()) return
-        if (!TelecrmUpdatePrefs.shouldCheckToday(activity)) return
-        val manifest = fetchManifestOrNull(apiBaseUrl) ?: return
-        TelecrmUpdatePrefs.markChecked(activity)
-        val current = BuildConfig.VERSION_CODE
-        when {
-            manifest.isForceUpdate(current) ->
+        if (TelecrmDistribution.isPlayDistribution) {
+            if (playFlowActive) return
+            when (TelecrmStoreUpdate.startImmediateIfAvailable(activity)) {
+                TelecrmPlayUpdateStart.ImmediateStarted -> {
+                    playFlowActive = true
+                    return
+                }
+                TelecrmPlayUpdateStart.StoreRequired -> {
+                    showPlayStoreRequiredDialog(activity, manifest = null)
+                    return
+                }
+                TelecrmPlayUpdateStart.None -> Unit
+            }
+            val manifest = fetchManifestOrNull(apiBaseUrl) ?: return
+            if (manifest.isForceUpdate(BuildConfig.VERSION_CODE)) {
                 showUpdateDialog(activity, manifest, apiBaseUrl, required = true)
-            manifest.isUpdateAvailable(current) ->
-                showUpdateDialog(activity, manifest, apiBaseUrl, required = false)
+            }
+            return
+        }
+        val manifest = fetchManifestOrNull(apiBaseUrl) ?: return
+        val current = BuildConfig.VERSION_CODE
+        if (manifest.isForceUpdate(current)) {
+            TelecrmUpdatePrefs.markChecked(activity)
+            showUpdateDialog(activity, manifest, apiBaseUrl, required = true)
+            return
+        }
+        if (!TelecrmUpdatePrefs.shouldCheckToday(activity)) return
+        TelecrmUpdatePrefs.markChecked(activity)
+        if (manifest.isUpdateAvailable(current)) {
+            showUpdateDialog(activity, manifest, apiBaseUrl, required = false)
         }
     }
 
     fun checkManually(activity: AppCompatActivity, apiBaseUrl: String) {
-        if (!sideloadUpdatesEnabled()) {
-            showInfo(activity, activity.getString(R.string.update_play_store_hint))
-            return
-        }
         activity.lifecycleScope.launch {
+            if (TelecrmDistribution.isPlayDistribution) {
+                if (playFlowActive) return@launch
+                when (TelecrmStoreUpdate.startImmediateIfAvailable(activity)) {
+                    TelecrmPlayUpdateStart.ImmediateStarted -> {
+                        playFlowActive = true
+                        return@launch
+                    }
+                    TelecrmPlayUpdateStart.StoreRequired -> {
+                        showPlayStoreRequiredDialog(activity, manifest = null)
+                        return@launch
+                    }
+                    TelecrmPlayUpdateStart.None -> Unit
+                }
+                val manifest = withContext(Dispatchers.IO) {
+                    TelecrmManifestClient.fetch(apiBaseUrl).getOrNull()
+                }
+                if (manifest != null && manifest.isForceUpdate(BuildConfig.VERSION_CODE)) {
+                    showPlayStoreRequiredDialog(activity, manifest)
+                    return@launch
+                }
+                showInfo(activity, activity.getString(R.string.update_already_latest))
+                return@launch
+            }
             val manifest = withContext(Dispatchers.IO) {
                 TelecrmManifestClient.fetch(apiBaseUrl).getOrNull()
             } ?: run {
@@ -80,6 +135,13 @@ object TelecrmUpdateCoordinator {
                     showInfo(activity, activity.getString(R.string.update_already_latest))
             }
         }
+    }
+
+    fun onPlayUpdateFlowResult(activity: AppCompatActivity, resultCode: Int) {
+        if (!TelecrmDistribution.isPlayDistribution) return
+        playFlowActive = false
+        if (resultCode == Activity.RESULT_OK) return
+        showPlayStoreRequiredDialog(activity, manifest = null)
     }
 
     fun onInstallPermissionResult(activity: AppCompatActivity) {
@@ -107,6 +169,12 @@ object TelecrmUpdateCoordinator {
         )
     }
 
+    fun openPlayStore(activity: Activity) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        val view = Intent(Intent.ACTION_VIEW, Uri.parse(TelecrmStoreUpdate.PLAY_STORE_URL))
+        runCatching { activity.startActivity(view) }
+    }
+
     fun showInstallBlockedHelp(activity: Activity, apiBaseUrl: String) {
         if (activity.isFinishing || activity.isDestroyed) return
         AlertDialog.Builder(activity)
@@ -117,6 +185,38 @@ object TelecrmUpdateCoordinator {
             .show()
     }
 
+    private fun showPlayStoreRequiredDialog(
+        activity: AppCompatActivity,
+        manifest: TelecrmAppManifest?,
+    ) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        if (playRequiredDialog?.isShowing == true) return
+        val message = if (manifest != null) {
+            activity.getString(
+                R.string.update_prompt_message_required_play,
+                manifest.latestVersionName,
+                manifest.latestVersionCode,
+                BuildConfig.VERSION_NAME,
+                BuildConfig.VERSION_CODE,
+            )
+        } else {
+            activity.getString(
+                R.string.update_prompt_message_required_play_generic,
+                BuildConfig.VERSION_NAME,
+                BuildConfig.VERSION_CODE,
+            )
+        }
+        playRequiredDialog = AlertDialog.Builder(activity)
+            .setTitle(R.string.update_required_title)
+            .setMessage(message)
+            .setCancelable(false)
+            .setPositiveButton(R.string.update_open_play_store) { _, _ ->
+                playRequiredDialog = null
+                openPlayStore(activity)
+            }
+            .show()
+    }
+
     private fun showUpdateDialog(
         activity: AppCompatActivity,
         manifest: TelecrmAppManifest,
@@ -124,6 +224,10 @@ object TelecrmUpdateCoordinator {
         required: Boolean,
     ) {
         if (activity.isFinishing || activity.isDestroyed) return
+        if (TelecrmDistribution.isPlayDistribution) {
+            showPlayStoreRequiredDialog(activity, manifest)
+            return
+        }
         val message = buildString {
             append(
                 activity.getString(

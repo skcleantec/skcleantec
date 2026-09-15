@@ -6,11 +6,16 @@ import {
   deleteTeamHouseholdLedgerEntry,
   getTeamHouseholdLedgerCategories,
   getTeamHouseholdLedgerEntries,
+  saveTeamHouseholdWageSettings,
   syncTeamHouseholdLedgerFromAssignments,
   updateTeamHouseholdLedgerEntry,
   type HouseholdLedgerEntry,
   type HouseholdLedgerListResponse,
+  type HouseholdWageSetting,
 } from '../../api/teamHouseholdLedger';
+import { TeamHouseholdLedgerWageSettingsModal } from '../../components/team/TeamHouseholdLedgerWageSettingsModal';
+import { LineMdIcon } from '../../components/ui/LineMdIcon';
+import { TEAM_LEADER_HOUSEHOLD_WAGE_MODE_LABELS } from '@shared/teamLeaderHouseholdLedger';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -70,8 +75,10 @@ export function TeamHouseholdLedgerPage() {
     null,
   );
   const [modalOpen, setModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [editing, setEditing] = useState<HouseholdLedgerEntry | null>(null);
   const [saving, setSaving] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   const patchParams = useCallback(
@@ -187,6 +194,17 @@ export function TeamHouseholdLedgerPage() {
     }
   };
 
+  const handleSaveWageSetting = async (payload: HouseholdWageSetting) => {
+    if (!token) return;
+    setSettingsSaving(true);
+    try {
+      await saveTeamHouseholdWageSettings(token, payload);
+      await fetchList(true);
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
   const presetBtn = (preset: DatePreset, label: string) => (
     <button
       type="button"
@@ -206,19 +224,29 @@ export function TeamHouseholdLedgerPage() {
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
+  const wageSetting = data?.wageSetting ?? null;
+  const wageModeLabel = wageSetting ? TEAM_LEADER_HOUSEHOLD_WAGE_MODE_LABELS[wageSetting.wageMode] : null;
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-fluid-base font-bold text-slate-900 sm:text-lg">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <h1 className="mr-auto hidden text-fluid-base font-bold text-slate-900 sm:block sm:text-lg">
           <TeamBiInline id="team.layout.nav.householdLedger" />
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-10 sm:px-4 sm:text-fluid-xs"
+          >
+            <LineMdIcon name="cog" className="size-4 text-slate-700" />
+            설정
+          </button>
+          <button
+            type="button"
             disabled={syncing}
             onClick={() => void handleSyncAssignments()}
-            className="min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-semibold text-slate-800 disabled:opacity-60 sm:min-h-10 sm:px-4 sm:text-fluid-xs"
+            className="min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-10 sm:px-4 sm:text-fluid-xs"
           >
             {syncing ? '불러오는 중…' : '배정 접수 불러오기'}
           </button>
@@ -228,9 +256,9 @@ export function TeamHouseholdLedgerPage() {
               setEditing(null);
               setModalOpen(true);
             }}
-            className="min-h-9 rounded-lg bg-slate-900 px-3 text-fluid-2xs font-semibold text-white sm:min-h-10 sm:px-4 sm:text-fluid-xs"
+            className="min-h-9 rounded-lg bg-slate-900 px-3 text-fluid-2xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-10 sm:px-4 sm:text-fluid-xs"
           >
-            직접 추가
+            수입/지출 추가
           </button>
         </div>
       </div>
@@ -267,7 +295,7 @@ export function TeamHouseholdLedgerPage() {
         </div>
 
         {data ? (
-          <div className="mb-3 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
             <div className="rounded-lg border border-emerald-100 bg-emerald-50/80 p-2 text-center sm:p-3">
               <p className="text-fluid-2xs text-emerald-800">수입</p>
               <p className="text-fluid-xs font-bold tabular-nums text-emerald-900 sm:text-fluid-sm">
@@ -284,6 +312,15 @@ export function TeamHouseholdLedgerPage() {
               <p className="text-fluid-2xs text-slate-600">순수익</p>
               <p className="text-fluid-xs font-bold tabular-nums text-slate-900 sm:text-fluid-sm">
                 {won(data.summary.netTotal)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-sky-100 bg-sky-50/80 p-2 text-center sm:p-3">
+              <p className="text-fluid-2xs text-sky-800">
+                내 임금{wageModeLabel ? ` · ${wageModeLabel}` : ''}
+                {wageSetting?.wageMode === 'BALANCE_PCT' ? ` ${wageSetting.balanceSharePercent}%` : ''}
+              </p>
+              <p className="text-fluid-xs font-bold tabular-nums text-sky-950 sm:text-fluid-sm">
+                {won(data.summary.wageTotal ?? 0)}
               </p>
             </div>
           </div>
@@ -369,7 +406,7 @@ export function TeamHouseholdLedgerPage() {
                           <div className="flex items-center justify-center gap-0.5 sm:gap-1">
                             <button
                               type="button"
-                              className="rounded border border-slate-200 px-1.5 py-0.5 text-fluid-2xs sm:px-2"
+                              className="rounded border border-slate-200 px-1.5 py-0.5 text-fluid-2xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:px-2"
                               onClick={() => {
                                 setEditing(row);
                                 setModalOpen(true);
@@ -379,7 +416,7 @@ export function TeamHouseholdLedgerPage() {
                             </button>
                             <button
                               type="button"
-                              className="rounded border border-rose-200 px-1.5 py-0.5 text-fluid-2xs text-rose-700 sm:px-2"
+                              className="rounded border border-rose-200 px-1.5 py-0.5 text-fluid-2xs text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:px-2"
                               onClick={() => void handleDelete(row)}
                             >
                               삭제
@@ -429,6 +466,13 @@ export function TeamHouseholdLedgerPage() {
         editing={editing}
         saving={saving}
         onSubmit={handleSave}
+      />
+      <TeamHouseholdLedgerWageSettingsModal
+        open={settingsOpen}
+        saving={settingsSaving}
+        initial={wageSetting}
+        onClose={() => setSettingsOpen(false)}
+        onSave={handleSaveWageSetting}
       />
     </div>
   );

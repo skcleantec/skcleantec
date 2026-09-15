@@ -25,6 +25,7 @@ import com.skcleantec.telecrm.setup.TelecrmRequiredSetup
 import com.skcleantec.telecrm.ui.AppVersion
 import com.skcleantec.telecrm.update.TelecrmApkInstall
 import com.skcleantec.telecrm.update.TelecrmDistribution
+import com.skcleantec.telecrm.update.TelecrmStoreUpdate
 import com.skcleantec.telecrm.update.TelecrmUpdateCoordinator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,12 +42,10 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.appVersionText.text = AppVersion.displayLabel(this)
-        if (TelecrmDistribution.sideloadUpdateEnabled) {
-            binding.appVersionText.contentDescription = getString(R.string.update_tap_to_check)
-            binding.appVersionText.setOnLongClickListener {
-                TelecrmUpdateCoordinator.checkManually(this, resolveApiBaseUrlForUpdate())
-                true
-            }
+        binding.appVersionText.contentDescription = getString(R.string.update_tap_to_check)
+        binding.appVersionText.setOnLongClickListener {
+            TelecrmUpdateCoordinator.checkManually(this, resolveApiBaseUrlForUpdate())
+            true
         }
         applyLoginWindowInsets()
         setupLoginKeyboardScroll()
@@ -65,19 +64,21 @@ class LoginActivity : AppCompatActivity() {
         binding.loginButton.setOnClickListener { attemptLogin() }
 
         lifecycleScope.launch {
-            if (TelecrmDistribution.sideloadUpdateEnabled) {
-                val blocked = TelecrmUpdateCoordinator.checkOnLogin(
-                    this@LoginActivity,
-                    resolveApiBaseUrlForUpdate(),
-                )
-                if (blocked) return@launch
-            }
+            val blocked = TelecrmUpdateCoordinator.checkOnLogin(
+                this@LoginActivity,
+                resolveApiBaseUrlForUpdate(),
+            )
+            if (blocked) return@launch
             tryAutoLogin()
         }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == TelecrmStoreUpdate.REQUEST_IMMEDIATE) {
+            TelecrmUpdateCoordinator.onPlayUpdateFlowResult(this, resultCode)
+            return
+        }
         if (requestCode == TelecrmApkInstall.REQUEST_INSTALL_PERMISSION &&
             TelecrmDistribution.sideloadUpdateEnabled
         ) {

@@ -6,4 +6,7 @@ import com.skcleantec.telecrm.BuildConfig
 object TelecrmDistribution {
     val sideloadUpdateEnabled: Boolean
         get() = BuildConfig.ENABLE_SIDELOAD_UPDATE
+
+    val isPlayDistribution: Boolean
+        get() = !sideloadUpdateEnabled
 }

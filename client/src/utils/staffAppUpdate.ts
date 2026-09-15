@@ -1,10 +1,6 @@
 import type { StaffAppPublicManifest, StaffAppUpdateUiKind } from '@shared/staffAppManifest';
 import { resolveStaffAppUpdateUiKind } from '@shared/staffAppManifest';
-import {
-  getCbiseoStaffAppVersionCode,
-  isCbiseoStaffNativeApp,
-  openStaffAppExternalUrl,
-} from './cbiseoNativeApp';
+import { getCbiseoStaffAppVersionCode, isCbiseoStaffNativeApp } from './cbiseoNativeApp';
 
 export type StaffAppPlayUpdateStatus = {
   playUpdateAvailable?: boolean;
@@ -63,16 +59,15 @@ export function openStaffAppPlayStore(playStoreUrl?: string | null): void {
   const url = playStoreUrl?.trim() || STAFF_APP_PLAY_STORE_URL;
   if (isCbiseoStaffNativeApp()) {
     try {
-      window.CbiseoApp?.openPlayStore?.();
+      if (typeof window.CbiseoApp?.openPlayStore === 'function') {
+        window.CbiseoApp.openPlayStore();
+        return;
+      }
     } catch {
-      /* 구 앱은 메서드가 없어도 typeof === 'function' — 실패하면 https */
+      /* fallback below */
     }
-    window.setTimeout(() => {
-      if (document.visibilityState !== 'visible') return;
-      openStaffAppExternalUrl(url);
-    }, 450);
-    return;
   }
+  // Android WebView에서 window.open은 무시되는 경우가 많음 — 동일 탭 이동으로 Play Store 연다.
   window.location.href = url;
 }
 

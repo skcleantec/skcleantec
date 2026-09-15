@@ -26,6 +26,7 @@ export type HouseholdLedgerEntryDto = {
   inquiryNumber: string | null;
   customerName: string | null;
   prefillKind: string | null;
+  amountLocked: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -39,6 +40,7 @@ export function serializeHouseholdLedgerEntry(row: {
   memo: string | null;
   inquiryId: string | null;
   prefillKind: string | null;
+  amountLocked?: boolean;
   createdAt: Date;
   updatedAt: Date;
   inquiry?: { inquiryNumber: string | null; customerName: string } | null;
@@ -54,6 +56,7 @@ export function serializeHouseholdLedgerEntry(row: {
     inquiryNumber: row.inquiry?.inquiryNumber ?? null,
     customerName: row.inquiry?.customerName ?? null,
     prefillKind: row.prefillKind,
+    amountLocked: row.amountLocked === true,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

@@ -15,6 +15,7 @@ import {
   updateHouseholdLedgerEntry,
 } from './teamLeaderHouseholdLedger.service.js';
 import { syncHouseholdLedgerFromAssignments } from './teamLeaderHouseholdLedgerSync.service.js';
+import { getHouseholdWageSetting, upsertHouseholdWageSetting } from './teamLeaderHouseholdWage.service.js';
 
 const router = Router();
 
@@ -26,6 +27,46 @@ function requireTeamLeader(req: import('express').Request, res: import('express'
   }
   return user;
 }
+
+router.get('/wage-settings', async (req, res) => {
+  const user = requireTeamLeader(req, res);
+  if (!user) return;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const { setting } = await getHouseholdWageSetting(prisma, {
+    tenantId,
+    teamLeaderId: user.userId,
+  });
+  res.json({ setting });
+});
+
+router.put('/wage-settings', async (req, res) => {
+  const user = requireTeamLeader(req, res);
+  if (!user) return;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  try {
+    const setting = await upsertHouseholdWageSetting(prisma, {
+      tenantId,
+      teamLeaderId: user.userId,
+      body: req.body as Record<string, unknown>,
+    });
+    res.json({ setting });
+  } catch (e) {
+    if (e instanceof HouseholdLedgerValidationError) {
+      res.status(e.status).json({ error: e.message });
+      return;
+    }
+    console.error('[household-ledger PUT /wage-settings]', e);
+    res.status(500).json({ error: '임금 설정을 저장하지 못했습니다.' });
+  }
+});
 
 router.get('/categories', async (req, res) => {
   const user = requireTeamLeader(req, res);
