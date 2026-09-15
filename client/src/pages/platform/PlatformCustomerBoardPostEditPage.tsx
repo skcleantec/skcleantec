@@ -285,7 +285,7 @@ export function PlatformCustomerBoardPostEditPage() {
               onUploadImage={(file) => uploadPlatformCustomerBoardImage(activeSlug, file)}
               onUploadFile={(file) => uploadPlatformCustomerBoardFile(activeSlug, file)}
               onUploadError={setError}
-              placeholder="공지 본문을 입력하세요. 마크다운·HTML을 그대로 붙여넣어도 됩니다."
+              placeholder="공지 본문을 입력하세요. 완성본 HTML·마크다운을 붙여넣으면 틀과 색이 유지됩니다."
             />
           )}
         </div>

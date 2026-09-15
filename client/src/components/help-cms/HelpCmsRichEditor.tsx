@@ -10,11 +10,18 @@ import { TextAlign } from '@tiptap/extension-text-align';
 import { Underline } from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { HelpCmsDesignedArticle } from './HelpCmsDesignedArticleExtension';
 import { HelpCmsUiEmbed } from './HelpCmsUiEmbedExtension';
+import {
+  designedArticleHasLocalImages,
+  isPackagedDesignedArticleHtml,
+  serializeEditorHtmlWithDesigned,
+  tryPackageDesignedArticle,
+} from './helpCmsDesignedArticlePaste';
 import { structuredHtmlFromPlainPaste } from './helpCmsPasteHtml';
 
 /** HMR·코드 변경 후에도 확장이 빠진 구 에디터 인스턴스가 남지 않게 */
-const EDITOR_BUILD = 'help-cms-blog-v1';
+const EDITOR_BUILD = 'help-cms-blog-v2';
 
 const EDITOR_PROSE_CLASS =
   'min-h-[420px] rounded-b-xl border border-slate-200 border-t-0 bg-white px-4 py-4 text-fluid-sm leading-relaxed text-slate-900 focus:outline-none prose prose-slate max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-li:text-slate-700 prose-img:rounded-xl prose-img:shadow-sm prose-a:text-sky-700';
@@ -57,7 +64,14 @@ export function HelpCmsRichEditor({
   onChangeRef.current = onChange;
   const [uploading, setUploading] = useState(false);
   const [localError, setLocalError] = useState('');
-  const initialContentRef = useRef(value === '' ? '<p></p>' : value);
+  const [designedImageHint, setDesignedImageHint] = useState(false);
+  const initialContentRef = useRef(
+    isPackagedDesignedArticleHtml(value)
+      ? { type: 'doc', content: [{ type: 'designedArticle', attrs: { html: value } }] }
+      : value === ''
+        ? '<p></p>'
+        : value,
+  );
   const insertImageRef = useRef<(file: File) => Promise<void>>(async () => {});
   const insertPastedHtmlRef = useRef<(html: string) => void>(() => {});
 
@@ -72,6 +86,7 @@ export function HelpCmsRichEditor({
         }),
         Underline,
         HelpCmsUiEmbed,
+        HelpCmsDesignedArticle,
         Image.configure({
           HTMLAttributes: {
             class: 'help-cms-editor-image max-w-full rounded-lg my-3',
@@ -117,8 +132,14 @@ export function HelpCmsRichEditor({
             return true;
           }
           const clipHtml = event.clipboardData?.getData('text/html')?.trim() ?? '';
-          if (clipHtml) return false;
           const plain = event.clipboardData?.getData('text/plain') ?? '';
+          const designed = tryPackageDesignedArticle(clipHtml) ?? tryPackageDesignedArticle(plain);
+          if (designed) {
+            event.preventDefault();
+            insertPastedHtmlRef.current(designed);
+            return true;
+          }
+          if (clipHtml) return false;
           const structured = structuredHtmlFromPlainPaste(plain);
           if (!structured) return false;
           event.preventDefault();
@@ -137,7 +158,7 @@ export function HelpCmsRichEditor({
       content: initialContentRef.current,
       onUpdate: ({ editor: ed }) => {
         skipExternalSyncRef.current = true;
-        onChangeRef.current(ed.getHTML());
+        onChangeRef.current(serializeEditorHtmlWithDesigned(ed));
       },
     },
     [editorKey, EDITOR_BUILD, enterAsLineBreak],
@@ -150,8 +171,18 @@ export function HelpCmsRichEditor({
       return;
     }
     const incoming = value ?? '';
-    const current = editor.getHTML();
+    const current = serializeEditorHtmlWithDesigned(editor);
     if (incoming === current) return;
+    if (isPackagedDesignedArticleHtml(incoming)) {
+      editor.commands.setContent(
+        {
+          type: 'doc',
+          content: [{ type: 'designedArticle', attrs: { html: incoming } }],
+        },
+        { emitUpdate: false },
+      );
+      return;
+    }
     editor.commands.setContent(incoming === '' ? '<p></p>' : incoming, { emitUpdate: false });
   }, [value, editor]);
 
@@ -174,7 +205,7 @@ export function HelpCmsRichEditor({
           throw new Error('에디터에 사진을 넣지 못했습니다. 페이지를 새로고침(F5) 후 다시 시도해 주세요.');
         }
         skipExternalSyncRef.current = true;
-        onChangeRef.current(editor.getHTML());
+        onChangeRef.current(serializeEditorHtmlWithDesigned(editor));
       } catch (e) {
         const msg = e instanceof Error ? e.message : '이미지 업로드에 실패했습니다.';
         setLocalError(msg);
@@ -188,9 +219,21 @@ export function HelpCmsRichEditor({
   insertImageRef.current = insertImage;
   insertPastedHtmlRef.current = (html) => {
     if (!editor) return;
+    const packaged = tryPackageDesignedArticle(html) ?? (isPackagedDesignedArticleHtml(html) ? html : null);
+    if (packaged) {
+      editor.commands.setContent({
+        type: 'doc',
+        content: [{ type: 'designedArticle', attrs: { html: packaged } }],
+      });
+      skipExternalSyncRef.current = true;
+      onChangeRef.current(packaged);
+      setDesignedImageHint(designedArticleHasLocalImages(packaged));
+      return;
+    }
     editor.chain().focus().insertContent(html).run();
     skipExternalSyncRef.current = true;
-    onChangeRef.current(editor.getHTML());
+    onChangeRef.current(serializeEditorHtmlWithDesigned(editor));
+    setDesignedImageHint(false);
   };
 
   const insertAttachment = useCallback(
@@ -212,7 +255,7 @@ export function HelpCmsRichEditor({
           .insertContent(`<p><a href="${href}" target="_blank" rel="noopener">${label}</a></p>`)
           .run();
         skipExternalSyncRef.current = true;
-        onChangeRef.current(editor.getHTML());
+        onChangeRef.current(serializeEditorHtmlWithDesigned(editor));
       } catch (e) {
         const msg = e instanceof Error ? e.message : '첨부 업로드에 실패했습니다.';
         setLocalError(msg);
@@ -292,6 +335,11 @@ export function HelpCmsRichEditor({
         }
         .help-cms-rich-editor .ProseMirror p {
           margin: 0.2em 0;
+        }
+        .help-cms-rich-editor .cbiseo-designed-article-host {
+          outline: 1px dashed #cbd5e1;
+          border-radius: 12px;
+          padding: 4px;
         }
       `}</style>
       <div className="flex flex-wrap items-center gap-1 rounded-t-xl border-b border-slate-200 bg-white px-2 py-2">
@@ -457,8 +505,14 @@ export function HelpCmsRichEditor({
       </div>
       {enterAsLineBreak ? (
         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-fluid-2xs text-slate-500">
-          Enter는 한 줄 내림, Shift+Enter는 문단. 사진·첨부는 툴바 또는 끌어다 넣기.
-          마크다운(# 제목, 표, **굵게**)이나 HTML을 붙여넣으면 서식이 들어갑니다.
+          Enter는 한 줄 내림, Shift+Enter는 문단. 완성본 HTML(틀·색 포함)은 소스 전체 또는 브라우저에서
+          전체 선택 후 붙여넣으면 그대로 들어갑니다. 마크다운(# 제목, 표)도 됩니다.
+        </p>
+      ) : null}
+      {designedImageHint ? (
+        <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-fluid-2xs text-amber-800">
+          글 틀과 색은 들어갔습니다. 사진 경로는 이 PC 폴더를 가리켜서 깨질 수 있습니다. 사진은 툴바
+          「사진」으로 다시 올려 주세요.
         </p>
       ) : null}
       <EditorContent editor={editor} />
