@@ -236,10 +236,20 @@ router.post('/boards/:slug/upload', platformSuperAdminOnly, upload.single('file'
     const { secureUrl, publicId } = await uploadPlatformBoardImageBuffer(
       req.file.buffer,
       String(req.params.slug ?? 'general'),
+      { contentType: req.file.mimetype, fileName: req.file.originalname },
     );
-    res.json({ url: secureUrl, publicId });
+    res.json({
+      url: secureUrl,
+      publicId,
+      fileName: req.file.originalname || '첨부파일',
+      kind: req.file.mimetype.startsWith('image/') ? 'image' : 'file',
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '';
+    if (msg === 'FILE_TYPE') {
+      res.status(400).json({ error: '올릴 수 있는 파일 형식이 아닙니다.' });
+      return;
+    }
     if (msg === 'CLOUDINARY_NOT_CONFIGURED') {
       res.status(503).json({ error: '이미지 업로드가 일시적으로 불가합니다.' });
       return;

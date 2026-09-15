@@ -123,7 +123,10 @@ export async function createPlatformCustomerBoardCategory(
     `${API}/platform/customer-boards/boards/${encodeURIComponent(boardSlug)}/categories`,
     { method: 'POST', headers: headers(), body: JSON.stringify(body) },
   );
-  if (!res.ok) throw new Error('카테고리 추가에 실패했습니다.');
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? '카테고리 추가에 실패했습니다.');
+  }
   const data = (await res.json()) as { item: PlatformBoardCategory };
   return data.item;
 }
@@ -238,7 +241,10 @@ export async function deletePlatformCustomerBoardPost(id: string): Promise<void>
   if (!res.ok) throw new Error('삭제에 실패했습니다.');
 }
 
-export async function uploadPlatformCustomerBoardImage(boardSlug: string, file: File): Promise<string> {
+export async function uploadPlatformCustomerBoardFile(
+  boardSlug: string,
+  file: File,
+): Promise<{ url: string; fileName: string; kind: 'image' | 'file' }> {
   const token = getPlatformToken();
   const fd = new FormData();
   fd.append('file', file);
@@ -250,7 +256,19 @@ export async function uploadPlatformCustomerBoardImage(boardSlug: string, file: 
       body: fd,
     },
   );
-  if (!res.ok) throw new Error('이미지 업로드에 실패했습니다.');
-  const data = (await res.json()) as { url: string };
-  return data.url;
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? '파일 업로드에 실패했습니다.');
+  }
+  const data = (await res.json()) as { url: string; fileName?: string; kind?: 'image' | 'file' };
+  return {
+    url: data.url,
+    fileName: data.fileName || file.name,
+    kind: data.kind === 'file' ? 'file' : 'image',
+  };
+}
+
+export async function uploadPlatformCustomerBoardImage(boardSlug: string, file: File): Promise<string> {
+  const uploaded = await uploadPlatformCustomerBoardFile(boardSlug, file);
+  return uploaded.url;
 }

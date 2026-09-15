@@ -1,4 +1,4 @@
-import type { PlatformBoardPostStatus, PlatformBoardType } from '@prisma/client';
+import { Prisma, type PlatformBoardPostStatus, type PlatformBoardType } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   markdownWithImagesToHtml,
@@ -6,6 +6,7 @@ import {
   normalizeBoardSlug,
   parseBoardSettings,
   sanitizeBoardBodyHtml,
+  slugFromCategoryLabel,
   type PlatformBoardSettings,
 } from './platformBoard.helpers.js';
 
@@ -364,20 +365,30 @@ export async function createPlatformBoardCategory(
 ): Promise<PlatformBoardCategoryDto> {
   const board = await prisma.platformBoard.findUnique({ where: { slug: boardSlug } });
   if (!board) throw new Error('BOARD_NOT_FOUND');
-  const slug = normalizeBoardSlug(input.slug ?? input.label);
-  if (!slug) throw new Error('VALIDATION');
   const label = input.label.trim().slice(0, 128);
   if (!label) throw new Error('VALIDATION');
-  const row = await prisma.platformBoardCategory.create({
-    data: {
-      boardId: board.id,
-      slug,
-      label,
-      sortOrder: input.sortOrder ?? 0,
-    },
-    include: { _count: { select: { posts: true } } },
-  });
-  return toCategoryDto(row);
+  let slug = normalizeBoardSlug(input.slug) ?? slugFromCategoryLabel(label);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const row = await prisma.platformBoardCategory.create({
+        data: {
+          boardId: board.id,
+          slug,
+          label,
+          sortOrder: input.sortOrder ?? 0,
+        },
+        include: { _count: { select: { posts: true } } },
+      });
+      return toCategoryDto(row);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        slug = `${slugFromCategoryLabel(label)}-${Math.random().toString(36).slice(2, 6)}`;
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error('DUPLICATE_CATEGORY');
 }
 
 export async function updatePlatformBoardCategory(

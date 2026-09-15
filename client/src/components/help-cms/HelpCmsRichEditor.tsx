@@ -23,8 +23,12 @@ type Props = {
   onChange: (next: string) => void;
   editorKey: string;
   onUploadImage: (file: File) => Promise<string>;
+  onUploadFile?: (file: File) => Promise<{ url: string; fileName: string }>;
   onUploadError?: (message: string) => void;
   placeholder?: string;
+  /** 공지처럼 Enter=한 줄, Shift+Enter=문단 */
+  enterAsLineBreak?: boolean;
+  enableAttachments?: boolean;
 };
 
 /** 네이버 블로그형 WYSIWYG — 편집 화면 = 공개 /help HTML 본문 */
@@ -33,19 +37,27 @@ export function HelpCmsRichEditor({
   onChange,
   editorKey,
   onUploadImage,
+  onUploadFile,
   onUploadError,
   placeholder = '본문을 입력하세요. 굵게·표·사진은 툴바로 넣고, 화면에 보이는 그대로 도움말에 게시됩니다.',
+  enterAsLineBreak = false,
+  enableAttachments = false,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const attachRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef(onUploadImage);
+  const uploadFileRef = useRef(onUploadFile);
   const uploadErrorRef = useRef(onUploadError);
   const onChangeRef = useRef(onChange);
   const skipExternalSyncRef = useRef(false);
   uploadRef.current = onUploadImage;
+  uploadFileRef.current = onUploadFile;
   uploadErrorRef.current = onUploadError;
   onChangeRef.current = onChange;
   const [uploading, setUploading] = useState(false);
+  const [localError, setLocalError] = useState('');
   const initialContentRef = useRef(value === '' ? '<p></p>' : value);
+  const insertImageRef = useRef<(file: File) => Promise<void>>(async () => {});
 
   const editor = useEditor(
     {
@@ -78,6 +90,38 @@ export function HelpCmsRichEditor({
         attributes: {
           class: EDITOR_PROSE_CLASS,
         },
+        handleKeyDown: (_view, event) => {
+          if (!enterAsLineBreak) return false;
+          if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey) return false;
+          const ed = _view;
+          const { $from } = ed.state.selection;
+          for (let d = $from.depth; d > 0; d -= 1) {
+            const name = $from.node(d).type.name;
+            if (name === 'listItem' || name === 'codeBlock' || name === 'tableCell' || name === 'tableHeader') {
+              return false;
+            }
+          }
+          const hardBreak = ed.state.schema.nodes.hardBreak;
+          if (!hardBreak) return false;
+          ed.dispatch(ed.state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView());
+          return true;
+        },
+        handlePaste: (_view, event) => {
+          const files = Array.from(event.clipboardData?.files ?? []);
+          const image = files.find((f) => f.type.startsWith('image/'));
+          if (!image) return false;
+          event.preventDefault();
+          void insertImageRef.current(image);
+          return true;
+        },
+        handleDrop: (_view, event) => {
+          const files = Array.from(event.dataTransfer?.files ?? []);
+          const image = files.find((f) => f.type.startsWith('image/'));
+          if (!image) return false;
+          event.preventDefault();
+          void insertImageRef.current(image);
+          return true;
+        },
       },
       content: initialContentRef.current,
       onUpdate: ({ editor: ed }) => {
@@ -85,7 +129,7 @@ export function HelpCmsRichEditor({
         onChangeRef.current(ed.getHTML());
       },
     },
-    [editorKey, EDITOR_BUILD],
+    [editorKey, EDITOR_BUILD, enterAsLineBreak],
   );
 
   useEffect(() => {
@@ -103,22 +147,59 @@ export function HelpCmsRichEditor({
   const insertImage = useCallback(
     async (file: File) => {
       if (!editor) {
-        uploadErrorRef.current?.('에디터를 준비 중입니다. 잠시 후 다시 시도해 주세요.');
+        const msg = '에디터를 준비 중입니다. 잠시 후 다시 시도해 주세요.';
+        setLocalError(msg);
+        uploadErrorRef.current?.(msg);
         return;
       }
       if (uploading) return;
 
       setUploading(true);
+      setLocalError('');
       try {
         const url = await uploadRef.current(file);
-        const inserted = editor.chain().focus().setImage({ src: url, alt: '' }).run();
+        const inserted = editor.chain().focus().setImage({ src: url, alt: file.name || '' }).run();
         if (!inserted) {
           throw new Error('에디터에 사진을 넣지 못했습니다. 페이지를 새로고침(F5) 후 다시 시도해 주세요.');
         }
         skipExternalSyncRef.current = true;
         onChangeRef.current(editor.getHTML());
       } catch (e) {
-        uploadErrorRef.current?.(e instanceof Error ? e.message : '이미지 업로드에 실패했습니다.');
+        const msg = e instanceof Error ? e.message : '이미지 업로드에 실패했습니다.';
+        setLocalError(msg);
+        uploadErrorRef.current?.(msg);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [editor, uploading],
+  );
+  insertImageRef.current = insertImage;
+
+  const insertAttachment = useCallback(
+    async (file: File) => {
+      if (!editor || !uploadFileRef.current) return;
+      if (uploading) return;
+      setUploading(true);
+      setLocalError('');
+      try {
+        const uploaded = await uploadFileRef.current(file);
+        const label = (uploaded.fileName || file.name || '첨부파일')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        const href = uploaded.url.replace(/"/g, '');
+        editor
+          .chain()
+          .focus()
+          .insertContent(`<p><a href="${href}" target="_blank" rel="noopener">${label}</a></p>`)
+          .run();
+        skipExternalSyncRef.current = true;
+        onChangeRef.current(editor.getHTML());
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '첨부 업로드에 실패했습니다.';
+        setLocalError(msg);
+        uploadErrorRef.current?.(msg);
       } finally {
         setUploading(false);
       }
@@ -192,10 +273,20 @@ export function HelpCmsRichEditor({
           padding-left: 1rem;
           color: #334155;
         }
+        .help-cms-rich-editor .ProseMirror p {
+          margin: 0.2em 0;
+        }
       `}</style>
       <div className="flex flex-wrap items-center gap-1 rounded-t-xl border-b border-slate-200 bg-white px-2 py-2">
         <TbBtn title="굵게" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
           B
+        </TbBtn>
+        <TbBtn
+          title="기울임"
+          active={editor.isActive('italic')}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
+          I
         </TbBtn>
         <TbBtn
           title="밑줄"
@@ -203,6 +294,44 @@ export function HelpCmsRichEditor({
           onClick={() => editor.chain().focus().toggleUnderline().run()}
         >
           U
+        </TbBtn>
+        <TbBtn
+          title="왼쪽 정렬"
+          active={editor.isActive({ textAlign: 'left' })}
+          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+        >
+          좌
+        </TbBtn>
+        <TbBtn
+          title="가운데 정렬"
+          active={editor.isActive({ textAlign: 'center' })}
+          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+        >
+          중
+        </TbBtn>
+        <TbBtn
+          title="오른쪽 정렬"
+          active={editor.isActive({ textAlign: 'right' })}
+          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+        >
+          우
+        </TbBtn>
+        <TbBtn
+          title="링크"
+          active={editor.isActive('link')}
+          onClick={() => {
+            const prev = editor.getAttributes('link').href as string | undefined;
+            const next = window.prompt('링크 주소', prev || 'https://');
+            if (next == null) return;
+            const href = next.trim();
+            if (!href) {
+              editor.chain().focus().unsetLink().run();
+              return;
+            }
+            editor.chain().focus().setLink({ href }).run();
+          }}
+        >
+          링크
         </TbBtn>
         <TbBtn
           title="제목"
@@ -284,8 +413,38 @@ export function HelpCmsRichEditor({
             }}
           />
         </label>
+        {enableAttachments ? (
+          <label
+            title="파일 첨부"
+            className={`cursor-pointer rounded border px-2 py-1 text-fluid-xs ${
+              uploading
+                ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            첨부
+            <input
+              ref={attachRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.hwp,.zip,.txt,application/pdf"
+              className="sr-only"
+              disabled={uploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) void insertAttachment(file);
+              }}
+            />
+          </label>
+        ) : null}
       </div>
+      {enterAsLineBreak ? (
+        <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-fluid-2xs text-slate-500">
+          Enter는 한 줄 내림, Shift+Enter는 문단. 사진·첨부는 툴바 또는 끌어다 넣기.
+        </p>
+      ) : null}
       <EditorContent editor={editor} />
+      {localError ? <p className="px-3 py-2 text-fluid-2xs text-red-600">{localError}</p> : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ export type PlatformNavItem = {
 export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
   { label: '업체 관리', to: '/platform/tenants', icon: '🏢', children: [{ label: '유료 전환 신청', to: '/platform/plan-upgrade-requests' }, { label: '가입승인 게시판', to: '/platform/signup-inquiries' }] },
   { label: '추천인', to: '/platform/referrers', icon: '🤝' },
-  { label: '결제 관리', to: '/platform/billing', icon: '💳' },
+  { label: '결제 관리', to: '/platform/billing', icon: '💳', children: [{ label: '카드결제 PG', to: '/platform/card-payment' }] },
   { label: '가입 체험 이벤트', to: '/platform/signup-trial-events', icon: '🎁' },
   {
     label: '안내팝업',
@@ -17,7 +17,7 @@ export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
     children: [{ label: '미결재 팝업', to: '/platform/popups/unpaid' }, { label: '타업체·테넌트 홍보', to: '/platform/popups/partner-promo' }],
   },
   { label: '정보공유', to: '/platform/db-marketplace', icon: '🛒' },
-  { label: '고객센터', to: '/platform/customer-boards', icon: '💬', children: [{ label: '공지·문의', to: '/platform/customer-boards' }, { label: '카테고리', to: '/platform/customer-boards/categories?board=inquiry' }] },
+  { label: '고객센터', to: '/platform/customer-boards', icon: '💬', children: [{ label: '공지·문의', to: '/platform/customer-boards' }, { label: '카테고리', to: '/platform/customer-boards/categories?board=notice' }] },
   { label: '도움말 CMS', to: '/platform/help-cms', icon: '📚' },
   { label: '지원 접속', to: '/platform/support-access', icon: '🔑' },
   // { label: '플랜 설정', to: '/platform/plans', icon: '📋' },
@@ -34,7 +34,11 @@ export function isPlatformNavActive(pathname: string, to: string): boolean {
     );
   }
   if (to === '/platform/billing') {
-    return pathname === '/platform/billing' || pathname.startsWith('/platform/billing/');
+    return (
+      pathname === '/platform/billing' ||
+      pathname.startsWith('/platform/billing/') ||
+      pathname.startsWith('/platform/card-payment')
+    );
   }
   if (to === '/platform/signup-trial-events') {
     return (

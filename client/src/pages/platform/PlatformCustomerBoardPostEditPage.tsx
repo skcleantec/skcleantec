@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { HelpCmsRichEditor } from '../../components/help-cms/HelpCmsRichEditor';
 import {
+  createPlatformCustomerBoardCategory,
   createPlatformCustomerBoardPost,
   deletePlatformCustomerBoardPost,
   fetchPlatformCustomerBoardCategories,
   fetchPlatformCustomerBoardPost,
   updatePlatformCustomerBoardPost,
+  uploadPlatformCustomerBoardFile,
   uploadPlatformCustomerBoardImage,
   type PlatformBoardCategory,
   type PlatformBoardPost,
@@ -34,6 +36,8 @@ export function PlatformCustomerBoardPostEditPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [newCategoryLabel, setNewCategoryLabel] = useState('');
+  const [addingCategory, setAddingCategory] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -69,6 +73,23 @@ export function PlatformCustomerBoardPostEditPage() {
 
   const boardType = post?.boardType ?? (resolvedBoardSlug === 'inquiry' ? 'INQUIRY' : 'NOTICE');
   const activeSlug = post?.boardSlug ?? resolvedBoardSlug;
+
+  const addCategoryInline = async () => {
+    const label = newCategoryLabel.trim();
+    if (!label) return;
+    setAddingCategory(true);
+    setError('');
+    try {
+      const created = await createPlatformCustomerBoardCategory(activeSlug, { label });
+      setNewCategoryLabel('');
+      setCategories((prev) => [...prev, created]);
+      setCategoryId(created.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '카테고리 추가에 실패했습니다.');
+    } finally {
+      setAddingCategory(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -153,7 +174,7 @@ export function PlatformCustomerBoardPostEditPage() {
           </div>
         ) : null}
 
-        <label className="block space-y-1">
+        <div className="space-y-1">
           <span className="text-fluid-2xs font-medium text-slate-600">카테고리</span>
           <select
             value={categoryId}
@@ -161,13 +182,38 @@ export function PlatformCustomerBoardPostEditPage() {
             className={INPUT_BASE}
             disabled={boardType === 'INQUIRY' && !isNew}
           >
+            {categories.length === 0 ? <option value="">카테고리를 추가해 주세요</option> : null}
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
               </option>
             ))}
           </select>
-        </label>
+          {boardType === 'NOTICE' ? (
+            <div className="flex gap-2">
+              <input
+                value={newCategoryLabel}
+                onChange={(e) => setNewCategoryLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void addCategoryInline();
+                  }
+                }}
+                placeholder="새 카테고리 이름"
+                className={`${INPUT_BASE} flex-1`}
+              />
+              <button
+                type="button"
+                disabled={addingCategory || !newCategoryLabel.trim()}
+                onClick={() => void addCategoryInline()}
+                className={BTN_SECONDARY}
+              >
+                {addingCategory ? '추가 중…' : '추가'}
+              </button>
+            </div>
+          ) : null}
+        </div>
 
         <label className="block space-y-1">
           <span className="text-fluid-2xs font-medium text-slate-600">제목</span>
@@ -234,7 +280,12 @@ export function PlatformCustomerBoardPostEditPage() {
               editorKey={`platform-board-${id ?? 'new'}`}
               value={bodyHtml}
               onChange={setBodyHtml}
+              enterAsLineBreak
+              enableAttachments
               onUploadImage={(file) => uploadPlatformCustomerBoardImage(activeSlug, file)}
+              onUploadFile={(file) => uploadPlatformCustomerBoardFile(activeSlug, file)}
+              onUploadError={setError}
+              placeholder="공지 본문을 입력하세요. Enter는 한 줄, 사진은 툴바 또는 붙여넣기."
             />
           )}
         </div>

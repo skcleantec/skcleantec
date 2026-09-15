@@ -463,8 +463,9 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
               editorKey="help-inquiry-compose"
               value={bodyHtml}
               onChange={setBodyHtml}
+              enterAsLineBreak
               onUploadImage={(file) => uploadPublicCustomerBoardImage(boardSlug, file)}
-              placeholder="문의 내용을 입력하세요. 사진·링크를 넣을 수 있습니다."
+              placeholder="문의 내용을 입력하세요. Enter는 한 줄, 사진은 툴바 또는 붙여넣기."
             />
           </div>
           {submitMsg ? (
