@@ -65,6 +65,7 @@ import {
   OrderInfoPage,
   CsReportPage,
   ReviewPaybackPage,
+  PublicDepositConfirmPage,
   InspectionCustomerViewPage,
   AdminReviewPaybackPage,
   AdminCsPage,
@@ -445,6 +446,7 @@ function App() {
         <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
         <Route path="/contact" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
+        <Route path="/ops/deposit-confirm" element={<SuspensePage><PublicDepositConfirmPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route

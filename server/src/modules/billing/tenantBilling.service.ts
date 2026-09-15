@@ -874,14 +874,18 @@ export async function confirmPrepaidForTenant(tenantId: string) {
 
 export async function confirmInvoicePayment(
   invoiceId: string,
-  platformUserId: string,
+  platformUserId?: string | null,
+  tenantId?: string | null,
 ): Promise<InvoiceDto> {
-  const invoice = await prisma.tenantInvoice.findUnique({ where: { id: invoiceId } });
+  const invoice = tenantId
+    ? await prisma.tenantInvoice.findFirst({ where: { id: invoiceId, tenantId } })
+    : await prisma.tenantInvoice.findUnique({ where: { id: invoiceId } });
   if (!invoice) throw new Error('청구서를 찾을 수 없습니다.');
   if (invoice.status === 'PAID') throw new Error('이미 납부 확인된 청구서입니다.');
   if (invoice.status === 'VOID') throw new Error('무효 처리된 청구서입니다.');
 
   const now = new Date();
+  const confirmedBy = platformUserId?.trim() || null;
   const updated = await prisma.$transaction(async (tx) => {
     const inv = await tx.tenantInvoice.update({
       where: { id: invoiceId },
@@ -889,7 +893,7 @@ export async function confirmInvoicePayment(
         status: 'PAID',
         paidAt: now,
         confirmedAt: now,
-        confirmedByPlatformUserId: platformUserId,
+        confirmedByPlatformUserId: confirmedBy,
       },
     });
 
