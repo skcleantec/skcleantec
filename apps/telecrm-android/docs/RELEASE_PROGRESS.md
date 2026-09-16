@@ -7,18 +7,18 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-09-03)
+## 현재 상태 (최종 갱신: 2026-09-16)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 32 |
-| **최신 versionName** | `0.8.2-internal` |
+| **최신 versionCode** | 33 |
+| **최신 versionName** | `0.8.3-internal` |
 | **targetSdk** | **36** |
 | **Play 공개 테스트** | v30 AAB · API 36 |
-| **Play 내부 테스트** | **v32 AAB 업로드 필요** |
-| **Play 비공개 테스트** | **v32 승격 필요** |
-| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · API 36 |
-| **sideload (`/telecrm-app`)** | v32 APK · GitHub Release · Railway 변수 갱신 |
+| **Play 내부 테스트** | **v33 AAB 업로드 필요** |
+| **Play 비공개 테스트** | **v33 승격 필요** |
+| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · **v33 업로드 필요** |
+| **sideload (`/telecrm-app`)** | v33 APK · GitHub Release · Railway 변수 갱신 |
 
 ---
 
@@ -50,6 +50,22 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v33 · `0.8.3-internal` — 2026-09-16
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | **내부 테스트** 업로드용 AAB |
+| **AAB** | `apps/telecrm-android/dist/telecrm-play-0.8.3-internal-33.aab` |
+| **AAB SHA256** | `2bc79c81b35572bfeba95babb77e521ff869db327f2e4207c6763c492f73b112` |
+| **sideload APK** | `apps/telecrm-android/dist/telecrm-release-0.8.3-internal.apk` |
+| **APK SHA256** | `87bb4d12e24cd8e871cede3c6fb9ef8686cf605794c324990f6c4beeeacdd7ea` |
+| **Git** | 통화 종료 후 「고객조회중」 수신 화면 잔류 수정 + versionCode 33 |
+| **변경 요약** | 통화가 끝나면 수신·고객조회 화면을 닫음 |
+| **서버/CRM** | 매니페스트 fallback 33 |
+| **검증** | `bundlePlayRelease` · `assembleSideloadRelease` |
+| **Play 권장 조치** | v32와 동일(넓은 화면·R8 minify 끔 유지). minify를 새로 끄지 않음 |
+| **메모** | Release `telecrm-v0.8.3-internal` · Railway staging+production 변수 설정 |
 
 ### v32 · `0.8.2-internal` — 2026-09-03
 
