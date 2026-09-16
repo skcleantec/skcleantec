@@ -3,6 +3,7 @@ import {
   buildAssignmentPushPayload,
   type StaffAppPushPayload,
 } from '../../lib/staffAppPush.helpers.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyStaffInboxRefresh } from '../realtime/navBadgeNotify.js';
 
 /**
@@ -76,5 +77,6 @@ export async function notifyNewAssignmentForInquiry(
     });
   }
 
-  await notifyStaffInboxRefresh(tenantId, leaderIds, pushByUserId);
+  await notifyInboxRefresh(leaderIds, pushByUserId);
+  await notifyStaffInboxRefresh(tenantId, leaderIds);
 }
