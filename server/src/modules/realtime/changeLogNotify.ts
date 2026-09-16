@@ -9,6 +9,7 @@ import {
 } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { filterMarketerOnlyChangeLogLines } from '../inquiries/internalCustomerTone.js';
 import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
+import { notifyInboxRefresh } from './inboxNotify.js';
 import { notifyStaffInboxRefresh, notifyScheduleAlertToOfficeStaff } from './navBadgeNotify.js';
 
 export type ChangeLogWsPayload = {
@@ -78,10 +79,7 @@ async function notifyScheduleAlertToStaff(params: {
   if (params.inquiryId && (params.kind === 'date' || params.kind === 'cancel')) {
     void notifyScheduleAlertToOfficeStaff({
       tenantId: params.tenantId,
-      customerName: params.customerName,
-      inquiryId: params.inquiryId,
       kind: params.kind,
-      summary: wsPayload.summary,
       actorId: params.actorId,
     }).catch((e) => console.error('[schedule-alert-notify] office staff', e));
   }
@@ -91,7 +89,6 @@ async function notifyScheduleAlertToStaff(params: {
     const seen = new Set<string>();
     for (const id of params.affectedTeamLeaderIds) {
       if (!id || seen.has(id)) continue;
-      if (params.actorId && id === params.actorId) continue;
       seen.add(id);
       leaderIds.push(id);
     }
@@ -103,7 +100,6 @@ async function notifyScheduleAlertToStaff(params: {
     const seen = new Set<string>();
     for (const a of assigns) {
       if (!a.teamLeaderId || seen.has(a.teamLeaderId)) continue;
-      if (params.actorId && a.teamLeaderId === params.actorId) continue;
       seen.add(a.teamLeaderId);
       leaderIds.push(a.teamLeaderId);
     }
@@ -127,11 +123,11 @@ async function notifyScheduleAlertToStaff(params: {
     }
   }
 
-  await notifyStaffInboxRefresh(
-    params.tenantId,
-    leaderIds,
-    Object.keys(pushByUserId).length > 0 ? pushByUserId : undefined,
-  );
+  if (Object.keys(pushByUserId).length > 0) {
+    await notifyInboxRefresh(leaderIds, pushByUserId);
+  } else {
+    await notifyStaffInboxRefresh(params.tenantId, leaderIds);
+  }
 
   for (const id of leaderIds) {
     sendJsonToUser(id, wsPayload, params.tenantId);
@@ -212,7 +208,6 @@ export function notifyChangeLogToStaff(params: {
       });
       const pushByUserId: Record<string, StaffAppPushPayload> = {};
       for (const u of users) {
-        if (params.actorId && u.id === params.actorId) continue;
         pushByUserId[u.id] = buildInquiryChangePushPayload({
           customerName: params.customerName,
           inquiryId: params.inquiryId,
@@ -221,7 +216,7 @@ export function notifyChangeLogToStaff(params: {
         });
       }
       if (Object.keys(pushByUserId).length > 0) {
-        await notifyStaffInboxRefresh(params.tenantId, leaderIds, pushByUserId);
+        await notifyInboxRefresh(leaderIds, pushByUserId);
       }
     }
 

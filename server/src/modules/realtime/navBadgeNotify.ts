@@ -1,10 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import type { StaffAppPushPayload, CsPushVariant } from '../../lib/staffAppPush.helpers.js';
-import {
-  buildCsPushPayload,
-  buildOrderFormSubmitPushPayload,
-  buildScheduleAlertPushPayload,
-} from '../../lib/staffAppPush.helpers.js';
+import { buildCsPushPayload, buildOrderFormSubmitPushPayload } from '../../lib/staffAppPush.helpers.js';
 import { notifyInboxRefresh } from './inboxNotify.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { buildPushByUserIdForUsers } from '../notifications/staffAppPushDispatch.helpers.js';
@@ -45,16 +41,13 @@ export async function notifyOrderFormSubmitToStaff(params: {
       role,
     }),
   );
-  notifyInboxRefresh(targetIds, pushByUserId);
+  await notifyInboxRefresh(targetIds, pushByUserId);
 }
 
-/** 일정 변경·취소 — 테넌트 재직 마케터·ADMIN 전원 FCM (행위자 제외) */
+/** 일정 변경·취소 — 관리자·마케터는 웹 목록만 갱신. 휴대폰 FCM은 담당 팀장만. */
 export async function notifyScheduleAlertToOfficeStaff(params: {
   tenantId: string;
-  customerName: string;
-  inquiryId: string;
   kind: ScheduleAlertKind;
-  summary: string;
   actorId?: string | null;
 }): Promise<void> {
   if (params.kind !== 'date' && params.kind !== 'cancel') return;
@@ -62,17 +55,7 @@ export async function notifyScheduleAlertToOfficeStaff(params: {
   const staffIds = await getEmployedStaffUserIds(params.tenantId);
   const targetIds = staffIds.filter((id) => !params.actorId || id !== params.actorId);
   if (targetIds.length === 0) return;
-
-  const pushByUserId = await buildPushByUserIdForUsers(targetIds, (role) =>
-    buildScheduleAlertPushPayload({
-      customerName: params.customerName,
-      inquiryId: params.inquiryId,
-      kind: params.kind,
-      summary: params.summary,
-      role,
-    }),
-  );
-  notifyInboxRefresh(targetIds, pushByUserId);
+  await notifyInboxRefresh(targetIds);
 }
 
 /** 재직 중 ADMIN·MARKETER — 급여·지출 등 스태프 화면용 WS 알림 대상 (테넌트 한정) */
@@ -138,7 +121,7 @@ export async function notifyStaffInboxRefresh(
   const extra = [...(alsoNotifyUserIds ?? [])].filter((x): x is string => typeof x === 'string' && x.length > 0);
   const allIds = [...new Set([...staff, ...extra])];
   const push = await resolvePushByUserId(allIds, pushByUserId, csPush);
-  notifyInboxRefresh(allIds, push);
+  await notifyInboxRefresh(allIds, push);
 }
 
 /** C/S 신규·상태 변경 시 GNB 배지(관리자 미처리 건수·팀장 담당 건수) 갱신용. */
