@@ -1,8 +1,10 @@
 import { listHelpCmsArticlesForRss } from '../help-cms/helpCms.service.js';
+import { listIndexableNoticePostsForSeo } from '../platform-board/platformBoard.service.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 import {
   escapeXml,
   helpArticlePublicUrl,
+  helpNoticePublicUrl,
   plainTextFromHtml,
   toRfc822,
 } from './publicRss.helpers.js';
@@ -37,7 +39,10 @@ function buildRssItemXml(item: RssItem): string {
 export async function buildPublicRssXml(): Promise<string> {
   const baseUrl = getPublicAppBaseUrl();
   const feedUrl = `${baseUrl}/feed.xml`;
-  const articles = await listHelpCmsArticlesForRss(50);
+  const [articles, notices] = await Promise.all([
+    listHelpCmsArticlesForRss(50),
+    listIndexableNoticePostsForSeo(50),
+  ]);
 
   const items: RssItem[] = [
     {
@@ -49,6 +54,21 @@ export async function buildPublicRssXml(): Promise<string> {
       pubDate: new Date(),
       imageUrl: `${baseUrl}/icons/app-icon-512.png`,
     },
+    ...notices.map((row) => {
+      const link = helpNoticePublicUrl(baseUrl, row.id);
+      const pubDate = row.publishedAt ?? row.updatedAt;
+      const description =
+        row.excerpt?.trim() ||
+        plainTextFromHtml(row.bodyHtml, 500) ||
+        `${row.title} — 청소비서 공지`;
+      return {
+        title: row.title,
+        link,
+        guid: link,
+        description,
+        pubDate,
+      };
+    }),
     ...articles.map((row) => {
       const link = helpArticlePublicUrl(baseUrl, row.tabGroup, row.categorySlug, row.slug);
       const pubDate = row.publishedAt ?? row.updatedAt;

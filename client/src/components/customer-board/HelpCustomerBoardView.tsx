@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HelpCmsArticleBody } from '../help-cms/HelpCmsArticleBody';
 import { HelpCmsRichEditor } from '../help-cms/HelpCmsRichEditor';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
+import { usePublicSeoMeta } from '../../hooks/usePublicSeoMeta';
 import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
 import {
@@ -131,6 +132,17 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
   useEffect(() => {
     if (postIdFromUrl) openDetail(postIdFromUrl, accessEmail || undefined);
   }, [postIdFromUrl, openDetail, accessEmail]);
+
+  const noticeTitle = !isInquiry && detail?.title ? `${detail.title} | 청소비서` : '';
+  const noticeDesc =
+    !isInquiry && detail
+      ? (detail.excerpt?.trim() || detail.title || '청소비서 공지')
+      : '';
+  usePublicSeoMeta({
+    title: noticeTitle || (isInquiry ? '고객문의 | 청소비서' : '공지사항 | 청소비서'),
+    description: noticeDesc || (isInquiry ? '청소비서 고객문의' : '청소비서 서비스 공지와 업데이트 안내.'),
+    robots: isInquiry ? 'noindex,nofollow' : 'index,follow',
+  });
 
   const goList = () => {
     setView('list');
