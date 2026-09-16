@@ -11,14 +11,14 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 33 |
-| **최신 versionName** | `0.8.3-internal` |
+| **최신 versionCode** | 34 |
+| **최신 versionName** | `0.8.4-internal` |
 | **targetSdk** | **36** |
 | **Play 공개 테스트** | v30 AAB · API 36 |
-| **Play 내부 테스트** | **v33 AAB 업로드 필요** |
-| **Play 비공개 테스트** | **v33 승격 필요** |
-| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · **v33 업로드 필요** |
-| **sideload (`/telecrm-app`)** | v33 APK · GitHub Release · Railway 변수 갱신 |
+| **Play 내부 테스트** | **v34 AAB 업로드** (v33은 Play에 이미 사용됨) |
+| **Play 비공개 테스트** | **v34 승격 필요** |
+| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · **v34 업로드** |
+| **sideload (`/telecrm-app`)** | v34 APK · GitHub Release · Railway 변수 갱신 |
 
 ---
 
@@ -50,6 +50,21 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v34 · `0.8.4-internal` — 2026-09-16
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | **내부 테스트** 업로드용 AAB (33은 Play에 이미 사용됨) |
+| **AAB** | `apps/telecrm-android/dist/telecrm-play-0.8.4-internal-34.aab` |
+| **AAB SHA256** | `9a2c3fb81e6653197a87ef666a6ea959b5a44f231fa0d4038ce1e06d0cc06206` |
+| **sideload APK** | `apps/telecrm-android/dist/telecrm-release-0.8.4-internal.apk` |
+| **APK SHA256** | `a05a2610b9ca1af078698b9115ad4d99e30d0851351beeca08ec9e48ccee6835` |
+| **Git** | Play 33 충돌로 versionCode 34 재빌드 · 통화 종료 후 수신 화면 닫힘 유지 |
+| **변경 요약** | 통화가 끝나면 수신·고객조회 화면을 닫음 (Play용 34) |
+| **서버/CRM** | 매니페스트 fallback 34 |
+| **검증** | `bundlePlayRelease` · `assembleSideloadRelease` |
+| **메모** | Release `telecrm-v0.8.4-internal` · Railway staging+production 변수 설정 |
 
 ### v33 · `0.8.3-internal` — 2026-09-16
 
