@@ -20,9 +20,14 @@ import {
 } from './helpCmsDesignedArticlePaste';
 import { looksLikeFullHtmlDocumentSource, structuredHtmlFromPlainPaste } from './helpCmsPasteHtml';
 import { HelpCmsHtmlSourceInsert } from './HelpCmsHtmlSourceInsert';
+import {
+  collectEditorImageFiles,
+  dataTransferLooksLikeFiles,
+  injectUploadedImagesIntoDesignedHtml,
+} from './helpCmsEditorImageDrop';
 
 /** HMR·코드 변경 후에도 확장이 빠진 구 에디터 인스턴스가 남지 않게 */
-const EDITOR_BUILD = 'help-cms-blog-v4';
+const EDITOR_BUILD = 'help-cms-blog-v5';
 
 const EDITOR_PROSE_CLASS =
   'min-h-[420px] rounded-b-xl border border-slate-200 border-t-0 bg-white px-4 py-4 text-fluid-sm leading-relaxed text-slate-900 focus:outline-none prose prose-slate max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-li:text-slate-700 prose-img:rounded-xl prose-img:shadow-sm prose-a:text-sky-700';
@@ -67,6 +72,9 @@ export function HelpCmsRichEditor({
   const [localError, setLocalError] = useState('');
   const [designedImageHint, setDesignedImageHint] = useState(false);
   const [htmlSourceOpen, setHtmlSourceOpen] = useState(false);
+  const [fileDragOver, setFileDragOver] = useState(false);
+  const fileDragDepthRef = useRef(0);
+  const lastImageDropAtRef = useRef(0);
   const initialContentRef = useRef(
     isPackagedDesignedArticleHtml(value)
       ? { type: 'doc', content: [{ type: 'designedArticle', attrs: { html: value } }] }
@@ -75,7 +83,17 @@ export function HelpCmsRichEditor({
         : value,
   );
   const insertImageRef = useRef<(file: File) => Promise<void>>(async () => {});
+  const insertImagesRef = useRef<(files: File[]) => Promise<void>>(async () => {});
   const insertPastedHtmlRef = useRef<(html: string) => void>(() => {});
+
+  const takeImageDrop = (dt: DataTransfer | null | undefined): File[] => {
+    const files = collectEditorImageFiles(dt?.files);
+    if (!files.length) return [];
+    const now = Date.now();
+    if (now - lastImageDropAtRef.current < 400) return [];
+    lastImageDropAtRef.current = now;
+    return files;
+  };
 
   const editor = useEditor(
     {
@@ -125,12 +143,19 @@ export function HelpCmsRichEditor({
           ed.dispatch(ed.state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView());
           return true;
         },
-        handlePaste: (_view, event) => {
-          const files = Array.from(event.clipboardData?.files ?? []);
-          const image = files.find((f) => f.type.startsWith('image/'));
-          if (image) {
+        handleDOMEvents: {
+          dragover: (_view, event) => {
+            if (!dataTransferLooksLikeFiles(event.dataTransfer)) return false;
             event.preventDefault();
-            void insertImageRef.current(image);
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            return true;
+          },
+        },
+        handlePaste: (_view, event) => {
+          const images = collectEditorImageFiles(event.clipboardData?.files);
+          if (images.length) {
+            event.preventDefault();
+            void insertImagesRef.current(images);
             return true;
           }
           const clipHtml = event.clipboardData?.getData('text/html')?.trim() ?? '';
@@ -159,11 +184,11 @@ export function HelpCmsRichEditor({
           return true;
         },
         handleDrop: (_view, event) => {
-          const files = Array.from(event.dataTransfer?.files ?? []);
-          const image = files.find((f) => f.type.startsWith('image/'));
-          if (!image) return false;
+          const images = takeImageDrop(event.dataTransfer);
+          if (!images.length) return false;
           event.preventDefault();
-          void insertImageRef.current(image);
+          event.stopPropagation();
+          void insertImagesRef.current(images);
           return true;
         },
       },
@@ -198,26 +223,46 @@ export function HelpCmsRichEditor({
     editor.commands.setContent(incoming === '' ? '<p></p>' : incoming, { emitUpdate: false });
   }, [value, editor]);
 
-  const insertImage = useCallback(
-    async (file: File) => {
+  const insertImages = useCallback(
+    async (files: File[]) => {
+      const images = collectEditorImageFiles(files);
       if (!editor) {
         const msg = '에디터를 준비 중입니다. 잠시 후 다시 시도해 주세요.';
         setLocalError(msg);
         uploadErrorRef.current?.(msg);
         return;
       }
-      if (uploading) return;
+      if (!images.length || uploading) return;
 
       setUploading(true);
       setLocalError('');
       try {
-        const url = await uploadRef.current(file);
-        const inserted = editor.chain().focus().setImage({ src: url, alt: file.name || '' }).run();
-        if (!inserted) {
-          throw new Error('에디터에 사진을 넣지 못했습니다. 페이지를 새로고침(F5) 후 다시 시도해 주세요.');
+        const uploaded: { url: string; alt: string }[] = [];
+        for (const file of images) {
+          const url = await uploadRef.current(file);
+          uploaded.push({ url, alt: file.name || '' });
+        }
+        const current = serializeEditorHtmlWithDesigned(editor);
+        if (isPackagedDesignedArticleHtml(current)) {
+          const next = injectUploadedImagesIntoDesignedHtml(current, uploaded);
+          editor.commands.setContent({
+            type: 'doc',
+            content: [{ type: 'designedArticle', attrs: { html: next } }],
+          });
+          skipExternalSyncRef.current = true;
+          onChangeRef.current(next);
+          setDesignedImageHint(designedArticleHasLocalImages(next));
+          return;
+        }
+        for (const item of uploaded) {
+          const inserted = editor.chain().focus().setImage({ src: item.url, alt: item.alt }).run();
+          if (!inserted) {
+            throw new Error('에디터에 사진을 넣지 못했습니다. 페이지를 새로고침(F5) 후 다시 시도해 주세요.');
+          }
         }
         skipExternalSyncRef.current = true;
         onChangeRef.current(serializeEditorHtmlWithDesigned(editor));
+        setDesignedImageHint(false);
       } catch (e) {
         const msg = e instanceof Error ? e.message : '이미지 업로드에 실패했습니다.';
         setLocalError(msg);
@@ -228,7 +273,8 @@ export function HelpCmsRichEditor({
     },
     [editor, uploading],
   );
-  insertImageRef.current = insertImage;
+  insertImagesRef.current = insertImages;
+  insertImageRef.current = (file) => insertImages([file]);
   insertPastedHtmlRef.current = (html) => {
     if (!editor) return;
     const packaged =
@@ -315,7 +361,34 @@ export function HelpCmsRichEditor({
   if (!editor) return null;
 
   return (
-    <div className="help-cms-rich-editor rounded-xl border border-slate-200 bg-slate-50/80">
+    <div
+      className="help-cms-rich-editor relative rounded-xl border border-slate-200 bg-slate-50/80"
+      onDragEnter={(e) => {
+        if (!dataTransferLooksLikeFiles(e.dataTransfer)) return;
+        e.preventDefault();
+        fileDragDepthRef.current += 1;
+        setFileDragOver(true);
+      }}
+      onDragOver={(e) => {
+        if (!dataTransferLooksLikeFiles(e.dataTransfer)) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      }}
+      onDragLeave={(e) => {
+        if (!dataTransferLooksLikeFiles(e.dataTransfer)) return;
+        fileDragDepthRef.current = Math.max(0, fileDragDepthRef.current - 1);
+        if (fileDragDepthRef.current === 0) setFileDragOver(false);
+      }}
+      onDrop={(e) => {
+        fileDragDepthRef.current = 0;
+        setFileDragOver(false);
+        const images = takeImageDrop(e.dataTransfer);
+        if (!images.length) return;
+        e.preventDefault();
+        e.stopPropagation();
+        void insertImagesRef.current(images);
+      }}
+    >
       <style>{`
         .help-cms-rich-editor .ProseMirror img.help-cms-editor-image,
         .help-cms-rich-editor .ProseMirror img {
@@ -489,7 +562,7 @@ export function HelpCmsRichEditor({
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.target.value = '';
-              if (file) void insertImage(file);
+              if (file) void insertImages([file]);
             }}
           />
         </label>
@@ -533,10 +606,17 @@ export function HelpCmsRichEditor({
           setHtmlSourceOpen(false);
         }}
       />
+      {fileDragOver ? (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-slate-500 bg-slate-900/20">
+          <p className="rounded-lg bg-white px-3 py-2 text-fluid-xs font-medium text-slate-800 shadow-sm">
+            사진을 놓으면 바로 들어갑니다
+          </p>
+        </div>
+      ) : null}
       {enterAsLineBreak ? (
         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-fluid-2xs text-slate-500">
-          Enter는 한 줄 내림, Shift+Enter는 문단. HTML 소스는 툴바 「HTML」에 넣거나, 웹페이지·완성 코드를
-          붙여넣으면 표·칸·배경색이 유지됩니다.
+          Enter는 한 줄 내림, Shift+Enter는 문단. 사진은 창에 끌어다 놓거나 툴바 「사진」. HTML 소스는 툴바
+          「HTML」에 넣거나 붙여넣으면 표·칸·배경색이 유지됩니다.
         </p>
       ) : null}
       {designedImageHint ? (
