@@ -20,7 +20,15 @@ export const DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS = `
   font-weight: 700;
   text-align: center;
 }
-.${DESIGNED_ARTICLE_SCOPE_CLASS} img { max-width: 100%; height: auto; }
+.${DESIGNED_ARTICLE_SCOPE_CLASS} img,
+.${DESIGNED_ARTICLE_SCOPE_CLASS} figure img,
+.${DESIGNED_ARTICLE_SCOPE_CLASS} .frame img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
 `.trim();
 
 /**

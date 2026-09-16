@@ -76,7 +76,6 @@ import platformLegalRoutes from './modules/platform-legal/platformLegal.routes.j
 import platformPartnerPromoRoutes from './modules/platform-partner-promo/platformPartnerPromo.routes.js';
 import adminPlatformPromoRoutes from './modules/platform-partner-promo/adminPlatformPromo.routes.js';
 import platformLegalPublicRoutes from './modules/platform-legal/platformLegal.public.routes.js';
-import depositConfirmPublicRoutes from './modules/billing/tenantBilling.depositConfirm.public.routes.js';
 import platformHelpCmsRoutes from './modules/help-cms/platformHelpCms.routes.js';
 import publicHelpCmsRoutes from './modules/help-cms/publicHelpCms.routes.js';
 import platformBoardRoutes from './modules/platform-board/platformBoard.routes.js';
@@ -122,7 +121,7 @@ app.use((_req, res, next) => {
   res.setHeader('Permissions-Policy', 'local-network-access=(self)');
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: '8mb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/platform/auth', platformAuthRoutes);
@@ -243,7 +242,6 @@ app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
 app.use('/api/public/auth-signup', authSignupPublicRoutes);
 app.use('/api/public/signup-inquiries', platformSignupInquiryPublicRoutes);
 app.use('/api/public/password-reset', tenantPasswordResetPublicRoutes);
-app.use('/api/public/billing/deposit-confirm', depositConfirmPublicRoutes);
 mountCustomModuleRoutes(app);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙
@@ -469,6 +467,13 @@ if (clientDir) {
 /** sendFile·static·API 응답 중 클라이언트 선행 종료는 무시 — Express 기본 핸들러 stderr 노출 방지 */
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (isBenignClientAbortError(err)) return;
+  const payload = err as { type?: string; status?: number; statusCode?: number };
+  if (payload?.type === 'entity.too.large' || payload?.status === 413 || payload?.statusCode === 413) {
+    if (!res.headersSent) {
+      res.status(413).json({ error: '본문이 너무 큽니다. 사진은 파일로 올린 뒤 저장해 주세요.' });
+    }
+    return;
+  }
   console.error('[express]', err);
   if (res.headersSent) return;
   res.status(500).json({ error: 'internal_server_error' });

@@ -437,9 +437,14 @@ export function HelpCmsRichEditor({
         }
         .help-cms-rich-editor .cbiseo-designed-article-host img {
           cursor: pointer;
+          width: 100%;
+          max-width: 100%;
+          height: auto;
+          display: block;
+          object-fit: contain;
         }
       `}</style>
-      <div className="flex flex-wrap items-center gap-1 rounded-t-xl border-b border-slate-200 bg-white px-2 py-2">
+      <div className="sticky top-0 z-30 flex flex-wrap items-center gap-1 rounded-t-xl border-b border-slate-200 bg-white px-2 py-2 shadow-sm">
         <TbBtn title="굵게" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
           B
         </TbBtn>
