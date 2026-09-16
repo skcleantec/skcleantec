@@ -56,6 +56,12 @@ export const HelpCmsDesignedArticle = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(HelpCmsDesignedArticleNodeView);
+    return ReactNodeViewRenderer(HelpCmsDesignedArticleNodeView, {
+      ignoreMutation: () => true,
+      stopEvent: ({ event }) => {
+        const target = event.target;
+        return target instanceof Element && Boolean(target.closest('.cbiseo-notice-article'));
+      },
+    });
   },
 });
