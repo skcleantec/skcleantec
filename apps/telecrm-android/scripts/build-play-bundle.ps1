@@ -54,11 +54,23 @@ $out = Join-Path $dist "telecrm-play-$versionName-$versionCode.aab"
 Copy-Item $src $out -Force
 
 $hash = (Get-FileHash -Path $out -Algorithm SHA256).Hash.ToLowerInvariant()
+
+$mappingSrc = Join-Path (Get-TelecrmAndroidBuildDir) 'outputs\mapping\playRelease\mapping.txt'
+$mappingOut = $null
+if (Test-Path $mappingSrc) {
+    $mappingOut = Join-Path $dist "telecrm-play-$versionName-$versionCode-mapping.txt"
+    Copy-Item $mappingSrc $mappingOut -Force
+}
+
 Write-Host ''
 Write-Host 'Done.' -ForegroundColor Green
 Write-Host "  AAB: $out"
 Write-Host "  versionName: $versionName  versionCode: $versionCode"
 Write-Host "  SHA256: $hash"
+if ($mappingOut) {
+    Write-Host "  mapping: $mappingOut"
+}
 Write-Host ''
 Write-Host 'Upload: Play Console > Testing > Internal testing > Create new release'
+Write-Host 'Also upload mapping.txt (deobfuscation) with the AAB'
 Write-Host 'Guide: docs/GOOGLE_PLAY_TELECRM.md'

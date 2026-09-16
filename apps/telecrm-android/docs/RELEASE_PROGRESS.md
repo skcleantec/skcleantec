@@ -11,14 +11,15 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 34 |
-| **최신 versionName** | `0.8.4-internal` |
+| **최신 versionCode** | 35 |
+| **최신 versionName** | `0.8.5-internal` |
 | **targetSdk** | **36** |
 | **Play 공개 테스트** | v30 AAB · API 36 |
-| **Play 내부 테스트** | **v34 AAB 업로드** (v33은 Play에 이미 사용됨) |
-| **Play 비공개 테스트** | **v34 승격 필요** |
-| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · **v34 업로드** |
-| **sideload (`/telecrm-app`)** | v34 APK · GitHub Release · Railway 변수 갱신 |
+| **Play 내부 테스트** | **v35 AAB** (v34 Play 경고: 크기·매핑 없음 → R8 켜고 재빌드) |
+| **Play 비공개 테스트** | **v35 승격 필요** |
+| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · **v35 업로드** |
+| **sideload (`/telecrm-app`)** | v35 APK · GitHub Release · Railway 변수 갱신 |
+| **release 최적화** | `isMinifyEnabled` + `isShrinkResources` + R8 fullMode |
 
 ---
 
@@ -50,6 +51,23 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v35 · `0.8.5-internal` — 2026-09-16
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | **내부 테스트** — v34 권장 경고(크기·매핑 없음) 대응 |
+| **AAB** | `apps/telecrm-android/dist/telecrm-play-0.8.5-internal-35.aab` |
+| **AAB SHA256** | `627b942e531ca013df5ddfcd7fa3f7d57536a447795fb706738036cc816a8ae8` |
+| **mapping** | `apps/telecrm-android/dist/telecrm-play-0.8.5-internal-35-mapping.txt` — Play 「난독화 해제 파일」에 함께 업로드 |
+| **sideload APK** | `apps/telecrm-android/dist/telecrm-release-0.8.5-internal.apk` |
+| **APK SHA256** | `7a522572993ee75482c580a353152d52c2efb7189ee39e6a6e165f93c2e63f88` |
+| **Git** | release minify+R8 fullMode · Play v34 경고 해소 |
+| **변경 요약** | 앱 용량 줄임 · 크래시 분석용 매핑 파일 포함 |
+| **서버/CRM** | 매니페스트 fallback 35 |
+| **검증** | `bundlePlayRelease` · `assembleSideloadRelease` |
+| **Play 권장 조치** | v34 「다운로드 APK보다 큼」·「매핑 파일 없음」→ R8 minify/shrink 켜고 mapping 업로드 |
+| **메모** | v34는 난독화 없이 올라가서 경고. 35로 대체 업로드 |
 
 ### v34 · `0.8.4-internal` — 2026-09-16
 

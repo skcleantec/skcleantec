@@ -1,7 +1,7 @@
 /** 텔레CRM Android sideload 배포 매니페스트 — Railway Variables 단일 소스 */
 
-const TELECRM_APP_FALLBACK_VERSION_CODE = 34;
-const TELECRM_APP_FALLBACK_VERSION_NAME = '0.8.4-internal';
+const TELECRM_APP_FALLBACK_VERSION_CODE = 35;
+const TELECRM_APP_FALLBACK_VERSION_NAME = '0.8.5-internal';
 
 export type TelecrmAppManifest = {
   latestVersionCode: number;
