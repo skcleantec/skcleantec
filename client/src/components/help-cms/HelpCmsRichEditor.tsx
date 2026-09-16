@@ -27,7 +27,7 @@ import {
 } from './helpCmsEditorImageDrop';
 
 /** HMR·코드 변경 후에도 확장이 빠진 구 에디터 인스턴스가 남지 않게 */
-const EDITOR_BUILD = 'help-cms-blog-v5';
+const EDITOR_BUILD = 'help-cms-blog-v6';
 
 const EDITOR_PROSE_CLASS =
   'min-h-[420px] rounded-b-xl border border-slate-200 border-t-0 bg-white px-4 py-4 text-fluid-sm leading-relaxed text-slate-900 focus:outline-none prose prose-slate max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-li:text-slate-700 prose-img:rounded-xl prose-img:shadow-sm prose-a:text-sky-700';
@@ -616,7 +616,7 @@ export function HelpCmsRichEditor({
       {enterAsLineBreak ? (
         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-fluid-2xs text-slate-500">
           Enter는 한 줄 내림, Shift+Enter는 문단. 사진은 창에 끌어다 놓거나 툴바 「사진」. HTML 소스는 툴바
-          「HTML」에 넣거나 붙여넣으면 표·칸·배경색이 유지됩니다.
+          「HTML」에 넣으면 표·칸·버튼·목차 링크·FAQ 접기가 등록 후에도 유지됩니다.
         </p>
       ) : null}
       {designedImageHint ? (
