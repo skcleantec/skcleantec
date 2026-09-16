@@ -1,6 +1,7 @@
 import {
   DESIGNED_ARTICLE_FALLBACK_CSS,
   DESIGNED_ARTICLE_FONT_LINK,
+  DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS,
   DESIGNED_ARTICLE_SCOPE_CLASS,
 } from './helpCmsDesignedArticleCss';
 
@@ -100,15 +101,17 @@ export function looksLikeDesignedArticleHtml(raw: string): boolean {
   const t = String(raw ?? '').trim();
   if (!t) return false;
   if (t.includes(DESIGNED_ARTICLE_SCOPE_CLASS)) return true;
+  if (/<style[\s>]/i.test(t)) return true;
+  if (/<table[\s>]|<td[\s>]|<th[\s>]/i.test(t)) return true;
+  if (/background(-color)?\s*:/i.test(t)) return true;
+  if (/\bstyle\s*=\s*["'][^"']{8,}/i.test(t)) return true;
+  if (/<!DOCTYPE\s+html|<html[\s>]/i.test(t) && /<(div|section|table|h1|article)\b/i.test(t)) return true;
+  if ((t.match(/<div\b/gi) ?? []).length >= 2 && /(class|style)=/i.test(t)) return true;
   const hintHits = CLASS_HINTS.filter((h) => h !== DESIGNED_ARTICLE_SCOPE_CLASS && hasClassHint(t, h)).length;
   const hasLead = /class=["'][^"']*\blead\b/i.test(t);
   const hasCta = /class=["'][^"']*\bcta\b/i.test(t);
-  const hasStyle = /<style[\s>]/i.test(t);
-  const hasDoc = /<!DOCTYPE|<html[\s>]|<body[\s>]/i.test(t);
   if (hasLead && hasCta) return true;
-  if (hintHits >= 2) return true;
-  if (hasStyle && (hintHits >= 1 || hasLead || /class=["'][^"']*\b(tip|faq|cta)\b/i.test(t))) return true;
-  if (hasDoc && hasStyle && /class=/.test(t) && t.length > 800) return true;
+  if (hintHits >= 1) return true;
   return false;
 }
 
@@ -144,18 +147,24 @@ export function isPackagedDesignedArticleHtml(html: string): boolean {
 }
 
 /** 완성본 HTML → 공지에 저장할 한 덩어리 (style + 본문). 해당 없으면 null. */
-export function tryPackageDesignedArticle(raw: string): string | null {
+export function tryPackageDesignedArticle(raw: string, force = false): string | null {
   const text = String(raw ?? '').trim();
-  if (!text || !looksLikeDesignedArticleHtml(text)) return null;
+  if (!text) return null;
+  if (!force && !looksLikeDesignedArticleHtml(text)) return null;
 
   if (isPackagedDesignedArticleHtml(text) && /<style[\s>]/i.test(text)) {
     return text;
   }
 
   const styleSrc = extractStyleBlocks(text);
-  const scopedCss = styleSrc.trim()
-    ? scopeDesignedArticleCss(styleSrc)
-    : DESIGNED_ARTICLE_FALLBACK_CSS;
+  const scopedFromSource = styleSrc.trim() ? scopeDesignedArticleCss(styleSrc) : '';
+  const scopedCss = [
+    DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS,
+    scopedFromSource,
+    DESIGNED_ARTICLE_FALLBACK_CSS,
+  ]
+    .filter(Boolean)
+    .join('\n');
   let body = extractDesignedArticleBodyHtml(text);
   body = body.replace(/<style[\s\S]*?<\/style>/gi, '').trim();
   if (!body) return null;

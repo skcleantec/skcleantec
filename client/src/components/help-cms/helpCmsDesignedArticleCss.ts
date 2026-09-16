@@ -1,6 +1,28 @@
 /** 완성본 블로그 HTML을 공지·도움말에 넣을 때 — 페이지 전체가 리셋되지 않게 스코프 */
 export const DESIGNED_ARTICLE_SCOPE_CLASS = 'cbiseo-notice-article';
 
+/** 일반 HTML(표·칸) — 원본 CSS가 없어도 표·박스가 보이게 */
+export const DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS = `
+.${DESIGNED_ARTICLE_SCOPE_CLASS} table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: inherit;
+}
+.${DESIGNED_ARTICLE_SCOPE_CLASS} th,
+.${DESIGNED_ARTICLE_SCOPE_CLASS} td {
+  border: 1px solid #d0d7de;
+  padding: 8px 10px;
+  vertical-align: top;
+}
+.${DESIGNED_ARTICLE_SCOPE_CLASS} th {
+  background: #f6f8fa;
+  font-weight: 700;
+  text-align: center;
+}
+.${DESIGNED_ARTICLE_SCOPE_CLASS} img { max-width: 100%; height: auto; }
+`.trim();
+
 /**
  * 타나클린 청소비서 장점 글 등 — class="lead" / .cta 가 있는데 &lt;style&gt;이 빠진 경우(브라우저에서 복사).
  * 선택자는 모두 `.cbiseo-notice-article` 아래만.

@@ -1,6 +1,6 @@
 import { HelpUiEmbed } from '../help/ui/helpUiRegistry';
 import { isHelpUiTokenId } from '@shared/helpUiTokens';
-import { DESIGNED_ARTICLE_FALLBACK_CSS } from './helpCmsDesignedArticleCss';
+import { DESIGNED_ARTICLE_FALLBACK_CSS, DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS } from './helpCmsDesignedArticleCss';
 import { isPackagedDesignedArticleHtml } from './helpCmsDesignedArticlePaste';
 
 const UI_EMBED_RE = /<(?:div|span)[^>]*\sdata-help-ui="([^"]+)"[^>]*>\s*<\/(?:div|span)>/gi;
@@ -39,6 +39,7 @@ export function HelpCmsArticleBody({ html }: { html: string }) {
   return (
     <>
       <style>{`
+        ${DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS}
         ${DESIGNED_ARTICLE_FALLBACK_CSS}
         .help-cms-article-body table.help-cms-md-table,
         .help-cms-article-body table {

@@ -18,10 +18,11 @@ import {
   serializeEditorHtmlWithDesigned,
   tryPackageDesignedArticle,
 } from './helpCmsDesignedArticlePaste';
-import { structuredHtmlFromPlainPaste } from './helpCmsPasteHtml';
+import { looksLikeFullHtmlDocumentSource, structuredHtmlFromPlainPaste } from './helpCmsPasteHtml';
+import { HelpCmsHtmlSourceInsert } from './HelpCmsHtmlSourceInsert';
 
 /** HMR·코드 변경 후에도 확장이 빠진 구 에디터 인스턴스가 남지 않게 */
-const EDITOR_BUILD = 'help-cms-blog-v2';
+const EDITOR_BUILD = 'help-cms-blog-v4';
 
 const EDITOR_PROSE_CLASS =
   'min-h-[420px] rounded-b-xl border border-slate-200 border-t-0 bg-white px-4 py-4 text-fluid-sm leading-relaxed text-slate-900 focus:outline-none prose prose-slate max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-li:text-slate-700 prose-img:rounded-xl prose-img:shadow-sm prose-a:text-sky-700';
@@ -65,6 +66,7 @@ export function HelpCmsRichEditor({
   const [uploading, setUploading] = useState(false);
   const [localError, setLocalError] = useState('');
   const [designedImageHint, setDesignedImageHint] = useState(false);
+  const [htmlSourceOpen, setHtmlSourceOpen] = useState(false);
   const initialContentRef = useRef(
     isPackagedDesignedArticleHtml(value)
       ? { type: 'doc', content: [{ type: 'designedArticle', attrs: { html: value } }] }
@@ -133,10 +135,20 @@ export function HelpCmsRichEditor({
           }
           const clipHtml = event.clipboardData?.getData('text/html')?.trim() ?? '';
           const plain = event.clipboardData?.getData('text/plain') ?? '';
+          if (looksLikeFullHtmlDocumentSource(plain)) {
+            event.preventDefault();
+            insertPastedHtmlRef.current(plain);
+            return true;
+          }
           const designed = tryPackageDesignedArticle(clipHtml) ?? tryPackageDesignedArticle(plain);
           if (designed) {
             event.preventDefault();
             insertPastedHtmlRef.current(designed);
+            return true;
+          }
+          if (clipHtml && /<(table|td|th|style|div)[\s>]/i.test(clipHtml)) {
+            event.preventDefault();
+            insertPastedHtmlRef.current(clipHtml);
             return true;
           }
           if (clipHtml) return false;
@@ -219,7 +231,10 @@ export function HelpCmsRichEditor({
   insertImageRef.current = insertImage;
   insertPastedHtmlRef.current = (html) => {
     if (!editor) return;
-    const packaged = tryPackageDesignedArticle(html) ?? (isPackagedDesignedArticleHtml(html) ? html : null);
+    const packaged =
+      tryPackageDesignedArticle(html) ??
+      (isPackagedDesignedArticleHtml(html) ? html : null) ??
+      (/<[a-z][\s\S]*>/i.test(html) ? tryPackageDesignedArticle(html, true) : null);
     if (packaged) {
       editor.commands.setContent({
         type: 'doc',
@@ -502,11 +517,26 @@ export function HelpCmsRichEditor({
             />
           </label>
         ) : null}
+        <TbBtn
+          title="HTML 본문 넣기 — 표·칸·배경색 유지"
+          onClick={() => setHtmlSourceOpen((v) => !v)}
+          active={htmlSourceOpen}
+        >
+          HTML
+        </TbBtn>
       </div>
+      <HelpCmsHtmlSourceInsert
+        open={htmlSourceOpen}
+        onClose={() => setHtmlSourceOpen(false)}
+        onInsert={(html) => {
+          insertPastedHtmlRef.current(html);
+          setHtmlSourceOpen(false);
+        }}
+      />
       {enterAsLineBreak ? (
         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-fluid-2xs text-slate-500">
-          Enter는 한 줄 내림, Shift+Enter는 문단. 완성본 HTML(틀·색 포함)은 소스 전체 또는 브라우저에서
-          전체 선택 후 붙여넣으면 그대로 들어갑니다. 마크다운(# 제목, 표)도 됩니다.
+          Enter는 한 줄 내림, Shift+Enter는 문단. HTML 소스는 툴바 「HTML」에 넣거나, 웹페이지·완성 코드를
+          붙여넣으면 표·칸·배경색이 유지됩니다.
         </p>
       ) : null}
       {designedImageHint ? (
