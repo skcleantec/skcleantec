@@ -382,6 +382,40 @@ export type HelpCmsRssArticle = {
   tabGroup: string;
 };
 
+export type HelpCmsSitemapArticle = {
+  slug: string;
+  updatedAt: Date;
+  publishedAt: Date | null;
+  categorySlug: string;
+  tabGroup: string;
+};
+
+/** 공개 사이트맵 — 본문 없이 URL만 */
+export async function listHelpCmsArticlesForSitemap(limit = 500): Promise<HelpCmsSitemapArticle[]> {
+  const take = Math.min(5000, Math.max(1, limit));
+  const rows = await prisma.helpCmsArticle.findMany({
+    where: {
+      isPublished: true,
+      category: { isPublished: true },
+    },
+    orderBy: [{ updatedAt: 'desc' }],
+    take,
+    select: {
+      slug: true,
+      updatedAt: true,
+      publishedAt: true,
+      category: { select: { slug: true, tabGroup: true } },
+    },
+  });
+  return rows.map((row) => ({
+    slug: row.slug,
+    updatedAt: row.updatedAt,
+    publishedAt: row.publishedAt,
+    categorySlug: row.category.slug,
+    tabGroup: row.category.tabGroup,
+  }));
+}
+
 /** 공개 RSS — 최신 게시글 (플랫폼 전역, 카테고리·글 모두 published) */
 export async function listHelpCmsArticlesForRss(limit = 50): Promise<HelpCmsRssArticle[]> {
   const take = Math.min(100, Math.max(1, limit));

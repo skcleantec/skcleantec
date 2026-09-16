@@ -706,6 +706,70 @@ export async function createPublicInquiryPost(input: {
   return toPostDto(row);
 }
 
+export type PlatformBoardSeoPost = {
+  id: string;
+  title: string;
+  excerpt: string | null;
+  bodyHtml: string;
+  publishedAt: Date | null;
+  updatedAt: Date;
+};
+
+const NOTICE_BOARD_SLUG = 'notice';
+
+/** 검색 노출용 공개 공지 — 비밀글·숨김·조회수 증가 없음 */
+export async function listIndexableNoticePostsForSeo(limit = 200): Promise<PlatformBoardSeoPost[]> {
+  const board = await prisma.platformBoard.findFirst({
+    where: { slug: NOTICE_BOARD_SLUG, isPublished: true },
+  });
+  if (!board) return [];
+  const take = Math.min(5000, Math.max(1, limit));
+  return prisma.platformBoardPost.findMany({
+    where: {
+      boardId: board.id,
+      isPublished: true,
+      isSecret: false,
+      status: { not: 'HIDDEN' },
+    },
+    orderBy: [{ publishedAt: 'desc' }, { updatedAt: 'desc' }],
+    take,
+    select: {
+      id: true,
+      title: true,
+      excerpt: true,
+      bodyHtml: true,
+      publishedAt: true,
+      updatedAt: true,
+    },
+  });
+}
+
+export async function getIndexableNoticePostForSeo(postId: string): Promise<PlatformBoardSeoPost | null> {
+  const id = postId.trim();
+  if (!id) return null;
+  const board = await prisma.platformBoard.findFirst({
+    where: { slug: NOTICE_BOARD_SLUG, isPublished: true },
+  });
+  if (!board) return null;
+  return prisma.platformBoardPost.findFirst({
+    where: {
+      id,
+      boardId: board.id,
+      isPublished: true,
+      isSecret: false,
+      status: { not: 'HIDDEN' },
+    },
+    select: {
+      id: true,
+      title: true,
+      excerpt: true,
+      bodyHtml: true,
+      publishedAt: true,
+      updatedAt: true,
+    },
+  });
+}
+
 export async function getPublicBoardSettings(boardSlug: string): Promise<{
   slug: string;
   label: string;

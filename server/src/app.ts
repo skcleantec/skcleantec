@@ -81,6 +81,8 @@ import publicHelpCmsRoutes from './modules/help-cms/publicHelpCms.routes.js';
 import platformBoardRoutes from './modules/platform-board/platformBoard.routes.js';
 import publicPlatformBoardRoutes from './modules/platform-board/publicPlatformBoard.routes.js';
 import publicRssRoutes from './modules/public-seo/publicRss.routes.js';
+import publicSitemapRoutes from './modules/public-seo/publicSitemap.routes.js';
+import { applyHelpPublicSeoHtml } from './modules/public-seo/publicHelpIndexHtml.js';
 import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.routes.js';
 import authSignupPublicRoutes from './modules/auth-signup/authSignup.public.routes.js';
 import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.public.routes.js';
@@ -237,6 +239,7 @@ app.use('/api/help/inquiry', helpInquiryPublicRoutes);
 app.use('/api/public/help-cms', publicHelpCmsRoutes);
 app.use('/api/public/customer-boards', publicPlatformBoardRoutes);
 app.use(publicRssRoutes);
+app.use(publicSitemapRoutes);
 app.use('/api/public/legal', platformLegalPublicRoutes);
 app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
 app.use('/api/public/auth-signup', authSignupPublicRoutes);
@@ -420,6 +423,29 @@ if (clientDir) {
       if (err && !isBenignClientAbortError(err)) next(err);
     });
   });
+
+  const sendHelpSpa = async (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const indexPath = path.join(clientDir, 'index.html');
+    try {
+      const raw = await fs.promises.readFile(indexPath, 'utf8');
+      const html = await applyHelpPublicSeoHtml(raw, req.query);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      if (req.method === 'HEAD') {
+        res.status(200).end();
+        return;
+      }
+      res.type('html').send(html);
+    } catch (err) {
+      if (!isBenignClientAbortError(err)) next(err);
+    }
+  };
+  app.get('/help', sendHelpSpa);
+  app.get('/help/', sendHelpSpa);
 
   app.use(
     express.static(clientDir, {

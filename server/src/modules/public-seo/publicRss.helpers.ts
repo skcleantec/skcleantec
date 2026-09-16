@@ -35,3 +35,16 @@ export function helpArticlePublicUrl(
   });
   return `${baseUrl}/help?${q.toString()}`;
 }
+
+/** 공개 공지 상세 — /help 고객센터 공지 탭 */
+export function helpNoticePublicUrl(baseUrl: string, postId: string): string {
+  const q = new URLSearchParams({
+    category: 'notice',
+    post: postId,
+  });
+  return `${baseUrl}/help?${q.toString()}`;
+}
+
+export function toSitemapLastmod(date: Date): string {
+  return date.toISOString();
+}

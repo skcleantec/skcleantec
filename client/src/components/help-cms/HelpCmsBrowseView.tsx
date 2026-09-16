@@ -7,6 +7,7 @@ import {
 import type { HelpCmsArticle, HelpCmsArticleListItem, HelpCmsCategory } from '../../api/platformHelpCms';
 import { HelpCmsArticleCard, HelpCmsArticleReadLayout } from './HelpCmsArticleReadLayout';
 import { HelpCmsArticlePublicView } from './HelpCmsArticlePublicView';
+import { usePublicSeoMeta } from '../../hooks/usePublicSeoMeta';
 
 type Props = {
   tabGroup: 'usage' | 'notice';
@@ -94,6 +95,15 @@ export function HelpCmsBrowseView({
       cancelled = true;
     };
   }, [articleSlug]);
+
+  usePublicSeoMeta({
+    title: article?.title ? `${article.title} | 청소비서` : '사용법 | 청소비서',
+    description:
+      article?.excerpt?.trim() ||
+      article?.title ||
+      '청소비서 사용법 — 접수·배정·정산을 화면 그대로 안내합니다.',
+    robots: 'index,follow',
+  });
 
   const activeCategory = categories.find((c) => c.slug === sectionSlug) ?? null;
 
