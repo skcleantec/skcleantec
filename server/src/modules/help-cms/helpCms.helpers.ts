@@ -46,7 +46,7 @@ export function parseHelpCmsTabGroup(raw: unknown): string | null {
 
 export function stripDangerousHtml(html: string): string {
   return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<script\b(?![^>]*type=["']application\/ld\+json["'])[\s\S]*?<\/script>/gi, '')
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/javascript:/gi, '');
 }

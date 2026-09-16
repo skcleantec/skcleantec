@@ -28,6 +28,23 @@ function findMatchingBrace(css: string, openIndex: number): number {
   return css.length - 1;
 }
 
+/** :root 변수·* 리셋이 공지 칸 안에서만 먹고, 버튼·링크 색이 살아 있게 */
+export function scopeSelectorList(sel: string, scope: string): string {
+  return sel
+    .split(',')
+    .map((part) => {
+      const s = part.trim();
+      if (!s) return s;
+      if (s.startsWith(scope)) return s;
+      if (s === ':root' || s === 'html' || s === 'body' || s === ':host') return scope;
+      if (s === '*') return `${scope}, ${scope} *`;
+      if (/^:root\b/.test(s)) return s.replace(/^:root\b/, scope);
+      if (/^(html|body)\b/.test(s)) return s.replace(/^(html|body)\b/, scope);
+      return `${scope} ${s}`;
+    })
+    .join(', ');
+}
+
 /** 붙여넣은 &lt;style&gt;의 * / body 리셋이 관리 화면을 깨지 않게 */
 export function scopeDesignedArticleCss(css: string, scope = `.${DESIGNED_ARTICLE_SCOPE_CLASS}`): string {
   let out = '';
@@ -75,17 +92,7 @@ export function scopeDesignedArticleCss(css: string, scope = `.${DESIGNED_ARTICL
     const end = findMatchingBrace(src, brace);
     const body = src.slice(brace + 1, end);
     if (sel) {
-      const scoped = sel
-        .split(',')
-        .map((part) => {
-          const s = part.trim();
-          if (!s) return s;
-          if (s === '*' || s === 'html' || s === 'body') return scope;
-          if (s.startsWith(scope)) return s;
-          return `${scope} ${s}`;
-        })
-        .join(', ');
-      out += `${scoped}{${body}}`;
+      out += `${scopeSelectorList(sel, scope)}{${body}}`;
     }
     i = end + 1;
   }
@@ -138,6 +145,30 @@ function extractStyleBlocks(raw: string): string {
   return blocks.join('\n');
 }
 
+function extractStylesheetLinks(raw: string): string[] {
+  const links: string[] = [];
+  const re = /<link\b[^>]*rel=["']stylesheet["'][^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    if (m[0] && !links.includes(m[0])) links.push(m[0]);
+  }
+  return links;
+}
+
+function extractJsonLdScripts(raw: string): string[] {
+  const blocks: string[] = [];
+  const re = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    if (m[0]) blocks.push(m[0]);
+  }
+  return blocks;
+}
+
+function hasOwnDesignedCss(css: string): boolean {
+  return /:root\b|\.wrap\b|\.hero\b|\.toc\b|\.kakao-zone\b/.test(css);
+}
+
 export function designedArticleHasLocalImages(html: string): boolean {
   return /<img\b[^>]*\bsrc=["'](?!https?:|data:|blob:)[^"']+/i.test(html);
 }
@@ -153,29 +184,43 @@ export function tryPackageDesignedArticle(raw: string, force = false): string | 
   if (!force && !looksLikeDesignedArticleHtml(text)) return null;
 
   if (isPackagedDesignedArticleHtml(text) && /<style[\s>]/i.test(text)) {
-    return text;
+    return text.replace(
+      new RegExp(`\\.${DESIGNED_ARTICLE_SCOPE_CLASS} :root\\b`, 'g'),
+      `.${DESIGNED_ARTICLE_SCOPE_CLASS}`,
+    );
   }
 
   const styleSrc = extractStyleBlocks(text);
   const scopedFromSource = styleSrc.trim() ? scopeDesignedArticleCss(styleSrc) : '';
-  const scopedCss = [
-    DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS,
-    scopedFromSource,
-    DESIGNED_ARTICLE_FALLBACK_CSS,
-  ]
+  const ownCss = hasOwnDesignedCss(styleSrc);
+  const scopedCss = (
+    ownCss
+      ? [scopedFromSource]
+      : [DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS, scopedFromSource, DESIGNED_ARTICLE_FALLBACK_CSS]
+  )
     .filter(Boolean)
     .join('\n');
   let body = extractDesignedArticleBodyHtml(text);
-  body = body.replace(/<style[\s\S]*?<\/style>/gi, '').trim();
+  body = body.replace(/<style[\s\S]*?<\/style>/gi, '');
+  body = body.replace(/<script\b(?![^>]*type=["']application\/ld\+json["'])[\s\S]*?<\/script>/gi, '');
+  body = body.trim();
   if (!body) return null;
 
+  const links = extractStylesheetLinks(text);
+  const jsonLd = extractJsonLdScripts(text);
+  const fontAlready = [...links, DESIGNED_ARTICLE_FONT_LINK].some((l) => /pretendard/i.test(l));
+
   return [
-    DESIGNED_ARTICLE_FONT_LINK,
-    `<style>${scopedCss}</style>`,
+    fontAlready ? '' : DESIGNED_ARTICLE_FONT_LINK,
+    ...links,
+    scopedCss ? `<style>${scopedCss}</style>` : '',
+    ...jsonLd,
     `<div class="${DESIGNED_ARTICLE_SCOPE_CLASS}">`,
     body,
     '</div>',
-  ].join('');
+  ]
+    .filter(Boolean)
+    .join('');
 }
 
 type EditorLike = {

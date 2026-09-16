@@ -1,5 +1,6 @@
 import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
+import { HelpCmsDesignedArticleView } from './HelpCmsDesignedArticleView';
 
 export function HelpCmsDesignedArticleNodeView({ node }: NodeViewProps) {
   const html = String(node.attrs.html ?? '');
@@ -10,7 +11,7 @@ export function HelpCmsDesignedArticleNodeView({ node }: NodeViewProps) {
       data-designed-article="1"
       contentEditable={false}
     >
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <HelpCmsDesignedArticleView html={html} />
     </NodeViewWrapper>
   );
 }
