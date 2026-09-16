@@ -26,7 +26,7 @@ class IncomingCallActivity : AppCompatActivity() {
     private var phoneDigits: String = ""
     private var handled = false
 
-    private val sessionListener = { refreshCustomerUi(IncomingCallSession.lookup()) }
+    private val sessionListener = { applySessionOrFinish() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +36,10 @@ class IncomingCallActivity : AppCompatActivity() {
 
         phoneDigits = intent.getStringExtra(EXTRA_PHONE).orEmpty().filter { it.isDigit() }
         if (phoneDigits.length < 4) {
+            finish()
+            return
+        }
+        if (!IncomingCallSession.isIncomingUiActive() || IncomingCallSession.phone() != phoneDigits) {
             finish()
             return
         }
@@ -49,12 +53,34 @@ class IncomingCallActivity : AppCompatActivity() {
         binding.incomingCallDetailButton.setOnClickListener { openDetail() }
 
         IncomingCallSession.addListener(sessionListener)
-        refreshCustomerUi(IncomingCallSession.lookup())
+        applySessionOrFinish()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        phoneDigits = intent.getStringExtra(EXTRA_PHONE).orEmpty().filter { it.isDigit() }
+        applySessionOrFinish()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applySessionOrFinish()
     }
 
     override fun onDestroy() {
         IncomingCallSession.removeListener(sessionListener)
         super.onDestroy()
+    }
+
+    private fun applySessionOrFinish() {
+        if (isFinishing) return
+        val sessionPhone = IncomingCallSession.phone()
+        if (!IncomingCallSession.isIncomingUiActive() || sessionPhone != phoneDigits) {
+            finish()
+            return
+        }
+        refreshCustomerUi(IncomingCallSession.lookup())
     }
 
     private fun refreshCustomerUi(lookup: JSONObject?) {
