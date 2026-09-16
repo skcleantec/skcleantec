@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { DESIGNED_ARTICLE_SCOPE_CLASS } from './helpCmsDesignedArticleCss';
+import { attachDesignedImageResize } from './helpCmsEditorImageResize';
 
 type Props = {
   html: string;
@@ -13,6 +14,8 @@ function serializeDesignedRoot(root: HTMLElement): string {
   const clone = root.cloneNode(true) as HTMLElement;
   clone.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
   clone.querySelectorAll('[data-editor-img]').forEach((el) => el.removeAttribute('data-editor-img'));
+  clone.querySelectorAll('[data-img-resize-ui]').forEach((el) => el.remove());
+  clone.querySelectorAll('.cbiseo-img-selected').forEach((el) => el.classList.remove('cbiseo-img-selected'));
   return clone.innerHTML;
 }
 
@@ -95,7 +98,7 @@ export function HelpCmsDesignedArticleView({
       }
       if (editable) {
         img.setAttribute('data-editor-img', '1');
-        img.title = '클릭하면 사진을 바꿉니다';
+        img.title = '클릭한 뒤 모서리를 끌어 크기를 바꿉니다. 더블클릭하면 사진을 바꿉니다.';
       }
     });
 
@@ -124,18 +127,6 @@ export function HelpCmsDesignedArticleView({
     const onClick = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-
-      if (editable) {
-        const img = target.closest('img');
-        if (img instanceof HTMLImageElement) {
-          event.preventDefault();
-          event.stopPropagation();
-          void pickImageFile().then((file) => {
-            if (file) void applyImageFile(img, file);
-          });
-          return;
-        }
-      }
 
       const anchor = target.closest('a');
       if (!anchor) return;
@@ -206,7 +197,33 @@ export function HelpCmsDesignedArticleView({
       void applyImageFile(img, file);
     };
 
+    const onDblClick = (event: MouseEvent) => {
+      if (!editable) return;
+      const img = event.target instanceof Element ? event.target.closest('img') : null;
+      if (!(img instanceof HTMLImageElement)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void pickImageFile().then((file) => {
+        if (file) void applyImageFile(img, file);
+      });
+    };
+
+    const resize =
+      editable
+        ? attachDesignedImageResize(root, {
+            onCommit: () => {
+              emitChange(true);
+            },
+            onReplace: (img) => {
+              void pickImageFile().then((file) => {
+                if (file) void applyImageFile(img, file);
+              });
+            },
+          })
+        : null;
+
     root.addEventListener('click', onClick);
+    root.addEventListener('dblclick', onDblClick);
     root.addEventListener('input', onInput);
     root.addEventListener('blur', onBlur, true);
     if (editable && article) {
@@ -220,7 +237,9 @@ export function HelpCmsDesignedArticleView({
     return () => {
       imgs.forEach((img) => img.removeEventListener('error', onImgError));
       window.clearTimeout(debounceId);
+      resize?.destroy();
       root.removeEventListener('click', onClick);
+      root.removeEventListener('dblclick', onDblClick);
       root.removeEventListener('input', onInput);
       root.removeEventListener('blur', onBlur, true);
       if (article) {
@@ -236,7 +255,7 @@ export function HelpCmsDesignedArticleView({
   return (
     <div
       ref={rootRef}
-      className={className}
+      className={editable ? `${className ?? ''} relative`.trim() : className}
       {...(!editable ? { dangerouslySetInnerHTML: { __html: html } } : {})}
     />
   );

@@ -26,9 +26,10 @@ import {
   injectUploadedImagesIntoDesignedHtml,
 } from './helpCmsEditorImageDrop';
 import { HelpCmsEditorUploadContext } from './helpCmsEditorUploadContext';
+import { attachDesignedImageResize } from './helpCmsEditorImageResize';
 
 /** HMR·코드 변경 후에도 확장이 빠진 구 에디터 인스턴스가 남지 않게 */
-const EDITOR_BUILD = 'help-cms-blog-v7';
+const EDITOR_BUILD = 'help-cms-blog-v8';
 
 const EDITOR_PROSE_CLASS =
   'min-h-[420px] rounded-b-xl border border-slate-200 border-t-0 bg-white px-4 py-4 text-fluid-sm leading-relaxed text-slate-900 focus:outline-none prose prose-slate max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-li:text-slate-700 prose-img:rounded-xl prose-img:shadow-sm prose-a:text-sky-700';
@@ -108,7 +109,21 @@ export function HelpCmsRichEditor({
         Underline,
         HelpCmsUiEmbed,
         HelpCmsDesignedArticle,
-        Image.configure({
+        Image.extend({
+          addAttributes() {
+            return {
+              ...this.parent?.(),
+              width: {
+                default: null,
+                parseHTML: (el) => el.style.width || el.getAttribute('width') || null,
+                renderHTML: (attrs) =>
+                  attrs.width
+                    ? { style: `width: ${String(attrs.width)}; max-width: 100%; height: auto` }
+                    : {},
+              },
+            };
+          },
+        }).configure({
           HTMLAttributes: {
             class: 'help-cms-editor-image max-w-full rounded-lg my-3',
           },
@@ -329,6 +344,50 @@ export function HelpCmsRichEditor({
     [editor, uploading],
   );
 
+  useEffect(() => {
+    if (!editor) return;
+    const root = editor.view.dom;
+    if (!(root instanceof HTMLElement)) return;
+    const ctl = attachDesignedImageResize(root, {
+      ignoreClosest: '.cbiseo-designed-article-host',
+      onCommit: (img) => {
+        const width = img.style.width;
+        if (!width) return;
+        try {
+          const pos = editor.view.posAtDOM(img, 0);
+          editor.chain().setNodeSelection(pos).updateAttributes('image', { width }).run();
+        } catch {
+          editor.chain().updateAttributes('image', { width }).run();
+        }
+        skipExternalSyncRef.current = true;
+        onChangeRef.current(serializeEditorHtmlWithDesigned(editor));
+      },
+      onReplace: (img) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif';
+        input.addEventListener('change', () => {
+          const file = input.files?.[0] ?? null;
+          input.remove();
+          if (!file) return;
+          void uploadRef.current(file).then((url) => {
+            try {
+              const pos = editor.view.posAtDOM(img, 0);
+              editor.chain().setNodeSelection(pos).updateAttributes('image', { src: url }).run();
+            } catch {
+              editor.chain().updateAttributes('image', { src: url }).run();
+            }
+            skipExternalSyncRef.current = true;
+            onChangeRef.current(serializeEditorHtmlWithDesigned(editor));
+          });
+        });
+        document.body.appendChild(input);
+        input.click();
+      },
+    });
+    return () => ctl.destroy();
+  }, [editor]);
+
   const TbBtn = ({
     onClick,
     active,
@@ -392,6 +451,9 @@ export function HelpCmsRichEditor({
       }}
     >
       <style>{`
+        .help-cms-rich-editor .ProseMirror {
+          position: relative;
+        }
         .help-cms-rich-editor .ProseMirror img.help-cms-editor-image,
         .help-cms-rich-editor .ProseMirror img {
           display: block;
@@ -437,11 +499,63 @@ export function HelpCmsRichEditor({
         }
         .help-cms-rich-editor .cbiseo-designed-article-host img {
           cursor: pointer;
-          width: 100%;
           max-width: 100%;
           height: auto;
           display: block;
           object-fit: contain;
+        }
+        .help-cms-rich-editor .cbiseo-designed-article-host .frame img,
+        .help-cms-rich-editor .cbiseo-designed-article-host figure img {
+          width: 100%;
+        }
+        .help-cms-rich-editor .cbiseo-img-resize-ui {
+          position: absolute;
+          z-index: 25;
+          pointer-events: none;
+        }
+        .help-cms-rich-editor .cbiseo-img-resize-box {
+          box-sizing: border-box;
+          height: 100%;
+          border: 2px solid #0f172a;
+        }
+        .help-cms-rich-editor .cbiseo-img-resize-handle {
+          pointer-events: auto;
+          position: absolute;
+          width: 14px;
+          height: 14px;
+          background: #0f172a;
+          border: 2px solid #fff;
+          border-radius: 3px;
+          cursor: nwse-resize;
+        }
+        .help-cms-rich-editor .cbiseo-img-resize-bar {
+          pointer-events: auto;
+          position: absolute;
+          left: 0;
+          top: calc(100% + 8px);
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+        .help-cms-rich-editor .cbiseo-img-resize-bar button {
+          border: 1px solid #cbd5e1;
+          background: #fff;
+          color: #0f172a;
+          border-radius: 6px;
+          padding: 4px 8px;
+          font-size: 12px;
+          line-height: 1.2;
+        }
+        .help-cms-rich-editor .cbiseo-img-resize-bar button:hover {
+          background: #f1f5f9;
+        }
+        .help-cms-rich-editor .cbiseo-img-resize-bar button:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 2px #fff, 0 0 0 4px #94a3b8;
+        }
+        .help-cms-rich-editor .cbiseo-img-resize-bar button:disabled {
+          opacity: 0.5;
+          pointer-events: none;
         }
       `}</style>
       <div className="sticky top-0 z-30 flex flex-wrap items-center gap-1 rounded-t-xl border-b border-slate-200 bg-white px-2 py-2 shadow-sm">
@@ -629,13 +743,13 @@ export function HelpCmsRichEditor({
       ) : null}
       {enterAsLineBreak ? (
         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-fluid-2xs text-slate-500">
-          Enter는 한 줄 내림, Shift+Enter는 문단. 붙여넣은 글은 눌러서 문구를 고치고, 사진을 누르면 바꿉니다.
-          HTML은 툴바 「HTML」에 넣으면 표·칸·버튼·목차가 유지됩니다.
+          Enter는 한 줄 내림, Shift+Enter는 문단. 사진은 클릭한 뒤 모서리를 끌어 크기를 바꾸고, 더블클릭하면
+          교체합니다. HTML은 툴바 「HTML」에 넣으면 표·칸·버튼·목차가 유지됩니다.
         </p>
       ) : null}
       {designedImageHint ? (
         <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-fluid-2xs text-amber-800">
-          글 틀과 색은 들어갔습니다. 문구는 눌러서 고치고, 사진을 누르면 바꿀 수 있습니다.
+          글 틀과 색은 들어갔습니다. 사진을 클릭한 뒤 모서리를 끌어 크기를 바꾸고, 더블클릭하면 교체합니다.
         </p>
       ) : null}
       <EditorContent editor={editor} />
