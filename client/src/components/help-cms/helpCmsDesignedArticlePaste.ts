@@ -193,11 +193,11 @@ export function tryPackageDesignedArticle(raw: string, force = false): string | 
   const styleSrc = extractStyleBlocks(text);
   const scopedFromSource = styleSrc.trim() ? scopeDesignedArticleCss(styleSrc) : '';
   const ownCss = hasOwnDesignedCss(styleSrc);
-  const scopedCss = (
-    ownCss
-      ? [scopedFromSource]
-      : [DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS, scopedFromSource, DESIGNED_ARTICLE_FALLBACK_CSS]
-  )
+  const scopedCss = [
+    DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS,
+    scopedFromSource,
+    ownCss ? '' : DESIGNED_ARTICLE_FALLBACK_CSS,
+  ]
     .filter(Boolean)
     .join('\n');
   let body = extractDesignedArticleBodyHtml(text);

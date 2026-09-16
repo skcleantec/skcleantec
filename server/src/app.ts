@@ -121,7 +121,7 @@ app.use((_req, res, next) => {
   res.setHeader('Permissions-Policy', 'local-network-access=(self)');
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: '8mb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/platform/auth', platformAuthRoutes);
@@ -467,6 +467,13 @@ if (clientDir) {
 /** sendFile·static·API 응답 중 클라이언트 선행 종료는 무시 — Express 기본 핸들러 stderr 노출 방지 */
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (isBenignClientAbortError(err)) return;
+  const payload = err as { type?: string; status?: number; statusCode?: number };
+  if (payload?.type === 'entity.too.large' || payload?.status === 413 || payload?.statusCode === 413) {
+    if (!res.headersSent) {
+      res.status(413).json({ error: '본문이 너무 큽니다. 사진은 파일로 올린 뒤 저장해 주세요.' });
+    }
+    return;
+  }
   console.error('[express]', err);
   if (res.headersSent) return;
   res.status(500).json({ error: 'internal_server_error' });

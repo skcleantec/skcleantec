@@ -171,6 +171,24 @@ export function HelpCmsDesignedArticleView({
       event.stopPropagation();
     };
 
+    const onPaste = (event: ClipboardEvent) => {
+      if (!editable) return;
+      const file = Array.from(event.clipboardData?.files ?? []).find(
+        (f) => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name),
+      );
+      if (!file) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const selImg = root.querySelector<HTMLImageElement>('img:focus, img[data-editor-img]:hover');
+      const img =
+        selImg ??
+        (event.target instanceof Element
+          ? event.target.closest('img')
+          : null) ??
+        root.querySelector<HTMLImageElement>('img');
+      if (img instanceof HTMLImageElement) void applyImageFile(img, file);
+    };
+
     const onDrop = (event: DragEvent) => {
       if (!editable) return;
       const file = Array.from(event.dataTransfer?.files ?? []).find(
@@ -196,6 +214,7 @@ export function HelpCmsDesignedArticleView({
       article.addEventListener('mousedown', stopPm);
       article.addEventListener('dragover', onDragOver);
       article.addEventListener('drop', onDrop);
+      article.addEventListener('paste', onPaste);
     }
 
     return () => {
@@ -209,6 +228,7 @@ export function HelpCmsDesignedArticleView({
         article.removeEventListener('mousedown', stopPm);
         article.removeEventListener('dragover', onDragOver);
         article.removeEventListener('drop', onDrop);
+        article.removeEventListener('paste', onPaste);
       }
     };
   }, [html, editable]);
