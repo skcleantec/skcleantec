@@ -149,13 +149,18 @@ export function helpCmsMarkdownToHtml(source: string): string {
       continue;
     }
 
+    if (first.startsWith('### ')) {
+      htmlParts.push(`<h3>${renderInlineToHtml(first.slice(4))}</h3>`);
+      continue;
+    }
+
     if (first.startsWith('## ')) {
       htmlParts.push(`<h2>${renderInlineToHtml(first.slice(3))}</h2>`);
       continue;
     }
 
-    if (first.startsWith('### ')) {
-      htmlParts.push(`<h3>${renderInlineToHtml(first.slice(4))}</h3>`);
+    if (first.startsWith('# ')) {
+      htmlParts.push(`<h2>${renderInlineToHtml(first.slice(2))}</h2>`);
       continue;
     }
 

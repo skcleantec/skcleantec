@@ -1,5 +1,7 @@
 import { HelpUiEmbed } from '../help/ui/helpUiRegistry';
 import { isHelpUiTokenId } from '@shared/helpUiTokens';
+import { DESIGNED_ARTICLE_FALLBACK_CSS, DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS } from './helpCmsDesignedArticleCss';
+import { isPackagedDesignedArticleHtml } from './helpCmsDesignedArticlePaste';
 
 const UI_EMBED_RE = /<(?:div|span)[^>]*\sdata-help-ui="([^"]+)"[^>]*>\s*<\/(?:div|span)>/gi;
 
@@ -32,10 +34,13 @@ const ARTICLE_CLASS =
 /** 도움말 CMS 본문 HTML — 플랫폼·공개 /help 공통 (표·UI 목업 포함) */
 export function HelpCmsArticleBody({ html }: { html: string }) {
   const parts = splitHelpCmsHtmlParts(html);
+  const designed = isPackagedDesignedArticleHtml(html);
 
   return (
     <>
       <style>{`
+        ${DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS}
+        ${DESIGNED_ARTICLE_FALLBACK_CSS}
         .help-cms-article-body table.help-cms-md-table,
         .help-cms-article-body table {
           width: 100%;
@@ -69,7 +74,7 @@ export function HelpCmsArticleBody({ html }: { html: string }) {
           margin: 0.75rem 0;
         }
       `}</style>
-      <article className={ARTICLE_CLASS}>
+      <article className={designed ? `${ARTICLE_CLASS} not-prose` : ARTICLE_CLASS}>
         {parts.map((part, index) => {
           if (part.kind === 'ui') {
             if (isHelpUiTokenId(part.tokenId)) {
