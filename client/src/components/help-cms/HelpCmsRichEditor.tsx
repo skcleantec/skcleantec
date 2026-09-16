@@ -25,9 +25,10 @@ import {
   dataTransferLooksLikeFiles,
   injectUploadedImagesIntoDesignedHtml,
 } from './helpCmsEditorImageDrop';
+import { HelpCmsEditorUploadContext } from './helpCmsEditorUploadContext';
 
 /** HMR·코드 변경 후에도 확장이 빠진 구 에디터 인스턴스가 남지 않게 */
-const EDITOR_BUILD = 'help-cms-blog-v6';
+const EDITOR_BUILD = 'help-cms-blog-v7';
 
 const EDITOR_PROSE_CLASS =
   'min-h-[420px] rounded-b-xl border border-slate-200 border-t-0 bg-white px-4 py-4 text-fluid-sm leading-relaxed text-slate-900 focus:outline-none prose prose-slate max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-li:text-slate-700 prose-img:rounded-xl prose-img:shadow-sm prose-a:text-sky-700';
@@ -361,6 +362,7 @@ export function HelpCmsRichEditor({
   if (!editor) return null;
 
   return (
+    <HelpCmsEditorUploadContext.Provider value={onUploadImage}>
     <div
       className="help-cms-rich-editor relative rounded-xl border border-slate-200 bg-slate-50/80"
       onDragEnter={(e) => {
@@ -428,6 +430,13 @@ export function HelpCmsRichEditor({
           outline: 1px dashed #cbd5e1;
           border-radius: 12px;
           padding: 4px;
+        }
+        .help-cms-rich-editor .cbiseo-designed-article-host .cbiseo-notice-article {
+          outline: none;
+          cursor: text;
+        }
+        .help-cms-rich-editor .cbiseo-designed-article-host img {
+          cursor: pointer;
         }
       `}</style>
       <div className="flex flex-wrap items-center gap-1 rounded-t-xl border-b border-slate-200 bg-white px-2 py-2">
@@ -615,18 +624,18 @@ export function HelpCmsRichEditor({
       ) : null}
       {enterAsLineBreak ? (
         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-fluid-2xs text-slate-500">
-          Enter는 한 줄 내림, Shift+Enter는 문단. 사진은 창에 끌어다 놓거나 툴바 「사진」. HTML 소스는 툴바
-          「HTML」에 넣으면 표·칸·버튼·목차 링크·FAQ 접기가 등록 후에도 유지됩니다.
+          Enter는 한 줄 내림, Shift+Enter는 문단. 붙여넣은 글은 눌러서 문구를 고치고, 사진을 누르면 바꿉니다.
+          HTML은 툴바 「HTML」에 넣으면 표·칸·버튼·목차가 유지됩니다.
         </p>
       ) : null}
       {designedImageHint ? (
         <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-fluid-2xs text-amber-800">
-          글 틀과 색은 들어갔습니다. 사진 경로는 이 PC 폴더를 가리켜서 깨질 수 있습니다. 사진은 툴바
-          「사진」으로 다시 올려 주세요.
+          글 틀과 색은 들어갔습니다. 문구는 눌러서 고치고, 사진을 누르면 바꿀 수 있습니다.
         </p>
       ) : null}
       <EditorContent editor={editor} />
       {localError ? <p className="px-3 py-2 text-fluid-2xs text-red-600">{localError}</p> : null}
     </div>
+    </HelpCmsEditorUploadContext.Provider>
   );
 }
