@@ -1,15 +1,16 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { prisma } from '../../lib/prisma.js';
-import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
 import {
   assertTenantAllowsPublicService,
   PublicTenantAccessError,
   publicTenantAccessHttpStatus,
 } from '../tenants/publicTenantAccess.js';
+import { OperatingCompanyNotFoundError } from '../operating-companies/operatingCompany.service.js';
 import {
   assertLandingContactFeatureEnabled,
   getOrCreateLandingContactFormConfig,
   resolveLandingContactOperatingCompanyId,
+  resolveLandingContactPublicScope,
 } from './landingContact.resolve.service.js';
 import {
   resolveLandingContactCustomFields,
@@ -28,26 +29,37 @@ function readBrandSlug(req: { query: Record<string, unknown>; body?: Record<stri
   return null;
 }
 
+async function resolvePublicLandingContact(req: Parameters<typeof readBrandSlug>[0] & { headers: Request['headers'] }) {
+  const brandSlug = readBrandSlug(req);
+  const scope = await resolveLandingContactPublicScope(req as Request, brandSlug);
+  await assertTenantAllowsPublicService(scope.tenantId);
+  const enabled = await assertLandingContactFeatureEnabled(scope.tenantId);
+  if (!enabled) {
+    throw new PublicTenantAccessError('문의 폼을 사용할 수 없습니다.', 'tenant_not_found');
+  }
+  const operatingCompanyId = await resolveLandingContactOperatingCompanyId(scope.tenantId, scope.brandSlug);
+  return { tenantId: scope.tenantId, operatingCompanyId };
+}
+
 /** 공개: 브랜드별 문의 폼 설정 */
 router.get('/form', async (req, res) => {
   let tenantId: string;
+  let operatingCompanyId: string;
   try {
-    tenantId = await resolvePublicTenantIdFromRequest(req);
-    await assertTenantAllowsPublicService(tenantId);
+    const scope = await resolvePublicLandingContact(req);
+    tenantId = scope.tenantId;
+    operatingCompanyId = scope.operatingCompanyId;
   } catch (e) {
     if (e instanceof PublicTenantAccessError) {
       res.status(publicTenantAccessHttpStatus(e.code)).json({ error: e.message });
       return;
     }
+    if (e instanceof OperatingCompanyNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
     throw e;
   }
-  const enabled = await assertLandingContactFeatureEnabled(tenantId);
-  if (!enabled) {
-    res.status(404).json({ error: '문의 폼을 사용할 수 없습니다.' });
-    return;
-  }
-  const brandSlug = readBrandSlug(req);
-  const operatingCompanyId = await resolveLandingContactOperatingCompanyId(tenantId, brandSlug);
   const config = await getOrCreateLandingContactFormConfig(tenantId, operatingCompanyId);
   const withOc = await prisma.landingContactFormConfig.findFirstOrThrow({
     where: { id: config.id },
@@ -77,23 +89,22 @@ router.post('/submit', async (req, res) => {
     return;
   }
   let tenantId: string;
+  let operatingCompanyId: string;
   try {
-    tenantId = await resolvePublicTenantIdFromRequest(req);
-    await assertTenantAllowsPublicService(tenantId);
+    const scope = await resolvePublicLandingContact(req);
+    tenantId = scope.tenantId;
+    operatingCompanyId = scope.operatingCompanyId;
   } catch (e) {
     if (e instanceof PublicTenantAccessError) {
       res.status(publicTenantAccessHttpStatus(e.code)).json({ error: e.message });
       return;
     }
+    if (e instanceof OperatingCompanyNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
     throw e;
   }
-  const enabled = await assertLandingContactFeatureEnabled(tenantId);
-  if (!enabled) {
-    res.status(404).json({ error: '문의 폼을 사용할 수 없습니다.' });
-    return;
-  }
-  const brandSlug = readBrandSlug(req);
-  const operatingCompanyId = await resolveLandingContactOperatingCompanyId(tenantId, brandSlug);
   const configRow = await getOrCreateLandingContactFormConfig(tenantId, operatingCompanyId);
   if (!configRow.isActive) {
     res.status(403).json({ error: '문의 접수가 일시 중지되었습니다.' });
