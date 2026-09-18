@@ -72,8 +72,8 @@ export const ORDER_FORM_SYSTEM_FIELDS: OrderFormSystemFieldDef[] = [
 export const ORDER_FORM_SYSTEM_FIELD_KEYS = new Set(ORDER_FORM_SYSTEM_FIELDS.map((f) => f.key));
 
 /**
- * 기본 발주서(1번) 표준 항목 — 모든 테넌트 공통.
- * 기존에 쓰던 표준 발주서(고객명·주소·전화·평수·금액·희망일·시간대)를 기본 템플릿에 채운다.
+ * 기본 발주서(1번) = 입주청소 표준 양식. 손님·접수 화면은 isDefault면 칸을 줄이지 않는다.
+ * 시드용으로 고객명·주소·전화·평수·금액·희망일·시간대를 채운다.
  * 공개 화면은 시스템 필드를 표준 입력(카카오 주소검색·공급/전용 평수 등)으로 렌더하므로 inputType은 빌더 표시용.
  */
 export interface DefaultTemplateFieldSeed {

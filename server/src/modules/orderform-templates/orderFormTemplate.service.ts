@@ -129,7 +129,7 @@ export async function getPublicTemplateForForm(
   };
 }
 
-/** 연결된 systemField가 있으면 그 목록만. 목록이 비면(레거시·미로드) 전부 표시. 섹션 토글은 ON/OFF. */
+/** 기본(입주청소) 발주서는 표준 칸 전부. 내가 만든 양식만 연결한 칸. 섹션 토글은 ON/OFF. */
 export function templateHasSystemField(
   template: PublicOrderTemplate | null | undefined,
   key: string,
@@ -137,7 +137,8 @@ export function templateHasSystemField(
   if (isOrderFormSectionToggleKey(key)) {
     return isOrderFormSectionToggleOn(template, key);
   }
-  if (!template) return true;
+  if (!template || template.isDefault) return true;
+  if (template.renderMode !== 'TEMPLATE') return true;
   const mapped = template.systemFields.map((f) => f.systemField).filter(Boolean);
   if (mapped.length > 0) return mapped.includes(key);
   return true;

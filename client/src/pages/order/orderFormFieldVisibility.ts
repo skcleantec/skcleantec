@@ -53,7 +53,7 @@ export function isStdFieldOn(
   if (isOrderFormSectionToggleKey(key)) {
     return isOrderFormSectionToggleOn(tpl, key);
   }
-  if (!tpl) return true;
+  if (!tpl || tpl.isDefault) return true;
   const sys = tpl.systemFields;
   if (!sys || sys.length === 0) return true;
   return sys.some((f) => f.systemField === key);
