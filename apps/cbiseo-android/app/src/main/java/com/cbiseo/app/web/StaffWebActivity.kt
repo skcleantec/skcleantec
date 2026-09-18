@@ -43,6 +43,7 @@ class StaffWebActivity : AppCompatActivity() {
     private var openingLoginScreen = false
     private var pendingPushPath: String? = null
     private var systemBarsBottomPx = 0
+    private var systemBarsTopPx = 0
     private lateinit var appBridge: CbiseoAppBridge
     private var updateCoordinator: StaffAppUpdateCoordinator? = null
 
@@ -100,8 +101,9 @@ class StaffWebActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityStaffWebBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        StaffWindowInsets.applyStaffWeb(this, binding.root, binding.staffWebView) { px ->
-            systemBarsBottomPx = px
+        StaffWindowInsets.applyStaffWeb(this, binding.root, binding.staffWebView) { bottomPx, topPx ->
+            systemBarsBottomPx = bottomPx
+            systemBarsTopPx = topPx
         }
         pendingPushPath = StaffPushIntentExtras.pushPathFrom(intent)
             ?: intent.getStringExtra(EXTRA_PUSH_PATH)
@@ -362,7 +364,7 @@ class StaffWebActivity : AppCompatActivity() {
     }
 
     private fun syncSafeAreaToWebView() {
-        StaffWindowInsets.injectSafeAreaCss(activeWebView, systemBarsBottomPx)
+        StaffWindowInsets.injectSafeAreaCss(activeWebView, systemBarsBottomPx, systemBarsTopPx)
     }
 
     private fun isExternalSchemeUrl(url: String): Boolean {

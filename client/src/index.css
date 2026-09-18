@@ -33,6 +33,7 @@ html, body {
 /** Google Play 청소비서 앱 WebView — 하단 시스템 내비게이션 바 여백 */
 html.cbiseo-staff-app {
   --cbiseo-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --cbiseo-safe-area-top: env(safe-area-inset-top, 0px);
 }
 
 html.cbiseo-staff-app body {
@@ -143,11 +144,28 @@ html.cbiseo-staff-app .modal-mobile-fullscreen-panel {
   }
 }
 
+html.cbiseo-staff-app .modal-mobile-fullscreen-panel {
+  padding-bottom: max(0px, var(--cbiseo-safe-area-bottom, 0px));
+}
+
 /** fixed 풀스크린 오버레이·하단 시트 — Galaxy WebView env(safe-area)=0 대비 */
+html.cbiseo-staff-app .staff-top-safe {
+  padding-top: max(1.5rem, env(safe-area-inset-top, 0px), var(--cbiseo-safe-area-top, 0px));
+}
+
 html.cbiseo-staff-app .cbiseo-staff-safe-overlay,
 html.cbiseo-staff-app .modal-mobile-safe-overlay {
+  padding-top: max(1.5rem, env(safe-area-inset-top, 0px), var(--cbiseo-safe-area-top, 0px)) !important;
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px), var(--cbiseo-safe-area-bottom, 0px)) !important;
   box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  html.cbiseo-staff-app .cbiseo-staff-safe-overlay,
+  html.cbiseo-staff-app .modal-mobile-safe-overlay {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
 }
 
 /** fixed bottom FAB·토스트 — 내비 바 위로 */
@@ -340,18 +358,18 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 
 /** PWA(standalone) — iOS/Android 상태 표시줄(시계·신호) 아래로 GNB·모달 헤더 시작 */
 .staff-top-safe {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: max(env(safe-area-inset-top, 0px), var(--cbiseo-safe-area-top, 0px));
 }
 
 @media (display-mode: standalone) {
   .staff-top-safe {
-    padding-top: max(env(safe-area-inset-top, 0px), 1.25rem);
+    padding-top: max(1.25rem, env(safe-area-inset-top, 0px), var(--cbiseo-safe-area-top, 0px));
   }
 }
 
-/** 모바일 전체화면(bottom sheet) 모달 — 오버레이 상·하 safe area (sm+ 에서 해제) */
+/** 모바일 전체화면(bottom sheet) 모달 — 오버레이 상·하 safe area (lg+ PC에서 해제) */
 .modal-mobile-safe-overlay {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: max(env(safe-area-inset-top, 0px), var(--cbiseo-safe-area-top, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
   overflow: hidden;
   overscroll-behavior: contain;
@@ -360,11 +378,11 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
 
 @media (display-mode: standalone) {
   .modal-mobile-safe-overlay {
-    padding-top: max(env(safe-area-inset-top, 0px), 1.25rem);
+    padding-top: max(1.25rem, env(safe-area-inset-top, 0px), var(--cbiseo-safe-area-top, 0px));
   }
 }
 
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
   .modal-mobile-safe-overlay {
     padding-top: 0;
     padding-bottom: 0;

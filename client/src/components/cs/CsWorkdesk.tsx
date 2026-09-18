@@ -40,6 +40,7 @@ import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
+import { STAFF_APP_SAFE_OVERLAY } from '../../utils/staffAppSafeArea';
 import {
   clampListPage,
   INQUIRY_LIST_DEFAULT_PAGE_SIZE,
@@ -608,10 +609,10 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
 
   const teamDetailMobile = isTeam;
   const detailOverlayClass = teamDetailMobile
-    ? 'fixed inset-0 z-[80] flex flex-col bg-black/50 lg:items-center lg:justify-center lg:p-4'
+    ? `${STAFF_APP_SAFE_OVERLAY} fixed inset-0 z-[80] flex flex-col bg-black/50 max-lg:pt-[max(1.5rem,env(safe-area-inset-top,0px),var(--cbiseo-safe-area-top,0px))] lg:items-center lg:justify-center lg:p-4`
     : 'fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4';
   const detailPanelClass = teamDetailMobile
-    ? 'relative flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-white shadow-xl lg:h-auto lg:max-h-[90vh] lg:max-w-lg lg:rounded-2xl lg:border lg:border-slate-200/60 lg:shadow-slate-100/40'
+    ? 'modal-mobile-fullscreen-panel relative flex min-h-0 w-full max-w-none flex-col overflow-hidden bg-white shadow-xl lg:h-auto lg:max-h-[90vh] lg:max-w-lg lg:flex-none lg:rounded-2xl lg:border lg:border-slate-200/60 lg:shadow-slate-100/40'
     : 'relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200/60 bg-white shadow-xl shadow-slate-100/40';
   const detailHeaderClass = teamDetailMobile
     ? 'shrink-0 border-b border-slate-100 p-3 pr-12 lg:p-5'
@@ -635,10 +636,10 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     ? 'min-h-10 w-full touch-manipulation rounded-lg py-2 text-fluid-xs font-semibold lg:min-h-[44px] lg:rounded-xl lg:py-2.5 lg:text-fluid-sm'
     : 'min-h-[44px] w-full touch-manipulation rounded-xl py-2.5 text-fluid-sm font-semibold';
   const inquiryOverlayClass = teamDetailMobile
-    ? 'fixed inset-0 z-[90] flex flex-col bg-black/50 lg:items-center lg:justify-center lg:p-4'
+    ? `${STAFF_APP_SAFE_OVERLAY} fixed inset-0 z-[90] flex flex-col bg-black/50 max-lg:pt-[max(1.5rem,env(safe-area-inset-top,0px),var(--cbiseo-safe-area-top,0px))] lg:items-center lg:justify-center lg:p-4`
     : 'fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4';
   const inquiryPanelClass = teamDetailMobile
-    ? 'relative flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-white shadow-xl lg:h-auto lg:max-h-[92vh] lg:max-w-3xl lg:rounded-2xl lg:border lg:border-slate-200/60 lg:shadow-slate-100/40'
+    ? 'modal-mobile-fullscreen-panel relative flex min-h-0 w-full max-w-none flex-col overflow-hidden bg-white shadow-xl lg:h-auto lg:max-h-[92vh] lg:max-w-3xl lg:flex-none lg:rounded-2xl lg:border lg:border-slate-200/60 lg:shadow-slate-100/40'
     : 'relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200/60 bg-white shadow-xl shadow-slate-100/40';
   const inquiryBodyClass = teamDetailMobile
     ? 'min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain p-3 text-fluid-xs lg:space-y-4 lg:p-5 lg:text-fluid-sm'

@@ -1,4 +1,4 @@
-/** Play 청소비서 WebView — 하단 시스템 내비게이션 바 여백 (Galaxy 등 env=0 대비) */
+/** Play 청소비서 WebView — 시스템 바 여백 (Galaxy 등 env=0 대비). 상단은 `--cbiseo-safe-area-top`. */
 
 /** fixed 풀스크린 오버레이·하단 시트 래퍼 */
 export const STAFF_APP_SAFE_OVERLAY =
