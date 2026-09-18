@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   getInquiryIntakeFields,
   saveInquiryIntakeFields,
+  type InquiryIntakeFieldItem,
   type InquiryIntakeFieldsState,
 } from '../../../api/orderFormTemplates';
 import { HelpTooltip } from '../../ui/HelpTooltip';
@@ -9,6 +10,10 @@ import { HelpTooltip } from '../../ui/HelpTooltip';
 type Props = {
   token: string;
 };
+
+function groupOnCount(items: InquiryIntakeFieldItem[], draftOn: Set<string>) {
+  return items.filter((item) => draftOn.has(item.key)).length;
+}
 
 export function TenantInquiryIntakeFieldsCard({ token }: Props) {
   const [state, setState] = useState<InquiryIntakeFieldsState | null>(null);
@@ -45,6 +50,9 @@ export function TenantInquiryIntakeFieldsCard({ token }: Props) {
     return a !== b;
   }, [state, draftOn]);
 
+  const onTotal = draftOn.size;
+  const allTotal = state?.groups.reduce((n, g) => n + g.items.length, 0) ?? 0;
+
   function toggle(key: string, locked: boolean) {
     if (locked) return;
     setDraftOn((prev) => {
@@ -63,7 +71,7 @@ export function TenantInquiryIntakeFieldsCard({ token }: Props) {
       const next = await saveInquiryIntakeFields(token, [...draftOn]);
       setState(next);
       setDraftOn(new Set(next.keys));
-      setSavedHint('저장했습니다. 전화·수기 접수와 기본 발주서로 들어온 접수 수정에 바로 반영됩니다.');
+      setSavedHint('저장했습니다. 전화·수기 접수에 바로 반영됩니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
     } finally {
@@ -72,68 +80,107 @@ export function TenantInquiryIntakeFieldsCard({ token }: Props) {
   }
 
   return (
-    <section className="mb-4 rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <section className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5 sm:px-4 lg:px-5">
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <h2 className="text-fluid-sm font-semibold text-slate-900">우리 접수 칸</h2>
             <HelpTooltip text="입주·이사가 아닌 업체는 건축물 유형·이사일처럼 안 쓰는 칸을 끄면 됩니다. 끈 칸은 전화·수기 접수와 접수 수정에서 같이 숨습니다. 손님에게 보내는 기본 입주청소 발주서는 그대로입니다. 내가 만든 양식은 그 양식의 항목을 따릅니다." />
+            {!loading && allTotal > 0 ? (
+              <span className="text-fluid-2xs tabular-nums text-slate-500">
+                사용 {onTotal}/{allTotal}
+              </span>
+            ) : null}
           </div>
-          <p className="mt-1 text-fluid-2xs leading-snug text-slate-500">
-            전화로 받는 접수에 어떤 칸을 쓸지 정합니다. 이름·전화·주소는 끌 수 없습니다.
+          <p className="mt-0.5 hidden text-fluid-xs text-slate-500 lg:block">
+            전화·수기 접수에 쓸 칸입니다. 이름·전화·주소는 항상 있습니다.
+          </p>
+          <p className="mt-0.5 text-fluid-2xs text-slate-500 lg:hidden">
+            전화 접수에 쓸 칸 · 이름·전화·주소는 항상
           </p>
         </div>
         <button
           type="button"
           onClick={() => void handleSave()}
           disabled={saving || loading || !dirty}
-          className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          className="rounded-lg bg-slate-900 px-3.5 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 lg:min-h-10 lg:px-4 lg:text-fluid-sm"
         >
           {saving ? '저장 중…' : '접수 칸 저장'}
         </button>
       </div>
 
       {error ? (
-        <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-2xs text-red-700">
+        <p className="border-b border-red-100 bg-red-50 px-3 py-1.5 text-fluid-2xs text-red-700 sm:px-4">
           {error}
         </p>
       ) : null}
       {savedHint ? (
-        <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-fluid-2xs text-emerald-800">
+        <p className="border-b border-emerald-100 bg-emerald-50 px-3 py-1.5 text-fluid-2xs text-emerald-800 sm:px-4">
           {savedHint}
         </p>
       ) : null}
 
       {loading || !state ? (
-        <p className="mt-3 text-fluid-xs text-slate-400">불러오는 중…</p>
+        <p className="px-3 py-6 text-center text-fluid-xs text-slate-400">불러오는 중…</p>
       ) : (
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {state.groups.map((group) => (
-            <div key={group.id} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5">
-              <p className="mb-1.5 text-fluid-2xs font-medium text-slate-600">{group.title}</p>
-              <ul className="space-y-1">
-                {group.items.map((item) => (
-                  <li key={item.key}>
-                    <label className="flex min-h-9 items-center gap-2 text-fluid-xs text-slate-800">
-                      <input
-                        type="checkbox"
-                        checked={draftOn.has(item.key)}
-                        disabled={item.locked}
-                        onChange={() => toggle(item.key, item.locked)}
-                        className="h-4 w-4 rounded border-slate-300"
-                      />
-                      <span>
-                        {item.label}
-                        {item.locked ? (
-                          <span className="ml-1 text-fluid-2xs text-slate-400">항상</span>
-                        ) : null}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 divide-y divide-slate-100 lg:grid-cols-12 lg:divide-x lg:divide-y-0">
+          {state.groups.map((group) => {
+            const onCount = groupOnCount(group.items, draftOn);
+            const wide = group.id === 'property';
+            return (
+              <div
+                key={group.id}
+                className={`min-w-0 p-3 sm:p-3.5 ${wide ? 'lg:col-span-4' : 'lg:col-span-2'}`}
+              >
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <p className="text-fluid-2xs font-semibold tracking-wide text-slate-500 lg:text-fluid-xs">
+                    {group.title}
+                  </p>
+                  <p className="text-fluid-2xs tabular-nums text-slate-400">
+                    {onCount}/{group.items.length}
+                  </p>
+                </div>
+                <ul className={wide ? 'grid grid-cols-1 gap-0.5 sm:grid-cols-2 lg:grid-cols-2' : 'space-y-0.5'}>
+                  {group.items.map((item) => {
+                    const on = draftOn.has(item.key);
+                    if (item.locked) {
+                      return (
+                        <li key={item.key}>
+                          <div className="flex min-h-8 items-center justify-between gap-2 rounded-md px-1.5 py-1 text-fluid-xs text-slate-600 lg:min-h-9 lg:text-fluid-sm">
+                            <span className="truncate" title={item.label}>
+                              {item.label}
+                            </span>
+                            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-fluid-2xs text-slate-500">
+                              항상
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    }
+                    return (
+                      <li key={item.key}>
+                        <label
+                          className={`flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-md px-1.5 py-1 text-fluid-xs transition-colors hover:bg-slate-50 lg:min-h-9 lg:text-fluid-sm ${
+                            on ? 'text-slate-900' : 'text-slate-400'
+                          }`}
+                        >
+                          <span className="min-w-0 truncate" title={item.label}>
+                            {item.label}
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={() => toggle(item.key, item.locked)}
+                            className="h-4 w-4 shrink-0 rounded border-slate-300"
+                          />
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       )}
     </section>

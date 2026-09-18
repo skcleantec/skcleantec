@@ -589,13 +589,12 @@ export function AdminOrderFormTemplatesPage() {
             </PageTitleWithFavorite>
               <HelpTooltip text="위 「우리 접수 칸」은 전화·수기 접수에 쓰는 칸입니다. 아래 양식은 손님에게 보낼 발주서입니다. 기본 입주청소 발주서의 손님 화면은 그대로입니다." />
           </div>
-          <p className="mt-1 text-fluid-xs text-gray-500">먼저 우리 업무에 맞는 접수 칸을 정한 뒤, 손님 링크용 양식을 만듭니다.</p>
-          <p className="mt-1 text-fluid-xs text-gray-400">
-            여기서는 <b>발주서별 제목·아이콘·항목 구성</b>을 만듭니다. 가격 라벨·하단 안내·제출완료 문구·시간대 안내 등 <b>모든 발주서에 공통으로 쓰는 메시지·옵션</b>은{' '}
-            <Link to="/admin/inquiries/order-customer-preview" className="text-blue-700 underline hover:text-blue-800">
+          <p className="mt-1 text-fluid-xs text-gray-500">
+            위는 전화 접수 칸, 아래는 손님에게 보낼 양식입니다. 공통 안내 문구는{' '}
+            <Link to="/admin/inquiries/order-customer-preview" className="text-slate-700 underline hover:text-slate-900">
               발주서설정
             </Link>
-            에서 관리합니다.
+            입니다.
           </p>
         </div>
         <button
