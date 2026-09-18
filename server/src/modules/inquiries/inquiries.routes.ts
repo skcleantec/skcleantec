@@ -54,6 +54,11 @@ import {
   projectAfterPatch,
 } from './inquiryPatch.helpers.js';
 import {
+  loadInquiryIntakeFormProfile,
+  parseOrderFormAnswersBody,
+  syncOrderFormCustomAnswersFromInquiryPatch,
+} from './inquiryIntakeFormProfile.service.js';
+import {
   attachInternalCustomerToneForRole,
   canEditInternalCustomerTone,
   internalCustomerToneDisplay,
@@ -635,6 +640,38 @@ router.post('/admin/bulk-delete-by-month', requireStaffPermission('inquiry.bulkD
   res.json({ deleted });
 });
 
+/** 접수·신규 작성 — 이 업체의 발주서 양식(없으면 기본) */
+router.get('/intake-form-profile', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const inquiryId = typeof req.query.inquiryId === 'string' ? req.query.inquiryId.trim() : '';
+  if (inquiryId) {
+    const row = await prisma.inquiry.findFirst({
+      where: { id: inquiryId, tenantId, ...inquiryActiveOnlyWhere() },
+      select: {
+        orderForm: { select: { id: true, templateId: true, submittedAt: true } },
+      },
+    });
+    if (!row) {
+      res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+      return;
+    }
+    const profile = await loadInquiryIntakeFormProfile(prisma, tenantId, {
+      orderFormId: row.orderForm?.id,
+      templateId: row.orderForm?.templateId,
+      submittedAt: row.orderForm?.submittedAt,
+    });
+    res.json(profile);
+    return;
+  }
+  const profile = await loadInquiryIntakeFormProfile(prisma, tenantId, {});
+  res.json(profile);
+});
+
 /** 단일 접수 상세 (목록 항목과 동일 include — 딥링크·C/S 연결 등) */
 router.get('/:id', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
@@ -668,13 +705,18 @@ router.get('/:id', async (req, res) => {
       user.role,
     ),
   );
+  const intakeFormProfile = await loadInquiryIntakeFormProfile(prisma, tenantId, {
+    orderFormId: inquiryFresh.orderForm?.id,
+    templateId: inquiryFresh.orderForm?.templateId,
+    submittedAt: inquiryFresh.orderForm?.submittedAt,
+  });
   res.json(
     attachOrderFormPhotoCount(
       await attachDbListingMetaToInquiry(
         tenantId,
         await attachMarketplaceHandoffBuyerMetaToInquiry(
           tenantId,
-          await attachTenantShareMetaToInquiry(tenantId, detail),
+          await attachTenantShareMetaToInquiry(tenantId, { ...detail, intakeFormProfile }),
         ),
       ),
     ),
@@ -827,6 +869,7 @@ router.patch('/:id', async (req, res) => {
           totalAmount: true,
           depositAmount: true,
           balanceAmount: true,
+          templateId: true,
         },
       },
       assignments: {
@@ -1675,6 +1718,14 @@ router.patch('/:id', async (req, res) => {
       }
       if (Object.keys(updateData).length > 0) {
         await tx.inquiry.update({ where: { id }, data: updateData });
+      }
+      const orderFormAnswers = parseOrderFormAnswersBody(body.orderFormAnswers);
+      if (orderFormAnswers && inquiry.orderForm?.id) {
+        await syncOrderFormCustomAnswersFromInquiryPatch(tx, {
+          tenantId,
+          orderFormId: inquiry.orderForm.id,
+          answers: orderFormAnswers,
+        });
       }
       if (crewRosterChanged) {
         await clearInquiryCrewMemberMeetingTimes(tx, id);

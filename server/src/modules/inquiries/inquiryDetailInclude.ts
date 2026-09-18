@@ -7,6 +7,7 @@ export const orderFormTemplateSelect = {
   title: true,
   icon: true,
   isDefault: true,
+  renderMode: true,
   fields: {
     where: { systemField: null },
     orderBy: { sortOrder: 'asc' as const },
@@ -47,7 +48,9 @@ export const inquiryDetailInclude = {
       submittedAt: true,
       customerSpecialNotes: true,
       customerAnswers: true,
+      prefillAnswers: true,
       customerSubmissionSnapshot: true,
+      templateId: true,
       template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true } },
       _count: { select: { photos: true } },

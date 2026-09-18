@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import type { InquiryIntakeFormProfile } from '@shared/inquiryFormProfile';
 
 function headers(token: string) {
   return {
@@ -149,6 +150,16 @@ export async function getInquiries(
   });
   if (!res.ok) throw new Error('문의 목록을 불러올 수 없습니다.');
   return res.json();
+}
+
+export async function getInquiryIntakeFormProfile(
+  token: string,
+  inquiryId?: string | null,
+): Promise<InquiryIntakeFormProfile> {
+  const q = inquiryId?.trim() ? `?inquiryId=${encodeURIComponent(inquiryId.trim())}` : '';
+  const res = await fetch(`${API}/inquiries/intake-form-profile${q}`, { headers: headers(token) });
+  if (!res.ok) throw new Error('발주서 양식을 불러올 수 없습니다.');
+  return res.json() as Promise<InquiryIntakeFormProfile>;
 }
 
 /** 단일 접수 (목록 항목과 동일 형태) — 딥링크 등 */

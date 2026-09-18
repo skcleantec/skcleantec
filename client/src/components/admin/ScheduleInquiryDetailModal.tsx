@@ -4,6 +4,7 @@ import {
   createInquiry,
   deleteInquiry,
   getInquiry,
+  getInquiryIntakeFormProfile,
   swapInquiryCrewWithPartner,
   swapInquiryLeaderWithPartner,
   updateInquiry,
@@ -36,7 +37,14 @@ import {
 } from '../../utils/inquiryServiceZoneAssignment';
 import { mergeExternalPartnersFromAssignments } from '../../utils/externalCompanyUsage';
 import { externalTransferFeeForInquiryPatch } from '../../utils/inquiryPatchExternalFee';
-import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
+import { OrderFormTemplateBadge } from '../orderform/OrderFormTemplateInfo';
+import {
+  inquiryFormHasSystemField,
+  inquiryFormShowsMoveInBlock,
+  inquiryFormShowsPropertySection,
+  type InquiryIntakeFormProfile,
+} from '@shared/inquiryFormProfile';
+import { inquiryOrderFormAnswersFromItem } from '../../utils/inquiryOrderFormAnswers';
 import { ProfOptionsAmountReviewApplyPanel } from '../inquiry/ProfOptionsAmountReviewNotice';
 import { AddressSearch } from '../forms/AddressSearch';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
@@ -139,6 +147,7 @@ import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
 import type { DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
 import { AdminScheduleDetailSection } from './inquiry-edit/AdminScheduleDetailSection';
 import { InquiryEditPropertySection } from './inquiry-edit/InquiryEditPropertySection';
+import { InquiryEditCustomAnswersSection } from './inquiry-edit/InquiryEditCustomAnswersSection';
 import { InquiryEditSettlementSection } from './inquiry-edit/InquiryEditSettlementSection';
 import { InquiryEditStatusSection } from './inquiry-edit/InquiryEditStatusSection';
 import { useInquiryEditSectionDefaultOpen } from './inquiry-edit/useInquiryEditSectionDefaultOpen';
@@ -253,6 +262,37 @@ function inquiryEditLeadSourceFromItem(source: string | null | undefined): strin
   return (source ?? '').trim();
 }
 
+function omitHiddenIntakeSystemFields(
+  patch: Record<string, unknown>,
+  profile: InquiryIntakeFormProfile | null | undefined,
+): void {
+  const drop = (key: string) => {
+    delete patch[key];
+  };
+  if (!inquiryFormHasSystemField(profile, 'customerPhone2')) drop('customerPhone2');
+  if (!inquiryFormHasSystemField(profile, 'propertyType')) drop('propertyType');
+  if (!inquiryFormHasSystemField(profile, 'areaPyeong')) {
+    drop('areaPyeong');
+    drop('exclusiveAreaSqm');
+    drop('areaBasis');
+  }
+  if (!inquiryFormHasSystemField(profile, 'roomCount')) {
+    drop('roomCount');
+    drop('bathroomCount');
+    drop('balconyCount');
+    drop('kitchenCount');
+  }
+  if (!inquiryFormHasSystemField(profile, 'preferredTimeDetail')) drop('preferredTimeDetail');
+  if (!inquiryFormHasSystemField(profile, 'buildingType')) drop('buildingType');
+  if (!inquiryFormHasSystemField(profile, 'moveInDate')) {
+    drop('moveInTiming');
+    drop('moveInDate');
+    drop('moveInDateUndecided');
+  }
+  if (!inquiryFormHasSystemField(profile, 'professionalOptions')) drop('professionalOptionIds');
+  if (!inquiryFormShowsPropertySection(profile)) drop('isOneRoom');
+}
+
 function buildPatchFromEditForm(
   editForm: EditFormFields,
   opts?: {
@@ -260,6 +300,7 @@ function buildPatchFromEditForm(
     externalTeamLeaderId?: string | null;
     manualIntake?: boolean;
     previousExternalTransferFee?: number | null;
+    intakeProfile?: InquiryIntakeFormProfile | null;
   }
 ): Record<string, unknown> {
   const parseWon = (s: string) => {
@@ -313,22 +354,24 @@ function buildPatchFromEditForm(
       ? null
       : editForm.betweenScheduleSlot
     : null;
+  const areaOn = inquiryFormHasSystemField(opts?.intakeProfile, 'areaPyeong');
+  const roomsOn = inquiryFormHasSystemField(opts?.intakeProfile, 'roomCount');
   const basisTrim = editForm.areaBasis.trim();
-  if (basisTrim === '공급') {
+  if (areaOn && basisTrim === '공급') {
     const ap = editForm.areaPyeong.trim();
     if (ap === '') throw new Error('공급면적(분양평수)을 평 단위로 입력해 주세요.');
     const py = parseFloat(ap.replace(/,/g, ''));
     if (Number.isNaN(py) || py <= 0) throw new Error('분양평수(평)는 양수 숫자로 입력해 주세요.');
     patch.areaPyeong = py;
     patch.exclusiveAreaSqm = null;
-  } else if (basisTrim === '전용') {
+  } else if (areaOn && basisTrim === '전용') {
     const ap = editForm.areaPyeong.trim();
     if (ap === '') throw new Error('전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.');
     const py = parseFloat(ap.replace(/,/g, ''));
     if (Number.isNaN(py) || py <= 0) throw new Error('전용면적(평)은 양수 숫자로 입력해 주세요.');
     patch.areaPyeong = py;
     patch.exclusiveAreaSqm = null;
-  } else {
+  } else if (areaOn) {
     if (editForm.areaPyeong.trim() !== '') {
       patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
     }
@@ -340,6 +383,7 @@ function buildPatchFromEditForm(
       patch.exclusiveAreaSqm = ex;
     }
   }
+  if (roomsOn) {
   if (editForm.kitchenCount.trim() === '') {
     patch.kitchenCount = null;
   } else {
@@ -362,6 +406,7 @@ function buildPatchFromEditForm(
   if (patch.balconyCount !== null && Number.isNaN(patch.balconyCount as number)) {
     throw new Error('베란다 개수는 숫자로 입력해주세요.');
   }
+  }
   {
     applyCrewFieldsToInquiryPatch(patch, {
       teamLeaderIds: editForm.teamLeaderIds,
@@ -381,6 +426,7 @@ function buildPatchFromEditForm(
     opts?.previousExternalTransferFee,
   );
   if (extFee !== undefined) patch.externalTransferFee = extFee;
+  omitHiddenIntakeSystemFields(patch, opts?.intakeProfile);
   return patch;
 }
 
@@ -390,9 +436,12 @@ type CreateIntakeLane = 'normal' | 'deposit' | 'absent' | 'hold';
 /** POST /api/inquiries 본문 — 서버 create 스키마에 맞춤 */
 function buildCreatePostBody(
   editForm: EditFormFields,
-  opts?: { manualIntake?: boolean },
+  opts?: { manualIntake?: boolean; intakeProfile?: InquiryIntakeFormProfile | null },
 ): Record<string, unknown> {
-  const p = buildPatchFromEditForm(editForm, { manualIntake: opts?.manualIntake });
+  const p = buildPatchFromEditForm(editForm, {
+    manualIntake: opts?.manualIntake,
+    intakeProfile: opts?.intakeProfile,
+  });
   return {
     customerName: p.customerName,
     nickname: p.nickname,
@@ -433,8 +482,9 @@ function buildCreatePostBody(
 function buildCreatePostBodyForMode(
   editForm: EditFormFields,
   manualIntake: boolean,
+  intakeProfile?: InquiryIntakeFormProfile | null,
 ): Record<string, unknown> {
-  return buildCreatePostBody(editForm, { manualIntake });
+  return buildCreatePostBody(editForm, { manualIntake, intakeProfile });
 }
 
 export type ScheduleInquiryDetailModalProps =
@@ -626,6 +676,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [orderFormPhotoId, setOrderFormPhotoId] = useState<string | null>(
     !isCreate ? props.item.orderForm?.id ?? null : null
   );
+  const [intakeProfile, setIntakeProfile] = useState<InquiryIntakeFormProfile | null>(
+    !isCreate ? props.item.intakeFormProfile ?? null : null,
+  );
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
   const [crewSwapModalOpen, setCrewSwapModalOpen] = useState(false);
@@ -776,9 +829,18 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         if (cancelled) return;
         const raw = (data as { changeLogs?: InquiryChangeLogEntry[] }).changeLogs;
         setHistoryLogs(Array.isArray(raw) ? raw : []);
-        const freshOrderFormId =
-          (data as { orderForm?: { id?: string | null } | null }).orderForm?.id ?? null;
-        setOrderFormPhotoId(freshOrderFormId);
+        const freshOrderForm =
+          (data as { orderForm?: ScheduleItem['orderForm'] | null }).orderForm ?? null;
+        setOrderFormPhotoId(freshOrderForm?.id ?? null);
+        const attachedProfile = (data as { intakeFormProfile?: InquiryIntakeFormProfile | null })
+          .intakeFormProfile;
+        if (attachedProfile) setIntakeProfile(attachedProfile);
+        if (freshOrderForm) {
+          setEditForm((p) => ({
+            ...p,
+            orderFormAnswers: inquiryOrderFormAnswersFromItem({ orderForm: freshOrderForm }),
+          }));
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -793,6 +855,31 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       cancelled = true;
     };
   }, [token, item?.id, item?.orderForm?.id]);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void getInquiryIntakeFormProfile(token, isCreate ? null : item?.id)
+      .then((profile) => {
+        if (!cancelled) setIntakeProfile(profile);
+      })
+      .catch(() => {
+        if (!cancelled && !isCreate) {
+          setIntakeProfile(item?.intakeFormProfile ?? null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isCreate, item?.id, item?.orderForm?.id, item?.intakeFormProfile]);
+
+  const showPhone2 = inquiryFormHasSystemField(intakeProfile, 'customerPhone2');
+  const showTimeDetail = inquiryFormHasSystemField(intakeProfile, 'preferredTimeDetail');
+  const showProperty = inquiryFormShowsPropertySection(intakeProfile);
+  const showMoveIn = inquiryFormShowsMoveInBlock(intakeProfile);
+  const showBuildingType = inquiryFormHasSystemField(intakeProfile, 'buildingType');
+  const showProfessionalOptions = inquiryFormHasSystemField(intakeProfile, 'professionalOptions');
+  const canEditCustomAnswers = Boolean(intakeProfile?.canEditCustomAnswers);
 
   const [editForm, setEditForm] = useState<InquiryEditFormFields>(() => {
     if (isCreate) {
@@ -842,6 +929,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         internalCustomerTone: DEFAULT_INTERNAL_CUSTOMER_TONE,
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
         leadSource: defaultScheduleLeadSourceLabel(tenantSlug),
+        orderFormAnswers: {},
       };
     }
     const it = props.item;
@@ -904,6 +992,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         ),
       ),
       leadSource: inquiryEditLeadSourceFromItem(it.source),
+      orderFormAnswers: inquiryOrderFormAnswersFromItem(it),
     };
   });
 
@@ -1380,6 +1469,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         ),
       ),
       leadSource: inquiryEditLeadSourceFromItem(it.source),
+      orderFormAnswers: inquiryOrderFormAnswersFromItem(it),
     });
     setMarketerQuickValue(it.createdBy?.id ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 저장 후 재조회 시 동일 id여도 필드 동기화
@@ -1968,17 +2058,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert('주소를 입력해 주세요.');
       return;
     }
-    const moveInErr = validateMoveInTimingFields(
-      {
-        moveInTiming: editForm.moveInTiming || null,
-        moveInDate: editForm.moveInDate,
-        moveInDateUndecided: editForm.moveInDateUndecided,
-      },
-      { requireTiming: true },
-    );
-    if (!isExternalIntakeMode && moveInErr) {
-      alert(moveInErr);
-      return;
+    if (showMoveIn && !isExternalIntakeMode) {
+      const moveInErr = validateMoveInTimingFields(
+        {
+          moveInTiming: editForm.moveInTiming || null,
+          moveInDate: editForm.moveInDate,
+          moveInDateUndecided: editForm.moveInDateUndecided,
+        },
+        { requireTiming: true },
+      );
+      if (moveInErr) {
+        alert(moveInErr);
+        return;
+      }
     }
     if (hideCrewInputs && editForm.crewMemberCount > 0) {
       alert('모든 팀장이 단독(크루 없음)일 때는 팀원을 배정할 수 없습니다.');
@@ -2014,7 +2106,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         externalTeamLeaderId: resolvedExternalLeadId,
         manualIntake: isExternalIntakeMode,
         previousExternalTransferFee: item?.externalTransferFee,
+        intakeProfile,
       }) as Record<string, unknown>;
+      if (canEditCustomAnswers) {
+        patch.orderFormAnswers = editForm.orderFormAnswers;
+      }
       const requestedStatus = String(patch.status ?? '');
       const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';
       const resolvedStatus = isCancelConfirm ? 'CANCELLED' : requestedStatus;
@@ -2109,7 +2205,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       if (isCreate) {
         const created = (await createInquiry(
           token,
-          buildCreatePostBodyForMode(editForm, isExternalIntakeMode),
+          buildCreatePostBodyForMode(editForm, isExternalIntakeMode, intakeProfile),
         )) as { id: string };
         await updateInquiry(token, created.id, patch);
         const nameForFollowup = editForm.customerName.trim() || '미입력';
@@ -2490,8 +2586,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           </div>
         ) : null}
-        {item?.orderForm?.customerAnswers ? (
-          <OrderFormCustomAnswers template={item.orderForm.template} answers={item.orderForm.customerAnswers} />
+        {intakeProfile && intakeProfile.customFields.length > 0 ? (
+          <InquiryEditCustomAnswersSection
+            fields={intakeProfile.customFields}
+            values={editForm.orderFormAnswers}
+            onChange={(next) => setEditForm((p) => ({ ...p, orderFormAnswers: next }))}
+            disabled={!canEditCustomAnswers || saving}
+          />
         ) : null}
         {!isCreate && item && showProfOptionsAmountReview && token ? (
           <ProfOptionsAmountReviewApplyPanel
@@ -2578,6 +2679,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               className="mb-px inline-flex size-[34px] shrink-0 items-center justify-center rounded-md border border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-indigo-400"
             />
           </div>
+          {showPhone2 ? (
           <div className="col-span-1 sm:col-span-2 flex min-w-0 items-end gap-1.5">
             <div className="w-[min(100%,13rem)] min-w-0">
               <label className={inqEditLabel}>보조 연락처</label>
@@ -2596,6 +2698,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               className="mb-px inline-flex size-[34px] shrink-0 items-center justify-center rounded-md border border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-indigo-400"
             />
           </div>
+          ) : null}
           <div className="sm:col-span-2">
             <label className={inqEditLabel}>주소</label>
             <AddressSearch
@@ -2616,12 +2719,18 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </div>
         </AdminScheduleDetailSection>
 
+        {showProperty ? (
         <InquiryEditPropertySection
           editForm={editForm}
           setEditForm={setEditForm}
           skOpsUi={skOpsUi}
           oneRoomLabel={oneRoomLabel}
+          showOneRoom={inquiryFormHasSystemField(intakeProfile, 'propertyType')}
+          showPropertyType={inquiryFormHasSystemField(intakeProfile, 'propertyType')}
+          showArea={inquiryFormHasSystemField(intakeProfile, 'areaPyeong')}
+          showRooms={inquiryFormHasSystemField(intakeProfile, 'roomCount')}
         />
+        ) : null}
 
         <AdminScheduleDetailSection title="일정" sectionAnchor="schedule">
           <div className="space-y-4">
@@ -2685,19 +2794,21 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                           betweenScheduleSlot: isBetweenSlotTime(v) ? p.betweenScheduleSlot : '',
                         }));
                       }}
-                      className="w-1/2 min-w-0 rounded border border-gray-300 bg-white px-1 py-0.5 text-fluid-2xs text-slate-900"
+                      className={`${showTimeDetail ? 'w-1/2' : 'w-full'} min-w-0 rounded border border-gray-300 bg-white px-1 py-0.5 text-fluid-2xs text-slate-900`}
                     >
                       <option value="">선택 안 함</option>
                       {timeSlotOptions.map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
+                    {showTimeDetail ? (
                     <input
                       value={editForm.preferredTimeDetail}
                       onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
                       className="w-1/2 min-w-0 rounded border border-gray-300 bg-white px-2 py-0.5 text-fluid-2xs text-slate-900"
                       placeholder="구체적 시각 (예: 10:30)"
                     />
+                    ) : null}
                   </div>
                 </div>
 
@@ -2728,8 +2839,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
 
             {/* 이사 & 현장 정보 그룹 */}
+            {showMoveIn || showBuildingType ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                {showMoveIn ? (
                 <div>
                   <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
                     이사 구분 · 날짜
@@ -2763,7 +2876,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     undecidedLabel="미정 (추후 확정)"
                   />
                 </div>
+                ) : null}
 
+                {showBuildingType ? (
                 <div>
                   <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">신축/구축/인테리어/거주</label>
                   <select
@@ -2783,8 +2898,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     ))}
                   </select>
                 </div>
+                ) : null}
               </div>
             </div>
+            ) : null}
 
             {/* 특이사항 */}
             {!isCreate &&
@@ -2862,6 +2979,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           professionalCatalogLoading={professionalCatalogLoading}
           professionalCatalogLoadError={professionalCatalogLoadError}
           onRefetchProfessionalCatalog={onRefetchProfessionalCatalog}
+          showProfessionalOptions={showProfessionalOptions}
         />
 
         {!isCreate && item ? (
