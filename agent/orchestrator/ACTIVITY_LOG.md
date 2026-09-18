@@ -1,5 +1,5 @@
 # 최근 작업
 
-**2026-09-16 16:50** — 배정·일정변경 휴대폰 알림을 마케터가 아니라 담당 팀장에게만 보냄
+**2026-09-18** — 팀장 배정·스케줄·상세가 접수 수정과 같은 발주서 칸을 봄
 
-**요약:** [BRIEF_REPORT.md](BRIEF_REPORT.md) · [팩](reports/packs/2026-09-16-team-push-fix/)
+**요약:** [BRIEF_REPORT.md](BRIEF_REPORT.md) · [팩](reports/packs/2026-09-18-team-intake/)

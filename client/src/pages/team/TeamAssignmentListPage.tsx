@@ -21,7 +21,7 @@ import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects
 import {
   STATUS_LABELS,
   type InquiryItem,
-  formatRoomInfo,
+  formatTeamInquiryStructure,
   formatCrewInfo,
   marketerInfo,
   TeamHappyCallBadge,
@@ -39,6 +39,7 @@ import {
   TeamInquiryServiceKindListBadge,
   teamInquiryCollectibleAmount,
 } from './teamInquiryShared';
+import { TeamInquiryIntakeListChips } from '../../components/team/TeamInquiryIntakeAnswers';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
@@ -566,6 +567,7 @@ export function TeamAssignmentListPage() {
                           <TeamInquirySpecialNotesListBadge item={item} />
                           <TeamInquiryCollectibleListBadge item={item} />
                           <TeamInquiryAreaListBadge item={item} />
+                          <TeamInquiryIntakeListChips item={item} />
                           {item.inquiryNumber ? (
                             <span className="shrink-0 rounded bg-gray-100 px-1 py-px font-mono text-[11px] tabular-nums text-gray-700 sm:text-fluid-2xs">
                               {item.inquiryNumber}
@@ -803,7 +805,10 @@ export function TeamAssignmentListPage() {
                           {formatTeamInquiryAreaCompact(item) ?? teamBiPlain('team.common.emDash')}
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
-                          {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
+                          {formatTeamInquiryStructure(item)}
+                          <span className="mt-0.5 block">
+                            <TeamInquiryIntakeListChips item={item} />
+                          </span>
                           <span className="mt-0.5 block truncate text-fluid-2xs text-gray-500" title={formatCrewInfo(item)}>
                             {formatCrewInfo(item)}
                           </span>

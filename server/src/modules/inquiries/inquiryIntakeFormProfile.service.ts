@@ -226,3 +226,60 @@ export function parseOrderFormAnswersBody(raw: unknown): Record<string, unknown>
   if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   return raw as Record<string, unknown>;
 }
+
+export type IntakeProfileAttachable = {
+  intakeTemplateId?: string | null;
+  orderForm?: {
+    id?: string | null;
+    templateId?: string | null;
+    submittedAt?: Date | string | null;
+    template?: { id?: string | null } | null;
+  } | null;
+};
+
+function resolveIntakeTemplateId(item: IntakeProfileAttachable): string | null {
+  const fromForm = item.orderForm?.templateId?.trim() || item.orderForm?.template?.id?.trim() || '';
+  if (fromForm) return fromForm;
+  const pending = item.intakeTemplateId?.trim() || '';
+  return pending || null;
+}
+
+/** 팀장·목록이 접수 수정과 같은 양식 칸을 보도록 프로필을 붙인다. 양식별 1회만 로드. */
+export async function attachIntakeFormProfiles<T>(
+  db: Db,
+  tenantId: string,
+  items: T[],
+): Promise<Array<T & { intakeFormProfile: InquiryIntakeFormProfile }>> {
+  const baseByTemplate = new Map<string, InquiryIntakeFormProfile>();
+  const out: Array<T & { intakeFormProfile: InquiryIntakeFormProfile }> = [];
+  for (const item of items) {
+    const templateId = resolveIntakeTemplateId(item as IntakeProfileAttachable);
+    const cacheKey = templateId ?? '';
+    let base = baseByTemplate.get(cacheKey);
+    if (!base) {
+      base = await loadInquiryIntakeFormProfile(db, tenantId, { templateId });
+      baseByTemplate.set(cacheKey, base);
+    }
+    const source = item as IntakeProfileAttachable;
+    const orderFormId = source.orderForm?.id ?? null;
+    out.push({
+      ...item,
+      intakeFormProfile: {
+        ...base,
+        orderFormId,
+        orderFormSubmitted: Boolean(source.orderForm?.submittedAt),
+        canEditCustomAnswers: base.customFields.length > 0 || Boolean(orderFormId),
+      },
+    });
+  }
+  return out;
+}
+
+export async function attachIntakeFormProfileOne<T>(
+  db: Db,
+  tenantId: string,
+  item: T,
+): Promise<T & { intakeFormProfile: InquiryIntakeFormProfile }> {
+  const [next] = await attachIntakeFormProfiles(db, tenantId, [item]);
+  return next;
+}

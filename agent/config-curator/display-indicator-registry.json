@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-18-inquiry-intake-fields",
+  "_lastUpdated": "2026-09-18-team-intake-fields",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -683,6 +683,27 @@
         "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts"
       ],
       "notes": "사용함 양식이 2개 이상일 때 신규 접수에서 칩으로 고름. 고른 양식 칸이 접수·손님과 같음. 입주청소 기본은 손님 칸 전부."
+    },
+    {
+      "id": "team.inquiry.intakeFields",
+      "labelKo": "발주서 추가 정보 (팀장)",
+      "surfaces": [
+        "team.assignments.list",
+        "team.schedule.list",
+        "team.dashboard.list",
+        "team.inquiry.detail"
+      ],
+      "visual": { "type": "chip", "token": "sky-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/team/TeamInquiryIntakeAnswers.tsx",
+      "codeRefs": [
+        "client/src/utils/teamInquiryIntakeDisplay.ts",
+        "shared/inquiryIntakeDisplay.ts",
+        "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts"
+      ],
+      "notes": "관리 접수 수정과 같은 양식 프로필. 끈 칸은 팀장 목록·상세에서 숨김. 추가 칸은 하늘색 칩+발주서 추가 정보. 끄면 현장 정보가 빠짐 — 범례만."
     },
     {
       "id": "orderform.template.inUse",

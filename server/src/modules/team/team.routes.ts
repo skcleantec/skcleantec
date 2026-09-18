@@ -112,6 +112,10 @@ import {
   serializeTeamInquiryPreferredDatesKst,
   serializeTeamInquiryPreferredDateKst,
 } from './teamInquiryResponse.helpers.js';
+import {
+  attachIntakeFormProfileOne,
+  attachIntakeFormProfiles,
+} from '../inquiries/inquiryIntakeFormProfile.service.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import { whereExcludeHandedOffSourceInquiriesForTeamViewer } from '../inquiries/inquiryHandedOffFromInternal.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
@@ -232,12 +236,14 @@ const teamInquiryInclude = {
   orderForm: {
     select: {
       id: true,
+      templateId: true,
       submittedAt: true,
       depositAmount: true,
       totalAmount: true,
       balanceAmount: true,
       customerSpecialNotes: true,
       customerAnswers: true,
+      prefillAnswers: true,
       customerSubmissionSnapshot: true,
       template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true, phone: true } },
@@ -317,10 +323,17 @@ const teamScheduleInquirySelect = {
   operatingCompanyId: true,
   operatingCompany: { select: operatingCompanySummarySelect },
   createdBy: { select: { id: true, name: true, phone: true } },
+  intakeTemplateId: true,
+  intakeCustomAnswers: true,
+  orderFormListSnapshot: true,
+  kitchenCount: true,
   orderForm: {
     select: {
       id: true,
+      templateId: true,
       submittedAt: true,
+      customerAnswers: true,
+      prefillAnswers: true,
       template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true, phone: true } },
     },
@@ -601,9 +614,10 @@ async function respondTeamInquiryOne<T extends { id?: string; crewMemberNote: st
 ) {
   const enriched = await attachCrewMembersOne(item, tenantId, viewerTeamLeaderId);
   if (!enriched) return null;
+  const withIntake = await attachIntakeFormProfileOne(prisma, tenantId, enriched);
   return serializeTeamInquiryPreferredDateKst(
     serializeTeamInquiryOperatingCompany(
-      enriched as Parameters<typeof serializeTeamInquiryOperatingCompany>[0],
+      withIntake as Parameters<typeof serializeTeamInquiryOperatingCompany>[0],
     ),
   );
 }
@@ -1682,7 +1696,12 @@ router.get('/inquiries/:id', async (req, res) => {
   const handoffOpts = await marketplaceHandoffViewerOptions(user);
   const withShare = await attachTenantShareMetaToInquiry(tenantId, item);
   const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiry(tenantId, withShare, handoffOpts);
-  res.json(serializeTeamInquiryPreferredDateKst(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(withHandoff))));
+  const withIntake = await attachIntakeFormProfileOne(
+    prisma,
+    tenantId,
+    attachInspectionSummaryToInquiry(withHandoff),
+  );
+  res.json(serializeTeamInquiryPreferredDateKst(serializeTeamInquiryOperatingCompany(withIntake)));
 });
 
 router.get('/inquiries', async (req, res) => {
@@ -1720,14 +1739,15 @@ router.get('/inquiries', async (req, res) => {
     const handoffOpts = await marketplaceHandoffViewerOptions(user);
     const withShare = await attachTenantShareMetaToInquiries(tenantId, items);
     const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, withShare, handoffOpts);
-    res.json({
-      items: serializeTeamInquiryPreferredDatesKst(
-        serializeTeamInquiryOperatingCompanies(
-          attachInspectionSummaries(
-            withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
-          ),
-        ),
+    const withIntake = await attachIntakeFormProfiles(
+      prisma,
+      tenantId,
+      attachInspectionSummaries(
+        withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
       ),
+    );
+    res.json({
+      items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withIntake)),
     });
     return;
   }
@@ -1748,14 +1768,13 @@ router.get('/inquiries', async (req, res) => {
       extraInquiryWhere,
       user.role,
     );
+    const withIntake = await attachIntakeFormProfiles(
+      prisma,
+      tenantId,
+      attachInspectionSummaries(items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>),
+    );
     res.json({
-      items: serializeTeamInquiryPreferredDatesKst(
-        serializeTeamInquiryOperatingCompanies(
-          attachInspectionSummaries(
-            items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
-          ),
-        ),
-      ),
+      items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withIntake)),
       total,
     });
   } catch (e) {
@@ -1818,7 +1837,7 @@ router.get('/schedule', async (req, res) => {
     select: teamScheduleInquirySelect,
   });
   const withCrew = await attachCrewMembers(rows, tenantId, userId);
-  const items = attachInspectionSummaries(withCrew);
+  const items = await attachIntakeFormProfiles(prisma, tenantId, attachInspectionSummaries(withCrew));
   res.json({
     items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(items)),
   });

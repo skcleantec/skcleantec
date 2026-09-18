@@ -18,7 +18,7 @@ import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { InquiryConsultationPhotosPanel } from '../../components/inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
-import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../../components/orderform/OrderFormTemplateInfo';
+import { OrderFormTemplateBadge } from '../../components/orderform/OrderFormTemplateInfo';
 import { TeamQuotationInquiryLinkPanel } from '../../components/quotations/TeamQuotationInquiryLinkPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { TeamHouseholdLedgerInquiryAddPanel } from '../../components/team/TeamHouseholdLedgerInquiryAddPanel';
@@ -47,6 +47,16 @@ import {
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { formatInquiryListAreaOrServiceLabel, formatInquiryAreaCompactKo } from '../../utils/inquiryAreaDisplay';
 import { isAirconOrderFormTemplate } from '@shared/orderFormServiceKind';
+import type { InquiryIntakeFormProfile } from '@shared/inquiryFormProfile';
+import type { OrderFormListSnapshot } from '@shared/orderFormListSnapshot';
+import {
+  formatTeamInquiryStructure,
+  teamInquiryCustomRows,
+  teamInquiryShowsField,
+  teamInquiryShowsMoveIn,
+  teamInquiryShowsPropertySection,
+} from '../../utils/teamInquiryIntakeDisplay';
+import { TeamInquiryIntakeAnswers } from '../../components/team/TeamInquiryIntakeAnswers';
 import { operatingCompanyShortLabel } from '../../utils/operatingCompanyShortLabel';
 import { operatingCompanyBadgeColorClasses } from '../../utils/operatingCompanyBadgeColors';
 import type { OperatingCompanyBadgeData } from '../../components/admin/OperatingCompanyBadge';
@@ -243,6 +253,11 @@ export interface InquiryItem {
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
+  kitchenCount?: number | null;
+  intakeTemplateId?: string | null;
+  intakeCustomAnswers?: Record<string, unknown> | null;
+  intakeFormProfile?: InquiryIntakeFormProfile | null;
+  orderFormListSnapshot?: OrderFormListSnapshot | null;
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail?: string | null;
@@ -284,6 +299,7 @@ export interface InquiryItem {
     balanceAmount?: number | null;
     customerSpecialNotes?: string | null;
     customerAnswers?: Record<string, unknown> | null;
+    prefillAnswers?: Record<string, unknown> | null;
     customerSubmissionSnapshot?: unknown;
     template?: {
       id: string;
@@ -360,13 +376,19 @@ export function formatScheduleLine(item: InquiryItem, timeSlotLabels?: OrderTime
 }
 
 /** 목록·복사·모달 공통: 공급·전용 표시는 `formatInquiryAreaKoShort`(평 기준; 구 ㎡는 근사) */
+export { formatTeamInquiryStructure } from '../../utils/teamInquiryIntakeDisplay';
+
 export function formatTeamInquiryAreaSummary(item: {
   areaBasis?: string | null;
   areaPyeong?: number | null;
   exclusiveAreaSqm?: number | null;
   isOneRoom?: boolean | null;
   orderForm?: InquiryItem['orderForm'];
+  intakeFormProfile?: InquiryIntakeFormProfile | null;
 }): string {
+  if (item.intakeFormProfile && !teamInquiryShowsField(item, 'areaPyeong')) {
+    return teamT('team.common.emDash');
+  }
   const s = formatInquiryListAreaOrServiceLabel(item);
   return s === '—' ? teamT('team.common.emDash') : s;
 }
@@ -377,7 +399,9 @@ export function formatTeamInquiryAreaCompact(item: {
   exclusiveAreaSqm?: number | null;
   isOneRoom?: boolean | null;
   orderForm?: InquiryItem['orderForm'];
+  intakeFormProfile?: InquiryIntakeFormProfile | null;
 }): string | null {
+  if (item.intakeFormProfile && !teamInquiryShowsField(item, 'areaPyeong')) return null;
   if (isAirconOrderFormTemplate(item.orderForm?.template)) return null;
   return formatInquiryAreaCompactKo(item);
 }
@@ -512,7 +536,7 @@ export function TeamInquiryAreaListBadge({
 }: {
   item: Pick<
     InquiryItem,
-    'areaBasis' | 'areaPyeong' | 'exclusiveAreaSqm' | 'isOneRoom' | 'orderForm'
+    'areaBasis' | 'areaPyeong' | 'exclusiveAreaSqm' | 'isOneRoom' | 'orderForm' | 'intakeFormProfile'
   >;
   className?: string;
 }) {
@@ -641,30 +665,42 @@ export function buildTeamInquiryShareClipText(
   if (memoTitle && memoTitle !== titleLine) addRow('수기 제목', memoTitle);
   addRow('고객 표시명', titleLine);
   addRow('연락처', item.customerPhone?.trim() || '');
-  addRow('보조 연락처', item.customerPhone2?.trim() || '');
+  if (teamInquiryShowsField(item, 'customerPhone2')) {
+    addRow('보조 연락처', item.customerPhone2?.trim() || '');
+  }
   endSection();
 
   addRow('주소', item.address?.trim() || '');
   addRow('상세주소', item.addressDetail?.trim() || '');
   endSection();
 
-  addRow('건축물', item.propertyType?.trim() || '');
+  if (teamInquiryShowsField(item, 'propertyType')) {
+    addRow('건축물', item.propertyType?.trim() || '');
+  }
   const basis = item.areaBasis?.trim();
   const sqmShare =
     item.exclusiveAreaSqm != null && Number.isFinite(item.exclusiveAreaSqm)
       ? item.exclusiveAreaSqm
       : null;
   const showAreaRow =
-    basis === '공급' ||
-    basis === '전용' ||
-    item.areaPyeong != null ||
-    sqmShare != null;
+    teamInquiryShowsField(item, 'areaPyeong') &&
+    (basis === '공급' ||
+      basis === '전용' ||
+      item.areaPyeong != null ||
+      sqmShare != null);
   if (showAreaRow) {
     addRow('면적', formatTeamInquiryAreaSummary(item));
   }
-  const structure = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount);
+  const structure = formatTeamInquiryStructure(item);
   if (structure && structure !== teamBiPlain('team.common.emDash')) addRow('구조', structure);
-  if (item.professionalOptions && item.professionalOptions.length > 0) {
+  for (const extra of teamInquiryCustomRows(item)) {
+    addRow(extra.label, extra.value);
+  }
+  if (
+    teamInquiryShowsField(item, 'professionalOptions') &&
+    item.professionalOptions &&
+    item.professionalOptions.length > 0
+  ) {
     addRow(
       '전문 시공',
       item.professionalOptions
@@ -700,7 +736,7 @@ export function buildTeamInquiryShareClipText(
     }
   }
   const moveInSummary = formatInquiryMoveInSummary(item);
-  if (moveInSummary !== '—') {
+  if (teamInquiryShowsMoveIn(item) && moveInSummary !== '—') {
     addRow('이사 구분 · 날짜', moveInSummary);
   }
   let hopeTime = formatScheduleLine(item, timeSlotLabels);
@@ -1440,7 +1476,7 @@ export function TeamInquiryDetailModal({
                       <a href={`tel:${item.customerPhone}`} className="font-medium text-blue-700 underline underline-offset-2">
                         {item.customerPhone}
                       </a>
-                      {item.customerPhone2?.trim() ? (
+                      {teamInquiryShowsField(item, 'customerPhone2') && item.customerPhone2?.trim() ? (
                         <a href={`tel:${item.customerPhone2}`} className="text-blue-700 underline underline-offset-2">
                           {item.customerPhone2}
                         </a>
@@ -1456,18 +1492,26 @@ export function TeamInquiryDetailModal({
                       {item.addressDetail ? <span className="text-gray-600"> {item.addressDetail}</span> : null}
                     </span>
                   </TeamModalRow>
-                  <TeamModalRow
-                    compact
-                    label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-2xs font-medium text-gray-500" />}
-                  >
-                    <span className="text-gray-800">
-                      {formatTeamInquiryAreaSummary(item)}
-                      {' · '}
-                      {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
-                      {item.propertyType ? ` · ${item.propertyType}` : ''}
-                    </span>
-                  </TeamModalRow>
-                  {item.professionalOptions && item.professionalOptions.length > 0 ? (
+                  {teamInquiryShowsPropertySection(item) || formatTeamInquiryStructure(item) !== teamT('team.common.emDash') ? (
+                    <TeamModalRow
+                      compact
+                      label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-2xs font-medium text-gray-500" />}
+                    >
+                      <span className="text-gray-800">
+                        {[
+                          teamInquiryShowsField(item, 'areaPyeong') ? formatTeamInquiryAreaSummary(item) : '',
+                          formatTeamInquiryStructure(item),
+                          teamInquiryShowsField(item, 'propertyType') && item.propertyType ? item.propertyType : '',
+                        ]
+                          .filter((part) => part && part !== teamT('team.common.emDash'))
+                          .join(' · ') || teamT('team.common.emDash')}
+                      </span>
+                    </TeamModalRow>
+                  ) : null}
+                  <TeamInquiryIntakeAnswers item={item} compact />
+                  {teamInquiryShowsField(item, 'professionalOptions') &&
+                  item.professionalOptions &&
+                  item.professionalOptions.length > 0 ? (
                     <TeamModalRow
                       compact
                       label={
@@ -1620,7 +1664,7 @@ export function TeamInquiryDetailModal({
                   <a href={`tel:${item.customerPhone}`} className="inline-block font-medium text-blue-700 underline underline-offset-2">
                     {item.customerPhone}
                   </a>
-                  {item.customerPhone2?.trim() ? (
+                  {teamInquiryShowsField(item, 'customerPhone2') && item.customerPhone2?.trim() ? (
                     <div>
                       <span className="mr-1 text-fluid-xs text-gray-500 inline-block align-middle">
                         <TeamBiLine id="team.modal.phoneSecondary" koClassName="text-fluid-xs text-gray-500" />
@@ -1648,24 +1692,28 @@ export function TeamInquiryDetailModal({
             <TeamModalSection
               title={<TeamBiLine id="team.modal.section.property" koClassName="text-fluid-xs font-semibold text-gray-600" />}
             >
-              <TeamModalRow
-                label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-xs font-medium text-gray-500" />}
-              >
-                <span className="text-gray-800">{formatTeamInquiryAreaSummary(item)}</span>
-              </TeamModalRow>
-              <TeamModalRow
-                label={<TeamBiLine id="team.modal.row.rooms" koClassName="text-fluid-xs font-medium text-gray-500" />}
-              >
-                <span className="text-gray-800">{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>
-              </TeamModalRow>
-              {item.propertyType ? (
+              {teamInquiryShowsField(item, 'areaPyeong') ? (
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
+                  <span className="text-gray-800">{formatTeamInquiryAreaSummary(item)}</span>
+                </TeamModalRow>
+              ) : null}
+              {formatTeamInquiryStructure(item) !== teamT('team.common.emDash') ? (
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.rooms" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
+                  <span className="text-gray-800">{formatTeamInquiryStructure(item)}</span>
+                </TeamModalRow>
+              ) : null}
+              {teamInquiryShowsField(item, 'propertyType') && item.propertyType ? (
                 <TeamModalRow
                   label={<TeamBiLine id="team.modal.row.buildingType" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
                   <span className="text-gray-800">{item.propertyType}</span>
                 </TeamModalRow>
               ) : null}
-              {formatInquiryMoveInSummary(item) !== '—' ? (
+              {teamInquiryShowsMoveIn(item) && formatInquiryMoveInSummary(item) !== '—' ? (
                 <TeamModalRow
                   label={
                     <span className="text-fluid-xs font-medium text-gray-500">이사 구분 · 날짜</span>
@@ -1674,7 +1722,10 @@ export function TeamInquiryDetailModal({
                   <span className="text-gray-800">{formatInquiryMoveInSummary(item)}</span>
                 </TeamModalRow>
               ) : null}
-              {item.professionalOptions && item.professionalOptions.length > 0 ? (
+              <TeamInquiryIntakeAnswers item={item} />
+              {teamInquiryShowsField(item, 'professionalOptions') &&
+              item.professionalOptions &&
+              item.professionalOptions.length > 0 ? (
                 <TeamModalRow
                   label={<TeamBiLine id="team.modal.row.professional" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
@@ -1997,14 +2048,6 @@ export function TeamInquiryDetailModal({
                   )}
                 </div>
               </TeamModalSection>
-            ) : null}
-
-            {item.orderForm?.customerAnswers ? (
-              <OrderFormCustomAnswers
-                template={item.orderForm.template}
-                answers={item.orderForm.customerAnswers}
-                compact={isExternalCompact}
-              />
             ) : null}
 
             {item.orderForm?.id ? (
