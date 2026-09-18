@@ -21,6 +21,8 @@ export interface PublicTemplateCustomField {
   placeholder: string | null;
   /** 단일 선택 표시 방식 — 'RADIO' | 'DROPDOWN'(기본) */
   optionStyle: string | null;
+  /** 선택지 배치 — 'VERTICAL' | 'HORIZONTAL' | 'COLS_2' */
+  optionLayout: string | null;
   required: boolean;
   fillMode: string;
 }
@@ -102,6 +104,7 @@ export async function getPublicTemplateForForm(
       options: f.options,
       placeholder: f.placeholder,
       optionStyle: f.optionStyle,
+      optionLayout: f.optionLayout,
       required: f.required,
       fillMode: f.fillMode,
     }));
@@ -211,6 +214,7 @@ export async function listStaffOnlyCustomFieldsForSnapshot(
     options: f.options,
     placeholder: f.placeholder,
     optionStyle: f.optionStyle,
+    optionLayout: f.optionLayout,
     required: f.required,
     fillMode: f.fillMode,
   }));

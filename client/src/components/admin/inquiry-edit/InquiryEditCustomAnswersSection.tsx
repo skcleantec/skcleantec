@@ -1,6 +1,11 @@
 import { AdminScheduleDetailSection } from './AdminScheduleDetailSection';
 import { inqEditInput, inqEditLabel } from './inquiryEditFormClasses';
 import type { InquiryFormCustomField } from '@shared/inquiryFormProfile';
+import {
+  orderFormChoiceIsMulti,
+  orderFormChoiceUsesOptionList,
+} from '@shared/orderFormOptionLayout';
+import { OrderFormChoiceOptions } from '../../orderform/OrderFormChoiceOptions';
 import { ORDER_FORM_AC_UNITS_FIELD_KEY } from '@shared/orderFormAcUnits';
 import { formatOrderFormListSnapshotValue } from '@shared/orderFormListSnapshot';
 
@@ -15,12 +20,6 @@ function asString(v: unknown): string {
   if (v == null) return '';
   if (Array.isArray(v)) return v.map((x) => String(x)).join(', ');
   return String(v);
-}
-
-function asStringList(v: unknown): string[] {
-  if (Array.isArray(v)) return v.map((x) => String(x));
-  if (typeof v === 'string' && v.trim()) return [v];
-  return [];
 }
 
 export function InquiryEditCustomAnswersSection({ fields, values, onChange, disabled }: Props) {
@@ -52,6 +51,22 @@ export function InquiryEditCustomAnswersSection({ fields, values, onChange, disa
               </div>
             );
           }
+          if (orderFormChoiceUsesOptionList(field.inputType, field.optionStyle)) {
+            return (
+              <div key={field.fieldKey}>
+                <p className={inqEditLabel}>{field.label}</p>
+                <OrderFormChoiceOptions
+                  name={`inq-cf-${field.fieldKey}`}
+                  options={opts}
+                  value={value}
+                  multi={orderFormChoiceIsMulti(field.inputType)}
+                  layout={field.optionLayout}
+                  disabled={disabled}
+                  onChange={(next) => setKey(field.fieldKey, next)}
+                />
+              </div>
+            );
+          }
           if (field.inputType === 'SELECT') {
             return (
               <div key={field.fieldKey}>
@@ -69,32 +84,6 @@ export function InquiryEditCustomAnswersSection({ fields, values, onChange, disa
                     </option>
                   ))}
                 </select>
-              </div>
-            );
-          }
-          if (field.inputType === 'MULTISELECT' || field.inputType === 'CHECKBOX') {
-            const selected = new Set(asStringList(value));
-            return (
-              <div key={field.fieldKey}>
-                <p className={inqEditLabel}>{field.label}</p>
-                <div className="flex flex-wrap gap-2">
-                  {opts.map((o) => (
-                    <label key={o} className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(o)}
-                        disabled={disabled}
-                        onChange={(e) => {
-                          const next = new Set(selected);
-                          if (e.target.checked) next.add(o);
-                          else next.delete(o);
-                          setKey(field.fieldKey, [...next]);
-                        }}
-                      />
-                      {o}
-                    </label>
-                  ))}
-                </div>
               </div>
             );
           }

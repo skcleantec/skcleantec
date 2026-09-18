@@ -81,6 +81,10 @@ import {
   normalizeOrderFormRouteToken,
   resolveOrderFormTokenFromLocation,
 } from '../../utils/orderFormPublicRouteToken';
+import {
+  isDesignerPreviewOrderToken,
+  isOrderFormPreviewWalkEnabled,
+} from '@shared/orderFormPreviewWalk';
 import { oneRoomLabelForOpsUi, skCleantecOpsUiEnabled } from '@shared/custom/skcleantecOpsUi';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -112,6 +116,11 @@ import {
   ORDER_FORM_AC_LEGACY_COUNT_FIELD_KEYS,
 } from '@shared/orderFormAcUnits';
 import { OrderFormAcUnitsField } from '../../components/orderform/OrderFormAcUnitsField';
+import { OrderFormChoiceOptions } from '../../components/orderform/OrderFormChoiceOptions';
+import {
+  orderFormChoiceIsMulti,
+  orderFormChoiceUsesOptionList,
+} from '@shared/orderFormOptionLayout';
 import { OrderFormModalFormattedText } from '../../components/orderform/OrderFormModalFormattedText';
 import { PUBLIC_PAGE_CLOSE_HINT, tryLeavePublicPage } from '../../utils/publicPageLeave';
 import { scrollToOrderFormField } from '../../utils/preserveScrollAround';
@@ -178,6 +187,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     return resolveOrderFormTokenFromLocation() ?? routeToken ?? '';
   }, [routeToken]);
   const isEditor = Boolean(editor);
+  const previewWalk = useMemo(
+    () =>
+      isOrderFormPreviewWalkEnabled(
+        token,
+        typeof window !== 'undefined' ? window.location.search : '',
+      ),
+    [token],
+  );
   /** 고객 self-service 발주서만 청소일·시간대 동의 모달·consent (마케터 발급·선입력 작성 제외) */
   const customerScheduleAckEnabled = !isEditor;
   const isCreate = Boolean(editor?.create);
@@ -950,6 +967,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    if (isDesignerPreviewOrderToken(token)) {
+      showSubmitError('미리보기에서는 제출되지 않습니다. 손님에게 보낸 링크에서는 그대로 제출됩니다.');
+      return;
+    }
     setSubmitting(true);
     try {
       const prefillMap = order?.prefillAnswers ?? null;
@@ -2112,6 +2133,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         onSubmit={handleSubmit}
         submitting={submitting}
         dialogs={pageDialogs}
+        previewWalk={previewWalk}
       />
     );
   }
@@ -2990,22 +3012,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                         onChange={(e) => setVal(e.target.value)}
                         disabled={cfLocked}
                       />
-                    ) : cf.inputType === 'SELECT' && cf.optionStyle === 'RADIO' ? (
-                      <div className="flex flex-wrap gap-x-4 gap-y-2">
-                        {opts.map((o) => (
-                          <label key={o} className="flex items-center gap-1.5 text-sm text-gray-700">
-                            <input
-                              type="radio"
-                              name={`cf-${cf.fieldKey}`}
-                              className="h-4 w-4 border-gray-300 disabled:cursor-not-allowed"
-                              checked={value === o}
-                              onChange={() => setVal(o)}
-                              disabled={cfLocked}
-                            />
-                            {o}
-                          </label>
-                        ))}
-                      </div>
+                    ) : orderFormChoiceUsesOptionList(cf.inputType, cf.optionStyle) ? (
+                      <OrderFormChoiceOptions
+                        name={`cf-${cf.fieldKey}`}
+                        options={opts}
+                        value={value}
+                        multi={orderFormChoiceIsMulti(cf.inputType)}
+                        layout={cf.optionLayout}
+                        disabled={cfLocked}
+                        onChange={setVal}
+                      />
                     ) : cf.inputType === 'SELECT' ? (
                       <select className={clsWithLock(cf.fieldKey, inputCls)} value={typeof value === 'string' ? value : ''} onChange={(e) => setVal(e.target.value)} disabled={cfLocked}>
                         <option value="">선택</option>
@@ -3015,28 +3031,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                           </option>
                         ))}
                       </select>
-                    ) : cf.inputType === 'MULTISELECT' || cf.inputType === 'CHECKBOX' ? (
-                      <div className="space-y-1.5">
-                        {opts.map((o) => {
-                          const arr = Array.isArray(value) ? (value as string[]) : [];
-                          const checked = arr.includes(o);
-                          return (
-                            <label key={o} className="flex items-center gap-2 text-sm text-gray-700">
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-gray-300 disabled:cursor-not-allowed"
-                                checked={checked}
-                                onChange={(e) => {
-                                  const next = e.target.checked ? [...arr, o] : arr.filter((x) => x !== o);
-                                  setVal(next);
-                                }}
-                                disabled={cfLocked}
-                              />
-                              {o}
-                            </label>
-                          );
-                        })}
-                      </div>
                     ) : (
                       <input
                         type={cf.inputType === 'DATE' ? 'date' : cf.inputType === 'NUMBER' || cf.inputType === 'MONEY' ? 'number' : cf.inputType === 'PHONE' ? 'tel' : 'text'}

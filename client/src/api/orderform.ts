@@ -1,6 +1,11 @@
 import { API } from './apiPrefix';
 import { appendPublicQuery } from '../utils/publicTenantQuery';
 import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
+import {
+  isDesignerPreviewOrderToken,
+  ORDER_FORM_PREVIEW_TEMPLATE_QUERY,
+  readOrderFormPreviewTemplateId,
+} from '@shared/orderFormPreviewWalk';
 
 function headers(token: string) {
   return {
@@ -248,6 +253,8 @@ export interface OrderFormPublicTemplateField {
   placeholder?: string | null;
   /** 단일 선택 표시 방식 — 'RADIO'면 라디오, 그 외/없으면 드롭다운 */
   optionStyle?: string | null;
+  /** 선택지 배치 — VERTICAL | HORIZONTAL | COLS_2 */
+  optionLayout?: string | null;
   required: boolean;
   fillMode: string;
 }
@@ -626,7 +633,15 @@ export async function getPublicOrderGuide(opts?: {
 
 /** 공개: 토큰으로 발주서 조회 (인증 없음) */
 export async function getOrderFormByToken(token: string): Promise<OrderFormPublic> {
-  const res = await fetch(appendPublicQuery(`${API}/orderforms/by-token/${encodeURIComponent(token)}`));
+  let url = appendPublicQuery(`${API}/orderforms/by-token/${encodeURIComponent(token)}`);
+  if (typeof window !== 'undefined' && isDesignerPreviewOrderToken(token)) {
+    const previewTemplateId = readOrderFormPreviewTemplateId(window.location.search);
+    if (previewTemplateId) {
+      const sep = url.includes('?') ? '&' : '?';
+      url += `${sep}${ORDER_FORM_PREVIEW_TEMPLATE_QUERY}=${encodeURIComponent(previewTemplateId)}`;
+    }
+  }
+  const res = await fetch(url);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '발주서를 찾을 수 없습니다.');
@@ -785,6 +800,9 @@ export async function submitOrderForm(
     consents?: OrderFormSubmissionConsents;
   }
 ): Promise<void> {
+  if (isDesignerPreviewOrderToken(token)) {
+    throw new Error('미리보기 발주서는 제출할 수 없습니다.');
+  }
   const res = await fetch(appendPublicQuery(`${API}/orderforms/submit/${encodeURIComponent(token)}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

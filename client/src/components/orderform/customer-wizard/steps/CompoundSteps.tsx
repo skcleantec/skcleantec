@@ -13,6 +13,11 @@ import {
   listProfRootNodes,
 } from '../../../../constants/professionalSpecialtyOptions';
 import { ORDER_FORM_AC_UNITS_FIELD_KEY } from '@shared/orderFormAcUnits';
+import {
+  orderFormChoiceIsMulti,
+  orderFormChoiceUsesOptionList,
+} from '@shared/orderFormOptionLayout';
+import { OrderFormChoiceOptions } from '../../OrderFormChoiceOptions';
 import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { formatDateCompactWithWeekday } from '../../../../utils/dateFormat';
@@ -129,36 +134,31 @@ export function CustomFieldStep({ step, customAnswers, setCustomAnswers, lockKey
           onChange={(e) => setVal(e.target.value)}
           disabled={cfLocked}
         />
-      ) : cf.inputType === 'SELECT' || cf.inputType === 'MULTISELECT' || cf.inputType === 'CHECKBOX' ? (
-        <div className="space-y-2">
-          {opts.map((o) => {
-            const multi = cf.inputType === 'MULTISELECT' || cf.inputType === 'CHECKBOX';
-            const arr = Array.isArray(value) ? (value as string[]) : [];
-            const checked = multi ? arr.includes(o) : value === o;
-            return (
-              <label
-                key={o}
-                className="flex min-h-[52px] items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-fluid-sm text-slate-900"
-              >
-                <input
-                  type={multi ? 'checkbox' : 'radio'}
-                  name={`wiz-cf-${cf.fieldKey}`}
-                  className="h-5 w-5 border-slate-300"
-                  checked={checked}
-                  disabled={cfLocked}
-                  onChange={() => {
-                    if (multi) {
-                      setVal(checked ? arr.filter((x) => x !== o) : [...arr, o]);
-                    } else {
-                      setVal(o);
-                    }
-                  }}
-                />
-                {o}
-              </label>
-            );
-          })}
-        </div>
+      ) : orderFormChoiceUsesOptionList(cf.inputType, cf.optionStyle) ? (
+        <OrderFormChoiceOptions
+          name={`wiz-cf-${cf.fieldKey}`}
+          options={opts}
+          value={value}
+          multi={orderFormChoiceIsMulti(cf.inputType)}
+          layout={cf.optionLayout}
+          disabled={cfLocked}
+          density="wizard"
+          onChange={setVal}
+        />
+      ) : cf.inputType === 'SELECT' ? (
+        <select
+          className={WIZARD_INPUT_CLS}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => setVal(e.target.value)}
+          disabled={cfLocked}
+        >
+          <option value="">선택</option>
+          {opts.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
       ) : (
         <input
           type={cf.inputType === 'DATE' ? 'date' : cf.inputType === 'NUMBER' || cf.inputType === 'MONEY' ? 'number' : cf.inputType === 'PHONE' ? 'tel' : 'text'}

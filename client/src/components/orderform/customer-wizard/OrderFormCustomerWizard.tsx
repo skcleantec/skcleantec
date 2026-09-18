@@ -92,6 +92,7 @@ export function OrderFormCustomerWizard({
   onSubmit,
   submitting,
   dialogs,
+  previewWalk = false,
 }: {
   headingTitle: string;
   brandName?: string | null;
@@ -112,6 +113,8 @@ export function OrderFormCustomerWizard({
   onSubmit: (e: FormEvent) => void;
   submitting: boolean;
   dialogs: ReactNode;
+  /** 디자이너 미리보기 — 필수 없이 다음, 제출은 부모에서 차단 */
+  previewWalk?: boolean;
 }) {
   const { scrollRef, onFieldFocus } = useLoginScrollSurface({ bottomReservePx: 200 });
   const [stepError, setStepError] = useState<string | null>(null);
@@ -145,6 +148,11 @@ export function OrderFormCustomerWizard({
   });
 
   const tryNext = () => {
+    if (previewWalk) {
+      setStepError(null);
+      goNext();
+      return;
+    }
     if (currentStep.skippable && stepInvalid) {
       goNext();
       return;
@@ -159,10 +167,16 @@ export function OrderFormCustomerWizard({
 
   const showFooter =
     currentStep.kind !== 'welcome' && currentStep.kind !== 'choice';
-  const showChoiceNext = currentStep.kind === 'choice' && !stepInvalid;
+  const showChoiceNext = currentStep.kind === 'choice' && (previewWalk || !stepInvalid);
 
   const trySubmit = () => {
-    if (submitting || !shared.guideTermsAt) return;
+    if (submitting) return;
+    if (previewWalk) {
+      setStepError(null);
+      onSubmit({ preventDefault() {} } as FormEvent);
+      return;
+    }
+    if (!shared.guideTermsAt) return;
     if (stepInvalid) {
       setStepError(stepInvalid);
       return;
@@ -173,6 +187,14 @@ export function OrderFormCustomerWizard({
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-slate-100">
+      {previewWalk ? (
+        <div
+          className="shrink-0 border-b border-amber-200 bg-amber-50 px-2.5 py-1.5 text-center text-fluid-2xs leading-snug text-amber-900"
+          role="status"
+        >
+          미리보기입니다. 필수 칸을 채우지 않아도 다음으로 넘길 수 있고, 제출은 되지 않습니다.
+        </div>
+      ) : null}
       <header className="shrink-0 border-b border-slate-800 bg-slate-900 text-white">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-3 py-2.5">
           <button
@@ -262,7 +284,7 @@ export function OrderFormCustomerWizard({
               ) : null}
               {currentStep.kind === 'guide' ? (
                 <div className="w-full space-y-2">
-                  {!shared.guideTermsAt ? (
+                  {!previewWalk && !shared.guideTermsAt ? (
                     <p className="text-center text-fluid-2xs font-medium leading-snug text-amber-800">
                       안내사항을 읽어주셔야 제출하기가 완료됩니다.
                     </p>
@@ -270,10 +292,10 @@ export function OrderFormCustomerWizard({
                   <button
                     type="button"
                     className={WIZARD_CTA_CLS}
-                    disabled={submitting || !shared.guideTermsAt}
+                    disabled={submitting || (!previewWalk && !shared.guideTermsAt)}
                     onClick={trySubmit}
                   >
-                    {submitting ? '제출 중...' : '제출하기'}
+                    {submitting ? '제출 중...' : previewWalk ? '제출 미리보기' : '제출하기'}
                   </button>
                 </div>
               ) : currentStep.kind === 'review' ? (
@@ -284,7 +306,7 @@ export function OrderFormCustomerWizard({
                 <button
                   type="button"
                   className={WIZARD_CTA_CLS}
-                  disabled={!currentStep.skippable && Boolean(stepInvalid)}
+                  disabled={!previewWalk && !currentStep.skippable && Boolean(stepInvalid)}
                   onClick={tryNext}
                 >
                   다음
@@ -295,7 +317,7 @@ export function OrderFormCustomerWizard({
             <button
               type="button"
               className={WIZARD_CTA_CLS}
-              disabled={Boolean(stepInvalid)}
+              disabled={!previewWalk && Boolean(stepInvalid)}
               onClick={tryNext}
             >
               다음

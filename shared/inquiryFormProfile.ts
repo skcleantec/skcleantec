@@ -19,6 +19,7 @@ export type InquiryFormCustomField = {
   options: string[];
   placeholder: string | null;
   optionStyle: string | null;
+  optionLayout: string | null;
   required: boolean;
 };
 

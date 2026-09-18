@@ -30,6 +30,8 @@ export type OrderFormFieldFillMode = 'CUSTOMER' | 'ADMIN_LOCKED' | 'ADMIN_PREFIL
 /** 단일 선택(SELECT) 표시 방식 — 라디오 버튼 / 드롭다운 */
 export type OrderFormFieldOptionStyle = 'RADIO' | 'DROPDOWN';
 
+export type OrderFormFieldOptionLayout = 'VERTICAL' | 'HORIZONTAL' | 'COLS_2';
+
 export interface OrderFormTemplateField {
   id?: string;
   fieldKey: string;
@@ -41,6 +43,8 @@ export interface OrderFormTemplateField {
   placeholder?: string | null;
   /** 단일 선택 표시 방식 — null이면 드롭다운(기본) */
   optionStyle?: OrderFormFieldOptionStyle | null;
+  /** 선택지 배치 — null이면 세로 */
+  optionLayout?: OrderFormFieldOptionLayout | null;
   required: boolean;
   sortOrder: number;
   systemField: string | null;
