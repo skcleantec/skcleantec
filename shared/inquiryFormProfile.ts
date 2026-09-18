@@ -59,7 +59,7 @@ export function inquiryFormHasSystemField(
       key,
     );
   }
-  if (!profile) return true;
+  if (!profile || profile.isDefault) return true;
   if (profile.systemFieldKeys.length > 0) return profile.systemFieldKeys.includes(key);
   return true;
 }
