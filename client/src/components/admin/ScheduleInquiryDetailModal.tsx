@@ -471,9 +471,11 @@ function buildCreatePostBody(
     ...(opts?.intakeProfile?.templateId
       ? { intakeTemplateId: opts.intakeProfile.templateId }
       : {}),
-    ...(opts?.intakeProfile && Object.keys(editForm.orderFormAnswers ?? {}).length > 0
-      ? { orderFormAnswers: editForm.orderFormAnswers }
-      : {}),
+    ...(opts?.intakeProfile?.customFields.length
+      ? { orderFormAnswers: editForm.orderFormAnswers ?? {} }
+      : opts?.intakeProfile && Object.keys(editForm.orderFormAnswers ?? {}).length > 0
+        ? { orderFormAnswers: editForm.orderFormAnswers }
+        : {}),
     status: p.status ?? 'RECEIVED',
     soloTeamLeaderIds: p.soloTeamLeaderIds,
     crewMemberCount: p.crewMemberCount,
@@ -901,7 +903,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const showMoveIn = inquiryFormShowsMoveInBlock(intakeProfile);
   const showBuildingType = inquiryFormHasSystemField(intakeProfile, 'buildingType');
   const showProfessionalOptions = inquiryFormHasSystemField(intakeProfile, 'professionalOptions');
-  const canEditCustomAnswers = Boolean(intakeProfile?.canEditCustomAnswers);
+  const canEditCustomAnswers =
+    Boolean(intakeProfile?.canEditCustomAnswers) || (intakeProfile?.customFields.length ?? 0) > 0;
 
   const [editForm, setEditForm] = useState<InquiryEditFormFields>(() => {
     if (isCreate) {
@@ -2579,7 +2582,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           <InquiryIntakeTemplatePicker
             templates={publishedIntakeTemplates}
             selectedId={createIntakeTemplateId ?? intakeProfile?.templateId ?? null}
-            onSelect={setCreateIntakeTemplateId}
+            onSelect={(id) => {
+              setCreateIntakeTemplateId(id);
+              setEditForm((p) => ({ ...p, orderFormAnswers: {} }));
+            }}
           />
         ) : null}
         {isCreate ? (

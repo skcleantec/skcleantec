@@ -6,14 +6,16 @@ import {
   orderFormChoiceUsesOptionList,
 } from '@shared/orderFormOptionLayout';
 import { OrderFormChoiceOptions } from '../../orderform/OrderFormChoiceOptions';
-import { ORDER_FORM_AC_UNITS_FIELD_KEY } from '@shared/orderFormAcUnits';
+import { ORDER_FORM_AC_UNITS_FIELD_KEY, normalizeAcUnitsAnswer } from '@shared/orderFormAcUnits';
 import { formatOrderFormListSnapshotValue } from '@shared/orderFormListSnapshot';
+import { OrderFormAcUnitsField } from '../../orderform/OrderFormAcUnitsField';
 
 type Props = {
   fields: InquiryFormCustomField[];
   values: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
   disabled?: boolean;
+  compact?: boolean;
 };
 
 function asString(v: unknown): string {
@@ -22,21 +24,40 @@ function asString(v: unknown): string {
   return String(v);
 }
 
-export function InquiryEditCustomAnswersSection({ fields, values, onChange, disabled }: Props) {
-  const editable = fields.filter((f) => f.fieldKey !== ORDER_FORM_AC_UNITS_FIELD_KEY && f.inputType !== 'PHOTO');
-  const locked = fields.filter((f) => f.fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY || f.inputType === 'PHOTO');
+export function InquiryEditCustomAnswersSection({
+  fields,
+  values,
+  onChange,
+  disabled,
+  compact,
+}: Props) {
+  const editable = fields.filter((f) => f.inputType !== 'PHOTO');
+  const locked = fields.filter((f) => f.inputType === 'PHOTO');
   if (editable.length === 0 && locked.length === 0) return null;
 
   const setKey = (key: string, value: unknown) => {
     onChange({ ...values, [key]: value });
   };
 
-  return (
-    <AdminScheduleDetailSection title="발주서 추가 정보" sectionAnchor="order-form-extra">
+  const body = (
       <div className="space-y-2">
         {editable.map((field) => {
           const value = values[field.fieldKey];
           const opts = field.options;
+          if (field.fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY) {
+            return (
+              <div key={field.fieldKey}>
+                <p className={inqEditLabel}>{field.label}</p>
+                <OrderFormAcUnitsField
+                  value={value}
+                  options={opts}
+                  disabled={disabled}
+                  inputCls={inqEditInput}
+                  onChange={(rows) => setKey(field.fieldKey, normalizeAcUnitsAnswer(rows))}
+                />
+              </div>
+            );
+          }
           if (field.inputType === 'TEXTAREA') {
             return (
               <div key={field.fieldKey}>
@@ -112,6 +133,20 @@ export function InquiryEditCustomAnswersSection({ fields, values, onChange, disa
           );
         })}
       </div>
+  );
+
+  if (compact) {
+    return (
+      <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/40 p-3">
+        <p className="text-fluid-xs font-semibold text-gray-800">발주서 추가 정보</p>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <AdminScheduleDetailSection title="발주서 추가 정보" sectionAnchor="order-form-extra">
+      {body}
     </AdminScheduleDetailSection>
   );
 }

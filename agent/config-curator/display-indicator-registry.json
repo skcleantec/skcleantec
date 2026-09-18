@@ -682,7 +682,7 @@
         "client/src/components/admin/inquiry-edit/InquiryIntakeTemplatePicker.tsx",
         "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts"
       ],
-      "notes": "사용함 양식이 2개 이상일 때 신규 접수에서 칩으로 고름. 고른 양식 칸이 접수·손님과 같음. 입주청소 기본은 손님 칸 전부."
+      "notes": "사용함 양식이 2개 이상일 때 일반 등록·수동접수에서 칩으로 고름. 고른 양식 칸만 보임. 에어컨 양식이면 평수·화장실 숨기고 청소할 에어컨을 접수에 바로 적음. 입주청소 기본은 손님 칸 전부."
     },
     {
       "id": "team.inquiry.intakeFields",
