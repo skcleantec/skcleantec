@@ -19,6 +19,8 @@ import {
   saveOrderFormTemplateFields,
   unpublishOrderFormTemplate,
   updateOrderFormTemplateMeta,
+  type OrderFormFieldFillMode,
+  type OrderFormFieldInputType,
   type OrderFormSystemFieldDef,
   type OrderFormTemplate,
   type OrderFormTemplateRenderMode,

@@ -105,7 +105,7 @@ export function OrderFormTemplateCreateWizard({
       new Set(
         fields
           .map((d) => d.systemField)
-          .filter((k): k is string => Boolean(k) && !IDENTITY_KEY_SET.has(k) && k !== ORDER_FORM_PHOTOS_SECTION_KEY),
+          .filter((k): k is string => typeof k === 'string' && k.length > 0 && !IDENTITY_KEY_SET.has(k) && k !== ORDER_FORM_PHOTOS_SECTION_KEY),
       ),
     );
     setCustomDrafts(fields.filter((d) => !d.systemField));
