@@ -320,7 +320,6 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
     void listPlatformSupportTenants(q).then(setTenants).catch(() => setTenants([]));
   }, [q]);
 
-  const targetCount = mode === 'all' ? tenants.length : picked.length;
   const targetLabel = useMemo(() => {
     if (mode === 'all') return `이용 중인 업체 전체 (${tenants.length}곳)`;
     if (picked.length === 0) return '업체를 선택하세요';
