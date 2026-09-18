@@ -109,12 +109,15 @@ export interface ScheduleItem {
       title: string;
       icon: string | null;
       isDefault?: boolean;
+      renderMode?: 'STANDARD' | 'TEMPLATE';
       fields?: Array<{ fieldKey: string; label: string }>;
     } | null;
     createdBy?: { id: string; name: string };
   } | null;
   /** 목록·상세 API — 발주서 고객 첨부 사진 건수 */
   orderFormPhotoCount?: number;
+  /** 이 접수가 따르는 발주서 양식 — 접수수정 칸 표시 */
+  intakeFormProfile?: import('@shared/inquiryFormProfile').InquiryIntakeFormProfile | null;
   assignments: Array<{
     sortOrder?: number;
     noCrewMembers?: boolean;

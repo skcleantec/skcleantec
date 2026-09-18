@@ -16,12 +16,27 @@ type Props = {
   setEditForm: Dispatch<SetStateAction<InquiryEditFormFields>>;
   skOpsUi: boolean;
   oneRoomLabel: string;
+  showOneRoom?: boolean;
+  showPropertyType?: boolean;
+  showArea?: boolean;
+  showRooms?: boolean;
 };
 
-export function InquiryEditPropertySection({ editForm, setEditForm, skOpsUi, oneRoomLabel }: Props) {
+export function InquiryEditPropertySection({
+  editForm,
+  setEditForm,
+  skOpsUi,
+  oneRoomLabel,
+  showOneRoom = true,
+  showPropertyType = true,
+  showArea = true,
+  showRooms = true,
+}: Props) {
+  if (!showOneRoom && !showPropertyType && !showArea && !showRooms) return null;
   return (
     <AdminScheduleDetailSection title="유형 · 면적 · 방·주방" sectionAnchor="property">
       <div className="space-y-2">
+        {showOneRoom ? (
         <label className="flex cursor-pointer items-center gap-1.5 text-fluid-2xs text-gray-800">
           <input
             type="checkbox"
@@ -33,7 +48,10 @@ export function InquiryEditPropertySection({ editForm, setEditForm, skOpsUi, one
             ? oneRoomLabel
             : '원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)'}
         </label>
+        ) : null}
+        {showPropertyType || showArea ? (
         <div className={inqEditPropertyAreaRow}>
+          {showPropertyType ? (
           <div>
             <label className={inqEditLabel}>건축물 유형</label>
             <select
@@ -49,6 +67,9 @@ export function InquiryEditPropertySection({ editForm, setEditForm, skOpsUi, one
               ))}
             </select>
           </div>
+          ) : null}
+          {showArea ? (
+          <>
           <div>
             <label className={inqEditLabel}>면적 기준</label>
             <select
@@ -95,7 +116,11 @@ export function InquiryEditPropertySection({ editForm, setEditForm, skOpsUi, one
               inputMode="decimal"
             />
           </div>
+          </>
+          ) : null}
         </div>
+        ) : null}
+        {showRooms ? (
         <div className={inqEditRoomGrid}>
           <div>
             <label className={inqEditLabelCompact}>방</label>
@@ -139,6 +164,7 @@ export function InquiryEditPropertySection({ editForm, setEditForm, skOpsUi, one
             />
           </div>
         </div>
+        ) : null}
       </div>
     </AdminScheduleDetailSection>
   );

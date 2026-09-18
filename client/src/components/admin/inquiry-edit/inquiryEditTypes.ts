@@ -51,4 +51,6 @@ export type InquiryEditFormFields = {
   professionalOptionIds: string[];
   /** 유입 플랫폼 — Inquiry.source (카탈로그 label) */
   leadSource: string;
+  /** 발주서 커스텀 칸 답 — OrderForm.customerAnswers / prefillAnswers 와 동일 키 */
+  orderFormAnswers: Record<string, unknown>;
 };

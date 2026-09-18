@@ -64,6 +64,7 @@ export type InquiryEditSettlementSectionProps = {
   professionalCatalogLoading?: boolean;
   professionalCatalogLoadError?: boolean;
   onRefetchProfessionalCatalog?: () => void;
+  showProfessionalOptions?: boolean;
 };
 
 export function InquiryEditSettlementSection({
@@ -106,6 +107,7 @@ export function InquiryEditSettlementSection({
   professionalCatalogLoading,
   professionalCatalogLoadError,
   onRefetchProfessionalCatalog,
+  showProfessionalOptions = true,
 }: InquiryEditSettlementSectionProps) {
   return (
     <AdminScheduleDetailSection title="정산 · 옵션" sectionAnchor="settlement">
@@ -379,6 +381,7 @@ export function InquiryEditSettlementSection({
             />
           </div>
         ) : null}
+            {showProfessionalOptions ? (
             <InquiryEditProfessionalOptionsPanel
               professionalCatalog={professionalCatalog}
               savedProfSelections={savedProfSelections}
@@ -390,6 +393,7 @@ export function InquiryEditSettlementSection({
           catalogLoadError={professionalCatalogLoadError}
           onRetryCatalog={onRefetchProfessionalCatalog}
         />
+            ) : null}
       </div>
     </AdminScheduleDetailSection>
   );
