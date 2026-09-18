@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { createOrderFollowup } from '../../api/orderFollowups';
-import { createInquiry, updateInquiry } from '../../api/inquiries';
+import { createInquiry, getInquiryIntakeFormProfile, updateInquiry } from '../../api/inquiries';
+import type { PublishedIntakeTemplateOption } from '@shared/inquiryFormProfile';
+import { InquiryIntakeTemplatePicker } from './inquiry-edit/InquiryIntakeTemplatePicker';
 import { ModalCloseButton } from './ModalCloseButton';
 import { ORDER_FOLLOWUP_STATUS_LABEL, type OrderFollowupStatus } from '../../constants/orderFollowupStatus';
 import { FollowupIntakeExtrasFields } from '../order-followup/FollowupIntakeExtrasFields';
@@ -68,8 +70,29 @@ export function AdminListIntakeModal({
     emptyFollowupIntakeExtrasForm(),
   );
   const [saving, setSaving] = useState(false);
+  const [publishedIntakeTemplates, setPublishedIntakeTemplates] = useState<PublishedIntakeTemplateOption[]>(
+    [],
+  );
+  const [intakeTemplateId, setIntakeTemplateId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
+
+  useEffect(() => {
+    if (!open || !token || editMode) return;
+    let cancelled = false;
+    void getInquiryIntakeFormProfile(token, { templateId: intakeTemplateId })
+      .then((profile) => {
+        if (cancelled) return;
+        setPublishedIntakeTemplates(profile.publishedTemplates);
+        if (!intakeTemplateId && profile.templateId) setIntakeTemplateId(profile.templateId);
+      })
+      .catch(() => {
+        if (!cancelled) setPublishedIntakeTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, token, editMode, intakeTemplateId]);
 
   useEffect(() => {
     if (!open) return;
@@ -95,6 +118,7 @@ export function AdminListIntakeModal({
     setGoldDb(false);
     setCollaborationMarketerId('');
     setIntakeExtras(emptyFollowupIntakeExtrasForm());
+    setIntakeTemplateId(null);
   }, [open, editMode, editInquiryId, editSeed]);
 
   const submit = async () => {
@@ -154,6 +178,7 @@ export function AdminListIntakeModal({
         memo: memo.trim() || null,
         source: '전화',
         status: inqSt,
+        ...(intakeTemplateId ? { intakeTemplateId } : {}),
         ...(collaborationMarketerId.trim()
           ? { collaborationMarketerId: collaborationMarketerId.trim() }
           : {}),
@@ -209,6 +234,14 @@ export function AdminListIntakeModal({
           onFocusCapture={onFieldFocus}
           className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3"
         >
+          {!editMode ? (
+            <InquiryIntakeTemplatePicker
+              templates={publishedIntakeTemplates}
+              selectedId={intakeTemplateId}
+              onSelect={setIntakeTemplateId}
+              compact
+            />
+          ) : null}
           <div>
             <label className="mb-1 block text-fluid-xs font-medium text-gray-700">고객명 *</label>
             <input

@@ -1407,7 +1407,20 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     ? (req.body as { collaborationMarketerId?: unknown }).collaborationMarketerId
     : undefined;
 
-  const resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, templateIdRaw);
+  const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
+  const requestedIssueTemplateId = typeof templateIdRaw === 'string' ? templateIdRaw.trim() : '';
+  let issueTemplateHint = requestedIssueTemplateId;
+  if (!issueTemplateHint && pid) {
+    const intakeHint = await prisma.inquiry.findFirst({
+      where: { id: pid, tenantId: authTenantId },
+      select: { intakeTemplateId: true },
+    });
+    if (intakeHint?.intakeTemplateId) issueTemplateHint = intakeHint.intakeTemplateId;
+  }
+  let resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, issueTemplateHint || null);
+  if (resolvedTemplate === 'invalid' && issueTemplateHint && !requestedIssueTemplateId) {
+    resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, null);
+  }
   if (resolvedTemplate === 'invalid') {
     res.status(400).json({ error: '선택한 발주서 양식을 찾을 수 없거나 발행되지 않았습니다.' });
     return;
@@ -1416,7 +1429,6 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     ? { templateId: resolvedTemplate.id, templateVersion: resolvedTemplate.version }
     : {};
 
-  const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
   const tenantPlan = await getTenantPlan(authTenantId);
   try {
     if (pid) {
@@ -1510,6 +1522,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           where: { id: pid },
           data: {
             orderFormId: created.id,
+            ...(created.templateId ? { intakeTemplateId: created.templateId } : {}),
             status: 'ORDER_FORM_PENDING',
             source: leadSourceLabel,
             intakeChannel: 'order_issue',
@@ -1628,6 +1641,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           source: leadSourceLabel,
           intakeChannel: 'order_issue',
           orderFormId: created.id,
+          ...(created.templateId ? { intakeTemplateId: created.templateId } : {}),
           createdById: userId,
           internalCustomerTone: standaloneTone,
           ...(resolvedCollaborationMarketerId !== undefined

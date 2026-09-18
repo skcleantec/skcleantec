@@ -35,6 +35,7 @@ import {
   resolveInquiryIntakeChannelForCreate,
 } from '../inquiry-lead-sources/inquiryLeadSource.service.js';
 import { resolveCollaborationMarketerIdForWrite } from './collaborationMarketer.helpers.js';
+import { resolvePublishedIntakeTemplateId } from './inquiryIntakeFormProfile.service.js';
 
 export const CREATE_INQUIRY_STATUSES: InquiryStatus[] = [
   'PENDING',
@@ -188,6 +189,18 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
     ? await resolveCollaborationMarketerIdForWrite(db, tenantId, body.collaborationMarketerId, userId ?? null)
     : null;
 
+  const requestedIntakeTemplateId =
+    typeof body.intakeTemplateId === 'string' ? body.intakeTemplateId.trim() : '';
+  const intakeTemplateResolved = await resolvePublishedIntakeTemplateId(
+    db,
+    tenantId,
+    requestedIntakeTemplateId || null,
+  );
+  if (intakeTemplateResolved === 'invalid') {
+    throw new InquiryCreateError('사용 중인 발주서가 아닙니다.');
+  }
+  const intakeTemplateId = intakeTemplateResolved?.id ?? null;
+
   const inquiry = await db.$transaction(async (tx) => {
     let inquiryNumber: string | null = null;
     if (overrideNum) {
@@ -251,6 +264,7 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
           : body.crewMemberNote
             ? String(body.crewMemberNote)
             : null,
+        ...(intakeTemplateId ? { intakeTemplateId } : {}),
       },
     });
     if (billingMode === 'quick_paste') {

@@ -2279,6 +2279,8 @@ model Inquiry {
   cancelFeeExternalCompanyId String?          @map("cancel_fee_external_company_id")
   cancelFeeExternalCompany   ExternalCompany? @relation("InquiryCancelFeeExternalCompany", fields: [cancelFeeExternalCompanyId], references: [id], onDelete: SetNull)
   orderFormId  String?       @map("order_form_id")
+  /// 전화·수기 접수 때 고른 발주서 양식. 발주서가 생기면 orderForm.templateId 가 우선.
+  intakeTemplateId String?   @map("intake_template_id")
   /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
   /// 협업 마케터. 마케터별 확정 예약 집계 「협업」열에 반영. 광고비와 무관.
@@ -2297,6 +2299,7 @@ model Inquiry {
   deletedBy   User?     @relation("InquiryDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
   orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
+  intakeTemplate OrderFormTemplate? @relation("InquiryIntakeTemplate", fields: [intakeTemplateId], references: [id], onDelete: SetNull)
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   collaborationMarketer User?     @relation("InquiryCollaborationMarketer", fields: [collaborationMarketerId], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
@@ -2335,6 +2338,7 @@ model Inquiry {
   @@index([tenantId, operatingCompanyId, createdAt])
   @@index([tenantId, profOptionsAmountReviewPending])
   @@index([tenantId, deletedAt])
+  @@index([tenantId, intakeTemplateId])
   @@unique([tenantId, inquiryNumber])
   @@map("inquiries")
 }
@@ -3097,6 +3101,7 @@ model OrderFormTemplate {
 
   fields     OrderFormTemplateField[]
   orderForms OrderForm[]
+  intakeInquiries Inquiry[] @relation("InquiryIntakeTemplate")
 
   @@index([tenantId, status, sortOrder])
   @@index([tenantId, isDefault])

@@ -16,7 +16,7 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
       {
         to: '/admin/inquiries/order-templates',
         label: '발주서 양식',
-        title: '우리 접수 칸 켜기·끄기, 발주서별 제목·아이콘·항목 만들기',
+        title: '사용할 발주서 켜기·끄기, 제목·아이콘·항목 만들기',
       },
       {
         to: '/admin/inquiries/order-customer-link',

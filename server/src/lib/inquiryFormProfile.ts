@@ -37,6 +37,13 @@ export type InquiryIntakeFormProfile = {
   orderFormSubmitted: boolean;
 };
 
+export type PublishedIntakeTemplateOption = {
+  id: string;
+  title: string;
+  icon: string | null;
+  isDefault: boolean;
+};
+
 export function inquiryFormHasSystemField(
   profile: (InquiryIntakeFormProfile & OrderFormSectionToggleTemplate) | null | undefined,
   key: string,

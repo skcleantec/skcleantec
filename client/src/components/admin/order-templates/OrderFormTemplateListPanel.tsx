@@ -54,8 +54,8 @@ export function OrderFormTemplateListPanel({ templates, loading, togglingId, onO
         <span className="text-fluid-2xs tabular-nums text-slate-400">{templates.length}개</span>
       </div>
       <p className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-600 sm:px-4">
-        <strong className="font-medium text-slate-800">사용함</strong>인 양식만 손님에게 보냅니다. 사용 안 함이면 그 양식의
-        평수·이사 같은 칸이 전화 접수에서도 빠집니다. 입주청소 기본도 끌 수 있습니다.
+        <strong className="font-medium text-slate-800">사용함</strong>인 양식만 손님에게 보내고, 전화·스케줄 접수에서
+        고릅니다. 고른 양식의 칸이 접수와 손님 화면에 같습니다. 입주청소 기본도 끌 수 있습니다.
       </p>
 
       {loading ? (

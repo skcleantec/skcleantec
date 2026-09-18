@@ -1,5 +1,9 @@
 import { API } from './apiPrefix';
-import type { InquiryIntakeFormProfile } from '@shared/inquiryFormProfile';
+import type { InquiryIntakeFormProfile, PublishedIntakeTemplateOption } from '@shared/inquiryFormProfile';
+
+export type InquiryIntakeFormProfilePayload = InquiryIntakeFormProfile & {
+  publishedTemplates: PublishedIntakeTemplateOption[];
+};
 
 function headers(token: string) {
   return {
@@ -154,12 +158,22 @@ export async function getInquiries(
 
 export async function getInquiryIntakeFormProfile(
   token: string,
-  inquiryId?: string | null,
-): Promise<InquiryIntakeFormProfile> {
-  const q = inquiryId?.trim() ? `?inquiryId=${encodeURIComponent(inquiryId.trim())}` : '';
-  const res = await fetch(`${API}/inquiries/intake-form-profile${q}`, { headers: headers(token) });
+  opts?: { inquiryId?: string | null; templateId?: string | null },
+): Promise<InquiryIntakeFormProfilePayload> {
+  const q = new URLSearchParams();
+  const inquiryId = opts?.inquiryId?.trim();
+  const templateId = opts?.templateId?.trim();
+  if (inquiryId) q.set('inquiryId', inquiryId);
+  if (templateId) q.set('templateId', templateId);
+  const qs = q.toString();
+  const res = await fetch(`${API}/inquiries/intake-form-profile${qs ? `?${qs}` : ''}`, {
+    headers: headers(token),
+  });
   if (!res.ok) throw new Error('발주서 양식을 불러올 수 없습니다.');
-  return res.json() as Promise<InquiryIntakeFormProfile>;
+  const data = (await res.json()) as InquiryIntakeFormProfile & {
+    publishedTemplates?: PublishedIntakeTemplateOption[];
+  };
+  return { ...data, publishedTemplates: data.publishedTemplates ?? [] };
 }
 
 /** 단일 접수 (목록 항목과 동일 형태) — 딥링크 등 */

@@ -670,19 +670,19 @@
       "notes": "시작일~종료일이 월급 주기와 다를 때. 정산완료는 주기 전체만. 끄면 미리보기와 확정이 섞임."
     },
     {
-      "id": "inquiry.intake.tenantFields",
-      "labelKo": "우리 접수 칸 (전화·수기)",
-      "surfaces": ["admin.orderTemplates", "admin.inquiry.edit", "admin.schedule.detail"],
-      "visual": { "type": "toggle", "token": "slate-900" },
+      "id": "inquiry.intake.pickTemplate",
+      "labelKo": "이 접수에 쓸 발주서",
+      "surfaces": ["admin.inquiry.create", "admin.schedule.create", "admin.listIntake"],
+      "visual": { "type": "chip", "token": "slate-900" },
       "defaultVisible": true,
       "userConfigurable": true,
-      "settingsPath": "/admin/inquiries/order-templates#우리 접수 칸",
-      "helpPath": "client/src/components/admin/order-templates/TenantInquiryIntakeFieldsCard.tsx",
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/admin/inquiry-edit/InquiryIntakeTemplatePicker.tsx",
       "codeRefs": [
-        "shared/inquiryIntakeFields.ts",
-        "server/src/modules/inquiries/inquiryIntakeFields.service.ts"
+        "client/src/components/admin/inquiry-edit/InquiryIntakeTemplatePicker.tsx",
+        "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts"
       ],
-      "notes": "끈 칸은 전화·수기·기본 발주서 접수 수정에서 숨김. 기본 입주청소 손님 화면·이름·전화·주소는 유지. 내가 만든 양식은 양식 연결이 우선."
+      "notes": "사용함 양식이 2개 이상일 때 신규 접수에서 칩으로 고름. 고른 양식 칸이 접수·손님과 같음. 입주청소 기본은 손님 칸 전부."
     },
     {
       "id": "orderform.template.inUse",
@@ -697,7 +697,7 @@
         "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts",
         "server/src/modules/orderform-templates/orderFormTemplates.routes.ts"
       ],
-      "notes": "사용함=발행. 사용 안 함 양식은 발급 목록에서 숨고, 입주청소 기본을 끄면 전화 접수에서 그 칸이 빠짐. 이미 보낸 링크는 유지."
+      "notes": "사용함=발행. 사용 안 함 양식은 발급·접수 고르기에서 숨김. 이미 보낸 링크는 유지."
     }
   ]
 }
