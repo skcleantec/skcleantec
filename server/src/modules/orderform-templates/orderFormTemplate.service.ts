@@ -70,11 +70,17 @@ export async function resolveIssueTemplate(
     });
     return t ? { id: t.id, version: t.version } : 'invalid';
   }
-  const def = await db.orderFormTemplate.findFirst({
-    where: { tenantId, isDefault: true },
+  const publishedDefault = await db.orderFormTemplate.findFirst({
+    where: { tenantId, isDefault: true, status: 'PUBLISHED' },
     select: { id: true, version: true },
   });
-  return def ? { id: def.id, version: def.version } : null;
+  if (publishedDefault) return { id: publishedDefault.id, version: publishedDefault.version };
+  const firstPublished = await db.orderFormTemplate.findFirst({
+    where: { tenantId, status: 'PUBLISHED' },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true, version: true },
+  });
+  return firstPublished ? { id: firstPublished.id, version: firstPublished.version } : null;
 }
 
 /** 공개 발주서 페이지용 — 추가 항목 포함 직렬화 */

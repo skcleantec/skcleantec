@@ -683,6 +683,21 @@
         "server/src/modules/inquiries/inquiryIntakeFields.service.ts"
       ],
       "notes": "끈 칸은 전화·수기·기본 발주서 접수 수정에서 숨김. 기본 입주청소 손님 화면·이름·전화·주소는 유지. 내가 만든 양식은 양식 연결이 우선."
+    },
+    {
+      "id": "orderform.template.inUse",
+      "labelKo": "발주서 사용함",
+      "surfaces": ["admin.orderTemplates.list", "admin.orderForm.issue"],
+      "visual": { "type": "toggle", "token": "emerald-600" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormTemplateListPanel.tsx",
+      "codeRefs": [
+        "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts",
+        "server/src/modules/orderform-templates/orderFormTemplates.routes.ts"
+      ],
+      "notes": "사용함=발행. 사용 안 함 양식은 발급 목록에서 숨고, 입주청소 기본을 끄면 전화 접수에서 그 칸이 빠짐. 이미 보낸 링크는 유지."
     }
   ]
 }

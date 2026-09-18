@@ -443,10 +443,6 @@ router.post('/:id/unpublish', requireStaffPermission('orderform.templates'), asy
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
     return;
   }
-  if (owned.isDefault) {
-    res.status(400).json({ error: '기본 발주서는 발행 해제할 수 없습니다.' });
-    return;
-  }
   const updated = await prisma.orderFormTemplate.update({
     where: { id: owned.id },
     data: { status: 'DRAFT' },

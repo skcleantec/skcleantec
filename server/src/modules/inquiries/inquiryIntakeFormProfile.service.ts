@@ -3,7 +3,11 @@ import type { InquiryIntakeFormProfile } from '../../lib/inquiryFormProfile.js';
 import {
   isOrderFormSectionOffOptions,
   isOrderFormSectionToggleKey,
+  isOrderFormSectionToggleOn,
+  ORDER_FORM_PHOTOS_SECTION_KEY,
+  ORDER_FORM_PROFESSIONAL_SECTION_KEY,
 } from '../../lib/orderFormSectionToggles.js';
+import { INTAKE_IDENTITY_FIELD_KEYS } from '../../lib/inquiryIntakeFields.js';
 import {
   getPublicTemplateForForm,
   sanitizeCustomAnswers,
@@ -48,15 +52,19 @@ export async function loadInquiryIntakeFormProfile(
   } = {},
 ): Promise<InquiryIntakeFormProfile> {
   let templateId = input.templateId?.trim() || null;
+  const tenantKeys = await readTenantInquiryIntakeKeys(db, tenantId);
   if (!templateId) {
-    const def = await db.orderFormTemplate.findFirst({
-      where: { tenantId, isDefault: true },
+    const publishedDefault = await db.orderFormTemplate.findFirst({
+      where: { tenantId, isDefault: true, status: 'PUBLISHED' },
       select: { id: true },
     });
-    templateId = def?.id ?? null;
+    if (publishedDefault) {
+      templateId = publishedDefault.id;
+    } else {
+      return buildPublishedTemplatesUnionProfile(db, tenantId, input, tenantKeys);
+    }
   }
   const pub = await getPublicTemplateForForm(db, tenantId, templateId);
-  const tenantKeys = await readTenantInquiryIntakeKeys(db, tenantId);
   if (!pub) {
     return applyTenantInquiryIntakeOverlay(
       {
@@ -90,6 +98,64 @@ export async function loadInquiryIntakeFormProfile(
         optionLayout: f.optionLayout,
         required: f.required,
       })),
+      canEditCustomAnswers: Boolean(input.orderFormId),
+      orderFormId: input.orderFormId ?? null,
+      orderFormSubmitted: Boolean(input.submittedAt),
+    },
+    tenantKeys,
+  );
+}
+
+async function buildPublishedTemplatesUnionProfile(
+  db: Db,
+  tenantId: string,
+  input: {
+    orderFormId?: string | null;
+    templateId?: string | null;
+    submittedAt?: Date | null;
+  },
+  tenantKeys: string[] | null,
+): Promise<InquiryIntakeFormProfile> {
+  const published = await db.orderFormTemplate.findMany({
+    where: { tenantId, status: 'PUBLISHED' },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    include: { fields: { orderBy: { sortOrder: 'asc' } } },
+  });
+  const systemFieldKeys = new Set<string>(INTAKE_IDENTITY_FIELD_KEYS);
+  const sectionOffKeys: string[] = [];
+  for (const t of published) {
+    for (const f of t.fields) {
+      if (f.systemField) systemFieldKeys.add(f.systemField);
+    }
+  }
+  const toggleShape = {
+    isDefault: false,
+    systemFields: published.flatMap((t) =>
+      t.fields
+        .filter((f): f is typeof f & { systemField: string } => Boolean(f.systemField))
+        .map((f) => ({
+          systemField: f.systemField,
+          options: Array.isArray(f.options) ? f.options.map((o) => String(o)) : [],
+        })),
+    ),
+  };
+  if (!isOrderFormSectionToggleOn(toggleShape, ORDER_FORM_PHOTOS_SECTION_KEY)) {
+    sectionOffKeys.push(ORDER_FORM_PHOTOS_SECTION_KEY);
+  }
+  if (!isOrderFormSectionToggleOn(toggleShape, ORDER_FORM_PROFESSIONAL_SECTION_KEY)) {
+    sectionOffKeys.push(ORDER_FORM_PROFESSIONAL_SECTION_KEY);
+  }
+  const first = published[0];
+  return applyTenantInquiryIntakeOverlay(
+    {
+      templateId: first?.id ?? null,
+      title: first?.title ?? '우리 발주서',
+      icon: first?.icon ?? null,
+      isDefault: false,
+      renderMode: 'TEMPLATE',
+      systemFieldKeys: [...systemFieldKeys],
+      sectionOffKeys,
+      customFields: [],
       canEditCustomAnswers: Boolean(input.orderFormId),
       orderFormId: input.orderFormId ?? null,
       orderFormSubmitted: Boolean(input.submittedAt),

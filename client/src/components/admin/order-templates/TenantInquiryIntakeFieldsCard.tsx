@@ -85,7 +85,7 @@ export function TenantInquiryIntakeFieldsCard({ token }: Props) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <h2 className="text-fluid-sm font-semibold text-slate-900">우리 접수 칸</h2>
-            <HelpTooltip text="입주·이사가 아닌 업체는 건축물 유형·이사일처럼 안 쓰는 칸을 끄면 됩니다. 끈 칸은 전화·수기 접수와 접수 수정에서 같이 숨습니다. 손님에게 보내는 기본 입주청소 발주서는 그대로입니다. 내가 만든 양식은 그 양식의 항목을 따릅니다." />
+            <HelpTooltip text="입주청소 기본을 사용함으로 둘 때, 여기서 끈 칸은 전화·수기 접수에서 숨습니다. 입주청소 기본을 사용 안 함이면 사용함인 양식에 있는 칸만 남습니다. 이름·전화·주소는 항상 있습니다." />
             {!loading && allTotal > 0 ? (
               <span className="text-fluid-2xs tabular-nums text-slate-500">
                 사용 {onTotal}/{allTotal}

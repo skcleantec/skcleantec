@@ -76,6 +76,7 @@ export function AdminOrderFormTemplatesPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
   const [tenantPromotedKeys, setTenantPromotedKeys] = useState<Set<string>>(new Set());
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const selected = useMemo(() => templates.find((t) => t.id === selectedId) ?? null, [templates, selectedId]);
 
@@ -386,7 +387,7 @@ export function AdminOrderFormTemplatesPage() {
     try {
       const updated = await publishOrderFormTemplate(token, selected.id);
       setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-      flashNotice('발행했습니다. 이제 발주서 발급 시 선택할 수 있습니다.');
+      flashNotice('사용함으로 바꿨습니다. 손님에게 보낼 수 있습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '발행에 실패했습니다.');
     }
@@ -397,9 +398,30 @@ export function AdminOrderFormTemplatesPage() {
     try {
       const updated = await unpublishOrderFormTemplate(token, selected.id);
       setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-      flashNotice('발행을 해제했습니다.');
+      flashNotice('사용 안 함으로 바꿨습니다. 그 양식 칸은 전화 접수에서 빠집니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '발행 해제에 실패했습니다.');
+    }
+  }
+
+  async function handleToggleUse(template: OrderFormTemplate, nextOn: boolean) {
+    if (!token || togglingId) return;
+    setTogglingId(template.id);
+    setError(null);
+    try {
+      const updated = nextOn
+        ? await publishOrderFormTemplate(token, template.id)
+        : await unpublishOrderFormTemplate(token, template.id);
+      setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      flashNotice(
+        nextOn
+          ? '사용함으로 바꿨습니다. 손님에게 보낼 수 있습니다.'
+          : '사용 안 함으로 바꿨습니다. 그 양식 칸은 전화 접수에서 빠집니다.',
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '사용 여부를 바꾸지 못했습니다.');
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -442,7 +464,7 @@ export function AdminOrderFormTemplatesPage() {
                 {isCreate ? '새 발주서 만들기' : urlId ? '발주서 양식' : '발주서 양식 관리'}
               </h1>
             </PageTitleWithFavorite>
-              <HelpTooltip text="목록에서 만든 양식을 보고, 새 발주서는 이름 → 접수 칸 → 우리 항목 → 확인 순으로 만듭니다. 「우리 접수 칸」은 전화·수기 접수용입니다. 기본 입주청소 발주서 손님 화면은 그대로입니다." />
+              <HelpTooltip text="목록에서 사용함/사용 안 함을 고릅니다. 사용함인 양식만 손님에게 보내고, 사용 안 함 양식의 칸은 전화 접수에서 빠집니다. 입주청소 기본도 끌 수 있습니다." />
           </div>
           <p className="mt-1 text-fluid-xs text-gray-500">
             {isCreate
@@ -500,7 +522,13 @@ export function AdminOrderFormTemplatesPage() {
       ) : !urlId ? (
         <div className="space-y-4">
           <TenantInquiryIntakeFieldsCard token={token} />
-          <OrderFormTemplateListPanel templates={templates} loading={loading} onOpen={goEdit} />
+          <OrderFormTemplateListPanel
+            templates={templates}
+            loading={loading}
+            togglingId={togglingId}
+            onOpen={goEdit}
+            onToggleUse={handleToggleUse}
+          />
         </div>
       ) : !selected && loading ? (
         <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-fluid-sm text-slate-400">불러오는 중…</p>
@@ -527,12 +555,12 @@ export function AdminOrderFormTemplatesPage() {
                       복제
                     </button>
                     {selected.status === 'PUBLISHED' ? (
-                      <button type="button" onClick={handleUnpublish} disabled={selected.isDefault} className="rounded-md border border-amber-300 px-3 py-1.5 text-fluid-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-40">
-                        발행 해제
+                      <button type="button" onClick={handleUnpublish} className="rounded-md border border-amber-300 px-3 py-1.5 text-fluid-xs font-medium text-amber-700 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
+                        사용 안 함
                       </button>
                     ) : (
-                      <button type="button" onClick={handlePublish} className="rounded-md bg-green-600 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-green-700">
-                        발행
+                      <button type="button" onClick={handlePublish} className="rounded-md bg-emerald-600 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
+                        사용함
                       </button>
                     )}
                     <button

@@ -804,7 +804,7 @@ export function AdminOrderFormPage() {
                     ) : (
                       <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-fluid-xs text-amber-950">
                         {issueTemplatesError ??
-                          '발행된 발주서 양식이 없습니다. 「발주서 양식」 메뉴에서 발행 후 다시 시도해 주세요.'}
+                          '사용함인 발주서 양식이 없습니다. 「발주서 양식」에서 사용할 양식을 켠 뒤 다시 시도해 주세요.'}
                       </p>
                     )}
                   </div>
