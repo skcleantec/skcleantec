@@ -129,7 +129,7 @@ export async function getPublicTemplateForForm(
   };
 }
 
-/** TEMPLATE 모드 비기본 양식 — 해당 systemField가 템플릿에 있을 때만 true. 기본·레거시는 항상 true. 섹션 토글(사진 등)은 양식별 ON/OFF. */
+/** 연결된 systemField가 있으면 그 목록만. 목록이 비면(레거시·미로드) 전부 표시. 섹션 토글은 ON/OFF. */
 export function templateHasSystemField(
   template: PublicOrderTemplate | null | undefined,
   key: string,
@@ -137,9 +137,10 @@ export function templateHasSystemField(
   if (isOrderFormSectionToggleKey(key)) {
     return isOrderFormSectionToggleOn(template, key);
   }
-  if (!template || template.isDefault) return true;
-  if (template.renderMode !== 'TEMPLATE') return true;
-  return template.systemFields.some((f) => f.systemField === key);
+  if (!template) return true;
+  const mapped = template.systemFields.map((f) => f.systemField).filter(Boolean);
+  if (mapped.length > 0) return mapped.includes(key);
+  return true;
 }
 
 /** 제출 답변 정규화 — customFields 키만 남기고 문자열/배열로 정리 */

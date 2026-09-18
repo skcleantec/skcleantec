@@ -57,9 +57,9 @@ export function inquiryFormHasSystemField(
       key,
     );
   }
-  if (!profile || profile.isDefault) return true;
-  if (profile.renderMode !== 'TEMPLATE') return true;
-  return profile.systemFieldKeys.includes(key);
+  if (!profile) return true;
+  if (profile.systemFieldKeys.length > 0) return profile.systemFieldKeys.includes(key);
+  return true;
 }
 
 export function inquiryFormShowsPropertySection(profile: InquiryIntakeFormProfile | null | undefined): boolean {
