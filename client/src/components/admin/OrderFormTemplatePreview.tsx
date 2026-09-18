@@ -14,8 +14,11 @@ import { isOrderFormSectionOffOptions } from '@shared/orderFormSectionToggles';
 import type {
   OrderFormFieldFillMode,
   OrderFormFieldInputType,
+  OrderFormFieldOptionLayout,
   OrderFormFieldOptionStyle,
 } from '../../api/orderFormTemplates';
+import { OrderFormChoiceOptions } from '../orderform/OrderFormChoiceOptions';
+import { orderFormChoiceIsMulti, orderFormChoiceUsesOptionList } from '@shared/orderFormOptionLayout';
 
 export interface TemplatePreviewField {
   fieldKey?: string;
@@ -28,6 +31,7 @@ export interface TemplatePreviewField {
   options: string[];
   placeholder?: string | null;
   optionStyle?: OrderFormFieldOptionStyle | null;
+  optionLayout?: OrderFormFieldOptionLayout | null;
 }
 
 export interface TemplatePreviewMeta {
@@ -171,16 +175,19 @@ function PreviewControl({ field }: { field: TemplatePreviewField }) {
         />
       );
     case 'SELECT':
-      if (field.optionStyle === 'RADIO') {
+    case 'MULTISELECT':
+    case 'CHECKBOX':
+      if (orderFormChoiceUsesOptionList(field.inputType, field.optionStyle)) {
         return (
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            {(options.length ? options : ['선택지 1', '선택지 2']).map((o, i) => (
-              <label key={i} className="flex items-center gap-1.5 text-fluid-sm text-gray-400">
-                <input type="radio" disabled className="h-4 w-4 border-gray-300" />
-                {o}
-              </label>
-            ))}
-          </div>
+          <OrderFormChoiceOptions
+            name={`preview-${field.fieldKey || field.label}`}
+            options={options.length ? options : ['선택지 1', '선택지 2']}
+            value={null}
+            multi={orderFormChoiceIsMulti(field.inputType)}
+            layout={field.optionLayout}
+            disabled
+            onChange={() => {}}
+          />
         );
       }
       return (
@@ -189,18 +196,6 @@ function PreviewControl({ field }: { field: TemplatePreviewField }) {
             <option key={i}>{o}</option>
           ))}
         </select>
-      );
-    case 'MULTISELECT':
-    case 'CHECKBOX':
-      return (
-        <div className="space-y-1.5">
-          {(options.length ? options : ['선택지 1', '선택지 2']).map((o, i) => (
-            <label key={i} className="flex items-center gap-2 text-fluid-sm text-gray-400">
-              <input type="checkbox" disabled className="h-4 w-4 rounded border-gray-300" />
-              {o}
-            </label>
-          ))}
-        </div>
       );
     case 'PHOTO':
       return <div className={`${CONTROL_CLS} text-center`}>📷 사진 첨부</div>;

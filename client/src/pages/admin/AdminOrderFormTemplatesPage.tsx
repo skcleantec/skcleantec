@@ -7,6 +7,7 @@ import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getDesignerPreviewOrderToken } from '../../api/orderform';
 import { appendPublicQuery } from '../../utils/publicTenantQuery';
+import { withOrderFormPreviewWalkQuery } from '@shared/orderFormPreviewWalk';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import {
   createOrderFormTemplate,
@@ -22,6 +23,7 @@ import {
   type OrderFormFieldFillMode,
   type OrderFormFieldInputType,
   type OrderFormFieldOptionStyle,
+  type OrderFormFieldOptionLayout,
   type OrderFormSystemFieldDef,
   type OrderFormTemplate,
   type OrderFormTemplateField,
@@ -36,12 +38,16 @@ import {
 } from '@shared/orderFormSectionToggles';
 import { OrderFormSectionToggles } from '../../components/admin/order-templates/OrderFormSectionToggles';
 
-type DraftField = Omit<OrderFormTemplateField, 'id' | 'options' | 'placeholder' | 'optionStyle'> & {
+type DraftField = Omit<
+  OrderFormTemplateField,
+  'id' | 'options' | 'placeholder' | 'optionStyle' | 'optionLayout'
+> & {
   id?: string;
   /** 선택지 목록(편집 중 빈 항목 허용, 저장 시 빈 값 제거) */
   options: string[];
   placeholder: string | null;
   optionStyle: OrderFormFieldOptionStyle | null;
+  optionLayout: OrderFormFieldOptionLayout | null;
 };
 
 const INPUT_TYPE_OPTIONS: Array<{ value: OrderFormFieldInputType; label: string }> = [
@@ -116,6 +122,7 @@ function fieldToDraft(f: OrderFormTemplateField): DraftField {
     options: opts,
     placeholder: f.placeholder ?? null,
     optionStyle: f.optionStyle ?? null,
+    optionLayout: f.optionLayout ?? null,
   };
 }
 
@@ -137,6 +144,11 @@ function draftsToPayload(drafts: DraftField[]): Array<Omit<OrderFormTemplateFiel
           : null
         : null,
     optionStyle: d.inputType === 'SELECT' ? d.optionStyle ?? 'DROPDOWN' : null,
+    optionLayout:
+      OPTION_INPUT_TYPES.has(d.inputType) &&
+      (d.inputType !== 'SELECT' || (d.optionStyle ?? 'DROPDOWN') === 'RADIO')
+        ? d.optionLayout ?? 'VERTICAL'
+        : null,
     required: d.required,
     sortOrder: i,
     systemField: d.systemField && d.systemField.trim() ? d.systemField : null,
@@ -186,6 +198,7 @@ function coreFieldToDraft(f: OrderFormSystemFieldDef, sortOrder: number): DraftF
     options: defaultOptions ? [...defaultOptions] : [],
     placeholder: null,
     optionStyle: defaultOptions ? 'DROPDOWN' : null,
+    optionLayout: null,
   };
 }
 
@@ -228,8 +241,8 @@ export function AdminOrderFormTemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [defaultPreviewToken, setDefaultPreviewToken] = useState<string | null>(null);
-  const [defaultPreviewIframeKey, setDefaultPreviewIframeKey] = useState(0);
+  const [designerPreviewToken, setDesignerPreviewToken] = useState<string | null>(null);
+  const [designerPreviewIframeKey, setDesignerPreviewIframeKey] = useState(0);
 
   // 편집 상태
   const [meta, setMeta] = useState({ title: '', icon: '', description: '' });
@@ -324,19 +337,29 @@ export function AdminOrderFormTemplatesPage() {
     setDirty(false);
   }, [selected]);
 
-  // 기본 발주서: 실제 표준 폼(발주서설정과 동일)을 미리보기로 띄우기 위한 토큰
+  // 손님 화면 iframe 미리보기(기본·커스텀 공통, previewWalk)
   useEffect(() => {
-    if (!token || !selected?.isDefault || defaultPreviewToken) return;
+    if (!token || designerPreviewToken) return;
     let cancelled = false;
     getDesignerPreviewOrderToken(token)
       .then((r) => {
-        if (!cancelled) setDefaultPreviewToken(r.token);
+        if (!cancelled) setDesignerPreviewToken(r.token);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [token, selected?.isDefault, defaultPreviewToken]);
+  }, [token, designerPreviewToken]);
+
+  const designerPreviewWalkSrc = useMemo(() => {
+    if (typeof window === 'undefined' || !designerPreviewToken || !selected) return '';
+    return withOrderFormPreviewWalkQuery(
+      appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(designerPreviewToken)}`, {
+        tenantSlug: staffTenantSlug || null,
+      }),
+      { previewTemplateId: selected.isDefault ? null : selected.id },
+    );
+  }, [designerPreviewToken, selected, staffTenantSlug]);
 
   const flashNotice = useCallback((msg: string) => {
     setNotice(msg);
@@ -391,6 +414,7 @@ export function AdminOrderFormTemplatesPage() {
           options: opts,
           placeholder: null,
           optionStyle: null,
+          optionLayout: null,
         },
       ];
     });
@@ -412,6 +436,7 @@ export function AdminOrderFormTemplatesPage() {
         options: [],
         placeholder: null,
         optionStyle: null,
+        optionLayout: null,
       },
     ]);
     setDirty(true);
@@ -492,7 +517,7 @@ export function AdminOrderFormTemplatesPage() {
       const promoted = await getPromotedOrderFormListFields(token);
       setTenantPromotedKeys(new Set(promoted.map((p) => p.fieldKey)));
       setDirty(false);
-      setDefaultPreviewIframeKey((k) => k + 1);
+      setDesignerPreviewIframeKey((k) => k + 1);
       flashNotice('저장했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
@@ -949,8 +974,41 @@ export function AdminOrderFormTemplatesPage() {
                                     <button
                                       key={o.v}
                                       type="button"
-                                      onClick={() => updateDraft(idx, { optionStyle: o.v })}
-                                      className={`px-3 py-1.5 text-fluid-xs ${active ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                      onClick={() =>
+                                        updateDraft(idx, {
+                                          optionStyle: o.v,
+                                          optionLayout: o.v === 'RADIO' ? d.optionLayout ?? 'VERTICAL' : null,
+                                        })
+                                      }
+                                      className={`px-3 py-1.5 text-fluid-xs hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${active ? 'bg-gray-800 text-white hover:bg-gray-800' : 'bg-white text-gray-600'}`}
+                                    >
+                                      {o.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {(d.inputType === 'MULTISELECT' ||
+                            d.inputType === 'CHECKBOX' ||
+                            (d.inputType === 'SELECT' && (d.optionStyle ?? 'DROPDOWN') === 'RADIO')) && (
+                            <div className="sm:col-span-2">
+                              <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">선택지 배치</span>
+                              <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
+                                {(
+                                  [
+                                    { v: 'VERTICAL' as const, label: '세로' },
+                                    { v: 'HORIZONTAL' as const, label: '가로' },
+                                    { v: 'COLS_2' as const, label: '두 칸' },
+                                  ] as const
+                                ).map((o) => {
+                                  const active = (d.optionLayout ?? 'VERTICAL') === o.v;
+                                  return (
+                                    <button
+                                      key={o.v}
+                                      type="button"
+                                      onClick={() => updateDraft(idx, { optionLayout: o.v })}
+                                      className={`px-3 py-1.5 text-fluid-xs hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${active ? 'bg-gray-800 text-white hover:bg-gray-800' : 'bg-white text-gray-600'}`}
                                     >
                                       {o.label}
                                     </button>
@@ -1024,45 +1082,36 @@ export function AdminOrderFormTemplatesPage() {
               </div>
               </div>
 
-              {/* 우측: 미리보기 — 기본 발주서는 실제 표준 폼(발주서설정과 동일), 그 외는 실시간 렌더 */}
+              {/* 우측: 손님 마법사 미리보기 — 필수 없이 다음 가능, 제출 차단 */}
               <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
-                {selected.isDefault ? (
-                  <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                    <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2">
-                      <span className="text-fluid-2xs font-medium uppercase tracking-wide text-gray-400">실제 고객 화면 (기존 표준 발주서)</span>
-                      {defaultPreviewToken ? (
-                        <a
-                          href={appendPublicQuery(
-                            `${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`,
-                            { tenantSlug: staffTenantSlug || null },
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 text-fluid-2xs font-medium text-blue-700 underline"
-                        >
-                          새 탭
-                        </a>
-                      ) : null}
-                    </div>
-                    {defaultPreviewToken ? (
-                      <iframe
-                        key={defaultPreviewIframeKey}
-                        title="기본 발주서 미리보기"
-                        src={appendPublicQuery(
-                          `${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`,
-                          { tenantSlug: staffTenantSlug || null },
-                        )}
-                        className="h-[min(78vh,900px)] w-full min-h-[420px] bg-gray-50"
-                      />
-                    ) : (
-                      <div className="flex h-[420px] items-center justify-center text-fluid-sm text-gray-400">
-                        미리보기 불러오는 중…
-                      </div>
-                    )}
+                <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-amber-50 px-3 py-2">
+                    <span className="min-w-0 text-fluid-2xs font-medium leading-snug text-amber-950">
+                      손님 화면 미리보기 · 필수 없이 넘기기
+                      {dirty ? ' · 저장해야 반영됩니다' : ''}
+                    </span>
+                    {designerPreviewWalkSrc ? (
+                      <a
+                        href={designerPreviewWalkSrc}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 text-fluid-2xs font-medium text-blue-700 underline hover:text-blue-800"
+                      >
+                        새 탭
+                      </a>
+                    ) : null}
                   </div>
-                ) : (
-                  <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />
-                )}
+                  {designerPreviewWalkSrc ? (
+                    <iframe
+                      key={`${designerPreviewIframeKey}-${selected.id}`}
+                      title="발주서 미리보기"
+                      src={designerPreviewWalkSrc}
+                      className="h-[min(78vh,900px)] w-full min-h-[420px] bg-gray-50"
+                    />
+                  ) : (
+                    <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />
+                  )}
+                </div>
               </div>
             </div>
           )}

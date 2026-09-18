@@ -26,6 +26,7 @@ import {
   type OrderTimeSlotLabels,
 } from '@shared/orderFormTimeSlotLabels';
 import { appendPublicQuery } from '../../utils/publicTenantQuery';
+import { withOrderFormPreviewWalkQuery } from '@shared/orderFormPreviewWalk';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
@@ -206,9 +207,11 @@ export function AdminOrderFormCustomerPreviewPage() {
 
   const iframeSrc =
     typeof window !== 'undefined' && previewToken
-      ? appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(previewToken)}`, {
-          tenantSlug: staffTenantSlug || null,
-        })
+      ? withOrderFormPreviewWalkQuery(
+          appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(previewToken)}`, {
+            tenantSlug: staffTenantSlug || null,
+          }),
+        )
       : '';
 
   const saveMsgPartial = async (key: string, payload: Partial<OrderFormConfigPublic>) => {
@@ -355,7 +358,9 @@ export function AdminOrderFormCustomerPreviewPage() {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-amber-50 px-3 py-2">
-            <p className="text-[12px] font-medium text-amber-950">실제 고객 발주서 화면</p>
+            <p className="text-fluid-2xs font-medium text-amber-950">
+              손님 화면 미리보기 · 필수 없이 넘기기 가능 · 제출 안 됨
+            </p>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"

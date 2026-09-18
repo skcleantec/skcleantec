@@ -78,6 +78,7 @@ export async function loadInquiryIntakeFormProfile(
       options: Array.isArray(f.options) ? f.options.map((o) => String(o)) : [],
       placeholder: f.placeholder,
       optionStyle: f.optionStyle,
+      optionLayout: f.optionLayout,
       required: f.required,
     })),
     canEditCustomAnswers: Boolean(input.orderFormId),

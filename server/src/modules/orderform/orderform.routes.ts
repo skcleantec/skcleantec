@@ -816,6 +816,7 @@ function mapOrderFormOperatingCompany<T extends { operatingCompany?: Parameters<
 async function buildEditableOrderPayload(
   form: Prisma.OrderFormGetPayload<{ include: { inquiries: true } }>,
   brandSlug?: string | null,
+  opts?: { overrideTemplateId?: string | null },
 ) {
   const pendingRow = form.inquiries[0];
   const pendingInquiry = pendingRow ? mapPendingInquiry(pendingRow) : null;
@@ -845,7 +846,11 @@ async function buildEditableOrderPayload(
     getOrCreateOrderFormConfig(prisma, form.tenantId),
   ]);
   const tenantFillRulesRaw = tenantFormCfg.issueFillRules;
-  const template = await getPublicTemplateForForm(prisma, form.tenantId, form.templateId);
+  const template = await getPublicTemplateForForm(
+    prisma,
+    form.tenantId,
+    opts?.overrideTemplateId?.trim() || form.templateId,
+  );
   const publicBranding = await resolvePublicBrandingForCustomer({
     db: prisma,
     tenantId: form.tenantId,
@@ -2688,13 +2693,29 @@ router.get('/by-token/:token', async (req, res) => {
     });
     return;
   }
-  const payload = await buildEditableOrderPayload(form, brandSlug);
+  let overrideTemplateId: string | null = null;
+  if (isDesignerPreviewOrderToken(token)) {
+    const raw =
+      typeof req.query.previewTemplateId === 'string' ? req.query.previewTemplateId.trim() : '';
+    if (raw) {
+      const previewTpl = await prisma.orderFormTemplate.findFirst({
+        where: { id: raw, tenantId: form.tenantId },
+        select: { id: true },
+      });
+      if (previewTpl) overrideTemplateId = previewTpl.id;
+    }
+  }
+  const payload = await buildEditableOrderPayload(form, brandSlug, { overrideTemplateId });
   res.json(payload);
 });
 
 /** 공개: 발주서 제출 (고객이 작성 후 제출 → 문의로 등록) */
 router.post('/submit/:token', async (req, res) => {
   const { token } = req.params;
+  if (isDesignerPreviewOrderToken(token)) {
+    res.status(400).json({ error: '미리보기 발주서는 제출할 수 없습니다.' });
+    return;
+  }
   const body = req.body as {
     customerName: string;
     address: string;

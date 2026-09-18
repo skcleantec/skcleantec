@@ -42,6 +42,7 @@ const FIELD_INPUT_TYPES = new Set([
 ]);
 const FILL_MODES = new Set(['CUSTOMER', 'ADMIN_LOCKED', 'ADMIN_PREFILL']);
 const OPTION_STYLES = new Set(['RADIO', 'DROPDOWN']);
+const OPTION_LAYOUTS = new Set(['VERTICAL', 'HORIZONTAL', 'COLS_2']);
 
 type FieldInput = {
   fieldKey?: unknown;
@@ -51,6 +52,7 @@ type FieldInput = {
   options?: unknown;
   placeholder?: unknown;
   optionStyle?: unknown;
+  optionLayout?: unknown;
   required?: unknown;
   sortOrder?: unknown;
   systemField?: unknown;
@@ -84,6 +86,7 @@ function serializeTemplate(
         options: f.options,
         placeholder: f.placeholder,
         optionStyle: f.optionStyle,
+        optionLayout: f.optionLayout,
         required: f.required,
         sortOrder: f.sortOrder,
         systemField: f.systemField,
@@ -260,6 +263,7 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
     options: Prisma.InputJsonValue;
     placeholder: string | null;
     optionStyle: string | null;
+    optionLayout: string | null;
     required: boolean;
     sortOrder: number;
     systemField: string | null;
@@ -309,6 +313,8 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
         : null;
     const optionStyle =
       typeof f.optionStyle === 'string' && OPTION_STYLES.has(f.optionStyle) ? f.optionStyle : null;
+    const optionLayout =
+      typeof f.optionLayout === 'string' && OPTION_LAYOUTS.has(f.optionLayout) ? f.optionLayout : null;
     const showInInquiryList =
       f.showInInquiryList === true &&
       canPromoteFieldToInquiryList({ systemField, inputType });
@@ -321,6 +327,7 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
       options,
       placeholder,
       optionStyle,
+      optionLayout,
       required: typeof f.required === 'boolean' ? f.required : false,
       sortOrder: i,
       systemField,
@@ -353,6 +360,7 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
           options: p.options,
           placeholder: p.placeholder,
           optionStyle: p.optionStyle,
+          optionLayout: p.optionLayout,
           required: p.required,
           sortOrder: p.sortOrder,
           systemField: p.systemField,
@@ -467,6 +475,7 @@ router.post('/:id/duplicate', requireStaffPermission('orderform.templates'), asy
           options: f.options as Prisma.InputJsonValue,
           placeholder: f.placeholder,
           optionStyle: f.optionStyle,
+          optionLayout: f.optionLayout,
           required: f.required,
           sortOrder: f.sortOrder,
           systemField: f.systemField,

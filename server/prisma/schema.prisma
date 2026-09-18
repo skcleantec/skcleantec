@@ -3119,6 +3119,8 @@ model OrderFormTemplateField {
   placeholder String?                 @db.VarChar(300)
   /// 단일 선택(SELECT) 표시 방식 — 'RADIO' | 'DROPDOWN'. null이면 드롭다운(기본)
   optionStyle String?                 @map("option_style") @db.VarChar(16)
+  /// 선택지 배치 — 'VERTICAL' | 'HORIZONTAL' | 'COLS_2'. null이면 세로
+  optionLayout String?                @map("option_layout") @db.VarChar(16)
   required    Boolean                 @default(false)
   sortOrder   Int                     @default(0) @map("sort_order")
   /// 코어 매핑 키(없으면 자유 필드). 예: customerName, customerPhone, address, totalAmount, areaPyeong, preferredDate, preferredTime
