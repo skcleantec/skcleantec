@@ -3,7 +3,7 @@ import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve
 import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { createPortal } from 'react-dom';
-import { Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { OrderIssueHelpModal } from '../../components/admin/order-issue-help/OrderIssueHelpModal';
@@ -968,6 +968,16 @@ export function AdminOrderFormPage() {
 
       {tab === 'list' && (
         <div className="min-w-0 w-full max-w-full">
+          <p className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-700">
+            여기는 손님에게 <strong className="font-medium">이미 보낸 발주서</strong>입니다. 양식을 켜고 끄려면{' '}
+            <Link
+              to="/admin/inquiries/order-templates"
+              className="font-medium text-slate-900 underline hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            >
+              발주서 양식
+            </Link>
+            에서 「사용하기 / 사용 끄기」를 누르세요.
+          </p>
           {listOpsRange ? (
             <p className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-fluid-xs text-indigo-900">
               대시보드 시간대 필터:{' '}

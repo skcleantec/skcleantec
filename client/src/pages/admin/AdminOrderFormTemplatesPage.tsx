@@ -463,14 +463,14 @@ export function AdminOrderFormTemplatesPage() {
                 {isCreate ? '새 발주서 만들기' : urlId ? '발주서 양식' : '발주서 양식 관리'}
               </h1>
             </PageTitleWithFavorite>
-              <HelpTooltip text="목록에서 사용함/사용 안 함을 고릅니다. 사용함인 양식만 손님에게 보내고, 전화·스케줄 접수에서 고릅니다. 고른 양식의 칸이 접수와 손님 화면에 같습니다. 입주청소 기본도 끌 수 있습니다." />
+              <HelpTooltip text="「사용하기」를 누른 양식만 손님에게 보내고 접수에서 고릅니다. 이미 보낸 서류는 「발주서 목록」입니다." />
           </div>
           <p className="mt-1 text-fluid-xs text-gray-500">
             {isCreate
               ? '한 화면씩 설정합니다. 중간에 목록으로 나가도 초안은 목록에 남습니다.'
               : urlId
                 ? '이 양식만 고칩니다. 공통 안내 문구는 '
-                : '손님에게 보낼 양식과, 접수에서 고를 양식 목록입니다. 공통 안내 문구는 '}
+                : '아래에서 발주서를 켜고 끕니다. 공통 안내 문구는 '}
             {!isCreate ? (
               <>
                 <Link to="/admin/inquiries/order-customer-preview" className="text-slate-700 underline hover:text-slate-900">

@@ -38,7 +38,7 @@ const IDENTITY_KEY_SET = new Set<string>(INTAKE_IDENTITY_FIELD_KEYS);
 
 const WIZARD_STEPS = [
   { n: 1, label: '이름' },
-  { n: 2, label: '접수 칸' },
+  { n: 2, label: '칸 연결' },
   { n: 3, label: '우리 항목' },
   { n: 4, label: '확인' },
 ] as const;
