@@ -471,6 +471,9 @@ function buildCreatePostBody(
     ...(opts?.intakeProfile?.templateId
       ? { intakeTemplateId: opts.intakeProfile.templateId }
       : {}),
+    ...(opts?.intakeProfile && Object.keys(editForm.orderFormAnswers ?? {}).length > 0
+      ? { orderFormAnswers: editForm.orderFormAnswers }
+      : {}),
     status: p.status ?? 'RECEIVED',
     soloTeamLeaderIds: p.soloTeamLeaderIds,
     crewMemberCount: p.crewMemberCount,
@@ -844,12 +847,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         const attachedProfile = (data as { intakeFormProfile?: InquiryIntakeFormProfile | null })
           .intakeFormProfile;
         if (attachedProfile) setIntakeProfile(attachedProfile);
-        if (freshOrderForm) {
-          setEditForm((p) => ({
-            ...p,
-            orderFormAnswers: inquiryOrderFormAnswersFromItem({ orderForm: freshOrderForm }),
-          }));
-        }
+        setEditForm((p) => ({
+          ...p,
+          orderFormAnswers: inquiryOrderFormAnswersFromItem({
+            orderForm: freshOrderForm,
+            intakeCustomAnswers: (data as { intakeCustomAnswers?: Record<string, unknown> | null })
+              .intakeCustomAnswers,
+          }),
+        }));
       })
       .catch(() => {
         if (!cancelled) {

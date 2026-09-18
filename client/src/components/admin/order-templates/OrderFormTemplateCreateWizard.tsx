@@ -38,10 +38,14 @@ const IDENTITY_KEY_SET = new Set<string>(INTAKE_IDENTITY_FIELD_KEYS);
 
 const WIZARD_STEPS = [
   { n: 1, label: '이름' },
-  { n: 2, label: '칸 연결' },
-  { n: 3, label: '우리 항목' },
-  { n: 4, label: '확인' },
+  { n: 2, label: '칸 만들기' },
+  { n: 3, label: '확인' },
 ] as const;
+
+const QUICK_NEW_FIELDS: Array<{ label: string; inputType: OrderFormFieldInputType; options?: string[] }> = [
+  { label: '에어컨 대수', inputType: 'NUMBER' },
+  { label: '에어컨 유형', inputType: 'SELECT', options: ['벽걸이', '스탠드', '천장형'] },
+];
 
 const WIZARD_INPUT =
   'w-full min-h-10 rounded-lg border border-slate-300 px-3 text-fluid-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
@@ -291,29 +295,36 @@ export function OrderFormTemplateCreateWizard({
     });
   }
 
+  function pushCustom(label: string, inputType: OrderFormFieldInputType, options: string[] = []) {
+    const name = label.trim();
+    if (!name) return;
+    setCustomDrafts((prev) => {
+      if (prev.some((d) => d.label === name)) return prev;
+      return [
+        ...prev,
+        {
+          fieldKey: nextFieldKey(prev),
+          label: name,
+          helpText: null,
+          inputType,
+          required: false,
+          sortOrder: prev.length,
+          systemField: null,
+          fillMode: 'CUSTOMER',
+          options,
+          placeholder: null,
+          optionStyle: inputType === 'SELECT' ? 'DROPDOWN' : null,
+          optionLayout: null,
+        },
+      ];
+    });
+  }
+
   function addCustom() {
-    const label = newLabel.trim();
-    if (!label) return;
     const options = OPTION_INPUT_TYPES.has(newType)
       ? newOptions.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean)
       : [];
-    setCustomDrafts((prev) => [
-      ...prev,
-      {
-        fieldKey: nextFieldKey(prev),
-        label,
-        helpText: null,
-        inputType: newType,
-        required: false,
-        sortOrder: prev.length,
-        systemField: null,
-        fillMode: 'CUSTOMER',
-        options,
-        placeholder: null,
-        optionStyle: newType === 'SELECT' ? 'DROPDOWN' : null,
-        optionLayout: null,
-      },
-    ]);
+    pushCustom(newLabel, newType, options);
     setNewLabel('');
     setNewOptions('');
     setNewType('TEXT');
@@ -425,11 +436,13 @@ export function OrderFormTemplateCreateWizard({
         ) : null}
 
         {step === 2 ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <h2 className="text-fluid-base font-semibold text-slate-900">손님에게 받을 접수 칸</h2>
-              <p className="mt-1 text-fluid-xs text-slate-500">
-                이름·전화·주소는 이미 들어 있습니다. 평수·이사처럼 이 양식에 쓸 칸만 켜 주세요. 필요 없으면 넘어가도 됩니다.
+              <h2 className="text-fluid-base font-semibold text-slate-900">쓸 칸만 남기고, 없는 칸은 만듭니다</h2>
+              <p className="mt-1 text-fluid-xs leading-relaxed text-slate-600">
+                에어컨 업자면 <strong className="font-medium text-slate-800">화장실·베란다 개수는 끄고</strong>, 아래에
+                <strong className="font-medium text-slate-800"> 에어컨 대수</strong>를 만듭니다. 이름·전화·주소는 이미
+                들어 있습니다. 만든 칸은 접수와 손님 화면에 같이 나옵니다.
               </p>
             </div>
             {groupedOptional.map((g) => (
@@ -444,61 +457,75 @@ export function OrderFormTemplateCreateWizard({
                 <div className="grid gap-2 sm:grid-cols-2">{leftoverOptional.map(fieldToggleRow)}</div>
               </div>
             ) : null}
+
+            <div className="space-y-3 border-t border-slate-100 pt-4">
+              <div>
+                <h3 className="text-fluid-sm font-semibold text-slate-900">목록에 없는 칸 만들기</h3>
+                <p className="mt-0.5 text-fluid-2xs text-slate-500">
+                  화장실 개수처럼 이미 있는 칸이 아니면 여기서 만듭니다. 「연결」할 필요가 없습니다.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_NEW_FIELDS.map((q) => (
+                  <button
+                    key={q.label}
+                    type="button"
+                    onClick={() => pushCustom(q.label, q.inputType, q.options ?? [])}
+                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                  >
+                    + {q.label}
+                  </button>
+                ))}
+              </div>
+              {customDrafts.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-fluid-sm text-slate-400">
+                  아직 없습니다. 「+ 에어컨 대수」를 누르거나 이름을 적어 넣으세요.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {customDrafts.map((d, i) => (
+                    <li key={`${d.fieldKey}-${i}`} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                      <span className="min-w-0 flex-1 truncate text-fluid-sm font-medium text-slate-900">{d.label}</span>
+                      <span className="shrink-0 text-fluid-2xs text-slate-400">
+                        {INPUT_TYPE_OPTIONS.find((o) => o.value === d.inputType)?.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomDrafts((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="shrink-0 rounded-md px-2 py-1 text-fluid-2xs text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                      >
+                        빼기
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 sm:grid-cols-[1fr_10rem_auto]">
+                <input className={WIZARD_INPUT} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="예: 에어컨 대수" />
+                <select className={WIZARD_INPUT} value={newType} onChange={(e) => setNewType(e.target.value as OrderFormFieldInputType)}>
+                  {INPUT_TYPE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={addCustom} disabled={!newLabel.trim()} className={BTN_PRIMARY}>
+                  칸 넣기
+                </button>
+                {OPTION_INPUT_TYPES.has(newType) ? (
+                  <input
+                    className={`${WIZARD_INPUT} sm:col-span-3`}
+                    value={newOptions}
+                    onChange={(e) => setNewOptions(e.target.value)}
+                    placeholder="선택지 (쉼표로 구분)"
+                  />
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : null}
 
         {step === 3 ? (
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-fluid-base font-semibold text-slate-900">우리만 쓰는 항목</h2>
-              <p className="mt-1 text-fluid-xs text-slate-500">에어컨 유형처럼 접수 칸에 없는 질문은 여기서 만듭니다. 없어도 다음으로 가도 됩니다.</p>
-            </div>
-            {customDrafts.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-fluid-sm text-slate-400">아직 없습니다.</p>
-            ) : (
-              <ul className="space-y-2">
-                {customDrafts.map((d, i) => (
-                  <li key={`${d.fieldKey}-${i}`} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-fluid-sm font-medium text-slate-900">{d.label}</span>
-                    <span className="shrink-0 text-fluid-2xs text-slate-400">
-                      {INPUT_TYPE_OPTIONS.find((o) => o.value === d.inputType)?.label}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setCustomDrafts((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="shrink-0 rounded-md px-2 py-1 text-fluid-2xs text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                    >
-                      빼기
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 sm:grid-cols-[1fr_10rem_auto]">
-              <input className={WIZARD_INPUT} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="항목 이름" />
-              <select className={WIZARD_INPUT} value={newType} onChange={(e) => setNewType(e.target.value as OrderFormFieldInputType)}>
-                {INPUT_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <button type="button" onClick={addCustom} disabled={!newLabel.trim()} className={BTN_PRIMARY}>
-                넣기
-              </button>
-              {OPTION_INPUT_TYPES.has(newType) ? (
-                <input
-                  className={`${WIZARD_INPUT} sm:col-span-3`}
-                  value={newOptions}
-                  onChange={(e) => setNewOptions(e.target.value)}
-                  placeholder="선택지 (쉼표로 구분)"
-                />
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {step === 4 ? (
           <div className="space-y-4">
             <div>
               <h2 className="text-fluid-base font-semibold text-slate-900">확인하고 저장</h2>
@@ -543,20 +570,15 @@ export function OrderFormTemplateCreateWizard({
           ) : null}
           {step === 1 ? (
             <button type="button" disabled={busy} onClick={() => void goNextFromName()} className={BTN_PRIMARY}>
-              {busy ? '만드는 중…' : '다음 · 접수 칸'}
+              {busy ? '만드는 중…' : '다음 · 칸 만들기'}
             </button>
           ) : null}
           {step === 2 ? (
             <button type="button" disabled={busy} onClick={() => void saveAndGo(3)} className={BTN_PRIMARY}>
-              {busy ? '저장 중…' : '다음 · 우리 항목'}
-            </button>
-          ) : null}
-          {step === 3 ? (
-            <button type="button" disabled={busy} onClick={() => void saveAndGo(4)} className={BTN_PRIMARY}>
               {busy ? '저장 중…' : '다음 · 확인'}
             </button>
           ) : null}
-          {step === 4 ? (
+          {step === 3 ? (
             <>
               <button type="button" disabled={busy} onClick={() => void finish(false)} className={BTN_GHOST}>
                 초안으로 저장

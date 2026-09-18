@@ -131,7 +131,7 @@ export async function loadInquiryIntakeFormProfile(
       optionLayout: f.optionLayout,
       required: f.required,
     })),
-    canEditCustomAnswers: Boolean(input.orderFormId),
+    canEditCustomAnswers: pub.customFields.length > 0 || Boolean(input.orderFormId),
     orderFormId: input.orderFormId ?? null,
     orderFormSubmitted: Boolean(input.submittedAt),
   };

@@ -265,6 +265,11 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
             ? String(body.crewMemberNote)
             : null,
         ...(intakeTemplateId ? { intakeTemplateId } : {}),
+        ...(body.orderFormAnswers &&
+        typeof body.orderFormAnswers === 'object' &&
+        !Array.isArray(body.orderFormAnswers)
+          ? { intakeCustomAnswers: body.orderFormAnswers }
+          : {}),
       },
     });
     if (billingMode === 'quick_paste') {

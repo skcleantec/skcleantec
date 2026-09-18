@@ -58,7 +58,7 @@ export function AdminOrderFormTemplatesPage() {
   const wizardStep = (() => {
     const n = parseInt(searchParams.get('step') || '1', 10);
     if (!Number.isFinite(n) || n < 1) return 1;
-    return Math.min(4, n);
+    return Math.min(3, n);
   })();
   const [templates, setTemplates] = useState<OrderFormTemplate[]>([]);
   const [systemFields, setSystemFields] = useState<OrderFormSystemFieldDef[]>([]);
@@ -297,7 +297,7 @@ export function AdminOrderFormTemplatesPage() {
       ...prev,
       {
         fieldKey: `field_${prev.length + 1}`,
-        label: '새 항목',
+        label: '새 칸',
         helpText: null,
         inputType: 'TEXT',
         required: false,
@@ -668,7 +668,7 @@ export function AdminOrderFormTemplatesPage() {
                 <p className="mt-3 border-t border-gray-100 pt-3 text-fluid-2xs leading-relaxed text-gray-500">
                   {selected.isDefault
                     ? '기본 발주서는 입주청소 양식입니다. 손님 링크와 접수 수정에는 평수·건축물·이사일 등 기존 칸이 그대로 보입니다. 항목을 지워도 손님 화면은 바뀌지 않습니다. 「현장 사진 첨부」만 아래 스위치로 끕니다. 발주서 이름은 내부 구분용입니다.'
-                    : '이름·전화·주소만 기본으로 들어갑니다. 평수·일정·금액은 「접수 칸 추가」로 연결하세요. 연결을 끊으면 손님 링크와 접수 수정에서 같이 숨습니다. 발주서 이름은 내부 구분용입니다.'}
+                    : '화장실·베란다처럼 안 쓰는 칸은 항목을 지우면 손님·접수에서 사라집니다. 에어컨 대수처럼 목록에 없는 칸은 「+ 새 칸 만들기」 후 연결을 비워 두면 됩니다.'}
                 </p>
               </div>
 
@@ -732,9 +732,9 @@ export function AdminOrderFormTemplatesPage() {
                     <button
                       type="button"
                       onClick={addField}
-                      className="rounded-md border border-gray-300 px-3 py-1.5 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                      className="rounded-md bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                     >
-                      + 항목 추가
+                      + 새 칸 만들기
                     </button>
                   </div>
                 </div>
@@ -784,7 +784,9 @@ export function AdminOrderFormTemplatesPage() {
                             </select>
                           </label>
                           <label className="block">
-                            <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">접수 칸에 연결</span>
+                            <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">
+                              이미 있는 칸에 연결 (없으면 비움)
+                            </span>
                             <select
                               value={d.systemField ?? ''}
                               onChange={(e) => {
@@ -796,7 +798,7 @@ export function AdminOrderFormTemplatesPage() {
                               }}
                               className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
                             >
-                              <option value="">연결 안 함 (추가 정보)</option>
+                              <option value="">연결 안 함 — 이 양식에만 생기는 새 칸</option>
                               {systemFields.filter((sf) => !sf.sectionToggle).map((sf) => {
                                 const usedElsewhere = sf.key !== d.systemField && mappedSystemKeys.has(sf.key);
                                 return (
@@ -984,7 +986,7 @@ export function AdminOrderFormTemplatesPage() {
                   onClick={addField}
                   className="ml-auto rounded-md border border-gray-300 px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  + 항목 추가
+                  + 새 칸 만들기
                 </button>
                 <button type="button" onClick={handleSave} disabled={saving || !dirty} className="rounded-md bg-gray-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-gray-800 disabled:opacity-40">
                   {saving ? '저장 중…' : '저장'}

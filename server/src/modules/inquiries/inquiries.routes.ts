@@ -1737,12 +1737,19 @@ router.patch('/:id', async (req, res) => {
         await tx.inquiry.update({ where: { id }, data: updateData });
       }
       const orderFormAnswers = parseOrderFormAnswersBody(body.orderFormAnswers);
-      if (orderFormAnswers && inquiry.orderForm?.id) {
-        await syncOrderFormCustomAnswersFromInquiryPatch(tx, {
-          tenantId,
-          orderFormId: inquiry.orderForm.id,
-          answers: orderFormAnswers,
-        });
+      if (orderFormAnswers) {
+        if (inquiry.orderForm?.id) {
+          await syncOrderFormCustomAnswersFromInquiryPatch(tx, {
+            tenantId,
+            orderFormId: inquiry.orderForm.id,
+            answers: orderFormAnswers,
+          });
+        } else {
+          await tx.inquiry.update({
+            where: { id },
+            data: { intakeCustomAnswers: orderFormAnswers as Prisma.InputJsonValue },
+          });
+        }
       }
       if (crewRosterChanged) {
         await clearInquiryCrewMemberMeetingTimes(tx, id);

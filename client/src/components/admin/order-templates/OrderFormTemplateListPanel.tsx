@@ -80,8 +80,9 @@ export function OrderFormTemplateListPanel({ templates, loading, togglingId, onO
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-fluid-2xs leading-snug text-slate-700 sm:px-4">
         <p className="font-medium text-slate-900">여기서 발주서를 켜고 끕니다.</p>
         <p className="mt-0.5">
-          <strong className="font-medium">사용하기</strong>를 누른 양식만 손님에게 보내고, 전화·스케줄 접수에서 고릅니다.
-          이미 보낸 서류는 옆 메뉴 <strong className="font-medium">발주서 목록</strong>입니다.
+          화장실·베란다를 빼고 에어컨 대수를 쓰려면 <strong className="font-medium">새 발주서</strong>에서 칸을 만들거나, 이미
+          있는 <strong className="font-medium">에어컨 청소 발주서</strong>를 「사용하기」하세요. 이미 보낸 서류는{' '}
+          <strong className="font-medium">발주서 목록</strong>입니다.
         </p>
       </div>
 

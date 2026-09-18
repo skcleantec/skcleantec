@@ -1441,6 +1441,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           createdById: true,
           operatingCompanyId: true,
           customerName: true,
+          intakeCustomAnswers: true,
         },
       });
       if (!pending) {
@@ -1510,6 +1511,11 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
             createdById: userId,
             ...templateData,
             ...reviewPaybackTokenCreateField(),
+            ...(pending.intakeCustomAnswers &&
+            typeof pending.intakeCustomAnswers === 'object' &&
+            !Array.isArray(pending.intakeCustomAnswers)
+              ? { prefillAnswers: pending.intakeCustomAnswers as Prisma.InputJsonValue }
+              : {}),
           },
         });
         await chargeInquiryCoinInTx(tx, {
