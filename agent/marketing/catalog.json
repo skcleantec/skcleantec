@@ -1,0 +1,145 @@
+{
+  "product": "청소비서",
+  "productEn": "CBISEO",
+  "updatedAt": "2026-09-18",
+  "shareWithOtherAi": [
+    "agent/marketing/README.md",
+    "agent/marketing/BRAND.md",
+    "agent/marketing/CATALOG.md",
+    "agent/marketing/menus/schedule.md",
+    "agent/marketing/menus/inquiries.md",
+    "agent/marketing/menus/messages.md"
+  ],
+  "brandHex": {
+    "primaryCta": "#0f172a",
+    "primaryCtaHover": "#1e293b",
+    "gnbActive": "#2563eb",
+    "focusInput": "#0ea5e9",
+    "success": "#059669",
+    "warning": "#f59e0b",
+    "afternoon": "#0284c7",
+    "danger": "#ef4444",
+    "rose": "#f43f5e",
+    "violet": "#8b5cf6",
+    "card": "#ffffff",
+    "pageBg": "#f1f5f9"
+  },
+  "adminGnb": [
+    { "label": "대시보드", "path": "/admin/dashboard" },
+    { "label": "서비스접수", "path": "/admin/inquiries" },
+    { "label": "스케쥴", "path": "/admin/schedule" },
+    { "label": "정보공유", "path": "/admin/db-marketplace" },
+    { "label": "관리자 전용", "path": "/admin/team-leaders", "adminOnly": true },
+    { "label": "광고비", "path": "/admin/advertising" },
+    { "label": "메시지", "path": "/admin/messages", "plain": "사내 메시지와 청소비서 운영팀 문의" }
+  ],
+  "teamGnb": [
+    { "label": "대시보드", "path": "/team/dashboard" },
+    { "label": "배정목록", "path": "/team/assignments" },
+    { "label": "스케줄", "path": "/team/schedule" },
+    { "label": "정산", "path": "/team/settlement" },
+    { "label": "가계부", "path": "/team/household-ledger" },
+    { "label": "정보공유", "path": "/team/db-marketplace" },
+    { "label": "휴무일", "path": "/team/dayoffs" },
+    { "label": "C/S", "path": "/team/cs" },
+    { "label": "메시지", "path": "/team/messages" }
+  ],
+  "menus": {
+    "schedule": {
+      "doc": "menus/schedule.md",
+      "adminClickPath": "로그인 → 상단 「스케쥴」 → 달력에서 날짜 → 일정 목록 → 카드 상세",
+      "teamClickPath": "로그인 → 「스케줄」",
+      "plain": "그날 오전·오후·종일 일정과 팀장 배정을 달력과 목록으로 본다."
+    },
+    "inquiries": {
+      "doc": "menus/inquiries.md",
+      "adminClickPath": "로그인 → 상단 「서비스접수」 → 접수목록",
+      "plain": "손님 접수 전체. 미제출·입금 건이 색으로 맨 위."
+    }
+  },
+  "colors": {
+    "schedule.slot.morning.border": {
+      "meaningKo": "오전 일정 왼쪽 띠",
+      "token": "amber-500",
+      "hex": "#f59e0b",
+      "opacity": 1
+    },
+    "schedule.slot.morning.bg": {
+      "meaningKo": "오전 일정 카드 배경",
+      "token": "amber-50",
+      "hex": "#fffbeb",
+      "opacity": 0.5
+    },
+    "schedule.slot.afternoon.border": {
+      "meaningKo": "오후 일정 왼쪽 띠",
+      "token": "sky-600",
+      "hex": "#0284c7",
+      "opacity": 1
+    },
+    "schedule.slot.afternoon.bg": {
+      "meaningKo": "오후 일정 카드 배경",
+      "token": "sky-50",
+      "hex": "#f0f9ff",
+      "opacity": 0.5
+    },
+    "schedule.slot.allday.border": {
+      "meaningKo": "종일 일정 왼쪽 띠",
+      "token": "emerald-600",
+      "hex": "#059669",
+      "opacity": 1
+    },
+    "schedule.slot.allday.bg": {
+      "meaningKo": "종일 일정 카드 배경",
+      "token": "emerald-50",
+      "hex": "#ecfdf5",
+      "opacity": 0.6
+    },
+    "schedule.slot.other.border": {
+      "meaningKo": "사이·조율 왼쪽 띠",
+      "token": "violet-500",
+      "hex": "#8b5cf6",
+      "opacity": 1
+    },
+    "schedule.unassigned.header": {
+      "meaningKo": "팀장 미배정 구역",
+      "token": "rose-50",
+      "hex": "#fff1f2",
+      "dotHex": "#f43f5e"
+    },
+    "schedule.preOrder.ring": {
+      "meaningKo": "처리 전 빨간 고리",
+      "token": "red-500",
+      "hex": "#ef4444"
+    },
+    "schedule.leaderSingleSlot": {
+      "meaningKo": "그날 그 시간 팀장 1건",
+      "token": "slate-700/slate-800",
+      "borderHex": "#334155",
+      "badgeBgHex": "#1e293b"
+    },
+    "inquiry.pin.pendingSubmit": {
+      "meaningKo": "미제출 행 배경",
+      "token": "rose-50",
+      "hex": "#fff1f2",
+      "opacity": 0.8
+    },
+    "inquiry.pin.depositCompleted": {
+      "meaningKo": "입금완료 행 배경",
+      "token": "emerald-50",
+      "hex": "#ecfdf5",
+      "opacity": 0.7
+    },
+    "inquiry.pin.depositPending": {
+      "meaningKo": "입금대기 행 배경",
+      "token": "sky-50",
+      "hex": "#f0f9ff",
+      "opacity": 0.75
+    },
+    "inquiry.pin.pending": {
+      "meaningKo": "대기 행 배경",
+      "token": "amber-50",
+      "hex": "#fffbeb",
+      "opacity": 0.7
+    }
+  }
+}

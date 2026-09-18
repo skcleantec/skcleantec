@@ -125,6 +125,7 @@ import {
   PlatformCoinUsagePage,
   PlatformSignupTrialEventsPage,
   PlatformSupportAccessPage,
+  PlatformSupportMessagesPage,
   PlatformDbMarketplacePage,
   PlatformHelpCmsPage,
   PlatformHelpCmsCategoriesPage,
@@ -184,6 +185,7 @@ function App() {
           <Route path="coin-usage" element={<SuspensePage><PlatformCoinUsagePage /></SuspensePage>} />
           <Route path="signup-trial-events" element={<SuspensePage><PlatformSignupTrialEventsPage /></SuspensePage>} />
           <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
+          <Route path="messages" element={<SuspensePage><PlatformSupportMessagesPage /></SuspensePage>} />
           <Route path="db-marketplace" element={<SuspensePage><PlatformDbMarketplacePage /></SuspensePage>} />
           <Route path="help-inquiry" element={<Navigate to="/platform/customer-boards?board=inquiry" replace />} />
           <Route path="customer-boards" element={<SuspensePage><PlatformCustomerBoardsPage /></SuspensePage>} />

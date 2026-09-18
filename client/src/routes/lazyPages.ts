@@ -387,6 +387,11 @@ export const PlatformHelpCmsArticleEditPage = lazyWithRetry(() =>
     default: m.PlatformHelpCmsArticleEditPage,
   }))
 );
+export const PlatformSupportMessagesPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformSupportMessagesPage').then((m) => ({
+    default: m.PlatformSupportMessagesPage,
+  }))
+);
 export const PlatformCustomerBoardsPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformCustomerBoardsPage').then((m) => ({
     default: m.PlatformCustomerBoardsPage,

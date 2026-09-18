@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { broadcastToField, getConversations, getMessages, sendMessage } from '../../api/messages';
+import {
+  PLATFORM_SUPPORT_THREAD_KEY,
+  getTenantSupportSummary,
+  getTenantSupportThread,
+  sendTenantSupportMessage,
+  type PlatformSupportMessageDto,
+  type PlatformSupportSummary,
+} from '../../api/platformSupportMessages';
 import { bootstrapAuthMeFromLocal } from '../../api/authMeSnapshot';
 import { getToken } from '../../stores/auth';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
@@ -196,9 +204,13 @@ export function AdminMessagesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const openUserFromUrl = searchParams.get('openUser');
   const openMessageFromUrl = searchParams.get('openMessage');
+  const openSupportFromUrl = searchParams.get('with') === 'support';
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [supportSummary, setSupportSummary] = useState<PlatformSupportSummary | null>(null);
+  const [supportMessages, setSupportMessages] = useState<PlatformSupportMessageDto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const supportSelected = selectedId === PLATFORM_SUPPORT_THREAD_KEY;
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -220,9 +232,10 @@ export function AdminMessagesPage() {
   const loadConversations = useCallback((opts?: { refreshBadges?: boolean }) => {
     if (!token) return Promise.resolve();
     const refreshBadges = opts?.refreshBadges !== false;
-    return getConversations(token)
-      .then((list) => {
+    return Promise.all([getConversations(token), getTenantSupportSummary(token).catch(() => null)])
+      .then(([list, support]) => {
         setConversations(list);
+        if (support) setSupportSummary(support);
         if (refreshBadges) {
           (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
         }
@@ -240,6 +253,20 @@ export function AdminMessagesPage() {
     setConversationsLoading(true);
     void loadConversations({ refreshBadges: false }).finally(() => setConversationsLoading(false));
   }, [token, loadConversations]);
+
+  useEffect(() => {
+    if (openSupportFromUrl) {
+      setSelectedId(PLATFORM_SUPPORT_THREAD_KEY);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('with', 'support');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [openSupportFromUrl, setSearchParams]);
 
   useEffect(() => {
     if (!openUserFromUrl) return;
@@ -271,10 +298,27 @@ export function AdminMessagesPage() {
   useEffect(() => {
     if (!token || !selectedId) {
       setMessages([]);
+      setSupportMessages([]);
       setSendError(null);
       return;
     }
     setSendError(null);
+    if (selectedId === PLATFORM_SUPPORT_THREAD_KEY) {
+      getTenantSupportThread(token)
+        .then((thread) => {
+          setSupportMessages(thread.messages);
+          setSupportSummary({
+            id: thread.id,
+            lastMessageAt: thread.lastMessageAt,
+            lastMessagePreview: thread.lastMessagePreview,
+            unreadCount: 0,
+          });
+          (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+          scrollToEnd(messagesEndRef, 'auto');
+        })
+        .catch(() => setSupportMessages([]));
+      return;
+    }
     getMessages(token, selectedId)
       .then((msgs) => {
         setMessages(msgs);
@@ -291,6 +335,22 @@ export function AdminMessagesPage() {
       if (!sid) return;
       const el = chatScrollRef.current;
       const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      if (sid === PLATFORM_SUPPORT_THREAD_KEY) {
+        getTenantSupportThread(token)
+          .then((thread) => {
+            setSupportMessages(thread.messages);
+            setSupportSummary({
+              id: thread.id,
+              lastMessageAt: thread.lastMessageAt,
+              lastMessagePreview: thread.lastMessagePreview,
+              unreadCount: 0,
+            });
+            (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+            if (nearBottom) scrollToEnd(messagesEndRef, 'smooth');
+          })
+          .catch(() => {});
+        return;
+      }
       getMessages(token, sid)
         .then((msgs) => {
           setMessages(msgs);
@@ -337,6 +397,14 @@ export function AdminMessagesPage() {
     setSending(true);
     setSendError(null);
     try {
+      if (selectedId === PLATFORM_SUPPORT_THREAD_KEY) {
+        const msg = await sendTenantSupportMessage(token, input.trim());
+        setSupportMessages((prev) => [...prev, msg]);
+        setInput('');
+        loadConversations();
+        scrollToEnd(messagesEndRef, 'smooth');
+        return;
+      }
       const msg = await sendMessage(token, selectedId, input.trim());
       setMessages((prev) => [...prev, { ...msg, readAt: null }]);
       setInput('');
@@ -349,9 +417,23 @@ export function AdminMessagesPage() {
     }
   };
 
+  const selectConversation = (id: string) => {
+    setSelectedId(id || null);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === PLATFORM_SUPPORT_THREAD_KEY) next.set('with', 'support');
+        else next.delete('with');
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
   const selected = conversations.find((c) => c.id === selectedId);
+  const showChat = Boolean(selected) || supportSelected;
   // 모바일에서 채팅방이 선택됐을 때
-  const mobileChatActive = Boolean(selectedId);
+  const mobileChatActive = Boolean(selectedId || supportSelected);
 
   return (
     <div
@@ -558,22 +640,80 @@ export function AdminMessagesPage() {
               overscrollBehavior: 'contain',
             }}
           >
-            {conversationsLoading && conversations.length === 0 ? (
+            {conversationsLoading && conversations.length === 0 && !supportSummary ? (
               <div style={{ padding: 24, textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
                 대화 목록 불러오는 중…
               </div>
-            ) : conversations.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
-                대화 상대가 없습니다.
-              </div>
             ) : (
+              <>
+              <button
+                type="button"
+                onClick={() => selectConversation(PLATFORM_SUPPORT_THREAD_KEY)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '12px 14px',
+                  textAlign: 'left',
+                  border: 'none',
+                  borderBottom: '1px solid #e2e8f0',
+                  background: supportSelected ? '#eef4ff' : '#f8fafc',
+                  cursor: 'pointer',
+                  minWidth: 0,
+                }}
+              >
+                <AvatarCircle name="청소비서 운영팀" size={42} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 2 }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      청소비서 운영팀
+                    </span>
+                    {supportSummary?.lastMessageAt ? (
+                      <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>
+                        {formatTimeForList(supportSummary.lastMessageAt)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {supportSummary?.lastMessagePreview || '이용·기능 문의'}
+                    </span>
+                    {(supportSummary?.unreadCount ?? 0) > 0 && (
+                      <span
+                        style={{
+                          minWidth: 18,
+                          height: 18,
+                          borderRadius: 9,
+                          background: '#ef4444',
+                          color: '#fff',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '0 5px',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {(supportSummary?.unreadCount ?? 0) > 99 ? '99+' : supportSummary?.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+              {conversations.length === 0 && !conversationsLoading ? (
+                <div style={{ padding: 16, textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
+                  사내 대화 상대가 없습니다.
+                </div>
+              ) : (
               conversations.map((c) => {
                 const isActive = selectedId === c.id;
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => setSelectedId(c.id)}
+                    onClick={() => selectConversation(c.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -636,6 +776,8 @@ export function AdminMessagesPage() {
                   </button>
                 );
               })
+              )}
+              </>
             )}
           </div>
         </div>
@@ -645,7 +787,7 @@ export function AdminMessagesPage() {
         <div
           className={`kakaotalk-chat-bg flex-1 min-w-0 min-h-0 flex-col ${!mobileChatActive ? 'hidden md:flex' : 'flex'}`}
         >
-          {selected ? (
+          {showChat ? (
             <>
               {/* 채팅방 헤더 */}
               <div
@@ -665,7 +807,7 @@ export function AdminMessagesPage() {
                 <button
                   type="button"
                   aria-label="채팅 목록으로"
-                  onClick={() => setSelectedId(null)}
+                  onClick={() => selectConversation('')}
                   className="md:hidden"
                   style={{
                     display: 'flex',
@@ -684,19 +826,49 @@ export function AdminMessagesPage() {
                 >
                   <ChevronLeftIcon className="h-5 w-5" />
                 </button>
-                <AvatarCircle name={selected.name} photoUrl={selected.staffIdCardUrl} size={34} />
+                <AvatarCircle
+                  name={supportSelected ? '청소비서 운영팀' : selected?.name ?? ''}
+                  photoUrl={supportSelected ? null : selected?.staffIdCardUrl}
+                  size={34}
+                />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {selected.name}
+                    {supportSelected ? '청소비서 운영팀' : selected?.name}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
-                    {fieldPartnerRoleLabel(selected.role)}
+                    {supportSelected ? '이용·기능 문의' : selected ? fieldPartnerRoleLabel(selected.role) : ''}
                   </div>
                 </div>
               </div>
 
               <div ref={chatScrollRef} className="kakaotalk-chat-scroll">
-                {messages.map((m) => {
+                {supportSelected
+                  ? supportMessages.map((m) => {
+                      const isMine = m.senderKind === 'TENANT';
+                      if (!isMine) {
+                        return (
+                          <div key={m.id} className="kakaotalk-message-row-other">
+                            <AvatarCircle name={m.senderName} size={34} />
+                            <div className="flex min-w-0 max-w-[calc(100%-50px)] flex-col gap-0.5">
+                              <span className="ml-0.5 text-[12px] font-bold text-slate-700">{m.senderName}</span>
+                              <div className="flex min-w-0 items-end gap-1.5">
+                                <div className="kakaotalk-bubble kakaotalk-bubble-other whitespace-pre-wrap">{m.body}</div>
+                                <span className="kakaotalk-time-indicator pb-0.5">{formatTimeForList(m.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={m.id} className="kakaotalk-message-row-mine">
+                          <div className="flex min-w-0 items-end justify-end gap-1.5">
+                            <span className="kakaotalk-time-indicator pb-0.5">{formatTimeForList(m.createdAt)}</span>
+                            <div className="kakaotalk-bubble kakaotalk-bubble-mine whitespace-pre-wrap">{m.body}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  : messages.map((m) => {
                   const isMine = m.senderId !== selectedId;
                   if (!isMine) {
                     return (
@@ -733,7 +905,7 @@ export function AdminMessagesPage() {
                 onChange={setInput}
                 onSubmit={handleSend}
                 sending={sending}
-                placeholder="메시지를 입력하세요..."
+                placeholder={supportSelected ? '청소비서 운영팀에 문의하세요...' : '메시지를 입력하세요...'}
                 sendLabel="전송"
                 error={sendError}
                 onInputActivity={() => {
