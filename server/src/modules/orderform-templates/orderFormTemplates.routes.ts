@@ -7,6 +7,10 @@ import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffHasPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
+  getTenantInquiryIntakeFieldsState,
+  saveTenantInquiryIntakeFields,
+} from '../inquiries/inquiryIntakeFields.service.js';
+import {
   ORDER_FORM_SYSTEM_FIELDS,
   isKnownSystemField,
   missingRequiredCoreFields,
@@ -99,6 +103,25 @@ function serializeTemplate(
 /** 시스템 필드 카탈로그(빌더 매핑 드롭다운용) */
 router.get('/system-fields', requireStaffPermission('orderform.templates'), (_req, res) => {
   res.json({ items: ORDER_FORM_SYSTEM_FIELDS });
+});
+
+/** 전화·수기 접수에 쓰는 공통 칸 (기본 입주청소 손님 화면은 그대로) */
+router.get('/inquiry-intake-fields', requireStaffPermission('orderform.templates'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+  if (!tenantId) return;
+  const state = await getTenantInquiryIntakeFieldsState(prisma, tenantId);
+  res.json(state);
+});
+
+router.put('/inquiry-intake-fields', requireStaffPermission('orderform.templates'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+  if (!tenantId) return;
+  try {
+    const state = await saveTenantInquiryIntakeFields(prisma, tenantId, (req.body as { keys?: unknown }).keys);
+    res.json(state);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '저장에 실패했습니다.' });
+  }
 });
 
 /** 템플릿 목록 — 발급(issue)은 발행(PUBLISHED)만, 템플릿 관리 권한은 전체 */

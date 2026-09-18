@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-14-payroll-asof",
+  "_lastUpdated": "2026-09-18-inquiry-intake-fields",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -668,6 +668,21 @@
         "client/src/pages/admin/AdminPayrollPage.tsx"
       ],
       "notes": "시작일~종료일이 월급 주기와 다를 때. 정산완료는 주기 전체만. 끄면 미리보기와 확정이 섞임."
+    },
+    {
+      "id": "inquiry.intake.tenantFields",
+      "labelKo": "우리 접수 칸 (전화·수기)",
+      "surfaces": ["admin.orderTemplates", "admin.inquiry.edit", "admin.schedule.detail"],
+      "visual": { "type": "toggle", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-templates#우리 접수 칸",
+      "helpPath": "client/src/components/admin/order-templates/TenantInquiryIntakeFieldsCard.tsx",
+      "codeRefs": [
+        "shared/inquiryIntakeFields.ts",
+        "server/src/modules/inquiries/inquiryIntakeFields.service.ts"
+      ],
+      "notes": "끈 칸은 전화·수기·기본 발주서 접수 수정에서 숨김. 기본 입주청소 손님 화면·이름·전화·주소는 유지. 내가 만든 양식은 양식 연결이 우선."
     }
   ]
 }

@@ -12,6 +12,10 @@ import {
   orderFormListSnapshotToPrisma,
   resolveOrderFormListSnapshotForSubmit,
 } from '../orderform/orderFormListSnapshot.service.js';
+import {
+  applyTenantInquiryIntakeOverlay,
+  readTenantInquiryIntakeKeys,
+} from './inquiryIntakeFields.service.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -52,39 +56,46 @@ export async function loadInquiryIntakeFormProfile(
     templateId = def?.id ?? null;
   }
   const pub = await getPublicTemplateForForm(db, tenantId, templateId);
+  const tenantKeys = await readTenantInquiryIntakeKeys(db, tenantId);
   if (!pub) {
-    return {
-      ...EMPTY_PROFILE,
+    return applyTenantInquiryIntakeOverlay(
+      {
+        ...EMPTY_PROFILE,
+        canEditCustomAnswers: Boolean(input.orderFormId),
+        orderFormId: input.orderFormId ?? null,
+        orderFormSubmitted: Boolean(input.submittedAt),
+      },
+      tenantKeys,
+    );
+  }
+  return applyTenantInquiryIntakeOverlay(
+    {
+      templateId: pub.id,
+      title: pub.title,
+      icon: pub.icon,
+      isDefault: pub.isDefault,
+      renderMode: pub.renderMode,
+      systemFieldKeys: pub.systemFields.map((f) => f.systemField),
+      sectionOffKeys: pub.systemFields
+        .filter((f) => isOrderFormSectionToggleKey(f.systemField) && isOrderFormSectionOffOptions(f.options))
+        .map((f) => f.systemField),
+      customFields: pub.customFields.map((f) => ({
+        fieldKey: f.fieldKey,
+        label: f.label,
+        helpText: f.helpText,
+        inputType: f.inputType,
+        options: Array.isArray(f.options) ? f.options.map((o) => String(o)) : [],
+        placeholder: f.placeholder,
+        optionStyle: f.optionStyle,
+        optionLayout: f.optionLayout,
+        required: f.required,
+      })),
       canEditCustomAnswers: Boolean(input.orderFormId),
       orderFormId: input.orderFormId ?? null,
       orderFormSubmitted: Boolean(input.submittedAt),
-    };
-  }
-  return {
-    templateId: pub.id,
-    title: pub.title,
-    icon: pub.icon,
-    isDefault: pub.isDefault,
-    renderMode: pub.renderMode,
-    systemFieldKeys: pub.systemFields.map((f) => f.systemField),
-    sectionOffKeys: pub.systemFields
-      .filter((f) => isOrderFormSectionToggleKey(f.systemField) && isOrderFormSectionOffOptions(f.options))
-      .map((f) => f.systemField),
-    customFields: pub.customFields.map((f) => ({
-      fieldKey: f.fieldKey,
-      label: f.label,
-      helpText: f.helpText,
-      inputType: f.inputType,
-      options: Array.isArray(f.options) ? f.options.map((o) => String(o)) : [],
-      placeholder: f.placeholder,
-      optionStyle: f.optionStyle,
-      optionLayout: f.optionLayout,
-      required: f.required,
-    })),
-    canEditCustomAnswers: Boolean(input.orderFormId),
-    orderFormId: input.orderFormId ?? null,
-    orderFormSubmitted: Boolean(input.submittedAt),
-  };
+    },
+    tenantKeys,
+  );
 }
 
 /**

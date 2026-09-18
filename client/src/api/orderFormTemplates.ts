@@ -86,6 +86,42 @@ async function parseError(res: Response, fallback: string): Promise<never> {
   throw new Error((err as { error?: string }).error || fallback);
 }
 
+export type InquiryIntakeFieldItem = {
+  key: string;
+  label: string;
+  locked: boolean;
+  on: boolean;
+};
+
+export type InquiryIntakeFieldsState = {
+  customized: boolean;
+  keys: string[];
+  groups: Array<{
+    id: string;
+    title: string;
+    items: InquiryIntakeFieldItem[];
+  }>;
+};
+
+export async function getInquiryIntakeFields(token: string): Promise<InquiryIntakeFieldsState> {
+  const res = await fetch(`${BASE}/inquiry-intake-fields`, { headers: headers(token) });
+  if (!res.ok) await parseError(res, '접수 칸을 불러올 수 없습니다.');
+  return res.json() as Promise<InquiryIntakeFieldsState>;
+}
+
+export async function saveInquiryIntakeFields(
+  token: string,
+  keys: string[],
+): Promise<InquiryIntakeFieldsState> {
+  const res = await fetch(`${BASE}/inquiry-intake-fields`, {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify({ keys }),
+  });
+  if (!res.ok) await parseError(res, '접수 칸 저장에 실패했습니다.');
+  return res.json() as Promise<InquiryIntakeFieldsState>;
+}
+
 export async function getSystemFields(token: string): Promise<OrderFormSystemFieldDef[]> {
   const res = await fetch(`${BASE}/system-fields`, { headers: headers(token) });
   if (!res.ok) await parseError(res, '시스템 필드를 불러올 수 없습니다.');

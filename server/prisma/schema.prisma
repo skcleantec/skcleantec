@@ -227,6 +227,8 @@ model Tenant {
   plan        String       @default("premium") @db.VarChar(32)
   timezone    String       @default("Asia/Seoul") @db.VarChar(64)
   config      Json         @default("{}")
+  /** 전화·수기 접수 칸. null=입주청소 전부. 배열이면 해당 키만(이름·전화·주소 강제). */
+  inquiryIntakeSystemFieldKeys Json? @map("inquiry_intake_system_field_keys")
   createdAt   DateTime     @default(now()) @map("created_at")
   suspendedAt DateTime?    @map("suspended_at")
   trialEndsAt            DateTime?            @map("trial_ends_at")

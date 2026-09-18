@@ -37,6 +37,7 @@ import {
   optionsForOrderFormSectionToggle,
 } from '@shared/orderFormSectionToggles';
 import { OrderFormSectionToggles } from '../../components/admin/order-templates/OrderFormSectionToggles';
+import { TenantInquiryIntakeFieldsCard } from '../../components/admin/order-templates/TenantInquiryIntakeFieldsCard';
 
 type DraftField = Omit<
   OrderFormTemplateField,
@@ -586,9 +587,9 @@ export function AdminOrderFormTemplatesPage() {
             <PageTitleWithFavorite label="발주서 양식 관리">
               <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">발주서 양식 관리</h1>
             </PageTitleWithFavorite>
-            <HelpTooltip text="고객에게 보낼 발주서를 직접 만들 수 있습니다. 발행에 꼭 필요한 연결은 고객명·대표전화·주소뿐입니다. 평수·일정·금액은 접수 칸에 연결하면 손님 화면과 접수 수정에 같이 보이고, 연결을 빼면 양쪽에서 숨습니다." />
+              <HelpTooltip text="위 「우리 접수 칸」은 전화·수기 접수에 쓰는 칸입니다. 아래 양식은 손님에게 보낼 발주서입니다. 기본 입주청소 발주서의 손님 화면은 그대로입니다." />
           </div>
-          <p className="mt-1 text-fluid-xs text-gray-500">항목을 만들고 접수 칸에 연결하면 손님 링크·접수 수정이 같은 칸을 씁니다. 연결을 늘리거나 줄이거나 바꿀 수 있습니다.</p>
+          <p className="mt-1 text-fluid-xs text-gray-500">먼저 우리 업무에 맞는 접수 칸을 정한 뒤, 손님 링크용 양식을 만듭니다.</p>
           <p className="mt-1 text-fluid-xs text-gray-400">
             여기서는 <b>발주서별 제목·아이콘·항목 구성</b>을 만듭니다. 가격 라벨·하단 안내·제출완료 문구·시간대 안내 등 <b>모든 발주서에 공통으로 쓰는 메시지·옵션</b>은{' '}
             <Link to="/admin/inquiries/order-customer-preview" className="text-blue-700 underline hover:text-blue-800">
@@ -607,6 +608,8 @@ export function AdminOrderFormTemplatesPage() {
       </div>
 
       {error && <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-700">{error}</div>}
+
+      <TenantInquiryIntakeFieldsCard token={token} />
       {notice && <div className="mb-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-fluid-sm text-green-700">{notice}</div>}
 
       <div className="space-y-4">
