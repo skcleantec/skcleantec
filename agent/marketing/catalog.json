@@ -1,13 +1,14 @@
 {
   "product": "청소비서",
   "productEn": "CBISEO",
-  "updatedAt": "2026-09-15",
+  "updatedAt": "2026-09-18",
   "shareWithOtherAi": [
     "agent/marketing/README.md",
     "agent/marketing/BRAND.md",
     "agent/marketing/CATALOG.md",
     "agent/marketing/menus/schedule.md",
-    "agent/marketing/menus/inquiries.md"
+    "agent/marketing/menus/inquiries.md",
+    "agent/marketing/menus/messages.md"
   ],
   "brandHex": {
     "primaryCta": "#0f172a",
@@ -30,7 +31,7 @@
     { "label": "정보공유", "path": "/admin/db-marketplace" },
     { "label": "관리자 전용", "path": "/admin/team-leaders", "adminOnly": true },
     { "label": "광고비", "path": "/admin/advertising" },
-    { "label": "메시지", "path": "/admin/messages" }
+    { "label": "메시지", "path": "/admin/messages", "plain": "사내 메시지와 청소비서 운영팀 문의" }
   ],
   "teamGnb": [
     { "label": "대시보드", "path": "/team/dashboard" },

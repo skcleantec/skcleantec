@@ -63,6 +63,8 @@ import platformTenantsRoutes from './modules/platform/platformTenants.routes.js'
 import platformCoinUsageRoutes from './modules/platform/platformCoinUsage.routes.js';
 import platformSignupTrialEventsRoutes from './modules/platform/platformSignupTrialEvents.routes.js';
 import platformSupportAccessRoutes from './modules/platform/platformSupportAccess.routes.js';
+import platformSupportMessagePlatformRoutes from './modules/platform-support-messages/platformSupportMessage.platform.routes.js';
+import platformSupportMessageTenantRoutes from './modules/platform-support-messages/platformSupportMessage.tenant.routes.js';
 import platformTenantPartnershipsRoutes from './modules/platform/platformTenantPartnerships.routes.js';
 import platformDbMarketplaceRoutes from './modules/db-marketplace/platformDbMarketplace.routes.js';
 import helpRoutes from './modules/help/help.routes.js';
@@ -131,6 +133,8 @@ app.use('/api/platform/tenants', platformTenantsRoutes);
 app.use('/api/platform/coin-usage', platformCoinUsageRoutes);
 app.use('/api/platform/signup-trial-events', platformSignupTrialEventsRoutes);
 app.use('/api/platform/support-access', platformSupportAccessRoutes);
+app.use('/api/platform/support-messages', platformSupportMessagePlatformRoutes);
+app.use('/api/support-messages', platformSupportMessageTenantRoutes);
 app.use('/api/platform/tenant-partnerships', platformTenantPartnershipsRoutes);
 app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
 app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);

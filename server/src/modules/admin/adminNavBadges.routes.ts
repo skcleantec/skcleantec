@@ -7,6 +7,7 @@ import {
 } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { countUnseenPending } from '../review-payback/reviewPayback.service.js';
+import { countTenantSupportUnread } from '../platform-support-messages/platformSupportMessage.service.js';
 
 const router = Router();
 
@@ -33,9 +34,14 @@ router.get('/nav-badges', authMiddleware, staffMarketerRoleOnly, async (req, res
     ]);
     const [unreadCount, csPendingCount, reviewPaybackUnseenCount, leadsPendingCount] = await Promise.all([
       canMessages
-        ? prisma.message.count({
-            where: { tenantId, receiverId: userId, readAt: null },
-          })
+        ? Promise.all([
+            prisma.message.count({
+              where: { tenantId, receiverId: userId, readAt: null },
+            }),
+            user.role === 'ADMIN' || user.role === 'MARKETER'
+              ? countTenantSupportUnread(tenantId, userId)
+              : Promise.resolve(0),
+          ]).then(([dm, support]) => dm + support)
         : Promise.resolve(0),
       canCs
         ? prisma.csReport.count({ where: { tenantId, status: 'RECEIVED' } })

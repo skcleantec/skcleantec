@@ -346,6 +346,9 @@ model Tenant {
   notificationPolicy         TenantNotificationPolicy?
   userNotificationPreferences UserNotificationPreference[]
   notificationDeliveryLogs   NotificationDeliveryLog[]
+  platformSupportThread      PlatformSupportThread?
+  platformSupportMessages    PlatformSupportMessage[]
+  platformSupportTenantReads PlatformSupportTenantRead[]
 
   @@map("tenants")
 }
@@ -946,6 +949,7 @@ model PlatformUser {
   reviewedSignupInquiries     PlatformSignupInquiry[]
   helpCmsArticles             HelpCmsArticle[]
   platformBoardPosts          PlatformBoardPost[]
+  platformSupportMessages     PlatformSupportMessage[]
 
   @@map("platform_users")
 }
@@ -1513,6 +1517,8 @@ model User {
   assignmentsGiven     Assignment[] @relation("AdminAssignments")
   sentMessages        Message[]    @relation("SentMessages")
   receivedMessages    Message[]    @relation("ReceivedMessages")
+  platformSupportMessagesSent PlatformSupportMessage[]
+  platformSupportTenantReads  PlatformSupportTenantRead[]
   dayOffs             UserDayOff[] @relation("UserDayOffs")
   orderFormsCreated   OrderForm[]  @relation("OrderFormCreatedBy")
   inquiriesCreated    Inquiry[]    @relation("InquiryCreatedBy")
@@ -3611,6 +3617,76 @@ model Message {
   @@index([receiverId, readAt])
   @@index([senderId, receiverId, createdAt])
   @@map("messages")
+}
+
+enum PlatformSupportSenderKind {
+  PLATFORM
+  TENANT
+}
+
+enum PlatformSupportWaitingOn {
+  PLATFORM
+  TENANT
+}
+
+/// 플랫폼 운영팀 ↔ 업체(관리자·마케터) 대화방 — 업체당 1개
+model PlatformSupportThread {
+  id                 String                     @id @default(uuid())
+  tenantId           String                     @unique @map("tenant_id")
+  tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lastMessageAt      DateTime                   @default(now()) @map("last_message_at")
+  lastMessagePreview String                     @default("") @map("last_message_preview") @db.VarChar(200)
+  lastSenderKind     PlatformSupportSenderKind? @map("last_sender_kind")
+  waitingOn          PlatformSupportWaitingOn?  @map("waiting_on")
+  platformReadAt     DateTime?                  @map("platform_read_at")
+  lastTenantEmailAt  DateTime?                  @map("last_tenant_email_at")
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
+
+  messages    PlatformSupportMessage[]
+  tenantReads PlatformSupportTenantRead[]
+
+  @@index([lastMessageAt])
+  @@index([waitingOn, lastMessageAt])
+  @@map("platform_support_threads")
+}
+
+model PlatformSupportMessage {
+  id                   String                   @id @default(uuid())
+  threadId             String                   @map("thread_id")
+  tenantId             String                   @map("tenant_id")
+  body                 String                   @db.Text
+  senderKind           PlatformSupportSenderKind @map("sender_kind")
+  senderPlatformUserId String?                  @map("sender_platform_user_id")
+  senderUserId         String?                  @map("sender_user_id")
+  broadcastBatchId     String?                  @map("broadcast_batch_id")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+
+  thread             PlatformSupportThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tenant             Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  senderPlatformUser PlatformUser?         @relation(fields: [senderPlatformUserId], references: [id], onDelete: SetNull)
+  senderUser         User?                 @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([broadcastBatchId])
+  @@map("platform_support_messages")
+}
+
+model PlatformSupportTenantRead {
+  id         String   @id @default(uuid())
+  threadId   String   @map("thread_id")
+  tenantId   String   @map("tenant_id")
+  userId     String   @map("user_id")
+  lastReadAt DateTime @map("last_read_at")
+
+  thread PlatformSupportThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tenant Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([tenantId, userId])
+  @@map("platform_support_tenant_reads")
 }
 
 /// 테넌트 공통 서비스 권역 — 팀장 담당 지역·지역 캘린더·배정 규칙의 기준

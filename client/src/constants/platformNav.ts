@@ -17,7 +17,8 @@ export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
     children: [{ label: '미결재 팝업', to: '/platform/popups/unpaid' }, { label: '타업체·테넌트 홍보', to: '/platform/popups/partner-promo' }],
   },
   { label: '정보공유', to: '/platform/db-marketplace', icon: '🛒' },
-  { label: '고객센터', to: '/platform/customer-boards', icon: '💬', children: [{ label: '공지·문의', to: '/platform/customer-boards' }, { label: '카테고리', to: '/platform/customer-boards/categories?board=notice' }] },
+  { label: '메시지', to: '/platform/messages', icon: '💬' },
+  { label: '고객센터', to: '/platform/customer-boards', icon: '📋', children: [{ label: '공지·문의', to: '/platform/customer-boards' }, { label: '카테고리', to: '/platform/customer-boards/categories?board=notice' }] },
   { label: '도움말 CMS', to: '/platform/help-cms', icon: '📚' },
   { label: '지원 접속', to: '/platform/support-access', icon: '🔑' },
   // { label: '플랜 설정', to: '/platform/plans', icon: '📋' },
@@ -57,6 +58,9 @@ export function isPlatformNavActive(pathname: string, to: string): boolean {
       pathname === '/platform/customer-boards' ||
       pathname.startsWith('/platform/customer-boards/')
     );
+  }
+  if (to === '/platform/messages') {
+    return pathname === '/platform/messages' || pathname.startsWith('/platform/messages/');
   }
   if (to === '/platform/help-inquiry') {
     return pathname.startsWith('/platform/customer-boards');

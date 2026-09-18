@@ -57,7 +57,8 @@ export function PlatformBillingNotifySettingsSection({
     <section className={CARD_SECTION}>
       <h2 className="text-sm font-semibold text-gray-900">입금 확인 요청 알림</h2>
       <p className="mt-1 text-xs text-gray-500 leading-relaxed">
-        업체(ADMIN)가 미결재 팝업에서 「입금 확인 요청」을 누르면,{' '}
+        업체(ADMIN)가 미결재 팝업에서 「입금 확인 요청」을 누르거나, 관리자·마케터가
+        「메시지 → 청소비서 운영팀」으로 글을 보내면,{' '}
         <strong>업체에게는 메일이 가지 않고</strong> 아래에 저장한 운영팀 메일로만 알림이
         발송됩니다. 발송(SMTP)은{' '}
         <Link to={platformSettingsTabPath('smtp')} className="text-blue-600 hover:underline">
