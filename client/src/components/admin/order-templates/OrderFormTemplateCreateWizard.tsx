@@ -17,6 +17,11 @@ import {
   INTAKE_IDENTITY_FIELD_KEYS,
 } from '@shared/inquiryIntakeFields';
 import {
+  findOrderFormIndustryPack,
+  isOrderFormIndustryPackId,
+  type OrderFormIndustryPackId,
+} from '@shared/orderFormIndustryPacks';
+import {
   ORDER_FORM_PHOTOS_SECTION_KEY,
   isOrderFormSectionToggleOn,
   optionsForOrderFormSectionToggle,
@@ -27,19 +32,22 @@ import {
   ICON_OPTIONS,
   INPUT_TYPE_OPTIONS,
   OPTION_INPUT_TYPES,
+  applyIndustryPackDrafts,
   buildDefaultCoreDrafts,
   coreFieldToDraft,
   draftsToPayload,
   fieldToDraft,
   type DraftField,
 } from './orderFormTemplateDraft';
+import { OrderFormIndustryPackPicker } from './OrderFormIndustryPackPicker';
 
 const IDENTITY_KEY_SET = new Set<string>(INTAKE_IDENTITY_FIELD_KEYS);
 
 const WIZARD_STEPS = [
-  { n: 1, label: '이름' },
-  { n: 2, label: '칸 만들기' },
-  { n: 3, label: '확인' },
+  { n: 1, label: '업종' },
+  { n: 2, label: '이름' },
+  { n: 3, label: '칸 만들기' },
+  { n: 4, label: '확인' },
 ] as const;
 
 const QUICK_NEW_FIELDS: Array<{ label: string; inputType: OrderFormFieldInputType; options?: string[] }> = [
@@ -59,9 +67,11 @@ type Props = {
   staffTenantSlug: string | null;
   systemFields: OrderFormSystemFieldDef[];
   step: number;
+  packId: string | null;
   draftId: string | null;
   draft: OrderFormTemplate | null;
   onStepChange: (step: number, draftId?: string | null) => void;
+  onPackChange: (packId: OrderFormIndustryPackId) => void;
   onCancel: () => void;
   onDraftSaved: (t: OrderFormTemplate) => void;
   onOpenCreated: (id: string) => void;
@@ -77,9 +87,11 @@ export function OrderFormTemplateCreateWizard({
   staffTenantSlug,
   systemFields,
   step,
+  packId,
   draftId,
   draft,
   onStepChange,
+  onPackChange,
   onCancel,
   onDraftSaved,
   onOpenCreated,
@@ -126,9 +138,41 @@ export function OrderFormTemplateCreateWizard({
     );
   }, [draft?.id]);
 
+  const selectedPack = findOrderFormIndustryPack(packId);
+
   useEffect(() => {
-    if (step > 1 && !draftId) onStepChange(1, null);
+    if (!packId || draft) return;
+    const pack = findOrderFormIndustryPack(packId);
+    if (!pack) return;
+    const next = applyIndustryPackDrafts(pack);
+    setSelectedKeys(new Set(next.selectedKeys));
+    setCustomDrafts(next.customDrafts);
+    setPhotosOn(next.photosOn);
+    setTitle((prev) => (prev === '새 발주서' ? pack.defaultFormTitle : prev));
+    setIcon((prev) => (prev ? prev : pack.emoji));
+    setDescription((prev) => (prev ? prev : pack.description));
+  }, [packId, draft?.id]);
+
+  function applyPack(id: OrderFormIndustryPackId) {
+    const pack = findOrderFormIndustryPack(id);
+    if (!pack) return;
+    const next = applyIndustryPackDrafts(pack);
+    setSelectedKeys(new Set(next.selectedKeys));
+    setCustomDrafts(next.customDrafts);
+    setPhotosOn(next.photosOn);
+    setTitle(pack.defaultFormTitle);
+    setIcon(pack.emoji);
+    setDescription(pack.description);
+    onPackChange(id);
+  }
+
+  useEffect(() => {
+    if (step > 2 && !draftId) onStepChange(2, draftId);
   }, [step, draftId, onStepChange]);
+
+  useEffect(() => {
+    if (step > 1 && !draftId && !findOrderFormIndustryPack(packId)) onStepChange(1, null);
+  }, [step, draftId, packId, onStepChange]);
 
   useEffect(() => {
     if (!token || previewToken) return;
@@ -220,7 +264,7 @@ export function OrderFormTemplateCreateWizard({
           description: description.trim() || null,
         });
         onDraftSaved(updated);
-        onStepChange(2, draft.id);
+        onStepChange(3, draft.id);
         return;
       }
       const created = await createOrderFormTemplate(token, { title: name });
@@ -231,7 +275,7 @@ export function OrderFormTemplateCreateWizard({
       });
       const withFields = await persistFields(withMeta.id).catch(() => withMeta);
       onDraftSaved(withFields);
-      onStepChange(2, withFields.id);
+      onStepChange(3, withFields.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : '만들기에 실패했습니다.');
     } finally {
@@ -241,7 +285,7 @@ export function OrderFormTemplateCreateWizard({
 
   async function saveAndGo(nextStep: number) {
     if (!draft) {
-      onStepChange(1, null);
+      onStepChange(2, null);
       return;
     }
     setBusy(true);
@@ -361,8 +405,12 @@ export function OrderFormTemplateCreateWizard({
               {i > 0 ? <span className="hidden text-slate-300 sm:inline">—</span> : null}
               <button
                 type="button"
-                disabled={s.n > 1 && !draft}
-                onClick={() => draft && onStepChange(s.n, draft.id)}
+                disabled={(s.n > 2 && !draft) || (s.n > 1 && !selectedPack && !draft)}
+                onClick={() => {
+                  if (s.n > 2 && !draft) return;
+                  if (s.n > 1 && !selectedPack && !draft) return;
+                  onStepChange(s.n, draft?.id ?? draftId);
+                }}
                 className={`flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-fluid-2xs sm:text-fluid-xs ${
                   active
                     ? 'bg-slate-900 text-white'
@@ -387,8 +435,28 @@ export function OrderFormTemplateCreateWizard({
         {step === 1 ? (
           <div className="space-y-4">
             <div>
+              <h2 className="text-fluid-base font-semibold text-slate-900">어떤 일인가요?</h2>
+              <p className="mt-1 text-fluid-xs leading-relaxed text-slate-600">
+                업종을 고르면 <strong className="font-medium text-slate-800">그 일에 맞는 칸</strong>이 미리 들어갑니다.
+                다음 화면에서 끄거나 더 만들 수 있습니다. 이름·전화·주소·서비스희망일은 항상 필수입니다.
+              </p>
+            </div>
+            <OrderFormIndustryPackPicker
+              value={selectedPack && isOrderFormIndustryPackId(selectedPack.id) ? selectedPack.id : null}
+              onChange={applyPack}
+            />
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="space-y-4">
+            <div>
               <h2 className="text-fluid-base font-semibold text-slate-900">이 발주서 이름을 정해 주세요</h2>
-              <p className="mt-1 text-fluid-xs text-slate-500">에어컨·매트리스처럼 손님이 받을 양식 이름입니다. 다음에서 칸을 고릅니다.</p>
+              <p className="mt-1 text-fluid-xs text-slate-500">
+                {selectedPack
+                  ? `${selectedPack.title} 칸이 준비되어 있습니다. 이름은 바꿔도 됩니다.`
+                  : '에어컨·매트리스처럼 손님이 받을 양식 이름입니다. 다음에서 칸을 고릅니다.'}
+              </p>
             </div>
             <label className="block space-y-1">
               <span className="text-fluid-xs font-medium text-slate-600">이름</span>
@@ -435,14 +503,15 @@ export function OrderFormTemplateCreateWizard({
           </div>
         ) : null}
 
-        {step === 2 ? (
+        {step === 3 ? (
           <div className="space-y-5">
             <div>
               <h2 className="text-fluid-base font-semibold text-slate-900">쓸 칸만 남기고, 없는 칸은 만듭니다</h2>
               <p className="mt-1 text-fluid-xs leading-relaxed text-slate-600">
-                에어컨 업자면 <strong className="font-medium text-slate-800">화장실·베란다 개수는 끄고</strong>, 아래에
-                <strong className="font-medium text-slate-800"> 에어컨 대수</strong>를 만듭니다. 이름·전화·주소·서비스희망일은 이미
-                들어 있고 필수입니다. 만든 칸은 접수와 손님 화면에 같이 나옵니다.
+                {selectedPack
+                  ? `${selectedPack.title}에 맞춰 칸을 넣어 두었습니다. 필요 없으면 끄고, 없는 칸은 아래에서 만듭니다.`
+                  : '에어컨 업자면 화장실·베란다 개수는 끄고 에어컨 대수를 만듭니다.'}{' '}
+                이름·전화·주소·서비스희망일은 이미 들어 있고 필수입니다.
               </p>
             </div>
             {groupedOptional.map((g) => (
@@ -525,7 +594,7 @@ export function OrderFormTemplateCreateWizard({
           </div>
         ) : null}
 
-        {step === 3 ? (
+        {step === 4 ? (
           <div className="space-y-4">
             <div>
               <h2 className="text-fluid-base font-semibold text-slate-900">확인하고 저장</h2>
@@ -536,6 +605,12 @@ export function OrderFormTemplateCreateWizard({
               <input type="checkbox" className="size-4 accent-slate-900" checked={photosOn} onChange={(e) => setPhotosOn(e.target.checked)} />
             </label>
             <dl className="grid gap-2 rounded-lg bg-slate-50 px-3 py-3 text-fluid-sm sm:grid-cols-2">
+              {selectedPack ? (
+                <div>
+                  <dt className="text-fluid-2xs text-slate-500">업종</dt>
+                  <dd className="font-medium text-slate-900">{selectedPack.title}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-fluid-2xs text-slate-500">이름</dt>
                 <dd className="font-medium text-slate-900">{icon ? `${icon} ` : ''}{title.trim() || '새 발주서'}</dd>
@@ -569,16 +644,26 @@ export function OrderFormTemplateCreateWizard({
             </button>
           ) : null}
           {step === 1 ? (
+            <button
+              type="button"
+              disabled={busy || !selectedPack}
+              onClick={() => onStepChange(2, draftId)}
+              className={BTN_PRIMARY}
+            >
+              다음 · 이름
+            </button>
+          ) : null}
+          {step === 2 ? (
             <button type="button" disabled={busy} onClick={() => void goNextFromName()} className={BTN_PRIMARY}>
               {busy ? '만드는 중…' : '다음 · 칸 만들기'}
             </button>
           ) : null}
-          {step === 2 ? (
-            <button type="button" disabled={busy} onClick={() => void saveAndGo(3)} className={BTN_PRIMARY}>
+          {step === 3 ? (
+            <button type="button" disabled={busy} onClick={() => void saveAndGo(4)} className={BTN_PRIMARY}>
               {busy ? '저장 중…' : '다음 · 확인'}
             </button>
           ) : null}
-          {step === 3 ? (
+          {step === 4 ? (
             <>
               <button type="button" disabled={busy} onClick={() => void finish(false)} className={BTN_GHOST}>
                 초안으로 저장

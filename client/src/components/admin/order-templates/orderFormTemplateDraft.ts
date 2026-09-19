@@ -8,6 +8,7 @@ import {
   type OrderFormTemplateRenderMode,
 } from '../../../api/orderFormTemplates';
 import { isOrderFormSectionToggleKey } from '@shared/orderFormSectionToggles';
+import type { OrderFormIndustryPack, OrderFormIndustryPackCustomField } from '@shared/orderFormIndustryPacks';
 
 export type DraftField = Omit<
   OrderFormTemplateField,
@@ -46,6 +47,54 @@ export const LIST_PROMOTABLE_INPUT_TYPES = new Set<OrderFormFieldInputType>(['TE
 
 export function canPromoteDraftField(d: DraftField): boolean {
   return !d.systemField?.trim() && LIST_PROMOTABLE_INPUT_TYPES.has(d.inputType);
+}
+
+export function customPackFieldToDraft(f: OrderFormIndustryPackCustomField, sortOrder: number): DraftField {
+  const options = f.options ? [...f.options] : [];
+  const inputType = f.inputType as OrderFormFieldInputType;
+  return {
+    fieldKey: f.fieldKey,
+    label: f.label,
+    helpText: f.helpText?.trim() ? f.helpText.trim() : null,
+    inputType,
+    required: Boolean(f.required),
+    sortOrder,
+    systemField: null,
+    fillMode: 'CUSTOMER',
+    options,
+    placeholder: null,
+    optionStyle: inputType === 'SELECT' ? 'DROPDOWN' : null,
+    optionLayout: OPTION_INPUT_TYPES.has(inputType) && inputType !== 'SELECT' ? 'VERTICAL' : null,
+    showInInquiryList: canPromoteDraftField({
+      fieldKey: f.fieldKey,
+      label: f.label,
+      helpText: null,
+      inputType,
+      required: false,
+      sortOrder,
+      systemField: null,
+      fillMode: 'CUSTOMER',
+      options,
+      placeholder: null,
+      optionStyle: null,
+      optionLayout: null,
+      showInInquiryList: false,
+    })
+      ? Boolean(f.showInInquiryList)
+      : false,
+  };
+}
+
+export function applyIndustryPackDrafts(pack: OrderFormIndustryPack): {
+  selectedKeys: string[];
+  customDrafts: DraftField[];
+  photosOn: boolean;
+} {
+  return {
+    selectedKeys: pack.systemFieldKeys.filter((k) => !IDENTITY_REQUIRED_KEYS.has(k)),
+    customDrafts: pack.customFields.map((f, i) => customPackFieldToDraft(f, i)),
+    photosOn: pack.photosOn,
+  };
 }
 
 export const ICON_OPTIONS: Array<{ value: string; label: string }> = [

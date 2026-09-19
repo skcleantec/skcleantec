@@ -62,8 +62,9 @@ export function AdminOrderFormTemplatesPage() {
   const wizardStep = (() => {
     const n = parseInt(searchParams.get('step') || '1', 10);
     if (!Number.isFinite(n) || n < 1) return 1;
-    return Math.min(3, n);
+    return Math.min(4, n);
   })();
+  const wizardPackId = searchParams.get('pack');
   const [templates, setTemplates] = useState<OrderFormTemplate[]>([]);
   const [systemFields, setSystemFields] = useState<OrderFormSystemFieldDef[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -174,9 +175,11 @@ export function AdminOrderFormTemplatesPage() {
     (step = 1, draftId?: string | null) => {
       const next: Record<string, string> = { new: '1', step: String(step) };
       if (draftId) next.id = draftId;
+      const pack = searchParams.get('pack');
+      if (pack) next.pack = pack;
       setSearchParams(next);
     },
-    [setSearchParams],
+    [searchParams, setSearchParams],
   );
 
   const goEdit = useCallback(
@@ -502,7 +505,7 @@ export function AdminOrderFormTemplatesPage() {
           </div>
           <p className="mt-1 text-fluid-xs text-gray-500">
             {isCreate
-              ? '한 화면씩 설정합니다. 중간에 목록으로 나가도 초안은 목록에 남습니다.'
+              ? '업종을 고르면 칸이 미리 들어갑니다. 중간에 목록으로 나가도 초안은 목록에 남습니다.'
               : urlId
                 ? '이 양식만 고칩니다. 공통 안내 문구는 '
                 : '아래에서 발주서를 켜고 끕니다. 공통 안내 문구는 '}
@@ -539,9 +542,19 @@ export function AdminOrderFormTemplatesPage() {
           staffTenantSlug={staffTenantSlug}
           systemFields={systemFields}
           step={wizardStep}
+          packId={wizardPackId}
           draftId={isCreate ? urlId : null}
           draft={wizardDraft}
           onStepChange={goCreate}
+          onPackChange={(id) => {
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('new', '1');
+              next.set('pack', id);
+              if (!next.get('step')) next.set('step', '1');
+              return next;
+            });
+          }}
           onCancel={goList}
           onDraftSaved={upsertTemplate}
           onOpenCreated={(id) => {

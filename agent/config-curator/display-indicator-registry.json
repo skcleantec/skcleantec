@@ -734,6 +734,21 @@
         "server/src/modules/orderform-templates/orderFormTemplates.routes.ts"
       ],
       "notes": "isDefault·사용 중이면 버튼 숨김. 삭제 전 비밀번호. 기본은 끄기만 — 범례만."
+    },
+    {
+      "id": "orderform.template.wizard.industryPack",
+      "labelKo": "새 발주서 · 업종 고르기",
+      "surfaces": ["admin.orderTemplates.create"],
+      "visual": { "type": "cardSelect", "token": "slate-800" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-templates?new=1&step=1",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormIndustryPackPicker.tsx",
+      "codeRefs": [
+        "shared/orderFormIndustryPacks.ts",
+        "client/src/components/admin/order-templates/OrderFormTemplateCreateWizard.tsx"
+      ],
+      "notes": "7종 카드. 고르면 칸 자동. URL ?pack= 유지. 이름·전화·주소·서비스희망일은 팩과 무관 필수. 설정 토글 없음 — 만들기 흐름."
     }
   ]
 }
