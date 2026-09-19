@@ -127,8 +127,8 @@ export const TENANT_PLAN_USAGE_LIMITS: Record<
   Record<TenantUsageMetricId, number | null>
 > = {
   free: { monthlyCoins: 70, teamLeaders: 0, customCalendars: 0, operatingBrands: 0 },
-  standard: { monthlyCoins: 300, teamLeaders: 5, customCalendars: 2, operatingBrands: 0 },
-  standard_plus: { monthlyCoins: 700, teamLeaders: 10, customCalendars: 5, operatingBrands: 0 },
+  standard: { monthlyCoins: 200, teamLeaders: 5, customCalendars: 2, operatingBrands: 0 },
+  standard_plus: { monthlyCoins: 500, teamLeaders: 10, customCalendars: 5, operatingBrands: 0 },
   premium: { monthlyCoins: null, teamLeaders: null, customCalendars: null, operatingBrands: 1 },
 };
 
