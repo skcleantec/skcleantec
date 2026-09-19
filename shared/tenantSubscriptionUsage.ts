@@ -41,13 +41,13 @@ export const TENANT_PLAN_USAGE_LIMITS: Record<
     operatingBrands: 0,
   },
   standard: {
-    monthlyCoins: 300,
+    monthlyCoins: 200,
     teamLeaders: 5,
     customCalendars: 2,
     operatingBrands: 0,
   },
   standard_plus: {
-    monthlyCoins: 700,
+    monthlyCoins: 500,
     teamLeaders: 10,
     customCalendars: 5,
     operatingBrands: 0,

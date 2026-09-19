@@ -7,7 +7,7 @@ import {
 } from '@shared/platformLegalSlugs';
 import { isValidTenantLoginId, normalizeTenantLoginId, tenantLoginIdErrorMessage } from '@shared/tenantLoginId';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
-import { TENANT_PLAN_PRESENTATIONS } from '@shared/tenantPlanCatalog';
+import { TENANT_PLAN_PRESENTATIONS, planLimitsSummary } from '@shared/tenantPlanCatalog';
 import {
   TENANT_SELF_SIGNUP_PLAN_IDS,
   TENANT_SIGNUP_PAID_TRIAL_DAYS,
@@ -675,6 +675,9 @@ export function TenantSignupPage() {
                         </span>
                         <span className="mt-0.5 block text-fluid-2xs leading-snug text-slate-500">
                           {presentation.tagline}
+                        </span>
+                        <span className="mt-0.5 block text-fluid-2xs text-slate-600">
+                          {planLimitsSummary(planId)[0]}
                         </span>
                       </span>
                     </label>

@@ -110,7 +110,7 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
     recommended: true,
     features: [
       '팀장 5명 · 맞춤 캘린더 2개',
-      '월 300코인',
+      `월 ${formatLimit(TENANT_PLAN_USAGE_LIMITS.standard.monthlyCoins, '코인')}`,
       'C/S · 크루 · 타업체 · 광고비',
       '브랜드 추가 불가',
     ],
@@ -123,7 +123,7 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
     annualPriceHint: annualPriceLabel('standard_plus'),
     features: [
       'Premium 업무 기능 전체 (텔레CRM 제외)',
-      '팀장 10명 · 맞춤 캘린더 5개 · 월 700코인',
+      `팀장 10명 · 맞춤 캘린더 5개 · 월 ${formatLimit(TENANT_PLAN_USAGE_LIMITS.standard_plus.monthlyCoins, '코인')}`,
       '급여·정산 · 전자계약 · 파트너 연계 포함',
       '브랜드 추가 불가 · 텔레CRM 별도 옵션',
     ],
