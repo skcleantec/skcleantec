@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
@@ -534,17 +533,23 @@ router.post('/:id/delete', requireStaffPermission('orderform.templates'), async 
   }
   const owned = await prisma.orderFormTemplate.findFirst({
     where: { id: req.params.id, tenantId },
-    select: { id: true, isDefault: true },
+    select: { id: true, isDefault: true, status: true },
   });
   if (!owned) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
     return;
   }
   if (owned.isDefault) {
-    res.status(400).json({ error: '기본 발주서는 삭제할 수 없습니다.' });
+    res.status(400).json({ error: '기본 발주서는 삭제할 수 없습니다. 사용 끄기만 할 수 있습니다.' });
     return;
   }
-  await prisma.orderFormTemplate.delete({ where: { id: owned.id } });
+  if (owned.status === 'PUBLISHED') {
+    res.status(400).json({ error: '사용 중인 발주서는 삭제할 수 없습니다. 먼저 사용 끄기를 해 주세요.' });
+    return;
+  }
+  await prisma.orderFormTemplate.deleteMany({
+    where: { id: owned.id, tenantId, isDefault: false },
+  });
   res.json({ ok: true as const });
 });
 

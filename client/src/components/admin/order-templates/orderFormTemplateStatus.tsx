@@ -1,5 +1,12 @@
 import type { OrderFormTemplate } from '../../../api/orderFormTemplates';
 
+/** 기본·사용 중인 양식은 삭제 불가. 안 쓰는 내가 만든 양식만. */
+export function canDeleteOrderFormTemplate(
+  template: Pick<OrderFormTemplate, 'isDefault' | 'status'>,
+): boolean {
+  return !template.isDefault && template.status !== 'PUBLISHED';
+}
+
 export function OrderFormTemplateStatusBadge({ status }: { status: OrderFormTemplate['status'] }) {
   if (status === 'PUBLISHED') {
     return (

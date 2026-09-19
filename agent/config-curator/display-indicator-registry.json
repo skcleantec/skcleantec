@@ -718,7 +718,22 @@
         "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts",
         "server/src/modules/orderform-templates/orderFormTemplates.routes.ts"
       ],
-      "notes": "사용함=발행. 사용 안 함 양식은 발급·접수 고르기에서 숨김. 이미 보낸 링크는 유지."
+      "notes": "사용함=발행. 사용 안 함 양식은 발급·접수 고르기에서 숨김. 안 쓰는 내가 만든 양식만 삭제. 입주청소 기본은 끄기만. 이미 보낸 링크는 유지."
+    },
+    {
+      "id": "orderform.template.deleteUnused",
+      "labelKo": "안 쓰는 발주서 삭제",
+      "surfaces": ["admin.orderTemplates.list", "admin.orderTemplates.edit"],
+      "visual": { "type": "button", "token": "red-700" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormTemplateListPanel.tsx",
+      "codeRefs": [
+        "client/src/components/admin/order-templates/orderFormTemplateStatus.tsx",
+        "server/src/modules/orderform-templates/orderFormTemplates.routes.ts"
+      ],
+      "notes": "isDefault·사용 중이면 버튼 숨김. 삭제 전 비밀번호. 기본은 끄기만 — 범례만."
     }
   ]
 }

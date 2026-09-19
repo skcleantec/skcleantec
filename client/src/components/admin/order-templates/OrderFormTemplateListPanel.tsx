@@ -1,4 +1,5 @@
 import type { OrderFormTemplate } from '../../../api/orderFormTemplates';
+import { canDeleteOrderFormTemplate } from './orderFormTemplateStatus';
 
 type Props = {
   templates: OrderFormTemplate[];
@@ -6,6 +7,7 @@ type Props = {
   togglingId: string | null;
   onOpen: (id: string) => void;
   onToggleUse: (template: OrderFormTemplate, nextOn: boolean) => void;
+  onDelete?: (template: OrderFormTemplate) => void;
 };
 
 function fieldCount(t: OrderFormTemplate) {
@@ -17,13 +19,16 @@ function TemplateUseCard({
   toggling,
   onOpen,
   onToggleUse,
+  onDelete,
 }: {
   template: OrderFormTemplate;
   toggling: boolean;
   onOpen: (id: string) => void;
   onToggleUse: (template: OrderFormTemplate, nextOn: boolean) => void;
+  onDelete?: (template: OrderFormTemplate) => void;
 }) {
   const inUse = template.status === 'PUBLISHED';
+  const canDelete = canDeleteOrderFormTemplate(template);
   return (
     <li className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -66,12 +71,32 @@ function TemplateUseCard({
         >
           항목 보기
         </button>
+        {canDelete && onDelete ? (
+          <button
+            type="button"
+            onClick={() => onDelete(template)}
+            disabled={toggling}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-white px-3 text-fluid-xs font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          >
+            삭제
+          </button>
+        ) : null}
       </div>
+      {template.isDefault && !inUse ? (
+        <p className="mt-2 text-fluid-2xs text-slate-500">기본 발주서는 삭제할 수 없고, 끄기만 할 수 있습니다.</p>
+      ) : null}
     </li>
   );
 }
 
-export function OrderFormTemplateListPanel({ templates, loading, togglingId, onOpen, onToggleUse }: Props) {
+export function OrderFormTemplateListPanel({
+  templates,
+  loading,
+  togglingId,
+  onOpen,
+  onToggleUse,
+  onDelete,
+}: Props) {
   const inUse = templates.filter((t) => t.status === 'PUBLISHED');
   const unused = templates.filter((t) => t.status !== 'PUBLISHED');
 
@@ -81,8 +106,9 @@ export function OrderFormTemplateListPanel({ templates, loading, togglingId, onO
         <p className="font-medium text-slate-900">여기서 발주서를 켜고 끕니다.</p>
         <p className="mt-0.5">
           화장실·베란다를 빼고 에어컨 대수를 쓰려면 <strong className="font-medium">새 발주서</strong>에서 칸을 만들거나, 이미
-          있는 <strong className="font-medium">에어컨 청소 발주서</strong>를 「사용하기」하세요. 이미 보낸 서류는{' '}
-          <strong className="font-medium">발주서 목록</strong>입니다.
+          있는 <strong className="font-medium">에어컨 청소 발주서</strong>를 「사용하기」하세요. 안 쓰는 양식은{' '}
+          <strong className="font-medium">삭제</strong>할 수 있습니다. <strong className="font-medium">입주청소 기본</strong>은
+          끄기만 됩니다. 이미 보낸 서류는 <strong className="font-medium">발주서 목록</strong>입니다.
         </p>
       </div>
 
@@ -112,6 +138,7 @@ export function OrderFormTemplateListPanel({ templates, loading, togglingId, onO
                     toggling={togglingId === t.id}
                     onOpen={onOpen}
                     onToggleUse={onToggleUse}
+                    onDelete={onDelete}
                   />
                 ))}
               </ul>
@@ -120,7 +147,9 @@ export function OrderFormTemplateListPanel({ templates, loading, togglingId, onO
 
           <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
             <h2 className="text-fluid-sm font-semibold text-slate-900">안 쓰는 발주서</h2>
-            <p className="mt-0.5 text-fluid-2xs text-slate-500">손님에게 안 보내고, 접수에서도 고를 수 없습니다.</p>
+            <p className="mt-0.5 text-fluid-2xs text-slate-500">
+              손님에게 안 보내고, 접수에서도 고를 수 없습니다. 내가 만든 양식은 삭제할 수 있습니다.
+            </p>
             {unused.length === 0 ? (
               <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-fluid-xs text-slate-500">
                 꺼 둔 발주서가 없습니다.
@@ -134,6 +163,7 @@ export function OrderFormTemplateListPanel({ templates, loading, togglingId, onO
                     toggling={togglingId === t.id}
                     onOpen={onOpen}
                     onToggleUse={onToggleUse}
+                    onDelete={onDelete}
                   />
                 ))}
               </ul>

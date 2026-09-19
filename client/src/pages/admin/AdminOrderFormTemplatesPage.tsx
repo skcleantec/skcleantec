@@ -35,7 +35,10 @@ import {
 import { OrderFormSectionToggles } from '../../components/admin/order-templates/OrderFormSectionToggles';
 import { OrderFormTemplateCreateWizard } from '../../components/admin/order-templates/OrderFormTemplateCreateWizard';
 import { OrderFormTemplateListPanel } from '../../components/admin/order-templates/OrderFormTemplateListPanel';
-import { OrderFormTemplateStatusBadge } from '../../components/admin/order-templates/orderFormTemplateStatus';
+import {
+  canDeleteOrderFormTemplate,
+  OrderFormTemplateStatusBadge,
+} from '../../components/admin/order-templates/orderFormTemplateStatus';
 import {
   FILL_MODE_OPTIONS,
   ICON_OPTIONS,
@@ -75,6 +78,7 @@ export function AdminOrderFormTemplatesPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [iconOpen, setIconOpen] = useState(false);
   const [tenantPromotedKeys, setTenantPromotedKeys] = useState<Set<string>>(new Set());
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -438,11 +442,35 @@ export function AdminOrderFormTemplatesPage() {
     }
   }
 
+  function openDelete(template: OrderFormTemplate) {
+    if (!canDeleteOrderFormTemplate(template)) {
+      setError(
+        template.isDefault
+          ? '기본 발주서는 삭제할 수 없습니다. 사용 끄기만 할 수 있습니다.'
+          : '사용 중인 발주서는 먼저 사용 끄기를 한 뒤 삭제해 주세요.',
+      );
+      return;
+    }
+    setError(null);
+    setDeleteTargetId(template.id);
+    setDeleteOpen(true);
+  }
+
   async function handleDelete(password: string) {
-    if (!token || !selected) return;
-    await deleteOrderFormTemplate(token, selected.id, password);
-    setTemplates((prev) => prev.filter((t) => t.id !== selected.id));
-    goList();
+    const id = deleteTargetId ?? selected?.id;
+    if (!token || !id) return;
+    const row = templates.find((t) => t.id === id);
+    if (!row || !canDeleteOrderFormTemplate(row)) {
+      throw new Error(
+        row?.isDefault
+          ? '기본 발주서는 삭제할 수 없습니다. 사용 끄기만 할 수 있습니다.'
+          : '사용 중인 발주서는 먼저 사용 끄기를 한 뒤 삭제해 주세요.',
+      );
+    }
+    await deleteOrderFormTemplate(token, id, password);
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    setDeleteTargetId(null);
+    if (urlId === id || selectedId === id) goList();
     flashNotice('삭제했습니다.');
   }
 
@@ -465,7 +493,7 @@ export function AdminOrderFormTemplatesPage() {
                 {isCreate ? '새 발주서 만들기' : urlId ? '발주서 양식' : '발주서 양식 관리'}
               </h1>
             </PageTitleWithFavorite>
-              <HelpTooltip text="「사용하기」를 누른 양식만 손님에게 보내고 접수에서 고릅니다. 이미 보낸 서류는 「발주서 목록」입니다." />
+              <HelpTooltip text="「사용하기」를 누른 양식만 손님에게 보내고 접수에서 고릅니다. 안 쓰는 내가 만든 양식은 삭제할 수 있습니다. 입주청소 기본은 끄기만 됩니다. 이미 보낸 서류는 「발주서 목록」입니다." />
           </div>
           <p className="mt-1 text-fluid-xs text-gray-500">
             {isCreate
@@ -528,6 +556,7 @@ export function AdminOrderFormTemplatesPage() {
             togglingId={togglingId}
             onOpen={goEdit}
             onToggleUse={handleToggleUse}
+            onDelete={openDelete}
           />
         </div>
       ) : !selected && loading ? (
@@ -563,15 +592,17 @@ export function AdminOrderFormTemplatesPage() {
                         사용함
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setDeleteOpen(true)}
-                      disabled={selected.isDefault}
-                      className="rounded-md border border-red-300 px-3 py-1.5 text-fluid-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
-                      title={selected.isDefault ? '기본 발주서는 삭제할 수 없습니다.' : undefined}
-                    >
-                      삭제
-                    </button>
+                    {canDeleteOrderFormTemplate(selected) ? (
+                      <button
+                        type="button"
+                        onClick={() => openDelete(selected)}
+                        className="rounded-md border border-red-300 px-3 py-1.5 text-fluid-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        삭제
+                      </button>
+                    ) : selected.isDefault ? (
+                      <span className="self-center text-fluid-2xs text-slate-400">기본은 끄기만 가능</span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex items-end gap-2">
@@ -1034,7 +1065,10 @@ export function AdminOrderFormTemplatesPage() {
         title="발주서 삭제"
         description={<span>이 발주서 양식을 영구 삭제합니다. 이미 발급된 발주서는 유지되지만 양식 연결은 해제됩니다.</span>}
         confirmLabel="삭제"
-        onClose={() => setDeleteOpen(false)}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeleteTargetId(null);
+        }}
         onConfirm={handleDelete}
       />
     </div>
