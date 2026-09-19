@@ -48,6 +48,7 @@ import {
   coreFieldToDraft,
   draftsToPayload,
   fieldToDraft,
+  isLockedRequiredDraft,
   requiredFieldsForMode,
   type DraftField,
 } from '../../components/admin/order-templates/orderFormTemplateDraft';
@@ -318,7 +319,11 @@ export function AdminOrderFormTemplatesPage() {
   }
 
   function removeField(idx: number) {
-    setDrafts((prev) => prev.filter((_, i) => i !== idx));
+    setDrafts((prev) => {
+      const target = prev[idx];
+      if (target && isLockedRequiredDraft(target)) return prev;
+      return prev.filter((_, i) => i !== idx);
+    });
     setDirty(true);
   }
 
@@ -722,13 +727,13 @@ export function AdminOrderFormTemplatesPage() {
                 </div>
                 {missingRequired.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <p className="text-fluid-2xs text-amber-700">이름·전화·주소를 항목에 넣고 접수 칸에 연결하면 발행할 수 있습니다.</p>
+                    <p className="text-fluid-2xs text-amber-700">이름·전화·주소·서비스희망일을 항목에 넣고 접수 칸에 연결하면 발행할 수 있습니다.</p>
                     <button
                       type="button"
                       onClick={addMissingRequiredFields}
                       className="rounded-md border border-amber-400 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-amber-800 hover:bg-amber-100"
                     >
-                      + 이름·전화·주소 한번에 추가
+                      + 이름·전화·주소·서비스희망일 한번에 추가
                     </button>
                   </div>
                 )}
@@ -771,13 +776,13 @@ export function AdminOrderFormTemplatesPage() {
                 </div>
                 {drafts.length === 0 ? (
                   <div className="space-y-3 p-6 text-center">
-                    <p className="text-fluid-sm text-gray-400">항목이 없습니다. 이름·전화·주소부터 넣고 시작하세요.</p>
+                    <p className="text-fluid-sm text-gray-400">항목이 없습니다. 이름·전화·주소·서비스희망일부터 넣고 시작하세요.</p>
                     <button
                       type="button"
                       onClick={addMissingRequiredFields}
                       className="rounded-md bg-gray-900 px-3.5 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800"
                     >
-                      + 이름·전화·주소 채우기
+                      + 이름·전화·주소·서비스희망일 채우기
                     </button>
                   </div>
                 ) : (
@@ -794,7 +799,7 @@ export function AdminOrderFormTemplatesPage() {
                             <button type="button" onClick={() => moveField(idx, 1)} disabled={!drafts.slice(idx + 1).some((x) => !isOrderFormSectionToggleKey(x.systemField))} className="rounded border border-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-500 hover:bg-gray-50 disabled:opacity-30">
                               ↓
                             </button>
-                            <button type="button" onClick={() => removeField(idx)} className="rounded border border-red-200 px-2 py-0.5 text-fluid-2xs text-red-500 hover:bg-red-50">
+                            <button type="button" onClick={() => removeField(idx)} disabled={isLockedRequiredDraft(d)} className="rounded border border-red-200 px-2 py-0.5 text-fluid-2xs text-red-500 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-30">
                               삭제
                             </button>
                           </div>
@@ -820,6 +825,7 @@ export function AdminOrderFormTemplatesPage() {
                             </span>
                             <select
                               value={d.systemField ?? ''}
+                              disabled={isLockedRequiredDraft(d)}
                               onChange={(e) => {
                                 const systemField = e.target.value || null;
                                 updateDraft(idx, {
@@ -827,7 +833,7 @@ export function AdminOrderFormTemplatesPage() {
                                   ...(systemField ? { showInInquiryList: false } : {}),
                                 });
                               }}
-                              className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                              className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm disabled:bg-slate-50 disabled:text-slate-500"
                             >
                               <option value="">연결 안 함 — 이 양식에만 생기는 새 칸</option>
                               {systemFields.filter((sf) => !sf.sectionToggle).map((sf) => {
@@ -998,9 +1004,19 @@ export function AdminOrderFormTemplatesPage() {
                             </div>
                           )}
                           <label className="flex items-center gap-2 sm:col-span-2">
-                            <input type="checkbox" checked={d.required} onChange={(e) => updateDraft(idx, { required: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                            <input
+                              type="checkbox"
+                              checked={isLockedRequiredDraft(d) ? true : d.required}
+                              disabled={isLockedRequiredDraft(d)}
+                              onChange={(e) => updateDraft(idx, { required: e.target.checked })}
+                              className="h-4 w-4 rounded border-gray-300 disabled:opacity-50"
+                            />
                             <span className="text-fluid-xs text-gray-600">필수 입력</span>
-                            <span className="ml-2 text-fluid-2xs text-gray-400">{FILL_MODE_OPTIONS.find((o) => o.value === d.fillMode)?.hint}</span>
+                            {isLockedRequiredDraft(d) ? (
+                              <span className="ml-2 text-fluid-2xs text-slate-500">이름·전화·주소·서비스희망일은 항상 필수입니다</span>
+                            ) : (
+                              <span className="ml-2 text-fluid-2xs text-gray-400">{FILL_MODE_OPTIONS.find((o) => o.value === d.fillMode)?.hint}</span>
+                            )}
                           </label>
                         </div>
                       </li>

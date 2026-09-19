@@ -118,7 +118,7 @@ export function draftsToPayload(drafts: DraftField[]): Array<Omit<OrderFormTempl
       (d.inputType !== 'SELECT' || (d.optionStyle ?? 'DROPDOWN') === 'RADIO')
         ? d.optionLayout ?? 'VERTICAL'
         : null,
-    required: d.required,
+    required: isLockedRequiredDraft(d) ? true : d.required,
     sortOrder: i,
     systemField: d.systemField && d.systemField.trim() ? d.systemField : null,
     fillMode: d.fillMode,
@@ -134,8 +134,12 @@ const SYSTEM_FIELD_DEFAULT_OPTIONS: Record<string, string[]> = {
   buildingType: ['신축', '구축', '인테리어', '거주(짐이있는상태)'],
 };
 
-export const TEMPLATE_REQUIRED_ORDER = ['customerName', 'customerPhone', 'address'];
+export const TEMPLATE_REQUIRED_ORDER = ['customerName', 'customerPhone', 'address', 'preferredDate'];
 export const IDENTITY_REQUIRED_KEYS = new Set(TEMPLATE_REQUIRED_ORDER);
+
+export function isLockedRequiredDraft(d: Pick<DraftField, 'systemField' | 'fieldKey'>): boolean {
+  return IDENTITY_REQUIRED_KEYS.has(d.systemField ?? '') || IDENTITY_REQUIRED_KEYS.has(d.fieldKey);
+}
 
 export function coreFieldToDraft(f: OrderFormSystemFieldDef, sortOrder: number): DraftField {
   const defaultOptions = SYSTEM_FIELD_DEFAULT_OPTIONS[f.key];

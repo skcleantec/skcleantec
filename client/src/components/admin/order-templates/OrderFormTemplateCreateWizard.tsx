@@ -441,8 +441,8 @@ export function OrderFormTemplateCreateWizard({
               <h2 className="text-fluid-base font-semibold text-slate-900">쓸 칸만 남기고, 없는 칸은 만듭니다</h2>
               <p className="mt-1 text-fluid-xs leading-relaxed text-slate-600">
                 에어컨 업자면 <strong className="font-medium text-slate-800">화장실·베란다 개수는 끄고</strong>, 아래에
-                <strong className="font-medium text-slate-800"> 에어컨 대수</strong>를 만듭니다. 이름·전화·주소는 이미
-                들어 있습니다. 만든 칸은 접수와 손님 화면에 같이 나옵니다.
+                <strong className="font-medium text-slate-800"> 에어컨 대수</strong>를 만듭니다. 이름·전화·주소·서비스희망일은 이미
+                들어 있고 필수입니다. 만든 칸은 접수와 손님 화면에 같이 나옵니다.
               </p>
             </div>
             {groupedOptional.map((g) => (

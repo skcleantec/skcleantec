@@ -10,6 +10,7 @@ import {
   saveTenantInquiryIntakeFields,
 } from '../inquiries/inquiryIntakeFields.service.js';
 import {
+  IDENTITY_REQUIRED_SYSTEM_FIELD_KEYS,
   ORDER_FORM_SYSTEM_FIELDS,
   isKnownSystemField,
   missingRequiredCoreFields,
@@ -350,7 +351,12 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
       placeholder,
       optionStyle,
       optionLayout,
-      required: typeof f.required === 'boolean' ? f.required : false,
+      required:
+        systemField && (IDENTITY_REQUIRED_SYSTEM_FIELD_KEYS as readonly string[]).includes(systemField)
+          ? true
+          : typeof f.required === 'boolean'
+            ? f.required
+            : false,
       sortOrder: i,
       systemField,
       fillMode,

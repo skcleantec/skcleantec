@@ -1,7 +1,7 @@
 /**
  * @see shared/inquiryIntakeFields.ts
  */
-export const INTAKE_IDENTITY_FIELD_KEYS = ['customerName', 'customerPhone', 'address'] as const;
+export const INTAKE_IDENTITY_FIELD_KEYS = ['customerName', 'customerPhone', 'address', 'preferredDate'] as const;
 
 export type InquiryIntakeFieldGroupId = 'identity' | 'schedule' | 'property' | 'amounts' | 'extra';
 
@@ -24,7 +24,7 @@ export const INQUIRY_INTAKE_FIELD_CATALOG: InquiryIntakeFieldDef[] = [
   { key: 'customerName', label: '고객명', group: 'identity', locked: true },
   { key: 'customerPhone', label: '전화번호', group: 'identity', locked: true },
   { key: 'address', label: '주소', group: 'identity', locked: true },
-  { key: 'preferredDate', label: '희망일', group: 'schedule', locked: false },
+  { key: 'preferredDate', label: '서비스희망일', group: 'identity', locked: true },
   { key: 'preferredTime', label: '시간대', group: 'schedule', locked: false },
   { key: 'preferredTimeDetail', label: '구체적 시각', group: 'schedule', locked: false },
   { key: 'propertyType', label: '건축물 유형', group: 'property', locked: false },
