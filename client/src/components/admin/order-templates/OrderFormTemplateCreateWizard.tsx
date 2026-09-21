@@ -635,7 +635,9 @@ export function OrderFormTemplateCreateWizard({
               </div>
             </dl>
             <OrderFormPreviewViewport
-              bottomGapPx={72}
+              layoutKey="wizard-confirm"
+              minPx={560}
+              bottomGapPx={88}
               className="flex flex-col overflow-hidden rounded-lg border border-slate-200"
             >
               <div className="shrink-0 border-b border-slate-100 bg-amber-50 px-3 py-1.5 text-fluid-2xs font-medium text-amber-950">

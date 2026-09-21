@@ -6,19 +6,27 @@ export function OrderFormPreviewViewport({
   children,
   className,
   bottomGapPx = 10,
+  minPx = 320,
+  layoutKey,
 }: {
   children: ReactNode;
   className?: string;
   bottomGapPx?: number;
+  minPx?: number;
+  layoutKey?: string | number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const height = useFillViewportBottom(ref, { bottomGapPx, minPx: 320 });
+  const height = useFillViewportBottom(ref, { bottomGapPx, minPx, layoutKey });
 
   return (
     <div
       ref={ref}
       className={className}
-      style={height != null ? { height, maxHeight: height } : undefined}
+      style={{
+        minHeight: height ?? minPx,
+        height: height ?? undefined,
+        maxHeight: height ?? undefined,
+      }}
     >
       {children}
     </div>
