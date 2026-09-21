@@ -13,7 +13,7 @@ export const AIRCON_ORDER_FORM_TEMPLATE_TITLE = '에어컨 청소 발주서';
 export const AIRCON_ORDER_FORM_TEMPLATE_ICON = '❄️';
 
 export const AIRCON_ORDER_FORM_TEMPLATE_DESCRIPTION =
-  '에어컨 청소 전용 발주서입니다. 연락처·주소·희망 일정과 청소할 기종·대수만 입력하면 됩니다. 브랜드·오염 상태 등은 상세란에 적어 주세요.';
+  '에어컨 청소 전용 발주서입니다. 연락처·주소·희망 일정·견적(총액·예약금·잔금)과 청소할 기종·대수를 입력합니다. 브랜드·오염 상태 등은 상세란에 적어 주세요.';
 
 export const AIRCON_ORDER_FORM_TEMPLATE_SORT_ORDER = 1;
 
@@ -24,7 +24,6 @@ export const AIRCON_ORDER_FORM_REMOVED_FIELD_KEYS = [
   'areaPyeong',
   'professionalOptions',
   'photos',
-  'totalAmount',
   'ac_wall_mount_count',
   'ac_stand_count',
   'ac_system_1way_2way_count',
@@ -66,6 +65,41 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
     sortOrder: 5,
   },
   {
+    fieldKey: 'preferredTimeDetail',
+    label: '구체적 시각',
+    inputType: 'TEXT',
+    systemField: 'preferredTimeDetail',
+    required: false,
+    sortOrder: 6,
+  },
+  {
+    fieldKey: 'totalAmount',
+    label: '금액(총액)',
+    inputType: 'MONEY',
+    systemField: 'totalAmount',
+    required: false,
+    sortOrder: 7,
+    fillMode: 'ADMIN_PREFILL',
+  },
+  {
+    fieldKey: 'depositAmount',
+    label: '예약금',
+    inputType: 'MONEY',
+    systemField: 'depositAmount',
+    required: false,
+    sortOrder: 8,
+    fillMode: 'ADMIN_PREFILL',
+  },
+  {
+    fieldKey: 'balanceAmount',
+    label: '잔금',
+    inputType: 'MONEY',
+    systemField: 'balanceAmount',
+    required: false,
+    sortOrder: 9,
+    fillMode: 'ADMIN_PREFILL',
+  },
+  {
     fieldKey: 'ac_units',
     label: '청소할 에어컨',
     helpText: '기종을 선택하고 대수를 입력한 뒤 「추가하기」를 눌러 주세요. 여러 기종이면 반복해서 추가합니다.',
@@ -81,7 +115,7 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
     ],
     optionStyle: 'DROPDOWN',
     required: true,
-    sortOrder: 6,
+    sortOrder: 10,
     showInInquiryList: true,
   },
   {
@@ -90,7 +124,7 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
     helpText: '브랜드·모델명(평형), 곰팡이·냄새, 층고·사다리 필요 여부, 완전분해 희망 등',
     inputType: 'TEXTAREA',
     required: false,
-    sortOrder: 7,
+    sortOrder: 11,
   },
   {
     fieldKey: 'specialNotes',
@@ -98,6 +132,6 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
     inputType: 'TEXTAREA',
     systemField: 'specialNotes',
     required: false,
-    sortOrder: 8,
+    sortOrder: 12,
   },
 ];

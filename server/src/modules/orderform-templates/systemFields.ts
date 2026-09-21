@@ -103,7 +103,24 @@ export const DEFAULT_ORDER_FORM_TEMPLATE_FIELDS: DefaultTemplateFieldSeed[] = [
   { fieldKey: 'kitchenCount', label: '주방 개수', inputType: 'NUMBER', systemField: 'kitchenCount', options: [], sortOrder: 11 },
   { fieldKey: 'specialNotes', label: '특이사항', inputType: 'TEXTAREA', systemField: 'specialNotes', options: [], sortOrder: 12 },
   { fieldKey: 'photos', label: '현장 사진 첨부', inputType: 'TEXT', systemField: 'photos', options: [], sortOrder: 14 },
+  { fieldKey: 'depositAmount', label: '예약금', inputType: 'MONEY', systemField: 'depositAmount', options: [], sortOrder: 15 },
+  { fieldKey: 'balanceAmount', label: '잔금', inputType: 'MONEY', systemField: 'balanceAmount', options: [], sortOrder: 16 },
 ];
+
+/** 발급 때 상담사가 견적·시각을 적는 칸 — 모든 양식에 항상 둠 @see shared/orderFormIndustryPacks.ts */
+export const ORDER_FORM_QUOTE_ALWAYS_ON_FIELD_KEYS = [
+  'preferredTime',
+  'preferredTimeDetail',
+  'totalAmount',
+  'depositAmount',
+  'balanceAmount',
+] as const;
+
+export function isOrderFormQuoteAlwaysOnFieldKey(
+  key: string | null | undefined,
+): key is (typeof ORDER_FORM_QUOTE_ALWAYS_ON_FIELD_KEYS)[number] {
+  return !!key && (ORDER_FORM_QUOTE_ALWAYS_ON_FIELD_KEYS as readonly string[]).includes(key);
+}
 
 /** 이름·전화·주소·서비스희망일 — 발행·접수 저장에 꼭 연결 */
 export const IDENTITY_REQUIRED_SYSTEM_FIELD_KEYS = ['customerName', 'customerPhone', 'address', 'preferredDate'] as const;

@@ -4,6 +4,26 @@
  * 전용 칸은 systemField 없이 JSON으로 저장한다.
  */
 
+/** 발급 때 상담사가 견적·시각을 적는 칸 — 모든 업종에서 켠다 */
+export const ORDER_FORM_PACK_QUOTE_FIELD_KEYS = [
+  'preferredTime',
+  'preferredTimeDetail',
+  'totalAmount',
+  'depositAmount',
+  'balanceAmount',
+] as const;
+
+export type OrderFormPackQuoteFieldKey = (typeof ORDER_FORM_PACK_QUOTE_FIELD_KEYS)[number];
+
+export function isOrderFormPackQuoteFieldKey(key: string): key is OrderFormPackQuoteFieldKey {
+  return (ORDER_FORM_PACK_QUOTE_FIELD_KEYS as readonly string[]).includes(key);
+}
+
+export function withOrderFormPackQuoteFields(keys: readonly string[]): string[] {
+  const extra = keys.filter((k) => !isOrderFormPackQuoteFieldKey(k));
+  return [...ORDER_FORM_PACK_QUOTE_FIELD_KEYS, ...extra];
+}
+
 export type OrderFormIndustryPackId =
   | 'move_in'
   | 'aircon'
@@ -54,8 +74,7 @@ export const ORDER_FORM_INDUSTRY_PACKS: OrderFormIndustryPack[] = [
     emoji: '🏠',
     icon: 'home',
     soomgoAliases: ['이사/입주 청소업체', '입주사전점검 대행'],
-    systemFieldKeys: [
-      'preferredTime',
+    systemFieldKeys: withOrderFormPackQuoteFields([
       'propertyType',
       'buildingType',
       'moveInDate',
@@ -65,7 +84,7 @@ export const ORDER_FORM_INDUSTRY_PACKS: OrderFormIndustryPack[] = [
       'balconyCount',
       'kitchenCount',
       'specialNotes',
-    ],
+    ]),
     customFields: [],
     photosOn: false,
   },
@@ -77,7 +96,7 @@ export const ORDER_FORM_INDUSTRY_PACKS: OrderFormIndustryPack[] = [
     emoji: '❄️',
     icon: 'cloud',
     soomgoAliases: ['에어컨 청소', '시스템에어컨 청소', '실외기 청소'],
-    systemFieldKeys: ['preferredTime', 'specialNotes'],
+    systemFieldKeys: withOrderFormPackQuoteFields(['specialNotes']),
     customFields: [
       {
         fieldKey: 'ac_units',
@@ -112,7 +131,7 @@ export const ORDER_FORM_INDUSTRY_PACKS: OrderFormIndustryPack[] = [
     emoji: '🛏️',
     icon: 'list',
     soomgoAliases: ['침대/매트리스 청소', '세탁기 청소', '소파 청소', '후드 청소', '냉장고 청소', '가구 청소'],
-    systemFieldKeys: ['preferredTime', 'specialNotes'],
+    systemFieldKeys: withOrderFormPackQuoteFields(['specialNotes']),
     customFields: [
       {
         fieldKey: 'appliance_item',
@@ -145,7 +164,7 @@ export const ORDER_FORM_INDUSTRY_PACKS: OrderFormIndustryPack[] = [
     emoji: '🪟',
     icon: 'check-list-3',
     soomgoAliases: ['줄눈 시공', '코킹 시공'],
-    systemFieldKeys: ['propertyType', 'bathroomCount', 'specialNotes'],
+    systemFieldKeys: withOrderFormPackQuoteFields(['propertyType', 'bathroomCount', 'specialNotes']),
     customFields: [
       {
         fieldKey: 'grout_areas',
@@ -178,7 +197,7 @@ export const ORDER_FORM_INDUSTRY_PACKS: OrderFormIndustryPack[] = [
     emoji: '🪜',
     icon: 'map-marker',
     soomgoAliases: ['가정이사(투룸 이상)', '원룸/소형 이사', '사무실/상업공간 이사', '용달/화물 운송'],
-    systemFieldKeys: ['areaPyeong', 'propertyType', 'preferredTime', 'specialNotes'],
+    systemFieldKeys: withOrderFormPackQuoteFields(['areaPyeong', 'propertyType', 'specialNotes']),
     customFields: [
       {
         fieldKey: 'dest_address',
@@ -226,7 +245,7 @@ export const ORDER_FORM_INDUSTRY_PACKS: OrderFormIndustryPack[] = [
     emoji: '🐜',
     icon: 'alert',
     soomgoAliases: ['방역소독', '해충방역', '바퀴벌레 퇴치'],
-    systemFieldKeys: ['areaPyeong', 'propertyType', 'preferredTime', 'specialNotes'],
+    systemFieldKeys: withOrderFormPackQuoteFields(['areaPyeong', 'propertyType', 'specialNotes']),
     customFields: [
       {
         fieldKey: 'pest_type',
@@ -265,7 +284,7 @@ export const ORDER_FORM_INDUSTRY_PACKS: OrderFormIndustryPack[] = [
     emoji: '🏢',
     icon: 'computer',
     soomgoAliases: ['사무실/상업공간 청소업체', '준공 청소', '건물내부 청소(바닥/계단/화장실)'],
-    systemFieldKeys: ['areaPyeong', 'preferredTime', 'specialNotes'],
+    systemFieldKeys: withOrderFormPackQuoteFields(['areaPyeong', 'specialNotes']),
     customFields: [
       {
         fieldKey: 'space_type',

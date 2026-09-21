@@ -19,6 +19,7 @@ import {
 import {
   findOrderFormIndustryPack,
   isOrderFormIndustryPackId,
+  isOrderFormPackQuoteFieldKey,
   type OrderFormIndustryPackId,
 } from '@shared/orderFormIndustryPacks';
 import {
@@ -215,7 +216,9 @@ export function OrderFormTemplateCreateWizard({
   const identityDrafts = useMemo(() => buildDefaultCoreDrafts(systemFields, 'TEMPLATE'), [systemFields]);
 
   const assembledDrafts = useMemo(() => {
-    const extras = optionalFields.filter((f) => selectedKeys.has(f.key)).map((f, i) => coreFieldToDraft(f, identityDrafts.length + i));
+    const extras = optionalFields
+      .filter((f) => selectedKeys.has(f.key) || isOrderFormPackQuoteFieldKey(f.key))
+      .map((f, i) => coreFieldToDraft(f, identityDrafts.length + i));
     const customs = customDrafts.map((d, i) => ({ ...d, sortOrder: identityDrafts.length + extras.length + i }));
     const photos: DraftField[] = photosOn
       ? [
@@ -331,6 +334,7 @@ export function OrderFormTemplateCreateWizard({
   }
 
   function toggleKey(key: string) {
+    if (isOrderFormPackQuoteFieldKey(key)) return;
     setSelectedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -375,20 +379,29 @@ export function OrderFormTemplateCreateWizard({
   }
 
   function fieldToggleRow(f: OrderFormSystemFieldDef) {
-    const on = selectedKeys.has(f.key);
+    const quoteLocked = isOrderFormPackQuoteFieldKey(f.key);
+    const on = quoteLocked || selectedKeys.has(f.key);
     return (
       <label
         key={f.key}
-        className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
-          on ? 'border-slate-800 bg-slate-50' : 'border-slate-200 bg-white'
+        className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+          quoteLocked ? 'cursor-default border-slate-800 bg-slate-50' : 'cursor-pointer'
+        } ${on && !quoteLocked ? 'border-slate-800 bg-slate-50' : ''} ${
+          !on && !quoteLocked ? 'border-slate-200 bg-white' : ''
         }`}
       >
-        <span className={`text-fluid-sm ${on ? 'font-medium text-slate-900' : 'text-slate-500'}`}>{f.label}</span>
+        <span className={`text-fluid-sm ${on ? 'font-medium text-slate-900' : 'text-slate-500'}`}>
+          {f.label}
+          {quoteLocked ? (
+            <span className="ml-1.5 text-fluid-2xs font-normal text-slate-500">발급 견적 · 끌 수 없음</span>
+          ) : null}
+        </span>
         <input
           type="checkbox"
           checked={on}
+          disabled={quoteLocked}
           onChange={() => toggleKey(f.key)}
-          className="size-4 accent-slate-900"
+          className="size-4 accent-slate-900 disabled:opacity-70"
         />
       </label>
     );

@@ -11,10 +11,12 @@ import {
 } from '../inquiries/inquiryIntakeFields.service.js';
 import {
   IDENTITY_REQUIRED_SYSTEM_FIELD_KEYS,
+  ORDER_FORM_QUOTE_ALWAYS_ON_FIELD_KEYS,
   ORDER_FORM_SYSTEM_FIELDS,
   isKnownSystemField,
   missingRequiredCoreFields,
 } from './systemFields.js';
+import { ensureAirconOrderFormTemplate } from './ensureAirconOrderFormTemplate.js';
 import {
   assertTenantPromotedFieldLimit,
   canPromoteFieldToInquiryList,
@@ -130,6 +132,7 @@ router.get('/', requireStaffPermission('orderform.templates', 'orderform.issue')
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const canManageTemplates = await staffHasPermission(user, 'orderform.templates');
+  await ensureAirconOrderFormTemplate(prisma, tenantId);
   const rows = await prisma.orderFormTemplate.findMany({
     where: {
       tenantId,
@@ -361,6 +364,32 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
       systemField,
       fillMode,
       showInInquiryList,
+    });
+  }
+
+  const quoteTimeOptions = ['오전', '오후', '사이청소', '조율'];
+  for (const key of ORDER_FORM_QUOTE_ALWAYS_ON_FIELD_KEYS) {
+    if (seenSystem.has(key) || seenKeys.has(key)) continue;
+    const def = ORDER_FORM_SYSTEM_FIELDS.find((f) => f.key === key);
+    if (!def) continue;
+    seenKeys.add(key);
+    seenSystem.add(key);
+    const isTime = key === 'preferredTime';
+    const isMoney = key === 'totalAmount' || key === 'depositAmount' || key === 'balanceAmount';
+    prepared.push({
+      fieldKey: key,
+      label: key === 'preferredTimeDetail' ? '구체적 시각' : def.label,
+      helpText: null,
+      inputType: def.inputType,
+      options: isTime ? quoteTimeOptions : [],
+      placeholder: null,
+      optionStyle: isTime ? 'DROPDOWN' : null,
+      optionLayout: null,
+      required: isTime,
+      sortOrder: prepared.length,
+      systemField: key,
+      fillMode: isMoney ? 'ADMIN_PREFILL' : 'CUSTOMER',
+      showInInquiryList: false,
     });
   }
 

@@ -7,6 +7,7 @@ import {
   AIRCON_ORDER_FORM_TEMPLATE_SORT_ORDER,
   AIRCON_ORDER_FORM_TEMPLATE_TITLE,
 } from './airconOrderFormTemplate.catalog.js';
+import { ensureTenantOrderFormQuoteFields } from './ensureQuoteSystemFields.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -95,6 +96,7 @@ export async function ensureAirconOrderFormTemplate(db: Db, tenantId: string): P
       data: { description: AIRCON_ORDER_FORM_TEMPLATE_DESCRIPTION },
     });
     await syncAirconOrderFormTemplateFields(db, tenantId, existing.id);
+    await ensureTenantOrderFormQuoteFields(db, tenantId);
     return;
   }
 
@@ -117,4 +119,5 @@ export async function ensureAirconOrderFormTemplate(db: Db, tenantId: string): P
       fieldSeedToCreateMany(tenantId, created.id, f),
     ),
   });
+  await ensureTenantOrderFormQuoteFields(db, tenantId);
 }

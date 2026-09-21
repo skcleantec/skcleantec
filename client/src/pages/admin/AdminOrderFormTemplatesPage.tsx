@@ -48,6 +48,7 @@ import {
   coreFieldToDraft,
   draftsToPayload,
   fieldToDraft,
+  isLockedAlwaysOnDraft,
   isLockedRequiredDraft,
   requiredFieldsForMode,
   type DraftField,
@@ -324,7 +325,7 @@ export function AdminOrderFormTemplatesPage() {
   function removeField(idx: number) {
     setDrafts((prev) => {
       const target = prev[idx];
-      if (target && isLockedRequiredDraft(target)) return prev;
+      if (target && isLockedAlwaysOnDraft(target)) return prev;
       return prev.filter((_, i) => i !== idx);
     });
     setDirty(true);
@@ -812,7 +813,7 @@ export function AdminOrderFormTemplatesPage() {
                             <button type="button" onClick={() => moveField(idx, 1)} disabled={!drafts.slice(idx + 1).some((x) => !isOrderFormSectionToggleKey(x.systemField))} className="rounded border border-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-500 hover:bg-gray-50 disabled:opacity-30">
                               ↓
                             </button>
-                            <button type="button" onClick={() => removeField(idx)} disabled={isLockedRequiredDraft(d)} className="rounded border border-red-200 px-2 py-0.5 text-fluid-2xs text-red-500 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-30">
+                            <button type="button" onClick={() => removeField(idx)} disabled={isLockedAlwaysOnDraft(d)} className="rounded border border-red-200 px-2 py-0.5 text-fluid-2xs text-red-500 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-30">
                               삭제
                             </button>
                           </div>
@@ -838,7 +839,7 @@ export function AdminOrderFormTemplatesPage() {
                             </span>
                             <select
                               value={d.systemField ?? ''}
-                              disabled={isLockedRequiredDraft(d)}
+                              disabled={isLockedAlwaysOnDraft(d)}
                               onChange={(e) => {
                                 const systemField = e.target.value || null;
                                 updateDraft(idx, {

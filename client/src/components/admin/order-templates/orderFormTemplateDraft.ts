@@ -8,7 +8,11 @@ import {
   type OrderFormTemplateRenderMode,
 } from '../../../api/orderFormTemplates';
 import { isOrderFormSectionToggleKey } from '@shared/orderFormSectionToggles';
-import type { OrderFormIndustryPack, OrderFormIndustryPackCustomField } from '@shared/orderFormIndustryPacks';
+import {
+  isOrderFormPackQuoteFieldKey,
+  type OrderFormIndustryPack,
+  type OrderFormIndustryPackCustomField,
+} from '@shared/orderFormIndustryPacks';
 
 export type DraftField = Omit<
   OrderFormTemplateField,
@@ -190,6 +194,12 @@ export function isLockedRequiredDraft(d: Pick<DraftField, 'systemField' | 'field
   return IDENTITY_REQUIRED_KEYS.has(d.systemField ?? '') || IDENTITY_REQUIRED_KEYS.has(d.fieldKey);
 }
 
+/** 견적·희망시각 상세 — 끄거나 지울 수 없음 (상담사 발급용) */
+export function isLockedAlwaysOnDraft(d: Pick<DraftField, 'systemField' | 'fieldKey'>): boolean {
+  if (isLockedRequiredDraft(d)) return true;
+  return isOrderFormPackQuoteFieldKey(d.systemField ?? '') || isOrderFormPackQuoteFieldKey(d.fieldKey);
+}
+
 export function coreFieldToDraft(f: OrderFormSystemFieldDef, sortOrder: number): DraftField {
   const defaultOptions = SYSTEM_FIELD_DEFAULT_OPTIONS[f.key];
   const inputType: OrderFormFieldInputType = defaultOptions
@@ -205,7 +215,10 @@ export function coreFieldToDraft(f: OrderFormSystemFieldDef, sortOrder: number):
     required: IDENTITY_REQUIRED_KEYS.has(f.key),
     sortOrder,
     systemField: f.key,
-    fillMode: 'CUSTOMER',
+    fillMode:
+      f.key === 'totalAmount' || f.key === 'depositAmount' || f.key === 'balanceAmount'
+        ? 'ADMIN_PREFILL'
+        : 'CUSTOMER',
     options: defaultOptions ? [...defaultOptions] : [],
     placeholder: null,
     optionStyle: defaultOptions ? 'DROPDOWN' : null,
