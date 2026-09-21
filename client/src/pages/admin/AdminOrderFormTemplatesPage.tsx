@@ -35,6 +35,7 @@ import {
 import { OrderFormSectionToggles } from '../../components/admin/order-templates/OrderFormSectionToggles';
 import { OrderFormPreviewViewport } from '../../components/admin/OrderFormPreviewViewport';
 import { OrderFormTemplateCreateWizard } from '../../components/admin/order-templates/OrderFormTemplateCreateWizard';
+import { OrderFormDraftOptionsEditor } from '../../components/admin/order-templates/OrderFormDraftOptionsEditor';
 import { OrderFormTemplateListPanel } from '../../components/admin/order-templates/OrderFormTemplateListPanel';
 import {
   canDeleteOrderFormTemplate,
@@ -243,27 +244,6 @@ export function AdminOrderFormTemplatesPage() {
 
   function updateDraft(idx: number, patch: Partial<DraftField>) {
     setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, ...patch } : d)));
-    setDirty(true);
-  }
-
-  function addOption(idx: number) {
-    setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, options: [...d.options, ''] } : d)));
-    setDirty(true);
-  }
-
-  function updateOption(idx: number, optIdx: number, value: string) {
-    setDrafts((prev) =>
-      prev.map((d, i) =>
-        i === idx ? { ...d, options: d.options.map((o, oi) => (oi === optIdx ? value : o)) } : d,
-      ),
-    );
-    setDirty(true);
-  }
-
-  function removeOption(idx: number, optIdx: number) {
-    setDrafts((prev) =>
-      prev.map((d, i) => (i === idx ? { ...d, options: d.options.filter((_, oi) => oi !== optIdx) } : d)),
-    );
     setDirty(true);
   }
 
@@ -982,41 +962,13 @@ export function AdminOrderFormTemplatesPage() {
                             </div>
                           )}
                           {OPTION_INPUT_TYPES.has(d.inputType) && (
-                            <div className="block sm:col-span-2">
-                              <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">선택지</span>
-                              <div className="space-y-1.5">
-                                {d.options.length === 0 ? (
-                                  <p className="text-fluid-2xs text-gray-400">아래 버튼으로 선택지를 한 개씩 추가하세요.</p>
-                                ) : (
-                                  d.options.map((opt, optIdx) => (
-                                    <div key={optIdx} className="flex items-center gap-2">
-                                      <span className="text-fluid-2xs text-gray-400 w-5 text-right">{optIdx + 1}</span>
-                                      <input
-                                        value={opt}
-                                        onChange={(e) => updateOption(idx, optIdx, e.target.value)}
-                                        maxLength={128}
-                                        placeholder={`선택지 ${optIdx + 1}`}
-                                        className="min-w-0 flex-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => removeOption(idx, optIdx)}
-                                        className="shrink-0 rounded border border-red-200 px-2 py-1 text-fluid-2xs text-red-500 hover:bg-red-50"
-                                      >
-                                        삭제
-                                      </button>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => addOption(idx)}
-                                className="mt-2 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50"
-                              >
-                                + 선택지 추가
-                              </button>
-                            </div>
+                            <OrderFormDraftOptionsEditor
+                              className="block sm:col-span-2"
+                              options={d.options}
+                              onChange={(options) => {
+                                updateDraft(idx, { options });
+                              }}
+                            />
                           )}
                           <label className="flex items-center gap-2 sm:col-span-2">
                             <input

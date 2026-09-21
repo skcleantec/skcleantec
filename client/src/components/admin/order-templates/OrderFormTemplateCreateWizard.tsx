@@ -42,6 +42,7 @@ import {
 } from './orderFormTemplateDraft';
 import { OrderFormIndustryPackPicker } from './OrderFormIndustryPackPicker';
 import { OrderFormPreviewViewport } from '../OrderFormPreviewViewport';
+import { OrderFormWizardCustomFieldCard } from './OrderFormWizardCustomFieldCard';
 
 const IDENTITY_KEY_SET = new Set<string>(INTAKE_IDENTITY_FIELD_KEYS);
 
@@ -373,9 +374,10 @@ export function OrderFormTemplateCreateWizard({
   }
 
   function addCustom() {
-    const options = OPTION_INPUT_TYPES.has(newType)
+    const parsed = OPTION_INPUT_TYPES.has(newType)
       ? newOptions.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean)
       : [];
+    const options = OPTION_INPUT_TYPES.has(newType) && parsed.length === 0 ? [''] : parsed;
     pushCustom(newLabel, newType, options);
     setNewLabel('');
     setNewOptions('');
@@ -548,7 +550,7 @@ export function OrderFormTemplateCreateWizard({
               <div>
                 <h3 className="text-fluid-sm font-semibold text-slate-900">목록에 없는 칸 만들기</h3>
                 <p className="mt-0.5 text-fluid-2xs text-slate-500">
-                  화장실 개수처럼 이미 있는 칸이 아니면 여기서 만듭니다. 「연결」할 필요가 없습니다.
+                  이미 있는 칸이 아니면 여기서 만듭니다. 선택 칸은 하위 항목을 보고 추가·수정·삭제할 수 있습니다.
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -570,19 +572,14 @@ export function OrderFormTemplateCreateWizard({
               ) : (
                 <ul className="space-y-2">
                   {customDrafts.map((d, i) => (
-                    <li key={`${d.fieldKey}-${i}`} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                      <span className="min-w-0 flex-1 truncate text-fluid-sm font-medium text-slate-900">{d.label}</span>
-                      <span className="shrink-0 text-fluid-2xs text-slate-400">
-                        {INPUT_TYPE_OPTIONS.find((o) => o.value === d.inputType)?.label}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setCustomDrafts((prev) => prev.filter((_, idx) => idx !== i))}
-                        className="shrink-0 rounded-md px-2 py-1 text-fluid-2xs text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                      >
-                        빼기
-                      </button>
-                    </li>
+                    <OrderFormWizardCustomFieldCard
+                      key={`${d.fieldKey}-${i}`}
+                      draft={d}
+                      onChange={(patch) =>
+                        setCustomDrafts((prev) => prev.map((row, idx) => (idx === i ? { ...row, ...patch } : row)))
+                      }
+                      onRemove={() => setCustomDrafts((prev) => prev.filter((_, idx) => idx !== i))}
+                    />
                   ))}
                 </ul>
               )}
