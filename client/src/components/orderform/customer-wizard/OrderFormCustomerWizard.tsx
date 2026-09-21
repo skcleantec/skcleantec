@@ -151,6 +151,7 @@ export function OrderFormCustomerWizard({
     addressConfirmedViaSearch: shared.addressConfirmedViaSearch,
     oneRoomLabel: shared.oneRoomLabel,
     guideTermsAt: shared.guideTermsAt,
+    guideTermsSigned: shared.guideTermsSigned,
   });
 
   const tryNext = () => {
@@ -182,7 +183,7 @@ export function OrderFormCustomerWizard({
       onSubmit({ preventDefault() {} } as FormEvent);
       return;
     }
-    if (!shared.guideTermsAt) return;
+    if (!shared.guideTermsAt || !shared.guideTermsSigned) return;
     if (stepInvalid) {
       setStepError(stepInvalid);
       return;
@@ -310,15 +311,15 @@ export function OrderFormCustomerWizard({
               ) : null}
               {currentStep.kind === 'guide' ? (
                 <div className="w-full space-y-2">
-                  {!previewWalk && !shared.guideTermsAt ? (
+                  {!previewWalk && !shared.guideTermsSigned ? (
                     <p className="text-center text-fluid-2xs font-medium leading-snug text-amber-800">
-                      안내사항을 읽어주셔야 제출하기가 완료됩니다.
+                      안내를 끝까지 읽고 성함을 직접 적은 뒤 서명해야 제출하기가 완료됩니다.
                     </p>
                   ) : null}
                   <button
                     type="button"
                     className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
-                    disabled={submitting || (!previewWalk && !shared.guideTermsAt)}
+                    disabled={submitting || (!previewWalk && !shared.guideTermsSigned)}
                     onClick={trySubmit}
                   >
                     {submitting ? '제출 중...' : previewWalk ? '제출 미리보기' : '제출하기'}

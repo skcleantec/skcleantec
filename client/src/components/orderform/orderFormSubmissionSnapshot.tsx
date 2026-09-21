@@ -3,10 +3,7 @@ import { labelForMoveInTiming } from '@shared/orderFormMoveInTiming';
 import { TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY } from '@shared/telecrmConsultationQuote';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
-import {
-  OrderFormConsentsSummary,
-  OrderFormSnapshotAckBlock,
-} from './OrderFormConsentUi';
+import { OrderFormConsentsSummary } from './OrderFormConsentUi';
 import {
   ORDER_FORM_PROFESSIONAL_OPTIONS_MULTILINE_LABEL,
 } from '../../constants/orderFormProfessionalOptions';
@@ -160,22 +157,10 @@ export function OrderFormSubmissionSnapshotContent(props: {
                 : '—'}
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="청소 희망일">
-            <div>
-              {formatDateCompactWithWeekday(snapshot.fields.preferredDate)}
-              <OrderFormSnapshotAckBlock
-                consentKind="serviceDate"
-                agreedAt={consents?.serviceDate?.agreedAt}
-              />
-            </div>
+            {formatDateCompactWithWeekday(snapshot.fields.preferredDate)}
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="시간대">
-            <div>
-              {slotLabelForOrderForm(snapshot.fields.preferredTime)}
-              <OrderFormSnapshotAckBlock
-                consentKind="timeSlot"
-                agreedAt={consents?.timeSlot?.agreedAt}
-              />
-            </div>
+            {slotLabelForOrderForm(snapshot.fields.preferredTime)}
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="구체적 시각">
             {snapshot.fields.preferredTimeDetail?.trim() ? snapshot.fields.preferredTimeDetail : '—'}

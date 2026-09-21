@@ -1,4 +1,5 @@
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
+import { parseGuideSignaturePngDataUrl } from './orderFormGuideSignature.service.js';
 
 function orderFormConfigLine(raw: string | null | undefined, fallback: string): string {
   const t = raw != null ? String(raw).trim() : '';
@@ -20,6 +21,8 @@ export type OrderFormConsentTimeSlot = {
 
 export type OrderFormConsentGuideTerms = {
   agreedAt: string;
+  typedName?: string | null;
+  signatureUrl?: string | null;
 };
 
 export type OrderFormSubmissionConsents = {
@@ -34,7 +37,16 @@ type RawConsentBody = {
   preferredTime?: unknown;
   preferredTimeDetail?: unknown;
   ackBody?: unknown;
+  signaturePng?: unknown;
+  typedName?: unknown;
 };
+
+function normalizeGuideTypedName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.replace(/\s+/g, ' ').trim();
+  if (t.length < 2 || t.length > 40) return null;
+  return t;
+}
 
 function parseIsoAgreedAt(raw: unknown): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
@@ -77,14 +89,26 @@ function parseConsentTimeSlot(raw: unknown): OrderFormConsentTimeSlot | null {
   };
 }
 
-function parseConsentGuideTerms(raw: unknown): OrderFormConsentGuideTerms | null {
+type ParsedGuideTerms = {
+  agreedAt: string;
+  typedName: string;
+  signaturePng: Buffer;
+};
+
+function parseConsentGuideTerms(raw: unknown): ParsedGuideTerms | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const agreedAt = parseIsoAgreedAt((raw as RawConsentBody).agreedAt);
-  if (!agreedAt) return null;
-  return { agreedAt };
+  const typedName = normalizeGuideTypedName((raw as RawConsentBody).typedName);
+  const signaturePng = parseGuideSignaturePngDataUrl((raw as RawConsentBody).signaturePng);
+  if (!agreedAt || !typedName || !signaturePng) return null;
+  return { agreedAt, typedName, signaturePng };
 }
 
-export function parseOrderFormSubmitConsents(raw: unknown): OrderFormSubmissionConsents | null {
+export function parseOrderFormSubmitConsents(raw: unknown): {
+  serviceDate: OrderFormConsentServiceDate | null;
+  timeSlot: OrderFormConsentTimeSlot | null;
+  guideTerms: ParsedGuideTerms | null;
+} | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const o = raw as Record<string, unknown>;
   const serviceDate = parseConsentServiceDate(o.serviceDate);
@@ -118,12 +142,14 @@ export function validateOrderFormSubmitConsents(params: {
   useTimeStr: string;
   useDetailStr: string | null;
   formConfig?: { serviceDateAckBody?: string | null; timeSlotAckBody?: string | null } | null;
-}): { ok: true; consents: OrderFormSubmissionConsents } | { ok: false; error: string } {
+}):
+  | { ok: true; consents: OrderFormSubmissionConsents; guideSignaturePng: Buffer }
+  | { ok: false; error: string } {
   const parsed = parseOrderFormSubmitConsents(params.consentsRaw);
   const ackBodies = resolveOrderFormAckBodies(params.formConfig);
 
   if (!parsed?.guideTerms) {
-    return { ok: false, error: '[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.' };
+    return { ok: false, error: '[필수] 성함을 적고 안내사항을 끝까지 읽고 서명해 주세요.' };
   }
 
   let serviceDate: OrderFormConsentServiceDate | null = null;
@@ -157,10 +183,14 @@ export function validateOrderFormSubmitConsents(params: {
 
   return {
     ok: true,
+    guideSignaturePng: parsed.guideTerms.signaturePng,
     consents: {
       serviceDate,
       timeSlot,
-      guideTerms: parsed.guideTerms,
+      guideTerms: {
+        agreedAt: parsed.guideTerms.agreedAt,
+        typedName: parsed.guideTerms.typedName,
+      },
     },
   };
 }

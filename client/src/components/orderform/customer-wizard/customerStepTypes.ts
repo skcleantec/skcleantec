@@ -26,6 +26,9 @@ export type CustomerWizardShared = {
   handleCustomerPreferredTimeChange: (raw: string) => void;
   submitting: boolean;
   guideTermsAt: string | null;
+  guideTermsSigned: boolean;
+  guideTermsTypedName: string | null;
+  guideTermsSignaturePng: string | null;
   setGuideAgreeModalOpen: (open: boolean) => void;
   agreeLinkLabel: string;
   professionalOptions: ProfessionalSpecialtyOptionDto[];

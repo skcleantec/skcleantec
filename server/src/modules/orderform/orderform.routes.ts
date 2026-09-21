@@ -192,6 +192,7 @@ import {
   resolveOrderFormListSnapshotForSubmit,
 } from './orderFormListSnapshot.service.js';
 import { validateOrderFormSubmitConsents } from './orderFormConsents.helpers.js';
+import { persistOrderFormGuideSignature } from './orderFormGuideSignature.service.js';
 
 const CUSTOMER_LINK_FORM_CONFIG_KEYS = [
   'customerLinkTotalLine',
@@ -3167,10 +3168,30 @@ router.post('/submit/:token', async (req, res) => {
     return;
   }
 
+  let guideTermsStored = consentResult.consents.guideTerms;
+  try {
+    const uploaded = await persistOrderFormGuideSignature({
+      orderFormId: form.id,
+      png: consentResult.guideSignaturePng,
+    });
+    guideTermsStored = {
+      agreedAt: consentResult.consents.guideTerms!.agreedAt,
+      typedName: consentResult.consents.guideTerms!.typedName,
+      signatureUrl: uploaded.signatureUrl,
+    };
+  } catch (e) {
+    console.error('[orderform-guide-sign]', e instanceof Error ? e.message : e);
+    res.status(503).json({ error: '서명을 저장하지 못했습니다. 잠시 후 다시 제출해 주세요.' });
+    return;
+  }
+
   const customerSubmissionSnapshot = {
     version: 1,
     capturedAt: new Date().toISOString(),
-    consents: consentResult.consents,
+    consents: {
+      ...consentResult.consents,
+      guideTerms: guideTermsStored,
+    },
     template: submitTemplate
       ? {
           id: submitTemplate.id,

@@ -523,7 +523,7 @@ export function AdminOrderFormCustomerPreviewPage() {
             <OrderFormSettingsSection
               id="guide"
               title="안내·동의"
-              hint="이 발주서를 받은 손님만 봅니다"
+              hint="이 발주서를 받은 손님이 끝까지 읽고 서명합니다"
               open={openMap.guide}
               onOpenChange={(open) => setSectionOpen('guide', open)}
               badge={<OrderFormSettingsThisFormBadge />}

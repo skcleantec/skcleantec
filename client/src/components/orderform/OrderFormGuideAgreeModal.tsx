@@ -3,21 +3,19 @@ import { createPortal } from 'react-dom';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { getPublicOrderGuide } from '../../api/orderform';
 import { ORDER_GUIDE_DEFAULT_SECTIONS, type GuideSection } from '../../constants/orderInfoDefaultSections';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { OrderFormGuideSections } from './OrderFormGuideSections';
 import { OrderFormPartnerConsentBlock } from './OrderFormPartnerConsentBlock';
 import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
-import {
-  OrderFormConsentStamp,
-  OrderFormConsentsSummary,
-} from './OrderFormConsentUi';
+import { OrderFormGuideSignatureBlock } from './OrderFormGuideSignatureBlock';
 
 export function OrderFormGuideAgreeModal(props: {
   open: boolean;
   onClose: () => void;
-  /** agree: 제출 전 동의(스크롤·동의 버튼) · view: 제출 확인서 등 재열람 */
+  /** agree: 제출 전 동의(스크롤·서명) · view: 제출 확인서 등 재열람 */
   mode?: 'agree' | 'view';
-  onAgree?: () => void;
+  onAgree?: (payload: { at: string; signaturePng: string; typedName: string }) => void;
   /** view 모드 — 제출 스냅샷 동의 이력 */
   consents?: OrderFormSubmissionConsents | null;
   /** 브랜드 slug — 미전달 시 URL ?brand= */
@@ -25,9 +23,19 @@ export function OrderFormGuideAgreeModal(props: {
   /** 이 발주서 양식 안내 */
   templateId?: string | null;
 }) {
-  const { open, onClose, mode = 'agree', onAgree, consents = null, brandSlug, templateId } = props;
+  const {
+    open,
+    onClose,
+    mode = 'agree',
+    onAgree,
+    consents = null,
+    brandSlug,
+    templateId,
+  } = props;
   const isViewMode = mode === 'view';
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
+  const typedName = consents?.guideTerms?.typedName;
   const [sections, setSections] = useState<GuideSection[]>(ORDER_GUIDE_DEFAULT_SECTIONS);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -90,12 +98,12 @@ export function OrderFormGuideAgreeModal(props: {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[1003] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4"
+      className="modal-mobile-safe-overlay fixed inset-0 z-[1003] flex items-stretch justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4"
       role="presentation"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[min(92vh,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
+        className="modal-mobile-fullscreen-panel relative flex h-[100dvh] w-full max-w-lg flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[min(92vh,44rem)] sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="order-guide-agree-title"
@@ -109,14 +117,15 @@ export function OrderFormGuideAgreeModal(props: {
           <p className="mt-1 text-fluid-xs text-gray-300">
             {isViewMode
               ? '제출 후에도 아래 안내사항을 다시 확인하실 수 있습니다.'
-              : '아래 내용을 끝까지 확인한 뒤 동의해 주세요.'}
+              : '아래 내용을 끝까지 확인한 뒤 서명해 주세요.'}
           </p>
         </div>
 
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-5 sm:px-6"
+          className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-5 sm:px-6"
           onScroll={checkScrollEnd}
+          onFocusCapture={onFieldFocus}
         >
           {loadError ? (
             <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-800">
@@ -127,9 +136,6 @@ export function OrderFormGuideAgreeModal(props: {
             <p className="text-center text-fluid-sm text-gray-500">불러오는 중…</p>
           ) : (
             <>
-              {isViewMode && consents ? (
-                <OrderFormConsentsSummary consents={consents} className="mb-6" />
-              ) : null}
               <OrderFormPartnerConsentBlock />
               <div className="mt-8">
                 {isViewMode ? (
@@ -147,15 +153,6 @@ export function OrderFormGuideAgreeModal(props: {
                             </li>
                           ))}
                         </ul>
-                        {section.title.includes('취소') && section.title.includes('변경') &&
-                        consents?.serviceDate?.agreedAt ? (
-                          <div className="mt-4">
-                            <OrderFormConsentStamp
-                              kind="serviceDate"
-                              agreedAt={consents.serviceDate.agreedAt}
-                            />
-                          </div>
-                        ) : null}
                       </section>
                     ))}
                   </div>
@@ -173,20 +170,32 @@ export function OrderFormGuideAgreeModal(props: {
                   <span className="font-bold text-red-700">특이사항</span>이 있는 경우 꼭 적어주세요.
                 </p>
                 <p className="mt-2 font-bold text-red-800">기재 누락 시 본사에서 책임지지 않습니다.</p>
-                {isViewMode && consents ? (
-                  <div className="mt-4 space-y-2 border-t border-amber-200/80 pt-3">
-                    {consents.timeSlot?.agreedAt ? (
-                      <OrderFormConsentStamp kind="timeSlot" agreedAt={consents.timeSlot.agreedAt} />
-                    ) : null}
-                    {consents.guideTerms?.agreedAt ? (
-                      <OrderFormConsentStamp kind="guideTerms" agreedAt={consents.guideTerms.agreedAt} />
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
               <p className="mt-6 text-center text-fluid-xs text-gray-500">
                 문의사항은 예약 번호로 연락 부탁드립니다.
               </p>
+              {isViewMode ? (
+                <OrderFormGuideSignatureBlock
+                  viewOnly
+                  disabled
+                  typedName={typedName}
+                  agreedAt={consents?.guideTerms?.agreedAt}
+                  existingUrl={consents?.guideTerms?.signatureUrl}
+                  onSigned={() => undefined}
+                />
+              ) : (
+                <OrderFormGuideSignatureBlock
+                  disabled={loading || !scrolledToEnd}
+                  onSigned={({ signaturePng, typedName: signedName }) => {
+                    onAgree?.({
+                      at: new Date().toISOString(),
+                      signaturePng,
+                      typedName: signedName,
+                    });
+                    onClose();
+                  }}
+                />
+              )}
               <div className="h-px w-full" aria-hidden />
             </>
           )}
@@ -202,22 +211,11 @@ export function OrderFormGuideAgreeModal(props: {
               닫기
             </button>
           ) : (
-            <>
-              {!scrolledToEnd && !loading ? (
-                <p className="text-center text-fluid-2xs text-gray-500">맨 아래까지 스크롤하면 동의할 수 있습니다.</p>
-              ) : null}
-              <button
-                type="button"
-                disabled={loading || !scrolledToEnd}
-                onClick={() => {
-                  onAgree?.();
-                  onClose();
-                }}
-                className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                모든사항을 확인했고 이에 모두 동의합니다.
-              </button>
-            </>
+            <p className="text-center text-fluid-2xs leading-snug text-gray-500">
+              {scrolledToEnd
+                ? '성함을 직접 적은 뒤 아래에 서명하고 「서명으로 동의」를 눌러 주세요.'
+                : '맨 아래까지 내리면 성함과 서명을 남길 수 있습니다.'}
+            </p>
           )}
         </div>
       </div>

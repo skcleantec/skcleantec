@@ -27,6 +27,7 @@ export function validateCustomerStep(args: {
   addressConfirmedViaSearch: boolean;
   oneRoomLabel: string;
   guideTermsAt: string | null;
+  guideTermsSigned?: boolean;
 }): string | null {
   const {
     step,
@@ -37,6 +38,7 @@ export function validateCustomerStep(args: {
     addressConfirmedViaSearch,
     oneRoomLabel,
     guideTermsAt,
+    guideTermsSigned,
   } = args;
   const prefill = order?.prefillAnswers ?? null;
   const prefillLocked = (key: string) => isOrderFormPrefillLocked(isEditor, prefill, key);
@@ -153,7 +155,9 @@ export function validateCustomerStep(args: {
     case 'review':
       return null;
     case 'guide':
-      return guideTermsAt ? null : '[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.';
+      return guideTermsAt && guideTermsSigned
+        ? null
+        : '[필수] 성함을 적고 안내사항을 끝까지 읽고 서명해 주세요.';
     default: {
       if (typeof step.id === 'string' && step.id.startsWith('custom:') && step.customField) {
         const cf = step.customField;

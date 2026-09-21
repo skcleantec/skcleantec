@@ -90,9 +90,12 @@ export function BuildingStep({ form, setForm, lockKey, step, buildingTypeOptions
 export function TimeStep({
   form,
   handleCustomerPreferredTimeChange,
+  lockKey,
+  order,
   step,
   timeSlotOptions,
 }: CustomerStepBodyProps) {
+  const timeLocked = lockKey('preferredTime') || Boolean(order?.preferredTime?.trim());
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <div className="order-wizard-chip-grid grid grid-cols-1 gap-2.5">
@@ -100,6 +103,7 @@ export function TimeStep({
           <WizardChoiceChip
             key={o.value}
             selected={form.preferredTime === o.value}
+            disabled={timeLocked}
             onSelect={() => handleCustomerPreferredTimeChange(o.value)}
           >
             {o.label}
@@ -110,7 +114,7 @@ export function TimeStep({
   );
 }
 
-export function TimeDetailStep({ form, setForm, step, goNext }: CustomerStepBodyProps) {
+export function TimeDetailStep({ form, setForm, lockKey, step, goNext }: CustomerStepBodyProps) {
   const slot = isOrderTimeSlotValue(form.preferredTime) ? form.preferredTime : '';
   const options = slot ? getPreferredTimeDetailSelectOptions(slot) : [];
   return (
@@ -120,6 +124,7 @@ export function TimeDetailStep({ form, setForm, step, goNext }: CustomerStepBody
           <WizardChoiceChip
             key={o.value}
             selected={form.preferredTimeDetail === o.value}
+            disabled={lockKey('preferredTimeDetail')}
             onSelect={() => {
               setForm((f) => ({ ...f, preferredTimeDetail: o.value }));
               window.setTimeout(goNext, 220);
@@ -133,14 +138,25 @@ export function TimeDetailStep({ form, setForm, step, goNext }: CustomerStepBody
   );
 }
 
-export function DateStep({ form, handleCustomerPreferredDateChange, step }: CustomerStepBodyProps) {
+export function DateStep({
+  form,
+  handleCustomerPreferredDateChange,
+  lockKey,
+  order,
+  step,
+}: CustomerStepBodyProps) {
   const todayYmd = kstTodayYmd();
+  const dateLocked = lockKey('preferredDate') || Boolean(order?.preferredDate?.trim());
   useEffect(() => {
+    if (dateLocked) return;
     const raw = form.preferredDate.trim();
     if (raw && raw < todayYmd) handleCustomerPreferredDateChange('');
-  }, [form.preferredDate, handleCustomerPreferredDateChange, todayYmd]);
-  const value =
-    form.preferredDate.trim() && form.preferredDate.trim() < todayYmd ? '' : form.preferredDate;
+  }, [dateLocked, form.preferredDate, handleCustomerPreferredDateChange, todayYmd]);
+  const value = dateLocked
+    ? form.preferredDate
+    : form.preferredDate.trim() && form.preferredDate.trim() < todayYmd
+      ? ''
+      : form.preferredDate;
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <YmdSelect
@@ -151,6 +167,7 @@ export function DateStep({ form, handleCustomerPreferredDateChange, step }: Cust
         minYmd={todayYmd}
         allowEmpty
         emitOnCompleteOnly
+        disabled={dateLocked}
       />
       <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-2xs font-medium leading-relaxed text-amber-950">
         {ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE}
