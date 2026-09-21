@@ -1,4 +1,4 @@
-/** 발주서·접수 시간대 — 저장값 4개 고정, 표시 라벨만 테넌트별 설정 */
+/** 발주서·접수 시간대 — 기본 4칸. 실제 선택지는 발주서(양식) preferredTime.options 가 우선. */
 
 export const ORDER_TIME_SLOT_VALUES = ['오전', '오후', '사이청소', '조율'] as const;
 
@@ -38,6 +38,57 @@ export function buildOrderTimeSlotOptions(labels?: OrderTimeSlotLabelsJson | Ord
     value,
     label: resolved[value],
   }));
+}
+
+/** 발주서 칸에 적힌 시간대 하위 항목 — 빈칸·중복 제거 */
+export function sanitizeTimeSlotOptionList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const s = String(item ?? '').trim();
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
+export function preferredTimeOptionsFromTemplateFields(
+  systemFields?: Array<{ systemField?: string | null; options?: unknown }> | null,
+): string[] {
+  const field = systemFields?.find((x) => x.systemField === 'preferredTime');
+  return sanitizeTimeSlotOptionList(field?.options);
+}
+
+/**
+ * 손님·발급 시간대 선택지.
+ * 양식에 하위 항목이 있으면 그것만. 없으면 기본 4칸.
+ * 저장값이 오전·오후·사이청소·조율이면 업체 표시 문구를 붙인다.
+ */
+export function buildTimeSlotOptionsForForm(
+  templateOptions?: string[] | null,
+  tenantLabels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
+): { value: string; label: string }[] {
+  const custom = sanitizeTimeSlotOptionList(templateOptions);
+  const values = custom.length > 0 ? custom : [...ORDER_TIME_SLOT_VALUES];
+  const resolved = resolveOrderTimeSlotLabels(tenantLabels);
+  return values.map((value) => ({
+    value,
+    label: isOrderTimeSlotValue(value) ? resolved[value] : value,
+  }));
+}
+
+/** 이 발주서에서 고를 수 있는 시간대인지 */
+export function isAllowedPreferredTimeValue(
+  value: string,
+  templateOptions?: string[] | null,
+): boolean {
+  const s = value.trim();
+  if (!s) return false;
+  const custom = sanitizeTimeSlotOptionList(templateOptions);
+  if (custom.length > 0) return custom.includes(s);
+  return isOrderTimeSlotValue(s);
 }
 
 export function labelForTimeSlotFromLabels(

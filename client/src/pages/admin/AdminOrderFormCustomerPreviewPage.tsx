@@ -711,15 +711,31 @@ export function AdminOrderFormCustomerPreviewPage() {
             {activePanel === 'timeAck' && (
               <div className="space-y-3">
                 <p className="text-fluid-xs text-gray-600">
-                  고객 발주서·접수 화면에 보이는 시간대 문구입니다. 저장값(오전·오후·사이청소·조율)은 고정이며 표시
-                  라벨만 바꿀 수 있습니다.
+                  손님이 고르는 <strong className="font-medium text-slate-800">시간대 항목</strong>은 발주서마다
+                  다릅니다.{' '}
+                  <Link
+                    to="/admin/inquiries/order-templates"
+                    className="font-medium text-slate-800 underline hover:text-slate-950"
+                  >
+                    발주서 양식
+                  </Link>
+                  에서 해당 발주서를 열고, 시간대 <strong className="font-medium">하위 항목</strong>을
+                  추가·수정·삭제하세요. 새 발주서는 칸 만들기에서 바로 고칩니다.
                 </p>
-                <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <summary className="cursor-pointer text-fluid-xs font-medium text-slate-800">
+                    기본 네 칸(오전·오후·사이청소·조율)을 그대로 쓰는 발주서의 안내 문구
+                  </summary>
+                  <p className="mt-2 text-fluid-2xs text-slate-500">
+                    양식에서 이 네 칸 이름을 그대로 두면, 아래 문구가 손님 화면에 보입니다. 칸 자체를 바꾸려면 위
+                    「발주서 양식」에서 고치세요.
+                  </p>
+                  <div className="mt-2 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-fluid-xs font-medium text-slate-800">시간대 표시 문구</span>
                     <button
                       type="button"
-                      className="text-fluid-2xs text-slate-600 underline hover:text-slate-900"
+                      className="text-fluid-2xs text-slate-600 underline hover:text-slate-900 hover:bg-slate-100 rounded px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                       onClick={() => setTimeSlotLabels({ ...DEFAULT_ORDER_TIME_SLOT_LABELS })}
                     >
                       기본값으로 되돌리기
@@ -758,12 +774,13 @@ export function AdminOrderFormCustomerPreviewPage() {
                         })
                       }
                       disabled={msgSavingKey !== null}
-                      className="rounded bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
+                      className="rounded bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
                     >
                       {msgSavingKey === 'timeSlotLabels' ? '저장 중…' : '저장'}
                     </button>
                   </div>
-                </div>
+                  </div>
+                </details>
                 <p className="text-fluid-xs font-medium text-slate-800">시간대 확인 모달 — 본문</p>
                 <OrderFormModalTextEditor
                   label=""

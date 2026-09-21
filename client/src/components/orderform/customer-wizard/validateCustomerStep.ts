@@ -99,7 +99,7 @@ export function validateCustomerStep(args: {
       return null;
     }
     case 'time':
-      return isOrderTimeSlotValue(form.preferredTime) ? null : '시간대를 선택해주세요.';
+      return form.preferredTime.trim() ? null : '시간대를 선택해주세요.';
     case 'timeDetail': {
       if (isPreferredTimeDetailRequired(form.preferredTime) && !form.preferredTimeDetail.trim()) {
         return '사이청소 선택 시 구체적 시각을 선택해 주세요.';

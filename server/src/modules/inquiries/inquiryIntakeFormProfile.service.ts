@@ -9,6 +9,7 @@ import {
   getPublicTemplateForForm,
   sanitizeCustomAnswers,
 } from '../orderform-templates/orderFormTemplate.service.js';
+import { preferredTimeOptionsFromTemplateFields } from '../../lib/orderFormTimeSlotLabels.js';
 import {
   orderFormListSnapshotToPrisma,
   resolveOrderFormListSnapshotForSubmit,
@@ -25,6 +26,7 @@ const EMPTY_PROFILE: InquiryIntakeFormProfile = {
   systemFieldKeys: [...INTAKE_IDENTITY_FIELD_KEYS],
   sectionOffKeys: [],
   customFields: [],
+  preferredTimeOptions: [],
   canEditCustomAnswers: false,
   orderFormId: null,
   orderFormSubmitted: false,
@@ -131,6 +133,7 @@ export async function loadInquiryIntakeFormProfile(
       optionLayout: f.optionLayout,
       required: f.required,
     })),
+    preferredTimeOptions: preferredTimeOptionsFromTemplateFields(pub.systemFields),
     canEditCustomAnswers: pub.customFields.length > 0 || Boolean(input.orderFormId),
     orderFormId: input.orderFormId ?? null,
     orderFormSubmitted: Boolean(input.submittedAt),

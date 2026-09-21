@@ -40,3 +40,4 @@
 {"ts":"2026-09-19T11:50:00+09:00","orchestrator":"Maestro","agents":["app-scout","design-pulse","code-guardian","config-curator","marketing-agency","platform-ops","role-qa"],"status":"completed","summary":"Standard 200 / Standard+ 500 monthly coins across landing, catalog, platform","briefReportPath":"agent/orchestrator/BRIEF_REPORT.md","reportPath":"agent/orchestrator/reports/packs/2026-09-19-coin-quota/","userRequest":"ìŠ¤íƒ ë‹¤ëŠ” 200ì½”ì¸ ìŠ¤íƒ ë‹¤ë“œ í”ŒëŸ¬ìŠ¤ëŠ” 500ì½”ì¸"}
 
 
+{"ts":"2026-09-21T11:45:00+09:00","orchestrator":"Maestro","agents":["app-scout","design-pulse","code-guardian","config-curator","marketing-agency","role-qa"],"status":"completed","summary":"¹ßÁÖ¼­¸¶´Ù ½Ã°£´ë ÇÏÀ§ Ç×¸ñ","briefReportPath":"agent/orchestrator/BRIEF_REPORT.md","reportPath":"agent/orchestrator/reports/packs/2026-09-21-per-form-timeslots/","userRequest":"½Ã°£´ëµµ ÇÏÀ§ Ä«Å×°í¸®, ¹ßÁÖ¼­ ¼³Á¤½Ã ¼³Á¤"}

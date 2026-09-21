@@ -181,7 +181,7 @@ export function draftsToPayload(drafts: DraftField[]): Array<Omit<OrderFormTempl
 
 const ALLOWED_INPUT_TYPES = new Set<OrderFormFieldInputType>(INPUT_TYPE_OPTIONS.map((o) => o.value));
 
-const SYSTEM_FIELD_DEFAULT_OPTIONS: Record<string, string[]> = {
+export const SYSTEM_FIELD_DEFAULT_OPTIONS: Record<string, string[]> = {
   preferredTime: ['오전', '오후', '사이청소', '조율'],
   propertyType: ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'],
   buildingType: ['신축', '구축', '인테리어', '거주(짐이있는상태)'],

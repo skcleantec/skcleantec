@@ -9,12 +9,17 @@ type Props = {
   options: string[];
   onChange: (next: string[]) => void;
   className?: string;
+  title?: string;
+  hint?: string;
 };
 
-export function OrderFormDraftOptionsEditor({ options, onChange, className }: Props) {
+export function OrderFormDraftOptionsEditor({ options, onChange, className, title, hint }: Props) {
   return (
     <div className={className}>
-      <span className="mb-1 block text-fluid-2xs font-medium text-slate-600">하위 항목 (선택지)</span>
+      <span className="mb-1 block text-fluid-2xs font-medium text-slate-600">
+        {title ?? '하위 항목 (선택지)'}
+      </span>
+      {hint ? <p className="mb-1.5 text-fluid-2xs leading-snug text-slate-500">{hint}</p> : null}
       <div className="space-y-1.5">
         {options.length === 0 ? (
           <p className="text-fluid-2xs text-slate-400">아직 없습니다. 「+ 항목 추가」로 넣으세요.</p>

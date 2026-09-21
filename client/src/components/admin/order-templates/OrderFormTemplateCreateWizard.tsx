@@ -38,11 +38,14 @@ import {
   coreFieldToDraft,
   draftsToPayload,
   fieldToDraft,
+  SYSTEM_FIELD_DEFAULT_OPTIONS,
   type DraftField,
 } from './orderFormTemplateDraft';
 import { OrderFormIndustryPackPicker } from './OrderFormIndustryPackPicker';
 import { OrderFormPreviewViewport } from '../OrderFormPreviewViewport';
 import { OrderFormWizardCustomFieldCard } from './OrderFormWizardCustomFieldCard';
+import { OrderFormDraftOptionsEditor } from './OrderFormDraftOptionsEditor';
+import { sanitizeTimeSlotOptionList } from '@shared/orderFormTimeSlotLabels';
 
 const IDENTITY_KEY_SET = new Set<string>(INTAKE_IDENTITY_FIELD_KEYS);
 
@@ -105,6 +108,7 @@ export function OrderFormTemplateCreateWizard({
   const [description, setDescription] = useState('');
   const [iconOpen, setIconOpen] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [systemOptionOverrides, setSystemOptionOverrides] = useState<Record<string, string[]>>({});
   const [customDrafts, setCustomDrafts] = useState<DraftField[]>([]);
   const [newLabel, setNewLabel] = useState('');
   const [newType, setNewType] = useState<OrderFormFieldInputType>('TEXT');
@@ -128,6 +132,11 @@ export function OrderFormTemplateCreateWizard({
       ),
     );
     setCustomDrafts(fields.filter((d) => !d.systemField));
+    const overrides: Record<string, string[]> = {};
+    for (const d of fields) {
+      if (d.systemField && d.options.length > 0) overrides[d.systemField] = d.options;
+    }
+    setSystemOptionOverrides(overrides);
     setPhotosOn(
       isOrderFormSectionToggleOn(
         {
@@ -150,6 +159,7 @@ export function OrderFormTemplateCreateWizard({
     const next = applyIndustryPackDrafts(pack);
     setSelectedKeys(new Set(next.selectedKeys));
     setCustomDrafts(next.customDrafts);
+    setSystemOptionOverrides({});
     setPhotosOn(next.photosOn);
     setTitle((prev) => (prev === '새 발주서' ? pack.defaultFormTitle : prev));
     setIcon((prev) => (prev ? prev : pack.emoji));
@@ -162,6 +172,7 @@ export function OrderFormTemplateCreateWizard({
     const next = applyIndustryPackDrafts(pack);
     setSelectedKeys(new Set(next.selectedKeys));
     setCustomDrafts(next.customDrafts);
+    setSystemOptionOverrides({});
     setPhotosOn(next.photosOn);
     setTitle(pack.defaultFormTitle);
     setIcon(pack.emoji);
@@ -220,7 +231,11 @@ export function OrderFormTemplateCreateWizard({
   const assembledDrafts = useMemo(() => {
     const extras = optionalFields
       .filter((f) => selectedKeys.has(f.key) || isOrderFormPackQuoteFieldKey(f.key))
-      .map((f, i) => coreFieldToDraft(f, identityDrafts.length + i));
+      .map((f, i) => {
+        const d = coreFieldToDraft(f, identityDrafts.length + i);
+        const ov = systemOptionOverrides[f.key];
+        return ov ? { ...d, options: ov } : d;
+      });
     const customs = customDrafts.map((d, i) => ({ ...d, sortOrder: identityDrafts.length + extras.length + i }));
     const photos: DraftField[] = photosOn
       ? [
@@ -241,7 +256,7 @@ export function OrderFormTemplateCreateWizard({
         ]
       : [];
     return [...identityDrafts, ...extras, ...customs, ...photos];
-  }, [identityDrafts, optionalFields, selectedKeys, customDrafts, photosOn]);
+  }, [identityDrafts, optionalFields, selectedKeys, customDrafts, photosOn, systemOptionOverrides]);
 
   const previewSrc = useMemo(() => {
     if (typeof window === 'undefined' || !previewToken || !draft) return '';
@@ -254,6 +269,12 @@ export function OrderFormTemplateCreateWizard({
   }, [previewToken, draft, staffTenantSlug]);
 
   async function persistFields(templateId: string) {
+    const timeOpts = sanitizeTimeSlotOptionList(
+      assembledDrafts.find((d) => d.systemField === 'preferredTime')?.options,
+    );
+    if (timeOpts.length === 0) {
+      throw new Error('시간대 하위 항목을 하나 이상 넣어 주세요.');
+    }
     return saveOrderFormTemplateFields(token, templateId, draftsToPayload(assembledDrafts));
   }
 
@@ -387,9 +408,8 @@ export function OrderFormTemplateCreateWizard({
   function fieldToggleRow(f: OrderFormSystemFieldDef) {
     const quoteLocked = isOrderFormPackQuoteFieldKey(f.key);
     const on = quoteLocked || selectedKeys.has(f.key);
-    return (
+    const toggle = (
       <label
-        key={f.key}
         className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
           quoteLocked ? 'cursor-default border-slate-800 bg-slate-50' : 'cursor-pointer'
         } ${on && !quoteLocked ? 'border-slate-800 bg-slate-50' : ''} ${
@@ -410,6 +430,28 @@ export function OrderFormTemplateCreateWizard({
           className="size-4 accent-slate-900 disabled:opacity-70"
         />
       </label>
+    );
+    if (f.key !== 'preferredTime') {
+      return (
+        <div key={f.key} className="min-w-0">
+          {toggle}
+        </div>
+      );
+    }
+    const timeOptions =
+      systemOptionOverrides.preferredTime ?? SYSTEM_FIELD_DEFAULT_OPTIONS.preferredTime ?? ['오전', '오후', '사이청소', '조율'];
+    return (
+      <div key={f.key} className="min-w-0 space-y-2 rounded-lg border border-slate-800 bg-slate-50 p-3 sm:col-span-2">
+        {toggle}
+        <OrderFormDraftOptionsEditor
+          title="시간대 하위 항목"
+          hint="이 발주서 손님·발급 화면에만 보입니다. 입주와 에어컨처럼 발주서마다 다르게 넣을 수 있습니다."
+          options={timeOptions}
+          onChange={(options) =>
+            setSystemOptionOverrides((prev) => ({ ...prev, preferredTime: options }))
+          }
+        />
+      </div>
     );
   }
 
@@ -530,7 +572,7 @@ export function OrderFormTemplateCreateWizard({
                 {selectedPack
                   ? `${selectedPack.title}에 맞춰 칸을 넣어 두었습니다. 필요 없으면 끄고, 없는 칸은 아래에서 만듭니다.`
                   : '에어컨 업자면 화장실·베란다 개수는 끄고 에어컨 대수를 만듭니다.'}{' '}
-                이름·전화·주소·서비스희망일은 이미 들어 있고 필수입니다.
+                이름·전화·주소·서비스희망일은 이미 들어 있고 필수입니다. 시간대는 이 발주서만의 하위 항목으로 고칩니다.
               </p>
             </div>
             {groupedOptional.map((g) => (

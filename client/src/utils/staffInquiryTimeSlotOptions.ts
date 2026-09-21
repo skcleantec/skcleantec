@@ -3,7 +3,7 @@ import {
   isAllDayPreferredTime,
 } from '@shared/scheduleAllDayTime';
 import {
-  buildOrderTimeSlotOptions,
+  buildTimeSlotOptionsForForm,
   type OrderTimeSlotLabels,
 } from '@shared/orderFormTimeSlotLabels';
 
@@ -16,13 +16,24 @@ export function canStaffSetAllDayPreferredTime(role: string | null | undefined):
   return role === 'ADMIN' || role === 'MARKETER';
 }
 
+export function withCurrentTimeSlotOption(
+  options: Array<{ value: string; label: string }>,
+  current?: string | null,
+) {
+  const v = current?.trim();
+  if (!v || options.some((o) => o.value === v)) return options;
+  return [...options, { value: v, label: v }];
+}
+
 export function buildStaffInquiryTimeSlotSelectOptions(
   labels: OrderTimeSlotLabels | null | undefined,
   role: string | null | undefined,
+  current?: string | null,
+  templateOptions?: string[] | null,
 ) {
-  const base = buildOrderTimeSlotOptions(labels);
-  if (!canStaffSetAllDayPreferredTime(role)) return base;
-  return [...base, ALL_DAY_SELECT_OPTION];
+  const base = buildTimeSlotOptionsForForm(templateOptions, labels);
+  const withAllDay = canStaffSetAllDayPreferredTime(role) ? [...base, ALL_DAY_SELECT_OPTION] : base;
+  return withCurrentTimeSlotOption(withAllDay, current);
 }
 
 export { ALL_DAY_PREFERRED_TIME_VALUE, isAllDayPreferredTime };

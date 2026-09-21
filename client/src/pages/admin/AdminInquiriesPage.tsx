@@ -21,11 +21,13 @@ import { createPortal, flushSync } from 'react-dom';
 import {
   getInquiries,
   getInquiry,
+  getInquiryIntakeFormProfile,
   getMarketerOverview,
   updateInquiry,
   deleteInquiry,
   type MarketerOverviewResponse,
 } from '../../api/inquiries';
+import type { InquiryIntakeFormProfile } from '@shared/inquiryFormProfile';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import {
   forceMatchOrderFormToInquiry,
@@ -966,6 +968,7 @@ export function AdminInquiriesPage() {
     item: InquiryItem;
   } | null>(null);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
+  const [editIntakeProfile, setEditIntakeProfile] = useState<InquiryIntakeFormProfile | null>(null);
   const inquiryListEditScrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus: onInquiryListEditFieldFocus } = useModalScrollKeyboardAvoidance(
     inquiryListEditScrollRef,
@@ -1106,8 +1109,14 @@ export function AdminInquiriesPage() {
     };
   }, [ready, userId, role, userName, userPhone, userEmail, staffMe?.marketerPermissions]);
   const timeSlotOptions = useMemo(
-    () => buildStaffInquiryTimeSlotSelectOptions(orderFormTimeSlotLabels, me?.role),
-    [orderFormTimeSlotLabels, me?.role],
+    () =>
+      buildStaffInquiryTimeSlotSelectOptions(
+        orderFormTimeSlotLabels,
+        me?.role,
+        editForm.preferredTime,
+        editIntakeProfile?.preferredTimeOptions,
+      ),
+    [orderFormTimeSlotLabels, me?.role, editForm.preferredTime, editIntakeProfile?.preferredTimeOptions],
   );
   const canDeleteInquiry = canDeleteInquiryFromMe(staffMe);
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
@@ -1333,6 +1342,24 @@ export function AdminInquiriesPage() {
   useEffect(() => {
     if (!editItem) setInquiryEditPreferredCalOpen(false);
   }, [editItem]);
+
+  useEffect(() => {
+    if (!editItem || !token) {
+      setEditIntakeProfile(null);
+      return;
+    }
+    let cancelled = false;
+    void getInquiryIntakeFormProfile(token, { inquiryId: editItem.id })
+      .then((profile) => {
+        if (!cancelled) setEditIntakeProfile(profile);
+      })
+      .catch(() => {
+        if (!cancelled) setEditIntakeProfile(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, editItem?.id]);
 
   // 편집 모달: 예약일·집계 모드에 맞춰 가용 팀원 풀을 로드한다(active만).
   useEffect(() => {
@@ -4364,6 +4391,7 @@ export function AdminInquiriesPage() {
         field={listQuickEdit?.field ?? null}
         item={listQuickEdit?.item ?? null}
         token={token}
+        staffRole={me?.role}
         onClose={() => setListQuickEdit(null)}
         onSaved={() => refresh(false)}
       />

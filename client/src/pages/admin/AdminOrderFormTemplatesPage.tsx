@@ -26,6 +26,7 @@ import {
   type OrderFormTemplateRenderMode,
 } from '../../api/orderFormTemplates';
 import { ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX } from '@shared/orderFormListSnapshot';
+import { sanitizeTimeSlotOptionList } from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_PHOTOS_SECTION_KEY,
   isOrderFormSectionToggleKey,
@@ -358,6 +359,12 @@ export function AdminOrderFormTemplatesPage() {
           icon: meta.icon.trim() || null,
           description: meta.description.trim() || null,
         });
+      }
+      const timeOpts = sanitizeTimeSlotOptionList(
+        drafts.find((d) => d.systemField === 'preferredTime')?.options,
+      );
+      if (timeOpts.length === 0) {
+        throw new Error('시간대 하위 항목을 하나 이상 넣어 주세요.');
       }
       const updated = await saveOrderFormTemplateFields(token, selected.id, draftsToPayload(drafts));
       setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -964,6 +971,12 @@ export function AdminOrderFormTemplatesPage() {
                           {OPTION_INPUT_TYPES.has(d.inputType) && (
                             <OrderFormDraftOptionsEditor
                               className="block sm:col-span-2"
+                              title={d.systemField === 'preferredTime' ? '시간대 하위 항목' : undefined}
+                              hint={
+                                d.systemField === 'preferredTime'
+                                  ? '이 발주서 손님·발급 화면에만 보이는 시간대입니다. 다른 발주서와 따로입니다.'
+                                  : undefined
+                              }
                               options={d.options}
                               onChange={(options) => {
                                 updateDraft(idx, { options });

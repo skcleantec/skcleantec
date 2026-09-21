@@ -18,7 +18,12 @@ import {
 } from '../../api/orderform';
 import { internalCustomerToneForApi } from '../../constants/internalCustomerTone';
 import { AddressSearch } from '../../components/forms/AddressSearch';
-import { buildOrderTimeSlotOptions, isPreferredTimeDetailRequired, labelForTimeSlot, type OrderTimeSlot } from '../../constants/orderFormSchedule';
+import {
+  buildTimeSlotOptionsForForm,
+  isPreferredTimeDetailRequired,
+  labelForTimeSlot,
+  preferredTimeOptionsFromTemplateFields,
+} from '../../constants/orderFormSchedule';
 import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
@@ -58,9 +63,6 @@ import {
   validateOrderFormSpaceCounts,
 } from '@shared/orderFormSpaceCounts';
 
-function isValidOrderTimeSlot(v: string): v is OrderTimeSlot {
-  return isOrderTimeSlotValue(v);
-}
 import {
   ORDER_BUILDING_TYPE_OPTIONS,
   ORDER_BUILDING_TYPE_RESIDING,
@@ -290,7 +292,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
   const pendingAreaBasisAckRef = useRef<'공급' | '전용' | null>(null);
   const [timeSlotAckOpen, setTimeSlotAckOpen] = useState(false);
-  const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
+  const [pendingTimeSlot, setPendingTimeSlot] = useState<string | null>(null);
   const [serviceDateAckOpen, setServiceDateAckOpen] = useState(false);
   const [pendingServiceDate, setPendingServiceDate] = useState<string | null>(null);
   const [moveDateMismatchWarnOpen, setMoveDateMismatchWarnOpen] = useState(false);
@@ -349,8 +351,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   }, [sysOptions]);
   const timeSlotLabels = order?.formConfig?.timeSlotLabels ?? null;
   const timeSlotOptions = useMemo(
-    () => buildOrderTimeSlotOptions(timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson),
-    [timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
+    () =>
+      buildTimeSlotOptionsForForm(
+        preferredTimeOptionsFromTemplateFields(order?.template?.systemFields),
+        timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson,
+      ),
+    [order?.template?.systemFields, timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
+  );
+  const isValidOrderTimeSlot = useCallback(
+    (v: string) => timeSlotOptions.some((o) => o.value === v.trim()),
+    [timeSlotOptions],
   );
   const serviceDateAckBodyExpanded = useMemo(() => {
     const raw = orderFormConfigLine(
@@ -469,7 +479,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
     if (!isValidOrderTimeSlot(raw)) return;
     setForm((f) => ({ ...f, preferredTime: raw }));
-  }, []);
+  }, [isValidOrderTimeSlot]);
 
   const handleCustomerPreferredTimeChange = useCallback(
     (raw: string) => {
@@ -488,7 +498,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       setPendingTimeSlot(raw);
       setTimeSlotAckOpen(true);
     },
-    [customerScheduleAckEnabled, form.preferredTime, handleEditorPreferredTimeChange],
+    [customerScheduleAckEnabled, form.preferredTime, handleEditorPreferredTimeChange, isValidOrderTimeSlot],
   );
 
   const confirmAreaBasisAck = useCallback(() => {
@@ -924,7 +934,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     const locked = Boolean(order?.preferredTimeDetail?.trim());
     if (!order || locked) return;
     const slot = form.preferredTime;
-    if (!slot || !isValidOrderTimeSlot(slot)) {
+    if (!slot || !isValidOrderTimeSlot(slot) || !isOrderTimeSlotValue(slot)) {
       if (form.preferredTimeDetail) setForm((f) => ({ ...f, preferredTimeDetail: '' }));
       return;
     }
@@ -1112,6 +1122,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         !detailLockedByAdmin &&
         form.preferredTimeDetail.trim() &&
         isValidOrderTimeSlot(useTime) &&
+        isOrderTimeSlotValue(useTime) &&
         useTime !== '조율' &&
         !allowedPreferredTimeDetailValues(useTime).has(form.preferredTimeDetail.trim())
       ) {
@@ -1197,7 +1208,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         timeSlotConsent?.slot !== useTime
       ) {
         submitResumeAfterTimeSlotAckRef.current = true;
-        setPendingTimeSlot(useTime as OrderTimeSlot);
+        setPendingTimeSlot(useTime);
         setTimeSlotAckOpen(true);
         setSubmitting(false);
         return;
@@ -2852,14 +2863,19 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   <option value="">
                     {isPreferredTimeDetailRequired(form.preferredTime) ? '선택하기 *' : '선택 안 함'}
                   </option>
-                  {getPreferredTimeDetailSelectOptions(form.preferredTime).map((o) => (
+                  {(isOrderTimeSlotValue(form.preferredTime)
+                    ? getPreferredTimeDetailSelectOptions(form.preferredTime)
+                    : []
+                  ).map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  {preferredTimeDetailRangeHint(form.preferredTime)}
+                  {isOrderTimeSlotValue(form.preferredTime)
+                    ? preferredTimeDetailRangeHint(form.preferredTime)
+                    : ''}
                   {isPreferredTimeDetailRequired(form.preferredTime)
                     ? ' 사이청소는 상담 내용과 동일한 시각을 반드시 선택해 주세요.'
                     : ' 비워 두셔도 접수는 가능합니다.'}

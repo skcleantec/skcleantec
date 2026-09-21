@@ -612,10 +612,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     onClose,
     onSaved,
   } = props;
-  const timeSlotOptions = useMemo(
-    () => buildStaffInquiryTimeSlotSelectOptions(orderFormTimeSlotLabels, currentUserRole),
-    [orderFormTimeSlotLabels, currentUserRole],
-  );
   const onInquiryRefresh = isCreate
     ? undefined
     : (props as { onInquiryRefresh?: () => void | Promise<void> }).onInquiryRefresh;
@@ -1020,6 +1016,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       orderFormAnswers: inquiryOrderFormAnswersFromItem(it),
     };
   });
+
+  const timeSlotOptions = useMemo(
+    () =>
+      buildStaffInquiryTimeSlotSelectOptions(
+        orderFormTimeSlotLabels,
+        currentUserRole,
+        editForm.preferredTime,
+        intakeProfile?.preferredTimeOptions,
+      ),
+    [orderFormTimeSlotLabels, currentUserRole, editForm.preferredTime, intakeProfile?.preferredTimeOptions],
+  );
 
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
 

@@ -763,7 +763,22 @@
         "shared/orderFormIndustryPacks.ts",
         "client/src/components/admin/order-templates/OrderFormTemplateCreateWizard.tsx"
       ],
-      "notes": "7종 카드. 고르면 칸 자동. URL ?pack= 유지. 이름·전화·주소·서비스희망일은 팩과 무관 필수. 시간대·구체적 시각·총액·예약금·잔금은 모든 업종에서 켜고 끌 수 없음(발급 견적). 설정 토글 없음 — 만들기 흐름."
+      "notes": "7종 카드. 고르면 칸 자동. URL ?pack= 유지. 이름·전화·주소·서비스희망일은 팩과 무관 필수. 시간대·구체적 시각·총액·예약금·잔금은 모든 업종에서 켜고 끌 수 없음(발급 견적). 시간대 하위 항목은 칸 만들기에서 발주서마다 고침. 설정 토글 없음 — 만들기 흐름."
+    },
+    {
+      "id": "orderform.template.timeSlots",
+      "labelKo": "발주서별 시간대 하위 항목",
+      "surfaces": ["admin.orderTemplates.create", "admin.orderTemplates.edit", "public.orderForm", "admin.orderForm.issue"],
+      "visual": { "type": "list", "token": "slate-800" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormTemplateCreateWizard.tsx",
+      "codeRefs": [
+        "shared/orderFormTimeSlotLabels.ts",
+        "client/src/components/admin/order-templates/OrderFormDraftOptionsEditor.tsx"
+      ],
+      "notes": "시간대 선택지는 테넌트 전역이 아니라 양식 preferredTime.options. 발주서설정 라벨은 오전·오후·사이청소·조율 키를 쓰는 양식의 안내 문구만. 사이청소만 구체적 시각 필수."
     },
     {
       "id": "orderform.guide.perTemplate",

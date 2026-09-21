@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
-import { updateInquiry } from '../../api/inquiries';
+import { getInquiryIntakeFormProfile, updateInquiry } from '../../api/inquiries';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ModalCloseButton } from './ModalCloseButton';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
+import { buildStaffInquiryTimeSlotSelectOptions } from '../../utils/staffInquiryTimeSlotOptions';
 import { isPreferredTimeDetailRequired } from '../../constants/orderFormSchedule';
 import { isBetweenSlotTime, isCoordinationTime } from '../../utils/scheduleTimeBucket';
 import { inquiryAreaEditFormStringsFromItem } from '../../utils/inquiryAreaDisplay';
@@ -35,6 +36,7 @@ type Props = {
   field: InquiryListQuickEditField | null;
   item: InquiryListQuickEditItem | null;
   token: string | null;
+  staffRole?: string | null;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -45,8 +47,17 @@ const FIELD_TITLE: Record<InquiryListQuickEditField, string> = {
   area: '평수·방 수정',
 };
 
-export function InquiryListFieldQuickEditModal({ open, field, item, token, onClose, onSaved }: Props) {
-  const { options: timeSlotOptions } = useOrderFormTimeSlotLabels();
+export function InquiryListFieldQuickEditModal({
+  open,
+  field,
+  item,
+  token,
+  staffRole,
+  onClose,
+  onSaved,
+}: Props) {
+  const { labels: timeSlotLabels } = useOrderFormTimeSlotLabels();
+  const [templateTimeOptions, setTemplateTimeOptions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [preferredDate, setPreferredDate] = useState('');
   const [preferredTime, setPreferredTime] = useState('');
@@ -60,6 +71,35 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
   const [calOpen, setCalOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
+
+  useEffect(() => {
+    if (!open || !item || !token || field !== 'time') {
+      if (!open) setTemplateTimeOptions([]);
+      return;
+    }
+    let cancelled = false;
+    void getInquiryIntakeFormProfile(token, { inquiryId: item.id })
+      .then((profile) => {
+        if (!cancelled) setTemplateTimeOptions(profile.preferredTimeOptions ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setTemplateTimeOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, field, item?.id, token]);
+
+  const timeSlotOptions = useMemo(
+    () =>
+      buildStaffInquiryTimeSlotSelectOptions(
+        timeSlotLabels,
+        staffRole,
+        preferredTime,
+        templateTimeOptions,
+      ),
+    [timeSlotLabels, staffRole, preferredTime, templateTimeOptions],
+  );
 
   useEffect(() => {
     if (!open || !item || !field) return;
