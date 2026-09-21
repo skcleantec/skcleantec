@@ -15,11 +15,20 @@ export type OrderFormConsentTimeSlot = {
 
 export type OrderFormConsentGuideTerms = {
   agreedAt: string;
+  /** 손님이 타이핑한 성함 */
+  typedName?: string | null;
   /** 제출 후 저장된 서명 이미지 */
   signatureUrl?: string | null;
   /** 제출 시에만 보냄. 서버가 파일로 바꾼 뒤 저장하지 않음 */
   signaturePng?: string;
 };
+
+export function normalizeGuideTypedName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.replace(/\s+/g, ' ').trim();
+  if (t.length < 2 || t.length > 40) return null;
+  return t;
+}
 
 export type OrderFormSubmissionConsents = {
   serviceDate?: OrderFormConsentServiceDate | null;
@@ -58,10 +67,20 @@ export function formatOrderFormConsentKst(iso: string): string {
   }
 }
 
-/** 고객 동의 배너 — 모듈 구분 없이 동일 문구 */
-export function orderFormConsentStampLabel(_kind: OrderFormConsentKind, agreedAt: string): string {
+/** 고객 동의 배너 — 안내·위약 모두 읽고 동의 */
+export function orderFormConsentStampLabel(
+  _kind: OrderFormConsentKind,
+  agreedAt: string,
+  typedName?: string | null,
+): string {
   const when = formatOrderFormConsentKst(agreedAt);
-  return `${when}에 고객님께서는 모든 내용을 이해하셨고, 직접 동의하셨습니다.`;
+  const who = typedName?.trim() ? `${typedName.trim()} 고객님께서` : '고객님께서';
+  return `${when}에 ${who} 모든 안내사항과 위약 내용을 읽고 동의하셨습니다.`;
+}
+
+export function orderFormSectionReadAckLabel(typedName?: string | null): string {
+  const who = typedName?.trim() ? `${typedName.trim()} 고객님` : '고객님';
+  return `${who}께서 위 안내를 모두 읽고 동의하셨습니다.`;
 }
 
 export function isOrderFormSubmissionConsents(x: unknown): x is OrderFormSubmissionConsents {

@@ -8,6 +8,7 @@ import { postOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { OrderFormPartnerConsentBlock } from '../../components/orderform/OrderFormPartnerConsentBlock';
 import { OrderFormGuideSignatureBlock } from '../../components/orderform/OrderFormGuideSignatureBlock';
 import { tryLeavePublicPage } from '../../utils/publicPageLeave';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 
 function CircleXIcon({ className }: { className?: string }) {
   return (
@@ -36,6 +37,7 @@ export function OrderInfoPage() {
   const [loadError, setLoadError] = useState(false);
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, !loading);
 
   const checkScrollEnd = useCallback(() => {
     const el = scrollRef.current;
@@ -76,10 +78,11 @@ export function OrderInfoPage() {
   }, []);
 
   const handleSigned = useCallback(
-    (signaturePng: string) => {
+    (payload: { signaturePng: string; typedName: string }) => {
       postOrderGuideAgreeTerms({
         agreedAt: new Date().toISOString(),
-        signaturePng,
+        signaturePng: payload.signaturePng,
+        typedName: payload.typedName,
       });
       tryLeavePage();
     },
@@ -117,6 +120,7 @@ export function OrderInfoPage() {
             ref={scrollRef}
             className="modal-form-scroll-surface min-h-0 flex-1 space-y-8 overflow-y-auto overscroll-y-contain px-6 py-6"
             onScroll={checkScrollEnd}
+            onFocusCapture={onFieldFocus}
           >
             <OrderFormPartnerConsentBlock />
             {sections.map((section, i) => (
@@ -141,8 +145,8 @@ export function OrderInfoPage() {
         <div className="shrink-0 border-t border-gray-100 px-6 py-3">
           <p className="text-center text-fluid-2xs leading-snug text-gray-500">
             {scrolledToEnd
-              ? '아래 서명칸에 이름을 그린 뒤 「서명으로 동의」를 눌러 주세요.'
-              : '맨 아래까지 내리면 서명할 수 있습니다.'}
+              ? '성함을 타이핑한 뒤 아래에 서명하고 「서명으로 동의」를 눌러 주세요.'
+              : '맨 아래까지 내리면 성함과 서명을 남길 수 있습니다.'}
           </p>
           <p className="mt-1.5 text-center text-fluid-2xs text-gray-400">
             발주서를 작성 중이었다면 서명 후 동의란이 채워집니다. 창이 닫히지 않으면 탭을 직접 닫아 주세요.

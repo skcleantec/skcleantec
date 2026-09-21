@@ -165,6 +165,7 @@ export function OrderFormSubmissionSnapshotContent(props: {
               <OrderFormSnapshotAckBlock
                 consentKind="serviceDate"
                 agreedAt={consents?.serviceDate?.agreedAt}
+                typedName={consents?.guideTerms?.typedName}
               />
             </div>
           </OrderFormSnapshotRow>
@@ -174,6 +175,7 @@ export function OrderFormSubmissionSnapshotContent(props: {
               <OrderFormSnapshotAckBlock
                 consentKind="timeSlot"
                 agreedAt={consents?.timeSlot?.agreedAt}
+                typedName={consents?.guideTerms?.typedName}
               />
             </div>
           </OrderFormSnapshotRow>

@@ -4,7 +4,7 @@ import { OrderFormPhotoSection } from '../../OrderFormPhotoSection';
 import { OrderFormAcUnitsField } from '../../OrderFormAcUnitsField';
 import { ProfOptionLeafControl } from '../../ProfOptionLeafControl';
 import { ProfOptionSelectionSummary } from '../../ProfOptionSelectionSummary';
-import { OrderFormConsentStamp } from '../../OrderFormConsentUi';
+import { OrderFormGuideSignProof } from '../../OrderFormConsentUi';
 import {
   collectSubtreeOptionIds,
   computeProfSelectionSummary,
@@ -388,6 +388,8 @@ export function ReviewStep({
 export function GuideStep({
   step,
   guideTermsAt,
+  guideTermsTypedName,
+  guideTermsSignaturePng,
   setGuideAgreeModalOpen,
   agreeLinkLabel,
 }: CustomerStepBodyProps) {
@@ -395,7 +397,11 @@ export function GuideStep({
     <WizardQuestion title={step.title} hint={step.hint}>
       {guideTermsAt ? (
         <div className="space-y-3">
-          <OrderFormConsentStamp kind="guideTerms" agreedAt={guideTermsAt} className="text-left" />
+          <OrderFormGuideSignProof
+            typedName={guideTermsTypedName}
+            agreedAt={guideTermsAt}
+            signaturePng={guideTermsSignaturePng}
+          />
           <button type="button" className={WIZARD_SECONDARY_CLS} onClick={() => setGuideAgreeModalOpen(true)}>
             안내사항 다시 보기
           </button>
@@ -406,7 +412,7 @@ export function GuideStep({
             className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-fluid-xs font-medium leading-relaxed text-amber-950"
             role="status"
           >
-            안내사항을 끝까지 읽고 서명해야 제출하기가 완료됩니다.
+            안내를 끝까지 읽고, 성함을 타이핑한 뒤 서명해야 제출하기가 완료됩니다.
           </p>
           <button type="button" className={WIZARD_CTA_CLS} onClick={() => setGuideAgreeModalOpen(true)}>
             {agreeLinkLabel} (자세히 보기)

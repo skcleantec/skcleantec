@@ -34,7 +34,7 @@ export function useOrderFormModel(args: {
   customFields: OrderFormPublicTemplateField[];
   isEditor: boolean;
   guideTermsAt: string | null;
-  setGuideTermsConsent: (v: { at: string; signaturePng: string } | null) => void;
+  setGuideTermsConsent: (v: { at: string; signaturePng: string; typedName: string } | null) => void;
 }) {
   const {
     token,

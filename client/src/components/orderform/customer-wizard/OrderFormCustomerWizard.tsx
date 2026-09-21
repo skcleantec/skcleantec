@@ -313,7 +313,7 @@ export function OrderFormCustomerWizard({
                 <div className="w-full space-y-2">
                   {!previewWalk && !shared.guideTermsSigned ? (
                     <p className="text-center text-fluid-2xs font-medium leading-snug text-amber-800">
-                      안내사항을 끝까지 읽고 서명해야 제출하기가 완료됩니다.
+                      안내를 끝까지 읽고 성함을 타이핑한 뒤 서명해야 제출하기가 완료됩니다.
                     </p>
                   ) : null}
                   <button

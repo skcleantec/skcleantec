@@ -94,6 +94,8 @@ import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhoto
 import { OrderFormSubmissionReceiptView } from '../../components/orderform/OrderFormSubmissionReceiptView';
 import {
   OrderFormConsentStamp,
+  OrderFormGuideSignProof,
+  OrderFormSectionReadAck,
 } from '../../components/orderform/OrderFormConsentUi';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
@@ -312,6 +314,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const [guideTermsConsent, setGuideTermsConsent] = useState<{
     at: string;
     signaturePng: string;
+    typedName: string;
   } | null>(null);
   const wizardGoToRef = useRef<((id: OrderFormCustomerStepId) => void) | null>(null);
   /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
@@ -927,7 +930,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   useEffect(
     () =>
       subscribeOrderGuideAgreeTerms((payload) => {
-        setGuideTermsConsent({ at: payload.agreedAt, signaturePng: payload.signaturePng });
+        setGuideTermsConsent({
+          at: payload.agreedAt,
+          signaturePng: payload.signaturePng,
+          typedName: payload.typedName,
+        });
       }),
     [],
   );
@@ -1166,8 +1173,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         });
         if (spaceErr) addIssue(spaceErr, 'order-field-roomCount');
       }
-      if (!guideTermsConsent?.signaturePng) {
-        addIssue('[필수] 안내사항을 끝까지 읽고 서명해 주세요.', 'order-field-agree');
+      if (!guideTermsConsent?.signaturePng || !guideTermsConsent.typedName?.trim()) {
+        addIssue('[필수] 성함을 적고 안내사항을 끝까지 읽고 서명해 주세요.', 'order-field-agree');
       }
 
       const templateCustomFields = visibleOrderFormCustomFields;
@@ -1220,7 +1227,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       const finishSubmit = async () => {
       const submitConsents: OrderFormSubmissionConsents = {
         guideTerms: guideTermsConsent
-          ? { agreedAt: guideTermsConsent.at, signaturePng: guideTermsConsent.signaturePng }
+          ? {
+              agreedAt: guideTermsConsent.at,
+              signaturePng: guideTermsConsent.signaturePng,
+              typedName: guideTermsConsent.typedName,
+            }
           : undefined,
       };
       if (customerScheduleAckEnabled && !scheduleLockedByAdmin && stdFieldOn('preferredDate') && serviceDateConsent) {
@@ -1609,6 +1620,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             onClose={() => setGuideAgreeModalOpen(false)}
             brandSlug={resolvePublicBrandSlug() || undefined}
             templateId={order?.template?.id}
+            defaultTypedName={form.customerName}
             onAgree={(payload) => {
               setGuideTermsConsent(payload);
             }}
@@ -2125,7 +2137,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       handleCustomerPreferredTimeChange,
       submitting,
       guideTermsAt: guideTermsConsent?.at ?? null,
-      guideTermsSigned: Boolean(guideTermsConsent?.signaturePng),
+      guideTermsSigned: Boolean(guideTermsConsent?.signaturePng && guideTermsConsent.typedName),
+      guideTermsTypedName: guideTermsConsent?.typedName ?? null,
+      guideTermsSignaturePng: guideTermsConsent?.signaturePng ?? null,
       setGuideAgreeModalOpen,
       agreeLinkLabel,
       professionalOptions,
@@ -2786,10 +2800,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 {ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE}
               </p>
             ) : null}
+            {!isEditor && guideTermsConsent?.typedName ? (
+              <OrderFormSectionReadAck typedName={guideTermsConsent.typedName} />
+            ) : null}
             {!isEditor && !scheduleLockedByAdmin && serviceDateConsent?.at ? (
               <OrderFormConsentStamp
                 kind="serviceDate"
                 agreedAt={serviceDateConsent.at}
+                typedName={guideTermsConsent?.typedName}
                 className="mt-2"
               />
             ) : null}
@@ -2829,7 +2847,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             )}
             <p className="text-xs text-gray-500 mt-1">* 청소 중 이사 들어오는 스케줄, 서비스 불가</p>
             {!isEditor && !scheduleLockedByAdmin && timeSlotConsent?.at ? (
-              <OrderFormConsentStamp kind="timeSlot" agreedAt={timeSlotConsent.at} className="mt-2" />
+              <OrderFormConsentStamp
+                kind="timeSlot"
+                agreedAt={timeSlotConsent.at}
+                typedName={guideTermsConsent?.typedName}
+                className="mt-2"
+              />
             ) : null}
           </div>
           )}
@@ -3288,7 +3311,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.03]">
               {guideTermsConsent ? (
                 <div className="space-y-3 text-center">
-                  <OrderFormConsentStamp kind="guideTerms" agreedAt={guideTermsConsent.at} className="text-left" />
+                  <OrderFormGuideSignProof
+                    typedName={guideTermsConsent.typedName}
+                    agreedAt={guideTermsConsent.at}
+                    signaturePng={guideTermsConsent.signaturePng}
+                  />
                   <button
                     type="button"
                     onClick={() => setGuideAgreeModalOpen(true)}
@@ -3307,7 +3334,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                     {agreeLinkLabel} (자세히 보기)
                   </button>
                   <p id="agreeTerms-hint" className="text-fluid-xs text-gray-500">
-                    안내를 끝까지 읽고 서명하면 예약 확정이 가능합니다.
+                    안내를 끝까지 읽고 성함·서명하면 예약 확정이 가능합니다.
                   </p>
                 </div>
               )}
@@ -3321,6 +3348,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             onClose={() => setGuideAgreeModalOpen(false)}
             brandSlug={resolvePublicBrandSlug() || undefined}
             templateId={order?.template?.id}
+            defaultTypedName={form.customerName}
             onAgree={(payload) => {
               setGuideTermsConsent(payload);
             }}

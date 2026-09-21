@@ -1,27 +1,89 @@
 import type { OrderFormConsentKind, OrderFormSubmissionConsents } from '@shared/orderFormConsents';
-import { orderFormConsentStampLabel } from '@shared/orderFormConsents';
+import { orderFormConsentStampLabel, orderFormSectionReadAckLabel } from '@shared/orderFormConsents';
+
+export function OrderFormSectionReadAck(props: {
+  typedName?: string | null;
+  className?: string;
+}) {
+  const { typedName, className = '' } = props;
+  return (
+    <p
+      className={`mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-700 ${className}`.trim()}
+      role="status"
+    >
+      {orderFormSectionReadAckLabel(typedName)}
+    </p>
+  );
+}
+
 export function OrderFormConsentStamp(props: {
   kind: OrderFormConsentKind;
   agreedAt: string;
   className?: string;
+  typedName?: string | null;
   signatureUrl?: string | null;
 }) {
-  const { kind, agreedAt, className = '', signatureUrl } = props;
+  const { kind, agreedAt, className = '', typedName, signatureUrl } = props;
   const url = signatureUrl?.trim() || '';
+  const name = typedName?.trim() || '';
   return (
     <div
-      className={`rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-fluid-xs font-semibold leading-snug text-emerald-900 ${className}`.trim()}
+      className={`rounded-xl border border-slate-200 bg-white px-3 py-3 text-fluid-xs leading-snug text-slate-800 shadow-sm ${className}`.trim()}
       role="status"
     >
-      <p>{orderFormConsentStampLabel(kind, agreedAt)}</p>
+      <p className="font-semibold text-slate-900">{orderFormConsentStampLabel(kind, agreedAt, name)}</p>
+      {name ? (
+        <p className="mt-2 text-fluid-2xs text-slate-500">
+          타이핑 성함 <span className="font-semibold text-slate-800">{name}</span>
+        </p>
+      ) : null}
       {kind === 'guideTerms' && url ? (
         <img
           src={url}
-          alt="고객 서명"
-          className="mt-2 max-h-20 w-full rounded-md border border-emerald-200 bg-white object-contain"
+          alt={`${name || '고객'} 서명`}
+          className="mt-2 max-h-20 w-full rounded-md border border-slate-200 bg-slate-50 object-contain"
         />
       ) : null}
     </div>
+  );
+}
+
+export function OrderFormGuideSignProof(props: {
+  typedName?: string | null;
+  agreedAt?: string | null;
+  signatureUrl?: string | null;
+  signaturePng?: string | null;
+  className?: string;
+}) {
+  const { typedName, agreedAt, signatureUrl, signaturePng, className = '' } = props;
+  const name = typedName?.trim() || '';
+  const url = signatureUrl?.trim() || signaturePng?.trim() || '';
+  if (!agreedAt && !name && !url) return null;
+  return (
+    <section className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`.trim()}>
+      <p className="text-fluid-xs font-semibold tracking-tight text-slate-900">동의·서명</p>
+      {agreedAt ? (
+        <p className="mt-1.5 text-fluid-xs leading-relaxed text-slate-600">
+          {orderFormConsentStampLabel('guideTerms', agreedAt, name)}
+        </p>
+      ) : null}
+      {name ? (
+        <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+          <p className="text-fluid-2xs text-slate-500">타이핑한 성함</p>
+          <p className="mt-0.5 text-fluid-sm font-semibold text-slate-900">{name}</p>
+        </div>
+      ) : null}
+      {url ? (
+        <div className="mt-3">
+          <p className="text-fluid-2xs text-slate-500">서명</p>
+          <img
+            src={url}
+            alt={`${name || '고객'} 서명`}
+            className="mt-1.5 max-h-28 w-full rounded-lg border border-slate-200 bg-slate-50 object-contain"
+          />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -31,34 +93,36 @@ export function OrderFormConsentsSummary(props: {
 }) {
   const { consents, className = '' } = props;
   if (!consents) return null;
-  const items: { kind: OrderFormConsentKind; at: string; signatureUrl?: string | null }[] = [];
-  if (consents.serviceDate?.agreedAt) {
-    items.push({ kind: 'serviceDate', at: consents.serviceDate.agreedAt });
-  }
-  if (consents.timeSlot?.agreedAt) {
-    items.push({ kind: 'timeSlot', at: consents.timeSlot.agreedAt });
-  }
-  if (consents.guideTerms?.agreedAt) {
-    items.push({
-      kind: 'guideTerms',
-      at: consents.guideTerms.agreedAt,
-      signatureUrl: consents.guideTerms.signatureUrl,
-    });
-  }
-  if (items.length === 0) return null;
+  const guide = consents.guideTerms;
+  const hasDate = Boolean(consents.serviceDate?.agreedAt);
+  const hasTime = Boolean(consents.timeSlot?.agreedAt);
+  const hasGuide = Boolean(guide?.agreedAt || guide?.typedName || guide?.signatureUrl);
+  if (!hasDate && !hasTime && !hasGuide) return null;
   return (
     <section className={className}>
-      <h3 className="mb-2 text-fluid-sm font-semibold text-gray-900">동의 확인</h3>
-      <div className="space-y-2">
-        {items.map((item) => (
-          <OrderFormConsentStamp
-            key={item.kind}
-            kind={item.kind}
-            agreedAt={item.at}
-            signatureUrl={item.signatureUrl}
-          />
-        ))}
-      </div>
+      <OrderFormGuideSignProof
+        typedName={guide?.typedName}
+        agreedAt={guide?.agreedAt}
+        signatureUrl={guide?.signatureUrl}
+      />
+      {hasDate || hasTime ? (
+        <div className="mt-2 space-y-2">
+          {consents.serviceDate?.agreedAt ? (
+            <OrderFormConsentStamp
+              kind="serviceDate"
+              agreedAt={consents.serviceDate.agreedAt}
+              typedName={guide?.typedName}
+            />
+          ) : null}
+          {consents.timeSlot?.agreedAt ? (
+            <OrderFormConsentStamp
+              kind="timeSlot"
+              agreedAt={consents.timeSlot.agreedAt}
+              typedName={guide?.typedName}
+            />
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -66,12 +130,18 @@ export function OrderFormConsentsSummary(props: {
 export function OrderFormSnapshotAckBlock(props: {
   consentKind?: OrderFormConsentKind;
   agreedAt?: string | null;
+  typedName?: string | null;
 }) {
-  const { consentKind, agreedAt } = props;
+  const { consentKind, agreedAt, typedName } = props;
   if (!consentKind || !agreedAt) return null;
   return (
     <div className="mt-1.5">
-      <OrderFormConsentStamp kind={consentKind} agreedAt={agreedAt} className="text-fluid-2xs" />
+      <OrderFormConsentStamp
+        kind={consentKind}
+        agreedAt={agreedAt}
+        typedName={typedName}
+        className="text-fluid-2xs"
+      />
     </div>
   );
 }

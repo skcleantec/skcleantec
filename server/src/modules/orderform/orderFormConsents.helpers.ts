@@ -21,6 +21,7 @@ export type OrderFormConsentTimeSlot = {
 
 export type OrderFormConsentGuideTerms = {
   agreedAt: string;
+  typedName?: string | null;
   signatureUrl?: string | null;
 };
 
@@ -37,7 +38,15 @@ type RawConsentBody = {
   preferredTimeDetail?: unknown;
   ackBody?: unknown;
   signaturePng?: unknown;
+  typedName?: unknown;
 };
+
+function normalizeGuideTypedName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.replace(/\s+/g, ' ').trim();
+  if (t.length < 2 || t.length > 40) return null;
+  return t;
+}
 
 function parseIsoAgreedAt(raw: unknown): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
@@ -82,15 +91,17 @@ function parseConsentTimeSlot(raw: unknown): OrderFormConsentTimeSlot | null {
 
 type ParsedGuideTerms = {
   agreedAt: string;
+  typedName: string;
   signaturePng: Buffer;
 };
 
 function parseConsentGuideTerms(raw: unknown): ParsedGuideTerms | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const agreedAt = parseIsoAgreedAt((raw as RawConsentBody).agreedAt);
+  const typedName = normalizeGuideTypedName((raw as RawConsentBody).typedName);
   const signaturePng = parseGuideSignaturePngDataUrl((raw as RawConsentBody).signaturePng);
-  if (!agreedAt || !signaturePng) return null;
-  return { agreedAt, signaturePng };
+  if (!agreedAt || !typedName || !signaturePng) return null;
+  return { agreedAt, typedName, signaturePng };
 }
 
 export function parseOrderFormSubmitConsents(raw: unknown): {
@@ -138,7 +149,7 @@ export function validateOrderFormSubmitConsents(params: {
   const ackBodies = resolveOrderFormAckBodies(params.formConfig);
 
   if (!parsed?.guideTerms) {
-    return { ok: false, error: '[필수] 안내사항을 끝까지 읽고 서명해 주세요.' };
+    return { ok: false, error: '[필수] 성함을 적고 안내사항을 끝까지 읽고 서명해 주세요.' };
   }
 
   let serviceDate: OrderFormConsentServiceDate | null = null;
@@ -176,7 +187,10 @@ export function validateOrderFormSubmitConsents(params: {
     consents: {
       serviceDate,
       timeSlot,
-      guideTerms: { agreedAt: parsed.guideTerms.agreedAt },
+      guideTerms: {
+        agreedAt: parsed.guideTerms.agreedAt,
+        typedName: parsed.guideTerms.typedName,
+      },
     },
   };
 }

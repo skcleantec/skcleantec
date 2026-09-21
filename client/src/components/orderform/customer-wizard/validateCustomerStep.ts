@@ -157,7 +157,7 @@ export function validateCustomerStep(args: {
     case 'guide':
       return guideTermsAt && guideTermsSigned
         ? null
-        : '[필수] 안내사항을 끝까지 읽고 서명해 주세요.';
+        : '[필수] 성함을 적고 안내사항을 끝까지 읽고 서명해 주세요.';
     default: {
       if (typeof step.id === 'string' && step.id.startsWith('custom:') && step.customField) {
         const cf = step.customField;

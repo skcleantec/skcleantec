@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
+import { normalizeGuideTypedName } from '@shared/orderFormConsents';
 import { SignaturePad } from '../e-contract/SignaturePad';
 import { LineMdIcon } from '../ui/LineMdIcon';
+import { OrderFormGuideSignProof } from './OrderFormConsentUi';
 
 function blobToPngDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -12,56 +15,90 @@ function blobToPngDataUrl(blob: Blob): Promise<string> {
 
 export function OrderFormGuideSignatureBlock(props: {
   disabled: boolean;
-  onSigned: (signaturePng: string) => void;
+  onSigned: (payload: { signaturePng: string; typedName: string }) => void;
   existingUrl?: string | null;
+  typedName?: string | null;
+  agreedAt?: string | null;
+  defaultTypedName?: string | null;
   viewOnly?: boolean;
 }) {
-  const { disabled, onSigned, existingUrl, viewOnly = false } = props;
-  const url = existingUrl?.trim() || '';
+  const { disabled, onSigned, existingUrl, typedName, agreedAt, defaultTypedName, viewOnly = false } = props;
+  const [nameDraft, setNameDraft] = useState(() => defaultTypedName?.trim() || '');
+
+  useEffect(() => {
+    if (viewOnly) return;
+    const next = defaultTypedName?.trim() || '';
+    if (!next) return;
+    setNameDraft((cur) => (cur.trim() ? cur : next));
+  }, [defaultTypedName, viewOnly]);
 
   if (viewOnly) {
-    if (!url) return null;
     return (
-      <section className="mt-8 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-        <h3 className="text-fluid-sm font-semibold text-slate-900">서명</h3>
-        <img
-          src={url}
-          alt="고객 서명"
-          className="mt-2 max-h-28 w-full rounded-md border border-slate-200 bg-white object-contain"
-        />
-      </section>
+      <OrderFormGuideSignProof
+        className="mt-8"
+        typedName={typedName}
+        agreedAt={agreedAt}
+        signatureUrl={existingUrl}
+      />
     );
   }
 
+  const validName = normalizeGuideTypedName(nameDraft);
+  const padLocked = disabled || !validName;
+
   return (
-    <section className="mt-8 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+    <section className="mt-8 space-y-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
       <div className="flex items-center gap-2">
         <LineMdIcon name="pencil" className="size-5 text-slate-700" />
-        <h3 className="text-fluid-sm font-semibold text-slate-900">안내사항에 동의하는 서명</h3>
+        <h3 className="text-fluid-sm font-semibold text-slate-900">성함과 서명으로 동의</h3>
       </div>
-      <p className="mt-1.5 text-fluid-xs leading-relaxed text-slate-600">
-        이름을 그려 주세요. 서명하면 안내사항 동의가 끝납니다.
+      <p className="text-fluid-xs leading-relaxed text-slate-600">
+        위에 성함을 타이핑하고, 아래에 서명하면 모든 안내·위약 내용에 동의한 것으로 봅니다.
       </p>
+      <label className="block space-y-1.5">
+        <span className="text-fluid-2xs font-medium text-slate-700">성함 (타이핑)</span>
+        <input
+          type="text"
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          autoComplete="name"
+          inputMode="text"
+          maxLength={40}
+          placeholder="예: 홍길동"
+          className="login-field-input min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-fluid-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+        />
+      </label>
       {disabled ? (
-        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs font-medium text-amber-950">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs font-medium text-amber-950">
           먼저 안내를 맨 아래까지 내려 주세요.
         </p>
+      ) : !validName ? (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs font-medium text-slate-700">
+          성함을 두 글자 이상 적으면 아래에 서명할 수 있습니다.
+        </p>
       ) : null}
-      <SignaturePad
-        disabled={disabled}
-        minStrokePoints={8}
-        saveButtonLabel="서명으로 동의"
-        hint="손가락·펜·마우스로 박스 안에 서명을 그려 주세요."
-        canvasHeightClass="h-36 sm:h-44"
-        saveButtonClassName="w-full min-h-11 rounded-lg bg-slate-900 px-4 py-2.5 text-fluid-xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-        onSave={async (blob) => {
-          const png = await blobToPngDataUrl(blob);
-          if (!png.startsWith('data:image/png')) {
-            throw new Error('서명 그림을 만들지 못했습니다.');
-          }
-          onSigned(png);
-        }}
-      />
+      <div>
+        <p className="mb-1.5 text-fluid-2xs font-medium text-slate-700">서명</p>
+        <SignaturePad
+          disabled={padLocked}
+          minStrokePoints={8}
+          saveButtonLabel="서명으로 동의"
+          hint="손가락·펜·마우스로 박스 안에 서명을 그려 주세요."
+          canvasHeightClass="h-36 sm:h-44"
+          saveButtonClassName="w-full min-h-11 rounded-lg bg-slate-900 px-4 py-2.5 text-fluid-xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          onSave={async (blob) => {
+            const png = await blobToPngDataUrl(blob);
+            if (!png.startsWith('data:image/png')) {
+              throw new Error('서명 그림을 만들지 못했습니다.');
+            }
+            const name = normalizeGuideTypedName(nameDraft);
+            if (!name) {
+              throw new Error('성함을 두 글자 이상 적어 주세요.');
+            }
+            onSigned({ signaturePng: png, typedName: name });
+          }}
+        />
+      </div>
     </section>
   );
 }

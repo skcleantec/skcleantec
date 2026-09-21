@@ -3176,6 +3176,7 @@ router.post('/submit/:token', async (req, res) => {
     });
     guideTermsStored = {
       agreedAt: consentResult.consents.guideTerms!.agreedAt,
+      typedName: consentResult.consents.guideTerms!.typedName,
       signatureUrl: uploaded.signatureUrl,
     };
   } catch (e) {
