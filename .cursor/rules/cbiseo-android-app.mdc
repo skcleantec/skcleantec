@@ -36,12 +36,15 @@ alwaysApply: false
 
 > **keystore·AAB는 터미널만** — `.cursor/rules/cbiseo-android-play-terminal.mdc`
 
+`versionCode` bump **직전:** `.cursor/rules/play-console-quality.mdc` **「다음 AAB」**(지금 **40** = v39 대시보드 4건)를 코드에 반영한 뒤 빌드한다.
+
 `versionCode` bump·AAB·Play 업로드 완료 시:
 
 1. **`apps/cbiseo-android/docs/RELEASE_PROGRESS.md`** 최상단 갱신
 2. **Play Console 출시명·출시 노트** — **`.cursor/rules/android-play-aab-release-copy.mdc`** (복붙 블록 필수)
-3. Firebase·`google-services.json` 변경 시 문서에 기록 (비밀 커밋 금지)
-4. **웹-only 변경**은 Play 재배포 **불필요** — 문서에 혼동 없게 구분
+3. **Play 권장 조치·최적화 경고** — **`.cursor/rules/play-console-quality.mdc`** (`RELEASE_PROGRESS` 「Play 권장 조치」 표 + 같은 실수 재발 금지)
+4. Firebase·`google-services.json` 변경 시 문서에 기록 (비밀 커밋 금지)
+5. **웹-only 변경**은 Play 재배포 **불필요** — 문서에 혼동 없게 구분
 
 ## 멀티테넌트
 

@@ -134,6 +134,11 @@ export const CsReportPage = lazyWithRetry(() =>
 export const ReviewPaybackPage = lazyWithRetry(() =>
   import('../pages/review-payback/ReviewPaybackPage').then((m) => ({ default: m.ReviewPaybackPage }))
 );
+export const PublicDepositConfirmPage = lazyWithRetry(() =>
+  import('../pages/public/PublicDepositConfirmPage').then((m) => ({
+    default: m.PublicDepositConfirmPage,
+  }))
+);
 export const InspectionCustomerViewPage = lazyWithRetry(() =>
   import('../pages/inspection/InspectionCustomerViewPage').then((m) => ({
     default: m.InspectionCustomerViewPage,

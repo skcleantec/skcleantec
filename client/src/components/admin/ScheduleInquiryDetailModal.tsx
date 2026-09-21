@@ -43,7 +43,9 @@ import {
   inquiryFormShowsMoveInBlock,
   inquiryFormShowsPropertySection,
   type InquiryIntakeFormProfile,
+  type PublishedIntakeTemplateOption,
 } from '@shared/inquiryFormProfile';
+import { InquiryIntakeTemplatePicker } from './inquiry-edit/InquiryIntakeTemplatePicker';
 import { inquiryOrderFormAnswersFromItem } from '../../utils/inquiryOrderFormAnswers';
 import { ProfOptionsAmountReviewApplyPanel } from '../inquiry/ProfOptionsAmountReviewNotice';
 import { AddressSearch } from '../forms/AddressSearch';
@@ -466,6 +468,14 @@ function buildCreatePostBody(
     source: opts?.manualIntake ? MANUAL_INTAKE_SOURCE_VALUE : editForm.leadSource.trim(),
     strictLeadSource: !opts?.manualIntake,
     intakeMeta: { channel: opts?.manualIntake ? 'manual' : 'schedule' },
+    ...(opts?.intakeProfile?.templateId
+      ? { intakeTemplateId: opts.intakeProfile.templateId }
+      : {}),
+    ...(opts?.intakeProfile?.customFields.length
+      ? { orderFormAnswers: editForm.orderFormAnswers ?? {} }
+      : opts?.intakeProfile && Object.keys(editForm.orderFormAnswers ?? {}).length > 0
+        ? { orderFormAnswers: editForm.orderFormAnswers }
+        : {}),
     status: p.status ?? 'RECEIVED',
     soloTeamLeaderIds: p.soloTeamLeaderIds,
     crewMemberCount: p.crewMemberCount,
@@ -602,10 +612,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     onClose,
     onSaved,
   } = props;
-  const timeSlotOptions = useMemo(
-    () => buildStaffInquiryTimeSlotSelectOptions(orderFormTimeSlotLabels, currentUserRole),
-    [orderFormTimeSlotLabels, currentUserRole],
-  );
   const onInquiryRefresh = isCreate
     ? undefined
     : (props as { onInquiryRefresh?: () => void | Promise<void> }).onInquiryRefresh;
@@ -679,6 +685,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [intakeProfile, setIntakeProfile] = useState<InquiryIntakeFormProfile | null>(
     !isCreate ? props.item.intakeFormProfile ?? null : null,
   );
+  const [publishedIntakeTemplates, setPublishedIntakeTemplates] = useState<PublishedIntakeTemplateOption[]>(
+    [],
+  );
+  const [createIntakeTemplateId, setCreateIntakeTemplateId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
   const [crewSwapModalOpen, setCrewSwapModalOpen] = useState(false);
@@ -835,12 +845,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         const attachedProfile = (data as { intakeFormProfile?: InquiryIntakeFormProfile | null })
           .intakeFormProfile;
         if (attachedProfile) setIntakeProfile(attachedProfile);
-        if (freshOrderForm) {
-          setEditForm((p) => ({
-            ...p,
-            orderFormAnswers: inquiryOrderFormAnswersFromItem({ orderForm: freshOrderForm }),
-          }));
-        }
+        setEditForm((p) => ({
+          ...p,
+          orderFormAnswers: inquiryOrderFormAnswersFromItem({
+            orderForm: freshOrderForm,
+            intakeCustomAnswers: (data as { intakeCustomAnswers?: Record<string, unknown> | null })
+              .intakeCustomAnswers,
+          }),
+        }));
       })
       .catch(() => {
         if (!cancelled) {
@@ -859,9 +871,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    void getInquiryIntakeFormProfile(token, isCreate ? null : item?.id)
+    void getInquiryIntakeFormProfile(token, {
+      inquiryId: isCreate ? null : item?.id,
+      templateId: isCreate ? createIntakeTemplateId : null,
+    })
       .then((profile) => {
-        if (!cancelled) setIntakeProfile(profile);
+        if (cancelled) return;
+        setIntakeProfile(profile);
+        setPublishedIntakeTemplates(profile.publishedTemplates);
+        if (isCreate && !createIntakeTemplateId && profile.templateId) {
+          setCreateIntakeTemplateId(profile.templateId);
+        }
       })
       .catch(() => {
         if (!cancelled && !isCreate) {
@@ -871,7 +891,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return () => {
       cancelled = true;
     };
-  }, [token, isCreate, item?.id, item?.orderForm?.id, item?.intakeFormProfile]);
+  }, [token, isCreate, item?.id, item?.orderForm?.id, item?.intakeFormProfile, createIntakeTemplateId]);
 
   const showPhone2 = inquiryFormHasSystemField(intakeProfile, 'customerPhone2');
   const showTimeDetail = inquiryFormHasSystemField(intakeProfile, 'preferredTimeDetail');
@@ -879,7 +899,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const showMoveIn = inquiryFormShowsMoveInBlock(intakeProfile);
   const showBuildingType = inquiryFormHasSystemField(intakeProfile, 'buildingType');
   const showProfessionalOptions = inquiryFormHasSystemField(intakeProfile, 'professionalOptions');
-  const canEditCustomAnswers = Boolean(intakeProfile?.canEditCustomAnswers);
+  const canEditCustomAnswers =
+    Boolean(intakeProfile?.canEditCustomAnswers) || (intakeProfile?.customFields.length ?? 0) > 0;
 
   const [editForm, setEditForm] = useState<InquiryEditFormFields>(() => {
     if (isCreate) {
@@ -995,6 +1016,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       orderFormAnswers: inquiryOrderFormAnswersFromItem(it),
     };
   });
+
+  const timeSlotOptions = useMemo(
+    () =>
+      buildStaffInquiryTimeSlotSelectOptions(
+        orderFormTimeSlotLabels,
+        currentUserRole,
+        editForm.preferredTime,
+        intakeProfile?.preferredTimeOptions,
+      ),
+    [orderFormTimeSlotLabels, currentUserRole, editForm.preferredTime, intakeProfile?.preferredTimeOptions],
+  );
 
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
 
@@ -2552,6 +2584,16 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           <p className="text-sm text-gray-500">
             수기등록을 선택하면 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.
           </p>
+        ) : null}
+        {isCreate ? (
+          <InquiryIntakeTemplatePicker
+            templates={publishedIntakeTemplates}
+            selectedId={createIntakeTemplateId ?? intakeProfile?.templateId ?? null}
+            onSelect={(id) => {
+              setCreateIntakeTemplateId(id);
+              setEditForm((p) => ({ ...p, orderFormAnswers: {} }));
+            }}
+          />
         ) : null}
         {isCreate ? (
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">

@@ -1,5 +1,4 @@
 import { isMarketerLockedOrderFormAddress } from '@shared/orderFormPendingAddress';
-import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_SPACE_COUNT_FIELDS,
   parseOrderFormSpaceCount,
@@ -176,10 +175,10 @@ export function shouldShowCustomerTimeWizardStep(
   if (!isStdFieldOn(order, 'preferredTime')) return false;
   if (!skipLocked) return true;
   if (isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, 'preferredTime')) {
-    return !isOrderTimeSlotValue(String(order?.prefillAnswers?.preferredTime ?? ''));
+    return !String(order?.prefillAnswers?.preferredTime ?? '').trim();
   }
   const fromOrder = order?.preferredTime?.trim() ?? '';
-  if (fromOrder && isOrderTimeSlotValue(fromOrder)) return false;
+  if (fromOrder) return false;
   return true;
 }
 

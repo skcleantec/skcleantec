@@ -1,4 +1,8 @@
-import type { TeamLeaderHouseholdLedgerDirection, TeamLeaderHouseholdPrefillKind } from '@shared/teamLeaderHouseholdLedger';
+import type {
+  TeamLeaderHouseholdLedgerDirection,
+  TeamLeaderHouseholdPrefillKind,
+  TeamLeaderHouseholdWageMode,
+} from '@shared/teamLeaderHouseholdLedger';
 import { API } from './apiPrefix';
 import { AuthSessionExpiredError } from './auth';
 import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
@@ -21,13 +25,22 @@ export type HouseholdLedgerEntry = {
   inquiryNumber: string | null;
   customerName: string | null;
   prefillKind: string | null;
+  amountLocked?: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
+export type HouseholdWageSetting = {
+  wageMode: TeamLeaderHouseholdWageMode;
+  balanceSharePercent: number;
+  dailyAmountWon: number | null;
+  monthlyAmountWon: number | null;
+};
+
 export type HouseholdLedgerListResponse = {
   range: { loYmd: string; hiYmd: string };
-  summary: { incomeTotal: number; expenseTotal: number; netTotal: number };
+  wageSetting?: HouseholdWageSetting;
+  summary: { incomeTotal: number; expenseTotal: number; netTotal: number; wageTotal?: number };
   items: HouseholdLedgerEntry[];
   total: number;
   limit: number;
@@ -170,6 +183,27 @@ export async function deleteTeamHouseholdLedgerEntry(token: string, entryId: str
     },
   );
   if (!res.ok) return parseJsonError(res, '삭제에 실패했습니다.');
+}
+
+export async function getTeamHouseholdWageSettings(token: string): Promise<{ setting: HouseholdWageSetting }> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/household-ledger/wage-settings`), {
+    headers: headers(token),
+  });
+  if (!res.ok) return parseJsonError(res, '임금 설정을 불러올 수 없습니다.');
+  return res.json() as Promise<{ setting: HouseholdWageSetting }>;
+}
+
+export async function saveTeamHouseholdWageSettings(
+  token: string,
+  payload: HouseholdWageSetting,
+): Promise<{ setting: HouseholdWageSetting }> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/household-ledger/wage-settings`), {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) return parseJsonError(res, '임금 설정을 저장하지 못했습니다.');
+  return res.json() as Promise<{ setting: HouseholdWageSetting }>;
 }
 
 export async function syncTeamHouseholdLedgerFromAssignments(

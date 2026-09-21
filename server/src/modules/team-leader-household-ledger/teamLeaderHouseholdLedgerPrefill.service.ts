@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { TeamLeaderHouseholdPrefillKind } from './teamLeaderHouseholdLedger.constants.js';
+import { getHouseholdWageSetting } from './teamLeaderHouseholdWage.service.js';
 import {
   type HouseholdLedgerPrefillOption,
   prefillLabel,
@@ -220,12 +221,27 @@ export async function buildHouseholdLedgerPrefillOptions(
   const built = buildPrefillItemsForInquiry(inquiry as InquiryPrefillSource, opts.tenantId, teamBps, {
     depositAsTeamIncome: leader?.teamLeaderHouseholdDepositAsTeamIncome === true,
   });
+  const { setting } = await getHouseholdWageSetting(db, {
+    tenantId: opts.tenantId,
+    teamLeaderId: opts.teamLeaderId,
+  });
+  let items = built.items;
+  if (setting.wageMode === 'BALANCE_PCT' && setting.balanceSharePercent !== 100) {
+    items = items.map((item) =>
+      item.kind === 'balance'
+        ? { ...item, amount: Math.max(0, Math.floor((item.amount * setting.balanceSharePercent) / 100)) }
+        : item,
+    );
+  }
+  if (setting.wageMode === 'DAILY' || setting.wageMode === 'MONTHLY') {
+    items = items.filter((item) => item.kind !== 'balance');
+  }
 
   return {
     inquiryId: inquiry.id,
     inquiryNumber: inquiry.inquiryNumber,
     customerName: inquiry.customerName,
     suggestedOccurredOn: built.suggestedOccurredOn,
-    items: built.items,
+    items,
   };
 }

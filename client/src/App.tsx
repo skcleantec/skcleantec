@@ -65,6 +65,7 @@ import {
   OrderInfoPage,
   CsReportPage,
   ReviewPaybackPage,
+  PublicDepositConfirmPage,
   InspectionCustomerViewPage,
   AdminReviewPaybackPage,
   AdminCsPage,
@@ -377,7 +378,7 @@ function App() {
             element={<SuspensePage><AdminNotificationSettingsPage /></SuspensePage>}
           />
           <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
-          <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />} />
+          <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?section=guide" replace />} />
           <Route path="orderforms/followup" element={<Navigate to="/admin/inquiries/followup" replace />} />
           <Route path="cs" element={<Navigate to="/admin/inquiries/cs" replace />} />
           <Route path="advertising" element={<FeatureGate module="mod_advertising"><AdminAdvertisingLayout /></FeatureGate>}>
@@ -447,6 +448,7 @@ function App() {
         <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
         <Route path="/contact" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
+        <Route path="/ops/deposit-confirm" element={<SuspensePage><PublicDepositConfirmPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route

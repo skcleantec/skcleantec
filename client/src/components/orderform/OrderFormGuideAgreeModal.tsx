@@ -22,8 +22,10 @@ export function OrderFormGuideAgreeModal(props: {
   consents?: OrderFormSubmissionConsents | null;
   /** 브랜드 slug — 미전달 시 URL ?brand= */
   brandSlug?: string | null;
+  /** 이 발주서 양식 안내 */
+  templateId?: string | null;
 }) {
-  const { open, onClose, mode = 'agree', onAgree, consents = null, brandSlug } = props;
+  const { open, onClose, mode = 'agree', onAgree, consents = null, brandSlug, templateId } = props;
   const isViewMode = mode === 'view';
   const scrollRef = useRef<HTMLDivElement>(null);
   const [sections, setSections] = useState<GuideSection[]>(ORDER_GUIDE_DEFAULT_SECTIONS);
@@ -48,6 +50,7 @@ export function OrderFormGuideAgreeModal(props: {
     setLoadError(false);
     void getPublicOrderGuide({
       brandSlug: brandSlug ?? (resolvePublicBrandSlug() || undefined),
+      templateId,
     })
       .then((data) => {
         if (data.sections?.length) setSections(data.sections);
@@ -59,7 +62,7 @@ export function OrderFormGuideAgreeModal(props: {
         setSections(ORDER_GUIDE_DEFAULT_SECTIONS);
       })
       .finally(() => setLoading(false));
-  }, [open, brandSlug]);
+  }, [open, brandSlug, templateId]);
 
   useEffect(() => {
     if (!open || loading) return;

@@ -28,6 +28,9 @@ import {
 } from './steps/CompoundSteps';
 import type { PublicOperatingCompanyBranding, PublicOrderFormCompanyTrust } from '../../../api/orderform';
 
+const PREVIEW_CTA_CLS =
+  'w-full min-h-10 rounded-lg bg-slate-900 py-2 text-fluid-xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-45 disabled:pointer-events-none';
+
 function StepBody(props: CustomerWizardShared & { step: OrderFormCustomerStep }) {
   switch (props.step.id) {
     case 'welcome':
@@ -116,7 +119,10 @@ export function OrderFormCustomerWizard({
   /** 디자이너 미리보기 — 필수 없이 다음, 제출은 부모에서 차단 */
   previewWalk?: boolean;
 }) {
-  const { scrollRef, onFieldFocus } = useLoginScrollSurface({ bottomReservePx: 200 });
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface({
+    // 고정 막대는 다음/제출 버튼만 — 업체·플랫폼 안내는 스크롤 안으로
+    bottomReservePx: previewWalk ? 72 : 88,
+  });
   const [stepError, setStepError] = useState<string | null>(null);
   const [dir, setDir] = useState<'forward' | 'back'>('forward');
   const prevIndexRef = useRef(stepIndex);
@@ -189,14 +195,14 @@ export function OrderFormCustomerWizard({
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-slate-100">
       {previewWalk ? (
         <div
-          className="shrink-0 border-b border-amber-200 bg-amber-50 px-2.5 py-1.5 text-center text-fluid-2xs leading-snug text-amber-900"
+          className="shrink-0 border-b border-amber-200 bg-amber-50 px-2.5 py-1 text-center text-fluid-2xs leading-snug text-amber-900"
           role="status"
         >
-          미리보기입니다. 필수 칸을 채우지 않아도 다음으로 넘길 수 있고, 제출은 되지 않습니다.
+          미리보기 · 필수 없이 넘기기 · 제출 안 됨
         </div>
       ) : null}
       <header className="shrink-0 border-b border-slate-800 bg-slate-900 text-white">
-        <div className="mx-auto flex max-w-lg items-center gap-2 px-3 py-2.5">
+        <div className={`mx-auto flex max-w-lg items-center gap-2 px-3 ${previewWalk ? 'py-1.5' : 'py-2.5'}`}>
           <button
             type="button"
             onClick={canGoBack ? goPrev : onLeave}
@@ -232,7 +238,11 @@ export function OrderFormCustomerWizard({
         className="login-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain"
         onFocusCapture={onFieldFocus}
       >
-        <div className="login-scroll-content mx-auto flex min-h-full max-w-lg flex-col px-4 py-6 pb-8">
+        <div
+          className={`login-scroll-content mx-auto flex min-h-full max-w-lg flex-col px-4 ${
+            previewWalk ? 'py-3 pb-4' : 'py-6 pb-6'
+          }`}
+        >
           {leaveHint ? (
             <div
               className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-900"
@@ -266,13 +276,29 @@ export function OrderFormCustomerWizard({
               {stepError}
             </p>
           ) : null}
+
+          {!previewWalk ? (
+            <div className="mt-8 space-y-2">
+              <OrderFormCompanyTrustFooter
+                trust={publicCompanyTrust}
+                displayNameFallback={publicBranding?.displayName}
+              />
+              <OrderFormPlatformFooter />
+            </div>
+          ) : null}
         </div>
       </div>
 
       <footer className="shrink-0 border-t border-slate-200 bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-lg space-y-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+        <div
+          className={`mx-auto max-w-lg px-4 ${
+            previewWalk
+              ? 'py-1.5'
+              : 'pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5'
+          }`}
+        >
           {currentStep.kind === 'welcome' ? (
-            <button type="button" className={WIZARD_CTA_CLS} onClick={goNext}>
+            <button type="button" className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS} onClick={goNext}>
               시작하기
             </button>
           ) : showFooter || showChoiceNext ? (
@@ -291,7 +317,7 @@ export function OrderFormCustomerWizard({
                   ) : null}
                   <button
                     type="button"
-                    className={WIZARD_CTA_CLS}
+                    className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
                     disabled={submitting || (!previewWalk && !shared.guideTermsAt)}
                     onClick={trySubmit}
                   >
@@ -299,13 +325,13 @@ export function OrderFormCustomerWizard({
                   </button>
                 </div>
               ) : currentStep.kind === 'review' ? (
-                <button type="button" className={WIZARD_CTA_CLS} onClick={goNext}>
+                <button type="button" className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS} onClick={goNext}>
                   안내 확인하고 제출
                 </button>
               ) : (
                 <button
                   type="button"
-                  className={WIZARD_CTA_CLS}
+                  className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
                   disabled={!previewWalk && !currentStep.skippable && Boolean(stepInvalid)}
                   onClick={tryNext}
                 >
@@ -316,20 +342,13 @@ export function OrderFormCustomerWizard({
           ) : currentStep.kind === 'choice' ? (
             <button
               type="button"
-              className={WIZARD_CTA_CLS}
+              className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
               disabled={!previewWalk && Boolean(stepInvalid)}
               onClick={tryNext}
             >
               다음
             </button>
           ) : null}
-          <div className="[&>section]:mt-0">
-            <OrderFormCompanyTrustFooter
-              trust={publicCompanyTrust}
-              displayNameFallback={publicBranding?.displayName}
-            />
-          </div>
-          <OrderFormPlatformFooter />
         </div>
       </footer>
 

@@ -84,6 +84,7 @@ export async function ensureDefaultOrderFormTemplate(
       status: 'PUBLISHED',
       version: 1,
       isDefault: true,
+      industryPackId: 'move_in',
       sortOrder: 0,
     },
   });

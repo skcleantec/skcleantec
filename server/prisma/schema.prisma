@@ -227,6 +227,8 @@ model Tenant {
   plan        String       @default("premium") @db.VarChar(32)
   timezone    String       @default("Asia/Seoul") @db.VarChar(64)
   config      Json         @default("{}")
+  /** 전화·수기 접수 칸. null=입주청소 전부. 배열이면 해당 키만(이름·전화·주소 강제). */
+  inquiryIntakeSystemFieldKeys Json? @map("inquiry_intake_system_field_keys")
   createdAt   DateTime     @default(now()) @map("created_at")
   suspendedAt DateTime?    @map("suspended_at")
   trialEndsAt            DateTime?            @map("trial_ends_at")
@@ -263,6 +265,7 @@ model Tenant {
   payrollIncomeDeposits PayrollIncomeDeposit[]
   payrollAccountLedgerManualEntries PayrollAccountLedgerManualEntry[]
   teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[]
+  teamLeaderHouseholdWageSettings TeamLeaderHouseholdWageSetting[]
   userCustomCalendars UserCustomCalendar[]
   userCustomCalendarInquiryPins UserCustomCalendarInquiryPin[]
   serviceZones ServiceZone[]
@@ -1575,6 +1578,7 @@ model User {
   payrollAccountLedgerManualEntriesCreated PayrollAccountLedgerManualEntry[] @relation("PayrollAccountLedgerManualEntryCreator")
   payrollLedgerManualEntriesLinked PayrollAccountLedgerManualEntry[] @relation("PayrollLedgerManualLinkedUser")
   teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[] @relation("TeamLeaderHouseholdLedgerOwner")
+  teamLeaderHouseholdWageSettings TeamLeaderHouseholdWageSetting[] @relation("TeamLeaderHouseholdWageSettingOwner")
   csReportsForwardedTo          CsReport[] @relation("CsReportForwardedTo")
   /// 관리자가 생성한 전자계약(팀장) 정의 — `modules/e-contract`
   eContractDefinitionsCreated  EContractDefinition[] @relation("EContractDefinitionCreator")
@@ -2065,6 +2069,13 @@ enum TeamLeaderHouseholdLedgerDirection {
   EXPENSE
 }
 
+/// 팀장 가계부 — 본인 임금 계산 방식 (회사 급여표와 별도)
+enum TeamLeaderHouseholdWageMode {
+  BALANCE_PCT
+  DAILY
+  MONTHLY
+}
+
 /// 팀장 개인 가계부 — 회사 정산과 별도, 본인 수입·지출 기록
 model TeamLeaderHouseholdLedgerEntry {
   id           String                           @id @default(uuid())
@@ -2077,6 +2088,8 @@ model TeamLeaderHouseholdLedgerEntry {
   memo         String?                          @db.Text
   inquiryId    String?                          @map("inquiry_id")
   prefillKind  String?                          @map("prefill_kind") @db.VarChar(32)
+  /// true면 팀장이 금액을 직접 고침 — 자동 동기화가 덮어쓰지 않음
+  amountLocked Boolean                          @default(false) @map("amount_locked")
   createdAt    DateTime                         @default(now()) @map("created_at")
   updatedAt    DateTime                         @updatedAt @map("updated_at")
 
@@ -2087,6 +2100,27 @@ model TeamLeaderHouseholdLedgerEntry {
   @@index([tenantId, teamLeaderId, occurredOn(sort: Desc)], map: "tl_household_ledger_tenant_leader_occurred_idx")
   @@index([tenantId, teamLeaderId, inquiryId], map: "tl_household_ledger_tenant_leader_inquiry_idx")
   @@map("team_leader_household_ledger_entries")
+}
+
+/// 팀장 본인 가계부 임금 설정 — 업체 급여표와 분리
+model TeamLeaderHouseholdWageSetting {
+  id                   String                       @id @default(uuid())
+  tenantId             String                       @map("tenant_id")
+  teamLeaderId         String                       @map("team_leader_id")
+  wageMode             TeamLeaderHouseholdWageMode  @default(BALANCE_PCT) @map("wage_mode")
+  balanceSharePercent  Int                          @default(100) @map("balance_share_percent")
+  dailyAmountWon       Int?                         @map("daily_amount_won")
+  monthlyAmountWon     Int?                         @map("monthly_amount_won")
+  /// 삭제한 일당/월급 줄 키 (`D:YYYY-MM-DD`, `M:YYYY-MM`)
+  suppressedWageKeys   Json                         @default("[]") @map("suppressed_wage_keys")
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
+
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teamLeader User   @relation("TeamLeaderHouseholdWageSettingOwner", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, teamLeaderId], map: "tl_household_wage_setting_tenant_leader_uidx")
+  @@map("team_leader_household_wage_settings")
 }
 
 model TeamMemberDayOff {
@@ -2245,6 +2279,10 @@ model Inquiry {
   cancelFeeExternalCompanyId String?          @map("cancel_fee_external_company_id")
   cancelFeeExternalCompany   ExternalCompany? @relation("InquiryCancelFeeExternalCompany", fields: [cancelFeeExternalCompanyId], references: [id], onDelete: SetNull)
   orderFormId  String?       @map("order_form_id")
+  /// 전화·수기 접수 때 고른 발주서 양식. 발주서가 생기면 orderForm.templateId 가 우선.
+  intakeTemplateId String?   @map("intake_template_id")
+  /// 양식에만 있는 추가 칸 답(에어컨 대수 등). 발주서가 생기면 그쪽으로 옮김.
+  intakeCustomAnswers Json?  @map("intake_custom_answers")
   /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
   /// 협업 마케터. 마케터별 확정 예약 집계 「협업」열에 반영. 광고비와 무관.
@@ -2263,6 +2301,7 @@ model Inquiry {
   deletedBy   User?     @relation("InquiryDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
   orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
+  intakeTemplate OrderFormTemplate? @relation("InquiryIntakeTemplate", fields: [intakeTemplateId], references: [id], onDelete: SetNull)
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   collaborationMarketer User?     @relation("InquiryCollaborationMarketer", fields: [collaborationMarketerId], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
@@ -2301,6 +2340,7 @@ model Inquiry {
   @@index([tenantId, operatingCompanyId, createdAt])
   @@index([tenantId, profOptionsAmountReviewPending])
   @@index([tenantId, deletedAt])
+  @@index([tenantId, intakeTemplateId])
   @@unique([tenantId, inquiryNumber])
   @@map("inquiries")
 }
@@ -3056,6 +3096,10 @@ model OrderFormTemplate {
   version     Int                     @default(1)
   /// 테넌트 기본 발주서 여부(레거시 단일 발주서 이식분)
   isDefault   Boolean                 @default(false) @map("is_default")
+  /// 업종 팩 키(move_in, aircon …) — 안내 기본 문구
+  industryPackId String?              @map("industry_pack_id") @db.VarChar(32)
+  /// 고객 안내 섹션 { sections: [{ title, items }] }. 없으면 업종 기본
+  guideSections  Json?                @map("guide_sections")
   sortOrder   Int                     @default(0) @map("sort_order")
   createdById String?                 @map("created_by_id")
   createdAt   DateTime                @default(now()) @map("created_at")
@@ -3063,6 +3107,7 @@ model OrderFormTemplate {
 
   fields     OrderFormTemplateField[]
   orderForms OrderForm[]
+  intakeInquiries Inquiry[] @relation("InquiryIntakeTemplate")
 
   @@index([tenantId, status, sortOrder])
   @@index([tenantId, isDefault])

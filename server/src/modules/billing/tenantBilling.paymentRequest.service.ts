@@ -204,6 +204,7 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
         invoiceStatus: 'OVERDUE',
         requesterName: '연습 발송',
         requesterEmail: PLATFORM_SYSTEM_MAIL_FROM,
+        isTest: true,
       }),
     ),
   );

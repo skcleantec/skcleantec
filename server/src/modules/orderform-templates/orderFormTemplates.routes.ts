@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
@@ -7,10 +6,26 @@ import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffHasPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
+  getTenantInquiryIntakeFieldsState,
+  saveTenantInquiryIntakeFields,
+} from '../inquiries/inquiryIntakeFields.service.js';
+import {
+  IDENTITY_REQUIRED_SYSTEM_FIELD_KEYS,
+  ORDER_FORM_QUOTE_ALWAYS_ON_FIELD_KEYS,
   ORDER_FORM_SYSTEM_FIELDS,
   isKnownSystemField,
   missingRequiredCoreFields,
 } from './systemFields.js';
+import { ensureAirconOrderFormTemplate } from './ensureAirconOrderFormTemplate.js';
+import {
+  defaultGuideSectionsForPack,
+  inferOrderFormIndustryPackId,
+} from '../../lib/orderFormIndustryGuideDefaults.js';
+import {
+  guideSectionsToJson,
+  normalizeGuideSectionsInput,
+  resolveStoredOrDefaultGuide,
+} from './templateGuide.helpers.js';
 import {
   assertTenantPromotedFieldLimit,
   canPromoteFieldToInquiryList,
@@ -72,6 +87,8 @@ function serializeTemplate(
     renderMode: t.renderMode,
     version: t.version,
     isDefault: t.isDefault,
+    industryPackId: t.industryPackId,
+    guideSections: resolveStoredOrDefaultGuide(t).sections,
     sortOrder: t.sortOrder,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
@@ -101,12 +118,41 @@ router.get('/system-fields', requireStaffPermission('orderform.templates'), (_re
   res.json({ items: ORDER_FORM_SYSTEM_FIELDS });
 });
 
+/** 업종 기본 안내 — 편집 화면 「기본 문구로 초기화」 */
+router.get('/guide-defaults', requireStaffPermission('orderform.templates', 'orderform.formConfig'), (req, res) => {
+  const pack = inferOrderFormIndustryPackId({
+    industryPackId: typeof req.query.pack === 'string' ? req.query.pack : null,
+    title: typeof req.query.title === 'string' ? req.query.title : null,
+  });
+  res.json({ packId: pack, sections: defaultGuideSectionsForPack(pack) });
+});
+
+/** 전화·수기 접수에 쓰는 공통 칸 (기본 입주청소 손님 화면은 그대로) */
+router.get('/inquiry-intake-fields', requireStaffPermission('orderform.templates'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+  if (!tenantId) return;
+  const state = await getTenantInquiryIntakeFieldsState(prisma, tenantId);
+  res.json(state);
+});
+
+router.put('/inquiry-intake-fields', requireStaffPermission('orderform.templates'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+  if (!tenantId) return;
+  try {
+    const state = await saveTenantInquiryIntakeFields(prisma, tenantId, (req.body as { keys?: unknown }).keys);
+    res.json(state);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '저장에 실패했습니다.' });
+  }
+});
+
 /** 템플릿 목록 — 발급(issue)은 발행(PUBLISHED)만, 템플릿 관리 권한은 전체 */
-router.get('/', requireStaffPermission('orderform.templates', 'orderform.issue'), async (req, res) => {
+router.get('/', requireStaffPermission('orderform.templates', 'orderform.issue', 'orderform.formConfig'), async (req, res) => {
   const user = authUser(req);
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const canManageTemplates = await staffHasPermission(user, 'orderform.templates');
+  await ensureAirconOrderFormTemplate(prisma, tenantId);
   const rows = await prisma.orderFormTemplate.findMany({
     where: {
       tenantId,
@@ -141,11 +187,41 @@ router.get('/:id', requireStaffPermission('orderform.templates'), async (req, re
   res.json({ template: serializeTemplate(row) });
 });
 
+/** 이 양식 고객 안내 저장 */
+router.put('/:id/guide', requireStaffPermission('orderform.templates', 'orderform.formConfig'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+  if (!tenantId) return;
+  const owned = await prisma.orderFormTemplate.findFirst({
+    where: { id: req.params.id, tenantId },
+    include: { fields: true },
+  });
+  if (!owned) {
+    res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    return;
+  }
+  const sections = normalizeGuideSectionsInput((req.body as { sections?: unknown }).sections ?? req.body);
+  if (!sections?.length) {
+    res.status(400).json({ error: '최소 한 개 섹션에 안내 문구를 입력해 주세요.' });
+    return;
+  }
+  const row = await prisma.orderFormTemplate.update({
+    where: { id: owned.id },
+    data: { guideSections: guideSectionsToJson(sections) },
+    include: { fields: true },
+  });
+  res.json({ template: serializeTemplate(row) });
+});
+
 /** 템플릿 생성(초안) */
 router.post('/', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
-  const body = req.body as { title?: unknown; icon?: unknown; description?: unknown };
+  const body = req.body as {
+    title?: unknown;
+    icon?: unknown;
+    description?: unknown;
+    industryPackId?: unknown;
+  };
   const title = typeof body.title === 'string' ? body.title.trim() : '';
   if (!title || title.length > 128) {
     res.status(400).json({ error: '템플릿 이름을 입력해 주세요. (128자 이내)' });
@@ -155,6 +231,10 @@ router.post('/', requireStaffPermission('orderform.templates'), async (req, res)
   const maxSort = await prisma.orderFormTemplate.aggregate({
     where: { tenantId },
     _max: { sortOrder: true },
+  });
+  const packId = inferOrderFormIndustryPackId({
+    industryPackId: typeof body.industryPackId === 'string' ? body.industryPackId : null,
+    title,
   });
   const created = await prisma.orderFormTemplate.create({
     data: {
@@ -169,6 +249,8 @@ router.post('/', requireStaffPermission('orderform.templates'), async (req, res)
       renderMode: 'TEMPLATE',
       version: 1,
       isDefault: false,
+      industryPackId: packId,
+      guideSections: guideSectionsToJson(defaultGuideSectionsForPack(packId)),
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
       createdById: authUser(req).userId,
     },
@@ -328,11 +410,42 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
       placeholder,
       optionStyle,
       optionLayout,
-      required: typeof f.required === 'boolean' ? f.required : false,
+      required:
+        systemField && (IDENTITY_REQUIRED_SYSTEM_FIELD_KEYS as readonly string[]).includes(systemField)
+          ? true
+          : typeof f.required === 'boolean'
+            ? f.required
+            : false,
       sortOrder: i,
       systemField,
       fillMode,
       showInInquiryList,
+    });
+  }
+
+  const quoteTimeOptions = ['오전', '오후', '사이청소', '조율'];
+  for (const key of ORDER_FORM_QUOTE_ALWAYS_ON_FIELD_KEYS) {
+    if (seenSystem.has(key) || seenKeys.has(key)) continue;
+    const def = ORDER_FORM_SYSTEM_FIELDS.find((f) => f.key === key);
+    if (!def) continue;
+    seenKeys.add(key);
+    seenSystem.add(key);
+    const isTime = key === 'preferredTime';
+    const isMoney = key === 'totalAmount' || key === 'depositAmount' || key === 'balanceAmount';
+    prepared.push({
+      fieldKey: key,
+      label: key === 'preferredTimeDetail' ? '구체적 시각' : def.label,
+      helpText: null,
+      inputType: def.inputType,
+      options: isTime ? quoteTimeOptions : [],
+      placeholder: null,
+      optionStyle: isTime ? 'DROPDOWN' : null,
+      optionLayout: null,
+      required: isTime,
+      sortOrder: prepared.length,
+      systemField: key,
+      fillMode: isMoney ? 'ADMIN_PREFILL' : 'CUSTOMER',
+      showInInquiryList: false,
     });
   }
 
@@ -418,10 +531,6 @@ router.post('/:id/unpublish', requireStaffPermission('orderform.templates'), asy
   });
   if (!owned) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
-    return;
-  }
-  if (owned.isDefault) {
-    res.status(400).json({ error: '기본 발주서는 발행 해제할 수 없습니다.' });
     return;
   }
   const updated = await prisma.orderFormTemplate.update({
@@ -515,17 +624,23 @@ router.post('/:id/delete', requireStaffPermission('orderform.templates'), async 
   }
   const owned = await prisma.orderFormTemplate.findFirst({
     where: { id: req.params.id, tenantId },
-    select: { id: true, isDefault: true },
+    select: { id: true, isDefault: true, status: true },
   });
   if (!owned) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
     return;
   }
   if (owned.isDefault) {
-    res.status(400).json({ error: '기본 발주서는 삭제할 수 없습니다.' });
+    res.status(400).json({ error: '기본 발주서는 삭제할 수 없습니다. 사용 끄기만 할 수 있습니다.' });
     return;
   }
-  await prisma.orderFormTemplate.delete({ where: { id: owned.id } });
+  if (owned.status === 'PUBLISHED') {
+    res.status(400).json({ error: '사용 중인 발주서는 삭제할 수 없습니다. 먼저 사용 끄기를 해 주세요.' });
+    return;
+  }
+  await prisma.orderFormTemplate.deleteMany({
+    where: { id: owned.id, tenantId, isDefault: false },
+  });
   res.json({ ok: true as const });
 });
 

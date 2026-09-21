@@ -54,8 +54,10 @@ import {
   projectAfterPatch,
 } from './inquiryPatch.helpers.js';
 import {
+  listPublishedIntakeTemplates,
   loadInquiryIntakeFormProfile,
   parseOrderFormAnswersBody,
+  resolvePublishedIntakeTemplateId,
   syncOrderFormCustomAnswersFromInquiryPatch,
 } from './inquiryIntakeFormProfile.service.js';
 import {
@@ -640,7 +642,7 @@ router.post('/admin/bulk-delete-by-month', requireStaffPermission('inquiry.bulkD
   res.json({ deleted });
 });
 
-/** 접수·신규 작성 — 이 업체의 발주서 양식(없으면 기본) */
+/** 접수·신규 작성 — 이 접수가 쓰는 발주서 양식(사용함 중 하나) */
 router.get('/intake-form-profile', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
@@ -649,10 +651,13 @@ router.get('/intake-form-profile', async (req, res) => {
     return;
   }
   const inquiryId = typeof req.query.inquiryId === 'string' ? req.query.inquiryId.trim() : '';
+  const templateIdQuery = typeof req.query.templateId === 'string' ? req.query.templateId.trim() : '';
+  const publishedTemplates = await listPublishedIntakeTemplates(prisma, tenantId);
   if (inquiryId) {
     const row = await prisma.inquiry.findFirst({
       where: { id: inquiryId, tenantId, ...inquiryActiveOnlyWhere() },
       select: {
+        intakeTemplateId: true,
         orderForm: { select: { id: true, templateId: true, submittedAt: true } },
       },
     });
@@ -662,14 +667,26 @@ router.get('/intake-form-profile', async (req, res) => {
     }
     const profile = await loadInquiryIntakeFormProfile(prisma, tenantId, {
       orderFormId: row.orderForm?.id,
-      templateId: row.orderForm?.templateId,
+      templateId: row.orderForm?.templateId ?? row.intakeTemplateId,
       submittedAt: row.orderForm?.submittedAt,
     });
-    res.json(profile);
+    res.json({ ...profile, publishedTemplates });
     return;
   }
-  const profile = await loadInquiryIntakeFormProfile(prisma, tenantId, {});
-  res.json(profile);
+  if (templateIdQuery) {
+    const allowed = publishedTemplates.some((t) => t.id === templateIdQuery);
+    if (!allowed) {
+      res.status(400).json({ error: '사용 중인 발주서가 아닙니다.' });
+      return;
+    }
+  }
+  const resolved = templateIdQuery
+    ? { id: templateIdQuery }
+    : await resolvePublishedIntakeTemplateId(prisma, tenantId, null);
+  const profile = await loadInquiryIntakeFormProfile(prisma, tenantId, {
+    templateId: resolved && resolved !== 'invalid' ? resolved.id : null,
+  });
+  res.json({ ...profile, publishedTemplates });
 });
 
 /** 단일 접수 상세 (목록 항목과 동일 include — 딥링크·C/S 연결 등) */
@@ -707,7 +724,7 @@ router.get('/:id', async (req, res) => {
   );
   const intakeFormProfile = await loadInquiryIntakeFormProfile(prisma, tenantId, {
     orderFormId: inquiryFresh.orderForm?.id,
-    templateId: inquiryFresh.orderForm?.templateId,
+    templateId: inquiryFresh.orderForm?.templateId ?? inquiryFresh.intakeTemplateId,
     submittedAt: inquiryFresh.orderForm?.submittedAt,
   });
   res.json(
@@ -1720,12 +1737,19 @@ router.patch('/:id', async (req, res) => {
         await tx.inquiry.update({ where: { id }, data: updateData });
       }
       const orderFormAnswers = parseOrderFormAnswersBody(body.orderFormAnswers);
-      if (orderFormAnswers && inquiry.orderForm?.id) {
-        await syncOrderFormCustomAnswersFromInquiryPatch(tx, {
-          tenantId,
-          orderFormId: inquiry.orderForm.id,
-          answers: orderFormAnswers,
-        });
+      if (orderFormAnswers) {
+        if (inquiry.orderForm?.id) {
+          await syncOrderFormCustomAnswersFromInquiryPatch(tx, {
+            tenantId,
+            orderFormId: inquiry.orderForm.id,
+            answers: orderFormAnswers,
+          });
+        } else {
+          await tx.inquiry.update({
+            where: { id },
+            data: { intakeCustomAnswers: orderFormAnswers as Prisma.InputJsonValue },
+          });
+        }
       }
       if (crewRosterChanged) {
         await clearInquiryCrewMemberMeetingTimes(tx, id);

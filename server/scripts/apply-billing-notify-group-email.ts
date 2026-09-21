@@ -41,6 +41,7 @@ async function main() {
       invoiceStatus: 'ISSUED',
       requesterName: '시스템 연동 테스트',
       requesterEmail: PLATFORM_SYSTEM_MAIL_FROM,
+      isTest: true,
     });
     console.log('test mail result:', mail);
   } finally {

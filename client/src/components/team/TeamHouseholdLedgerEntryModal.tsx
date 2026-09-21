@@ -138,7 +138,7 @@ export function TeamHouseholdLedgerEntryModal({
       >
         <div className="relative shrink-0 border-b border-slate-200 px-4 py-3 pr-12">
           <h2 id="household-ledger-modal-title" className="text-fluid-sm font-semibold text-slate-900">
-            {editing ? '가계부 수정' : '가계부 추가'}
+            {editing ? '수입/지출 수정' : '수입/지출 추가'}
           </h2>
           <ModalCloseButton onClick={onClose} />
         </div>

@@ -85,6 +85,7 @@ function MockIssueCompleteCard({ enlarged }: { enlarged?: boolean }) {
       <div className="flex flex-wrap gap-1.5">
         <span className={`${btn} bg-gray-800 text-white`}>메시지 복사</span>
         <span className={`${btn} bg-gray-700 text-white`}>링크 복사</span>
+        <span className={`${btn} bg-yellow-500 text-gray-900`}>알림톡 발송</span>
         <span className={`${btn} border border-gray-300 bg-white text-gray-800`}>새 창</span>
         <span className={`${btn} bg-emerald-600 text-white`}>미리 작성</span>
         <span className={`${btn} border border-sky-300 bg-sky-50 text-sky-900`}>새로 발급</span>

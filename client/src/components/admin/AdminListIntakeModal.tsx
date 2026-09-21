@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { createOrderFollowup } from '../../api/orderFollowups';
-import { createInquiry, updateInquiry } from '../../api/inquiries';
+import { createInquiry, getInquiryIntakeFormProfile, updateInquiry } from '../../api/inquiries';
+import type { InquiryIntakeFormProfile, PublishedIntakeTemplateOption } from '@shared/inquiryFormProfile';
+import { inquiryFormHasSystemField } from '@shared/inquiryFormProfile';
+import { InquiryIntakeTemplatePicker } from './inquiry-edit/InquiryIntakeTemplatePicker';
+import { InquiryEditCustomAnswersSection } from './inquiry-edit/InquiryEditCustomAnswersSection';
 import { ModalCloseButton } from './ModalCloseButton';
 import { ORDER_FOLLOWUP_STATUS_LABEL, type OrderFollowupStatus } from '../../constants/orderFollowupStatus';
 import { FollowupIntakeExtrasFields } from '../order-followup/FollowupIntakeExtrasFields';
@@ -68,8 +72,35 @@ export function AdminListIntakeModal({
     emptyFollowupIntakeExtrasForm(),
   );
   const [saving, setSaving] = useState(false);
+  const [publishedIntakeTemplates, setPublishedIntakeTemplates] = useState<PublishedIntakeTemplateOption[]>(
+    [],
+  );
+  const [intakeTemplateId, setIntakeTemplateId] = useState<string | null>(null);
+  const [intakeProfile, setIntakeProfile] = useState<InquiryIntakeFormProfile | null>(null);
+  const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
+
+  useEffect(() => {
+    if (!open || !token || editMode) return;
+    let cancelled = false;
+    void getInquiryIntakeFormProfile(token, { templateId: intakeTemplateId })
+      .then((profile) => {
+        if (cancelled) return;
+        setPublishedIntakeTemplates(profile.publishedTemplates);
+        setIntakeProfile(profile);
+        if (!intakeTemplateId && profile.templateId) setIntakeTemplateId(profile.templateId);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPublishedIntakeTemplates([]);
+          setIntakeProfile(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, token, editMode, intakeTemplateId]);
 
   useEffect(() => {
     if (!open) return;
@@ -95,6 +126,9 @@ export function AdminListIntakeModal({
     setGoldDb(false);
     setCollaborationMarketerId('');
     setIntakeExtras(emptyFollowupIntakeExtrasForm());
+    setIntakeTemplateId(null);
+    setIntakeProfile(null);
+    setCustomAnswers({});
   }, [open, editMode, editInquiryId, editSeed]);
 
   const submit = async () => {
@@ -104,15 +138,34 @@ export function AdminListIntakeModal({
       alert('고객명을 입력해 주세요.');
       return;
     }
-    const pyeongErr = validateFollowupIntakeExtrasPyeong(intakeExtras.pyeong);
+    const showArea = inquiryFormHasSystemField(intakeProfile, 'areaPyeong');
+    const showRooms = inquiryFormHasSystemField(intakeProfile, 'roomCount');
+    const showBathrooms = inquiryFormHasSystemField(intakeProfile, 'bathroomCount');
+    const showBalcony = inquiryFormHasSystemField(intakeProfile, 'balconyCount');
+    const extrasForSave = {
+      address: intakeExtras.address,
+      pyeong: showArea ? intakeExtras.pyeong : '',
+      roomCount: showRooms ? intakeExtras.roomCount : '',
+      bathroomCount: showBathrooms ? intakeExtras.bathroomCount : '',
+      balconyCount: showBalcony ? intakeExtras.balconyCount : '',
+    };
+    const pyeongErr = showArea ? validateFollowupIntakeExtrasPyeong(extrasForSave.pyeong) : null;
     if (pyeongErr) {
       alert(pyeongErr);
       return;
     }
-    const extrasPayload = buildFollowupIntakeExtrasPayload(intakeExtras);
+    const extrasPayload = buildFollowupIntakeExtrasPayload(extrasForSave);
+    const allowedKeys = new Set((intakeProfile?.customFields ?? []).map((f) => f.fieldKey));
+    const trimmedAnswers = Object.fromEntries(
+      Object.entries(customAnswers).filter(([key]) => allowedKeys.has(key)),
+    );
+    const answersToSave =
+      Object.keys(trimmedAnswers).length > 0 ? { orderFormAnswers: trimmedAnswers } : {};
     setSaving(true);
     try {
-      const pmd = preferredMoveInCleanYmd.trim();
+      const pmd = inquiryFormHasSystemField(intakeProfile, 'moveInDate')
+        ? preferredMoveInCleanYmd.trim()
+        : '';
       const pmdBody = pmd ? { preferredMoveInCleaningDate: pmd } : {};
       if (kind === 'requested' || kind === 'absent' || kind === 'hold') {
         const status: OrderFollowupStatus =
@@ -149,11 +202,17 @@ export function AdminListIntakeModal({
         customerName: n,
         nickname: nickname.trim() || null,
         customerPhone: phone.trim() || '',
-        address: '',
+        address: extrasPayload.address || '',
         addressDetail: null,
+        areaPyeong: extrasPayload.areaPyeong,
+        roomCount: extrasPayload.roomCount,
+        bathroomCount: extrasPayload.bathroomCount,
+        balconyCount: extrasPayload.balconyCount,
         memo: memo.trim() || null,
         source: '전화',
         status: inqSt,
+        ...(intakeTemplateId ? { intakeTemplateId } : {}),
+        ...answersToSave,
         ...(collaborationMarketerId.trim()
           ? { collaborationMarketerId: collaborationMarketerId.trim() }
           : {}),
@@ -182,6 +241,13 @@ export function AdminListIntakeModal({
     }
   };
 
+  const showArea = inquiryFormHasSystemField(intakeProfile, 'areaPyeong');
+  const showRooms = inquiryFormHasSystemField(intakeProfile, 'roomCount');
+  const showBathrooms = inquiryFormHasSystemField(intakeProfile, 'bathroomCount');
+  const showBalcony = inquiryFormHasSystemField(intakeProfile, 'balconyCount');
+  const showMoveInDate = inquiryFormHasSystemField(intakeProfile, 'moveInDate');
+  const customFields = intakeProfile?.customFields ?? [];
+
   if (!open || !token) return null;
 
   return createPortal(
@@ -209,6 +275,17 @@ export function AdminListIntakeModal({
           onFocusCapture={onFieldFocus}
           className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3"
         >
+          {!editMode ? (
+            <InquiryIntakeTemplatePicker
+              templates={publishedIntakeTemplates}
+              selectedId={intakeTemplateId}
+              onSelect={(id) => {
+                setIntakeTemplateId(id);
+                setCustomAnswers({});
+              }}
+              compact
+            />
+          ) : null}
           <div>
             <label className="mb-1 block text-fluid-xs font-medium text-gray-700">고객명 *</label>
             <input
@@ -243,26 +320,41 @@ export function AdminListIntakeModal({
               disabled={saving}
             />
           </div>
-          <div>
-            <label className="mb-1 block text-fluid-xs font-medium text-gray-700">
-              입주청소 희망날짜 (선택)
-            </label>
-            <input
-              type="date"
-              value={preferredMoveInCleanYmd}
-              onChange={(e) => setPreferredMoveInCleanYmd(e.target.value)}
-              className="w-full max-w-[280px] rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm tabular-nums"
-              disabled={saving}
-            />
-            <p className="mt-1 text-fluid-3xs text-gray-500">
-              선택 시 부재현황 목록에 등록일 옆으로 희망일이 함께 표시됩니다.
-            </p>
-          </div>
+          {showMoveInDate ? (
+            <div>
+              <label className="mb-1 block text-fluid-xs font-medium text-gray-700">
+                입주청소 희망날짜 (선택)
+              </label>
+              <input
+                type="date"
+                value={preferredMoveInCleanYmd}
+                onChange={(e) => setPreferredMoveInCleanYmd(e.target.value)}
+                className="w-full max-w-[280px] rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm tabular-nums"
+                disabled={saving}
+              />
+              <p className="mt-1 text-fluid-3xs text-gray-500">
+                선택 시 부재현황 목록에 등록일 옆으로 희망일이 함께 표시됩니다.
+              </p>
+            </div>
+          ) : null}
           <FollowupIntakeExtrasFields
             value={intakeExtras}
             onChange={(patch) => setIntakeExtras((prev) => ({ ...prev, ...patch }))}
             disabled={saving}
+            showArea={showArea}
+            showRooms={showRooms}
+            showBathrooms={showBathrooms}
+            showBalcony={showBalcony}
           />
+          {!editMode && customFields.length > 0 ? (
+            <InquiryEditCustomAnswersSection
+              fields={customFields}
+              values={customAnswers}
+              onChange={setCustomAnswers}
+              compact
+              disabled={saving}
+            />
+          ) : null}
           {!editMode ? (
             <CollaborationMarketerSelect
               value={collaborationMarketerId}

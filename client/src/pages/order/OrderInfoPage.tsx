@@ -28,14 +28,17 @@ export function OrderInfoPage() {
   const [searchParams] = useSearchParams();
   const brandSlug =
     searchParams.get('brand')?.trim().toLowerCase() || resolvePublicBrandSlug() || undefined;
+  const templateId = searchParams.get('templateId')?.trim() || undefined;
+  const [formTitle, setFormTitle] = useState('');
   const [sections, setSections] = useState<GuideSection[]>(ORDER_GUIDE_DEFAULT_SECTIONS);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    getPublicOrderGuide({ brandSlug })
+    getPublicOrderGuide({ brandSlug, templateId })
       .then((data) => {
         if (data.sections?.length) setSections(data.sections);
+        if (data.formTitle?.trim()) setFormTitle(data.formTitle.trim());
         setLoadError(false);
       })
       .catch(() => {
@@ -43,7 +46,7 @@ export function OrderInfoPage() {
         setSections(ORDER_GUIDE_DEFAULT_SECTIONS);
       })
       .finally(() => setLoading(false));
-  }, [brandSlug]);
+  }, [brandSlug, templateId]);
 
   const tryLeavePage = useCallback(() => {
     tryLeavePublicPage();
@@ -60,7 +63,9 @@ export function OrderInfoPage() {
         <div className="flex min-w-0 items-start justify-between gap-3 bg-gray-800 px-6 py-5 text-white">
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-semibold tracking-tight">서비스 안내사항</h1>
-            <p className="mt-1 text-sm text-gray-300">입주청소 이용 시 꼭 확인해 주세요</p>
+            <p className="mt-1 text-sm text-gray-300">
+              {formTitle ? `${formTitle} 이용 시 꼭 확인해 주세요` : '이용 시 꼭 확인해 주세요'}
+            </p>
           </div>
           <button
             type="button"

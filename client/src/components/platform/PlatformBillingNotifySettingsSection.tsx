@@ -69,7 +69,8 @@ export function PlatformBillingNotifySettingsSection({
           <>
             {' '}
             발신 From: <span className="font-mono text-gray-700">{PLATFORM_SYSTEM_MAIL_FROM}</span>
-            · 제목 예: [업체명] 입금확인요청
+            · 제목 예: [업체명] 입금확인요청 · 메일 <strong>결재확인</strong>으로 업체를 바로 활성화할 수
+            있습니다.
           </>
         ) : null}
       </p>

@@ -88,6 +88,21 @@ export function OrderIssueHelpCopyLinkButton(props: Omit<ButtonHTMLAttributes<HT
   );
 }
 
+export function OrderIssueHelpAlimtalkButton(props: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>) {
+  return (
+    <HelpUiShell>
+      <button
+        type="button"
+        className={`${completeBtn} bg-yellow-500 text-gray-900`}
+        {...previewProps()}
+        {...props}
+      >
+        알림톡 발송
+      </button>
+    </HelpUiShell>
+  );
+}
+
 export function OrderIssueHelpPrefillButton(props: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>) {
   return (
     <HelpUiShell>

@@ -154,6 +154,10 @@ export function PlatformSettingsBillingNotifyTab() {
           </li>
           <li>메일 제목: [업체명] 입금확인요청</li>
           <li>
+            메일 안의 <strong>결재확인</strong>을 누르면 미리보기가 열리고, 다음 화면에서 한 번 더
+            누르면 해당 업체가 바로 활성화됩니다. (연습 메일은 활성화되지 않음)
+          </li>
+          <li>
             팝업 문구·입금 계좌는{' '}
             <Link to="/platform/popups/unpaid" className="text-blue-600 hover:underline">
               안내팝업 → 미결재 팝업

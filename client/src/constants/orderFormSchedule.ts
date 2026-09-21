@@ -2,7 +2,10 @@ import {
   DEFAULT_ORDER_TIME_SLOT_LABELS,
   ORDER_TIME_SLOT_VALUES,
   buildOrderTimeSlotOptions,
+  buildTimeSlotOptionsForForm,
+  isAllowedPreferredTimeValue,
   labelForTimeSlotFromLabels,
+  preferredTimeOptionsFromTemplateFields,
   shortTimeSlotLabelFromLabels,
   type OrderTimeSlot,
   type OrderTimeSlotLabels,
@@ -34,4 +37,11 @@ export function shortTimeSlotLabel(
   return shortTimeSlotLabelFromLabels(value, labels);
 }
 
-export { DEFAULT_ORDER_TIME_SLOT_LABELS, ORDER_TIME_SLOT_VALUES, buildOrderTimeSlotOptions };
+export {
+  DEFAULT_ORDER_TIME_SLOT_LABELS,
+  ORDER_TIME_SLOT_VALUES,
+  buildOrderTimeSlotOptions,
+  buildTimeSlotOptionsForForm,
+  isAllowedPreferredTimeValue,
+  preferredTimeOptionsFromTemplateFields,
+};

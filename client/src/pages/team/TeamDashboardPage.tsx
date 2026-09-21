@@ -17,7 +17,7 @@ import {
   STATUS_LABELS,
   type InquiryItem,
   formatScheduleLine,
-  formatRoomInfo,
+  formatTeamInquiryStructure,
   relativeDateHint,
   TeamHappyCallBadge,
   TeamInspectionStatusBadge,
@@ -30,6 +30,7 @@ import {
   TeamInquiryServiceKindListBadge,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
+import { TeamInquiryIntakeListChips } from '../../components/team/TeamInquiryIntakeAnswers';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
@@ -314,6 +315,7 @@ export function TeamDashboardPage() {
                         <TeamInquiryServiceKindListBadge item={item} />
                         <TeamInquiryListAmountNotesBadges item={item} />
                         <TeamInquiryAreaListBadge item={item} />
+                        <TeamInquiryIntakeListChips item={item} />
                       </div>
                       {memoSubtitle ? (
                         <p className={`mt-px ${TEAM_CARD_META} text-gray-700`} title={memoTrim}>
@@ -329,7 +331,10 @@ export function TeamDashboardPage() {
                         </p>
                       ) : null}
                       <div className={`mt-px ${TEAM_CARD_META} text-gray-700`}>
-                        {formatScheduleLine(item, timeSlotLabels)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
+                        {formatScheduleLine(item, timeSlotLabels)}
+                        {formatTeamInquiryStructure(item) !== teamBiPlain('team.common.emDash')
+                          ? ` · ${formatTeamInquiryStructure(item)}`
+                          : ''}
                       </div>
                       <div
                         className={`mt-0.5 ${TEAM_CARD_META} text-gray-600`}
@@ -414,6 +419,7 @@ export function TeamDashboardPage() {
                               <TeamInquiryServiceKindListBadge item={item} />
                               <TeamInquiryListAmountNotesBadges item={item} />
                               <TeamInquiryAreaListBadge item={item} />
+                              <TeamInquiryIntakeListChips item={item} />
                             </div>
                             {memoSubtitle ? (
                               <div

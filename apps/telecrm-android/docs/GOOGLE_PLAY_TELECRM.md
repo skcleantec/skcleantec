@@ -29,7 +29,7 @@
 |--|-----------------|---------------|
 | 패키지 | `com.skcleantec.telecrm.internal` | **`com.cbiseo.marketer`** |
 | Gradle flavor | `sideload` (`assembleSideloadRelease`) | **`play`** (`bundlePlayRelease`) |
-| APK 자동 업데이트 | `/api/public/telecrm-app/manifest` | **없음** (Play Store) |
+| APK 자동 업데이트 | `/api/public/telecrm-app/manifest` | **Play 인앱 필수 업데이트** (새 프로덕션 버전 → 닫을 수 없는 안내) |
 | `REQUEST_INSTALL_PACKAGES` | sideload APK에 포함 (`app/src/sideload/AndroidManifest.xml`) | **Play AAB에 없음** (main manifest 미포함) |
 | 표시명 | 청소비서 전화 | **청소비서(마케터)** |
 | 덮어쓰기 | — | **불가** (패키지가 다름 → 기존 앱 삭제 후 새로 설치) |
@@ -48,7 +48,7 @@ Play 등록 **전**에 Gradle `applicationId`를 `com.cbiseo.marketer`로 맞춘
 
 ## 3. AAB 빌드 · 업로드
 
-Play 배포본은 **`play` product flavor** 로 빌드합니다. sideload APK 자동 업데이트·`REQUEST_INSTALL_PACKAGES` 권한은 **Play AAB에 포함되지 않습니다** (`sideload` flavor manifest 전용).
+Play 배포본은 **`play` product flavor** 로 빌드합니다. sideload APK 자동 설치 권한은 **Play AAB에 포함되지 않습니다**. 프로덕션에 새 버전이 올라가면 앱이 **필수 업데이트**를 띄웁니다(닫기·나중에 없음).
 
 ```powershell
 cd apps\telecrm-android
@@ -57,9 +57,12 @@ cd apps\telecrm-android
 
 Gradle 직접 실행: `.\gradlew.bat bundlePlayRelease`
 
-출력: `dist/telecrm-play-{versionName}-{versionCode}.aab`
+출력: `dist/telecrm-play-{versionName}-{versionCode}.aab`  
+가독화 파일: `dist/telecrm-play-{versionName}-{versionCode}-mapping.txt` (AAB에도 포함)
 
 Play Console → **테스트 → 내부 테스트** → **새 버전 만들기** → AAB 업로드
+
+출시 빌드는 **R8(코드 축소·난독화)** 이 켜져 있습니다. AAB를 올리면 Play가 매핑 파일을 같이 받아 비정상 종료·ANR 스택을 풀어 줍니다. 콘솔이 가독화 파일을 따로 요구하면 위 `mapping.txt`를 **앱 번들 탐색기**에서 같은 버전 코드에 올리면 됩니다.
 
 | 항목 | 확인 위치 |
 |------|-----------|
@@ -320,9 +323,9 @@ Play 스토어에 표시될 설명(한국어 예시):
 
 ## 7. 테스트 트랙
 
-1. **내부 테스트** — 사무실 Gmail
-2. **비공개 테스트** — 상담사 (v28 AAB · targetSdk 36)
-3. **프로덕션** — 심사 후 공개
+1. **내부 테스트** — 사무실 Gmail (v31 AAB · targetSdk 36)
+2. **비공개 테스트** — 상담사 (내부 v31을 승격 · targetSdk 36)
+3. **프로덕션** — **2026-09-03 검토 완료·출시** (API 36). 내부·비공개는 v31로 교체해 정책 경고 해소
 
 > **versionCode**는 트랙 간 **전역 유일** — 내부에 올린 번호와 같으면 비공개 업로드 거부 → 매번 +1.
 

@@ -92,7 +92,7 @@ export const ORDER_FORM_FILL_RULE_FIELDS: readonly OrderFormFillRuleFieldMeta[] 
     key: 'customerPhone',
     section: 'contact',
     label: '대표 연락처',
-    help: '고객과 연락하는 대표 번호입니다.',
+    help: '고객과 연락하는 대표 번호입니다. 알림톡을 보내려면 이 번호를 적어야 합니다.',
   },
   {
     key: 'customerPhone2',
@@ -265,6 +265,40 @@ export function isFillRequired(flags: OrderFormFillRuleFlags): boolean {
 export function marketerMustFillAtIssue(flags: OrderFormFillRuleFlags): boolean {
   return flags.required && canMarketerWrite(flags) && !canCustomerWrite(flags);
 }
+
+export type IssueFillWhoKind = 'marketer_required' | 'customer_required' | 'both';
+
+export function describeIssueFillWho(flags: OrderFormFillRuleFlags): {
+  kind: IssueFillWhoKind;
+  label: string;
+} {
+  if (marketerMustFillAtIssue(flags)) {
+    return { kind: 'marketer_required', label: '마케터 필수' };
+  }
+  const customerOnly = canCustomerWrite(flags) && !canMarketerWrite(flags);
+  if (customerOnly && flags.required) {
+    return { kind: 'customer_required', label: '고객 필수' };
+  }
+  return { kind: 'both', label: '둘 다 가능' };
+}
+
+export function flagsFromTemplateFillMode(
+  mode: string | null | undefined,
+  required: boolean,
+): OrderFormFillRuleFlags {
+  if (mode === 'ADMIN_LOCKED') return { customer: false, marketer: true, required };
+  if (mode === 'ADMIN_PREFILL') return { customer: true, marketer: true, required };
+  return { customer: true, marketer: false, required };
+}
+
+export const ISSUE_AMOUNT_MARKETER_REQUIRED: OrderFormFillRuleFlags = {
+  customer: false,
+  marketer: true,
+  required: true,
+};
+
+export const ISSUE_ALIMTALK_PHONE_HINT =
+  '알림톡을 보내려면 고객 전화번호(대표 연락처)를 적어 주세요. 번호가 없으면 알림톡을 보낼 수 없습니다.';
 
 export function customerMaySkipAtSubmit(flags: OrderFormFillRuleFlags): boolean {
   return !flags.required;

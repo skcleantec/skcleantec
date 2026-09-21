@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-14-payroll-asof",
+  "_lastUpdated": "2026-09-21-form-settings-split",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -269,7 +269,7 @@
       "visual": { "type": "placeholder", "token": "slate-100" },
       "defaultVisible": true,
       "userConfigurable": true,
-      "settingsPath": "/admin/inquiries/order-customer-preview?panel=guide",
+      "settingsPath": "/admin/inquiries/order-customer-preview?section=guide",
       "helpPath": "admin.orderForm.guide.brandOverride",
       "codeRefs": [
         "client/src/pages/admin/AdminOrderFormNoticePage.tsx"
@@ -413,6 +413,21 @@
       "notes": "발급 제목 옆 「설정」→모달. 기본 체크=현재 발주서(면적만 마케터+필수). 항목 ? 도움말. 사진 칸 자체 ON/OFF는 발주서 양식."
     },
     {
+      "id": "orderForm.issue.fillWhoBadge",
+      "labelKo": "발주서 발급 · 마케터 필수 / 고객 필수 / 둘 다 가능",
+      "surfaces": ["admin.orderIssue"],
+      "visual": { "type": "badge", "token": "rose-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-issue?issueView=settings",
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/components/orderform/OrderFormIssueFillWho.tsx",
+        "client/src/pages/order/OrderFormPage.tsx"
+      ],
+      "notes": "상담사 발급 화면만. 범례는 끄지 않음. 작성 설정 체크와 같은 뜻. 알림톡은 대표 연락처 필요."
+    },
+    {
       "id": "orderForm.template.section.photos",
       "labelKo": "고객 발주서 · 현장 사진 첨부",
       "surfaces": ["admin.inquiries.order-templates", "public.orderForm"],
@@ -441,7 +456,7 @@
         "client/src/components/admin/workflow-guide/StaffWorkflowGuideBar.tsx",
         "client/src/components/layout/AdminInquiriesLayout.tsx"
       ],
-      "notes": "번호 클릭 시 사용법·아이콘·색·설정. 접기·다시 보지 않기(localStorage)."
+      "notes": "번호 클릭 시 사용법·아이콘·색·설정. 발주서 발급은 「알림톡 발송」과 「메시지 복사」·「링크 복사」를 자세히 안내. 접기·다시 보지 않기(localStorage)."
     },
     {
       "id": "admin.workflowGuide.schedule",
@@ -668,6 +683,131 @@
         "client/src/pages/admin/AdminPayrollPage.tsx"
       ],
       "notes": "시작일~종료일이 월급 주기와 다를 때. 정산완료는 주기 전체만. 끄면 미리보기와 확정이 섞임."
+    },
+    {
+      "id": "inquiry.intake.pickTemplate",
+      "labelKo": "이 접수에 쓸 발주서",
+      "surfaces": ["admin.inquiry.create", "admin.schedule.create", "admin.listIntake"],
+      "visual": { "type": "chip", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/admin/inquiry-edit/InquiryIntakeTemplatePicker.tsx",
+      "codeRefs": [
+        "client/src/components/admin/inquiry-edit/InquiryIntakeTemplatePicker.tsx",
+        "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts"
+      ],
+      "notes": "사용함 양식이 2개 이상일 때 일반 등록·수동접수에서 칩으로 고름. 고른 양식 칸만 보임. 에어컨 양식이면 평수·화장실 숨기고 청소할 에어컨을 접수에 바로 적음. 입주청소 기본은 손님 칸 전부."
+    },
+    {
+      "id": "team.inquiry.intakeFields",
+      "labelKo": "발주서 추가 정보 (팀장)",
+      "surfaces": [
+        "team.assignments.list",
+        "team.schedule.list",
+        "team.dashboard.list",
+        "team.inquiry.detail"
+      ],
+      "visual": { "type": "chip", "token": "sky-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/team/TeamInquiryIntakeAnswers.tsx",
+      "codeRefs": [
+        "client/src/utils/teamInquiryIntakeDisplay.ts",
+        "shared/inquiryIntakeDisplay.ts",
+        "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts"
+      ],
+      "notes": "관리 접수 수정과 같은 양식 프로필. 끈 칸은 팀장 목록·상세에서 숨김. 추가 칸은 하늘색 칩+발주서 추가 정보. 끄면 현장 정보가 빠짐 — 범례만."
+    },
+    {
+      "id": "orderform.template.inUse",
+      "labelKo": "발주서 사용함",
+      "surfaces": ["admin.orderTemplates.list", "admin.orderForm.issue"],
+      "visual": { "type": "toggle", "token": "emerald-600" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormTemplateListPanel.tsx",
+      "codeRefs": [
+        "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts",
+        "server/src/modules/orderform-templates/orderFormTemplates.routes.ts"
+      ],
+      "notes": "사용함=발행. 사용 안 함 양식은 발급·접수 고르기에서 숨김. 안 쓰는 내가 만든 양식만 삭제. 입주청소 기본은 끄기만. 이미 보낸 링크는 유지."
+    },
+    {
+      "id": "orderform.template.deleteUnused",
+      "labelKo": "안 쓰는 발주서 삭제",
+      "surfaces": ["admin.orderTemplates.list", "admin.orderTemplates.edit"],
+      "visual": { "type": "button", "token": "red-700" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-templates",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormTemplateListPanel.tsx",
+      "codeRefs": [
+        "client/src/components/admin/order-templates/orderFormTemplateStatus.tsx",
+        "server/src/modules/orderform-templates/orderFormTemplates.routes.ts"
+      ],
+      "notes": "isDefault·사용 중이면 버튼 숨김. 삭제 전 비밀번호. 기본은 끄기만 — 범례만."
+    },
+    {
+      "id": "orderform.template.wizard.industryPack",
+      "labelKo": "새 발주서 · 업종 고르기",
+      "surfaces": ["admin.orderTemplates.create"],
+      "visual": { "type": "cardSelect", "token": "slate-800" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-templates?new=1&step=1",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormIndustryPackPicker.tsx",
+      "codeRefs": [
+        "shared/orderFormIndustryPacks.ts",
+        "client/src/components/admin/order-templates/OrderFormTemplateCreateWizard.tsx"
+      ],
+      "notes": "7종 카드. 고르면 칸 자동. URL ?pack= 유지. 이름·전화·주소·서비스희망일은 팩과 무관 필수. 시간대·구체적 시각·총액·예약금·잔금은 모든 업종에서 켜고 끌 수 없음(발급 견적). 시간대 하위 항목은 칸 만들기에서 발주서마다 고침. 설정 토글 없음 — 만들기 흐름."
+    },
+    {
+      "id": "orderform.settings.scopeBadge",
+      "labelKo": "이 발주서 / 모든 발주서 배지",
+      "surfaces": ["admin.orderForm.settings"],
+      "visual": { "type": "badge", "token": "emerald-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-customer-preview",
+      "helpPath": null,
+      "codeRefs": [
+        "client/src/components/admin/order-form-settings/OrderFormSettingsSection.tsx"
+      ],
+      "notes": "이 발주서=emerald-50. 모든 발주서=slate-100. 토글 없음. 발주서설정 오른쪽 섹션 제목."
+    },
+    {
+      "id": "orderform.template.timeSlots",
+      "labelKo": "발주서별 시간대 하위 항목",
+      "surfaces": ["admin.orderTemplates.create", "admin.orderTemplates.edit", "public.orderForm", "admin.orderForm.issue"],
+      "visual": { "type": "list", "token": "slate-800" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-customer-preview?section=fields",
+      "helpPath": "client/src/components/admin/order-templates/OrderFormTemplateCreateWizard.tsx",
+      "codeRefs": [
+        "shared/orderFormTimeSlotLabels.ts",
+        "client/src/components/admin/order-templates/OrderFormDraftOptionsEditor.tsx"
+      ],
+      "notes": "시간대 선택지는 테넌트 전역이 아니라 양식 preferredTime.options. 발주서설정 라벨은 오전·오후·사이청소·조율 키를 쓰는 양식의 안내 문구만. 사이청소만 구체적 시각 필수."
+    },
+    {
+      "id": "orderform.guide.perTemplate",
+      "labelKo": "발주서별 고객 안내",
+      "surfaces": ["admin.orderForm.notice", "public.orderForm.guide", "public.info"],
+      "visual": { "type": "chipSelect", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/admin/inquiries/order-customer-preview?section=guide",
+      "helpPath": "client/src/pages/admin/AdminOrderFormNoticePage.tsx",
+      "codeRefs": [
+        "shared/orderFormIndustryGuideDefaults.ts",
+        "client/src/components/admin/OrderGuideFormScopeBar.tsx"
+      ],
+      "notes": "양식 칩으로 안내를 나눔. 기본 문구는 업종별. 위약 % 는 브랜드. 고객은 그 발주서 동의·/info?templateId="
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { OrderFormTemplatePreview } from '../../components/admin/OrderFormTemplatePreview';
@@ -10,7 +10,6 @@ import { appendPublicQuery } from '../../utils/publicTenantQuery';
 import { withOrderFormPreviewWalkQuery } from '@shared/orderFormPreviewWalk';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import {
-  createOrderFormTemplate,
   deleteOrderFormTemplate,
   duplicateOrderFormTemplate,
   getPromotedOrderFormListFields,
@@ -22,14 +21,12 @@ import {
   updateOrderFormTemplateMeta,
   type OrderFormFieldFillMode,
   type OrderFormFieldInputType,
-  type OrderFormFieldOptionStyle,
-  type OrderFormFieldOptionLayout,
   type OrderFormSystemFieldDef,
   type OrderFormTemplate,
-  type OrderFormTemplateField,
   type OrderFormTemplateRenderMode,
 } from '../../api/orderFormTemplates';
 import { ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX } from '@shared/orderFormListSnapshot';
+import { sanitizeTimeSlotOptionList } from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_PHOTOS_SECTION_KEY,
   isOrderFormSectionToggleKey,
@@ -37,196 +34,41 @@ import {
   optionsForOrderFormSectionToggle,
 } from '@shared/orderFormSectionToggles';
 import { OrderFormSectionToggles } from '../../components/admin/order-templates/OrderFormSectionToggles';
-
-type DraftField = Omit<
-  OrderFormTemplateField,
-  'id' | 'options' | 'placeholder' | 'optionStyle' | 'optionLayout'
-> & {
-  id?: string;
-  /** 선택지 목록(편집 중 빈 항목 허용, 저장 시 빈 값 제거) */
-  options: string[];
-  placeholder: string | null;
-  optionStyle: OrderFormFieldOptionStyle | null;
-  optionLayout: OrderFormFieldOptionLayout | null;
-};
-
-const INPUT_TYPE_OPTIONS: Array<{ value: OrderFormFieldInputType; label: string }> = [
-  { value: 'TEXT', label: '한 줄 텍스트' },
-  { value: 'TEXTAREA', label: '여러 줄 텍스트' },
-  { value: 'NUMBER', label: '숫자' },
-  { value: 'MONEY', label: '금액(원)' },
-  { value: 'DATE', label: '날짜' },
-  { value: 'TIME', label: '시간' },
-  { value: 'PHONE', label: '전화번호' },
-  { value: 'ADDRESS', label: '주소' },
-  { value: 'SELECT', label: '단일 선택' },
-  { value: 'MULTISELECT', label: '복수 선택' },
-  { value: 'CHECKBOX', label: '체크박스' },
-  { value: 'PHOTO', label: '사진 첨부' },
-];
-
-const FILL_MODE_OPTIONS: Array<{ value: OrderFormFieldFillMode; label: string; hint: string }> = [
-  { value: 'CUSTOMER', label: '고객 입력', hint: '고객이 발주서에서 직접 입력' },
-  { value: 'ADMIN_LOCKED', label: '관리자 고정', hint: '발급 시 관리자가 입력, 고객 수정 불가' },
-  { value: 'ADMIN_PREFILL', label: '관리자 선입력', hint: '발급 시 미리 채우되 고객이 수정 가능' },
-];
-
-const OPTION_INPUT_TYPES = new Set<OrderFormFieldInputType>(['SELECT', 'MULTISELECT', 'CHECKBOX']);
-const LIST_PROMOTABLE_INPUT_TYPES = new Set<OrderFormFieldInputType>(['TEXT', 'SELECT', 'NUMBER', 'MULTISELECT']);
-
-function canPromoteDraftField(d: DraftField): boolean {
-  return !d.systemField?.trim() && LIST_PROMOTABLE_INPUT_TYPES.has(d.inputType);
-}
-
-/** 발주서 아이콘 프리셋 (청소·서비스 관련) */
-const ICON_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '🧹', label: '빗자루' },
-  { value: '🧽', label: '스펀지' },
-  { value: '🧼', label: '비누' },
-  { value: '🧴', label: '세제' },
-  { value: '🪣', label: '양동이' },
-  { value: '🧺', label: '바구니' },
-  { value: '🚿', label: '샤워' },
-  { value: '🛁', label: '욕실' },
-  { value: '🚽', label: '화장실' },
-  { value: '🪟', label: '창문' },
-  { value: '🛋️', label: '소파' },
-  { value: '🛏️', label: '침대' },
-  { value: '🍳', label: '주방' },
-  { value: '🚪', label: '현관' },
-  { value: '🏠', label: '집' },
-  { value: '🏢', label: '오피스텔' },
-  { value: '❄️', label: '에어컨' },
-  { value: '🌬️', label: '환기' },
-  { value: '🪜', label: '사다리·계단' },
-  { value: '✨', label: '광택' },
-  { value: '🐜', label: '방역' },
-  { value: '💧', label: '물때' },
-  { value: '🧤', label: '장갑' },
-  { value: '🚗', label: '차량' },
-];
-
-function fieldToDraft(f: OrderFormTemplateField): DraftField {
-  const opts = Array.isArray(f.options) ? (f.options as unknown[]).map((o) => String(o)) : [];
-  return {
-    id: f.id,
-    fieldKey: f.fieldKey,
-    label: f.label,
-    helpText: f.helpText,
-    inputType: f.inputType,
-    required: f.required,
-    sortOrder: f.sortOrder,
-    systemField: f.systemField,
-    fillMode: f.fillMode,
-    showInInquiryList: Boolean(f.showInInquiryList),
-    options: opts,
-    placeholder: f.placeholder ?? null,
-    optionStyle: f.optionStyle ?? null,
-    optionLayout: f.optionLayout ?? null,
-  };
-}
-
-function draftsToPayload(drafts: DraftField[]): Array<Omit<OrderFormTemplateField, 'id'>> {
-  return drafts.map((d, i) => ({
-    fieldKey: d.fieldKey?.trim() || `field_${i + 1}`,
-    label: d.label,
-    helpText: d.helpText && d.helpText.trim() ? d.helpText.trim() : null,
-    inputType: d.inputType,
-    options: isOrderFormSectionToggleKey(d.systemField)
-      ? d.options.map((s) => s.trim()).filter(Boolean)
-      : OPTION_INPUT_TYPES.has(d.inputType)
-        ? d.options.map((s) => s.trim()).filter(Boolean)
-        : [],
-    placeholder:
-      d.inputType === 'TEXTAREA' || d.inputType === 'TEXT'
-        ? d.placeholder && d.placeholder.trim()
-          ? d.placeholder.trim()
-          : null
-        : null,
-    optionStyle: d.inputType === 'SELECT' ? d.optionStyle ?? 'DROPDOWN' : null,
-    optionLayout:
-      OPTION_INPUT_TYPES.has(d.inputType) &&
-      (d.inputType !== 'SELECT' || (d.optionStyle ?? 'DROPDOWN') === 'RADIO')
-        ? d.optionLayout ?? 'VERTICAL'
-        : null,
-    required: d.required,
-    sortOrder: i,
-    systemField: d.systemField && d.systemField.trim() ? d.systemField : null,
-    fillMode: d.fillMode,
-    showInInquiryList: canPromoteDraftField(d) ? Boolean(d.showInInquiryList) : false,
-  }));
-}
-
-const ALLOWED_INPUT_TYPES = new Set<OrderFormFieldInputType>(INPUT_TYPE_OPTIONS.map((o) => o.value));
-
-/** 표준 발주서와 동일한 선택지를 기본 제공하는 시스템 필드(빌더에서 추가·편집 가능) */
-const SYSTEM_FIELD_DEFAULT_OPTIONS: Record<string, string[]> = {
-  preferredTime: ['오전', '오후', '사이청소', '조율'],
-  propertyType: ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'],
-  buildingType: ['신축', '구축', '인테리어', '거주(짐이있는상태)'],
-};
-
-/** 발행·새 양식에 넣는 최소 연결 — 이름·전화·주소 */
-const TEMPLATE_REQUIRED_ORDER = ['customerName', 'customerPhone', 'address'];
-const IDENTITY_REQUIRED_KEYS = new Set(TEMPLATE_REQUIRED_ORDER);
-
-/** 시스템 필드 1개를 필수 항목 초안으로 변환(시스템 필드 연결 완료 상태) */
-function coreFieldToDraft(f: OrderFormSystemFieldDef, sortOrder: number): DraftField {
-  const defaultOptions = SYSTEM_FIELD_DEFAULT_OPTIONS[f.key];
-  const inputType: OrderFormFieldInputType = defaultOptions
-    ? 'SELECT'
-    : ALLOWED_INPUT_TYPES.has(f.inputType as OrderFormFieldInputType)
-      ? (f.inputType as OrderFormFieldInputType)
-      : 'TEXT';
-  return {
-    fieldKey: f.key,
-    label: f.label,
-    helpText: null,
-    inputType,
-    required: IDENTITY_REQUIRED_KEYS.has(f.key),
-    sortOrder,
-    systemField: f.key,
-    fillMode: 'CUSTOMER' as OrderFormFieldFillMode,
-    options: defaultOptions ? [...defaultOptions] : [],
-    placeholder: null,
-    optionStyle: defaultOptions ? 'DROPDOWN' : null,
-    optionLayout: null,
-  };
-}
-
-/** 렌더 모드별 '발행에 반드시 필요한' 시스템 필드 추림 */
-function requiredFieldsForMode(
-  systemFields: OrderFormSystemFieldDef[],
-  mode: OrderFormTemplateRenderMode,
-): OrderFormSystemFieldDef[] {
-  const picked = systemFields.filter(
-    (f) => (mode === 'TEMPLATE' ? !!f.templateRequired : f.requiredCore) && !f.autoGenerated,
-  );
-  if (mode !== 'TEMPLATE') return picked;
-  const orderIdx = (key: string) => {
-    const i = TEMPLATE_REQUIRED_ORDER.indexOf(key);
-    return i === -1 ? TEMPLATE_REQUIRED_ORDER.length : i;
-  };
-  return [...picked].sort((a, b) => orderIdx(a.key) - orderIdx(b.key));
-}
-
-/** 새 양식 생성 시 자동 포함할 공통 필수 항목 */
-function buildDefaultCoreDrafts(
-  systemFields: OrderFormSystemFieldDef[],
-  mode: OrderFormTemplateRenderMode = 'STANDARD',
-): DraftField[] {
-  return requiredFieldsForMode(systemFields, mode).map((f, i) => coreFieldToDraft(f, i));
-}
-
-function statusBadge(status: OrderFormTemplate['status']) {
-  if (status === 'PUBLISHED') return <span className="rounded-full bg-green-100 px-2 py-0.5 text-fluid-2xs font-medium text-green-700">발행됨</span>;
-  if (status === 'ARCHIVED') return <span className="rounded-full bg-gray-100 px-2 py-0.5 text-fluid-2xs font-medium text-gray-500">보관</span>;
-  return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-fluid-2xs font-medium text-amber-700">초안</span>;
-}
+import { OrderFormPreviewViewport } from '../../components/admin/OrderFormPreviewViewport';
+import { OrderFormTemplateCreateWizard } from '../../components/admin/order-templates/OrderFormTemplateCreateWizard';
+import { OrderFormDraftOptionsEditor } from '../../components/admin/order-templates/OrderFormDraftOptionsEditor';
+import { OrderFormTemplateListPanel } from '../../components/admin/order-templates/OrderFormTemplateListPanel';
+import {
+  canDeleteOrderFormTemplate,
+  OrderFormTemplateStatusBadge,
+} from '../../components/admin/order-templates/orderFormTemplateStatus';
+import {
+  FILL_MODE_OPTIONS,
+  ICON_OPTIONS,
+  INPUT_TYPE_OPTIONS,
+  OPTION_INPUT_TYPES,
+  canPromoteDraftField,
+  coreFieldToDraft,
+  draftsToPayload,
+  fieldToDraft,
+  isLockedAlwaysOnDraft,
+  isLockedRequiredDraft,
+  requiredFieldsForMode,
+  type DraftField,
+} from '../../components/admin/order-templates/orderFormTemplateDraft';
 
 export function AdminOrderFormTemplatesPage() {
   const token = getToken() ?? '';
   const staffTenantSlug = useStaffTenantSlugForLinks(token || null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isCreate = searchParams.get('new') === '1';
+  const urlId = searchParams.get('id');
+  const wizardStep = (() => {
+    const n = parseInt(searchParams.get('step') || '1', 10);
+    if (!Number.isFinite(n) || n < 1) return 1;
+    return Math.min(4, n);
+  })();
+  const wizardPackId = searchParams.get('pack');
   const [templates, setTemplates] = useState<OrderFormTemplate[]>([]);
   const [systemFields, setSystemFields] = useState<OrderFormSystemFieldDef[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -242,8 +84,10 @@ export function AdminOrderFormTemplatesPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [iconOpen, setIconOpen] = useState(false);
   const [tenantPromotedKeys, setTenantPromotedKeys] = useState<Set<string>>(new Set());
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const selected = useMemo(() => templates.find((t) => t.id === selectedId) ?? null, [templates, selectedId]);
 
@@ -309,7 +153,12 @@ export function AdminOrderFormTemplatesPage() {
       setTemplates(items);
       setSystemFields(sys);
       setTenantPromotedKeys(new Set(promoted.map((p) => p.fieldKey)));
-      setSelectedId((prev) => prev ?? (items[0]?.id ?? null));
+      setSelectedId((prev) => {
+        const fromUrl = new URLSearchParams(window.location.search).get('id');
+        if (fromUrl && items.some((t) => t.id === fromUrl)) return fromUrl;
+        if (prev && items.some((t) => t.id === prev)) return prev;
+        return null;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
     } finally {
@@ -320,6 +169,36 @@ export function AdminOrderFormTemplatesPage() {
   useEffect(() => {
     void loadTemplates();
   }, [loadTemplates]);
+
+  const goList = useCallback(() => {
+    setSearchParams({});
+    setSelectedId(null);
+  }, [setSearchParams]);
+
+  const goCreate = useCallback(
+    (step = 1, draftId?: string | null) => {
+      const next: Record<string, string> = { new: '1', step: String(step) };
+      if (draftId) next.id = draftId;
+      const pack = searchParams.get('pack');
+      if (pack) next.pack = pack;
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const goEdit = useCallback(
+    (id: string) => {
+      setSearchParams({ id });
+      setSelectedId(id);
+    },
+    [setSearchParams],
+  );
+
+  useEffect(() => {
+    if (isCreate) return;
+    if (urlId) setSelectedId(urlId);
+    else setSelectedId(null);
+  }, [isCreate, urlId]);
 
   // 선택 변경 시 편집 상태 로드
   useEffect(() => {
@@ -336,9 +215,9 @@ export function AdminOrderFormTemplatesPage() {
 
   // 손님 화면 iframe 미리보기(기본·커스텀 공통, previewWalk)
   useEffect(() => {
-    if (!token || designerPreviewToken) return;
+    if (!token) return;
     let cancelled = false;
-    getDesignerPreviewOrderToken(token)
+    getDesignerPreviewOrderToken(token, { templateId: selectedId })
       .then((r) => {
         if (!cancelled) setDesignerPreviewToken(r.token);
       })
@@ -346,7 +225,7 @@ export function AdminOrderFormTemplatesPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, designerPreviewToken]);
+  }, [token, selectedId]);
 
   const designerPreviewWalkSrc = useMemo(() => {
     if (typeof window === 'undefined' || !designerPreviewToken || !selected) return '';
@@ -354,7 +233,7 @@ export function AdminOrderFormTemplatesPage() {
       appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(designerPreviewToken)}`, {
         tenantSlug: staffTenantSlug || null,
       }),
-      { previewTemplateId: selected.isDefault ? null : selected.id },
+      { previewTemplateId: selected.id },
     );
   }, [designerPreviewToken, selected, staffTenantSlug]);
 
@@ -366,27 +245,6 @@ export function AdminOrderFormTemplatesPage() {
 
   function updateDraft(idx: number, patch: Partial<DraftField>) {
     setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, ...patch } : d)));
-    setDirty(true);
-  }
-
-  function addOption(idx: number) {
-    setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, options: [...d.options, ''] } : d)));
-    setDirty(true);
-  }
-
-  function updateOption(idx: number, optIdx: number, value: string) {
-    setDrafts((prev) =>
-      prev.map((d, i) =>
-        i === idx ? { ...d, options: d.options.map((o, oi) => (oi === optIdx ? value : o)) } : d,
-      ),
-    );
-    setDirty(true);
-  }
-
-  function removeOption(idx: number, optIdx: number) {
-    setDrafts((prev) =>
-      prev.map((d, i) => (i === idx ? { ...d, options: d.options.filter((_, oi) => oi !== optIdx) } : d)),
-    );
     setDirty(true);
   }
 
@@ -430,7 +288,7 @@ export function AdminOrderFormTemplatesPage() {
       ...prev,
       {
         fieldKey: `field_${prev.length + 1}`,
-        label: '새 항목',
+        label: '새 칸',
         helpText: null,
         inputType: 'TEXT',
         required: false,
@@ -447,7 +305,11 @@ export function AdminOrderFormTemplatesPage() {
   }
 
   function removeField(idx: number) {
-    setDrafts((prev) => prev.filter((_, i) => i !== idx));
+    setDrafts((prev) => {
+      const target = prev[idx];
+      if (target && isLockedAlwaysOnDraft(target)) return prev;
+      return prev.filter((_, i) => i !== idx);
+    });
     setDirty(true);
   }
 
@@ -478,30 +340,12 @@ export function AdminOrderFormTemplatesPage() {
     setDirty(true);
   }
 
-  async function handleCreate() {
-    if (!token) return;
-    try {
-      // 새 양식은 항상 '내가 만든 항목만' — 필수 코어만 기본 포함하고, 그 아래에 원하는 항목을 붙인다.
-      const created = await createOrderFormTemplate(token, { title: '새 발주서' });
-      let finalTemplate = created;
-      const coreDrafts = buildDefaultCoreDrafts(systemFields, 'TEMPLATE');
-      if (coreDrafts.length > 0) {
-        try {
-          finalTemplate = await saveOrderFormTemplateFields(token, created.id, draftsToPayload(coreDrafts));
-        } catch {
-          /* 필수항목 자동 추가는 보조 단계 — 실패해도 빈 양식으로 진행 */
-        }
-      }
-      setTemplates((prev) => [...prev, finalTemplate]);
-      setSelectedId(finalTemplate.id);
-      flashNotice(
-        coreDrafts.length > 0
-          ? '새 발주서를 만들었습니다. 이름·전화·주소를 넣어 두었습니다. 평수·일정 등은 아래에서 접수 칸을 추가하세요.'
-          : '새 발주서를 만들었습니다. 위 「발주서 이름」을 수정해 주세요.',
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '생성에 실패했습니다.');
-    }
+  function upsertTemplate(updated: OrderFormTemplate) {
+    setTemplates((prev) => {
+      const i = prev.findIndex((t) => t.id === updated.id);
+      if (i < 0) return [...prev, updated];
+      return prev.map((t) => (t.id === updated.id ? updated : t));
+    });
   }
 
   async function handleSave() {
@@ -515,6 +359,12 @@ export function AdminOrderFormTemplatesPage() {
           icon: meta.icon.trim() || null,
           description: meta.description.trim() || null,
         });
+      }
+      const timeOpts = sanitizeTimeSlotOptionList(
+        drafts.find((d) => d.systemField === 'preferredTime')?.options,
+      );
+      if (timeOpts.length === 0) {
+        throw new Error('시간대 하위 항목을 하나 이상 넣어 주세요.');
       }
       const updated = await saveOrderFormTemplateFields(token, selected.id, draftsToPayload(drafts));
       setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -539,7 +389,7 @@ export function AdminOrderFormTemplatesPage() {
     try {
       const updated = await publishOrderFormTemplate(token, selected.id);
       setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-      flashNotice('발행했습니다. 이제 발주서 발급 시 선택할 수 있습니다.');
+      flashNotice('사용함으로 바꿨습니다. 손님에게 보낼 수 있습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '발행에 실패했습니다.');
     }
@@ -550,9 +400,30 @@ export function AdminOrderFormTemplatesPage() {
     try {
       const updated = await unpublishOrderFormTemplate(token, selected.id);
       setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-      flashNotice('발행을 해제했습니다.');
+      flashNotice('사용 안 함으로 바꿨습니다. 그 양식 칸은 전화 접수에서 빠집니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '발행 해제에 실패했습니다.');
+    }
+  }
+
+  async function handleToggleUse(template: OrderFormTemplate, nextOn: boolean) {
+    if (!token || togglingId) return;
+    setTogglingId(template.id);
+    setError(null);
+    try {
+      const updated = nextOn
+        ? await publishOrderFormTemplate(token, template.id)
+        : await unpublishOrderFormTemplate(token, template.id);
+      setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      flashNotice(
+        nextOn
+          ? '사용함으로 바꿨습니다. 손님에게 보낼 수 있습니다.'
+          : '사용 안 함으로 바꿨습니다. 그 양식 칸은 전화 접수에서 빠집니다.',
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '사용 여부를 바꾸지 못했습니다.');
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -561,22 +432,64 @@ export function AdminOrderFormTemplatesPage() {
     try {
       const created = await duplicateOrderFormTemplate(token, selected.id);
       setTemplates((prev) => [...prev, created]);
-      setSelectedId(created.id);
+      goEdit(created.id);
       flashNotice('복제했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '복제에 실패했습니다.');
     }
   }
 
+  function openDelete(template: OrderFormTemplate) {
+    if (!canDeleteOrderFormTemplate(template)) {
+      setError(
+        template.isDefault
+          ? '기본 발주서는 삭제할 수 없습니다. 사용 끄기만 할 수 있습니다.'
+          : '사용 중인 발주서는 먼저 사용 끄기를 한 뒤 삭제해 주세요.',
+      );
+      return;
+    }
+    setError(null);
+    setDeleteTargetId(template.id);
+    setDeleteOpen(true);
+  }
+
   async function handleDelete(password: string) {
-    if (!token || !selected) return;
-    await deleteOrderFormTemplate(token, selected.id, password);
-    setTemplates((prev) => prev.filter((t) => t.id !== selected.id));
-    setSelectedId((prev) => (prev === selected.id ? null : prev));
+    const id = deleteTargetId ?? selected?.id;
+    if (!token || !id) return;
+    const row = templates.find((t) => t.id === id);
+    if (!row || !canDeleteOrderFormTemplate(row)) {
+      throw new Error(
+        row?.isDefault
+          ? '기본 발주서는 삭제할 수 없습니다. 사용 끄기만 할 수 있습니다.'
+          : '사용 중인 발주서는 먼저 사용 끄기를 한 뒤 삭제해 주세요.',
+      );
+    }
+    await deleteOrderFormTemplate(token, id, password);
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    setDeleteTargetId(null);
+    if (urlId === id || selectedId === id) goList();
     flashNotice('삭제했습니다.');
   }
 
+  const wizardDraft = isCreate && urlId ? templates.find((t) => t.id === urlId) ?? null : null;
+
   if (!token) return null;
+
+  if (!isCreate) {
+    const qs = new URLSearchParams();
+    if (urlId) {
+      qs.set('previewForm', urlId);
+      qs.set('guideForm', urlId);
+      qs.set('section', 'fields');
+    }
+    const suffix = qs.toString();
+    return <Navigate to={`/admin/inquiries/order-customer-preview${suffix ? `?${suffix}` : ''}`} replace />;
+  }
+
+  const headerBtn =
+    'rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-fluid-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+  const headerPrimary =
+    'rounded-lg bg-slate-900 px-3.5 py-2 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
   return (
     <div className="min-w-0 w-full max-w-full">
@@ -584,89 +497,104 @@ export function AdminOrderFormTemplatesPage() {
         <div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <PageTitleWithFavorite label="발주서 양식 관리">
-              <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">발주서 양식 관리</h1>
+              <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">
+                {isCreate ? '새 발주서 만들기' : urlId ? '발주서 양식' : '발주서 양식 관리'}
+              </h1>
             </PageTitleWithFavorite>
-            <HelpTooltip text="고객에게 보낼 발주서를 직접 만들 수 있습니다. 발행에 꼭 필요한 연결은 고객명·대표전화·주소뿐입니다. 평수·일정·금액은 접수 칸에 연결하면 손님 화면과 접수 수정에 같이 보이고, 연결을 빼면 양쪽에서 숨습니다." />
+              <HelpTooltip text="「사용하기」를 누른 양식만 손님에게 보내고 접수에서 고릅니다. 안 쓰는 내가 만든 양식은 삭제할 수 있습니다. 입주청소 기본은 끄기만 됩니다. 이미 보낸 서류는 「발주서 목록」입니다." />
           </div>
-          <p className="mt-1 text-fluid-xs text-gray-500">항목을 만들고 접수 칸에 연결하면 손님 링크·접수 수정이 같은 칸을 씁니다. 연결을 늘리거나 줄이거나 바꿀 수 있습니다.</p>
-          <p className="mt-1 text-fluid-xs text-gray-400">
-            여기서는 <b>발주서별 제목·아이콘·항목 구성</b>을 만듭니다. 가격 라벨·하단 안내·제출완료 문구·시간대 안내 등 <b>모든 발주서에 공통으로 쓰는 메시지·옵션</b>은{' '}
-            <Link to="/admin/inquiries/order-customer-preview" className="text-blue-700 underline hover:text-blue-800">
-              발주서설정
-            </Link>
-            에서 관리합니다.
+          <p className="mt-1 text-fluid-xs text-gray-500">
+            {isCreate
+              ? '업종을 고르면 칸이 미리 들어갑니다. 중간에 목록으로 나가도 초안은 목록에 남습니다.'
+              : urlId
+                ? '이 양식만 고칩니다. 공통 안내 문구는 '
+                : '아래에서 발주서를 켜고 끕니다. 공통 안내 문구는 '}
+            {!isCreate ? (
+              <>
+                <Link to="/admin/inquiries/order-customer-preview" className="text-slate-700 underline hover:text-slate-900">
+                  발주서설정
+                </Link>
+                입니다.
+              </>
+            ) : null}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleCreate}
-          className="rounded-md bg-gray-900 px-3.5 py-2 text-fluid-sm font-medium text-white hover:bg-gray-800"
-        >
-          + 새 발주서
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {isCreate || urlId ? (
+            <button type="button" onClick={goList} className={headerBtn}>
+              목록으로
+            </button>
+          ) : null}
+          {!isCreate ? (
+            <button type="button" onClick={() => goCreate(1)} className={headerPrimary}>
+              + 새 발주서
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {error && <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-700">{error}</div>}
       {notice && <div className="mb-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-fluid-sm text-green-700">{notice}</div>}
 
-      <div className="space-y-4">
-        {/* 상단: 발주서 목록 (가로 스크롤 리스트) */}
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
-            <span className="text-fluid-sm font-medium text-gray-700">발주서 목록</span>
-            <span className="text-fluid-2xs text-gray-400">{templates.length}개</span>
-          </div>
-          {loading ? (
-            <div className="p-4 text-center text-fluid-sm text-gray-400">불러오는 중…</div>
-          ) : templates.length === 0 ? (
-            <div className="p-4 text-center text-fluid-sm text-gray-400">발주서가 없습니다. 새로 만들어 주세요.</div>
-          ) : (
-            <div className="flex gap-2 overflow-x-auto overscroll-x-contain px-3 py-2.5 [scrollbar-width:thin]">
-              {templates.map((t) => {
-                const active = t.id === selectedId;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setSelectedId(t.id)}
-                    title={t.title}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-fluid-sm transition ${
-                      active
-                        ? 'border-gray-800 bg-gray-800 text-white'
-                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {t.icon ? <span className="shrink-0">{t.icon}</span> : null}
-                    <span className="max-w-[12rem] truncate">{t.title}</span>
-                    {t.isDefault ? (
-                      <span
-                        className={`shrink-0 rounded px-1 text-fluid-2xs ${active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}
-                      >
-                        기본
-                      </span>
-                    ) : null}
-                    <span className="shrink-0">{statusBadge(t.status)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+      {isCreate ? (
+        <OrderFormTemplateCreateWizard
+          token={token}
+          staffTenantSlug={staffTenantSlug}
+          systemFields={systemFields}
+          step={wizardStep}
+          packId={wizardPackId}
+          draftId={isCreate ? urlId : null}
+          draft={wizardDraft}
+          onStepChange={goCreate}
+          onPackChange={(id) => {
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('new', '1');
+              next.set('pack', id);
+              if (!next.get('step')) next.set('step', '1');
+              return next;
+            });
+          }}
+          onCancel={goList}
+          onDraftSaved={upsertTemplate}
+          onOpenCreated={(id) => {
+            goEdit(id);
+            flashNotice('발행했습니다. 이제 발주서 발급 시 선택할 수 있습니다.');
+          }}
+          onSavedAsDraft={() => {
+            goList();
+            flashNotice('초안으로 저장했습니다. 목록에서 이어서 볼 수 있습니다.');
+          }}
+        />
+      ) : !urlId ? (
+        <div className="space-y-4">
+          <OrderFormTemplateListPanel
+            templates={templates}
+            loading={loading}
+            togglingId={togglingId}
+            onOpen={goEdit}
+            onToggleUse={handleToggleUse}
+            onDelete={openDelete}
+          />
         </div>
-
-        {/* 편집 */}
+      ) : !selected && loading ? (
+        <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-fluid-sm text-slate-400">불러오는 중…</p>
+      ) : !selected ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+          <p className="text-fluid-sm text-slate-500">이 양식을 찾을 수 없습니다.</p>
+          <button type="button" onClick={goList} className={`${headerBtn} mt-3`}>
+            목록으로
+          </button>
+        </div>
+      ) : (
         <section className="min-w-0">
-          {!selected ? (
-            <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-fluid-sm text-gray-400">
-              위에서 발주서를 선택하거나 새로 만들어 주세요.
-            </div>
-          ) : (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
               <div className="min-w-0 space-y-4">
               {/* 메타 */}
               <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    {statusBadge(selected.status)}
+                    <OrderFormTemplateStatusBadge status={selected.status} />
                     <span className="text-fluid-2xs text-gray-400">v{selected.version}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -674,23 +602,25 @@ export function AdminOrderFormTemplatesPage() {
                       복제
                     </button>
                     {selected.status === 'PUBLISHED' ? (
-                      <button type="button" onClick={handleUnpublish} disabled={selected.isDefault} className="rounded-md border border-amber-300 px-3 py-1.5 text-fluid-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-40">
-                        발행 해제
+                      <button type="button" onClick={handleUnpublish} className="rounded-md border border-amber-300 px-3 py-1.5 text-fluid-xs font-medium text-amber-700 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
+                        사용 안 함
                       </button>
                     ) : (
-                      <button type="button" onClick={handlePublish} className="rounded-md bg-green-600 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-green-700">
-                        발행
+                      <button type="button" onClick={handlePublish} className="rounded-md bg-emerald-600 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
+                        사용함
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setDeleteOpen(true)}
-                      disabled={selected.isDefault}
-                      className="rounded-md border border-red-300 px-3 py-1.5 text-fluid-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
-                      title={selected.isDefault ? '기본 발주서는 삭제할 수 없습니다.' : undefined}
-                    >
-                      삭제
-                    </button>
+                    {canDeleteOrderFormTemplate(selected) ? (
+                      <button
+                        type="button"
+                        onClick={() => openDelete(selected)}
+                        className="rounded-md border border-red-300 px-3 py-1.5 text-fluid-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        삭제
+                      </button>
+                    ) : selected.isDefault ? (
+                      <span className="self-center text-fluid-2xs text-slate-400">기본은 끄기만 가능</span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex items-end gap-2">
@@ -787,7 +717,7 @@ export function AdminOrderFormTemplatesPage() {
                 <p className="mt-3 border-t border-gray-100 pt-3 text-fluid-2xs leading-relaxed text-gray-500">
                   {selected.isDefault
                     ? '기본 발주서는 입주청소 양식입니다. 손님 링크와 접수 수정에는 평수·건축물·이사일 등 기존 칸이 그대로 보입니다. 항목을 지워도 손님 화면은 바뀌지 않습니다. 「현장 사진 첨부」만 아래 스위치로 끕니다. 발주서 이름은 내부 구분용입니다.'
-                    : '이름·전화·주소만 기본으로 들어갑니다. 평수·일정·금액은 「접수 칸 추가」로 연결하세요. 연결을 끊으면 손님 링크와 접수 수정에서 같이 숨습니다. 발주서 이름은 내부 구분용입니다.'}
+                    : '화장실·베란다처럼 안 쓰는 칸은 항목을 지우면 손님·접수에서 사라집니다. 에어컨 대수처럼 목록에 없는 칸은 「+ 새 칸 만들기」 후 연결을 비워 두면 됩니다.'}
                 </p>
               </div>
 
@@ -810,13 +740,13 @@ export function AdminOrderFormTemplatesPage() {
                 </div>
                 {missingRequired.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <p className="text-fluid-2xs text-amber-700">이름·전화·주소를 항목에 넣고 접수 칸에 연결하면 발행할 수 있습니다.</p>
+                    <p className="text-fluid-2xs text-amber-700">이름·전화·주소·서비스희망일을 항목에 넣고 접수 칸에 연결하면 발행할 수 있습니다.</p>
                     <button
                       type="button"
                       onClick={addMissingRequiredFields}
                       className="rounded-md border border-amber-400 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-amber-800 hover:bg-amber-100"
                     >
-                      + 이름·전화·주소 한번에 추가
+                      + 이름·전화·주소·서비스희망일 한번에 추가
                     </button>
                   </div>
                 )}
@@ -851,21 +781,21 @@ export function AdminOrderFormTemplatesPage() {
                     <button
                       type="button"
                       onClick={addField}
-                      className="rounded-md border border-gray-300 px-3 py-1.5 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                      className="rounded-md bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                     >
-                      + 항목 추가
+                      + 새 칸 만들기
                     </button>
                   </div>
                 </div>
                 {drafts.length === 0 ? (
                   <div className="space-y-3 p-6 text-center">
-                    <p className="text-fluid-sm text-gray-400">항목이 없습니다. 이름·전화·주소부터 넣고 시작하세요.</p>
+                    <p className="text-fluid-sm text-gray-400">항목이 없습니다. 이름·전화·주소·서비스희망일부터 넣고 시작하세요.</p>
                     <button
                       type="button"
                       onClick={addMissingRequiredFields}
                       className="rounded-md bg-gray-900 px-3.5 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800"
                     >
-                      + 이름·전화·주소 채우기
+                      + 이름·전화·주소·서비스희망일 채우기
                     </button>
                   </div>
                 ) : (
@@ -882,7 +812,7 @@ export function AdminOrderFormTemplatesPage() {
                             <button type="button" onClick={() => moveField(idx, 1)} disabled={!drafts.slice(idx + 1).some((x) => !isOrderFormSectionToggleKey(x.systemField))} className="rounded border border-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-500 hover:bg-gray-50 disabled:opacity-30">
                               ↓
                             </button>
-                            <button type="button" onClick={() => removeField(idx)} className="rounded border border-red-200 px-2 py-0.5 text-fluid-2xs text-red-500 hover:bg-red-50">
+                            <button type="button" onClick={() => removeField(idx)} disabled={isLockedAlwaysOnDraft(d)} className="rounded border border-red-200 px-2 py-0.5 text-fluid-2xs text-red-500 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-30">
                               삭제
                             </button>
                           </div>
@@ -903,9 +833,12 @@ export function AdminOrderFormTemplatesPage() {
                             </select>
                           </label>
                           <label className="block">
-                            <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">접수 칸에 연결</span>
+                            <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">
+                              이미 있는 칸에 연결 (없으면 비움)
+                            </span>
                             <select
                               value={d.systemField ?? ''}
+                              disabled={isLockedAlwaysOnDraft(d)}
                               onChange={(e) => {
                                 const systemField = e.target.value || null;
                                 updateDraft(idx, {
@@ -913,9 +846,9 @@ export function AdminOrderFormTemplatesPage() {
                                   ...(systemField ? { showInInquiryList: false } : {}),
                                 });
                               }}
-                              className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                              className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm disabled:bg-slate-50 disabled:text-slate-500"
                             >
-                              <option value="">연결 안 함 (추가 정보)</option>
+                              <option value="">연결 안 함 — 이 양식에만 생기는 새 칸</option>
                               {systemFields.filter((sf) => !sf.sectionToggle).map((sf) => {
                                 const usedElsewhere = sf.key !== d.systemField && mappedSystemKeys.has(sf.key);
                                 return (
@@ -1047,46 +980,34 @@ export function AdminOrderFormTemplatesPage() {
                             </div>
                           )}
                           {OPTION_INPUT_TYPES.has(d.inputType) && (
-                            <div className="block sm:col-span-2">
-                              <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">선택지</span>
-                              <div className="space-y-1.5">
-                                {d.options.length === 0 ? (
-                                  <p className="text-fluid-2xs text-gray-400">아래 버튼으로 선택지를 한 개씩 추가하세요.</p>
-                                ) : (
-                                  d.options.map((opt, optIdx) => (
-                                    <div key={optIdx} className="flex items-center gap-2">
-                                      <span className="text-fluid-2xs text-gray-400 w-5 text-right">{optIdx + 1}</span>
-                                      <input
-                                        value={opt}
-                                        onChange={(e) => updateOption(idx, optIdx, e.target.value)}
-                                        maxLength={128}
-                                        placeholder={`선택지 ${optIdx + 1}`}
-                                        className="min-w-0 flex-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => removeOption(idx, optIdx)}
-                                        className="shrink-0 rounded border border-red-200 px-2 py-1 text-fluid-2xs text-red-500 hover:bg-red-50"
-                                      >
-                                        삭제
-                                      </button>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => addOption(idx)}
-                                className="mt-2 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50"
-                              >
-                                + 선택지 추가
-                              </button>
-                            </div>
+                            <OrderFormDraftOptionsEditor
+                              className="block sm:col-span-2"
+                              title={d.systemField === 'preferredTime' ? '시간대 하위 항목' : undefined}
+                              hint={
+                                d.systemField === 'preferredTime'
+                                  ? '이 발주서 손님·발급 화면에만 보이는 시간대입니다. 다른 발주서와 따로입니다.'
+                                  : undefined
+                              }
+                              options={d.options}
+                              onChange={(options) => {
+                                updateDraft(idx, { options });
+                              }}
+                            />
                           )}
                           <label className="flex items-center gap-2 sm:col-span-2">
-                            <input type="checkbox" checked={d.required} onChange={(e) => updateDraft(idx, { required: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                            <input
+                              type="checkbox"
+                              checked={isLockedRequiredDraft(d) ? true : d.required}
+                              disabled={isLockedRequiredDraft(d)}
+                              onChange={(e) => updateDraft(idx, { required: e.target.checked })}
+                              className="h-4 w-4 rounded border-gray-300 disabled:opacity-50"
+                            />
                             <span className="text-fluid-xs text-gray-600">필수 입력</span>
-                            <span className="ml-2 text-fluid-2xs text-gray-400">{FILL_MODE_OPTIONS.find((o) => o.value === d.fillMode)?.hint}</span>
+                            {isLockedRequiredDraft(d) ? (
+                              <span className="ml-2 text-fluid-2xs text-slate-500">이름·전화·주소·서비스희망일은 항상 필수입니다</span>
+                            ) : (
+                              <span className="ml-2 text-fluid-2xs text-gray-400">{FILL_MODE_OPTIONS.find((o) => o.value === d.fillMode)?.hint}</span>
+                            )}
                           </label>
                         </div>
                       </li>
@@ -1103,7 +1024,7 @@ export function AdminOrderFormTemplatesPage() {
                   onClick={addField}
                   className="ml-auto rounded-md border border-gray-300 px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  + 항목 추가
+                  + 새 칸 만들기
                 </button>
                 <button type="button" onClick={handleSave} disabled={saving || !dirty} className="rounded-md bg-gray-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-gray-800 disabled:opacity-40">
                   {saving ? '저장 중…' : '저장'}
@@ -1112,11 +1033,11 @@ export function AdminOrderFormTemplatesPage() {
               </div>
 
               {/* 우측: 손님 마법사 미리보기 — 필수 없이 다음 가능, 제출 차단 */}
-              <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
-                <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                  <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-amber-50 px-3 py-2">
+              <div className="min-w-0 xl:sticky xl:top-3 xl:self-start">
+                <OrderFormPreviewViewport className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-amber-50 px-3 py-1.5">
                     <span className="min-w-0 text-fluid-2xs font-medium leading-snug text-amber-950">
-                      손님 화면 미리보기 · 필수 없이 넘기기
+                      손님 화면 미리보기
                       {dirty ? ' · 저장해야 반영됩니다' : ''}
                     </span>
                     {designerPreviewWalkSrc ? (
@@ -1135,24 +1056,28 @@ export function AdminOrderFormTemplatesPage() {
                       key={`${designerPreviewIframeKey}-${selected.id}`}
                       title="발주서 미리보기"
                       src={designerPreviewWalkSrc}
-                      className="h-[min(78vh,900px)] w-full min-h-[420px] bg-gray-50"
+                      className="min-h-0 w-full flex-1 bg-gray-50"
                     />
                   ) : (
-                    <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                      <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />
+                    </div>
                   )}
-                </div>
+                </OrderFormPreviewViewport>
               </div>
             </div>
-          )}
         </section>
-      </div>
+      )}
 
       <ConfirmPasswordModal
         open={deleteOpen}
         title="발주서 삭제"
         description={<span>이 발주서 양식을 영구 삭제합니다. 이미 발급된 발주서는 유지되지만 양식 연결은 해제됩니다.</span>}
         confirmLabel="삭제"
-        onClose={() => setDeleteOpen(false)}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeleteTargetId(null);
+        }}
         onConfirm={handleDelete}
       />
     </div>

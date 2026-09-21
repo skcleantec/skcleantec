@@ -32,9 +32,18 @@ export type InquiryIntakeFormProfile = {
   /** photos / professionalOptions 등 양식에서 끈 섹션 */
   sectionOffKeys: string[];
   customFields: InquiryFormCustomField[];
+  /** 이 발주서 시간대 하위 항목. 비면 기본 네 칸 */
+  preferredTimeOptions: string[];
   canEditCustomAnswers: boolean;
   orderFormId: string | null;
   orderFormSubmitted: boolean;
+};
+
+export type PublishedIntakeTemplateOption = {
+  id: string;
+  title: string;
+  icon: string | null;
+  isDefault: boolean;
 };
 
 export function inquiryFormHasSystemField(

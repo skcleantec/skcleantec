@@ -1,13 +1,15 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
-import type { InquiryIntakeFormProfile } from '../../lib/inquiryFormProfile.js';
+import type { InquiryIntakeFormProfile, PublishedIntakeTemplateOption } from '../../lib/inquiryFormProfile.js';
 import {
   isOrderFormSectionOffOptions,
   isOrderFormSectionToggleKey,
 } from '../../lib/orderFormSectionToggles.js';
+import { INTAKE_IDENTITY_FIELD_KEYS } from '../../lib/inquiryIntakeFields.js';
 import {
   getPublicTemplateForForm,
   sanitizeCustomAnswers,
 } from '../orderform-templates/orderFormTemplate.service.js';
+import { preferredTimeOptionsFromTemplateFields } from '../../lib/orderFormTimeSlotLabels.js';
 import {
   orderFormListSnapshotToPrisma,
   resolveOrderFormListSnapshotForSubmit,
@@ -17,13 +19,14 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 const EMPTY_PROFILE: InquiryIntakeFormProfile = {
   templateId: null,
-  title: '기본 발주서',
+  title: '발주서 없음',
   icon: null,
-  isDefault: true,
-  renderMode: 'STANDARD',
-  systemFieldKeys: [],
+  isDefault: false,
+  renderMode: 'TEMPLATE',
+  systemFieldKeys: [...INTAKE_IDENTITY_FIELD_KEYS],
   sectionOffKeys: [],
   customFields: [],
+  preferredTimeOptions: [],
   canEditCustomAnswers: false,
   orderFormId: null,
   orderFormSubmitted: false,
@@ -32,6 +35,50 @@ const EMPTY_PROFILE: InquiryIntakeFormProfile = {
 function jsonObject(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   return { ...(raw as Record<string, unknown>) };
+}
+
+export async function listPublishedIntakeTemplates(
+  db: Db,
+  tenantId: string,
+): Promise<PublishedIntakeTemplateOption[]> {
+  const rows = await db.orderFormTemplate.findMany({
+    where: { tenantId, status: 'PUBLISHED' },
+    orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true, title: true, icon: true, isDefault: true },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    icon: row.icon,
+    isDefault: row.isDefault,
+  }));
+}
+
+/** 사용함 양식만. 지정분이 없거나 꺼져 있으면 기본 → 목록 첫 장. */
+export async function resolvePublishedIntakeTemplateId(
+  db: Db,
+  tenantId: string,
+  requestedId?: string | null,
+): Promise<{ id: string } | null | 'invalid'> {
+  const tid = typeof requestedId === 'string' ? requestedId.trim() : '';
+  if (tid) {
+    const row = await db.orderFormTemplate.findFirst({
+      where: { id: tid, tenantId, status: 'PUBLISHED' },
+      select: { id: true },
+    });
+    return row ? { id: row.id } : 'invalid';
+  }
+  const publishedDefault = await db.orderFormTemplate.findFirst({
+    where: { tenantId, isDefault: true, status: 'PUBLISHED' },
+    select: { id: true },
+  });
+  if (publishedDefault) return { id: publishedDefault.id };
+  const first = await db.orderFormTemplate.findFirst({
+    where: { tenantId, status: 'PUBLISHED' },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true },
+  });
+  return first ? { id: first.id } : null;
 }
 
 export async function loadInquiryIntakeFormProfile(
@@ -45,11 +92,16 @@ export async function loadInquiryIntakeFormProfile(
 ): Promise<InquiryIntakeFormProfile> {
   let templateId = input.templateId?.trim() || null;
   if (!templateId) {
-    const def = await db.orderFormTemplate.findFirst({
-      where: { tenantId, isDefault: true },
-      select: { id: true },
-    });
-    templateId = def?.id ?? null;
+    const resolved = await resolvePublishedIntakeTemplateId(db, tenantId, null);
+    templateId = resolved && resolved !== 'invalid' ? resolved.id : null;
+  }
+  if (!templateId) {
+    return {
+      ...EMPTY_PROFILE,
+      canEditCustomAnswers: Boolean(input.orderFormId),
+      orderFormId: input.orderFormId ?? null,
+      orderFormSubmitted: Boolean(input.submittedAt),
+    };
   }
   const pub = await getPublicTemplateForForm(db, tenantId, templateId);
   if (!pub) {
@@ -81,7 +133,8 @@ export async function loadInquiryIntakeFormProfile(
       optionLayout: f.optionLayout,
       required: f.required,
     })),
-    canEditCustomAnswers: Boolean(input.orderFormId),
+    preferredTimeOptions: preferredTimeOptionsFromTemplateFields(pub.systemFields),
+    canEditCustomAnswers: pub.customFields.length > 0 || Boolean(input.orderFormId),
     orderFormId: input.orderFormId ?? null,
     orderFormSubmitted: Boolean(input.submittedAt),
   };
@@ -175,4 +228,61 @@ export function parseOrderFormAnswersBody(raw: unknown): Record<string, unknown>
   if (raw == null) return undefined;
   if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   return raw as Record<string, unknown>;
+}
+
+export type IntakeProfileAttachable = {
+  intakeTemplateId?: string | null;
+  orderForm?: {
+    id?: string | null;
+    templateId?: string | null;
+    submittedAt?: Date | string | null;
+    template?: { id?: string | null } | null;
+  } | null;
+};
+
+function resolveIntakeTemplateId(item: IntakeProfileAttachable): string | null {
+  const fromForm = item.orderForm?.templateId?.trim() || item.orderForm?.template?.id?.trim() || '';
+  if (fromForm) return fromForm;
+  const pending = item.intakeTemplateId?.trim() || '';
+  return pending || null;
+}
+
+/** 팀장·목록이 접수 수정과 같은 양식 칸을 보도록 프로필을 붙인다. 양식별 1회만 로드. */
+export async function attachIntakeFormProfiles<T>(
+  db: Db,
+  tenantId: string,
+  items: T[],
+): Promise<Array<T & { intakeFormProfile: InquiryIntakeFormProfile }>> {
+  const baseByTemplate = new Map<string, InquiryIntakeFormProfile>();
+  const out: Array<T & { intakeFormProfile: InquiryIntakeFormProfile }> = [];
+  for (const item of items) {
+    const templateId = resolveIntakeTemplateId(item as IntakeProfileAttachable);
+    const cacheKey = templateId ?? '';
+    let base = baseByTemplate.get(cacheKey);
+    if (!base) {
+      base = await loadInquiryIntakeFormProfile(db, tenantId, { templateId });
+      baseByTemplate.set(cacheKey, base);
+    }
+    const source = item as IntakeProfileAttachable;
+    const orderFormId = source.orderForm?.id ?? null;
+    out.push({
+      ...item,
+      intakeFormProfile: {
+        ...base,
+        orderFormId,
+        orderFormSubmitted: Boolean(source.orderForm?.submittedAt),
+        canEditCustomAnswers: base.customFields.length > 0 || Boolean(orderFormId),
+      },
+    });
+  }
+  return out;
+}
+
+export async function attachIntakeFormProfileOne<T>(
+  db: Db,
+  tenantId: string,
+  item: T,
+): Promise<T & { intakeFormProfile: InquiryIntakeFormProfile }> {
+  const [next] = await attachIntakeFormProfiles(db, tenantId, [item]);
+  return next;
 }

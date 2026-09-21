@@ -35,6 +35,7 @@ import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.AppVersion
 import com.skcleantec.telecrm.update.TelecrmApkInstall
 import com.skcleantec.telecrm.update.TelecrmDistribution
+import com.skcleantec.telecrm.update.TelecrmStoreUpdate
 import com.skcleantec.telecrm.update.TelecrmUpdateCoordinator
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -146,18 +147,14 @@ class MainActivity : AppCompatActivity() {
 
         binding.logoutButton.setOnClickListener { logout() }
 
-        if (TelecrmDistribution.sideloadUpdateEnabled) {
-            binding.checkUpdateButton.visibility = View.VISIBLE
-            binding.checkUpdateButton.setOnClickListener {
-                TelecrmUpdateCoordinator.checkManually(this, apiBaseUrl)
-            }
-            binding.appVersionText.setOnClickListener {
-                TelecrmUpdateCoordinator.checkManually(this, apiBaseUrl)
-            }
-            binding.appVersionText.contentDescription = getString(R.string.update_check_button)
-        } else {
-            binding.checkUpdateButton.visibility = View.GONE
+        binding.checkUpdateButton.visibility = View.VISIBLE
+        binding.checkUpdateButton.setOnClickListener {
+            TelecrmUpdateCoordinator.checkManually(this, apiBaseUrl)
         }
+        binding.appVersionText.setOnClickListener {
+            TelecrmUpdateCoordinator.checkManually(this, apiBaseUrl)
+        }
+        binding.appVersionText.contentDescription = getString(R.string.update_check_button)
 
         binding.viewPager.adapter = MainPagerAdapter(this)
         binding.viewPager.isUserInputEnabled = false
@@ -249,7 +246,7 @@ class MainActivity : AppCompatActivity() {
         if (::dispatchExecutor.isInitialized) {
             consumePendingDispatchIfNeeded()
         }
-        if (::apiBaseUrl.isInitialized && TelecrmDistribution.sideloadUpdateEnabled) {
+        if (::apiBaseUrl.isInitialized) {
             lifecycleScope.launch {
                 TelecrmUpdateCoordinator.checkOnMain(this@MainActivity, apiBaseUrl)
             }
@@ -258,6 +255,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == TelecrmStoreUpdate.REQUEST_IMMEDIATE) {
+            TelecrmUpdateCoordinator.onPlayUpdateFlowResult(this, resultCode)
+            return
+        }
         if (requestCode == TelecrmApkInstall.REQUEST_INSTALL_PERMISSION &&
             TelecrmDistribution.sideloadUpdateEnabled
         ) {

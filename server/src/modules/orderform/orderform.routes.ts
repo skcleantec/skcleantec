@@ -134,8 +134,15 @@ import {
   profOptionKey,
 } from '../tenants/tenantConfigSeed.service.js';
 import { ensureAirconOrderFormTemplate } from '../orderform-templates/ensureAirconOrderFormTemplate.js';
+import { resolveStoredOrDefaultGuide } from '../orderform-templates/templateGuide.helpers.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
-import { sanitizeOrderTimeSlotLabelsJsonForSave, resolveOrderTimeSlotLabels, parseOrderTimeSlotLabelsJson } from '../../lib/orderFormTimeSlotLabels.js';
+import {
+  sanitizeOrderTimeSlotLabelsJsonForSave,
+  resolveOrderTimeSlotLabels,
+  parseOrderTimeSlotLabelsJson,
+  isAllowedPreferredTimeValue,
+  preferredTimeOptionsFromTemplateFields,
+} from '../../lib/orderFormTimeSlotLabels.js';
 import {
   assertActiveLeadSourceLabel,
   buildIntakeCreateChangeLogLines,
@@ -225,7 +232,12 @@ function respondPublicTenantAccessError(res: import('express').Response, e: unkn
   return false;
 }
 
-const VALID_ORDER_TIME_SLOTS = new Set(['오전', '오후', '사이청소', '조율']);
+function allowsPreferredTimeForTemplate(
+  template: { systemFields?: Array<{ systemField: string; options?: string[] | null }> } | null | undefined,
+  value: string,
+) {
+  return isAllowedPreferredTimeValue(value, preferredTimeOptionsFromTemplateFields(template?.systemFields));
+}
 
 /** 목록 연동용 접수 생성 시 주소 미수집 표시. 미제출 발주서 삭제 시 해당 접수는 삭제한다. */
 const STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER = ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS;
@@ -400,8 +412,22 @@ router.get('/public-guide', async (req, res) => {
     const tenantId = await resolvePublicTenantIdFromRequest(req);
     const brandSlug =
       typeof req.query.brand === 'string' ? req.query.brand.trim().toLowerCase() : '';
+    const templateId =
+      typeof req.query.templateId === 'string' ? req.query.templateId.trim() : '';
     const cfg = await getOrCreateOrderFormConfig(prisma, tenantId);
-    const sectionsRaw = parseGuideSectionsFromDb(cfg.infoContent);
+    let formTitle = cfg.formTitle?.trim() || '발주서';
+    let sectionsRaw = parseGuideSectionsFromDb(cfg.infoContent);
+    if (templateId) {
+      const tpl = await prisma.orderFormTemplate.findFirst({
+        where: { id: templateId, tenantId },
+        select: { title: true, isDefault: true, industryPackId: true, guideSections: true },
+      });
+      if (tpl) {
+        const resolved = resolveStoredOrDefaultGuide(tpl);
+        sectionsRaw = resolved.sections;
+        if (tpl.title.trim()) formTitle = tpl.title.trim();
+      }
+    }
     const [guideCtx, brandGuideItems] = await Promise.all([
       loadGuidePlaceholderContextForBrand(prisma, tenantId, {
         brandSlug: brandSlug || undefined,
@@ -414,12 +440,13 @@ router.get('/public-guide', async (req, res) => {
     const sections = expandGuideSections(sectionsMerged, guideCtx);
     const infoLinkText =
       cfg.infoLinkText?.trim() || '[필수] 예약 안내 및 개인정보 제3자 제공 동의';
-    res.json({ sections, infoLinkText });
+    res.json({ sections, infoLinkText, formTitle });
   } catch (err) {
     console.error('public-guide error:', err);
     res.json({
       sections: DEFAULT_GUIDE_SECTIONS,
       infoLinkText: '[필수] 예약 안내 및 개인정보 제3자 제공 동의',
+      formTitle: '발주서',
     });
   }
 });
@@ -910,7 +937,11 @@ const excludeDesignerPreviewTokens: Prisma.StringFilter = {
 };
 
 /** 견적 설정·추가 옵션 반영해 미리보기 발주서 금액 동기화 (32평 기준) */
-async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: string) {
+async function upsertDesignerPreviewOrderForm(
+  createdById: string,
+  tenantId: string,
+  requestedTemplateId?: string | null,
+) {
   const DEMO_PYEONG = 32;
   const ec = await getOrCreateEstimateConfig(prisma, tenantId);
   const pricePer = ec?.pricePerPyeong ?? 8000;
@@ -935,15 +966,24 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
     );
     await ensureAirconOrderFormTemplate(prisma, tenantId);
   }
-  const resolvedTemplate = await resolveIssueTemplate(prisma, tenantId, null);
+  const existing = await prisma.orderForm.findFirst({
+    where: { tenantId, token: previewToken },
+  });
+  const requestedTid = requestedTemplateId?.trim() || '';
+  let resolvedTemplate: { id: string; version: number } | null | 'invalid' = null;
+  if (requestedTid) {
+    const picked = await prisma.orderFormTemplate.findFirst({
+      where: { id: requestedTid, tenantId, status: { not: 'ARCHIVED' } },
+      select: { id: true, version: true },
+    });
+    resolvedTemplate = picked ?? (await resolveIssueTemplate(prisma, tenantId, null));
+  } else if (!existing?.templateId) {
+    resolvedTemplate = await resolveIssueTemplate(prisma, tenantId, null);
+  }
   const templatePatch =
     resolvedTemplate && resolvedTemplate !== 'invalid'
       ? { templateId: resolvedTemplate.id, templateVersion: resolvedTemplate.version }
       : {};
-
-  const existing = await prisma.orderForm.findFirst({
-    where: { tenantId, token: previewToken },
-  });
   if (!existing) {
     const operatingCompanyId = await resolveInquiryOperatingCompanyId({
       tx: prisma,
@@ -980,8 +1020,10 @@ router.get('/designer-preview-token', authMiddleware, requireStaffPermission('or
   if (!tenantId) return;
   const { userId } = user;
   try {
-    const form = await upsertDesignerPreviewOrderForm(userId, tenantId);
-    res.json({ token: form.token });
+    const requestedTemplateId =
+      typeof req.query.templateId === 'string' ? req.query.templateId.trim() : '';
+    const form = await upsertDesignerPreviewOrderForm(userId, tenantId, requestedTemplateId || null);
+    res.json({ token: form.token, templateId: form.templateId });
   } catch (e) {
     console.error('[designer-preview-token]', e);
     res.status(500).json({ error: '미리보기 발주서를 준비하지 못했습니다.' });
@@ -1407,7 +1449,20 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     ? (req.body as { collaborationMarketerId?: unknown }).collaborationMarketerId
     : undefined;
 
-  const resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, templateIdRaw);
+  const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
+  const requestedIssueTemplateId = typeof templateIdRaw === 'string' ? templateIdRaw.trim() : '';
+  let issueTemplateHint = requestedIssueTemplateId;
+  if (!issueTemplateHint && pid) {
+    const intakeHint = await prisma.inquiry.findFirst({
+      where: { id: pid, tenantId: authTenantId },
+      select: { intakeTemplateId: true },
+    });
+    if (intakeHint?.intakeTemplateId) issueTemplateHint = intakeHint.intakeTemplateId;
+  }
+  let resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, issueTemplateHint || null);
+  if (resolvedTemplate === 'invalid' && issueTemplateHint && !requestedIssueTemplateId) {
+    resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, null);
+  }
   if (resolvedTemplate === 'invalid') {
     res.status(400).json({ error: '선택한 발주서 양식을 찾을 수 없거나 발행되지 않았습니다.' });
     return;
@@ -1416,7 +1471,6 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     ? { templateId: resolvedTemplate.id, templateVersion: resolvedTemplate.version }
     : {};
 
-  const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
   const tenantPlan = await getTenantPlan(authTenantId);
   try {
     if (pid) {
@@ -1429,6 +1483,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           createdById: true,
           operatingCompanyId: true,
           customerName: true,
+          intakeCustomAnswers: true,
         },
       });
       if (!pending) {
@@ -1498,6 +1553,11 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
             createdById: userId,
             ...templateData,
             ...reviewPaybackTokenCreateField(),
+            ...(pending.intakeCustomAnswers &&
+            typeof pending.intakeCustomAnswers === 'object' &&
+            !Array.isArray(pending.intakeCustomAnswers)
+              ? { prefillAnswers: pending.intakeCustomAnswers as Prisma.InputJsonValue }
+              : {}),
           },
         });
         await chargeInquiryCoinInTx(tx, {
@@ -1510,6 +1570,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           where: { id: pid },
           data: {
             orderFormId: created.id,
+            ...(created.templateId ? { intakeTemplateId: created.templateId } : {}),
             status: 'ORDER_FORM_PENDING',
             source: leadSourceLabel,
             intakeChannel: 'order_issue',
@@ -1628,6 +1689,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           source: leadSourceLabel,
           intakeChannel: 'order_issue',
           orderFormId: created.id,
+          ...(created.templateId ? { intakeTemplateId: created.templateId } : {}),
           createdById: userId,
           internalCustomerTone: standaloneTone,
           ...(resolvedCollaborationMarketerId !== undefined
@@ -1854,7 +1916,8 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
     typeof body.preferredTimeDetail === 'string' && body.preferredTimeDetail.trim()
       ? body.preferredTimeDetail.trim()
       : null;
-  if (prefTime && !VALID_ORDER_TIME_SLOTS.has(prefTime)) {
+  const prefillTemplate = await getPublicTemplateForForm(prisma, tenantId, form.templateId);
+  if (prefTime && !allowsPreferredTimeForTemplate(prefillTemplate, prefTime)) {
     res.status(400).json({ error: '시간대를 선택해주세요.' });
     return;
   }
@@ -2924,7 +2987,7 @@ router.post('/submit/:token', async (req, res) => {
       return;
     }
   }
-  if (useTimeStr && !VALID_ORDER_TIME_SLOTS.has(useTimeStr)) {
+  if (useTimeStr && !allowsPreferredTimeForTemplate(submitTemplate, useTimeStr)) {
     res.status(400).json({ error: '시간대를 선택해주세요.' });
     return;
   }

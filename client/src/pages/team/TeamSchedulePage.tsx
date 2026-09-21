@@ -30,7 +30,7 @@ import {
   formatScheduleLine,
   formatCrewInfo,
   marketerInfo,
-  formatRoomInfo,
+  formatTeamInquiryStructure,
   getCalendarDays,
   TeamHappyCallBadge,
   TeamInspectionStatusBadge,
@@ -42,6 +42,7 @@ import {
   TeamInquiryServiceKindListBadge,
 } from './teamInquiryShared';
 import { TeamCrewMemberContactChips } from '../../components/team/TeamCrewMemberContactChips';
+import { TeamInquiryIntakeListChips } from '../../components/team/TeamInquiryIntakeAnswers';
 import {
   TeamScheduleCalendarJobChip,
   TeamScheduleCalendarJobOverflowChip,
@@ -240,6 +241,7 @@ export function TeamSchedulePage() {
               </span>
               <TeamInquiryServiceKindListBadge item={item} />
               <TeamInquiryAreaListBadge item={item} />
+              <TeamInquiryIntakeListChips item={item} />
             </div>
             {memoSubtitle ? (
               <div className={`mt-1 ${TEAM_CARD_META} text-gray-700`} title={memoTrim}>
@@ -277,7 +279,10 @@ export function TeamSchedulePage() {
               {item.addressDetail ? ` ${item.addressDetail}` : ''}
             </div>
             <div className={`text-gray-500 mt-0.5 ${TEAM_CARD_META}`}>
-              {formatScheduleLine(item, timeSlotLabels)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
+              {formatScheduleLine(item, timeSlotLabels)}
+              {formatTeamInquiryStructure(item) !== teamBiPlain('team.common.emDash')
+                ? ` · ${formatTeamInquiryStructure(item)}`
+                : ''}
             </div>
             <div className={`text-gray-500 mt-0.5 ${TEAM_CARD_META}`} title={formatCrewInfo(item)}>
               {formatCrewInfo(item)}

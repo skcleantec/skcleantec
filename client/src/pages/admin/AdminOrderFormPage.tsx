@@ -3,7 +3,7 @@ import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve
 import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { createPortal } from 'react-dom';
-import { Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { OrderIssueHelpModal } from '../../components/admin/order-issue-help/OrderIssueHelpModal';
@@ -710,10 +710,10 @@ export function AdminOrderFormPage() {
     return <Navigate to="/admin/inquiries/order-customer-preview" replace />;
   }
   if (legacyTab === 'notice') {
-    return <Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />;
+    return <Navigate to="/admin/inquiries/order-customer-preview?section=guide" replace />;
   }
   if (legacyTab === 'specialty') {
-    return <Navigate to="/admin/inquiries/order-customer-preview?panel=specialty" replace />;
+    return <Navigate to="/admin/inquiries/order-customer-preview?section=specialty" replace />;
   }
   if (legacyTab === 'config') {
     return <Navigate to="/admin/inquiries/order-customer-preview" replace />;
@@ -804,7 +804,7 @@ export function AdminOrderFormPage() {
                     ) : (
                       <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-fluid-xs text-amber-950">
                         {issueTemplatesError ??
-                          '발행된 발주서 양식이 없습니다. 「발주서 양식」 메뉴에서 발행 후 다시 시도해 주세요.'}
+                          '사용함인 발주서 양식이 없습니다. 「발주서 양식」에서 사용할 양식을 켠 뒤 다시 시도해 주세요.'}
                       </p>
                     )}
                   </div>
@@ -901,7 +901,7 @@ export function AdminOrderFormPage() {
               {token ? (
                 <div className="mt-5 border-t border-gray-100 pt-5">
                   <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
-                    선택한 양식이 그대로 아래에 표시됩니다. 상담 내용을 미리 채우면 그 항목은 고객 화면에서 잠겨(수정 불가) 보이고, 비워 둔 항목은 고객이 직접 작성합니다.
+                    선택한 양식이 그대로 아래에 표시됩니다. 칸 옆 「마케터 필수」「고객 필수」「둘 다 가능」을 보면 지금 적어야 하는지 알 수 있습니다. 알림톡을 보내려면 고객 전화번호(대표 연락처)를 적어 주세요.
                   </p>
                   {!issueTemplatesLoaded ? (
                     <p className="py-6 text-center text-fluid-sm text-gray-500">발주서 양식 불러오는 중…</p>
@@ -968,6 +968,16 @@ export function AdminOrderFormPage() {
 
       {tab === 'list' && (
         <div className="min-w-0 w-full max-w-full">
+          <p className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-700">
+            여기는 손님에게 <strong className="font-medium">이미 보낸 발주서</strong>입니다. 양식을 켜고 끄려면{' '}
+            <Link
+              to="/admin/inquiries/order-customer-preview?section=basics"
+              className="font-medium text-slate-900 underline hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            >
+              발주서설정
+            </Link>
+            에서 발주서를 고른 뒤 「사용하기 / 사용 끄기」를 누르세요.
+          </p>
           {listOpsRange ? (
             <p className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-fluid-xs text-indigo-900">
               대시보드 시간대 필터:{' '}
