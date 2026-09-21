@@ -15,6 +15,10 @@ export type OrderFormConsentTimeSlot = {
 
 export type OrderFormConsentGuideTerms = {
   agreedAt: string;
+  /** 제출 후 저장된 서명 이미지 */
+  signatureUrl?: string | null;
+  /** 제출 시에만 보냄. 서버가 파일로 바꾼 뒤 저장하지 않음 */
+  signaturePng?: string;
 };
 
 export type OrderFormSubmissionConsents = {

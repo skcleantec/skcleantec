@@ -92,7 +92,7 @@ export function useOrderFormCustomerDraftPersist(args: {
       form,
       customAnswers,
       profSelections,
-      guideTermsAt,
+      guideTermsAt: null,
     });
   }, [enabled, token, form, customAnswers, profSelections, guideTermsAt]);
 }

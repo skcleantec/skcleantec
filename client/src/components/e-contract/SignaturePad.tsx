@@ -20,6 +20,7 @@ export type SignaturePadProps = {
   onSave: (blob: Blob) => void | Promise<void>;
   onClear?: () => void;
   saveButtonLabel?: string;
+  saveButtonClassName?: string;
   hint?: string;
   canvasHeightClass?: string;
 };
@@ -32,6 +33,7 @@ export function SignaturePad({
   onSave,
   onClear,
   saveButtonLabel = '서명을 이미지로 저장',
+  saveButtonClassName,
   hint = '마우스·펜·손가락으로 박스 안에 서명을 그려 주세요.',
   canvasHeightClass = 'h-44',
 }: SignaturePadProps) {
@@ -183,7 +185,7 @@ export function SignaturePad({
           type="button"
           disabled={controlsDisabled}
           onClick={() => clearCanvas()}
-          className="rounded border border-gray-300 bg-white px-4 py-2 text-fluid-xs text-gray-800 disabled:opacity-50"
+          className="rounded border border-gray-300 bg-white px-4 py-2 text-fluid-xs text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         >
           지우기
         </button>
@@ -191,7 +193,10 @@ export function SignaturePad({
           type="button"
           disabled={controlsDisabled}
           onClick={() => void saveAsPng()}
-          className="rounded-lg bg-gray-900 px-4 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
+          className={
+            saveButtonClassName ??
+            'rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+          }
         >
           {saving ? '저장 중…' : saveButtonLabel}
         </button>

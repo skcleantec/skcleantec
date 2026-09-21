@@ -11,13 +11,14 @@ import {
   OrderFormConsentStamp,
   OrderFormConsentsSummary,
 } from './OrderFormConsentUi';
+import { OrderFormGuideSignatureBlock } from './OrderFormGuideSignatureBlock';
 
 export function OrderFormGuideAgreeModal(props: {
   open: boolean;
   onClose: () => void;
-  /** agree: 제출 전 동의(스크롤·동의 버튼) · view: 제출 확인서 등 재열람 */
+  /** agree: 제출 전 동의(스크롤·서명) · view: 제출 확인서 등 재열람 */
   mode?: 'agree' | 'view';
-  onAgree?: () => void;
+  onAgree?: (payload: { at: string; signaturePng: string }) => void;
   /** view 모드 — 제출 스냅샷 동의 이력 */
   consents?: OrderFormSubmissionConsents | null;
   /** 브랜드 slug — 미전달 시 URL ?brand= */
@@ -90,12 +91,12 @@ export function OrderFormGuideAgreeModal(props: {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[1003] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4"
+      className="modal-mobile-safe-overlay fixed inset-0 z-[1003] flex items-stretch justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4"
       role="presentation"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[min(92vh,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
+        className="modal-mobile-fullscreen-panel relative flex h-[100dvh] w-full max-w-lg flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[min(92vh,44rem)] sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="order-guide-agree-title"
@@ -109,13 +110,13 @@ export function OrderFormGuideAgreeModal(props: {
           <p className="mt-1 text-fluid-xs text-gray-300">
             {isViewMode
               ? '제출 후에도 아래 안내사항을 다시 확인하실 수 있습니다.'
-              : '아래 내용을 끝까지 확인한 뒤 동의해 주세요.'}
+              : '아래 내용을 끝까지 확인한 뒤 서명해 주세요.'}
           </p>
         </div>
 
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-5 sm:px-6"
+          className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-5 sm:px-6"
           onScroll={checkScrollEnd}
         >
           {loadError ? (
@@ -179,7 +180,11 @@ export function OrderFormGuideAgreeModal(props: {
                       <OrderFormConsentStamp kind="timeSlot" agreedAt={consents.timeSlot.agreedAt} />
                     ) : null}
                     {consents.guideTerms?.agreedAt ? (
-                      <OrderFormConsentStamp kind="guideTerms" agreedAt={consents.guideTerms.agreedAt} />
+                      <OrderFormConsentStamp
+                        kind="guideTerms"
+                        agreedAt={consents.guideTerms.agreedAt}
+                        signatureUrl={consents.guideTerms.signatureUrl}
+                      />
                     ) : null}
                   </div>
                 ) : null}
@@ -187,6 +192,22 @@ export function OrderFormGuideAgreeModal(props: {
               <p className="mt-6 text-center text-fluid-xs text-gray-500">
                 문의사항은 예약 번호로 연락 부탁드립니다.
               </p>
+              {isViewMode ? (
+                <OrderFormGuideSignatureBlock
+                  viewOnly
+                  disabled
+                  existingUrl={consents?.guideTerms?.signatureUrl}
+                  onSigned={() => undefined}
+                />
+              ) : (
+                <OrderFormGuideSignatureBlock
+                  disabled={loading || !scrolledToEnd}
+                  onSigned={(signaturePng) => {
+                    onAgree?.({ at: new Date().toISOString(), signaturePng });
+                    onClose();
+                  }}
+                />
+              )}
               <div className="h-px w-full" aria-hidden />
             </>
           )}
@@ -202,22 +223,11 @@ export function OrderFormGuideAgreeModal(props: {
               닫기
             </button>
           ) : (
-            <>
-              {!scrolledToEnd && !loading ? (
-                <p className="text-center text-fluid-2xs text-gray-500">맨 아래까지 스크롤하면 동의할 수 있습니다.</p>
-              ) : null}
-              <button
-                type="button"
-                disabled={loading || !scrolledToEnd}
-                onClick={() => {
-                  onAgree?.();
-                  onClose();
-                }}
-                className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                모든사항을 확인했고 이에 모두 동의합니다.
-              </button>
-            </>
+            <p className="text-center text-fluid-2xs leading-snug text-gray-500">
+              {scrolledToEnd
+                ? '아래 서명칸에 이름을 그린 뒤 「서명으로 동의」를 눌러 주세요.'
+                : '맨 아래까지 내리면 서명할 수 있습니다.'}
+            </p>
           )}
         </div>
       </div>

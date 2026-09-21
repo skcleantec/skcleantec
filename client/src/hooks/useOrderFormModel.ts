@@ -34,7 +34,7 @@ export function useOrderFormModel(args: {
   customFields: OrderFormPublicTemplateField[];
   isEditor: boolean;
   guideTermsAt: string | null;
-  setGuideTermsConsent: (v: { at: string } | null) => void;
+  setGuideTermsConsent: (v: { at: string; signaturePng: string } | null) => void;
 }) {
   const {
     token,
@@ -50,7 +50,6 @@ export function useOrderFormModel(args: {
     customFields,
     isEditor,
     guideTermsAt,
-    setGuideTermsConsent,
   } = args;
 
   const stdFieldOn = useCallback((key: string) => isStdFieldOn(order, key), [order]);
@@ -114,9 +113,7 @@ export function useOrderFormModel(args: {
       return next;
     });
     setProfSelections((prev) => (prev.length > 0 ? prev : draft.profSelections ?? []));
-    if (!guideTermsAt && draft.guideTermsAt) {
-      setGuideTermsConsent({ at: draft.guideTermsAt });
-    }
+    // 서명은 임시저장하지 않음 — 다시 열고 서명해야 함
     // 초안은 로드 직후 한 번만
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, loaded, token]);

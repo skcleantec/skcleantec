@@ -1,24 +1,37 @@
 /** 발주서 탭 ↔ `/info` 안내 탭 간 동의 체크 동기화 (같은 출처) */
 export const ORDER_FORM_GUIDE_CHANNEL = 'skcleanteck-order-form-guide-v1';
 
-export type OrderFormGuideMessage = { type: 'agree-terms' };
+export type OrderFormGuideMessage = {
+  type: 'agree-terms';
+  agreedAt: string;
+  signaturePng: string;
+};
 
-export function postOrderGuideAgreeTerms(): void {
+export function postOrderGuideAgreeTerms(payload: { agreedAt: string; signaturePng: string }): void {
   try {
     const bc = new BroadcastChannel(ORDER_FORM_GUIDE_CHANNEL);
-    bc.postMessage({ type: 'agree-terms' } satisfies OrderFormGuideMessage);
+    bc.postMessage({ type: 'agree-terms', ...payload } satisfies OrderFormGuideMessage);
     bc.close();
   } catch {
     /* BroadcastChannel 미지원 등 */
   }
 }
 
-/** 다른 탭에서 안내 확인·동의 시 콜백 (발주서 페이지에서 구독) */
-export function subscribeOrderGuideAgreeTerms(onAgree: () => void): () => void {
+/** 다른 탭에서 안내 확인·서명 시 콜백 (발주서 페이지에서 구독) */
+export function subscribeOrderGuideAgreeTerms(
+  onAgree: (payload: { agreedAt: string; signaturePng: string }) => void,
+): () => void {
   try {
     const bc = new BroadcastChannel(ORDER_FORM_GUIDE_CHANNEL);
     bc.onmessage = (ev: MessageEvent<OrderFormGuideMessage>) => {
-      if (ev.data?.type === 'agree-terms') onAgree();
+      if (
+        ev.data?.type === 'agree-terms' &&
+        typeof ev.data.agreedAt === 'string' &&
+        typeof ev.data.signaturePng === 'string' &&
+        ev.data.signaturePng.startsWith('data:image/png')
+      ) {
+        onAgree({ agreedAt: ev.data.agreedAt, signaturePng: ev.data.signaturePng });
+      }
     };
     return () => {
       bc.onmessage = null;

@@ -309,7 +309,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     at: string;
     slot: string;
   } | null>(null);
-  const [guideTermsConsent, setGuideTermsConsent] = useState<{ at: string } | null>(null);
+  const [guideTermsConsent, setGuideTermsConsent] = useState<{
+    at: string;
+    signaturePng: string;
+  } | null>(null);
   const wizardGoToRef = useRef<((id: OrderFormCustomerStepId) => void) | null>(null);
   /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
   const [noSpecialNotes, setNoSpecialNotes] = useState(false);
@@ -923,8 +926,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
   useEffect(
     () =>
-      subscribeOrderGuideAgreeTerms(() => {
-        setGuideTermsConsent({ at: new Date().toISOString() });
+      subscribeOrderGuideAgreeTerms((payload) => {
+        setGuideTermsConsent({ at: payload.agreedAt, signaturePng: payload.signaturePng });
       }),
     [],
   );
@@ -1163,8 +1166,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         });
         if (spaceErr) addIssue(spaceErr, 'order-field-roomCount');
       }
-      if (!guideTermsConsent) {
-        addIssue('[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.', 'order-field-agree');
+      if (!guideTermsConsent?.signaturePng) {
+        addIssue('[필수] 안내사항을 끝까지 읽고 서명해 주세요.', 'order-field-agree');
       }
 
       const templateCustomFields = visibleOrderFormCustomFields;
@@ -1216,7 +1219,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
       const finishSubmit = async () => {
       const submitConsents: OrderFormSubmissionConsents = {
-        guideTerms: guideTermsConsent ? { agreedAt: guideTermsConsent.at } : undefined,
+        guideTerms: guideTermsConsent
+          ? { agreedAt: guideTermsConsent.at, signaturePng: guideTermsConsent.signaturePng }
+          : undefined,
       };
       if (customerScheduleAckEnabled && !scheduleLockedByAdmin && stdFieldOn('preferredDate') && serviceDateConsent) {
         submitConsents.serviceDate = {
@@ -1604,8 +1609,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             onClose={() => setGuideAgreeModalOpen(false)}
             brandSlug={resolvePublicBrandSlug() || undefined}
             templateId={order?.template?.id}
-            onAgree={() => {
-              setGuideTermsConsent({ at: new Date().toISOString() });
+            onAgree={(payload) => {
+              setGuideTermsConsent(payload);
             }}
           />
         ) : null}
@@ -2120,6 +2125,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       handleCustomerPreferredTimeChange,
       submitting,
       guideTermsAt: guideTermsConsent?.at ?? null,
+      guideTermsSigned: Boolean(guideTermsConsent?.signaturePng),
       setGuideAgreeModalOpen,
       agreeLinkLabel,
       professionalOptions,
@@ -3301,7 +3307,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                     {agreeLinkLabel} (자세히 보기)
                   </button>
                   <p id="agreeTerms-hint" className="text-fluid-xs text-gray-500">
-                    체크·동의 후 예약 확정이 가능합니다.
+                    안내를 끝까지 읽고 서명하면 예약 확정이 가능합니다.
                   </p>
                 </div>
               )}
@@ -3315,8 +3321,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             onClose={() => setGuideAgreeModalOpen(false)}
             brandSlug={resolvePublicBrandSlug() || undefined}
             templateId={order?.template?.id}
-            onAgree={() => {
-              setGuideTermsConsent({ at: new Date().toISOString() });
+            onAgree={(payload) => {
+              setGuideTermsConsent(payload);
             }}
           />
           )}

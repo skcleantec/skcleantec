@@ -415,7 +415,9 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
             <Link to={infoHref} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
               /info
             </Link>
-            와 발주서 동의 화면에서 봅니다.
+            와 발주서 동의 화면에서 봅니다. 손님은 안내를{' '}
+            <strong className="font-semibold text-slate-700">맨 아래까지 읽고 서명</strong>해야 동의가
+            끝납니다.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

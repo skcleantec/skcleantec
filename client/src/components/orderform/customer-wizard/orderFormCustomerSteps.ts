@@ -233,7 +233,7 @@ export function resolveOrderFormCustomerSteps(args: {
     id: 'guide',
     kind: 'guide',
     title: '안내사항을 확인해 주세요',
-    hint: '안내사항을 읽어주셔야 제출하기가 완료됩니다.',
+    hint: '안내사항을 끝까지 읽고 서명해야 제출하기가 완료됩니다.',
   });
   return steps;
 }
