@@ -446,11 +446,13 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
         <p className="text-gray-600">불러오는 중…</p>
       ) : (
         <div className="space-y-6 max-w-3xl">
+          {embedded ? null : (
           <OrderGuideFormScopeBar
             forms={forms.map((f) => ({ id: f.id, title: f.title, isDefault: f.isDefault }))}
             formId={selectedForm?.id ?? ''}
             onChange={setGuideForm}
           />
+          )}
 
           <OrderGuideBrandScopeBar
             brands={activeBrands.map((b) => ({

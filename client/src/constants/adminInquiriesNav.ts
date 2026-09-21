@@ -14,19 +14,19 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
       { to: '/admin/inquiries/order-forms', label: '발주서 목록' },
       { to: '/admin/inquiries/order-issue', label: '발주서 발급' },
       {
-        to: '/admin/inquiries/order-templates',
-        label: '발주서 양식',
-        title: '사용하기·사용 끄기로 양식을 켜고, 제목·항목을 만듭니다',
+        to: '/admin/inquiries/order-customer-preview',
+        label: '발주서설정',
+        title: '발주서를 고르면 손님 화면과 그 양식 설정이 같이 나옵니다',
+      },
+      {
+        to: '/admin/inquiries/order-templates?new=1',
+        label: '새 발주서',
+        title: '업종을 고르고 칸을 만듭니다',
       },
       {
         to: '/admin/inquiries/order-customer-link',
         label: '고객링크설정',
         title: '발주서 링크 안내 메시지 문구 편집·저장',
-      },
-      {
-        to: '/admin/inquiries/order-customer-preview',
-        label: '발주서설정',
-        title: '공통 메시지·견적/전문시공 옵션 설정·미리보기',
       },
     ],
   },

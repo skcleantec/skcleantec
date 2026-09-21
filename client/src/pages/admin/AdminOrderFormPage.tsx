@@ -710,10 +710,10 @@ export function AdminOrderFormPage() {
     return <Navigate to="/admin/inquiries/order-customer-preview" replace />;
   }
   if (legacyTab === 'notice') {
-    return <Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />;
+    return <Navigate to="/admin/inquiries/order-customer-preview?section=guide" replace />;
   }
   if (legacyTab === 'specialty') {
-    return <Navigate to="/admin/inquiries/order-customer-preview?panel=specialty" replace />;
+    return <Navigate to="/admin/inquiries/order-customer-preview?section=specialty" replace />;
   }
   if (legacyTab === 'config') {
     return <Navigate to="/admin/inquiries/order-customer-preview" replace />;
@@ -971,12 +971,12 @@ export function AdminOrderFormPage() {
           <p className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-700">
             여기는 손님에게 <strong className="font-medium">이미 보낸 발주서</strong>입니다. 양식을 켜고 끄려면{' '}
             <Link
-              to="/admin/inquiries/order-templates"
+              to="/admin/inquiries/order-customer-preview?section=basics"
               className="font-medium text-slate-900 underline hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
-              발주서 양식
+              발주서설정
             </Link>
-            에서 「사용하기 / 사용 끄기」를 누르세요.
+            에서 발주서를 고른 뒤 「사용하기 / 사용 끄기」를 누르세요.
           </p>
           {listOpsRange ? (
             <p className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-fluid-xs text-indigo-900">

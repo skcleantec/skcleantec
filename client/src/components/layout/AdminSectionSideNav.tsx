@@ -39,7 +39,8 @@ export const ADMIN_SECTION_SIDE_NAV_WIDTH_PX = 200;
 export const ADMIN_SECTION_SIDE_NAV_COLLAPSED_WIDTH_PX = 56;
 
 function isPathActive(pathname: string, to: string, end?: boolean): boolean {
-  return Boolean(matchPath({ path: to, end: end ?? false }, pathname));
+  const path = to.split('?')[0] || to;
+  return Boolean(matchPath({ path, end: end ?? false }, pathname));
 }
 
 function PanelCollapseIcon({ className }: { className?: string }) {

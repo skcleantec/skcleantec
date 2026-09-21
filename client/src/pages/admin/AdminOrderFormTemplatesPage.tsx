@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { OrderFormTemplatePreview } from '../../components/admin/OrderFormTemplatePreview';
@@ -474,6 +474,17 @@ export function AdminOrderFormTemplatesPage() {
   const wizardDraft = isCreate && urlId ? templates.find((t) => t.id === urlId) ?? null : null;
 
   if (!token) return null;
+
+  if (!isCreate) {
+    const qs = new URLSearchParams();
+    if (urlId) {
+      qs.set('previewForm', urlId);
+      qs.set('guideForm', urlId);
+      qs.set('section', 'fields');
+    }
+    const suffix = qs.toString();
+    return <Navigate to={`/admin/inquiries/order-customer-preview${suffix ? `?${suffix}` : ''}`} replace />;
+  }
 
   const headerBtn =
     'rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-fluid-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
