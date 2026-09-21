@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export const WIZARD_INPUT_CLS =
-  'w-full min-h-12 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/15 disabled:bg-slate-100 disabled:text-slate-500 disabled:pointer-events-none';
+  'w-full min-h-12 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/15 disabled:bg-slate-50 disabled:text-slate-800 disabled:pointer-events-none';
 
 export const WIZARD_CTA_CLS =
   'w-full min-h-12 rounded-xl bg-slate-900 py-3 text-fluid-sm font-semibold text-white shadow-md shadow-slate-900/15 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-45 disabled:pointer-events-none';

@@ -66,7 +66,7 @@ export function useOrderFormModel(args: {
         form,
         customFields,
         isEditor,
-        skipLocked: true,
+        skipLocked: false,
       }),
     [order, form, customFields, isEditor],
   );

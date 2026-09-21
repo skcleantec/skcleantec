@@ -1,7 +1,9 @@
+import { ORDER_FORM_SPACE_COUNT_FIELDS } from '@shared/orderFormSpaceCounts';
 import {
   isCustomerAddressLocked,
   isOrderFormAreaLockedFromOrder,
   isOrderFormPrefillLocked,
+  isOrderFormSpaceCountLocked,
   isStdFieldOn,
   shouldShowCustomerAddressWizardStep,
   shouldShowCustomerDateWizardStep,
@@ -59,35 +61,46 @@ export function resolveOrderFormCustomerSteps(args: {
   const std = (key: string) => isStdFieldOn(order, key);
   const locked = (key: string) =>
     skipLocked && isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, key);
+  const prefilled = (key: string) => isOrderFormPrefillLocked(isEditor, order?.prefillAnswers, key);
   const areaLocked = skipLocked && !isEditor && isOrderFormAreaLockedFromOrder(order);
-  const addressLocked = skipLocked && isCustomerAddressLocked(isEditor, order?.prefillAnswers);
+  const streetLocked = isCustomerAddressLocked(isEditor, order?.prefillAnswers);
 
   const steps: OrderFormCustomerStep[] = [
     {
       id: 'welcome',
       kind: 'welcome',
       title: '청소 일정을 알려 주세요',
-      hint: '질문 하나씩 답하시면 됩니다. 이어서 작성한 내용은 이 기기에서 잠시 보관됩니다.',
+      hint: '질문 하나씩 보시면 됩니다. 상담에서 적어 둔 내용은 다시 보여 드리니, 맞으면 다음을 눌러 주세요.',
     },
   ];
 
   if (customerMayEditFillKey(order, 'customerName') && shouldShowCustomerNameWizardStep(order, isEditor, skipLocked)) {
+    const nameLocked = prefilled('customerName');
     steps.push({
       id: 'name',
       kind: 'input',
-      title: '고객 성함이 어떻게 되세요?',
-      hint: '예약 확인에 쓰이는 이름입니다.',
+      title: nameLocked ? '성함이 이렇게 맞나요?' : '고객 성함이 어떻게 되세요?',
+      hint: nameLocked
+        ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.'
+        : '예약 확인에 쓰이는 이름입니다.',
     });
   }
   if (customerMayEditFillKey(order, 'address') && shouldShowCustomerAddressWizardStep(order, isEditor, skipLocked)) {
-    const detailOnly = addressLocked && !locked('addressDetail');
+    const detailOnly = streetLocked && !prefilled('addressDetail');
+    const addressAllSet = streetLocked && prefilled('addressDetail');
     steps.push({
       id: 'address',
       kind: 'input',
-      title: detailOnly ? '상세주소를 알려 주세요' : '청소할 주소는 어디인가요?',
-      hint: detailOnly
-        ? '동·호수, 층, 상호 등을 적어 주세요. 도로명 주소는 상담에서 이미 정해졌습니다.'
-        : '「주소 검색」으로 선택한 뒤 상세주소를 적어 주세요.',
+      title: addressAllSet
+        ? '주소가 이렇게 맞나요?'
+        : detailOnly
+          ? '상세주소를 알려 주세요'
+          : '청소할 주소는 어디인가요?',
+      hint: addressAllSet
+        ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.'
+        : detailOnly
+          ? '동·호수, 층, 상호 등을 적어 주세요. 도로명 주소는 상담에서 이미 정해졌습니다.'
+          : '「주소 검색」으로 선택한 뒤 상세주소를 적어 주세요.',
     });
   }
   if (
@@ -129,18 +142,23 @@ export function resolveOrderFormCustomerSteps(args: {
     });
   }
   if (customerMayEditFillKey(order, 'preferredDate') && shouldShowCustomerDateWizardStep(order, isEditor, skipLocked)) {
+    const dateLocked = prefilled('preferredDate') || Boolean(order?.preferredDate?.trim());
     steps.push({
       id: 'date',
       kind: 'input',
-      title: '희망 청소일은 언제인가요?',
-      hint: '날짜를 정확히 확인해 주세요. 잘못 적으면 위약금이 생길 수 있습니다.',
+      title: dateLocked ? '희망 청소일이 이렇게 맞나요?' : '희망 청소일은 언제인가요?',
+      hint: dateLocked
+        ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.'
+        : '날짜를 정확히 확인해 주세요. 잘못 적으면 위약금이 생길 수 있습니다.',
     });
   }
   if (customerMayEditFillKey(order, 'preferredTime') && shouldShowCustomerTimeWizardStep(order, isEditor, skipLocked)) {
+    const timeLocked = prefilled('preferredTime') || Boolean(order?.preferredTime?.trim());
     steps.push({
       id: 'time',
       kind: 'choice',
-      title: '오전·오후 중 언제가 좋으세요?',
+      title: timeLocked ? '시간대가 이렇게 맞나요?' : '오전·오후 중 언제가 좋으세요?',
+      hint: timeLocked ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.' : undefined,
     });
   }
   if (
@@ -154,11 +172,23 @@ export function resolveOrderFormCustomerSteps(args: {
     });
   }
   if (customerMayEditFillKey(order, 'roomCount') && shouldShowCustomerRoomsWizardStep(order, isEditor, skipLocked)) {
+    const roomsAllLocked = ORDER_FORM_SPACE_COUNT_FIELDS.every(({ key }) =>
+      isOrderFormSpaceCountLocked(isEditor, order?.prefillAnswers, key),
+    );
+    const roomsAnyLocked = ORDER_FORM_SPACE_COUNT_FIELDS.some(({ key }) =>
+      isOrderFormSpaceCountLocked(isEditor, order?.prefillAnswers, key),
+    );
     steps.push({
       id: 'rooms',
       kind: 'input',
-      title: '방·화장실·베란다·주방은 어떻게 되나요?',
-      hint: '없는 공간은 0으로 적어 주세요. 0이거나 비어 있는 칸은 직접 고칠 수 있습니다.',
+      title: roomsAllLocked
+        ? '방·화장실·베란다·주방은 이렇게 맞나요?'
+        : '방·화장실·베란다·주방은 어떻게 되나요?',
+      hint: roomsAllLocked
+        ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.'
+        : roomsAnyLocked
+          ? '이미 적힌 칸은 확인만 하시면 됩니다. 없는 공간은 0으로 적어 주세요.'
+          : '없는 공간은 0으로 적어 주세요. 0이거나 비어 있는 칸은 직접 고칠 수 있습니다.',
     });
   }
   if (customerMayEditFillKey(order, 'buildingType') && std('buildingType') && !locked('buildingType')) {

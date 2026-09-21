@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-21-guide-sign-consent",
+  "_lastUpdated": "2026-09-21-prefill-confirm-steps",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -320,7 +320,7 @@
         "client/src/components/orderform/customer-wizard/OrderFormCustomerWizard.tsx",
         "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
       ],
-      "notes": "질문 수는 발주서 양식 시스템 필드·선입력 잠금에 따라 달라짐. 질문·선택지는 서서히 나타남(움직임 줄이기 시 페이드만). 고객이 끄면 안 됨. 마케터 선입력 화면은 기존 한 장 폼 유지. 다음·제출은 회사정보 위 고정. 보조 연락처는 항상 필수."
+      "notes": "선입력된 칸도 질문으로 다시 보여 주고 다음으로 확인. 잠긴 칸은 고칠 수 없음. 질문·선택지는 서서히 나타남. 마케터 선입력 화면은 기존 한 장 폼 유지. 다음·제출은 회사정보 위 고정. 보조 연락처는 항상 필수."
     },
     {
       "id": "orderForm.customer.preferredDatePenaltyNotice",
@@ -823,6 +823,21 @@
         "client/src/components/orderform/OrderFormGuideSignatureBlock.tsx"
       ],
       "notes": "끝까지 스크롤해야 서명칸이 켜짐. 서명으로 동의. 날짜·시간대 안내는 확인만. 끄기 없음."
+    },
+    {
+      "id": "orderForm.customer.prefillConfirmSteps",
+      "labelKo": "선입력 칸을 다시 보고 다음",
+      "surfaces": ["public.orderForm.customerWizard"],
+      "visual": { "type": "step", "token": "slate-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/hooks/useOrderFormModel.ts",
+        "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
+      ],
+      "notes": "skipLocked=false. 상담 선입력 값을 숨기지 않음. 잠긴 칸은 확인만. 끄기 없음."
     }
   ]
 }
