@@ -356,34 +356,34 @@ export function AdminOrderFormCustomerPreviewPage() {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
-        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-amber-50 px-3 py-2">
-            <p className="text-fluid-2xs font-medium text-amber-950">
-              손님 화면 미리보기 · 필수 없이 넘기기 가능 · 제출 안 됨
+        <div className="flex min-h-[min(78vh,720px)] min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100 lg:min-h-[calc(100dvh-10rem)]">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-amber-50 px-3 py-1.5">
+            <p className="text-fluid-2xs font-medium leading-snug text-amber-950">
+              손님 화면 미리보기 · 저장 후 새로고침
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => void bumpIframe()}
-                className="rounded border border-amber-300 bg-white px-2 py-1 text-[12px] font-medium text-amber-950 hover:bg-amber-100"
+                className="rounded border border-amber-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-amber-950 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               >
-                고객 화면 새로고침
+                새로고침
               </button>
               {previewToken ? (
                 <a
                   href={iframeSrc}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[12px] font-medium text-blue-700 underline"
+                  className="text-fluid-2xs font-medium text-blue-700 underline hover:text-blue-800"
                 >
                   새 탭
                 </a>
               ) : null}
             </div>
           </div>
-          <div className="min-h-0 flex-1 bg-white p-2">
+          <div className="min-h-0 flex-1 bg-white">
             {loading ? (
-              <div className="flex h-[min(70vh,560px)] items-center justify-center text-fluid-sm text-gray-500">
+              <div className="flex h-full min-h-[360px] items-center justify-center text-fluid-sm text-gray-500">
                 고객 화면 불러오는 중…
               </div>
             ) : iframeSrc ? (
@@ -391,15 +391,12 @@ export function AdminOrderFormCustomerPreviewPage() {
                 key={iframeKey}
                 title="고객 발주서"
                 src={iframeSrc}
-                className="h-[min(42vh,360px)] w-full min-h-[220px] rounded border border-gray-200 bg-gray-50 sm:h-[min(58vh,480px)] lg:h-[min(82vh,960px)] lg:min-h-[420px]"
+                className="h-full min-h-[360px] w-full border-0 bg-gray-50"
               />
             ) : (
               <p className="p-4 text-fluid-sm text-gray-600">미리보기 주소를 불러오지 못했습니다.</p>
             )}
           </div>
-          <p className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-1.5 text-center text-[11px] text-gray-500">
-            안내사항·전문 시공 등 저장 후에는 「고객 화면 새로고침」으로 반영하세요.
-          </p>
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">

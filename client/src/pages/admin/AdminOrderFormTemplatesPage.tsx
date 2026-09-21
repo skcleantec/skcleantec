@@ -1058,9 +1058,9 @@ export function AdminOrderFormTemplatesPage() {
               {/* 우측: 손님 마법사 미리보기 — 필수 없이 다음 가능, 제출 차단 */}
               <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                  <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-amber-50 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-amber-50 px-3 py-1.5">
                     <span className="min-w-0 text-fluid-2xs font-medium leading-snug text-amber-950">
-                      손님 화면 미리보기 · 필수 없이 넘기기
+                      손님 화면 미리보기
                       {dirty ? ' · 저장해야 반영됩니다' : ''}
                     </span>
                     {designerPreviewWalkSrc ? (
@@ -1079,7 +1079,7 @@ export function AdminOrderFormTemplatesPage() {
                       key={`${designerPreviewIframeKey}-${selected.id}`}
                       title="발주서 미리보기"
                       src={designerPreviewWalkSrc}
-                      className="h-[min(78vh,900px)] w-full min-h-[420px] bg-gray-50"
+                      className="h-[min(86vh,calc(100dvh-7rem))] w-full min-h-[480px] bg-gray-50"
                     />
                   ) : (
                     <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />

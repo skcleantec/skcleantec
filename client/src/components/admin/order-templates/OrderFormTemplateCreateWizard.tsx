@@ -637,9 +637,9 @@ export function OrderFormTemplateCreateWizard({
               </div>
             </dl>
             <div className="overflow-hidden rounded-lg border border-slate-200">
-              <div className="border-b border-slate-100 bg-amber-50 px-3 py-2 text-fluid-2xs font-medium text-amber-950">손님 화면 미리보기</div>
+              <div className="border-b border-slate-100 bg-amber-50 px-3 py-1.5 text-fluid-2xs font-medium text-amber-950">손님 화면 미리보기</div>
               {previewSrc ? (
-                <iframe title="발주서 미리보기" src={previewSrc} className="h-[min(56vh,560px)] w-full bg-slate-50" />
+                <iframe title="발주서 미리보기" src={previewSrc} className="h-[min(72vh,calc(100dvh-8rem))] w-full min-h-[420px] bg-slate-50" />
               ) : (
                 <OrderFormTemplatePreview meta={{ title, icon, description }} fields={assembledDrafts} authToken={token} />
               )}
