@@ -270,7 +270,10 @@ export function OrderFormTemplateCreateWizard({
         onStepChange(3, draft.id);
         return;
       }
-      const created = await createOrderFormTemplate(token, { title: name });
+      const created = await createOrderFormTemplate(token, {
+        title: name,
+        industryPackId: selectedPack?.id ?? packId,
+      });
       const withMeta = await updateOrderFormTemplateMeta(token, created.id, {
         title: name,
         icon: icon.trim() || null,

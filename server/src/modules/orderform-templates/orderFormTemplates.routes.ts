@@ -18,6 +18,15 @@ import {
 } from './systemFields.js';
 import { ensureAirconOrderFormTemplate } from './ensureAirconOrderFormTemplate.js';
 import {
+  defaultGuideSectionsForPack,
+  inferOrderFormIndustryPackId,
+} from '../../lib/orderFormIndustryGuideDefaults.js';
+import {
+  guideSectionsToJson,
+  normalizeGuideSectionsInput,
+  resolveStoredOrDefaultGuide,
+} from './templateGuide.helpers.js';
+import {
   assertTenantPromotedFieldLimit,
   canPromoteFieldToInquiryList,
   listTenantPromotedListFields,
@@ -78,6 +87,8 @@ function serializeTemplate(
     renderMode: t.renderMode,
     version: t.version,
     isDefault: t.isDefault,
+    industryPackId: t.industryPackId,
+    guideSections: resolveStoredOrDefaultGuide(t).sections,
     sortOrder: t.sortOrder,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
@@ -107,6 +118,15 @@ router.get('/system-fields', requireStaffPermission('orderform.templates'), (_re
   res.json({ items: ORDER_FORM_SYSTEM_FIELDS });
 });
 
+/** 업종 기본 안내 — 편집 화면 「기본 문구로 초기화」 */
+router.get('/guide-defaults', requireStaffPermission('orderform.templates', 'orderform.formConfig'), (req, res) => {
+  const pack = inferOrderFormIndustryPackId({
+    industryPackId: typeof req.query.pack === 'string' ? req.query.pack : null,
+    title: typeof req.query.title === 'string' ? req.query.title : null,
+  });
+  res.json({ packId: pack, sections: defaultGuideSectionsForPack(pack) });
+});
+
 /** 전화·수기 접수에 쓰는 공통 칸 (기본 입주청소 손님 화면은 그대로) */
 router.get('/inquiry-intake-fields', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
@@ -127,7 +147,7 @@ router.put('/inquiry-intake-fields', requireStaffPermission('orderform.templates
 });
 
 /** 템플릿 목록 — 발급(issue)은 발행(PUBLISHED)만, 템플릿 관리 권한은 전체 */
-router.get('/', requireStaffPermission('orderform.templates', 'orderform.issue'), async (req, res) => {
+router.get('/', requireStaffPermission('orderform.templates', 'orderform.issue', 'orderform.formConfig'), async (req, res) => {
   const user = authUser(req);
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -167,11 +187,41 @@ router.get('/:id', requireStaffPermission('orderform.templates'), async (req, re
   res.json({ template: serializeTemplate(row) });
 });
 
+/** 이 양식 고객 안내 저장 */
+router.put('/:id/guide', requireStaffPermission('orderform.templates', 'orderform.formConfig'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+  if (!tenantId) return;
+  const owned = await prisma.orderFormTemplate.findFirst({
+    where: { id: req.params.id, tenantId },
+    include: { fields: true },
+  });
+  if (!owned) {
+    res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    return;
+  }
+  const sections = normalizeGuideSectionsInput((req.body as { sections?: unknown }).sections ?? req.body);
+  if (!sections?.length) {
+    res.status(400).json({ error: '최소 한 개 섹션에 안내 문구를 입력해 주세요.' });
+    return;
+  }
+  const row = await prisma.orderFormTemplate.update({
+    where: { id: owned.id },
+    data: { guideSections: guideSectionsToJson(sections) },
+    include: { fields: true },
+  });
+  res.json({ template: serializeTemplate(row) });
+});
+
 /** 템플릿 생성(초안) */
 router.post('/', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
-  const body = req.body as { title?: unknown; icon?: unknown; description?: unknown };
+  const body = req.body as {
+    title?: unknown;
+    icon?: unknown;
+    description?: unknown;
+    industryPackId?: unknown;
+  };
   const title = typeof body.title === 'string' ? body.title.trim() : '';
   if (!title || title.length > 128) {
     res.status(400).json({ error: '템플릿 이름을 입력해 주세요. (128자 이내)' });
@@ -181,6 +231,10 @@ router.post('/', requireStaffPermission('orderform.templates'), async (req, res)
   const maxSort = await prisma.orderFormTemplate.aggregate({
     where: { tenantId },
     _max: { sortOrder: true },
+  });
+  const packId = inferOrderFormIndustryPackId({
+    industryPackId: typeof body.industryPackId === 'string' ? body.industryPackId : null,
+    title,
   });
   const created = await prisma.orderFormTemplate.create({
     data: {
@@ -195,6 +249,8 @@ router.post('/', requireStaffPermission('orderform.templates'), async (req, res)
       renderMode: 'TEMPLATE',
       version: 1,
       isDefault: false,
+      industryPackId: packId,
+      guideSections: guideSectionsToJson(defaultGuideSectionsForPack(packId)),
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
       createdById: authUser(req).userId,
     },

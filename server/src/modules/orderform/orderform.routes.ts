@@ -134,6 +134,7 @@ import {
   profOptionKey,
 } from '../tenants/tenantConfigSeed.service.js';
 import { ensureAirconOrderFormTemplate } from '../orderform-templates/ensureAirconOrderFormTemplate.js';
+import { resolveStoredOrDefaultGuide } from '../orderform-templates/templateGuide.helpers.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import { sanitizeOrderTimeSlotLabelsJsonForSave, resolveOrderTimeSlotLabels, parseOrderTimeSlotLabelsJson } from '../../lib/orderFormTimeSlotLabels.js';
 import {
@@ -400,8 +401,22 @@ router.get('/public-guide', async (req, res) => {
     const tenantId = await resolvePublicTenantIdFromRequest(req);
     const brandSlug =
       typeof req.query.brand === 'string' ? req.query.brand.trim().toLowerCase() : '';
+    const templateId =
+      typeof req.query.templateId === 'string' ? req.query.templateId.trim() : '';
     const cfg = await getOrCreateOrderFormConfig(prisma, tenantId);
-    const sectionsRaw = parseGuideSectionsFromDb(cfg.infoContent);
+    let formTitle = cfg.formTitle?.trim() || '발주서';
+    let sectionsRaw = parseGuideSectionsFromDb(cfg.infoContent);
+    if (templateId) {
+      const tpl = await prisma.orderFormTemplate.findFirst({
+        where: { id: templateId, tenantId },
+        select: { title: true, isDefault: true, industryPackId: true, guideSections: true },
+      });
+      if (tpl) {
+        const resolved = resolveStoredOrDefaultGuide(tpl);
+        sectionsRaw = resolved.sections;
+        if (tpl.title.trim()) formTitle = tpl.title.trim();
+      }
+    }
     const [guideCtx, brandGuideItems] = await Promise.all([
       loadGuidePlaceholderContextForBrand(prisma, tenantId, {
         brandSlug: brandSlug || undefined,
@@ -414,12 +429,13 @@ router.get('/public-guide', async (req, res) => {
     const sections = expandGuideSections(sectionsMerged, guideCtx);
     const infoLinkText =
       cfg.infoLinkText?.trim() || '[필수] 예약 안내 및 개인정보 제3자 제공 동의';
-    res.json({ sections, infoLinkText });
+    res.json({ sections, infoLinkText, formTitle });
   } catch (err) {
     console.error('public-guide error:', err);
     res.json({
       sections: DEFAULT_GUIDE_SECTIONS,
       infoLinkText: '[필수] 예약 안내 및 개인정보 제3자 제공 동의',
+      formTitle: '발주서',
     });
   }
 });

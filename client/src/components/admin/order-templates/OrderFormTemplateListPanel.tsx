@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { OrderFormTemplate } from '../../../api/orderFormTemplates';
 import { canDeleteOrderFormTemplate } from './orderFormTemplateStatus';
 
@@ -71,6 +72,12 @@ function TemplateUseCard({
         >
           항목 보기
         </button>
+        <Link
+          to={`/admin/inquiries/order-customer-preview?panel=guide&guideForm=${encodeURIComponent(template.id)}`}
+          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-fluid-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        >
+          안내 고치기
+        </Link>
         {canDelete && onDelete ? (
           <button
             type="button"

@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getFormConfig, updateFormConfig, updateBrandCancellationGuide } from '../../api/orderform';
+import {
+  getOrderFormGuideDefaults,
+  listOrderFormTemplates,
+  saveOrderFormTemplateGuide,
+  type OrderFormTemplate,
+} from '../../api/orderFormTemplates';
 import { getToken } from '../../stores/auth';
 import type { GuideSection } from '../../constants/orderInfoDefaultSections';
 import { ORDER_GUIDE_DEFAULT_SECTIONS } from '../../constants/orderInfoDefaultSections';
@@ -16,6 +22,7 @@ import {
 import { OrderGuideCancellationPreview } from '../../components/admin/OrderGuideCancellationPreview';
 import { OrderGuideSectionCard } from '../../components/admin/OrderGuideSectionCard';
 import { OrderGuideBrandScopeBar } from '../../components/admin/OrderGuideBrandScopeBar';
+import { OrderGuideFormScopeBar } from '../../components/admin/OrderGuideFormScopeBar';
 import {
   editorTextToGuideItems,
   persistGuideItems,
@@ -59,7 +66,12 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
   const token = getToken();
   const [searchParams, setSearchParams] = useSearchParams();
   const scopeId = searchParams.get('guideBrand')?.trim() || 'common';
+  const formId = searchParams.get('guideForm')?.trim() || '';
   const brands = useOperatingCompanies(token);
+  const [forms, setForms] = useState<OrderFormTemplate[]>([]);
+  const [tenantSections, setTenantSections] = useState<GuideSection[]>(() =>
+    cloneSections(ORDER_GUIDE_DEFAULT_SECTIONS),
+  );
   const activeBrands = useMemo(() => brands.filter((b) => b.isActive), [brands]);
   const selectedBrand = activeBrands.find((b) => b.id === scopeId) ?? null;
   const isBrandScope = Boolean(selectedBrand);
@@ -117,6 +129,17 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
     setSearchParams(next, { replace: true });
   };
 
+  const setGuideForm = (id: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (embedded) next.set('panel', 'guide');
+    if (!id) next.delete('guideForm');
+    else next.set('guideForm', id);
+    setSearchParams(next, { replace: true });
+  };
+
+  const selectedForm = forms.find((f) => f.id === formId) ?? null;
+  const isFormScope = Boolean(selectedForm);
+
   const applyLoaded = (next: GuideSection[], link: string) => {
     const cleaned = persistSections(next);
     setSections(cleaned);
@@ -128,10 +151,13 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    getFormConfig(token)
-      .then((c) => {
+    Promise.all([getFormConfig(token), listOrderFormTemplates(token)])
+      .then(([c, items]) => {
+        setForms(items.filter((t) => t.status !== 'ARCHIVED'));
+        const common = persistSections(parseGuideFromStoredContent(c.infoContent));
+        setTenantSections(cloneSections(common));
         applyLoaded(
-          parseGuideFromStoredContent(c.infoContent),
+          common,
           orderFormConfigLine(c.infoLinkText, ORDER_FORM_CONFIG_DEFAULTS.infoLinkText),
         );
         setError(null);
@@ -141,6 +167,21 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
       })
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (selectedForm) {
+      const fromTpl = selectedForm.guideSections?.length
+        ? selectedForm.guideSections
+        : cloneSections(ORDER_GUIDE_DEFAULT_SECTIONS);
+      const cleaned = persistSections(fromTpl);
+      setSections(cleaned);
+      setSavedFingerprints(fingerprintsOf(cleaned));
+      return;
+    }
+    const cleaned = persistSections(cloneSections(tenantSections));
+    setSections(cleaned);
+    setSavedFingerprints(fingerprintsOf(cleaned));
+  }, [selectedForm?.id, selectedForm?.updatedAt, tenantSections]);
 
   const flashSaved = (msg: string) => {
     setSavedOk(msg);
@@ -154,9 +195,15 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
       setError('최소 한 개 섹션에 안내 문구를 입력해 주세요.');
       return null;
     }
+    if (selectedForm) {
+      const saved = await saveOrderFormTemplateGuide(token, selectedForm.id, trimmed);
+      setForms((prev) => prev.map((f) => (f.id === saved.id ? { ...f, ...saved } : f)));
+      return trimmed;
+    }
     await updateFormConfig(token, {
       infoContent: JSON.stringify({ sections: trimmed }),
     });
+    setTenantSections(cloneSections(trimmed));
     return trimmed;
   };
 
@@ -165,7 +212,11 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
     setSavingKey(`section-${index}`);
     setError(null);
     try {
-      const latest = persistSections(parseGuideFromStoredContent((await getFormConfig(token)).infoContent));
+      const latest = persistSections(
+        selectedForm?.guideSections?.length
+          ? selectedForm.guideSections
+          : parseGuideFromStoredContent((await getFormConfig(token)).infoContent),
+      );
       const merged = cloneSections(latest);
       const local = sections[index];
       if (!local) throw new Error('섹션을 찾을 수 없습니다.');
@@ -183,7 +234,11 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
         next[index] = sectionDraftFingerprint(saved[index] ?? persisted);
         return next;
       });
-      flashSaved(`「${persisted.title}」을 저장했습니다.`);
+      flashSaved(
+        selectedForm
+          ? `「${selectedForm.title}」 ${persisted.title}을 저장했습니다.`
+          : `「${persisted.title}」을 저장했습니다.`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
     } finally {
@@ -264,6 +319,11 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
     try {
       const saved = await writeInfoContent(sections);
       if (!saved) return;
+      if (selectedForm) {
+        applyLoaded(saved, infoLinkText);
+        flashSaved(`「${selectedForm.title}」 안내를 저장했습니다.`);
+        return;
+      }
       const nextLink = infoLinkText.trim() || ORDER_FORM_CONFIG_DEFAULTS.infoLinkText;
       await updateFormConfig(token, { infoLinkText: nextLink });
       applyLoaded(saved, nextLink);
@@ -278,9 +338,22 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
   const resetToDefault = () => {
     if (isBrandScope) return;
     if (!confirm('기본 안내(초기 문구)로 모두 바꿀까요? 저장하지 않은 편집 내용은 사라집니다.')) return;
-    const next = persistSections(cloneSections(ORDER_GUIDE_DEFAULT_SECTIONS));
-    setSections(next);
-    setInfoLinkText(ORDER_FORM_CONFIG_DEFAULTS.infoLinkText);
+    void (async () => {
+      if (selectedForm && token) {
+        try {
+          const pack = await getOrderFormGuideDefaults(token, {
+            pack: selectedForm.industryPackId,
+            title: selectedForm.title,
+          });
+          setSections(persistSections(cloneSections(pack.sections)));
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+      setSections(persistSections(cloneSections(ORDER_GUIDE_DEFAULT_SECTIONS)));
+      if (!selectedForm) setInfoLinkText(ORDER_FORM_CONFIG_DEFAULTS.infoLinkText);
+    })();
   };
 
   const insertCancellationGuideBlock = () => {
@@ -313,9 +386,10 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
 
   const titleCls = embedded ? 'text-base font-medium text-gray-900' : 'text-xl font-semibold text-gray-900';
   const busy = savingKey != null;
-  const infoHref = selectedBrand
-    ? `/info?brand=${encodeURIComponent(selectedBrand.slug)}`
-    : '/info';
+  const infoHrefQs = new URLSearchParams();
+  if (selectedBrand) infoHrefQs.set('brand', selectedBrand.slug);
+  if (selectedForm) infoHrefQs.set('templateId', selectedForm.id);
+  const infoHref = infoHrefQs.toString() ? `/info?${infoHrefQs.toString()}` : '/info';
   const previewSection = isBrandScope ? brandDraft : commonCancel;
   const visibleSections = isBrandScope ? [brandDraft] : sections;
   const brandHasOverride = selectedBrand ? Boolean(overrideById[selectedBrand.id]?.length) : false;
@@ -332,11 +406,11 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
             </PageTitleWithFavorite>
           )}
           <p className="text-sm text-gray-500 mt-1">
-            섹션마다 「이 섹션 저장」을 누르면 그 섹션만 반영됩니다. 고객이{' '}
+            발주서마다 안내가 다릅니다. 섹션 「저장」은 지금 고른 양식에만 반영됩니다. 고객은{' '}
             <Link to={infoHref} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
               /info
-            </Link>{' '}
-            에서 보는 안내입니다.
+            </Link>
+            와 발주서 동의 화면에서 봅니다.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -367,6 +441,12 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
         <p className="text-gray-600">불러오는 중…</p>
       ) : (
         <div className="space-y-6 max-w-3xl">
+          <OrderGuideFormScopeBar
+            forms={forms.map((f) => ({ id: f.id, title: f.title, isDefault: f.isDefault }))}
+            formId={selectedForm?.id ?? ''}
+            onChange={setGuideForm}
+          />
+
           <OrderGuideBrandScopeBar
             brands={activeBrands.map((b) => ({
               id: b.id,
@@ -377,7 +457,14 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
             onChange={setGuideBrand}
           />
 
-          {!isBrandScope ? (
+          {isFormScope && !isBrandScope ? (
+            <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs text-gray-700 leading-snug">
+              지금 「{selectedForm?.title}」 안내를 고칩니다. 이 발주서를 받은 손님에게만 보입니다. 저장 후 바로
+              적용됩니다.
+            </p>
+          ) : null}
+
+          {!isBrandScope && !isFormScope ? (
             <section className="p-4 bg-white border border-gray-200 rounded-lg space-y-3">
               <label className="block text-sm font-medium text-gray-700">
                 발주서 동의란에 보이는 링크 문구
@@ -398,12 +485,12 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
                 ) : null}
               </div>
             </section>
-          ) : (
+          ) : isBrandScope ? (
             <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs text-gray-700 leading-snug">
-              {selectedBrand?.displayName}만 취소·변경 문구를 다르게 합니다. 다른 섹션은 공통을 씁니다.
+              {selectedBrand?.displayName}만 취소·변경 문구를 다르게 합니다. 다른 섹션은 고른 발주서 안내를 씁니다.
               {brandHasOverride ? ' 지금 이 브랜드는 별도 문구입니다.' : ' 아직 공통 문구입니다. 저장하면 이 브랜드만 바뀝니다.'}
             </p>
-          )}
+          ) : null}
 
           <section className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
             <h2 className="text-sm font-medium text-gray-900">브랜드 위약 — 자동 반영</h2>
@@ -500,7 +587,9 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
             <span className="text-xs text-gray-500">
               {isBrandScope
                 ? '이 브랜드 발주서·안내 페이지에만 적용됩니다.'
-                : '각 섹션 저장과 같습니다. 관리자만 저장할 수 있습니다.'}
+                : selectedForm
+                  ? '이 발주서를 받은 손님 화면에만 적용됩니다.'
+                  : '각 섹션 저장과 같습니다. 관리자만 저장할 수 있습니다.'}
             </span>
           </div>
         </div>

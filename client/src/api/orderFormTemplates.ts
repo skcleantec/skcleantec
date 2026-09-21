@@ -62,6 +62,8 @@ export interface OrderFormTemplate {
   renderMode: OrderFormTemplateRenderMode;
   version: number;
   isDefault: boolean;
+  industryPackId?: string | null;
+  guideSections?: Array<{ title: string; items: string[] }>;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -154,7 +156,13 @@ export async function getOrderFormTemplate(token: string, id: string): Promise<O
 
 export async function createOrderFormTemplate(
   token: string,
-  data: { title: string; icon?: string | null; description?: string | null; renderMode?: OrderFormTemplateRenderMode },
+  data: {
+    title: string;
+    icon?: string | null;
+    description?: string | null;
+    renderMode?: OrderFormTemplateRenderMode;
+    industryPackId?: string | null;
+  },
 ): Promise<OrderFormTemplate> {
   const res = await fetch(`${BASE}`, {
     method: 'POST',
@@ -177,6 +185,32 @@ export async function updateOrderFormTemplateMeta(
   });
   if (!res.ok) await parseError(res, '템플릿 수정에 실패했습니다.');
   return ((await res.json()) as { template: OrderFormTemplate }).template;
+}
+
+export async function saveOrderFormTemplateGuide(
+  token: string,
+  id: string,
+  sections: Array<{ title: string; items: string[] }>,
+): Promise<OrderFormTemplate> {
+  const res = await fetch(`${BASE}/${encodeURIComponent(id)}/guide`, {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify({ sections }),
+  });
+  if (!res.ok) await parseError(res, '안내사항을 저장하지 못했습니다.');
+  return ((await res.json()) as { template: OrderFormTemplate }).template;
+}
+
+export async function getOrderFormGuideDefaults(
+  token: string,
+  opts?: { pack?: string | null; title?: string | null },
+): Promise<{ packId: string | null; sections: Array<{ title: string; items: string[] }> }> {
+  const qs = new URLSearchParams();
+  if (opts?.pack) qs.set('pack', opts.pack);
+  if (opts?.title) qs.set('title', opts.title);
+  const res = await fetch(`${BASE}/guide-defaults?${qs.toString()}`, { headers: headers(token) });
+  if (!res.ok) await parseError(res, '기본 안내를 불러올 수 없습니다.');
+  return res.json();
 }
 
 export async function saveOrderFormTemplateFields(

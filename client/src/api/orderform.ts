@@ -611,22 +611,28 @@ export async function deleteOrderForm(token: string, id: string, password: strin
   }
 }
 
+/** 공개: 고객 안내사항 (`/info`) — 인증 없음 */
 export interface PublicOrderGuideResponse {
   sections: Array<{ title: string; items: string[] }>;
   infoLinkText: string;
+  formTitle?: string;
 }
 
 /** 공개: 고객 안내사항 (`/info`) — 인증 없음 */
 export async function getPublicOrderGuide(opts?: {
   tenantSlug?: string | null;
   brandSlug?: string | null;
+  templateId?: string | null;
 }): Promise<PublicOrderGuideResponse> {
-  const res = await fetch(
-    appendPublicQuery(`${API}/orderforms/public-guide`, {
-      tenantSlug: opts?.tenantSlug,
-      brandSlug: opts?.brandSlug,
-    }),
-  );
+  let url = appendPublicQuery(`${API}/orderforms/public-guide`, {
+    tenantSlug: opts?.tenantSlug,
+    brandSlug: opts?.brandSlug,
+  });
+  const tid = opts?.templateId?.trim();
+  if (tid) {
+    url += `${url.includes('?') ? '&' : '?'}templateId=${encodeURIComponent(tid)}`;
+  }
+  const res = await fetch(url);
   if (!res.ok) throw new Error('안내를 불러올 수 없습니다.');
   return res.json();
 }

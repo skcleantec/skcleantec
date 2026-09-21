@@ -63,6 +63,7 @@ export function OrderFormSubmissionReceiptView(props: {
   onDismiss?: () => void;
   leaveHint?: string | null;
   onSubmissionEmailChange?: (info: OrderFormSubmissionEmailInfo | null) => void;
+  templateId?: string | null;
 }) {
   const {
     token,
@@ -79,6 +80,7 @@ export function OrderFormSubmissionReceiptView(props: {
     onDismiss,
     leaveHint,
     onSubmissionEmailChange,
+    templateId,
   } = props;
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [photos, setPhotos] = useState<OrderFormPhotoItem[]>([]);
@@ -368,6 +370,7 @@ export function OrderFormSubmissionReceiptView(props: {
         open={guideModalOpen}
         mode="view"
         consents={submissionConsents}
+        templateId={templateId}
         onClose={() => setGuideModalOpen(false)}
       />
     </div>

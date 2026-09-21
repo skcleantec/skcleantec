@@ -1518,6 +1518,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         headerRight={<CloseButton />}
         onDismiss={handleLeavePage}
         leaveHint={leavePageHint}
+        templateId={order?.template?.id}
       />
     );
   }
@@ -1581,6 +1582,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             open={guideAgreeModalOpen}
             onClose={() => setGuideAgreeModalOpen(false)}
             brandSlug={resolvePublicBrandSlug() || undefined}
+            templateId={order?.template?.id}
             onAgree={() => {
               setGuideTermsConsent({ at: new Date().toISOString() });
             }}
@@ -3231,6 +3233,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             open={guideAgreeModalOpen}
             onClose={() => setGuideAgreeModalOpen(false)}
             brandSlug={resolvePublicBrandSlug() || undefined}
+            templateId={order?.template?.id}
             onAgree={() => {
               setGuideTermsConsent({ at: new Date().toISOString() });
             }}
