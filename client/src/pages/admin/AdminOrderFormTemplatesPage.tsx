@@ -213,9 +213,9 @@ export function AdminOrderFormTemplatesPage() {
 
   // 손님 화면 iframe 미리보기(기본·커스텀 공통, previewWalk)
   useEffect(() => {
-    if (!token || designerPreviewToken) return;
+    if (!token) return;
     let cancelled = false;
-    getDesignerPreviewOrderToken(token)
+    getDesignerPreviewOrderToken(token, { templateId: selectedId })
       .then((r) => {
         if (!cancelled) setDesignerPreviewToken(r.token);
       })
@@ -223,7 +223,7 @@ export function AdminOrderFormTemplatesPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, designerPreviewToken]);
+  }, [token, selectedId]);
 
   const designerPreviewWalkSrc = useMemo(() => {
     if (typeof window === 'undefined' || !designerPreviewToken || !selected) return '';
@@ -231,7 +231,7 @@ export function AdminOrderFormTemplatesPage() {
       appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(designerPreviewToken)}`, {
         tenantSlug: staffTenantSlug || null,
       }),
-      { previewTemplateId: selected.isDefault ? null : selected.id },
+      { previewTemplateId: selected.id },
     );
   }, [designerPreviewToken, selected, staffTenantSlug]);
 

@@ -132,8 +132,13 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
   const setGuideForm = (id: string) => {
     const next = new URLSearchParams(searchParams);
     if (embedded) next.set('panel', 'guide');
-    if (!id) next.delete('guideForm');
-    else next.set('guideForm', id);
+    if (!id) {
+      next.delete('guideForm');
+      next.delete('previewForm');
+    } else {
+      next.set('guideForm', id);
+      next.set('previewForm', id);
+    }
     setSearchParams(next, { replace: true });
   };
 

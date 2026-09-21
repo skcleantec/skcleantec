@@ -413,8 +413,15 @@ export async function getOrderForms(
 }
 
 /** 고객 발주서 편집 iframe — 실제 고객 `/order/:token` 과 동일 화면용 토큰(서버에서 금액 동기화) */
-export async function getDesignerPreviewOrderToken(authToken: string): Promise<{ token: string }> {
-  const res = await fetch(`${API}/orderforms/designer-preview-token`, {
+export async function getDesignerPreviewOrderToken(
+  authToken: string,
+  opts?: { templateId?: string | null },
+): Promise<{ token: string; templateId?: string | null }> {
+  const qs = new URLSearchParams();
+  const tid = opts?.templateId?.trim();
+  if (tid) qs.set('templateId', tid);
+  const q = qs.toString();
+  const res = await fetch(`${API}/orderforms/designer-preview-token${q ? `?${q}` : ''}`, {
     headers: headers(authToken),
   });
   if (!res.ok) {

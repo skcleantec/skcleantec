@@ -17,6 +17,8 @@ import {
   type EstimateOption,
 } from '../../api/estimate';
 import { getToken } from '../../stores/auth';
+import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
+import { OrderGuideFormScopeBar } from '../../components/admin/OrderGuideFormScopeBar';
 import { normalizeMsgConfigForEditor, type FormMessagesState, withDefaultText } from '../../utils/orderFormCustomerCopy';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults';
 import {
@@ -105,6 +107,7 @@ export function AdminOrderFormCustomerPreviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [previewToken, setPreviewToken] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
+  const [previewForms, setPreviewForms] = useState<OrderFormTemplate[]>([]);
 
   const [configForm, setConfigForm] = useState({
     pricePerPyeong: '',
@@ -154,30 +157,58 @@ export function AdminOrderFormCustomerPreviewPage() {
       .catch(() => {});
   }, [token]);
 
+  const guideFormId = searchParams.get('guideForm')?.trim() || '';
+  const previewFormParam = searchParams.get('previewForm')?.trim() || '';
+  const previewFormId =
+    activePanel === 'guide' && guideFormId ? guideFormId : previewFormParam || guideFormId;
+
+  const setPreviewForm = useCallback(
+    (id: string) => {
+      const next = new URLSearchParams(searchParams);
+      if (id) next.set('previewForm', id);
+      else next.delete('previewForm');
+      if (activePanel === 'guide') {
+        if (id) next.set('guideForm', id);
+        else next.delete('guideForm');
+      }
+      setSearchParams(next, { replace: true });
+      if (token) {
+        void getDesignerPreviewOrderToken(token, { templateId: id || null }).catch(() => {});
+      }
+      setIframeKey((k) => k + 1);
+    },
+    [searchParams, setSearchParams, activePanel, token],
+  );
+
+  const resolvedPreviewFormId =
+    previewFormId || previewForms.find((f) => f.isDefault)?.id || previewForms[0]?.id || '';
+
   /** 서버 미리보기 발주서 금액 동기화 후 iframe reload — 고객 화면과 동일 컴포넌트 반영 */
   const bumpIframe = useCallback(async () => {
     if (!token) return;
     try {
-      await getDesignerPreviewOrderToken(token);
+      await getDesignerPreviewOrderToken(token, { templateId: resolvedPreviewFormId || null });
       setIframeKey((k) => k + 1);
     } catch {
       /* ignore */
     }
-  }, [token]);
+  }, [token, resolvedPreviewFormId]);
 
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      getDesignerPreviewOrderToken(token),
+      getDesignerPreviewOrderToken(token, { templateId: previewFormId || null }),
       getFormConfig(token),
       getEstimateConfig(token),
       getEstimateOptions(token),
+      listOrderFormTemplates(token),
     ])
-      .then(([pv, fc, ec, eo]) => {
+      .then(([pv, fc, ec, eo, templates]) => {
         if (cancelled) return;
         setPreviewToken(pv.token);
+        setPreviewForms(templates.filter((t) => t.status !== 'ARCHIVED'));
         setMsgConfig(normalizeMsgConfigForEditor(fc));
         setTimeSlotLabels(resolveOrderTimeSlotLabels(fc.timeSlotLabelsJson ?? null));
         setConfigForm({
@@ -200,6 +231,11 @@ export function AdminOrderFormCustomerPreviewPage() {
   }, [token]);
 
   useEffect(() => {
+    if (!resolvedPreviewFormId) return;
+    setIframeKey((k) => k + 1);
+  }, [resolvedPreviewFormId]);
+
+  useEffect(() => {
     if (!token || (activePanel !== 'guide' && activePanel !== 'timeAck')) return;
     getFormConfig(token)
       .then((c) => setMsgConfig(normalizeMsgConfigForEditor(c)))
@@ -212,6 +248,7 @@ export function AdminOrderFormCustomerPreviewPage() {
           appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(previewToken)}`, {
             tenantSlug: staffTenantSlug || null,
           }),
+          { previewTemplateId: resolvedPreviewFormId || null },
         )
       : '';
 
@@ -359,9 +396,19 @@ export function AdminOrderFormCustomerPreviewPage() {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
         <OrderFormPreviewViewport className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-amber-50 px-3 py-1.5">
-            <p className="text-fluid-2xs font-medium leading-snug text-amber-950">
-              손님 화면 미리보기 · 저장 후 새로고침
-            </p>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-fluid-2xs font-medium leading-snug text-amber-950">
+                손님 화면 미리보기 · 고른 발주서
+              </p>
+              {previewForms.length > 0 ? (
+                <OrderGuideFormScopeBar
+                  compact
+                  forms={previewForms.map((f) => ({ id: f.id, title: f.title, isDefault: f.isDefault }))}
+                  formId={resolvedPreviewFormId}
+                  onChange={setPreviewForm}
+                />
+              ) : null}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"

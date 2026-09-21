@@ -926,7 +926,11 @@ const excludeDesignerPreviewTokens: Prisma.StringFilter = {
 };
 
 /** 견적 설정·추가 옵션 반영해 미리보기 발주서 금액 동기화 (32평 기준) */
-async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: string) {
+async function upsertDesignerPreviewOrderForm(
+  createdById: string,
+  tenantId: string,
+  requestedTemplateId?: string | null,
+) {
   const DEMO_PYEONG = 32;
   const ec = await getOrCreateEstimateConfig(prisma, tenantId);
   const pricePer = ec?.pricePerPyeong ?? 8000;
@@ -951,15 +955,24 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
     );
     await ensureAirconOrderFormTemplate(prisma, tenantId);
   }
-  const resolvedTemplate = await resolveIssueTemplate(prisma, tenantId, null);
+  const existing = await prisma.orderForm.findFirst({
+    where: { tenantId, token: previewToken },
+  });
+  const requestedTid = requestedTemplateId?.trim() || '';
+  let resolvedTemplate: { id: string; version: number } | null | 'invalid' = null;
+  if (requestedTid) {
+    const picked = await prisma.orderFormTemplate.findFirst({
+      where: { id: requestedTid, tenantId, status: { not: 'ARCHIVED' } },
+      select: { id: true, version: true },
+    });
+    resolvedTemplate = picked ?? (await resolveIssueTemplate(prisma, tenantId, null));
+  } else if (!existing?.templateId) {
+    resolvedTemplate = await resolveIssueTemplate(prisma, tenantId, null);
+  }
   const templatePatch =
     resolvedTemplate && resolvedTemplate !== 'invalid'
       ? { templateId: resolvedTemplate.id, templateVersion: resolvedTemplate.version }
       : {};
-
-  const existing = await prisma.orderForm.findFirst({
-    where: { tenantId, token: previewToken },
-  });
   if (!existing) {
     const operatingCompanyId = await resolveInquiryOperatingCompanyId({
       tx: prisma,
@@ -996,8 +1009,10 @@ router.get('/designer-preview-token', authMiddleware, requireStaffPermission('or
   if (!tenantId) return;
   const { userId } = user;
   try {
-    const form = await upsertDesignerPreviewOrderForm(userId, tenantId);
-    res.json({ token: form.token });
+    const requestedTemplateId =
+      typeof req.query.templateId === 'string' ? req.query.templateId.trim() : '';
+    const form = await upsertDesignerPreviewOrderForm(userId, tenantId, requestedTemplateId || null);
+    res.json({ token: form.token, templateId: form.templateId });
   } catch (e) {
     console.error('[designer-preview-token]', e);
     res.status(500).json({ error: '미리보기 발주서를 준비하지 못했습니다.' });

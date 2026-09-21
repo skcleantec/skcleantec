@@ -14,17 +14,22 @@ export function OrderGuideFormScopeBar(props: {
   forms: OrderGuideFormOption[];
   formId: string;
   onChange: (id: string) => void;
+  /** 미리보기 — 안내 문구·공통 칩 없이 양식만 고름 */
+  compact?: boolean;
 }) {
-  const { forms, formId, onChange } = props;
+  const { forms, formId, onChange, compact } = props;
   if (!forms.length) return null;
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-fluid-2xs text-gray-600">
-        발주서마다 안내가 다릅니다. 고른 양식을 저장하면 그 발주서를 받은 손님만 봅니다. 공통은 양식을 못 찾을 때
-        쓰는 예비 문구입니다.
-      </p>
+    <div className={compact ? '' : 'space-y-1.5'}>
+      {compact ? null : (
+        <p className="text-fluid-2xs text-gray-600">
+          발주서마다 안내가 다릅니다. 고른 양식을 저장하면 그 발주서를 받은 손님만 봅니다. 공통은 양식을 못 찾을 때
+          쓰는 예비 문구입니다.
+        </p>
+      )}
       <div className="flex flex-nowrap gap-0.5 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-slate-50 p-0.5">
+        {compact ? null : (
         <button
           type="button"
           className={`${SEG} shrink-0 ${formId === '' ? SEG_ON : SEG_OFF}`}
@@ -32,6 +37,7 @@ export function OrderGuideFormScopeBar(props: {
         >
           공통
         </button>
+        )}
         {forms.map((f) => (
           <button
             key={f.id}
