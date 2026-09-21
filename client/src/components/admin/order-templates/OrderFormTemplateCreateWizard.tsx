@@ -41,6 +41,7 @@ import {
   type DraftField,
 } from './orderFormTemplateDraft';
 import { OrderFormIndustryPackPicker } from './OrderFormIndustryPackPicker';
+import { OrderFormPreviewViewport } from '../OrderFormPreviewViewport';
 
 const IDENTITY_KEY_SET = new Set<string>(INTAKE_IDENTITY_FIELD_KEYS);
 
@@ -636,14 +637,21 @@ export function OrderFormTemplateCreateWizard({
                 <dd className="font-medium tabular-nums text-slate-900">{assembledDrafts.filter((d) => d.systemField !== ORDER_FORM_PHOTOS_SECTION_KEY || photosOn).length}</dd>
               </div>
             </dl>
-            <div className="overflow-hidden rounded-lg border border-slate-200">
-              <div className="border-b border-slate-100 bg-amber-50 px-3 py-1.5 text-fluid-2xs font-medium text-amber-950">손님 화면 미리보기</div>
+            <OrderFormPreviewViewport
+              bottomGapPx={72}
+              className="flex flex-col overflow-hidden rounded-lg border border-slate-200"
+            >
+              <div className="shrink-0 border-b border-slate-100 bg-amber-50 px-3 py-1.5 text-fluid-2xs font-medium text-amber-950">
+                손님 화면 미리보기
+              </div>
               {previewSrc ? (
-                <iframe title="발주서 미리보기" src={previewSrc} className="h-[min(72vh,calc(100dvh-8rem))] w-full min-h-[420px] bg-slate-50" />
+                <iframe title="발주서 미리보기" src={previewSrc} className="min-h-0 w-full flex-1 bg-slate-50" />
               ) : (
-                <OrderFormTemplatePreview meta={{ title, icon, description }} fields={assembledDrafts} authToken={token} />
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <OrderFormTemplatePreview meta={{ title, icon, description }} fields={assembledDrafts} authToken={token} />
+                </div>
               )}
-            </div>
+            </OrderFormPreviewViewport>
           </div>
         ) : null}
       </section>

@@ -33,6 +33,7 @@ import {
   optionsForOrderFormSectionToggle,
 } from '@shared/orderFormSectionToggles';
 import { OrderFormSectionToggles } from '../../components/admin/order-templates/OrderFormSectionToggles';
+import { OrderFormPreviewViewport } from '../../components/admin/OrderFormPreviewViewport';
 import { OrderFormTemplateCreateWizard } from '../../components/admin/order-templates/OrderFormTemplateCreateWizard';
 import { OrderFormTemplateListPanel } from '../../components/admin/order-templates/OrderFormTemplateListPanel';
 import {
@@ -1056,9 +1057,9 @@ export function AdminOrderFormTemplatesPage() {
               </div>
 
               {/* 우측: 손님 마법사 미리보기 — 필수 없이 다음 가능, 제출 차단 */}
-              <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
-                <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                  <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-amber-50 px-3 py-1.5">
+              <div className="min-w-0 xl:sticky xl:top-3 xl:self-start">
+                <OrderFormPreviewViewport className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-amber-50 px-3 py-1.5">
                     <span className="min-w-0 text-fluid-2xs font-medium leading-snug text-amber-950">
                       손님 화면 미리보기
                       {dirty ? ' · 저장해야 반영됩니다' : ''}
@@ -1079,12 +1080,14 @@ export function AdminOrderFormTemplatesPage() {
                       key={`${designerPreviewIframeKey}-${selected.id}`}
                       title="발주서 미리보기"
                       src={designerPreviewWalkSrc}
-                      className="h-[min(86vh,calc(100dvh-7rem))] w-full min-h-[480px] bg-gray-50"
+                      className="min-h-0 w-full flex-1 bg-gray-50"
                     />
                   ) : (
-                    <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                      <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />
+                    </div>
                   )}
-                </div>
+                </OrderFormPreviewViewport>
               </div>
             </div>
         </section>

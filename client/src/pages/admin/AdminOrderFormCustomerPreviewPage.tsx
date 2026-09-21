@@ -33,6 +33,7 @@ import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySe
 import { AdminOrderFormLeadSourceSettingsPage } from './AdminOrderFormLeadSourceSettingsPage';
 import { useStaffAppEditPanelKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { OrderFormModalTextEditor } from '../../components/orderform/OrderFormModalTextEditor';
+import { OrderFormPreviewViewport } from '../../components/admin/OrderFormPreviewViewport';
 
 /** 서버 미리보기 발주서와 동일 기준 (표시 안내용) */
 const DEMO_PYEONG = 32;
@@ -356,7 +357,7 @@ export function AdminOrderFormCustomerPreviewPage() {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
-        <div className="flex min-h-[min(78vh,720px)] min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100 lg:min-h-[calc(100dvh-10rem)]">
+        <OrderFormPreviewViewport className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-amber-50 px-3 py-1.5">
             <p className="text-fluid-2xs font-medium leading-snug text-amber-950">
               손님 화면 미리보기 · 저장 후 새로고침
@@ -383,7 +384,7 @@ export function AdminOrderFormCustomerPreviewPage() {
           </div>
           <div className="min-h-0 flex-1 bg-white">
             {loading ? (
-              <div className="flex h-full min-h-[360px] items-center justify-center text-fluid-sm text-gray-500">
+              <div className="flex h-full items-center justify-center text-fluid-sm text-gray-500">
                 고객 화면 불러오는 중…
               </div>
             ) : iframeSrc ? (
@@ -391,13 +392,13 @@ export function AdminOrderFormCustomerPreviewPage() {
                 key={iframeKey}
                 title="고객 발주서"
                 src={iframeSrc}
-                className="h-full min-h-[360px] w-full border-0 bg-gray-50"
+                className="h-full w-full border-0 bg-gray-50"
               />
             ) : (
               <p className="p-4 text-fluid-sm text-gray-600">미리보기 주소를 불러오지 못했습니다.</p>
             )}
           </div>
-        </div>
+        </OrderFormPreviewViewport>
 
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
           <div className="shrink-0 border-b border-gray-200 bg-gray-50 px-2 py-2">
