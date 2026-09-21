@@ -61,7 +61,7 @@ export const ORDER_ISSUE_COMPLETE_ACTIONS: readonly OrderIssueHelpActionRow[] = 
   {
     sample: <OrderIssueHelpAlimtalkButton />,
     meaning:
-      '고객 연락처로 링크 안내 알림톡 1건을 바로 보냅니다. 알림톡이 꺼져 있으면 이 버튼이 없고, 「메시지 복사」로 보냅니다.',
+      '고객 연락처로 링크 안내 알림톡 1건을 바로 보냅니다. 발급할 때 대표 연락처를 적어야 보낼 수 있습니다. 번호가 없거나 알림톡이 꺼져 있으면 이 버튼이 없거나 비고, 「메시지 복사」로 보냅니다.',
   },
   {
     sample: <OrderIssueHelpPrefillButton />,
@@ -96,7 +96,8 @@ export const ORDER_ISSUE_MARKETER_ACTIONS: readonly OrderIssueHelpActionRow[] = 
   },
   {
     sample: <OrderIssueHelpCreateButton />,
-    meaning: '금액·상담 내용 입력 후 발급. 채운 항목은 고객에게 잠금.',
+    meaning:
+      '금액·상담 내용 입력 후 발급. 칸 옆 「마케터 필수」는 지금 꼭 적고, 「고객 필수」는 비워 두면 고객이 적으며, 「둘 다 가능」은 상담사·고객 모두 적을 수 있습니다. 채운 항목은 고객에게 잠금.',
     when: '필수',
   },
   {

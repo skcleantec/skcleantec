@@ -413,6 +413,21 @@
       "notes": "발급 제목 옆 「설정」→모달. 기본 체크=현재 발주서(면적만 마케터+필수). 항목 ? 도움말. 사진 칸 자체 ON/OFF는 발주서 양식."
     },
     {
+      "id": "orderForm.issue.fillWhoBadge",
+      "labelKo": "발주서 발급 · 마케터 필수 / 고객 필수 / 둘 다 가능",
+      "surfaces": ["admin.orderIssue"],
+      "visual": { "type": "badge", "token": "rose-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/inquiries/order-issue?issueView=settings",
+      "helpPath": "/admin/inquiries/order-issue",
+      "codeRefs": [
+        "client/src/components/orderform/OrderFormIssueFillWho.tsx",
+        "client/src/pages/order/OrderFormPage.tsx"
+      ],
+      "notes": "상담사 발급 화면만. 범례는 끄지 않음. 작성 설정 체크와 같은 뜻. 알림톡은 대표 연락처 필요."
+    },
+    {
       "id": "orderForm.template.section.photos",
       "labelKo": "고객 발주서 · 현장 사진 첨부",
       "surfaces": ["admin.inquiries.order-templates", "public.orderForm"],

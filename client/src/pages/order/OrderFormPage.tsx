@@ -151,13 +151,21 @@ import {
 } from './orderFormFieldVisibility';
 import {
   DEFAULT_ORDER_FORM_FILL_RULES,
+  ISSUE_ALIMTALK_PHONE_HINT,
+  ISSUE_AMOUNT_MARKETER_REQUIRED,
   canCustomerWrite,
   canMarketerWrite,
   fillRuleOf,
+  flagsFromTemplateFillMode,
   marketerMustFillAtIssue,
   mergeOrderFormFillRules,
+  type OrderFormFillRuleKey,
   type OrderFormFillRules,
 } from '@shared/orderFormFillRules';
+import {
+  OrderFormIssueFillWhoBadge,
+  OrderFormIssueFillWhoLegend,
+} from '../../components/orderform/OrderFormIssueFillWho';
 
 export type { OrderFormEditorContext };
 
@@ -1546,6 +1554,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
   // 마케터 발급(작성) 시 마케터가 반드시 채워야 하는 항목은 굵은 빨강으로 강조
   const reqLabelCls = isCreate ? 'block text-sm font-bold text-red-600 mb-1' : labelCls;
+  const whoBadge = (key: OrderFormFillRuleKey) =>
+    isEditor ? <OrderFormIssueFillWhoBadge flags={fillRuleOf(staffFillRules, key)} /> : null;
   const radioGroupCls = 'flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-800';
   const radioLabelCls = 'inline-flex items-center gap-2 cursor-pointer';
   const scheduleLockedByAdmin = !isEditor && Boolean(order?.preferredDate?.trim());
@@ -2180,8 +2190,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           <p className="mb-1 text-xs text-gray-500 whitespace-pre-line">{order.template.description}</p>
         ) : null}
         {isEditor ? (
-          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
-            <span className="font-semibold">마케터 작성</span> — 상담 내용을 미리 채워 넣으세요. 채운 항목은 고객 화면에서 수정 불가(잠금)로 표시되고, 비워 둔 항목은 고객이 직접 작성합니다.
+          <div className="mb-4 space-y-2">
+            <OrderFormIssueFillWhoLegend />
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-800">
+              <span className="font-semibold">마케터 작성</span> — 채운 항목은 고객 화면에서 잠기고, 비워 둔 항목은 고객이 적습니다.
+            </div>
           </div>
         ) : null}
         {isCreate && (
@@ -2189,7 +2202,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <p className="mb-3 text-sm font-semibold text-gray-900">발급 금액</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-bold text-red-600">총 금액 (원) *</label>
+                <label className="mb-1 flex flex-wrap items-center gap-1.5 text-xs font-bold text-red-600">
+                  총 금액 (원) *
+                  {isEditor ? <OrderFormIssueFillWhoBadge flags={ISSUE_AMOUNT_MARKETER_REQUIRED} /> : null}
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -2249,7 +2265,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               </div>
               <div>
                 <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <label className="text-xs font-medium text-gray-700">예약금 (원)</label>
+                  <label className="inline-flex flex-wrap items-center gap-1.5 text-xs font-medium text-gray-700">
+                    예약금 (원)
+                    {isEditor ? <OrderFormIssueFillWhoBadge flags={ISSUE_AMOUNT_MARKETER_REQUIRED} /> : null}
+                  </label>
                   <label className="inline-flex items-center gap-1.5 text-fluid-2xs text-gray-600">
                     <input
                       type="checkbox"
@@ -2293,7 +2312,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">잔금 (원)</label>
+                <label className="mb-1 flex flex-wrap items-center gap-1.5 text-xs font-medium text-gray-700">
+                  잔금 (원)
+                  {isEditor ? <OrderFormIssueFillWhoBadge flags={ISSUE_AMOUNT_MARKETER_REQUIRED} /> : null}
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -2384,7 +2406,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         >
           {stdFieldOn('customerName') && (
           <div id="order-field-customerName">
-            <label className={reqLabelCls}>1. 성함 *</label>
+            <label className={`${reqLabelCls} flex flex-wrap items-center gap-1.5`}>
+              1. 성함 *{whoBadge('customerName')}
+            </label>
             <input
               type="text"
               className={clsWithLock('customerName', inputCls)}
@@ -2398,7 +2422,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('address') && (
           <div id="order-field-address">
-            <label className={labelCls}>2. 주소(청소해야할 위치) *</label>
+            <label className={`${labelCls} flex flex-wrap items-center gap-1.5`}>
+              2. 주소(청소해야할 위치) *{whoBadge('address')}
+            </label>
             {isCreate ? (
               <p className="text-xs text-gray-500 mb-2 leading-relaxed">
                 발급 시 비워 두면 고객이 발주서에서 직접 입력합니다. 도로명만 넣으면 그 칸은 잠기고, 상세주소(동·호수)를
@@ -2454,13 +2480,21 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {showContactSection && (
           <div>
-            <label className={labelCls}>3. 전화번호 *</label>
-            <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-              전일 연락 두절시 서비스가 취소되오니 반드시 정확하게 기재 부탁드립니다.
-            </p>
+            <label className={`${labelCls} flex flex-wrap items-center gap-1.5`}>
+              3. 전화번호 *{whoBadge('customerPhone')}
+            </label>
+            {isEditor ? (
+              <p className="mb-3 text-fluid-2xs leading-snug text-slate-700">{ISSUE_ALIMTALK_PHONE_HINT}</p>
+            ) : (
+              <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                전일 연락 두절시 서비스가 취소되오니 반드시 정확하게 기재 부탁드립니다.
+              </p>
+            )}
             {stdFieldOn('customerPhone') ? (
             <div id="order-field-customerPhone">
-            <label className="block text-xs text-gray-600 mb-1">대표 연락처 *</label>
+            <label className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-600">
+              대표 연락처 *{whoBadge('customerPhone')}
+            </label>
             <input
               type="tel"
               className={`${clsWithLock('customerPhone', inputCls)} mb-3`}
@@ -2472,7 +2506,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             </div>
             ) : null}
             <div id="order-field-customerPhone2">
-            <label className="block text-xs text-gray-600 mb-1">보조 연락처 (필수) *</label>
+            <label className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-600">
+              보조 연락처 (필수) *{whoBadge('customerPhone2')}
+            </label>
             <input
               type="tel"
               className={clsWithLock('customerPhone2', inputCls)}
@@ -2484,7 +2520,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             </div>
             {stdFieldOn('customerEmail') ? (
             <div id="order-field-customerEmail">
-            <label className="block text-xs text-gray-600 mb-1 mt-3">이메일 (필수) *</label>
+            <label className="mb-1 mt-3 flex flex-wrap items-center gap-1.5 text-xs text-gray-600">
+              이메일 (필수) *{whoBadge('customerEmail')}
+            </label>
             <p className="text-xs text-gray-600 mb-2 leading-relaxed">
               접수 확인 메일을 보내드립니다. 아이디만 적고 메일은 목록에서 고르세요.
             </p>
@@ -2503,7 +2541,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           <div>
             {stdFieldOn('propertyType') ? (
             <div id="order-field-propertyType">
-            <label className={labelCls}>4. 건축물 유형 및 면적 *</label>
+            <label className={`${labelCls} flex flex-wrap items-center gap-1.5`}>
+              4. 건축물 유형 및 면적 *{whoBadge('propertyType')}
+            </label>
             <p className="text-xs font-medium text-gray-700 mb-2">건축물 유형 (하나 선택) *</p>
             <div className={radioGroupCls} role="radiogroup" aria-label="건축물 유형">
               {(() => {
@@ -2578,7 +2618,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             ) : null}
             {stdFieldOn('areaPyeong') ? (
             <div id="order-field-area">
-            <p className={`text-xs mt-4 mb-2 ${isCreate ? 'font-bold text-red-600' : 'font-medium text-gray-700'}`}>면적 기준 (하나 선택) *</p>
+            <p className={`mt-4 mb-2 flex flex-wrap items-center gap-1.5 text-xs ${isCreate ? 'font-bold text-red-600' : 'font-medium text-gray-700'}`}>
+              면적 기준 (하나 선택) *{whoBadge('areaPyeong')}
+            </p>
             {areaLockedByAdmin ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
                 {formatInquiryAreaKoLine({
@@ -2682,9 +2724,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('preferredDate') && (
           <div id="order-field-schedule">
+            <div className="mb-1 flex flex-wrap items-center gap-1.5">
             <OrderFormScheduleHighlightLabel>
               5. 청소날짜(서비스받으실 날짜){isCreate ? ' *' : ''}
             </OrderFormScheduleHighlightLabel>
+            {whoBadge('preferredDate')}
+            </div>
             {isEditor && (
               <label className="mb-2 flex w-fit items-center gap-2 text-sm text-gray-700">
                 <input
@@ -2736,9 +2781,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('preferredTime') && (
           <div>
+            <div className="mb-1 flex flex-wrap items-center gap-1.5">
             <OrderFormScheduleHighlightLabel>
               6. 시간대 선택{isCreate ? ' *' : ''}
             </OrderFormScheduleHighlightLabel>
+            {whoBadge('preferredTime')}
+            </div>
             {scheduleLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
                 {labelForTimeSlot(order!.preferredTime, timeSlotLabels)}{' '}
@@ -2772,16 +2820,17 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           {stdFieldOn('preferredTimeDetail') && (
           <div id="order-field-preferredTimeDetail">
             <label
-              className={
+              className={`${
                 !detailLockedByAdmin && isPreferredTimeDetailRequired(form.preferredTime)
                   ? reqLabelCls
                   : labelCls
-              }
+              } flex flex-wrap items-center gap-1.5`}
             >
               7. 구체적 시각
               {!detailLockedByAdmin && isPreferredTimeDetailRequired(form.preferredTime)
                 ? ' *'
                 : ' (선택)'}
+              {whoBadge('preferredTimeDetail')}
             </label>
             {detailLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
@@ -2822,7 +2871,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('roomCount') && (
           <div id="order-field-roomCount">
-            <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방 *</p>
+            <p className={`${labelCls} mb-2 flex flex-wrap items-center gap-1.5`}>
+              8. 방·베란다·화장실·주방 *{whoBadge('roomCount')}
+            </p>
             <p className="text-xs text-gray-500 mb-2 leading-relaxed">
               {ORDER_FORM_SPACE_COUNT_HINT} 0이거나 비워 둔 칸은 고객이 발주서에서 고칩니다. 1 이상만 넣으면 그 칸은
               잠깁니다.
@@ -2885,7 +2936,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('buildingType') && (
           <div id="order-field-buildingType">
-            <label className={labelCls}>9. 신축/구축/인테리어/거주 선택 *</label>
+            <label className={`${labelCls} flex flex-wrap items-center gap-1.5`}>
+              9. 신축/구축/인테리어/거주 선택 *{whoBadge('buildingType')}
+            </label>
             <select
               className={clsWithLock('buildingType', inputCls)}
               value={form.buildingType}
@@ -2912,9 +2965,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('moveInDate') && (
           <div id="order-field-moveInDate">
-            <label className={labelCls}>
+            <label className={`${labelCls} flex flex-wrap items-center gap-1.5`}>
               10. 이사 날짜
               <span className="text-red-600"> *</span>
+              {whoBadge('moveInDate')}
             </label>
             <MoveInTimingFieldGroup
               moveInTiming={form.moveInTiming}
@@ -2954,7 +3008,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('specialNotes') && (
           <div>
-            <label className={reqLabelCls}>11. 특이사항{isCreate ? ' *' : ''}</label>
+            <label className={`${reqLabelCls} flex flex-wrap items-center gap-1.5`}>
+              11. 특이사항{isCreate ? ' *' : ''}
+              {whoBadge('specialNotes')}
+            </label>
             {isEditor && (
               <label className="mb-2 flex w-fit items-center gap-2 text-sm text-gray-700">
                 <input
@@ -2992,9 +3049,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 const cfLocked = lockKey(cf.fieldKey);
                 return (
                   <div key={cf.fieldKey} id={`order-field-custom-${cf.fieldKey}`}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 flex flex-wrap items-center gap-1.5 text-sm font-medium text-gray-700">
                       {cf.label}
                       {cf.required ? <span className="text-red-500"> *</span> : null}
+                      {isEditor ? (
+                        <OrderFormIssueFillWhoBadge
+                          flags={flagsFromTemplateFillMode(cf.fillMode, Boolean(cf.required))}
+                        />
+                      ) : null}
                     </label>
                     {cf.helpText ? <p className="text-xs text-gray-500 mb-1">{cf.helpText}</p> : null}
                     {cf.fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY ? (
@@ -3062,7 +3124,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('professionalOptions') && (
           <div>
-            <p className={`${labelCls} mb-2`}>{ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL}</p>
+            <p className={`${labelCls} mb-2 flex flex-wrap items-center gap-1.5`}>
+              {ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL}
+              {whoBadge('professionalOptions')}
+            </p>
             {profLocked ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
                 <ProfOptionSelectionSummary
