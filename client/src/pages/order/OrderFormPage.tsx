@@ -95,7 +95,6 @@ import { OrderFormSubmissionReceiptView } from '../../components/orderform/Order
 import {
   OrderFormConsentStamp,
   OrderFormGuideSignProof,
-  OrderFormSectionReadAck,
 } from '../../components/orderform/OrderFormConsentUi';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
@@ -1620,7 +1619,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             onClose={() => setGuideAgreeModalOpen(false)}
             brandSlug={resolvePublicBrandSlug() || undefined}
             templateId={order?.template?.id}
-            defaultTypedName={form.customerName}
             onAgree={(payload) => {
               setGuideTermsConsent(payload);
             }}
@@ -2800,9 +2798,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 {ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE}
               </p>
             ) : null}
-            {!isEditor && guideTermsConsent?.typedName ? (
-              <OrderFormSectionReadAck typedName={guideTermsConsent.typedName} />
-            ) : null}
             {!isEditor && !scheduleLockedByAdmin && serviceDateConsent?.at ? (
               <OrderFormConsentStamp
                 kind="serviceDate"
@@ -3348,7 +3343,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             onClose={() => setGuideAgreeModalOpen(false)}
             brandSlug={resolvePublicBrandSlug() || undefined}
             templateId={order?.template?.id}
-            defaultTypedName={form.customerName}
             onAgree={(payload) => {
               setGuideTermsConsent(payload);
             }}

@@ -8,11 +8,6 @@ import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { OrderFormGuideSections } from './OrderFormGuideSections';
 import { OrderFormPartnerConsentBlock } from './OrderFormPartnerConsentBlock';
 import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
-import {
-  OrderFormConsentStamp,
-  OrderFormConsentsSummary,
-  OrderFormSectionReadAck,
-} from './OrderFormConsentUi';
 import { OrderFormGuideSignatureBlock } from './OrderFormGuideSignatureBlock';
 
 export function OrderFormGuideAgreeModal(props: {
@@ -21,7 +16,6 @@ export function OrderFormGuideAgreeModal(props: {
   /** agree: 제출 전 동의(스크롤·서명) · view: 제출 확인서 등 재열람 */
   mode?: 'agree' | 'view';
   onAgree?: (payload: { at: string; signaturePng: string; typedName: string }) => void;
-  defaultTypedName?: string | null;
   /** view 모드 — 제출 스냅샷 동의 이력 */
   consents?: OrderFormSubmissionConsents | null;
   /** 브랜드 slug — 미전달 시 URL ?brand= */
@@ -34,7 +28,6 @@ export function OrderFormGuideAgreeModal(props: {
     onClose,
     mode = 'agree',
     onAgree,
-    defaultTypedName = null,
     consents = null,
     brandSlug,
     templateId,
@@ -143,11 +136,7 @@ export function OrderFormGuideAgreeModal(props: {
             <p className="text-center text-fluid-sm text-gray-500">불러오는 중…</p>
           ) : (
             <>
-              {isViewMode && consents ? (
-                <OrderFormConsentsSummary consents={consents} className="mb-6" />
-              ) : null}
               <OrderFormPartnerConsentBlock />
-              {isViewMode ? <OrderFormSectionReadAck typedName={typedName} /> : null}
               <div className="mt-8">
                 {isViewMode ? (
                   <div className="space-y-8">
@@ -164,17 +153,6 @@ export function OrderFormGuideAgreeModal(props: {
                             </li>
                           ))}
                         </ul>
-                        <OrderFormSectionReadAck typedName={typedName} />
-                        {section.title.includes('취소') && section.title.includes('변경') &&
-                        consents?.serviceDate?.agreedAt ? (
-                          <div className="mt-3">
-                            <OrderFormConsentStamp
-                              kind="serviceDate"
-                              agreedAt={consents.serviceDate.agreedAt}
-                              typedName={typedName}
-                            />
-                          </div>
-                        ) : null}
                       </section>
                     ))}
                   </div>
@@ -192,26 +170,6 @@ export function OrderFormGuideAgreeModal(props: {
                   <span className="font-bold text-red-700">특이사항</span>이 있는 경우 꼭 적어주세요.
                 </p>
                 <p className="mt-2 font-bold text-red-800">기재 누락 시 본사에서 책임지지 않습니다.</p>
-                {isViewMode ? <OrderFormSectionReadAck typedName={typedName} /> : null}
-                {isViewMode && consents ? (
-                  <div className="mt-3 space-y-2 border-t border-amber-200/80 pt-3">
-                    {consents.timeSlot?.agreedAt ? (
-                      <OrderFormConsentStamp
-                        kind="timeSlot"
-                        agreedAt={consents.timeSlot.agreedAt}
-                        typedName={typedName}
-                      />
-                    ) : null}
-                    {consents.guideTerms?.agreedAt ? (
-                      <OrderFormConsentStamp
-                        kind="guideTerms"
-                        agreedAt={consents.guideTerms.agreedAt}
-                        typedName={typedName}
-                        signatureUrl={consents.guideTerms.signatureUrl}
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
               <p className="mt-6 text-center text-fluid-xs text-gray-500">
                 문의사항은 예약 번호로 연락 부탁드립니다.
@@ -228,7 +186,6 @@ export function OrderFormGuideAgreeModal(props: {
               ) : (
                 <OrderFormGuideSignatureBlock
                   disabled={loading || !scrolledToEnd}
-                  defaultTypedName={defaultTypedName}
                   onSigned={({ signaturePng, typedName: signedName }) => {
                     onAgree?.({
                       at: new Date().toISOString(),
@@ -256,7 +213,7 @@ export function OrderFormGuideAgreeModal(props: {
           ) : (
             <p className="text-center text-fluid-2xs leading-snug text-gray-500">
               {scrolledToEnd
-                ? '성함을 타이핑한 뒤 아래에 서명하고 「서명으로 동의」를 눌러 주세요.'
+                ? '성함을 직접 적은 뒤 아래에 서명하고 「서명으로 동의」를 눌러 주세요.'
                 : '맨 아래까지 내리면 성함과 서명을 남길 수 있습니다.'}
             </p>
           )}

@@ -1,20 +1,5 @@
 import type { OrderFormConsentKind, OrderFormSubmissionConsents } from '@shared/orderFormConsents';
-import { orderFormConsentStampLabel, orderFormSectionReadAckLabel } from '@shared/orderFormConsents';
-
-export function OrderFormSectionReadAck(props: {
-  typedName?: string | null;
-  className?: string;
-}) {
-  const { typedName, className = '' } = props;
-  return (
-    <p
-      className={`mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-700 ${className}`.trim()}
-      role="status"
-    >
-      {orderFormSectionReadAckLabel(typedName)}
-    </p>
-  );
-}
+import { orderFormConsentStampLabel } from '@shared/orderFormConsents';
 
 export function OrderFormConsentStamp(props: {
   kind: OrderFormConsentKind;
@@ -34,7 +19,7 @@ export function OrderFormConsentStamp(props: {
       <p className="font-semibold text-slate-900">{orderFormConsentStampLabel(kind, agreedAt, name)}</p>
       {name ? (
         <p className="mt-2 text-fluid-2xs text-slate-500">
-          타이핑 성함 <span className="font-semibold text-slate-800">{name}</span>
+          고객작성 성함 <span className="font-semibold text-slate-800">{name}</span>
         </p>
       ) : null}
       {kind === 'guideTerms' && url ? (
@@ -69,7 +54,7 @@ export function OrderFormGuideSignProof(props: {
       ) : null}
       {name ? (
         <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-          <p className="text-fluid-2xs text-slate-500">타이핑한 성함</p>
+          <p className="text-fluid-2xs text-slate-500">고객작성 성함</p>
           <p className="mt-0.5 text-fluid-sm font-semibold text-slate-900">{name}</p>
         </div>
       ) : null}
@@ -94,10 +79,7 @@ export function OrderFormConsentsSummary(props: {
   const { consents, className = '' } = props;
   if (!consents) return null;
   const guide = consents.guideTerms;
-  const hasDate = Boolean(consents.serviceDate?.agreedAt);
-  const hasTime = Boolean(consents.timeSlot?.agreedAt);
-  const hasGuide = Boolean(guide?.agreedAt || guide?.typedName || guide?.signatureUrl);
-  if (!hasDate && !hasTime && !hasGuide) return null;
+  if (!guide?.agreedAt && !guide?.typedName && !guide?.signatureUrl) return null;
   return (
     <section className={className}>
       <OrderFormGuideSignProof
@@ -105,43 +87,6 @@ export function OrderFormConsentsSummary(props: {
         agreedAt={guide?.agreedAt}
         signatureUrl={guide?.signatureUrl}
       />
-      {hasDate || hasTime ? (
-        <div className="mt-2 space-y-2">
-          {consents.serviceDate?.agreedAt ? (
-            <OrderFormConsentStamp
-              kind="serviceDate"
-              agreedAt={consents.serviceDate.agreedAt}
-              typedName={guide?.typedName}
-            />
-          ) : null}
-          {consents.timeSlot?.agreedAt ? (
-            <OrderFormConsentStamp
-              kind="timeSlot"
-              agreedAt={consents.timeSlot.agreedAt}
-              typedName={guide?.typedName}
-            />
-          ) : null}
-        </div>
-      ) : null}
     </section>
-  );
-}
-
-export function OrderFormSnapshotAckBlock(props: {
-  consentKind?: OrderFormConsentKind;
-  agreedAt?: string | null;
-  typedName?: string | null;
-}) {
-  const { consentKind, agreedAt, typedName } = props;
-  if (!consentKind || !agreedAt) return null;
-  return (
-    <div className="mt-1.5">
-      <OrderFormConsentStamp
-        kind={consentKind}
-        agreedAt={agreedAt}
-        typedName={typedName}
-        className="text-fluid-2xs"
-      />
-    </div>
   );
 }

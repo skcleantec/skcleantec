@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { normalizeGuideTypedName } from '@shared/orderFormConsents';
 import { SignaturePad } from '../e-contract/SignaturePad';
 import { LineMdIcon } from '../ui/LineMdIcon';
@@ -19,18 +19,10 @@ export function OrderFormGuideSignatureBlock(props: {
   existingUrl?: string | null;
   typedName?: string | null;
   agreedAt?: string | null;
-  defaultTypedName?: string | null;
   viewOnly?: boolean;
 }) {
-  const { disabled, onSigned, existingUrl, typedName, agreedAt, defaultTypedName, viewOnly = false } = props;
-  const [nameDraft, setNameDraft] = useState(() => defaultTypedName?.trim() || '');
-
-  useEffect(() => {
-    if (viewOnly) return;
-    const next = defaultTypedName?.trim() || '';
-    if (!next) return;
-    setNameDraft((cur) => (cur.trim() ? cur : next));
-  }, [defaultTypedName, viewOnly]);
+  const { disabled, onSigned, existingUrl, typedName, agreedAt, viewOnly = false } = props;
+  const [nameDraft, setNameDraft] = useState('');
 
   if (viewOnly) {
     return (
@@ -53,15 +45,15 @@ export function OrderFormGuideSignatureBlock(props: {
         <h3 className="text-fluid-sm font-semibold text-slate-900">성함과 서명으로 동의</h3>
       </div>
       <p className="text-fluid-xs leading-relaxed text-slate-600">
-        위에 성함을 타이핑하고, 아래에 서명하면 모든 안내·위약 내용에 동의한 것으로 봅니다.
+        위에 성함을 직접 적고, 아래에 서명하면 모든 안내·위약 내용에 동의한 것으로 봅니다.
       </p>
       <label className="block space-y-1.5">
-        <span className="text-fluid-2xs font-medium text-slate-700">성함 (타이핑)</span>
+        <span className="text-fluid-2xs font-medium text-slate-700">고객작성 성함</span>
         <input
           type="text"
           value={nameDraft}
           onChange={(e) => setNameDraft(e.target.value)}
-          autoComplete="name"
+          autoComplete="off"
           inputMode="text"
           maxLength={40}
           placeholder="예: 홍길동"

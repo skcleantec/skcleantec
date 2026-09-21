@@ -145,7 +145,7 @@ export function OrderInfoPage() {
         <div className="shrink-0 border-t border-gray-100 px-6 py-3">
           <p className="text-center text-fluid-2xs leading-snug text-gray-500">
             {scrolledToEnd
-              ? '성함을 타이핑한 뒤 아래에 서명하고 「서명으로 동의」를 눌러 주세요.'
+              ? '성함을 직접 적은 뒤 아래에 서명하고 「서명으로 동의」를 눌러 주세요.'
               : '맨 아래까지 내리면 성함과 서명을 남길 수 있습니다.'}
           </p>
           <p className="mt-1.5 text-center text-fluid-2xs text-gray-400">
