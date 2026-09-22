@@ -222,7 +222,7 @@ export function AdminTeamLeadersMobileSubNavBar() {
   return (
     <div className="mb-2 flex min-w-0 items-center gap-1.5 lg:hidden">
       <AdminTeamLeadersMobileInlineMenuButton />
-      <span className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900">관리자 전용</span>
+      <span className="min-w-0 flex-1 truncate text-fluid-sm font-semibold text-slate-900">관리자 전용</span>
     </div>
   );
 }

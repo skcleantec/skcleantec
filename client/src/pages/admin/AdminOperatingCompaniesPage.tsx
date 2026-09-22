@@ -32,6 +32,7 @@ import {
   type OperatingCompanyCancellationPolicy,
 } from '@shared/operatingCompanyCancellationPolicy';
 import { DeletePasswordModal } from '../../components/crm/settings/DeletePasswordModal';
+import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import type { TenantCompanyRegistration } from '@shared/tenantCompanyProfile';
 
 type EditModalTab = 'basic' | 'soomgo' | 'cancellation';
@@ -532,8 +533,11 @@ export function AdminOperatingCompaniesPage() {
       {showCreate ? (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h2 className="font-semibold text-gray-900">영업 브랜드 등록</h2>
+            <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+              <div className="flex min-w-0 items-center gap-0.5">
+                <h2 className="font-semibold text-gray-900">영업 브랜드 등록</h2>
+                <AdminOnlyHelpButton helpId="operating-company-create" compact />
+              </div>
               <ModalCloseButton onClick={() => setShowCreate(false)} />
             </div>
             <form onSubmit={handleCreate} className="p-4 space-y-3">
@@ -635,8 +639,11 @@ export function AdminOperatingCompaniesPage() {
       {editing ? (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h2 className="font-semibold text-gray-900">영업 브랜드 수정</h2>
+            <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+              <div className="flex min-w-0 items-center gap-0.5">
+                <h2 className="font-semibold text-gray-900">영업 브랜드 수정</h2>
+                <AdminOnlyHelpButton helpId="operating-company-edit" compact />
+              </div>
               <ModalCloseButton onClick={() => setEditing(null)} />
             </div>
             <form onSubmit={handleEditSave} className="p-4 space-y-3">

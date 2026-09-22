@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AdminOnlyHelpButton } from './admin-only-help/AdminOnlyHelpButton';
 import {
   getTeamLeaderHouseholdDepositPolicy,
   setTeamLeaderHouseholdDepositPolicy,
@@ -54,9 +55,12 @@ export function TeamLeaderHouseholdDepositPolicyModal({ open, token, onClose, on
         className="flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
       >
         <div className="border-b border-gray-100 px-4 py-3">
-          <h2 id="household-deposit-policy-title" className="text-fluid-sm font-semibold text-gray-900">
-            가계부 · 예약금 정책
-          </h2>
+          <div className="flex items-center gap-0.5">
+            <h2 id="household-deposit-policy-title" className="text-fluid-sm font-semibold text-gray-900">
+              가계부 · 예약금 정책
+            </h2>
+            <AdminOnlyHelpButton helpId="household-deposit-policy" compact />
+          </div>
           <p className="mt-1 text-fluid-2xs text-gray-500">
             팀장 가계부에 예약금을 포함할지 정합니다. 배정·금액 변경 시 자동 반영됩니다.
           </p>

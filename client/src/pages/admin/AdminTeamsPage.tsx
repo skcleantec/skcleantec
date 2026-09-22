@@ -3,6 +3,7 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { createPortal } from 'react-dom';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
 import {
@@ -1045,9 +1046,12 @@ export function AdminTeamsPage() {
                 onClick={() => !registerBusy && setMemberRegisterOpen(false)}
                 disabled={registerBusy}
               />
-              <h2 id="member-register-title" className="text-base font-semibold text-gray-900 pr-10">
-                팀원 등록
-              </h2>
+              <div className="flex items-center gap-0.5 pr-10">
+                <h2 id="member-register-title" className="text-base font-semibold text-gray-900">
+                  팀원 등록
+                </h2>
+                <AdminOnlyHelpButton helpId="team-member-create" compact />
+              </div>
               <p className="text-xs text-gray-500 mt-1">
                 현장 투입 인원을 전사 풀에 추가합니다. 등록 후 목록에서 휴무일·급여·크루 그룹 배정을 설정할 수 있습니다.
               </p>
@@ -1102,9 +1106,12 @@ export function AdminTeamsPage() {
                 onClick={() => setEditMemberModal(null)}
                 disabled={editMemberSaving}
               />
-              <h2 id="edit-member-title" className="text-base font-semibold text-gray-900 pr-10">
-                팀원 정보 수정
-              </h2>
+              <div className="flex items-center gap-0.5 pr-10">
+                <h2 id="edit-member-title" className="text-base font-semibold text-gray-900">
+                  팀원 정보 수정
+                </h2>
+                <AdminOnlyHelpButton helpId="team-member-edit" compact />
+              </div>
               <div className="mt-4 space-y-3">
                 <TeamMemberNationalityFields
                   idPrefix="member-edit"
@@ -1378,9 +1385,12 @@ export function AdminTeamsPage() {
           >
             <div className="relative w-full max-w-md rounded-lg bg-white shadow-lg border border-gray-200 p-5 max-h-[90vh] overflow-y-auto">
               <ModalCloseButton onClick={() => setDayOffModal(null)} />
-              <h2 id="dayoff-title" className="text-base font-semibold text-gray-900 pr-10">
-                휴무일 등록·변경 — {dayOffModal.memberName}
-              </h2>
+              <div className="flex items-center gap-0.5 pr-10">
+                <h2 id="dayoff-title" className="text-base font-semibold text-gray-900">
+                  휴무일 등록·변경 — {dayOffModal.memberName}
+                </h2>
+                <AdminOnlyHelpButton helpId="team-member-dayoff" compact />
+              </div>
               <p className="text-xs text-gray-500 mt-1">
                 날짜를 눌러 휴무일을 넣거나 뺍니다. 노란색이 휴무일입니다.
               </p>
@@ -1463,9 +1473,12 @@ export function AdminTeamsPage() {
                 onClick={() => !crewCreateBusy && setCrewCreateOpen(false)}
                 disabled={crewCreateBusy}
               />
-              <h2 id="crew-create-title" className="text-base font-semibold text-gray-900 pr-10">
-                크루 그룹 만들기
-              </h2>
+              <div className="flex items-center gap-0.5 pr-10">
+                <h2 id="crew-create-title" className="text-base font-semibold text-gray-900">
+                  크루 그룹 만들기
+                </h2>
+                <AdminOnlyHelpButton helpId="crew-group-create" compact />
+              </div>
               <p className="text-xs text-gray-500 mt-1">
                 생성 시 <strong className="text-gray-700">관리자 본인 비밀번호</strong>(지금 로그인한 계정)로 확인합니다.
                 공유 로그인 ID는 영문·숫자·@ . _ - 만, 3~64자(한글·공백 불가).
@@ -1595,9 +1608,12 @@ export function AdminTeamsPage() {
                 onClick={() => !crewEditBusy && setCrewEdit(null)}
                 disabled={crewEditBusy}
               />
-              <h2 id="crew-edit-title" className="text-base font-semibold text-gray-900 pr-10">
-                크루 그룹 편집 — {crewEdit.name}
-              </h2>
+              <div className="flex items-center gap-0.5 pr-10">
+                <h2 id="crew-edit-title" className="text-base font-semibold text-gray-900">
+                  크루 그룹 편집 — {crewEdit.name}
+                </h2>
+                <AdminOnlyHelpButton helpId="crew-group-edit" compact />
+              </div>
 
               <div className="mt-4 space-y-3 text-sm">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

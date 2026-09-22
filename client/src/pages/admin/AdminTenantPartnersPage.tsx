@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getToken } from '../../stores/auth';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import {
   acceptTenantPartnership,
   listTenantPartnerships,
@@ -250,7 +251,10 @@ export function AdminTenantPartnersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="relative w-full max-w-md rounded-lg bg-white p-5 shadow-lg">
             <ModalCloseButton onClick={() => setShowInvite(false)} />
-            <h3 className="text-lg font-semibold text-gray-900">파트너 초대</h3>
+            <div className="flex items-center gap-0.5 pr-10">
+              <h3 className="text-lg font-semibold text-gray-900">파트너 초대</h3>
+              <AdminOnlyHelpButton helpId="partner-invite" compact />
+            </div>
             <p className="mt-1 text-xs text-gray-500">상대 업체의 로그인 화면 「업체 코드」를 입력하세요.</p>
             <form onSubmit={handleInvite} className="mt-4 space-y-3">
               <label className="block">
