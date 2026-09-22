@@ -1,3 +1,4 @@
+import { isOrderFormPackQuoteFieldKey } from '@shared/orderFormIndustryPacks';
 import { normalizeOrderFormYmd } from '@shared/orderFormMoveInTiming';
 import { isMarketerLockedOrderFormAddress } from '@shared/orderFormPendingAddress';
 import {
@@ -78,11 +79,13 @@ export function isStdFieldOn(
   order: OrderFormLoadedOrder | null | undefined,
   key: string,
 ): boolean {
+  if (isOrderFormPackQuoteFieldKey(key)) return true;
   const tpl = order?.template;
   if (isOrderFormSectionToggleKey(key)) {
     return isOrderFormSectionToggleOn(tpl, key);
   }
   if (!tpl || tpl.isDefault) return true;
+  if (tpl.renderMode && tpl.renderMode !== 'TEMPLATE') return true;
   const sys = tpl.systemFields;
   if (!sys || sys.length === 0) return true;
   return sys.some((f) => f.systemField === key);

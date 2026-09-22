@@ -335,10 +335,15 @@ export function ReviewStep({
         />
         <ReviewRow
           label="시간"
-          value={[labelForTimeSlot(form.preferredTime, timeSlotLabels), form.preferredTimeDetail]
-            .filter(Boolean)
-            .join(' · ')}
+          value={labelForTimeSlot(form.preferredTime, timeSlotLabels)}
           onEdit={jump('time')}
+        />
+        <ReviewRow
+          label="구체적 시각"
+          value={form.preferredTimeDetail.trim() || '선택 안 함'}
+          onEdit={jump(
+            form.preferredTime && form.preferredTime !== '조율' ? 'timeDetail' : 'time',
+          )}
         />
         <ReviewRow
           label="방·화장실·베란다·주방"
