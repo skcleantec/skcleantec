@@ -10,7 +10,7 @@ export const QUOTATION_HELP_TABS: ReadonlyArray<{ id: QuotationHelpTabId; label:
 ];
 
 export const QUOTATION_HELP_PAGE_OVERVIEW =
-  '견적서·영수증은 A4 양식에 바로 입력합니다. 저장 후 PDF 미리보기·다운로드·이메일(PDF 첨부) 발송이 가능합니다.';
+  '컴퓨터에서는 A4 양식에 바로 적습니다. 휴대폰에서는 손님 → 품목 → 확인 순으로 적습니다. 저장 후 PDF·이메일 발송이 가능합니다.';
 
 export const QUOTATION_HELP_CAPTION =
   '실제 「새 견적서」 편집 화면과 동일한 A4 양식입니다. 「크게 보기」로 확대할 수 있습니다.';

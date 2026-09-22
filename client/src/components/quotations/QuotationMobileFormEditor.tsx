@@ -1,5 +1,4 @@
-import { useMemo } from 'react';
-import type { ReactNode } from 'react';
+import { useMemo, useState, type FocusEvent, type ReactNode } from 'react';
 import type {
   QuotationEditorOperatingCompanyDto,
   QuotationServiceItemDto,
@@ -13,6 +12,12 @@ import {
   QUOTATION_DOCUMENT_TYPE_OPTIONS,
   shouldShowQuotationValidUntil,
 } from '@shared/quotationDocument';
+import { LineMdIcon } from '../ui/LineMdIcon';
+import {
+  ensureInputVisibleAboveKeyboard,
+  isMobileKeyboardScrollContext,
+} from '../../hooks/useMobileInputVisibility';
+import { getStaffAppScrollElement } from '../../utils/staffAppScrollRestore';
 import {
   resolveQuotationBrandTitle,
   resolveQuotationSupplierRegistration,
@@ -24,6 +29,14 @@ import {
   type EditableQuotationLine,
 } from './quotationLineUtils';
 import { qUi } from './quotationUi';
+
+type MobileStep = 'customer' | 'items' | 'review';
+
+const STEPS: { id: MobileStep; label: string; icon: string }[] = [
+  { id: 'customer', label: '손님', icon: 'account' },
+  { id: 'items', label: '품목', icon: 'list-3' },
+  { id: 'review', label: '확인', icon: 'check-list-3' },
+];
 
 type Props = {
   quoteNumber: string | null;
@@ -61,19 +74,13 @@ type Props = {
   footerNotice: string | null;
 };
 
+const fieldCls = `${qUi.input} min-h-11`;
+const selectCls = `${qUi.select} min-h-11`;
+
 function formatDocDate(iso: string | null | undefined): string {
   const d = iso ? new Date(iso) : new Date();
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
-}
-
-function resolveQuotationTitle(
-  companies: QuotationEditorOperatingCompanyDto[],
-  operatingCompanyId: string,
-  tenantFallback: TenantCompanyRegistration,
-  documentType: QuotationDocumentType,
-): string {
-  return resolveQuotationBrandTitle(companies, operatingCompanyId, tenantFallback, documentType);
 }
 
 function isCustomLineCell(
@@ -95,9 +102,9 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className={`${qUi.cardBody} space-y-3`}>
+    <section className={`${qUi.cardBody} space-y-3 p-3 sm:p-4`}>
       <div>
-        <h2 className={qUi.sectionTitle}>{title}</h2>
+        <h2 className="text-fluid-sm font-semibold text-slate-900">{title}</h2>
         {subtitle ? <p className={`${qUi.sectionSubtitle} mt-0.5`}>{subtitle}</p> : null}
       </div>
       {children}
@@ -105,41 +112,52 @@ function SectionCard({
   );
 }
 
-export function QuotationMobileFormEditor({
-  quoteNumber,
-  createdAt,
-  tenantCompanyRegistration,
-  operatingCompanies,
-  operatingCompanyId,
-  onOperatingCompanyChange,
-  documentType,
-  onDocumentTypeChange,
-  customerName,
-  customerPhone,
-  customerEmail,
-  customerAddress,
-  validUntil,
-  onCustomerNameChange,
-  onCustomerPhoneChange,
-  onCustomerEmailChange,
-  onCustomerAddressChange,
-  onValidUntilChange,
-  lines,
-  catalog,
-  onLinesChange,
-  discountAmount,
-  onDiscountAmountChange,
-  subtotal,
-  discountNum,
-  supplyTotal,
-  vatMode,
-  onVatModeChange,
-  vatAmount,
-  grandTotal,
-  memo,
-  onMemoChange,
-  footerNotice,
-}: Props) {
+function bumpQty(raw: string, delta: number): string {
+  const n = Number.parseInt(raw.replace(/[^\d-]/g, ''), 10);
+  const next = (Number.isFinite(n) ? n : 0) + delta;
+  return String(Math.max(1, next));
+}
+
+export function QuotationMobileFormEditor(props: Props) {
+  const {
+    quoteNumber,
+    createdAt,
+    tenantCompanyRegistration,
+    operatingCompanies,
+    operatingCompanyId,
+    onOperatingCompanyChange,
+    documentType,
+    onDocumentTypeChange,
+    customerName,
+    customerPhone,
+    customerEmail,
+    customerAddress,
+    validUntil,
+    onCustomerNameChange,
+    onCustomerPhoneChange,
+    onCustomerEmailChange,
+    onCustomerAddressChange,
+    onValidUntilChange,
+    lines,
+    catalog,
+    onLinesChange,
+    discountAmount,
+    onDiscountAmountChange,
+    subtotal,
+    discountNum,
+    supplyTotal,
+    vatMode,
+    onVatModeChange,
+    vatAmount,
+    grandTotal,
+    memo,
+    onMemoChange,
+    footerNotice,
+  } = props;
+
+  const [step, setStep] = useState<MobileStep>('customer');
+  const [moreCustomer, setMoreCustomer] = useState(Boolean(customerEmail.trim()));
+
   const supplierRegistration = useMemo(
     () =>
       resolveQuotationSupplierRegistration(
@@ -149,7 +167,7 @@ export function QuotationMobileFormEditor({
       ),
     [operatingCompanies, operatingCompanyId, tenantCompanyRegistration],
   );
-  const documentTitle = resolveQuotationTitle(
+  const documentTitle = resolveQuotationBrandTitle(
     operatingCompanies,
     operatingCompanyId,
     tenantCompanyRegistration,
@@ -158,6 +176,7 @@ export function QuotationMobileFormEditor({
   const closingPhrase = getDocumentClosingPhrase(documentType);
   const showValidUntil = shouldShowQuotationValidUntil(documentType);
   const showBrandSelector = operatingCompanies.length > 0;
+  const stepIndex = STEPS.findIndex((s) => s.id === step);
 
   function addRow() {
     onLinesChange([...lines, emptyQuotationLine()]);
@@ -170,6 +189,16 @@ export function QuotationMobileFormEditor({
   function removeLineAt(index: number) {
     if (lines.length <= 1) return;
     onLinesChange(lines.filter((_, i) => i !== index));
+  }
+
+  function addFromCatalog(itemId: string) {
+    const item = catalog.find((c) => c.id === itemId);
+    if (!item) return;
+    const first = lines[0];
+    const firstEmpty =
+      lines.length === 1 && !first?.label.trim() && !first?.catalogItemId && !first?.unitPrice.trim();
+    const next = emptyQuotationLine(item);
+    onLinesChange(firstEmpty ? [next] : [...lines, next]);
   }
 
   function handleCatalogSelectAt(index: number, value: string) {
@@ -191,252 +220,350 @@ export function QuotationMobileFormEditor({
     });
   }
 
+  function onFieldFocus(e: FocusEvent<HTMLElement>) {
+    if (!isMobileKeyboardScrollContext()) return;
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (!t.matches('input, textarea, select')) return;
+    ensureInputVisibleAboveKeyboard(t, getStaffAppScrollElement(), 'smooth', 28);
+  }
+
+  function go(delta: number) {
+    const next = stepIndex + delta;
+    if (next < 0 || next >= STEPS.length) return;
+    setStep(STEPS[next].id);
+    const main = getStaffAppScrollElement();
+    if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   return (
-    <div className="min-w-0 space-y-4 lg:hidden">
-      <p className="text-fluid-xs text-slate-500 px-0.5">
-        모바일 입력 화면입니다. PC(1024px 이상)에서는 A4 견적서 양식으로 편집할 수 있습니다.
+    <div className="min-w-0 space-y-3 lg:hidden" onFocusCapture={onFieldFocus}>
+      <nav
+        className="flex gap-0.5 rounded-xl bg-slate-100 p-0.5"
+        aria-label="견적서 작성 단계"
+      >
+        {STEPS.map((s, i) => {
+          const active = s.id === step;
+          const done = i < stepIndex;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setStep(s.id)}
+              className={[
+                'flex min-h-10 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 text-fluid-2xs font-semibold touch-manipulation',
+                'hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2',
+                'disabled:pointer-events-none disabled:opacity-50',
+                active
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : done
+                    ? 'text-slate-700'
+                    : 'text-slate-500',
+              ].join(' ')}
+            >
+              <LineMdIcon name={s.icon} className="size-3.5 shrink-0" />
+              <span className="truncate">
+                {i + 1}. {s.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <p className="px-0.5 text-fluid-2xs text-slate-500">
+        {documentTitle}
+        {quoteNumber ? ` · ${quoteNumber}` : ''} · {formatDocDate(createdAt)}
       </p>
 
-      <SectionCard title={documentTitle} subtitle={quoteNumber ? `No. ${quoteNumber}` : undefined}>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-fluid-xs text-slate-600">
-          <span>
-            작성일:{' '}
-            <span className="font-medium text-slate-800 tabular-nums">{formatDocDate(createdAt)}</span>
-          </span>
-        </div>
-        {showBrandSelector && (
-          <label className="block">
-            <span className={qUi.label}>영업 브랜드</span>
-            <select
-              className={qUi.select}
-              value={operatingCompanyId}
-              onChange={(e) => onOperatingCompanyChange(e.target.value)}
-              disabled={operatingCompanies.length <= 1}
-            >
-              {operatingCompanies.map((oc) => (
-                <option key={oc.id} value={oc.id}>
-                  {oc.displayName || oc.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <label className="block">
-          <span className={qUi.label}>문서 유형</span>
-          <select
-            className={qUi.select}
-            value={documentType}
-            onChange={(e) => onDocumentTypeChange(e.target.value as QuotationDocumentType)}
-          >
-            {QUOTATION_DOCUMENT_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {supplierRegistration?.companyName?.trim() ? (
-          <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-fluid-xs text-slate-700 space-y-0.5">
-            <p className="font-semibold text-slate-800">공급자</p>
-            <p>{supplierRegistration.companyName.trim()}</p>
-            {supplierRegistration.representativeName?.trim() ? (
-              <p>대표 {supplierRegistration.representativeName.trim()}</p>
-            ) : null}
-            {supplierRegistration.phone?.trim() ? <p>Tel {supplierRegistration.phone.trim()}</p> : null}
-          </div>
-        ) : null}
-      </SectionCard>
+      {step === 'customer' ? (
+        <SectionCard title="손님" subtitle="견적서에 찍히는 이름과 연락처">
+          {showBrandSelector ? (
+            <label className="block">
+              <span className={qUi.label}>영업 브랜드</span>
+              <select
+                className={selectCls}
+                value={operatingCompanyId}
+                onChange={(e) => onOperatingCompanyChange(e.target.value)}
+                disabled={operatingCompanies.length <= 1}
+              >
+                {operatingCompanies.map((oc) => (
+                  <option key={oc.id} value={oc.id}>
+                    {oc.displayName || oc.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
-      <SectionCard title="고객 정보" subtitle="견적서에 표시될 공급받는자">
-        <label className="block">
-          <span className={qUi.label}>
-            이름 <span className="text-rose-600">*</span>
-          </span>
-          <input
-            className={qUi.input}
-            placeholder="고객명"
-            value={customerName}
-            onChange={(e) => onCustomerNameChange(e.target.value)}
-            autoComplete="name"
-          />
-        </label>
-        <label className="block">
-          <span className={qUi.label}>연락처</span>
-          <input
-            className={qUi.input}
-            placeholder="010-0000-0000"
-            value={customerPhone}
-            onChange={(e) => onCustomerPhoneChange(e.target.value)}
-            inputMode="tel"
-            autoComplete="tel"
-          />
-        </label>
-        <label className="block">
-          <span className={qUi.label}>이메일</span>
-          <input
-            type="email"
-            className={qUi.input}
-            placeholder="email@example.com"
-            value={customerEmail}
-            onChange={(e) => onCustomerEmailChange(e.target.value)}
-            autoComplete="email"
-          />
-        </label>
-        <label className="block">
-          <span className={qUi.label}>주소</span>
-          <input
-            className={qUi.input}
-            placeholder="주소"
-            value={customerAddress}
-            onChange={(e) => onCustomerAddressChange(e.target.value)}
-          />
-        </label>
-        {showValidUntil ? (
+          <fieldset>
+            <legend className={qUi.label}>문서 유형</legend>
+            <div className={`${qUi.segmentWrap} flex w-full`}>
+              {QUOTATION_DOCUMENT_TYPE_OPTIONS.map((opt, i) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${qUi.segmentBtn(documentType === opt.value, i > 0)} min-h-10 flex-1 touch-manipulation`}
+                  onClick={() => onDocumentTypeChange(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
           <label className="block">
-            <span className={qUi.label}>유효기간</span>
+            <span className={qUi.label}>
+              이름 <span className="text-rose-600">*</span>
+            </span>
             <input
-              type="date"
-              className={qUi.input}
-              value={validUntil}
-              onChange={(e) => onValidUntilChange(e.target.value)}
+              className={fieldCls}
+              placeholder="고객 성함"
+              value={customerName}
+              onChange={(e) => onCustomerNameChange(e.target.value)}
+              autoComplete="name"
             />
           </label>
-        ) : null}
-      </SectionCard>
+          <label className="block">
+            <span className={qUi.label}>연락처</span>
+            <input
+              className={fieldCls}
+              placeholder="010-0000-0000"
+              value={customerPhone}
+              onChange={(e) => onCustomerPhoneChange(e.target.value)}
+              inputMode="tel"
+              autoComplete="tel"
+            />
+          </label>
+          <label className="block">
+            <span className={qUi.label}>주소</span>
+            <input
+              className={fieldCls}
+              placeholder="현장 주소"
+              value={customerAddress}
+              onChange={(e) => onCustomerAddressChange(e.target.value)}
+            />
+          </label>
 
-      <SectionCard title="견적 품목" subtitle="품목을 추가하고 수량·단가를 입력하세요">
-        {catalog.length === 0 && (
-          <p className="text-fluid-xs text-amber-800">
-            견적 설정에 서비스 항목을 등록하면 빠르게 선택할 수 있습니다.
-          </p>
-        )}
-        <ul className="space-y-3">
-          {lines.map((li, idx) => {
-            const supply = lineAmountFromEditable(li);
-            const lineCalc =
-              supply != null
-                ? computeLineAmounts(supply, vatMode)
-                : { supply: 0, vatAmount: 0, grandAmount: 0 };
+          {showValidUntil ? (
+            <label className="block">
+              <span className={qUi.label}>유효기간</span>
+              <input
+                type="date"
+                className={fieldCls}
+                value={validUntil}
+                onChange={(e) => onValidUntilChange(e.target.value)}
+              />
+            </label>
+          ) : null}
 
-            return (
-              <li key={li.key} className={qUi.mobileCard}>
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <span className="text-fluid-xs font-semibold text-slate-500 tabular-nums">
-                    품목 {idx + 1}
-                  </span>
-                  {lines.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => removeLineAt(idx)}
-                      className="text-fluid-xs font-medium text-rose-600 hover:text-rose-800 py-1 px-2 -mr-2 touch-manipulation"
-                    >
-                      삭제
-                    </button>
+          <button
+            type="button"
+            onClick={() => setMoreCustomer((v) => !v)}
+            className="text-fluid-xs font-medium text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            {moreCustomer ? '이메일 접기' : '이메일 넣기 (보낼 때)'}
+          </button>
+          {moreCustomer ? (
+            <label className="block">
+              <span className={qUi.label}>이메일</span>
+              <input
+                type="email"
+                className={fieldCls}
+                placeholder="email@example.com"
+                value={customerEmail}
+                onChange={(e) => onCustomerEmailChange(e.target.value)}
+                autoComplete="email"
+              />
+            </label>
+          ) : null}
+        </SectionCard>
+      ) : null}
+
+      {step === 'items' ? (
+        <SectionCard title="품목" subtitle="할 일을 고르고 수량만 맞추면 됩니다">
+          {catalog.length > 0 ? (
+            <div className="space-y-1.5">
+              <p className={qUi.label}>눌러서 넣기</p>
+              <div className="flex max-h-36 flex-col gap-1.5 overflow-y-auto overscroll-y-contain">
+                {catalog.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => addFromCatalog(c.id)}
+                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left touch-manipulation hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                  >
+                    <span className="min-w-0 truncate text-fluid-sm font-medium text-slate-800">
+                      {c.name}
+                    </span>
+                    <span className="shrink-0 text-fluid-xs tabular-nums text-slate-500">
+                      {c.unitPrice.toLocaleString('ko-KR')}원
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-fluid-xs text-amber-800">
+              견적 설정에 품목을 올려 두면 눌러서 넣을 수 있습니다.
+            </p>
+          )}
+
+          <ul className="space-y-2">
+            {lines.map((li, idx) => {
+              const supply = lineAmountFromEditable(li);
+              const lineCalc =
+                supply != null
+                  ? computeLineAmounts(supply, vatMode)
+                  : { supply: 0, vatAmount: 0, grandAmount: 0 };
+              const custom = catalog.length === 0 || isCustomLineCell(li, catalog);
+
+              return (
+                <li key={li.key} className="rounded-xl border border-slate-200 bg-white p-2.5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-fluid-2xs font-semibold text-slate-500">품목 {idx + 1}</span>
+                    {lines.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeLineAt(idx)}
+                        className="min-h-8 px-2 text-fluid-xs font-medium text-rose-600 hover:text-rose-800 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2"
+                      >
+                        빼기
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {catalog.length > 0 && !custom ? (
+                    <p className="mb-2 truncate text-fluid-sm font-semibold text-slate-900" title={li.label}>
+                      {li.label || '품목'}
+                    </p>
+                  ) : (
+                    <label className="mb-2 block">
+                      <span className={qUi.label}>품목명</span>
+                      <input
+                        className={fieldCls}
+                        placeholder="할 일 이름"
+                        value={li.label}
+                        onChange={(e) =>
+                          updateLineAt(idx, { catalogItemId: null, label: e.target.value })
+                        }
+                      />
+                    </label>
+                  )}
+
+                  {catalog.length > 0 && custom ? (
+                    <label className="mb-2 block">
+                      <span className={qUi.label}>목록에서 고르기</span>
+                      <select
+                        className={selectCls}
+                        value={catalogSelectValue(li)}
+                        onChange={(e) => handleCatalogSelectAt(idx, e.target.value)}
+                      >
+                        <option value="">품목 선택…</option>
+                        {catalog.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.unitPrice.toLocaleString('ko-KR')}원)
+                          </option>
+                        ))}
+                        <option value="__custom__">직접 입력</option>
+                      </select>
+                    </label>
                   ) : null}
-                </div>
 
-                {catalog.length > 0 && (
-                  <label className="block mb-3">
-                    <span className={qUi.label}>카탈로그</span>
-                    <select
-                      className={qUi.select}
-                      value={catalogSelectValue(li)}
-                      onChange={(e) => handleCatalogSelectAt(idx, e.target.value)}
-                    >
-                      <option value="">품목 선택…</option>
-                      {catalog.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.unitPrice.toLocaleString('ko-KR')}원)
-                        </option>
-                      ))}
-                      <option value="__custom__">직접 입력</option>
-                    </select>
-                  </label>
-                )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className={qUi.label}>수량</span>
+                      <div className="flex min-h-11 items-stretch overflow-hidden rounded-xl border border-slate-200">
+                        <button
+                          type="button"
+                          aria-label="수량 줄이기"
+                          onClick={() => updateLineAt(idx, { quantity: bumpQty(li.quantity, -1) })}
+                          className="inline-flex w-10 items-center justify-center text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400 disabled:opacity-50"
+                        >
+                          <LineMdIcon name="minus" className="size-4" />
+                        </button>
+                        <input
+                          className="min-w-0 flex-1 border-0 bg-white text-center text-fluid-sm tabular-nums text-slate-900 focus:outline-none focus:ring-0"
+                          inputMode="numeric"
+                          value={li.quantity}
+                          onChange={(e) => updateLineAt(idx, { quantity: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          aria-label="수량 늘리기"
+                          onClick={() => updateLineAt(idx, { quantity: bumpQty(li.quantity, 1) })}
+                          className="inline-flex w-10 items-center justify-center text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400"
+                        >
+                          <LineMdIcon name="plus" className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <label className="block">
+                      <span className={qUi.label}>단가(원)</span>
+                      <input
+                        className={`${fieldCls} text-right tabular-nums`}
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={li.unitPrice}
+                        onChange={(e) => updateLineAt(idx, { unitPrice: e.target.value })}
+                      />
+                    </label>
+                  </div>
 
-                {(catalog.length === 0 || isCustomLineCell(li, catalog)) && (
-                  <label className="block mb-3">
-                    <span className={qUi.label}>품목명</span>
-                    <input
-                      className={qUi.input}
-                      placeholder="품목명"
-                      value={li.label}
-                      onChange={(e) =>
-                        updateLineAt(idx, { catalogItemId: null, label: e.target.value })
-                      }
-                    />
-                  </label>
-                )}
+                  <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-fluid-sm">
+                    <span className="text-slate-500">금액</span>
+                    <span className="font-semibold tabular-nums text-slate-900">
+                      {supply != null ? `${lineCalc.grandAmount.toLocaleString('ko-KR')}원` : '—'}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="block">
-                    <span className={qUi.label}>수량</span>
-                    <input
-                      className={`${qUi.input} text-center tabular-nums`}
-                      inputMode="numeric"
-                      placeholder="1"
-                      value={li.quantity}
-                      onChange={(e) => updateLineAt(idx, { quantity: e.target.value })}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className={qUi.label}>단가(원)</span>
-                    <input
-                      className={`${qUi.input} text-right tabular-nums`}
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={li.unitPrice}
-                      onChange={(e) => updateLineAt(idx, { unitPrice: e.target.value })}
-                    />
-                  </label>
-                </div>
+          <button
+            type="button"
+            onClick={addRow}
+            className={`${qUi.btnSecondary} min-h-11 w-full touch-manipulation py-2.5`}
+          >
+            + 직접 입력
+          </button>
+        </SectionCard>
+      ) : null}
 
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-fluid-sm">
-                  <span className="text-slate-500">금액</span>
-                  <span className="font-semibold tabular-nums text-slate-900">
-                    {supply != null
-                      ? `${lineCalc.grandAmount.toLocaleString('ko-KR')}원`
-                      : '—'}
-                  </span>
-                </div>
-                {vatMode === 'VAT_SEPARATE' && supply != null ? (
-                  <p className="mt-1 text-fluid-2xs text-slate-500 text-right tabular-nums">
-                    (부가세 {lineCalc.vatAmount.toLocaleString('ko-KR')}원 포함)
-                  </p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-        <button
-          type="button"
-          onClick={addRow}
-          className={`${qUi.btnSecondary} w-full touch-manipulation py-3`}
-        >
-          + 품목 추가
-        </button>
-      </SectionCard>
+      {step === 'review' ? (
+        <SectionCard title="확인" subtitle="맞으면 아래 「저장」을 누르세요">
+          <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-fluid-xs text-slate-700">
+            <p className="font-semibold text-slate-900">{customerName.trim() || '이름 없음'}</p>
+            {customerPhone.trim() ? <p className="mt-0.5">{customerPhone.trim()}</p> : null}
+            {customerAddress.trim() ? <p className="mt-0.5 truncate">{customerAddress.trim()}</p> : null}
+          </div>
 
-      <SectionCard title="비고">
-        <textarea
-          className={qUi.textarea}
-          rows={3}
-          placeholder="견적서 본문에 표시할 내용"
-          value={memo}
-          onChange={(e) => onMemoChange(e.target.value)}
-        />
-      </SectionCard>
+          <ul className="space-y-1 text-fluid-xs">
+            {lines
+              .filter((li) => li.label.trim() || li.unitPrice.trim())
+              .map((li) => {
+                const supply = lineAmountFromEditable(li);
+                return (
+                  <li key={li.key} className="flex justify-between gap-2">
+                    <span className="min-w-0 truncate text-slate-700">
+                      {li.label || '품목'} × {li.quantity || '1'}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-slate-900">
+                      {supply != null ? `${supply.toLocaleString('ko-KR')}원` : '—'}
+                    </span>
+                  </li>
+                );
+              })}
+          </ul>
 
-      <SectionCard title="합계">
-        <div className="space-y-2 text-fluid-sm tabular-nums">
-          <div className="flex justify-between text-slate-600">
+          <div className="flex justify-between text-fluid-sm tabular-nums text-slate-600">
             <span>소계</span>
             <span>{subtotal.toLocaleString('ko-KR')}원</span>
           </div>
-          <label className="flex justify-between items-center gap-3 text-slate-600">
+          <label className="flex items-center justify-between gap-3 text-fluid-sm text-slate-600">
             <span className="shrink-0">할인</span>
             <input
-              className={`${qUi.input} max-w-[9rem] text-right`}
+              className={`${fieldCls} max-w-[9rem] text-right tabular-nums`}
               inputMode="numeric"
               placeholder="0"
               value={discountAmount}
@@ -444,61 +571,101 @@ export function QuotationMobileFormEditor({
             />
           </label>
           {discountNum > 0 ? (
-            <div className="flex justify-between text-slate-500">
-              <span />
-              <span>-{discountNum.toLocaleString('ko-KR')}원</span>
-            </div>
+            <p className="text-right text-fluid-xs tabular-nums text-slate-500">
+              -{discountNum.toLocaleString('ko-KR')}원
+            </p>
           ) : null}
-        </div>
 
-        <fieldset className="pt-2">
-          <legend className={qUi.label}>과세 구분</legend>
-          <div className={`${qUi.segmentWrap} w-full flex`}>
-            <button
-              type="button"
-              className={`${qUi.segmentBtn(vatMode === 'TAX_FREE', false)} flex-1 py-2.5 touch-manipulation`}
-              onClick={() => onVatModeChange('TAX_FREE')}
-            >
-              면세
-            </button>
-            <button
-              type="button"
-              className={`${qUi.segmentBtn(vatMode === 'VAT_SEPARATE', true)} flex-1 py-2.5 touch-manipulation`}
-              onClick={() => onVatModeChange('VAT_SEPARATE')}
-            >
-              부가세 별도
-            </button>
-          </div>
-        </fieldset>
+          <fieldset>
+            <legend className={qUi.label}>과세 구분</legend>
+            <div className={`${qUi.segmentWrap} flex w-full`}>
+              <button
+                type="button"
+                className={`${qUi.segmentBtn(vatMode === 'TAX_FREE', false)} min-h-10 flex-1 touch-manipulation`}
+                onClick={() => onVatModeChange('TAX_FREE')}
+              >
+                면세
+              </button>
+              <button
+                type="button"
+                className={`${qUi.segmentBtn(vatMode === 'VAT_SEPARATE', true)} min-h-10 flex-1 touch-manipulation`}
+                onClick={() => onVatModeChange('VAT_SEPARATE')}
+              >
+                부가세 별도
+              </button>
+            </div>
+          </fieldset>
 
-        <div className="grid grid-cols-3 gap-2 pt-2">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 text-center">
-            <p className="text-fluid-2xs font-medium text-slate-500 mb-1">공급가액</p>
-            <p className="text-fluid-sm font-semibold tabular-nums text-slate-900">
-              {supplyTotal.toLocaleString('ko-KR')}
-            </p>
+          <div className="grid grid-cols-3 gap-1.5">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-1.5 py-2 text-center">
+              <p className="mb-0.5 text-fluid-2xs text-slate-500">공급가</p>
+              <p className="text-fluid-xs font-semibold tabular-nums text-slate-900">
+                {supplyTotal.toLocaleString('ko-KR')}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-1.5 py-2 text-center">
+              <p className="mb-0.5 text-fluid-2xs text-slate-500">부가세</p>
+              <p className="text-fluid-xs font-semibold tabular-nums text-slate-900">
+                {vatAmount.toLocaleString('ko-KR')}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-300 bg-slate-100 px-1.5 py-2 text-center">
+              <p className="mb-0.5 text-fluid-2xs font-semibold text-slate-600">합계</p>
+              <p className="text-fluid-sm font-bold tabular-nums text-slate-900">
+                {grandTotal.toLocaleString('ko-KR')}
+              </p>
+            </div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 text-center">
-            <p className="text-fluid-2xs font-medium text-slate-500 mb-1">부가세</p>
-            <p className="text-fluid-sm font-semibold tabular-nums text-slate-900">
-              {vatAmount.toLocaleString('ko-KR')}
+          <p className="text-center text-fluid-2xs text-slate-500">({vatModeLabel(vatMode)})</p>
+
+          <label className="block">
+            <span className={qUi.label}>비고</span>
+            <textarea
+              className={`${qUi.textarea} min-h-[5.5rem]`}
+              rows={3}
+              placeholder="견적서에 같이 넣을 말"
+              value={memo}
+              onChange={(e) => onMemoChange(e.target.value)}
+            />
+          </label>
+
+          <p className="text-center text-fluid-sm font-medium text-slate-800">{closingPhrase}</p>
+          {footerNotice?.trim() ? (
+            <p className="whitespace-pre-wrap border-t border-slate-100 pt-2 text-fluid-2xs text-slate-500">
+              {footerNotice.trim()}
             </p>
-          </div>
-          <div className="rounded-xl border border-slate-300 bg-slate-100 px-2 py-3 text-center">
-            <p className="text-fluid-2xs font-semibold text-slate-600 mb-1">합계</p>
-            <p className="text-fluid-base font-bold tabular-nums text-slate-900">
-              {grandTotal.toLocaleString('ko-KR')}
+          ) : null}
+          {supplierRegistration?.companyName?.trim() ? (
+            <p className="text-center text-fluid-2xs text-slate-500">
+              공급자 {supplierRegistration.companyName.trim()}
             </p>
-          </div>
-        </div>
-        <p className="text-fluid-2xs text-slate-500 text-center">({vatModeLabel(vatMode)})</p>
-        <p className="text-fluid-sm text-slate-800 font-medium text-center pt-2">{closingPhrase}</p>
-        {footerNotice?.trim() ? (
-          <p className="text-fluid-xs text-slate-500 whitespace-pre-wrap border-t border-slate-100 pt-3">
-            {footerNotice.trim()}
+          ) : null}
+        </SectionCard>
+      ) : null}
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={stepIndex === 0}
+          onClick={() => go(-1)}
+          className={`${qUi.btnSecondary} min-h-11 flex-1 touch-manipulation py-2.5 disabled:opacity-40`}
+        >
+          이전
+        </button>
+        {stepIndex < STEPS.length - 1 ? (
+          <button
+            type="button"
+            onClick={() => go(1)}
+            className={`${qUi.btnPrimary} min-h-11 flex-1 touch-manipulation py-2.5`}
+          >
+            다음
+          </button>
+        ) : (
+          <p className="flex-1 text-center text-fluid-xs font-semibold tabular-nums text-slate-800">
+            합계 {grandTotal.toLocaleString('ko-KR')}원
           </p>
-        ) : null}
-      </SectionCard>
+        )}
+      </div>
     </div>
   );
 }

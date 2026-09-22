@@ -456,7 +456,7 @@ export function TeamQuotationEditorPage() {
             <QuotationStatusBadge status={status} />
           )}
         </div>
-        <p className={qUi.pageDesc}>
+        <p className={`${qUi.pageDesc} hidden lg:block`}>
           담당 접수에 연결된 견적서입니다. 저장 후 PDF·이메일 발송이 가능합니다.
         </p>
       </div>
