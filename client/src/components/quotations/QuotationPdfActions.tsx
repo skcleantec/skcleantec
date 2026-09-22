@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { downloadQuotationPdf } from '../../api/quotations';
 import { downloadTeamQuotationPdf } from '../../api/teamQuotations';
-import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { qUi } from './quotationUi';
 
 type Props = {
@@ -43,11 +43,25 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled,
     };
   }, []);
 
-  function closePreview() {
+  const closePreview = useCallback(() => {
     clearPreviewUrl();
     setPreviewOpen(false);
     setError(null);
-  }
+  }, [clearPreviewUrl]);
+
+  useEffect(() => {
+    if (!previewOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) closePreview();
+    };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [previewOpen, loading, closePreview]);
 
   const downloadPdf =
     apiScope === 'team'
@@ -104,78 +118,82 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled,
 
   if (!quotationId) return null;
 
+  const btnCls = `${qUi.btnSecondary} min-h-11 flex-1 py-2.5 touch-manipulation lg:min-h-0 lg:flex-none lg:py-1.5`;
+
   return (
     <>
-      <button
-        type="button"
-        disabled={disabled || loading}
-        onClick={() => void handlePreview()}
-        className={qUi.btnSecondary}
-      >
-        PDF 미리보기
-      </button>
-      <button
-        type="button"
-        disabled={disabled || loading}
-        onClick={() => void handleDownload()}
-        className={qUi.btnSecondary}
-      >
-        PDF 다운로드
-      </button>
-
-      {previewOpen && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/50 p-2 sm:p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !loading) closePreview();
-          }}
+      <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:w-auto lg:flex-wrap">
+        <button
+          type="button"
+          disabled={disabled || loading}
+          onClick={() => void handlePreview()}
+          className={btnCls}
         >
-          <div
-            className="relative mx-auto flex h-[min(92vh,900px)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl border border-slate-200/60"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ModalCloseButton onClick={closePreview} disabled={loading} />
-            <div className="border-b border-slate-100 px-4 py-3 pr-12">
-              <h2 className="text-sm font-semibold text-slate-900">
-                PDF 미리보기 {quoteNumber ? `— ${quoteNumber}` : ''}
-              </h2>
-            </div>
-            <div className="relative min-h-0 flex-1 bg-slate-100">
-              {loading && (
-                <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
-                  PDF 생성 중…
-                </div>
-              )}
-              {previewUrl && !loading && (
-                <iframe
-                  title="견적서 PDF 미리보기"
-                  src={previewUrl}
-                  className="h-full w-full border-0 bg-white"
-                />
-              )}
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={closePreview}
-                className={qUi.btnSecondary}
-              >
-                닫기
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => void handleDownload()}
-                className={qUi.btnPrimary}
-              >
-                다운로드
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {error && !previewOpen && <span className="text-fluid-2xs text-rose-600">{error}</span>}
+          {loading && previewOpen ? '만드는 중…' : 'PDF 미리보기'}
+        </button>
+        <button
+          type="button"
+          disabled={disabled || loading}
+          onClick={() => void handleDownload()}
+          className={btnCls}
+        >
+          PDF 다운로드
+        </button>
+      </div>
+
+      {previewOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="modal-mobile-safe-overlay fixed inset-0 z-[90] flex flex-col bg-slate-900"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="quotation-pdf-preview-title"
+            >
+              <div className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-slate-900 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
+                <h2
+                  id="quotation-pdf-preview-title"
+                  className="min-w-0 flex-1 truncate text-fluid-sm font-semibold text-white"
+                >
+                  PDF 미리보기{quoteNumber ? ` · ${quoteNumber}` : ''}
+                </h2>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={closePreview}
+                  className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-white px-3.5 text-fluid-sm font-semibold text-slate-900 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  닫기
+                </button>
+              </div>
+              <div className="relative min-h-0 flex-1 bg-slate-200">
+                {loading ? (
+                  <div className="absolute inset-0 flex items-center justify-center text-fluid-sm text-slate-600">
+                    PDF 만드는 중…
+                  </div>
+                ) : null}
+                {previewUrl && !loading ? (
+                  <iframe
+                    title="견적서 PDF 미리보기"
+                    src={`${previewUrl}#view=FitH&toolbar=1`}
+                    className="absolute inset-0 h-full w-full border-0 bg-white"
+                  />
+                ) : null}
+              </div>
+              <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-white px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void handleDownload()}
+                  className={`${qUi.btnPrimary} min-h-10 touch-manipulation`}
+                >
+                  다운로드
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+      {error && !previewOpen ? <span className="text-fluid-2xs text-rose-600">{error}</span> : null}
     </>
   );
 }
