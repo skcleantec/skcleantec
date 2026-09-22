@@ -30,6 +30,8 @@ type Props = {
   canEmail: boolean;
   /** admin: /api/quotations, team: /api/team/quotations */
   apiScope?: 'admin' | 'team';
+  /** 손님 칸 수신 이메일과 같이 맞출 때 */
+  onRecipientEmailChange?: (email: string) => void;
   onSent: (patch: {
     status: string;
     customerEmail: string | null;
@@ -52,6 +54,7 @@ export function QuotationEmailPanel({
   lastEmailedAt,
   canEmail,
   apiScope = 'admin',
+  onRecipientEmailChange,
   onSent,
 }: Props) {
   const [emailTo, setEmailTo] = useState(customerEmail);
@@ -159,7 +162,7 @@ export function QuotationEmailPanel({
   const isSent = status === 'SENT';
 
   return (
-    <section className={`${qUi.cardBody} space-y-4`}>
+    <section className={`${qUi.cardBody} w-full min-w-0 max-w-full space-y-3 p-3 sm:space-y-4 sm:p-5`}>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className={qUi.sectionTitle}>이메일 발송</h2>
         {isSent && <QuotationStatusBadge status="SENT" />}
@@ -181,7 +184,11 @@ export function QuotationEmailPanel({
           className={qUi.input}
           placeholder="수신 이메일"
           value={emailTo}
-          onChange={(e) => setEmailTo(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value;
+            setEmailTo(next);
+            onRecipientEmailChange?.(next);
+          }}
           disabled={!canEmail}
         />
       </label>

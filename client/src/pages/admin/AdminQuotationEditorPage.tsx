@@ -13,6 +13,7 @@ import {
 } from '../../api/quotations';
 import type { TenantCompanyRegistration, TenantSmtpSettingsPublic } from '../../api/tenantCompanyProfile';
 import { QuotationDocumentEditor } from '../../components/quotations/QuotationDocumentEditor';
+import { QuotationMobileFormEditor } from '../../components/quotations/QuotationMobileFormEditor';
 import { QuotationEmailPanel } from '../../components/quotations/QuotationEmailPanel';
 import { QuotationPdfActions } from '../../components/quotations/QuotationPdfActions';
 import { QuotationPreconditionBanner } from '../../components/quotations/QuotationPreconditionBanner';
@@ -430,7 +431,7 @@ export function AdminQuotationEditorPage() {
   const canEmail = operatingCompanyId ? smtpReady : smtpReady || globalSmtpFallback;
 
   return (
-    <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer}`}>
+    <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer} max-lg:max-w-full max-lg:px-0 max-lg:py-3 max-lg:space-y-3`}>
       <div className="space-y-1">
         <p className={qUi.breadcrumb}>
           <Link to="/admin/inquiries/quotations" className={qUi.breadcrumbLink}>
@@ -450,7 +451,7 @@ export function AdminQuotationEditorPage() {
             <QuotationStatusBadge status={status} />
           )}
         </div>
-        <p className={qUi.pageDesc}>
+        <p className={`${qUi.pageDesc} hidden lg:block`}>
           견적서 양식에 바로 입력합니다. 저장 후 PDF·이메일 발송이 가능합니다.
         </p>
       </div>
@@ -474,7 +475,7 @@ export function AdminQuotationEditorPage() {
         </p>
       )}
 
-      <QuotationDocumentEditor
+      <QuotationMobileFormEditor
         quoteNumber={quoteNumber}
         createdAt={createdAt}
         tenantCompanyRegistration={tenantCompanyRegistration}
@@ -508,33 +509,95 @@ export function AdminQuotationEditorPage() {
         memo={memo}
         onMemoChange={setMemo}
         footerNotice={resolvedFooterNotice}
+        afterReview={
+          !isNew && id && token ? (
+            <QuotationEmailPanel
+              token={token}
+              quotationId={id}
+              status={status}
+              customerEmail={customerEmail}
+              sentAt={sentAt}
+              lastEmailedAt={lastEmailedAt}
+              canEmail={canEmail}
+              onRecipientEmailChange={setCustomerEmail}
+              onSent={(patch) => {
+                setStatus(patch.status);
+                setCustomerEmail(patch.customerEmail ?? '');
+                setSentAt(patch.sentAt);
+                setLastEmailedAt(patch.lastEmailedAt);
+              }}
+            />
+          ) : null
+        }
       />
 
-      {!isNew && id && token && (
-        <QuotationEmailPanel
-          token={token}
-          quotationId={id}
-          status={status}
+      <div className="hidden min-w-0 max-w-full lg:block">
+        <QuotationDocumentEditor
+          quoteNumber={quoteNumber}
+          createdAt={createdAt}
+          tenantCompanyRegistration={tenantCompanyRegistration}
+          operatingCompanies={operatingCompanies}
+          operatingCompanyId={operatingCompanyId}
+          onOperatingCompanyChange={handleOperatingCompanyChange}
+          documentType={documentType}
+          onDocumentTypeChange={handleDocumentTypeChange}
+          customerName={customerName}
+          customerPhone={customerPhone}
           customerEmail={customerEmail}
-          sentAt={sentAt}
-          lastEmailedAt={lastEmailedAt}
-          canEmail={canEmail}
-          onSent={(patch) => {
-            setStatus(patch.status);
-            setCustomerEmail(patch.customerEmail ?? '');
-            setSentAt(patch.sentAt);
-            setLastEmailedAt(patch.lastEmailedAt);
-          }}
+          customerAddress={customerAddress}
+          validUntil={validUntil}
+          onCustomerNameChange={setCustomerName}
+          onCustomerPhoneChange={setCustomerPhone}
+          onCustomerEmailChange={setCustomerEmail}
+          onCustomerAddressChange={setCustomerAddress}
+          onValidUntilChange={setValidUntil}
+          lines={lines}
+          catalog={catalog}
+          onLinesChange={setLines}
+          discountAmount={discountAmount}
+          onDiscountAmountChange={setDiscountAmount}
+          subtotal={totals.subtotal}
+          discountNum={totals.discountNum}
+          supplyTotal={totals.supplyTotal}
+          vatMode={vatMode}
+          onVatModeChange={setVatMode}
+          vatAmount={totals.vatAmount}
+          grandTotal={totals.grandTotal}
+          memo={memo}
+          onMemoChange={setMemo}
+          footerNotice={resolvedFooterNotice}
         />
-      )}
+      </div>
+
+      {!isNew && id && token ? (
+        <div className="hidden lg:block">
+          <QuotationEmailPanel
+            token={token}
+            quotationId={id}
+            status={status}
+            customerEmail={customerEmail}
+            sentAt={sentAt}
+            lastEmailedAt={lastEmailedAt}
+            canEmail={canEmail}
+            onRecipientEmailChange={setCustomerEmail}
+            onSent={(patch) => {
+              setStatus(patch.status);
+              setCustomerEmail(patch.customerEmail ?? '');
+              setSentAt(patch.sentAt);
+              setLastEmailedAt(patch.lastEmailedAt);
+            }}
+          />
+        </div>
+      ) : null}
 
       <div className={qUi.stickyActionBar}>
-        <div className="mx-auto flex max-w-[794px] flex-wrap gap-2 justify-center sm:justify-start">
+        <div className="mx-auto flex max-w-[794px] min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:justify-start">
+          <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:gap-2">
           <button
             type="button"
             disabled={saving}
             onClick={() => void handleSave(false)}
-            className={qUi.btnPrimary}
+            className={`${qUi.btnPrimary} w-full min-h-11 py-3 lg:w-auto lg:min-h-0 lg:py-2.5 touch-manipulation`}
           >
             {saving ? '저장 중…' : '저장'}
           </button>
@@ -542,10 +605,11 @@ export function AdminQuotationEditorPage() {
             type="button"
             disabled={saving}
             onClick={() => void handleSave(true)}
-            className={qUi.btnSecondary}
+            className={`${qUi.btnSecondary} w-full min-h-11 py-3 lg:w-auto lg:min-h-0 lg:py-1.5 touch-manipulation`}
           >
             확정 저장
           </button>
+          </div>
           {!isNew && id && (
             <QuotationPdfActions
               token={token ?? ''}

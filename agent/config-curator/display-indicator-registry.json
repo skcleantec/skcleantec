@@ -853,6 +853,20 @@
         "client/src/components/layout/NavFavoritePageTitle.tsx"
       ],
       "notes": "메뉴 제목과 등록·수정 창 제목 옆. 끄기 없음."
+    },
+    {
+      "id": "quotation.mobile.steps",
+      "labelKo": "휴대폰 견적 손님·품목·확인",
+      "surfaces": ["admin.quotations.editor", "team.quotations.editor"],
+      "visual": { "type": "segment", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "client/src/components/quotations/QuotationMobileFormEditor.tsx",
+      "codeRefs": [
+        "client/src/components/quotations/QuotationMobileFormEditor.tsx"
+      ],
+      "notes": "lg 미만만. PC는 A4. 손님 장에서 이름 아래 수신 이메일. 발송은 확인 장. 끄기 없음."
     }
   ]
 }

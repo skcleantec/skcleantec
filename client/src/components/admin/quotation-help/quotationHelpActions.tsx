@@ -38,11 +38,11 @@ export const QUOTATION_CREATE_ACTIONS: readonly QuotationHelpActionRow[] = [
     sample: (
       <>
         <QuotationHelpCustomerFieldMock label="성함(필수)" />
+        <QuotationHelpCustomerFieldMock label="수신 이메일" />
         <QuotationHelpCustomerFieldMock label="연락처" />
-        <QuotationHelpCustomerFieldMock label="이메일" />
       </>
     ),
-    meaning: '「공급받는자」 칸에 고객 정보를 입력합니다. 이메일은 발송 시 기본값으로 쓰입니다.',
+    meaning: '이름 바로 아래 「수신 이메일」에 받을 주소를 적습니다. 저장 후 확인 단계에서 그 주소로 보냅니다.',
     when: 'A4 양식 본문',
   },
   {
@@ -139,8 +139,8 @@ export const QUOTATION_SEND_ACTIONS: readonly QuotationHelpActionRow[] = [
   {
     sample: <QuotationHelpEmailSendButton />,
     meaning:
-      '3단계 — 「이메일 발송」 섹션에서 수신·제목·본문 확인 후 PDF를 첨부해 보냅니다. SMTP(브랜드별) 설정이 필요합니다.',
-    when: '저장 후 · 편집 화면 하단',
+      '3단계 — 이름 아래 「수신 이메일」을 적고, 저장 후 확인(또는 컴퓨터 화면)에서 제목·본문을 확인한 뒤 PDF를 첨부해 보냅니다. SMTP(브랜드별) 설정이 필요합니다.',
+    when: '휴대폰 확인 단계 · 컴퓨터는 양식 아래',
   },
   {
     sample: (
