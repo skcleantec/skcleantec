@@ -12,6 +12,7 @@ import { NavLink } from 'react-router-dom';
 import type { AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSideNavIcon, resolveAdminSideNavIcon } from './adminSideNavIcons';
 import { MobileInlineMenuButton } from './MobileFloatingMenuButton';
+import { AdminOnlyHelpButton } from '../admin/admin-only-help/AdminOnlyHelpButton';
 
 function BarsIcon({ className }: { className?: string }) {
   return (
@@ -222,7 +223,8 @@ export function AdminTeamLeadersMobileSubNavBar() {
   return (
     <div className="mb-2 flex min-w-0 items-center gap-1.5 lg:hidden">
       <AdminTeamLeadersMobileInlineMenuButton />
-      <span className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900">관리자 전용</span>
+      <span className="min-w-0 flex-1 truncate text-fluid-sm font-semibold text-slate-900">관리자 전용</span>
+      <AdminOnlyHelpButton />
     </div>
   );
 }

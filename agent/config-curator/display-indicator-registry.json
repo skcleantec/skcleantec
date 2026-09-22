@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-21-prefill-confirm-steps",
+  "_lastUpdated": "2026-09-22-admin-only-help",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -838,6 +838,21 @@
         "client/src/components/orderform/customer-wizard/orderFormCustomerSteps.ts"
       ],
       "notes": "skipLocked=false. 상담 선입력 값을 숨기지 않음. 잠긴 칸은 확인만. 끄기 없음."
+    },
+    {
+      "id": "admin.teamLeaders.pageHelpQuestion",
+      "labelKo": "관리자 전용 화면 도움말 ?",
+      "surfaces": ["admin.teamLeaders.layout", "admin.teamLeaders.mobileBar"],
+      "visual": { "type": "icon", "token": "slate-600" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "client/src/components/admin/admin-only-help/AdminOnlyHelpModal.tsx",
+      "codeRefs": [
+        "client/src/components/admin/admin-only-help/AdminOnlyHelpButton.tsx",
+        "client/src/components/layout/AdminTeamLeadersLayout.tsx"
+      ],
+      "notes": "메뉴마다 다른 쉬운 설명. 끄기 없음."
     }
   ]
 }

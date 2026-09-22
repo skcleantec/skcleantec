@@ -375,6 +375,83 @@
   },
   {
     "role": "admin",
+    "module": "관리자 전용",
+    "moduleOrder": 5,
+    "itemOrder": 19,
+    "title": "팀장 가계부",
+    "path": "/admin/team-leaders/household-ledger",
+    "screenshotFile": "",
+    "summary": "팀장이 적은 수입·지출을 봅니다.",
+    "markdown": "## 화면 소개\n\n**팀장 가계부** — 팀장이 적어 둔 수입·지출을 관리자가 봅니다.\n\n---\n\n## 보는 방법\n\n1. 팀장을 고릅니다.\n2. 보고 싶은 달을 맞춥니다.\n3. 수입·지출 목록을 확인합니다.\n\n이 화면은 열람용입니다. 팀장이 자기 화면에서 적습니다."
+  },
+  {
+    "role": "admin",
+    "module": "관리자 전용",
+    "moduleOrder": 5,
+    "itemOrder": 20,
+    "title": "알림설정",
+    "path": "/admin/team-leaders/notification-policy",
+    "screenshotFile": "",
+    "summary": "휴대폰 앱 알림을 켜고 끕니다.",
+    "markdown": "## 화면 소개\n\n**알림설정** — 휴대폰 앱으로 오는 알림을 켜고 끕니다.\n\n---\n\n## 사용 순서\n\n1. 알림 종류마다 **알림 사용**을 켭니다.\n2. 팀장이 끄지 못하게 하려면 **팀장 필수**를 켭니다.\n3. 아래 **저장**을 누릅니다."
+  },
+  {
+    "role": "admin",
+    "module": "관리자 전용",
+    "moduleOrder": 5,
+    "itemOrder": 21,
+    "title": "알림톡",
+    "path": "/admin/team-leaders/alimtalk",
+    "screenshotFile": "",
+    "summary": "알림톡 남은 건수와 보낼 종류.",
+    "markdown": "## 화면 소개\n\n**알림톡** — 카카오 알림톡 남은 건수와 보낼 종류를 정합니다.\n\n---\n\n## 화면 구성\n\n| 칸 | 하는 일 |\n|----|---------|\n| **이용 현황** | 무료 건수·남은 건수·충전 잔액 |\n| **충전 신청** | 건수가 부족할 때 |\n| **알림톡 종류** | 보내고 싶지 않은 것만 끔 |\n| **설정 저장** | 바꾼 내용을 반영 |"
+  },
+  {
+    "role": "admin",
+    "module": "관리자 전용",
+    "moduleOrder": 5,
+    "itemOrder": 22,
+    "title": "팀장교육자료",
+    "path": "/admin/team-leaders/team-leader-training",
+    "screenshotFile": "",
+    "summary": "팀장에게 보여 줄 교육 파일을 올립니다.",
+    "markdown": "## 화면 소개\n\n**팀장교육자료** — 팀장에게 보여 줄 교육 파일을 올립니다.\n\n---\n\n## 사용 순서\n\n1. 자료를 올립니다. (주로 PDF)\n2. 팀장 화면에서 그 자료를 볼 수 있습니다.\n3. 더 안 쓰면 목록에서 지웁니다."
+  },
+  {
+    "role": "admin",
+    "module": "관리자 전용",
+    "moduleOrder": 5,
+    "itemOrder": 23,
+    "title": "휴지통",
+    "path": "/admin/team-leaders/inquiry-trash",
+    "screenshotFile": "",
+    "summary": "지운 접수를 복구하거나 완전히 지웁니다.",
+    "markdown": "## 화면 소개\n\n**휴지통** — 지운 접수가 30일 동안 머무는 곳입니다.\n\n---\n\n## 버튼\n\n| 화면에 보이는 이름 | 하는 일 |\n|-------------------|---------|\n| **복구** | 접수 목록으로 되돌립니다 |\n| **영구 삭제** | 바로 없앱니다. 비밀번호를 한 번 더 묻습니다 |\n\n30일이 지나면 자동으로 완전히 사라집니다."
+  },
+  {
+    "role": "admin",
+    "module": "관리자 전용",
+    "moduleOrder": 5,
+    "itemOrder": 24,
+    "title": "변경 이력",
+    "path": "/admin/team-leaders/change-history",
+    "screenshotFile": "",
+    "summary": "접수에서 누가 무엇을 바꿨는지 봅니다.",
+    "markdown": "## 화면 소개\n\n**변경 이력** — 접수에서 누가 무엇을 바꿨는지 모아 봅니다.\n\n---\n\n## 사용 순서\n\n1. **기록일**에서 날짜를 고릅니다.\n2. 필요하면 손님 이름·접수번호로 **검색**합니다.\n3. 줄을 눌러 바뀐 내용을 봅니다."
+  },
+  {
+    "role": "admin",
+    "module": "관리자 전용",
+    "moduleOrder": 5,
+    "itemOrder": 25,
+    "title": "접수 삭제",
+    "path": "/admin/team-leaders/inquiry-delete",
+    "screenshotFile": "",
+    "summary": "하루·한 달 접수를 한꺼번에 휴지통으로 보냅니다.",
+    "markdown": "## 화면 소개\n\n**접수 삭제** — 하루 또는 한 달 접수를 한꺼번에 휴지통으로 보냅니다.\n\n---\n\n## 사용 순서\n\n1. 지울 날 또는 달을 고릅니다.\n2. 내 비밀번호를 한 번 더 넣습니다.\n3. 휴지통으로 보내집니다. 살리고 싶으면 **휴지통**에서 **복구**하세요."
+  },
+  {
+    "role": "admin",
     "module": "광고비",
     "moduleOrder": 6,
     "itemOrder": 1,
