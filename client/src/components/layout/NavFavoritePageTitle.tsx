@@ -10,6 +10,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import { resolvePageNavFavoriteFromPath } from '../../utils/resolveNavFavoriteEntry';
 import { NavFavoriteStar } from './NavFavoriteStar';
+import { AdminOnlyHelpButton } from '../admin/admin-only-help/AdminOnlyHelpButton';
 
 /** staff/admin 페이지 h1 — 모바일 컴팩트 fluid + 한 줄 말줄임 */
 export const STAFF_PAGE_TITLE_CLASS =
@@ -109,6 +110,7 @@ export function PageTitleWithFavorite({
 }: PageTitleWithFavoriteProps) {
   const location = useLocation();
   const isTeamRoute = location.pathname.startsWith('/team');
+  const showAdminOnlyHelp = location.pathname.startsWith('/admin/team-leaders');
   const favorite = useMemo(() => {
     if (navKey && label) return { navKey, label };
     const pathname = path ?? location.pathname;
@@ -130,6 +132,7 @@ export function PageTitleWithFavorite({
           compact={compact}
         />
       ) : null}
+      {showAdminOnlyHelp ? <AdminOnlyHelpButton compact={compact} /> : null}
     </div>
   );
 }

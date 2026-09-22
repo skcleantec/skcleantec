@@ -842,17 +842,17 @@
     {
       "id": "admin.teamLeaders.pageHelpQuestion",
       "labelKo": "관리자 전용 화면 도움말 ?",
-      "surfaces": ["admin.teamLeaders.layout", "admin.teamLeaders.mobileBar"],
-      "visual": { "type": "icon", "token": "slate-600" },
+      "surfaces": ["admin.teamLeaders.pageTitle"],
+      "visual": { "type": "icon", "token": "slate-500" },
       "defaultVisible": true,
       "userConfigurable": false,
       "settingsPath": null,
       "helpPath": "client/src/components/admin/admin-only-help/AdminOnlyHelpModal.tsx",
       "codeRefs": [
         "client/src/components/admin/admin-only-help/AdminOnlyHelpButton.tsx",
-        "client/src/components/layout/AdminTeamLeadersLayout.tsx"
+        "client/src/components/layout/NavFavoritePageTitle.tsx"
       ],
-      "notes": "메뉴마다 다른 쉬운 설명. 끄기 없음."
+      "notes": "메뉴 제목(h1) 바로 옆. 끄기 없음."
     }
   ]
 }

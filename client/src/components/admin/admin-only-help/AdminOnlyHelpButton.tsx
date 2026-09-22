@@ -4,7 +4,13 @@ import { resolveAdminOnlyHelpPage } from './adminOnlyHelpContent';
 import { AdminOnlyHelpModal } from './AdminOnlyHelpModal';
 import { AdminOnlyHelpTrigger } from './AdminOnlyHelpTrigger';
 
-export function AdminOnlyHelpButton({ className = '' }: { className?: string }) {
+export function AdminOnlyHelpButton({
+  className = '',
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const page = resolveAdminOnlyHelpPage(pathname);
@@ -13,6 +19,7 @@ export function AdminOnlyHelpButton({ className = '' }: { className?: string }) 
     <>
       <AdminOnlyHelpTrigger
         className={className}
+        compact={compact}
         label={`${page.title} 도움말`}
         onClick={() => setOpen(true)}
       />

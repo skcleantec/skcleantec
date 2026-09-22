@@ -16,7 +16,6 @@ import {
   firstAllowedAdminSideNavPath,
 } from '../../utils/filterAdminSideNavByPermissions';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
-import { AdminOnlyHelpButton } from '../admin/admin-only-help/AdminOnlyHelpButton';
 
 const ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-team-leaders-side-nav-collapsed';
 
@@ -96,9 +95,6 @@ export function AdminTeamLeadersLayout() {
           </div>
 
           <div className="min-w-0 flex-1 max-w-full lg:overflow-x-hidden">
-            <div className="mb-2 hidden justify-end lg:flex">
-              <AdminOnlyHelpButton />
-            </div>
             {ready && staffMe && !pathAllowed ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-900">
                 이 화면에 대한 권한이 없습니다.

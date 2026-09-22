@@ -36,7 +36,7 @@
     { "label": "서비스접수", "path": "/admin/inquiries" },
     { "label": "스케쥴", "path": "/admin/schedule" },
     { "label": "정보공유", "path": "/admin/db-marketplace" },
-    { "label": "관리자 전용", "path": "/admin/team-leaders", "adminOnly": true, "plain": "사람·브랜드·정산·설정. 각 화면 ? 로 쉬운 도움말" },
+    { "label": "관리자 전용", "path": "/admin/team-leaders", "adminOnly": true, "plain": "사람·브랜드·정산·설정. 메뉴 제목 옆 ? 로 쉬운 도움말" },
     { "label": "광고비", "path": "/admin/advertising" },
     { "label": "메시지", "path": "/admin/messages", "plain": "사내 메시지와 청소비서 운영팀 문의" }
   ],
