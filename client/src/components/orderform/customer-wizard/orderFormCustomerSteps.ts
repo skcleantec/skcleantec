@@ -1,3 +1,4 @@
+import { isPreferredTimeDetailRequired } from '../../../constants/orderFormSchedule';
 import { ORDER_FORM_SPACE_COUNT_FIELDS } from '@shared/orderFormSpaceCounts';
 import {
   isCustomerAddressLocked,
@@ -169,6 +170,7 @@ export function resolveOrderFormCustomerSteps(args: {
       id: 'timeDetail',
       kind: 'choice',
       title: '구체적인 시각을 골라 주세요',
+      skippable: !isPreferredTimeDetailRequired(form.preferredTime),
     });
   }
   if (customerMayEditFillKey(order, 'roomCount') && shouldShowCustomerRoomsWizardStep(order, isEditor, skipLocked)) {
@@ -282,7 +284,8 @@ export function wizardStepIdForSubmitField(fieldId?: string): OrderFormCustomerS
   if (fieldId.includes('area')) return 'area';
   if (fieldId.includes('preferredTimeDetail')) return 'timeDetail';
   if (fieldId.includes('preferredTime')) return 'time';
-  if (fieldId.includes('schedule') || fieldId.includes('preferredDate')) return 'date';
+  if (fieldId.includes('schedule')) return 'time';
+  if (fieldId.includes('preferredDate')) return 'date';
   if (
     fieldId.includes('roomCount') ||
     fieldId.includes('balconyCount') ||

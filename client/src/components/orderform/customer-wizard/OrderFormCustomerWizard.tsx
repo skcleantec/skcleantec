@@ -183,7 +183,10 @@ export function OrderFormCustomerWizard({
       onSubmit({ preventDefault() {} } as FormEvent);
       return;
     }
-    if (!shared.guideTermsAt || !shared.guideTermsSigned) return;
+    if (!shared.guideTermsAt || !shared.guideTermsSigned) {
+      setStepError('[필수] 성함을 적고 안내사항을 끝까지 읽고 서명해 주세요.');
+      return;
+    }
     if (stepInvalid) {
       setStepError(stepInvalid);
       return;
