@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import { useSearchParams } from 'react-router-dom';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
@@ -686,7 +687,10 @@ export function AdminExternalSettlementPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
           <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">정산 처리</h3>
+              <div className="flex items-center gap-0.5">
+                <h3 className="text-sm font-semibold text-gray-900">정산 처리</h3>
+                <AdminOnlyHelpButton helpId="external-settlement-pay" compact />
+              </div>
               <p className="mt-1 text-xs text-gray-600">{selected.companyName}</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2">

@@ -16,6 +16,7 @@ import {
 } from '../../api/externalCompanies';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import { LoginCredentialsCopySheet } from '../../components/admin/LoginCredentialsCopySheet';
 import { getMe } from '../../api/auth';
 import type { LoginCredentialsCopyInput } from '../../utils/userLoginCopyText';
@@ -645,9 +646,12 @@ export function AdminExternalCompaniesPage() {
           <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[min(90dvh,720px)] flex flex-col mx-auto sm:mx-0">
             <ModalCloseButton onClick={() => !submitting && closeCreateModal()} disabled={submitting} />
             <div className="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
-              <h3 id="external-create-title" className="text-lg font-semibold text-gray-800 pr-10">
-                타업체 등록
-              </h3>
+              <div className="flex items-center gap-0.5 pr-10">
+                <h3 id="external-create-title" className="text-lg font-semibold text-gray-800">
+                  타업체 등록
+                </h3>
+                <AdminOnlyHelpButton helpId="external-company-create" compact />
+              </div>
               <p className="text-xs text-gray-500 mt-1">
                 업체명·로그인 계정만 등록합니다. 사업자 정보·담당자 정보는 타업체가 첫 로그인 시 입력합니다.
               </p>
@@ -735,9 +739,12 @@ export function AdminExternalCompaniesPage() {
               />
             </div>
             <div className="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
-              <h3 id="external-edit-title" className="text-lg font-semibold text-gray-800 pr-4 sm:pr-32">
-                타업체 정보 수정
-              </h3>
+              <div className="flex items-center gap-0.5 pr-4 sm:pr-32">
+                <h3 id="external-edit-title" className="text-lg font-semibold text-gray-800">
+                  타업체 정보 수정
+                </h3>
+                <AdminOnlyHelpButton helpId="external-company-edit" compact />
+              </div>
             </div>
             <form onSubmit={handleEditSave} className="flex flex-col flex-1 min-h-0 text-sm min-w-0">
               <div className="px-5 py-4 overflow-y-auto space-y-3 flex-1 min-h-0 min-w-0">

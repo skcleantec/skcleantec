@@ -99,7 +99,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
       {
         icon: 'account-add',
         title: '새로 넣기',
-        body: '동그란 「+」를 누르면 이름·아이디·비밀번호를 넣습니다.',
+        body: '동그란 「+」를 누르면 등록 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 칸마다 설명이 나옵니다.',
       },
       {
         icon: 'pencil',
@@ -121,8 +121,8 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
     steps: [
       {
         icon: 'folder',
-        title: '새 브랜드',
-        body: '「새 브랜드」에 이름과 배지 색을 넣습니다.\n접수·스케줄에 그 색 배지가 붙습니다.',
+        title: '브랜드 등록',
+        body: '「브랜드 등록」을 누르면 새 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 칸마다 설명이 나옵니다.',
       },
       {
         icon: 'account',
@@ -139,7 +139,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
       {
         icon: 'account-add',
         title: '타업체 추가',
-        body: '업체 이름, 전화, 로그인 아이디를 넣습니다.\n그 업체가 자기 정산을 볼 때 씁니다.',
+        body: '「타업체 등록」을 누르면 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 칸마다 설명이 나옵니다.',
       },
       {
         icon: 'pencil',
@@ -156,7 +156,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
       {
         icon: 'link',
         title: '파트너 초대',
-        body: '「파트너 초대」에 상대 업체 코드를 넣고\n초대를 보냅니다.',
+        body: '「파트너 초대」를 누르면 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 칸마다 설명이 나옵니다.',
       },
       {
         icon: 'check-list-3',
@@ -206,7 +206,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
       {
         icon: 'pencil',
         title: '지급 기록',
-        body: '돈을 보냈으면 「지급 기록」에\n날짜와 금액을 적습니다.',
+        body: '「정산」을 누르면 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 설명이 나옵니다.',
       },
       {
         icon: 'list-3',
@@ -228,7 +228,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
       {
         icon: 'cash',
         title: '수금·지급 기록',
-        body: '실제로 주고받은 돈을\n「수금 기록」 또는 「지급 기록」에 남깁니다.',
+        body: '「입금 확인」을 누르면 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 설명이 나옵니다.',
       },
     ],
   },
@@ -302,17 +302,17 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
       {
         icon: 'account-add',
         title: '팀원 넣기',
-        body: '「+」로 이름과 전화를 넣습니다.\n「사용」을 켜야 스케줄 인원 수에 들어갑니다.',
+        body: '「팀원 등록」을 누르면 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 칸마다 설명이 나옵니다.',
       },
       {
         icon: 'calendar',
         title: '휴무',
-        body: '「휴무」에서 쉬는 날을 넣으면\n그날 스케줄 인원 숫자에서 빠집니다.',
+        body: '「휴무일」을 누르면 달력 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 설명이 나옵니다.',
       },
       {
         icon: 'folder',
         title: '크루 그룹',
-        body: '여러 명이 같은 로그인으로 현장 앱을 쓸 때\n「새 그룹」을 만듭니다.',
+        body: '「새 그룹」을 누르면 창이 열립니다.\n그 창 제목 옆 ? 를 누르면 설명이 나옵니다.',
       },
     ],
   },

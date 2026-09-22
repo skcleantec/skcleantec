@@ -7,6 +7,7 @@ import {
   type LoginCredentialsCopyInput,
 } from '../../utils/userLoginCopyText';
 import { ModalCloseButton } from './ModalCloseButton';
+import { AdminOnlyHelpButton } from './admin-only-help/AdminOnlyHelpButton';
 
 export function LoginCredentialsCopySheet({
   open,
@@ -59,9 +60,12 @@ export function LoginCredentialsCopySheet({
         <div className="shrink-0 border-b border-gray-200 px-4 py-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h2 id="login-credentials-copy-title" className="text-fluid-sm font-semibold text-gray-900">
-                로그인 안내
-              </h2>
+              <div className="flex items-center gap-0.5">
+                <h2 id="login-credentials-copy-title" className="text-fluid-sm font-semibold text-gray-900">
+                  로그인 안내
+                </h2>
+                <AdminOnlyHelpButton helpId="login-credentials-copy" compact />
+              </div>
               <p className="mt-0.5 text-fluid-xs text-gray-500">
                 아래 내용을 복사해 팀장·마케터에게 전달하세요. Google Play 앱 설치·로그인·카카오 연결
                 방법이 포함됩니다.

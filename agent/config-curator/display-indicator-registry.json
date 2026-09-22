@@ -852,7 +852,7 @@
         "client/src/components/admin/admin-only-help/AdminOnlyHelpButton.tsx",
         "client/src/components/layout/NavFavoritePageTitle.tsx"
       ],
-      "notes": "메뉴 제목(h1) 바로 옆. 끄기 없음."
+      "notes": "메뉴 제목과 등록·수정 창 제목 옆. 끄기 없음."
     }
   ]
 }

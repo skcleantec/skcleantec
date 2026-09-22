@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { getToken } from '../../stores/auth';
@@ -679,7 +680,10 @@ export function AdminTenantPartnerSettlementPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
           <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">입금 확인</h3>
+              <div className="flex items-center gap-0.5">
+                <h3 className="text-sm font-semibold text-gray-900">입금 확인</h3>
+                <AdminOnlyHelpButton helpId="partner-settlement-pay" compact />
+              </div>
               <p className="mt-1 text-xs text-gray-600">
                 {selected.partnerName} — 상대 구매 탭에 동일 금액이 자동 반영됩니다.
               </p>

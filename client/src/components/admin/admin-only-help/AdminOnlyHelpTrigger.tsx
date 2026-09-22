@@ -20,7 +20,11 @@ export function AdminOnlyHelpTrigger({
       type="button"
       aria-label={label}
       title={label}
-      onClick={onClick}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       className={[
         'inline-flex shrink-0 items-center justify-center rounded-md text-slate-500',
         'hover:bg-slate-100 hover:text-slate-800',

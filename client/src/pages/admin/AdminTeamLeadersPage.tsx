@@ -4,6 +4,7 @@ import { AdminTeamLeadersMobileInlineMenuButton } from '../../components/layout/
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import {
   getUsers,
   createUser,
@@ -1467,18 +1468,30 @@ export function AdminTeamLeadersPage() {
                 disabled={submitLoading}
                 aria-label="등록 창 닫기"
               />
-              <h2
-                id={
-                  showForm === 'team'
-                    ? 'register-team-title'
-                    : showForm === 'office'
-                      ? 'register-office-title'
-                      : 'register-marketer-title'
-                }
-                className="text-lg font-semibold text-gray-800 mb-1 pr-10"
-              >
-                {showForm === 'team' ? '팀장 등록' : showForm === 'office' ? '사무직 등록' : '마케터 등록'}
-              </h2>
+              <div className="mb-1 flex items-center gap-0.5 pr-10">
+                <h2
+                  id={
+                    showForm === 'team'
+                      ? 'register-team-title'
+                      : showForm === 'office'
+                        ? 'register-office-title'
+                        : 'register-marketer-title'
+                  }
+                  className="text-lg font-semibold text-gray-800"
+                >
+                  {showForm === 'team' ? '팀장 등록' : showForm === 'office' ? '사무직 등록' : '마케터 등록'}
+                </h2>
+                <AdminOnlyHelpButton
+                  compact
+                  helpId={
+                    showForm === 'team'
+                      ? 'user-create-team'
+                      : showForm === 'office'
+                        ? 'user-create-office'
+                        : 'user-create-marketer'
+                  }
+                />
+              </div>
               <p className="text-xs text-gray-500 mb-4">
                 {showForm === 'team'
                   ? '아이디·비밀번호·이름은 필수입니다. 일반 정산과 추가결재 회사 몫은 접수 정산에 반영됩니다. 아래 「참고」 블록의 월 고정 급여는 선택 사항입니다.'
@@ -1821,9 +1834,12 @@ export function AdminTeamLeadersPage() {
                   className="!static shrink-0 shadow-none"
                 />
               </div>
-              <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800 mb-1 pr-32">
-                사용자 수정
-              </h2>
+              <div className="mb-1 flex items-center gap-0.5 pr-32">
+                <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800">
+                  사용자 수정
+                </h2>
+                <AdminOnlyHelpButton helpId="user-edit" compact />
+              </div>
               <p className="text-xs text-gray-500 mb-4">
                 역할: {userRoleLabel(editingUser.role)} · 새 비밀번호는 변경할 때만 입력
               </p>

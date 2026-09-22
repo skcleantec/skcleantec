@@ -18,7 +18,10 @@ export function AdminOnlyHelpModal({ open, onClose, page }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -28,7 +31,7 @@ export function AdminOnlyHelpModal({ open, onClose, page }: Props) {
 
   return createPortal(
     <div
-      className="modal-mobile-safe-overlay fixed inset-0 z-[620] flex items-stretch justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4"
+      className="modal-mobile-safe-overlay fixed inset-0 z-[680] flex items-stretch justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4"
       role="presentation"
       onClick={onClose}
     >

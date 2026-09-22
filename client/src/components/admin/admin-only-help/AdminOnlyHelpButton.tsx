@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { resolveAdminOnlyHelpPage } from './adminOnlyHelpContent';
+import { resolveAdminOnlyHelp } from './resolveAdminOnlyHelp';
 import { AdminOnlyHelpModal } from './AdminOnlyHelpModal';
 import { AdminOnlyHelpTrigger } from './AdminOnlyHelpTrigger';
 
 export function AdminOnlyHelpButton({
   className = '',
   compact = false,
+  helpId,
 }: {
   className?: string;
   compact?: boolean;
+  /** 버튼으로 열린 창이면 그 창 전용 도움말 */
+  helpId?: string;
 }) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
-  const page = resolveAdminOnlyHelpPage(pathname);
+  const page = resolveAdminOnlyHelp(pathname, helpId);
 
   return (
     <>
