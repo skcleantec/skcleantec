@@ -141,6 +141,7 @@ import {
   resolveOrderTimeSlotLabels,
   parseOrderTimeSlotLabelsJson,
   isAllowedPreferredTimeValue,
+  isOrderTimeSlotValue,
   preferredTimeOptionsFromTemplateFields,
 } from '../../lib/orderFormTimeSlotLabels.js';
 import {
@@ -2965,23 +2966,15 @@ router.post('/submit/:token', async (req, res) => {
       orderFormPropertyTypeDisplay(propertyTypeNorm, isOneRoom, oneRoomLabelWhenSkOpsEnabled(skOpsUi)) ?? '';
   }
 
-  // 관리자가 발급 시 날짜를 넣었으면 그 날짜는 고객이 바꿀 수 없음(본문 무시). 미지정이면 고객 입력 사용.
-  const adminDateLocked = Boolean(form.preferredDate && String(form.preferredDate).trim());
-  let useDateStr: string;
-  let useTimeStr: string;
-  if (adminDateLocked) {
-    useDateStr = String(form.preferredDate).trim();
-    useTimeStr =
-      (form.preferredTime && String(form.preferredTime).trim()) ||
-      (body.preferredTime && String(body.preferredTime).trim()) ||
-      '';
-  } else {
-    useDateStr = (body.preferredDate && String(body.preferredDate).trim()) || '';
-    useTimeStr =
-      (body.preferredTime && String(body.preferredTime).trim()) ||
-      (form.preferredTime && String(form.preferredTime).trim()) ||
-      '';
-  }
+  // 날짜·시간대는 따로 잠근다. 날짜만 있거나 시간대가 슬롯이 아니면 고객 입력을 받는다.
+  const adminDateLocked = Boolean(normalizeGuidePreferredDateYmd(form.preferredDate));
+  const storedTime = (form.preferredTime && String(form.preferredTime).trim()) || '';
+  const adminTimeLocked = Boolean(storedTime && isOrderTimeSlotValue(storedTime));
+  const bodyTime = (body.preferredTime && String(body.preferredTime).trim()) || '';
+  const useDateStr = adminDateLocked
+    ? (normalizeGuidePreferredDateYmd(form.preferredDate) ?? '')
+    : (normalizeGuidePreferredDateYmd(body.preferredDate) ?? '');
+  const useTimeStr = adminTimeLocked ? storedTime : bodyTime || storedTime;
   if (!useDateStr || !useTimeStr) {
     if (tplOn('preferredDate') || tplOn('preferredTime')) {
       res.status(400).json({ error: '청소 날짜와 시간을 입력해주세요.' });
@@ -3023,7 +3016,7 @@ router.post('/submit/:token', async (req, res) => {
     return;
   }
 
-  const preferredDate = useDateStr ? new Date(useDateStr + 'T12:00:00') : null;
+  const preferredDate = preferredDateYmdToKstNoon(useDateStr);
 
   const moveInTimingParsed = tplOn('moveInDate') ? parseMoveInTiming(body.moveInTiming) : null;
   const moveInUndecidedRaw = body.moveInDateUndecided;
@@ -3153,7 +3146,7 @@ router.post('/submit/:token', async (req, res) => {
     { preferredDateYmd: useDateStr || null },
   );
   const needsServiceDateConsent = !adminDateLocked && tplOn('preferredDate') && Boolean(useDateStr);
-  const needsTimeSlotConsent = !adminDateLocked && tplOn('preferredTime') && Boolean(useTimeStr);
+  const needsTimeSlotConsent = !adminTimeLocked && tplOn('preferredTime') && Boolean(useTimeStr);
   const consentResult = validateOrderFormSubmitConsents({
     consentsRaw: body.consents,
     needsServiceDateConsent,

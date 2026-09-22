@@ -8,6 +8,7 @@ import {
   TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_META,
 } from '../../lib/telecrmConsultationQuote.js';
 import { isOrderFormSectionToggleKey, isOrderFormSectionToggleOn } from '../../lib/orderFormSectionToggles.js';
+import { isOrderFormQuoteAlwaysOnFieldKey } from './systemFields.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -140,6 +141,7 @@ export function templateHasSystemField(
   template: PublicOrderTemplate | null | undefined,
   key: string,
 ): boolean {
+  if (isOrderFormQuoteAlwaysOnFieldKey(key)) return true;
   if (isOrderFormSectionToggleKey(key)) {
     return isOrderFormSectionToggleOn(template, key);
   }
