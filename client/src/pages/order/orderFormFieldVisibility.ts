@@ -1,10 +1,14 @@
+import { normalizeOrderFormYmd } from '@shared/orderFormMoveInTiming';
 import { isMarketerLockedOrderFormAddress } from '@shared/orderFormPendingAddress';
+import {
+  isOrderTimeSlotValue,
+  resolvePreferredTimeFromExcelWithLabels,
+} from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_SPACE_COUNT_FIELDS,
   parseOrderFormSpaceCount,
   type OrderFormSpaceCountKey,
 } from '@shared/orderFormSpaceCounts';
-import { isPreferredTimeDetailRequired } from '../../constants/orderFormSchedule';
 import type { OrderFormFields, OrderFormLoadedOrder } from './orderFormModel.types';
 import {
   DEFAULT_ORDER_FORM_FILL_RULES,
@@ -15,6 +19,32 @@ import {
   isOrderFormSectionToggleKey,
   isOrderFormSectionToggleOn,
 } from '@shared/orderFormSectionToggles';
+
+/** 발급·선입력으로 청소일이 이미 있으면 고객 날짜 단계는 숨긴다. */
+export function isOrderFormDateLockedFromOrder(
+  order: { preferredDate?: string | null } | null | undefined,
+): boolean {
+  return Boolean(normalizeOrderFormYmd(order?.preferredDate));
+}
+
+/**
+ * 시간대는 날짜와 따로 잠근다.
+ * 날짜만 있거나 슬롯이 아닌 값(HH:mm 등)이면 고객이 오전·오후를 고를 수 있어야 한다.
+ */
+export function isOrderFormTimeLockedFromOrder(
+  order: { preferredTime?: string | null } | null | undefined,
+): boolean {
+  const t = order?.preferredTime?.trim();
+  return Boolean(t && isOrderTimeSlotValue(t));
+}
+
+/** 로드 시 라벨·엑셀 표기를 4슬롯으로 맞추고, 슬롯이 아니면 비운다. */
+export function coerceLoadedOrderFormPreferredTime(raw: string | null | undefined): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (isOrderTimeSlotValue(s)) return s;
+  return resolvePreferredTimeFromExcelWithLabels(s) ?? '';
+}
 
 export function customerMayEditFillKey(
   order: OrderFormLoadedOrder | null | undefined,
@@ -178,7 +208,7 @@ export function shouldShowCustomerTimeWizardStep(
     return !String(order?.prefillAnswers?.preferredTime ?? '').trim();
   }
   const fromOrder = order?.preferredTime?.trim() ?? '';
-  if (fromOrder) return false;
+  if (fromOrder && isOrderTimeSlotValue(fromOrder)) return false;
   return true;
 }
 
@@ -190,7 +220,8 @@ export function shouldShowCustomerTimeDetailWizardStep(
   if (!isStdFieldOn(order, 'preferredTimeDetail')) return false;
   if (skipLocked && order?.preferredTimeDetail?.trim()) return false;
   const slot = (form.preferredTime.trim() || order?.preferredTime?.trim() || '').trim();
-  return isPreferredTimeDetailRequired(slot);
+  if (!isOrderTimeSlotValue(slot) || slot === '조율') return false;
+  return true;
 }
 
 /** 도로명만 잠기고 상세주소가 비어 있으면 고객에게 주소 질문을 보여 준다. */
