@@ -41,25 +41,25 @@ export function QuotationCustomerFields({
         />
       </label>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <label className="block">
-          <span className={qUi.label}>연락처</span>
-          <input
-            className={qUi.input}
-            value={customerPhone}
-            onChange={(e) => onCustomerPhoneChange(e.target.value)}
-          />
-        </label>
-        <label className="block">
-          <span className={qUi.label}>이메일</span>
-          <input
-            type="email"
-            className={qUi.input}
-            value={customerEmail}
-            onChange={(e) => onCustomerEmailChange(e.target.value)}
-          />
-        </label>
-      </div>
+      <label className="block">
+        <span className={qUi.label}>수신 이메일</span>
+        <input
+          type="email"
+          className={qUi.input}
+          placeholder="견적서 받을 이메일"
+          value={customerEmail}
+          onChange={(e) => onCustomerEmailChange(e.target.value)}
+        />
+      </label>
+
+      <label className="block">
+        <span className={qUi.label}>연락처</span>
+        <input
+          className={qUi.input}
+          value={customerPhone}
+          onChange={(e) => onCustomerPhoneChange(e.target.value)}
+        />
+      </label>
 
       <label className="block">
         <span className={qUi.label}>주소</span>

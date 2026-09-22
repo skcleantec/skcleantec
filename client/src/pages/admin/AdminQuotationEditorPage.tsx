@@ -431,7 +431,7 @@ export function AdminQuotationEditorPage() {
   const canEmail = operatingCompanyId ? smtpReady : smtpReady || globalSmtpFallback;
 
   return (
-    <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer}`}>
+    <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer} max-lg:max-w-full max-lg:px-0 max-lg:py-3 max-lg:space-y-3`}>
       <div className="space-y-1">
         <p className={qUi.breadcrumb}>
           <Link to="/admin/inquiries/quotations" className={qUi.breadcrumbLink}>
@@ -509,9 +509,29 @@ export function AdminQuotationEditorPage() {
         memo={memo}
         onMemoChange={setMemo}
         footerNotice={resolvedFooterNotice}
+        afterReview={
+          !isNew && id && token ? (
+            <QuotationEmailPanel
+              token={token}
+              quotationId={id}
+              status={status}
+              customerEmail={customerEmail}
+              sentAt={sentAt}
+              lastEmailedAt={lastEmailedAt}
+              canEmail={canEmail}
+              onRecipientEmailChange={setCustomerEmail}
+              onSent={(patch) => {
+                setStatus(patch.status);
+                setCustomerEmail(patch.customerEmail ?? '');
+                setSentAt(patch.sentAt);
+                setLastEmailedAt(patch.lastEmailedAt);
+              }}
+            />
+          ) : null
+        }
       />
 
-      <div className="hidden lg:block">
+      <div className="hidden min-w-0 max-w-full lg:block">
         <QuotationDocumentEditor
           quoteNumber={quoteNumber}
           createdAt={createdAt}
@@ -549,23 +569,26 @@ export function AdminQuotationEditorPage() {
         />
       </div>
 
-      {!isNew && id && token && (
-        <QuotationEmailPanel
-          token={token}
-          quotationId={id}
-          status={status}
-          customerEmail={customerEmail}
-          sentAt={sentAt}
-          lastEmailedAt={lastEmailedAt}
-          canEmail={canEmail}
-          onSent={(patch) => {
-            setStatus(patch.status);
-            setCustomerEmail(patch.customerEmail ?? '');
-            setSentAt(patch.sentAt);
-            setLastEmailedAt(patch.lastEmailedAt);
-          }}
-        />
-      )}
+      {!isNew && id && token ? (
+        <div className="hidden lg:block">
+          <QuotationEmailPanel
+            token={token}
+            quotationId={id}
+            status={status}
+            customerEmail={customerEmail}
+            sentAt={sentAt}
+            lastEmailedAt={lastEmailedAt}
+            canEmail={canEmail}
+            onRecipientEmailChange={setCustomerEmail}
+            onSent={(patch) => {
+              setStatus(patch.status);
+              setCustomerEmail(patch.customerEmail ?? '');
+              setSentAt(patch.sentAt);
+              setLastEmailedAt(patch.lastEmailedAt);
+            }}
+          />
+        </div>
+      ) : null}
 
       <div className={qUi.stickyActionBar}>
         <div className="mx-auto flex max-w-[794px] min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:justify-start">

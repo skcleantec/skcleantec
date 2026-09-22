@@ -72,6 +72,8 @@ type Props = {
   memo: string;
   onMemoChange: (v: string) => void;
   footerNotice: string | null;
+  /** 저장 후 「확인」 단계에서만 보이는 이메일 발송 칸 */
+  afterReview?: ReactNode;
 };
 
 const fieldCls = `${qUi.input} min-h-11`;
@@ -102,7 +104,7 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className={`${qUi.cardBody} space-y-3 p-3 sm:p-4`}>
+    <section className={`${qUi.cardBody} w-full min-w-0 max-w-full space-y-3 p-3 sm:p-4`}>
       <div>
         <h2 className="text-fluid-sm font-semibold text-slate-900">{title}</h2>
         {subtitle ? <p className={`${qUi.sectionSubtitle} mt-0.5`}>{subtitle}</p> : null}
@@ -153,10 +155,10 @@ export function QuotationMobileFormEditor(props: Props) {
     memo,
     onMemoChange,
     footerNotice,
+    afterReview,
   } = props;
 
   const [step, setStep] = useState<MobileStep>('customer');
-  const [moreCustomer, setMoreCustomer] = useState(Boolean(customerEmail.trim()));
 
   const supplierRegistration = useMemo(
     () =>
@@ -237,7 +239,7 @@ export function QuotationMobileFormEditor(props: Props) {
   }
 
   return (
-    <div className="min-w-0 space-y-3 lg:hidden" onFocusCapture={onFieldFocus}>
+    <div className="w-full min-w-0 max-w-full space-y-3 lg:hidden" onFocusCapture={onFieldFocus}>
       <nav
         className="flex gap-0.5 rounded-xl bg-slate-100 p-0.5"
         aria-label="견적서 작성 단계"
@@ -297,7 +299,7 @@ export function QuotationMobileFormEditor(props: Props) {
 
           <fieldset>
             <legend className={qUi.label}>문서 유형</legend>
-            <div className={`${qUi.segmentWrap} flex w-full`}>
+            <div className={`${qUi.segmentWrap} flex w-full min-w-0 max-w-full`}>
               {QUOTATION_DOCUMENT_TYPE_OPTIONS.map((opt, i) => (
                 <button
                   key={opt.value}
@@ -322,6 +324,20 @@ export function QuotationMobileFormEditor(props: Props) {
               onChange={(e) => onCustomerNameChange(e.target.value)}
               autoComplete="name"
             />
+          </label>
+          <label className="block">
+            <span className={qUi.label}>수신 이메일</span>
+            <input
+              type="email"
+              className={fieldCls}
+              placeholder="견적서 받을 이메일"
+              value={customerEmail}
+              onChange={(e) => onCustomerEmailChange(e.target.value)}
+              autoComplete="email"
+            />
+            <span className="mt-1 block text-fluid-2xs text-slate-500">
+              저장한 뒤 확인 단계에서 이 주소로 보냅니다.
+            </span>
           </label>
           <label className="block">
             <span className={qUi.label}>연락처</span>
@@ -352,27 +368,6 @@ export function QuotationMobileFormEditor(props: Props) {
                 className={fieldCls}
                 value={validUntil}
                 onChange={(e) => onValidUntilChange(e.target.value)}
-              />
-            </label>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={() => setMoreCustomer((v) => !v)}
-            className="text-fluid-xs font-medium text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-          >
-            {moreCustomer ? '이메일 접기' : '이메일 넣기 (보낼 때)'}
-          </button>
-          {moreCustomer ? (
-            <label className="block">
-              <span className={qUi.label}>이메일</span>
-              <input
-                type="email"
-                className={fieldCls}
-                placeholder="email@example.com"
-                value={customerEmail}
-                onChange={(e) => onCustomerEmailChange(e.target.value)}
-                autoComplete="email"
               />
             </label>
           ) : null}
@@ -534,6 +529,9 @@ export function QuotationMobileFormEditor(props: Props) {
         <SectionCard title="확인" subtitle="맞으면 아래 「저장」을 누르세요">
           <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-fluid-xs text-slate-700">
             <p className="font-semibold text-slate-900">{customerName.trim() || '이름 없음'}</p>
+            {customerEmail.trim() ? <p className="mt-0.5">{customerEmail.trim()}</p> : (
+              <p className="mt-0.5 text-amber-800">수신 이메일이 없습니다. 손님 칸에서 적어 주세요.</p>
+            )}
             {customerPhone.trim() ? <p className="mt-0.5">{customerPhone.trim()}</p> : null}
             {customerAddress.trim() ? <p className="mt-0.5 truncate">{customerAddress.trim()}</p> : null}
           </div>
@@ -578,7 +576,7 @@ export function QuotationMobileFormEditor(props: Props) {
 
           <fieldset>
             <legend className={qUi.label}>과세 구분</legend>
-            <div className={`${qUi.segmentWrap} flex w-full`}>
+            <div className={`${qUi.segmentWrap} flex w-full min-w-0 max-w-full`}>
               <button
                 type="button"
                 className={`${qUi.segmentBtn(vatMode === 'TAX_FREE', false)} min-h-10 flex-1 touch-manipulation`}
@@ -642,6 +640,8 @@ export function QuotationMobileFormEditor(props: Props) {
           ) : null}
         </SectionCard>
       ) : null}
+
+      {step === 'review' && afterReview ? afterReview : null}
 
       <div className="flex items-center gap-2">
         <button

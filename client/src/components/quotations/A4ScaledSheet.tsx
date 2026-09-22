@@ -56,7 +56,7 @@ export function A4ScaledSheet({
   const scaled = layout.scale < 0.999;
 
   return (
-    <div ref={viewportRef} className={`w-full min-w-0 touch-manipulation ${className}`}>
+    <div ref={viewportRef} className={`w-full min-w-0 max-w-full overflow-x-hidden touch-manipulation ${className}`}>
       <div
         className="relative mx-auto"
         style={

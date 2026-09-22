@@ -28,6 +28,6 @@ export const QUOTATION_SEND_FLOW_NODES: readonly QuotationSendFlowNode[] = [
   { id: 'save', title: '저장', subtitle: '견적 번호 생성', tone: 'slate' },
   { id: 'finalize', title: '확정 저장', subtitle: '발송 준비(선택)', tone: 'indigo' },
   { id: 'pdf', title: 'PDF 확인', subtitle: '미리보기·다운로드', tone: 'sky' },
-  { id: 'email', title: 'PDF 첨부 발송', subtitle: '고객 이메일', tone: 'emerald' },
+  { id: 'email', title: 'PDF 첨부 발송', subtitle: '수신 이메일', tone: 'emerald' },
   { id: 'sent', title: '발송됨', subtitle: '상태 · 이력', tone: 'emerald' },
 ];

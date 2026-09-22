@@ -866,7 +866,7 @@
       "codeRefs": [
         "client/src/components/quotations/QuotationMobileFormEditor.tsx"
       ],
-      "notes": "lg 미만만. PC는 A4. 끄기 없음."
+      "notes": "lg 미만만. PC는 A4. 손님 장에서 이름 아래 수신 이메일. 발송은 확인 장. 끄기 없음."
     }
   ]
 }

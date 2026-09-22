@@ -36,11 +36,11 @@ export const qUi = {
   sectionSubtitle: 'text-fluid-xs font-medium text-slate-500',
   label: 'block text-fluid-xs font-medium text-slate-600 mb-1',
   input:
-    'w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-900 placeholder:text-slate-400',
+    'w-full min-w-0 max-w-full box-border rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-900 placeholder:text-slate-400',
   textarea:
-    'w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-900 placeholder:text-slate-400',
+    'w-full min-w-0 max-w-full box-border rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-900 placeholder:text-slate-400',
   select:
-    'w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-900',
+    'w-full min-w-0 max-w-full box-border rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-900',
   btnPrimary:
     'inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50',
   btnSecondary:
@@ -54,7 +54,7 @@ export const qUi = {
   btnChip:
     'inline-flex items-center rounded-lg border border-slate-200 px-2.5 py-1 text-fluid-2xs font-semibold text-slate-700 shadow-sm transition-transform hover:bg-slate-50 hover:scale-[1.03] disabled:opacity-40',
   filterBar: 'border-b border-slate-100 bg-slate-50/80 px-4 py-4 space-y-4',
-  segmentWrap: 'inline-flex rounded-lg border border-slate-200 overflow-hidden text-fluid-sm shrink-0',
+  segmentWrap: 'inline-flex max-w-full min-w-0 rounded-lg border border-slate-200 overflow-hidden text-fluid-sm',
   segmentBtn: (active: boolean, bordered: boolean) =>
     [
       'px-3 py-1.5 font-medium transition-colors',

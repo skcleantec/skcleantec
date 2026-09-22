@@ -290,7 +290,7 @@ export function QuotationDocumentEditor({
   const showBrandSelector = operatingCompanies.length > 0;
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 w-full max-w-full space-y-3">
       <p className="text-center text-fluid-2xs text-slate-500 px-2">
         A4 공문 양식(210×297mm)에 직접 입력합니다. 좁은 화면에서는 전체가 비율에 맞게 축소되어
         표시됩니다.
@@ -400,22 +400,22 @@ export function QuotationDocumentEditor({
                       />
                     </label>
                     <label className="block">
+                      <span className="sr-only">수신 이메일</span>
+                      <input
+                        type="email"
+                        className={docInput}
+                        placeholder="수신 이메일"
+                        value={customerEmail}
+                        onChange={(e) => onCustomerEmailChange(e.target.value)}
+                      />
+                    </label>
+                    <label className="block">
                       <span className="sr-only">연락처</span>
                       <input
                         className={docInput}
                         placeholder="Tel"
                         value={customerPhone}
                         onChange={(e) => onCustomerPhoneChange(e.target.value)}
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="sr-only">이메일</span>
-                      <input
-                        type="email"
-                        className={docInput}
-                        placeholder="이메일"
-                        value={customerEmail}
-                        onChange={(e) => onCustomerEmailChange(e.target.value)}
                       />
                     </label>
                     <label className="block">
