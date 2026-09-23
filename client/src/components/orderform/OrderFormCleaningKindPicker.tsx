@@ -48,6 +48,7 @@ export function OrderFormCleaningKindPicker({
                 <input
                   type="radio"
                   name="order-form-cleaning-kind"
+                  autoComplete="off"
                   className="mt-1 h-4 w-4 shrink-0 border-slate-400 text-slate-900 focus:ring-slate-900"
                   value={opt.value}
                   checked={checked}

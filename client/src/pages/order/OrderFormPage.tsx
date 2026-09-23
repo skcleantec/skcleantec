@@ -837,10 +837,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         const issuedPhone = (data.customerPhone ?? '').trim();
         setForm((f) => ({
           ...f,
-          cleaningKind:
-            parseOrderFormCleaningKind(pf['cleaningKind']) ??
-            parseOrderFormCleaningKind(baseCustom.cleaningKind) ??
-            '',
+          cleaningKind: isEditor
+            ? parseOrderFormCleaningKind(pf['cleaningKind']) ??
+              parseOrderFormCleaningKind(baseCustom.cleaningKind) ??
+              ''
+            : '',
           customerName: pfStr('customerName') ?? (p?.customerName || data.customerName),
           customerPhone: pfStr('customerPhone') ?? (issuedPhone || (p?.customerPhone ?? '').trim() || ''),
           customerPhoneSecondary: pfStr('customerPhone2') ?? p?.customerPhone2 ?? '',
@@ -904,7 +905,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             pf['isOneRoom'] === true ||
             detectOneRoomFromNotes(pfStr('specialNotes') ?? data.draftCustomerSpecialNotes ?? ''),
         }));
-        if (parseOrderFormCleaningKind(pf['cleaningKind'])) {
+        if (isEditor && parseOrderFormCleaningKind(pf['cleaningKind'])) {
           setClassicKindConfirmed(true);
         }
         const pfProf = pf['professionalOptionIds'];
@@ -1076,8 +1077,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
       if (
         shouldCollectOrderFormCleaningKind(order?.template) &&
-        !isOrderFormCleaningKind(form.cleaningKind) &&
-        !prefillLocked('cleaningKind')
+        !isOrderFormCleaningKind(form.cleaningKind)
       ) {
         addIssue('청소 종류를 선택해 주세요.', 'order-field-cleaningKind');
       }
@@ -1661,6 +1661,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const prefillMap = order?.prefillAnswers ?? null;
   const lockKey = (key: string): boolean => {
     if (isEditor || !prefillMap) return false;
+    if (key === 'cleaningKind') return false;
     const v = (prefillMap as Record<string, unknown>)[key];
     if (v == null) return false;
     if (typeof v === 'string') return v.trim().length > 0;
@@ -2536,7 +2537,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               }}
             />
             {isEditor && isOrderFormCleaningKind(form.cleaningKind) ? (
-              <p className="mt-2 text-xs text-gray-500">손님이 이 종류로 시작합니다. 저장하면 잠깁니다.</p>
+              <p className="mt-2 text-xs text-gray-500">손님 링크는 처음부터 비어 있고, 손님이 직접 고릅니다.</p>
             ) : !isEditor && isOrderFormCleaningKind(form.cleaningKind) && !classicKindConfirmed ? (
               <p className="mt-2 text-xs text-gray-500">그림을 확인한 뒤 「확인」을 눌러 주세요.</p>
             ) : null}

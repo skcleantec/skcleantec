@@ -26,7 +26,7 @@ export const ORDER_FORM_CLEANING_KIND_OPTIONS: {
   {
     value: 'MOVE_IN',
     label: '입주청소',
-    hint: '짐 없는 빈 집 (기본)',
+    hint: '짐 없는 빈 집',
     imageSrc: '/orderform/cleaning-kind/move-in.jpg',
   },
   {
