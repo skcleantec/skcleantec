@@ -1,6 +1,6 @@
+import { useEffect, useRef } from 'react';
 import {
   ORDER_FORM_CLEANING_KIND_OPTIONS,
-  cleaningKindOption,
   type OrderFormCleaningKind,
 } from '@shared/orderFormCleaningKind';
 
@@ -24,7 +24,12 @@ export function OrderFormCleaningKindPicker({
   confirmDisabled?: boolean;
   showConfirm?: boolean;
 }) {
-  const selected = cleaningKindOption(value);
+  const imageWrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!value) return;
+    imageWrapRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [value]);
 
   return (
     <div className="space-y-3">
@@ -32,48 +37,51 @@ export function OrderFormCleaningKindPicker({
         {ORDER_FORM_CLEANING_KIND_OPTIONS.map((opt) => {
           const checked = value === opt.value;
           return (
-            <label
-              key={opt.value}
-              className={`${CARD_CLS} ${
-                checked
-                  ? 'border-slate-900 bg-slate-50 ring-1 ring-slate-900'
-                  : 'border-slate-200 bg-white'
-              } ${disabled ? 'opacity-50' : ''}`}
-            >
-              <input
-                type="radio"
-                name="order-form-cleaning-kind"
-                className="mt-1 h-4 w-4 shrink-0 border-slate-400 text-slate-900 focus:ring-slate-900"
-                value={opt.value}
-                checked={checked}
-                disabled={disabled}
-                onChange={() => onChange(opt.value)}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-fluid-sm font-semibold text-slate-900">{opt.label}</span>
-                <span className="mt-0.5 block text-fluid-xs leading-snug text-slate-500">{opt.hint}</span>
-              </span>
-            </label>
+            <div key={opt.value} className="space-y-2">
+              <label
+                className={`${CARD_CLS} ${
+                  checked
+                    ? 'border-slate-900 bg-slate-50 ring-1 ring-slate-900'
+                    : 'border-slate-200 bg-white'
+                } ${disabled ? 'opacity-50' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="order-form-cleaning-kind"
+                  className="mt-1 h-4 w-4 shrink-0 border-slate-400 text-slate-900 focus:ring-slate-900"
+                  value={opt.value}
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => onChange(opt.value)}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-fluid-sm font-semibold text-slate-900">{opt.label}</span>
+                  <span className="mt-0.5 block text-fluid-xs leading-snug text-slate-500">{opt.hint}</span>
+                </span>
+              </label>
+              {checked ? (
+                <div
+                  ref={imageWrapRef}
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                >
+                  <img
+                    src={opt.imageSrc}
+                    alt={`${opt.label} 안내 그림`}
+                    className="h-auto w-full object-cover"
+                  />
+                  <p className="px-3 py-2 text-center text-fluid-2xs text-slate-600">
+                    {opt.label} · {opt.hint}
+                  </p>
+                </div>
+              ) : null}
+            </div>
           );
         })}
       </div>
 
-      {selected ? (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-          <img
-            src={selected.imageSrc}
-            alt={`${selected.label} 안내 그림`}
-            className="h-auto w-full object-cover"
-          />
-          <p className="px-3 py-2 text-center text-fluid-2xs text-slate-600">
-            {selected.label} · {selected.hint}
-          </p>
-        </div>
-      ) : (
-        <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-6 text-center text-fluid-xs text-slate-400">
-          한 가지를 고르면 안내 그림이 나옵니다.
-        </p>
-      )}
+      {!value ? (
+        <p className="text-center text-fluid-xs text-slate-400">한 가지를 고르면 바로 아래 안내 그림이 나옵니다.</p>
+      ) : null}
 
       {showConfirm && onConfirm ? (
         <button
