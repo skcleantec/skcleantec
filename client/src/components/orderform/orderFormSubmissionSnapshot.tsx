@@ -1,4 +1,5 @@
 import type { OrderFormCustomerSubmissionSnapshotV1 } from '../../api/orderform';
+import { labelForCleaningKind } from '@shared/orderFormCleaningKind';
 import { labelForMoveInTiming } from '@shared/orderFormMoveInTiming';
 import { TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY } from '@shared/telecrmConsultationQuote';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
@@ -100,6 +101,10 @@ export function OrderFormSubmissionSnapshotContent(props: {
         <h3 className="mb-1 text-fluid-sm font-semibold text-gray-900">입력 내용</h3>
         <div className="rounded-lg border border-gray-200 bg-white px-3">
           <OrderFormSnapshotRow label="성함">{snapshot.fields.customerName}</OrderFormSnapshotRow>
+          <OrderFormSnapshotRow label="청소 종류">
+            {snapshot.fields.cleaningKindLabel?.trim() ||
+              labelForCleaningKind(snapshot.fields.cleaningKind)}
+          </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="연락처">{snapshot.fields.customerPhone}</OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="보조 연락처">
             {snapshot.fields.customerPhone2?.trim() ? snapshot.fields.customerPhone2 : '—'}

@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-23-order-guide-section-check",
+  "_lastUpdated": "2026-09-23-orderform-cleaning-kind",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -839,6 +839,22 @@
         "client/src/pages/order/OrderInfoPage.tsx"
       ],
       "notes": "은행 약관형. 섹션마다 [필수] 체크. 끄기 설정 없음."
+    },
+    {
+      "id": "orderform.customer.cleaningKind",
+      "labelKo": "고객 발주서 청소 종류 선택",
+      "surfaces": ["public.orderForm.wizard.welcome", "public.orderForm.classic"],
+      "visual": { "type": "radioCard", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": [
+        "client/src/components/orderform/OrderFormCleaningKindPicker.tsx",
+        "client/src/components/orderform/customer-wizard/steps/WelcomeAndInputSteps.tsx",
+        "client/src/pages/order/OrderFormPage.tsx"
+      ],
+      "notes": "질문 「어떤 청소를 원하세요?」·칸 「청소 종류」. 5종 화면 글자: 입주청소·이사청소·준공청소·거주청소·특수청소. 고르면 그림. 「확인」 후에만 다음. 선택 테두리 slate-900, 기본 테두리 slate-200. 끄기 설정 없음."
     },
     {
       "id": "orderForm.customer.prefillConfirmSteps",

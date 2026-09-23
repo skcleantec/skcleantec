@@ -15,6 +15,7 @@ import {
   isOrderFormPrefillLocked,
   isStdFieldOn,
 } from '../../../pages/order/orderFormFieldVisibility';
+import { isOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order/orderFormModel.types';
 import type { OrderFormCustomerStep } from './orderFormCustomerSteps';
 
@@ -45,7 +46,9 @@ export function validateCustomerStep(args: {
 
   switch (step.id) {
     case 'welcome':
-      return null;
+      return isOrderFormCleaningKind(form.cleaningKind)
+        ? null
+        : '청소 종류를 고른 뒤 「확인」을 눌러 주세요.';
     case 'name':
       return form.customerName.trim() ? null : '성함을 입력해주세요.';
     case 'address': {

@@ -18,6 +18,7 @@ import {
 } from '../../../pages/order/orderFormFieldVisibility';
 import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order/orderFormModel.types';
 import type { OrderFormPublicTemplateField } from '../../../api/orderform';
+import { shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 
 export type OrderFormCustomerStepId =
   | 'welcome'
@@ -66,14 +67,15 @@ export function resolveOrderFormCustomerSteps(args: {
   const areaLocked = skipLocked && !isEditor && isOrderFormAreaLockedFromOrder(order);
   const streetLocked = isCustomerAddressLocked(isEditor, order?.prefillAnswers);
 
-  const steps: OrderFormCustomerStep[] = [
-    {
+  const steps: OrderFormCustomerStep[] = [];
+  if (shouldCollectOrderFormCleaningKind(order?.template) && !locked('cleaningKind')) {
+    steps.push({
       id: 'welcome',
       kind: 'welcome',
-      title: '청소 일정을 알려 주세요',
-      hint: '질문 하나씩 보시면 됩니다. 상담에서 적어 둔 내용은 다시 보여 드리니, 맞으면 다음을 눌러 주세요.',
-    },
-  ];
+      title: '어떤 청소를 원하세요?',
+      hint: '한 가지만 고르고, 아래 그림을 확인한 뒤 「확인」을 눌러 주세요.',
+    });
+  }
 
   if (customerMayEditFillKey(order, 'customerName') && shouldShowCustomerNameWizardStep(order, isEditor, skipLocked)) {
     const nameLocked = prefilled('customerName');
@@ -276,6 +278,7 @@ export function wizardStepIdForSubmitField(fieldId?: string): OrderFormCustomerS
   if (fieldId.startsWith('order-field-custom-')) {
     return `custom:${fieldId.slice('order-field-custom-'.length)}`;
   }
+  if (fieldId.includes('cleaningKind')) return 'welcome';
   if (fieldId.includes('customerName')) return 'name';
   if (fieldId.includes('address')) return 'address';
   if (fieldId.includes('customerPhone') || fieldId.includes('Phone2')) return 'phones';

@@ -8,6 +8,7 @@ import {
   type OrderFormCustomerStep,
   type OrderFormCustomerStepId,
 } from '../components/orderform/customer-wizard/orderFormCustomerSteps';
+import { isDesignerPreviewOrderToken } from '@shared/orderFormPreviewWalk';
 import {
   mergeDraftIntoForm,
   readOrderFormCustomerDraft,
@@ -73,6 +74,7 @@ export function useOrderFormModel(args: {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const stepFromUrl = searchParams.get('step');
+  const persistDraft = enabled && loaded && !isDesignerPreviewOrderToken(token);
 
   const stepIndex = useMemo(() => {
     if (isOrderFormCustomerStepId(stepFromUrl)) {
@@ -101,7 +103,7 @@ export function useOrderFormModel(args: {
   }, [enabled, loaded, stepFromUrl, steps, setStepId]);
 
   useEffect(() => {
-    if (!enabled || !loaded || !token) return;
+    if (!persistDraft || !token) return;
     const draft = readOrderFormCustomerDraft(token);
     if (!draft) return;
     setForm((f) => mergeDraftIntoForm(f, draft.form));
@@ -116,11 +118,11 @@ export function useOrderFormModel(args: {
     // 서명은 임시저장하지 않음 — 다시 열고 서명해야 함
     // 초안은 로드 직후 한 번만
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, loaded, token]);
+  }, [persistDraft, token]);
 
   useOrderFormCustomerDraftPersist({
     token,
-    enabled: enabled && loaded,
+    enabled: persistDraft,
     form,
     customAnswers,
     profSelections,

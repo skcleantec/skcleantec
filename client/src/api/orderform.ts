@@ -1,6 +1,7 @@
 import { API } from './apiPrefix';
 import { appendPublicQuery } from '../utils/publicTenantQuery';
 import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
+import type { OrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import {
   isDesignerPreviewOrderToken,
   ORDER_FORM_PREVIEW_TEMPLATE_QUERY,
@@ -129,6 +130,8 @@ export interface OrderFormCustomerSubmissionSnapshotV1 {
     specialNotes: string | null;
     professionalOptionIds: string[];
     professionalOptionLabels: string[];
+    cleaningKind?: OrderFormCleaningKind | null;
+    cleaningKindLabel?: string | null;
   };
   issuedSummary: {
     totalAmount: number;
@@ -517,6 +520,7 @@ export async function createOrderForm(
 
 /** 마케터 선입력 편집기 저장 payload (제출 form 과 동일 + 답변·전문옵션) */
 export interface OrderFormPrefillPayload {
+  cleaningKind?: OrderFormCleaningKind;
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
@@ -780,6 +784,7 @@ export async function updateBrandCustomerLinkConfig(
 export async function submitOrderForm(
   token: string,
   data: {
+    cleaningKind?: OrderFormCleaningKind;
     customerName: string;
     address: string;
     addressDetail?: string;

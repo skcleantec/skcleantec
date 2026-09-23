@@ -1,6 +1,10 @@
 /** 접수 상세 — 발주서 양식(카테고리) 배지 + 동적 추가 항목 답변 표시 (관리/팀장/타업체 공통) */
 
 import { formatOrderFormListSnapshotValue } from '@shared/orderFormListSnapshot';
+import {
+  ORDER_FORM_CLEANING_KIND_FIELD_KEY,
+  ORDER_FORM_CLEANING_KIND_LABEL,
+} from '@shared/orderFormCleaningKind';
 
 export interface OrderFormTemplateLite {
   id: string;
@@ -48,6 +52,7 @@ export function OrderFormCustomAnswers({
 }) {
   if (!answers || typeof answers !== 'object') return null;
   const labelByKey = new Map((template?.fields ?? []).map((f) => [f.fieldKey, f.label]));
+  labelByKey.set(ORDER_FORM_CLEANING_KIND_FIELD_KEY, ORDER_FORM_CLEANING_KIND_LABEL);
   const entries = Object.entries(answers)
     .filter(([, v]) => renderAnswerValue(v).trim() !== '')
     .map(([k, v]) => ({

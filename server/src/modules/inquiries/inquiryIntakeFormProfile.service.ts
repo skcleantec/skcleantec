@@ -14,6 +14,13 @@ import {
   orderFormListSnapshotToPrisma,
   resolveOrderFormListSnapshotForSubmit,
 } from '../orderform/orderFormListSnapshot.service.js';
+import {
+  ORDER_FORM_CLEANING_KIND_FIELD_KEY,
+  ORDER_FORM_CLEANING_KIND_LABEL,
+  ORDER_FORM_CLEANING_KIND_VALUES,
+  parseOrderFormCleaningKind,
+  shouldCollectOrderFormCleaningKind,
+} from '../../lib/orderFormCleaningKind.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -122,7 +129,23 @@ export async function loadInquiryIntakeFormProfile(
     sectionOffKeys: pub.systemFields
       .filter((f) => isOrderFormSectionToggleKey(f.systemField) && isOrderFormSectionOffOptions(f.options))
       .map((f) => f.systemField),
-    customFields: pub.customFields.map((f) => ({
+    customFields: [
+      ...(shouldCollectOrderFormCleaningKind(pub)
+        ? [
+            {
+              fieldKey: ORDER_FORM_CLEANING_KIND_FIELD_KEY,
+              label: ORDER_FORM_CLEANING_KIND_LABEL,
+              helpText: null,
+              inputType: 'SELECT',
+              options: [...ORDER_FORM_CLEANING_KIND_VALUES],
+              placeholder: null,
+              optionStyle: null,
+              optionLayout: null,
+              required: false,
+            },
+          ]
+        : []),
+      ...pub.customFields.map((f) => ({
       fieldKey: f.fieldKey,
       label: f.label,
       helpText: f.helpText,
@@ -133,6 +156,7 @@ export async function loadInquiryIntakeFormProfile(
       optionLayout: f.optionLayout,
       required: f.required,
     })),
+    ],
     preferredTimeOptions: preferredTimeOptionsFromTemplateFields(pub.systemFields),
     canEditCustomAnswers: pub.customFields.length > 0 || Boolean(input.orderFormId),
     orderFormId: input.orderFormId ?? null,
@@ -181,6 +205,12 @@ export async function syncOrderFormCustomAnswersFromInquiryPatch(
   const nextAnswers = { ...prevAnswers };
   for (const field of profile.customFields) {
     const key = field.fieldKey;
+    if (key === ORDER_FORM_CLEANING_KIND_FIELD_KEY) {
+      const parsed = parseOrderFormCleaningKind(rawBody[key]);
+      if (parsed) nextAnswers[key] = parsed;
+      else if (Object.prototype.hasOwnProperty.call(rawBody, key)) delete nextAnswers[key];
+      continue;
+    }
     if (Object.prototype.hasOwnProperty.call(sanitized, key)) {
       nextAnswers[key] = sanitized[key];
     } else if (Object.prototype.hasOwnProperty.call(rawBody, key)) {
@@ -201,6 +231,14 @@ export async function syncOrderFormCustomAnswersFromInquiryPatch(
     const nextPrefill = { ...prevPrefill };
     for (const field of profile.customFields) {
       const key = field.fieldKey;
+      if (key === ORDER_FORM_CLEANING_KIND_FIELD_KEY) {
+        if (Object.prototype.hasOwnProperty.call(nextAnswers, key)) {
+          nextPrefill[key] = nextAnswers[key];
+        } else if (Object.prototype.hasOwnProperty.call(rawBody, key)) {
+          delete nextPrefill[key];
+        }
+        continue;
+      }
       if (Object.prototype.hasOwnProperty.call(nextAnswers, key)) {
         nextPrefill[key] = nextAnswers[key];
       } else if (Object.prototype.hasOwnProperty.call(rawBody, key)) {

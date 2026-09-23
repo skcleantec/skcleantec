@@ -62,6 +62,7 @@ export function lockedKeysFromPrefill(prefill: unknown): Set<string> {
   const out = new Set<string>();
   if (!prefill || typeof prefill !== 'object') return out;
   for (const [k, v] of Object.entries(prefill as PrefillMap)) {
+    if (k === 'cleaningKind') continue;
     if (k === 'address') {
       if (typeof v === 'string' && isRealCustomerAddress(v)) out.add(k);
       continue;
@@ -188,6 +189,7 @@ export function overlayPrefillOntoSubmitBody(
   let answersTouched = false;
 
   for (const [key, value] of Object.entries(map)) {
+    if (key === 'cleaningKind') continue;
     if (!isNonEmptyValue(value)) continue;
     if (PREFILL_STANDARD_KEY_SET.has(key)) {
       body[key] = value;

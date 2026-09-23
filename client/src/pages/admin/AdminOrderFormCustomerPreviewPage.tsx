@@ -244,12 +244,12 @@ export function AdminOrderFormCustomerPreviewPage() {
 
   const iframeSrc = useMemo(() => {
     if (typeof window === 'undefined' || !previewToken) return '';
-    return withOrderFormPreviewWalkQuery(
+    return `${withOrderFormPreviewWalkQuery(
       appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(previewToken)}`, {
         tenantSlug: staffTenantSlug || null,
       }),
       { previewTemplateId: resolvedPreviewFormId || null },
-    );
+    )}&ckEmpty=1`;
   }, [previewToken, staffTenantSlug, resolvedPreviewFormId]);
 
   const saveMsgPartial = async (key: string, payload: Partial<OrderFormConfigPublic>) => {

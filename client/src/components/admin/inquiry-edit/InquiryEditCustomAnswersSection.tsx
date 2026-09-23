@@ -9,6 +9,11 @@ import { OrderFormChoiceOptions } from '../../orderform/OrderFormChoiceOptions';
 import { ORDER_FORM_AC_UNITS_FIELD_KEY, normalizeAcUnitsAnswer } from '@shared/orderFormAcUnits';
 import { formatOrderFormListSnapshotValue } from '@shared/orderFormListSnapshot';
 import { OrderFormAcUnitsField } from '../../orderform/OrderFormAcUnitsField';
+import {
+  ORDER_FORM_CLEANING_KIND_FIELD_KEY,
+  ORDER_FORM_CLEANING_KIND_OPTIONS,
+  parseOrderFormCleaningKind,
+} from '@shared/orderFormCleaningKind';
 
 type Props = {
   fields: InquiryFormCustomField[];
@@ -44,6 +49,27 @@ export function InquiryEditCustomAnswersSection({
         {editable.map((field) => {
           const value = values[field.fieldKey];
           const opts = field.options;
+          if (field.fieldKey === ORDER_FORM_CLEANING_KIND_FIELD_KEY) {
+            const selected = parseOrderFormCleaningKind(value) ?? '';
+            return (
+              <div key={field.fieldKey}>
+                <label className={inqEditLabel}>{field.label}</label>
+                <select
+                  value={selected}
+                  onChange={(e) => setKey(field.fieldKey, e.target.value)}
+                  disabled={disabled}
+                  className={inqEditInput}
+                >
+                  <option value="">선택</option>
+                  {ORDER_FORM_CLEANING_KIND_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          }
           if (field.fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY) {
             return (
               <div key={field.fieldKey}>

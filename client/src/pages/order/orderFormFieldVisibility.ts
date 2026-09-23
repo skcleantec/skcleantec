@@ -97,6 +97,7 @@ export function isOrderFormPrefillLocked(
   key: string,
 ): boolean {
   if (isEditor || !prefillMap) return false;
+  if (key === 'cleaningKind') return false;
   const v = prefillMap[key];
   if (v == null) return false;
   if (typeof v === 'string') return v.trim().length > 0;
