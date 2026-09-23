@@ -1,5 +1,6 @@
 import { isOrderFormEmailFieldLocked, isStdFieldOn } from '../../../../pages/order/orderFormFieldVisibility';
 import { OrderFormEmailSplitField } from '../../OrderFormEmailSplitField';
+import { OrderFormCleaningKindPicker } from '../../OrderFormCleaningKindPicker';
 import { WIZARD_INPUT_CLS, WizardQuestion } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
 
@@ -7,10 +8,16 @@ export function WelcomeStep({
   title,
   hint,
   brandName,
+  form,
+  setForm,
+  lockKey,
 }: {
   title: string;
   hint?: string;
   brandName?: string | null;
+  form: CustomerStepBodyProps['form'];
+  setForm: CustomerStepBodyProps['setForm'];
+  lockKey: CustomerStepBodyProps['lockKey'];
 }) {
   return (
     <WizardQuestion title={title} hint={hint}>
@@ -19,6 +26,11 @@ export function WelcomeStep({
           <span className="font-semibold text-slate-900">{brandName}</span>에서 예약 내용을 확인합니다.
         </p>
       ) : null}
+      <OrderFormCleaningKindPicker
+        value={form.cleaningKind}
+        disabled={lockKey('cleaningKind')}
+        onChange={(cleaningKind) => setForm((f) => ({ ...f, cleaningKind }))}
+      />
     </WizardQuestion>
   );
 }

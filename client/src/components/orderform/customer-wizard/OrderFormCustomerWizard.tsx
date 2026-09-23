@@ -269,6 +269,9 @@ export function OrderFormCustomerWizard({
                 title={currentStep.title}
                 hint={currentStep.hint}
                 brandName={brandName}
+                form={shared.form}
+                setForm={shared.setForm}
+                lockKey={shared.lockKey}
               />
             ) : (
               <StepBody {...shared} step={currentStep} goNext={goNext} goTo={shared.goTo} />
@@ -302,8 +305,13 @@ export function OrderFormCustomerWizard({
           }`}
         >
           {currentStep.kind === 'welcome' ? (
-            <button type="button" className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS} onClick={goNext}>
-              시작하기
+            <button
+              type="button"
+              className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
+              disabled={!previewWalk && Boolean(stepInvalid)}
+              onClick={tryNext}
+            >
+              확인
             </button>
           ) : showFooter || showChoiceNext ? (
             <div className="flex gap-2">

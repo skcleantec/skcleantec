@@ -22,6 +22,7 @@ import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { formatDateCompactWithWeekday } from '../../../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../../../utils/inquiryAreaDisplay';
+import { labelForCleaningKind, shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import { labelForTimeSlot } from '../../../../constants/orderFormSchedule';
 import { WIZARD_CTA_CLS, WIZARD_INPUT_CLS, WIZARD_SECONDARY_CLS, WizardQuestion } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
@@ -301,6 +302,7 @@ export function ReviewStep({
   customAnswers,
   visibleCustomFields,
   goTo,
+  lockKey,
   timeSlotLabels,
 }: CustomerStepBodyProps) {
   const jump = (id: OrderFormCustomerStepId) => () => goTo(id);
@@ -314,6 +316,13 @@ export function ReviewStep({
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <div className="space-y-1.5">
+        {shouldCollectOrderFormCleaningKind(order?.template) ? (
+        <ReviewRow
+          label="청소 종류"
+          value={labelForCleaningKind(form.cleaningKind)}
+          onEdit={lockKey('cleaningKind') ? undefined : jump('welcome')}
+        />
+        ) : null}
         <ReviewRow label="성함" value={form.customerName} onEdit={jump('name')} />
         <ReviewRow
           label="주소"

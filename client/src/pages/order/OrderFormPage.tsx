@@ -77,6 +77,12 @@ import {
 import { MoveInTimingFieldGroup } from '../../components/orderform/MoveInTimingFieldGroup';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
+import {
+  isOrderFormCleaningKind,
+  parseOrderFormCleaningKind,
+  shouldCollectOrderFormCleaningKind,
+} from '@shared/orderFormCleaningKind';
+import { OrderFormCleaningKindPicker } from '../../components/orderform/OrderFormCleaningKindPicker';
 import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes, hasOrderFormBuildingTypeChoice } from '../../utils/orderFormOneRoom';
 import { resolvePublicTenantSlug, resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import {
@@ -239,6 +245,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<OrderFormFields>(EMPTY_ORDER_FORM_FIELDS);
+  const [classicKindConfirmed, setClassicKindConfirmed] = useState(false);
   const [order, setOrder] = useState<OrderFormLoadedOrder | null>(null);
   const [publicBranding, setPublicBranding] = useState<PublicOperatingCompanyBranding | null>(null);
   const [publicCompanyTrust, setPublicCompanyTrust] = useState<PublicOrderFormCompanyTrust | null>(null);
@@ -811,7 +818,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           'customerName', 'customerPhone', 'customerEmail', 'customerPhone2', 'address', 'addressDetail',
           'propertyType', 'buildingType', 'moveInTiming', 'moveInDate', 'moveInDateUndecided',
           'roomCount', 'balconyCount', 'bathroomCount', 'kitchenCount', 'specialNotes', 'isOneRoom',
-          'professionalOptionIds',
+          'professionalOptionIds', 'cleaningKind',
         ]);
         for (const [k, v] of Object.entries(pf)) {
           if (STD.has(k)) continue;
@@ -830,6 +837,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         const issuedPhone = (data.customerPhone ?? '').trim();
         setForm((f) => ({
           ...f,
+          cleaningKind:
+            parseOrderFormCleaningKind(pf['cleaningKind']) ??
+            parseOrderFormCleaningKind(baseCustom.cleaningKind) ??
+            '',
           customerName: pfStr('customerName') ?? (p?.customerName || data.customerName),
           customerPhone: pfStr('customerPhone') ?? (issuedPhone || (p?.customerPhone ?? '').trim() || ''),
           customerPhoneSecondary: pfStr('customerPhone2') ?? p?.customerPhone2 ?? '',
@@ -893,6 +904,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             pf['isOneRoom'] === true ||
             detectOneRoomFromNotes(pfStr('specialNotes') ?? data.draftCustomerSpecialNotes ?? ''),
         }));
+        if (parseOrderFormCleaningKind(pf['cleaningKind'])) {
+          setClassicKindConfirmed(true);
+        }
         const pfProf = pf['professionalOptionIds'];
         const crmProf =
           isCreate && createCrmSeed?.professionalOptionIds?.length
@@ -1060,6 +1074,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         issues.push({ message, fieldId });
       };
 
+      if (
+        shouldCollectOrderFormCleaningKind(order?.template) &&
+        !isOrderFormCleaningKind(form.cleaningKind) &&
+        !prefillLocked('cleaningKind')
+      ) {
+        addIssue('청소 종류를 선택해 주세요.', 'order-field-cleaningKind');
+      }
       if (stdFieldOn('customerName') && !form.customerName?.trim()) {
         addIssue('성함을 입력해주세요.', 'order-field-customerName');
       }
@@ -1292,6 +1313,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       }
 
       await submitOrderForm(token, {
+        cleaningKind: isOrderFormCleaningKind(form.cleaningKind) ? form.cleaningKind : undefined,
         customerName: form.customerName.trim(),
         address: form.address.trim(),
         addressDetail: form.addressDetail.trim() || undefined,
@@ -1375,6 +1397,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       return undefined;
     })();
     return {
+      cleaningKind: isOrderFormCleaningKind(form.cleaningKind) ? form.cleaningKind : undefined,
       customerName: form.customerName.trim() || undefined,
       customerPhone: form.customerPhone.trim() || undefined,
       customerEmail: form.customerEmail.trim().toLowerCase() || undefined,
@@ -2490,6 +2513,35 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           onFocusCapture={isInline ? undefined : onFieldFocus}
           className={isEditor || isCreate ? 'space-y-4 pb-20' : 'space-y-4'}
         >
+          {shouldCollectOrderFormCleaningKind(order?.template) ? (
+          <div id="order-field-cleaningKind">
+            <label className={`${reqLabelCls} flex flex-wrap items-center gap-1.5`}>
+              청소 종류 *
+            </label>
+            <p className="mb-2 text-xs leading-relaxed text-gray-600">
+              한 가지만 고르면 안내 그림이 나옵니다.
+            </p>
+            <OrderFormCleaningKindPicker
+              value={form.cleaningKind}
+              disabled={lockKey('cleaningKind')}
+              onChange={(cleaningKind) => {
+                setForm((f) => ({ ...f, cleaningKind }));
+                setClassicKindConfirmed(false);
+              }}
+              showConfirm={!isEditor && !lockKey('cleaningKind')}
+              confirmDisabled={!isOrderFormCleaningKind(form.cleaningKind)}
+              onConfirm={() => {
+                setClassicKindConfirmed(true);
+                window.setTimeout(() => scrollToOrderFormField('order-field-customerName'), 50);
+              }}
+            />
+            {isEditor && isOrderFormCleaningKind(form.cleaningKind) ? (
+              <p className="mt-2 text-xs text-gray-500">손님이 이 종류로 시작합니다. 저장하면 잠깁니다.</p>
+            ) : !isEditor && isOrderFormCleaningKind(form.cleaningKind) && !classicKindConfirmed ? (
+              <p className="mt-2 text-xs text-gray-500">그림을 확인한 뒤 「확인」을 눌러 주세요.</p>
+            ) : null}
+          </div>
+          ) : null}
           {stdFieldOn('customerName') && (
           <div id="order-field-customerName">
             <label className={`${reqLabelCls} flex flex-wrap items-center gap-1.5`}>

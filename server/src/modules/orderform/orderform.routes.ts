@@ -177,6 +177,13 @@ import {
   inquiryUpdateDataFromPrefillMap,
 } from './orderFormPrefill.js';
 import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes, hasOrderFormBuildingTypeChoice, orderFormPropertyTypeDisplay } from './orderFormOneRoom.js';
+import {
+  ORDER_FORM_CLEANING_KIND_FIELD_KEY,
+  ORDER_FORM_CLEANING_KIND_LABEL,
+  labelForCleaningKind,
+  parseOrderFormCleaningKind,
+  shouldCollectOrderFormCleaningKind,
+} from '../../lib/orderFormCleaningKind.js';
 import { isSkCleantecOpsUiEnabled, oneRoomLabelWhenSkOpsEnabled } from '../custom/skcleantecOpsUi.js';
 import { assertValidCustomerEmail } from '../../lib/customerEmail.js';
 import {
@@ -2782,6 +2789,7 @@ router.post('/submit/:token', async (req, res) => {
     return;
   }
   const body = req.body as {
+    cleaningKind?: string;
     customerName: string;
     address: string;
     addressDetail?: string;
@@ -2883,6 +2891,12 @@ router.post('/submit/:token', async (req, res) => {
   }
 
   const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
+  const collectCleaningKind = shouldCollectOrderFormCleaningKind(submitTemplate);
+  const cleaningKind = parseOrderFormCleaningKind(body.cleaningKind);
+  if (collectCleaningKind && !cleaningKind) {
+    res.status(400).json({ error: '청소 종류를 선택해 주세요.' });
+    return;
+  }
   const tplOn = (key: string) => templateHasSystemField(submitTemplate, key);
 
   const customerPhone2Norm =
@@ -3113,7 +3127,7 @@ router.post('/submit/:token', async (req, res) => {
     submitTenantId,
     form.templateId,
   );
-  const customAnswers = submitTemplate
+  const customAnswers: Record<string, unknown> = submitTemplate
     ? {
         ...sanitizeCustomAnswers(body.answers, submitTemplate.customFields),
         ...sanitizeCustomAnswers(body.answers, staffOnlyFields),
@@ -3121,6 +3135,9 @@ router.post('/submit/:token', async (req, res) => {
     : staffOnlyFields.length > 0
       ? sanitizeCustomAnswers(body.answers, staffOnlyFields)
       : {};
+  if (collectCleaningKind && cleaningKind) {
+    customAnswers[ORDER_FORM_CLEANING_KIND_FIELD_KEY] = cleaningKind;
+  }
   const customAnswersData =
     Object.keys(customAnswers).length > 0
       ? { customerAnswers: customAnswers as Prisma.InputJsonValue }
@@ -3138,6 +3155,13 @@ router.post('/submit/:token', async (req, res) => {
       label: cf.label,
       value: customAnswers[cf.fieldKey] as Prisma.InputJsonValue,
     }));
+  if (collectCleaningKind && cleaningKind) {
+    templateAnswers.unshift({
+      fieldKey: ORDER_FORM_CLEANING_KIND_FIELD_KEY,
+      label: ORDER_FORM_CLEANING_KIND_LABEL,
+      value: cleaningKind,
+    });
+  }
 
   const submitFormConfig = await resolvePublicFormConfigForOrderForm(
     prisma,
@@ -3225,6 +3249,8 @@ router.post('/submit/:token', async (req, res) => {
       specialNotes: customerSpecialNotes,
       professionalOptionIds: [...professionalOptionIdsJson],
       professionalOptionLabels: snapshotProfOptionLabels,
+      cleaningKind: collectCleaningKind ? cleaningKind : null,
+      cleaningKindLabel: collectCleaningKind ? labelForCleaningKind(cleaningKind) : null,
     },
     issuedSummary: {
       totalAmount: form.totalAmount,

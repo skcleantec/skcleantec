@@ -1,10 +1,12 @@
 import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
+import type { OrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import type { InternalCustomerTone } from '../../constants/internalCustomerTone';
 import type { OperatingCompanyCancellationPolicy } from '@shared/operatingCompanyCancellationPolicy';
 import type { OrderFormPublicTemplate } from '../../api/orderform';
 import type { CrmOrderIssueSeed } from '../../components/orderform/OrderIssueInlinePanel';
 
 export type OrderFormFields = {
+  cleaningKind: OrderFormCleaningKind | '';
   customerName: string;
   customerPhone: string;
   customerPhoneSecondary: string;
@@ -31,6 +33,7 @@ export type OrderFormFields = {
 };
 
 export const EMPTY_ORDER_FORM_FIELDS: OrderFormFields = {
+  cleaningKind: '',
   customerName: '',
   customerPhone: '',
   customerPhoneSecondary: '',

@@ -19,9 +19,11 @@ import {
 import { isRealCustomerAddress } from '../../lib/orderFormPendingAddress.js';
 import { parseIsOneRoomFlag } from './orderFormOneRoom.js';
 import { parseMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
+import { parseOrderFormCleaningKind } from '../../lib/orderFormCleaningKind.js';
 
 /** prefillAnswers 로 다루는 표준(시스템) 항목 키 — 제출 body 필드명과 동일하게 맞춘다 */
 export const PREFILL_STANDARD_KEYS = [
+  'cleaningKind',
   'customerName',
   'customerPhone',
   'customerEmail',
@@ -126,6 +128,11 @@ export function buildPrefillFromPayload(
         const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
         if (Number.isFinite(n)) out[key] = n;
       }
+      continue;
+    }
+    if (key === 'cleaningKind') {
+      const parsed = parseOrderFormCleaningKind(raw);
+      if (parsed) out[key] = parsed;
       continue;
     }
     // 문자열 표준 키

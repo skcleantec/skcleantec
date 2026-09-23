@@ -4,6 +4,11 @@ import {
   formatAcUnitsSnapshotValue,
   ORDER_FORM_AC_UNITS_FIELD_KEY,
 } from './orderFormAcUnits';
+import {
+  labelForCleaningKind,
+  ORDER_FORM_CLEANING_KIND_FIELD_KEY,
+  parseOrderFormCleaningKind,
+} from './orderFormCleaningKind';
 
 export const ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX = 3;
 
@@ -23,6 +28,9 @@ export type OrderFormPromotedListFieldDef = {
 export function formatOrderFormListSnapshotValue(raw: unknown, fieldKey?: string): string {
   if (fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY) {
     return formatAcUnitsSnapshotValue(raw);
+  }
+  if (fieldKey === ORDER_FORM_CLEANING_KIND_FIELD_KEY) {
+    return parseOrderFormCleaningKind(raw) ? labelForCleaningKind(raw) : String(raw ?? '').trim();
   }
   if (raw == null) return '';
   if (Array.isArray(raw)) return raw.map((x) => String(x)).filter(Boolean).join(', ');

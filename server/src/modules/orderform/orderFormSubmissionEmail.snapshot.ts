@@ -2,6 +2,7 @@
 
 import type { MoveInTiming } from '@prisma/client';
 import { labelForMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
+import { labelForCleaningKind, type OrderFormCleaningKind } from '../../lib/orderFormCleaningKind.js';
 
 export type OrderFormSubmissionSnapshotV1 = {
   version: 1;
@@ -32,6 +33,8 @@ export type OrderFormSubmissionSnapshotV1 = {
     moveInDateUndecided?: boolean;
     specialNotes: string | null;
     professionalOptionLabels: string[];
+    cleaningKind?: OrderFormCleaningKind | null;
+    cleaningKindLabel?: string | null;
   };
   issuedSummary: {
     totalAmount: number;
@@ -191,6 +194,7 @@ export function buildEmailDetailSections(
     rows: [
       ...(inquiryNumber ? [{ label: '접수번호', value: inquiryNumber }] : []),
       { label: '성함', value: f.customerName },
+      { label: '청소 종류', value: f.cleaningKindLabel?.trim() || labelForCleaningKind(f.cleaningKind) },
       { label: '연락처', value: f.customerPhone },
       { label: '보조 연락처', value: dashIfEmpty(f.customerPhone2) },
       { label: '이메일', value: dashIfEmpty(f.customerEmail) },

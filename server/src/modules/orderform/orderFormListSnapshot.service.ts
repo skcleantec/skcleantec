@@ -6,6 +6,12 @@ import {
   type OrderFormListSnapshot,
   type OrderFormPromotedListFieldDef,
 } from '../../lib/orderFormListSnapshot.js';
+import {
+  ORDER_FORM_CLEANING_KIND_FIELD_KEY,
+  ORDER_FORM_CLEANING_KIND_LABEL,
+  labelForCleaningKind,
+  parseOrderFormCleaningKind,
+} from '../../lib/orderFormCleaningKind.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -122,7 +128,16 @@ export async function resolveOrderFormListSnapshotForSubmit(
   answers: Record<string, unknown>,
 ): Promise<OrderFormListSnapshot | null> {
   const promoted = await loadPromotedFieldsForTemplate(db, tenantId, templateId);
-  return buildOrderFormListSnapshot(promoted, answers);
+  const snapshot = buildOrderFormListSnapshot(promoted, answers);
+  const kind = parseOrderFormCleaningKind(answers[ORDER_FORM_CLEANING_KIND_FIELD_KEY]);
+  if (!kind) return snapshot;
+  const kindRow = {
+    [ORDER_FORM_CLEANING_KIND_FIELD_KEY]: {
+      label: ORDER_FORM_CLEANING_KIND_LABEL,
+      value: labelForCleaningKind(kind),
+    },
+  };
+  return snapshot ? { ...kindRow, ...snapshot } : kindRow;
 }
 
 export function orderFormListSnapshotToPrisma(
