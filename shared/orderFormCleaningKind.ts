@@ -83,3 +83,11 @@ export function cleaningKindOption(raw: unknown) {
 export function shouldCollectOrderFormCleaningKind(template?: OrderFormTemplateKindInput): boolean {
   return template?.isDefault === true;
 }
+
+/** 고객 작성(·고객화면 미리보기)만. 발주서 발급·마케터 편집에는 두지 않는다. */
+export function shouldShowCustomerCleaningKindPicker(
+  template: OrderFormTemplateKindInput | undefined,
+  isStaffIssueForm: boolean,
+): boolean {
+  return !isStaffIssueForm && shouldCollectOrderFormCleaningKind(template);
+}
