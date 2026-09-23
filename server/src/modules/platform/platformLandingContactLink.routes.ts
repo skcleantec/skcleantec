@@ -25,13 +25,14 @@ router.get('/', async (req, res) => {
 
 router.post('/:id/approve', platformSuperAdminOnly, async (req, res) => {
   const auth = req as unknown as { platformUser: { platformUserId: string } };
-  const body = req.body as { adminNote?: string };
+  const body = req.body as { adminNote?: string; grantedCount?: number };
   try {
     const item = await reviewLandingContactLinkSlotRequest({
       requestId: req.params.id,
       platformUserId: auth.platformUser.platformUserId,
       approve: true,
       adminNote: body.adminNote,
+      grantedCount: body.grantedCount,
     });
     res.json(item);
   } catch (e) {

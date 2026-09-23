@@ -2,11 +2,15 @@
 
 export type LandingContactFieldType = 'text' | 'textarea' | 'tel' | 'email' | 'number' | 'select';
 
-/** 고르기 선택지. 하위는 한 단계만. */
+/** 선택하기의 하위 항목. 예: 건축물 유형 → 아파트, 오피스텔. 그 아래 단계는 없다. */
 export type LandingContactChoiceOption = {
   label: string;
+  /** 예전 저장분. 화면에서는 쓰지 않는다. */
   children?: { label: string }[];
 };
+
+/** 선택 항목을 가로로 나열할지, 세로로 쌓을지 */
+export type LandingContactChoiceLayout = 'horizontal' | 'vertical';
 
 export type LandingContactCustomFieldDef = {
   key: string;
@@ -14,17 +18,19 @@ export type LandingContactCustomFieldDef = {
   type: LandingContactFieldType;
   required?: boolean;
   placeholder?: string;
-  /** type === 'select' 일 때 선택지. 예전 저장분은 문자열 배열도 읽는다. */
+  /** type === 'select' 일 때 하위 항목. 예전 저장분은 문자열 배열도 읽는다. */
   options?: LandingContactChoiceOption[];
+  /** type === 'select'. 없으면 가로형. */
+  choiceLayout?: LandingContactChoiceLayout;
 };
 
 export const LANDING_CONTACT_CHOICE_SEP = ' · ';
 
 export const LANDING_CONTACT_FIELD_TYPE_LABELS: Record<LandingContactFieldType, string> = {
-  text: '한 줄',
-  textarea: '여러 줄',
+  text: '한줄입력',
+  textarea: '여러줄입력',
   number: '숫자',
-  select: '고르기',
+  select: '선택하기',
   tel: '전화번호',
   email: '이메일',
 };

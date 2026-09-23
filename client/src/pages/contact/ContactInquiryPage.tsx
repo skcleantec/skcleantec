@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { resolveInitialTenantSlug } from '../../utils/tenantHostResolve';
 import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
@@ -36,7 +36,7 @@ function CustomFieldInput(props: {
   const { field, value, onChange } = props;
 
   if (field.type === 'select') {
-    return <LandingContactChoiceField field={field} value={value} onChange={onChange} className={inputCls} />;
+    return <LandingContactChoiceField field={field} value={value} onChange={onChange} />;
   }
 
   if (field.type === 'textarea') {
@@ -130,6 +130,7 @@ export function ContactInquiryPage() {
   const { code: sourceCode } = useParams<{ code?: string }>();
   const tenantFromHost = useMemo(() => resolveInitialTenantSlug(), []);
   const brandFromQuery = useMemo(() => resolvePublicBrandSlug(), []);
+  const linkFieldsRef = useRef<LandingContactCustomFieldDef[] | null>(null);
   const [tenantSlug, setTenantSlug] = useState<string | null>(sourceCode ? null : tenantFromHost);
   const [brandSlug, setBrandSlug] = useState<string | null>(sourceCode ? null : brandFromQuery);
   const [brandChoices, setBrandChoices] = useState<{ slug: string; displayName: string }[]>([]);
@@ -158,20 +159,22 @@ export function ContactInquiryPage() {
         if (cancelled) return;
         setTenantSlug(meta.tenantSlug);
         setBrandChoices(meta.brands);
+        linkFieldsRef.current = meta.customFields ?? [];
         if (meta.needsBrandPick && !brandSlug) {
           setFormConfig(null);
           setLoading(false);
           return;
         }
         const picked = brandSlug || meta.brandSlug;
+        const linkFields = linkFieldsRef.current ?? [];
         if (picked && meta.needsBrandPick) {
           const form = await fetchLandingContactPublicForm(meta.tenantSlug, picked);
           if (cancelled) return;
           setBrandSlug(picked);
-          setFormConfig(form);
+          setFormConfig({ ...form, customFields: linkFields });
         } else {
           setBrandSlug(meta.brandSlug);
-          setFormConfig(meta.form);
+          setFormConfig(meta.form ? { ...meta.form, customFields: linkFields } : null);
         }
         setLoading(false);
         return;

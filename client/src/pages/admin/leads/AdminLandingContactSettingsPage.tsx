@@ -4,37 +4,15 @@ import {
   getLandingContactFormConfigs,
   updateLandingContactFormConfig,
 } from '../../../api/landingContact';
-import type { LandingContactCustomFieldDef, LandingContactFormConfigDto } from '@shared/landingContactForm';
-import { newLandingContactFieldKey } from '@shared/landingContactForm';
+import type { LandingContactFormConfigDto } from '@shared/landingContactForm';
 import { useStaffTenantSlugForLinks } from '../../../hooks/useStaffTenantSlugForLinks';
 import { getContactPublicUrl } from '../../../utils/landingContactPublicUrl';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { OperatingCompanyBadge } from '../../../components/admin/OperatingCompanyBadge';
 import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
-import { LandingContactFieldEditor } from '../../../components/leads/LandingContactFieldEditor';
+import { LandingContactFieldEditor, normalizeLandingContactFields } from '../../../components/leads/LandingContactFieldEditor';
 import { LandingContactFormPreviewModal } from '../../../components/leads/LandingContactFormPreviewModal';
 import { LandingContactSourceLinksPanel } from '../../../components/leads/LandingContactSourceLinksPanel';
-
-function cleanCustomFields(fields: LandingContactCustomFieldDef[]): LandingContactCustomFieldDef[] {
-  return fields
-    .filter((field) => field.label.trim())
-    .map((field) => {
-      const options = (field.options ?? [])
-        .map((option) => {
-          const children = (option.children ?? [])
-            .map((child) => ({ label: child.label.trim() }))
-            .filter((child) => child.label);
-          return children.length > 0 ? { label: option.label.trim(), children } : { label: option.label.trim() };
-        })
-        .filter((option) => option.label);
-      return {
-        ...field,
-        key: field.key.trim() || newLandingContactFieldKey(),
-        label: field.label.trim(),
-        options: field.type === 'select' ? options : undefined,
-      };
-    });
-}
 
 export function AdminLandingContactSettingsPage() {
   const token = getToken();
@@ -79,7 +57,7 @@ export function AdminLandingContactSettingsPage() {
     if (!token) return;
     const draft = drafts[ocId];
     if (!draft) return;
-    const customFields = cleanCustomFields(draft.customFields);
+    const customFields = normalizeLandingContactFields(draft.customFields);
     const emptyChoice = customFields.find((field) => field.type === 'select' && !(field.options ?? []).length);
     if (emptyChoice) {
       setError(`「${emptyChoice.label}」에 선택지를 하나 이상 넣어 주세요.`);

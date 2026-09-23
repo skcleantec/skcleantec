@@ -1,11 +1,12 @@
 /**
  * 문의 짧은 링크.
- * 무료 2개 · 그 이상은 승인된 유료 자리 · 켜 둔 유료 링크 1개당 월 5,000원.
+ * 무료 2개 · 그 이상은 플랫폼이 승인한 자리 · 승인한 개수 × 월 5,000원.
  * 숫자는 shared/landingContactSourceLink.ts 와 같게 유지한다.
  */
-import type { LandingContactLinkRequestStatus, LandingContactLinkSlotKind } from '@prisma/client';
+import type { LandingContactLinkRequestStatus, LandingContactLinkSlotKind, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { toOperatingCompanyPublicSummary } from '../operating-companies/operatingCompanyPublicSummary.js';
+import { parseLandingContactCustomFields } from './landingContactForm.schema.js';
 
 export const LANDING_CONTACT_FREE_SHORT_LINK_SLOTS = 2;
 export const LANDING_CONTACT_EXTRA_LINK_MONTHLY_KRW = 5_000;
@@ -42,6 +43,15 @@ export async function countActivePaidLandingContactLinks(tenantId: string): Prom
   return prisma.landingContactSourceLink.count({
     where: { tenantId, slotKind: 'PAID', isActive: true },
   });
+}
+
+/** 플랫폼이 승인해 준 유료 자리 합. 이용료는 이 개수 × 월 5,000원. */
+export async function sumApprovedLandingContactLinkSlots(tenantId: string): Promise<number> {
+  return approvedPaidSlots(tenantId);
+}
+
+function fieldsJson(raw: unknown): Prisma.InputJsonValue {
+  return parseLandingContactCustomFields(raw) as unknown as Prisma.InputJsonValue;
 }
 
 async function listActiveBrands(tenantId: string) {
@@ -95,7 +105,7 @@ function quotaDto(counts: Awaited<ReturnType<typeof slotCounts>>) {
     activePaid: counts.activePaid,
     approvedPaidSlots: counts.approved,
     monthlyKrwPerExtra: LANDING_CONTACT_EXTRA_LINK_MONTHLY_KRW,
-    nextInvoiceAddonKrw: landingContactLinkAddonMonthlyKrw(counts.activePaid),
+    nextInvoiceAddonKrw: landingContactLinkAddonMonthlyKrw(counts.approved),
     canCreateFree,
     canCreatePaid,
     needsApplication: !canCreateFree && !canCreatePaid,
@@ -121,6 +131,7 @@ function serializeLink(
     operatingCompanyId: string | null;
     createdAt: Date;
     disabledAt: Date | null;
+    customFields: unknown;
     operatingCompany: { id: string; name: string; slug: string; isActive: boolean; config: unknown } | null;
   },
 ) {
@@ -139,6 +150,7 @@ function serializeLink(
     operatingCompanyId: row.operatingCompanyId,
     brandName: brand?.displayName ?? null,
     brandSlug: row.operatingCompany?.slug ?? null,
+    customFields: parseLandingContactCustomFields(row.customFields),
     createdAt: row.createdAt.toISOString(),
     disabledAt: row.disabledAt?.toISOString() ?? null,
   };
@@ -201,6 +213,7 @@ export async function createLandingContactSourceLink(input: {
   label: string;
   operatingCompanyId?: string | null;
   code?: string | null;
+  customFields?: unknown;
 }) {
   const label = input.label.trim().slice(0, 40);
   if (!label) throw new LandingContactSourceLinkError('유입명을 입력해 주세요. 예: 유튜브, 블로그');
@@ -212,7 +225,7 @@ export async function createLandingContactSourceLink(input: {
   else if (quota.canCreatePaid) slotKind = 'PAID';
   else {
     throw new LandingContactSourceLinkError(
-      '무료 링크는 2개까지입니다. 더 만들려면 유료 신청이 필요합니다. 승인 후 링크 1개당 월 5,000원이 이용료에 더해집니다.',
+      '무료 링크는 2개까지입니다. 더 만들려면 링크 구매를 눌러 주세요.',
       409,
       'NEED_APPLICATION',
     );
@@ -228,6 +241,7 @@ export async function createLandingContactSourceLink(input: {
       label,
       slotKind,
       isActive: true,
+      customFields: fieldsJson(input.customFields ?? []),
     },
     include: linkInclude,
   });
@@ -240,6 +254,7 @@ export async function updateLandingContactSourceLink(input: {
   label?: string;
   operatingCompanyId?: string | null;
   isActive?: boolean;
+  customFields?: unknown;
 }) {
   const row = await prisma.landingContactSourceLink.findFirst({
     where: { id: input.id, tenantId: input.tenantId },
@@ -251,6 +266,7 @@ export async function updateLandingContactSourceLink(input: {
     operatingCompanyId?: string | null;
     isActive?: boolean;
     disabledAt?: Date | null;
+    customFields?: Prisma.InputJsonValue;
   } = {};
 
   if (typeof input.label === 'string') {
@@ -267,10 +283,10 @@ export async function updateLandingContactSourceLink(input: {
     if (input.isActive) {
       const counts = await slotCounts(input.tenantId);
       if (row.slotKind === 'FREE' && counts.activeFree >= LANDING_CONTACT_FREE_SHORT_LINK_SLOTS) {
-        throw new LandingContactSourceLinkError('무료 자리가 없습니다. 다른 무료 링크를 끄거나 유료 신청을 해 주세요.');
+        throw new LandingContactSourceLinkError('무료 자리가 없습니다. 다른 무료 링크를 끄거나 링크 구매를 해 주세요.');
       }
       if (row.slotKind === 'PAID' && counts.activePaid >= counts.approved) {
-        throw new LandingContactSourceLinkError('승인된 유료 자리가 없습니다. 유료 신청 후 다시 켜 주세요.');
+        throw new LandingContactSourceLinkError('승인된 유료 자리가 없습니다. 링크 구매 후 다시 켜 주세요.');
       }
       data.isActive = true;
       data.disabledAt = null;
@@ -278,6 +294,10 @@ export async function updateLandingContactSourceLink(input: {
       data.isActive = false;
       data.disabledAt = new Date();
     }
+  }
+
+  if (input.customFields !== undefined) {
+    data.customFields = fieldsJson(input.customFields);
   }
 
   const updated = await prisma.landingContactSourceLink.update({
@@ -291,13 +311,8 @@ export async function updateLandingContactSourceLink(input: {
 export async function createLandingContactLinkSlotRequest(input: {
   tenantId: string;
   requesterUserId: string | null;
-  requestedCount: number;
   message?: string | null;
 }) {
-  const requestedCount = Math.trunc(input.requestedCount);
-  if (!Number.isFinite(requestedCount) || requestedCount < 1 || requestedCount > 20) {
-    throw new LandingContactSourceLinkError('신청 개수는 1개에서 20개까지입니다.');
-  }
   const pending = await prisma.landingContactLinkSlotRequest.findFirst({
     where: { tenantId: input.tenantId, status: 'PENDING' },
     select: { id: true },
@@ -307,7 +322,7 @@ export async function createLandingContactLinkSlotRequest(input: {
   const row = await prisma.landingContactLinkSlotRequest.create({
     data: {
       tenantId: input.tenantId,
-      requestedCount,
+      requestedCount: 0,
       message: input.message?.trim().slice(0, 500) || null,
       requesterUserId: input.requesterUserId,
       status: 'PENDING',
@@ -362,15 +377,21 @@ export async function reviewLandingContactLinkSlotRequest(input: {
   platformUserId: string;
   approve: boolean;
   adminNote?: string;
+  grantedCount?: number;
 }) {
   const row = await prisma.landingContactLinkSlotRequest.findUnique({ where: { id: input.requestId } });
   if (!row || row.status !== 'PENDING') {
     throw new LandingContactSourceLinkError('검토할 신청을 찾을 수 없습니다.', 404);
   }
+  const granted = Math.trunc(input.grantedCount ?? 0);
+  if (input.approve && (!Number.isFinite(granted) || granted < 1 || granted > 50)) {
+    throw new LandingContactSourceLinkError('늘릴 개수는 1개에서 50개까지 정해 주세요.');
+  }
   const updated = await prisma.landingContactLinkSlotRequest.update({
     where: { id: row.id },
     data: {
       status: input.approve ? 'APPROVED' : 'REJECTED',
+      requestedCount: input.approve ? granted : row.requestedCount,
       adminNote: input.adminNote?.trim().slice(0, 500) || null,
       reviewedByPlatformUserId: input.platformUserId,
       reviewedAt: new Date(),

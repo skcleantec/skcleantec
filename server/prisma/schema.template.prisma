@@ -3268,6 +3268,8 @@ model LandingContactSourceLink {
   operatingCompany   OperatingCompany?          @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
   code               String                     @unique @db.VarChar(32)
   label              String                     @db.VarChar(40)
+  /// 이 링크 전용 추가 입력. 비어 있으면 성함·연락처·문의 내용만.
+  customFields       Json                       @default("[]") @map("custom_fields")
   slotKind           LandingContactLinkSlotKind @map("slot_kind")
   isActive           Boolean                    @default(true) @map("is_active")
   disabledAt         DateTime?                  @map("disabled_at")

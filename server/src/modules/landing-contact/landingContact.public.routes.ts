@@ -13,6 +13,7 @@ import {
   resolveLandingContactPublicScope,
 } from './landingContact.resolve.service.js';
 import {
+  parseLandingContactCustomFields,
   resolveLandingContactCustomFields,
   validateLandingContactCustomFieldValues,
 } from './landingContactForm.schema.js';
@@ -134,6 +135,7 @@ router.get('/by-code/:code', async (req, res) => {
       return;
     }
     form = serializeLandingContactPublicForm(withOc);
+    form = { ...form, customFields: parseLandingContactCustomFields(link.customFields) };
   }
   res.json({
     code: link.code,
@@ -142,6 +144,7 @@ router.get('/by-code/:code', async (req, res) => {
     brandSlug,
     needsBrandPick,
     brands: brands.map(({ slug, displayName }) => ({ slug, displayName })),
+    customFields: parseLandingContactCustomFields(link.customFields),
     form,
   });
 });
@@ -166,6 +169,7 @@ router.post('/submit', async (req, res) => {
   let operatingCompanyId: string;
   let sourceLinkId: string | null = null;
   let sourceLabel: string | null = null;
+  let linkCustomFieldsRaw: unknown | undefined;
   const code = typeof sourceCode === 'string' ? sourceCode.trim() : '';
   try {
     if (code) {
@@ -183,6 +187,7 @@ router.post('/submit', async (req, res) => {
       tenantId = link.tenantId;
       sourceLinkId = link.id;
       sourceLabel = link.label;
+      linkCustomFieldsRaw = link.customFields;
       if (link.operatingCompanyId) {
         operatingCompanyId = link.operatingCompanyId;
       } else {
@@ -217,7 +222,10 @@ router.post('/submit', async (req, res) => {
     res.status(403).json({ error: '문의 접수가 일시 중지되었습니다.' });
     return;
   }
-  const customFields = resolveLandingContactCustomFields(configRow.customFields);
+  const customFields =
+    linkCustomFieldsRaw !== undefined
+      ? parseLandingContactCustomFields(linkCustomFieldsRaw)
+      : resolveLandingContactCustomFields(configRow.customFields);
   const validated = validateLandingContactCustomFieldValues(customFields, customFieldValues);
   if (!validated.ok) {
     res.status(400).json({ error: validated.error });

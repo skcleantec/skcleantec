@@ -13,6 +13,7 @@ export type LandingContactCustomFieldDef = {
   required?: boolean;
   placeholder?: string;
   options?: LandingContactChoiceOption[];
+  choiceLayout?: 'horizontal' | 'vertical';
 };
 
 const CHOICE_SEP = ' · ';
@@ -78,12 +79,8 @@ function parseFieldOptions(raw: unknown, type: string): LandingContactChoiceOpti
 
 function choiceValueAllowed(field: LandingContactCustomFieldDef, value: string): boolean {
   for (const opt of field.options ?? []) {
-    const children = opt.children ?? [];
-    if (children.length === 0) {
-      if (value === opt.label) return true;
-      continue;
-    }
-    for (const child of children) {
+    if (value === opt.label) return true;
+    for (const child of opt.children ?? []) {
       if (value === `${opt.label}${CHOICE_SEP}${child.label}`) return true;
     }
   }
@@ -112,6 +109,9 @@ export function parseLandingContactCustomFields(raw: unknown): LandingContactCus
       required: o.required === true,
       placeholder: typeof o.placeholder === 'string' ? o.placeholder.trim() || undefined : undefined,
       options,
+      ...(type === 'select'
+        ? { choiceLayout: o.choiceLayout === 'vertical' ? ('vertical' as const) : ('horizontal' as const) }
+        : {}),
     });
     if (out.length >= 20) break;
   }

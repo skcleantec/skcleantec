@@ -74,7 +74,7 @@ export function LandingContactFormPreviewModal(props: {
                   {field.required ? <span className="text-red-600"> *</span> : null}
                 </p>
                 {field.type === 'select' ? (
-                  <LandingContactChoiceField field={field} value="" onChange={() => undefined} className={inputCls} />
+                  <LandingContactChoiceField field={field} value="" onChange={() => undefined} />
                 ) : field.type === 'textarea' ? (
                   <textarea className={`${inputCls} min-h-[96px]`} readOnly placeholder={field.placeholder ?? field.label} />
                 ) : (

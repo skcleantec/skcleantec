@@ -219,6 +219,7 @@ export type LandingContactSourceLink = {
   operatingCompanyId: string | null;
   brandName: string | null;
   brandSlug: string | null;
+  customFields: LandingContactCustomFieldDef[];
   createdAt: string;
   disabledAt: string | null;
 };
@@ -248,6 +249,7 @@ export type LandingContactShortLinkForm = {
   needsBrandPick: boolean;
   brands: { slug: string; displayName: string }[];
   form: LandingContactPublicForm | null;
+  customFields: LandingContactCustomFieldDef[];
 };
 
 async function readError(res: Response, fallback: string): Promise<never> {
@@ -263,7 +265,12 @@ export async function getLandingContactSourceLinks(token: string): Promise<Landi
 
 export async function createLandingContactSourceLink(
   token: string,
-  data: { label: string; operatingCompanyId?: string | null; code?: string | null },
+  data: {
+    label: string;
+    operatingCompanyId?: string | null;
+    code?: string | null;
+    customFields?: LandingContactCustomFieldDef[];
+  },
 ): Promise<LandingContactSourceLink> {
   const res = await fetch(`${API}/landing-contact/source-links`, {
     method: 'POST',
@@ -277,7 +284,12 @@ export async function createLandingContactSourceLink(
 export async function updateLandingContactSourceLink(
   token: string,
   id: string,
-  data: { label?: string; operatingCompanyId?: string | null; isActive?: boolean },
+  data: {
+    label?: string;
+    operatingCompanyId?: string | null;
+    isActive?: boolean;
+    customFields?: LandingContactCustomFieldDef[];
+  },
 ): Promise<LandingContactSourceLink> {
   const res = await fetch(`${API}/landing-contact/source-links/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -288,11 +300,11 @@ export async function updateLandingContactSourceLink(
   return res.json();
 }
 
-export async function createLandingContactLinkRequest(token: string, requestedCount: number): Promise<void> {
+export async function createLandingContactLinkRequest(token: string): Promise<void> {
   const res = await fetch(`${API}/landing-contact/source-link-requests`, {
     method: 'POST',
     headers: headers(token),
-    body: JSON.stringify({ requestedCount }),
+    body: JSON.stringify({}),
   });
   if (!res.ok) return readError(res, '신청에 실패했습니다.');
 }

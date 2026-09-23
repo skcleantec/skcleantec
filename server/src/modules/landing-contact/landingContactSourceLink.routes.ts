@@ -41,13 +41,19 @@ router.post('/source-links', requireStaffPermission('leads.edit'), async (req, r
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
-  const body = req.body as { label?: string; operatingCompanyId?: string | null; code?: string | null };
+  const body = req.body as {
+    label?: string;
+    operatingCompanyId?: string | null;
+    code?: string | null;
+    customFields?: unknown;
+  };
   try {
     const link = await createLandingContactSourceLink({
       tenantId,
       label: body.label ?? '',
       operatingCompanyId: body.operatingCompanyId,
       code: body.code,
+      customFields: body.customFields,
     });
     res.status(201).json(link);
   } catch (e) {
@@ -62,7 +68,12 @@ router.patch('/source-links/:linkId', requireStaffPermission('leads.edit'), asyn
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
-  const body = req.body as { label?: string; operatingCompanyId?: string | null; isActive?: boolean };
+  const body = req.body as {
+    label?: string;
+    operatingCompanyId?: string | null;
+    isActive?: boolean;
+    customFields?: unknown;
+  };
   try {
     const link = await updateLandingContactSourceLink({
       tenantId,
@@ -70,6 +81,7 @@ router.patch('/source-links/:linkId', requireStaffPermission('leads.edit'), asyn
       label: body.label,
       operatingCompanyId: body.operatingCompanyId,
       isActive: body.isActive,
+      customFields: body.customFields,
     });
     res.json(link);
   } catch (e) {
@@ -85,12 +97,11 @@ router.post('/source-link-requests', requireStaffPermission('leads.edit'), async
     return;
   }
   const auth = (req as unknown as { user: AuthPayload }).user;
-  const body = req.body as { requestedCount?: number; message?: string | null };
+  const body = req.body as { message?: string | null };
   try {
     const row = await createLandingContactLinkSlotRequest({
       tenantId,
       requesterUserId: auth.userId ?? null,
-      requestedCount: body.requestedCount ?? 1,
       message: body.message,
     });
     res.status(201).json(row);
