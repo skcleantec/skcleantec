@@ -837,11 +837,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         const issuedPhone = (data.customerPhone ?? '').trim();
         setForm((f) => ({
           ...f,
-          cleaningKind: isEditor
-            ? parseOrderFormCleaningKind(pf['cleaningKind']) ??
-              parseOrderFormCleaningKind(baseCustom.cleaningKind) ??
-              ''
-            : '',
+          cleaningKind:
+            isEditor && !previewWalk
+              ? parseOrderFormCleaningKind(pf['cleaningKind']) ??
+                parseOrderFormCleaningKind(baseCustom.cleaningKind) ??
+                ''
+              : '',
           customerName: pfStr('customerName') ?? (p?.customerName || data.customerName),
           customerPhone: pfStr('customerPhone') ?? (issuedPhone || (p?.customerPhone ?? '').trim() || ''),
           customerPhoneSecondary: pfStr('customerPhone2') ?? p?.customerPhone2 ?? '',
@@ -976,7 +977,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     return () => {
       cancelled = true;
     };
-  }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId, createCrmSeed]);
+  }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId, createCrmSeed, isEditor, previewWalk]);
 
   useEffect(
     () =>

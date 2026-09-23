@@ -920,8 +920,14 @@ async function buildEditableOrderPayload(
     formConfig,
     fillRules: toPublicFillRules(mergeOrderFormFillRules(tenantFillRulesRaw)),
     template,
-    customAnswers: (form.customerAnswers as Record<string, unknown> | null) ?? null,
-    prefillAnswers: (form.prefillAnswers as Record<string, unknown> | null) ?? null,
+    customAnswers: omitPreviewCleaningKind(
+      form.token,
+      (form.customerAnswers as Record<string, unknown> | null) ?? null,
+    ),
+    prefillAnswers: omitPreviewCleaningKind(
+      form.token,
+      (form.prefillAnswers as Record<string, unknown> | null) ?? null,
+    ),
     draftCustomerSpecialNotes: form.customerSpecialNotes,
     pendingInquiry,
   };
@@ -938,6 +944,18 @@ export function designerPreviewOrderTokenForTenant(tenantId: string): string {
 
 export function isDesignerPreviewOrderToken(token: string): boolean {
   return token.startsWith(DESIGNER_PREVIEW_TOKEN_PREFIX);
+}
+
+/** 미리보기 고정 행에 남은 청소 종류는 손님 첫 화면을 미리 고르면 안 된다. */
+function omitPreviewCleaningKind(
+  token: string,
+  answers: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!answers || !isDesignerPreviewOrderToken(token)) return answers;
+  if (!(ORDER_FORM_CLEANING_KIND_FIELD_KEY in answers)) return answers;
+  const next = { ...answers };
+  delete next[ORDER_FORM_CLEANING_KIND_FIELD_KEY];
+  return next;
 }
 
 /** 발주서 목록·상세에서 미리보기 행 제외 */
@@ -1016,9 +1034,28 @@ async function upsertDesignerPreviewOrderForm(
       },
     });
   }
+  const previewAnswers = omitPreviewCleaningKind(
+    previewToken,
+    (existing.customerAnswers as Record<string, unknown> | null) ?? null,
+  );
+  const previewPrefill = omitPreviewCleaningKind(
+    previewToken,
+    (existing.prefillAnswers as Record<string, unknown> | null) ?? null,
+  );
   return prisma.orderForm.update({
     where: { id: existing.id },
-    data: { totalAmount, depositAmount: deposit, balanceAmount, ...templatePatch },
+    data: {
+      totalAmount,
+      depositAmount: deposit,
+      balanceAmount,
+      ...templatePatch,
+      ...(previewAnswers !== existing.customerAnswers
+        ? { customerAnswers: (previewAnswers ?? undefined) as Prisma.InputJsonValue | undefined }
+        : {}),
+      ...(previewPrefill !== existing.prefillAnswers
+        ? { prefillAnswers: (previewPrefill ?? undefined) as Prisma.InputJsonValue | undefined }
+        : {}),
+    },
   });
 }
 
