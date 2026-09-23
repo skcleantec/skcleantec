@@ -6,7 +6,7 @@ export type PlatformNavItem = {
 };
 
 export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
-  { label: '업체 관리', to: '/platform/tenants', icon: '🏢', children: [{ label: '유료 전환 신청', to: '/platform/plan-upgrade-requests' }, { label: '가입승인 게시판', to: '/platform/signup-inquiries' }] },
+  { label: '업체 관리', to: '/platform/tenants', icon: '🏢', children: [{ label: '유료 전환 신청', to: '/platform/plan-upgrade-requests' }, { label: '문의 링크 신청', to: '/platform/landing-contact-link-requests' }, { label: '가입승인 게시판', to: '/platform/signup-inquiries' }] },
   { label: '추천인', to: '/platform/referrers', icon: '🤝' },
   { label: '결제 관리', to: '/platform/billing', icon: '💳', children: [{ label: '카드결제 PG', to: '/platform/card-payment' }] },
   { label: '가입 체험 이벤트', to: '/platform/signup-trial-events', icon: '🎁' },
@@ -30,6 +30,7 @@ export function isPlatformNavActive(pathname: string, to: string): boolean {
     return (
       pathname === '/platform/tenants' ||
       pathname === '/platform/plan-upgrade-requests' ||
+      pathname === '/platform/landing-contact-link-requests' ||
       pathname === '/platform/signup-inquiries' ||
       /^\/platform\/tenants\/[^/]+$/.test(pathname)
     );

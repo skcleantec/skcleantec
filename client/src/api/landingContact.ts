@@ -23,6 +23,9 @@ export type LandingContactInquiry = {
   status: LandingContactInquiryStatus;
   source: string;
   sourcePageUrl: string | null;
+  sourceLinkId: string | null;
+  sourceLabel: string | null;
+  customFieldLines: { key: string; label: string; value: string }[];
   memo: string | null;
   operatingCompany: {
     id: string;
@@ -86,6 +89,7 @@ export async function getLandingContactInquiries(
     month?: string;
     day?: string;
     operatingCompanyId?: string;
+    sourceLinkId?: string;
     status?: LandingContactInquiryStatus;
     limit?: number;
     offset?: number;
@@ -96,6 +100,7 @@ export async function getLandingContactInquiries(
   if (params.month) q.set('month', params.month);
   if (params.day) q.set('day', params.day);
   if (params.operatingCompanyId) q.set('operatingCompanyId', params.operatingCompanyId);
+  if (params.sourceLinkId) q.set('sourceLinkId', params.sourceLinkId);
   if (params.status) q.set('status', params.status);
   if (params.limit != null) q.set('limit', String(params.limit));
   if (params.offset != null) q.set('offset', String(params.offset));
@@ -182,6 +187,7 @@ export async function submitLandingContactInquiry(payload: {
   content: string;
   customFieldValues?: Record<string, string>;
   sourcePageUrl?: string;
+  sourceCode?: string;
 }): Promise<void> {
   const q = new URLSearchParams({ tenant: payload.tenantSlug });
   if (payload.brandSlug?.trim()) q.set('brand', payload.brandSlug.trim());
@@ -195,10 +201,124 @@ export async function submitLandingContactInquiry(payload: {
       customFieldValues: payload.customFieldValues ?? {},
       tenantSlug: payload.tenantSlug,
       sourcePageUrl: payload.sourcePageUrl ?? (typeof document !== 'undefined' ? document.referrer : undefined),
+      sourceCode: payload.sourceCode,
     }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '문의 접수에 실패했습니다.');
   }
+}
+
+export type LandingContactSourceLink = {
+  id: string;
+  code: string;
+  label: string;
+  slotKind: 'FREE' | 'PAID';
+  isActive: boolean;
+  operatingCompanyId: string | null;
+  brandName: string | null;
+  brandSlug: string | null;
+  customFields: LandingContactCustomFieldDef[];
+  createdAt: string;
+  disabledAt: string | null;
+};
+
+export type LandingContactSourceLinkBoard = {
+  links: LandingContactSourceLink[];
+  brands: { id: string; slug: string; name: string; displayName: string }[];
+  quota: {
+    freeIncluded: number;
+    activeFree: number;
+    activePaid: number;
+    approvedPaidSlots: number;
+    monthlyKrwPerExtra: number;
+    nextInvoiceAddonKrw: number;
+    canCreateFree: boolean;
+    canCreatePaid: boolean;
+    needsApplication: boolean;
+    pendingRequest: { id: string; requestedCount: number; status: string; message: string | null; createdAt: string } | null;
+  };
+};
+
+export type LandingContactShortLinkForm = {
+  code: string;
+  sourceLabel: string;
+  tenantSlug: string;
+  brandSlug: string | null;
+  needsBrandPick: boolean;
+  brands: { slug: string; displayName: string }[];
+  form: LandingContactPublicForm | null;
+  customFields: LandingContactCustomFieldDef[];
+};
+
+async function readError(res: Response, fallback: string): Promise<never> {
+  const err = await res.json().catch(() => ({}));
+  throw new Error((err as { error?: string }).error || fallback);
+}
+
+export async function getLandingContactSourceLinks(token: string): Promise<LandingContactSourceLinkBoard> {
+  const res = await fetch(`${API}/landing-contact/source-links`, { headers: headers(token) });
+  if (!res.ok) return readError(res, '링크를 불러올 수 없습니다.');
+  return res.json();
+}
+
+export async function createLandingContactSourceLink(
+  token: string,
+  data: {
+    label: string;
+    operatingCompanyId?: string | null;
+    code?: string | null;
+    customFields?: LandingContactCustomFieldDef[];
+  },
+): Promise<LandingContactSourceLink> {
+  const res = await fetch(`${API}/landing-contact/source-links`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) return readError(res, '링크를 만들지 못했습니다.');
+  return res.json();
+}
+
+export async function updateLandingContactSourceLink(
+  token: string,
+  id: string,
+  data: {
+    label?: string;
+    operatingCompanyId?: string | null;
+    isActive?: boolean;
+    customFields?: LandingContactCustomFieldDef[];
+  },
+): Promise<LandingContactSourceLink> {
+  const res = await fetch(`${API}/landing-contact/source-links/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) return readError(res, '변경에 실패했습니다.');
+  return res.json();
+}
+
+export async function createLandingContactLinkRequest(token: string): Promise<void> {
+  const res = await fetch(`${API}/landing-contact/source-link-requests`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) return readError(res, '신청에 실패했습니다.');
+}
+
+export async function cancelLandingContactLinkSlotRequest(token: string, id: string): Promise<void> {
+  const res = await fetch(`${API}/landing-contact/source-link-requests/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) return readError(res, '취소에 실패했습니다.');
+}
+
+export async function fetchLandingContactByCode(code: string): Promise<LandingContactShortLinkForm> {
+  const res = await fetch(`${API}/public/landing-contact/by-code/${encodeURIComponent(code)}`);
+  if (!res.ok) return readError(res, '문의 링크를 불러올 수 없습니다.');
+  return res.json();
 }

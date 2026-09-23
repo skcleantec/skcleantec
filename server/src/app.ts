@@ -89,6 +89,7 @@ import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.rou
 import authSignupPublicRoutes from './modules/auth-signup/authSignup.public.routes.js';
 import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.public.routes.js';
 import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
+import platformLandingContactLinkRoutes from './modules/platform/platformLandingContactLink.routes.js';
 import staffAppPushRoutes from './modules/push/staffAppPush.routes.js';
 import notificationPolicyRoutes from './modules/notifications/notificationPolicy.routes.js';
 import teamNotificationPrefRoutes from './modules/notifications/teamNotificationPref.routes.js';
@@ -142,6 +143,7 @@ app.use('/api/platform/billing', platformBillingRoutes);
 app.use('/api/platform/smtp-profiles', platformSmtpProfileRoutes);
 app.use('/api/platform/email-templates', platformEmailTemplateRoutes);
 app.use('/api/platform/plan-upgrade-requests', platformPlanUpgradeRoutes);
+app.use('/api/platform/landing-contact-link-requests', platformLandingContactLinkRoutes);
 app.use('/api/platform/signup-inquiries', platformSignupInquiryRoutes);
 app.use('/api/platform/referrers', platformReferrersRoutes);
 app.use('/api/platform/help-cms', platformHelpCmsRoutes);

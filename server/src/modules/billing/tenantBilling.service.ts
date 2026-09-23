@@ -7,6 +7,11 @@ import {
   TENANT_PREPAID_SERVICE_DELAY_DAYS,
   TENANT_TRIAL_DAYS,
 } from './tenantBilling.constants.js';
+import {
+  LANDING_CONTACT_EXTRA_LINK_MONTHLY_KRW,
+  landingContactLinkAddonMonthlyKrw,
+  sumApprovedLandingContactLinkSlots,
+} from '../landing-contact/landingContactSourceLink.service.js';
 import { resolveManualTrialDays } from '../platform/signupTrialEvent.service.js';
 import { normalizePlanId } from '../tenants/tenantFeatureCatalog.js';
 import {
@@ -209,6 +214,8 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
   ]);
 
   const profile = mapBillingProfile(profileRow);
+  const paidLinkCount = await sumApprovedLandingContactLinkSlots(tenantId);
+  const monthlyAddonKrw = landingContactLinkAddonMonthlyKrw(paidLinkCount);
   const billingStart =
     profile.billingStartDate != null
       ? new Date(profile.billingStartDate)
@@ -236,6 +243,7 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
             reason: a.reason,
           })),
           futureScheduledMin: 1,
+          monthlyAddonKrw,
         })
       : [];
 
@@ -281,6 +289,11 @@ async function createInvoiceFromScheduleItem(
   source: TenantInvoiceSource,
 ): Promise<InvoiceDto> {
   const catalogAmountKrw = calculateBillingAmountKrw(plan, profile.billingCycle);
+  const paidLinkCount = await sumApprovedLandingContactLinkSlots(tenantId);
+  const linkMemo =
+    paidLinkCount > 0
+      ? `문의 링크 ${paidLinkCount}개 × ${LANDING_CONTACT_EXTRA_LINK_MONTHLY_KRW.toLocaleString('ko-KR')}원`
+      : null;
   const row = await prisma.tenantInvoice.create({
     data: {
       tenantId,
@@ -294,6 +307,7 @@ async function createInvoiceFromScheduleItem(
       status: 'ISSUED',
       source,
       adjustmentId: item.adjustment?.id ?? null,
+      memo: linkMemo,
     },
   });
   return mapInvoice(row);

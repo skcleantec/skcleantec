@@ -18,12 +18,14 @@ import {
   getOrCreateLandingContactFormConfig,
 } from './landingContact.resolve.service.js';
 import {
+  LANDING_CONTACT_INQUIRY_STATUSES,
   parseLandingContactCustomFields,
+  resolveLandingContactCustomFields,
 } from './landingContactForm.schema.js';
 import { convertLandingContactToInquiry } from './landingContact.convert.service.js';
+import landingContactSourceLinkRoutes from './landingContactSourceLink.routes.js';
 import { InquiryCreateError } from '../inquiries/inquiryCreate.service.js';
 import { notifyLandingContactListRefresh } from './landingContactNotify.js';
-import { LANDING_CONTACT_INQUIRY_STATUSES } from './landingContactForm.schema.js';
 import type { UserRole } from '@prisma/client';
 
 const router = Router();
@@ -36,6 +38,18 @@ const inquiryInclude = {
   convertedBy: { select: { id: true, name: true, role: true } },
   inquiry: { select: { id: true, inquiryNumber: true, status: true } },
 } as const;
+
+router.use(landingContactSourceLinkRoutes);
+
+async function customFieldMap(tenantId: string) {
+  const configs = await prisma.landingContactFormConfig.findMany({
+    where: { tenantId },
+    select: { operatingCompanyId: true, customFields: true },
+  });
+  return new Map(
+    configs.map((row) => [row.operatingCompanyId, resolveLandingContactCustomFields(row.customFields)]),
+  );
+}
 
 /** 브랜드별 폼 설정 목록 + 링크용 slug */
 router.get('/form-configs', requireStaffPermission('leads.edit'), async (req, res) => {
@@ -135,6 +149,9 @@ router.get('/', async (req, res) => {
   if (status && (LANDING_CONTACT_INQUIRY_STATUSES as readonly string[]).includes(status)) {
     where.status = status;
   }
+  const sourceLinkId = q.sourceLinkId?.trim();
+  if (sourceLinkId === 'none') where.sourceLinkId = null;
+  else if (sourceLinkId) where.sourceLinkId = sourceLinkId;
   const parsedLimit = Number.parseInt(String(q.limit ?? '30'), 10);
   const parsedOffset = Number.parseInt(String(q.offset ?? '0'), 10);
   const take = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 30;
@@ -150,7 +167,8 @@ router.get('/', async (req, res) => {
       include: inquiryInclude,
     }),
   ]);
-  res.json({ items: serializeLandingContactInquiries(items), total });
+  const fieldMap = await customFieldMap(tenantId);
+  res.json({ items: serializeLandingContactInquiries(items, fieldMap), total });
 });
 
 router.get('/pending-count', async (req, res) => {
@@ -177,7 +195,8 @@ router.get('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
-  res.json(serializeLandingContactInquiry(row));
+  const fieldMap = await customFieldMap(tenantId);
+  res.json(serializeLandingContactInquiry(row, fieldMap.get(row.operatingCompanyId)));
 });
 
 router.patch('/:id', requireStaffPermission('leads.edit'), async (req, res) => {
@@ -218,7 +237,8 @@ router.patch('/:id', requireStaffPermission('leads.edit'), async (req, res) => {
     data,
     include: inquiryInclude,
   });
-  res.json(serializeLandingContactInquiry(updated));
+  const fieldMap = await customFieldMap(tenantId);
+  res.json(serializeLandingContactInquiry(updated, fieldMap.get(updated.operatingCompanyId)));
   if (body.status !== undefined && body.status !== row.status) {
     void notifyLandingContactListRefresh(tenantId);
   }
@@ -242,7 +262,11 @@ router.post('/:id/convert', requireStaffPermission('leads.edit'), async (req, re
       where: { id: req.params.id, tenantId },
       include: inquiryInclude,
     });
-    res.json({ inquiryId: result.inquiryId, item: serializeLandingContactInquiry(row) });
+    const fieldMap = await customFieldMap(tenantId);
+    res.json({
+      inquiryId: result.inquiryId,
+      item: serializeLandingContactInquiry(row, fieldMap.get(row.operatingCompanyId)),
+    });
     void notifyLandingContactListRefresh(tenantId);
   } catch (e) {
     if (e instanceof InquiryCreateError) {

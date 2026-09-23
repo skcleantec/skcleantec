@@ -5,9 +5,11 @@ import {
   convertLandingContactInquiry,
   deleteLandingContactInquiry,
   getLandingContactInquiries,
+  getLandingContactSourceLinks,
   patchLandingContactInquiry,
   type LandingContactInquiry,
   type LandingContactListDatePreset,
+  type LandingContactSourceLink,
 } from '../../api/landingContact';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -56,12 +58,14 @@ export function LandingContactWorkdesk() {
   const page = parseListPage(searchParams.get('page'));
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
   const operatingCompanyId = searchParams.get('operatingCompanyId') ?? '';
+  const sourceLinkId = searchParams.get('sourceLinkId') ?? '';
   const statusFilter = searchParams.get('status') ?? '';
 
   const [items, setItems] = useState<LandingContactInquiry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [brands, setBrands] = useState<OperatingCompanyItem[]>([]);
+  const [sourceLinks, setSourceLinks] = useState<LandingContactSourceLink[]>([]);
   const [detail, setDetail] = useState<LandingContactInquiry | null>(null);
   const [detailMemo, setDetailMemo] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<LandingContactInquiry | null>(null);
@@ -96,6 +100,7 @@ export function LandingContactWorkdesk() {
           month: datePreset === 'month' ? month : undefined,
           day: datePreset === 'day' ? day : undefined,
           operatingCompanyId: operatingCompanyId || undefined,
+          sourceLinkId: sourceLinkId || undefined,
           status: (statusFilter as LandingContactInquiryStatus) || undefined,
           limit: pageSize,
           offset,
@@ -117,6 +122,7 @@ export function LandingContactWorkdesk() {
       page,
       pageSize,
       operatingCompanyId,
+      sourceLinkId,
       statusFilter,
       preserveScroll,
     ],
@@ -126,6 +132,9 @@ export function LandingContactWorkdesk() {
     if (!token) return;
     void listOperatingCompanies(token)
       .then((r) => setBrands(r.items.filter((b) => b.isActive)))
+      .catch(() => {});
+    void getLandingContactSourceLinks(token)
+      .then((r) => setSourceLinks(r.links))
       .catch(() => {});
   }, [token]);
 
@@ -245,6 +254,22 @@ export function LandingContactWorkdesk() {
             </select>
           </div>
           <div>
+            <label className="mb-1 block text-fluid-2xs font-medium text-gray-600">유입</label>
+            <select
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-fluid-xs"
+              value={sourceLinkId}
+              onChange={(e) => updateQuery({ sourceLinkId: e.target.value || null }, true)}
+            >
+              <option value="">전체</option>
+              <option value="none">기존 주소</option>
+              {sourceLinks.map((link) => (
+                <option key={link.id} value={link.id}>
+                  {link.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="mb-1 block text-fluid-2xs font-medium text-gray-600">상태</label>
             <select
               className="rounded-md border border-gray-300 px-2 py-1.5 text-fluid-xs"
@@ -289,6 +314,7 @@ export function LandingContactWorkdesk() {
                   <col className="w-[130px]" />
                   <col className="w-[100px]" />
                   <col className="w-[90px]" />
+                  <col className="w-[90px]" />
                   <col className="w-[110px]" />
                   <col />
                   <col className="w-[80px]" />
@@ -298,6 +324,7 @@ export function LandingContactWorkdesk() {
                   <tr className="border-b border-gray-200 bg-gray-100 text-gray-700">
                     <th className="px-2 py-2 text-center">접수일</th>
                     <th className="px-2 py-2 text-center">브랜드</th>
+                    <th className="px-2 py-2 text-center">유입</th>
                     <th className="px-2 py-2 text-center">성함</th>
                     <th className="px-2 py-2 text-center">연락처</th>
                     <th className="px-2 py-2 text-center">문의</th>
@@ -313,6 +340,9 @@ export function LandingContactWorkdesk() {
                       </td>
                       <td className="px-2 py-2 text-center">
                         <OperatingCompanyBadge company={{ ...row.operatingCompany, name: row.operatingCompany.displayName || row.operatingCompany.name }} />
+                      </td>
+                      <td className="truncate px-2 py-2 text-center" title={row.sourceLabel ?? '기존 주소'}>
+                        {row.sourceLabel ?? '기존 주소'}
                       </td>
                       <td className="truncate px-2 py-2 text-center" title={row.customerName}>
                         {row.customerName}
@@ -352,6 +382,9 @@ export function LandingContactWorkdesk() {
               >
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <OperatingCompanyBadge company={{ ...row.operatingCompany, name: row.operatingCompany.displayName || row.operatingCompany.name }} />
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-fluid-2xs text-slate-700">
+                    {row.sourceLabel ?? '기존 주소'}
+                  </span>
                   <span className="text-fluid-2xs text-gray-500">
                     {formatDateTimeCompactWithWeekday(row.createdAt)}
                   </span>
@@ -422,10 +455,14 @@ export function LandingContactWorkdesk() {
                 <dt className="text-fluid-2xs text-gray-500">문의 내용</dt>
                 <dd className="whitespace-pre-wrap">{detail.content}</dd>
               </div>
-              {Object.entries(detail.customFieldValues ?? {}).map(([k, v]) => (
-                <div key={k}>
-                  <dt className="text-fluid-2xs text-gray-500">{k}</dt>
-                  <dd className="whitespace-pre-wrap">{v}</dd>
+              <div>
+                <dt className="text-fluid-2xs text-gray-500">유입</dt>
+                <dd>{detail.sourceLabel ?? '기존 주소'}</dd>
+              </div>
+              {(detail.customFieldLines ?? []).map((line) => (
+                <div key={line.key}>
+                  <dt className="text-fluid-2xs text-gray-500">{line.label}</dt>
+                  <dd className="whitespace-pre-wrap">{line.value}</dd>
                 </div>
               ))}
               {detail.sourcePageUrl ? (

@@ -4,26 +4,15 @@ import {
   getLandingContactFormConfigs,
   updateLandingContactFormConfig,
 } from '../../../api/landingContact';
-import type { LandingContactCustomFieldDef, LandingContactFormConfigDto } from '@shared/landingContactForm';
-import { DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS } from '@shared/landingContactForm';
+import type { LandingContactFormConfigDto } from '@shared/landingContactForm';
 import { useStaffTenantSlugForLinks } from '../../../hooks/useStaffTenantSlugForLinks';
 import { getContactPublicUrl } from '../../../utils/landingContactPublicUrl';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { OperatingCompanyBadge } from '../../../components/admin/OperatingCompanyBadge';
 import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
-
-const FIELD_TYPES: LandingContactCustomFieldDef['type'][] = [
-  'text',
-  'textarea',
-  'tel',
-  'email',
-  'number',
-  'select',
-];
-
-function emptyField(): LandingContactCustomFieldDef {
-  return { key: '', label: '', type: 'text', required: false };
-}
+import { LandingContactFieldEditor, normalizeLandingContactFields } from '../../../components/leads/LandingContactFieldEditor';
+import { LandingContactFormPreviewModal } from '../../../components/leads/LandingContactFormPreviewModal';
+import { LandingContactSourceLinksPanel } from '../../../components/leads/LandingContactSourceLinksPanel';
 
 export function AdminLandingContactSettingsPage() {
   const token = getToken();
@@ -34,6 +23,7 @@ export function AdminLandingContactSettingsPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, LandingContactFormConfigDto>>({});
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -63,46 +53,23 @@ export function AdminLandingContactSettingsPage() {
     }));
   };
 
-  const updateCustomField = (ocId: string, index: number, patch: Partial<LandingContactCustomFieldDef>) => {
-    setDrafts((prev) => {
-      const d = prev[ocId];
-      if (!d) return prev;
-      const fields = [...d.customFields];
-      fields[index] = { ...fields[index], ...patch };
-      return { ...prev, [ocId]: { ...d, customFields: fields } };
-    });
-  };
-
-  const addCustomField = (ocId: string) => {
-    setDrafts((prev) => {
-      const d = prev[ocId];
-      if (!d || d.customFields.length >= 20) return prev;
-      return { ...prev, [ocId]: { ...d, customFields: [...d.customFields, emptyField()] } };
-    });
-  };
-
-  const removeCustomField = (ocId: string, index: number) => {
-    setDrafts((prev) => {
-      const d = prev[ocId];
-      if (!d) return prev;
-      return {
-        ...prev,
-        [ocId]: { ...d, customFields: d.customFields.filter((_, i) => i !== index) },
-      };
-    });
-  };
-
   const save = async (ocId: string) => {
     if (!token) return;
     const draft = drafts[ocId];
     if (!draft) return;
+    const customFields = normalizeLandingContactFields(draft.customFields);
+    const emptyChoice = customFields.find((field) => field.type === 'select' && !(field.options ?? []).length);
+    if (emptyChoice) {
+      setError(`「${emptyChoice.label}」에 선택지를 하나 이상 넣어 주세요.`);
+      return;
+    }
     setSavingId(ocId);
     setError(null);
     try {
       const saved = await updateLandingContactFormConfig(token, ocId, {
         title: draft.title,
         introText: draft.introText,
-        customFields: draft.customFields.filter((f) => f.key.trim() && f.label.trim()),
+        customFields,
         isActive: draft.isActive,
       });
       setItems((prev) => prev.map((x) => (x.operatingCompanyId === ocId ? saved : x)));
@@ -123,6 +90,8 @@ export function AdminLandingContactSettingsPage() {
     }
   };
 
+  const preview = previewId ? drafts[previewId] : null;
+
   if (loading) {
     return <p className="py-8 text-center text-fluid-sm text-gray-500">불러오는 중…</p>;
   }
@@ -132,11 +101,10 @@ export function AdminLandingContactSettingsPage() {
       <PageTitleWithFavorite label="문의 폼·링크" path="/admin/inquiries/leads/settings">
         <h1 className="text-xl font-semibold text-slate-900">문의 폼·링크</h1>
       </PageTitleWithFavorite>
-      <div className="mb-4">
-        <p className="text-fluid-sm text-gray-600">
-          브랜드마다 문의 링크가 생성됩니다. 랜딩 페이지 「문의하기」 버튼에 아래 URL을 연결하세요.
-        </p>
-      </div>
+      <p className="text-fluid-sm text-gray-600">
+        아래에 있는 예전 주소는 그대로 둡니다. 채널별로 나눌 짧은 링크는 그 위에서 만듭니다.
+      </p>
+      <LandingContactSourceLinksPanel />
       {error ? <p className="text-fluid-sm text-red-600">{error}</p> : null}
 
       {items.length === 0 ? (
@@ -161,12 +129,13 @@ export function AdminLandingContactSettingsPage() {
                       slug: item.operatingCompanySlug,
                     }}
                   />
-                  <p className="mt-2 break-all font-mono text-fluid-xs text-gray-700">{link}</p>
+                  <p className="mt-1 text-fluid-2xs text-slate-500">예전 주소</p>
+                  <p className="mt-0.5 break-all font-mono text-fluid-xs text-gray-700">{link}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => void copyLink(item.operatingCompanySlug, item.operatingCompanySlug)}
-                  className="shrink-0 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-fluid-xs font-medium text-sky-900 hover:bg-sky-100"
+                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                 >
                   {copiedSlug === item.operatingCompanySlug ? '복사됨' : '링크 복사'}
                 </button>
@@ -207,120 +176,42 @@ export function AdminLandingContactSettingsPage() {
               </div>
 
               <div className="mb-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-fluid-sm font-semibold text-gray-900">추가 입력 항목</p>
-                  <button
-                    type="button"
-                    onClick={() => addCustomField(item.operatingCompanyId)}
-                    className="text-fluid-xs font-medium text-sky-700 hover:underline"
-                  >
-                    + 항목 추가
-                  </button>
-                </div>
-                <p className="mb-2 text-fluid-2xs text-gray-500">
-                  성함·연락처·문의 내용은 기본 제공됩니다. 기본 추가 항목은{' '}
-                  <span className="font-medium text-gray-700">평수·건축물 유형</span>이며, 필요 시 아래에서
-                  수정·추가할 수 있습니다.
-                </p>
-                {draft.customFields.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateDraft(item.operatingCompanyId, {
-                        customFields: DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS.map((f) => ({ ...f })),
-                      })
-                    }
-                    className="mb-2 text-fluid-xs font-medium text-sky-700 hover:underline"
-                  >
-                    기본 항목(평수·건축물 유형) 불러오기
-                  </button>
-                ) : null}
-                <div className="space-y-2">
-                  {draft.customFields.map((field, idx) => (
-                    <div
-                      key={idx}
-                      className="grid gap-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3 sm:grid-cols-12"
-                    >
-                      <input
-                        className="rounded border border-gray-200 px-2 py-1.5 text-fluid-xs sm:col-span-2"
-                        placeholder="key (영문)"
-                        value={field.key}
-                        onChange={(e) =>
-                          updateCustomField(item.operatingCompanyId, idx, {
-                            key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''),
-                          })
-                        }
-                      />
-                      <input
-                        className="rounded border border-gray-200 px-2 py-1.5 text-fluid-xs sm:col-span-3"
-                        placeholder="라벨"
-                        value={field.label}
-                        onChange={(e) => updateCustomField(item.operatingCompanyId, idx, { label: e.target.value })}
-                      />
-                      <select
-                        className="rounded border border-gray-200 px-2 py-1.5 text-fluid-xs sm:col-span-2"
-                        value={field.type}
-                        onChange={(e) =>
-                          updateCustomField(item.operatingCompanyId, idx, {
-                            type: e.target.value as LandingContactCustomFieldDef['type'],
-                          })
-                        }
-                      >
-                        {FIELD_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                      <label className="flex items-center gap-1 text-fluid-2xs sm:col-span-2">
-                        <input
-                          type="checkbox"
-                          checked={field.required === true}
-                          onChange={(e) =>
-                            updateCustomField(item.operatingCompanyId, idx, { required: e.target.checked })
-                          }
-                        />
-                        필수
-                      </label>
-                      {field.type === 'select' ? (
-                        <input
-                          className="rounded border border-gray-200 px-2 py-1.5 text-fluid-xs sm:col-span-12"
-                          placeholder="선택지 (쉼표로 구분)"
-                          value={(field.options ?? []).join(', ')}
-                          onChange={(e) =>
-                            updateCustomField(item.operatingCompanyId, idx, {
-                              options: e.target.value
-                                .split(',')
-                                .map((s) => s.trim())
-                                .filter(Boolean),
-                            })
-                          }
-                        />
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => removeCustomField(item.operatingCompanyId, idx)}
-                        className="text-fluid-2xs text-red-600 sm:col-span-1"
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <LandingContactFieldEditor
+                  fields={draft.customFields}
+                  onChange={(customFields) => updateDraft(item.operatingCompanyId, { customFields })}
+                />
               </div>
 
-              <button
-                type="button"
-                disabled={savingId === item.operatingCompanyId}
-                onClick={() => void save(item.operatingCompanyId)}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-              >
-                {savingId === item.operatingCompanyId ? '저장 중…' : '저장'}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewId(item.operatingCompanyId)}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-fluid-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                >
+                  미리보기
+                </button>
+                <button
+                  type="button"
+                  disabled={savingId === item.operatingCompanyId}
+                  onClick={() => void save(item.operatingCompanyId)}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {savingId === item.operatingCompanyId ? '저장 중…' : '저장'}
+                </button>
+              </div>
             </section>
           );
         })
       )}
+      {preview ? (
+        <LandingContactFormPreviewModal
+          open
+          title={preview.title}
+          introText={preview.introText}
+          fields={preview.customFields}
+          onClose={() => setPreviewId(null)}
+        />
+      ) : null}
     </div>
   );
 }

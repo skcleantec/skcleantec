@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-22-admin-only-help",
+  "_lastUpdated": "2026-09-23-order-guide-section-check",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -822,7 +822,23 @@
         "client/src/components/orderform/OrderFormGuideAgreeModal.tsx",
         "client/src/components/orderform/OrderFormGuideSignatureBlock.tsx"
       ],
-      "notes": "끝까지 스크롤해야 서명칸이 켜짐. 서명으로 동의. 날짜·시간대 안내는 확인만. 끄기 없음."
+      "notes": "섹션·파트너·기재확인 체크 + 맨 아래 스크롤 후에만 서명칸이 켜짐. 서명으로 동의. 끄기 없음."
+    },
+    {
+      "id": "orderform.guide.sectionCheckbox",
+      "labelKo": "안내사항 섹션별 필수 체크",
+      "surfaces": ["public.orderForm.guideModal", "public.orderInfo"],
+      "visual": { "type": "checkbox", "token": "slate-50" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": [
+        "client/src/components/orderform/OrderFormGuideSectionCheck.tsx",
+        "client/src/components/orderform/OrderFormGuideAgreeModal.tsx",
+        "client/src/pages/order/OrderInfoPage.tsx"
+      ],
+      "notes": "은행 약관형. 섹션마다 [필수] 체크. 끄기 설정 없음."
     },
     {
       "id": "orderForm.customer.prefillConfirmSteps",

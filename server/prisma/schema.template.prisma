@@ -329,6 +329,8 @@ model Tenant {
   alimtalkChargeRequests AlimtalkChargeRequest[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
+  landingContactSourceLinks LandingContactSourceLink[]
+  landingContactLinkSlotRequests LandingContactLinkSlotRequest[]
   billingProfile TenantBillingProfile?
   invoices       TenantInvoice[]
   billingAdjustments TenantBillingAdjustment[]
@@ -1360,6 +1362,7 @@ model OperatingCompany {
   externalSettlementResets   ExternalCompanySettlementReset[]
   landingContactFormConfigs  LandingContactFormConfig[]
   landingContactInquiries    LandingContactInquiry[]
+  landingContactSourceLinks  LandingContactSourceLink[]
   orderFollowups             OrderFollowup[]
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
@@ -3221,6 +3224,10 @@ model LandingContactInquiry {
   status             String           @default("NEW") @map("status")
   source             String           @default("hosted_form") @map("source")
   sourcePageUrl      String?          @map("source_page_url") @db.Text
+  sourceLinkId       String?          @map("source_link_id")
+  sourceLink         LandingContactSourceLink? @relation(fields: [sourceLinkId], references: [id], onDelete: SetNull)
+  /// 제출 당시 유입명 스냅샷 (링크 이름을 나중에 바꿔도 목록은 유지)
+  sourceLabel        String?          @map("source_label") @db.VarChar(40)
   inquiryId          String?          @map("inquiry_id")
   inquiry            Inquiry?         @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
   memo               String?          @db.Text
@@ -3235,8 +3242,64 @@ model LandingContactInquiry {
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
   @@index([tenantId, operatingCompanyId])
+  @@index([tenantId, sourceLinkId])
   @@index([inquiryId])
   @@map("landing_contact_inquiries")
+}
+
+enum LandingContactLinkSlotKind {
+  FREE
+  PAID
+}
+
+enum LandingContactLinkRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// 문의 짧은 링크. 기존 /contact 주소와 별도. 업체당 무료 2개, 그 이상은 승인된 유료 자리.
+model LandingContactSourceLink {
+  id                 String                     @id @default(uuid())
+  tenantId           String                     @map("tenant_id")
+  tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String?                    @map("operating_company_id")
+  operatingCompany   OperatingCompany?          @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
+  code               String                     @unique @db.VarChar(32)
+  label              String                     @db.VarChar(40)
+  /// 이 링크 전용 추가 입력. 비어 있으면 성함·연락처·문의 내용만.
+  customFields       Json                       @default("[]") @map("custom_fields")
+  slotKind           LandingContactLinkSlotKind @map("slot_kind")
+  isActive           Boolean                    @default(true) @map("is_active")
+  disabledAt         DateTime?                  @map("disabled_at")
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
+
+  inquiries LandingContactInquiry[]
+
+  @@index([tenantId, isActive])
+  @@map("landing_contact_source_links")
+}
+
+/// 무료 2개를 넘는 짧은 링크 자리 신청. 승인된 개수만큼 유료 링크를 만들 수 있다.
+model LandingContactLinkSlotRequest {
+  id              String                           @id @default(uuid())
+  tenantId        String                           @map("tenant_id")
+  tenant          Tenant                           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestedCount  Int                              @map("requested_count")
+  status          LandingContactLinkRequestStatus  @default(PENDING)
+  message         String?                          @db.VarChar(500)
+  adminNote       String?                          @map("admin_note") @db.VarChar(500)
+  requesterUserId String?                          @map("requester_user_id")
+  reviewedByPlatformUserId String?                 @map("reviewed_by_platform_user_id")
+  reviewedAt      DateTime?                        @map("reviewed_at")
+  createdAt       DateTime                         @default(now()) @map("created_at")
+  updatedAt       DateTime                         @updatedAt @map("updated_at")
+
+  @@index([tenantId, status])
+  @@index([status, createdAt])
+  @@map("landing_contact_link_slot_requests")
 }
 
 /// 텔레마케팅 업무 종료 시 채널별 입력 방식

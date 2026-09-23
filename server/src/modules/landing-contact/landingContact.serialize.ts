@@ -1,6 +1,10 @@
 import type { LandingContactFormConfig, LandingContactInquiry, OperatingCompany, User } from '@prisma/client';
 import { toOperatingCompanyPublicSummary } from '../operating-companies/operatingCompanyPublicSummary.js';
-import { parseLandingContactCustomFields, resolveLandingContactCustomFields } from './landingContactForm.schema.js';
+import {
+  parseLandingContactCustomFields,
+  resolveLandingContactCustomFields,
+  type LandingContactCustomFieldDef,
+} from './landingContactForm.schema.js';
 
 type Row = LandingContactInquiry & {
   operatingCompany: Pick<OperatingCompany, 'id' | 'name' | 'slug' | 'isActive' | 'config'>;
@@ -9,16 +13,33 @@ type Row = LandingContactInquiry & {
   inquiry?: { id: string; inquiryNumber: string | null; status: string } | null;
 };
 
-export function serializeLandingContactInquiry(row: Row) {
+function customFieldLines(row: Row, fields?: LandingContactCustomFieldDef[]) {
+  const values =
+    row.customFieldValues && typeof row.customFieldValues === 'object' && !Array.isArray(row.customFieldValues)
+      ? (row.customFieldValues as Record<string, unknown>)
+      : {};
+  return Object.entries(values)
+    .filter(([, v]) => typeof v === 'string' && v.trim())
+    .map(([key, value]) => ({
+      key,
+      label: fields?.find((f) => f.key === key)?.label ?? key,
+      value: String(value),
+    }));
+}
+
+export function serializeLandingContactInquiry(row: Row, fields?: LandingContactCustomFieldDef[]) {
   return {
     id: row.id,
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     content: row.content,
     customFieldValues: row.customFieldValues,
+    customFieldLines: customFieldLines(row, fields),
     status: row.status,
     source: row.source,
     sourcePageUrl: row.sourcePageUrl,
+    sourceLinkId: row.sourceLinkId,
+    sourceLabel: row.sourceLabel,
     memo: row.memo,
     operatingCompany: toOperatingCompanyPublicSummary(row.operatingCompany),
     assignedTo: row.assignedTo
@@ -40,8 +61,11 @@ export function serializeLandingContactInquiry(row: Row) {
   };
 }
 
-export function serializeLandingContactInquiries(rows: Row[]) {
-  return rows.map(serializeLandingContactInquiry);
+export function serializeLandingContactInquiries(
+  rows: Row[],
+  fieldMap?: Map<string, LandingContactCustomFieldDef[]>,
+) {
+  return rows.map((row) => serializeLandingContactInquiry(row, fieldMap?.get(row.operatingCompanyId)));
 }
 
 type ConfigRow = LandingContactFormConfig & {
