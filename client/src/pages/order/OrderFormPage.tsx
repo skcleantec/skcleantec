@@ -1663,8 +1663,19 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           <OrderFormGuideAgreeModal
             open={guideAgreeModalOpen}
             onClose={() => setGuideAgreeModalOpen(false)}
+            mode={guideTermsConsent ? 'view' : 'agree'}
             brandSlug={resolvePublicBrandSlug() || undefined}
             templateId={order?.template?.id}
+            consents={
+              guideTermsConsent
+                ? {
+                    guideTerms: {
+                      agreedAt: guideTermsConsent.at,
+                      typedName: guideTermsConsent.typedName,
+                    },
+                  }
+                : null
+            }
             onAgree={(payload) => {
               setGuideTermsConsent(payload);
             }}
@@ -3384,7 +3395,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                     {agreeLinkLabel} (자세히 보기)
                   </button>
                   <p id="agreeTerms-hint" className="text-fluid-xs text-gray-500">
-                    안내를 끝까지 읽고 성함·서명하면 예약 확정이 가능합니다.
+                    안내사항을 끝까지 읽고 각 항목에 체크한 뒤 서명하면 제출할 수 있습니다.
                   </p>
                 </div>
               )}
@@ -3396,8 +3407,19 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           <OrderFormGuideAgreeModal
             open={guideAgreeModalOpen}
             onClose={() => setGuideAgreeModalOpen(false)}
+            mode={guideTermsConsent ? 'view' : 'agree'}
             brandSlug={resolvePublicBrandSlug() || undefined}
             templateId={order?.template?.id}
+            consents={
+              guideTermsConsent
+                ? {
+                    guideTerms: {
+                      agreedAt: guideTermsConsent.at,
+                      typedName: guideTermsConsent.typedName,
+                    },
+                  }
+                : null
+            }
             onAgree={(payload) => {
               setGuideTermsConsent(payload);
             }}
@@ -3431,13 +3453,20 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 {prefillSaving ? '저장 중...' : '선저장 (입력한 항목을 고객에게 잠금)'}
               </button>
             ) : (
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-              >
-                {submitting ? '제출 중...' : '제출하기'}
-              </button>
+              <>
+                <button
+                  type="submit"
+                  disabled={submitting || !guideTermsConsent}
+                  className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {submitting ? '제출 중...' : '제출하기'}
+                </button>
+                {!guideTermsConsent ? (
+                  <p className="mt-1.5 text-center text-fluid-2xs text-gray-500">
+                    안내사항을 끝까지 확인하고 각 항목에 체크·서명한 뒤 제출할 수 있습니다.
+                  </p>
+                ) : null}
+              </>
             )}
             </div>
           </div>

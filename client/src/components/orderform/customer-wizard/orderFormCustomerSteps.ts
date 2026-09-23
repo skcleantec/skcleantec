@@ -265,7 +265,7 @@ export function resolveOrderFormCustomerSteps(args: {
     id: 'guide',
     kind: 'guide',
     title: '안내사항을 확인해 주세요',
-    hint: '안내를 끝까지 읽고, 성함을 직접 적은 뒤 서명해야 제출하기가 완료됩니다.',
+    hint: '각 항목을 읽고 체크한 뒤, 맨 아래까지 내려 서명해 주세요.',
   });
   return steps;
 }

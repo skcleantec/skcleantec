@@ -5,6 +5,7 @@ import { getPublicOrderGuide } from '../../api/orderform';
 import { ORDER_GUIDE_DEFAULT_SECTIONS, type GuideSection } from '../../constants/orderInfoDefaultSections';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
+import { OrderFormGuideSectionCheck } from './OrderFormGuideSectionCheck';
 import { OrderFormGuideSections } from './OrderFormGuideSections';
 import { OrderFormPartnerConsentBlock } from './OrderFormPartnerConsentBlock';
 import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
@@ -40,6 +41,9 @@ export function OrderFormGuideAgreeModal(props: {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
+  const [sectionChecked, setSectionChecked] = useState<boolean[]>([]);
+  const [partnerChecked, setPartnerChecked] = useState(false);
+  const [accuracyChecked, setAccuracyChecked] = useState(false);
 
   const checkScrollEnd = useCallback(() => {
     const el = scrollRef.current;
@@ -52,6 +56,8 @@ export function OrderFormGuideAgreeModal(props: {
   useEffect(() => {
     if (!open) {
       setScrolledToEnd(false);
+      setPartnerChecked(false);
+      setAccuracyChecked(false);
       return;
     }
     setLoading(true);
@@ -71,6 +77,17 @@ export function OrderFormGuideAgreeModal(props: {
       })
       .finally(() => setLoading(false));
   }, [open, brandSlug, templateId]);
+
+  useEffect(() => {
+    setSectionChecked(sections.map(() => false));
+  }, [sections]);
+
+  const allSectionsChecked =
+    sections.length > 0 &&
+    sectionChecked.length === sections.length &&
+    sectionChecked.every(Boolean);
+  const canSign =
+    !loading && scrolledToEnd && allSectionsChecked && partnerChecked && accuracyChecked;
 
   useEffect(() => {
     if (!open || loading) return;
@@ -117,7 +134,7 @@ export function OrderFormGuideAgreeModal(props: {
           <p className="mt-1 text-fluid-xs text-gray-300">
             {isViewMode
               ? '제출 후에도 아래 안내사항을 다시 확인하실 수 있습니다.'
-              : '아래 내용을 끝까지 확인한 뒤 서명해 주세요.'}
+              : '각 항목을 읽고 체크한 뒤, 맨 아래까지 내려 서명해 주세요.'}
           </p>
         </div>
 
@@ -136,7 +153,11 @@ export function OrderFormGuideAgreeModal(props: {
             <p className="text-center text-fluid-sm text-gray-500">불러오는 중…</p>
           ) : (
             <>
-              <OrderFormPartnerConsentBlock />
+              <OrderFormPartnerConsentBlock
+                agreeMode={!isViewMode}
+                checked={partnerChecked}
+                onToggle={setPartnerChecked}
+              />
               <div className="mt-8">
                 {isViewMode ? (
                   <div className="space-y-8">
@@ -157,7 +178,18 @@ export function OrderFormGuideAgreeModal(props: {
                     ))}
                   </div>
                 ) : (
-                  <OrderFormGuideSections sections={sections} />
+                  <OrderFormGuideSections
+                    sections={sections}
+                    agreeMode
+                    checkedByIndex={sectionChecked}
+                    onToggle={(index, next) => {
+                      setSectionChecked((prev) => {
+                        const copy = prev.length === sections.length ? [...prev] : sections.map(() => false);
+                        copy[index] = next;
+                        return copy;
+                      });
+                    }}
+                  />
                 )}
               </div>
               <div className="mt-8 rounded-lg border-2 border-amber-300 bg-amber-50 px-4 py-3.5 text-fluid-sm leading-relaxed shadow-sm">
@@ -170,6 +202,14 @@ export function OrderFormGuideAgreeModal(props: {
                   <span className="font-bold text-red-700">특이사항</span>이 있는 경우 꼭 적어주세요.
                 </p>
                 <p className="mt-2 font-bold text-red-800">기재 누락 시 본사에서 책임지지 않습니다.</p>
+                {!isViewMode ? (
+                  <OrderFormGuideSectionCheck
+                    id="order-guide-accuracy"
+                    title="연락처·주소·일정·특이사항 확인"
+                    checked={accuracyChecked}
+                    onChange={setAccuracyChecked}
+                  />
+                ) : null}
               </div>
               <p className="mt-6 text-center text-fluid-xs text-gray-500">
                 문의사항은 예약 번호로 연락 부탁드립니다.
@@ -185,7 +225,7 @@ export function OrderFormGuideAgreeModal(props: {
                 />
               ) : (
                 <OrderFormGuideSignatureBlock
-                  disabled={loading || !scrolledToEnd}
+                  disabled={!canSign}
                   onSigned={({ signaturePng, typedName: signedName }) => {
                     onAgree?.({
                       at: new Date().toISOString(),
@@ -212,9 +252,11 @@ export function OrderFormGuideAgreeModal(props: {
             </button>
           ) : (
             <p className="text-center text-fluid-2xs leading-snug text-gray-500">
-              {scrolledToEnd
+              {canSign
                 ? '성함을 직접 적은 뒤 아래에 서명하고 「서명으로 동의」를 눌러 주세요.'
-                : '맨 아래까지 내리면 성함과 서명을 남길 수 있습니다.'}
+                : !scrolledToEnd
+                  ? '맨 아래까지 스크롤한 뒤, 모든 필수 항목에 체크해 주세요.'
+                  : '모든 필수 항목에 체크하면 성함과 서명을 남길 수 있습니다.'}
             </p>
           )}
         </div>

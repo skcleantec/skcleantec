@@ -417,7 +417,7 @@ export function GuideStep({
             className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-fluid-xs font-medium leading-relaxed text-amber-950"
             role="status"
           >
-            안내를 끝까지 읽고, 성함을 직접 적은 뒤 서명해야 제출하기가 완료됩니다.
+            각 항목을 읽고 체크한 뒤, 맨 아래까지 내려 서명해야 제출할 수 있습니다.
           </p>
           <button type="button" className={WIZARD_CTA_CLS} onClick={() => setGuideAgreeModalOpen(true)}>
             {agreeLinkLabel} (자세히 보기)

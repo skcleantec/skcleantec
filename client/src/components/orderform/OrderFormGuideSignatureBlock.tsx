@@ -62,7 +62,7 @@ export function OrderFormGuideSignatureBlock(props: {
       </label>
       {disabled ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs font-medium text-amber-950">
-          먼저 안내를 맨 아래까지 내려 주세요.
+          먼저 각 항목을 체크하고 안내를 맨 아래까지 내려 주세요.
         </p>
       ) : !validName ? (
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs font-medium text-slate-700">

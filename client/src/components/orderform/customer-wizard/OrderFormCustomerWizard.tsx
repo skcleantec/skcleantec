@@ -316,7 +316,7 @@ export function OrderFormCustomerWizard({
                 <div className="w-full space-y-2">
                   {!previewWalk && !shared.guideTermsSigned ? (
                     <p className="text-center text-fluid-2xs font-medium leading-snug text-amber-800">
-                      안내를 끝까지 읽고 성함을 직접 적은 뒤 서명해야 제출하기가 완료됩니다.
+                      각 항목을 읽고 체크한 뒤, 맨 아래까지 내려 서명해야 제출할 수 있습니다.
                     </p>
                   ) : null}
                   <button
