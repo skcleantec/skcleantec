@@ -38,12 +38,9 @@ export function labelForCleaningKind(raw: unknown): string {
   return KIND_LABELS[parsed];
 }
 
-const AIRCON_ORDER_FORM_TEMPLATE_TITLE = '에어컨 청소 발주서';
-
-/** 에어컨 양식에는 입주/이사 종류를 받지 않는다. */
+/** 기본 입주청소 발주서에만 종류·안내 그림을 받는다. */
 export function shouldCollectOrderFormCleaningKind(
-  template?: { title?: string | null; isDefault?: boolean | null } | null,
+  template?: { isDefault?: boolean | null } | null,
 ): boolean {
-  if (!template || template.isDefault) return true;
-  return (template.title?.trim() ?? '') !== AIRCON_ORDER_FORM_TEMPLATE_TITLE;
+  return template?.isDefault === true;
 }

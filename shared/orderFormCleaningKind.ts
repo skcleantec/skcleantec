@@ -1,4 +1,4 @@
-import { isAirconOrderFormTemplate, type OrderFormTemplateKindInput } from './orderFormServiceKind';
+import type { OrderFormTemplateKindInput } from './orderFormServiceKind';
 
 /** 고객 발주서 1페이지 — 청소 종류(건축물 유형과 별개) */
 
@@ -79,7 +79,7 @@ export function cleaningKindOption(raw: unknown) {
   return ORDER_FORM_CLEANING_KIND_OPTIONS.find((o) => o.value === parsed) ?? null;
 }
 
-/** 에어컨 양식에는 입주/이사 종류를 받지 않는다. */
+/** 기본 입주청소 발주서에만 종류·안내 그림을 받는다. */
 export function shouldCollectOrderFormCleaningKind(template?: OrderFormTemplateKindInput): boolean {
-  return !isAirconOrderFormTemplate(template);
+  return template?.isDefault === true;
 }
