@@ -18,6 +18,8 @@ import {
 } from './landingContactForm.schema.js';
 import { serializeLandingContactPublicForm } from './landingContact.serialize.js';
 import { notifyLandingContactSubmitted } from './landingContactNotify.js';
+import { findActiveLandingContactSourceLinkByCode } from './landingContactSourceLink.service.js';
+import { toOperatingCompanyPublicSummary } from '../operating-companies/operatingCompanyPublicSummary.js';
 
 const router = Router();
 
@@ -74,15 +76,87 @@ router.get('/form', async (req, res) => {
   res.json(serializeLandingContactPublicForm(withOc));
 });
 
+/** 공개: 짧은 링크 `/c/:code` */
+router.get('/by-code/:code', async (req, res) => {
+  const link = await findActiveLandingContactSourceLinkByCode(req.params.code);
+  if (!link) {
+    res.status(404).json({ error: '문의 링크를 찾을 수 없습니다.' });
+    return;
+  }
+  try {
+    await assertTenantAllowsPublicService(link.tenantId);
+    const enabled = await assertLandingContactFeatureEnabled(link.tenantId);
+    if (!enabled) {
+      res.status(404).json({ error: '문의 폼을 사용할 수 없습니다.' });
+      return;
+    }
+  } catch (e) {
+    if (e instanceof PublicTenantAccessError) {
+      res.status(publicTenantAccessHttpStatus(e.code)).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+  const tenant = await prisma.tenant.findFirst({
+    where: { id: link.tenantId },
+    select: { slug: true },
+  });
+  if (!tenant) {
+    res.status(404).json({ error: '문의 링크를 찾을 수 없습니다.' });
+    return;
+  }
+  const brandRows = await prisma.operatingCompany.findMany({
+    where: { tenantId: link.tenantId, isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true, name: true, slug: true, isActive: true, config: true },
+  });
+  const brands = brandRows.map((row) => {
+    const summary = toOperatingCompanyPublicSummary(row);
+    return { id: row.id, slug: row.slug, displayName: summary.displayName };
+  });
+  let operatingCompanyId = link.operatingCompanyId;
+  if (!operatingCompanyId && brands.length === 1) operatingCompanyId = brands[0]!.id;
+  const needsBrandPick = !operatingCompanyId;
+  let form = null;
+  let brandSlug: string | null = null;
+  if (operatingCompanyId) {
+    const brand = brands.find((b) => b.id === operatingCompanyId);
+    brandSlug = brand?.slug ?? null;
+    const config = await getOrCreateLandingContactFormConfig(link.tenantId, operatingCompanyId);
+    const withOc = await prisma.landingContactFormConfig.findFirst({
+      where: { id: config.id, tenantId: link.tenantId },
+      include: {
+        operatingCompany: { select: { id: true, name: true, slug: true, isActive: true, config: true } },
+      },
+    });
+    if (!withOc || !withOc.isActive || !withOc.operatingCompany.isActive) {
+      res.status(404).json({ error: '문의 접수가 일시 중지되었습니다.' });
+      return;
+    }
+    form = serializeLandingContactPublicForm(withOc);
+  }
+  res.json({
+    code: link.code,
+    sourceLabel: link.label,
+    tenantSlug: tenant.slug,
+    brandSlug,
+    needsBrandPick,
+    brands: brands.map(({ slug, displayName }) => ({ slug, displayName })),
+    form,
+  });
+});
+
 /** 공개: 문의 제출 */
 router.post('/submit', async (req, res) => {
-  const { customerName, customerPhone, content, customFieldValues, tenantSlug, sourcePageUrl } = req.body as {
+  const { customerName, customerPhone, content, customFieldValues, tenantSlug, sourcePageUrl, sourceCode } =
+    req.body as {
     customerName?: string;
     customerPhone?: string;
     content?: string;
     customFieldValues?: unknown;
     tenantSlug?: string;
     sourcePageUrl?: string;
+    sourceCode?: string;
   };
   if (!customerName?.trim() || !customerPhone?.trim() || !content?.trim()) {
     res.status(400).json({ error: '성함, 연락처, 문의 내용을 입력해 주세요.' });
@@ -90,10 +164,43 @@ router.post('/submit', async (req, res) => {
   }
   let tenantId: string;
   let operatingCompanyId: string;
+  let sourceLinkId: string | null = null;
+  let sourceLabel: string | null = null;
+  const code = typeof sourceCode === 'string' ? sourceCode.trim() : '';
   try {
-    const scope = await resolvePublicLandingContact(req);
-    tenantId = scope.tenantId;
-    operatingCompanyId = scope.operatingCompanyId;
+    if (code) {
+      const link = await findActiveLandingContactSourceLinkByCode(code);
+      if (!link) {
+        res.status(404).json({ error: '문의 링크를 찾을 수 없습니다.' });
+        return;
+      }
+      await assertTenantAllowsPublicService(link.tenantId);
+      const enabled = await assertLandingContactFeatureEnabled(link.tenantId);
+      if (!enabled) {
+        res.status(404).json({ error: '문의 폼을 사용할 수 없습니다.' });
+        return;
+      }
+      tenantId = link.tenantId;
+      sourceLinkId = link.id;
+      sourceLabel = link.label;
+      if (link.operatingCompanyId) {
+        operatingCompanyId = link.operatingCompanyId;
+      } else {
+        const brand = readBrandSlug(req);
+        const activeBrandCount = await prisma.operatingCompany.count({
+          where: { tenantId: link.tenantId, isActive: true },
+        });
+        if (!brand && activeBrandCount > 1) {
+          res.status(400).json({ error: '브랜드를 선택해 주세요.' });
+          return;
+        }
+        operatingCompanyId = await resolveLandingContactOperatingCompanyId(link.tenantId, brand);
+      }
+    } else {
+      const scope = await resolvePublicLandingContact(req);
+      tenantId = scope.tenantId;
+      operatingCompanyId = scope.operatingCompanyId;
+    }
   } catch (e) {
     if (e instanceof PublicTenantAccessError) {
       res.status(publicTenantAccessHttpStatus(e.code)).json({ error: e.message });
@@ -131,8 +238,10 @@ router.post('/submit', async (req, res) => {
       customerPhone: customerPhone.trim().slice(0, 40),
       content: content.trim().slice(0, 8000),
       customFieldValues: validated.values,
-      source: 'hosted_form',
+      source: sourceLinkId ? 'short_link' : 'hosted_form',
       sourcePageUrl: pageUrl,
+      sourceLinkId,
+      sourceLabel,
     },
     include: {
       operatingCompany: { select: { name: true, config: true } },

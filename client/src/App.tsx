@@ -118,6 +118,7 @@ import {
   PlatformTenantCreatePage,
   PlatformTenantDetailPage,
   PlatformPlanUpgradeRequestsPage,
+  PlatformLandingContactLinkRequestsPage,
   PlatformSignupInquiriesPage,
   PlatformReferrersPage,
   PlatformReferrerDetailPage,
@@ -178,6 +179,7 @@ function App() {
           <Route path="tenants/new" element={<SuspensePage><PlatformTenantCreatePage /></SuspensePage>} />
           <Route path="tenants/:id" element={<SuspensePage><PlatformTenantDetailPage /></SuspensePage>} />
           <Route path="plan-upgrade-requests" element={<SuspensePage><PlatformPlanUpgradeRequestsPage /></SuspensePage>} />
+          <Route path="landing-contact-link-requests" element={<SuspensePage><PlatformLandingContactLinkRequestsPage /></SuspensePage>} />
           <Route path="signup-inquiries" element={<SuspensePage><PlatformSignupInquiriesPage /></SuspensePage>} />
           <Route path="referrers" element={<SuspensePage><PlatformReferrersPage /></SuspensePage>} />
           <Route path="referrers/:id" element={<SuspensePage><PlatformReferrerDetailPage /></SuspensePage>} />
@@ -447,6 +449,7 @@ function App() {
         <Route path="/telecrm-app" element={<SuspensePage><TelecrmAppInstallPage /></SuspensePage>} />
         <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
         <Route path="/contact" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
+        <Route path="/c/:code" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
         <Route path="/ops/deposit-confirm" element={<SuspensePage><PublicDepositConfirmPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />

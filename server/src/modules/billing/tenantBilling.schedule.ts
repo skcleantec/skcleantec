@@ -113,6 +113,8 @@ export function computeBillingSchedule(input: {
   now?: Date;
   maxItems?: number;
   futureScheduledMin?: number;
+  /** 아직 청구서가 없는 기간에만 더한다. 문의 유료 링크 등 월 가산. */
+  monthlyAddonKrw?: number;
 }): BillingScheduleItem[] {
   const {
     plan,
@@ -123,9 +125,12 @@ export function computeBillingSchedule(input: {
     now = new Date(),
     maxItems = 120,
     futureScheduledMin = 1,
+    monthlyAddonKrw = 0,
   } = input;
 
   const cycle = profile.billingCycle;
+  const addonForCycle =
+    monthlyAddonKrw > 0 ? (cycle === 'ANNUAL' ? monthlyAddonKrw * 12 : monthlyAddonKrw) : 0;
   const invoicesByStart = new Map<string, BillingInvoiceInput>();
   for (const inv of invoices) {
     if (inv.status === 'VOID') continue;
@@ -202,7 +207,7 @@ export function computeBillingSchedule(input: {
     const amountKrw =
       customOverride != null
         ? customOverride + mergePending
-        : baseAmount + mergePending;
+        : baseAmount + mergePending + addonForCycle;
     mergePending = 0;
 
     const existingInv = invoicesByStart.get(key);

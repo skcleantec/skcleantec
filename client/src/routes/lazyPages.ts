@@ -337,6 +337,11 @@ export const PlatformPlanUpgradeRequestsPage = lazyWithRetry(() =>
     default: m.PlatformPlanUpgradeRequestsPage,
   }))
 );
+export const PlatformLandingContactLinkRequestsPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformLandingContactLinkRequestsPage').then((m) => ({
+    default: m.PlatformLandingContactLinkRequestsPage,
+  }))
+);
 export const PlatformSignupInquiriesPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformSignupInquiriesPage').then((m) => ({
     default: m.PlatformSignupInquiriesPage,

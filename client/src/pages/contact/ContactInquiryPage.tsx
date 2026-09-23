@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useParams } from 'react-router-dom';
 import { resolveInitialTenantSlug } from '../../utils/tenantHostResolve';
 import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import {
+  fetchLandingContactByCode,
   fetchLandingContactPublicForm,
   submitLandingContactInquiry,
   type LandingContactPublicForm,
 } from '../../api/landingContact';
+import { LandingContactChoiceField } from '../../components/leads/LandingContactChoiceField';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import type { LandingContactCustomFieldDef } from '@shared/landingContactForm';
 import { resolveLandingContactPublicTitle } from '@shared/landingContactForm';
@@ -33,21 +36,7 @@ function CustomFieldInput(props: {
   const { field, value, onChange } = props;
 
   if (field.type === 'select') {
-    return (
-      <select
-        className={inputCls}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={field.required}
-      >
-        <option value="">{field.placeholder ?? `${field.label} 선택`}</option>
-        {(field.options ?? []).map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-    );
+    return <LandingContactChoiceField field={field} value={value} onChange={onChange} className={inputCls} />;
   }
 
   if (field.type === 'textarea') {
@@ -138,8 +127,12 @@ function PageShell({
 }
 
 export function ContactInquiryPage() {
-  const tenantSlug = useMemo(() => resolveInitialTenantSlug(), []);
-  const brandSlug = useMemo(() => resolvePublicBrandSlug(), []);
+  const { code: sourceCode } = useParams<{ code?: string }>();
+  const tenantFromHost = useMemo(() => resolveInitialTenantSlug(), []);
+  const brandFromQuery = useMemo(() => resolvePublicBrandSlug(), []);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(sourceCode ? null : tenantFromHost);
+  const [brandSlug, setBrandSlug] = useState<string | null>(sourceCode ? null : brandFromQuery);
+  const [brandChoices, setBrandChoices] = useState<{ slug: string; displayName: string }[]>([]);
   const [formConfig, setFormConfig] = useState<LandingContactPublicForm | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,16 +149,52 @@ export function ContactInquiryPage() {
   useDocumentTitle(brandTitle);
 
   useEffect(() => {
-    if (!tenantSlug) {
-      setLoadError('업체 정보를 확인할 수 없습니다. 링크에 업체 코드가 포함되어 있는지 확인해 주세요.');
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    const run = async () => {
+      if (sourceCode) {
+        const meta = await fetchLandingContactByCode(sourceCode);
+        if (cancelled) return;
+        setTenantSlug(meta.tenantSlug);
+        setBrandChoices(meta.brands);
+        if (meta.needsBrandPick && !brandSlug) {
+          setFormConfig(null);
+          setLoading(false);
+          return;
+        }
+        const picked = brandSlug || meta.brandSlug;
+        if (picked && meta.needsBrandPick) {
+          const form = await fetchLandingContactPublicForm(meta.tenantSlug, picked);
+          if (cancelled) return;
+          setBrandSlug(picked);
+          setFormConfig(form);
+        } else {
+          setBrandSlug(meta.brandSlug);
+          setFormConfig(meta.form);
+        }
+        setLoading(false);
+        return;
+      }
+      if (!tenantFromHost) {
+        setLoadError('업체 정보를 확인할 수 없습니다. 링크에 업체 코드가 포함되어 있는지 확인해 주세요.');
+        setLoading(false);
+        return;
+      }
+      const form = await fetchLandingContactPublicForm(tenantFromHost, brandFromQuery);
+      if (cancelled) return;
+      setFormConfig(form);
       setLoading(false);
-      return;
-    }
-    void fetchLandingContactPublicForm(tenantSlug, brandSlug)
-      .then(setFormConfig)
-      .catch((e) => setLoadError(e instanceof Error ? e.message : '문의 폼을 불러올 수 없습니다.'))
-      .finally(() => setLoading(false));
-  }, [tenantSlug, brandSlug]);
+    };
+    void run().catch((e) => {
+      if (cancelled) return;
+      setLoadError(e instanceof Error ? e.message : '문의 폼을 불러올 수 없습니다.');
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceCode, tenantFromHost, brandFromQuery, brandSlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +205,7 @@ export function ContactInquiryPage() {
       await submitLandingContactInquiry({
         tenantSlug,
         brandSlug: brandSlug ?? formConfig.brandSlug,
+        sourceCode,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         content: content.trim(),
@@ -196,6 +226,30 @@ export function ContactInquiryPage() {
           <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
           <p className="text-fluid-sm">불러오는 중…</p>
         </div>
+      </PageShell>
+    );
+  }
+
+  if (!loadError && !formConfig && sourceCode && brandChoices.length > 0) {
+    return (
+      <PageShell brandTitle="문의하기">
+        <div className="rounded-2xl border border-slate-100 bg-white px-5 py-6 shadow-xl shadow-slate-300/35">
+          <h2 className="text-lg font-semibold text-slate-900">브랜드 선택</h2>
+          <p className="mt-1 text-fluid-sm text-slate-500">문의할 브랜드를 골라 주세요.</p>
+          <div className="mt-4 space-y-2">
+            {brandChoices.map((brand) => (
+              <button
+                key={brand.slug}
+                type="button"
+                onClick={() => setBrandSlug(brand.slug)}
+                className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-fluid-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              >
+                {brand.displayName}
+              </button>
+            ))}
+          </div>
+        </div>
+        <ContactPlatformFooter />
       </PageShell>
     );
   }

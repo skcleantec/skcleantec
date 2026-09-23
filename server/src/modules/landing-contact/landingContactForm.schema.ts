@@ -1,14 +1,21 @@
 /** 랜딩·외부 페이지 문의 — 서버 상수 (shared/landingContactForm.ts 와 동기) */
 export const LANDING_CONTACT_INQUIRY_STATUSES = ['NEW', 'CONTACTED', 'CONVERTED', 'CLOSED'] as const;
 
+export type LandingContactChoiceOption = {
+  label: string;
+  children?: { label: string }[];
+};
+
 export type LandingContactCustomFieldDef = {
   key: string;
   label: string;
   type: 'text' | 'textarea' | 'tel' | 'email' | 'number' | 'select';
   required?: boolean;
   placeholder?: string;
-  options?: string[];
+  options?: LandingContactChoiceOption[];
 };
+
+const CHOICE_SEP = ' · ';
 
 const LANDING_CONTACT_PROPERTY_TYPE_OPTIONS = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'];
 
@@ -25,21 +32,62 @@ export const DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS: LandingContactCustomFieldDef
     label: '건축물 유형',
     type: 'select',
     required: true,
-    options: [...LANDING_CONTACT_PROPERTY_TYPE_OPTIONS],
+    options: LANDING_CONTACT_PROPERTY_TYPE_OPTIONS.map((label) => ({ label })),
   },
 ];
 
 const FIELD_KEY_RE = /^[a-z][a-z0-9_]{0,47}$/;
 const ALLOWED_TYPES = new Set(['text', 'textarea', 'tel', 'email', 'number', 'select']);
 
-function parseFieldOptions(raw: unknown, type: string): string[] | undefined {
+function cleanChoiceLabel(raw: string): string {
+  return raw.replace(/\s*·\s*/g, ' ').trim().slice(0, 40);
+}
+
+function parseFieldOptions(raw: unknown, type: string): LandingContactChoiceOption[] | undefined {
   if (type !== 'select') return undefined;
   if (!Array.isArray(raw)) return undefined;
-  const options = raw
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean)
-    .slice(0, 50);
-  return options.length > 0 ? options : undefined;
+  const options: LandingContactChoiceOption[] = [];
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const label = cleanChoiceLabel(item);
+      if (label) options.push({ label });
+    } else if (item && typeof item === 'object') {
+      const o = item as Record<string, unknown>;
+      const label = typeof o.label === 'string' ? cleanChoiceLabel(o.label) : '';
+      if (!label) continue;
+      const childrenRaw = Array.isArray(o.children) ? o.children : [];
+      const children: { label: string }[] = [];
+      for (const child of childrenRaw) {
+        const childLabel =
+          typeof child === 'string'
+            ? cleanChoiceLabel(child)
+            : child && typeof child === 'object' && typeof (child as { label?: unknown }).label === 'string'
+              ? cleanChoiceLabel((child as { label: string }).label)
+              : '';
+        if (!childLabel || children.some((c) => c.label === childLabel)) continue;
+        children.push({ label: childLabel });
+        if (children.length >= 30) break;
+      }
+      options.push(children.length > 0 ? { label, children } : { label });
+    }
+    if (options.length >= 40) break;
+  }
+  const unique = options.filter((opt, idx) => options.findIndex((x) => x.label === opt.label) === idx);
+  return unique.length > 0 ? unique : undefined;
+}
+
+function choiceValueAllowed(field: LandingContactCustomFieldDef, value: string): boolean {
+  for (const opt of field.options ?? []) {
+    const children = opt.children ?? [];
+    if (children.length === 0) {
+      if (value === opt.label) return true;
+      continue;
+    }
+    for (const child of children) {
+      if (value === `${opt.label}${CHOICE_SEP}${child.label}`) return true;
+    }
+  }
+  return false;
 }
 
 export function parseLandingContactCustomFields(raw: unknown): LandingContactCustomFieldDef[] {
@@ -96,7 +144,7 @@ export function validateLandingContactCustomFieldValues(
       if (field.type === 'number' && !Number.isFinite(Number(str))) {
         return { ok: false, error: `${field.label}에 숫자를 입력해 주세요.` };
       }
-      if (field.type === 'select' && field.options?.length && !field.options.includes(str)) {
+      if (field.type === 'select' && field.options?.length && !choiceValueAllowed(field, str)) {
         return { ok: false, error: `${field.label}을(를) 선택해 주세요.` };
       }
       values[field.key] = str.slice(0, 2000);
