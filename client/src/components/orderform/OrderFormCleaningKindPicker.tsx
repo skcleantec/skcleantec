@@ -38,28 +38,31 @@ export function OrderFormCleaningKindPicker({
           const checked = value === opt.value;
           return (
             <div key={opt.value} className="space-y-2">
-              <label
+              <button
+                type="button"
+                role="radio"
+                aria-checked={checked}
+                disabled={disabled}
+                onClick={() => onChange(opt.value)}
                 className={`${CARD_CLS} ${
                   checked
                     ? 'border-slate-900 bg-slate-50 ring-1 ring-slate-900'
                     : 'border-slate-200 bg-white'
                 } ${disabled ? 'opacity-50' : ''}`}
               >
-                <input
-                  type="radio"
-                  name="order-form-cleaning-kind"
-                  autoComplete="off"
-                  className="mt-1 h-4 w-4 shrink-0 border-slate-400 text-slate-900 focus:ring-slate-900"
-                  value={opt.value}
-                  checked={checked}
-                  disabled={disabled}
-                  onChange={() => onChange(opt.value)}
-                />
+                <span
+                  aria-hidden
+                  className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                    checked ? 'border-slate-900' : 'border-slate-400'
+                  }`}
+                >
+                  {checked ? <span className="h-2 w-2 rounded-full bg-slate-900" /> : null}
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-fluid-sm font-semibold text-slate-900">{opt.label}</span>
                   <span className="mt-0.5 block text-fluid-xs leading-snug text-slate-500">{opt.hint}</span>
                 </span>
-              </label>
+              </button>
               {checked ? (
                 <div
                   ref={imageWrapRef}
