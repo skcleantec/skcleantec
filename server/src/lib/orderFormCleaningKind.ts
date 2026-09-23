@@ -44,3 +44,11 @@ export function shouldCollectOrderFormCleaningKind(
 ): boolean {
   return template?.isDefault === true;
 }
+
+/** 고객 작성만. 발주서 발급·마케터 편집에는 두지 않는다. */
+export function shouldShowCustomerCleaningKindPicker(
+  template: { isDefault?: boolean | null } | null | undefined,
+  isStaffIssueForm: boolean,
+): boolean {
+  return !isStaffIssueForm && shouldCollectOrderFormCleaningKind(template);
+}
