@@ -1,4 +1,5 @@
 import type { PublishedIntakeTemplateOption } from '@shared/inquiryFormProfile';
+import { intakeTemplatePickerLabel } from '@shared/orderFormServiceKind';
 
 type Props = {
   templates: PublishedIntakeTemplateOption[];
@@ -28,10 +29,7 @@ export function InquiryIntakeTemplatePicker({ templates, selectedId, onSelect, c
                   : 'border-slate-200 bg-white text-slate-800'
               }`}
             >
-              <span className="block font-medium">{tpl.title}</span>
-              {tpl.isDefault ? (
-                <span className={on ? 'text-slate-200' : 'text-slate-500'}>입주청소</span>
-              ) : null}
+              <span className="block font-medium">{intakeTemplatePickerLabel(tpl)}</span>
             </button>
           );
         })}

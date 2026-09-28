@@ -31,3 +31,12 @@ export function orderFormServiceKindListLabel(kind: OrderFormServiceKind): strin
 export function orderFormServiceKindAreaLabel(template: OrderFormTemplateKindInput): string | null {
   return isAirconOrderFormTemplate(template) ? '에어컨' : null;
 }
+
+/** 신규 접수 「이 접수에 쓸 발주서」칩 — 손님 화면 제목과 다름 */
+export function intakeTemplatePickerLabel(template: OrderFormTemplateKindInput): string {
+  if (template?.isDefault) return '입주청소';
+  if (isAirconOrderFormTemplate(template)) return '에어컨';
+  const title = template?.title?.trim() || '발주서';
+  const short = title.replace(/\s*발주서\s*$/u, '').trim();
+  return short || title;
+}
