@@ -104,7 +104,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
       {
         icon: 'pencil',
         title: '고치기',
-        body: '「상세·수정」에서 전화, 영업 브랜드, 사원증 사진을 넣습니다.',
+        body: '「상세·수정」에서 전화, 영업 브랜드, 사원증 사진을 넣습니다.\n사원증은 미리보기·다운로드할 수 있습니다.',
       },
     ],
     faqs: [

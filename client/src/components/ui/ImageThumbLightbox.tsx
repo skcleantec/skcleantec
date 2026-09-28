@@ -1,6 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
+
+export async function downloadRemoteImage(src: string, downloadFilename?: string): Promise<void> {
+  try {
+    const res = await fetch(src);
+    if (!res.ok) throw new Error('fetch_failed');
+    const blob = await res.blob();
+    const ext = blob.type.includes('png') ? '.png' : blob.type.includes('webp') ? '.webp' : '.jpg';
+    const raw = downloadFilename?.trim() || `photo${ext}`;
+    const filename = /\.(jpe?g|png|webp|gif)$/i.test(raw) ? raw : `${raw}${ext}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    window.open(src, '_blank', 'noopener,noreferrer');
+  }
+}
 
 export type ImageGallerySlide = {
   src: string;
@@ -29,6 +48,8 @@ type Props = {
   onLightboxClose?: () => void;
   /** 라이트박스에서 현재 이미지 저장 */
   showDownload?: boolean;
+  /** 바깥에서 「미리보기」로 같은 버튼을 누를 때 */
+  triggerRef?: Ref<HTMLButtonElement>;
 };
 
 /**
@@ -48,6 +69,7 @@ export function ImageThumbLightbox({
   retakeLabel = '재촬영',
   onLightboxClose,
   showDownload = false,
+  triggerRef,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -96,19 +118,10 @@ export function ImageThumbLightbox({
     if (downloadBusy) return;
     setDownloadBusy(true);
     try {
-      const res = await fetch(current.src);
-      if (!res.ok) throw new Error('fetch_failed');
-      const blob = await res.blob();
-      const ext = blob.type.includes('png') ? '.png' : blob.type.includes('webp') ? '.webp' : '.jpg';
-      const filename = current.downloadFilename?.trim() || `photo_${activeIndex + 1}${ext}`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(current.src, '_blank', 'noopener,noreferrer');
+      await downloadRemoteImage(
+        current.src,
+        current.downloadFilename?.trim() || `photo_${activeIndex + 1}`,
+      );
     } finally {
       setDownloadBusy(false);
     }
@@ -118,6 +131,7 @@ export function ImageThumbLightbox({
     <>
       <button
         type="button"
+        ref={triggerRef}
         onClick={() => {
           if (multi) {
             setActiveIndex(Math.min(Math.max(0, galleryIndex), slides.length - 1));
@@ -172,7 +186,7 @@ export function ImageThumbLightbox({
                   <button
                     type="button"
                     disabled={downloadBusy}
-                    className="min-h-[44px] rounded-xl border border-white/30 bg-black/70 px-5 text-sm font-semibold text-white touch-manipulation hover:bg-black/85 disabled:opacity-60"
+                    className="min-h-[44px] rounded-xl border border-white/30 bg-black/70 px-5 text-sm font-semibold text-white touch-manipulation hover:bg-black/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-60"
                     onClick={(e) => {
                       e.stopPropagation();
                       void handleDownload();
