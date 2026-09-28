@@ -40,6 +40,7 @@ import {
   type UserServiceZoneFormValue,
 } from '../../components/admin/UserServiceZoneFields';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
+import { StaffIdCardPhotoField } from '../../components/admin/StaffIdCardPhotoField';
 import { TeamLeaderHouseholdDepositPolicyModal } from '../../components/admin/TeamLeaderHouseholdDepositPolicyModal';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { usageLimitForPlan } from '@shared/tenantSubscriptionUsage';
@@ -2184,10 +2185,10 @@ export function AdminTeamLeadersPage() {
                   </span>
                 </p>
                 {editingUser.staffIdCardUrl ? (
-                  <img
-                    src={editingUser.staffIdCardUrl}
-                    alt=""
-                    className="max-h-52 w-full rounded border border-gray-200 bg-white object-contain"
+                  <StaffIdCardPhotoField
+                    url={editingUser.staffIdCardUrl}
+                    personName={editingUser.name}
+                    disabled={staffIdCardBusy || editLoading}
                   />
                 ) : (
                   <p className="text-fluid-xs text-gray-500">등록된 사진이 없습니다.</p>

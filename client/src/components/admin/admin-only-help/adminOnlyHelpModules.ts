@@ -157,7 +157,7 @@ export const ADMIN_ONLY_HELP_MODULES: Record<string, AdminOnlyHelpPage> = {
       {
         icon: 'image',
         title: '사원증 사진',
-        body: '사진을 올리면 사원증에 쓰입니다.',
+        body: '사진을 올리면 사원증에 쓰입니다.\n올린 사진은 「미리보기」로 크게 보고 「다운로드」로 받을 수 있습니다.',
       },
       {
         icon: 'file',

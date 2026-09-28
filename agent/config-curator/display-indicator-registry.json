@@ -1,6 +1,6 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-23-orderform-cleaning-kind",
+  "_lastUpdated": "2026-09-28-staff-id-preview-download",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
     {
@@ -698,6 +698,21 @@
         "server/src/modules/inquiries/inquiryIntakeFormProfile.service.ts"
       ],
       "notes": "사용함 양식이 2개 이상일 때 일반 등록·수동접수에서 칩으로 고름. 칩 글자는 「입주청소」「에어컨」(손님 발주서 제목과 다름). 고른 양식 칸만 보임."
+    },
+    {
+      "id": "admin.users.staffIdCardPreview",
+      "labelKo": "사원증 사진 미리보기·다운로드",
+      "surfaces": ["admin.teamLeaders.edit"],
+      "visual": { "type": "button", "token": "slate-800" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/team-leaders",
+      "helpPath": "client/src/components/admin/admin-only-help/adminOnlyHelpModules.ts",
+      "codeRefs": [
+        "client/src/components/admin/StaffIdCardPhotoField.tsx",
+        "client/src/pages/admin/AdminTeamLeadersPage.tsx"
+      ],
+      "notes": "사용자 등록 상세·수정. 사진 탭·미리보기·다운로드. 라이트박스에서 사진 저장. 설정으로 끄지 않음."
     },
     {
       "id": "team.inquiry.intakeFields",
