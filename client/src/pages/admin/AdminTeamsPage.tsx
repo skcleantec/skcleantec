@@ -1138,8 +1138,8 @@ export function AdminTeamsPage() {
                 <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-3 space-y-2">
                   <p className="text-xs font-medium text-gray-800">사원증 사진</p>
                   <p className="text-[12px] text-gray-500 leading-snug">
-                    모바일 인증용으로 관리자가 등록합니다. (Cloudinary 저장) 로컬에서 실패하면{' '}
-                    <code className="text-[11px]">server/.env</code>의 CLOUDINARY 설정을 확인하세요.
+                    모바일 인증용으로 관리자가 등록합니다. 로컬에서 실패하면{' '}
+                    <code className="text-[11px]">server/.env</code>의 R2 설정을 확인하세요.
                   </p>
                   {editMemberModal.staffIdCardUrl ? (
                     <img

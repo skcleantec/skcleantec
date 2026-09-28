@@ -1,5 +1,4 @@
-import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
-import { destroyStoredObject, uploadObjectBuffer } from '../../lib/objectStorage.js';
+import { destroyStoredObject, isObjectStorageReady, uploadObjectBuffer } from '../../lib/objectStorage.js';
 import { prisma } from '../../lib/prisma.js';
 
 export async function destroyStaffIdCardPublicId(publicId: string | null | undefined): Promise<void> {
@@ -11,8 +10,8 @@ async function uploadStaffIdCardBuffer(params: {
   buffer: Buffer;
   mimetype: string;
 }): Promise<{ publicId: string; secureUrl: string }> {
-  if (!isCloudinaryConfigured()) {
-    throw new Error('cloudinary_not_configured');
+  if (!isObjectStorageReady()) {
+    throw new Error('storage_not_configured');
   }
   const result = await uploadObjectBuffer({
     folder: params.folder,
@@ -36,7 +35,7 @@ export async function replaceStaffIdCardForUser(
   if (!user || (user.role !== 'TEAM_LEADER' && user.role !== 'MARKETER')) {
     throw new Error('user_not_found_or_invalid_role');
   }
-  const folder = `skcleanteck/staff-id-cards/users/${userId}`;
+  const folder = `cbiseo/staff-id-cards/users/${userId}`;
   const uploaded = await uploadStaffIdCardBuffer({ folder, buffer, mimetype });
   const oldPid = user.staffIdCardPublicId;
   await prisma.user.update({
@@ -75,7 +74,7 @@ export async function replaceStaffIdCardForTeamMember(
   if (!m) {
     throw new Error('team_member_not_found');
   }
-  const folder = `skcleanteck/staff-id-cards/team-members/${memberId}`;
+  const folder = `cbiseo/staff-id-cards/team-members/${memberId}`;
   const uploaded = await uploadStaffIdCardBuffer({ folder, buffer, mimetype });
   const oldPid = m.staffIdCardPublicId;
   await prisma.teamMember.update({

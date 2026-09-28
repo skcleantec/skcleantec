@@ -725,15 +725,14 @@ router.put('/:id/operating-companies', requireStaffPermission('admin.users'), as
   }
 });
 
-/** 관리자: 팀장·마케터 사원증 이미지 업로드 (Cloudinary) */
+/** 관리자: 팀장·마케터 사원증 이미지 업로드 (R2) */
 router.post('/:id/staff-id-card', requireStaffPermission('admin.users'), staffIdCardUpload.single('image'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   if (!isCloudinaryConfigured()) {
     res.status(503).json({
-      error:
-        '이미지 업로드를 사용할 수 없습니다. 서버에 CLOUDINARY_URL 또는 CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET을 설정하세요.',
+      error: '이미지 업로드를 사용할 수 없습니다. 서버에 R2 설정(R2_ACCOUNT_ID 등)을 확인하세요.',
     });
     return;
   }
