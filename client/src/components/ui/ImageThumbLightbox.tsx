@@ -50,6 +50,7 @@ type Props = {
   showDownload?: boolean;
   /** 바깥에서 「미리보기」로 같은 버튼을 누를 때 */
   triggerRef?: Ref<HTMLButtonElement>;
+  onThumbError?: () => void;
 };
 
 /**
@@ -70,6 +71,7 @@ export function ImageThumbLightbox({
   onLightboxClose,
   showDownload = false,
   triggerRef,
+  onThumbError,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -151,6 +153,8 @@ export function ImageThumbLightbox({
           alt=""
           className={buttonLabel ? 'sr-only' : thumbClassName}
           loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={onThumbError}
         />
       </button>
       {open &&

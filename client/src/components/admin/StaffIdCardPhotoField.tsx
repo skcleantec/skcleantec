@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LineMdIcon } from '../ui/LineMdIcon';
 import {
   downloadRemoteImage,
@@ -24,8 +24,13 @@ export function StaffIdCardPhotoField({
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [saving, setSaving] = useState(false);
+  const [broken, setBroken] = useState(false);
   const fileName = staffIdCardFileName(personName);
   const alt = personName.trim() ? `${personName.trim()} 사원증` : '사원증 사진';
+
+  useEffect(() => {
+    setBroken(false);
+  }, [url]);
 
   return (
     <div className="space-y-2">
@@ -37,13 +42,16 @@ export function StaffIdCardPhotoField({
         gallerySlides={[{ src: url, alt, title: '사원증 사진', downloadFilename: fileName }]}
         thumbClassName="max-h-52 w-full cursor-zoom-in rounded border border-slate-200 bg-white object-contain"
         buttonClassName="block w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-0 ring-inset hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        onThumbError={() => setBroken(true)}
       />
-      <p className="text-fluid-2xs text-slate-500">사진을 누르면 크게 볼 수 있습니다.</p>
+      <p className="text-fluid-2xs text-slate-500">
+        {broken ? '사진 주소를 열 수 없습니다. 「사진 교체」로 다시 올려 주세요.' : '사진을 누르면 크게 볼 수 있습니다.'}
+      </p>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           className={BTN}
-          disabled={disabled}
+          disabled={disabled || broken}
           onClick={() => triggerRef.current?.click()}
         >
           <LineMdIcon name="image" className="size-4 text-slate-600" />

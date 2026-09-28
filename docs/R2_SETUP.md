@@ -1,6 +1,7 @@
 # Cloudflare R2 — 웹하드 설정 (청소비서)
 
 새 사진·PDF는 R2에 올립니다. 이미 Cloudinary에 있는 파일 주소는 그대로 열립니다.  
+사원증이 Cloudinary 주소로 안 보이면 `npm --prefix server run db:migrate-staff-id-cards-r2` 로 R2에 복사합니다.  
 **키·비밀번호는 채팅·깃에 넣지 마세요.** `server/.env`와 Railway Variables에만 둡니다.
 
 ## Cloudflare에서 할 일

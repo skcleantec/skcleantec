@@ -58,6 +58,7 @@
     "db:backfill-seed-inquiries-created-by": "tsx scripts/backfill-seed-inquiries-created-by.ts",
     "db:backfill-inquiry-address-geo": "tsx scripts/backfill-inquiry-address-geo.ts",
     "db:migrate-cs-images": "tsx scripts/migrate-cs-images-to-cloudinary.ts",
+    "db:migrate-staff-id-cards-r2": "tsx scripts/migrate-staff-id-cards-to-r2.ts",
     "db:purge:inquiries": "tsx scripts/purge-all-inquiries.ts",
     "cron:inspection-retention": "tsx scripts/run-inspection-retention.ts",
     "cron:billing-daily": "tsx scripts/run-billing-daily.ts",

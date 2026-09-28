@@ -31,7 +31,7 @@ export interface UserItem {
   payrollMonthlySalary?: number | null;
   /** 팀장·마케터·사무직: 매월 급여 지급일(1–31). 미설정 시 월 급여표에서 말일 등 기본 규칙 */
   payrollPayDay?: number | null;
-  /** 고객 대면용 사원증 이미지 URL (관리자 Cloudinary 업로드) */
+  /** 고객 대면용 사원증 이미지 URL (관리자 웹하드 업로드) */
   staffIdCardUrl?: string | null;
   /** 팀장만: 일반 정산 방식 */
   teamLeaderGeneralSettlementMode?: 'FIXED_PER_JOB_WON' | 'PERCENT_OF_GENERAL_SERVICE_BPS' | null;
