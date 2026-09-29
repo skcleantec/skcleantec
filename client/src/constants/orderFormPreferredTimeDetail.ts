@@ -42,8 +42,9 @@ export function formatOrderFormTimeDetailLabel(hhmmStr: string): string {
 
 export function getPreferredTimeDetailSelectOptions(
   slot: string | null | undefined,
+  labels?: Parameters<typeof resolvePreferredTimeSlotForDetail>[1],
 ): { value: string; label: string }[] {
-  const resolved = resolvePreferredTimeSlotForDetail(slot);
+  const resolved = resolvePreferredTimeSlotForDetail(slot, labels);
   if (!resolved || resolved === '조율') return [];
   if (resolved === '오후') {
     const v = ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE;

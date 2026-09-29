@@ -1,4 +1,5 @@
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
+import { canonicalizeTimeSlotOptionValue } from '../../lib/orderFormTimeSlotLabels.js';
 import { parseGuideSignaturePngDataUrl } from './orderFormGuideSignature.service.js';
 
 function orderFormConfigLine(raw: string | null | undefined, fallback: string): string {
@@ -171,7 +172,10 @@ export function validateOrderFormSubmitConsents(params: {
     if (!parsed?.timeSlot) {
       return { ok: false, error: '시간대·오입력 안내에 동의해 주세요.' };
     }
-    if (parsed.timeSlot.preferredTime !== params.useTimeStr) {
+    if (
+      canonicalizeTimeSlotOptionValue(parsed.timeSlot.preferredTime) !==
+      canonicalizeTimeSlotOptionValue(params.useTimeStr)
+    ) {
       return { ok: false, error: '시간대 동의 내용이 선택하신 시간과 일치하지 않습니다. 다시 동의해 주세요.' };
     }
     timeSlot = {

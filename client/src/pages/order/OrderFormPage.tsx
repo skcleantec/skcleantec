@@ -20,11 +20,15 @@ import { internalCustomerToneForApi } from '../../constants/internalCustomerTone
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import {
   buildTimeSlotOptionsForForm,
+  isAllowedPreferredTimeValue,
   isPreferredTimeDetailRequired,
   labelForTimeSlot,
   preferredTimeOptionsFromTemplateFields,
 } from '../../constants/orderFormSchedule';
-import { resolvePreferredTimeSlotForDetail } from '@shared/orderFormTimeSlotLabels';
+import {
+  canonicalizeTimeSlotOptionValue,
+  resolvePreferredTimeSlotForDetail,
+} from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
@@ -369,19 +373,22 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const timeSlotOptions = useMemo(
     () =>
       buildTimeSlotOptionsForForm(
-        preferredTimeOptionsFromTemplateFields(order?.template?.systemFields),
+        preferredTimeOptionsFromTemplateFields(
+          order?.template?.systemFields,
+          timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson,
+        ),
         timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson,
       ),
     [order?.template?.systemFields, timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
   );
   const isValidOrderTimeSlot = useCallback(
-    (v: string) => {
-      const t = v.trim().normalize('NFC');
-      if (!t) return false;
-      const resolved = resolvePreferredTimeSlotForDetail(t);
-      return timeSlotOptions.some((o) => o.value === t || (resolved != null && o.value === resolved));
-    },
-    [timeSlotOptions],
+    (v: string) =>
+      isAllowedPreferredTimeValue(
+        v,
+        order?.template?.systemFields?.find((f) => f.systemField === 'preferredTime')?.options,
+        timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson,
+      ),
+    [order?.template?.systemFields, timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
   );
   const serviceDateAckBodyExpanded = useMemo(() => {
     const raw = orderFormConfigLine(
@@ -514,12 +521,23 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
   const handleEditorPreferredTimeChange = useCallback((raw: string) => {
     if (raw === '') {
-      setForm((f) => ({ ...f, preferredTime: '' }));
+      setForm((f) => ({ ...f, preferredTime: '', preferredTimeDetail: '' }));
       return;
     }
-    if (!isValidOrderTimeSlot(raw)) return;
-    setForm((f) => ({ ...f, preferredTime: raw }));
-  }, [isValidOrderTimeSlot]);
+    const next = canonicalizeTimeSlotOptionValue(raw, timeSlotLabels) || raw;
+    if (!isValidOrderTimeSlot(next) && !isValidOrderTimeSlot(raw) && !resolvePreferredTimeSlotForDetail(next, timeSlotLabels)) {
+      return;
+    }
+    setForm((f) => ({ ...f, preferredTime: next, preferredTimeDetail: '' }));
+    if (isInline) {
+      window.requestAnimationFrame(() => {
+        document.getElementById('order-field-preferredTimeDetail')?.scrollIntoView({
+          block: 'nearest',
+          behavior: 'smooth',
+        });
+      });
+    }
+  }, [isInline, isValidOrderTimeSlot, timeSlotLabels]);
 
   const handleCustomerPreferredTimeChange = useCallback(
     (raw: string) => {
@@ -532,13 +550,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         setForm((f) => ({ ...f, preferredTime: '' }));
         return;
       }
-      if (!isValidOrderTimeSlot(raw)) return;
-      if (raw === form.preferredTime && timeSlotConsent?.slot === raw) return;
+      const next = canonicalizeTimeSlotOptionValue(raw, timeSlotLabels) || raw;
+      if (!isValidOrderTimeSlot(next) && !isValidOrderTimeSlot(raw)) return;
+      if (next === form.preferredTime && timeSlotConsent?.slot === next) return;
       timeBeforeAckRef.current = isValidOrderTimeSlot(form.preferredTime) ? form.preferredTime : '';
-      setForm((f) => ({ ...f, preferredTime: raw }));
-      if (raw === timeSlotConsent?.slot) return;
+      setForm((f) => ({ ...f, preferredTime: next, preferredTimeDetail: f.preferredTime === next ? f.preferredTimeDetail : '' }));
+      if (next === timeSlotConsent?.slot) return;
       setTimeSlotConsent(null);
-      setPendingTimeSlot(raw);
+      setPendingTimeSlot(next);
       setTimeSlotAckOpen(true);
     },
     [
@@ -547,6 +566,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       handleEditorPreferredTimeChange,
       isValidOrderTimeSlot,
       timeSlotConsent?.slot,
+      timeSlotLabels,
     ],
   );
 
@@ -828,10 +848,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           if (STD.has(k)) continue;
           if (v != null) baseCustom[k] = v;
         }
-        if (isCreate && createCrmSeed?.crmQuoteBreakdown?.trim()) {
-          baseCustom[TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY] =
-            createCrmSeed.crmQuoteBreakdown.trim();
-        }
         setCustomAnswers(baseCustom);
         const p = data.pendingInquiry;
         const areaLockedOnIssue = isOrderFormAreaLockedFromOrder({
@@ -878,8 +894,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             if (dataDate) return dataDate;
             return '';
           })(),
-          preferredTime: coerceLoadedOrderFormPreferredTime(p?.preferredTime ?? data.preferredTime),
-          preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
+          preferredTime:
+            f.preferredTime.trim() ||
+            coerceLoadedOrderFormPreferredTime(
+              p?.preferredTime ?? data.preferredTime,
+              data.formConfig?.timeSlotLabels ?? data.formConfig?.timeSlotLabelsJson,
+            ),
+          preferredTimeDetail:
+            f.preferredTimeDetail.trim() ||
+            (p?.preferredTimeDetail ?? data.preferredTimeDetail ?? ''),
           roomCount: pfStr('roomCount') ?? (p?.roomCount != null ? String(p.roomCount) : ''),
           bathroomCount: pfStr('bathroomCount') ?? (p?.bathroomCount != null ? String(p.bathroomCount) : ''),
           balconyCount: pfStr('balconyCount') ?? (p?.balconyCount != null ? String(p.balconyCount) : ''),
@@ -907,11 +930,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         }));
         setClassicKindConfirmed(false);
         const pfProf = pf['professionalOptionIds'];
-        const crmProf =
-          isCreate && createCrmSeed?.professionalOptionIds?.length
-            ? createCrmSeed.professionalOptionIds
-            : null;
-        const profPrefillRaw = crmProf ?? pfProf;
+        const profPrefillRaw = pfProf;
         const applyProfPrefill = (catalog: ProfessionalSpecialtyOptionDto[]) => {
           if (Array.isArray(profPrefillRaw) && profPrefillRaw.length > 0) {
             setProfSelections(parseProfessionalOptionSelections(profPrefillRaw, catalog));
@@ -930,39 +949,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             })
             .catch(() => setProfessionalOptions([]));
         }
-        if (isCreate && createCrmSeed) {
-          setForm((f) => ({
-            ...f,
-            customerName: createCrmSeed.customerName?.trim() || f.customerName,
-            customerPhone: createCrmSeed.customerPhone?.trim() || f.customerPhone,
-            address: createCrmSeed.address?.trim() || f.address,
-            areaPyeong: createCrmSeed.areaPyeong?.trim() || f.areaPyeong,
-            areaBasis:
-              createCrmSeed.areaBasis?.trim() ||
-              f.areaBasis ||
-              (createCrmSeed.areaPyeong?.trim() ? '공급' : f.areaBasis),
-            preferredDate: createCrmSeed.preferredDate?.trim() || f.preferredDate,
-            roomCount: createCrmSeed.roomCount?.trim() || f.roomCount,
-            bathroomCount: createCrmSeed.bathroomCount?.trim() || f.bathroomCount,
-            balconyCount: createCrmSeed.balconyCount?.trim() || f.balconyCount,
-          }));
-          if (createCrmSeed.totalAmount?.trim() || createCrmSeed.depositAmount?.trim()) {
-            const seedTotal = createCrmSeed.totalAmount?.trim() || '';
-            const seedDeposit = createCrmSeed.depositAmount?.trim() || '';
-            const seedNoDeposit = seedDeposit === '0';
-            setNoDeposit(seedNoDeposit);
-            setIssueAmounts((a) => {
-              const totalRaw = seedTotal || a.totalAmount;
-              const total = parseIssueAmountWon(totalRaw);
-              return {
-                ...a,
-                totalAmount: totalRaw,
-                depositAmount: seedNoDeposit ? '0' : seedDeposit || a.depositAmount,
-                balanceAmount: seedNoDeposit && total > 0 ? String(total) : a.balanceAmount,
-              };
-            });
-          }
-        }
         setError(null);
       })
       .catch((e) => {
@@ -974,7 +960,78 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     return () => {
       cancelled = true;
     };
-  }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId, createCrmSeed, isEditor, previewWalk]);
+  }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId, isEditor, previewWalk]);
+
+  /** CRM 시드는 견적 문구가 바뀔 때마다 객체가 새로 생긴다. 폼을 다시 불러오면 고른 시간대가 지워진다. */
+  useEffect(() => {
+    if (!isCreate || !createCrmSeed || !order) return;
+    const keep = (cur: string, seed?: string) => cur.trim() || seed?.trim() || cur;
+    setForm((f) => {
+      const next = {
+        ...f,
+        customerName: keep(f.customerName, createCrmSeed.customerName),
+        customerPhone: keep(f.customerPhone, createCrmSeed.customerPhone),
+        address: keep(f.address, createCrmSeed.address),
+        areaPyeong: keep(f.areaPyeong, createCrmSeed.areaPyeong),
+        areaBasis:
+          f.areaBasis.trim() ||
+          createCrmSeed.areaBasis?.trim() ||
+          (createCrmSeed.areaPyeong?.trim() ? '공급' : f.areaBasis),
+        preferredDate: keep(f.preferredDate, createCrmSeed.preferredDate),
+        roomCount: keep(f.roomCount, createCrmSeed.roomCount),
+        bathroomCount: keep(f.bathroomCount, createCrmSeed.bathroomCount),
+        balconyCount: keep(f.balconyCount, createCrmSeed.balconyCount),
+      };
+      if (
+        next.customerName === f.customerName &&
+        next.customerPhone === f.customerPhone &&
+        next.address === f.address &&
+        next.areaPyeong === f.areaPyeong &&
+        next.areaBasis === f.areaBasis &&
+        next.preferredDate === f.preferredDate &&
+        next.roomCount === f.roomCount &&
+        next.bathroomCount === f.bathroomCount &&
+        next.balconyCount === f.balconyCount
+      ) {
+        return f;
+      }
+      return next;
+    });
+    if (createCrmSeed.crmQuoteBreakdown?.trim()) {
+      setCustomAnswers((prev) => {
+        const cur = prev[TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY];
+        if (typeof cur === 'string' && cur.trim()) return prev;
+        return {
+          ...prev,
+          [TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY]: createCrmSeed.crmQuoteBreakdown!.trim(),
+        };
+      });
+    }
+    if (createCrmSeed.professionalOptionIds?.length && professionalOptions.length > 0) {
+      setProfSelections((prev) =>
+        prev.length > 0
+          ? prev
+          : parseProfessionalOptionSelections(createCrmSeed.professionalOptionIds, professionalOptions),
+      );
+    }
+    if (createCrmSeed.totalAmount?.trim() || createCrmSeed.depositAmount?.trim()) {
+      const seedTotal = createCrmSeed.totalAmount?.trim() || '';
+      const seedDeposit = createCrmSeed.depositAmount?.trim() || '';
+      const seedNoDeposit = seedDeposit === '0';
+      setIssueAmounts((a) => {
+        if (a.totalAmount.trim()) return a;
+        const totalRaw = seedTotal || a.totalAmount;
+        const total = parseIssueAmountWon(totalRaw);
+        return {
+          ...a,
+          totalAmount: totalRaw,
+          depositAmount: seedNoDeposit ? '0' : seedDeposit || a.depositAmount,
+          balanceAmount: seedNoDeposit && total > 0 ? String(total) : a.balanceAmount,
+        };
+      });
+      if (seedNoDeposit) setNoDeposit(true);
+    }
+  }, [isCreate, createCrmSeed, order, professionalOptions]);
 
   useEffect(
     () =>
@@ -1170,7 +1227,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       const useTimeRaw = timeLockedByAdmin
         ? (order!.preferredTime?.trim() || form.preferredTime)
         : form.preferredTime.trim();
-      const useTime = useTimeRaw.trim();
+      const useTime = canonicalizeTimeSlotOptionValue(
+        useTimeRaw,
+        timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson,
+      );
       const useTimeDetail = detailLockedByAdmin
         ? order!.preferredTimeDetail!.trim()
         : form.preferredTimeDetail.trim() || undefined;
@@ -1282,7 +1342,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         stdFieldOn('preferredTime') &&
         useTime &&
         isValidOrderTimeSlot(useTime) &&
-        timeSlotConsent?.slot !== useTime
+        canonicalizeTimeSlotOptionValue(timeSlotConsent?.slot ?? '', timeSlotLabels) !== useTime
       ) {
         submitResumeAfterTimeSlotAckRef.current = true;
         setPendingTimeSlot(useTime);
@@ -1658,6 +1718,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const timeLockedByAdmin = !isEditor && isOrderFormTimeLockedFromOrder(order);
   const detailLockedByAdmin = !isEditor && Boolean(order?.preferredTimeDetail?.trim());
   const areaLockedByAdmin = !isEditor && isOrderFormAreaLockedFromOrder(order);
+  const resolvedTimeSlotForDetail = resolvePreferredTimeSlotForDetail(
+    form.preferredTime,
+    timeSlotLabels,
+  );
+  const timeDetailSelectOptions = getPreferredTimeDetailSelectOptions(
+    form.preferredTime,
+    timeSlotLabels,
+  );
 
   // 마케터 선입력 잠금 — 값이 있는 키는 고객 화면에서 읽기전용. 편집(마케터) 모드는 항상 편집 가능.
   const prefillMap = order?.prefillAnswers ?? null;
@@ -2982,11 +3050,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 {order!.preferredTimeDetail}{' '}
                 <span className="text-gray-500">(관리자 지정·수정 불가)</span>
               </div>
-            ) : !form.preferredTime || !isValidOrderTimeSlot(form.preferredTime) ? (
+            ) : !resolvedTimeSlotForDetail ? (
               <p className="text-xs text-gray-500 px-1 py-2">
                 먼저 위에서 시간대(오전·오후·사이청소)를 선택하신 뒤, 희망 시각을 고를 수 있습니다.
               </p>
-            ) : getPreferredTimeDetailSelectOptions(form.preferredTime).length === 0 ? (
+            ) : timeDetailSelectOptions.length === 0 ? (
               <p className="text-xs text-gray-500 px-1 py-2 leading-relaxed">
                 {preferredTimeDetailRangeHint(form.preferredTime)}
               </p>
@@ -3001,7 +3069,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   <option value="">
                     {isPreferredTimeDetailRequired(form.preferredTime) ? '선택하기 *' : '선택 안 함'}
                   </option>
-                  {getPreferredTimeDetailSelectOptions(form.preferredTime).map((o) => (
+                  {timeDetailSelectOptions.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>

@@ -168,6 +168,9 @@ export function OrderFormCustomerWizard({
       setStepError(stepInvalid);
       return;
     }
+    if (currentStep.id === 'time' && timeSlotAckOpen) {
+      return;
+    }
     setStepError(null);
     goNext();
   };

@@ -41,11 +41,14 @@ export function isOrderFormTimeLockedFromOrder(
 }
 
 /** 로드 시 라벨·엑셀 표기를 4슬롯으로 맞추고, 슬롯이 아니면 비운다. */
-export function coerceLoadedOrderFormPreferredTime(raw: string | null | undefined): string {
+export function coerceLoadedOrderFormPreferredTime(
+  raw: string | null | undefined,
+  labels?: Parameters<typeof resolvePreferredTimeFromExcelWithLabels>[1],
+): string {
   const s = String(raw ?? '').trim();
   if (!s) return '';
   if (isOrderTimeSlotValue(s)) return s;
-  return resolvePreferredTimeFromExcelWithLabels(s) ?? '';
+  return resolvePreferredTimeFromExcelWithLabels(s, labels) ?? resolvePreferredTimeSlotForDetail(s, labels) ?? '';
 }
 
 export function customerMayEditFillKey(

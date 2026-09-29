@@ -112,17 +112,25 @@ export function buildTimeSlotOptionsForForm(
 export function isAllowedPreferredTimeValue(
   value: string,
   templateOptions?: string[] | null,
+  labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ): boolean {
-  const s = value.trim();
+  const s = String(value ?? '').trim().normalize('NFC');
   if (!s) return false;
-  const custom = sanitizeTimeSlotOptionList(templateOptions).map((v) =>
-    canonicalizeTimeSlotOptionValue(v),
-  );
-  const canonical = resolvePreferredTimeSlotForDetail(s);
-  if (custom.length > 0) {
-    return custom.includes(s) || (canonical != null && custom.includes(canonical));
+  const rawOpts = sanitizeTimeSlotOptionList(templateOptions);
+  const custom = rawOpts.map((v) => canonicalizeTimeSlotOptionValue(v, labels));
+  const canonical = resolvePreferredTimeSlotForDetail(s, labels);
+  const sCanon = canonicalizeTimeSlotOptionValue(s, labels);
+  if (custom.length === 0) {
+    return canonical != null;
   }
-  return canonical != null;
+  if (custom.includes(s) || custom.includes(sCanon)) return true;
+  if (canonical != null && custom.includes(canonical)) return true;
+  return rawOpts.some((opt) => {
+    const o = opt.trim().normalize('NFC');
+    if (o === s || o === sCanon) return true;
+    const optCanon = resolvePreferredTimeSlotForDetail(opt, labels);
+    return Boolean(optCanon && (optCanon === s || optCanon === sCanon || optCanon === canonical));
+  });
 }
 
 export function labelForTimeSlotFromLabels(

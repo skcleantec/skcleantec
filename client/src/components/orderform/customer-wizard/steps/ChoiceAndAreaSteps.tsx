@@ -94,21 +94,30 @@ export function TimeStep({
   order,
   step,
   timeSlotOptions,
+  timeSlotLabels,
   goNext,
 }: CustomerStepBodyProps) {
   const timeLocked =
     lockKey('preferredTime') ||
     Boolean(order?.preferredTime?.trim() && isOrderTimeSlotValue(order.preferredTime.trim()));
+  const selectedSlot = resolvePreferredTimeSlotForDetail(form.preferredTime, timeSlotLabels);
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <div className="order-wizard-chip-grid grid grid-cols-1 gap-2.5">
         {timeSlotOptions.map((o) => (
           <WizardChoiceChip
             key={o.value}
-            selected={form.preferredTime === o.value}
+            selected={
+              form.preferredTime === o.value ||
+              (selectedSlot != null &&
+                resolvePreferredTimeSlotForDetail(o.value, timeSlotLabels) === selectedSlot)
+            }
             disabled={timeLocked}
             onSelect={() => {
-              const already = form.preferredTime === o.value;
+              const already =
+                form.preferredTime === o.value ||
+                (selectedSlot != null &&
+                  resolvePreferredTimeSlotForDetail(o.value, timeSlotLabels) === selectedSlot);
               handleCustomerPreferredTimeChange(o.value);
               if (already) window.setTimeout(goNext, 220);
             }}

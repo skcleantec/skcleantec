@@ -1,5 +1,5 @@
 import { isPreferredTimeDetailRequired } from '../../../constants/orderFormSchedule';
-import { resolvePreferredTimeSlotForDetail } from '@shared/orderFormTimeSlotLabels';
+import { isAllowedPreferredTimeValue, resolvePreferredTimeSlotForDetail } from '@shared/orderFormTimeSlotLabels';
 import { allowedPreferredTimeDetailValues } from '../../../constants/orderFormPreferredTimeDetail';
 import { validateOrderFormSpaceCounts } from '@shared/orderFormSpaceCounts';
 import {
@@ -103,8 +103,16 @@ export function validateCustomerStep(args: {
       if (date < kstTodayYmd()) return '청소일은 오늘(한국 기준)부터 선택할 수 있습니다.';
       return null;
     }
-    case 'time':
-      return form.preferredTime.trim() ? null : '시간대를 선택해주세요.';
+    case 'time': {
+      const t = form.preferredTime.trim();
+      if (!t) return '시간대를 선택해주세요.';
+      const labels = order?.formConfig?.timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson;
+      const timeOpts = order?.template?.systemFields?.find((f) => f.systemField === 'preferredTime')
+        ?.options;
+      return isAllowedPreferredTimeValue(t, timeOpts, labels)
+        ? null
+        : '시간대를 선택해주세요.';
+    }
     case 'timeDetail': {
       if (isPreferredTimeDetailRequired(form.preferredTime) && !form.preferredTimeDetail.trim()) {
         return '사이청소 선택 시 구체적 시각을 선택해 주세요.';
