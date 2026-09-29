@@ -17,7 +17,31 @@ export type OrderTimeSlotLabels = Record<OrderTimeSlot, string>;
 export type OrderTimeSlotLabelsJson = Partial<Record<OrderTimeSlot, string>>;
 
 export function isOrderTimeSlotValue(value: string): value is OrderTimeSlot {
-  return (ORDER_TIME_SLOT_VALUES as readonly string[]).includes(value);
+  const s = value.trim().normalize('NFC');
+  return (ORDER_TIME_SLOT_VALUES as readonly string[]).includes(s);
+}
+
+/** 표시 문구·엑셀 표기를 오전·오후·사이청소·조율 저장값으로 맞춤 */
+export function resolvePreferredTimeSlotForDetail(
+  raw: string | null | undefined,
+  labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
+): OrderTimeSlot | null {
+  const s = String(raw ?? '').trim().normalize('NFC');
+  if (!s) return null;
+  if ((ORDER_TIME_SLOT_VALUES as readonly string[]).includes(s)) return s as OrderTimeSlot;
+  const fromLabel = resolvePreferredTimeFromExcelWithLabels(s, labels);
+  return fromLabel && (ORDER_TIME_SLOT_VALUES as readonly string[]).includes(fromLabel)
+    ? (fromLabel as OrderTimeSlot)
+    : null;
+}
+
+export function canonicalizeTimeSlotOptionValue(
+  raw: string,
+  labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
+): string {
+  const s = raw.trim().normalize('NFC');
+  if (!s) return s;
+  return resolvePreferredTimeSlotForDetail(s, labels) ?? s;
 }
 
 export function resolveOrderTimeSlotLabels(
@@ -56,9 +80,12 @@ export function sanitizeTimeSlotOptionList(raw: unknown): string[] {
 
 export function preferredTimeOptionsFromTemplateFields(
   systemFields?: Array<{ systemField?: string | null; options?: unknown }> | null,
+  labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ): string[] {
   const field = systemFields?.find((x) => x.systemField === 'preferredTime');
-  return sanitizeTimeSlotOptionList(field?.options);
+  return sanitizeTimeSlotOptionList(field?.options).map((v) =>
+    canonicalizeTimeSlotOptionValue(v, labels),
+  );
 }
 
 /**
@@ -70,7 +97,9 @@ export function buildTimeSlotOptionsForForm(
   templateOptions?: string[] | null,
   tenantLabels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ): { value: string; label: string }[] {
-  const custom = sanitizeTimeSlotOptionList(templateOptions);
+  const custom = sanitizeTimeSlotOptionList(templateOptions).map((v) =>
+    canonicalizeTimeSlotOptionValue(v, tenantLabels),
+  );
   const values = custom.length > 0 ? custom : [...ORDER_TIME_SLOT_VALUES];
   const resolved = resolveOrderTimeSlotLabels(tenantLabels);
   return values.map((value) => ({
@@ -86,9 +115,14 @@ export function isAllowedPreferredTimeValue(
 ): boolean {
   const s = value.trim();
   if (!s) return false;
-  const custom = sanitizeTimeSlotOptionList(templateOptions);
-  if (custom.length > 0) return custom.includes(s);
-  return isOrderTimeSlotValue(s);
+  const custom = sanitizeTimeSlotOptionList(templateOptions).map((v) =>
+    canonicalizeTimeSlotOptionValue(v),
+  );
+  const canonical = resolvePreferredTimeSlotForDetail(s);
+  if (custom.length > 0) {
+    return custom.includes(s) || (canonical != null && custom.includes(canonical));
+  }
+  return canonical != null;
 }
 
 export function labelForTimeSlotFromLabels(

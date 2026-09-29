@@ -24,7 +24,7 @@ import {
   labelForTimeSlot,
   preferredTimeOptionsFromTemplateFields,
 } from '../../constants/orderFormSchedule';
-import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
+import { resolvePreferredTimeSlotForDetail } from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
@@ -375,7 +375,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     [order?.template?.systemFields, timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
   );
   const isValidOrderTimeSlot = useCallback(
-    (v: string) => timeSlotOptions.some((o) => o.value === v.trim()),
+    (v: string) => {
+      const t = v.trim().normalize('NFC');
+      if (!t) return false;
+      const resolved = resolvePreferredTimeSlotForDetail(t);
+      return timeSlotOptions.some((o) => o.value === t || (resolved != null && o.value === resolved));
+    },
     [timeSlotOptions],
   );
   const serviceDateAckBodyExpanded = useMemo(() => {
@@ -988,7 +993,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     const locked = Boolean(order?.preferredTimeDetail?.trim());
     if (!order || locked) return;
     const slot = form.preferredTime;
-    if (!slot || !isValidOrderTimeSlot(slot) || !isOrderTimeSlotValue(slot)) {
+    if (!slot || !isValidOrderTimeSlot(slot)) {
       if (form.preferredTimeDetail) setForm((f) => ({ ...f, preferredTimeDetail: '' }));
       return;
     }
@@ -1189,9 +1194,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         !detailLockedByAdmin &&
         form.preferredTimeDetail.trim() &&
         isValidOrderTimeSlot(useTime) &&
-        isOrderTimeSlotValue(useTime) &&
-        useTime !== '조율' &&
-        !allowedPreferredTimeDetailValues(useTime).has(form.preferredTimeDetail.trim())
+        (() => {
+          const detailSlot = resolvePreferredTimeSlotForDetail(useTime);
+          return (
+            detailSlot != null &&
+            detailSlot !== '조율' &&
+            !allowedPreferredTimeDetailValues(detailSlot).has(form.preferredTimeDetail.trim())
+          );
+        })()
       ) {
         addIssue('구체적 시각을 해당 시간대 범위에서 선택해 주세요.', 'order-field-preferredTimeDetail');
       }
@@ -2972,46 +2982,36 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 {order!.preferredTimeDetail}{' '}
                 <span className="text-gray-500">(관리자 지정·수정 불가)</span>
               </div>
+            ) : !form.preferredTime || !isValidOrderTimeSlot(form.preferredTime) ? (
+              <p className="text-xs text-gray-500 px-1 py-2">
+                먼저 위에서 시간대(오전·오후·사이청소)를 선택하신 뒤, 희망 시각을 고를 수 있습니다.
+              </p>
+            ) : getPreferredTimeDetailSelectOptions(form.preferredTime).length === 0 ? (
+              <p className="text-xs text-gray-500 px-1 py-2 leading-relaxed">
+                {preferredTimeDetailRangeHint(form.preferredTime)}
+              </p>
             ) : (
               <>
                 <select
                   className={inputCls}
                   aria-label="구체적 시각 선택"
                   value={form.preferredTimeDetail}
-                  disabled={
-                    !form.preferredTime ||
-                    !isValidOrderTimeSlot(form.preferredTime) ||
-                    form.preferredTime === '조율'
-                  }
                   onChange={(e) => setForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))}
                 >
                   <option value="">
-                    {!form.preferredTime || !isValidOrderTimeSlot(form.preferredTime)
-                      ? '시간대를 먼저 선택'
-                      : isPreferredTimeDetailRequired(form.preferredTime)
-                        ? '선택하기 *'
-                        : '선택 안 함'}
+                    {isPreferredTimeDetailRequired(form.preferredTime) ? '선택하기 *' : '선택 안 함'}
                   </option>
-                  {(isOrderTimeSlotValue(form.preferredTime) && form.preferredTime !== '조율'
-                    ? getPreferredTimeDetailSelectOptions(form.preferredTime)
-                    : []
-                  ).map((o) => (
+                  {getPreferredTimeDetailSelectOptions(form.preferredTime).map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  {!form.preferredTime || !isValidOrderTimeSlot(form.preferredTime)
-                    ? '먼저 위에서 시간대(오전·오후·사이청소)를 선택하신 뒤, 희망 시각을 고를 수 있습니다.'
-                    : isOrderTimeSlotValue(form.preferredTime)
-                      ? preferredTimeDetailRangeHint(form.preferredTime)
-                      : ''}
+                  {preferredTimeDetailRangeHint(form.preferredTime)}
                   {isPreferredTimeDetailRequired(form.preferredTime)
                     ? ' 사이청소는 상담 내용과 동일한 시각을 반드시 선택해 주세요.'
-                    : form.preferredTime && isValidOrderTimeSlot(form.preferredTime)
-                      ? ' 비워 두셔도 접수는 가능합니다.'
-                      : ''}
+                    : ' 비워 두셔도 접수는 가능합니다.'}
                 </p>
               </>
             )}

@@ -1,5 +1,7 @@
 /** 고객 발주서 `preferredTimeDetail` — 시간대별 허용 시각 (클라이언트 `orderFormPreferredTimeDetail.ts` 와 동일 규칙) */
 
+import { resolvePreferredTimeSlotForDetail } from '../../lib/orderFormTimeSlotLabels.js';
+
 /** 오후 구체적 시각 단일 허용값 — ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE 와 문자열 동일 */
 const AFTERNOON_NEGOTIABLE_DETAIL = '12시~2시 사이 (협의)';
 
@@ -29,7 +31,8 @@ function allowedValuesForSlot(slot: string): Set<string> | null {
 
 /** 고객이 수정 가능한 경우에만 검증 — 값이 있으면 허용 목록에 있어야 함 */
 export function isAllowedPreferredTimeDetail(preferredTime: string, detail: string): boolean {
-  const allowed = allowedValuesForSlot(preferredTime.trim());
+  const slot = resolvePreferredTimeSlotForDetail(preferredTime) ?? preferredTime.trim();
+  const allowed = allowedValuesForSlot(slot);
   if (!allowed) return true;
   return allowed.has(detail.trim());
 }

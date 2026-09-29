@@ -4,6 +4,7 @@ import { isMarketerLockedOrderFormAddress } from '@shared/orderFormPendingAddres
 import {
   isOrderTimeSlotValue,
   resolvePreferredTimeFromExcelWithLabels,
+  resolvePreferredTimeSlotForDetail,
 } from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_SPACE_COUNT_FIELDS,
@@ -36,7 +37,7 @@ export function isOrderFormTimeLockedFromOrder(
   order: { preferredTime?: string | null } | null | undefined,
 ): boolean {
   const t = order?.preferredTime?.trim();
-  return Boolean(t && isOrderTimeSlotValue(t));
+  return Boolean(t && resolvePreferredTimeSlotForDetail(t));
 }
 
 /** 로드 시 라벨·엑셀 표기를 4슬롯으로 맞추고, 슬롯이 아니면 비운다. */
@@ -212,7 +213,7 @@ export function shouldShowCustomerTimeWizardStep(
     return !String(order?.prefillAnswers?.preferredTime ?? '').trim();
   }
   const fromOrder = order?.preferredTime?.trim() ?? '';
-  if (fromOrder && isOrderTimeSlotValue(fromOrder)) return false;
+  if (fromOrder && resolvePreferredTimeSlotForDetail(fromOrder)) return false;
   return true;
 }
 
@@ -223,8 +224,10 @@ export function shouldShowCustomerTimeDetailWizardStep(
 ): boolean {
   if (!isStdFieldOn(order, 'preferredTimeDetail')) return false;
   if (skipLocked && order?.preferredTimeDetail?.trim()) return false;
-  const slot = (form.preferredTime.trim() || order?.preferredTime?.trim() || '').trim();
-  if (!isOrderTimeSlotValue(slot) || slot === '조율') return false;
+  const slot = resolvePreferredTimeSlotForDetail(
+    form.preferredTime.trim() || order?.preferredTime?.trim() || '',
+  );
+  if (!slot || slot === '조율') return false;
   return true;
 }
 

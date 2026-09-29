@@ -6,6 +6,7 @@ import {
   isAllowedPreferredTimeValue,
   labelForTimeSlotFromLabels,
   preferredTimeOptionsFromTemplateFields,
+  resolvePreferredTimeSlotForDetail,
   shortTimeSlotLabelFromLabels,
   type OrderTimeSlot,
   type OrderTimeSlotLabels,
@@ -19,7 +20,7 @@ export const ORDER_TIME_SLOT_OPTIONS = buildOrderTimeSlotOptions();
 
 /** 사이청소 선택 시 구체적 시각(7번) 필수 */
 export function isPreferredTimeDetailRequired(slot: string | null | undefined): boolean {
-  return slot === '사이청소';
+  return resolvePreferredTimeSlotForDetail(slot) === '사이청소';
 }
 
 export function labelForTimeSlot(
@@ -44,4 +45,5 @@ export {
   buildTimeSlotOptionsForForm,
   isAllowedPreferredTimeValue,
   preferredTimeOptionsFromTemplateFields,
+  resolvePreferredTimeSlotForDetail,
 };
