@@ -141,8 +141,10 @@ import {
   resolveOrderTimeSlotLabels,
   parseOrderTimeSlotLabelsJson,
   isAllowedPreferredTimeValue,
-  isOrderTimeSlotValue,
-  preferredTimeOptionsFromTemplateFields,
+  canonicalizeTimeSlotOptionValue,
+  resolvePreferredTimeSlotForDetail,
+  type OrderTimeSlotLabels,
+  type OrderTimeSlotLabelsJson,
 } from '../../lib/orderFormTimeSlotLabels.js';
 import {
   assertActiveLeadSourceLabel,
@@ -244,8 +246,10 @@ function respondPublicTenantAccessError(res: import('express').Response, e: unkn
 function allowsPreferredTimeForTemplate(
   template: { systemFields?: Array<{ systemField: string; options?: string[] | null }> } | null | undefined,
   value: string,
+  labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ) {
-  return isAllowedPreferredTimeValue(value, preferredTimeOptionsFromTemplateFields(template?.systemFields));
+  const field = template?.systemFields?.find((x) => x.systemField === 'preferredTime');
+  return isAllowedPreferredTimeValue(value, field?.options, labels);
 }
 
 /** 목록 연동용 접수 생성 시 주소 미수집 표시. 미제출 발주서 삭제 시 해당 접수는 삭제한다. */
@@ -3020,19 +3024,29 @@ router.post('/submit/:token', async (req, res) => {
   // 날짜·시간대는 따로 잠근다. 날짜만 있거나 시간대가 슬롯이 아니면 고객 입력을 받는다.
   const adminDateLocked = Boolean(normalizeGuidePreferredDateYmd(form.preferredDate));
   const storedTime = (form.preferredTime && String(form.preferredTime).trim()) || '';
-  const adminTimeLocked = Boolean(storedTime && isOrderTimeSlotValue(storedTime));
   const bodyTime = (body.preferredTime && String(body.preferredTime).trim()) || '';
   const useDateStr = adminDateLocked
     ? (normalizeGuidePreferredDateYmd(form.preferredDate) ?? '')
     : (normalizeGuidePreferredDateYmd(body.preferredDate) ?? '');
-  const useTimeStr = adminTimeLocked ? storedTime : bodyTime || storedTime;
+  const submitFormConfig = await resolvePublicFormConfigForOrderForm(
+    prisma,
+    submitTenantId,
+    form.operatingCompanyId,
+    { preferredDateYmd: useDateStr || null },
+  );
+  const slotLabels = submitFormConfig.timeSlotLabels;
+  const adminTimeLocked = Boolean(resolvePreferredTimeSlotForDetail(storedTime, slotLabels));
+  const useTimeStr = canonicalizeTimeSlotOptionValue(
+    adminTimeLocked ? storedTime : bodyTime || storedTime,
+    slotLabels,
+  );
   if (!useDateStr || !useTimeStr) {
     if (tplOn('preferredDate') || tplOn('preferredTime')) {
       res.status(400).json({ error: '청소 날짜와 시간을 입력해주세요.' });
       return;
     }
   }
-  if (useTimeStr && !allowsPreferredTimeForTemplate(submitTemplate, useTimeStr)) {
+  if (useTimeStr && !allowsPreferredTimeForTemplate(submitTemplate, useTimeStr, slotLabels)) {
     res.status(400).json({ error: '시간대를 선택해주세요.' });
     return;
   }
@@ -3200,12 +3214,6 @@ router.post('/submit/:token', async (req, res) => {
     });
   }
 
-  const submitFormConfig = await resolvePublicFormConfigForOrderForm(
-    prisma,
-    submitTenantId,
-    form.operatingCompanyId,
-    { preferredDateYmd: useDateStr || null },
-  );
   const needsServiceDateConsent = !adminDateLocked && tplOn('preferredDate') && Boolean(useDateStr);
   const needsTimeSlotConsent = !adminTimeLocked && tplOn('preferredTime') && Boolean(useTimeStr);
   const consentResult = validateOrderFormSubmitConsents({
