@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { applyOneRoomToSpecialNotes } from '../../../../utils/orderFormOneRoom';
 import { getPreferredTimeDetailSelectOptions } from '../../../../constants/orderFormPreferredTimeDetail';
-import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
+import { isOrderTimeSlotValue, resolvePreferredTimeSlotForDetail } from '@shared/orderFormTimeSlotLabels';
 import { YmdSelect } from '../../../ui/DateQuerySelects';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { ORDER_FORM_SPACE_COUNT_FIELDS, ORDER_FORM_SPACE_COUNT_HINT } from '@shared/orderFormSpaceCounts';
@@ -122,10 +122,17 @@ export function TimeStep({
 }
 
 export function TimeDetailStep({ form, setForm, lockKey, step, goNext }: CustomerStepBodyProps) {
-  const slot = isOrderTimeSlotValue(form.preferredTime) ? form.preferredTime : '';
-  const options = slot ? getPreferredTimeDetailSelectOptions(slot) : [];
+  const options = getPreferredTimeDetailSelectOptions(form.preferredTime);
+  const slot = resolvePreferredTimeSlotForDetail(form.preferredTime);
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
+      {options.length === 0 ? (
+        <p className="text-sm text-gray-600 leading-relaxed">
+          {slot === '조율'
+            ? '조율은 구체적 시각을 고르지 않아도 됩니다.'
+            : '먼저 시간대를 선택하면 시각이 나타납니다.'}
+        </p>
+      ) : null}
       <div className="order-wizard-chip-grid grid grid-cols-2 gap-2.5">
         {options.map((o) => (
           <WizardChoiceChip

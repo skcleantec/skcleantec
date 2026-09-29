@@ -1,4 +1,4 @@
-import type { OrderTimeSlot } from './orderFormSchedule';
+import { resolvePreferredTimeSlotForDetail, type OrderTimeSlot } from './orderFormSchedule';
 
 /** 오후 시간대 — 구체적 시각은 이 값 한 가지만 허용 (DB/API 저장 문자열과 동일) */
 export const ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE = '12시~2시 사이 (협의)';
@@ -40,12 +40,16 @@ export function formatOrderFormTimeDetailLabel(hhmmStr: string): string {
   return `오후 ${h - 12}:${mm}`;
 }
 
-export function getPreferredTimeDetailSelectOptions(slot: OrderTimeSlot): { value: string; label: string }[] {
-  if (slot === '오후') {
+export function getPreferredTimeDetailSelectOptions(
+  slot: string | null | undefined,
+): { value: string; label: string }[] {
+  const resolved = resolvePreferredTimeSlotForDetail(slot);
+  if (!resolved || resolved === '조율') return [];
+  if (resolved === '오후') {
     const v = ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE;
     return [{ value: v, label: v }];
   }
-  return [...allowedPreferredTimeDetailValues(slot)]
+  return [...allowedPreferredTimeDetailValues(resolved)]
     .sort()
     .map((value) => ({
       value,
@@ -71,11 +75,16 @@ function isLegacyAfternoonHHMM(hhmm: string): boolean {
 }
 
 /** 선택된 시간대에 허용되는 값만 유지, 아니면 빈 문자열 */
-export function coercePreferredTimeDetailForSlot(raw: string, slot: OrderTimeSlot): string {
-  const allowed = allowedPreferredTimeDetailValues(slot);
+export function coercePreferredTimeDetailForSlot(
+  raw: string,
+  slot: string | null | undefined,
+): string {
+  const resolved = resolvePreferredTimeSlotForDetail(slot);
+  if (!resolved) return '';
+  const allowed = allowedPreferredTimeDetailValues(resolved);
   const t = raw.trim();
   if (allowed.has(t)) return t;
-  if (slot === '오후') {
+  if (resolved === '오후') {
     const hh = parsePreferredTimeDetailToHHMM(raw);
     if (hh && isLegacyAfternoonHHMM(hh)) return ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE;
     return '';
@@ -86,9 +95,11 @@ export function coercePreferredTimeDetailForSlot(raw: string, slot: OrderTimeSlo
 }
 
 /** 섹션 안내 문구 */
-export function preferredTimeDetailRangeHint(slot: OrderTimeSlot): string {
-  if (slot === '오전') return '오전 8시~9시 사이, 30분 단위로 선택할 수 있습니다.';
-  if (slot === '오후') return '오후는 12시~2시 사이 일정만 선택할 수 있으며, 세부 시각은 협의입니다.';
-  if (slot === '조율') return '조율은 오전·오후·사이와 무관합니다. 구체적 시각은 입력하지 않아도 됩니다.';
-  return '오전 10시~오후 1시 사이, 30분 단위로 선택할 수 있습니다.';
+export function preferredTimeDetailRangeHint(slot: string | null | undefined): string {
+  const resolved = resolvePreferredTimeSlotForDetail(slot);
+  if (resolved === '오전') return '오전 8시~9시 사이, 30분 단위로 선택할 수 있습니다.';
+  if (resolved === '오후') return '오후는 12시~2시 사이 일정만 선택할 수 있으며, 세부 시각은 협의입니다.';
+  if (resolved === '조율') return '조율은 오전·오후·사이와 무관합니다. 구체적 시각은 입력하지 않아도 됩니다.';
+  if (resolved === '사이청소') return '오전 10시~오후 1시 사이, 30분 단위로 선택할 수 있습니다.';
+  return '시간대를 선택한 뒤 희망 시각을 고를 수 있습니다.';
 }

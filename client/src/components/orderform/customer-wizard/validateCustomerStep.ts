@@ -1,5 +1,5 @@
 import { isPreferredTimeDetailRequired } from '../../../constants/orderFormSchedule';
-import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
+import { resolvePreferredTimeSlotForDetail } from '@shared/orderFormTimeSlotLabels';
 import { allowedPreferredTimeDetailValues } from '../../../constants/orderFormPreferredTimeDetail';
 import { validateOrderFormSpaceCounts } from '@shared/orderFormSpaceCounts';
 import {
@@ -109,11 +109,12 @@ export function validateCustomerStep(args: {
       if (isPreferredTimeDetailRequired(form.preferredTime) && !form.preferredTimeDetail.trim()) {
         return '사이청소 선택 시 구체적 시각을 선택해 주세요.';
       }
+      const detailSlot = resolvePreferredTimeSlotForDetail(form.preferredTime);
       if (
         form.preferredTimeDetail.trim() &&
-        isOrderTimeSlotValue(form.preferredTime) &&
-        form.preferredTime !== '조율' &&
-        !allowedPreferredTimeDetailValues(form.preferredTime).has(form.preferredTimeDetail.trim())
+        detailSlot &&
+        detailSlot !== '조율' &&
+        !allowedPreferredTimeDetailValues(detailSlot).has(form.preferredTimeDetail.trim())
       ) {
         return '구체적 시각을 해당 시간대 범위에서 선택해 주세요.';
       }

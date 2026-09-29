@@ -807,7 +807,7 @@
         "shared/orderFormTimeSlotLabels.ts",
         "client/src/components/admin/order-templates/OrderFormDraftOptionsEditor.tsx"
       ],
-      "notes": "시간대 선택지는 테넌트 전역이 아니라 양식 preferredTime.options. 발주서설정 라벨은 오전·오후·사이청소·조율 키를 쓰는 양식의 안내 문구만. 사이청소만 구체적 시각 필수."
+      "notes": "시간대 선택지는 테넌트 전역이 아니라 양식 preferredTime.options. 발주서설정 라벨은 오전·오후·사이청소·조율 키를 쓰는 양식의 안내 문구만. 구체적 시각 목록은 표시문구·공백을 오전·오후·사이청소로 맞춘 뒤 채움(오전 3칸·오후 협의 1칸·사이 7칸). 조율은 빈 드롭다운 대신 안내 문구. 사이청소만 구체적 시각 필수."
     },
     {
       "id": "orderform.guide.perTemplate",
