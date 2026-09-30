@@ -34,7 +34,7 @@ function summaryOf(leader: AiDispatchLeader): string {
 
 function dayText(leader: AiDispatchLeader): string {
   const detail = leader.detail;
-  if (detail.sinceRest) return `휴무 다음부터 ${detail.workedDays}일 일했습니다. 그 뒤 하루 2건이면 보통입니다.`;
+  if (detail.sinceRest) return `이 날짜 배정이 아닙니다. 휴무 다음 ${detail.workedDays}일 동안의 지난 근무입니다. 하루 2건이면 보통입니다.`;
   const gap = detail.workedDays - detail.normalWorkDays;
   const base = `휴무가 없어 최근 ${detail.windowDays}일 중 ${detail.workedDays}일을 한 주 기준으로 봤습니다. 정상은 ${detail.normalWorkDays}일입니다.`;
   if (gap > 0) return `${base} 정상보다 ${gap}일 더 일했습니다.`;
@@ -43,7 +43,7 @@ function dayText(leader: AiDispatchLeader): string {
 
 function jobText(leader: AiDispatchLeader): string {
   const detail = leader.detail;
-  if (detail.sinceRest) return `${detail.jobCount}건입니다. 일한 날마다 2건까지는 보통이고, 그 이상만 피로에 더합니다.`;
+  if (detail.sinceRest) return `지난 근무 합계 ${detail.jobCount}건입니다. 이 날짜에 넣는 건수가 아닙니다. 일한 날마다 2건까지는 보통입니다.`;
   const extra = detail.jobCount - detail.normalJobs;
   const base = `${detail.jobCount}건 했습니다. 휴무가 없는 주의 정상은 ${detail.normalJobs}건입니다.`;
   if (extra > 0) return `${base} ${extra}건이 더 많아 피로가 올라갑니다.`;

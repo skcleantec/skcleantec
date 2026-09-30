@@ -369,7 +369,7 @@ function LeaderCard({ leader, onOpen }: { leader: AiDispatchLeader; onOpen: () =
           <span className="w-7 shrink-0 text-right text-fluid-2xs font-semibold tabular-nums text-slate-800">{fatigue}</span>
         </div>
         <p className="mt-1 text-fluid-2xs text-slate-700">
-          남음 <span className="font-semibold tabular-nums">{leader.remainingJobs}</span>건
+          이 날짜 남은 자리 <span className="font-semibold tabular-nums">{leader.remainingJobs}</span>건 · 하루 {leader.jobsPerDay}건
           <span className="text-slate-400"> · </span>
           {TEAM_LEADER_SIZE_POLICY_LABEL[leader.sizePolicy]}
         </p>

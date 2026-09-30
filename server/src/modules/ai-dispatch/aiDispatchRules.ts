@@ -37,7 +37,6 @@ export function fixedSlot(
 
 export function slotJobWeight(slot: AiDispatchSlot): number {
   if (slot === 'ALL_DAY') return 2;
-  if (slot === 'HUMAN') return 0;
   return 1;
 }
 

@@ -197,6 +197,7 @@ export function AiDispatchDraftList({
         });
         const total = leader ? loopKm(leader, rows, jobById) : null;
         const since = leader?.detail.distanceSinceRestKm;
+        const todayCount = rows.reduce((sum, row) => sum + (shownSlot(row, jobById.get(row.inquiryId)) === 'ALL_DAY' ? 2 : 1), 0);
         const reason = [...new Set(rows.map((row) => row.reason.trim()).filter(Boolean))].join(' · ');
         return (
           <section key={leaderId} className="space-y-1 rounded-xl border border-slate-200 bg-white p-2">
@@ -204,7 +205,7 @@ export function AiDispatchDraftList({
               팀장명: {leader?.name ?? '팀장'}
               {leader ? (
                 <span className="ml-2 font-medium text-slate-600">
-                  피로도: {leader.fatigue} ({bandWord(leader.band)})
+                  피로도: {leader.fatigue} ({bandWord(leader.band)}) · 이 날짜 {todayCount}건 / 하루 {leader.jobsPerDay}건
                 </span>
               ) : null}
             </p>

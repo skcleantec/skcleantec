@@ -184,7 +184,7 @@ function parseLines(
 }
 
 function seatWeight(slot: AiDispatchSlot): number {
-  return slot === 'ALL_DAY' ? 2 : 1;
+  return slotJobWeight(slot);
 }
 
 function pickLeader(
@@ -492,6 +492,41 @@ function tuneMorningAfternoon(
   return tuned;
 }
 
+function clampDailyCap(lines: DraftLine[], jobs: DispatchJob[], leaders: DispatchLeader[]): DraftLine[] {
+  const jobById = new Map(jobs.map((job) => [job.id, job]));
+  const cap = new Map(leaders.map((leader) => [leader.id, leader.jobsPerDay]));
+  const used = new Map(leaders.map((leader) => [leader.id, leader.usedJobs]));
+  const kept: DraftLine[] = [];
+  const dropped: DraftLine[] = [];
+  for (const line of lines) {
+    if (!line.teamLeaderId) {
+      kept.push(line);
+      continue;
+    }
+    const job = jobById.get(line.inquiryId);
+    const weight = seatWeight(job?.slot ?? line.slot);
+    const limit = cap.get(line.teamLeaderId) ?? 2;
+    const next = (used.get(line.teamLeaderId) ?? 0) + weight;
+    if (next > limit) {
+      dropped.push(line);
+      continue;
+    }
+    used.set(line.teamLeaderId, next);
+    kept.push(line);
+  }
+  const seen = new Set(kept.filter((line) => line.teamLeaderId).map((line) => line.inquiryId));
+  for (const line of dropped) {
+    if (seen.has(line.inquiryId)) continue;
+    seen.add(line.inquiryId);
+    kept.push({
+      ...line,
+      teamLeaderId: null,
+      reason: noSeatReason(leaders),
+    });
+  }
+  return kept;
+}
+
 export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: string, workDate: string) {
   setAiDispatchProgress(tenantId, workDate, 1, '날짜의 일정을 모으고 있습니다.');
   const day = await loadDispatchDay(db, tenantId, workDate);
@@ -510,7 +545,7 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
     };
   }
   if (openJobs.length === 0) {
-    const lines = fillOpenJobs([], day.jobs, day.leaders, day.settings.twoRoomMaxPyeong);
+    const lines = clampDailyCap(fillOpenJobs([], day.jobs, day.leaders, day.settings.twoRoomMaxPyeong), day.jobs, day.leaders);
     const run = await saveRun(db, tenantId, actorId, workDate, lines, '집 주소가 있는 팀장이 없어 넣지 못했습니다.', null);
     return { aiConfigured: true as const, run };
   }
@@ -532,7 +567,11 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
   }
   setAiDispatchProgress(tenantId, workDate, 4, '오전·오후를 가깝게 묶고 피로에 맞춰 넣고 있습니다.');
   const filled = fillOpenJobs(parsed ?? [], day.jobs, day.leaders, day.settings.twoRoomMaxPyeong);
-  const lines = tuneMorningAfternoon(filled, day.jobs, day.leaders, day.settings.twoRoomMaxPyeong);
+  const lines = clampDailyCap(
+    tuneMorningAfternoon(filled, day.jobs, day.leaders, day.settings.twoRoomMaxPyeong),
+    day.jobs,
+    day.leaders,
+  );
   const summary = parsed
     ? '피로 점수가 높은 팀장에게 가까운 하루를 넣었습니다. 하루 1건은 집과의 거리만 봤습니다. 자리가 찬 일정은 위에 모아 두었습니다. 승인 전에는 배정되지 않습니다.'
     : 'AI 응답을 규칙에 맞추지 못해, 오전·오후 거리와 피로로 팀장을 넣었습니다. 승인 전에는 배정되지 않습니다.';

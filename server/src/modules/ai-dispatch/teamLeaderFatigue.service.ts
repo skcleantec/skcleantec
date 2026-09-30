@@ -280,9 +280,11 @@ export async function loadLeaderFatigue(
       }
     }
 
-    const noteParts = row.sinceRest
-      ? [`휴무 이후 ${row.jobCount}건`, row.distanceSinceRestKm == null ? '거리 없음' : `누적 ${row.distanceSinceRestKm}km`]
-      : [`휴무 없음 ${LOOKBACK_DAYS}일 ${row.workedDays}일`, `${row.jobCount}건`];
+    const noteParts = [
+      `지난 ${row.workedDays}일 합계 ${row.jobCount}건`,
+      row.sinceRest ? '휴무 다음부터' : '휴무 없음',
+      '하루 2건이 보통',
+    ];
     if (row.jobCount > 0 && row.loopAvg == null) noteParts.push('하루 거리 없음');
     else if (row.jobCount > 0 && teamLoop == null) noteParts.push('비교할 평균 없음');
     else if (row.loopAvg != null && teamLoop != null) {
