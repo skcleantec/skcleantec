@@ -7,6 +7,7 @@ import {
   loadDispatchDay,
   type DispatchJob,
   type DispatchLeader,
+  type DispatchManualJob,
 } from './aiDispatchContext.service.js';
 import { setAiDispatchProgress } from './aiDispatchProgress.js';
 import { haversineKm, sizePolicyAllows, slotJobWeight } from './aiDispatchRules.js';
@@ -32,9 +33,49 @@ function roundTripKm(leader: DispatchLeader, job: DispatchJob): number | null {
   return Math.round(one * 2 * 10) / 10;
 }
 
-function betweenKm(a: DispatchJob, b: DispatchJob): number | null {
+function betweenKm(a: { lat: number | null; lng: number | null }, b: { lat: number | null; lng: number | null }): number | null {
   if (a.lat == null || a.lng == null || b.lat == null || b.lng == null) return null;
   return Math.round(haversineKm({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng }) * 10) / 10;
+}
+
+/** 오전을 마치고 오후 2시 안에 다음 현장에 닿을 직선거리. 도로 거리는 이보다 깁니다. */
+const MAX_AM_PM_KM = 35;
+/** 이 편도 안이면 집에서 가까운 오전입니다. 피로가 높은 팀장에게 먼저 줍니다. */
+const CLOSE_HOME_KM = 25;
+/** 피로가 낮아도 집에서 이 편도를 넘기면 넣지 않습니다. */
+const MAX_HOME_KM = 70;
+
+function homeCapKm(leader: DispatchLeader, pool: DispatchLeader[]): number {
+  return fatigueBias(leader, pool) >= 0.66 ? CLOSE_HOME_KM : MAX_HOME_KM;
+}
+
+function homeTooFar(leader: DispatchLeader, job: DispatchJob, pool: DispatchLeader[]): boolean {
+  const km = oneWayKm(leader, job);
+  if (km == null) return false;
+  return km > homeCapKm(leader, pool);
+}
+
+function sitesTooFar(stops: Array<{ lat: number | null; lng: number | null }>, job: DispatchJob): boolean {
+  return stops.some((stop) => {
+    const km = betweenKm(stop, job);
+    return km != null && km > MAX_AM_PM_KM;
+  });
+}
+
+function tooFarReason(): string {
+  return '오전과 오후가 멀거나 집에서 너무 멀어, 오후 2시 안에 닿기 어려워 넣지 않았습니다.';
+}
+
+function preferLeaderForMorning(am: DispatchJob) {
+  return (a: DispatchLeader, b: DispatchLeader) => {
+    const aKm = oneWayKm(a, am) ?? 999;
+    const bKm = oneWayKm(b, am) ?? 999;
+    const aFar = aKm > CLOSE_HOME_KM;
+    const bFar = bKm > CLOSE_HOME_KM;
+    if (aFar && bFar) return a.fatigue - b.fatigue || aKm - bKm;
+    if (!aFar && !bFar) return b.fatigue - a.fatigue || aKm - bKm;
+    return aKm - bKm;
+  };
 }
 
 function nearestOpposite(job: DispatchJob, jobs: DispatchJob[]) {
@@ -83,12 +124,12 @@ function buildPrompt(leaders: DispatchLeader[], jobs: DispatchJob[], twoRoomMax:
   return JSON.stringify({ leaders: leaderLines, jobs: jobLines });
 }
 
-const SYSTEM = `당신은 입주청소 하루 배정 담당입니다. 목표는 팀장 불만이 없게 컨디션을 조절하는 것입니다.
-가장 중요한 목표: 같은 팀장의 오전 현장과 오후 현장은 nearestOpposite.betweenKm가 작게 붙이세요.
+const SYSTEM = `당신은 입주청소 하루 배정 담당입니다. 1순위는 같은 팀장의 오전 현장과 오후 현장을 가깝게 붙이는 것입니다.
+nearestOpposite.betweenKm가 35를 넘으면 그 오전·오후를 같은 팀장에게 넣지 마세요. 오전을 마치고 오후 2시 안에 다음 현장에 닿을 수 없습니다.
 그 다음:
 - 하루 1건인 팀장은 집에서 가까운지만 보세요. 오전·오후를 묶지 마세요.
-- 하루 2건인 팀장만 오전과 오후를 가깝게 묶으세요.
-- fatigue 숫자가 더 높으면 집과도 가깝고 오전·오후도 가까운 하루를 주세요. 숫자가 더 낮으면 조금 먼 하루를 주세요. 휴무 직후는 0에 가깝고, 2주간 휴무가 없으면 매우 나쁨입니다.
+- 하루 2건인 팀장만, 35km 안의 오전·오후를 묶으세요.
+- 집에서 먼 오전은 fatigue가 더 낮은 팀장에게 주세요. fatigue가 더 높으면 집에서 가까운 오전만 주세요. 휴무 직후는 0에 가깝고, 2주간 휴무가 없으면 매우 나쁨입니다.
 - 고객 표시는 좋은 고객을 먼저, 그다음 보통, 어르신, 악성, 극악 순입니다. 표시 때문에 하루 동선이 도시를 가로지르게 하지 마세요.
 - remainingJobs를 넘기지 마세요. 오전과 오후 개수가 달라도, 짝이 안 되는 일정은 자리가 남은 팀장에게 한 건으로 넣으세요. 자리가 없으면 unassigned에 「모든 팀장이 배정된 상태입니다」라고 쓰세요.
 - 팀장이 없으면 「넣을 팀장이 없습니다」라고 쓰세요.
@@ -363,10 +404,10 @@ function fitsSize(leader: DispatchLeader, jobs: DispatchJob[], twoRoomMax: numbe
 
 function pairReason(leader: DispatchLeader, am: DispatchJob, pm: DispatchJob, pool: DispatchLeader[]): string {
   const between = betweenKm(am, pm);
-  const loop = homeLoopKm(leader, [am, pm]);
+  const morning = oneWayKm(leader, am);
   const bits = [
-    between != null ? `오전·오후 ${between}km` : '현장 사이 거리를 재지 못했습니다',
-    loop != null ? `총 ${loop}km` : '',
+    between != null ? `두 곳 ${between}km` : '현장 사이 거리를 재지 못했습니다',
+    morning != null ? `오전은 집에서 ${morning}km` : '',
     easeLine(leader, pool),
   ].filter(Boolean);
   return bits.join(' · ').slice(0, 160);
@@ -377,6 +418,7 @@ function tuneMorningAfternoon(
   jobs: DispatchJob[],
   leaders: DispatchLeader[],
   twoRoomMax: number,
+  manualJobs: DispatchManualJob[],
 ): DraftLine[] {
   const movable = new Set(jobs.filter(movableDayJob).map((job) => job.id));
   const loose = jobs.filter(
@@ -393,14 +435,26 @@ function tuneMorningAfternoon(
 
   const ams = jobs.filter((job) => movable.has(job.id) && job.slot === 'AM');
   const pms = jobs.filter((job) => movable.has(job.id) && job.slot === 'PM');
-  const candidates: Array<{ am: DispatchJob; pm: DispatchJob; score: number }> = [];
+  const stopsNow = (leaderId: string, extra: DraftLine[] = tuned): Array<{ lat: number | null; lng: number | null }> => {
+    const pinned = manualJobs
+      .filter((job) => job.teamLeaderId === leaderId)
+      .map((job) => ({ lat: job.lat, lng: job.lng }));
+    const drafted = extra
+      .filter((line) => line.teamLeaderId === leaderId)
+      .map((line) => jobs.find((job) => job.id === line.inquiryId))
+      .filter((job): job is DispatchJob => job != null)
+      .map((job) => ({ lat: job.lat, lng: job.lng }));
+    return [...pinned, ...drafted];
+  };
+  const candidates: Array<{ am: DispatchJob; pm: DispatchJob; between: number }> = [];
   for (const am of ams) {
     for (const pm of pms) {
-      const between = betweenKm(am, pm) ?? 999;
-      candidates.push({ am, pm, score: between + (tonePenalty(am) + tonePenalty(pm)) * 0.45 });
+      const between = betweenKm(am, pm);
+      if (between == null || between > MAX_AM_PM_KM) continue;
+      candidates.push({ am, pm, between });
     }
   }
-  candidates.sort((a, b) => a.score - b.score);
+  candidates.sort((a, b) => a.between - b.between);
   const usedAm = new Set<string>();
   const usedPm = new Set<string>();
   const pairs: Array<{ am: DispatchJob; pm: DispatchJob }> = [];
@@ -424,25 +478,30 @@ function tuneMorningAfternoon(
     });
   };
 
-  const pairPool = [...pairs];
+  const pairPool = [...pairs].sort((a, b) => (betweenKm(a.am, a.pm) ?? 999) - (betweenKm(b.am, b.pm) ?? 999));
   const tiredFirst = [...leaders].sort((a, b) => b.fatigue - a.fatigue || a.name.localeCompare(b.name, 'ko'));
-  for (const leader of tiredFirst) {
-    if (seatsLeft(leader, used) < 2 || leader.jobsPerDay < 2 || pairPool.length === 0) continue;
-    const sized = pairPool.filter((pair) => fitsSize(leader, [pair.am, pair.pm], twoRoomMax));
-    const pool = sized.length > 0 ? sized : pairPool;
-    pool.sort((a, b) => {
-      const aHard = (betweenKm(a.am, a.pm) ?? 40) + (homeLoopKm(leader, [a.am, a.pm]) ?? 80);
-      const bHard = (betweenKm(b.am, b.pm) ?? 40) + (homeLoopKm(leader, [b.am, b.pm]) ?? 80);
-      return aHard - bHard;
-    });
-    const picked = pool[0];
-    const index = pairPool.findIndex((pair) => pair.am.id === picked.am.id && pair.pm.id === picked.pm.id);
-    if (index >= 0) pairPool.splice(index, 1);
-    const reason = pairReason(leader, picked.am, picked.pm, leaders);
-    pushStop(picked.am, leader, reason);
-    pushStop(picked.pm, leader, reason);
-  }
+  const stillOpen: Array<{ am: DispatchJob; pm: DispatchJob }> = [];
   for (const pair of pairPool) {
+    const options = tiredFirst.filter(
+      (leader) =>
+        leader.jobsPerDay >= 2 &&
+        seatsLeft(leader, used) >= 2 &&
+        fitsSize(leader, [pair.am, pair.pm], twoRoomMax) &&
+        !homeTooFar(leader, pair.am, leaders) &&
+        !sitesTooFar(stopsNow(leader.id), pair.am) &&
+        !sitesTooFar([...stopsNow(leader.id), pair.am], pair.pm),
+    );
+    if (options.length === 0) {
+      stillOpen.push(pair);
+      continue;
+    }
+    options.sort(preferLeaderForMorning(pair.am));
+    const leader = options[0];
+    const reason = pairReason(leader, pair.am, pair.pm, leaders);
+    pushStop(pair.am, leader, reason);
+    pushStop(pair.pm, leader, reason);
+  }
+  for (const pair of stillOpen) {
     usedAm.delete(pair.am.id);
     usedPm.delete(pair.pm.id);
   }
@@ -454,14 +513,16 @@ function tuneMorningAfternoon(
       let placed = false;
       for (let step = 0; step < tiredFirst.length; step += 1) {
         const leader = tiredFirst[(cursor + step) % tiredFirst.length];
+        const seatOk = (job: DispatchJob) =>
+          seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2);
         const choices = pending.filter(
-          (job) => seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2),
+          (job) => seatOk(job) && !homeTooFar(leader, job, leaders) && !sitesTooFar(stopsNow(leader.id), job),
         );
         if (choices.length === 0) continue;
         const sized = choices.filter((job) => fitsSize(leader, [job], twoRoomMax));
         const pool = (sized.length > 0 ? sized : choices)
           .slice()
-          .sort((a, b) => (oneWayKm(leader, a) ?? 999) - (oneWayKm(leader, b) ?? 999) || tonePenalty(a) - tonePenalty(b));
+          .sort((a, b) => (oneWayKm(leader, a) ?? 999) - (oneWayKm(leader, b) ?? 999));
         const job = pool[0];
         pushStop(job, leader, fillReason(leader, job, leaders));
         pending.splice(
@@ -475,11 +536,14 @@ function tuneMorningAfternoon(
       if (!placed) break;
     }
     for (const job of pending) {
+      const someoneHasSeat = tiredFirst.some(
+        (leader) => seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2),
+      );
       tuned.push({
         inquiryId: job.id,
         teamLeaderId: null,
         slot: job.slot,
-        reason: noSeatReason(leaders),
+        reason: someoneHasSeat ? tooFarReason() : noSeatReason(leaders),
         updatedAt: job.updatedAt,
       });
     }
@@ -492,8 +556,13 @@ function tuneMorningAfternoon(
   return tuned;
 }
 
-/** 짝이 안 맞아 남은 오전·오후도, 칸이 있으면 팀장에게 넣는다. */
-function assignLeftovers(lines: DraftLine[], jobs: DispatchJob[], leaders: DispatchLeader[]): DraftLine[] {
+/** 칸이 남은 팀장에게만 넣되, 이미 있는 현장과 35km가 넘으면 넣지 않는다. */
+function assignLeftovers(
+  lines: DraftLine[],
+  jobs: DispatchJob[],
+  leaders: DispatchLeader[],
+  manualJobs: DispatchManualJob[],
+): DraftLine[] {
   const used = new Map(leaders.map((leader) => [leader.id, leader.usedJobs]));
   const next: DraftLine[] = [];
   for (const line of lines) {
@@ -518,6 +587,7 @@ function assignLeftovers(lines: DraftLine[], jobs: DispatchJob[], leaders: Dispa
     const taken = new Set(
       next.filter((line) => line.inquiryId === job.id && line.teamLeaderId).map((line) => line.teamLeaderId as string),
     );
+    let blockedByDistance = false;
     while (taken.size < job.requiredLeaders) {
       const open = leaders.filter(
         (leader) =>
@@ -526,11 +596,23 @@ function assignLeftovers(lines: DraftLine[], jobs: DispatchJob[], leaders: Dispa
           (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2),
       );
       if (open.length === 0) break;
-      open.sort((a, b) => (oneWayKm(a, job) ?? 999) - (oneWayKm(b, job) ?? 999) || b.fatigue - a.fatigue);
-      const leader = open[0];
+      const near = open.filter((leader) => {
+        const pinned = manualJobs.filter((row) => row.teamLeaderId === leader.id);
+        const drafted = next
+          .filter((line) => line.teamLeaderId === leader.id)
+          .map((line) => jobs.find((item) => item.id === line.inquiryId))
+          .filter((item): item is DispatchJob => item != null);
+        return !homeTooFar(leader, job, leaders) && !sitesTooFar([...pinned, ...drafted], job);
+      });
+      if (near.length === 0) {
+        blockedByDistance = true;
+        break;
+      }
+      near.sort(preferLeaderForMorning(job));
+      const leader = near[0];
       taken.add(leader.id);
       used.set(leader.id, (used.get(leader.id) ?? 0) + seatWeight(job.slot));
-      const paired = job.slot === 'AM' || job.slot === 'PM' ? '짝이 없어도 남은 자리에 넣었습니다' : '';
+      const paired = job.slot === 'AM' || job.slot === 'PM' ? '가까운 현장만 남긴 한 건입니다' : '';
       next.push({
         inquiryId: job.id,
         teamLeaderId: leader.id,
@@ -544,7 +626,7 @@ function assignLeftovers(lines: DraftLine[], jobs: DispatchJob[], leaders: Dispa
         inquiryId: job.id,
         teamLeaderId: null,
         slot: job.slot,
-        reason: noSeatReason(leaders),
+        reason: blockedByDistance ? tooFarReason() : noSeatReason(leaders),
         updatedAt: job.updatedAt,
       });
     }
@@ -629,15 +711,16 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
   const filled = fillOpenJobs(parsed ?? [], day.jobs, day.leaders, day.settings.twoRoomMaxPyeong);
   const lines = clampDailyCap(
     assignLeftovers(
-      tuneMorningAfternoon(filled, day.jobs, day.leaders, day.settings.twoRoomMaxPyeong),
+      tuneMorningAfternoon(filled, day.jobs, day.leaders, day.settings.twoRoomMaxPyeong, day.manualJobs),
       day.jobs,
       day.leaders,
+      day.manualJobs,
     ),
     day.jobs,
     day.leaders,
   );
   const summary = parsed
-    ? '피로 점수가 높은 팀장에게 가까운 하루를 넣었습니다. 하루 1건은 집과의 거리만 봤습니다. 자리가 찬 일정은 위에 모아 두었습니다. 승인 전에는 배정되지 않습니다.'
+    ? '같은 팀장의 오전과 오후는 가까운 현장만 묶었습니다. 집에서 먼 오전은 피로가 낮은 팀장에게 넣었습니다. 승인 전에는 배정되지 않습니다.'
     : 'AI 응답을 규칙에 맞추지 못해, 오전·오후 거리와 피로로 팀장을 넣었습니다. 승인 전에는 배정되지 않습니다.';
   setAiDispatchProgress(tenantId, workDate, 5, '초안을 저장하고 있습니다.');
   const run = await saveRun(db, tenantId, actorId, workDate, lines, summary, usage);

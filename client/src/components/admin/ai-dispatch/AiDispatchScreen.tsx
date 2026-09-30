@@ -9,6 +9,9 @@ import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
 import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
 import { AiDispatchDraftList } from './AiDispatchDraftList';
+import { AiDispatchLaunchButton } from './AiDispatchLaunchButton';
+import { AiDispatchHelpModal } from '../ai-dispatch-help/AiDispatchHelpModal';
+import { AiDispatchHelpTrigger } from '../ai-dispatch-help/AiDispatchHelpTrigger';
 import { AiDispatchProgressModal } from './AiDispatchProgressModal';
 import type { TeamLeaderDispatchFormValue } from '../TeamLeaderDispatchFields';
 
@@ -133,6 +136,7 @@ export function AiDispatchScreen({
   const [dayMapOpen, setDayMapOpen] = useState(false);
   const [dayMapItems, setDayMapItems] = useState<ScheduleItem[]>([]);
   const [dayMapError, setDayMapError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [leaderOpen, setLeaderOpen] = useState<AiDispatchLeader | null>(null);
   useEffect(() => {
     setLeaderOpen((current) => {
@@ -154,7 +158,10 @@ export function AiDispatchScreen({
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:gap-4">
       <header className="min-w-0">
-        <h1 className="text-fluid-lg font-semibold tracking-tight text-slate-900">AI 미리 배정</h1>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-fluid-lg font-semibold tracking-tight text-slate-900">AI 미리 배정</h1>
+          <AiDispatchHelpTrigger onClick={() => setHelpOpen(true)} />
+        </div>
         <p className="mt-0.5 text-fluid-xs text-slate-500">세 단계로 보고, 고른 건만 실제 배정됩니다.</p>
       </header>
 
@@ -185,15 +192,9 @@ export function AiDispatchScreen({
                 className="ml-2 min-h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-fluid-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               />
             </label>
-            <button
-              type="button"
-              disabled={running}
-              onClick={onRun}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-            >
-              <LineMdIcon name="calendar" className="size-4" />
+            <AiDispatchLaunchButton disabled={running} onClick={onRun}>
               {drafting ? '실행 중…' : 'AI 미리 배정'}
-            </button>
+            </AiDispatchLaunchButton>
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
@@ -374,6 +375,7 @@ export function AiDispatchScreen({
       ) : null}
       {drafting ? <AiDispatchProgressModal step={progressStep} message={progressMessage} seconds={progressSeconds} /> : null}
       {reportOpen && board?.run ? <AiDispatchReasonModal board={board} onClose={onCloseReport} /> : null}
+      <AiDispatchHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       {dayMapOpen && getToken() ? (
         <Suspense fallback={null}>
           <ScheduleDayMapModal

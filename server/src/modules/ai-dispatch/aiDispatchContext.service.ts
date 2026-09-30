@@ -58,6 +58,8 @@ export type DispatchManualJob = {
   customerName: string;
   areaLabel: string;
   pyeong: number | null;
+  lat: number | null;
+  lng: number | null;
   slot: AiDispatchSlot;
   teamLeaderId: string;
   teamLeaderName: string;
@@ -229,6 +231,8 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
           customerName: inquiry.customerName,
           areaLabel: areaLabel(inquiry.address),
           pyeong: inquiry.areaPyeong,
+          lat: inquiry.addressGeoLat,
+          lng: inquiry.addressGeoLng,
           slot,
           teamLeaderId: row.teamLeaderId,
           teamLeaderName: row.teamLeader.name,

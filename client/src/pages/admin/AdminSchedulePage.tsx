@@ -101,6 +101,7 @@ import { useHasTenantFeature, useTenantCapabilities } from '../../hooks/useTenan
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ScheduleHelpModal } from '../../components/admin/schedule-help/ScheduleHelpModal';
 import { ScheduleHelpTrigger } from '../../components/admin/schedule-help/ScheduleHelpTrigger';
+import { AiDispatchLaunchButton } from '../../components/admin/ai-dispatch/AiDispatchLaunchButton';
 import { ScheduleLegendItems } from '../../components/admin/schedule-help/ScheduleLegendItems';
 import {
   SCHEDULE_MARKETPLACE_SECTION_HELP,
@@ -1736,8 +1737,7 @@ export function AdminSchedulePage() {
           </PageTitleWithFavorite>
           <ScheduleHelpTrigger className="shrink-0" onClick={() => setScheduleHelpOpen(true)} />
           {aiDispatchOn ? (
-            <button
-              type="button"
+            <AiDispatchLaunchButton
               onClick={() =>
                 navigate(
                   `/admin/schedule/ai-dispatch?date=${
@@ -1745,10 +1745,9 @@ export function AdminSchedulePage() {
                   }`,
                 )
               }
-              className="min-h-9 rounded-lg bg-slate-900 px-2.5 py-1 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
               AI 미리 배정
-            </button>
+            </AiDispatchLaunchButton>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
@@ -1772,8 +1771,8 @@ export function AdminSchedulePage() {
               onClick={() => setScheduleHelpOpen(true)}
             />
             {aiDispatchOn ? (
-              <button
-                type="button"
+              <AiDispatchLaunchButton
+                compact
                 onClick={() =>
                   navigate(
                     `/admin/schedule/ai-dispatch?date=${
@@ -1781,10 +1780,9 @@ export function AdminSchedulePage() {
                     }`,
                   )
                 }
-                className="min-h-9 shrink-0 rounded-lg bg-slate-900 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               >
                 AI 배정
-              </button>
+              </AiDispatchLaunchButton>
             ) : null}
           </div>
             <InquiryQuickPasteTriggerButton

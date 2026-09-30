@@ -42,6 +42,8 @@ export type AiDispatchManualJob = {
   customerName: string;
   areaLabel: string;
   pyeong: number | null;
+  lat: number | null;
+  lng: number | null;
   slot: AiDispatchSlot;
   teamLeaderId: string;
   teamLeaderName: string;
