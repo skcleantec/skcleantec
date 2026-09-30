@@ -21,8 +21,11 @@ type LeaderStat = {
   workedDays: number;
   jobCount: number;
   restDays: number;
+  sinceRest: boolean;
+  extraJobs: number;
   loopAvg: number | null;
   betweenAvg: number | null;
+  distanceSinceRestKm: number | null;
   largeJobs: number;
   soloJobs: number;
   crewScore: number;
@@ -34,11 +37,13 @@ type FatigueDetail = {
   workedDays: number;
   jobCount: number;
   restDays: number;
+  sinceRest: boolean;
   normalWorkDays: number;
   normalJobs: number;
   loopKm: number | null;
   teamLoopKm: number | null;
   betweenDeltaKm: number | null;
+  distanceSinceRestKm: number | null;
   largeJobs: number;
   soloJobs: number;
 };
@@ -52,16 +57,6 @@ type FatigueRow = {
 
 const LOOKBACK_DAYS = 7;
 const NORMAL_SCORE = 40;
-
-function ymdSpan(from: string, to: string): string[] {
-  const out: string[] = [];
-  let cursor = from;
-  while (cursor <= to) {
-    out.push(cursor);
-    cursor = addDaysToKstYmd(cursor, 1);
-  }
-  return out;
-}
 
 /** 35평 미만·원룸은 0. 큰 집만 피로에 더한다. */
 function largeHomePoints(job: Pick<PastJob, 'pyeong' | 'isOneRoom'>): number {
@@ -121,8 +116,8 @@ function mean(values: number[]): number {
 }
 
 /**
- * 배정일 직전 7일. 정상 근무일·건수는 40점(보통).
- * 팀 평균보다 먼 왕복·현장 사이, 큰 평수, 쉼 없음만 올린다.
+ * 배정일 직전 7일. 휴무 달력(슬롯 조정 제외)이 있으면 그 다음 날부터 다시 센다.
+ * 휴무 이후 하루 2건은 40점(보통). 휴무가 없으면 주간 정상 근무일·건수가 보통이다.
  */
 export async function loadLeaderFatigue(
   db: Db,
@@ -141,8 +136,6 @@ export async function loadLeaderFatigue(
   const rangeFrom = kstDayRangeYmd(from);
   const rangeTo = kstDayRangeYmd(to);
   if (!rangeFrom || !rangeTo) return out;
-  const calendar = ymdSpan(from, to);
-
   const rows = await db.assignment.findMany({
     where: {
       tenantId,
@@ -189,26 +182,50 @@ export async function loadLeaderFatigue(
     byLeader.set(row.teamLeaderId, list);
   }
 
+  const offs = await db.userDayOff.findMany({
+    where: {
+      teamLeaderId: { in: leaders.map((leader) => leader.id) },
+      adminSlotAdjust: false,
+      date: { gte: rangeFrom.gte, lte: rangeTo.lte },
+    },
+    select: { teamLeaderId: true, date: true },
+  });
+  const restByLeader = new Map<string, string[]>();
+  for (const off of offs) {
+    const ymd = off.date.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+    const list = restByLeader.get(off.teamLeaderId) ?? [];
+    list.push(ymd);
+    restByLeader.set(off.teamLeaderId, list);
+  }
+
   const homeOf = new Map(leaders.map((leader) => [leader.id, leader]));
   const stats = new Map<string, LeaderStat>();
   for (const leader of leaders) {
-    const jobs = byLeader.get(leader.id) ?? [];
+    const allJobs = byLeader.get(leader.id) ?? [];
+    const restYmds = (restByLeader.get(leader.id) ?? []).filter((ymd) => ymd >= from && ymd <= to).sort();
+    const lastRest = restYmds.length > 0 ? restYmds[restYmds.length - 1] : null;
+    const spanFrom = lastRest ? addDaysToKstYmd(lastRest, 1) : from;
+    const jobs = allJobs.filter((job) => job.ymd >= spanFrom && job.ymd <= to);
     const worked = new Set(jobs.map((job) => job.ymd));
     const byDay = new Map<string, PastJob[]>();
     let pyeongScore = 0;
     let largeJobs = 0;
     let soloJobs = 0;
     let crewScore = 0;
+    let extraJobs = 0;
+    const countByDay = new Map<string, number>();
     for (const job of jobs) {
       const house = jobHousePoints(job, includeCrewInFatigue, twoRoomMax);
       pyeongScore += house.pyeong;
       crewScore += house.crew;
       if (house.pyeong > 0) largeJobs += 1;
       if (house.twoRoomSolo) soloJobs += 1;
+      countByDay.set(job.ymd, (countByDay.get(job.ymd) ?? 0) + 1);
       const day = byDay.get(job.ymd) ?? [];
       day.push(job);
       byDay.set(job.ymd, day);
     }
+    for (const count of countByDay.values()) extraJobs += Math.max(0, count - 2);
     const home = homeOf.get(leader.id);
     const loops: number[] = [];
     const betweens: number[] = [];
@@ -223,9 +240,12 @@ export async function loadLeaderFatigue(
     stats.set(leader.id, {
       workedDays: worked.size,
       jobCount: jobs.length,
-      restDays: calendar.filter((ymd) => !worked.has(ymd)).length,
+      restDays: restYmds.length,
+      sinceRest: lastRest != null,
+      extraJobs,
       loopAvg: loops.length > 0 ? mean(loops) : null,
       betweenAvg: betweens.length > 0 ? mean(betweens) : null,
+      distanceSinceRestKm: loops.length > 0 ? Math.round(loops.reduce((sum, value) => sum + value, 0)) : null,
       largeJobs,
       soloJobs,
       crewScore,
@@ -241,25 +261,31 @@ export async function loadLeaderFatigue(
   for (const leader of leaders) {
     const row = stats.get(leader.id);
     if (!row) continue;
-    let score = NORMAL_SCORE;
-    score += (row.workedDays - normalWorkDays) * 8;
-    if (row.workedDays >= LOOKBACK_DAYS && normalWorkDays < LOOKBACK_DAYS) score += 6;
-    score += Math.max(0, row.jobCount - normalJobs) * 3;
-    if (row.restDays >= 2) score -= 10;
+    let score = row.sinceRest && row.jobCount === 0 ? 18 : NORMAL_SCORE;
+    if (row.sinceRest) score += row.extraJobs * 4;
+    else {
+      score += (row.workedDays - normalWorkDays) * 8;
+      if (row.workedDays >= LOOKBACK_DAYS && normalWorkDays < LOOKBACK_DAYS) score += 6;
+      score += Math.max(0, row.jobCount - normalJobs) * 3;
+    }
     score += row.pyeongScore + row.crewScore;
 
-    if (row.loopAvg == null || teamLoop == null) score += 2;
-    else if (row.loopAvg <= teamLoop) score += 2;
-    else score += Math.min(20, Math.floor((row.loopAvg - teamLoop) / 4));
+    if (row.jobCount > 0) {
+      if (row.loopAvg == null || teamLoop == null) score += 2;
+      else if (row.loopAvg <= teamLoop) score += 2;
+      else score += Math.min(20, Math.floor((row.loopAvg - teamLoop) / 4));
 
-    if (row.betweenAvg != null && teamBetween != null && row.betweenAvg > teamBetween) {
-      score += Math.min(30, Math.floor((row.betweenAvg - teamBetween) / 2));
+      if (row.betweenAvg != null && teamBetween != null && row.betweenAvg > teamBetween) {
+        score += Math.min(30, Math.floor((row.betweenAvg - teamBetween) / 2));
+      }
     }
 
-    const noteParts = [`${LOOKBACK_DAYS}일 ${row.workedDays}일`, `${row.jobCount}건`];
-    if (row.loopAvg == null) noteParts.push('거리 없음');
-    else if (teamLoop == null) noteParts.push('비교할 평균 없음');
-    else {
+    const noteParts = row.sinceRest
+      ? [`휴무 이후 ${row.jobCount}건`, row.distanceSinceRestKm == null ? '거리 없음' : `누적 ${row.distanceSinceRestKm}km`]
+      : [`휴무 없음 ${LOOKBACK_DAYS}일 ${row.workedDays}일`, `${row.jobCount}건`];
+    if (row.jobCount > 0 && row.loopAvg == null) noteParts.push('하루 거리 없음');
+    else if (row.jobCount > 0 && teamLoop == null) noteParts.push('비교할 평균 없음');
+    else if (row.loopAvg != null && teamLoop != null) {
       noteParts.push(`팀 평균 ${Math.round(teamLoop)}km`);
       noteParts.push(`이 팀장 ${Math.round(row.loopAvg)}km`);
     }
@@ -281,11 +307,13 @@ export async function loadLeaderFatigue(
         workedDays: row.workedDays,
         jobCount: row.jobCount,
         restDays: row.restDays,
+        sinceRest: row.sinceRest,
         normalWorkDays,
         normalJobs,
         loopKm: row.loopAvg == null ? null : Math.round(row.loopAvg),
         teamLoopKm: teamLoop == null ? null : Math.round(teamLoop),
         betweenDeltaKm,
+        distanceSinceRestKm: row.distanceSinceRestKm,
         largeJobs: row.largeJobs,
         soloJobs: row.soloJobs,
       },

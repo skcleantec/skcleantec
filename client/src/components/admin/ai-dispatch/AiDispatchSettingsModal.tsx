@@ -94,11 +94,11 @@ export function AiDispatchSettingsModal({
           className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3"
         >
           <p className="text-fluid-2xs leading-snug text-slate-500">
-            주 6일·12건이 보통입니다. 큰 집만 팀장을 더 붙입니다. 팀 평균보다 먼 이동과 현장 사이 거리가 피로를 올립니다.
+            휴무 달력의 쉰 날 다음부터 다시 세고, 그 뒤 하루 2건이면 보통입니다. 휴무가 없는 주만 아래 주간 정상 근무일·건수를 봅니다. 팀 평균보다 먼 이동은 점수를 올립니다.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="주간 정상 근무일" hint="이 날수면 보통입니다" value={normalDays} onChange={onNormalDays} />
-            <Field label="주간 정상 건수" hint="이 건수면 보통입니다" value={normalJobs} onChange={onNormalJobs} />
+            <Field label="주간 정상 근무일" hint="휴무가 없는 주의 기준입니다" value={normalDays} onChange={onNormalDays} />
+            <Field label="주간 정상 건수" hint="휴무가 없을 때만 이 건수가 보통입니다" value={normalJobs} onChange={onNormalJobs} />
             <Field label="이 평수 이상" hint="이 크기부터 팀장을 더 붙입니다" value={minPyeong} onChange={onMinPyeong} />
             <Field label="팀장 수" hint="위 평수일 때 붙는 인원" value={leaderCount} onChange={onLeaderCount} />
             <Field label="투룸 상한" hint="이 평수 이하는 작은 집으로 봅니다" value={twoRoom} onChange={onTwoRoom} />

@@ -41,11 +41,13 @@ export type DispatchLeader = {
     workedDays: number;
     jobCount: number;
     restDays: number;
+    sinceRest: boolean;
     normalWorkDays: number;
     normalJobs: number;
     loopKm: number | null;
     teamLoopKm: number | null;
     betweenDeltaKm: number | null;
+    distanceSinceRestKm: number | null;
     largeJobs: number;
     soloJobs: number;
   };
@@ -171,12 +173,14 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
         windowDays: 7,
         workedDays: 0,
         jobCount: 0,
-        restDays: 7,
+        restDays: 0,
+        sinceRest: false,
         normalWorkDays: settings.normalWorkDaysPerWeek,
         normalJobs: settings.normalJobsPerWeek,
         loopKm: null,
         teamLoopKm: null,
         betweenDeltaKm: null,
+        distanceSinceRestKm: null,
         largeJobs: 0,
         soloJobs: 0,
       },

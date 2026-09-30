@@ -27,33 +27,35 @@ function Row({
 }
 
 function summaryOf(leader: AiDispatchLeader): string {
-  if (leader.band === '피로') return '멀리 가거나, 큰 집이 많거나, 쉬지 못한 날이 겹친 상태입니다.';
-  if (leader.band === '좋음') return '최근 일주일이 정상보다 가볍거나, 이동이 팀 평균을 넘지 않습니다.';
-  return '최근 일주일이 정상 근무에 가깝습니다.';
+  if (leader.band === '피로') return '휴무 이후 하루 2건을 넘었거나, 이동이 팀보다 멀거나, 큰 집이 겹친 상태입니다.';
+  if (leader.band === '좋음') return '휴무 직후이거나, 최근 이동이 팀 평균을 넘지 않습니다.';
+  return '휴무 다음부터 하루 2건에 가깝습니다. 휴무가 없으면 한 주 정상 건수에 가깝습니다.';
 }
 
 function dayText(leader: AiDispatchLeader): string {
   const detail = leader.detail;
+  if (detail.sinceRest) return `휴무 다음부터 ${detail.workedDays}일 일했습니다. 그 뒤 하루 2건이면 보통입니다.`;
   const gap = detail.workedDays - detail.normalWorkDays;
-  const base = `최근 ${detail.windowDays}일 중 ${detail.workedDays}일 일했습니다. 정상은 ${detail.normalWorkDays}일입니다.`;
+  const base = `휴무가 없어 최근 ${detail.windowDays}일 중 ${detail.workedDays}일을 한 주 기준으로 봤습니다. 정상은 ${detail.normalWorkDays}일입니다.`;
   if (gap > 0) return `${base} 정상보다 ${gap}일 더 일했습니다.`;
-  if (gap < 0) return `${base} 정상보다 ${Math.abs(gap)}일 덜 일했습니다.`;
-  return `${base} 정상 날수와 같습니다.`;
+  return base;
 }
 
 function jobText(leader: AiDispatchLeader): string {
   const detail = leader.detail;
+  if (detail.sinceRest) return `${detail.jobCount}건입니다. 일한 날마다 2건까지는 보통이고, 그 이상만 피로에 더합니다.`;
   const extra = detail.jobCount - detail.normalJobs;
-  const base = `${detail.jobCount}건 했습니다. 정상은 ${detail.normalJobs}건입니다.`;
+  const base = `${detail.jobCount}건 했습니다. 휴무가 없는 주의 정상은 ${detail.normalJobs}건입니다.`;
   if (extra > 0) return `${base} ${extra}건이 더 많아 피로가 올라갑니다.`;
   return base;
 }
 
 function restText(leader: AiDispatchLeader): string {
-  const rest = leader.detail.restDays;
-  if (rest === 0) return '이 기간에 쉰 날이 없습니다. 쉼이 없으면 피로가 더 쌓입니다.';
-  if (rest >= 2) return `${rest}일 쉬었습니다. 이틀 이상 쉬면 피로가 줄어듭니다.`;
-  return `${rest}일 쉬었습니다.`;
+  const detail = leader.detail;
+  const distance = detail.distanceSinceRestKm == null ? '거리 없음' : `${detail.distanceSinceRestKm}km`;
+  if (!detail.sinceRest) return '이번 기간에 휴무 달력 기록이 없습니다. 한 주 정상 건수로 셉니다.';
+  if (detail.restDays <= 0) return '휴무 기록이 없습니다.';
+  return `휴무 ${detail.restDays}일 다음부터 다시 셉니다. 그 사이 누적 거리는 ${distance}입니다.`;
 }
 
 function loopText(leader: AiDispatchLeader): string {

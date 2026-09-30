@@ -25,11 +25,13 @@ export type AiDispatchLeader = {
     workedDays: number;
     jobCount: number;
     restDays: number;
+    sinceRest: boolean;
     normalWorkDays: number;
     normalJobs: number;
     loopKm: number | null;
     teamLoopKm: number | null;
     betweenDeltaKm: number | null;
+    distanceSinceRestKm: number | null;
     largeJobs: number;
     soloJobs: number;
   };

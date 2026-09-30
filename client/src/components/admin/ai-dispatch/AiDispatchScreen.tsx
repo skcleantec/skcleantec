@@ -200,7 +200,7 @@ export function AiDispatchScreen({
             <StepMark n="2" />
             <div>
               <h2 className="text-fluid-sm font-semibold text-slate-900">팀장 컨디션</h2>
-              <p className="text-fluid-2xs text-slate-500">정상 주는 보통이고, 평균보다 멀거나 큰 집이면 피로입니다.</p>
+              <p className="text-fluid-2xs text-slate-500">휴무 다음부터 다시 세고, 하루 2건이면 보통입니다. 점수가 높으면 가까운 하루를 줍니다.</p>
             </div>
           </div>
           <div className="mt-3 space-y-3">
