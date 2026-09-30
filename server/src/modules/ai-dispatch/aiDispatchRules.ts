@@ -119,19 +119,27 @@ export function clampSettings(input: {
   extraLeaderCount?: number;
   twoRoomMaxPyeong?: number;
   includeCrewInFatigue?: boolean;
+  normalWorkDaysPerWeek?: number;
+  normalJobsPerWeek?: number;
 }): {
   extraLeaderMinPyeong: number;
   extraLeaderCount: number;
   twoRoomMaxPyeong: number;
   includeCrewInFatigue: boolean;
+  normalWorkDaysPerWeek: number;
+  normalJobsPerWeek: number;
 } {
   const minP = Number(input.extraLeaderMinPyeong ?? AI_DISPATCH_DEFAULTS.extraLeaderMinPyeong);
   const count = Number(input.extraLeaderCount ?? AI_DISPATCH_DEFAULTS.extraLeaderCount);
   const two = Number(input.twoRoomMaxPyeong ?? AI_DISPATCH_DEFAULTS.twoRoomMaxPyeong);
+  const days = Number(input.normalWorkDaysPerWeek ?? AI_DISPATCH_DEFAULTS.normalWorkDaysPerWeek);
+  const jobs = Number(input.normalJobsPerWeek ?? AI_DISPATCH_DEFAULTS.normalJobsPerWeek);
   return {
     extraLeaderMinPyeong: Number.isFinite(minP) ? Math.max(10, Math.min(200, Math.round(minP))) : 40,
     extraLeaderCount: Number.isFinite(count) ? Math.max(1, Math.min(4, Math.round(count))) : 2,
     twoRoomMaxPyeong: Number.isFinite(two) ? Math.max(5, Math.min(40, Math.round(two))) : 15,
     includeCrewInFatigue: input.includeCrewInFatigue === true,
+    normalWorkDaysPerWeek: Number.isFinite(days) ? Math.max(1, Math.min(7, Math.round(days))) : 6,
+    normalJobsPerWeek: Number.isFinite(jobs) ? Math.max(1, Math.min(21, Math.round(jobs))) : 12,
   };
 }

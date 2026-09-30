@@ -77,10 +77,14 @@ export function AiDispatchScreen({
   leaderCount,
   twoRoom,
   includeCrew,
+  normalDays,
+  normalJobs,
   onMinPyeong,
   onLeaderCount,
   onTwoRoom,
   onIncludeCrew,
+  onNormalDays,
+  onNormalJobs,
   onRun,
   onApprove,
   onToggle,
@@ -102,10 +106,14 @@ export function AiDispatchScreen({
   leaderCount: string;
   twoRoom: string;
   includeCrew: boolean;
+  normalDays: string;
+  normalJobs: string;
   onMinPyeong: (value: string) => void;
   onLeaderCount: (value: string) => void;
   onTwoRoom: (value: string) => void;
   onIncludeCrew: (value: boolean) => void;
+  onNormalDays: (value: string) => void;
+  onNormalJobs: (value: string) => void;
   onRun: () => void;
   onApprove: () => void;
   onToggle: (id: string) => void;
@@ -182,7 +190,7 @@ export function AiDispatchScreen({
             <StepMark n="2" />
             <div>
               <h2 className="text-fluid-sm font-semibold text-slate-900">팀장 컨디션</h2>
-              <p className="text-fluid-2xs text-slate-500">좋음은 멀리, 피로는 집 근처로 둡니다.</p>
+              <p className="text-fluid-2xs text-slate-500">정상 주는 보통이고, 평균보다 멀거나 큰 집이면 피로입니다.</p>
             </div>
           </div>
           <div className="mt-3 space-y-3">
@@ -301,10 +309,12 @@ export function AiDispatchScreen({
       <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
         <summary className="cursor-pointer text-fluid-sm font-semibold text-slate-900">배정 규칙</summary>
         <p className="mt-1 text-fluid-2xs text-slate-500">
-          큰 집만 팀장을 더 붙입니다. 사이청소·조율은 오전·오후가 정해진 건만 초안에 넣습니다. 피로는 마지막으로 쉰 다음 일만
-          더합니다.
+          큰 집만 팀장을 더 붙입니다. 사이청소·조율은 오전·오후가 정해진 건만 초안에 넣습니다. 주 6일·12건이 보통이고, 팀
+          평균보다 먼 이동과 현장 사이 거리가 피로를 올립니다.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <Field label="주간 정상 근무일" hint="이 날수면 보통입니다" value={normalDays} onChange={onNormalDays} />
+          <Field label="주간 정상 건수" hint="이 건수면 보통입니다" value={normalJobs} onChange={onNormalJobs} />
           <Field label="이 평수 이상" hint="이 크기부터 팀장을 더 붙입니다" value={minPyeong} onChange={onMinPyeong} />
           <Field label="팀장 수" hint="위 평수일 때 붙는 인원" value={leaderCount} onChange={onLeaderCount} />
           <Field label="투룸 상한" hint="이 평수 이하는 작은 집으로 봅니다" value={twoRoom} onChange={onTwoRoom} />

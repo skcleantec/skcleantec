@@ -29,6 +29,8 @@ export function AdminAiDispatchPage() {
   const [leaderCount, setLeaderCount] = useState('2');
   const [twoRoom, setTwoRoom] = useState('15');
   const [includeCrew, setIncludeCrew] = useState(false);
+  const [normalDays, setNormalDays] = useState('6');
+  const [normalJobs, setNormalJobs] = useState('12');
   const [reportOpen, setReportOpen] = useState(false);
 
   const load = useCallback(async () => {
@@ -42,6 +44,8 @@ export function AdminAiDispatchPage() {
       setLeaderCount(String(next.settings.extraLeaderCount));
       setTwoRoom(String(next.settings.twoRoomMaxPyeong));
       setIncludeCrew(next.settings.includeCrewInFatigue === true);
+      setNormalDays(String(next.settings.normalWorkDaysPerWeek ?? 6));
+      setNormalJobs(String(next.settings.normalJobsPerWeek ?? 12));
       setPicked([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오지 못했습니다.');
@@ -110,6 +114,8 @@ export function AdminAiDispatchPage() {
         extraLeaderCount: Number(leaderCount),
         twoRoomMaxPyeong: Number(twoRoom),
         includeCrewInFatigue: includeCrew,
+        normalWorkDaysPerWeek: Number(normalDays),
+        normalJobsPerWeek: Number(normalJobs),
       });
       setNotice('규칙을 저장했습니다.');
       await load();
@@ -136,10 +142,14 @@ export function AdminAiDispatchPage() {
       leaderCount={leaderCount}
       twoRoom={twoRoom}
       includeCrew={includeCrew}
+      normalDays={normalDays}
+      normalJobs={normalJobs}
       onMinPyeong={setMinPyeong}
       onLeaderCount={setLeaderCount}
       onTwoRoom={setTwoRoom}
       onIncludeCrew={setIncludeCrew}
+      onNormalDays={setNormalDays}
+      onNormalJobs={setNormalJobs}
       onRun={() => void run()}
       onApprove={() => void approve()}
       onToggle={(id) => setPicked((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))}

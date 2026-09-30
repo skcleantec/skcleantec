@@ -235,6 +235,8 @@ router.patch('/settings', async (req, res) => {
     extraLeaderCount: Number(req.body?.extraLeaderCount),
     twoRoomMaxPyeong: Number(req.body?.twoRoomMaxPyeong),
     includeCrewInFatigue: req.body?.includeCrewInFatigue === true,
+    normalWorkDaysPerWeek: Number(req.body?.normalWorkDaysPerWeek),
+    normalJobsPerWeek: Number(req.body?.normalJobsPerWeek),
   });
   await prisma.tenantAiDispatchSettings.upsert({
     where: { tenantId },

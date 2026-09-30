@@ -50,6 +50,8 @@ export type AiDispatchBoard = {
     extraLeaderCount: number;
     twoRoomMaxPyeong: number;
     includeCrewInFatigue: boolean;
+    normalWorkDaysPerWeek: number;
+    normalJobsPerWeek: number;
   };
   leaders: AiDispatchLeader[];
   jobs: AiDispatchJob[];
@@ -117,6 +119,8 @@ export async function saveAiDispatchSettings(
     extraLeaderCount: number;
     twoRoomMaxPyeong: number;
     includeCrewInFatigue: boolean;
+    normalWorkDaysPerWeek: number;
+    normalJobsPerWeek: number;
   },
 ): Promise<void> {
   const res = await fetch(`${API}/ai-dispatch/settings`, {

@@ -15,20 +15,21 @@ type PastJob = {
   slot: AiDispatchSlot;
 };
 
-const LOOKBACK_DAYS = 14;
-const SCORE_CAP = 70;
+type DayTravel = { loop: number; between: number | null };
 
-function weekdaySinceMonday(ymd: string): number {
-  const label = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(
-    new Date(`${ymd}T12:00:00+09:00`),
-  );
-  const index: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
-  return index[label] ?? 0;
-}
+type LeaderStat = {
+  workedDays: number;
+  jobCount: number;
+  restDays: number;
+  loopAvg: number | null;
+  betweenAvg: number | null;
+  largeJobs: number;
+  soloJobs: number;
+  pyeongScore: number;
+};
 
-function weekMonday(ymd: string): string {
-  return addDaysToKstYmd(ymd, -weekdaySinceMonday(ymd));
-}
+const LOOKBACK_DAYS = 7;
+const NORMAL_SCORE = 40;
 
 function ymdSpan(from: string, to: string): string[] {
   const out: string[] = [];
@@ -40,60 +41,51 @@ function ymdSpan(from: string, to: string): string[] {
   return out;
 }
 
-/** 원룸은 평수와 별도. 표에 없는 평수는 가운데 값. */
-export function pyeongPoints(job: Pick<PastJob, 'pyeong' | 'isOneRoom'>): number {
-  if (job.isOneRoom) return 4;
-  const p = job.pyeong;
-  if (p == null) return 5;
-  if (p < 15) return 3;
-  if (p < 25) return 5;
-  if (p < 35) return 7;
-  if (p < 45) return 9;
-  return 12;
-}
-
-/** 하루 왕복 km. 0이면 좌표가 없어 거리를 안 넣은 것. */
-export function distancePoints(km: number): number {
-  if (km <= 0) return 0;
-  if (km < 15) return 1;
-  if (km < 30) return 3;
-  if (km < 50) return 6;
-  if (km < 80) return 10;
-  return 14;
+/** 35평 미만·원룸은 0. 큰 집만 피로에 더한다. */
+function largeHomePoints(job: Pick<PastJob, 'pyeong' | 'isOneRoom'>): number {
+  if (job.isOneRoom || job.pyeong == null || job.pyeong < 35) return 0;
+  if (job.pyeong < 45) return 4;
+  return 8;
 }
 
 function bandOf(score: number): AiDispatchFatigueBand {
-  if (score <= 15) return '좋음';
-  if (score <= 35) return '보통';
+  if (score <= 30) return '좋음';
+  if (score <= 60) return '보통';
   return '피로';
 }
 
-/** 70점이 막대 100. 쉰 직후 0점은 1로 둔다. */
+/** 정상 주 40점이 막대 40. 0 이하는 1. */
 export function fatiguePercent(score: number): number {
-  if (score <= 0) return 1;
-  return Math.max(1, Math.min(100, Math.round((score / SCORE_CAP) * 100)));
+  return Math.max(1, Math.min(100, Math.round(score)));
 }
 
-function loopKm(dayJobs: PastJob[], home: { homeLat: number; homeLng: number }): number {
+function dayTravel(dayJobs: PastJob[], home: { homeLat: number; homeLng: number }): DayTravel | null {
   const rank: Record<AiDispatchSlot, number> = { AM: 0, ALL_DAY: 1, PM: 2, HUMAN: 3 };
   const stops = dayJobs
     .filter((job) => job.lat != null && job.lng != null)
     .sort((a, b) => rank[a.slot] - rank[b.slot]);
-  if (stops.length === 0) return 0;
+  if (stops.length === 0) return null;
   let cursor = { lat: home.homeLat, lng: home.homeLng };
-  let km = 0;
-  for (const stop of stops) {
-    const next = { lat: stop.lat as number, lng: stop.lng as number };
-    km += haversineKm(cursor, next);
+  let loop = 0;
+  let between = 0;
+  for (let i = 0; i < stops.length; i += 1) {
+    const next = { lat: stops[i].lat as number, lng: stops[i].lng as number };
+    const leg = haversineKm(cursor, next);
+    loop += leg;
+    if (i > 0) between += leg;
     cursor = next;
   }
-  km += haversineKm(cursor, { lat: home.homeLat, lng: home.homeLng });
-  return km;
+  loop += haversineKm(cursor, { lat: home.homeLat, lng: home.homeLng });
+  return { loop, between: stops.length >= 2 ? between : null };
+}
+
+function mean(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 /**
- * 마지막 쉰 날 다음부터 쌓인 평수·왕복 거리.
- * 이틀 연속이거나 같은 주(월~일)에 두 번 쉬면 남은 점수의 50%만 쓴다.
+ * 배정일 직전 7일. 정상 근무일·건수는 40점(보통).
+ * 팀 평균보다 먼 왕복·현장 사이, 큰 평수, 쉼 없음만 올린다.
  */
 export async function loadLeaderFatigue(
   db: Db,
@@ -101,6 +93,8 @@ export async function loadLeaderFatigue(
   workDate: string,
   leaders: Array<{ id: string; homeLat: number; homeLng: number }>,
   includeCrewInFatigue: boolean,
+  normalWorkDays: number,
+  normalJobs: number,
 ): Promise<Map<string, { band: AiDispatchFatigueBand; note: string; fatigue: number }>> {
   const out = new Map<string, { band: AiDispatchFatigueBand; note: string; fatigue: number }>();
   if (leaders.length === 0) return out;
@@ -110,8 +104,6 @@ export async function loadLeaderFatigue(
   const rangeTo = kstDayRangeYmd(to);
   if (!rangeFrom || !rangeTo) return out;
   const calendar = ymdSpan(from, to);
-  const monday = weekMonday(workDate);
-  const sunday = addDaysToKstYmd(monday, 6);
 
   const rows = await db.assignment.findMany({
     where: {
@@ -160,69 +152,85 @@ export async function loadLeaderFatigue(
   }
 
   const homeOf = new Map(leaders.map((leader) => [leader.id, leader]));
+  const stats = new Map<string, LeaderStat>();
   for (const leader of leaders) {
     const jobs = byLeader.get(leader.id) ?? [];
     const worked = new Set(jobs.map((job) => job.ymd));
-    const restDays = calendar.filter((ymd) => !worked.has(ymd));
-    const lastRest = restDays.at(-1) ?? null;
-    const counted = new Set(lastRest ? calendar.filter((ymd) => ymd > lastRest) : calendar);
-    let streak = 0;
-    if (lastRest) {
-      let cursor = lastRest;
-      while (cursor >= from && !worked.has(cursor)) {
-        streak += 1;
-        cursor = addDaysToKstYmd(cursor, -1);
-      }
-    }
-    const restsThisWeek = restDays.filter((ymd) => ymd >= monday && ymd <= sunday).length;
-    const halved = streak >= 2 || restsThisWeek >= 2;
-
     const byDay = new Map<string, PastJob[]>();
+    let pyeongScore = 0;
+    let largeJobs = 0;
+    let soloJobs = 0;
     for (const job of jobs) {
-      if (!counted.has(job.ymd)) continue;
+      const points = largeHomePoints(job);
+      pyeongScore += points;
+      if (points > 0) largeJobs += 1;
+      if (includeCrewInFatigue && job.noCrew) soloJobs += 1;
       const day = byDay.get(job.ymd) ?? [];
       day.push(job);
       byDay.set(job.ymd, day);
     }
-
     const home = homeOf.get(leader.id);
-    let score = 0;
-    let pyeongSum = 0;
-    let travelKm = 0;
-    let missingDistance = false;
-    let soloJobs = 0;
-    for (const dayJobs of byDay.values()) {
-      for (const job of dayJobs) {
-        pyeongSum += pyeongPoints(job);
-        score += pyeongPoints(job);
-        if (job.slot === 'ALL_DAY') score += 3;
-        if (includeCrewInFatigue && job.noCrew) {
-          score += 2;
-          soloJobs += 1;
-        }
+    const loops: number[] = [];
+    const betweens: number[] = [];
+    if (home) {
+      for (const dayJobs of byDay.values()) {
+        const travel = dayTravel(dayJobs, home);
+        if (!travel || travel.loop <= 0) continue;
+        loops.push(travel.loop);
+        if (travel.between != null) betweens.push(travel.between);
       }
-      if (!home) {
-        missingDistance = true;
-        continue;
-      }
-      const km = loopKm(dayJobs, home);
-      if (km <= 0 && dayJobs.length > 0) missingDistance = true;
-      travelKm += km;
-      score += distancePoints(km);
     }
-    if (halved) score = Math.round(score * 0.5);
+    stats.set(leader.id, {
+      workedDays: worked.size,
+      jobCount: jobs.length,
+      restDays: calendar.filter((ymd) => !worked.has(ymd)).length,
+      loopAvg: loops.length > 0 ? mean(loops) : null,
+      betweenAvg: betweens.length > 0 ? mean(betweens) : null,
+      largeJobs,
+      soloJobs,
+      pyeongScore,
+    });
+  }
 
-    const workedAfterRest = byDay.size;
-    const noteParts: string[] = [];
-    if (!lastRest) noteParts.push(`${LOOKBACK_DAYS}일 계속`);
-    else if (workedAfterRest === 0) noteParts.push('어제 쉼');
-    else noteParts.push(`쉰 뒤 ${workedAfterRest}일`);
-    noteParts.push(`평수 ${pyeongSum}`);
-    if (travelKm > 0) noteParts.push(`이동 ${Math.round(travelKm)}km`);
-    else if (missingDistance) noteParts.push('거리 없음');
-    if (halved) noteParts.push('2일 쉼 50%');
-    if (includeCrewInFatigue && soloJobs > 0) noteParts.push(`팀원 없음 ${soloJobs}건`);
-    out.set(leader.id, { band: bandOf(score), fatigue: fatiguePercent(score), note: noteParts.join(' · ') });
+  const loopAvgs = [...stats.values()].map((row) => row.loopAvg).filter((value): value is number => value != null);
+  const betweenAvgs = [...stats.values()].map((row) => row.betweenAvg).filter((value): value is number => value != null);
+  const teamLoop = loopAvgs.length >= 2 ? mean(loopAvgs) : null;
+  const teamBetween = betweenAvgs.length >= 2 ? mean(betweenAvgs) : null;
+
+  for (const leader of leaders) {
+    const row = stats.get(leader.id);
+    if (!row) continue;
+    let score = NORMAL_SCORE;
+    score += (row.workedDays - normalWorkDays) * 8;
+    if (row.workedDays >= LOOKBACK_DAYS && normalWorkDays < LOOKBACK_DAYS) score += 6;
+    score += Math.max(0, row.jobCount - normalJobs) * 3;
+    if (row.restDays >= 2) score -= 10;
+    score += row.pyeongScore;
+    if (includeCrewInFatigue) score += row.soloJobs * 2;
+
+    if (row.loopAvg == null || teamLoop == null) score += 2;
+    else if (row.loopAvg <= teamLoop) score += 2;
+    else score += Math.min(20, Math.floor((row.loopAvg - teamLoop) / 4));
+
+    if (row.betweenAvg != null && teamBetween != null && row.betweenAvg > teamBetween) {
+      score += Math.min(30, Math.floor((row.betweenAvg - teamBetween) / 2));
+    }
+
+    const noteParts = [`${LOOKBACK_DAYS}일 ${row.workedDays}일`, `${row.jobCount}건`];
+    if (row.loopAvg == null) noteParts.push('거리 없음');
+    else if (teamLoop == null) noteParts.push('비교할 평균 없음');
+    else {
+      noteParts.push(`팀 평균 ${Math.round(teamLoop)}km`);
+      noteParts.push(`이 팀장 ${Math.round(row.loopAvg)}km`);
+    }
+    if (row.betweenAvg != null && teamBetween != null) {
+      const delta = Math.round(row.betweenAvg - teamBetween);
+      noteParts.push(`현장 사이 ${delta > 0 ? `+${delta}` : String(delta)}km`);
+    }
+    if (row.largeJobs > 0) noteParts.push(`큰 집 ${row.largeJobs}건`);
+    if (includeCrewInFatigue && row.soloJobs > 0) noteParts.push(`팀원 없음 ${row.soloJobs}건`);
+    const fatigue = fatiguePercent(score);
+    out.set(leader.id, { band: bandOf(fatigue), fatigue, note: noteParts.join(' · ') });
   }
   return out;
 }

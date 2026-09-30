@@ -12,6 +12,9 @@ export const AI_DISPATCH_DEFAULTS = {
   twoRoomMaxPyeong: 15,
   /** 팀원 없이 간 날에 피로 점수를 더할지. 팀원을 안 쓰는 업체는 끔. */
   includeCrewInFatigue: false,
+  /** 이 근무일·건수면 피로 점수의 보통(40점)이다. */
+  normalWorkDaysPerWeek: 6,
+  normalJobsPerWeek: 12,
 } as const;
 
 export function aiDispatchSlotLabel(slot: string): string {

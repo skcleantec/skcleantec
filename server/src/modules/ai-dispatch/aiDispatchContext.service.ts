@@ -18,6 +18,8 @@ export type DispatchSettings = {
   extraLeaderCount: number;
   twoRoomMaxPyeong: number;
   includeCrewInFatigue: boolean;
+  normalWorkDaysPerWeek: number;
+  normalJobsPerWeek: number;
 };
 
 export type DispatchLeader = {
@@ -56,6 +58,8 @@ export async function loadDispatchSettings(db: Db, tenantId: string): Promise<Di
     extraLeaderCount: row?.extraLeaderCount ?? AI_DISPATCH_DEFAULTS.extraLeaderCount,
     twoRoomMaxPyeong: row?.twoRoomMaxPyeong ?? AI_DISPATCH_DEFAULTS.twoRoomMaxPyeong,
     includeCrewInFatigue: row?.includeCrewInFatigue ?? AI_DISPATCH_DEFAULTS.includeCrewInFatigue,
+    normalWorkDaysPerWeek: row?.normalWorkDaysPerWeek ?? AI_DISPATCH_DEFAULTS.normalWorkDaysPerWeek,
+    normalJobsPerWeek: row?.normalJobsPerWeek ?? AI_DISPATCH_DEFAULTS.normalJobsPerWeek,
   };
 }
 
@@ -132,6 +136,8 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
     workDate,
     homeReady.map((u) => ({ id: u.id, homeLat: u.homeGeoLat as number, homeLng: u.homeGeoLng as number })),
     settings.includeCrewInFatigue,
+    settings.normalWorkDaysPerWeek,
+    settings.normalJobsPerWeek,
   );
 
   const leaders: DispatchLeader[] = homeReady.map((u) => {

@@ -1655,6 +1655,10 @@ model TenantAiDispatchSettings {
   twoRoomMaxPyeong     Int      @default(15) @map("two_room_max_pyeong")
   /// 켜면 팀원 없이 간 건에 피로 점수를 더한다. 팀원을 안 쓰는 업체는 끈다.
   includeCrewInFatigue Boolean  @default(false) @map("include_crew_in_fatigue")
+  /// 이 근무일수면 피로의 보통이다. 기본 주 6일.
+  normalWorkDaysPerWeek Int     @default(6) @map("normal_work_days_per_week")
+  /// 이 건수면 피로의 보통이다. 기본 주 12건.
+  normalJobsPerWeek    Int      @default(12) @map("normal_jobs_per_week")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("tenant_ai_dispatch_settings")
