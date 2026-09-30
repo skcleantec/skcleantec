@@ -2,6 +2,7 @@ import { aiDispatchSlotLabel } from '@shared/aiDispatch';
 import { TEAM_LEADER_SIZE_POLICY_LABEL } from '@shared/teamLeaderDispatch';
 import type { AiDispatchBoard, AiDispatchJob, AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
 import { LineMdIcon } from '../../ui/LineMdIcon';
+import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 
 const BAND_ORDER = ['좋음', '보통', '피로'] as const;
 
@@ -23,6 +24,11 @@ const SLOT_STYLE: Record<(typeof SLOT_ORDER)[number], { stripe: string; chip: st
 function slotKey(slot: string): (typeof SLOT_ORDER)[number] {
   if (slot === 'AM' || slot === 'PM' || slot === 'ALL_DAY') return slot;
   return 'HUMAN';
+}
+
+function shownSlot(proposal: AiDispatchProposal, job?: AiDispatchJob): (typeof SLOT_ORDER)[number] {
+  if (job && job.slot !== 'HUMAN') return slotKey(job.slot);
+  return slotKey(proposal.slot);
 }
 
 function StepMark({ n }: { n: string }) {
@@ -80,6 +86,9 @@ export function AiDispatchScreen({
   onToggle,
   onLeaderChange,
   onSaveSettings,
+  reportOpen,
+  onOpenReport,
+  onCloseReport,
 }: {
   date: string;
   onDateChange: (date: string) => void;
@@ -102,13 +111,17 @@ export function AiDispatchScreen({
   onToggle: (id: string) => void;
   onLeaderChange: (id: string, teamLeaderId: string | null) => void;
   onSaveSettings: () => void;
+  reportOpen: boolean;
+  onOpenReport: () => void;
+  onCloseReport: () => void;
 }) {
   const leaders = board?.leaders ?? [];
   const jobs = board?.jobs ?? [];
   const proposals = board?.run?.proposals ?? [];
   const jobById = new Map(jobs.map((job) => [job.id, job]));
-  const draftCount = proposals.filter((row) => row.status === 'DRAFT' && row.slot !== 'HUMAN' && row.teamLeaderId).length;
-  const humanCount = proposals.filter((row) => row.slot === 'HUMAN' || !row.teamLeaderId).length;
+  const draftCount = proposals.filter((row) => row.status === 'DRAFT' && row.teamLeaderId && shownSlot(row, jobById.get(row.inquiryId)) !== 'HUMAN').length;
+  const openCount = proposals.filter((row) => !row.teamLeaderId && shownSlot(row, jobById.get(row.inquiryId)) !== 'HUMAN').length;
+  const humanCount = proposals.filter((row) => shownSlot(row, jobById.get(row.inquiryId)) === 'HUMAN').length;
 
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:gap-4">
@@ -158,6 +171,7 @@ export function AiDispatchScreen({
         <div className="mt-3 flex flex-wrap gap-1.5">
           <CountChip label="미배정" value={loading && !board ? '…' : String(jobs.length)} />
           <CountChip label="초안" value={String(draftCount)} />
+          <CountChip label="팀장 없음" value={String(openCount)} />
           <CountChip label="사람 판단" value={String(humanCount)} />
         </div>
       </section>
@@ -212,15 +226,26 @@ export function AiDispatchScreen({
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              disabled={running || picked.length === 0}
-              onClick={onApprove}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-            >
-              <LineMdIcon name="briefcase-check" className="size-4" />
-              선택 승인{picked.length > 0 ? ` ${picked.length}` : ''}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={proposals.length === 0}
+                onClick={onOpenReport}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              >
+                <LineMdIcon name="map-marker" className="size-4" />
+                배정 이유
+              </button>
+              <button
+                type="button"
+                disabled={running || picked.length === 0}
+                onClick={onApprove}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              >
+                <LineMdIcon name="briefcase-check" className="size-4" />
+                선택 승인{picked.length > 0 ? ` ${picked.length}` : ''}
+              </button>
+            </div>
           </div>
 
           <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="시간대 색">
@@ -233,7 +258,7 @@ export function AiDispatchScreen({
 
           <div className="mt-3 space-y-4">
             {SLOT_ORDER.map((slot) => {
-              const rows = proposals.filter((proposal) => slotKey(proposal.slot) === slot);
+              const rows = proposals.filter((proposal) => shownSlot(proposal, jobById.get(proposal.inquiryId)) === slot);
               if (rows.length === 0) return null;
               return (
                 <div key={slot}>
@@ -312,6 +337,7 @@ export function AiDispatchScreen({
           규칙 저장
         </button>
       </details>
+      {reportOpen && board?.run ? <AiDispatchReasonModal board={board} onClose={onCloseReport} /> : null}
     </div>
   );
 }
@@ -376,16 +402,17 @@ function ProposalCard({
   onToggle: (id: string) => void;
   onLeaderChange: (id: string, teamLeaderId: string | null) => void;
 }) {
-  const style = SLOT_STYLE[slotKey(proposal.slot)];
+  const slot = shownSlot(proposal, job);
+  const style = SLOT_STYLE[slot];
   const editable = proposal.status === 'DRAFT';
-  const human = proposal.slot === 'HUMAN' || !proposal.teamLeaderId;
+  const needsPerson = slot === 'HUMAN' || !proposal.teamLeaderId;
   const statusLabel =
     proposal.status === 'APPROVED' ? '반영됨' : proposal.status === 'STALE' ? '다시 실행' : proposal.status === 'SKIPPED' ? '건너뜀' : null;
 
   return (
     <li className={`rounded-xl border border-slate-200 border-l-4 bg-white p-2.5 sm:p-3 ${style.stripe}`}>
       <div className="flex items-start gap-2">
-        {editable && !human ? (
+        {editable && !needsPerson ? (
           <input
             type="checkbox"
             className="mt-1 size-4 accent-slate-900"
@@ -405,12 +432,18 @@ function ProposalCard({
             {statusLabel ? (
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600">{statusLabel}</span>
             ) : null}
+            {!proposal.teamLeaderId && slot !== 'HUMAN' ? (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600">팀장 없음</span>
+            ) : null}
           </div>
           <p className="mt-1 flex flex-wrap gap-1 text-fluid-2xs text-slate-600">
             {job?.pyeong != null ? <span className="rounded-md bg-slate-100 px-1.5 py-0.5 tabular-nums">{job.pyeong}평</span> : null}
             {job?.isOneRoom ? <span className="rounded-md bg-slate-100 px-1.5 py-0.5">원룸</span> : null}
             {job?.areaLabel ? <span className="max-w-[16rem] truncate rounded-md bg-slate-100 px-1.5 py-0.5" title={job.areaLabel}>{job.areaLabel}</span> : null}
             {job?.preferredTime ? <span className="rounded-md bg-slate-100 px-1.5 py-0.5">{job.preferredTime}</span> : null}
+            {proposal.fromHomeKm != null ? (
+              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 tabular-nums">집에서 편도 {proposal.fromHomeKm}km</span>
+            ) : null}
           </p>
           <p className="mt-1.5 text-fluid-xs leading-snug text-slate-700">{proposal.reason}</p>
           {editable ? (
@@ -421,7 +454,7 @@ function ProposalCard({
                 value={proposal.teamLeaderId ?? ''}
                 onChange={(e) => onLeaderChange(proposal.id, e.target.value || null)}
               >
-                <option value="">사람 판단</option>
+                <option value="">배정 안 함</option>
                 {leaders.map((leader) => (
                   <option key={leader.id} value={leader.id}>
                     {leader.name} · {leader.band} · 남음 {leader.remainingJobs}
@@ -432,7 +465,7 @@ function ProposalCard({
           ) : proposal.teamLeaderName ? (
             <p className="mt-2 text-fluid-xs font-medium text-slate-800">{proposal.teamLeaderName}</p>
           ) : (
-            <p className="mt-2 text-fluid-xs text-violet-800">{aiDispatchSlotLabel('HUMAN')}</p>
+            <p className="mt-2 text-fluid-xs text-slate-600">{slot === 'HUMAN' ? aiDispatchSlotLabel('HUMAN') : '팀장 없음'}</p>
           )}
         </div>
       </div>

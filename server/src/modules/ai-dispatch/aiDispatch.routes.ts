@@ -6,10 +6,11 @@ import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { isAiProductConfigured } from '../ai/aiProvider.service.js';
 import { kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
-import { loadDispatchDay } from './aiDispatchContext.service.js';
+import { loadDispatchDay, type DispatchJob, type DispatchLeader } from './aiDispatchContext.service.js';
 import { createAiDispatchDraft } from './aiDispatchDraft.service.js';
 import { approveDraftProposals, updateDraftProposal } from './aiDispatchApprove.service.js';
-import { clampSettings } from './aiDispatchRules.js';
+import type { AiDispatchSlot } from './aiDispatch.constants.js';
+import { clampSettings, fromHomeKm, homeLoopText } from './aiDispatchRules.js';
 
 const router = Router();
 
@@ -44,7 +45,24 @@ router.get('/board', async (req, res) => {
       },
     },
   });
+  const jobById = new Map(day.jobs.map((job) => [job.id, job]));
+  const leaderById = new Map(day.leaders.map((leader) => [leader.id, leader]));
   if (run) {
+    const slotFixes = run.proposals.filter((row) => {
+      const job = jobById.get(row.inquiryId);
+      return Boolean(job && row.status === 'DRAFT' && row.slot === 'HUMAN' && job.slot !== 'HUMAN');
+    });
+    await Promise.all(
+      slotFixes.map((row) => {
+        const job = jobById.get(row.inquiryId);
+        if (!job) return Promise.resolve();
+        row.slot = job.slot;
+        return prisma.aiDispatchProposal.updateMany({
+          where: { id: row.id, tenantId, slot: 'HUMAN' },
+          data: { slot: job.slot },
+        });
+      }),
+    );
     const staleIds = run.proposals
       .filter((row) => row.status === 'DRAFT' && row.inquiry.updatedAt > row.inquiryUpdatedAt)
       .map((row) => row.id);
@@ -58,6 +76,7 @@ router.get('/board', async (req, res) => {
       }
     }
   }
+  const loops = run ? homeLoops(run.proposals, jobById, leaderById) : [];
   res.json({
     date,
     aiConfigured: isAiProductConfigured('ai_dispatch'),
@@ -73,27 +92,79 @@ router.get('/board', async (req, res) => {
       usedJobs: leader.usedJobs,
       remainingJobs: leader.remainingJobs,
     })),
-    jobs: day.jobs,
+    jobs: day.jobs.map((job) => ({
+      id: job.id,
+      customerName: job.customerName,
+      areaLabel: job.areaLabel,
+      pyeong: job.pyeong,
+      isOneRoom: job.isOneRoom,
+      slot: job.slot,
+      requiredLeaders: job.requiredLeaders,
+      preferredTime: job.preferredTime,
+      blockedReason: job.blockedReason,
+    })),
     run: run
       ? {
           id: run.id,
           status: run.status,
           summary: run.summary,
           createdAt: run.createdAt.toISOString(),
-          proposals: run.proposals.map((row) => ({
-            id: row.id,
-            inquiryId: row.inquiryId,
-            customerName: row.inquiry.customerName,
-            teamLeaderId: row.teamLeaderId,
-            teamLeaderName: row.teamLeader?.name ?? null,
-            slot: row.slot,
-            reason: row.reason,
-            status: row.status,
-          })),
+          loops,
+          proposals: run.proposals.map((row) => {
+            const job = jobById.get(row.inquiryId);
+            const leader = row.teamLeaderId ? leaderById.get(row.teamLeaderId) : undefined;
+            return {
+              id: row.id,
+              inquiryId: row.inquiryId,
+              customerName: row.inquiry.customerName,
+              teamLeaderId: row.teamLeaderId,
+              teamLeaderName: row.teamLeader?.name ?? null,
+              slot: job && job.slot !== 'HUMAN' ? job.slot : row.slot,
+              reason: row.reason,
+              status: row.status,
+              fromHomeKm: leader && job ? fromHomeKm(leader, job) : null,
+            };
+          }),
         }
       : null,
   });
 });
+
+function homeLoops(
+  proposals: Array<{ inquiryId: string; teamLeaderId: string | null; teamLeader: { name: string } | null; slot: string }>,
+  jobById: Map<string, DispatchJob>,
+  leaderById: Map<string, DispatchLeader>,
+): string[] {
+  const byLeader = new Map<string, typeof proposals>();
+  for (const row of proposals) {
+    if (!row.teamLeaderId) continue;
+    const list = byLeader.get(row.teamLeaderId) ?? [];
+    list.push(row);
+    byLeader.set(row.teamLeaderId, list);
+  }
+  const texts: string[] = [];
+  for (const [leaderId, rows] of byLeader) {
+    const leader = leaderById.get(leaderId);
+    if (!leader) continue;
+    const text = homeLoopText(
+      rows[0]?.teamLeader?.name || leader.name,
+      leader,
+      rows.map((row) => {
+        const job = jobById.get(row.inquiryId);
+        const slot = (job?.slot && job.slot !== 'HUMAN' ? job.slot : row.slot) as AiDispatchSlot;
+        const place = slot === 'AM' ? '오전 현장' : slot === 'PM' ? '오후 현장' : slot === 'ALL_DAY' ? '종일 현장' : '현장';
+        return {
+          slot,
+          label: job?.customerName ? `${place} ${job.customerName}` : place,
+          lat: job?.lat ?? null,
+          lng: job?.lng ?? null,
+        };
+      }),
+    );
+    if (text) texts.push(text);
+  }
+  return texts;
+}
 
 router.post('/runs', async (req, res) => {
   const tenantId = tenantOf(req as { user?: AuthPayload });

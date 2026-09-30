@@ -38,7 +38,7 @@ export async function updateDraftProposal(
   if (!input.teamLeaderId) {
     const updated = await db.aiDispatchProposal.update({
       where: { id: proposal.id },
-      data: { teamLeaderId: null, slot: 'HUMAN', reason: '관리자가 사람 판단으로 바꿨습니다.' },
+      data: { teamLeaderId: null, slot: job.slot, reason: '관리자가 팀장을 뺐습니다.' },
     });
     return { proposal: updated };
   }

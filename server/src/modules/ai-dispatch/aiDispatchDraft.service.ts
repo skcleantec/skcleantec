@@ -157,7 +157,7 @@ function parseLines(
     lines.push({
       inquiryId: job.id,
       teamLeaderId: null,
-      slot: 'HUMAN',
+      slot: job.slot,
       reason: (job.blockedReason || modelReason || '남은 자리보다 건이 많아 이번 초안에서 빠졌습니다.').slice(0, 300),
       updatedAt: job.updatedAt,
     });
@@ -185,11 +185,11 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
     const lines = day.jobs.map((job) => ({
       inquiryId: job.id,
       teamLeaderId: null,
-      slot: 'HUMAN' as const,
-      reason: job.blockedReason || '사람 판단이 필요합니다.',
+      slot: job.slot,
+      reason: job.blockedReason || (job.slot === 'HUMAN' ? '시간대가 오전·오후로 확정되지 않아 사람이 봐야 합니다.' : '배정할 팀장을 고르지 못했습니다.'),
       updatedAt: job.updatedAt,
     }));
-    const run = await saveRun(db, tenantId, actorId, workDate, lines, '배정할 수 있는 오전·오후 건이 없어 사람 판단으로 두었습니다.', null);
+    const run = await saveRun(db, tenantId, actorId, workDate, lines, '배정할 수 있는 오전·오후 건이 없습니다.', null);
     return { aiConfigured: true as const, run };
   }
 
@@ -210,8 +210,8 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
     const lines = day.jobs.map((job) => ({
       inquiryId: job.id,
       teamLeaderId: null,
-      slot: 'HUMAN' as const,
-      reason: job.blockedReason || 'AI 제안을 확인하지 못해 사람 판단으로 두었습니다.',
+      slot: job.slot,
+      reason: job.blockedReason || 'AI 제안을 확인하지 못해 팀장을 비워 두었습니다.',
       updatedAt: job.updatedAt,
     }));
     const run = await saveRun(db, tenantId, actorId, workDate, lines, 'AI 응답을 배정 규칙에 맞추지 못했습니다.', usage);

@@ -39,6 +39,7 @@ export type AiDispatchProposal = {
   slot: string;
   reason: string;
   status: 'DRAFT' | 'APPROVED' | 'SKIPPED' | 'STALE';
+  fromHomeKm: number | null;
 };
 
 export type AiDispatchBoard = {
@@ -57,6 +58,7 @@ export type AiDispatchBoard = {
     status: string;
     summary: string | null;
     createdAt: string;
+    loops: string[];
     proposals: AiDispatchProposal[];
   } | null;
 };

@@ -71,6 +71,43 @@ export function requiredLeaderCount(
   return 1;
 }
 
+export function fromHomeKm(
+  home: { homeLat: number; homeLng: number },
+  site: { lat: number | null; lng: number | null },
+): number | null {
+  if (site.lat == null || site.lng == null) return null;
+  return Math.round(haversineKm({ lat: home.homeLat, lng: home.homeLng }, { lat: site.lat, lng: site.lng }) * 10) / 10;
+}
+
+const LOOP_RANK: Record<AiDispatchSlot, number> = { AM: 0, ALL_DAY: 1, PM: 2, HUMAN: 3 };
+
+/** 팀장 집 좌표에서 출발해 현장들을 거쳐 집으로 돌아오는 직선거리 설명. */
+export function homeLoopText(
+  leaderName: string,
+  home: { homeLat: number; homeLng: number },
+  stops: Array<{ slot: AiDispatchSlot; label: string; lat: number | null; lng: number | null }>,
+): string | null {
+  const points = stops
+    .filter((stop) => stop.lat != null && stop.lng != null)
+    .sort((a, b) => LOOP_RANK[a.slot] - LOOP_RANK[b.slot]);
+  if (points.length === 0) return null;
+  let cursor = { lat: home.homeLat, lng: home.homeLng };
+  const parts: string[] = [];
+  let total = 0;
+  for (const stop of points) {
+    const next = { lat: stop.lat as number, lng: stop.lng as number };
+    const km = Math.round(haversineKm(cursor, next) * 10) / 10;
+    total += km;
+    const from = parts.length === 0 ? '집' : '이전 현장';
+    parts.push(`${from}에서 ${stop.label} ${km}km`);
+    cursor = next;
+  }
+  const back = Math.round(haversineKm(cursor, { lat: home.homeLat, lng: home.homeLng }) * 10) / 10;
+  total = Math.round((total + back) * 10) / 10;
+  parts.push(`현장에서 집 ${back}km`);
+  return `${leaderName}: ${parts.join(', ')}. 합계 ${total}km`;
+}
+
 export function areaLabel(address: string): string {
   const parts = address.split(/\s+/).filter(Boolean).slice(0, 3);
   const text = parts.join(' ');

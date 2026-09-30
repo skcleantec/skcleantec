@@ -29,6 +29,7 @@ export function AdminAiDispatchPage() {
   const [leaderCount, setLeaderCount] = useState('2');
   const [twoRoom, setTwoRoom] = useState('15');
   const [includeCrew, setIncludeCrew] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -61,6 +62,7 @@ export function AdminAiDispatchPage() {
     try {
       const result = await runAiDispatch(token, date);
       if (!result.aiConfigured) setNotice('AI 미설정. 배정 초안을 만들지 않았습니다.');
+      else setReportOpen(true);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : '실행에 실패했습니다.');
@@ -143,6 +145,9 @@ export function AdminAiDispatchPage() {
       onToggle={(id) => setPicked((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))}
       onLeaderChange={(id, teamLeaderId) => void changeLeader(id, teamLeaderId)}
       onSaveSettings={() => void saveSettings()}
+      reportOpen={reportOpen}
+      onOpenReport={() => setReportOpen(true)}
+      onCloseReport={() => setReportOpen(false)}
     />
   );
 }
