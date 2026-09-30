@@ -4,6 +4,7 @@ import { AdminTeamLeadersMobileInlineMenuButton } from '../../components/layout/
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import {
   getUsers,
   createUser,
@@ -39,6 +40,7 @@ import {
   type UserServiceZoneFormValue,
 } from '../../components/admin/UserServiceZoneFields';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
+import { StaffIdCardPhotoField } from '../../components/admin/StaffIdCardPhotoField';
 import { TeamLeaderHouseholdDepositPolicyModal } from '../../components/admin/TeamLeaderHouseholdDepositPolicyModal';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { usageLimitForPlan } from '@shared/tenantSubscriptionUsage';
@@ -1516,18 +1518,30 @@ export function AdminTeamLeadersPage() {
                 disabled={submitLoading}
                 aria-label="등록 창 닫기"
               />
-              <h2
-                id={
-                  showForm === 'team'
-                    ? 'register-team-title'
-                    : showForm === 'office'
-                      ? 'register-office-title'
-                      : 'register-marketer-title'
-                }
-                className="text-lg font-semibold text-gray-800 mb-1 pr-10"
-              >
-                {showForm === 'team' ? '팀장 등록' : showForm === 'office' ? '사무직 등록' : '마케터 등록'}
-              </h2>
+              <div className="mb-1 flex items-center gap-0.5 pr-10">
+                <h2
+                  id={
+                    showForm === 'team'
+                      ? 'register-team-title'
+                      : showForm === 'office'
+                        ? 'register-office-title'
+                        : 'register-marketer-title'
+                  }
+                  className="text-lg font-semibold text-gray-800"
+                >
+                  {showForm === 'team' ? '팀장 등록' : showForm === 'office' ? '사무직 등록' : '마케터 등록'}
+                </h2>
+                <AdminOnlyHelpButton
+                  compact
+                  helpId={
+                    showForm === 'team'
+                      ? 'user-create-team'
+                      : showForm === 'office'
+                        ? 'user-create-office'
+                        : 'user-create-marketer'
+                  }
+                />
+              </div>
               <p className="text-xs text-gray-500 mb-4">
                 {showForm === 'team'
                   ? '아이디·비밀번호·이름은 필수입니다. 일반 정산과 추가결재 회사 몫은 접수 정산에 반영됩니다. 아래 「참고」 블록의 월 고정 급여는 선택 사항입니다.'
@@ -1876,9 +1890,12 @@ export function AdminTeamLeadersPage() {
                   className="!static shrink-0 shadow-none"
                 />
               </div>
-              <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800 mb-1 pr-32">
-                사용자 수정
-              </h2>
+              <div className="mb-1 flex items-center gap-0.5 pr-32">
+                <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800">
+                  사용자 수정
+                </h2>
+                <AdminOnlyHelpButton helpId="user-edit" compact />
+              </div>
               <p className="text-xs text-gray-500 mb-4">
                 역할: {userRoleLabel(editingUser.role)} · 새 비밀번호는 변경할 때만 입력
               </p>
@@ -2222,17 +2239,16 @@ export function AdminTeamLeadersPage() {
                 <p className="text-sm font-medium text-gray-800">사원증 사진</p>
                 <p className="text-fluid-2xs text-gray-500 leading-snug">
                   모바일에서 본인 아이디로 로그인해 고객에게 보여 주며 인증할 때 사용할 수 있도록 관리자가 등록합니다.
-                  이미지는 Cloudinary에 저장됩니다.{' '}
+                  사진은 웹하드에 저장됩니다.{' '}
                   <span className="text-amber-800">
-                    로컬에서 안 되면 서버 <code className="text-[12px]">server/.env</code>에 CLOUDINARY 설정을
-                    확인하세요.
+                    로컬에서 안 되면 서버 <code className="text-[12px]">server/.env</code>에 R2 설정을 확인하세요.
                   </span>
                 </p>
                 {editingUser.staffIdCardUrl ? (
-                  <img
-                    src={editingUser.staffIdCardUrl}
-                    alt=""
-                    className="max-h-52 w-full rounded border border-gray-200 bg-white object-contain"
+                  <StaffIdCardPhotoField
+                    url={editingUser.staffIdCardUrl}
+                    personName={editingUser.name}
+                    disabled={staffIdCardBusy || editLoading}
                   />
                 ) : (
                   <p className="text-fluid-xs text-gray-500">등록된 사진이 없습니다.</p>
