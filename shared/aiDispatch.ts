@@ -10,6 +10,8 @@ export const AI_DISPATCH_DEFAULTS = {
   extraLeaderMinPyeong: 40,
   extraLeaderCount: 2,
   twoRoomMaxPyeong: 15,
+  /** 팀원 없이 간 날에 피로 점수를 더할지. 팀원을 안 쓰는 업체는 끔. */
+  includeCrewInFatigue: false,
 } as const;
 
 export function aiDispatchSlotLabel(slot: string): string {

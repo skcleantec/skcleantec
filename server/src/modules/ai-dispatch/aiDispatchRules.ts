@@ -81,7 +81,13 @@ export function clampSettings(input: {
   extraLeaderMinPyeong?: number;
   extraLeaderCount?: number;
   twoRoomMaxPyeong?: number;
-}): { extraLeaderMinPyeong: number; extraLeaderCount: number; twoRoomMaxPyeong: number } {
+  includeCrewInFatigue?: boolean;
+}): {
+  extraLeaderMinPyeong: number;
+  extraLeaderCount: number;
+  twoRoomMaxPyeong: number;
+  includeCrewInFatigue: boolean;
+} {
   const minP = Number(input.extraLeaderMinPyeong ?? AI_DISPATCH_DEFAULTS.extraLeaderMinPyeong);
   const count = Number(input.extraLeaderCount ?? AI_DISPATCH_DEFAULTS.extraLeaderCount);
   const two = Number(input.twoRoomMaxPyeong ?? AI_DISPATCH_DEFAULTS.twoRoomMaxPyeong);
@@ -89,5 +95,6 @@ export function clampSettings(input: {
     extraLeaderMinPyeong: Number.isFinite(minP) ? Math.max(10, Math.min(200, Math.round(minP))) : 40,
     extraLeaderCount: Number.isFinite(count) ? Math.max(1, Math.min(4, Math.round(count))) : 2,
     twoRoomMaxPyeong: Number.isFinite(two) ? Math.max(5, Math.min(40, Math.round(two))) : 15,
+    includeCrewInFatigue: input.includeCrewInFatigue === true,
   };
 }

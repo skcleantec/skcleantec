@@ -4,6 +4,8 @@ export const AI_DISPATCH_DEFAULTS = {
   extraLeaderMinPyeong: 40,
   extraLeaderCount: 2,
   twoRoomMaxPyeong: 15,
+  /** shared/aiDispatch.ts 와 동일. 팀원 없는 날에 점수를 더할지. */
+  includeCrewInFatigue: false,
 } as const;
 
 export type AiDispatchSlot = 'AM' | 'PM' | 'ALL_DAY' | 'HUMAN';

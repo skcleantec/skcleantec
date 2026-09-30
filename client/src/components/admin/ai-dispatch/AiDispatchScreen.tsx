@@ -70,9 +70,11 @@ export function AiDispatchScreen({
   minPyeong,
   leaderCount,
   twoRoom,
+  includeCrew,
   onMinPyeong,
   onLeaderCount,
   onTwoRoom,
+  onIncludeCrew,
   onRun,
   onApprove,
   onToggle,
@@ -90,9 +92,11 @@ export function AiDispatchScreen({
   minPyeong: string;
   leaderCount: string;
   twoRoom: string;
+  includeCrew: boolean;
   onMinPyeong: (value: string) => void;
   onLeaderCount: (value: string) => void;
   onTwoRoom: (value: string) => void;
+  onIncludeCrew: (value: boolean) => void;
   onRun: () => void;
   onApprove: () => void;
   onToggle: (id: string) => void;
@@ -271,11 +275,34 @@ export function AiDispatchScreen({
 
       <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
         <summary className="cursor-pointer text-fluid-sm font-semibold text-slate-900">배정 규칙</summary>
-        <p className="mt-1 text-fluid-2xs text-slate-500">큰 집만 팀장을 더 붙입니다. 사이청소·조율은 오전·오후가 정해진 건만 초안에 넣습니다.</p>
+        <p className="mt-1 text-fluid-2xs text-slate-500">
+          큰 집만 팀장을 더 붙입니다. 사이청소·조율은 오전·오후가 정해진 건만 초안에 넣습니다. 피로는 마지막으로 쉰 다음 일만
+          더합니다.
+        </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <Field label="이 평수 이상" hint="이 크기부터 팀장을 더 붙입니다" value={minPyeong} onChange={onMinPyeong} />
           <Field label="팀장 수" hint="위 평수일 때 붙는 인원" value={leaderCount} onChange={onLeaderCount} />
           <Field label="투룸 상한" hint="이 평수 이하는 작은 집으로 봅니다" value={twoRoom} onChange={onTwoRoom} />
+        </div>
+        <div className="mt-3">
+          <p className="text-fluid-xs font-medium text-slate-800">팀원 점수</p>
+          <p className="mt-0.5 text-fluid-2xs text-slate-500">
+            켜면 팀원 없이 간 날에 피로를 더합니다. 팀원을 안 쓰는 업체는 끄세요.
+          </p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={includeCrew}
+            onClick={() => onIncludeCrew(!includeCrew)}
+            className={`mt-1.5 inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-fluid-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+              includeCrew
+                ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+                : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <span className={`inline-block size-3 rounded-full ${includeCrew ? 'bg-white' : 'bg-slate-300'}`} aria-hidden />
+            {includeCrew ? '팀원 점수 포함' : '팀원 점수 제외'}
+          </button>
         </div>
         <button
           type="button"

@@ -44,7 +44,12 @@ export type AiDispatchProposal = {
 export type AiDispatchBoard = {
   date: string;
   aiConfigured: boolean;
-  settings: { extraLeaderMinPyeong: number; extraLeaderCount: number; twoRoomMaxPyeong: number };
+  settings: {
+    extraLeaderMinPyeong: number;
+    extraLeaderCount: number;
+    twoRoomMaxPyeong: number;
+    includeCrewInFatigue: boolean;
+  };
   leaders: AiDispatchLeader[];
   jobs: AiDispatchJob[];
   run: {
@@ -105,7 +110,12 @@ export async function approveAiDispatch(
 
 export async function saveAiDispatchSettings(
   token: string,
-  body: { extraLeaderMinPyeong: number; extraLeaderCount: number; twoRoomMaxPyeong: number },
+  body: {
+    extraLeaderMinPyeong: number;
+    extraLeaderCount: number;
+    twoRoomMaxPyeong: number;
+    includeCrewInFatigue: boolean;
+  },
 ): Promise<void> {
   const res = await fetch(`${API}/ai-dispatch/settings`, {
     method: 'PATCH',

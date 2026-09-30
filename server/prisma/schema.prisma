@@ -1653,6 +1653,8 @@ model TenantAiDispatchSettings {
   extraLeaderMinPyeong Int      @default(40) @map("extra_leader_min_pyeong")
   extraLeaderCount     Int      @default(2) @map("extra_leader_count")
   twoRoomMaxPyeong     Int      @default(15) @map("two_room_max_pyeong")
+  /// 켜면 팀원 없이 간 건에 피로 점수를 더한다. 팀원을 안 쓰는 업체는 끈다.
+  includeCrewInFatigue Boolean  @default(false) @map("include_crew_in_fatigue")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("tenant_ai_dispatch_settings")

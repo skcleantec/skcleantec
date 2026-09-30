@@ -17,6 +17,7 @@ export type DispatchSettings = {
   extraLeaderMinPyeong: number;
   extraLeaderCount: number;
   twoRoomMaxPyeong: number;
+  includeCrewInFatigue: boolean;
 };
 
 export type DispatchLeader = {
@@ -54,6 +55,7 @@ export async function loadDispatchSettings(db: Db, tenantId: string): Promise<Di
     extraLeaderMinPyeong: row?.extraLeaderMinPyeong ?? AI_DISPATCH_DEFAULTS.extraLeaderMinPyeong,
     extraLeaderCount: row?.extraLeaderCount ?? AI_DISPATCH_DEFAULTS.extraLeaderCount,
     twoRoomMaxPyeong: row?.twoRoomMaxPyeong ?? AI_DISPATCH_DEFAULTS.twoRoomMaxPyeong,
+    includeCrewInFatigue: row?.includeCrewInFatigue ?? AI_DISPATCH_DEFAULTS.includeCrewInFatigue,
   };
 }
 
@@ -129,6 +131,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
     tenantId,
     workDate,
     homeReady.map((u) => ({ id: u.id, homeLat: u.homeGeoLat as number, homeLng: u.homeGeoLng as number })),
+    settings.includeCrewInFatigue,
   );
 
   const leaders: DispatchLeader[] = homeReady.map((u) => {

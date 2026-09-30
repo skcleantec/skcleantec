@@ -28,6 +28,7 @@ export function AdminAiDispatchPage() {
   const [minPyeong, setMinPyeong] = useState('40');
   const [leaderCount, setLeaderCount] = useState('2');
   const [twoRoom, setTwoRoom] = useState('15');
+  const [includeCrew, setIncludeCrew] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -39,6 +40,7 @@ export function AdminAiDispatchPage() {
       setMinPyeong(String(next.settings.extraLeaderMinPyeong));
       setLeaderCount(String(next.settings.extraLeaderCount));
       setTwoRoom(String(next.settings.twoRoomMaxPyeong));
+      setIncludeCrew(next.settings.includeCrewInFatigue === true);
       setPicked([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오지 못했습니다.');
@@ -105,6 +107,7 @@ export function AdminAiDispatchPage() {
         extraLeaderMinPyeong: Number(minPyeong),
         extraLeaderCount: Number(leaderCount),
         twoRoomMaxPyeong: Number(twoRoom),
+        includeCrewInFatigue: includeCrew,
       });
       setNotice('규칙을 저장했습니다.');
       await load();
@@ -130,9 +133,11 @@ export function AdminAiDispatchPage() {
       minPyeong={minPyeong}
       leaderCount={leaderCount}
       twoRoom={twoRoom}
+      includeCrew={includeCrew}
       onMinPyeong={setMinPyeong}
       onLeaderCount={setLeaderCount}
       onTwoRoom={setTwoRoom}
+      onIncludeCrew={setIncludeCrew}
       onRun={() => void run()}
       onApprove={() => void approve()}
       onToggle={(id) => setPicked((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))}
