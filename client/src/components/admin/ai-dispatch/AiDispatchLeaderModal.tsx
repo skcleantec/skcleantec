@@ -161,7 +161,7 @@ export function AiDispatchLeaderModal({
             <Row
               icon="watch"
               title="오늘 자리"
-              body={`하루 최대 ${leader.jobsPerDay}건이고, 지금 남은 자리는 ${leader.remainingJobs}건입니다. 자리가 없어도 빈 일정은 넣습니다. 집 크기는 ${sizeLabel}입니다.`}
+              body={`하루 최대 ${leader.jobsPerDay}건이고, 지금 남은 자리는 ${leader.remainingJobs}건입니다. 자리가 차면 이 팀장에게는 더 넣지 않습니다. 집 크기는 ${sizeLabel}입니다.`}
             />
           </ul>
         </div>

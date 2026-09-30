@@ -13,6 +13,8 @@ export type AiDispatchLeader = {
   sizePolicy: TeamLeaderSizePolicyId;
   homeAddress: string;
   homeAddressDetail: string;
+  homeLat: number;
+  homeLng: number;
   band: AiDispatchFatigueBand;
   fatigue: number;
   note: string;
@@ -39,6 +41,9 @@ export type AiDispatchJob = {
   areaLabel: string;
   pyeong: number | null;
   isOneRoom: boolean;
+  tone: 'GOOD' | 'NORMAL' | 'BAD' | 'SEVERE' | 'ELDERLY';
+  lat: number | null;
+  lng: number | null;
   slot: AiDispatchSlot;
   requiredLeaders: number;
   preferredTime: string | null;

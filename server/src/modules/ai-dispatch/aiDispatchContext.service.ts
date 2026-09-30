@@ -59,6 +59,7 @@ export type DispatchJob = {
   lng: number | null;
   pyeong: number | null;
   isOneRoom: boolean;
+  tone: 'GOOD' | 'NORMAL' | 'BAD' | 'SEVERE' | 'ELDERLY';
   slot: AiDispatchSlot;
   requiredLeaders: number;
   updatedAt: string;
@@ -119,6 +120,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
         addressGeoLng: true,
         areaPyeong: true,
         isOneRoom: true,
+        internalCustomerTone: true,
         preferredTime: true,
         betweenScheduleSlot: true,
         status: true,
@@ -202,7 +204,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
     const external = inquiry.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
     if (external || inquiry.assignments.length > 0 || inquiry.status !== 'RECEIVED') continue;
     const slot = fixedSlot(inquiry.preferredTime, inquiry.betweenScheduleSlot);
-    const blockedReason = leaders.length === 0 ? '집 주소가 있는 팀장이 없습니다.' : null;
+    const blockedReason = leaders.length === 0 ? '넣을 팀장이 없습니다.' : null;
     jobs.push({
       id: inquiry.id,
       customerName: inquiry.customerName,
@@ -211,6 +213,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
       lng: inquiry.addressGeoLng,
       pyeong: inquiry.areaPyeong,
       isOneRoom: inquiry.isOneRoom,
+      tone: inquiry.internalCustomerTone,
       slot,
       requiredLeaders: requiredLeaderCount(inquiry.areaPyeong, settings),
       updatedAt: inquiry.updatedAt.toISOString(),

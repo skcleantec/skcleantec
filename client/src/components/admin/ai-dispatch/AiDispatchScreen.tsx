@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { aiDispatchSlotLabel } from '@shared/aiDispatch';
 import { TEAM_LEADER_SIZE_POLICY_LABEL } from '@shared/teamLeaderDispatch';
 import type { AiDispatchBoard, AiDispatchJob, AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
 import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
+import { AiDispatchDraftList } from './AiDispatchDraftList';
 import { AiDispatchProgressModal } from './AiDispatchProgressModal';
 import type { TeamLeaderDispatchFormValue } from '../TeamLeaderDispatchFields';
 
@@ -274,45 +274,26 @@ export function AiDispatchScreen({
             ))}
           </ul>
 
-          <div className="mt-3 space-y-4">
-            {SLOT_ORDER.map((slot) => {
-              const rows = proposals.filter((proposal) => shownSlot(proposal, jobById.get(proposal.inquiryId)) === slot);
-              if (rows.length === 0) return null;
-              return (
-                <div key={slot}>
-                  <h3 className="mb-1.5 text-fluid-xs font-semibold text-slate-800">
-                    {SLOT_STYLE[slot].label}
-                    <span className="ml-1 font-normal tabular-nums text-slate-500">{rows.length}</span>
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {rows.map((proposal) => (
-                      <ProposalCard
-                        key={proposal.id}
-                        proposal={proposal}
-                        job={jobById.get(proposal.inquiryId)}
-                        leaders={leaders}
-                        checked={picked.includes(proposal.id)}
-                        onToggle={onToggle}
-                        onLeaderChange={onLeaderChange}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-            {!loading && proposals.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 px-3 py-8 text-center">
-                <p className="text-fluid-sm font-medium text-slate-800">
-                  {jobs.length ? '아직 초안이 없습니다' : '배정할 예약완료가 없습니다'}
-                </p>
-                <p className="mt-1 text-fluid-xs text-slate-500">
-                  {jobs.length
-                    ? `미배정 ${jobs.length}건. 위의 AI 미리 배정을 누르면 오전·오후로 나뉩니다.`
-                    : '날짜를 바꾸거나, 스케쥴에서 예약완료인 건을 확인하세요.'}
-                </p>
-              </div>
-            ) : null}
-          </div>
+          <AiDispatchDraftList
+            proposals={proposals}
+            jobs={jobs}
+            leaders={leaders}
+            picked={picked}
+            onToggle={onToggle}
+            onLeaderChange={onLeaderChange}
+          />
+          {!loading && proposals.length === 0 ? (
+            <div className="mt-3 rounded-xl border border-dashed border-slate-200 px-3 py-8 text-center">
+              <p className="text-fluid-sm font-medium text-slate-800">
+                {jobs.length ? '아직 초안이 없습니다' : '배정할 예약완료가 없습니다'}
+              </p>
+              <p className="mt-1 text-fluid-xs text-slate-500">
+                {jobs.length
+                  ? `미배정 ${jobs.length}건. 위의 AI 미리 배정을 누르면 팀장별로 나뉩니다.`
+                  : '날짜를 바꾸거나, 스케쥴에서 예약완료인 건을 확인하세요.'}
+              </p>
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -400,88 +381,3 @@ function LeaderCard({ leader, onOpen }: { leader: AiDispatchLeader; onOpen: () =
   );
 }
 
-function ProposalCard({
-  job,
-  proposal,
-  leaders,
-  checked,
-  onToggle,
-  onLeaderChange,
-}: {
-  job: AiDispatchJob | undefined;
-  proposal: AiDispatchProposal;
-  leaders: AiDispatchLeader[];
-  checked: boolean;
-  onToggle: (id: string) => void;
-  onLeaderChange: (id: string, teamLeaderId: string | null) => void;
-}) {
-  const slot = shownSlot(proposal, job);
-  const style = SLOT_STYLE[slot];
-  const editable = proposal.status === 'DRAFT';
-  const needsPerson = !proposal.teamLeaderId;
-  const statusLabel =
-    proposal.status === 'APPROVED' ? '반영됨' : proposal.status === 'STALE' ? '다시 실행' : proposal.status === 'SKIPPED' ? '건너뜀' : null;
-
-  return (
-    <li className={`rounded-xl border border-slate-200 border-l-4 bg-white p-2.5 sm:p-3 ${style.stripe}`}>
-      <div className="flex items-start gap-2">
-        {editable && !needsPerson ? (
-          <input
-            type="checkbox"
-            className="mt-1 size-4 accent-slate-900"
-            checked={checked}
-            onChange={() => onToggle(proposal.id)}
-            aria-label={`${proposal.customerName} 승인 선택`}
-          />
-        ) : (
-          <span className="mt-1 size-4 shrink-0" aria-hidden />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900" title={proposal.customerName}>
-              {proposal.customerName}
-            </p>
-            <span className={`rounded-full border px-2 py-0.5 text-fluid-2xs font-medium ${style.chip}`}>{style.label}</span>
-            {statusLabel ? (
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600">{statusLabel}</span>
-            ) : null}
-            {!proposal.teamLeaderId && slot !== 'HUMAN' ? (
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600">팀장 없음</span>
-            ) : null}
-          </div>
-          <p className="mt-1 flex flex-wrap gap-1 text-fluid-2xs text-slate-600">
-            {job?.pyeong != null ? <span className="rounded-md bg-slate-100 px-1.5 py-0.5 tabular-nums">{job.pyeong}평</span> : null}
-            {job?.isOneRoom ? <span className="rounded-md bg-slate-100 px-1.5 py-0.5">원룸</span> : null}
-            {job?.areaLabel ? <span className="max-w-[16rem] truncate rounded-md bg-slate-100 px-1.5 py-0.5" title={job.areaLabel}>{job.areaLabel}</span> : null}
-            {job?.preferredTime ? <span className="rounded-md bg-slate-100 px-1.5 py-0.5">{job.preferredTime}</span> : null}
-            {proposal.fromHomeKm != null ? (
-              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 tabular-nums">집에서 편도 {proposal.fromHomeKm}km</span>
-            ) : null}
-          </p>
-          <p className="mt-1.5 text-fluid-xs leading-snug text-slate-700">{proposal.reason}</p>
-          {editable ? (
-            <label className="mt-2 block">
-              <span className="mb-1 block text-fluid-2xs font-medium text-slate-500">팀장</span>
-              <select
-                className="min-h-10 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-fluid-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                value={proposal.teamLeaderId ?? ''}
-                onChange={(e) => onLeaderChange(proposal.id, e.target.value || null)}
-              >
-                <option value="">배정 안 함</option>
-                {leaders.map((leader) => (
-                  <option key={leader.id} value={leader.id}>
-                    {leader.name} · {leader.band} · 남음 {leader.remainingJobs}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : proposal.teamLeaderName ? (
-            <p className="mt-2 text-fluid-xs font-medium text-slate-800">{proposal.teamLeaderName}</p>
-          ) : (
-            <p className="mt-2 text-fluid-xs text-slate-600">{slot === 'HUMAN' ? aiDispatchSlotLabel('HUMAN') : '팀장 없음'}</p>
-          )}
-        </div>
-      </div>
-    </li>
-  );
-}
