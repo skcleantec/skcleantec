@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 
 type Pin = { lat: number; lng: number; label: string; color: string };
 
-export function AiDispatchRouteMap({ pins }: { pins: Pin[] }) {
+export function AiDispatchRouteMap({ pins, className }: { pins: Pin[]; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const pinKey = pins.map((pin) => `${pin.label}:${pin.lat}:${pin.lng}`).join('|');
 
@@ -37,8 +37,12 @@ export function AiDispatchRouteMap({ pins }: { pins: Pin[] }) {
   }, [pinKey]);
 
   if (pins.length === 0) {
-    return <p className="text-fluid-2xs text-slate-500">위치를 찾지 못했습니다.</p>;
+    return (
+      <div className={`flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-fluid-2xs text-slate-500 ${className ?? 'aspect-square w-full'}`}>
+        위치를 찾지 못했습니다
+      </div>
+    );
   }
 
-  return <div ref={ref} className="h-36 w-full overflow-hidden rounded-lg border border-slate-200" />;
+  return <div ref={ref} className={`overflow-hidden rounded-lg border border-slate-200 ${className ?? 'aspect-square w-full'}`} />;
 }

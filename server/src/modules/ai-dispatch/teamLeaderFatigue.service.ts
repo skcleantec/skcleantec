@@ -55,8 +55,8 @@ type FatigueRow = {
   detail: FatigueDetail;
 };
 
-const LOOKBACK_DAYS = 7;
-const NORMAL_SCORE = 40;
+const LOOKBACK_DAYS = 14;
+const NO_REST_FLOOR = 85;
 
 /** 35평 미만·원룸은 0. 큰 집만 피로에 더한다. */
 function largeHomePoints(job: Pick<PastJob, 'pyeong' | 'isOneRoom'>): number {
@@ -83,12 +83,13 @@ function jobHousePoints(
 function bandOf(score: number): AiDispatchFatigueBand {
   if (score <= 30) return '좋음';
   if (score <= 60) return '보통';
-  return '피로';
+  if (score <= 80) return '피로';
+  return '매우피로';
 }
 
-/** 정상 주 40점이 막대 40. 0 이하는 1. */
+/** 휴무 직후 0. 100이 매우 나쁨. */
 export function fatiguePercent(score: number): number {
-  return Math.max(1, Math.min(100, Math.round(score)));
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 function dayTravel(dayJobs: PastJob[], home: { homeLat: number; homeLng: number }): DayTravel | null {
@@ -116,8 +117,8 @@ function mean(values: number[]): number {
 }
 
 /**
- * 배정일 직전 7일. 휴무 달력(슬롯 조정 제외)이 있으면 그 다음 날부터 다시 센다.
- * 휴무 이후 하루 2건은 40점(보통). 휴무가 없으면 주간 정상 근무일·건수가 보통이다.
+ * 배정일 직전 14일. 휴무 달력(슬롯 조정 제외)이 있으면 그 다음 날부터 0에서 다시 센다.
+ * 휴무가 없으면 85점(매우 나쁨)에서 가산만 더한다.
  */
 export async function loadLeaderFatigue(
   db: Db,
@@ -261,40 +262,19 @@ export async function loadLeaderFatigue(
   for (const leader of leaders) {
     const row = stats.get(leader.id);
     if (!row) continue;
-    let score = row.sinceRest && row.jobCount === 0 ? 18 : NORMAL_SCORE;
-    if (row.sinceRest) score += row.extraJobs * 4;
-    else {
-      score += (row.workedDays - normalWorkDays) * 8;
-      if (row.workedDays >= LOOKBACK_DAYS && normalWorkDays < LOOKBACK_DAYS) score += 6;
-      score += Math.max(0, row.jobCount - normalJobs) * 3;
-    }
-    score += row.pyeongScore + row.crewScore;
-
+    let score = 0;
+    if (!row.sinceRest) score = NO_REST_FLOOR;
+    else score = row.workedDays * 6 + Math.max(0, row.workedDays - normalWorkDays) * 4;
     if (row.jobCount > 0) {
-      if (row.loopAvg == null || teamLoop == null) score += 2;
-      else if (row.loopAvg <= teamLoop) score += 2;
-      else score += Math.min(20, Math.floor((row.loopAvg - teamLoop) / 4));
-
-      if (row.betweenAvg != null && teamBetween != null && row.betweenAvg > teamBetween) {
-        score += Math.min(30, Math.floor((row.betweenAvg - teamBetween) / 2));
-      }
+      score += row.extraJobs * 4;
+      score += Math.max(0, row.jobCount - normalJobs) * 2;
+      score += row.pyeongScore + row.crewScore;
+      if (row.distanceSinceRestKm != null) score += Math.min(15, Math.floor(row.distanceSinceRestKm / 30));
     }
 
-    const noteParts = [
-      `지난 ${row.workedDays}일 합계 ${row.jobCount}건`,
-      row.sinceRest ? '휴무 다음부터' : '휴무 없음',
-      '하루 2건이 보통',
-    ];
-    if (row.jobCount > 0 && row.loopAvg == null) noteParts.push('하루 거리 없음');
-    else if (row.jobCount > 0 && teamLoop == null) noteParts.push('비교할 평균 없음');
-    else if (row.loopAvg != null && teamLoop != null) {
-      noteParts.push(`팀 평균 ${Math.round(teamLoop)}km`);
-      noteParts.push(`이 팀장 ${Math.round(row.loopAvg)}km`);
-    }
-    if (row.betweenAvg != null && teamBetween != null) {
-      const delta = Math.round(row.betweenAvg - teamBetween);
-      noteParts.push(`현장 사이 ${delta > 0 ? `+${delta}` : String(delta)}km`);
-    }
+    const noteParts = [row.sinceRest ? `휴무 다음 ${row.workedDays}일` : '2주 휴무 없음', `${row.jobCount}건`];
+    if (row.distanceSinceRestKm != null) noteParts.push(`누적 ${row.distanceSinceRestKm}km`);
+    else if (row.loopAvg != null) noteParts.push(`하루 ${Math.round(row.loopAvg)}km`);
     if (row.largeJobs > 0) noteParts.push(`큰 집 ${row.largeJobs}건`);
     if (row.soloJobs > 0) noteParts.push(`투룸 혼자 ${row.soloJobs}건`);
     const fatigue = fatiguePercent(score);

@@ -6,81 +6,23 @@ import type { TeamLeaderDispatchFormValue } from '../TeamLeaderDispatchFields';
 import { AiDispatchLeaderSettingsModal } from './AiDispatchLeaderSettingsModal';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 
-function Row({
-  icon,
-  title,
-  body,
-}: {
-  icon: string;
-  title: string;
-  body: string;
-}) {
+function bandWord(band: string): string {
+  if (band === '매우피로') return '매우 나쁨';
+  if (band === '피로') return '나쁨';
+  if (band === '좋음' || band === '보통') return band;
+  return band;
+}
+
+function Fact({ icon, title, value }: { icon: string; title: string; value: string }) {
   return (
-    <li className="flex items-start gap-2 rounded-xl border border-slate-200 px-2.5 py-2">
-      <LineMdIcon name={icon} className="mt-0.5 size-5 shrink-0 text-slate-600" />
-      <div className="min-w-0">
-        <p className="text-fluid-xs font-semibold text-slate-900">{title}</p>
-        <p className="mt-0.5 text-fluid-xs leading-snug text-slate-600">{body}</p>
-      </div>
+    <li className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+      <LineMdIcon name={icon} className="size-5 shrink-0 text-slate-600" />
+      <span className="w-16 shrink-0 text-fluid-2xs text-slate-500">{title}</span>
+      <span className="min-w-0 truncate text-fluid-xs font-semibold text-slate-900" title={value}>
+        {value}
+      </span>
     </li>
   );
-}
-
-function summaryOf(leader: AiDispatchLeader): string {
-  if (leader.band === '피로') return '휴무 이후 하루 2건을 넘었거나, 이동이 팀보다 멀거나, 큰 집이 겹친 상태입니다.';
-  if (leader.band === '좋음') return '휴무 직후이거나, 최근 이동이 팀 평균을 넘지 않습니다.';
-  return '휴무 다음부터 하루 2건에 가깝습니다. 휴무가 없으면 한 주 정상 건수에 가깝습니다.';
-}
-
-function dayText(leader: AiDispatchLeader): string {
-  const detail = leader.detail;
-  if (detail.sinceRest) return `이 날짜 배정이 아닙니다. 휴무 다음 ${detail.workedDays}일 동안의 지난 근무입니다. 하루 2건이면 보통입니다.`;
-  const gap = detail.workedDays - detail.normalWorkDays;
-  const base = `휴무가 없어 최근 ${detail.windowDays}일 중 ${detail.workedDays}일을 한 주 기준으로 봤습니다. 정상은 ${detail.normalWorkDays}일입니다.`;
-  if (gap > 0) return `${base} 정상보다 ${gap}일 더 일했습니다.`;
-  return base;
-}
-
-function jobText(leader: AiDispatchLeader): string {
-  const detail = leader.detail;
-  if (detail.sinceRest) return `지난 근무 합계 ${detail.jobCount}건입니다. 이 날짜에 넣는 건수가 아닙니다. 일한 날마다 2건까지는 보통입니다.`;
-  const extra = detail.jobCount - detail.normalJobs;
-  const base = `${detail.jobCount}건 했습니다. 휴무가 없는 주의 정상은 ${detail.normalJobs}건입니다.`;
-  if (extra > 0) return `${base} ${extra}건이 더 많아 피로가 올라갑니다.`;
-  return base;
-}
-
-function restText(leader: AiDispatchLeader): string {
-  const detail = leader.detail;
-  const distance = detail.distanceSinceRestKm == null ? '거리 없음' : `${detail.distanceSinceRestKm}km`;
-  if (!detail.sinceRest) return '이번 기간에 휴무 달력 기록이 없습니다. 한 주 정상 건수로 셉니다.';
-  if (detail.restDays <= 0) return '휴무 기록이 없습니다.';
-  return `휴무 ${detail.restDays}일 다음부터 다시 셉니다. 그 사이 누적 거리는 ${distance}입니다.`;
-}
-
-function loopText(leader: AiDispatchLeader): string {
-  const detail = leader.detail;
-  if (detail.loopKm == null) return '집이나 현장 좌표가 없어 이동 거리를 재지 못했습니다.';
-  if (detail.teamLoopKm == null) return `집에서 현장을 거쳐 집으로 돌아오는 하루 평균이 ${detail.loopKm}km입니다. 비교할 팀장이 부족합니다.`;
-  const gap = detail.loopKm - detail.teamLoopKm;
-  if (gap > 0) {
-    return `집에서 현장을 거쳐 집으로 돌아오는 하루 평균이 ${detail.loopKm}km입니다. 팀 평균 ${detail.teamLoopKm}km보다 ${gap}km 멉니다.`;
-  }
-  return `집에서 현장을 거쳐 집으로 돌아오는 하루 평균이 ${detail.loopKm}km입니다. 팀 평균 ${detail.teamLoopKm}km와 같거나 더 가깝습니다.`;
-}
-
-function betweenText(leader: AiDispatchLeader): string {
-  const delta = leader.detail.betweenDeltaKm;
-  if (delta == null) return '오전 현장과 오후 현장 사이를 팀과 비교하지 못했습니다.';
-  if (delta > 0) return `현장과 현장 사이가 팀 평균보다 ${delta}km 멉니다. 이 거리가 멀수록 피로가 쌓입니다.`;
-  if (delta < 0) return `현장과 현장 사이가 팀 평균보다 ${Math.abs(delta)}km 가깝습니다.`;
-  return '현장과 현장 사이가 팀 평균과 같습니다.';
-}
-
-function largeText(leader: AiDispatchLeader): string {
-  const count = leader.detail.largeJobs;
-  if (count === 0) return '35평 이상 집은 없습니다. 작은 집은 피로에 더하지 않습니다.';
-  return `35평 이상 ${count}건입니다. 큰 집이 많을수록 피로가 올라갑니다.`;
 }
 
 export function AiDispatchLeaderModal({
@@ -98,6 +40,22 @@ export function AiDispatchLeaderModal({
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const sizeLabel = TEAM_LEADER_SIZE_POLICY_LABEL[leader.sizePolicy];
+  const detail = leader.detail;
+  const travel =
+    detail.loopKm == null
+      ? '거리 없음'
+      : detail.distanceSinceRestKm == null
+        ? `하루 ${detail.loopKm}km`
+        : `하루 ${detail.loopKm}km · 누적 ${detail.distanceSinceRestKm}km`;
+  const facts = [
+    { icon: 'gauge', title: '피로', value: `${leader.fatigue} · ${bandWord(leader.band)}` },
+    { icon: 'calendar', title: '지난 근무', value: `${detail.workedDays}일 · ${detail.jobCount}건` },
+    { icon: 'moon', title: '휴무', value: detail.sinceRest ? '다음부터 다시 셈' : '기록 없음' },
+    { icon: 'map-marker', title: '이동', value: travel },
+    { icon: 'home', title: '큰 집', value: detail.largeJobs > 0 ? `${detail.largeJobs}건` : '없음' },
+    { icon: 'person', title: '투룸 혼자', value: detail.soloJobs > 0 ? `${detail.soloJobs}건` : '없음' },
+    { icon: 'watch', title: '오늘', value: `하루 ${leader.jobsPerDay}건 · 남은 ${leader.remainingJobs} · ${sizeLabel}` },
+  ];
   return createPortal(
     <div
       className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 sm:items-center"
@@ -117,7 +75,7 @@ export function AiDispatchLeaderModal({
               {leader.name}
             </h2>
             <p className="text-fluid-2xs text-slate-500">
-              {leader.band} · 피로 {leader.fatigue}
+              {bandWord(leader.band)} · {leader.fatigue}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -139,32 +97,11 @@ export function AiDispatchLeaderModal({
             </button>
           </div>
         </header>
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
-          <p className="flex items-start gap-2 text-fluid-xs leading-snug text-slate-700">
-            <LineMdIcon name="gauge" className="mt-0.5 size-5 shrink-0 text-slate-600" />
-            <span>{summaryOf(leader)} 30 이하는 좋음, 60 이하는 보통, 그 위는 피로입니다.</span>
-          </p>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           <ul className="space-y-1.5">
-            <Row icon="calendar" title="일한 날" body={dayText(leader)} />
-            <Row icon="briefcase-check" title="한 일" body={jobText(leader)} />
-            <Row icon="moon" title="쉰 날" body={restText(leader)} />
-            <Row icon="map-marker" title="집에서 현장" body={loopText(leader)} />
-            <Row icon="arrows-horizontal" title="현장과 현장 사이" body={betweenText(leader)} />
-            <Row icon="home" title="큰 집" body={largeText(leader)} />
-            <Row
-              icon="person"
-              title="원룸·투룸 인원"
-              body={
-                leader.detail.soloJobs > 0
-                  ? `투룸을 혼자 간 일정이 ${leader.detail.soloJobs}건입니다. 팀원 점수를 켜 두면 이 건만 피로가 올라갑니다. 원룸은 한 명이 기본이라 더하지 않고, 원룸에 팀원이 같이 가면 그 집의 가중치는 없습니다.`
-                  : '원룸은 한 명이 기본입니다. 팀원이 같이 간 원룸은 피로에 더하지 않습니다. 투룸을 혼자 가면, 팀원 점수를 켠 업체만 피로가 올라갑니다.'
-              }
-            />
-            <Row
-              icon="watch"
-              title="오늘 자리"
-              body={`하루 최대 ${leader.jobsPerDay}건이고, 지금 남은 자리는 ${leader.remainingJobs}건입니다. 자리가 차면 이 팀장에게는 더 넣지 않습니다. 집 크기는 ${sizeLabel}입니다.`}
-            />
+            {facts.map((fact) => (
+              <Fact key={fact.title} icon={fact.icon} title={fact.title} value={fact.value} />
+            ))}
           </ul>
         </div>
       </div>

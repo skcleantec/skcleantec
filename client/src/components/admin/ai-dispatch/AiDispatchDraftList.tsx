@@ -3,14 +3,22 @@ import {
   internalCustomerToneImageSrc,
 } from '../../../constants/internalCustomerTone';
 import type { AiDispatchJob, AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
+import { AiDispatchRouteMap } from './AiDispatchRouteMap';
 
 const SLOT_ORDER = ['AM', 'ALL_DAY', 'PM', 'HUMAN'] as const;
 
 const SLOT_LABEL: Record<(typeof SLOT_ORDER)[number], string> = {
-  AM: '오전 배정',
-  ALL_DAY: '종일 배정',
-  PM: '오후 배정',
+  AM: '오전',
+  ALL_DAY: '종일',
+  PM: '오후',
   HUMAN: '사람 판단',
+};
+
+const SLOT_BOX: Record<(typeof SLOT_ORDER)[number], { box: string; pin: string }> = {
+  AM: { box: 'border-amber-200 bg-amber-50', pin: '#f59e0b' },
+  ALL_DAY: { box: 'border-emerald-200 bg-emerald-50', pin: '#059669' },
+  PM: { box: 'border-sky-200 bg-sky-50', pin: '#0ea5e9' },
+  HUMAN: { box: 'border-violet-200 bg-violet-50', pin: '#8b5cf6' },
 };
 
 function slotKey(slot: string): (typeof SLOT_ORDER)[number] {
@@ -24,6 +32,7 @@ function shownSlot(proposal: AiDispatchProposal, job?: AiDispatchJob): (typeof S
 }
 
 function bandWord(band: string): string {
+  if (band === '매우피로') return '매우 나쁨';
   if (band === '피로') return '나쁨';
   if (band === '좋음' || band === '보통') return band;
   return band;
@@ -55,6 +64,7 @@ function JobLine({
   checked,
   onToggle,
   onLeaderChange,
+  onOpenInquiry,
 }: {
   label: string;
   proposal: AiDispatchProposal;
@@ -63,14 +73,17 @@ function JobLine({
   checked: boolean;
   onToggle: (id: string) => void;
   onLeaderChange: (id: string, teamLeaderId: string | null) => void;
+  onOpenInquiry: (inquiryId: string) => void;
 }) {
   const editable = proposal.status === 'DRAFT';
   const toneSrc = internalCustomerToneImageSrc(job?.tone);
   const toneHint = internalCustomerToneHint(job?.tone);
   const place = job?.areaLabel ? shortPlace(job.areaLabel) : '';
+  const slot = shownSlot(proposal, job);
+  const box = SLOT_BOX[slot];
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
+    <div className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 ${box.box}`}>
       {editable && proposal.teamLeaderId ? (
         <input
           type="checkbox"
@@ -84,9 +97,14 @@ function JobLine({
       )}
       <span className="w-16 shrink-0 text-fluid-2xs text-slate-500">{label}</span>
       {toneSrc ? <img src={toneSrc} alt={toneHint} title={toneHint} className="size-5 shrink-0" /> : null}
-      <span className="min-w-0 truncate text-fluid-xs font-semibold text-slate-900" title={proposal.customerName}>
+      <button
+        type="button"
+        onClick={() => onOpenInquiry(proposal.inquiryId)}
+        className="min-w-0 truncate text-left text-fluid-xs font-semibold text-slate-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        title={proposal.customerName}
+      >
         {proposal.customerName}
-      </span>
+      </button>
       {place ? (
         <span className="min-w-0 truncate text-fluid-2xs text-slate-500" title={job?.areaLabel}>
           {place}
@@ -131,6 +149,20 @@ function loopKm(leader: AiDispatchLeader, rows: AiDispatchProposal[], jobById: M
   return total;
 }
 
+function routePins(leader: AiDispatchLeader | null, rows: AiDispatchProposal[], jobById: Map<string, AiDispatchJob>) {
+  const pins: Array<{ lat: number; lng: number; label: string; color: string }> = [];
+  if (leader && Number.isFinite(leader.homeLat) && Number.isFinite(leader.homeLng)) {
+    pins.push({ lat: leader.homeLat, lng: leader.homeLng, label: '출발', color: '#334155' });
+  }
+  for (const row of rows) {
+    const job = jobById.get(row.inquiryId);
+    if (job?.lat == null || job.lng == null) continue;
+    const slot = shownSlot(row, job);
+    pins.push({ lat: job.lat, lng: job.lng, label: SLOT_LABEL[slot], color: SLOT_BOX[slot].pin });
+  }
+  return pins;
+}
+
 function betweenText(rows: AiDispatchProposal[], jobById: Map<string, AiDispatchJob>): string {
   const am = rows.map((row) => jobById.get(row.inquiryId)).find((job) => job?.slot === 'AM');
   const pm = rows.map((row) => jobById.get(row.inquiryId)).find((job) => job?.slot === 'PM');
@@ -148,6 +180,7 @@ export function AiDispatchDraftList({
   picked,
   onToggle,
   onLeaderChange,
+  onOpenInquiry,
 }: {
   proposals: AiDispatchProposal[];
   jobs: AiDispatchJob[];
@@ -155,6 +188,7 @@ export function AiDispatchDraftList({
   picked: string[];
   onToggle: (id: string) => void;
   onLeaderChange: (id: string, teamLeaderId: string | null) => void;
+  onOpenInquiry: (inquiryId: string) => void;
 }) {
   const jobById = new Map(jobs.map((job) => [job.id, job]));
   const leaderById = new Map(leaders.map((leader) => [leader.id, leader]));
@@ -184,6 +218,7 @@ export function AiDispatchDraftList({
               checked={picked.includes(proposal.id)}
               onToggle={onToggle}
               onLeaderChange={onLeaderChange}
+              onOpenInquiry={onOpenInquiry}
             />
           ))}
         </section>
@@ -199,8 +234,9 @@ export function AiDispatchDraftList({
         const since = leader?.detail.distanceSinceRestKm;
         const todayCount = rows.reduce((sum, row) => sum + (shownSlot(row, jobById.get(row.inquiryId)) === 'ALL_DAY' ? 2 : 1), 0);
         const reason = [...new Set(rows.map((row) => row.reason.trim()).filter(Boolean))].join(' · ');
+        const pins = routePins(leader ?? null, rows, jobById);
         return (
-          <section key={leaderId} className="space-y-1 rounded-xl border border-slate-200 bg-white p-2">
+          <section key={leaderId} className="rounded-xl border border-slate-200 bg-white p-2">
             <p className="truncate text-fluid-sm font-semibold text-slate-900">
               팀장명: {leader?.name ?? '팀장'}
               {leader ? (
@@ -209,26 +245,38 @@ export function AiDispatchDraftList({
                 </span>
               ) : null}
             </p>
-            {rows.map((proposal) => (
-              <JobLine
-                key={proposal.id}
-                label={SLOT_LABEL[shownSlot(proposal, jobById.get(proposal.inquiryId))]}
-                proposal={proposal}
-                job={jobById.get(proposal.inquiryId)}
-                leaders={leaders}
-                checked={picked.includes(proposal.id)}
-                onToggle={onToggle}
-                onLeaderChange={onLeaderChange}
-              />
-            ))}
-            <p className="text-fluid-2xs text-slate-700">배정간 거리: {betweenText(rows, jobById)}</p>
-            <p className="text-fluid-2xs text-slate-700">총 거리: {total == null ? '위치를 찾지 못했습니다' : kmText(total)}</p>
-            <p className="text-fluid-2xs text-slate-700">휴무이후 누적거리: {since == null ? '거리 없음' : `${since}km`}</p>
-            {reason ? (
-              <p className="truncate text-fluid-2xs text-slate-600" title={reason}>
-                배정사유: {reason}
-              </p>
-            ) : null}
+            <div className="mt-1.5 grid items-start gap-2 lg:grid-cols-2">
+              <div className="min-w-0 space-y-1">
+                {rows.map((proposal) => (
+                  <JobLine
+                    key={proposal.id}
+                    label={SLOT_LABEL[shownSlot(proposal, jobById.get(proposal.inquiryId))]}
+                    proposal={proposal}
+                    job={jobById.get(proposal.inquiryId)}
+                    leaders={leaders}
+                    checked={picked.includes(proposal.id)}
+                    onToggle={onToggle}
+                    onLeaderChange={onLeaderChange}
+                    onOpenInquiry={onOpenInquiry}
+                  />
+                ))}
+                <p className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-fluid-2xs text-slate-800">
+                  배정간 거리: {betweenText(rows, jobById)}
+                </p>
+                <p className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-slate-900">
+                  총 거리: {total == null ? '위치를 찾지 못했습니다' : kmText(total)}
+                </p>
+                <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-fluid-2xs text-indigo-950">
+                  휴무이후 누적거리: {since == null ? '거리 없음' : `${since}km`}
+                </p>
+                {reason ? (
+                  <p className="truncate rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-fluid-2xs text-slate-700" title={reason}>
+                    배정사유: {reason}
+                  </p>
+                ) : null}
+              </div>
+              <AiDispatchRouteMap pins={pins} className="aspect-square w-full" />
+            </div>
           </section>
         );
       })}

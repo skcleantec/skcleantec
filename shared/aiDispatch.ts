@@ -3,7 +3,7 @@
 export const AI_DISPATCH_SLOTS = ['AM', 'PM', 'ALL_DAY', 'HUMAN'] as const;
 export type AiDispatchSlot = (typeof AI_DISPATCH_SLOTS)[number];
 
-export const AI_DISPATCH_FATIGUE_BANDS = ['좋음', '보통', '피로'] as const;
+export const AI_DISPATCH_FATIGUE_BANDS = ['좋음', '보통', '피로', '매우피로'] as const;
 export type AiDispatchFatigueBand = (typeof AI_DISPATCH_FATIGUE_BANDS)[number];
 
 export const AI_DISPATCH_DEFAULTS = {
@@ -12,7 +12,7 @@ export const AI_DISPATCH_DEFAULTS = {
   twoRoomMaxPyeong: 15,
   /** 팀원 없이 간 날에 피로 점수를 더할지. 팀원을 안 쓰는 업체는 끔. */
   includeCrewInFatigue: false,
-  /** 이 근무일·건수면 피로 점수의 보통(40점)이다. */
+  /** 휴무 다음 이 근무일을 넘기면 피로가 더 오른다. 휴무가 없으면 2주 기준으로 매우 나쁨이다. */
   normalWorkDaysPerWeek: 6,
   normalJobsPerWeek: 12,
 } as const;

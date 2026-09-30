@@ -6,10 +6,10 @@ export const AI_DISPATCH_DEFAULTS = {
   twoRoomMaxPyeong: 15,
   /** shared/aiDispatch.ts 와 동일. 팀원 없는 날에 점수를 더할지. */
   includeCrewInFatigue: false,
-  /** shared/aiDispatch.ts 와 동일. 이 근무일·건수면 보통(40점). */
+  /** shared/aiDispatch.ts 와 동일. 휴무 다음 이 근무일을 넘기면 점수가 더 오른다. */
   normalWorkDaysPerWeek: 6,
   normalJobsPerWeek: 12,
 } as const;
 
 export type AiDispatchSlot = 'AM' | 'PM' | 'ALL_DAY' | 'HUMAN';
-export type AiDispatchFatigueBand = '좋음' | '보통' | '피로';
+export type AiDispatchFatigueBand = '좋음' | '보통' | '피로' | '매우피로';

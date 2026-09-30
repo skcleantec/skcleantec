@@ -12,6 +12,7 @@ import {
 } from '../../api/aiDispatch';
 import type { TeamLeaderDispatchFormValue } from '../../components/admin/TeamLeaderDispatchFields';
 import { AiDispatchScreen } from '../../components/admin/ai-dispatch/AiDispatchScreen';
+import { useCrmInquiryEdit } from '../../hooks/useCrmInquiryEdit';
 import { getToken } from '../../stores/auth';
 
 function todayYmd(): string {
@@ -62,6 +63,8 @@ export function AdminAiDispatchPage() {
       setLoading(false);
     }
   }, [token, date]);
+
+  const inquiryEdit = useCrmInquiryEdit(true, () => void load());
 
   useEffect(() => {
     void load();
@@ -175,7 +178,10 @@ export function AdminAiDispatchPage() {
     }
   };
 
+  const selectableIds = (board?.run?.proposals ?? []).filter((row) => row.status === 'DRAFT' && row.teamLeaderId).map((row) => row.id);
+
   return (
+    <>
     <AiDispatchScreen
       date={date}
       onDateChange={(nextDate) => {
@@ -210,6 +216,10 @@ export function AdminAiDispatchPage() {
       onRun={() => void run()}
       onApprove={() => void approve()}
       onToggle={(id) => setPicked((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))}
+      onSelectAll={() =>
+        setPicked((prev) => (selectableIds.length > 0 && selectableIds.every((id) => prev.includes(id)) ? [] : selectableIds))
+      }
+      onOpenInquiry={inquiryEdit.openInquiryEdit}
       onLeaderChange={(id, teamLeaderId) => void changeLeader(id, teamLeaderId)}
       onSaveSettings={() => void saveSettings()}
       onSaveLeader={saveLeader}
@@ -217,5 +227,7 @@ export function AdminAiDispatchPage() {
       onOpenReport={() => setReportOpen(true)}
       onCloseReport={() => setReportOpen(false)}
     />
+    {inquiryEdit.layer}
+    </>
   );
 }

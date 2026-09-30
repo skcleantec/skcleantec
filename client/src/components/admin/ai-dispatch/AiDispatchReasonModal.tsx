@@ -40,7 +40,7 @@ export function AiDispatchReasonModal({
             {board.run?.summary?.trim() || '이 날짜 초안입니다.'}
           </p>
           <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-            거리는 팀장 집과 현장 좌표의 직선입니다. 하루 2건은 오전·오후를 가깝게 묶고, 하루 1건은 집과의 거리만 봅니다. 피로 점수가 더 높으면 가까운 하루를, 더 낮으면 조금 먼 하루를 줍니다. 모두 좋음이어도 점수 차이를 봅니다. 휴무 다음부터 다시 세고, 그 뒤 하루 2건이면 보통입니다. 하루 칸이 찬 일정은 초안 맨 위에 팀장 없이 둡니다.
+            거리는 팀장 집과 현장 좌표의 직선입니다. 하루 2건은 오전·오후를 가깝게 묶고, 하루 1건은 집과의 거리만 봅니다. 피로 점수가 더 높으면 가까운 하루를, 더 낮으면 조금 먼 하루를 줍니다. 휴무 다음부터 0에서 다시 쌓이고, 2주간 휴무가 없으면 매우 나쁨입니다. 하루 칸이 찬 일정은 초안 맨 위에 팀장 없이 둡니다.
           </p>
           {loops.length > 0 ? (
             <ul className="space-y-1.5">

@@ -9,12 +9,13 @@ import { AiDispatchDraftList } from './AiDispatchDraftList';
 import { AiDispatchProgressModal } from './AiDispatchProgressModal';
 import type { TeamLeaderDispatchFormValue } from '../TeamLeaderDispatchFields';
 
-const BAND_ORDER = ['좋음', '보통', '피로'] as const;
+const BAND_ORDER = ['좋음', '보통', '피로', '매우피로'] as const;
 
-const BAND_STYLE: Record<(typeof BAND_ORDER)[number], { chip: string; panel: string; fill: string }> = {
-  좋음: { chip: 'bg-emerald-50 text-emerald-900 border-emerald-200', panel: 'border-emerald-200 bg-emerald-50/60', fill: 'bg-emerald-500' },
-  보통: { chip: 'bg-amber-50 text-amber-950 border-amber-200', panel: 'border-amber-200 bg-amber-50/70', fill: 'bg-amber-500' },
-  피로: { chip: 'bg-red-50 text-red-900 border-red-200', panel: 'border-red-200 bg-red-50/70', fill: 'bg-red-500' },
+const BAND_STYLE: Record<(typeof BAND_ORDER)[number], { chip: string; panel: string; fill: string; label: string }> = {
+  좋음: { chip: 'bg-emerald-50 text-emerald-900 border-emerald-200', panel: 'border-emerald-200 bg-emerald-50/60', fill: 'bg-emerald-500', label: '좋음' },
+  보통: { chip: 'bg-amber-50 text-amber-950 border-amber-200', panel: 'border-amber-200 bg-amber-50/70', fill: 'bg-amber-500', label: '보통' },
+  피로: { chip: 'bg-red-50 text-red-900 border-red-200', panel: 'border-red-200 bg-red-50/70', fill: 'bg-red-500', label: '나쁨' },
+  매우피로: { chip: 'bg-red-100 text-red-950 border-red-400', panel: 'border-red-400 bg-red-100/80', fill: 'bg-red-700', label: '매우 나쁨' },
 };
 
 const SLOT_ORDER = ['AM', 'PM', 'ALL_DAY', 'HUMAN'] as const;
@@ -74,6 +75,8 @@ export function AiDispatchScreen({
   onRun,
   onApprove,
   onToggle,
+  onSelectAll,
+  onOpenInquiry,
   onLeaderChange,
   onSaveSettings,
   onSaveLeader,
@@ -110,6 +113,8 @@ export function AiDispatchScreen({
   onRun: () => void;
   onApprove: () => void;
   onToggle: (id: string) => void;
+  onSelectAll: () => void;
+  onOpenInquiry: (inquiryId: string) => void;
   onLeaderChange: (id: string, teamLeaderId: string | null) => void;
   onSaveSettings: () => void;
   onSaveLeader: (leaderId: string, value: TeamLeaderDispatchFormValue) => Promise<void>;
@@ -132,6 +137,8 @@ export function AiDispatchScreen({
   const draftCount = proposals.filter((row) => row.status === 'DRAFT' && row.teamLeaderId && shownSlot(row, jobById.get(row.inquiryId)) !== 'HUMAN').length;
   const openCount = proposals.filter((row) => !row.teamLeaderId && shownSlot(row, jobById.get(row.inquiryId)) !== 'HUMAN').length;
   const humanCount = proposals.filter((row) => shownSlot(row, jobById.get(row.inquiryId)) === 'HUMAN').length;
+  const selectable = proposals.filter((row) => row.status === 'DRAFT' && row.teamLeaderId);
+  const allPicked = selectable.length > 0 && selectable.every((row) => picked.includes(row.id));
 
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:gap-4">
@@ -200,7 +207,7 @@ export function AiDispatchScreen({
             <StepMark n="2" />
             <div>
               <h2 className="text-fluid-sm font-semibold text-slate-900">팀장 컨디션</h2>
-              <p className="text-fluid-2xs text-slate-500">휴무 다음부터 다시 세고, 하루 2건이면 보통입니다. 점수가 높으면 가까운 하루를 줍니다.</p>
+              <p className="text-fluid-2xs text-slate-500">휴무 다음부터 0에서 다시 쌓입니다. 2주간 휴무가 없으면 매우 나쁨입니다.</p>
             </div>
           </div>
           <div className="mt-3 space-y-3">
@@ -219,7 +226,7 @@ export function AiDispatchScreen({
               return (
                 <div key={band}>
                   <p className="mb-1.5 flex items-center gap-1.5 text-fluid-2xs font-semibold text-slate-700">
-                    <span className={`rounded-full border px-2 py-0.5 ${BAND_STYLE[band].chip}`}>{band}</span>
+                    <span className={`rounded-full border px-2 py-0.5 ${BAND_STYLE[band].chip}`}>{BAND_STYLE[band].label}</span>
                     <span className="tabular-nums text-slate-500">{rows.length}명</span>
                   </p>
                   <ul className="space-y-1.5">
@@ -256,6 +263,14 @@ export function AiDispatchScreen({
               </button>
               <button
                 type="button"
+                disabled={selectable.length === 0}
+                onClick={onSelectAll}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              >
+                {allPicked ? '선택 해제' : '전체 선택'}
+              </button>
+              <button
+                type="button"
                 disabled={running || picked.length === 0}
                 onClick={onApprove}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
@@ -281,6 +296,7 @@ export function AiDispatchScreen({
             picked={picked}
             onToggle={onToggle}
             onLeaderChange={onLeaderChange}
+            onOpenInquiry={onOpenInquiry}
           />
           {!loading && proposals.length === 0 ? (
             <div className="mt-3 rounded-xl border border-dashed border-slate-200 px-3 py-8 text-center">
@@ -341,7 +357,7 @@ function CountChip({ label, value }: { label: string; value: string }) {
 
 function LeaderCard({ leader, onOpen }: { leader: AiDispatchLeader; onOpen: () => void }) {
   const band = BAND_STYLE[leader.band as (typeof BAND_ORDER)[number]] ?? BAND_STYLE.보통;
-  const fatigue = Math.max(1, Math.min(100, Math.round(leader.fatigue || 1)));
+  const fatigue = Math.max(0, Math.min(100, Math.round(leader.fatigue)));
   return (
     <li>
       <button
@@ -353,13 +369,13 @@ function LeaderCard({ leader, onOpen }: { leader: AiDispatchLeader; onOpen: () =
           <p className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900" title={leader.name}>
             {leader.name}
           </p>
-          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-fluid-2xs font-semibold ${band.chip}`}>{leader.band}</span>
+          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-fluid-2xs font-semibold ${band.chip}`}>{band.label}</span>
         </div>
         <div className="mt-1.5 flex items-center gap-2" title={`피로 ${fatigue}. 100에 가까울수록 지친 상태`}>
           <div
             className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white ring-1 ring-slate-900/10"
             role="meter"
-            aria-valuemin={1}
+            aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={fatigue}
             aria-label={`${leader.name} 피로 ${fatigue}`}
