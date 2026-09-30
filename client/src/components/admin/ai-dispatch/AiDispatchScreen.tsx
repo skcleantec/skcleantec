@@ -5,6 +5,7 @@ import type { AiDispatchBoard, AiDispatchJob, AiDispatchLeader, AiDispatchPropos
 import { LineMdIcon } from '../../ui/LineMdIcon';
 import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
+import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
 
 const BAND_ORDER = ['좋음', '보통', '피로'] as const;
 
@@ -101,6 +102,7 @@ export function AiDispatchScreen({
   onCloseReport: () => void;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leaderOpen, setLeaderOpen] = useState<AiDispatchLeader | null>(null);
   const leaders = board?.leaders ?? [];
   const jobs = board?.jobs ?? [];
   const proposals = board?.run?.proposals ?? [];
@@ -200,7 +202,7 @@ export function AiDispatchScreen({
                   </p>
                   <ul className="space-y-1.5">
                     {rows.map((leader) => (
-                      <LeaderCard key={leader.id} leader={leader} />
+                      <LeaderCard key={leader.id} leader={leader} onOpen={() => setLeaderOpen(leader)} />
                     ))}
                   </ul>
                 </div>
@@ -310,6 +312,7 @@ export function AiDispatchScreen({
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}
+      {leaderOpen ? <AiDispatchLeaderModal leader={leaderOpen} onClose={() => setLeaderOpen(null)} /> : null}
       {reportOpen && board?.run ? <AiDispatchReasonModal board={board} onClose={onCloseReport} /> : null}
     </div>
   );
@@ -324,38 +327,44 @@ function CountChip({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LeaderCard({ leader }: { leader: AiDispatchLeader }) {
+function LeaderCard({ leader, onOpen }: { leader: AiDispatchLeader; onOpen: () => void }) {
   const band = BAND_STYLE[leader.band as (typeof BAND_ORDER)[number]] ?? BAND_STYLE.보통;
   const fatigue = Math.max(1, Math.min(100, Math.round(leader.fatigue || 1)));
   return (
-    <li className={`rounded-xl border px-2.5 py-2 ${band.panel}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900" title={leader.name}>
-          {leader.name}
-        </p>
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-fluid-2xs font-semibold ${band.chip}`}>{leader.band}</span>
-      </div>
-      <div className="mt-1.5 flex items-center gap-2" title={`피로 ${fatigue}. 100에 가까울수록 지친 상태`}>
-        <div
-          className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white ring-1 ring-slate-900/10"
-          role="meter"
-          aria-valuemin={1}
-          aria-valuemax={100}
-          aria-valuenow={fatigue}
-          aria-label={`${leader.name} 피로 ${fatigue}`}
-        >
-          <div className={`h-full rounded-full ${band.fill}`} style={{ width: `${fatigue}%` }} />
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`w-full rounded-xl border px-2.5 py-2 text-left hover:ring-2 hover:ring-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${band.panel}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900" title={leader.name}>
+            {leader.name}
+          </p>
+          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-fluid-2xs font-semibold ${band.chip}`}>{leader.band}</span>
         </div>
-        <span className="w-7 shrink-0 text-right text-fluid-2xs font-semibold tabular-nums text-slate-800">{fatigue}</span>
-      </div>
-      <p className="mt-1 text-fluid-2xs text-slate-700">
-        남음 <span className="font-semibold tabular-nums">{leader.remainingJobs}</span>건
-        <span className="text-slate-400"> · </span>
-        {TEAM_LEADER_SIZE_POLICY_LABEL[leader.sizePolicy]}
-      </p>
-      <p className="mt-0.5 truncate text-fluid-2xs text-slate-600" title={leader.note}>
-        {leader.note}
-      </p>
+        <div className="mt-1.5 flex items-center gap-2" title={`피로 ${fatigue}. 100에 가까울수록 지친 상태`}>
+          <div
+            className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white ring-1 ring-slate-900/10"
+            role="meter"
+            aria-valuemin={1}
+            aria-valuemax={100}
+            aria-valuenow={fatigue}
+            aria-label={`${leader.name} 피로 ${fatigue}`}
+          >
+            <div className={`h-full rounded-full ${band.fill}`} style={{ width: `${fatigue}%` }} />
+          </div>
+          <span className="w-7 shrink-0 text-right text-fluid-2xs font-semibold tabular-nums text-slate-800">{fatigue}</span>
+        </div>
+        <p className="mt-1 text-fluid-2xs text-slate-700">
+          남음 <span className="font-semibold tabular-nums">{leader.remainingJobs}</span>건
+          <span className="text-slate-400"> · </span>
+          {TEAM_LEADER_SIZE_POLICY_LABEL[leader.sizePolicy]}
+        </p>
+        <p className="mt-0.5 truncate text-fluid-2xs text-slate-600" title={leader.note}>
+          {leader.note}
+        </p>
+      </button>
     </li>
   );
 }

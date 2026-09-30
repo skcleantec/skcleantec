@@ -34,6 +34,19 @@ export type DispatchLeader = {
   note: string;
   usedJobs: number;
   remainingJobs: number;
+  detail: {
+    windowDays: number;
+    workedDays: number;
+    jobCount: number;
+    restDays: number;
+    normalWorkDays: number;
+    normalJobs: number;
+    loopKm: number | null;
+    teamLoopKm: number | null;
+    betweenDeltaKm: number | null;
+    largeJobs: number;
+    soloJobs: number;
+  };
 };
 
 export type DispatchJob = {
@@ -143,7 +156,24 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
   const leaders: DispatchLeader[] = homeReady.map((u) => {
     const jobsPerDay = u.dispatchProfile?.jobsPerDay === 1 ? 1 : 2;
     const usedJobs = used.get(u.id) ?? 0;
-    const fatigueRow = fatigue.get(u.id) ?? { band: '좋음' as const, fatigue: 1, note: '최근 일정이 적음' };
+    const fatigueRow = fatigue.get(u.id) ?? {
+      band: '좋음' as const,
+      fatigue: 1,
+      note: '최근 일정이 적음',
+      detail: {
+        windowDays: 7,
+        workedDays: 0,
+        jobCount: 0,
+        restDays: 7,
+        normalWorkDays: settings.normalWorkDaysPerWeek,
+        normalJobs: settings.normalJobsPerWeek,
+        loopKm: null,
+        teamLoopKm: null,
+        betweenDeltaKm: null,
+        largeJobs: 0,
+        soloJobs: 0,
+      },
+    };
     return {
       id: u.id,
       name: u.name,
@@ -156,6 +186,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
       note: fatigueRow.note,
       usedJobs,
       remainingJobs: Math.max(0, jobsPerDay - usedJobs),
+      detail: fatigueRow.detail,
     };
   });
 

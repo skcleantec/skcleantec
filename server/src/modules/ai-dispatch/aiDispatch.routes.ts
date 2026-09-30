@@ -91,6 +91,7 @@ router.get('/board', async (req, res) => {
       note: leader.note,
       usedJobs: leader.usedJobs,
       remainingJobs: leader.remainingJobs,
+      detail: leader.detail,
     })),
     jobs: day.jobs.map((job) => ({
       id: job.id,

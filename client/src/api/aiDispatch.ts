@@ -16,6 +16,19 @@ export type AiDispatchLeader = {
   note: string;
   usedJobs: number;
   remainingJobs: number;
+  detail: {
+    windowDays: number;
+    workedDays: number;
+    jobCount: number;
+    restDays: number;
+    normalWorkDays: number;
+    normalJobs: number;
+    loopKm: number | null;
+    teamLoopKm: number | null;
+    betweenDeltaKm: number | null;
+    largeJobs: number;
+    soloJobs: number;
+  };
 };
 
 export type AiDispatchJob = {

@@ -28,6 +28,27 @@ type LeaderStat = {
   pyeongScore: number;
 };
 
+type FatigueDetail = {
+  windowDays: number;
+  workedDays: number;
+  jobCount: number;
+  restDays: number;
+  normalWorkDays: number;
+  normalJobs: number;
+  loopKm: number | null;
+  teamLoopKm: number | null;
+  betweenDeltaKm: number | null;
+  largeJobs: number;
+  soloJobs: number;
+};
+
+type FatigueRow = {
+  band: AiDispatchFatigueBand;
+  note: string;
+  fatigue: number;
+  detail: FatigueDetail;
+};
+
 const LOOKBACK_DAYS = 7;
 const NORMAL_SCORE = 40;
 
@@ -95,8 +116,8 @@ export async function loadLeaderFatigue(
   includeCrewInFatigue: boolean,
   normalWorkDays: number,
   normalJobs: number,
-): Promise<Map<string, { band: AiDispatchFatigueBand; note: string; fatigue: number }>> {
-  const out = new Map<string, { band: AiDispatchFatigueBand; note: string; fatigue: number }>();
+): Promise<Map<string, FatigueRow>> {
+  const out = new Map<string, FatigueRow>();
   if (leaders.length === 0) return out;
   const from = addDaysToKstYmd(workDate, -LOOKBACK_DAYS);
   const to = addDaysToKstYmd(workDate, -1);
@@ -230,7 +251,26 @@ export async function loadLeaderFatigue(
     if (row.largeJobs > 0) noteParts.push(`큰 집 ${row.largeJobs}건`);
     if (includeCrewInFatigue && row.soloJobs > 0) noteParts.push(`팀원 없음 ${row.soloJobs}건`);
     const fatigue = fatiguePercent(score);
-    out.set(leader.id, { band: bandOf(fatigue), fatigue, note: noteParts.join(' · ') });
+    const betweenDeltaKm =
+      row.betweenAvg != null && teamBetween != null ? Math.round(row.betweenAvg - teamBetween) : null;
+    out.set(leader.id, {
+      band: bandOf(fatigue),
+      fatigue,
+      note: noteParts.join(' · '),
+      detail: {
+        windowDays: LOOKBACK_DAYS,
+        workedDays: row.workedDays,
+        jobCount: row.jobCount,
+        restDays: row.restDays,
+        normalWorkDays,
+        normalJobs,
+        loopKm: row.loopAvg == null ? null : Math.round(row.loopAvg),
+        teamLoopKm: teamLoop == null ? null : Math.round(teamLoop),
+        betweenDeltaKm,
+        largeJobs: row.largeJobs,
+        soloJobs: row.soloJobs,
+      },
+    });
   }
   return out;
 }
