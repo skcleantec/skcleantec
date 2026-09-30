@@ -1,15 +1,13 @@
 import { createPortal } from 'react-dom';
 import type { AiDispatchBoard, AiDispatchJob, AiDispatchProposal } from '../../../api/aiDispatch';
-import { internalCustomerToneHint, internalCustomerToneImageSrc } from '../../../constants/internalCustomerTone';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 
 const SLOT_ORDER = ['AM', 'ALL_DAY', 'PM', 'HUMAN'] as const;
-
-const SLOT_LOOK: Record<(typeof SLOT_ORDER)[number], { label: string; dot: string; box: string }> = {
-  AM: { label: '오전', dot: 'bg-amber-500', box: 'border-amber-200 bg-amber-50' },
-  ALL_DAY: { label: '종일', dot: 'bg-emerald-600', box: 'border-emerald-200 bg-emerald-50' },
-  PM: { label: '오후', dot: 'bg-sky-500', box: 'border-sky-200 bg-sky-50' },
-  HUMAN: { label: '사람 판단', dot: 'bg-violet-500', box: 'border-violet-200 bg-violet-50' },
+const SLOT_LABEL: Record<(typeof SLOT_ORDER)[number], string> = {
+  AM: '오전',
+  ALL_DAY: '종일',
+  PM: '오후',
+  HUMAN: '사람 판단',
 };
 
 function slotKey(slot: string): (typeof SLOT_ORDER)[number] {
@@ -17,15 +15,15 @@ function slotKey(slot: string): (typeof SLOT_ORDER)[number] {
   return 'HUMAN';
 }
 
+function shownSlot(proposal: AiDispatchProposal, job?: AiDispatchJob): (typeof SLOT_ORDER)[number] {
+  if (job && job.slot !== 'HUMAN') return slotKey(job.slot);
+  return slotKey(proposal.slot);
+}
+
 function bandWord(band: string): string {
   if (band === '매우피로') return '매우 나쁨';
   if (band === '피로') return '나쁨';
   return band;
-}
-
-function shortPlace(area: string): string {
-  const parts = area.split(/\s+/).filter(Boolean);
-  return parts.slice(-2).join(' ') || area;
 }
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -38,6 +36,20 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 
 function kmText(km: number): string {
   return `${Math.round(km * 10) / 10}km`;
+}
+
+function jobBits(proposal: AiDispatchProposal, job?: AiDispatchJob): string {
+  const slot = SLOT_LABEL[shownSlot(proposal, job)];
+  const pyeong = job?.pyeong != null ? ` ${job.pyeong}평` : '';
+  return `${slot} ${proposal.customerName}${pyeong}`;
+}
+
+function easeClause(reason: string): string {
+  if (reason.includes('피로 점수가 더 높아')) return '피로가 높아 가까운 하루';
+  if (reason.includes('피로 점수가 더 낮아')) return '피로가 낮아 조금 먼 하루';
+  if (reason.includes('하루 1건')) return '하루 1건이라 집과의 거리만 봄';
+  if (reason.includes('짝이 없어도')) return '짝이 없어도 남은 자리에 넣음';
+  return '';
 }
 
 export function AiDispatchReasonModal({ board, onClose }: { board: AiDispatchBoard; onClose: () => void }) {
@@ -53,7 +65,22 @@ export function AiDispatchReasonModal({ board, onClose }: { board: AiDispatchBoa
     groups.set(row.teamLeaderId, list);
   }
   const leaderIds = [...groups.keys()].sort((a, b) => (leaderById.get(a)?.name ?? '').localeCompare(leaderById.get(b)?.name ?? '', 'ko'));
-  const idle = board.leaders.filter((leader) => !groups.has(leader.id)).map((leader) => leader.name);
+  const manualLeaderIds = new Set((board.manualJobs ?? []).map((job) => job.teamLeaderId));
+  const manualRows = (board.manualJobs ?? []).slice().sort((a, b) => {
+    const slot = SLOT_ORDER.indexOf(slotKey(a.slot)) - SLOT_ORDER.indexOf(slotKey(b.slot));
+    if (slot !== 0) return slot;
+    return a.teamLeaderName.localeCompare(b.teamLeaderName, 'ko');
+  });
+  const idle = board.leaders.filter((leader) => !groups.has(leader.id) && !manualLeaderIds.has(leader.id));
+  const idleWithRoom = idle.filter((leader) => leader.remainingJobs > 0).map((leader) => leader.name);
+  const idleFull = idle.filter((leader) => leader.remainingJobs <= 0).map((leader) => leader.name);
+  const skipReason = unassigned.every((row) => row.reason.includes('넣을 팀장'))
+    ? '넣을 팀장이 없습니다.'
+    : idleWithRoom.length > 0
+      ? `자리 남음: ${idleWithRoom.join(', ')}`
+      : idleFull.length > 0
+        ? `오늘 칸이 찬 팀장: ${idleFull.join(', ')}`
+        : '오늘 칸이 남은 팀장이 없습니다.';
 
   return createPortal(
     <div
@@ -65,100 +92,85 @@ export function AiDispatchReasonModal({ board, onClose }: { board: AiDispatchBoa
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-dispatch-reason-title"
-        className="modal-mobile-fullscreen-panel flex max-h-[min(92vh,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-slate-50 shadow-xl sm:rounded-2xl"
+        className="modal-mobile-fullscreen-panel flex max-h-[min(92vh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-xl sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex shrink-0 items-center justify-between gap-2 bg-slate-900 px-3 py-2.5 text-white">
-          <div className="flex min-w-0 items-center gap-2">
-            <LineMdIcon name="compass" className="size-5 shrink-0 text-sky-300" />
-            <div className="min-w-0">
-              <p className="text-fluid-2xs text-slate-300">AI 미리 배정</p>
-              <h2 id="ai-dispatch-reason-title" className="truncate text-fluid-sm font-semibold">
-                이렇게 배정한 이유
-              </h2>
-            </div>
-          </div>
+        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-3 py-2.5">
+          <h2 id="ai-dispatch-reason-title" className="text-fluid-sm font-semibold text-slate-900">
+            이렇게 배정한 이유
+          </h2>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-10 items-center justify-center rounded-lg text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+            className="inline-flex size-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             aria-label="닫기"
           >
             <LineMdIcon name="close" className="size-5" />
           </button>
         </header>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
-          {unassigned.length > 0 ? (
-            <section className="rounded-2xl border border-slate-300 bg-white p-2">
-              <p className="text-fluid-xs font-semibold text-slate-900">팀장 없음 {unassigned.length}건</p>
-              {idle.length > 0 ? (
-                <p className="mt-0.5 text-fluid-2xs text-slate-600">미배정 팀장: {idle.join(', ')}</p>
-              ) : null}
-              <ul className="mt-1.5 space-y-1">
-                {unassigned.map((proposal) => (
-                  <JobStop key={proposal.id} proposal={proposal} job={jobById.get(proposal.inquiryId)} />
-                ))}
-              </ul>
+          {manualRows.length > 0 ? (
+            <section className="rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-2">
+              <p className="text-fluid-xs font-semibold text-rose-950">수동배정 {manualRows.length}건</p>
+              <p className="mt-0.5 text-fluid-2xs leading-snug text-rose-950">
+                {manualRows
+                  .map((job) => `${SLOT_LABEL[slotKey(job.slot)]} ${job.customerName}${job.pyeong != null ? ` ${job.pyeong}평` : ''} · ${job.teamLeaderName}`)
+                  .join(' · ')}
+              </p>
             </section>
           ) : null}
-          {leaderIds.map((leaderId) => {
-            const leader = leaderById.get(leaderId);
-            const rows = (groups.get(leaderId) ?? []).slice().sort((a, b) => {
-              const ai = SLOT_ORDER.indexOf(shownSlot(a, jobById.get(a.inquiryId)));
-              const bi = SLOT_ORDER.indexOf(shownSlot(b, jobById.get(b.inquiryId)));
-              return ai - bi;
-            });
-            const stops = rows
-              .map((row) => jobById.get(row.inquiryId))
-              .filter((job): job is AiDispatchJob => job != null && job.lat != null && job.lng != null);
-            const between = betweenOf(stops);
-            const total = leader ? loopOf(leader.homeLat, leader.homeLng, stops) : null;
-            const reason = [...new Set(rows.map((row) => row.reason.trim()).filter(Boolean))].join(' · ');
-            return (
-              <section key={leaderId} className="rounded-2xl border border-slate-200 bg-white p-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900">{leader?.name ?? rows[0]?.teamLeaderName ?? '팀장'}</p>
-                  {leader ? (
-                    <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-fluid-2xs font-medium text-slate-700">
-                      피로 {leader.fatigue} · {bandWord(leader.band)}
-                    </span>
-                  ) : null}
-                </div>
-                <ol className="mt-2 space-y-1.5 border-l border-slate-200 pl-3">
-                  <li className="relative text-fluid-2xs text-slate-500">
-                    <span className="absolute -left-[1.05rem] top-1 size-2 rounded-full bg-slate-700" />
-                    출발 · 집
-                  </li>
-                  {rows.map((proposal) => {
-                    const look = SLOT_LOOK[shownSlot(proposal, jobById.get(proposal.inquiryId))];
-                    return (
-                      <li key={proposal.id} className="relative">
-                        <span className={`absolute -left-[1.05rem] top-3 size-2 rounded-full ${look.dot}`} />
-                        <JobStop proposal={proposal} job={jobById.get(proposal.inquiryId)} />
-                      </li>
-                    );
-                  })}
-                  <li className="relative text-fluid-2xs text-slate-500">
-                    <span className="absolute -left-[1.05rem] top-1 size-2 rounded-full bg-slate-700" />
-                    도착 · 집{total == null ? '' : ` · 총 ${kmText(total)}`}
-                  </li>
-                </ol>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-fluid-2xs text-slate-700">
-                    오전·오후 {between == null ? '해당 없음' : kmText(between)}
-                  </span>
-                  <span className="rounded-full bg-slate-900 px-2 py-0.5 text-fluid-2xs text-white">
-                    총 거리 {total == null ? '없음' : kmText(total)}
-                  </span>
-                </div>
-                {reason ? (
-                  <p className="mt-1.5 truncate text-fluid-2xs text-slate-600" title={reason}>
-                    {reason}
+          {unassigned.length > 0 ? (
+            <section className="rounded-xl border border-slate-300 bg-slate-50 px-2.5 py-2">
+              <p className="text-fluid-xs font-semibold text-slate-900">
+                팀장 없음 {unassigned.length}건
+                <span className="ml-2 font-medium text-slate-600">{skipReason}</span>
+              </p>
+            </section>
+          ) : null}
+          <ul className="space-y-1.5">
+            {leaderIds.map((leaderId) => {
+              const leader = leaderById.get(leaderId);
+              const rows = (groups.get(leaderId) ?? []).slice().sort((a, b) => {
+                const ai = SLOT_ORDER.indexOf(shownSlot(a, jobById.get(a.inquiryId)));
+                const bi = SLOT_ORDER.indexOf(shownSlot(b, jobById.get(b.inquiryId)));
+                return ai - bi;
+              });
+              const jobs = rows
+                .map((row) => jobById.get(row.inquiryId))
+                .filter((job): job is AiDispatchJob => job != null && job.lat != null && job.lng != null);
+              const am = jobs.find((job) => job.slot === 'AM');
+              const pm = jobs.find((job) => job.slot === 'PM');
+              const between =
+                am && pm && am.lat != null && am.lng != null && pm.lat != null && pm.lng != null
+                  ? haversineKm({ lat: am.lat, lng: am.lng }, { lat: pm.lat, lng: pm.lng })
+                  : null;
+              const total = leader ? loopKm(leader.homeLat, leader.homeLng, jobs) : null;
+              const reason = rows.map((row) => row.reason).join(' ');
+              const why = [
+                between == null ? null : `두 곳 ${kmText(between)}`,
+                total == null ? null : `집까지 ${kmText(total)}`,
+                easeClause(reason),
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <li key={leaderId} className="rounded-xl border border-slate-200 px-2.5 py-2">
+                  <p className="truncate text-fluid-sm font-semibold text-slate-900">
+                    {leader?.name ?? rows[0]?.teamLeaderName ?? '팀장'}
+                    {leader ? (
+                      <span className="ml-2 text-fluid-2xs font-medium text-slate-500">
+                        피로 {leader.fatigue} · {bandWord(leader.band)}
+                      </span>
+                    ) : null}
                   </p>
-                ) : null}
-              </section>
-            );
-          })}
+                  <p className="mt-0.5 text-fluid-xs text-slate-800">
+                    {rows.map((row) => jobBits(row, jobById.get(row.inquiryId))).join(' · ')}
+                  </p>
+                  {why ? <p className="mt-0.5 text-fluid-2xs text-slate-600">{why}</p> : null}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </div>
     </div>,
@@ -166,38 +178,7 @@ export function AiDispatchReasonModal({ board, onClose }: { board: AiDispatchBoa
   );
 }
 
-function shownSlot(proposal: AiDispatchProposal, job?: AiDispatchJob): (typeof SLOT_ORDER)[number] {
-  if (job && job.slot !== 'HUMAN') return slotKey(job.slot);
-  return slotKey(proposal.slot);
-}
-
-function JobStop({ proposal, job }: { proposal: AiDispatchProposal; job?: AiDispatchJob }) {
-  const slot = SLOT_LOOK[shownSlot(proposal, job)];
-  const toneSrc = internalCustomerToneImageSrc(job?.tone);
-  const place = job?.areaLabel ? shortPlace(job.areaLabel) : '';
-  const pyeong = job?.pyeong != null ? `${job.pyeong}평` : '평수 없음';
-  return (
-    <div className={`rounded-xl border px-2 py-1.5 ${slot.box}`}>
-      <p className="text-fluid-2xs font-medium text-slate-600">{slot.label}</p>
-      <p className="flex min-w-0 items-center gap-1 truncate text-fluid-xs font-semibold text-slate-900">
-        {toneSrc ? <img src={toneSrc} alt={internalCustomerToneHint(job?.tone)} className="size-4 shrink-0" /> : null}
-        <span className="truncate">{proposal.customerName}</span>
-      </p>
-      <p className="truncate text-fluid-2xs text-slate-600" title={job?.areaLabel}>
-        {place || '주소 없음'} · {pyeong}
-      </p>
-    </div>
-  );
-}
-
-function betweenOf(stops: AiDispatchJob[]): number | null {
-  const am = stops.find((job) => job.slot === 'AM');
-  const pm = stops.find((job) => job.slot === 'PM');
-  if (!am || !pm || am.lat == null || am.lng == null || pm.lat == null || pm.lng == null) return null;
-  return haversineKm({ lat: am.lat, lng: am.lng }, { lat: pm.lat, lng: pm.lng });
-}
-
-function loopOf(homeLat: number, homeLng: number, stops: AiDispatchJob[]): number | null {
+function loopKm(homeLat: number, homeLng: number, stops: AiDispatchJob[]): number | null {
   const ranked = stops
     .filter((job) => job.lat != null && job.lng != null)
     .slice()
@@ -212,6 +193,5 @@ function loopOf(homeLat: number, homeLng: number, stops: AiDispatchJob[]): numbe
     );
   }
   const last = ranked[ranked.length - 1];
-  total += haversineKm({ lat: last.lat as number, lng: last.lng as number }, home);
-  return total;
+  return total + haversineKm({ lat: last.lat as number, lng: last.lng as number }, home);
 }

@@ -104,6 +104,15 @@ router.get('/board', async (req, res) => {
       remainingJobs: leader.remainingJobs,
       detail: leader.detail,
     })),
+    manualJobs: day.manualJobs.map((job) => ({
+      id: job.id,
+      customerName: job.customerName,
+      areaLabel: job.areaLabel,
+      pyeong: job.pyeong,
+      slot: job.slot,
+      teamLeaderId: job.teamLeaderId,
+      teamLeaderName: job.teamLeaderName,
+    })),
     jobs: day.jobs.map((job) => ({
       id: job.id,
       customerName: job.customerName,

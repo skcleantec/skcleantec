@@ -37,6 +37,16 @@ export type AiDispatchLeader = {
   };
 };
 
+export type AiDispatchManualJob = {
+  id: string;
+  customerName: string;
+  areaLabel: string;
+  pyeong: number | null;
+  slot: AiDispatchSlot;
+  teamLeaderId: string;
+  teamLeaderName: string;
+};
+
 export type AiDispatchJob = {
   id: string;
   customerName: string;
@@ -77,6 +87,7 @@ export type AiDispatchBoard = {
   };
   leaders: AiDispatchLeader[];
   jobs: AiDispatchJob[];
+  manualJobs: AiDispatchManualJob[];
   run: {
     id: string;
     status: string;

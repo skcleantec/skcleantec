@@ -80,7 +80,7 @@ import {
   scheduleLeaderAdjustButtonClass,
   scheduleMapButtonClass,
 } from '../../components/schedule/scheduleUiParts';
-import { adminScheduleMapIconUrl } from '../../utils/scheduleMapIcon';
+import { LineMdIcon } from '../../components/ui/LineMdIcon';
 import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
@@ -2521,13 +2521,7 @@ export function AdminSchedulePage() {
                       title="접수건 위치 검색"
                       aria-label="접수건 위치 검색"
                     >
-                      <img
-                        src={adminScheduleMapIconUrl}
-                        alt=""
-                        className="size-[clamp(1.25rem,3.8vmin,1.75rem)] sm:h-7 sm:w-7 object-contain pointer-events-none select-none"
-                        loading="lazy"
-                        decoding="async"
-                      />
+                      <LineMdIcon name="map-marker" className="size-5 pointer-events-none sm:size-6" />
                     </ScheduleToolbarButton>
                   )}
                   <button

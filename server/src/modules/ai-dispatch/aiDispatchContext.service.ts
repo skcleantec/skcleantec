@@ -53,6 +53,16 @@ export type DispatchLeader = {
   };
 };
 
+export type DispatchManualJob = {
+  id: string;
+  customerName: string;
+  areaLabel: string;
+  pyeong: number | null;
+  slot: AiDispatchSlot;
+  teamLeaderId: string;
+  teamLeaderName: string;
+};
+
 export type DispatchJob = {
   id: string;
   customerName: string;
@@ -127,7 +137,8 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
         betweenScheduleSlot: true,
         status: true,
         updatedAt: true,
-        assignments: { select: { teamLeaderId: true, teamLeader: { select: { role: true } } } },
+        assignments: { select: { teamLeaderId: true, teamLeader: { select: { role: true, name: true } } } },
+        tenantSharesAsSource: { select: { syncStatus: true } },
       },
     }),
   ]);
@@ -204,10 +215,28 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
   });
 
   const jobs: DispatchJob[] = [];
+  const manualJobs: DispatchManualJob[] = [];
   for (const inquiry of inquiries) {
     const external = inquiry.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
-    if (external || inquiry.assignments.length > 0 || inquiry.status !== 'RECEIVED') continue;
+    const handedToPartner = inquiry.tenantSharesAsSource.some((share) => share.syncStatus === 'ACTIVE');
+    if (external || handedToPartner) continue;
     const slot = fixedSlot(inquiry.preferredTime, inquiry.betweenScheduleSlot);
+    const ownLeaders = inquiry.assignments.filter((a) => a.teamLeader.role === 'TEAM_LEADER');
+    if (ownLeaders.length > 0) {
+      for (const row of ownLeaders) {
+        manualJobs.push({
+          id: inquiry.id,
+          customerName: inquiry.customerName,
+          areaLabel: areaLabel(inquiry.address),
+          pyeong: inquiry.areaPyeong,
+          slot,
+          teamLeaderId: row.teamLeaderId,
+          teamLeaderName: row.teamLeader.name,
+        });
+      }
+      continue;
+    }
+    if (inquiry.status !== 'RECEIVED') continue;
     const blockedReason = leaders.length === 0 ? '넣을 팀장이 없습니다.' : null;
     jobs.push({
       id: inquiry.id,
@@ -226,7 +255,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
     });
   }
 
-  return { settings, leaders, jobs };
+  return { settings, leaders, jobs, manualJobs };
 }
 
 export function leadersForJob(leaders: DispatchLeader[], job: DispatchJob, twoRoomMax: number): DispatchLeader[] {

@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { TEAM_LEADER_SIZE_POLICY_LABEL } from '@shared/teamLeaderDispatch';
 import type { AiDispatchBoard, AiDispatchJob, AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
+import { getSchedule, type ScheduleItem } from '../../../api/schedule';
+import { getToken } from '../../../stores/auth';
+import { formatDateCompactWithWeekday } from '../../../utils/dateFormat';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
@@ -8,6 +11,10 @@ import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
 import { AiDispatchDraftList } from './AiDispatchDraftList';
 import { AiDispatchProgressModal } from './AiDispatchProgressModal';
 import type { TeamLeaderDispatchFormValue } from '../TeamLeaderDispatchFields';
+
+const ScheduleDayMapModal = lazy(() =>
+  import('../ScheduleDayMapModal').then((m) => ({ default: m.ScheduleDayMapModal })),
+);
 
 const BAND_ORDER = ['좋음', '보통', '피로', '매우피로'] as const;
 
@@ -123,6 +130,9 @@ export function AiDispatchScreen({
   onCloseReport: () => void;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dayMapOpen, setDayMapOpen] = useState(false);
+  const [dayMapItems, setDayMapItems] = useState<ScheduleItem[]>([]);
+  const [dayMapError, setDayMapError] = useState<string | null>(null);
   const [leaderOpen, setLeaderOpen] = useState<AiDispatchLeader | null>(null);
   useEffect(() => {
     setLeaderOpen((current) => {
@@ -132,6 +142,7 @@ export function AiDispatchScreen({
   }, [board]);
   const leaders = board?.leaders ?? [];
   const jobs = board?.jobs ?? [];
+  const manualJobs = board?.manualJobs ?? [];
   const proposals = board?.run?.proposals ?? [];
   const jobById = new Map(jobs.map((job) => [job.id, job]));
   const draftCount = proposals.filter((row) => row.status === 'DRAFT' && row.teamLeaderId && shownSlot(row, jobById.get(row.inquiryId)) !== 'HUMAN').length;
@@ -195,6 +206,7 @@ export function AiDispatchScreen({
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           <CountChip label="미배정" value={loading && !board ? '…' : String(jobs.length)} />
+          <CountChip label="수동배정" value={loading && !board ? '…' : String(manualJobs.length)} />
           <CountChip label="초안" value={String(draftCount)} />
           <CountChip label="팀장 없음" value={String(openCount)} />
           <CountChip label="사람 판단" value={String(humanCount)} />
@@ -249,16 +261,35 @@ export function AiDispatchScreen({
                 <p className="text-fluid-2xs text-slate-500">
                   {board?.run?.summary?.trim() || '팀장과 이유를 본 뒤 선택 승인합니다.'}
                 </p>
+                {dayMapError ? <p className="text-fluid-2xs text-red-700">{dayMapError}</p> : null}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const token = getToken();
+                  if (!token) return;
+                  setDayMapError(null);
+                  void getSchedule(token, date, date)
+                    .then((data) => {
+                      setDayMapItems(data.items);
+                      setDayMapOpen(true);
+                    })
+                    .catch((e: unknown) => setDayMapError(e instanceof Error ? e.message : '지도를 열지 못했습니다.'));
+                }}
+                className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                title="당일 전체 지도"
+                aria-label="당일 전체 지도"
+              >
+                <LineMdIcon name="map-marker" className="size-5" />
+              </button>
               <button
                 type="button"
                 disabled={proposals.length === 0}
                 onClick={onOpenReport}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
-                <LineMdIcon name="map-marker" className="size-4" />
                 배정 이유
               </button>
               <button
@@ -292,6 +323,7 @@ export function AiDispatchScreen({
           <AiDispatchDraftList
             proposals={proposals}
             jobs={jobs}
+            manualJobs={manualJobs}
             leaders={leaders}
             picked={picked}
             onToggle={onToggle}
@@ -342,6 +374,17 @@ export function AiDispatchScreen({
       ) : null}
       {drafting ? <AiDispatchProgressModal step={progressStep} message={progressMessage} seconds={progressSeconds} /> : null}
       {reportOpen && board?.run ? <AiDispatchReasonModal board={board} onClose={onCloseReport} /> : null}
+      {dayMapOpen && getToken() ? (
+        <Suspense fallback={null}>
+          <ScheduleDayMapModal
+            open
+            onClose={() => setDayMapOpen(false)}
+            dateLabel={formatDateCompactWithWeekday(date)}
+            items={dayMapItems}
+            token={getToken() as string}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

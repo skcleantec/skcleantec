@@ -2,7 +2,7 @@ import {
   internalCustomerToneHint,
   internalCustomerToneImageSrc,
 } from '../../../constants/internalCustomerTone';
-import type { AiDispatchJob, AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
+import type { AiDispatchJob, AiDispatchLeader, AiDispatchManualJob, AiDispatchProposal } from '../../../api/aiDispatch';
 import { AiDispatchMapPreview } from './AiDispatchRouteMap';
 
 const SLOT_ORDER = ['AM', 'ALL_DAY', 'PM', 'HUMAN'] as const;
@@ -188,6 +188,7 @@ function betweenText(rows: AiDispatchProposal[], jobById: Map<string, AiDispatch
 export function AiDispatchDraftList({
   proposals,
   jobs,
+  manualJobs,
   leaders,
   picked,
   onToggle,
@@ -196,6 +197,7 @@ export function AiDispatchDraftList({
 }: {
   proposals: AiDispatchProposal[];
   jobs: AiDispatchJob[];
+  manualJobs: AiDispatchManualJob[];
   leaders: AiDispatchLeader[];
   picked: string[];
   onToggle: (id: string) => void;
@@ -213,6 +215,12 @@ export function AiDispatchDraftList({
     groups.set(row.teamLeaderId, list);
   }
   const leaderIds = [...groups.keys()].sort((a, b) => (leaderById.get(a)?.name ?? '').localeCompare(leaderById.get(b)?.name ?? '', 'ko'));
+  const manualLeaderIds = new Set(manualJobs.map((job) => job.teamLeaderId));
+  const manualRows = manualJobs.slice().sort((a, b) => {
+    const slot = SLOT_ORDER.indexOf(slotKey(a.slot)) - SLOT_ORDER.indexOf(slotKey(b.slot));
+    if (slot !== 0) return slot;
+    return a.teamLeaderName.localeCompare(b.teamLeaderName, 'ko') || a.customerName.localeCompare(b.customerName, 'ko');
+  });
   const assignedLeaderIds = new Set(proposals.map((row) => row.teamLeaderId).filter((id): id is string => Boolean(id)));
   const draftUse = new Map<string, number>();
   for (const row of proposals) {
@@ -220,13 +228,43 @@ export function AiDispatchDraftList({
     const weight = shownSlot(row, jobById.get(row.inquiryId)) === 'ALL_DAY' ? 2 : 1;
     draftUse.set(row.teamLeaderId, (draftUse.get(row.teamLeaderId) ?? 0) + weight);
   }
-  const idleLeaders = leaders.filter((leader) => !assignedLeaderIds.has(leader.id));
+  const idleLeaders = leaders.filter((leader) => !assignedLeaderIds.has(leader.id) && !manualLeaderIds.has(leader.id));
   const roomLeaders = leaders.filter((leader) => leader.remainingJobs - (draftUse.get(leader.id) ?? 0) > 0);
   const idleNames = idleLeaders.map((leader) => leader.name).join(', ');
   const roomNames = roomLeaders.map((leader) => leader.name).join(', ');
 
   return (
     <div className="mt-3 space-y-2">
+      {manualRows.length > 0 ? (
+        <section className="space-y-1 rounded-xl border border-rose-200 bg-rose-50 p-2">
+          <h3 className="text-fluid-xs font-semibold text-rose-950">수동배정 {manualRows.length}건</h3>
+          {manualRows.map((job) => (
+            <div
+              key={`${job.id}-${job.teamLeaderId}`}
+              className="flex min-w-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2 py-1.5"
+            >
+              <span className="w-16 shrink-0 text-fluid-2xs text-slate-500">{SLOT_LABEL[slotKey(job.slot)]}</span>
+              <button
+                type="button"
+                onClick={() => onOpenInquiry(job.id)}
+                className="min-w-0 truncate text-left text-fluid-xs font-semibold text-slate-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                title={job.customerName}
+              >
+                {job.customerName}
+              </button>
+              <span className="min-w-0 truncate text-fluid-2xs text-slate-600" title={job.areaLabel || '주소 없음'}>
+                {shortPlace(job.areaLabel) || '주소 없음'}
+              </span>
+              <span className="shrink-0 text-fluid-2xs font-medium tabular-nums text-slate-800">
+                {job.pyeong != null ? `${job.pyeong}평` : '평수 없음'}
+              </span>
+              <span className="ml-auto shrink-0 truncate text-fluid-2xs font-medium text-rose-900" title={job.teamLeaderName}>
+                {job.teamLeaderName}
+              </span>
+            </div>
+          ))}
+        </section>
+      ) : null}
       {unassigned.length > 0 ? (
         <section className="space-y-1 rounded-xl border border-slate-300 bg-slate-50 p-2">
           <h3 className="text-fluid-xs font-semibold text-slate-900">

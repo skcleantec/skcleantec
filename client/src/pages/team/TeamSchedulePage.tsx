@@ -16,6 +16,7 @@ import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabe
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
+import { LineMdIcon } from '../../components/ui/LineMdIcon';
 import {
   formatDateCompactWithWeekday,
   formatPreferredDateInputYmd,
@@ -68,12 +69,6 @@ import {
   TEAM_CHIP_SCROLL,
   TEAM_PHONE_CTA,
 } from '../../utils/teamTypeScale';
-
-/** 관리자 스케줄과 동일 아이콘. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL 로 덮어쓰기 */
-const DEFAULT_SCHEDULE_MAP_ICON =
-  'https://res.cloudinary.com/dipdqqsfs/image/upload/v1776501501/external-Map-Pin-map-and-navigation-filled-outline-design-circle_ulju4s.jpg';
-const scheduleMapIconUrl =
-  (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_SCHEDULE_MAP_ICON;
 
 /** 달력 표시 월의 start/end(yyyy-mm-dd) — KST 달력 기준 (서버 schedule API와 동일) */
 function getMonthRange(year: number, month: number) {
@@ -299,17 +294,11 @@ export function TeamSchedulePage() {
                 e.stopPropagation();
                 setMapModalItems([item as unknown as ScheduleItem]);
               }}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-gray-700 shadow-sm hover:border-gray-400 hover:bg-gray-50 touch-manipulation"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-gray-700 shadow-sm hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 touch-manipulation"
               title={mapPinLabel}
               aria-label={mapPinLabel}
             >
-              <img
-                src={scheduleMapIconUrl}
-                alt=""
-                className="pointer-events-none h-7 w-7 select-none object-contain"
-                loading="lazy"
-                decoding="async"
-              />
+              <LineMdIcon name="map-marker" className="pointer-events-none size-5" />
             </button>
             <a
               href={`tel:${item.customerPhone}`}

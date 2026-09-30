@@ -22,7 +22,7 @@ import {
   scheduleStaffAdjustButtonClass,
   ScheduleToolbarButton,
 } from '../../schedule/scheduleUiParts';
-import { adminScheduleMapIconUrl } from '../../../utils/scheduleMapIcon';
+import { LineMdIcon } from '../../ui/LineMdIcon';
 import {
   DashboardAdSettleButton,
   DashboardHappyOverdueStatPreview,
@@ -112,13 +112,7 @@ export const HELP_UI_REGISTRY: Record<HelpUiTokenId, () => ReactNode> = {
   'schedule-btn-map': () => (
     <HelpUiShell>
       <ScheduleToolbarButton className={scheduleMapButtonClass} {...previewProps()} title="접수건 위치 검색">
-        <img
-          src={adminScheduleMapIconUrl}
-          alt=""
-          className="pointer-events-none h-[clamp(1.25rem,3.2vmin,1.5rem)] w-[clamp(1.25rem,3.2vmin,1.5rem)] select-none object-contain sm:h-6 sm:w-6"
-          loading="lazy"
-          decoding="async"
-        />
+        <LineMdIcon name="map-marker" className="pointer-events-none size-5 sm:size-6" />
       </ScheduleToolbarButton>
     </HelpUiShell>
   ),
