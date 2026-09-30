@@ -3,7 +3,7 @@ import {
   internalCustomerToneImageSrc,
 } from '../../../constants/internalCustomerTone';
 import type { AiDispatchJob, AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
-import { AiDispatchRouteMap } from './AiDispatchRouteMap';
+import { AiDispatchMapPreview } from './AiDispatchRouteMap';
 
 const SLOT_ORDER = ['AM', 'ALL_DAY', 'PM', 'HUMAN'] as const;
 
@@ -65,6 +65,7 @@ function JobLine({
   onToggle,
   onLeaderChange,
   onOpenInquiry,
+  assignedLeaderIds,
 }: {
   label: string;
   proposal: AiDispatchProposal;
@@ -74,6 +75,7 @@ function JobLine({
   onToggle: (id: string) => void;
   onLeaderChange: (id: string, teamLeaderId: string | null) => void;
   onOpenInquiry: (inquiryId: string) => void;
+  assignedLeaderIds: Set<string>;
 }) {
   const editable = proposal.status === 'DRAFT';
   const toneSrc = internalCustomerToneImageSrc(job?.tone);
@@ -105,11 +107,12 @@ function JobLine({
       >
         {proposal.customerName}
       </button>
-      {place ? (
-        <span className="min-w-0 truncate text-fluid-2xs text-slate-500" title={job?.areaLabel}>
-          {place}
-        </span>
-      ) : null}
+      <span className="min-w-0 truncate text-fluid-2xs text-slate-600" title={job?.areaLabel || '주소 없음'}>
+        {place || '주소 없음'}
+      </span>
+      <span className="shrink-0 text-fluid-2xs font-medium tabular-nums text-slate-800">
+        {job?.pyeong != null ? `${job.pyeong}평` : '평수 없음'}
+      </span>
       {editable ? (
         <select
           className="ml-auto h-8 max-w-[9rem] shrink-0 rounded-lg border border-slate-300 bg-white px-1.5 text-fluid-2xs text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
@@ -117,12 +120,21 @@ function JobLine({
           aria-label={`${proposal.customerName} 팀장`}
           onChange={(e) => onLeaderChange(proposal.id, e.target.value || null)}
         >
-          <option value="">팀장 없음</option>
-          {leaders.map((leader) => (
-            <option key={leader.id} value={leader.id}>
-              {leader.name}
-            </option>
-          ))}
+          <option value="" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
+            팀장 없음
+          </option>
+          {leaders.map((leader) => {
+            const taken = assignedLeaderIds.has(leader.id);
+            return (
+              <option
+                key={leader.id}
+                value={leader.id}
+                style={{ backgroundColor: taken ? '#fbcfe8' : '#ffffff', color: taken ? '#831843' : '#0f172a' }}
+              >
+                {leader.name}
+              </option>
+            );
+          })}
         </select>
       ) : null}
     </div>
@@ -201,7 +213,15 @@ export function AiDispatchDraftList({
     groups.set(row.teamLeaderId, list);
   }
   const leaderIds = [...groups.keys()].sort((a, b) => (leaderById.get(a)?.name ?? '').localeCompare(leaderById.get(b)?.name ?? '', 'ko'));
-  const emptyTitle = unassigned.every((row) => row.reason.includes('넣을 팀장')) ? '넣을 팀장이 없습니다' : '모든 팀장이 배정된 상태입니다';
+  const assignedLeaderIds = new Set(proposals.map((row) => row.teamLeaderId).filter((id): id is string => Boolean(id)));
+  const withoutCard = leaders.filter((leader) => !assignedLeaderIds.has(leader.id));
+  const openLeaders = withoutCard.filter((leader) => leader.remainingJobs > 0);
+  const fullLeaders = withoutCard.filter((leader) => leader.remainingJobs <= 0);
+  const emptyTitle = unassigned.every((row) => row.reason.includes('넣을 팀장'))
+    ? '넣을 팀장이 없습니다'
+    : openLeaders.length > 0
+      ? `자리가 남은 팀장: ${openLeaders.map((leader) => leader.name).join(', ')}`
+      : '모든 팀장이 배정된 상태입니다';
 
   return (
     <div className="mt-3 space-y-2">
@@ -219,6 +239,7 @@ export function AiDispatchDraftList({
               onToggle={onToggle}
               onLeaderChange={onLeaderChange}
               onOpenInquiry={onOpenInquiry}
+              assignedLeaderIds={assignedLeaderIds}
             />
           ))}
         </section>
@@ -245,8 +266,8 @@ export function AiDispatchDraftList({
                 </span>
               ) : null}
             </p>
-            <div className="mt-1.5 grid items-start gap-2 lg:grid-cols-2">
-              <div className="min-w-0 space-y-1">
+            <div className="mt-1.5 flex items-start gap-2">
+              <div className="min-w-0 flex-1 space-y-1">
                 {rows.map((proposal) => (
                   <JobLine
                     key={proposal.id}
@@ -258,6 +279,7 @@ export function AiDispatchDraftList({
                     onToggle={onToggle}
                     onLeaderChange={onLeaderChange}
                     onOpenInquiry={onOpenInquiry}
+                    assignedLeaderIds={assignedLeaderIds}
                   />
                 ))}
                 <p className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-fluid-2xs text-slate-800">
@@ -275,11 +297,19 @@ export function AiDispatchDraftList({
                   </p>
                 ) : null}
               </div>
-              <AiDispatchRouteMap pins={pins} className="aspect-square w-full" />
+              <AiDispatchMapPreview pins={pins} />
             </div>
           </section>
         );
       })}
+      {withoutCard.length > 0 ? (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-fluid-2xs leading-snug text-slate-700">
+          이 초안에 일이 없는 팀장 {withoutCard.length}명
+          {openLeaders.length > 0 ? ` · 자리 남음: ${openLeaders.map((leader) => leader.name).join(', ')}` : ''}
+          {fullLeaders.length > 0 ? ` · 하루 칸이 이미 참: ${fullLeaders.map((leader) => leader.name).join(', ')}` : ''}
+          . 하루 칸이 찬 팀장에게는 더 넣지 않습니다. 열린 일정보다 팀장이 많으면 일이 없는 팀장이 남습니다.
+        </p>
+      ) : null}
     </div>
   );
 }
