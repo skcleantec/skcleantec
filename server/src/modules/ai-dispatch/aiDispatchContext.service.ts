@@ -27,6 +27,7 @@ export type DispatchLeader = {
   homeLat: number;
   homeLng: number;
   band: AiDispatchFatigueBand;
+  fatigue: number;
   note: string;
   usedJobs: number;
   remainingJobs: number;
@@ -133,7 +134,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
   const leaders: DispatchLeader[] = homeReady.map((u) => {
     const jobsPerDay = u.dispatchProfile?.jobsPerDay === 1 ? 1 : 2;
     const usedJobs = used.get(u.id) ?? 0;
-    const fatigueRow = fatigue.get(u.id) ?? { band: '좋음' as const, note: '최근 일정이 적음' };
+    const fatigueRow = fatigue.get(u.id) ?? { band: '좋음' as const, fatigue: 1, note: '최근 일정이 적음' };
     return {
       id: u.id,
       name: u.name,
@@ -142,6 +143,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
       homeLat: u.homeGeoLat as number,
       homeLng: u.homeGeoLng as number,
       band: fatigueRow.band,
+      fatigue: fatigueRow.fatigue,
       note: fatigueRow.note,
       usedJobs,
       remainingJobs: Math.max(0, jobsPerDay - usedJobs),
@@ -172,6 +174,13 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
       preferredTime: inquiry.preferredTime,
       blockedReason,
     });
+  }
+
+  for (const job of jobs) {
+    if (job.blockedReason) continue;
+    if (leadersForJob(leaders, job, settings.twoRoomMaxPyeong).length === 0) {
+      job.blockedReason = '이 시간대에 남은 건수가 있는 팀장이 없습니다.';
+    }
   }
 
   return { settings, leaders, jobs };

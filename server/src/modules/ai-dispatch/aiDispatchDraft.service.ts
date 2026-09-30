@@ -25,14 +25,23 @@ function oneWayKm(leader: DispatchLeader, job: DispatchJob): number | null {
   return Math.round(haversineKm({ lat: leader.homeLat, lng: leader.homeLng }, { lat: job.lat, lng: job.lng }) * 10) / 10;
 }
 
+function roundTripKm(leader: DispatchLeader, job: DispatchJob): number | null {
+  const one = oneWayKm(leader, job);
+  if (one == null) return null;
+  return Math.round(one * 2 * 10) / 10;
+}
+
 function buildPrompt(leaders: DispatchLeader[], jobs: DispatchJob[], twoRoomMax: number): string {
-  const leaderLines = leaders.map((leader) => ({
+  const leaderLines = leaders
+    .filter((leader) => leader.remainingJobs > 0)
+    .map((leader) => ({
     userId: leader.id,
     name: leader.name,
     jobsPerDay: leader.jobsPerDay,
     remainingJobs: leader.remainingJobs,
     sizePolicy: leader.sizePolicy,
     condition: leader.band,
+    fatigue: leader.fatigue,
     conditionNote: leader.note,
   }));
   const jobLines = jobs
@@ -40,8 +49,9 @@ function buildPrompt(leaders: DispatchLeader[], jobs: DispatchJob[], twoRoomMax:
     .map((job) => {
       const eligible = leadersForJob(leaders, job, twoRoomMax).map((leader) => ({
         userId: leader.id,
-        oneWayKm: oneWayKm(leader, job),
-        condition: leader.band,
+        roundTripKm: roundTripKm(leader, job),
+        fatigue: leader.fatigue,
+        pyeong: job.pyeong,
       }));
       return {
         inquiryId: job.id,
@@ -56,16 +66,16 @@ function buildPrompt(leaders: DispatchLeader[], jobs: DispatchJob[], twoRoomMax:
   return JSON.stringify({ leaders: leaderLines, jobs: jobLines });
 }
 
-const SYSTEM = `당신은 입주청소 하루 배정 담당입니다. 집→오전 현장→오후 현장→집으로 돌아오는 동선과 팀장 컨디션을 함께 보고, 하루 전체를 한 번에 나눕니다.
+const SYSTEM = `당신은 입주청소 하루 배정 담당입니다. 집→현장→집으로 돌아오는 거리(roundTripKm)와 평수, 피로(fatigue 1~100)를 보고 하루를 나눕니다.
 규칙:
-- eligible에 없는 팀장에게 일을 주지 마세요.
-- slot은 접수의 slot과 같아야 합니다. ALL_DAY는 그날 그 팀장의 다른 일과 겹치면 안 됩니다.
-- remainingJobs와 jobsPerDay를 넘기지 마세요. ALL_DAY는 2건으로 칩니다.
-- requiredLeaders만큼 서로 다른 팀장을 넣으세요. 못 채우면 그 접수는 unassigned로 두세요.
-- condition이 피로이면 집에서 가까운 짧은 동선을 우선하고, 오후 평수는 크게 잡지 마세요.
-- condition이 좋음이면 동선이 효율적이면 먼 현장도 가능합니다. 왕복(집으로 복귀) 거리도 피로에 포함하세요.
+- eligible에 있는 userId만 쓰세요. 없거나 비어 있으면 그 접수는 assignments에 넣지 말고 unassigned에 이유를 쓰세요.
+- slot은 접수의 slot과 같아야 합니다.
+- remainingJobs를 넘기지 마세요. ALL_DAY는 2건입니다.
+- requiredLeaders만큼 서로 다른 팀장을 넣으세요. 못 채우면 unassigned로 두세요.
+- fatigue가 높으면 roundTripKm가 짧은 현장만 고르고, 오후 평수는 작게 잡으세요.
+- fatigue가 낮으면 roundTripKm가 길어도 동선이 맞으면 가능합니다.
 - 원룸은 같은 평수보다 더 지칩니다.
-- 이유를 한국어 한 문장으로 쓰세요. 고객 이름·전화번호는 쓰지 마세요.
+- 이유는 한국어 한 문장이고, 그 문장에 roundTripKm와 평수를 적으세요. 고객 이름·전화번호는 쓰지 마세요.
 JSON만 반환:
 {"assignments":[{"inquiryId":"","leaders":[{"userId":"","slot":"AM"}],"reason":""}],"unassigned":[{"inquiryId":"","reason":""}]}
 slot은 AM, PM, ALL_DAY 중 하나입니다.`;
@@ -83,29 +93,40 @@ function parseLines(
   const seenInquiry = new Set<string>();
 
   for (const raw of json.assignments) {
-    if (!raw || typeof raw !== 'object') return null;
+    if (!raw || typeof raw !== 'object') continue;
     const row = raw as { inquiryId?: unknown; leaders?: unknown; reason?: unknown };
     const inquiryId = typeof row.inquiryId === 'string' ? row.inquiryId : '';
     const job = jobById.get(inquiryId);
-    if (!job || job.blockedReason || seenInquiry.has(inquiryId)) return null;
-    if (!Array.isArray(row.leaders) || row.leaders.length !== job.requiredLeaders) return null;
+    if (!job || job.blockedReason || seenInquiry.has(inquiryId)) continue;
+    if (!Array.isArray(row.leaders) || row.leaders.length !== job.requiredLeaders) continue;
     const reason = typeof row.reason === 'string' && row.reason.trim() ? row.reason.trim().slice(0, 300) : '';
-    if (!reason) return null;
+    if (!reason) continue;
     const picked = new Set<string>();
     const weight = slotJobWeight(job.slot);
     const eligible = new Set(leadersForJob(leaders, job, twoRoomMax).map((leader) => leader.id));
+    const accepted: DraftLine[] = [];
+    let ok = true;
     for (const leaderRaw of row.leaders) {
-      if (!leaderRaw || typeof leaderRaw !== 'object') return null;
+      if (!leaderRaw || typeof leaderRaw !== 'object') {
+        ok = false;
+        break;
+      }
       const leaderRow = leaderRaw as { userId?: unknown; slot?: unknown };
       const userId = typeof leaderRow.userId === 'string' ? leaderRow.userId : '';
       const slot = leaderRow.slot === 'AM' || leaderRow.slot === 'PM' || leaderRow.slot === 'ALL_DAY' ? leaderRow.slot : '';
-      if (!userId || slot !== job.slot || !eligible.has(userId) || picked.has(userId)) return null;
+      if (!userId || slot !== job.slot || !eligible.has(userId) || picked.has(userId)) {
+        ok = false;
+        break;
+      }
       const nextUsed = (used.get(userId) ?? 0) + weight;
       const leader = leaders.find((item) => item.id === userId);
-      if (!leader || nextUsed > leader.jobsPerDay) return null;
+      if (!leader || nextUsed > leader.jobsPerDay) {
+        ok = false;
+        break;
+      }
       used.set(userId, nextUsed);
       picked.add(userId);
-      lines.push({
+      accepted.push({
         inquiryId,
         teamLeaderId: userId,
         slot,
@@ -113,6 +134,14 @@ function parseLines(
         updatedAt: job.updatedAt,
       });
     }
+    if (!ok) {
+      for (const line of accepted) {
+        const leader = leaders.find((item) => item.id === line.teamLeaderId);
+        if (leader) used.set(leader.id, Math.max(0, (used.get(leader.id) ?? 0) - weight));
+      }
+      continue;
+    }
+    lines.push(...accepted);
     seenInquiry.add(inquiryId);
   }
 
@@ -129,7 +158,7 @@ function parseLines(
       inquiryId: job.id,
       teamLeaderId: null,
       slot: 'HUMAN',
-      reason: (job.blockedReason || modelReason || '사람 판단이 필요합니다.').slice(0, 300),
+      reason: (job.blockedReason || modelReason || '남은 자리보다 건이 많아 이번 초안에서 빠졌습니다.').slice(0, 300),
       updatedAt: job.updatedAt,
     });
   }

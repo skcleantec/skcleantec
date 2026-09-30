@@ -12,6 +12,7 @@ export type AiDispatchLeader = {
   jobsPerDay: number;
   sizePolicy: TeamLeaderSizePolicyId;
   band: AiDispatchFatigueBand;
+  fatigue: number;
   note: string;
   usedJobs: number;
   remainingJobs: number;

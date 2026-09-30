@@ -68,6 +68,7 @@ router.get('/board', async (req, res) => {
       jobsPerDay: leader.jobsPerDay,
       sizePolicy: leader.sizePolicy,
       band: leader.band,
+      fatigue: leader.fatigue,
       note: leader.note,
       usedJobs: leader.usedJobs,
       remainingJobs: leader.remainingJobs,

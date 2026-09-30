@@ -34,6 +34,12 @@ function bandOf(score: number): AiDispatchFatigueBand {
   return '피로';
 }
 
+/** 평수·원룸·무크루·집까지 왕복 거리를 1~100으로. 40점 이상이면 100. */
+export function fatiguePercent(score: number): number {
+  const pct = Math.round((score / 40) * 100);
+  return Math.max(1, Math.min(100, pct));
+}
+
 /**
  * 최근 7일(대상일 제외) 작업량 + 집→현장→집 거리. 숫자는 관리 화면·프롬프트용이고 팀장 화면에는 내보내지 않는다.
  */
@@ -42,8 +48,8 @@ export async function loadLeaderFatigue(
   tenantId: string,
   workDate: string,
   leaders: Array<{ id: string; homeLat: number; homeLng: number }>,
-): Promise<Map<string, { band: AiDispatchFatigueBand; note: string }>> {
-  const out = new Map<string, { band: AiDispatchFatigueBand; note: string }>();
+): Promise<Map<string, { band: AiDispatchFatigueBand; note: string; fatigue: number }>> {
+  const out = new Map<string, { band: AiDispatchFatigueBand; note: string; fatigue: number }>();
   if (leaders.length === 0) return out;
   const from = addDaysToKstYmd(workDate, -7);
   const to = addDaysToKstYmd(workDate, -1);
@@ -134,9 +140,9 @@ export async function loadLeaderFatigue(
     const noteParts = [`최근 7일 ${jobs.length}건`];
     if (large > 0) noteParts.push(`큰 평수 ${large}건`);
     if (oneRooms > 0) noteParts.push(`원룸 ${oneRooms}건`);
-    if (travelKm >= 25) noteParts.push('이동이 긴 편');
+    if (travelKm > 0) noteParts.push(`이동 ${Math.round(travelKm)}km`);
     else if (jobs.length === 0) noteParts.push('최근 일정이 적음');
-    out.set(leader.id, { band: bandOf(score), note: noteParts.join(' · ') });
+    out.set(leader.id, { band: bandOf(score), fatigue: fatiguePercent(score), note: noteParts.join(' · ') });
   }
   return out;
 }

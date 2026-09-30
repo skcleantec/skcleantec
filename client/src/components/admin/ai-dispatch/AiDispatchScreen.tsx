@@ -5,10 +5,10 @@ import { LineMdIcon } from '../../ui/LineMdIcon';
 
 const BAND_ORDER = ['좋음', '보통', '피로'] as const;
 
-const BAND_STYLE: Record<(typeof BAND_ORDER)[number], { chip: string; panel: string }> = {
-  좋음: { chip: 'bg-emerald-50 text-emerald-900 border-emerald-200', panel: 'border-emerald-200 bg-emerald-50/60' },
-  보통: { chip: 'bg-amber-50 text-amber-950 border-amber-200', panel: 'border-amber-200 bg-amber-50/70' },
-  피로: { chip: 'bg-red-50 text-red-900 border-red-200', panel: 'border-red-200 bg-red-50/70' },
+const BAND_STYLE: Record<(typeof BAND_ORDER)[number], { chip: string; panel: string; fill: string }> = {
+  좋음: { chip: 'bg-emerald-50 text-emerald-900 border-emerald-200', panel: 'border-emerald-200 bg-emerald-50/60', fill: 'bg-emerald-500' },
+  보통: { chip: 'bg-amber-50 text-amber-950 border-amber-200', panel: 'border-amber-200 bg-amber-50/70', fill: 'bg-amber-500' },
+  피로: { chip: 'bg-red-50 text-red-900 border-red-200', panel: 'border-red-200 bg-red-50/70', fill: 'bg-red-500' },
 };
 
 const SLOT_ORDER = ['AM', 'PM', 'ALL_DAY', 'HUMAN'] as const;
@@ -175,7 +175,10 @@ export function AiDispatchScreen({
               </p>
             ) : null}
             {BAND_ORDER.map((band) => {
-              const rows = leaders.filter((leader) => leader.band === band);
+              const rows = leaders
+                .filter((leader) => leader.band === band)
+                .slice()
+                .sort((a, b) => b.fatigue - a.fatigue);
               if (rows.length === 0) return null;
               return (
                 <div key={band}>
@@ -297,6 +300,7 @@ function CountChip({ label, value }: { label: string; value: string }) {
 
 function LeaderCard({ leader }: { leader: AiDispatchLeader }) {
   const band = BAND_STYLE[leader.band as (typeof BAND_ORDER)[number]] ?? BAND_STYLE.보통;
+  const fatigue = Math.max(1, Math.min(100, Math.round(leader.fatigue || 1)));
   return (
     <li className={`rounded-xl border px-2.5 py-2 ${band.panel}`}>
       <div className="flex items-center justify-between gap-2">
@@ -304,6 +308,19 @@ function LeaderCard({ leader }: { leader: AiDispatchLeader }) {
           {leader.name}
         </p>
         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-fluid-2xs font-semibold ${band.chip}`}>{leader.band}</span>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2" title={`피로 ${fatigue}. 100에 가까울수록 지친 상태`}>
+        <div
+          className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white ring-1 ring-slate-900/10"
+          role="meter"
+          aria-valuemin={1}
+          aria-valuemax={100}
+          aria-valuenow={fatigue}
+          aria-label={`${leader.name} 피로 ${fatigue}`}
+        >
+          <div className={`h-full rounded-full ${band.fill}`} style={{ width: `${fatigue}%` }} />
+        </div>
+        <span className="w-7 shrink-0 text-right text-fluid-2xs font-semibold tabular-nums text-slate-800">{fatigue}</span>
       </div>
       <p className="mt-1 text-fluid-2xs text-slate-700">
         남음 <span className="font-semibold tabular-nums">{leader.remainingJobs}</span>건
