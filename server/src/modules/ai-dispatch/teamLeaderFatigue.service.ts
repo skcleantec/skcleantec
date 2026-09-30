@@ -69,6 +69,7 @@ export async function loadLeaderFatigue(
         select: {
           preferredDate: true,
           preferredTime: true,
+          betweenScheduleSlot: true,
           areaPyeong: true,
           isOneRoom: true,
           addressGeoLat: true,
@@ -91,7 +92,7 @@ export async function loadLeaderFatigue(
       noCrew: row.noCrewMembers,
       lat: row.inquiry.addressGeoLat,
       lng: row.inquiry.addressGeoLng,
-      slot: fixedSlot(row.inquiry.preferredTime),
+      slot: fixedSlot(row.inquiry.preferredTime, row.inquiry.betweenScheduleSlot),
     });
     byLeader.set(row.teamLeaderId, list);
   }

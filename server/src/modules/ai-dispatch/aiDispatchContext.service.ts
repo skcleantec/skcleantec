@@ -96,6 +96,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
         areaPyeong: true,
         isOneRoom: true,
         preferredTime: true,
+        betweenScheduleSlot: true,
         status: true,
         updatedAt: true,
         assignments: { select: { teamLeaderId: true, teamLeader: { select: { role: true } } } },
@@ -115,7 +116,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
   const used = new Map<string, number>();
   for (const inquiry of inquiries) {
     if (inquiry.status !== 'ASSIGNED' && inquiry.assignments.length === 0) continue;
-    const weight = slotJobWeight(fixedSlot(inquiry.preferredTime));
+    const weight = slotJobWeight(fixedSlot(inquiry.preferredTime, inquiry.betweenScheduleSlot));
     for (const a of inquiry.assignments) {
       if (a.teamLeader.role !== 'TEAM_LEADER') continue;
       used.set(a.teamLeaderId, (used.get(a.teamLeaderId) ?? 0) + weight);
@@ -151,9 +152,9 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
   for (const inquiry of inquiries) {
     const external = inquiry.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
     if (external || inquiry.assignments.length > 0 || inquiry.status !== 'RECEIVED') continue;
-    const slot = fixedSlot(inquiry.preferredTime);
+    const slot = fixedSlot(inquiry.preferredTime, inquiry.betweenScheduleSlot);
     let blockedReason: string | null = null;
-    if (slot === 'HUMAN') blockedReason = '시간대가 오전·오후·종일로 고정되지 않아 사람이 정합니다.';
+    if (slot === 'HUMAN') blockedReason = '오전·오후가 정해지지 않아 사람이 정합니다.';
     else if (inquiry.addressGeoLat == null || inquiry.addressGeoLng == null) {
       blockedReason = '현장 좌표가 없어 동선을 계산할 수 없습니다.';
     }

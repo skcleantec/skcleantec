@@ -1,4 +1,6 @@
 import type { TeamLeaderSizePolicy } from '@prisma/client';
+import { isAllDayPreferredTime } from '../../lib/scheduleAllDayTime.js';
+import { isBetweenSlotPreferredTime } from '../../lib/scheduleBetweenSlotTime.js';
 import { AI_DISPATCH_DEFAULTS, type AiDispatchSlot } from './aiDispatch.constants.js';
 
 export function haversineKm(
@@ -14,16 +16,29 @@ export function haversineKm(
   return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-export function fixedSlot(preferredTime: string | null | undefined): AiDispatchSlot {
+/** 스케줄과 같은 시간대. 사이청소·조율은 오전/오후가 확정된 건만 슬롯에 넣는다. */
+export function fixedSlot(
+  preferredTime: string | null | undefined,
+  betweenScheduleSlot?: string | null,
+): AiDispatchSlot {
   const t = (preferredTime ?? '').trim();
-  if (t === '종일') return 'ALL_DAY';
-  if (t === '오전') return 'AM';
-  if (t === '오후') return 'PM';
+  if (isBetweenSlotPreferredTime(t)) {
+    const confirmed = (betweenScheduleSlot ?? '').trim();
+    if (confirmed === '오전') return 'AM';
+    if (confirmed === '오후') return 'PM';
+    return 'HUMAN';
+  }
+  if (isAllDayPreferredTime(t)) return 'ALL_DAY';
+  if (!t) return 'HUMAN';
+  if (t.includes('오후') && !t.includes('오전')) return 'PM';
+  if (t.includes('오전')) return 'AM';
   return 'HUMAN';
 }
 
 export function slotJobWeight(slot: AiDispatchSlot): number {
-  return slot === 'ALL_DAY' ? 2 : 1;
+  if (slot === 'ALL_DAY') return 2;
+  if (slot === 'HUMAN') return 0;
+  return 1;
 }
 
 export function isSmallHome(

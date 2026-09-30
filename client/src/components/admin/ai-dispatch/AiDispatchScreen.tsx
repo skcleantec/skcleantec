@@ -268,7 +268,7 @@ export function AiDispatchScreen({
 
       <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
         <summary className="cursor-pointer text-fluid-sm font-semibold text-slate-900">배정 규칙</summary>
-        <p className="mt-1 text-fluid-2xs text-slate-500">큰 집만 팀장을 더 붙입니다. 사이청소·조율은 항상 사람 판단입니다.</p>
+        <p className="mt-1 text-fluid-2xs text-slate-500">큰 집만 팀장을 더 붙입니다. 사이청소·조율은 오전·오후가 정해진 건만 초안에 넣습니다.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <Field label="이 평수 이상" hint="이 크기부터 팀장을 더 붙입니다" value={minPyeong} onChange={onMinPyeong} />
           <Field label="팀장 수" hint="위 평수일 때 붙는 인원" value={leaderCount} onChange={onLeaderCount} />
