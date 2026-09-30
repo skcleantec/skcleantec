@@ -214,20 +214,35 @@ export function AiDispatchDraftList({
   }
   const leaderIds = [...groups.keys()].sort((a, b) => (leaderById.get(a)?.name ?? '').localeCompare(leaderById.get(b)?.name ?? '', 'ko'));
   const assignedLeaderIds = new Set(proposals.map((row) => row.teamLeaderId).filter((id): id is string => Boolean(id)));
-  const withoutCard = leaders.filter((leader) => !assignedLeaderIds.has(leader.id));
-  const openLeaders = withoutCard.filter((leader) => leader.remainingJobs > 0);
-  const fullLeaders = withoutCard.filter((leader) => leader.remainingJobs <= 0);
-  const emptyTitle = unassigned.every((row) => row.reason.includes('넣을 팀장'))
-    ? '넣을 팀장이 없습니다'
-    : openLeaders.length > 0
-      ? `자리가 남은 팀장: ${openLeaders.map((leader) => leader.name).join(', ')}`
-      : '모든 팀장이 배정된 상태입니다';
+  const draftUse = new Map<string, number>();
+  for (const row of proposals) {
+    if (!row.teamLeaderId) continue;
+    const weight = shownSlot(row, jobById.get(row.inquiryId)) === 'ALL_DAY' ? 2 : 1;
+    draftUse.set(row.teamLeaderId, (draftUse.get(row.teamLeaderId) ?? 0) + weight);
+  }
+  const idleLeaders = leaders.filter((leader) => !assignedLeaderIds.has(leader.id));
+  const roomLeaders = leaders.filter((leader) => leader.remainingJobs - (draftUse.get(leader.id) ?? 0) > 0);
+  const idleNames = idleLeaders.map((leader) => leader.name).join(', ');
+  const roomNames = roomLeaders.map((leader) => leader.name).join(', ');
 
   return (
     <div className="mt-3 space-y-2">
       {unassigned.length > 0 ? (
         <section className="space-y-1 rounded-xl border border-slate-300 bg-slate-50 p-2">
-          <h3 className="text-fluid-xs font-semibold text-slate-900">{emptyTitle}</h3>
+          <h3 className="text-fluid-xs font-semibold text-slate-900">
+            {unassigned.every((row) => row.reason.includes('넣을 팀장'))
+              ? '넣을 팀장이 없습니다'
+              : idleLeaders.length > 0
+                ? `미배정 팀장 ${idleLeaders.length}명: ${idleNames}`
+                : '모든 팀장이 배정된 상태입니다'}
+          </h3>
+          {idleLeaders.length > 0 ? (
+            <p className="text-fluid-2xs leading-snug text-slate-600">
+              {roomLeaders.length > 0
+                ? `자리 남음: ${roomNames}. 오전이 더 많아도 자리가 있으면 그 팀장에게 넣습니다. AI 미리 배정을 다시 누르면 반영됩니다.`
+                : '이 팀장들은 오늘 칸이 이미 차 있습니다. 오전과 오후 개수가 달라서 뺀 것이 아닙니다.'}
+            </p>
+          ) : null}
           {unassigned.map((proposal) => (
             <JobLine
               key={proposal.id}
@@ -302,12 +317,9 @@ export function AiDispatchDraftList({
           </section>
         );
       })}
-      {withoutCard.length > 0 ? (
+      {unassigned.length === 0 && idleLeaders.length > 0 ? (
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-fluid-2xs leading-snug text-slate-700">
-          이 초안에 일이 없는 팀장 {withoutCard.length}명
-          {openLeaders.length > 0 ? ` · 자리 남음: ${openLeaders.map((leader) => leader.name).join(', ')}` : ''}
-          {fullLeaders.length > 0 ? ` · 하루 칸이 이미 참: ${fullLeaders.map((leader) => leader.name).join(', ')}` : ''}
-          . 하루 칸이 찬 팀장에게는 더 넣지 않습니다. 열린 일정보다 팀장이 많으면 일이 없는 팀장이 남습니다.
+          미배정 팀장 {idleLeaders.length}명: {idleNames}. 열린 일정보다 팀장이 많아 일이 없습니다.
         </p>
       ) : null}
     </div>
