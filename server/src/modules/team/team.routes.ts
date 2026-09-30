@@ -4,13 +4,9 @@ import { prisma } from '../../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
+import { isTeamLeaderHomeReady } from '../team-leaders/teamLeaderHome.service.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import {
-  happyCallDeadlineEnd,
-  isHappyCallEligible,
-  kstYmdFromDate,
-  wasCreatedAfterHappyCallDeadline,
-} from '../inquiries/happyCall.helpers.js';
+import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCall.helpers.js';
 import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.team.routes.js';
 import inquiryConsultationPhotosTeamRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.team.routes.js';
 import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtraCharges.team.routes.js';
@@ -112,13 +108,9 @@ import {
   serializeTeamInquiryPreferredDatesKst,
   serializeTeamInquiryPreferredDateKst,
 } from './teamInquiryResponse.helpers.js';
-import {
-  attachIntakeFormProfileOne,
-  attachIntakeFormProfiles,
-} from '../inquiries/inquiryIntakeFormProfile.service.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import { whereExcludeHandedOffSourceInquiriesForTeamViewer } from '../inquiries/inquiryHandedOffFromInternal.js';
-import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 
 const router = Router();
@@ -177,6 +169,10 @@ router.get('/me', async (req, res) => {
       allowSelfDayOffEdit: true,
       externalCompanyId: true,
       profileCompletedAt: true,
+      homeAddress: true,
+      homeAddressDetail: true,
+      homeGeoLat: true,
+      homeGeoLng: true,
       externalCompany: {
         select: {
           id: true,
@@ -226,7 +222,10 @@ router.get('/me', async (req, res) => {
     tenant,
     features,
     ...onboardingFields,
-    ...(staffPreview ? { profileOnboardingRequired: false } : {}),
+    ...(staffPreview ? { profileOnboardingRequired: false, homeAddressRequired: false } : {}),
+    ...(!staffPreview
+      ? { homeAddressRequired: me.role === 'TEAM_LEADER' && !isTeamLeaderHomeReady(me) }
+      : {}),
   });
 });
 
@@ -236,14 +235,12 @@ const teamInquiryInclude = {
   orderForm: {
     select: {
       id: true,
-      templateId: true,
       submittedAt: true,
       depositAmount: true,
       totalAmount: true,
       balanceAmount: true,
       customerSpecialNotes: true,
       customerAnswers: true,
-      prefillAnswers: true,
       customerSubmissionSnapshot: true,
       template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true, phone: true } },
@@ -306,6 +303,13 @@ const teamScheduleInquirySelect = {
   addressDetail: true,
   areaPyeong: true,
   areaBasis: true,
+  exclusiveAreaSqm: true,
+  propertyType: true,
+  isOneRoom: true,
+  buildingType: true,
+  moveInTiming: true,
+  moveInDate: true,
+  moveInDateUndecided: true,
   roomCount: true,
   bathroomCount: true,
   balconyCount: true,
@@ -323,17 +327,10 @@ const teamScheduleInquirySelect = {
   operatingCompanyId: true,
   operatingCompany: { select: operatingCompanySummarySelect },
   createdBy: { select: { id: true, name: true, phone: true } },
-  intakeTemplateId: true,
-  intakeCustomAnswers: true,
-  orderFormListSnapshot: true,
-  kitchenCount: true,
   orderForm: {
     select: {
       id: true,
-      templateId: true,
       submittedAt: true,
-      customerAnswers: true,
-      prefillAnswers: true,
       template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true, phone: true } },
     },
@@ -479,20 +476,12 @@ async function attachCrewMembers<
   }
   const members = await prisma.teamMember.findMany({
     where: {
-      AND: [
-        tenantActiveTeamMemberWhere(tenantId),
-        {
-          OR: [
-            { name: { in: Array.from(allNames) } },
-            { nameTh: { in: Array.from(allNames) } },
-          ],
-        },
-      ],
+      name: { in: Array.from(allNames) },
+      ...tenantActiveTeamMemberWhere(tenantId),
     },
     select: {
       id: true,
       name: true,
-      nameTh: true,
       phone: true,
       homeAddress: true,
       homeAddressDetail: true,
@@ -505,32 +494,23 @@ async function attachCrewMembers<
     string,
     { id: string; phone: string | null; homeAddress: string | null; homeAddressDetail: string | null }
   >();
-  const putMemberByName = (
-    key: string,
-    entry: { id: string; phone: string | null; homeAddress: string | null; homeAddressDetail: string | null },
-  ) => {
-    const k = key.trim();
-    if (!k) return;
-    const cur = memberByName.get(k);
-    if (!cur) memberByName.set(k, entry);
-    else if (!cur.phone && entry.phone) memberByName.set(k, { ...cur, phone: entry.phone });
-    else if (!cur.homeAddress && entry.homeAddress) {
-      memberByName.set(k, {
-        ...cur,
-        homeAddress: entry.homeAddress,
-        homeAddressDetail: entry.homeAddressDetail ?? cur.homeAddressDetail,
-      });
-    }
-  };
   for (const m of members) {
+    const cur = memberByName.get(m.name);
     const entry = {
       id: m.id,
       phone: m.phone ?? null,
       homeAddress: m.homeAddress ?? null,
       homeAddressDetail: m.homeAddressDetail ?? null,
     };
-    putMemberByName(m.name, entry);
-    putMemberByName(m.nameTh ?? '', entry);
+    if (!cur) memberByName.set(m.name, entry);
+    else if (!cur.phone && m.phone) memberByName.set(m.name, { ...cur, phone: m.phone });
+    else if (!cur.homeAddress && m.homeAddress) {
+      memberByName.set(m.name, {
+        ...cur,
+        homeAddress: m.homeAddress,
+        homeAddressDetail: m.homeAddressDetail ?? cur.homeAddressDetail,
+      });
+    }
   }
   const enriched = items.map((it) => {
     const parsedNames = parseCrewNames(it.crewMemberNote);
@@ -614,10 +594,9 @@ async function respondTeamInquiryOne<T extends { id?: string; crewMemberNote: st
 ) {
   const enriched = await attachCrewMembersOne(item, tenantId, viewerTeamLeaderId);
   if (!enriched) return null;
-  const withIntake = await attachIntakeFormProfileOne(prisma, tenantId, enriched);
   return serializeTeamInquiryPreferredDateKst(
     serializeTeamInquiryOperatingCompany(
-      withIntake as Parameters<typeof serializeTeamInquiryOperatingCompany>[0],
+      enriched as Parameters<typeof serializeTeamInquiryOperatingCompany>[0],
     ),
   );
 }
@@ -910,59 +889,38 @@ router.get('/happy-call-stats', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const { userId, role } = user;
   const dayOffExclude = await whereExcludeAdminSlotAdjustInquiries(prisma, userId);
-  const todayRange = kstDayRangeYmd(kstYmdFromDate(new Date()));
   const rows = await prisma.inquiry.findMany({
     where: {
       ...inquiryActiveOnlyWhere(),
       ...whereExcludeHandedOffSourceInquiriesForTeamViewer(role),
-      preferredDate: todayRange ? { gte: todayRange.gte } : { not: null },
+      preferredDate: { not: null },
       happyCallCompletedAt: null,
       status: {
-        notIn: [
-          'CANCELLED',
-          'ON_HOLD',
-          'PENDING',
-          'DEPOSIT_PENDING',
-          'DEPOSIT_COMPLETED',
-          'ORDER_FORM_PENDING',
-          'COMPLETED',
-        ],
+        notIn: ['CANCELLED', 'ON_HOLD', 'PENDING', 'DEPOSIT_PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'],
       },
       assignments: { some: { teamLeaderId: userId } },
       ...(dayOffExclude ?? {}),
     },
-    select: { preferredDate: true, createdAt: true },
+    select: { preferredDate: true },
   });
   const now = new Date();
   let overdueCount = 0;
   let pendingBeforeDeadlineCount = 0;
   for (const r of rows) {
     if (!r.preferredDate) continue;
-    if (wasCreatedAfterHappyCallDeadline(r.preferredDate, r.createdAt)) {
-      pendingBeforeDeadlineCount++;
-    } else if (now > happyCallDeadlineEnd(r.preferredDate)) {
-      overdueCount++;
-    } else {
-      pendingBeforeDeadlineCount++;
-    }
+    if (now > happyCallDeadlineEnd(r.preferredDate)) overdueCount++;
+    else pendingBeforeDeadlineCount++;
   }
   res.json({ overdueCount, pendingBeforeDeadlineCount });
 });
 
 /** 팀장만 — 담당 접수에 대해 해피콜 완료 처리 */
 router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
-  const user = (req as unknown as { user: AuthPayload }).user;
-  const { userId } = user;
-  const tenantId = await resolveTeamContextTenantId(user);
-  if (!tenantId) {
-    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
-    return;
-  }
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
   const { id } = req.params;
   const inquiry = await prisma.inquiry.findFirst({
     where: {
       id,
-      tenantId,
       assignments: { some: { teamLeaderId: userId } },
     },
   });
@@ -975,7 +933,6 @@ router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
     return;
   }
   if (inquiry.happyCallCompletedAt) {
-    notifyInboxRefresh([userId]);
     res.json({ ok: true, alreadyCompleted: true });
     return;
   }
@@ -983,7 +940,6 @@ router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
     where: { id },
     data: { happyCallCompletedAt: new Date() },
   });
-  notifyInboxRefresh([userId]);
   res.json({ ok: true });
 });
 
@@ -1696,12 +1652,7 @@ router.get('/inquiries/:id', async (req, res) => {
   const handoffOpts = await marketplaceHandoffViewerOptions(user);
   const withShare = await attachTenantShareMetaToInquiry(tenantId, item);
   const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiry(tenantId, withShare, handoffOpts);
-  const withIntake = await attachIntakeFormProfileOne(
-    prisma,
-    tenantId,
-    attachInspectionSummaryToInquiry(withHandoff),
-  );
-  res.json(serializeTeamInquiryPreferredDateKst(serializeTeamInquiryOperatingCompany(withIntake)));
+  res.json(serializeTeamInquiryPreferredDateKst(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(withHandoff))));
 });
 
 router.get('/inquiries', async (req, res) => {
@@ -1739,15 +1690,14 @@ router.get('/inquiries', async (req, res) => {
     const handoffOpts = await marketplaceHandoffViewerOptions(user);
     const withShare = await attachTenantShareMetaToInquiries(tenantId, items);
     const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, withShare, handoffOpts);
-    const withIntake = await attachIntakeFormProfiles(
-      prisma,
-      tenantId,
-      attachInspectionSummaries(
-        withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
-      ),
-    );
     res.json({
-      items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withIntake)),
+      items: serializeTeamInquiryPreferredDatesKst(
+        serializeTeamInquiryOperatingCompanies(
+          attachInspectionSummaries(
+            withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+          ),
+        ),
+      ),
     });
     return;
   }
@@ -1768,13 +1718,14 @@ router.get('/inquiries', async (req, res) => {
       extraInquiryWhere,
       user.role,
     );
-    const withIntake = await attachIntakeFormProfiles(
-      prisma,
-      tenantId,
-      attachInspectionSummaries(items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>),
-    );
     res.json({
-      items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withIntake)),
+      items: serializeTeamInquiryPreferredDatesKst(
+        serializeTeamInquiryOperatingCompanies(
+          attachInspectionSummaries(
+            items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+          ),
+        ),
+      ),
       total,
     });
   } catch (e) {
@@ -1837,7 +1788,7 @@ router.get('/schedule', async (req, res) => {
     select: teamScheduleInquirySelect,
   });
   const withCrew = await attachCrewMembers(rows, tenantId, userId);
-  const items = await attachIntakeFormProfiles(prisma, tenantId, attachInspectionSummaries(withCrew));
+  const items = attachInspectionSummaries(withCrew);
   res.json({
     items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(items)),
   });

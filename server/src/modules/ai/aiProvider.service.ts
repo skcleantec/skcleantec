@@ -9,13 +9,16 @@ export type OpenAiJsonResult = {
 };
 
 function resolveApiKey(product: AiProductKey): string {
-  if (product === 'quick_paste') {
+  if (product === 'quick_paste' || product === 'ai_dispatch') {
     return (process.env.QUICK_PASTE_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
   }
   return (process.env.TELECRM_AI_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
 }
 
 function resolveModel(product: AiProductKey): string {
+  if (product === 'ai_dispatch') {
+    return process.env.AI_DISPATCH_MODEL?.trim() || process.env.QUICK_PASTE_AI_MODEL?.trim() || 'gpt-4o-mini';
+  }
   if (product === 'quick_paste') {
     return process.env.QUICK_PASTE_AI_MODEL?.trim() || 'gpt-4o-mini';
   }
@@ -28,9 +31,9 @@ export function isAiProductConfigured(product: AiProductKey): boolean {
 
 export function openAiKeySource(product: AiProductKey): 'dedicated' | 'fallback' | 'missing' {
   const dedicated =
-    product === 'quick_paste'
-      ? (process.env.QUICK_PASTE_OPENAI_API_KEY || '').trim()
-      : (process.env.TELECRM_AI_OPENAI_API_KEY || '').trim();
+    product === 'telecrm_summary'
+      ? (process.env.TELECRM_AI_OPENAI_API_KEY || '').trim()
+      : (process.env.QUICK_PASTE_OPENAI_API_KEY || '').trim();
   if (dedicated) return 'dedicated';
   if ((process.env.OPENAI_API_KEY || '').trim()) return 'fallback';
   return 'missing';
@@ -49,7 +52,12 @@ export async function callOpenAiJson(params: {
   }
   const model = resolveModel(params.product);
   const temperature = params.temperature ?? (params.product === 'quick_paste' ? 0.1 : 0.2);
-  const logTag = params.product === 'quick_paste' ? '[quick-paste]' : '[telecrm-ai]';
+  const logTag =
+    params.product === 'quick_paste'
+      ? '[quick-paste]'
+      : params.product === 'ai_dispatch'
+        ? '[ai-dispatch]'
+        : '[telecrm-ai]';
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {

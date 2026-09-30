@@ -4,7 +4,6 @@ import { AdminTeamLeadersMobileInlineMenuButton } from '../../components/layout/
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
-import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
 import {
   getUsers,
   createUser,
@@ -40,10 +39,14 @@ import {
   type UserServiceZoneFormValue,
 } from '../../components/admin/UserServiceZoneFields';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
-import { StaffIdCardPhotoField } from '../../components/admin/StaffIdCardPhotoField';
 import { TeamLeaderHouseholdDepositPolicyModal } from '../../components/admin/TeamLeaderHouseholdDepositPolicyModal';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { usageLimitForPlan } from '@shared/tenantSubscriptionUsage';
+import type { TeamLeaderSizePolicyId } from '@shared/teamLeaderDispatch';
+import {
+  TeamLeaderDispatchFields,
+  type TeamLeaderDispatchFormValue,
+} from '../../components/admin/TeamLeaderDispatchFields';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
 
@@ -126,6 +129,7 @@ type RegisterFormState = {
   teamLeaderGeneralSettlementValue: string;
   /** 추가결재 회사 몫 — 0~100 숫자만 (%). 빈 문자열이면 미설정 */
   teamLeaderAdditionalReceiptCompanySharePercent: string;
+  dispatch: TeamLeaderDispatchFormValue;
 };
 
 function emptyRegisterForm(): RegisterFormState {
@@ -140,6 +144,30 @@ function emptyRegisterForm(): RegisterFormState {
     teamLeaderGeneralSettlementMode: '',
     teamLeaderGeneralSettlementValue: '',
     teamLeaderAdditionalReceiptCompanySharePercent: '',
+    dispatch: emptyDispatchForm(),
+  };
+}
+
+function emptyDispatchForm(): TeamLeaderDispatchFormValue {
+  return {
+    homeAddress: '',
+    homeAddressDetail: '',
+    jobsPerDay: '2',
+    sizePolicy: 'UNRESTRICTED',
+  };
+}
+
+function dispatchFormFromUser(item: UserItem): TeamLeaderDispatchFormValue {
+  const policy = item.sizePolicy;
+  const sizePolicy: TeamLeaderSizePolicyId =
+    policy === 'ONE_ROOM_ONLY' || policy === 'ONE_AND_TWO' || policy === 'EXCLUDE_ONE_AND_TWO'
+      ? policy
+      : 'UNRESTRICTED';
+  return {
+    homeAddress: item.homeAddress ?? '',
+    homeAddressDetail: item.homeAddressDetail ?? '',
+    jobsPerDay: item.jobsPerDay === 1 ? '1' : '2',
+    sizePolicy,
   };
 }
 
@@ -156,6 +184,7 @@ type EditFormState = {
   teamLeaderGeneralSettlementMode: '' | TeamLeaderGeneralSettlementModeApi;
   teamLeaderGeneralSettlementValue: string;
   teamLeaderAdditionalReceiptCompanySharePercent: string;
+  dispatch: TeamLeaderDispatchFormValue;
 };
 
 function emptyEditForm(): EditFormState {
@@ -172,6 +201,7 @@ function emptyEditForm(): EditFormState {
     teamLeaderGeneralSettlementMode: '',
     teamLeaderGeneralSettlementValue: '',
     teamLeaderAdditionalReceiptCompanySharePercent: '',
+    dispatch: emptyDispatchForm(),
   };
 }
 
@@ -396,6 +426,10 @@ export function AdminTeamLeadersPage() {
         primaryOperatingCompanyId?: string;
         serviceZoneIds?: string[];
         hireDate?: string | null;
+        homeAddress?: string | null;
+        homeAddressDetail?: string | null;
+        jobsPerDay?: number;
+        sizePolicy?: TeamLeaderSizePolicyId;
       } = {
         email: form.email.trim().toLowerCase(),
         password: form.password,
@@ -469,6 +503,10 @@ export function AdminTeamLeadersPage() {
         }
         payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
         payload.serviceZoneIds = szForm.serviceZoneIds;
+        payload.homeAddress = form.dispatch.homeAddress.trim() || null;
+        payload.homeAddressDetail = form.dispatch.homeAddressDetail.trim() || null;
+        payload.jobsPerDay = form.dispatch.jobsPerDay === '1' ? 1 : 2;
+        payload.sizePolicy = form.dispatch.sizePolicy;
       }
 
       if (role === 'TEAM_LEADER' || role === 'MARKETER') {
@@ -536,6 +574,7 @@ export function AdminTeamLeadersPage() {
         item.teamLeaderAdditionalReceiptCompanyShareBps != null
           ? companyShareBpsToPercentInput(item.teamLeaderAdditionalReceiptCompanyShareBps)
           : '',
+      dispatch: dispatchFormFromUser(item),
     });
     setEditOcForm(userOperatingCompanyFormFromUser(operatingCompanies, item.operatingCompanies));
     setEditSzForm(userServiceZoneFormFromUser(item));
@@ -562,6 +601,10 @@ export function AdminTeamLeadersPage() {
         operatingCompanyIds?: string[];
         primaryOperatingCompanyId?: string;
         serviceZoneIds?: string[];
+        homeAddress?: string | null;
+        homeAddressDetail?: string | null;
+        jobsPerDay?: number;
+        sizePolicy?: TeamLeaderSizePolicyId;
       } = {
         email: editForm.email.trim().toLowerCase(),
         name: editForm.name.trim(),
@@ -648,6 +691,10 @@ export function AdminTeamLeadersPage() {
         }
         payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
         payload.serviceZoneIds = editSzForm.serviceZoneIds;
+        payload.homeAddress = editForm.dispatch.homeAddress.trim() || null;
+        payload.homeAddressDetail = editForm.dispatch.homeAddressDetail.trim() || null;
+        payload.jobsPerDay = editForm.dispatch.jobsPerDay === '1' ? 1 : 2;
+        payload.sizePolicy = editForm.dispatch.sizePolicy;
       }
 
       if (editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER') {
@@ -1469,30 +1516,18 @@ export function AdminTeamLeadersPage() {
                 disabled={submitLoading}
                 aria-label="등록 창 닫기"
               />
-              <div className="mb-1 flex items-center gap-0.5 pr-10">
-                <h2
-                  id={
-                    showForm === 'team'
-                      ? 'register-team-title'
-                      : showForm === 'office'
-                        ? 'register-office-title'
-                        : 'register-marketer-title'
-                  }
-                  className="text-lg font-semibold text-gray-800"
-                >
-                  {showForm === 'team' ? '팀장 등록' : showForm === 'office' ? '사무직 등록' : '마케터 등록'}
-                </h2>
-                <AdminOnlyHelpButton
-                  compact
-                  helpId={
-                    showForm === 'team'
-                      ? 'user-create-team'
-                      : showForm === 'office'
-                        ? 'user-create-office'
-                        : 'user-create-marketer'
-                  }
-                />
-              </div>
+              <h2
+                id={
+                  showForm === 'team'
+                    ? 'register-team-title'
+                    : showForm === 'office'
+                      ? 'register-office-title'
+                      : 'register-marketer-title'
+                }
+                className="text-lg font-semibold text-gray-800 mb-1 pr-10"
+              >
+                {showForm === 'team' ? '팀장 등록' : showForm === 'office' ? '사무직 등록' : '마케터 등록'}
+              </h2>
               <p className="text-xs text-gray-500 mb-4">
                 {showForm === 'team'
                   ? '아이디·비밀번호·이름은 필수입니다. 일반 정산과 추가결재 회사 몫은 접수 정산에 반영됩니다. 아래 「참고」 블록의 월 고정 급여는 선택 사항입니다.'
@@ -1583,6 +1618,12 @@ export function AdminTeamLeadersPage() {
                   <div className="sm:col-span-2">
                     <UserServiceZoneFields zones={serviceZones} value={szForm} onChange={setSzForm} />
                   </div>
+                ) : null}
+                {showForm === 'team' ? (
+                  <TeamLeaderDispatchFields
+                    value={form.dispatch}
+                    onChange={(dispatch) => setForm((p) => ({ ...p, dispatch }))}
+                  />
                 ) : null}
                 {showForm === 'team' ? (
                   <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-3">
@@ -1835,12 +1876,9 @@ export function AdminTeamLeadersPage() {
                   className="!static shrink-0 shadow-none"
                 />
               </div>
-              <div className="mb-1 flex items-center gap-0.5 pr-32">
-                <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800">
-                  사용자 수정
-                </h2>
-                <AdminOnlyHelpButton helpId="user-edit" compact />
-              </div>
+              <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800 mb-1 pr-32">
+                사용자 수정
+              </h2>
               <p className="text-xs text-gray-500 mb-4">
                 역할: {userRoleLabel(editingUser.role)} · 새 비밀번호는 변경할 때만 입력
               </p>
@@ -1912,6 +1950,12 @@ export function AdminTeamLeadersPage() {
                     zones={serviceZones}
                     value={editSzForm}
                     onChange={setEditSzForm}
+                  />
+                ) : null}
+                {editingUser.role === 'TEAM_LEADER' ? (
+                  <TeamLeaderDispatchFields
+                    value={editForm.dispatch}
+                    onChange={(dispatch) => setEditForm((p) => ({ ...p, dispatch }))}
                   />
                 ) : null}
                 {editingUser.role === 'TEAM_LEADER' && (
@@ -2178,16 +2222,17 @@ export function AdminTeamLeadersPage() {
                 <p className="text-sm font-medium text-gray-800">사원증 사진</p>
                 <p className="text-fluid-2xs text-gray-500 leading-snug">
                   모바일에서 본인 아이디로 로그인해 고객에게 보여 주며 인증할 때 사용할 수 있도록 관리자가 등록합니다.
-                  사진은 웹하드에 저장됩니다.{' '}
+                  이미지는 Cloudinary에 저장됩니다.{' '}
                   <span className="text-amber-800">
-                    로컬에서 안 되면 서버 <code className="text-[12px]">server/.env</code>에 R2 설정을 확인하세요.
+                    로컬에서 안 되면 서버 <code className="text-[12px]">server/.env</code>에 CLOUDINARY 설정을
+                    확인하세요.
                   </span>
                 </p>
                 {editingUser.staffIdCardUrl ? (
-                  <StaffIdCardPhotoField
-                    url={editingUser.staffIdCardUrl}
-                    personName={editingUser.name}
-                    disabled={staffIdCardBusy || editLoading}
+                  <img
+                    src={editingUser.staffIdCardUrl}
+                    alt=""
+                    className="max-h-52 w-full rounded border border-gray-200 bg-white object-contain"
                   />
                 ) : (
                   <p className="text-fluid-xs text-gray-500">등록된 사진이 없습니다.</p>

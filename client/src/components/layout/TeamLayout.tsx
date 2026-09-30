@@ -23,7 +23,8 @@ import {
   markTeamChangeSeen,
   getTeamChangeHistoryList,
 } from '../../api/inquiryChangeLogs';
-import { teamPreviewDepsKey, teamProfileOnboardingRequired, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
+import { isTeamStaffPreviewSearch, teamPreviewDepsKey, teamProfileOnboardingRequired, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
+import { TeamLeaderHomeAddressGate } from '../team/TeamLeaderHomeAddressGate';
 import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
@@ -404,6 +405,9 @@ export function TeamLayout() {
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [teamTrainingAvailable, setTeamTrainingAvailable] = useState(false);
   const [profileOnboardingRequired, setProfileOnboardingRequired] = useState(false);
+  const [homeAddressRequired, setHomeAddressRequired] = useState(false);
+  const [userHomeAddress, setUserHomeAddress] = useState<string | null>(null);
+  const [userHomeAddressDetail, setUserHomeAddressDetail] = useState<string | null>(null);
   const [profileOnboardingInitial, setProfileOnboardingInitial] = useState<ProfileOnboardingInitial>({
     role: 'TEAM_LEADER',
   });
@@ -440,8 +444,16 @@ export function TeamLayout() {
         setUserPhone(u.phone ?? null);
         setUserVehicleNumber(u.vehicleNumber ?? null);
         setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
+        setUserHomeAddress(u.homeAddress ?? null);
+        setUserHomeAddressDetail(u.homeAddressDetail ?? null);
         const needsOnboarding = teamProfileOnboardingRequired(u);
         setProfileOnboardingRequired(needsOnboarding);
+        setHomeAddressRequired(
+          !needsOnboarding &&
+            !isTeamStaffPreviewSearch(window.location.search) &&
+            u.role === 'TEAM_LEADER' &&
+            u.homeAddressRequired === true,
+        );
         setProfileOnboardingInitial({
           role: u.role,
           name: u.name,
@@ -513,6 +525,9 @@ export function TeamLayout() {
       setTenantSlug(null);
       setTeamTrainingAvailable(false);
       setProfileOnboardingRequired(false);
+      setHomeAddressRequired(false);
+      setUserHomeAddress(null);
+      setUserHomeAddressDetail(null);
       return;
     }
     const startedKey = capturePreviewKey();
@@ -524,6 +539,8 @@ export function TeamLayout() {
         setUserPhone(u.phone ?? null);
         setUserVehicleNumber(u.vehicleNumber ?? null);
         setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
+        setUserHomeAddress(u.homeAddress ?? null);
+        setUserHomeAddressDetail(u.homeAddressDetail ?? null);
         setStaffIdCardUrl(u.staffIdCardUrl ?? null);
         setHireDateIso(u.hireDate ?? null);
         setViewerUserId(u.id ?? null);
@@ -532,6 +549,12 @@ export function TeamLayout() {
         setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
         const needsOnboarding = teamProfileOnboardingRequired(u, location.search);
         setProfileOnboardingRequired(needsOnboarding);
+        setHomeAddressRequired(
+          !needsOnboarding &&
+            !isTeamStaffPreviewSearch(location.search) &&
+            u.role === 'TEAM_LEADER' &&
+            u.homeAddressRequired === true,
+        );
         setProfileOnboardingInitial({
           role: u.role,
           name: u.name,
@@ -897,18 +920,22 @@ export function TeamLayout() {
                     showVehicleForPreviewAdmin={Boolean(
                       (userRole === 'ADMIN' || userRole === 'MARKETER') && previewTeamLeader
                     )}
+                    editHomeAddress={userRole === 'TEAM_LEADER' && !previewTeamLeader}
                     me={{
                       name: userName,
                       phone: userPhone,
                       vehicleNumber: userVehicleNumber,
                       role: userRole,
                       nameEn: userNameEn,
+                      homeAddress: userHomeAddress,
+                      homeAddressDetail: userHomeAddressDetail,
                     }}
                     onSaved={(next) => {
                       setUserName(next.name);
                       setUserPhone(next.phone);
                       setUserVehicleNumber(next.vehicleNumber);
                       if (next.nameEn !== undefined) setUserNameEn(next.nameEn);
+                      reloadTeamMe();
                     }}
                     teamEContractMenu={
                       userRole === 'TEAM_LEADER'
@@ -1010,7 +1037,7 @@ export function TeamLayout() {
                 onOpenInquiry={openInquiryFromAlert}
               />
             ) : null}
-            <Outlet />
+            {homeAddressRequired ? null : <Outlet />}
             {hideChromeAlertsOnMessages ? null : (
               <div className={`${TEAM_MOBILE_BOTTOM_NAV_SCROLL_SPACER} lg:hidden`} aria-hidden="true" />
             )}
@@ -1081,6 +1108,17 @@ export function TeamLayout() {
           initial={profileOnboardingInitial}
           onCompleted={() => {
             setProfileOnboardingRequired(false);
+            reloadTeamMe();
+          }}
+          onSessionExpired={handleSessionExpired}
+        />
+      ) : null}
+      {teamToken && homeAddressRequired && !profileOnboardingRequired ? (
+        <TeamLeaderHomeAddressGate
+          open
+          token={teamToken}
+          onCompleted={() => {
+            setHomeAddressRequired(false);
             reloadTeamMe();
           }}
           onSessionExpired={handleSessionExpired}

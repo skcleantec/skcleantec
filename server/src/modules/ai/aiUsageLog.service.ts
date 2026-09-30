@@ -19,6 +19,8 @@ export async function persistAiUsageLog(params: {
   estimatedCostUsdMicros: number;
 }): Promise<void> {
   const { product, context, model, promptTokens, completionTokens, estimatedCostUsdMicros } = params;
+  if (product === 'ai_dispatch') return;
+
   if (product === 'telecrm_summary') {
     if (!context.userId) return;
     await prisma.telecrmAiUsageLog.create({

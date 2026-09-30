@@ -73,6 +73,9 @@ export interface TeamViewerMe {
   features?: string[];
   profileCompletedAt?: string | null;
   profileOnboardingRequired?: boolean;
+  homeAddress?: string | null;
+  homeAddressDetail?: string | null;
+  homeAddressRequired?: boolean;
 }
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {
@@ -461,10 +464,9 @@ export type TeamNaviDestination = {
   lng: number;
   name: string;
   address: string;
-  tmapAppRoutesUrl?: string | null;
 };
 
-/** 담당 접수 현장 좌표 — TMAP 길안내 */
+/** 담당 접수 현장 좌표 — 길안내(카카오내비·TMAP) */
 export async function postTeamInquiryNaviDestination(
   token: string,
   inquiryId: string,
@@ -485,11 +487,5 @@ export async function postTeamInquiryNaviDestination(
   ) {
     throw new Error('현장 위치를 찾지 못했습니다.');
   }
-  return {
-    lat: body.lat,
-    lng: body.lng,
-    name: body.name,
-    address: body.address,
-    tmapAppRoutesUrl: typeof body.tmapAppRoutesUrl === 'string' ? body.tmapAppRoutesUrl : null,
-  };
+  return { lat: body.lat, lng: body.lng, name: body.name, address: body.address };
 }

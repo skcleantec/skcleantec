@@ -53,6 +53,12 @@ import {
 } from '../onboarding/profileOnboarding.service.js';
 import { replaceBusinessRegistrationForCompany } from '../onboarding/businessRegistration.service.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { invalidateTeamLeaderHomeGate } from '../team-leaders/teamLeaderHomeAddress.middleware.js';
+import {
+  isTeamLeaderHomeReady,
+  prepareTeamLeaderHomeData,
+  TeamLeaderHomeError,
+} from '../team-leaders/teamLeaderHome.service.js';
 import { AuthSignupOAuthError } from '../auth-signup/signupOAuth.errors.js';
 import {
   loginAdminWithGoogleOAuth,
@@ -438,6 +444,10 @@ router.get('/me', authMiddleware, async (req, res) => {
       marketerAdminLevel: true,
       marketerPermissions: true,
       profileCompletedAt: true,
+      homeAddress: true,
+      homeAddressDetail: true,
+      homeGeoLat: true,
+      homeGeoLng: true,
       externalCompanyId: true,
       externalCompany: {
         select: {
@@ -559,17 +569,23 @@ router.get('/me', authMiddleware, async (req, res) => {
     config,
     operatingCompanies: operatingCompaniesResolved,
     ...buildProfileOnboardingMeFields(user, user.externalCompany ?? null),
+    homeAddress: user.homeAddress,
+    homeAddressDetail: user.homeAddressDetail,
+    homeAddressRequired: user.role === 'TEAM_LEADER' && !isTeamLeaderHomeReady(user),
   });
 });
 
 router.patch('/me', authMiddleware, async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = authUser;
   const body = req.body as {
     name?: string;
     phone?: string | null;
     vehicleNumber?: string | null;
     password?: string;
     nameEn?: string | null;
+    homeAddress?: string | null;
+    homeAddressDetail?: string | null;
   };
   const data: {
     name?: string;
@@ -577,6 +593,11 @@ router.patch('/me', authMiddleware, async (req, res) => {
     vehicleNumber?: string | null;
     passwordHash?: string;
     nameEn?: string | null;
+    homeAddress?: string | null;
+    homeAddressDetail?: string | null;
+    homeGeoLat?: number | null;
+    homeGeoLng?: number | null;
+    homeGeoQuery?: string | null;
   } = {};
 
   if (body.vehicleNumber !== undefined) {
@@ -664,6 +685,42 @@ router.patch('/me', authMiddleware, async (req, res) => {
     }
   }
 
+  if (body.homeAddress !== undefined || body.homeAddressDetail !== undefined) {
+    const tenantId = getTenantIdFromAuth(authUser);
+    if (!tenantId) {
+      res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+      return;
+    }
+    const self = await prisma.user.findFirst({
+      where: { id: userId, tenantId },
+      select: {
+        role: true,
+        homeAddress: true,
+        homeAddressDetail: true,
+        homeGeoLat: true,
+        homeGeoLng: true,
+        homeGeoQuery: true,
+      },
+    });
+    if (self?.role === 'TEAM_LEADER') {
+      try {
+        const homeData = await prepareTeamLeaderHomeData({
+          existing: self,
+          homeAddress: body.homeAddress,
+          homeAddressDetail: body.homeAddressDetail,
+          requireReady: true,
+        });
+        Object.assign(data, homeData);
+      } catch (e) {
+        if (e instanceof TeamLeaderHomeError) {
+          res.status(400).json({ error: e.message });
+          return;
+        }
+        throw e;
+      }
+    }
+  }
+
   if (Object.keys(data).length === 0) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -701,11 +758,17 @@ router.patch('/me', authMiddleware, async (req, res) => {
       vehicleNumber: true,
       role: true,
       allowSelfDayOffEdit: true,
+      homeAddress: true,
+      homeAddressDetail: true,
+      homeGeoLat: true,
+      homeGeoLng: true,
     },
   });
+  invalidateTeamLeaderHomeGate(userId);
   res.json({
     ...updated,
     allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
+    homeAddressRequired: updated.role === 'TEAM_LEADER' && !isTeamLeaderHomeReady(updated),
   });
 });
 
@@ -733,6 +796,11 @@ router.post(
         vehicleNumber: true,
         nameEn: true,
         profileCompletedAt: true,
+        homeAddress: true,
+        homeAddressDetail: true,
+        homeGeoLat: true,
+        homeGeoLng: true,
+        homeGeoQuery: true,
         externalCompanyId: true,
         externalCompany: {
           select: {
@@ -833,6 +901,30 @@ router.post(
       return;
     }
 
+    let homeData: {
+      homeAddress?: string | null;
+      homeAddressDetail?: string | null;
+      homeGeoLat?: number | null;
+      homeGeoLng?: number | null;
+      homeGeoQuery?: string | null;
+    } = {};
+    if (existing.role === 'TEAM_LEADER') {
+      try {
+        homeData = await prepareTeamLeaderHomeData({
+          existing,
+          homeAddress: raw.homeAddress != null ? String(raw.homeAddress) : '',
+          homeAddressDetail: raw.homeAddressDetail != null ? String(raw.homeAddressDetail) : '',
+          requireReady: true,
+        });
+      } catch (e) {
+        if (e instanceof TeamLeaderHomeError) {
+          res.status(400).json({ error: e.message });
+          return;
+        }
+        throw e;
+      }
+    }
+
     const now = new Date();
     const userData: {
       name: string;
@@ -840,10 +932,16 @@ router.post(
       vehicleNumber?: string | null;
       nameEn?: string | null;
       profileCompletedAt: Date;
+      homeAddress?: string | null;
+      homeAddressDetail?: string | null;
+      homeGeoLat?: number | null;
+      homeGeoLng?: number | null;
+      homeGeoQuery?: string | null;
     } = {
       name,
       phone,
       profileCompletedAt: now,
+      ...homeData,
     };
     if (existing.role === 'TEAM_LEADER') {
       userData.vehicleNumber = vehicleNumber;
@@ -894,6 +992,7 @@ router.post(
           })
         : null;
 
+    invalidateTeamLeaderHomeGate(userId);
     res.json({
       ...updated,
       profileCompletedAt: updated.profileCompletedAt?.toISOString() ?? null,

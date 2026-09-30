@@ -885,6 +885,7 @@ export function AdminSchedulePage() {
   >([]);
   const [partnerTenants, setPartnerTenants] = useState<Array<{ id: string; name: string }>>([]);
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
+  const aiDispatchOn = useHasTenantFeature('mod_ai_dispatch');
   const hasExternalCo = useHasTenantFeature('mod_external_co');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const {
@@ -1734,6 +1735,21 @@ export function AdminSchedulePage() {
             <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
           </PageTitleWithFavorite>
           <ScheduleHelpTrigger className="shrink-0" onClick={() => setScheduleHelpOpen(true)} />
+          {aiDispatchOn ? (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/admin/schedule/ai-dispatch?date=${
+                    selectedDate ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)
+                  }`,
+                )
+              }
+              className="min-h-9 rounded-lg bg-slate-900 px-2.5 py-1 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            >
+              AI 미리 배정
+            </button>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
           <div className="flex lg:hidden items-center gap-1.5 min-w-0 shrink mr-0.5">
@@ -1755,6 +1771,21 @@ export function AdminSchedulePage() {
               className="shrink-0 scale-90 origin-left"
               onClick={() => setScheduleHelpOpen(true)}
             />
+            {aiDispatchOn ? (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `/admin/schedule/ai-dispatch?date=${
+                      selectedDate ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)
+                    }`,
+                  )
+                }
+                className="min-h-9 shrink-0 rounded-lg bg-slate-900 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              >
+                AI 배정
+              </button>
+            ) : null}
           </div>
             <InquiryQuickPasteTriggerButton
               size="compact"
