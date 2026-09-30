@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { aiDispatchSlotLabel } from '@shared/aiDispatch';
 import { TEAM_LEADER_SIZE_POLICY_LABEL } from '@shared/teamLeaderDispatch';
 import type { AiDispatchBoard, AiDispatchJob, AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 import { AiDispatchReasonModal } from './AiDispatchReasonModal';
+import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
 
 const BAND_ORDER = ['좋음', '보통', '피로'] as const;
 
@@ -36,31 +38,6 @@ function StepMark({ n }: { n: string }) {
     <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-fluid-2xs font-semibold text-white">
       {n}
     </span>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  hint,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  hint: string;
-}) {
-  return (
-    <label className="block min-w-0">
-      <span className="text-fluid-xs font-medium text-slate-800">{label}</span>
-      <span className="mt-0.5 block text-fluid-2xs text-slate-500">{hint}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        inputMode="numeric"
-        className="mt-1.5 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-fluid-sm tabular-nums text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-      />
-    </label>
   );
 }
 
@@ -123,6 +100,7 @@ export function AiDispatchScreen({
   onOpenReport: () => void;
   onCloseReport: () => void;
 }) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const leaders = board?.leaders ?? [];
   const jobs = board?.jobs ?? [];
   const proposals = board?.run?.proposals ?? [];
@@ -173,6 +151,14 @@ export function AiDispatchScreen({
             >
               <LineMdIcon name="calendar" className="size-4" />
               {running ? '실행 중…' : 'AI 미리 배정'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              aria-label="배정 규칙"
+            >
+              <LineMdIcon name="cog" className="size-5" />
             </button>
           </div>
         </div>
@@ -306,47 +292,24 @@ export function AiDispatchScreen({
         </section>
       </div>
 
-      <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-        <summary className="cursor-pointer text-fluid-sm font-semibold text-slate-900">배정 규칙</summary>
-        <p className="mt-1 text-fluid-2xs text-slate-500">
-          큰 집만 팀장을 더 붙입니다. 사이청소·조율은 오전·오후가 정해진 건만 초안에 넣습니다. 주 6일·12건이 보통이고, 팀
-          평균보다 먼 이동과 현장 사이 거리가 피로를 올립니다.
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <Field label="주간 정상 근무일" hint="이 날수면 보통입니다" value={normalDays} onChange={onNormalDays} />
-          <Field label="주간 정상 건수" hint="이 건수면 보통입니다" value={normalJobs} onChange={onNormalJobs} />
-          <Field label="이 평수 이상" hint="이 크기부터 팀장을 더 붙입니다" value={minPyeong} onChange={onMinPyeong} />
-          <Field label="팀장 수" hint="위 평수일 때 붙는 인원" value={leaderCount} onChange={onLeaderCount} />
-          <Field label="투룸 상한" hint="이 평수 이하는 작은 집으로 봅니다" value={twoRoom} onChange={onTwoRoom} />
-        </div>
-        <div className="mt-3">
-          <p className="text-fluid-xs font-medium text-slate-800">팀원 점수</p>
-          <p className="mt-0.5 text-fluid-2xs text-slate-500">
-            켜면 팀원 없이 간 날에 피로를 더합니다. 팀원을 안 쓰는 업체는 끄세요.
-          </p>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={includeCrew}
-            onClick={() => onIncludeCrew(!includeCrew)}
-            className={`mt-1.5 inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-fluid-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
-              includeCrew
-                ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
-                : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <span className={`inline-block size-3 rounded-full ${includeCrew ? 'bg-white' : 'bg-slate-300'}`} aria-hidden />
-            {includeCrew ? '팀원 점수 포함' : '팀원 점수 제외'}
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onSaveSettings}
-          className="mt-3 min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-        >
-          규칙 저장
-        </button>
-      </details>
+      {settingsOpen ? (
+        <AiDispatchSettingsModal
+          minPyeong={minPyeong}
+          leaderCount={leaderCount}
+          twoRoom={twoRoom}
+          includeCrew={includeCrew}
+          normalDays={normalDays}
+          normalJobs={normalJobs}
+          onMinPyeong={onMinPyeong}
+          onLeaderCount={onLeaderCount}
+          onTwoRoom={onTwoRoom}
+          onIncludeCrew={onIncludeCrew}
+          onNormalDays={onNormalDays}
+          onNormalJobs={onNormalJobs}
+          onSave={onSaveSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
       {reportOpen && board?.run ? <AiDispatchReasonModal board={board} onClose={onCloseReport} /> : null}
     </div>
   );
