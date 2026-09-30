@@ -27,6 +27,8 @@ export type DispatchLeader = {
   name: string;
   jobsPerDay: 1 | 2;
   sizePolicy: TeamLeaderSizePolicy;
+  homeAddress: string;
+  homeAddressDetail: string;
   homeLat: number;
   homeLng: number;
   band: AiDispatchFatigueBand;
@@ -90,6 +92,8 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
         name: true,
         hireDate: true,
         resignationDate: true,
+        homeAddress: true,
+        homeAddressDetail: true,
         homeGeoLat: true,
         homeGeoLng: true,
         dispatchProfile: { select: { jobsPerDay: true, sizePolicy: true } },
@@ -151,6 +155,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
     settings.includeCrewInFatigue,
     settings.normalWorkDaysPerWeek,
     settings.normalJobsPerWeek,
+    settings.twoRoomMaxPyeong,
   );
 
   const leaders: DispatchLeader[] = homeReady.map((u) => {
@@ -179,6 +184,8 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
       name: u.name,
       jobsPerDay,
       sizePolicy: u.dispatchProfile?.sizePolicy ?? 'UNRESTRICTED',
+      homeAddress: u.homeAddress ?? '',
+      homeAddressDetail: u.homeAddressDetail ?? '',
       homeLat: u.homeGeoLat as number,
       homeLng: u.homeGeoLng as number,
       band: fatigueRow.band,
@@ -195,11 +202,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
     const external = inquiry.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
     if (external || inquiry.assignments.length > 0 || inquiry.status !== 'RECEIVED') continue;
     const slot = fixedSlot(inquiry.preferredTime, inquiry.betweenScheduleSlot);
-    let blockedReason: string | null = null;
-    if (slot === 'HUMAN') blockedReason = '오전·오후가 정해지지 않아 사람이 정합니다.';
-    else if (inquiry.addressGeoLat == null || inquiry.addressGeoLng == null) {
-      blockedReason = '현장 좌표가 없어 동선을 계산할 수 없습니다.';
-    }
+    const blockedReason = leaders.length === 0 ? '집 주소가 있는 팀장이 없습니다.' : null;
     jobs.push({
       id: inquiry.id,
       customerName: inquiry.customerName,
@@ -216,23 +219,15 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
     });
   }
 
-  for (const job of jobs) {
-    if (job.blockedReason) continue;
-    if (leadersForJob(leaders, job, settings.twoRoomMaxPyeong).length === 0) {
-      job.blockedReason = '이 시간대에 남은 건수가 있는 팀장이 없습니다.';
-    }
-  }
-
   return { settings, leaders, jobs };
 }
 
 export function leadersForJob(leaders: DispatchLeader[], job: DispatchJob, twoRoomMax: number): DispatchLeader[] {
-  if (job.slot === 'HUMAN' || job.blockedReason) return [];
-  const weight = slotJobWeight(job.slot);
-  return leaders.filter(
-    (leader) =>
-      leader.remainingJobs >= weight &&
-      (job.slot !== 'ALL_DAY' || leader.jobsPerDay >= 2) &&
-      sizePolicyAllows(leader.sizePolicy, { isOneRoom: job.isOneRoom, areaPyeong: job.pyeong }, twoRoomMax),
+  const sized = leaders.filter((leader) =>
+    sizePolicyAllows(leader.sizePolicy, { isOneRoom: job.isOneRoom, areaPyeong: job.pyeong }, twoRoomMax),
   );
+  const pool = sized.length > 0 ? sized : leaders;
+  if (job.slot !== 'ALL_DAY') return pool;
+  const fullDay = pool.filter((leader) => leader.jobsPerDay >= 2);
+  return fullDay.length > 0 ? fullDay : pool;
 }

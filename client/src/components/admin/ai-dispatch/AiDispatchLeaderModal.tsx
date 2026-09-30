@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TEAM_LEADER_SIZE_POLICY_LABEL } from '@shared/teamLeaderDispatch';
 import type { AiDispatchLeader } from '../../../api/aiDispatch';
+import type { TeamLeaderDispatchFormValue } from '../TeamLeaderDispatchFields';
+import { AiDispatchLeaderSettingsModal } from './AiDispatchLeaderSettingsModal';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 
 function Row({
@@ -80,11 +83,18 @@ function largeText(leader: AiDispatchLeader): string {
 
 export function AiDispatchLeaderModal({
   leader,
+  saving,
+  saveError,
   onClose,
+  onSave,
 }: {
   leader: AiDispatchLeader;
+  saving: boolean;
+  saveError: string | null;
   onClose: () => void;
+  onSave: (value: TeamLeaderDispatchFormValue) => Promise<void>;
 }) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const sizeLabel = TEAM_LEADER_SIZE_POLICY_LABEL[leader.sizePolicy];
   return createPortal(
     <div
@@ -108,14 +118,24 @@ export function AiDispatchLeaderModal({
               {leader.band} · 피로 {leader.fatigue}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex size-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-            aria-label="닫기"
-          >
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="inline-flex size-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              aria-label="이 팀장 설정"
+            >
+              <LineMdIcon name="cog" className="size-5" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex size-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              aria-label="닫기"
+            >
             <LineMdIcon name="close" className="size-5" />
-          </button>
+            </button>
+          </div>
         </header>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
           <p className="flex items-start gap-2 text-fluid-xs leading-snug text-slate-700">
@@ -129,21 +149,34 @@ export function AiDispatchLeaderModal({
             <Row icon="map-marker" title="집에서 현장" body={loopText(leader)} />
             <Row icon="arrows-horizontal" title="현장과 현장 사이" body={betweenText(leader)} />
             <Row icon="home" title="큰 집" body={largeText(leader)} />
-            {leader.detail.soloJobs > 0 ? (
-              <Row
-                icon="person"
-                title="팀원 없이 간 일"
-                body={`${leader.detail.soloJobs}건입니다. 팀원 점수를 켜 두면 이 건이 피로에 더해집니다.`}
-              />
-            ) : null}
+            <Row
+              icon="person"
+              title="원룸·투룸 인원"
+              body={
+                leader.detail.soloJobs > 0
+                  ? `투룸을 혼자 간 일정이 ${leader.detail.soloJobs}건입니다. 팀원 점수를 켜 두면 이 건만 피로가 올라갑니다. 원룸은 한 명이 기본이라 더하지 않고, 원룸에 팀원이 같이 가면 그 집의 가중치는 없습니다.`
+                  : '원룸은 한 명이 기본입니다. 팀원이 같이 간 원룸은 피로에 더하지 않습니다. 투룸을 혼자 가면, 팀원 점수를 켠 업체만 피로가 올라갑니다.'
+              }
+            />
             <Row
               icon="watch"
               title="오늘 자리"
-              body={`오늘 넣을 수 있는 자리가 ${leader.remainingJobs}건 남았습니다. 하루 최대 ${leader.jobsPerDay}건이고, 집 크기는 ${sizeLabel}입니다.`}
+              body={`하루 최대 ${leader.jobsPerDay}건이고, 지금 남은 자리는 ${leader.remainingJobs}건입니다. 자리가 없어도 빈 일정은 넣습니다. 집 크기는 ${sizeLabel}입니다.`}
             />
           </ul>
         </div>
       </div>
+      {settingsOpen ? (
+        <AiDispatchLeaderSettingsModal
+          leader={leader}
+          saving={saving}
+          error={saveError}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(value) => {
+            void onSave(value).then(() => setSettingsOpen(false)).catch(() => undefined);
+          }}
+        />
+      ) : null}
     </div>,
     document.body,
   );

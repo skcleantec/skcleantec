@@ -25,6 +25,7 @@ type LeaderStat = {
   betweenAvg: number | null;
   largeJobs: number;
   soloJobs: number;
+  crewScore: number;
   pyeongScore: number;
 };
 
@@ -67,6 +68,21 @@ function largeHomePoints(job: Pick<PastJob, 'pyeong' | 'isOneRoom'>): number {
   if (job.isOneRoom || job.pyeong == null || job.pyeong < 35) return 0;
   if (job.pyeong < 45) return 4;
   return 8;
+}
+
+function isTwoRoom(job: PastJob, twoRoomMax: number): boolean {
+  return !job.isOneRoom && job.pyeong != null && job.pyeong <= twoRoomMax;
+}
+
+/** 팀원 점수가 켜져 있을 때만. 원룸+팀원은 0. 투룸 혼자는 +6. 원룸 혼자는 기본이라 더하지 않는다. */
+function jobHousePoints(
+  job: PastJob,
+  includeCrew: boolean,
+  twoRoomMax: number,
+): { pyeong: number; crew: number; twoRoomSolo: boolean } {
+  if (includeCrew && job.isOneRoom && !job.noCrew) return { pyeong: 0, crew: 0, twoRoomSolo: false };
+  const twoRoomSolo = includeCrew && isTwoRoom(job, twoRoomMax) && job.noCrew;
+  return { pyeong: largeHomePoints(job), crew: twoRoomSolo ? 6 : 0, twoRoomSolo };
 }
 
 function bandOf(score: number): AiDispatchFatigueBand {
@@ -116,6 +132,7 @@ export async function loadLeaderFatigue(
   includeCrewInFatigue: boolean,
   normalWorkDays: number,
   normalJobs: number,
+  twoRoomMax: number,
 ): Promise<Map<string, FatigueRow>> {
   const out = new Map<string, FatigueRow>();
   if (leaders.length === 0) return out;
@@ -181,11 +198,13 @@ export async function loadLeaderFatigue(
     let pyeongScore = 0;
     let largeJobs = 0;
     let soloJobs = 0;
+    let crewScore = 0;
     for (const job of jobs) {
-      const points = largeHomePoints(job);
-      pyeongScore += points;
-      if (points > 0) largeJobs += 1;
-      if (includeCrewInFatigue && job.noCrew) soloJobs += 1;
+      const house = jobHousePoints(job, includeCrewInFatigue, twoRoomMax);
+      pyeongScore += house.pyeong;
+      crewScore += house.crew;
+      if (house.pyeong > 0) largeJobs += 1;
+      if (house.twoRoomSolo) soloJobs += 1;
       const day = byDay.get(job.ymd) ?? [];
       day.push(job);
       byDay.set(job.ymd, day);
@@ -209,6 +228,7 @@ export async function loadLeaderFatigue(
       betweenAvg: betweens.length > 0 ? mean(betweens) : null,
       largeJobs,
       soloJobs,
+      crewScore,
       pyeongScore,
     });
   }
@@ -226,8 +246,7 @@ export async function loadLeaderFatigue(
     if (row.workedDays >= LOOKBACK_DAYS && normalWorkDays < LOOKBACK_DAYS) score += 6;
     score += Math.max(0, row.jobCount - normalJobs) * 3;
     if (row.restDays >= 2) score -= 10;
-    score += row.pyeongScore;
-    if (includeCrewInFatigue) score += row.soloJobs * 2;
+    score += row.pyeongScore + row.crewScore;
 
     if (row.loopAvg == null || teamLoop == null) score += 2;
     else if (row.loopAvg <= teamLoop) score += 2;
@@ -249,7 +268,7 @@ export async function loadLeaderFatigue(
       noteParts.push(`현장 사이 ${delta > 0 ? `+${delta}` : String(delta)}km`);
     }
     if (row.largeJobs > 0) noteParts.push(`큰 집 ${row.largeJobs}건`);
-    if (includeCrewInFatigue && row.soloJobs > 0) noteParts.push(`팀원 없음 ${row.soloJobs}건`);
+    if (row.soloJobs > 0) noteParts.push(`투룸 혼자 ${row.soloJobs}건`);
     const fatigue = fatiguePercent(score);
     const betweenDeltaKm =
       row.betweenAvg != null && teamBetween != null ? Math.round(row.betweenAvg - teamBetween) : null;

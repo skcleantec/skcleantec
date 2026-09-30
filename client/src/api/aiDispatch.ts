@@ -11,6 +11,8 @@ export type AiDispatchLeader = {
   name: string;
   jobsPerDay: number;
   sizePolicy: TeamLeaderSizePolicyId;
+  homeAddress: string;
+  homeAddressDetail: string;
   band: AiDispatchFatigueBand;
   fatigue: number;
   note: string;
@@ -123,6 +125,28 @@ export async function approveAiDispatch(
   });
   if (!res.ok) throw new Error(await readError(res));
   return res.json() as Promise<{ approvedInquiryIds: string[]; failed: Array<{ inquiryId: string; error: string }> }>;
+}
+
+export async function getAiDispatchProgress(
+  token: string,
+  date: string,
+): Promise<{ step: number; message: string }> {
+  const res = await fetch(`${API}/ai-dispatch/progress?date=${encodeURIComponent(date)}`, { headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<{ step: number; message: string }>;
+}
+
+export async function saveAiDispatchLeader(
+  token: string,
+  userId: string,
+  body: { homeAddress: string; homeAddressDetail: string; jobsPerDay: number; sizePolicy: string },
+): Promise<void> {
+  const res = await fetch(`${API}/ai-dispatch/leaders/${userId}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
 }
 
 export async function saveAiDispatchSettings(

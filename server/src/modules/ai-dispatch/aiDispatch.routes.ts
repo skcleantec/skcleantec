@@ -11,6 +11,13 @@ import { createAiDispatchDraft } from './aiDispatchDraft.service.js';
 import { approveDraftProposals, updateDraftProposal } from './aiDispatchApprove.service.js';
 import type { AiDispatchSlot } from './aiDispatch.constants.js';
 import { clampSettings, fromHomeKm, homeLoopText } from './aiDispatchRules.js';
+import { readAiDispatchProgress } from './aiDispatchProgress.js';
+import {
+  parseDispatchProfileInput,
+  prepareTeamLeaderHomeData,
+  TeamLeaderHomeError,
+  upsertTeamLeaderDispatchProfile,
+} from '../team-leaders/teamLeaderHome.service.js';
 
 const router = Router();
 
@@ -86,6 +93,8 @@ router.get('/board', async (req, res) => {
       name: leader.name,
       jobsPerDay: leader.jobsPerDay,
       sizePolicy: leader.sizePolicy,
+      homeAddress: leader.homeAddress,
+      homeAddressDetail: leader.homeAddressDetail,
       band: leader.band,
       fatigue: leader.fatigue,
       note: leader.note,
@@ -166,6 +175,76 @@ function homeLoops(
   }
   return texts;
 }
+
+router.get('/progress', async (req, res) => {
+  const tenantId = tenantOf(req as { user?: AuthPayload });
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const date = typeof req.query.date === 'string' ? req.query.date : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: '날짜를 선택해 주세요.' });
+    return;
+  }
+  const progress = readAiDispatchProgress(tenantId, date);
+  res.json({ step: progress?.step ?? 1, message: progress?.message ?? '날짜의 일정을 모으고 있습니다.' });
+});
+
+router.patch('/leaders/:userId', async (req, res) => {
+  const tenantId = tenantOf(req as { user?: AuthPayload });
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const user = await prisma.user.findFirst({
+    where: { id: req.params.userId, tenantId, role: 'TEAM_LEADER' },
+    select: {
+      id: true,
+      homeAddress: true,
+      homeAddressDetail: true,
+      homeGeoLat: true,
+      homeGeoLng: true,
+      homeGeoQuery: true,
+    },
+  });
+  if (!user) {
+    res.status(404).json({ error: '팀장을 찾지 못했습니다.' });
+    return;
+  }
+  const parsed = parseDispatchProfileInput({
+    jobsPerDay: req.body?.jobsPerDay,
+    sizePolicy: req.body?.sizePolicy,
+  });
+  if (!parsed || 'error' in parsed) {
+    res.status(400).json({ error: parsed && 'error' in parsed ? parsed.error : '하루 건수와 집 크기를 선택해 주세요.' });
+    return;
+  }
+  try {
+    const homePatch = await prepareTeamLeaderHomeData({
+      existing: user,
+      homeAddress: req.body?.homeAddress,
+      homeAddressDetail: req.body?.homeAddressDetail,
+      requireReady: false,
+    });
+    if (Object.keys(homePatch).length > 0) {
+      await prisma.user.updateMany({ where: { id: user.id, tenantId }, data: homePatch });
+    }
+  } catch (e) {
+    if (e instanceof TeamLeaderHomeError) {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+  await upsertTeamLeaderDispatchProfile(prisma, {
+    tenantId,
+    userId: user.id,
+    jobsPerDay: parsed.jobsPerDay,
+    sizePolicy: parsed.sizePolicy,
+  });
+  res.json({ ok: true });
+});
 
 router.post('/runs', async (req, res) => {
   const tenantId = tenantOf(req as { user?: AuthPayload });

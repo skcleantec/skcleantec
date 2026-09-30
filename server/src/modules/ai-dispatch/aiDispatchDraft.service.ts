@@ -8,7 +8,8 @@ import {
   type DispatchJob,
   type DispatchLeader,
 } from './aiDispatchContext.service.js';
-import { haversineKm, slotJobWeight } from './aiDispatchRules.js';
+import { setAiDispatchProgress } from './aiDispatchProgress.js';
+import { haversineKm, sizePolicyAllows, slotJobWeight } from './aiDispatchRules.js';
 
 type Db = PrismaClient;
 
@@ -32,9 +33,7 @@ function roundTripKm(leader: DispatchLeader, job: DispatchJob): number | null {
 }
 
 function buildPrompt(leaders: DispatchLeader[], jobs: DispatchJob[], twoRoomMax: number): string {
-  const leaderLines = leaders
-    .filter((leader) => leader.remainingJobs > 0)
-    .map((leader) => ({
+  const leaderLines = leaders.map((leader) => ({
     userId: leader.id,
     name: leader.name,
     jobsPerDay: leader.jobsPerDay,
@@ -45,7 +44,7 @@ function buildPrompt(leaders: DispatchLeader[], jobs: DispatchJob[], twoRoomMax:
     conditionNote: leader.note,
   }));
   const jobLines = jobs
-    .filter((job) => !job.blockedReason && job.slot !== 'HUMAN')
+    .filter((job) => !job.blockedReason)
     .map((job) => {
       const eligible = leadersForJob(leaders, job, twoRoomMax).map((leader) => ({
         userId: leader.id,
@@ -68,10 +67,11 @@ function buildPrompt(leaders: DispatchLeader[], jobs: DispatchJob[], twoRoomMax:
 
 const SYSTEM = `당신은 입주청소 하루 배정 담당입니다. 집→현장→집으로 돌아오는 거리(roundTripKm)와 평수, 피로(fatigue 1~100)를 보고 하루를 나눕니다.
 규칙:
-- eligible에 있는 userId만 쓰세요. 없거나 비어 있으면 그 접수는 assignments에 넣지 말고 unassigned에 이유를 쓰세요.
-- slot은 접수의 slot과 같아야 합니다.
-- remainingJobs를 넘기지 마세요. ALL_DAY는 2건입니다.
-- requiredLeaders만큼 서로 다른 팀장을 넣으세요. 못 채우면 unassigned로 두세요.
+- jobs에 있는 접수는 빠짐없이 assignments에 넣으세요. unassigned로 남기지 마세요.
+- eligible에 있는 userId를 먼저 쓰세요. eligible이 비어 있으면 leaders 안에서 고르세요.
+- slot은 접수의 slot과 같아야 합니다. HUMAN도 그대로 두세요.
+- remainingJobs가 남은 팀장을 먼저 고르세요. 남은 자리가 없어도 피로가 낮고 가까운 팀장에게 넣으세요. 빈 일정으로 두지 마세요.
+- ALL_DAY는 2건으로 세고, requiredLeaders만큼 서로 다른 팀장을 넣으세요.
 - fatigue가 높으면 roundTripKm가 짧은 현장만 고르고, 오후 평수는 작게 잡으세요.
 - fatigue가 낮으면 roundTripKm가 길어도 동선이 맞으면 가능합니다.
 - 원룸은 같은 평수보다 더 지칩니다.
@@ -165,7 +165,103 @@ function parseLines(
   return lines;
 }
 
+function seatWeight(slot: AiDispatchSlot): number {
+  return slot === 'ALL_DAY' ? 2 : 1;
+}
+
+function pickLeader(
+  leaders: DispatchLeader[],
+  job: DispatchJob,
+  used: Map<string, number>,
+  taken: Set<string>,
+  twoRoomMax: number,
+): DispatchLeader | null {
+  const open = leaders.filter((leader) => !taken.has(leader.id));
+  if (open.length === 0) return null;
+  const preferred = leadersForJob(leaders, job, twoRoomMax).filter((leader) => !taken.has(leader.id));
+  const pool = preferred.length > 0 ? preferred : open;
+  return [...pool].sort((a, b) => {
+    const aOver = (used.get(a.id) ?? 0) >= a.jobsPerDay ? 1 : 0;
+    const bOver = (used.get(b.id) ?? 0) >= b.jobsPerDay ? 1 : 0;
+    if (aOver !== bOver) return aOver - bOver;
+    const aKm = oneWayKm(a, job) ?? 80;
+    const bKm = oneWayKm(b, job) ?? 80;
+    return a.fatigue + aKm - (b.fatigue + bKm);
+  })[0] ?? null;
+}
+
+function fillReason(leader: DispatchLeader, job: DispatchJob, over: boolean, twoRoomMax: number): string {
+  const km = roundTripKm(leader, job);
+  const sizeOff = !sizePolicyAllows(leader.sizePolicy, { isOneRoom: job.isOneRoom, areaPyeong: job.pyeong }, twoRoomMax);
+  const bits = [
+    `${leader.name}에게 넣었습니다`,
+    km != null ? `왕복 ${km}km` : '현장 좌표가 없어 거리는 재지 못했습니다',
+    job.pyeong != null ? `${job.pyeong}평` : job.isOneRoom ? '원룸' : '',
+    over ? '하루 건수는 이미 찼지만 빈 일정으로 두지 않았습니다' : '',
+    sizeOff ? '집 크기 설정과 다른 팀장만 남아 넣었습니다' : '',
+    job.slot === 'HUMAN' ? '시간대는 오전·오후로 아직 안 정해져 한 번 더 봐 주세요' : '',
+  ].filter(Boolean);
+  return bits.join('. ').slice(0, 300);
+}
+
+function fillOpenJobs(
+  lines: DraftLine[],
+  jobs: DispatchJob[],
+  leaders: DispatchLeader[],
+  twoRoomMax: number,
+): DraftLine[] {
+  const used = new Map(leaders.map((leader) => [leader.id, leader.usedJobs]));
+  for (const line of lines) {
+    if (!line.teamLeaderId) continue;
+    const job = jobs.find((item) => item.id === line.inquiryId);
+    used.set(line.teamLeaderId, (used.get(line.teamLeaderId) ?? 0) + seatWeight(job?.slot ?? 'AM'));
+  }
+  const next: DraftLine[] = [];
+  for (const job of jobs) {
+    if (job.blockedReason) {
+      next.push({
+        inquiryId: job.id,
+        teamLeaderId: null,
+        slot: job.slot,
+        reason: job.blockedReason,
+        updatedAt: job.updatedAt,
+      });
+      continue;
+    }
+    const kept = lines.filter((line) => line.inquiryId === job.id && line.teamLeaderId);
+    const taken = new Set(kept.map((line) => line.teamLeaderId as string));
+    const filled = [...kept];
+    while (filled.length < job.requiredLeaders && leaders.length > 0) {
+      const leader = pickLeader(leaders, job, used, taken, twoRoomMax);
+      if (!leader) break;
+      const before = used.get(leader.id) ?? 0;
+      taken.add(leader.id);
+      used.set(leader.id, before + seatWeight(job.slot));
+      filled.push({
+        inquiryId: job.id,
+        teamLeaderId: leader.id,
+        slot: job.slot,
+        reason: fillReason(leader, job, before >= leader.jobsPerDay, twoRoomMax),
+        updatedAt: job.updatedAt,
+      });
+    }
+    if (filled.length === 0) {
+      next.push({
+        inquiryId: job.id,
+        teamLeaderId: null,
+        slot: job.slot,
+        reason: '배정할 팀장이 없습니다.',
+        updatedAt: job.updatedAt,
+      });
+    } else {
+      next.push(...filled);
+    }
+  }
+  return next;
+}
+
 export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: string, workDate: string) {
+  setAiDispatchProgress(tenantId, workDate, 1, '날짜의 일정을 모으고 있습니다.');
   const day = await loadDispatchDay(db, tenantId, workDate);
   if (!day) return { error: '날짜 형식이 올바르지 않습니다.' as const };
   const openJobs = day.jobs.filter((job) => !job.blockedReason);
@@ -182,18 +278,14 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
     };
   }
   if (openJobs.length === 0) {
-    const lines = day.jobs.map((job) => ({
-      inquiryId: job.id,
-      teamLeaderId: null,
-      slot: job.slot,
-      reason: job.blockedReason || (job.slot === 'HUMAN' ? '시간대가 오전·오후로 확정되지 않아 사람이 봐야 합니다.' : '배정할 팀장을 고르지 못했습니다.'),
-      updatedAt: job.updatedAt,
-    }));
-    const run = await saveRun(db, tenantId, actorId, workDate, lines, '배정할 수 있는 오전·오후 건이 없습니다.', null);
+    const lines = fillOpenJobs([], day.jobs, day.leaders, day.settings.twoRoomMaxPyeong);
+    const run = await saveRun(db, tenantId, actorId, workDate, lines, '집 주소가 있는 팀장이 없어 넣지 못했습니다.', null);
     return { aiConfigured: true as const, run };
   }
 
+  setAiDispatchProgress(tenantId, workDate, 2, '팀장 집과 피로를 계산하고 있습니다.');
   const user = buildPrompt(day.leaders, day.jobs, day.settings.twoRoomMaxPyeong);
+  setAiDispatchProgress(tenantId, workDate, 3, 'AI가 동선과 평수를 보고 있습니다.');
   let parsed: DraftLine[] | null = null;
   let usage: { model: string; promptTokens: number; completionTokens: number } | null = null;
   for (let attempt = 0; attempt < 2 && !parsed; attempt += 1) {
@@ -206,18 +298,13 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
     usage = result.usage;
     parsed = parseLines(result.json, day.jobs, day.leaders, day.settings.twoRoomMaxPyeong);
   }
-  if (!parsed) {
-    const lines = day.jobs.map((job) => ({
-      inquiryId: job.id,
-      teamLeaderId: null,
-      slot: job.slot,
-      reason: job.blockedReason || 'AI 제안을 확인하지 못해 팀장을 비워 두었습니다.',
-      updatedAt: job.updatedAt,
-    }));
-    const run = await saveRun(db, tenantId, actorId, workDate, lines, 'AI 응답을 배정 규칙에 맞추지 못했습니다.', usage);
-    return { aiConfigured: true as const, run };
-  }
-  const run = await saveRun(db, tenantId, actorId, workDate, parsed, 'AI가 하루 동선과 컨디션을 보고 제안했습니다. 승인 전에는 배정되지 않습니다.', usage);
+  setAiDispatchProgress(tenantId, workDate, 4, '빠진 일정에 팀장을 넣고 있습니다.');
+  const lines = fillOpenJobs(parsed ?? [], day.jobs, day.leaders, day.settings.twoRoomMaxPyeong);
+  const summary = parsed
+    ? 'AI가 하루 동선과 컨디션을 보고 제안했습니다. 빈 일정은 집과의 거리와 피로로 채웠습니다. 승인 전에는 배정되지 않습니다.'
+    : 'AI 응답을 규칙에 맞추지 못해, 집과의 거리와 피로로 팀장을 넣었습니다. 승인 전에는 배정되지 않습니다.';
+  setAiDispatchProgress(tenantId, workDate, 5, '초안을 저장하고 있습니다.');
+  const run = await saveRun(db, tenantId, actorId, workDate, lines, summary, usage);
   return { aiConfigured: true as const, run };
 }
 

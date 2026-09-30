@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { aiDispatchSlotLabel } from '@shared/aiDispatch';
 import { TEAM_LEADER_SIZE_POLICY_LABEL } from '@shared/teamLeaderDispatch';
 import type { AiDispatchBoard, AiDispatchJob, AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
@@ -6,6 +6,8 @@ import { LineMdIcon } from '../../ui/LineMdIcon';
 import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
 import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
+import { AiDispatchProgressModal } from './AiDispatchProgressModal';
+import type { TeamLeaderDispatchFormValue } from '../TeamLeaderDispatchFields';
 
 const BAND_ORDER = ['좋음', '보통', '피로'] as const;
 
@@ -48,6 +50,12 @@ export function AiDispatchScreen({
   board,
   loading,
   running,
+  drafting,
+  progressStep,
+  progressMessage,
+  progressSeconds,
+  leaderSaving,
+  leaderSaveError,
   error,
   notice,
   picked,
@@ -68,6 +76,7 @@ export function AiDispatchScreen({
   onToggle,
   onLeaderChange,
   onSaveSettings,
+  onSaveLeader,
   reportOpen,
   onOpenReport,
   onCloseReport,
@@ -77,6 +86,12 @@ export function AiDispatchScreen({
   board: AiDispatchBoard | null;
   loading: boolean;
   running: boolean;
+  drafting: boolean;
+  progressStep: number;
+  progressMessage: string;
+  progressSeconds: number;
+  leaderSaving: boolean;
+  leaderSaveError: string | null;
   error: string | null;
   notice: string | null;
   picked: string[];
@@ -97,12 +112,19 @@ export function AiDispatchScreen({
   onToggle: (id: string) => void;
   onLeaderChange: (id: string, teamLeaderId: string | null) => void;
   onSaveSettings: () => void;
+  onSaveLeader: (leaderId: string, value: TeamLeaderDispatchFormValue) => Promise<void>;
   reportOpen: boolean;
   onOpenReport: () => void;
   onCloseReport: () => void;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderOpen, setLeaderOpen] = useState<AiDispatchLeader | null>(null);
+  useEffect(() => {
+    setLeaderOpen((current) => {
+      if (!current || !board) return current;
+      return board.leaders.find((leader) => leader.id === current.id) ?? null;
+    });
+  }, [board]);
   const leaders = board?.leaders ?? [];
   const jobs = board?.jobs ?? [];
   const proposals = board?.run?.proposals ?? [];
@@ -152,7 +174,7 @@ export function AiDispatchScreen({
               className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
               <LineMdIcon name="calendar" className="size-4" />
-              {running ? '실행 중…' : 'AI 미리 배정'}
+              {drafting ? '실행 중…' : 'AI 미리 배정'}
             </button>
             <button
               type="button"
@@ -312,7 +334,16 @@ export function AiDispatchScreen({
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}
-      {leaderOpen ? <AiDispatchLeaderModal leader={leaderOpen} onClose={() => setLeaderOpen(null)} /> : null}
+      {leaderOpen ? (
+        <AiDispatchLeaderModal
+          leader={leaderOpen}
+          saving={leaderSaving}
+          saveError={leaderSaveError}
+          onClose={() => setLeaderOpen(null)}
+          onSave={(value) => onSaveLeader(leaderOpen.id, value)}
+        />
+      ) : null}
+      {drafting ? <AiDispatchProgressModal step={progressStep} message={progressMessage} seconds={progressSeconds} /> : null}
       {reportOpen && board?.run ? <AiDispatchReasonModal board={board} onClose={onCloseReport} /> : null}
     </div>
   );
@@ -387,7 +418,7 @@ function ProposalCard({
   const slot = shownSlot(proposal, job);
   const style = SLOT_STYLE[slot];
   const editable = proposal.status === 'DRAFT';
-  const needsPerson = slot === 'HUMAN' || !proposal.teamLeaderId;
+  const needsPerson = !proposal.teamLeaderId;
   const statusLabel =
     proposal.status === 'APPROVED' ? '반영됨' : proposal.status === 'STALE' ? '다시 실행' : proposal.status === 'SKIPPED' ? '건너뜀' : null;
 

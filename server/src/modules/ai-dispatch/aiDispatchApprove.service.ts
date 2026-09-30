@@ -8,7 +8,7 @@ import {
   assertInquiryTeamLeaderAssignmentZones,
   ServiceZoneAssignmentError,
 } from '../service-zones/serviceZoneAssignment.js';
-import { leadersForJob, loadDispatchDay } from './aiDispatchContext.service.js';
+import { loadDispatchDay } from './aiDispatchContext.service.js';
 import type { AiDispatchSlot } from './aiDispatch.constants.js';
 
 type Db = PrismaClient;
@@ -43,22 +43,11 @@ export async function updateDraftProposal(
     return { proposal: updated };
   }
   const slot = (input.slot || job.slot) as AiDispatchSlot;
-  if (slot !== job.slot || job.blockedReason) {
-    return { error: job.blockedReason || '시간대를 접수와 다르게 바꿀 수 없습니다.' as const };
+  if (slot !== job.slot) {
+    return { error: '시간대를 접수와 다르게 바꿀 수 없습니다.' as const };
   }
-  const eligible = leadersForJob(day.leaders, job, day.settings.twoRoomMaxPyeong);
-  if (!eligible.some((leader) => leader.id === input.teamLeaderId)) {
-    return { error: '이 팀장에게는 집 크기·휴무·하루 건수 때문에 넣을 수 없습니다.' as const };
-  }
-  const siblings = await db.aiDispatchProposal.findMany({
-    where: { runId: proposal.runId, tenantId, status: 'DRAFT', teamLeaderId: input.teamLeaderId, NOT: { id: proposal.id } },
-    select: { slot: true },
-  });
-  const leader = day.leaders.find((item) => item.id === input.teamLeaderId);
-  const extra = siblings.reduce((sum, row) => sum + (row.slot === 'ALL_DAY' ? 2 : row.slot === 'HUMAN' ? 0 : 1), 0);
-  const weight = slot === 'ALL_DAY' ? 2 : 1;
-  if (!leader || leader.usedJobs + extra + weight > leader.jobsPerDay) {
-    return { error: '이 팀장의 하루 건수를 넘습니다.' as const };
+  if (!day.leaders.some((leader) => leader.id === input.teamLeaderId)) {
+    return { error: '이 날짜에 배정할 수 있는 팀장이 아닙니다.' as const };
   }
   const updated = await db.aiDispatchProposal.update({
     where: { id: proposal.id },
