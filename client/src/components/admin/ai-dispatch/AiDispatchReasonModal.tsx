@@ -40,7 +40,7 @@ export function AiDispatchReasonModal({
             {board.run?.summary?.trim() || '이 날짜 초안입니다.'}
           </p>
           <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-            거리는 팀장 집 주소와 현장 주소를 지도에서 찾은 좌표의 직선입니다. 출발은 집이고, 오전이 있으면 오전 현장 다음 오후 현장, 마지막에 집으로 돌아옵니다.
+            거리는 팀장 집 주소와 현장 주소를 지도에서 찾은 좌표의 직선입니다. 같은 팀장의 오전과 오후는 서로 가깝게 묶습니다. 그렇게 묶어도 집에서 다녀오는 전체가 멀면, 컨디션이 좋거나 최근 이동이 짧았던 팀장에게 넘깁니다. 피로가 높으면 집과도 가깝고 오전·오후도 가까운 일정만 넣습니다.
           </p>
           {loops.length > 0 ? (
             <ul className="space-y-1.5">
