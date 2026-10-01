@@ -38,8 +38,8 @@ function betweenKm(a: { lat: number | null; lng: number | null }, b: { lat: numb
   return Math.round(haversineKm({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng }) * 10) / 10;
 }
 
-/** 오전을 마치고 오후 2시 안에 다음 현장에 닿을 직선거리. 도로 거리는 이보다 깁니다. */
-const MAX_AM_PM_KM = 35;
+/** 같은 팀장의 현장 사이 직선 상한. 이보다 멀면 묶지 않는다. 도로 거리는 이보다 깁니다. */
+const MAX_AM_PM_KM = 15;
 /** 이 편도 안이면 집에서 가까운 오전입니다. 피로가 높은 팀장에게 먼저 줍니다. */
 const CLOSE_HOME_KM = 25;
 /** 피로가 낮아도 집에서 이 편도를 넘기면 넣지 않습니다. */
@@ -56,14 +56,16 @@ function homeTooFar(leader: DispatchLeader, job: DispatchJob, pool: DispatchLead
 }
 
 function sitesTooFar(stops: Array<{ lat: number | null; lng: number | null }>, job: DispatchJob): boolean {
+  if (stops.length === 0) return false;
+  if (job.lat == null || job.lng == null) return true;
   return stops.some((stop) => {
     const km = betweenKm(stop, job);
-    return km != null && km > MAX_AM_PM_KM;
+    return km == null || km > MAX_AM_PM_KM;
   });
 }
 
 function tooFarReason(): string {
-  return '오전과 오후가 멀거나 집에서 너무 멀어, 오후 2시 안에 닿기 어려워 넣지 않았습니다.';
+  return '가까운 현장만 묶습니다. 직선 15km가 넘거나 집에서 너무 멀어 넣지 않았습니다.';
 }
 
 function preferLeaderForMorning(am: DispatchJob) {
@@ -125,10 +127,10 @@ function buildPrompt(leaders: DispatchLeader[], jobs: DispatchJob[], twoRoomMax:
 }
 
 const SYSTEM = `당신은 입주청소 하루 배정 담당입니다. 1순위는 같은 팀장의 오전 현장과 오후 현장을 가깝게 붙이는 것입니다.
-nearestOpposite.betweenKm가 35를 넘으면 그 오전·오후를 같은 팀장에게 넣지 마세요. 오전을 마치고 오후 2시 안에 다음 현장에 닿을 수 없습니다.
+nearestOpposite.betweenKm가 15를 넘으면 그 오전·오후를 같은 팀장에게 넣지 마세요. 더 가까운 반대 일정이 있으면 그 둘을 묶으세요.
 그 다음:
 - 하루 1건인 팀장은 집에서 가까운지만 보세요. 오전·오후를 묶지 마세요.
-- 하루 2건인 팀장만, 35km 안의 오전·오후를 묶으세요.
+- 하루 2건인 팀장만, 15km 안의 오전·오후를 묶으세요.
 - 집에서 먼 오전은 fatigue가 더 낮은 팀장에게 주세요. fatigue가 더 높으면 집에서 가까운 오전만 주세요. 휴무 직후는 0에 가깝고, 2주간 휴무가 없으면 매우 나쁨입니다.
 - 고객 표시는 좋은 고객을 먼저, 그다음 보통, 어르신, 악성, 극악 순입니다. 표시 때문에 하루 동선이 도시를 가로지르게 하지 마세요.
 - oneRoom이 true인 일정만 원·투룸입니다. 평수로 원·투룸을 판단하지 마세요. 그 일정은 ONE_ROOM_ONLY 팀장에게 먼저, 그다음 ONE_AND_TWO 팀장에게 넣으세요. 그 팀장에게 자리가 있는 동안 UNRESTRICTED에게 넣지 마세요.
@@ -618,7 +620,7 @@ function tuneMorningAfternoon(
   return tuned;
 }
 
-/** 칸이 남은 팀장에게만 넣되, 이미 있는 현장과 35km가 넘으면 넣지 않는다. */
+/** 칸이 남은 팀장에게만 넣되, 이미 있는 현장과 15km가 넘으면 넣지 않는다. */
 function assignLeftovers(
   lines: DraftLine[],
   jobs: DispatchJob[],

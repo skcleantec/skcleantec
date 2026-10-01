@@ -8,6 +8,7 @@ import { LineMdIcon } from '../../ui/LineMdIcon';
 import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
 import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
+import { scheduleItemsWithDraftLeaders } from './aiDispatchDraftMap';
 import { AiDispatchDraftList } from './AiDispatchDraftList';
 import { AiDispatchLaunchButton } from './AiDispatchLaunchButton';
 import { AiDispatchHelpModal } from '../ai-dispatch-help/AiDispatchHelpModal';
@@ -274,14 +275,14 @@ export function AiDispatchScreen({
                   setDayMapError(null);
                   void getSchedule(token, date, date)
                     .then((data) => {
-                      setDayMapItems(data.items);
+                      setDayMapItems(scheduleItemsWithDraftLeaders(data.items, proposals, leaders));
                       setDayMapOpen(true);
                     })
                     .catch((e: unknown) => setDayMapError(e instanceof Error ? e.message : '지도를 열지 못했습니다.'));
                 }}
                 className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                title="당일 전체 지도"
-                aria-label="당일 전체 지도"
+                title="초안이 반영된 당일 지도"
+                aria-label="초안이 반영된 당일 지도"
               >
                 <LineMdIcon name="map-marker" className="size-5" />
               </button>
@@ -381,9 +382,11 @@ export function AiDispatchScreen({
           <ScheduleDayMapModal
             open
             onClose={() => setDayMapOpen(false)}
-            dateLabel={formatDateCompactWithWeekday(date)}
+            dateLabel={`${formatDateCompactWithWeekday(date)} · 초안`}
             items={dayMapItems}
             token={getToken() as string}
+            linkSameLeader
+            note="같은 팀장의 오전과 오후를 선으로 이었습니다. 승인 전에는 스케줄 배정이 바뀌지 않습니다."
           />
         </Suspense>
       ) : null}
