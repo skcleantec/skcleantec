@@ -8,7 +8,10 @@ import {
   type OrderFormCustomerStep,
   type OrderFormCustomerStepId,
 } from '../components/orderform/customer-wizard/orderFormCustomerSteps';
-import { isDesignerPreviewOrderToken } from '@shared/orderFormPreviewWalk';
+import {
+  isDesignerPreviewOrderToken,
+  ORDER_FORM_PREVIEW_STEP_MESSAGE,
+} from '@shared/orderFormPreviewWalk';
 import {
   mergeDraftIntoForm,
   readOrderFormCustomerDraft,
@@ -95,12 +98,46 @@ export function useOrderFormModel(args: {
     [searchParams, setSearchParams],
   );
 
+  const previewWalk = isDesignerPreviewOrderToken(token);
+
   useEffect(() => {
     if (!enabled || !loaded) return;
     if (isOrderFormCustomerStepId(stepFromUrl) && steps.some((s) => s.id === stepFromUrl)) return;
+    // 미리보기는 설정이 고른 페이지(step)를 손님 단계가 늦게 잡혀도 첫 페이지로 덮지 않는다.
+    if (previewWalk && isOrderFormCustomerStepId(stepFromUrl)) return;
     const first = steps[0]?.id;
     if (first) setStepId(first, true);
-  }, [enabled, loaded, stepFromUrl, steps, setStepId]);
+  }, [enabled, loaded, stepFromUrl, steps, setStepId, previewWalk]);
+
+  useEffect(() => {
+    if (!previewWalk || !currentStep) return;
+    if (
+      isOrderFormCustomerStepId(stepFromUrl) &&
+      stepFromUrl !== currentStep.id &&
+      !steps.some((s) => s.id === stepFromUrl)
+    ) {
+      return;
+    }
+    window.parent.postMessage(
+      { type: ORDER_FORM_PREVIEW_STEP_MESSAGE, step: currentStep.id },
+      window.location.origin,
+    );
+  }, [previewWalk, currentStep, stepFromUrl, steps]);
+
+  useEffect(() => {
+    if (!previewWalk) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: string; step?: string } | null;
+      if (!data || data.type !== ORDER_FORM_PREVIEW_STEP_MESSAGE) return;
+      const step = data.step ?? '';
+      if (!isOrderFormCustomerStepId(step) || step === stepFromUrl) return;
+      if (!steps.some((s) => s.id === step)) return;
+      setStepId(step, true);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [previewWalk, stepFromUrl, steps, setStepId]);
 
   useEffect(() => {
     if (!persistDraft || !token) return;

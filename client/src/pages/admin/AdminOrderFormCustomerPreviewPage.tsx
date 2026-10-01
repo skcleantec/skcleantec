@@ -43,7 +43,23 @@ import {
   resolveOrderTimeSlotQuestionTitle,
   type OrderTimeSlotLabels,
 } from '@shared/orderFormTimeSlotLabels';
-import { withOrderFormPreviewWalkQuery } from '@shared/orderFormPreviewWalk';
+import {
+  ORDER_FORM_PREVIEW_STEP_MESSAGE,
+  withOrderFormPreviewWalkQuery,
+} from '@shared/orderFormPreviewWalk';
+
+function settingsPageToWizardStep(pageId: string): string {
+  if (pageId.startsWith('field:')) return `custom:${pageId.slice('field:'.length)}`;
+  if (pageId.startsWith('extra_')) return `custom:${pageId}`;
+  return pageId;
+}
+
+function wizardStepToSettingsPage(step: string): string {
+  if (!step.startsWith('custom:')) return step;
+  const key = step.slice('custom:'.length);
+  if (key.startsWith('extra_')) return key;
+  return `field:${key}`;
+}
 import { AdminOrderFormLeadSourceSettingsPage } from './AdminOrderFormLeadSourceSettingsPage';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
@@ -58,6 +74,8 @@ export function AdminOrderFormCustomerPreviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [previewToken, setPreviewToken] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
+  const previewFrameRef = useRef<HTMLIFrameElement>(null);
+  const fromPreviewRef = useRef(false);
   const [previewForms, setPreviewForms] = useState<OrderFormTemplate[]>([]);
   const [configForm, setConfigForm] = useState({ pricePerPyeong: '', minimumTotalAmount: '', depositAmount: '' });
   const [configSaving, setConfigSaving] = useState(false);
@@ -74,6 +92,11 @@ export function AdminOrderFormCustomerPreviewPage() {
   const [timeSlotQuestion, setTimeSlotQuestion] = useState(DEFAULT_ORDER_TIME_SLOT_QUESTION);
   const activeSection: OrderFormSettingsSectionId = focusSection ?? 'fields';
   const activePage = searchParams.get('page')?.trim() || 'welcome';
+  const previewBootStepRef = useRef(settingsPageToWizardStep(activePage));
+  const activeSectionRef = useRef(activeSection);
+  const activePageRef = useRef(activePage);
+  activeSectionRef.current = activeSection;
+  activePageRef.current = activePage;
   const editPanelScrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus: onEditPanelFieldFocus } = useStaffAppEditPanelKeyboardAvoidance(editPanelScrollRef);
 
@@ -233,18 +256,43 @@ export function AdminOrderFormCustomerPreviewPage() {
 
   const iframeSrc = useMemo(() => {
     if (typeof window === 'undefined' || !previewToken) return '';
-    const previewStep = activePage.startsWith('field:')
-      ? `custom:${activePage.slice('field:'.length)}`
-      : activePage.startsWith('extra_')
-        ? `custom:${activePage}`
-        : activePage;
     return `${withOrderFormPreviewWalkQuery(
       appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(previewToken)}`, {
         tenantSlug: staffTenantSlug || null,
       }),
       { previewTemplateId: resolvedPreviewFormId || null },
-    )}&ckEmpty=1&step=${encodeURIComponent(previewStep)}`;
-  }, [previewToken, staffTenantSlug, resolvedPreviewFormId, activePage]);
+    )}&ckEmpty=1&step=${encodeURIComponent(previewBootStepRef.current)}`;
+  }, [previewToken, staffTenantSlug, resolvedPreviewFormId, iframeKey]);
+
+  useEffect(() => {
+    const step = settingsPageToWizardStep(activePage);
+    previewBootStepRef.current = step;
+    if (fromPreviewRef.current) {
+      fromPreviewRef.current = false;
+      return;
+    }
+    if (activeSection !== 'fields') return;
+    previewFrameRef.current?.contentWindow?.postMessage(
+      { type: ORDER_FORM_PREVIEW_STEP_MESSAGE, step },
+      window.location.origin,
+    );
+  }, [activePage, activeSection]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.source !== previewFrameRef.current?.contentWindow) return;
+      const data = event.data as { type?: string; step?: string } | null;
+      if (!data || data.type !== ORDER_FORM_PREVIEW_STEP_MESSAGE) return;
+      if (activeSectionRef.current !== 'fields') return;
+      const pageId = wizardStepToSettingsPage(data.step ?? '');
+      if (!pageId || pageId === activePageRef.current) return;
+      fromPreviewRef.current = true;
+      setActivePage(pageId);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [setActivePage]);
 
   const saveMsgPartial = async (key: string, payload: Partial<OrderFormConfigPublic>) => {
     if (!token) return;
@@ -421,7 +469,22 @@ export function AdminOrderFormCustomerPreviewPage() {
         {loading ? (
           <div className="flex h-full items-center justify-center text-fluid-sm text-gray-500">고객 화면 불러오는 중…</div>
         ) : iframeSrc ? (
-          <iframe key={iframeKey} title="고객 발주서" src={iframeSrc} className="h-full min-h-[28rem] w-full border-0 bg-gray-50 lg:min-h-full" />
+          <iframe
+            ref={previewFrameRef}
+            key={iframeKey}
+            title="고객 발주서"
+            src={iframeSrc}
+            className="h-full min-h-[28rem] w-full border-0 bg-gray-50 lg:min-h-full"
+            onLoad={() => {
+              window.setTimeout(() => {
+                if (activeSectionRef.current !== 'fields') return;
+                previewFrameRef.current?.contentWindow?.postMessage(
+                  { type: ORDER_FORM_PREVIEW_STEP_MESSAGE, step: previewBootStepRef.current },
+                  window.location.origin,
+                );
+              }, 400);
+            }}
+          />
         ) : (
           <p className="p-4 text-fluid-sm text-gray-600">미리보기 주소를 불러오지 못했습니다.</p>
         )}
@@ -506,7 +569,10 @@ export function AdminOrderFormCustomerPreviewPage() {
                 pageId={activePage}
                 onPageId={setActivePage}
                 timeQuestion={timeSlotQuestion}
-                onSaved={() => setIframeKey((k) => k + 1)}
+                onSaved={() => {
+                  previewBootStepRef.current = settingsPageToWizardStep(activePageRef.current);
+                  setIframeKey((k) => k + 1);
+                }}
               />
             ) : null}
             {activeSection === 'guide' ? <AdminOrderFormNoticePage embedded /> : null}

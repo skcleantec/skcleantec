@@ -6,6 +6,9 @@ export const DESIGNER_PREVIEW_TOKEN_PREFIX = 'skct_designer_preview';
 export const ORDER_FORM_PREVIEW_WALK_QUERY = 'previewWalk';
 export const ORDER_FORM_PREVIEW_TEMPLATE_QUERY = 'previewTemplateId';
 
+/** 발주서설정 ↔ 미리보기 iframe 이 현재 손님 페이지를 주고받는 메시지 */
+export const ORDER_FORM_PREVIEW_STEP_MESSAGE = 'cbiseo:orderform-preview-step';
+
 export function isDesignerPreviewOrderToken(token: string | null | undefined): boolean {
   return typeof token === 'string' && token.startsWith(DESIGNER_PREVIEW_TOKEN_PREFIX);
 }
