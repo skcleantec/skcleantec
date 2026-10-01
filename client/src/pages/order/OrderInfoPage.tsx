@@ -8,6 +8,7 @@ import { postOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { OrderFormPartnerConsentBlock } from '../../components/orderform/OrderFormPartnerConsentBlock';
 import { OrderFormGuideSections } from '../../components/orderform/OrderFormGuideSections';
 import { OrderFormGuideSignatureBlock } from '../../components/orderform/OrderFormGuideSignatureBlock';
+import { OrderFormGuideSignConfirmDialog } from '../../components/orderform/OrderFormGuideSignConfirmDialog';
 import { tryLeavePublicPage } from '../../utils/publicPageLeave';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 
@@ -39,6 +40,9 @@ export function OrderInfoPage() {
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
   const [sectionChecked, setSectionChecked] = useState<boolean[]>([]);
   const [partnerChecked, setPartnerChecked] = useState(false);
+  const [pendingSign, setPendingSign] = useState<{ signaturePng: string; typedName: string } | null>(
+    null,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, !loading);
 
@@ -85,17 +89,25 @@ export function OrderInfoPage() {
     tryLeavePublicPage();
   }, []);
 
-  const handleSigned = useCallback(
-    (payload: { signaturePng: string; typedName: string }) => {
-      postOrderGuideAgreeTerms({
-        agreedAt: new Date().toISOString(),
-        signaturePng: payload.signaturePng,
-        typedName: payload.typedName,
-      });
-      tryLeavePage();
-    },
-    [tryLeavePage],
-  );
+  const handleSigned = useCallback((payload: { signaturePng: string; typedName: string }) => {
+    setPendingSign(payload);
+  }, []);
+
+  const confirmPendingSign = useCallback(() => {
+    if (!pendingSign) return;
+    postOrderGuideAgreeTerms({
+      agreedAt: new Date().toISOString(),
+      signaturePng: pendingSign.signaturePng,
+      typedName: pendingSign.typedName,
+    });
+    setPendingSign(null);
+    tryLeavePage();
+  }, [pendingSign, tryLeavePage]);
+
+  const reviewGuideAgain = useCallback(() => {
+    setPendingSign(null);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   const allSectionsChecked =
     sections.length > 0 &&
@@ -172,6 +184,11 @@ export function OrderInfoPage() {
           </p>
         </div>
       </div>
+      <OrderFormGuideSignConfirmDialog
+        open={pendingSign != null}
+        onConfirm={confirmPendingSign}
+        onReview={reviewGuideAgain}
+      />
     </div>
   );
 }
