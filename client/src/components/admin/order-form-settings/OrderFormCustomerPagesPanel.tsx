@@ -15,6 +15,7 @@ import {
   type CustomerPageChoice,
   type CustomerPageCopy,
 } from '@shared/orderFormCustomerPages';
+import { pagesForCustomerSettings } from './customerSettingsPages';
 
 const INPUT =
   'w-full min-h-9 rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
@@ -75,12 +76,17 @@ export function OrderFormCustomerPagesPanel(props: {
     setError(null);
     try {
       const template = await getOrderFormTemplate(props.token, props.templateId);
-      const nextPages = template.customerPages?.length
+      const seeded = template.customerPages?.length
         ? template.customerPages
         : seedUnsavedPages(template.fields, props.timeQuestion);
+      const nextPages = pagesForCustomerSettings(template, seeded);
       setPages(nextPages);
       setDrafts(template.fields.map(fieldToDraft));
-      if (!nextPages.some((page) => page.id === pageIdRef.current) && !pageIdRef.current.startsWith('field:') && nextPages[0]) {
+      const customIds = template.fields
+        .filter((field) => !field.systemField && field.fieldKey && !field.fieldKey.startsWith('extra_'))
+        .map((field) => `field:${field.fieldKey}`);
+      const visibleIds = new Set([...nextPages.map((page) => page.id), ...customIds]);
+      if (!visibleIds.has(pageIdRef.current) && nextPages[0]) {
         onPageIdRef.current(nextPages[0].id);
       }
     } catch (e) {
@@ -99,17 +105,20 @@ export function OrderFormCustomerPagesPanel(props: {
     [drafts],
   );
   const tabs = useMemo(() => {
-    const pageTabs = pages.map((page, index) => ({
-      id: page.id,
-      title: `${index + 1}. ${page.title}`,
-      hidden: !page.enabled,
+    const body = pages.filter((page) => page.id !== 'review' && page.id !== 'guide' && !page.id.startsWith('extra_'));
+    const extras = pages.filter((page) => page.id.startsWith('extra_'));
+    const end = pages.filter((page) => page.id === 'review' || page.id === 'guide');
+    const items = [
+      ...body.map((page) => ({ id: page.id, label: page.title, hidden: !page.enabled })),
+      ...customDrafts.map((draft) => ({ id: `field:${draft.fieldKey}`, label: draft.label, hidden: false })),
+      ...extras.map((page) => ({ id: page.id, label: page.title, hidden: !page.enabled })),
+      ...end.map((page) => ({ id: page.id, label: page.title, hidden: !page.enabled })),
+    ];
+    return items.map((item, index) => ({
+      id: item.id,
+      title: `${index + 1}. ${item.label}`,
+      hidden: item.hidden,
     }));
-    const fieldTabs = customDrafts.map((draft, index) => ({
-      id: `field:${draft.fieldKey}`,
-      title: `${pages.length + index + 1}. ${draft.label}`,
-      hidden: false,
-    }));
-    return [...pageTabs, ...fieldTabs];
   }, [pages, customDrafts]);
 
   const page = pages.find((item) => item.id === props.pageId) ?? null;
@@ -321,7 +330,7 @@ export function OrderFormCustomerPagesPanel(props: {
                 className={BTN}
                 onClick={() => {
                   setPages((prev) => prev.filter((item) => item.id !== page.id));
-                  props.onPageId('welcome');
+                  props.onPageId(pages.find((item) => item.id !== page.id)?.id ?? 'name');
                 }}
               >
                 이 질문 삭제
@@ -364,7 +373,7 @@ export function OrderFormCustomerPagesPanel(props: {
             className={BTN}
             onClick={() => {
               setDrafts((prev) => prev.filter((draft) => draft.fieldKey !== fieldDraft.fieldKey));
-              props.onPageId('welcome');
+              props.onPageId(pages[0]?.id ?? 'name');
             }}
           >
             이 질문 삭제
