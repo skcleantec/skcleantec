@@ -1721,6 +1721,14 @@ export function AdminSchedulePage() {
     calendarSwipeSuppressClickRef.current = true;
   };
 
+  const openAiDispatch = () => {
+    navigate(
+      `/admin/schedule/ai-dispatch?date=${
+        selectedDate ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)
+      }`,
+    );
+  };
+
   const getDateKey = (d: number) => {
     const m = month < 10 ? `0${month}` : `${month}`;
     const day = d < 10 ? `0${d}` : `${d}`;
@@ -1736,19 +1744,6 @@ export function AdminSchedulePage() {
             <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
           </PageTitleWithFavorite>
           <ScheduleHelpTrigger className="shrink-0" onClick={() => setScheduleHelpOpen(true)} />
-          {aiDispatchOn ? (
-            <AiDispatchLaunchButton
-              onClick={() =>
-                navigate(
-                  `/admin/schedule/ai-dispatch?date=${
-                    selectedDate ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)
-                  }`,
-                )
-              }
-            >
-              AI 미리 배정
-            </AiDispatchLaunchButton>
-          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
           <div className="flex lg:hidden items-center gap-1.5 min-w-0 shrink mr-0.5">
@@ -1770,26 +1765,21 @@ export function AdminSchedulePage() {
               className="shrink-0 scale-90 origin-left"
               onClick={() => setScheduleHelpOpen(true)}
             />
-            {aiDispatchOn ? (
-              <AiDispatchLaunchButton
-                compact
-                onClick={() =>
-                  navigate(
-                    `/admin/schedule/ai-dispatch?date=${
-                      selectedDate ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)
-                    }`,
-                  )
-                }
-              >
-                AI 배정
-              </AiDispatchLaunchButton>
-            ) : null}
           </div>
             <InquiryQuickPasteTriggerButton
               size="compact"
-              className="hidden lg:inline-flex shrink-0"
+              className="hidden lg:inline-flex shrink-0 lg:min-w-[9rem]"
               onClick={() => setQuickPasteOpen(true)}
             />
+            {aiDispatchOn ? (
+              <AiDispatchLaunchButton
+                size="compact"
+                className="hidden lg:inline-flex lg:min-w-[9rem]"
+                onClick={openAiDispatch}
+              >
+                팀장배정
+              </AiDispatchLaunchButton>
+            ) : null}
           <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg shrink-0">
             <button
               type="button"
@@ -2021,6 +2011,11 @@ export function AdminSchedulePage() {
                 size="row"
                 onClick={() => setQuickPasteOpen(true)}
               />
+            {aiDispatchOn ? (
+              <AiDispatchLaunchButton size="row" onClick={openAiDispatch}>
+                팀장배정
+              </AiDispatchLaunchButton>
+            ) : null}
             <button
               type="button"
               onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}

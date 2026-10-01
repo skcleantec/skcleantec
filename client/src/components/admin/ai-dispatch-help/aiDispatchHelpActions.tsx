@@ -16,11 +16,13 @@ export const AI_DISPATCH_HELP_ACTIONS: readonly AiDispatchHelpActionRow[] = [
   {
     sample: (
       <Frozen>
-        <AiDispatchLaunchButton onClick={() => undefined}>AI 미리 배정</AiDispatchLaunchButton>
+        <AiDispatchLaunchButton size="compact" onClick={() => undefined}>
+          팀장배정
+        </AiDispatchLaunchButton>
       </Frozen>
     ),
     meaning: '고른 날짜의 예약완료·미배정 일정을 팀장 초안으로 나눕니다. 이 버튼만으로는 배정되지 않습니다.',
-    when: '1 날짜, 스케줄 제목 옆',
+    when: '스케줄, AI 빠른등록 옆',
   },
   {
     sample: (
