@@ -10,7 +10,7 @@ import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
 import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
 import { scheduleItemsMatchingDraft, scheduleItemsWithDraftLeaders } from './aiDispatchDraftMap';
 import { AiDispatchDraftList } from './AiDispatchDraftList';
-import { AiDispatchLaunchButton } from './AiDispatchLaunchButton';
+import { AiDispatchOrbButton } from './AiDispatchOrbButton';
 import { AiDispatchHelpModal } from '../ai-dispatch-help/AiDispatchHelpModal';
 import { AiDispatchHelpTrigger } from '../ai-dispatch-help/AiDispatchHelpTrigger';
 import { AiDispatchProgressModal } from './AiDispatchProgressModal';
@@ -174,45 +174,41 @@ export function AiDispatchScreen({
       {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">{error}</p> : null}
       {notice ? <p className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-fluid-xs text-slate-700">{notice}</p> : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-2">
+      <section className="grid grid-cols-[minmax(0,1fr)_auto] items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex min-w-0 flex-col justify-center gap-2 p-3 sm:p-4">
+          <div className="flex items-center gap-2">
             <StepMark n="1" />
-            <div className="min-w-0">
-              <h2 className="text-fluid-sm font-semibold text-slate-900">날짜</h2>
-              <p className="text-fluid-2xs text-slate-500">이 날짜의 예약완료·미배정만 초안이 됩니다.</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-fluid-2xs font-medium text-slate-600">
-              날짜
+            <h2 className="shrink-0 text-fluid-sm font-semibold text-slate-900">날짜</h2>
+            <p className="hidden min-w-0 truncate text-fluid-2xs text-slate-500 sm:block">
+              이 날짜의 예약완료·미배정만 초안이 됩니다.
+            </p>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <input
                 type="date"
                 value={date}
+                aria-label="날짜"
                 onChange={(e) => onDateChange(e.target.value)}
-                className="ml-2 min-h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-fluid-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                className="min-h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-fluid-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               />
-            </label>
-            <AiDispatchLaunchButton disabled={running} onClick={onRun}>
-              {drafting ? '실행 중…' : 'AI 미리 배정'}
-            </AiDispatchLaunchButton>
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-              aria-label="배정 규칙"
-            >
-              <LineMdIcon name="cog" className="size-5" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                aria-label="배정 규칙"
+              >
+                <LineMdIcon name="cog" className="size-5" />
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
           <CountChip label="미배정" value={loading && !board ? '…' : String(jobs.length)} />
           <CountChip label="수동배정" value={loading && !board ? '…' : String(manualJobs.length)} />
           <CountChip label="초안" value={String(draftCount)} />
           <CountChip label="팀장 없음" value={String(openCount)} />
           <CountChip label="사람 판단" value={String(humanCount)} />
+          </div>
         </div>
+        <AiDispatchOrbButton disabled={running} busy={drafting} onClick={onRun} />
       </section>
 
       <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)] lg:items-start sm:gap-4">
