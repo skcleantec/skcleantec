@@ -12,6 +12,7 @@ import {
   type DispatchManualJob,
 } from './aiDispatchContext.service.js';
 import { setAiDispatchProgress } from './aiDispatchProgress.js';
+import { matchSitePairs } from './aiDispatchPairing.js';
 import { haversineKm, isSmallHome, sizePolicyAllows, slotJobWeight } from './aiDispatchRules.js';
 
 type Db = PrismaClient;
@@ -34,69 +35,12 @@ function betweenKm(a: { lat: number | null; lng: number | null }, b: { lat: numb
   return Math.round(haversineKm({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng }) * 10) / 10;
 }
 
-/** 이 편도 안이면 집에서 가까운 오전입니다. 피로가 높은 팀장에게 먼저 줍니다. */
-const CLOSE_HOME_KM = 25;
-/** 피로가 낮아도 집에서 이 편도를 넘기면 넣지 않습니다. */
-const MAX_HOME_KM = 70;
-
-function homeCapKm(leader: DispatchLeader, pool: DispatchLeader[]): number {
-  return fatigueBias(leader, pool) >= 0.66 ? CLOSE_HOME_KM : MAX_HOME_KM;
-}
-
-function homeTooFar(leader: DispatchLeader, job: DispatchJob, pool: DispatchLeader[]): boolean {
-  const km = oneWayKm(leader, job);
-  if (km == null) return false;
-  return km > homeCapKm(leader, pool);
-}
-
-function medianKm(values: number[]): number {
-  if (values.length === 0) return 12;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-/** 그날 가장 가까운 오전·오후를 기준으로, 그보다 훨씬 먼 이동만 거른다. */
-function clusterHopKm(ams: Array<{ lat: number | null; lng: number | null }>, pms: Array<{ lat: number | null; lng: number | null }>): number {
-  const nearest: number[] = [];
-  const closest = (job: { lat: number | null; lng: number | null }, others: Array<{ lat: number | null; lng: number | null }>) => {
-    let best: number | null = null;
-    for (const other of others) {
-      const km = betweenKm(job, other);
-      if (km == null) continue;
-      if (best == null || km < best) best = km;
-    }
-    if (best != null) nearest.push(best);
-  };
-  for (const am of ams) closest(am, pms);
-  for (const pm of pms) closest(pm, ams);
-  const cap = Math.max(medianKm(nearest) * 3, 10);
-  return Math.round(Math.min(cap, 55) * 10) / 10;
-}
-
-function sitesTooFar(stops: Array<{ lat: number | null; lng: number | null }>, job: DispatchJob, hopKm: number): boolean {
-  if (stops.length === 0) return false;
-  if (job.lat == null || job.lng == null) return true;
-  return stops.some((stop) => {
-    const km = betweenKm(stop, job);
-    return km == null || km > hopKm;
-  });
-}
-
-function tooFarReason(): string {
-  return '그날 붙어 있는 일정끼리 먼저 묶었습니다. 이 건은 그 동선보다 멀어 따로 두었습니다.';
-}
-
-function preferLeaderForMorning(am: DispatchJob) {
-  return (a: DispatchLeader, b: DispatchLeader) => {
-    const aKm = oneWayKm(a, am) ?? 999;
-    const bKm = oneWayKm(b, am) ?? 999;
-    const aFar = aKm > CLOSE_HOME_KM;
-    const bFar = bKm > CLOSE_HOME_KM;
-    if (aFar && bFar) return a.fatigue - b.fatigue || aKm - bKm;
-    if (!aFar && !bFar) return b.fatigue - a.fatigue || aKm - bKm;
-    return aKm - bKm;
-  };
+function fatigueHomeNote(leader: DispatchLeader, km: number | null, pool: DispatchLeader[]): string {
+  if (km == null || pool.length < 2) return '';
+  const bias = fatigueBias(leader, pool);
+  if (bias >= 0.66) return '피로가 높아 집에서 가까운 현장을 맡습니다';
+  if (bias <= 0.33) return '피로가 낮아 집에서 먼 현장을 맡습니다';
+  return '';
 }
 
 
@@ -131,16 +75,6 @@ function fatigueBias(leader: DispatchLeader, pool: DispatchLeader[]): number {
   const max = Math.max(...scores);
   if (max - min < 1) return 0.5;
   return (leader.fatigue - min) / (max - min);
-}
-
-function easeLine(leader: DispatchLeader, pool: DispatchLeader[]): string {
-  const scores = pool.map((item) => item.fatigue);
-  const min = Math.min(...scores);
-  const max = Math.max(...scores);
-  if (max - min < 5) return '';
-  if (leader.fatigue >= min + (max - min) * 0.66) return '피로 점수가 더 높아 가까운 일정입니다';
-  if (leader.fatigue <= min + (max - min) * 0.33) return '피로 점수가 더 낮아 조금 먼 일정입니다';
-  return '';
 }
 
 function homeLoopKm(leader: DispatchLeader, stops: DispatchJob[]): number | null {
@@ -222,9 +156,9 @@ function fillReason(leader: DispatchLeader, job: DispatchJob, pool: DispatchLead
   const km = oneWayKm(leader, job);
   const bits = [
     km != null ? `집에서 편도 ${km}km` : '현장 좌표가 없어 거리는 재지 못했습니다',
+    fatigueHomeNote(leader, km, pool),
     sizeFirstNote(leader),
     leader.jobsPerDay < 2 ? '하루 1건이라 집과의 거리만 봤습니다' : '',
-    easeLine(leader, pool),
     job.slot === 'HUMAN' ? '시간대는 한 번 더 봐 주세요' : '',
   ].filter(Boolean);
   return bits.join(' · ').slice(0, 160);
@@ -306,10 +240,10 @@ function pairReason(leader: DispatchLeader, am: DispatchJob, pm: DispatchJob, po
   const between = betweenKm(am, pm);
   const morning = oneWayKm(leader, am);
   const bits = [
-    between != null ? `두 곳 ${between}km` : '현장 사이 거리를 재지 못했습니다',
+    between != null ? `두 현장 ${between}km` : '현장 사이 거리를 재지 못했습니다',
     morning != null ? `오전은 집에서 ${morning}km` : '',
+    fatigueHomeNote(leader, morning, pool),
     sizeFirstNote(leader),
-    easeLine(leader, pool),
   ].filter(Boolean);
   return bits.join(' · ').slice(0, 160);
 }
@@ -334,17 +268,6 @@ function tuneMorningAfternoon(
     used.set(line.teamLeaderId, (used.get(line.teamLeaderId) ?? 0) + seatWeight(job?.slot ?? 'AM'));
   }
 
-  const stopsNow = (leaderId: string, extra: DraftLine[] = tuned): Array<{ lat: number | null; lng: number | null }> => {
-    const pinned = manualJobs
-      .filter((job) => job.teamLeaderId === leaderId)
-      .map((job) => ({ lat: job.lat, lng: job.lng }));
-    const drafted = extra
-      .filter((line) => line.teamLeaderId === leaderId)
-      .map((line) => jobs.find((job) => job.id === line.inquiryId))
-      .filter((job): job is DispatchJob => job != null)
-      .map((job) => ({ lat: job.lat, lng: job.lng }));
-    return [...pinned, ...drafted];
-  };
   const tuned: DraftLine[] = [...kept];
   const pushStop = (job: DispatchJob, leader: DispatchLeader, reason: string) => {
     const before = used.get(leader.id) ?? 0;
@@ -377,84 +300,67 @@ function tuneMorningAfternoon(
     const ams = openJobs.filter((job) => job.slot === 'AM');
     const pms = openJobs.filter((job) => job.slot === 'PM');
     const openLoose = openJobs.filter((job) => job.slot === 'ALL_DAY' || job.slot === 'HUMAN');
-    const hopKm = clusterHopKm(ams, pms);
-    const candidates: Array<{ am: DispatchJob; pm: DispatchJob; between: number }> = [];
-    for (const am of ams) {
-      for (const pm of pms) {
-        const between = betweenKm(am, pm);
-        if (between == null || between > hopKm) continue;
-        candidates.push({ am, pm, between });
-      }
-    }
-    candidates.sort((a, b) => a.between - b.between);
-    const usedAm = new Set<string>();
-    const usedPm = new Set<string>();
-    const pairs: Array<{ am: DispatchJob; pm: DispatchJob }> = [];
-    for (const candidate of candidates) {
-      if (usedAm.has(candidate.am.id) || usedPm.has(candidate.pm.id)) continue;
-      usedAm.add(candidate.am.id);
-      usedPm.add(candidate.pm.id);
-      pairs.push({ am: candidate.am, pm: candidate.pm });
-    }
-    const tiredFirst = [...poolLeaders].sort((a, b) => b.fatigue - a.fatigue || a.name.localeCompare(b.name, 'ko'));
-    const stillOpen: Array<{ am: DispatchJob; pm: DispatchJob }> = [];
-    for (const pair of pairs) {
-      const options = tiredFirst.filter(
-        (leader) =>
-          leader.jobsPerDay >= 2 &&
-          seatsLeft(leader, used) >= 2 &&
-          fitsSize(leader, [pair.am, pair.pm], twoRoomMax) &&
-          !homeTooFar(leader, pair.am, poolLeaders) &&
-          !sitesTooFar(stopsNow(leader.id), pair.am, hopKm) &&
-          !sitesTooFar([...stopsNow(leader.id), pair.am], pair.pm, hopKm),
+    const pairedIds = new Set<string>();
+    for (const pair of matchSitePairs(ams, pms)) {
+      const options = poolLeaders.filter(
+        (leader) => leader.jobsPerDay >= 2 && seatsLeft(leader, used) >= 2 && fitsSize(leader, [pair.am, pair.pm], twoRoomMax),
       );
-      if (options.length === 0) {
-        stillOpen.push(pair);
-        continue;
-      }
-      options.sort(preferLeaderForMorning(pair.am));
+      if (options.length === 0) continue;
+      const withPinned = (leader: DispatchLeader): DispatchJob[] => [
+        ...manualJobs
+          .filter((row) => row.teamLeaderId === leader.id)
+          .map(
+            (row) =>
+              ({
+                id: row.id,
+                customerName: row.customerName,
+                areaLabel: row.areaLabel,
+                lat: row.lat,
+                lng: row.lng,
+                pyeong: row.pyeong,
+                isOneRoom: row.isOneRoom,
+                tone: 'NORMAL',
+                slot: row.slot,
+                requiredLeaders: 1,
+                updatedAt: '',
+                preferredTime: null,
+                blockedReason: null,
+              }) satisfies DispatchJob,
+          ),
+        pair.am,
+        pair.pm,
+      ];
+      options.sort((a, b) => assignmentCost(a, withPinned(a), poolLeaders) - assignmentCost(b, withPinned(b), poolLeaders));
       const leader = options[0];
       const reason = pairReason(leader, pair.am, pair.pm, poolLeaders);
       pushStop(pair.am, leader, reason);
       pushStop(pair.pm, leader, reason);
-    }
-    for (const pair of stillOpen) {
-      usedAm.delete(pair.am.id);
-      usedPm.delete(pair.pm.id);
+      pairedIds.add(pair.am.id);
+      pairedIds.add(pair.pm.id);
     }
     const giveSingles = (pendingIn: DispatchJob[]) => {
       const pending = [...pendingIn];
-      let cursor = 0;
       while (pending.length > 0) {
-        let placed = false;
-        for (let step = 0; step < tiredFirst.length; step += 1) {
-          const leader = tiredFirst[(cursor + step) % tiredFirst.length];
-          const seatOk = (job: DispatchJob) =>
-            seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2);
-          const choices = pending.filter(
-            (job) =>
-              seatOk(job) &&
-              fitsSize(leader, [job], twoRoomMax) &&
-              !homeTooFar(leader, job, poolLeaders) &&
-              !sitesTooFar(stopsNow(leader.id), job, hopKm),
-          );
-          if (choices.length === 0) continue;
-          const pool = choices.slice().sort((a, b) => (oneWayKm(leader, a) ?? 999) - (oneWayKm(leader, b) ?? 999));
-          const job = pool[0];
-          pushStop(job, leader, fillReason(leader, job, poolLeaders));
-          pending.splice(
-            pending.findIndex((item) => item.id === job.id),
-            1,
-          );
-          cursor = (cursor + step + 1) % tiredFirst.length;
-          placed = true;
-          break;
+        let picked: { leader: DispatchLeader; job: DispatchJob; cost: number } | null = null;
+        for (const leader of poolLeaders) {
+          for (const job of pending) {
+            const seatOk = seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2);
+            if (!seatOk || !fitsSize(leader, [job], twoRoomMax)) continue;
+            const held = jobs.filter((item) => tuned.some((line) => line.teamLeaderId === leader.id && line.inquiryId === item.id));
+            const cost = assignmentCost(leader, [...held, job], poolLeaders);
+            if (!picked || cost < picked.cost) picked = { leader, job, cost };
+          }
         }
-        if (!placed) break;
+        if (!picked) break;
+        pushStop(picked.job, picked.leader, fillReason(picked.leader, picked.job, poolLeaders));
+        pending.splice(
+          pending.findIndex((item) => item.id === picked.job.id),
+          1,
+        );
       }
       if (!explain) return;
       for (const job of pending) {
-        const seated = tiredFirst.filter(
+        const seated = poolLeaders.filter(
           (leader) => seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2),
         );
         const sized = seated.filter((leader) => fitsSize(leader, [job], twoRoomMax));
@@ -462,15 +368,12 @@ function tuneMorningAfternoon(
           inquiryId: job.id,
           teamLeaderId: null,
           slot: job.slot,
-          reason:
-            seated.length > 0 && sized.length === 0 ? sizeMismatchReason() : sized.length > 0 ? tooFarReason() : noSeatReason(leaders),
+          reason: seated.length > 0 && sized.length === 0 ? sizeMismatchReason() : noSeatReason(leaders),
           updatedAt: job.updatedAt,
         });
       }
     };
-    giveSingles(
-      [...ams, ...pms].filter((job) => !(job.slot === 'AM' && usedAm.has(job.id)) && !(job.slot === 'PM' && usedPm.has(job.id))),
-    );
+    giveSingles([...ams, ...pms].filter((job) => !pairedIds.has(job.id)));
     giveSingles(openLoose);
   };
 
@@ -494,7 +397,7 @@ function tuneMorningAfternoon(
   return tuned;
 }
 
-/** 칸이 남은 팀장에게만 넣되, 그날 가까운 동선보다 훨씬 먼 현장은 붙이지 않는다. */
+/** 아직 팀장이 없는 일정은 칸이 남은 팀장에게 넣습니다. 거리 때문에 빼지 않습니다. */
 function assignLeftovers(
   lines: DraftLine[],
   jobs: DispatchJob[],
@@ -502,10 +405,6 @@ function assignLeftovers(
   manualJobs: DispatchManualJob[],
   twoRoomMax: number,
 ): DraftLine[] {
-  const hopKm = clusterHopKm(
-    jobs.filter((job) => !job.blockedReason && job.slot === 'AM'),
-    jobs.filter((job) => !job.blockedReason && job.slot === 'PM'),
-  );
   const used = new Map(leaders.map((leader) => [leader.id, leader.usedJobs]));
   const next: DraftLine[] = [];
   for (const line of lines) {
@@ -530,7 +429,6 @@ function assignLeftovers(
     const taken = new Set(
       next.filter((line) => line.inquiryId === job.id && line.teamLeaderId).map((line) => line.teamLeaderId as string),
     );
-    let blockedByDistance = false;
     let blockedBySize = false;
     while (taken.size < job.requiredLeaders) {
       const open = leaders.filter(
@@ -545,37 +443,49 @@ function assignLeftovers(
         blockedBySize = true;
         break;
       }
-      const near = sized.filter((leader) => {
-        const pinned = manualJobs.filter((row) => row.teamLeaderId === leader.id);
-        const drafted = next
-          .filter((line) => line.teamLeaderId === leader.id)
-          .map((line) => jobs.find((item) => item.id === line.inquiryId))
-          .filter((item): item is DispatchJob => item != null);
-        return !homeTooFar(leader, job, leaders) && !sitesTooFar([...pinned, ...drafted], job, hopKm);
-      });
-      if (near.length === 0) {
-        blockedByDistance = true;
-        break;
-      }
       const smallJob = isSmallHome({ isOneRoom: job.isOneRoom, areaPyeong: job.pyeong }, twoRoomMax);
-      near.sort((a, b) => {
+      const heldOf = (leader: DispatchLeader): DispatchJob[] => {
+        const drafted = jobs.filter((item) => next.some((line) => line.teamLeaderId === leader.id && line.inquiryId === item.id));
+        const pinned = manualJobs
+          .filter((row) => row.teamLeaderId === leader.id)
+          .map(
+            (row) =>
+              ({
+                id: row.id,
+                customerName: row.customerName,
+                areaLabel: row.areaLabel,
+                lat: row.lat,
+                lng: row.lng,
+                pyeong: row.pyeong,
+                isOneRoom: row.isOneRoom,
+                tone: 'NORMAL',
+                slot: row.slot,
+                requiredLeaders: 1,
+                updatedAt: '',
+                preferredTime: null,
+                blockedReason: null,
+              }) satisfies DispatchJob,
+          );
+        return [...pinned, ...drafted];
+      };
+      sized.sort((a, b) => {
         if (smallJob) {
           const rank = (leader: DispatchLeader) =>
             leader.sizePolicy === 'ONE_ROOM_ONLY' ? 0 : leader.sizePolicy === 'ONE_AND_TWO' ? 1 : 2;
           const diff = rank(a) - rank(b);
           if (diff !== 0) return diff;
         }
-        return preferLeaderForMorning(job)(a, b);
+        const cost = (leader: DispatchLeader) => assignmentCost(leader, [...heldOf(leader), job], leaders);
+        return cost(a) - cost(b);
       });
-      const leader = near[0];
+      const leader = sized[0];
       taken.add(leader.id);
       used.set(leader.id, (used.get(leader.id) ?? 0) + seatWeight(job.slot));
-      const paired = job.slot === 'AM' || job.slot === 'PM' ? '가까운 현장만 남긴 한 건입니다' : '';
       next.push({
         inquiryId: job.id,
         teamLeaderId: leader.id,
         slot: job.slot,
-        reason: [fillReason(leader, job, leaders), paired].filter(Boolean).join(' · ').slice(0, 160),
+        reason: fillReason(leader, job, leaders),
         updatedAt: job.updatedAt,
       });
     }
@@ -584,7 +494,7 @@ function assignLeftovers(
         inquiryId: job.id,
         teamLeaderId: null,
         slot: job.slot,
-        reason: blockedBySize ? sizeMismatchReason() : blockedByDistance ? tooFarReason() : noSeatReason(leaders),
+        reason: blockedBySize ? sizeMismatchReason() : noSeatReason(leaders),
         updatedAt: job.updatedAt,
       });
     }

@@ -37,12 +37,12 @@ function movableJob(job: DispatchJob): boolean {
 
 const REVIEW_SYSTEM = `당신은 입주청소 배정 담당입니다. 이미 짜인 하루 초안을 사람이 보드를 보듯 다시 읽습니다.
 질문만 하지 마세요. 주어진 자료로 결정하고 JSON만 반환하세요.
-거리는 직선 km이고 자동차 시간이 아닙니다. km 숫자만으로 자르지 마세요.
+거리는 직선 km이고 자동차 시간이 아닙니다. 오전과 오후를 묶는 기준은 현장과 현장의 거리입니다. 집은 누구를 보낼지만 정합니다.
 
 볼 것:
-- 같은 팀장의 오전과 오후가 그날 closePairs의 가까운 짝보다 훨씬 멀면, 더 가까운 짝으로 바꾸세요.
-- 가까운 짝이 없으면 억지로 붙이지 말고 한 건으로 두세요.
-- 집에서 먼 오전은 condition이 더 좋은 팀장에게, 가까운 오전은 condition이 나쁜 팀장에게 두세요.
+- 같은 팀장의 오전과 오후는 현장이 가까운 짝으로 묶으세요. 현장이 먼 짝은 한 줄로 잇지 말고 각각 팀장을 두세요.
+- 자리가 있으면 팀장 없이 두지 마세요. teamLeaderId를 비우는 것은 칸이 없거나 집 크기가 안 맞을 때뿐입니다.
+- 피로가 높은 팀장(condition이 나쁨)은 집에서 현장까지 가까운 일정, 피로가 낮은 팀장은 집에서 먼 일정을 맡기세요.
 - oneRoom이 true인 일정은 ONE_ROOM_ONLY에 먼저, 그다음 ONE_AND_TWO입니다. 그 팀장에게 자리가 있으면 UNRESTRICTED로 옮기지 마세요.
 - jobsPerDay를 넘기지 마세요. seatsUsed는 이미 빠진 수동 일정과 팀장 2명 일정입니다. 초안의 오전·오후는 옮겨도 그 자리가 다시 납니다.
 - fixed 일정과 eligibleUserIds 밖 팀장은 쓰지 마세요.
@@ -188,7 +188,8 @@ function applyReview(
   const tryPlace = (job: DispatchJob, leaderId: string | null, unassign: boolean) => {
     if (placed.has(job.id)) return;
     if (!leaderId) {
-      if (unassign) placed.set(job.id, '');
+      const seatLeft = leaders.some((leader) => canPlace(leader.id, job));
+      if (unassign && !seatLeft) placed.set(job.id, '');
       return;
     }
     if (!canPlace(leaderId, job)) return;
