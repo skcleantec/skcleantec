@@ -1249,7 +1249,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         stdFieldOn('preferredTimeDetail') &&
         !detailLockedByAdmin &&
         isPreferredTimeDetailRequired(useTime) &&
-        !useTimeDetail
+        !useTimeDetail &&
+        configuredTimeDetailsForOrder(order, useTime)?.length !== 0
       ) {
         addIssue('사이청소 선택 시 구체적 시각을 선택해 주세요.', 'order-field-preferredTimeDetail');
       }
@@ -1260,8 +1261,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         isValidOrderTimeSlot(useTime) &&
         (() => {
           const configured = configuredTimeDetailsForOrder(order, useTime);
-          if (configured && configured.length > 0) {
-            return !configured.includes(form.preferredTimeDetail.trim());
+          if (configured) {
+            return configured.length > 0 && !configured.includes(form.preferredTimeDetail.trim());
           }
           const detailSlot = resolvePreferredTimeSlotForDetail(useTime);
           return (

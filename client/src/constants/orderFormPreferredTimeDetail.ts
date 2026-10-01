@@ -48,6 +48,17 @@ export function formatOrderFormTimeDetailLabel(hhmmStr: string): string {
   return `오후 ${h - 12}:${mm}`;
 }
 
+/** 손님 화면에 지금 나오는 구체적 시각 문구. 설정 칸의 초기값. */
+export function defaultVisibleTimeDetailLabels(slotLabel: string): string[] {
+  return getPreferredTimeDetailSelectOptions(slotLabel).map((option) => option.label);
+}
+
+/** 행 수가 시간대와 같으면 그대로. 아직 비어 있으면 손님 화면에 나오는 시각을 채운다. */
+export function alignTimeDetailRows(labels: string[], rows: string[][]): string[][] {
+  if (rows.length === labels.length) return rows;
+  return labels.map((label, index) => rows[index] ?? defaultVisibleTimeDetailLabels(label));
+}
+
 export function configuredTimeDetailsForOrder(
   order: OrderFormLoadedOrder | null | undefined,
   preferredTime: string,
@@ -63,7 +74,7 @@ export function getPreferredTimeDetailSelectOptions(
   labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
   configured?: string[] | null,
 ): { value: string; label: string }[] {
-  if (configured && configured.length > 0) {
+  if (configured) {
     return configured.map((value) => ({ value, label: value }));
   }
   const resolved = resolvePreferredTimeSlotForDetail(slot, labels);
@@ -104,7 +115,7 @@ export function coercePreferredTimeDetailForSlot(
   configured?: string[] | null,
 ): string {
   const typed = raw.trim();
-  if (configured && configured.length > 0) {
+  if (configured) {
     return configured.includes(typed) ? typed : '';
   }
   const resolved = resolvePreferredTimeSlotForDetail(slot);

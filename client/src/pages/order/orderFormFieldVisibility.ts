@@ -230,7 +230,7 @@ export function shouldShowCustomerTimeDetailWizardStep(
   if (skipLocked && order?.preferredTimeDetail?.trim()) return false;
   const selected = form.preferredTime.trim() || order?.preferredTime?.trim() || '';
   const configured = configuredTimeDetailsForOrder(order, selected);
-  if (configured && configured.length > 0) return true;
+  if (configured) return configured.length > 0;
   const slot = resolvePreferredTimeSlotForDetail(selected);
   if (!slot || slot === '조율') return false;
   return true;

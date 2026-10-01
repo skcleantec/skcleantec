@@ -41,13 +41,21 @@ export function OrderFormTemplateFieldDraftList(props: {
     );
   }
 
+  const detailHelpIdx = drafts.findIndex((d) => d.systemField === 'preferredTimeDetail');
+
   return (
     <ul className="divide-y divide-gray-100">
       {drafts.map((d, idx) =>
-        isOrderFormSectionToggleKey(d.systemField) ? null : (
+        isOrderFormSectionToggleKey(d.systemField) || d.systemField === 'preferredTimeDetail' ? null : (
           <li key={d.id ?? `new-${idx}`} className="p-3 sm:p-4">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-fluid-2xs text-gray-400">#{idx + 1}</span>
+              <span className="text-fluid-2xs text-gray-400">
+                #
+                {drafts
+                  .slice(0, idx + 1)
+                  .filter((x) => !isOrderFormSectionToggleKey(x.systemField) && x.systemField !== 'preferredTimeDetail')
+                  .length}
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -271,6 +279,16 @@ export function OrderFormTemplateFieldDraftList(props: {
                       ? (timeDetails) => onUpdate(idx, { timeDetails })
                       : undefined
                   }
+                  detailHelp={
+                    d.systemField === 'preferredTime' && detailHelpIdx >= 0
+                      ? drafts[detailHelpIdx]?.helpText ?? ''
+                      : undefined
+                  }
+                  onDetailHelpChange={
+                    d.systemField === 'preferredTime' && detailHelpIdx >= 0
+                      ? (value) => onUpdate(detailHelpIdx, { helpText: value.trim() ? value : null })
+                      : undefined
+                  }
                 />
               )}
               <label className="flex items-center gap-2 sm:col-span-2">
@@ -292,7 +310,7 @@ export function OrderFormTemplateFieldDraftList(props: {
               </label>
             </div>
           </li>
-        ),
+        )
       )}
     </ul>
   );

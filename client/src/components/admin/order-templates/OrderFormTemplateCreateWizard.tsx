@@ -11,6 +11,7 @@ import {
 } from '../../../api/orderFormTemplates';
 import { appendPublicQuery } from '../../../utils/publicTenantQuery';
 import { withOrderFormPreviewWalkQuery } from '@shared/orderFormPreviewWalk';
+import { alignTimeDetailRows } from '../../../constants/orderFormPreferredTimeDetail';
 import {
   INQUIRY_INTAKE_FIELD_CATALOG,
   INQUIRY_INTAKE_FIELD_GROUPS,
@@ -242,7 +243,9 @@ export function OrderFormTemplateCreateWizard({
         return {
           ...d,
           options: ov,
-          ...(f.key === 'preferredTime' ? { timeDetails: preferredTimeDetails } : {}),
+          ...(f.key === 'preferredTime'
+            ? { timeDetails: alignTimeDetailRows(ov, preferredTimeDetails) }
+            : {}),
         };
       });
     const customs = customDrafts.map((d, i) => ({ ...d, sortOrder: identityDrafts.length + extras.length + i }));
@@ -440,6 +443,7 @@ export function OrderFormTemplateCreateWizard({
         />
       </label>
     );
+    if (f.key === 'preferredTimeDetail') return null;
     if (f.key !== 'preferredTime') {
       return (
         <div key={f.key} className="min-w-0">
@@ -459,7 +463,7 @@ export function OrderFormTemplateCreateWizard({
           onChange={(options) =>
             setSystemOptionOverrides((prev) => ({ ...prev, preferredTime: options }))
           }
-          details={preferredTimeDetails}
+          details={alignTimeDetailRows(timeOptions, preferredTimeDetails)}
           onDetailsChange={setPreferredTimeDetails}
         />
       </div>

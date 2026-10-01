@@ -17,6 +17,7 @@ import {
   parseTimeSlotOptionEntries,
   serializeTimeSlotOptionsForSave,
 } from '@shared/orderFormTimeSlotLabels';
+import { defaultVisibleTimeDetailLabels } from '../../../constants/orderFormPreferredTimeDetail';
 
 export type DraftField = Omit<
   OrderFormTemplateField,
@@ -153,7 +154,11 @@ export function fieldToDraft(f: OrderFormTemplateField): DraftField {
     fillMode: f.fillMode,
     showInInquiryList: Boolean(f.showInInquiryList),
     options: opts,
-    timeDetails: timeEntries ? timeEntries.map((entry) => entry.details) : [],
+    timeDetails: timeEntries
+      ? timeEntries.map((entry) =>
+          entry.detailsConfigured ? entry.details : defaultVisibleTimeDetailLabels(entry.label),
+        )
+      : [],
     placeholder: f.placeholder ?? null,
     optionStyle: f.optionStyle ?? null,
     optionLayout: f.optionLayout ?? null,
