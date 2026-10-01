@@ -18,18 +18,13 @@ import {
 import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
 import { OrderGuideFormScopeBar } from '../../components/admin/OrderGuideFormScopeBar';
 import { OrderFormPreviewViewport } from '../../components/admin/OrderFormPreviewViewport';
-import {
-  OrderFormSettingsCommonBadge,
-  OrderFormSettingsOpenAllButton,
-  OrderFormSettingsSection,
-  OrderFormSettingsThisFormBadge,
-} from '../../components/admin/order-form-settings/OrderFormSettingsSection';
+import { OrderFormCustomerPagesPanel } from '../../components/admin/order-form-settings/OrderFormCustomerPagesPanel';
 import {
   OrderFormSettingsCopyPanel,
   OrderFormSettingsPricePanel,
 } from '../../components/admin/order-form-settings/OrderFormSettingsCopyPanels';
 import {
-  isSettingsSectionOpenByDefault,
+  ORDER_FORM_SETTINGS_SECTION_LABELS,
   ORDER_FORM_SETTINGS_SECTIONS,
   parseSettingsSection,
   type OrderFormSettingsSectionId,
@@ -52,14 +47,6 @@ import { withOrderFormPreviewWalkQuery } from '@shared/orderFormPreviewWalk';
 import { AdminOrderFormLeadSourceSettingsPage } from './AdminOrderFormLeadSourceSettingsPage';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
-
-function initialOpenMap(focus: OrderFormSettingsSectionId | null): Record<OrderFormSettingsSectionId, boolean> {
-  const next = {} as Record<OrderFormSettingsSectionId, boolean>;
-  for (const id of ORDER_FORM_SETTINGS_SECTIONS) {
-    next[id] = focus ? id === focus : isSettingsSectionOpenByDefault(id);
-  }
-  return next;
-}
 
 export function AdminOrderFormCustomerPreviewPage() {
   const token = getToken();
@@ -85,9 +72,8 @@ export function AdminOrderFormCustomerPreviewPage() {
     ...DEFAULT_ORDER_TIME_SLOT_LABELS,
   }));
   const [timeSlotQuestion, setTimeSlotQuestion] = useState(DEFAULT_ORDER_TIME_SLOT_QUESTION);
-  const [openMap, setOpenMap] = useState<Record<OrderFormSettingsSectionId, boolean>>(() =>
-    initialOpenMap(focusSection),
-  );
+  const activeSection: OrderFormSettingsSectionId = focusSection ?? 'fields';
+  const activePage = searchParams.get('page')?.trim() || 'welcome';
   const editPanelScrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus: onEditPanelFieldFocus } = useStaffAppEditPanelKeyboardAvoidance(editPanelScrollRef);
 
@@ -119,27 +105,30 @@ export function AdminOrderFormCustomerPreviewPage() {
     [searchParams, setSearchParams, token],
   );
 
-  const setSectionOpen = useCallback(
-    (id: OrderFormSettingsSectionId, open: boolean) => {
-      setOpenMap((prev) => ({ ...prev, [id]: open }));
-      const next = new URLSearchParams(searchParams);
-      if (open) next.set('section', id);
-      else if (next.get('section') === id) next.delete('section');
-      next.delete('panel');
-      setSearchParams(next, { replace: true });
+  const setActiveSection = useCallback(
+    (id: OrderFormSettingsSectionId) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('section', id);
+        next.delete('panel');
+        return next;
+      }, { replace: true });
     },
-    [searchParams, setSearchParams],
+    [setSearchParams],
   );
 
-  const allOpen = ORDER_FORM_SETTINGS_SECTIONS.every((id) => openMap[id]);
-  const toggleAll = () => {
-    const nextOpen = !allOpen;
-    setOpenMap(() => {
-      const next = {} as Record<OrderFormSettingsSectionId, boolean>;
-      for (const id of ORDER_FORM_SETTINGS_SECTIONS) next[id] = nextOpen;
-      return next;
-    });
-  };
+  const setActivePage = useCallback(
+    (id: string) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('section', 'fields');
+        next.set('page', id);
+        next.delete('panel');
+        return next;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
 
   const refreshEstimate = useCallback(() => {
     if (!token) return;
@@ -229,11 +218,6 @@ export function AdminOrderFormCustomerPreviewPage() {
     if (!resolvedPreviewFormId) return;
     setIframeKey((k) => k + 1);
   }, [resolvedPreviewFormId]);
-
-  useEffect(() => {
-    if (!focusSection) return;
-    setOpenMap((prev) => ({ ...prev, [focusSection]: true }));
-  }, [focusSection]);
 
   useEffect(() => {
     if (!resolvedPreviewFormId) return;
@@ -472,79 +456,56 @@ export function AdminOrderFormCustomerPreviewPage() {
         <div className="hidden min-h-0 lg:flex lg:flex-col">{previewPane}</div>
 
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-slate-50">
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-white px-3 py-2">
-            <div className="min-w-0">
-              <p className="text-fluid-2xs text-slate-500">오른쪽 설정</p>
-              <p className="truncate text-fluid-sm font-semibold text-slate-900" title={selectedTitle}>
-                {selectedTitle || '발주서를 고르세요'}
-              </p>
+          <div className="shrink-0 border-b border-gray-200 bg-white px-3 py-2">
+            <p className="truncate text-fluid-sm font-semibold text-slate-900" title={selectedTitle}>
+              {selectedTitle || '발주서를 고르세요'}
+            </p>
+            <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
+              {ORDER_FORM_SETTINGS_SECTIONS.map((id) => {
+                const selected = id === activeSection;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveSection(id)}
+                    className={`shrink-0 rounded-lg px-2.5 py-1.5 text-fluid-2xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+                      selected ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {ORDER_FORM_SETTINGS_SECTION_LABELS[id]}
+                  </button>
+                );
+              })}
             </div>
-            <OrderFormSettingsOpenAllButton allOpen={allOpen} onToggle={toggleAll} />
           </div>
           <div
             ref={editPanelScrollRef}
-            className="modal-form-scroll-surface min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain p-2 sm:p-3"
+            className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-2 sm:p-3"
             onFocusCapture={onEditPanelFieldFocus}
           >
-            <OrderFormSettingsSection
-              id="basics"
-              title="이름·사용"
-              hint="이 발주서 이름·아이콘·사용하기"
-              open={openMap.basics}
-              onOpenChange={(open) => setSectionOpen('basics', open)}
-              badge={<OrderFormSettingsThisFormBadge />}
-            >
-              {token && resolvedPreviewFormId ? (
-                <OrderFormTemplateEditorPanel
-                  key={`${resolvedPreviewFormId}-basics`}
-                  token={token}
-                  templateId={resolvedPreviewFormId}
-                  mode="basics"
-                  onChanged={onTemplateChanged}
-                  onDeleted={onTemplateDeleted}
-                />
-              ) : null}
-            </OrderFormSettingsSection>
-
-            <OrderFormSettingsSection
-              id="fields"
-              title="입력 칸"
-              hint="시간대 하위 항목·구체적 시각·손님 칸"
-              open={openMap.fields}
-              onOpenChange={(open) => setSectionOpen('fields', open)}
-              badge={<OrderFormSettingsThisFormBadge />}
-            >
-              {token && resolvedPreviewFormId ? (
-                <OrderFormTemplateEditorPanel
-                  key={`${resolvedPreviewFormId}-fields`}
-                  token={token}
-                  templateId={resolvedPreviewFormId}
-                  mode="fields"
-                  onChanged={onTemplateChanged}
-                  onDeleted={onTemplateDeleted}
-                />
-              ) : null}
-            </OrderFormSettingsSection>
-
-            <OrderFormSettingsSection
-              id="guide"
-              title="안내·동의"
-              hint="이 발주서를 받은 손님이 끝까지 읽고 서명합니다"
-              open={openMap.guide}
-              onOpenChange={(open) => setSectionOpen('guide', open)}
-              badge={<OrderFormSettingsThisFormBadge />}
-            >
-              <AdminOrderFormNoticePage embedded />
-            </OrderFormSettingsSection>
-
-            <OrderFormSettingsSection
-              id="copy"
-              title="손님 문구"
-              hint="제목·리뷰·하단·제출완료·확인 모달"
-              open={openMap.copy}
-              onOpenChange={(open) => setSectionOpen('copy', open)}
-              badge={<OrderFormSettingsCommonBadge />}
-            >
+            {activeSection === 'basics' && token && resolvedPreviewFormId ? (
+              <OrderFormTemplateEditorPanel
+                key={`${resolvedPreviewFormId}-basics`}
+                token={token}
+                templateId={resolvedPreviewFormId}
+                mode="basics"
+                onChanged={onTemplateChanged}
+                onDeleted={onTemplateDeleted}
+              />
+            ) : null}
+            {activeSection === 'fields' && token && resolvedPreviewFormId ? (
+              <OrderFormCustomerPagesPanel
+                key={resolvedPreviewFormId}
+                token={token}
+                templateId={resolvedPreviewFormId}
+                pageId={activePage}
+                onPageId={setActivePage}
+                timeQuestion={timeSlotQuestion}
+                onSaved={() => setIframeKey((k) => k + 1)}
+              />
+            ) : null}
+            {activeSection === 'guide' ? <AdminOrderFormNoticePage embedded /> : null}
+            {activeSection === 'copy' ? (
               <OrderFormSettingsCopyPanel
                 msgConfig={msgConfig}
                 setMsgConfig={setMsgConfig}
@@ -556,16 +517,8 @@ export function AdminOrderFormCustomerPreviewPage() {
                 timeSlotQuestion={timeSlotQuestion}
                 setTimeSlotQuestion={setTimeSlotQuestion}
               />
-            </OrderFormSettingsSection>
-
-            <OrderFormSettingsSection
-              id="price"
-              title="금액·견적"
-              hint="평당·예약금·추가 옵션"
-              open={openMap.price}
-              onOpenChange={(open) => setSectionOpen('price', open)}
-              badge={<OrderFormSettingsCommonBadge />}
-            >
+            ) : null}
+            {activeSection === 'price' ? (
               <OrderFormSettingsPricePanel
                 configForm={configForm}
                 setConfigForm={setConfigForm}
@@ -584,27 +537,9 @@ export function AdminOrderFormCustomerPreviewPage() {
                 onToggleOption={(opt) => void handleToggleOption(opt)}
                 onDeleteOption={(opt) => void handleDeleteOption(opt)}
               />
-            </OrderFormSettingsSection>
-
-            <OrderFormSettingsSection
-              id="specialty"
-              title="전문시공"
-              open={openMap.specialty}
-              onOpenChange={(open) => setSectionOpen('specialty', open)}
-              badge={<OrderFormSettingsCommonBadge />}
-            >
-              <AdminOrderFormSpecialtySettingsPage onCatalogChanged={bumpIframe} />
-            </OrderFormSettingsSection>
-
-            <OrderFormSettingsSection
-              id="leadSource"
-              title="유입경로"
-              open={openMap.leadSource}
-              onOpenChange={(open) => setSectionOpen('leadSource', open)}
-              badge={<OrderFormSettingsCommonBadge />}
-            >
-              <AdminOrderFormLeadSourceSettingsPage />
-            </OrderFormSettingsSection>
+            ) : null}
+            {activeSection === 'specialty' ? <AdminOrderFormSpecialtySettingsPage onCatalogChanged={bumpIframe} /> : null}
+            {activeSection === 'leadSource' ? <AdminOrderFormLeadSourceSettingsPage /> : null}
           </div>
         </div>
       </div>

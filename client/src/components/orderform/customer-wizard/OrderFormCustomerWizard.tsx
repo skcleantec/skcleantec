@@ -275,6 +275,8 @@ export function OrderFormCustomerWizard({
                 form={shared.form}
                 setForm={shared.setForm}
                 lockKey={shared.lockKey}
+                choices={currentStep.choices}
+                lines={currentStep.lines}
               />
             ) : (
               <StepBody {...shared} step={currentStep} goNext={goNext} goTo={shared.goTo} />

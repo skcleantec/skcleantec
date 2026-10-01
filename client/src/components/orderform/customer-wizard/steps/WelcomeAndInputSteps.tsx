@@ -11,6 +11,8 @@ export function WelcomeStep({
   form,
   setForm,
   lockKey,
+  choices,
+  lines,
 }: {
   title: string;
   hint?: string;
@@ -18,6 +20,8 @@ export function WelcomeStep({
   form: CustomerStepBodyProps['form'];
   setForm: CustomerStepBodyProps['setForm'];
   lockKey: CustomerStepBodyProps['lockKey'];
+  choices?: CustomerStepBodyProps['step']['choices'];
+  lines?: CustomerStepBodyProps['step']['lines'];
 }) {
   return (
     <WizardQuestion title={title} hint={hint}>
@@ -28,6 +32,8 @@ export function WelcomeStep({
       ) : null}
       <OrderFormCleaningKindPicker
         value={form.cleaningKind}
+        options={choices}
+        confirmLabel={lines?.find((line) => line.key === 'confirm')?.text.trim() || '확인'}
         disabled={lockKey('cleaningKind')}
         onChange={(cleaningKind) => setForm((f) => ({ ...f, cleaningKind }))}
       />
@@ -79,7 +85,7 @@ export function PhonesStep({ form, setForm, lockKey, step, order }: CustomerStep
         ) : null}
         <div>
           <label className="mb-1.5 block text-fluid-xs font-medium text-slate-600" htmlFor="order-wizard-phone2">
-            보조 연락처 (필수) *
+            {step.lines?.find((line) => line.key === 'phone2Label')?.text.trim() || '보조 연락처 (필수) *'}
           </label>
           <input
             id="order-wizard-phone2"
@@ -89,7 +95,7 @@ export function PhonesStep({ form, setForm, lockKey, step, order }: CustomerStep
             value={form.customerPhoneSecondary}
             disabled={lockKey('customerPhone2')}
             onChange={(e) => setForm((f) => ({ ...f, customerPhoneSecondary: e.target.value }))}
-            placeholder="예: 배우자, 가족 연락처"
+            placeholder={step.lines?.find((line) => line.key === 'phone2Placeholder')?.text.trim() || '예: 배우자, 가족 연락처'}
             required
           />
         </div>

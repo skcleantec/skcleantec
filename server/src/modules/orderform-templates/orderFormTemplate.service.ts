@@ -10,6 +10,7 @@ import {
 import { isOrderFormSectionToggleKey, isOrderFormSectionToggleOn } from '../../lib/orderFormSectionToggles.js';
 import { parseTimeSlotOptionEntries, timeDetailOptionsByLabel } from '../../lib/orderFormTimeSlotLabels.js';
 import { isOrderFormQuoteAlwaysOnFieldKey } from './systemFields.js';
+import { resolveCustomerPages, type CustomerPageCopy } from '../../lib/orderFormCustomerPages.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -55,6 +56,10 @@ export interface PublicOrderTemplate {
   systemFields: PublicSystemField[];
   /** systemField 미연결(추가 정보) 항목 — 공개 폼에서 동적 렌더 */
   customFields: PublicTemplateCustomField[];
+  /** 손님 페이지 질문·도움말·선택지. 없으면 코드 기본 문장 */
+  customerPages?: CustomerPageCopy[];
+  /** 업체가 손님 페이지 문구를 저장한 적 있는지 */
+  customerPagesCustomized?: boolean;
 }
 
 /**
@@ -149,6 +154,8 @@ export async function getPublicTemplateForForm(
     renderMode: t.renderMode,
     systemFields,
     customFields,
+    customerPages: resolveCustomerPages(t.customerWizardJson),
+    customerPagesCustomized: t.customerWizardJson != null,
   };
 }
 
