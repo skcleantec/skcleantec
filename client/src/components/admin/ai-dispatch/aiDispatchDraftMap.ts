@@ -1,6 +1,18 @@
 import type { AiDispatchLeader, AiDispatchProposal } from '../../../api/aiDispatch';
 import type { ScheduleItem } from '../../../api/schedule';
 
+/** 초안 목록과 같은 접수만. 스케줄 API의 취소·보류·대기·타업체·파트너 연계는 빼 둔다. */
+export function scheduleItemsMatchingDraft(
+  items: ScheduleItem[],
+  jobs: ReadonlyArray<{ id: string }>,
+  manualJobs: ReadonlyArray<{ id: string }>,
+): ScheduleItem[] {
+  const ids = new Set<string>();
+  for (const job of jobs) ids.add(job.id);
+  for (const job of manualJobs) ids.add(job.id);
+  return items.filter((item) => ids.has(item.id));
+}
+
 /** 승인 전 초안 팀장을 지도 마커에 얹는다. 이미 배정된 일정은 그대로 둔다. */
 export function scheduleItemsWithDraftLeaders(
   items: ScheduleItem[],

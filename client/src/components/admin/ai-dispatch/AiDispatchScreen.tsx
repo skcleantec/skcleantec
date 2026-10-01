@@ -8,7 +8,7 @@ import { LineMdIcon } from '../../ui/LineMdIcon';
 import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
 import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
-import { scheduleItemsWithDraftLeaders } from './aiDispatchDraftMap';
+import { scheduleItemsMatchingDraft, scheduleItemsWithDraftLeaders } from './aiDispatchDraftMap';
 import { AiDispatchDraftList } from './AiDispatchDraftList';
 import { AiDispatchLaunchButton } from './AiDispatchLaunchButton';
 import { AiDispatchHelpModal } from '../ai-dispatch-help/AiDispatchHelpModal';
@@ -275,7 +275,13 @@ export function AiDispatchScreen({
                   setDayMapError(null);
                   void getSchedule(token, date, date)
                     .then((data) => {
-                      setDayMapItems(scheduleItemsWithDraftLeaders(data.items, proposals, leaders));
+                      setDayMapItems(
+                        scheduleItemsWithDraftLeaders(
+                          scheduleItemsMatchingDraft(data.items, jobs, manualJobs),
+                          proposals,
+                          leaders,
+                        ),
+                      );
                       setDayMapOpen(true);
                     })
                     .catch((e: unknown) => setDayMapError(e instanceof Error ? e.message : '지도를 열지 못했습니다.'));
@@ -386,7 +392,7 @@ export function AiDispatchScreen({
             items={dayMapItems}
             token={getToken() as string}
             linkSameLeader
-            note="같은 팀장의 오전과 오후를 선으로 이었습니다. 승인 전에는 스케줄 배정이 바뀌지 않습니다."
+            note="초안에 있는 일정만 표시합니다. 취소·보류·타업체 건은 빼 두었습니다. 같은 팀장의 오전과 오후를 선으로 이었습니다. 승인 전에는 스케줄 배정이 바뀌지 않습니다."
           />
         </Suspense>
       ) : null}

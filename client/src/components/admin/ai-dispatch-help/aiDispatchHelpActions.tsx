@@ -41,7 +41,8 @@ export const AI_DISPATCH_HELP_ACTIONS: readonly AiDispatchHelpActionRow[] = [
         </span>
       </Frozen>
     ),
-    meaning: '초안 팀장 이름과 오전·오후 선이 붙은 당일 지도가 열립니다. 승인 전에는 스케줄 배정이 바뀌지 않습니다.',
+    meaning:
+      '초안에 있는 일정만 지도에 나옵니다. 취소·보류·타업체 건은 빼 둡니다. 초안 팀장 이름과 오전·오후 선이 붙고, 승인 전에는 스케줄 배정이 바뀌지 않습니다.',
     when: '3 초안 확인',
   },
   {
