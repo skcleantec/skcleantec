@@ -126,8 +126,8 @@ export function OrderFormSettingsCopyPanel(props: {
       <section className="space-y-3">
         <h4 className="text-fluid-xs font-semibold text-slate-800">시간대·날짜 확인 모달</h4>
         <p className="text-fluid-2xs text-slate-500">
-          손님이 고르는 시간대 항목은 위 「입력 칸」에서 이 발주서마다 고칩니다. 질문 문장과 기본 네 칸 이름은 모든
-          발주서에 같이 적용됩니다.
+          손님이 고르는 시간대 버튼은 위 「입력 칸」에 적은 문구 그대로입니다. 질문 문장만 모든 발주서에 같이
+          나갑니다.
         </p>
         <label className="block text-fluid-xs font-medium text-slate-800" htmlFor="order-time-slot-question">
           고객에게 보이는 질문

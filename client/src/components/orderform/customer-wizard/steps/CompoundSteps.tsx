@@ -304,6 +304,7 @@ export function ReviewStep({
   goTo,
   lockKey,
   timeSlotLabels,
+  timeSlotOptions,
 }: CustomerStepBodyProps) {
   const jump = (id: OrderFormCustomerStepId) => () => goTo(id);
   const areaLine =
@@ -344,7 +345,11 @@ export function ReviewStep({
         />
         <ReviewRow
           label="시간"
-          value={labelForTimeSlot(form.preferredTime, timeSlotLabels)}
+          value={
+            timeSlotOptions.find(
+              (o) => o.value === form.preferredTime || o.label === form.preferredTime,
+            )?.label ?? labelForTimeSlot(form.preferredTime, timeSlotLabels)
+          }
           onEdit={jump('time')}
         />
         <ReviewRow
