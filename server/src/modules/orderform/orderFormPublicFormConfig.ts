@@ -3,6 +3,7 @@ import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefau
 import {
   parseOrderTimeSlotLabelsJson,
   resolveOrderTimeSlotLabels,
+  resolveOrderTimeSlotQuestionTitle,
   type OrderTimeSlotLabels,
 } from '../../lib/orderFormTimeSlotLabels.js';
 import { expandOrderFormCustomerText } from '../../lib/orderFormGuidePlaceholders.js';
@@ -44,7 +45,9 @@ export type PublicFormConfig = {
   serviceDateAckTitle: string;
   serviceDateAckBody: string;
   serviceDateAckConsentHint: string;
-  /** 고객 발주서 시간대 선택지 표시 라벨(저장값 3개 고정) */
+  /** 고객 발주서 시간대 질문 문장 */
+  timeSlotQuestionTitle: string;
+  /** 고객 발주서 시간대 선택지 표시 라벨(저장값 4개 고정) */
   timeSlotLabels: OrderTimeSlotLabels;
   /** 브랜드 위약 정책 — 치환코드 확장(발주 ACK 등) */
   guidePolicy?: import('../../lib/operatingCompanyCancellationPolicyCore.js').OperatingCompanyCancellationPolicy;
@@ -99,6 +102,7 @@ export function resolvedPublicFormConfig(row: FormConfigRow): PublicFormConfig {
     serviceDateAckTitle: line(row.serviceDateAckTitle, d.serviceDateAckTitle),
     serviceDateAckBody: line(row.serviceDateAckBody, d.serviceDateAckBody),
     serviceDateAckConsentHint: line(row.serviceDateAckConsentHint, d.serviceDateAckConsentHint),
+    timeSlotQuestionTitle: resolveOrderTimeSlotQuestionTitle(row.timeSlotLabelsJson),
     timeSlotLabels: resolveOrderTimeSlotLabels(parseOrderTimeSlotLabelsJson(row.timeSlotLabelsJson)),
   };
 }

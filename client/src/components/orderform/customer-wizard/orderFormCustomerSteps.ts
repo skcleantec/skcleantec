@@ -1,4 +1,5 @@
 import { isPreferredTimeDetailRequired } from '../../../constants/orderFormSchedule';
+import { DEFAULT_ORDER_TIME_SLOT_QUESTION } from '@shared/orderFormTimeSlotLabels';
 import { ORDER_FORM_SPACE_COUNT_FIELDS } from '@shared/orderFormSpaceCounts';
 import {
   isCustomerAddressLocked,
@@ -160,7 +161,9 @@ export function resolveOrderFormCustomerSteps(args: {
     steps.push({
       id: 'time',
       kind: 'choice',
-      title: timeLocked ? '시간대가 이렇게 맞나요?' : '오전·오후 중 언제가 좋으세요?',
+      title: timeLocked
+        ? '시간대가 이렇게 맞나요?'
+        : order?.formConfig?.timeSlotQuestionTitle?.trim() || DEFAULT_ORDER_TIME_SLOT_QUESTION,
       hint: timeLocked ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.' : undefined,
     });
   }

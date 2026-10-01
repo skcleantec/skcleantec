@@ -11,10 +11,20 @@ export const DEFAULT_ORDER_TIME_SLOT_LABELS: Record<OrderTimeSlot, string> = {
   조율: '조율 (오전·오후·사이 무관, 마지막 배치)',
 };
 
+/** 고객 발주서 시간대 질문. DB `time_slot_labels_json.questionTitle` */
+export const DEFAULT_ORDER_TIME_SLOT_QUESTION = '오전·오후 중 언제가 좋으세요?';
+
+export const ORDER_TIME_SLOT_QUESTION_MAX = 120;
+
 export type OrderTimeSlotLabels = Record<OrderTimeSlot, string>;
 
 /** DB `time_slot_labels_json` — 키는 4값 중 일부만 있어도 됨 */
 export type OrderTimeSlotLabelsJson = Partial<Record<OrderTimeSlot, string>>;
+
+/** 저장 JSON — 표시 라벨 + 고객 질문 문장 */
+export type OrderTimeSlotConfigJson = OrderTimeSlotLabelsJson & {
+  questionTitle?: string;
+};
 
 export function isOrderTimeSlotValue(value: string): value is OrderTimeSlot {
   const s = value.trim().normalize('NFC');
@@ -175,14 +185,28 @@ export function parseOrderTimeSlotLabelsJson(raw: unknown): OrderTimeSlotLabelsJ
   return Object.keys(out).length > 0 ? out : null;
 }
 
-/** PUT 저장용 — 4키 모두 non-empty, 기본값과 동일하면 null(미설정) */
-export function sanitizeOrderTimeSlotLabelsJsonForSave(raw: unknown): OrderTimeSlotLabelsJson | null {
+/** 기본 질문과 같거나 비어 있으면 null */
+export function parseOrderTimeSlotQuestionTitle(raw: unknown): string | null {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const v = (raw as Record<string, unknown>).questionTitle;
+  if (typeof v !== 'string') return null;
+  const t = v.trim().slice(0, ORDER_TIME_SLOT_QUESTION_MAX);
+  if (!t || t === DEFAULT_ORDER_TIME_SLOT_QUESTION) return null;
+  return t;
+}
+
+export function resolveOrderTimeSlotQuestionTitle(raw: unknown): string {
+  return parseOrderTimeSlotQuestionTitle(raw) ?? DEFAULT_ORDER_TIME_SLOT_QUESTION;
+}
+
+/** PUT 저장용 — 4키 모두 non-empty. 라벨·질문이 모두 기본이면 null */
+export function sanitizeOrderTimeSlotLabelsJsonForSave(raw: unknown): OrderTimeSlotConfigJson | null {
   if (raw == null) return null;
   if (typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('시간대 표시 문구 형식이 올바르지 않습니다.');
   }
   const o = raw as Record<string, unknown>;
-  const out: OrderTimeSlotLabelsJson = {};
+  const out: OrderTimeSlotConfigJson = {};
   for (const key of ORDER_TIME_SLOT_VALUES) {
     const v = o[key];
     if (v == null || (typeof v === 'string' && !v.trim())) {
@@ -193,11 +217,14 @@ export function sanitizeOrderTimeSlotLabelsJsonForSave(raw: unknown): OrderTimeS
     }
     out[key] = v.trim();
   }
+  const questionTitle = parseOrderTimeSlotQuestionTitle(o);
   const resolved = resolveOrderTimeSlotLabels(out);
   const allDefault = ORDER_TIME_SLOT_VALUES.every(
     (k) => resolved[k] === DEFAULT_ORDER_TIME_SLOT_LABELS[k],
   );
-  return allDefault ? null : out;
+  if (allDefault) return questionTitle ? { questionTitle } : null;
+  if (questionTitle) out.questionTitle = questionTitle;
+  return out;
 }
 
 /** 일괄등록 — value·커스텀 라벨·기존 휴리스틱 */

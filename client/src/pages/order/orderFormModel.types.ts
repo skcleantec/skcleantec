@@ -87,7 +87,8 @@ export type OrderFormLoadedOrder = {
     serviceDateAckBody?: string | null;
     serviceDateAckConsentHint?: string | null;
     guidePolicy?: OperatingCompanyCancellationPolicy;
-    timeSlotLabels?: Record<'오전' | '오후' | '사이청소', string>;
+    timeSlotQuestionTitle?: string | null;
+    timeSlotLabels?: Record<'오전' | '오후' | '사이청소' | '조율', string>;
     timeSlotLabelsJson?: Record<string, string> | null;
   };
   template?: OrderFormPublicTemplate | null;
