@@ -2,6 +2,7 @@
  * @generated-sync from shared/orderFormCustomerPages.ts — 직접 수정하지 마세요.
  */
 import { parseOrderFormCleaningKind } from './orderFormCleaningKind.js';
+import { isOrderFormSectionToggleKey, isOrderFormSectionToggleOn } from './orderFormSectionToggles.js';
 import { DEFAULT_ORDER_TIME_SLOT_QUESTION } from './orderFormTimeSlotLabels.js';
 
 /** 손님 발주서 한 페이지. 설정 화면과 손님 화면이 같은 글을 쓴다. */
@@ -275,8 +276,12 @@ function sanitizeExtra(raw: unknown): CustomerPageCopy | null {
   return page;
 }
 
-/** 저장된 JSON이 없으면 지금 손님 화면 문장을 그대로 돌려준다. */
-export function resolveCustomerPages(stored: unknown): CustomerPageCopy[] {
+/**
+ * 저장된 JSON이 없으면 지금 손님 화면 문장을 그대로 돌려준다.
+ * fillMissing false 이면 요청에 없는 기본 페이지(입주 전용 질문)를 다시 넣지 않는다.
+ */
+export function resolveCustomerPages(stored: unknown, opts?: { fillMissing?: boolean }): CustomerPageCopy[] {
+  const fillMissing = opts?.fillMissing !== false;
   const defaults = defaultCustomerPages();
   const rawPages = Array.isArray(stored)
     ? stored
@@ -294,11 +299,12 @@ export function resolveCustomerPages(stored: unknown): CustomerPageCopy[] {
       if (extra) extras.push(extra);
     }
   }
-  return [...defaults.map((page) => overlay(page, byId.get(page.id))), ...extras.slice(0, 12)];
+  const catalog = fillMissing ? defaults : defaults.filter((page) => byId.has(page.id));
+  return [...catalog.map((page) => overlay(page, byId.get(page.id))), ...extras.slice(0, 12)];
 }
 
-export function customerPagesToJson(pages: CustomerPageCopy[]): { pages: CustomerPageCopy[] } {
-  return { pages: resolveCustomerPages({ pages }) };
+export function customerPagesToJson(pages: unknown, opts?: { fillMissing?: boolean }): { pages: CustomerPageCopy[] } {
+  return { pages: resolveCustomerPages({ pages: Array.isArray(pages) ? pages : [] }, opts) };
 }
 
 export function customerPageById(pages: CustomerPageCopy[] | null | undefined, id: string): CustomerPageCopy | undefined {
@@ -337,4 +343,53 @@ export function newCustomerPageChoice(): CustomerPageChoice {
     hint: '',
     imageSrc: '',
   };
+}
+
+const QUOTE_FIELD_KEYS = new Set([
+  'preferredTime',
+  'preferredTimeDetail',
+  'totalAmount',
+  'depositAmount',
+  'balanceAmount',
+]);
+
+/** 새 발주서를 만들 때 그 양식에 있는 손님 질문만 저장한다. 입주 기본은 전체. */
+export function customerPagesSnapshotForTemplate(
+  isDefault: boolean,
+  fields: Array<{ systemField?: string | null; options?: unknown }>,
+): CustomerPageCopy[] {
+  const all = defaultCustomerPages();
+  if (isDefault) return all;
+  const systemFields = fields
+    .filter((field) => field.systemField)
+    .map((field) => ({
+      systemField: String(field.systemField),
+      options: Array.isArray(field.options) ? field.options.map((item) => String(item)) : null,
+    }));
+  const on = (key: string) => {
+    if (QUOTE_FIELD_KEYS.has(key)) return true;
+    if (isOrderFormSectionToggleKey(key)) {
+      return isOrderFormSectionToggleOn({ isDefault: false, systemFields }, key);
+    }
+    return systemFields.some((field) => field.systemField === key);
+  };
+  const ids = new Set<string>();
+  if (on('customerName')) ids.add('name');
+  if (on('address')) ids.add('address');
+  if (on('customerPhone')) ids.add('phones');
+  if (on('customerEmail')) ids.add('email');
+  if (on('propertyType')) ids.add('property');
+  if (on('areaPyeong')) ids.add('area');
+  if (on('preferredDate') || on('preferredTime')) ids.add('date');
+  if (on('preferredTime')) ids.add('time');
+  if (on('preferredTimeDetail')) ids.add('timeDetail');
+  if (on('roomCount')) ids.add('rooms');
+  if (on('buildingType')) ids.add('building');
+  if (on('moveInDate')) ids.add('moveIn');
+  if (on('specialNotes')) ids.add('notes');
+  if (on('photos')) ids.add('photos');
+  if (on('professionalOptions')) ids.add('professional');
+  ids.add('review');
+  ids.add('guide');
+  return all.filter((page) => ids.has(page.id));
 }

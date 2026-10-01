@@ -28,7 +28,11 @@ import {
   normalizeGuideSectionsInput,
   resolveStoredOrDefaultGuide,
 } from './templateGuide.helpers.js';
-import { customerPagesToJson, resolveCustomerPages } from '../../lib/orderFormCustomerPages.js';
+import {
+  customerPagesSnapshotForTemplate,
+  customerPagesToJson,
+  resolveCustomerPages,
+} from '../../lib/orderFormCustomerPages.js';
 import {
   assertTenantPromotedFieldLimit,
   canPromoteFieldToInquiryList,
@@ -235,7 +239,9 @@ router.put('/:id/customer-pages', requireStaffPermission('orderform.templates', 
   }
   const row = await prisma.orderFormTemplate.update({
     where: { id: owned.id },
-    data: { customerWizardJson: customerPagesToJson(resolveCustomerPages({ pages })) },
+    data: {
+      customerWizardJson: customerPagesToJson(pages, { fillMissing: owned.isDefault }),
+    },
     include: { fields: true },
   });
   res.json({ template: serializeTemplate(row) });
@@ -401,7 +407,7 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
   if (!tenantId) return;
   const owned = await prisma.orderFormTemplate.findFirst({
     where: { id: req.params.id, tenantId },
-    select: { id: true },
+    select: { id: true, isDefault: true, customerWizardJson: true },
   });
   if (!owned) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
@@ -562,7 +568,16 @@ router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (
     }
     return tx.orderFormTemplate.update({
       where: { id: owned.id },
-      data: { version: { increment: 1 } },
+      data: {
+        version: { increment: 1 },
+        ...(!owned.isDefault && owned.customerWizardJson == null
+          ? {
+              customerWizardJson: customerPagesToJson(customerPagesSnapshotForTemplate(false, prepared), {
+                fillMissing: false,
+              }),
+            }
+          : {}),
+      },
       include: { fields: true },
     });
   });

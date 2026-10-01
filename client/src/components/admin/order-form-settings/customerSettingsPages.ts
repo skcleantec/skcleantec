@@ -1,4 +1,6 @@
-import { isOrderFormPackQuoteFieldKey } from '@shared/orderFormIndustryPacks';
+import { ORDER_FORM_AC_UNIT_TYPE_OPTIONS } from '@shared/orderFormAcUnits';
+import type { CustomerPageCopy } from '@shared/orderFormCustomerPages';
+import { findOrderFormIndustryPack, isOrderFormPackQuoteFieldKey } from '@shared/orderFormIndustryPacks';
 import { isOrderFormSectionToggleKey, isOrderFormSectionToggleOn } from '@shared/orderFormSectionToggles';
 
 /** 손님 발주서에 나오는 질문 순서. 기본 입주 발주서는 이 목록 전부. */
@@ -23,11 +25,36 @@ const CUSTOMER_PAGE_ORDER = [
   'guide',
 ] as const;
 
+type SettingsField = {
+  fieldKey?: string | null;
+  label?: string | null;
+  helpText?: string | null;
+  inputType?: string | null;
+  systemField?: string | null;
+  options?: unknown;
+};
+
 type SettingsTemplate = {
   isDefault?: boolean | null;
   renderMode?: string | null;
-  fields?: Array<{ systemField?: string | null; options?: unknown }>;
+  industryPackId?: string | null;
+  fields?: SettingsField[];
 };
+
+const CHOICE_INPUTS = new Set(['SELECT', 'MULTISELECT', 'CHECKBOX']);
+
+function optionLabels(options: unknown): string[] {
+  if (!Array.isArray(options)) return [];
+  const labels: string[] = [];
+  for (const item of options) {
+    if (typeof item === 'string' && item.trim()) labels.push(item.trim());
+    else if (item && typeof item === 'object' && 'label' in item) {
+      const label = String((item as { label?: unknown }).label ?? '').trim();
+      if (label && label !== '[object Object]') labels.push(label);
+    }
+  }
+  return labels;
+}
 
 function systemFieldOn(template: SettingsTemplate, key: string): boolean {
   if (isOrderFormPackQuoteFieldKey(key)) return true;
@@ -80,4 +107,50 @@ export function pagesForCustomerSettings<T extends { id: string }>(template: Set
   const extras = pages.filter((page) => page.id.startsWith('extra_'));
   const end = ['review', 'guide'].map((id) => byId.get(id)).filter((page): page is T => page != null);
   return [...body, ...extras, ...end];
+}
+
+/** 이 발주서 전용 칸. 손님에게 보이는 질문·도움말·선택지를 칸에 채운다. */
+export function customFieldSettingsPages(template: SettingsTemplate): CustomerPageCopy[] {
+  const pack = findOrderFormIndustryPack(template.industryPackId);
+  const fields = (template.fields ?? []).filter(
+    (field) => !field.systemField && field.fieldKey && !field.fieldKey.startsWith('extra_'),
+  );
+  return fields.map((field) => {
+    const key = field.fieldKey ?? '';
+    const packField = pack?.customFields.find((item) => item.fieldKey === key);
+    let labels = optionLabels(field.options);
+    if (!labels.length && key === 'ac_units') labels = [...ORDER_FORM_AC_UNIT_TYPE_OPTIONS];
+    if (!labels.length && packField?.options?.length) labels = [...packField.options];
+    const choice = CHOICE_INPUTS.has(field.inputType ?? '') || labels.length > 0;
+    return {
+      id: `field:${key}`,
+      enabled: true,
+      removable: false,
+      title: (field.label ?? '').trim() || packField?.label || '질문',
+      hint: (field.helpText ?? '').trim() || packField?.helpText?.trim() || '',
+      titleLocked: '',
+      hintLocked: '',
+      titleDetailOnly: '',
+      hintDetailOnly: '',
+      titleAllSet: '',
+      hintAllSet: '',
+      titlePartial: '',
+      hintPartial: '',
+      lines: [],
+      choices: choice
+        ? labels.map((label) => ({ value: label, label, hint: '', imageSrc: '' }))
+        : [],
+    };
+  });
+}
+
+export function composeCustomerSettingsPages(template: SettingsTemplate, pages: CustomerPageCopy[]): CustomerPageCopy[] {
+  const filtered = pagesForCustomerSettings(template, pages);
+  const customs = customFieldSettingsPages(template);
+  const extras = filtered.filter((page) => page.id.startsWith('extra_'));
+  const end = filtered.filter((page) => page.id === 'review' || page.id === 'guide');
+  const body = filtered.filter(
+    (page) => page.id !== 'review' && page.id !== 'guide' && !page.id.startsWith('extra_'),
+  );
+  return [...body, ...customs, ...extras, ...end];
 }

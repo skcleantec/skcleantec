@@ -272,8 +272,12 @@ function sanitizeExtra(raw: unknown): CustomerPageCopy | null {
   return page;
 }
 
-/** 저장된 JSON이 없으면 지금 손님 화면 문장을 그대로 돌려준다. */
-export function resolveCustomerPages(stored: unknown): CustomerPageCopy[] {
+/**
+ * 저장된 JSON이 없으면 지금 손님 화면 문장을 그대로 돌려준다.
+ * fillMissing false 이면 요청에 없는 기본 페이지(입주 전용 질문)를 다시 넣지 않는다.
+ */
+export function resolveCustomerPages(stored: unknown, opts?: { fillMissing?: boolean }): CustomerPageCopy[] {
+  const fillMissing = opts?.fillMissing !== false;
   const defaults = defaultCustomerPages();
   const rawPages = Array.isArray(stored)
     ? stored
@@ -291,11 +295,12 @@ export function resolveCustomerPages(stored: unknown): CustomerPageCopy[] {
       if (extra) extras.push(extra);
     }
   }
-  return [...defaults.map((page) => overlay(page, byId.get(page.id))), ...extras.slice(0, 12)];
+  const catalog = fillMissing ? defaults : defaults.filter((page) => byId.has(page.id));
+  return [...catalog.map((page) => overlay(page, byId.get(page.id))), ...extras.slice(0, 12)];
 }
 
-export function customerPagesToJson(pages: CustomerPageCopy[]): { pages: CustomerPageCopy[] } {
-  return { pages: resolveCustomerPages({ pages }) };
+export function customerPagesToJson(pages: unknown, opts?: { fillMissing?: boolean }): { pages: CustomerPageCopy[] } {
+  return { pages: resolveCustomerPages({ pages: Array.isArray(pages) ? pages : [] }, opts) };
 }
 
 export function customerPageById(pages: CustomerPageCopy[] | null | undefined, id: string): CustomerPageCopy | undefined {
