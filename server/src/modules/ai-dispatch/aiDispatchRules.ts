@@ -40,13 +40,12 @@ export function slotJobWeight(slot: AiDispatchSlot): number {
   return 1;
 }
 
+/** 원·투룸은 접수에 체크된 건만. 평수 상한으로 나누지 않는다. */
 export function isSmallHome(
-  input: { isOneRoom: boolean; areaPyeong: number | null },
-  twoRoomMaxPyeong: number,
+  input: { isOneRoom: boolean; areaPyeong?: number | null },
+  _twoRoomMaxPyeong?: number,
 ): boolean {
-  if (input.areaPyeong != null && input.areaPyeong > twoRoomMaxPyeong) return false;
-  if (input.isOneRoom) return true;
-  return input.areaPyeong != null && input.areaPyeong <= twoRoomMaxPyeong;
+  return input.isOneRoom;
 }
 
 export function sizePolicyAllows(

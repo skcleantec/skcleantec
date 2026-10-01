@@ -58,6 +58,7 @@ export type DispatchManualJob = {
   customerName: string;
   areaLabel: string;
   pyeong: number | null;
+  isOneRoom: boolean;
   lat: number | null;
   lng: number | null;
   slot: AiDispatchSlot;
@@ -231,6 +232,7 @@ export async function loadDispatchDay(db: Db, tenantId: string, workDate: string
           customerName: inquiry.customerName,
           areaLabel: areaLabel(inquiry.address),
           pyeong: inquiry.areaPyeong,
+          isOneRoom: inquiry.isOneRoom,
           lat: inquiry.addressGeoLat,
           lng: inquiry.addressGeoLng,
           slot,

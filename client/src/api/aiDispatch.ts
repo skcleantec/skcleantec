@@ -42,6 +42,7 @@ export type AiDispatchManualJob = {
   customerName: string;
   areaLabel: string;
   pyeong: number | null;
+  isOneRoom: boolean;
   lat: number | null;
   lng: number | null;
   slot: AiDispatchSlot;

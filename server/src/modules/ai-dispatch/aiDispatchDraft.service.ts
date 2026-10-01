@@ -131,7 +131,7 @@ nearestOpposite.betweenKm가 35를 넘으면 그 오전·오후를 같은 팀장
 - 하루 2건인 팀장만, 35km 안의 오전·오후를 묶으세요.
 - 집에서 먼 오전은 fatigue가 더 낮은 팀장에게 주세요. fatigue가 더 높으면 집에서 가까운 오전만 주세요. 휴무 직후는 0에 가깝고, 2주간 휴무가 없으면 매우 나쁨입니다.
 - 고객 표시는 좋은 고객을 먼저, 그다음 보통, 어르신, 악성, 극악 순입니다. 표시 때문에 하루 동선이 도시를 가로지르게 하지 마세요.
-- 원룸은 ONE_ROOM_ONLY 팀장에게 먼저, 원룸·투룸은 ONE_AND_TWO 팀장에게 그다음으로 넣으세요. 그 팀장에게 자리가 있는 동안 UNRESTRICTED에게 원룸·투룸을 넣지 마세요. 그 다음 남은 일반 평수를 다른 팀장에게 나누세요.
+- oneRoom이 true인 일정만 원·투룸입니다. 평수로 원·투룸을 판단하지 마세요. 그 일정은 ONE_ROOM_ONLY 팀장에게 먼저, 그다음 ONE_AND_TWO 팀장에게 넣으세요. 그 팀장에게 자리가 있는 동안 UNRESTRICTED에게 넣지 마세요.
 - remainingJobs를 넘기지 마세요. 오전과 오후 개수가 달라도, 짝이 안 되는 일정은 자리가 남은 팀장에게 한 건으로 넣으세요. 자리가 없으면 unassigned에 「모든 팀장이 배정된 상태입니다」라고 쓰세요.
 - 팀장이 없으면 「넣을 팀장이 없습니다」라고 쓰세요.
 - ALL_DAY는 2건입니다. requiredLeaders만큼 서로 다른 팀장을 넣으세요.
@@ -599,16 +599,14 @@ function tuneMorningAfternoon(
   };
 
   const dayJobs = jobs.filter((job) => movable.has(job.id) || looseIds.has(job.id));
-  const oneRoom = (job: DispatchJob) =>
-    job.isOneRoom && isSmallHome({ isOneRoom: job.isOneRoom, areaPyeong: job.pyeong }, twoRoomMax);
-  const small = (job: DispatchJob) => isSmallHome({ isOneRoom: job.isOneRoom, areaPyeong: job.pyeong }, twoRoomMax);
+  const checkedRoom = (job: DispatchJob) => job.isOneRoom;
   placeAmong(
-    dayJobs.filter(oneRoom),
+    dayJobs.filter(checkedRoom),
     leaders.filter((leader) => leader.sizePolicy === 'ONE_ROOM_ONLY'),
     false,
   );
   placeAmong(
-    dayJobs.filter(small),
+    dayJobs.filter(checkedRoom),
     leaders.filter((leader) => leader.sizePolicy === 'ONE_AND_TWO'),
     false,
   );

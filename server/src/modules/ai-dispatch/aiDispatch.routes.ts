@@ -109,6 +109,7 @@ router.get('/board', async (req, res) => {
       customerName: job.customerName,
       areaLabel: job.areaLabel,
       pyeong: job.pyeong,
+      isOneRoom: job.isOneRoom,
       lat: job.lat,
       lng: job.lng,
       slot: job.slot,

@@ -3,6 +3,7 @@ import {
   internalCustomerToneImageSrc,
 } from '../../../constants/internalCustomerTone';
 import type { AiDispatchJob, AiDispatchLeader, AiDispatchManualJob, AiDispatchProposal } from '../../../api/aiDispatch';
+import { LineMdIcon } from '../../ui/LineMdIcon';
 import { AiDispatchMapPreview } from './AiDispatchRouteMap';
 
 const SLOT_ORDER = ['AM', 'ALL_DAY', 'PM', 'HUMAN'] as const;
@@ -56,6 +57,19 @@ function shortPlace(label: string): string {
   return parts.slice(-2).join(' ') || label;
 }
 
+function OneTwoRoomMark({ on }: { on: boolean }) {
+  if (!on) return null;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-rose-100 px-1 py-0.5 text-fluid-2xs font-semibold text-rose-800 ring-1 ring-rose-300"
+      title="원·투룸"
+    >
+      <LineMdIcon name="home" className="size-3.5 text-rose-800" />
+      원·투룸
+    </span>
+  );
+}
+
 function JobLine({
   label,
   proposal,
@@ -107,6 +121,7 @@ function JobLine({
       >
         {proposal.customerName}
       </button>
+      <OneTwoRoomMark on={job?.isOneRoom === true} />
       <span className="min-w-0 truncate text-fluid-2xs text-slate-600" title={job?.areaLabel || '주소 없음'}>
         {place || '주소 없음'}
       </span>
@@ -252,6 +267,7 @@ export function AiDispatchDraftList({
               >
                 {job.customerName}
               </button>
+              <OneTwoRoomMark on={job.isOneRoom} />
               <span className="min-w-0 truncate text-fluid-2xs text-slate-600" title={job.areaLabel || '주소 없음'}>
                 {shortPlace(job.areaLabel) || '주소 없음'}
               </span>
