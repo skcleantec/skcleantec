@@ -181,7 +181,9 @@ export interface OrderFormConfigPublic {
   serviceDateAckConsentHint?: string | null;
   /** 브랜드 위약 정책 — ACK·안내 치환코드 확장용 */
   guidePolicy?: OperatingCompanyCancellationPolicy;
-  /** DB 원본 — 관리 설정용 partial */
+  /** 고객 발주서 시간대 질문. 없으면 기본 문장 */
+  timeSlotQuestionTitle?: string | null;
+  /** DB 원본 — 관리 설정용 partial (표시 문구 + questionTitle) */
   timeSlotLabelsJson?: Record<string, string> | null;
   /** 고객 API — resolve된 4키 라벨 */
   timeSlotLabels?: Record<'오전' | '오후' | '사이청소' | '조율', string>;

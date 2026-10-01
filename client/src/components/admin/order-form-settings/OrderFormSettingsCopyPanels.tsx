@@ -1,6 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import {
   DEFAULT_ORDER_TIME_SLOT_LABELS,
+  DEFAULT_ORDER_TIME_SLOT_QUESTION,
+  ORDER_TIME_SLOT_QUESTION_MAX,
   ORDER_TIME_SLOT_VALUES,
   type OrderTimeSlotLabels,
 } from '@shared/orderFormTimeSlotLabels';
@@ -31,9 +33,20 @@ export function OrderFormSettingsCopyPanel(props: {
   saveMsgPartial: SavePartial;
   timeSlotLabels: OrderTimeSlotLabels;
   setTimeSlotLabels: Dispatch<SetStateAction<OrderTimeSlotLabels>>;
+  timeSlotQuestion: string;
+  setTimeSlotQuestion: Dispatch<SetStateAction<string>>;
 }) {
-  const { msgConfig, setMsgConfig, msgSavingKey, onSaveMsg, saveMsgPartial, timeSlotLabels, setTimeSlotLabels } =
-    props;
+  const {
+    msgConfig,
+    setMsgConfig,
+    msgSavingKey,
+    onSaveMsg,
+    saveMsgPartial,
+    timeSlotLabels,
+    setTimeSlotLabels,
+    timeSlotQuestion,
+    setTimeSlotQuestion,
+  } = props;
 
   return (
     <div className="space-y-6">
@@ -113,9 +126,21 @@ export function OrderFormSettingsCopyPanel(props: {
       <section className="space-y-3">
         <h4 className="text-fluid-xs font-semibold text-slate-800">시간대·날짜 확인 모달</h4>
         <p className="text-fluid-2xs text-slate-500">
-          손님이 고르는 시간대 항목은 위 「입력 칸」에서 이 발주서마다 고칩니다. 아래는 기본 네 칸 이름을 그대로 쓸
-          때의 표시 문구와, 확인 모달 본문입니다.
+          손님이 고르는 시간대 항목은 위 「입력 칸」에서 이 발주서마다 고칩니다. 질문 문장과 기본 네 칸 이름은 모든
+          발주서에 같이 적용됩니다.
         </p>
+        <label className="block text-fluid-xs font-medium text-slate-800" htmlFor="order-time-slot-question">
+          고객에게 보이는 질문
+        </label>
+        <input
+          id="order-time-slot-question"
+          type="text"
+          maxLength={ORDER_TIME_SLOT_QUESTION_MAX}
+          className="w-full rounded border border-gray-300 px-2 py-2 text-fluid-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400"
+          value={timeSlotQuestion}
+          onChange={(e) => setTimeSlotQuestion(e.target.value)}
+          placeholder={DEFAULT_ORDER_TIME_SLOT_QUESTION}
+        />
         <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
           <summary className="cursor-pointer text-fluid-xs font-medium text-slate-800">
             기본 네 칸(오전·오후·사이청소·조율) 표시 문구
@@ -125,7 +150,10 @@ export function OrderFormSettingsCopyPanel(props: {
               <button
                 type="button"
                 className="rounded px-1 text-fluid-2xs text-slate-600 underline hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                onClick={() => setTimeSlotLabels({ ...DEFAULT_ORDER_TIME_SLOT_LABELS })}
+                onClick={() => {
+                  setTimeSlotLabels({ ...DEFAULT_ORDER_TIME_SLOT_LABELS });
+                  setTimeSlotQuestion(DEFAULT_ORDER_TIME_SLOT_QUESTION);
+                }}
               >
                 기본값으로 되돌리기
               </button>
@@ -157,6 +185,7 @@ export function OrderFormSettingsCopyPanel(props: {
                       오후: timeSlotLabels.오후,
                       사이청소: timeSlotLabels.사이청소,
                       조율: timeSlotLabels.조율,
+                      questionTitle: timeSlotQuestion.trim() || DEFAULT_ORDER_TIME_SLOT_QUESTION,
                     },
                   })
                 }

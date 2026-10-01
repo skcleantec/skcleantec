@@ -43,7 +43,9 @@ import { normalizeMsgConfigForEditor, type FormMessagesState } from '../../utils
 import { appendPublicQuery } from '../../utils/publicTenantQuery';
 import {
   DEFAULT_ORDER_TIME_SLOT_LABELS,
+  DEFAULT_ORDER_TIME_SLOT_QUESTION,
   resolveOrderTimeSlotLabels,
+  resolveOrderTimeSlotQuestionTitle,
   type OrderTimeSlotLabels,
 } from '@shared/orderFormTimeSlotLabels';
 import { withOrderFormPreviewWalkQuery } from '@shared/orderFormPreviewWalk';
@@ -82,6 +84,7 @@ export function AdminOrderFormCustomerPreviewPage() {
   const [timeSlotLabels, setTimeSlotLabels] = useState<OrderTimeSlotLabels>(() => ({
     ...DEFAULT_ORDER_TIME_SLOT_LABELS,
   }));
+  const [timeSlotQuestion, setTimeSlotQuestion] = useState(DEFAULT_ORDER_TIME_SLOT_QUESTION);
   const [openMap, setOpenMap] = useState<Record<OrderFormSettingsSectionId, boolean>>(() =>
     initialOpenMap(focusSection),
   );
@@ -164,6 +167,7 @@ export function AdminOrderFormCustomerPreviewPage() {
       .then((c) => {
         setMsgConfig(normalizeMsgConfigForEditor(c));
         setTimeSlotLabels(resolveOrderTimeSlotLabels(c.timeSlotLabelsJson ?? null));
+        setTimeSlotQuestion(resolveOrderTimeSlotQuestionTitle(c.timeSlotLabelsJson ?? null));
       })
       .catch(() => {});
   }, [token]);
@@ -201,6 +205,7 @@ export function AdminOrderFormCustomerPreviewPage() {
         setPreviewForms(templates.filter((t) => t.status !== 'ARCHIVED'));
         setMsgConfig(normalizeMsgConfigForEditor(fc));
         setTimeSlotLabels(resolveOrderTimeSlotLabels(fc.timeSlotLabelsJson ?? null));
+        setTimeSlotQuestion(resolveOrderTimeSlotQuestionTitle(fc.timeSlotLabelsJson ?? null));
         setConfigForm({
           pricePerPyeong: String(ec.pricePerPyeong),
           minimumTotalAmount: String(ec.minimumTotalAmount ?? 0),
@@ -287,6 +292,7 @@ export function AdminOrderFormCustomerPreviewPage() {
           오후: timeSlotLabels.오후,
           사이청소: timeSlotLabels.사이청소,
           조율: timeSlotLabels.조율,
+          questionTitle: timeSlotQuestion.trim() || DEFAULT_ORDER_TIME_SLOT_QUESTION,
         },
       });
       refreshMsg();
@@ -547,6 +553,8 @@ export function AdminOrderFormCustomerPreviewPage() {
                 saveMsgPartial={(key, payload) => void saveMsgPartial(key, payload)}
                 timeSlotLabels={timeSlotLabels}
                 setTimeSlotLabels={setTimeSlotLabels}
+                timeSlotQuestion={timeSlotQuestion}
+                setTimeSlotQuestion={setTimeSlotQuestion}
               />
             </OrderFormSettingsSection>
 
