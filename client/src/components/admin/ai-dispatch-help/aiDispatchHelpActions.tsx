@@ -16,7 +16,7 @@ export const AI_DISPATCH_HELP_ACTIONS: readonly AiDispatchHelpActionRow[] = [
   {
     sample: (
       <Frozen>
-        <AiDispatchLaunchButton size="compact" onClick={() => undefined}>
+        <AiDispatchLaunchButton size="compact" mark onClick={() => undefined}>
           팀장배정
         </AiDispatchLaunchButton>
       </Frozen>

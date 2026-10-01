@@ -7,13 +7,13 @@ export const AI_DISPATCH_HELP_TABS: ReadonlyArray<{ id: AiDispatchHelpTabId; lab
 ];
 
 export const AI_DISPATCH_HELP_OVERVIEW =
-  '스케줄의 「AI 빠른등록」 옆 「팀장배정」에서 그날 팀장과 일정을 초안으로 나눠 보는 화면입니다. 「선택 승인」을 누르기 전에는 실제 배정이 바뀌지 않습니다.';
+  '스케줄의 「AI 빠른등록」 옆 「AI팀장배정」에서 그날 팀장과 일정을 초안으로 나눠 보는 화면입니다. 「선택 승인」을 누르기 전에는 실제 배정이 바뀌지 않습니다.';
 
 export const AI_DISPATCH_HELP_CAPTION =
   '실제 「AI 미리 배정」 초안과 같은 카드입니다. 「크게 보기」로 확대할 수 있습니다.';
 
 export const AI_DISPATCH_HELP_FLOW = [
-  '스케줄에서 「AI 빠른등록」 옆 「팀장배정」을 누릅니다.',
+  '스케줄에서 「AI 빠른등록」 옆 「AI팀장배정」을 누릅니다.',
   '1 날짜에서 볼 날을 고릅니다.',
   '2 팀장 컨디션에서 좋음·보통·나쁨·매우 나쁨을 봅니다. 휴무 다음부터 0에서 다시 쌓이고, 2주간 휴무가 없으면 매우 나쁨입니다.',
   '「AI 미리 배정」을 누르면 초안을 만든 뒤, AI가 하루 전체를 다시 보고 고칩니다. 연결이 없으면 「AI 미설정」이 보이고 초안을 만들지 않습니다.',

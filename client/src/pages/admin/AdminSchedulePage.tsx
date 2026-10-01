@@ -1774,6 +1774,7 @@ export function AdminSchedulePage() {
             {aiDispatchOn ? (
               <AiDispatchLaunchButton
                 size="compact"
+                mark
                 className="hidden lg:inline-flex lg:min-w-[9rem]"
                 onClick={openAiDispatch}
               >
@@ -2012,7 +2013,7 @@ export function AdminSchedulePage() {
                 onClick={() => setQuickPasteOpen(true)}
               />
             {aiDispatchOn ? (
-              <AiDispatchLaunchButton size="row" onClick={openAiDispatch}>
+              <AiDispatchLaunchButton size="row" mark onClick={openAiDispatch}>
                 팀장배정
               </AiDispatchLaunchButton>
             ) : null}
