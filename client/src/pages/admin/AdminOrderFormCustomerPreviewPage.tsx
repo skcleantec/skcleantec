@@ -233,13 +233,18 @@ export function AdminOrderFormCustomerPreviewPage() {
 
   const iframeSrc = useMemo(() => {
     if (typeof window === 'undefined' || !previewToken) return '';
+    const previewStep = activePage.startsWith('field:')
+      ? `custom:${activePage.slice('field:'.length)}`
+      : activePage.startsWith('extra_')
+        ? `custom:${activePage}`
+        : activePage;
     return `${withOrderFormPreviewWalkQuery(
       appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(previewToken)}`, {
         tenantSlug: staffTenantSlug || null,
       }),
       { previewTemplateId: resolvedPreviewFormId || null },
-    )}&ckEmpty=1`;
-  }, [previewToken, staffTenantSlug, resolvedPreviewFormId]);
+    )}&ckEmpty=1&step=${encodeURIComponent(previewStep)}`;
+  }, [previewToken, staffTenantSlug, resolvedPreviewFormId, activePage]);
 
   const saveMsgPartial = async (key: string, payload: Partial<OrderFormConfigPublic>) => {
     if (!token) return;

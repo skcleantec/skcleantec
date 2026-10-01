@@ -28,7 +28,7 @@ export function WizardQuestion({
           {title}
         </h2>
         {hint ? (
-          <p className="order-wizard-q-hint text-fluid-sm leading-relaxed text-slate-500">{hint}</p>
+          <p className="order-wizard-q-hint whitespace-pre-line text-fluid-sm leading-relaxed text-slate-500">{hint}</p>
         ) : null}
       </div>
       <div className="order-wizard-q-body">{children}</div>
