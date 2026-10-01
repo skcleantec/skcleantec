@@ -2,6 +2,7 @@ import type { AiDispatchSlot } from './aiDispatch.constants.js';
 import { leadersForJob, type DispatchJob, type DispatchLeader, type DispatchManualJob } from './aiDispatchContext.service.js';
 import { callOpenAiJson } from '../ai/aiProvider.service.js';
 import { haversineKm, slotJobWeight } from './aiDispatchRules.js';
+import { periodAlreadyTaken } from './aiDispatchPairing.js';
 
 /** 하루 보드를 다시 읽는 모델. 작은 모델이 초안을 덮어쓰던 호출은 쓰지 않는다. */
 const DEFAULT_REVIEW_MODEL = 'gpt-6.1-sol';
@@ -41,7 +42,8 @@ const REVIEW_SYSTEM = `당신은 입주청소 배정 담당입니다. 이미 짜
 
 볼 것:
 - 같은 팀장의 오전과 오후는 현장이 가까운 짝으로 묶으세요. 현장이 먼 짝은 한 줄로 잇지 말고 각각 팀장을 두세요.
-- 자리가 있으면 팀장 없이 두지 마세요. teamLeaderId를 비우는 것은 칸이 없거나 집 크기가 안 맞을 때뿐입니다.
+- 한 팀장에게 오전은 한 현장, 오후는 한 현장만 주세요. 오전 두 건, 오후 두 건은 넣지 마세요. 종일은 오전과 오후가 둘 다 비어 있을 때만 줍니다.
+- 자리가 있으면 팀장 없이 두지 마세요. teamLeaderId를 비우는 것은 그 시간대 칸이 없거나 집 크기가 안 맞을 때뿐입니다.
 - 피로가 높은 팀장(condition이 나쁨)은 집에서 현장까지 가까운 일정, 피로가 낮은 팀장은 집에서 먼 일정을 맡기세요.
 - oneRoom이 true인 일정은 ONE_ROOM_ONLY에 먼저, 그다음 ONE_AND_TWO입니다. 그 팀장에게 자리가 있으면 UNRESTRICTED로 옮기지 마세요.
 - jobsPerDay를 넘기지 마세요. seatsUsed는 이미 빠진 수동 일정과 팀장 2명 일정입니다. 초안의 오전·오후는 옮겨도 그 자리가 다시 납니다.
@@ -133,6 +135,7 @@ function applyReview(
   lines: ReviewDraftLine[],
   jobs: DispatchJob[],
   leaders: DispatchLeader[],
+  manualJobs: DispatchManualJob[],
   twoRoomMax: number,
   json: Record<string, unknown>,
 ): { lines: ReviewDraftLine[]; changed: number; applied: boolean; note: string } {
@@ -168,23 +171,37 @@ function applyReview(
     if (typeof row.reason === 'string' && row.reason.trim()) wantReason.set(inquiryId, row.reason.trim().slice(0, 160));
   }
 
+  const placed = new Map<string, string>();
+  const slotsOf = (leaderId: string) => {
+    const slots = manualJobs.filter((row) => row.teamLeaderId === leaderId).map((row) => row.slot);
+    for (const line of fixed) {
+      if (line.teamLeaderId === leaderId) slots.push(line.slot);
+    }
+    for (const [inquiryId, id] of placed) {
+      if (id !== leaderId) continue;
+      const job = jobs.find((item) => item.id === inquiryId);
+      if (job) slots.push(job.slot);
+    }
+    return slots;
+  };
   const specialistOpen = (job: DispatchJob) =>
     leaders.some((leader) => {
       if (leader.sizePolicy !== 'ONE_ROOM_ONLY' && leader.sizePolicy !== 'ONE_AND_TWO') return false;
       if (!leadersForJob(leaders, job, twoRoomMax).some((item) => item.id === leader.id)) return false;
+      if (periodAlreadyTaken(slotsOf(leader.id), job.slot)) return false;
       return (used.get(leader.id) ?? 0) + slotJobWeight(job.slot) <= leader.jobsPerDay;
     });
   const canPlace = (leaderId: string, job: DispatchJob) => {
     const leader = leaders.find((item) => item.id === leaderId);
     if (!leader) return false;
     if (!leadersForJob(leaders, job, twoRoomMax).some((item) => item.id === leaderId)) return false;
+    if (periodAlreadyTaken(slotsOf(leaderId), job.slot)) return false;
     if ((used.get(leaderId) ?? 0) + slotJobWeight(job.slot) > leader.jobsPerDay) return false;
     if (job.isOneRoom && leader.sizePolicy !== 'ONE_ROOM_ONLY' && leader.sizePolicy !== 'ONE_AND_TWO' && specialistOpen(job)) {
       return false;
     }
     return true;
   };
-  const placed = new Map<string, string>();
   const tryPlace = (job: DispatchJob, leaderId: string | null, unassign: boolean) => {
     if (placed.has(job.id)) return;
     if (!leaderId) {
@@ -267,7 +284,7 @@ export async function reviewDispatchBoard(input: {
   if (!result.json || result.failed) {
     return { lines: input.lines, usage: result.usage, changed: 0, reviewed: false };
   }
-  const applied = applyReview(input.lines, input.jobs, input.leaders, input.twoRoomMax, result.json);
+  const applied = applyReview(input.lines, input.jobs, input.leaders, input.manualJobs, input.twoRoomMax, result.json);
   if (!applied.applied) return { lines: input.lines, usage: result.usage, changed: 0, reviewed: false };
   return { lines: applied.lines, usage: result.usage, changed: applied.changed, reviewed: true };
 }

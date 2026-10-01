@@ -12,7 +12,7 @@ import {
   type DispatchManualJob,
 } from './aiDispatchContext.service.js';
 import { setAiDispatchProgress } from './aiDispatchProgress.js';
-import { matchSitePairs } from './aiDispatchPairing.js';
+import { matchSitePairs, periodAlreadyTaken } from './aiDispatchPairing.js';
 import { haversineKm, isSmallHome, sizePolicyAllows, slotJobWeight } from './aiDispatchRules.js';
 
 type Db = PrismaClient;
@@ -109,6 +109,13 @@ function seatsLeft(leader: DispatchLeader, used: Map<string, number>): number {
 
 function noSeatReason(leaders: DispatchLeader[]): string {
   return leaders.length === 0 ? '넣을 팀장이 없습니다.' : '모든 팀장이 배정된 상태입니다.';
+}
+
+function periodFullReason(slot: AiDispatchSlot): string {
+  if (slot === 'AM') return '오전은 팀장 한 명당 한 현장입니다. 오전 자리가 남은 팀장이 없습니다.';
+  if (slot === 'PM') return '오후는 팀장 한 명당 한 현장입니다. 오후 자리가 남은 팀장이 없습니다.';
+  if (slot === 'ALL_DAY') return '종일은 오전과 오후가 비어 있는 팀장만 받습니다. 그 팀장이 없습니다.';
+  return '이 시간대를 받을 팀장이 없습니다.';
 }
 
 function sizeMismatchReason(): string {
@@ -281,6 +288,12 @@ function tuneMorningAfternoon(
     });
   };
   const placedIds = () => new Set(tuned.filter((line) => line.teamLeaderId).map((line) => line.inquiryId));
+  const slotsNow = (leaderId: string) => [
+    ...manualJobs.filter((row) => row.teamLeaderId === leaderId).map((row) => row.slot),
+    ...tuned
+      .filter((line) => line.teamLeaderId === leaderId)
+      .map((line) => jobs.find((job) => job.id === line.inquiryId)?.slot ?? line.slot),
+  ];
 
   const placeAmong = (poolJobs: DispatchJob[], poolLeaders: DispatchLeader[], explain: boolean) => {
     const openJobs = poolJobs.filter((job) => !placedIds().has(job.id));
@@ -303,7 +316,12 @@ function tuneMorningAfternoon(
     const pairedIds = new Set<string>();
     for (const pair of matchSitePairs(ams, pms)) {
       const options = poolLeaders.filter(
-        (leader) => leader.jobsPerDay >= 2 && seatsLeft(leader, used) >= 2 && fitsSize(leader, [pair.am, pair.pm], twoRoomMax),
+        (leader) =>
+          leader.jobsPerDay >= 2 &&
+          seatsLeft(leader, used) >= 2 &&
+          fitsSize(leader, [pair.am, pair.pm], twoRoomMax) &&
+          !periodAlreadyTaken(slotsNow(leader.id), 'AM') &&
+          !periodAlreadyTaken(slotsNow(leader.id), 'PM'),
       );
       if (options.length === 0) continue;
       const withPinned = (leader: DispatchLeader): DispatchJob[] => [
@@ -345,7 +363,7 @@ function tuneMorningAfternoon(
         for (const leader of poolLeaders) {
           for (const job of pending) {
             const seatOk = seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2);
-            if (!seatOk || !fitsSize(leader, [job], twoRoomMax)) continue;
+            if (!seatOk || !fitsSize(leader, [job], twoRoomMax) || periodAlreadyTaken(slotsNow(leader.id), job.slot)) continue;
             const held = jobs.filter((item) => tuned.some((line) => line.teamLeaderId === leader.id && line.inquiryId === item.id));
             const cost = assignmentCost(leader, [...held, job], poolLeaders);
             if (!picked || cost < picked.cost) picked = { leader, job, cost };
@@ -364,11 +382,17 @@ function tuneMorningAfternoon(
           (leader) => seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2),
         );
         const sized = seated.filter((leader) => fitsSize(leader, [job], twoRoomMax));
+        const periodOpen = sized.filter((leader) => !periodAlreadyTaken(slotsNow(leader.id), job.slot));
         tuned.push({
           inquiryId: job.id,
           teamLeaderId: null,
           slot: job.slot,
-          reason: seated.length > 0 && sized.length === 0 ? sizeMismatchReason() : noSeatReason(leaders),
+          reason:
+            seated.length > 0 && sized.length === 0
+              ? sizeMismatchReason()
+              : sized.length > 0 && periodOpen.length === 0
+                ? periodFullReason(job.slot)
+                : noSeatReason(leaders),
           updatedAt: job.updatedAt,
         });
       }
@@ -430,6 +454,7 @@ function assignLeftovers(
       next.filter((line) => line.inquiryId === job.id && line.teamLeaderId).map((line) => line.teamLeaderId as string),
     );
     let blockedBySize = false;
+    let blockedByPeriod = false;
     while (taken.size < job.requiredLeaders) {
       const open = leaders.filter(
         (leader) =>
@@ -441,6 +466,17 @@ function assignLeftovers(
       const sized = open.filter((leader) => fitsSize(leader, [job], twoRoomMax));
       if (sized.length === 0) {
         blockedBySize = true;
+        break;
+      }
+      const slotsOf = (leaderId: string) => [
+        ...manualJobs.filter((row) => row.teamLeaderId === leaderId).map((row) => row.slot),
+        ...next
+          .filter((line) => line.teamLeaderId === leaderId)
+          .map((line) => jobs.find((item) => item.id === line.inquiryId)?.slot ?? line.slot),
+      ];
+      const periodOpen = sized.filter((leader) => !periodAlreadyTaken(slotsOf(leader.id), job.slot));
+      if (periodOpen.length === 0) {
+        blockedByPeriod = true;
         break;
       }
       const smallJob = isSmallHome({ isOneRoom: job.isOneRoom, areaPyeong: job.pyeong }, twoRoomMax);
@@ -468,7 +504,7 @@ function assignLeftovers(
           );
         return [...pinned, ...drafted];
       };
-      sized.sort((a, b) => {
+      periodOpen.sort((a, b) => {
         if (smallJob) {
           const rank = (leader: DispatchLeader) =>
             leader.sizePolicy === 'ONE_ROOM_ONLY' ? 0 : leader.sizePolicy === 'ONE_AND_TWO' ? 1 : 2;
@@ -478,7 +514,7 @@ function assignLeftovers(
         const cost = (leader: DispatchLeader) => assignmentCost(leader, [...heldOf(leader), job], leaders);
         return cost(a) - cost(b);
       });
-      const leader = sized[0];
+      const leader = periodOpen[0];
       taken.add(leader.id);
       used.set(leader.id, (used.get(leader.id) ?? 0) + seatWeight(job.slot));
       next.push({
@@ -494,7 +530,7 @@ function assignLeftovers(
         inquiryId: job.id,
         teamLeaderId: null,
         slot: job.slot,
-        reason: blockedBySize ? sizeMismatchReason() : noSeatReason(leaders),
+        reason: blockedBySize ? sizeMismatchReason() : blockedByPeriod ? periodFullReason(job.slot) : noSeatReason(leaders),
         updatedAt: job.updatedAt,
       });
     }
@@ -502,10 +538,21 @@ function assignLeftovers(
   return next;
 }
 
-function clampDailyCap(lines: DraftLine[], jobs: DispatchJob[], leaders: DispatchLeader[]): DraftLine[] {
+function clampDailyCap(
+  lines: DraftLine[],
+  jobs: DispatchJob[],
+  leaders: DispatchLeader[],
+  manualJobs: DispatchManualJob[],
+): DraftLine[] {
   const jobById = new Map(jobs.map((job) => [job.id, job]));
   const cap = new Map(leaders.map((leader) => [leader.id, leader.jobsPerDay]));
   const used = new Map(leaders.map((leader) => [leader.id, leader.usedJobs]));
+  const held = new Map<string, string[]>();
+  for (const row of manualJobs) {
+    const list = held.get(row.teamLeaderId) ?? [];
+    list.push(row.slot);
+    held.set(row.teamLeaderId, list);
+  }
   const kept: DraftLine[] = [];
   const dropped: DraftLine[] = [];
   for (const line of lines) {
@@ -514,25 +561,29 @@ function clampDailyCap(lines: DraftLine[], jobs: DispatchJob[], leaders: Dispatc
       continue;
     }
     const job = jobById.get(line.inquiryId);
-    const weight = seatWeight(job?.slot ?? line.slot);
+    const slot = job?.slot ?? line.slot;
+    const weight = seatWeight(slot);
     const limit = cap.get(line.teamLeaderId) ?? 2;
     const next = (used.get(line.teamLeaderId) ?? 0) + weight;
-    if (next > limit) {
-      dropped.push(line);
+    const slots = held.get(line.teamLeaderId) ?? [];
+    if (next > limit || periodAlreadyTaken(slots, slot)) {
+      dropped.push({
+        ...line,
+        teamLeaderId: null,
+        reason: periodAlreadyTaken(slots, slot) ? periodFullReason(slot) : noSeatReason(leaders),
+      });
       continue;
     }
     used.set(line.teamLeaderId, next);
+    slots.push(slot);
+    held.set(line.teamLeaderId, slots);
     kept.push(line);
   }
   const seen = new Set(kept.filter((line) => line.teamLeaderId).map((line) => line.inquiryId));
   for (const line of dropped) {
     if (seen.has(line.inquiryId)) continue;
     seen.add(line.inquiryId);
-    kept.push({
-      ...line,
-      teamLeaderId: null,
-      reason: noSeatReason(leaders),
-    });
+    kept.push(line);
   }
   return kept;
 }
@@ -555,7 +606,12 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
     };
   }
   if (openJobs.length === 0) {
-    const lines = clampDailyCap(fillOpenJobs([], day.jobs, day.leaders, day.settings.twoRoomMaxPyeong), day.jobs, day.leaders);
+    const lines = clampDailyCap(
+      fillOpenJobs([], day.jobs, day.leaders, day.settings.twoRoomMaxPyeong),
+      day.jobs,
+      day.leaders,
+      day.manualJobs,
+    );
     const run = await saveRun(db, tenantId, actorId, workDate, lines, '집 주소가 있는 팀장이 없어 넣지 못했습니다.', null);
     return { aiConfigured: true as const, run };
   }
@@ -573,6 +629,7 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
     ),
     day.jobs,
     day.leaders,
+    day.manualJobs,
   );
   let lessons: string[] = [];
   try {
@@ -595,7 +652,7 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
     twoRoomMax: day.settings.twoRoomMaxPyeong,
     lessons,
   });
-  const lines = clampDailyCap(reviewed.lines, day.jobs, day.leaders);
+  const lines = clampDailyCap(reviewed.lines, day.jobs, day.leaders, day.manualJobs);
   const learned = lessons.length > 0 ? '지난 배정과 관리자 수정을 반영했습니다. ' : '';
   const summary = reviewed.reviewed
     ? reviewed.changed > 0

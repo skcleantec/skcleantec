@@ -42,6 +42,16 @@ export function matchSitePairs<T extends SiteStop>(ams: T[], pms: T[]): Array<{ 
   return exactSitePairs(ams, pms, edgeKm);
 }
 
+/** 오전은 한 번, 오후는 한 번. 종일은 오전·오후를 둘 다 씁니다. */
+export function periodAlreadyTaken(existingSlots: readonly string[], slot: string): boolean {
+  const morning = existingSlots.some((item) => item === 'AM' || item === 'ALL_DAY');
+  const afternoon = existingSlots.some((item) => item === 'PM' || item === 'ALL_DAY');
+  if (slot === 'AM') return morning;
+  if (slot === 'PM') return afternoon;
+  if (slot === 'ALL_DAY') return morning || afternoon;
+  return false;
+}
+
 function greedySitePairs<T extends SiteStop>(
   ams: T[],
   pms: T[],
