@@ -8,6 +8,7 @@ import {
   TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_META,
 } from '../../lib/telecrmConsultationQuote.js';
 import { isOrderFormSectionToggleKey, isOrderFormSectionToggleOn } from '../../lib/orderFormSectionToggles.js';
+import { parseTimeSlotOptionEntries, timeDetailOptionsByLabel } from '../../lib/orderFormTimeSlotLabels.js';
 import { isOrderFormQuoteAlwaysOnFieldKey } from './systemFields.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -35,6 +36,10 @@ export interface PublicSystemField {
   sortOrder: number;
   /** 선택지(건축물유형·신축구축 등 — 표준 컨트롤 옵션을 빌더에서 편집 가능) */
   options: string[];
+  /** preferredTime 전용. 키는 시간대 하위 항목 문구, 값은 구체적 시각. */
+  timeDetailOptions?: Record<string, string[]>;
+  /** 입력 칸 「도움말」. 손님 질문 아래에 그대로 표시. */
+  helpText?: string | null;
 }
 
 export interface PublicOrderTemplate {
@@ -117,13 +122,24 @@ export async function getPublicTemplateForForm(
     }));
   const systemFields: PublicSystemField[] = t.fields
     .filter((f) => !!f.systemField)
-    .map((f) => ({
-      systemField: f.systemField as string,
-      label: f.label,
-      required: f.required,
-      sortOrder: f.sortOrder,
-      options: Array.isArray(f.options) ? (f.options as unknown[]).map((o) => String(o)) : [],
-    }));
+    .map((f) => {
+      const isTime = f.systemField === 'preferredTime';
+      const timeEntries = isTime ? parseTimeSlotOptionEntries(f.options) : null;
+      const timeDetailOptions = isTime ? timeDetailOptionsByLabel(f.options) : undefined;
+      return {
+        systemField: f.systemField as string,
+        label: f.label,
+        required: f.required,
+        sortOrder: f.sortOrder,
+        options: timeEntries
+          ? timeEntries.map((entry) => entry.label)
+          : Array.isArray(f.options)
+            ? (f.options as unknown[]).map((o) => String(o))
+            : [],
+        ...(timeDetailOptions && Object.keys(timeDetailOptions).length > 0 ? { timeDetailOptions } : {}),
+        ...(f.helpText?.trim() ? { helpText: f.helpText.trim() } : {}),
+      };
+    });
   return {
     id: t.id,
     title: t.title,

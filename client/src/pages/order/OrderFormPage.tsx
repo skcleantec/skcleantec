@@ -36,6 +36,7 @@ import {
 import {
   allowedPreferredTimeDetailValues,
   coercePreferredTimeDetailForSlot,
+  configuredTimeDetailsForOrder,
   getPreferredTimeDetailSelectOptions,
   preferredTimeDetailRangeHint,
 } from '../../constants/orderFormPreferredTimeDetail';
@@ -1050,11 +1051,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     const locked = Boolean(order?.preferredTimeDetail?.trim());
     if (!order || locked) return;
     const slot = form.preferredTime;
+    const configured = configuredTimeDetailsForOrder(order, slot);
     if (!slot || !isValidOrderTimeSlot(slot)) {
-      if (form.preferredTimeDetail) setForm((f) => ({ ...f, preferredTimeDetail: '' }));
+      if (!configured?.length && form.preferredTimeDetail) {
+        setForm((f) => ({ ...f, preferredTimeDetail: '' }));
+      }
       return;
     }
-    const next = coercePreferredTimeDetailForSlot(form.preferredTimeDetail, slot);
+    const next = coercePreferredTimeDetailForSlot(form.preferredTimeDetail, slot, configured);
     if (next !== form.preferredTimeDetail) {
       setForm((f) => ({ ...f, preferredTimeDetail: next }));
     }
@@ -1255,6 +1259,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         form.preferredTimeDetail.trim() &&
         isValidOrderTimeSlot(useTime) &&
         (() => {
+          const configured = configuredTimeDetailsForOrder(order, useTime);
+          if (configured && configured.length > 0) {
+            return !configured.includes(form.preferredTimeDetail.trim());
+          }
           const detailSlot = resolvePreferredTimeSlotForDetail(useTime);
           return (
             detailSlot != null &&
@@ -1725,7 +1733,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const timeDetailSelectOptions = getPreferredTimeDetailSelectOptions(
     form.preferredTime,
     timeSlotLabels,
+    configuredTimeDetailsForOrder(order, form.preferredTime),
   );
+  const preferredTimeHelp =
+    order?.template?.systemFields?.find((field) => field.systemField === 'preferredTime')?.helpText?.trim() || '';
+  const preferredTimeDetailHelp =
+    order?.template?.systemFields?.find((field) => field.systemField === 'preferredTimeDetail')?.helpText?.trim() ||
+    '';
 
   // 마케터 선입력 잠금 — 값이 있는 키는 고객 화면에서 읽기전용. 편집(마케터) 모드는 항상 편집 가능.
   const prefillMap = order?.prefillAnswers ?? null;
@@ -3020,6 +3034,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               </select>
             )}
             <p className="text-xs text-gray-500 mt-1">* 청소 중 이사 들어오는 스케줄, 서비스 불가</p>
+            {preferredTimeHelp ? (
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">{preferredTimeHelp}</p>
+            ) : null}
             {!isEditor && !timeLockedByAdmin && timeSlotConsent?.at ? (
               <OrderFormConsentStamp
                 kind="timeSlot"
@@ -3046,6 +3063,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 : ' (선택)'}
               {whoBadge('preferredTimeDetail')}
             </label>
+            {preferredTimeDetailHelp ? (
+              <p className="mb-1 text-xs leading-relaxed text-gray-500">{preferredTimeDetailHelp}</p>
+            ) : null}
             {detailLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
                 {order!.preferredTimeDetail}{' '}

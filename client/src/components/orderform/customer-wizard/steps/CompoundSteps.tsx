@@ -13,6 +13,7 @@ import {
   listProfRootNodes,
 } from '../../../../constants/professionalSpecialtyOptions';
 import { ORDER_FORM_AC_UNITS_FIELD_KEY } from '@shared/orderFormAcUnits';
+import { configuredTimeDetailsForOrder } from '../../../../constants/orderFormPreferredTimeDetail';
 import {
   orderFormChoiceIsMulti,
   orderFormChoiceUsesOptionList,
@@ -356,7 +357,10 @@ export function ReviewStep({
           label="구체적 시각"
           value={form.preferredTimeDetail.trim() || '선택 안 함'}
           onEdit={jump(
-            form.preferredTime && form.preferredTime !== '조율' ? 'timeDetail' : 'time',
+            (configuredTimeDetailsForOrder(order, form.preferredTime)?.length ?? 0) > 0 ||
+            (form.preferredTime && form.preferredTime !== '조율')
+              ? 'timeDetail'
+              : 'time',
           )}
         />
         <ReviewRow

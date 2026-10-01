@@ -509,7 +509,7 @@ export function AdminOrderFormCustomerPreviewPage() {
             <OrderFormSettingsSection
               id="fields"
               title="입력 칸"
-              hint="시간대 하위 항목·손님 칸"
+              hint="시간대 하위 항목·구체적 시각·손님 칸"
               open={openMap.fields}
               onOpenChange={(open) => setSectionOpen('fields', open)}
               badge={<OrderFormSettingsThisFormBadge />}

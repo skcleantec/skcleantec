@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { applyOneRoomToSpecialNotes } from '../../../../utils/orderFormOneRoom';
-import { getPreferredTimeDetailSelectOptions } from '../../../../constants/orderFormPreferredTimeDetail';
+import {
+  configuredTimeDetailsForOrder,
+  getPreferredTimeDetailSelectOptions,
+} from '../../../../constants/orderFormPreferredTimeDetail';
 import { isOrderTimeSlotValue, resolvePreferredTimeSlotForDetail } from '@shared/orderFormTimeSlotLabels';
 import { YmdSelect } from '../../../ui/DateQuerySelects';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
@@ -130,9 +133,10 @@ export function TimeStep({
   );
 }
 
-export function TimeDetailStep({ form, setForm, lockKey, step, goNext }: CustomerStepBodyProps) {
-  const options = getPreferredTimeDetailSelectOptions(form.preferredTime);
-  const slot = resolvePreferredTimeSlotForDetail(form.preferredTime);
+export function TimeDetailStep({ form, setForm, lockKey, step, goNext, order, timeSlotLabels }: CustomerStepBodyProps) {
+  const configured = configuredTimeDetailsForOrder(order, form.preferredTime);
+  const options = getPreferredTimeDetailSelectOptions(form.preferredTime, timeSlotLabels, configured);
+  const slot = resolvePreferredTimeSlotForDetail(form.preferredTime, timeSlotLabels);
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       {options.length === 0 ? (

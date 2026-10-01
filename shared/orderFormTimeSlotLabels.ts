@@ -74,18 +74,89 @@ export function buildOrderTimeSlotOptions(labels?: OrderTimeSlotLabelsJson | Ord
   }));
 }
 
-/** 발주서 칸에 적힌 시간대 하위 항목 — 빈칸·중복 제거 */
-export function sanitizeTimeSlotOptionList(raw: unknown): string[] {
+export type TimeSlotOptionEntry = { label: string; details: string[] };
+
+const TIME_DETAIL_MAX = 24;
+const TIME_DETAIL_LABEL_MAX = 80;
+
+/** 시간대 하위 항목. 문자열 또는 `{ label, details }` (구체적 시각). */
+export function parseTimeSlotOptionEntries(raw: unknown): TimeSlotOptionEntry[] {
   if (!Array.isArray(raw)) return [];
-  const out: string[] = [];
+  const out: TimeSlotOptionEntry[] = [];
   const seen = new Set<string>();
   for (const item of raw) {
-    const s = String(item ?? '').trim();
-    if (!s || seen.has(s)) continue;
-    seen.add(s);
-    out.push(s);
+    let label = '';
+    let details: string[] = [];
+    if (typeof item === 'string') {
+      label = item.trim();
+    } else if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const row = item as { label?: unknown; details?: unknown };
+      label = String(row.label ?? '').trim();
+      if (Array.isArray(row.details)) {
+        const detailSeen = new Set<string>();
+        for (const detail of row.details) {
+          const text = String(detail ?? '').trim().slice(0, TIME_DETAIL_LABEL_MAX);
+          if (!text || detailSeen.has(text)) continue;
+          detailSeen.add(text);
+          details.push(text);
+          if (details.length >= TIME_DETAIL_MAX) break;
+        }
+      }
+    }
+    if (!label || label.length > 128 || seen.has(label)) continue;
+    seen.add(label);
+    out.push({ label, details });
   }
   return out;
+}
+
+/** 구체적 시각을 적어 둔 시간대만. 키는 하위 항목 문구. */
+export function timeDetailOptionsByLabel(raw: unknown): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  for (const entry of parseTimeSlotOptionEntries(raw)) {
+    if (entry.details.length > 0) map[entry.label] = entry.details;
+  }
+  return map;
+}
+
+export function serializeTimeSlotOptionsForSave(
+  labels: string[],
+  detailsByIndex: string[][],
+): unknown[] {
+  const out: unknown[] = [];
+  labels.forEach((label, index) => {
+    const text = label.trim();
+    if (!text) return;
+    const details = (detailsByIndex[index] ?? [])
+      .map((detail) => detail.trim().slice(0, TIME_DETAIL_LABEL_MAX))
+      .filter(Boolean)
+      .slice(0, TIME_DETAIL_MAX);
+    out.push(details.length > 0 ? { label: text, details } : text);
+  });
+  return out;
+}
+
+/** 고른 시간대의 구체적 시각. 없으면 null (기본 시각 목록을 씀). */
+export function configuredDetailsForSelectedSlot(
+  detailMap: Record<string, string[]> | null | undefined,
+  selected: string,
+  slotOptions: { value: string; label: string }[],
+): string[] | null {
+  if (!detailMap) return null;
+  const picked = selected.trim();
+  if (!picked) return null;
+  const hit = slotOptions.find((option) => option.value === picked || option.label === picked);
+  const keys = hit ? [hit.label, hit.value, picked] : [picked];
+  for (const key of keys) {
+    const list = detailMap[key];
+    if (list && list.length > 0) return list;
+  }
+  return null;
+}
+
+/** 발주서 칸에 적힌 시간대 하위 항목 — 빈칸·중복 제거 */
+export function sanitizeTimeSlotOptionList(raw: unknown): string[] {
+  return parseTimeSlotOptionEntries(raw).map((entry) => entry.label);
 }
 
 export function preferredTimeOptionsFromTemplateFields(

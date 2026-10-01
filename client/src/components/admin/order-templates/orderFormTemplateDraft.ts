@@ -13,6 +13,10 @@ import {
   type OrderFormIndustryPack,
   type OrderFormIndustryPackCustomField,
 } from '@shared/orderFormIndustryPacks';
+import {
+  parseTimeSlotOptionEntries,
+  serializeTimeSlotOptionsForSave,
+} from '@shared/orderFormTimeSlotLabels';
 
 export type DraftField = Omit<
   OrderFormTemplateField,
@@ -20,6 +24,8 @@ export type DraftField = Omit<
 > & {
   id?: string;
   options: string[];
+  /** preferredTime 전용. 각 하위 항목의 구체적 시각. 비어 있으면 기본 시각. */
+  timeDetails?: string[][];
   placeholder: string | null;
   optionStyle: OrderFormFieldOptionStyle | null;
   optionLayout: OrderFormFieldOptionLayout | null;
@@ -129,7 +135,12 @@ export const ICON_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 export function fieldToDraft(f: OrderFormTemplateField): DraftField {
-  const opts = Array.isArray(f.options) ? (f.options as unknown[]).map((o) => String(o)) : [];
+  const timeEntries = f.systemField === 'preferredTime' ? parseTimeSlotOptionEntries(f.options) : null;
+  const opts = timeEntries
+    ? timeEntries.map((entry) => entry.label)
+    : Array.isArray(f.options)
+      ? (f.options as unknown[]).map((o) => String(o))
+      : [];
   return {
     id: f.id,
     fieldKey: f.fieldKey,
@@ -142,6 +153,7 @@ export function fieldToDraft(f: OrderFormTemplateField): DraftField {
     fillMode: f.fillMode,
     showInInquiryList: Boolean(f.showInInquiryList),
     options: opts,
+    timeDetails: timeEntries ? timeEntries.map((entry) => entry.details) : [],
     placeholder: f.placeholder ?? null,
     optionStyle: f.optionStyle ?? null,
     optionLayout: f.optionLayout ?? null,
@@ -154,11 +166,14 @@ export function draftsToPayload(drafts: DraftField[]): Array<Omit<OrderFormTempl
     label: d.label,
     helpText: d.helpText && d.helpText.trim() ? d.helpText.trim() : null,
     inputType: d.inputType,
-    options: isOrderFormSectionToggleKey(d.systemField)
-      ? d.options.map((s) => s.trim()).filter(Boolean)
-      : OPTION_INPUT_TYPES.has(d.inputType)
-        ? d.options.map((s) => s.trim()).filter(Boolean)
-        : [],
+    options:
+      d.systemField === 'preferredTime'
+        ? serializeTimeSlotOptionsForSave(d.options, d.timeDetails ?? [])
+        : isOrderFormSectionToggleKey(d.systemField)
+          ? d.options.map((s) => s.trim()).filter(Boolean)
+          : OPTION_INPUT_TYPES.has(d.inputType)
+            ? d.options.map((s) => s.trim()).filter(Boolean)
+            : [],
     placeholder:
       d.inputType === 'TEXTAREA' || d.inputType === 'TEXT'
         ? d.placeholder && d.placeholder.trim()

@@ -1,6 +1,12 @@
 /** 고객 발주서 `preferredTimeDetail` — 시간대별 허용 시각 (클라이언트 `orderFormPreferredTimeDetail.ts` 와 동일 규칙) */
 
-import { resolvePreferredTimeSlotForDetail } from '../../lib/orderFormTimeSlotLabels.js';
+import {
+  buildTimeSlotOptionsForForm,
+  configuredDetailsForSelectedSlot,
+  resolvePreferredTimeSlotForDetail,
+  type OrderTimeSlotLabels,
+  type OrderTimeSlotLabelsJson,
+} from '../../lib/orderFormTimeSlotLabels.js';
 
 /** 오후 구체적 시각 단일 허용값 — ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE 와 문자열 동일 */
 const AFTERNOON_NEGOTIABLE_DETAIL = '12시~2시 사이 (협의)';
@@ -29,8 +35,33 @@ function allowedValuesForSlot(slot: string): Set<string> | null {
   return null;
 }
 
+type TimeDetailTemplate = {
+  systemFields?: Array<{
+    systemField: string;
+    options?: string[] | null;
+    timeDetailOptions?: Record<string, string[]> | null;
+  }>;
+} | null | undefined;
+
+/** 양식에 적어 둔 구체적 시각. 없으면 null. */
+export function configuredDetailsFromPublicTemplate(
+  template: TimeDetailTemplate,
+  preferredTime: string,
+  labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
+): string[] | null {
+  const field = template?.systemFields?.find((item) => item.systemField === 'preferredTime');
+  const options = buildTimeSlotOptionsForForm(field?.options, labels);
+  return configuredDetailsForSelectedSlot(field?.timeDetailOptions, preferredTime, options);
+}
+
 /** 고객이 수정 가능한 경우에만 검증 — 값이 있으면 허용 목록에 있어야 함 */
-export function isAllowedPreferredTimeDetail(preferredTime: string, detail: string): boolean {
+export function isAllowedPreferredTimeDetail(
+  preferredTime: string,
+  detail: string,
+  configured?: string[] | null,
+): boolean {
+  const typed = detail.trim();
+  if (configured && configured.length > 0) return configured.includes(typed);
   const slot = resolvePreferredTimeSlotForDetail(preferredTime) ?? preferredTime.trim();
   const allowed = allowedValuesForSlot(slot);
   if (!allowed) return true;
