@@ -90,32 +90,37 @@ export function sanitizeTimeSlotOptionList(raw: unknown): string[] {
 
 export function preferredTimeOptionsFromTemplateFields(
   systemFields?: Array<{ systemField?: string | null; options?: unknown }> | null,
-  labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
+  _labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ): string[] {
   const field = systemFields?.find((x) => x.systemField === 'preferredTime');
-  return sanitizeTimeSlotOptionList(field?.options).map((v) =>
-    canonicalizeTimeSlotOptionValue(v, labels),
-  );
+  return sanitizeTimeSlotOptionList(field?.options);
 }
 
 /**
  * 손님·발급 시간대 선택지.
- * 양식에 하위 항목이 있으면 그것만. 없으면 기본 4칸.
- * 저장값이 오전·오후·사이청소·조율이면 업체 표시 문구를 붙인다.
+ * 양식 하위 항목이 있으면 버튼 글자는 그 문구 그대로.
+ * 저장값은 오전·오후·사이청소·조율로 맞추고, 항목이 없으면 기본 4칸 표시 문구를 쓴다.
  */
 export function buildTimeSlotOptionsForForm(
   templateOptions?: string[] | null,
   tenantLabels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ): { value: string; label: string }[] {
-  const custom = sanitizeTimeSlotOptionList(templateOptions).map((v) =>
-    canonicalizeTimeSlotOptionValue(v, tenantLabels),
-  );
-  const values = custom.length > 0 ? custom : [...ORDER_TIME_SLOT_VALUES];
+  const raw = sanitizeTimeSlotOptionList(templateOptions);
   const resolved = resolveOrderTimeSlotLabels(tenantLabels);
-  return values.map((value) => ({
-    value,
-    label: isOrderTimeSlotValue(value) ? resolved[value] : value,
-  }));
+  if (raw.length === 0) {
+    return ORDER_TIME_SLOT_VALUES.map((value) => ({
+      value,
+      label: resolved[value],
+    }));
+  }
+  const used = new Set<string>();
+  return raw.map((text) => {
+    const canonical = resolvePreferredTimeSlotForDetail(text, tenantLabels);
+    let value = canonical ?? text;
+    if (used.has(value)) value = text;
+    used.add(value);
+    return { value, label: text };
+  });
 }
 
 /** 이 발주서에서 고를 수 있는 시간대인지 */

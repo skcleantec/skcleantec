@@ -2219,7 +2219,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                       <p className="mt-1 text-fluid-xs text-gray-500">
                         선택 예정:{' '}
                         <span className="font-medium text-gray-800">
-                          {labelForTimeSlot(pendingTimeSlot, timeSlotLabels)}
+                          {timeSlotOptions.find((o) => o.value === pendingTimeSlot)?.label ??
+                            labelForTimeSlot(pendingTimeSlot, timeSlotLabels)}
                         </span>
                       </p>
                     </div>
