@@ -80,7 +80,7 @@ import {
   scheduleLeaderAdjustButtonClass,
   scheduleMapButtonClass,
 } from '../../components/schedule/scheduleUiParts';
-import { adminScheduleMapIconUrl } from '../../utils/scheduleMapIcon';
+import { LineMdIcon } from '../../components/ui/LineMdIcon';
 import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
@@ -101,6 +101,7 @@ import { useHasTenantFeature, useTenantCapabilities } from '../../hooks/useTenan
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ScheduleHelpModal } from '../../components/admin/schedule-help/ScheduleHelpModal';
 import { ScheduleHelpTrigger } from '../../components/admin/schedule-help/ScheduleHelpTrigger';
+import { AiDispatchLaunchButton } from '../../components/admin/ai-dispatch/AiDispatchLaunchButton';
 import { ScheduleLegendItems } from '../../components/admin/schedule-help/ScheduleLegendItems';
 import {
   SCHEDULE_MARKETPLACE_SECTION_HELP,
@@ -885,6 +886,7 @@ export function AdminSchedulePage() {
   >([]);
   const [partnerTenants, setPartnerTenants] = useState<Array<{ id: string; name: string }>>([]);
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
+  const aiDispatchOn = useHasTenantFeature('mod_ai_dispatch');
   const hasExternalCo = useHasTenantFeature('mod_external_co');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const {
@@ -1719,6 +1721,14 @@ export function AdminSchedulePage() {
     calendarSwipeSuppressClickRef.current = true;
   };
 
+  const openAiDispatch = () => {
+    navigate(
+      `/admin/schedule/ai-dispatch?date=${
+        selectedDate ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)
+      }`,
+    );
+  };
+
   const getDateKey = (d: number) => {
     const m = month < 10 ? `0${month}` : `${month}`;
     const day = d < 10 ? `0${d}` : `${d}`;
@@ -1758,9 +1768,20 @@ export function AdminSchedulePage() {
           </div>
             <InquiryQuickPasteTriggerButton
               size="compact"
-              className="hidden lg:inline-flex shrink-0"
+              className="hidden lg:inline-flex shrink-0 lg:min-w-[9rem]"
               onClick={() => setQuickPasteOpen(true)}
             />
+            {aiDispatchOn ? (
+              <AiDispatchLaunchButton
+                size="compact"
+                mark
+                tone="dark"
+                className="hidden lg:inline-flex lg:min-w-[9rem]"
+                onClick={openAiDispatch}
+              >
+                팀장배정
+              </AiDispatchLaunchButton>
+            ) : null}
           <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg shrink-0">
             <button
               type="button"
@@ -1992,6 +2013,11 @@ export function AdminSchedulePage() {
                 size="row"
                 onClick={() => setQuickPasteOpen(true)}
               />
+            {aiDispatchOn ? (
+              <AiDispatchLaunchButton size="row" mark tone="dark" onClick={openAiDispatch}>
+                팀장배정
+              </AiDispatchLaunchButton>
+            ) : null}
             <button
               type="button"
               onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}
@@ -2490,13 +2516,7 @@ export function AdminSchedulePage() {
                       title="접수건 위치 검색"
                       aria-label="접수건 위치 검색"
                     >
-                      <img
-                        src={adminScheduleMapIconUrl}
-                        alt=""
-                        className="size-[clamp(1.25rem,3.8vmin,1.75rem)] sm:h-7 sm:w-7 object-contain pointer-events-none select-none"
-                        loading="lazy"
-                        decoding="async"
-                      />
+                      <LineMdIcon name="map-marker" className="size-5 pointer-events-none sm:size-6" />
                     </ScheduleToolbarButton>
                   )}
                   <button

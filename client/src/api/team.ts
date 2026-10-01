@@ -73,6 +73,9 @@ export interface TeamViewerMe {
   features?: string[];
   profileCompletedAt?: string | null;
   profileOnboardingRequired?: boolean;
+  homeAddress?: string | null;
+  homeAddressDetail?: string | null;
+  homeAddressRequired?: boolean;
 }
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {
@@ -464,7 +467,7 @@ export type TeamNaviDestination = {
   tmapAppRoutesUrl?: string | null;
 };
 
-/** 담당 접수 현장 좌표 — TMAP 길안내 */
+/** 담당 접수 현장 좌표 — 길안내(카카오내비·TMAP) */
 export async function postTeamInquiryNaviDestination(
   token: string,
   inquiryId: string,

@@ -160,6 +160,8 @@ export async function updateMyProfile(
     vehicleNumber?: string | null;
     password?: string;
     nameEn?: string | null;
+    homeAddress?: string | null;
+    homeAddressDetail?: string | null;
   },
 ) {
   let res: Response;
@@ -205,6 +207,8 @@ export type CompleteProfilePayload = {
   phone: string;
   vehicleNumber?: string;
   nameEn?: string;
+  homeAddress?: string;
+  homeAddressDetail?: string;
   companyName?: string;
   companyPhone?: string;
   bizNumber?: string;
@@ -218,6 +222,8 @@ export async function completeMyProfile(token: string, body: CompleteProfilePayl
   fd.append('phone', body.phone.trim());
   if (body.vehicleNumber !== undefined) fd.append('vehicleNumber', body.vehicleNumber.trim());
   if (body.nameEn !== undefined) fd.append('nameEn', body.nameEn.trim());
+  if (body.homeAddress !== undefined) fd.append('homeAddress', body.homeAddress.trim());
+  if (body.homeAddressDetail !== undefined) fd.append('homeAddressDetail', body.homeAddressDetail.trim());
   if (body.companyName !== undefined) fd.append('companyName', body.companyName.trim());
   if (body.companyPhone !== undefined) fd.append('companyPhone', body.companyPhone.trim());
   if (body.bizNumber !== undefined) fd.append('bizNumber', body.bizNumber.trim());

@@ -291,12 +291,17 @@ export function ScheduleDayMapModal({
   dateLabel,
   items,
   token,
+  linkSameLeader = false,
+  note,
 }: {
   open: boolean;
   onClose: () => void;
   dateLabel: string;
   items: ScheduleItem[];
   token: string;
+  /** 같은 팀장의 오전·오후 마커를 선으로 잇는다. */
+  linkSameLeader?: boolean;
+  note?: string;
 }) {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -494,6 +499,26 @@ export function ScheduleDayMapModal({
       m.addTo(group);
     }
 
+    if (linkSameLeader) {
+      const rank: Record<Placed['slotKind'], number> = { morning: 0, between: 1, afternoon: 2, other: 3 };
+      const byLeader = new Map<string, Placed[]>();
+      for (const pin of placed) {
+        if (!pin.teamLeaderId) continue;
+        const list = byLeader.get(pin.teamLeaderId) ?? [];
+        list.push(pin);
+        byLeader.set(pin.teamLeaderId, list);
+      }
+      for (const [leaderId, pins] of byLeader) {
+        if (pins.length < 2) continue;
+        const ordered = [...pins].sort((a, b) => rank[a.slotKind] - rank[b.slotKind]);
+        const stroke = leaderLabelStyle(leaderId).border;
+        L.polyline(
+          ordered.map((pin) => [pin.lat, pin.lng] as [number, number]),
+          { color: stroke, weight: 3, opacity: 0.85 },
+        ).addTo(group);
+      }
+    }
+
     if (placed.length === 0) {
       map.setView([37.5665, 126.978], 11);
     } else if (placed.length === 1) {
@@ -520,7 +545,7 @@ export function ScheduleDayMapModal({
       map.remove();
       if (mapRef.current === map) mapRef.current = null;
     };
-  }, [open, phase, placed]);
+  }, [open, phase, placed, linkSameLeader]);
 
   if (!open) return null;
 
@@ -570,6 +595,7 @@ export function ScheduleDayMapModal({
           <h2 id="schedule-day-map-title" className="text-lg font-semibold text-gray-900 sm:text-xl">
             접수건 위치 ({dateLabel})
           </h2>
+          {note ? <p className="mt-1 text-fluid-xs text-slate-600">{note}</p> : null}
           {(skippedNoAddress > 0 || skippedCap > 0 || geocodeMissCount > 0 || phase === 'ready') && (
             <div className="mt-2 space-y-1.5">
               {(skippedNoAddress > 0 || skippedCap > 0 || geocodeMissCount > 0) && (

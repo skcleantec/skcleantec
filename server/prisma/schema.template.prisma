@@ -266,6 +266,10 @@ model Tenant {
   payrollAccountLedgerManualEntries PayrollAccountLedgerManualEntry[]
   teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[]
   teamLeaderHouseholdWageSettings TeamLeaderHouseholdWageSetting[]
+  teamLeaderDispatchProfiles TeamLeaderDispatchProfile[]
+  aiDispatchSettings TenantAiDispatchSettings?
+  aiDispatchRuns AiDispatchRun[]
+  aiDispatchLessons AiDispatchLesson[]
   userCustomCalendars UserCustomCalendar[]
   userCustomCalendarInquiryPins UserCustomCalendarInquiryPin[]
   serviceZones ServiceZone[]
@@ -1517,6 +1521,15 @@ model User {
   marketerPermissions Json? @map("marketer_permissions")
   /// 팀장·마케터·타업체 — 최초 로그인 본인 정보 입력 완료 시각. null이면 업무 화면 차단.
   profileCompletedAt DateTime? @map("profile_completed_at")
+  /// 팀장 집 주소 — 좌표가 있어야 팀장 앱을 연다. 동선은 집→현장→집.
+  homeAddress       String? @map("home_address") @db.VarChar(512)
+  homeAddressDetail String? @map("home_address_detail") @db.VarChar(256)
+  homeGeoLat        Float?  @map("home_geo_lat")
+  homeGeoLng        Float?  @map("home_geo_lng")
+  homeGeoQuery      String? @map("home_geo_query") @db.VarChar(512)
+
+  dispatchProfile TeamLeaderDispatchProfile?
+  aiDispatchProposals AiDispatchProposal[]
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
   inquiryCrewLeaderAssignmentsLed InquiryCrewLeaderAssignment[] @relation("InquiryCrewLeaderAssignmentLeader")
@@ -1617,6 +1630,110 @@ model User {
   @@index([tenantId, role, isActive])
   @@index([platformSupportAccessId])
   @@map("users")
+}
+
+/// 팀장 AI 배정 성향 — 없으면 하루 2건·크기 제한 없음
+model TeamLeaderDispatchProfile {
+  userId     String               @id @map("user_id")
+  tenantId   String               @map("tenant_id")
+  jobsPerDay Int                  @default(2) @map("jobs_per_day")
+  sizePolicy TeamLeaderSizePolicy @default(UNRESTRICTED) @map("size_policy")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("team_leader_dispatch_profiles")
+}
+
+/// 업체 AI 미리 배정 규칙. 평수 이상이면 팀장 인원, 투룸으로 볼 평수 상한.
+model TenantAiDispatchSettings {
+  tenantId             String   @id @map("tenant_id")
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  extraLeaderMinPyeong Int      @default(40) @map("extra_leader_min_pyeong")
+  extraLeaderCount     Int      @default(2) @map("extra_leader_count")
+  twoRoomMaxPyeong     Int      @default(15) @map("two_room_max_pyeong")
+  /// 켜면 팀원 없이 간 건에 피로 점수를 더한다. 팀원을 안 쓰는 업체는 끈다.
+  includeCrewInFatigue Boolean  @default(false) @map("include_crew_in_fatigue")
+  /// 이 근무일수면 피로의 보통이다. 기본 주 6일.
+  normalWorkDaysPerWeek Int     @default(6) @map("normal_work_days_per_week")
+  /// 이 건수면 피로의 보통이다. 기본 주 12건.
+  normalJobsPerWeek    Int      @default(12) @map("normal_jobs_per_week")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_ai_dispatch_settings")
+}
+
+enum AiDispatchRunStatus {
+  DRAFT
+  APPROVED
+  SUPERSEDED
+}
+
+enum AiDispatchProposalStatus {
+  DRAFT
+  APPROVED
+  SKIPPED
+  STALE
+}
+
+/// 관리자가 날짜를 고르고 버튼을 눌렀을 때만 생기는 AI 초안. 승인 전에는 배정이 아니다.
+model AiDispatchRun {
+  id                String             @id @default(uuid())
+  tenantId          String             @map("tenant_id")
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workDate          DateTime           @map("work_date") @db.Date
+  status            AiDispatchRunStatus @default(DRAFT)
+  createdById       String             @map("created_by_id")
+  summary           String?            @db.Text
+  model             String?            @db.VarChar(64)
+  promptTokens      Int                @default(0) @map("prompt_tokens")
+  completionTokens  Int                @default(0) @map("completion_tokens")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  proposals         AiDispatchProposal[]
+
+  @@index([tenantId, workDate])
+  @@map("ai_dispatch_runs")
+}
+
+model AiDispatchProposal {
+  id               String                   @id @default(uuid())
+  tenantId         String                   @map("tenant_id")
+  runId            String                   @map("run_id")
+  run              AiDispatchRun            @relation(fields: [runId], references: [id], onDelete: Cascade)
+  inquiryId        String                   @map("inquiry_id")
+  inquiry          Inquiry                  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  teamLeaderId     String?                  @map("team_leader_id")
+  teamLeader       User?                    @relation(fields: [teamLeaderId], references: [id], onDelete: SetNull)
+  /// 초안을 만들 때 AI가 넣은 팀장. 관리자가 바꾸면 이 값과 비교해 학습한다.
+  aiTeamLeaderId   String?                  @map("ai_team_leader_id")
+  /// AM | PM | ALL_DAY | HUMAN
+  slot             String                   @db.VarChar(16)
+  reason           String                   @db.Text
+  status           AiDispatchProposalStatus @default(DRAFT)
+  inquiryUpdatedAt DateTime                 @map("inquiry_updated_at")
+  sortOrder        Int                      @default(0) @map("sort_order")
+
+  @@index([tenantId, runId])
+  @@index([tenantId, inquiryId])
+  @@map("ai_dispatch_proposals")
+}
+
+/// 배정 학습. 고객 이름·전화는 넣지 않는다. CORRECTION=관리자 수정, HISTORY=지난 배정 요약.
+model AiDispatchLesson {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind        String   @db.VarChar(16)
+  fingerprint String   @db.VarChar(80)
+  text        String   @db.VarChar(300)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, fingerprint])
+  @@index([tenantId, kind, updatedAt])
+  @@map("ai_dispatch_lessons")
 }
 
 /// 팀장 급여표 — 귀속 월별 수시 지급 내역(관리자 기록). 고정 급여일 없이 여러 차례 입금 가능.
@@ -2154,6 +2271,13 @@ model UserDayOff {
   @@map("user_day_offs")
 }
 
+enum TeamLeaderSizePolicy {
+  UNRESTRICTED
+  ONE_ROOM_ONLY
+  ONE_AND_TWO
+  EXCLUDE_ONE_AND_TWO
+}
+
 enum UserRole {
   ADMIN
   TEAM_LEADER
@@ -2331,6 +2455,7 @@ model Inquiry {
   quickPasteAiUsageLogs     QuickPasteAiUsageLog[]
   landingContactInquiries   LandingContactInquiry[]
   householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
+  aiDispatchProposals       AiDispatchProposal[]
 
   @@index([createdAt])
   @@index([preferredDate])

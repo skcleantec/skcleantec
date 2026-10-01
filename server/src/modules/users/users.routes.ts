@@ -16,6 +16,13 @@ import {
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
+import { invalidateTeamLeaderHomeGate } from '../team-leaders/teamLeaderHomeAddress.middleware.js';
+import {
+  parseDispatchProfileInput,
+  prepareTeamLeaderHomeData,
+  TeamLeaderHomeError,
+  upsertTeamLeaderDispatchProfile,
+} from '../team-leaders/teamLeaderHome.service.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
@@ -274,6 +281,9 @@ router.get('/', staffMarketerRoleOnly, async (req, res) => {
       teamLeaderGeneralSettlementValue: true,
       teamLeaderAdditionalReceiptCompanyShareBps: true,
       staffIdCardUrl: true,
+      homeAddress: true,
+      homeAddressDetail: true,
+      dispatchProfile: { select: { jobsPerDay: true, sizePolicy: true } },
       externalCompany: { select: { id: true, name: true } },
     },
     orderBy: { name: 'asc' },
@@ -316,6 +326,9 @@ router.get('/', staffMarketerRoleOnly, async (req, res) => {
         teamLeaderGeneralSettlementValue: true,
         teamLeaderAdditionalReceiptCompanyShareBps: true,
         staffIdCardUrl: true,
+        homeAddress: true,
+        homeAddressDetail: true,
+        dispatchProfile: { select: { jobsPerDay: true, sizePolicy: true } },
         externalCompany: { select: { id: true, name: true } },
       },
     });
@@ -364,6 +377,10 @@ router.get('/', staffMarketerRoleOnly, async (req, res) => {
       teamLeaderGeneralSettlementValue: u.teamLeaderGeneralSettlementValue ?? null,
       teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
       staffIdCardUrl: u.staffIdCardUrl ?? null,
+      homeAddress: u.homeAddress ?? null,
+      homeAddressDetail: u.homeAddressDetail ?? null,
+      jobsPerDay: u.dispatchProfile?.jobsPerDay ?? 2,
+      sizePolicy: u.dispatchProfile?.sizePolicy ?? 'UNRESTRICTED',
       operatingCompanies: ocByUser?.get(u.id) ?? undefined,
       serviceZones: szByUser?.get(u.id) ?? undefined,
       ...serializeUserDates(u),
@@ -448,6 +465,10 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
     primaryOperatingCompanyId?: unknown;
     serviceZoneIds?: unknown;
     hireDate?: string | null;
+    homeAddress?: string | null;
+    homeAddressDetail?: string | null;
+    jobsPerDay?: unknown;
+    sizePolicy?: unknown;
   };
   const { email, password, name, phone, role } = body;
   if (!email || !password || !name) {
@@ -626,6 +647,38 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
     }
   }
 
+  let homeCreate: Awaited<ReturnType<typeof prepareTeamLeaderHomeData>> = {};
+  let dispatchCreate: { jobsPerDay?: number; sizePolicy?: import('@prisma/client').TeamLeaderSizePolicy } | null =
+    null;
+  if (userRole === 'TEAM_LEADER') {
+    const parsedDispatch = parseDispatchProfileInput({
+      jobsPerDay: body.jobsPerDay ?? 2,
+      sizePolicy: body.sizePolicy ?? 'UNRESTRICTED',
+    });
+    if (parsedDispatch && 'error' in parsedDispatch) {
+      res.status(400).json({ error: parsedDispatch.error });
+      return;
+    }
+    dispatchCreate = parsedDispatch;
+    const addressRaw = body.homeAddress != null ? String(body.homeAddress) : '';
+    if (addressRaw.trim()) {
+      try {
+        homeCreate = await prepareTeamLeaderHomeData({
+          existing: null,
+          homeAddress: addressRaw,
+          homeAddressDetail: body.homeAddressDetail != null ? String(body.homeAddressDetail) : '',
+          requireReady: false,
+        });
+      } catch (e) {
+        if (e instanceof TeamLeaderHomeError) {
+          res.status(400).json({ error: e.message });
+          return;
+        }
+        throw e;
+      }
+    }
+  }
+
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
       data: {
@@ -675,6 +728,17 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
     }
     if (userRole === 'TEAM_LEADER' && serviceZoneIdsInput !== null) {
       await replaceUserServiceZones(tx, tenantId, created.id, serviceZoneIdsInput);
+    }
+    if (userRole === 'TEAM_LEADER') {
+      if (Object.keys(homeCreate).length > 0) {
+        await tx.user.update({ where: { id: created.id }, data: homeCreate });
+      }
+      await upsertTeamLeaderDispatchProfile(tx, {
+        tenantId,
+        userId: created.id,
+        jobsPerDay: dispatchCreate && !('error' in dispatchCreate) ? dispatchCreate.jobsPerDay : undefined,
+        sizePolicy: dispatchCreate && !('error' in dispatchCreate) ? dispatchCreate.sizePolicy : undefined,
+      });
     }
     return created;
   });
@@ -818,6 +882,10 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     operatingCompanyIds?: unknown;
     primaryOperatingCompanyId?: unknown;
     serviceZoneIds?: unknown;
+    homeAddress?: string | null;
+    homeAddressDetail?: string | null;
+    jobsPerDay?: unknown;
+    sizePolicy?: unknown;
   };
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, authUser);
@@ -900,6 +968,11 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null;
     teamLeaderGeneralSettlementValue?: number | null;
     teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+    homeAddress?: string | null;
+    homeAddressDetail?: string | null;
+    homeGeoLat?: number | null;
+    homeGeoLng?: number | null;
+    homeGeoQuery?: string | null;
   } = {};
 
   if (body.name != null) {
@@ -1142,7 +1215,50 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     staffIdCardUrl: true,
   } as const;
 
-  if (Object.keys(data).length === 0 && !membershipInput && serviceZoneIdsInput === null) {
+  const homeTouched = body.homeAddress !== undefined || body.homeAddressDetail !== undefined;
+  const dispatchParsed =
+    existing.role === 'TEAM_LEADER'
+      ? parseDispatchProfileInput({ jobsPerDay: body.jobsPerDay, sizePolicy: body.sizePolicy })
+      : null;
+  if (dispatchParsed && 'error' in dispatchParsed) {
+    res.status(400).json({ error: dispatchParsed.error });
+    return;
+  }
+  let homePatch: Awaited<ReturnType<typeof prepareTeamLeaderHomeData>> = {};
+  if (existing.role === 'TEAM_LEADER' && homeTouched) {
+    const currentHome = await prisma.user.findFirst({
+      where: { id, tenantId },
+      select: {
+        homeAddress: true,
+        homeAddressDetail: true,
+        homeGeoLat: true,
+        homeGeoLng: true,
+        homeGeoQuery: true,
+      },
+    });
+    try {
+      homePatch = await prepareTeamLeaderHomeData({
+        existing: currentHome,
+        homeAddress: body.homeAddress,
+        homeAddressDetail: body.homeAddressDetail,
+        requireReady: false,
+      });
+    } catch (e) {
+      if (e instanceof TeamLeaderHomeError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+      throw e;
+    }
+    Object.assign(data, homePatch);
+  }
+
+  if (
+    Object.keys(data).length === 0 &&
+    !membershipInput &&
+    serviceZoneIdsInput === null &&
+    !dispatchParsed
+  ) {
     const u = await prisma.user.findUnique({ where: { id }, select: userSelect });
     if (!u) {
       res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
@@ -1174,8 +1290,17 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     if (serviceZoneIdsInput !== null && u.role === 'TEAM_LEADER') {
       await replaceUserServiceZones(tx, tenantId, id, serviceZoneIdsInput);
     }
+    if (u.role === 'TEAM_LEADER' && dispatchParsed && !('error' in dispatchParsed)) {
+      await upsertTeamLeaderDispatchProfile(tx, {
+        tenantId,
+        userId: id,
+        jobsPerDay: dispatchParsed.jobsPerDay,
+        sizePolicy: dispatchParsed.sizePolicy,
+      });
+    }
     return u;
   });
+  if (homeTouched) invalidateTeamLeaderHomeGate(id);
 
   const ocMap =
     userRoleSupportsOperatingMembership(updated.role)

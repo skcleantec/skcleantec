@@ -10,6 +10,7 @@ import inquiryExcelImportRoutes from './modules/inquiry-excel-import/inquiryExce
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import assignmentsRoutes from './modules/assignments/assignments.routes.js';
+import aiDispatchRoutes from './modules/ai-dispatch/aiDispatch.routes.js';
 import scheduleRoutes from './modules/schedule/schedule.routes.js';
 import teamRoutes from './modules/team/team.routes.js';
 import messagesRoutes from './modules/messages/messages.routes.js';
@@ -47,6 +48,7 @@ import adminPayrollRoutes from './modules/admin-payroll/adminPayroll.routes.js';
 import teamLeaderHouseholdLedgerAdminRoutes from './modules/team-leader-household-ledger/teamLeaderHouseholdLedger.admin.routes.js';
 import celebrationFeedRoutes from './modules/realtime/celebrationFeed.routes.js';
 import geocodeRoutes from './modules/geocode/geocode.routes.js';
+import { teamLeaderHomeAddressGate } from './modules/team-leaders/teamLeaderHomeAddress.middleware.js';
 import userCustomCalendarsRoutes from './modules/user-custom-calendars/userCustomCalendars.routes.js';
 import serviceZonesRoutes from './modules/service-zones/serviceZone.routes.js';
 import teamCrewGroupsRoutes from './modules/team-crew-groups/teamCrewGroups.routes.js';
@@ -127,6 +129,7 @@ app.use((_req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '8mb' }));
+app.use(teamLeaderHomeAddressGate);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/platform/auth', platformAuthRoutes);
@@ -158,6 +161,7 @@ app.use('/api/inquiry-excel-import', inquiryExcelImportRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/assignments', assignmentsRoutes);
+app.use('/api/ai-dispatch', aiDispatchRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/messages', messagesRoutes);

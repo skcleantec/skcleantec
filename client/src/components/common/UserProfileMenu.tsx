@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { isAuthSessionExpiredError, updateMyProfile } from '../../api/auth';
 import { StaffAppProfileUpdateRow } from '../staff/StaffAppProfileUpdateRow';
+import { AddressSearch } from '../forms/AddressSearch';
 
 type TeamEContractDropdown = {
   listHref: string;
@@ -20,6 +21,8 @@ type MeUser = {
   role?: string | null;
   /** 팀장 전용 로마자 이름 */
   nameEn?: string | null;
+  homeAddress?: string | null;
+  homeAddressDetail?: string | null;
 };
 
 export function UserProfileMenu({
@@ -31,6 +34,8 @@ export function UserProfileMenu({
   teamProfileVehicleField,
   /** 팀 화면 미리보기(개발자) — JWT 역할이 ADMIN이어도 차량번호 입력 표시 */
   showVehicleForPreviewAdmin,
+  /** 팀장 본인 로그인 — 집 주소 수정. 미리보기에서는 끄기 */
+  editHomeAddress,
   onSaved,
   onLogout,
   onSessionExpired,
@@ -50,6 +55,7 @@ export function UserProfileMenu({
   tenantName?: string | null;
   teamProfileVehicleField?: boolean;
   showVehicleForPreviewAdmin?: boolean;
+  editHomeAddress?: boolean;
   onSaved?: (next: {
     name: string;
     phone: string | null;
@@ -73,6 +79,8 @@ export function UserProfileMenu({
   const [phone, setPhone] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [nameEn, setNameEn] = useState('');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [homeAddressDetail, setHomeAddressDetail] = useState('');
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -93,6 +101,8 @@ export function UserProfileMenu({
     setPhone((me?.phone ?? '').trim());
     setVehicleNumber((me?.vehicleNumber ?? '').trim());
     setNameEn((me?.nameEn ?? '').trim());
+    setHomeAddress((me?.homeAddress ?? '').trim());
+    setHomeAddressDetail((me?.homeAddressDetail ?? '').trim());
     setPassword('');
     setModalOpen(true);
   };
@@ -114,6 +124,15 @@ export function UserProfileMenu({
       };
       if (me?.role === 'TEAM_LEADER') {
         payload.nameEn = nameEn.trim() ? nameEn.trim() : null;
+      }
+      if (editHomeAddress) {
+        if (!homeAddress.trim()) {
+          alert('주소 검색으로 집 주소를 선택해 주세요.');
+          setSaving(false);
+          return;
+        }
+        payload.homeAddress = homeAddress.trim();
+        payload.homeAddressDetail = homeAddressDetail.trim() ? homeAddressDetail.trim() : null;
       }
       const updated = await updateMyProfile(token, payload);
       onSaved?.({
@@ -311,6 +330,30 @@ export function UserProfileMenu({
                       placeholder="010-0000-0000"
                     />
                   </label>
+                  {editHomeAddress ? (
+                    <>
+                      <div>
+                        <span className="mb-1 block text-xs text-gray-600">집 주소</span>
+                        <AddressSearch
+                          value={homeAddress}
+                          mobilePreferred
+                          layerZClass="z-[820]"
+                          onChange={(next) => setHomeAddress(next)}
+                          placeholder="주소 검색"
+                        />
+                      </div>
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-gray-600">상세 주소 (선택)</span>
+                        <input
+                          value={homeAddressDetail}
+                          onChange={(e) => setHomeAddressDetail(e.target.value)}
+                          maxLength={256}
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                          placeholder="동·호수"
+                        />
+                      </label>
+                    </>
+                  ) : null}
                   {showVehicleNumber ? (
                     <label className="block">
                       <span className="mb-1 block text-xs text-gray-600">개인 차량번호</span>

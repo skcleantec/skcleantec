@@ -44,6 +44,11 @@ import { StaffIdCardPhotoField } from '../../components/admin/StaffIdCardPhotoFi
 import { TeamLeaderHouseholdDepositPolicyModal } from '../../components/admin/TeamLeaderHouseholdDepositPolicyModal';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { usageLimitForPlan } from '@shared/tenantSubscriptionUsage';
+import type { TeamLeaderSizePolicyId } from '@shared/teamLeaderDispatch';
+import {
+  TeamLeaderDispatchFields,
+  type TeamLeaderDispatchFormValue,
+} from '../../components/admin/TeamLeaderDispatchFields';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
 
@@ -126,6 +131,7 @@ type RegisterFormState = {
   teamLeaderGeneralSettlementValue: string;
   /** 추가결재 회사 몫 — 0~100 숫자만 (%). 빈 문자열이면 미설정 */
   teamLeaderAdditionalReceiptCompanySharePercent: string;
+  dispatch: TeamLeaderDispatchFormValue;
 };
 
 function emptyRegisterForm(): RegisterFormState {
@@ -140,6 +146,30 @@ function emptyRegisterForm(): RegisterFormState {
     teamLeaderGeneralSettlementMode: '',
     teamLeaderGeneralSettlementValue: '',
     teamLeaderAdditionalReceiptCompanySharePercent: '',
+    dispatch: emptyDispatchForm(),
+  };
+}
+
+function emptyDispatchForm(): TeamLeaderDispatchFormValue {
+  return {
+    homeAddress: '',
+    homeAddressDetail: '',
+    jobsPerDay: '2',
+    sizePolicy: 'UNRESTRICTED',
+  };
+}
+
+function dispatchFormFromUser(item: UserItem): TeamLeaderDispatchFormValue {
+  const policy = item.sizePolicy;
+  const sizePolicy: TeamLeaderSizePolicyId =
+    policy === 'ONE_ROOM_ONLY' || policy === 'ONE_AND_TWO' || policy === 'EXCLUDE_ONE_AND_TWO'
+      ? policy
+      : 'UNRESTRICTED';
+  return {
+    homeAddress: item.homeAddress ?? '',
+    homeAddressDetail: item.homeAddressDetail ?? '',
+    jobsPerDay: item.jobsPerDay === 1 ? '1' : '2',
+    sizePolicy,
   };
 }
 
@@ -156,6 +186,7 @@ type EditFormState = {
   teamLeaderGeneralSettlementMode: '' | TeamLeaderGeneralSettlementModeApi;
   teamLeaderGeneralSettlementValue: string;
   teamLeaderAdditionalReceiptCompanySharePercent: string;
+  dispatch: TeamLeaderDispatchFormValue;
 };
 
 function emptyEditForm(): EditFormState {
@@ -172,6 +203,7 @@ function emptyEditForm(): EditFormState {
     teamLeaderGeneralSettlementMode: '',
     teamLeaderGeneralSettlementValue: '',
     teamLeaderAdditionalReceiptCompanySharePercent: '',
+    dispatch: emptyDispatchForm(),
   };
 }
 
@@ -396,6 +428,10 @@ export function AdminTeamLeadersPage() {
         primaryOperatingCompanyId?: string;
         serviceZoneIds?: string[];
         hireDate?: string | null;
+        homeAddress?: string | null;
+        homeAddressDetail?: string | null;
+        jobsPerDay?: number;
+        sizePolicy?: TeamLeaderSizePolicyId;
       } = {
         email: form.email.trim().toLowerCase(),
         password: form.password,
@@ -469,6 +505,10 @@ export function AdminTeamLeadersPage() {
         }
         payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
         payload.serviceZoneIds = szForm.serviceZoneIds;
+        payload.homeAddress = form.dispatch.homeAddress.trim() || null;
+        payload.homeAddressDetail = form.dispatch.homeAddressDetail.trim() || null;
+        payload.jobsPerDay = form.dispatch.jobsPerDay === '1' ? 1 : 2;
+        payload.sizePolicy = form.dispatch.sizePolicy;
       }
 
       if (role === 'TEAM_LEADER' || role === 'MARKETER') {
@@ -536,6 +576,7 @@ export function AdminTeamLeadersPage() {
         item.teamLeaderAdditionalReceiptCompanyShareBps != null
           ? companyShareBpsToPercentInput(item.teamLeaderAdditionalReceiptCompanyShareBps)
           : '',
+      dispatch: dispatchFormFromUser(item),
     });
     setEditOcForm(userOperatingCompanyFormFromUser(operatingCompanies, item.operatingCompanies));
     setEditSzForm(userServiceZoneFormFromUser(item));
@@ -562,6 +603,10 @@ export function AdminTeamLeadersPage() {
         operatingCompanyIds?: string[];
         primaryOperatingCompanyId?: string;
         serviceZoneIds?: string[];
+        homeAddress?: string | null;
+        homeAddressDetail?: string | null;
+        jobsPerDay?: number;
+        sizePolicy?: TeamLeaderSizePolicyId;
       } = {
         email: editForm.email.trim().toLowerCase(),
         name: editForm.name.trim(),
@@ -648,6 +693,10 @@ export function AdminTeamLeadersPage() {
         }
         payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
         payload.serviceZoneIds = editSzForm.serviceZoneIds;
+        payload.homeAddress = editForm.dispatch.homeAddress.trim() || null;
+        payload.homeAddressDetail = editForm.dispatch.homeAddressDetail.trim() || null;
+        payload.jobsPerDay = editForm.dispatch.jobsPerDay === '1' ? 1 : 2;
+        payload.sizePolicy = editForm.dispatch.sizePolicy;
       }
 
       if (editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER') {
@@ -1585,6 +1634,12 @@ export function AdminTeamLeadersPage() {
                   </div>
                 ) : null}
                 {showForm === 'team' ? (
+                  <TeamLeaderDispatchFields
+                    value={form.dispatch}
+                    onChange={(dispatch) => setForm((p) => ({ ...p, dispatch }))}
+                  />
+                ) : null}
+                {showForm === 'team' ? (
                   <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-3">
                     <p className="text-fluid-xs font-medium text-gray-800">일반 정산 · 추가결재</p>
                     <p className="text-fluid-2xs text-gray-600 leading-snug">
@@ -1912,6 +1967,12 @@ export function AdminTeamLeadersPage() {
                     zones={serviceZones}
                     value={editSzForm}
                     onChange={setEditSzForm}
+                  />
+                ) : null}
+                {editingUser.role === 'TEAM_LEADER' ? (
+                  <TeamLeaderDispatchFields
+                    value={editForm.dispatch}
+                    onChange={(dispatch) => setEditForm((p) => ({ ...p, dispatch }))}
                   />
                 ) : null}
                 {editingUser.role === 'TEAM_LEADER' && (

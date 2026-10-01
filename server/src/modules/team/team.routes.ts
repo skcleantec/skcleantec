@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
+import { isTeamLeaderHomeReady } from '../team-leaders/teamLeaderHome.service.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import {
   happyCallDeadlineEnd,
@@ -177,6 +178,10 @@ router.get('/me', async (req, res) => {
       allowSelfDayOffEdit: true,
       externalCompanyId: true,
       profileCompletedAt: true,
+      homeAddress: true,
+      homeAddressDetail: true,
+      homeGeoLat: true,
+      homeGeoLng: true,
       externalCompany: {
         select: {
           id: true,
@@ -226,7 +231,10 @@ router.get('/me', async (req, res) => {
     tenant,
     features,
     ...onboardingFields,
-    ...(staffPreview ? { profileOnboardingRequired: false } : {}),
+    ...(staffPreview ? { profileOnboardingRequired: false, homeAddressRequired: false } : {}),
+    ...(!staffPreview
+      ? { homeAddressRequired: me.role === 'TEAM_LEADER' && !isTeamLeaderHomeReady(me) }
+      : {}),
   });
 });
 

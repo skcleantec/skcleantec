@@ -12,6 +12,8 @@ interface AddressSearchProps {
   mobilePreferred?: boolean;
   /** 잠금(읽기전용) — 검색 버튼·레이어 비활성, 값만 표시 */
   disabled?: boolean;
+  /** 상위 모달보다 위. 기본 z-[600] */
+  layerZClass?: string;
 }
 
 /**
@@ -34,7 +36,7 @@ function addressLineFromPostcodeData(data: KakaoPostcodeAddress) {
  * 팝업(window.open)은 모바일에서 히스토리/복귀 시 SPA 라우트가 꼬일 수 있어,
  * 같은 문서 내 임베드 레이어로만 연다.
  */
-export function AddressSearch({ value, onChange, placeholder, className = '', mobilePreferred = false, disabled = false }: AddressSearchProps) {
+export function AddressSearch({ value, onChange, placeholder, className = '', mobilePreferred = false, disabled = false, layerZClass = 'z-[600]' }: AddressSearchProps) {
   const [layerOpen, setLayerOpen] = useState(false);
   const scrollSnapshotRef = useRef<ReturnType<typeof captureDocumentScroll> | null>(null);
 
@@ -98,7 +100,7 @@ export function AddressSearch({ value, onChange, placeholder, className = '', mo
       {!disabled && layerOpen &&
         createPortal(
           <div
-            className={`fixed inset-0 z-[600] flex flex-col bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] ${mobilePreferred ? 'bg-black/60' : ''}`}
+            className={`fixed inset-0 ${layerZClass} flex flex-col bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] ${mobilePreferred ? 'bg-black/60' : ''}`}
             role="dialog"
             aria-modal="true"
             aria-label="주소 검색"

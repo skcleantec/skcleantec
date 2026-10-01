@@ -26,6 +26,7 @@ import {
   AdminDashboardPage,
   AdminInquiriesPage,
   AdminSchedulePage,
+  AdminAiDispatchPage,
   AdminServiceZonesPage,
   AdminTeamLeadersPage,
   AdminInquiryBulkDeletePage,
@@ -269,6 +270,14 @@ function App() {
               <Route path="settings" element={<SuspensePage><AdminLandingContactSettingsPage /></SuspensePage>} />
             </Route>
           </Route>
+          <Route
+            path="schedule/ai-dispatch"
+            element={
+              <FeatureGate module="mod_ai_dispatch">
+                <SuspensePage><AdminAiDispatchPage /></SuspensePage>
+              </FeatureGate>
+            }
+          />
           <Route path="schedule" element={<SuspensePage><AdminSchedulePage /></SuspensePage>} />
           <Route
             path="db-marketplace"

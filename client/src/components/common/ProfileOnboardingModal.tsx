@@ -8,6 +8,7 @@ import {
 } from '../../api/auth';
 import { onboardingContactNameForForm } from '@shared/profileOnboarding';
 import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
+import { AddressSearch } from '../forms/AddressSearch';
 
 export type ProfileOnboardingInitial = {
   role: string;
@@ -39,6 +40,8 @@ export function ProfileOnboardingModal({
   const [phone, setPhone] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [nameEn, setNameEn] = useState('');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [homeAddressDetail, setHomeAddressDetail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [companyPhone, setCompanyPhone] = useState('');
   const [bizNumber, setBizNumber] = useState('');
@@ -57,6 +60,8 @@ export function ProfileOnboardingModal({
     setPhone((initial.phone ?? '').trim());
     setVehicleNumber((initial.vehicleNumber ?? '').trim());
     setNameEn((initial.nameEn ?? '').trim());
+    setHomeAddress('');
+    setHomeAddressDetail('');
     const ec = initial.externalCompany;
     setCompanyName((ec?.name ?? '').trim());
     setCompanyPhone((ec?.phone ?? '').trim());
@@ -108,13 +113,22 @@ export function ProfileOnboardingModal({
       setError('사업자등록증 이미지를 등록해 주세요.');
       return;
     }
+    if (isTeamLeader && !homeAddress.trim()) {
+      setError('주소 검색으로 집 주소를 선택해 주세요.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
         name: name.trim(),
         phone: phone.trim(),
         ...(isTeamLeader
-          ? { vehicleNumber: vehicleNumber.trim(), nameEn: nameEn.trim() }
+          ? {
+              vehicleNumber: vehicleNumber.trim(),
+              nameEn: nameEn.trim(),
+              homeAddress: homeAddress.trim(),
+              homeAddressDetail: homeAddressDetail.trim(),
+            }
           : {}),
         ...(isExternalPartner
           ? {
@@ -277,6 +291,26 @@ export function ProfileOnboardingModal({
                       onChange={(e) => setNameEn(e.target.value)}
                       className="w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
                       required
+                    />
+                  </label>
+                  <div>
+                    <span className="mb-1 block text-fluid-xs text-gray-600">집 주소 *</span>
+                    <AddressSearch
+                      value={homeAddress}
+                      mobilePreferred
+                      layerZClass="z-[820]"
+                      onChange={(next) => setHomeAddress(next)}
+                      placeholder="주소 검색"
+                    />
+                  </div>
+                  <label className="block">
+                    <span className="mb-1 block text-fluid-xs text-gray-600">상세 주소 (선택)</span>
+                    <input
+                      value={homeAddressDetail}
+                      onChange={(e) => setHomeAddressDetail(e.target.value)}
+                      maxLength={256}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
+                      placeholder="동·호수"
                     />
                   </label>
                 </>

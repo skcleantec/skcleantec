@@ -22,6 +22,8 @@ export const TENANT_FEATURE_MODULES = {
   mod_landing_inquiry: { label: '랜딩 문의내역', tier: 'premium' as const, defaultOn: false },
   mod_quick_paste: { label: '빠른등록', tier: 'standard' as const, defaultOn: true },
   mod_alimtalk: { label: '알림톡', tier: 'standard' as const, defaultOn: true },
+  mod_card_payment: { label: '카드결재', tier: 'standard' as const, defaultOn: true },
+  mod_ai_dispatch: { label: 'AI 미리 배정', tier: 'premium' as const, defaultOn: false },
 } as const;
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
@@ -45,6 +47,7 @@ export const TENANT_PREMIUM_BUSINESS_MODULE_IDS = [
   'mod_landing_inquiry',
   'mod_quick_paste',
   'mod_alimtalk',
+  'mod_card_payment',
 ] as const satisfies readonly TenantFeatureModuleId[];
 
 export const TENANT_PLANS = {
@@ -68,6 +71,7 @@ export const TENANT_PLANS = {
       'mod_db_marketplace',
       'mod_quick_paste',
       'mod_alimtalk',
+      'mod_card_payment',
     ] as TenantFeatureModuleId[],
   },
   standard_plus: {
@@ -76,7 +80,7 @@ export const TENANT_PLANS = {
   },
   premium: {
     label: 'Premium',
-    modules: [...TENANT_PREMIUM_BUSINESS_MODULE_IDS],
+    modules: [...TENANT_PREMIUM_BUSINESS_MODULE_IDS, 'mod_ai_dispatch'] as TenantFeatureModuleId[],
   },
 } as const;
 
@@ -127,8 +131,8 @@ export const TENANT_PLAN_USAGE_LIMITS: Record<
   Record<TenantUsageMetricId, number | null>
 > = {
   free: { monthlyCoins: 70, teamLeaders: 0, customCalendars: 0, operatingBrands: 0 },
-  standard: { monthlyCoins: 200, teamLeaders: 5, customCalendars: 2, operatingBrands: 0 },
-  standard_plus: { monthlyCoins: 500, teamLeaders: 10, customCalendars: 5, operatingBrands: 0 },
+  standard: { monthlyCoins: 300, teamLeaders: 5, customCalendars: 2, operatingBrands: 0 },
+  standard_plus: { monthlyCoins: 700, teamLeaders: 10, customCalendars: 5, operatingBrands: 0 },
   premium: { monthlyCoins: null, teamLeaders: null, customCalendars: null, operatingBrands: 1 },
 };
 

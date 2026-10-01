@@ -729,6 +729,33 @@ html.cbiseo-staff-app .profile-onboarding-modal-footer {
   color: #991b1b; /* red-800 */
 }
 
+.ai-orb-spin {
+  background: conic-gradient(
+    from 0deg,
+    #2dd4bf 0%,
+    #22d3ee 16%,
+    #38bdf8 34%,
+    #818cf8 52%,
+    #c084fc 70%,
+    #ffffff 82%,
+    #67e8f9 90%,
+    #2dd4bf 100%
+  );
+  animation: ai-orb-spin 2.6s linear infinite;
+}
+
+@keyframes ai-orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb-spin {
+    animation: none;
+  }
+}
+
 .pulse-slow {
   animation: pulse-slow-anim 2s infinite;
 }
