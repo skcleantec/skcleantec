@@ -44,13 +44,17 @@ export async function callOpenAiJson(params: {
   system: string;
   user: string;
   temperature?: number;
+  model?: string;
+  reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  timeoutMs?: number;
+  maxCompletionTokens?: number;
   logContext?: AiUsageLogContext | null;
 }): Promise<OpenAiJsonResult> {
   const apiKey = resolveApiKey(params.product);
   if (!apiKey) {
     return { json: null, usage: null, failed: true };
   }
-  const model = resolveModel(params.product);
+  const model = params.model?.trim() || resolveModel(params.product);
   const temperature = params.temperature ?? (params.product === 'quick_paste' ? 0.1 : 0.2);
   const logTag =
     params.product === 'quick_paste'
@@ -58,6 +62,17 @@ export async function callOpenAiJson(params: {
       : params.product === 'ai_dispatch'
         ? '[ai-dispatch]'
         : '[telecrm-ai]';
+  const body: Record<string, unknown> = {
+    model,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: params.system },
+      { role: 'user', content: params.user },
+    ],
+  };
+  if (params.reasoningEffort) body.reasoning_effort = params.reasoningEffort;
+  else body.temperature = temperature;
+  if (params.maxCompletionTokens) body.max_completion_tokens = params.maxCompletionTokens;
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -66,18 +81,12 @@ export async function callOpenAiJson(params: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model,
-        temperature,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: params.system },
-          { role: 'user', content: params.user },
-        ],
-      }),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(params.timeoutMs ?? 45_000),
     });
     if (!res.ok) {
-      console.error(`${logTag} OpenAI HTTP`, res.status);
+      const detail = (await res.text()).slice(0, 240);
+      console.error(`${logTag} OpenAI HTTP`, res.status, detail);
       return { json: null, usage: null, failed: true };
     }
     const data = (await res.json()) as {

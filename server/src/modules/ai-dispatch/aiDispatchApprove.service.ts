@@ -9,6 +9,7 @@ import {
   ServiceZoneAssignmentError,
 } from '../service-zones/serviceZoneAssignment.js';
 import { loadDispatchDay } from './aiDispatchContext.service.js';
+import { rememberDispatchCorrection } from './aiDispatchLessons.js';
 import type { AiDispatchSlot } from './aiDispatch.constants.js';
 
 type Db = PrismaClient;
@@ -34,6 +35,35 @@ export async function updateDraftProposal(
       data: { status: 'STALE' },
     });
     return { error: '접수가 바뀌어 제안이 오래되었습니다. 다시 실행해 주세요.' as const };
+  }
+  const aiLeaderId = proposal.aiTeamLeaderId ?? (proposal.reason.includes('관리자가') ? null : proposal.teamLeaderId);
+  const siblings = await db.aiDispatchProposal.findMany({
+    where: { tenantId, runId: proposal.runId, id: { not: proposal.id } },
+    select: {
+      teamLeaderId: true,
+      slot: true,
+      inquiry: { select: { addressGeoLat: true, addressGeoLng: true } },
+    },
+  });
+  try {
+    await rememberDispatchCorrection(db, tenantId, {
+      inquiryId: proposal.inquiryId,
+      aiLeaderId,
+      nextLeaderId: input.teamLeaderId,
+      slot: job.slot,
+      isOneRoom: job.isOneRoom,
+      lat: job.lat,
+      lng: job.lng,
+      leaders: day.leaders,
+      siblingStops: siblings.map((row) => ({
+        teamLeaderId: row.teamLeaderId,
+        slot: row.slot,
+        lat: row.inquiry.addressGeoLat,
+        lng: row.inquiry.addressGeoLng,
+      })),
+    });
+  } catch (e) {
+    console.error('[ai-dispatch] lesson', e instanceof Error ? e.message : 'unknown');
   }
   if (!input.teamLeaderId) {
     const updated = await db.aiDispatchProposal.update({

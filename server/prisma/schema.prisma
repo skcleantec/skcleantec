@@ -269,6 +269,7 @@ model Tenant {
   teamLeaderDispatchProfiles TeamLeaderDispatchProfile[]
   aiDispatchSettings TenantAiDispatchSettings?
   aiDispatchRuns AiDispatchRun[]
+  aiDispatchLessons AiDispatchLesson[]
   userCustomCalendars UserCustomCalendar[]
   userCustomCalendarInquiryPins UserCustomCalendarInquiryPin[]
   serviceZones ServiceZone[]
@@ -1705,6 +1706,8 @@ model AiDispatchProposal {
   inquiry          Inquiry                  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
   teamLeaderId     String?                  @map("team_leader_id")
   teamLeader       User?                    @relation(fields: [teamLeaderId], references: [id], onDelete: SetNull)
+  /// 초안을 만들 때 AI가 넣은 팀장. 관리자가 바꾸면 이 값과 비교해 학습한다.
+  aiTeamLeaderId   String?                  @map("ai_team_leader_id")
   /// AM | PM | ALL_DAY | HUMAN
   slot             String                   @db.VarChar(16)
   reason           String                   @db.Text
@@ -1715,6 +1718,22 @@ model AiDispatchProposal {
   @@index([tenantId, runId])
   @@index([tenantId, inquiryId])
   @@map("ai_dispatch_proposals")
+}
+
+/// 배정 학습. 고객 이름·전화는 넣지 않는다. CORRECTION=관리자 수정, HISTORY=지난 배정 요약.
+model AiDispatchLesson {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind        String   @db.VarChar(16)
+  fingerprint String   @db.VarChar(80)
+  text        String   @db.VarChar(300)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, fingerprint])
+  @@index([tenantId, kind, updatedAt])
+  @@map("ai_dispatch_lessons")
 }
 
 /// 팀장 급여표 — 귀속 월별 수시 지급 내역(관리자 기록). 고정 급여일 없이 여러 차례 입금 가능.
