@@ -9,6 +9,7 @@ import { OrderFormGuideSectionCheck } from './OrderFormGuideSectionCheck';
 import { OrderFormGuideSections } from './OrderFormGuideSections';
 import { OrderFormPartnerConsentBlock } from './OrderFormPartnerConsentBlock';
 import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
+import { OrderFormGuideSignConfirmDialog } from './OrderFormGuideSignConfirmDialog';
 import { OrderFormGuideSignatureBlock } from './OrderFormGuideSignatureBlock';
 
 export function OrderFormGuideAgreeModal(props: {
@@ -44,6 +45,25 @@ export function OrderFormGuideAgreeModal(props: {
   const [sectionChecked, setSectionChecked] = useState<boolean[]>([]);
   const [partnerChecked, setPartnerChecked] = useState(false);
   const [accuracyChecked, setAccuracyChecked] = useState(false);
+  const [pendingSign, setPendingSign] = useState<{ signaturePng: string; typedName: string } | null>(
+    null,
+  );
+
+  const reviewGuideAgain = useCallback(() => {
+    setPendingSign(null);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const confirmPendingSign = useCallback(() => {
+    if (!pendingSign) return;
+    onAgree?.({
+      at: new Date().toISOString(),
+      signaturePng: pendingSign.signaturePng,
+      typedName: pendingSign.typedName,
+    });
+    setPendingSign(null);
+    onClose();
+  }, [onAgree, onClose, pendingSign]);
 
   const checkScrollEnd = useCallback(() => {
     const el = scrollRef.current;
@@ -58,6 +78,7 @@ export function OrderFormGuideAgreeModal(props: {
       setScrolledToEnd(false);
       setPartnerChecked(false);
       setAccuracyChecked(false);
+      setPendingSign(null);
       return;
     }
     setLoading(true);
@@ -105,11 +126,16 @@ export function OrderFormGuideAgreeModal(props: {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      if (pendingSign) {
+        reviewGuideAgain();
+        return;
+      }
+      onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, pendingSign, reviewGuideAgain]);
 
   if (!open || typeof document === 'undefined') return null;
 
@@ -227,12 +253,7 @@ export function OrderFormGuideAgreeModal(props: {
                 <OrderFormGuideSignatureBlock
                   disabled={!canSign}
                   onSigned={({ signaturePng, typedName: signedName }) => {
-                    onAgree?.({
-                      at: new Date().toISOString(),
-                      signaturePng,
-                      typedName: signedName,
-                    });
-                    onClose();
+                    setPendingSign({ signaturePng, typedName: signedName });
                   }}
                 />
               )}
@@ -261,6 +282,11 @@ export function OrderFormGuideAgreeModal(props: {
           )}
         </div>
       </div>
+      <OrderFormGuideSignConfirmDialog
+        open={pendingSign != null}
+        onConfirm={confirmPendingSign}
+        onReview={reviewGuideAgain}
+      />
     </div>,
     document.body
   );
