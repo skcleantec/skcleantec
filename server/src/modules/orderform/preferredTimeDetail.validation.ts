@@ -61,7 +61,7 @@ export function isAllowedPreferredTimeDetail(
   configured?: string[] | null,
 ): boolean {
   const typed = detail.trim();
-  if (configured && configured.length > 0) return configured.includes(typed);
+  if (configured) return configured.includes(typed);
   const slot = resolvePreferredTimeSlotForDetail(preferredTime) ?? preferredTime.trim();
   const allowed = allowedValuesForSlot(slot);
   if (!allowed) return true;

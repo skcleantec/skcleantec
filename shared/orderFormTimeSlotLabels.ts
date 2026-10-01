@@ -74,7 +74,12 @@ export function buildOrderTimeSlotOptions(labels?: OrderTimeSlotLabelsJson | Ord
   }));
 }
 
-export type TimeSlotOptionEntry = { label: string; details: string[] };
+export type TimeSlotOptionEntry = {
+  label: string;
+  details: string[];
+  /** 객체로 저장됐으면 true. 빈 배열도 「시각 없음」이다. 문자열만 있으면 false. */
+  detailsConfigured: boolean;
+};
 
 const TIME_DETAIL_MAX = 24;
 const TIME_DETAIL_LABEL_MAX = 80;
@@ -87,9 +92,11 @@ export function parseTimeSlotOptionEntries(raw: unknown): TimeSlotOptionEntry[] 
   for (const item of raw) {
     let label = '';
     let details: string[] = [];
+    let detailsConfigured = false;
     if (typeof item === 'string') {
       label = item.trim();
     } else if (item && typeof item === 'object' && !Array.isArray(item)) {
+      detailsConfigured = true;
       const row = item as { label?: unknown; details?: unknown };
       label = String(row.label ?? '').trim();
       if (Array.isArray(row.details)) {
@@ -105,16 +112,16 @@ export function parseTimeSlotOptionEntries(raw: unknown): TimeSlotOptionEntry[] 
     }
     if (!label || label.length > 128 || seen.has(label)) continue;
     seen.add(label);
-    out.push({ label, details });
+    out.push({ label, details, detailsConfigured });
   }
   return out;
 }
 
-/** 구체적 시각을 적어 둔 시간대만. 키는 하위 항목 문구. */
+/** 구체적 시각을 저장한 시간대. 빈 배열은 「다음 화면에서 시각을 묻지 않음」. */
 export function timeDetailOptionsByLabel(raw: unknown): Record<string, string[]> {
   const map: Record<string, string[]> = {};
   for (const entry of parseTimeSlotOptionEntries(raw)) {
-    if (entry.details.length > 0) map[entry.label] = entry.details;
+    if (entry.detailsConfigured) map[entry.label] = entry.details;
   }
   return map;
 }
@@ -131,7 +138,7 @@ export function serializeTimeSlotOptionsForSave(
       .map((detail) => detail.trim().slice(0, TIME_DETAIL_LABEL_MAX))
       .filter(Boolean)
       .slice(0, TIME_DETAIL_MAX);
-    out.push(details.length > 0 ? { label: text, details } : text);
+    out.push({ label: text, details });
   });
   return out;
 }
@@ -148,8 +155,7 @@ export function configuredDetailsForSelectedSlot(
   const hit = slotOptions.find((option) => option.value === picked || option.label === picked);
   const keys = hit ? [hit.label, hit.value, picked] : [picked];
   for (const key of keys) {
-    const list = detailMap[key];
-    if (list && list.length > 0) return list;
+    if (Object.prototype.hasOwnProperty.call(detailMap, key)) return detailMap[key] ?? [];
   }
   return null;
 }

@@ -3071,13 +3071,14 @@ router.post('/submit/:token', async (req, res) => {
       ? String(body.preferredTimeDetail).trim()
       : null;
 
+  const submitDetailChoices = configuredDetailsFromPublicTemplate(submitTemplate, useTimeStr, slotLabels);
   if (
     !adminDetailLocked &&
     useDetailStr &&
     !isAllowedPreferredTimeDetail(
       useTimeStr,
       useDetailStr,
-      configuredDetailsFromPublicTemplate(submitTemplate, useTimeStr, slotLabels),
+      submitDetailChoices,
     )
   ) {
     res.status(400).json({
@@ -3090,7 +3091,8 @@ router.post('/submit/:token', async (req, res) => {
     tplOn('preferredTimeDetail') &&
     !adminDetailLocked &&
     useTimeStr === '사이청소' &&
-    !useDetailStr
+    !useDetailStr &&
+    submitDetailChoices?.length !== 0
   ) {
     res.status(400).json({ error: '사이청소 선택 시 구체적 시각을 선택해 주세요.' });
     return;

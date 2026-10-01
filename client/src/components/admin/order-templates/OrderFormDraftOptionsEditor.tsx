@@ -1,5 +1,3 @@
-import { getPreferredTimeDetailSelectOptions } from '../../../constants/orderFormPreferredTimeDetail';
-
 const INPUT =
   'min-w-0 min-h-9 flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
 const BTN_GHOST =
@@ -16,15 +14,10 @@ type Props = {
   /** 시간대별 구체적 시각. 있으면 각 하위 항목 아래에 편집한다. */
   details?: string[][];
   onDetailsChange?: (next: string[][]) => void;
+  /** 다음 화면 질문 아래 안내. */
+  detailHelp?: string;
+  onDetailHelpChange?: (value: string) => void;
 };
-
-function detailFallbackHint(label: string): string {
-  const defaults = getPreferredTimeDetailSelectOptions(label);
-  if (defaults.length === 0) {
-    return '비워 두면 다음 화면에서 시각을 묻지 않습니다. 적으면 그 문구가 그대로 나옵니다.';
-  }
-  return `비워 두면 손님에게 ${defaults.map((option) => option.label).join(', ')} 이 보입니다. 여기에 적으면 그 문구로 바뀝니다.`;
-}
 
 export function OrderFormDraftOptionsEditor({
   options,
@@ -34,6 +27,8 @@ export function OrderFormDraftOptionsEditor({
   hint,
   details,
   onDetailsChange,
+  detailHelp,
+  onDetailHelpChange,
 }: Props) {
   const showDetails = Boolean(onDetailsChange);
   return (
@@ -74,11 +69,11 @@ export function OrderFormDraftOptionsEditor({
               </div>
               {showDetails ? (
                 <div className="ml-7 space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                  <span className="block text-fluid-2xs font-medium text-slate-600">구체적 시각 (다음 화면)</span>
+                  <span className="block text-fluid-2xs font-medium text-slate-600">구체적 시각</span>
                   <p className="text-fluid-2xs leading-snug text-slate-500">
                     {rowDetails.length > 0
-                      ? '이 문구가 다음 화면(구체적인 시각)에 그대로 나옵니다.'
-                      : detailFallbackHint(opt)}
+                      ? '여기 적은 문구가 손님 다음 화면에 그대로 나옵니다. 지우고 고쳐도 됩니다.'
+                      : '시각이 없으면 손님에게 이 시간대의 구체적 시각을 묻지 않습니다.'}
                   </p>
                   {rowDetails.map((detail, detailIdx) => (
                     <div key={detailIdx} className="flex items-center gap-2">
@@ -134,6 +129,18 @@ export function OrderFormDraftOptionsEditor({
       >
         + 항목 추가
       </button>
+      {showDetails && onDetailHelpChange ? (
+        <label className="mt-3 block">
+          <span className="mb-1 block text-fluid-2xs font-medium text-slate-600">다음 화면 안내 (선택)</span>
+          <input
+            value={detailHelp ?? ''}
+            onChange={(e) => onDetailHelpChange(e.target.value)}
+            maxLength={300}
+            placeholder="구체적인 시각을 고르는 화면 질문 아래 안내"
+            className={INPUT}
+          />
+        </label>
+      ) : null}
     </div>
   );
 }

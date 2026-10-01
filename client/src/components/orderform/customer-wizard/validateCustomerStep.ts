@@ -117,12 +117,13 @@ export function validateCustomerStep(args: {
         : '시간대를 선택해주세요.';
     }
     case 'timeDetail': {
-      if (isPreferredTimeDetailRequired(form.preferredTime) && !form.preferredTimeDetail.trim()) {
-        return '사이청소 선택 시 구체적 시각을 선택해 주세요.';
-      }
       const configuredDetails = configuredTimeDetailsForOrder(order, form.preferredTime);
       const detailText = form.preferredTimeDetail.trim();
-      if (configuredDetails && configuredDetails.length > 0) {
+      if (configuredDetails && configuredDetails.length === 0) return null;
+      if (isPreferredTimeDetailRequired(form.preferredTime) && !detailText) {
+        return '사이청소 선택 시 구체적 시각을 선택해 주세요.';
+      }
+      if (configuredDetails) {
         if (detailText && !configuredDetails.includes(detailText)) {
           return '구체적 시각을 해당 시간대 범위에서 선택해 주세요.';
         }
