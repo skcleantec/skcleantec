@@ -266,8 +266,6 @@ export function leadersForJob(leaders: DispatchLeader[], job: DispatchJob, twoRo
   const sized = leaders.filter((leader) =>
     sizePolicyAllows(leader.sizePolicy, { isOneRoom: job.isOneRoom, areaPyeong: job.pyeong }, twoRoomMax),
   );
-  const pool = sized.length > 0 ? sized : leaders;
-  if (job.slot !== 'ALL_DAY') return pool;
-  const fullDay = pool.filter((leader) => leader.jobsPerDay >= 2);
-  return fullDay.length > 0 ? fullDay : pool;
+  if (job.slot !== 'ALL_DAY') return sized;
+  return sized.filter((leader) => leader.jobsPerDay >= 2);
 }

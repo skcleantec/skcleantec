@@ -131,6 +131,7 @@ nearestOpposite.betweenKm가 35를 넘으면 그 오전·오후를 같은 팀장
 - 하루 2건인 팀장만, 35km 안의 오전·오후를 묶으세요.
 - 집에서 먼 오전은 fatigue가 더 낮은 팀장에게 주세요. fatigue가 더 높으면 집에서 가까운 오전만 주세요. 휴무 직후는 0에 가깝고, 2주간 휴무가 없으면 매우 나쁨입니다.
 - 고객 표시는 좋은 고객을 먼저, 그다음 보통, 어르신, 악성, 극악 순입니다. 표시 때문에 하루 동선이 도시를 가로지르게 하지 마세요.
+- sizePolicy가 ONE_ROOM_ONLY, ONE_AND_TWO, EXCLUDE_ONE_AND_TWO이면 그 크기만 eligible에 넣으세요. 맞는 팀장이 없으면 다른 팀장으로 바꾸지 마세요.
 - remainingJobs를 넘기지 마세요. 오전과 오후 개수가 달라도, 짝이 안 되는 일정은 자리가 남은 팀장에게 한 건으로 넣으세요. 자리가 없으면 unassigned에 「모든 팀장이 배정된 상태입니다」라고 쓰세요.
 - 팀장이 없으면 「넣을 팀장이 없습니다」라고 쓰세요.
 - ALL_DAY는 2건입니다. requiredLeaders만큼 서로 다른 팀장을 넣으세요.
@@ -239,8 +240,8 @@ function pickLeader(
   if (open.length === 0) return null;
   const openIds = new Set(open.map((leader) => leader.id));
   const preferred = leadersForJob(leaders, job, twoRoomMax).filter((leader) => openIds.has(leader.id));
-  const pool = preferred.length > 0 ? preferred : open;
-  return [...pool].sort((a, b) => compareLeaders(a, b, [job], used, 1, leaders))[0] ?? null;
+  if (preferred.length === 0) return null;
+  return [...preferred].sort((a, b) => compareLeaders(a, b, [job], used, 1, leaders))[0] ?? null;
 }
 
 function fatigueBias(leader: DispatchLeader, pool: DispatchLeader[]): number {
@@ -294,6 +295,10 @@ function seatsLeft(leader: DispatchLeader, used: Map<string, number>): number {
 
 function noSeatReason(leaders: DispatchLeader[]): string {
   return leaders.length === 0 ? '넣을 팀장이 없습니다.' : '모든 팀장이 배정된 상태입니다.';
+}
+
+function sizeMismatchReason(): string {
+  return '집 크기가 맞는 팀장이 없습니다.';
 }
 
 function assignmentCost(leader: DispatchLeader, stops: DispatchJob[], pool: DispatchLeader[]): number {
@@ -384,7 +389,15 @@ function fillOpenJobs(
         inquiryId: job.id,
         teamLeaderId: null,
         slot: job.slot,
-        reason: noSeatReason(leaders),
+        reason:
+          leaders.some(
+            (leader) =>
+              seatsLeft(leader, used) >= seatWeight(job.slot) &&
+              (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2) &&
+              !fitsSize(leader, [job], twoRoomMax),
+          ) && leadersForJob(leaders, job, twoRoomMax).length === 0
+            ? sizeMismatchReason()
+            : noSeatReason(leaders),
         updatedAt: job.updatedAt,
       });
     } else {
@@ -516,13 +529,14 @@ function tuneMorningAfternoon(
         const seatOk = (job: DispatchJob) =>
           seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2);
         const choices = pending.filter(
-          (job) => seatOk(job) && !homeTooFar(leader, job, leaders) && !sitesTooFar(stopsNow(leader.id), job),
+          (job) =>
+            seatOk(job) &&
+            fitsSize(leader, [job], twoRoomMax) &&
+            !homeTooFar(leader, job, leaders) &&
+            !sitesTooFar(stopsNow(leader.id), job),
         );
         if (choices.length === 0) continue;
-        const sized = choices.filter((job) => fitsSize(leader, [job], twoRoomMax));
-        const pool = (sized.length > 0 ? sized : choices)
-          .slice()
-          .sort((a, b) => (oneWayKm(leader, a) ?? 999) - (oneWayKm(leader, b) ?? 999));
+        const pool = choices.slice().sort((a, b) => (oneWayKm(leader, a) ?? 999) - (oneWayKm(leader, b) ?? 999));
         const job = pool[0];
         pushStop(job, leader, fillReason(leader, job, leaders));
         pending.splice(
@@ -536,14 +550,15 @@ function tuneMorningAfternoon(
       if (!placed) break;
     }
     for (const job of pending) {
-      const someoneHasSeat = tiredFirst.some(
+      const seated = tiredFirst.filter(
         (leader) => seatsLeft(leader, used) >= seatWeight(job.slot) && (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2),
       );
+      const sized = seated.filter((leader) => fitsSize(leader, [job], twoRoomMax));
       tuned.push({
         inquiryId: job.id,
         teamLeaderId: null,
         slot: job.slot,
-        reason: someoneHasSeat ? tooFarReason() : noSeatReason(leaders),
+        reason: seated.length > 0 && sized.length === 0 ? sizeMismatchReason() : sized.length > 0 ? tooFarReason() : noSeatReason(leaders),
         updatedAt: job.updatedAt,
       });
     }
@@ -562,6 +577,7 @@ function assignLeftovers(
   jobs: DispatchJob[],
   leaders: DispatchLeader[],
   manualJobs: DispatchManualJob[],
+  twoRoomMax: number,
 ): DraftLine[] {
   const used = new Map(leaders.map((leader) => [leader.id, leader.usedJobs]));
   const next: DraftLine[] = [];
@@ -588,6 +604,7 @@ function assignLeftovers(
       next.filter((line) => line.inquiryId === job.id && line.teamLeaderId).map((line) => line.teamLeaderId as string),
     );
     let blockedByDistance = false;
+    let blockedBySize = false;
     while (taken.size < job.requiredLeaders) {
       const open = leaders.filter(
         (leader) =>
@@ -596,7 +613,12 @@ function assignLeftovers(
           (seatWeight(job.slot) < 2 || leader.jobsPerDay >= 2),
       );
       if (open.length === 0) break;
-      const near = open.filter((leader) => {
+      const sized = open.filter((leader) => fitsSize(leader, [job], twoRoomMax));
+      if (sized.length === 0) {
+        blockedBySize = true;
+        break;
+      }
+      const near = sized.filter((leader) => {
         const pinned = manualJobs.filter((row) => row.teamLeaderId === leader.id);
         const drafted = next
           .filter((line) => line.teamLeaderId === leader.id)
@@ -626,7 +648,7 @@ function assignLeftovers(
         inquiryId: job.id,
         teamLeaderId: null,
         slot: job.slot,
-        reason: blockedByDistance ? tooFarReason() : noSeatReason(leaders),
+        reason: blockedBySize ? sizeMismatchReason() : blockedByDistance ? tooFarReason() : noSeatReason(leaders),
         updatedAt: job.updatedAt,
       });
     }
@@ -715,6 +737,7 @@ export async function createAiDispatchDraft(db: Db, tenantId: string, actorId: s
       day.jobs,
       day.leaders,
       day.manualJobs,
+      day.settings.twoRoomMaxPyeong,
     ),
     day.jobs,
     day.leaders,

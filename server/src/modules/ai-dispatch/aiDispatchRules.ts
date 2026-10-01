@@ -44,6 +44,7 @@ export function isSmallHome(
   input: { isOneRoom: boolean; areaPyeong: number | null },
   twoRoomMaxPyeong: number,
 ): boolean {
+  if (input.areaPyeong != null && input.areaPyeong > twoRoomMaxPyeong) return false;
   if (input.isOneRoom) return true;
   return input.areaPyeong != null && input.areaPyeong <= twoRoomMaxPyeong;
 }
@@ -54,7 +55,7 @@ export function sizePolicyAllows(
   twoRoomMaxPyeong: number,
 ): boolean {
   const small = isSmallHome(input, twoRoomMaxPyeong);
-  if (policy === 'ONE_ROOM_ONLY') return input.isOneRoom;
+  if (policy === 'ONE_ROOM_ONLY') return input.isOneRoom && small;
   if (policy === 'ONE_AND_TWO') return small;
   if (policy === 'EXCLUDE_ONE_AND_TWO') return !small;
   return true;
