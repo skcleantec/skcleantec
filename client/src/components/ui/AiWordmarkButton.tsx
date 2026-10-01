@@ -23,6 +23,7 @@ export function AiWordmarkButton({
   disabled,
   size = 'compact',
   mark = true,
+  tone = 'light',
   className = '',
 }: {
   label: ReactNode;
@@ -31,6 +32,7 @@ export function AiWordmarkButton({
   disabled?: boolean;
   size?: 'default' | 'compact' | 'row' | 'responsive-compact';
   mark?: boolean;
+  tone?: 'light' | 'dark';
   className?: string;
 }) {
   const sizeClass =
@@ -51,7 +53,11 @@ export function AiWordmarkButton({
       disabled={disabled}
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center border border-slate-200/90 bg-white font-semibold shadow-[0_8px_18px_-10px_rgba(15,23,42,0.45)] touch-manipulation hover:bg-slate-50 hover:shadow-[0_10px_22px_-10px_rgba(15,23,42,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${sizeClass} ${className}`}
+      className={`inline-flex items-center justify-center border font-semibold touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+        tone === 'dark'
+          ? 'border-black bg-black shadow-[0_8px_18px_-8px_rgba(15,23,42,0.55)] hover:bg-slate-900 focus-visible:ring-slate-400'
+          : 'border-slate-200/90 bg-white shadow-[0_8px_18px_-10px_rgba(15,23,42,0.45)] hover:bg-slate-50 hover:shadow-[0_10px_22px_-10px_rgba(15,23,42,0.5)] focus-visible:ring-sky-400'
+      } ${sizeClass} ${className}`}
     >
       {mark ? (
         <span className={`relative inline-flex shrink-0 items-center pr-2 leading-none ${aiClass}`}>

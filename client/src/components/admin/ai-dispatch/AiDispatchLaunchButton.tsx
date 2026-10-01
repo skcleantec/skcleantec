@@ -7,6 +7,7 @@ export function AiDispatchLaunchButton({
   disabled,
   size = 'default',
   mark = false,
+  tone = 'light',
   ariaLabel,
   className = '',
 }: {
@@ -17,6 +18,7 @@ export function AiDispatchLaunchButton({
   size?: 'default' | 'compact' | 'row';
   /** Ai 글자를 앞에 붙인다. 스케줄의 AI팀장배정 */
   mark?: boolean;
+  tone?: 'light' | 'dark';
   ariaLabel?: string;
   className?: string;
 }) {
@@ -29,6 +31,7 @@ export function AiDispatchLaunchButton({
       disabled={disabled}
       size={size}
       mark={mark}
+      tone={tone}
       className={className}
     />
   );
