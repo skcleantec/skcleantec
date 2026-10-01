@@ -60,7 +60,7 @@ export function OrderFormCleaningKindPicker({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-fluid-sm font-semibold text-slate-900">{opt.label}</span>
-                  <span className="mt-0.5 block text-fluid-xs leading-snug text-slate-500">{opt.hint}</span>
+                  <span className="mt-0.5 block whitespace-pre-line text-fluid-xs leading-snug text-slate-500">{opt.hint}</span>
                 </span>
               </button>
               {checked ? (
@@ -73,7 +73,7 @@ export function OrderFormCleaningKindPicker({
                     alt={`${opt.label} 안내 그림`}
                     className="h-auto w-full object-cover"
                   />
-                  <p className="px-3 py-2 text-center text-fluid-2xs text-slate-600">
+                  <p className="whitespace-pre-line px-3 py-2 text-center text-fluid-2xs text-slate-600">
                     {opt.label} · {opt.hint}
                   </p>
                 </div>
