@@ -1,4 +1,12 @@
-import { resolvePreferredTimeSlotForDetail, type OrderTimeSlot } from './orderFormSchedule';
+import {
+  buildTimeSlotOptionsForForm,
+  configuredDetailsForSelectedSlot,
+  resolvePreferredTimeSlotForDetail,
+  type OrderTimeSlot,
+  type OrderTimeSlotLabels,
+  type OrderTimeSlotLabelsJson,
+} from '@shared/orderFormTimeSlotLabels';
+import type { OrderFormLoadedOrder } from '../pages/order/orderFormModel.types';
 
 /** 오후 시간대 — 구체적 시각은 이 값 한 가지만 허용 (DB/API 저장 문자열과 동일) */
 export const ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE = '12시~2시 사이 (협의)';
@@ -40,10 +48,24 @@ export function formatOrderFormTimeDetailLabel(hhmmStr: string): string {
   return `오후 ${h - 12}:${mm}`;
 }
 
+export function configuredTimeDetailsForOrder(
+  order: OrderFormLoadedOrder | null | undefined,
+  preferredTime: string,
+): string[] | null {
+  const labels = order?.formConfig?.timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson;
+  const field = order?.template?.systemFields?.find((item) => item.systemField === 'preferredTime');
+  const options = buildTimeSlotOptionsForForm(field?.options, labels);
+  return configuredDetailsForSelectedSlot(field?.timeDetailOptions, preferredTime, options);
+}
+
 export function getPreferredTimeDetailSelectOptions(
   slot: string | null | undefined,
-  labels?: Parameters<typeof resolvePreferredTimeSlotForDetail>[1],
+  labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
+  configured?: string[] | null,
 ): { value: string; label: string }[] {
+  if (configured && configured.length > 0) {
+    return configured.map((value) => ({ value, label: value }));
+  }
   const resolved = resolvePreferredTimeSlotForDetail(slot, labels);
   if (!resolved || resolved === '조율') return [];
   if (resolved === '오후') {
@@ -79,7 +101,12 @@ function isLegacyAfternoonHHMM(hhmm: string): boolean {
 export function coercePreferredTimeDetailForSlot(
   raw: string,
   slot: string | null | undefined,
+  configured?: string[] | null,
 ): string {
+  const typed = raw.trim();
+  if (configured && configured.length > 0) {
+    return configured.includes(typed) ? typed : '';
+  }
   const resolved = resolvePreferredTimeSlotForDetail(slot);
   if (!resolved) return '';
   const allowed = allowedPreferredTimeDetailValues(resolved);

@@ -162,7 +162,10 @@ import {
 } from './orderFormBrandCustomerLink.service.js';
 import { notifyOrderFormCustomerLinkConfigRefresh } from './orderFormCustomerLinkNotify.js';
 import { resolvePublicFormConfigForOrderForm, normalizeGuidePreferredDateYmd } from './orderFormPublicFormConfig.js';
-import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
+import {
+  configuredDetailsFromPublicTemplate,
+  isAllowedPreferredTimeDetail,
+} from './preferredTimeDetail.validation.js';
 import {
   ensureCrmQuoteBreakdownTemplateField,
   getPublicTemplateForForm,
@@ -1971,7 +1974,15 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
     res.status(400).json({ error: '시간대를 선택해주세요.' });
     return;
   }
-  if (prefTime && prefTimeDetail && !isAllowedPreferredTimeDetail(prefTime, prefTimeDetail)) {
+  if (
+    prefTime &&
+    prefTimeDetail &&
+    !isAllowedPreferredTimeDetail(
+      prefTime,
+      prefTimeDetail,
+      configuredDetailsFromPublicTemplate(prefillTemplate, prefTime),
+    )
+  ) {
     res.status(400).json({ error: '구체적 시각을 해당 시간대 범위에서 선택해 주세요.' });
     return;
   }
@@ -3063,7 +3074,11 @@ router.post('/submit/:token', async (req, res) => {
   if (
     !adminDetailLocked &&
     useDetailStr &&
-    !isAllowedPreferredTimeDetail(useTimeStr, useDetailStr)
+    !isAllowedPreferredTimeDetail(
+      useTimeStr,
+      useDetailStr,
+      configuredDetailsFromPublicTemplate(submitTemplate, useTimeStr, slotLabels),
+    )
   ) {
     res.status(400).json({
       error: '구체적 시각을 해당 시간대에서 허용되는 범위로 선택해 주세요.',

@@ -6,6 +6,7 @@ import {
   resolvePreferredTimeFromExcelWithLabels,
   resolvePreferredTimeSlotForDetail,
 } from '@shared/orderFormTimeSlotLabels';
+import { configuredTimeDetailsForOrder } from '../../constants/orderFormPreferredTimeDetail';
 import {
   ORDER_FORM_SPACE_COUNT_FIELDS,
   parseOrderFormSpaceCount,
@@ -227,9 +228,10 @@ export function shouldShowCustomerTimeDetailWizardStep(
 ): boolean {
   if (!isStdFieldOn(order, 'preferredTimeDetail')) return false;
   if (skipLocked && order?.preferredTimeDetail?.trim()) return false;
-  const slot = resolvePreferredTimeSlotForDetail(
-    form.preferredTime.trim() || order?.preferredTime?.trim() || '',
-  );
+  const selected = form.preferredTime.trim() || order?.preferredTime?.trim() || '';
+  const configured = configuredTimeDetailsForOrder(order, selected);
+  if (configured && configured.length > 0) return true;
+  const slot = resolvePreferredTimeSlotForDetail(selected);
   if (!slot || slot === '조율') return false;
   return true;
 }

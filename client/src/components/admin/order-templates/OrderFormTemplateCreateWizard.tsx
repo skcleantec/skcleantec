@@ -109,6 +109,7 @@ export function OrderFormTemplateCreateWizard({
   const [iconOpen, setIconOpen] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [systemOptionOverrides, setSystemOptionOverrides] = useState<Record<string, string[]>>({});
+  const [preferredTimeDetails, setPreferredTimeDetails] = useState<string[][]>([]);
   const [customDrafts, setCustomDrafts] = useState<DraftField[]>([]);
   const [newLabel, setNewLabel] = useState('');
   const [newType, setNewType] = useState<OrderFormFieldInputType>('TEXT');
@@ -137,6 +138,7 @@ export function OrderFormTemplateCreateWizard({
       if (d.systemField && d.options.length > 0) overrides[d.systemField] = d.options;
     }
     setSystemOptionOverrides(overrides);
+    setPreferredTimeDetails(fields.find((d) => d.systemField === 'preferredTime')?.timeDetails ?? []);
     setPhotosOn(
       isOrderFormSectionToggleOn(
         {
@@ -160,6 +162,7 @@ export function OrderFormTemplateCreateWizard({
     setSelectedKeys(new Set(next.selectedKeys));
     setCustomDrafts(next.customDrafts);
     setSystemOptionOverrides({});
+    setPreferredTimeDetails([]);
     setPhotosOn(next.photosOn);
     setTitle((prev) => (prev === '새 발주서' ? pack.defaultFormTitle : prev));
     setIcon((prev) => (prev ? prev : pack.emoji));
@@ -173,6 +176,7 @@ export function OrderFormTemplateCreateWizard({
     setSelectedKeys(new Set(next.selectedKeys));
     setCustomDrafts(next.customDrafts);
     setSystemOptionOverrides({});
+    setPreferredTimeDetails([]);
     setPhotosOn(next.photosOn);
     setTitle(pack.defaultFormTitle);
     setIcon(pack.emoji);
@@ -234,7 +238,12 @@ export function OrderFormTemplateCreateWizard({
       .map((f, i) => {
         const d = coreFieldToDraft(f, identityDrafts.length + i);
         const ov = systemOptionOverrides[f.key];
-        return ov ? { ...d, options: ov } : d;
+        if (!ov) return d;
+        return {
+          ...d,
+          options: ov,
+          ...(f.key === 'preferredTime' ? { timeDetails: preferredTimeDetails } : {}),
+        };
       });
     const customs = customDrafts.map((d, i) => ({ ...d, sortOrder: identityDrafts.length + extras.length + i }));
     const photos: DraftField[] = photosOn
@@ -256,7 +265,7 @@ export function OrderFormTemplateCreateWizard({
         ]
       : [];
     return [...identityDrafts, ...extras, ...customs, ...photos];
-  }, [identityDrafts, optionalFields, selectedKeys, customDrafts, photosOn, systemOptionOverrides]);
+  }, [identityDrafts, optionalFields, selectedKeys, customDrafts, photosOn, systemOptionOverrides, preferredTimeDetails]);
 
   const previewSrc = useMemo(() => {
     if (typeof window === 'undefined' || !previewToken || !draft) return '';
@@ -445,11 +454,13 @@ export function OrderFormTemplateCreateWizard({
         {toggle}
         <OrderFormDraftOptionsEditor
           title="시간대 하위 항목"
-          hint="이 발주서 손님·발급 화면에만 보입니다. 입주와 에어컨처럼 발주서마다 다르게 넣을 수 있습니다."
+          hint="이 발주서 손님·발급 화면에만 보입니다. 각 항목 아래 구체적 시각을 적으면 다음 화면이 그 문구로 바뀝니다."
           options={timeOptions}
           onChange={(options) =>
             setSystemOptionOverrides((prev) => ({ ...prev, preferredTime: options }))
           }
+          details={preferredTimeDetails}
+          onDetailsChange={setPreferredTimeDetails}
         />
       </div>
     );

@@ -126,7 +126,7 @@ export function OrderFormSettingsCopyPanel(props: {
       <section className="space-y-3">
         <h4 className="text-fluid-xs font-semibold text-slate-800">시간대·날짜 확인 모달</h4>
         <p className="text-fluid-2xs text-slate-500">
-          손님이 고르는 시간대 버튼은 위 「입력 칸」에 적은 문구 그대로입니다. 질문 문장만 모든 발주서에 같이
+          손님이 고르는 시간대 버튼과 다음 화면의 구체적 시각은 위 「입력 칸」에 적은 문구 그대로입니다. 질문 문장만 모든 발주서에 같이
           나갑니다.
         </p>
         <label className="block text-fluid-xs font-medium text-slate-800" htmlFor="order-time-slot-question">

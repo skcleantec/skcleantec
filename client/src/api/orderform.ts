@@ -272,6 +272,10 @@ export interface OrderFormPublicSystemField {
   sortOrder: number;
   /** 선택지(건축물유형·신축구축 등 표준 컨트롤 옵션) */
   options?: string[];
+  /** 시간대 하위 항목 문구 → 구체적 시각. 없으면 기본 시각. */
+  timeDetailOptions?: Record<string, string[]>;
+  /** 입력 칸 도움말. 손님 질문 아래에 표시. */
+  helpText?: string | null;
 }
 
 /** 발주서가 사용하는 양식(템플릿) — 제목·아이콘·추가 항목 */

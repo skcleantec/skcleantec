@@ -260,11 +260,17 @@ export function OrderFormTemplateFieldDraftList(props: {
                   title={d.systemField === 'preferredTime' ? '시간대 하위 항목' : undefined}
                   hint={
                     d.systemField === 'preferredTime'
-                      ? '이 발주서 손님·발급 화면에만 보이는 시간대입니다. 다른 발주서와 따로입니다.'
+                      ? '이 발주서 손님·발급 화면에만 보이는 시간대입니다. 각 항목 아래 구체적 시각을 적으면 다음 화면이 그 문구로 바뀝니다.'
                       : undefined
                   }
                   options={d.options}
                   onChange={(options) => onUpdate(idx, { options })}
+                  details={d.systemField === 'preferredTime' ? d.timeDetails ?? [] : undefined}
+                  onDetailsChange={
+                    d.systemField === 'preferredTime'
+                      ? (timeDetails) => onUpdate(idx, { timeDetails })
+                      : undefined
+                  }
                 />
               )}
               <label className="flex items-center gap-2 sm:col-span-2">

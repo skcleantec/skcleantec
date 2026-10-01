@@ -21,6 +21,11 @@ import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order
 import type { OrderFormPublicTemplateField } from '../../../api/orderform';
 import { shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 
+function systemFieldHelp(order: OrderFormLoadedOrder | null, key: string): string | undefined {
+  const text = order?.template?.systemFields?.find((field) => field.systemField === key)?.helpText?.trim();
+  return text || undefined;
+}
+
 export type OrderFormCustomerStepId =
   | 'welcome'
   | 'name'
@@ -164,7 +169,9 @@ export function resolveOrderFormCustomerSteps(args: {
       title: timeLocked
         ? '시간대가 이렇게 맞나요?'
         : order?.formConfig?.timeSlotQuestionTitle?.trim() || DEFAULT_ORDER_TIME_SLOT_QUESTION,
-      hint: timeLocked ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.' : undefined,
+      hint: [systemFieldHelp(order, 'preferredTime'), timeLocked ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.' : undefined]
+        .filter(Boolean)
+        .join(' ') || undefined,
     });
   }
   if (
@@ -175,6 +182,7 @@ export function resolveOrderFormCustomerSteps(args: {
       id: 'timeDetail',
       kind: 'choice',
       title: '구체적인 시각을 골라 주세요',
+      hint: systemFieldHelp(order, 'preferredTimeDetail'),
       skippable: !isPreferredTimeDetailRequired(form.preferredTime),
     });
   }
