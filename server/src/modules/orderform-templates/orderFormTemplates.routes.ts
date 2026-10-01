@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import multer from 'multer';
+import { isObjectStorageReady, uploadObjectBuffer } from '../../lib/objectStorage.js';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
@@ -26,6 +28,7 @@ import {
   normalizeGuideSectionsInput,
   resolveStoredOrDefaultGuide,
 } from './templateGuide.helpers.js';
+import { customerPagesToJson, resolveCustomerPages } from '../../lib/orderFormCustomerPages.js';
 import {
   assertTenantPromotedFieldLimit,
   canPromoteFieldToInquiryList,
@@ -89,6 +92,7 @@ function serializeTemplate(
     isDefault: t.isDefault,
     industryPackId: t.industryPackId,
     guideSections: resolveStoredOrDefaultGuide(t).sections,
+    customerPages: t.customerWizardJson == null ? null : resolveCustomerPages(t.customerWizardJson),
     sortOrder: t.sortOrder,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
@@ -211,6 +215,80 @@ router.put('/:id/guide', requireStaffPermission('orderform.templates', 'orderfor
   });
   res.json({ template: serializeTemplate(row) });
 });
+
+/** 손님 발주서 페이지 문구·선택지 저장 */
+router.put('/:id/customer-pages', requireStaffPermission('orderform.templates', 'orderform.formConfig'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+  if (!tenantId) return;
+  const owned = await prisma.orderFormTemplate.findFirst({
+    where: { id: req.params.id, tenantId },
+    include: { fields: true },
+  });
+  if (!owned) {
+    res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    return;
+  }
+  const pages = (req.body as { pages?: unknown }).pages;
+  if (!Array.isArray(pages)) {
+    res.status(400).json({ error: '페이지 목록이 올바르지 않습니다.' });
+    return;
+  }
+  const row = await prisma.orderFormTemplate.update({
+    where: { id: owned.id },
+    data: { customerWizardJson: customerPagesToJson(resolveCustomerPages({ pages })) },
+    include: { fields: true },
+  });
+  res.json({ template: serializeTemplate(row) });
+});
+
+const choiceImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+/** 손님 선택지 그림 */
+router.post(
+  '/:id/choice-image',
+  requireStaffPermission('orderform.templates', 'orderform.formConfig'),
+  choiceImageUpload.single('file'),
+  async (req, res) => {
+    const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+    if (!tenantId) return;
+    const owned = await prisma.orderFormTemplate.findFirst({
+      where: { id: req.params.id, tenantId },
+      select: { id: true },
+    });
+    if (!owned) {
+      res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ error: '그림 파일을 선택해 주세요.' });
+      return;
+    }
+    if (!req.file.mimetype.startsWith('image/')) {
+      res.status(400).json({ error: '그림 파일만 올릴 수 있습니다.' });
+      return;
+    }
+    if (!isObjectStorageReady()) {
+      res.status(503).json({ error: '그림 업로드가 일시적으로 불가합니다. 잠시 후 다시 시도해 주세요.' });
+      return;
+    }
+    try {
+      const uploaded = await uploadObjectBuffer({
+        folder: `orderform-choice/${tenantId}`,
+        buffer: req.file.buffer,
+        contentType: req.file.mimetype,
+        resourceType: 'image',
+        fileNameHint: req.file.originalname,
+      });
+      res.json({ publicId: uploaded.publicId, secureUrl: uploaded.secureUrl });
+    } catch (e) {
+      console.error('[orderform-choice-image]', e);
+      res.status(500).json({ error: '그림 업로드에 실패했습니다.' });
+    }
+  },
+);
 
 /** 템플릿 생성(초안) */
 router.post('/', requireStaffPermission('orderform.templates'), async (req, res) => {

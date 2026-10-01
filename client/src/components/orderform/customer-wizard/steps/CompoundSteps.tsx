@@ -52,7 +52,7 @@ export function AddressStep({
             setAddressConfirmedViaSearch(true);
             setForm((f) => ({ ...f, address: addr }));
           }}
-          placeholder="주소 검색"
+          placeholder={step.lines?.find((line) => line.key === 'searchPlaceholder')?.text.trim() || '주소 검색'}
           className="mb-3"
           mobilePreferred
         />
@@ -63,7 +63,7 @@ export function AddressStep({
         </p>
       ) : null}
       <label className="mb-1.5 block text-fluid-xs font-medium text-slate-600" htmlFor="order-field-addressDetail">
-        상세주소
+        {step.lines?.find((line) => line.key === 'detailLabel')?.text.trim() || '상세주소'}
       </label>
       <input
         id="order-field-addressDetail"
@@ -71,7 +71,7 @@ export function AddressStep({
         value={form.addressDetail}
         disabled={detailDisabled}
         onChange={(e) => setForm((f) => ({ ...f, addressDetail: e.target.value }))}
-        placeholder={detailDisabled ? '먼저 주소를 검색해 주세요' : '동·호수, 층, 상호 등'}
+        placeholder={detailDisabled ? '먼저 주소를 검색해 주세요' : step.lines?.find((line) => line.key === 'detailPlaceholder')?.text.trim() || '동·호수, 층, 상호 등'}
         autoComplete="address-line2"
       />
     </WizardQuestion>

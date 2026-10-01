@@ -20,6 +20,12 @@ import {
 import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order/orderFormModel.types';
 import type { OrderFormPublicTemplateField } from '../../../api/orderform';
 import { shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
+import {
+  customerPageById,
+  resolveCustomerPages,
+  type CustomerPageChoice,
+  type CustomerPageLine,
+} from '@shared/orderFormCustomerPages';
 
 function systemFieldHelp(order: OrderFormLoadedOrder | null, key: string): string | undefined {
   const text = order?.template?.systemFields?.find((field) => field.systemField === key)?.helpText?.trim();
@@ -56,6 +62,8 @@ export type OrderFormCustomerStep = {
   hint?: string;
   skippable?: boolean;
   customField?: OrderFormPublicTemplateField;
+  choices?: CustomerPageChoice[];
+  lines?: CustomerPageLine[];
 };
 
 export function resolveOrderFormCustomerSteps(args: {
@@ -73,69 +81,76 @@ export function resolveOrderFormCustomerSteps(args: {
   const areaLocked = skipLocked && !isEditor && isOrderFormAreaLockedFromOrder(order);
   const streetLocked = isCustomerAddressLocked(isEditor, order?.prefillAnswers);
 
+  const pages = resolveCustomerPages(order?.template?.customerPages ?? null);
+  const copy = (id: string) => customerPageById(pages, id);
+  const shown = (id: string) => copy(id)?.enabled !== false;
   const steps: OrderFormCustomerStep[] = [];
-  if (shouldCollectOrderFormCleaningKind(order?.template) && !locked('cleaningKind')) {
+  if (shouldCollectOrderFormCleaningKind(order?.template) && !locked('cleaningKind') && shown('welcome')) {
+    const page = copy('welcome');
     steps.push({
       id: 'welcome',
       kind: 'welcome',
-      title: '어떤 청소를 원하세요?',
-      hint: '한 가지만 고르고, 아래 그림을 확인한 뒤 「확인」을 눌러 주세요.',
+      title: page?.title || '어떤 청소를 원하세요?',
+      hint: page?.hint,
+      choices: page?.choices,
+      lines: page?.lines,
     });
   }
 
-  if (customerMayEditFillKey(order, 'customerName') && shouldShowCustomerNameWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'customerName') && shouldShowCustomerNameWizardStep(order, isEditor, skipLocked) && shown('name')) {
     const nameLocked = prefilled('customerName');
+    const page = copy('name');
     steps.push({
       id: 'name',
       kind: 'input',
-      title: nameLocked ? '성함이 이렇게 맞나요?' : '고객 성함이 어떻게 되세요?',
-      hint: nameLocked
-        ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.'
-        : '예약 확인에 쓰이는 이름입니다.',
+      title: nameLocked ? page?.titleLocked || '성함이 이렇게 맞나요?' : page?.title || '고객 성함이 어떻게 되세요?',
+      hint: nameLocked ? page?.hintLocked : page?.hint,
+      lines: page?.lines,
     });
   }
-  if (customerMayEditFillKey(order, 'address') && shouldShowCustomerAddressWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'address') && shouldShowCustomerAddressWizardStep(order, isEditor, skipLocked) && shown('address')) {
     const detailOnly = streetLocked && !prefilled('addressDetail');
     const addressAllSet = streetLocked && prefilled('addressDetail');
+    const page = copy('address');
     steps.push({
       id: 'address',
       kind: 'input',
       title: addressAllSet
-        ? '주소가 이렇게 맞나요?'
+        ? page?.titleAllSet || '주소가 이렇게 맞나요?'
         : detailOnly
-          ? '상세주소를 알려 주세요'
-          : '청소할 주소는 어디인가요?',
-      hint: addressAllSet
-        ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.'
-        : detailOnly
-          ? '동·호수, 층, 상호 등을 적어 주세요. 도로명 주소는 상담에서 이미 정해졌습니다.'
-          : '「주소 검색」으로 선택한 뒤 상세주소를 적어 주세요.',
+          ? page?.titleDetailOnly || '상세주소를 알려 주세요'
+          : page?.title || '청소할 주소는 어디인가요?',
+      hint: addressAllSet ? page?.hintAllSet : detailOnly ? page?.hintDetailOnly : page?.hint,
+      lines: page?.lines,
     });
   }
   if (
     (customerMayEditFillKey(order, 'customerPhone') && std('customerPhone') && !locked('customerPhone')) ||
     (customerMayEditFillKey(order, 'customerPhone2') && !locked('customerPhone2'))
   ) {
-    steps.push({
+    if (shown('phones')) steps.push({
       id: 'phones',
       kind: 'input',
-      title: '연락처를 알려 주세요',
-      hint: '보조 연락처는 필수입니다. 전일 연락이 안 되면 서비스가 취소될 수 있으니 정확하게 적어 주세요.',
+      title: copy('phones')?.title || '연락처를 알려 주세요',
+      hint: copy('phones')?.hint,
+      lines: copy('phones')?.lines,
     });
   }
-  if (customerMayEditFillKey(order, 'customerEmail') && shouldShowCustomerEmailWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'customerEmail') && shouldShowCustomerEmailWizardStep(order, isEditor, skipLocked) && shown('email')) {
     steps.push({
       id: 'email',
       kind: 'input',
-      title: '이메일이 있으신가요?',
-      hint: '제출 확인 메일을 받을 수 있습니다.',
+      title: copy('email')?.title || '이메일이 있으신가요?',
+      hint: copy('email')?.hint,
     });
   }
-  if (customerMayEditFillKey(order, 'propertyType') && shouldShowCustomerPropertyWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'propertyType') && shouldShowCustomerPropertyWizardStep(order, isEditor, skipLocked) && shown('property')) {
     steps.push({
       id: 'property',
       kind: 'choice',
-      title: '어떤 공간인가요?',
+      title: copy('property')?.title || '어떤 공간인가요?',
+      hint: copy('property')?.hint,
+      choices: copy('property')?.choices,
     });
   }
   if (
@@ -143,33 +158,33 @@ export function resolveOrderFormCustomerSteps(args: {
     (std('areaPyeong') || isOrderFormAreaLockedFromOrder(order)) &&
     !areaLocked
   ) {
-    steps.push({
+    if (shown('area')) steps.push({
       id: 'area',
       kind: 'input',
-      title: '공급면적은 얼마인가요?',
-      hint: '반드시 평수로 적어 주세요. 제곱미터만 알고 계시면 평으로 환산합니다.',
+      title: copy('area')?.title || '공급면적은 얼마인가요?',
+      hint: copy('area')?.hint,
     });
   }
-  if (customerMayEditFillKey(order, 'preferredDate') && shouldShowCustomerDateWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'preferredDate') && shouldShowCustomerDateWizardStep(order, isEditor, skipLocked) && shown('date')) {
     const dateLocked = prefilled('preferredDate') || Boolean(order?.preferredDate?.trim());
+    const page = copy('date');
     steps.push({
       id: 'date',
       kind: 'input',
-      title: dateLocked ? '희망 청소일이 이렇게 맞나요?' : '희망 청소일은 언제인가요?',
-      hint: dateLocked
-        ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.'
-        : '날짜를 정확히 확인해 주세요. 잘못 적으면 위약금이 생길 수 있습니다.',
+      title: dateLocked ? page?.titleLocked || '희망 청소일이 이렇게 맞나요?' : page?.title || '희망 청소일은 언제인가요?',
+      hint: dateLocked ? page?.hintLocked : page?.hint,
     });
   }
-  if (customerMayEditFillKey(order, 'preferredTime') && shouldShowCustomerTimeWizardStep(order, isEditor, skipLocked)) {
+  if (customerMayEditFillKey(order, 'preferredTime') && shouldShowCustomerTimeWizardStep(order, isEditor, skipLocked) && shown('time')) {
     const timeLocked = prefilled('preferredTime') || Boolean(order?.preferredTime?.trim());
+    const page = copy('time');
     steps.push({
       id: 'time',
       kind: 'choice',
       title: timeLocked
-        ? '시간대가 이렇게 맞나요?'
-        : order?.formConfig?.timeSlotQuestionTitle?.trim() || DEFAULT_ORDER_TIME_SLOT_QUESTION,
-      hint: [systemFieldHelp(order, 'preferredTime'), timeLocked ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.' : undefined]
+        ? page?.titleLocked || '시간대가 이렇게 맞나요?'
+        : page?.title || order?.formConfig?.timeSlotQuestionTitle?.trim() || DEFAULT_ORDER_TIME_SLOT_QUESTION,
+      hint: [page?.hint || systemFieldHelp(order, 'preferredTime'), timeLocked ? page?.hintLocked : undefined]
         .filter(Boolean)
         .join(' ') || undefined,
     });
@@ -178,11 +193,11 @@ export function resolveOrderFormCustomerSteps(args: {
     customerMayEditFillKey(order, 'preferredTimeDetail') &&
     shouldShowCustomerTimeDetailWizardStep(order, form, skipLocked)
   ) {
-    steps.push({
+    if (shown('timeDetail')) steps.push({
       id: 'timeDetail',
       kind: 'choice',
-      title: '구체적인 시각을 골라 주세요',
-      hint: systemFieldHelp(order, 'preferredTimeDetail'),
+      title: copy('timeDetail')?.title || '구체적인 시각을 골라 주세요',
+      hint: copy('timeDetail')?.hint || systemFieldHelp(order, 'preferredTimeDetail'),
       skippable: !isPreferredTimeDetailRequired(form.preferredTime),
     });
   }
@@ -193,24 +208,29 @@ export function resolveOrderFormCustomerSteps(args: {
     const roomsAnyLocked = ORDER_FORM_SPACE_COUNT_FIELDS.some(({ key }) =>
       isOrderFormSpaceCountLocked(isEditor, order?.prefillAnswers, key),
     );
+    if (shown('rooms')) {
+    const page = copy('rooms');
     steps.push({
       id: 'rooms',
       kind: 'input',
       title: roomsAllLocked
-        ? '방·화장실·베란다·주방은 이렇게 맞나요?'
-        : '방·화장실·베란다·주방은 어떻게 되나요?',
+        ? page?.titleAllSet || '방·화장실·베란다·주방은 이렇게 맞나요?'
+        : page?.title || '방·화장실·베란다·주방은 어떻게 되나요?',
       hint: roomsAllLocked
-        ? '상담에서 적어 둔 내용입니다. 맞으면 다음을 눌러 주세요.'
+        ? page?.hintAllSet
         : roomsAnyLocked
-          ? '이미 적힌 칸은 확인만 하시면 됩니다. 없는 공간은 0으로 적어 주세요.'
-          : '없는 공간은 0으로 적어 주세요. 0이거나 비어 있는 칸은 직접 고칠 수 있습니다.',
+          ? page?.hintPartial
+          : page?.hint,
     });
+    }
   }
-  if (customerMayEditFillKey(order, 'buildingType') && std('buildingType') && !locked('buildingType')) {
+  if (customerMayEditFillKey(order, 'buildingType') && std('buildingType') && !locked('buildingType') && shown('building')) {
     steps.push({
       id: 'building',
       kind: 'choice',
-      title: '건물 형태는요?',
+      title: copy('building')?.title || '건물 형태는요?',
+      hint: copy('building')?.hint,
+      choices: copy('building')?.choices,
     });
   }
   if (
@@ -218,18 +238,19 @@ export function resolveOrderFormCustomerSteps(args: {
     std('moveInDate') &&
     (!locked('moveInTiming') || !locked('moveInDate') || !locked('moveInDateUndecided'))
   ) {
-    steps.push({
+    if (shown('moveIn')) steps.push({
       id: 'moveIn',
       kind: 'input',
-      title: '입주 시기는요?',
+      title: copy('moveIn')?.title || '입주 시기는요?',
+      hint: copy('moveIn')?.hint,
     });
   }
-  if (customerMayEditFillKey(order, 'specialNotes') && std('specialNotes') && !locked('specialNotes')) {
+  if (customerMayEditFillKey(order, 'specialNotes') && std('specialNotes') && !locked('specialNotes') && shown('notes')) {
     steps.push({
       id: 'notes',
       kind: 'input',
-      title: '추가로 알려 주실 게 있나요?',
-      hint: '전화 상담 내용, 층수·주택 형태 등을 적어 주세요.',
+      title: copy('notes')?.title || '추가로 알려 주실 게 있나요?',
+      hint: copy('notes')?.hint,
       skippable: true,
     });
   }
@@ -246,12 +267,12 @@ export function resolveOrderFormCustomerSteps(args: {
       customField: cf,
     });
   }
-  if (customerMayEditFillKey(order, 'photos') && std('photos')) {
+  if (customerMayEditFillKey(order, 'photos') && std('photos') && shown('photos')) {
     steps.push({
       id: 'photos',
       kind: 'input',
-      title: '현장 사진을 올려 주세요',
-      hint: '없어도 제출할 수 있습니다.',
+      title: copy('photos')?.title || '현장 사진을 올려 주세요',
+      hint: copy('photos')?.hint,
       skippable: true,
     });
   }
@@ -260,25 +281,48 @@ export function resolveOrderFormCustomerSteps(args: {
     std('professionalOptions') &&
     !locked('professionalOptionIds')
   ) {
-    steps.push({
+    if (shown('professional')) steps.push({
       id: 'professional',
       kind: 'input',
-      title: '추가로 필요한 작업이 있나요?',
-      hint: '없으면 다음으로 넘어가 주세요.',
+      title: copy('professional')?.title || '추가로 필요한 작업이 있나요?',
+      hint: copy('professional')?.hint,
       skippable: true,
+    });
+  }
+  for (const page of pages) {
+    if (!page.id.startsWith('extra_') || !page.enabled) continue;
+    steps.push({
+      id: `custom:${page.id}`,
+      kind: page.choices.length ? 'choice' : 'input',
+      title: page.title,
+      hint: page.hint || undefined,
+      skippable: true,
+      choices: page.choices,
+      customField: {
+        fieldKey: page.id,
+        label: page.title,
+        helpText: page.hint || null,
+        inputType: page.choices.length ? 'SELECT' : 'TEXT',
+        options: page.choices.map((choice) => choice.label),
+        placeholder: null,
+        optionStyle: 'RADIO',
+        optionLayout: 'VERTICAL',
+        required: false,
+        fillMode: 'CUSTOMER',
+      },
     });
   }
   steps.push({
     id: 'review',
     kind: 'review',
-    title: '이렇게 접수할까요?',
-    hint: '틀린 항목은 눌러서 고칠 수 있습니다.',
+    title: copy('review')?.title || '이렇게 접수할까요?',
+    hint: copy('review')?.hint,
   });
   steps.push({
     id: 'guide',
     kind: 'guide',
-    title: '안내사항을 확인해 주세요',
-    hint: '각 항목을 읽고 체크한 뒤, 맨 아래까지 내려 서명해 주세요.',
+    title: copy('guide')?.title || '안내사항을 확인해 주세요',
+    hint: copy('guide')?.hint,
   });
   return steps;
 }

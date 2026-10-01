@@ -64,6 +64,8 @@ export interface OrderFormTemplate {
   isDefault: boolean;
   industryPackId?: string | null;
   guideSections?: Array<{ title: string; items: string[] }>;
+  /** 손님 페이지 질문·도움말·선택지. 지금 화면 문장이 채워져 있다. */
+  customerPages?: import('@shared/orderFormCustomerPages').CustomerPageCopy[];
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -185,6 +187,36 @@ export async function updateOrderFormTemplateMeta(
   });
   if (!res.ok) await parseError(res, '템플릿 수정에 실패했습니다.');
   return ((await res.json()) as { template: OrderFormTemplate }).template;
+}
+
+export async function saveOrderFormCustomerPages(
+  token: string,
+  id: string,
+  pages: import('@shared/orderFormCustomerPages').CustomerPageCopy[],
+): Promise<OrderFormTemplate> {
+  const res = await fetch(`${BASE}/${encodeURIComponent(id)}/customer-pages`, {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify({ pages }),
+  });
+  if (!res.ok) await parseError(res, '손님 화면 설정을 저장하지 못했습니다.');
+  return ((await res.json()) as { template: OrderFormTemplate }).template;
+}
+
+export async function uploadOrderFormChoiceImage(
+  token: string,
+  id: string,
+  file: File,
+): Promise<{ secureUrl: string }> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(`${BASE}/${encodeURIComponent(id)}/choice-image`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: fd,
+  });
+  if (!res.ok) await parseError(res, '그림을 올리지 못했습니다.');
+  return (await res.json()) as { secureUrl: string };
 }
 
 export async function saveOrderFormTemplateGuide(

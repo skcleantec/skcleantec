@@ -10,6 +10,16 @@ export const ORDER_FORM_SETTINGS_SECTIONS = [
 
 export type OrderFormSettingsSectionId = (typeof ORDER_FORM_SETTINGS_SECTIONS)[number];
 
+export const ORDER_FORM_SETTINGS_SECTION_LABELS: Record<OrderFormSettingsSectionId, string> = {
+  basics: '이름·사용',
+  fields: '입력 칸',
+  guide: '안내·동의',
+  copy: '손님 문구',
+  price: '금액·견적',
+  specialty: '전문시공',
+  leadSource: '유입경로',
+};
+
 const OPEN_BY_DEFAULT: OrderFormSettingsSectionId[] = ['basics', 'fields', 'guide'];
 
 /** 예전 탭 `panel=` → 새 섹션 */

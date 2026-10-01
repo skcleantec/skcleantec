@@ -48,10 +48,11 @@ export function validateCustomerStep(args: {
   const prefillLocked = (key: string) => isOrderFormPrefillLocked(isEditor, prefill, key);
 
   switch (step.id) {
-    case 'welcome':
-      return isOrderFormCleaningKind(form.cleaningKind)
-        ? null
-        : '청소 종류를 고른 뒤 「확인」을 눌러 주세요.';
+    case 'welcome': {
+      const allowed = new Set((step.choices ?? []).map((choice) => choice.value));
+      const ok = allowed.size > 0 ? allowed.has(form.cleaningKind) : isOrderFormCleaningKind(form.cleaningKind);
+      return ok ? null : '청소 종류를 고른 뒤 「확인」을 눌러 주세요.';
+    }
     case 'name':
       return form.customerName.trim() ? null : '성함을 입력해주세요.';
     case 'address': {

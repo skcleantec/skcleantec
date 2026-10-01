@@ -361,15 +361,23 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     [order],
   );
   const propertyTypeOptions = useMemo(() => {
+    const saved = order?.template?.customerPagesCustomized
+      ? order.template.customerPages?.find((page) => page.id === 'property')?.choices ?? []
+      : [];
+    if (saved.length) return saved.map((choice) => ({ value: choice.value, label: choice.label }));
     const custom = sysOptions('propertyType');
     return custom.length
       ? custom.map((v) => ({ value: v, label: v }))
       : PROPERTY_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
-  }, [sysOptions]);
+  }, [sysOptions, order]);
   const buildingTypeOptions = useMemo(() => {
+    const saved = order?.template?.customerPagesCustomized
+      ? order.template.customerPages?.find((page) => page.id === 'building')?.choices ?? []
+      : [];
+    if (saved.length) return saved.map((choice) => ({ value: choice.value, label: choice.label }));
     const custom = sysOptions('buildingType');
     return custom.length ? custom.map((v) => ({ value: v, label: v })) : ORDER_BUILDING_TYPE_OPTIONS;
-  }, [sysOptions]);
+  }, [sysOptions, order]);
   const timeSlotLabels = order?.formConfig?.timeSlotLabels ?? null;
   const timeSlotOptions = useMemo(
     () =>

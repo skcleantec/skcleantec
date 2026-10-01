@@ -291,6 +291,9 @@ export interface OrderFormPublicTemplate {
   /** 표준 항목 구성(있으면 선택 표준 섹션 표시/숨김에 사용). 없거나 레거시면 전부 표시 */
   systemFields?: OrderFormPublicSystemField[];
   customFields: OrderFormPublicTemplateField[];
+  /** 손님 페이지 질문·도움말·선택지 */
+  customerPages?: import('@shared/orderFormCustomerPages').CustomerPageCopy[];
+  customerPagesCustomized?: boolean;
 }
 
 /** 미제출 — 고객 작성 폼 */

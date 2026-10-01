@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react';
-import {
-  ORDER_FORM_CLEANING_KIND_OPTIONS,
-  type OrderFormCleaningKind,
-} from '@shared/orderFormCleaningKind';
+import { ORDER_FORM_CLEANING_KIND_OPTIONS } from '@shared/orderFormCleaningKind';
+import type { CustomerPageChoice } from '@shared/orderFormCustomerPages';
 
 const CARD_CLS =
   'flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -15,9 +13,11 @@ export function OrderFormCleaningKindPicker({
   onConfirm,
   confirmDisabled,
   showConfirm,
+  options,
 }: {
   value: string;
-  onChange: (next: OrderFormCleaningKind) => void;
+  onChange: (next: string) => void;
+  options?: CustomerPageChoice[];
   disabled?: boolean;
   confirmLabel?: string;
   onConfirm?: () => void;
@@ -34,7 +34,7 @@ export function OrderFormCleaningKindPicker({
   return (
     <div className="space-y-3">
       <div role="radiogroup" aria-label="청소 종류" className="space-y-2">
-        {ORDER_FORM_CLEANING_KIND_OPTIONS.map((opt) => {
+        {(options?.length ? options : ORDER_FORM_CLEANING_KIND_OPTIONS).map((opt) => {
           const checked = value === opt.value;
           return (
             <div key={opt.value} className="space-y-2">

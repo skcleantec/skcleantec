@@ -1,12 +1,11 @@
 import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
-import type { OrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import type { InternalCustomerTone } from '../../constants/internalCustomerTone';
 import type { OperatingCompanyCancellationPolicy } from '@shared/operatingCompanyCancellationPolicy';
 import type { OrderFormPublicTemplate } from '../../api/orderform';
 import type { CrmOrderIssueSeed } from '../../components/orderform/OrderIssueInlinePanel';
 
 export type OrderFormFields = {
-  cleaningKind: OrderFormCleaningKind | '';
+  cleaningKind: string;
   customerName: string;
   customerPhone: string;
   customerPhoneSecondary: string;
