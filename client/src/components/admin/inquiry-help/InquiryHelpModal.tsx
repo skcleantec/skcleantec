@@ -611,9 +611,9 @@ function InquiryHelpDetailTab() {
         <InquiryHelpDetailSectionFigure id="footer" />
         <HelpActionTable rows={INQUIRY_HELP_DETAIL_FOOTER_ACTIONS} />
         <p className="text-fluid-2xs text-slate-500 leading-snug">
-          <strong className="text-slate-700">3번</strong> 고객 발주서 특이사항과{' '}
-          <strong className="text-slate-700">6번</strong> 특이사항(관리자 메모)은 별도입니다. 목록 O/X는 고객
-          발주서·첨부 사진 기준입니다.
+          <strong className="text-slate-700">3번</strong> 고객 발주서 특이사항은 고치거나 비운 뒤 저장할 수
+          있습니다. <strong className="text-slate-700">6번</strong> 특이사항(관리자 메모)과는 별도입니다. 목록
+          O/X는 고객 발주서·첨부 사진 기준입니다.
         </p>
       </HelpSection>
     </div>

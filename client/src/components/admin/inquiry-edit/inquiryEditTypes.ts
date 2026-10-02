@@ -46,6 +46,8 @@ export type InquiryEditFormFields = {
   externalTransferFee: string;
   scheduleMemo: string;
   specialNotes: string;
+  /** 발주서 고객 특이사항. 발주서가 있을 때만 저장 */
+  customerOrderNotes: string;
   consultationMemo: string;
   internalCustomerTone: InternalCustomerTone;
   professionalOptionIds: string[];

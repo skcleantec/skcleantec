@@ -76,6 +76,7 @@ import {
   serializeProfessionalOptionSelectionsJson,
 } from '../orderform/specialtyOptions.js';
 import { resolveOneRoomSpecialNotes } from '../orderform/orderFormOneRoom.js';
+import { planCustomerOrderNotesSave } from './inquiryCustomerOrderNotes.helpers.js';
 import { isSkCleantecOpsUiEnabled, oneRoomLabelWhenSkOpsEnabled } from '../custom/skcleantecOpsUi.js';
 import { ensureReviewPaybackToken } from '../review-payback/reviewPayback.service.js';
 import { allocateNextInquiryNumber } from './inquiryNumber.js';
@@ -883,6 +884,7 @@ router.patch('/:id', async (req, res) => {
           createdById: true,
           submittedAt: true,
           customerSpecialNotes: true,
+          customerSubmissionSnapshot: true,
           totalAmount: true,
           depositAmount: true,
           balanceAmount: true,
@@ -1690,6 +1692,22 @@ router.patch('/:id', async (req, res) => {
     data.profOptionsAmountReviewPending = false;
   }
 
+  const customerNotesPlan = planCustomerOrderNotesSave({
+    body,
+    orderForm: inquiry.orderForm,
+    inquirySpecialNotes: inquiry.specialNotes,
+    isOneRoom: data.isOneRoom !== undefined ? Boolean(data.isOneRoom) : inquiry.isOneRoom,
+    omitAutoPhrase: skOpsUiEnabled,
+    inquirySpecialNotesInPatch: data.specialNotes !== undefined,
+  });
+  if (customerNotesPlan && 'error' in customerNotesPlan) {
+    res.status(400).json({ error: customerNotesPlan.error });
+    return;
+  }
+  if (customerNotesPlan?.changeLine) {
+    lines.push(customerNotesPlan.changeLine);
+  }
+
   try {
     let createdCsReport = false;
     let createdChangeLogId: string | null = null;
@@ -1706,7 +1724,12 @@ router.patch('/:id', async (req, res) => {
         );
       }
       /** 구데이터: 제출 발주서인데 고객 특이사항이 접수 specialNotes에만 있음 → 관리자가 팀 공유 메모를 처음 저장할 때 발주서 customer_special_notes로 옮김 */
-      if (updateData.specialNotes !== undefined && inquiry.orderForm?.id && inquiry.orderForm.submittedAt) {
+      if (
+        !customerNotesPlan &&
+        updateData.specialNotes !== undefined &&
+        inquiry.orderForm?.id &&
+        inquiry.orderForm.submittedAt
+      ) {
         const prevSn = String(inquiry.specialNotes ?? '').trim();
         const nextRaw = updateData.specialNotes;
         const nextSn =
@@ -1719,7 +1742,7 @@ router.patch('/:id', async (req, res) => {
           });
         }
       }
-      if (updateData.isOneRoom !== undefined && inquiry.orderForm?.id) {
+      if (!customerNotesPlan && updateData.isOneRoom !== undefined && inquiry.orderForm?.id) {
         const nextOneRoom = Boolean(updateData.isOneRoom);
         const currentNotes =
           inquiry.orderForm.customerSpecialNotes?.trim() ||
@@ -1732,6 +1755,26 @@ router.patch('/:id', async (req, res) => {
           where: { id: inquiry.orderForm.id },
           data: { customerSpecialNotes: syncedNotes },
         });
+      }
+      if (customerNotesPlan && inquiry.orderForm?.id) {
+        const notesWrite = await tx.orderForm.updateMany({
+          where: { id: inquiry.orderForm.id, tenantId },
+          data: {
+            customerSpecialNotes: customerNotesPlan.next,
+            ...(customerNotesPlan.snapshot !== undefined
+              ? { customerSubmissionSnapshot: customerNotesPlan.snapshot }
+              : {}),
+          },
+        });
+        if (notesWrite.count !== 1) {
+          throw new Error('고객 발주서 특이사항을 저장하지 못했습니다.');
+        }
+        if (
+          customerNotesPlan.legacyClearInquirySpecialNotes &&
+          updateData.specialNotes === undefined
+        ) {
+          updateData.specialNotes = null;
+        }
       }
       if (Object.keys(updateData).length > 0) {
         await tx.inquiry.update({ where: { id }, data: updateData });
