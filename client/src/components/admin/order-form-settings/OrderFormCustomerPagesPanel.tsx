@@ -15,6 +15,7 @@ import {
   type CustomerPageChoice,
   type CustomerPageCopy,
 } from '@shared/orderFormCustomerPages';
+import { composeCustomerSettingsPages } from './customerSettingsPages';
 
 const INPUT =
   'w-full min-h-9 rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
@@ -75,12 +76,13 @@ export function OrderFormCustomerPagesPanel(props: {
     setError(null);
     try {
       const template = await getOrderFormTemplate(props.token, props.templateId);
-      const nextPages = template.customerPages?.length
+      const seeded = template.customerPages?.length
         ? template.customerPages
         : seedUnsavedPages(template.fields, props.timeQuestion);
+      const nextPages = composeCustomerSettingsPages(template, seeded);
       setPages(nextPages);
       setDrafts(template.fields.map(fieldToDraft));
-      if (!nextPages.some((page) => page.id === pageIdRef.current) && !pageIdRef.current.startsWith('field:') && nextPages[0]) {
+      if (!nextPages.some((page) => page.id === pageIdRef.current) && nextPages[0]) {
         onPageIdRef.current(nextPages[0].id);
       }
     } catch (e) {
@@ -94,23 +96,15 @@ export function OrderFormCustomerPagesPanel(props: {
     void load();
   }, [load]);
 
-  const customDrafts = useMemo(
-    () => drafts.filter((draft) => !draft.systemField && draft.fieldKey && !draft.fieldKey.startsWith('extra_')),
-    [drafts],
+  const tabs = useMemo(
+    () =>
+      pages.map((page, index) => ({
+        id: page.id,
+        title: `${index + 1}. ${page.title}`,
+        hidden: !page.enabled,
+      })),
+    [pages],
   );
-  const tabs = useMemo(() => {
-    const pageTabs = pages.map((page, index) => ({
-      id: page.id,
-      title: `${index + 1}. ${page.title}`,
-      hidden: !page.enabled,
-    }));
-    const fieldTabs = customDrafts.map((draft, index) => ({
-      id: `field:${draft.fieldKey}`,
-      title: `${pages.length + index + 1}. ${draft.label}`,
-      hidden: false,
-    }));
-    return [...pageTabs, ...fieldTabs];
-  }, [pages, customDrafts]);
 
   const page = pages.find((item) => item.id === props.pageId) ?? null;
   const fieldKey = props.pageId.startsWith('field:') ? props.pageId.slice(5) : '';
@@ -132,18 +126,39 @@ export function OrderFormCustomerPagesPanel(props: {
     setSaving(true);
     setError(null);
     try {
-      const nextDrafts = drafts.map((draft) => {
-        if (draft.systemField === 'propertyType') {
-          const choices = pages.find((item) => item.id === 'property')?.choices ?? [];
-          return choices.length ? { ...draft, options: choices.map((choice) => choice.label) } : draft;
-        }
-        if (draft.systemField === 'buildingType') {
-          const choices = pages.find((item) => item.id === 'building')?.choices ?? [];
-          return choices.length ? { ...draft, options: choices.map((choice) => choice.value || choice.label) } : draft;
-        }
-        return draft;
-      });
-      await saveOrderFormCustomerPages(props.token, props.templateId, pages);
+      const fieldPages = pages.filter((item) => item.id.startsWith('field:'));
+      const nextDrafts = drafts
+        .map((draft) => {
+          if (draft.systemField === 'propertyType') {
+            const choices = pages.find((item) => item.id === 'property')?.choices ?? [];
+            return choices.length ? { ...draft, options: choices.map((choice) => choice.label) } : draft;
+          }
+          if (draft.systemField === 'buildingType') {
+            const choices = pages.find((item) => item.id === 'building')?.choices ?? [];
+            return choices.length ? { ...draft, options: choices.map((choice) => choice.value || choice.label) } : draft;
+          }
+          const fieldPage = fieldPages.find((item) => item.id === `field:${draft.fieldKey}`);
+          if (!fieldPage || draft.systemField) return draft;
+          const labels = fieldPage.choices.map((choice) => choice.label.trim()).filter(Boolean);
+          const choiceType = draft.inputType === 'SELECT' || draft.inputType === 'MULTISELECT' || draft.inputType === 'CHECKBOX';
+          return {
+            ...draft,
+            label: fieldPage.title.trim() || draft.label,
+            helpText: fieldPage.hint.trim() ? fieldPage.hint.trim() : null,
+            options: choiceType || labels.length ? labels : draft.options,
+          };
+        })
+        .filter(
+          (draft) =>
+            Boolean(draft.systemField) ||
+            draft.fieldKey.startsWith('extra_') ||
+            fieldPages.some((item) => item.id === `field:${draft.fieldKey}`),
+        );
+      await saveOrderFormCustomerPages(
+        props.token,
+        props.templateId,
+        pages.filter((item) => !item.id.startsWith('field:')),
+      );
       if (nextDrafts.length) await saveOrderFormTemplateFields(props.token, props.templateId, draftsToPayload(nextDrafts));
       setDrafts(nextDrafts);
       props.onSaved();
@@ -246,7 +261,14 @@ export function OrderFormCustomerPagesPanel(props: {
               }}
             />
           ) : null}
-          {page.choices.length > 0 || page.id === 'welcome' || page.id === 'property' || page.id === 'building' || page.id.startsWith('extra_') ? (
+          {page.choices.length > 0 ||
+          page.id === 'welcome' ||
+          page.id === 'property' ||
+          page.id === 'building' ||
+          page.id.startsWith('extra_') ||
+          fieldDraft?.inputType === 'SELECT' ||
+          fieldDraft?.inputType === 'MULTISELECT' ||
+          fieldDraft?.inputType === 'CHECKBOX' ? (
             <div className="space-y-2">
               <p className="text-fluid-2xs font-medium text-slate-600">선택지</p>
               {page.choices.map((choice, index) => (
@@ -266,12 +288,14 @@ export function OrderFormCustomerPagesPanel(props: {
                       삭제
                     </button>
                   </div>
-                  <input
-                    value={choice.hint}
-                    onChange={(e) => patchChoice(index, { hint: e.target.value })}
-                    className={INPUT}
-                    placeholder="짧은 설명"
-                  />
+                  {page.id.startsWith('field:') ? null : (
+                    <input
+                      value={choice.hint}
+                      onChange={(e) => patchChoice(index, { hint: e.target.value })}
+                      className={INPUT}
+                      placeholder="짧은 설명"
+                    />
+                  )}
                   {page.id === 'welcome' ? (
                     <div className="flex flex-wrap items-center gap-2">
                       {choice.imageSrc ? (
@@ -315,60 +339,21 @@ export function OrderFormCustomerPagesPanel(props: {
                 {page.enabled ? '손님 화면에서 빼기' : '손님 화면에 다시 넣기'}
               </button>
             ) : null}
-            {page.id.startsWith('extra_') ? (
+            {page.id.startsWith('extra_') || page.id.startsWith('field:') ? (
               <button
                 type="button"
                 className={BTN}
                 onClick={() => {
+                  const key = page.id.startsWith('field:') ? page.id.slice('field:'.length) : '';
                   setPages((prev) => prev.filter((item) => item.id !== page.id));
-                  props.onPageId('welcome');
+                  if (key) setDrafts((prev) => prev.filter((draft) => draft.fieldKey !== key));
+                  props.onPageId(pages.find((item) => item.id !== page.id)?.id ?? 'name');
                 }}
               >
                 이 질문 삭제
               </button>
             ) : null}
           </div>
-        </div>
-      ) : null}
-
-      {fieldDraft ? (
-        <div className="space-y-3">
-          <TextRow
-            label="질문"
-            value={fieldDraft.label}
-            onChange={(label) =>
-              setDrafts((prev) => prev.map((draft) => (draft.fieldKey === fieldDraft.fieldKey ? { ...draft, label } : draft)))
-            }
-          />
-          <TextRow
-            label="도움말 (선택)"
-            value={fieldDraft.helpText ?? ''}
-            multiline
-            onChange={(helpText) =>
-              setDrafts((prev) =>
-                prev.map((draft) => (draft.fieldKey === fieldDraft.fieldKey ? { ...draft, helpText } : draft)),
-              )
-            }
-          />
-          {fieldDraft.options.length > 0 || fieldDraft.inputType === 'SELECT' || fieldDraft.inputType === 'MULTISELECT' || fieldDraft.inputType === 'CHECKBOX' ? (
-            <OrderFormDraftOptionsEditor
-              title="선택지"
-              options={fieldDraft.options}
-              onChange={(options) =>
-                setDrafts((prev) => prev.map((draft) => (draft.fieldKey === fieldDraft.fieldKey ? { ...draft, options } : draft)))
-              }
-            />
-          ) : null}
-          <button
-            type="button"
-            className={BTN}
-            onClick={() => {
-              setDrafts((prev) => prev.filter((draft) => draft.fieldKey !== fieldDraft.fieldKey));
-              props.onPageId('welcome');
-            }}
-          >
-            이 질문 삭제
-          </button>
         </div>
       ) : null}
 
@@ -382,7 +367,11 @@ export function OrderFormCustomerPagesPanel(props: {
           className={BTN}
           onClick={() => {
             const extra = newExtraCustomerPage();
-            setPages((prev) => [...prev, extra]);
+            setPages((prev) => {
+              const at = prev.findIndex((item) => item.id === 'review' || item.id === 'guide');
+              if (at < 0) return [...prev, extra];
+              return [...prev.slice(0, at), extra, ...prev.slice(at)];
+            });
             props.onPageId(extra.id);
           }}
         >
