@@ -159,12 +159,14 @@ function MockScheduleSectionPreview({ enlarged = false }: { enlarged?: boolean }
         </div>
 
         <div className="pt-0.5">
-          <label className={`block ${label}`}>고객 발주서 특이사항 (읽기 전용)</label>
-          <div
-            className={`min-h-[2.5rem] whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 ${readBox}`}
-          >
-            엘리베이터 이용 가능 · 주차 협의 필요
-          </div>
+          <label className={`block ${label}`}>고객 발주서 특이사항</label>
+          <textarea
+            readOnly
+            className={`min-h-[4.5rem] w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 ${readBox}`}
+            value="엘리베이터 이용 가능 · 주차 협의 필요"
+            aria-hidden
+            tabIndex={-1}
+          />
         </div>
       </div>
     </MockSec>

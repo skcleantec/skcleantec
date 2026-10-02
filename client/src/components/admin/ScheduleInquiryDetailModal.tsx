@@ -946,6 +946,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         externalTransferFee: '',
         scheduleMemo: '',
         specialNotes: '',
+        customerOrderNotes: '',
         consultationMemo: '',
         internalCustomerTone: DEFAULT_INTERNAL_CUSTOMER_TONE,
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
@@ -1003,6 +1004,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       scheduleMemo: it.scheduleMemo ?? '',
       specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
+      customerOrderNotes: effectiveCustomerOrderNotes(notesCtx),
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       // 카탈로그 미로드 시 id를 버리지 않음(빈 catalog normalize → [] PATCH 회귀 방지)
@@ -1492,6 +1494,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       scheduleMemo: it.scheduleMemo ?? '',
       specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
+      customerOrderNotes: effectiveCustomerOrderNotes(notesCtx),
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       professionalOptionIds: selectionIdsFromSelections(
@@ -2184,6 +2187,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         editForm.specialNotes.trim() === ''
       ) {
         delete patch.specialNotes;
+      }
+      if (!isCreate && item?.orderForm?.id) {
+        patch.customerSpecialNotes = editForm.customerOrderNotes.trim() || null;
       }
       /**
        * 추가 시공 금액 설정(상단 전용 반영)과 접수 저장을 분리한다.
@@ -2945,21 +2951,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
             ) : null}
 
-            {/* 특이사항 */}
-            {!isCreate &&
-            item &&
-            effectiveCustomerOrderNotes({
-              specialNotes: item.specialNotes,
-              orderForm: item.orderForm,
-            }).trim() !== '' ? (
+            {!isCreate && item?.orderForm?.id ? (
               <div className="pt-1">
-                <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">고객 발주서 특이사항 (읽기 전용)</label>
-                <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-fluid-sm text-slate-700">
-                  {effectiveCustomerOrderNotes({
-                    specialNotes: item.specialNotes,
-                    orderForm: item.orderForm,
-                  })}
-                </div>
+                <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
+                  고객 발주서 특이사항
+                </label>
+                <textarea
+                  value={editForm.customerOrderNotes}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, customerOrderNotes: e.target.value }))
+                  }
+                  className="min-h-[96px] w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-fluid-sm text-slate-900"
+                  placeholder="고객이 발주서에 적은 내용. 비우고 저장하면 삭제됩니다."
+                />
+                <p className="mt-1.5 text-fluid-2xs leading-snug text-slate-500">
+                  마케터·관리자가 고치거나 지운 뒤 저장합니다. 관리자·팀장 공유 특이사항과는 별도입니다.
+                </p>
               </div>
             ) : null}
           </div>

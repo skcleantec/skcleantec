@@ -87,7 +87,7 @@ export const INQUIRY_HELP_DETAIL_SECTIONS: readonly InquiryHelpDetailSection[] =
       { name: '예약일', desc: '「달력·분배 가능일」로 팀장 TO 확인. 목록·스케줄 기준일' },
       { name: '시간대 · 사이청소 확정', desc: '오전/오후/사이 — 스케줄 슬롯·미배정 구역에 반영' },
       { name: '이사일 · 신축/구축', desc: '입주·이사 청소 맥락' },
-      { name: '고객 발주서 특이사항', desc: '고객이 발주서에 적은 일정 메모(읽기 전용)' },
+      { name: '고객 발주서 특이사항', desc: '고객이 발주서에 적은 메모. 마케터·관리자가 고치거나 비운 뒤 저장하면 반영됩니다' },
     ],
   },
   {
