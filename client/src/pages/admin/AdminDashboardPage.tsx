@@ -144,17 +144,17 @@ export function AdminDashboardPage() {
         {token ? <DashboardChangeHistory token={token} compact /> : null}
       </div>
 
-      {/* PC — 메인 + 우측 변경 이력 레일 */}
+      {/* PC — 왼쪽은 배너(운영 시간대와 같은 폭) + 본문, 오른쪽은 숫자 카드 2열 2행 */}
       <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_468px] lg:gap-5 lg:items-start">
         <div className="min-w-0 space-y-5">
-          <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} compact />
+          {desktopPromoItems.length > 0 ? (
+            <PlatformPromoDashboardCard items={desktopPromoItems} layout="banner" />
+          ) : null}
           <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />
           {salesAnalytics}
         </div>
         <aside className="min-w-0 self-start space-y-5">
-          {desktopPromoItems.length > 0 ? (
-            <PlatformPromoDashboardCard items={desktopPromoItems} layout="banner" />
-          ) : null}
+          <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} compact columns={2} />
           <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
           {token ? <DashboardChangeHistory token={token} variant="sidebar" /> : null}
         </aside>
