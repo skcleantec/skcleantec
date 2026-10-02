@@ -40,16 +40,23 @@ export function DashboardKpiGrid({
   loading,
   navigate,
   compact = false,
+  columns,
 }: {
   stats: DashboardStats | null;
   loading: boolean;
   navigate: NavigateFunction;
   compact?: boolean;
+  /** PC에서 열 수. 2면 2열 2행. 없으면 넓은 화면에서 한 줄. */
+  columns?: 2;
 }) {
   const { features: tenantFeatures } = useTenantCapabilities();
   const isSoloOperator = tenantFeatures != null && !tenantFeatures.includes('core_assignments');
+  const gridCols =
+    columns === 2
+      ? 'grid-cols-2'
+      : `grid-cols-2 ${isSoloOperator ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`;
   return (
-    <div className={`grid grid-cols-2 ${isSoloOperator ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} ${compact ? 'gap-2 lg:gap-3' : 'gap-3 lg:gap-5'}`}>
+    <div className={`grid ${gridCols} ${compact ? 'gap-2 lg:gap-3' : 'gap-3 lg:gap-5'}`}>
       <DashboardStatCard
         compact={compact}
         label="오늘 접수"
