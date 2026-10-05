@@ -20,6 +20,22 @@ function toInitials(v: string): string {
   return Array.from(v).map(getHangulInitial).join('');
 }
 
+/** 좁은 화면·터치에서는 검색 입력에 포커스를 주지 않는다. 포커스되면 키보드가 목록을 가린다. */
+function useTapPicker(): boolean {
+  const [tap, setTap] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 1023px), (pointer: coarse)').matches;
+  });
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px), (pointer: coarse)');
+    const sync = () => setTap(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return tap;
+}
+
 function isDisabledName(
   memberName: string,
   selectedName: string,
@@ -62,6 +78,7 @@ export function TeamMemberSearchSelect({
   placeholder,
   compact = false,
 }: Props) {
+  const tapPicker = useTapPicker();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -103,7 +120,7 @@ export function TeamMemberSearchSelect({
   const openList = (showAll: boolean) => {
     setOpen(true);
     setQuery(showAll ? '' : selectedName);
-    inputRef.current?.focus();
+    if (!tapPicker) inputRef.current?.focus();
   };
 
   const updateMenuPos = () => {
@@ -170,7 +187,7 @@ export function TeamMemberSearchSelect({
           <div
             ref={menuRef}
             className={`fixed z-[580] overflow-y-auto rounded border border-gray-200 bg-white shadow-lg ${
-              compact ? 'max-h-36' : 'max-h-44'
+              tapPicker ? 'max-h-[min(18rem,55dvh)]' : compact ? 'max-h-36' : 'max-h-44'
             }`}
             style={{
               top: menuPos.top,
@@ -238,23 +255,43 @@ export function TeamMemberSearchSelect({
         )
       : null;
 
+  const pickerPlaceholder = placeholder ?? (compact ? '팀원' : '팀원 선택');
+
   return (
     <div ref={boxRef} className="relative flex min-w-0">
-      <input
-        ref={inputRef}
-        value={open ? query : closedDisplay}
-        onFocus={() => openList(false)}
-        onChange={(e) => {
-          setOpen(true);
-          setQuery(e.target.value);
-        }}
-        placeholder={placeholder ?? (compact ? '팀원 검색' : '팀원 검색 (초성 가능)')}
-        className={inputClass}
-      />
+      {tapPicker ? (
+        <button
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          className={`${inputClass} truncate bg-white text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+            selectedName ? 'text-gray-900' : 'text-gray-400'
+          }`}
+          onClick={() => {
+            if (open) setOpen(false);
+            else openList(true);
+          }}
+        >
+          {selectedName ? closedDisplay : pickerPlaceholder}
+        </button>
+      ) : (
+        <input
+          ref={inputRef}
+          value={open ? query : closedDisplay}
+          onFocus={() => openList(false)}
+          onChange={(e) => {
+            setOpen(true);
+            setQuery(e.target.value);
+          }}
+          placeholder={placeholder ?? (compact ? '팀원 검색' : '팀원 검색 (초성 가능)')}
+          className={inputClass}
+        />
+      )}
       <button
         type="button"
         aria-label="팀원 목록 열기"
-        className={toggleClass}
+        aria-expanded={open}
+        className={`${toggleClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2`}
         onClick={() => {
           if (open) {
             setOpen(false);
