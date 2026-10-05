@@ -170,7 +170,7 @@ export function InquiryLeaderCrewSetsEditor({
                   >
                     팀원
                     {!compact ? (
-                      <HelpTooltip text="팀원 인원 수에 맞게 선택칸이 늘어납니다. 검색창에 이름·초성(예: ㄱㅁ)으로 필터링할 수 있습니다." />
+                      <HelpTooltip text="팀원 인원 수에 맞게 선택칸이 늘어납니다. 휴대폰에서는 목록에서 고르고, 컴퓨터에서는 이름·초성(예: ㄱㅁ)으로 찾을 수 있습니다." />
                     ) : null}
                   </label>
                   <SelectWithChevron
