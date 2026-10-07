@@ -67,6 +67,28 @@ enum AuthIdentityProvider {
   kakao
 }
 
+enum CardPaymentMethod {
+  KEYIN
+  CUSTOMER_LINK
+}
+
+enum CardPaymentStatus {
+  DRAFT
+  AWAITING_PG
+  LINK_SENT
+  APPROVED
+  CANCELLED
+  FAILED
+}
+
+enum TenantPgOnboardingStatus {
+  DRAFT
+  SUBMITTED
+  FORWARDED_TO_PG
+  APPROVED
+  REJECTED
+}
+
 enum TenantBillingCycle {
   MONTHLY
   ANNUAL
@@ -355,6 +377,9 @@ model Tenant {
   notificationPolicy         TenantNotificationPolicy?
   userNotificationPreferences UserNotificationPreference[]
   notificationDeliveryLogs   NotificationDeliveryLog[]
+  pgOnboarding               TenantPgOnboarding?
+  pgCredential               TenantPgCredential?
+  cardPayments               CardPayment[]
   platformSupportThread      PlatformSupportThread?
   platformSupportMessages    PlatformSupportMessage[]
   platformSupportTenantReads PlatformSupportTenantRead[]
@@ -574,6 +599,107 @@ model PlatformBillingSettings {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("platform_billing_settings")
+}
+
+/// 카드결제 수수료 — 플랫폼 싱글톤 (만분율, 부가세 포함)
+model PlatformCardPaymentSettings {
+  id               String   @id @default("default")
+  tenantFeeBps     Int      @default(330) @map("tenant_fee_bps")
+  platformCostBps  Int      @default(260) @map("platform_cost_bps")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_card_payment_settings")
+}
+
+/// 테넌트 → 원성페이먼츠 가입 신청 (플랫폼이 PG에 전달)
+model TenantPgOnboarding {
+  id                   String                   @id @default(uuid())
+  tenantId             String                   @unique @map("tenant_id")
+  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status               TenantPgOnboardingStatus @default(DRAFT)
+  businessName         String?                  @map("business_name") @db.VarChar(128)
+  bizNumber            String?                  @map("biz_number") @db.VarChar(64)
+  representativeName   String?                  @map("representative_name") @db.VarChar(128)
+  representativeBirth  String?                  @map("representative_birth") @db.VarChar(16)
+  addressLine          String?                  @map("address_line") @db.Text
+  contactName          String?                  @map("contact_name") @db.VarChar(128)
+  contactPhone         String?                  @map("contact_phone") @db.VarChar(64)
+  contactEmail         String?                  @map("contact_email") @db.VarChar(256)
+  bankName             String?                  @map("bank_name") @db.VarChar(64)
+  bankAccount          String?                  @map("bank_account") @db.VarChar(64)
+  accountHolder        String?                  @map("account_holder") @db.VarChar(128)
+  websiteUrl           String?                  @map("website_url") @db.VarChar(512)
+  note                 String?                  @db.Text
+  submittedAt          DateTime?                @map("submitted_at")
+  forwardedAt          DateTime?                @map("forwarded_at")
+  decidedAt            DateTime?                @map("decided_at")
+  platformMemo         String?                  @map("platform_memo") @db.Text
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+
+  @@index([status, submittedAt])
+  @@map("tenant_pg_onboardings")
+}
+
+/// 테넌트별 선샤인페이 자격증명 — 원문 키는 암호화
+model TenantPgCredential {
+  id              String    @id @default(uuid())
+  tenantId        String    @unique @map("tenant_id")
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  apiKeyEnc       String    @map("api_key_enc") @db.Text
+  tidEnc          String    @map("tid_enc") @db.Text
+  webhookSecretEnc String?  @map("webhook_secret_enc") @db.Text
+  apiKeyLast4     String    @map("api_key_last4") @db.VarChar(8)
+  tidMasked       String    @map("tid_masked") @db.VarChar(32)
+  mid             String?   @db.VarChar(32)
+  oid             String?   @db.VarChar(8)
+  isActive        Boolean   @default(true) @map("is_active")
+  connectedAt     DateTime  @map("connected_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("tenant_pg_credentials")
+}
+
+/// 카드결제 건 — 카드번호 원문 저장 금지
+model CardPayment {
+  id                 String            @id @default(uuid())
+  tenantId           String            @map("tenant_id")
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inquiryId          String?           @map("inquiry_id")
+  inquiry            Inquiry?          @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  createdById        String            @map("created_by_id")
+  createdBy          User              @relation("CardPaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  method             CardPaymentMethod
+  status             CardPaymentStatus @default(DRAFT)
+  amountWon          Int               @map("amount_won")
+  tenantFeeBps       Int               @map("tenant_fee_bps")
+  platformCostBps    Int               @map("platform_cost_bps")
+  tenantFeeWon       Int               @map("tenant_fee_won")
+  platformCostWon    Int               @map("platform_cost_won")
+  platformSpreadWon  Int               @map("platform_spread_won")
+  tenantNetWon       Int               @map("tenant_net_won")
+  customerName       String            @map("customer_name") @db.VarChar(128)
+  customerPhoneMasked String?          @map("customer_phone_masked") @db.VarChar(32)
+  inquiryNumber      String?           @map("inquiry_number") @db.VarChar(24)
+  cardLast4          String?           @map("card_last4") @db.VarChar(4)
+  approvalNo         String?           @map("approval_no") @db.VarChar(64)
+  pgOrderId          String?           @unique @map("pg_order_id") @db.VarChar(64)
+  payRail            String            @default("KEYIN") @map("pay_rail") @db.VarChar(16)
+  payScreen          String?           @map("pay_screen") @db.VarChar(1)
+  pgMid              String?           @map("pg_mid") @db.VarChar(16)
+  webhookEventId     String?           @unique @map("webhook_event_id") @db.VarChar(128)
+  linkTokenHash      String?           @unique @map("link_token_hash") @db.VarChar(128)
+  linkExpiresAt      DateTime?         @map("link_expires_at")
+  paidAt             DateTime?         @map("paid_at")
+  failReason         String?           @map("fail_reason") @db.VarChar(256)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@index([tenantId, createdById])
+  @@index([inquiryId])
+  @@map("card_payments")
 }
 
 /// 테넌트별 과금 프로필
@@ -1541,6 +1667,7 @@ model User {
   dayOffs             UserDayOff[] @relation("UserDayOffs")
   orderFormsCreated   OrderForm[]  @relation("OrderFormCreatedBy")
   inquiriesCreated    Inquiry[]    @relation("InquiryCreatedBy")
+  cardPaymentsCreated CardPayment[] @relation("CardPaymentCreatedBy")
   inquiriesCollaborationMarketer Inquiry[] @relation("InquiryCollaborationMarketer")
   inquiriesSoftDeleted Inquiry[]   @relation("InquiryDeletedBy")
   adWorkSessions      AdWorkSession[]
@@ -2455,6 +2582,7 @@ model Inquiry {
   quickPasteAiUsageLogs     QuickPasteAiUsageLog[]
   landingContactInquiries   LandingContactInquiry[]
   householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
+  cardPayments              CardPayment[]
   aiDispatchProposals       AiDispatchProposal[]
 
   @@index([createdAt])

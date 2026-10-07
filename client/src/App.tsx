@@ -60,6 +60,13 @@ import {
   TeamTrainingMaterialPage,
   TeamQuotationEditorPage,
   TeamCardPaymentPage,
+  AdminCardPaymentPage,
+  AdminCardPaymentPgPage,
+  PlatformCardPaymentPage,
+  PublicCardPaymentLinkPage,
+  PaysisCheckoutOkPage,
+  PaysisCheckoutFailPage,
+  PaysisCheckoutClosePage,
   OrderFormPage,
   OrderFormQueryEntry,
   OrderFormPrefillEditorPage,
@@ -185,6 +192,7 @@ function App() {
           <Route path="referrers" element={<SuspensePage><PlatformReferrersPage /></SuspensePage>} />
           <Route path="referrers/:id" element={<SuspensePage><PlatformReferrerDetailPage /></SuspensePage>} />
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
+          <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
           <Route path="coin-usage" element={<SuspensePage><PlatformCoinUsagePage /></SuspensePage>} />
           <Route path="signup-trial-events" element={<SuspensePage><PlatformSignupTrialEventsPage /></SuspensePage>} />
           <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
@@ -234,6 +242,8 @@ function App() {
             <Route path="bulk-excel/history" element={<SuspensePage><AdminInquiryExcelHistoryPage /></SuspensePage>} />
             <Route path="followup" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route path="review-payback" element={<SuspensePage><AdminReviewPaybackPage /></SuspensePage>} />
+            <Route path="card-payment" element={<SuspensePage><AdminCardPaymentPage /></SuspensePage>} />
+            <Route path="card-payment/pg" element={<SuspensePage><AdminCardPaymentPgPage /></SuspensePage>} />
             <Route path="order-forms" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route path="order-issue" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route
@@ -460,6 +470,10 @@ function App() {
         <Route path="/contact" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/c/:code" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
+        <Route path="/pay/card/:token" element={<SuspensePage><PublicCardPaymentLinkPage /></SuspensePage>} />
+        <Route path="/pay/paysis/ok" element={<SuspensePage><PaysisCheckoutOkPage /></SuspensePage>} />
+        <Route path="/pay/paysis/fail" element={<SuspensePage><PaysisCheckoutFailPage /></SuspensePage>} />
+        <Route path="/pay/paysis/close" element={<SuspensePage><PaysisCheckoutClosePage /></SuspensePage>} />
         <Route path="/ops/deposit-confirm" element={<SuspensePage><PublicDepositConfirmPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
