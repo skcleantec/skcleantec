@@ -126,6 +126,34 @@ export async function openPlatformUsageFeeWindow() {
   return res.json() as Promise<{ ok: boolean; message: string; redirectUrl?: string }>;
 }
 
+export async function payPlatformUsageFeeKeyin(input: {
+  goodsName: string;
+  amountWon: number;
+  cardNo: string;
+  expireYY: string;
+  expireMM: string;
+  installment: string;
+  certPw: string;
+  certNo: string;
+  buyerName: string;
+  buyerPhone: string;
+}) {
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/keyin`, {
+    method: 'POST',
+    headers: { ...platformHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{
+    ok: boolean;
+    message: string;
+    approvalNo?: string;
+    orderNo?: string;
+    amountWon?: number;
+    cardLast4?: string;
+  }>;
+}
+
 export async function probePlatformUsageFeeKeyin() {
   const res = await fetch(`${API}/platform/card-payment/usage-fee/keyin-probe`, {
     method: 'POST',
