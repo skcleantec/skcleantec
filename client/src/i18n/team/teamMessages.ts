@@ -325,7 +325,7 @@ export const teamMessages = {
   'team.cardPayment.pageTitle': { ko: '카드결재' },
   'team.cardPayment.heading': { ko: '원성페이먼츠 판매자센터' },
   'team.cardPayment.body': {
-    ko: '카드 결제는 원성페이먼츠 사이트에서 아이디·비밀번호로 로그인한 뒤 진행합니다. 잠시 후 해당 페이지로 이동합니다.',
+    ko: '가맹 코드가 연결되기 전에는 판매자센터에 아이디와 비밀번호로 로그인한 뒤 결제합니다. 카드번호는 그 사이트에서 입력합니다.',
   },
   'team.cardPayment.redirecting': { ko: '이동 중…' },
   'team.cardPayment.redirectFailed': { ko: '자동 이동이 차단되었을 수 있습니다. 아래 버튼을 눌러 주세요.' },
