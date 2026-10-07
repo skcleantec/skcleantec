@@ -13,6 +13,7 @@ export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
     to: '/platform/billing',
     icon: '💳',
     children: [
+      { label: '정산', to: '/platform/billing/settlement' },
       { label: '카드결제 PG', to: '/platform/card-payment' },
       { label: '카드결재', to: '/platform/card-payment/charge' },
     ],

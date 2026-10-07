@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
+import { applyUsageFeePaysisNotification } from './usageFeeCardPayment.service.js';
 import { paysisSha256, requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { resolveWindowMerchant } from './cardPaymentMerchant.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
@@ -91,7 +92,11 @@ export async function applyPaysisNotification(body: unknown): Promise<'SUCCESS' 
   const givenHash = String(rec.hashValue ?? '').trim().toLowerCase();
   if (!orderNo || !amount || !givenHash) return 'FAIL';
   const row = await prisma.cardPayment.findFirst({ where: { pgOrderId: orderNo } });
-  if (!row || !row.pgMid || !row.payScreen) return 'FAIL';
+  if (!row) {
+    const usage = await applyUsageFeePaysisNotification(rec);
+    return usage ?? 'FAIL';
+  }
+  if (!row.pgMid || !row.payScreen) return 'FAIL';
   if (Number(amount) !== row.amountWon) return 'FAIL';
   const expected = paysisSha256([row.pgMid, row.payScreen, orderNo, amount]);
   if (expected !== givenHash) return 'FAIL';

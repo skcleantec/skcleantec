@@ -22,7 +22,7 @@ export function PlatformCardChargePage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    void fetchUsageFeeCardPayments(pageSize, (page - 1) * pageSize)
+    void fetchUsageFeeCardPayments(pageSize, (page - 1) * pageSize, 'KEYIN')
       .then((res) => {
         setItems(res.items);
         setTotal(res.total);

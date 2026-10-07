@@ -5,6 +5,7 @@ import {
   payPlatformUsageFeeKeyin,
   type UsageFeeOpenPeriod,
 } from '../../../api/platformCardPayment';
+import { usageFeeChargeKrw } from '@shared/tenantBilling';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import { getPlatformToken } from '../../../stores/platformAuth';
 import { BTN_PRIMARY, INPUT_BASE } from '../../../utils/platformUi';
@@ -89,7 +90,7 @@ export function PlatformUsageFeeKeyinForm({ onPaid }: { onPaid: () => void }) {
       setAmountWon('');
       return;
     }
-    setAmountWon(String(period.amountKrw));
+    setAmountWon(String(period.chargeAmountKrw ?? usageFeeChargeKrw(period.amountKrw)));
     setGoodsName(`솔루션 이용료 ${period.periodLabel}`);
   }, [purpose, periods, periodStartYmd]);
 
@@ -150,7 +151,7 @@ export function PlatformUsageFeeKeyinForm({ onPaid }: { onPaid: () => void }) {
       </div>
       <p className="text-xs text-gray-500">
         {purpose === 'INVOICE'
-          ? '업체와 달을 고르면 그 이용료 금액으로 승인되고, 성공하면 그 달 청구가 납부 처리됩니다.'
+          ? '업체와 달을 고르면 이용료에 부가세 10%를 더한 금액으로 승인되고, 성공하면 그 달 청구가 납부 처리됩니다.'
           : '업체나 달과 관계없는 결제입니다. 청구서 상태는 바뀌지 않고 기록만 남습니다.'}
       </p>
       <label className="block text-xs text-gray-600">
@@ -202,6 +203,9 @@ export function PlatformUsageFeeKeyinForm({ onPaid }: { onPaid: () => void }) {
           placeholder="원"
           required
         />
+        {purpose === 'INVOICE' && amountWon ? (
+          <span className="mt-1 block text-gray-500">이용료에 부가세 10%를 더한 금액입니다.</span>
+        ) : null}
       </label>
       <label className="block text-xs text-gray-600">
         카드번호

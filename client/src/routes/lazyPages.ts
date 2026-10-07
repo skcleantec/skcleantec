@@ -403,6 +403,11 @@ export const PlatformReferrerDetailPage = lazyWithRetry(() =>
 export const PlatformBillingPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformBillingPage').then((m) => ({ default: m.PlatformBillingPage }))
 );
+export const PlatformBillingSettlementPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformBillingSettlementPage').then((m) => ({
+    default: m.PlatformBillingSettlementPage,
+  }))
+);
 export const PlatformCoinUsagePage = lazyWithRetry(() =>
   import('../pages/platform/PlatformCoinUsagePage').then((m) => ({ default: m.PlatformCoinUsagePage }))
 );

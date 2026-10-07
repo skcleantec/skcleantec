@@ -778,19 +778,25 @@ model TenantInvoice {
   @@map("tenant_invoices")
 }
 
-/// 서비스브릿지 수기 이용료 승인. 카드번호는 저장하지 않는다.
+/// 이용료 입금·카드 승인 기록. 카드번호는 저장하지 않는다.
 model UsageFeeCardPayment {
   id                      String                      @id @default(uuid())
   purpose                 UsageFeeCardPaymentPurpose
+  payMethod               UsageFeePayMethod           @map("pay_method")
+  status                  UsageFeeCardPaymentStatus   @default(APPROVED)
   tenantId                String?                     @map("tenant_id")
   invoiceId               String?                     @map("invoice_id")
   periodStart             DateTime?                   @map("period_start")
   goodsName               String                      @map("goods_name") @db.VarChar(80)
+  supplyAmountKrw         Int                         @default(0) @map("supply_amount_krw")
+  vatAmountKrw            Int                         @default(0) @map("vat_amount_krw")
   amountKrw               Int                         @map("amount_krw")
   approvalNo              String?                     @map("approval_no") @db.VarChar(32)
-  pgOrderId               String                      @unique @map("pg_order_id") @db.VarChar(40)
-  cardLast4               String                      @map("card_last4") @db.VarChar(4)
-  buyerName               String                      @map("buyer_name") @db.VarChar(40)
+  pgOrderId               String?                     @unique @map("pg_order_id") @db.VarChar(40)
+  pgMid                   String?                     @map("pg_mid") @db.VarChar(20)
+  payScreen               String?                     @map("pay_screen") @db.VarChar(2)
+  cardLast4               String?                     @map("card_last4") @db.VarChar(4)
+  buyerName               String?                     @map("buyer_name") @db.VarChar(40)
   memo                    String?                     @db.Text
   invoiceApplied          Boolean                     @default(false) @map("invoice_applied")
   paidAt                  DateTime                    @map("paid_at")
@@ -802,6 +808,7 @@ model UsageFeeCardPayment {
   createdBy PlatformUser?  @relation(fields: [createdByPlatformUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, paidAt])
+  @@index([status, paidAt])
   @@index([paidAt])
   @@map("usage_fee_card_payments")
 }
@@ -809,6 +816,18 @@ model UsageFeeCardPayment {
 enum UsageFeeCardPaymentPurpose {
   INVOICE
   OTHER
+}
+
+enum UsageFeePayMethod {
+  BANK
+  KEYIN
+  PAY_WINDOW
+}
+
+enum UsageFeeCardPaymentStatus {
+  PENDING
+  APPROVED
+  FAILED
 }
 
 enum TenantCoinLedgerSourceType {
