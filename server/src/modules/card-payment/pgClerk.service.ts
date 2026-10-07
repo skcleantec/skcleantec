@@ -123,31 +123,6 @@ export async function savePgClerkSlots(
   return listPgClerkSlots(tenantId);
 }
 
-export async function listPgClerksForPartner() {
-  const rows = await prisma.user.findMany({
-    where: { role: 'TEAM_LEADER', pgClerkNo: { not: null } },
-    select: {
-      name: true,
-      pgClerkNo: true,
-      isActive: true,
-      resignationDate: true,
-      tenant: { select: { id: true, name: true } },
-    },
-    orderBy: [{ tenant: { name: 'asc' } }, { pgClerkNo: 'asc' }],
-  });
-  const codes = await clerkCodesByTenant([...new Set(rows.map((row) => row.tenant.id))]);
-  return {
-    items: rows.map((row) => ({
-      tenantId: row.tenant.id,
-      tenantName: row.tenant.name,
-      clerkNo: row.pgClerkNo,
-      clerkCode: row.pgClerkNo ? codes.get(row.tenant.id)?.[row.pgClerkNo - 1] || null : null,
-      leaderName: row.name,
-      resigned: resigned(row),
-    })),
-  };
-}
-
 export async function pgClerkStampForTeamLeader(
   tenantId: string,
   userId: string,

@@ -8,7 +8,7 @@ import {
 } from './cardPaymentOnboarding.service.js';
 import { requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
-import { listPgClerksForPartner, parsePgClerkCodes, saveIssuedPgClerkCodes } from './pgClerk.service.js';
+import { parsePgClerkCodes, saveIssuedPgClerkCodes } from './pgClerk.service.js';
 import { applyWspayWebhook } from './cardPaymentWebhook.service.js';
 import { applyPaysisNotification, startPaysisWindowByLinkToken } from './cardPaymentWindow.service.js';
 
@@ -62,11 +62,6 @@ router.post('/pg-partner/login', (req, res) => {
   }
   partnerLoginFails.delete(ip);
   res.json({ token: signPgPartnerToken() });
-});
-
-router.get('/pg-partner/clerks', async (req, res) => {
-  if (!requirePgPartner(req, res)) return;
-  res.json(await listPgClerksForPartner());
 });
 
 router.get('/pg-partner/refunds', async (req, res) => {
