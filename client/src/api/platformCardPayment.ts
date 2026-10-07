@@ -149,7 +149,8 @@ export type UsageFeeCardPaymentRow = {
   id: string;
   purpose: 'INVOICE' | 'OTHER';
   payMethod: 'BANK' | 'KEYIN' | 'PAY_WINDOW';
-  status: 'PENDING' | 'APPROVED' | 'FAILED';
+  status: 'PENDING' | 'APPROVED' | 'FAILED' | 'CANCELLED';
+  cancelable: boolean;
   tenantName: string | null;
   periodStart: string | null;
   goodsName: string;
@@ -172,6 +173,15 @@ export async function fetchUsageFeeCardPayments(limit: number, offset: number, p
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<{ items: UsageFeeCardPaymentRow[]; total: number }>;
+}
+
+export async function cancelUsageFeeCardPayment(id: string) {
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/payments/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ ok: true }>;
 }
 
 export async function payPlatformUsageFeeKeyin(input: {

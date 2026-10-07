@@ -67,3 +67,32 @@ export async function requestPaysisPaymentWindow(
   }
   return { ok: false, message: json?.resMsg || '결제창 주소를 받지 못했습니다.' };
 }
+
+/** 페이시스 통합결제 당일 전액 취소. 부분 금액은 보내지 않는다. */
+export async function requestPaysisFullCancel(input: {
+  mid: string;
+  ordNo: string;
+  canNm: string;
+  canMsg: string;
+  canAmt: string;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  let res: Response;
+  try {
+    res = await fetch(`${PAYSIS_WINDOW_BASE}/api/v1/manual/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        ordNo: input.ordNo,
+        mid: input.mid,
+        canNm: input.canNm.slice(0, 50),
+        canMsg: input.canMsg.slice(0, 13),
+        canAmt: input.canAmt,
+      }),
+    });
+  } catch {
+    return { ok: false, message: '페이시스 취소 요청에 연결하지 못했습니다.' };
+  }
+  const json = (await res.json().catch(() => null)) as { resCode?: string; resMsg?: string } | null;
+  if (json?.resCode === '0000') return { ok: true };
+  return { ok: false, message: json?.resMsg || '전액 취소를 하지 못했습니다.' };
+}

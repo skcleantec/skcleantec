@@ -4,7 +4,7 @@ import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 import { confirmPaymentForSchedulePeriod, getTenantBillingSchedule } from '../billing/tenantBilling.service.js';
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
 import { chargeUsageFeeKeyin, parseUsageFeeKeyinBody, type UsageFeeKeyinResult } from './cardPaymentUsageFeeKeyin.service.js';
-import { paysisSha256, requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
+import { paysisSha256, requestPaysisFullCancel, requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 
@@ -182,7 +182,7 @@ export async function listUsageFeeCardPayments(limit: number, offset: number, pa
   const skip = Math.max(offset, 0);
   const payMethod = payMethodRaw?.trim().toUpperCase() ?? '';
   const where: Prisma.UsageFeeCardPaymentWhereInput = {
-    OR: [{ status: 'APPROVED' }, { status: 'PENDING', payMethod: 'PAY_WINDOW' }],
+    OR: [{ status: 'APPROVED' }, { status: 'CANCELLED' }, { status: 'PENDING', payMethod: 'PAY_WINDOW' }],
   };
   if (payMethod === 'CARD') where.payMethod = { in: ['KEYIN', 'PAY_WINDOW'] };
   else if (payMethod === 'BANK' || payMethod === 'KEYIN' || payMethod === 'PAY_WINDOW') {
@@ -205,6 +205,7 @@ export async function listUsageFeeCardPayments(limit: number, offset: number, pa
       purpose: row.purpose,
       payMethod: row.payMethod,
       status: row.status,
+      cancelable: isSameDayCardCancel(row),
       tenantName: row.tenant?.name ?? null,
       periodStart: row.periodStart?.toISOString() ?? null,
       goodsName: row.goodsName,
@@ -296,6 +297,71 @@ export async function openTenantUsageFeeWindow(
       chargeAmountKrw: period.chargeAmountKrw,
     },
   };
+}
+
+function isSameDayCardCancel(row: { status: string; payMethod: string; paidAt: Date; pgOrderId: string | null; pgMid: string | null }): boolean {
+  if (row.status !== 'APPROVED') return false;
+  if (kstYmdFromDate(row.paidAt) !== kstYmdFromDate(new Date())) return false;
+  if (row.payMethod === 'KEYIN') return true;
+  return row.payMethod === 'PAY_WINDOW' && Boolean(row.pgOrderId && row.pgMid);
+}
+
+async function reopenInvoiceAfterCardCancel(invoiceId: string, tenantId: string) {
+  await prisma.tenantInvoice.updateMany({
+    where: { id: invoiceId, tenantId, status: 'PAID' },
+    data: { status: 'ISSUED', paidAt: null, confirmedAt: null, confirmedByPlatformUserId: null },
+  });
+  await prisma.platformReferrerCommissionAccrual.updateMany({
+    where: { invoiceId, tenantId, status: 'PENDING' },
+    data: { status: 'REVERSED' },
+  });
+}
+
+async function markUsageFeeCancelled(row: { id: string; invoiceId: string | null; invoiceApplied: boolean; tenantId: string | null }) {
+  const updated = await prisma.usageFeeCardPayment.updateMany({
+    where: { id: row.id, status: 'APPROVED' },
+    data: { status: 'CANCELLED', invoiceApplied: false, memo: '당일 전액 취소' },
+  });
+  if (updated.count > 0 && row.invoiceApplied && row.invoiceId && row.tenantId) {
+    await reopenInvoiceAfterCardCancel(row.invoiceId, row.tenantId);
+  }
+}
+
+/** 정산의 당일 전액 취소. 결제창만 페이시스로 취소한다. 수기는 판매자센터다. */
+export async function cancelUsageFeeCardPayment(id: string): Promise<{ error: string; status: 400 | 404 } | { ok: true }> {
+  const row = await prisma.usageFeeCardPayment.findFirst({ where: { id } });
+  if (!row) return { error: '정산 기록을 찾을 수 없습니다.', status: 404 };
+  if (!isSameDayCardCancel(row)) return { error: '결제 당일에만 전액 취소할 수 있습니다.', status: 400 };
+  if (row.payMethod === 'KEYIN') {
+    return { error: '수기 승인은 원성 판매자센터에서 당일 전액 취소합니다.', status: 400 };
+  }
+  if (row.payMethod !== 'PAY_WINDOW' || !row.pgOrderId || !row.pgMid) {
+    return { error: '주문번호가 없어 취소할 수 없습니다.', status: 400 };
+  }
+  const cancelled = await requestPaysisFullCancel({
+    mid: row.pgMid,
+    ordNo: row.pgOrderId,
+    canNm: '플랫폼',
+    canMsg: '이용료전액취소',
+    canAmt: String(row.amountKrw),
+  });
+  if (!cancelled.ok) return { error: cancelled.message, status: 400 };
+  await markUsageFeeCancelled(row);
+  return { ok: true };
+}
+
+/** 페이시스 취소 통보. 해시가 없는 당일 전액 취소 결과다. */
+export async function applyUsageFeePaysisCancel(rec: Record<string, unknown>): Promise<'SUCCESS' | 'FAIL' | null> {
+  const orderNo = String(rec.orderNo ?? '').trim();
+  const amount = String(rec.amount ?? '').trim();
+  if (!orderNo) return null;
+  const row = await prisma.usageFeeCardPayment.findFirst({ where: { pgOrderId: orderNo } });
+  if (!row) return null;
+  if (amount && Number(amount) !== row.amountKrw) return 'FAIL';
+  if (row.status === 'CANCELLED') return 'SUCCESS';
+  if (row.status !== 'APPROVED') return 'FAIL';
+  await markUsageFeeCancelled(row);
+  return 'SUCCESS';
 }
 
 /** 페이시스 승인 통보. 이용료 주문이면 청구를 납부 처리한다. */
