@@ -63,6 +63,7 @@ import {
   AdminCardPaymentPage,
   AdminCardPaymentPgPage,
   PgJoinReviewPage,
+  PgPartnerPage,
   PlatformCardPaymentPage,
   PlatformCardChargePage,
   PublicCardPaymentLinkPage,
@@ -484,6 +485,7 @@ function App() {
         <Route path="/c/:code" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
         <Route path="/pay/card/:token" element={<SuspensePage><PublicCardPaymentLinkPage /></SuspensePage>} />
+        <Route path="/pg-partner" element={<SuspensePage><PgPartnerPage /></SuspensePage>} />
         <Route path="/pg-join/:token" element={<SuspensePage><PgJoinReviewPage /></SuspensePage>} />
         <Route path="/pay/paysis/ok" element={<SuspensePage><PaysisCheckoutOkPage /></SuspensePage>} />
         <Route path="/pay/paysis/fail" element={<SuspensePage><PaysisCheckoutFailPage /></SuspensePage>} />

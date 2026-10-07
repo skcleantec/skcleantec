@@ -67,7 +67,7 @@ export function PgOnboardingForm({
           </>
         ) : (
           <>
-            <p className="mt-1 text-fluid-2xs text-amber-800">등록된 사업자등록증이 없습니다. 이미지를 올려야 가입 신청을 제출할 수 있습니다.</p>
+            <p className="mt-1 text-fluid-2xs text-amber-800">등록된 사업자등록증이 없습니다. 이미지를 올려야 PG 신청을 제출할 수 있습니다.</p>
             <label className={`mt-2 inline-flex min-h-10 cursor-pointer items-center rounded-lg bg-slate-900 px-4 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-within:ring-2 focus-within:ring-slate-400 focus-within:ring-offset-2 ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
               {uploading ? '올리는 중' : '사업자등록증 올리기'}
               <input
@@ -119,7 +119,7 @@ export function PgOnboardingForm({
           disabled={saving || submitted || !value.businessRegistrationImageUrl}
           className="min-h-10 rounded-lg bg-slate-900 px-4 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
         >
-          {submitted ? '신청 완료' : '가입 정보 제출'}
+          {submitted ? '신청 완료' : 'PG 신청 제출'}
         </button>
       </div>
     </form>

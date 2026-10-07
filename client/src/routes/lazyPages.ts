@@ -124,6 +124,9 @@ export const AdminCardPaymentPage = lazyWithRetry(() =>
     default: m.AdminCardPaymentPage,
   }))
 );
+export const PgPartnerPage = lazyWithRetry(() =>
+  import('../pages/public/PgPartnerPage').then((m) => ({ default: m.PgPartnerPage }))
+);
 export const PgJoinReviewPage = lazyWithRetry(() =>
   import('../pages/public/PgJoinReviewPage').then((m) => ({ default: m.PgJoinReviewPage }))
 );

@@ -10,6 +10,7 @@ import {
 } from '../../../api/cardPayment';
 import { getToken } from '../../../stores/auth';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
+import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
 
 export function AdminCardPaymentPgPage() {
   return (
@@ -80,27 +81,31 @@ function AdminCardPaymentPgInner() {
   };
 
   return (
+    <div className="min-w-0 w-full max-w-3xl space-y-3 pb-8">
+      <div>
+        <PageTitleWithFavorite label="PG신청">
+          <h1 className="text-xl font-semibold text-gray-800">PG신청</h1>
+        </PageTitleWithFavorite>
+        <p className="mt-1 text-sm text-gray-500">
+          원성페이먼츠 카드 가맹을 신청합니다. 사업자 정보와 연락처, 사업자등록증을 제출하면 원성 전용 로그인 화면의 신청 내역에 올라가고, 원성이 가맹 코드를 입력하면 이 업체 카드 결제에 연결됩니다.
+        </p>
+      </div>
     <div
       ref={scrollRef}
       onFocusCapture={onFieldFocus}
       className="modal-form-scroll-surface min-h-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 sm:p-4"
     >
-      <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-        사업자와 연락처를 제출하면 원성페이먼츠 전달 주소가 생깁니다. 그 주소에서 가맹 코드를 입력하면 이 업체에 바로 연결됩니다.
-      </p>
-      {row?.reviewToken ? (
-        <div className="mt-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
-          <p className="text-fluid-2xs font-medium text-slate-800">원성 전달 주소</p>
-          <p className="mt-1 break-all text-fluid-2xs text-slate-600">{`${window.location.origin}/pg-join/${row.reviewToken}`}</p>
-          <button
-            type="button"
-            className="mt-2 min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/pg-join/${row.reviewToken}`)}
-          >
-            주소 복사
-          </button>
-        </div>
-      ) : null}
+      <div className="mt-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+        <p className="text-fluid-2xs font-medium text-slate-800">원성 로그인 주소</p>
+        <p className="mt-1 break-all text-fluid-2xs text-slate-600">{`${window.location.origin}/pg-partner`}</p>
+        <button
+          type="button"
+          className="mt-2 min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/pg-partner`)}
+        >
+          주소 복사
+        </button>
+      </div>
       {connected ? (
         <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-fluid-2xs text-emerald-800">
           PG 연동됨 {tidMasked ? `(TID ${tidMasked})` : ''}
@@ -110,8 +115,8 @@ function AdminCardPaymentPgInner() {
       ) : (
         <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs text-amber-900">
           {row?.reviewToken
-            ? '아직 키가 연결되지 않았습니다. 원성 전달 주소에서 코드를 입력하면 이 업체에 연결됩니다.'
-            : '가입 정보를 제출하면 원성에 보낼 주소가 생깁니다.'}
+            ? '아직 키가 연결되지 않았습니다. 원성 로그인 화면에서 이 신청에 코드를 입력하면 연결됩니다.'
+            : 'PG 신청을 제출하면 원성 로그인 화면의 신청 내역에 올라갑니다.'}
         </p>
       )}
       {error ? <p className="mt-2 text-fluid-xs text-red-700">{error}</p> : null}
@@ -131,6 +136,7 @@ function AdminCardPaymentPgInner() {
       ) : (
         <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p>
       )}
+    </div>
     </div>
   );
 }

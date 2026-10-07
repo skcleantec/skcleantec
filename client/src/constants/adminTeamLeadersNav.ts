@@ -21,8 +21,8 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
       {
         to: '/admin/team-leaders/pg-onboarding',
         end: true,
-        label: '가입신청',
-        title: '카드 가맹 가입 신청',
+        label: 'PG신청',
+        title: '원성페이먼츠 PG 신청',
       },
       {
         to: '/admin/team-leaders/company-profile/outbound-email',
