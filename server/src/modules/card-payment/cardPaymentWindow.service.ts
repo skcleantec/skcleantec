@@ -33,7 +33,10 @@ export async function startPaysisWindow(input: {
   if (row.status === 'APPROVED') return { error: '이미 결재완료된 건입니다.' as const, status: 409 };
   const merchant = await resolveWindowMerchant(input.tenantId);
   if (!merchant) {
-    return { error: '결제창 가맹 키가 없습니다.' as const, status: 400 };
+    return {
+      error: '이 업체 결제창 키가 없습니다. 업체 가맹 키를 연결한 뒤에 결제할 수 있습니다.' as const,
+      status: 400,
+    };
   }
   const unique = `${Date.now().toString(36)}${row.id.replace(/-/g, '').slice(0, 8)}`;
   const orderNo = buildWspayOrderId(merchant.oid, unique)?.slice(0, 30);
