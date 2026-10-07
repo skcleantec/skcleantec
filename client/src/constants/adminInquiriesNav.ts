@@ -5,6 +5,14 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
   { type: 'link', to: '/admin/inquiries', end: true, label: '접수목록' },
   { type: 'link', to: '/admin/inquiries/followup', label: '부재·보류' },
   { type: 'link', to: '/admin/inquiries/review-payback', label: '페이백/리뷰' },
+  {
+    type: 'group',
+    label: '카드결재',
+    children: [
+      { to: '/admin/inquiries/card-payment', label: '결제 내역' },
+      { to: '/admin/inquiries/card-payment/pg', label: 'PG 연동' },
+    ],
+  },
   { type: 'link', to: '/admin/inquiries/cs', label: 'C/S 관리' },
   { type: 'link', to: '/admin/inquiries/leads', label: '문의내역' },
   {

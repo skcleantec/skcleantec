@@ -119,6 +119,41 @@ export const TeamQuotationEditorPage = lazyWithRetry(() =>
 export const TeamCardPaymentPage = lazyWithRetry(() =>
   import('../pages/team/TeamCardPaymentPage').then((m) => ({ default: m.TeamCardPaymentPage }))
 );
+export const AdminCardPaymentPage = lazyWithRetry(() =>
+  import('../pages/admin/card-payment/AdminCardPaymentPage').then((m) => ({
+    default: m.AdminCardPaymentPage,
+  }))
+);
+export const AdminCardPaymentPgPage = lazyWithRetry(() =>
+  import('../pages/admin/card-payment/AdminCardPaymentPgPage').then((m) => ({
+    default: m.AdminCardPaymentPgPage,
+  }))
+);
+export const PlatformCardPaymentPage = lazyWithRetry(() =>
+  import('../pages/platform/card-payment/PlatformCardPaymentPage').then((m) => ({
+    default: m.PlatformCardPaymentPage,
+  }))
+);
+export const PublicCardPaymentLinkPage = lazyWithRetry(() =>
+  import('../pages/public/PublicCardPaymentLinkPage').then((m) => ({
+    default: m.PublicCardPaymentLinkPage,
+  }))
+);
+export const PaysisCheckoutOkPage = lazyWithRetry(() =>
+  import('../pages/public/PaysisCheckoutResultPage').then((m) => ({
+    default: () => m.PaysisCheckoutResultPage({ title: '결제가 완료되었습니다.' }),
+  }))
+);
+export const PaysisCheckoutFailPage = lazyWithRetry(() =>
+  import('../pages/public/PaysisCheckoutResultPage').then((m) => ({
+    default: () => m.PaysisCheckoutResultPage({ title: '결제가 완료되지 않았습니다.' }),
+  }))
+);
+export const PaysisCheckoutClosePage = lazyWithRetry(() =>
+  import('../pages/public/PaysisCheckoutResultPage').then((m) => ({
+    default: () => m.PaysisCheckoutResultPage({ title: '결제창을 닫았습니다.' }),
+  }))
+);
 export const OrderFormPage = lazyWithRetry(() =>
   import('../pages/order/OrderFormPage').then((m) => ({ default: m.OrderFormPage }))
 );
