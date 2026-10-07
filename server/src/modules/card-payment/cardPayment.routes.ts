@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import multer from 'multer';
 import type { CardPaymentStatus } from '@prisma/client';
 import { CARD_PAYMENT_MODULE_ID, CARD_PAYMENT_STATUSES } from './cardPayment.constants.js';
 import { requireTenantAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
@@ -10,6 +11,7 @@ import { getCredentialPublic } from './cardPaymentCredential.service.js';
 import {
   getOrPrefillOnboarding,
   saveOnboardingDraft,
+  saveTenantRegistrationImage,
   submitOnboarding,
 } from './cardPaymentOnboarding.service.js';
 import {
@@ -24,6 +26,10 @@ import { listCardPayments } from './cardPaymentList.service.js';
 import { defaultCardPaymentAmountWon } from './cardPaymentFee.js';
 import { prisma } from '../../lib/prisma.js';
 const router = Router();
+const registrationUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
 
 router.use(requireTenantAuth, requireFeature(CARD_PAYMENT_MODULE_ID));
 
@@ -94,6 +100,32 @@ router.put('/pg/onboarding', async (req, res) => {
   res.json(row);
 });
 
+router.post('/pg/onboarding/business-registration', registrationUpload.single('file'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '사업자등록증은 관리자만 올릴 수 있습니다.' });
+    return;
+  }
+  const file = req.file;
+  if (!file?.buffer?.length) {
+    res.status(400).json({ error: '사업자등록증 이미지를 선택해 주세요.' });
+    return;
+  }
+  try {
+    const saved = await saveTenantRegistrationImage(tenantId, file.buffer, file.mimetype);
+    res.json(saved);
+  } catch (e) {
+    const message =
+      e instanceof Error && e.message === 'business_registration_image_invalid_type'
+        ? 'jpg, png, webp, gif 이미지만 업로드할 수 있습니다.'
+        : e instanceof Error && e.message === 'cloudinary_not_configured'
+          ? '이미지 업로드 설정이 되어 있지 않습니다. 잠시 후 다시 시도해 주세요.'
+          : '사업자등록증을 올리지 못했습니다.';
+    res.status(400).json({ error: message });
+  }
+});
+
 router.post('/pg/onboarding/submit', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
@@ -101,8 +133,16 @@ router.post('/pg/onboarding/submit', async (req, res) => {
     res.status(403).json({ error: 'PG 가입 신청은 관리자만 할 수 있습니다.' });
     return;
   }
-  const row = await submitOnboarding(tenantId, req.body ?? {});
-  res.json(row);
+  try {
+    const row = await submitOnboarding(tenantId, req.body ?? {});
+    res.json(row);
+  } catch (e) {
+    if (e instanceof Error && e.message === '사업자등록증을 등록해 주세요.') {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
 });
 
 router.get('/', async (req, res) => {

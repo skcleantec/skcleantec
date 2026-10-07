@@ -51,6 +51,7 @@ export function serializeOnboarding(row: TenantPgOnboarding) {
     accountHolder: row.accountHolder,
     websiteUrl: row.websiteUrl,
     note: row.note,
+    reviewToken: row.reviewToken,
     submittedAt: row.submittedAt?.toISOString() ?? null,
     forwardedAt: row.forwardedAt?.toISOString() ?? null,
     decidedAt: row.decidedAt?.toISOString() ?? null,

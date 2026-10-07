@@ -612,7 +612,7 @@ model PlatformCardPaymentSettings {
   @@map("platform_card_payment_settings")
 }
 
-/// 테넌트 → 원성페이먼츠 가입 신청 (플랫폼이 PG에 전달)
+/// 테넌트 → 원성페이먼츠 가입 신청. reviewToken 주소에서 가맹 코드를 넣으면 연결
 model TenantPgOnboarding {
   id                   String                   @id @default(uuid())
   tenantId             String                   @unique @map("tenant_id")
@@ -631,6 +631,7 @@ model TenantPgOnboarding {
   accountHolder        String?                  @map("account_holder") @db.VarChar(128)
   websiteUrl           String?                  @map("website_url") @db.VarChar(512)
   note                 String?                  @db.Text
+  reviewToken          String?                  @unique @map("review_token") @db.VarChar(64)
   submittedAt          DateTime?                @map("submitted_at")
   forwardedAt          DateTime?                @map("forwarded_at")
   decidedAt            DateTime?                @map("decided_at")

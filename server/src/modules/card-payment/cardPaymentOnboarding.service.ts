@@ -1,5 +1,11 @@
-import type { Prisma, TenantPgOnboardingStatus } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
+import type { Prisma, TenantPgOnboarding, TenantPgOnboardingStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import {
+  destroyBusinessRegistrationPublicId,
+  uploadBusinessRegistrationBuffer,
+  assertBusinessRegistrationImageMime,
+} from '../onboarding/businessRegistration.service.js';
 import { serializeOnboarding } from './cardPayment.serialize.js';
 
 const ONBOARDING_FIELDS = [
@@ -20,9 +26,73 @@ const ONBOARDING_FIELDS = [
 
 export type OnboardingInput = Partial<Record<(typeof ONBOARDING_FIELDS)[number], string | null>>;
 
+function newReviewToken(): string {
+  return randomBytes(24).toString('base64url');
+}
+
+async function withReviewToken(row: TenantPgOnboarding): Promise<TenantPgOnboarding> {
+  if (row.status === 'DRAFT' || row.reviewToken) return row;
+  return prisma.tenantPgOnboarding.update({
+    where: { id: row.id },
+    data: { reviewToken: newReviewToken() },
+  });
+}
+
+async function registrationImageUrl(tenantId: string): Promise<string | null> {
+  const biz = await prisma.tenantSignupBusiness.findFirst({
+    where: { tenantId },
+    select: { businessRegistrationImageUrl: true },
+  });
+  const url = biz?.businessRegistrationImageUrl?.trim();
+  return url || null;
+}
+
+async function serializeWithRegistration(tenantId: string, row: TenantPgOnboarding) {
+  return {
+    ...serializeOnboarding(row),
+    businessRegistrationImageUrl: await registrationImageUrl(tenantId),
+  };
+}
+
+export async function saveTenantRegistrationImage(tenantId: string, buffer: Buffer, mimetype: string) {
+  assertBusinessRegistrationImageMime(mimetype);
+  const existing = await prisma.tenantSignupBusiness.findFirst({
+    where: { tenantId },
+    select: { id: true, businessRegistrationImagePublicId: true },
+  });
+  const uploaded = await uploadBusinessRegistrationBuffer({
+    folder: `cbiseo/signup-business-registration/${tenantId}`,
+    buffer,
+    mimetype,
+  });
+  if (existing) {
+    await prisma.tenantSignupBusiness.update({
+      where: { tenantId },
+      data: {
+        businessRegistrationImageUrl: uploaded.secureUrl,
+        businessRegistrationImagePublicId: uploaded.publicId,
+      },
+    });
+    if (existing.businessRegistrationImagePublicId && existing.businessRegistrationImagePublicId !== uploaded.publicId) {
+      await destroyBusinessRegistrationPublicId(existing.businessRegistrationImagePublicId);
+    }
+  } else {
+    await prisma.tenantSignupBusiness.create({
+      data: {
+        tenantId,
+        businessType: 'registered_business',
+        businessRegistrationImageUrl: uploaded.secureUrl,
+        businessRegistrationImagePublicId: uploaded.publicId,
+        submittedAt: new Date(),
+      },
+    });
+  }
+  return { businessRegistrationImageUrl: uploaded.secureUrl };
+}
+
 export async function getOrPrefillOnboarding(tenantId: string) {
   const existing = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId } });
-  if (existing) return serializeOnboarding(existing);
+  if (existing) return serializeWithRegistration(tenantId, await withReviewToken(existing));
 
   const biz = await prisma.tenantSignupBusiness.findFirst({ where: { tenantId } });
   const created = await prisma.tenantPgOnboarding.create({
@@ -34,7 +104,7 @@ export async function getOrPrefillOnboarding(tenantId: string) {
       addressLine: biz?.addressLine ?? null,
     },
   });
-  return serializeOnboarding(created);
+  return serializeWithRegistration(tenantId, created);
 }
 
 export async function saveOnboardingDraft(tenantId: string, input: OnboardingInput) {
@@ -44,18 +114,61 @@ export async function saveOnboardingDraft(tenantId: string, input: OnboardingInp
     create: { tenantId, ...data },
     update: data,
   });
-  return serializeOnboarding(row);
+  return serializeWithRegistration(tenantId, row);
 }
 
 export async function submitOnboarding(tenantId: string, input: OnboardingInput) {
+  const imageUrl = await registrationImageUrl(tenantId);
+  if (!imageUrl) {
+    throw new Error('사업자등록증을 등록해 주세요.');
+  }
   const data = pickOnboarding(input);
   const now = new Date();
+  const existing = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId }, select: { reviewToken: true } });
+  const reviewToken = existing?.reviewToken ?? newReviewToken();
   const row = await prisma.tenantPgOnboarding.upsert({
     where: { tenantId },
-    create: { tenantId, ...data, status: 'SUBMITTED', submittedAt: now },
-    update: { ...data, status: 'SUBMITTED', submittedAt: now },
+    create: { tenantId, ...data, status: 'SUBMITTED', submittedAt: now, reviewToken },
+    update: { ...data, status: 'SUBMITTED', submittedAt: now, reviewToken },
   });
-  return serializeOnboarding(row);
+  return serializeWithRegistration(tenantId, row);
+}
+
+export async function getOnboardingByReviewToken(token: string) {
+  const reviewToken = token.trim();
+  if (!reviewToken) return null;
+  const row = await prisma.tenantPgOnboarding.findFirst({
+    where: { reviewToken },
+    include: { tenant: { select: { id: true, name: true } } },
+  });
+  if (!row || row.status === 'DRAFT') return null;
+  const credential = await prisma.tenantPgCredential.findFirst({
+    where: { tenantId: row.tenantId },
+    select: { mid: true, oid: true, apiKeyLast4: true, isActive: true },
+  });
+  return {
+    tenantName: row.tenant.name,
+    businessName: row.businessName,
+    bizNumber: row.bizNumber,
+    representativeName: row.representativeName,
+    representativeBirth: row.representativeBirth,
+    addressLine: row.addressLine,
+    contactName: row.contactName,
+    contactPhone: row.contactPhone,
+    contactEmail: row.contactEmail,
+    bankName: row.bankName,
+    bankAccount: row.bankAccount,
+    accountHolder: row.accountHolder,
+    websiteUrl: row.websiteUrl,
+    note: row.note,
+    businessRegistrationImageUrl: await registrationImageUrl(row.tenantId),
+    status: row.status,
+    connected: Boolean(credential?.isActive),
+    mid: credential?.mid ?? null,
+    oid: credential?.oid ?? null,
+    apiKeyLast4: credential?.apiKeyLast4 ?? null,
+    tenantId: row.tenantId,
+  };
 }
 
 export async function listOnboardingsForPlatform(query: {
