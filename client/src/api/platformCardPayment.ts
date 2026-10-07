@@ -85,3 +85,34 @@ export async function savePlatformPgCredential(
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
+
+export async function fetchPlatformTenantCredential(tenantId: string) {
+  const res = await fetch(`${API}/platform/card-payment/credentials/${encodeURIComponent(tenantId)}`, {
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<
+    | { connected: false }
+    | {
+        connected: true;
+        isActive: boolean;
+        apiKeyLast4: string;
+        tidMasked: string;
+        mid: string | null;
+        oid: string | null;
+        connectedAt: string;
+      }
+  >;
+}
+
+export async function probePlatformTenantPayment(tenantId: string) {
+  const res = await fetch(`${API}/platform/card-payment/credentials/${encodeURIComponent(tenantId)}/probe`, {
+    method: 'POST',
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<
+    | { rail: 'KEYIN'; ok: boolean; message: string }
+    | { rail: 'PAY_WINDOW'; ok: boolean; message: string; redirectUrl?: string }
+  >;
+}

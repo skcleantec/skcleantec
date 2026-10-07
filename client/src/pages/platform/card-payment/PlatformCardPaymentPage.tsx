@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { CARD_SECTION, BTN_PRIMARY, BTN_SECONDARY, INPUT_BASE } from '../../../utils/platformUi';
+import { PlatformCardPaymentKeySection } from './PlatformCardPaymentKeySection';
 import {
   fetchPlatformCardPaymentSettings,
   fetchPlatformPgOnboardings,
   patchPlatformPgOnboarding,
   savePlatformCardPaymentSettings,
-  savePlatformPgCredential,
 } from '../../../api/platformCardPayment';
 import { formatFeeBps, formatWon, TENANT_PG_ONBOARDING_STATUS_LABEL } from '@shared/cardPayment';
 import type { TenantPgOnboardingStatus } from '@shared/cardPayment';
@@ -25,11 +25,6 @@ export function PlatformCardPaymentPage() {
   >([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [keyTenantId, setKeyTenantId] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [tid, setTid] = useState('');
-  const [mid, setMid] = useState('');
-  const [oid, setOid] = useState('');
   const [serviceBridge, setServiceBridge] = useState<
     Awaited<ReturnType<typeof fetchPlatformCardPaymentSettings>>['serviceBridge']
   >(undefined);
@@ -120,7 +115,7 @@ export function PlatformCardPaymentPage() {
       <section className={CARD_SECTION}>
         <h2 className="text-sm font-semibold text-gray-900">이용료 결제 (서비스브릿지)</h2>
         <p className="mt-1 text-xs text-gray-500">
-          카드사 아래 서비스브릿지 가맹입니다. 업체 이용료에 쓰고, 각 업체의 청소비 키와는 따로입니다.
+          솔루션 이용료 전용입니다. 팀장 청소비 결재에는 쓰이지 않고, 이 화면에서는 서버에 키가 있는지만 봅니다.
         </p>
         <ul className="mt-3 space-y-1 text-sm text-gray-800">
           <li>
@@ -139,34 +134,8 @@ export function PlatformCardPaymentPage() {
       </section>
 
       <section className={CARD_SECTION}>
-        <h2 className="text-sm font-semibold text-gray-900">가맹점 키 연결</h2>
-        <p className="mt-1 text-xs text-gray-500">
-          업체가 PG 계약 후 받은 MID, TID, API 키, OID를 여기에 넣으면 그 업체만 따로 결제합니다. 주문번호는 OID 네 글자로 시작합니다.
-        </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <input className={INPUT_BASE} placeholder="테넌트 ID" value={keyTenantId} onChange={(e) => setKeyTenantId(e.target.value)} />
-          <input className={INPUT_BASE} placeholder="MID" value={mid} onChange={(e) => setMid(e.target.value)} />
-          <input className={INPUT_BASE} placeholder="OID (4자리)" value={oid} onChange={(e) => setOid(e.target.value)} />
-          <input className={INPUT_BASE} placeholder="X-TID" value={tid} onChange={(e) => setTid(e.target.value)} />
-          <input className={INPUT_BASE} placeholder="X-API-Key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" />
-        </div>
-        <button
-          type="button"
-          className={`${BTN_PRIMARY} mt-3`}
-          onClick={() => {
-            void savePlatformPgCredential(keyTenantId.trim(), { apiKey, tid, mid, oid })
-              .then(() => {
-                setApiKey('');
-                setTid('');
-                setMid('');
-                setOid('');
-                reload();
-              })
-              .catch((e: unknown) => setError(e instanceof Error ? e.message : '키 저장 실패'));
-          }}
-        >
-          키 저장
-        </button>
+        <h2 className="text-sm font-semibold text-gray-900">업체 결제 키</h2>
+        <PlatformCardPaymentKeySection />
       </section>
 
       <section className={CARD_SECTION}>
@@ -189,15 +158,6 @@ export function PlatformCardPaymentPage() {
                   onClick={() => void patchPlatformPgOnboarding(row.tenant.id, { status: 'FORWARDED_TO_PG' }).then(reload)}
                 >
                   PG 전달
-                </button>
-                <button
-                  type="button"
-                  className={BTN_SECONDARY}
-                  onClick={() => {
-                    setKeyTenantId(row.tenant.id);
-                  }}
-                >
-                  키 입력 대상
                 </button>
               </div>
             </article>
