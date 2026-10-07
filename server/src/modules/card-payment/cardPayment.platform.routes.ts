@@ -10,6 +10,7 @@ import { saveCredentialFromPlatform } from './cardPaymentCredential.service.js';
 import { platformCardPaymentSummary } from './cardPaymentList.service.js';
 import { getCredentialPublic } from './cardPaymentCredential.service.js';
 import { serviceBridgePublicStatus } from './serviceBridgeWspay.js';
+import { probeTenantPaymentConnection } from './cardPaymentProbe.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -83,6 +84,15 @@ router.put('/credentials/:tenantId', async (req, res) => {
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '키를 저장하지 못했습니다.' });
   }
+});
+
+router.post('/credentials/:tenantId/probe', async (req, res) => {
+  const probed = await probeTenantPaymentConnection(String(req.params.tenantId));
+  if ('error' in probed) {
+    res.status(probed.status).json({ error: probed.error });
+    return;
+  }
+  res.json(probed.result);
 });
 
 export default router;
