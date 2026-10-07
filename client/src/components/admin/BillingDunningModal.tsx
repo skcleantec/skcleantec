@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { fetchTenantBillingDunning, type TenantBillingDunning } from '../../api/tenantBilling';
 import { TENANT_INVOICE_STATUS_LABEL, formatDunningBlockSoonText } from '@shared/tenantBilling';
 import { BillingPaymentConfirmationRequestButton } from './BillingPaymentConfirmationRequestButton';
+import { TenantUsageFeeWindowButton } from './TenantUsageFeeWindowButton';
 
 function formatKoDate(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -83,9 +84,9 @@ export function BillingDunningModal({ open, token, tenantId, attemptKey, onClose
         aria-modal="true"
         aria-labelledby="billing-dunning-title"
         aria-describedby="billing-dunning-desc"
-        className="w-full max-w-md rounded-2xl border border-amber-200 bg-white shadow-2xl overflow-hidden"
+        className="flex max-h-[min(90dvh,640px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl"
       >
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-white">
+        <div className="shrink-0 bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-white">
           <h2 id="billing-dunning-title" className="text-base font-semibold">
             {popup?.title ?? '이용료 납부 안내'}
           </h2>
@@ -94,7 +95,7 @@ export function BillingDunningModal({ open, token, tenantId, attemptKey, onClose
           </p>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
           {error ? (
             <p className="text-sm text-rose-700">{error}</p>
           ) : dunning && inv ? (
@@ -144,6 +145,15 @@ export function BillingDunningModal({ open, token, tenantId, attemptKey, onClose
                   {popup?.blockTodayText ??
                     '오늘 중 업무 접속이 제한될 수 있습니다. 즉시 납부해 주세요.'}
                 </div>
+              ) : null}
+
+              {token && inv.amountKrw > 0 ? (
+                <TenantUsageFeeWindowButton
+                  token={token}
+                  periodStart={inv.periodStart}
+                  supplyKrw={inv.amountKrw}
+                  className="w-full"
+                />
               ) : null}
 
               {bankLine ? (
