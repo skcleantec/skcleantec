@@ -9,10 +9,12 @@ export function TenantUsageFeeWindowButton({
   token,
   periodStart,
   supplyKrw,
+  className = '',
 }: {
   token: string;
   periodStart: string;
   supplyKrw: number;
+  className?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function TenantUsageFeeWindowButton({
     <div className="space-y-1">
       <button
         type="button"
-        className={BTN}
+        className={`${BTN} ${className}`.trim()}
         disabled={busy}
         onClick={() => {
           setBusy(true);
