@@ -10,7 +10,7 @@ import { saveCredentialFromPlatform } from './cardPaymentCredential.service.js';
 import { platformCardPaymentSummary } from './cardPaymentList.service.js';
 import { getCredentialPublic } from './cardPaymentCredential.service.js';
 import { serviceBridgePublicStatus } from './serviceBridgeWspay.js';
-import { probeTenantPaymentConnection } from './cardPaymentProbe.service.js';
+import { probeTenantPaymentConnection, openUsageFeeWindow, probeUsageFeeKeyin } from './cardPaymentProbe.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -88,6 +88,24 @@ router.put('/credentials/:tenantId', async (req, res) => {
 
 router.post('/credentials/:tenantId/probe', async (req, res) => {
   const probed = await probeTenantPaymentConnection(String(req.params.tenantId));
+  if ('error' in probed) {
+    res.status(probed.status).json({ error: probed.error });
+    return;
+  }
+  res.json(probed.result);
+});
+
+router.post('/usage-fee/window', async (_req, res) => {
+  const opened = await openUsageFeeWindow();
+  if ('error' in opened) {
+    res.status(opened.status).json({ error: opened.error });
+    return;
+  }
+  res.json(opened.result);
+});
+
+router.post('/usage-fee/keyin-probe', async (_req, res) => {
+  const probed = await probeUsageFeeKeyin();
   if ('error' in probed) {
     res.status(probed.status).json({ error: probed.error });
     return;

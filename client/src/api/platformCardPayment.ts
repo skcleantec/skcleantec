@@ -116,3 +116,21 @@ export async function probePlatformTenantPayment(tenantId: string) {
     | { rail: 'PAY_WINDOW'; ok: boolean; message: string; redirectUrl?: string }
   >;
 }
+
+export async function openPlatformUsageFeeWindow() {
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/window`, {
+    method: 'POST',
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ ok: boolean; message: string; redirectUrl?: string }>;
+}
+
+export async function probePlatformUsageFeeKeyin() {
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/keyin-probe`, {
+    method: 'POST',
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ ok: boolean; message: string }>;
+}

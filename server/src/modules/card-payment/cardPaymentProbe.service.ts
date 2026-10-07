@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 import { getDecryptedCredential } from './cardPaymentCredential.service.js';
 import { requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
+import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { probeWspayListAuth } from './wspayAdapter.js';
 import { buildWspayOrderId, normalizeWspayOid } from './wspayOrderId.js';
 
@@ -58,6 +59,56 @@ export async function probeTenantPaymentConnection(
       ok: true,
       message: '결제창 주소를 받았습니다. 창에서 결제하면 실제 승인입니다. 연결만 볼 때는 창을 닫으세요.',
       redirectUrl: opened.redirectUrl,
+    },
+  };
+}
+
+/** 솔루션 이용료 결제창. 서비스브릿지 인증 키만 사용한다. */
+export async function openUsageFeeWindow(): Promise<
+  { error: string; status: 400 } | { result: { ok: true; redirectUrl: string; message: string } | { ok: false; message: string } }
+> {
+  const app = loadServiceBridgeMerchants().appCard;
+  if (!app) return { error: '이용료 결제창 키가 서버에 없습니다.', status: 400 };
+  const orderNo = buildWspayOrderId(app.oid, `fee${Date.now().toString(36)}`)?.slice(0, 30);
+  if (!orderNo) return { error: '주문번호를 만들지 못했습니다.', status: 400 };
+  const base = getPublicAppBaseUrl();
+  const opened = await requestPaysisPaymentWindow({
+    mid: app.mid,
+    mKey: app.apiKey,
+    type: 'P',
+    amount: '1000',
+    productName: '이용료확인',
+    userId: 'usagefee',
+    userName: '확인',
+    orderNo,
+    returnUrl: `${base}/api/public/card-payment/paysis-noti`,
+    successUrl: `${base}/pay/paysis/ok`,
+    failUrl: `${base}/pay/paysis/fail`,
+    closeUrl: `${base}/pay/paysis/close`,
+  });
+  if (!opened.ok) return { result: { ok: false, message: opened.message } };
+  return {
+    result: {
+      ok: true,
+      redirectUrl: opened.redirectUrl,
+      message: '이용료 확인용 결제창입니다. 1,000원입니다. 창에서 결제하면 실제 승인되고, 이용료 청구서에는 자동으로 기록되지 않습니다.',
+    },
+  };
+}
+
+/** 수기 키 조회만 한다. 수기 결제창은 없다. */
+export async function probeUsageFeeKeyin(): Promise<
+  { error: string; status: 400 } | { result: { ok: boolean; message: string } }
+> {
+  const keyin = loadServiceBridgeMerchants().keyin;
+  if (!keyin) return { error: '이용료 수기 키가 서버에 없습니다.', status: 400 };
+  const probed = await probeWspayListAuth(keyin);
+  return {
+    result: {
+      ok: probed.accepted,
+      message: probed.accepted
+        ? '수기 키는 연결됩니다. 수기 결제창은 없습니다. 카드번호를 서버가 보내야 승인이 됩니다.'
+        : '수기 키가 조회에서 거절되었습니다.',
     },
   };
 }
