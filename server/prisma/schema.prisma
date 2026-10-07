@@ -687,6 +687,8 @@ model CardPayment {
   approvalNo         String?           @map("approval_no") @db.VarChar(64)
   pgOrderId          String?           @unique @map("pg_order_id") @db.VarChar(64)
   payRail            String            @default("KEYIN") @map("pay_rail") @db.VarChar(16)
+  /// 결제 당시 팀장 원성 고유번호. 나중에 번호가 다른 팀장으로 바뀌어도 이 결제는 당시 번호를 유지한다.
+  pgClerkNo          Int?              @map("pg_clerk_no")
   payScreen          String?           @map("pay_screen") @db.VarChar(1)
   pgMid              String?           @map("pg_mid") @db.VarChar(16)
   webhookEventId     String?           @unique @map("webhook_event_id") @db.VarChar(128)
@@ -1710,6 +1712,8 @@ model User {
   homeGeoLat        Float?  @map("home_geo_lat")
   homeGeoLng        Float?  @map("home_geo_lng")
   homeGeoQuery      String? @map("home_geo_query") @db.VarChar(512)
+  /// 원성 고유번호 1~15. 팀장 카드 결제를 구분하고, 퇴사하면 다른 팀장에게 다시 매칭한다.
+  pgClerkNo         Int?    @map("pg_clerk_no")
 
   dispatchProfile TeamLeaderDispatchProfile?
   aiDispatchProposals AiDispatchProposal[]
@@ -1810,6 +1814,7 @@ model User {
   notificationDeliveryLogs     NotificationDeliveryLog[]
 
   @@unique([tenantId, email])
+  @@unique([tenantId, pgClerkNo])
   @@unique([tenantId, platformSupportAccessId])
   @@index([tenantId, role, isActive])
   @@index([platformSupportAccessId])

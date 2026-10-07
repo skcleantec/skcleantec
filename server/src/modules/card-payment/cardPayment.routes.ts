@@ -14,6 +14,7 @@ import {
   saveTenantRegistrationImage,
   submitOnboarding,
 } from './cardPaymentOnboarding.service.js';
+import { listPgClerkSlots, savePgClerkSlots } from './pgClerk.service.js';
 import {
   confirmCustomerLink,
   confirmKeyin,
@@ -77,6 +78,39 @@ router.get('/inquiry/:inquiryId/prefill', async (req, res) => {
     quote,
     pgConnected: pg.connected ? pg.isActive : false,
   });
+});
+
+router.get('/pg/clerks', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '원성 고유번호는 관리자만 볼 수 있습니다.' });
+    return;
+  }
+  res.json(await listPgClerkSlots(tenantId));
+});
+
+router.put('/pg/clerks', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '원성 고유번호는 관리자만 매칭할 수 있습니다.' });
+    return;
+  }
+  const body = req.body && typeof req.body === 'object' ? (req.body as { slots?: unknown }) : {};
+  const slots = Array.isArray(body.slots) ? body.slots : [];
+  const parsed = slots.map((slot) => {
+    const row = slot && typeof slot === 'object' ? (slot as { clerkNo?: unknown; userId?: unknown }) : {};
+    return {
+      clerkNo: Number(row.clerkNo),
+      userId: typeof row.userId === 'string' && row.userId.trim() ? row.userId.trim() : null,
+    };
+  });
+  try {
+    res.json(await savePgClerkSlots(tenantId, parsed));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '고유번호를 저장하지 못했습니다.' });
+  }
 });
 
 router.get('/pg', async (req, res) => {
