@@ -14,6 +14,7 @@ type RefundRow = {
   cardLast4: string | null;
   method: string;
   clerkNo: number | null;
+  clerkCode: string | null;
   at: string | null;
   memo: string | null;
 };
@@ -72,7 +73,7 @@ export function PgPartnerRefundsPage() {
           <dl className="mt-2 space-y-1 text-fluid-xs text-slate-600">
             <div className="flex justify-between gap-2"><dt>업체</dt><dd className="text-slate-900">{row.tenantName}</dd></div>
             <div className="flex justify-between gap-2"><dt>방식</dt><dd className="text-slate-900">{row.method}</dd></div>
-            {row.clerkNo ? <div className="flex justify-between gap-2"><dt>고유번호</dt><dd className="text-slate-900">{row.clerkNo}번</dd></div> : null}
+            {row.clerkCode || row.clerkNo ? <div className="flex justify-between gap-2"><dt>고유번호</dt><dd className="text-slate-900">{row.clerkCode || `${row.clerkNo}번`}</dd></div> : null}
             {row.detail ? <div className="flex justify-between gap-2"><dt>대상</dt><dd className="text-slate-900">{row.detail}</dd></div> : null}
             {row.pgOrderId ? <div className="flex justify-between gap-2"><dt>주문번호</dt><dd className="truncate text-slate-900">{row.pgOrderId}</dd></div> : null}
             {row.approvalNo ? <div className="flex justify-between gap-2"><dt>승인번호</dt><dd className="text-slate-900">{row.approvalNo}</dd></div> : null}

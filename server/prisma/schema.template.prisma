@@ -380,6 +380,7 @@ model Tenant {
   notificationDeliveryLogs   NotificationDeliveryLog[]
   pgOnboarding               TenantPgOnboarding?
   pgCredential               TenantPgCredential?
+  pgClerkCodes               TenantPgClerkCode[]
   cardPayments               CardPayment[]
   platformSupportThread      PlatformSupportThread?
   platformSupportMessages    PlatformSupportMessage[]
@@ -662,6 +663,22 @@ model TenantPgCredential {
   @@map("tenant_pg_credentials")
 }
 
+/// 가입 때 원성이 주는 팀장 고유번호 코드 15개. 누구한테 쓸지는 업체 관리자가 매칭한다.
+model TenantPgClerkCode {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  slotNo    Int      @map("slot_no")
+  code      String   @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, slotNo])
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("tenant_pg_clerk_codes")
+}
+
 /// 카드결제 건 — 카드번호 원문 저장 금지
 model CardPayment {
   id                 String            @id @default(uuid())
@@ -687,8 +704,10 @@ model CardPayment {
   approvalNo         String?           @map("approval_no") @db.VarChar(64)
   pgOrderId          String?           @unique @map("pg_order_id") @db.VarChar(64)
   payRail            String            @default("KEYIN") @map("pay_rail") @db.VarChar(16)
-  /// 결제 당시 팀장 원성 고유번호. 나중에 번호가 다른 팀장으로 바뀌어도 이 결제는 당시 번호를 유지한다.
+  /// 결제 당시 팀장 원성 고유번호 칸. 나중에 다른 팀장으로 바뀌어도 이 결제는 당시 칸을 유지한다.
   pgClerkNo          Int?              @map("pg_clerk_no")
+  /// 결제 당시 원성이 준 고유번호 코드.
+  pgClerkCode        String?           @map("pg_clerk_code") @db.VarChar(32)
   payScreen          String?           @map("pay_screen") @db.VarChar(1)
   pgMid              String?           @map("pg_mid") @db.VarChar(16)
   webhookEventId     String?           @unique @map("webhook_event_id") @db.VarChar(128)
