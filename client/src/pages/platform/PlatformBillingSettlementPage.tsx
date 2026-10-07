@@ -17,6 +17,12 @@ const METHOD_LABEL: Record<UsageFeeCardPaymentRow['payMethod'], string> = {
   PAY_WINDOW: '카드 결제창',
 };
 
+function statusLabel(status: UsageFeeCardPaymentRow['status']): string {
+  if (status === 'PENDING') return '승인 대기';
+  if (status === 'FAILED') return '실패';
+  return '승인';
+}
+
 function formatWhen(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -106,7 +112,9 @@ export function PlatformBillingSettlementPage() {
           {items.map((row) => (
             <article key={row.id} className="rounded-lg border border-gray-200 p-2">
               <p className="truncate text-sm font-medium text-gray-900">{row.tenantName ?? '업체 없음'}</p>
-              <p className="text-xs text-gray-500">{formatWhen(row.paidAt)} · {METHOD_LABEL[row.payMethod]}</p>
+              <p className="text-xs text-gray-500">
+                {formatWhen(row.paidAt)} · {METHOD_LABEL[row.payMethod]} · {statusLabel(row.status)}
+              </p>
               <p className="text-right text-sm tabular-nums text-gray-900">{won(row.amountKrw)}</p>
             </article>
           ))}
@@ -118,6 +126,7 @@ export function PlatformBillingSettlementPage() {
                 <th className="px-2 py-2 text-center">결제일</th>
                 <th className="px-2 py-2 text-center">업체</th>
                 <th className="px-2 py-2 text-center">수단</th>
+                <th className="px-2 py-2 text-center">상태</th>
                 <th className="px-2 py-2 text-center">구분</th>
                 <th className="px-2 py-2 text-center">공급가</th>
                 <th className="px-2 py-2 text-center">부가세</th>
@@ -131,6 +140,7 @@ export function PlatformBillingSettlementPage() {
                   <td className="px-2 py-2 text-center text-xs">{formatWhen(row.paidAt)}</td>
                   <td className="px-2 py-2 text-center">{row.tenantName ?? '—'}</td>
                   <td className="px-2 py-2 text-center">{METHOD_LABEL[row.payMethod]}</td>
+                  <td className="px-2 py-2 text-center">{statusLabel(row.status)}</td>
                   <td className="px-2 py-2 text-center">{row.purpose === 'INVOICE' ? '이용료' : '기타'}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.supplyAmountKrw)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.vatAmountKrw)}</td>
