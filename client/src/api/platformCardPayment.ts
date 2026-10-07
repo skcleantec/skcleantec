@@ -126,7 +126,51 @@ export async function openPlatformUsageFeeWindow() {
   return res.json() as Promise<{ ok: boolean; message: string; redirectUrl?: string }>;
 }
 
+export type UsageFeeOpenPeriod = {
+  periodStartYmd: string;
+  periodLabel: string;
+  amountKrw: number;
+  status: string;
+};
+
+export async function fetchUsageFeeOpenPeriods(tenantId: string) {
+  const res = await fetch(
+    `${API}/platform/card-payment/usage-fee/open-periods?tenantId=${encodeURIComponent(tenantId)}`,
+    { headers: platformHeaders() },
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ items: UsageFeeOpenPeriod[] }>;
+}
+
+export type UsageFeeCardPaymentRow = {
+  id: string;
+  purpose: 'INVOICE' | 'OTHER';
+  tenantName: string | null;
+  periodStart: string | null;
+  goodsName: string;
+  amountKrw: number;
+  approvalNo: string | null;
+  cardLast4: string;
+  buyerName: string;
+  memo: string | null;
+  invoiceApplied: boolean;
+  paidAt: string;
+};
+
+export async function fetchUsageFeeCardPayments(limit: number, offset: number) {
+  const res = await fetch(
+    `${API}/platform/card-payment/usage-fee/payments?limit=${limit}&offset=${offset}`,
+    { headers: platformHeaders() },
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ items: UsageFeeCardPaymentRow[]; total: number }>;
+}
+
 export async function payPlatformUsageFeeKeyin(input: {
+  purpose: 'INVOICE' | 'OTHER';
+  tenantId?: string;
+  periodStartYmd?: string;
+  memo?: string;
   goodsName: string;
   amountWon: number;
   cardNo: string;
@@ -151,6 +195,7 @@ export async function payPlatformUsageFeeKeyin(input: {
     orderNo?: string;
     amountWon?: number;
     cardLast4?: string;
+    invoiceApplied?: boolean;
   }>;
 }
 

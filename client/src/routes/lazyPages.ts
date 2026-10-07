@@ -134,6 +134,11 @@ export const PlatformCardPaymentPage = lazyWithRetry(() =>
     default: m.PlatformCardPaymentPage,
   }))
 );
+export const PlatformCardChargePage = lazyWithRetry(() =>
+  import('../pages/platform/card-payment/PlatformCardChargePage').then((m) => ({
+    default: m.PlatformCardChargePage,
+  }))
+);
 export const PublicCardPaymentLinkPage = lazyWithRetry(() =>
   import('../pages/public/PublicCardPaymentLinkPage').then((m) => ({
     default: m.PublicCardPaymentLinkPage,

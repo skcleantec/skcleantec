@@ -11,7 +11,8 @@ import { platformCardPaymentSummary } from './cardPaymentList.service.js';
 import { getCredentialPublic } from './cardPaymentCredential.service.js';
 import { serviceBridgePublicStatus } from './serviceBridgeWspay.js';
 import { probeTenantPaymentConnection, openUsageFeeWindow, probeUsageFeeKeyin } from './cardPaymentProbe.service.js';
-import { chargeUsageFeeKeyin, parseUsageFeeKeyinBody } from './cardPaymentUsageFeeKeyin.service.js';
+import type { PlatformScopedRequest } from '../platform/platformAuth.middleware.js';
+import { listUsageFeeCardPayments, listUsageFeeOpenPeriods, payAndRecordUsageFee } from './usageFeeCardPayment.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -105,18 +106,30 @@ router.post('/usage-fee/window', async (_req, res) => {
   res.json(opened.result);
 });
 
+router.get('/usage-fee/open-periods', async (req, res) => {
+  const tenantId = typeof req.query.tenantId === 'string' ? req.query.tenantId : '';
+  const opened = await listUsageFeeOpenPeriods(tenantId);
+  if ('error' in opened) {
+    res.status(opened.status).json({ error: opened.error });
+    return;
+  }
+  res.json({ items: opened.items });
+});
+
+router.get('/usage-fee/payments', async (req, res) => {
+  const limit = Number(req.query.limit ?? 30);
+  const offset = Number(req.query.offset ?? 0);
+  res.json(await listUsageFeeCardPayments(limit, offset));
+});
+
 router.post('/usage-fee/keyin', async (req, res) => {
-  const parsed = parseUsageFeeKeyinBody(req.body);
-  if ('error' in parsed) {
-    res.status(400).json({ error: parsed.error });
+  const platformUserId = (req as PlatformScopedRequest).platformUser.platformUserId;
+  const paid = await payAndRecordUsageFee(req.body, platformUserId);
+  if ('error' in paid) {
+    res.status(paid.status).json({ error: paid.error });
     return;
   }
-  const charged = await chargeUsageFeeKeyin(parsed.input);
-  if ('error' in charged) {
-    res.status(charged.status).json({ error: charged.error });
-    return;
-  }
-  res.json(charged.result);
+  res.json(paid.result);
 });
 
 router.post('/usage-fee/keyin-probe', async (_req, res) => {

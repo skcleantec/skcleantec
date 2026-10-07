@@ -63,6 +63,7 @@ import {
   AdminCardPaymentPage,
   AdminCardPaymentPgPage,
   PlatformCardPaymentPage,
+  PlatformCardChargePage,
   PublicCardPaymentLinkPage,
   PaysisCheckoutOkPage,
   PaysisCheckoutFailPage,
@@ -193,6 +194,7 @@ function App() {
           <Route path="referrers/:id" element={<SuspensePage><PlatformReferrerDetailPage /></SuspensePage>} />
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
+          <Route path="card-payment/charge" element={<SuspensePage><PlatformCardChargePage /></SuspensePage>} />
           <Route path="coin-usage" element={<SuspensePage><PlatformCoinUsagePage /></SuspensePage>} />
           <Route path="signup-trial-events" element={<SuspensePage><PlatformSignupTrialEventsPage /></SuspensePage>} />
           <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
