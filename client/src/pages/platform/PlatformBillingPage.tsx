@@ -280,7 +280,15 @@ export function PlatformBillingPage() {
   return (
     <div className="space-y-6 pb-8 min-w-0 w-full max-w-6xl">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">결제 관리</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold text-gray-900">결제 관리</h1>
+          <Link
+            to="/platform/billing/settlement"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            정산
+          </Link>
+        </div>
         <p className="mt-1 text-sm text-gray-500">업체별 이용료·약정·자동 청구·예외 관리</p>
       </div>
 

@@ -5,6 +5,7 @@ import {
   type TenantBillingDunning,
   type TenantBillingSummary,
 } from '../../api/tenantBilling';
+import { TenantUsageFeeWindowButton } from './TenantUsageFeeWindowButton';
 import {
   TENANT_BILLING_DUNNING_POPUP_DEFAULTS,
   TENANT_INVOICE_STATUS_LABEL,
@@ -214,6 +215,16 @@ export function TenantBillingPaymentGuideModal({ open, onClose, token, billing }
                 <p className="mt-1.5 text-xs text-gray-600 whitespace-pre-wrap">{billing.bank.paymentGuideText}</p>
               ) : null}
             </div>
+          ) : null}
+
+          {token && invoice ? (
+            <TenantUsageFeeWindowButton token={token} periodStart={invoice.periodStart} supplyKrw={invoice.amountKrw} />
+          ) : token && scheduledPeriod?.periodStart && scheduledPeriod.amountKrw ? (
+            <TenantUsageFeeWindowButton
+              token={token}
+              periodStart={scheduledPeriod.periodStart}
+              supplyKrw={scheduledPeriod.amountKrw}
+            />
           ) : null}
 
           <div className="flex flex-wrap gap-2 justify-end pt-1">

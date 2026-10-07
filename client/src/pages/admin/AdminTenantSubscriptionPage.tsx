@@ -9,6 +9,7 @@ import {
 } from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
 import { BillingPaymentConfirmationRequestButton } from '../../components/admin/BillingPaymentConfirmationRequestButton';
+import { TenantUsageFeeWindowButton } from '../../components/admin/TenantUsageFeeWindowButton';
 import { TenantBillingDashboardStatusLine } from '../../components/admin/TenantBillingDashboardStatusLine';
 import { TenantBillingPaymentGuideModal } from '../../components/admin/TenantBillingPaymentGuideModal';
 import {
@@ -407,6 +408,23 @@ export function AdminTenantSubscriptionPage() {
                   invoiceId={(billing.overdueInvoice ?? billing.openInvoice)!.id}
                 />
               </div>
+            ) : null}
+            {token && (billing.overdueInvoice ?? billing.openInvoice ?? null) ? (
+              <TenantUsageFeeWindowButton
+                token={token}
+                periodStart={(billing.overdueInvoice ?? billing.openInvoice)!.periodStart}
+                supplyKrw={(billing.overdueInvoice ?? billing.openInvoice)!.amountKrw}
+              />
+            ) : token &&
+              billing.currentPeriodStart &&
+              billing.currentPeriodAmountKrw &&
+              billing.currentPeriodStatus &&
+              billing.currentPeriodStatus !== 'PAID' ? (
+              <TenantUsageFeeWindowButton
+                token={token}
+                periodStart={billing.currentPeriodStart}
+                supplyKrw={billing.currentPeriodAmountKrw}
+              />
             ) : null}
             {scheduleItems.length > 0 ? (
               <div className="space-y-2">

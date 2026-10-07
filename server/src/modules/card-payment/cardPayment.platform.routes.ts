@@ -119,7 +119,8 @@ router.get('/usage-fee/open-periods', async (req, res) => {
 router.get('/usage-fee/payments', async (req, res) => {
   const limit = Number(req.query.limit ?? 30);
   const offset = Number(req.query.offset ?? 0);
-  res.json(await listUsageFeeCardPayments(limit, offset));
+  const payMethod = typeof req.query.payMethod === 'string' ? req.query.payMethod : undefined;
+  res.json(await listUsageFeeCardPayments(limit, offset, payMethod));
 });
 
 router.post('/usage-fee/keyin', async (req, res) => {

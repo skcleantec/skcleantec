@@ -364,6 +364,17 @@ export function formatBillingAmountKrw(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원 (VAT 별도)`;
 }
 
+/** 이용료 카드결제 부가세. 공급가의 10%, 원 단위 반올림. */
+export function usageFeeVatKrw(supplyKrw: number): number {
+  if (!Number.isInteger(supplyKrw) || supplyKrw <= 0) return 0;
+  return Math.round(supplyKrw * 0.1);
+}
+
+/** 카드로 승인할 이용료. 공급가 + 부가세. */
+export function usageFeeChargeKrw(supplyKrw: number): number {
+  return supplyKrw + usageFeeVatKrw(supplyKrw);
+}
+
 export function billingCyclePriceHint(
   plan: TenantPlanId,
   cycle: TenantBillingCycle,

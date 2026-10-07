@@ -130,6 +130,9 @@ export type UsageFeeOpenPeriod = {
   periodStartYmd: string;
   periodLabel: string;
   amountKrw: number;
+  supplyAmountKrw?: number;
+  vatAmountKrw?: number;
+  chargeAmountKrw?: number;
   status: string;
 };
 
@@ -145,23 +148,27 @@ export async function fetchUsageFeeOpenPeriods(tenantId: string) {
 export type UsageFeeCardPaymentRow = {
   id: string;
   purpose: 'INVOICE' | 'OTHER';
+  payMethod: 'BANK' | 'KEYIN' | 'PAY_WINDOW';
   tenantName: string | null;
   periodStart: string | null;
   goodsName: string;
+  supplyAmountKrw: number;
+  vatAmountKrw: number;
   amountKrw: number;
   approvalNo: string | null;
-  cardLast4: string;
-  buyerName: string;
+  cardLast4: string | null;
+  buyerName: string | null;
   memo: string | null;
   invoiceApplied: boolean;
   paidAt: string;
 };
 
-export async function fetchUsageFeeCardPayments(limit: number, offset: number) {
-  const res = await fetch(
-    `${API}/platform/card-payment/usage-fee/payments?limit=${limit}&offset=${offset}`,
-    { headers: platformHeaders() },
-  );
+export async function fetchUsageFeeCardPayments(limit: number, offset: number, payMethod?: string) {
+  const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (payMethod) query.set('payMethod', payMethod);
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/payments?${query.toString()}`, {
+    headers: platformHeaders(),
+  });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<{ items: UsageFeeCardPaymentRow[]; total: number }>;
 }

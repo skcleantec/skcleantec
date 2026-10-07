@@ -132,6 +132,7 @@ import {
   PlatformReferrersPage,
   PlatformReferrerDetailPage,
   PlatformBillingPage,
+  PlatformBillingSettlementPage,
   PlatformCoinUsagePage,
   PlatformSignupTrialEventsPage,
   PlatformSupportAccessPage,
@@ -193,6 +194,7 @@ function App() {
           <Route path="referrers" element={<SuspensePage><PlatformReferrersPage /></SuspensePage>} />
           <Route path="referrers/:id" element={<SuspensePage><PlatformReferrerDetailPage /></SuspensePage>} />
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
+          <Route path="billing/settlement" element={<SuspensePage><PlatformBillingSettlementPage /></SuspensePage>} />
           <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
           <Route path="card-payment/charge" element={<SuspensePage><PlatformCardChargePage /></SuspensePage>} />
           <Route path="coin-usage" element={<SuspensePage><PlatformCoinUsagePage /></SuspensePage>} />

@@ -26,6 +26,7 @@ import {
   voidTenantBillingAdjustment,
   voidTenantInvoice,
 } from '../billing/tenantBilling.service.js';
+import { recordBankUsageFeeSettlement } from '../card-payment/usageFeeCardPayment.service.js';
 import { updateTenantBasics } from './tenantProvisioning.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { TENANT_PLAN_ID_SET } from '../tenants/tenantFeatureCatalog.js';
@@ -307,6 +308,7 @@ router.post('/tenants/:tenantId/schedule-periods/confirm-payment', platformSuper
       body.periodStart.trim(),
       platformUser.platformUserId,
     );
+    await recordBankUsageFeeSettlement(invoice.id, platformUser.platformUserId).catch(() => undefined);
     res.json({ invoice });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '납부 확인에 실패했습니다.';
@@ -318,6 +320,7 @@ router.post('/invoices/:invoiceId/confirm-payment', platformSuperAdminOnly, asyn
   try {
     const platformUser = (req as PlatformScopedRequest).platformUser;
     const invoice = await confirmInvoicePayment(req.params.invoiceId, platformUser.platformUserId);
+    await recordBankUsageFeeSettlement(invoice.id, platformUser.platformUserId).catch(() => undefined);
     res.json({ invoice });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '납부 확인에 실패했습니다.';

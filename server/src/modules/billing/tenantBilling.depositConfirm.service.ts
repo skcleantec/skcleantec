@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { recordBankUsageFeeSettlement } from '../card-payment/usageFeeCardPayment.service.js';
 import { confirmInvoicePayment } from './tenantBilling.service.js';
 import { verifyDepositConfirmToken } from './tenantBilling.depositConfirmToken.js';
 
@@ -139,6 +140,7 @@ export async function confirmDepositByEmailToken(token: string): Promise<Deposit
   }
 
   await confirmInvoicePayment(payload.invoiceId, null, payload.tenantId);
+  await recordBankUsageFeeSettlement(payload.invoiceId, null).catch(() => undefined);
 
   const after = await previewDepositConfirm(token);
   const tenantActivated = after.tenantActivated;
