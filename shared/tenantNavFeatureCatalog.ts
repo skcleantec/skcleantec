@@ -105,6 +105,12 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
         moduleId: null,
         group: '업체등록정보',
       },
+      {
+        label: '가입신청',
+        path: '/admin/team-leaders/pg-onboarding',
+        moduleId: 'mod_card_payment',
+        group: '업체등록정보',
+      },
       { label: '사용자 등록', path: '/admin/team-leaders', moduleId: null, group: '사용자등록' },
       { label: '영업브랜드', path: '/admin/team-leaders/operating-companies', moduleId: null, group: '사용자등록' },
       {

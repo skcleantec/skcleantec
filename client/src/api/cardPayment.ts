@@ -58,6 +58,8 @@ export type PgOnboardingRow = {
   accountHolder: string | null;
   websiteUrl: string | null;
   note: string | null;
+  businessRegistrationImageUrl: string | null;
+  reviewToken: string | null;
   submittedAt: string | null;
   forwardedAt: string | null;
   decidedAt: string | null;
@@ -137,6 +139,18 @@ export async function saveTenantPgOnboarding(token: string, body: Partial<PgOnbo
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<PgOnboardingRow>;
+}
+
+export async function uploadTenantPgRegistration(token: string, file: File) {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await fetch(`${API}/card-payments/pg/onboarding/business-registration`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body,
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ businessRegistrationImageUrl: string }>;
 }
 
 export async function submitTenantPgOnboarding(token: string, body: Partial<PgOnboardingRow>) {

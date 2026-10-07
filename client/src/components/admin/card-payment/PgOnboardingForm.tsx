@@ -23,14 +23,18 @@ export function PgOnboardingForm({
   onChange,
   onSave,
   onSubmit,
+  onUploadRegistration,
   saving,
+  uploading,
   submitted,
 }: {
   value: PgOnboardingRow;
   onChange: (next: PgOnboardingRow) => void;
   onSave: () => void;
   onSubmit: () => void;
+  onUploadRegistration: (file: File) => void;
   saving: boolean;
+  uploading: boolean;
   submitted: boolean;
 }) {
   const set = (key: keyof PgOnboardingRow, v: string) => onChange({ ...value, [key]: v });
@@ -48,6 +52,39 @@ export function PgOnboardingForm({
           {TENANT_PG_ONBOARDING_STATUS_LABEL[value.status as TenantPgOnboardingStatus] ?? value.status}
         </span>
       </p>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+        <p className="text-fluid-2xs font-medium text-slate-800">사업자등록증</p>
+        {value.businessRegistrationImageUrl ? (
+          <>
+            <p className="mt-1 text-fluid-2xs text-slate-600">청소비서에 등록된 파일이 원성에 전달됩니다.</p>
+            <a href={value.businessRegistrationImageUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block">
+              <img
+                src={value.businessRegistrationImageUrl}
+                alt="사업자등록증"
+                className="max-h-40 rounded-lg border border-slate-200 bg-white object-contain"
+              />
+            </a>
+          </>
+        ) : (
+          <>
+            <p className="mt-1 text-fluid-2xs text-amber-800">등록된 사업자등록증이 없습니다. 이미지를 올려야 가입 신청을 제출할 수 있습니다.</p>
+            <label className={`mt-2 inline-flex min-h-10 cursor-pointer items-center rounded-lg bg-slate-900 px-4 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-within:ring-2 focus-within:ring-slate-400 focus-within:ring-offset-2 ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
+              {uploading ? '올리는 중' : '사업자등록증 올리기'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) onUploadRegistration(file);
+                }}
+              />
+            </label>
+          </>
+        )}
+      </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {FIELDS.map((f) => (
           <label key={f.key} className={`block min-w-0 ${f.textarea ? 'sm:col-span-2' : ''}`}>
@@ -79,7 +116,7 @@ export function PgOnboardingForm({
         </button>
         <button
           type="submit"
-          disabled={saving || submitted}
+          disabled={saving || submitted || !value.businessRegistrationImageUrl}
           className="min-h-10 rounded-lg bg-slate-900 px-4 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
         >
           {submitted ? '신청 완료' : '가입 정보 제출'}

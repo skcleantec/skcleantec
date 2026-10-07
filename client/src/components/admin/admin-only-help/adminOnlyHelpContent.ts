@@ -64,6 +64,28 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
     ],
   },
   {
+    path: '/admin/team-leaders/pg-onboarding',
+    title: '가입신청',
+    intro: '카드 결제를 받으려면 원성페이먼츠 가맹 가입 정보를 보내는 화면입니다.',
+    steps: [
+      {
+        icon: 'pencil',
+        title: '신청서',
+        body: '상호, 사업자번호, 대표자, 담당 연락처, 정산 계좌를 적습니다.\n사업자등록증이 없으면 이미지를 올려야 제출됩니다.',
+      },
+      {
+        icon: 'check-list-3',
+        title: '제출',
+        body: '「가입 정보 제출」을 누르면\n원성에 전달할 주소가 생깁니다.',
+      },
+      {
+        icon: 'link',
+        title: '원성 전달',
+        body: '그 주소를 원성페이먼츠에 보내면\n가맹 코드를 입력해 우리 업체에 연결합니다.',
+      },
+    ],
+  },
+  {
     path: '/admin/team-leaders/company-profile/outbound-email',
     title: '발송이메일',
     intro: '손님에게 메일을 보낼 때 쓰는 보내는 주소를 맞추는 화면입니다.',

@@ -1,7 +1,7 @@
 {
   "product": "청소비서",
   "productEn": "CBISEO",
-  "updatedAt": "2026-10-02",
+  "updatedAt": "2026-10-07",
   "planMonthlyCoins": {
     "free": 70,
     "standard": 200,
@@ -37,7 +37,7 @@
     { "label": "서비스접수", "path": "/admin/inquiries" },
     { "label": "스케쥴", "path": "/admin/schedule" },
     { "label": "정보공유", "path": "/admin/db-marketplace" },
-    { "label": "관리자 전용", "path": "/admin/team-leaders", "adminOnly": true, "plain": "사람·브랜드·정산·설정. 사용자 등록 상세에서 사원증 미리보기·다운로드. 메뉴·등록 창 제목 옆 ?" },
+    { "label": "관리자 전용", "path": "/admin/team-leaders", "adminOnly": true, "plain": "사람·브랜드·정산·설정. 업체등록정보의 가입신청은 카드 가맹 신청이고, 제출하면 원성 전달 주소가 생긴다. 사용자 등록 상세에서 사원증 미리보기·다운로드. 메뉴·등록 창 제목 옆 ?" },
     { "label": "광고비", "path": "/admin/advertising" },
     { "label": "메시지", "path": "/admin/messages", "plain": "사내 메시지와 청소비서 운영팀 문의" }
   ],
