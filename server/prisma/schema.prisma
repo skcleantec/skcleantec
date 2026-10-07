@@ -828,6 +828,7 @@ enum UsageFeeCardPaymentStatus {
   PENDING
   APPROVED
   FAILED
+  CANCELLED
 }
 
 enum TenantCoinLedgerSourceType {

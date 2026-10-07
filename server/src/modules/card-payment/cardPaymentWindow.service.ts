@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
-import { applyUsageFeePaysisNotification } from './usageFeeCardPayment.service.js';
+import { applyUsageFeePaysisCancel, applyUsageFeePaysisNotification } from './usageFeeCardPayment.service.js';
 import { paysisSha256, requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { resolveWindowMerchant } from './cardPaymentMerchant.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
@@ -87,6 +87,24 @@ export async function startPaysisWindowByLinkToken(token: string, payScreen: 'P'
 
 export async function applyPaysisNotification(body: unknown): Promise<'SUCCESS' | 'FAIL'> {
   const rec = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  const paymethod = String(rec.paymethod ?? '').trim().toUpperCase();
+  if (paymethod === 'CARD_CANCEL') {
+    const usage = await applyUsageFeePaysisCancel(rec);
+    if (usage) return usage;
+    const orderNo = String(rec.orderNo ?? '').trim();
+    const amount = String(rec.amount ?? '').trim();
+    if (!orderNo) return 'FAIL';
+    const row = await prisma.cardPayment.findFirst({ where: { pgOrderId: orderNo } });
+    if (!row) return 'FAIL';
+    if (amount && Number(amount) !== row.amountWon) return 'FAIL';
+    if (row.status !== 'CANCELLED') {
+      await prisma.cardPayment.updateMany({
+        where: { id: row.id, tenantId: row.tenantId, status: { not: 'CANCELLED' } },
+        data: { status: 'CANCELLED' },
+      });
+    }
+    return 'SUCCESS';
+  }
   const orderNo = String(rec.orderNo ?? '').trim();
   const amount = String(rec.amount ?? '').trim();
   const givenHash = String(rec.hashValue ?? '').trim().toLowerCase();

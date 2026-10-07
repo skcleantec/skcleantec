@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { fetchUsageFeeCardPayments, type UsageFeeCardPaymentRow } from '../../api/platformCardPayment';
+import { UsageFeeSameDayCancelButton } from '../../components/platform/UsageFeeSameDayCancelButton';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { CARD_SECTION } from '../../utils/platformUi';
 import { INQUIRY_LIST_PAGE_SIZE_OPTIONS, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
@@ -20,6 +21,7 @@ const METHOD_LABEL: Record<UsageFeeCardPaymentRow['payMethod'], string> = {
 function statusLabel(status: UsageFeeCardPaymentRow['status']): string {
   if (status === 'PENDING') return '승인 대기';
   if (status === 'FAILED') return '실패';
+  if (status === 'CANCELLED') return '취소';
   return '승인';
 }
 
@@ -116,6 +118,9 @@ export function PlatformBillingSettlementPage() {
                 {formatWhen(row.paidAt)} · {METHOD_LABEL[row.payMethod]} · {statusLabel(row.status)}
               </p>
               <p className="text-right text-sm tabular-nums text-gray-900">{won(row.amountKrw)}</p>
+              <div className="mt-1 flex justify-end">
+                <UsageFeeSameDayCancelButton row={row} onDone={load} />
+              </div>
             </article>
           ))}
         </div>
@@ -132,6 +137,7 @@ export function PlatformBillingSettlementPage() {
                 <th className="px-2 py-2 text-center">부가세</th>
                 <th className="px-2 py-2 text-center">결제금액</th>
                 <th className="px-2 py-2 text-center">청구</th>
+                <th className="px-2 py-2 text-center">취소</th>
               </tr>
             </thead>
             <tbody>
@@ -146,6 +152,9 @@ export function PlatformBillingSettlementPage() {
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.vatAmountKrw)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.amountKrw)}</td>
                   <td className="px-2 py-2 text-center">{row.purpose === 'INVOICE' ? (row.invoiceApplied ? '반영' : '미반영') : '—'}</td>
+                  <td className="px-2 py-2 text-center">
+                    <UsageFeeSameDayCancelButton row={row} onDone={load} />
+                  </td>
                 </tr>
               ))}
             </tbody>

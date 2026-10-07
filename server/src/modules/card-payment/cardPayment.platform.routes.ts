@@ -12,7 +12,12 @@ import { getCredentialPublic } from './cardPaymentCredential.service.js';
 import { serviceBridgePublicStatus } from './serviceBridgeWspay.js';
 import { probeTenantPaymentConnection, openUsageFeeWindow, probeUsageFeeKeyin } from './cardPaymentProbe.service.js';
 import type { PlatformScopedRequest } from '../platform/platformAuth.middleware.js';
-import { listUsageFeeCardPayments, listUsageFeeOpenPeriods, payAndRecordUsageFee } from './usageFeeCardPayment.service.js';
+import {
+  cancelUsageFeeCardPayment,
+  listUsageFeeCardPayments,
+  listUsageFeeOpenPeriods,
+  payAndRecordUsageFee,
+} from './usageFeeCardPayment.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -121,6 +126,15 @@ router.get('/usage-fee/payments', async (req, res) => {
   const offset = Number(req.query.offset ?? 0);
   const payMethod = typeof req.query.payMethod === 'string' ? req.query.payMethod : undefined;
   res.json(await listUsageFeeCardPayments(limit, offset, payMethod));
+});
+
+router.post('/usage-fee/payments/:id/cancel', async (req, res) => {
+  const cancelled = await cancelUsageFeeCardPayment(String(req.params.id));
+  if ('error' in cancelled) {
+    res.status(cancelled.status).json({ error: cancelled.error });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 router.post('/usage-fee/keyin', async (req, res) => {

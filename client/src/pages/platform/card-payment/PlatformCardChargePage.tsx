@@ -6,6 +6,7 @@ import { CARD_SECTION } from '../../../utils/platformUi';
 import { INQUIRY_LIST_PAGE_SIZE_OPTIONS, parseInquiryListPageSize, parseListPage } from '../../../utils/listPagination';
 import { PlatformCardPaymentTabs } from './PlatformCardPaymentTabs';
 import { PlatformUsageFeeKeyinForm } from './PlatformUsageFeeKeyinForm';
+import { UsageFeeSameDayCancelButton } from '../../../components/platform/UsageFeeSameDayCancelButton';
 
 function formatWhen(iso: string): string {
   const date = new Date(iso);
@@ -80,6 +81,7 @@ export function PlatformCardChargePage() {
                 <th className="px-2 py-2 text-center">금액</th>
                 <th className="px-2 py-2 text-center">승인</th>
                 <th className="px-2 py-2 text-center">청구</th>
+                <th className="px-2 py-2 text-center">취소</th>
               </tr>
             </thead>
             <tbody>
@@ -94,11 +96,14 @@ export function PlatformCardChargePage() {
                   <td className="px-2 py-2 text-right tabular-nums">{row.amountKrw.toLocaleString('ko-KR')}원</td>
                   <td className="px-2 py-2 text-center">{row.approvalNo ?? '—'}</td>
                   <td className="px-2 py-2 text-center">{row.purpose === 'INVOICE' ? (row.invoiceApplied ? '반영' : '미반영') : '—'}</td>
+                  <td className="px-2 py-2 text-center">
+                    <UsageFeeSameDayCancelButton row={row} onDone={load} />
+                  </td>
                 </tr>
               ))}
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-2 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={8} className="px-2 py-8 text-center text-sm text-gray-500">
                     아직 수기 승인 기록이 없습니다.
                   </td>
                 </tr>
