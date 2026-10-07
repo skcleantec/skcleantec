@@ -65,8 +65,8 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
   },
   {
     path: '/admin/team-leaders/pg-onboarding',
-    title: '가입신청',
-    intro: '카드 결제를 받으려면 원성페이먼츠 가맹 가입 정보를 보내는 화면입니다.',
+    title: 'PG신청',
+    intro: '카드 결제를 받으려면 원성페이먼츠에 PG 신청을 보내는 화면입니다.',
     steps: [
       {
         icon: 'pencil',
@@ -76,12 +76,12 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
       {
         icon: 'check-list-3',
         title: '제출',
-        body: '「가입 정보 제출」을 누르면\n원성에 전달할 주소가 생깁니다.',
+        body: '「PG 신청 제출」을 누르면\n원성에 전달할 주소가 생깁니다.',
       },
       {
         icon: 'link',
-        title: '원성 전달',
-        body: '그 주소를 원성페이먼츠에 보내면\n가맹 코드를 입력해 우리 업체에 연결합니다.',
+        title: '원성 로그인',
+        body: '원성은 전용 로그인 화면에서\n신청 내역을 보고 가맹 코드를 입력합니다.',
       },
     ],
   },

@@ -106,7 +106,7 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
         group: '업체등록정보',
       },
       {
-        label: '가입신청',
+        label: 'PG신청',
         path: '/admin/team-leaders/pg-onboarding',
         moduleId: 'mod_card_payment',
         group: '업체등록정보',

@@ -134,6 +134,64 @@ export async function submitOnboarding(tenantId: string, input: OnboardingInput)
   return serializeWithRegistration(tenantId, row);
 }
 
+export async function listOnboardingsForPartner() {
+  const rows = await prisma.tenantPgOnboarding.findMany({
+    where: { status: { not: 'DRAFT' } },
+    orderBy: [{ submittedAt: 'desc' }, { updatedAt: 'desc' }],
+    take: 200,
+    include: { tenant: { select: { name: true } } },
+  });
+  const tenantIds = rows.map((row) => row.tenantId);
+  if (tenantIds.length === 0) return [];
+  const [credentials, images] = await Promise.all([
+    prisma.tenantPgCredential.findMany({
+      where: { tenantId: { in: tenantIds } },
+      select: { tenantId: true, mid: true, oid: true, apiKeyLast4: true, isActive: true },
+    }),
+    prisma.tenantSignupBusiness.findMany({
+      where: { tenantId: { in: tenantIds } },
+      select: { tenantId: true, businessRegistrationImageUrl: true },
+    }),
+  ]);
+  const credentialByTenant = new Map(credentials.map((row) => [row.tenantId, row]));
+  const imageByTenant = new Map(images.map((row) => [row.tenantId, row.businessRegistrationImageUrl]));
+  return rows.map((row) => {
+    const credential = credentialByTenant.get(row.tenantId);
+    return {
+      id: row.id,
+      tenantName: row.tenant.name,
+      businessName: row.businessName,
+      bizNumber: row.bizNumber,
+      representativeName: row.representativeName,
+      representativeBirth: row.representativeBirth,
+      addressLine: row.addressLine,
+      contactName: row.contactName,
+      contactPhone: row.contactPhone,
+      contactEmail: row.contactEmail,
+      bankName: row.bankName,
+      bankAccount: row.bankAccount,
+      accountHolder: row.accountHolder,
+      websiteUrl: row.websiteUrl,
+      note: row.note,
+      businessRegistrationImageUrl: imageByTenant.get(row.tenantId)?.trim() || null,
+      status: row.status,
+      submittedAt: row.submittedAt?.toISOString() ?? null,
+      connected: Boolean(credential?.isActive),
+      mid: credential?.mid ?? null,
+      oid: credential?.oid ?? null,
+      apiKeyLast4: credential?.apiKeyLast4 ?? null,
+    };
+  });
+}
+
+export async function tenantIdForSubmittedOnboarding(onboardingId: string): Promise<string | null> {
+  const row = await prisma.tenantPgOnboarding.findFirst({
+    where: { id: onboardingId, status: { not: 'DRAFT' } },
+    select: { tenantId: true },
+  });
+  return row?.tenantId ?? null;
+}
+
 export async function getOnboardingByReviewToken(token: string) {
   const reviewToken = token.trim();
   if (!reviewToken) return null;

@@ -54,7 +54,7 @@ export function PgJoinReviewPage() {
   useEffect(() => {
     void fetch(`/api/public/card-payment/pg-join/${encodeURIComponent(token)}`)
       .then(async (res) => {
-        if (!res.ok) throw new Error('가입 신청을 찾을 수 없습니다.');
+        if (!res.ok) throw new Error('PG 신청을 찾을 수 없습니다.');
         return res.json() as Promise<Review>;
       })
       .then((data) => {
