@@ -100,7 +100,7 @@ export async function confirmKeyin(input: {
   const orderNo = merchant ? buildWspayOrderId(merchant.oid, unique)?.slice(0, 30) : null;
   const pgMessage = merchant
     ? '수기 API는 카드번호를 우리 서버가 원성페이에 보내야 합니다. 카드번호는 이 화면에 받지 않으므로, 결제는 결제창을 사용해 주세요.'
-    : '수기 가맹 키가 없습니다. 결제창을 사용해 주세요.';
+    : '이 업체 수기 키가 없습니다. 업체 가맹 키를 연결한 뒤에 진행할 수 있습니다.';
 
   const updated = await prisma.cardPayment.update({
     where: { id: row.id },
