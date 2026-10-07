@@ -9,7 +9,7 @@ import { getPlatformCardFeeRates } from './cardPayment.settings.service.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 import { requestWspayPaymentLink, resolveWspayHostedWindowUrl } from './wspayAdapter.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
-import { pgClerkNoForTeamLeader } from './pgClerk.service.js';
+import { pgClerkStampForTeamLeader } from './pgClerk.service.js';
 
 const PAYMENT_INCLUDE = {
   createdBy: { select: { id: true, name: true } },
@@ -51,7 +51,7 @@ export async function createCardPaymentIntent(input: {
 
   const rates = await getPlatformCardFeeRates();
   const fees = computeCardPaymentFees(amountWon, rates.tenantFeeBps, rates.platformCostBps);
-  const pgClerkNo = await pgClerkNoForTeamLeader(input.tenantId, input.userId);
+  const clerkStamp = await pgClerkStampForTeamLeader(input.tenantId, input.userId);
   const created = await prisma.cardPayment.create({
     data: {
       tenantId: input.tenantId,
@@ -71,7 +71,8 @@ export async function createCardPaymentIntent(input: {
       customerName: inquiry.customerName,
       customerPhoneMasked: maskCustomerPhone(inquiry.customerPhone),
       inquiryNumber: inquiry.inquiryNumber,
-      pgClerkNo,
+      pgClerkNo: clerkStamp?.pgClerkNo ?? null,
+      pgClerkCode: clerkStamp?.pgClerkCode ?? null,
     },
     include: PAYMENT_INCLUDE,
   });

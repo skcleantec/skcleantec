@@ -26,6 +26,7 @@ type Application = {
   mid: string | null;
   oid: string | null;
   apiKeyLast4: string | null;
+  clerkCodes: string[];
 };
 
 const INPUT = 'login-field-input mt-1 w-full min-h-11 rounded-lg border border-slate-200 px-3 text-fluid-sm';
@@ -47,13 +48,16 @@ function ApplicationCard({
   onSaved,
 }: {
   row: Application;
-  onSaved: (id: string, next: { mid: string | null; oid: string | null; apiKeyLast4: string | null }) => void;
+  onSaved: (id: string, next: { mid: string | null; oid: string | null; apiKeyLast4: string | null; clerkCodes: string[] }) => void;
 }) {
   const navigate = useNavigate();
   const [mid, setMid] = useState(row.mid ?? '');
   const [oid, setOid] = useState(row.oid ?? '');
   const [apiKey, setApiKey] = useState('');
   const [tid, setTid] = useState('');
+  const [clerkCodes, setClerkCodes] = useState<string[]>(
+    row.clerkCodes?.length === 15 ? row.clerkCodes : Array.from({ length: 15 }, () => ''),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -108,7 +112,7 @@ function ApplicationCard({
           void fetch(`/api/public/card-payment/pg-partner/applications/${encodeURIComponent(row.id)}/codes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${readPgPartnerToken()}` },
-            body: JSON.stringify({ mid, oid, apiKey, tid }),
+            body: JSON.stringify({ mid, oid, apiKey, tid, clerkCodes }),
           })
             .then(async (res) => {
               const body = (await res.json().catch(() => null)) as {
@@ -116,6 +120,7 @@ function ApplicationCard({
                 mid?: string | null;
                 oid?: string | null;
                 apiKeyLast4?: string | null;
+                clerkCodes?: string[];
               } | null;
               if (res.status === 401) {
                 clearPgPartnerToken();
@@ -125,7 +130,12 @@ function ApplicationCard({
               if (!res.ok) throw new Error(body?.error || '코드를 연결하지 못했습니다.');
               setApiKey('');
               setDone('이 업체에 연결했습니다.');
-              onSaved(row.id, { mid: body?.mid ?? mid, oid: body?.oid ?? oid, apiKeyLast4: body?.apiKeyLast4 ?? null });
+              onSaved(row.id, {
+                mid: body?.mid ?? mid,
+                oid: body?.oid ?? oid,
+                apiKeyLast4: body?.apiKeyLast4 ?? null,
+                clerkCodes: body?.clerkCodes ?? clerkCodes,
+              });
             })
             .catch((err: unknown) => setError(err instanceof Error ? err.message : '코드를 연결하지 못했습니다.'))
             .finally(() => setBusy(false));
@@ -147,8 +157,28 @@ function ApplicationCard({
           <span className="text-fluid-2xs text-slate-500">TID (비우면 MID와 같게 저장)</span>
           <input className={INPUT} value={tid} onChange={(e) => setTid(e.target.value)} autoComplete="off" />
         </label>
+        <div className="sm:col-span-2">
+          <p className="text-fluid-2xs text-slate-500">고유번호 코드 15개. 팀장에게 나누는 일은 업체 관리자가 합니다.</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {clerkCodes.map((code, index) => (
+              <label key={index} className="block">
+                <span className="text-fluid-2xs text-slate-500">{index + 1}번</span>
+                <input
+                  className={INPUT}
+                  value={code}
+                  autoComplete="off"
+                  maxLength={32}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setClerkCodes((prev) => prev.map((item, itemIndex) => (itemIndex === index ? value : item)));
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
         <p className="text-fluid-2xs text-slate-500 sm:col-span-2">수기 키는 ssp-로 시작합니다. 결제창 키는 mKey입니다. 카드번호는 적지 않습니다.</p>
-        <button type="submit" className={`${BTN} sm:col-span-2`} disabled={busy || !apiKey.trim()}>
+        <button type="submit" className={`${BTN} sm:col-span-2`} disabled={busy || !apiKey.trim() || clerkCodes.some((code) => !code.trim())}>
           {busy ? '연결 중' : '이 업체에 연결'}
         </button>
       </form>
@@ -184,7 +214,7 @@ export function PgPartnerApplicationsPage() {
     <div className="space-y-3">
       <div>
         <h1 className="text-fluid-base font-semibold text-slate-900">PG 신청</h1>
-        <p className="mt-1 text-fluid-xs text-slate-600">업체를 확인한 뒤 MID, OID, 키를 입력하면 그 업체에 바로 연결됩니다.</p>
+        <p className="mt-1 text-fluid-xs text-slate-600">업체를 확인한 뒤 MID, OID, 키와 고유번호 코드 15개를 입력하면 그 업체에 바로 연결됩니다. 팀장 매칭은 업체 관리자가 합니다.</p>
       </div>
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
@@ -199,7 +229,7 @@ export function PgPartnerApplicationsPage() {
             setItems((prev) =>
               prev?.map((item) =>
                 item.id === id
-                  ? { ...item, connected: true, mid: next.mid, oid: next.oid, apiKeyLast4: next.apiKeyLast4, status: 'APPROVED' }
+                  ? { ...item, connected: true, mid: next.mid, oid: next.oid, apiKeyLast4: next.apiKeyLast4, clerkCodes: next.clerkCodes, status: 'APPROVED' }
                   : item,
               ) ?? null,
             );

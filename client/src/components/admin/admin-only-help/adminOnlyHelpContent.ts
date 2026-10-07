@@ -66,7 +66,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
   {
     path: '/admin/team-leaders/pg-clerks',
     title: '원성번호',
-    intro: '원성이 준 1번부터 15번을 팀장에게 나누는 화면입니다.',
+    intro: '원성이 가입 때 넣어 준 고유번호 15개를 팀장에게 나누는 화면입니다.',
     steps: [
       {
         icon: 'pencil',

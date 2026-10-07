@@ -26,6 +26,7 @@ export function serializeCardPayment(
     approvalNo: row.approvalNo,
     pgOrderId: row.pgOrderId,
     pgClerkNo: row.pgClerkNo,
+    pgClerkCode: row.pgClerkCode,
     paidAt: row.paidAt?.toISOString() ?? null,
     failReason: row.failReason,
     createdAt: row.createdAt.toISOString(),

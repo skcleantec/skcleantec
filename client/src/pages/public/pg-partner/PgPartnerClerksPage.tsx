@@ -6,6 +6,7 @@ type Row = {
   tenantId: string;
   tenantName: string;
   clerkNo: number | null;
+  clerkCode: string | null;
   leaderName: string;
   resigned: boolean;
 };
@@ -45,7 +46,7 @@ export function PgPartnerClerksPage() {
     <div className="space-y-3">
       <div>
         <h1 className="text-fluid-base font-semibold text-slate-900">고유번호</h1>
-        <p className="mt-1 text-fluid-xs text-slate-600">업체가 1번부터 15번을 어느 팀장에게 매칭했는지 확인합니다. 팀장 카드 결제는 이 번호로 구분됩니다.</p>
+        <p className="mt-1 text-fluid-xs text-slate-600">가입 때 넣어 준 코드 15개를 업체 관리자가 팀장에게 매칭한 결과입니다. 여기서는 바꾸지 않습니다.</p>
       </div>
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
@@ -58,7 +59,7 @@ export function PgPartnerClerksPage() {
           <ul className="mt-2 space-y-1">
             {group.rows.map((row) => (
               <li key={`${group.tenantName}-${row.clerkNo}`} className="flex items-center justify-between gap-2 text-fluid-xs">
-                <span className="tabular-nums text-slate-500">{row.clerkNo}번</span>
+                <span className="tabular-nums text-slate-500">{row.clerkCode || `${row.clerkNo}번`}</span>
                 <span className="min-w-0 truncate text-slate-900">
                   {row.leaderName}
                   {row.resigned ? ' · 퇴사' : ''}
