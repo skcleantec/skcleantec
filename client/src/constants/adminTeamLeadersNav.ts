@@ -43,6 +43,12 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '팀장·마케터·사무직 등록',
       },
       {
+        to: '/admin/team-leaders/pg-clerks',
+        end: true,
+        label: '원성번호',
+        title: '팀장 원성 고유번호 매칭',
+      },
+      {
         to: '/admin/team-leaders/operating-companies',
         label: '영업브랜드',
         title: '영업 브랜드 등록',

@@ -64,6 +64,28 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
     ],
   },
   {
+    path: '/admin/team-leaders/pg-clerks',
+    title: '원성번호',
+    intro: '원성이 준 1번부터 15번을 팀장에게 나누는 화면입니다.',
+    steps: [
+      {
+        icon: 'pencil',
+        title: '번호 매칭',
+        body: '각 번호 옆에서 팀장을 고릅니다.\n비우면 그 번호는 아무도 쓰지 않습니다.',
+      },
+      {
+        icon: 'check-list-3',
+        title: '퇴사',
+        body: '퇴사자가 번호를 갖고 있으면\n다른 팀장으로 바꾼 뒤 저장합니다.',
+      },
+      {
+        icon: 'link',
+        title: '결제 구분',
+        body: '저장 이후 그 팀장의 카드 결제는\n그 고유번호로 구분됩니다.',
+      },
+    ],
+  },
+  {
     path: '/admin/team-leaders/pg-onboarding',
     title: 'PG신청',
     intro: '카드 결제를 받으려면 원성페이먼츠에 PG 신청을 보내는 화면입니다.',

@@ -127,6 +127,21 @@ export const AdminCardPaymentPage = lazyWithRetry(() =>
 export const PgPartnerPage = lazyWithRetry(() =>
   import('../pages/public/PgPartnerPage').then((m) => ({ default: m.PgPartnerPage }))
 );
+export const PgPartnerShell = lazyWithRetry(() =>
+  import('../pages/public/pg-partner/PgPartnerShell').then((m) => ({ default: m.PgPartnerShell }))
+);
+export const PgPartnerApplicationsPage = lazyWithRetry(() =>
+  import('../pages/public/pg-partner/PgPartnerApplicationsPage').then((m) => ({ default: m.PgPartnerApplicationsPage }))
+);
+export const PgPartnerRefundsPage = lazyWithRetry(() =>
+  import('../pages/public/pg-partner/PgPartnerRefundsPage').then((m) => ({ default: m.PgPartnerRefundsPage }))
+);
+export const PgPartnerClerksPage = lazyWithRetry(() =>
+  import('../pages/public/pg-partner/PgPartnerClerksPage').then((m) => ({ default: m.PgPartnerClerksPage }))
+);
+export const AdminPgClerkPage = lazyWithRetry(() =>
+  import('../pages/admin/card-payment/AdminPgClerkPage').then((m) => ({ default: m.AdminPgClerkPage }))
+);
 export const PgJoinReviewPage = lazyWithRetry(() =>
   import('../pages/public/PgJoinReviewPage').then((m) => ({ default: m.PgJoinReviewPage }))
 );
