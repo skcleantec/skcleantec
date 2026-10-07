@@ -181,7 +181,9 @@ export async function listUsageFeeCardPayments(limit: number, offset: number, pa
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = Math.max(offset, 0);
   const payMethod = payMethodRaw?.trim().toUpperCase() ?? '';
-  const where: Prisma.UsageFeeCardPaymentWhereInput = { status: 'APPROVED' };
+  const where: Prisma.UsageFeeCardPaymentWhereInput = {
+    OR: [{ status: 'APPROVED' }, { status: 'PENDING', payMethod: 'PAY_WINDOW' }],
+  };
   if (payMethod === 'CARD') where.payMethod = { in: ['KEYIN', 'PAY_WINDOW'] };
   else if (payMethod === 'BANK' || payMethod === 'KEYIN' || payMethod === 'PAY_WINDOW') {
     where.payMethod = payMethod;
@@ -202,6 +204,7 @@ export async function listUsageFeeCardPayments(limit: number, offset: number, pa
       id: row.id,
       purpose: row.purpose,
       payMethod: row.payMethod,
+      status: row.status,
       tenantName: row.tenant?.name ?? null,
       periodStart: row.periodStart?.toISOString() ?? null,
       goodsName: row.goodsName,

@@ -149,6 +149,7 @@ export type UsageFeeCardPaymentRow = {
   id: string;
   purpose: 'INVOICE' | 'OTHER';
   payMethod: 'BANK' | 'KEYIN' | 'PAY_WINDOW';
+  status: 'PENDING' | 'APPROVED' | 'FAILED';
   tenantName: string | null;
   periodStart: string | null;
   goodsName: string;

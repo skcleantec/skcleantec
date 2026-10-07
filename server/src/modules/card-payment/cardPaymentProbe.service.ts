@@ -71,12 +71,31 @@ export async function openUsageFeeWindow(): Promise<
   if (!app) return { error: '이용료 결제창 키가 서버에 없습니다.', status: 400 };
   const orderNo = buildWspayOrderId(app.oid, `fee${Date.now().toString(36)}`)?.slice(0, 30);
   if (!orderNo) return { error: '주문번호를 만들지 못했습니다.', status: 400 };
+  const amountKrw = 1000;
   const base = getPublicAppBaseUrl();
+  const pending = await prisma.usageFeeCardPayment.create({
+    data: {
+      purpose: 'OTHER',
+      payMethod: 'PAY_WINDOW',
+      status: 'PENDING',
+      goodsName: '이용료 결제창',
+      supplyAmountKrw: amountKrw,
+      vatAmountKrw: 0,
+      amountKrw,
+      pgOrderId: orderNo,
+      pgMid: app.mid,
+      payScreen: 'P',
+      buyerName: '이용료 결제창',
+      memo: '플랫폼 이용료 결제창',
+      invoiceApplied: false,
+      paidAt: new Date(),
+    },
+  });
   const opened = await requestPaysisPaymentWindow({
     mid: app.mid,
     mKey: app.apiKey,
     type: 'P',
-    amount: '1000',
+    amount: String(amountKrw),
     productName: '이용료확인',
     userId: 'usagefee',
     userName: '확인',
@@ -86,12 +105,17 @@ export async function openUsageFeeWindow(): Promise<
     failUrl: `${base}/pay/paysis/fail`,
     closeUrl: `${base}/pay/paysis/close`,
   });
-  if (!opened.ok) return { result: { ok: false, message: opened.message } };
+  if (!opened.ok) {
+    await prisma.usageFeeCardPayment.deleteMany({
+      where: { id: pending.id, pgOrderId: orderNo, status: 'PENDING', payMethod: 'PAY_WINDOW' },
+    });
+    return { result: { ok: false, message: opened.message } };
+  }
   return {
     result: {
       ok: true,
       redirectUrl: opened.redirectUrl,
-      message: '이용료 확인용 결제창입니다. 1,000원입니다. 창에서 결제하면 실제 승인되고, 이용료 청구서에는 자동으로 기록되지 않습니다.',
+      message: '이용료 확인용 결제창입니다. 1,000원입니다. 승인이 되면 정산에 카드 결제창으로 남고, 청구서에는 연결되지 않습니다.',
     },
   };
 }
