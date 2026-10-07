@@ -1,6 +1,12 @@
-import { useRef, useState, type FormEvent } from 'react';
-import { payPlatformUsageFeeKeyin } from '../../../api/platformCardPayment';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { listPlatformTenants, type PlatformTenantRow } from '../../../api/platformTenants';
+import {
+  fetchUsageFeeOpenPeriods,
+  payPlatformUsageFeeKeyin,
+  type UsageFeeOpenPeriod,
+} from '../../../api/platformCardPayment';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
+import { getPlatformToken } from '../../../stores/platformAuth';
 import { BTN_PRIMARY, INPUT_BASE } from '../../../utils/platformUi';
 
 const BTN =
@@ -17,6 +23,13 @@ const INSTALLMENTS = [
   { value: '06', label: '6개월' },
 ];
 
+const STATUS_LABEL: Record<string, string> = {
+  SCHEDULED: '예정',
+  ISSUED: '청구',
+  OVERDUE: '미납',
+  DRAFT: '작성',
+};
+
 const emptyCard = {
   cardNo: '',
   expireMM: '',
@@ -26,7 +39,13 @@ const emptyCard = {
   certNo: '',
 };
 
-export function PlatformUsageFeeKeyinForm() {
+export function PlatformUsageFeeKeyinForm({ onPaid }: { onPaid: () => void }) {
+  const [purpose, setPurpose] = useState<'INVOICE' | 'OTHER'>('INVOICE');
+  const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
+  const [tenantId, setTenantId] = useState('');
+  const [periods, setPeriods] = useState<UsageFeeOpenPeriod[]>([]);
+  const [periodStartYmd, setPeriodStartYmd] = useState('');
+  const [memo, setMemo] = useState('');
   const [goodsName, setGoodsName] = useState('솔루션 이용료');
   const [amountWon, setAmountWon] = useState('');
   const [buyerName, setBuyerName] = useState('');
@@ -38,12 +57,52 @@ export function PlatformUsageFeeKeyinForm() {
   const scrollRef = useRef<HTMLFormElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
 
+  useEffect(() => {
+    const token = getPlatformToken();
+    if (!token) return;
+    void listPlatformTenants(token)
+      .then((rows) => setTenants(rows))
+      .catch(() => setTenants([]));
+  }, []);
+
+  useEffect(() => {
+    if (purpose !== 'INVOICE' || !tenantId) {
+      setPeriods([]);
+      setPeriodStartYmd('');
+      return;
+    }
+    void fetchUsageFeeOpenPeriods(tenantId)
+      .then((res) => {
+        setPeriods(res.items);
+        setPeriodStartYmd(res.items[0]?.periodStartYmd ?? '');
+      })
+      .catch((e: unknown) => {
+        setPeriods([]);
+        setError(e instanceof Error ? e.message : '이용료 일정을 불러오지 못했습니다.');
+      });
+  }, [purpose, tenantId]);
+
+  useEffect(() => {
+    if (purpose !== 'INVOICE') return;
+    const period = periods.find((item) => item.periodStartYmd === periodStartYmd);
+    if (!period) {
+      setAmountWon('');
+      return;
+    }
+    setAmountWon(String(period.amountKrw));
+    setGoodsName(`솔루션 이용료 ${period.periodLabel}`);
+  }, [purpose, periods, periodStartYmd]);
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     setMessage(null);
     void payPlatformUsageFeeKeyin({
+      purpose,
+      tenantId: tenantId || undefined,
+      periodStartYmd: purpose === 'INVOICE' ? periodStartYmd : undefined,
+      memo: purpose === 'OTHER' ? memo : undefined,
       goodsName,
       amountWon: Number(amountWon.replace(/,/g, '')),
       buyerName,
@@ -52,7 +111,10 @@ export function PlatformUsageFeeKeyinForm() {
     })
       .then((result) => {
         setMessage(result.message);
-        if (result.ok) setCard(emptyCard);
+        if (result.ok) {
+          setCard(emptyCard);
+          onPaid();
+        }
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '결제에 실패했습니다.'))
       .finally(() => setBusy(false));
@@ -64,14 +126,67 @@ export function PlatformUsageFeeKeyinForm() {
       onSubmit={onSubmit}
       onFocusCapture={onFieldFocus}
       autoComplete="off"
-      className="modal-form-scroll-surface space-y-3 border-t border-gray-100 pt-4"
+      className="modal-form-scroll-surface space-y-3"
     >
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900">이용료 수기결재</h3>
-        <p className="mt-1 text-xs text-gray-500">
-          서비스브릿지 수기 가맹으로 바로 승인됩니다. 카드번호는 저장하지 않습니다. 팀장 청소비 결재와는 별개입니다.
-        </p>
+      <div className="inline-flex gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+        <button
+          type="button"
+          className={`${BTN} rounded-md px-3 py-1.5 text-sm ${purpose === 'INVOICE' ? 'bg-slate-900 text-white' : 'text-gray-700 hover:bg-white'}`}
+          onClick={() => setPurpose('INVOICE')}
+        >
+          이용료
+        </button>
+        <button
+          type="button"
+          className={`${BTN} rounded-md px-3 py-1.5 text-sm ${purpose === 'OTHER' ? 'bg-slate-900 text-white' : 'text-gray-700 hover:bg-white'}`}
+          onClick={() => {
+            setPurpose('OTHER');
+            setGoodsName('기타 결제');
+            setAmountWon('');
+          }}
+        >
+          기타
+        </button>
       </div>
+      <p className="text-xs text-gray-500">
+        {purpose === 'INVOICE'
+          ? '업체와 달을 고르면 그 이용료 금액으로 승인되고, 성공하면 그 달 청구가 납부 처리됩니다.'
+          : '업체나 달과 관계없는 결제입니다. 청구서 상태는 바뀌지 않고 기록만 남습니다.'}
+      </p>
+      <label className="block text-xs text-gray-600">
+        업체{purpose === 'OTHER' ? ' (선택)' : ''}
+        <select className={`${INPUT_BASE} mt-1`} value={tenantId} onChange={(e) => setTenantId(e.target.value)} required={purpose === 'INVOICE'}>
+          <option value="">{purpose === 'INVOICE' ? '업체를 선택하세요' : '업체 없음'}</option>
+          {tenants.map((tenant) => (
+            <option key={tenant.id} value={tenant.id}>
+              {tenant.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {purpose === 'INVOICE' ? (
+        <label className="block text-xs text-gray-600">
+          결제할 달
+          <select
+            className={`${INPUT_BASE} mt-1`}
+            value={periodStartYmd}
+            onChange={(e) => setPeriodStartYmd(e.target.value)}
+            required
+          >
+            <option value="">달을 선택하세요</option>
+            {periods.map((period) => (
+              <option key={period.periodStartYmd} value={period.periodStartYmd}>
+                {period.periodLabel} · {period.amountKrw.toLocaleString('ko-KR')}원 · {STATUS_LABEL[period.status] ?? period.status}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <label className="block text-xs text-gray-600">
+          내용
+          <input className={`${INPUT_BASE} mt-1`} value={memo} onChange={(e) => setMemo(e.target.value)} required placeholder="무엇에 대한 결제인지" />
+        </label>
+      )}
       <label className="block text-xs text-gray-600">
         상품명
         <input className={`${INPUT_BASE} mt-1`} value={goodsName} onChange={(e) => setGoodsName(e.target.value)} required />
@@ -82,6 +197,7 @@ export function PlatformUsageFeeKeyinForm() {
           className={`${INPUT_BASE} mt-1`}
           inputMode="numeric"
           value={amountWon}
+          readOnly={purpose === 'INVOICE'}
           onChange={(e) => setAmountWon(e.target.value.replace(/[^\d]/g, ''))}
           placeholder="원"
           required
@@ -102,75 +218,39 @@ export function PlatformUsageFeeKeyinForm() {
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-xs text-gray-600">
           유효기간 월
-          <select
-            className={`${INPUT_BASE} mt-1`}
-            value={card.expireMM}
-            onChange={(e) => setCard((prev) => ({ ...prev, expireMM: e.target.value }))}
-            required
-          >
+          <select className={`${INPUT_BASE} mt-1`} value={card.expireMM} onChange={(e) => setCard((prev) => ({ ...prev, expireMM: e.target.value }))} required>
             <option value="">월</option>
             {MONTHS.map((month) => (
-              <option key={month} value={month}>
-                {month}
-              </option>
+              <option key={month} value={month}>{month}</option>
             ))}
           </select>
         </label>
         <label className="block text-xs text-gray-600">
           유효기간 년
-          <select
-            className={`${INPUT_BASE} mt-1`}
-            value={card.expireYY}
-            onChange={(e) => setCard((prev) => ({ ...prev, expireYY: e.target.value }))}
-            required
-          >
+          <select className={`${INPUT_BASE} mt-1`} value={card.expireYY} onChange={(e) => setCard((prev) => ({ ...prev, expireYY: e.target.value }))} required>
             <option value="">년</option>
             {YEARS.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
+              <option key={year} value={year}>{year}</option>
             ))}
           </select>
         </label>
       </div>
       <label className="block text-xs text-gray-600">
         할부개월
-        <select
-          className={`${INPUT_BASE} mt-1`}
-          value={card.installment}
-          onChange={(e) => setCard((prev) => ({ ...prev, installment: e.target.value }))}
-        >
+        <select className={`${INPUT_BASE} mt-1`} value={card.installment} onChange={(e) => setCard((prev) => ({ ...prev, installment: e.target.value }))}>
           {INSTALLMENTS.map((row) => (
-            <option key={row.value} value={row.value}>
-              {row.label}
-            </option>
+            <option key={row.value} value={row.value}>{row.label}</option>
           ))}
         </select>
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-xs text-gray-600">
           비밀번호 앞 2자리
-          <input
-            className={`${INPUT_BASE} mt-1`}
-            type="password"
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={2}
-            value={card.certPw}
-            onChange={(e) => setCard((prev) => ({ ...prev, certPw: e.target.value.replace(/\D/g, '').slice(0, 2) }))}
-            required
-          />
+          <input className={`${INPUT_BASE} mt-1`} type="password" inputMode="numeric" autoComplete="off" maxLength={2} value={card.certPw} onChange={(e) => setCard((prev) => ({ ...prev, certPw: e.target.value.replace(/\D/g, '').slice(0, 2) }))} required />
         </label>
         <label className="block text-xs text-gray-600">
           생년월일 6자리 또는 사업자번호
-          <input
-            className={`${INPUT_BASE} mt-1`}
-            inputMode="numeric"
-            autoComplete="off"
-            value={card.certNo}
-            onChange={(e) => setCard((prev) => ({ ...prev, certNo: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
-            required
-          />
+          <input className={`${INPUT_BASE} mt-1`} inputMode="numeric" autoComplete="off" value={card.certNo} onChange={(e) => setCard((prev) => ({ ...prev, certNo: e.target.value.replace(/\D/g, '').slice(0, 10) }))} required />
         </label>
       </div>
       <label className="block text-xs text-gray-600">
@@ -179,13 +259,7 @@ export function PlatformUsageFeeKeyinForm() {
       </label>
       <label className="block text-xs text-gray-600">
         구매자 휴대전화
-        <input
-          className={`${INPUT_BASE} mt-1`}
-          inputMode="numeric"
-          value={buyerPhone}
-          onChange={(e) => setBuyerPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
-          placeholder="선택"
-        />
+        <input className={`${INPUT_BASE} mt-1`} inputMode="numeric" value={buyerPhone} onChange={(e) => setBuyerPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="선택" />
       </label>
       <button type="submit" disabled={busy} className={`${BTN_PRIMARY} ${BTN}`}>
         {busy ? '승인 요청 중' : '수기결재'}

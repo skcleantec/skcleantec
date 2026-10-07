@@ -359,6 +359,7 @@ model Tenant {
   landingContactLinkSlotRequests LandingContactLinkSlotRequest[]
   billingProfile TenantBillingProfile?
   invoices       TenantInvoice[]
+  usageFeeCardPayments UsageFeeCardPayment[]
   billingAdjustments TenantBillingAdjustment[]
   coinLedgerEntries TenantCoinLedgerEntry[]
   planUpgradeRequests TenantPlanUpgradeRequest[]
@@ -770,10 +771,44 @@ model TenantInvoice {
   adjustment                TenantBillingAdjustment? @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
   confirmedByPlatformUser   PlatformUser? @relation(fields: [confirmedByPlatformUserId], references: [id], onDelete: SetNull)
   referrerCommissionAccruals PlatformReferrerCommissionAccrual[]
+  usageFeeCardPayments      UsageFeeCardPayment[]
 
   @@index([tenantId, status])
   @@index([tenantId, dueDate])
   @@map("tenant_invoices")
+}
+
+/// 서비스브릿지 수기 이용료 승인. 카드번호는 저장하지 않는다.
+model UsageFeeCardPayment {
+  id                      String                      @id @default(uuid())
+  purpose                 UsageFeeCardPaymentPurpose
+  tenantId                String?                     @map("tenant_id")
+  invoiceId               String?                     @map("invoice_id")
+  periodStart             DateTime?                   @map("period_start")
+  goodsName               String                      @map("goods_name") @db.VarChar(80)
+  amountKrw               Int                         @map("amount_krw")
+  approvalNo              String?                     @map("approval_no") @db.VarChar(32)
+  pgOrderId               String                      @unique @map("pg_order_id") @db.VarChar(40)
+  cardLast4               String                      @map("card_last4") @db.VarChar(4)
+  buyerName               String                      @map("buyer_name") @db.VarChar(40)
+  memo                    String?                     @db.Text
+  invoiceApplied          Boolean                     @default(false) @map("invoice_applied")
+  paidAt                  DateTime                    @map("paid_at")
+  createdByPlatformUserId String?                     @map("created_by_platform_user_id")
+  createdAt               DateTime                    @default(now()) @map("created_at")
+
+  tenant    Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoice   TenantInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdBy PlatformUser?  @relation(fields: [createdByPlatformUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, paidAt])
+  @@index([paidAt])
+  @@map("usage_fee_card_payments")
+}
+
+enum UsageFeeCardPaymentPurpose {
+  INVOICE
+  OTHER
 }
 
 enum TenantCoinLedgerSourceType {
@@ -1079,6 +1114,7 @@ model PlatformUser {
   createdAt    DateTime     @default(now()) @map("created_at")
 
   confirmedInvoices TenantInvoice[]
+  usageFeeCardPaymentsCreated UsageFeeCardPayment[]
   billingAdjustmentsCreated TenantBillingAdjustment[]
   reviewedPlanUpgradeRequests TenantPlanUpgradeRequest[]
   reviewedSignupInquiries     PlatformSignupInquiry[]
