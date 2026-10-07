@@ -11,6 +11,7 @@ import { platformCardPaymentSummary } from './cardPaymentList.service.js';
 import { getCredentialPublic } from './cardPaymentCredential.service.js';
 import { serviceBridgePublicStatus } from './serviceBridgeWspay.js';
 import { probeTenantPaymentConnection, openUsageFeeWindow, probeUsageFeeKeyin } from './cardPaymentProbe.service.js';
+import { chargeUsageFeeKeyin, parseUsageFeeKeyinBody } from './cardPaymentUsageFeeKeyin.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -102,6 +103,20 @@ router.post('/usage-fee/window', async (_req, res) => {
     return;
   }
   res.json(opened.result);
+});
+
+router.post('/usage-fee/keyin', async (req, res) => {
+  const parsed = parseUsageFeeKeyinBody(req.body);
+  if ('error' in parsed) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const charged = await chargeUsageFeeKeyin(parsed.input);
+  if ('error' in charged) {
+    res.status(charged.status).json({ error: charged.error });
+    return;
+  }
+  res.json(charged.result);
 });
 
 router.post('/usage-fee/keyin-probe', async (_req, res) => {
