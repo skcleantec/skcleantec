@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CARD_SECTION, BTN_PRIMARY, BTN_SECONDARY, INPUT_BASE } from '../../../utils/platformUi';
 import { PlatformCardPaymentKeySection } from './PlatformCardPaymentKeySection';
+import { PlatformUsageFeeCheck } from './PlatformUsageFeeCheck';
 import {
   fetchPlatformCardPaymentSettings,
   fetchPlatformPgOnboardings,
@@ -115,7 +116,7 @@ export function PlatformCardPaymentPage() {
       <section className={CARD_SECTION}>
         <h2 className="text-sm font-semibold text-gray-900">이용료 결제 (서비스브릿지)</h2>
         <p className="mt-1 text-xs text-gray-500">
-          솔루션 이용료 전용입니다. 팀장 청소비 결재에는 쓰이지 않고, 이 화면에서는 서버에 키가 있는지만 봅니다.
+          솔루션 이용료 전용입니다. 팀장 청소비 결재에는 쓰이지 않습니다. 결제창은 신용카드 창이 열리는지 확인용이고, 수기는 키 연결만 확인합니다.
         </p>
         <ul className="mt-3 space-y-1 text-sm text-gray-800">
           <li>
@@ -131,6 +132,7 @@ export function PlatformCardPaymentPage() {
               : '아직 서버에 키가 없습니다.'}
           </li>
         </ul>
+        <PlatformUsageFeeCheck />
       </section>
 
       <section className={CARD_SECTION}>
