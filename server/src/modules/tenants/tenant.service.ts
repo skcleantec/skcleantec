@@ -1,6 +1,6 @@
 import type { TenantStatus, TenantSuspendReason } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { DEFAULT_TENANT_SLUG, LEGACY_SK_TENANT_SLUG } from './tenant.constants.js';
+import { DEFAULT_TENANT_SLUG, LEGACY_SK_TENANT_SLUG, PUBLIC_SK_CONTACT_SLUG } from './tenant.constants.js';
 import { isTenantBillingFeeExemptByTenantId } from '../billing/tenantBilling.feeExempt.js';
 
 export type TenantStaffAccessFields = {
@@ -37,11 +37,11 @@ export async function resolveTenantBySlug(slugRaw: string) {
     throw new TenantNotFoundError('업체 코드 형식이 올바르지 않습니다.');
   }
   let tenant = await prisma.tenant.findUnique({ where: { slug } });
-  if (!tenant && slug === DEFAULT_TENANT_SLUG) {
-    tenant = await prisma.tenant.findUnique({ where: { slug: LEGACY_SK_TENANT_SLUG } });
-  }
-  if (!tenant && slug === LEGACY_SK_TENANT_SLUG) {
-    tenant = await prisma.tenant.findUnique({ where: { slug: DEFAULT_TENANT_SLUG } });
+  const skAlias = slug === DEFAULT_TENANT_SLUG || slug === PUBLIC_SK_CONTACT_SLUG || slug === LEGACY_SK_TENANT_SLUG;
+  if (!tenant && skAlias) {
+    tenant =
+      (await prisma.tenant.findUnique({ where: { slug: LEGACY_SK_TENANT_SLUG } })) ??
+      (await prisma.tenant.findUnique({ where: { slug: DEFAULT_TENANT_SLUG } }));
   }
   if (!tenant) throw new TenantNotFoundError('업체를 찾을 수 없습니다.');
   return tenant;
