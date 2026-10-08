@@ -5,3 +5,6 @@ export const DEFAULT_TENANT_SLUG = 'skcleanteck';
 
 /** 운영 DB 등에 slug만 `sk`로 남아 있는 SK 레거시 — `DEFAULT_TENANT_SLUG` 조회 실패 시 폴백 */
 export const LEGACY_SK_TENANT_SLUG = 'sk';
+
+/** 블로그·외부 글에 박힌 공개 주소. DB slug는 `sk` / `skcleanteck` */
+export const PUBLIC_SK_CONTACT_SLUG = 'skcleantec';

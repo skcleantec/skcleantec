@@ -6,7 +6,12 @@ import {
   OperatingCompanyNotFoundError,
 } from '../operating-companies/operatingCompany.service.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
-import { DEFAULT_TENANT_ID } from '../tenants/tenant.constants.js';
+import {
+  DEFAULT_TENANT_ID,
+  DEFAULT_TENANT_SLUG,
+  LEGACY_SK_TENANT_SLUG,
+  PUBLIC_SK_CONTACT_SLUG,
+} from '../tenants/tenant.constants.js';
 import { readRequestHost, resolveTenantSlugFromHost } from '../tenants/tenantHostResolve.js';
 import { resolveTenantBySlug, TenantNotFoundError } from '../tenants/tenant.service.js';
 import { DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS } from './landingContactForm.schema.js';
@@ -36,9 +41,18 @@ export async function findOperatingCompanyIdForLandingBrand(
     select: { id: true, slug: true },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
-  if (prefixed.length === 0) return null;
-  const preferred = prefixed.find((row) => row.slug === `${slug}clean`) ?? prefixed[0];
-  return preferred.id;
+  if (prefixed.length > 0) {
+    const preferred = prefixed.find((row) => row.slug === `${slug}clean`) ?? prefixed[0];
+    return preferred.id;
+  }
+  if (slug === PUBLIC_SK_CONTACT_SLUG || slug === DEFAULT_TENANT_SLUG) {
+    const legacy = await db.operatingCompany.findFirst({
+      where: { tenantId, slug: LEGACY_SK_TENANT_SLUG, isActive: true },
+      select: { id: true },
+    });
+    if (legacy) return legacy.id;
+  }
+  return null;
 }
 
 export async function resolveLandingContactOperatingCompanyId(
