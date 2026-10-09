@@ -9,7 +9,7 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
     type: 'group',
     label: '카드결재',
     children: [
-      { to: '/admin/inquiries/card-payment', label: '결제 내역' },
+      { to: '/admin/inquiries/card-payment', end: true, label: '결제 내역' },
       { to: '/admin/inquiries/card-payment/pg', label: 'PG 연동' },
     ],
   },

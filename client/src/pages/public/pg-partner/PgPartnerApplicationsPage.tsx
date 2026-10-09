@@ -158,7 +158,7 @@ function ApplicationCard({
           <input className={INPUT} value={tid} onChange={(e) => setTid(e.target.value)} autoComplete="off" />
         </label>
         <div className="sm:col-span-2">
-          <p className="text-fluid-2xs text-slate-500">고유번호 코드 15개. 팀장에게 나누는 일은 업체 관리자가 합니다.</p>
+          <p className="text-fluid-2xs text-slate-500">고유번호 코드 15개. 원성 관리자가 여기에 넣습니다.</p>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {clerkCodes.map((code, index) => (
               <label key={index} className="block">
@@ -214,7 +214,7 @@ export function PgPartnerApplicationsPage() {
     <div className="space-y-3">
       <div>
         <h1 className="text-fluid-base font-semibold text-slate-900">PG 신청</h1>
-        <p className="mt-1 text-fluid-xs text-slate-600">업체를 확인한 뒤 MID, OID, 키와 고유번호 코드 15개를 입력하면 그 업체에 바로 연결됩니다. 팀장 매칭은 업체 관리자가 합니다.</p>
+        <p className="mt-1 text-fluid-xs text-slate-600">업체를 확인한 뒤 MID, OID, 키와 고유번호 코드 15개를 입력하면 그 업체에 바로 연결됩니다.</p>
       </div>
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}

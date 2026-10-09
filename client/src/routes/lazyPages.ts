@@ -136,9 +136,6 @@ export const PgPartnerApplicationsPage = lazyWithRetry(() =>
 export const PgPartnerRefundsPage = lazyWithRetry(() =>
   import('../pages/public/pg-partner/PgPartnerRefundsPage').then((m) => ({ default: m.PgPartnerRefundsPage }))
 );
-export const AdminPgClerkPage = lazyWithRetry(() =>
-  import('../pages/admin/card-payment/AdminPgClerkPage').then((m) => ({ default: m.AdminPgClerkPage }))
-);
 export const PgJoinReviewPage = lazyWithRetry(() =>
   import('../pages/public/PgJoinReviewPage').then((m) => ({ default: m.PgJoinReviewPage }))
 );

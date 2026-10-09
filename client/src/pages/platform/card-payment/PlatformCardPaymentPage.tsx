@@ -55,6 +55,19 @@ export function PlatformCardPaymentPage() {
         <p className="mt-1 text-sm text-gray-500">테넌트 가입 신청 · 키 연결 · 수수료(부가세 포함)</p>
       </div>
 
+      <section className={CARD_SECTION}>
+        <h2 className="text-sm font-semibold text-gray-900">원성 로그인 주소</h2>
+        <p className="mt-1 text-xs text-gray-500">원성 본사에서 PG 신청과 취소·환불을 보는 주소입니다.</p>
+        <p className="break-all text-sm text-gray-800">{`${window.location.origin}/pg-partner`}</p>
+        <button
+          type="button"
+          className={`${BTN_SECONDARY} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2`}
+          onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/pg-partner`)}
+        >
+          주소 복사
+        </button>
+      </section>
+
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       <section className={CARD_SECTION}>

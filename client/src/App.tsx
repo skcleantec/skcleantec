@@ -67,7 +67,6 @@ import {
   PgPartnerShell,
   PgPartnerApplicationsPage,
   PgPartnerRefundsPage,
-  AdminPgClerkPage,
   PlatformCardPaymentPage,
   PlatformCardChargePage,
   PublicCardPaymentLinkPage,
@@ -254,6 +253,7 @@ function App() {
             <Route path="review-payback" element={<SuspensePage><AdminReviewPaybackPage /></SuspensePage>} />
             <Route path="card-payment" element={<SuspensePage><AdminCardPaymentPage /></SuspensePage>} />
             <Route path="card-payment/pg" element={<SuspensePage><AdminCardPaymentPgPage /></SuspensePage>} />
+            <Route path="card-payment/pg/apply" element={<SuspensePage><AdminCardPaymentPgPage /></SuspensePage>} />
             <Route path="order-forms" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route path="order-issue" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route
@@ -340,10 +340,10 @@ function App() {
               }
             />
             <Route
-              path="pg-clerks"
+              path="pg-onboarding/apply"
               element={
                 <FeatureGate module="mod_card_payment">
-                  <SuspensePage><AdminPgClerkPage /></SuspensePage>
+                  <SuspensePage><AdminCardPaymentPgPage /></SuspensePage>
                 </FeatureGate>
               }
             />

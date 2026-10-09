@@ -20,7 +20,6 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
       },
       {
         to: '/admin/team-leaders/pg-onboarding',
-        end: true,
         label: 'PG신청',
         title: '원성페이먼츠 PG 신청',
       },
@@ -41,12 +40,6 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         end: true,
         label: '사용자 등록',
         title: '팀장·마케터·사무직 등록',
-      },
-      {
-        to: '/admin/team-leaders/pg-clerks',
-        end: true,
-        label: '원성번호',
-        title: '팀장 원성 고유번호 매칭',
       },
       {
         to: '/admin/team-leaders/operating-companies',
