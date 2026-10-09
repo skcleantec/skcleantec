@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { matchPath, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { resolveEffectiveStaffAdminFromMe, canBulkDeleteInquiriesFromMe } from '../../utils/staffAdminAccess';
@@ -16,6 +16,7 @@ import {
   firstAllowedAdminSideNavPath,
 } from '../../utils/filterAdminSideNavByPermissions';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
+import { fetchTenantPgState } from '../../api/cardPayment';
 
 const ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-team-leaders-side-nav-collapsed';
 
@@ -25,6 +26,26 @@ export function AdminTeamLeadersLayout() {
   const location = useLocation();
   const { features } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
+  const [pgConnected, setPgConnected] = useState(false);
+  const [pgLoaded, setPgLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void fetchTenantPgState(token)
+      .then((res) => {
+        if (!cancelled) setPgConnected(res.credential.connected);
+      })
+      .catch(() => {
+        if (!cancelled) setPgConnected(false);
+      })
+      .finally(() => {
+        if (!cancelled) setPgLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const hasTeamLeadersAccess = useMemo(() => {
     if (resolveEffectiveStaffAdminFromMe(staffMe)) return true;
@@ -32,9 +53,12 @@ export function AdminTeamLeadersLayout() {
   }, [staffMe]);
 
   const navItems = useMemo(() => {
-    const byFeature = filterAdminSideNavItems(ADMIN_TEAM_LEADERS_NAV_ITEMS, features);
+    const source = pgConnected
+      ? ADMIN_TEAM_LEADERS_NAV_ITEMS
+      : ADMIN_TEAM_LEADERS_NAV_ITEMS.filter((item) => item.type !== 'group' || item.label !== '카드결재');
+    const byFeature = filterAdminSideNavItems(source, features);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [features, staffMe]);
+  }, [features, pgConnected, staffMe]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),
@@ -61,6 +85,9 @@ export function AdminTeamLeadersLayout() {
   }
   if (ready && staffMe && !pathAllowed && fallbackPath && fallbackPath !== location.pathname.split('?')[0]) {
     return <Navigate to={fallbackPath} replace />;
+  }
+  if (pgLoaded && !pgConnected && location.pathname.startsWith('/admin/team-leaders/card-payment')) {
+    return <Navigate to="/admin/team-leaders/pg-onboarding" replace />;
   }
 
   const embedMobileMenuInPageHeader = Boolean(

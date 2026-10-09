@@ -33,6 +33,14 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
   },
   {
     type: 'group',
+    label: '카드결재',
+    children: [
+      { to: '/admin/team-leaders/card-payment', end: true, label: '결제 내역' },
+      { to: '/admin/team-leaders/card-payment/pg', label: 'PG 연동' },
+    ],
+  },
+  {
+    type: 'group',
     label: '사용자등록',
     children: [
       {

@@ -251,9 +251,9 @@ function App() {
             <Route path="bulk-excel/history" element={<SuspensePage><AdminInquiryExcelHistoryPage /></SuspensePage>} />
             <Route path="followup" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route path="review-payback" element={<SuspensePage><AdminReviewPaybackPage /></SuspensePage>} />
-            <Route path="card-payment" element={<SuspensePage><AdminCardPaymentPage /></SuspensePage>} />
-            <Route path="card-payment/pg" element={<SuspensePage><AdminCardPaymentPgPage /></SuspensePage>} />
-            <Route path="card-payment/pg/apply" element={<SuspensePage><AdminCardPaymentPgPage /></SuspensePage>} />
+            <Route path="card-payment/pg/apply" element={<Navigate to="/admin/team-leaders/pg-onboarding/apply" replace />} />
+            <Route path="card-payment/pg" element={<Navigate to="/admin/team-leaders/card-payment/pg" replace />} />
+            <Route path="card-payment" element={<Navigate to="/admin/team-leaders/card-payment" replace />} />
             <Route path="order-forms" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route path="order-issue" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route
@@ -333,6 +333,22 @@ function App() {
             />
             <Route
               path="pg-onboarding"
+              element={
+                <FeatureGate module="mod_card_payment">
+                  <SuspensePage><AdminCardPaymentPgPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="card-payment"
+              element={
+                <FeatureGate module="mod_card_payment">
+                  <SuspensePage><AdminCardPaymentPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="card-payment/pg"
               element={
                 <FeatureGate module="mod_card_payment">
                   <SuspensePage><AdminCardPaymentPgPage /></SuspensePage>
