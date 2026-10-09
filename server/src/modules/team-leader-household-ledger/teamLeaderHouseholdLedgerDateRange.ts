@@ -7,6 +7,15 @@ import {
 
 const ALL_FROM_YMD = '2020-01-01';
 
+/**
+ * `occurredOn`은 `@db.Date`. KST 자정(`T00:00:00+09:00`)을 그대로 넘기면
+ * UTC 세션에서 전날(예: 9월 1일 → 8월 31일)로 잘려 월 필터에 전월 말일이 섞인다.
+ * 달력 날짜는 UTC 자정으로 비교한다.
+ */
+function calendarYmdToDbDate(ymd: string): Date {
+  return new Date(`${ymd}T00:00:00.000Z`);
+}
+
 export function householdLedgerRangeFromQuery(query: {
   datePreset?: string;
   month?: string;
@@ -19,8 +28,8 @@ export function householdLedgerRangeFromQuery(query: {
     return {
       loYmd,
       hiYmd,
-      gte: new Date(`${loYmd}T00:00:00+09:00`),
-      lte: new Date(`${hiYmd}T23:59:59.999+09:00`),
+      gte: calendarYmdToDbDate(loYmd),
+      lte: calendarYmdToDbDate(hiYmd),
     };
   }
 
@@ -38,14 +47,19 @@ export function householdLedgerRangeFromQuery(query: {
     return {
       loYmd,
       hiYmd,
-      gte: new Date(`${loYmd}T00:00:00+09:00`),
-      lte: new Date(`${hiYmd}T23:59:59.999+09:00`),
+      gte: calendarYmdToDbDate(loYmd),
+      lte: calendarYmdToDbDate(hiYmd),
     };
   }
 
   const loYmd = range.gte.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
   const hiYmd = range.lte.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
-  return { loYmd, hiYmd, gte: range.gte, lte: range.lte };
+  return {
+    loYmd,
+    hiYmd,
+    gte: calendarYmdToDbDate(loYmd),
+    lte: calendarYmdToDbDate(hiYmd),
+  };
 }
 
 export function parseHouseholdLedgerPaging(query: Record<string, unknown>): {
