@@ -8,7 +8,7 @@ import {
   type LeaderCol,
 } from './ExtraSettlementBoard';
 
-const SUMMARY = ['당일', '마케터', '상위', '팀장', '회사'] as const;
+const SUMMARY = ['당일', '마케터', '오버라이딩', '팀장', '회사'] as const;
 
 function esc(value: string) {
   return value
@@ -28,7 +28,10 @@ function cellNumber(value: number) {
 
 function jobLines(item: ExtraWorkItem, leaderId: string) {
   const shared = leaderId !== UNASSIGNED && item.leaderShares.length > 1;
-  return [item.marketerName, String(cellAmount(item, leaderId)), `${shared ? '나눠 배정 · ' : ''}${item.workLabel}`].join('\n');
+  const tag = item.settlementKind === 'REFUND' ? '환불' : item.settlementKind === 'COMPANY_SUPPORT' ? '지원' : '';
+  return [tag, item.marketerName, String(cellAmount(item, leaderId)), `${shared ? '나눠 배정 · ' : ''}${item.workLabel}`]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function monthTitle(month: string) {
@@ -78,7 +81,7 @@ export function buildExtraSettlementWorkbookXml(items: ExtraWorkItem[], month: s
     footer,
   ]);
 
-  const marketerHeader = ['마케터', '건수', '추가금액', '수령', '하위에서 받은 금액'].map(cellText).join('');
+  const marketerHeader = ['마케터', '건수', '추가금액', '수령', '오버라이딩'].map(cellText).join('');
   const marketerRows =
     board.marketers.length === 0
       ? [`<Row>${cellText('이 달 추가 시공이 없습니다.')}</Row>`]

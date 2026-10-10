@@ -5,7 +5,6 @@ import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVi
 import {
   fetchExtraWorkSettings,
   saveExtraWorkMarketer,
-  saveExtraWorkSettings,
   type ExtraWorkMarketerSetting,
   type ExtraWorkOverrideSource,
   type ExtraWorkSettings,
@@ -16,23 +15,217 @@ const fieldClass =
 const btnClass =
   'min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
+function shownPercent(value: number | null, fallback: number) {
+  return value == null ? fallback : value;
+}
+
+function overrideText(row: ExtraWorkMarketerSetting, rows: ExtraWorkMarketerSetting[]) {
+  if (row.overrideSource === 'NONE' || row.overridePercent <= 0 || !row.parentMarketerId) return '없음';
+  const from = row.overrideSource === 'COMPANY' ? '회사' : '마케터';
+  return `${from}→${parentName(rows, row.parentMarketerId)} ${row.overridePercent}%`;
+}
+
+function parentName(rows: ExtraWorkMarketerSetting[], parentId: string | null) {
+  if (!parentId) return '없음';
+  return rows.find((row) => row.id === parentId)?.name ?? '없음';
+}
+
+function MarketerRateEditor(props: {
+  rows: ExtraWorkMarketerSetting[];
+  selectedId: string;
+  saving: boolean;
+  defaults: { companyPercent: number; teamLeaderPercent: number; marketerPercent: number };
+  earnedById: Record<string, number>;
+  onSelect: (id: string) => void;
+  onPatch: (id: string, patch: Partial<ExtraWorkMarketerSetting>) => void;
+  onSave: (row: ExtraWorkMarketerSetting) => void;
+}) {
+  const { rows, selectedId, saving, defaults, earnedById, onSelect, onPatch, onSave } = props;
+  const row = rows.find((item) => item.id === selectedId) ?? null;
+  const overrideOn = row != null && row.overrideSource !== 'NONE';
+  return (
+    <div className="space-y-2">
+      <label className="block space-y-1">
+        <span className="text-fluid-2xs text-slate-600">마케터</span>
+        <select className={fieldClass} value={selectedId} onChange={(e) => onSelect(e.target.value)}>
+          {rows.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {row ? (
+        <div className="space-y-2 rounded-lg border border-slate-200 p-2">
+          <div className="grid grid-cols-3 gap-2">
+            <label className="space-y-1">
+              <span className="text-fluid-2xs text-slate-600">회사 %</span>
+              <input
+                className={fieldClass}
+                inputMode="numeric"
+                aria-label="회사 %"
+                value={shownPercent(row.companyPercent, defaults.companyPercent)}
+                onChange={(e) => onPatch(row.id, { companyPercent: percentInput(e.target.value) })}
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-fluid-2xs text-slate-600">팀장 %</span>
+              <input
+                className={fieldClass}
+                inputMode="numeric"
+                aria-label="팀장 %"
+                value={shownPercent(row.teamLeaderPercent, defaults.teamLeaderPercent)}
+                onChange={(e) => onPatch(row.id, { teamLeaderPercent: percentInput(e.target.value) })}
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-fluid-2xs text-slate-600">마케터 %</span>
+              <input
+                className={fieldClass}
+                inputMode="numeric"
+                aria-label="마케터 %"
+                value={shownPercent(row.marketerPercent, defaults.marketerPercent)}
+                onChange={(e) => onPatch(row.id, { marketerPercent: percentInput(e.target.value) })}
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <label className="space-y-1">
+              <span className="text-fluid-2xs text-slate-600">어디 몫에서</span>
+              <select
+                className={fieldClass}
+                aria-label="어디 몫에서"
+                value={row.overrideSource}
+                onChange={(e) => {
+                  const overrideSource = e.target.value as ExtraWorkOverrideSource;
+                  onPatch(row.id, {
+                    overrideSource,
+                    ...(overrideSource === 'NONE' ? { parentMarketerId: null, overridePercent: 0 } : {}),
+                  });
+                }}
+              >
+                <option value="NONE">없음</option>
+                <option value="COMPANY">회사 몫</option>
+                <option value="MARKETER">마케터 몫</option>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-fluid-2xs text-slate-600">누구에게</span>
+              <select
+                className={`${fieldClass} disabled:pointer-events-none disabled:opacity-50`}
+                aria-label="누구에게"
+                disabled={!overrideOn}
+                value={row.parentMarketerId ?? ''}
+                onChange={(e) => onPatch(row.id, { parentMarketerId: e.target.value || null })}
+              >
+                <option value="">선택</option>
+                {rows
+                  .filter((other) => other.id !== row.id)
+                  .map((other) => (
+                    <option key={other.id} value={other.id}>
+                      {other.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-fluid-2xs text-slate-600">몇 %</span>
+              <input
+                className={`${fieldClass} disabled:pointer-events-none disabled:opacity-50`}
+                inputMode="numeric"
+                aria-label="몇 %"
+                disabled={!overrideOn}
+                value={overrideOn ? row.overridePercent : 0}
+                onChange={(e) => {
+                  const n = percentInput(e.target.value);
+                  onPatch(row.id, { overridePercent: n == null || Number.isNaN(n) ? 0 : n });
+                }}
+              />
+            </label>
+          </div>
+          <button type="button" className={btnClass} disabled={saving} onClick={() => onSave(row)}>
+            이 마케터 저장
+          </button>
+        </div>
+      ) : null}
+      <div className="w-full min-w-0 overflow-x-auto">
+        <table className="w-full table-fixed border-collapse text-fluid-2xs text-slate-800">
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[28%]" />
+            <col className="w-[18%]" />
+          </colgroup>
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50 text-center text-slate-500">
+              <th className="px-1 py-1 font-medium">마케터</th>
+              <th className="px-1 py-1 font-medium">회사</th>
+              <th className="px-1 py-1 font-medium">팀장</th>
+              <th className="px-1 py-1 font-medium">마케터</th>
+              <th className="px-1 py-1 font-medium">오버라이딩</th>
+              <th className="px-1 py-1 font-medium">번 금액</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((item) => {
+              const on = item.id === selectedId;
+              const rule = overrideText(item, rows);
+              const earned = earnedById[item.id] ?? 0;
+              const earnedText = `${earned.toLocaleString('ko-KR')}원`;
+              return (
+                <tr key={item.id} className={on ? 'bg-slate-100' : 'hover:bg-slate-50'}>
+                  <td className="px-1 py-1 text-center">
+                    <button
+                      type="button"
+                      onClick={() => onSelect(item.id)}
+                      className="max-w-full truncate font-medium text-slate-900 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                      title={item.name}
+                    >
+                      {item.name}
+                    </button>
+                  </td>
+                  <td className="px-1 py-1 text-center tabular-nums">{shownPercent(item.companyPercent, defaults.companyPercent)}%</td>
+                  <td className="px-1 py-1 text-center tabular-nums">{shownPercent(item.teamLeaderPercent, defaults.teamLeaderPercent)}%</td>
+                  <td className="px-1 py-1 text-center tabular-nums">{shownPercent(item.marketerPercent, defaults.marketerPercent)}%</td>
+                  <td className="truncate px-1 py-1 text-center" title={rule}>
+                    {rule}
+                  </td>
+                  <td className="px-1 py-1 text-right tabular-nums" title={earnedText}>
+                    {earnedText}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function percentInput(value: string): number | null {
   if (value.trim() === '') return null;
   const n = Number(value);
   return Number.isInteger(n) ? n : Number.NaN;
 }
 
-export function ExtraSettlementSettings(props: { token: string; open: boolean; onClose: () => void }) {
-  const { token, open, onClose } = props;
+export function ExtraSettlementSettings(props: {
+  token: string;
+  open: boolean;
+  onClose: () => void;
+  earnedById: Record<string, number>;
+}) {
+  const { token, open, onClose, earnedById } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open, 160);
   const [settings, setSettings] = useState<ExtraWorkSettings | null>(null);
   const [company, setCompany] = useState('100');
   const [leader, setLeader] = useState('0');
   const [marketer, setMarketer] = useState('0');
-  const [presets, setPresets] = useState('');
-  const [allowTraining, setAllowTraining] = useState(false);
   const [rows, setRows] = useState<ExtraWorkMarketerSetting[]>([]);
+  const [selectedId, setSelectedId] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -41,9 +234,10 @@ export function ExtraSettlementSettings(props: { token: string; open: boolean; o
     setCompany(String(next.companyPercent));
     setLeader(String(next.teamLeaderPercent));
     setMarketer(String(next.marketerPercent));
-    setPresets(next.presets.join(', '));
-    setAllowTraining(next.allowTraining);
     setRows(next.marketers);
+    setSelectedId((current) =>
+      next.marketers.some((row) => row.id === current) ? current : (next.marketers[0]?.id ?? ''),
+    );
   };
 
   useEffect(() => {
@@ -71,49 +265,41 @@ export function ExtraSettlementSettings(props: { token: string; open: boolean; o
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const saveTenant = async () => {
-    const companyPercent = percentInput(company);
-    const teamLeaderPercent = percentInput(leader);
-    const marketerPercent = percentInput(marketer);
-    if (companyPercent == null || teamLeaderPercent == null || marketerPercent == null) {
-      setError('업체 비율은 0~100 사이 정수로 적어 주세요.');
+  const patchRow = (id: string, patch: Partial<ExtraWorkMarketerSetting>) => {
+    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const saveRow = async (row: ExtraWorkMarketerSetting) => {
+    const companyPercent = shownPercent(row.companyPercent, percentInput(company) ?? 0);
+    const teamLeaderPercent = shownPercent(row.teamLeaderPercent, percentInput(leader) ?? 0);
+    const marketerPercent = shownPercent(row.marketerPercent, percentInput(marketer) ?? 0);
+    if (
+      [companyPercent, teamLeaderPercent, marketerPercent].some((n) => !Number.isInteger(n) || n < 0 || n > 100) ||
+      companyPercent + teamLeaderPercent + marketerPercent !== 100
+    ) {
+      setError('회사, 팀장, 마케터 비율의 합은 100%여야 합니다.');
+      return;
+    }
+    const overrideOn = row.overrideSource !== 'NONE';
+    if (overrideOn && !row.parentMarketerId) {
+      setError('오버라이딩은 누구에게 줄지 골라 주세요.');
+      return;
+    }
+    if (overrideOn && (!Number.isInteger(row.overridePercent) || row.overridePercent < 1 || row.overridePercent > 100)) {
+      setError('오버라이딩은 1~100 사이 정수로 적어 주세요.');
       return;
     }
     setSaving(true);
     setError('');
     try {
       apply(
-        await saveExtraWorkSettings(token, {
+        await saveExtraWorkMarketer(token, row.id, {
+          parentMarketerId: overrideOn ? row.parentMarketerId : null,
           companyPercent,
           teamLeaderPercent,
           marketerPercent,
-          presets: presets.split(',').map((item) => item.trim()).filter(Boolean),
-          allowTraining,
-        }),
-      );
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '설정을 저장하지 못했습니다.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const patchRow = (id: string, patch: Partial<ExtraWorkMarketerSetting>) => {
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
-  };
-
-  const saveRow = async (row: ExtraWorkMarketerSetting) => {
-    setSaving(true);
-    setError('');
-    try {
-      apply(
-        await saveExtraWorkMarketer(token, row.id, {
-          parentMarketerId: row.parentMarketerId,
-          companyPercent: row.companyPercent,
-          teamLeaderPercent: row.teamLeaderPercent,
-          marketerPercent: row.marketerPercent,
-          overrideSource: row.overrideSource,
-          overridePercent: row.overridePercent,
+          overrideSource: overrideOn ? row.overrideSource : 'NONE',
+          overridePercent: overrideOn ? row.overridePercent : 0,
         }),
       );
     } catch (e: unknown) {
@@ -129,7 +315,7 @@ export function ExtraSettlementSettings(props: { token: string; open: boolean; o
     <div className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 sm:items-center">
       <button type="button" className="absolute inset-0 cursor-default" aria-label="설정 닫기" onClick={onClose} />
       <div
-        className="modal-mobile-fullscreen-panel relative z-10 flex h-[100dvh] w-full max-w-lg flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:rounded-2xl"
+        className="modal-mobile-fullscreen-panel relative z-10 flex h-[100dvh] w-full max-w-3xl flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="extra-settlement-settings-title"
@@ -148,117 +334,25 @@ export function ExtraSettlementSettings(props: { token: string; open: boolean; o
       {!settings ? <p className="text-fluid-xs text-slate-500">{error || '설정을 불러오는 중…'}</p> : null}
       {settings ? (
         <>
-      <p className="text-fluid-2xs leading-snug text-slate-600">
-        회사, 팀장, 마케터 비율의 합은 100%입니다. 오버라이딩은 회사 몫 또는 그 마케터 몫에서 직속 상위에게 줍니다. 이미 저장된 내역은 바꾸지 않습니다.
-      </p>
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800" role="alert">
           {error}
         </p>
       ) : null}
-      <div className="grid grid-cols-3 gap-2">
-        <label className="space-y-1">
-          <span className="text-fluid-2xs text-slate-600">회사 %</span>
-          <input className={fieldClass} inputMode="numeric" value={company} onChange={(e) => setCompany(e.target.value)} />
-        </label>
-        <label className="space-y-1">
-          <span className="text-fluid-2xs text-slate-600">팀장 %</span>
-          <input className={fieldClass} inputMode="numeric" value={leader} onChange={(e) => setLeader(e.target.value)} />
-        </label>
-        <label className="space-y-1">
-          <span className="text-fluid-2xs text-slate-600">마케터 %</span>
-          <input className={fieldClass} inputMode="numeric" value={marketer} onChange={(e) => setMarketer(e.target.value)} />
-        </label>
-      </div>
-      <label className="block space-y-1">
-        <span className="text-fluid-2xs text-slate-600">시공 예시 (쉼표로 구분)</span>
-        <input className={fieldClass} value={presets} onChange={(e) => setPresets(e.target.value)} />
-      </label>
-      <label className="flex items-start gap-2 text-fluid-xs text-slate-800">
-        <input
-          type="checkbox"
-          className="mt-0.5"
-          checked={allowTraining}
-          onChange={(e) => setAllowTraining(e.target.checked)}
-        />
-        <span>
-          나중에 견적 앱 학습에 이 업체 사진을 쓸 수 있게 허용합니다. 지금은 기록만 하고, 고객 이름·전화·주소는 학습에 넣지 않습니다.
-        </span>
-      </label>
-      <button type="button" className={btnClass} disabled={saving} onClick={() => void saveTenant()}>
-        업체 기본값 저장
-      </button>
-      <div className="space-y-2">
-        {rows.map((row) => (
-          <div key={row.id} className="space-y-2 rounded-lg border border-slate-200 p-2">
-            <p className="text-fluid-xs font-medium text-slate-900">{row.name}</p>
-            <label className="block space-y-1">
-              <span className="text-fluid-2xs text-slate-600">직속 상위</span>
-              <select
-                className={fieldClass}
-                value={row.parentMarketerId ?? ''}
-                onChange={(e) => patchRow(row.id, { parentMarketerId: e.target.value || null })}
-              >
-                <option value="">없음</option>
-                {rows
-                  .filter((other) => other.id !== row.id)
-                  .map((other) => (
-                    <option key={other.id} value={other.id}>
-                      {other.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <input
-                className={fieldClass}
-                inputMode="numeric"
-                placeholder="회사 %"
-                value={row.companyPercent ?? ''}
-                onChange={(e) => patchRow(row.id, { companyPercent: percentInput(e.target.value) })}
-              />
-              <input
-                className={fieldClass}
-                inputMode="numeric"
-                placeholder="팀장 %"
-                value={row.teamLeaderPercent ?? ''}
-                onChange={(e) => patchRow(row.id, { teamLeaderPercent: percentInput(e.target.value) })}
-              />
-              <input
-                className={fieldClass}
-                inputMode="numeric"
-                placeholder="마케터 %"
-                value={row.marketerPercent ?? ''}
-                onChange={(e) => patchRow(row.id, { marketerPercent: percentInput(e.target.value) })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                className={fieldClass}
-                value={row.overrideSource}
-                onChange={(e) => patchRow(row.id, { overrideSource: e.target.value as ExtraWorkOverrideSource })}
-              >
-                <option value="NONE">오버라이딩 없음</option>
-                <option value="COMPANY">회사 몫에서</option>
-                <option value="MARKETER">마케터 몫에서</option>
-              </select>
-              <input
-                className={fieldClass}
-                inputMode="numeric"
-                placeholder="오버라이딩 %"
-                value={row.overridePercent}
-                onChange={(e) => {
-                  const n = percentInput(e.target.value);
-                  patchRow(row.id, { overridePercent: n == null || Number.isNaN(n) ? 0 : n });
-                }}
-              />
-            </div>
-            <button type="button" className={btnClass} disabled={saving} onClick={() => void saveRow(row)}>
-              이 마케터 저장
-            </button>
-          </div>
-        ))}
-      </div>
+      <MarketerRateEditor
+        rows={rows}
+        selectedId={selectedId}
+        saving={saving}
+        defaults={{
+          companyPercent: percentInput(company) ?? 100,
+          teamLeaderPercent: percentInput(leader) ?? 0,
+          marketerPercent: percentInput(marketer) ?? 0,
+        }}
+        earnedById={earnedById}
+        onSelect={setSelectedId}
+        onPatch={patchRow}
+        onSave={(row) => void saveRow(row)}
+      />
         </>
       ) : null}
         </div>

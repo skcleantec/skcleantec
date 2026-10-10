@@ -2710,6 +2710,12 @@ enum ExtraWorkOverrideSource {
   MARKETER
 }
 
+enum ExtraWorkSettlementKind {
+  NORMAL
+  REFUND
+  COMPANY_SUPPORT
+}
+
 /// 업체 기본 추가 시공 비율. 합은 10000. 학습 사용은 견적 앱이 생기기 전까지 기록만 한다.
 model TenantExtraWorkSetting {
   tenantId       String   @id @map("tenant_id")
@@ -2745,6 +2751,7 @@ model ExtraWorkRecord {
   teamLeaderWon     Int                      @map("team_leader_won")
   marketerWon       Int                      @map("marketer_won")
   parentWon         Int                      @map("parent_won")
+  settlementKind    ExtraWorkSettlementKind  @default(NORMAL) @map("settlement_kind")
   createdById       String                   @map("created_by_id")
   createdAt         DateTime                 @default(now()) @map("created_at")
 

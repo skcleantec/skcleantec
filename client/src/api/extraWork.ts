@@ -2,11 +2,14 @@ import { API } from './apiPrefix';
 
 export type ExtraWorkOverrideSource = 'NONE' | 'COMPANY' | 'MARKETER';
 
+export type ExtraWorkSettlementKind = 'NORMAL' | 'REFUND' | 'COMPANY_SUPPORT';
+
 export type ExtraWorkItem = {
   id: string;
   inquiryId: string;
   occurredAt: string;
   amountWon: number;
+  settlementKind: ExtraWorkSettlementKind;
   workLabel: string;
   areaLabel: string | null;
   companyWon: number;
@@ -181,4 +184,38 @@ export async function saveExtraWorkMarketer(
   });
   if (!res.ok) throw new Error(await readError(res));
   return (await res.json()) as ExtraWorkSettings;
+}
+
+export async function searchExtraWorkInquiries(token: string, query: string) {
+  const res = await fetch(`${API}/extra-work/inquiries?q=${encodeURIComponent(query)}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return (
+    (await res.json()) as {
+      items: Array<{ id: string; customerName: string; inquiryNumber: string | null; teamLeaders: Array<{ id: string; name: string }> }>;
+    }
+  ).items;
+}
+
+export async function saveExtraWorkAdjustment(
+  token: string,
+  input: {
+    recordId?: string;
+    inquiryId: string;
+    marketerId: string;
+    teamLeaderId: string | null;
+    kind: ExtraWorkSettlementKind;
+    amountWon: number;
+    occurredOn: string;
+    note: string;
+  },
+) {
+  const res = await fetch(`${API}/extra-work/adjustments`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return ((await res.json()) as { item: ExtraWorkItem }).item;
 }

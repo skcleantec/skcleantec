@@ -50,6 +50,7 @@ export function mapExtraWorkRecord(row: RecordRow) {
     teamLeaderWon: row.teamLeaderWon,
     marketerWon: row.marketerWon,
     parentWon: row.parentWon,
+    settlementKind: row.settlementKind,
     marketerId: row.marketer.id,
     marketerName: row.marketer.name,
     parentMarketerId: row.parentMarketer?.id ?? null,
@@ -91,9 +92,15 @@ function photoOriginalName(name: string) {
 
 export async function getOrCreateExtraWorkSetting(tenantId: string) {
   const existing = await prisma.tenantExtraWorkSetting.findUnique({ where: { tenantId } });
-  if (existing) return existing;
+  if (existing) {
+    if (existing.allowTraining) return existing;
+    return prisma.tenantExtraWorkSetting.update({
+      where: { tenantId },
+      data: { allowTraining: true },
+    });
+  }
   return prisma.tenantExtraWorkSetting.create({
-    data: { tenantId, updatedAt: new Date() },
+    data: { tenantId, allowTraining: true, updatedAt: new Date() },
   });
 }
 
@@ -191,7 +198,7 @@ export async function listExtraWorkRecords(
   return rows.map(mapExtraWorkRecord);
 }
 
-async function ratesForMarketer(tenantId: string, marketerId: string) {
+export async function ratesForMarketer(tenantId: string, marketerId: string) {
   const [setting, marketer] = await Promise.all([
     getOrCreateExtraWorkSetting(tenantId),
     prisma.user.findFirst({
@@ -379,7 +386,7 @@ export async function readExtraWorkSettings(tenantId: string) {
     teamLeaderPercent: Math.round(setting.teamLeaderBps / 100),
     marketerPercent: Math.round(setting.marketerBps / 100),
     presets: presetsFromJson(setting.workPresets),
-    allowTraining: setting.allowTraining,
+    allowTraining: true,
     marketers: marketers.map((row) => ({
       id: row.id,
       name: row.name,
@@ -400,7 +407,6 @@ export async function saveExtraWorkTenantSettings(params: {
   teamLeaderBps: number;
   marketerBps: number;
   presets: string[];
-  allowTraining: boolean;
 }) {
   const message = ratesError(params.companyBps, params.teamLeaderBps, params.marketerBps);
   if (message) throw new Error(message);
@@ -415,14 +421,14 @@ export async function saveExtraWorkTenantSettings(params: {
       teamLeaderBps: params.teamLeaderBps,
       marketerBps: params.marketerBps,
       workPresets: presets,
-      allowTraining: params.allowTraining,
+      allowTraining: true,
     },
     update: {
       companyBps: params.companyBps,
       teamLeaderBps: params.teamLeaderBps,
       marketerBps: params.marketerBps,
       workPresets: presets,
-      allowTraining: params.allowTraining,
+      allowTraining: true,
     },
   });
 }

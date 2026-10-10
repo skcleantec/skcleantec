@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchExtraWorkList, type ExtraWorkItem } from '../../../api/extraWork';
 import { getTeamLeaders } from '../../../api/users';
+import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
 import { LineMdIcon } from '../../ui/LineMdIcon';
-import { ExtraSettlementBoard } from './ExtraSettlementBoard';
+import { ExtraSettlementBoard, kstDayKey, type DaySumKind } from './ExtraSettlementBoard';
+import { ExtraSettlementAdjustSheet } from './ExtraSettlementAdjustSheet';
+import { ExtraSettlementDayBreakdown } from './ExtraSettlementDayBreakdown';
 import { ExtraSettlementSettings } from './ExtraSettlementSettings';
 import { downloadExtraSettlementExcel } from './extraSettlementExcel';
 
@@ -16,23 +19,26 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
   const [leaders, setLeaders] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [adjustItem, setAdjustItem] = useState<ExtraWorkItem | null>(null);
+  const [showAdjust, setShowAdjust] = useState(false);
+  const [sumView, setSumView] = useState<{ day: string; kind: DaySumKind } | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     if (!token || !month) return;
-    let cancelled = false;
     void fetchExtraWorkList(token, { month })
       .then((rows) => {
-        if (!cancelled) {
-          setItems(rows);
-          setError('');
-        }
+        setItems(rows);
+        setError('');
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : '추가정산을 불러오지 못했습니다.');
+        setError(e instanceof Error ? e.message : '추가정산을 불러오지 못했습니다.');
       });
-    return () => {
-      cancelled = true;
-    };
+  };
+
+  const inquiryEdit = useCrmInquiryEdit(Boolean(token), load, load);
+
+  useEffect(() => {
+    load();
   }, [month, token]);
 
   useEffect(() => {
@@ -49,6 +55,15 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
       cancelled = true;
     };
   }, [token]);
+
+  const overrideEarned = useMemo(() => {
+    const earned: Record<string, number> = {};
+    for (const item of items) {
+      if (!item.parentMarketerId || item.parentWon <= 0) continue;
+      earned[item.parentMarketerId] = (earned[item.parentMarketerId] ?? 0) + item.parentWon;
+    }
+    return earned;
+  }, [items]);
 
   const totals = useMemo(
     () =>
@@ -69,7 +84,7 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-fluid-xs text-slate-600">
-          추가금액 {won(totals.amount)} · 마케터 {won(totals.marketer)} · 상위 {won(totals.parent)} · 팀장 {won(totals.leader)} · 회사 {won(totals.company)}
+          추가금액 {won(totals.amount)} · 마케터 {won(totals.marketer)} · 오버라이딩 {won(totals.parent)} · 팀장 {won(totals.leader)} · 회사 {won(totals.company)}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
           <button
@@ -82,6 +97,16 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
           </button>
           <button
             type="button"
+            onClick={() => {
+              setAdjustItem(null);
+              setShowAdjust(true);
+            }}
+            className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            환불·지원
+          </button>
+          <button
+            type="button"
             onClick={() => setShowSettings(true)}
             className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
           >
@@ -89,13 +114,45 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
           </button>
         </div>
       </div>
-      <ExtraSettlementSettings token={token} open={showSettings} onClose={() => setShowSettings(false)} />
+      <ExtraSettlementSettings
+        token={token}
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        earnedById={overrideEarned}
+      />
+      <ExtraSettlementAdjustSheet
+        token={token}
+        month={month}
+        open={showAdjust}
+        item={adjustItem}
+        leaders={leaders}
+        onClose={() => setShowAdjust(false)}
+        onSaved={load}
+      />
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800" role="alert">
           {error}
         </p>
       ) : null}
-      <ExtraSettlementBoard items={items} month={month} leaders={leaders} />
+      <ExtraSettlementDayBreakdown
+        open={sumView != null}
+        day={sumView?.day ?? ''}
+        kind={sumView?.kind ?? 'amount'}
+        items={sumView ? items.filter((item) => kstDayKey(item.occurredAt) === sumView.day) : []}
+        onClose={() => setSumView(null)}
+        onOpenInquiry={inquiryEdit.openInquiryEdit}
+      />
+      {inquiryEdit.layer}
+      <ExtraSettlementBoard
+        items={items}
+        month={month}
+        leaders={leaders}
+        onEdit={(item) => {
+          setAdjustItem(item);
+          setShowAdjust(true);
+        }}
+        onOpenSum={(day, kind) => setSumView({ day, kind })}
+      />
     </div>
   );
 }
