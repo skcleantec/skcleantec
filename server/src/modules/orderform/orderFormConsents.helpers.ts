@@ -26,10 +26,18 @@ export type OrderFormConsentGuideTerms = {
   signatureUrl?: string | null;
 };
 
+export const ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE = '동의합니다';
+
+export type OrderFormConsentExtraWork = {
+  agreedAt: string;
+  typedPhrase: string;
+};
+
 export type OrderFormSubmissionConsents = {
   serviceDate?: OrderFormConsentServiceDate | null;
   timeSlot?: OrderFormConsentTimeSlot | null;
   guideTerms?: OrderFormConsentGuideTerms | null;
+  extraWork?: OrderFormConsentExtraWork | null;
 };
 
 type RawConsentBody = {
@@ -96,6 +104,15 @@ type ParsedGuideTerms = {
   signaturePng: Buffer;
 };
 
+function parseConsentExtraWork(raw: unknown): OrderFormConsentExtraWork | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const agreedAt = parseIsoAgreedAt((raw as RawConsentBody).agreedAt);
+  const phraseRaw = (raw as { typedPhrase?: unknown }).typedPhrase;
+  const phrase = typeof phraseRaw === 'string' ? phraseRaw.trim() : '';
+  if (!agreedAt || phrase !== ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE) return null;
+  return { agreedAt, typedPhrase: ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE };
+}
+
 function parseConsentGuideTerms(raw: unknown): ParsedGuideTerms | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const agreedAt = parseIsoAgreedAt((raw as RawConsentBody).agreedAt);
@@ -109,14 +126,16 @@ export function parseOrderFormSubmitConsents(raw: unknown): {
   serviceDate: OrderFormConsentServiceDate | null;
   timeSlot: OrderFormConsentTimeSlot | null;
   guideTerms: ParsedGuideTerms | null;
+  extraWork: OrderFormConsentExtraWork | null;
 } | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const o = raw as Record<string, unknown>;
   const serviceDate = parseConsentServiceDate(o.serviceDate);
   const timeSlot = parseConsentTimeSlot(o.timeSlot);
   const guideTerms = parseConsentGuideTerms(o.guideTerms);
-  if (!serviceDate && !timeSlot && !guideTerms) return null;
-  return { serviceDate, timeSlot, guideTerms };
+  const extraWork = parseConsentExtraWork(o.extraWork);
+  if (!serviceDate && !timeSlot && !guideTerms && !extraWork) return null;
+  return { serviceDate, timeSlot, guideTerms, extraWork };
 }
 
 export function resolveOrderFormAckBodies(formConfig: {
@@ -148,6 +167,10 @@ export function validateOrderFormSubmitConsents(params: {
   | { ok: false; error: string } {
   const parsed = parseOrderFormSubmitConsents(params.consentsRaw);
   const ackBodies = resolveOrderFormAckBodies(params.formConfig);
+
+  if (!parsed?.extraWork) {
+    return { ok: false, error: '추가 시공비 안내에 「동의합니다」라고 적어 주세요.' };
+  }
 
   if (!parsed?.guideTerms) {
     return { ok: false, error: '[필수] 성함을 적고 안내사항을 끝까지 읽고 서명해 주세요.' };
@@ -195,6 +218,7 @@ export function validateOrderFormSubmitConsents(params: {
         agreedAt: parsed.guideTerms.agreedAt,
         typedName: parsed.guideTerms.typedName,
       },
+      extraWork: parsed.extraWork,
     },
   };
 }

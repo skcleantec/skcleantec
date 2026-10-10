@@ -185,8 +185,11 @@ export function useLoginScrollSurface(
 export function useModalScrollKeyboardAvoidance(
   scrollRef: RefObject<HTMLElement | null>,
   enabled = true,
+  /** 포커스 필드 아래 여백. 입력칸 밑 버튼까지 키보드 위에 두려면 키운다. */
+  paddingPx = 24,
 ): { onFieldFocus: (e: FocusEvent<HTMLElement>) => void } {
   const mobileEnabled = enabled && isMobileKeyboardScrollContext();
+  const fieldPaddingPx = Math.max(24, paddingPx);
 
   useEffect(() => {
     if (!mobileEnabled) return;
@@ -196,20 +199,20 @@ export function useModalScrollKeyboardAvoidance(
       (root) => {
         const active = document.activeElement;
         if (isFormField(active)) {
-          ensureInputVisibleAboveKeyboard(active, root, 'auto', 24, { allowScrollUp: false });
+          ensureInputVisibleAboveKeyboard(active, root, 'auto', fieldPaddingPx, { allowScrollUp: false });
         }
       },
     );
-  }, [mobileEnabled, scrollRef]);
+  }, [fieldPaddingPx, mobileEnabled, scrollRef]);
 
   const onFieldFocus = useCallback(
     (e: FocusEvent<HTMLElement>) => {
       if (!mobileEnabled) return;
       scheduleEnsureVisible(focusedFieldFromEvent(e), scrollRef.current, 'smooth', {
         allowScrollUp: false,
-      });
+      }, fieldPaddingPx);
     },
-    [mobileEnabled, scrollRef],
+    [fieldPaddingPx, mobileEnabled, scrollRef],
   );
 
   return { onFieldFocus };

@@ -23,6 +23,14 @@ export type OrderFormConsentGuideTerms = {
   signaturePng?: string;
 };
 
+/** 확인 단계에서 손님이 직접 적어야 다음으로 넘어가는 문구 */
+export const ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE = '동의합니다';
+
+export type OrderFormConsentExtraWork = {
+  agreedAt: string;
+  typedPhrase: string;
+};
+
 export function normalizeGuideTypedName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.replace(/\s+/g, ' ').trim();
@@ -34,9 +42,10 @@ export type OrderFormSubmissionConsents = {
   serviceDate?: OrderFormConsentServiceDate | null;
   timeSlot?: OrderFormConsentTimeSlot | null;
   guideTerms?: OrderFormConsentGuideTerms | null;
+  extraWork?: OrderFormConsentExtraWork | null;
 };
 
-export type OrderFormConsentKind = 'serviceDate' | 'timeSlot' | 'guideTerms';
+export type OrderFormConsentKind = 'serviceDate' | 'timeSlot' | 'guideTerms' | 'extraWork';
 
 /** KST — 「2026년 8월 10일 오후 3:42」 */
 export function formatOrderFormConsentKst(iso: string): string {
@@ -76,6 +85,11 @@ export function orderFormConsentStampLabel(
   const when = formatOrderFormConsentKst(agreedAt);
   const who = typedName?.trim() ? `${typedName.trim()} 고객님께서` : '고객님께서';
   return `${when}에 ${who} 모든 안내사항과 위약 내용을 읽고 동의하셨습니다.`;
+}
+
+export function orderFormExtraWorkConsentLabel(agreedAt: string): string {
+  const when = formatOrderFormConsentKst(agreedAt);
+  return `${when}에 고객님께서 「${ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE}」라고 적고 추가 시공비 안내에 동의하셨습니다.`;
 }
 
 export function orderFormSectionReadAckLabel(typedName?: string | null): string {

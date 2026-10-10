@@ -1,5 +1,9 @@
 import type { OrderFormConsentKind, OrderFormSubmissionConsents } from '@shared/orderFormConsents';
-import { orderFormConsentStampLabel } from '@shared/orderFormConsents';
+import {
+  ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE,
+  orderFormConsentStampLabel,
+  orderFormExtraWorkConsentLabel,
+} from '@shared/orderFormConsents';
 
 export function OrderFormConsentStamp(props: {
   kind: OrderFormConsentKind;
@@ -79,14 +83,25 @@ export function OrderFormConsentsSummary(props: {
   const { consents, className = '' } = props;
   if (!consents) return null;
   const guide = consents.guideTerms;
-  if (!guide?.agreedAt && !guide?.typedName && !guide?.signatureUrl) return null;
+  const extra = consents.extraWork;
+  const hasGuide = Boolean(guide?.agreedAt || guide?.typedName || guide?.signatureUrl);
+  const hasExtra =
+    extra?.typedPhrase?.trim() === ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE && Boolean(extra.agreedAt);
+  if (!hasGuide && !hasExtra) return null;
   return (
     <section className={className}>
-      <OrderFormGuideSignProof
-        typedName={guide?.typedName}
-        agreedAt={guide?.agreedAt}
-        signatureUrl={guide?.signatureUrl}
-      />
+      {hasExtra && extra?.agreedAt ? (
+        <p className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs leading-snug text-amber-950">
+          {orderFormExtraWorkConsentLabel(extra.agreedAt)}
+        </p>
+      ) : null}
+      {hasGuide ? (
+        <OrderFormGuideSignProof
+          typedName={guide?.typedName}
+          agreedAt={guide?.agreedAt}
+          signatureUrl={guide?.signatureUrl}
+        />
+      ) : null}
     </section>
   );
 }

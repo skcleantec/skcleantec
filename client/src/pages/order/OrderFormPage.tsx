@@ -106,7 +106,10 @@ import {
   OrderFormConsentStamp,
   OrderFormGuideSignProof,
 } from '../../components/orderform/OrderFormConsentUi';
-import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
+import {
+  ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE,
+  type OrderFormSubmissionConsents,
+} from '@shared/orderFormConsents';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
 import { OrderFormCompanyTrustFooter } from '../../components/orderform/OrderFormCompanyTrustFooter';
 import { OrderFormPlatformFooter } from '../../components/orderform/OrderFormPlatformFooter';
@@ -330,6 +333,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     at: string;
     signaturePng: string;
     typedName: string;
+  } | null>(null);
+  const [extraWorkConsent, setExtraWorkConsent] = useState<{
+    at: string;
+    typedPhrase: string;
   } | null>(null);
   const wizardGoToRef = useRef<((id: OrderFormCustomerStepId) => void) | null>(null);
   /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
@@ -1317,6 +1324,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         });
         if (spaceErr) addIssue(spaceErr, 'order-field-roomCount');
       }
+      if (!isEditor && extraWorkConsent?.typedPhrase.trim() !== ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE) {
+        addIssue('추가 시공비 안내에 「동의합니다」라고 적어 주세요.', 'order-field-agree');
+      }
       if (!guideTermsConsent?.signaturePng || !guideTermsConsent.typedName?.trim()) {
         addIssue('[필수] 성함을 적고 안내사항을 끝까지 읽고 서명해 주세요.', 'order-field-agree');
       }
@@ -1375,6 +1385,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               agreedAt: guideTermsConsent.at,
               signaturePng: guideTermsConsent.signaturePng,
               typedName: guideTermsConsent.typedName,
+            }
+          : undefined,
+        extraWork: extraWorkConsent
+          ? {
+              agreedAt: extraWorkConsent.at,
+              typedPhrase: extraWorkConsent.typedPhrase,
             }
           : undefined,
       };
@@ -2350,6 +2366,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         submitting={submitting}
         dialogs={pageDialogs}
         previewWalk={previewWalk}
+        extraWorkPhrase={extraWorkConsent?.typedPhrase}
+        onExtraWorkAgree={(payload) => setExtraWorkConsent(payload)}
       />
     );
   }
