@@ -25,6 +25,18 @@ export function parseOrderFormSpaceCount(raw: unknown): number | null {
   return n;
 }
 
+/** 입력 내용 — 방·발코니·화장실·주방을 한 줄로 */
+export function formatOrderFormSpaceCountsLine(counts: {
+  roomCount?: number | string | null;
+  balconyCount?: number | string | null;
+  bathroomCount?: number | string | null;
+  kitchenCount?: number | string | null;
+}): string {
+  const n = (value: number | string | null | undefined) =>
+    value == null || value === '' ? '—' : String(value);
+  return `방 ${n(counts.roomCount)} · 발코니 ${n(counts.balconyCount)} · 화장실 ${n(counts.bathroomCount)} · 주방 ${n(counts.kitchenCount)}`;
+}
+
 export function validateOrderFormSpaceCounts(source: Record<string, unknown>): string | null {
   for (const { key, label } of ORDER_FORM_SPACE_COUNT_FIELDS) {
     if (parseOrderFormSpaceCount(source[key]) === null) {

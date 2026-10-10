@@ -1,6 +1,12 @@
 import type { OrderFormCustomerSubmissionSnapshotV1 } from '../../api/orderform';
-import { labelForCleaningKind } from '@shared/orderFormCleaningKind';
+import {
+  displayCleaningKindLabel,
+  humanizeAnswerValue,
+  humanizeStoredChoice,
+  type CustomerPageCopy,
+} from '@shared/orderFormCustomerPages';
 import { labelForMoveInTiming } from '@shared/orderFormMoveInTiming';
+import { formatOrderFormSpaceCountsLine } from '@shared/orderFormSpaceCounts';
 import { TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY } from '@shared/telecrmConsultationQuote';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
@@ -15,11 +21,25 @@ export function slotLabelForOrderForm(v: string, labels?: OrderTimeSlotLabels | 
   return labelForTimeSlot(v, labels);
 }
 
-function renderSnapshotAnswerValue(v: unknown): string {
+function renderSnapshotAnswerValue(
+  v: unknown,
+  pages?: CustomerPageCopy[] | null,
+  pageId?: string,
+): string {
   if (v == null) return '';
-  if (Array.isArray(v)) return v.map((x) => String(x)).join(', ');
+  if (Array.isArray(v)) {
+    return v
+      .map((item) => {
+        const human = typeof item === 'string' ? humanizeStoredChoice(item, pages, pageId) || item : item;
+        return human == null ? '' : String(human);
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
   if (typeof v === 'boolean') return v ? '예' : '아니오';
-  return String(v);
+  if (typeof v === 'string') return humanizeStoredChoice(v, pages, pageId) || v;
+  const human = humanizeAnswerValue(v, pages);
+  return human == null ? '' : String(human);
 }
 
 export function isOrderFormSubmissionSnapshotV1(x: unknown): x is OrderFormCustomerSubmissionSnapshotV1 {
@@ -35,7 +55,23 @@ export function isOrderFormSubmissionSnapshotV1(x: unknown): x is OrderFormCusto
   );
 }
 
-export function OrderFormSnapshotRow({ label, children }: { label: string; children: React.ReactNode }) {
+export function OrderFormSnapshotRow({
+  label,
+  children,
+  singleLine,
+}: {
+  label: string;
+  children: React.ReactNode;
+  singleLine?: boolean;
+}) {
+  if (singleLine) {
+    return (
+      <div className="flex items-center gap-2 border-b border-gray-100 py-2 text-fluid-xs">
+        <div className="shrink-0 text-fluid-2xs font-medium text-gray-500">{label}</div>
+        <div className="min-w-0 flex-1 whitespace-nowrap text-right text-gray-900">{children}</div>
+      </div>
+    );
+  }
   return (
     <div className="grid grid-cols-1 gap-1 border-b border-gray-100 py-2 text-fluid-sm sm:grid-cols-[7.5rem_1fr] sm:gap-3">
       <div className="shrink-0 text-fluid-xs font-medium text-gray-500 sm:text-fluid-sm">{label}</div>
@@ -47,8 +83,10 @@ export function OrderFormSnapshotRow({ label, children }: { label: string; child
 export function OrderFormSubmissionSnapshotContent(props: {
   snapshot: unknown;
   submittedAt?: string | null;
+  /** 이미 제출된 원본에 OPT_2 같은 코드가 남아 있을 때 한글 이름으로 바꾼다 */
+  choicePages?: CustomerPageCopy[] | null;
 }) {
-  const { snapshot, submittedAt } = props;
+  const { snapshot, submittedAt, choicePages } = props;
 
   if (!isOrderFormSubmissionSnapshotV1(snapshot)) {
     return (
@@ -62,7 +100,7 @@ export function OrderFormSubmissionSnapshotContent(props: {
     (a) =>
       a &&
       a.fieldKey !== TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY &&
-      String(renderSnapshotAnswerValue(a.value)).trim() !== '',
+      String(renderSnapshotAnswerValue(a.value, choicePages, a.fieldKey)).trim() !== '',
   );
 
   const consents = (snapshot.consents ?? null) as OrderFormSubmissionConsents | null;
@@ -77,7 +115,7 @@ export function OrderFormSubmissionSnapshotContent(props: {
           <div className="rounded-lg border border-gray-200 bg-white px-3">
             {tplAnswers.map((a, i) => (
               <OrderFormSnapshotRow key={`${a.fieldKey}-${i}`} label={a.label}>
-                {renderSnapshotAnswerValue(a.value)}
+                {renderSnapshotAnswerValue(a.value, choicePages, a.fieldKey)}
               </OrderFormSnapshotRow>
             ))}
           </div>
@@ -102,8 +140,11 @@ export function OrderFormSubmissionSnapshotContent(props: {
         <div className="rounded-lg border border-gray-200 bg-white px-3">
           <OrderFormSnapshotRow label="성함">{snapshot.fields.customerName}</OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="청소 종류">
-            {snapshot.fields.cleaningKindLabel?.trim() ||
-              labelForCleaningKind(snapshot.fields.cleaningKind)}
+            {displayCleaningKindLabel(
+              snapshot.fields.cleaningKindLabel,
+              snapshot.fields.cleaningKind,
+              choicePages,
+            )}
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="연락처">{snapshot.fields.customerPhone}</OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="보조 연락처">
@@ -116,7 +157,10 @@ export function OrderFormSubmissionSnapshotContent(props: {
           <OrderFormSnapshotRow label="상세주소">
             {snapshot.fields.addressDetail?.trim() ? snapshot.fields.addressDetail : '—'}
           </OrderFormSnapshotRow>
-          <OrderFormSnapshotRow label="건축물 유형">{snapshot.fields.propertyType}</OrderFormSnapshotRow>
+          <OrderFormSnapshotRow label="건축물 유형">
+            {humanizeStoredChoice(snapshot.fields.propertyType, choicePages, 'property') ||
+              snapshot.fields.propertyType}
+          </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="공급면적 (분양평수)">
             {snapshot.fields.areaBasis === '공급' &&
             snapshot.fields.areaPyeong != null &&
@@ -142,12 +186,18 @@ export function OrderFormSubmissionSnapshotContent(props: {
                   ? '입력 없음'
                   : '—'}
           </OrderFormSnapshotRow>
-          <OrderFormSnapshotRow label="방">{snapshot.fields.roomCount ?? '—'}</OrderFormSnapshotRow>
-          <OrderFormSnapshotRow label="발코니">{snapshot.fields.balconyCount ?? '—'}</OrderFormSnapshotRow>
-          <OrderFormSnapshotRow label="화장실">{snapshot.fields.bathroomCount ?? '—'}</OrderFormSnapshotRow>
-          <OrderFormSnapshotRow label="주방">{snapshot.fields.kitchenCount ?? '—'}</OrderFormSnapshotRow>
+          <OrderFormSnapshotRow label="구성" singleLine>
+            {formatOrderFormSpaceCountsLine({
+              roomCount: snapshot.fields.roomCount,
+              balconyCount: snapshot.fields.balconyCount,
+              bathroomCount: snapshot.fields.bathroomCount,
+              kitchenCount: snapshot.fields.kitchenCount,
+            })}
+          </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="건축 형태">
-            {snapshot.fields.buildingType?.trim() ? snapshot.fields.buildingType : '—'}
+            {snapshot.fields.buildingType?.trim()
+              ? humanizeStoredChoice(snapshot.fields.buildingType, choicePages, 'building')
+              : '—'}
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="이사 구분">
             {labelForMoveInTiming(snapshot.fields.moveInTiming)}

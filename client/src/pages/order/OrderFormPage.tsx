@@ -138,7 +138,7 @@ import {
   orderFormChoiceUsesOptionList,
 } from '@shared/orderFormOptionLayout';
 import { OrderFormModalFormattedText } from '../../components/orderform/OrderFormModalFormattedText';
-import { PUBLIC_PAGE_CLOSE_HINT, tryLeavePublicPage } from '../../utils/publicPageLeave';
+import { dismissSubmittedReceipt, PUBLIC_PAGE_CLOSE_HINT, tryLeavePublicPage } from '../../utils/publicPageLeave';
 import { scrollToOrderFormField } from '../../utils/preserveScrollAround';
 import { useOrderFormModel } from '../../hooks/useOrderFormModel';
 import { clearOrderFormCustomerDraft } from '../../hooks/useOrderFormCustomerDraft';
@@ -1660,6 +1660,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
   };
 
+  const handleDismissReceipt = () => {
+    if (editor?.onClose) {
+      editor.onClose();
+      return;
+    }
+    dismissSubmittedReceipt(() => setLeavePageHint(PUBLIC_PAGE_CLOSE_HINT));
+  };
+
   const customerWizard = useOrderFormModel({
     token,
     enabled: !isEditor,
@@ -1678,11 +1686,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   });
   wizardGoToRef.current = customerWizard.goTo;
 
-  const CloseButton = () => (
+  const CloseButton = ({ onClick = handleLeavePage }: { onClick?: () => void }) => (
     <button
       type="button"
-      onClick={handleLeavePage}
-      className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-300 rounded"
+      onClick={onClick}
+      className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
     >
       닫기
     </button>
@@ -1717,10 +1725,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         submissionEmail={submittedReceipt.submissionEmail}
         publicCompanyTrust={submittedReceipt.publicCompanyTrust}
         companyDisplayName={submittedReceipt.publicBranding?.displayName}
-        headerRight={<CloseButton />}
-        onDismiss={handleLeavePage}
+        headerRight={<CloseButton onClick={handleDismissReceipt} />}
+        onDismiss={handleDismissReceipt}
         leaveHint={leavePageHint}
         templateId={order?.template?.id}
+        choicePages={order?.template?.customerPages}
       />
     );
   }

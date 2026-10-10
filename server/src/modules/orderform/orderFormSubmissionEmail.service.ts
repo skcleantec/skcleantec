@@ -11,6 +11,10 @@ import {
 } from '../../lib/outboundEmailRouter.js';
 import { resolveQuotationBrandDisplayName } from '../quotations/quotationDocumentTitle.service.js';
 import {
+  humanizeCustomerSubmissionSnapshot,
+  resolveCustomerPages,
+} from '../../lib/orderFormCustomerPages.js';
+import {
   buildOrderFormSubmissionEmailContent,
 } from '../platform-email-templates/platformCustomerEmailRender.service.js';
 
@@ -131,14 +135,17 @@ export async function sendOrderFormSubmissionConfirmationEmail(
     return { status: 'SKIPPED_NO_PLATFORM_SMTP', additionalResults: [] };
   }
 
-  let snapshot = input.customerSubmissionSnapshot;
-  if (snapshot == null) {
-    const snapRow = await prisma.orderForm.findFirst({
-      where: { id: input.orderFormId, tenantId: input.tenantId },
-      select: { customerSubmissionSnapshot: true },
-    });
-    snapshot = snapRow?.customerSubmissionSnapshot ?? null;
-  }
+  const snapRow = await prisma.orderForm.findFirst({
+    where: { id: input.orderFormId, tenantId: input.tenantId },
+    select: {
+      customerSubmissionSnapshot: true,
+      template: { select: { customerWizardJson: true } },
+    },
+  });
+  const snapshot = humanizeCustomerSubmissionSnapshot(
+    input.customerSubmissionSnapshot ?? snapRow?.customerSubmissionSnapshot ?? null,
+    resolveCustomerPages(snapRow?.template?.customerWizardJson),
+  );
 
   const contentInput = {
     brandDisplayName,

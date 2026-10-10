@@ -23,7 +23,14 @@ import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { formatDateCompactWithWeekday } from '../../../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../../../utils/inquiryAreaDisplay';
-import { labelForCleaningKind, shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
+import { shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
+import {
+  displayCleaningKindLabel,
+  humanizeStoredChoice,
+  type CustomerPageCopy,
+} from '@shared/orderFormCustomerPages';
+import { labelForMoveInTiming } from '@shared/orderFormMoveInTiming';
+import { formatOrderFormSpaceCountsLine } from '@shared/orderFormSpaceCounts';
 import { labelForTimeSlot } from '../../../../constants/orderFormSchedule';
 import { WIZARD_CTA_CLS, WIZARD_INPUT_CLS, WIZARD_SECONDARY_CLS, WizardQuestion } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
@@ -278,22 +285,39 @@ function ReviewRow({
   label,
   value,
   onEdit,
+  nowrap,
 }: {
   label: string;
   value: string;
   onEdit?: () => void;
+  nowrap?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onEdit}
       disabled={!onEdit}
-      className="flex w-full items-start justify-between gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2.5 text-left hover:bg-slate-50 disabled:pointer-events-none"
+      className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2.5 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-100"
     >
       <span className="shrink-0 text-fluid-2xs font-medium text-slate-500">{label}</span>
-      <span className="min-w-0 text-right text-fluid-sm font-medium text-slate-900">{value || '—'}</span>
+      <span
+        className={`text-right font-medium text-slate-900 ${nowrap ? 'whitespace-nowrap text-fluid-xs' : 'min-w-0 text-fluid-sm'}`}
+      >
+        {value || '—'}
+      </span>
     </button>
   );
+}
+
+function choiceLabel(
+  options: { value: string; label: string }[],
+  raw: string,
+  pages: CustomerPageCopy[] | null | undefined,
+  pageId: string,
+): string {
+  const fromOption = options.find((option) => option.value === raw || option.label === raw)?.label?.trim() ?? '';
+  if (fromOption && fromOption !== raw) return fromOption;
+  return humanizeStoredChoice(raw, pages, pageId) || raw;
 }
 
 export function ReviewStep({
@@ -306,7 +330,10 @@ export function ReviewStep({
   lockKey,
   timeSlotLabels,
   timeSlotOptions,
+  propertyTypeOptions,
+  buildingTypeOptions,
 }: CustomerStepBodyProps) {
+  const pages = order?.template?.customerPages ?? null;
   const jump = (id: OrderFormCustomerStepId) => () => goTo(id);
   const areaLine =
     form.areaBasis && form.areaPyeong
@@ -321,7 +348,7 @@ export function ReviewStep({
         {shouldCollectOrderFormCleaningKind(order?.template) ? (
         <ReviewRow
           label="청소 종류"
-          value={labelForCleaningKind(form.cleaningKind)}
+          value={displayCleaningKindLabel(null, form.cleaningKind, pages)}
           onEdit={lockKey('cleaningKind') ? undefined : jump('welcome')}
         />
         ) : null}
@@ -335,7 +362,11 @@ export function ReviewStep({
         {form.customerEmail ? <ReviewRow label="이메일" value={form.customerEmail} onEdit={jump('email')} /> : null}
         <ReviewRow
           label="공간"
-          value={form.isOneRoom ? '원룸' : form.propertyType}
+          value={
+            form.isOneRoom && !form.propertyType.trim()
+              ? '원룸'
+              : choiceLabel(propertyTypeOptions, form.propertyType, pages, 'property')
+          }
           onEdit={jump('property')}
         />
         {areaLine ? <ReviewRow label="면적" value={areaLine} onEdit={jump('area')} /> : null}
@@ -364,31 +395,38 @@ export function ReviewStep({
           )}
         />
         <ReviewRow
-          label="방·화장실·베란다·주방"
-          value={[
-            form.roomCount !== '' ? `방 ${form.roomCount}` : '',
-            form.bathroomCount !== '' ? `화장실 ${form.bathroomCount}` : '',
-            form.balconyCount !== '' ? `베란다 ${form.balconyCount}` : '',
-            form.kitchenCount !== '' ? `주방 ${form.kitchenCount}` : '',
-          ]
-            .filter(Boolean)
-            .join(' · ')}
+          label="구성"
+          nowrap
+          value={formatOrderFormSpaceCountsLine({
+            roomCount: form.roomCount,
+            balconyCount: form.balconyCount,
+            bathroomCount: form.bathroomCount,
+            kitchenCount: form.kitchenCount,
+          })}
           onEdit={jump('rooms')}
         />
-        <ReviewRow label="건물" value={form.buildingType} onEdit={jump('building')} />
+        <ReviewRow
+          label="건물"
+          value={choiceLabel(buildingTypeOptions, form.buildingType, pages, 'building')}
+          onEdit={jump('building')}
+        />
         <ReviewRow
           label="입주"
           value={
             form.moveInDateUndecided
               ? '미정'
-              : [form.moveInTiming, form.moveInDate].filter(Boolean).join(' · ')
+              : [form.moveInTiming ? labelForMoveInTiming(form.moveInTiming) : '', form.moveInDate]
+                  .filter((part) => part && part !== '—')
+                  .join(' · ')
           }
           onEdit={jump('moveIn')}
         />
         {form.specialNotes ? <ReviewRow label="메모" value={form.specialNotes} onEdit={jump('notes')} /> : null}
         {visibleCustomFields.map((cf) => {
           const v = customAnswers[cf.fieldKey];
-          const text = Array.isArray(v) ? v.join(', ') : v == null ? '' : String(v);
+          const text = Array.isArray(v)
+            ? v.map((item) => humanizeStoredChoice(item, pages) || String(item)).join(', ')
+            : humanizeStoredChoice(v, pages) || (v == null ? '' : String(v));
           return (
             <ReviewRow
               key={cf.fieldKey}

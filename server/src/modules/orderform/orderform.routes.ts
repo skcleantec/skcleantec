@@ -188,8 +188,10 @@ import {
   shouldCollectOrderFormCleaningKind,
 } from '../../lib/orderFormCleaningKind.js';
 import {
+  humanizeCustomerSubmissionSnapshot,
   labelForCustomerCleaningKind,
   matchCleaningKindChoice,
+  resolveCustomerPages,
 } from '../../lib/orderFormCustomerPages.js';
 import { isSkCleantecOpsUiEnabled, oneRoomLabelWhenSkOpsEnabled } from '../custom/skcleantecOpsUi.js';
 import { assertValidCustomerEmail } from '../../lib/customerEmail.js';
@@ -1211,7 +1213,11 @@ router.get('/:id/customer-submission', authMiddleware, requireStaffPermission('o
   }
   const row = await prisma.orderForm.findFirst({
     where: { id: rawId, tenantId, token: excludeDesignerPreviewTokens },
-    select: { customerSubmissionSnapshot: true, submittedAt: true },
+    select: {
+      customerSubmissionSnapshot: true,
+      submittedAt: true,
+      template: { select: { customerWizardJson: true } },
+    },
   });
   if (!row) {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
@@ -1219,7 +1225,10 @@ router.get('/:id/customer-submission', authMiddleware, requireStaffPermission('o
   }
   res.json({
     submittedAt: row.submittedAt,
-    snapshot: row.customerSubmissionSnapshot ?? null,
+    snapshot: humanizeCustomerSubmissionSnapshot(
+      row.customerSubmissionSnapshot ?? null,
+      resolveCustomerPages(row.template?.customerWizardJson),
+    ),
   });
 });
 
@@ -3296,7 +3305,7 @@ router.post('/submit/:token', async (req, res) => {
     return;
   }
 
-  const customerSubmissionSnapshot = {
+  const customerSubmissionSnapshot = humanizeCustomerSubmissionSnapshot({
     version: 1,
     capturedAt: new Date().toISOString(),
     consents: {
@@ -3355,7 +3364,7 @@ router.post('/submit/:token', async (req, res) => {
       grandTotalAmount,
       profOptionGuideLines: profIssuedSummary.guideLines,
     },
-  };
+  }, customerPages) as Prisma.InputJsonValue;
 
   const brandSlug = typeof req.query.brand === 'string' ? req.query.brand : null;
 

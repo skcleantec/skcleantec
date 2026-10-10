@@ -2,7 +2,9 @@
 
 import type { MoveInTiming } from '@prisma/client';
 import { labelForMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
-import { labelForCleaningKind, type OrderFormCleaningKind } from '../../lib/orderFormCleaningKind.js';
+import { type OrderFormCleaningKind } from '../../lib/orderFormCleaningKind.js';
+import { displayCleaningKindLabel, humanizeStoredChoice } from '../../lib/orderFormCustomerPages.js';
+import { formatOrderFormSpaceCountsLine } from '../../lib/orderFormSpaceCounts.js';
 
 export type OrderFormSubmissionSnapshotV1 = {
   version: 1;
@@ -194,20 +196,31 @@ export function buildEmailDetailSections(
     rows: [
       ...(inquiryNumber ? [{ label: '접수번호', value: inquiryNumber }] : []),
       { label: '성함', value: f.customerName },
-      { label: '청소 종류', value: f.cleaningKindLabel?.trim() || labelForCleaningKind(f.cleaningKind) },
+      {
+        label: '청소 종류',
+        value: displayCleaningKindLabel(f.cleaningKindLabel, f.cleaningKind),
+      },
       { label: '연락처', value: f.customerPhone },
       { label: '보조 연락처', value: dashIfEmpty(f.customerPhone2) },
       { label: '이메일', value: dashIfEmpty(f.customerEmail) },
       { label: '주소', value: f.address },
       { label: '상세주소', value: dashIfEmpty(f.addressDetail) },
-      { label: '건축물 유형', value: f.propertyType },
+      { label: '건축물 유형', value: humanizeStoredChoice(f.propertyType, null, 'property') || f.propertyType },
       { label: '공급면적 (분양평수)', value: areaSupplyText(f) },
       { label: '전용면적 (실제 내 집 공간)', value: areaExclusiveText(f) },
-      { label: '방', value: f.roomCount != null ? String(f.roomCount) : '—' },
-      { label: '발코니', value: f.balconyCount != null ? String(f.balconyCount) : '—' },
-      { label: '화장실', value: f.bathroomCount != null ? String(f.bathroomCount) : '—' },
-      { label: '주방', value: f.kitchenCount != null ? String(f.kitchenCount) : '—' },
-      { label: '건축 형태', value: dashIfEmpty(f.buildingType) },
+      {
+        label: '구성',
+        value: formatOrderFormSpaceCountsLine({
+          roomCount: f.roomCount,
+          balconyCount: f.balconyCount,
+          bathroomCount: f.bathroomCount,
+          kitchenCount: f.kitchenCount,
+        }),
+      },
+      {
+        label: '건축 형태',
+        value: f.buildingType?.trim() ? humanizeStoredChoice(f.buildingType, null, 'building') : '—',
+      },
       { label: '이사 구분', value: labelForMoveInTiming(f.moveInTiming) },
       { label: '입주일', value: moveInText(f) },
       { label: '청소 희망일', value: formatYmdWithWeekday(f.preferredDate) },

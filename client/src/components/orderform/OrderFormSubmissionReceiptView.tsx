@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getOrderFormByToken,
   isOrderFormPublicSubmitted,
@@ -25,6 +25,7 @@ import {
   OrderFormSubmissionSnapshotContent,
 } from './orderFormSubmissionSnapshot';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
+import type { CustomerPageCopy } from '@shared/orderFormCustomerPages';
 
 function submissionEmailStatusMessage(
   submissionEmail: OrderFormSubmissionEmailInfo | null | undefined,
@@ -64,6 +65,7 @@ export function OrderFormSubmissionReceiptView(props: {
   leaveHint?: string | null;
   onSubmissionEmailChange?: (info: OrderFormSubmissionEmailInfo | null) => void;
   templateId?: string | null;
+  choicePages?: CustomerPageCopy[] | null;
 }) {
   const {
     token,
@@ -81,6 +83,7 @@ export function OrderFormSubmissionReceiptView(props: {
     leaveHint,
     onSubmissionEmailChange,
     templateId,
+    choicePages,
   } = props;
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [photos, setPhotos] = useState<OrderFormPhotoItem[]>([]);
@@ -91,6 +94,12 @@ export function OrderFormSubmissionReceiptView(props: {
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
   const [resendError, setResendError] = useState('');
+  const dismissActionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!leaveHint) return;
+    dismissActionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [leaveHint]);
 
   const submissionConsents: OrderFormSubmissionConsents | null =
     snapshot != null && isOrderFormSubmissionSnapshotV1(snapshot)
@@ -300,7 +309,11 @@ export function OrderFormSubmissionReceiptView(props: {
               제출은 완료되었으나 상세 내역을 불러올 수 없습니다. 문의가 필요하면 업체에 연락해 주세요.
             </div>
           ) : (
-            <OrderFormSubmissionSnapshotContent snapshot={snapshot} submittedAt={submittedAt} />
+            <OrderFormSubmissionSnapshotContent
+              snapshot={snapshot}
+              submittedAt={submittedAt}
+              choicePages={choicePages}
+            />
           )}
 
           {photos.length > 0 ? (
@@ -327,18 +340,26 @@ export function OrderFormSubmissionReceiptView(props: {
           />
 
           {onDismiss ? (
-            <div className="mt-6 flex flex-col gap-2">
+            <div ref={dismissActionsRef} className="mt-6 flex flex-col gap-2">
+              {leaveHint ? (
+                <p
+                  className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs leading-snug text-amber-950"
+                  role="status"
+                >
+                  {leaveHint}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={onDismiss}
-                className="min-h-11 w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
+                className="min-h-11 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               >
                 확인했어요
               </button>
               <button
                 type="button"
                 onClick={onDismiss}
-                className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               >
                 닫기
               </button>
