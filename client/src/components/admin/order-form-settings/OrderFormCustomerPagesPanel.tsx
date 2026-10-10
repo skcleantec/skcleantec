@@ -16,6 +16,7 @@ import {
   type CustomerPageCopy,
 } from '@shared/orderFormCustomerPages';
 import { composeCustomerSettingsPages } from './customerSettingsPages';
+import { OrderFormReviewExtraWorkSettings } from './OrderFormReviewExtraWorkSettings';
 
 const INPUT =
   'w-full min-h-9 rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
@@ -230,7 +231,12 @@ export function OrderFormCustomerPagesPanel(props: {
           {page.hintPartial ? (
             <TextRow label="일부만 적혀 있을 때 도움말" value={page.hintPartial} onChange={(hintPartial) => patchPage({ hintPartial })} multiline />
           ) : null}
-          {page.lines.map((line, index) => (
+          {page.id === 'review' ? (
+            <OrderFormReviewExtraWorkSettings page={page} onChange={(lines) => patchPage({ lines })} />
+          ) : null}
+          {page.id === 'review'
+            ? null
+            : page.lines.map((line, index) => (
             <TextRow
               key={line.key}
               label={line.key === 'confirm' ? '확인 버튼' : '화면 문구'}

@@ -20,6 +20,7 @@ import {
 } from '../../constants/internalCustomerTone';
 import { OrderFormPage, type OrderFormEditorContext } from '../../pages/order/OrderFormPage';
 import { OrderFormIssueCompleteCard } from './OrderFormIssueCompleteCard';
+import { OrderFormExtraWorkNoticeCheckbox } from './OrderFormExtraWorkNoticeCheckbox';
 import {
   buildOrderFormCustomerMessage,
   customerLinkMsgConfigForBrand,
@@ -84,6 +85,7 @@ export function OrderIssueInlinePanel({
   const [pendingLinkId, setPendingLinkId] = useState(pendingInquiryIdProp?.trim() ?? '');
   const [issueInternalCustomerTone, setIssueInternalCustomerTone] =
     useState<InternalCustomerTone>(DEFAULT_INTERNAL_CUSTOMER_TONE);
+  const [issueExtraWorkNotice, setIssueExtraWorkNotice] = useState(false);
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueLeadSource, setIssueLeadSource] = useState('');
@@ -264,6 +266,7 @@ export function OrderIssueInlinePanel({
     setPendingLinkId('');
     setIssueLeadSource(defaultScheduleLeadSourceLabel(staffTenantSlug) || '');
     setIssueCollaborationMarketerId('');
+    setIssueExtraWorkNotice(false);
     setIssueFormKey((k) => k + 1);
   }, [staffTenantSlug]);
 
@@ -312,6 +315,7 @@ export function OrderIssueInlinePanel({
     leadSource: issueLeadSource,
     operatingCompanyId: effectiveIssueOperatingCompanyId || undefined,
     collaborationMarketerId: issueCollaborationMarketerId.trim() || null,
+    extraWorkNotice: issueExtraWorkNotice,
     onCreated: handleOrderCreated,
     crmSeed,
   };
@@ -430,11 +434,17 @@ export function OrderIssueInlinePanel({
           />
         </label>
 
-        <InternalCustomerToneRadio
-          value={issueInternalCustomerTone}
-          onChange={setIssueInternalCustomerTone}
-          name="crmIssueInternalCustomerTone"
-        />
+        <div>
+          <InternalCustomerToneRadio
+            value={issueInternalCustomerTone}
+            onChange={setIssueInternalCustomerTone}
+            name="crmIssueInternalCustomerTone"
+          />
+          <OrderFormExtraWorkNoticeCheckbox
+            checked={issueExtraWorkNotice}
+            onChange={setIssueExtraWorkNotice}
+          />
+        </div>
       </div>
 
       <div className="border-t border-gray-100 pt-4">

@@ -334,7 +334,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     signaturePng: string;
     typedName: string;
   } | null>(null);
-  const [extraWorkNotice, setExtraWorkNotice] = useState(false);
   const [extraWorkConsent, setExtraWorkConsent] = useState<{
     at: string;
     typedPhrase: string;
@@ -1639,7 +1638,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         ...(editor.create.collaborationMarketerId !== undefined
           ? { collaborationMarketerId: editor.create.collaborationMarketerId }
           : {}),
-        extraWorkNotice,
+        extraWorkNotice: editor.create.extraWorkNotice === true,
       });
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
       editor.create.onCreated(order);
@@ -3600,30 +3599,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           >
             <div className={isInline ? '' : 'mx-auto max-w-lg px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'}>
             {isCreate ? (
-              <div className="space-y-2">
-                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-4 shrink-0 accent-slate-900"
-                    checked={extraWorkNotice}
-                    onChange={(e) => setExtraWorkNotice(e.target.checked)}
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-fluid-sm font-medium text-slate-900">추가 시공비 안내</span>
-                    <span className="block text-fluid-2xs leading-snug text-slate-600">
-                      체크하면 고객이 안내 확인하고 제출을 누를 때 추가 시공비 안내가 나옵니다. 체크하지 않으면 바로 다음으로 넘어갑니다.
-                    </span>
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleCreateAndPrefill}
-                  disabled={prefillSaving}
-                  className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-                >
-                  {prefillSaving ? '발급 중...' : '발급 및 링크 생성'}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleCreateAndPrefill}
+                disabled={prefillSaving}
+                className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              >
+                {prefillSaving ? '발급 중...' : '발급 및 링크 생성'}
+              </button>
             ) : isEditor ? (
               <button
                 type="button"

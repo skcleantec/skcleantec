@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { TenantBrandLogo } from '../../brand/TenantBrandLogo';
 import { OrderFormCompanyTrustFooter } from '../OrderFormCompanyTrustFooter';
+import { extraWorkNoticeCopy, resolveCustomerPages } from '@shared/orderFormCustomerPages';
 import { OrderFormExtraWorkConsentModal } from '../OrderFormExtraWorkConsentModal';
 import { OrderFormPlatformFooter } from '../OrderFormPlatformFooter';
 import { useLoginScrollSurface } from '../../../hooks/useMobileInputVisibility';
@@ -130,6 +131,9 @@ export function OrderFormCustomerWizard({
   });
   const [stepError, setStepError] = useState<string | null>(null);
   const [extraWorkOpen, setExtraWorkOpen] = useState(false);
+  const extraWorkCopy = extraWorkNoticeCopy(
+    resolveCustomerPages(shared.order?.template?.customerPages ?? null).find((page) => page.id === 'review'),
+  );
   const [dir, setDir] = useState<'forward' | 'back'>('forward');
   const prevIndexRef = useRef(stepIndex);
   const lastConsentAtRef = useRef(timeSlotConsentAt);
@@ -385,6 +389,7 @@ export function OrderFormCustomerWizard({
       {dialogs}
       <OrderFormExtraWorkConsentModal
         open={extraWorkOpen && currentStep.kind === 'review'}
+        copy={extraWorkCopy}
         initialPhrase={extraWorkPhrase}
         onClose={() => setExtraWorkOpen(false)}
         onConfirm={(payload) => {

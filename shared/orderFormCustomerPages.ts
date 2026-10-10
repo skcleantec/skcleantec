@@ -171,6 +171,7 @@ export function defaultCustomerPages(): CustomerPageCopy[] {
   const photos = blankPage('photos', '현장 사진을 올려 주세요', '없어도 제출할 수 있습니다.');
   const professional = blankPage('professional', '추가로 필요한 작업이 있나요?', '없으면 다음으로 넘어가 주세요.');
   const review = blankPage('review', '이렇게 접수할까요?', '틀린 항목은 눌러서 고칠 수 있습니다.');
+  review.lines = defaultExtraWorkNoticeLines();
   const guide = blankPage('guide', '안내사항을 확인해 주세요', '각 항목을 읽고 체크한 뒤, 맨 아래까지 내려 서명해 주세요.');
 
   return [
@@ -224,10 +225,24 @@ function sanitizeLines(raw: unknown): CustomerPageLine[] {
     const row = item as Record<string, unknown>;
     const key = clip(row.key, 40);
     if (!/^[a-zA-Z][a-zA-Z0-9_]{0,39}$/.test(key)) continue;
-    out.push({ key, text: clip(row.text, 200) });
-    if (out.length >= 12) break;
+    out.push({ key, text: clip(row.text, 800) });
+    if (out.length >= 16) break;
   }
   return out;
+}
+
+function mergeLines(base: CustomerPageLine[], raw: unknown): CustomerPageLine[] {
+  const saved = Array.isArray(raw) ? sanitizeLines(raw) : [];
+  const byKey = new Map(saved.map((line) => [line.key, line.text]));
+  const merged = base.map((line) => {
+    const savedText = byKey.get(line.key)?.trim();
+    return { key: line.key, text: savedText || line.text };
+  });
+  const known = new Set(merged.map((line) => line.key));
+  for (const line of saved) {
+    if (!known.has(line.key)) merged.push(line);
+  }
+  return merged.slice(0, 16);
 }
 
 function overlay(base: CustomerPageCopy, raw: unknown): CustomerPageCopy {
@@ -251,7 +266,7 @@ function overlay(base: CustomerPageCopy, raw: unknown): CustomerPageCopy {
     hintAllSet: row.hintAllSet == null ? base.hintAllSet : clip(row.hintAllSet, 400),
     titlePartial: row.titlePartial == null ? base.titlePartial : clip(row.titlePartial, 120),
     hintPartial: row.hintPartial == null ? base.hintPartial : clip(row.hintPartial, 400),
-    lines: Array.isArray(row.lines) ? sanitizeLines(row.lines) : base.lines,
+    lines: mergeLines(base.lines, row.lines),
     choices,
   };
 }
@@ -310,6 +325,51 @@ export function customerPageById(pages: CustomerPageCopy[] | null | undefined, i
 export function customerPageLine(page: CustomerPageCopy | undefined, key: string, fallback: string): string {
   const text = page?.lines.find((line) => line.key === key)?.text.trim();
   return text || fallback;
+}
+
+/** 확인 단계 추가 시공비 안내. 설정 화면과 손님 팝업이 같은 글을 쓴다. */
+export function defaultExtraWorkNoticeLines(): CustomerPageLine[] {
+  return [
+    { key: 'extraTitle', text: '추가 시공비 안내' },
+    { key: 'extraSubtitle', text: '현장 상황이 다르면 비용이 더 붙을 수 있습니다.' },
+    { key: 'extraBody', text: '전달해 주신 내용과 현장 상황이 많이 다르면 별도의 추가 시공비가 발생합니다.' },
+    { key: 'extraCasesTitle', text: '이런 경우에 추가 시공비가 생깁니다' },
+    { key: 'extraCases', text: '면적이 넓은 곰팡이\n스티커 제거\n분진\n외창\n가전\n추가 가구\n입주 기본청소가 아닌 경우' },
+    { key: 'extraCallout', text: '추가 인력과 약품, 장비가 투입되어야 하는 경우에도 발생합니다.' },
+    { key: 'extraPhoto', text: '더 정확한 견적을 원하시면 현장 사진이나 영상을 담당 영업사원에게 보내 문의해 주세요.' },
+    { key: 'extraConsent', text: '별도의 추가시공이 발생할 수 있다는 내용을 확인하였고 이에 동의합니다.' },
+  ];
+}
+
+export type ExtraWorkNoticeCopy = {
+  title: string;
+  subtitle: string;
+  body: string;
+  casesTitle: string;
+  cases: string[];
+  callout: string;
+  photoHint: string;
+  consent: string;
+};
+
+export function extraWorkNoticeCopy(page: CustomerPageCopy | null | undefined): ExtraWorkNoticeCopy {
+  const defaults = new Map(defaultExtraWorkNoticeLines().map((line) => [line.key, line.text]));
+  const text = (key: string) => customerPageLine(page ?? undefined, key, defaults.get(key) ?? '');
+  const cases = text('extraCases')
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+  return {
+    title: text('extraTitle'),
+    subtitle: text('extraSubtitle'),
+    body: text('extraBody'),
+    casesTitle: text('extraCasesTitle'),
+    cases,
+    callout: text('extraCallout'),
+    photoHint: text('extraPhoto'),
+    consent: text('extraConsent'),
+  };
 }
 
 export function matchCleaningKindChoice(raw: unknown, pages: CustomerPageCopy[]): string | null {

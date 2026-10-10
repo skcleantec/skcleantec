@@ -17,6 +17,7 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { CustomerOrderSubmissionSnapshotModal } from '../../components/orderform/CustomerOrderSubmissionSnapshotModal';
 import { OrderFormListActionsModal } from '../../components/orderform/OrderFormListActionsModal';
 import { OrderFormIssueCompleteCard } from '../../components/orderform/OrderFormIssueCompleteCard';
+import { OrderFormExtraWorkNoticeCheckbox } from '../../components/orderform/OrderFormExtraWorkNoticeCheckbox';
 import {
   getOrderForms,
   deleteOrderForm,
@@ -355,6 +356,7 @@ export function AdminOrderFormPage() {
   const [pendingLinkId, setPendingLinkId] = useState('');
   const [issueInternalCustomerTone, setIssueInternalCustomerTone] =
     useState<InternalCustomerTone>(DEFAULT_INTERNAL_CUSTOMER_TONE);
+  const [issueExtraWorkNotice, setIssueExtraWorkNotice] = useState(false);
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueLeadSource, setIssueLeadSource] = useState('');
@@ -578,6 +580,7 @@ export function AdminOrderFormPage() {
     setAlimtalkHint('');
     setPendingLinkId('');
     setIssueLeadSource(defaultScheduleLeadSourceLabel(staffTenantSlug) || '');
+    setIssueExtraWorkNotice(false);
     setIssueFormKey((k) => k + 1);
   };
 
@@ -896,6 +899,10 @@ export function AdminOrderFormPage() {
                     onChange={setIssueInternalCustomerTone}
                     name="issueInternalCustomerTone"
                   />
+                  <OrderFormExtraWorkNoticeCheckbox
+                    checked={issueExtraWorkNotice}
+                    onChange={setIssueExtraWorkNotice}
+                  />
                 </div>
               </div>
               {token ? (
@@ -918,6 +925,7 @@ export function AdminOrderFormPage() {
                           leadSource: issueLeadSource,
                           operatingCompanyId: effectiveIssueOperatingCompanyId || undefined,
                           collaborationMarketerId: issueCollaborationMarketerId.trim() || null,
+                          extraWorkNotice: issueExtraWorkNotice,
                           onCreated: handleOrderCreated,
                         },
                       }}
