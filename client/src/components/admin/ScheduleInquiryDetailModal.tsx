@@ -2554,7 +2554,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     <button
                       type="button"
                       onClick={() => setExtraWorkOpen(true)}
-                      className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] font-medium leading-tight text-gray-700 hover:bg-gray-50 active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     >
                       추가 시공
                     </button>
