@@ -115,6 +115,8 @@ export interface OrderFormEditorContext {
     leadSource?: string;
     operatingCompanyId?: string;
     collaborationMarketerId?: string | null;
+    /** 체크한 발급만 고객 확인 단계에서 추가 시공비 안내를 띄운다. 기본은 끔 */
+    extraWorkNotice?: boolean;
     onCreated: (order: import('../../api/orderform').OrderForm) => void;
     crmSeed?: CrmOrderIssueSeed;
   };

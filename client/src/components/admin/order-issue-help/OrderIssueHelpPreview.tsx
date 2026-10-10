@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { InternalCustomerToneRadio } from '../InternalCustomerToneRadio';
+import { OrderFormExtraWorkNoticeCheckbox } from '../../orderform/OrderFormExtraWorkNoticeCheckbox';
 import { DEFAULT_INTERNAL_CUSTOMER_TONE } from '../../../constants/internalCustomerTone';
 import { InquiryHelpZoomableFigure } from '../inquiry-help/InquiryHelpZoomableFigure';
 import { ORDER_ISSUE_HELP_CAPTION } from './orderIssueHelpShared';
@@ -50,11 +51,14 @@ function MockIssueFormTop({ enlarged }: { enlarged?: boolean }) {
             <option>숨고</option>
           </select>
         </div>
-        <InternalCustomerToneRadio
-          value={DEFAULT_INTERNAL_CUSTOMER_TONE}
-          onChange={() => {}}
-          name="orderIssueHelpTone"
-        />
+        <div>
+          <InternalCustomerToneRadio
+            value={DEFAULT_INTERNAL_CUSTOMER_TONE}
+            onChange={() => {}}
+            name="orderIssueHelpTone"
+          />
+          <OrderFormExtraWorkNoticeCheckbox checked={false} onChange={() => {}} disabled />
+        </div>
         <p className="border-t border-gray-100 pt-3 text-fluid-2xs leading-relaxed text-gray-500">
           선택한 양식이 아래에 표시됩니다. 상담 내용을 미리 채우면 고객 화면에서 잠기고, 비운 항목은 고객이 작성합니다.
         </p>
