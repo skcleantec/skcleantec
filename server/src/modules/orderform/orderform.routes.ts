@@ -260,6 +260,12 @@ function allowsPreferredTimeForTemplate(
 /** 목록 연동용 접수 생성 시 주소 미수집 표시. 미제출 발주서 삭제 시 해당 접수는 삭제한다. */
 const STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER = ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS;
 
+/** DateTime → 한국 달력 날짜. UTC slice 는 자정 저장 건을 전날로 만든다. */
+function dateToKstYmd(d: Date | null | undefined): string | null {
+  if (!d || Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
 function preferredDateYmdToKstNoon(ymdRaw: string | undefined): Date | null {
   const ymd = ymdRaw?.trim();
   if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
@@ -834,12 +840,12 @@ function mapPendingInquiry(row: {
     bathroomCount: row.bathroomCount,
     balconyCount: row.balconyCount,
     kitchenCount: row.kitchenCount,
-    preferredDate: row.preferredDate ? row.preferredDate.toISOString().slice(0, 10) : null,
+    preferredDate: dateToKstYmd(row.preferredDate),
     preferredTime: row.preferredTime,
     preferredTimeDetail: row.preferredTimeDetail,
     buildingType: row.buildingType,
     moveInTiming: row.moveInTiming,
-    moveInDate: row.moveInDate ? row.moveInDate.toISOString().slice(0, 10) : null,
+    moveInDate: dateToKstYmd(row.moveInDate),
     moveInDateUndecided: row.moveInDateUndecided,
     memo: row.memo,
   };
@@ -920,6 +926,7 @@ async function buildEditableOrderPayload(
     balanceAmount: form.balanceAmount,
     optionNote: form.optionNote,
     preferredDate: form.preferredDate,
+    extraWorkNotice: form.extraWorkNotice === true,
     preferredTime: form.preferredTime,
     preferredTimeDetail: form.preferredTimeDetail,
     areaPyeong: form.areaPyeong,
@@ -1410,6 +1417,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     areaPyeong: areaPyeongRaw,
     areaBasis: areaBasisRaw,
     templateId: templateIdRaw,
+    extraWorkNotice: extraWorkNoticeRaw,
   } = req.body as {
     customerName: string;
     customerPhone?: string | null;
@@ -1427,7 +1435,9 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     areaPyeong?: unknown;
     areaBasis?: unknown;
     templateId?: string;
+    extraWorkNotice?: unknown;
   };
+  const extraWorkNotice = extraWorkNoticeRaw === true;
   const areaParsed = parseOptionalIssueArea({ areaPyeong: areaPyeongRaw, areaBasis: areaBasisRaw });
   if ('error' in areaParsed) {
     res.status(400).json({ error: areaParsed.error });
@@ -1605,6 +1615,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
             preferredTimeDetail: preferredTimeDetail?.trim() || null,
             areaPyeong: issueAreaPyeong,
             areaBasis: issueAreaBasis,
+            extraWorkNotice,
             createdById: userId,
             ...templateData,
             ...reviewPaybackTokenCreateField(),
@@ -1724,6 +1735,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           preferredTimeDetail: preferredTimeDetail?.trim() || null,
           areaPyeong: issueAreaPyeong,
           areaBasis: issueAreaBasis,
+          extraWorkNotice,
           createdById: userId,
           ...templateData,
           ...reviewPaybackTokenCreateField(),
@@ -3254,6 +3266,7 @@ router.post('/submit/:token', async (req, res) => {
   const needsTimeSlotConsent = !adminTimeLocked && tplOn('preferredTime') && Boolean(useTimeStr);
   const consentResult = validateOrderFormSubmitConsents({
     consentsRaw: body.consents,
+    requireExtraWork: form.extraWorkNotice === true,
     needsServiceDateConsent,
     needsTimeSlotConsent,
     useDateStr,

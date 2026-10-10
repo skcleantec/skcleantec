@@ -351,9 +351,12 @@ export function OrderFormCustomerWizard({
                 <button
                   type="button"
                   className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
-                  onClick={() => setExtraWorkOpen(true)}
+                  onClick={() => {
+                    if (shared.order?.extraWorkNotice === true) setExtraWorkOpen(true);
+                    else goNext();
+                  }}
                 >
-                  안내 확인하고 제출
+                  {shared.order?.extraWorkNotice === true ? '안내 확인하고 제출' : '다음'}
                 </button>
               ) : (
                 <button

@@ -3750,6 +3750,8 @@ model OrderForm {
   submittedAt     DateTime? @map("submitted_at")
   /// 고객 발주서 「특이사항」 자유 입력 — 접수 `specialNotes`(관리자·팀 공유)와 분리
   customerSpecialNotes String? @map("customer_special_notes") @db.Text
+  /// 발급 시 체크하면 고객 확인 단계에서 추가 시공비 안내를 띄운다. 기본은 끔.
+  extraWorkNotice Boolean @default(false) @map("extra_work_notice")
   customerSubmissionSnapshot Json? @map("customer_submission_snapshot")
   /// 동적 템플릿 추가 항목(systemField 미연결)의 고객 답변 {fieldKey: value}
   customerAnswers Json? @map("customer_answers")

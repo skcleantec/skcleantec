@@ -334,6 +334,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     signaturePng: string;
     typedName: string;
   } | null>(null);
+  const [extraWorkNotice, setExtraWorkNotice] = useState(false);
   const [extraWorkConsent, setExtraWorkConsent] = useState<{
     at: string;
     typedPhrase: string;
@@ -848,6 +849,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           template: data.template ?? null,
           prefillAnswers: data.prefillAnswers ?? null,
           fillRules: data.fillRules ?? null,
+          extraWorkNotice: data.extraWorkNotice === true,
         });
         const baseCustom =
           data.customAnswers && typeof data.customAnswers === 'object'
@@ -904,11 +906,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               })(),
           exclusiveAreaSqm: '',
           preferredDate: (() => {
-            const pfDate = normalizeOrderFormYmd(p?.preferredDate);
-            const dataDate = normalizeOrderFormYmd(data.preferredDate);
-            if (pfDate) return pfDate;
-            if (dataDate) return dataDate;
-            return '';
+            const fromPrefill = normalizeOrderFormYmd(pfStr('preferredDate'));
+            const fromOrder = normalizeOrderFormYmd(data.preferredDate);
+            const fromInquiry = normalizeOrderFormYmd(p?.preferredDate);
+            return fromPrefill || fromOrder || fromInquiry || '';
           })(),
           preferredTime:
             f.preferredTime.trim() ||
@@ -1324,7 +1325,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         });
         if (spaceErr) addIssue(spaceErr, 'order-field-roomCount');
       }
-      if (!isEditor && extraWorkConsent?.typedPhrase.trim() !== ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE) {
+      if (
+        !isEditor &&
+        order?.extraWorkNotice === true &&
+        extraWorkConsent?.typedPhrase.trim() !== ORDER_FORM_EXTRA_WORK_CONSENT_PHRASE
+      ) {
         addIssue('추가 시공비 안내에 「동의합니다」라고 적어 주세요.', 'order-field-agree');
       }
       if (!guideTermsConsent?.signaturePng || !guideTermsConsent.typedName?.trim()) {
@@ -1634,6 +1639,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         ...(editor.create.collaborationMarketerId !== undefined
           ? { collaborationMarketerId: editor.create.collaborationMarketerId }
           : {}),
+        extraWorkNotice,
       });
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
       editor.create.onCreated(order);
@@ -3594,14 +3600,30 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           >
             <div className={isInline ? '' : 'mx-auto max-w-lg px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'}>
             {isCreate ? (
-              <button
-                type="button"
-                onClick={handleCreateAndPrefill}
-                disabled={prefillSaving}
-                className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-              >
-                {prefillSaving ? '발급 중...' : '발급 및 링크 생성'}
-              </button>
+              <div className="space-y-2">
+                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 shrink-0 accent-slate-900"
+                    checked={extraWorkNotice}
+                    onChange={(e) => setExtraWorkNotice(e.target.checked)}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-fluid-sm font-medium text-slate-900">추가 시공비 안내</span>
+                    <span className="block text-fluid-2xs leading-snug text-slate-600">
+                      체크하면 고객이 안내 확인하고 제출을 누를 때 추가 시공비 안내가 나옵니다. 체크하지 않으면 바로 다음으로 넘어갑니다.
+                    </span>
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleCreateAndPrefill}
+                  disabled={prefillSaving}
+                  className="w-full min-h-12 rounded-lg bg-gray-800 py-3 text-fluid-sm font-medium text-white hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {prefillSaving ? '발급 중...' : '발급 및 링크 생성'}
+                </button>
+              </div>
             ) : isEditor ? (
               <button
                 type="button"

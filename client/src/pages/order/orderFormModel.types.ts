@@ -93,6 +93,8 @@ export type OrderFormLoadedOrder = {
   template?: OrderFormPublicTemplate | null;
   prefillAnswers?: Record<string, unknown> | null;
   fillRules?: Record<string, { customer: boolean; required: boolean }> | null;
+  /** 발급 시 체크된 경우만 고객 확인 단계에서 추가 시공비 안내를 띄운다 */
+  extraWorkNotice?: boolean;
 };
 
 export type SubmitValidationIssue = { message: string; fieldId?: string };

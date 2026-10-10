@@ -156,6 +156,8 @@ export function resolveOrderFormAckBodies(formConfig: {
 
 export function validateOrderFormSubmitConsents(params: {
   consentsRaw: unknown;
+  /** 발급 시 추가 시공비 안내를 켠 발주서만 「동의합니다」를 요구한다. */
+  requireExtraWork?: boolean;
   needsServiceDateConsent: boolean;
   needsTimeSlotConsent: boolean;
   useDateStr: string;
@@ -168,7 +170,7 @@ export function validateOrderFormSubmitConsents(params: {
   const parsed = parseOrderFormSubmitConsents(params.consentsRaw);
   const ackBodies = resolveOrderFormAckBodies(params.formConfig);
 
-  if (!parsed?.extraWork) {
+  if (params.requireExtraWork && !parsed?.extraWork) {
     return { ok: false, error: '추가 시공비 안내에 「동의합니다」라고 적어 주세요.' };
   }
 
@@ -218,7 +220,7 @@ export function validateOrderFormSubmitConsents(params: {
         agreedAt: parsed.guideTerms.agreedAt,
         typedName: parsed.guideTerms.typedName,
       },
-      extraWork: parsed.extraWork,
+      extraWork: parsed?.extraWork ?? null,
     },
   };
 }

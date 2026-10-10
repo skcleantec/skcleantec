@@ -325,6 +325,8 @@ export interface OrderFormPublicEditable {
   prefillAnswers?: Record<string, unknown> | null;
   /** 고객이 적을 수 있는지·필수인지 (설정 JSON 전체 아님) */
   fillRules?: Record<string, { customer: boolean; required: boolean }> | null;
+  /** 발급 시 체크된 경우만 고객 확인 단계에서 추가 시공비 안내를 띄운다 */
+  extraWorkNotice?: boolean;
   /** 미제출 상태에서 고객 특이사항 임시 저장(발주서 컬럼). 접수 `specialNotes`와 무관 */
   draftCustomerSpecialNotes?: string | null;
   /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
@@ -513,6 +515,8 @@ export async function createOrderForm(
     operatingCompanyId?: string;
     /** 협업 마케터(선택) — 담당과 동일 불가 */
     collaborationMarketerId?: string | null;
+    /** 체크 시에만 고객에게 추가 시공비 안내를 띄운다. 기본은 끔 */
+    extraWorkNotice?: boolean;
   }
 ): Promise<OrderForm> {
   const res = await fetch(`${API}/orderforms`, {
