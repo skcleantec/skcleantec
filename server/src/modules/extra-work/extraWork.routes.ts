@@ -14,6 +14,7 @@ import {
   saveExtraWorkTenantSettings,
   saveMarketerExtraWorkProfile,
 } from './extraWork.service.js';
+import { saveExtraWorkAdjustment, searchExtraWorkInquiries, type ExtraWorkAdjustmentKind } from './extraWorkAdjustment.service.js';
 
 const router = Router();
 // 항목 사진 필드는 photos_0, photos_1 … 이다.
@@ -64,6 +65,58 @@ function parsePercent(value: unknown): number | null {
   const n = typeof value === 'number' ? value : Number(String(value).trim());
   return bpsFromPercent(n);
 }
+
+router.get('/inquiries', requireStaffPermission('admin.payroll', 'admin.users'), async (req, res) => {
+  const tenantId = await tenantOf(req, res);
+  if (!tenantId) return;
+  const q = String(req.query.q ?? '');
+  res.json({ items: await searchExtraWorkInquiries(tenantId, q) });
+});
+
+router.post('/adjustments', requireStaffPermission('admin.payroll', 'admin.users'), async (req, res) => {
+  const user = (req as { user?: AuthPayload }).user;
+  if (!user) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+  const tenantId = await tenantOf(req, res);
+  if (!tenantId) return;
+  const body = req.body as {
+    recordId?: unknown;
+    inquiryId?: unknown;
+    marketerId?: unknown;
+    teamLeaderId?: unknown;
+    kind?: unknown;
+    amountWon?: unknown;
+    occurredOn?: unknown;
+    note?: unknown;
+  };
+  const kindRaw = String(body.kind ?? '');
+  const kind: ExtraWorkAdjustmentKind | null =
+    kindRaw === 'REFUND' || kindRaw === 'COMPANY_SUPPORT' || kindRaw === 'NORMAL' ? kindRaw : null;
+  if (!kind || kind === 'NORMAL' && !String(body.recordId ?? '').trim()) {
+    res.status(400).json({ error: '환불 또는 회사 지원을 골라 주세요.' });
+    return;
+  }
+  const amountWon = Number(String(body.amountWon ?? '').replace(/,/g, ''));
+  try {
+    const item = await saveExtraWorkAdjustment({
+      tenantId,
+      actorId: user.userId,
+      recordId: body.recordId ? String(body.recordId) : null,
+      inquiryId: String(body.inquiryId ?? ''),
+      marketerId: String(body.marketerId ?? ''),
+      teamLeaderId: body.teamLeaderId ? String(body.teamLeaderId) : null,
+      kind,
+      amountWon,
+      occurredOn: String(body.occurredOn ?? ''),
+      note: String(body.note ?? ''),
+    });
+    res.json({ item });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : '정산을 저장하지 못했습니다.' });
+  }
+});
 
 router.get('/form-options', async (req, res) => {
   const user = (req as { user?: AuthPayload }).user;
@@ -182,7 +235,6 @@ router.put('/settings', requireStaffPermission('admin.payroll', 'admin.users'), 
     teamLeaderPercent?: unknown;
     marketerPercent?: unknown;
     presets?: unknown;
-    allowTraining?: unknown;
   };
   const companyBps = parsePercent(body.companyPercent);
   const teamLeaderBps = parsePercent(body.teamLeaderPercent);
@@ -199,7 +251,6 @@ router.put('/settings', requireStaffPermission('admin.payroll', 'admin.users'), 
       teamLeaderBps,
       marketerBps,
       presets,
-      allowTraining: body.allowTraining === true,
     });
     res.json(await readExtraWorkSettings(tenantId));
   } catch (error) {

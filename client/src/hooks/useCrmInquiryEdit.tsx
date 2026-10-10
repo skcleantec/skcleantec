@@ -6,7 +6,7 @@ import type { ScheduleItem } from '../api/schedule';
 import { ScheduleInquiryDetailModal } from '../components/admin/ScheduleInquiryDetailModal';
 import { useCrmInquiryEditSupport } from './useCrmInquiryEditSupport';
 
-export function useCrmInquiryEdit(enabled: boolean, onSaved?: () => void) {
+export function useCrmInquiryEdit(enabled: boolean, onSaved?: () => void, onClosed?: () => void) {
   const support = useCrmInquiryEditSupport(enabled);
   const [editItem, setEditItem] = useState<ScheduleItem | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -33,12 +33,14 @@ export function useCrmInquiryEdit(enabled: boolean, onSaved?: () => void) {
   const close = useCallback(() => {
     setEditItem(null);
     setOpenError(null);
-  }, []);
+    onClosed?.();
+  }, [onClosed]);
 
   const handleSaved = useCallback(() => {
-    close();
+    setEditItem(null);
+    setOpenError(null);
     onSaved?.();
-  }, [close, onSaved]);
+  }, [onSaved]);
 
   const refreshInquiry = useCallback(async () => {
     const token = getToken();
