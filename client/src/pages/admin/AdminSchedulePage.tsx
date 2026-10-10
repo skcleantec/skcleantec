@@ -29,6 +29,7 @@ import {
 } from '../../utils/customCalendarClassification';
 import { inquiryHasNoDeposit } from '../../utils/inquiryDepositDisplay';
 import { NoDepositIcon } from '../../components/ui/NoDepositIcon';
+import { ExtraWorkAmountIcon } from '../../components/ui/ExtraWorkAmountIcon';
 import type { CustomCalendarCreateFocus } from '../../components/admin/CustomCalendarCreateModal';
 import { computeRegionalDaySlotStats } from '../../utils/regionalSlotStats';
 import { inquiryBelongsOnRegionalCalendar } from '../../utils/scheduleSlotOccupancy';
@@ -535,6 +536,7 @@ function ScheduleDayListItem({
           <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly className="shrink-0" />
         ) : null}
         {inquiryHasNoDeposit(item) ? <NoDepositIcon /> : null}
+        {item.hasExtraWork ? <ExtraWorkAmountIcon /> : null}
         {leaderSingleSlotAssignment ? (
           <span
             className={SCHEDULE_LEADER_SINGLE_SLOT_BADGE_CLASS}
@@ -599,20 +601,13 @@ function ScheduleDayListItem({
                 ! 보류
               </span>
             )}
-            {(item.inquiryNumber ||
-              showScheduleMemoBadge ||
-              distanceLabel ||
-              intakeMarketerName) && (
+            {(showScheduleMemoBadge || distanceLabel || intakeMarketerName) && (
               <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[11px] sm:text-fluid-2xs font-normal">
-                {item.inquiryNumber ? (
-                  <span className="text-slate-400 tabular-nums leading-none shrink-0">{item.inquiryNumber}</span>
-                ) : null}
                 {distanceLabel ? (
                   <span
                     className="text-slate-400 tabular-nums leading-none shrink-0"
                     title="인천 주안 기준 직선거리"
                   >
-                    {item.inquiryNumber ? ' · ' : ''}
                     {distanceLabel}
                   </span>
                 ) : null}
@@ -621,7 +616,7 @@ function ScheduleDayListItem({
                     className="text-slate-400 leading-none shrink-0 max-w-[6rem] sm:max-w-[9rem] truncate"
                     title="접수자(담당마케터)"
                   >
-                    {item.inquiryNumber || distanceLabel ? ' · ' : ''}
+                    {distanceLabel ? ' · ' : ''}
                     {intakeMarketerName}
                   </span>
                 ) : null}

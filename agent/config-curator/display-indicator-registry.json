@@ -100,6 +100,18 @@
       "notes": "슬롯 구분은 업무상 중요 — 끄면 '단색 모드' 옵션으로."
     },
     {
+      "id": "schedule.extraWork",
+      "labelKo": "추가 시공 (작은 더하기)",
+      "surfaces": ["admin.schedule.dayList"],
+      "visual": { "type": "icon", "token": "amber-100", "hex": "#fef3c7" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/components/ui/ExtraWorkAmountIcon.tsx", "client/src/pages/admin/AdminSchedulePage.tsx"],
+      "notes": "추가 시공 금액이 1원 이상일 때만. 끄기 설정 없음."
+    },
+    {
       "id": "schedule.slot.afternoon",
       "labelKo": "스케줄 · 오후 슬롯",
       "surfaces": ["admin.schedule.dayList"],
