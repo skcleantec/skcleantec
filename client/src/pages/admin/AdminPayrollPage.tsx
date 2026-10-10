@@ -3,6 +3,8 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { createPortal } from 'react-dom';
 import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
+import { ExtraSettlementTab } from '../../components/admin/payroll/ExtraSettlementTab';
+import { YearMonthSelect } from '../../components/ui/DateQuerySelects';
 import {
   getAdminPayrollSheet,
   getPayrollPoolMemberDetail,
@@ -74,7 +76,8 @@ type LedgerManualPayrollLinkKind =
   | 'external_company';
 
 const PAYROLL_HELP =
-  '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·정산·미정산현황을 나누어 볼 수 있습니다.\n\n' +
+  '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·추가정산·정산·미정산현황을 나누어 볼 수 있습니다.\n\n' +
+  '【추가정산】마케터가 고객 집에서 남긴 추가 시공의 받은 금액과, 그 달 비율로 나눈 마케터·상위·팀장·회사 금액입니다. 설정에서 비율과 직속 상위 오버라이딩을 바꿉니다. 이미 저장된 건은 바꾸지 않습니다.\n\n' +
   '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 상단 「조회 기간」에 시작일·종료일을 넣으면 그 구간의 근무 횟수×일당만 보여 줍니다. 「조회 기간」이 붙은 행은 미리보기라 「정산완료」를 할 수 없고, 정산은 월급 주기 전체가 나온 뒤에만 합니다. 기간을 지우면 예전처럼 월급 주기 전체입니다. 상세에서는 「산정내역」과 「지급내역」을 바꿔 볼 수 있으며, 예상 급여가 나온 뒤 「정산완료」로 확정하면 지급 내역에 누적됩니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
   '【팀장 · 수시 지급】고정 급여일이 없어도 됩니다. 귀속 월을 선택한 뒤, 행을 눌러 입금일·금액·메모를 여러 번 기록할 수 있습니다. 「당월 집계」는 해당 귀속 월의 예약일 기준 배정 접수 수·서비스 매출·추가결재 매출과, 사용자 등록 규칙으로 계산한 예상 지급·미정산을 보여 줍니다(취소 접수 제외). 목록의 「당월 지급합」은 등록한 입금액 합계입니다. 사용자 등록의 「월 고정 급여」는 참고용입니다. 지급 행 삭제는 본인 로그인 비밀번호 확인 후에만 가능합니다.\n\n' +
   '【직원(마케터) · 월 고정 + 이월 미정산】사용자 등록의 월 급여·급여일과 동일한 산정기간 표시를 씁니다. 귀속 월 「합계」는 미정산 이월액과 등록 월급을 더한 지급 예정액입니다. 「정산완료」에서 실제 지급 금액을 적으면 부족분은 다음 귀속 월 합계에 자동 반영됩니다. 과거 월 급여 등록값이 바뀌면 이월 추정과 과거와 어긋날 수 있으니, 월급 변경 후에는 정산 기록을 참고해 주세요.\n\n' +
@@ -594,7 +597,7 @@ function inoutBulkSkippedInColumn(rows: PayrollSheetRow[], payDay: number): Payr
   });
 }
 
-const PAYROLL_TABS = ['pool', 'inout', 'leader', 'marketer', 'office', 'settlement', 'unsettled'] as const;
+const PAYROLL_TABS = ['pool', 'inout', 'leader', 'marketer', 'extra', 'office', 'settlement', 'unsettled'] as const;
 type PayrollTabId = (typeof PAYROLL_TABS)[number];
 
 function parsePayrollTab(raw: string | null): PayrollTabId | null {
@@ -603,6 +606,7 @@ function parsePayrollTab(raw: string | null): PayrollTabId | null {
     raw === 'inout' ||
     raw === 'leader' ||
     raw === 'marketer' ||
+    raw === 'extra' ||
     raw === 'office' ||
     raw === 'settlement' ||
     raw === 'unsettled'
@@ -623,6 +627,8 @@ function payrollTabLabel(id: PayrollTabId): string {
       return '팀장';
     case 'marketer':
       return '마케터';
+    case 'extra':
+      return '추가정산';
     case 'office':
       return '사무직';
     case 'settlement':
@@ -641,7 +647,7 @@ function payrollSheetScopeForTab(tab: PayrollTabId): PayrollSheetScope {
 }
 
 function rowsForPayrollTab(rows: PayrollSheetRow[], tab: PayrollTabId): PayrollSheetRow[] {
-  if (tab === 'settlement' || tab === 'unsettled' || tab === 'inout') return [];
+  if (tab === 'settlement' || tab === 'unsettled' || tab === 'inout' || tab === 'extra') return [];
   if (tab === 'pool') return rows.filter((r) => r.kind === 'POOL_MEMBER');
   if (tab === 'leader') return rows.filter((r) => r.kind === 'TEAM_LEADER');
   if (tab === 'office') return rows.filter((r) => r.kind === 'OFFICE_STAFF');
@@ -1964,15 +1970,15 @@ export function AdminPayrollPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <label className="text-fluid-xs text-gray-600 whitespace-nowrap">귀속·지급 월</label>
-          <input
-            type="month"
+          <label className="text-fluid-xs text-gray-600 whitespace-nowrap" htmlFor="payroll-month-y">
+            귀속·지급 월
+          </label>
+          <YearMonthSelect
+            idPrefix="payroll-month"
             value={month}
-            onChange={(e) => {
-              const next = e.target.value;
+            onChange={(next) => {
               if (parsePayMonthKey(next)) setMonth(next);
             }}
-            className="px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums"
           />
           {showWorkRangeFilter ? (
             <PayrollAsOfFilter
@@ -2063,7 +2069,9 @@ export function AdminPayrollPage() {
             ) : null}
 
             <div className="px-2 sm:px-3 py-3 space-y-3 min-w-0">
-              {payrollTab === 'settlement' && expenseSummary ? (
+              {payrollTab === 'extra' ? (
+                <ExtraSettlementTab token={token ?? ''} month={month} />
+              ) : payrollTab === 'settlement' && expenseSummary ? (
                 <>
                   <div className="flex flex-col xl:flex-row xl:items-start gap-3 min-w-0 w-full max-w-full">
                     <div className="flex-1 min-w-0 space-y-3 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 shadow-sm">

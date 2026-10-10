@@ -20,6 +20,7 @@ import type { MarketerAdminLevel } from '@shared/marketerAdminLevel';
 import { MARKETER_ADMIN_LEVEL_LABEL } from '@shared/marketerAdminLevel';
 import { formatAdminRosterLabel } from '@shared/staffAttributionLabel';
 import { getToken } from '../../stores/auth';
+import { MarketerParentEditor } from '../../components/admin/extra-work/MarketerParentEditor';
 import { getMe } from '../../api/auth';
 import { LoginCredentialsCopySheet } from '../../components/admin/LoginCredentialsCopySheet';
 import type { LoginCredentialsCopyInput } from '../../utils/userLoginCopyText';
@@ -2164,6 +2165,9 @@ export function AdminTeamLeadersPage() {
                           </Link>
                         ) : null}
                       </fieldset>
+                    ) : null}
+                    {editingUser.role === 'MARKETER' && editingUser.id && getToken() ? (
+                      <MarketerParentEditor token={getToken()!} userId={editingUser.id} />
                     ) : null}
                     <div>
                       <p className="text-fluid-xs font-medium text-gray-800">
