@@ -1,7 +1,7 @@
 /**
  * @generated-sync from shared/orderFormCustomerPages.ts — 직접 수정하지 마세요.
  */
-import { parseOrderFormCleaningKind } from './orderFormCleaningKind.js';
+import { labelForCleaningKind, parseOrderFormCleaningKind } from './orderFormCleaningKind.js';
 import { isOrderFormSectionToggleKey, isOrderFormSectionToggleOn } from './orderFormSectionToggles.js';
 import { DEFAULT_ORDER_TIME_SLOT_QUESTION } from './orderFormTimeSlotLabels.js';
 
@@ -209,12 +209,13 @@ function sanitizeChoice(raw: unknown, index: number): CustomerPageChoice | null 
   const row = raw as Record<string, unknown>;
   const label = clip(row.label, 80);
   if (!label) return null;
-  let value = clip(row.value, 32).toUpperCase().replace(/[^A-Z0-9_]/g, '');
-  if (!value) value = `OPT_${index + 1}`;
+  const rawValue = clip(row.value, 80);
+  const code = rawValue.toUpperCase().replace(/[^A-Z0-9_]/g, '');
+  const value = code || rawValue || `OPT_${index + 1}`;
   const imageSrc = clip(row.imageSrc, 400);
   const imageOk = !imageSrc || imageSrc.startsWith('/') || imageSrc.startsWith('https://');
   return {
-    value: value.slice(0, 32),
+    value: value.slice(0, 80),
     label,
     hint: clip(row.hint, 160),
     imageSrc: imageOk ? imageSrc : '',
@@ -354,9 +355,106 @@ export function matchCleaningKindChoice(raw: unknown, pages: CustomerPageCopy[])
 }
 
 export function labelForCustomerCleaningKind(raw: unknown, pages: CustomerPageCopy[]): string {
-  const value = matchCleaningKindChoice(raw, pages);
-  if (!value) return raw == null || raw === '' ? '—' : String(raw);
-  return customerPageById(pages, 'welcome')?.choices.find((choice) => choice.value === value)?.label ?? value;
+  return displayCleaningKindLabel(null, raw, pages);
+}
+
+/** MOVE_IN, OPT_2처럼 영문·숫자 코드인지. 한글이 있으면 사람이 읽는 문구로 본다. */
+export function looksLikeMachineChoiceCode(raw: string): boolean {
+  const text = raw.trim();
+  if (!text || /[가-힣]/.test(text)) return false;
+  return /^[A-Za-z][A-Za-z0-9_]*$/.test(text);
+}
+
+/** 선택값(OPT_2, MOVE_IN)을 그 페이지에 적힌 한글 이름으로 바꾼다. 없으면 빈 문자. */
+export function labelForPageChoice(
+  pages: CustomerPageCopy[] | null | undefined,
+  pageId: string,
+  raw: unknown,
+): string {
+  const text = raw == null ? '' : String(raw).trim();
+  if (!text) return '';
+  const found = customerPageById(pages, pageId)?.choices.find(
+    (choice) =>
+      choice.value === text || choice.value.toUpperCase() === text.toUpperCase() || choice.label === text,
+  );
+  const label = found?.label.trim() ?? '';
+  if (!label || looksLikeMachineChoiceCode(label)) return '';
+  return label;
+}
+
+/** 저장된 코드·값을 손님에게 보여줄 말로 바꾼다. */
+export function humanizeStoredChoice(
+  raw: unknown,
+  pages?: CustomerPageCopy[] | null,
+  pageId?: string,
+): string {
+  const text = raw == null ? '' : String(raw).trim();
+  if (!text) return '';
+  const list = pages ?? [];
+  const preferred = pageId ? customerPageById(list, pageId) : undefined;
+  const pools = preferred ? [preferred, ...list.filter((page) => page.id !== preferred.id)] : list;
+  for (const page of pools) {
+    const label = labelForPageChoice(list, page.id, text);
+    if (label) return label;
+  }
+  const kind = labelForCleaningKind(text);
+  if (kind && kind !== '—' && !looksLikeMachineChoiceCode(kind)) return kind;
+  return text;
+}
+
+export function displayCleaningKindLabel(
+  label: unknown,
+  raw: unknown,
+  pages?: CustomerPageCopy[] | null,
+): string {
+  const fromRaw = humanizeStoredChoice(raw, pages, 'welcome');
+  if (fromRaw && !looksLikeMachineChoiceCode(fromRaw)) return fromRaw;
+  const fromLabel = humanizeStoredChoice(label, pages, 'welcome');
+  if (fromLabel && !looksLikeMachineChoiceCode(fromLabel)) return fromLabel;
+  return fromRaw || fromLabel || '—';
+}
+
+export function humanizeCustomerSubmissionSnapshot(snapshot: unknown, pages: CustomerPageCopy[]): unknown {
+  if (!snapshot || typeof snapshot !== 'object') return snapshot;
+  const row = snapshot as Record<string, unknown>;
+  const fields = row.fields;
+  if (!fields || typeof fields !== 'object') return snapshot;
+  const nextFields = { ...(fields as Record<string, unknown>) };
+  if (typeof nextFields.propertyType === 'string') {
+    nextFields.propertyType = humanizeStoredChoice(nextFields.propertyType, pages, 'property') || nextFields.propertyType;
+  }
+  if (typeof nextFields.buildingType === 'string' && nextFields.buildingType.trim()) {
+    nextFields.buildingType = humanizeStoredChoice(nextFields.buildingType, pages, 'building');
+  }
+  nextFields.cleaningKindLabel = displayCleaningKindLabel(
+    nextFields.cleaningKindLabel,
+    nextFields.cleaningKind,
+    pages,
+  );
+  const templateAnswers = Array.isArray(row.templateAnswers)
+    ? row.templateAnswers.map((item) => {
+        if (!item || typeof item !== 'object') return item;
+        const answer = item as Record<string, unknown>;
+        const pageId = typeof answer.fieldKey === 'string' ? answer.fieldKey : undefined;
+        const value =
+          typeof answer.value === 'string'
+            ? humanizeStoredChoice(answer.value, pages, pageId) || answer.value
+            : humanizeAnswerValue(answer.value, pages);
+        return { ...answer, value };
+      })
+    : row.templateAnswers;
+  return { ...row, fields: nextFields, templateAnswers };
+}
+
+export function humanizeAnswerValue(value: unknown, pages?: CustomerPageCopy[] | null): unknown {
+  if (typeof value === 'string') {
+    const human = humanizeStoredChoice(value, pages);
+    return human || value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => (typeof item === 'string' ? humanizeStoredChoice(item, pages) || item : item));
+  }
+  return value;
 }
 
 export function newExtraCustomerPage(): CustomerPageCopy {
