@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { TenantBrandLogo } from '../../brand/TenantBrandLogo';
 import { OrderFormCompanyTrustFooter } from '../OrderFormCompanyTrustFooter';
+import { OrderFormExtraWorkConsentModal } from '../OrderFormExtraWorkConsentModal';
 import { OrderFormPlatformFooter } from '../OrderFormPlatformFooter';
 import { useLoginScrollSurface } from '../../../hooks/useMobileInputVisibility';
 import { validateCustomerStep } from './validateCustomerStep';
@@ -96,6 +97,8 @@ export function OrderFormCustomerWizard({
   submitting,
   dialogs,
   previewWalk = false,
+  extraWorkPhrase,
+  onExtraWorkAgree,
 }: {
   headingTitle: string;
   brandName?: string | null;
@@ -118,12 +121,15 @@ export function OrderFormCustomerWizard({
   dialogs: ReactNode;
   /** 디자이너 미리보기 — 필수 없이 다음, 제출은 부모에서 차단 */
   previewWalk?: boolean;
+  extraWorkPhrase?: string | null;
+  onExtraWorkAgree: (payload: { at: string; typedPhrase: string }) => void;
 }) {
   const { scrollRef, onFieldFocus } = useLoginScrollSurface({
     // 고정 막대는 다음/제출 버튼만 — 업체·플랫폼 안내는 스크롤 안으로
     bottomReservePx: previewWalk ? 72 : 88,
   });
   const [stepError, setStepError] = useState<string | null>(null);
+  const [extraWorkOpen, setExtraWorkOpen] = useState(false);
   const [dir, setDir] = useState<'forward' | 'back'>('forward');
   const prevIndexRef = useRef(stepIndex);
   const lastConsentAtRef = useRef(timeSlotConsentAt);
@@ -342,7 +348,11 @@ export function OrderFormCustomerWizard({
                   </button>
                 </div>
               ) : currentStep.kind === 'review' ? (
-                <button type="button" className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS} onClick={goNext}>
+                <button
+                  type="button"
+                  className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
+                  onClick={() => setExtraWorkOpen(true)}
+                >
                   안내 확인하고 제출
                 </button>
               ) : (
@@ -370,6 +380,16 @@ export function OrderFormCustomerWizard({
       </footer>
 
       {dialogs}
+      <OrderFormExtraWorkConsentModal
+        open={extraWorkOpen && currentStep.kind === 'review'}
+        initialPhrase={extraWorkPhrase}
+        onClose={() => setExtraWorkOpen(false)}
+        onConfirm={(payload) => {
+          onExtraWorkAgree(payload);
+          setExtraWorkOpen(false);
+          goNext();
+        }}
+      />
     </div>
   );
 }
