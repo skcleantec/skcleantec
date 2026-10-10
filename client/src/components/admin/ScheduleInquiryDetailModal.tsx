@@ -19,6 +19,8 @@ import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } f
 import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { getMe } from '../../api/auth';
+import { getToken } from '../../stores/auth';
+import { ExtraWorkCaptureSheet } from './extra-work/ExtraWorkCaptureSheet';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
@@ -690,6 +692,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   );
   const [createIntakeTemplateId, setCreateIntakeTemplateId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [extraWorkOpen, setExtraWorkOpen] = useState(false);
   const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
   const [crewSwapModalOpen, setCrewSwapModalOpen] = useState(false);
   const [crewSwapListLoading, setCrewSwapListLoading] = useState(false);
@@ -2547,6 +2550,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   >
                     {copyHint ?? '복사'}
                   </button>
+                  {meUser?.role === 'ADMIN' || meUser?.role === 'MARKETER' ? (
+                    <button
+                      type="button"
+                      onClick={() => setExtraWorkOpen(true)}
+                      className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                    >
+                      추가 시공
+                    </button>
+                  ) : null}
                 </div>
               </div>
               {detailHeaderMetaCompact ? (
@@ -3672,6 +3684,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </InquiryPartnerSwapModalShell>,
           document.body
         )}
+      {extraWorkOpen && item && getToken() ? (
+        <ExtraWorkCaptureSheet
+          open
+          token={getToken()!}
+          inquiryId={item.id}
+          customerName={item.customerName}
+          onClose={() => setExtraWorkOpen(false)}
+        />
+      ) : null}
       {deleteConfirmOpen &&
         item &&
         createPortal(

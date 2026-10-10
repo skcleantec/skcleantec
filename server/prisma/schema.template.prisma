@@ -285,6 +285,10 @@ model Tenant {
   payrollAdminPersonalExpenses PayrollAdminPersonalExpense[]
   payrollAdminSharedExpenses PayrollAdminSharedExpense[]
   payrollIncomeDeposits PayrollIncomeDeposit[]
+  extraWorkSetting TenantExtraWorkSetting?
+  extraWorkRecords ExtraWorkRecord[]
+  extraWorkPhotos ExtraWorkPhoto[]
+  extraWorkLeaderShares ExtraWorkLeaderShare[]
   payrollAccountLedgerManualEntries PayrollAccountLedgerManualEntry[]
   teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[]
   teamLeaderHouseholdWageSettings TeamLeaderHouseholdWageSetting[]
@@ -1733,6 +1737,16 @@ model User {
   homeGeoQuery      String? @map("home_geo_query") @db.VarChar(512)
   /// 원성 고유번호 1~15. 팀장 카드 결제를 구분하고, 퇴사하면 다른 팀장에게 다시 매칭한다.
   pgClerkNo         Int?    @map("pg_clerk_no")
+  /// 추가 시공 오버라이딩을 받는 직속 상위 마케터. 한 단계만 계산한다.
+  parentMarketerId String? @map("parent_marketer_id")
+  parentMarketer   User?   @relation("MarketerUpline", fields: [parentMarketerId], references: [id], onDelete: SetNull)
+  downlineMarketers User[] @relation("MarketerUpline")
+  /// null이면 업체 기본 비율. 세 값이 있으면 그 마케터만 따로 쓴다.
+  extraWorkCompanyBps    Int? @map("extra_work_company_bps")
+  extraWorkTeamLeaderBps Int? @map("extra_work_team_leader_bps")
+  extraWorkMarketerBps   Int? @map("extra_work_marketer_bps")
+  extraWorkOverrideSource ExtraWorkOverrideSource? @map("extra_work_override_source")
+  extraWorkOverrideBps    Int? @map("extra_work_override_bps")
 
   dispatchProfile TeamLeaderDispatchProfile?
   aiDispatchProposals AiDispatchProposal[]
@@ -1761,6 +1775,11 @@ model User {
   inquiryInspectionPhotosUploaded InquiryInspectionAreaPhoto[] @relation("InspectionPhotoUploader")
   inquiryExtraChargesCreated    InquiryExtraCharge[]   @relation("InquiryExtraChargeCreatedBy")
   inquiryAdditionalReceiptsCreated InquiryAdditionalReceipt[] @relation("InquiryAdditionalReceiptCreatedBy")
+  extraWorkRecordsAsMarketer ExtraWorkRecord[] @relation("ExtraWorkMarketer")
+  extraWorkRecordsAsParent   ExtraWorkRecord[] @relation("ExtraWorkParent")
+  extraWorkRecordsCreated    ExtraWorkRecord[] @relation("ExtraWorkCreatedBy")
+  extraWorkLeaderShares      ExtraWorkLeaderShare[]
+  extraWorkPhotosUploaded    ExtraWorkPhoto[] @relation("ExtraWorkPhotoUploader")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
   landingContactInquiriesAssigned LandingContactInquiry[] @relation("LandingContactAssignedTo")
   landingContactInquiriesConverted LandingContactInquiry[] @relation("LandingContactConvertedBy")
@@ -1836,6 +1855,7 @@ model User {
   @@unique([tenantId, pgClerkNo])
   @@unique([tenantId, platformSupportAccessId])
   @@index([tenantId, role, isActive])
+  @@index([tenantId, parentMarketerId])
   @@index([platformSupportAccessId])
   @@map("users")
 }
@@ -2588,6 +2608,7 @@ model Inquiry {
   assignments   Assignment[]
   extraCharges  InquiryExtraCharge[]
   additionalReceipts InquiryAdditionalReceipt[]
+  extraWorkRecords ExtraWorkRecord[]
   buildingType String?       @map("building_type")
   /// 발주서 10번 — 당일이사 / 이사예정 / 해당없음
   moveInTiming MoveInTiming? @map("move_in_timing")
@@ -2680,6 +2701,97 @@ model Inquiry {
   @@index([tenantId, intakeTemplateId])
   @@unique([tenantId, inquiryNumber])
   @@map("inquiries")
+}
+
+enum ExtraWorkOverrideSource {
+  NONE
+  COMPANY
+  MARKETER
+}
+
+/// 업체 기본 추가 시공 비율. 합은 10000. 학습 사용은 견적 앱이 생기기 전까지 기록만 한다.
+model TenantExtraWorkSetting {
+  tenantId       String   @id @map("tenant_id")
+  companyBps     Int      @default(10000) @map("company_bps")
+  teamLeaderBps  Int      @default(0) @map("team_leader_bps")
+  marketerBps    Int      @default(0) @map("marketer_bps")
+  workPresets    Json     @default("[]") @map("work_presets")
+  allowTraining  Boolean  @default(false) @map("allow_training")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_extra_work_settings")
+}
+
+/// 현장 추가 시공. 접수 총액·잔금과 팀장 추가결재와 따로 둔다. 비율은 저장 시점 스냅샷.
+model ExtraWorkRecord {
+  id                String                   @id @default(uuid())
+  tenantId          String                   @map("tenant_id")
+  inquiryId         String                   @map("inquiry_id")
+  marketerId        String                   @map("marketer_id")
+  occurredAt        DateTime                 @map("occurred_at")
+  amountWon         Int                      @map("amount_won")
+  workLabel         String                   @map("work_label") @db.VarChar(200)
+  areaLabel         String?                  @map("area_label") @db.VarChar(40)
+  companyBps        Int                      @map("company_bps")
+  teamLeaderBps     Int                      @map("team_leader_bps")
+  marketerBps       Int                      @map("marketer_bps")
+  overrideSource    ExtraWorkOverrideSource  @map("override_source")
+  overrideBps       Int                      @default(0) @map("override_bps")
+  parentMarketerId  String?                  @map("parent_marketer_id")
+  companyWon        Int                      @map("company_won")
+  teamLeaderWon     Int                      @map("team_leader_won")
+  marketerWon       Int                      @map("marketer_won")
+  parentWon         Int                      @map("parent_won")
+  createdById       String                   @map("created_by_id")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inquiry        Inquiry                @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  marketer       User                   @relation("ExtraWorkMarketer", fields: [marketerId], references: [id], onDelete: Restrict)
+  parentMarketer User?                  @relation("ExtraWorkParent", fields: [parentMarketerId], references: [id], onDelete: SetNull)
+  createdBy      User                   @relation("ExtraWorkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  photos         ExtraWorkPhoto[]
+  leaderShares   ExtraWorkLeaderShare[]
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, inquiryId])
+  @@index([tenantId, marketerId])
+  @@map("extra_work_records")
+}
+
+model ExtraWorkPhoto {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  recordId    String   @map("record_id")
+  storageKey  String   @map("storage_key") @db.VarChar(512)
+  url         String   @db.VarChar(1024)
+  uploadedById String  @map("uploaded_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  record     ExtraWorkRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  uploadedBy User            @relation("ExtraWorkPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, recordId])
+  @@map("extra_work_photos")
+}
+
+model ExtraWorkLeaderShare {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  recordId     String @map("record_id")
+  teamLeaderId String @map("team_leader_id")
+  amountWon    Int    @map("amount_won")
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  record     ExtraWorkRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  teamLeader User            @relation(fields: [teamLeaderId], references: [id], onDelete: Restrict)
+
+  @@unique([recordId, teamLeaderId])
+  @@index([tenantId, teamLeaderId])
+  @@map("extra_work_leader_shares")
 }
 
 /// 접수·팀원별 크루 미팅 시각(crewMeetingTimeShared=false 일 때)

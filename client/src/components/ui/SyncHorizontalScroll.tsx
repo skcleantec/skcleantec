@@ -12,6 +12,22 @@ import { ADMIN_SECTION_SIDE_NAV_LAYOUT_EVENT } from '../../utils/adminSectionSid
 
 const SCROLL_STEP = 120;
 const MIN_THUMB_PX = 40;
+/** 고정 가로 막대 위로 본문이 항상 남도록 더 띄우는 간격 */
+const DOCK_CONTENT_GAP_PX = 28;
+
+function pageScrollParent(start: HTMLElement | null): HTMLElement | null {
+  const main = start?.closest('main.staff-app-surface');
+  if (main instanceof HTMLElement) return main;
+  let el = start?.parentElement ?? null;
+  while (el) {
+    const style = getComputedStyle(el);
+    const scrolls =
+      (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1;
+    if (scrolls) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -179,6 +195,31 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
 
   const showDock = mounted && hasOverflow && tableInView && dockRect.width > 0;
 
+  useLayoutEffect(() => {
+    if (!showDock) return;
+    const scrollEl = pageScrollParent(containerRef.current);
+    if (!scrollEl) return;
+    const count = Number(scrollEl.dataset.syncScrollDock || '0') + 1;
+    scrollEl.dataset.syncScrollDock = String(count);
+    const apply = () => {
+      const dock = scrollEl.ownerDocument.querySelector('[data-sync-h-scroll-dock]');
+      const height = dock instanceof HTMLElement ? dock.getBoundingClientRect().height : 56;
+      scrollEl.style.marginBottom = `${Math.ceil(height + DOCK_CONTENT_GAP_PX)}px`;
+    };
+    apply();
+    const frame = requestAnimationFrame(apply);
+    return () => {
+      cancelAnimationFrame(frame);
+      const next = Number(scrollEl.dataset.syncScrollDock || '1') - 1;
+      if (next <= 0) {
+        delete scrollEl.dataset.syncScrollDock;
+        scrollEl.style.marginBottom = '';
+      } else {
+        scrollEl.dataset.syncScrollDock = String(next);
+      }
+    };
+  }, [showDock]);
+
   const trackInnerW = Math.max(0, dockRect.width - 72);
   const thumbW =
     maxScrollLeft <= 0 || trackInnerW <= 0
@@ -230,11 +271,12 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
   return (
     <div
       ref={containerRef}
-      className={`max-w-full min-w-0 overflow-x-hidden ${className ?? ''} ${showDock ? 'pb-14' : ''}`}
+      className={`max-w-full min-w-0 overflow-x-hidden ${className ?? ''}`}
     >
       {showDock &&
         createPortal(
           <div
+            data-sync-h-scroll-dock=""
             className="pointer-events-none fixed bottom-0 z-[130]"
             style={{
               left: dockRect.left,

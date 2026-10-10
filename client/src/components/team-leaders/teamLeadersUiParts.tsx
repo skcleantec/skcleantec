@@ -49,6 +49,7 @@ export const PAYROLL_TABS = [
   { id: 'inout', label: '수입·지출' },
   { id: 'leader', label: '팀장' },
   { id: 'marketer', label: '마케터' },
+  { id: 'extra', label: '추가정산' },
   { id: 'office', label: '사무직' },
   { id: 'settlement', label: '정산' },
   { id: 'unsettled', label: '미정산현황' },

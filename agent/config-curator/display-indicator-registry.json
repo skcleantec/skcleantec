@@ -685,6 +685,18 @@
       "notes": "시작일~종료일이 월급 주기와 다를 때. 정산완료는 주기 전체만. 끄면 미리보기와 확정이 섞임."
     },
     {
+      "id": "admin.payroll.extraExcel",
+      "labelKo": "추가정산 엑셀",
+      "surfaces": ["admin.payroll.extra"],
+      "visual": { "type": "button", "token": "white / slate-300" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/components/admin/payroll/ExtraSettlementTab.tsx"],
+      "notes": "화면에 보이는 날짜×팀장 표와 마케터별 표를 파일로 받습니다. 월 필터는 연도·N월 한글 선택입니다."
+    },
+    {
       "id": "inquiry.intake.pickTemplate",
       "labelKo": "이 접수에 쓸 발주서",
       "surfaces": ["admin.inquiry.create", "admin.schedule.create", "admin.listIntake"],
