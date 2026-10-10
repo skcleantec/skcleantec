@@ -8,6 +8,12 @@ export function won(n: number) {
   return `${Number(n).toLocaleString('ko-KR')}원`;
 }
 
+/** 월정산 ÷ 그 달 달력 일수. 원 단위로 반올림한다. */
+export function dailyAverageWon(total: number, dayCount: number) {
+  if (dayCount <= 0) return 0;
+  return Math.round(total / dayCount);
+}
+
 export type DaySumKind = 'amount' | 'marketer' | 'parent' | 'leader' | 'company';
 
 export const DAY_SUM_LABEL: Record<DaySumKind, string> = {
@@ -224,6 +230,20 @@ export function ExtraSettlementBoard(props: {
   );
 
   const summaryLabels = ['당일', '마케터', '오버라이딩', '팀장', '회사'] as const;
+  const dayCount = Math.max(board.days.length, 1);
+  const leaderTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const leader of board.leaders) {
+      totals.set(
+        leader.id,
+        board.days.reduce(
+          (sum, day) => sum + jobsForLeader(day.items, leader.id).reduce((inner, item) => inner + cellAmount(item, leader.id), 0),
+          0,
+        ),
+      );
+    }
+    return totals;
+  }, [board.days, board.leaders]);
 
   return (
     <div className="space-y-3">
@@ -345,21 +365,40 @@ export function ExtraSettlementBoard(props: {
                 ))}
                 <tr className="border-t border-slate-200 bg-slate-50 font-medium">
                   <td className="sticky left-0 z-10 w-14 min-w-14 border-r border-slate-200 bg-slate-50 px-1 py-1 text-center">월정산</td>
-                  {board.leaders.map((leader) => {
-                    const total = board.days.reduce(
-                      (sum, day) =>
-                        sum + jobsForLeader(day.items, leader.id).reduce((inner, item) => inner + cellAmount(item, leader.id), 0),
-                      0,
-                    );
-                    return (
-                      <td key={leader.id} className="w-[4.5rem] min-w-[4.5rem] max-w-[4.5rem] truncate px-1 py-1 text-right tabular-nums tracking-tight">
-                        {won(total)}
-                      </td>
-                    );
-                  })}
+                  {board.leaders.map((leader) => (
+                    <td key={leader.id} className="w-[4.5rem] min-w-[4.5rem] max-w-[4.5rem] truncate px-1 py-1 text-right tabular-nums tracking-tight">
+                      {won(leaderTotals.get(leader.id) ?? 0)}
+                    </td>
+                  ))}
                   {[monthTotals.amount, monthTotals.marketer, monthTotals.parent, monthTotals.leader, monthTotals.company].map((value, index) => (
                     <td key={summaryLabels[index]} className="w-[4.75rem] min-w-[4.75rem] px-1 py-1 text-right tabular-nums tracking-tight">
                       {won(value)}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="border-t border-slate-100 bg-white">
+                  <td
+                    className="sticky left-0 z-10 w-14 min-w-14 border-r border-slate-200 bg-white px-1 py-1 text-center text-slate-600"
+                    title="월정산을 이 달 일수로 나눈 값"
+                  >
+                    일평균
+                  </td>
+                  {board.leaders.map((leader) => (
+                    <td
+                      key={leader.id}
+                      title="월정산을 이 달 일수로 나눈 값"
+                      className="w-[4.5rem] min-w-[4.5rem] max-w-[4.5rem] truncate px-1 py-1 text-right tabular-nums tracking-tight text-slate-600"
+                    >
+                      {won(dailyAverageWon(leaderTotals.get(leader.id) ?? 0, dayCount))}
+                    </td>
+                  ))}
+                  {[monthTotals.amount, monthTotals.marketer, monthTotals.parent, monthTotals.leader, monthTotals.company].map((value, index) => (
+                    <td
+                      key={summaryLabels[index]}
+                      title="월정산을 이 달 일수로 나눈 값"
+                      className="w-[4.75rem] min-w-[4.75rem] px-1 py-1 text-right tabular-nums tracking-tight text-slate-600"
+                    >
+                      {won(dailyAverageWon(value, dayCount))}
                     </td>
                   ))}
                 </tr>

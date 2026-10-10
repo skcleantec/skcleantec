@@ -3,6 +3,7 @@ import {
   UNASSIGNED,
   buildBoard,
   cellAmount,
+  dailyAverageWon,
   dayLabel,
   jobsForLeader,
   type LeaderCol,
@@ -55,12 +56,10 @@ export function buildExtraSettlementWorkbookXml(items: ExtraWorkItem[], month: s
     const totals = [day.amount, day.marketer, day.parent, day.leader, day.company].map(cellNumber);
     return `<Row>${cellText(dayLabel(day.day))}${leaderCells.join('')}${totals.join('')}</Row>`;
   });
-  const monthLeaderTotals = board.leaders.map((leader) =>
-    cellNumber(
-      board.days.reduce(
-        (sum, day) => sum + jobsForLeader(day.items, leader.id).reduce((inner, item) => inner + cellAmount(item, leader.id), 0),
-        0,
-      ),
+  const leaderMonthTotals = board.leaders.map((leader) =>
+    board.days.reduce(
+      (sum, day) => sum + jobsForLeader(day.items, leader.id).reduce((inner, item) => inner + cellAmount(item, leader.id), 0),
+      0,
     ),
   );
   const monthTotals = board.days.reduce(
@@ -73,12 +72,16 @@ export function buildExtraSettlementWorkbookXml(items: ExtraWorkItem[], month: s
     }),
     { amount: 0, marketer: 0, parent: 0, leader: 0, company: 0 },
   );
-  const footer = `<Row>${cellText('월정산')}${monthLeaderTotals.join('')}${[monthTotals.amount, monthTotals.marketer, monthTotals.parent, monthTotals.leader, monthTotals.company].map(cellNumber).join('')}</Row>`;
+  const summaryValues = [monthTotals.amount, monthTotals.marketer, monthTotals.parent, monthTotals.leader, monthTotals.company];
+  const dayCount = Math.max(board.days.length, 1);
+  const footer = `<Row>${cellText('월정산')}${leaderMonthTotals.map(cellNumber).join('')}${summaryValues.map(cellNumber).join('')}</Row>`;
+  const average = `<Row>${cellText('일평균')}${leaderMonthTotals.map((value) => cellNumber(dailyAverageWon(value, dayCount))).join('')}${summaryValues.map((value) => cellNumber(dailyAverageWon(value, dayCount))).join('')}</Row>`;
   const grid = sheet('추가정산', [
     `<Row>${cellText(monthTitle(month))}</Row>`,
     `<Row>${header}</Row>`,
     ...dayRows,
     footer,
+    average,
   ]);
 
   const marketerHeader = ['마케터', '건수', '추가금액', '수령', '오버라이딩'].map(cellText).join('');
