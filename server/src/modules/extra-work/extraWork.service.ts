@@ -1,19 +1,36 @@
 import type { ExtraWorkOverrideSource, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { destroyStoredObject, uploadObjectBuffer } from '../../lib/objectStorage.js';
+import { normalizeUploadedFilename } from '../../lib/uploadFilename.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
   EXTRA_WORK_AREA_LABELS,
   EXTRA_WORK_DEFAULT_PRESETS,
+  EXTRA_WORK_UNIT_LABELS,
+  extraWorkUnitPriceWon,
+  normalizeExtraWorkLines,
+  normalizeExtraWorkPresets,
   ratesError,
   splitExtraWorkAmount,
+  type ExtraWorkLineDraft,
 } from '../../lib/extraWorkIncentive.js';
 
 const recordInclude = {
   marketer: { select: { id: true, name: true } },
   parentMarketer: { select: { id: true, name: true } },
   inquiry: { select: { id: true, customerName: true, inquiryNumber: true } },
-  photos: { select: { id: true } },
+  photos: { select: { id: true, originalName: true }, orderBy: { createdAt: 'asc' } },
+  lines: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: {
+      workLabel: true,
+      placeLabel: true,
+      quantity: true,
+      unitLabel: true,
+      amountWon: true,
+      photos: { select: { originalName: true }, orderBy: { createdAt: 'asc' as const } },
+    },
+  },
   leaderShares: {
     select: { amountWon: true, teamLeader: { select: { id: true, name: true } } },
   },
@@ -40,6 +57,16 @@ export function mapExtraWorkRecord(row: RecordRow) {
     customerName: row.inquiry.customerName,
     inquiryNumber: row.inquiry.inquiryNumber,
     photoCount: row.photos.length,
+    photoNames: row.photos.map((photo) => photo.originalName).filter((name): name is string => Boolean(name)),
+    lines: row.lines.map((line) => ({
+      workLabel: line.workLabel,
+      placeLabel: line.placeLabel,
+      quantity: line.quantity,
+      unitLabel: line.unitLabel,
+      amountWon: line.amountWon,
+      unitPriceWon: extraWorkUnitPriceWon(line.amountWon, line.quantity),
+      photoNames: line.photos.map((photo) => photo.originalName).filter((name): name is string => Boolean(name)),
+    })),
     leaderShares: row.leaderShares.map((share) => ({
       teamLeaderId: share.teamLeader.id,
       name: share.teamLeader.name,
@@ -50,12 +77,16 @@ export function mapExtraWorkRecord(row: RecordRow) {
 
 function presetsFromJson(value: Prisma.JsonValue): string[] {
   if (!Array.isArray(value)) return [...EXTRA_WORK_DEFAULT_PRESETS];
-  const labels = value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 20);
-  return labels.length > 0 ? labels : [...EXTRA_WORK_DEFAULT_PRESETS];
+  const labels = value.filter((item): item is string => typeof item === 'string');
+  const normalized = normalizeExtraWorkPresets(labels);
+  return normalized.presets.length > 0 ? normalized.presets : [...EXTRA_WORK_DEFAULT_PRESETS];
+}
+
+function photoOriginalName(name: string) {
+  const decoded = normalizeUploadedFilename(name) ?? name;
+  const base = decoded.replace(/\\/g, '/').split('/').pop() ?? '';
+  const clean = base.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 180);
+  return clean || '사진';
 }
 
 export async function getOrCreateExtraWorkSetting(tenantId: string) {
@@ -100,21 +131,45 @@ export async function listExtraWorkMarketerOptions(tenantId: string) {
   });
 }
 
-export async function extraWorkFormOptions(tenantId: string, inquiryId: string) {
+export async function extraWorkFormOptions(
+  tenantId: string,
+  inquiryId: string,
+  actor: { userId: string; role: string },
+) {
   const inquiry = await prisma.inquiry.findFirst({
     where: { id: inquiryId, tenantId },
-    select: { id: true, createdBy: { select: { id: true, role: true } } },
+    select: { id: true },
   });
   if (!inquiry) return null;
   const setting = await getOrCreateExtraWorkSetting(tenantId);
-  const marketers = await listExtraWorkMarketerOptions(tenantId);
-  const defaultMarketerId =
-    inquiry.createdBy?.role === 'MARKETER' ? inquiry.createdBy.id : null;
+  const [self, marketers, assignments] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id: actor.userId, tenantId, isActive: true },
+      select: { id: true, name: true },
+    }),
+    listExtraWorkMarketerOptions(tenantId),
+    prisma.assignment.findMany({
+      where: { tenantId, inquiryId },
+      orderBy: { sortOrder: 'asc' },
+      select: { teamLeader: { select: { id: true, name: true } } },
+    }),
+  ]);
+  const options = marketers.map((row) => ({ id: row.id, name: row.name }));
+  if (self && !options.some((row) => row.id === self.id)) {
+    options.unshift({ id: self.id, name: self.name });
+  }
+  const canChooseMarketer = actor.role === 'ADMIN';
+  const visible = canChooseMarketer ? options : self ? [{ id: self.id, name: self.name }] : [];
   return {
     presets: presetsFromJson(setting.workPresets),
     areas: [...EXTRA_WORK_AREA_LABELS],
-    marketers: marketers.map((row) => ({ id: row.id, name: row.name })),
-    defaultMarketerId,
+    units: [...EXTRA_WORK_UNIT_LABELS],
+    marketers: visible,
+    teamLeaders: assignments
+      .map((row) => row.teamLeader)
+      .filter((leader, index, all) => all.findIndex((item) => item.id === leader.id) === index),
+    defaultMarketerId: self?.id ?? null,
+    canChooseMarketer,
   };
 }
 
@@ -140,7 +195,7 @@ async function ratesForMarketer(tenantId: string, marketerId: string) {
   const [setting, marketer] = await Promise.all([
     getOrCreateExtraWorkSetting(tenantId),
     prisma.user.findFirst({
-      where: { id: marketerId, tenantId, role: 'MARKETER', isActive: true },
+      where: { id: marketerId, tenantId, isActive: true, role: { in: ['MARKETER', 'ADMIN'] } },
       select: {
         id: true,
         parentMarketerId: true,
@@ -182,25 +237,20 @@ export async function createExtraWorkRecord(params: {
   actorRole: string;
   inquiryId: string;
   marketerId?: string | null;
-  amountWon: number;
-  workLabel: string;
-  areaLabel: string | null;
-  files: Array<{ buffer: Buffer; mimetype: string }>;
+  lines: Array<ExtraWorkLineDraft & { files: Array<{ buffer: Buffer; mimetype: string; originalName: string }> }>;
 }) {
-  if (params.files.length < 1) throw new Error('사진을 1장 이상 올려 주세요.');
-  if (params.files.length > 8) throw new Error('사진은 8장까지 올릴 수 있습니다.');
+  for (const line of params.lines) {
+    if (line.files.length < 1) throw new Error('시공마다 사진을 1장 이상 올려 주세요.');
+    if (line.files.length > 8) throw new Error('시공 사진은 8장까지 올릴 수 있습니다.');
+  }
   const inquiry = await prisma.inquiry.findFirst({
     where: { id: params.inquiryId, tenantId: params.tenantId },
-    select: { id: true, createdBy: { select: { id: true, role: true } } },
+    select: { id: true },
   });
   if (!inquiry) throw new Error('접수를 찾을 수 없습니다.');
 
-  let marketerId = params.marketerId?.trim() || '';
-  if (params.actorRole === 'MARKETER') {
-    marketerId = params.actorId;
-  } else if (!marketerId) {
-    marketerId = inquiry.createdBy?.role === 'MARKETER' ? inquiry.createdBy.id : '';
-  }
+  const requested = params.marketerId?.trim() || '';
+  const marketerId = params.actorRole === 'ADMIN' ? requested || params.actorId : params.actorId;
   if (!marketerId) throw new Error('담당 마케터를 선택해 주세요.');
 
   const rates = await ratesForMarketer(params.tenantId, marketerId);
@@ -208,12 +258,28 @@ export async function createExtraWorkRecord(params: {
   const rateMessage = ratesError(rates.companyBps, rates.teamLeaderBps, rates.marketerBps);
   if (rateMessage) throw new Error(rateMessage);
 
+  const setting = await getOrCreateExtraWorkSetting(params.tenantId);
+  const presets = presetsFromJson(setting.workPresets);
+  const resolved = normalizeExtraWorkLines(
+    presets,
+    params.lines.map((line) => ({
+      workLabel: line.workLabel,
+      placeLabel: line.placeLabel,
+      quantity: line.quantity,
+      unitLabel: line.unitLabel,
+      amountWon: line.amountWon,
+    })),
+  );
+  if (resolved.error) throw new Error(resolved.error);
+  const places = resolved.lines.map((line) => line.placeLabel).filter((place): place is string => Boolean(place));
+  const areaLabel = places.length === 1 ? places[0] : null;
+
   const leaders = await prisma.assignment.findMany({
     where: { tenantId: params.tenantId, inquiryId: inquiry.id },
     select: { teamLeaderId: true },
   });
   const split = splitExtraWorkAmount({
-    amountWon: params.amountWon,
+    amountWon: resolved.totalWon,
     companyBps: rates.companyBps,
     teamLeaderBps: rates.teamLeaderBps,
     marketerBps: rates.marketerBps,
@@ -223,22 +289,15 @@ export async function createExtraWorkRecord(params: {
     teamLeaderIds: leaders.map((row) => row.teamLeaderId),
   });
 
-  const workLabel = params.workLabel.trim().slice(0, 200);
-  if (!workLabel) throw new Error('시공 내용을 입력해 주세요.');
-  const area = params.areaLabel?.trim() || '';
-  if (area && !EXTRA_WORK_AREA_LABELS.includes(area as (typeof EXTRA_WORK_AREA_LABELS)[number])) {
-    throw new Error('공간은 목록에서 골라 주세요.');
-  }
-
   const created = await prisma.extraWorkRecord.create({
     data: {
       tenantId: params.tenantId,
       inquiryId: inquiry.id,
       marketerId,
       occurredAt: new Date(),
-      amountWon: params.amountWon,
-      workLabel,
-      areaLabel: area || null,
+      amountWon: resolved.totalWon,
+      workLabel: resolved.summary,
+      areaLabel,
       companyBps: rates.companyBps,
       teamLeaderBps: rates.teamLeaderBps,
       marketerBps: rates.marketerBps,
@@ -262,24 +321,41 @@ export async function createExtraWorkRecord(params: {
 
   const stored: string[] = [];
   try {
-    for (const file of params.files) {
-      if (!file.mimetype.startsWith('image/')) throw new Error('사진 파일만 올릴 수 있습니다.');
-      const uploaded = await uploadObjectBuffer({
-        folder: `cbiseo/extra-work/${params.tenantId}/${created.id}`,
-        buffer: file.buffer,
-        contentType: file.mimetype,
-        resourceType: 'image',
-      });
-      stored.push(uploaded.publicId);
-      await prisma.extraWorkPhoto.create({
+    for (let index = 0; index < resolved.lines.length; index += 1) {
+      const line = resolved.lines[index]!;
+      const savedLine = await prisma.extraWorkLine.create({
         data: {
           tenantId: params.tenantId,
           recordId: created.id,
-          storageKey: uploaded.publicId,
-          url: uploaded.secureUrl,
-          uploadedById: params.actorId,
+          sortOrder: index,
+          workLabel: line.workLabel,
+          placeLabel: line.placeLabel,
+          quantity: line.quantity,
+          unitLabel: line.unitLabel,
+          amountWon: line.amountWon,
         },
       });
+      for (const file of params.lines[index]?.files ?? []) {
+        if (!file.mimetype.startsWith('image/')) throw new Error('사진 파일만 올릴 수 있습니다.');
+        const uploaded = await uploadObjectBuffer({
+          folder: `cbiseo/extra-work/${params.tenantId}/${created.id}`,
+          buffer: file.buffer,
+          contentType: file.mimetype,
+          resourceType: 'image',
+        });
+        stored.push(uploaded.publicId);
+        await prisma.extraWorkPhoto.create({
+          data: {
+            tenantId: params.tenantId,
+            recordId: created.id,
+            lineId: savedLine.id,
+            storageKey: uploaded.publicId,
+            url: uploaded.secureUrl,
+            originalName: photoOriginalName(file.originalName),
+            uploadedById: params.actorId,
+          },
+        });
+      }
     }
   } catch (error) {
     await Promise.all(stored.map((key) => destroyStoredObject(key, 'image').catch(() => undefined)));
@@ -328,7 +404,9 @@ export async function saveExtraWorkTenantSettings(params: {
 }) {
   const message = ratesError(params.companyBps, params.teamLeaderBps, params.marketerBps);
   if (message) throw new Error(message);
-  const presets = params.presets.map((item) => item.trim()).filter(Boolean).slice(0, 20);
+  const normalized = normalizeExtraWorkPresets(params.presets);
+  if (normalized.error) throw new Error(normalized.error);
+  const presets = normalized.presets;
   await prisma.tenantExtraWorkSetting.upsert({
     where: { tenantId: params.tenantId },
     create: {
@@ -347,6 +425,17 @@ export async function saveExtraWorkTenantSettings(params: {
       allowTraining: params.allowTraining,
     },
   });
+}
+
+export async function replaceExtraWorkPresets(tenantId: string, raw: string[]) {
+  const normalized = normalizeExtraWorkPresets(raw);
+  if (normalized.error) throw new Error(normalized.error);
+  const setting = await getOrCreateExtraWorkSetting(tenantId);
+  await prisma.tenantExtraWorkSetting.update({
+    where: { tenantId: setting.tenantId },
+    data: { workPresets: normalized.presets },
+  });
+  return normalized.presets;
 }
 
 export async function saveMarketerExtraWorkProfile(params: {

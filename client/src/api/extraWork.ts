@@ -20,7 +20,19 @@ export type ExtraWorkItem = {
   customerName: string;
   inquiryNumber: string | null;
   photoCount: number;
+  photoNames: string[];
+  lines: ExtraWorkLineItem[];
   leaderShares: { teamLeaderId: string; name: string; amountWon: number }[];
+};
+
+export type ExtraWorkLineItem = {
+  workLabel: string;
+  placeLabel: string | null;
+  quantity: number | null;
+  unitLabel: string | null;
+  amountWon: number;
+  unitPriceWon: number | null;
+  photoNames: string[];
 };
 
 export type ExtraWorkMarketerSetting = {
@@ -60,7 +72,9 @@ export async function fetchExtraWorkFormOptions(token: string, inquiryId: string
   return (await res.json()) as {
     presets: string[];
     areas: string[];
+    units: string[];
     marketers: { id: string; name: string }[];
+    teamLeaders: { id: string; name: string }[];
     defaultMarketerId: string | null;
     canChooseMarketer: boolean;
   };
@@ -80,22 +94,47 @@ export async function createExtraWork(
   input: {
     inquiryId: string;
     marketerId?: string;
-    amountWon: number;
-    workLabel: string;
-    areaLabel: string;
-    photos: File[];
+    lines: Array<{
+      workLabel: string;
+      placeLabel: string;
+      quantity: number | null;
+      unitLabel: string;
+      amountWon: number;
+      photos: File[];
+    }>;
   },
 ) {
   const body = new FormData();
   body.set('inquiryId', input.inquiryId);
   if (input.marketerId) body.set('marketerId', input.marketerId);
-  body.set('amountWon', String(input.amountWon));
-  body.set('workLabel', input.workLabel);
-  if (input.areaLabel) body.set('areaLabel', input.areaLabel);
-  for (const photo of input.photos) body.append('photos', photo);
+  body.set(
+    'lines',
+    JSON.stringify(
+      input.lines.map((line) => ({
+        workLabel: line.workLabel,
+        placeLabel: line.placeLabel,
+        quantity: line.quantity,
+        unitLabel: line.unitLabel,
+        amountWon: line.amountWon,
+      })),
+    ),
+  );
+  input.lines.forEach((line, index) => {
+    for (const photo of line.photos) body.append(`photos_${index}`, photo);
+  });
   const res = await fetch(`${API}/extra-work`, { method: 'POST', headers: authHeaders(token), body });
   if (!res.ok) throw new Error(await readError(res));
   return ((await res.json()) as { item: ExtraWorkItem }).item;
+}
+
+export async function saveExtraWorkPresets(token: string, presets: string[]) {
+  const res = await fetch(`${API}/extra-work/presets`, {
+    method: 'PUT',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ presets }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return ((await res.json()) as { presets: string[] }).presets;
 }
 
 export async function fetchExtraWorkSettings(token: string) {

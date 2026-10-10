@@ -10,14 +10,16 @@ import {
   extraWorkFormOptions,
   listExtraWorkRecords,
   readExtraWorkSettings,
+  replaceExtraWorkPresets,
   saveExtraWorkTenantSettings,
   saveMarketerExtraWorkProfile,
 } from './extraWork.service.js';
 
 const router = Router();
+// 항목 사진 필드는 photos_0, photos_1 … 이다.
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024, files: 8 },
+  limits: { fileSize: 8 * 1024 * 1024, files: 24 },
 });
 
 router.use(authMiddleware);
@@ -29,6 +31,32 @@ async function tenantOf(req: Request, res: Response) {
     return null;
   }
   return tenantId;
+}
+
+function readLines(body: { lines?: string }, files: Express.Multer.File[]) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body.lines ?? '');
+  } catch {
+    throw new Error('시공을 확인해 주세요.');
+  }
+  if (!Array.isArray(parsed)) throw new Error('시공을 확인해 주세요.');
+  return parsed.map((item, index) => {
+    const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+    const quantityRaw = row.quantity;
+    const quantity =
+      quantityRaw == null || quantityRaw === '' || !Number.isFinite(Number(quantityRaw)) ? null : Number(quantityRaw);
+    return {
+      workLabel: String(row.workLabel ?? ''),
+      placeLabel: row.placeLabel ? String(row.placeLabel) : null,
+      quantity,
+      unitLabel: row.unitLabel ? String(row.unitLabel) : null,
+      amountWon: Number(String(row.amountWon ?? '').replace(/,/g, '')),
+      files: files
+        .filter((file) => file.fieldname === `photos_${index}`)
+        .map((file) => ({ buffer: file.buffer, mimetype: file.mimetype, originalName: file.originalname })),
+    };
+  });
 }
 
 function parsePercent(value: unknown): number | null {
@@ -50,12 +78,12 @@ router.get('/form-options', async (req, res) => {
     res.status(400).json({ error: '접수를 선택해 주세요.' });
     return;
   }
-  const options = await extraWorkFormOptions(tenantId, inquiryId);
+  const options = await extraWorkFormOptions(tenantId, inquiryId, { userId: user.userId, role: user.role });
   if (!options) {
     res.status(404).json({ error: '접수를 찾을 수 없습니다.' });
     return;
   }
-  res.json({ ...options, canChooseMarketer: user.role === 'ADMIN' });
+  res.json(options);
 });
 
 router.get('/', async (req, res) => {
@@ -89,7 +117,7 @@ router.get('/', async (req, res) => {
   res.json({ items });
 });
 
-router.post('/', upload.array('photos', 8), async (req, res) => {
+router.post('/', upload.any(), async (req, res) => {
   const user = (req as { user?: AuthPayload }).user;
   if (!user || (user.role !== 'ADMIN' && user.role !== 'MARKETER')) {
     res.status(403).json({ error: '마케터 또는 관리자만 추가 시공을 남길 수 있습니다.' });
@@ -97,12 +125,11 @@ router.post('/', upload.array('photos', 8), async (req, res) => {
   }
   const tenantId = await tenantOf(req, res);
   if (!tenantId) return;
-  const body = req.body as { inquiryId?: string; marketerId?: string; amountWon?: string; workLabel?: string; areaLabel?: string };
-  const amount = Number(String(body.amountWon ?? '').replace(/,/g, ''));
-  if (!Number.isInteger(amount) || amount < 1) {
-    res.status(400).json({ error: '받은 금액을 1원 이상 숫자로 적어 주세요.' });
-    return;
-  }
+  const body = req.body as {
+    inquiryId?: string;
+    marketerId?: string;
+    lines?: string;
+  };
   const files = (req.files as Express.Multer.File[] | undefined) ?? [];
   try {
     const item = await createExtraWorkRecord({
@@ -111,10 +138,7 @@ router.post('/', upload.array('photos', 8), async (req, res) => {
       actorRole: user.role,
       inquiryId: String(body.inquiryId ?? ''),
       marketerId: body.marketerId,
-      amountWon: amount,
-      workLabel: String(body.workLabel ?? ''),
-      areaLabel: body.areaLabel ? String(body.areaLabel) : null,
-      files: files.map((file) => ({ buffer: file.buffer, mimetype: file.mimetype })),
+      lines: readLines(body, files),
     });
     res.status(201).json({ item });
   } catch (error) {
@@ -123,6 +147,24 @@ router.post('/', upload.array('photos', 8), async (req, res) => {
     res.status(status).json({
       error: status === 503 ? '사진 저장소가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.' : message,
     });
+  }
+});
+
+router.put('/presets', async (req, res) => {
+  const user = (req as { user?: AuthPayload }).user;
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'MARKETER')) {
+    res.status(403).json({ error: '마케터 또는 관리자만 시공 종류를 바꿀 수 있습니다.' });
+    return;
+  }
+  const tenantId = await tenantOf(req, res);
+  if (!tenantId) return;
+  const body = req.body as { presets?: unknown };
+  const presets = Array.isArray(body.presets) ? body.presets.filter((item): item is string => typeof item === 'string') : [];
+  try {
+    const saved = await replaceExtraWorkPresets(tenantId, presets);
+    res.json({ presets: saved });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : '시공 종류를 저장하지 못했습니다.' });
   }
 });
 
