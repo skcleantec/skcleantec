@@ -6,6 +6,7 @@ import {
 } from '../../../constants/orderFormPreferredTimeDetail';
 import { validateOrderFormSpaceCounts } from '@shared/orderFormSpaceCounts';
 import {
+  normalizeOrderFormYmd,
   parseMoveInTiming,
   validateMoveInTimingFields,
 } from '@shared/orderFormMoveInTiming';
@@ -102,7 +103,7 @@ export function validateCustomerStep(args: {
       return null;
     }
     case 'date': {
-      const date = form.preferredDate.trim();
+      const date = normalizeOrderFormYmd(form.preferredDate);
       if (!date) return '청소날짜(서비스받으실 날짜)를 확인해 주세요.';
       if (date < kstTodayYmd()) return '청소일은 오늘(한국 기준)부터 선택할 수 있습니다.';
       return null;

@@ -7,6 +7,7 @@ import {
 import { isOrderTimeSlotValue, resolvePreferredTimeSlotForDetail } from '@shared/orderFormTimeSlotLabels';
 import { YmdSelect } from '../../../ui/DateQuerySelects';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
+import { normalizeOrderFormYmd } from '@shared/orderFormMoveInTiming';
 import { ORDER_FORM_SPACE_COUNT_FIELDS, ORDER_FORM_SPACE_COUNT_HINT } from '@shared/orderFormSpaceCounts';
 import { isOrderFormSpaceCountLocked } from '../../../../pages/order/orderFormFieldVisibility';
 import {
@@ -25,7 +26,12 @@ export function PropertyStep({
   oneRoomLabel,
   goNext,
 }: CustomerStepBodyProps) {
+  const typeChosen =
+    !form.isOneRoom && propertyTypeOptions.some((o) => o.value === form.propertyType);
+  const typeLocked = lockKey('propertyType') && typeChosen;
+  const oneLocked = lockKey('isOneRoom') && form.isOneRoom;
   const selectType = (value: string) => {
+    if (typeLocked && value !== form.propertyType) return;
     setForm((f) => ({
       ...f,
       propertyType: value,
@@ -35,6 +41,11 @@ export function PropertyStep({
     window.setTimeout(goNext, 220);
   };
   const selectOneRoom = () => {
+    if (oneLocked && form.isOneRoom) {
+      window.setTimeout(goNext, 220);
+      return;
+    }
+    if (oneLocked) return;
     setForm((f) => ({
       ...f,
       isOneRoom: true,
@@ -46,19 +57,22 @@ export function PropertyStep({
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <WizardChipGrid>
-        {propertyTypeOptions.map((o) => (
-          <WizardChoiceChip
-            key={o.value}
-            selected={form.propertyType === o.value && !form.isOneRoom}
-            disabled={lockKey('propertyType')}
-            onSelect={() => selectType(o.value)}
-          >
-            {o.label}
-          </WizardChoiceChip>
-        ))}
+        {propertyTypeOptions.map((o) => {
+          const selected = form.propertyType === o.value && !form.isOneRoom;
+          return (
+            <WizardChoiceChip
+              key={o.value}
+              selected={selected}
+              disabled={typeLocked && !selected}
+              onSelect={() => selectType(o.value)}
+            >
+              {o.label}
+            </WizardChoiceChip>
+          );
+        })}
         <WizardChoiceChip
           selected={form.isOneRoom}
-          disabled={lockKey('isOneRoom')}
+          disabled={oneLocked && !form.isOneRoom}
           onSelect={selectOneRoom}
         >
           {oneRoomLabel}
@@ -167,23 +181,34 @@ export function TimeDetailStep({ form, setForm, lockKey, step, goNext, order, ti
 
 export function DateStep({
   form,
+  setForm,
   handleCustomerPreferredDateChange,
   lockKey,
   order,
   step,
 }: CustomerStepBodyProps) {
   const todayYmd = kstTodayYmd();
-  const dateLocked = lockKey('preferredDate') || Boolean(order?.preferredDate?.trim());
+  const prefillRaw = order?.prefillAnswers?.preferredDate;
+  const counselorDate =
+    normalizeOrderFormYmd(typeof prefillRaw === 'string' ? prefillRaw : '') ||
+    normalizeOrderFormYmd(order?.preferredDate);
+  const formDate = normalizeOrderFormYmd(form.preferredDate);
+  const counselorLocked = lockKey('preferredDate') || Boolean(normalizeOrderFormYmd(order?.preferredDate));
+  const dateIsUsable = Boolean(formDate) && formDate >= todayYmd;
+  const dateLocked = counselorLocked && dateIsUsable;
+  useEffect(() => {
+    if (formDate || !counselorDate || counselorDate < todayYmd) return;
+    setForm((f) => {
+      if (normalizeOrderFormYmd(f.preferredDate)) return f;
+      return { ...f, preferredDate: counselorDate };
+    });
+  }, [counselorDate, formDate, setForm, todayYmd]);
   useEffect(() => {
     if (dateLocked) return;
-    const raw = form.preferredDate.trim();
+    const raw = normalizeOrderFormYmd(form.preferredDate);
     if (raw && raw < todayYmd) handleCustomerPreferredDateChange('');
   }, [dateLocked, form.preferredDate, handleCustomerPreferredDateChange, todayYmd]);
-  const value = dateLocked
-    ? form.preferredDate
-    : form.preferredDate.trim() && form.preferredDate.trim() < todayYmd
-      ? ''
-      : form.preferredDate;
+  const value = dateLocked ? formDate : formDate && formDate < todayYmd ? '' : formDate;
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <YmdSelect
