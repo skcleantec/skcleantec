@@ -3690,6 +3690,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           token={getToken()!}
           inquiryId={item.id}
           customerName={item.customerName}
+          assignedLeaders={(item.assignments ?? [])
+            .filter((row) => row.teamLeader.role !== 'EXTERNAL_PARTNER')
+            .map((row) => ({ id: row.teamLeader.id, name: row.teamLeader.name }))}
+          assignedMarketer={item.createdBy ?? item.orderForm?.createdBy ?? null}
           onClose={() => setExtraWorkOpen(false)}
         />
       ) : null}

@@ -139,6 +139,8 @@ export interface ScheduleItem {
   changeLogs?: InquiryChangeLogEntry[];
   /** 인천 주안 기준 직선거리(km) */
   distanceFromJuanKm?: number | null;
+  /** 추가 시공 금액이 1원 이상인 기록이 있음 */
+  hasExtraWork?: boolean;
   /** 파트너 접수 연계 — 송신·수신 배지용 */
   tenantShare?: TenantInquiryShareMeta | null;
   /** 정보공유(DB 마켓) 판매 상태 */

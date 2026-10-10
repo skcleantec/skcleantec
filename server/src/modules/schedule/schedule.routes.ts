@@ -278,7 +278,20 @@ const scheduleListSelectLite = {
     orderBy: { sortOrder: 'asc' as const },
     select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
   },
+  extraWorkRecords: {
+    where: { amountWon: { gt: 0 } },
+    select: { id: true },
+    take: 1,
+  },
 } as const;
+
+function attachHasExtraWork<T extends { extraWorkRecords?: { id: string }[] }>(rows: T[]) {
+  return rows.map((row) => {
+    const hasExtraWork = (row.extraWorkRecords?.length ?? 0) > 0;
+    const { extraWorkRecords: _extraWorkRecords, ...rest } = row;
+    return { ...rest, hasExtraWork };
+  });
+}
 
 /** preferredDate 조회 — 하루 단위는 KST(Asia/Seoul)와 동일하게 맞춤 (말일 일정 누락 방지) */
 function rangeFromQuery(start?: string, end?: string) {
@@ -378,6 +391,11 @@ router.get('/', async (req, res) => {
             orderBy: { sortOrder: 'asc' },
             include: { createdBy: { select: { id: true, name: true } } },
           },
+          extraWorkRecords: {
+            where: { amountWon: { gt: 0 } },
+            select: { id: true },
+            take: 1,
+          },
         },
       });
   /** 스케줄 월 단위: changeLogs·카카오 지오는 상세/접수 API에 맡겨 첫 페인트 지연 방지 */
@@ -393,13 +411,13 @@ router.get('/', async (req, res) => {
   const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithHandoff);
   if (useLite) {
     res.json({
-      items: mapInquiriesInternalToneForRole(itemsWithDbListing, user.role),
+      items: attachHasExtraWork(mapInquiriesInternalToneForRole(itemsWithDbListing, user.role)),
     });
     return;
   }
   const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(prisma, itemsWithDbListing);
   res.json({
-    items: mapInquiriesInternalToneForRole(itemsWithProfReview, user.role),
+    items: attachHasExtraWork(mapInquiriesInternalToneForRole(itemsWithProfReview, user.role)),
   });
 });
 

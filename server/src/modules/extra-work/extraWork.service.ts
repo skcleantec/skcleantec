@@ -145,37 +145,51 @@ export async function extraWorkFormOptions(
 ) {
   const inquiry = await prisma.inquiry.findFirst({
     where: { id: inquiryId, tenantId },
-    select: { id: true },
+    select: {
+      id: true,
+      createdBy: { select: { id: true, name: true, isActive: true } },
+      orderForm: { select: { createdBy: { select: { id: true, name: true, isActive: true } } } },
+      assignments: {
+        orderBy: { sortOrder: 'asc' },
+        select: { teamLeader: { select: { id: true, name: true, role: true } } },
+      },
+    },
   });
   if (!inquiry) return null;
   const setting = await getOrCreateExtraWorkSetting(tenantId);
-  const [self, marketers, assignments] = await Promise.all([
+  const [self, marketers] = await Promise.all([
     prisma.user.findFirst({
       where: { id: actor.userId, tenantId, isActive: true },
       select: { id: true, name: true },
     }),
     listExtraWorkMarketerOptions(tenantId),
-    prisma.assignment.findMany({
-      where: { tenantId, inquiryId },
-      orderBy: { sortOrder: 'asc' },
-      select: { teamLeader: { select: { id: true, name: true } } },
-    }),
   ]);
+  const assignedMarketer = inquiry.createdBy ?? inquiry.orderForm?.createdBy ?? null;
   const options = marketers.map((row) => ({ id: row.id, name: row.name }));
+  if (assignedMarketer && !options.some((row) => row.id === assignedMarketer.id)) {
+    options.unshift({ id: assignedMarketer.id, name: assignedMarketer.name });
+  }
   if (self && !options.some((row) => row.id === self.id)) {
     options.unshift({ id: self.id, name: self.name });
   }
   const canChooseMarketer = actor.role === 'ADMIN';
   const visible = canChooseMarketer ? options : self ? [{ id: self.id, name: self.name }] : [];
+  const teamLeaders: { id: string; name: string }[] = [];
+  for (const row of inquiry.assignments) {
+    const leader = row.teamLeader;
+    if (leader.role === 'EXTERNAL_PARTNER') continue;
+    if (teamLeaders.some((item) => item.id === leader.id)) continue;
+    teamLeaders.push({ id: leader.id, name: leader.name });
+  }
+  const defaultMarketerId =
+    (assignedMarketer?.isActive ? assignedMarketer.id : null) ?? self?.id ?? assignedMarketer?.id ?? null;
   return {
     presets: presetsFromJson(setting.workPresets),
     areas: [...EXTRA_WORK_AREA_LABELS],
     units: [...EXTRA_WORK_UNIT_LABELS],
     marketers: visible,
-    teamLeaders: assignments
-      .map((row) => row.teamLeader)
-      .filter((leader, index, all) => all.findIndex((item) => item.id === leader.id) === index),
-    defaultMarketerId: self?.id ?? null,
+    teamLeaders,
+    defaultMarketerId,
     canChooseMarketer,
   };
 }
@@ -252,7 +266,13 @@ export async function createExtraWorkRecord(params: {
   }
   const inquiry = await prisma.inquiry.findFirst({
     where: { id: params.inquiryId, tenantId: params.tenantId },
-    select: { id: true },
+    select: {
+      id: true,
+      assignments: {
+        orderBy: { sortOrder: 'asc' },
+        select: { teamLeader: { select: { id: true, role: true } } },
+      },
+    },
   });
   if (!inquiry) throw new Error('접수를 찾을 수 없습니다.');
 
@@ -281,10 +301,13 @@ export async function createExtraWorkRecord(params: {
   const places = resolved.lines.map((line) => line.placeLabel).filter((place): place is string => Boolean(place));
   const areaLabel = places.length === 1 ? places[0] : null;
 
-  const leaders = await prisma.assignment.findMany({
-    where: { tenantId: params.tenantId, inquiryId: inquiry.id },
-    select: { teamLeaderId: true },
-  });
+  const leaderIds = [
+    ...new Set(
+      inquiry.assignments
+        .filter((row) => row.teamLeader.role !== 'EXTERNAL_PARTNER')
+        .map((row) => row.teamLeader.id),
+    ),
+  ];
   const split = splitExtraWorkAmount({
     amountWon: resolved.totalWon,
     companyBps: rates.companyBps,
@@ -293,7 +316,7 @@ export async function createExtraWorkRecord(params: {
     overrideSource: rates.overrideSource,
     overrideBps: rates.overrideBps,
     hasParent: Boolean(rates.parentMarketerId),
-    teamLeaderIds: leaders.map((row) => row.teamLeaderId),
+    teamLeaderIds: leaderIds,
   });
 
   const created = await prisma.extraWorkRecord.create({

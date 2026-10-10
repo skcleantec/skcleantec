@@ -32,18 +32,26 @@ export function ExtraWorkCaptureSheet(props: {
   token: string;
   inquiryId: string;
   customerName: string;
+  assignedLeaders?: { id: string; name: string }[];
+  assignedMarketer?: { id: string; name: string } | null;
   onClose: () => void;
 }) {
-  const { open, token, inquiryId, customerName, onClose } = props;
+  const { open, token, inquiryId, customerName, assignedLeaders = [], assignedMarketer = null, onClose } = props;
+  const assignedLeaderKey = assignedLeaders.map((row) => row.id).join('|');
+  const assignedMarketerKey = assignedMarketer?.id ?? '';
+  const assignedRef = useRef({ leaders: assignedLeaders, marketer: assignedMarketer });
+  assignedRef.current = { leaders: assignedLeaders, marketer: assignedMarketer };
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open, 160);
   const [presets, setPresets] = useState<string[]>([]);
   const [areas, setAreas] = useState<string[]>([]);
   const [units, setUnits] = useState<string[]>(['장', '개', 'm', '평', '식']);
-  const [marketers, setMarketers] = useState<{ id: string; name: string }[]>([]);
-  const [teamLeaders, setTeamLeaders] = useState<{ id: string; name: string }[]>([]);
+  const [marketers, setMarketers] = useState<{ id: string; name: string }[]>(() =>
+    assignedMarketer ? [assignedMarketer] : [],
+  );
+  const [teamLeaders, setTeamLeaders] = useState<{ id: string; name: string }[]>(assignedLeaders);
   const [canChoose, setCanChoose] = useState(false);
-  const [marketerId, setMarketerId] = useState('');
+  const [marketerId, setMarketerId] = useState(assignedMarketer?.id ?? '');
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [draftPreset, setDraftPreset] = useState('');
   const [presetBusy, setPresetBusy] = useState(false);
@@ -65,10 +73,17 @@ export function ExtraWorkCaptureSheet(props: {
         setPresets(options.presets);
         setAreas(options.areas);
         if (options.units.length > 0) setUnits(options.units);
-        setMarketers(options.marketers);
-        setTeamLeaders(options.teamLeaders ?? []);
+        const knownMarketer = assignedRef.current.marketer;
+        const knownLeaders = assignedRef.current.leaders;
+        const nextMarketers = [...options.marketers];
+        if (knownMarketer && !nextMarketers.some((row) => row.id === knownMarketer.id)) {
+          nextMarketers.unshift(knownMarketer);
+        }
+        setMarketers(nextMarketers);
+        const nextLeaders = options.teamLeaders ?? [];
+        setTeamLeaders(nextLeaders.length > 0 ? nextLeaders : knownLeaders);
         setCanChoose(options.canChooseMarketer);
-        setMarketerId(options.defaultMarketerId ?? '');
+        setMarketerId(options.defaultMarketerId || knownMarketer?.id || '');
         setItems(list);
       })
       .catch((e: unknown) => {
@@ -77,7 +92,7 @@ export function ExtraWorkCaptureSheet(props: {
     return () => {
       cancelled = true;
     };
-  }, [inquiryId, open, token]);
+  }, [assignedLeaderKey, assignedMarketerKey, inquiryId, open, token]);
 
   if (!open) return null;
 
