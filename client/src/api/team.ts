@@ -10,6 +10,16 @@ function headers(token: string) {
   };
 }
 
+async function apiErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: unknown };
+    if (typeof body.error === 'string' && body.error.trim()) return body.error.trim();
+  } catch {
+    /* 본문이 JSON이 아니면 기본 문구 */
+  }
+  return fallback;
+}
+
 export type TeamInquiriesListParams = {
   datePreset?: 'today' | 'all' | 'month' | 'day';
   month?: string;
@@ -19,6 +29,8 @@ export type TeamInquiriesListParams = {
   q?: string;
   limit?: number;
   offset?: number;
+  /** 대시보드 — 건수·오늘·다가오는 일정만 채우고 과거 행은 가볍게 */
+  view?: 'dashboard';
 };
 
 export async function getTeamInquiries(token: string, params?: TeamInquiriesListParams) {
@@ -32,13 +44,14 @@ export async function getTeamInquiries(token: string, params?: TeamInquiriesList
     if (params.q) qs.set('q', params.q);
     if (params.limit != null) qs.set('limit', String(params.limit));
     if (params.offset != null) qs.set('offset', String(params.offset));
+    if (params.view) qs.set('view', params.view);
   }
   const q = qs.toString();
   const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries${q ? `?${q}` : ''}`), {
     headers: headers(token),
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error('담당 건을 불러올 수 없습니다.');
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '담당 건을 불러올 수 없습니다.'));
   return res.json() as Promise<{ items: unknown[]; total?: number }>;
 }
 
@@ -83,7 +96,7 @@ export async function getTeamMe(token: string): Promise<TeamViewerMe> {
   if (res.status === 401) {
     throw new AuthSessionExpiredError();
   }
-  if (!res.ok) throw new Error('팀 사용자 정보를 불러올 수 없습니다.');
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '팀 사용자 정보를 불러올 수 없습니다.'));
   return res.json();
 }
 

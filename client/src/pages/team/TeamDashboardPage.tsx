@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
@@ -108,6 +108,7 @@ export function TeamDashboardPage() {
   const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
   const [myId, setMyId] = useState<string | null>(null);
@@ -122,7 +123,7 @@ export function TeamDashboardPage() {
       const startedKey = capturePreviewKey();
       try {
         const [inv, hc, me] = await Promise.all([
-          getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
+          getTeamInquiries(token, { view: 'dashboard' }) as Promise<{ items: InquiryItem[] }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
           getTeamMe(token).catch(() => null) as Promise<{ id: string } | null>,
         ]);
@@ -130,9 +131,11 @@ export function TeamDashboardPage() {
         setItems(inv.items);
         setHappyStats(hc);
         setMyId(me?.id ?? null);
-      } catch {
+        setLoadError(null);
+      } catch (e) {
         if (isPreviewFetchStale(startedKey)) return;
         setItems([]);
+        setLoadError(e instanceof Error ? e.message : '담당 건을 불러올 수 없습니다.');
       } finally {
         if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
@@ -196,6 +199,14 @@ export function TeamDashboardPage() {
     return (
       <div className="py-12 text-center text-gray-500 text-fluid-sm">
         <TeamBiLine id="team.common.loading" koClassName="text-fluid-sm text-gray-500" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-fluid-xs text-red-800">
+        {loadError}
       </div>
     );
   }
@@ -376,6 +387,18 @@ export function TeamDashboardPage() {
         {upcomingDates.length === 0 ? (
           <div className={TEAM_DASH_UPCOMING_EMPTY}>
             <TeamBiLine id="team.dashboard.noUpcoming" koClassName="text-fluid-2xs text-orange-900 sm:text-fluid-sm" />
+            {items.length > 0 && todayItems.length === 0 ? (
+              <p className="mt-1 text-fluid-2xs text-slate-600">
+                지난 배정 {items.length.toLocaleString('ko-KR')}건은{' '}
+                <Link
+                  to={`/team/assignments${location.search}`}
+                  className="font-medium text-slate-900 underline hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                >
+                  배정목록
+                </Link>
+                에서 볼 수 있습니다.
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="flex flex-col gap-1.5 sm:gap-3">
