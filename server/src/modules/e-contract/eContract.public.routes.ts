@@ -111,7 +111,25 @@ router.post('/sign/:token/upload-sign', async (req, res) => {
   }
 });
 
-router.post('/sign/:token/upload', browserImageUpload.single('file'), async (req, res) => {
+router.post(
+  '/sign/:token/upload',
+  (req, res, next) => {
+    browserImageUpload.single('file')(req, res, (err: unknown) => {
+      if (!err) {
+        next();
+        return;
+      }
+      const code =
+        typeof err === 'object' && err && 'code' in err ? String((err as { code?: string }).code ?? '') : '';
+      if (code === 'LIMIT_FILE_SIZE') {
+        res.status(400).json({ error: '사진 용량이 너무 큽니다. 다시 촬영하거나 더 작은 사진을 올려 주세요.' });
+        return;
+      }
+      console.error('[e-contract public] upload', err);
+      res.status(400).json({ error: '이미지 파일을 올리지 못했습니다.' });
+    });
+  },
+  async (req, res) => {
   try {
     const issuance = await validateIssuanceWritable(req.params.token);
     const file = req.file;
