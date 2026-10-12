@@ -21,6 +21,9 @@ export type MarketerOverviewTodayTotals = {
 
 export type MarketerOverviewResponse = {
   monthKey: string;
+  periodKind: 'month' | 'range';
+  periodFrom: string;
+  periodTo: string;
   todayYmd: string;
   todayTotals: MarketerOverviewTodayTotals;
   marketers: Array<{
@@ -38,9 +41,20 @@ export type MarketerOverviewResponse = {
   }>;
 };
 
-/** 마케터별 이번 달·오늘 예약완료(RECEIVED) 건수 — 서비스접수 목록과 동일(접수일 KST) */
-export async function getMarketerOverview(token: string): Promise<MarketerOverviewResponse> {
-  const res = await fetch(`${API}/inquiries/marketer-overview`, {
+/** 마케터별 이번 달·고른 달·날짜 구간 예약완료(RECEIVED) 건수 — 서비스접수 목록과 동일(접수일 KST) */
+export async function getMarketerOverview(
+  token: string,
+  query?: { month?: string; from?: string; to?: string },
+): Promise<MarketerOverviewResponse> {
+  const q = new URLSearchParams();
+  if (query?.from?.trim() && query?.to?.trim()) {
+    q.set('from', query.from.trim());
+    q.set('to', query.to.trim());
+  } else if (query?.month?.trim()) {
+    q.set('month', query.month.trim());
+  }
+  const suffix = q.toString() ? `?${q}` : '';
+  const res = await fetch(`${API}/inquiries/marketer-overview${suffix}`, {
     headers: headers(token),
   });
   if (!res.ok) {
@@ -95,9 +109,14 @@ export async function getInquiries(
     createdById?: string;
     /** 마케터 일별 집계와 동일 기준(KST 하루). createdById와 함께 사용 */
     marketerStatsDay?: string;
+    /** 마케터 기간 집계와 동일 기준(KST 포함). createdById와 함께 사용 */
+    marketerStatsFrom?: string;
+    marketerStatsTo?: string;
     /** 협업 마케터 집계 drill-down — collaborationStatsDay와 함께 */
     collaborationMarketerId?: string;
     collaborationStatsDay?: string;
+    collaborationStatsFrom?: string;
+    collaborationStatsTo?: string;
     /** 배정 팀장. `__unassigned__`는 미배정만 */
     teamLeaderId?: string;
     /** 영업 브랜드(Operating Company) UUID */
@@ -108,6 +127,9 @@ export async function getInquiries(
     scheduleMonth?: string;
     /** 예약일(희망일) 하루 YYYY-MM-DD, KST (scheduleMonth보다 우선) */
     scheduleDay?: string;
+    /** 예약일 구간 YYYY-MM-DD, KST (하루·월보다 우선) */
+    scheduleFrom?: string;
+    scheduleTo?: string;
     /** 관리자: 현장 검수 상태 NONE|IN_PROGRESS|COMPLETED|VOID */
     inspectionStatus?: string;
     fromYmd?: string;
@@ -130,6 +152,18 @@ export async function getInquiries(
   } else if (params?.datePreset) q.set('datePreset', params.datePreset);
   if (params?.month) q.set('month', params.month);
   if (params?.day) q.set('day', params.day);
+  if (params?.marketerStatsFrom?.trim() && params?.marketerStatsTo?.trim()) {
+    q.set('marketerStatsFrom', params.marketerStatsFrom.trim());
+    q.set('marketerStatsTo', params.marketerStatsTo.trim());
+  }
+  if (params?.collaborationStatsFrom?.trim() && params?.collaborationStatsTo?.trim()) {
+    q.set('collaborationStatsFrom', params.collaborationStatsFrom.trim());
+    q.set('collaborationStatsTo', params.collaborationStatsTo.trim());
+  }
+  if (params?.scheduleFrom?.trim() && params?.scheduleTo?.trim()) {
+    q.set('scheduleFrom', params.scheduleFrom.trim());
+    q.set('scheduleTo', params.scheduleTo.trim());
+  }
   if (params?.kstHour != null && params.kstHour >= 0 && params.kstHour <= 23) {
     q.set('kstHour', String(params.kstHour));
   }

@@ -34,6 +34,8 @@ import {
   getForceMatchOrderFormCandidates,
   type ForceMatchOrderFormCandidate,
 } from '../../api/orderform';
+import { InquiryDayRangeFields } from '../../components/admin/InquiryDayRangeFields';
+import { formatInquiryDaySpan, isInquiryYmd, normalizeInquiryDayRange } from '../../utils/inquiryDayRange';
 import { InquiryQuickPasteTriggerButton } from '../../components/inquiry/InquiryQuickPasteTriggerButton';
 import { ScheduleQuickPasteModal } from '../../components/schedule/ScheduleQuickPasteModal';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
@@ -224,6 +226,13 @@ function formatMonthKeyLabel(monthKey: string): string {
   const [y, m] = monthKey.split('-').map(Number);
   if (!y || !m) return monthKey;
   return `${y}년 ${m}월`;
+}
+
+function overviewPeriodHeading(periodKind: 'month' | 'range', monthKey: string): string {
+  if (periodKind === 'range') return '기간';
+  if (monthKey === kstTodayYmd().slice(0, 7)) return '이번 달';
+  const month = Number(monthKey.slice(5, 7));
+  return month ? `${month}월` : '이번 달';
 }
 
 /** YYYY-MM-DD가 속한 달의 1일~말일 (YYYY-MM-DD) */
@@ -1067,12 +1076,23 @@ export function AdminInquiriesPage() {
     if (m && /^\d{4}-\d{2}$/.test(m)) return m;
     return kstMonthKeyNow();
   });
-  /** 날짜 지정(YYYY-MM-DD, KST 하루) */
+  /** 날짜 지정(YYYY-MM-DD, KST 하루). 기간 필터의 시작일과 같게 둔다. */
   const [dayKey, setDayKey] = useState(() => {
-    const d = searchParams.get('day');
-    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    const d = searchParams.get('dayFrom') || searchParams.get('day');
+    if (d && isInquiryYmd(d)) return d;
     return kstTodayYmd();
   });
+  const [dayFrom, setDayFrom] = useState(() => {
+    const rawFrom = searchParams.get('dayFrom') || searchParams.get('day') || '';
+    const rawTo = searchParams.get('dayTo') || searchParams.get('dayFrom') || searchParams.get('day') || '';
+    return normalizeInquiryDayRange(rawFrom, rawTo, kstTodayYmd()).from;
+  });
+  const [dayTo, setDayTo] = useState(() => {
+    const rawFrom = searchParams.get('dayFrom') || searchParams.get('day') || '';
+    const rawTo = searchParams.get('dayTo') || searchParams.get('dayFrom') || searchParams.get('day') || '';
+    return normalizeInquiryDayRange(rawFrom, rawTo, kstTodayYmd()).to;
+  });
+  const [dayRangeClamped, setDayRangeClamped] = useState(false);
   const [dateBasis, setDateBasis] = useState<'createdAt' | 'preferredDate'>('createdAt');
   /** 검색 적용 전 날짜 필터 — 검색 해제 시 복원 */
   const datePresetBeforeSearchRef = useRef<'today' | 'all' | 'month' | 'day' | null>(null);
@@ -1138,6 +1158,22 @@ export function AdminInquiriesPage() {
     const csd = searchParams.get('collaborationStatsDay');
     if (csd && /^\d{4}-\d{2}-\d{2}$/.test(csd)) return csd;
     return '';
+  });
+  const [marketerStatsFrom, setMarketerStatsFrom] = useState(() => {
+    const from = searchParams.get('marketerStatsFrom') ?? '';
+    return isInquiryYmd(from) ? from : '';
+  });
+  const [marketerStatsTo, setMarketerStatsTo] = useState(() => {
+    const to = searchParams.get('marketerStatsTo') ?? '';
+    return isInquiryYmd(to) ? to : '';
+  });
+  const [collaborationStatsFrom, setCollaborationStatsFrom] = useState(() => {
+    const from = searchParams.get('collaborationStatsFrom') ?? '';
+    return isInquiryYmd(from) ? from : '';
+  });
+  const [collaborationStatsTo, setCollaborationStatsTo] = useState(() => {
+    const to = searchParams.get('collaborationStatsTo') ?? '';
+    return isInquiryYmd(to) ? to : '';
   });
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
@@ -1279,11 +1315,17 @@ export function AdminInquiriesPage() {
         searchParams.get('datePreset') ?? '',
         searchParams.get('month') ?? '',
         searchParams.get('day') ?? '',
+        searchParams.get('dayFrom') ?? '',
+        searchParams.get('dayTo') ?? '',
         searchParams.get('status') ?? '',
         searchParams.get('createdById') ?? '',
         searchParams.get('marketerStatsDay') ?? '',
+        searchParams.get('marketerStatsFrom') ?? '',
+        searchParams.get('marketerStatsTo') ?? '',
         searchParams.get('collaborationMarketerId') ?? '',
         searchParams.get('collaborationStatsDay') ?? '',
+        searchParams.get('collaborationStatsFrom') ?? '',
+        searchParams.get('collaborationStatsTo') ?? '',
       ].join('\0'),
     [searchParams]
   );
@@ -1296,6 +1338,8 @@ export function AdminInquiriesPage() {
     const dp = searchParams.get('datePreset');
     const m = searchParams.get('month');
     const day = searchParams.get('day');
+    const dayFromParam = searchParams.get('dayFrom');
+    const dayToParam = searchParams.get('dayTo');
     const st = searchParams.get('status');
     if (dp === 'today' || dp === 'all' || dp === 'month' || dp === 'day') {
       setDatePreset(dp);
@@ -1305,7 +1349,13 @@ export function AdminInquiriesPage() {
     if (m && /^\d{4}-\d{2}$/.test(m)) {
       setMonthKey(m);
     }
-    if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    if ((dayFromParam && isInquiryYmd(dayFromParam)) || (dayToParam && isInquiryYmd(dayToParam)) || (day && isInquiryYmd(day))) {
+      const span = normalizeInquiryDayRange(dayFromParam || day || '', dayToParam || dayFromParam || day || '', kstTodayYmd());
+      setDayFrom(span.from);
+      setDayTo(span.to);
+      setDayKey(span.from);
+      setDayRangeClamped(span.clamped);
+    } else if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) {
       setDayKey(day);
     }
     if (st && (STATUS_FILTER_VALUES as readonly string[]).includes(st)) {
@@ -1325,6 +1375,17 @@ export function AdminInquiriesPage() {
     } else if (!isFirst) {
       setMarketerStatsDay('');
     }
+    const statsFrom = searchParams.get('marketerStatsFrom') ?? '';
+    const statsTo = searchParams.get('marketerStatsTo') ?? '';
+    if (isInquiryYmd(statsFrom) && isInquiryYmd(statsTo)) {
+      const span = normalizeInquiryDayRange(statsFrom, statsTo, kstTodayYmd());
+      setMarketerStatsFrom(span.from);
+      setMarketerStatsTo(span.to);
+      setDateBasis('createdAt');
+    } else if (!isFirst) {
+      setMarketerStatsFrom('');
+      setMarketerStatsTo('');
+    }
     if (searchParams.has('collaborationMarketerId')) {
       setCollaborationFilterId(searchParams.get('collaborationMarketerId') ?? '');
     } else if (!isFirst) {
@@ -1336,6 +1397,17 @@ export function AdminInquiriesPage() {
       setDateBasis('createdAt');
     } else if (!isFirst) {
       setCollaborationStatsDay('');
+    }
+    const collabFrom = searchParams.get('collaborationStatsFrom') ?? '';
+    const collabTo = searchParams.get('collaborationStatsTo') ?? '';
+    if (isInquiryYmd(collabFrom) && isInquiryYmd(collabTo)) {
+      const span = normalizeInquiryDayRange(collabFrom, collabTo, kstTodayYmd());
+      setCollaborationStatsFrom(span.from);
+      setCollaborationStatsTo(span.to);
+      setDateBasis('createdAt');
+    } else if (!isFirst) {
+      setCollaborationStatsFrom('');
+      setCollaborationStatsTo('');
     }
   }, [urlListFilterSig, searchParams]);
 
@@ -1498,7 +1570,15 @@ export function AdminInquiriesPage() {
         setMarketerOverviewError(null);
       }
       try {
-        const data = await getMarketerOverview(token);
+        const span = datePreset === 'day' ? normalizeInquiryDayRange(dayFrom, dayTo, kstTodayYmd()) : null;
+        const data = await getMarketerOverview(
+          token,
+          datePreset === 'month'
+            ? { month: monthKey }
+            : span
+              ? { from: span.from, to: span.to }
+              : undefined,
+        );
         setMarketerOverview(data);
         setMarketerOverviewError(null);
       } catch (e) {
@@ -1510,14 +1590,23 @@ export function AdminInquiriesPage() {
         if (!silent) setMarketerOverviewLoading(false);
       }
     },
-    [token]
+    [token, datePreset, monthKey, dayFrom, dayTo]
   );
 
   /** 마케터 집계는 목록보다 무거움 — 첫 목록 로드 이후에만 자동 요청(목록 체감 속도 우선) */
   const marketerOverviewAfterListRef = useRef(false);
+  const inquiryListReqRef = useRef(0);
+  const loadMarketerOverviewRef = useRef(loadMarketerOverview);
+  loadMarketerOverviewRef.current = loadMarketerOverview;
   useEffect(() => {
     marketerOverviewAfterListRef.current = false;
   }, [token]);
+  const overviewPeriodKey =
+    datePreset === 'month' ? `m:${monthKey}` : datePreset === 'day' ? `d:${dayFrom}:${dayTo}` : 'current';
+  useEffect(() => {
+    if (!token || !marketerOverviewAfterListRef.current) return;
+    void loadMarketerOverview();
+  }, [token, overviewPeriodKey, loadMarketerOverview]);
 
   const refresh = (showLoading = false): Promise<void> => {
     if (!token) return Promise.resolve();
@@ -1542,8 +1631,14 @@ export function AdminInquiriesPage() {
       statusEvent?: string;
       createdById?: string;
       marketerStatsDay?: string;
+      marketerStatsFrom?: string;
+      marketerStatsTo?: string;
       collaborationMarketerId?: string;
       collaborationStatsDay?: string;
+      collaborationStatsFrom?: string;
+      collaborationStatsTo?: string;
+      scheduleFrom?: string;
+      scheduleTo?: string;
       teamLeaderId?: string;
       operatingCompanyId?: string;
       source?: string;
@@ -1562,11 +1657,19 @@ export function AdminInquiriesPage() {
       if (opsDrillParams.statusEvent) params.statusEvent = opsDrillParams.statusEvent;
     } else if (dateBasis === 'createdAt') {
       if (datePreset === 'month') params.month = monthKey;
-      if (datePreset === 'day') params.day = dayKey;
+      if (datePreset === 'day') {
+        const span = normalizeInquiryDayRange(dayFrom, dayTo, kstTodayYmd());
+        params.fromYmd = span.from;
+        params.toYmd = span.to;
+      }
     } else {
       if (datePreset === 'today') params.scheduleDay = kstTodayYmd();
       if (datePreset === 'month') params.scheduleMonth = monthKey;
-      if (datePreset === 'day') params.scheduleDay = dayKey;
+      if (datePreset === 'day') {
+        const span = normalizeInquiryDayRange(dayFrom, dayTo, kstTodayYmd());
+        params.scheduleFrom = span.from;
+        params.scheduleTo = span.to;
+      }
     }
     if (statusFilter) params.status = statusFilter;
     if (appliedSearchQuery.trim()) params.search = appliedSearchQuery.trim();
@@ -1574,12 +1677,18 @@ export function AdminInquiriesPage() {
       params.createdById = marketerFilterId.trim();
       if (marketerStatsDay.trim()) {
         params.marketerStatsDay = marketerStatsDay.trim();
+      } else if (isInquiryYmd(marketerStatsFrom) && isInquiryYmd(marketerStatsTo)) {
+        params.marketerStatsFrom = marketerStatsFrom;
+        params.marketerStatsTo = marketerStatsTo;
       }
     }
     if ((me?.role === 'ADMIN' || me?.role === 'MARKETER') && collaborationFilterId.trim()) {
       params.collaborationMarketerId = collaborationFilterId.trim();
       if (collaborationStatsDay.trim()) {
         params.collaborationStatsDay = collaborationStatsDay.trim();
+      } else if (isInquiryYmd(collaborationStatsFrom) && isInquiryYmd(collaborationStatsTo)) {
+        params.collaborationStatsFrom = collaborationStatsFrom;
+        params.collaborationStatsTo = collaborationStatsTo;
       }
     }
     if (teamLeaderFilterId.trim()) {
@@ -1603,22 +1712,26 @@ export function AdminInquiriesPage() {
       params.sortBy = listSort.field;
       params.sortDir = listSort.dir;
     }
+    const reqId = ++inquiryListReqRef.current;
     return getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
+        if (reqId !== inquiryListReqRef.current) return;
         setItems(sortInquiryListRows(res.items, listSort));
         setTotal(res.total);
         setApiError(null);
       })
       .catch((err) => {
+        if (reqId !== inquiryListReqRef.current) return;
         setItems([]);
         setTotal(0);
         setApiError(err instanceof Error ? err.message : '서버에 연결할 수 없습니다.');
       })
       .finally(() => {
+        if (reqId !== inquiryListReqRef.current) return;
         setLoading(false);
         if (!marketerOverviewAfterListRef.current) {
           marketerOverviewAfterListRef.current = true;
-          void loadMarketerOverview();
+          void loadMarketerOverviewRef.current();
         }
       });
   };
@@ -1733,11 +1846,18 @@ export function AdminInquiriesPage() {
       flushSync(() => {
         setMarketerFilterId(marketerId);
         setMarketerStatsDay(dayYmd);
+        setMarketerStatsFrom('');
+        setMarketerStatsTo('');
         setCollaborationFilterId('');
         setCollaborationStatsDay('');
+        setCollaborationStatsFrom('');
+        setCollaborationStatsTo('');
         setDateBasis('createdAt');
         setDatePreset('day');
         setDayKey(dayYmd);
+        setDayFrom(dayYmd);
+        setDayTo(dayYmd);
+        setDayRangeClamped(false);
         setStatusFilter('RECEIVED');
         setSearchInput('');
         setInquiryListBump((n) => n + 1);
@@ -1745,9 +1865,13 @@ export function AdminInquiriesPage() {
       patchInquiryListSearchParams((next) => {
         next.set('datePreset', 'day');
         next.set('day', dayYmd);
+        next.set('dayFrom', dayYmd);
+        next.set('dayTo', dayYmd);
         next.set('status', 'RECEIVED');
         next.set('createdById', marketerId);
         next.set('marketerStatsDay', dayYmd);
+        next.delete('marketerStatsFrom');
+        next.delete('marketerStatsTo');
         next.delete('month');
         next.delete('q');
         next.delete('collaborationMarketerId');
@@ -1762,11 +1886,18 @@ export function AdminInquiriesPage() {
       flushSync(() => {
         setCollaborationFilterId(marketerId);
         setCollaborationStatsDay(dayYmd);
+        setCollaborationStatsFrom('');
+        setCollaborationStatsTo('');
         setMarketerFilterId('');
         setMarketerStatsDay('');
+        setMarketerStatsFrom('');
+        setMarketerStatsTo('');
         setDateBasis('createdAt');
         setDatePreset('day');
         setDayKey(dayYmd);
+        setDayFrom(dayYmd);
+        setDayTo(dayYmd);
+        setDayRangeClamped(false);
         setStatusFilter('RECEIVED');
         setSearchInput('');
         setInquiryListBump((n) => n + 1);
@@ -1774,9 +1905,13 @@ export function AdminInquiriesPage() {
       patchInquiryListSearchParams((next) => {
         next.set('datePreset', 'day');
         next.set('day', dayYmd);
+        next.set('dayFrom', dayYmd);
+        next.set('dayTo', dayYmd);
         next.set('status', 'RECEIVED');
         next.set('collaborationMarketerId', marketerId);
         next.set('collaborationStatsDay', dayYmd);
+        next.delete('collaborationStatsFrom');
+        next.delete('collaborationStatsTo');
         next.delete('month');
         next.delete('q');
         next.delete('createdById');
@@ -1786,28 +1921,161 @@ export function AdminInquiriesPage() {
     [patchInquiryListSearchParams]
   );
 
+  const applyMarketerStatsRangeFilter = useCallback(
+    (marketerId: string, fromYmd: string, toYmd: string) => {
+      const span = normalizeInquiryDayRange(fromYmd, toYmd, kstTodayYmd());
+      flushSync(() => {
+        setMarketerFilterId(marketerId);
+        setMarketerStatsDay('');
+        setMarketerStatsFrom(span.from);
+        setMarketerStatsTo(span.to);
+        setCollaborationFilterId('');
+        setCollaborationStatsDay('');
+        setCollaborationStatsFrom('');
+        setCollaborationStatsTo('');
+        setDateBasis('createdAt');
+        setDatePreset('day');
+        setDayKey(span.from);
+        setDayFrom(span.from);
+        setDayTo(span.to);
+        setDayRangeClamped(span.clamped);
+        setStatusFilter('RECEIVED');
+        setSearchInput('');
+        setInquiryListBump((n) => n + 1);
+      });
+      patchInquiryListSearchParams((next) => {
+        next.set('datePreset', 'day');
+        next.set('dayFrom', span.from);
+        next.set('dayTo', span.to);
+        next.set('day', span.from);
+        next.set('status', 'RECEIVED');
+        next.set('createdById', marketerId);
+        next.set('marketerStatsFrom', span.from);
+        next.set('marketerStatsTo', span.to);
+        next.delete('marketerStatsDay');
+        next.delete('month');
+        next.delete('q');
+        next.delete('collaborationMarketerId');
+        next.delete('collaborationStatsDay');
+        next.delete('collaborationStatsFrom');
+        next.delete('collaborationStatsTo');
+      });
+    },
+    [patchInquiryListSearchParams],
+  );
+
+  const applyCollaborationStatsRangeFilter = useCallback(
+    (marketerId: string, fromYmd: string, toYmd: string) => {
+      const span = normalizeInquiryDayRange(fromYmd, toYmd, kstTodayYmd());
+      flushSync(() => {
+        setCollaborationFilterId(marketerId);
+        setCollaborationStatsDay('');
+        setCollaborationStatsFrom(span.from);
+        setCollaborationStatsTo(span.to);
+        setMarketerFilterId('');
+        setMarketerStatsDay('');
+        setMarketerStatsFrom('');
+        setMarketerStatsTo('');
+        setDateBasis('createdAt');
+        setDatePreset('day');
+        setDayKey(span.from);
+        setDayFrom(span.from);
+        setDayTo(span.to);
+        setDayRangeClamped(span.clamped);
+        setStatusFilter('RECEIVED');
+        setSearchInput('');
+        setInquiryListBump((n) => n + 1);
+      });
+      patchInquiryListSearchParams((next) => {
+        next.set('datePreset', 'day');
+        next.set('dayFrom', span.from);
+        next.set('dayTo', span.to);
+        next.set('day', span.from);
+        next.set('status', 'RECEIVED');
+        next.set('collaborationMarketerId', marketerId);
+        next.set('collaborationStatsFrom', span.from);
+        next.set('collaborationStatsTo', span.to);
+        next.delete('collaborationStatsDay');
+        next.delete('month');
+        next.delete('q');
+        next.delete('createdById');
+        next.delete('marketerStatsDay');
+        next.delete('marketerStatsFrom');
+        next.delete('marketerStatsTo');
+      });
+    },
+    [patchInquiryListSearchParams],
+  );
+
+  const applyDayRange = useCallback(
+    (nextFrom: string, nextTo: string) => {
+      const span = normalizeInquiryDayRange(nextFrom, nextTo, kstTodayYmd());
+      setMarketerStatsDay('');
+      setMarketerStatsFrom('');
+      setMarketerStatsTo('');
+      setCollaborationStatsDay('');
+      setCollaborationStatsFrom('');
+      setCollaborationStatsTo('');
+      setDayFrom(span.from);
+      setDayTo(span.to);
+      setDayKey(span.from);
+      setDayRangeClamped(span.clamped);
+      patchInquiryListSearchParams((next) => {
+        next.set('datePreset', 'day');
+        next.set('dayFrom', span.from);
+        next.set('dayTo', span.to);
+        next.set('day', span.from);
+        next.delete('month');
+        next.delete('marketerStatsDay');
+        next.delete('marketerStatsFrom');
+        next.delete('marketerStatsTo');
+        next.delete('collaborationStatsDay');
+        next.delete('collaborationStatsFrom');
+        next.delete('collaborationStatsTo');
+      });
+    },
+    [patchInquiryListSearchParams],
+  );
+
   const applyDatePreset = useCallback(
     (preset: 'today' | 'all' | 'month' | 'day') => {
       setMarketerStatsDay('');
+      setMarketerStatsFrom('');
+      setMarketerStatsTo('');
+      setCollaborationStatsDay('');
+      setCollaborationStatsFrom('');
+      setCollaborationStatsTo('');
       setDatePreset(preset);
       datePresetBeforeSearchRef.current = null;
       patchInquiryListSearchParams((next) => {
         next.set('datePreset', preset);
         next.delete('marketerStatsDay');
+        next.delete('marketerStatsFrom');
+        next.delete('marketerStatsTo');
+        next.delete('collaborationStatsDay');
+        next.delete('collaborationStatsFrom');
+        next.delete('collaborationStatsTo');
         next.delete('q');
         if (preset === 'month') {
           next.set('month', monthKey);
           next.delete('day');
+          next.delete('dayFrom');
+          next.delete('dayTo');
         } else if (preset === 'day') {
-          next.set('day', dayKey);
+          const span = normalizeInquiryDayRange(dayFrom, dayTo, kstTodayYmd());
+          next.set('day', span.from);
+          next.set('dayFrom', span.from);
+          next.set('dayTo', span.to);
           next.delete('month');
         } else {
           next.delete('month');
           next.delete('day');
+          next.delete('dayFrom');
+          next.delete('dayTo');
         }
       });
     },
-    [patchInquiryListSearchParams, monthKey, dayKey]
+    [patchInquiryListSearchParams, monthKey, dayFrom, dayTo]
   );
 
   const applySearchQuery = useCallback(
@@ -1883,10 +2151,16 @@ export function AdminInquiriesPage() {
         datePreset,
         monthKey,
         dayKey,
+        dayFrom,
+        dayTo,
         marketerFilterId,
         marketerStatsDay,
+        marketerStatsFrom,
+        marketerStatsTo,
         collaborationFilterId,
         collaborationStatsDay,
+        collaborationStatsFrom,
+        collaborationStatsTo,
         teamLeaderFilterId,
         operatingCompanyFilterId,
         sourceFilterId,
@@ -1902,10 +2176,16 @@ export function AdminInquiriesPage() {
       datePreset,
       monthKey,
       dayKey,
+      dayFrom,
+      dayTo,
       marketerFilterId,
       marketerStatsDay,
+      marketerStatsFrom,
+      marketerStatsTo,
       collaborationFilterId,
       collaborationStatsDay,
+      collaborationStatsFrom,
+      collaborationStatsTo,
       teamLeaderFilterId,
       operatingCompanyFilterId,
       sourceFilterId,
@@ -2681,8 +2961,20 @@ export function AdminInquiriesPage() {
               value={dateBasis}
               onChange={(e) => {
                 setMarketerStatsDay('');
+                setMarketerStatsFrom('');
+                setMarketerStatsTo('');
+                setCollaborationStatsDay('');
+                setCollaborationStatsFrom('');
+                setCollaborationStatsTo('');
                 setDateBasis(e.target.value as 'createdAt' | 'preferredDate');
-                patchInquiryListSearchParams((next) => next.delete('marketerStatsDay'));
+                patchInquiryListSearchParams((next) => {
+                  next.delete('marketerStatsDay');
+                  next.delete('marketerStatsFrom');
+                  next.delete('marketerStatsTo');
+                  next.delete('collaborationStatsDay');
+                  next.delete('collaborationStatsFrom');
+                  next.delete('collaborationStatsTo');
+                });
               }}
               className={INQUIRY_LIST_DATE_SELECT_CLASS}
             >
@@ -2696,12 +2988,24 @@ export function AdminInquiriesPage() {
                 value={monthKey}
                 onChange={(v) => {
                   setMarketerStatsDay('');
+                  setMarketerStatsFrom('');
+                  setMarketerStatsTo('');
+                  setCollaborationStatsDay('');
+                  setCollaborationStatsFrom('');
+                  setCollaborationStatsTo('');
                   setMonthKey(v);
                   patchInquiryListSearchParams((next) => {
                     next.set('datePreset', 'month');
                     next.set('month', v);
                     next.delete('day');
+                    next.delete('dayFrom');
+                    next.delete('dayTo');
                     next.delete('marketerStatsDay');
+                    next.delete('marketerStatsFrom');
+                    next.delete('marketerStatsTo');
+                    next.delete('collaborationStatsDay');
+                    next.delete('collaborationStatsFrom');
+                    next.delete('collaborationStatsTo');
                   });
                 }}
                 idPrefix="inq-created-month"
@@ -2709,21 +3013,12 @@ export function AdminInquiriesPage() {
               />
             )}
             {datePreset === 'day' && (
-              <YmdSelect
-                value={dayKey}
-                onChange={(v) => {
-                  setMarketerStatsDay('');
-                  setDayKey(v);
-                  patchInquiryListSearchParams((next) => {
-                    next.set('datePreset', 'day');
-                    next.set('day', v);
-                    next.delete('month');
-                    next.delete('marketerStatsDay');
-                  });
-                }}
-                idPrefix="inq-created-day"
-                compact
-              />
+              <>
+                <InquiryDayRangeFields from={dayFrom} to={dayTo} onChange={applyDayRange} />
+                {dayRangeClamped ? (
+                  <span className="text-fluid-2xs text-amber-700">최대 366일까지 맞췄습니다.</span>
+                ) : null}
+              </>
             )}
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end">
               <ListPaginationBar
@@ -2742,7 +3037,10 @@ export function AdminInquiriesPage() {
               <span className="font-medium text-slate-800">마케터별 확정 예약</span>
               {marketerOverview && (
                 <span className="min-w-0 truncate text-slate-500">
-                  · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
+                  · {marketerOverview.periodKind === 'range'
+                    ? formatInquiryDaySpan(marketerOverview.periodFrom, marketerOverview.periodTo)
+                    : formatMonthKeyLabel(marketerOverview.monthKey)}{' '}
+                  · 오늘 {marketerOverview.todayYmd}
                   · 확정 {marketerOverview.todayTotals.received}건
                   · 부재 {marketerOverview.todayTotals.absent}건
                   · 보류 {marketerOverview.todayTotals.hold}건
@@ -2750,7 +3048,7 @@ export function AdminInquiriesPage() {
                 </span>
               )}
               <HelpTooltip
-                text="당일(KST) 기준입니다. 확정=담당 마케터·예약완료(RECEIVED·접수일). 협업=협업 마케터 지정·예약완료·접수일(앞: 이번 달·뒤: 오늘). 부재·보류·요청=부재현황 등록일·등록자·현재 상태 건수입니다."
+                text="기간 칸은 고른 달 또는 시작일~종료일의 예약완료·접수일 건수입니다. 당일·전체는 이번 달입니다. 확정·부재·보류·요청은 오늘입니다. 기간 숫자를 누르면 그 기간 목록이 열리고, 행을 누르면 오늘 담당 목록이 열립니다. 목록을 예약일로 봐도 이 숫자는 접수일 기준입니다."
                 className="shrink-0"
               />
               <span className="ml-auto shrink-0 text-slate-500" aria-hidden>
@@ -2777,11 +3075,13 @@ export function AdminInquiriesPage() {
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-600">
                       <th className="py-1 pr-2 text-center font-medium">이름</th>
-                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">이번 달</th>
+                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">
+                        {overviewPeriodHeading(marketerOverview.periodKind, marketerOverview.monthKey)}
+                      </th>
                       <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">확정</th>
                       <th
                         className="whitespace-nowrap px-1.5 py-1 text-center font-medium"
-                        title="협업 — 이번 달 · 오늘"
+                        title="협업 — 기간 · 오늘"
                       >
                         협업
                       </th>
@@ -2820,15 +3120,16 @@ export function AdminInquiriesPage() {
                             ? 'cursor-pointer hover:bg-slate-100 focus-visible:outline focus-visible:ring-2 focus-visible:ring-slate-400'
                             : ''
                         } ${
-                          marketerFilterId === m.marketerId && marketerStatsDay
+                          marketerFilterId === m.marketerId && (marketerStatsDay || (marketerStatsFrom && marketerStatsTo))
                             ? 'bg-blue-50/80'
-                            : collaborationFilterId === m.marketerId && collaborationStatsDay
+                            : collaborationFilterId === m.marketerId &&
+                                (collaborationStatsDay || (collaborationStatsFrom && collaborationStatsTo))
                               ? 'bg-violet-50/80'
                               : ''
                         }`}
                         title={
                           me?.role === 'ADMIN' || me?.role === 'MARKETER'
-                            ? '행 클릭: 오늘 확정(담당) 목록 · 협업 열: 오늘 협업 목록'
+                            ? '행 클릭: 오늘 확정(담당) 목록 · 기간 숫자: 그 기간 목록 · 협업 앞 숫자: 그 기간 협업'
                             : undefined
                         }
                       >
@@ -2839,7 +3140,24 @@ export function AdminInquiriesPage() {
                             role: m.role,
                           })}
                         </td>
-                        <td className="px-1.5 py-1 text-right tabular-nums">{m.monthCount}건</td>
+                        <td className="px-1.5 py-1 text-right tabular-nums">
+                          <button
+                            type="button"
+                            disabled={me?.role !== 'ADMIN' && me?.role !== 'MARKETER'}
+                            title="이 기간의 예약완료 목록"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              applyMarketerStatsRangeFilter(
+                                m.marketerId,
+                                marketerOverview.periodFrom,
+                                marketerOverview.periodTo,
+                              );
+                            }}
+                            className="tabular-nums hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:no-underline"
+                          >
+                            {m.monthCount}건
+                          </button>
+                        </td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayCount}건</td>
                         <td
                           className={`px-1.5 py-1 text-right tabular-nums ${
@@ -2847,7 +3165,7 @@ export function AdminInquiriesPage() {
                               ? 'cursor-pointer hover:bg-violet-100/80'
                               : ''
                           }`}
-                          title="협업 — 이번 달 · 오늘 (클릭: 오늘 협업 목록)"
+                          title="앞 숫자: 이 기간 협업 목록 · 뒤 숫자와 칸: 오늘 협업 목록"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (me?.role === 'ADMIN' || me?.role === 'MARKETER') {
@@ -2873,7 +3191,24 @@ export function AdminInquiriesPage() {
                           }
                           tabIndex={me?.role === 'ADMIN' || me?.role === 'MARKETER' ? 0 : undefined}
                         >
-                          {m.monthCollaborationCount} · {m.todayCollaborationCount}
+                          <button
+                            type="button"
+                            disabled={me?.role !== 'ADMIN' && me?.role !== 'MARKETER'}
+                            title="이 기간의 협업 목록"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              applyCollaborationStatsRangeFilter(
+                                m.marketerId,
+                                marketerOverview.periodFrom,
+                                marketerOverview.periodTo,
+                              );
+                            }}
+                            className="tabular-nums hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:no-underline"
+                          >
+                            {m.monthCollaborationCount}
+                          </button>
+                          {' · '}
+                          {m.todayCollaborationCount}
                         </td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayAbsentCount}건</td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayHoldCount}건</td>
@@ -4185,10 +4520,20 @@ export function AdminInquiriesPage() {
         {!shouldShowListBlockingLoading(loading, items.length) ? (
           <>
             <div className="border-t border-slate-100 px-2 py-1.5 text-fluid-2xs text-slate-600 sm:px-4 sm:py-2 sm:text-fluid-xs">
-              {collaborationStatsDay ? (
+              {collaborationStatsFrom && collaborationStatsTo ? (
+                <>
+                  협업 · 집계 기준 {formatInquiryDaySpan(collaborationStatsFrom, collaborationStatsTo)}
+                  <span className="text-slate-500"> (예약완료·접수일·협업 마케터)</span>
+                </>
+              ) : collaborationStatsDay ? (
                 <>
                   협업 · 집계 기준 {collaborationStatsDay}
                   <span className="text-slate-500"> (예약완료·접수일·협업 마케터)</span>
+                </>
+              ) : marketerStatsFrom && marketerStatsTo ? (
+                <>
+                  예약완료 · 집계 기준 {formatInquiryDaySpan(marketerStatsFrom, marketerStatsTo)}
+                  <span className="text-slate-500"> (접수일·담당 마케터)</span>
                 </>
               ) : marketerStatsDay ? (
                 <>
@@ -4200,7 +4545,7 @@ export function AdminInquiriesPage() {
               ) : datePreset === 'month' ? (
                 `${monthKey}`
               ) : datePreset === 'day' ? (
-                `${dayKey}`
+                formatInquiryDaySpan(dayFrom, dayTo)
               ) : (
                 '전체 기간'
               )}
@@ -5464,7 +5809,11 @@ export function AdminInquiriesPage() {
         authToken={token}
         marketerId={marketerDailyModal?.marketerId ?? null}
         marketerName={marketerDailyModal?.marketerName ?? ''}
-        initialMonthKey={marketerOverview?.monthKey ?? kstTodayYmd().slice(0, 7)}
+        initialMonthKey={
+          datePreset === 'month'
+            ? monthKey
+            : marketerOverview?.periodFrom?.slice(0, 7) || marketerOverview?.monthKey || kstTodayYmd().slice(0, 7)
+        }
         onDayClick={(dayYmd) => {
           if (!marketerDailyModal) return;
           applyMarketerStatsListFilter(marketerDailyModal.marketerId, dayYmd);

@@ -27,6 +27,25 @@ export function kstYmdKeysInRange(startYmd: string, endYmd: string): string[] {
   return out;
 }
 
+/** 시작~끝 포함. 순서가 뒤집히면 맞바꾸고, maxDays(기본 366일)를 넘으면 끝을 자른다. */
+export function clampKstYmdRange(
+  fromYmd: string,
+  toYmd: string,
+  maxDays = 366,
+): { from: string; to: string } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromYmd) || !/^\d{4}-\d{2}-\d{2}$/.test(toYmd)) return null;
+  let from = fromYmd;
+  let to = toYmd;
+  if (from > to) {
+    const swap = from;
+    from = to;
+    to = swap;
+  }
+  const maxTo = addDaysToKstYmd(from, Math.max(0, maxDays - 1));
+  if (to > maxTo) to = maxTo;
+  return { from, to };
+}
+
 export function kstDayRangeYmd(ymd: string): { gte: Date; lte: Date } | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
   const gte = new Date(`${ymd}T00:00:00+09:00`);
