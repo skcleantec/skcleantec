@@ -12,6 +12,7 @@ import {
 } from '@shared/orderFormMoveInTiming';
 import { kstTodayYmd } from '../../../utils/dateFormat';
 import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
+import { orderFormEmailFormatError } from '../../../utils/orderFormEmailSplit';
 import { hasOrderFormBuildingTypeChoice } from '../../../utils/orderFormOneRoom';
 import { isAcUnitsAnswerEmpty, ORDER_FORM_AC_UNITS_FIELD_KEY } from '@shared/orderFormAcUnits';
 import {
@@ -80,12 +81,8 @@ export function validateCustomerStep(args: {
       }
       return null;
     }
-    case 'email': {
-      const emailTrim = form.customerEmail.trim().toLowerCase();
-      if (!emailTrim) return '이메일을 입력해 주세요.';
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) return '이메일 형식이 올바르지 않습니다.';
-      return null;
-    }
+    case 'email':
+      return orderFormEmailFormatError(form.customerEmail);
     case 'property':
       return hasOrderFormBuildingTypeChoice(form.propertyType, form.isOneRoom)
         ? null

@@ -48,6 +48,7 @@ import {
 } from '../operating-companies/operatingCompanyPublicSummary.js';
 import { resolvePublicBrandingForCustomer } from '../operating-companies/publicOperatingCompanyBranding.js';
 import { resolvePublicOrderFormCompanyTrust } from './publicOrderFormCompanyTrust.js';
+import { assertBundleTenantOpen, loadPublicOrderFormByToken } from './publicOrderFormBundle.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import {
   ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS,
@@ -801,6 +802,35 @@ const orderFormCreatedBySelect = {
 } as const;
 
 /** Inquiry 행 → 고객 폼 프리필용 형태 */
+const pendingInquiryForFormSelect = {
+  customerName: true,
+  customerPhone: true,
+  customerPhone2: true,
+  customerEmail: true,
+  address: true,
+  addressDetail: true,
+  areaPyeong: true,
+  areaBasis: true,
+  exclusiveAreaSqm: true,
+  propertyType: true,
+  roomCount: true,
+  bathroomCount: true,
+  balconyCount: true,
+  kitchenCount: true,
+  preferredDate: true,
+  preferredTime: true,
+  preferredTimeDetail: true,
+  buildingType: true,
+  moveInTiming: true,
+  moveInDate: true,
+  moveInDateUndecided: true,
+  memo: true,
+} satisfies Prisma.InquirySelect;
+
+type EditableOrderForm = Prisma.OrderFormGetPayload<{
+  include: { inquiries: { select: typeof pendingInquiryForFormSelect } };
+}>;
+
 function mapPendingInquiry(row: {
   customerName: string;
   customerPhone: string;
@@ -867,49 +897,45 @@ function mapOrderFormOperatingCompany<T extends { operatingCompany?: Parameters<
 }
 
 async function buildEditableOrderPayload(
-  form: Prisma.OrderFormGetPayload<{ include: { inquiries: true } }>,
+  form: EditableOrderForm,
   brandSlug?: string | null,
   opts?: { overrideTemplateId?: string | null },
 ) {
   const pendingRow = form.inquiries[0];
   const pendingInquiry = pendingRow ? mapPendingInquiry(pendingRow) : null;
 
-  const [options, professionalOptions] = await Promise.all([
-    prisma.estimateOption.findMany({
-      where: { tenantId: form.tenantId, isActive: true },
-      orderBy: { sortOrder: 'asc' },
-    }),
-    prisma.professionalSpecialtyOption.findMany({
-      where: {
+  const [options, professionalOptions, formConfig, tenantFormCfg, template, publicBranding] =
+    await Promise.all([
+      prisma.estimateOption.findMany({
+        where: { tenantId: form.tenantId, isActive: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.professionalSpecialtyOption.findMany({
+        where: {
+          tenantId: form.tenantId,
+          isActive: true,
+          OR: [{ parentId: null }, { parent: { isActive: true } }],
+        },
+        orderBy: profOptionOrderBy,
+        select: profOptionSelectPublic,
+      }),
+      resolvePublicFormConfigForOrderForm(prisma, form.tenantId, form.operatingCompanyId, {
+        preferredDateYmd: normalizeGuidePreferredDateYmd(form.preferredDate),
+      }),
+      getOrCreateOrderFormConfig(prisma, form.tenantId),
+      getPublicTemplateForForm(
+        prisma,
+        form.tenantId,
+        opts?.overrideTemplateId?.trim() || form.templateId,
+      ),
+      resolvePublicBrandingForCustomer({
+        db: prisma,
         tenantId: form.tenantId,
-        isActive: true,
-        OR: [{ parentId: null }, { parent: { isActive: true } }],
-      },
-      orderBy: profOptionOrderBy,
-      select: profOptionSelectPublic,
-    }),
-  ]);
-  const [formConfig, tenantFormCfg] = await Promise.all([
-    resolvePublicFormConfigForOrderForm(
-      prisma,
-      form.tenantId,
-      form.operatingCompanyId,
-      { preferredDateYmd: normalizeGuidePreferredDateYmd(form.preferredDate) },
-    ),
-    getOrCreateOrderFormConfig(prisma, form.tenantId),
-  ]);
+        operatingCompanyId: form.operatingCompanyId,
+        brandSlug,
+      }),
+    ]);
   const tenantFillRulesRaw = tenantFormCfg.issueFillRules;
-  const template = await getPublicTemplateForForm(
-    prisma,
-    form.tenantId,
-    opts?.overrideTemplateId?.trim() || form.templateId,
-  );
-  const publicBranding = await resolvePublicBrandingForCustomer({
-    db: prisma,
-    tenantId: form.tenantId,
-    operatingCompanyId: form.operatingCompanyId,
-    brandSlug,
-  });
   const publicCompanyTrust = await resolvePublicOrderFormCompanyTrust({
     db: prisma,
     tenantId: form.tenantId,
@@ -1936,6 +1962,7 @@ router.get('/:id/prefill-form', authMiddleware, requireStaffPermission('orderfor
       inquiries: {
         where: { status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
         take: 1,
+        select: pendingInquiryForFormSelect,
       },
     },
   });
@@ -2777,83 +2804,30 @@ router.post('/by-token/:token/resend-submission-email', async (req, res) => {
 /** 공개: 토큰으로 발주서 조회 (인증 불필요) */
 router.get('/by-token/:token', async (req, res) => {
   const { token } = req.params;
-  const form = await prisma.orderForm.findUnique({
-    where: { token },
-    include: {
-      inquiries: {
-        where: { status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
-        take: 1,
-      },
-    },
-  });
-  if (!form) {
-    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
-    return;
-  }
+  const brandSlug = typeof req.query.brand === 'string' ? req.query.brand : null;
+  const previewRaw =
+    isDesignerPreviewOrderToken(token) && typeof req.query.previewTemplateId === 'string'
+      ? req.query.previewTemplateId.trim()
+      : '';
   try {
-    await assertPublicOrderFormAccess(form.tenantId, req);
+    const loaded = await loadPublicOrderFormByToken(prisma, token, {
+      brandSlug,
+      overrideTemplateId: previewRaw || null,
+    });
+    if (!loaded) {
+      res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+      return;
+    }
+    const slug = publicTenantSlugFromQuery(req)?.trim().toLowerCase();
+    if (slug && slug !== loaded.tenant.slug.toLowerCase()) {
+      await validateOptionalPublicTenantSlug(loaded.tenant.id, slug);
+    }
+    assertBundleTenantOpen(loaded.tenant);
+    res.json(loaded.payload);
   } catch (e) {
     if (respondPublicTenantAccessError(res, e)) return;
     throw e;
   }
-  const brandSlug = typeof req.query.brand === 'string' ? req.query.brand : null;
-  if (form.submittedAt) {
-    const linkedInquiry = await prisma.inquiry.findFirst({
-      where: { orderFormId: form.id },
-      orderBy: { createdAt: 'desc' },
-      select: { inquiryNumber: true },
-    });
-    const emailLog = await prisma.orderFormSubmissionEmailLog.findFirst({
-      where: { tenantId: form.tenantId, orderFormId: form.id },
-      select: { status: true, toEmail: true, lastError: true, sentAt: true },
-    });
-    const formConfig = await resolvePublicFormConfigForOrderForm(
-      prisma,
-      form.tenantId,
-      form.operatingCompanyId,
-      { preferredDateYmd: normalizeGuidePreferredDateYmd(form.preferredDate) },
-    );
-    const publicBranding = await resolvePublicBrandingForCustomer({
-      db: prisma,
-      tenantId: form.tenantId,
-      operatingCompanyId: form.operatingCompanyId,
-      brandSlug,
-    });
-    const publicCompanyTrust = await resolvePublicOrderFormCompanyTrust({
-      db: prisma,
-      tenantId: form.tenantId,
-      operatingCompanyId: form.operatingCompanyId,
-      displayNameFallback: publicBranding?.displayName ?? null,
-    });
-    res.json({
-      id: form.id,
-      token: form.token,
-      customerName: form.customerName,
-      customerEmail: form.customerEmail,
-      submittedAt: form.submittedAt.toISOString(),
-      inquiryNumber: linkedInquiry?.inquiryNumber ?? null,
-      customerSubmissionSnapshot: form.customerSubmissionSnapshot ?? null,
-      formConfig,
-      publicBranding,
-      publicCompanyTrust,
-      submissionEmail: serializeSubmissionEmailLogPublic(emailLog),
-    });
-    return;
-  }
-  let overrideTemplateId: string | null = null;
-  if (isDesignerPreviewOrderToken(token)) {
-    const raw =
-      typeof req.query.previewTemplateId === 'string' ? req.query.previewTemplateId.trim() : '';
-    if (raw) {
-      const previewTpl = await prisma.orderFormTemplate.findFirst({
-        where: { id: raw, tenantId: form.tenantId },
-        select: { id: true },
-      });
-      if (previewTpl) overrideTemplateId = previewTpl.id;
-    }
-  }
-  const payload = await buildEditableOrderPayload(form, brandSlug, { overrideTemplateId });
-  res.json(payload);
 });
 
 /** 공개: 발주서 제출 (고객이 작성 후 제출 → 문의로 등록) */

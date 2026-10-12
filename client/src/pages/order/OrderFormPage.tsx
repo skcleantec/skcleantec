@@ -114,6 +114,7 @@ import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGu
 import { OrderFormCompanyTrustFooter } from '../../components/orderform/OrderFormCompanyTrustFooter';
 import { OrderFormPlatformFooter } from '../../components/orderform/OrderFormPlatformFooter';
 import { OrderFormEmailSplitField } from '../../components/orderform/OrderFormEmailSplitField';
+import { normalizeOrderFormEmailInput, orderFormEmailFormatError } from '../../utils/orderFormEmailSplit';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import type { PublicOperatingCompanyBranding, PublicOrderFormCompanyTrust } from '../../api/orderform';
@@ -878,7 +879,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           customerName: pfStr('customerName') ?? (p?.customerName || data.customerName),
           customerPhone: pfStr('customerPhone') ?? (issuedPhone || (p?.customerPhone ?? '').trim() || ''),
           customerPhoneSecondary: pfStr('customerPhone2') ?? p?.customerPhone2 ?? '',
-          customerEmail: pfStr('customerEmail') ?? p?.customerEmail ?? '',
+          customerEmail: normalizeOrderFormEmailInput(pfStr('customerEmail') ?? p?.customerEmail ?? ''),
           // 주소·상세주소는 마케터 prefill(잠금)만 초기값 — 접수 DB 값은 검색 우회 방지
           address: pfStr('address') ?? '',
           addressDetail: pfStr('addressDetail') ?? '',
@@ -1191,14 +1192,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       if (!prefillLocked('customerPhone2') && !form.customerPhoneSecondary?.trim()) {
         addIssue('보조 전화번호를 입력해주세요.', 'order-field-customerPhone2');
       }
-      const emailTrim = stdFieldOn('customerEmail')
-        ? form.customerEmail.trim().toLowerCase()
-        : '';
       if (stdFieldOn('customerEmail')) {
-        if (!emailTrim) addIssue('이메일을 입력해 주세요.', 'order-field-customerEmail');
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
-          addIssue('이메일 형식이 올바르지 않습니다.', 'order-field-customerEmail');
-        }
+        const emailErr = orderFormEmailFormatError(form.customerEmail);
+        if (emailErr) addIssue(emailErr, 'order-field-customerEmail');
       }
       if (stdFieldOn('propertyType') && !hasOrderFormBuildingTypeChoice(form.propertyType, form.isOneRoom)) {
         addIssue(`건축물 유형 또는 ${oneRoomLabel}을 선택해주세요.`, 'order-field-propertyType');
@@ -1411,6 +1407,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           preferredTimeDetail: useTimeDetail ?? null,
         };
       }
+
+      const emailTrim = stdFieldOn('customerEmail')
+        ? normalizeOrderFormEmailInput(form.customerEmail)
+        : '';
 
       await submitOrderForm(token, {
         cleaningKind: isOrderFormCleaningKind(form.cleaningKind) ? form.cleaningKind : undefined,

@@ -1,7 +1,10 @@
 import type { PrismaClient } from '@prisma/client';
 import { parseOperatingCompanyConfig } from '../operating-companies/operatingCompany.schema.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
-import type { TenantCompanyRegistrationConfig } from '../tenants/tenantConfig.schema.js';
+import {
+  parseTenantConfig,
+  type TenantCompanyRegistrationConfig,
+} from '../tenants/tenantConfig.schema.js';
 
 /** 고객 발주서 하단 — 보이스피싱 안심용 공개 사업자 정보 */
 export type PublicOrderFormCompanyTrustDto = {
@@ -39,6 +42,25 @@ function toTrustDto(
     addressLine: reg.addressLine?.trim() || null,
     phone: reg.phone?.trim() || null,
   };
+}
+
+/** 이미 읽은 테넌트·브랜드 설정으로 안심 정보를 만든다. 추가 조회 없음. */
+export function companyTrustFromLoaded(params: {
+  tenantConfig: unknown;
+  operatingCompany?: { name: string; config: unknown } | null;
+  displayNameFallback?: string | null;
+}): PublicOrderFormCompanyTrustDto | null {
+  const tenantParsed = parseTenantConfig(params.tenantConfig);
+  const fallback =
+    params.displayNameFallback?.trim() || tenantParsed.branding?.displayName?.trim() || '';
+  const oc = params.operatingCompany;
+  if (oc) {
+    const config = parseOperatingCompanyConfig(oc.config);
+    const brandDisplay = config.branding?.displayName?.trim() || oc.name;
+    const merged = mergeRegistration(tenantParsed.companyRegistration, config.companyRegistration);
+    return toTrustDto(merged, brandDisplay || fallback);
+  }
+  return toTrustDto(tenantParsed.companyRegistration ?? {}, fallback);
 }
 
 export async function resolvePublicOrderFormCompanyTrust(params: {

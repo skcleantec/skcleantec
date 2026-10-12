@@ -1,11 +1,15 @@
-/** 고객 이메일 정규화·검증 (발주서·견적서·검수 공통) */
+/** 고객 이메일 정규화·검증 (발주서·견적서·검수 공통). 클라이언트 `normalizeOrderFormEmailInput`과 같은 규칙. */
 export function normalizeCustomerEmail(raw: unknown): string {
   if (raw == null) return '';
-  return String(raw).trim().toLowerCase();
+  return String(raw)
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
 }
 
 export function isValidCustomerEmail(email: string): boolean {
-  const t = email.trim();
+  const t = normalizeCustomerEmail(email);
   if (!t || t.length > 320) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
 }
