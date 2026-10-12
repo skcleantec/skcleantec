@@ -12,7 +12,9 @@ import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyD
 import { EContractDynamicFieldInputs, emptyFieldValues } from '../../components/e-contract/EContractDynamicFieldInputs';
 import { isCoreSignerToken, EC_SIGNER_ADDRESS_TOKEN } from '../../utils/eContractDisplay';
 import { splitEContractSignerAddressValue } from '../../components/e-contract/eContractSignerAddressValue';
+import { EContractSelfiePicker } from '../../components/e-contract/EContractSelfiePicker';
 import { SignaturePad } from '../../components/e-contract/SignaturePad';
+import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 import { getTeamToken } from '../../stores/teamAuth';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 
@@ -65,7 +67,6 @@ export function EContractPublicSignPage() {
   const [agree, setAgree] = useState(false);
   const [signerFieldValues, setSignerFieldValues] = useState<Record<string, string>>({});
 
-  const selfInputRef = useRef<HTMLInputElement | null>(null);
   const lastIssuanceIdRef = useRef('');
   const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
   const [pagedAutoPdfDownload, setPagedAutoPdfDownload] = useState(false);
@@ -103,15 +104,17 @@ export function EContractPublicSignPage() {
     }
   }, [session]);
 
-  const onSelfieSelected = async (files: FileList | null) => {
-    if (!decoded || !files?.[0]) return;
-    const f = files[0];
-    setSelfieFileName(f.name);
+  const onSelfieSelected = async (file: File | null) => {
+    if (!decoded || !file) return;
+    setSelfieFileName(file.name);
     setBusy(true);
     setMsg(null);
     try {
-      const up = await uploadEContractBlob(f, decoded, f.name || 'selfie.jpg');
+      const prepared = await prepareImageFileForUpload(file);
+      const up = await uploadEContractBlob(prepared, decoded, prepared.name || 'selfie.jpg');
       setSelfieUploaded(up);
+      setSelfieFileName(prepared.name);
+      setSelfieGuideOpen(false);
       setMsg('셀카를 업로드했습니다.');
     } catch (e) {
       setSelfieUploaded(null);
@@ -384,19 +387,11 @@ export function EContractPublicSignPage() {
         </div>
 
         <div className="mt-6">
-          <input
-            ref={selfInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            capture="user"
-            className="hidden"
-            onChange={(ev) => void onSelfieSelected(ev.target.files)}
-          />
           <button
             type="button"
             disabled={busy}
             onClick={() => setSelfieGuideOpen(true)}
-            className="w-full rounded-lg border border-gray-300 bg-gray-50 py-3 text-fluid-sm font-medium text-gray-900 disabled:opacity-50"
+            className="w-full rounded-lg border border-gray-300 bg-gray-50 py-3 text-fluid-sm font-medium text-gray-900 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
           >
             셀카 촬영·업로드
           </button>
@@ -472,16 +467,7 @@ export function EContractPublicSignPage() {
               </div>
             </div>
             <div className="mt-5 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelfieGuideOpen(false);
-                  selfInputRef.current?.click();
-                }}
-                className="w-full rounded-xl bg-blue-600 py-3.5 text-fluid-sm font-semibold text-white shadow-sm hover:bg-blue-700 touch-manipulation"
-              >
-                촬영하기
-              </button>
+              <EContractSelfiePicker busy={busy} onPicked={(file) => void onSelfieSelected(file)} />
             </div>
           </div>
         </div>,

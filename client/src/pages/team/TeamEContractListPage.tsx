@@ -39,6 +39,14 @@ function issuanceStatusKo(row: TeamLeaderEContractIssuanceItem): string {
   return eContractIssuanceStatusKo(row.status, row.hasSigned);
 }
 
+/** 업무 앱 WebView는 새 창 파일 선택이 없다. 설치된 앱이면 휴대폰 브라우저에서 연다. */
+function openContractSignFromApp(event: { preventDefault: () => void }, token: string) {
+  const bridge = (window as Window & { CbiseoApp?: { openExternalUrl?: (url: string) => void } }).CbiseoApp;
+  if (typeof bridge?.openExternalUrl !== 'function') return;
+  event.preventDefault();
+  bridge.openExternalUrl(`${window.location.origin}/e-contract/sign/${encodeURIComponent(token)}`);
+}
+
 function issuanceExpired(row: TeamLeaderEContractIssuanceItem): boolean {
   if (row.status === 'EXPIRED') return true;
   if (!row.expiresAt) return false;
@@ -454,6 +462,7 @@ export function TeamEContractListPage() {
                           to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(event) => openContractSignFromApp(event, row.token)}
                           className="inline-flex rounded-md bg-blue-600 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-blue-700 touch-manipulation whitespace-nowrap"
                         >
                           계약하기 (서명)
@@ -464,6 +473,7 @@ export function TeamEContractListPage() {
                           to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(event) => openContractSignFromApp(event, row.token)}
                           className="inline-flex rounded-md border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 touch-manipulation whitespace-nowrap"
                         >
                           체결 내용 보기
@@ -552,6 +562,7 @@ export function TeamEContractListPage() {
                                     to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={(event) => openContractSignFromApp(event, row.token)}
                                     className="shrink-0 inline-flex whitespace-nowrap rounded-md bg-blue-600 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-blue-700 touch-manipulation"
                                   >
                                     계약하기
@@ -562,6 +573,7 @@ export function TeamEContractListPage() {
                                     to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={(event) => openContractSignFromApp(event, row.token)}
                                     className="shrink-0 inline-flex whitespace-nowrap rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-2xs text-gray-800 hover:bg-gray-50 touch-manipulation"
                                   >
                                     체결 확인

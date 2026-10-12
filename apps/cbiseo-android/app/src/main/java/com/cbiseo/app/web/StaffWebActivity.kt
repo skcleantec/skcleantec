@@ -53,6 +53,14 @@ class StaffWebActivity : AppCompatActivity() {
         updateCoordinator?.onUpdateFlowResult(result.resultCode == RESULT_OK)
     }
 
+    private var webChrome: StaffWebChromeClient? = null
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        webChrome?.onFileChooserResult(result.resultCode, result.data)
+    }
+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { _ ->
@@ -157,6 +165,20 @@ class StaffWebActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
+        webView.settings.setSupportMultipleWindows(true)
+        webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        val chrome = StaffWebChromeClient(
+            launchFileChooser = { intent -> fileChooserLauncher.launch(intent) },
+            onBlankNavigation = { url ->
+                if (StaffWebSessionSync.urlMatchesApiBase(url, apiBaseUrl)) {
+                    webView.loadUrl(url)
+                } else {
+                    openExternalUrl(url)
+                }
+            },
+        )
+        webChrome = chrome
+        webView.webChromeClient = chrome
         /** SPA fetch·이미지 — WebView HTTP 캐시로 배너 등 API가 오래 남는 문제 방지 */
         webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         webView.addJavascriptInterface(appBridge, "CbiseoApp")
@@ -455,6 +477,8 @@ class StaffWebActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        webChrome?.cancelFileChooser()
+        webChrome = null
         updateCoordinator?.dispose()
         updateCoordinator = null
         if (activeWebView === binding.staffWebView) {
