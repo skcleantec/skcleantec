@@ -175,6 +175,7 @@ export async function saveExtraWorkMarketer(
     marketerPercent: number | null;
     overrideSource: ExtraWorkOverrideSource;
     overridePercent: number;
+    applyToPast: boolean;
   },
 ) {
   const res = await fetch(`${API}/extra-work/marketers/${encodeURIComponent(userId)}`, {
@@ -183,7 +184,7 @@ export async function saveExtraWorkMarketer(
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await readError(res));
-  return (await res.json()) as ExtraWorkSettings;
+  return (await res.json()) as ExtraWorkSettings & { rewrittenCount: number };
 }
 
 export async function searchExtraWorkInquiries(token: string, query: string) {

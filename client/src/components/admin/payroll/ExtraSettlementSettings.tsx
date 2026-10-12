@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from '../ModalCloseButton';
+import { LineMdIcon } from '../../ui/LineMdIcon';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import {
   fetchExtraWorkSettings,
@@ -38,9 +39,13 @@ function MarketerRateEditor(props: {
   earnedById: Record<string, number>;
   onSelect: (id: string) => void;
   onPatch: (id: string, patch: Partial<ExtraWorkMarketerSetting>) => void;
-  onSave: (row: ExtraWorkMarketerSetting) => void;
+  onSave: (row: ExtraWorkMarketerSetting, applyToPast: boolean) => void;
 }) {
   const { rows, selectedId, saving, defaults, earnedById, onSelect, onPatch, onSave } = props;
+  const [applyToPast, setApplyToPast] = useState(false);
+  useEffect(() => {
+    setApplyToPast(false);
+  }, [selectedId]);
   const row = rows.find((item) => item.id === selectedId) ?? null;
   const overrideOn = row != null && row.overrideSource !== 'NONE';
   return (
@@ -143,8 +148,28 @@ function MarketerRateEditor(props: {
               />
             </label>
           </div>
-          <button type="button" className={btnClass} disabled={saving} onClick={() => onSave(row)}>
-            이 마케터 저장
+          <label className="flex items-center gap-2 text-fluid-xs text-slate-800">
+            <input
+              type="checkbox"
+              className="size-4 rounded border-slate-300 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              checked={applyToPast}
+              onChange={(e) => setApplyToPast(e.target.checked)}
+            />
+            전체내역변경
+          </label>
+          {applyToPast ? (
+            <p className="text-fluid-2xs leading-snug text-slate-500">
+              이 마케터의 추가 시공과 환불을 새 비율로 다시 나눕니다. 회사 지원은 그대로 둡니다.
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className={`${btnClass} inline-flex items-center gap-1`}
+            disabled={saving}
+            onClick={() => onSave(row, applyToPast)}
+          >
+            <LineMdIcon name="confirm" className="size-4" />
+            저장
           </button>
         </div>
       ) : null}
@@ -215,6 +240,7 @@ export function ExtraSettlementSettings(props: {
   token: string;
   open: boolean;
   onClose: () => void;
+  onSaved?: () => void;
   earnedById: Record<string, number>;
 }) {
   const { token, open, onClose, earnedById } = props;
@@ -228,6 +254,7 @@ export function ExtraSettlementSettings(props: {
   const [selectedId, setSelectedId] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const apply = (next: ExtraWorkSettings) => {
     setSettings(next);
@@ -269,7 +296,7 @@ export function ExtraSettlementSettings(props: {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   };
 
-  const saveRow = async (row: ExtraWorkMarketerSetting) => {
+  const saveRow = async (row: ExtraWorkMarketerSetting, applyToPast: boolean) => {
     const companyPercent = shownPercent(row.companyPercent, percentInput(company) ?? 0);
     const teamLeaderPercent = shownPercent(row.teamLeaderPercent, percentInput(leader) ?? 0);
     const marketerPercent = shownPercent(row.marketerPercent, percentInput(marketer) ?? 0);
@@ -291,17 +318,27 @@ export function ExtraSettlementSettings(props: {
     }
     setSaving(true);
     setError('');
+    setNotice('');
     try {
-      apply(
-        await saveExtraWorkMarketer(token, row.id, {
-          parentMarketerId: overrideOn ? row.parentMarketerId : null,
-          companyPercent,
-          teamLeaderPercent,
-          marketerPercent,
-          overrideSource: overrideOn ? row.overrideSource : 'NONE',
-          overridePercent: overrideOn ? row.overridePercent : 0,
-        }),
+      const saved = await saveExtraWorkMarketer(token, row.id, {
+        parentMarketerId: overrideOn ? row.parentMarketerId : null,
+        companyPercent,
+        teamLeaderPercent,
+        marketerPercent,
+        overrideSource: overrideOn ? row.overrideSource : 'NONE',
+        overridePercent: overrideOn ? row.overridePercent : 0,
+        applyToPast,
+      });
+      apply(saved);
+      const count = saved.rewrittenCount ?? 0;
+      setNotice(
+        applyToPast
+          ? count > 0
+            ? `과거 ${count.toLocaleString('ko-KR')}건을 새 비율로 바꿨습니다.`
+            : '바꿀 과거 내역이 없습니다. 앞으로 저장하는 건부터 적용됩니다.'
+          : '앞으로 저장하는 건부터 적용됩니다.',
       );
+      props.onSaved?.();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '마케터 설정을 저장하지 못했습니다.');
     } finally {
@@ -339,6 +376,9 @@ export function ExtraSettlementSettings(props: {
           {error}
         </p>
       ) : null}
+      {notice ? (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-xs text-slate-700">{notice}</p>
+      ) : null}
       <MarketerRateEditor
         rows={rows}
         selectedId={selectedId}
@@ -351,7 +391,7 @@ export function ExtraSettlementSettings(props: {
         earnedById={earnedById}
         onSelect={setSelectedId}
         onPatch={patchRow}
-        onSave={(row) => void saveRow(row)}
+        onSave={(row, applyToPast) => void saveRow(row, applyToPast)}
       />
         </>
       ) : null}
