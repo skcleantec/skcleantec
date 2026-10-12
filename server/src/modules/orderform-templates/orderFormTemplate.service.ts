@@ -94,18 +94,32 @@ export async function resolveIssueTemplate(
   return firstPublished ? { id: firstPublished.id, version: firstPublished.version } : null;
 }
 
-/** 공개 발주서 페이지용 — 추가 항목 포함 직렬화 */
-export async function getPublicTemplateForForm(
-  db: Db,
-  tenantId: string,
-  templateId: string | null | undefined,
-): Promise<PublicOrderTemplate | null> {
-  if (!templateId) return null;
-  const t = await db.orderFormTemplate.findFirst({
-    where: { id: templateId, tenantId },
-    include: { fields: { orderBy: { sortOrder: 'asc' } } },
-  });
-  if (!t) return null;
+type PublicTemplateSource = {
+  id: string;
+  title: string;
+  icon: string | null;
+  description: string | null;
+  isDefault: boolean;
+  renderMode: PublicOrderTemplate['renderMode'];
+  customerWizardJson: unknown;
+  fields: Array<{
+    systemField: string | null;
+    fillMode: string;
+    fieldKey: string;
+    label: string;
+    helpText: string | null;
+    inputType: string;
+    options: unknown;
+    placeholder: string | null;
+    optionStyle: string | null;
+    optionLayout: string | null;
+    required: boolean;
+    sortOrder: number;
+  }>;
+};
+
+/** 이미 읽은 템플릿 행을 고객 발주서 응답으로 바꾼다. */
+export function mapOrderFormTemplateToPublic(t: PublicTemplateSource): PublicOrderTemplate {
   const customFields: PublicTemplateCustomField[] = t.fields
     .filter(
       (f) =>
@@ -157,6 +171,21 @@ export async function getPublicTemplateForForm(
     customerPages: resolveCustomerPages(t.customerWizardJson),
     customerPagesCustomized: t.customerWizardJson != null,
   };
+}
+
+/** 공개 발주서 페이지용 — 추가 항목 포함 직렬화 */
+export async function getPublicTemplateForForm(
+  db: Db,
+  tenantId: string,
+  templateId: string | null | undefined,
+): Promise<PublicOrderTemplate | null> {
+  if (!templateId) return null;
+  const t = await db.orderFormTemplate.findFirst({
+    where: { id: templateId, tenantId },
+    include: { fields: { orderBy: { sortOrder: 'asc' } } },
+  });
+  if (!t) return null;
+  return mapOrderFormTemplateToPublic(t);
 }
 
 /** 기본(입주청소) 발주서는 표준 칸 전부. 내가 만든 양식만 연결한 칸. 섹션 토글은 ON/OFF. */

@@ -107,7 +107,7 @@ export function resolvedPublicFormConfig(row: FormConfigRow): PublicFormConfig {
   };
 }
 
-function brandOverlayOnTenantFormConfig(
+export function brandOverlayOnTenantFormConfig(
   tenantCfg: Awaited<ReturnType<typeof getOrCreateOrderFormConfig>>,
   brandCfg: Awaited<ReturnType<typeof getOrCreateOrderFormBrandCustomerLinkConfig>>,
 ): FormConfigRow {

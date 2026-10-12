@@ -1,3 +1,4 @@
+import { isCompleteOrderFormEmail } from '../../utils/orderFormEmailSplit';
 import { isOrderFormPackQuoteFieldKey } from '@shared/orderFormIndustryPacks';
 import { normalizeOrderFormYmd } from '@shared/orderFormMoveInTiming';
 import { isMarketerLockedOrderFormAddress } from '@shared/orderFormPendingAddress';
@@ -147,7 +148,7 @@ export function shouldShowCustomerRoomsWizardStep(
 
 export function isValidOrderFormEmail(raw: unknown): boolean {
   if (typeof raw !== 'string') return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim().toLowerCase());
+  return isCompleteOrderFormEmail(raw);
 }
 
 /** 형식까지 맞는 이메일만 잠금 — 오기재는 고객이 고친다. */
