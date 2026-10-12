@@ -10,6 +10,7 @@ import { requireStaffPermission, staffHasPermission } from '../auth/marketerPerm
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import {
+  clampKstYmdRange,
   createdAtRangeFromQuery,
   kstDayRangeYmd,
   kstMonthRangeYm,
@@ -23,7 +24,9 @@ import {
 } from '../tenants/tenantCoin.service.js';
 import {
   createdAtRangeFromListQuery,
+  kstYmdRange,
   parseKstHourQuery,
+  parseYmdQuery,
 } from '../ops-analytics/kstHourListFilter.js';
 import { inquiryIdsMatchingStatusEventKstHour } from '../ops-analytics/kstHourFilterQueries.js';
 import {
@@ -37,8 +40,11 @@ import {
   buildMarketerOverview,
   buildMarketerDailyOverview,
   whereInquiryAttributedToMarketer,
+  whereMarketerStatsInquiriesInRange,
   whereMarketerStatsInquiriesOnDay,
+  whereCollaborationMarketerStatsInquiriesInRange,
   whereCollaborationMarketerStatsInquiriesOnDay,
+  type MarketerOverviewPeriod,
 } from './inquiryMarketerOverview.js';
 import {
   applyProfOptionAmountsToInquiry,
@@ -253,13 +259,26 @@ router.get('/marketer-overview', async (req, res) => {
     return;
   }
   try {
-    const cacheKey = `mo:${tenantId}`;
+    const month = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+    const from = typeof req.query.from === 'string' ? req.query.from.trim() : '';
+    const to = typeof req.query.to === 'string' ? req.query.to.trim() : '';
+    let period: MarketerOverviewPeriod | undefined;
+    let cacheSuffix = 'current';
+    const span = clampKstYmdRange(from, to);
+    if (span) {
+      period = { kind: 'range', fromYmd: span.from, toYmd: span.to };
+      cacheSuffix = `r:${span.from}:${span.to}`;
+    } else if (/^\d{4}-\d{2}$/.test(month) && kstMonthRangeYm(month)) {
+      period = { kind: 'month', monthKey: month };
+      cacheSuffix = `m:${month}`;
+    }
+    const cacheKey = `mo:${tenantId}:${cacheSuffix}`;
     const cached = marketerOverviewCache.get(cacheKey);
     if (cached) {
       res.json(cached);
       return;
     }
-    const data = await buildMarketerOverview(tenantId);
+    const data = await buildMarketerOverview(tenantId, period);
     marketerOverviewCache.set(cacheKey, data);
     res.json(data);
   } catch (err) {
@@ -323,12 +342,18 @@ router.get('/', async (req, res) => {
     day,
     createdById,
     marketerStatsDay,
+    marketerStatsFrom,
+    marketerStatsTo,
     collaborationMarketerId: collaborationMarketerIdQuery,
     collaborationStatsDay,
+    collaborationStatsFrom,
+    collaborationStatsTo,
     teamLeaderId,
     operatingCompanyId,
     scheduleMonth,
     scheduleDay,
+    scheduleFrom,
+    scheduleTo,
     inspectionStatus,
     fromYmd,
     toYmd,
@@ -357,7 +382,27 @@ router.get('/', async (req, res) => {
     Boolean(collabStatsMarketerId) &&
     collabStatsMarketerId !== CREATED_BY_FILTER_UNASSIGNED &&
     (user.role === 'ADMIN' || user.role === 'MARKETER');
-  const useStatsDayFilter = useMarketerStatsDay || useCollaborationStatsDay;
+  const statsFromRaw = parseYmdQuery(marketerStatsFrom);
+  const statsToRaw = parseYmdQuery(marketerStatsTo);
+  const collabFromRaw = parseYmdQuery(collaborationStatsFrom);
+  const collabToRaw = parseYmdQuery(collaborationStatsTo);
+  const staffStatsRole = user.role === 'ADMIN' || user.role === 'MARKETER';
+  const useMarketerStatsRange =
+    !useMarketerStatsDay &&
+    Boolean(statsFromRaw && statsToRaw) &&
+    Boolean(statsMarketerId) &&
+    statsMarketerId !== CREATED_BY_FILTER_UNASSIGNED &&
+    staffStatsRole;
+  const useCollaborationStatsRange =
+    !useMarketerStatsDay &&
+    !useCollaborationStatsDay &&
+    !useMarketerStatsRange &&
+    Boolean(collabFromRaw && collabToRaw) &&
+    Boolean(collabStatsMarketerId) &&
+    collabStatsMarketerId !== CREATED_BY_FILTER_UNASSIGNED &&
+    staffStatsRole;
+  const useStatsDayFilter =
+    useMarketerStatsDay || useCollaborationStatsDay || useMarketerStatsRange || useCollaborationStatsRange;
 
   const range = useStatsDayFilter
     ? null
@@ -387,6 +432,16 @@ router.get('/', async (req, res) => {
     if (statsWhere) {
       andClauses.push(statsWhere);
     }
+  } else if (useMarketerStatsRange && statsFromRaw && statsToRaw) {
+    const statsWhere = whereMarketerStatsInquiriesInRange(statsMarketerId, statsFromRaw, statsToRaw);
+    if (statsWhere) andClauses.push(statsWhere);
+  } else if (useCollaborationStatsRange && collabFromRaw && collabToRaw) {
+    const statsWhere = whereCollaborationMarketerStatsInquiriesInRange(
+      collabStatsMarketerId,
+      collabFromRaw,
+      collabToRaw,
+    );
+    if (statsWhere) andClauses.push(statsWhere);
   } else if (range) {
     andClauses.push({ createdAt: { gte: range.gte, lte: range.lte } });
   }
@@ -470,8 +525,18 @@ router.get('/', async (req, res) => {
     if (inspectionWhere) andClauses.push(inspectionWhere);
   }
 
-  /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선. 처리 전 4종은 pinPreReceiveWhere 로 상단 고정. */
-  if (
+  /** 예약일(희망일 preferredDate) — KST. 기간이 있으면 하루·월보다 우선. 처리 전 4종은 pinPreReceiveWhere 로 상단 고정. */
+  const scheduleFromYmd = parseYmdQuery(scheduleFrom);
+  const scheduleToYmd = parseYmdQuery(scheduleTo);
+  const scheduleSpan = scheduleFromYmd && scheduleToYmd ? kstYmdRange(
+    scheduleFromYmd <= scheduleToYmd ? scheduleFromYmd : scheduleToYmd,
+    scheduleFromYmd <= scheduleToYmd ? scheduleToYmd : scheduleFromYmd,
+  ) : null;
+  if (!useStatsDayFilter && scheduleSpan) {
+    andClauses.push({
+      AND: [{ preferredDate: { not: null } }, { preferredDate: { gte: scheduleSpan.gte, lte: scheduleSpan.lte } }],
+    });
+  } else if (
     !useStatsDayFilter &&
     typeof scheduleDay === 'string' &&
     /^\d{4}-\d{2}-\d{2}$/.test(scheduleDay.trim())

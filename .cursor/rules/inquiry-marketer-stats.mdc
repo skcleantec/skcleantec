@@ -28,12 +28,15 @@ alwaysApply: true
 
 | 기능 | 구현 |
 |------|------|
-| 월·오늘 요약 표 | `buildMarketerOverview` |
+| 월·기간·오늘 요약 표 | `buildMarketerOverview` — `month` 또는 `from`+`to`. 없으면 이번 달. 확정·부재·보류·요청은 오늘 |
 | 마케터 일별 모달 | `buildMarketerDailyOverview` |
-| 집계 숫자 클릭 → 목록 | 클라 `applyMarketerStatsListFilter` + API `marketerStatsDay` |
-| 협업 집계 클릭 → 목록 | 클라 `applyCollaborationStatsListFilter` + API `collaborationStatsDay` + `collaborationMarketerId` |
-| 목록 API 필터 | `whereMarketerStatsInquiriesOnDay` (`GET /inquiries` 쿼리 `createdById` + `marketerStatsDay`) |
-| 협업 목록 API | `whereCollaborationMarketerStatsInquiriesOnDay` (`collaborationMarketerId` + `collaborationStatsDay`) |
+| 오늘 집계 클릭 → 목록 | 클라 `applyMarketerStatsListFilter` + API `marketerStatsDay` |
+| 기간 숫자 클릭 → 목록 | 클라 `applyMarketerStatsRangeFilter` + API `marketerStatsFrom`+`marketerStatsTo` |
+| 오늘 협업 클릭 → 목록 | 클라 `applyCollaborationStatsListFilter` + API `collaborationStatsDay` |
+| 기간 협업 숫자 클릭 → 목록 | 클라 `applyCollaborationStatsRangeFilter` + API `collaborationStatsFrom`+`collaborationStatsTo` |
+| 하루 목록 API | `whereMarketerStatsInquiriesOnDay` (`createdById` + `marketerStatsDay`) |
+| 기간 목록 API | `whereMarketerStatsInquiriesInRange` (`createdById` + `marketerStatsFrom` + `marketerStatsTo`, 포함·최대 366일) |
+| 협업 목록 API | `whereCollaborationMarketerStatsInquiriesOnDay` / `whereCollaborationMarketerStatsInquiriesInRange` |
 
 **단일 소스**: `server/src/modules/inquiries/inquiryMarketerOverview.ts`
 
@@ -44,10 +47,10 @@ alwaysApply: true
 집계에서 목록으로 drill-down 할 때 **반드시** 아래를 함께 맞춘다 (`AdminInquiriesPage`).
 
 - `statusFilter = 'RECEIVED'`
-- `dateBasis = 'createdAt'`, `datePreset = 'day'`, `dayKey` = 집계 기준일
-- `marketerFilterId` = 해당 마케터
-- API에 `marketerStatsDay` + `createdById` 전달 (일반 `datePreset`/`day` 대신 서버가 `whereMarketerStatsInquiriesOnDay` 사용)
-- URL 쿼리에 **`createdById`**, **`marketerStatsDay`**, **`day`**, **`status=RECEIVED`** 를 함께 반영해 새로고침·재로그인 후에도 집계 drill-down이 유지되게 한다 — **`.cursor/rules/routing-url-persistence.mdc`**
+- `dateBasis = 'createdAt'`, `datePreset = 'day'`
+- 하루는 `dayKey` = 집계 기준일, API `marketerStatsDay` + `createdById`
+- 기간은 `dayFrom`~`dayTo`, API `marketerStatsFrom` + `marketerStatsTo` + `createdById` (협업은 `collaborationStatsFrom`/`collaborationStatsTo`)
+- URL에 **`createdById`**(또는 `collaborationMarketerId`), **하루면 `marketerStatsDay`**, **기간이면 `marketerStatsFrom`/`marketerStatsTo`**, **`dayFrom`/`dayTo`**, **`status=RECEIVED`** 를 함께 반영한다 — **`.cursor/rules/routing-url-persistence.mdc`**
 
 UI 안내·툴팁·모달 문구도 **「예약완료 · 접수일 기준」** 으로 통일한다.
 
@@ -57,13 +60,15 @@ UI 안내·툴팁·모달 문구도 **「예약완료 · 접수일 기준」** �
 - 집계는 `submittedAt`·목록은 `createdAt`처럼 **날짜 필드를 화면마다 다르게** 쓰는 것
 - `orderForm.createdById`만 보고 **`inquiry.createdById` 귀속 규칙을 무시**하는 것
 - 클라이언트에서만 숫자를 따로 계산해 **서버 집계와 다른 수**를 보여 주는 것
-- `marketerStatsDay` 없이 일반 목록 필터만으로 “집계와 맞춘다”고 주장하는 것 (일반 목록은 미제출·발급일 예외 등 **추가 OR** 가 있어 집계와 어긋날 수 있음)
+- `marketerStatsDay` 또는 `marketerStatsFrom`+`marketerStatsTo` 없이 일반 목록 필터만으로 “집계와 맞춘다”고 주장하는 것 (일반 목록은 미제출·발급일 예외 등 **추가 OR** 가 있어 집계와 어긋날 수 있음)
+- 월·날짜 필터를 바꿔도 집계를 **이번 달로 고정**하는 것. 당일·전체만 이번 달이고, 월별은 고른 달, 날짜는 시작~끝이다
+- 고른 달에 오늘이 없을 때 **확정·부재·보류·요청**을 그 달 숫자로 바꾸는 것 (이 네 칸은 오늘)
 
 ## 변경 시 체크리스트
 
 1. `inquiryMarketerOverview.ts`의 **상태·날짜·귀속** 세 조건이 월/오늘/일별/목록 필터에 **동일**한가?
 2. 집계 클릭 시 클라이언트가 **`RECEIVED` + 접수일 + 마케터** 로 목록을 여는가?
-3. `GET /inquiries`에 `marketerStatsDay`가 있을 때 **일반 `createdAtRangeFromQuery`와 섞이지 않는가**?
+3. `GET /inquiries`에 `marketerStatsDay` 또는 `marketerStatsFrom`+`marketerStatsTo`(협업 기간 포함)가 있을 때 **일반 날짜·상태·pin과 섞이지 않는가**?
 4. 툴팁·하단 문구·일별 모달 안내가 **실제 집계 기준**과 맞는가?
 5. (가능하면) 당일 + 예약완료 + 마케터 필터 목록 `total` = 집계 **오늘** 숫자 확인
 

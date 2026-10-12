@@ -1,9 +1,9 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
-import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from './inquiryListDateRange.js';
+import { clampKstYmdRange, kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from './inquiryListDateRange.js';
 import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
-import { isUserEmployedOnYmd } from '../users/userEmployment.js';
+import { employmentOverlapsMonthKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 
 export type MarketerOverviewTodayTotals = {
   /** 당일 예약완료(RECEIVED) — 접수일 KST */
@@ -38,14 +38,24 @@ export type MarketerOverviewRow = {
 };
 
 export type MarketerOverviewResult = {
-  /** 현재 집계 기준 연월 YYYY-MM (KST) */
+  /** 현재 집계 기준 연월 YYYY-MM (KST). 기간 검색이면 시작일이 속한 달 */
   monthKey: string;
+  /** month = 한 달, range = 날짜부터 날짜까지 */
+  periodKind: 'month' | 'range';
+  /** 집계 구간 시작 YYYY-MM-DD (KST, 포함) */
+  periodFrom: string;
+  /** 집계 구간 끝 YYYY-MM-DD (KST, 포함) */
+  periodTo: string;
   /** 오늘 날짜 YYYY-MM-DD (KST) */
   todayYmd: string;
   /** 당일 전체 합계(마케터별 합) */
   todayTotals: MarketerOverviewTodayTotals;
   marketers: MarketerOverviewRow[];
 };
+
+export type MarketerOverviewPeriod =
+  | { kind: 'month'; monthKey: string }
+  | { kind: 'range'; fromYmd: string; toYmd: string };
 
 /** KST yyyy-mm-dd — 접수 등록일(createdAt) */
 function inquiryCreatedAtYmdKst(d: Date): string {
@@ -279,6 +289,27 @@ export function whereMarketerStatsInquiriesOnDay(
   };
 }
 
+/** 마케터 집계와 동일한 접수 목록 필터 (KST 시작~끝 포함). */
+export function whereMarketerStatsInquiriesInRange(
+  marketerId: string,
+  fromYmd: string,
+  toYmd: string,
+): Prisma.InquiryWhereInput | null {
+  const span = clampKstYmdRange(fromYmd, toYmd);
+  if (!span) return null;
+  const gte = new Date(`${span.from}T00:00:00+09:00`);
+  const lte = new Date(`${span.to}T23:59:59.999+09:00`);
+  if (Number.isNaN(gte.getTime()) || Number.isNaN(lte.getTime())) return null;
+  return {
+    AND: [
+      inquiryActiveOnlyWhere(),
+      { status: 'RECEIVED' },
+      { createdAt: { gte, lte } },
+      whereInquiryAttributedToMarketer(marketerId),
+    ],
+  };
+}
+
 /** 협업 마케터 집계 drill-down — RECEIVED + 접수일 + collaborationMarketerId */
 export function whereCollaborationMarketerStatsInquiriesOnDay(
   collaborationMarketerId: string,
@@ -296,11 +327,63 @@ export function whereCollaborationMarketerStatsInquiriesOnDay(
   };
 }
 
-/** 마케터별 이번 달·오늘 예약완료 — 서비스접수와 동일(접수일·RECEIVED·접수자) */
-export async function buildMarketerOverview(tenantId: string): Promise<MarketerOverviewResult> {
+/** 협업 집계 drill-down — RECEIVED + 접수일 구간 + collaborationMarketerId */
+export function whereCollaborationMarketerStatsInquiriesInRange(
+  collaborationMarketerId: string,
+  fromYmd: string,
+  toYmd: string,
+): Prisma.InquiryWhereInput | null {
+  const span = clampKstYmdRange(fromYmd, toYmd);
+  if (!span) return null;
+  const gte = new Date(`${span.from}T00:00:00+09:00`);
+  const lte = new Date(`${span.to}T23:59:59.999+09:00`);
+  if (Number.isNaN(gte.getTime()) || Number.isNaN(lte.getTime())) return null;
+  return {
+    AND: [
+      inquiryActiveOnlyWhere(),
+      { status: 'RECEIVED' },
+      { createdAt: { gte, lte } },
+      { collaborationMarketerId },
+    ],
+  };
+}
+
+function monthBoundsYmd(monthKey: string): { from: string; to: string } | null {
+  const range = kstMonthRangeYm(monthKey);
+  if (!range) return null;
+  const y = Number(monthKey.slice(0, 4));
+  const mo = Number(monthKey.slice(5, 7));
+  const lastDay = new Date(y, mo, 0).getDate();
+  return {
+    from: `${monthKey}-01`,
+    to: `${monthKey}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
+function rangeContains(outerGte: Date, outerLte: Date, innerGte: Date, innerLte: Date) {
+  return innerGte.getTime() >= outerGte.getTime() && innerLte.getTime() <= outerLte.getTime();
+}
+
+/** 마케터별 기간·오늘 예약완료 — 서비스접수와 동일(접수일·RECEIVED·접수자). 기간을 생략하면 이번 달. */
+export async function buildMarketerOverview(
+  tenantId: string,
+  period?: MarketerOverviewPeriod,
+): Promise<MarketerOverviewResult> {
   const todayYmd = kstTodayYmd();
-  const monthKey = todayYmd.slice(0, 7);
-  const monthRange = kstMonthRangeYm(monthKey);
+  const currentMonthKey = todayYmd.slice(0, 7);
+  const requestedMonth = period?.kind === 'month' ? period.monthKey : '';
+  const monthKey = requestedMonth || (period?.kind === 'range' ? period.fromYmd.slice(0, 7) : currentMonthKey);
+  const bounds =
+    period?.kind === 'range'
+      ? clampKstYmdRange(period.fromYmd, period.toYmd)
+      : monthBoundsYmd(monthKey);
+  const periodKind: 'month' | 'range' = period?.kind === 'range' ? 'range' : 'month';
+  const monthRange = bounds
+    ? {
+        gte: new Date(`${bounds.from}T00:00:00+09:00`),
+        lte: new Date(`${bounds.to}T23:59:59.999+09:00`),
+      }
+    : null;
   const todayRange = kstDayRangeYmd(todayYmd);
   const emptyTotals = (): MarketerOverviewTodayTotals => ({
     received: 0,
@@ -308,9 +391,12 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
     hold: 0,
     requested: 0,
   });
-  if (!monthRange || !todayRange) {
+  if (!monthRange || !todayRange || !bounds) {
     return {
       monthKey,
+      periodKind,
+      periodFrom: bounds?.from ?? `${monthKey}-01`,
+      periodTo: bounds?.to ?? todayYmd,
       todayYmd,
       todayTotals: emptyTotals(),
       marketers: [],
@@ -323,30 +409,53 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
     orderBy: { name: 'asc' },
   });
   /** 개발용 team-preview 관리자 계정은 집계·필터 대상에서 제외, 그리고 퇴사자는 제외 */
-  const marketers = staff.filter((u) => !isTeamPreviewAdminEmail(u.email) && isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd));
+  const marketers = staff.filter(
+    (u) =>
+      !isTeamPreviewAdminEmail(u.email) &&
+      (period
+        ? employmentOverlapsMonthKst(u.hireDate, u.resignationDate, bounds.from, bounds.to)
+        : isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)),
+  );
   const marketerIds = marketers.map((m) => m.id);
 
-  const [
-    { month: monthCounts, today: todayCounts },
-    { month: monthCollabCounts, today: todayCollabCounts },
-    followupToday,
-  ] = await Promise.all([
+  const todayInsidePeriod = rangeContains(monthRange.gte, monthRange.lte, todayRange.gte, todayRange.lte);
+  const [periodReceived, periodCollab, todayReceived, todayCollab, followupToday] = await Promise.all([
     countReceivedInquiriesByMarketerMonthAndToday(
       tenantId,
       monthRange.gte,
       monthRange.lte,
-      todayRange.gte,
-      todayRange.lte,
+      todayInsidePeriod ? todayRange.gte : monthRange.gte,
+      todayInsidePeriod ? todayRange.lte : monthRange.gte,
       marketerIds,
     ),
     countCollaborationReceivedByMarketerMonthAndToday(
       tenantId,
       monthRange.gte,
       monthRange.lte,
-      todayRange.gte,
-      todayRange.lte,
+      todayInsidePeriod ? todayRange.gte : monthRange.gte,
+      todayInsidePeriod ? todayRange.lte : monthRange.gte,
       marketerIds,
     ),
+    todayInsidePeriod
+      ? Promise.resolve(null)
+      : countReceivedInquiriesByMarketerMonthAndToday(
+          tenantId,
+          todayRange.gte,
+          todayRange.lte,
+          todayRange.gte,
+          todayRange.lte,
+          marketerIds,
+        ),
+    todayInsidePeriod
+      ? Promise.resolve(null)
+      : countCollaborationReceivedByMarketerMonthAndToday(
+          tenantId,
+          todayRange.gte,
+          todayRange.lte,
+          todayRange.gte,
+          todayRange.lte,
+          marketerIds,
+        ),
     countFollowupsByMarketerToday(
       tenantId,
       todayRange.gte,
@@ -354,6 +463,10 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
       marketerIds,
     ),
   ]);
+  const monthCounts = periodReceived.month;
+  const todayCounts = todayInsidePeriod ? periodReceived.today : (todayReceived?.today ?? periodReceived.today);
+  const monthCollabCounts = periodCollab.month;
+  const todayCollabCounts = todayInsidePeriod ? periodCollab.today : (todayCollab?.today ?? periodCollab.today);
 
   const rows: MarketerOverviewRow[] = marketers.map((m) => ({
     marketerId: m.id,
@@ -381,6 +494,9 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
 
   return {
     monthKey,
+    periodKind,
+    periodFrom: bounds.from,
+    periodTo: bounds.to,
     todayYmd,
     todayTotals,
     marketers: rows,
