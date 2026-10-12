@@ -27,6 +27,8 @@ export type ExtraWorkItem = {
   parentMarketerName: string | null;
   customerName: string;
   inquiryNumber: string | null;
+  /** 접수 예약 시간대. 오전·오후·사이청소·조율 */
+  timeSlot: string | null;
   photoCount: number;
   photoNames: string[];
   lines: ExtraWorkLineItem[];
@@ -202,6 +204,75 @@ export async function searchExtraWorkInquiries(token: string, query: string) {
       items: Array<{ id: string; customerName: string; inquiryNumber: string | null; teamLeaders: Array<{ id: string; name: string }> }>;
     }
   ).items;
+}
+
+export async function updateExtraWork(
+  token: string,
+  recordId: string,
+  input: {
+    lines: Array<{
+      workLabel: string;
+      placeLabel: string;
+      quantity: number | null;
+      unitLabel: string;
+      amountWon: number;
+      photos: File[];
+      sourceIndex: number | null;
+      keepExistingPhotos: boolean;
+    }>;
+  },
+) {
+  const body = new FormData();
+  body.set(
+    'lines',
+    JSON.stringify(
+      input.lines.map((line) => ({
+        workLabel: line.workLabel,
+        placeLabel: line.placeLabel,
+        quantity: line.quantity,
+        unitLabel: line.unitLabel,
+        amountWon: line.amountWon,
+        sourceIndex: line.sourceIndex,
+        keepExistingPhotos: line.keepExistingPhotos,
+      })),
+    ),
+  );
+  input.lines.forEach((line, index) => {
+    for (const photo of line.photos) body.append(`photos_${index}`, photo);
+  });
+  const res = await fetch(`${API}/extra-work/${encodeURIComponent(recordId)}`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body,
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return ((await res.json()) as { item: ExtraWorkItem }).item;
+}
+
+export async function updateExtraWorkSummary(
+  token: string,
+  recordId: string,
+  input: { workLabel: string; amountWon: number },
+) {
+  const body = new FormData();
+  body.set('workLabel', input.workLabel);
+  body.set('amountWon', String(input.amountWon));
+  const res = await fetch(`${API}/extra-work/${encodeURIComponent(recordId)}`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body,
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return ((await res.json()) as { item: ExtraWorkItem }).item;
+}
+
+export async function deleteExtraWork(token: string, recordId: string, password: string) {
+  const res = await fetch(`${API}/extra-work/${encodeURIComponent(recordId)}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
 }
 
 export async function saveExtraWorkAdjustment(

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { SyncHorizontalScroll } from '../../ui/SyncHorizontalScroll';
 import { ExtraSettlementJobDetail } from './ExtraSettlementJobDetail';
+import { extraWorkSlotLabel } from './extraWorkSlotLabel';
 
 export const UNASSIGNED = '__none__';
 
@@ -75,7 +76,7 @@ export function jobsForLeader(items: ExtraWorkItem[], leaderId: string) {
 function cellTitle(item: ExtraWorkItem, leaderId: string) {
   const share = item.leaderShares.find((row) => row.teamLeaderId === leaderId);
   const lines = [
-    item.customerName,
+    [item.customerName, extraWorkSlotLabel(item.timeSlot)].filter(Boolean).join(' · '),
     item.inquiryNumber ?? '',
     `${item.workLabel}${item.areaLabel ? ` · ${item.areaLabel}` : ''}`,
     `추가금액 ${won(item.amountWon)}`,
@@ -187,7 +188,10 @@ function JobStack(props: {
           onClick={() => onOpen(item, leaderId)}
           className="block w-full min-w-0 rounded px-0.5 text-right text-fluid-2xs leading-none tabular-nums tracking-tight text-slate-800 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
-          <span className="block truncate">{won(cellAmount(item, leaderId))}</span>
+          <span className="block truncate">
+            {extraWorkSlotLabel(item.timeSlot) ? `${extraWorkSlotLabel(item.timeSlot)} ` : ''}
+            {won(cellAmount(item, leaderId))}
+          </span>
         </button>
       ))}
     </div>

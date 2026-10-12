@@ -5,6 +5,8 @@ const fieldClass =
 
 export type DraftLine = {
   key: string;
+  sourceIndex: number | null;
+  existingPhotoCount: number;
   workLabel: string;
   placeLabel: string;
   quantity: string;
@@ -17,7 +19,17 @@ let lineSeq = 0;
 
 export function emptyDraftLine(unitLabel = '장'): DraftLine {
   lineSeq += 1;
-  return { key: `line-${lineSeq}`, workLabel: '', placeLabel: '', quantity: '', unitLabel, amount: '', photos: [] };
+  return {
+    key: `line-${lineSeq}`,
+    sourceIndex: null,
+    existingPhotoCount: 0,
+    workLabel: '',
+    placeLabel: '',
+    quantity: '',
+    unitLabel,
+    amount: '',
+    photos: [],
+  };
 }
 
 export function lineUnitPriceText(amount: string, quantity: string, unit: string) {
@@ -146,12 +158,18 @@ export function ExtraWorkLineCards(props: {
                         onClick={() => patch(line.key, { photos: line.photos.filter((_, itemIndex) => itemIndex !== photoIndex) })}
                         className="min-h-9 shrink-0 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                       >
-                        빼기
-                      </button>
+                      빼기
+                    </button>
                     </li>
                   ))}
                 </ul>
-              ) : null}
+              ) : line.existingPhotoCount > 0 ? (
+                <p className="text-fluid-2xs text-slate-500">
+                  저장된 사진 {line.existingPhotoCount}장 · 새로 올리면 이 시공 사진이 바뀝니다
+                </p>
+              ) : (
+                <p className="text-fluid-2xs text-slate-500">시공 사진 필수</p>
+              )}
             </div>
           </section>
         );

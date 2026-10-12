@@ -7,25 +7,17 @@ import {
   fetchExtraWorkFormOptions,
   fetchExtraWorkList,
   saveExtraWorkPresets,
+  updateExtraWork,
+  updateExtraWorkSummary,
   type ExtraWorkItem,
 } from '../../../api/extraWork';
 import { ExtraWorkLineCards, emptyDraftLine, type DraftLine } from './ExtraWorkLineCards';
+import { ExtraWorkSavedList } from './ExtraWorkSavedList';
 
 const fieldClass =
   'min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400';
 const btnPrimary =
   'min-h-11 w-full rounded-lg bg-slate-900 px-4 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
-
-function won(n: number) {
-  return `${Number(n).toLocaleString('ko-KR')}원`;
-}
-
-function lineCaption(item: ExtraWorkItem['lines'][number]) {
-  const place = item.placeLabel ? ` ${item.placeLabel}` : '';
-  const qty = item.quantity != null && item.unitLabel ? ` ${item.quantity}${item.unitLabel}` : '';
-  const unit = item.unitPriceWon != null && item.unitLabel ? ` · ${item.unitLabel}당 ${won(item.unitPriceWon)}` : '';
-  return `${item.workLabel}${place}${qty} · ${won(item.amountWon)}${unit}`;
-}
 
 export function ExtraWorkCaptureSheet(props: {
   open: boolean;
@@ -57,6 +49,10 @@ export function ExtraWorkCaptureSheet(props: {
   const [presetBusy, setPresetBusy] = useState(false);
   const [lines, setLines] = useState<DraftLine[]>(() => [emptyDraftLine()]);
   const [items, setItems] = useState<ExtraWorkItem[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [summaryMode, setSummaryMode] = useState(false);
+  const [summaryLabel, setSummaryLabel] = useState('');
+  const [summaryAmount, setSummaryAmount] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -66,6 +62,10 @@ export function ExtraWorkCaptureSheet(props: {
     setError('');
     setCatalogOpen(false);
     setDraftPreset('');
+    setEditingId(null);
+    setSummaryMode(false);
+    setSummaryLabel('');
+    setSummaryAmount('');
     setLines([emptyDraftLine()]);
     void Promise.all([fetchExtraWorkFormOptions(token, inquiryId), fetchExtraWorkList(token, { inquiryId })])
       .then(([options, list]) => {
@@ -102,7 +102,11 @@ export function ExtraWorkCaptureSheet(props: {
     try {
       const saved = await saveExtraWorkPresets(token, next);
       setPresets(saved);
-      setLines((current) => current.map((line) => (saved.includes(line.workLabel) ? line : { ...line, workLabel: '' })));
+      setLines((current) =>
+        current.map((line) =>
+          saved.includes(line.workLabel) || line.sourceIndex != null ? line : { ...line, workLabel: '' },
+        ),
+      );
       return saved;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '시공 종류를 저장하지 못했습니다.');
@@ -128,7 +132,66 @@ export function ExtraWorkCaptureSheet(props: {
     });
   };
 
+  const resetDraft = () => {
+    setEditingId(null);
+    setSummaryMode(false);
+    setSummaryLabel('');
+    setSummaryAmount('');
+    setLines([emptyDraftLine(units[0] || '장')]);
+  };
+
+  const beginEdit = (item: ExtraWorkItem) => {
+    setError('');
+    setEditingId(item.id);
+    if (item.lines.length === 0) {
+      setSummaryMode(true);
+      setSummaryLabel(item.workLabel);
+      setSummaryAmount(String(Math.abs(item.amountWon)));
+      setLines([emptyDraftLine(units[0] || '장')]);
+    } else {
+      setSummaryMode(false);
+      setLines(
+        item.lines.map((line, index) => ({
+          ...emptyDraftLine(line.unitLabel || units[0] || '장'),
+          sourceIndex: index,
+          existingPhotoCount: line.photoNames.length,
+          workLabel: line.workLabel,
+          placeLabel: line.placeLabel ?? '',
+          quantity: line.quantity != null ? String(line.quantity) : '',
+          unitLabel: line.unitLabel || units[0] || '장',
+          amount: String(line.amountWon),
+          photos: [],
+        })),
+      );
+    }
+    scrollRef.current?.scrollTo({ top: 0 });
+  };
+
   const submit = async () => {
+    if (summaryMode && editingId) {
+      const amountWon = Number(summaryAmount.replace(/,/g, ''));
+      if (!summaryLabel.trim()) {
+        setError('내용을 적어 주세요.');
+        return;
+      }
+      if (!Number.isInteger(amountWon) || amountWon < 1) {
+        setError('금액은 1원 이상이어야 합니다.');
+        return;
+      }
+      setSaving(true);
+      setError('');
+      try {
+        await updateExtraWorkSummary(token, editingId, { workLabel: summaryLabel.trim(), amountWon });
+        setItems(await fetchExtraWorkList(token, { inquiryId }));
+        resetDraft();
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : '수정하지 못했습니다.');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const payload = lines.map((line) => ({
       workLabel: line.workLabel,
       placeLabel: line.placeLabel,
@@ -136,6 +199,9 @@ export function ExtraWorkCaptureSheet(props: {
       unitLabel: line.quantity ? line.unitLabel : '',
       amountWon: Number(line.amount.replace(/,/g, '')),
       photos: line.photos,
+      sourceIndex: line.sourceIndex,
+      existingPhotoCount: line.existingPhotoCount,
+      keepExistingPhotos: line.photos.length === 0 && line.existingPhotoCount > 0,
     }));
     if (payload.some((line) => !line.workLabel)) {
       setError('시공마다 종류를 골라 주세요.');
@@ -145,21 +211,24 @@ export function ExtraWorkCaptureSheet(props: {
       setError('시공 금액을 1원 이상 적어 주세요.');
       return;
     }
-    if (payload.some((line) => line.photos.length < 1)) {
+    if (payload.some((line) => line.photos.length < 1 && !line.keepExistingPhotos)) {
       setError('시공마다 사진을 1장 이상 올려 주세요.');
       return;
     }
     setSaving(true);
     setError('');
     try {
-      await createExtraWork(token, {
-        inquiryId,
-        marketerId: canChoose ? marketerId : undefined,
-        lines: payload,
-      });
-      const list = await fetchExtraWorkList(token, { inquiryId });
-      setItems(list);
-      setLines([emptyDraftLine(units[0] || '장')]);
+      if (editingId) {
+        await updateExtraWork(token, editingId, { lines: payload });
+      } else {
+        await createExtraWork(token, {
+          inquiryId,
+          marketerId: canChoose ? marketerId : undefined,
+          lines: payload,
+        });
+      }
+      setItems(await fetchExtraWorkList(token, { inquiryId }));
+      resetDraft();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '저장하지 못했습니다.');
     } finally {
@@ -197,7 +266,12 @@ export function ExtraWorkCaptureSheet(props: {
           <label className="block space-y-1">
             <span className="text-fluid-2xs text-slate-600">담당 마케터</span>
             {canChoose ? (
-              <select className={fieldClass} value={marketerId} onChange={(e) => setMarketerId(e.target.value)}>
+              <select
+                className={fieldClass}
+                value={marketerId}
+                disabled={Boolean(editingId)}
+                onChange={(e) => setMarketerId(e.target.value)}
+              >
                 {marketers.map((row) => (
                   <option key={row.id} value={row.id}>
                     {row.name}
@@ -279,29 +353,57 @@ export function ExtraWorkCaptureSheet(props: {
               </div>
             ) : null}
           </div>
-          <ExtraWorkLineCards lines={lines} presets={presets} places={areas} units={units} onChange={setLines} />
+          {summaryMode ? (
+            <div className="space-y-2">
+              <label className="block space-y-1">
+                <span className="text-fluid-2xs text-slate-600">내용</span>
+                <input className={fieldClass} value={summaryLabel} maxLength={500} onChange={(e) => setSummaryLabel(e.target.value)} />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-fluid-2xs text-slate-600">금액</span>
+                <input
+                  inputMode="numeric"
+                  className={fieldClass}
+                  value={summaryAmount}
+                  onChange={(e) => setSummaryAmount(e.target.value.replace(/[^\d]/g, ''))}
+                />
+              </label>
+            </div>
+          ) : (
+            <ExtraWorkLineCards
+              lines={lines}
+              presets={[
+                ...presets,
+                ...lines.map((line) => line.workLabel).filter((label) => label && !presets.includes(label)),
+              ]}
+              places={areas}
+              units={units}
+              onChange={setLines}
+            />
+          )}
           <button type="button" className={btnPrimary} disabled={saving} onClick={() => void submit()}>
-            {saving ? '저장 중…' : '추가 시공 저장'}
+            {saving ? '저장 중…' : editingId ? '수정 저장' : '추가 시공 저장'}
           </button>
-          {items.length > 0 ? (
-            <ul className="space-y-1.5">
-              {items.map((item) => (
-                <li key={item.id} className="rounded-lg border border-slate-200 px-2.5 py-2 text-fluid-xs">
-                  <p className="font-medium text-slate-900">합계 {won(item.amountWon)}</p>
-                  {(item.lines ?? []).map((line, index) => (
-                    <p key={`${item.id}-${index}`} className="text-slate-800">
-                      {lineCaption(line)}
-                    </p>
-                  ))}
-                  {(item.lines ?? []).length === 0 ? <p className="text-slate-800">{item.workLabel}</p> : null}
-                  <p className="truncate text-fluid-2xs text-slate-500" title={item.photoNames.join(', ')}>
-                    {item.marketerName} · 사진 {item.photoCount}장
-                    {item.photoNames.length > 0 ? ` · ${item.photoNames.join(', ')}` : ''}
-                  </p>
-                </li>
-              ))}
-            </ul>
+          {editingId ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={resetDraft}
+              className="min-h-10 w-full rounded-lg border border-slate-300 bg-white text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            >
+              수정 취소
+            </button>
           ) : null}
+          <ExtraWorkSavedList
+            token={token}
+            items={items}
+            editingId={editingId}
+            onEdit={beginEdit}
+            onDeleted={(id) => {
+              setItems((current) => current.filter((item) => item.id !== id));
+              if (editingId === id) resetDraft();
+            }}
+          />
         </div>
       </div>
     </div>,

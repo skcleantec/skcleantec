@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { ModalCloseButton } from '../ModalCloseButton';
+import { extraWorkSlotLabel } from './extraWorkSlotLabel';
 import { extraWorkPercent, overrideFromText, takeRateText } from './extraSettlementRateText';
 
 function won(n: number) {
@@ -80,6 +81,7 @@ export function ExtraSettlementJobDetail(props: {
             <Row label="마케터" value={item.marketerName} />
             <Row label="시공" value={work} />
             <Row label="고객" value={item.inquiryNumber ? `${item.customerName} · ${item.inquiryNumber}` : item.customerName} />
+            <Row label="시간" value={extraWorkSlotLabel(item.timeSlot) || '없음'} />
             <Row label="팀장" value={leaders} />
             {item.parentMarketerName ? (
               <Row label="오버라이딩" value={`${item.parentMarketerName} ${won(item.parentWon)} · ${overrideFromText(item)}`} />
