@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { ModalCloseButton } from '../ModalCloseButton';
 import { dayLabel, kstDayKey, won } from './ExtraSettlementBoard';
+import { extraWorkSlotLabel } from './extraWorkSlotLabel';
 import { overrideFromText, takeRateText } from './extraSettlementRateText';
 
 function kindTag(kind: ExtraWorkItem['settlementKind']) {
@@ -72,10 +73,11 @@ export function ExtraSettlementPersonDetail(props: {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-fluid-xs font-medium text-slate-900" title={item.customerName}>
                         {dayLabel(kstDayKey(item.occurredAt))} · {item.customerName}
+                        {extraWorkSlotLabel(item.timeSlot) ? ` · ${extraWorkSlotLabel(item.timeSlot)}` : ''}
                         {tag ? ` · ${tag}` : ''}
                       </p>
                       <p className="truncate text-fluid-2xs text-slate-500" title={item.workLabel}>
-                        {item.workLabel}
+                        추가 {won(item.amountWon)} · {item.workLabel}
                       </p>
                       <p
                         className="truncate text-fluid-2xs text-slate-800"

@@ -4,6 +4,7 @@ import { destroyStoredObject, uploadObjectBuffer } from '../../lib/objectStorage
 import { normalizeUploadedFilename } from '../../lib/uploadFilename.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
+import { dateToYmdKst } from '../users/userEmployment.js';
 import {
   EXTRA_WORK_AREA_LABELS,
   EXTRA_WORK_DEFAULT_PRESETS,
@@ -19,7 +20,7 @@ import {
 const recordInclude = {
   marketer: { select: { id: true, name: true } },
   parentMarketer: { select: { id: true, name: true } },
-  inquiry: { select: { id: true, customerName: true, inquiryNumber: true } },
+  inquiry: { select: { id: true, customerName: true, inquiryNumber: true, preferredTime: true } },
   photos: { select: { id: true, originalName: true }, orderBy: { createdAt: 'asc' } },
   lines: {
     orderBy: { sortOrder: 'asc' as const },
@@ -38,6 +39,14 @@ const recordInclude = {
 } satisfies Prisma.ExtraWorkRecordInclude;
 
 type RecordRow = Prisma.ExtraWorkRecordGetPayload<{ include: typeof recordInclude }>;
+
+export async function findMappedExtraWorkRecord(tenantId: string, id: string) {
+  const row = await prisma.extraWorkRecord.findFirst({
+    where: { id, tenantId },
+    include: recordInclude,
+  });
+  return row ? mapExtraWorkRecord(row) : null;
+}
 
 export function mapExtraWorkRecord(row: RecordRow) {
   return {
@@ -63,6 +72,7 @@ export function mapExtraWorkRecord(row: RecordRow) {
     parentMarketerName: row.parentMarketer?.name ?? null,
     customerName: row.inquiry.customerName,
     inquiryNumber: row.inquiry.inquiryNumber,
+    timeSlot: row.inquiry.preferredTime,
     photoCount: row.photos.length,
     photoNames: row.photos.map((photo) => photo.originalName).filter((name): name is string => Boolean(name)),
     lines: row.lines.map((line) => ({
@@ -281,6 +291,7 @@ export async function createExtraWorkRecord(params: {
     where: { id: params.inquiryId, tenantId: params.tenantId },
     select: {
       id: true,
+      preferredDate: true,
       assignments: {
         orderBy: { sortOrder: 'asc' },
         select: { teamLeader: { select: { id: true, role: true } } },
@@ -337,7 +348,9 @@ export async function createExtraWorkRecord(params: {
       tenantId: params.tenantId,
       inquiryId: inquiry.id,
       marketerId,
-      occurredAt: new Date(),
+      occurredAt: inquiry.preferredDate
+        ? new Date(`${dateToYmdKst(inquiry.preferredDate)}T12:00:00+09:00`)
+        : new Date(),
       amountWon: resolved.totalWon,
       workLabel: resolved.summary,
       areaLabel,

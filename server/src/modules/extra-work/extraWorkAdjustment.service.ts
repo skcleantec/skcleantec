@@ -200,7 +200,7 @@ export async function saveExtraWorkAdjustment(params: {
     include: {
       marketer: { select: { id: true, name: true } },
       parentMarketer: { select: { id: true, name: true } },
-      inquiry: { select: { id: true, customerName: true, inquiryNumber: true } },
+      inquiry: { select: { id: true, customerName: true, inquiryNumber: true, preferredTime: true } },
       photos: { select: { id: true, originalName: true }, orderBy: { createdAt: 'asc' } },
       lines: {
         orderBy: { sortOrder: 'asc' },

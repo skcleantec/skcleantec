@@ -15,6 +15,7 @@ import {
   saveMarketerExtraWorkProfile,
 } from './extraWork.service.js';
 import { saveExtraWorkAdjustment, searchExtraWorkInquiries, type ExtraWorkAdjustmentKind } from './extraWorkAdjustment.service.js';
+import { deleteExtraWorkRecord, updateExtraWorkLines, updateExtraWorkSummary } from './extraWorkRecordEdit.service.js';
 
 const router = Router();
 // 항목 사진 필드는 photos_0, photos_1 … 이다.
@@ -307,6 +308,92 @@ router.put('/marketers/:userId', requireStaffPermission('admin.payroll', 'admin.
     res.json({ ...(await readExtraWorkSettings(tenantId)), rewrittenCount });
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : '마케터 설정을 저장하지 못했습니다.' });
+  }
+});
+
+function readEditLines(body: { lines?: string }, files: Express.Multer.File[]) {
+  return readLines(body, files).map((line, index) => {
+    let parsed: unknown[] = [];
+    try {
+      const raw = JSON.parse(body.lines ?? '');
+      parsed = Array.isArray(raw) ? raw : [];
+    } catch {
+      parsed = [];
+    }
+    const row = parsed[index] && typeof parsed[index] === 'object' ? (parsed[index] as Record<string, unknown>) : {};
+    const sourceRaw = row.sourceIndex;
+    const sourceNumber = Number(sourceRaw);
+    const sourceIndex =
+      sourceRaw == null || sourceRaw === '' || !Number.isInteger(sourceNumber) || sourceNumber < 0
+        ? null
+        : sourceNumber;
+    return {
+      ...line,
+      sourceIndex,
+      keepExistingPhotos: row.keepExistingPhotos === true,
+    };
+  });
+}
+
+router.patch('/:id', upload.any(), async (req, res) => {
+  const user = (req as { user?: AuthPayload }).user;
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'MARKETER')) {
+    res.status(403).json({ error: '마케터 또는 관리자만 추가 시공을 고칠 수 있습니다.' });
+    return;
+  }
+  const tenantId = await tenantOf(req, res);
+  if (!tenantId) return;
+  const body = req.body as { lines?: string; workLabel?: string; amountWon?: string };
+  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+  try {
+    const item = body.lines
+      ? await updateExtraWorkLines({
+          tenantId,
+          actorId: user.userId,
+          actorRole: user.role,
+          recordId: req.params.id,
+          lines: readEditLines(body, files),
+        })
+      : await updateExtraWorkSummary({
+          tenantId,
+          actorId: user.userId,
+          actorRole: user.role,
+          recordId: req.params.id,
+          workLabel: String(body.workLabel ?? ''),
+          amountWon: Number(String(body.amountWon ?? '').replace(/,/g, '')),
+        });
+    res.json({ item });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '추가 시공을 수정하지 못했습니다.';
+    const status = message.includes('CLOUDINARY') || message.includes('R2') ? 503 : 400;
+    res.status(status).json({
+      error: status === 503 ? '사진 저장소가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.' : message,
+    });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const user = (req as { user?: AuthPayload }).user;
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'MARKETER')) {
+    res.status(403).json({ error: '마케터 또는 관리자만 추가 시공을 지울 수 있습니다.' });
+    return;
+  }
+  const tenantId = await tenantOf(req, res);
+  if (!tenantId) return;
+  const password = String((req.body as { password?: unknown })?.password ?? '');
+  try {
+    await deleteExtraWorkRecord({
+      tenantId,
+      actorId: user.userId,
+      actorRole: user.role,
+      recordId: req.params.id,
+      password,
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '추가 시공을 삭제하지 못했습니다.';
+    const status = message === '비밀번호가 올바르지 않습니다.' ? 403 : 400;
+    res.status(status).json({ error: message });
   }
 });
 

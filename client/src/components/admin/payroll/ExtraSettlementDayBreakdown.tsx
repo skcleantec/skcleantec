@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { ModalCloseButton } from '../ModalCloseButton';
 import { DAY_SUM_LABEL, dayLabel, shareOf, won, type DaySumKind } from './ExtraSettlementBoard';
+import { extraWorkSlotLabel } from './extraWorkSlotLabel';
 import { overrideFromText } from './extraSettlementRateText';
 
 function kindTag(kind: ExtraWorkItem['settlementKind']) {
@@ -102,10 +103,12 @@ export function ExtraSettlementDayBreakdown(props: {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-fluid-xs font-medium text-slate-900" title={item.customerName}>
                         {item.customerName}
+                        {extraWorkSlotLabel(item.timeSlot) ? ` · ${extraWorkSlotLabel(item.timeSlot)}` : ''}
                         {tag ? ` · ${tag}` : ''}
                       </p>
                       <p className="truncate text-fluid-2xs text-slate-500" title={item.workLabel}>
-                        {kind === 'parent' ? `${overrideFromText(item)} · ${item.workLabel}` : `${item.marketerName} · ${item.workLabel}`}
+                        {kind === 'parent' ? `${overrideFromText(item)} · ` : `${item.marketerName} · `}
+                        추가 {won(item.amountWon)} · {item.workLabel}
                       </p>
                     </div>
                     <button
