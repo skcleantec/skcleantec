@@ -62,7 +62,8 @@ export function AdminDevPreviewLinks({
       if (p === 'tl') {
         const items = await getUsers(adminToken, 'TEAM_LEADER', { employedOn: kstTodayYmd() });
         if (seq !== panelFetchSeqRef.current) return;
-        setTeamLeaders(items);
+        // 배정 드롭다운용으로 끼워 넣는 개발 관리자 계정은 팀장 화면 미리보기 대상이 아니다.
+        setTeamLeaders(items.filter((u) => u.role === 'TEAM_LEADER'));
       } else if (p === 'ext') {
         const items = await getUsers(adminToken, 'EXTERNAL_PARTNER', { employedOn: kstTodayYmd() });
         if (seq !== panelFetchSeqRef.current) return;

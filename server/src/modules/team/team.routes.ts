@@ -1735,6 +1735,64 @@ router.get('/inquiries', async (req, res) => {
       brandScope,
     );
     const where = await mergeTeamLeaderVisibleInquiryWhere(prisma, userId, baseWhere);
+    if (req.query.view === 'dashboard') {
+      const light = await prisma.inquiry.findMany({
+        where,
+        select: { id: true, status: true, preferredDate: true },
+        orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }, { id: 'asc' }],
+      });
+      const today = dateToYmdKst(new Date());
+      const ymdOf = (d: Date | null) => (d ? dateToYmdKst(d) : '');
+      const futureDates = [
+        ...new Set(light.map((r) => ymdOf(r.preferredDate)).filter((d) => d > today)),
+      ]
+        .sort()
+        .slice(0, 7);
+      const window = new Set<string>([today, ...futureDates]);
+      const hydrateIds = light
+        .filter((r) => {
+          const d = ymdOf(r.preferredDate);
+          return Boolean(d) && window.has(d) && r.status !== 'CANCELLED' && r.status !== 'ON_HOLD';
+        })
+        .map((r) => r.id);
+      const fullById = new Map<string, { id: string }>();
+      if (hydrateIds.length > 0) {
+        const rows = await prisma.inquiry.findMany({
+          where: { tenantId, id: { in: hydrateIds } },
+          include: teamInquiryInclude,
+        });
+        const items = await attachProfessionalOptions(
+          await attachCrewMembers(rows, tenantId, userId),
+          tenantId,
+        );
+        const handoffOpts = await marketplaceHandoffViewerOptions(user);
+        const withShare = await attachTenantShareMetaToInquiries(tenantId, items);
+        const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, withShare, handoffOpts);
+        const withIntake = await attachIntakeFormProfiles(
+          prisma,
+          tenantId,
+          attachInspectionSummaries(
+            withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+          ),
+        );
+        const serialized = serializeTeamInquiryPreferredDatesKst(
+          serializeTeamInquiryOperatingCompanies(withIntake),
+        ) as unknown as Array<{ id: string }>;
+        for (const item of serialized) fullById.set(item.id, item);
+      }
+      res.json({
+        items: light.map((r) => {
+          const full = fullById.get(r.id);
+          if (full) return full;
+          return {
+            id: r.id,
+            status: r.status,
+            preferredDate: r.preferredDate ? dateToYmdKst(r.preferredDate) : null,
+          };
+        }),
+      });
+      return;
+    }
     const rows = await prisma.inquiry.findMany({
       where,
       orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }, { id: 'asc' }],
