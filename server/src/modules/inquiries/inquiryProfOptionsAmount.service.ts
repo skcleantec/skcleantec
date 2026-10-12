@@ -55,7 +55,8 @@ export async function healInquiryProfessionalOptionIdsFromSnapshot(
     },
   });
   if (!row?.orderForm?.submittedAt) return false;
-  if (parseProfessionalOptionSelectionsRaw(row.professionalOptionIds).length > 0) return false;
+  /** null만 미복사. [] 는 접수 수정에서 고객 선택을 지운 결과다. */
+  if (row.professionalOptionIds != null) return false;
 
   const fromSnap = resolveEffectiveProfessionalOptionIds(row);
   const snapSelections = parseProfessionalOptionSelectionsRaw(fromSnap);

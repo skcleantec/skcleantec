@@ -194,13 +194,16 @@ export function extractProfessionalOptionIdsFromSubmissionSnapshot(snapshot: unk
   return (fields as { professionalOptionIds?: unknown }).professionalOptionIds ?? null;
 }
 
-/** Inquiry 저장값 우선, 비어 있으면 발주서 제출 스냅샷에서 복원 */
+/**
+ * Inquiry 저장값 우선.
+ * null(아직 복사 전)만 발주서 제출 스냅샷으로 채운다.
+ * 빈 배열은 마케터가 고객 선택을 지운 값이므로 스냅샷으로 되돌리지 않는다.
+ */
 export function resolveEffectiveProfessionalOptionIdsFromInquiry(item: {
   professionalOptionIds?: unknown;
   orderForm?: { customerSubmissionSnapshot?: unknown } | null;
 }): unknown {
-  const direct = parseProfessionalOptionSelections(item.professionalOptionIds);
-  if (direct.length > 0) return item.professionalOptionIds;
+  if (item.professionalOptionIds != null) return item.professionalOptionIds;
   const fromSnap = extractProfessionalOptionIdsFromSubmissionSnapshot(
     item.orderForm?.customerSubmissionSnapshot,
   );

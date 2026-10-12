@@ -1756,6 +1756,12 @@ router.patch('/:id', async (req, res) => {
   if (shouldClearProfOptionsAmountReviewOnPatch(inquiry, data)) {
     data.profOptionsAmountReviewPending = false;
   }
+  if (
+    data.professionalOptionIds !== undefined &&
+    parseProfessionalOptionSelectionsRaw(data.professionalOptionIds).length === 0
+  ) {
+    data.profOptionsAmountReviewPending = false;
+  }
 
   const customerNotesPlan = planCustomerOrderNotesSave({
     body,
