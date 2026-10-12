@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { ModalCloseButton } from '../ModalCloseButton';
+import { extraWorkPercent, overrideFromText, takeRateText } from './extraSettlementRateText';
 
 function won(n: number) {
   return `${Number(n).toLocaleString('ko-KR')}원`;
@@ -80,11 +81,14 @@ export function ExtraSettlementJobDetail(props: {
             <Row label="시공" value={work} />
             <Row label="고객" value={item.inquiryNumber ? `${item.customerName} · ${item.inquiryNumber}` : item.customerName} />
             <Row label="팀장" value={leaders} />
-            {item.parentMarketerName ? <Row label="오버라이딩" value={`${item.parentMarketerName} ${won(item.parentWon)}`} /> : null}
+            {item.parentMarketerName ? (
+              <Row label="오버라이딩" value={`${item.parentMarketerName} ${won(item.parentWon)} · ${overrideFromText(item)}`} />
+            ) : null}
           </div>
           <div className="space-y-1.5 rounded-lg border border-slate-200 px-2.5 py-2">
             <Row label="추가금액" value={won(item.amountWon)} />
-            <Row label="마케터 수령" value={won(item.marketerWon)} />
+            <Row label="비율" value={`회사 ${extraWorkPercent(item.companyBps)} · 팀장 ${extraWorkPercent(item.teamLeaderBps)} · 마케터 ${extraWorkPercent(item.marketerBps)}`} />
+            <Row label="마케터 수령" value={`${won(item.marketerWon)} · ${takeRateText(item)}`} />
             <Row label="팀장" value={won(item.teamLeaderWon)} />
             <Row label="회사" value={won(item.companyWon)} />
           </div>

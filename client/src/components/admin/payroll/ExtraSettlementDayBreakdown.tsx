@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { ModalCloseButton } from '../ModalCloseButton';
 import { DAY_SUM_LABEL, dayLabel, shareOf, won, type DaySumKind } from './ExtraSettlementBoard';
+import { overrideFromText } from './extraSettlementRateText';
 
 function kindTag(kind: ExtraWorkItem['settlementKind']) {
   if (kind === 'REFUND') return '환불';
@@ -104,8 +105,7 @@ export function ExtraSettlementDayBreakdown(props: {
                         {tag ? ` · ${tag}` : ''}
                       </p>
                       <p className="truncate text-fluid-2xs text-slate-500" title={item.workLabel}>
-                        {item.marketerName} · {item.workLabel}
-                        {kind === 'parent' && item.parentMarketerName ? ` · ${item.parentMarketerName}` : ''}
+                        {kind === 'parent' ? `${overrideFromText(item)} · ${item.workLabel}` : `${item.marketerName} · ${item.workLabel}`}
                       </p>
                     </div>
                     <button

@@ -202,8 +202,9 @@ export function ExtraSettlementBoard(props: {
   onOpenSum: (day: string, kind: DaySumKind) => void;
   onOpenPerson: (marketerId: string, mode: 'take' | 'override') => void;
   onOpenInquiry: (inquiryId: string) => void;
+  loading?: boolean;
 }) {
-  const { items, month, leaders, onEdit, onOpenSum, onOpenPerson, onOpenInquiry } = props;
+  const { items, month, leaders, onEdit, onOpenSum, onOpenPerson, onOpenInquiry, loading = false } = props;
   const [jobView, setJobView] = useState<{ item: ExtraWorkItem; shown: number } | null>(null);
   const board = useMemo(() => buildBoard(items, month, leaders), [items, leaders, month]);
   const monthTotals = useMemo(
@@ -244,7 +245,9 @@ export function ExtraSettlementBoard(props: {
       </p>
 
       <div className="space-y-2 lg:hidden">
-        {items.length === 0 ? (
+        {loading ? (
+          <p className="text-fluid-2xs text-slate-500">불러오는 중…</p>
+        ) : items.length === 0 ? (
           <p className="text-fluid-2xs text-slate-500">이 달 추가 시공은 없습니다. 아래 표에서 날짜와 팀장 칸을 볼 수 있습니다.</p>
         ) : null}
         {board.days.filter((day) => day.items.length > 0).map((day) => (
@@ -413,7 +416,7 @@ export function ExtraSettlementBoard(props: {
         <div className="space-y-1.5 lg:hidden">
           {board.marketers.length === 0 ? (
             <p className="rounded-lg border border-slate-200 px-2 py-4 text-center text-fluid-xs text-slate-500">
-              이 달 추가 시공이 없습니다.
+              {loading ? '불러오는 중…' : '이 달 추가 시공이 없습니다.'}
             </p>
           ) : null}
           {board.marketers.map((row) => (
@@ -463,7 +466,7 @@ export function ExtraSettlementBoard(props: {
               {board.marketers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
-                    이 달 추가 시공이 없습니다.
+                    {loading ? '불러오는 중…' : '이 달 추가 시공이 없습니다.'}
                   </td>
                 </tr>
               ) : null}

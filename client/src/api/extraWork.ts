@@ -12,6 +12,11 @@ export type ExtraWorkItem = {
   settlementKind: ExtraWorkSettlementKind;
   workLabel: string;
   areaLabel: string | null;
+  companyBps: number;
+  teamLeaderBps: number;
+  marketerBps: number;
+  overrideSource: ExtraWorkOverrideSource;
+  overrideBps: number;
   companyWon: number;
   teamLeaderWon: number;
   marketerWon: number;

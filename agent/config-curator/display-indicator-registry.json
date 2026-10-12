@@ -709,6 +709,21 @@
       "notes": "화면에 보이는 날짜×팀장 표와 마케터별 표를 파일로 받습니다. 월 필터는 연도·N월 한글 선택입니다."
     },
     {
+      "id": "admin.payroll.extraRateDetail",
+      "labelKo": "추가정산 수령·오버라이딩 비율",
+      "surfaces": ["admin.payroll.extra"],
+      "visual": { "type": "text", "token": "slate-800" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/admin/team-leaders/payroll?payTab=extra",
+      "helpPath": "client/src/pages/admin/AdminPayrollPage.tsx#PAYROLL_HELP",
+      "codeRefs": [
+        "client/src/components/admin/payroll/ExtraSettlementPersonDetail.tsx",
+        "client/src/components/admin/payroll/extraSettlementRateText.ts"
+      ],
+      "notes": "수령 상세는 추가 금액과 마케터 비율. 오버라이딩 상세는 하위 마케터, 회사 몫 또는 마케터 몫, 비율, 받은 금액. 설정으로 끄지 않음."
+    },
+    {
       "id": "inquiry.intake.pickTemplate",
       "labelKo": "이 접수에 쓸 발주서",
       "surfaces": ["admin.inquiry.create", "admin.schedule.create", "admin.listIntake"],
