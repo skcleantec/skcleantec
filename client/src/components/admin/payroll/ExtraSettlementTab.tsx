@@ -17,6 +17,7 @@ function won(n: number) {
 export function ExtraSettlementTab(props: { token: string; month: string }) {
   const { token, month } = props;
   const [items, setItems] = useState<ExtraWorkItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [leaders, setLeaders] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -27,6 +28,7 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
 
   const load = () => {
     if (!token || !month) return;
+    setLoading(true);
     void fetchExtraWorkList(token, { month })
       .then((rows) => {
         setItems(rows);
@@ -34,7 +36,8 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : '추가정산을 불러오지 못했습니다.');
-      });
+      })
+      .finally(() => setLoading(false));
   };
 
   const inquiryEdit = useCrmInquiryEdit(Boolean(token), load, load);
@@ -61,7 +64,7 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
   const overrideEarned = useMemo(() => {
     const earned: Record<string, number> = {};
     for (const item of items) {
-      if (!item.parentMarketerId || item.parentWon <= 0) continue;
+      if (!item.parentMarketerId || item.parentWon === 0) continue;
       earned[item.parentMarketerId] = (earned[item.parentMarketerId] ?? 0) + item.parentWon;
     }
     return earned;
@@ -190,6 +193,7 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
         onOpenSum={(day, kind) => setSumView({ day, kind })}
         onOpenPerson={(marketerId, mode) => setPersonView({ id: marketerId, mode, day: null })}
         onOpenInquiry={inquiryEdit.openInquiryEdit}
+        loading={loading}
       />
     </div>
   );

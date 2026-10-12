@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { ModalCloseButton } from '../ModalCloseButton';
 import { dayLabel, kstDayKey, won } from './ExtraSettlementBoard';
+import { overrideFromText, takeRateText } from './extraSettlementRateText';
 
 function kindTag(kind: ExtraWorkItem['settlementKind']) {
   if (kind === 'REFUND') return '환불';
@@ -54,7 +55,9 @@ export function ExtraSettlementPersonDetail(props: {
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
           <p className="text-fluid-2xs leading-snug text-slate-600">
-            이 사람의 건별 내역입니다. 금액을 누르면 접수 수정이 열립니다.
+            {mode === 'override'
+              ? '누구 몫에서 얼마를 받았는지 나옵니다. 금액을 누르면 접수 수정이 열립니다.'
+              : '추가 금액과 받은 비율이 나옵니다. 금액을 누르면 접수 수정이 열립니다.'}
           </p>
           {rows.length === 0 ? (
             <p className="rounded-lg border border-slate-200 px-3 py-6 text-center text-fluid-xs text-slate-500">
@@ -73,6 +76,12 @@ export function ExtraSettlementPersonDetail(props: {
                       </p>
                       <p className="truncate text-fluid-2xs text-slate-500" title={item.workLabel}>
                         {item.workLabel}
+                      </p>
+                      <p
+                        className="truncate text-fluid-2xs text-slate-800"
+                        title={mode === 'override' ? overrideFromText(item) : takeRateText(item)}
+                      >
+                        {mode === 'override' ? overrideFromText(item) : takeRateText(item)}
                       </p>
                     </div>
                     <button
