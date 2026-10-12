@@ -120,6 +120,7 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
         token={token}
         open={showSettings}
         onClose={() => setShowSettings(false)}
+        onSaved={load}
         earnedById={overrideEarned}
       />
       <ExtraSettlementAdjustSheet

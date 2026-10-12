@@ -475,6 +475,77 @@ export async function replaceExtraWorkPresets(tenantId: string, raw: string[]) {
   return normalized.presets;
 }
 
+async function rewriteMarketerPastRecords(
+  tenantId: string,
+  marketerId: string,
+  rates: {
+    companyBps: number;
+    teamLeaderBps: number;
+    marketerBps: number;
+    overrideSource: ExtraWorkOverrideSource;
+    overrideBps: number;
+    parentMarketerId: string | null;
+  },
+) {
+  const records = await prisma.extraWorkRecord.findMany({
+    where: { tenantId, marketerId, settlementKind: { in: ['NORMAL', 'REFUND'] } },
+    select: {
+      id: true,
+      amountWon: true,
+      settlementKind: true,
+      leaderShares: { select: { teamLeaderId: true } },
+    },
+  });
+  let rewritten = 0;
+  for (const record of records) {
+    const magnitude = Math.abs(record.amountWon);
+    if (magnitude < 1) continue;
+    const leaderIds = [...new Set(record.leaderShares.map((share) => share.teamLeaderId))];
+    const split = splitExtraWorkAmount({
+      amountWon: magnitude,
+      companyBps: rates.companyBps,
+      teamLeaderBps: rates.teamLeaderBps,
+      marketerBps: rates.marketerBps,
+      overrideSource: rates.overrideSource,
+      overrideBps: rates.overrideBps,
+      hasParent: Boolean(rates.parentMarketerId),
+      teamLeaderIds: leaderIds,
+    });
+    const sign = record.settlementKind === 'REFUND' ? -1 : 1;
+    const hasParent = Boolean(rates.parentMarketerId);
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWorkLeaderShare.deleteMany({ where: { tenantId, recordId: record.id } });
+      await tx.extraWorkRecord.updateMany({
+        where: { id: record.id, tenantId, marketerId },
+        data: {
+          companyBps: rates.companyBps,
+          teamLeaderBps: rates.teamLeaderBps,
+          marketerBps: rates.marketerBps,
+          overrideSource: hasParent ? rates.overrideSource : 'NONE',
+          overrideBps: hasParent ? rates.overrideBps : 0,
+          parentMarketerId: hasParent ? rates.parentMarketerId : null,
+          companyWon: sign * split.companyWon,
+          teamLeaderWon: sign * split.teamLeaderWon,
+          marketerWon: sign * split.marketerWon,
+          parentWon: sign * split.parentWon,
+        },
+      });
+      if (split.leaderShares.length > 0) {
+        await tx.extraWorkLeaderShare.createMany({
+          data: split.leaderShares.map((share) => ({
+            tenantId,
+            recordId: record.id,
+            teamLeaderId: share.teamLeaderId,
+            amountWon: sign * share.amountWon,
+          })),
+        });
+      }
+    });
+    rewritten += 1;
+  }
+  return rewritten;
+}
+
 export async function saveMarketerExtraWorkProfile(params: {
   tenantId: string;
   userId: string;
@@ -484,6 +555,7 @@ export async function saveMarketerExtraWorkProfile(params: {
   marketerBps: number | null;
   overrideSource: ExtraWorkOverrideSource;
   overrideBps: number;
+  applyToPast: boolean;
 }) {
   const marketer = await prisma.user.findFirst({
     where: { id: params.userId, tenantId: params.tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
@@ -515,4 +587,8 @@ export async function saveMarketerExtraWorkProfile(params: {
       extraWorkOverrideBps: params.overrideSource === 'NONE' ? 0 : params.overrideBps,
     },
   });
+  if (!params.applyToPast) return 0;
+  const rates = await ratesForMarketer(params.tenantId, params.userId);
+  if (!rates) throw new Error('마케터를 찾을 수 없습니다.');
+  return rewriteMarketerPastRecords(params.tenantId, params.userId, rates);
 }

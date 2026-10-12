@@ -51,6 +51,7 @@ export function MarketerParentEditor(props: { token: string; userId: string }) {
         marketerPercent: me.marketerPercent,
         overrideSource: me.overrideSource,
         overridePercent: me.overridePercent,
+        applyToPast: false,
       });
       setSaved(true);
     } catch (e: unknown) {

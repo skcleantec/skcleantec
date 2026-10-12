@@ -268,6 +268,7 @@ router.put('/marketers/:userId', requireStaffPermission('admin.payroll', 'admin.
     marketerPercent?: unknown;
     overrideSource?: unknown;
     overridePercent?: unknown;
+    applyToPast?: unknown;
   };
   const companyBps = body.companyPercent == null || body.companyPercent === '' ? null : parsePercent(body.companyPercent);
   const teamLeaderBps =
@@ -292,7 +293,7 @@ router.put('/marketers/:userId', requireStaffPermission('admin.payroll', 'admin.
   }
   const parentRaw = body.parentMarketerId == null ? '' : String(body.parentMarketerId).trim();
   try {
-    await saveMarketerExtraWorkProfile({
+    const rewrittenCount = await saveMarketerExtraWorkProfile({
       tenantId,
       userId: req.params.userId,
       parentMarketerId: parentRaw || null,
@@ -301,8 +302,9 @@ router.put('/marketers/:userId', requireStaffPermission('admin.payroll', 'admin.
       marketerBps,
       overrideSource,
       overrideBps,
+      applyToPast: body.applyToPast === true,
     });
-    res.json(await readExtraWorkSettings(tenantId));
+    res.json({ ...(await readExtraWorkSettings(tenantId)), rewrittenCount });
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : '마케터 설정을 저장하지 못했습니다.' });
   }
