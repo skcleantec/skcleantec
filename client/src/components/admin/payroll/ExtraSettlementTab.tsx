@@ -6,6 +6,7 @@ import { LineMdIcon } from '../../ui/LineMdIcon';
 import { ExtraSettlementBoard, kstDayKey, type DaySumKind } from './ExtraSettlementBoard';
 import { ExtraSettlementAdjustSheet } from './ExtraSettlementAdjustSheet';
 import { ExtraSettlementDayBreakdown } from './ExtraSettlementDayBreakdown';
+import { ExtraSettlementPersonDetail } from './ExtraSettlementPersonDetail';
 import { ExtraSettlementSettings } from './ExtraSettlementSettings';
 import { downloadExtraSettlementExcel } from './extraSettlementExcel';
 
@@ -22,6 +23,7 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
   const [adjustItem, setAdjustItem] = useState<ExtraWorkItem | null>(null);
   const [showAdjust, setShowAdjust] = useState(false);
   const [sumView, setSumView] = useState<{ day: string; kind: DaySumKind } | null>(null);
+  const [personView, setPersonView] = useState<{ id: string; mode: 'take' | 'override'; day: string | null } | null>(null);
 
   const load = () => {
     if (!token || !month) return;
@@ -138,8 +140,41 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
         open={sumView != null}
         day={sumView?.day ?? ''}
         kind={sumView?.kind ?? 'amount'}
-        items={sumView ? items.filter((item) => kstDayKey(item.occurredAt) === sumView.day) : []}
-        onClose={() => setSumView(null)}
+        items={
+          sumView
+            ? sumView.day === 'month'
+              ? items
+              : items.filter((item) => kstDayKey(item.occurredAt) === sumView.day)
+            : []
+        }
+        onClose={() => {
+          setSumView(null);
+          setPersonView(null);
+        }}
+        onOpenInquiry={inquiryEdit.openInquiryEdit}
+        onOpenPerson={(marketerId) => setPersonView({ id: marketerId, mode: 'take', day: sumView?.day ?? null })}
+      />
+      <ExtraSettlementPersonDetail
+        open={personView != null}
+        name={(() => {
+          if (!personView) return '마케터';
+          const hit = items.find((item) =>
+            personView.mode === 'override' ? item.parentMarketerId === personView.id : item.marketerId === personView.id,
+          );
+          if (!hit) return '마케터';
+          return personView.mode === 'override' ? hit.parentMarketerName || '상위' : hit.marketerName;
+        })()}
+        mode={personView?.mode ?? 'take'}
+        items={
+          personView
+            ? items.filter((item) => {
+                const sameDay = personView.day == null || personView.day === 'month' || kstDayKey(item.occurredAt) === personView.day;
+                if (!sameDay) return false;
+                return personView.mode === 'override' ? item.parentMarketerId === personView.id : item.marketerId === personView.id;
+              })
+            : []
+        }
+        onClose={() => setPersonView(null)}
         onOpenInquiry={inquiryEdit.openInquiryEdit}
       />
       {inquiryEdit.layer}
@@ -152,6 +187,8 @@ export function ExtraSettlementTab(props: { token: string; month: string }) {
           setShowAdjust(true);
         }}
         onOpenSum={(day, kind) => setSumView({ day, kind })}
+        onOpenPerson={(marketerId, mode) => setPersonView({ id: marketerId, mode, day: null })}
+        onOpenInquiry={inquiryEdit.openInquiryEdit}
       />
     </div>
   );

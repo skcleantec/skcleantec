@@ -2,6 +2,7 @@ import type { ExtraWorkOverrideSource, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { destroyStoredObject, uploadObjectBuffer } from '../../lib/objectStorage.js';
 import { normalizeUploadedFilename } from '../../lib/uploadFilename.js';
+import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
   EXTRA_WORK_AREA_LABELS,
@@ -113,7 +114,7 @@ async function assertNoParentCycle(tenantId: string, marketerId: string, parentI
     }
     seen.add(cursor);
     const row: { parentMarketerId: string | null } | null = await prisma.user.findFirst({
-      where: { id: cursor, tenantId, role: 'MARKETER' },
+      where: { id: cursor, tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
       select: { parentMarketerId: true },
     });
     if (!row) throw new Error('같은 업체의 마케터만 상위로 둘 수 있습니다.');
@@ -121,12 +122,14 @@ async function assertNoParentCycle(tenantId: string, marketerId: string, parentI
   }
 }
 
+/** 접수 집계와 같이, 재직 중인 마케터와 관리자를 추가정산 대상으로 본다. */
 export async function listExtraWorkMarketerOptions(tenantId: string) {
-  return prisma.user.findMany({
-    where: { tenantId, role: 'MARKETER', isActive: true },
+  const rows = await prisma.user.findMany({
+    where: { tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
     select: {
       id: true,
       name: true,
+      email: true,
       parentMarketerId: true,
       extraWorkCompanyBps: true,
       extraWorkTeamLeaderBps: true,
@@ -136,6 +139,9 @@ export async function listExtraWorkMarketerOptions(tenantId: string) {
     },
     orderBy: { name: 'asc' },
   });
+  return rows
+    .filter((row) => !isTeamPreviewAdminEmail(row.email))
+    .map(({ email: _email, ...row }) => row);
 }
 
 export async function extraWorkFormOptions(
@@ -225,7 +231,7 @@ export async function ratesForMarketer(tenantId: string, marketerId: string) {
         extraWorkMarketerBps: true,
         extraWorkOverrideSource: true,
         extraWorkOverrideBps: true,
-        parentMarketer: { select: { id: true, isActive: true, role: true, tenantId: true } },
+        parentMarketer: { select: { id: true, email: true, isActive: true, role: true, tenantId: true } },
       },
     }),
   ]);
@@ -237,11 +243,13 @@ export async function ratesForMarketer(tenantId: string, marketerId: string) {
   const companyBps = ownRates ? marketer.extraWorkCompanyBps! : setting.companyBps;
   const teamLeaderBps = ownRates ? marketer.extraWorkTeamLeaderBps! : setting.teamLeaderBps;
   const marketerBps = ownRates ? marketer.extraWorkMarketerBps! : setting.marketerBps;
+  const parent = marketer.parentMarketer;
   const parentOk =
-    marketer.parentMarketer &&
-    marketer.parentMarketer.tenantId === tenantId &&
-    marketer.parentMarketer.role === 'MARKETER' &&
-    marketer.parentMarketer.isActive;
+    parent &&
+    parent.tenantId === tenantId &&
+    (parent.role === 'MARKETER' || parent.role === 'ADMIN') &&
+    parent.isActive &&
+    !isTeamPreviewAdminEmail(parent.email);
   return {
     companyBps,
     teamLeaderBps,
@@ -478,7 +486,7 @@ export async function saveMarketerExtraWorkProfile(params: {
   overrideBps: number;
 }) {
   const marketer = await prisma.user.findFirst({
-    where: { id: params.userId, tenantId: params.tenantId, role: 'MARKETER' },
+    where: { id: params.userId, tenantId: params.tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
     select: { id: true },
   });
   if (!marketer) throw new Error('마케터를 찾을 수 없습니다.');
@@ -497,7 +505,7 @@ export async function saveMarketerExtraWorkProfile(params: {
     await assertNoParentCycle(params.tenantId, params.userId, params.parentMarketerId);
   }
   await prisma.user.updateMany({
-    where: { id: params.userId, tenantId: params.tenantId, role: 'MARKETER' },
+    where: { id: params.userId, tenantId: params.tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
     data: {
       parentMarketerId: params.parentMarketerId,
       extraWorkCompanyBps: params.companyBps,

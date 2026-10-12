@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { SyncHorizontalScroll } from '../../ui/SyncHorizontalScroll';
+import { ExtraSettlementJobDetail } from './ExtraSettlementJobDetail';
 
 export const UNASSIGNED = '__none__';
 
@@ -169,38 +170,26 @@ export function buildBoard(items: ExtraWorkItem[], month: string, roster: Leader
   return { leaders, days, marketers };
 }
 
-function kindTag(kind: ExtraWorkItem['settlementKind']) {
-  if (kind === 'REFUND') return '환불';
-  if (kind === 'COMPANY_SUPPORT') return '지원';
-  return '';
-}
-
-function JobStack(props: { items: ExtraWorkItem[]; leaderId: string; onEdit: (item: ExtraWorkItem) => void }) {
-  const { items, leaderId, onEdit } = props;
+function JobStack(props: {
+  items: ExtraWorkItem[];
+  leaderId: string;
+  onOpen: (item: ExtraWorkItem, leaderId: string) => void;
+}) {
+  const { items, leaderId, onOpen } = props;
   if (items.length === 0) return <span className="text-slate-300">—</span>;
   return (
-    <div className="space-y-1">
-      {items.map((item) => {
-        const shared = leaderId !== UNASSIGNED && item.leaderShares.length > 1;
-        const tag = kindTag(item.settlementKind);
-        return (
-          <button
-            key={item.id}
-            type="button"
-            title={cellTitle(item, leaderId)}
-            onClick={() => onEdit(item)}
-            className="block w-full min-w-0 rounded leading-none text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-          >
-            <p className="truncate font-medium text-slate-900">{item.marketerName}</p>
-            <p className="truncate text-right tabular-nums tracking-tight text-slate-800">{won(cellAmount(item, leaderId))}</p>
-            <p className="truncate text-slate-500">
-              {tag ? `${tag} · ` : ''}
-              {shared ? '나눠 배정 · ' : ''}
-              {item.workLabel}
-            </p>
-          </button>
-        );
-      })}
+    <div className="space-y-0.5">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          title={cellTitle(item, leaderId)}
+          onClick={() => onOpen(item, leaderId)}
+          className="block w-full min-w-0 rounded px-0.5 text-right text-fluid-2xs leading-none tabular-nums tracking-tight text-slate-800 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        >
+          <span className="block truncate">{won(cellAmount(item, leaderId))}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -211,8 +200,11 @@ export function ExtraSettlementBoard(props: {
   leaders: LeaderCol[];
   onEdit: (item: ExtraWorkItem) => void;
   onOpenSum: (day: string, kind: DaySumKind) => void;
+  onOpenPerson: (marketerId: string, mode: 'take' | 'override') => void;
+  onOpenInquiry: (inquiryId: string) => void;
 }) {
-  const { items, month, leaders, onEdit, onOpenSum } = props;
+  const { items, month, leaders, onEdit, onOpenSum, onOpenPerson, onOpenInquiry } = props;
+  const [jobView, setJobView] = useState<{ item: ExtraWorkItem; shown: number } | null>(null);
   const board = useMemo(() => buildBoard(items, month, leaders), [items, leaders, month]);
   const monthTotals = useMemo(
     () =>
@@ -248,7 +240,7 @@ export function ExtraSettlementBoard(props: {
   return (
     <div className="space-y-3">
       <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-        팀장 칸을 누르면 환불이나 회사 지원으로 바꿀 수 있습니다. 오른쪽 합계를 누르면 어떤 건이 더해졌는지 나오고, 그 금액을 누르면 접수 수정이 열립니다. 칸의 이름은 그 건을 딴 마케터입니다.
+        팀장 칸에는 금액만 있습니다. 금액을 누르면 마케터와 시공 내용이 열립니다. 오른쪽 합계를 누르면 어떤 건이 더해졌는지 나오고, 마케터 금액은 누가 얼마인지 먼저 나옵니다.
       </p>
 
       <div className="space-y-2 lg:hidden">
@@ -269,24 +261,15 @@ export function ExtraSettlementBoard(props: {
             </div>
             <div className="mt-1.5 space-y-1.5">
               {day.items.map((item) => {
-                const tag = kindTag(item.settlementKind);
                 const shown = item.settlementKind === 'COMPANY_SUPPORT' ? item.teamLeaderWon || item.marketerWon : item.amountWon;
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => onEdit(item)}
-                    className="block w-full min-w-0 rounded text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                    onClick={() => setJobView({ item, shown })}
+                    className="block w-full min-w-0 rounded text-right text-fluid-2xs leading-none tabular-nums text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                   >
-                    <p className="truncate text-fluid-xs text-slate-900">
-                      {(item.leaderShares.length > 0 ? item.leaderShares.map((share) => share.name).join('·') : '팀장 없음')}
-                      {' · '}
-                      {item.marketerName}
-                    </p>
-                    <p className="truncate text-fluid-2xs text-slate-500">
-                      {tag ? `${tag} · ` : ''}
-                      {item.customerName} · {item.workLabel} · {won(shown)}
-                    </p>
+                    {won(shown)}
                   </button>
                 );
               })}
@@ -342,7 +325,11 @@ export function ExtraSettlementBoard(props: {
                     </td>
                     {board.leaders.map((leader) => (
                       <td key={leader.id} className="w-[4.5rem] min-w-[4.5rem] max-w-[4.5rem] overflow-hidden px-1 py-1 align-top text-center group-hover:bg-slate-50">
-                        <JobStack items={jobsForLeader(day.items, leader.id)} leaderId={leader.id} onEdit={onEdit} />
+                        <JobStack
+                          items={jobsForLeader(day.items, leader.id)}
+                          leaderId={leader.id}
+                          onOpen={(item, leaderId) => setJobView({ item, shown: cellAmount(item, leaderId) })}
+                        />
                       </td>
                     ))}
                     {(['amount', 'marketer', 'parent', 'leader', 'company'] as const).map((kind) => (
@@ -370,11 +357,25 @@ export function ExtraSettlementBoard(props: {
                       {won(leaderTotals.get(leader.id) ?? 0)}
                     </td>
                   ))}
-                  {[monthTotals.amount, monthTotals.marketer, monthTotals.parent, monthTotals.leader, monthTotals.company].map((value, index) => (
-                    <td key={summaryLabels[index]} className="w-[4.75rem] min-w-[4.75rem] px-1 py-1 text-right tabular-nums tracking-tight">
-                      {won(value)}
-                    </td>
-                  ))}
+                  {(['amount', 'marketer', 'parent', 'leader', 'company'] as const).map((kind, index) => {
+                    const value = [monthTotals.amount, monthTotals.marketer, monthTotals.parent, monthTotals.leader, monthTotals.company][index] ?? 0;
+                    return (
+                      <td key={kind} className="w-[4.75rem] min-w-[4.75rem] px-1 py-1 text-right tabular-nums tracking-tight">
+                        {kind === 'marketer' && items.length > 0 ? (
+                          <button
+                            type="button"
+                            title="이번 달 마케터별로 얼마인지"
+                            onClick={() => onOpenSum('month', 'marketer')}
+                            className="w-full rounded text-right hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                          >
+                            {won(value)}
+                          </button>
+                        ) : (
+                          won(value)
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
                 <tr className="border-t border-slate-100 bg-white">
                   <td
@@ -418,9 +419,24 @@ export function ExtraSettlementBoard(props: {
           {board.marketers.map((row) => (
             <article key={row.id} className="rounded-lg border border-slate-200 p-2">
               <p className="truncate text-fluid-xs font-medium text-slate-900">{row.name}</p>
-              <p className="text-fluid-2xs text-slate-600">
-                {row.ownCount}건 · 추가 {won(row.amount)} · 수령 {won(row.take)}
-                {row.fromDownline > 0 ? ` · 오버라이딩 ${won(row.fromDownline)}` : ''}
+              <p className="flex flex-wrap gap-x-2 text-fluid-2xs text-slate-600">
+                <span>{row.ownCount}건</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenPerson(row.id, 'take')}
+                  className="rounded hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                >
+                  추가 {won(row.amount)} · 수령 {won(row.take)}
+                </button>
+                {row.fromDownline !== 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPerson(row.id, 'override')}
+                    className="rounded hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                  >
+                    오버라이딩 {won(row.fromDownline)}
+                  </button>
+                ) : null}
               </p>
             </article>
           ))}
@@ -457,15 +473,49 @@ export function ExtraSettlementBoard(props: {
                     {row.name}
                   </td>
                   <td className="px-2 py-2 text-center tabular-nums">{row.ownCount}</td>
-                  <td className="px-2 py-2 text-right tabular-nums">{won(row.amount)}</td>
-                  <td className="px-2 py-2 text-right tabular-nums">{won(row.take)}</td>
-                  <td className="px-2 py-2 text-right tabular-nums">{won(row.fromDownline)}</td>
+                  <td className="px-2 py-2 text-right tabular-nums">
+                    <button
+                      type="button"
+                      onClick={() => onOpenPerson(row.id, 'take')}
+                      className="rounded px-1 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                    >
+                      {won(row.amount)}
+                    </button>
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums">
+                    <button
+                      type="button"
+                      title={`${row.name} 수령 내역`}
+                      onClick={() => onOpenPerson(row.id, 'take')}
+                      className="rounded px-1 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                    >
+                      {won(row.take)}
+                    </button>
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums">
+                    <button
+                      type="button"
+                      title={`${row.name} 오버라이딩 내역`}
+                      onClick={() => onOpenPerson(row.id, 'override')}
+                      className="rounded px-1 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:pointer-events-none disabled:opacity-50"
+                      disabled={row.fromDownline === 0}
+                    >
+                      {won(row.fromDownline)}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+      <ExtraSettlementJobDetail
+        item={jobView?.item ?? null}
+        cellWon={jobView?.shown ?? null}
+        onClose={() => setJobView(null)}
+        onEdit={onEdit}
+        onOpenInquiry={onOpenInquiry}
+      />
     </div>
   );
 }

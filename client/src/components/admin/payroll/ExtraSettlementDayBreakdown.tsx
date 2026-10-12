@@ -10,6 +10,19 @@ function kindTag(kind: ExtraWorkItem['settlementKind']) {
   return '';
 }
 
+function peopleOf(rows: ExtraWorkItem[]) {
+  const grouped = new Map<string, { id: string; name: string; amount: number }>();
+  for (const item of rows) {
+    const share = shareOf(item, 'marketer');
+    if (share === 0) continue;
+    const row = grouped.get(item.marketerId) ?? { id: item.marketerId, name: item.marketerName, amount: 0 };
+    row.name = item.marketerName;
+    row.amount += share;
+    grouped.set(item.marketerId, row);
+  }
+  return [...grouped.values()].sort((a, b) => b.amount - a.amount);
+}
+
 export function ExtraSettlementDayBreakdown(props: {
   open: boolean;
   day: string;
@@ -17,10 +30,13 @@ export function ExtraSettlementDayBreakdown(props: {
   items: ExtraWorkItem[];
   onClose: () => void;
   onOpenInquiry: (inquiryId: string) => void;
+  onOpenPerson?: (marketerId: string) => void;
 }) {
-  const { open, day, kind, items, onClose, onOpenInquiry } = props;
+  const { open, day, kind, items, onClose, onOpenInquiry, onOpenPerson } = props;
   const rows = items.filter((item) => shareOf(item, kind) !== 0);
   const total = rows.reduce((sum, item) => sum + shareOf(item, kind), 0);
+  const people = kind === 'marketer' ? peopleOf(rows) : [];
+  const when = day === 'month' ? '이번 달' : dayLabel(day);
 
   useEffect(() => {
     if (!open) return;
@@ -44,18 +60,37 @@ export function ExtraSettlementDayBreakdown(props: {
       >
         <div className="relative flex shrink-0 items-center border-b border-slate-200 px-3 py-2 pr-12">
           <h2 id="extra-sum-title" className="truncate text-fluid-sm font-semibold text-slate-900">
-            {dayLabel(day)} {DAY_SUM_LABEL[kind]} {won(total)}
+            {when} {DAY_SUM_LABEL[kind]} {won(total)}
           </h2>
           <ModalCloseButton onClick={onClose} />
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
           <p className="text-fluid-2xs leading-snug text-slate-600">
-            이 날짜 {DAY_SUM_LABEL[kind]} 합계에 들어간 건입니다. 금액을 누르면 접수 수정이 열리고, 추가 시공에서 금액을 바꿉니다.
+            {kind === 'marketer'
+              ? '마케터별로 얼마인지 나옵니다. 이름을 누르면 그 사람의 건별 내역이 열립니다.'
+              : '이 합계에 들어간 건입니다. 금액을 누르면 접수 수정이 열리고, 추가 시공에서 금액을 바꿉니다.'}
           </p>
           {rows.length === 0 ? (
             <p className="rounded-lg border border-slate-200 px-3 py-6 text-center text-fluid-xs text-slate-500">
               이 합계에 들어간 금액이 없습니다.
             </p>
+          ) : kind === 'marketer' ? (
+            <ul className="space-y-1.5">
+              {people.map((person) => (
+                <li key={person.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenPerson?.(person.id)}
+                    className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-fluid-xs font-medium text-slate-900" title={person.name}>
+                      {person.name}
+                    </span>
+                    <span className="shrink-0 text-fluid-xs font-medium tabular-nums text-slate-900">{won(person.amount)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           ) : (
             <ul className="space-y-1.5">
               {rows.map((item) => {
