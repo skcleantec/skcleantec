@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   approveAiDispatch,
   getAiDispatchBoard,
@@ -21,6 +21,7 @@ function todayYmd(): string {
 
 export function AdminAiDispatchPage() {
   const token = getToken();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.get('date') ?? '') ? (params.get('date') as string) : todayYmd();
   const [board, setBoard] = useState<AiDispatchBoard | null>(null);
@@ -184,6 +185,7 @@ export function AdminAiDispatchPage() {
     <>
     <AiDispatchScreen
       date={date}
+      onBack={() => navigate(`/admin/schedule?date=${date}`)}
       onDateChange={(nextDate) => {
         const next = new URLSearchParams(params);
         next.set('date', nextDate);

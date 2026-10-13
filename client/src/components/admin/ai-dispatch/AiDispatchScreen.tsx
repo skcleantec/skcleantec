@@ -5,6 +5,7 @@ import { getSchedule, type ScheduleItem } from '../../../api/schedule';
 import { getToken } from '../../../stores/auth';
 import { formatDateCompactWithWeekday } from '../../../utils/dateFormat';
 import { LineMdIcon } from '../../ui/LineMdIcon';
+import { RoundBackButton } from '../../ui/RoundBackButton';
 import { AiDispatchReasonModal } from './AiDispatchReasonModal';
 import { AiDispatchSettingsModal } from './AiDispatchSettingsModal';
 import { AiDispatchLeaderModal } from './AiDispatchLeaderModal';
@@ -94,8 +95,10 @@ export function AiDispatchScreen({
   reportOpen,
   onOpenReport,
   onCloseReport,
+  onBack,
 }: {
   date: string;
+  onBack: () => void;
   onDateChange: (date: string) => void;
   board: AiDispatchBoard | null;
   loading: boolean;
@@ -160,6 +163,11 @@ export function AiDispatchScreen({
     <div className="flex min-w-0 flex-col gap-2 sm:gap-4">
       <header className="min-w-0">
         <div className="flex items-center gap-1.5">
+          <RoundBackButton
+            ariaLabel="스케줄로 돌아가기"
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            onClick={onBack}
+          />
           <h1 className="text-fluid-lg font-semibold tracking-tight text-slate-900">AI 미리 배정</h1>
           <AiDispatchHelpTrigger onClick={() => setHelpOpen(true)} />
         </div>
