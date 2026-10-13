@@ -5201,7 +5201,6 @@ export function AdminInquiriesPage() {
                           idPrefix="inq-edit-pref"
                           allowEmpty
                           emitOnCompleteOnly
-                          minYmd={kstTodayYmd()}
                           compact
                           className="flex-1 min-w-0"
                         />

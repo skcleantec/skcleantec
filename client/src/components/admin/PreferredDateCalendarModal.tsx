@@ -111,25 +111,16 @@ export function PreferredDateCalendarModal({
   const todayYmd = kstTodayYmd();
   const todayY = Number(todayYmd.slice(0, 4));
   const todayM = Number(todayYmd.slice(5, 7));
-  /** (y, m) 쌍이 오늘이 속한 달 이전인지 — 과거 달은 열람·선택 모두 금지 */
-  const isBeforeTodayMonth = (y: number, m: number): boolean =>
-    y < todayY || (y === todayY && m < todayM);
-  const clampToTodayMonth = (y: number, m: number): { y: number; m: number } => {
-    if (isBeforeTodayMonth(y, m)) return { y: todayY, m: todayM };
-    return { y, m };
-  };
 
   const [year, setYear] = useState(() => {
     const p = parseYmdHint(initialYmd);
     const base = p ? { y: p.y, m: p.m } : { y: todayY, m: todayM };
-    const c = clampToTodayMonth(base.y, base.m);
-    return Math.min(maxYear, Math.max(minYear, c.y));
+    return Math.min(maxYear, Math.max(minYear, base.y));
   });
   const [month, setMonth] = useState(() => {
     const p = parseYmdHint(initialYmd);
     const base = p ? { y: p.y, m: p.m } : { y: todayY, m: todayM };
-    const c = clampToTodayMonth(base.y, base.m);
-    return c.m;
+    return base.m;
   });
   const [stats, setStats] = useState<Record<string, ScheduleStatsByDate>>({});
   const [statsLoading, setStatsLoading] = useState(false);
@@ -139,9 +130,8 @@ export function PreferredDateCalendarModal({
     if (!open) return;
     const p = parseYmdHint(initialYmd);
     const base = p ? { y: p.y, m: p.m } : { y: todayY, m: todayM };
-    const c = clampToTodayMonth(base.y, base.m);
-    setYear(Math.min(maxYear, Math.max(minYear, c.y)));
-    setMonth(c.m);
+    setYear(Math.min(maxYear, Math.max(minYear, base.y)));
+    setMonth(base.m);
   }, [open, initialYmd, minYear, maxYear, todayY, todayM]);
 
   useEffect(() => {
@@ -172,20 +162,14 @@ export function PreferredDateCalendarModal({
   if (!open) return null;
 
   const calendarDays = getCalendarDays(year, month);
-  /** 월 선택지: 현재 보이는 연도가 오늘 연도이면 오늘 월부터만 */
-  const monthOptions =
-    year === todayY
-      ? Array.from({ length: 12 - todayM + 1 }, (_, i) => todayM + i)
-      : Array.from({ length: 12 }, (_, i) => i + 1);
-  /** 연도 선택지: 오늘 연도 미만은 제거 */
-  const yearStart = Math.max(minYear, todayY);
-  const yearOptions = Array.from({ length: maxYear - yearStart + 1 }, (_, i) => yearStart + i);
+  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  const yearOptions = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
 
-  const atTodayMonth = year === todayY && month === todayM;
+  const atMinMonth = year === minYear && month === 1;
   const goPrevMonth = () => {
-    if (atTodayMonth) return;
+    if (atMinMonth) return;
     if (month <= 1) {
-      setYear((y) => Math.max(yearStart, y - 1));
+      setYear((y) => y - 1);
       setMonth(12);
     } else {
       setMonth((m) => m - 1);
@@ -245,17 +229,17 @@ export function PreferredDateCalendarModal({
               <button
                 type="button"
                 onClick={goPrevMonth}
-                disabled={atTodayMonth}
-                className="px-2 py-2 text-gray-600 hover:bg-gray-50 border-r border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+                disabled={atMinMonth}
+                className="px-2 py-2 text-gray-600 hover:bg-gray-50 border-r border-gray-200 disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                 aria-label="이전 달"
-                title={atTodayMonth ? '지난 달은 선택할 수 없습니다' : '이전 달'}
+                title="이전 달"
               >
                 <ChevronLeftIcon className="w-5 h-5" />
               </button>
               <button
                 type="button"
                 onClick={goNextMonth}
-                className="px-2 py-2 text-gray-600 hover:bg-gray-50"
+                className="px-2 py-2 text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                 aria-label="다음 달"
               >
                 <ChevronRightIcon className="w-5 h-5" />
@@ -263,11 +247,7 @@ export function PreferredDateCalendarModal({
             </div>
             <select
               value={year}
-              onChange={(e) => {
-                const ny = Number(e.target.value);
-                setYear(ny);
-                if (ny === todayY && month < todayM) setMonth(todayM);
-              }}
+              onChange={(e) => setYear(Number(e.target.value))}
               className="px-2 py-1.5 border border-gray-200 rounded-lg text-fluid-sm"
             >
               {yearOptions.map((y) => (
@@ -323,69 +303,56 @@ export function PreferredDateCalendarModal({
                   const isSun = i % 7 === 0;
                   const isHol = isPublicHoliday(year, month, d);
                   const today = isTodayKstCell(year, month, d);
-                  const isPast = key < todayYmd;
                   const wdCls = isHol || isSun ? 'text-rose-600' : isSat ? 'text-slate-600' : 'text-gray-600';
 
                   const currentPreferred = (initialYmd || '').trim().slice(0, 10) === key;
 
                   let cellBg = 'bg-white hover:bg-gray-50';
-                  if (isPast) cellBg = 'bg-gray-50 cursor-not-allowed';
-                  else if (deficitBad) cellBg = 'bg-rose-50/95 hover:bg-rose-100/90 border-rose-200/80';
+                  if (deficitBad) cellBg = 'bg-rose-50/95 hover:bg-rose-100/90 border-rose-200/80';
                   else if (positive) cellBg = 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-200/80';
                   else if (full) cellBg = 'bg-slate-100/95 hover:bg-slate-200/80';
 
                   const am = st?.assignableMorning ?? 0;
                   const pm = st?.assignableAfternoonSlot ?? 0;
                   const cr = st?.crewRemaining;
-                  const titleParts = isPast
-                    ? ['지난 날짜는 선택할 수 없습니다']
-                    : [
-                        deficitBad
-                          ? '팀장 슬롯 초과 (잔여 마이너스)'
-                          : positive
-                            ? '분배 여유 있음'
-                            : full
-                              ? '팀장 슬롯 없음 또는 마감'
-                              : '현황 없음',
-                        `오전 잔여 ${am}`,
-                        `오후 잔여 ${pm}`,
-                      ];
-                  if (!isPast && cr != null) titleParts.push(`팀원 잔여 ${cr}명`);
+                  const titleParts = [
+                    deficitBad
+                      ? '팀장 슬롯 초과 (잔여 마이너스)'
+                      : positive
+                        ? '분배 여유 있음'
+                        : full
+                          ? '팀장 슬롯 없음 또는 마감'
+                          : '현황 없음',
+                    `오전 잔여 ${am}`,
+                    `오후 잔여 ${pm}`,
+                  ];
+                  if (cr != null) titleParts.push(`팀원 잔여 ${cr}명`);
 
                   return (
                     <button
                       key={key}
                       type="button"
-                      onClick={() => {
-                        if (isPast) return;
-                        handlePick(key);
-                      }}
-                      disabled={isPast}
-                      aria-disabled={isPast}
+                      onClick={() => handlePick(key)}
                       title={titleParts.join(' · ')}
-                      className={`min-h-[3.25rem] px-0.5 py-1 text-left text-fluid-2xs leading-tight border border-transparent ${cellBg} ${
-                        currentPreferred && !isPast ? 'ring-2 ring-gray-900 ring-inset z-[1]' : ''
-                      } ${isPast ? 'opacity-50' : ''}`}
+                      className={`min-h-[3.25rem] px-0.5 py-1 text-left text-fluid-2xs leading-tight border border-transparent ${cellBg} hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                        currentPreferred ? 'ring-2 ring-gray-900 ring-inset z-[1]' : ''
+                      }`}
                     >
                       <div className="flex items-center gap-0.5">
                         <span
                           className={
                             today
                               ? 'inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-gray-900 text-[11px] font-bold text-white'
-                              : isPast
-                                ? 'text-fluid-xs font-semibold text-gray-400 line-through tabular-nums'
-                                : 'text-fluid-xs font-semibold text-gray-900 tabular-nums'
+                              : 'text-fluid-xs font-semibold text-gray-900 tabular-nums'
                           }
                         >
                           {d}
                         </span>
-                        <span
-                          className={`font-medium ${isPast ? 'text-gray-400' : wdCls}`}
-                        >
+                        <span className={`font-medium ${wdCls}`}>
                           {weekdayKoFromYmd(year, month, d)}
                         </span>
                       </div>
-                      {!isPast && st && !statsError && (
+                      {st && !statsError && (
                         <div className="mt-0.5 tabular-nums text-[9px] sm:text-[11px] text-gray-600">
                           <span
                             className={am < 0 ? 'text-rose-800 font-semibold' : 'text-amber-900/90'}

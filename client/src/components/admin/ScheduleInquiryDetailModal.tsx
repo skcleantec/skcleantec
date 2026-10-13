@@ -72,7 +72,7 @@ import {
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isBetweenSlotTime, isCoordinationTime } from '../../utils/scheduleTimeBucket';
 import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
-import { formatPreferredDateInputYmd, kstTodayYmd } from '../../utils/dateFormat';
+import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
 import { formatInquiryLeadPlatformLabel, inquiryEditFormAddress, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import { shouldShowInquiryLeadPlatform } from '@shared/inquiryIntakeChannel';
 import { isRealCustomerAddress, MANUAL_INTAKE_PLACEHOLDER_ADDRESS } from '@shared/orderFormPendingAddress';
@@ -2816,7 +2816,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                       readOnly={isCreate && preferredDateLocked}
                       allowEmpty
                       emitOnCompleteOnly
-                      minYmd={kstTodayYmd()}
                       idPrefix="sched-detail-pref"
                       compact
                       className={`flex-1 min-w-0 ${

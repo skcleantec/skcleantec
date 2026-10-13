@@ -10,7 +10,6 @@ import { buildStaffInquiryTimeSlotSelectOptions } from '../../utils/staffInquiry
 import { isPreferredTimeDetailRequired } from '../../constants/orderFormSchedule';
 import { isBetweenSlotTime, isCoordinationTime } from '../../utils/scheduleTimeBucket';
 import { inquiryAreaEditFormStringsFromItem } from '../../utils/inquiryAreaDisplay';
-import { kstTodayYmd } from '../../utils/dateFormat';
 
 const AREA_BASIS_OPTIONS = ['공급', '전용'] as const;
 
@@ -243,7 +242,6 @@ export function InquiryListFieldQuickEditModal({
                     idPrefix="list-quick-pref"
                     allowEmpty
                     emitOnCompleteOnly
-                    minYmd={kstTodayYmd()}
                     className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-2 text-fluid-sm"
                   />
                   <button
