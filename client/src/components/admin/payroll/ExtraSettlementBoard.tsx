@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ExtraWorkItem } from '../../../api/extraWork';
 import { SyncHorizontalScroll } from '../../ui/SyncHorizontalScroll';
-import { ExtraSettlementJobDetail } from './ExtraSettlementJobDetail';
+import { ExtraSettlementJobDetail, type ExtraSettlementJobBox } from './ExtraSettlementJobDetail';
 import { extraWorkSlotLabel } from './extraWorkSlotLabel';
 
 export const UNASSIGNED = '__none__';
@@ -174,7 +174,7 @@ export function buildBoard(items: ExtraWorkItem[], month: string, roster: Leader
 function JobStack(props: {
   items: ExtraWorkItem[];
   leaderId: string;
-  onOpen: (item: ExtraWorkItem, leaderId: string) => void;
+  onOpen: (items: ExtraWorkItem[], leaderId: string) => void;
 }) {
   const { items, leaderId, onOpen } = props;
   if (items.length === 0) return <span className="text-slate-300">—</span>;
@@ -185,13 +185,10 @@ function JobStack(props: {
           key={item.id}
           type="button"
           title={cellTitle(item, leaderId)}
-          onClick={() => onOpen(item, leaderId)}
+          onClick={() => onOpen(items, leaderId)}
           className="block w-full min-w-0 rounded px-0.5 text-right text-fluid-2xs leading-none tabular-nums tracking-tight text-slate-800 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
-          <span className="block truncate">
-            {extraWorkSlotLabel(item.timeSlot) ? `${extraWorkSlotLabel(item.timeSlot)} ` : ''}
-            {won(cellAmount(item, leaderId))}
-          </span>
+          <span className="block truncate">{won(cellAmount(item, leaderId))}</span>
         </button>
       ))}
     </div>
@@ -209,7 +206,7 @@ export function ExtraSettlementBoard(props: {
   loading?: boolean;
 }) {
   const { items, month, leaders, onEdit, onOpenSum, onOpenPerson, onOpenInquiry, loading = false } = props;
-  const [jobView, setJobView] = useState<{ item: ExtraWorkItem; shown: number } | null>(null);
+  const [jobView, setJobView] = useState<{ day: string; leaderName: string; boxes: ExtraSettlementJobBox[] } | null>(null);
   const board = useMemo(() => buildBoard(items, month, leaders), [items, leaders, month]);
   const monthTotals = useMemo(
     () =>
@@ -245,7 +242,7 @@ export function ExtraSettlementBoard(props: {
   return (
     <div className="space-y-3">
       <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-        팀장 칸에는 금액만 있습니다. 금액을 누르면 마케터와 시공 내용이 열립니다. 오른쪽 합계를 누르면 어떤 건이 더해졌는지 나오고, 마케터 금액은 누가 얼마인지 먼저 나옵니다.
+        팀장 칸에는 금액만 있습니다. 금액을 누르면 오전·오후 건이 박스마다 열리고, 잘못된 건은 접수 수정으로 들어갑니다.
       </p>
 
       <div className="space-y-2 lg:hidden">
@@ -273,7 +270,16 @@ export function ExtraSettlementBoard(props: {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setJobView({ item, shown })}
+                    onClick={() =>
+                      setJobView({
+                        day: day.day,
+                        leaderName: '',
+                        boxes: day.items.map((row) => ({
+                          item: row,
+                          shown: row.settlementKind === 'COMPANY_SUPPORT' ? row.teamLeaderWon || row.marketerWon : row.amountWon,
+                        })),
+                      })
+                    }
                     className="block w-full min-w-0 rounded text-right text-fluid-2xs leading-none tabular-nums text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                   >
                     {won(shown)}
@@ -335,7 +341,13 @@ export function ExtraSettlementBoard(props: {
                         <JobStack
                           items={jobsForLeader(day.items, leader.id)}
                           leaderId={leader.id}
-                          onOpen={(item, leaderId) => setJobView({ item, shown: cellAmount(item, leaderId) })}
+                          onOpen={(rows, leaderId) =>
+                            setJobView({
+                              day: day.day,
+                              leaderName: leader.name,
+                              boxes: rows.map((row) => ({ item: row, shown: cellAmount(row, leaderId) })),
+                            })
+                          }
                         />
                       </td>
                     ))}
@@ -517,8 +529,9 @@ export function ExtraSettlementBoard(props: {
         </div>
       </div>
       <ExtraSettlementJobDetail
-        item={jobView?.item ?? null}
-        cellWon={jobView?.shown ?? null}
+        day={jobView?.day ?? ''}
+        leaderName={jobView?.leaderName ?? ''}
+        boxes={jobView?.boxes ?? []}
         onClose={() => setJobView(null)}
         onEdit={onEdit}
         onOpenInquiry={onOpenInquiry}
