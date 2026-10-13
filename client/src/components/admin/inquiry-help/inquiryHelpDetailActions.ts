@@ -40,6 +40,11 @@ export const INQUIRY_HELP_DETAIL_ASSIGNMENT_MODEL: readonly InquiryHelpActionRow
 
 export const INQUIRY_HELP_DETAIL_HEADER_ACTIONS: readonly InquiryHelpActionRow[] = [
   btn('보기', '고객 정보 시트를 엽니다. 카카오·문자에 붙여넣기 좋은 형식으로 정리되어 있으며, 시트 안에서도 배정·저장·복사가 가능합니다.'),
+  btn(
+    '발주서',
+    '고객이 작성한 발주서 화면을 모달로 엽니다. 발주서 목록의 「발주서 새 창」과 같은 화면입니다.',
+    '발주서가 연결된 접수',
+  ),
   btn('복사', '접수 요약(고객·일정·금액 등)을 클립보드에 복사합니다. 「보기」 시트의 「정보 복사」와 유사합니다.'),
   btn('수기등록', '신규 접수 전용 — 체크 시 발주서 없이 수기로 등록하는 모드입니다.', '신규 접수'),
   btn('HC완료 / HC초과 / HC미완', '해피콜(작업 전날 밤까지 연락) 상태입니다. 목록 행색·스케줄과 연동됩니다.', '예약일이 있을 때. 팀 플랜은 배정된 건, 1인 업체는 배정 없이 표시'),

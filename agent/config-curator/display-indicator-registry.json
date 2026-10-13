@@ -953,6 +953,21 @@
         "client/src/components/quotations/QuotationMobileFormEditor.tsx"
       ],
       "notes": "lg 미만만. PC는 A4. 손님 장에서 이름 아래 수신 이메일. 발송은 확인 장. 끄기 없음."
+    },
+    {
+      "id": "admin.inquiry.detail.customerOrder",
+      "labelKo": "접수 수정 — 고객 발주서",
+      "surfaces": ["admin.inquiries.detail", "admin.schedule.detail"],
+      "visual": { "type": "action", "token": "slate-800" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "admin.inquiries.help.detail.header",
+      "codeRefs": [
+        "client/src/components/admin/ScheduleInquiryDetailModal.tsx",
+        "client/src/components/orderform/CustomerOrderFormPreviewModal.tsx"
+      ],
+      "notes": "발주서가 연결된 접수만. 발주서 목록 「발주서 새 창」과 같은 고객 화면을 모달로 연다. 끄기 설정 없음."
     }
   ]
 }

@@ -41,6 +41,7 @@ export const inquiryDetailInclude = {
   orderForm: {
     select: {
       id: true,
+      token: true,
       createdById: true,
       totalAmount: true,
       depositAmount: true,
