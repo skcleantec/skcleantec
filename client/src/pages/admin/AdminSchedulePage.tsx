@@ -1177,6 +1177,17 @@ export function AdminSchedulePage() {
     prevYearMonthRef.current = { y: year, m: month };
   }, [year, month]);
 
+  const scheduleDateParam = searchParams.get('date');
+  useEffect(() => {
+    if (!scheduleDateParam || !/^\d{4}-\d{2}-\d{2}$/.test(scheduleDateParam)) return;
+    const [y, m] = scheduleDateParam.split('-').map(Number);
+    if (!y || !m) return;
+    prevYearMonthRef.current = { y, m };
+    setYear(y);
+    setMonth(m);
+    setSelectedDate(scheduleDateParam);
+  }, [scheduleDateParam]);
+
   useEffect(() => {
     if (!token) {
       setTeamLeaders([]);
