@@ -136,6 +136,19 @@ function DunningPopupPreview({
             {popup.blockTodayText}
           </div>
         )}
+        {bankLine ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm">
+            <p className="text-xs font-medium text-gray-500">입금 계좌</p>
+            <p className="mt-1 text-gray-900">{bankLine}</p>
+            {paymentGuideText ? (
+              <p className="mt-1.5 text-xs text-gray-600 whitespace-pre-wrap">{paymentGuideText}</p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-xs text-amber-700 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2">
+            입금 계좌를 설정하면 팝업에 표시됩니다.
+          </p>
+        )}
         <div className="space-y-1">
           <button
             type="button"
@@ -154,19 +167,6 @@ function DunningPopupPreview({
           </p>
           {cardPreviewNote ? <p className="text-sm text-slate-700">{cardPreviewNote}</p> : null}
         </div>
-        {bankLine ? (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm">
-            <p className="text-xs font-medium text-gray-500">입금 계좌</p>
-            <p className="mt-1 text-gray-900">{bankLine}</p>
-            {paymentGuideText ? (
-              <p className="mt-1.5 text-xs text-gray-600 whitespace-pre-wrap">{paymentGuideText}</p>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-xs text-amber-700 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2">
-            입금 계좌를 설정하면 팝업에 표시됩니다.
-          </p>
-        )}
         <div className="flex flex-wrap gap-2 justify-end pt-1">
           <span className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-900">
             입금확인 요청
