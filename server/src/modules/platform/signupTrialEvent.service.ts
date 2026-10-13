@@ -162,7 +162,7 @@ export async function resolveSignupTrialApplication(
     eventId: event.id,
     eventName: event.name,
     includeCoinGrace,
-    status: 'TRIAL',
+    status: 'ACTIVE',
     prepaidConfirmedAt: now,
     trialEndsAt,
     coinGraceEndsAt: includeCoinGrace ? trialEndsAt.toISOString() : null,
@@ -187,22 +187,30 @@ export function buildSignupConfigPatch(
   };
 }
 
-/** 수동 「체험 시작」용 일수 — 활성 이벤트 있으면 그 값, 없으면 기본 60 */
+/** 지금 가입 화면에 보여줄 체험. 꺼져 있으면 광고·적용 모두 없음 */
+export async function describePublicSignupTrialOffer(db: Db = prisma, now: Date = new Date()) {
+  const event = await getActiveSignupTrialEvent(db, now);
+  if (!event || !event.applySelfServe) {
+    return { active: false as const, trialDays: null, includeCoinGrace: false, name: null };
+  }
+  const trialDays = Math.max(1, Math.min(3650, event.trialDays || TENANT_SIGNUP_GRACE_DAYS));
+  return {
+    active: true as const,
+    trialDays,
+    includeCoinGrace: event.includeCoinGrace !== false,
+    name: event.name,
+  };
+}
+
+/** 수동 「체험 시작」— 켜진 이벤트가 있을 때만. 꺼지면 일수를 주지 않음 */
 export async function resolveManualTrialDays(db: Db = prisma, now: Date = new Date()): Promise<{
   trialDays: number;
-  eventId: string | null;
-  eventName: string | null;
+  eventId: string;
+  eventName: string;
   includeCoinGrace: boolean;
-}> {
+} | null> {
   const event = await getActiveSignupTrialEvent(db, now);
-  if (!event) {
-    return {
-      trialDays: TENANT_SIGNUP_GRACE_DAYS,
-      eventId: null,
-      eventName: null,
-      includeCoinGrace: true,
-    };
-  }
+  if (!event) return null;
   return {
     trialDays: Math.max(1, Math.min(3650, event.trialDays || TENANT_SIGNUP_GRACE_DAYS)),
     eventId: event.id,
