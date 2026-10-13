@@ -106,3 +106,17 @@ export async function completeTenantSignup(input: {
   if (!res.ok) throw new Error(data.error ?? '가입에 실패했습니다.');
   return data;
 }
+
+export type SignupTrialOffer = {
+  active: boolean;
+  trialDays: number | null;
+  includeCoinGrace: boolean;
+  name: string | null;
+};
+
+export async function fetchSignupTrialOffer(): Promise<SignupTrialOffer> {
+  const res = await fetch(`${API}/trial-offer`);
+  const data = (await res.json()) as SignupTrialOffer & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '체험 안내를 불러오지 못했습니다.');
+  return data;
+}

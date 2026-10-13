@@ -839,6 +839,9 @@ export async function confirmPrepaidForTenant(tenantId: string) {
 
   const now = new Date();
   const manual = await resolveManualTrialDays(prisma, now);
+  if (!manual) {
+    throw new Error('가입 체험 이벤트가 꺼져 있어 무료 체험을 시작할 수 없습니다.');
+  }
   const trialDays = manual.trialDays;
   const trialEndsAt = addDaysUtc(now, trialDays);
   const prevConfig =
@@ -853,7 +856,7 @@ export async function confirmPrepaidForTenant(tenantId: string) {
     data: {
       prepaidConfirmedAt: now,
       trialEndsAt,
-      status: 'TRIAL',
+      status: 'ACTIVE',
       suspendReason: null,
       billingAccessBlockedAt: null,
       suspendedAt: null,

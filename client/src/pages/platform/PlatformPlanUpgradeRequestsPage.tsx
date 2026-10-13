@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { TENANT_SIGNUP_GRACE_DAYS } from '@shared/tenantSignup';
 import {
   approvePlatformPlanUpgradeRequest,
   listPlatformPlanUpgradeRequests,
@@ -76,7 +75,7 @@ export function PlatformPlanUpgradeRequestsPage() {
         </div>
         <h1 className="mt-2 text-fluid-lg font-semibold text-slate-900">유료 플랜 전환 승인</h1>
         <p className="mt-1 text-fluid-xs text-slate-500">
-          셀프 가입(Free) 업체의 유료 플랜 신청을 검토합니다. 승인 시 {TENANT_SIGNUP_GRACE_DAYS}일(약 2개월) 체험이 시작됩니다.
+          셀프 가입(Free) 업체의 유료 플랜 신청을 검토합니다. 승인하는 순간에 가입 체험 이벤트가 켜져 있으면 그 일수만큼 무료로 바로 이용이 시작되고, 꺼져 있으면 무료 체험은 적용되지 않습니다.
         </p>
       </div>
 

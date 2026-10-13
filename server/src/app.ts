@@ -63,6 +63,7 @@ import tenantCompanyProfileRoutes from './modules/tenants/tenantCompanyProfile.r
 import tenantStaffAccessRoutes from './modules/tenants/tenantStaffAccess.routes.js';
 import tenantSubscriptionRoutes from './modules/tenants/tenantSubscription.routes.js';
 import tenantBillingRoutes from './modules/tenants/tenantBilling.routes.js';
+import depositConfirmPublicRoutes from './modules/billing/tenantBilling.depositConfirm.public.routes.js';
 import tenantRoutes from './modules/tenants/tenant.routes.js';
 import platformAuthRoutes from './modules/platform/platformAuth.routes.js';
 import platformTenantsRoutes from './modules/platform/platformTenants.routes.js';
@@ -263,6 +264,7 @@ app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
 app.use('/api/public/auth-signup', authSignupPublicRoutes);
 app.use('/api/public/signup-inquiries', platformSignupInquiryPublicRoutes);
 app.use('/api/public/password-reset', tenantPasswordResetPublicRoutes);
+app.use('/api/public/billing/deposit-confirm', depositConfirmPublicRoutes);
 mountCustomModuleRoutes(app);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙

@@ -8,10 +8,7 @@ import {
 import { isValidTenantLoginId, normalizeTenantLoginId, tenantLoginIdErrorMessage } from '@shared/tenantLoginId';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
 import { TENANT_PLAN_PRESENTATIONS, planLimitsSummary } from '@shared/tenantPlanCatalog';
-import {
-  TENANT_SELF_SIGNUP_PLAN_IDS,
-  TENANT_SIGNUP_PAID_TRIAL_DAYS,
-} from '@shared/tenantSignup';
+import { TENANT_SELF_SIGNUP_PLAN_IDS } from '@shared/tenantSignup';
 import {
   normalizeBizNumber,
   validateSignupBusinessInput,
@@ -26,6 +23,7 @@ import { ImageThumbLightbox } from '../components/ui/ImageThumbLightbox';
 import {
   checkTenantSignupSlug,
   completeTenantSignup,
+  fetchSignupTrialOffer,
   sendTenantSignupVerificationCode,
   uploadTenantSignupBusinessRegistration,
   validateTenantSignupReferrer,
@@ -97,7 +95,25 @@ export function TenantSignupPage() {
   const [oauthProvider, setOauthProvider] = useState<AuthIdentityProvider | null>(null);
   const [oauthProviderEmail, setOauthProviderEmail] = useState<string | null>(null);
   const [oauthVerifying, setOauthVerifying] = useState(false);
+  const [trialOffer, setTrialOffer] = useState<{ active: boolean; trialDays: number | null } | null>(null);
   const kakaoCallbackHandledRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchSignupTrialOffer()
+      .then((offer) => {
+        if (!cancelled) setTrialOffer({ active: offer.active, trialDays: offer.trialDays });
+      })
+      .catch(() => {
+        if (!cancelled) setTrialOffer({ active: false, trialDays: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const trialLive = trialOffer?.active === true && trialOffer.trialDays != null;
+  const trialDayLabel = trialLive ? `${trialOffer.trialDays}일` : '';
 
   const oauthActive = signupToken.trim().length > 0;
   const snsOAuthEnabled = googleOAuthEnabled || kakaoOAuthEnabled;
@@ -527,9 +543,15 @@ export function TenantSignupPage() {
             </div>
             <h1 className="mt-4 text-fluid-lg font-semibold text-slate-900">청소비서 가입하기</h1>
             <p className="mt-2 text-fluid-2xs leading-relaxed text-slate-500">
-              Google·카카오 또는 이메일·비밀번호로 시작한 뒤 담당자 이메일 인증으로 가입을 완료합니다. 가입 후{' '}
-              <strong>{TENANT_SIGNUP_PAID_TRIAL_DAYS}일(약 2개월)</strong> 동안 코인 제한 없이 이용할 수
-              있습니다. 유료 플랜은 같은 기간 요금 없이 체험됩니다.
+              Google·카카오 또는 이메일·비밀번호로 시작한 뒤 담당자 이메일 인증으로 가입을 완료합니다.{' '}
+              {trialLive ? (
+                <>
+                  지금 무료 체험이 켜져 있어, 가입과 동시에 <strong>{trialDayLabel}</strong> 동안 요금 없이 바로
+                  이용할 수 있습니다.
+                </>
+              ) : (
+                <>무료 플랜은 가입과 동시에 바로 이용합니다. 유료 무료 체험은 이벤트가 켜져 있을 때만 적용됩니다.</>
+              )}
             </p>
           </div>
 
@@ -627,8 +649,9 @@ export function TenantSignupPage() {
             <fieldset className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
               <legend className="px-1 text-fluid-xs font-semibold text-slate-800">이용 플랜</legend>
               <p className="text-fluid-2xs text-slate-600">
-                가입 후 {TENANT_SIGNUP_PAID_TRIAL_DAYS}일(약 2개월) 동안 코인 제한 없이 이용할 수 있습니다. 유료
-                플랜은 같은 기간 요금 없이 체험됩니다.
+                {trialLive
+                  ? `유료 플랜은 가입과 동시에 ${trialDayLabel} 무료로 바로 이용합니다.`
+                  : '지금은 유료 무료 체험이 꺼져 있습니다. 켠 뒤에 가입한 업체만 그 기간을 받습니다.'}
               </p>
               <div className="space-y-2">
                 {TENANT_SELF_SIGNUP_PLAN_IDS.map((planId) => {
@@ -658,15 +681,16 @@ export function TenantSignupPage() {
                             {presentation.label}
                           </span>
                           <span className="text-fluid-2xs text-slate-600">{presentation.monthlyPriceHint}</span>
-                          {isPaid ? (
+                          {isPaid && trialLive ? (
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                              {TENANT_SIGNUP_PAID_TRIAL_DAYS}일 무료
+                              {trialDayLabel} 무료
                             </span>
-                          ) : (
+                          ) : null}
+                          {!isPaid ? (
                             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
-                              코인 {TENANT_SIGNUP_PAID_TRIAL_DAYS}일 무제한
+                              가입 즉시 이용
                             </span>
-                          )}
+                          ) : null}
                           {presentation.recommended ? (
                             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
                               추천

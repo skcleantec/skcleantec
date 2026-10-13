@@ -15,6 +15,7 @@ import { AuthSignupOAuthError } from '../auth-signup/signupOAuth.errors.js';
 import { validateReferrerCodeForPublic } from '../platform-referrals/platformReferralAttribution.service.js';
 import { parseSignupBusinessPayload } from '../auth-signup/signupBusiness.service.js';
 import { uploadSignupBusinessRegistrationImage } from '../auth-signup/signupBusinessUpload.service.js';
+import { describePublicSignupTrialOffer } from './signupTrialEvent.service.js';
 
 const router = Router();
 const upload = multer({
@@ -56,6 +57,17 @@ function handleSignupError(e: unknown, res: import('express').Response) {
 }
 
 /** GET /api/public/tenant-signup/validate-referrer?code= */
+router.get('/trial-offer', async (_req, res) => {
+  try {
+    const offer = await describePublicSignupTrialOffer();
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(offer);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '체험 안내를 불러오지 못했습니다.';
+    res.status(500).json({ error: msg });
+  }
+});
+
 router.get('/validate-referrer', async (req, res) => {
   const code = typeof req.query.code === 'string' ? req.query.code : '';
   const result = await validateReferrerCodeForPublic(code);

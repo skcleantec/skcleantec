@@ -25,7 +25,7 @@ router.get('/', async (_req, res) => {
       items,
       activeEventId: active?.id ?? null,
       policyNote:
-        'Free 플랜은 체험 없음. 이벤트 OFF(유효 이벤트 없음)이면 유료 가입은 체험 없이 유료(체험 전) 상태입니다.',
+        '켜져 있으면 가입과 동시에 그 일수만큼 무료로 바로 이용합니다. 끄면 그 시각 이후 가입·승인에는 무료 체험이 적용되지 않습니다.',
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '목록 조회에 실패했습니다.';
