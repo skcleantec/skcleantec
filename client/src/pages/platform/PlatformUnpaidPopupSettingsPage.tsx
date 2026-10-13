@@ -5,6 +5,8 @@ import {
   TENANT_INVOICE_STATUS_LABEL,
   formatDunningBlockSoonText,
   resolveTenantBillingDunningPopupContent,
+  usageFeeChargeKrw,
+  usageFeeVatKrw,
   type TenantBillingDunningPopupContent,
 } from '@shared/tenantBilling';
 import {
@@ -92,7 +94,10 @@ function DunningPopupPreview({
   previewDaysUntilBlock: number;
 }) {
   const sampleAmount = 330_000;
+  const sampleVat = usageFeeVatKrw(sampleAmount);
+  const sampleCharge = usageFeeChargeKrw(sampleAmount);
   const sampleDue = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const [cardPreviewNote, setCardPreviewNote] = useState<string | null>(null);
 
   return (
     <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white shadow-lg overflow-hidden mx-auto">
@@ -131,6 +136,24 @@ function DunningPopupPreview({
             {popup.blockTodayText}
           </div>
         )}
+        <div className="space-y-1">
+          <button
+            type="button"
+            className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            onClick={() =>
+              setCardPreviewNote(
+                '미리보기입니다. 카드번호 입력과 실제 결제는 업체 관리자의 미납 안내 창에서 열립니다.',
+              )
+            }
+          >
+            카드로 결제 {sampleCharge.toLocaleString('ko-KR')}원
+          </button>
+          <p className="text-xs text-gray-500">
+            이용료 {sampleAmount.toLocaleString('ko-KR')}원 + 부가세 {sampleVat.toLocaleString('ko-KR')}원. 카드번호는
+            결제창에서 입력합니다.
+          </p>
+          {cardPreviewNote ? <p className="text-sm text-slate-700">{cardPreviewNote}</p> : null}
+        </div>
         {bankLine ? (
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm">
             <p className="text-xs font-medium text-gray-500">입금 계좌</p>
