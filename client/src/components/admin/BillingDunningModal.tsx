@@ -147,15 +147,6 @@ export function BillingDunningModal({ open, token, tenantId, attemptKey, onClose
                 </div>
               ) : null}
 
-              {token && inv.amountKrw > 0 ? (
-                <TenantUsageFeeWindowButton
-                  token={token}
-                  periodStart={inv.periodStart}
-                  supplyKrw={inv.amountKrw}
-                  className="w-full"
-                />
-              ) : null}
-
               {bankLine ? (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm">
                   <p className="text-xs font-medium text-gray-500">입금 계좌</p>
@@ -166,6 +157,15 @@ export function BillingDunningModal({ open, token, tenantId, attemptKey, onClose
                     </p>
                   ) : null}
                 </div>
+              ) : null}
+
+              {token && inv.amountKrw > 0 ? (
+                <TenantUsageFeeWindowButton
+                  token={token}
+                  periodStart={inv.periodStart}
+                  supplyKrw={inv.amountKrw}
+                  className="w-full"
+                />
               ) : null}
 
               {token && inv && dunning.paymentConfirmationEnabled ? (
