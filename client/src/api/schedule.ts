@@ -93,6 +93,8 @@ export interface ScheduleItem {
   collaborationMarketer?: { id: string; name: string } | null;
   orderForm?: {
     id: string;
+    /** 고객 발주서 링크 토큰 — 접수 수정에서 고객 화면 미리보기 */
+    token?: string;
     totalAmount: number;
     depositAmount: number;
     balanceAmount: number;

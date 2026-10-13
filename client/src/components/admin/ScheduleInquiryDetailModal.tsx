@@ -17,6 +17,8 @@ import {
 } from '../../api/users';
 import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
 import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
+import { CustomerOrderFormPreviewModal } from '../orderform/CustomerOrderFormPreviewModal';
+import { getOrderFormPublicUrl } from '../../utils/orderFormCustomerCopy';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
@@ -712,6 +714,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
   const [copyHint, setCopyHint] = useState<string | null>(null);
   const [copyInfoViewOpen, setCopyInfoViewOpen] = useState(false);
+  const [customerOrderOpen, setCustomerOrderOpen] = useState(false);
   const [operatingCompanyOptions, setOperatingCompanyOptions] = useState<OperatingCompanyItem[]>([]);
   const [assignableTeamLeaders, setAssignableTeamLeaders] = useState<UserItem[]>(teamLeaders);
   const [manualAssignmentZoneId, setManualAssignmentZoneId] = useState('');
@@ -2533,6 +2536,16 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+                  {!isCreate && item.orderForm?.token ? (
+                    <button
+                      type="button"
+                      onClick={() => setCustomerOrderOpen(true)}
+                      className="inline-flex items-center rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-medium leading-tight text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:bg-slate-100 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
+                      title="고객이 작성한 발주서를 봅니다."
+                    >
+                      발주서
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => setCopyInfoViewOpen(true)}
@@ -3314,6 +3327,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         initialYmd={editForm.preferredDate}
         onSelect={(ymd) => setEditForm((p) => ({ ...p, preferredDate: ymd }))}
       />
+      {item?.orderForm?.token ? (
+        <CustomerOrderFormPreviewModal
+          open={customerOrderOpen}
+          onClose={() => setCustomerOrderOpen(false)}
+          url={getOrderFormPublicUrl(
+            item.orderForm.token,
+            undefined,
+            tenantSlug,
+            item.operatingCompany?.slug ?? null,
+          )}
+          customerName={item.customerName}
+          submitted={Boolean(item.orderForm.submittedAt)}
+        />
+      ) : null}
       {item ? (
         <InquiryCopyInfoSheet
           open={copyInfoViewOpen}

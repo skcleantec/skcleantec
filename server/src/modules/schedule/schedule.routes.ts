@@ -255,6 +255,7 @@ const scheduleListSelectLite = {
   orderForm: {
     select: {
       id: true,
+      token: true,
       totalAmount: true,
       depositAmount: true,
       balanceAmount: true,
@@ -373,6 +374,7 @@ router.get('/', async (req, res) => {
           orderForm: {
             select: {
               id: true,
+              token: true,
               totalAmount: true,
               depositAmount: true,
               balanceAmount: true,
