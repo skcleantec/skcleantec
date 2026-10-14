@@ -27,6 +27,12 @@ import {
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import type { CustomerPageCopy } from '@shared/orderFormCustomerPages';
 
+function guideTemplateIdFromSnapshot(snapshot: unknown): string | undefined {
+  if (!snapshot || typeof snapshot !== 'object') return undefined;
+  const id = (snapshot as { template?: { id?: unknown } }).template?.id;
+  return typeof id === 'string' && id.trim() ? id.trim() : undefined;
+}
+
 function submissionEmailStatusMessage(
   submissionEmail: OrderFormSubmissionEmailInfo | null | undefined,
   customerEmail: string | null | undefined,
@@ -66,6 +72,8 @@ export function OrderFormSubmissionReceiptView(props: {
   onSubmissionEmailChange?: (info: OrderFormSubmissionEmailInfo | null) => void;
   templateId?: string | null;
   choicePages?: CustomerPageCopy[] | null;
+  /** 접수 수정 모달 — 확인 메일 다시 보내기 숨김 */
+  readOnly?: boolean;
 }) {
   const {
     token,
@@ -84,6 +92,7 @@ export function OrderFormSubmissionReceiptView(props: {
     onSubmissionEmailChange,
     templateId,
     choicePages,
+    readOnly = false,
   } = props;
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [photos, setPhotos] = useState<OrderFormPhotoItem[]>([]);
@@ -105,6 +114,8 @@ export function OrderFormSubmissionReceiptView(props: {
     snapshot != null && isOrderFormSubmissionSnapshotV1(snapshot)
       ? (snapshot.consents ?? null)
       : null;
+
+  const guideTemplateId = templateId?.trim() || guideTemplateIdFromSnapshot(snapshot);
 
   const guideLinkLabel = orderFormConfigLine(
     formConfig?.infoLinkText,
@@ -247,6 +258,7 @@ export function OrderFormSubmissionReceiptView(props: {
             안내사항 보기
           </button>
 
+          {readOnly ? null : (
           <section className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <h2 className="text-fluid-sm font-semibold text-gray-900">접수 확인 메일</h2>
             <p className="mt-1.5 text-fluid-xs leading-relaxed text-gray-600">
@@ -289,6 +301,7 @@ export function OrderFormSubmissionReceiptView(props: {
               </p>
             ) : null}
           </section>
+          )}
 
           <div className="mb-4 rounded-lg border border-gray-200 bg-white px-4 py-3 text-fluid-sm">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -391,7 +404,7 @@ export function OrderFormSubmissionReceiptView(props: {
         open={guideModalOpen}
         mode="view"
         consents={submissionConsents}
-        templateId={templateId}
+        templateId={guideTemplateId}
         onClose={() => setGuideModalOpen(false)}
       />
     </div>

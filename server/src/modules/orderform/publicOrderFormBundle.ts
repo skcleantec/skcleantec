@@ -423,6 +423,11 @@ export async function loadPublicOrderFormByToken(
         submittedAt: submittedAt.toISOString(),
         inquiryNumber: bundle?.inquiryNumber == null ? null : String(bundle.inquiryNumber),
         customerSubmissionSnapshot: form.customerSubmissionSnapshot ?? null,
+        template: template?.id
+          ? { id: template.id }
+          : typeof form.templateId === 'string' && form.templateId.trim()
+            ? { id: form.templateId.trim() }
+            : null,
         formConfig,
         publicBranding,
         publicCompanyTrust,

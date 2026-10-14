@@ -98,6 +98,7 @@ export function OrderFormCustomerWizard({
   submitting,
   dialogs,
   previewWalk = false,
+  viewOnly = false,
   extraWorkPhrase,
   onExtraWorkAgree,
 }: {
@@ -122,12 +123,15 @@ export function OrderFormCustomerWizard({
   dialogs: ReactNode;
   /** 디자이너 미리보기 — 필수 없이 다음, 제출은 부모에서 차단 */
   previewWalk?: boolean;
+  /** 접수 수정 모달 — 화면만 보고 제출하지 않음 */
+  viewOnly?: boolean;
   extraWorkPhrase?: string | null;
   onExtraWorkAgree: (payload: { at: string; typedPhrase: string }) => void;
 }) {
+  const browse = previewWalk || viewOnly;
   const { scrollRef, onFieldFocus } = useLoginScrollSurface({
     // 고정 막대는 다음/제출 버튼만 — 업체·플랫폼 안내는 스크롤 안으로
-    bottomReservePx: previewWalk ? 72 : 88,
+    bottomReservePx: browse ? 72 : 88,
   });
   const [stepError, setStepError] = useState<string | null>(null);
   const [extraWorkOpen, setExtraWorkOpen] = useState(false);
@@ -165,7 +169,7 @@ export function OrderFormCustomerWizard({
   });
 
   const tryNext = () => {
-    if (previewWalk) {
+    if (browse) {
       setStepError(null);
       goNext();
       return;
@@ -187,10 +191,14 @@ export function OrderFormCustomerWizard({
 
   const showFooter =
     currentStep.kind !== 'welcome' && currentStep.kind !== 'choice';
-  const showChoiceNext = currentStep.kind === 'choice' && (previewWalk || !stepInvalid);
+  const showChoiceNext = currentStep.kind === 'choice' && (browse || !stepInvalid);
 
   const trySubmit = () => {
     if (submitting) return;
+    if (viewOnly) {
+      setStepError('접수 수정에서는 제출되지 않습니다. 손님에게 보낸 링크에서만 제출됩니다.');
+      return;
+    }
     if (previewWalk) {
       setStepError(null);
       onSubmit({ preventDefault() {} } as FormEvent);
@@ -210,7 +218,14 @@ export function OrderFormCustomerWizard({
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-slate-100">
-      {previewWalk ? (
+      {viewOnly ? (
+        <div
+          className="shrink-0 border-b border-slate-200 bg-slate-50 px-2.5 py-1 text-center text-fluid-2xs leading-snug text-slate-700"
+          role="status"
+        >
+          보기 전용 · 제출되지 않습니다
+        </div>
+      ) : previewWalk ? (
         <div
           className="shrink-0 border-b border-amber-200 bg-amber-50 px-2.5 py-1 text-center text-fluid-2xs leading-snug text-amber-900"
           role="status"
@@ -219,7 +234,7 @@ export function OrderFormCustomerWizard({
         </div>
       ) : null}
       <header className="shrink-0 border-b border-slate-800 bg-slate-900 text-white">
-        <div className={`mx-auto flex max-w-lg items-center gap-2 px-3 ${previewWalk ? 'py-1.5' : 'py-2.5'}`}>
+        <div className={`mx-auto flex max-w-lg items-center gap-2 px-3 ${browse ? 'py-1.5' : 'py-2.5'}`}>
           <button
             type="button"
             onClick={canGoBack ? goPrev : onLeave}
@@ -257,7 +272,7 @@ export function OrderFormCustomerWizard({
       >
         <div
           className={`login-scroll-content mx-auto flex min-h-full max-w-lg flex-col px-4 ${
-            previewWalk ? 'py-3 pb-4' : 'py-6 pb-6'
+            browse ? 'py-3 pb-4' : 'py-6 pb-6'
           }`}
         >
           {leaveHint ? (
@@ -299,7 +314,7 @@ export function OrderFormCustomerWizard({
             </p>
           ) : null}
 
-          {!previewWalk ? (
+          {!browse ? (
             <div className="mt-8 space-y-2">
               <OrderFormCompanyTrustFooter
                 trust={publicCompanyTrust}
@@ -314,7 +329,7 @@ export function OrderFormCustomerWizard({
       <footer className="shrink-0 border-t border-slate-200 bg-white/95 backdrop-blur-sm">
         <div
           className={`mx-auto max-w-lg px-4 ${
-            previewWalk
+            browse
               ? 'py-1.5'
               : 'pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5'
           }`}
@@ -322,8 +337,8 @@ export function OrderFormCustomerWizard({
           {currentStep.kind === 'welcome' ? (
             <button
               type="button"
-              className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
-              disabled={!previewWalk && Boolean(stepInvalid)}
+              className={browse ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
+              disabled={!browse && Boolean(stepInvalid)}
               onClick={tryNext}
             >
               확인
@@ -337,36 +352,42 @@ export function OrderFormCustomerWizard({
               ) : null}
               {currentStep.kind === 'guide' ? (
                 <div className="w-full space-y-2">
-                  {!previewWalk && !shared.guideTermsSigned ? (
+                  {!browse && !shared.guideTermsSigned ? (
                     <p className="text-center text-fluid-2xs font-medium leading-snug text-amber-800">
                       각 항목을 읽고 체크한 뒤, 맨 아래까지 내려 서명해야 제출할 수 있습니다.
                     </p>
                   ) : null}
                   <button
                     type="button"
-                    className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
-                    disabled={submitting || (!previewWalk && !shared.guideTermsSigned)}
+                    className={browse ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
+                    disabled={viewOnly || submitting || (!browse && !shared.guideTermsSigned)}
                     onClick={trySubmit}
                   >
-                    {submitting ? '제출 중...' : previewWalk ? '제출 미리보기' : '제출하기'}
+                    {viewOnly
+                      ? '제출되지 않습니다'
+                      : submitting
+                        ? '제출 중...'
+                        : previewWalk
+                          ? '제출 미리보기'
+                          : '제출하기'}
                   </button>
                 </div>
               ) : currentStep.kind === 'review' ? (
                 <button
                   type="button"
-                  className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
+                  className={browse ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
                   onClick={() => {
-                    if (shared.order?.extraWorkNotice === true) setExtraWorkOpen(true);
+                    if (!viewOnly && shared.order?.extraWorkNotice === true) setExtraWorkOpen(true);
                     else goNext();
                   }}
                 >
-                  {shared.order?.extraWorkNotice === true ? '안내 확인하고 제출' : '다음'}
+                  {!viewOnly && shared.order?.extraWorkNotice === true ? '안내 확인하고 제출' : '다음'}
                 </button>
               ) : (
                 <button
                   type="button"
-                  className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
-                  disabled={!previewWalk && !currentStep.skippable && Boolean(stepInvalid)}
+                  className={browse ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
+                  disabled={!browse && !currentStep.skippable && Boolean(stepInvalid)}
                   onClick={tryNext}
                 >
                   다음
@@ -376,8 +397,8 @@ export function OrderFormCustomerWizard({
           ) : currentStep.kind === 'choice' ? (
             <button
               type="button"
-              className={previewWalk ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
-              disabled={!previewWalk && Boolean(stepInvalid)}
+              className={browse ? PREVIEW_CTA_CLS : WIZARD_CTA_CLS}
+              disabled={!browse && Boolean(stepInvalid)}
               onClick={tryNext}
             >
               다음

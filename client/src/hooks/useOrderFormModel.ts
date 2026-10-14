@@ -12,6 +12,7 @@ import {
   isDesignerPreviewOrderToken,
   ORDER_FORM_PREVIEW_STEP_MESSAGE,
 } from '@shared/orderFormPreviewWalk';
+import { isOrderFormStaffView } from '../utils/orderFormStaffView';
 import {
   mergeDraftIntoForm,
   readOrderFormCustomerDraft,
@@ -77,7 +78,11 @@ export function useOrderFormModel(args: {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const stepFromUrl = searchParams.get('step');
-  const persistDraft = enabled && loaded && !isDesignerPreviewOrderToken(token);
+  const persistDraft =
+    enabled &&
+    loaded &&
+    !isDesignerPreviewOrderToken(token) &&
+    !isOrderFormStaffView(searchParams.toString());
 
   const stepIndex = useMemo(() => {
     if (isOrderFormCustomerStepId(stepFromUrl)) {

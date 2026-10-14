@@ -140,6 +140,7 @@ import {
 } from '@shared/orderFormOptionLayout';
 import { OrderFormModalFormattedText } from '../../components/orderform/OrderFormModalFormattedText';
 import { dismissSubmittedReceipt, PUBLIC_PAGE_CLOSE_HINT, tryLeavePublicPage } from '../../utils/publicPageLeave';
+import { isOrderFormStaffView, notifyOrderFormStaffViewClose } from '../../utils/orderFormStaffView';
 import { scrollToOrderFormField } from '../../utils/preserveScrollAround';
 import { useOrderFormModel } from '../../hooks/useOrderFormModel';
 import { clearOrderFormCustomerDraft } from '../../hooks/useOrderFormCustomerDraft';
@@ -222,6 +223,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         typeof window !== 'undefined' ? window.location.search : '',
       ),
     [token],
+  );
+  const staffView = useMemo(
+    () => isOrderFormStaffView(typeof window !== 'undefined' ? window.location.search : ''),
+    [],
   );
   /** 고객 self-service 발주서만 청소일·시간대 동의 모달·consent (마케터 발급·선입력 작성 제외) */
   const customerScheduleAckEnabled = !isEditor;
@@ -1127,6 +1132,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    if (staffView) {
+      showSubmitError('접수 수정에서는 제출되지 않습니다. 손님에게 보낸 링크에서만 제출됩니다.');
+      return;
+    }
     if (isDesignerPreviewOrderToken(token)) {
       showSubmitError('미리보기에서는 제출되지 않습니다. 손님에게 보낸 링크에서는 그대로 제출됩니다.');
       return;
@@ -1649,7 +1658,38 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
   };
 
+  useEffect(() => {
+    if (!staffView) return;
+    const onClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest('a[href]');
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      let url: URL;
+      try {
+        url = new URL(anchor.href);
+      } catch {
+        return;
+      }
+      if (url.origin !== window.location.origin) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      const path = url.pathname;
+      if (path.startsWith('/order/') || path.startsWith('/info')) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [staffView]);
+
   const handleLeavePage = () => {
+    if (staffView) {
+      notifyOrderFormStaffViewClose();
+      return;
+    }
     if (editor?.onClose) {
       editor.onClose();
       return;
@@ -1661,6 +1701,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   };
 
   const handleDismissReceipt = () => {
+    if (staffView) {
+      notifyOrderFormStaffViewClose();
+      return;
+    }
     if (editor?.onClose) {
       editor.onClose();
       return;
@@ -1728,8 +1772,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         headerRight={<CloseButton onClick={handleDismissReceipt} />}
         onDismiss={handleDismissReceipt}
         leaveHint={leavePageHint}
-        templateId={order?.template?.id}
+        templateId={submittedReceipt.template?.id}
         choicePages={order?.template?.customerPages}
+        readOnly={staffView}
       />
     );
   }
@@ -2380,6 +2425,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         submitting={submitting}
         dialogs={pageDialogs}
         previewWalk={previewWalk}
+        viewOnly={staffView}
         extraWorkPhrase={extraWorkConsent?.typedPhrase}
         onExtraWorkAgree={(payload) => setExtraWorkConsent(payload)}
       />

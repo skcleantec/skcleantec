@@ -28,6 +28,7 @@ export function shouldHardNavigateOnMenuClick(
 }
 
 function onDocumentClick(event: MouseEvent) {
+  if (new URLSearchParams(window.location.search).get('staffView') === '1') return;
   const target = event.target;
   if (!(target instanceof Element)) return;
   const anchor = target.closest('a[href]');
