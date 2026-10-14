@@ -346,6 +346,8 @@ export interface OrderFormPublicSubmitted {
   submittedAt: string;
   inquiryNumber: string | null;
   customerSubmissionSnapshot: unknown | null;
+  /** 이 발주서 양식 — 제출확인서 안내사항은 이 양식의 현재 문구를 읽는다 */
+  template?: { id: string } | null;
   formConfig?: OrderFormConfigPublic;
   publicBranding?: PublicOperatingCompanyBranding | null;
   publicCompanyTrust?: PublicOrderFormCompanyTrust | null;

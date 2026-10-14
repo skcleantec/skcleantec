@@ -2703,8 +2703,23 @@ router.put(
   },
 );
 
+/** 접수 수정 발주서 모달(staffView=1)에서는 제출·메일 재발송을 받지 않는다. */
+function rejectStaffOrderPreviewWrite(req: import('express').Request, res: import('express').Response): boolean {
+  const referer = req.get('referer') ?? '';
+  let staffView = false;
+  try {
+    staffView = new URL(referer).searchParams.get('staffView') === '1';
+  } catch {
+    staffView = referer.includes('staffView=1');
+  }
+  if (!staffView) return false;
+  res.status(400).json({ error: '접수 수정 보기에서는 제출·메일 발송이 되지 않습니다.' });
+  return true;
+}
+
 /** 공개: 제출 확인서 — 접수 확인 메일 재발송 */
 router.post('/by-token/:token/resend-submission-email', async (req, res) => {
+  if (rejectStaffOrderPreviewWrite(req, res)) return;
   const { token } = req.params;
   const body = req.body as { additionalEmail?: string | null };
   const form = await prisma.orderForm.findUnique({
@@ -2832,6 +2847,7 @@ router.get('/by-token/:token', async (req, res) => {
 
 /** 공개: 발주서 제출 (고객이 작성 후 제출 → 문의로 등록) */
 router.post('/submit/:token', async (req, res) => {
+  if (rejectStaffOrderPreviewWrite(req, res)) return;
   const { token } = req.params;
   if (isDesignerPreviewOrderToken(token)) {
     res.status(400).json({ error: '미리보기 발주서는 제출할 수 없습니다.' });
