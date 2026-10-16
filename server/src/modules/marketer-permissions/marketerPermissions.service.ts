@@ -4,6 +4,7 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import {
   buildFullMarketerPermissionsForSave,
   buildMarketerPresetPermissions,
+  grantFullMarketerLeadProcessing,
   hasMarketerAdminMenuAccessFromMap,
   hasMarketerOperationalAccessFromMap,
   MARKETER_PERMISSION_IDS,
@@ -32,7 +33,10 @@ export function resolveEffectiveMarketerPermissions(row: MarketerAccessRow): Mar
   for (const id of MARKETER_PERMISSION_IDS) {
     map[id] = parsed[id] ?? false;
   }
-  return buildFullMarketerPermissionsForSave(map);
+  return grantFullMarketerLeadProcessing(
+    row.marketerAdminLevel,
+    buildFullMarketerPermissionsForSave(map),
+  );
 }
 
 export async function loadMarketerAccessRow(

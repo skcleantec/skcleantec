@@ -135,7 +135,7 @@ export const MARKETER_PERMISSION_GROUPS: MarketerPermissionGroup[] = [
       {
         id: 'leads.edit',
         label: '문의내역 처리',
-        description: '문의 상태 변경·접수 전환·폼 설정',
+        description: '문의 상태 변경·접수 전환·메모·삭제. 전체 권한 마케터는 항상 처리됩니다.',
         featureModuleId: 'mod_landing_inquiry',
       },
     ],
@@ -287,6 +287,8 @@ const FULL_EXTRA: MarketerPermissionId[] = [
   'admin.tenantPartners',
   'admin.serviceZones',
   'crm.settings',
+  'leads.view',
+  'leads.edit',
 ];
 
 function emptyPermissionMap(): MarketerPermissionMap {
@@ -326,10 +328,19 @@ export function resolveMarketerPermissionMap(
   custom: Partial<MarketerPermissionMap> | null | undefined,
 ): MarketerPermissionMap {
   const base = buildMarketerPresetPermissions(level);
-  if (!custom) return base;
+  if (!custom) return grantFullMarketerLeadProcessing(level, base);
   const merged = { ...base, ...custom };
   for (const id of MARKETER_ADMIN_LOCKED_PERMISSION_IDS) merged[id] = false;
-  return merged;
+  return grantFullMarketerLeadProcessing(level, merged);
+}
+
+/** 전체 권한은 저장된 체크가 꺼져 있어도 문의내역 조회·처리가 된다. */
+export function grantFullMarketerLeadProcessing(
+  level: MarketerAdminLevel,
+  map: MarketerPermissionMap,
+): MarketerPermissionMap {
+  if (level !== 'FULL') return map;
+  return { ...map, 'leads.view': true, 'leads.edit': true };
 }
 
 export function permissionsMatchPreset(map: MarketerPermissionMap, level: MarketerAdminLevel): boolean {
