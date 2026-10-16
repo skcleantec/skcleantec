@@ -246,10 +246,14 @@ export function OrderFormCustomerPagesPanel(props: {
               }
             />
           ))}
-          {page.id === 'time' && timeDraft ? (
+          {(page.id === 'time' || page.id === 'timeDetail') && timeDraft ? (
             <OrderFormDraftOptionsEditor
-              title="시간대 선택지"
-              hint="손님 화면에 그대로 나옵니다. 각 시간대 아래 시각도 여기서 고칩니다."
+              title={page.id === 'timeDetail' ? '구체적인 시각' : '시간대 선택지'}
+              hint={
+                page.id === 'timeDetail'
+                  ? '시간대마다 한 줄에 시각을 적습니다. 저장하면 손님 발주서에 바로 나옵니다. 시각을 비우면 그 시간대는 묻지 않습니다.'
+                  : '손님 화면에 그대로 나옵니다. 각 시간대 아래 시각도 여기서 고칩니다.'
+              }
               options={timeDraft.options}
               details={timeDraft.timeDetails}
               detailHelp={pages.find((item) => item.id === 'timeDetail')?.hint || detailDraft?.helpText || ''}
