@@ -27,3 +27,11 @@ export const TEAM_MOBILE_BOTTOM_NAV_SCROLL_PB = 'max-lg:pb-[var(--team-mobile-bo
 
 /** z-[48] — 본문 위, 팀 모달·시트(z-[85]+) 아래 (터치 가로채기 방지) */
 export const TEAM_MOBILE_BOTTOM_NAV_Z = 'z-[48]';
+
+/** 팀 견적 저장 바 — 모바일 하단 탭 바로 위 (탭이 safe-area를 이미 포함) */
+export const TEAM_QUOTATION_STICKY_BAR =
+  'max-lg:!bottom-[var(--team-mobile-bottom-nav-offset)] max-lg:!pb-3';
+
+/** 팀 견적 본문 — 저장 바 + 하단 탭만큼 스크롤 여백 */
+export const TEAM_QUOTATION_PAGE_PAD =
+  'max-lg:!pb-[calc(8.5rem+var(--team-mobile-bottom-nav-offset))]';

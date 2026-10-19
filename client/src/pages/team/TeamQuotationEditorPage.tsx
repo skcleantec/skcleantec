@@ -37,6 +37,7 @@ import { QuotationStatusBadge, qUi } from '../../components/quotations/quotation
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
 import { readTeamReturnTo, teamInquiryReturnLabel } from '../../utils/teamInquiryNavigation';
+import { TEAM_QUOTATION_PAGE_PAD, TEAM_QUOTATION_STICKY_BAR } from '../../utils/staffAppSafeArea';
 import { computeQuotationVatAmounts } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
 import { resolveDocumentFooterNotice } from '@shared/quotationDocument';
@@ -444,7 +445,7 @@ export function TeamQuotationEditorPage() {
   const canEmail = operatingCompanyId ? smtpReady : smtpReady || globalSmtpFallback;
 
   return (
-    <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer} max-lg:max-w-full max-lg:px-0 max-lg:py-3 max-lg:space-y-3`}>
+    <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer} ${TEAM_QUOTATION_PAGE_PAD} max-lg:max-w-full max-lg:px-0 max-lg:py-3 max-lg:space-y-3`}>
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <RoundBackButton
@@ -613,7 +614,7 @@ export function TeamQuotationEditorPage() {
         </div>
       ) : null}
 
-      <div className={qUi.stickyActionBar}>
+      <div className={`${qUi.stickyActionBar} ${TEAM_QUOTATION_STICKY_BAR}`}>
         <div className="mx-auto flex max-w-[794px] min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:justify-start">
           <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:gap-2">
             <button
