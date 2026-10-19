@@ -1533,6 +1533,7 @@ export function TeamInquiryDetailModal({
                   ) : null}
                   <TeamModalRow
                     compact
+                    compactStacked
                     label={<TeamBiLine id="team.modal.row.crew" koClassName="text-fluid-2xs font-medium text-gray-500" />}
                   >
                     {(() => {
@@ -1548,10 +1549,10 @@ export function TeamInquiryDetailModal({
                         );
                       }
                       return (
-                        <span className="inline-flex flex-wrap items-center gap-1.5">
+                        <div className="min-w-0 w-full space-y-1">
                           <TeamBiLine id="team.modal.crewCount" vars={{ count: String(count) }} />
                           <TeamCrewMemberContactChips item={item} />
-                        </span>
+                        </div>
                       );
                     })()}
                   </TeamModalRow>

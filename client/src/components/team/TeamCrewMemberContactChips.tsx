@@ -65,28 +65,26 @@ export function TeamCrewMemberContactChips({
 
   const resolvedChipClassName =
     chipClassName ??
-    (compact
-      ? 'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-fluid-2xs shrink-0'
-      : 'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5');
+    'flex w-full min-w-0 flex-col items-stretch gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5';
 
   const phoneClassName = compact
-    ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-fluid-2xs font-medium border border-blue-200 bg-blue-50 text-blue-700 shrink-0 touch-manipulation'
-    : 'inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-blue-700 touch-manipulation';
+    ? 'inline-flex max-w-full items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700 touch-manipulation hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1'
+    : 'inline-flex max-w-full items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-blue-700 touch-manipulation hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1';
 
   if (list.length === 0) return null;
 
   return (
     <>
-      <ul className={`flex min-w-0 flex-wrap items-center gap-1 ${compact ? 'w-full' : 'gap-1.5'} ${className}`}>
+      <ul className={`flex w-full min-w-0 flex-col gap-1.5 ${className}`}>
         {list.map((m, idx) => {
           const addressLine = formatCrewHomeAddressLine(m.homeAddress, m.homeAddressDetail);
           return (
           <li
             key={`${m.teamMemberId ?? m.name}-${idx}`}
-            className={`${resolvedChipClassName} ${compact ? 'max-w-full min-w-0 flex-col items-stretch' : ''}`}
+            className={resolvedChipClassName}
           >
-            <span className="inline-flex min-w-0 items-center gap-1">
-            <span className={`font-medium text-gray-900 ${compact ? 'text-fluid-2xs' : ''}`}>{m.name}</span>
+            <span className="flex min-w-0 flex-wrap items-center gap-1">
+            <span className={`min-w-0 break-words font-medium text-gray-900 ${compact ? 'text-fluid-2xs' : 'text-fluid-xs'}`}>{m.name}</span>
             {m.phone ? (
               <a
                 href={`tel:${m.phone}`}
@@ -95,7 +93,7 @@ export function TeamCrewMemberContactChips({
                 aria-label={`${m.name} ${m.phone}`}
               >
                 <PhoneMiniIcon className="h-3 w-3 shrink-0" />
-                {showPhoneNumber && !compact ? m.phone : null}
+                {showPhoneNumber && !compact ? <span className="min-w-0 break-all">{m.phone}</span> : null}
               </a>
             ) : null}
             <TeamCrewHomeAddressIconButton
@@ -123,7 +121,7 @@ export function TeamCrewMemberContactChips({
                     homeAddressDetail: m.homeAddressDetail ?? null,
                   });
                 }}
-                className="block w-full min-w-0 truncate text-left text-fluid-2xs font-normal text-slate-700 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
+                className="block w-full min-w-0 whitespace-normal break-words text-left text-fluid-2xs font-normal leading-snug text-slate-700 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
                 title={addressLine}
               >
                 {addressLine}

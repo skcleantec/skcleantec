@@ -285,7 +285,7 @@ export function TeamSchedulePage() {
                 ? ` · ${formatTeamInquiryStructure(item)}`
                 : ''}
             </div>
-            <div className={`text-gray-500 mt-0.5 ${TEAM_CARD_META}`} title={formatCrewInfo(item)}>
+            <div className="mt-0.5 min-w-0 whitespace-normal break-words text-fluid-2xs leading-snug text-gray-500">
               {formatCrewInfo(item)}
             </div>
             <div className="mt-1">
