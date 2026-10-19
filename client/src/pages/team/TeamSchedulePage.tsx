@@ -61,7 +61,12 @@ import {
 } from '../../i18n/team/teamI18n';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
-import { sortInquiriesByScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
+import { getScheduleTimeBucket, sortInquiriesByScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
+import {
+  SCHEDULE_LIST_CARD_BORDER_BASE,
+  scheduleListCardSlotBgTint,
+  scheduleListCardSlotLeftBorder,
+} from '../../components/admin/schedule-help/scheduleListColorLegend';
 import {
   TEAM_CARD_META,
   TEAM_CARD_TITLE,
@@ -221,10 +226,11 @@ export function TeamSchedulePage() {
     const primaryLabel = inquiryPrimaryCustomerLabel(item);
     const memoTrim = item.scheduleMemo?.trim() ?? '';
     const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
+    const slotBucket = getScheduleTimeBucket(item);
     return (
       <div
         key={item.id}
-        className="bg-white border border-gray-200 rounded-lg p-2 sm:p-4"
+        className={`rounded-lg border p-2 shadow-sm sm:p-4 ${scheduleListCardSlotLeftBorder(slotBucket)} ${SCHEDULE_LIST_CARD_BORDER_BASE} ${scheduleListCardSlotBgTint(slotBucket)}`}
         onClick={() => setDetailItem(item)}
       >
         <div className="flex items-start justify-between gap-2">

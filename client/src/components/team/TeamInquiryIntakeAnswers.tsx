@@ -1,3 +1,4 @@
+import { ORDER_FORM_CLEANING_KIND_FIELD_KEY } from '@shared/orderFormCleaningKind';
 import { OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
 import type { TeamInquiryIntakeItem } from '../../utils/teamInquiryIntakeDisplay';
 import {
@@ -45,9 +46,13 @@ export function TeamInquiryIntakeListChips({
         <span
           key={chip.key}
           className="inline-flex shrink-0 items-center rounded-full bg-sky-50 px-1.5 py-0.5 text-fluid-2xs font-semibold text-sky-900 ring-1 ring-sky-200/80"
-          title={`${chip.label} ${chip.value}`}
+          title={
+            chip.key === ORDER_FORM_CLEANING_KIND_FIELD_KEY
+              ? chip.value
+              : `${chip.label} ${chip.value}`
+          }
         >
-          {chip.label} {chip.value}
+          {chip.key === ORDER_FORM_CLEANING_KIND_FIELD_KEY ? chip.value : `${chip.label} ${chip.value}`}
         </span>
       ))}
     </span>
