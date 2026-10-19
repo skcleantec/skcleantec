@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatCrewHomeAddressLine } from '../../utils/crewHomeAddress';
 import {
   TeamCrewHomeAddressIconButton,
   TeamCrewHomeAddressModal,
@@ -76,9 +77,15 @@ export function TeamCrewMemberContactChips({
 
   return (
     <>
-      <ul className={`flex flex-wrap items-center gap-1 ${compact ? '' : 'gap-1.5'} ${className}`}>
-        {list.map((m, idx) => (
-          <li key={`${m.teamMemberId ?? m.name}-${idx}`} className={resolvedChipClassName}>
+      <ul className={`flex min-w-0 flex-wrap items-center gap-1 ${compact ? 'w-full' : 'gap-1.5'} ${className}`}>
+        {list.map((m, idx) => {
+          const addressLine = formatCrewHomeAddressLine(m.homeAddress, m.homeAddressDetail);
+          return (
+          <li
+            key={`${m.teamMemberId ?? m.name}-${idx}`}
+            className={`${resolvedChipClassName} ${compact ? 'max-w-full min-w-0 flex-col items-stretch' : ''}`}
+          >
+            <span className="inline-flex min-w-0 items-center gap-1">
             <span className={`font-medium text-gray-900 ${compact ? 'text-fluid-2xs' : ''}`}>{m.name}</span>
             {m.phone ? (
               <a
@@ -104,8 +111,27 @@ export function TeamCrewMemberContactChips({
                 })
               }
             />
+            </span>
+            {addressLine ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAddressTarget({
+                    name: m.name,
+                    homeAddress: m.homeAddress ?? null,
+                    homeAddressDetail: m.homeAddressDetail ?? null,
+                  });
+                }}
+                className="block w-full min-w-0 truncate text-left text-fluid-2xs font-normal text-slate-700 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
+                title={addressLine}
+              >
+                {addressLine}
+              </button>
+            ) : null}
           </li>
-        ))}
+          );
+        })}
       </ul>
       {addressTarget ? (
         <TeamCrewHomeAddressModal target={addressTarget} onClose={() => setAddressTarget(null)} />

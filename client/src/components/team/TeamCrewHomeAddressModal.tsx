@@ -59,8 +59,8 @@ export function TeamCrewHomeAddressModal({
         <p className="mt-1 text-fluid-2xs text-gray-500">{teamBiPlain('team.crewAddress.modalHint')}</p>
         {lines ? (
           <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-fluid-xs leading-relaxed text-gray-900">
-            <p>{lines.road}</p>
-            <p className="mt-1 font-medium">{lines.detail}</p>
+            {lines.road ? <p>{lines.road}</p> : null}
+            {lines.detail ? <p className={lines.road ? 'mt-1 font-medium' : 'font-medium'}>{lines.detail}</p> : null}
           </div>
         ) : (
           <p className="mt-3 text-fluid-xs text-gray-500">{teamBiPlain('team.crewAddress.empty')}</p>
@@ -120,11 +120,7 @@ export function TeamCrewHomeAddressIconButton({
       aria-label={`${name} ${teamBiPlain('team.crewAddress.viewTitle')}`}
     >
       <MapPinMiniIcon className={`${compact ? 'h-3 w-3' : 'h-3 w-3'} shrink-0`} />
-      {compact ? (
-        <span className="sr-only">{teamBiPlain('team.crewAddress.short')}</span>
-      ) : (
-        <span className="sr-only sm:not-sr-only">{teamBiPlain('team.crewAddress.short')}</span>
-      )}
+      <span className={compact ? 'sr-only' : ''}>{teamBiPlain('team.crewAddress.short')}</span>
     </button>
   );
 }
