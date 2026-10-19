@@ -35,6 +35,8 @@ import {
 } from '../../components/quotations/quotationBrandResolve';
 import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { RoundBackButton } from '../../components/ui/RoundBackButton';
+import { readTeamReturnTo, teamInquiryReturnLabel } from '../../utils/teamInquiryNavigation';
 import { computeQuotationVatAmounts } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
 import { resolveDocumentFooterNotice } from '@shared/quotationDocument';
@@ -70,7 +72,7 @@ export function TeamQuotationEditorPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const seedInquiryId = searchParams.get('inquiryId')?.trim() || null;
-  const returnTo = searchParams.get('returnTo')?.trim() || '/team/assignments';
+  const rawReturnTo = searchParams.get('returnTo')?.trim() || '';
   const isNew = id === 'new' || !id;
   const navigate = useNavigate();
   const token = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
@@ -119,7 +121,13 @@ export function TeamQuotationEditorPage() {
   const [globalSmtpFallback, setGlobalSmtpFallback] = useState(false);
   const defaultsRequestRef = useRef(0);
 
-  const returnQs = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
+  const inquiryIdForReturn = seedInquiryId || linkedInquiryId;
+  const fallbackReturn = inquiryIdForReturn
+    ? `/team/assignments?openInquiry=${encodeURIComponent(inquiryIdForReturn)}`
+    : '/team/assignments';
+  const returnTo = readTeamReturnTo(rawReturnTo, fallbackReturn);
+  const returnLabel = teamInquiryReturnLabel(returnTo);
+  const returnQs = `?returnTo=${encodeURIComponent(returnTo)}`;
 
   const applyEditorDefaults = useCallback(
     (
@@ -438,13 +446,20 @@ export function TeamQuotationEditorPage() {
   return (
     <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer} max-lg:max-w-full max-lg:px-0 max-lg:py-3 max-lg:space-y-3`}>
       <div className="space-y-1">
-        <p className={qUi.breadcrumb}>
-          <Link to={returnTo} className={qUi.breadcrumbLink}>
-            배정목록
-          </Link>
-          {' · '}
-          {isNew ? '새 견적서' : '편집'}
-        </p>
+        <div className="flex items-center gap-2">
+          <RoundBackButton
+            onClick={() => navigate(returnTo)}
+            ariaLabel={`${returnLabel}로 돌아가기`}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          />
+          <p className={qUi.breadcrumb}>
+            <Link to={returnTo} className={qUi.breadcrumbLink}>
+              {returnLabel}
+            </Link>
+            {' · '}
+            {isNew ? '새 견적서' : '편집'}
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <PageTitleWithFavorite
             label={isNew ? '새 견적서' : (quoteNumber ?? '견적서')}
@@ -630,9 +645,9 @@ export function TeamQuotationEditorPage() {
             )}
             <Link
               to={returnTo}
-              className={`${qUi.btnGhost} py-2.5 touch-manipulation hidden sm:inline-flex lg:inline-flex`}
+              className={`${qUi.btnGhost} py-2.5 touch-manipulation inline-flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2`}
             >
-              돌아가기
+              {returnLabel}로 돌아가기
             </Link>
           </div>
         </div>

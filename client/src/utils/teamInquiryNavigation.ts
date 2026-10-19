@@ -6,7 +6,23 @@ export type TeamInquiryNavState = {
 };
 
 function isSafeTeamPath(path: string): boolean {
-  return path.startsWith('/team/') && !path.startsWith('//');
+  return path.startsWith('/team/') && !path.startsWith('//') && !path.includes('://');
+}
+
+/** 견적서 등에서 쿼리 `returnTo` — 팀 경로만 허용 */
+export function readTeamReturnTo(raw: string | null | undefined, fallback: string): string {
+  const path = raw?.trim() ?? '';
+  if (path && isSafeTeamPath(path)) return path;
+  return fallback;
+}
+
+/** 돌아갈 화면 이름. `openInquiry`가 있으면 접수 상세 */
+export function teamInquiryReturnLabel(returnTo: string): string {
+  if (returnTo.includes('openInquiry=')) return '접수 상세';
+  if (returnTo.startsWith('/team/schedule')) return '스케줄';
+  if (returnTo.startsWith('/team/dashboard')) return '대시보드';
+  if (returnTo.startsWith('/team/assignments')) return '배정목록';
+  return '이전';
 }
 
 /** 상세 모달 → 촬영·검수 이동 시 돌아올 URL (현재 목록 필터 + openInquiry) */
