@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
+import { CustomerOrderFormPreviewModal } from '../../components/orderform/CustomerOrderFormPreviewModal';
+import { getOrderFormPublicUrl } from '../../utils/orderFormCustomerCopy';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { useSuppressTeamMobileBottomNav } from '../../hooks/useSuppressTeamMobileBottomNav';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
@@ -293,6 +296,7 @@ export interface InquiryItem {
   createdBy?: { id: string; name: string; phone?: string | null } | null;
   orderForm?: {
     id?: string;
+    token?: string | null;
     submittedAt?: string | null;
     depositAmount?: number | null;
     totalAmount?: number | null;
@@ -1145,6 +1149,8 @@ export function TeamInquiryDetailModal({
   const { labels: timeSlotLabels } = useOrderFormTimeSlotLabels();
   const [item, setItem] = useState(initialItem);
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
+  const staffTenantSlug = useStaffTenantSlugForLinks(teamToken);
+  const [customerOrderOpen, setCustomerOrderOpen] = useState(false);
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
@@ -1414,6 +1420,21 @@ export function TeamInquiryDetailModal({
           }`}
         >
           <div className={`flex flex-col ${isExternalCompact ? 'gap-1' : 'gap-4'}`}>
+            {item.orderForm?.token ? (
+              <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setCustomerOrderOpen(true)}
+                  className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:bg-slate-100 disabled:pointer-events-none disabled:opacity-50"
+                  title="고객이 작성하고 서명한 발주서와 이용규정을 보여 줍니다."
+                >
+                  고객 발주서
+                </button>
+                <p className="mt-1 text-fluid-2xs leading-snug text-slate-500">
+                  현장에서 고객에게 서명한 발주서와 이용규정을 보여 줍니다.
+                </p>
+              </div>
+            ) : null}
             <TeamAssignedLeadersBlock item={item} viewerId={effectiveViewerId} compact={isExternalCompact} />
             {isExternalCompact ? (
               <>
@@ -2319,5 +2340,28 @@ export function TeamInquiryDetailModal({
     </div>
   );
 
-  return createPortal(modal, document.body);
+  return (
+    <>
+      {createPortal(modal, document.body)}
+      {item.orderForm?.token ? (
+        <CustomerOrderFormPreviewModal
+          open={customerOrderOpen}
+          onClose={() => setCustomerOrderOpen(false)}
+          url={getOrderFormPublicUrl(
+            item.orderForm.token,
+            undefined,
+            staffTenantSlug,
+            item.operatingCompany?.slug ?? null,
+          )}
+          customerName={item.customerName}
+          submitted={Boolean(item.orderForm.submittedAt)}
+          note={
+            item.orderForm.submittedAt
+              ? '고객이 제출하고 서명한 발주서입니다. 현장에서 이 화면을 보여 주세요. 여기서는 다시 제출되거나 메일이 나가지 않습니다.'
+              : '아직 제출 전입니다. 고객 화면을 보기만 하며, 여기서는 제출되지 않습니다.'
+          }
+        />
+      ) : null}
+    </>
+  );
 }

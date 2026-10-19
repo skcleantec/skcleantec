@@ -13,8 +13,10 @@ export function CustomerOrderFormPreviewModal(props: {
   url: string | null;
   customerName: string;
   submitted: boolean;
+  /** 팀장 현장 확인 등, 기본 안내 대신 쓸 한 줄 */
+  note?: string;
 }) {
-  const { open, onClose, url, customerName, submitted } = props;
+  const { open, onClose, url, customerName, submitted, note } = props;
 
   useEffect(() => {
     if (!open) return;
@@ -54,9 +56,10 @@ export function CustomerOrderFormPreviewModal(props: {
             {customerName}
           </p>
           <p className="mt-1 text-fluid-2xs leading-snug text-slate-500">
-            {submitted
-              ? '고객이 제출한 발주서 화면입니다. 여기서는 메일을 다시 보내지 않습니다.'
-              : '아직 제출 전입니다. 고객 화면을 보기만 하며, 여기서는 제출되지 않습니다.'}
+            {note ??
+              (submitted
+                ? '고객이 제출한 발주서 화면입니다. 여기서는 메일을 다시 보내지 않습니다.'
+                : '아직 제출 전입니다. 고객 화면을 보기만 하며, 여기서는 제출되지 않습니다.')}
           </p>
         </div>
         <iframe

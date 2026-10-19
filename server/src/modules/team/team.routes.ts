@@ -244,6 +244,7 @@ const teamInquiryInclude = {
   orderForm: {
     select: {
       id: true,
+      token: true,
       templateId: true,
       submittedAt: true,
       depositAmount: true,
@@ -338,6 +339,7 @@ const teamScheduleInquirySelect = {
   orderForm: {
     select: {
       id: true,
+      token: true,
       templateId: true,
       submittedAt: true,
       customerAnswers: true,
