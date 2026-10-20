@@ -56,42 +56,65 @@ export async function createCardPaymentIntent(input: {
   const fees = computeCardPaymentFees(amountWon, rates.tenantFeeBps, rates.platformCostBps);
   const clerkStamp = await pgClerkStampForTeamLeader(input.tenantId, input.userId);
   const goodsName = (input.goodsName ?? '').trim().slice(0, 80) || null;
-  const created = await prisma.cardPayment.create({
-    data: {
+  const method = input.method === 'CUSTOMER_LINK' ? 'CUSTOMER_LINK' : 'KEYIN';
+  const open = await prisma.cardPayment.findFirst({
+    where: {
       tenantId: input.tenantId,
       inquiryId: inquiry.id,
-      createdById: input.userId,
-      method: input.method === 'CUSTOMER_LINK' ? 'CUSTOMER_LINK' : 'KEYIN',
-      payRail: input.method,
-      payScreen: input.payScreen ?? null,
-      status: 'DRAFT',
-      amountWon: fees.amountWon,
-      tenantFeeBps: fees.tenantFeeBps,
-      platformCostBps: fees.platformCostBps,
-      tenantFeeWon: fees.tenantFeeWon,
-      platformCostWon: fees.platformCostWon,
-      platformSpreadWon: fees.platformSpreadWon,
-      tenantNetWon: fees.tenantNetWon,
-      customerName: inquiry.customerName,
-      goodsName,
-      customerPhoneMasked: maskCustomerPhone(inquiry.customerPhone),
-      inquiryNumber: inquiry.inquiryNumber,
-      pgClerkNo: clerkStamp?.pgClerkNo ?? null,
-      pgClerkCode: clerkStamp?.pgClerkCode ?? null,
+      method,
+      status: { in: ['DRAFT', 'AWAITING_PG', 'LINK_SENT'] },
     },
-    include: PAYMENT_INCLUDE,
+    orderBy: { createdAt: 'desc' },
   });
+  const paymentData = {
+    payRail: input.method,
+    payScreen: input.payScreen ?? null,
+    amountWon: fees.amountWon,
+    tenantFeeBps: fees.tenantFeeBps,
+    platformCostBps: fees.platformCostBps,
+    tenantFeeWon: fees.tenantFeeWon,
+    platformCostWon: fees.platformCostWon,
+    platformSpreadWon: fees.platformSpreadWon,
+    tenantNetWon: fees.tenantNetWon,
+    customerName: inquiry.customerName,
+    goodsName,
+    customerPhoneMasked: maskCustomerPhone(inquiry.customerPhone),
+    inquiryNumber: inquiry.inquiryNumber,
+    pgClerkNo: clerkStamp?.pgClerkNo ?? null,
+    pgClerkCode: clerkStamp?.pgClerkCode ?? null,
+  };
+  const created = open
+    ? await prisma.cardPayment.update({
+        where: { id: open.id },
+        data: paymentData,
+        include: PAYMENT_INCLUDE,
+      })
+    : await prisma.cardPayment.create({
+        data: {
+          tenantId: input.tenantId,
+          inquiryId: inquiry.id,
+          createdById: input.userId,
+          method,
+          status: 'DRAFT',
+          ...paymentData,
+        },
+        include: PAYMENT_INCLUDE,
+      });
   const merchant = await getDecryptedCredential(
     input.tenantId,
     input.method === 'CUSTOMER_LINK' ? 'LINK' : 'KEYIN',
   );
   const unique = created.id.replace(/-/g, '').slice(0, 16);
-  const pgOrderId = (merchant?.oid ? buildWspayOrderId(merchant.oid, unique) : null) ?? `cbp${unique}`;
-  const updated = await prisma.cardPayment.update({
-    where: { id: created.id },
-    data: { pgOrderId },
-    include: PAYMENT_INCLUDE,
-  });
+  const pgOrderId = created.pgOrderId
+    || (merchant?.oid ? buildWspayOrderId(merchant.oid, unique) : null)
+    || `cbp${unique}`;
+  const updated = created.pgOrderId
+    ? created
+    : await prisma.cardPayment.update({
+        where: { id: created.id },
+        data: { pgOrderId },
+        include: PAYMENT_INCLUDE,
+      });
   return { payment: serializeCardPayment(updated), suggestedAmountWon: defaultCardPaymentAmountWon(inquiry) };
 }
 

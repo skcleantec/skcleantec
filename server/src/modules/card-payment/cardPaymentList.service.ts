@@ -3,6 +3,38 @@ import { prisma } from '../../lib/prisma.js';
 import { syncKeyinCancelsFromPg } from './cardPaymentKeyinSync.service.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 
+const OPEN_STATUSES: CardPaymentStatus[] = ['DRAFT', 'AWAITING_PG', 'LINK_SENT'];
+const SETTLED_STATUSES: CardPaymentStatus[] = ['APPROVED', 'CANCELLED', 'FAILED'];
+
+/** 같은 접수·방식·금액이 이미 결재완료·취소·실패로 이어졌으면, 앞에 남은 작성 대기는 목록에서 뺀다. */
+export async function supersededOpenCardPaymentIds(tenantId?: string): Promise<string[]> {
+  const opens = await prisma.cardPayment.findMany({
+    where: { status: { in: OPEN_STATUSES }, ...(tenantId ? { tenantId } : {}) },
+    select: { id: true, inquiryId: true, method: true, amountWon: true, createdAt: true },
+  });
+  const inquiryIds = [...new Set(opens.map((row) => row.inquiryId).filter((id): id is string => Boolean(id)))];
+  if (inquiryIds.length === 0) return [];
+  const settled = await prisma.cardPayment.findMany({
+    where: {
+      ...(tenantId ? { tenantId } : {}),
+      inquiryId: { in: inquiryIds },
+      status: { in: SETTLED_STATUSES },
+    },
+    select: { inquiryId: true, method: true, amountWon: true, createdAt: true },
+  });
+  return opens
+    .filter((open) =>
+      settled.some(
+        (row) =>
+          row.inquiryId === open.inquiryId &&
+          row.method === open.method &&
+          row.amountWon === open.amountWon &&
+          row.createdAt.getTime() >= open.createdAt.getTime(),
+      ),
+    )
+    .map((row) => row.id);
+}
+
 export async function listCardPayments(input: {
   tenantId: string;
   createdById?: string;
@@ -14,7 +46,9 @@ export async function listCardPayments(input: {
   offset: number;
 }) {
   await syncKeyinCancelsFromPg(input.tenantId);
+  const hiddenIds = await supersededOpenCardPaymentIds(input.tenantId);
   const where: Prisma.CardPaymentWhereInput = { tenantId: input.tenantId };
+  if (hiddenIds.length > 0) where.id = { notIn: hiddenIds };
   if (input.createdById) where.createdById = input.createdById;
   if (input.pendingOnly) where.status = { in: ['DRAFT', 'AWAITING_PG', 'LINK_SENT'] };
   else if (input.status) where.status = input.status;
