@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { getPublicPaymentByToken } from './cardPaymentIntent.service.js';
-import { saveCredentialFromPlatform } from './cardPaymentCredential.service.js';
-import { saveSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
+import { saveCredentialFromPlatform, updateCredentialFromPartner } from './cardPaymentCredential.service.js';
+import { getPartnerMerchant, listPartnerMerchants, listPartnerPayments } from './pgPartnerMerchant.service.js';
+import { saveSellerCenterLogin, saveSellerCenterLoginId } from './cardPaymentSellerCenter.service.js';
 import {
   getOnboardingByReviewToken,
   listOnboardingsForPartner,
@@ -70,6 +71,69 @@ router.get('/pg-partner/refunds', async (req, res) => {
   res.json(await listPartnerRefunds());
 });
 
+router.get('/pg-partner/merchants', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  res.json({ items: await listPartnerMerchants() });
+});
+
+router.get('/pg-partner/merchants/:tenantId', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const row = await getPartnerMerchant(String(req.params.tenantId));
+  if (!row) {
+    res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(row);
+});
+
+router.put('/pg-partner/merchants/:tenantId', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+  if (body.cardNo || body.cardNumber || body.cvc) {
+    res.status(400).json({ error: '카드번호는 받지 않습니다.' });
+    return;
+  }
+  const tenantId = String(req.params.tenantId);
+  const merchant = await getPartnerMerchant(tenantId);
+  if (!merchant) {
+    res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
+    return;
+  }
+  const rail = body.rail === 'LINK' ? 'LINK' : body.rail === 'KEYIN' ? 'KEYIN' : '';
+  if (!rail) {
+    res.status(400).json({ error: '수기 또는 인증 중 어느 쪽인지 선택해 주세요.' });
+    return;
+  }
+  try {
+    const saved = await updateCredentialFromPartner({
+      tenantId,
+      rail,
+      apiKey: typeof body.apiKey === 'string' ? body.apiKey : '',
+      tid: typeof body.tid === 'string' ? body.tid : '',
+      mid: typeof body.mid === 'string' ? body.mid : '',
+      oid: typeof body.oid === 'string' ? body.oid : '',
+    });
+    const sellerLoginId = typeof body.sellerLoginId === 'string' ? body.sellerLoginId.trim() : '';
+    const sellerPassword = typeof body.sellerPassword === 'string' ? body.sellerPassword : '';
+    if (sellerLoginId && sellerPassword.trim()) {
+      await saveSellerCenterLogin(tenantId, sellerLoginId, sellerPassword);
+    } else if (sellerLoginId) {
+      await saveSellerCenterLoginId(tenantId, sellerLoginId);
+    }
+    res.json({ ok: true, rail, mid: saved.connected ? saved.mid : null, oid: saved.connected ? saved.oid : null, apiKeyLast4: saved.connected ? saved.apiKeyLast4 : null });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '가맹 정보를 저장하지 못했습니다.' });
+  }
+});
+
+router.get('/pg-partner/payments', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+  const offset = Math.max(0, Number(req.query.offset) || 0);
+  const status = typeof req.query.status === 'string' ? req.query.status : '';
+  res.json(await listPartnerPayments({ status, limit, offset }));
+});
+
 router.get('/pg-partner/applications', async (req, res) => {
   if (!requirePgPartner(req, res)) return;
   const items = await listOnboardingsForPartner();
@@ -104,15 +168,18 @@ router.post('/pg-partner/applications/:id/codes', async (req, res) => {
     res.status(400).json({ error: 'API 키 또는 결제창 mKey를 입력해 주세요. 카드번호는 받지 않습니다.' });
     return;
   }
-  let clerkCodes: string[];
-  try {
-    clerkCodes = parsePgClerkCodes(body.clerkCodes);
-  } catch (e) {
-    res.status(400).json({ error: e instanceof Error ? e.message : '고유번호 코드를 확인해 주세요.' });
-    return;
+  let clerkCodes: string[] = [];
+  const rawCodes = Array.isArray(body.clerkCodes) ? body.clerkCodes.map((code) => String(code ?? '').trim()) : [];
+  if (rawCodes.some((code) => code.length > 0)) {
+    try {
+      clerkCodes = parsePgClerkCodes(body.clerkCodes);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : '고유번호 코드를 확인해 주세요.' });
+      return;
+    }
   }
   try {
-    await saveIssuedPgClerkCodes(tenantId, clerkCodes);
+    if (clerkCodes.length > 0) await saveIssuedPgClerkCodes(tenantId, clerkCodes);
     const saved = await saveCredentialFromPlatform({
       tenantId,
       rail: apiKey.startsWith('ssp-') ? 'KEYIN' : 'LINK',

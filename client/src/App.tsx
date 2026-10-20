@@ -66,6 +66,7 @@ import {
   PgPartnerPage,
   PgPartnerShell,
   PgPartnerApplicationsPage,
+  PgPartnerMerchantsPage,
   PgPartnerRefundsPage,
   PlatformCardPaymentPage,
   PlatformCardChargePage,
@@ -516,6 +517,8 @@ function App() {
         <Route path="/pg-partner" element={<SuspensePage><PgPartnerPage /></SuspensePage>} />
         <Route element={<SuspensePage><PgPartnerShell /></SuspensePage>}>
           <Route path="/pg-partner/applications" element={<PgPartnerApplicationsPage />} />
+          <Route path="/pg-partner/merchants" element={<PgPartnerMerchantsPage />} />
+          <Route path="/pg-partner/payments" element={<PgPartnerRefundsPage />} />
           <Route path="/pg-partner/refunds" element={<PgPartnerRefundsPage />} />
         </Route>
         <Route path="/pg-join/:token" element={<SuspensePage><PgJoinReviewPage /></SuspensePage>} />

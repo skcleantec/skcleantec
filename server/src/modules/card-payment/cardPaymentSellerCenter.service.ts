@@ -25,6 +25,16 @@ export async function saveSellerCenterLogin(tenantId: string, loginId: string, p
   });
 }
 
+/** 비밀번호는 그대로 두고 아이디만 고친다. */
+export async function saveSellerCenterLoginId(tenantId: string, loginId: string) {
+  const id = loginId.trim().slice(0, 64);
+  if (!id) return;
+  await prisma.tenantPgOnboarding.updateMany({
+    where: { tenantId },
+    data: { sellerCenterLoginId: id },
+  });
+}
+
 /** 관리자 화면·취소 로그인 전용. 비밀번호 원문을 돌려준다. */
 export async function readSellerCenterLogin(tenantId: string) {
   const row = await prisma.tenantPgOnboarding.findFirst({

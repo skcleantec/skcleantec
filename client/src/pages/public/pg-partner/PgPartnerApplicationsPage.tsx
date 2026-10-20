@@ -169,7 +169,7 @@ function ApplicationCard({
           <input className={INPUT} type="password" value={sellerPassword} onChange={(e) => setSellerPassword(e.target.value)} autoComplete="new-password" />
         </label>
         <div className="sm:col-span-2">
-          <p className="text-fluid-2xs text-slate-500">고유번호 코드 15개. 원성 관리자가 여기에 넣습니다.</p>
+          <p className="text-fluid-2xs text-slate-500">고유번호 코드 15개. 지금 비워 두고 나중에 넣어도 됩니다.</p>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {clerkCodes.map((code, index) => (
               <label key={index} className="block">
@@ -189,8 +189,8 @@ function ApplicationCard({
           </div>
         </div>
         <p className="text-fluid-2xs text-slate-500 sm:col-span-2">수기 키는 ssp-로 시작합니다. 결제창 키는 mKey입니다. 카드번호는 적지 않습니다.</p>
-        <button type="submit" className={`${BTN} sm:col-span-2`} disabled={busy || !apiKey.trim() || !sellerLoginId.trim() || !sellerPassword.trim() || clerkCodes.some((code) => !code.trim())}>
-          {busy ? '연결 중' : '이 업체에 연결'}
+        <button type="submit" className={`${BTN} sm:col-span-2`} disabled={busy || !mid.trim() || !oid.trim() || !apiKey.trim() || !sellerLoginId.trim() || !sellerPassword.trim()}>
+          {busy ? '활성화 중' : '이 업체를 활성화'}
         </button>
       </form>
     </article>
@@ -200,6 +200,7 @@ function ApplicationCard({
 export function PgPartnerApplicationsPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<Application[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -225,14 +226,49 @@ export function PgPartnerApplicationsPage() {
     <div className="space-y-3">
       <div>
         <h1 className="text-fluid-base font-semibold text-slate-900">PG 신청</h1>
-        <p className="mt-1 text-fluid-xs text-slate-600">업체를 확인한 뒤 MID, OID, 키와 고유번호 코드 15개를 입력하면 그 업체에 바로 연결됩니다.</p>
+        <p className="mt-1 text-fluid-xs text-slate-600">업체를 누르면 신청 내용이 열리고, MID·OID·키를 넣어 활성화할 수 있습니다.</p>
       </div>
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
       {items && items.length === 0 ? (
         <p className="rounded-2xl border border-slate-200 bg-white px-4 py-8 text-center text-fluid-sm text-slate-500">접수된 PG 신청이 없습니다.</p>
       ) : null}
-      {items?.map((row) => (
+      {items && items.length > 0 ? (
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[640px] border-collapse text-fluid-xs">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                {['업체', '상태', '담당', '전화', '연결'].map((label) => (
+                  <th key={label} className="px-3 py-2 text-center font-medium">{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((row) => (
+                <tr
+                  key={row.id}
+                  className={selectedId === row.id ? 'bg-slate-100' : 'hover:bg-slate-50'}
+                >
+                  <td className="px-3 py-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(row.id)}
+                      className="font-medium text-slate-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                    >
+                      {row.businessName || row.tenantName}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2 text-center">{TENANT_PG_ONBOARDING_STATUS_LABEL[row.status as TenantPgOnboardingStatus] ?? row.status}</td>
+                  <td className="px-3 py-2 text-center">{row.contactName || '—'}</td>
+                  <td className="px-3 py-2 text-center">{row.contactPhone || '—'}</td>
+                  <td className="px-3 py-2 text-center">{row.connected ? '연결됨' : '대기'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {items?.filter((row) => row.id === selectedId).map((row) => (
         <ApplicationCard
           key={row.id}
           row={row}

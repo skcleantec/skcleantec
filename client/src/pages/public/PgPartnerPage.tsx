@@ -43,7 +43,7 @@ export function PgPartnerPage() {
           }}
         >
           <h1 className="text-fluid-base font-semibold text-slate-900">원성페이먼츠</h1>
-          <p className="mt-1 text-fluid-xs text-slate-600">PG 신청과 취소·환불을 확인하는 화면입니다.</p>
+          <p className="mt-1 text-fluid-xs text-slate-600">PG 신청, 사용 중 업체, 결제 내역을 확인하는 화면입니다.</p>
           <label className="mt-4 block">
             <span className="text-fluid-2xs text-slate-500">아이디</span>
             <input className={INPUT} value={loginId} onChange={(e) => setLoginId(e.target.value)} autoComplete="username" />

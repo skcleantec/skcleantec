@@ -74,7 +74,7 @@ export function PgPartnerShell() {
           <p className="text-fluid-sm font-semibold text-slate-900">원성페이먼츠</p>
         </header>
         <main ref={scrollRef} onFocusCapture={onFieldFocus} className="login-surface min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl px-3 py-4 sm:px-6 sm:py-6">
+          <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
             <Suspense fallback={<p className="text-fluid-sm text-slate-500">불러오는 중…</p>}>
               <Outlet />
             </Suspense>
