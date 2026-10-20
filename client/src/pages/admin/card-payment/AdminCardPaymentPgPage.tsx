@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
-import { CardPaymentLedger } from '../../../components/admin/card-payment/CardPaymentLedger';
+import { PgConnectionSheet, type SellerCenterView } from '../../../components/admin/card-payment/PgConnectionSheet';
 import { PgOnboardingForm } from '../../../components/admin/card-payment/PgOnboardingForm';
 import {
   canOpenPgApplication,
@@ -51,8 +51,9 @@ function AdminCardPaymentPgInner() {
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, applying);
   const [row, setRow] = useState<PgOnboardingRow | null>(null);
   const [connected, setConnected] = useState(false);
-  const [keyinLine, setKeyinLine] = useState('수기 · 아직 없음');
-  const [linkLine, setLinkLine] = useState('링크 · 아직 없음');
+  const [keyin, setKeyin] = useState<TenantPgCredentialSlot | undefined>();
+  const [link, setLink] = useState<TenantPgCredentialSlot | undefined>();
+  const [seller, setSeller] = useState<SellerCenterView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -65,8 +66,9 @@ function AdminCardPaymentPgInner() {
       .then((res) => {
         setRow(res.onboarding);
         setConnected(res.credential.connected);
-        setKeyinLine(merchantLine('수기', res.credentials?.keyin));
-        setLinkLine(merchantLine('링크', res.credentials?.link));
+        setKeyin(res.credentials?.keyin);
+        setLink(res.credentials?.link);
+        setSeller(res.sellerCenter ?? null);
         setError(null);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '불러오지 못했습니다.'))
@@ -74,6 +76,8 @@ function AdminCardPaymentPgInner() {
   }, []);
 
   const view = pgConnectionView(connected, row?.status);
+  const keyinLine = merchantLine('수기', keyin);
+  const linkLine = merchantLine('링크', link);
   const detail =
     view === '연결됨'
       ? [keyinLine, linkLine].join(' / ')
@@ -126,15 +130,17 @@ function AdminCardPaymentPgInner() {
     return (
       <div className="min-w-0 w-full max-w-full space-y-3 pb-8">
         <div className="min-w-0">
-          <PageTitleWithFavorite label="PG신청">
-            <h1 className="text-xl font-semibold text-gray-800">PG신청</h1>
+          <PageTitleWithFavorite label="PG 연동">
+            <h1 className="text-xl font-semibold text-gray-800">PG 연동</h1>
           </PageTitleWithFavorite>
-          <p className="mt-2 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-fluid-xs font-medium text-emerald-800">
-            연결됨{detail ? ` · ${detail}` : ''}
-          </p>
         </div>
         {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
-        <CardPaymentLedger />
+        <PgConnectionSheet
+          businessName={row?.businessName || ''}
+          keyin={keyin}
+          link={link}
+          seller={seller}
+        />
       </div>
     );
   }

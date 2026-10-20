@@ -5,11 +5,12 @@ import { paysisSha256, requestPaysisPaymentWindow } from './paysisWindow.adapter
 import { resolveWindowMerchant } from './cardPaymentMerchant.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
+import { notifyCardPaymentApproved } from './cardPaymentPaidNotify.js';
 import { hashLinkToken } from './cardPayment.mask.js';
 
 const PAYMENT_INCLUDE = {
   createdBy: { select: { id: true, name: true } },
-  inquiry: { select: { id: true, inquiryNumber: true, customerName: true } },
+  inquiry: { select: { id: true, inquiryNumber: true, customerName: true, customerPhone: true } },
 } as const;
 
 function windowUrls() {
@@ -131,6 +132,7 @@ export async function applyPaysisNotification(body: unknown): Promise<'SUCCESS' 
         failReason: null,
       },
     });
+    await notifyCardPaymentApproved(row.tenantId, row.inquiryId);
   }
   return 'SUCCESS';
 }

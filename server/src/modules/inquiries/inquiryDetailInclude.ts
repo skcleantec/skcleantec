@@ -1,3 +1,4 @@
+import { approvedCardPaymentFlag } from '../card-payment/cardPaymentInquiryFlag.js';
 import { operatingCompanySummarySelect } from '../operating-companies/operatingCompanyPublicSummary.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 
@@ -76,4 +77,5 @@ export const inquiryDetailInclude = {
     orderBy: { sortOrder: 'asc' as const },
     include: { createdBy: { select: { id: true, name: true } } },
   },
+  ...approvedCardPaymentFlag,
 } as const;

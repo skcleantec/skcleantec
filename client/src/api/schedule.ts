@@ -25,6 +25,8 @@ export interface ScheduleItem {
   customerName: string;
   nickname?: string | null;
   customerPhone: string;
+  /** 승인된 카드결재가 있으면 1건. 없으면 빈 배열. */
+  cardPayments?: { id: string }[];
   customerPhone2?: string | null;
   address: string;
   addressDetail: string | null;

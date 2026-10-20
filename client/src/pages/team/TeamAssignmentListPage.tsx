@@ -40,6 +40,7 @@ import {
   teamInquiryCollectibleAmount,
 } from './teamInquiryShared';
 import { TeamInquiryIntakeListChips } from '../../components/team/TeamInquiryIntakeAnswers';
+import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../../components/card-payment/CardPaymentDoneMark';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
@@ -552,6 +553,7 @@ export function TeamAssignmentListPage() {
                           <span className={TEAM_CARD_TITLE} title={primaryLabel}>
                             {primaryLabel}
                           </span>
+                          <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
                           <TeamInquiryServiceKindListBadge item={item} />
                           {item.claimMemo ? (
                             <span
@@ -767,6 +769,7 @@ export function TeamAssignmentListPage() {
                                   </span>
                                 ) : null}
                               </span>
+                              <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
                               <TeamInquirySpecialNotesListBadge item={item} className="align-middle" />
                             </div>
                             {memoSubtitle ? (

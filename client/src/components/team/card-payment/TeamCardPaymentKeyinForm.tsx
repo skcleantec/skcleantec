@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { TeamCardPaymentAmountFields } from './TeamCardPaymentAmountFields';
 import { TEAM_PAY_BTN, TEAM_PAY_FIELD, TEAM_PAY_LABEL } from './teamCardPaymentUi';
 
 const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
@@ -32,16 +33,22 @@ const EMPTY: TeamKeyinCard = {
 
 export function TeamCardPaymentKeyinForm({
   amount,
+  extra,
   goodsName,
+  totalWon,
   busy,
   onAmountChange,
+  onExtraChange,
   onGoodsNameChange,
   onSubmit,
 }: {
   amount: string;
+  extra: string;
   goodsName: string;
+  totalWon: number;
   busy: boolean;
   onAmountChange: (value: string) => void;
+  onExtraChange: (value: string) => void;
   onGoodsNameChange: (value: string) => void;
   onSubmit: (card: TeamKeyinCard) => void;
 }) {
@@ -54,24 +61,15 @@ export function TeamCardPaymentKeyinForm({
 
   return (
     <form className="space-y-3" autoComplete="off" onSubmit={submit}>
-      <label className={TEAM_PAY_LABEL}>
-        결제 금액
-        <input
-          inputMode="numeric"
-          className={`${TEAM_PAY_FIELD} tabular-nums`}
-          value={amount}
-          onChange={(e) => onAmountChange(e.target.value.replace(/[^\d]/g, ''))}
-        />
-      </label>
-      <label className={TEAM_PAY_LABEL}>
-        결제 내용
-        <input
-          className={TEAM_PAY_FIELD}
-          maxLength={80}
-          value={goodsName}
-          onChange={(e) => onGoodsNameChange(e.target.value)}
-        />
-      </label>
+      <TeamCardPaymentAmountFields
+        amount={amount}
+        extra={extra}
+        goodsName={goodsName}
+        totalWon={totalWon}
+        onAmountChange={onAmountChange}
+        onExtraChange={onExtraChange}
+        onGoodsNameChange={onGoodsNameChange}
+      />
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
         <div>
           <p className="text-fluid-xs font-semibold text-slate-800">카드 정보</p>

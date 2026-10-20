@@ -109,9 +109,9 @@ export const CARD_PAYMENT_METHOD_LABEL: Record<CardPaymentMethod, string> = {
 };
 
 export const CARD_PAYMENT_STATUS_LABEL: Record<CardPaymentStatus, string> = {
-  DRAFT: '작성중',
+  DRAFT: '작성 대기',
   AWAITING_PG: 'PG 대기',
-  LINK_SENT: '링크 발송',
+  LINK_SENT: '결제 대기',
   APPROVED: '결재완료',
   CANCELLED: '취소',
   FAILED: '실패',

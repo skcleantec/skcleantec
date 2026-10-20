@@ -1,9 +1,13 @@
 import type { CardPayment, TenantPgOnboarding, TenantPgCredential } from '@prisma/client';
 
+function kstYmd(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(date);
+}
+
 export function serializeCardPayment(
   row: CardPayment & {
     createdBy?: { id: string; name: string } | null;
-    inquiry?: { id: string; inquiryNumber: string | null; customerName: string } | null;
+    inquiry?: { id: string; inquiryNumber: string | null; customerName: string; customerPhone?: string | null } | null;
   },
 ) {
   return {
@@ -20,7 +24,8 @@ export function serializeCardPayment(
     platformCostWon: row.platformCostWon,
     platformSpreadWon: row.platformSpreadWon,
     tenantNetWon: row.tenantNetWon,
-    customerName: row.customerName,
+    customerName: row.customerName || row.inquiry?.customerName || '',
+    customerPhone: row.inquiry?.customerPhone?.trim() || row.customerPhoneMasked,
     customerPhoneMasked: row.customerPhoneMasked,
     cardLast4: row.cardLast4,
     approvalNo: row.approvalNo,
@@ -29,6 +34,7 @@ export function serializeCardPayment(
     pgClerkCode: row.pgClerkCode,
     paidAt: row.paidAt?.toISOString() ?? null,
     failReason: row.failReason,
+    cancelable: row.status === 'APPROVED' && row.paidAt != null && kstYmd(row.paidAt) === kstYmd(new Date()),
     createdAt: row.createdAt.toISOString(),
     createdBy: row.createdBy
       ? { id: row.createdBy.id, name: row.createdBy.name }

@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { newWebhookEventId } from './cardPaymentIntent.service.js';
+import { notifyCardPaymentApproved } from './cardPaymentPaidNotify.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 
 /**
@@ -28,7 +29,7 @@ export async function applyWspayWebhook(body: unknown, rawBody: string) {
     where: { pgOrderId },
     include: {
       createdBy: { select: { id: true, name: true } },
-      inquiry: { select: { id: true, inquiryNumber: true, customerName: true } },
+      inquiry: { select: { id: true, inquiryNumber: true, customerName: true, customerPhone: true } },
     },
   });
   if (!row) {
@@ -41,6 +42,7 @@ export async function applyWspayWebhook(body: unknown, rawBody: string) {
     return { ok: true as const, ignored: true as const };
   }
 
+  const wasApproved = row.status === 'APPROVED';
   const updated = await prisma.cardPayment.update({
     where: { id: row.id },
     data: {
@@ -51,8 +53,9 @@ export async function applyWspayWebhook(body: unknown, rawBody: string) {
     },
     include: {
       createdBy: { select: { id: true, name: true } },
-      inquiry: { select: { id: true, inquiryNumber: true, customerName: true } },
+      inquiry: { select: { id: true, inquiryNumber: true, customerName: true, customerPhone: true } },
     },
   });
+  if (approved && !wasApproved) await notifyCardPaymentApproved(updated.tenantId, updated.inquiryId);
   return { ok: true as const, payment: serializeCardPayment(updated) };
 }

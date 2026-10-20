@@ -10,11 +10,12 @@ import { serializeCardPayment } from './cardPayment.serialize.js';
 import { requestWspayPaymentLink, resolveWspayHostedWindowUrl } from './wspayAdapter.js';
 import { chargeWspayKeyin, parseUsageFeeKeyinBody } from './cardPaymentUsageFeeKeyin.service.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
+import { notifyCardPaymentApproved } from './cardPaymentPaidNotify.js';
 import { pgClerkStampForTeamLeader } from './pgClerk.service.js';
 
 const PAYMENT_INCLUDE = {
   createdBy: { select: { id: true, name: true } },
-  inquiry: { select: { id: true, inquiryNumber: true, customerName: true } },
+  inquiry: { select: { id: true, inquiryNumber: true, customerName: true, customerPhone: true } },
 } as const;
 
 export async function loadInquiryForCardPayment(tenantId: string, inquiryId: string) {
@@ -141,6 +142,7 @@ export async function confirmKeyin(input: {
     },
     include: PAYMENT_INCLUDE,
   });
+  if (approved) await notifyCardPaymentApproved(input.tenantId, updated.inquiryId);
   return {
     payment: serializeCardPayment(updated),
     ok: approved,

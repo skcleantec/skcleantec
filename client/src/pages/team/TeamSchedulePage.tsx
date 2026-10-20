@@ -17,6 +17,7 @@ import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
 import { LineMdIcon } from '../../components/ui/LineMdIcon';
+import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../../components/card-payment/CardPaymentDoneMark';
 import {
   formatDateCompactWithWeekday,
   formatPreferredDateInputYmd,
@@ -240,6 +241,7 @@ export function TeamSchedulePage() {
               <span className={TEAM_CARD_TITLE} title={primaryLabel}>
                 {primaryLabel}
               </span>
+              <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
               <TeamInquiryServiceKindListBadge item={item} />
               <TeamInquiryAreaListBadge item={item} />
               <TeamInquiryIntakeListChips item={item} />

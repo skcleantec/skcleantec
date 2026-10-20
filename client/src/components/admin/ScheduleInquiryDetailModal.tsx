@@ -10,6 +10,7 @@ import {
   updateInquiry,
 } from '../../api/inquiries';
 import { createOrderFollowup } from '../../api/orderFollowups';
+import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../card-payment/CardPaymentDoneMark';
 import {
   getAssignableScheduleUsers,
   type AssignableScheduleUsersResponse,
@@ -683,6 +684,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [preferredDateCalOpen, setPreferredDateCalOpen] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<InquiryChangeLogEntry[]>([]);
   const [historyLogsLoading, setHistoryLogsLoading] = useState(false);
+  const [cardPaid, setCardPaid] = useState(false);
+  useEffect(() => {
+    setCardPaid(inquiryHasApprovedCardPayment(item ?? {}));
+  }, [item?.id]);
   const [orderFormPhotoId, setOrderFormPhotoId] = useState<string | null>(
     !isCreate ? props.item.orderForm?.id ?? null : null
   );
@@ -843,6 +848,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     void getInquiry(token, item.id)
       .then((data) => {
         if (cancelled) return;
+        setCardPaid(inquiryHasApprovedCardPayment(data as { cardPayments?: { id: string }[] }));
         const raw = (data as { changeLogs?: InquiryChangeLogEntry[] }).changeLogs;
         setHistoryLogs(Array.isArray(raw) ? raw : []);
         const freshOrderForm =
@@ -2504,6 +2510,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     viewerRole={meUser?.role}
                     nameClassName="min-w-0 truncate text-fluid-sm font-semibold text-gray-900 sm:text-fluid-base lg:text-base"
                   />
+                  <CardPaymentDoneMark paid={cardPaid} />
                   <PropertyTypeSticker
                     propertyType={editForm.propertyType?.trim() || item.propertyType}
                     isOneRoom={editForm.isOneRoom}

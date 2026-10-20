@@ -48,6 +48,8 @@ export function PgJoinReviewPage() {
   const [oid, setOid] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [tid, setTid] = useState('');
+  const [sellerLoginId, setSellerLoginId] = useState('');
+  const [sellerPassword, setSellerPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
@@ -114,7 +116,7 @@ export function PgJoinReviewPage() {
                   void fetch(`/api/public/card-payment/pg-join/${encodeURIComponent(token)}/codes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mid, oid, apiKey, tid }),
+                    body: JSON.stringify({ mid, oid, apiKey, tid, sellerLoginId, sellerPassword }),
                   })
                     .then(async (res) => {
                       const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -143,8 +145,16 @@ export function PgJoinReviewPage() {
                   <span className="text-fluid-2xs text-slate-500">TID (비우면 MID와 같게 저장)</span>
                   <input className={INPUT} value={tid} onChange={(e) => setTid(e.target.value)} autoComplete="off" />
                 </label>
+                <label className="block">
+                  <span className="text-fluid-2xs text-slate-500">판매자센터 아이디</span>
+                  <input className={INPUT} value={sellerLoginId} onChange={(e) => setSellerLoginId(e.target.value)} autoComplete="off" />
+                </label>
+                <label className="block">
+                  <span className="text-fluid-2xs text-slate-500">판매자센터 비밀번호</span>
+                  <input className={INPUT} type="password" value={sellerPassword} onChange={(e) => setSellerPassword(e.target.value)} autoComplete="new-password" />
+                </label>
                 <p className="text-fluid-2xs text-slate-500">수기 키는 ssp-로 시작합니다. 결제창 키는 mKey입니다. 카드번호는 적지 않습니다.</p>
-                <button type="submit" className={BTN} disabled={busy || !apiKey.trim()}>
+                <button type="submit" className={BTN} disabled={busy || !apiKey.trim() || !sellerLoginId.trim() || !sellerPassword.trim()}>
                   {busy ? '연결 중' : '이 업체에 연결'}
                 </button>
               </form>

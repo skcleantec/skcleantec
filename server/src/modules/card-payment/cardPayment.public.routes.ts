@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPublicPaymentByToken } from './cardPaymentIntent.service.js';
 import { saveCredentialFromPlatform } from './cardPaymentCredential.service.js';
+import { saveSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
 import {
   getOnboardingByReviewToken,
   listOnboardingsForPartner,
@@ -120,6 +121,9 @@ router.post('/pg-partner/applications/:id/codes', async (req, res) => {
       mid,
       oid,
     });
+    const sellerLoginId = typeof body.sellerLoginId === 'string' ? body.sellerLoginId : '';
+    const sellerPassword = typeof body.sellerPassword === 'string' ? body.sellerPassword : '';
+    await saveSellerCenterLogin(tenantId, sellerLoginId, sellerPassword);
     res.json({
       ok: true,
       mid: saved.connected ? saved.mid : null,
@@ -190,6 +194,9 @@ router.post('/pg-join/:token/codes', async (req, res) => {
       mid,
       oid,
     });
+    const sellerLoginId = typeof body.sellerLoginId === 'string' ? body.sellerLoginId : '';
+    const sellerPassword = typeof body.sellerPassword === 'string' ? body.sellerPassword : '';
+    await saveSellerCenterLogin(row.tenantId, sellerLoginId, sellerPassword);
     res.json({ ok: true, mid: saved.connected ? saved.mid : null, oid: saved.connected ? saved.oid : null });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '코드를 연결하지 못했습니다.' });

@@ -7,15 +7,18 @@ import {
   createCardPayment,
   fetchCardPaymentPrefill,
 } from '../../api/cardPayment';
+import { TeamCardPaymentAmountFields } from '../../components/team/card-payment/TeamCardPaymentAmountFields';
 import { TeamCardPaymentKeyinForm, type TeamKeyinCard } from '../../components/team/card-payment/TeamCardPaymentKeyinForm';
 import { TeamCardPaymentShareSheet } from '../../components/team/card-payment/TeamCardPaymentShareSheet';
-import { TEAM_PAY_BTN, TEAM_PAY_FIELD, TEAM_PAY_LABEL } from '../../components/team/card-payment/teamCardPaymentUi';
+import { CardPaymentApprovedAlert } from '../../components/card-payment/CardPaymentApprovedAlert';
+import { TEAM_PAY_BTN } from '../../components/team/card-payment/teamCardPaymentUi';
 import { LineMdIcon } from '../../components/ui/LineMdIcon';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import { teamBiPlain } from '../../i18n/team/teamI18n';
 import { getToken } from '../../stores/auth';
 import { getTeamToken } from '../../stores/teamAuth';
+import { buildCardPaymentShareMessage } from '../../utils/cardPaymentShare';
 import { copyTextToClipboard } from '../../utils/clipboard';
 
 type Step = 'pick' | 'keyin' | 'auth' | 'link' | 'paid';
@@ -36,7 +39,9 @@ export function TeamCardPaymentPage() {
   const [step, setStep] = useState<Step>('pick');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [amount, setAmount] = useState('');
+  const [extraAmount, setExtraAmount] = useState('');
   const [goodsName, setGoodsName] = useState('청소비');
   const [linkUrl, setLinkUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -58,14 +63,23 @@ export function TeamCardPaymentPage() {
         setLinkConnected(res.linkConnected);
         setCustomerName(res.customerName);
         setCustomerPhone(res.customerPhone || '');
+        setCompanyName(res.companyName || '');
         setAmount(String(res.amountWon || 0));
         setGoodsName(res.customerName ? `${res.customerName} 청소비` : '청소비');
       })
       .catch(() => setPgConnected(false));
   }, [inquiryId]);
 
-  const amountWon = Math.round(Number(amount.replace(/[^\d]/g, '')) || 0);
-  const shareMessage = `${customerName || '고객'} 고객님\n${goodsName.trim() || '청소비'}\n${formatWon(amountWon)}\n${linkUrl}`;
+  const baseWon = Math.round(Number(amount.replace(/[^\d]/g, '')) || 0);
+  const extraWon = Math.round(Number(extraAmount.replace(/[^\d]/g, '')) || 0);
+  const amountWon = baseWon + extraWon;
+  const shareMessage = buildCardPaymentShareMessage({
+    customerName,
+    companyName,
+    goodsName,
+    amountLabel: formatWon(amountWon),
+    linkUrl,
+  });
 
   const goPick = () => {
     setStep('pick');
@@ -132,36 +146,38 @@ export function TeamCardPaymentPage() {
   };
 
   return (
-    <div
-      ref={scrollRef}
-      onFocusCapture={onFieldFocus}
-      className="login-surface flex min-h-dvh flex-col overflow-y-auto overscroll-y-contain bg-slate-100 px-4 py-6"
-    >
+    <div className="login-surface flex min-h-dvh flex-col bg-slate-100">
+      <CardPaymentApprovedAlert token={readToken()} enabled />
+      <header className="sticky top-0 z-30 flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+        {step === 'pick' ? (
+          <Link
+            to="/team/schedule"
+            className="flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+            aria-label="팀 일정으로"
+          >
+            <LineMdIcon name="chevron-left" className="size-5" />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:opacity-50"
+            onClick={goPick}
+            aria-label="다시 고르기"
+          >
+            <LineMdIcon name="chevron-left" className="size-5" />
+          </button>
+        )}
+        <div className="min-w-0">
+          <p className="text-fluid-sm font-semibold text-slate-900">카드결재</p>
+          {customerName ? <p className="truncate text-fluid-2xs text-slate-500">{customerName}</p> : null}
+        </div>
+      </header>
+      <div
+        ref={scrollRef}
+        onFocusCapture={onFieldFocus}
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 py-4"
+      >
       <div className="login-scroll-content m-auto flex w-full max-w-md flex-col gap-3">
-        <header className="flex items-center gap-2">
-          {step === 'pick' ? (
-            <Link
-              to="/team/schedule"
-              className="flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-              aria-label="팀 일정으로"
-            >
-              <LineMdIcon name="chevron-left" className="size-5" />
-            </Link>
-          ) : (
-            <button
-              type="button"
-              className="flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-              onClick={goPick}
-              aria-label="다시 고르기"
-            >
-              <LineMdIcon name="chevron-left" className="size-5" />
-            </button>
-          )}
-          <div className="min-w-0">
-            <p className="text-fluid-sm font-semibold text-slate-900">카드결재</p>
-            {customerName ? <p className="truncate text-fluid-2xs text-slate-500">{customerName}</p> : null}
-          </div>
-        </header>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           {customerName ? (
@@ -197,6 +213,9 @@ export function TeamCardPaymentPage() {
                   setStep('keyin');
                 }}
               >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15">
+                  <LineMdIcon name="confirm" className="size-5" />
+                </span>
                 <span className="min-w-0">
                   <span className="block text-fluid-sm font-semibold">수기결재</span>
                   <span className="block text-fluid-2xs font-normal text-slate-200">현장에서 카드를 받아 바로 승인</span>
@@ -210,6 +229,9 @@ export function TeamCardPaymentPage() {
                   setStep('auth');
                 }}
               >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-800">
+                  <LineMdIcon name="link" className="size-5" />
+                </span>
                 <span className="min-w-0">
                   <span className="block text-fluid-sm font-semibold">인증결재</span>
                   <span className="block text-fluid-2xs font-normal text-slate-500">링크를 만들어 고객에게 보냄</span>
@@ -222,9 +244,12 @@ export function TeamCardPaymentPage() {
             <div className="mt-3">
               <TeamCardPaymentKeyinForm
                 amount={amount}
+                extra={extraAmount}
                 goodsName={goodsName}
+                totalWon={amountWon}
                 busy={busy}
                 onAmountChange={setAmount}
+                onExtraChange={setExtraAmount}
                 onGoodsNameChange={setGoodsName}
                 onSubmit={approveKeyin}
               />
@@ -233,30 +258,22 @@ export function TeamCardPaymentPage() {
 
           {step === 'auth' ? (
             <div className="mt-3 space-y-3">
-              <label className={TEAM_PAY_LABEL}>
-                결제 금액
-                <input
-                  inputMode="numeric"
-                  className={`${TEAM_PAY_FIELD} tabular-nums`}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-                />
-              </label>
-              <label className={TEAM_PAY_LABEL}>
-                결제 내용
-                <input
-                  className={TEAM_PAY_FIELD}
-                  maxLength={80}
-                  value={goodsName}
-                  onChange={(e) => setGoodsName(e.target.value)}
-                />
-              </label>
+              <TeamCardPaymentAmountFields
+                amount={amount}
+                extra={extraAmount}
+                goodsName={goodsName}
+                totalWon={amountWon}
+                onAmountChange={setAmount}
+                onExtraChange={setExtraAmount}
+                onGoodsNameChange={setGoodsName}
+              />
               <button
                 type="button"
                 disabled={busy || amountWon < 100}
                 className={`${TEAM_PAY_BTN} bg-slate-900 text-white hover:bg-slate-800`}
                 onClick={makeLink}
               >
+                <LineMdIcon name="link" className="size-4" />
                 {busy ? '만드는 중' : '링크 만들기'}
               </button>
             </div>
@@ -265,15 +282,15 @@ export function TeamCardPaymentPage() {
           {step === 'link' && linkUrl ? (
             <div className="mt-3 space-y-3">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-fluid-xs text-slate-600">{goodsName.trim() || '청소비'}</p>
-                <p className="mt-1 text-fluid-lg font-semibold tabular-nums text-slate-900">{formatWon(amountWon)}</p>
-                <p className="mt-2 break-all text-fluid-2xs text-slate-700">{linkUrl}</p>
+                <p className="text-fluid-2xs font-medium text-slate-500">고객에게 전달되는 문구</p>
+                <p className="mt-2 whitespace-pre-wrap break-all text-fluid-xs leading-relaxed text-slate-800">{shareMessage}</p>
               </div>
               <button
                 type="button"
                 className={`${TEAM_PAY_BTN} bg-slate-900 text-white hover:bg-slate-800`}
                 onClick={() => setShareOpen(true)}
               >
+                <LineMdIcon name="chat" className="size-4" />
                 공유하기
               </button>
               <button
@@ -302,6 +319,7 @@ export function TeamCardPaymentPage() {
             </div>
           ) : null}
         </section>
+      </div>
       </div>
       <TeamCardPaymentShareSheet
         open={shareOpen}

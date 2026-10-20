@@ -55,6 +55,8 @@ function ApplicationCard({
   const [oid, setOid] = useState(row.oid ?? '');
   const [apiKey, setApiKey] = useState('');
   const [tid, setTid] = useState('');
+  const [sellerLoginId, setSellerLoginId] = useState('');
+  const [sellerPassword, setSellerPassword] = useState('');
   const [clerkCodes, setClerkCodes] = useState<string[]>(
     row.clerkCodes?.length === 15 ? row.clerkCodes : Array.from({ length: 15 }, () => ''),
   );
@@ -112,7 +114,7 @@ function ApplicationCard({
           void fetch(`/api/public/card-payment/pg-partner/applications/${encodeURIComponent(row.id)}/codes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${readPgPartnerToken()}` },
-            body: JSON.stringify({ mid, oid, apiKey, tid, clerkCodes }),
+            body: JSON.stringify({ mid, oid, apiKey, tid, clerkCodes, sellerLoginId, sellerPassword }),
           })
             .then(async (res) => {
               const body = (await res.json().catch(() => null)) as {
@@ -129,6 +131,7 @@ function ApplicationCard({
               }
               if (!res.ok) throw new Error(body?.error || '코드를 연결하지 못했습니다.');
               setApiKey('');
+              setSellerPassword('');
               setDone('이 업체에 연결했습니다.');
               onSaved(row.id, {
                 mid: body?.mid ?? mid,
@@ -157,6 +160,14 @@ function ApplicationCard({
           <span className="text-fluid-2xs text-slate-500">TID (비우면 MID와 같게 저장)</span>
           <input className={INPUT} value={tid} onChange={(e) => setTid(e.target.value)} autoComplete="off" />
         </label>
+        <label className="block sm:col-span-2">
+          <span className="text-fluid-2xs text-slate-500">판매자센터 아이디</span>
+          <input className={INPUT} value={sellerLoginId} onChange={(e) => setSellerLoginId(e.target.value)} autoComplete="off" />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="text-fluid-2xs text-slate-500">판매자센터 비밀번호</span>
+          <input className={INPUT} type="password" value={sellerPassword} onChange={(e) => setSellerPassword(e.target.value)} autoComplete="new-password" />
+        </label>
         <div className="sm:col-span-2">
           <p className="text-fluid-2xs text-slate-500">고유번호 코드 15개. 원성 관리자가 여기에 넣습니다.</p>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -178,7 +189,7 @@ function ApplicationCard({
           </div>
         </div>
         <p className="text-fluid-2xs text-slate-500 sm:col-span-2">수기 키는 ssp-로 시작합니다. 결제창 키는 mKey입니다. 카드번호는 적지 않습니다.</p>
-        <button type="submit" className={`${BTN} sm:col-span-2`} disabled={busy || !apiKey.trim() || clerkCodes.some((code) => !code.trim())}>
+        <button type="submit" className={`${BTN} sm:col-span-2`} disabled={busy || !apiKey.trim() || !sellerLoginId.trim() || !sellerPassword.trim() || clerkCodes.some((code) => !code.trim())}>
           {busy ? '연결 중' : '이 업체에 연결'}
         </button>
       </form>

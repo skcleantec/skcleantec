@@ -13,6 +13,7 @@ import {
   type ProfileOnboardingInitial,
 } from '../common/ProfileOnboardingModal';
 import { RosterAckBanner } from '../common/RosterAckBanner';
+import { CardPaymentApprovedAlert } from '../card-payment/CardPaymentApprovedAlert';
 import { ChangeLogBell } from '../admin/ChangeLogBell';
 import { ScheduleAlertSiren } from '../admin/ScheduleAlertSiren';
 import { TeamScheduleAlertBanner } from '../team/TeamScheduleAlertBanner';
@@ -773,6 +774,7 @@ export function TeamLayout() {
     <StaffAppUpdateProvider>
     <NavFavoritesProvider app="team" tenantSlug={tenantSlug} userId={viewerUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
+      <CardPaymentApprovedAlert token={teamToken} enabled={Boolean(teamToken)} />
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 max-lg:bg-[#edf0f5]" aria-hidden="true">
         <div className="hidden lg:block absolute -top-[20%] -left-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-indigo-500/16 to-purple-500/10 blur-[100px] opacity-80" />

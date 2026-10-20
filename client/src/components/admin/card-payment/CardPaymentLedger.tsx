@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CARD_PAYMENT_STATUS_LABEL, CARD_PAYMENT_STATUSES } from '@shared/cardPayment';
-import { fetchCardPaymentList, type CardPaymentListResponse } from '../../../api/cardPayment';
+import { fetchCardPaymentList, fetchTenantPgState, type CardPaymentListResponse } from '../../../api/cardPayment';
+import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
 import { getToken } from '../../../stores/auth';
 import { YearMonthSelect, YmdSelect } from '../../ui/DateQuerySelects';
 import { ListPaginationBar } from '../../ui/ListPaginationBar';
@@ -28,6 +28,8 @@ export function CardPaymentLedger() {
   const page = parseListPage(params.get('page'));
   const pageSize = parseInquiryListPageSize(params.get('pageSize'));
   const [data, setData] = useState<CardPaymentListResponse | null>(null);
+  const [sellerLogin, setSellerLogin] = useState<{ loginId: string; password: string } | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +45,27 @@ export function CardPaymentLedger() {
     },
     [params, setParams],
   );
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    void fetchTenantPgState(token)
+      .then((res) => {
+        const seller = res.sellerCenter;
+        if (seller?.loginId && seller.password) setSellerLogin({ loginId: seller.loginId, password: seller.password });
+      })
+      .catch(() => setSellerLogin(null));
+  }, []);
+
+  const cancelPayment = () => {
+    if (!sellerLogin) {
+      setCancelError('판매자센터 아이디가 없습니다. PG 연동에서 원성이 아이디와 비밀번호를 넣어야 합니다.');
+      return;
+    }
+    setCancelError(null);
+    const opened = openSellerCenterLoggedIn(sellerLogin.loginId, sellerLogin.password);
+    if (!opened) setCancelError('팝업이 막혀 판매자센터를 열지 못했습니다.');
+  };
 
   useEffect(() => {
     const token = getToken();
@@ -81,7 +104,7 @@ export function CardPaymentLedger() {
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
       <div className="rounded-xl border border-slate-200 bg-white p-2 sm:p-4">
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-          팀장·고객·금액·수수료(업체 3.3% · 플랫폼 차액)를 한곳에서 봅니다.
+          결재완료만 보거나, 아직 결제되지 않은 대기도 따로 볼 수 있습니다. 원성페이먼츠는 다음 날 정산되므로 오늘 결재만 취소할 수 있습니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {PRESETS.map((p) => (
@@ -98,18 +121,29 @@ export function CardPaymentLedger() {
           ))}
           {datePreset === 'month' ? <YearMonthSelect value={month} onChange={(v) => patch({ month: v })} /> : null}
           {datePreset === 'day' ? <YmdSelect value={day} onChange={(v) => patch({ day: v })} /> : null}
-          <select
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-fluid-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            value={status}
-            onChange={(e) => patch({ status: e.target.value || null })}
-          >
-            <option value="">상태 전체</option>
-            {CARD_PAYMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {CARD_PAYMENT_STATUS_LABEL[s]}
-              </option>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {[
+              { id: '', label: '전체' },
+              { id: 'APPROVED', label: '결재완료' },
+              { id: 'PENDING', label: '대기' },
+              { id: 'LINK_SENT', label: '결제 대기' },
+              { id: 'DRAFT', label: '작성 대기' },
+              { id: 'AWAITING_PG', label: 'PG 대기' },
+              { id: 'FAILED', label: '실패' },
+              { id: 'CANCELLED', label: '취소' },
+            ].map((item) => (
+              <button
+                key={item.id || 'all'}
+                type="button"
+                onClick={() => patch({ status: item.id || null })}
+                className={`rounded-lg border px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+                  status === item.id ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-200 bg-white text-slate-700'
+                }`}
+              >
+                {item.label}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
         <div className="mt-3">
           <ListPaginationBar
@@ -135,6 +169,7 @@ export function CardPaymentLedger() {
 
       <div className="rounded-xl border border-slate-200 bg-white p-2 sm:p-4">
         {error ? <p className="p-6 text-center text-fluid-sm text-red-700">{error}</p> : null}
+        {cancelError ? <p className="px-2 pb-2 text-fluid-xs text-red-700">{cancelError}</p> : null}
         {loading && !data ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
         {data && data.items.length === 0 && !loading ? (
           <p className="p-8 text-center text-fluid-sm text-slate-500">결제 내역이 없습니다.</p>
@@ -142,8 +177,8 @@ export function CardPaymentLedger() {
         {data && data.items.length > 0 ? (
           <>
             <p className="mb-2 text-fluid-2xs text-slate-500 lg:hidden">표는 넓은 화면에서 볼 수 있습니다. 카드로 스크롤하세요.</p>
-            <CardPaymentListTable items={data.items} />
-            <CardPaymentListCards items={data.items} />
+            <CardPaymentListTable items={data.items} onCancel={sellerLogin ? cancelPayment : undefined} />
+            <CardPaymentListCards items={data.items} onCancel={sellerLogin ? cancelPayment : undefined} />
           </>
         ) : null}
         {!loading ? (

@@ -6,6 +6,7 @@ export async function listCardPayments(input: {
   tenantId: string;
   createdById?: string;
   status?: CardPaymentStatus;
+  pendingOnly?: boolean;
   from?: Date;
   to?: Date;
   limit: number;
@@ -13,7 +14,8 @@ export async function listCardPayments(input: {
 }) {
   const where: Prisma.CardPaymentWhereInput = { tenantId: input.tenantId };
   if (input.createdById) where.createdById = input.createdById;
-  if (input.status) where.status = input.status;
+  if (input.pendingOnly) where.status = { in: ['DRAFT', 'AWAITING_PG', 'LINK_SENT'] };
+  else if (input.status) where.status = input.status;
   if (input.from || input.to) {
     where.createdAt = {};
     if (input.from) where.createdAt.gte = input.from;
@@ -28,7 +30,7 @@ export async function listCardPayments(input: {
       skip: input.offset,
       include: {
         createdBy: { select: { id: true, name: true } },
-        inquiry: { select: { id: true, inquiryNumber: true, customerName: true } },
+        inquiry: { select: { id: true, inquiryNumber: true, customerName: true, customerPhone: true } },
       },
     }),
     prisma.cardPayment.count({ where }),

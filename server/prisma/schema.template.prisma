@@ -643,6 +643,10 @@ model TenantPgOnboarding {
   accountHolder        String?                  @map("account_holder") @db.VarChar(128)
   websiteUrl           String?                  @map("website_url") @db.VarChar(512)
   note                 String?                  @db.Text
+  /// 선샤인페이 판매자센터 로그인 아이디. 취소 창에 사용한다.
+  sellerCenterLoginId  String?                  @map("seller_center_login_id") @db.VarChar(64)
+  /// 판매자센터 비밀번호. 원문은 암호화만 저장한다.
+  sellerCenterPasswordEnc String?               @map("seller_center_password_enc") @db.Text
   reviewToken          String?                  @unique @map("review_token") @db.VarChar(64)
   submittedAt          DateTime?                @map("submitted_at")
   forwardedAt          DateTime?                @map("forwarded_at")

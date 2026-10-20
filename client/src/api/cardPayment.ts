@@ -20,11 +20,13 @@ export type CardPaymentRow = {
   tenantNetWon: number;
   customerName: string;
   customerPhoneMasked: string | null;
+  customerPhone?: string | null;
   cardLast4: string | null;
   approvalNo: string | null;
   pgOrderId: string | null;
   paidAt: string | null;
   failReason: string | null;
+  cancelable?: boolean;
   createdAt: string;
   createdBy: { id: string; name: string };
 };
@@ -94,6 +96,7 @@ export async function fetchCardPaymentPrefill(token: string, inquiryId: string) 
     inquiryNumber: string | null;
     customerName: string;
     customerPhone: string | null;
+    companyName?: string;
     amountWon: number;
     quote: CardPaymentFeeBreakdown;
     pgConnected: boolean;
@@ -135,6 +138,13 @@ export async function fetchTenantPgState(token: string) {
     onboarding: PgOnboardingRow;
     credential: { connected: boolean };
     credentials: { keyin: TenantPgCredentialSlot; link: TenantPgCredentialSlot };
+    sellerCenter?: {
+      portalUrl: string;
+      loginUrl: string;
+      businessName: string;
+      loginId: string;
+      password: string;
+    } | null;
   }>;
 }
 

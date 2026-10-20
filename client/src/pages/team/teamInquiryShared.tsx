@@ -18,6 +18,7 @@ import {
 } from '../../utils/inquirySpecialNotesDisplay';
 import { computeInquiryCollectibleAmount } from '../../utils/inquiryCollectibleAmount';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
+import { CardPaymentDoneMark, inquiryHasApprovedCardPayment } from '../../components/card-payment/CardPaymentDoneMark';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { InquiryConsultationPhotosPanel } from '../../components/inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
@@ -240,6 +241,7 @@ export interface InquiryItem {
   inquiryNumber?: string | null;
   customerName: string;
   customerPhone: string;
+  cardPayments?: { id: string }[];
   customerPhone2?: string | null;
   address: string;
   addressDetail: string | null;
@@ -1332,6 +1334,7 @@ export function TeamInquiryDetailModal({
                 >
                   {primaryCustomerTitle}
                 </h2>
+                <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
                 <div className="flex shrink-0 items-center gap-1">
                   {showExternalShareCopy ? (
                     <button
@@ -1385,6 +1388,7 @@ export function TeamInquiryDetailModal({
               >
                 {primaryCustomerTitle}
               </h2>
+              <CardPaymentDoneMark paid={inquiryHasApprovedCardPayment(item)} />
               <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:whitespace-nowrap">
                 {item.inquiryNumber ? (
                   <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-fluid-2xs font-medium tabular-nums text-white">

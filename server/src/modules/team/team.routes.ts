@@ -20,6 +20,7 @@ import inquiryInspectionTeamRoutes from '../inquiry-inspection/inquiryInspection
 import dbMarketplaceTeamRoutes from '../db-marketplace/dbMarketplace.team.routes.js';
 import teamPlatformPromoRoutes from '../platform-partner-promo/teamPlatformPromo.routes.js';
 import quotationsTeamRoutes from '../quotations/quotations.team.routes.js';
+import { approvedCardPaymentFlag } from '../card-payment/cardPaymentInquiryFlag.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 import {
   attachInspectionSummaries,
@@ -301,6 +302,7 @@ const teamInquiryInclude = {
   crewMemberMeetingTimes: {
     select: { teamMemberId: true, meetingTime: true },
   },
+  ...approvedCardPaymentFlag,
 } as const;
 
 /** 팀장 스케줄 달력 — changeLogs(80건)·정산·점검 등 상세 모달 전용 필드 제외 */
@@ -371,6 +373,7 @@ const teamScheduleInquirySelect = {
     select: { teamMemberId: true, meetingTime: true },
   },
   inspectionChecklist: inspectionChecklistListInclude,
+  ...approvedCardPaymentFlag,
 } as const;
 
 /**

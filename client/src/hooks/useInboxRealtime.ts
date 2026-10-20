@@ -248,6 +248,30 @@ function parseTelecrmIncomingRingPayload(d: unknown): TelecrmIncomingRingRtPaylo
   };
 }
 
+export type CardPaymentApprovedPayload = {
+  type: 'card-payment:approved';
+  inquiryId: string;
+  customerName: string;
+  inquiryNumber: string | null;
+  amountWon: number;
+};
+
+function parseCardPaymentApprovedPayload(d: unknown): CardPaymentApprovedPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'card-payment:approved') return null;
+  if (typeof o.inquiryId !== 'string' || typeof o.customerName !== 'string') return null;
+  const amountWon = Number(o.amountWon);
+  if (!Number.isFinite(amountWon)) return null;
+  return {
+    type: 'card-payment:approved',
+    inquiryId: o.inquiryId,
+    customerName: o.customerName,
+    inquiryNumber: typeof o.inquiryNumber === 'string' ? o.inquiryNumber : null,
+    amountWon,
+  };
+}
+
 function parseOrderFormCustomerLinkConfigPayload(
   d: unknown,
 ): OrderFormCustomerLinkConfigRtPayload | null {
@@ -273,6 +297,7 @@ type Bucket = {
   refreshListeners: Set<() => void>;
   connectionListeners: Set<(connected: boolean) => void>;
   celebrationListeners: Set<(p: InquiryCelebratePayload) => void>;
+  cardPaymentListeners: Set<(p: CardPaymentApprovedPayload) => void>;
   rosterAckListeners: Set<(p: RosterAckPayload) => void>;
   changeLogListeners: Set<(p: ChangeLogRtPayload) => void>;
   scheduleAlertListeners: Set<(p: ScheduleAlertRtPayload) => void>;
@@ -291,6 +316,7 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
   return (
     bucket.refreshListeners.size > 0 ||
     bucket.celebrationListeners.size > 0 ||
+    bucket.cardPaymentListeners.size > 0 ||
     bucket.rosterAckListeners.size > 0 ||
     bucket.changeLogListeners.size > 0 ||
     bucket.scheduleAlertListeners.size > 0 ||
@@ -347,6 +373,16 @@ function connectBucket(bucket: Bucket) {
         for (const fn of bucket.celebrationListeners) {
           try {
             fn(data);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      const cardPaid = parseCardPaymentApprovedPayload(data);
+      if (cardPaid) {
+        for (const fn of bucket.cardPaymentListeners) {
+          try {
+            fn(cardPaid);
           } catch {
             /* ignore */
           }
@@ -498,6 +534,7 @@ function destroyBucketIfIdle(token: string) {
     bucket.refreshListeners.size > 0 ||
     bucket.connectionListeners.size > 0 ||
     bucket.celebrationListeners.size > 0 ||
+    bucket.cardPaymentListeners.size > 0 ||
     bucket.rosterAckListeners.size > 0 ||
     bucket.changeLogListeners.size > 0 ||
     bucket.scheduleAlertListeners.size > 0 ||
@@ -553,6 +590,7 @@ export function useInboxRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -665,6 +703,7 @@ export function useInquiryCelebrateRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -749,6 +788,7 @@ export function useRosterAckRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -785,6 +825,64 @@ export function useRosterAckRealtime(
 /** @deprecated `useRosterAckRealtime` 사용 */
 export const useCrewRosterAckRealtime = useRosterAckRealtime;
 
+/** 인증결제 승인 — 팀장·관리자 화면에 바로 알린다. */
+export function useCardPaymentApprovedRealtime(
+  token: string | null,
+  onApproved: (p: CardPaymentApprovedPayload) => void,
+  enabled: boolean,
+): void {
+  const onApprovedRef = useRef(onApproved);
+  useEffect(() => {
+    onApprovedRef.current = onApproved;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
+        reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
+        customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: CardPaymentApprovedPayload) => onApprovedRef.current(p);
+    b.cardPaymentListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.cardPaymentListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
 /**
  * 스태프(관리자·마케터) 전용: 접수 변경 이력이 생기면 알림.
  * 종 아이콘 미확인 수 재조회 + (중요 변경) 토스트에 사용. 단일 소켓 공유.
@@ -812,6 +910,7 @@ export function useChangeLogRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -869,6 +968,7 @@ export function useScheduleAlertRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -926,6 +1026,7 @@ export function useReviewPaybackRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -983,6 +1084,7 @@ export function useLandingContactRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -1040,6 +1142,7 @@ export function useDbMarketplaceHandoffConfirmedRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -1097,6 +1200,7 @@ export function useScheduleDayStaffMemoRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -1154,6 +1258,7 @@ export function useScheduleStaffNoticeBoardRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -1211,6 +1316,7 @@ export function useOrderFormCustomerLinkConfigRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),
@@ -1268,6 +1374,7 @@ export function useTelecrmIncomingRingRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        cardPaymentListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         scheduleAlertListeners: new Set(),

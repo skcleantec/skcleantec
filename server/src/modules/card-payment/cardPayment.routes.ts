@@ -26,6 +26,7 @@ import { startPaysisWindow } from './cardPaymentWindow.service.js';
 import { listCardPayments } from './cardPaymentList.service.js';
 import { defaultCardPaymentAmountWon } from './cardPaymentFee.js';
 import { prisma } from '../../lib/prisma.js';
+import { readSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
 const router = Router();
 const registrationUpload = multer({
   storage: multer.memoryStorage(),
@@ -70,11 +71,16 @@ router.get('/inquiry/:inquiryId/prefill', async (req, res) => {
   const amountWon = defaultCardPaymentAmountWon(inquiry);
   const quote = await quoteCardPayment(amountWon);
   const pg = await getCredentialBundle(tenantId);
+  const tenant = await prisma.tenant.findFirst({
+    where: { id: tenantId },
+    select: { name: true },
+  });
   res.json({
     inquiryId: inquiry.id,
     inquiryNumber: inquiry.inquiryNumber,
     customerName: inquiry.customerName,
     customerPhone: inquiry.customerPhone,
+    companyName: tenant?.name?.trim() || '',
     amountWon,
     quote,
     pgConnected: pg.keyin.connected || pg.link.connected,
@@ -126,10 +132,12 @@ router.get('/pg', async (req, res) => {
     getCredentialBundle(tenantId),
   ]);
   const reveal = user.role === 'ADMIN';
+  const sellerCenter = reveal ? await readSellerCenterLogin(tenantId) : null;
   res.json({
     onboarding,
     credential,
     credentials: reveal ? credentials : { keyin: { connected: credentials.keyin.connected }, link: { connected: credentials.link.connected } },
+    sellerCenter,
   });
 });
 
@@ -196,6 +204,7 @@ router.get('/', async (req, res) => {
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
   const offset = Math.max(0, Number(req.query.offset) || 0);
   const statusRaw = typeof req.query.status === 'string' ? req.query.status : '';
+  const pendingOnly = statusRaw === 'PENDING';
   const status = CARD_PAYMENT_STATUSES.includes(statusRaw as CardPaymentStatus)
     ? (statusRaw as CardPaymentStatus)
     : undefined;
@@ -210,6 +219,7 @@ router.get('/', async (req, res) => {
     tenantId,
     createdById,
     status,
+    pendingOnly,
     from: range?.gte,
     to: range?.lte,
     limit,
