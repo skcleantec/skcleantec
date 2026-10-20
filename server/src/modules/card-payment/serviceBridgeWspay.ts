@@ -1,3 +1,4 @@
+import { agencyMerchantFromRow, getPlatformPgAgencyRow } from './platformPgAgency.service.js';
 import { probeWspayListAuth } from './wspayAdapter.js';
 import { buildWspayOrderId, normalizeWspayOid } from './wspayOrderId.js';
 
@@ -21,11 +22,12 @@ function readMerchant(channel: ServiceBridgeChannel, prefix: string): ServiceBri
   return { channel, mid, tid, apiKey, oid };
 }
 
-/** 서비스브릿지 이용료 가맹. 테넌트 청소비 키와 섞지 않습니다. */
-export function loadServiceBridgeMerchants() {
+/** 서비스브릿지 이용료 가맹. 원성이 저장한 대리점 코드를 먼저 쓰고, 없으면 서버 설정을 씁니다. */
+export async function loadServiceBridgeMerchants() {
+  const row = await getPlatformPgAgencyRow();
   return {
-    keyin: readMerchant('KEYIN', 'WSPAY_SB_KEYIN'),
-    appCard: readMerchant('APP_CARD', 'WSPAY_SB_APP'),
+    keyin: agencyMerchantFromRow(row, 'KEYIN') ?? readMerchant('KEYIN', 'WSPAY_SB_KEYIN'),
+    appCard: agencyMerchantFromRow(row, 'APP_CARD') ?? readMerchant('APP_CARD', 'WSPAY_SB_APP'),
   };
 }
 
@@ -34,8 +36,8 @@ function maskTail(value: string): string {
   return `${'•'.repeat(Math.min(6, value.length - 4))}${value.slice(-4)}`;
 }
 
-export function serviceBridgePublicStatus() {
-  const merchants = loadServiceBridgeMerchants();
+export async function serviceBridgePublicStatus() {
+  const merchants = await loadServiceBridgeMerchants();
   const view = (row: ServiceBridgeMerchant | null) =>
     row
       ? {
@@ -53,8 +55,8 @@ export function serviceBridgePublicStatus() {
   };
 }
 
-export function buildServiceBridgeOrderId(channel: ServiceBridgeChannel, uniquePart: string): string | null {
-  const merchants = loadServiceBridgeMerchants();
+export async function buildServiceBridgeOrderId(channel: ServiceBridgeChannel, uniquePart: string) {
+  const merchants = await loadServiceBridgeMerchants();
   const row = channel === 'KEYIN' ? merchants.keyin : merchants.appCard;
   if (!row) return null;
   return buildWspayOrderId(row.oid, uniquePart);
@@ -62,7 +64,7 @@ export function buildServiceBridgeOrderId(channel: ServiceBridgeChannel, uniqueP
 
 /** 카드 승인 없이, 이용료용 키가 조회 API 인증을 통과하는지만 봅니다. */
 export async function probeServiceBridgeAuth() {
-  const merchants = loadServiceBridgeMerchants();
+  const merchants = await loadServiceBridgeMerchants();
   const keyin = merchants.keyin
     ? { configured: true as const, ...(await probeWspayListAuth(merchants.keyin)) }
     : { configured: false as const };

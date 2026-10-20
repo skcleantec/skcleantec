@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { saveCredentialFromPlatform } from './cardPaymentCredential.service.js';
 import { readSellerCenterLogin, saveSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
 import { olderSameInquiryCardPaymentIds } from './cardPaymentList.service.js';
+import { getPlatformPgAgencyRow, platformAgencyListItem } from './platformPgAgency.service.js';
 
 function slotOf(
   rows: Array<{ rail: string; mid: string | null; oid: string | null; tidMasked: string | null; apiKeyLast4: string | null; isActive: boolean }>,
@@ -26,7 +27,8 @@ export async function listPartnerMerchants() {
     select: { tenantId: true, rail: true, mid: true, oid: true, apiKeyLast4: true },
   });
   const tenantIds = [...new Set(credentials.map((row) => row.tenantId))];
-  if (tenantIds.length === 0) return [];
+  const agency = platformAgencyListItem(await getPlatformPgAgencyRow());
+  if (tenantIds.length === 0) return [agency];
   const tenants = await prisma.tenant.findMany({
     where: { id: { in: tenantIds } },
     select: { id: true, name: true },
@@ -37,7 +39,7 @@ export async function listPartnerMerchants() {
     select: { tenantId: true, businessName: true, bizNumber: true, contactPhone: true },
   });
   const onboardByTenant = new Map(onboardings.map((row) => [row.tenantId, row]));
-  return tenants.map((tenant) => {
+  const rows = tenants.map((tenant) => {
     const slots = credentials.filter((row) => row.tenantId === tenant.id);
     const onboard = onboardByTenant.get(tenant.id);
     const keyin = slots.find((row) => row.rail === 'KEYIN');
@@ -52,8 +54,10 @@ export async function listPartnerMerchants() {
       linkMid: link?.mid ?? null,
       keyinKeyLast4: keyin?.apiKeyLast4 ?? null,
       linkKeyLast4: link?.apiKeyLast4 ?? null,
+      role: 'MERCHANT' as const,
     };
   });
+  return [agency, ...rows];
 }
 
 export async function getPartnerMerchant(tenantId: string) {

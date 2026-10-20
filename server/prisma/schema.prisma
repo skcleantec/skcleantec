@@ -624,6 +624,29 @@ model PlatformCardPaymentSettings {
   @@map("platform_card_payment_settings")
 }
 
+/// 서비스브릿지 대리점. 이용료 가맹. 원성 화면에서 판매자센터와 수기·인증 코드를 고친다.
+model PlatformPgAgency {
+  id                      String   @id @default("service-bridge")
+  businessName            String   @default("서비스브릿지 (대리점)") @map("business_name") @db.VarChar(128)
+  sellerCenterLoginId     String?  @map("seller_center_login_id") @db.VarChar(64)
+  sellerCenterPasswordEnc String?  @map("seller_center_password_enc") @db.Text
+  keyinMid                String?  @map("keyin_mid") @db.VarChar(32)
+  keyinOid                String?  @map("keyin_oid") @db.VarChar(8)
+  keyinTidEnc             String?  @map("keyin_tid_enc") @db.Text
+  keyinApiKeyEnc          String?  @map("keyin_api_key_enc") @db.Text
+  keyinTidMasked          String?  @map("keyin_tid_masked") @db.VarChar(32)
+  keyinApiKeyLast4        String?  @map("keyin_api_key_last4") @db.VarChar(8)
+  linkMid                 String?  @map("link_mid") @db.VarChar(32)
+  linkOid                 String?  @map("link_oid") @db.VarChar(8)
+  linkTidEnc              String?  @map("link_tid_enc") @db.Text
+  linkApiKeyEnc           String?  @map("link_api_key_enc") @db.Text
+  linkTidMasked           String?  @map("link_tid_masked") @db.VarChar(32)
+  linkApiKeyLast4         String?  @map("link_api_key_last4") @db.VarChar(8)
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_pg_agencies")
+}
+
 /// 테넌트 → 원성페이먼츠 가입 신청. reviewToken 주소에서 가맹 코드를 넣으면 연결
 model TenantPgOnboarding {
   id                   String                   @id @default(uuid())

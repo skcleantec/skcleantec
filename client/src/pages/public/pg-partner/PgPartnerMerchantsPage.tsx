@@ -12,6 +12,7 @@ type ListItem = {
   contactPhone: string | null;
   keyinMid: string | null;
   linkMid: string | null;
+  role?: 'AGENCY' | 'MERCHANT';
 };
 
 type Slot =
@@ -33,6 +34,7 @@ type Detail = {
   accountHolder: string | null;
   sellerLoginId: string;
   sellerPasswordSet: boolean;
+  role?: 'AGENCY' | 'MERCHANT';
   keyin: Slot;
   link: Slot;
 };
@@ -187,6 +189,9 @@ function MerchantModal({ tenantId, onClose }: { tenantId: string; onClose: () =>
             const jobs: Promise<void>[] = [];
             if (detail.keyin.connected || keyinKey.trim()) jobs.push(saveRail('KEYIN', keyinMid, keyinOid, keyinTid, keyinKey));
             if (detail.link.connected || linkKey.trim()) jobs.push(saveRail('LINK', linkMid, linkOid, linkTid, linkKey));
+            if (jobs.length === 0 && detail.role === 'AGENCY') {
+              jobs.push(saveRail('KEYIN', keyinMid, keyinOid, '', ''));
+            }
             if (jobs.length === 0) {
               setError('수기 또는 인증 API 키를 입력해 주세요.');
               setBusy(false);
@@ -194,7 +199,7 @@ function MerchantModal({ tenantId, onClose }: { tenantId: string; onClose: () =>
             }
             void Promise.all(jobs)
               .then(() => {
-                setDone('저장했습니다. 팀장 카드결재에 바로 반영됩니다.');
+                setDone(detail.role === 'AGENCY' ? '저장했습니다. 이용료 카드결재에 반영됩니다.' : '저장했습니다. 팀장 카드결재에 바로 반영됩니다.');
                 setReloadKey((n) => n + 1);
               })
               .catch((err: unknown) => setError(err instanceof Error ? err.message : '저장하지 못했습니다.'))
@@ -271,7 +276,7 @@ export function PgPartnerMerchantsPage() {
     <div className="space-y-3">
       <div>
         <h1 className="text-fluid-base font-semibold text-slate-900">사용 중 업체</h1>
-        <p className="mt-1 text-fluid-xs text-slate-600">업체를 누르면 판매자센터와 수기·인증 정보를 고칠 수 있습니다. TID와 API 키는 가려 두고, 보기를 누른 뒤 비밀번호로 확인합니다.</p>
+        <p className="mt-1 text-fluid-xs text-slate-600">업체를 누르면 판매자센터와 수기·인증 정보를 고칠 수 있습니다. 서비스브릿지 대리점은 이용료 가맹이라 여기서 고친 코드가 이용료 결재에 쓰입니다. TID와 API 키는 가려 두고, 보기를 누른 뒤 비밀번호로 확인합니다.</p>
       </div>
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
@@ -298,6 +303,7 @@ export function PgPartnerMerchantsPage() {
                       className="font-medium text-slate-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                     >
                       {row.businessName || row.tenantName}
+                      {row.role === 'AGENCY' ? <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-medium text-slate-600">대리점</span> : null}
                     </button>
                   </td>
                   <td className="px-3 py-2 text-center">{row.bizNumber || '—'}</td>

@@ -147,7 +147,7 @@ export async function chargeWspayKeyin(
 export async function chargeUsageFeeKeyin(input: UsageFeeKeyinInput): Promise<
   { error: string; status: 400 } | { result: UsageFeeKeyinResult }
 > {
-  const keyin = loadServiceBridgeMerchants().keyin;
+  const keyin = (await loadServiceBridgeMerchants()).keyin;
   if (!keyin) return { error: '이용료 수기 키가 서버에 없습니다.', status: 400 };
   const orderNo = buildWspayOrderId(keyin.oid, `FEE${Date.now()}`);
   if (!orderNo) return { error: '이용료 주문번호를 만들지 못했습니다.', status: 400 };

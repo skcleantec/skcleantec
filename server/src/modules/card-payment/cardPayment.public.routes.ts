@@ -11,6 +11,13 @@ import {
 import { partnerRevealAllowed, readPgPartnerLoginId, requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
 import { parsePgClerkCodes, saveIssuedPgClerkCodes } from './pgClerk.service.js';
+import {
+  PLATFORM_PG_AGENCY_ID,
+  getPlatformPgAgencyRow,
+  platformAgencyDetail,
+  readPlatformAgencySecrets,
+  savePlatformAgencyFromPartner,
+} from './platformPgAgency.service.js';
 import { applyWspayWebhook } from './cardPaymentWebhook.service.js';
 import { applyPaysisNotification, startPaysisWindowByLinkToken } from './cardPaymentWindow.service.js';
 
@@ -78,7 +85,12 @@ router.get('/pg-partner/merchants', async (req, res) => {
 
 router.get('/pg-partner/merchants/:tenantId', async (req, res) => {
   if (!requirePgPartner(req, res)) return;
-  const row = await getPartnerMerchant(String(req.params.tenantId));
+  const tenantId = String(req.params.tenantId);
+  if (tenantId === PLATFORM_PG_AGENCY_ID) {
+    res.json(platformAgencyDetail(await getPlatformPgAgencyRow()));
+    return;
+  }
+  const row = await getPartnerMerchant(tenantId);
   if (!row) {
     res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
     return;
@@ -94,6 +106,23 @@ router.put('/pg-partner/merchants/:tenantId', async (req, res) => {
     return;
   }
   const tenantId = String(req.params.tenantId);
+  if (tenantId === PLATFORM_PG_AGENCY_ID) {
+    try {
+      await savePlatformAgencyFromPartner({
+        sellerLoginId: typeof body.sellerLoginId === 'string' ? body.sellerLoginId : '',
+        sellerPassword: typeof body.sellerPassword === 'string' ? body.sellerPassword : '',
+        rail: body.rail === 'LINK' ? 'LINK' : body.rail === 'KEYIN' ? 'KEYIN' : '',
+        apiKey: typeof body.apiKey === 'string' ? body.apiKey : '',
+        tid: typeof body.tid === 'string' ? body.tid : '',
+        mid: typeof body.mid === 'string' ? body.mid : '',
+        oid: typeof body.oid === 'string' ? body.oid : '',
+      });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : '대리점 정보를 저장하지 못했습니다.' });
+    }
+    return;
+  }
   const merchant = await getPartnerMerchant(tenantId);
   if (!merchant) {
     res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
@@ -140,6 +169,10 @@ router.post('/pg-partner/merchants/:tenantId/reveal', async (req, res) => {
     return;
   }
   const tenantId = String(req.params.tenantId);
+  if (tenantId === PLATFORM_PG_AGENCY_ID) {
+    res.json(await readPlatformAgencySecrets(rail));
+    return;
+  }
   const merchant = await getPartnerMerchant(tenantId);
   if (!merchant) {
     res.status(404).json({ error: '업체를 찾을 수 없습니다.' });

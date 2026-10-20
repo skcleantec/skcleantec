@@ -247,7 +247,7 @@ export async function openTenantUsageFeeWindow(
   const period = opened.items.find((item) => item.periodStartYmd === periodStartYmd);
   if (!period) return { error: '선택한 달은 아직 낼 이용료가 없습니다.', status: 400 };
 
-  const app = loadServiceBridgeMerchants().appCard;
+  const app = (await loadServiceBridgeMerchants()).appCard;
   if (!app) return { error: '이용료 결제창 키가 서버에 없습니다.', status: 400 };
   const orderNo = buildWspayOrderId(app.oid, `win${Date.now().toString(36)}`)?.slice(0, 30);
   if (!orderNo) return { error: '주문번호를 만들지 못했습니다.', status: 400 };

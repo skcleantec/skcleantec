@@ -32,7 +32,7 @@ const ONBOARDING_STATUSES = [
 router.get('/settings', async (_req, res) => {
   const rates = await getPlatformCardFeeRates();
   const summary = await platformCardPaymentSummary();
-  res.json({ ...rates, summary, serviceBridge: serviceBridgePublicStatus() });
+  res.json({ ...rates, summary, serviceBridge: await serviceBridgePublicStatus() });
 });
 
 router.put('/settings', async (req, res) => {

@@ -68,7 +68,7 @@ export async function probeTenantPaymentConnection(
 export async function openUsageFeeWindow(): Promise<
   { error: string; status: 400 } | { result: { ok: true; redirectUrl: string; message: string } | { ok: false; message: string } }
 > {
-  const app = loadServiceBridgeMerchants().appCard;
+  const app = (await loadServiceBridgeMerchants()).appCard;
   if (!app) return { error: '이용료 결제창 키가 서버에 없습니다.', status: 400 };
   const orderNo = buildWspayOrderId(app.oid, `fee${Date.now().toString(36)}`)?.slice(0, 30);
   if (!orderNo) return { error: '주문번호를 만들지 못했습니다.', status: 400 };
@@ -125,7 +125,7 @@ export async function openUsageFeeWindow(): Promise<
 export async function probeUsageFeeKeyin(): Promise<
   { error: string; status: 400 } | { result: { ok: boolean; message: string } }
 > {
-  const keyin = loadServiceBridgeMerchants().keyin;
+  const keyin = (await loadServiceBridgeMerchants()).keyin;
   if (!keyin) return { error: '이용료 수기 키가 서버에 없습니다.', status: 400 };
   const probed = await probeWspayListAuth(keyin);
   return {
