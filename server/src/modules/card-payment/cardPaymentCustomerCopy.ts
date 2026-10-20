@@ -33,7 +33,7 @@ function usableCompanyName(name: string): string {
 
 /**
  * 인증결재 링크 문자에 넣을 비용 내역과 업체이름.
- * 정보공유·연계로 받은 접수(수신 미러)에는 업체이름을 넣지 않는다.
+ * 정보공유로 받은 접수, 메인 브랜드가 아닌 접수는 업체이름을 넣지 않는다.
  */
 export async function loadCardPaymentCustomerCopy(tenantId: string, inquiryId: string) {
   const inquiry = await prisma.inquiry.findFirst({
@@ -43,8 +43,13 @@ export async function loadCardPaymentCustomerCopy(tenantId: string, inquiryId: s
       serviceTotalAmount: true,
       serviceDepositAmount: true,
       serviceBalanceAmount: true,
-      operatingCompany: { select: { name: true } },
-      orderForm: { select: { template: { select: { industryPackId: true } } } },
+      operatingCompany: { select: { name: true, isDefault: true } },
+      orderForm: {
+        select: {
+          template: { select: { industryPackId: true } },
+          operatingCompany: { select: { isDefault: true } },
+        },
+      },
     },
   });
   if (!inquiry) return null;
@@ -68,11 +73,15 @@ export async function loadCardPaymentCustomerCopy(tenantId: string, inquiryId: s
         }),
   ]);
 
+  const orderBrand = inquiry.orderForm?.operatingCompany;
+  const mainBrand =
+    inquiry.operatingCompany.isDefault && (orderBrand == null || orderBrand.isDefault);
   const brand = usableCompanyName(
-    inquiry.operatingCompany?.name?.trim() ||
+    inquiry.operatingCompany.name?.trim() ||
       resolveTenantCustomerFacingBrandName(config, tenant?.name ?? ''),
   );
   const packId = inquiry.orderForm?.template?.industryPackId ?? fallbackTemplate?.industryPackId;
+  const includeCompanyName = !receivedShare && mainBrand && Boolean(brand);
 
   return {
     serviceWord: serviceWordFromPack(packId),
@@ -80,7 +89,7 @@ export async function loadCardPaymentCustomerCopy(tenantId: string, inquiryId: s
     depositWon: toWon(inquiry.serviceDepositAmount),
     balanceWon: toWon(inquiry.serviceBalanceAmount),
     extraWorkWon: toWon(extra._sum.amountWon),
-    includeCompanyName: !receivedShare && Boolean(brand),
-    companyName: receivedShare ? '' : brand,
+    includeCompanyName,
+    companyName: includeCompanyName ? brand : '',
   };
 }
