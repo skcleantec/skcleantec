@@ -3,36 +3,21 @@ import { prisma } from '../../lib/prisma.js';
 import { syncKeyinCancelsFromPg } from './cardPaymentKeyinSync.service.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 
-const OPEN_STATUSES: CardPaymentStatus[] = ['DRAFT', 'AWAITING_PG', 'LINK_SENT'];
-const SETTLED_STATUSES: CardPaymentStatus[] = ['APPROVED', 'CANCELLED', 'FAILED'];
-
-/** 같은 접수·방식·금액이 이미 결재완료·취소·실패로 이어졌으면, 앞에 남은 작성 대기는 목록에서 뺀다. */
-export async function supersededOpenCardPaymentIds(tenantId?: string): Promise<string[]> {
-  const opens = await prisma.cardPayment.findMany({
-    where: { status: { in: OPEN_STATUSES }, ...(tenantId ? { tenantId } : {}) },
-    select: { id: true, inquiryId: true, method: true, amountWon: true, createdAt: true },
+/** 같은 접수는 가장 최근 한 줄만 남긴다. 그 줄의 상태가 현재 상태다. */
+export async function olderSameInquiryCardPaymentIds(where: Prisma.CardPaymentWhereInput): Promise<string[]> {
+  const rows = await prisma.cardPayment.findMany({
+    where: { ...where, inquiryId: { not: null } },
+    select: { id: true, inquiryId: true },
+    orderBy: { createdAt: 'desc' },
   });
-  const inquiryIds = [...new Set(opens.map((row) => row.inquiryId).filter((id): id is string => Boolean(id)))];
-  if (inquiryIds.length === 0) return [];
-  const settled = await prisma.cardPayment.findMany({
-    where: {
-      ...(tenantId ? { tenantId } : {}),
-      inquiryId: { in: inquiryIds },
-      status: { in: SETTLED_STATUSES },
-    },
-    select: { inquiryId: true, method: true, amountWon: true, createdAt: true },
-  });
-  return opens
-    .filter((open) =>
-      settled.some(
-        (row) =>
-          row.inquiryId === open.inquiryId &&
-          row.method === open.method &&
-          row.amountWon === open.amountWon &&
-          row.createdAt.getTime() >= open.createdAt.getTime(),
-      ),
-    )
-    .map((row) => row.id);
+  const seen = new Set<string>();
+  const hide: string[] = [];
+  for (const row of rows) {
+    if (!row.inquiryId) continue;
+    if (seen.has(row.inquiryId)) hide.push(row.id);
+    else seen.add(row.inquiryId);
+  }
+  return hide;
 }
 
 export async function listCardPayments(input: {
@@ -46,17 +31,18 @@ export async function listCardPayments(input: {
   offset: number;
 }) {
   await syncKeyinCancelsFromPg(input.tenantId);
-  const hiddenIds = await supersededOpenCardPaymentIds(input.tenantId);
-  const where: Prisma.CardPaymentWhereInput = { tenantId: input.tenantId };
-  if (hiddenIds.length > 0) where.id = { notIn: hiddenIds };
-  if (input.createdById) where.createdById = input.createdById;
-  if (input.pendingOnly) where.status = { in: ['DRAFT', 'AWAITING_PG', 'LINK_SENT'] };
-  else if (input.status) where.status = input.status;
+  const scope: Prisma.CardPaymentWhereInput = { tenantId: input.tenantId };
+  if (input.createdById) scope.createdById = input.createdById;
+  if (input.pendingOnly) scope.status = { in: ['DRAFT', 'AWAITING_PG', 'LINK_SENT'] };
+  else if (input.status) scope.status = input.status;
   if (input.from || input.to) {
-    where.createdAt = {};
-    if (input.from) where.createdAt.gte = input.from;
-    if (input.to) where.createdAt.lte = input.to;
+    scope.createdAt = {};
+    if (input.from) scope.createdAt.gte = input.from;
+    if (input.to) scope.createdAt.lte = input.to;
   }
+  const hiddenIds = await olderSameInquiryCardPaymentIds(scope);
+  const where: Prisma.CardPaymentWhereInput = { ...scope };
+  if (hiddenIds.length > 0) where.id = { notIn: hiddenIds };
 
   const [items, total, approvedAgg] = await Promise.all([
     prisma.cardPayment.findMany({
@@ -71,7 +57,7 @@ export async function listCardPayments(input: {
     }),
     prisma.cardPayment.count({ where }),
     prisma.cardPayment.aggregate({
-      where: { ...where, status: 'APPROVED' },
+      where: { ...scope, status: 'APPROVED' },
       _sum: {
         amountWon: true,
         tenantFeeWon: true,

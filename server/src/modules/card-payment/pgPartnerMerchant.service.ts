@@ -1,7 +1,7 @@
 import type { CardPaymentStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { readSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
-import { supersededOpenCardPaymentIds } from './cardPaymentList.service.js';
+import { olderSameInquiryCardPaymentIds } from './cardPaymentList.service.js';
 
 function slotOf(
   rows: Array<{ rail: string; mid: string | null; oid: string | null; tidMasked: string | null; apiKeyLast4: string | null; isActive: boolean }>,
@@ -130,7 +130,7 @@ export async function listPartnerPayments(input: { status?: string; limit: numbe
     cardWhere.status = input.status;
     feeWhere.status = input.status;
   }
-  const hiddenIds = await supersededOpenCardPaymentIds();
+  const hiddenIds = await olderSameInquiryCardPaymentIds(cardWhere);
   if (hiddenIds.length > 0) cardWhere.id = { notIn: hiddenIds };
   const window = Math.min(1000, input.offset + input.limit);
   const [cards, fees, cardTotal, feeTotal] = await Promise.all([
