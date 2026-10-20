@@ -7,12 +7,13 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import { teamBiPlain } from '../../i18n/team/teamI18n';
 import { getToken } from '../../stores/auth';
+import { getTeamToken } from '../../stores/teamAuth';
 import { copyTextToClipboard } from '../../utils/clipboard';
 
 const BTN =
   'flex min-h-11 w-full items-center justify-center rounded-xl text-fluid-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
-type Step = 'pick' | 'keyin' | 'auth' | 'link';
+type Step = 'pick' | 'auth' | 'link';
 
 /** 접수 카드결재. 수기는 원성 페이지, 인증은 고객 링크. */
 export function TeamCardPaymentPage() {
@@ -30,9 +31,14 @@ export function TeamCardPaymentPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const readToken = () => getTeamToken() || getToken();
+
   useEffect(() => {
-    const token = getToken();
-    if (!token || !inquiryId) return;
+    const token = readToken();
+    if (!token || !inquiryId) {
+      setPgConnected(false);
+      return;
+    }
     void fetchCardPaymentPrefill(token, inquiryId)
       .then((res) => {
         setPgConnected(res.pgConnected);
@@ -46,7 +52,7 @@ export function TeamCardPaymentPage() {
   const amountWon = Math.round(Number(amount.replace(/[^\d]/g, '')) || 0);
 
   const makeLink = () => {
-    const token = getToken();
+    const token = readToken();
     if (!token || !inquiryId) return;
     setBusy(true);
     setError(null);
@@ -75,7 +81,6 @@ export function TeamCardPaymentPage() {
     >
       <div className="login-scroll-content mx-auto w-full max-w-md space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-lg">
         <p className="text-fluid-sm font-semibold text-slate-900">{teamBiPlain('team.cardPayment.heading')}</p>
-        <p className="text-fluid-2xs leading-snug text-slate-500">{teamBiPlain('team.cardPayment.body')}</p>
         {inquiryId && customerName ? (
           <p className="text-fluid-xs text-slate-800">
             {customerName} · {formatWon(amountWon)}
@@ -95,10 +100,7 @@ export function TeamCardPaymentPage() {
             <button
               type="button"
               className={`${BTN} bg-slate-900 text-white hover:bg-slate-800`}
-              onClick={() => {
-                setStep('keyin');
-                openWspayHostedWindow();
-              }}
+              onClick={() => openWspayHostedWindow()}
             >
               수기결재
             </button>
@@ -108,21 +110,6 @@ export function TeamCardPaymentPage() {
               onClick={() => setStep('auth')}
             >
               인증결재
-            </button>
-          </div>
-        ) : null}
-
-        {step === 'keyin' ? (
-          <div className="space-y-2">
-            <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-fluid-2xs leading-snug text-slate-700">
-              원성 수기결재 페이지로 이동합니다. 카드번호는 그 페이지에 입력합니다. 금액은 {formatWon(amountWon)} 입니다.
-            </p>
-            <button
-              type="button"
-              className={`${BTN} bg-slate-900 text-white hover:bg-slate-800`}
-              onClick={() => openWspayHostedWindow()}
-            >
-              원성 수기결재 열기
             </button>
           </div>
         ) : null}

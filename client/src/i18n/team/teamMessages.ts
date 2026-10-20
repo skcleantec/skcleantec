@@ -325,7 +325,7 @@ export const teamMessages = {
   'team.cardPayment.pageTitle': { ko: '카드결재' },
   'team.cardPayment.heading': { ko: '카드결재' },
   'team.cardPayment.body': {
-    ko: '수기는 원성 수기결재 페이지에서 하고, 인증은 링크를 만들어 고객 카톡으로 보냅니다.',
+    ko: '수기결재 또는 인증결재를 고릅니다.',
   },
   'team.cardPayment.redirecting': { ko: '이동 중…' },
   'team.cardPayment.redirectFailed': { ko: '자동 이동이 차단되었을 수 있습니다. 아래 버튼을 눌러 주세요.' },
