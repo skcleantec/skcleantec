@@ -105,14 +105,33 @@ export function PhonesStep({ form, setForm, lockKey, step, order }: CustomerStep
 }
 
 export function EmailStep({ form, setForm, order, step }: CustomerStepBodyProps) {
+  const emailLocked = isOrderFormEmailFieldLocked(false, order?.prefillAnswers);
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       <OrderFormEmailSplitField
         value={form.customerEmail}
-        disabled={isOrderFormEmailFieldLocked(false, order?.prefillAnswers)}
-        onChange={(v) => setForm((f) => ({ ...f, customerEmail: v }))}
+        disabled={emailLocked || form.customerEmailUnused}
+        onChange={(v) => setForm((f) => ({ ...f, customerEmail: v, customerEmailUnused: false }))}
         inputClassName={WIZARD_INPUT_CLS}
       />
+      {emailLocked ? null : (
+        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-fluid-sm text-slate-800 hover:bg-slate-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-slate-400 has-[:focus-visible]:ring-offset-2">
+          <input
+            type="checkbox"
+            className="size-4 shrink-0 accent-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            checked={form.customerEmailUnused}
+            onChange={(e) => {
+              const unused = e.target.checked;
+              setForm((f) => ({
+                ...f,
+                customerEmailUnused: unused,
+                customerEmail: unused ? '' : f.customerEmail,
+              }));
+            }}
+          />
+          이메일 미사용
+        </label>
+      )}
     </WizardQuestion>
   );
 }

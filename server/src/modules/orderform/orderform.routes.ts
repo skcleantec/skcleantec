@@ -2861,6 +2861,7 @@ router.post('/submit/:token', async (req, res) => {
     customerPhone: string;
     customerPhone2: string;
     customerEmail: string;
+    customerEmailUnused?: boolean | string;
     /** 공급면적(분양평수)일 때만 필수 */
     areaPyeong?: number | string | null;
     areaBasis: string;
@@ -2973,7 +2974,9 @@ router.post('/submit/:token', async (req, res) => {
   }
 
   let customerEmailNorm: string | null = null;
-  if (tplOn('customerEmail')) {
+  const customerEmailUnused =
+    body.customerEmailUnused === true || body.customerEmailUnused === 'true';
+  if (tplOn('customerEmail') && !customerEmailUnused) {
     try {
       customerEmailNorm = assertValidCustomerEmail(body.customerEmail);
     } catch (e) {
