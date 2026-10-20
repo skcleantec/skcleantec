@@ -6,15 +6,18 @@ import { serializeCardPayment } from './cardPayment.serialize.js';
 /**
  * 웹훅 본문 필드는 문서 확정 전 최소만 읽는다.
  * 승인: event === payment.approved 또는 type === payment.approved
- * 주문번호: orderId / pgOrderId / merchantOrderId 중 있는 값
+ * 주문번호: orderId / pgOrderId / merchantOrderId / order_no 중 있는 값
  */
 export async function applyWspayWebhook(body: unknown, rawBody: string) {
   if (!body || typeof body !== 'object') {
     return { error: 'invalid_body' as const, status: 400 };
   }
   const rec = body as Record<string, unknown>;
-  const event = String(rec.event ?? rec.type ?? rec.status ?? '').trim();
-  const pgOrderId = String(rec.orderId ?? rec.pgOrderId ?? rec.merchantOrderId ?? '').trim();
+  const nested = rec.data && typeof rec.data === 'object' ? (rec.data as Record<string, unknown>) : {};
+  const event = String(rec.event ?? rec.type ?? rec.status ?? nested.status ?? '').trim();
+  const pgOrderId = String(
+    rec.orderId ?? rec.pgOrderId ?? rec.merchantOrderId ?? rec.order_no ?? nested.order_no ?? nested.orderId ?? '',
+  ).trim();
   if (!pgOrderId) {
     return { error: 'missing_order' as const, status: 400 };
   }
@@ -49,7 +52,9 @@ export async function applyWspayWebhook(body: unknown, rawBody: string) {
       webhookEventId: eventId,
       status: approved ? 'APPROVED' : 'CANCELLED',
       paidAt: approved ? new Date() : row.paidAt,
-      approvalNo: typeof rec.approvalNo === 'string' ? rec.approvalNo.slice(0, 64) : row.approvalNo,
+      approvalNo: [rec.approvalNo, rec.approval_number, nested.approval_number]
+        .map((value) => (typeof value === 'string' ? value.trim().slice(0, 64) : ''))
+        .find((value) => value.length > 0) ?? row.approvalNo,
     },
     include: {
       createdBy: { select: { id: true, name: true } },
