@@ -110,6 +110,12 @@ export async function fetchCardPaymentPrefill(token: string, inquiryId: string) 
     customerName: string;
     customerPhone: string | null;
     companyName?: string;
+    includeCompanyName?: boolean;
+    serviceWord?: string;
+    cleaningWon?: number;
+    depositWon?: number;
+    balanceWon?: number;
+    extraWorkWon?: number;
     amountWon: number;
     quote: CardPaymentFeeBreakdown;
     pgConnected: boolean;

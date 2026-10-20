@@ -40,6 +40,12 @@ export function TeamCardPaymentPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [includeCompanyName, setIncludeCompanyName] = useState(true);
+  const [serviceWord, setServiceWord] = useState('청소');
+  const [cleaningWon, setCleaningWon] = useState(0);
+  const [depositWon, setDepositWon] = useState(0);
+  const [balanceWon, setBalanceWon] = useState(0);
+  const [storedExtraWon, setStoredExtraWon] = useState(0);
   const [amount, setAmount] = useState('');
   const [extraAmount, setExtraAmount] = useState('');
   const [goodsName, setGoodsName] = useState('청소비');
@@ -64,8 +70,15 @@ export function TeamCardPaymentPage() {
         setCustomerName(res.customerName);
         setCustomerPhone(res.customerPhone || '');
         setCompanyName(res.companyName || '');
+        setIncludeCompanyName(res.includeCompanyName !== false && Boolean(res.companyName?.trim()));
+        const word = res.serviceWord?.trim() || '청소';
+        setServiceWord(word);
+        setCleaningWon(Math.max(0, Math.round(res.cleaningWon || 0)));
+        setDepositWon(Math.max(0, Math.round(res.depositWon || 0)));
+        setBalanceWon(Math.max(0, Math.round(res.balanceWon || 0)));
+        setStoredExtraWon(Math.max(0, Math.round(res.extraWorkWon || 0)));
         setAmount(String(res.amountWon || 0));
-        setGoodsName(res.customerName ? `${res.customerName} 청소비` : '청소비');
+        setGoodsName(res.customerName ? `${res.customerName} ${word}비` : `${word}비`);
       })
       .catch(() => setPgConnected(false));
   }, [inquiryId]);
@@ -73,11 +86,15 @@ export function TeamCardPaymentPage() {
   const baseWon = Math.round(Number(amount.replace(/[^\d]/g, '')) || 0);
   const extraWon = Math.round(Number(extraAmount.replace(/[^\d]/g, '')) || 0);
   const amountWon = baseWon + extraWon;
+  const messageExtraWon = extraWon > 0 ? extraWon : storedExtraWon;
   const shareMessage = buildCardPaymentShareMessage({
-    customerName,
     companyName,
-    goodsName,
-    amountLabel: formatWon(amountWon),
+    includeCompanyName,
+    serviceWord,
+    cleaningWon: cleaningWon > 0 ? cleaningWon : baseWon,
+    depositWon,
+    balanceWon: balanceWon > 0 ? balanceWon : baseWon,
+    extraWon: messageExtraWon,
     linkUrl,
   });
 

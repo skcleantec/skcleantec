@@ -26,6 +26,7 @@ import {
 import { startPaysisWindow } from './cardPaymentWindow.service.js';
 import { listCardPayments } from './cardPaymentList.service.js';
 import { defaultCardPaymentAmountWon } from './cardPaymentFee.js';
+import { loadCardPaymentCustomerCopy } from './cardPaymentCustomerCopy.js';
 import { prisma } from '../../lib/prisma.js';
 import { readSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
 import { cancelCustomerLinkPayment } from './cardPaymentCancel.service.js';
@@ -73,16 +74,19 @@ router.get('/inquiry/:inquiryId/prefill', async (req, res) => {
   const amountWon = defaultCardPaymentAmountWon(inquiry);
   const quote = await quoteCardPayment(amountWon);
   const pg = await getCredentialBundle(tenantId);
-  const tenant = await prisma.tenant.findFirst({
-    where: { id: tenantId },
-    select: { name: true },
-  });
+  const copy = await loadCardPaymentCustomerCopy(tenantId, inquiry.id);
   res.json({
     inquiryId: inquiry.id,
     inquiryNumber: inquiry.inquiryNumber,
     customerName: inquiry.customerName,
     customerPhone: inquiry.customerPhone,
-    companyName: tenant?.name?.trim() || '',
+    companyName: copy?.companyName ?? '',
+    includeCompanyName: copy?.includeCompanyName ?? false,
+    serviceWord: copy?.serviceWord ?? '청소',
+    cleaningWon: copy?.cleaningWon ?? 0,
+    depositWon: copy?.depositWon ?? 0,
+    balanceWon: copy?.balanceWon ?? 0,
+    extraWorkWon: copy?.extraWorkWon ?? 0,
     amountWon,
     quote,
     pgConnected: pg.keyin.connected || pg.link.connected,
