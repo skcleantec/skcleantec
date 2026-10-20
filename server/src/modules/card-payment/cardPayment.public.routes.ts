@@ -19,6 +19,7 @@ import {
   savePlatformAgencyFromPartner,
 } from './platformPgAgency.service.js';
 import { applyWspayWebhook } from './cardPaymentWebhook.service.js';
+import { getPgApplicationNotifyEmails, savePgApplicationNotifyEmails } from './pgApplicationNotify.service.js';
 import { applyPaysisNotification, startPaysisWindowByLinkToken } from './cardPaymentWindow.service.js';
 
 const router = Router();
@@ -223,6 +224,23 @@ router.get('/pg-partner/payments', async (req, res) => {
   const offset = Math.max(0, Number(req.query.offset) || 0);
   const status = typeof req.query.status === 'string' ? req.query.status : '';
   res.json(await listPartnerPayments({ status, limit, offset }));
+});
+
+router.get('/pg-partner/notify-emails', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  res.json({ emails: await getPgApplicationNotifyEmails() });
+});
+
+router.put('/pg-partner/notify-emails', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const body = req.body && typeof req.body === 'object' ? (req.body as { emails?: unknown }) : {};
+  try {
+    const emails = await savePgApplicationNotifyEmails(body.emails);
+    res.json({ emails });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : '알림 메일을 저장하지 못했습니다.';
+    res.status(400).json({ error: message });
+  }
 });
 
 router.get('/pg-partner/applications', async (req, res) => {

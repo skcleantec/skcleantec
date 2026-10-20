@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TENANT_PG_ONBOARDING_STATUS_LABEL, type TenantPgOnboardingStatus } from '@shared/cardPayment';
 import { PgPartnerModal } from './PgPartnerModal';
+import { PgPartnerNotifyEmails } from './PgPartnerNotifyEmails';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
 
 type Application = {
@@ -247,6 +248,7 @@ export function PgPartnerApplicationsPage() {
         <h1 className="text-fluid-base font-semibold text-slate-900">PG 신청</h1>
         <p className="mt-1 text-fluid-xs text-slate-600">업체를 누르면 수기와 인증 정보를 넣고 연동할 수 있습니다. 연동하면 그 업체 팀장이 카드결재를 쓸 수 있습니다.</p>
       </div>
+      <PgPartnerNotifyEmails />
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
       {items && items.length === 0 ? (

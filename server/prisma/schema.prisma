@@ -621,6 +621,8 @@ model PlatformCardPaymentSettings {
   id               String   @id @default("default")
   tenantFeeBps     Int      @default(330) @map("tenant_fee_bps")
   platformCostBps  Int      @default(260) @map("platform_cost_bps")
+  /// PG 신청이 들어오면 알림을 받을 메일. 원성 화면에서 더 넣을 수 있다.
+  pgApplicationNotifyEmails Json @default("[\"wsgpay@naver.com\"]") @map("pg_application_notify_emails")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("platform_card_payment_settings")

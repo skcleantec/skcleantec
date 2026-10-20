@@ -15,6 +15,7 @@ import {
   saveTenantRegistrationImage,
   submitOnboarding,
 } from './cardPaymentOnboarding.service.js';
+import { notifyPgApplicationSubmitted } from './pgApplicationNotify.service.js';
 import { listPgClerkSlots, savePgClerkSlots } from './pgClerk.service.js';
 import {
   confirmCustomerLink,
@@ -220,6 +221,17 @@ router.post('/pg/onboarding/submit', async (req, res) => {
   }
   try {
     const row = await submitOnboarding(tenantId, req.body ?? {});
+    void notifyPgApplicationSubmitted({
+      tenantId,
+      businessName: row.businessName,
+      businessKind: row.businessKind,
+      bizNumber: row.bizNumber,
+      representativeName: row.representativeName,
+      contactName: row.contactName,
+      contactPhone: row.contactPhone,
+      contactEmail: row.contactEmail,
+      submittedAt: row.submittedAt,
+    }).catch((err) => console.error('[pg-application notify]', err));
     res.json(row);
   } catch (e) {
     const message = e instanceof Error ? e.message : '';
