@@ -15,7 +15,11 @@ import {
   updateHouseholdLedgerEntry,
 } from './teamLeaderHouseholdLedger.service.js';
 import { syncHouseholdLedgerFromAssignments } from './teamLeaderHouseholdLedgerSync.service.js';
-import { getHouseholdWageSetting, upsertHouseholdWageSetting } from './teamLeaderHouseholdWage.service.js';
+import {
+  getHouseholdWageSetting,
+  isHouseholdWageEditableByLeader,
+  upsertHouseholdWageSetting,
+} from './teamLeaderHouseholdWage.service.js';
 
 const router = Router();
 
@@ -36,11 +40,14 @@ router.get('/wage-settings', async (req, res) => {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
-  const { setting } = await getHouseholdWageSetting(prisma, {
-    tenantId,
-    teamLeaderId: user.userId,
-  });
-  res.json({ setting });
+  const [{ setting }, leaderCanEdit] = await Promise.all([
+    getHouseholdWageSetting(prisma, {
+      tenantId,
+      teamLeaderId: user.userId,
+    }),
+    isHouseholdWageEditableByLeader(prisma, tenantId),
+  ]);
+  res.json({ setting, leaderCanEdit });
 });
 
 router.put('/wage-settings', async (req, res) => {
@@ -52,6 +59,11 @@ router.put('/wage-settings', async (req, res) => {
     return;
   }
   try {
+    const leaderCanEdit = await isHouseholdWageEditableByLeader(prisma, tenantId);
+    if (!leaderCanEdit) {
+      res.status(403).json({ error: '관리자가 임금 설정을 잠갔습니다.' });
+      return;
+    }
     const setting = await upsertHouseholdWageSetting(prisma, {
       tenantId,
       teamLeaderId: user.userId,

@@ -1,4 +1,4 @@
-import type { HouseholdLedgerListResponse } from './teamHouseholdLedger';
+import type { HouseholdLedgerListResponse, HouseholdWageSetting } from './teamHouseholdLedger';
 import { API } from './apiPrefix';
 import { AuthSessionExpiredError } from './auth';
 
@@ -47,6 +47,46 @@ export async function getAdminHouseholdLedgerTeamLeaders(
   const res = await fetch(`${API}/admin/household-ledger/team-leaders`, { headers: headers(token) });
   if (!res.ok) return parseJsonError(res, '팀장 목록을 불러올 수 없습니다.');
   return res.json() as Promise<{ items: AdminHouseholdLedgerTeamLeader[] }>;
+}
+
+export type AdminHouseholdWageOverview = {
+  leaderCanEdit: boolean;
+  items: Array<{
+    teamLeader: AdminHouseholdLedgerTeamLeader;
+    setting: HouseholdWageSetting;
+  }>;
+};
+
+export async function getAdminHouseholdWageSettings(token: string): Promise<AdminHouseholdWageOverview> {
+  const res = await fetch(`${API}/admin/household-ledger/wage-settings`, { headers: headers(token) });
+  if (!res.ok) return parseJsonError(res, '임금 설정을 불러올 수 없습니다.');
+  return res.json() as Promise<AdminHouseholdWageOverview>;
+}
+
+export async function saveAdminHouseholdWagePolicy(
+  token: string,
+  leaderCanEdit: boolean,
+): Promise<{ leaderCanEdit: boolean }> {
+  const res = await fetch(`${API}/admin/household-ledger/wage-policy`, {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify({ leaderCanEdit }),
+  });
+  if (!res.ok) return parseJsonError(res, '스위치를 저장하지 못했습니다.');
+  return res.json() as Promise<{ leaderCanEdit: boolean }>;
+}
+
+export async function saveAdminHouseholdWageSetting(
+  token: string,
+  payload: HouseholdWageSetting & { teamLeaderId: string },
+): Promise<{ teamLeaderId: string; setting: HouseholdWageSetting }> {
+  const res = await fetch(`${API}/admin/household-ledger/wage-settings`, {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) return parseJsonError(res, '임금 설정을 저장하지 못했습니다.');
+  return res.json() as Promise<{ teamLeaderId: string; setting: HouseholdWageSetting }>;
 }
 
 export async function getAdminHouseholdLedgerEntries(

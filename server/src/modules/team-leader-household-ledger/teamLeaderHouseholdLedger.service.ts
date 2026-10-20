@@ -1,6 +1,7 @@
 import type { Prisma, TeamLeaderHouseholdLedgerDirection } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
+  householdWageDailyInquiryKey,
   householdWageDailyKey,
   householdWageMonthlyKey,
   TEAM_LEADER_HOUSEHOLD_EXPENSE_CATEGORIES,
@@ -19,6 +20,7 @@ import {
 import { assertTeamLeaderCanAccessInquiry } from './teamLeaderHouseholdLedgerPrefill.service.js';
 import {
   getHouseholdWageSetting,
+  isHouseholdWageEditableByLeader,
   listWhereHidingWageKinds,
   suppressHouseholdWageKey,
   syncHouseholdWageEntries,
@@ -91,9 +93,12 @@ export async function listHouseholdLedgerEntries(
   const incomeTotal = incomeAgg._sum.amount ?? 0;
   const expenseTotal = expenseAgg._sum.amount ?? 0;
 
+  const leaderCanEdit = await isHouseholdWageEditableByLeader(db, opts.tenantId);
+
   return {
     range: { loYmd: range.loYmd, hiYmd: range.hiYmd },
     wageSetting: setting,
+    leaderCanEdit,
     summary: {
       incomeTotal,
       expenseTotal,
@@ -220,14 +225,22 @@ export async function deleteHouseholdLedgerEntry(
 ) {
   const existing = await db.teamLeaderHouseholdLedgerEntry.findFirst({
     where: { id: opts.entryId, tenantId: opts.tenantId, teamLeaderId: opts.teamLeaderId },
-    select: { id: true, prefillKind: true, occurredOn: true },
+    select: { id: true, prefillKind: true, occurredOn: true, inquiryId: true },
   });
   if (!existing) throw new HouseholdLedgerValidationError('항목을 찾을 수 없습니다.', 404);
   if (existing.prefillKind === 'wage_daily') {
+    const { setting } = await getHouseholdWageSetting(db, {
+      tenantId: opts.tenantId,
+      teamLeaderId: opts.teamLeaderId,
+    });
+    const key =
+      setting.dailyPayBasis === 'PER_INQUIRY' && existing.inquiryId
+        ? householdWageDailyInquiryKey(existing.inquiryId)
+        : householdWageDailyKey(existing.occurredOn.toISOString().slice(0, 10));
     await suppressHouseholdWageKey(db, {
       tenantId: opts.tenantId,
       teamLeaderId: opts.teamLeaderId,
-      key: householdWageDailyKey(existing.occurredOn.toISOString().slice(0, 10)),
+      key,
     });
   }
   if (existing.prefillKind === 'wage_monthly') {

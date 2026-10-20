@@ -1,4 +1,5 @@
 import type {
+  TeamLeaderHouseholdDailyPayBasis,
   TeamLeaderHouseholdLedgerDirection,
   TeamLeaderHouseholdPrefillKind,
   TeamLeaderHouseholdWageMode,
@@ -35,11 +36,13 @@ export type HouseholdWageSetting = {
   balanceSharePercent: number;
   dailyAmountWon: number | null;
   monthlyAmountWon: number | null;
+  dailyPayBasis: TeamLeaderHouseholdDailyPayBasis;
 };
 
 export type HouseholdLedgerListResponse = {
   range: { loYmd: string; hiYmd: string };
   wageSetting?: HouseholdWageSetting;
+  leaderCanEdit?: boolean;
   summary: { incomeTotal: number; expenseTotal: number; netTotal: number; wageTotal?: number };
   items: HouseholdLedgerEntry[];
   total: number;
@@ -185,12 +188,14 @@ export async function deleteTeamHouseholdLedgerEntry(token: string, entryId: str
   if (!res.ok) return parseJsonError(res, '삭제에 실패했습니다.');
 }
 
-export async function getTeamHouseholdWageSettings(token: string): Promise<{ setting: HouseholdWageSetting }> {
+export async function getTeamHouseholdWageSettings(
+  token: string,
+): Promise<{ setting: HouseholdWageSetting; leaderCanEdit: boolean }> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/household-ledger/wage-settings`), {
     headers: headers(token),
   });
   if (!res.ok) return parseJsonError(res, '임금 설정을 불러올 수 없습니다.');
-  return res.json() as Promise<{ setting: HouseholdWageSetting }>;
+  return res.json() as Promise<{ setting: HouseholdWageSetting; leaderCanEdit: boolean }>;
 }
 
 export async function saveTeamHouseholdWageSettings(

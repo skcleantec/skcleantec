@@ -15,7 +15,10 @@ import {
 } from '../../api/teamHouseholdLedger';
 import { TeamHouseholdLedgerWageSettingsModal } from '../../components/team/TeamHouseholdLedgerWageSettingsModal';
 import { LineMdIcon } from '../../components/ui/LineMdIcon';
-import { TEAM_LEADER_HOUSEHOLD_WAGE_MODE_LABELS } from '@shared/teamLeaderHouseholdLedger';
+import {
+  TEAM_LEADER_HOUSEHOLD_DAILY_PAY_BASIS_LABELS,
+  TEAM_LEADER_HOUSEHOLD_WAGE_MODE_LABELS,
+} from '@shared/teamLeaderHouseholdLedger';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -225,7 +228,12 @@ export function TeamHouseholdLedgerPage() {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const wageSetting = data?.wageSetting ?? null;
+  const leaderCanEdit = data?.leaderCanEdit !== false;
   const wageModeLabel = wageSetting ? TEAM_LEADER_HOUSEHOLD_WAGE_MODE_LABELS[wageSetting.wageMode] : null;
+  const wageBasisLabel =
+    wageSetting?.wageMode === 'DAILY'
+      ? TEAM_LEADER_HOUSEHOLD_DAILY_PAY_BASIS_LABELS[wageSetting.dailyPayBasis]
+      : null;
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
@@ -234,14 +242,22 @@ export function TeamHouseholdLedgerPage() {
           <TeamBiInline id="team.layout.nav.householdLedger" />
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-10 sm:px-4 sm:text-fluid-xs"
-          >
-            <LineMdIcon name="cog" className="size-4 text-slate-700" />
-            설정
-          </button>
+          {leaderCanEdit ? (
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-10 sm:px-4 sm:text-fluid-xs"
+            >
+              <LineMdIcon name="cog" className="size-4 text-slate-700" />
+              설정
+            </button>
+          ) : (
+            <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
+              관리자가 정한 임금입니다
+              {wageModeLabel ? ` · ${wageModeLabel}` : ''}
+              {wageBasisLabel ? ` · ${wageBasisLabel}` : ''}
+            </p>
+          )}
           <button
             type="button"
             disabled={syncing}

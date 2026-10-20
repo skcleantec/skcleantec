@@ -1,9 +1,12 @@
 import type { Prisma, PrismaClient, TeamLeaderHouseholdWageMode as PrismaWageMode } from '@prisma/client';
 import {
+  TEAM_LEADER_HOUSEHOLD_DAILY_PAY_BASIS,
   TEAM_LEADER_HOUSEHOLD_WAGE_MODES,
   hiddenHouseholdPrefillKinds,
+  householdWageDailyInquiryKey,
   householdWageDailyKey,
   householdWageMonthlyKey,
+  type TeamLeaderHouseholdDailyPayBasis,
   type TeamLeaderHouseholdWageMode,
 } from './teamLeaderHouseholdLedger.constants.js';
 import { HouseholdLedgerValidationError } from './teamLeaderHouseholdLedger.errors.js';
@@ -14,6 +17,7 @@ export type HouseholdWageSettingDto = {
   balanceSharePercent: number;
   dailyAmountWon: number | null;
   monthlyAmountWon: number | null;
+  dailyPayBasis: TeamLeaderHouseholdDailyPayBasis;
 };
 
 const DEFAULT_SETTING: HouseholdWageSettingDto = {
@@ -21,6 +25,7 @@ const DEFAULT_SETTING: HouseholdWageSettingDto = {
   balanceSharePercent: 100,
   dailyAmountWon: null,
   monthlyAmountWon: null,
+  dailyPayBasis: 'PER_DAY',
 };
 
 function parseSuppressedKeys(raw: unknown): string[] {
@@ -33,13 +38,40 @@ function serializeSetting(row: {
   balanceSharePercent: number;
   dailyAmountWon: number | null;
   monthlyAmountWon: number | null;
+  dailyPayBasis: TeamLeaderHouseholdDailyPayBasis;
 }): HouseholdWageSettingDto {
   return {
     wageMode: row.wageMode,
     balanceSharePercent: row.balanceSharePercent,
     dailyAmountWon: row.dailyAmountWon,
     monthlyAmountWon: row.monthlyAmountWon,
+    dailyPayBasis: row.dailyPayBasis,
   };
+}
+
+export async function isHouseholdWageEditableByLeader(
+  db: PrismaClient,
+  tenantId: string,
+): Promise<boolean> {
+  const row = await db.tenant.findFirst({
+    where: { id: tenantId },
+    select: { teamLeaderHouseholdWageLeaderEditable: true },
+  });
+  return row?.teamLeaderHouseholdWageLeaderEditable !== false;
+}
+
+export async function setHouseholdWageEditableByLeader(
+  db: PrismaClient,
+  opts: { tenantId: string; leaderCanEdit: boolean },
+): Promise<boolean> {
+  const updated = await db.tenant.updateMany({
+    where: { id: opts.tenantId },
+    data: { teamLeaderHouseholdWageLeaderEditable: opts.leaderCanEdit },
+  });
+  if (updated.count !== 1) {
+    throw new HouseholdLedgerValidationError('업체 설정을 저장하지 못했습니다.', 404);
+  }
+  return opts.leaderCanEdit;
 }
 
 export async function getHouseholdWageSetting(
@@ -68,6 +100,7 @@ export async function upsertHouseholdWageSetting(
   const balanceSharePercent = parsePercent(opts.body.balanceSharePercent);
   const dailyAmountWon = parseOptionalWon(opts.body.dailyAmountWon);
   const monthlyAmountWon = parseOptionalWon(opts.body.monthlyAmountWon);
+  const dailyPayBasis = parseDailyPayBasis(opts.body.dailyPayBasis);
 
   if (wageMode === 'DAILY' && (dailyAmountWon == null || dailyAmountWon < 1)) {
     throw new HouseholdLedgerValidationError('일급을 1원 이상 입력해 주세요.');
@@ -86,6 +119,7 @@ export async function upsertHouseholdWageSetting(
     balanceSharePercent,
     dailyAmountWon,
     monthlyAmountWon,
+    dailyPayBasis,
     suppressedWageKeys: [],
   };
 
@@ -148,10 +182,19 @@ export async function syncHouseholdWageEntries(
   }
 }
 
-async function listWorkYmds(
+type WorkJob = { inquiryId: string; ymd: string; customerName: string | null };
+
+function ymdOfInquiry(inquiry: { preferredDate: Date | null; createdAt: Date }): string | null {
+  const ymd = inquiry.preferredDate
+    ? inquiry.preferredDate.toISOString().slice(0, 10)
+    : inquiry.createdAt.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : null;
+}
+
+async function listWorkJobs(
   db: PrismaClient,
   opts: { tenantId: string; teamLeaderId: string },
-): Promise<string[]> {
+): Promise<WorkJob[]> {
   const assignments = await db.assignment.findMany({
     where: {
       tenantId: opts.tenantId,
@@ -163,18 +206,29 @@ async function listWorkYmds(
       },
     },
     select: {
-      inquiry: { select: { preferredDate: true, createdAt: true } },
+      inquiryId: true,
+      inquiry: { select: { preferredDate: true, createdAt: true, customerName: true } },
     },
   });
 
-  const ymds = new Set<string>();
+  const byInquiry = new Map<string, WorkJob>();
   for (const row of assignments) {
-    const ymd = row.inquiry.preferredDate
-      ? row.inquiry.preferredDate.toISOString().slice(0, 10)
-      : row.inquiry.createdAt.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) ymds.add(ymd);
+    if (byInquiry.has(row.inquiryId)) continue;
+    const ymd = ymdOfInquiry(row.inquiry);
+    if (!ymd) continue;
+    byInquiry.set(row.inquiryId, {
+      inquiryId: row.inquiryId,
+      ymd,
+      customerName: row.inquiry.customerName?.trim() || null,
+    });
   }
-  return [...ymds].sort();
+  return [...byInquiry.values()].sort(
+    (a, b) => a.ymd.localeCompare(b.ymd) || a.inquiryId.localeCompare(b.inquiryId),
+  );
+}
+
+function ymdKey(occurredOn: Date): string {
+  return occurredOn.toISOString().slice(0, 10);
 }
 
 async function upsertDailyWageEntries(
@@ -189,7 +243,40 @@ async function upsertDailyWageEntries(
   const amount = opts.setting.dailyAmountWon;
   if (amount == null || amount < 1) return;
 
-  const workYmds = await listWorkYmds(db, opts);
+  const jobs = await listWorkJobs(db, opts);
+  if (opts.setting.dailyPayBasis === 'PER_INQUIRY') {
+    await upsertDailyWagePerInquiry(db, { ...opts, amount, jobs });
+    return;
+  }
+  await upsertDailyWagePerDay(db, { ...opts, amount, jobs });
+}
+
+async function deleteUnlockedWageDaily(
+  db: PrismaClient,
+  opts: { tenantId: string; teamLeaderId: string; id: string },
+): Promise<void> {
+  await db.teamLeaderHouseholdLedgerEntry.deleteMany({
+    where: {
+      id: opts.id,
+      tenantId: opts.tenantId,
+      teamLeaderId: opts.teamLeaderId,
+      amountLocked: false,
+      prefillKind: 'wage_daily',
+    },
+  });
+}
+
+async function upsertDailyWagePerDay(
+  db: PrismaClient,
+  opts: {
+    tenantId: string;
+    teamLeaderId: string;
+    amount: number;
+    jobs: WorkJob[];
+    suppressed: Set<string>;
+  },
+): Promise<void> {
+  const workYmds = [...new Set(opts.jobs.map((job) => job.ymd))].sort();
   const workSet = new Set(workYmds);
   const existing = await db.teamLeaderHouseholdLedgerEntry.findMany({
     where: {
@@ -197,25 +284,43 @@ async function upsertDailyWageEntries(
       teamLeaderId: opts.teamLeaderId,
       prefillKind: 'wage_daily',
     },
-    select: { id: true, occurredOn: true, amountLocked: true },
+    select: { id: true, occurredOn: true, amountLocked: true, inquiryId: true },
   });
 
+  const lockedYmds = new Set<string>();
+  const kept = new Map<string, (typeof existing)[number]>();
   for (const row of existing) {
-    const ymd = row.occurredOn.toISOString().slice(0, 10);
-    if (workSet.has(ymd) || row.amountLocked) continue;
-    await db.teamLeaderHouseholdLedgerEntry.delete({ where: { id: row.id } });
+    const ymd = ymdKey(row.occurredOn);
+    if (row.amountLocked) {
+      lockedYmds.add(ymd);
+      continue;
+    }
+    const keep =
+      row.inquiryId == null && workSet.has(ymd) && !opts.suppressed.has(householdWageDailyKey(ymd));
+    if (!keep || kept.has(ymd)) {
+      await deleteUnlockedWageDaily(db, { ...opts, id: row.id });
+      continue;
+    }
+    kept.set(ymd, row);
   }
 
   for (const ymd of workYmds) {
-    if (opts.suppressed.has(householdWageDailyKey(ymd))) continue;
+    if (opts.suppressed.has(householdWageDailyKey(ymd)) || lockedYmds.has(ymd)) continue;
     const occurredOn = parseOccurredOnYmd(ymd);
     if (!occurredOn) continue;
-    const found = existing.find((row) => row.occurredOn.toISOString().slice(0, 10) === ymd);
+    const found = kept.get(ymd);
+    const data = {
+      amount: opts.amount,
+      category: '일당',
+      direction: 'INCOME' as const,
+      memo: `일당 · ${ymd}`,
+      inquiryId: null,
+      occurredOn,
+    };
     if (found) {
-      if (found.amountLocked) continue;
-      await db.teamLeaderHouseholdLedgerEntry.update({
-        where: { id: found.id },
-        data: { amount, category: '일당', direction: 'INCOME', memo: `일당 · ${ymd}` },
+      await db.teamLeaderHouseholdLedgerEntry.updateMany({
+        where: { id: found.id, tenantId: opts.tenantId, teamLeaderId: opts.teamLeaderId, amountLocked: false },
+        data,
       });
       continue;
     }
@@ -223,11 +328,77 @@ async function upsertDailyWageEntries(
       data: {
         tenantId: opts.tenantId,
         teamLeaderId: opts.teamLeaderId,
-        direction: 'INCOME',
-        occurredOn,
-        category: '일당',
-        amount,
-        memo: `일당 · ${ymd}`,
+        ...data,
+        prefillKind: 'wage_daily',
+      },
+    });
+  }
+}
+
+async function upsertDailyWagePerInquiry(
+  db: PrismaClient,
+  opts: {
+    tenantId: string;
+    teamLeaderId: string;
+    amount: number;
+    jobs: WorkJob[];
+    suppressed: Set<string>;
+  },
+): Promise<void> {
+  const jobById = new Map(opts.jobs.map((job) => [job.inquiryId, job]));
+  const existing = await db.teamLeaderHouseholdLedgerEntry.findMany({
+    where: {
+      tenantId: opts.tenantId,
+      teamLeaderId: opts.teamLeaderId,
+      prefillKind: 'wage_daily',
+    },
+    select: { id: true, occurredOn: true, amountLocked: true, inquiryId: true },
+  });
+
+  const lockedInquiryIds = new Set<string>();
+  const kept = new Map<string, (typeof existing)[number]>();
+  for (const row of existing) {
+    if (row.amountLocked) {
+      if (row.inquiryId) lockedInquiryIds.add(row.inquiryId);
+      continue;
+    }
+    const job = row.inquiryId ? jobById.get(row.inquiryId) : undefined;
+    const keep = Boolean(job) && !opts.suppressed.has(householdWageDailyInquiryKey(row.inquiryId!));
+    if (!keep || (row.inquiryId && kept.has(row.inquiryId))) {
+      await deleteUnlockedWageDaily(db, { ...opts, id: row.id });
+      continue;
+    }
+    if (row.inquiryId) kept.set(row.inquiryId, row);
+  }
+
+  for (const job of opts.jobs) {
+    if (opts.suppressed.has(householdWageDailyInquiryKey(job.inquiryId)) || lockedInquiryIds.has(job.inquiryId)) {
+      continue;
+    }
+    const occurredOn = parseOccurredOnYmd(job.ymd);
+    if (!occurredOn) continue;
+    const who = job.customerName ? job.customerName.slice(0, 40) : '현장';
+    const data = {
+      amount: opts.amount,
+      category: '일당',
+      direction: 'INCOME' as const,
+      memo: `일당 · ${who} · ${job.ymd}`,
+      inquiryId: job.inquiryId,
+      occurredOn,
+    };
+    const found = kept.get(job.inquiryId);
+    if (found) {
+      await db.teamLeaderHouseholdLedgerEntry.updateMany({
+        where: { id: found.id, tenantId: opts.tenantId, teamLeaderId: opts.teamLeaderId, amountLocked: false },
+        data,
+      });
+      continue;
+    }
+    await db.teamLeaderHouseholdLedgerEntry.create({
+      data: {
+        tenantId: opts.tenantId,
+        teamLeaderId: opts.teamLeaderId,
+        ...data,
         prefillKind: 'wage_daily',
       },
     });
@@ -246,7 +417,7 @@ async function upsertMonthlyWageEntries(
   const amount = opts.setting.monthlyAmountWon;
   if (amount == null || amount < 1) return;
 
-  const workYmds = await listWorkYmds(db, opts);
+  const workYmds = [...new Set((await listWorkJobs(db, opts)).map((job) => job.ymd))].sort();
   const months = new Set(workYmds.map((ymd) => ymd.slice(0, 7)));
   const thisMonth = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
   months.add(thisMonth);
@@ -294,6 +465,14 @@ async function upsertMonthlyWageEntries(
   }
 }
 
+function parseDailyPayBasis(raw: unknown): TeamLeaderHouseholdDailyPayBasis {
+  if (raw == null || raw === '') return 'PER_DAY';
+  if (typeof raw === 'string' && (TEAM_LEADER_HOUSEHOLD_DAILY_PAY_BASIS as readonly string[]).includes(raw)) {
+    return raw as TeamLeaderHouseholdDailyPayBasis;
+  }
+  throw new HouseholdLedgerValidationError('일당은 건마다 또는 하루 통합으로 선택해 주세요.');
+}
+
 function parseWageMode(raw: unknown): TeamLeaderHouseholdWageMode {
   if (typeof raw === 'string' && (TEAM_LEADER_HOUSEHOLD_WAGE_MODES as readonly string[]).includes(raw)) {
     return raw as TeamLeaderHouseholdWageMode;
@@ -316,6 +495,40 @@ function parseOptionalWon(raw: unknown): number | null {
     throw new HouseholdLedgerValidationError('금액은 정수로 입력해 주세요.');
   }
   return n;
+}
+
+export async function listAdminHouseholdWageOverview(
+  db: PrismaClient,
+  tenantId: string,
+): Promise<{
+  leaderCanEdit: boolean;
+  items: Array<{
+    teamLeader: { id: string; name: string | null; email: string | null };
+    setting: HouseholdWageSettingDto;
+  }>;
+}> {
+  const [leaderCanEdit, leaders, rows] = await Promise.all([
+    isHouseholdWageEditableByLeader(db, tenantId),
+    db.user.findMany({
+      where: { tenantId, role: 'TEAM_LEADER', isActive: true },
+      select: { id: true, name: true, email: true },
+      orderBy: [{ name: 'asc' }, { email: 'asc' }],
+    }),
+    db.teamLeaderHouseholdWageSetting.findMany({
+      where: { tenantId },
+    }),
+  ]);
+  const byLeader = new Map(rows.map((row) => [row.teamLeaderId, row]));
+  return {
+    leaderCanEdit,
+    items: leaders.map((leader) => {
+      const row = byLeader.get(leader.id);
+      return {
+        teamLeader: leader,
+        setting: row ? serializeSetting(row) : { ...DEFAULT_SETTING },
+      };
+    }),
+  };
 }
 
 export function listWhereHidingWageKinds(
