@@ -711,6 +711,8 @@ model CardPayment {
   platformSpreadWon  Int               @map("platform_spread_won")
   tenantNetWon       Int               @map("tenant_net_won")
   customerName       String            @map("customer_name") @db.VarChar(128)
+  /// 인증결제 링크·결제창에 보이는 결제 내용
+  goodsName          String?           @map("goods_name") @db.VarChar(80)
   customerPhoneMasked String?          @map("customer_phone_masked") @db.VarChar(32)
   inquiryNumber      String?           @map("inquiry_number") @db.VarChar(24)
   cardLast4          String?           @map("card_last4") @db.VarChar(4)

@@ -320,12 +320,12 @@ export const teamMessages = {
 
   'team.modal.cardPayment': { ko: '카드결재' },
   'team.modal.cardPaymentTitle': {
-    ko: '원성페이먼츠 판매자센터(카드결재)를 새 창에서 엽니다.',
+    ko: '수기결재 또는 인증결재를 고릅니다.',
   },
   'team.cardPayment.pageTitle': { ko: '카드결재' },
-  'team.cardPayment.heading': { ko: '원성페이먼츠 판매자센터' },
+  'team.cardPayment.heading': { ko: '카드결재' },
   'team.cardPayment.body': {
-    ko: '가맹 코드가 연결되기 전에는 판매자센터에 아이디와 비밀번호로 로그인한 뒤 결제합니다. 카드번호는 그 사이트에서 입력합니다.',
+    ko: '수기는 원성 수기결재 페이지에서 하고, 인증은 링크를 만들어 고객 카톡으로 보냅니다.',
   },
   'team.cardPayment.redirecting': { ko: '이동 중…' },
   'team.cardPayment.redirectFailed': { ko: '자동 이동이 차단되었을 수 있습니다. 아래 버튼을 눌러 주세요.' },

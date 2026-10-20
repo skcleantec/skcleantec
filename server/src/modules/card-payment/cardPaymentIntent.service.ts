@@ -43,6 +43,7 @@ export async function createCardPaymentIntent(input: {
   amountWon: number;
   method: 'KEYIN' | 'CUSTOMER_LINK' | 'PAY_WINDOW';
   payScreen?: 'P' | 'M';
+  goodsName?: string | null;
 }) {
   const inquiry = await loadInquiryForCardPayment(input.tenantId, input.inquiryId);
   if (!inquiry) return { error: '접수를 찾을 수 없습니다.' as const };
@@ -52,6 +53,7 @@ export async function createCardPaymentIntent(input: {
   const rates = await getPlatformCardFeeRates();
   const fees = computeCardPaymentFees(amountWon, rates.tenantFeeBps, rates.platformCostBps);
   const clerkStamp = await pgClerkStampForTeamLeader(input.tenantId, input.userId);
+  const goodsName = (input.goodsName ?? '').trim().slice(0, 80) || null;
   const created = await prisma.cardPayment.create({
     data: {
       tenantId: input.tenantId,
@@ -69,6 +71,7 @@ export async function createCardPaymentIntent(input: {
       platformSpreadWon: fees.platformSpreadWon,
       tenantNetWon: fees.tenantNetWon,
       customerName: inquiry.customerName,
+      goodsName,
       customerPhoneMasked: maskCustomerPhone(inquiry.customerPhone),
       inquiryNumber: inquiry.inquiryNumber,
       pgClerkNo: clerkStamp?.pgClerkNo ?? null,
@@ -154,7 +157,7 @@ export async function confirmCustomerLink(input: {
       linkTokenHash: hashLinkToken(token),
       linkExpiresAt: expires,
       status: 'LINK_SENT',
-      failReason: pg.ok ? null : pg.message.slice(0, 256),
+      failReason: null,
     },
     include: PAYMENT_INCLUDE,
   });
@@ -166,9 +169,7 @@ export async function confirmCustomerLink(input: {
     linkPath: path,
     pgCheckoutUrl: pg.ok ? pg.checkoutUrl : null,
     pgWindowUrl: resolveWspayHostedWindowUrl(),
-    pgMessage: pg.ok
-      ? null
-      : '고객이 링크를 열면 원성페이먼츠 창에서 카드번호를 입력합니다. 금액이 고정된 결제창 URL은 PG 문서 확인 후 연결합니다.',
+    pgMessage: null,
   };
 }
 
@@ -188,6 +189,7 @@ export async function getPublicPaymentByToken(token: string) {
     status: row.status,
     tenantName: row.tenant.name,
     inquiryNumber: row.inquiryNumber,
+    goodsName: row.goodsName,
     paidAt: row.paidAt?.toISOString() ?? null,
     pgWindowUrl: resolveWspayHostedWindowUrl(),
   };

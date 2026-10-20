@@ -191,7 +191,7 @@ export async function submitTenantPgOnboarding(token: string, body: Partial<PgOn
 
 export async function createCardPayment(
   token: string,
-  body: { inquiryId: string; amountWon: number; method: CardPaymentMethod | 'PAY_WINDOW'; payScreen?: 'P' | 'M' },
+  body: { inquiryId: string; amountWon: number; method: CardPaymentMethod | 'PAY_WINDOW'; payScreen?: 'P' | 'M'; goodsName?: string },
 ) {
   const res = await fetch(`${API}/card-payments`, {
     method: 'POST',
@@ -262,6 +262,7 @@ export async function fetchPublicCardPaymentLink(token: string) {
     status: CardPaymentStatus;
     tenantName: string;
     inquiryNumber: string | null;
+    goodsName: string | null;
     paidAt: string | null;
     pgWindowUrl: string;
   }>;

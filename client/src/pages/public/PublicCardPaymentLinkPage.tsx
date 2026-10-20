@@ -28,6 +28,7 @@ export function PublicCardPaymentLinkPage() {
           <div className="mt-4 space-y-2">
             <p className="text-fluid-xs text-slate-500">{data.tenantName}</p>
             <p className="text-fluid-sm font-semibold text-slate-900">{data.customerName} 고객님</p>
+            {data.goodsName ? <p className="text-fluid-sm text-slate-800">{data.goodsName}</p> : null}
             <p className="text-fluid-lg font-semibold tabular-nums text-slate-900">{formatWon(data.amountWon)}</p>
             <p className="text-fluid-2xs text-slate-500">
               {CARD_PAYMENT_STATUS_LABEL[data.status as CardPaymentStatus]}

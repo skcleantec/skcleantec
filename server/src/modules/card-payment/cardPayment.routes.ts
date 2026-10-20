@@ -241,6 +241,7 @@ router.post('/', async (req, res) => {
     amountWon,
     method,
     payScreen,
+    goodsName: typeof req.body?.goodsName === 'string' ? req.body.goodsName : null,
   });
   if ('error' in result) {
     res.status(400).json({ error: result.error });

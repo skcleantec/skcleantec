@@ -48,7 +48,7 @@ export async function startPaysisWindow(input: {
     mKey: merchant.mKey,
     type: input.payScreen,
     amount: String(row.amountWon),
-    productName: '청소서비스',
+    productName: (row.goodsName || '청소서비스').slice(0, 50),
     userId,
     userName: row.customerName || '고객',
     orderNo,

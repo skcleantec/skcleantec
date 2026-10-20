@@ -1266,8 +1266,9 @@ export function TeamInquiryDetailModal({
     !viewerMe?.previewExternal;
 
   const handleOpenCardPayment = useCallback(() => {
-    window.open(TEAM_CARD_PAYMENT_PATH, '_blank', 'noopener,noreferrer');
-  }, []);
+    const q = new URLSearchParams({ inquiryId: item.id });
+    window.open(`${TEAM_CARD_PAYMENT_PATH}?${q}`, '_blank', 'noopener,noreferrer');
+  }, [item.id]);
 
   const handleShareCopy = useCallback(async () => {
     setShareCopyHint(null);
