@@ -72,16 +72,19 @@ export function TeamCardPaymentKeyinForm({
           onChange={(e) => onGoodsNameChange(e.target.value)}
         />
       </label>
-      <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <p className="text-fluid-xs font-semibold text-slate-800">카드 정보</p>
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <div>
+          <p className="text-fluid-xs font-semibold text-slate-800">카드 정보</p>
+          <p className="mt-0.5 text-fluid-2xs leading-snug text-slate-500">승인 후 끝 4자리만 남고, 카드번호는 저장하지 않습니다.</p>
+        </div>
         <label className={TEAM_PAY_LABEL}>
           카드번호
           <input
             inputMode="numeric"
             autoComplete="off"
-            className={`${TEAM_PAY_FIELD} tabular-nums`}
-            value={card.cardNo}
-            placeholder="숫자만"
+            className={`${TEAM_PAY_FIELD} tabular-nums tracking-wide`}
+            value={card.cardNo.replace(/(\d{4})(?=\d)/g, '$1 ').trim()}
+            placeholder="ACCT-000003"
             onChange={(e) => setCard((prev) => ({ ...prev, cardNo: e.target.value.replace(/\D/g, '').slice(0, 16) }))}
           />
         </label>

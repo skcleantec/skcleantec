@@ -1,19 +1,16 @@
 import { createPortal } from 'react-dom';
+import { TEAM_PAY_DIALOG, TEAM_PAY_OVERLAY } from './teamCardPaymentUi';
 
 /** PG가 연결되지 않은 업체에서 카드결재를 눌렀을 때. */
 export function TeamCardPaymentPgRequiredDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
   return createPortal(
-    <div
-      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/45 p-3 sm:items-center"
-      onClick={onClose}
-      role="presentation"
-    >
+    <div className={TEAM_PAY_OVERLAY} onClick={onClose} role="presentation">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="team-card-pg-required-title"
-        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-lg"
+        className={TEAM_PAY_DIALOG}
         onClick={(e) => e.stopPropagation()}
       >
         <p id="team-card-pg-required-title" className="text-fluid-sm font-semibold text-slate-900">

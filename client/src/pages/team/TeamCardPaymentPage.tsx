@@ -135,9 +135,9 @@ export function TeamCardPaymentPage() {
     <div
       ref={scrollRef}
       onFocusCapture={onFieldFocus}
-      className="login-surface min-h-dvh overflow-y-auto overscroll-y-contain bg-slate-100"
+      className="login-surface flex min-h-dvh flex-col overflow-y-auto overscroll-y-contain bg-slate-100 px-4 py-6"
     >
-      <div className="login-scroll-content mx-auto flex w-full max-w-md flex-col gap-3 px-3 py-4">
+      <div className="login-scroll-content m-auto flex w-full max-w-md flex-col gap-3">
         <header className="flex items-center gap-2">
           {step === 'pick' ? (
             <Link
@@ -163,9 +163,18 @@ export function TeamCardPaymentPage() {
           </div>
         </header>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           {customerName ? (
-            <p className="text-fluid-2xl font-semibold tabular-nums text-slate-900">{formatWon(amountWon)}</p>
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="min-w-0">
+                <p className="text-fluid-2xs text-slate-500">고객</p>
+                <p className="truncate text-fluid-sm font-semibold text-slate-900">{customerName}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-fluid-2xs text-slate-500">결제 금액</p>
+                <p className="text-fluid-lg font-semibold tabular-nums text-slate-900">{formatWon(amountWon)}</p>
+              </div>
+            </div>
           ) : null}
           {!inquiryId ? <p className="text-fluid-xs text-slate-600">접수 상세에서 카드결재를 눌러 주세요.</p> : null}
           {inquiryId && pgConnected === null ? <p className="text-fluid-xs text-slate-500">불러오는 중</p> : null}
