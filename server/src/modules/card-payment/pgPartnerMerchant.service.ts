@@ -122,7 +122,7 @@ type PaymentRow = {
 
 export async function listPartnerPayments(input: { status?: string; limit: number; offset: number }) {
   const cardWhere: Prisma.CardPaymentWhereInput = {};
-  const feeWhere: Prisma.UsageFeeCardPaymentWhereInput = {};
+  const feeWhere: Prisma.UsageFeeCardPaymentWhereInput = { payMethod: { in: ['KEYIN', 'PAY_WINDOW'] } };
   if (input.status === 'PENDING') {
     cardWhere.status = { in: PENDING };
     feeWhere.status = 'PENDING';

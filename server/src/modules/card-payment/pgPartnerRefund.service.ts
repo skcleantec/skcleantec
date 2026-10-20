@@ -23,7 +23,7 @@ export async function listPartnerRefunds() {
       },
     }),
     prisma.usageFeeCardPayment.findMany({
-      where: { status: 'CANCELLED' },
+      where: { status: 'CANCELLED', payMethod: { in: ['KEYIN', 'PAY_WINDOW'] } },
       orderBy: { paidAt: 'desc' },
       take: 100,
       select: {
