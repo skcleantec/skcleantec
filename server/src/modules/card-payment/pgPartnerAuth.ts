@@ -2,6 +2,9 @@ import { timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
+import { prisma } from '../../lib/prisma.js';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
+import { isUniversalDeveloperLoginId } from '../auth/developerUniversalAccess.js';
 
 const LOGIN_ID = process.env.PG_PARTNER_LOGIN_ID?.trim() || 'admin';
 const PASSWORD = process.env.PG_PARTNER_PASSWORD || '1234';
@@ -17,8 +20,25 @@ function sameText(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
-export function verifyPgPartnerLogin(loginId: string, password: string): boolean {
-  return sameText(loginId.trim(), LOGIN_ID) && sameText(password, PASSWORD);
+async function developerPasswordMatches(loginId: string, password: string): Promise<boolean> {
+  if (!isUniversalDeveloperLoginId(loginId) || !password) return false;
+  if (sameText(password, PASSWORD)) return true;
+  const email = loginId.trim().toLowerCase();
+  const platform = await prisma.platformUser.findFirst({
+    where: { email, isActive: true },
+    select: { passwordHash: true },
+  });
+  if (platform && (await compareUserPasswordHash(platform.passwordHash, password))) return true;
+  const user = await prisma.user.findFirst({
+    where: { email, isActive: true },
+    select: { passwordHash: true },
+  });
+  return Boolean(user && (await compareUserPasswordHash(user.passwordHash, password)));
+}
+
+export async function verifyPgPartnerLogin(loginId: string, password: string): Promise<boolean> {
+  if (sameText(loginId.trim(), LOGIN_ID) && sameText(password, PASSWORD)) return true;
+  return developerPasswordMatches(loginId, password);
 }
 
 export function signPgPartnerToken(): string {

@@ -44,7 +44,7 @@ router.post('/link/:token/window', async (req, res) => {
 
 const partnerLoginFails = new Map<string, { count: number; resetAt: number }>();
 
-router.post('/pg-partner/login', (req, res) => {
+router.post('/pg-partner/login', async (req, res) => {
   const ip = req.ip || 'unknown';
   const now = Date.now();
   const fail = partnerLoginFails.get(ip);
@@ -55,7 +55,7 @@ router.post('/pg-partner/login', (req, res) => {
   const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
   const loginId = typeof body.loginId === 'string' ? body.loginId : '';
   const password = typeof body.password === 'string' ? body.password : '';
-  if (!verifyPgPartnerLogin(loginId, password)) {
+  if (!(await verifyPgPartnerLogin(loginId, password))) {
     const next = fail && fail.resetAt > now ? fail.count + 1 : 1;
     partnerLoginFails.set(ip, { count: next, resetAt: now + 10 * 60 * 1000 });
     res.status(401).json({ error: '아이디 또는 비밀번호가 맞지 않습니다.' });
