@@ -1,6 +1,7 @@
 import type { CardPaymentStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { readSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
+import { saveCredentialFromPlatform } from './cardPaymentCredential.service.js';
+import { readSellerCenterLogin, saveSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
 import { olderSameInquiryCardPaymentIds } from './cardPaymentList.service.js';
 
 function slotOf(
@@ -94,10 +95,38 @@ export async function getPartnerMerchant(tenantId: string) {
     bankAccount: onboard?.bankAccount ?? null,
     accountHolder: onboard?.accountHolder ?? null,
     sellerLoginId: seller.loginId,
-    sellerPassword: seller.password,
+    sellerPasswordSet: Boolean(seller.password),
     keyin: slotOf(credentials, 'KEYIN'),
     link: slotOf(credentials, 'LINK'),
   };
+}
+
+type RailConnect = { mid: string; oid: string; tid: string; apiKey: string };
+
+function assertRail(label: string, rail: RailConnect, expectKeyin: boolean) {
+  const mid = rail.mid.trim();
+  const oid = rail.oid.trim();
+  const tid = rail.tid.trim();
+  const apiKey = rail.apiKey.trim();
+  if (!/^[A-Za-z0-9]{4,32}$/.test(mid)) throw new Error(`${label} MID는 영문·숫자 4~32자리여야 합니다.`);
+  if (!/^[A-Za-z0-9]{4}$/.test(oid)) throw new Error(`${label} 주문번호 4자리를 확인해 주세요.`);
+  if (!tid) throw new Error(`${label} TID를 입력해 주세요.`);
+  if (!apiKey || /^\d{13,19}$/.test(apiKey.replace(/\s/g, ''))) throw new Error(`${label} API 키를 입력해 주세요. 카드번호는 받지 않습니다.`);
+  if (expectKeyin && !apiKey.startsWith('ssp-')) throw new Error('수기 API 키는 ssp-로 시작해야 합니다.');
+  if (!expectKeyin && apiKey.startsWith('ssp-')) throw new Error('인증 키는 결제창 mKey입니다. ssp- 키는 수기에 넣으세요.');
+  return { mid, oid, tid, apiKey };
+}
+
+/** 수기·인증을 함께 저장하고 그 업체를 바로 사용할 수 있게 연다. */
+export async function connectPartnerRails(
+  tenantId: string,
+  input: { sellerLoginId: string; sellerPassword: string; keyin: RailConnect; link: RailConnect },
+) {
+  const keyin = assertRail('수기', input.keyin, true);
+  const link = assertRail('인증', input.link, false);
+  await saveCredentialFromPlatform({ tenantId, rail: 'KEYIN', ...keyin });
+  await saveCredentialFromPlatform({ tenantId, rail: 'LINK', ...link });
+  await saveSellerCenterLogin(tenantId, input.sellerLoginId, input.sellerPassword);
 }
 
 const PENDING: CardPaymentStatus[] = ['DRAFT', 'AWAITING_PG', 'LINK_SENT'];

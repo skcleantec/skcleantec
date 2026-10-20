@@ -41,8 +41,28 @@ export async function verifyPgPartnerLogin(loginId: string, password: string): P
   return developerPasswordMatches(loginId, password);
 }
 
-export function signPgPartnerToken(): string {
-  return jwt.sign({ kind: 'pg-partner' }, partnerSecret(), { expiresIn: '12h' });
+export function signPgPartnerToken(loginId: string): string {
+  return jwt.sign({ kind: 'pg-partner', loginId: loginId.trim().slice(0, 64) }, partnerSecret(), { expiresIn: '12h' });
+}
+
+export function readPgPartnerLoginId(req: Request): string {
+  const header = req.headers.authorization;
+  const token = header?.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) return '';
+  try {
+    const payload = jwt.verify(token, partnerSecret()) as { kind?: string; loginId?: string };
+    if (payload.kind !== 'pg-partner') return '';
+    return typeof payload.loginId === 'string' ? payload.loginId : '';
+  } catch {
+    return '';
+  }
+}
+
+/** 가려 둔 키를 볼 때. 방금 들어온 원성 비밀번호여야 한다. */
+export async function partnerRevealAllowed(loginId: string, password: string): Promise<boolean> {
+  if (!password) return false;
+  if (loginId && (await verifyPgPartnerLogin(loginId, password))) return true;
+  return sameText(password, PASSWORD);
 }
 
 export function requirePgPartner(req: Request, res: Response): boolean {

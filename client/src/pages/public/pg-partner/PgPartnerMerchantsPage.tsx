@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
+import { PgPartnerModal } from './PgPartnerModal';
+import { maskKeptSecret, PgPartnerSecretValue } from './PgPartnerSecretValue';
 
 type ListItem = {
   tenantId: string;
@@ -30,7 +32,7 @@ type Detail = {
   bankAccount: string | null;
   accountHolder: string | null;
   sellerLoginId: string;
-  sellerPassword: string;
+  sellerPasswordSet: boolean;
   keyin: Slot;
   link: Slot;
 };
@@ -43,116 +45,76 @@ function authHeaders() {
   return { Authorization: `Bearer ${readPgPartnerToken()}` };
 }
 
-function RailForm({
-  tenantId,
-  rail,
+function RailEditor({
   title,
   slot,
-  sellerLoginId,
-  sellerPassword,
-  onSellerLoginId,
-  onSellerPassword,
-  onSaved,
+  mid,
+  oid,
+  tid,
+  apiKey,
+  onMid,
+  onOid,
+  onTid,
+  onApiKey,
+  tenantId,
+  rail,
 }: {
-  tenantId: string;
-  rail: 'KEYIN' | 'LINK';
   title: string;
   slot: Slot;
-  sellerLoginId: string;
-  sellerPassword: string;
-  onSellerLoginId: (value: string) => void;
-  onSellerPassword: (value: string) => void;
-  onSaved: () => void;
+  mid: string;
+  oid: string;
+  tid: string;
+  apiKey: string;
+  onMid: (value: string) => void;
+  onOid: (value: string) => void;
+  onTid: (value: string) => void;
+  onApiKey: (value: string) => void;
+  tenantId: string;
+  rail: 'KEYIN' | 'LINK';
 }) {
-  const navigate = useNavigate();
-  const [mid, setMid] = useState(slot.connected ? slot.mid ?? '' : '');
-  const [oid, setOid] = useState(slot.connected ? slot.oid ?? '' : '');
-  const [tid, setTid] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-  const needsKey = !slot.connected;
-
   return (
-    <form
-      className="rounded-2xl border border-slate-200 bg-white p-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setBusy(true);
-        setError(null);
-        setDone(null);
-        void fetch(`/api/public/card-payment/pg-partner/merchants/${encodeURIComponent(tenantId)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ rail, mid, oid, tid, apiKey, sellerLoginId, sellerPassword }),
-        })
-          .then(async (res) => {
-            const body = (await res.json().catch(() => null)) as { error?: string } | null;
-            if (res.status === 401) {
-              clearPgPartnerToken();
-              navigate('/pg-partner', { replace: true });
-              return;
-            }
-            if (!res.ok) throw new Error(body?.error || '저장하지 못했습니다.');
-            setApiKey('');
-            setTid('');
-            setDone('저장했습니다. 이 업체는 계속 사용 중입니다.');
-            onSaved();
-          })
-          .catch((err: unknown) => setError(err instanceof Error ? err.message : '저장하지 못했습니다.'))
-          .finally(() => setBusy(false));
-      }}
-    >
+    <section className="rounded-xl border border-slate-200 p-3">
       <h3 className="text-fluid-sm font-semibold text-slate-900">{title}</h3>
-      {slot.connected ? (
-        <p className="mt-1 text-fluid-2xs text-slate-500">
-          현재 MID {slot.mid || '—'} · OID {slot.oid || '—'} · TID {slot.tidMasked || '—'} · 키 …{slot.apiKeyLast4 || '—'}
-        </p>
-      ) : (
-        <p className="mt-1 text-fluid-2xs text-slate-500">아직 연결되지 않았습니다. 키를 넣으면 활성화됩니다.</p>
-      )}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="text-fluid-2xs text-slate-500">MID</span>
-          <input className={INPUT} value={mid} onChange={(e) => setMid(e.target.value)} autoComplete="off" />
+          <input className={INPUT} value={mid} onChange={(e) => onMid(e.target.value)} autoComplete="off" />
         </label>
         <label className="block">
-          <span className="text-fluid-2xs text-slate-500">OID (4자리)</span>
-          <input className={INPUT} value={oid} onChange={(e) => setOid(e.target.value)} autoComplete="off" maxLength={8} />
+          <span className="text-fluid-2xs text-slate-500">주문번호 4자리</span>
+          <input className={INPUT} value={oid} onChange={(e) => onOid(e.target.value)} autoComplete="off" maxLength={4} />
         </label>
-        <label className="block sm:col-span-2">
-          <span className="text-fluid-2xs text-slate-500">TID {slot.connected ? '(비우면 기존 값 유지)' : ''}</span>
-          <input className={INPUT} value={tid} onChange={(e) => setTid(e.target.value)} autoComplete="off" />
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="text-fluid-2xs text-slate-500">API 키 {slot.connected ? '(비우면 기존 키 유지)' : ''}</span>
-          <input className={INPUT} value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" />
+        <PgPartnerSecretValue label="TID" masked={slot.connected ? maskKeptSecret(slot.tidMasked) : '없음'} tenantId={tenantId} rail={rail} field="tid" />
+        <PgPartnerSecretValue label="API 키" masked={slot.connected ? maskKeptSecret(slot.apiKeyLast4) : '없음'} tenantId={tenantId} rail={rail} field="apiKey" />
+        <label className="block">
+          <span className="text-fluid-2xs text-slate-500">TID 변경</span>
+          <input className={INPUT} value={tid} onChange={(e) => onTid(e.target.value)} autoComplete="off" placeholder="바꿀 때만 입력" />
         </label>
         <label className="block">
-          <span className="text-fluid-2xs text-slate-500">판매자센터 아이디</span>
-          <input className={INPUT} value={sellerLoginId} onChange={(e) => onSellerLoginId(e.target.value)} autoComplete="off" />
-        </label>
-        <label className="block">
-          <span className="text-fluid-2xs text-slate-500">판매자센터 비밀번호 (비우면 유지)</span>
-          <input className={INPUT} value={sellerPassword} onChange={(e) => onSellerPassword(e.target.value)} autoComplete="off" />
+          <span className="text-fluid-2xs text-slate-500">API 키 변경</span>
+          <input className={INPUT} value={apiKey} onChange={(e) => onApiKey(e.target.value)} autoComplete="off" placeholder="바꿀 때만 입력" />
         </label>
       </div>
-      {done ? <p className="mt-2 text-fluid-xs font-medium text-emerald-800">{done}</p> : null}
-      {error ? <p className="mt-2 text-fluid-xs text-red-700">{error}</p> : null}
-      <button type="submit" className={`${BTN} mt-3`} disabled={busy || (needsKey && !apiKey.trim())}>
-        {busy ? '저장 중' : '저장'}
-      </button>
-    </form>
+    </section>
   );
 }
 
-function MerchantDetail({ tenantId }: { tenantId: string }) {
+function MerchantModal({ tenantId, onClose }: { tenantId: string; onClose: () => void }) {
   const navigate = useNavigate();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sellerLoginId, setSellerLoginId] = useState('');
   const [sellerPassword, setSellerPassword] = useState('');
+  const [keyinMid, setKeyinMid] = useState('');
+  const [keyinOid, setKeyinOid] = useState('');
+  const [keyinTid, setKeyinTid] = useState('');
+  const [keyinKey, setKeyinKey] = useState('');
+  const [linkMid, setLinkMid] = useState('');
+  const [linkOid, setLinkOid] = useState('');
+  const [linkTid, setLinkTid] = useState('');
+  const [linkKey, setLinkKey] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -171,64 +133,114 @@ function MerchantDetail({ tenantId }: { tenantId: string }) {
         if (!row) return;
         setDetail(row);
         setSellerLoginId(row.sellerLoginId || '');
-        setSellerPassword(row.sellerPassword || '');
+        setSellerPassword('');
+        setKeyinMid(row.keyin.connected ? row.keyin.mid ?? '' : '');
+        setKeyinOid(row.keyin.connected ? row.keyin.oid ?? '' : '');
+        setLinkMid(row.link.connected ? row.link.mid ?? '' : '');
+        setLinkOid(row.link.connected ? row.link.oid ?? '' : '');
+        setKeyinTid('');
+        setKeyinKey('');
+        setLinkTid('');
+        setLinkKey('');
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '업체 정보를 불러오지 못했습니다.'));
   }, [navigate, tenantId, reloadKey]);
 
-  if (error) return <p className="text-fluid-sm text-red-700">{error}</p>;
-  if (!detail) return <p className="text-fluid-sm text-slate-500">불러오는 중…</p>;
+  const saveRail = (rail: 'KEYIN' | 'LINK', mid: string, oid: string, tid: string, apiKey: string) =>
+    fetch(`/api/public/card-payment/pg-partner/merchants/${encodeURIComponent(tenantId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ rail, mid, oid, tid, apiKey, sellerLoginId, sellerPassword }),
+    }).then(async (res) => {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (res.status === 401) {
+        clearPgPartnerToken();
+        navigate('/pg-partner', { replace: true });
+        throw new Error('다시 로그인해 주세요.');
+      }
+      if (!res.ok) throw new Error(body?.error || '저장하지 못했습니다.');
+    });
 
-  const facts = [
-    ['업체', detail.tenantName],
-    ['상호', detail.businessName],
-    ['사업자번호', detail.bizNumber],
-    ['대표', detail.representativeName],
-    ['주소', detail.addressLine],
-    ['담당', detail.contactName],
-    ['전화', detail.contactPhone],
-    ['이메일', detail.contactEmail],
-    ['정산 계좌', [detail.bankName, detail.bankAccount, detail.accountHolder].filter(Boolean).join(' ')],
-  ].filter(([, value]) => value);
+  const facts = detail
+    ? [
+        ['업체', detail.tenantName],
+        ['상호', detail.businessName],
+        ['사업자번호', detail.bizNumber],
+        ['대표', detail.representativeName],
+        ['전화', detail.contactPhone],
+        ['이메일', detail.contactEmail],
+      ].filter(([, value]) => value)
+    : [];
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="text-fluid-sm font-semibold text-slate-900">{detail.businessName || detail.tenantName}</h2>
-        <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-          {facts.map(([label, value]) => (
-            <div key={label} className="min-w-0">
-              <dt className="text-fluid-2xs text-slate-500">{label}</dt>
-              <dd className="truncate text-fluid-xs text-slate-900" title={value ?? ''}>{value}</dd>
+    <PgPartnerModal title={detail?.businessName || detail?.tenantName || '사용 중 업체'} onClose={onClose}>
+      {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
+      {!detail && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
+      {detail ? (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setBusy(true);
+            setError(null);
+            setDone(null);
+            const jobs: Promise<void>[] = [];
+            if (detail.keyin.connected || keyinKey.trim()) jobs.push(saveRail('KEYIN', keyinMid, keyinOid, keyinTid, keyinKey));
+            if (detail.link.connected || linkKey.trim()) jobs.push(saveRail('LINK', linkMid, linkOid, linkTid, linkKey));
+            if (jobs.length === 0) {
+              setError('수기 또는 인증 API 키를 입력해 주세요.');
+              setBusy(false);
+              return;
+            }
+            void Promise.all(jobs)
+              .then(() => {
+                setDone('저장했습니다. 팀장 카드결재에 바로 반영됩니다.');
+                setReloadKey((n) => n + 1);
+              })
+              .catch((err: unknown) => setError(err instanceof Error ? err.message : '저장하지 못했습니다.'))
+              .finally(() => setBusy(false));
+          }}
+        >
+          <dl className="grid gap-2 sm:grid-cols-2">
+            {facts.map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-fluid-2xs text-slate-500">{label}</dt>
+                <dd className="truncate text-fluid-xs text-slate-900" title={value ?? ''}>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <section className="rounded-xl border border-slate-200 p-3">
+            <h3 className="text-fluid-sm font-semibold text-slate-900">판매자센터</h3>
+            <p className="mt-1 text-fluid-2xs text-slate-500">수기와 인증이 같은 판매자센터를 씁니다. https://wspay.net</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block sm:col-span-2">
+                <span className="text-fluid-2xs text-slate-500">아이디</span>
+                <input className={INPUT} value={sellerLoginId} onChange={(e) => setSellerLoginId(e.target.value)} autoComplete="off" />
+              </label>
+              <PgPartnerSecretValue
+                label="비밀번호"
+                masked={detail.sellerPasswordSet ? '••••••••' : '없음'}
+                tenantId={tenantId}
+                rail="KEYIN"
+                field="sellerPassword"
+              />
+              <label className="block">
+                <span className="text-fluid-2xs text-slate-500">비밀번호 변경</span>
+                <input className={INPUT} type="password" value={sellerPassword} onChange={(e) => setSellerPassword(e.target.value)} autoComplete="new-password" placeholder="바꿀 때만 입력" />
+              </label>
             </div>
-          ))}
-        </dl>
-      </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        <RailForm
-          tenantId={tenantId}
-          rail="KEYIN"
-          title="수기"
-          slot={detail.keyin}
-          sellerLoginId={sellerLoginId}
-          sellerPassword={sellerPassword}
-          onSellerLoginId={setSellerLoginId}
-          onSellerPassword={setSellerPassword}
-          onSaved={() => setReloadKey((n) => n + 1)}
-        />
-        <RailForm
-          tenantId={tenantId}
-          rail="LINK"
-          title="인증"
-          slot={detail.link}
-          sellerLoginId={sellerLoginId}
-          sellerPassword={sellerPassword}
-          onSellerLoginId={setSellerLoginId}
-          onSellerPassword={setSellerPassword}
-          onSaved={() => setReloadKey((n) => n + 1)}
-        />
-      </div>
-    </div>
+          </section>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <RailEditor title="수기" slot={detail.keyin} mid={keyinMid} oid={keyinOid} tid={keyinTid} apiKey={keyinKey} onMid={setKeyinMid} onOid={setKeyinOid} onTid={setKeyinTid} onApiKey={setKeyinKey} tenantId={tenantId} rail="KEYIN" />
+            <RailEditor title="인증" slot={detail.link} mid={linkMid} oid={linkOid} tid={linkTid} apiKey={linkKey} onMid={setLinkMid} onOid={setLinkOid} onTid={setLinkTid} onApiKey={setLinkKey} tenantId={tenantId} rail="LINK" />
+          </div>
+          {done ? <p className="text-fluid-xs font-medium text-emerald-800">{done}</p> : null}
+          <button type="submit" className={BTN} disabled={busy}>
+            {busy ? '저장 중' : '저장'}
+          </button>
+        </form>
+      ) : null}
+    </PgPartnerModal>
   );
 }
 
@@ -259,7 +271,7 @@ export function PgPartnerMerchantsPage() {
     <div className="space-y-3">
       <div>
         <h1 className="text-fluid-base font-semibold text-slate-900">사용 중 업체</h1>
-        <p className="mt-1 text-fluid-xs text-slate-600">업체를 누르면 MID, OID, TID, API 키, 판매자센터 로그인을 고칠 수 있습니다. 키를 비우면 기존 키가 유지됩니다.</p>
+        <p className="mt-1 text-fluid-xs text-slate-600">업체를 누르면 판매자센터와 수기·인증 정보를 고칠 수 있습니다. TID와 API 키는 가려 두고, 보기를 누른 뒤 비밀번호로 확인합니다.</p>
       </div>
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
@@ -298,7 +310,7 @@ export function PgPartnerMerchantsPage() {
           </table>
         </div>
       ) : null}
-      {selectedId ? <MerchantDetail key={selectedId} tenantId={selectedId} /> : null}
+      {selectedId ? <MerchantModal tenantId={selectedId} onClose={() => setSelectedId(null)} /> : null}
     </div>
   );
 }

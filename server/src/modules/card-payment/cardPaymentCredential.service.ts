@@ -163,3 +163,15 @@ export async function updateCredentialFromPartner(input: {
   });
   return serializeCredentialPublic(row);
 }
+
+/** 원성이 비밀번호를 확인한 뒤에만 호출한다. 로그에 남기지 않는다. */
+export async function readCredentialSecrets(tenantId: string, rail: PgCredentialRail) {
+  const row = await prisma.tenantPgCredential.findFirst({
+    where: { tenantId, rail },
+    select: { apiKeyEnc: true, tidEnc: true },
+  });
+  if (!row) return { apiKey: '', tid: '' };
+  const apiKey = decryptTenantSecret(row.apiKeyEnc) ?? '';
+  const tidRaw = decryptTenantSecret(row.tidEnc) ?? '';
+  return { apiKey, tid: tidRaw.trim() === '-' ? '' : tidRaw.trim() };
+}

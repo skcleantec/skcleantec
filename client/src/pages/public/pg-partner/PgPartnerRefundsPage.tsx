@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CARD_PAYMENT_STATUS_LABEL, type CardPaymentStatus } from '@shared/cardPayment';
+import { PgPartnerModal } from './PgPartnerModal';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
 
 type Payment = {
@@ -86,7 +87,7 @@ export function PgPartnerPaymentsPage() {
     <div className="space-y-3">
       <div>
         <h1 className="text-fluid-base font-semibold text-slate-900">결제 내역</h1>
-        <p className="mt-1 text-fluid-xs text-slate-600">모든 업체의 승인·취소·실패·대기가 한 표에 모입니다. 행을 누르면 주문번호와 카드, 시각이 열립니다.</p>
+        <p className="mt-1 text-fluid-xs text-slate-600">모든 업체의 승인·취소·실패·대기가 한 표에 모입니다. 행을 누르면 주문번호와 카드, 시각이 모달로 열립니다.</p>
       </div>
       <div className="flex flex-wrap gap-1">
         {FILTERS.map((item) => (
@@ -153,9 +154,8 @@ export function PgPartnerPaymentsPage() {
         </div>
       ) : null}
       {selected ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="text-fluid-sm font-semibold text-slate-900">{selected.tenantName}</h2>
-          <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+        <PgPartnerModal title={selected.tenantName} onClose={() => setSelected(null)}>
+          <dl className="grid gap-2 sm:grid-cols-2">
             {[
               ['구분', selected.kind],
               ['고객', selected.customerName || '—'],
@@ -177,7 +177,7 @@ export function PgPartnerPaymentsPage() {
             ))}
           </dl>
           {selected.failReason ? <p className="mt-3 text-fluid-xs text-slate-600">메모 · {selected.failReason}</p> : null}
-        </div>
+        </PgPartnerModal>
       ) : null}
     </div>
   );

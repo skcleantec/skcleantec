@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { getPublicPaymentByToken } from './cardPaymentIntent.service.js';
-import { saveCredentialFromPlatform, updateCredentialFromPartner } from './cardPaymentCredential.service.js';
-import { getPartnerMerchant, listPartnerMerchants, listPartnerPayments } from './pgPartnerMerchant.service.js';
-import { saveSellerCenterLogin, saveSellerCenterLoginId } from './cardPaymentSellerCenter.service.js';
+import { readCredentialSecrets, saveCredentialFromPlatform, updateCredentialFromPartner } from './cardPaymentCredential.service.js';
+import { connectPartnerRails, getPartnerMerchant, listPartnerMerchants, listPartnerPayments } from './pgPartnerMerchant.service.js';
+import { readSellerCenterLogin, saveSellerCenterLogin, saveSellerCenterLoginId } from './cardPaymentSellerCenter.service.js';
 import {
   getOnboardingByReviewToken,
   listOnboardingsForPartner,
   tenantIdForSubmittedOnboarding,
 } from './cardPaymentOnboarding.service.js';
-import { requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
+import { partnerRevealAllowed, readPgPartnerLoginId, requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
 import { parsePgClerkCodes, saveIssuedPgClerkCodes } from './pgClerk.service.js';
 import { applyWspayWebhook } from './cardPaymentWebhook.service.js';
@@ -63,7 +63,7 @@ router.post('/pg-partner/login', async (req, res) => {
     return;
   }
   partnerLoginFails.delete(ip);
-  res.json({ token: signPgPartnerToken() });
+  res.json({ token: signPgPartnerToken(loginId) });
 });
 
 router.get('/pg-partner/refunds', async (req, res) => {
@@ -123,6 +123,64 @@ router.put('/pg-partner/merchants/:tenantId', async (req, res) => {
     res.json({ ok: true, rail, mid: saved.connected ? saved.mid : null, oid: saved.connected ? saved.oid : null, apiKeyLast4: saved.connected ? saved.apiKeyLast4 : null });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '가맹 정보를 저장하지 못했습니다.' });
+  }
+});
+
+router.post('/pg-partner/merchants/:tenantId/reveal', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+  const password = typeof body.password === 'string' ? body.password : '';
+  const rail = body.rail === 'LINK' ? 'LINK' : body.rail === 'KEYIN' ? 'KEYIN' : '';
+  if (!rail) {
+    res.status(400).json({ error: '수기 또는 인증을 선택해 주세요.' });
+    return;
+  }
+  if (!(await partnerRevealAllowed(readPgPartnerLoginId(req), password))) {
+    res.status(401).json({ error: '비밀번호가 맞지 않습니다.' });
+    return;
+  }
+  const tenantId = String(req.params.tenantId);
+  const merchant = await getPartnerMerchant(tenantId);
+  if (!merchant) {
+    res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
+    return;
+  }
+  const secrets = await readCredentialSecrets(tenantId, rail);
+  const seller = await readSellerCenterLogin(tenantId);
+  res.json({ apiKey: secrets.apiKey, tid: secrets.tid, sellerPassword: seller.password });
+});
+
+router.post('/pg-partner/applications/:id/connect', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+  if (body.cardNo || body.cardNumber || body.cvc) {
+    res.status(400).json({ error: '카드번호는 받지 않습니다.' });
+    return;
+  }
+  const tenantId = await tenantIdForSubmittedOnboarding(String(req.params.id));
+  if (!tenantId) {
+    res.status(404).json({ error: 'PG 신청을 찾을 수 없습니다.' });
+    return;
+  }
+  const railOf = (value: unknown) => {
+    const row = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    return {
+      mid: typeof row.mid === 'string' ? row.mid : '',
+      oid: typeof row.oid === 'string' ? row.oid : '',
+      tid: typeof row.tid === 'string' ? row.tid : '',
+      apiKey: typeof row.apiKey === 'string' ? row.apiKey : '',
+    };
+  };
+  try {
+    await connectPartnerRails(tenantId, {
+      sellerLoginId: typeof body.sellerLoginId === 'string' ? body.sellerLoginId : '',
+      sellerPassword: typeof body.sellerPassword === 'string' ? body.sellerPassword : '',
+      keyin: railOf(body.keyin),
+      link: railOf(body.link),
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '연동하지 못했습니다.' });
   }
 });
 
