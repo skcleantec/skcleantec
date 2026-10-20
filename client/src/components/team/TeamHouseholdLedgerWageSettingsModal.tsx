@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
-import type { TeamLeaderHouseholdWageMode } from '@shared/teamLeaderHouseholdLedger';
-import { TEAM_LEADER_HOUSEHOLD_WAGE_MODE_LABELS } from '@shared/teamLeaderHouseholdLedger';
+import type {
+  TeamLeaderHouseholdDailyPayBasis,
+  TeamLeaderHouseholdWageMode,
+} from '@shared/teamLeaderHouseholdLedger';
+import {
+  TEAM_LEADER_HOUSEHOLD_DAILY_PAY_BASIS_LABELS,
+  TEAM_LEADER_HOUSEHOLD_WAGE_MODE_LABELS,
+} from '@shared/teamLeaderHouseholdLedger';
 import type { HouseholdWageSetting } from '../../api/teamHouseholdLedger';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { useSuppressTeamMobileBottomNav } from '../../hooks/useSuppressTeamMobileBottomNav';
@@ -16,6 +22,7 @@ type Props = {
 };
 
 const MODES: TeamLeaderHouseholdWageMode[] = ['BALANCE_PCT', 'DAILY', 'MONTHLY'];
+const BASES: TeamLeaderHouseholdDailyPayBasis[] = ['PER_INQUIRY', 'PER_DAY'];
 
 function parseWon(raw: string): number | null {
   const s = raw.trim().replace(/[,\s원]/g, '');
@@ -34,6 +41,7 @@ export function TeamHouseholdLedgerWageSettingsModal({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
   const [wageMode, setWageMode] = useState<TeamLeaderHouseholdWageMode>('BALANCE_PCT');
+  const [dailyPayBasis, setDailyPayBasis] = useState<TeamLeaderHouseholdDailyPayBasis>('PER_DAY');
   const [percentRaw, setPercentRaw] = useState('100');
   const [dailyRaw, setDailyRaw] = useState('');
   const [monthlyRaw, setMonthlyRaw] = useState('');
@@ -45,6 +53,7 @@ export function TeamHouseholdLedgerWageSettingsModal({
     if (!open) return;
     setError(null);
     setWageMode(initial?.wageMode ?? 'BALANCE_PCT');
+    setDailyPayBasis(initial?.dailyPayBasis ?? 'PER_DAY');
     setPercentRaw(String(initial?.balanceSharePercent ?? 100));
     setDailyRaw(initial?.dailyAmountWon != null ? String(initial.dailyAmountWon) : '');
     setMonthlyRaw(initial?.monthlyAmountWon != null ? String(initial.monthlyAmountWon) : '');
@@ -76,6 +85,7 @@ export function TeamHouseholdLedgerWageSettingsModal({
         balanceSharePercent: Number.isInteger(percent) && percent >= 1 && percent <= 100 ? percent : 100,
         dailyAmountWon,
         monthlyAmountWon,
+        dailyPayBasis,
       });
       onClose();
     } catch (err) {
@@ -141,20 +151,41 @@ export function TeamHouseholdLedgerWageSettingsModal({
               </label>
             ) : null}
             {wageMode === 'DAILY' ? (
-              <label className="block">
-                <span className="mb-1 block text-fluid-2xs font-medium text-slate-600">일급</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={dailyRaw}
-                  onChange={(e) => setDailyRaw(e.target.value)}
-                  className="login-field-input w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs tabular-nums"
-                  placeholder="예: 150000"
-                />
-                <span className="mt-1 block text-fluid-2xs text-slate-500">
-                  배정된 근무일마다 1줄. 같은 날 현장이 여러 곳이어도 하루입니다.
-                </span>
-              </label>
+              <>
+                <div>
+                  <p className="mb-1.5 text-fluid-2xs font-medium text-slate-600">일당 묶음</p>
+                  <div className="inline-flex flex-wrap gap-0.5 rounded-lg border border-slate-200 p-0.5">
+                    {BASES.map((basis) => (
+                      <button
+                        key={basis}
+                        type="button"
+                        onClick={() => setDailyPayBasis(basis)}
+                        className={`rounded-md px-3 py-1.5 text-fluid-2xs font-semibold hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                          dailyPayBasis === basis ? 'bg-slate-900 text-white hover:bg-slate-800' : 'text-slate-600'
+                        }`}
+                      >
+                        {TEAM_LEADER_HOUSEHOLD_DAILY_PAY_BASIS_LABELS[basis]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="block">
+                  <span className="mb-1 block text-fluid-2xs font-medium text-slate-600">일급</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={dailyRaw}
+                    onChange={(e) => setDailyRaw(e.target.value)}
+                    className="login-field-input w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs tabular-nums"
+                    placeholder="예: 150000"
+                  />
+                  <span className="mt-1 block text-fluid-2xs text-slate-500">
+                    {dailyPayBasis === 'PER_INQUIRY'
+                      ? '배정된 현장마다 일당 1줄입니다.'
+                      : '같은 날 현장이 여러 곳이어도 일당은 1줄입니다.'}
+                  </span>
+                </label>
+              </>
             ) : null}
             {wageMode === 'MONTHLY' ? (
               <label className="block">

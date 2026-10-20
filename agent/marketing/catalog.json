@@ -46,7 +46,7 @@
     { "label": "배정목록", "path": "/team/assignments" },
     { "label": "스케줄", "path": "/team/schedule" },
     { "label": "정산", "path": "/team/settlement" },
-    { "label": "가계부", "path": "/team/household-ledger" },
+    { "label": "가계부", "path": "/team/household-ledger", "plain": "본인 수입·지출. 관리자가 임금 변경을 끄면 설정 대신 관리자가 정한 임금이 보입니다." },
     { "label": "정보공유", "path": "/team/db-marketplace" },
     { "label": "휴무일", "path": "/team/dayoffs" },
     { "label": "C/S", "path": "/team/cs" },
@@ -83,6 +83,11 @@
       "doc": "menus/inquiries.md",
       "adminClickPath": "로그인 → 상단 「서비스접수」 → 발주서 발급 → 손님 링크",
       "plain": "손님 발주서·미리보기 첫 화면은 처음부터 비어 있음. 입주청소·이사청소·준공청소·거주청소·특수청소 중 하나를 고름. 그림이 있는 항목만 안내 그림이 나오고, 설정에서 그림을 지우면 빈칸이 남지 않음. 이메일은 name@naver.com처럼 한 칸에 적거나 메일 선택으로 주소를 고르고, 이메일 미사용을 체크하면 적지 않고 다음으로 감."
+    },
+    "householdLedger": {
+      "doc": "menus/admin.md",
+      "adminClickPath": "로그인 → 상단 「관리자 전용」 → 「팀장 가계부」 → 임금 설정",
+      "plain": "팀장별 잔금·일당·월급. 일당은 건마다 또는 하루 통합. 팀장이 바꿀 수 있는지는 스위치. 아래 표에서 현재 설정을 봄."
     },
     "adminUsers": {
       "doc": "menus/admin.md",

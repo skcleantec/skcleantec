@@ -16,6 +16,10 @@ import {
   type InquiryListPageSize,
 } from '../../utils/listPagination';
 import { kstTodayYmd } from '../../utils/dateFormat';
+import {
+  AdminHouseholdLedgerWageSettingsModal,
+  AdminHouseholdWageGearButton,
+} from '../../components/admin/AdminHouseholdLedgerWageSettingsModal';
 
 type DatePreset = 'today' | 'all' | 'month' | 'day';
 
@@ -60,6 +64,7 @@ export function AdminHouseholdLedgerPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AdminHouseholdLedgerListResponse | null>(null);
+  const [wageOpen, setWageOpen] = useState(false);
 
   const patchParams = useCallback(
     (patch: (next: URLSearchParams) => void) => {
@@ -127,12 +132,16 @@ export function AdminHouseholdLedgerPage() {
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-4">
-      <PageTitleWithFavorite label="팀장 가계부">
-        <h1 className="text-fluid-lg font-semibold text-gray-900">팀장 가계부</h1>
-      </PageTitleWithFavorite>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <PageTitleWithFavorite label="팀장 가계부">
+          <h1 className="text-fluid-lg font-semibold text-gray-900">팀장 가계부</h1>
+        </PageTitleWithFavorite>
+        <AdminHouseholdWageGearButton onClick={() => setWageOpen(true)} />
+      </div>
 
       <p className="text-fluid-sm text-slate-600">
-        팀장 개인 가계부를 열람만 할 수 있습니다. 수정·삭제는 팀장 앱에서만 가능합니다.
+        팀장 개인 가계부를 열람합니다. 임금 방식은 오른쪽 임금 설정에서 팀장별로 정합니다. 가계부 줄의 수정·삭제는
+        팀장 앱에서만 가능합니다.
       </p>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -304,6 +313,7 @@ export function AdminHouseholdLedgerPage() {
           <p className="py-8 text-center text-fluid-sm text-slate-500">팀장을 선택하면 가계부를 볼 수 있습니다.</p>
         )}
       </div>
+      <AdminHouseholdLedgerWageSettingsModal open={wageOpen} token={token} onClose={() => setWageOpen(false)} />
     </div>
   );
 }

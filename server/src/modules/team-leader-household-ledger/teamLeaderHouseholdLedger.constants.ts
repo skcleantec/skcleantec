@@ -15,6 +15,10 @@ export type TeamLeaderHouseholdWageMode = 'BALANCE_PCT' | 'DAILY' | 'MONTHLY';
 
 export const TEAM_LEADER_HOUSEHOLD_WAGE_MODES = ['BALANCE_PCT', 'DAILY', 'MONTHLY'] as const;
 
+export type TeamLeaderHouseholdDailyPayBasis = 'PER_DAY' | 'PER_INQUIRY';
+
+export const TEAM_LEADER_HOUSEHOLD_DAILY_PAY_BASIS = ['PER_DAY', 'PER_INQUIRY'] as const;
+
 export const TEAM_LEADER_HOUSEHOLD_INCOME_CATEGORIES = [
   '잔금',
   '일당',
@@ -51,6 +55,11 @@ export const TEAM_LEADER_HOUSEHOLD_WAGE_MODE_LABELS: Record<TeamLeaderHouseholdW
   MONTHLY: '월급',
 };
 
+export const TEAM_LEADER_HOUSEHOLD_DAILY_PAY_BASIS_LABELS: Record<TeamLeaderHouseholdDailyPayBasis, string> = {
+  PER_DAY: '하루 통합',
+  PER_INQUIRY: '건마다',
+};
+
 export function hiddenHouseholdPrefillKinds(mode: TeamLeaderHouseholdWageMode): string[] {
   if (mode === 'DAILY') return ['balance', 'wage_monthly'];
   if (mode === 'MONTHLY') return ['balance', 'wage_daily'];
@@ -59,6 +68,10 @@ export function hiddenHouseholdPrefillKinds(mode: TeamLeaderHouseholdWageMode): 
 
 export function householdWageDailyKey(ymd: string): string {
   return `D:${ymd}`;
+}
+
+export function householdWageDailyInquiryKey(inquiryId: string): string {
+  return `I:${inquiryId}`;
 }
 
 export function householdWageMonthlyKey(ym: string): string {

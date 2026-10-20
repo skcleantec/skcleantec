@@ -390,6 +390,8 @@ model Tenant {
   platformSupportThread      PlatformSupportThread?
   platformSupportMessages    PlatformSupportMessage[]
   platformSupportTenantReads PlatformSupportTenantRead[]
+  /// 팀장이 가계부 임금(잔금·일당·월급)을 직접 바꿀 수 있는지. 끄면 관리자만 정한다.
+  teamLeaderHouseholdWageLeaderEditable Boolean @default(true) @map("team_leader_household_wage_leader_editable")
 
   @@map("tenants")
 }
@@ -2425,6 +2427,12 @@ enum TeamLeaderHouseholdWageMode {
   MONTHLY
 }
 
+/// 일당을 현장마다 나눌지, 같은 날은 한 줄로 모을지
+enum TeamLeaderHouseholdDailyPayBasis {
+  PER_DAY
+  PER_INQUIRY
+}
+
 /// 팀장 개인 가계부 — 회사 정산과 별도, 본인 수입·지출 기록
 model TeamLeaderHouseholdLedgerEntry {
   id           String                           @id @default(uuid())
@@ -2460,6 +2468,8 @@ model TeamLeaderHouseholdWageSetting {
   balanceSharePercent  Int                          @default(100) @map("balance_share_percent")
   dailyAmountWon       Int?                         @map("daily_amount_won")
   monthlyAmountWon     Int?                         @map("monthly_amount_won")
+  /// 일당일 때 건마다(PER_INQUIRY) 또는 하루 통합(PER_DAY)
+  dailyPayBasis        TeamLeaderHouseholdDailyPayBasis @default(PER_DAY) @map("daily_pay_basis")
   /// 삭제한 일당/월급 줄 키 (`D:YYYY-MM-DD`, `M:YYYY-MM`)
   suppressedWageKeys   Json                         @default("[]") @map("suppressed_wage_keys")
   createdAt            DateTime                     @default(now()) @map("created_at")
