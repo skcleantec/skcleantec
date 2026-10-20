@@ -20,7 +20,14 @@ type Application = {
   accountHolder: string | null;
   websiteUrl: string | null;
   note: string | null;
+  businessKind: string | null;
   businessRegistrationImageUrl: string | null;
+  businessCardImageUrl: string | null;
+  consentTermsAt: string | null;
+  consentPrivacyAt: string | null;
+  consentThirdPartyAt: string | null;
+  consentIllegalUseAt: string | null;
+  consentMarketingAt: string | null;
   status: string;
   submittedAt: string | null;
   connected: boolean;
@@ -33,6 +40,16 @@ type Application = {
 const INPUT = 'login-field-input mt-1 w-full min-h-11 rounded-lg border border-slate-200 px-3 text-fluid-sm';
 const BTN =
   'min-h-11 rounded-xl bg-slate-900 px-4 text-fluid-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+
+function DocLink({ label, url }: { label: string; url: string | null }) {
+  if (!url) return <p className="text-fluid-2xs text-amber-800">{label} 없음</p>;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="block rounded-lg border border-slate-200 p-2 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
+      <span className="text-fluid-2xs text-slate-500">{label}</span>
+      <img src={url} alt={label} className="mt-1 max-h-32 w-full rounded object-contain" />
+    </a>
+  );
+}
 
 function line(label: string, value: string | null) {
   if (!value) return null;
@@ -121,13 +138,25 @@ function ApplicationCard({
   return (
     <PgPartnerModal title={row.businessName || row.tenantName} onClose={onClose}>
       <div className="space-y-1 text-fluid-xs">
+        {line('사업자 구분', row.businessKind === 'CORPORATE' ? '법인 사업자' : row.businessKind === 'SOLE_PROPRIETOR' ? '개인 사업자' : '미선택')}
         {line('상태', TENANT_PG_ONBOARDING_STATUS_LABEL[row.status as TenantPgOnboardingStatus] ?? row.status)}
         {line('업체', row.tenantName)}
         {line('사업자번호', row.bizNumber)}
         {line('대표자', row.representativeName)}
         {line('전화', row.contactPhone)}
         {line('이메일', row.contactEmail)}
+        {line('주소', row.addressLine)}
+        {line('정산', [row.bankName, row.bankAccount, row.accountHolder].filter(Boolean).join(' ') || null)}
+        {line('신청 서비스', '수기결제, 인증결제')}
+        {line('요청', row.note)}
+        {line('필수 동의', row.consentTermsAt && row.consentPrivacyAt && row.consentThirdPartyAt && row.consentIllegalUseAt ? '동의함' : '빠짐')}
+        {line('마케팅 동의', row.consentMarketingAt ? '동의함' : '아니오')}
       </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <DocLink label="사업자등록증" url={row.businessRegistrationImageUrl} />
+        <DocLink label="명함" url={row.businessCardImageUrl} />
+      </div>
+      <p className="mt-2 text-fluid-2xs leading-snug text-slate-500">서류나 업체가 의심되면 연동하지 말고 반려하면 됩니다. 가맹 서비스는 수기결제와 인증결제입니다.</p>
       {error ? <p className="mt-2 text-fluid-xs text-red-700">{error}</p> : null}
       {done ? <p className="mt-2 text-fluid-xs font-medium text-emerald-800">{done}</p> : null}
       <form

@@ -11,6 +11,7 @@ import { getCredentialBundle, getCredentialPublic } from './cardPaymentCredentia
 import {
   getOrPrefillOnboarding,
   saveOnboardingDraft,
+  saveTenantBusinessCard,
   saveTenantRegistrationImage,
   submitOnboarding,
 } from './cardPaymentOnboarding.service.js';
@@ -179,6 +180,32 @@ router.post('/pg/onboarding/business-registration', registrationUpload.single('f
   }
 });
 
+router.post('/pg/onboarding/business-card', registrationUpload.single('file'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '명함은 관리자만 올릴 수 있습니다.' });
+    return;
+  }
+  const file = req.file;
+  if (!file?.buffer?.length) {
+    res.status(400).json({ error: '명함 이미지를 선택해 주세요.' });
+    return;
+  }
+  try {
+    const saved = await saveTenantBusinessCard(tenantId, file.buffer, file.mimetype);
+    res.json(saved);
+  } catch (e) {
+    const message =
+      e instanceof Error && e.message === 'business_registration_image_invalid_type'
+        ? 'jpg, png, webp, gif 이미지만 업로드할 수 있습니다.'
+        : e instanceof Error && e.message === 'cloudinary_not_configured'
+          ? '이미지 업로드 설정이 되어 있지 않습니다. 잠시 후 다시 시도해 주세요.'
+          : '명함을 올리지 못했습니다.';
+    res.status(400).json({ error: message });
+  }
+});
+
 router.post('/pg/onboarding/submit', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
@@ -190,8 +217,15 @@ router.post('/pg/onboarding/submit', async (req, res) => {
     const row = await submitOnboarding(tenantId, req.body ?? {});
     res.json(row);
   } catch (e) {
-    if (e instanceof Error && e.message === '사업자등록증을 등록해 주세요.') {
-      res.status(400).json({ error: e.message });
+    const message = e instanceof Error ? e.message : '';
+    if (
+      message.startsWith('사업') ||
+      message.startsWith('법인') ||
+      message.startsWith('상호') ||
+      message.startsWith('필수') ||
+      message.startsWith('명함')
+    ) {
+      res.status(400).json({ error: message });
       return;
     }
     throw e;

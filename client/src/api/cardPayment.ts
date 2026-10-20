@@ -61,7 +61,19 @@ export type PgOnboardingRow = {
   accountHolder: string | null;
   websiteUrl: string | null;
   note: string | null;
+  businessKind: string | null;
   businessRegistrationImageUrl: string | null;
+  businessCardImageUrl: string | null;
+  consentTermsAt: string | null;
+  consentPrivacyAt: string | null;
+  consentThirdPartyAt: string | null;
+  consentIllegalUseAt: string | null;
+  consentMarketingAt: string | null;
+  consentTerms?: boolean;
+  consentPrivacy?: boolean;
+  consentThirdParty?: boolean;
+  consentIllegalUse?: boolean;
+  consentMarketing?: boolean;
   reviewToken: string | null;
   submittedAt: string | null;
   forwardedAt: string | null;
@@ -191,6 +203,18 @@ export async function uploadTenantPgRegistration(token: string, file: File) {
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<{ businessRegistrationImageUrl: string }>;
+}
+
+export async function uploadTenantPgBusinessCard(token: string, file: File) {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await fetch(`${API}/card-payments/pg/onboarding/business-card`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body,
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ businessCardImageUrl: string }>;
 }
 
 export async function submitTenantPgOnboarding(token: string, body: Partial<PgOnboardingRow>) {

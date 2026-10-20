@@ -13,6 +13,7 @@ import {
   fetchTenantPgState,
   saveTenantPgOnboarding,
   submitTenantPgOnboarding,
+  uploadTenantPgBusinessCard,
   uploadTenantPgRegistration,
   type PgOnboardingRow,
 } from '../../../api/cardPayment';
@@ -57,6 +58,7 @@ function AdminCardPaymentPgInner() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingCard, setUploadingCard] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -102,11 +104,34 @@ function AdminCardPaymentPgInner() {
     }
   };
 
+  const uploadCard = async (file: File) => {
+    const token = getToken();
+    if (!token || !row) return;
+    setUploadingCard(true);
+    try {
+      const saved = await uploadTenantPgBusinessCard(token, file);
+      setRow({ ...row, businessCardImageUrl: saved.businessCardImageUrl });
+      setError(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '명함을 올리지 못했습니다.');
+    } finally {
+      setUploadingCard(false);
+    }
+  };
+
   const persist = async (submit: boolean) => {
     const token = getToken();
     if (!token || !row) return;
+    if (submit && row.businessKind !== 'CORPORATE' && row.businessKind !== 'SOLE_PROPRIETOR') {
+      setError('법인 사업자 또는 개인 사업자를 선택해 주세요.');
+      return;
+    }
     if (submit && !row.businessRegistrationImageUrl) {
       setError('사업자등록증을 등록해 주세요.');
+      return;
+    }
+    if (submit && !row.businessCardImageUrl) {
+      setError('명함을 올려 주세요.');
       return;
     }
     setSaving(true);
@@ -161,7 +186,7 @@ function AdminCardPaymentPgInner() {
           </PageTitleWithFavorite>
           <p className="mt-1 text-sm text-gray-500">
             {applying
-              ? '사업자 정보와 연락처, 사업자등록증을 적은 뒤 제출합니다.'
+              ? '사업자 정보와 서류를 적은 뒤 동의를 확인하고 제출합니다. 내용은 원성페이먼츠 심사로 넘어갑니다.'
               : '카드 결제를 받으려면 PG를 신청합니다.'}
           </p>
         </div>
@@ -182,7 +207,9 @@ function AdminCardPaymentPgInner() {
             onChange={setRow}
             saving={saving}
             uploading={uploading}
+            uploadingCard={uploadingCard}
             onUploadRegistration={(file) => void uploadRegistration(file)}
+            onUploadBusinessCard={(file) => void uploadCard(file)}
             submitted={row.status === 'SUBMITTED' || row.status === 'FORWARDED_TO_PG' || row.status === 'APPROVED'}
             onSave={() => void persist(false)}
             onSubmit={() => void persist(true)}

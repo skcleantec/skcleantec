@@ -25,7 +25,28 @@ const ONBOARDING_FIELDS = [
   'note',
 ] as const;
 
-export type OnboardingInput = Partial<Record<(typeof ONBOARDING_FIELDS)[number], string | null>>;
+const PG_BUSINESS_KINDS = ['CORPORATE', 'SOLE_PROPRIETOR'] as const;
+type PgBusinessKind = (typeof PG_BUSINESS_KINDS)[number];
+
+function readBusinessKind(input: OnboardingInput): PgBusinessKind | null {
+  const raw = typeof input.businessKind === 'string' ? input.businessKind.trim() : '';
+  return PG_BUSINESS_KINDS.includes(raw as PgBusinessKind) ? (raw as PgBusinessKind) : null;
+}
+
+function consentStamp(flag: boolean | undefined, existing: Date | null | undefined, now: Date) {
+  if (flag === true) return existing ?? now;
+  if (flag === false) return null;
+  return existing ?? null;
+}
+
+export type OnboardingInput = Partial<Record<(typeof ONBOARDING_FIELDS)[number], string | null>> & {
+  businessKind?: string | null;
+  consentTerms?: boolean;
+  consentPrivacy?: boolean;
+  consentThirdParty?: boolean;
+  consentIllegalUse?: boolean;
+  consentMarketing?: boolean;
+};
 
 function newReviewToken(): string {
   return randomBytes(24).toString('base64url');
@@ -109,7 +130,9 @@ export async function getOrPrefillOnboarding(tenantId: string) {
 }
 
 export async function saveOnboardingDraft(tenantId: string, input: OnboardingInput) {
-  const data = pickOnboarding(input);
+  const now = new Date();
+  const existing = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId } });
+  const data = { ...pickOnboarding(input), ...applyApplicationExtras(input, existing, now) };
   const row = await prisma.tenantPgOnboarding.upsert({
     where: { tenantId },
     create: { tenantId, ...data },
@@ -123,16 +146,105 @@ export async function submitOnboarding(tenantId: string, input: OnboardingInput)
   if (!imageUrl) {
     throw new Error('사업자등록증을 등록해 주세요.');
   }
-  const data = pickOnboarding(input);
   const now = new Date();
-  const existing = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId }, select: { reviewToken: true } });
+  const existing = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId } });
+  const extras = applyApplicationExtras(input, existing, now);
+  const kind = readBusinessKind(input) ?? (existing?.businessKind === 'CORPORATE' || existing?.businessKind === 'SOLE_PROPRIETOR' ? existing.businessKind : null);
+  if (!kind) throw new Error('법인 사업자 또는 개인 사업자를 선택해 주세요. 사업자가 없는 개인은 신청할 수 없습니다.');
+  const picked = pickOnboarding(input);
+  const name = (typeof picked.businessName === 'string' ? picked.businessName : existing?.businessName) ?? '';
+  const bizNumber = (typeof picked.bizNumber === 'string' ? picked.bizNumber : existing?.bizNumber) ?? '';
+  const representative = (typeof picked.representativeName === 'string' ? picked.representativeName : existing?.representativeName) ?? '';
+  const phone = (typeof picked.contactPhone === 'string' ? picked.contactPhone : existing?.contactPhone) ?? '';
+  const email = (typeof picked.contactEmail === 'string' ? picked.contactEmail : existing?.contactEmail) ?? '';
+  if (!name.trim() || !bizNumber.trim() || !representative.trim() || !phone.trim() || !email.trim()) {
+    throw new Error('상호, 사업자등록번호, 대표자, 휴대전화, 이메일을 입력해 주세요.');
+  }
+  const cardUrl = existing?.businessCardImageUrl?.trim();
+  if (!cardUrl) throw new Error('명함을 올려 주세요.');
+  const agreed = {
+    terms: input.consentTerms === true || Boolean(existing?.consentTermsAt),
+    privacy: input.consentPrivacy === true || Boolean(existing?.consentPrivacyAt),
+    third: input.consentThirdParty === true || Boolean(existing?.consentThirdPartyAt),
+    illegal: input.consentIllegalUse === true || Boolean(existing?.consentIllegalUseAt),
+  };
+  if (input.consentTerms === false || input.consentPrivacy === false || input.consentThirdParty === false || input.consentIllegalUse === false) {
+    throw new Error('필수 동의 항목을 확인해 주세요.');
+  }
+  if (!agreed.terms || !agreed.privacy || !agreed.third || !agreed.illegal) {
+    throw new Error('필수 동의 항목을 확인해 주세요.');
+  }
   const reviewToken = existing?.reviewToken ?? newReviewToken();
   const row = await prisma.tenantPgOnboarding.upsert({
     where: { tenantId },
-    create: { tenantId, ...data, status: 'SUBMITTED', submittedAt: now, reviewToken },
-    update: { ...data, status: 'SUBMITTED', submittedAt: now, reviewToken },
+    create: { tenantId, ...picked, ...extras, businessKind: kind, status: 'SUBMITTED', submittedAt: now, reviewToken },
+    update: { ...picked, ...extras, businessKind: kind, status: 'SUBMITTED', submittedAt: now, reviewToken },
   });
   return serializeWithRegistration(tenantId, row);
+}
+
+export async function saveTenantBusinessCard(tenantId: string, buffer: Buffer, mimetype: string) {
+  assertBusinessRegistrationImageMime(mimetype);
+  const existing = await prisma.tenantPgOnboarding.findFirst({
+    where: { tenantId },
+    select: { businessCardImagePublicId: true },
+  });
+  const uploaded = await uploadBusinessRegistrationBuffer({
+    folder: `cbiseo/pg-business-card/${tenantId}`,
+    buffer,
+    mimetype,
+  });
+  await prisma.tenantPgOnboarding.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      businessCardImageUrl: uploaded.secureUrl,
+      businessCardImagePublicId: uploaded.publicId,
+    },
+    update: {
+      businessCardImageUrl: uploaded.secureUrl,
+      businessCardImagePublicId: uploaded.publicId,
+    },
+  });
+  if (existing?.businessCardImagePublicId && existing.businessCardImagePublicId !== uploaded.publicId) {
+    await destroyBusinessRegistrationPublicId(existing.businessCardImagePublicId);
+  }
+  return { businessCardImageUrl: uploaded.secureUrl };
+}
+
+function applyApplicationExtras(
+  input: OnboardingInput,
+  existing: {
+    businessKind?: string | null;
+    consentTermsAt?: Date | null;
+    consentPrivacyAt?: Date | null;
+    consentThirdPartyAt?: Date | null;
+    consentIllegalUseAt?: Date | null;
+    consentMarketingAt?: Date | null;
+  } | null,
+  now: Date,
+) {
+  const data: {
+    businessKind?: string | null;
+    consentTermsAt?: Date | null;
+    consentPrivacyAt?: Date | null;
+    consentThirdPartyAt?: Date | null;
+    consentIllegalUseAt?: Date | null;
+    consentMarketingAt?: Date | null;
+  } = {};
+  if (input.businessKind !== undefined) {
+    const kind = readBusinessKind(input);
+    if (input.businessKind && !kind) {
+      throw new Error('사업자가 없는 개인은 신청할 수 없습니다. 법인 또는 개인사업자를 선택해 주세요.');
+    }
+    data.businessKind = kind;
+  }
+  if (input.consentTerms !== undefined) data.consentTermsAt = consentStamp(input.consentTerms, existing?.consentTermsAt, now);
+  if (input.consentPrivacy !== undefined) data.consentPrivacyAt = consentStamp(input.consentPrivacy, existing?.consentPrivacyAt, now);
+  if (input.consentThirdParty !== undefined) data.consentThirdPartyAt = consentStamp(input.consentThirdParty, existing?.consentThirdPartyAt, now);
+  if (input.consentIllegalUse !== undefined) data.consentIllegalUseAt = consentStamp(input.consentIllegalUse, existing?.consentIllegalUseAt, now);
+  if (input.consentMarketing !== undefined) data.consentMarketingAt = consentStamp(input.consentMarketing, existing?.consentMarketingAt, now);
+  return data;
 }
 
 export async function listOnboardingsForPartner() {
@@ -181,7 +293,14 @@ export async function listOnboardingsForPartner() {
       accountHolder: row.accountHolder,
       websiteUrl: row.websiteUrl,
       note: row.note,
+      businessKind: row.businessKind,
       businessRegistrationImageUrl: imageByTenant.get(row.tenantId)?.trim() || null,
+      businessCardImageUrl: row.businessCardImageUrl,
+      consentTermsAt: row.consentTermsAt?.toISOString() ?? null,
+      consentPrivacyAt: row.consentPrivacyAt?.toISOString() ?? null,
+      consentThirdPartyAt: row.consentThirdPartyAt?.toISOString() ?? null,
+      consentIllegalUseAt: row.consentIllegalUseAt?.toISOString() ?? null,
+      consentMarketingAt: row.consentMarketingAt?.toISOString() ?? null,
       status: row.status,
       submittedAt: row.submittedAt?.toISOString() ?? null,
       connected: Boolean(credential?.isActive),
@@ -228,7 +347,13 @@ export async function getOnboardingByReviewToken(token: string) {
     accountHolder: row.accountHolder,
     websiteUrl: row.websiteUrl,
     note: row.note,
+    businessKind: row.businessKind,
     businessRegistrationImageUrl: await registrationImageUrl(row.tenantId),
+    businessCardImageUrl: row.businessCardImageUrl,
+    consentTermsAt: row.consentTermsAt?.toISOString() ?? null,
+    consentPrivacyAt: row.consentPrivacyAt?.toISOString() ?? null,
+    consentThirdPartyAt: row.consentThirdPartyAt?.toISOString() ?? null,
+    consentIllegalUseAt: row.consentIllegalUseAt?.toISOString() ?? null,
     status: row.status,
     connected: Boolean(credential?.isActive),
     mid: credential?.mid ?? null,

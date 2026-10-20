@@ -654,6 +654,8 @@ model TenantPgOnboarding {
   tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   status               TenantPgOnboardingStatus @default(DRAFT)
   businessName         String?                  @map("business_name") @db.VarChar(128)
+  /// CORPORATE 법인사업자 · SOLE_PROPRIETOR 개인사업자. 사업자 없는 개인은 받지 않는다.
+  businessKind         String?                  @map("business_kind") @db.VarChar(32)
   bizNumber            String?                  @map("biz_number") @db.VarChar(64)
   representativeName   String?                  @map("representative_name") @db.VarChar(128)
   representativeBirth  String?                  @map("representative_birth") @db.VarChar(16)
@@ -666,6 +668,13 @@ model TenantPgOnboarding {
   accountHolder        String?                  @map("account_holder") @db.VarChar(128)
   websiteUrl           String?                  @map("website_url") @db.VarChar(512)
   note                 String?                  @db.Text
+  businessCardImageUrl String?                  @map("business_card_image_url") @db.Text
+  businessCardImagePublicId String?             @map("business_card_image_public_id") @db.VarChar(256)
+  consentTermsAt       DateTime?                @map("consent_terms_at")
+  consentPrivacyAt     DateTime?                @map("consent_privacy_at")
+  consentThirdPartyAt  DateTime?                @map("consent_third_party_at")
+  consentIllegalUseAt  DateTime?                @map("consent_illegal_use_at")
+  consentMarketingAt   DateTime?                @map("consent_marketing_at")
   /// 선샤인페이 판매자센터 로그인 아이디. 취소 창에 사용한다.
   sellerCenterLoginId  String?                  @map("seller_center_login_id") @db.VarChar(64)
   /// 판매자센터 비밀번호. 원문은 암호화만 저장한다.
