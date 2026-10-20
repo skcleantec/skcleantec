@@ -808,6 +808,8 @@ export async function submitOrderForm(
     customerPhone: string;
     customerPhone2?: string;
     customerEmail?: string;
+    /** true면 고객이 이메일을 쓰지 않고 제출한다 */
+    customerEmailUnused?: boolean;
     /** 공급·전용 모두 평 단위. 전용일 때는 exclusiveAreaSqm 생략(null). */
     areaPyeong?: number | null;
     areaBasis?: string;

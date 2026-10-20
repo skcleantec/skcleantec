@@ -359,7 +359,11 @@ export function ReviewStep({
           onEdit={jump('address')}
         />
         <ReviewRow label="전화" value={form.customerPhone} onEdit={jump('phones')} />
-        {form.customerEmail ? <ReviewRow label="이메일" value={form.customerEmail} onEdit={jump('email')} /> : null}
+        {form.customerEmailUnused ? (
+          <ReviewRow label="이메일" value="이메일 미사용" onEdit={jump('email')} />
+        ) : form.customerEmail ? (
+          <ReviewRow label="이메일" value={form.customerEmail} onEdit={jump('email')} />
+        ) : null}
         <ReviewRow
           label="공간"
           value={

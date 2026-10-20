@@ -10,6 +10,8 @@ export type OrderFormFields = {
   customerPhone: string;
   customerPhoneSecondary: string;
   customerEmail: string;
+  /** 고객이 「이메일 미사용」을 고른 경우. 제출 시 이메일 없이 진행한다. */
+  customerEmailUnused: boolean;
   address: string;
   addressDetail: string;
   propertyType: string;
@@ -37,6 +39,7 @@ export const EMPTY_ORDER_FORM_FIELDS: OrderFormFields = {
   customerPhone: '',
   customerPhoneSecondary: '',
   customerEmail: '',
+  customerEmailUnused: false,
   address: '',
   addressDetail: '',
   propertyType: '',

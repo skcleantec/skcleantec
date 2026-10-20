@@ -82,6 +82,7 @@ export function validateCustomerStep(args: {
       return null;
     }
     case 'email':
+      if (form.customerEmailUnused) return null;
       return orderFormEmailFormatError(form.customerEmail);
     case 'property':
       return hasOrderFormBuildingTypeChoice(form.propertyType, form.isOneRoom)

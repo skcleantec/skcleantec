@@ -36,6 +36,7 @@ export function OrderFormCleaningKindPicker({
       <div role="radiogroup" aria-label="청소 종류" className="space-y-2">
         {(options?.length ? options : ORDER_FORM_CLEANING_KIND_OPTIONS).map((opt) => {
           const checked = value === opt.value;
+          const imageSrc = opt.imageSrc?.trim() ?? '';
           return (
             <div key={opt.value} className="space-y-2">
               <button
@@ -63,13 +64,13 @@ export function OrderFormCleaningKindPicker({
                   <span className="mt-0.5 block whitespace-pre-line text-fluid-xs leading-snug text-slate-500">{opt.hint}</span>
                 </span>
               </button>
-              {checked ? (
+              {checked && imageSrc ? (
                 <div
                   ref={imageWrapRef}
                   className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
                 >
                   <img
-                    src={opt.imageSrc}
+                    src={imageSrc}
                     alt={`${opt.label} 안내 그림`}
                     className="h-auto w-full object-cover"
                   />
@@ -83,7 +84,8 @@ export function OrderFormCleaningKindPicker({
         })}
       </div>
 
-      {!value ? (
+      {!value &&
+      (options?.length ? options : ORDER_FORM_CLEANING_KIND_OPTIONS).some((opt) => opt.imageSrc?.trim()) ? (
         <p className="text-center text-fluid-xs text-slate-400">한 가지를 고르면 바로 아래 안내 그림이 나옵니다.</p>
       ) : null}
 

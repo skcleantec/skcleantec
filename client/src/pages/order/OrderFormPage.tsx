@@ -1201,7 +1201,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       if (!prefillLocked('customerPhone2') && !form.customerPhoneSecondary?.trim()) {
         addIssue('보조 전화번호를 입력해주세요.', 'order-field-customerPhone2');
       }
-      if (stdFieldOn('customerEmail')) {
+      if (stdFieldOn('customerEmail') && !form.customerEmailUnused) {
         const emailErr = orderFormEmailFormatError(form.customerEmail);
         if (emailErr) addIssue(emailErr, 'order-field-customerEmail');
       }
@@ -1417,9 +1417,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         };
       }
 
-      const emailTrim = stdFieldOn('customerEmail')
-        ? normalizeOrderFormEmailInput(form.customerEmail)
-        : '';
+      const emailTrim =
+        stdFieldOn('customerEmail') && !form.customerEmailUnused
+          ? normalizeOrderFormEmailInput(form.customerEmail)
+          : '';
 
       await submitOrderForm(token, {
         cleaningKind: isOrderFormCleaningKind(form.cleaningKind) ? form.cleaningKind : undefined,
@@ -1430,6 +1431,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         customerPhone: form.customerPhone.trim(),
         customerPhone2: form.customerPhoneSecondary.trim(),
         customerEmail: emailTrim || undefined,
+        customerEmailUnused: Boolean(form.customerEmailUnused),
         areaPyeong: stdFieldOn('areaPyeong') || areaLockedByAdmin ? submitAreaPyeong : undefined,
         areaBasis: stdFieldOn('areaPyeong') || areaLockedByAdmin ? submitAreaBasis : undefined,
         exclusiveAreaSqm: submitExclusiveSqm,
