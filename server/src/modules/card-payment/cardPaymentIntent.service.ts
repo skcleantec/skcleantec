@@ -76,7 +76,10 @@ export async function createCardPaymentIntent(input: {
     },
     include: PAYMENT_INCLUDE,
   });
-  const merchant = await getDecryptedCredential(input.tenantId);
+  const merchant = await getDecryptedCredential(
+    input.tenantId,
+    input.method === 'CUSTOMER_LINK' ? 'LINK' : 'KEYIN',
+  );
   const unique = created.id.replace(/-/g, '').slice(0, 16);
   const pgOrderId = (merchant?.oid ? buildWspayOrderId(merchant.oid, unique) : null) ?? `cbp${unique}`;
   const updated = await prisma.cardPayment.update({
@@ -139,7 +142,7 @@ export async function confirmCustomerLink(input: {
 
   const token = newLinkToken();
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const credential = await getDecryptedCredential(input.tenantId);
+  const credential = await getDecryptedCredential(input.tenantId, 'LINK');
   const pg = await requestWspayPaymentLink({
     credential,
     amountWon: row.amountWon,

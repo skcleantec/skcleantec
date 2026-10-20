@@ -20,6 +20,18 @@ import { getToken } from '../../../stores/auth';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
 import { RoundBackButton } from '../../../components/ui/RoundBackButton';
+import type { TenantPgCredentialSlot } from '../../../api/cardPayment';
+
+function merchantLine(label: string, slot: TenantPgCredentialSlot | undefined) {
+  if (!slot?.connected) return `${label} · 아직 없음`;
+  const bits = [
+    slot.mid ? `MID ${slot.mid}` : null,
+    slot.oid ? `OID ${slot.oid}` : null,
+    slot.tidMasked ? `TID ${slot.tidMasked}` : null,
+    slot.apiKeyLast4 ? `키 끝 ${slot.apiKeyLast4}` : null,
+  ].filter(Boolean);
+  return bits.length ? `${label} · ${bits.join(' · ')}` : `${label} · 연결됨`;
+}
 
 export function AdminCardPaymentPgPage() {
   return (
@@ -39,8 +51,8 @@ function AdminCardPaymentPgInner() {
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, applying);
   const [row, setRow] = useState<PgOnboardingRow | null>(null);
   const [connected, setConnected] = useState(false);
-  const [merchantMid, setMerchantMid] = useState<string | null>(null);
-  const [merchantOid, setMerchantOid] = useState<string | null>(null);
+  const [keyinLine, setKeyinLine] = useState('수기 · 아직 없음');
+  const [linkLine, setLinkLine] = useState('링크 · 아직 없음');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -53,8 +65,8 @@ function AdminCardPaymentPgInner() {
       .then((res) => {
         setRow(res.onboarding);
         setConnected(res.credential.connected);
-        setMerchantMid(res.credential.connected ? res.credential.mid : null);
-        setMerchantOid(res.credential.connected ? res.credential.oid : null);
+        setKeyinLine(merchantLine('수기', res.credentials?.keyin));
+        setLinkLine(merchantLine('링크', res.credentials?.link));
         setError(null);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '불러오지 못했습니다.'))
@@ -64,8 +76,7 @@ function AdminCardPaymentPgInner() {
   const view = pgConnectionView(connected, row?.status);
   const detail =
     view === '연결됨'
-      ? [merchantMid ? `MID ${merchantMid}` : null, merchantOid ? `OID ${merchantOid}` : null].filter(Boolean).join(' · ') ||
-        '카드 결제가 연결되었습니다.'
+      ? [keyinLine, linkLine].join(' / ')
       : view === '심사중'
         ? '신청을 확인하는 중입니다.'
         : view === '반려'

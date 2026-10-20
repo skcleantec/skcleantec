@@ -112,22 +112,26 @@ export async function fetchCardPaymentList(
   return res.json();
 }
 
+export type TenantPgCredentialSlot =
+  | { connected: false }
+  | {
+      connected: true;
+      rail?: 'KEYIN' | 'LINK';
+      isActive?: boolean;
+      apiKeyLast4?: string;
+      tidMasked?: string;
+      mid?: string | null;
+      oid?: string | null;
+      connectedAt?: string;
+    };
+
 export async function fetchTenantPgState(token: string) {
   const res = await fetch(`${API}/card-payments/pg`, { headers: headers(token) });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<{
     onboarding: PgOnboardingRow;
-    credential:
-      | { connected: false }
-      | {
-          connected: true;
-          isActive: boolean;
-          apiKeyLast4: string;
-          tidMasked: string;
-          mid: string | null;
-          oid: string | null;
-          connectedAt: string;
-        };
+    credential: { connected: boolean };
+    credentials: { keyin: TenantPgCredentialSlot; link: TenantPgCredentialSlot };
   }>;
 }
 

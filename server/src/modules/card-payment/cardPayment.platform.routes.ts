@@ -6,9 +6,8 @@ import {
   listOnboardingsForPlatform,
   updateOnboardingByPlatform,
 } from './cardPaymentOnboarding.service.js';
-import { saveCredentialFromPlatform } from './cardPaymentCredential.service.js';
+import { getCredentialBundle, saveCredentialFromPlatform } from './cardPaymentCredential.service.js';
 import { platformCardPaymentSummary } from './cardPaymentList.service.js';
-import { getCredentialPublic } from './cardPaymentCredential.service.js';
 import { serviceBridgePublicStatus } from './serviceBridgeWspay.js';
 import { probeTenantPaymentConnection, openUsageFeeWindow, probeUsageFeeKeyin } from './cardPaymentProbe.service.js';
 import type { PlatformScopedRequest } from '../platform/platformAuth.middleware.js';
@@ -73,16 +72,18 @@ router.patch('/onboardings/:tenantId', async (req, res) => {
 });
 
 router.get('/credentials/:tenantId', async (req, res) => {
-  const cred = await getCredentialPublic(String(req.params.tenantId));
+  const cred = await getCredentialBundle(String(req.params.tenantId));
   res.json(cred);
 });
 
 router.put('/credentials/:tenantId', async (req, res) => {
   try {
+    const rail = req.body?.rail === 'LINK' ? 'LINK' : 'KEYIN';
     const saved = await saveCredentialFromPlatform({
       tenantId: String(req.params.tenantId),
+      rail,
       apiKey: String(req.body?.apiKey ?? ''),
-      tid: String(req.body?.tid ?? ''),
+      tid: typeof req.body?.tid === 'string' ? req.body.tid : '',
       mid: typeof req.body?.mid === 'string' ? req.body.mid : null,
       oid: typeof req.body?.oid === 'string' ? req.body.oid : null,
       webhookSecret: typeof req.body?.webhookSecret === 'string' ? req.body.webhookSecret : null,
@@ -94,7 +95,8 @@ router.put('/credentials/:tenantId', async (req, res) => {
 });
 
 router.post('/credentials/:tenantId/probe', async (req, res) => {
-  const probed = await probeTenantPaymentConnection(String(req.params.tenantId));
+  const rail = req.body?.rail === 'LINK' ? 'LINK' : 'KEYIN';
+  const probed = await probeTenantPaymentConnection(String(req.params.tenantId), rail);
   if ('error' in probed) {
     res.status(probed.status).json({ error: probed.error });
     return;

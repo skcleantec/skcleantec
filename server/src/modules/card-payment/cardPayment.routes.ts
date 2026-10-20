@@ -7,7 +7,7 @@ import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
-import { getCredentialPublic } from './cardPaymentCredential.service.js';
+import { getCredentialBundle, getCredentialPublic } from './cardPaymentCredential.service.js';
 import {
   getOrPrefillOnboarding,
   saveOnboardingDraft,
@@ -76,7 +76,7 @@ router.get('/inquiry/:inquiryId/prefill', async (req, res) => {
     customerName: inquiry.customerName,
     amountWon,
     quote,
-    pgConnected: pg.connected ? pg.isActive : false,
+    pgConnected: pg.connected,
   });
 });
 
@@ -114,13 +114,20 @@ router.put('/pg/clerks', async (req, res) => {
 });
 
 router.get('/pg', async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  const user = scoped(req).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
-  const [onboarding, credential] = await Promise.all([
+  const [onboarding, credential, credentials] = await Promise.all([
     getOrPrefillOnboarding(tenantId),
     getCredentialPublic(tenantId),
+    getCredentialBundle(tenantId),
   ]);
-  res.json({ onboarding, credential });
+  const reveal = user.role === 'ADMIN';
+  res.json({
+    onboarding,
+    credential,
+    credentials: reveal ? credentials : { keyin: { connected: credentials.keyin.connected }, link: { connected: credentials.link.connected } },
+  });
 });
 
 router.put('/pg/onboarding', async (req, res) => {

@@ -147,7 +147,7 @@ export async function listOnboardingsForPartner() {
   const [credentials, images, codesByTenant] = await Promise.all([
     prisma.tenantPgCredential.findMany({
       where: { tenantId: { in: tenantIds } },
-      select: { tenantId: true, mid: true, oid: true, apiKeyLast4: true, isActive: true },
+      select: { tenantId: true, rail: true, mid: true, oid: true, apiKeyLast4: true, isActive: true },
     }),
     prisma.tenantSignupBusiness.findMany({
       where: { tenantId: { in: tenantIds } },
@@ -155,10 +155,16 @@ export async function listOnboardingsForPartner() {
     }),
     clerkCodesByTenant(tenantIds),
   ]);
-  const credentialByTenant = new Map(credentials.map((row) => [row.tenantId, row]));
+  const credentialByTenant = new Map<string, (typeof credentials)[number][]>();
+  for (const row of credentials) {
+    const list = credentialByTenant.get(row.tenantId) ?? [];
+    list.push(row);
+    credentialByTenant.set(row.tenantId, list);
+  }
   const imageByTenant = new Map(images.map((row) => [row.tenantId, row.businessRegistrationImageUrl]));
   return rows.map((row) => {
-    const credential = credentialByTenant.get(row.tenantId);
+    const slots = credentialByTenant.get(row.tenantId) ?? [];
+    const credential = slots.find((slot) => slot.rail === 'KEYIN' && slot.isActive) ?? slots.find((slot) => slot.isActive) ?? null;
     return {
       id: row.id,
       tenantName: row.tenant.name,

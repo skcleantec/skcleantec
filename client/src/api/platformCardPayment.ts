@@ -75,7 +75,7 @@ export async function patchPlatformPgOnboarding(
 
 export async function savePlatformPgCredential(
   tenantId: string,
-  body: { apiKey: string; tid: string; mid?: string; oid?: string; webhookSecret?: string },
+  body: { rail: 'KEYIN' | 'LINK'; apiKey: string; tid?: string; mid?: string; oid?: string; webhookSecret?: string },
 ) {
   const res = await fetch(`${API}/platform/card-payment/credentials/${encodeURIComponent(tenantId)}`, {
     method: 'PUT',
@@ -86,29 +86,32 @@ export async function savePlatformPgCredential(
   return res.json();
 }
 
+export type PlatformCredentialSlot =
+  | { connected: false }
+  | {
+      connected: true;
+      rail: 'KEYIN' | 'LINK';
+      isActive: boolean;
+      apiKeyLast4: string;
+      tidMasked: string;
+      mid: string | null;
+      oid: string | null;
+      connectedAt: string;
+    };
+
 export async function fetchPlatformTenantCredential(tenantId: string) {
   const res = await fetch(`${API}/platform/card-payment/credentials/${encodeURIComponent(tenantId)}`, {
     headers: platformHeaders(),
   });
   if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<
-    | { connected: false }
-    | {
-        connected: true;
-        isActive: boolean;
-        apiKeyLast4: string;
-        tidMasked: string;
-        mid: string | null;
-        oid: string | null;
-        connectedAt: string;
-      }
-  >;
+  return res.json() as Promise<{ keyin: PlatformCredentialSlot; link: PlatformCredentialSlot }>;
 }
 
-export async function probePlatformTenantPayment(tenantId: string) {
+export async function probePlatformTenantPayment(tenantId: string, rail: 'KEYIN' | 'LINK') {
   const res = await fetch(`${API}/platform/card-payment/credentials/${encodeURIComponent(tenantId)}/probe`, {
     method: 'POST',
     headers: platformHeaders(),
+    body: JSON.stringify({ rail }),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<

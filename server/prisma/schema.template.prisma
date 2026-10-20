@@ -89,6 +89,12 @@ enum TenantPgOnboardingStatus {
   REJECTED
 }
 
+/// 업체 가맹 키 칸. 수기(구인증)와 링크(인증결제)는 서로 다른 MID·OID·키를 쓴다.
+enum TenantPgRail {
+  KEYIN
+  LINK
+}
+
 enum TenantBillingCycle {
   MONTHLY
   ANNUAL
@@ -384,7 +390,7 @@ model Tenant {
   userNotificationPreferences UserNotificationPreference[]
   notificationDeliveryLogs   NotificationDeliveryLog[]
   pgOnboarding               TenantPgOnboarding?
-  pgCredential               TenantPgCredential?
+  pgCredentials              TenantPgCredential[]
   pgClerkCodes               TenantPgClerkCode[]
   cardPayments               CardPayment[]
   platformSupportThread      PlatformSupportThread?
@@ -651,20 +657,22 @@ model TenantPgOnboarding {
 
 /// 테넌트별 선샤인페이 자격증명 — 원문 키는 암호화
 model TenantPgCredential {
-  id              String    @id @default(uuid())
-  tenantId        String    @unique @map("tenant_id")
-  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  apiKeyEnc       String    @map("api_key_enc") @db.Text
-  tidEnc          String    @map("tid_enc") @db.Text
-  webhookSecretEnc String?  @map("webhook_secret_enc") @db.Text
-  apiKeyLast4     String    @map("api_key_last4") @db.VarChar(8)
-  tidMasked       String    @map("tid_masked") @db.VarChar(32)
-  mid             String?   @db.VarChar(32)
-  oid             String?   @db.VarChar(8)
-  isActive        Boolean   @default(true) @map("is_active")
-  connectedAt     DateTime  @map("connected_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id              String       @id @default(uuid())
+  tenantId        String       @map("tenant_id")
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rail            TenantPgRail @default(KEYIN)
+  apiKeyEnc       String       @map("api_key_enc") @db.Text
+  tidEnc          String       @map("tid_enc") @db.Text
+  webhookSecretEnc String?     @map("webhook_secret_enc") @db.Text
+  apiKeyLast4     String       @map("api_key_last4") @db.VarChar(8)
+  tidMasked       String       @map("tid_masked") @db.VarChar(32)
+  mid             String?      @db.VarChar(32)
+  oid             String?      @db.VarChar(8)
+  isActive        Boolean      @default(true) @map("is_active")
+  connectedAt     DateTime     @map("connected_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
 
+  @@unique([tenantId, rail])
   @@map("tenant_pg_credentials")
 }
 

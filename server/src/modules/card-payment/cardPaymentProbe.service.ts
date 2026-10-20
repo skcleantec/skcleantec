@@ -13,10 +13,11 @@ export type TenantPaymentProbe =
 /** 저장한 업체 키만 확인한다. 카드 승인·서비스브릿지 키는 쓰지 않는다. */
 export async function probeTenantPaymentConnection(
   tenantId: string,
+  rail: 'KEYIN' | 'LINK' = 'KEYIN',
 ): Promise<{ error: string; status: 400 | 404 } | { result: TenantPaymentProbe }> {
   const tenant = await prisma.tenant.findFirst({ where: { id: tenantId }, select: { id: true } });
   if (!tenant) return { error: '업체를 찾을 수 없습니다.', status: 404 };
-  const cred = await getDecryptedCredential(tenantId);
+  const cred = await getDecryptedCredential(tenantId, rail);
   const oid = cred?.oid ? normalizeWspayOid(cred.oid) : null;
   if (!cred?.mid || !cred.apiKey || !oid) {
     return { error: '이 업체 결제 키가 없습니다. MID, OID, 키를 저장한 뒤 다시 확인하세요.', status: 400 };

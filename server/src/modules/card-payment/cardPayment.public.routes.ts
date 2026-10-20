@@ -112,7 +112,14 @@ router.post('/pg-partner/applications/:id/codes', async (req, res) => {
   }
   try {
     await saveIssuedPgClerkCodes(tenantId, clerkCodes);
-    const saved = await saveCredentialFromPlatform({ tenantId, apiKey, tid, mid, oid });
+    const saved = await saveCredentialFromPlatform({
+      tenantId,
+      rail: apiKey.startsWith('ssp-') ? 'KEYIN' : 'LINK',
+      apiKey,
+      tid,
+      mid,
+      oid,
+    });
     res.json({
       ok: true,
       mid: saved.connected ? saved.mid : null,
@@ -177,6 +184,7 @@ router.post('/pg-join/:token/codes', async (req, res) => {
     await saveIssuedPgClerkCodes(row.tenantId, clerkCodes);
     const saved = await saveCredentialFromPlatform({
       tenantId: row.tenantId,
+      rail: apiKey.startsWith('ssp-') ? 'KEYIN' : 'LINK',
       apiKey,
       tid,
       mid,
