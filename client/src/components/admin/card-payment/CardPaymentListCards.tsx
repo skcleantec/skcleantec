@@ -5,9 +5,13 @@ import { CardPaymentStatusChip } from './CardPaymentStatusChip';
 export function CardPaymentListCards({
   items,
   onCancel,
+  sellerReady,
+  cancellingId,
 }: {
   items: CardPaymentRow[];
-  onCancel?: () => void;
+  onCancel?: (row: CardPaymentRow) => void;
+  sellerReady?: boolean;
+  cancellingId?: string | null;
 }) {
   return (
     <div className="space-y-1.5 lg:hidden">
@@ -27,13 +31,14 @@ export function CardPaymentListCards({
             {row.createdBy.name} · {CARD_PAYMENT_METHOD_LABEL[row.method]}
             {row.inquiryNumber ? ` · ${row.inquiryNumber}` : ''}
           </p>
-          {row.cancelable && onCancel ? (
+          {(row.cancelVia === 'api' || (row.cancelVia === 'seller' && sellerReady)) && onCancel ? (
             <button
               type="button"
-              className="mt-2 min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-              onClick={onCancel}
+              disabled={cancellingId === row.id}
+              className="mt-2 min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              onClick={() => onCancel(row)}
             >
-              결제 취소
+              {cancellingId === row.id ? '취소 중' : '결제 취소'}
             </button>
           ) : null}
         </article>

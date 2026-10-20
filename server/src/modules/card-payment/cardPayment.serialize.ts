@@ -35,6 +35,12 @@ export function serializeCardPayment(
     paidAt: row.paidAt?.toISOString() ?? null,
     failReason: row.failReason,
     cancelable: row.status === 'APPROVED' && row.paidAt != null && kstYmd(row.paidAt) === kstYmd(new Date()),
+    cancelVia:
+      row.status === 'APPROVED' && row.paidAt != null && kstYmd(row.paidAt) === kstYmd(new Date())
+        ? row.method === 'CUSTOMER_LINK'
+          ? ('api' as const)
+          : ('seller' as const)
+        : null,
     createdAt: row.createdAt.toISOString(),
     createdBy: row.createdBy
       ? { id: row.createdBy.id, name: row.createdBy.name }

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { fetchCardPaymentList, fetchTenantPgState, type CardPaymentListResponse } from '../../../api/cardPayment';
+import {
+  cancelCardPayment,
+  fetchCardPaymentList,
+  fetchTenantPgState,
+  type CardPaymentListResponse,
+  type CardPaymentRow,
+} from '../../../api/cardPayment';
 import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
 import { getToken } from '../../../stores/auth';
 import { YearMonthSelect, YmdSelect } from '../../ui/DateQuerySelects';
@@ -30,6 +36,8 @@ export function CardPaymentLedger() {
   const [data, setData] = useState<CardPaymentListResponse | null>(null);
   const [sellerLogin, setSellerLogin] = useState<{ loginId: string; password: string } | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +65,19 @@ export function CardPaymentLedger() {
       .catch(() => setSellerLogin(null));
   }, []);
 
-  const cancelPayment = () => {
+  const cancelPayment = (row: CardPaymentRow) => {
+    if (row.cancelVia === 'api') {
+      const token = getToken();
+      if (!token) return;
+      if (!window.confirm('이 인증결재를 전액 취소할까요?')) return;
+      setCancelError(null);
+      setCancellingId(row.id);
+      void cancelCardPayment(token, row.id)
+        .then(() => setReloadKey((n) => n + 1))
+        .catch((e: unknown) => setCancelError(e instanceof Error ? e.message : '취소하지 못했습니다.'))
+        .finally(() => setCancellingId(null));
+      return;
+    }
     if (!sellerLogin) {
       setCancelError('판매자센터 아이디가 없습니다. PG 연동에서 원성이 아이디와 비밀번호를 넣어야 합니다.');
       return;
@@ -95,7 +115,7 @@ export function CardPaymentLedger() {
     return () => {
       cancelled = true;
     };
-  }, [datePreset, month, day, status, page, pageSize]);
+  }, [datePreset, month, day, status, page, pageSize, reloadKey]);
 
   const total = data?.total ?? 0;
   const safePage = useMemo(() => clampListPage(page, pageSize, total), [page, pageSize, total]);
@@ -104,7 +124,7 @@ export function CardPaymentLedger() {
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
       <div className="rounded-xl border border-slate-200 bg-white p-2 sm:p-4">
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-          결재완료만 보거나, 아직 결제되지 않은 대기도 따로 볼 수 있습니다. 원성페이먼츠는 다음 날 정산되므로 오늘 결재만 취소할 수 있습니다.
+          결재완료만 보거나, 아직 결제되지 않은 대기도 따로 볼 수 있습니다. 오늘 인증결재는 결제 취소로 바로 취소되고, 수기는 판매자센터에서 취소합니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {PRESETS.map((p) => (
@@ -177,8 +197,18 @@ export function CardPaymentLedger() {
         {data && data.items.length > 0 ? (
           <>
             <p className="mb-2 text-fluid-2xs text-slate-500 lg:hidden">표는 넓은 화면에서 볼 수 있습니다. 카드로 스크롤하세요.</p>
-            <CardPaymentListTable items={data.items} onCancel={sellerLogin ? cancelPayment : undefined} />
-            <CardPaymentListCards items={data.items} onCancel={sellerLogin ? cancelPayment : undefined} />
+            <CardPaymentListTable
+              items={data.items}
+              onCancel={cancelPayment}
+              sellerReady={Boolean(sellerLogin)}
+              cancellingId={cancellingId}
+            />
+            <CardPaymentListCards
+              items={data.items}
+              onCancel={cancelPayment}
+              sellerReady={Boolean(sellerLogin)}
+              cancellingId={cancellingId}
+            />
           </>
         ) : null}
         {!loading ? (

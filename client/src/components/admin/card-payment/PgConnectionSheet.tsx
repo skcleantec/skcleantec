@@ -56,7 +56,7 @@ export function PgConnectionSheet({
         {cell('인증결재', slotLine(link))}
       </div>
       <p className="border-t border-slate-100 px-3 py-2 text-fluid-2xs leading-snug text-slate-500">
-        당일 결재만 취소할 수 있습니다. 결제 내역의 결제 취소를 누르면 이 아이디로 판매자센터에 로그인된 창이 열립니다.
+        당일 결재만 취소할 수 있습니다. 인증결재는 결제 취소로 바로 취소되고, 수기는 이 아이디로 판매자센터에 로그인된 창이 열립니다.
       </p>
     </section>
   );

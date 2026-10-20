@@ -27,6 +27,7 @@ export type CardPaymentRow = {
   paidAt: string | null;
   failReason: string | null;
   cancelable?: boolean;
+  cancelVia?: 'api' | 'seller' | null;
   createdAt: string;
   createdBy: { id: string; name: string };
 };
@@ -259,6 +260,15 @@ export async function confirmCardPaymentKeyin(
     ok: boolean;
     message: string;
   }>;
+}
+
+export async function cancelCardPayment(token: string, id: string) {
+  const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ ok: true }>;
 }
 
 export async function confirmCardPaymentLink(token: string, id: string) {

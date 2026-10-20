@@ -27,6 +27,7 @@ import { listCardPayments } from './cardPaymentList.service.js';
 import { defaultCardPaymentAmountWon } from './cardPaymentFee.js';
 import { prisma } from '../../lib/prisma.js';
 import { readSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
+import { cancelCustomerLinkPayment } from './cardPaymentCancel.service.js';
 const router = Router();
 const registrationUpload = multer({
   storage: multer.memoryStorage(),
@@ -315,6 +316,30 @@ router.post('/:id/link', async (req, res) => {
     return;
   }
   res.json(result);
+});
+
+router.post('/:id/cancel', async (req, res) => {
+  const user = scoped(req).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  if (user.role !== 'ADMIN') {
+    res.status(403).json({ error: '인증결재 취소는 관리자만 할 수 있습니다.' });
+    return;
+  }
+  const actor = await prisma.user.findFirst({
+    where: { id: user.userId, tenantId },
+    select: { name: true },
+  });
+  const result = await cancelCustomerLinkPayment({
+    tenantId,
+    paymentId: String(req.params.id),
+    actorName: actor?.name || '관리자',
+  });
+  if ('error' in result) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 export default router;
