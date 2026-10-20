@@ -93,9 +93,12 @@ export async function fetchCardPaymentPrefill(token: string, inquiryId: string) 
     inquiryId: string;
     inquiryNumber: string | null;
     customerName: string;
+    customerPhone: string | null;
     amountWon: number;
     quote: CardPaymentFeeBreakdown;
     pgConnected: boolean;
+    keyinConnected: boolean;
+    linkConnected: boolean;
   }>;
 }
 
@@ -222,18 +225,29 @@ export async function openPublicPaysisWindow(token: string, payScreen: 'P' | 'M'
   return res.json() as Promise<{ redirectUrl: string }>;
 }
 
-export async function confirmCardPaymentKeyin(token: string, id: string) {
+export async function confirmCardPaymentKeyin(
+  token: string,
+  id: string,
+  body: {
+    cardNo: string;
+    expireMM: string;
+    expireYY: string;
+    installment: string;
+    certPw: string;
+    certNo: string;
+    buyerPhone?: string;
+  },
+) {
   const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/keyin`, {
     method: 'POST',
     headers: headers(token),
-    body: JSON.stringify({}),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<{
     payment: CardPaymentRow;
-    pgReady: boolean;
-    pgWindowUrl: string;
-    pgMessage: string | null;
+    ok: boolean;
+    message: string;
   }>;
 }
 

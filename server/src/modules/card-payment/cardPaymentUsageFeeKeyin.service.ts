@@ -1,5 +1,10 @@
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
-import { WSPAY_BASE_URL, WSPAY_KEYIN_PAY_PATH, wspayAuthHeaders } from './wspayAdapter.js';
+import {
+  WSPAY_BASE_URL,
+  WSPAY_KEYIN_PAY_PATH,
+  wspayAuthHeaders,
+  type WspayCredential,
+} from './wspayAdapter.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 
 export type UsageFeeKeyinInput = {
@@ -69,15 +74,12 @@ export function parseUsageFeeKeyinBody(body: unknown): { error: string } | { inp
   };
 }
 
-/** 서비스브릿지 수기 키로만 승인 요청. 카드번호는 저장하지 않는다. */
-export async function chargeUsageFeeKeyin(input: UsageFeeKeyinInput): Promise<
-  { error: string; status: 400 } | { result: UsageFeeKeyinResult }
-> {
-  const keyin = loadServiceBridgeMerchants().keyin;
-  if (!keyin) return { error: '이용료 수기 키가 서버에 없습니다.', status: 400 };
-  const orderNo = buildWspayOrderId(keyin.oid, `FEE${Date.now()}`);
-  if (!orderNo) return { error: '이용료 주문번호를 만들지 못했습니다.', status: 400 };
-
+/** 수기 승인. 카드번호는 응답·저장에 넣지 않는다. */
+export async function chargeWspayKeyin(
+  credential: WspayCredential,
+  orderNo: string,
+  input: UsageFeeKeyinInput,
+): Promise<{ error: string; status: 400 } | { result: UsageFeeKeyinResult }> {
   const payload: Record<string, string | number> = {
     amount: input.amountWon,
     goods_name: input.goodsName,
@@ -96,7 +98,7 @@ export async function chargeUsageFeeKeyin(input: UsageFeeKeyinInput): Promise<
     response = await fetch(`${WSPAY_BASE_URL}${WSPAY_KEYIN_PAY_PATH}`, {
       method: 'POST',
       headers: {
-        ...wspayAuthHeaders(keyin),
+        ...wspayAuthHeaders(credential),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
@@ -139,4 +141,15 @@ export async function chargeUsageFeeKeyin(input: UsageFeeKeyinInput): Promise<
       cardLast4: input.cardNo.slice(-4),
     },
   };
+}
+
+/** 서비스브릿지 수기 키로만 승인 요청. 카드번호는 저장하지 않는다. */
+export async function chargeUsageFeeKeyin(input: UsageFeeKeyinInput): Promise<
+  { error: string; status: 400 } | { result: UsageFeeKeyinResult }
+> {
+  const keyin = loadServiceBridgeMerchants().keyin;
+  if (!keyin) return { error: '이용료 수기 키가 서버에 없습니다.', status: 400 };
+  const orderNo = buildWspayOrderId(keyin.oid, `FEE${Date.now()}`);
+  if (!orderNo) return { error: '이용료 주문번호를 만들지 못했습니다.', status: 400 };
+  return chargeWspayKeyin(keyin, orderNo, input);
 }

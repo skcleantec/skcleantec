@@ -8,6 +8,7 @@ import { resolveKeyinMerchant } from './cardPaymentMerchant.js';
 import { getPlatformCardFeeRates } from './cardPayment.settings.service.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 import { requestWspayPaymentLink, resolveWspayHostedWindowUrl } from './wspayAdapter.js';
+import { chargeWspayKeyin, parseUsageFeeKeyinBody } from './cardPaymentUsageFeeKeyin.service.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { pgClerkStampForTeamLeader } from './pgClerk.service.js';
 
@@ -97,6 +98,7 @@ export async function confirmKeyin(input: {
   tenantId: string;
   userId: string;
   paymentId: string;
+  body: unknown;
 }) {
   const row = await prisma.cardPayment.findFirst({
     where: { id: input.paymentId, tenantId: input.tenantId, createdById: input.userId },
@@ -106,28 +108,43 @@ export async function confirmKeyin(input: {
   if (row.status === 'APPROVED') return { error: '이미 결재완료된 건입니다.' as const, status: 409 };
 
   const merchant = await resolveKeyinMerchant(input.tenantId);
-  const unique = row.id.replace(/-/g, '').slice(0, 16);
-  const orderNo = merchant ? buildWspayOrderId(merchant.oid, unique)?.slice(0, 30) : null;
-  const pgMessage = merchant
-    ? '수기 API는 카드번호를 우리 서버가 원성페이에 보내야 합니다. 카드번호는 이 화면에 받지 않으므로, 결제는 결제창을 사용해 주세요.'
-    : '이 업체 수기 키가 없습니다. 업체 가맹 키를 연결한 뒤에 진행할 수 있습니다.';
+  if (!merchant) {
+    return { error: '이 업체 수기 키가 없습니다. PG 수기 연결 후 사용할 수 있습니다.' as const, status: 400 };
+  }
+  const raw = input.body && typeof input.body === 'object' ? { ...(input.body as Record<string, unknown>) } : {};
+  raw.goodsName = (row.goodsName || `${row.customerName} 청소비`).slice(0, 40);
+  raw.amountWon = row.amountWon;
+  raw.buyerName = row.customerName;
+  const parsed = parseUsageFeeKeyinBody(raw);
+  if ('error' in parsed) return { error: parsed.error, status: 400 as const };
 
+  const unique = row.id.replace(/-/g, '').slice(0, 16);
+  const orderNo = (row.pgOrderId && row.pgOrderId.startsWith(merchant.oid) ? row.pgOrderId : null)
+    ?? buildWspayOrderId(merchant.oid, unique);
+  if (!orderNo) return { error: '주문번호를 만들지 못했습니다.' as const, status: 400 };
+
+  const charged = await chargeWspayKeyin(merchant, orderNo.slice(0, 30), parsed.input);
+  if ('error' in charged) return { error: charged.error, status: charged.status };
+
+  const approved = charged.result.ok;
   const updated = await prisma.cardPayment.update({
     where: { id: row.id },
     data: {
       payRail: 'KEYIN',
-      pgMid: merchant?.mid ?? null,
-      pgOrderId: orderNo,
-      status: 'AWAITING_PG',
-      failReason: pgMessage.slice(0, 256),
+      pgMid: merchant.mid,
+      pgOrderId: charged.result.orderNo?.slice(0, 64) ?? orderNo.slice(0, 30),
+      status: approved ? 'APPROVED' : 'FAILED',
+      cardLast4: approved ? charged.result.cardLast4 ?? null : null,
+      approvalNo: approved ? charged.result.approvalNo ?? null : null,
+      paidAt: approved ? new Date() : null,
+      failReason: approved ? null : charged.result.message.slice(0, 256),
     },
     include: PAYMENT_INCLUDE,
   });
   return {
     payment: serializeCardPayment(updated),
-    pgReady: false,
-    pgWindowUrl: '',
-    pgMessage,
+    ok: approved,
+    message: charged.result.message,
   };
 }
 

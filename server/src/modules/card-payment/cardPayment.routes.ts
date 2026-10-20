@@ -69,14 +69,17 @@ router.get('/inquiry/:inquiryId/prefill', async (req, res) => {
   }
   const amountWon = defaultCardPaymentAmountWon(inquiry);
   const quote = await quoteCardPayment(amountWon);
-  const pg = await getCredentialPublic(tenantId);
+  const pg = await getCredentialBundle(tenantId);
   res.json({
     inquiryId: inquiry.id,
     inquiryNumber: inquiry.inquiryNumber,
     customerName: inquiry.customerName,
+    customerPhone: inquiry.customerPhone,
     amountWon,
     quote,
-    pgConnected: pg.connected,
+    pgConnected: pg.keyin.connected || pg.link.connected,
+    keyinConnected: pg.keyin.connected,
+    linkConnected: pg.link.connected,
   });
 });
 
@@ -275,15 +278,11 @@ router.post('/:id/keyin', async (req, res) => {
   const user = scoped(req).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
-  const body = req.body && typeof req.body === 'object' ? req.body : {};
-  if (body.cardNumber || body.cvc || body.cardCvc || body.expiry || body.cardExpiry) {
-    res.status(400).json({ error: '카드번호는 원성페이먼츠 창에서만 입력합니다.' });
-    return;
-  }
   const result = await confirmKeyin({
     tenantId,
     userId: user.userId,
     paymentId: String(req.params.id),
+    body: req.body,
   });
   if ('error' in result) {
     res.status(result.status ?? 400).json({ error: result.error });
