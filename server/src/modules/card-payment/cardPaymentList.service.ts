@@ -1,5 +1,6 @@
 import type { CardPaymentStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { syncKeyinCancelsFromPg } from './cardPaymentKeyinSync.service.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 
 export async function listCardPayments(input: {
@@ -12,6 +13,7 @@ export async function listCardPayments(input: {
   limit: number;
   offset: number;
 }) {
+  await syncKeyinCancelsFromPg(input.tenantId);
   const where: Prisma.CardPaymentWhereInput = { tenantId: input.tenantId };
   if (input.createdById) where.createdById = input.createdById;
   if (input.pendingOnly) where.status = { in: ['DRAFT', 'AWAITING_PG', 'LINK_SENT'] };
