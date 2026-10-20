@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   cancelCardPayment,
+  deleteCardPayment,
   fetchCardPaymentList,
   fetchTenantPgState,
   type CardPaymentListResponse,
   type CardPaymentRow,
 } from '../../../api/cardPayment';
+import { bootstrapAuthMeFromLocal } from '../../../api/authMeSnapshot';
 import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
 import { getToken } from '../../../stores/auth';
 import { YearMonthSelect, YmdSelect } from '../../ui/DateQuerySelects';
@@ -16,6 +18,7 @@ import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../..
 import { CardPaymentFeeSummary } from './CardPaymentFeeSummary';
 import { CardPaymentListCards } from './CardPaymentListCards';
 import { CardPaymentListTable } from './CardPaymentListTable';
+import { CardPaymentDeleteDialog } from './CardPaymentDeleteDialog';
 
 const PRESETS = [
   { id: 'today', label: '당일' },
@@ -37,6 +40,9 @@ export function CardPaymentLedger() {
   const [sellerLogin, setSellerLogin] = useState<{ loginId: string; password: string } | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CardPaymentRow | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,6 +93,22 @@ export function CardPaymentLedger() {
     if (!opened) setCancelError('팝업이 막혀 판매자센터를 열지 못했습니다.');
   };
 
+  const isAdmin = bootstrapAuthMeFromLocal(getToken() || '')?.role === 'ADMIN';
+
+  const confirmDelete = (password: string) => {
+    const token = getToken();
+    if (!token || !deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    void deleteCardPayment(token, deleteTarget.id, password)
+      .then(() => {
+        setDeleteTarget(null);
+        setReloadKey((n) => n + 1);
+      })
+      .catch((e: unknown) => setDeleteError(e instanceof Error ? e.message : '삭제하지 못했습니다.'))
+      .finally(() => setDeleting(false));
+  };
+
   useEffect(() => {
     const token = getToken();
     if (!token) return;
@@ -124,7 +146,7 @@ export function CardPaymentLedger() {
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
       <div className="rounded-xl border border-slate-200 bg-white p-2 sm:p-4">
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-          결재완료만 보거나, 아직 결제되지 않은 대기도 따로 볼 수 있습니다. 오늘 인증결재는 결제 취소로 바로 취소되고, 수기는 판매자센터에서 취소합니다.
+          시각은 한국시간입니다. 오늘 인증결재는 결제 취소로 바로 취소되고, 수기는 판매자센터에서 취소합니다. 결재완료와 취소 건은 삭제할 수 없습니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {PRESETS.map((p) => (
@@ -200,14 +222,18 @@ export function CardPaymentLedger() {
             <CardPaymentListTable
               items={data.items}
               onCancel={cancelPayment}
+              onDelete={isAdmin ? (row) => { setDeleteError(null); setDeleteTarget(row); } : undefined}
               sellerReady={Boolean(sellerLogin)}
               cancellingId={cancellingId}
+              deletingId={deleting ? deleteTarget?.id : null}
             />
             <CardPaymentListCards
               items={data.items}
               onCancel={cancelPayment}
+              onDelete={isAdmin ? (row) => { setDeleteError(null); setDeleteTarget(row); } : undefined}
               sellerReady={Boolean(sellerLogin)}
               cancellingId={cancellingId}
+              deletingId={deleting ? deleteTarget?.id : null}
             />
           </>
         ) : null}
@@ -222,6 +248,18 @@ export function CardPaymentLedger() {
           />
         ) : null}
       </div>
+      <CardPaymentDeleteDialog
+        open={Boolean(deleteTarget)}
+        customerName={deleteTarget?.customerName ?? ''}
+        busy={deleting}
+        error={deleteError}
+        onClose={() => {
+          if (deleting) return;
+          setDeleteTarget(null);
+          setDeleteError(null);
+        }}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

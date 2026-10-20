@@ -292,6 +292,16 @@ export async function confirmCardPaymentKeyin(
   }>;
 }
 
+export async function deleteCardPayment(token: string, id: string, password: string) {
+  const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/delete`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ ok: true }>;
+}
+
 export async function cancelCardPayment(token: string, id: string) {
   const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/cancel`, {
     method: 'POST',

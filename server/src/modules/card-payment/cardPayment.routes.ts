@@ -30,6 +30,7 @@ import { loadCardPaymentCustomerCopy } from './cardPaymentCustomerCopy.js';
 import { prisma } from '../../lib/prisma.js';
 import { readSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
 import { cancelCustomerLinkPayment } from './cardPaymentCancel.service.js';
+import { deleteOpenCardPayment } from './cardPaymentDelete.service.js';
 const router = Router();
 const registrationUpload = multer({
   storage: multer.memoryStorage(),
@@ -372,6 +373,25 @@ router.post('/:id/cancel', async (req, res) => {
     tenantId,
     paymentId: String(req.params.id),
     actorName: actor?.name || '관리자',
+  });
+  if ('error' in result) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+router.post('/:id/delete', async (req, res) => {
+  const user = scoped(req).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = req.body && typeof req.body === 'object' ? (req.body as { password?: unknown }) : {};
+  const password = typeof body.password === 'string' ? body.password : '';
+  const result = await deleteOpenCardPayment({
+    tenantId,
+    userId: user.userId,
+    paymentId: String(req.params.id),
+    password,
   });
   if ('error' in result) {
     res.status(result.status).json({ error: result.error });
