@@ -86,6 +86,8 @@ import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import type { InspectionListSummary } from '../../api/inquiryInspection';
 import { SOLO_LEADER_CREW_LABEL, viewerAssignmentIsSolo } from '../../utils/inquiryNoCrewMembers';
 import { TEAM_CARD_PAYMENT_PATH } from '../../constants/teamCardPayment';
+import { fetchCardPaymentPrefill } from '../../api/cardPayment';
+import { TeamCardPaymentPgRequiredDialog } from '../../components/team/card-payment/TeamCardPaymentPgRequiredDialog';
 import { TeamCrewMemberContactChips, resolveInquiryCrewMemberContacts } from '../../components/team/TeamCrewMemberContactChips';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
@@ -1151,6 +1153,8 @@ export function TeamInquiryDetailModal({
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const staffTenantSlug = useStaffTenantSlugForLinks(teamToken);
   const [customerOrderOpen, setCustomerOrderOpen] = useState(false);
+  const [pgRequiredOpen, setPgRequiredOpen] = useState(false);
+  const [cardPayChecking, setCardPayChecking] = useState(false);
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
@@ -1266,9 +1270,21 @@ export function TeamInquiryDetailModal({
     !viewerMe?.previewExternal;
 
   const handleOpenCardPayment = useCallback(() => {
-    const q = new URLSearchParams({ inquiryId: item.id });
-    window.open(`${TEAM_CARD_PAYMENT_PATH}?${q}`, '_blank', 'noopener,noreferrer');
-  }, [item.id]);
+    const token = getTeamToken();
+    if (!token || cardPayChecking) return;
+    setCardPayChecking(true);
+    void fetchCardPaymentPrefill(token, item.id)
+      .then((res) => {
+        if (!res.pgConnected) {
+          setPgRequiredOpen(true);
+          return;
+        }
+        const q = new URLSearchParams({ inquiryId: item.id });
+        window.open(`${TEAM_CARD_PAYMENT_PATH}?${q}`, '_blank', 'noopener,noreferrer');
+      })
+      .catch(() => setPgRequiredOpen(true))
+      .finally(() => setCardPayChecking(false));
+  }, [cardPayChecking, item.id]);
 
   const handleShareCopy = useCallback(async () => {
     setShareCopyHint(null);
@@ -2326,8 +2342,9 @@ export function TeamInquiryDetailModal({
               <button
                 type="button"
                 onClick={handleOpenCardPayment}
-                className={teamFooterActionPrimaryClass}
+                className={`${teamFooterActionPrimaryClass} disabled:pointer-events-none disabled:opacity-50`}
                 title={teamBiPlain('team.modal.cardPaymentTitle')}
+                disabled={cardPayChecking}
               >
                 {teamBiPlain('team.modal.cardPayment')}
               </button>
@@ -2344,6 +2361,7 @@ export function TeamInquiryDetailModal({
   return (
     <>
       {createPortal(modal, document.body)}
+      <TeamCardPaymentPgRequiredDialog open={pgRequiredOpen} onClose={() => setPgRequiredOpen(false)} />
       {item.orderForm?.token ? (
         <CustomerOrderFormPreviewModal
           open={customerOrderOpen}

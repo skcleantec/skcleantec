@@ -320,7 +320,7 @@ export const teamMessages = {
 
   'team.modal.cardPayment': { ko: '카드결재' },
   'team.modal.cardPaymentTitle': {
-    ko: '수기결재 또는 인증결재를 고릅니다.',
+    ko: 'PG가 연결된 업체만 카드결재를 엽니다. 연결 전에는 신청 안내가 나옵니다.',
   },
   'team.cardPayment.pageTitle': { ko: '카드결재' },
   'team.cardPayment.heading': { ko: '카드결재' },

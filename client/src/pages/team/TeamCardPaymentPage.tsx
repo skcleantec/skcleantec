@@ -20,6 +20,7 @@ export function TeamCardPaymentPage() {
   const [params] = useSearchParams();
   const inquiryId = params.get('inquiryId') || '';
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
+  const [pgConnected, setPgConnected] = useState<boolean | null>(inquiryId ? null : false);
   const [step, setStep] = useState<Step>('pick');
   const [customerName, setCustomerName] = useState('');
   const [amount, setAmount] = useState('');
@@ -34,11 +35,12 @@ export function TeamCardPaymentPage() {
     if (!token || !inquiryId) return;
     void fetchCardPaymentPrefill(token, inquiryId)
       .then((res) => {
+        setPgConnected(res.pgConnected);
         setCustomerName(res.customerName);
         setAmount(String(res.amountWon || 0));
         setGoodsName(res.customerName ? `${res.customerName} 청소비` : '청소비');
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : '접수 정보를 불러오지 못했습니다.'));
+      .catch(() => setPgConnected(false));
   }, [inquiryId]);
 
   const amountWon = Math.round(Number(amount.replace(/[^\d]/g, '')) || 0);
@@ -82,7 +84,13 @@ export function TeamCardPaymentPage() {
         {!inquiryId ? <p className="text-fluid-xs text-slate-600">접수 상세에서 카드결재를 눌러 주세요.</p> : null}
         {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
 
-        {inquiryId && step === 'pick' ? (
+        {inquiryId && pgConnected === false ? (
+          <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-fluid-xs leading-snug text-slate-700">
+            PG사 신청 후 사용 가능합니다.
+          </p>
+        ) : null}
+
+        {inquiryId && pgConnected && step === 'pick' ? (
           <div className="grid gap-2">
             <button
               type="button"
