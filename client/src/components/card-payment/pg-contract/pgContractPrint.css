@@ -3,6 +3,32 @@
   overflow: hidden;
 }
 
+.pg-offscreen {
+  position: absolute;
+  left: -320mm;
+  top: 0;
+  width: 210mm;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.pg-measure-sheet {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.pg-measure-sheet .pg-sheet-body {
+  overflow: visible !important;
+  flex: none !important;
+}
+
+.pg-block {
+  display: flow-root;
+}
+
 .pg-scale {
   width: 210mm;
   transform-origin: top center;
@@ -17,8 +43,8 @@
   background: #fff;
   color: #0f172a;
   font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-  font-size: 10pt;
-  line-height: 1.22;
+  font-size: 9pt;
+  line-height: 1.2;
   text-align: justify;
   position: relative;
   overflow: hidden;
@@ -33,21 +59,21 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 4mm;
-  margin: 0 12mm;
+  margin: 0 10mm;
   font-size: 7.5pt;
 }
 
 .pg-sheet-head {
-  height: 7mm;
-  margin-top: 6mm;
+  height: 6mm;
+  margin-top: 4mm;
   border-bottom: 0.35mm solid #0f172a;
   font-weight: 600;
 }
 
 .pg-sheet-foot {
-  height: 6mm;
+  height: 5mm;
   margin-top: auto;
-  margin-bottom: 6mm;
+  margin-bottom: 4mm;
   align-items: center;
   border-top: 0.2mm solid #cbd5e1;
   color: #475569;
@@ -58,7 +84,7 @@
   position: static;
   flex: 1 1 auto;
   min-height: 0;
-  margin: 3mm 12mm 0;
+  margin: 2mm 10mm 0;
   overflow: hidden;
 }
 
@@ -70,15 +96,15 @@
 }
 
 .pg-sheet h2 {
-  margin: 1.2mm 0 0.4mm;
-  font-size: 11pt;
+  margin: 0.8mm 0 0.2mm;
+  font-size: 10pt;
   line-height: 1.25;
   font-weight: 700;
   text-align: left;
 }
 
 .pg-sheet p {
-  margin: 0 0 0.7mm;
+  margin: 0 0 0.35mm;
 }
 
 .pg-center {
@@ -173,8 +199,8 @@
 
 .pg-seal {
   display: inline-block;
-  width: 16mm;
-  height: 16mm;
+  width: 12mm;
+  height: 12mm;
   object-fit: contain;
   vertical-align: middle;
 }

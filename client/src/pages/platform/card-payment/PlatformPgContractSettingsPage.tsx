@@ -77,7 +77,7 @@ export function PlatformPgContractSettingsPage() {
         <h1 className="text-xl font-semibold text-gray-900">전자계약</h1>
         <PlatformCardPaymentTabs />
         <p className="mt-1 text-sm text-gray-500">
-          A4 한 장씩 넘깁니다. 칸과 체크는 그 장 안에서 하고, 전체 인쇄는 장마다 그대로 나갑니다. 수수료 3.3%, 중소1, 일정산은 잠겨 있습니다.
+          내용은 용지 맨 위부터 바닥까지 이어서 채우고, 다 찬 뒤에만 다음 장으로 넘깁니다. 전체 인쇄도 그 장 수만큼 나갑니다. 수수료 3.3%, 중소1, 일정산은 잠겨 있습니다.
         </p>
       </div>
       {msg ? <p className="text-sm text-gray-800">{msg}</p> : null}

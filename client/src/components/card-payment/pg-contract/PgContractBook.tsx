@@ -1,13 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SignaturePad } from '../../e-contract/SignaturePad';
 import { knockoutSealPaper } from '../../../utils/sealPaperKnockout';
 import './pgContractPrint.css';
-import { isChecked, PG_CONTRACT_PAGE_TOTAL, PG_PREVIEW_CONTRACT_NO, type ContractValues } from './pgContractChrome';
-import { ContractPage1, ContractPage2, ContractPage3, ContractPage4, ContractPage5, ContractPage6 } from './pgContractPagesA';
-import { ContractPage7, ContractPage8, ContractPage9, ContractPage10, ContractPage11 } from './pgContractPagesB';
-
-const SIGN_PAGE = 9;
+import {
+  ContractSheet,
+  isChecked,
+  PG_PREVIEW_CONTRACT_NO,
+  type ContractValues,
+  type FlowBlock,
+  type FlowGate,
+} from './pgContractChrome';
+import { contractBlocksA } from './pgContractPagesA';
+import { contractBlocksB } from './pgContractPagesB';
 
 type Props = {
   mode: 'preview' | 'sign' | 'read';
@@ -19,49 +24,78 @@ type Props = {
   busy?: boolean;
 };
 
-const PAGE_LABEL = [
-  '',
-  '신청서 · 회사',
-  '가맹점 · 수수료',
-  '판매 · 개인정보',
-  '제공 동의 · 신청',
-  '제2조~제4조',
-  '제5조~제7조',
-  '제8조~제10조',
-  '제11조~제16조',
-  '제17조~서명',
-  '실제 소유자',
-  '금지 거래',
-];
+function packBlocks(nodes: HTMLElement[], limit: number): number[][] {
+  const slices: number[][] = [];
+  let current: number[] = [];
+  let used = 0;
+  nodes.forEach((node, index) => {
+    const height = node.offsetHeight;
+    if (current.length > 0 && used + height > limit) {
+      slices.push(current);
+      current = [index];
+      used = height;
+      return;
+    }
+    current.push(index);
+    used += height;
+  });
+  if (current.length > 0) slices.push(current);
+  return slices.length > 0 ? slices : [[]];
+}
 
-function gate(page: number, values: ContractValues): string | null {
-  if (page === 1) {
+function sameSlices(left: number[][], right: number[][]) {
+  return left.length === right.length && left.every((row, index) => row.join(',') === right[index]?.join(','));
+}
+
+function gateMessage(gates: Set<FlowGate>, values: ContractValues): string | null {
+  if (gates.has('identity')) {
     if (!values.pgBizKind) return '개인사업자 또는 법인을 선택해 주세요.';
     if (!values.pgTaxKind) return '과세 또는 면세를 선택해 주세요.';
-  }
-  if (page === 2) {
     if (!values['[[EC_MERCHANT_NAME]]']?.trim()) return '상호를 적어 주세요.';
     if (!values['[[EC_BIZ_NO]]']?.trim()) return '사업자등록번호를 적어 주세요.';
     if (!values['[[EC_SIGNER_NAME]]']?.trim()) return '대표자를 적어 주세요.';
     if (!values['[[EC_SIGNER_PHONE]]']?.trim()) return '휴대폰을 적어 주세요.';
     if (!values['[[EC_SIGNER_ADDRESS]]']?.trim()) return '사업장 주소를 적어 주세요.';
   }
-  if (page === 3 && !isChecked(values.pgPrivacy)) return '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.';
-  if (page === 4 && !isChecked(values.pgShare)) return '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.';
-  if (page === SIGN_PAGE && !isChecked(values['[[EC_CHECK]]'])) return '계약 내용 동의를 체크해야 다음 장으로 갑니다.';
+  if (gates.has('privacy') && !isChecked(values.pgPrivacy)) return '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.';
+  if (gates.has('share') && !isChecked(values.pgShare)) return '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.';
+  if (gates.has('sign') && !isChecked(values['[[EC_CHECK]]'])) return '계약 내용 동의를 체크해야 다음 장으로 갑니다.';
   return null;
+}
+
+function BlockList({ blocks, indexes }: { blocks: FlowBlock[]; indexes: number[] }) {
+  return (
+    <>
+      {indexes.map((index) => (
+        <div key={blocks[index]?.key ?? index} className="pg-block">
+          {blocks[index]?.node}
+        </div>
+      ))}
+    </>
+  );
 }
 
 export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob, onSubmit, busy }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const probeBodyRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(0.55);
   const [hint, setHint] = useState<string | null>(null);
+  const [slices, setSlices] = useState<number[][]>([[]]);
   const readOnly = mode === 'read';
   const number = contractNo?.trim() || PG_PREVIEW_CONTRACT_NO;
   const set = (key: string, value: string) => onChange?.(key, value);
+  const blocks = useMemo(
+    () => [...contractBlocksA({ values, set, readOnly }), ...contractBlocksB({ values, set, readOnly })],
+    [values, readOnly, onChange],
+  );
+  const total = Math.max(1, slices.length);
+  const safePage = Math.min(page, total);
+  const pageIndexes = slices[safePage - 1] ?? blocks.map((_, index) => index);
+  const pageGates = new Set(pageIndexes.map((index) => blocks[index]?.gate).filter((gate): gate is FlowGate => Boolean(gate)));
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = hostRef.current;
     if (!el) return;
     const fit = () => {
@@ -74,24 +108,22 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
     return () => observer.disconnect();
   }, []);
 
-  const sheet = (n: number) => {
-    const common = { values, set, readOnly, contractNo: number };
-    if (n === 1) return <ContractPage1 {...common} />;
-    if (n === 2) return <ContractPage2 {...common} />;
-    if (n === 3) return <ContractPage3 {...common} />;
-    if (n === 4) return <ContractPage4 {...common} />;
-    if (n === 5) return <ContractPage5 contractNo={number} />;
-    if (n === 6) return <ContractPage6 contractNo={number} />;
-    if (n === 7) return <ContractPage7 contractNo={number} />;
-    if (n === 8) return <ContractPage8 contractNo={number} />;
-    if (n === 9) return <ContractPage9 {...common} />;
-    if (n === 10) return <ContractPage10 {...common} />;
-    return <ContractPage11 contractNo={number} />;
-  };
+  useLayoutEffect(() => {
+    const limit = (probeBodyRef.current?.clientHeight ?? 0) - 4;
+    const nodes = measureRef.current ? ([...measureRef.current.children] as HTMLElement[]) : [];
+    if (limit < 40 || nodes.length === 0) return;
+    nodes.forEach((node) => {
+      node.querySelectorAll('input, button, textarea, select').forEach((el) => {
+        el.setAttribute('tabindex', '-1');
+      });
+    });
+    const next = packBlocks(nodes, limit);
+    setSlices((prev) => (sameSlices(prev, next) ? prev : next));
+  }, [blocks]);
 
   const go = (next: number) => {
-    if (mode === 'sign' && next > page) {
-      const problem = gate(page, values);
+    if (mode === 'sign' && next > safePage) {
+      const problem = gateMessage(pageGates, values);
       if (problem) {
         setHint(problem);
         return;
@@ -110,12 +142,42 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
     set(key, URL.createObjectURL(blob));
   };
 
+  const sheet = (indexes: number[], sheetPage: number) => (
+    <ContractSheet page={sheetPage} total={total} contractNo={number}>
+      <BlockList blocks={blocks} indexes={indexes} />
+    </ContractSheet>
+  );
+
   return (
     <div className="pg-screen-root">
+      <div className="pg-offscreen" aria-hidden>
+        <article className="pg-sheet">
+          <header className="pg-sheet-head">
+            <span>청소비서</span>
+            <span>카드결제 이용약관 · 전자계약</span>
+            <span>계약번호</span>
+          </header>
+          <div ref={probeBodyRef} className="pg-sheet-body" />
+          <footer className="pg-sheet-foot">
+            <span>주식회사 서비스브릿지</span>
+            <span>계약번호</span>
+            <span>1</span>
+          </footer>
+        </article>
+        <article className="pg-sheet pg-measure-sheet">
+          <div ref={measureRef} className="pg-sheet-body">
+            {blocks.map((item) => (
+              <div key={item.key} className="pg-block">
+                {item.node}
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
       {createPortal(
         <div className="pg-print-root">
-          {Array.from({ length: PG_CONTRACT_PAGE_TOTAL }, (_, index) => (
-            <div key={index}>{sheet(index + 1)}</div>
+          {slices.map((indexes, index) => (
+            <div key={indexes.join('-') || index}>{sheet(indexes, index + 1)}</div>
           ))}
         </div>,
         document.body,
@@ -124,20 +186,20 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
         <button
           type="button"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-          disabled={page <= 1}
-          onClick={() => go(page - 1)}
+          disabled={safePage <= 1}
+          onClick={() => go(safePage - 1)}
         >
           이전
         </button>
         <span className="text-sm font-medium tabular-nums text-slate-900">
-          {page} / {PG_CONTRACT_PAGE_TOTAL}
+          {safePage} / {total}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm text-slate-600">{PAGE_LABEL[page]}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-slate-600">{blocks[pageIndexes[0] ?? 0]?.label}</span>
         <button
           type="button"
           className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-          disabled={page >= PG_CONTRACT_PAGE_TOTAL}
-          onClick={() => go(page + 1)}
+          disabled={safePage >= total}
+          onClick={() => go(safePage + 1)}
         >
           다음
         </button>
@@ -148,7 +210,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
         >
           전체 인쇄
         </button>
-        {mode === 'sign' && page === PG_CONTRACT_PAGE_TOTAL && onSubmit ? (
+        {mode === 'sign' && safePage === total && onSubmit ? (
           <button
             type="button"
             className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
@@ -162,10 +224,10 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
       {hint ? <p className="pg-no-print mb-2 text-sm text-red-700">{hint}</p> : null}
       <div ref={hostRef} className="pg-scale-host" style={{ height: `${297 * scale}mm` }}>
         <div className="pg-scale" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: '210mm' }}>
-          {sheet(page)}
+          {sheet(pageIndexes, safePage)}
         </div>
       </div>
-      {page === SIGN_PAGE && !readOnly ? (
+      {pageGates.has('sign') && !readOnly ? (
         <div className="pg-no-print mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3">
           <p className="text-sm font-semibold text-slate-900">이 장의 도장과 서명</p>
           <label className="block text-sm text-slate-700">

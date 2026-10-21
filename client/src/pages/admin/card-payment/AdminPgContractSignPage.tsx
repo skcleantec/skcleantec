@@ -101,7 +101,7 @@ export function AdminPgContractSignPage() {
         뒤로
       </button>
       <h1 className="mt-3 text-fluid-lg font-semibold text-slate-900">{payload?.title || '전자계약'}</h1>
-      <p className="mt-1 text-fluid-2xs text-slate-600">A4 한 장씩 넘깁니다. 칸과 체크는 그 장 안에서 하고, 9장에서 도장과 서명을 남깁니다.</p>
+      <p className="mt-1 text-fluid-2xs text-slate-600">내용은 용지 맨 위부터 바닥까지 이어서 채웁니다. 칸과 체크는 그 장 안에서 하고, 도장과 서명은 전자서명 장에서 합니다.</p>
       {msg ? <p className="mt-3 text-fluid-xs text-slate-800">{msg}</p> : null}
       {payload && !payload.ready ? <p className="mt-4 text-fluid-sm text-slate-600">{payload.reason}</p> : null}
       {payload?.ready ? (

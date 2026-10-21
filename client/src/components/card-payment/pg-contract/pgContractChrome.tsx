@@ -1,17 +1,32 @@
 import type { ReactNode } from 'react';
 
 export const PG_PREVIEW_CONTRACT_NO = 'SB-PG-00000000-0000';
-export const PG_CONTRACT_PAGE_TOTAL = 11;
 
 export type ContractValues = Record<string, string>;
 
+export type PageProps = {
+  values: ContractValues;
+  set: (key: string, value: string) => void;
+  readOnly: boolean;
+};
+
+export type FlowGate = 'identity' | 'privacy' | 'share' | 'sign';
+
+export type FlowBlock = {
+  key: string;
+  label: string;
+  gate?: FlowGate;
+  node: ReactNode;
+};
+
 type SheetProps = {
   page: number;
+  total: number;
   contractNo: string;
   children: ReactNode;
 };
 
-export function ContractSheet({ page, contractNo, children }: SheetProps) {
+export function ContractSheet({ page, total, contractNo, children }: SheetProps) {
   return (
     <article className="pg-sheet">
       <header className="pg-sheet-head">
@@ -24,7 +39,7 @@ export function ContractSheet({ page, contractNo, children }: SheetProps) {
         <span>주식회사 서비스브릿지 · 138-87-04035</span>
         <span>계약번호 {contractNo}</span>
         <span>
-          {page} / {PG_CONTRACT_PAGE_TOTAL}
+          {page} / {total}
         </span>
       </footer>
     </article>
