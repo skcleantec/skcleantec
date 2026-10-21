@@ -60,6 +60,7 @@ import {
   TeamTrainingMaterialPage,
   TeamQuotationEditorPage,
   TeamCardPaymentPage,
+  StaffInquiryCardPayEntry,
   AdminCardPaymentPage,
   AdminCardPaymentPgPage,
   PgJoinReviewPage,
@@ -527,6 +528,16 @@ function App() {
         <Route path="/pay/paysis/close" element={<SuspensePage><PaysisCheckoutClosePage /></SuspensePage>} />
         <Route path="/ops/deposit-confirm" element={<SuspensePage><PublicDepositConfirmPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
+        <Route
+          path="/admin/inquiries/card-pay"
+          element={
+            <ProtectedRoute>
+              <SuspensePage>
+                <StaffInquiryCardPayEntry />
+              </SuspensePage>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/team/card-payment"

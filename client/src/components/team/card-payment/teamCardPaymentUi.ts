@@ -1,5 +1,5 @@
 export const TEAM_PAY_OVERLAY =
-  'fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 p-4';
+  'fixed inset-0 z-[620] flex items-center justify-center bg-slate-900/50 p-4';
 
 export const TEAM_PAY_DIALOG =
   'relative w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-xl';

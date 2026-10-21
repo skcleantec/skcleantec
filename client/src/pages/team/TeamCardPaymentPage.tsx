@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { formatWon } from '@shared/cardPayment';
 import {
   confirmCardPaymentKeyin,
@@ -27,9 +27,19 @@ function readToken() {
   return getTeamToken() || getToken();
 }
 
+function leavePay(staff: boolean) {
+  if (window.opener && !window.opener.closed) {
+    window.close();
+    return;
+  }
+  window.location.assign(staff ? '/admin/inquiries' : '/team/schedule');
+}
+
 /** 접수 카드결재. 수기는 그 업체 키로 승인하고, 인증은 고객 링크를 만든다. */
 export function TeamCardPaymentPage() {
   useDocumentTitle(teamBiPlain('team.cardPayment.pageTitle'));
+  const location = useLocation();
+  const staffPay = location.pathname.startsWith('/admin/');
   const [params] = useSearchParams();
   const inquiryId = params.get('inquiryId') || '';
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
@@ -167,13 +177,14 @@ export function TeamCardPaymentPage() {
       <CardPaymentApprovedAlert token={readToken()} enabled />
       <header className="sticky top-0 z-30 flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         {step === 'pick' ? (
-          <Link
-            to="/team/schedule"
+          <button
+            type="button"
+            onClick={() => leavePay(staffPay)}
             className="flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-            aria-label="팀 일정으로"
+            aria-label={staffPay ? '접수로' : '팀 일정으로'}
           >
             <LineMdIcon name="chevron-left" className="size-5" />
-          </Link>
+          </button>
         ) : (
           <button
             type="button"
@@ -330,9 +341,13 @@ export function TeamCardPaymentPage() {
                 <p className="mt-2 text-fluid-sm font-semibold text-emerald-900">승인되었습니다</p>
                 <p className="mt-1 text-fluid-xs text-emerald-800">{paidMessage}</p>
               </div>
-              <Link to="/team/schedule" className={`${TEAM_PAY_BTN} bg-slate-900 text-white hover:bg-slate-800`}>
-                일정으로
-              </Link>
+              <button
+                type="button"
+                onClick={() => leavePay(staffPay)}
+                className={`${TEAM_PAY_BTN} bg-slate-900 text-white hover:bg-slate-800`}
+              >
+                {staffPay ? '접수로' : '일정으로'}
+              </button>
             </div>
           ) : null}
         </section>

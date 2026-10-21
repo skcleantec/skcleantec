@@ -14,7 +14,7 @@ export async function notifyCardPaymentApproved(tenantId: string, inquiryId: str
     prisma.cardPayment.findFirst({
       where: { tenantId, inquiryId, status: 'APPROVED', method: 'CUSTOMER_LINK' },
       orderBy: { paidAt: 'desc' },
-      select: { amountWon: true, customerName: true, inquiryNumber: true },
+      select: { amountWon: true, customerName: true, inquiryNumber: true, createdById: true },
     }),
     prisma.assignment.findMany({
       where: { tenantId, inquiryId },
@@ -56,13 +56,14 @@ export async function notifyCardPaymentApproved(tenantId: string, inquiryId: str
         path: '/team/schedule',
       };
     }
+    const staffPath = `/admin/inquiries?openInquiry=${encodeURIComponent(inquiryId)}`;
     for (const row of staff) {
-      if (row.role !== 'ADMIN') continue;
+      if (row.role !== 'ADMIN' && row.id !== payment.createdById) continue;
       pushByUserId[row.id] = {
         kind: 'schedule_alert',
         title: '카드결재 완료',
         body,
-        path: `/admin/inquiries?openInquiry=${encodeURIComponent(inquiryId)}`,
+        path: staffPath,
       };
     }
   }

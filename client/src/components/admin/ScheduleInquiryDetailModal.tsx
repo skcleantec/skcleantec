@@ -28,6 +28,7 @@ import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
 import { InquiryCustomerCallButton } from './InquiryCustomerCallButton';
+import { InquiryCardPayLaunch } from './card-payment/InquiryCardPayLaunch';
 import { TeamNaviLaunchButton } from '../team/TeamNaviLaunchButton';
 import { ScheduleCustomCalendarPinSection } from './ScheduleCustomCalendarPinSection';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
@@ -3256,7 +3257,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
         <div className="relative z-20 shrink-0 border-t border-gray-200 bg-white px-5 pt-2 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {!isCreate && item ? (
-            <div className="mb-2">
+            <div className="mb-2 space-y-2">
+              <InquiryCardPayLaunch inquiryId={item.id} token={token} />
               <TeamNaviLaunchButton
                 inquiryId={item.id}
                 token={token}
