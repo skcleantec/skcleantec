@@ -3,6 +3,8 @@ import {
   fetchTeamLeaderTrainingImageBlob,
   fetchTeamLeaderTrainingImages,
 } from '../../api/teamLeaderTraining';
+import { useIsLgUp } from '../../hooks/useMediaQuery';
+import { SkTeamTrainingSlideViewer } from './SkTeamTrainingSlideViewer';
 
 type Slide = { index: number; title: string };
 
@@ -70,8 +72,11 @@ function TrainingSlide({
 }
 
 export function SkTeamTrainingGallery({ token }: { token: string }) {
+  const isLgUp = useIsLgUp();
+  const openButtonRef = useRef<HTMLButtonElement>(null);
   const [items, setItems] = useState<Slide[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   useEffect(() => {
     let cancel = false;
@@ -98,6 +103,34 @@ export function SkTeamTrainingGallery({ token }: { token: string }) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-fluid-sm text-gray-500">
         교육자료 불러오는 중…
+      </div>
+    );
+  }
+
+  if (!isLgUp) {
+    return (
+      <div className="flex flex-col gap-2">
+        <button
+          ref={openButtonRef}
+          type="button"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          onClick={() => setViewerOpen(true)}
+        >
+          교육가이드보기
+        </button>
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
+          화면 너비에 맞춰 {items.length}장을 넘기며 봅니다. 두 손가락으로 글자를 키우거나 줄일 수 있습니다.
+        </p>
+        {viewerOpen ? (
+          <SkTeamTrainingSlideViewer
+            token={token}
+            items={items}
+            onClose={() => {
+              setViewerOpen(false);
+              openButtonRef.current?.focus();
+            }}
+          />
+        ) : null}
       </div>
     );
   }
