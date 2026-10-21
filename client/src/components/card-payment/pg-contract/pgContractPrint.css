@@ -18,7 +18,8 @@
   color: #0f172a;
   font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   font-size: 8pt;
-  line-height: 1.32;
+  line-height: 1.28;
+  text-align: justify;
   position: relative;
   overflow: hidden;
   border: 0.2mm solid #cbd5e1;
@@ -69,14 +70,15 @@
 }
 
 .pg-sheet h2 {
-  margin: 2.2mm 0 1mm;
+  margin: 1.6mm 0 0.6mm;
   font-size: 9pt;
   line-height: 1.25;
   font-weight: 700;
+  text-align: left;
 }
 
 .pg-sheet p {
-  margin: 0 0 1.1mm;
+  margin: 0 0 0.7mm;
 }
 
 .pg-center {
@@ -97,7 +99,8 @@
 .pg-table th,
 .pg-table td {
   border: 0.2mm solid #cbd5e1;
-  padding: 0.7mm 1.3mm;
+  padding: 0.45mm 1.1mm;
+  text-align: left;
   vertical-align: middle;
   word-break: keep-all;
 }

@@ -21,11 +21,11 @@ type Props = {
 
 const PAGE_LABEL = [
   '',
-  '신청서 · 가맹점',
-  '계좌 · 수수료 3.3%',
-  '개인정보 · 제공 동의',
-  '제1조~제6조',
-  '제7조~제15조',
+  '신청서 · 수수료',
+  '동의 · 제출 서류',
+  '제1조~제4조',
+  '제5조~제8조',
+  '제9조~제15조',
   '제16조~서명',
   '실제 소유자',
   '금지 거래',
@@ -41,8 +41,8 @@ function gate(page: number, values: ContractValues): string | null {
     if (!values['[[EC_SIGNER_PHONE]]']?.trim()) return '휴대폰을 적어 주세요.';
     if (!values['[[EC_SIGNER_ADDRESS]]']?.trim()) return '사업장 주소를 적어 주세요.';
   }
-  if (page === 3 && !isChecked(values.pgPrivacy)) return '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.';
-  if (page === 3 && !isChecked(values.pgShare)) return '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.';
+  if (page === 2 && !isChecked(values.pgPrivacy)) return '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.';
+  if (page === 2 && !isChecked(values.pgShare)) return '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.';
   if (page === SIGN_PAGE && !isChecked(values['[[EC_CHECK]]'])) return '계약 내용 동의를 체크해야 다음 장으로 갑니다.';
   return null;
 }
@@ -73,7 +73,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
     const common = { values, set, readOnly, contractNo: number };
     if (n === 1) return <ContractPage1 {...common} />;
     if (n === 2) return <ContractPage2 {...common} />;
-    if (n === 3) return <ContractPage3 {...common} />;
+    if (n === 3) return <ContractPage3 contractNo={number} />;
     if (n === 4) return <ContractPage4 contractNo={number} />;
     if (n === 5) return <ContractPage5 contractNo={number} />;
     if (n === 6) return <ContractPage6 {...common} />;
@@ -82,7 +82,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
   };
 
   const go = (next: number) => {
-    if (!readOnly && next > page) {
+    if (mode === 'sign' && next > page) {
       const problem = gate(page, values);
       if (problem) {
         setHint(problem);
