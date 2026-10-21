@@ -177,28 +177,6 @@ export async function saveTenantPgOnboarding(token: string, body: Partial<PgOnbo
   return res.json() as Promise<PgOnboardingRow>;
 }
 
-export type PgClerkSlot = {
-  clerkNo: number;
-  code: string | null;
-  user: { id: string; name: string; resigned: boolean } | null;
-};
-
-export async function fetchPgClerkSlots(token: string) {
-  const res = await fetch(`${API}/card-payments/pg/clerks`, { headers: headers(token) });
-  if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<{ codesReady: boolean; slots: PgClerkSlot[]; leaders: Array<{ id: string; name: string }> }>;
-}
-
-export async function savePgClerkSlots(token: string, slots: Array<{ clerkNo: number; userId: string | null }>) {
-  const res = await fetch(`${API}/card-payments/pg/clerks`, {
-    method: 'PUT',
-    headers: headers(token),
-    body: JSON.stringify({ slots }),
-  });
-  if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<{ codesReady: boolean; slots: PgClerkSlot[]; leaders: Array<{ id: string; name: string }> }>;
-}
-
 export async function uploadTenantPgRegistration(token: string, file: File) {
   const body = new FormData();
   body.append('file', file);

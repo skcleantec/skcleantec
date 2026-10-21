@@ -11,7 +11,6 @@ import { requestWspayPaymentLink, resolveWspayHostedWindowUrl } from './wspayAda
 import { chargeWspayKeyin, parseUsageFeeKeyinBody } from './cardPaymentUsageFeeKeyin.service.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { notifyCardPaymentApproved } from './cardPaymentPaidNotify.js';
-import { pgClerkStampForTeamLeader } from './pgClerk.service.js';
 
 const PAYMENT_INCLUDE = {
   createdBy: { select: { id: true, name: true } },
@@ -54,7 +53,6 @@ export async function createCardPaymentIntent(input: {
 
   const rates = await getPlatformCardFeeRates();
   const fees = computeCardPaymentFees(amountWon, rates.tenantFeeBps, rates.platformCostBps);
-  const clerkStamp = await pgClerkStampForTeamLeader(input.tenantId, input.userId);
   const goodsName = (input.goodsName ?? '').trim().slice(0, 80) || null;
   const method = input.method === 'CUSTOMER_LINK' ? 'CUSTOMER_LINK' : 'KEYIN';
   const open = await prisma.cardPayment.findFirst({
@@ -80,8 +78,6 @@ export async function createCardPaymentIntent(input: {
     goodsName,
     customerPhoneMasked: maskCustomerPhone(inquiry.customerPhone),
     inquiryNumber: inquiry.inquiryNumber,
-    pgClerkNo: clerkStamp?.pgClerkNo ?? null,
-    pgClerkCode: clerkStamp?.pgClerkCode ?? null,
   };
   const created = open
     ? await prisma.cardPayment.update({

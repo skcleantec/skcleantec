@@ -391,7 +391,6 @@ model Tenant {
   notificationDeliveryLogs   NotificationDeliveryLog[]
   pgOnboarding               TenantPgOnboarding?
   pgCredentials              TenantPgCredential[]
-  pgClerkCodes               TenantPgClerkCode[]
   cardPayments               CardPayment[]
   platformSupportThread      PlatformSupportThread?
   platformSupportMessages    PlatformSupportMessage[]
@@ -716,22 +715,6 @@ model TenantPgCredential {
   @@map("tenant_pg_credentials")
 }
 
-/// 가입 때 원성이 주는 팀장 고유번호 코드 15개. 누구한테 쓸지는 업체 관리자가 매칭한다.
-model TenantPgClerkCode {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  slotNo    Int      @map("slot_no")
-  code      String   @db.VarChar(32)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@unique([tenantId, slotNo])
-  @@unique([tenantId, code])
-  @@index([tenantId])
-  @@map("tenant_pg_clerk_codes")
-}
-
 /// 카드결제 건 — 카드번호 원문 저장 금지
 model CardPayment {
   id                 String            @id @default(uuid())
@@ -759,10 +742,6 @@ model CardPayment {
   approvalNo         String?           @map("approval_no") @db.VarChar(64)
   pgOrderId          String?           @unique @map("pg_order_id") @db.VarChar(64)
   payRail            String            @default("KEYIN") @map("pay_rail") @db.VarChar(16)
-  /// 결제 당시 팀장 원성 고유번호 칸. 나중에 다른 팀장으로 바뀌어도 이 결제는 당시 칸을 유지한다.
-  pgClerkNo          Int?              @map("pg_clerk_no")
-  /// 결제 당시 원성이 준 고유번호 코드.
-  pgClerkCode        String?           @map("pg_clerk_code") @db.VarChar(32)
   payScreen          String?           @map("pay_screen") @db.VarChar(1)
   pgMid              String?           @map("pg_mid") @db.VarChar(16)
   webhookEventId     String?           @unique @map("webhook_event_id") @db.VarChar(128)
@@ -1786,8 +1765,6 @@ model User {
   homeGeoLat        Float?  @map("home_geo_lat")
   homeGeoLng        Float?  @map("home_geo_lng")
   homeGeoQuery      String? @map("home_geo_query") @db.VarChar(512)
-  /// 원성 고유번호 1~15. 팀장 카드 결제를 구분하고, 퇴사하면 다른 팀장에게 다시 매칭한다.
-  pgClerkNo         Int?    @map("pg_clerk_no")
   /// 추가 시공 오버라이딩을 받는 직속 상위 마케터. 한 단계만 계산한다.
   parentMarketerId String? @map("parent_marketer_id")
   parentMarketer   User?   @relation("MarketerUpline", fields: [parentMarketerId], references: [id], onDelete: SetNull)
@@ -1903,7 +1880,6 @@ model User {
   notificationDeliveryLogs     NotificationDeliveryLog[]
 
   @@unique([tenantId, email])
-  @@unique([tenantId, pgClerkNo])
   @@unique([tenantId, platformSupportAccessId])
   @@index([tenantId, role, isActive])
   @@index([tenantId, parentMarketerId])

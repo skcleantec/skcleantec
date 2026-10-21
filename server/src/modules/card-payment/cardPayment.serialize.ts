@@ -30,8 +30,6 @@ export function serializeCardPayment(
     cardLast4: row.cardLast4,
     approvalNo: row.approvalNo,
     pgOrderId: row.pgOrderId,
-    pgClerkNo: row.pgClerkNo,
-    pgClerkCode: row.pgClerkCode,
     paidAt: row.paidAt?.toISOString() ?? null,
     failReason: row.failReason,
     cancelable: row.status === 'APPROVED' && row.paidAt != null && kstYmd(row.paidAt) === kstYmd(new Date()),

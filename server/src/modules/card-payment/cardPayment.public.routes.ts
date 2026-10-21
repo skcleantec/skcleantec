@@ -10,7 +10,6 @@ import {
 } from './cardPaymentOnboarding.service.js';
 import { partnerRevealAllowed, readPgPartnerLoginId, requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
-import { parsePgClerkCodes, saveIssuedPgClerkCodes } from './pgClerk.service.js';
 import {
   PLATFORM_PG_AGENCY_ID,
   getPlatformPgAgencyRow,
@@ -277,18 +276,7 @@ router.post('/pg-partner/applications/:id/codes', async (req, res) => {
     res.status(400).json({ error: 'API 키 또는 결제창 mKey를 입력해 주세요. 카드번호는 받지 않습니다.' });
     return;
   }
-  let clerkCodes: string[] = [];
-  const rawCodes = Array.isArray(body.clerkCodes) ? body.clerkCodes.map((code) => String(code ?? '').trim()) : [];
-  if (rawCodes.some((code) => code.length > 0)) {
-    try {
-      clerkCodes = parsePgClerkCodes(body.clerkCodes);
-    } catch (e) {
-      res.status(400).json({ error: e instanceof Error ? e.message : '고유번호 코드를 확인해 주세요.' });
-      return;
-    }
-  }
   try {
-    if (clerkCodes.length > 0) await saveIssuedPgClerkCodes(tenantId, clerkCodes);
     const saved = await saveCredentialFromPlatform({
       tenantId,
       rail: apiKey.startsWith('ssp-') ? 'KEYIN' : 'LINK',
@@ -305,7 +293,6 @@ router.post('/pg-partner/applications/:id/codes', async (req, res) => {
       mid: saved.connected ? saved.mid : null,
       oid: saved.connected ? saved.oid : null,
       apiKeyLast4: saved.connected ? saved.apiKeyLast4 : null,
-      clerkCodes,
     });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '코드를 연결하지 못했습니다.' });
@@ -353,15 +340,7 @@ router.post('/pg-join/:token/codes', async (req, res) => {
     res.status(400).json({ error: '카드번호는 받지 않습니다. 가맹 키를 입력해 주세요.' });
     return;
   }
-  let clerkCodes: string[];
   try {
-    clerkCodes = parsePgClerkCodes(body.clerkCodes);
-  } catch (e) {
-    res.status(400).json({ error: e instanceof Error ? e.message : '고유번호 코드를 확인해 주세요.' });
-    return;
-  }
-  try {
-    await saveIssuedPgClerkCodes(row.tenantId, clerkCodes);
     const saved = await saveCredentialFromPlatform({
       tenantId: row.tenantId,
       rail: apiKey.startsWith('ssp-') ? 'KEYIN' : 'LINK',

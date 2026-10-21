@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Prisma, TenantPgOnboarding, TenantPgOnboardingStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { clerkCodesByTenant, PG_CLERK_MAX } from './pgClerk.service.js';
 import {
   destroyBusinessRegistrationPublicId,
   uploadBusinessRegistrationBuffer,
@@ -256,7 +255,7 @@ export async function listOnboardingsForPartner() {
   });
   const tenantIds = rows.map((row) => row.tenantId);
   if (tenantIds.length === 0) return [];
-  const [credentials, images, codesByTenant] = await Promise.all([
+  const [credentials, images] = await Promise.all([
     prisma.tenantPgCredential.findMany({
       where: { tenantId: { in: tenantIds } },
       select: { tenantId: true, rail: true, mid: true, oid: true, apiKeyLast4: true, isActive: true },
@@ -265,7 +264,6 @@ export async function listOnboardingsForPartner() {
       where: { tenantId: { in: tenantIds } },
       select: { tenantId: true, businessRegistrationImageUrl: true },
     }),
-    clerkCodesByTenant(tenantIds),
   ]);
   const credentialByTenant = new Map<string, (typeof credentials)[number][]>();
   for (const row of credentials) {
@@ -307,7 +305,6 @@ export async function listOnboardingsForPartner() {
       mid: credential?.mid ?? null,
       oid: credential?.oid ?? null,
       apiKeyLast4: credential?.apiKeyLast4 ?? null,
-      clerkCodes: codesByTenant.get(row.tenantId) ?? Array.from({ length: PG_CLERK_MAX }, () => ''),
     };
   });
 }

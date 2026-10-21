@@ -35,7 +35,6 @@ type Application = {
   mid: string | null;
   oid: string | null;
   apiKeyLast4: string | null;
-  clerkCodes: string[];
 };
 
 const INPUT = 'login-field-input mt-1 w-full min-h-11 rounded-lg border border-slate-200 px-3 text-fluid-sm';
