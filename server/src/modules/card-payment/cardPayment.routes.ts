@@ -10,7 +10,9 @@ import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { getCredentialPublic } from './cardPaymentCredential.service.js';
 import {
   getOrPrefillOnboarding,
+  markTenantContractMailed,
   saveOnboardingDraft,
+  saveTenantPgDocument,
   saveTenantRegistrationImage,
   submitOnboarding,
 } from './cardPaymentOnboarding.service.js';
@@ -218,6 +220,49 @@ router.post('/pg/onboarding/business-registration', registrationUpload.single('f
   }
 });
 
+router.post('/pg/onboarding/document', registrationUpload.single('file'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '서류는 관리자만 올릴 수 있습니다.' });
+    return;
+  }
+  const kind = req.body?.kind === 'idcard' ? 'idcard' : req.body?.kind === 'bankbook' ? 'bankbook' : null;
+  if (!kind) {
+    res.status(400).json({ error: '통장사본 또는 신분증을 선택해 주세요.' });
+    return;
+  }
+  const file = req.file;
+  if (!file?.buffer?.length) {
+    res.status(400).json({ error: '이미지를 선택해 주세요.' });
+    return;
+  }
+  try {
+    res.json(await saveTenantPgDocument(tenantId, kind, file.buffer, file.mimetype));
+  } catch (e) {
+    const message =
+      e instanceof Error && e.message === 'business_registration_image_invalid_type'
+        ? 'jpg, png, webp, gif 이미지만 업로드할 수 있습니다.'
+        : '서류를 올리지 못했습니다.';
+    res.status(400).json({ error: message });
+  }
+});
+
+router.post('/pg/contract/mailed', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '우편 발송은 관리자만 표시할 수 있습니다.' });
+    return;
+  }
+  try {
+    res.json(await markTenantContractMailed(tenantId));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : '우편 발송을 표시하지 못했습니다.';
+    res.status(400).json({ error: message });
+  }
+});
+
 router.post('/pg/onboarding/submit', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
@@ -229,7 +274,12 @@ router.post('/pg/onboarding/submit', async (req, res) => {
     const row = await submitOnboarding(tenantId, req.body ?? {});
     res.json(row);
   } catch (e) {
-    if (e instanceof Error && e.message === '사업자등록증을 등록해 주세요.') {
+    if (e instanceof Error && (
+      e.message === '사업자등록증을 등록해 주세요.'
+      || e.message === '통장사본을 등록해 주세요.'
+      || e.message === '신분증을 등록해 주세요.'
+      || e.message === '개인사업자 또는 법인을 선택해 주세요.'
+    )) {
       res.status(400).json({ error: e.message });
       return;
     }

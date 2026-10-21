@@ -173,6 +173,9 @@ export async function getTenantPgContract(tenantId: string) {
   for (const [key, value] of Object.entries(saved)) {
     if (key.startsWith('pg') && value) values[key] = value;
   }
+  if (!values.pgBizKind && (row.merchantKind === 'solo' || row.merchantKind === 'corp')) {
+    values.pgBizKind = row.merchantKind;
+  }
   return {
     ready: true as const,
     signed: Boolean(row.contractSignedAt),

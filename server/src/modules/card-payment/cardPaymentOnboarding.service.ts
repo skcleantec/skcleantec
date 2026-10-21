@@ -23,6 +23,7 @@ const ONBOARDING_FIELDS = [
   'accountHolder',
   'websiteUrl',
   'note',
+  'merchantKind',
 ] as const;
 
 export type OnboardingInput = Partial<Record<(typeof ONBOARDING_FIELDS)[number], string | null>>;
@@ -91,6 +92,43 @@ export async function saveTenantRegistrationImage(tenantId: string, buffer: Buff
   return { businessRegistrationImageUrl: uploaded.secureUrl };
 }
 
+const PG_DOC_FIELDS = {
+  bankbook: { url: 'bankbookImageUrl', publicId: 'bankbookImagePublicId', folder: 'bankbook' },
+  idcard: { url: 'idCardImageUrl', publicId: 'idCardImagePublicId', folder: 'id-card' },
+} as const;
+
+export async function saveTenantPgDocument(tenantId: string, kind: 'bankbook' | 'idcard', buffer: Buffer, mimetype: string) {
+  assertBusinessRegistrationImageMime(mimetype);
+  const field = PG_DOC_FIELDS[kind];
+  const existing = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId } });
+  const uploaded = await uploadBusinessRegistrationBuffer({
+    folder: `cbiseo/pg-onboarding/${tenantId}/${field.folder}`,
+    buffer,
+    mimetype,
+  });
+  const previousPublicId = existing?.[field.publicId] ?? null;
+  await prisma.tenantPgOnboarding.upsert({
+    where: { tenantId },
+    create: { tenantId, [field.url]: uploaded.secureUrl, [field.publicId]: uploaded.publicId },
+    update: { [field.url]: uploaded.secureUrl, [field.publicId]: uploaded.publicId },
+  });
+  if (previousPublicId && previousPublicId !== uploaded.publicId) {
+    await destroyBusinessRegistrationPublicId(previousPublicId);
+  }
+  return { [field.url]: uploaded.secureUrl };
+}
+
+export async function markTenantContractMailed(tenantId: string) {
+  const row = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId } });
+  if (!row?.contractSignedAt) throw new Error('전자계약을 작성한 뒤에 우편 발송을 표시합니다.');
+  if (row.contractMailedAt) return serializeWithRegistration(tenantId, row);
+  const saved = await prisma.tenantPgOnboarding.update({
+    where: { tenantId },
+    data: { contractMailedAt: new Date() },
+  });
+  return serializeWithRegistration(tenantId, saved);
+}
+
 export async function getOrPrefillOnboarding(tenantId: string) {
   const existing = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId } });
   if (existing) return serializeWithRegistration(tenantId, await withReviewToken(existing));
@@ -119,11 +157,21 @@ export async function saveOnboardingDraft(tenantId: string, input: OnboardingInp
 }
 
 export async function submitOnboarding(tenantId: string, input: OnboardingInput) {
-  const imageUrl = await registrationImageUrl(tenantId);
-  if (!imageUrl) {
-    throw new Error('사업자등록증을 등록해 주세요.');
-  }
   const data = pickOnboarding(input);
+  const kind = data.merchantKind ?? (await prisma.tenantPgOnboarding.findFirst({ where: { tenantId }, select: { merchantKind: true } }))?.merchantKind;
+  if (kind !== 'solo' && kind !== 'corp') {
+    throw new Error('개인사업자 또는 법인을 선택해 주세요.');
+  }
+  if (kind === 'solo') {
+    const imageUrl = await registrationImageUrl(tenantId);
+    const docs = await prisma.tenantPgOnboarding.findFirst({
+      where: { tenantId },
+      select: { bankbookImageUrl: true, idCardImageUrl: true },
+    });
+    if (!imageUrl) throw new Error('사업자등록증을 등록해 주세요.');
+    if (!docs?.bankbookImageUrl) throw new Error('통장사본을 등록해 주세요.');
+    if (!docs.idCardImageUrl) throw new Error('신분증을 등록해 주세요.');
+  }
   const now = new Date();
   const existing = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId }, select: { reviewToken: true } });
   const reviewToken = existing?.reviewToken ?? newReviewToken();
@@ -176,6 +224,9 @@ export async function listOnboardingsForPartner() {
       websiteUrl: row.websiteUrl,
       note: row.note,
       businessRegistrationImageUrl: imageByTenant.get(row.tenantId)?.trim() || null,
+      merchantKind: row.merchantKind,
+      bankbookImageUrl: row.bankbookImageUrl,
+      idCardImageUrl: row.idCardImageUrl,
       status: row.status,
       contractSignedAt: row.contractSignedAt?.toISOString() ?? null,
       submittedAt: row.submittedAt?.toISOString() ?? null,
@@ -224,6 +275,9 @@ export async function getOnboardingByReviewToken(token: string) {
     websiteUrl: row.websiteUrl,
     note: row.note,
     businessRegistrationImageUrl: await registrationImageUrl(row.tenantId),
+    merchantKind: row.merchantKind,
+    bankbookImageUrl: row.bankbookImageUrl,
+    idCardImageUrl: row.idCardImageUrl,
     status: row.status,
     connected: Boolean(credential?.isActive),
     mid: credential?.mid ?? null,
@@ -284,6 +338,10 @@ function pickOnboarding(input: OnboardingInput): Record<(typeof ONBOARDING_FIELD
   for (const key of ONBOARDING_FIELDS) {
     if (input[key] !== undefined) {
       const v = input[key];
+      if (key === 'merchantKind') {
+        data[key] = v === 'solo' || v === 'corp' ? v : null;
+        continue;
+      }
       data[key] = v == null || v === '' ? null : String(v).trim();
     }
   }

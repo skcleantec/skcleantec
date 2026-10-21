@@ -20,6 +20,9 @@ type Application = {
   websiteUrl: string | null;
   note: string | null;
   businessRegistrationImageUrl: string | null;
+  merchantKind: string | null;
+  bankbookImageUrl: string | null;
+  idCardImageUrl: string | null;
   status: string;
   submittedAt: string | null;
   connected: boolean;
@@ -83,6 +86,9 @@ function ApplicationCard({
         {line('홈페이지', row.websiteUrl)}
         {line('메모', row.note)}
       </div>
+      {row.merchantKind === 'corp' ? (
+        <p className="mt-3 text-fluid-2xs text-slate-700">법인 서류(사업자등록증, 통장사본, 법인인감, 법인등기부)는 우편으로 받습니다.</p>
+      ) : null}
       {row.businessRegistrationImageUrl ? (
         <a href={row.businessRegistrationImageUrl} target="_blank" rel="noreferrer" className="mt-3 block">
           <span className="text-fluid-2xs text-slate-500">사업자등록증</span>
@@ -92,9 +98,21 @@ function ApplicationCard({
             className="mt-1 max-h-56 w-full rounded-lg border border-slate-200 bg-slate-50 object-contain"
           />
         </a>
-      ) : (
+      ) : row.merchantKind === 'solo' ? (
         <p className="mt-3 text-fluid-2xs text-amber-800">사업자등록증 없음</p>
-      )}
+      ) : null}
+      {row.bankbookImageUrl ? (
+        <a href={row.bankbookImageUrl} target="_blank" rel="noreferrer" className="mt-3 block">
+          <span className="text-fluid-2xs text-slate-500">통장사본</span>
+          <img src={row.bankbookImageUrl} alt="통장사본" className="mt-1 max-h-56 w-full rounded-lg border border-slate-200 bg-slate-50 object-contain" />
+        </a>
+      ) : null}
+      {row.idCardImageUrl ? (
+        <a href={row.idCardImageUrl} target="_blank" rel="noreferrer" className="mt-3 block">
+          <span className="text-fluid-2xs text-slate-500">신분증</span>
+          <img src={row.idCardImageUrl} alt="신분증" className="mt-1 max-h-56 w-full rounded-lg border border-slate-200 bg-slate-50 object-contain" />
+        </a>
+      ) : null}
       {row.connected ? (
         <p className="mt-3 text-fluid-xs text-emerald-800">
           연결됨 {row.mid ? `MID ${row.mid}` : ''} {row.oid ? `OID ${row.oid}` : ''}

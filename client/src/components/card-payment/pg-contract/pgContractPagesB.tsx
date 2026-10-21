@@ -20,6 +20,7 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
   const toggle = (key: string) => set(key, on(key) ? '' : 'Y');
   const seal = v(values, '[[EC_SEAL]]');
   const sign = v(values, '[[EC_SIGNATURE]]');
+  const kind = v(values, 'pgBizKind');
   return [
     block('art8', '제8조', <><h2>제8조 (가맹점의 의무)</h2><p>① 이용자가 결제 화면에서 대금 청구 명의와 가맹점을 알아볼 수 있게 합니다. ② 본인 사용과 실제 용역 제공인지는 가맹점이 확인합니다. ③ 카드 결제라는 이유로 이용자를 거절하거나 불리하게 하지 않고, 수수료를 이용자에게 떠넘기지 않습니다. ④ 용역 제공 없이 결제한 것처럼 꾸미거나, 실제보다 큰 금액으로 결제하거나, 다른 가맹점 이름으로 결제하거나, 이름을 빌려 주거나, 카드결제를 대신 받아 주지 않습니다. ⑤ 거래정보는 5년 이상 보관하고, 요구를 받으면 영업일 3일 안에 냅니다. ⑥ 이용자 정보를 회사에 넘길 때는 동의를 받습니다. ⑦ 전자상거래법 등 가맹점 의무는 가맹점이 이행하고, 그 의무를 회사나 결제대행사에 넘기지 않습니다.</p></>),
     block('art9', '제9조', <><h2>제9조 (금지 거래)</h2><p>① 신청서에 적은 청소 및 직접 관련 용역만 이 결제로 받습니다. ② 주류, 담배, 의약품, 성인용품, 사행성, 대출·현금화, 상품권 등 부속서와 카드사·결제대행사가 금지한 품목은 판매하지 않습니다. ③ 위반 거래는 결제대행사가 취소할 수 있고, 회사는 연동을 멈출 수 있습니다. 그 손해는 가맹점이 부담합니다.</p></>),
@@ -79,12 +80,20 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
           거주지
           <Choice on={v(values, 'pgReside') === 'in'} label="국내" readOnly={readOnly} onPick={() => set('pgReside', 'in')} />
           <Choice on={v(values, 'pgReside') === 'out'} label="국외" readOnly={readOnly} onPick={() => set('pgReside', 'out')} />
-          법인
-          <Choice on={v(values, 'pgCorpKind') === 'profit'} label="영리" readOnly={readOnly} onPick={() => set('pgCorpKind', 'profit')} />
-          <Choice on={v(values, 'pgCorpKind') === 'nonprofit'} label="비영리" readOnly={readOnly} onPick={() => set('pgCorpKind', 'nonprofit')} />
-          법인번호 {f('pgCorpNo')} 국적 {f('pgNation', '16mm')}
+          국적 {f('pgNation', '16mm')}
         </p>
-        <p>본점 {f('pgHqAddr', '50mm')} 대표자 {v(values, '[[EC_SIGNER_NAME]]')} 영문 {f('pgRepEn')} 생년월일 {f('pgBirth')} 공동대표 {f('pgRep2')}</p>
+        {kind === 'corp' ? (
+          <p>
+            법인
+            <Choice on={v(values, 'pgCorpKind') === 'profit'} label="영리" readOnly={readOnly} onPick={() => set('pgCorpKind', 'profit')} />
+            <Choice on={v(values, 'pgCorpKind') === 'nonprofit'} label="비영리" readOnly={readOnly} onPick={() => set('pgCorpKind', 'nonprofit')} />
+            법인번호 {f('pgCorpNo')}
+          </p>
+        ) : null}
+        <p>
+          {kind === 'corp' ? <>본점 {f('pgHqAddr', '50mm')} </> : null}
+          대표자 {v(values, '[[EC_SIGNER_NAME]]')} 영문 {f('pgRepEn')} 생년월일 {f('pgBirth')} 공동대표 {f('pgRep2')}
+        </p>
         <p>실제 소유자는 가맹점을 최종적으로 지배하는 사람입니다. 대표자와 같습니까?</p>
         <p>
           <Choice on={isChecked(v(values, 'pgOwnerSame'))} label="예" readOnly={readOnly} onPick={() => set('pgOwnerSame', 'Y')} />
@@ -102,13 +111,15 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
           <Choice on={v(values, 'pgOwnerStep') === '2'} label="2단계 최대 지분·사실상 지배" readOnly={readOnly} onPick={() => set('pgOwnerStep', '2')} />
           <Choice on={v(values, 'pgOwnerStep') === '3'} label="3단계 대표자" readOnly={readOnly} onPick={() => set('pgOwnerStep', '3')} />
         </p>
-        <p>
-          확인 생략
-          <Choice on={on('pgSkipGov')} label="국가·지자체" readOnly={readOnly} onPick={() => toggle('pgSkipGov')} />
-          <Choice on={on('pgSkipPublic')} label="공공기관" readOnly={readOnly} onPick={() => toggle('pgSkipPublic')} />
-          <Choice on={on('pgSkipFin')} label="금융회사" readOnly={readOnly} onPick={() => toggle('pgSkipFin')} />
-          <Choice on={on('pgSkipListed')} label="사업보고서 제출" readOnly={readOnly} onPick={() => toggle('pgSkipListed')} />
-        </p>
+        {kind === 'corp' ? (
+          <p>
+            확인 생략
+            <Choice on={on('pgSkipGov')} label="국가·지자체" readOnly={readOnly} onPick={() => toggle('pgSkipGov')} />
+            <Choice on={on('pgSkipPublic')} label="공공기관" readOnly={readOnly} onPick={() => toggle('pgSkipPublic')} />
+            <Choice on={on('pgSkipFin')} label="금융회사" readOnly={readOnly} onPick={() => toggle('pgSkipFin')} />
+            <Choice on={on('pgSkipListed')} label="사업보고서 제출" readOnly={readOnly} onPick={() => toggle('pgSkipListed')} />
+          </p>
+        ) : null}
         <p>실제 소유자 1 {f('pgOwner1', '36mm')} 실제 소유자 2 {f('pgOwner2', '36mm')}</p>
       </>,
     ),
@@ -131,16 +142,18 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
           <Choice on={on('pgFundGift')} label="상속·증여" readOnly={readOnly} onPick={() => toggle('pgFundGift')} />
           <Choice on={on('pgFundEtc')} label="기타" readOnly={readOnly} onPick={() => toggle('pgFundEtc')} />
         </p>
-        <p>
-          법인
-          <Choice on={v(values, 'pgCorpSize') === 'smb'} label="중소기업" readOnly={readOnly} onPick={() => set('pgCorpSize', 'smb')} />
-          <Choice on={v(values, 'pgCorpSize') === 'large'} label="대기업" readOnly={readOnly} onPick={() => set('pgCorpSize', 'large')} />
-          <Choice on={v(values, 'pgListed') === 'no'} label="비상장" readOnly={readOnly} onPick={() => set('pgListed', 'no')} />
-          <Choice on={v(values, 'pgListed') === 'krx'} label="유가증권" readOnly={readOnly} onPick={() => set('pgListed', 'krx')} />
-          <Choice on={v(values, 'pgListed') === 'kosdaq'} label="코스닥" readOnly={readOnly} onPick={() => set('pgListed', 'kosdaq')} />
-          <Choice on={v(values, 'pgListed') === 'oversea'} label="해외" readOnly={readOnly} onPick={() => set('pgListed', 'oversea')} />
-          설립일 {f('pgFounded', '28mm')}
-        </p>
+        {kind === 'corp' ? (
+          <p>
+            법인
+            <Choice on={v(values, 'pgCorpSize') === 'smb'} label="중소기업" readOnly={readOnly} onPick={() => set('pgCorpSize', 'smb')} />
+            <Choice on={v(values, 'pgCorpSize') === 'large'} label="대기업" readOnly={readOnly} onPick={() => set('pgCorpSize', 'large')} />
+            <Choice on={v(values, 'pgListed') === 'no'} label="비상장" readOnly={readOnly} onPick={() => set('pgListed', 'no')} />
+            <Choice on={v(values, 'pgListed') === 'krx'} label="유가증권" readOnly={readOnly} onPick={() => set('pgListed', 'krx')} />
+            <Choice on={v(values, 'pgListed') === 'kosdaq'} label="코스닥" readOnly={readOnly} onPick={() => set('pgListed', 'kosdaq')} />
+            <Choice on={v(values, 'pgListed') === 'oversea'} label="해외" readOnly={readOnly} onPick={() => set('pgListed', 'oversea')} />
+            설립일 {f('pgFounded', '28mm')}
+          </p>
+        ) : null}
         <p>위 확인서를 주식회사 서비스브릿지를 거쳐 주식회사 원성페이먼츠에 제출합니다.</p>
       </>,
     ),
@@ -172,6 +185,36 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
         <h2>부속서 3. 거래 확인</h2>
         <p>가맹점은 이용자가 가맹점 앞으로 결제한 금액에 관하여 유사수신·보이스피싱·대출 사기 등 거짓 매출이 없도록 확인하고, 민원이 생기면 요청한 자료를 내며 취소·환불을 처리합니다. 이를 이행하지 않아 생긴 손해는 가맹점이 부담합니다.</p>
       </>,
+    ),
+    block(
+      'doc-guide',
+      '필요 서류',
+      <div className="pg-doc-guide">
+        <h2>필요 서류와 진행 순서</h2>
+        <p>가맹신청 → 가맹 심사완료 → 가맹점 계약서 작성 → 계약서 우편발송 → 가맹점 코드 연결 및 사용</p>
+        {kind === 'solo' ? (
+          <>
+            <p>개인사업자는 가맹 신청할 때 아래 3가지를 사진으로 올립니다.</p>
+            <ol>
+              <li>사업자등록증</li>
+              <li>통장사본</li>
+              <li>신분증</li>
+            </ol>
+          </>
+        ) : kind === 'corp' ? (
+          <>
+            <p>법인사업자는 아래 4가지를 우편으로 주식회사 원성페이먼츠 본사에 보냅니다. 이 화면에는 올리지 않습니다.</p>
+            <ol>
+              <li>사업자등록증</li>
+              <li>통장사본</li>
+              <li>법인인감</li>
+              <li>법인등기부</li>
+            </ol>
+          </>
+        ) : (
+          <p>위에서 개인사업자 또는 법인을 고르면 필요한 서류만 여기에 나옵니다.</p>
+        )}
+      </div>,
     ),
   ];
 }

@@ -11,8 +11,10 @@ import {
 } from '../../../components/admin/card-payment/PgOnboardingLanding';
 import {
   fetchTenantPgState,
+  markTenantContractMailed,
   saveTenantPgOnboarding,
   submitTenantPgOnboarding,
+  uploadTenantPgDocument,
   uploadTenantPgRegistration,
   type PgOnboardingRow,
 } from '../../../api/cardPayment';
@@ -43,7 +45,7 @@ function AdminCardPaymentPgInner() {
   const [merchantOid, setMerchantOid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -61,23 +63,27 @@ function AdminCardPaymentPgInner() {
       .finally(() => setLoaded(true));
   }, []);
 
-  const view = pgConnectionView(connected, row?.status, row?.contractSignedAt);
+  const view = pgConnectionView(connected, row?.status, row?.contractSignedAt, row?.contractMailedAt);
   const detail =
     view === '연결됨'
       ? [merchantMid ? `MID ${merchantMid}` : null, merchantOid ? `OID ${merchantOid}` : null].filter(Boolean).join(' · ') ||
         '카드 결제가 연결되었습니다.'
       : view === '전자계약'
-        ? '승인이 났습니다. 전자계약을 작성하면 다음으로 넘어갑니다.'
-        : view === '심사중'
-          ? '신청을 확인하는 중입니다.'
-          : view === '반려'
-            ? '신청이 반려되었습니다. 내용을 고쳐 다시 신청할 수 있습니다.'
-            : '아직 PG가 연결되지 않았습니다.';
+        ? '심사가 끝났습니다. 가맹점 계약서를 작성합니다.'
+        : view === '우편발송'
+          ? '계약서를 작성했습니다. 우편으로 보낸 뒤 아래 버튼을 누릅니다.'
+          : view === '코드연결'
+            ? '우편 발송이 표시되었습니다. 가맹점 코드가 연결되면 사용할 수 있습니다.'
+            : view === '심사중'
+              ? '가맹 신청을 심사하는 중입니다.'
+              : view === '반려'
+                ? '신청이 반려되었습니다. 내용을 고쳐 다시 신청할 수 있습니다.'
+                : '아직 PG가 연결되지 않았습니다.';
 
   const uploadRegistration = async (file: File) => {
     const token = getToken();
     if (!token || !row) return;
-    setUploading(true);
+    setUploadingKey('registration');
     try {
       const saved = await uploadTenantPgRegistration(token, file);
       setRow({ ...row, businessRegistrationImageUrl: saved.businessRegistrationImageUrl });
@@ -85,15 +91,46 @@ function AdminCardPaymentPgInner() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '사업자등록증을 올리지 못했습니다.');
     } finally {
-      setUploading(false);
+      setUploadingKey(null);
+    }
+  };
+
+  const uploadDocument = async (kind: 'bankbook' | 'idcard', file: File) => {
+    const token = getToken();
+    if (!token || !row) return;
+    setUploadingKey(kind);
+    try {
+      const saved = await uploadTenantPgDocument(token, kind, file);
+      setRow({
+        ...row,
+        bankbookImageUrl: saved.bankbookImageUrl ?? row.bankbookImageUrl,
+        idCardImageUrl: saved.idCardImageUrl ?? row.idCardImageUrl,
+      });
+      setError(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '서류를 올리지 못했습니다.');
+    } finally {
+      setUploadingKey(null);
     }
   };
 
   const persist = async (submit: boolean) => {
     const token = getToken();
     if (!token || !row) return;
-    if (submit && !row.businessRegistrationImageUrl) {
+    if (submit && row.merchantKind === 'solo' && !row.businessRegistrationImageUrl) {
       setError('사업자등록증을 등록해 주세요.');
+      return;
+    }
+    if (submit && row.merchantKind === 'solo' && !row.bankbookImageUrl) {
+      setError('통장사본을 등록해 주세요.');
+      return;
+    }
+    if (submit && row.merchantKind === 'solo' && !row.idCardImageUrl) {
+      setError('신분증을 등록해 주세요.');
+      return;
+    }
+    if (submit && row.merchantKind !== 'solo' && row.merchantKind !== 'corp') {
+      setError('개인사업자 또는 법인을 선택해 주세요.');
       return;
     }
     setSaving(true);
@@ -146,7 +183,7 @@ function AdminCardPaymentPgInner() {
           </PageTitleWithFavorite>
           <p className="mt-1 text-sm text-gray-500">
             {applying
-              ? '사업자 정보와 연락처, 사업자등록증을 적은 뒤 제출합니다.'
+              ? '개인은 서류 3가지를 올리고, 법인은 우편으로 보냅니다.'
               : '카드 결제를 받으려면 PG를 신청합니다.'}
           </p>
         </div>
@@ -166,8 +203,9 @@ function AdminCardPaymentPgInner() {
             value={row}
             onChange={setRow}
             saving={saving}
-            uploading={uploading}
+            uploadingKey={uploadingKey}
             onUploadRegistration={(file) => void uploadRegistration(file)}
+            onUploadDocument={(kind, file) => void uploadDocument(kind, file)}
             submitted={row.status === 'SUBMITTED' || row.status === 'FORWARDED_TO_PG' || row.status === 'APPROVED'}
             onSave={() => void persist(false)}
             onSubmit={() => void persist(true)}
@@ -179,6 +217,18 @@ function AdminCardPaymentPgInner() {
             detail={detail}
             onApply={() => navigate(applyPath)}
             onContract={() => navigate(`${landingPath.replace(/\/$/, '')}/contract`)}
+            onMailed={() => {
+              const token = getToken();
+              if (!token) return;
+              setSaving(true);
+              void markTenantContractMailed(token)
+                .then((next) => {
+                  setRow(next);
+                  setError(null);
+                })
+                .catch((e: unknown) => setError(e instanceof Error ? e.message : '우편 발송을 표시하지 못했습니다.'))
+                .finally(() => setSaving(false));
+            }}
           />
         )}
       </div>

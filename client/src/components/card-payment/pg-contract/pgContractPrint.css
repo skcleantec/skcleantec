@@ -141,8 +141,10 @@
 .pg-blank {
   display: inline-block;
   min-width: 28mm;
-  height: 4.2mm;
-  border-bottom: 0.25mm solid #0f172a;
+  height: 4.6mm;
+  border: 0.35mm dashed #2563eb;
+  border-radius: 0.6mm;
+  background: #eff6ff;
   vertical-align: baseline;
 }
 
@@ -161,10 +163,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.8mm;
-  margin-right: 2.4mm;
-  border: 0;
-  background: transparent;
-  padding: 0;
+  margin: 0.3mm 1.2mm 0.3mm 0;
+  border: 0.35mm dashed #2563eb;
+  border-radius: 0.6mm;
+  background: #eff6ff;
+  padding: 0.3mm 1.2mm;
   font: inherit;
   color: inherit;
   cursor: pointer;
@@ -213,6 +216,26 @@
   vertical-align: middle;
 }
 
+.pg-doc-guide {
+  margin-top: 2mm;
+  border: 0.45mm solid #0f172a;
+  background: #f8fafc;
+  padding: 1.8mm 2.2mm;
+}
+
+.pg-doc-guide h2 {
+  margin-top: 0;
+}
+
+.pg-doc-guide ol {
+  margin: 0.8mm 0 1mm 4.5mm;
+  padding: 0;
+}
+
+.pg-doc-guide li {
+  margin: 0.3mm 0;
+}
+
 .pg-print-root {
   display: none;
 }
@@ -245,6 +268,19 @@
     box-shadow: none !important;
     break-after: page;
     page-break-after: always;
+  }
+
+  .pg-blank,
+  .pg-choice {
+    border-color: transparent !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  .pg-blank {
+    border-bottom: 0.25mm solid #0f172a !important;
+    border-radius: 0;
+    height: 4.2mm;
   }
 
   .pg-sheet-foot {

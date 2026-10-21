@@ -18,6 +18,9 @@ type Review = {
   websiteUrl: string | null;
   note: string | null;
   businessRegistrationImageUrl: string | null;
+  merchantKind?: string | null;
+  bankbookImageUrl?: string | null;
+  idCardImageUrl?: string | null;
   connected: boolean;
   mid: string | null;
   oid: string | null;
@@ -87,6 +90,9 @@ export function PgJoinReviewPage() {
                 {line('정산 계좌', [row.bankName, row.bankAccount, row.accountHolder].filter(Boolean).join(' ') || null)}
                 {line('홈페이지', row.websiteUrl)}
                 {line('메모', row.note)}
+                {row.merchantKind === 'corp' ? (
+                  <p className="text-slate-700">법인 서류는 우편으로 받습니다.</p>
+                ) : null}
                 {row.businessRegistrationImageUrl ? (
                   <a href={row.businessRegistrationImageUrl} target="_blank" rel="noreferrer" className="mt-2 block">
                     <span className="text-slate-500">사업자등록증</span>
@@ -95,6 +101,18 @@ export function PgJoinReviewPage() {
                       alt="사업자등록증"
                       className="mt-1 max-h-64 w-full rounded-lg border border-slate-200 bg-white object-contain"
                     />
+                  </a>
+                ) : null}
+                {row.bankbookImageUrl ? (
+                  <a href={row.bankbookImageUrl} target="_blank" rel="noreferrer" className="mt-2 block">
+                    <span className="text-slate-500">통장사본</span>
+                    <img src={row.bankbookImageUrl} alt="통장사본" className="mt-1 max-h-64 w-full rounded-lg border border-slate-200 bg-white object-contain" />
+                  </a>
+                ) : null}
+                {row.idCardImageUrl ? (
+                  <a href={row.idCardImageUrl} target="_blank" rel="noreferrer" className="mt-2 block">
+                    <span className="text-slate-500">신분증</span>
+                    <img src={row.idCardImageUrl} alt="신분증" className="mt-1 max-h-64 w-full rounded-lg border border-slate-200 bg-white object-contain" />
                   </a>
                 ) : null}
               </div>

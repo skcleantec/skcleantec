@@ -53,12 +53,16 @@ export function serializeOnboarding(row: TenantPgOnboarding) {
     accountHolder: row.accountHolder,
     websiteUrl: row.websiteUrl,
     note: row.note,
+    merchantKind: row.merchantKind,
+    bankbookImageUrl: row.bankbookImageUrl,
+    idCardImageUrl: row.idCardImageUrl,
     reviewToken: row.reviewToken,
     submittedAt: row.submittedAt?.toISOString() ?? null,
     forwardedAt: row.forwardedAt?.toISOString() ?? null,
     decidedAt: row.decidedAt?.toISOString() ?? null,
     platformMemo: row.platformMemo,
     contractSignedAt: row.contractSignedAt?.toISOString() ?? null,
+    contractMailedAt: row.contractMailedAt?.toISOString() ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };
 }

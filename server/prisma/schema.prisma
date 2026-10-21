@@ -643,6 +643,14 @@ model TenantPgOnboarding {
   accountHolder        String?                  @map("account_holder") @db.VarChar(128)
   websiteUrl           String?                  @map("website_url") @db.VarChar(512)
   note                 String?                  @db.Text
+  /// solo | corp. 신청 때 고른 구분. 계약서 칸도 이 값으로 시작한다.
+  merchantKind         String?                  @map("merchant_kind") @db.VarChar(16)
+  bankbookImageUrl     String?                  @map("bankbook_image_url") @db.VarChar(2048)
+  bankbookImagePublicId String?                 @map("bankbook_image_public_id") @db.VarChar(512)
+  idCardImageUrl       String?                  @map("id_card_image_url") @db.VarChar(2048)
+  idCardImagePublicId  String?                  @map("id_card_image_public_id") @db.VarChar(512)
+  /// 전자계약 작성 후 계약서를 우편으로 보냈다고 표시한 시각.
+  contractMailedAt     DateTime?                @map("contract_mailed_at")
   reviewToken          String?                  @unique @map("review_token") @db.VarChar(64)
   submittedAt          DateTime?                @map("submitted_at")
   forwardedAt          DateTime?                @map("forwarded_at")

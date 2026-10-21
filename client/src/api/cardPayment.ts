@@ -59,12 +59,16 @@ export type PgOnboardingRow = {
   websiteUrl: string | null;
   note: string | null;
   businessRegistrationImageUrl: string | null;
+  merchantKind: string | null;
+  bankbookImageUrl: string | null;
+  idCardImageUrl: string | null;
   reviewToken: string | null;
   submittedAt: string | null;
   forwardedAt: string | null;
   decidedAt: string | null;
   platformMemo: string | null;
   contractSignedAt: string | null;
+  contractMailedAt: string | null;
   updatedAt: string;
 };
 
@@ -174,6 +178,28 @@ export async function uploadTenantPgRegistration(token: string, file: File) {
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<{ businessRegistrationImageUrl: string }>;
+}
+
+export async function uploadTenantPgDocument(token: string, kind: 'bankbook' | 'idcard', file: File) {
+  const body = new FormData();
+  body.append('kind', kind);
+  body.append('file', file);
+  const res = await fetch(`${API}/card-payments/pg/onboarding/document`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body,
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ bankbookImageUrl?: string; idCardImageUrl?: string }>;
+}
+
+export async function markTenantContractMailed(token: string) {
+  const res = await fetch(`${API}/card-payments/pg/contract/mailed`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<PgOnboardingRow>;
 }
 
 export async function submitTenantPgOnboarding(token: string, body: Partial<PgOnboardingRow>) {

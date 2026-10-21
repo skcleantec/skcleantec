@@ -17,6 +17,7 @@ function block(key: string, label: string, node: FlowBlock['node'], gate?: FlowB
 export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock[] {
   const f = (key: string, width?: string) => field(values, set, readOnly, key, width);
   const ad = (key: string) => v(values, key) === 'Y';
+  const kind = v(values, 'pgBizKind');
   return [
     block(
       'intro',
@@ -25,7 +26,7 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <p className="pg-center">주식회사 서비스브릿지</p>
         <h1 className="pg-center">청소비서 카드결제 서비스 이용신청서 및 이용계약서</h1>
         <p className="pg-center pg-muted">전자계약용 이용약관</p>
-        <p>이 약관은 주식회사 서비스브릿지가 작성한 계약입니다. 가맹점은 청소비서 화면에서 전자서명으로 체결합니다. 법인인감·대표자 인감은 받지 않습니다. 체결된 계약서는 회사가 협력 결제대행사 주식회사 원성페이먼츠(SunshinePay)에 제출하고, 결제대행사가 심사합니다. 결제대행사는 이 계약의 서명 당사자가 아닙니다.</p>
+        <p>이 약관은 주식회사 서비스브릿지가 작성한 계약입니다. 가맹점은 청소비서 화면에서 전자서명으로 체결합니다. 계약서에 인감을 날인하지 않습니다. 체결된 계약서는 회사가 협력 결제대행사 주식회사 원성페이먼츠(SunshinePay)에 제출하고, 결제대행사가 심사합니다. 결제대행사는 이 계약의 서명 당사자가 아닙니다.</p>
         <p>카드 승인·매입·정산은 결제대행사가 합니다. 회사는 전자지급결제대행업자가 아니며, 심사가 끝나기 전에는 카드결제를 쓸 수 없습니다. 「청소비서」는 아래 회사가 운영하는 청소업체용 업무 플랫폼입니다.</p>
       </>,
     ),
@@ -69,7 +70,11 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <table className="pg-table">
           <tbody>
             <tr><th>상호</th><td>{f('[[EC_MERCHANT_NAME]]', '70mm')}</td><th>사업자번호</th><td>{f('[[EC_BIZ_NO]]')}</td></tr>
-            <tr><th>법인번호</th><td>{f('pgCorpNo')}</td><th>대표자</th><td>{f('[[EC_SIGNER_NAME]]')}</td></tr>
+            {kind === 'corp' ? (
+              <tr><th>법인번호</th><td>{f('pgCorpNo')}</td><th>대표자</th><td>{f('[[EC_SIGNER_NAME]]')}</td></tr>
+            ) : (
+              <tr><th>대표자</th><td colSpan={3}>{f('[[EC_SIGNER_NAME]]')}</td></tr>
+            )}
             <tr><th>생년월일</th><td>{f('pgBirth')}</td><th>휴대폰</th><td>{f('[[EC_SIGNER_PHONE]]')}</td></tr>
             <tr><th>대표 전화</th><td>{f('pgTel')}</td><th>업태·종목</th><td>{f('pgBizType', '22mm')} {f('pgBizItem', '22mm')}</td></tr>
             <tr><th>판매 용역</th><td colSpan={3}>{f('pgService', '90mm')} <span className="pg-muted">입주청소, 거주청소 등</span></td></tr>
@@ -112,7 +117,13 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
       '제출 서류',
       <>
         <h2>6. 제출 서류</h2>
-        <p>필수: 이 신청서 및 이용계약서, 사업자등록증 사본, 정산 통장 사본, 실제 소유자 확인서(뒤쪽). 개인사업자: 대표자 신분증 사본. 외국인은 외국인등록증 등 결제대행사가 정한 서류. 법인: 법인등기사항증명서(발급 3개월 이내). 비영리는 설립 목적 서류. 서면 원본, 인감증명서, 보증보험, 연대보증을 요구하면 그 양식에 따릅니다. 회사는 법령 근거 없이 주민등록번호 뒷자리를 받지 않습니다.</p>
+        {kind === 'solo' ? (
+          <p>개인사업자는 가맹 신청 화면에서 사업자등록증, 통장사본, 신분증을 올립니다. 이 세 가지는 우편으로 보내지 않습니다. 회사는 법령 근거 없이 주민등록번호 뒷자리를 받지 않습니다.</p>
+        ) : kind === 'corp' ? (
+          <p>법인사업자는 사업자등록증, 통장사본, 법인인감, 법인등기부를 우편으로 주식회사 원성페이먼츠 본사에 보냅니다. 이 화면에는 올리지 않습니다. 법인등기사항증명서는 발급 3개월 이내입니다. 회사는 법령 근거 없이 주민등록번호 뒷자리를 받지 않습니다.</p>
+        ) : (
+          <p>위에서 개인사업자 또는 법인을 고르면, 그 구분에 필요한 서류만 여기와 맨 아래에 나옵니다.</p>
+        )}
       </>,
     ),
     block(
