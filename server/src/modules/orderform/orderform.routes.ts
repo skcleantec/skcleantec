@@ -1481,17 +1481,6 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
   const { areaPyeong: issueAreaPyeong, areaBasis: issueAreaBasis } = areaParsed;
   const issueFillCfg = await getOrCreateOrderFormConfig(prisma, authTenantId);
   const issueFillRules = mergeOrderFormFillRules(issueFillCfg.issueFillRules);
-  if (marketerMustFillAtIssue(fillRuleOf(issueFillRules, 'areaPyeong'))) {
-    const areaReady =
-      issueAreaPyeong != null &&
-      Number.isFinite(issueAreaPyeong) &&
-      issueAreaPyeong > 0 &&
-      (issueAreaBasis === '공급' || issueAreaBasis === '전용');
-    if (!areaReady) {
-      res.status(400).json({ error: '면적(공급·전용·평수)은 상담사가 반드시 입력해야 발급됩니다.' });
-      return;
-    }
-  }
   const customerPhoneOpt =
     customerPhoneRaw != null && String(customerPhoneRaw).trim()
       ? String(customerPhoneRaw).trim()
@@ -1570,6 +1559,26 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
   const templateData = resolvedTemplate
     ? { templateId: resolvedTemplate.id, templateVersion: resolvedTemplate.version }
     : {};
+
+  // 평수 칸이 없는 양식(에어컨 등)은 발급 때 면적을 요구하지 않는다. 입주·기본 양식은 그대로.
+  if (marketerMustFillAtIssue(fillRuleOf(issueFillRules, 'areaPyeong'))) {
+    const issueTemplateView = await getPublicTemplateForForm(
+      prisma,
+      authTenantId,
+      resolvedTemplate ? resolvedTemplate.id : null,
+    );
+    if (templateHasSystemField(issueTemplateView, 'areaPyeong')) {
+      const areaReady =
+        issueAreaPyeong != null &&
+        Number.isFinite(issueAreaPyeong) &&
+        issueAreaPyeong > 0 &&
+        (issueAreaBasis === '공급' || issueAreaBasis === '전용');
+      if (!areaReady) {
+        res.status(400).json({ error: '면적(공급·전용·평수)은 상담사가 반드시 입력해야 발급됩니다.' });
+        return;
+      }
+    }
+  }
 
   const tenantPlan = await getTenantPlan(authTenantId);
   try {
