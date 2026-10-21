@@ -34,17 +34,31 @@ function PdfOpenIcon({ className }: { className?: string }) {
   );
 }
 
-/** 업무 앱은 새 창 PDF를 막으므로 휴대폰 기본 앱에서 연다. 브라우저에서는 링크 그대로. */
+/** 앱이 이 주소로 들어오면 웹뷰에 가두지 않고 휴대폰 기본 화면에서 연다. 파일 토큰은 경로에 그대로 둔다. */
+function trainingFileHref(url: string): string {
+  if (url.includes('cbiseoOpenExternal=1')) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}cbiseoOpenExternal=1`;
+}
+
+/**
+ * 업무 앱은 새 창·임시 파일 주소를 막는다.
+ * 브릿지는 객체에서 바로 불러야 하고, 실패하면 같은 창 이동으로 앱이 브라우저에 넘긴다.
+ */
 function openTrainingFile(event: { preventDefault: () => void }, url: string) {
-  const openExternal = window.CbiseoApp?.openExternalUrl;
-  if (typeof openExternal === 'function') {
-    event.preventDefault();
-    openExternal(url);
+  const href = trainingFileHref(url);
+  const app = window.CbiseoApp;
+  if (typeof app?.openExternalUrl !== 'function') {
+    if (isCbiseoStaffNativeApp()) {
+      event.preventDefault();
+      window.location.assign(href);
+    }
     return;
   }
-  if (isCbiseoStaffNativeApp()) {
-    event.preventDefault();
-    window.location.assign(url);
+  event.preventDefault();
+  try {
+    app.openExternalUrl(href);
+  } catch {
+    window.location.assign(href);
   }
 }
 
@@ -179,18 +193,14 @@ export function TeamTrainingMaterialPage() {
             {openUrl && downloadUrl && !linksLoading ? (
               <>
                 <a
-                  href={openUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={trainingFileHref(openUrl)}
                   onClick={(event) => openTrainingFile(event, openUrl)}
                   className="inline-flex min-h-[3rem] w-full touch-manipulation items-center justify-center gap-2 rounded-xl border border-slate-900 bg-slate-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:scale-[0.99]"
                 >
                   교육자료 열기
                 </a>
                 <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={trainingFileHref(downloadUrl)}
                   onClick={(event) => openTrainingFile(event, downloadUrl)}
                   className="inline-flex min-h-[3rem] w-full touch-manipulation items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:scale-[0.99]"
                 >
@@ -218,7 +228,7 @@ export function TeamTrainingMaterialPage() {
             <>
               <div className="flex flex-wrap gap-2">
                 <a
-                  href={openUrl}
+                  href={trainingFileHref(openUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(event) => openTrainingFile(event, openUrl)}
@@ -227,7 +237,7 @@ export function TeamTrainingMaterialPage() {
                   새 탭에서 열기
                 </a>
                 <a
-                  href={downloadUrl}
+                  href={trainingFileHref(downloadUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(event) => openTrainingFile(event, downloadUrl)}
