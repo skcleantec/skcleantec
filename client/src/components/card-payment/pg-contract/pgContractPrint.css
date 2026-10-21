@@ -1,0 +1,219 @@
+.pg-scale-host {
+  width: 100%;
+  overflow: hidden;
+}
+
+.pg-scale {
+  width: 210mm;
+  transform-origin: top center;
+}
+
+.pg-sheet {
+  width: 210mm;
+  height: 297mm;
+  box-sizing: border-box;
+  background: #fff;
+  color: #0f172a;
+  font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  font-size: 8pt;
+  line-height: 1.32;
+  position: relative;
+  overflow: hidden;
+}
+
+.pg-sheet-head,
+.pg-sheet-foot {
+  position: absolute;
+  left: 12mm;
+  right: 12mm;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4mm;
+  font-size: 7.5pt;
+}
+
+.pg-sheet-head {
+  top: 6mm;
+  height: 7mm;
+  border-bottom: 0.35mm solid #0f172a;
+  font-weight: 600;
+}
+
+.pg-sheet-foot {
+  bottom: 6mm;
+  height: 6mm;
+  align-items: center;
+  border-top: 0.2mm solid #cbd5e1;
+  color: #475569;
+  font-weight: 400;
+}
+
+.pg-sheet-body {
+  position: absolute;
+  top: 15mm;
+  right: 12mm;
+  bottom: 14mm;
+  left: 12mm;
+  overflow: hidden;
+}
+
+.pg-sheet h1 {
+  margin: 0 0 1.6mm;
+  font-size: 11pt;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.pg-sheet h2 {
+  margin: 2.2mm 0 1mm;
+  font-size: 9pt;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.pg-sheet p {
+  margin: 0 0 1.1mm;
+}
+
+.pg-center {
+  text-align: center;
+}
+
+.pg-muted {
+  color: #334155;
+}
+
+.pg-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 1.2mm 0 1.6mm;
+}
+
+.pg-table th,
+.pg-table td {
+  border: 0.2mm solid #cbd5e1;
+  padding: 0.7mm 1.3mm;
+  vertical-align: middle;
+  word-break: keep-all;
+}
+
+.pg-table th {
+  width: 28mm;
+  background: #f8fafc;
+  font-weight: 600;
+  text-align: left;
+}
+
+.pg-blank {
+  display: inline-block;
+  min-width: 28mm;
+  height: 4.2mm;
+  border-bottom: 0.25mm solid #0f172a;
+  vertical-align: baseline;
+}
+
+.pg-blank input {
+  width: 100%;
+  height: 4mm;
+  border: 0;
+  padding: 0 0.4mm;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  outline: none;
+}
+
+.pg-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8mm;
+  margin-right: 2.4mm;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pg-choice:disabled {
+  cursor: default;
+}
+
+.pg-choice:focus-visible {
+  outline: 0.4mm solid #0f172a;
+  outline-offset: 0.4mm;
+}
+
+.pg-mark {
+  display: inline-block;
+  width: 3.2mm;
+  text-align: center;
+}
+
+.pg-circled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12mm;
+  height: 5.2mm;
+  margin: 0 0.6mm;
+  border: 0.35mm solid #0f172a;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+.pg-seal {
+  display: inline-block;
+  width: 16mm;
+  height: 16mm;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.pg-sign-img {
+  display: inline-block;
+  max-width: 36mm;
+  max-height: 14mm;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.pg-print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  body > *:not(.pg-print-root) {
+    display: none !important;
+  }
+
+  body > .pg-print-root {
+    display: block !important;
+    width: 210mm;
+  }
+
+  .pg-sheet {
+    display: block !important;
+    break-after: page;
+    page-break-after: always;
+    box-shadow: none !important;
+  }
+
+  .pg-print-root > div:last-child .pg-sheet {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}

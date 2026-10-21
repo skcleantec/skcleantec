@@ -76,9 +76,9 @@ export const PG_CONTRACT_DEFAULT_BODY = `<p style="text-align:center">주식회�
 <h1>4. 수수료와 정산일</h1>
 <p>이 계약의 결제수단은 국내 신용카드(체크·직불 포함)입니다. 계좌이체, 가상계좌, 휴대폰, 상품권, 해외카드, 간편결제는 회사와 결제대행사가 따로 합의한 때에만 열립니다.</p>
 <table>
-<tr><th>국내 신용카드 수수료</th><td>% (부가세 별도)</td></tr>
-<tr><th>영세 · 중소 우대</th><td>영세 % &nbsp; 중소1 % &nbsp; 중소2 % &nbsp; 중소3 %</td></tr>
-<tr><th>정산</th><td>□ 일정산 D+ &nbsp; 일 &nbsp;&nbsp; □ 월 1회 (익월 8일, 전월 승인분)</td></tr>
+<tr><th>국내 신용카드 수수료</th><td>3.3% (부가세 별도)</td></tr>
+<tr><th>영세 · 중소 우대</th><td>영세 % &nbsp; <span style="display:inline-block;min-width:14mm;text-align:center;border:0.4mm solid #111;border-radius:50%;font-weight:700">중소1</span> % &nbsp; 중소2 % &nbsp; 중소3 %</td></tr>
+<tr><th>정산</th><td>■ 일정산 D+ &nbsp; 일 &nbsp;&nbsp; □ 월 1회 (익월 8일, 전월 승인분)</td></tr>
 </table>
 <p>여신전문금융업법 제18조의3에 따라 가맹점의 영세·중소 여부는 국세청 매출을 기준으로 반기마다 다시 매겨집니다. 카드사 원가가 바뀌면 위 수수료도 바뀔 수 있습니다. 회사는 청소비서 화면 또는 이메일로 알립니다.</p>
 

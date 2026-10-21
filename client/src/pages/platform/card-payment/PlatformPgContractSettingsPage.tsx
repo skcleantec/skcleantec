@@ -3,13 +3,8 @@ import { BTN_PRIMARY, CARD_SECTION, INPUT_BASE } from '../../../utils/platformUi
 import { PlatformCardPaymentTabs } from './PlatformCardPaymentTabs';
 import { API } from '../../../api/apiPrefix';
 import { getPlatformToken } from '../../../stores/platformAuth';
-import { PgContractFillPreviewModal } from './PgContractFillPreviewModal';
-import {
-  PG_CONTRACT_TYPE_LABEL,
-  PgContractPreview,
-  placeFieldInContract,
-  type PgContractFieldDraft,
-} from './PgContractPreview';
+import { PgContractBook } from '../../../components/card-payment/pg-contract/PgContractBook';
+import { PG_CONTRACT_TYPE_LABEL, placeFieldInContract, type PgContractFieldDraft } from './PgContractPreview';
 
 const TYPES = Object.keys(PG_CONTRACT_TYPE_LABEL) as PgContractFieldDraft['inputType'][];
 
@@ -23,10 +18,9 @@ export function PlatformPgContractSettingsPage() {
   const [fields, setFields] = useState<PgContractFieldDraft[]>([]);
   const [label, setLabel] = useState('');
   const [inputType, setInputType] = useState<PgContractFieldDraft['inputType']>('TEXT');
-  const [activeToken, setActiveToken] = useState<string | null>(null);
+  const [sim, setSim] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     void fetch(`${API}/platform/card-payment/contract`, { headers: headers() })
@@ -55,7 +49,6 @@ export function PlatformPgContractSettingsPage() {
     const next = { token, label: name, inputType, required: true, sortOrder: (fields.length + 1) * 10 };
     setFields((prev) => [...prev, next]);
     setBodyHtml((prev) => placeFieldInContract(prev, next));
-    setActiveToken(token);
     setLabel('');
   };
 
@@ -84,40 +77,15 @@ export function PlatformPgContractSettingsPage() {
         <h1 className="text-xl font-semibold text-gray-900">전자계약</h1>
         <PlatformCardPaymentTabs />
         <p className="mt-1 text-sm text-gray-500">
-          신청서, 이용계약 제1조부터 제20조, 전자서명, 부속서까지 계약서 전체가 아래에 나옵니다. 색 칸이 업체가 적는 자리입니다.
+          16쪽 고정 서식입니다. 이전·다음으로 칸과 체크를 지나고, 전체 인쇄는 이 쪽 나눔 그대로 나갑니다. 수수료 3.3%, 중소1, 일정산은 잠겨 있습니다.
         </p>
       </div>
-      <PgContractFillPreviewModal
-        open={previewOpen}
-        title={title}
-        bodyHtml={bodyHtml}
-        fields={fields}
-        onClose={() => setPreviewOpen(false)}
-      />
       {msg ? <p className="text-sm text-gray-800">{msg}</p> : null}
-      <section className={CARD_SECTION}>
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-sm font-semibold text-gray-900">계약서 전체</h2>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            onClick={() => setPreviewOpen(true)}
-          >
-            칸 입력 확인
-          </button>
-        </div>
-        <label className="block text-sm text-gray-700">
-          계약서 제목
-          <input className={`${INPUT_BASE} mt-1`} value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
-        <PgContractPreview
-          title={title}
-          bodyHtml={bodyHtml}
-          fields={fields}
-          activeToken={activeToken}
-          onSelect={setActiveToken}
-        />
-      </section>
+      <PgContractBook
+        mode="preview"
+        values={sim}
+        onChange={(key, value) => setSim((prev) => ({ ...prev, [key]: value }))}
+      />
       <section className={CARD_SECTION}>
         <h2 className="text-sm font-semibold text-gray-900">입력 칸</h2>
         <ul className="space-y-2 text-sm text-gray-800">
@@ -125,22 +93,15 @@ export function PlatformPgContractSettingsPage() {
             const placed = bodyHtml.includes(field.token);
             return (
               <li key={field.token} className="flex flex-wrap items-center justify-between gap-2">
-                <button
-                  type="button"
-                  className="min-w-0 truncate text-left hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                  onClick={() => setActiveToken(field.token)}
-                >
+                <span className="min-w-0 truncate text-left">
                   {field.label} · {PG_CONTRACT_TYPE_LABEL[field.inputType]} · {placed ? '계약서에 있음' : '계약서에 없음'}
-                </button>
+                </span>
                 <span className="flex shrink-0 gap-1">
                   {placed ? null : (
                     <button
                       type="button"
                       className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-                      onClick={() => {
-                        setBodyHtml((prev) => placeFieldInContract(prev, field));
-                        setActiveToken(field.token);
-                      }}
+                      onClick={() => setBodyHtml((prev) => placeFieldInContract(prev, field))}
                     >
                       계약서에 넣기
                     </button>

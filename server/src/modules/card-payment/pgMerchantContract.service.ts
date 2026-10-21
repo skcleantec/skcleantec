@@ -119,6 +119,25 @@ function prefillFor(row: TenantPgOnboarding, token: string): string {
   return '';
 }
 
+function newPgContractNo() {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const y = kst.getUTCFullYear();
+  const m = String(kst.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(kst.getUTCDate()).padStart(2, '0');
+  const tail = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `SB-PG-${y}${m}${d}-${tail}`;
+}
+
+const PG_EXTRA_KEY = /^(?:\[\[EC_[A-Z0-9_]+\]\]|pg[A-Z][A-Za-z0-9]{0,40})$/;
+
+function extraContractValue(key: string, raw: unknown): string | null {
+  if (!PG_EXTRA_KEY.test(key) || typeof raw !== 'string') return null;
+  const str = raw.trim();
+  if (!str || str.length > 500) return null;
+  if (/\d{13,19}/.test(str.replace(/[\s-]/g, ''))) return null;
+  return str;
+}
+
 function checkField(field: PgContractField, raw: string): string {
   const str = raw.trim();
   if (field.inputType === 'CHECKBOX') {
@@ -151,6 +170,9 @@ export async function getTenantPgContract(tenantId: string) {
     values[field.token] = saved[field.token] || prefillFor(row, field.token);
   }
   if (saved[EC_SIGNATURE_TOKEN]) values[EC_SIGNATURE_TOKEN] = saved[EC_SIGNATURE_TOKEN];
+  for (const [key, value] of Object.entries(saved)) {
+    if (key.startsWith('pg') && value) values[key] = value;
+  }
   return {
     ready: true as const,
     signed: Boolean(row.contractSignedAt),
@@ -178,11 +200,20 @@ export async function submitTenantPgContract(
     const val = checkField(field, typeof raw === 'string' ? raw : '');
     if (val) values[field.token] = val;
   }
+  for (const [key, raw] of Object.entries(input.signerFields)) {
+    if (values[key]) continue;
+    const extra = extraContractValue(key, raw);
+    if (extra) values[key] = extra;
+  }
+  values.pgContractNo = newPgContractNo();
+  values.pgFeeRate = '3.3';
+  values.pgFeeTier = 'smb1';
+  values.pgSettle = 'daily';
   const saved = await prisma.tenantPgOnboarding.update({
     where: { tenantId },
     data: { contractSignedAt: new Date(), contractValues: values },
   });
-  return { signedAt: saved.contractSignedAt?.toISOString() ?? '' };
+  return { signedAt: saved.contractSignedAt?.toISOString() ?? '', contractNo: values.pgContractNo };
 }
 
 export async function uploadPgContractImage(tenantId: string, buffer: Buffer, mimetype: string) {
@@ -216,5 +247,6 @@ export async function getPartnerPgContract(onboardingId: string) {
     signedAt: row.contractSignedAt?.toISOString() ?? null,
     title: template.title,
     bodyHtml: row.contractSignedAt ? expandEcTokenMap(template.bodyHtml, values) : template.bodyHtml,
+    values,
   };
 }

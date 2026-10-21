@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PgContractBook } from '../../../components/card-payment/pg-contract/PgContractBook';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
 
 type Template = { title: string; bodyHtml: string };
@@ -10,13 +11,21 @@ type Item = {
   status: string;
   contractSignedAt: string | null;
 };
-type Signed = { title: string; bodyHtml: string; businessName: string | null; signed: boolean; signedAt: string | null };
+type Signed = {
+  title: string;
+  bodyHtml: string;
+  businessName: string | null;
+  signed: boolean;
+  signedAt: string | null;
+  values?: Record<string, string>;
+};
 
 export function PgPartnerContractsPage() {
   const navigate = useNavigate();
   const [template, setTemplate] = useState<Template | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [opened, setOpened] = useState<Signed | null>(null);
+  const [sim, setSim] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,11 +73,13 @@ export function PgPartnerContractsPage() {
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="text-fluid-sm font-semibold text-slate-900">{template?.title || '계약서'}</h2>
-        {template?.bodyHtml ? (
-          <div className="mt-3 text-sm leading-relaxed text-slate-800 [&_h1]:mt-6 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:font-semibold [&_p]:mt-2 [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left" dangerouslySetInnerHTML={{ __html: template.bodyHtml }} />
-        ) : (
-          <p className="mt-3 text-fluid-xs text-slate-500">불러오는 중…</p>
-        )}
+        <div className="mt-3">
+          <PgContractBook
+            mode="preview"
+            values={sim}
+            onChange={(key, value) => setSim((prev) => ({ ...prev, [key]: value }))}
+          />
+        </div>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white">
         <h2 className="border-b border-slate-100 px-4 py-3 text-fluid-sm font-semibold text-slate-900">승인된 업체</h2>
@@ -93,7 +104,14 @@ export function PgPartnerContractsPage() {
           <h2 className="text-fluid-sm font-semibold text-slate-900">
             {opened.businessName || '업체'} · {opened.signed ? '작성본' : '작성 전'}
           </h2>
-          <div className="mt-3 text-sm leading-relaxed text-slate-800 [&_h1]:mt-6 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:font-semibold [&_p]:mt-2 [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left" dangerouslySetInnerHTML={{ __html: opened.bodyHtml }} />
+          <div className="mt-3">
+            <PgContractBook
+              mode="read"
+              values={opened.values ?? {}}
+              contractNo={opened.values?.pgContractNo}
+              onChange={() => undefined}
+            />
+          </div>
         </section>
       ) : null}
     </div>
