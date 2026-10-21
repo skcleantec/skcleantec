@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BTN_PRIMARY, CARD_SECTION, INPUT_BASE } from '../../../utils/platformUi';
+import { openPgContractWindow } from '../../../utils/openPgContractWindow';
 import { PlatformCardPaymentTabs } from './PlatformCardPaymentTabs';
 import { API } from '../../../api/apiPrefix';
 import { getPlatformToken } from '../../../stores/platformAuth';
@@ -79,6 +80,13 @@ export function PlatformPgContractSettingsPage() {
         <p className="mt-1 text-sm text-gray-500">
           내용은 용지 맨 위부터 바닥까지 이어서 채우고, 다 찬 뒤에만 다음 장으로 넘깁니다. 전체 인쇄도 그 장 수만큼 나갑니다. 수수료 3.3%, 중소1, 일정산은 잠겨 있습니다.
         </p>
+        <button
+          type="button"
+          className={`${BTN_PRIMARY} mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none`}
+          onClick={() => openPgContractWindow('/platform/pg-contract')}
+        >
+          전자계약하기
+        </button>
       </div>
       {msg ? <p className="text-sm text-gray-800">{msg}</p> : null}
       <PgContractBook

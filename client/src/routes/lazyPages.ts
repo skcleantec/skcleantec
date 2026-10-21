@@ -162,6 +162,11 @@ export const PlatformPgContractSettingsPage = lazyWithRetry(() =>
     default: m.PlatformPgContractSettingsPage,
   }))
 );
+export const PlatformPgContractDeskPage = lazyWithRetry(() =>
+  import('../pages/platform/card-payment/PlatformPgContractDeskPage').then((m) => ({
+    default: m.PlatformPgContractDeskPage,
+  }))
+);
 export const PlatformCardChargePage = lazyWithRetry(() =>
   import('../pages/platform/card-payment/PlatformCardChargePage').then((m) => ({
     default: m.PlatformCardChargePage,

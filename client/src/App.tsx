@@ -71,6 +71,7 @@ import {
   PgPartnerContractsPage,
   PlatformCardPaymentPage,
   PlatformPgContractSettingsPage,
+  PlatformPgContractDeskPage,
   PlatformCardChargePage,
   PublicCardPaymentLinkPage,
   PaysisCheckoutOkPage,
@@ -512,6 +513,14 @@ function App() {
             <ProtectedRoute>
               <SuspensePage><AdminPgContractSignPage /></SuspensePage>
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/platform/pg-contract"
+          element={
+            <PlatformProtectedRoute>
+              <SuspensePage><PlatformPgContractDeskPage /></SuspensePage>
+            </PlatformProtectedRoute>
           }
         />
         <Route path="/legal/agree/:token" element={<SuspensePage><LegalAgreePublicPage /></SuspensePage>} />
