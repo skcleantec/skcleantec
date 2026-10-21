@@ -29,15 +29,42 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-export function contractPreviewHtml(bodyHtml: string, fields: PgContractFieldDraft[], activeToken: string | null) {
-  return bodyHtml.replace(/\[\[EC_[A-Z0-9_]+\]\]/g, (token) => {
-    const field = fields.find((item) => item.token === token);
-    const signature = token === '[[EC_SIGNATURE]]';
-    const label = signature ? '서명' : field?.label || '지정 안 된 칸';
-    const kind = signature ? '서명' : field ? PG_CONTRACT_TYPE_LABEL[field.inputType] : '칸 없음';
-    const cls = !signature && !field ? CHIP_MISS : activeToken === token ? CHIP_ON : CHIP_OK;
-    return `<span data-ec-token="${escapeHtml(token)}" class="${cls}">${escapeHtml(label)} · ${escapeHtml(kind)}</span>`;
-  });
+function looksLikeImage(value: string) {
+  return /^(https:\/\/|blob:|data:image\/)/i.test(value.trim());
+}
+
+function slotHtml(
+  token: string,
+  fields: PgContractFieldDraft[],
+  values: Record<string, string> | undefined,
+  activeToken: string | null,
+) {
+  const field = fields.find((item) => item.token === token);
+  const signature = token === '[[EC_SIGNATURE]]';
+  const label = signature ? '서명' : field?.label || '지정 안 된 칸';
+  const kind = signature ? '서명' : field ? PG_CONTRACT_TYPE_LABEL[field.inputType] : '칸 없음';
+  const raw = (values?.[token] ?? '').trim();
+  const cls = !signature && !field ? CHIP_MISS : activeToken === token ? CHIP_ON : CHIP_OK;
+  if ((signature || token.includes('SEAL') || field?.inputType === 'SEAL') && looksLikeImage(raw)) {
+    return `<img data-ec-token="${escapeHtml(token)}" src="${escapeHtml(raw)}" alt="${escapeHtml(label)}" class="inline-block h-16 w-16 object-contain align-middle" />`;
+  }
+  if (field?.inputType === 'CHECKBOX') {
+    const mark = raw === 'Y' || raw === '■' ? '■' : '□';
+    return `<span data-ec-token="${escapeHtml(token)}" class="${cls}">${mark} ${escapeHtml(label)}</span>`;
+  }
+  if (raw) {
+    return `<span data-ec-token="${escapeHtml(token)}" class="${cls}">${escapeHtml(raw)}</span>`;
+  }
+  return `<span data-ec-token="${escapeHtml(token)}" class="${cls}">${escapeHtml(label)} · ${escapeHtml(kind)}</span>`;
+}
+
+export function contractPreviewHtml(
+  bodyHtml: string,
+  fields: PgContractFieldDraft[],
+  activeToken: string | null,
+  values?: Record<string, string>,
+) {
+  return bodyHtml.replace(/\[\[EC_[A-Z0-9_]+\]\]/g, (token) => slotHtml(token, fields, values, activeToken));
 }
 
 export function placeFieldInContract(bodyHtml: string, field: Pick<PgContractFieldDraft, 'token' | 'label'>) {
@@ -51,10 +78,11 @@ type Props = {
   bodyHtml: string;
   fields: PgContractFieldDraft[];
   activeToken: string | null;
+  values?: Record<string, string>;
   onSelect: (token: string) => void;
 };
 
-export function PgContractPreview({ title, bodyHtml, fields, activeToken, onSelect }: Props) {
+export function PgContractPreview({ title, bodyHtml, fields, activeToken, values, onSelect }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -77,7 +105,7 @@ export function PgContractPreview({ title, bodyHtml, fields, activeToken, onSele
       {bodyHtml.trim() ? (
         <div
           className="mt-3 space-y-2 text-sm leading-relaxed text-slate-800 [&_h2]:text-base [&_h2]:font-semibold [&_p]:mt-2"
-          dangerouslySetInnerHTML={{ __html: contractPreviewHtml(bodyHtml, fields, activeToken) }}
+          dangerouslySetInnerHTML={{ __html: contractPreviewHtml(bodyHtml, fields, activeToken, values) }}
         />
       ) : (
         <p className="mt-3 text-sm text-slate-500">계약서 문구가 없습니다. 아래에서 문구를 넣으면 여기에 보입니다.</p>

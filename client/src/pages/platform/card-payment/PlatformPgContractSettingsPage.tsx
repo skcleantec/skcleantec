@@ -3,6 +3,7 @@ import { BTN_PRIMARY, CARD_SECTION, INPUT_BASE } from '../../../utils/platformUi
 import { PlatformCardPaymentTabs } from './PlatformCardPaymentTabs';
 import { API } from '../../../api/apiPrefix';
 import { getPlatformToken } from '../../../stores/platformAuth';
+import { PgContractFillPreviewModal } from './PgContractFillPreviewModal';
 import {
   PG_CONTRACT_TYPE_LABEL,
   PgContractPreview,
@@ -25,6 +26,7 @@ export function PlatformPgContractSettingsPage() {
   const [activeToken, setActiveToken] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     void fetch(`${API}/platform/card-payment/contract`, { headers: headers() })
@@ -82,9 +84,23 @@ export function PlatformPgContractSettingsPage() {
         <h1 className="text-xl font-semibold text-gray-900">전자계약</h1>
         <PlatformCardPaymentTabs />
         <p className="mt-1 text-sm text-gray-500">
-          계약서를 미리 보고, 업체가 적을 칸이 그 자리에 들어갔는지 확인한 뒤 저장합니다.
+          작성 화면 미리보기에서 업체가 칸마다 적고 체크하는 화면을 그대로 볼 수 있습니다. 미리보기에 적은 내용은 저장되지 않습니다.
         </p>
+        <button
+          type="button"
+          className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          onClick={() => setPreviewOpen(true)}
+        >
+          작성 화면 미리보기
+        </button>
       </div>
+      <PgContractFillPreviewModal
+        open={previewOpen}
+        title={title}
+        bodyHtml={bodyHtml}
+        fields={fields}
+        onClose={() => setPreviewOpen(false)}
+      />
       {msg ? <p className="text-sm text-gray-800">{msg}</p> : null}
       <section className={CARD_SECTION}>
         <div className="flex flex-wrap items-end justify-between gap-2">
