@@ -61,6 +61,7 @@ COPY --from=build /app/server/node_modules ./node_modules
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/prisma ./prisma
 COPY --from=build /app/server/scripts ./scripts
+COPY --from=build /app/server/assets/sk-team-leader-training ./assets/sk-team-leader-training
 COPY --from=build /app/client/dist /app/client/dist
 
 CMD ["npm", "run", "start"]

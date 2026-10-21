@@ -6,6 +6,14 @@ export type TeamLeaderTrainingMeta = {
   available: boolean;
   fileName: string | null;
   updatedAt: string | null;
+  kind?: 'images' | 'pdf' | null;
+  imageCount?: number;
+  teamView?: 'images' | 'pdf';
+};
+
+export type TeamLeaderTrainingImageList = {
+  count: number;
+  items: { index: number; title: string }[];
 };
 
 function teamHeaders(token: string) {
@@ -40,6 +48,26 @@ export async function fetchTeamLeaderTrainingFileLinks(
   if (res.status === 404) throw new Error('등록된 교육자료가 없습니다.');
   if (!res.ok) throw new Error('교육자료를 불러올 수 없습니다.');
   return res.json() as Promise<TeamLeaderTrainingFileLinks>;
+}
+
+export async function fetchTeamLeaderTrainingImages(
+  token: string,
+): Promise<TeamLeaderTrainingImageList> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/training-material/images`), {
+    headers: teamHeaders(token),
+  });
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  if (!res.ok) throw new Error('교육자료를 불러올 수 없습니다.');
+  return res.json() as Promise<TeamLeaderTrainingImageList>;
+}
+
+export async function fetchTeamLeaderTrainingImageBlob(token: string, index: number): Promise<Blob> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/training-material/images/${index}`), {
+    headers: teamHeaders(token),
+  });
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  if (!res.ok) throw new Error('교육자료 장을 불러올 수 없습니다.');
+  return res.blob();
 }
 
 export async function fetchTeamLeaderTrainingPdfBlob(token: string): Promise<Blob> {

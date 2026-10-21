@@ -7,6 +7,7 @@ import {
   TEAM_LEADER_TRAINING_PDF_FILENAME,
   uploadTeamLeaderTrainingPdf,
 } from './teamLeaderTraining.service.js';
+import { skTeamTrainingImageMeta } from './skTeamLeaderTrainingImages.js';
 
 const router = Router();
 
@@ -27,8 +28,15 @@ router.use(authMiddleware, adminOnly);
 router.get('/', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
-  const meta = await getTeamLeaderTrainingMeta(tenantId);
-  res.json(meta);
+  const [meta, images] = await Promise.all([
+    getTeamLeaderTrainingMeta(tenantId),
+    skTeamTrainingImageMeta(tenantId),
+  ]);
+  res.json({
+    ...meta,
+    teamView: images ? 'images' : 'pdf',
+    imageCount: images?.imageCount ?? 0,
+  });
 });
 
 /** POST /api/admin/team-leader-training — PDF 교체 업로드 */

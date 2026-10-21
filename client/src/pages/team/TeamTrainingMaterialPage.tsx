@@ -7,6 +7,7 @@ import {
 } from '../../api/teamLeaderTraining';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { SkTeamTrainingGallery } from '../../components/team/SkTeamTrainingGallery';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
@@ -120,7 +121,7 @@ export function TeamTrainingMaterialPage() {
   }, [token, navigate, capturePreviewKey, isPreviewFetchStale, previewKey]);
 
   useEffect(() => {
-    if (!meta?.available || !token) return;
+    if (!meta?.available || meta.kind === 'images' || !token) return;
     const startedKey = capturePreviewKey();
     let cancelled = false;
     const load = (quiet: boolean) => {
@@ -144,7 +145,7 @@ export function TeamTrainingMaterialPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [meta?.available, token, handlePdfError, capturePreviewKey, isPreviewFetchStale]);
+  }, [meta?.available, meta?.kind, token, handlePdfError, capturePreviewKey, isPreviewFetchStale]);
 
   const updatedLabel = formatUpdatedAt(meta?.updatedAt ?? null);
   const showDesktopViewer = isLgUp && Boolean(openUrl) && !linksLoading;
@@ -172,7 +173,9 @@ export function TeamTrainingMaterialPage() {
         </div>
       ) : null}
 
-      {!loading && meta?.available && !isLgUp ? (
+      {!loading && meta?.kind === 'images' && token ? <SkTeamTrainingGallery token={token} /> : null}
+
+      {!loading && meta?.available && meta.kind !== 'images' && !isLgUp ? (
         <div className="flex flex-col gap-2 sm:gap-3">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-5">
             <div className="flex items-start gap-3">
@@ -216,7 +219,7 @@ export function TeamTrainingMaterialPage() {
         </div>
       ) : null}
 
-      {!loading && meta?.available && isLgUp ? (
+      {!loading && meta?.available && meta.kind !== 'images' && isLgUp ? (
         <div className="min-w-0 flex flex-col gap-3">
           {linksLoading ? (
             <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-fluid-sm text-gray-500">

@@ -86,8 +86,9 @@ export function AdminTeamLeaderTrainingPage() {
           <h1 className="text-xl font-semibold text-gray-800">현장팀장 교육자료</h1>
         </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
-          업체별로 PDF를 등록·교체합니다. 팀장 GNB 이름 메뉴에 「현장팀장 교육자료」로 노출되며, 교체 시 팀장 화면에
-          즉시 반영됩니다.
+          {meta?.teamView === 'images'
+            ? `이 업체 팀장은 이름 메뉴 「현장팀장 교육자료」에서 이미지 ${meta.imageCount ?? 0}장을 봅니다. 다른 업체 팀장에게는 보이지 않습니다.`
+            : '업체별로 PDF를 등록·교체합니다. 팀장 이름 메뉴에 「현장팀장 교육자료」로 노출되며, 교체 시 팀장 화면에 반영됩니다.'}
         </p>
       </div>
 
@@ -105,7 +106,11 @@ export function AdminTeamLeaderTrainingPage() {
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
         <div>
           <h2 className="text-base font-semibold text-gray-900">등록 상태</h2>
-          {meta?.available ? (
+          {meta?.teamView === 'images' ? (
+            <p className="mt-2 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
+              팀장 화면에는 이미지 교육자료 {meta.imageCount ?? 0}장이 연결되어 있습니다.
+            </p>
+          ) : meta?.available ? (
             <ul className="mt-2 space-y-1 text-sm text-gray-700">
               {updatedLabel ? <li>업데이트: {updatedLabel}</li> : null}
             </ul>
