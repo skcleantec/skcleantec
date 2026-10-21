@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  fetchTeamLeaderTrainingFileLinks,
   fetchTeamLeaderTrainingMeta,
-  fetchTeamLeaderTrainingPdfBlob,
   type TeamLeaderTrainingMeta,
 } from '../../api/teamLeaderTraining';
 import { isAuthSessionExpiredError } from '../../api/auth';
@@ -10,9 +10,8 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
+import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
-
-const DOWNLOAD_NAME = '현장팀장 교육자료.pdf';
 
 function formatUpdatedAt(iso: string | null): string | null {
   if (!iso) return null;
@@ -35,6 +34,20 @@ function PdfOpenIcon({ className }: { className?: string }) {
   );
 }
 
+/** 업무 앱은 새 창 PDF를 막으므로 휴대폰 기본 앱에서 연다. 브라우저에서는 링크 그대로. */
+function openTrainingFile(event: { preventDefault: () => void }, url: string) {
+  const openExternal = window.CbiseoApp?.openExternalUrl;
+  if (typeof openExternal === 'function') {
+    event.preventDefault();
+    openExternal(url);
+    return;
+  }
+  if (isCbiseoStaffNativeApp()) {
+    event.preventDefault();
+    window.location.assign(url);
+  }
+}
+
 export function TeamTrainingMaterialPage() {
   useDocumentTitle('현장팀장 교육자료');
   const navigate = useNavigate();
@@ -46,19 +59,10 @@ export function TeamTrainingMaterialPage() {
 
   const [meta, setMeta] = useState<TeamLeaderTrainingMeta | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [mobileAction, setMobileAction] = useState<'open' | 'download' | null>(null);
+  const [linksLoading, setLinksLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const pdfUrlRef = useRef<string | null>(null);
-
-  const revokePdfUrl = useCallback(() => {
-    if (pdfUrlRef.current) {
-      URL.revokeObjectURL(pdfUrlRef.current);
-      pdfUrlRef.current = null;
-    }
-    setPdfUrl(null);
-  }, []);
+  const [openUrl, setOpenUrl] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   const handlePdfError = useCallback(
     (e: unknown) => {
@@ -71,23 +75,6 @@ export function TeamTrainingMaterialPage() {
     },
     [navigate],
   );
-
-  const ensurePdfBlob = useCallback(async (): Promise<string> => {
-    if (pdfUrlRef.current) return pdfUrlRef.current;
-    if (!token) throw new Error('로그인이 필요합니다.');
-    setPdfLoading(true);
-    setErr(null);
-    try {
-      const blob = await fetchTeamLeaderTrainingPdfBlob(token);
-      revokePdfUrl();
-      const url = URL.createObjectURL(blob);
-      pdfUrlRef.current = url;
-      setPdfUrl(url);
-      return url;
-    } finally {
-      setPdfLoading(false);
-    }
-  }, [token, revokePdfUrl]);
 
   useEffect(() => {
     if (!token) {
@@ -119,53 +106,34 @@ export function TeamTrainingMaterialPage() {
   }, [token, navigate, capturePreviewKey, isPreviewFetchStale, previewKey]);
 
   useEffect(() => {
-    if (!meta?.available || !isLgUp || !token) return;
+    if (!meta?.available || !token) return;
     const startedKey = capturePreviewKey();
-    ensurePdfBlob().catch((e) => {
-      if (isPreviewFetchStale(startedKey)) return;
-      handlePdfError(e);
-    });
-  }, [meta?.available, isLgUp, token, ensurePdfBlob, handlePdfError, capturePreviewKey, isPreviewFetchStale]);
-
-  useEffect(() => () => revokePdfUrl(), [revokePdfUrl]);
-
-  const handleMobileOpen = async () => {
-    setMobileAction('open');
-    try {
-      const url = await ensurePdfBlob();
-      const opened = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!opened) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.click();
-      }
-    } catch (e) {
-      handlePdfError(e);
-    } finally {
-      setMobileAction(null);
-    }
-  };
-
-  const handleMobileDownload = async () => {
-    setMobileAction('download');
-    try {
-      const url = await ensurePdfBlob();
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = DOWNLOAD_NAME;
-      a.click();
-    } catch (e) {
-      handlePdfError(e);
-    } finally {
-      setMobileAction(null);
-    }
-  };
+    let cancelled = false;
+    const load = (quiet: boolean) => {
+      if (!quiet) setLinksLoading(true);
+      fetchTeamLeaderTrainingFileLinks(token)
+        .then((paths) => {
+          if (cancelled || isPreviewFetchStale(startedKey)) return;
+          setOpenUrl(`${window.location.origin}${paths.openPath}`);
+          setDownloadUrl(`${window.location.origin}${paths.downloadPath}`);
+          setLinksLoading(false);
+        })
+        .catch((e) => {
+          if (cancelled || isPreviewFetchStale(startedKey)) return;
+          setLinksLoading(false);
+          if (!quiet) handlePdfError(e);
+        });
+    };
+    load(false);
+    const timer = window.setInterval(() => load(true), 10 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [meta?.available, token, handlePdfError, capturePreviewKey, isPreviewFetchStale]);
 
   const updatedLabel = formatUpdatedAt(meta?.updatedAt ?? null);
-  const mobileBusy = pdfLoading || mobileAction !== null;
-  const showDesktopViewer = isLgUp && Boolean(pdfUrl) && !pdfLoading;
+  const showDesktopViewer = isLgUp && Boolean(openUrl) && !linksLoading;
 
   return (
     <div className="min-w-0 w-full max-w-full flex flex-col gap-2 pb-4 sm:gap-4 lg:pb-8">
@@ -208,49 +176,62 @@ export function TeamTrainingMaterialPage() {
           </div>
 
           <div className="flex flex-col gap-2.5">
-            <button
-              type="button"
-              onClick={() => void handleMobileOpen()}
-              disabled={mobileBusy}
-              className="inline-flex min-h-[3rem] w-full touch-manipulation items-center justify-center gap-2 rounded-xl border border-slate-900 bg-slate-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
-            >
-              {mobileAction === 'open' ? '불러오는 중…' : '교육자료 열기'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleMobileDownload()}
-              disabled={mobileBusy}
-              className="inline-flex min-h-[3rem] w-full touch-manipulation items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
-            >
-              {mobileAction === 'download' ? '준비 중…' : '파일 저장'}
-            </button>
+            {openUrl && downloadUrl && !linksLoading ? (
+              <>
+                <a
+                  href={openUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => openTrainingFile(event, openUrl)}
+                  className="inline-flex min-h-[3rem] w-full touch-manipulation items-center justify-center gap-2 rounded-xl border border-slate-900 bg-slate-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:scale-[0.99]"
+                >
+                  교육자료 열기
+                </a>
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => openTrainingFile(event, downloadUrl)}
+                  className="inline-flex min-h-[3rem] w-full touch-manipulation items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:scale-[0.99]"
+                >
+                  파일 저장
+                </a>
+              </>
+            ) : (
+              <p className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center text-fluid-sm text-gray-500">
+                {err ? '교육자료를 열 수 없습니다.' : '불러오는 중…'}
+              </p>
+            )}
           </div>
         </div>
       ) : null}
 
       {!loading && meta?.available && isLgUp ? (
         <div className="min-w-0 flex flex-col gap-3">
-          {pdfLoading ? (
+          {linksLoading ? (
             <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-fluid-sm text-gray-500">
               PDF 불러오는 중…
             </div>
           ) : null}
 
-          {showDesktopViewer ? (
+          {showDesktopViewer && openUrl && downloadUrl ? (
             <>
               <div className="flex flex-wrap gap-2">
                 <a
-                  href={pdfUrl!}
+                  href={openUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-lg border border-slate-900 bg-slate-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800"
+                  onClick={(event) => openTrainingFile(event, openUrl)}
+                  className="inline-flex items-center rounded-lg border border-slate-900 bg-slate-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                 >
                   새 탭에서 열기
                 </a>
                 <a
-                  href={pdfUrl!}
-                  download={DOWNLOAD_NAME}
-                  className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50"
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => openTrainingFile(event, downloadUrl)}
+                  className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                 >
                   다운로드
                 </a>
@@ -261,7 +242,7 @@ export function TeamTrainingMaterialPage() {
               >
                 <iframe
                   title="현장팀장 교육자료"
-                  src={pdfUrl!}
+                  src={openUrl}
                   className="block h-full w-full border-0 bg-white"
                 />
               </div>

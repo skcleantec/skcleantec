@@ -3,11 +3,12 @@ import { UserRole } from '@prisma/client';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
+import { getTeamLeaderTrainingMeta } from './teamLeaderTraining.service.js';
 import {
-  fetchTeamLeaderTrainingPdf,
-  getTeamLeaderTrainingMeta,
-  TEAM_LEADER_TRAINING_PDF_FILENAME,
-} from './teamLeaderTraining.service.js';
+  sendTeamLeaderTrainingPdf,
+  sendTeamLeaderTrainingPdfError,
+} from './teamLeaderTraining.pdfHttp.js';
+import { signTeamLeaderTrainingFileTicket } from './teamLeaderTraining.ticket.js';
 
 const router = Router();
 
@@ -33,7 +34,30 @@ router.get('/meta', async (req, res) => {
   res.json(meta);
 });
 
-/** GET /api/team/training-material/pdf — 인증 프록시 (Cloudinary URL 비노출) */
+/** GET /api/team/training-material/file-links — 열기·저장용 짧은 주소 */
+router.get('/file-links', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+
+  if (!isTeamLeaderRole(auth.role)) {
+    res.status(403).json({ error: '팀장만 열람할 수 있습니다.' });
+    return;
+  }
+
+  const meta = await getTeamLeaderTrainingMeta(tenantId);
+  if (!meta.available) {
+    res.status(404).json({ error: '등록된 교육자료가 없습니다.' });
+    return;
+  }
+
+  res.json({
+    openPath: `/api/public/team-training-file/${signTeamLeaderTrainingFileTicket(tenantId, false)}`,
+    downloadPath: `/api/public/team-training-file/${signTeamLeaderTrainingFileTicket(tenantId, true)}`,
+  });
+});
+
+/** GET /api/team/training-material/pdf — 인증 프록시 (저장소 주소 비노출) */
 router.get('/pdf', async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, auth);
@@ -45,27 +69,10 @@ router.get('/pdf', async (req, res) => {
   }
 
   try {
-    const { buffer, updatedAt } = await fetchTeamLeaderTrainingPdf({ tenantId });
-    const encoded = encodeURIComponent(TEAM_LEADER_TRAINING_PDF_FILENAME)
-      .replace(/['()]/g, escape)
-      .replace(/\*/g, '%2A');
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encoded}`);
-    if (updatedAt) res.setHeader('X-Training-Updated-At', updatedAt);
-    res.setHeader('Cache-Control', 'private, no-store');
-    res.send(buffer);
+    await sendTeamLeaderTrainingPdf(res, tenantId, false);
   } catch (e) {
-    const err = e as { code?: string; message?: string };
-    if (err.code === 'not_found') {
-      res.status(404).json({ error: err.message ?? '등록된 교육자료가 없습니다.' });
-      return;
-    }
-    if (err.code === 'upstream') {
-      res.status(502).json({ error: err.message ?? '교육자료 파일을 불러올 수 없습니다.' });
-      return;
-    }
-    console.error('[team-leader-training] pdf proxy failed', e);
-    res.status(500).json({ error: '교육자료를 불러올 수 없습니다.' });
+    if (res.headersSent) return;
+    sendTeamLeaderTrainingPdfError(res, e);
   }
 });
 

@@ -109,6 +109,7 @@ import platformReferrersRoutes from './modules/platform-referrals/platformReferr
 import tenantPlanUpgradeRoutes from './modules/tenants/tenantPlanUpgrade.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
+import teamLeaderTrainingPublicRoutes from './modules/team-leader-training/teamLeaderTraining.public.routes.js';
 import marketerPermissionsRoutes from './modules/marketer-permissions/marketerPermissions.routes.js';
 import { telecrmRoutes } from './modules/telecrm/telecrm.routes.js';
 import { getSoomgoBridgeManifest } from './modules/telecrm/soomgoBridgeManifest.js';
@@ -226,6 +227,7 @@ app.use('/api/admin/tenant-billing', tenantBillingRoutes);
 app.use('/api/admin/tenant-plan-upgrade', tenantPlanUpgradeRoutes);
 app.use('/api/admin/e-contracts', eContractAdminRoutes);
 app.use('/api/admin/team-leader-training', teamLeaderTrainingAdminRoutes);
+app.use('/api/public', teamLeaderTrainingPublicRoutes);
 app.use('/api/e-contract', eContractPublicRoutes);
 app.use('/api/crm', telecrmRoutes);
 app.get('/api/public/soomgo-bridge/manifest', (_req, res) => {
