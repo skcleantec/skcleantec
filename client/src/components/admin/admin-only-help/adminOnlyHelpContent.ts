@@ -83,6 +83,11 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
         title: '제출',
         body: '「PG 신청 제출」을 누르면 심사가 시작됩니다.\n화면은 다시 연결 상태로 돌아갑니다.',
       },
+      {
+        icon: 'document',
+        title: '전자계약하기',
+        body: '심사가 끝나면 「전자계약하기」가 나옵니다.\n누르면 작성 창이 따로 열립니다.\n그 창에서 칸을 적고 체크한 뒤 서명합니다.',
+      },
     ],
   },
   {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { PgContractBook } from '../../../components/card-payment/pg-contract/PgContractBook';
+import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { useLoginScrollSurface } from '../../../hooks/useMobileInputVisibility';
 import { API } from '../../../api/apiPrefix';
 import { getToken } from '../../../stores/auth';
@@ -31,7 +31,14 @@ async function uploadBlob(blob: Blob, filename: string) {
 }
 
 export function AdminPgContractSignPage() {
-  const navigate = useNavigate();
+  return (
+    <FeatureGate module="mod_card_payment">
+      <PgContractDesk />
+    </FeatureGate>
+  );
+}
+
+function PgContractDesk() {
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [payload, setPayload] = useState<ContractPayload | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -54,17 +61,23 @@ export function AdminPgContractSignPage() {
       .catch((e: unknown) => setMsg(e instanceof Error ? e.message : '불러오지 못했습니다.'));
   }, []);
 
-  const back = () => navigate(-1);
+  const closeDesk = () => {
+    if (window.opener && !window.opener.closed) {
+      window.close();
+      return;
+    }
+    window.location.assign('/admin/team-leaders/pg-onboarding');
+  };
 
   const submit = async () => {
     const token = getToken();
     const signatureUrl = values['[[EC_SIGNATURE]]'] || '';
     if (!token || !signatureUrl.startsWith('https://')) {
-      setMsg('12쪽에서 서명을 저장해 주세요.');
+      setMsg('서명 장에서 서명을 저장해 주세요.');
       return;
     }
     if (values['[[EC_CHECK]]'] !== 'Y') {
-      setMsg('12쪽에서 계약 내용에 동의해 주세요.');
+      setMsg('서명 장에서 계약 내용에 동의해 주세요.');
       return;
     }
     setBusy(true);
@@ -78,8 +91,9 @@ export function AdminPgContractSignPage() {
       const data = (await res.json().catch(() => ({}))) as { error?: string; contractNo?: string };
       if (!res.ok) throw new Error(data.error || '저장하지 못했습니다.');
       if (data.contractNo) setValues((prev) => ({ ...prev, pgContractNo: data.contractNo as string }));
-      setMsg('전자계약을 마쳤습니다.');
+      setMsg('전자계약을 마쳤습니다. 이 창을 닫으면 신청 화면으로 돌아갑니다.');
       setPayload((prev) => (prev ? { ...prev, signed: true } : prev));
+      window.opener?.postMessage({ type: 'pg-contract:signed' }, window.location.origin);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : '저장하지 못했습니다.');
     } finally {
@@ -88,35 +102,39 @@ export function AdminPgContractSignPage() {
   };
 
   return (
-    <div
-      ref={scrollRef}
-      onFocusCapture={onFieldFocus}
-      className="login-surface mx-auto min-h-dvh w-full max-w-3xl overflow-y-auto overscroll-y-contain px-3 py-4"
-    >
-      <button
-        type="button"
-        onClick={back}
-        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-fluid-xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+    <div className="flex h-dvh min-h-0 flex-col bg-slate-200">
+      <header className="pg-no-print flex shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2 text-white">
+        <p className="min-w-0 flex-1 truncate text-fluid-sm font-semibold">청소비서 · 카드결제 전자계약</p>
+        <button
+          type="button"
+          onClick={closeDesk}
+          className="min-h-9 shrink-0 rounded-lg border border-white/30 px-3 text-fluid-xs font-medium text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+        >
+          닫기
+        </button>
+      </header>
+      <div
+        ref={scrollRef}
+        onFocusCapture={onFieldFocus}
+        className="pg-desk-scroll login-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4"
       >
-        뒤로
-      </button>
-      <h1 className="mt-3 text-fluid-lg font-semibold text-slate-900">{payload?.title || '전자계약'}</h1>
-      <p className="mt-1 text-fluid-2xs text-slate-600">내용은 용지 맨 위부터 바닥까지 이어서 채웁니다. 칸과 체크는 그 장 안에서 하고, 도장과 서명은 전자서명 장에서 합니다.</p>
-      {msg ? <p className="mt-3 text-fluid-xs text-slate-800">{msg}</p> : null}
-      {payload && !payload.ready ? <p className="mt-4 text-fluid-sm text-slate-600">{payload.reason}</p> : null}
-      {payload?.ready ? (
-        <div className="mt-4">
-          <PgContractBook
-            mode={payload.signed ? 'read' : 'sign'}
-            values={values}
-            contractNo={values.pgContractNo}
-            onChange={(key, value) => setValues((prev) => ({ ...prev, [key]: value }))}
-            uploadBlob={uploadBlob}
-            busy={busy}
-            onSubmit={() => void submit()}
-          />
+        <div className="mx-auto w-full max-w-[220mm]">
+          {msg ? <p className="pg-no-print mb-3 rounded-lg bg-white px-3 py-2 text-fluid-xs text-slate-800 shadow-sm">{msg}</p> : null}
+          {!payload ? <p className="py-16 text-center text-fluid-sm text-slate-600">계약서를 불러오는 중…</p> : null}
+          {payload && !payload.ready ? <p className="py-16 text-center text-fluid-sm text-slate-700">{payload.reason}</p> : null}
+          {payload?.ready ? (
+            <PgContractBook
+              mode={payload.signed ? 'read' : 'sign'}
+              values={values}
+              contractNo={values.pgContractNo}
+              onChange={(key, value) => setValues((prev) => ({ ...prev, [key]: value }))}
+              uploadBlob={uploadBlob}
+              busy={busy}
+              onSubmit={() => void submit()}
+            />
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

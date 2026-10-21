@@ -353,11 +353,7 @@ function App() {
             />
             <Route
               path="card-payment/pg/contract"
-              element={
-                <FeatureGate module="mod_card_payment">
-                  <SuspensePage><AdminPgContractSignPage /></SuspensePage>
-                </FeatureGate>
-              }
+              element={<Navigate to="/pg-contract" replace />}
             />
             <Route
               path="card-payment/pg"
@@ -369,11 +365,7 @@ function App() {
             />
             <Route
               path="pg-onboarding/contract"
-              element={
-                <FeatureGate module="mod_card_payment">
-                  <SuspensePage><AdminPgContractSignPage /></SuspensePage>
-                </FeatureGate>
-              }
+              element={<Navigate to="/pg-contract" replace />}
             />
             <Route
               path="pg-onboarding/apply"
@@ -514,6 +506,14 @@ function App() {
           }
         />
         <Route path="/e-contract/sign/:token" element={<SuspensePage><EContractPublicSignPage /></SuspensePage>} />
+        <Route
+          path="/pg-contract"
+          element={
+            <ProtectedRoute>
+              <SuspensePage><AdminPgContractSignPage /></SuspensePage>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/legal/agree/:token" element={<SuspensePage><LegalAgreePublicPage /></SuspensePage>} />
         <Route
           path="/admin/order-prefill/:orderFormId"

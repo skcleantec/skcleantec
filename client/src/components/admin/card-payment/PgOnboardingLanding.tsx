@@ -155,7 +155,7 @@ export function PgOnboardingLanding({
             className="mt-4 flex min-h-14 w-full items-center justify-center rounded-xl bg-white px-5 text-fluid-base font-semibold text-slate-900 shadow-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
             onClick={onContract}
           >
-            전자계약 작성
+            전자계약하기
           </button>
         ) : null}
         {view === '우편발송' && onMailed ? (
@@ -180,7 +180,7 @@ export function PgOnboardingLanding({
             className="flex min-h-14 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-fluid-base font-semibold text-white shadow-sm hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             onClick={onContract}
           >
-            전자계약 작성
+            전자계약하기
           </button>
         ) : null}
         {view === '우편발송' && onMailed ? (

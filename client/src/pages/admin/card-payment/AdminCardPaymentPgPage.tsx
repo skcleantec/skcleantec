@@ -22,6 +22,7 @@ import { getToken } from '../../../stores/auth';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
 import { RoundBackButton } from '../../../components/ui/RoundBackButton';
+import { openPgContractWindow } from '../../../utils/openPgContractWindow';
 
 export function AdminCardPaymentPgPage() {
   return (
@@ -51,16 +52,35 @@ function AdminCardPaymentPgInner() {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    void fetchTenantPgState(token)
-      .then((res) => {
-        setRow(res.onboarding);
-        setConnected(res.credential.connected);
-        setMerchantMid(res.credential.connected ? res.credential.mid : null);
-        setMerchantOid(res.credential.connected ? res.credential.oid : null);
-        setError(null);
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : '불러오지 못했습니다.'))
-      .finally(() => setLoaded(true));
+    let cancelled = false;
+    const load = () => {
+      void fetchTenantPgState(token)
+        .then((res) => {
+          if (cancelled) return;
+          setRow(res.onboarding);
+          setConnected(res.credential.connected);
+          setMerchantMid(res.credential.connected ? res.credential.mid : null);
+          setMerchantOid(res.credential.connected ? res.credential.oid : null);
+          setError(null);
+        })
+        .catch((e: unknown) => {
+          if (!cancelled) setError(e instanceof Error ? e.message : '불러오지 못했습니다.');
+        })
+        .finally(() => {
+          if (!cancelled) setLoaded(true);
+        });
+    };
+    load();
+    const onSigned = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'pg-contract:signed') return;
+      load();
+    };
+    window.addEventListener('message', onSigned);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('message', onSigned);
+    };
   }, []);
 
   const view = pgConnectionView(connected, row?.status, row?.contractSignedAt, row?.contractMailedAt);
@@ -69,7 +89,7 @@ function AdminCardPaymentPgInner() {
       ? [merchantMid ? `MID ${merchantMid}` : null, merchantOid ? `OID ${merchantOid}` : null].filter(Boolean).join(' · ') ||
         '카드 결제가 연결되었습니다.'
       : view === '전자계약'
-        ? '심사가 끝났습니다. 가맹점 계약서를 작성합니다.'
+        ? '심사가 끝났습니다. 전자계약하기를 누르면 작성 창이 열립니다.'
         : view === '우편발송'
           ? '계약서를 작성했습니다. 우편으로 보낸 뒤 아래 버튼을 누릅니다.'
           : view === '코드연결'
@@ -216,7 +236,7 @@ function AdminCardPaymentPgInner() {
             view={view}
             detail={detail}
             onApply={() => navigate(applyPath)}
-            onContract={() => navigate(`${landingPath.replace(/\/$/, '')}/contract`)}
+            onContract={() => openPgContractWindow()}
             onMailed={() => {
               const token = getToken();
               if (!token) return;

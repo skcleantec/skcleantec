@@ -240,6 +240,17 @@
   display: none;
 }
 
+.pg-desk-scroll .pg-screen-root > .pg-no-print.flex {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 0 12px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
 @media print {
   @page {
     size: A4;
