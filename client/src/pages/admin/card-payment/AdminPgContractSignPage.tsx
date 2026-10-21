@@ -113,7 +113,7 @@ export function AdminPgContractSignPage() {
       ) : null}
       {payload?.bodyHtml ? (
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
-          <div className="prose-sm max-w-none text-fluid-xs text-slate-800" dangerouslySetInnerHTML={{ __html: payload.bodyHtml }} />
+          <div className="prose-sm max-w-none text-sm leading-relaxed text-slate-800 [&_h1]:mt-8 [&_h1]:border-b [&_h1]:border-slate-900 [&_h1]:pb-1 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_p]:mt-2 [&_table]:mt-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1.5 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left" dangerouslySetInnerHTML={{ __html: payload.bodyHtml }} />
         </section>
       ) : null}
       {payload?.ready && !payload.signed && (payload.fields?.length ?? 0) > 0 ? (

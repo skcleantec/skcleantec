@@ -94,17 +94,17 @@ export function PgContractPreview({ title, bodyHtml, fields, activeToken, values
   return (
     <div
       ref={rootRef}
-      className="max-h-[32rem] overflow-y-auto rounded-xl border border-slate-200 bg-white p-4"
+      className="rounded-xl border border-slate-200 bg-white px-4 py-6 sm:px-8"
+      aria-label={title.trim() || '전자계약'}
       onClick={(event) => {
         const node = (event.target as HTMLElement).closest('[data-ec-token]');
         const token = node?.getAttribute('data-ec-token');
         if (token) onSelect(token);
       }}
     >
-      <h2 className="text-base font-semibold text-slate-900">{title.trim() || '전자계약'}</h2>
       {bodyHtml.trim() ? (
         <div
-          className="mt-3 space-y-2 text-sm leading-relaxed text-slate-800 [&_h2]:text-base [&_h2]:font-semibold [&_p]:mt-2"
+          className="text-sm leading-relaxed text-slate-800 [&_h1]:mt-8 [&_h1]:border-b [&_h1]:border-slate-900 [&_h1]:pb-1 [&_h1]:text-lg [&_h1]:font-semibold [&_h1]:text-slate-900 [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_p]:mt-2 [&_table]:mt-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top [&_th]:w-36 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-medium [&_th]:text-slate-600"
           dangerouslySetInnerHTML={{ __html: contractPreviewHtml(bodyHtml, fields, activeToken, values) }}
         />
       ) : (

@@ -84,15 +84,8 @@ export function PlatformPgContractSettingsPage() {
         <h1 className="text-xl font-semibold text-gray-900">전자계약</h1>
         <PlatformCardPaymentTabs />
         <p className="mt-1 text-sm text-gray-500">
-          작성 화면 미리보기에서 업체가 칸마다 적고 체크하는 화면을 그대로 볼 수 있습니다. 미리보기에 적은 내용은 저장되지 않습니다.
+          신청서, 이용계약 제1조부터 제20조, 전자서명, 부속서까지 계약서 전체가 아래에 나옵니다. 색 칸이 업체가 적는 자리입니다.
         </p>
-        <button
-          type="button"
-          className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-          onClick={() => setPreviewOpen(true)}
-        >
-          작성 화면 미리보기
-        </button>
       </div>
       <PgContractFillPreviewModal
         open={previewOpen}
@@ -104,8 +97,14 @@ export function PlatformPgContractSettingsPage() {
       {msg ? <p className="text-sm text-gray-800">{msg}</p> : null}
       <section className={CARD_SECTION}>
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-sm font-semibold text-gray-900">계약서 미리보기</h2>
-          <p className="text-xs text-gray-500">파란 칸이 업체가 적는 자리입니다. 노란 칸은 아직 입력 칸으로 지정되지 않았습니다.</p>
+          <h2 className="text-sm font-semibold text-gray-900">계약서 전체</h2>
+          <button
+            type="button"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            onClick={() => setPreviewOpen(true)}
+          >
+            칸 입력 확인
+          </button>
         </div>
         <label className="block text-sm text-gray-700">
           계약서 제목

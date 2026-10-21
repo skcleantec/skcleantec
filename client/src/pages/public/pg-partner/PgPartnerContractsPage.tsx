@@ -65,7 +65,7 @@ export function PgPartnerContractsPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="text-fluid-sm font-semibold text-slate-900">{template?.title || '계약서'}</h2>
         {template?.bodyHtml ? (
-          <div className="mt-3 text-fluid-xs text-slate-800" dangerouslySetInnerHTML={{ __html: template.bodyHtml }} />
+          <div className="mt-3 text-sm leading-relaxed text-slate-800 [&_h1]:mt-6 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:font-semibold [&_p]:mt-2 [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left" dangerouslySetInnerHTML={{ __html: template.bodyHtml }} />
         ) : (
           <p className="mt-3 text-fluid-xs text-slate-500">불러오는 중…</p>
         )}
@@ -93,7 +93,7 @@ export function PgPartnerContractsPage() {
           <h2 className="text-fluid-sm font-semibold text-slate-900">
             {opened.businessName || '업체'} · {opened.signed ? '작성본' : '작성 전'}
           </h2>
-          <div className="mt-3 text-fluid-xs text-slate-800" dangerouslySetInnerHTML={{ __html: opened.bodyHtml }} />
+          <div className="mt-3 text-sm leading-relaxed text-slate-800 [&_h1]:mt-6 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:font-semibold [&_p]:mt-2 [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left" dangerouslySetInnerHTML={{ __html: opened.bodyHtml }} />
         </section>
       ) : null}
     </div>

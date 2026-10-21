@@ -4,6 +4,12 @@ import { expandEcTokenMap } from '../e-contract/eContractDynamicExpand.js';
 import { EC_SIGNATURE_TOKEN } from '../e-contract/eContractField.tokens.js';
 import { signerSignatureUrlLooksValid } from '../e-contract/eContractSigner.expand.js';
 import { uploadBusinessRegistrationBuffer, assertBusinessRegistrationImageMime } from '../onboarding/businessRegistration.service.js';
+import {
+  isPgContractStub,
+  PG_CONTRACT_DEFAULT_BODY,
+  PG_CONTRACT_DEFAULT_FIELDS,
+  PG_CONTRACT_DEFAULT_TITLE,
+} from './pgMerchantContract.document.js';
 
 const INPUT_TYPES = ['TEXT', 'TEXTAREA', 'DATE', 'NUMBER', 'PHONE', 'CHECKBOX', 'SEAL'] as const;
 type PgContractInputType = (typeof INPUT_TYPES)[number];
@@ -16,26 +22,10 @@ export type PgContractField = {
   sortOrder: number;
 };
 
-const DEFAULT_TITLE = '카드결제 이용약관';
-const DEFAULT_FIELDS: PgContractField[] = [
-  { token: '[[EC_MERCHANT_NAME]]', label: '가맹점명', inputType: 'TEXT', required: true, sortOrder: 10 },
-  { token: '[[EC_SIGNER_NAME]]', label: '대표자', inputType: 'TEXT', required: true, sortOrder: 20 },
-  { token: '[[EC_BIZ_NO]]', label: '사업자등록번호', inputType: 'TEXT', required: true, sortOrder: 30 },
-  { token: '[[EC_SIGNER_ADDRESS]]', label: '주소', inputType: 'TEXT', required: true, sortOrder: 40 },
-  { token: '[[EC_SIGNER_PHONE]]', label: '연락처', inputType: 'PHONE', required: true, sortOrder: 50 },
-  { token: '[[EC_CHECK]]', label: '이용약관에 동의합니다', inputType: 'CHECKBOX', required: true, sortOrder: 60 },
-  { token: '[[EC_SEAL]]', label: '가맹점 도장', inputType: 'SEAL', required: false, sortOrder: 70 },
-];
-const DEFAULT_BODY = `<h2>카드결제 이용약관</h2>
-<p>이 약관은 주식회사 서비스브릿지(대표자 이정무, 사업자등록번호 138-87-04035, 인천광역시 연수구 송도미래로 30, 이동 801호)와 가맹점 사이의 카드결제 이용 조건입니다. 카드 승인과 매입, 정산은 주식회사 원성페이먼츠가 수행합니다.</p>
-<p>가맹점명 [[EC_MERCHANT_NAME]]</p>
-<p>대표자 [[EC_SIGNER_NAME]]</p>
-<p>사업자등록번호 [[EC_BIZ_NO]]</p>
-<p>주소 [[EC_SIGNER_ADDRESS]]</p>
-<p>연락처 [[EC_SIGNER_PHONE]]</p>
-<p>동의 [[EC_CHECK]]</p>
-<p>도장 [[EC_SEAL]]</p>
-<p>서명 [[EC_SIGNATURE]]</p>`;
+const DEFAULT_TITLE = PG_CONTRACT_DEFAULT_TITLE;
+const DEFAULT_FIELDS: PgContractField[] = PG_CONTRACT_DEFAULT_FIELDS;
+const DEFAULT_BODY = PG_CONTRACT_DEFAULT_BODY;
+const STUB_TITLE = '카드결제 이용약관';
 
 const TOKEN_RE = /^\[\[EC_[A-Z0-9_]+\]\]$/;
 
@@ -83,11 +73,13 @@ function asRecord(raw: unknown): Record<string, string> {
 export async function getPgContractTemplate(): Promise<PgContractTemplate> {
   const row = await prisma.platformCardPaymentSettings.findUnique({ where: { id: 'default' } });
   const fields = parsePgContractFields(row?.pgContractFields);
-  const body = row?.pgContractBodyHtml?.trim() ?? '';
+  const stored = row?.pgContractBodyHtml?.trim() ?? '';
+  const stub = isPgContractStub(stored);
+  const storedTitle = row?.pgContractTitle?.trim() ?? '';
   return {
-    title: row?.pgContractTitle?.trim() || DEFAULT_TITLE,
-    bodyHtml: body || DEFAULT_BODY,
-    fields: fields.length > 0 ? fields : DEFAULT_FIELDS,
+    title: !storedTitle || (stub && storedTitle === STUB_TITLE) ? DEFAULT_TITLE : storedTitle,
+    bodyHtml: stub ? DEFAULT_BODY : stored,
+    fields: stub || fields.length === 0 ? DEFAULT_FIELDS : fields,
   };
 }
 
