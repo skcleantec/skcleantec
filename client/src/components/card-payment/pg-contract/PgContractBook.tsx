@@ -4,10 +4,10 @@ import { SignaturePad } from '../../e-contract/SignaturePad';
 import { knockoutSealPaper } from '../../../utils/sealPaperKnockout';
 import './pgContractPrint.css';
 import { isChecked, PG_CONTRACT_PAGE_TOTAL, PG_PREVIEW_CONTRACT_NO, type ContractValues } from './pgContractChrome';
-import { ContractPage1, ContractPage2, ContractPage3, ContractPage4 } from './pgContractPagesA';
-import { ContractPage5, ContractPage6, ContractPage7, ContractPage8 } from './pgContractPagesB';
+import { ContractPage1, ContractPage2, ContractPage3, ContractPage4, ContractPage5, ContractPage6 } from './pgContractPagesA';
+import { ContractPage7, ContractPage8, ContractPage9, ContractPage10, ContractPage11 } from './pgContractPagesB';
 
-const SIGN_PAGE = 6;
+const SIGN_PAGE = 9;
 
 type Props = {
   mode: 'preview' | 'sign' | 'read';
@@ -21,12 +21,15 @@ type Props = {
 
 const PAGE_LABEL = [
   '',
-  '신청서 · 수수료',
-  '동의 · 제출 서류',
-  '제1조~제4조',
-  '제5조~제8조',
-  '제9조~제15조',
-  '제16조~서명',
+  '신청서 · 회사',
+  '가맹점 · 수수료',
+  '판매 · 개인정보',
+  '제공 동의 · 신청',
+  '제2조~제4조',
+  '제5조~제7조',
+  '제8조~제10조',
+  '제11조~제16조',
+  '제17조~서명',
   '실제 소유자',
   '금지 거래',
 ];
@@ -35,14 +38,16 @@ function gate(page: number, values: ContractValues): string | null {
   if (page === 1) {
     if (!values.pgBizKind) return '개인사업자 또는 법인을 선택해 주세요.';
     if (!values.pgTaxKind) return '과세 또는 면세를 선택해 주세요.';
+  }
+  if (page === 2) {
     if (!values['[[EC_MERCHANT_NAME]]']?.trim()) return '상호를 적어 주세요.';
     if (!values['[[EC_BIZ_NO]]']?.trim()) return '사업자등록번호를 적어 주세요.';
     if (!values['[[EC_SIGNER_NAME]]']?.trim()) return '대표자를 적어 주세요.';
     if (!values['[[EC_SIGNER_PHONE]]']?.trim()) return '휴대폰을 적어 주세요.';
     if (!values['[[EC_SIGNER_ADDRESS]]']?.trim()) return '사업장 주소를 적어 주세요.';
   }
-  if (page === 2 && !isChecked(values.pgPrivacy)) return '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.';
-  if (page === 2 && !isChecked(values.pgShare)) return '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.';
+  if (page === 3 && !isChecked(values.pgPrivacy)) return '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.';
+  if (page === 4 && !isChecked(values.pgShare)) return '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.';
   if (page === SIGN_PAGE && !isChecked(values['[[EC_CHECK]]'])) return '계약 내용 동의를 체크해야 다음 장으로 갑니다.';
   return null;
 }
@@ -73,12 +78,15 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
     const common = { values, set, readOnly, contractNo: number };
     if (n === 1) return <ContractPage1 {...common} />;
     if (n === 2) return <ContractPage2 {...common} />;
-    if (n === 3) return <ContractPage3 contractNo={number} />;
-    if (n === 4) return <ContractPage4 contractNo={number} />;
+    if (n === 3) return <ContractPage3 {...common} />;
+    if (n === 4) return <ContractPage4 {...common} />;
     if (n === 5) return <ContractPage5 contractNo={number} />;
-    if (n === 6) return <ContractPage6 {...common} />;
-    if (n === 7) return <ContractPage7 {...common} />;
-    return <ContractPage8 contractNo={number} />;
+    if (n === 6) return <ContractPage6 contractNo={number} />;
+    if (n === 7) return <ContractPage7 contractNo={number} />;
+    if (n === 8) return <ContractPage8 contractNo={number} />;
+    if (n === 9) return <ContractPage9 {...common} />;
+    if (n === 10) return <ContractPage10 {...common} />;
+    return <ContractPage11 contractNo={number} />;
   };
 
   const go = (next: number) => {

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export const PG_PREVIEW_CONTRACT_NO = 'SB-PG-00000000-0000';
-export const PG_CONTRACT_PAGE_TOTAL = 8;
+export const PG_CONTRACT_PAGE_TOTAL = 11;
 
 export type ContractValues = Record<string, string>;
 
@@ -16,7 +16,7 @@ export function ContractSheet({ page, contractNo, children }: SheetProps) {
     <article className="pg-sheet">
       <header className="pg-sheet-head">
         <span>청소비서</span>
-        <span>카드결제 이용계약서</span>
+        <span>카드결제 이용약관 · 전자계약</span>
         <span>계약번호 {contractNo}</span>
       </header>
       <div className="pg-sheet-body">{children}</div>
@@ -94,7 +94,6 @@ export function LockFee() {
           </tr>
         </tbody>
       </table>
-      <p className="pg-muted">수수료 3.3%, 중소1, 일정산은 이 서식에 고정되어 있습니다. 여신전문금융업법 제18조의3에 따라 영세·중소 구분은 반기마다 다시 매겨질 수 있습니다.</p>
     </>
   );
 }
