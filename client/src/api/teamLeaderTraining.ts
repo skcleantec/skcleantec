@@ -25,6 +25,23 @@ export async function fetchTeamLeaderTrainingMeta(token: string): Promise<TeamLe
   return res.json() as Promise<TeamLeaderTrainingMeta>;
 }
 
+export type TeamLeaderTrainingFileLinks = {
+  openPath: string;
+  downloadPath: string;
+};
+
+export async function fetchTeamLeaderTrainingFileLinks(
+  token: string,
+): Promise<TeamLeaderTrainingFileLinks> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/training-material/file-links`), {
+    headers: teamHeaders(token),
+  });
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  if (res.status === 404) throw new Error('등록된 교육자료가 없습니다.');
+  if (!res.ok) throw new Error('교육자료를 불러올 수 없습니다.');
+  return res.json() as Promise<TeamLeaderTrainingFileLinks>;
+}
+
 export async function fetchTeamLeaderTrainingPdfBlob(token: string): Promise<Blob> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/training-material/pdf`), {
     headers: teamHeaders(token),
