@@ -28,8 +28,7 @@ import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
 import { InquiryCustomerCallButton } from './InquiryCustomerCallButton';
-import { InquiryCardPayLaunch } from './card-payment/InquiryCardPayLaunch';
-import { TeamNaviLaunchButton } from '../team/TeamNaviLaunchButton';
+import { InquiryEditFooterTools } from './card-payment/InquiryEditFooterTools';
 import { ScheduleCustomCalendarPinSection } from './ScheduleCustomCalendarPinSection';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import type { ServiceZoneItem } from '../../api/serviceZones';
@@ -3256,17 +3255,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </div>
 
         <div className="relative z-20 shrink-0 border-t border-gray-200 bg-white px-5 pt-2 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          {!isCreate && item ? (
-            <div className="mb-2 space-y-2">
-              <InquiryCardPayLaunch inquiryId={item.id} token={token} />
-              <TeamNaviLaunchButton
-                inquiryId={item.id}
-                token={token}
-                variant="bar"
-                destinationApi="staff"
-              />
-            </div>
-          ) : null}
+          {!isCreate && item ? <InquiryEditFooterTools inquiryId={item.id} token={token} /> : null}
           <div className="flex gap-2 py-1">
           {canDeleteInquiry && (
             <button
