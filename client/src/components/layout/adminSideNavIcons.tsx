@@ -36,6 +36,7 @@ const PATH_ICON_RULES: { prefix: string; icon: AdminSideNavIconId }[] = [
   { prefix: '/admin/team-leaders/company-profile/business', icon: 'building' },
   { prefix: '/admin/team-leaders/company-profile/outbound-email', icon: 'mail' },
   { prefix: '/admin/team-leaders/e-contracts', icon: 'contract' },
+  { prefix: '/admin/team-leaders/card-payment', icon: 'wallet' },
   { prefix: '/admin/team-leaders/external-settlement', icon: 'wallet' },
   { prefix: '/admin/team-leaders/tenant-partner-settlement', icon: 'wallet' },
   { prefix: '/admin/team-leaders/payroll', icon: 'wallet' },
