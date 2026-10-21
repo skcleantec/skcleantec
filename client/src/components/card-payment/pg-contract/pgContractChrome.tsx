@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export const PG_PREVIEW_CONTRACT_NO = 'SB-PG-00000000-0000';
-export const PG_CONTRACT_PAGE_TOTAL = 16;
+export const PG_CONTRACT_PAGE_TOTAL = 8;
 
 export type ContractValues = Record<string, string>;
 

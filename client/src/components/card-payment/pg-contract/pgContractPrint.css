@@ -1,24 +1,18 @@
 .pg-scale-host {
   width: 100%;
+  overflow: hidden;
 }
 
 .pg-scale {
   width: 210mm;
-  zoom: var(--pg-zoom, 1);
-}
-
-.pg-page-block {
-  scroll-margin-top: 4.5rem;
-}
-
-.pg-page-block + .pg-page-block {
-  margin-top: 4mm;
+  transform-origin: top center;
 }
 
 .pg-sheet {
   display: flex;
   flex-direction: column;
   width: 210mm;
+  height: 297mm;
   box-sizing: border-box;
   background: #fff;
   color: #0f172a;
@@ -26,8 +20,9 @@
   font-size: 8pt;
   line-height: 1.32;
   position: relative;
-  overflow: visible;
-  border: 0.2mm solid #e2e8f0;
+  overflow: hidden;
+  border: 0.2mm solid #cbd5e1;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
 }
 
 .pg-sheet-head,
@@ -50,7 +45,7 @@
 
 .pg-sheet-foot {
   height: 6mm;
-  margin-top: 3mm;
+  margin-top: auto;
   margin-bottom: 6mm;
   align-items: center;
   border-top: 0.2mm solid #cbd5e1;
@@ -60,8 +55,10 @@
 
 .pg-sheet-body {
   position: static;
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 3mm 12mm 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .pg-sheet h1 {
@@ -211,18 +208,14 @@
     width: 210mm;
   }
 
-  .pg-page-block + .pg-page-block {
-    margin-top: 0;
-  }
-
   .pg-sheet {
     display: flex !important;
     height: 297mm;
     overflow: hidden;
     border: 0;
+    box-shadow: none !important;
     break-after: page;
     page-break-after: always;
-    box-shadow: none !important;
   }
 
   .pg-sheet-foot {

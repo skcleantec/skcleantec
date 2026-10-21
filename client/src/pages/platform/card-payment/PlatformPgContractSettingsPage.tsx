@@ -77,7 +77,7 @@ export function PlatformPgContractSettingsPage() {
         <h1 className="text-xl font-semibold text-gray-900">전자계약</h1>
         <PlatformCardPaymentTabs />
         <p className="mt-1 text-sm text-gray-500">
-          16쪽 고정 서식입니다. 이전·다음으로 칸과 체크를 지나고, 전체 인쇄는 이 쪽 나눔 그대로 나갑니다. 수수료 3.3%, 중소1, 일정산은 잠겨 있습니다.
+          A4 한 장씩 넘깁니다. 칸과 체크는 그 장 안에서 하고, 전체 인쇄는 장마다 그대로 나갑니다. 수수료 3.3%, 중소1, 일정산은 잠겨 있습니다.
         </p>
       </div>
       {msg ? <p className="text-sm text-gray-800">{msg}</p> : null}
