@@ -8,6 +8,7 @@ import {
 } from './cardPaymentOnboarding.service.js';
 import { requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
+import { getPartnerPgContract, getPgContractTemplate } from './pgMerchantContract.service.js';
 import { parsePgClerkCodes, saveIssuedPgClerkCodes } from './pgClerk.service.js';
 import { applyWspayWebhook } from './cardPaymentWebhook.service.js';
 import { applyPaysisNotification, startPaysisWindowByLinkToken } from './cardPaymentWindow.service.js';
@@ -69,10 +70,25 @@ router.get('/pg-partner/refunds', async (req, res) => {
   res.json(await listPartnerRefunds());
 });
 
+router.get('/pg-partner/contract', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  res.json(await getPgContractTemplate());
+});
+
 router.get('/pg-partner/applications', async (req, res) => {
   if (!requirePgPartner(req, res)) return;
   const items = await listOnboardingsForPartner();
   res.json({ items });
+});
+
+router.get('/pg-partner/applications/:id/contract', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const row = await getPartnerPgContract(String(req.params.id));
+  if (!row) {
+    res.status(404).json({ error: '전자계약을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(row);
 });
 
 router.post('/pg-partner/applications/:id/codes', async (req, res) => {

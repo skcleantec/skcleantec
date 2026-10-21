@@ -62,12 +62,15 @@ import {
   TeamCardPaymentPage,
   AdminCardPaymentPage,
   AdminCardPaymentPgPage,
+  AdminPgContractSignPage,
   PgJoinReviewPage,
   PgPartnerPage,
   PgPartnerShell,
   PgPartnerApplicationsPage,
   PgPartnerRefundsPage,
+  PgPartnerContractsPage,
   PlatformCardPaymentPage,
+  PlatformPgContractSettingsPage,
   PlatformCardChargePage,
   PublicCardPaymentLinkPage,
   PaysisCheckoutOkPage,
@@ -201,6 +204,7 @@ function App() {
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="billing/settlement" element={<SuspensePage><PlatformBillingSettlementPage /></SuspensePage>} />
           <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
+          <Route path="card-payment/e-contract" element={<SuspensePage><PlatformPgContractSettingsPage /></SuspensePage>} />
           <Route path="card-payment/charge" element={<SuspensePage><PlatformCardChargePage /></SuspensePage>} />
           <Route path="coin-usage" element={<SuspensePage><PlatformCoinUsagePage /></SuspensePage>} />
           <Route path="signup-trial-events" element={<SuspensePage><PlatformSignupTrialEventsPage /></SuspensePage>} />
@@ -348,10 +352,26 @@ function App() {
               }
             />
             <Route
+              path="card-payment/pg/contract"
+              element={
+                <FeatureGate module="mod_card_payment">
+                  <SuspensePage><AdminPgContractSignPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
               path="card-payment/pg"
               element={
                 <FeatureGate module="mod_card_payment">
                   <SuspensePage><AdminCardPaymentPgPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="pg-onboarding/contract"
+              element={
+                <FeatureGate module="mod_card_payment">
+                  <SuspensePage><AdminPgContractSignPage /></SuspensePage>
                 </FeatureGate>
               }
             />
@@ -516,6 +536,7 @@ function App() {
         <Route path="/pg-partner" element={<SuspensePage><PgPartnerPage /></SuspensePage>} />
         <Route element={<SuspensePage><PgPartnerShell /></SuspensePage>}>
           <Route path="/pg-partner/applications" element={<PgPartnerApplicationsPage />} />
+          <Route path="/pg-partner/contracts" element={<PgPartnerContractsPage />} />
           <Route path="/pg-partner/refunds" element={<PgPartnerRefundsPage />} />
         </Route>
         <Route path="/pg-join/:token" element={<SuspensePage><PgJoinReviewPage /></SuspensePage>} />

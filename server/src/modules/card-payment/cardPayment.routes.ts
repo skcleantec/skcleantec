@@ -14,6 +14,7 @@ import {
   saveTenantRegistrationImage,
   submitOnboarding,
 } from './cardPaymentOnboarding.service.js';
+import { getTenantPgContract, submitTenantPgContract, uploadPgContractImage } from './pgMerchantContract.service.js';
 import { listPgClerkSlots, savePgClerkSlots } from './pgClerk.service.js';
 import {
   confirmCustomerLink,
@@ -121,6 +122,63 @@ router.get('/pg', async (req, res) => {
     getCredentialPublic(tenantId),
   ]);
   res.json({ onboarding, credential });
+});
+
+router.get('/pg/contract', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
+    return;
+  }
+  res.json(await getTenantPgContract(tenantId));
+});
+
+router.post('/pg/contract', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
+    return;
+  }
+  const signerFields =
+    req.body?.signerFields && typeof req.body.signerFields === 'object' && !Array.isArray(req.body.signerFields)
+      ? (req.body.signerFields as Record<string, unknown>)
+      : {};
+  try {
+    const saved = await submitTenantPgContract(tenantId, {
+      signerFields,
+      signatureUrl: typeof req.body?.signatureUrl === 'string' ? req.body.signatureUrl : '',
+      agree: req.body?.agree === true,
+    });
+    res.json(saved);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '저장하지 못했습니다.' });
+  }
+});
+
+router.post('/pg/contract/upload', registrationUpload.single('file'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
+    return;
+  }
+  const file = req.file;
+  if (!file?.buffer?.length) {
+    res.status(400).json({ error: '그림을 선택해 주세요.' });
+    return;
+  }
+  try {
+    res.json(await uploadPgContractImage(tenantId, file.buffer, file.mimetype));
+  } catch (e) {
+    const message = e instanceof Error && e.message === 'business_registration_image_invalid_type'
+      ? 'jpg, png, webp, gif 이미지만 올릴 수 있습니다.'
+      : e instanceof Error
+        ? e.message
+        : '올리지 못했습니다.';
+    res.status(400).json({ error: message });
+  }
 });
 
 router.put('/pg/onboarding', async (req, res) => {

@@ -15,6 +15,7 @@ export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
     children: [
       { label: '정산', to: '/platform/billing/settlement' },
       { label: '카드결제 PG', to: '/platform/card-payment' },
+      { label: '전자계약', to: '/platform/card-payment/e-contract' },
       { label: '카드결재', to: '/platform/card-payment/charge' },
     ],
   },
@@ -44,6 +45,7 @@ export function isPlatformNavActive(pathname: string, to: string): boolean {
       /^\/platform\/tenants\/[^/]+$/.test(pathname)
     );
   }
+  if (to === '/platform/card-payment/e-contract') return pathname.startsWith('/platform/card-payment/e-contract');
   if (to === '/platform/card-payment') return pathname === '/platform/card-payment';
   if (to === '/platform/card-payment/charge') return pathname.startsWith('/platform/card-payment/charge');
   if (to === '/platform/billing') {

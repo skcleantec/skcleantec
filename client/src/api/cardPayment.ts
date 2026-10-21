@@ -64,6 +64,7 @@ export type PgOnboardingRow = {
   forwardedAt: string | null;
   decidedAt: string | null;
   platformMemo: string | null;
+  contractSignedAt: string | null;
   updatedAt: string;
 };
 

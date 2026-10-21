@@ -136,6 +136,9 @@ export const PgPartnerApplicationsPage = lazyWithRetry(() =>
 export const PgPartnerRefundsPage = lazyWithRetry(() =>
   import('../pages/public/pg-partner/PgPartnerRefundsPage').then((m) => ({ default: m.PgPartnerRefundsPage }))
 );
+export const PgPartnerContractsPage = lazyWithRetry(() =>
+  import('../pages/public/pg-partner/PgPartnerContractsPage').then((m) => ({ default: m.PgPartnerContractsPage }))
+);
 export const PgJoinReviewPage = lazyWithRetry(() =>
   import('../pages/public/PgJoinReviewPage').then((m) => ({ default: m.PgJoinReviewPage }))
 );
@@ -144,9 +147,19 @@ export const AdminCardPaymentPgPage = lazyWithRetry(() =>
     default: m.AdminCardPaymentPgPage,
   }))
 );
+export const AdminPgContractSignPage = lazyWithRetry(() =>
+  import('../pages/admin/card-payment/AdminPgContractSignPage').then((m) => ({
+    default: m.AdminPgContractSignPage,
+  }))
+);
 export const PlatformCardPaymentPage = lazyWithRetry(() =>
   import('../pages/platform/card-payment/PlatformCardPaymentPage').then((m) => ({
     default: m.PlatformCardPaymentPage,
+  }))
+);
+export const PlatformPgContractSettingsPage = lazyWithRetry(() =>
+  import('../pages/platform/card-payment/PlatformPgContractSettingsPage').then((m) => ({
+    default: m.PlatformPgContractSettingsPage,
   }))
 );
 export const PlatformCardChargePage = lazyWithRetry(() =>

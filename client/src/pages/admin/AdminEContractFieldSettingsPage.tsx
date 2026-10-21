@@ -14,7 +14,16 @@ import { getToken } from '../../stores/auth';
 import { eContractAudienceLabel, eContractFieldFilledByLabel } from '../../utils/eContractDisplay';
 import { eContractFieldInputTypeLabel } from '../../components/e-contract/EContractDynamicFieldInputs';
 
-const INPUT_TYPES: EContractFieldInputTypeKind[] = ['TEXT', 'TEXTAREA', 'DATE', 'NUMBER', 'PHONE', 'RRN'];
+const INPUT_TYPES: EContractFieldInputTypeKind[] = [
+  'TEXT',
+  'TEXTAREA',
+  'DATE',
+  'NUMBER',
+  'PHONE',
+  'RRN',
+  'CHECKBOX',
+  'SEAL',
+];
 const FILLED_BY: EContractFieldFilledByKind[] = ['SIGNER', 'ADMIN', 'AUTO'];
 
 export function AdminEContractFieldSettingsPage() {
@@ -196,6 +205,16 @@ export function AdminEContractFieldSettingsPage() {
             </button>
           </div>
         </div>
+        {newInputType === 'SEAL' ? (
+          <p className="mt-3 text-fluid-2xs leading-snug text-slate-600">
+            도장 칸은 본문에 [[EC_SEAL]] 을 넣은 자리마다 같은 도장이 들어갑니다. 코드를 비우면 그 코드로 만들어집니다.
+          </p>
+        ) : null}
+        {newInputType === 'CHECKBOX' ? (
+          <p className="mt-3 text-fluid-2xs leading-snug text-slate-600">
+            체크 칸은 본문에 넣은 코드 자리에 체크하면 ■, 아니면 □ 로 들어갑니다.
+          </p>
+        ) : null}
       </section>
 
       <section className="mt-6 rounded-lg border border-gray-200 bg-white shadow-sm">

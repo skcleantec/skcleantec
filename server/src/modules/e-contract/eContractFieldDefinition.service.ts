@@ -130,7 +130,16 @@ export async function createFieldDefinition(
   const set = new Set(existingTokens.map((r) => r.token));
   let token = input.token?.trim() ?? '';
   if (!token) {
-    token = input.filledBy === EContractFieldFilledBy.AUTO ? EC_CONTRACT_DATE_TOKEN : suggestEcTokenFromLabel(label, set);
+    if (input.inputType === EContractFieldInputType.SEAL) {
+      token = set.has('[[EC_SEAL]]') ? suggestEcTokenFromLabel('SEAL', set) : '[[EC_SEAL]]';
+    } else if (input.inputType === EContractFieldInputType.CHECKBOX) {
+      token = set.has('[[EC_CHECK]]') ? suggestEcTokenFromLabel('CHECK', set) : '[[EC_CHECK]]';
+    } else {
+      token = input.filledBy === EContractFieldFilledBy.AUTO ? EC_CONTRACT_DATE_TOKEN : suggestEcTokenFromLabel(label, set);
+    }
+  }
+  if (input.inputType === EContractFieldInputType.SEAL && !token.includes('SEAL')) {
+    token = set.has('[[EC_SEAL]]') ? suggestEcTokenFromLabel('SEAL', set) : '[[EC_SEAL]]';
   }
   if (!isValidEcToken(token)) {
     throw Object.assign(new Error('token_invalid'), { code: 'bad_request' as const });

@@ -615,6 +615,10 @@ model PlatformCardPaymentSettings {
   id               String   @id @default("default")
   tenantFeeBps     Int      @default(330) @map("tenant_fee_bps")
   platformCostBps  Int      @default(260) @map("platform_cost_bps")
+  /// PG 승인 후 가맹점이 작성하는 전자계약 제목·본문·칸
+  pgContractTitle    String @default("카드결제 이용약관") @map("pg_contract_title") @db.VarChar(128)
+  pgContractBodyHtml String @default("") @map("pg_contract_body_html") @db.Text
+  pgContractFields   Json   @default("[]") @map("pg_contract_fields")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("platform_card_payment_settings")
@@ -644,6 +648,10 @@ model TenantPgOnboarding {
   forwardedAt          DateTime?                @map("forwarded_at")
   decidedAt            DateTime?                @map("decided_at")
   platformMemo         String?                  @map("platform_memo") @db.Text
+  /// PG 승인 후 가맹점이 전자계약을 마친 시각. 없으면 계약 단계.
+  contractSignedAt     DateTime?                @map("contract_signed_at")
+  /// 체결 칸 값. 토큰 → 문자열. 도장·서명은 올린 그림 주소.
+  contractValues       Json?                    @map("contract_values")
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
 
@@ -4449,6 +4457,8 @@ enum EContractFieldInputType {
   NUMBER
   PHONE
   RRN
+  CHECKBOX
+  SEAL
 }
 
 /// 전자계약 본문 치환 필드 정의(팀장/마케터별 설정)

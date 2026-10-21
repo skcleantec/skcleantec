@@ -177,6 +177,7 @@ export async function listOnboardingsForPartner() {
       note: row.note,
       businessRegistrationImageUrl: imageByTenant.get(row.tenantId)?.trim() || null,
       status: row.status,
+      contractSignedAt: row.contractSignedAt?.toISOString() ?? null,
       submittedAt: row.submittedAt?.toISOString() ?? null,
       connected: Boolean(credential?.isActive),
       mid: credential?.mid ?? null,

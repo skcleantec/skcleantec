@@ -61,16 +61,18 @@ function AdminCardPaymentPgInner() {
       .finally(() => setLoaded(true));
   }, []);
 
-  const view = pgConnectionView(connected, row?.status);
+  const view = pgConnectionView(connected, row?.status, row?.contractSignedAt);
   const detail =
     view === '연결됨'
       ? [merchantMid ? `MID ${merchantMid}` : null, merchantOid ? `OID ${merchantOid}` : null].filter(Boolean).join(' · ') ||
         '카드 결제가 연결되었습니다.'
-      : view === '심사중'
-        ? '신청을 확인하는 중입니다.'
-        : view === '반려'
-          ? '신청이 반려되었습니다. 내용을 고쳐 다시 신청할 수 있습니다.'
-          : '아직 PG가 연결되지 않았습니다.';
+      : view === '전자계약'
+        ? '승인이 났습니다. 전자계약을 작성하면 다음으로 넘어갑니다.'
+        : view === '심사중'
+          ? '신청을 확인하는 중입니다.'
+          : view === '반려'
+            ? '신청이 반려되었습니다. 내용을 고쳐 다시 신청할 수 있습니다.'
+            : '아직 PG가 연결되지 않았습니다.';
 
   const uploadRegistration = async (file: File) => {
     const token = getToken();
@@ -172,7 +174,12 @@ function AdminCardPaymentPgInner() {
             />
           </div>
         ) : (
-          <PgOnboardingLanding view={view} detail={detail} onApply={() => navigate(applyPath)} />
+          <PgOnboardingLanding
+            view={view}
+            detail={detail}
+            onApply={() => navigate(applyPath)}
+            onContract={() => navigate(`${landingPath.replace(/\/$/, '')}/contract`)}
+          />
         )}
       </div>
     </div>
