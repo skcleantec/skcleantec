@@ -150,7 +150,12 @@ export function PgOnboardingForm({
       ) : null}
       {kind === 'corp' ? (
         <div className="rounded-lg border border-slate-900 bg-slate-50 px-3 py-2 text-fluid-xs text-slate-800">
-          <p className="font-medium">법인 서류는 우편으로 원성페이먼츠 본사에 보냅니다.</p>
+          <p className="font-medium">법인 서류는 우편으로 원성페이먼츠에 보냅니다.</p>
+          <p className="mt-1 leading-snug">
+            서울특별시 송파구 위례서로 252, 503,504,505호
+            <br />
+            전화 1555-0985
+          </p>
           <ol className="mt-1 list-decimal space-y-0.5 pl-4">
             <li>사업자등록증</li>
             <li>통장사본</li>
