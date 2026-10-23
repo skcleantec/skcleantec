@@ -84,7 +84,13 @@ function AdminCardPaymentPgInner() {
     };
   }, []);
 
-  const view = pgConnectionView(connected, row?.status, row?.contractSignedAt, row?.contractMailedAt);
+  const view = pgConnectionView(
+    connected,
+    row?.status,
+    row?.contractSignedAt,
+    row?.contractMailedAt,
+    Boolean(row?.merchantDeletedAt),
+  );
   const detail =
     view === '연결됨'
       ? [merchantMid ? `MID ${merchantMid}` : null, merchantOid ? `OID ${merchantOid}` : null].filter(Boolean).join(' · ') ||
@@ -99,7 +105,9 @@ function AdminCardPaymentPgInner() {
               ? '신청을 접수했습니다. 원성페이먼츠가 승인하거나 거절합니다.'
               : view === '반려'
                 ? '신청이 반려되었습니다. 내용을 고쳐 다시 신청할 수 있습니다.'
-                : '아직 PG가 연결되지 않았습니다.';
+                : view === '해제'
+                  ? '가맹 연결이 해제되었습니다. 카드결재를 받을 수 없습니다.'
+                  : '아직 PG가 연결되지 않았습니다.';
 
   const uploadRegistration = async (file: File) => {
     const token = getToken();

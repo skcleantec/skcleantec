@@ -17,6 +17,20 @@ export async function getPlatformCardFeeRates() {
   };
 }
 
+/** 가맹점 수수료가 있으면 그 값, 없으면 플랫폼 기본. 서비스브릿지 원가는 공통. */
+export async function resolveCardFeeRates(tenantId: string) {
+  const rates = await getPlatformCardFeeRates();
+  const row = await prisma.tenantPgOnboarding.findUnique({
+    where: { tenantId },
+    select: { feeBps: true, merchantDeletedAt: true },
+  });
+  return {
+    tenantFeeBps: row?.feeBps ?? rates.tenantFeeBps,
+    platformCostBps: rates.platformCostBps,
+    deleted: Boolean(row?.merchantDeletedAt),
+  };
+}
+
 export async function savePlatformCardFeeRates(input: {
   tenantFeeBps: number;
   platformCostBps: number;

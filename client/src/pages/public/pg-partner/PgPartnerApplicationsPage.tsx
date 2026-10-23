@@ -28,6 +28,7 @@ type Application = {
   submittedAt: string | null;
   contractSignedAt: string | null;
   connected: boolean;
+  merchantDeleted?: boolean;
   mid: string | null;
   oid: string | null;
   apiKeyLast4: string | null;
@@ -39,7 +40,8 @@ const BTN =
 const BTN_REJECT =
   'min-h-11 rounded-xl border border-red-200 bg-white px-4 text-fluid-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
-function stageLabel(row: { status: string; contractSignedAt: string | null; connected: boolean }) {
+function stageLabel(row: { status: string; contractSignedAt: string | null; connected: boolean; merchantDeleted?: boolean }) {
+  if (row.merchantDeleted) return '삭제됨';
   if (row.connected) return '연결됨';
   if (row.status === 'REJECTED') return '거절';
   if (row.status === 'APPROVED' && row.contractSignedAt) return '코드 대기';
@@ -68,9 +70,10 @@ function ApplicationCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const waiting = !row.connected && (row.status === 'SUBMITTED' || row.status === 'FORWARDED_TO_PG');
-  const canUndoReject = !row.connected && !row.contractSignedAt && row.status === 'REJECTED';
-  const canUndoApprove = !row.connected && !row.contractSignedAt && row.status === 'APPROVED';
+  const locked = Boolean(row.merchantDeleted);
+  const waiting = !locked && !row.connected && (row.status === 'SUBMITTED' || row.status === 'FORWARDED_TO_PG');
+  const canUndoReject = !locked && !row.connected && !row.contractSignedAt && row.status === 'REJECTED';
+  const canUndoApprove = !locked && !row.connected && !row.contractSignedAt && row.status === 'APPROVED';
 
   const decide = (decision: 'APPROVED' | 'REJECTED') => {
     setBusy(true);
@@ -142,7 +145,9 @@ function ApplicationCard({
           <img src={row.idCardImageUrl} alt="신분증" className="mt-1 max-h-56 w-full rounded-lg border border-slate-200 bg-slate-50 object-contain" />
         </a>
       ) : null}
-      {row.connected ? (
+      {locked ? (
+        <p className="mt-3 text-fluid-xs text-red-700">가맹 연결을 삭제했습니다. 지난 결제 수수료는 수수료 화면에서 볼 수 있습니다.</p>
+      ) : row.connected ? (
         <p className="mt-3 text-fluid-xs text-emerald-800">
           연결됨 {row.mid ? `MID ${row.mid}` : ''} {row.oid ? `OID ${row.oid}` : ''}
           {row.apiKeyLast4 ? ` · 키 …${row.apiKeyLast4}` : ''}

@@ -27,6 +27,7 @@ type Signed = {
   oid: string | null;
   apiKeyLast4: string | null;
   clerkCodes: string[];
+  merchantDeleted?: boolean;
   values?: Record<string, string>;
 };
 
@@ -146,6 +147,8 @@ export function PgPartnerContractsPage() {
               연결됨 {opened.mid ? `MID ${opened.mid}` : ''} {opened.oid ? `OID ${opened.oid}` : ''}
               {opened.apiKeyLast4 ? ` · 키 …${opened.apiKeyLast4}` : ''}
             </p>
+          ) : opened.merchantDeleted ? (
+            <p className="mt-3 text-fluid-xs text-red-700">삭제된 가맹점입니다. 코드를 다시 넣지 않습니다.</p>
           ) : opened.signed ? (
             <PgPartnerConnectForm
               onboardingId={opened.id}

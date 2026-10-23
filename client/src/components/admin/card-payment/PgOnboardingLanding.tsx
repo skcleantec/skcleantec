@@ -3,7 +3,7 @@ import { LineMdIcon } from '../../ui/LineMdIcon';
 
 const GUIDE_SRC = '/brand/pg-onboarding-guide.jpg';
 
-export type PgConnectionView = '미연결' | '심사중' | '전자계약' | '우편발송' | '코드연결' | '연결됨' | '반려';
+export type PgConnectionView = '미연결' | '심사중' | '전자계약' | '우편발송' | '코드연결' | '연결됨' | '반려' | '해제';
 
 const STEPS: Array<{ title: string; body: string; icon: string }> = [
   { title: '가맹신청', body: '구분과 사업자 정보를 적습니다', icon: 'pencil' },
@@ -21,6 +21,7 @@ const PILL_CLASS: Record<PgConnectionView, string> = {
   코드연결: 'border-white/20 bg-white/10 text-white',
   연결됨: 'border-emerald-300/40 bg-emerald-400/15 text-emerald-100',
   반려: 'border-red-300/40 bg-red-400/15 text-red-100',
+  해제: 'border-red-300/40 bg-red-400/15 text-red-100',
 };
 
 export function pgConnectionView(
@@ -28,7 +29,9 @@ export function pgConnectionView(
   status: string | undefined,
   contractSignedAt?: string | null,
   _contractMailedAt?: string | null,
+  merchantDeleted = false,
 ): PgConnectionView {
+  if (merchantDeleted) return '해제';
   if (status === 'REJECTED') return '반려';
   if (connected) return '연결됨';
   if (status === 'APPROVED' && !contractSignedAt) return '전자계약';
@@ -42,6 +45,7 @@ export function canOpenPgApplication(view: PgConnectionView): boolean {
 }
 
 function stepIndex(view: PgConnectionView): number {
+  if (view === '해제') return -1;
   if (view === '연결됨') return 5;
   if (view === '코드연결') return 4;
   if (view === '우편발송') return 3;

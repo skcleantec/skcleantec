@@ -1,6 +1,6 @@
 /** shared/cardPayment.ts 와 동일 공식 — 서버 rootDir 밖으로 import 하지 않음 */
 export const DEFAULT_TENANT_CARD_FEE_BPS = 330;
-export const DEFAULT_PLATFORM_CARD_COST_BPS = 260;
+export const DEFAULT_PLATFORM_CARD_COST_BPS = 262;
 
 export function computeCardPaymentFees(
   amountWon: number,

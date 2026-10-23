@@ -21,6 +21,10 @@ export function verifyPgPartnerLogin(loginId: string, password: string): boolean
   return sameText(loginId.trim(), LOGIN_ID) && sameText(password, PASSWORD);
 }
 
+export function verifyPgPartnerPassword(password: string): boolean {
+  return sameText(password, PASSWORD);
+}
+
 export function signPgPartnerToken(): string {
   return jwt.sign({ kind: 'pg-partner' }, partnerSecret(), { expiresIn: '12h' });
 }

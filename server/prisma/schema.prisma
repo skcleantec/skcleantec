@@ -614,7 +614,7 @@ model PlatformBillingSettings {
 model PlatformCardPaymentSettings {
   id               String   @id @default("default")
   tenantFeeBps     Int      @default(330) @map("tenant_fee_bps")
-  platformCostBps  Int      @default(260) @map("platform_cost_bps")
+  platformCostBps  Int      @default(262) @map("platform_cost_bps")
   /// PG 신청·전자계약이 끝나면 알림을 받을 메일. 원성 화면에서 더 넣을 수 있다.
   pgApplicationNotifyEmails Json @default("[\"wsgpay@naver.com\"]") @map("pg_application_notify_emails")
   /// PG 승인 후 가맹점이 작성하는 전자계약 제목·본문·칸
@@ -662,6 +662,10 @@ model TenantPgOnboarding {
   contractSignedAt     DateTime?                @map("contract_signed_at")
   /// 체결 칸 값. 토큰 → 문자열. 도장·서명은 올린 그림 주소.
   contractValues       Json?                    @map("contract_values")
+  /// 이 가맹점 수수료(만분율, 부가세 포함). 없으면 플랫폼 기본값.
+  feeBps               Int?                     @map("fee_bps")
+  /// 가맹 연결만 끊은 시각. 결제 내역은 남긴다.
+  merchantDeletedAt    DateTime?                @map("merchant_deleted_at")
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
 

@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 const tabs = [
   { to: '/platform/card-payment', label: 'PG 연동', end: true },
   { to: '/platform/card-payment/e-contract', label: '전자계약', end: true },
+  { to: '/platform/card-payment/fees', label: '수수료 현황', end: true },
   { to: '/platform/card-payment/charge', label: '카드결재', end: false },
 ];
 

@@ -63,6 +63,7 @@ export function serializeOnboarding(row: TenantPgOnboarding) {
     platformMemo: row.platformMemo,
     contractSignedAt: row.contractSignedAt?.toISOString() ?? null,
     contractMailedAt: row.contractMailedAt?.toISOString() ?? null,
+    merchantDeletedAt: row.merchantDeletedAt?.toISOString() ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };
 }

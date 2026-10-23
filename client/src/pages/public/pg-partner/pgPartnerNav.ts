@@ -2,5 +2,6 @@
 export const PG_PARTNER_NAV = [
   { to: '/pg-partner/applications', label: 'PG 신청', icon: 'check-list-3', end: true },
   { to: '/pg-partner/contracts', label: '전자계약', icon: 'document', end: true },
+  { to: '/pg-partner/fees', label: '수수료', icon: 'confirm', end: true },
   { to: '/pg-partner/refunds', label: '취소·환불', icon: 'alert-circle', end: true },
 ] as const;

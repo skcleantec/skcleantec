@@ -69,6 +69,7 @@ export type PgOnboardingRow = {
   platformMemo: string | null;
   contractSignedAt: string | null;
   contractMailedAt: string | null;
+  merchantDeletedAt?: string | null;
   updatedAt: string;
 };
 

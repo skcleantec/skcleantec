@@ -5,7 +5,7 @@ import { hashLinkToken, maskCustomerPhone, newLinkToken } from './cardPayment.ma
 import { computeCardPaymentFees, defaultCardPaymentAmountWon } from './cardPaymentFee.js';
 import { getDecryptedCredential } from './cardPaymentCredential.service.js';
 import { resolveKeyinMerchant } from './cardPaymentMerchant.js';
-import { getPlatformCardFeeRates } from './cardPayment.settings.service.js';
+import { getPlatformCardFeeRates, resolveCardFeeRates } from './cardPayment.settings.service.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 import { requestWspayPaymentLink, resolveWspayHostedWindowUrl } from './wspayAdapter.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
@@ -31,8 +31,8 @@ export async function loadInquiryForCardPayment(tenantId: string, inquiryId: str
   });
 }
 
-export async function quoteCardPayment(amountWon: number) {
-  const rates = await getPlatformCardFeeRates();
+export async function quoteCardPayment(amountWon: number, tenantId?: string | null) {
+  const rates = tenantId ? await resolveCardFeeRates(tenantId) : await getPlatformCardFeeRates();
   return computeCardPaymentFees(amountWon, rates.tenantFeeBps, rates.platformCostBps);
 }
 
@@ -49,7 +49,8 @@ export async function createCardPaymentIntent(input: {
   const amountWon = Math.round(Number(input.amountWon) || 0);
   if (amountWon < 100) return { error: '결제 금액은 100원 이상이어야 합니다.' as const };
 
-  const rates = await getPlatformCardFeeRates();
+  const rates = await resolveCardFeeRates(input.tenantId);
+  if (rates.deleted) return { error: '가맹 연결이 해제되어 카드결재를 받을 수 없습니다.' as const };
   const fees = computeCardPaymentFees(amountWon, rates.tenantFeeBps, rates.platformCostBps);
   const clerkStamp = await pgClerkStampForTeamLeader(input.tenantId, input.userId);
   const created = await prisma.cardPayment.create({
