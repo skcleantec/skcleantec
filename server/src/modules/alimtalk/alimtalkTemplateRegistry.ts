@@ -32,6 +32,7 @@ export type AlimtalkTemplateBuildContext = {
     | 'customerName'
     | 'preferredDate'
     | 'preferredTime'
+    | 'preferredTimeDetail'
     | 'customerPhone'
   > | null;
   /** §3.1 — 송신(원) 접수 브랜드 (미러·수신 테넌트 OC 금지) */
@@ -62,6 +63,7 @@ async function loadBrandBundle(params: {
   operatingCompanyId: string | null;
   displayNameFallback?: string | null;
   preferredTime: string | null | undefined;
+  preferredTimeDetail?: string | null;
 }) {
   const trust = await resolvePublicOrderFormCompanyTrust({
     db: prisma,
@@ -81,7 +83,14 @@ async function loadBrandBundle(params: {
 
   const formCfg = await getOrCreateOrderFormConfig(prisma, params.tenantId);
   const slotLabels = resolveOrderTimeSlotLabels(parseOrderTimeSlotLabelsJson(formCfg.timeSlotLabelsJson));
-  const timeLabel = labelForTimeSlotFromLabels(params.preferredTime, slotLabels);
+  const slotLabel = labelForTimeSlotFromLabels(params.preferredTime, slotLabels);
+  const detail = params.preferredTimeDetail?.trim() ?? '';
+  const timeLabel =
+    detail && slotLabel !== '—' && !slotLabel.includes(detail)
+      ? `${slotLabel} ${detail}`
+      : detail && (slotLabel === '—' || !params.preferredTime?.trim())
+        ? detail
+        : slotLabel;
   const brandSlug = params.operatingCompany?.slug?.trim() ?? '';
 
   return { trust, brandDisplay, brandSlug, timeLabel };
@@ -98,6 +107,7 @@ export async function buildOrderLinkAlimtalkVariables(params: AlimtalkTemplateBu
     operatingCompanyId,
     displayNameFallback: order.customerName,
     preferredTime: order.preferredTime,
+    preferredTimeDetail: order.preferredTimeDetail,
   });
 
   return {
@@ -130,6 +140,7 @@ export async function buildOrderDoneAlimtalkVariables(
     operatingCompanyId,
     displayNameFallback: inquiry.customerName ?? order.customerName,
     preferredTime: inquiry.preferredTime ?? order.preferredTime,
+    preferredTimeDetail: inquiry.preferredTimeDetail ?? order.preferredTimeDetail,
   });
 
   return {
@@ -162,6 +173,7 @@ export async function buildScheduleD2AlimtalkVariables(
     operatingCompanyId,
     displayNameFallback: inquiry.customerName ?? order.customerName,
     preferredTime: inquiry.preferredTime ?? order.preferredTime,
+    preferredTimeDetail: inquiry.preferredTimeDetail ?? order.preferredTimeDetail,
   });
 
   const preferredDateYmd = formatPreferredDateYmd(inquiry.preferredDate);
