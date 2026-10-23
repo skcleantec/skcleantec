@@ -53,6 +53,8 @@ export function Blank({
   width = '36mm',
   fieldKey,
   tone,
+  label,
+  optional,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -60,10 +62,18 @@ export function Blank({
   width?: string;
   fieldKey?: string;
   tone?: 'biz';
+  label?: string;
+  optional?: boolean;
 }) {
   return (
-    <span className={tone === 'biz' ? 'pg-blank pg-blank-biz' : 'pg-blank'} style={{ minWidth: width }} data-pg-key={fieldKey}>
-      <input value={value} readOnly={readOnly} onChange={(e) => onChange(e.target.value)} aria-label="입력" />
+    <span
+      className={tone === 'biz' ? 'pg-blank pg-blank-biz' : 'pg-blank'}
+      style={{ minWidth: width }}
+      data-pg-key={fieldKey}
+      data-pg-label={label}
+      data-pg-optional={optional ? '1' : undefined}
+    >
+      <input value={value} readOnly={readOnly} onChange={(e) => onChange(e.target.value)} aria-label={label || '입력'} />
     </span>
   );
 }
@@ -108,6 +118,9 @@ export function Choice({
   onPick,
   fieldKey,
   tone,
+  group,
+  gateLabel,
+  accept,
 }: {
   on: boolean;
   label: string;
@@ -115,6 +128,9 @@ export function Choice({
   onPick: () => void;
   fieldKey?: string;
   tone?: 'biz';
+  group?: string;
+  gateLabel?: string;
+  accept?: boolean;
 }) {
   return (
     <button
@@ -122,7 +138,10 @@ export function Choice({
       className={tone === 'biz' ? 'pg-choice pg-choice-biz' : 'pg-choice'}
       disabled={readOnly}
       aria-pressed={on}
-      data-pg-key={fieldKey}
+      data-pg-key={fieldKey ?? group}
+      data-pg-group={group}
+      data-pg-label={gateLabel}
+      data-pg-accept={accept ? '1' : undefined}
       onClick={onPick}
     >
       <span className="pg-mark">{on ? '■' : '□'}</span>

@@ -91,6 +91,31 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
+function scanBlocks(blocks: HTMLElement[]): GateProblem | null {
+  for (const block of blocks) {
+    const inputs = block.querySelectorAll<HTMLInputElement>('[data-pg-key] input');
+    for (const input of inputs) {
+      const host = input.closest<HTMLElement>('[data-pg-key]');
+      if (!host || host.dataset.pgOptional === '1' || input.value.trim()) continue;
+      const label = host.dataset.pgLabel || '빈 칸';
+      return { message: `「${label}」을 적어 주세요.`, focusKey: host.dataset.pgKey || '' };
+    }
+    const seen = new Set<string>();
+    for (const button of block.querySelectorAll<HTMLButtonElement>('[data-pg-group]')) {
+      const group = button.dataset.pgGroup;
+      if (!group || seen.has(group)) continue;
+      seen.add(group);
+      const peers = [...block.querySelectorAll<HTMLButtonElement>(`[data-pg-group="${CSS.escape(group)}"]`)];
+      const accepts = peers.filter((el) => el.dataset.pgAccept === '1');
+      const picked = (accepts.length > 0 ? accepts : peers).some((el) => el.getAttribute('aria-pressed') === 'true');
+      if (picked) continue;
+      const label = button.dataset.pgLabel || '선택';
+      return { message: `「${label}」을 선택해 주세요.`, focusKey: button.dataset.pgKey || group };
+    }
+  }
+  return null;
+}
+
 function jumpToField(root: HTMLElement, key: string) {
   const escaped = CSS.escape(key);
   const el = root.querySelector<HTMLElement>(
@@ -183,9 +208,15 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
   const signPage = slices.findIndex((row) => row.includes(signBlockIndex)) + 1;
   const requireSignature = signPage > 0 && safePage >= signPage;
 
+  const blanksThrough = (through: number | 'all') => {
+    const nodes = measureRef.current ? ([...measureRef.current.children] as HTMLElement[]) : [];
+    const indexes = through === 'all' ? nodes.map((_, index) => index) : slices.slice(0, through).flat();
+    return scanBlocks(indexes.map((index) => nodes[index]).filter((node): node is HTMLElement => Boolean(node)));
+  };
+
   const go = (next: number) => {
     if (mode === 'sign' && next > safePage) {
-      const problem = gateProblem(pageGates, values, requireSignature);
+      const problem = gateProblem(pageGates, values, requireSignature) ?? blanksThrough(safePage);
       if (problem) {
         setBlock(problem);
         return;
@@ -303,7 +334,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
             className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             disabled={busy}
             onClick={() => {
-              const problem = gateProblem(pageGates, values, true, true);
+              const problem = gateProblem(pageGates, values, true, true) ?? blanksThrough('all');
               if (problem) {
                 setBlock(problem);
                 return;

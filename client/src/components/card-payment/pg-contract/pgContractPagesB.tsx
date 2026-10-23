@@ -7,9 +7,25 @@ function v(values: ContractValues, key: string) {
   return values[key] ?? '';
 }
 
-function field(values: ContractValues, set: PageProps['set'], readOnly: boolean, key: string, width = '28mm') {
+function field(
+  values: ContractValues,
+  set: PageProps['set'],
+  readOnly: boolean,
+  key: string,
+  width = '28mm',
+  label?: string,
+  optional = false,
+) {
   return (
-    <Blank width={width} fieldKey={key} value={v(values, key)} readOnly={readOnly} onChange={(next) => set(key, next)} />
+    <Blank
+      width={width}
+      fieldKey={key}
+      label={label}
+      optional={optional}
+      value={v(values, key)}
+      readOnly={readOnly}
+      onChange={(next) => set(key, next)}
+    />
   );
 }
 
@@ -39,7 +55,9 @@ function block(key: string, label: string, node: FlowBlock['node'], gate?: FlowB
 }
 
 export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock[] {
-  const f = (key: string, width?: string) => field(values, set, readOnly, key, width);
+  const f = (key: string, width: string | undefined, label: string, optional = false) =>
+    field(values, set, readOnly, key, width, label, optional);
+  const ownerOther = v(values, 'pgOwnerSame') === 'N';
   const on = (key: string) => v(values, key) === 'Y';
   const toggle = (key: string) => set(key, on(key) ? '' : 'Y');
   const seal = v(values, '[[EC_SEAL]]');
@@ -61,6 +79,9 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
         <p>가맹점은 청소비서 화면에서 전자서명합니다. 회사는 사용인감을 (인) 위에 날인하고, 이 전자계약서를 결제대행사 심사에 제출합니다. 결제대행사는 서명란의 당사자가 아니며, 전자지급결제대행은 주식회사 원성페이먼츠가 수행합니다.</p>
         <p>
           <Choice
+            group="[[EC_CHECK]]"
+            gateLabel="계약 내용 동의"
+            accept
             fieldKey="[[EC_CHECK]]"
             on={isChecked(v(values, '[[EC_CHECK]]'))}
             label="위 계약 내용에 동의합니다"
@@ -95,8 +116,8 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
       <>
         <h2>부속서 1. 실제 소유자 확인서</h2>
         <p>특정금융정보법 제5조의2에 따라 결제대행사(주식회사 원성페이먼츠)가 가맹점을 확인하는 서류입니다. 가맹점이 작성하면 회사가 전달합니다. 내용이 바뀌면 다시 작성하고, 거절하거나 확인할 수 없으면 거래를 거절·종료할 수 있습니다.</p>
-        <p>상호 {v(values, '[[EC_MERCHANT_NAME]]')} 영문 {f('pgNameEn')} 사업자 {v(values, '[[EC_BIZ_NO]]')} 연락처 {v(values, '[[EC_SIGNER_PHONE]]')}</p>
-        <p>업종 {f('pgIndustry')} 업태 {f('pgBizType')} 주소 {v(values, '[[EC_SIGNER_ADDRESS]]')}</p>
+        <p>상호 {v(values, '[[EC_MERCHANT_NAME]]')} 영문 {f('pgNameEn', undefined, '영문 상호', true)} 사업자 {v(values, '[[EC_BIZ_NO]]')} 연락처 {v(values, '[[EC_SIGNER_PHONE]]')}</p>
+        <p>업종 {f('pgIndustry', undefined, '업종')} 업태 {f('pgBizType', undefined, '업태')} 주소 {v(values, '[[EC_SIGNER_ADDRESS]]')}</p>
       </>,
     ),
     block(
@@ -105,28 +126,28 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
       <>
         <p>
           거주지
-          <Choice on={v(values, 'pgReside') === 'in'} label="국내" readOnly={readOnly} onPick={() => set('pgReside', 'in')} />
-          <Choice on={v(values, 'pgReside') === 'out'} label="국외" readOnly={readOnly} onPick={() => set('pgReside', 'out')} />
-          국적 {f('pgNation', '16mm')}
+          <Choice group="pgReside" gateLabel="거주지" fieldKey="pgReside" on={v(values, 'pgReside') === 'in'} label="국내" readOnly={readOnly} onPick={() => set('pgReside', 'in')} />
+          <Choice group="pgReside" gateLabel="거주지" on={v(values, 'pgReside') === 'out'} label="국외" readOnly={readOnly} onPick={() => set('pgReside', 'out')} />
+          국적 {f('pgNation', '16mm', '국적', true)}
         </p>
         {kind === 'corp' ? (
           <p>
             법인
-            <Choice on={v(values, 'pgCorpKind') === 'profit'} label="영리" readOnly={readOnly} onPick={() => set('pgCorpKind', 'profit')} />
-            <Choice on={v(values, 'pgCorpKind') === 'nonprofit'} label="비영리" readOnly={readOnly} onPick={() => set('pgCorpKind', 'nonprofit')} />
-            법인번호 {f('pgCorpNo')}
+            <Choice group="pgCorpKind" gateLabel="영리 또는 비영리" fieldKey="pgCorpKind" on={v(values, 'pgCorpKind') === 'profit'} label="영리" readOnly={readOnly} onPick={() => set('pgCorpKind', 'profit')} />
+            <Choice group="pgCorpKind" gateLabel="영리 또는 비영리" on={v(values, 'pgCorpKind') === 'nonprofit'} label="비영리" readOnly={readOnly} onPick={() => set('pgCorpKind', 'nonprofit')} />
+            법인번호 {f('pgCorpNo', undefined, '법인등록번호')}
           </p>
         ) : null}
         <p>
-          {kind === 'corp' ? <>본점 {f('pgHqAddr', '50mm')} </> : null}
-          대표자 {v(values, '[[EC_SIGNER_NAME]]')} 영문 {f('pgRepEn')} 생년월일 {f('pgBirth')} 공동대표 {f('pgRep2')}
+          {kind === 'corp' ? <>본점 {f('pgHqAddr', '50mm', '본점 주소')} </> : null}
+          대표자 {v(values, '[[EC_SIGNER_NAME]]')} 영문 {f('pgRepEn', undefined, '대표자 영문', true)} 생년월일 {f('pgBirth', undefined, '생년월일')} 공동대표 {f('pgRep2', undefined, '공동대표', true)}
           <span className="pg-muted"> 공동대표가 없으면 비웁니다.</span>
         </p>
         <p>실제 소유자는 가맹점을 최종적으로 지배하는 사람입니다. 대표자와 같습니까?</p>
         <p>
-          <Choice on={isChecked(v(values, 'pgOwnerSame'))} label="예" readOnly={readOnly} onPick={() => set('pgOwnerSame', 'Y')} />
-          <Choice on={v(values, 'pgOwnerSame') === 'N'} label="아니오" readOnly={readOnly} onPick={() => set('pgOwnerSame', 'N')} />
-          아니오이면 {f('pgOwnerName')} {f('pgOwnerBirth')} {f('pgOwnerNation', '16mm')}
+          <Choice group="pgOwnerSame" gateLabel="실제 소유자와 대표자가 같은지" fieldKey="pgOwnerSame" on={isChecked(v(values, 'pgOwnerSame'))} label="예" readOnly={readOnly} onPick={() => set('pgOwnerSame', 'Y')} />
+          <Choice group="pgOwnerSame" gateLabel="실제 소유자와 대표자가 같은지" on={v(values, 'pgOwnerSame') === 'N'} label="아니오" readOnly={readOnly} onPick={() => set('pgOwnerSame', 'N')} />
+          아니오이면 {f('pgOwnerName', undefined, '실제 소유자 이름', !ownerOther)} {f('pgOwnerBirth', undefined, '실제 소유자 생년월일', !ownerOther)} {f('pgOwnerNation', '16mm', '실제 소유자 국적', !ownerOther)}
         </p>
       </>,
     ),
@@ -135,9 +156,9 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
       '실제 소유자',
       <>
         <p>
-          <Choice on={v(values, 'pgOwnerStep') === '1'} label="1단계 지분 25% 이상" readOnly={readOnly} onPick={() => set('pgOwnerStep', '1')} />
-          <Choice on={v(values, 'pgOwnerStep') === '2'} label="2단계 최대 지분·사실상 지배" readOnly={readOnly} onPick={() => set('pgOwnerStep', '2')} />
-          <Choice on={v(values, 'pgOwnerStep') === '3'} label="3단계 대표자" readOnly={readOnly} onPick={() => set('pgOwnerStep', '3')} />
+          <Choice group="pgOwnerStep" gateLabel="실제 소유자 확인 단계" fieldKey="pgOwnerStep" on={v(values, 'pgOwnerStep') === '1'} label="1단계 지분 25% 이상" readOnly={readOnly} onPick={() => set('pgOwnerStep', '1')} />
+          <Choice group="pgOwnerStep" gateLabel="실제 소유자 확인 단계" on={v(values, 'pgOwnerStep') === '2'} label="2단계 최대 지분·사실상 지배" readOnly={readOnly} onPick={() => set('pgOwnerStep', '2')} />
+          <Choice group="pgOwnerStep" gateLabel="실제 소유자 확인 단계" on={v(values, 'pgOwnerStep') === '3'} label="3단계 대표자" readOnly={readOnly} onPick={() => set('pgOwnerStep', '3')} />
         </p>
         {kind === 'corp' ? (
           <p>
@@ -148,8 +169,8 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
             <Choice on={on('pgSkipListed')} label="사업보고서 제출" readOnly={readOnly} onPick={() => toggle('pgSkipListed')} />
           </p>
         ) : null}
-        <p>실제 소유자 1 {f('pgOwner1', '36mm')} 실제 소유자 2 {f('pgOwner2', '36mm')}</p>
-        <p className="pg-muted">실제 소유자가 한 명이면 2번은 비워도 됩니다. 영문 상호·영문 대표자·국적도 없으면 비워도 됩니다.</p>
+        <p>실제 소유자 1 {f('pgOwner1', '36mm', '실제 소유자 1')} 실제 소유자 2 {f('pgOwner2', '36mm', '실제 소유자 2', true)}</p>
+        <p className="pg-muted">실제 소유자가 한 명이면 2번은 비워도 됩니다. 영문 상호·영문 대표자·국적은 없어도 비워도 됩니다. 그 밖 칸과 체크는 채워야 다음으로 갑니다.</p>
       </>,
     ),
     block(
@@ -158,29 +179,29 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
       <>
         <p>
           거래 목적
-          <Choice on={v(values, 'pgPurpose') === 'biz'} label="사업상 거래" readOnly={readOnly} onPick={() => set('pgPurpose', 'biz')} />
-          <Choice on={v(values, 'pgPurpose') === 'etc'} label="기타" readOnly={readOnly} onPick={() => set('pgPurpose', 'etc')} />
+          <Choice group="pgPurpose" gateLabel="거래 목적" fieldKey="pgPurpose" on={v(values, 'pgPurpose') === 'biz'} label="사업상 거래" readOnly={readOnly} onPick={() => set('pgPurpose', 'biz')} />
+          <Choice group="pgPurpose" gateLabel="거래 목적" on={v(values, 'pgPurpose') === 'etc'} label="기타" readOnly={readOnly} onPick={() => set('pgPurpose', 'etc')} />
         </p>
         <p>
           자금 원천
-          <Choice on={on('pgFundBiz')} label="사업소득" readOnly={readOnly} onPick={() => toggle('pgFundBiz')} />
-          <Choice on={on('pgFundWage')} label="근로·연금" readOnly={readOnly} onPick={() => toggle('pgFundWage')} />
-          <Choice on={on('pgFundRent')} label="부동산 임대" readOnly={readOnly} onPick={() => toggle('pgFundRent')} />
-          <Choice on={on('pgFundSale')} label="부동산 양도" readOnly={readOnly} onPick={() => toggle('pgFundSale')} />
-          <Choice on={on('pgFundFin')} label="금융소득" readOnly={readOnly} onPick={() => toggle('pgFundFin')} />
-          <Choice on={on('pgFundGift')} label="상속·증여" readOnly={readOnly} onPick={() => toggle('pgFundGift')} />
-          <Choice on={on('pgFundEtc')} label="기타" readOnly={readOnly} onPick={() => toggle('pgFundEtc')} />
+          <Choice group="pgFund" gateLabel="자금 원천" fieldKey="pgFundBiz" on={on('pgFundBiz')} label="사업소득" readOnly={readOnly} onPick={() => toggle('pgFundBiz')} />
+          <Choice group="pgFund" gateLabel="자금 원천" on={on('pgFundWage')} label="근로·연금" readOnly={readOnly} onPick={() => toggle('pgFundWage')} />
+          <Choice group="pgFund" gateLabel="자금 원천" on={on('pgFundRent')} label="부동산 임대" readOnly={readOnly} onPick={() => toggle('pgFundRent')} />
+          <Choice group="pgFund" gateLabel="자금 원천" on={on('pgFundSale')} label="부동산 양도" readOnly={readOnly} onPick={() => toggle('pgFundSale')} />
+          <Choice group="pgFund" gateLabel="자금 원천" on={on('pgFundFin')} label="금융소득" readOnly={readOnly} onPick={() => toggle('pgFundFin')} />
+          <Choice group="pgFund" gateLabel="자금 원천" on={on('pgFundGift')} label="상속·증여" readOnly={readOnly} onPick={() => toggle('pgFundGift')} />
+          <Choice group="pgFund" gateLabel="자금 원천" on={on('pgFundEtc')} label="기타" readOnly={readOnly} onPick={() => toggle('pgFundEtc')} />
         </p>
         {kind === 'corp' ? (
           <p>
             법인
-            <Choice on={v(values, 'pgCorpSize') === 'smb'} label="중소기업" readOnly={readOnly} onPick={() => set('pgCorpSize', 'smb')} />
-            <Choice on={v(values, 'pgCorpSize') === 'large'} label="대기업" readOnly={readOnly} onPick={() => set('pgCorpSize', 'large')} />
-            <Choice on={v(values, 'pgListed') === 'no'} label="비상장" readOnly={readOnly} onPick={() => set('pgListed', 'no')} />
-            <Choice on={v(values, 'pgListed') === 'krx'} label="유가증권" readOnly={readOnly} onPick={() => set('pgListed', 'krx')} />
-            <Choice on={v(values, 'pgListed') === 'kosdaq'} label="코스닥" readOnly={readOnly} onPick={() => set('pgListed', 'kosdaq')} />
-            <Choice on={v(values, 'pgListed') === 'oversea'} label="해외" readOnly={readOnly} onPick={() => set('pgListed', 'oversea')} />
-            설립일 {f('pgFounded', '28mm')}
+            <Choice group="pgCorpSize" gateLabel="기업 규모" fieldKey="pgCorpSize" on={v(values, 'pgCorpSize') === 'smb'} label="중소기업" readOnly={readOnly} onPick={() => set('pgCorpSize', 'smb')} />
+            <Choice group="pgCorpSize" gateLabel="기업 규모" on={v(values, 'pgCorpSize') === 'large'} label="대기업" readOnly={readOnly} onPick={() => set('pgCorpSize', 'large')} />
+            <Choice group="pgListed" gateLabel="상장 여부" fieldKey="pgListed" on={v(values, 'pgListed') === 'no'} label="비상장" readOnly={readOnly} onPick={() => set('pgListed', 'no')} />
+            <Choice group="pgListed" gateLabel="상장 여부" on={v(values, 'pgListed') === 'krx'} label="유가증권" readOnly={readOnly} onPick={() => set('pgListed', 'krx')} />
+            <Choice group="pgListed" gateLabel="상장 여부" on={v(values, 'pgListed') === 'kosdaq'} label="코스닥" readOnly={readOnly} onPick={() => set('pgListed', 'kosdaq')} />
+            <Choice group="pgListed" gateLabel="상장 여부" on={v(values, 'pgListed') === 'oversea'} label="해외" readOnly={readOnly} onPick={() => set('pgListed', 'oversea')} />
+            설립일 {f('pgFounded', '28mm', '설립일')}
           </p>
         ) : null}
         <p>위 확인서를 주식회사 서비스브릿지를 거쳐 주식회사 원성페이먼츠에 제출합니다.</p>

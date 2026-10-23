@@ -12,12 +12,14 @@ function field(
   readOnly: boolean,
   key: string,
   width = '36mm',
-  tone?: 'biz',
+  opts?: { tone?: 'biz'; label?: string; optional?: boolean },
 ) {
   return (
     <Blank
       width={width}
-      tone={tone}
+      tone={opts?.tone}
+      label={opts?.label}
+      optional={opts?.optional}
       fieldKey={key}
       value={v(values, key)}
       readOnly={readOnly}
@@ -31,8 +33,10 @@ function block(key: string, label: string, node: FlowBlock['node'], gate?: FlowB
 }
 
 export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock[] {
-  const f = (key: string, width?: string) => field(values, set, readOnly, key, width);
-  const biz = (key: string, width?: string) => field(values, set, readOnly, key, width, 'biz');
+  const f = (key: string, width: string | undefined, label: string, optional = false) =>
+    field(values, set, readOnly, key, width, { label, optional });
+  const biz = (key: string, width: string | undefined, label: string) =>
+    field(values, set, readOnly, key, width, { tone: 'biz', label });
   const ad = (key: string) => v(values, key) === 'Y';
   const kind = v(values, 'pgBizKind');
   return [
@@ -77,29 +81,29 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <h2>1. 가맹점</h2>
         <p>
           구분
-          <Choice fieldKey="pgBizKind" tone="biz" on={v(values, 'pgBizKind') === 'solo'} label="개인사업자" readOnly={readOnly} onPick={() => set('pgBizKind', 'solo')} />
-          <Choice fieldKey="pgBizKind" tone="biz" on={v(values, 'pgBizKind') === 'corp'} label="법인" readOnly={readOnly} onPick={() => set('pgBizKind', 'corp')} />
+          <Choice group="pgBizKind" gateLabel="개인 또는 법인" fieldKey="pgBizKind" tone="biz" on={v(values, 'pgBizKind') === 'solo'} label="개인사업자" readOnly={readOnly} onPick={() => set('pgBizKind', 'solo')} />
+          <Choice group="pgBizKind" gateLabel="개인 또는 법인" tone="biz" on={v(values, 'pgBizKind') === 'corp'} label="법인" readOnly={readOnly} onPick={() => set('pgBizKind', 'corp')} />
           과세
-          <Choice fieldKey="pgTaxKind" tone="biz" on={v(values, 'pgTaxKind') === 'tax'} label="과세" readOnly={readOnly} onPick={() => set('pgTaxKind', 'tax')} />
-          <Choice fieldKey="pgTaxKind" tone="biz" on={v(values, 'pgTaxKind') === 'exempt'} label="면세" readOnly={readOnly} onPick={() => set('pgTaxKind', 'exempt')} />
+          <Choice group="pgTaxKind" gateLabel="과세 또는 면세" fieldKey="pgTaxKind" tone="biz" on={v(values, 'pgTaxKind') === 'tax'} label="과세" readOnly={readOnly} onPick={() => set('pgTaxKind', 'tax')} />
+          <Choice group="pgTaxKind" gateLabel="과세 또는 면세" tone="biz" on={v(values, 'pgTaxKind') === 'exempt'} label="면세" readOnly={readOnly} onPick={() => set('pgTaxKind', 'exempt')} />
           <span className="pg-muted">공동대표이면 대표자 전원을 적습니다.</span>
         </p>
         <table className="pg-table">
           <tbody>
-            <tr><th>상호</th><td>{biz('[[EC_MERCHANT_NAME]]', '70mm')}</td><th>사업자번호</th><td>{biz('[[EC_BIZ_NO]]')}</td></tr>
+            <tr><th>상호</th><td>{biz('[[EC_MERCHANT_NAME]]', '70mm', '상호')}</td><th>사업자번호</th><td>{biz('[[EC_BIZ_NO]]', undefined, '사업자등록번호')}</td></tr>
             {kind === 'corp' ? (
-              <tr><th>법인번호</th><td>{biz('pgCorpNo')}</td><th>대표자</th><td>{biz('[[EC_SIGNER_NAME]]')}</td></tr>
+              <tr><th>법인번호</th><td>{biz('pgCorpNo', undefined, '법인등록번호')}</td><th>대표자</th><td>{biz('[[EC_SIGNER_NAME]]', undefined, '대표자 이름')}</td></tr>
             ) : (
-              <tr><th>대표자</th><td colSpan={3}>{biz('[[EC_SIGNER_NAME]]')}</td></tr>
+              <tr><th>대표자</th><td colSpan={3}>{biz('[[EC_SIGNER_NAME]]', undefined, '대표자 이름')}</td></tr>
             )}
-            <tr><th>생년월일</th><td>{biz('pgBirth')}</td><th>휴대폰</th><td>{biz('[[EC_SIGNER_PHONE]]')}</td></tr>
-            <tr><th>대표 전화</th><td>{biz('pgTel')}</td><th>업태·종목</th><td>{biz('pgBizType', '22mm')} {biz('pgBizItem', '22mm')}</td></tr>
-            <tr><th>판매 용역</th><td colSpan={3}>{biz('pgService', '90mm')} <span className="pg-muted">입주청소, 거주청소 등</span></td></tr>
-            <tr><th>사업장</th><td colSpan={3}>{biz('[[EC_SIGNER_ADDRESS]]', '120mm')}</td></tr>
-            <tr><th>우편물</th><td>{biz('pgMailAddr')} <span className="pg-muted">같으면 상동</span></td><th>업체</th><td>{biz('pgTenantCode')}</td></tr>
+            <tr><th>생년월일</th><td>{biz('pgBirth', undefined, '생년월일')}</td><th>휴대폰</th><td>{biz('[[EC_SIGNER_PHONE]]', undefined, '휴대폰')}</td></tr>
+            <tr><th>대표 전화</th><td>{biz('pgTel', undefined, '대표 전화')}</td><th>업태·종목</th><td>{biz('pgBizType', '22mm', '업태')} {biz('pgBizItem', '22mm', '종목')}</td></tr>
+            <tr><th>판매 용역</th><td colSpan={3}>{biz('pgService', '90mm', '판매 용역')} <span className="pg-muted">입주청소, 거주청소 등</span></td></tr>
+            <tr><th>사업장</th><td colSpan={3}>{biz('[[EC_SIGNER_ADDRESS]]', '120mm', '사업장 주소')}</td></tr>
+            <tr><th>우편물</th><td>{biz('pgMailAddr', undefined, '우편물 주소')} <span className="pg-muted">같으면 상동</span></td><th>업체</th><td>{biz('pgTenantCode', undefined, '업체코드')}</td></tr>
           </tbody>
         </table>
-        <p className="pg-muted">과세·면세와 상호·사업자번호·대표자·휴대폰·사업장만 있으면 다음으로 갑니다. 법인번호·생년월일·대표 전화·업태·판매 용역·우편물·업체코드는 비워도 됩니다.</p>
+        <p className="pg-muted">이 표의 칸과 위의 체크는 모두 채워야 다음으로 갑니다.</p>
       </>,
       'identity',
     ),
@@ -108,10 +112,10 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
       '담당자 · 정산',
       <>
         <h2>2. 담당자 · 3. 정산 계좌</h2>
-        <p>계약 담당 {f('pgStaffName', '24mm')} {f('pgStaffPhone', '28mm')} {f('pgStaffMail', '40mm')}</p>
-        <p>정산 담당 {f('pgSettleName', '24mm')} {f('pgSettlePhone', '28mm')} {f('pgSettleMail', '40mm')}</p>
-        <p className="pg-muted">담당자가 한 명이면 계약 담당만 적습니다. 정산 담당과, 이름·전화·이메일 중 없는 칸은 비워도 됩니다. 계좌도 없으면 비워도 됩니다.</p>
-        <p>은행 {f('pgBank', '22mm')} 계좌 {f('pgAccount', '42mm')} 예금주 {f('pgHolder', '28mm')}. 예금주는 대표자 또는 상호와 같아야 합니다. 담보는 결제대행사가 요구할 때만 가맹점이 부담하고, 회사는 정산금에서 임의로 빼지 않습니다.</p>
+        <p>계약 담당 {f('pgStaffName', '24mm', '계약 담당 이름')} {f('pgStaffPhone', '28mm', '계약 담당 전화')} {f('pgStaffMail', '40mm', '계약 담당 이메일', true)}</p>
+        <p>정산 담당 {f('pgSettleName', '24mm', '정산 담당 이름', true)} {f('pgSettlePhone', '28mm', '정산 담당 전화', true)} {f('pgSettleMail', '40mm', '정산 담당 이메일', true)}</p>
+        <p className="pg-muted">담당자가 한 명이면 정산 담당은 비워도 됩니다. 계약 담당 이메일이 없으면 그 칸만 비워도 됩니다.</p>
+        <p>은행 {f('pgBank', '22mm', '은행')} 계좌 {f('pgAccount', '42mm', '계좌번호')} 예금주 {f('pgHolder', '28mm', '예금주')}. 예금주는 대표자 또는 상호와 같아야 합니다. 담보는 결제대행사가 요구할 때만 가맹점이 부담하고, 회사는 정산금에서 임의로 빼지 않습니다.</p>
       </>,
     ),
     block(
@@ -152,8 +156,8 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <h2>7. 개인정보 — 가. 수집·이용 (필수)</h2>
         <p>수집하는 곳: 주식회사 서비스브릿지. 결제대행사가 심사·정산을 위해 같은 항목을 다시 수집·이용할 수 있습니다. 항목: 상호, 사업자등록번호, 대표자 이름·생년월일·성별·국적·전화번호, 담당자 이름·전화·이메일, 정산계좌, 실제 소유자 정보, 거래내역. 목적: 신청 접수, 본인·사업자 확인, 심사 요청, 결제 화면 연결, 정산·수수료 안내, 민원 전달, 부정 이용 방지, 법령상 의무. 보유: 목적 달성 후 지체 없이 파기합니다. 전자금융거래법 등에서 거래기록을 보존하도록 한 기간(원칙 5년)은 그 기간까지 둡니다. 동의하지 않으면 카드결제를 열 수 없습니다.</p>
         <p>
-          <Choice fieldKey="pgPrivacy" on={isChecked(v(values, 'pgPrivacy'))} label="동의함" readOnly={readOnly} onPick={() => set('pgPrivacy', 'Y')} />
-          <Choice on={v(values, 'pgPrivacy') === 'N'} label="동의하지 않음" readOnly={readOnly} onPick={() => set('pgPrivacy', 'N')} />
+          <Choice group="pgPrivacy" gateLabel="개인정보 수집 동의" accept fieldKey="pgPrivacy" on={isChecked(v(values, 'pgPrivacy'))} label="동의함" readOnly={readOnly} onPick={() => set('pgPrivacy', 'Y')} />
+          <Choice group="pgPrivacy" gateLabel="개인정보 수집 동의" on={v(values, 'pgPrivacy') === 'N'} label="동의하지 않음" readOnly={readOnly} onPick={() => set('pgPrivacy', 'N')} />
         </p>
       </>,
       'privacy',
@@ -165,8 +169,8 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <h2>나. 제3자 제공 (필수)</h2>
         <p>제공받는 자: 주식회사 원성페이먼츠. 원성페이먼츠는 가맹 심사와 승인·매입을 위해 카드사(국민, 비씨, 롯데, 삼성, 현대, 신한, 하나, NH농협 등)에 대표자 이름, 생년월일, 사업자 정보와 심사에 필요한 항목을 제공합니다. 목적: 가맹 심사, 거래 승인·매입·정산, 본인확인, 민원·부정거래 확인, 특정금융정보법에 따른 확인. 보유: 제공 목적 달성 시 파기. 법령에 보존 기간이 있으면 그 기간. 동의하지 않으면 심사를 진행할 수 없습니다.</p>
         <p>
-          <Choice fieldKey="pgShare" on={isChecked(v(values, 'pgShare'))} label="동의함" readOnly={readOnly} onPick={() => set('pgShare', 'Y')} />
-          <Choice on={v(values, 'pgShare') === 'N'} label="동의하지 않음" readOnly={readOnly} onPick={() => set('pgShare', 'N')} />
+          <Choice group="pgShare" gateLabel="제3자 제공 동의" accept fieldKey="pgShare" on={isChecked(v(values, 'pgShare'))} label="동의함" readOnly={readOnly} onPick={() => set('pgShare', 'Y')} />
+          <Choice group="pgShare" gateLabel="제3자 제공 동의" on={v(values, 'pgShare') === 'N'} label="동의하지 않음" readOnly={readOnly} onPick={() => set('pgShare', 'N')} />
         </p>
       </>,
       'share',
@@ -178,9 +182,9 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <h2>다. 위탁 · 라. 광고 수신 (선택)</h2>
         <p>회사는 카드 승인·매입·정산 시스템 연동을 주식회사 원성페이먼츠에 위탁합니다. 카드번호, 유효기간, 비밀번호는 회사 화면에 입력하지 않으며 결제대행사 화면에서만 처리됩니다. 회사와 가맹점은 이를 저장하지 않습니다. 회사(서비스브릿지)가 청소비서 안내를 이메일 또는 문자로 보낼 수 있습니다. 거부해도 카드결제 이용에는 불이익이 없습니다.</p>
         <p>
-          <Choice on={ad('pgAdEmail')} label="이메일 수신" readOnly={readOnly} onPick={() => set('pgAdEmail', ad('pgAdEmail') ? '' : 'Y')} />
-          <Choice on={ad('pgAdSms')} label="문자 수신" readOnly={readOnly} onPick={() => set('pgAdSms', ad('pgAdSms') ? '' : 'Y')} />
-          <Choice on={ad('pgAdNone')} label="받지 않음" readOnly={readOnly} onPick={() => { set('pgAdNone', 'Y'); set('pgAdEmail', ''); set('pgAdSms', ''); }} />
+          <Choice group="pgAd" gateLabel="광고 수신" fieldKey="pgAdEmail" on={ad('pgAdEmail')} label="이메일 수신" readOnly={readOnly} onPick={() => set('pgAdEmail', ad('pgAdEmail') ? '' : 'Y')} />
+          <Choice group="pgAd" gateLabel="광고 수신" on={ad('pgAdSms')} label="문자 수신" readOnly={readOnly} onPick={() => set('pgAdSms', ad('pgAdSms') ? '' : 'Y')} />
+          <Choice group="pgAd" gateLabel="광고 수신" fieldKey="pgAdNone" on={ad('pgAdNone')} label="받지 않음" readOnly={readOnly} onPick={() => { set('pgAdNone', 'Y'); set('pgAdEmail', ''); set('pgAdSms', ''); }} />
         </p>
       </>,
     ),
