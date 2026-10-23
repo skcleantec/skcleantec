@@ -261,6 +261,7 @@ export function AdminLayout() {
   );
   const location = useLocation();
   useEffect(() => {
+    document.documentElement.classList.remove('cbiseo-team-app');
     if (location.pathname.startsWith('/admin')) clearTeamPreviewSession();
   }, [location.pathname]);
   useStaffAppPushNavigation(Boolean(adminToken));
@@ -1087,12 +1088,12 @@ export function AdminLayout() {
       ) : null}
       <header className="px-3 sm:px-4 lg:px-5 py-2.5 shadow-md theme-dark-header">
         <div className="w-full flex flex-col gap-2 min-w-0">
-          <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
-            <div className="flex min-w-0 shrink items-center gap-1.5">
+          <div className="md:hidden flex items-center gap-1.5 min-w-0">
+            <div className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden">
               <button
                 type="button"
                 onClick={goAdminHomeWithRefresh}
-                className="min-w-0 shrink-0 text-left hover:opacity-90 transition-opacity"
+                className="min-w-0 shrink text-left hover:opacity-90 transition-opacity"
                 aria-label="청소비서 — 대시보드로 이동"
                 title="대시보드로 이동"
               >
@@ -1106,11 +1107,13 @@ export function AdminLayout() {
                 />
               ) : null}
             </div>
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {teamPreviewLink ? (
                 <AdminDevPreviewLinks adminToken={adminToken} compact />
               ) : null}
               {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
+            </div>
+            <div className="relative z-20 shrink-0">
               <UserProfileMenu
                 token={adminToken}
                 tenantName={tenantName}

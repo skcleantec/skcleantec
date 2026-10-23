@@ -39,6 +39,7 @@ export function UserProfileMenu({
   onSaved,
   onLogout,
   logoutLabel,
+  compactTrigger = false,
   onSessionExpired,
   showStagingDbImport,
   onStagingDbImport,
@@ -66,6 +67,8 @@ export function UserProfileMenu({
   onLogout: () => void;
   /** 팀장 미리보기에서는 로그아웃 대신 솔루션 복귀 문구 */
   logoutLabel?: string;
+  /** 미리보기 헤더 — 이름 버튼을 줄여 복귀 버튼과 겹치지 않게 */
+  compactTrigger?: boolean;
   onSessionExpired?: () => void;
   /** 스테이징 등에서만 서버가 true로 내려줌 */
   showStagingDbImport?: boolean;
@@ -171,11 +174,15 @@ export function UserProfileMenu({
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="staff-profile-trigger inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-fluid-xs font-semibold text-slate-100 transition-all duration-200 hover:bg-white/10 hover:text-white"
+          className={`staff-profile-trigger inline-flex items-center gap-1 rounded-xl py-1.5 text-fluid-xs font-semibold text-slate-100 transition-all duration-200 hover:bg-white/10 hover:text-white ${
+            compactTrigger ? 'px-1.5' : 'px-3'
+          }`}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
         >
-          <span className="max-w-[7rem] truncate">{loading ? '계정 확인 중…' : displayName}</span>
+          <span className={`truncate ${compactTrigger ? 'max-w-[3.5rem]' : 'max-w-[7rem]'}`}>
+            {loading ? '계정 확인 중…' : displayName}
+          </span>
           <span aria-hidden className="text-slate-300">
             ▾
           </span>

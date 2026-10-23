@@ -889,17 +889,18 @@ export function TeamLayout() {
         </div>
       ) : null}
       <header className="shadow-md theme-dark-header">
-        <div className="mx-auto flex min-w-0 max-w-6xl items-center justify-between gap-2 px-4 py-2.5">
-          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
-            <button
-              type="button"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-200 hover:bg-white/10 hover:text-white active:bg-white/15 touch-manipulation sm:hidden"
-              aria-label={teamT('team.layout.nav.menuOpen')}
-              aria-expanded={mobileNavOpen}
-              onClick={() => setMobileNavOpen(true)}
-            >
-              <TeamHamburgerIcon className="h-5 w-5" />
-            </button>
+        <div className="mx-auto grid min-w-0 max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+          <button
+            type="button"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-200 hover:bg-white/10 hover:text-white active:bg-white/15 touch-manipulation sm:hidden"
+            aria-label={teamT('team.layout.nav.menuOpen')}
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen(true)}
+          >
+            <TeamHamburgerIcon className="h-5 w-5" />
+          </button>
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-4">
             <NavLink
               to={teamTo('/team/dashboard')}
               className="min-w-0 shrink-0 hover:opacity-90 transition-opacity"
@@ -913,23 +914,27 @@ export function TeamLayout() {
             >
               <TenantBrandLogo height={32} />
             </NavLink>
-            <nav className="hidden sm:flex flex-wrap items-center gap-1" aria-label="팀장 메뉴">
+            <nav
+              className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] sm:flex [&::-webkit-scrollbar]:hidden"
+              aria-label="팀장 메뉴"
+            >
               <TeamNavLinks navClass={navClass} teamTo={teamTo} {...navShared} />
             </nav>
           </div>
-          <div className="flex shrink-0 min-w-0 items-center gap-2 sm:gap-3">
+          </div>
+          <div className="relative z-20 flex shrink-0 items-center gap-1.5 sm:gap-2">
               {previewingAsAdmin ? (
                 <button
                   type="button"
                   onClick={leaveToSolution}
-                  className="inline-flex min-h-9 items-center rounded-md border border-white/20 bg-white/10 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-slate-100 hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 whitespace-nowrap"
+                  className="inline-flex min-h-9 shrink-0 items-center rounded-md border border-white/20 bg-white/10 px-2 py-1 text-fluid-xs font-medium text-slate-100 hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 whitespace-nowrap"
                   title={teamT('team.layout.adminScreenTitle')}
                 >
                   <TeamBiInline id="team.layout.adminScreen" />
                 </button>
               ) : null}
               {previewExternal ? (
-                <div className="inline-flex items-center gap-2 rounded-md border border-indigo-300/40 bg-indigo-500/15 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] text-indigo-100 whitespace-nowrap">
+                <div className="hidden items-center gap-2 rounded-md border border-indigo-300/40 bg-indigo-500/15 px-2 py-1 text-fluid-xs text-indigo-100 whitespace-nowrap lg:inline-flex">
                   <span className="font-medium">{previewExternalName}</span>
                   <span className="text-indigo-200 inline-block align-middle">
                     <TeamBiInline id="team.layout.previewExternal" />
@@ -939,7 +944,7 @@ export function TeamLayout() {
                 <>
                   {previewTeamLeader ? (
                     <span
-                      className="max-w-[9rem] truncate rounded border border-teal-300/40 bg-teal-500/15 px-1.5 py-0.5 text-[clamp(0.6rem,1.4vw,0.75rem)] font-medium text-teal-100 whitespace-nowrap"
+                      className="hidden max-w-[9rem] truncate rounded border border-teal-300/40 bg-teal-500/15 px-1.5 py-0.5 text-fluid-2xs font-medium text-teal-100 whitespace-nowrap lg:inline"
                       title={userName ?? undefined}
                     >
                       {userName ? `${userName} · ` : ''}
@@ -947,26 +952,13 @@ export function TeamLayout() {
                     </span>
                   ) : null}
                   {teamToken ? (
-                    <>
-                      <div className="sm:hidden">
-                        <ScheduleAlertSiren
-                          token={teamToken}
-                          team
-                          variant="gnb-chip"
-                          refreshKey={scheduleAlertRefreshKey}
-                          onOpenSchedule={(inquiryId) => openInquiryFromAlert(inquiryId)}
-                        />
-                      </div>
-                      <div className="hidden sm:block">
-                        <ScheduleAlertSiren
-                          token={teamToken}
-                          team
-                          variant="header"
-                          refreshKey={scheduleAlertRefreshKey}
-                          onOpenSchedule={(inquiryId) => openInquiryFromAlert(inquiryId)}
-                        />
-                      </div>
-                    </>
+                    <ScheduleAlertSiren
+                      token={teamToken}
+                      team
+                      variant="header"
+                      refreshKey={scheduleAlertRefreshKey}
+                      onOpenSchedule={(inquiryId) => openInquiryFromAlert(inquiryId)}
+                    />
                   ) : null}
                   <UserProfileMenu
                     token={teamToken}
@@ -1014,6 +1006,7 @@ export function TeamLayout() {
                     }
                     onLogout={previewingAsAdmin ? leaveToSolution : handleLogout}
                     logoutLabel={previewingAsAdmin ? teamT('team.layout.adminScreen') : undefined}
+                    compactTrigger={previewingAsAdmin}
                     onSessionExpired={handleSessionExpired}
                   />
                 </>

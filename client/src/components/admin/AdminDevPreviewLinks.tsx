@@ -152,7 +152,7 @@ export function AdminDevPreviewLinks({
 
   const buttonClass = compact ? btnCompact : btn;
   const wrapClass = compact
-    ? 'inline-flex max-w-full flex-wrap items-center gap-px rounded border border-gray-200/80 bg-gray-50/80 px-0.5 py-px text-gray-700 admin-preview-links admin-preview-links--compact'
+    ? 'inline-flex max-w-none shrink-0 flex-nowrap items-center gap-px rounded border border-gray-200/80 bg-gray-50/80 px-0.5 py-px text-gray-700 admin-preview-links admin-preview-links--compact'
     : 'inline-flex max-w-full flex-wrap items-center gap-0.5 rounded border border-gray-200 bg-gray-50/90 px-0.5 py-0.5 text-gray-700 admin-preview-links';
 
   return (
