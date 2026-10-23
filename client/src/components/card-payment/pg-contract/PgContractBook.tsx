@@ -176,9 +176,11 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(0.55);
   const [block, setBlock] = useState<GateProblem | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [jumpKey, setJumpKey] = useState<string | null>(null);
   const [slices, setSlices] = useState<number[][]>([[]]);
   const readOnly = mode === 'read';
+  const showFinished = readOnly || previewing;
   const number = contractNo?.trim() || PG_PREVIEW_CONTRACT_NO;
   const set = (key: string, value: string) => onChange?.(key, value);
   const blocks = useMemo(
@@ -312,8 +314,17 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
         </div>,
         document.body,
       )}
-      {readOnly ? (
+      {showFinished ? (
         <div className="pg-no-print mb-3 flex flex-wrap items-center gap-2">
+          {readOnly ? null : (
+            <button
+              type="button"
+              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              onClick={() => setPreviewing(false)}
+            >
+              작성으로 돌아가기
+            </button>
+          )}
           <button
             type="button"
             className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
@@ -367,6 +378,16 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
         >
           전체 인쇄
         </button>
+        <button
+          type="button"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          onClick={() => {
+            setPreviewing(true);
+            document.querySelector('.pg-desk-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          완성본 미리보기
+        </button>
         {mode === 'sign' && safePage === total && onSubmit ? (
           <button
             type="button"
@@ -412,8 +433,8 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
             document.body,
           )
         : null}
-      <div ref={hostRef} className={readOnly ? 'pg-finished flex w-full flex-col gap-3' : 'pg-scale-host'} style={readOnly ? undefined : { height: `${297 * scale}mm` }}>
-        {readOnly
+      <div ref={hostRef} className={showFinished ? 'pg-finished flex w-full flex-col gap-3' : 'pg-scale-host'} style={showFinished ? undefined : { height: `${297 * scale}mm` }}>
+        {showFinished
           ? slices.map((indexes, index) => (
               <div key={indexes.join('-') || index} className="pg-scale-host" style={{ height: `${297 * scale}mm` }}>
                 <div className="pg-scale" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: '210mm' }}>
@@ -427,7 +448,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
             </div>
           )}
       </div>
-      {pageGates.has('sign') && !readOnly ? (
+      {pageGates.has('sign') && !readOnly && !previewing ? (
         <div className="pg-sign-tools pg-no-print mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3" data-pg-key="[[EC_SIGNATURE]]">
           <p className="text-sm font-semibold text-slate-900">이 장의 도장과 서명</p>
           <label className="block text-sm text-slate-700">

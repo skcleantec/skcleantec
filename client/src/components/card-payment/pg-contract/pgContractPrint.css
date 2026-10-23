@@ -266,9 +266,15 @@
 .pg-finished .pg-blank-biz,
 .pg-finished .pg-choice,
 .pg-finished .pg-choice-biz {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.pg-finished input,
+.pg-finished .pg-choice {
+  pointer-events: none;
 }
 
 .pg-finished .pg-blank,
@@ -345,13 +351,18 @@
   }
 
   .pg-blank,
-  .pg-choice {
-    border-color: transparent !important;
+  .pg-blank-biz,
+  .pg-choice,
+  .pg-choice-biz {
+    border: none !important;
     background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
     padding: 0 !important;
   }
 
-  .pg-blank {
+  .pg-blank,
+  .pg-blank-biz {
     border-bottom: 0.25mm solid #0f172a !important;
     border-radius: 0;
     height: 4.2mm;
