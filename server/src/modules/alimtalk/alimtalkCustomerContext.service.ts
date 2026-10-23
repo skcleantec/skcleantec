@@ -15,6 +15,7 @@ export type InquiryForAlimtalk = Pick<
   | 'customerName'
   | 'preferredDate'
   | 'preferredTime'
+  | 'preferredTimeDetail'
   | 'customerPhone'
   | 'orderFormId'
   | 'operatingCompanyId'
@@ -41,6 +42,7 @@ const inquirySelect = {
   customerName: true,
   preferredDate: true,
   preferredTime: true,
+  preferredTimeDetail: true,
   customerPhone: true,
   orderFormId: true,
   operatingCompanyId: true,

@@ -85,8 +85,10 @@ export function OrderFormSubmissionSnapshotContent(props: {
   submittedAt?: string | null;
   /** 이미 제출된 원본에 OPT_2 같은 코드가 남아 있을 때 한글 이름으로 바꾼다 */
   choicePages?: CustomerPageCopy[] | null;
+  /** 발주서 설정에 저장한 시간대 문구 */
+  timeSlotLabels?: OrderTimeSlotLabels | null;
 }) {
-  const { snapshot, submittedAt, choicePages } = props;
+  const { snapshot, submittedAt, choicePages, timeSlotLabels } = props;
 
   if (!isOrderFormSubmissionSnapshotV1(snapshot)) {
     return (
@@ -215,7 +217,7 @@ export function OrderFormSubmissionSnapshotContent(props: {
             {formatDateCompactWithWeekday(snapshot.fields.preferredDate)}
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="시간대">
-            {slotLabelForOrderForm(snapshot.fields.preferredTime)}
+            {slotLabelForOrderForm(snapshot.fields.preferredTime, timeSlotLabels)}
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="구체적 시각">
             {snapshot.fields.preferredTimeDetail?.trim() ? snapshot.fields.preferredTimeDetail : '—'}

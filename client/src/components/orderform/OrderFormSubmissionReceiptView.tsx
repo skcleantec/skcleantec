@@ -62,7 +62,9 @@ export function OrderFormSubmissionReceiptView(props: {
   submittedAt: string;
   inquiryNumber: string | null;
   snapshot: unknown | null;
-  formConfig?: OrderFormConfigPublic;
+  formConfig?: OrderFormConfigPublic & {
+    timeSlotLabels?: import('../../constants/orderFormSchedule').OrderTimeSlotLabels;
+  };
   submissionEmail?: OrderFormSubmissionEmailInfo | null;
   publicCompanyTrust?: PublicOrderFormCompanyTrust | null;
   companyDisplayName?: string | null;
@@ -326,6 +328,7 @@ export function OrderFormSubmissionReceiptView(props: {
               snapshot={snapshot}
               submittedAt={submittedAt}
               choicePages={choicePages}
+              timeSlotLabels={formConfig?.timeSlotLabels ?? null}
             />
           )}
 

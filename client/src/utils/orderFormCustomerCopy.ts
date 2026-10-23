@@ -106,6 +106,7 @@ export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessa
     serviceDateAckTitle: withDefaultText(c.serviceDateAckTitle, 'serviceDateAckTitle'),
     serviceDateAckBody: withDefaultText(c.serviceDateAckBody, 'serviceDateAckBody'),
     serviceDateAckConsentHint: withDefaultText(c.serviceDateAckConsentHint, 'serviceDateAckConsentHint'),
+    timeSlotLabelsJson: c.timeSlotLabelsJson ?? null,
     ...linkCopy,
     customerLinkBlockOrder: normalizeCustomerLinkBlockOrder(c.customerLinkBlockOrder),
     customerLinkMessageTemplate:
@@ -144,8 +145,19 @@ export function customerLinkMsgConfigForBrand(
   tenantFallback: FormMessagesState,
 ): FormMessagesState {
   const id = operatingCompanyId?.trim();
-  if (id && map?.[id]) return map[id];
-  return tenantFallback;
+  const brand = id ? map?.[id] : undefined;
+  if (!brand) return tenantFallback;
+  // 시간대 문구·금액 라벨·리뷰·하단 안내는 발주서 설정(테넌트)이 기준이다.
+  // 브랜드 고객링크 본문은 그대로 두고, 치환 값만 최신 설정을 쓴다.
+  return {
+    ...brand,
+    formTitle: tenantFallback.formTitle,
+    priceLabel: tenantFallback.priceLabel,
+    reviewEventText: tenantFallback.reviewEventText,
+    footerNotice1: tenantFallback.footerNotice1,
+    footerNotice2: tenantFallback.footerNotice2,
+    timeSlotLabelsJson: tenantFallback.timeSlotLabelsJson ?? brand.timeSlotLabelsJson ?? null,
+  };
 }
 
 /** API 브랜드별 설정 배열 → 맵 */
@@ -313,7 +325,7 @@ function renderCustomerLinkBlockText(
     case 'review':
       return ctx.reviewText ? tplLine(ctx.reviewText, baseVars) : null;
     case 'schedule':
-      return order.preferredDate && order.preferredTime
+      return baseVars.date || baseVars.timeSlot
         ? tplLine(linkCopy.customerLinkScheduleLine, baseVars)
         : null;
     case 'timeDetail':
@@ -368,13 +380,9 @@ export function buildOrderFormCustomerMessage(
   const balanceFmt = order.balanceAmount.toLocaleString('ko-KR');
   const depositFmt = order.depositAmount.toLocaleString('ko-KR');
   const nameVars = customerLinkNameVars(order.customerName);
-  const slotLabel =
-    order.preferredDate && order.preferredTime
-      ? labelForTimeSlot(
-          order.preferredTime,
-          msgConfig.timeSlotLabelsJson ?? undefined,
-        )
-      : '';
+  const slotLabel = order.preferredTime?.trim()
+    ? labelForTimeSlot(order.preferredTime, msgConfig.timeSlotLabelsJson ?? undefined)
+    : '';
   const paybackLink = paybackToken
     ? getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug)
     : '';
@@ -391,9 +399,9 @@ export function buildOrderFormCustomerMessage(
   const messageTitle = composeCustomerLinkMessageTitle(brandDisplayName, formTitleResolved);
   const brandName = brandDisplayName?.trim() ?? '';
 
-  const hasSchedule = Boolean(order.preferredDate && order.preferredTime);
+  const dateRaw = order.preferredDate?.trim() ?? '';
   const timeDetailRaw = order.preferredTimeDetail?.trim() ?? '';
-  const scheduleLine = hasSchedule
+  const scheduleLine = dateRaw || slotLabel
     ? tplLine(linkCopy.customerLinkScheduleLine, {
         ...nameVars,
         amount: amountFmt,
@@ -432,8 +440,8 @@ export function buildOrderFormCustomerMessage(
     priceLabel,
     balance: balanceFmt,
     deposit: depositFmt,
-    date: hasSchedule ? (order.preferredDate ?? '') : '',
-    timeSlot: hasSchedule ? slotLabel : '',
+    date: dateRaw,
+    timeSlot: slotLabel,
     timeDetail: timeDetailRaw,
     scheduleLine,
     timeDetailLine,
@@ -457,6 +465,9 @@ export function buildOrderFormCustomerMessage(
     }
     if (!paybackToken) {
       rendered = stripEmptyPaybackFreeform(rendered);
+    }
+    if (timeDetailRaw && timeDetailLine && !rendered.includes(timeDetailRaw)) {
+      rendered = `${rendered}\n${timeDetailLine}`;
     }
     return finalizeCustomerLinkMessage(rendered);
   }
