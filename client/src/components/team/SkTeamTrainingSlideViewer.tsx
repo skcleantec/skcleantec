@@ -265,13 +265,15 @@ export function SkTeamTrainingSlideViewer({
   const slide = items[index];
   const controlBtn =
     'inline-flex size-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-40 disabled:pointer-events-none';
+  const barBtn =
+    'inline-flex min-h-11 items-center justify-center rounded-lg bg-white/10 px-2 text-fluid-xs font-medium text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:pointer-events-none disabled:opacity-40';
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[130] flex flex-col bg-slate-950 text-white"
+      className="fixed inset-0 z-[130] flex h-[100dvh] w-screen flex-col bg-slate-950 text-white"
       role="dialog"
       aria-modal="true"
-      aria-label="교육가이드"
+      aria-label="교육자료"
     >
       <div className="flex shrink-0 items-center gap-2 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <button ref={closeRef} type="button" className={controlBtn} onClick={onClose} aria-label="닫기">
@@ -334,9 +336,20 @@ export function SkTeamTrainingSlideViewer({
         </button>
       </div>
 
-      <p className="shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 text-center text-fluid-2xs text-slate-300">
-        좌우로 넘기고, 두 손가락이나 ＋ − 로 글자를 키우거나 줄이세요.
-      </p>
+      <div className="grid shrink-0 grid-cols-4 gap-1.5 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+        <button type="button" className={barBtn} onClick={() => go(index - 1)} disabled={index <= 0}>
+          이전
+        </button>
+        <button type="button" className={barBtn} onClick={() => setScale(gesture.current.scale / ZOOM_STEP)}>
+          축소
+        </button>
+        <button type="button" className={barBtn} onClick={() => setScale(gesture.current.scale * ZOOM_STEP)}>
+          확대
+        </button>
+        <button type="button" className={barBtn} onClick={() => go(index + 1)} disabled={index >= items.length - 1}>
+          다음
+        </button>
+      </div>
     </div>,
     document.body,
   );
