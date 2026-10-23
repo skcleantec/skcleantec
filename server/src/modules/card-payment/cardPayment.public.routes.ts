@@ -9,6 +9,7 @@ import {
 import { requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
 import { getPartnerPgContract, getPgContractTemplate } from './pgMerchantContract.service.js';
+import { getPgApplicationNotifyEmails, savePgApplicationNotifyEmails } from './pgApplicationNotify.service.js';
 import { parsePgClerkCodes, saveIssuedPgClerkCodes } from './pgClerk.service.js';
 import { applyWspayWebhook } from './cardPaymentWebhook.service.js';
 import { applyPaysisNotification, startPaysisWindowByLinkToken } from './cardPaymentWindow.service.js';
@@ -73,6 +74,22 @@ router.get('/pg-partner/refunds', async (req, res) => {
 router.get('/pg-partner/contract', async (req, res) => {
   if (!requirePgPartner(req, res)) return;
   res.json(await getPgContractTemplate());
+});
+
+router.get('/pg-partner/notify-emails', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  res.json({ emails: await getPgApplicationNotifyEmails() });
+});
+
+router.put('/pg-partner/notify-emails', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  try {
+    const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+    const emails = await savePgApplicationNotifyEmails(body.emails);
+    res.json({ emails });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '메일을 저장하지 못했습니다.' });
+  }
 });
 
 router.get('/pg-partner/applications', async (req, res) => {

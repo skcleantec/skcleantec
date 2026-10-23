@@ -615,6 +615,8 @@ model PlatformCardPaymentSettings {
   id               String   @id @default("default")
   tenantFeeBps     Int      @default(330) @map("tenant_fee_bps")
   platformCostBps  Int      @default(260) @map("platform_cost_bps")
+  /// PG 신청·전자계약이 끝나면 알림을 받을 메일. 원성 화면에서 더 넣을 수 있다.
+  pgApplicationNotifyEmails Json @default("[\"wsgpay@naver.com\"]") @map("pg_application_notify_emails")
   /// PG 승인 후 가맹점이 작성하는 전자계약 제목·본문·칸
   pgContractTitle    String @default("카드결제 이용약관") @map("pg_contract_title") @db.VarChar(128)
   pgContractBodyHtml String @default("") @map("pg_contract_body_html") @db.Text

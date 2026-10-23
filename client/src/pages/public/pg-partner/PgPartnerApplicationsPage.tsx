@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TENANT_PG_ONBOARDING_STATUS_LABEL, type TenantPgOnboardingStatus } from '@shared/cardPayment';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
+import { PgPartnerNotifyEmails } from './PgPartnerNotifyEmails';
 
 type Application = {
   id: string;
@@ -234,6 +235,7 @@ export function PgPartnerApplicationsPage() {
         <h1 className="text-fluid-base font-semibold text-slate-900">PG 신청</h1>
         <p className="mt-1 text-fluid-xs text-slate-600">업체를 확인한 뒤 MID, OID, 키와 고유번호 코드 15개를 입력하면 그 업체에 바로 연결됩니다.</p>
       </div>
+      <PgPartnerNotifyEmails />
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
       {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
       {items && items.length === 0 ? (

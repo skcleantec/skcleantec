@@ -17,6 +17,7 @@ import {
   submitOnboarding,
 } from './cardPaymentOnboarding.service.js';
 import { getTenantPgContract, submitTenantPgContract, uploadPgContractImage } from './pgMerchantContract.service.js';
+import { notifyPgApplicationSubmitted, notifyPgContractSubmitted } from './pgApplicationNotify.service.js';
 import { listPgClerkSlots, savePgClerkSlots } from './pgClerk.service.js';
 import {
   confirmCustomerLink,
@@ -153,6 +154,11 @@ router.post('/pg/contract', async (req, res) => {
       signatureUrl: typeof req.body?.signatureUrl === 'string' ? req.body.signatureUrl : '',
       agree: req.body?.agree === true,
     });
+    void notifyPgContractSubmitted({
+      tenantId,
+      contractNo: saved.contractNo ?? null,
+      signedAt: saved.signedAt,
+    }).catch((err) => console.error('[pg-contract notify]', err));
     res.json(saved);
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '저장하지 못했습니다.' });
@@ -272,6 +278,17 @@ router.post('/pg/onboarding/submit', async (req, res) => {
   }
   try {
     const row = await submitOnboarding(tenantId, req.body ?? {});
+    void notifyPgApplicationSubmitted({
+      tenantId,
+      businessName: row.businessName,
+      businessKind: row.merchantKind,
+      bizNumber: row.bizNumber,
+      representativeName: row.representativeName,
+      contactName: row.contactName,
+      contactPhone: row.contactPhone,
+      contactEmail: row.contactEmail,
+      submittedAt: row.submittedAt,
+    }).catch((err) => console.error('[pg-application notify]', err));
     res.json(row);
   } catch (e) {
     if (e instanceof Error && (
