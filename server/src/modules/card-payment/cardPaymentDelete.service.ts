@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
+import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 
 const LOCKED_STATUSES = ['APPROVED', 'CANCELLED'] as const;
 
@@ -14,7 +15,15 @@ export async function deleteOpenCardPayment(input: {
     where: { id: input.userId, tenantId: input.tenantId },
     select: { role: true, passwordHash: true },
   });
-  if (!actor || actor.role !== 'ADMIN') {
+  const allowed =
+    actor != null &&
+    (await userHasStaffAdminAccess({
+      userId: input.userId,
+      email: '',
+      role: actor.role,
+      tenantId: input.tenantId,
+    }));
+  if (!allowed) {
     return { error: '결재 삭제는 관리자만 할 수 있습니다.' as const, status: 403 as const };
   }
   const passwordOk = await compareUserPasswordHash(actor.passwordHash, input.password);

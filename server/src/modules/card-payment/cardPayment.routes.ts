@@ -33,6 +33,7 @@ import { prisma } from '../../lib/prisma.js';
 import { readSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
 import { cancelCustomerLinkPayment } from './cardPaymentCancel.service.js';
 import { deleteOpenCardPayment } from './cardPaymentDelete.service.js';
+import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 const router = Router();
 const registrationUpload = multer({
   storage: multer.memoryStorage(),
@@ -109,7 +110,7 @@ router.get('/pg', async (req, res) => {
     getCredentialPublic(tenantId),
     getCredentialBundle(tenantId),
   ]);
-  const reveal = user.role === 'ADMIN';
+  const reveal = await userHasStaffAdminAccess(user);
   const sellerCenter = reveal ? await readSellerCenterLogin(tenantId) : null;
   res.json({
     onboarding,
@@ -122,7 +123,7 @@ router.get('/pg', async (req, res) => {
 router.get('/pg/contract', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
-  if (scoped(req).user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(scoped(req).user))) {
     res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
     return;
   }
@@ -132,7 +133,7 @@ router.get('/pg/contract', async (req, res) => {
 router.post('/pg/contract', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
-  if (scoped(req).user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(scoped(req).user))) {
     res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
     return;
   }
@@ -160,7 +161,7 @@ router.post('/pg/contract', async (req, res) => {
 router.post('/pg/contract/upload', registrationUpload.single('file'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
-  if (scoped(req).user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(scoped(req).user))) {
     res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
     return;
   }
@@ -179,7 +180,7 @@ router.post('/pg/contract/upload', registrationUpload.single('file'), async (req
 router.post('/pg/contract/mailed', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
-  if (scoped(req).user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(scoped(req).user))) {
     res.status(403).json({ error: '우편 발송은 관리자만 표시할 수 있습니다.' });
     return;
   }
@@ -193,7 +194,7 @@ router.post('/pg/contract/mailed', async (req, res) => {
 router.put('/pg/onboarding', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
-  if (scoped(req).user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(scoped(req).user))) {
     res.status(403).json({ error: 'PG 연동은 관리자만 저장할 수 있습니다.' });
     return;
   }
@@ -204,7 +205,7 @@ router.put('/pg/onboarding', async (req, res) => {
 router.post('/pg/onboarding/business-registration', registrationUpload.single('file'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
-  if (scoped(req).user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(scoped(req).user))) {
     res.status(403).json({ error: '사업자등록증은 관리자만 올릴 수 있습니다.' });
     return;
   }
@@ -230,7 +231,7 @@ router.post('/pg/onboarding/business-registration', registrationUpload.single('f
 router.post('/pg/onboarding/business-card', registrationUpload.single('file'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
-  if (scoped(req).user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(scoped(req).user))) {
     res.status(403).json({ error: '명함은 관리자만 올릴 수 있습니다.' });
     return;
   }
@@ -256,7 +257,7 @@ router.post('/pg/onboarding/business-card', registrationUpload.single('file'), a
 router.post('/pg/onboarding/submit', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
   if (!tenantId) return;
-  if (scoped(req).user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(scoped(req).user))) {
     res.status(403).json({ error: 'PG 가입 신청은 관리자만 할 수 있습니다.' });
     return;
   }
@@ -414,7 +415,7 @@ router.post('/:id/cancel', async (req, res) => {
   const user = scoped(req).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
-  if (user.role !== 'ADMIN') {
+  if (!(await userHasStaffAdminAccess(user))) {
     res.status(403).json({ error: '인증결재 취소는 관리자만 할 수 있습니다.' });
     return;
   }

@@ -8,7 +8,7 @@ import {
   type CardPaymentListResponse,
   type CardPaymentRow,
 } from '../../../api/cardPayment';
-import { bootstrapAuthMeFromLocal } from '../../../api/authMeSnapshot';
+import { useEffectiveStaffAdmin } from '../../../hooks/useEffectiveStaffAdmin';
 import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
 import { getToken } from '../../../stores/auth';
 import { YearMonthSelect, YmdSelect } from '../../ui/DateQuerySelects';
@@ -93,7 +93,7 @@ export function CardPaymentLedger() {
     if (!opened) setCancelError('팝업이 막혀 판매자센터를 열지 못했습니다.');
   };
 
-  const isAdmin = bootstrapAuthMeFromLocal(getToken() || '')?.role === 'ADMIN';
+  const { effectiveStaffAdmin } = useEffectiveStaffAdmin();
 
   const confirmDelete = (password: string) => {
     const token = getToken();
@@ -222,7 +222,7 @@ export function CardPaymentLedger() {
             <CardPaymentListTable
               items={data.items}
               onCancel={cancelPayment}
-              onDelete={isAdmin ? (row) => { setDeleteError(null); setDeleteTarget(row); } : undefined}
+              onDelete={effectiveStaffAdmin ? (row) => { setDeleteError(null); setDeleteTarget(row); } : undefined}
               sellerReady={Boolean(sellerLogin)}
               cancellingId={cancellingId}
               deletingId={deleting ? deleteTarget?.id : null}
@@ -230,7 +230,7 @@ export function CardPaymentLedger() {
             <CardPaymentListCards
               items={data.items}
               onCancel={cancelPayment}
-              onDelete={isAdmin ? (row) => { setDeleteError(null); setDeleteTarget(row); } : undefined}
+              onDelete={effectiveStaffAdmin ? (row) => { setDeleteError(null); setDeleteTarget(row); } : undefined}
               sellerReady={Boolean(sellerLogin)}
               cancellingId={cancellingId}
               deletingId={deleting ? deleteTarget?.id : null}
