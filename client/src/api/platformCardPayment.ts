@@ -94,7 +94,7 @@ export async function fetchPlatformTenantCredential(tenantId: string) {
   return res.json() as Promise<
     | { connected: false }
     | {
-        connected: true;
+        connected: boolean;
         isActive: boolean;
         apiKeyLast4: string;
         tidMasked: string;

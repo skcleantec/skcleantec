@@ -58,7 +58,8 @@ function AdminCardPaymentPgInner() {
         .then((res) => {
           if (cancelled) return;
           setRow(res.onboarding);
-          setConnected(res.credential.connected);
+          const cred = res.credential;
+          setConnected(cred.connected && (!('isActive' in cred) || cred.isActive));
           setMerchantMid(res.credential.connected ? res.credential.mid : null);
           setMerchantOid(res.credential.connected ? res.credential.oid : null);
           setError(null);

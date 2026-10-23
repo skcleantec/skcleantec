@@ -72,7 +72,7 @@ export function serializeCredentialPublic(row: TenantPgCredential | null) {
     return { connected: false as const };
   }
   return {
-    connected: true as const,
+    connected: row.isActive,
     isActive: row.isActive,
     apiKeyLast4: row.apiKeyLast4,
     tidMasked: row.tidMasked,

@@ -34,7 +34,10 @@ export function AdminTeamLeadersLayout() {
     let cancelled = false;
     void fetchTenantPgState(token)
       .then((res) => {
-        if (!cancelled) setPgConnected(res.credential.connected);
+        if (!cancelled) {
+          const cred = res.credential;
+          setPgConnected(cred.connected && (!('isActive' in cred) || cred.isActive));
+        }
       })
       .catch(() => {
         if (!cancelled) setPgConnected(false);

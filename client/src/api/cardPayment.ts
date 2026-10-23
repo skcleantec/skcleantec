@@ -125,7 +125,7 @@ export async function fetchTenantPgState(token: string) {
     credential:
       | { connected: false }
       | {
-          connected: true;
+          connected: boolean;
           isActive: boolean;
           apiKeyLast4: string;
           tidMasked: string;

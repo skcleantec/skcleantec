@@ -39,12 +39,13 @@ export function PlatformCardPaymentKeySection() {
     }
     void fetchPlatformTenantCredential(tenantId)
       .then((row) => {
-        if (!row.connected) {
+        if (!('apiKeyLast4' in row)) {
           setSaved('이 업체에는 아직 결제 키가 없습니다.');
           return;
         }
+        const link = row.connected && row.isActive !== false ? '연결됨' : '연결 대기';
         setSaved(
-          `저장됨 · MID ${row.mid || '없음'} · OID ${row.oid || '없음'} · 키 끝 ${row.apiKeyLast4}`,
+          `${link} · MID ${row.mid || '없음'} · OID ${row.oid || '없음'} · 키 끝 ${row.apiKeyLast4}`,
         );
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '저장된 키를 불러오지 못했습니다.'));

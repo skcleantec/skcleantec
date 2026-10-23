@@ -79,7 +79,7 @@ router.get('/inquiry/:inquiryId/prefill', async (req, res) => {
     customerName: inquiry.customerName,
     amountWon,
     quote,
-    pgConnected: pg.connected ? pg.isActive : false,
+    pgConnected: 'isActive' in pg && pg.connected && pg.isActive,
   });
 });
 
