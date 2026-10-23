@@ -6,8 +6,24 @@ function v(values: ContractValues, key: string) {
   return values[key] ?? '';
 }
 
-function field(values: ContractValues, set: PageProps['set'], readOnly: boolean, key: string, width = '36mm') {
-  return <Blank width={width} value={v(values, key)} readOnly={readOnly} onChange={(next) => set(key, next)} />;
+function field(
+  values: ContractValues,
+  set: PageProps['set'],
+  readOnly: boolean,
+  key: string,
+  width = '36mm',
+  tone?: 'biz',
+) {
+  return (
+    <Blank
+      width={width}
+      tone={tone}
+      fieldKey={key}
+      value={v(values, key)}
+      readOnly={readOnly}
+      onChange={(next) => set(key, next)}
+    />
+  );
 }
 
 function block(key: string, label: string, node: FlowBlock['node'], gate?: FlowBlock['gate']): FlowBlock {
@@ -16,6 +32,7 @@ function block(key: string, label: string, node: FlowBlock['node'], gate?: FlowB
 
 export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock[] {
   const f = (key: string, width?: string) => field(values, set, readOnly, key, width);
+  const biz = (key: string, width?: string) => field(values, set, readOnly, key, width, 'biz');
   const ad = (key: string) => v(values, key) === 'Y';
   const kind = v(values, 'pgBizKind');
   return [
@@ -60,26 +77,26 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <h2>1. 가맹점</h2>
         <p>
           구분
-          <Choice on={v(values, 'pgBizKind') === 'solo'} label="개인사업자" readOnly={readOnly} onPick={() => set('pgBizKind', 'solo')} />
-          <Choice on={v(values, 'pgBizKind') === 'corp'} label="법인" readOnly={readOnly} onPick={() => set('pgBizKind', 'corp')} />
+          <Choice fieldKey="pgBizKind" tone="biz" on={v(values, 'pgBizKind') === 'solo'} label="개인사업자" readOnly={readOnly} onPick={() => set('pgBizKind', 'solo')} />
+          <Choice fieldKey="pgBizKind" tone="biz" on={v(values, 'pgBizKind') === 'corp'} label="법인" readOnly={readOnly} onPick={() => set('pgBizKind', 'corp')} />
           과세
-          <Choice on={v(values, 'pgTaxKind') === 'tax'} label="과세" readOnly={readOnly} onPick={() => set('pgTaxKind', 'tax')} />
-          <Choice on={v(values, 'pgTaxKind') === 'exempt'} label="면세" readOnly={readOnly} onPick={() => set('pgTaxKind', 'exempt')} />
+          <Choice fieldKey="pgTaxKind" tone="biz" on={v(values, 'pgTaxKind') === 'tax'} label="과세" readOnly={readOnly} onPick={() => set('pgTaxKind', 'tax')} />
+          <Choice fieldKey="pgTaxKind" tone="biz" on={v(values, 'pgTaxKind') === 'exempt'} label="면세" readOnly={readOnly} onPick={() => set('pgTaxKind', 'exempt')} />
           <span className="pg-muted">공동대표이면 대표자 전원을 적습니다.</span>
         </p>
         <table className="pg-table">
           <tbody>
-            <tr><th>상호</th><td>{f('[[EC_MERCHANT_NAME]]', '70mm')}</td><th>사업자번호</th><td>{f('[[EC_BIZ_NO]]')}</td></tr>
+            <tr><th>상호</th><td>{biz('[[EC_MERCHANT_NAME]]', '70mm')}</td><th>사업자번호</th><td>{biz('[[EC_BIZ_NO]]')}</td></tr>
             {kind === 'corp' ? (
-              <tr><th>법인번호</th><td>{f('pgCorpNo')}</td><th>대표자</th><td>{f('[[EC_SIGNER_NAME]]')}</td></tr>
+              <tr><th>법인번호</th><td>{biz('pgCorpNo')}</td><th>대표자</th><td>{biz('[[EC_SIGNER_NAME]]')}</td></tr>
             ) : (
-              <tr><th>대표자</th><td colSpan={3}>{f('[[EC_SIGNER_NAME]]')}</td></tr>
+              <tr><th>대표자</th><td colSpan={3}>{biz('[[EC_SIGNER_NAME]]')}</td></tr>
             )}
-            <tr><th>생년월일</th><td>{f('pgBirth')}</td><th>휴대폰</th><td>{f('[[EC_SIGNER_PHONE]]')}</td></tr>
-            <tr><th>대표 전화</th><td>{f('pgTel')}</td><th>업태·종목</th><td>{f('pgBizType', '22mm')} {f('pgBizItem', '22mm')}</td></tr>
-            <tr><th>판매 용역</th><td colSpan={3}>{f('pgService', '90mm')} <span className="pg-muted">입주청소, 거주청소 등</span></td></tr>
-            <tr><th>사업장</th><td colSpan={3}>{f('[[EC_SIGNER_ADDRESS]]', '120mm')}</td></tr>
-            <tr><th>우편물</th><td>{f('pgMailAddr')} <span className="pg-muted">같으면 상동</span></td><th>업체</th><td>{f('pgTenantCode')}</td></tr>
+            <tr><th>생년월일</th><td>{biz('pgBirth')}</td><th>휴대폰</th><td>{biz('[[EC_SIGNER_PHONE]]')}</td></tr>
+            <tr><th>대표 전화</th><td>{biz('pgTel')}</td><th>업태·종목</th><td>{biz('pgBizType', '22mm')} {biz('pgBizItem', '22mm')}</td></tr>
+            <tr><th>판매 용역</th><td colSpan={3}>{biz('pgService', '90mm')} <span className="pg-muted">입주청소, 거주청소 등</span></td></tr>
+            <tr><th>사업장</th><td colSpan={3}>{biz('[[EC_SIGNER_ADDRESS]]', '120mm')}</td></tr>
+            <tr><th>우편물</th><td>{biz('pgMailAddr')} <span className="pg-muted">같으면 상동</span></td><th>업체</th><td>{biz('pgTenantCode')}</td></tr>
           </tbody>
         </table>
         <p className="pg-muted">과세·면세와 상호·사업자번호·대표자·휴대폰·사업장만 있으면 다음으로 갑니다. 법인번호·생년월일·대표 전화·업태·판매 용역·우편물·업체코드는 비워도 됩니다.</p>
@@ -135,7 +152,7 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <h2>7. 개인정보 — 가. 수집·이용 (필수)</h2>
         <p>수집하는 곳: 주식회사 서비스브릿지. 결제대행사가 심사·정산을 위해 같은 항목을 다시 수집·이용할 수 있습니다. 항목: 상호, 사업자등록번호, 대표자 이름·생년월일·성별·국적·전화번호, 담당자 이름·전화·이메일, 정산계좌, 실제 소유자 정보, 거래내역. 목적: 신청 접수, 본인·사업자 확인, 심사 요청, 결제 화면 연결, 정산·수수료 안내, 민원 전달, 부정 이용 방지, 법령상 의무. 보유: 목적 달성 후 지체 없이 파기합니다. 전자금융거래법 등에서 거래기록을 보존하도록 한 기간(원칙 5년)은 그 기간까지 둡니다. 동의하지 않으면 카드결제를 열 수 없습니다.</p>
         <p>
-          <Choice on={isChecked(v(values, 'pgPrivacy'))} label="동의함" readOnly={readOnly} onPick={() => set('pgPrivacy', 'Y')} />
+          <Choice fieldKey="pgPrivacy" on={isChecked(v(values, 'pgPrivacy'))} label="동의함" readOnly={readOnly} onPick={() => set('pgPrivacy', 'Y')} />
           <Choice on={v(values, 'pgPrivacy') === 'N'} label="동의하지 않음" readOnly={readOnly} onPick={() => set('pgPrivacy', 'N')} />
         </p>
       </>,
@@ -148,7 +165,7 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <h2>나. 제3자 제공 (필수)</h2>
         <p>제공받는 자: 주식회사 원성페이먼츠. 원성페이먼츠는 가맹 심사와 승인·매입을 위해 카드사(국민, 비씨, 롯데, 삼성, 현대, 신한, 하나, NH농협 등)에 대표자 이름, 생년월일, 사업자 정보와 심사에 필요한 항목을 제공합니다. 목적: 가맹 심사, 거래 승인·매입·정산, 본인확인, 민원·부정거래 확인, 특정금융정보법에 따른 확인. 보유: 제공 목적 달성 시 파기. 법령에 보존 기간이 있으면 그 기간. 동의하지 않으면 심사를 진행할 수 없습니다.</p>
         <p>
-          <Choice on={isChecked(v(values, 'pgShare'))} label="동의함" readOnly={readOnly} onPick={() => set('pgShare', 'Y')} />
+          <Choice fieldKey="pgShare" on={isChecked(v(values, 'pgShare'))} label="동의함" readOnly={readOnly} onPick={() => set('pgShare', 'Y')} />
           <Choice on={v(values, 'pgShare') === 'N'} label="동의하지 않음" readOnly={readOnly} onPick={() => set('pgShare', 'N')} />
         </p>
       </>,

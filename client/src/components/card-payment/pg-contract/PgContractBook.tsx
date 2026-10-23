@@ -47,20 +47,64 @@ function sameSlices(left: number[][], right: number[][]) {
   return left.length === right.length && left.every((row, index) => row.join(',') === right[index]?.join(','));
 }
 
-function gateMessage(gates: Set<FlowGate>, values: ContractValues): string | null {
+type GateProblem = { message: string; focusKey: string };
+
+function gateProblem(gates: Set<FlowGate>, values: ContractValues): GateProblem | null {
   if (gates.has('identity')) {
-    if (!values.pgBizKind) return '개인사업자 또는 법인을 선택해 주세요.';
-    if (!values.pgTaxKind) return '과세 또는 면세를 선택해 주세요.';
-    if (!values['[[EC_MERCHANT_NAME]]']?.trim()) return '상호를 적어 주세요.';
-    if (!values['[[EC_BIZ_NO]]']?.trim()) return '사업자등록번호를 적어 주세요.';
-    if (!values['[[EC_SIGNER_NAME]]']?.trim()) return '대표자를 적어 주세요.';
-    if (!values['[[EC_SIGNER_PHONE]]']?.trim()) return '휴대폰을 적어 주세요.';
-    if (!values['[[EC_SIGNER_ADDRESS]]']?.trim()) return '사업장 주소를 적어 주세요.';
+    if (!values.pgBizKind) return { message: '개인사업자 또는 법인을 선택해 주세요.', focusKey: 'pgBizKind' };
+    if (!values.pgTaxKind) return { message: '과세 또는 면세를 선택해 주세요.', focusKey: 'pgTaxKind' };
+    if (!values['[[EC_MERCHANT_NAME]]']?.trim()) return { message: '상호가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_MERCHANT_NAME]]' };
+    if (!values['[[EC_BIZ_NO]]']?.trim()) return { message: '사업자등록번호가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_BIZ_NO]]' };
+    if (!values['[[EC_SIGNER_NAME]]']?.trim()) return { message: '대표자가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_NAME]]' };
+    if (!values['[[EC_SIGNER_PHONE]]']?.trim()) return { message: '휴대폰이 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_PHONE]]' };
+    if (!values['[[EC_SIGNER_ADDRESS]]']?.trim()) return { message: '사업장 주소가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_ADDRESS]]' };
   }
-  if (gates.has('privacy') && !isChecked(values.pgPrivacy)) return '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.';
-  if (gates.has('share') && !isChecked(values.pgShare)) return '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.';
-  if (gates.has('sign') && !isChecked(values['[[EC_CHECK]]'])) return '계약 내용 동의를 체크해야 다음 장으로 갑니다.';
+  if (gates.has('privacy') && !isChecked(values.pgPrivacy)) {
+    return { message: '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.', focusKey: 'pgPrivacy' };
+  }
+  if (gates.has('share') && !isChecked(values.pgShare)) {
+    return { message: '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.', focusKey: 'pgShare' };
+  }
+  if (gates.has('sign') && !isChecked(values['[[EC_CHECK]]'])) {
+    return { message: '계약 내용 동의를 체크해야 다음 장으로 갑니다.', focusKey: '[[EC_CHECK]]' };
+  }
   return null;
+}
+
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  let node = el.parentElement;
+  while (node) {
+    const style = getComputedStyle(node);
+    if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 4) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function jumpToField(root: HTMLElement, key: string) {
+  const el = root.querySelector<HTMLElement>(`[data-pg-key="${CSS.escape(key)}"]`);
+  if (!el) return;
+  root.querySelectorAll('.pg-aim').forEach((node) => node.classList.remove('pg-aim'));
+  el.classList.add('pg-aim');
+  window.setTimeout(() => el.classList.remove('pg-aim'), 2400);
+  const target = el.querySelector<HTMLElement>('input,button') ?? el;
+  const rect = target.getBoundingClientRect();
+  const parent = scrollParent(target);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const behavior: ScrollBehavior = reduce ? 'auto' : 'smooth';
+  if (parent) {
+    const parentRect = parent.getBoundingClientRect();
+    parent.scrollTo({
+      top: Math.max(0, parent.scrollTop + rect.top - parentRect.top - parent.clientHeight / 2 + rect.height / 2),
+      behavior,
+    });
+  } else {
+    window.scrollTo({
+      top: Math.max(0, window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2),
+      behavior,
+    });
+  }
+  target.focus({ preventScroll: true });
 }
 
 function BlockList({ blocks, indexes }: { blocks: FlowBlock[]; indexes: number[] }) {
@@ -81,7 +125,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
   const measureRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(0.55);
-  const [hint, setHint] = useState<string | null>(null);
+  const [block, setBlock] = useState<GateProblem | null>(null);
   const [slices, setSlices] = useState<number[][]>([[]]);
   const readOnly = mode === 'read';
   const number = contractNo?.trim() || PG_PREVIEW_CONTRACT_NO;
@@ -123,14 +167,23 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
 
   const go = (next: number) => {
     if (mode === 'sign' && next > safePage) {
-      const problem = gateMessage(pageGates, values);
+      const problem = gateProblem(pageGates, values);
       if (problem) {
-        setHint(problem);
+        setBlock(problem);
         return;
       }
     }
-    setHint(null);
+    setBlock(null);
     setPage(next);
+  };
+
+  const confirmBlock = () => {
+    const problem = block;
+    setBlock(null);
+    if (!problem || !hostRef.current) return;
+    window.requestAnimationFrame(() => {
+      if (hostRef.current) jumpToField(hostRef.current, problem.focusKey);
+    });
   };
 
   const saveImage = async (blob: Blob, key: string, filename: string) => {
@@ -221,7 +274,32 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
           </button>
         ) : null}
       </div>
-      {hint ? <p className="pg-no-print mb-2 text-sm text-red-700">{hint}</p> : null}
+      {block
+        ? createPortal(
+            <div className="pg-no-print fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 p-4" role="presentation">
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="pg-gate-title"
+                className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-lg"
+              >
+                <p id="pg-gate-title" className="text-sm font-semibold text-slate-900">
+                  다음으로 넘어가지 않습니다
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-700">{block.message}</p>
+                <button
+                  type="button"
+                  autoFocus
+                  className="mt-4 min-h-10 w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                  onClick={confirmBlock}
+                >
+                  확인
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
       <div ref={hostRef} className="pg-scale-host" style={{ height: `${297 * scale}mm` }}>
         <div className="pg-scale" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: '210mm' }}>
           {sheet(pageIndexes, safePage)}

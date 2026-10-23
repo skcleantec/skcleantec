@@ -7,7 +7,9 @@ function v(values: ContractValues, key: string) {
 }
 
 function field(values: ContractValues, set: PageProps['set'], readOnly: boolean, key: string, width = '28mm') {
-  return <Blank width={width} value={v(values, key)} readOnly={readOnly} onChange={(next) => set(key, next)} />;
+  return (
+    <Blank width={width} fieldKey={key} value={v(values, key)} readOnly={readOnly} onChange={(next) => set(key, next)} />
+  );
 }
 
 function block(key: string, label: string, node: FlowBlock['node'], gate?: FlowBlock['gate']): FlowBlock {
@@ -37,6 +39,7 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
         <p>가맹점은 청소비서 화면에서 전자서명합니다. 회사는 사용인감을 (인) 위에 날인하고, 이 전자계약서를 결제대행사 심사에 제출합니다. 결제대행사는 서명란의 당사자가 아니며, 전자지급결제대행은 주식회사 원성페이먼츠가 수행합니다.</p>
         <p>
           <Choice
+            fieldKey="[[EC_CHECK]]"
             on={isChecked(v(values, '[[EC_CHECK]]'))}
             label="위 계약 내용에 동의합니다"
             readOnly={readOnly}

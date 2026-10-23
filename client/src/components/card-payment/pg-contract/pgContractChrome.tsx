@@ -51,14 +51,18 @@ export function Blank({
   onChange,
   readOnly,
   width = '36mm',
+  fieldKey,
+  tone,
 }: {
   value: string;
   onChange: (value: string) => void;
   readOnly: boolean;
   width?: string;
+  fieldKey?: string;
+  tone?: 'biz';
 }) {
   return (
-    <span className="pg-blank" style={{ minWidth: width }}>
+    <span className={tone === 'biz' ? 'pg-blank pg-blank-biz' : 'pg-blank'} style={{ minWidth: width }} data-pg-key={fieldKey}>
       <input value={value} readOnly={readOnly} onChange={(e) => onChange(e.target.value)} aria-label="입력" />
     </span>
   );
@@ -73,14 +77,25 @@ export function Choice({
   label,
   readOnly,
   onPick,
+  fieldKey,
+  tone,
 }: {
   on: boolean;
   label: string;
   readOnly: boolean;
   onPick: () => void;
+  fieldKey?: string;
+  tone?: 'biz';
 }) {
   return (
-    <button type="button" className="pg-choice" disabled={readOnly} aria-pressed={on} onClick={onPick}>
+    <button
+      type="button"
+      className={tone === 'biz' ? 'pg-choice pg-choice-biz' : 'pg-choice'}
+      disabled={readOnly}
+      aria-pressed={on}
+      data-pg-key={fieldKey}
+      onClick={onPick}
+    >
       <span className="pg-mark">{on ? '■' : '□'}</span>
       {label}
     </button>
