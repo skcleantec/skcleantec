@@ -12,6 +12,7 @@ import {
   PG_CONTRACT_DEFAULT_FIELDS,
   PG_CONTRACT_DEFAULT_TITLE,
 } from './pgMerchantContract.document.js';
+import { clerkCodesByTenant, PG_CLERK_MAX } from './pgClerk.service.js';
 
 const INPUT_TYPES = ['TEXT', 'TEXTAREA', 'DATE', 'NUMBER', 'PHONE', 'CHECKBOX', 'SEAL'] as const;
 type PgContractInputType = (typeof INPUT_TYPES)[number];
@@ -338,6 +339,13 @@ export async function getPartnerPgContract(onboardingId: string) {
   if (!row) return null;
   const template = await getPgContractTemplate();
   const values = asRecord(row.contractValues);
+  const [credential, codes] = await Promise.all([
+    prisma.tenantPgCredential.findFirst({
+      where: { tenantId: row.tenantId },
+      select: { mid: true, oid: true, apiKeyLast4: true, isActive: true },
+    }),
+    clerkCodesByTenant([row.tenantId]),
+  ]);
   return {
     id: row.id,
     tenantName: row.tenant.name,
@@ -348,5 +356,10 @@ export async function getPartnerPgContract(onboardingId: string) {
     title: template.title,
     bodyHtml: row.contractSignedAt ? expandEcTokenMap(template.bodyHtml, values) : template.bodyHtml,
     values,
+    connected: Boolean(credential?.isActive),
+    mid: credential?.mid ?? null,
+    oid: credential?.oid ?? null,
+    apiKeyLast4: credential?.apiKeyLast4 ?? null,
+    clerkCodes: codes.get(row.tenantId) ?? Array.from({ length: PG_CLERK_MAX }, () => ''),
   };
 }

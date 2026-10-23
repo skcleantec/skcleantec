@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PgContractBook } from '../../../components/card-payment/pg-contract/PgContractBook';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
+import { PgPartnerConnectForm } from './PgPartnerConnectForm';
 import { PgPartnerTabs, usePartnerTab } from './PgPartnerTabs';
 
 type Template = { title: string; bodyHtml: string };
@@ -11,13 +12,21 @@ type Item = {
   businessName: string | null;
   status: string;
   contractSignedAt: string | null;
+  connected?: boolean;
 };
 type Signed = {
+  id: string;
   title: string;
   bodyHtml: string;
   businessName: string | null;
   signed: boolean;
   signedAt: string | null;
+  status: string;
+  connected: boolean;
+  mid: string | null;
+  oid: string | null;
+  apiKeyLast4: string | null;
+  clerkCodes: string[];
   values?: Record<string, string>;
 };
 
@@ -74,7 +83,7 @@ export function PgPartnerContractsPage() {
       <p className="text-fluid-xs text-slate-600">
         {tab === 'preview'
           ? '빈 양식입니다. 업체가 적은 내용은 신청 탭에서 봅니다.'
-          : '승인이 난 업체가 작성하는 계약서입니다. 서명이 끝나면 그 내용이 여기에 남습니다.'}
+          : '승인이 난 업체의 전자계약입니다. 계약이 들어오면 열어서 코드를 입력합니다.'}
       </p>
       <PgPartnerTabs
         value={tab}
@@ -110,7 +119,9 @@ export function PgPartnerContractsPage() {
                 className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               >
                 <span className="min-w-0 truncate text-fluid-sm text-slate-900">{item.businessName || item.tenantName}</span>
-                <span className="shrink-0 text-fluid-2xs text-slate-500">{item.contractSignedAt ? '계약 완료' : '계약 전'}</span>
+                <span className="shrink-0 text-fluid-2xs text-slate-500">
+                  {item.connected ? '연결됨' : item.contractSignedAt ? '코드 입력' : '계약 전'}
+                </span>
               </button>
             </li>
           ))}
@@ -130,6 +141,25 @@ export function PgPartnerContractsPage() {
               onChange={() => undefined}
             />
           </div>
+          {opened.connected ? (
+            <p className="mt-3 text-fluid-xs text-emerald-800">
+              연결됨 {opened.mid ? `MID ${opened.mid}` : ''} {opened.oid ? `OID ${opened.oid}` : ''}
+              {opened.apiKeyLast4 ? ` · 키 …${opened.apiKeyLast4}` : ''}
+            </p>
+          ) : opened.signed ? (
+            <PgPartnerConnectForm
+              onboardingId={opened.id}
+              mid={opened.mid}
+              oid={opened.oid}
+              clerkCodes={opened.clerkCodes ?? []}
+              onSaved={(next) => {
+                setOpened((prev) => (prev ? { ...prev, connected: true, ...next } : prev));
+                setItems((prev) => prev.map((item) => (item.id === opened.id ? { ...item, connected: true } : item)));
+              }}
+            />
+          ) : (
+            <p className="mt-3 text-fluid-xs text-slate-600">전자계약이 아직 들어오지 않았습니다. 코드는 계약이 들어온 뒤에 입력합니다.</p>
+          )}
         </section>
       ) : null}
     </div>

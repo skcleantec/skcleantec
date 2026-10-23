@@ -21,16 +21,13 @@ type Review = {
   merchantKind?: string | null;
   bankbookImageUrl?: string | null;
   idCardImageUrl?: string | null;
+  status?: string;
+  contractSignedAt?: string | null;
   connected: boolean;
   mid: string | null;
   oid: string | null;
   apiKeyLast4: string | null;
 };
-
-const INPUT =
-  'login-field-input mt-1 w-full min-h-11 rounded-lg border border-slate-200 px-3 text-fluid-sm';
-const BTN =
-  'min-h-11 w-full rounded-xl bg-slate-900 text-fluid-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
 function line(label: string, value: string | null) {
   if (!value) return null;
@@ -47,12 +44,6 @@ export function PgJoinReviewPage() {
   const { scrollRef, onFieldFocus } = useLoginScrollSurface(true);
   const [row, setRow] = useState<Review | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mid, setMid] = useState('');
-  const [oid, setOid] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [tid, setTid] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
 
   useEffect(() => {
     void fetch(`/api/public/card-payment/pg-join/${encodeURIComponent(token)}`)
@@ -60,11 +51,7 @@ export function PgJoinReviewPage() {
         if (!res.ok) throw new Error('PG 신청을 찾을 수 없습니다.');
         return res.json() as Promise<Review>;
       })
-      .then((data) => {
-        setRow(data);
-        setMid(data.mid ?? '');
-        setOid(data.oid ?? '');
-      })
+      .then(setRow)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '불러오지 못했습니다.'));
   }, [token]);
 
@@ -72,8 +59,8 @@ export function PgJoinReviewPage() {
     <div ref={scrollRef} onFocusCapture={onFieldFocus} className="login-surface min-h-dvh overflow-y-auto bg-slate-100">
       <div className="login-scroll-content mx-auto w-full max-w-lg px-4 py-8">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
-          <h1 className="text-fluid-base font-semibold text-slate-900">가맹 코드 입력</h1>
-          <p className="mt-1 text-fluid-xs text-slate-600">신청 업체를 확인한 뒤 MID, OID, 키를 입력하면 그 업체에 바로 연결됩니다.</p>
+          <h1 className="text-fluid-base font-semibold text-slate-900">가맹 신청 확인</h1>
+          <p className="mt-1 text-fluid-xs text-slate-600">신청을 승인한 뒤, 전자계약이 들어오면 원성 화면에서 코드를 입력합니다.</p>
           {error ? <p className="mt-3 text-fluid-sm text-red-700">{error}</p> : null}
           {!row && !error ? <p className="mt-4 text-fluid-sm text-slate-500">불러오는 중…</p> : null}
           {row ? (
@@ -122,50 +109,15 @@ export function PgJoinReviewPage() {
                   {row.apiKeyLast4 ? ` · 키 …${row.apiKeyLast4}` : ''}
                 </p>
               ) : null}
-              {done ? <p className="mt-3 text-fluid-sm font-medium text-emerald-800">{done}</p> : null}
-              <form
-                className="mt-4 space-y-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setBusy(true);
-                  setError(null);
-                  void fetch(`/api/public/card-payment/pg-join/${encodeURIComponent(token)}/codes`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mid, oid, apiKey, tid }),
-                  })
-                    .then(async (res) => {
-                      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-                      if (!res.ok) throw new Error(body?.error || '코드를 연결하지 못했습니다.');
-                      setApiKey('');
-                      setDone('이 업체에 연결했습니다.');
-                      setRow({ ...row, connected: true, mid, oid });
-                    })
-                    .catch((err: unknown) => setError(err instanceof Error ? err.message : '코드를 연결하지 못했습니다.'))
-                    .finally(() => setBusy(false));
-                }}
-              >
-                <label className="block">
-                  <span className="text-fluid-2xs text-slate-500">MID</span>
-                  <input className={INPUT} value={mid} onChange={(e) => setMid(e.target.value)} autoComplete="off" />
-                </label>
-                <label className="block">
-                  <span className="text-fluid-2xs text-slate-500">OID (4자리)</span>
-                  <input className={INPUT} value={oid} onChange={(e) => setOid(e.target.value)} autoComplete="off" maxLength={8} />
-                </label>
-                <label className="block">
-                  <span className="text-fluid-2xs text-slate-500">API 키 또는 결제창 mKey</span>
-                  <input className={INPUT} value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" />
-                </label>
-                <label className="block">
-                  <span className="text-fluid-2xs text-slate-500">TID (비우면 MID와 같게 저장)</span>
-                  <input className={INPUT} value={tid} onChange={(e) => setTid(e.target.value)} autoComplete="off" />
-                </label>
-                <p className="text-fluid-2xs text-slate-500">수기 키는 ssp-로 시작합니다. 결제창 키는 mKey입니다. 카드번호는 적지 않습니다.</p>
-                <button type="submit" className={BTN} disabled={busy || !apiKey.trim()}>
-                  {busy ? '연결 중' : '이 업체에 연결'}
-                </button>
-              </form>
+              {row.connected ? null : row.status === 'APPROVED' && row.contractSignedAt ? (
+                <p className="mt-3 text-fluid-xs text-slate-700">전자계약이 들어왔습니다. 원성 화면의 전자계약에서 이 업체를 열고 코드를 입력합니다.</p>
+              ) : row.status === 'APPROVED' ? (
+                <p className="mt-3 text-fluid-xs text-slate-700">승인된 신청입니다. 업체가 전자계약을 제출하면 코드를 입력합니다.</p>
+              ) : row.status === 'REJECTED' ? (
+                <p className="mt-3 text-fluid-xs text-slate-700">거절된 신청입니다.</p>
+              ) : (
+                <p className="mt-3 text-fluid-xs text-slate-700">심사 대기입니다. 승인이나 거절은 원성 화면의 PG 신청에서 합니다.</p>
+              )}
             </>
           ) : null}
         </div>

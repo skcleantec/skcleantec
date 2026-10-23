@@ -247,6 +247,50 @@ export async function tenantIdForSubmittedOnboarding(onboardingId: string): Prom
   return row?.tenantId ?? null;
 }
 
+/** 코드 입력은 신청 승인 후, 전자계약이 들어온 뒤에만. 이미 연결된 업체는 코드 수정만 허용. */
+export async function assertPartnerCodeEntry(onboardingId: string): Promise<{ tenantId: string } | { error: string }> {
+  const row = await prisma.tenantPgOnboarding.findFirst({
+    where: { id: onboardingId, status: { not: 'DRAFT' } },
+    select: { tenantId: true, status: true, contractSignedAt: true },
+  });
+  if (!row) return { error: 'PG 신청을 찾을 수 없습니다.' };
+  const credential = await prisma.tenantPgCredential.findFirst({
+    where: { tenantId: row.tenantId, isActive: true },
+    select: { id: true },
+  });
+  if (credential) return { tenantId: row.tenantId };
+  if (row.status !== 'APPROVED') return { error: '신청을 승인한 뒤에 코드를 입력합니다.' };
+  if (!row.contractSignedAt) return { error: '전자계약이 들어온 뒤에 코드를 입력합니다.' };
+  return { tenantId: row.tenantId };
+}
+
+export async function decidePartnerOnboarding(onboardingId: string, decision: 'APPROVED' | 'REJECTED') {
+  const row = await prisma.tenantPgOnboarding.findFirst({
+    where: { id: onboardingId, status: { not: 'DRAFT' } },
+  });
+  if (!row) return null;
+  const credential = await prisma.tenantPgCredential.findFirst({
+    where: { tenantId: row.tenantId, isActive: true },
+    select: { id: true },
+  });
+  if (credential) throw new Error('이미 코드가 연결된 업체는 승인이나 거절을 바꾸지 않습니다.');
+  if (row.contractSignedAt && decision === 'REJECTED') {
+    throw new Error('전자계약이 들어온 신청은 거절할 수 없습니다.');
+  }
+  const open = row.status === 'SUBMITTED' || row.status === 'FORWARDED_TO_PG';
+  const undoReject = row.status === 'REJECTED' && decision === 'APPROVED';
+  const undoApprove = row.status === 'APPROVED' && decision === 'REJECTED' && !row.contractSignedAt;
+  if (!open && !undoReject && !undoApprove) {
+    if (row.status === decision) return { id: row.id, status: row.status };
+    throw new Error('지금 승인하거나 거절할 수 없습니다.');
+  }
+  const updated = await prisma.tenantPgOnboarding.update({
+    where: { id: row.id },
+    data: { status: decision, decidedAt: new Date() },
+  });
+  return { id: updated.id, status: updated.status };
+}
+
 export async function getOnboardingByReviewToken(token: string) {
   const reviewToken = token.trim();
   if (!reviewToken) return null;
@@ -278,7 +322,9 @@ export async function getOnboardingByReviewToken(token: string) {
     merchantKind: row.merchantKind,
     bankbookImageUrl: row.bankbookImageUrl,
     idCardImageUrl: row.idCardImageUrl,
+    id: row.id,
     status: row.status,
+    contractSignedAt: row.contractSignedAt?.toISOString() ?? null,
     connected: Boolean(credential?.isActive),
     mid: credential?.mid ?? null,
     oid: credential?.oid ?? null,
