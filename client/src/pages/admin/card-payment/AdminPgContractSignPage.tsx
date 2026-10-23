@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { PgContractBook } from '../../../components/card-payment/pg-contract/PgContractBook';
 import { PgContractDeskFrame } from '../../../components/card-payment/pg-contract/PgContractDeskFrame';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { API } from '../../../api/apiPrefix';
-import { getToken } from '../../../stores/auth';
+import { getToken, subscribeAdminAuth } from '../../../stores/auth';
 import type { PublicSignFieldDto } from '../../../api/eContractPublic';
+import { TenantCapabilitiesProvider } from '../../../hooks/useTenantCapabilities';
+import { useStandaloneTenantCapabilities } from '../../../hooks/useStandaloneTenantCapabilities';
 
 type ContractPayload = {
   ready: boolean;
@@ -31,10 +33,14 @@ async function uploadBlob(blob: Blob, filename: string) {
 }
 
 export function AdminPgContractSignPage() {
+  const token = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
+  const tenantCapabilities = useStandaloneTenantCapabilities(token);
   return (
-    <FeatureGate module="mod_card_payment">
-      <PgContractDesk />
-    </FeatureGate>
+    <TenantCapabilitiesProvider value={tenantCapabilities}>
+      <FeatureGate module="mod_card_payment" redirectTo="/admin/team-leaders/pg-onboarding">
+        <PgContractDesk />
+      </FeatureGate>
+    </TenantCapabilitiesProvider>
   );
 }
 
