@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { TenantPgCredentialSlot } from '../../../api/cardPayment';
+import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 
 export type SellerCenterView = {
@@ -41,11 +43,29 @@ export function PgConnectionSheet({
   link?: TenantPgCredentialSlot;
   seller: SellerCenterView | null;
 }) {
+  const [openError, setOpenError] = useState<string | null>(null);
+  const canOpen = Boolean(seller?.loginId && seller?.password);
+
+  const openPortal = () => {
+    if (!seller?.loginId || !seller.password) return;
+    const opened = openSellerCenterLoggedIn(seller.loginId, seller.password);
+    setOpenError(opened ? null : '팝업이 막혀 원성페이를 열지 못했습니다. 브라우저에서 팝업을 허용해 주세요.');
+  };
+
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2.5">
         <LineMdIcon name="link" className="size-5 text-slate-700" />
-        <h2 className="text-fluid-sm font-semibold text-slate-900">선샤인페이 판매자센터</h2>
+        <h2 className="min-w-0 flex-1 text-fluid-sm font-semibold text-slate-900">선샤인페이 판매자센터</h2>
+        <button
+          type="button"
+          onClick={openPortal}
+          disabled={!canOpen}
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        >
+          <LineMdIcon name="external-link" className="size-4" />
+          원성페이접속
+        </button>
       </div>
       <div className="grid sm:grid-cols-2">
         {cell('상호명', seller?.businessName || businessName)}
@@ -55,8 +75,9 @@ export function PgConnectionSheet({
         {cell('수기결재', slotLine(keyin))}
         {cell('인증결재', slotLine(link))}
       </div>
+      {openError ? <p className="border-t border-red-100 px-3 py-2 text-fluid-2xs text-red-700">{openError}</p> : null}
       <p className="border-t border-slate-100 px-3 py-2 text-fluid-2xs leading-snug text-slate-500">
-        당일 결재만 취소할 수 있습니다. 인증결재는 결제 취소로 바로 취소되고, 수기는 이 아이디로 판매자센터에 로그인된 창이 열립니다.
+        원성페이접속을 누르면 새 창에서 위 아이디로 판매자센터에 로그인됩니다. 당일 결재만 취소할 수 있습니다.
       </p>
     </section>
   );
