@@ -2,7 +2,7 @@ import { simpleParser } from 'mailparser';
 import { ImapFlow } from 'imapflow';
 import { prisma } from '../../lib/prisma.js';
 import { decryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
-import { matchSkHomepageMail } from './skHomepageMail.match.js';
+import { matchSkHomepageMail, relocateSkHomepageInquiriesToLeads } from './skHomepageMail.match.js';
 import { formatSkHomepageQuote, parseSkHomepageQuote } from './skHomepageMail.parse.js';
 
 const NAVER_IMAP_HOST = 'imap.naver.com';
@@ -46,9 +46,10 @@ function mailRaw(text: string | undefined, html: unknown): string {
 }
 
 export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: number; scanned: number; created: number }> {
+  const moved = await relocateSkHomepageInquiriesToLeads(tenantId);
   const inbox = await prisma.skHomepageMailInbox.findFirst({ where: { tenantId } });
   if (!inbox?.mailbox || !inbox.passwordEnc) {
-    return { imported: 0, scanned: 0, created: 0 };
+    return { imported: 0, scanned: 0, created: moved };
   }
   const password = decryptTenantSecret(inbox.passwordEnc);
   if (!password) {
@@ -56,7 +57,7 @@ export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: 
       where: { id: inbox.id },
       data: { lastError: '저장된 비밀번호를 읽지 못했습니다. 다시 저장해 주세요.', lastSyncAt: new Date() },
     });
-    return { imported: 0, scanned: 0, created: 0 };
+    return { imported: 0, scanned: 0, created: moved };
   }
 
   const client = new ImapFlow({
@@ -120,7 +121,7 @@ export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: 
         }
       }
       const pending = await prisma.skHomepageInquiryMail.findMany({
-        where: { tenantId, status: 'PENDING_MATCH', inquiryId: null },
+        where: { tenantId, status: 'PENDING_MATCH', landingContactId: null, inquiryId: null },
         select: { id: true },
         take: MAX_PER_RUN,
       });
@@ -147,7 +148,7 @@ export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: 
     });
     throw new Error(error);
   }
-  return { imported, scanned, created };
+  return { imported, scanned, created: created + moved };
 }
 
 export async function pullEnabledSkHomepageMailboxes(): Promise<{ tenants: number; imported: number; created: number }> {

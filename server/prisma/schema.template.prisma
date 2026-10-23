@@ -3776,6 +3776,7 @@ model LandingContactInquiry {
   convertedAt        DateTime?        @map("converted_at")
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
+  skHomepageInquiryMail SkHomepageInquiryMail?
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
@@ -5130,7 +5131,7 @@ model SkHomepageMailInbox {
   @@map("sk_homepage_mail_inboxes")
 }
 
-/// 가져온 간편견적 메일. 표가 맞으면 서비스접수 대기로 연결한다.
+/// 가져온 간편견적 메일. 표가 맞으면 문의내역으로 연결한다.
 model SkHomepageInquiryMail {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -5139,6 +5140,8 @@ model SkHomepageInquiryMail {
   inbox       SkHomepageMailInbox @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   inquiryId   String?  @unique @map("inquiry_id")
   inquiry     Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  landingContactId String? @unique @map("landing_contact_id")
+  landingContact   LandingContactInquiry? @relation(fields: [landingContactId], references: [id], onDelete: SetNull)
   messageId   String   @map("message_id") @db.VarChar(255)
   imapUid     Int      @map("imap_uid")
   fromAddress String   @default("") @map("from_address") @db.VarChar(320)

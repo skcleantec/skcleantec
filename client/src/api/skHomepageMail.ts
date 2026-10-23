@@ -10,7 +10,7 @@ export type SkHomepageMailRow = {
   subject: string;
   receivedAt: string;
   status: string;
-  inquiryNumber: string | null;
+  placed: string | null;
   excerpt: string;
 };
 

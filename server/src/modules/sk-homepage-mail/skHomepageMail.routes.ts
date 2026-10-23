@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
           receivedAt: true,
           status: true,
           textBody: true,
-          inquiry: { select: { inquiryNumber: true } },
+          landingContact: { select: { id: true } },
         },
       })
     : [];
@@ -61,7 +61,7 @@ router.get('/', async (req, res) => {
       subject: row.subject,
       receivedAt: row.receivedAt.toISOString(),
       status: row.status,
-      inquiryNumber: row.inquiry?.inquiryNumber ?? null,
+      placed: row.landingContact ? '문의내역' : null,
       excerpt: row.textBody.slice(0, 400),
     })),
   });

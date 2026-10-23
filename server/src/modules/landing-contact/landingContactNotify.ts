@@ -17,10 +17,11 @@ export async function notifyLandingContactSubmitted(params: {
   landingContactId: string;
   customerName: string;
   brandName?: string | null;
+  summary?: string;
 }): Promise<void> {
   const customerName = params.customerName.trim() || '고객';
   const brandSuffix = params.brandName?.trim() ? ` (${params.brandName.trim()})` : '';
-  const summary = `랜딩 문의: ${customerName}님 신규 문의${brandSuffix}`;
+  const summary = params.summary?.trim() || `랜딩 문의: ${customerName}님 신규 문의${brandSuffix}`;
   const payload: LandingContactWsPayload = {
     type: LANDING_CONTACT_WS_TYPE,
     landingContactId: params.landingContactId,
