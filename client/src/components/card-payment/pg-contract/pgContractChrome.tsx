@@ -168,7 +168,7 @@ export function LockFee() {
           </tr>
           <tr>
             <th>정산</th>
-            <td>■ 일정산 D+ &nbsp;&nbsp; 일 &nbsp;&nbsp; □ 월 1회 (익월 8일, 전월 승인분)</td>
+            <td>■ 일정산 매일 D+1일 (승인일 기준) &nbsp;&nbsp; □ 월 1회 (익월 8일, 전월 승인분)</td>
           </tr>
         </tbody>
       </table>

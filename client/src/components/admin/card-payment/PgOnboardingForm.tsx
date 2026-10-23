@@ -183,12 +183,28 @@ export function PgOnboardingForm({
           <input className={INPUT} value={value.accountHolder ?? ''} onChange={(e) => set('accountHolder', e.target.value)} autoComplete="off" />
         </label>
       </div>
-
       <section className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
         <p className="text-fluid-xs font-medium text-slate-800">신청 서비스</p>
         <p className="mt-1 text-fluid-sm text-slate-900">수기결제, 인증결제</p>
         <p className="mt-1 text-fluid-2xs text-slate-500">가맹점 카드결재는 이 두 가지입니다. 다른 결제 채널은 신청하지 않습니다.</p>
       </section>
+
+      {value.businessKind === 'CORPORATE' ? (
+        <div className="rounded-lg border border-slate-900 bg-slate-50 px-3 py-2 text-fluid-xs text-slate-800">
+          <p className="font-medium">법인 서류는 우편으로 원성페이먼츠에 보냅니다.</p>
+          <p className="mt-1 leading-snug">
+            서울특별시 송파구 위례서로 252, 503,504,505호
+            <br />
+            전화 1555-0985
+          </p>
+          <ol className="mt-1 list-decimal space-y-0.5 pl-4">
+            <li>사업자등록증</li>
+            <li>통장사본</li>
+            <li>법인인감</li>
+            <li>법인등기부</li>
+          </ol>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <FileBox

@@ -223,6 +223,16 @@
   vertical-align: middle;
 }
 
+.pg-seal-slot {
+  display: inline-block;
+  width: 14mm;
+  height: 14mm;
+  margin-right: 1mm;
+  border: 0.35mm solid #0f172a;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
 .pg-ink {
   display: inline-block;
   max-width: 32mm;
