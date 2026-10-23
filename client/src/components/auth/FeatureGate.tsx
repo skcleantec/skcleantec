@@ -26,9 +26,13 @@ export function FeatureGate({ module, children, redirectTo = '/admin/dashboard',
 
   if (!hasFeature(features, module)) {
     if (fallback) return <>{fallback}</>;
+    const target =
+      redirectTo.startsWith('/team') && !redirectTo.includes('?') && location.search
+        ? `${redirectTo}${location.search}`
+        : redirectTo;
     return (
       <Navigate
-        to={redirectTo}
+        to={target}
         replace
         state={{ featureDisabled: module, from: location.pathname + location.search }}
       />

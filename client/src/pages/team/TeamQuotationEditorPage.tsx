@@ -42,6 +42,7 @@ import { computeQuotationVatAmounts } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
 import { resolveDocumentFooterNotice } from '@shared/quotationDocument';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
+import { hrefWithTeamPreview } from '../../utils/teamPreviewSession';
 
 function pickDefaultOperatingCompanyId(
   companies: QuotationEditorOperatingCompanyDto[],
@@ -126,7 +127,7 @@ export function TeamQuotationEditorPage() {
   const fallbackReturn = inquiryIdForReturn
     ? `/team/assignments?openInquiry=${encodeURIComponent(inquiryIdForReturn)}`
     : '/team/assignments';
-  const returnTo = readTeamReturnTo(rawReturnTo, fallbackReturn);
+  const returnTo = hrefWithTeamPreview(readTeamReturnTo(rawReturnTo, fallbackReturn));
   const returnLabel = teamInquiryReturnLabel(returnTo);
   const returnQs = `?returnTo=${encodeURIComponent(returnTo)}`;
 

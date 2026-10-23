@@ -25,6 +25,15 @@ import {
   getTeamChangeHistoryList,
 } from '../../api/inquiryChangeLogs';
 import { isTeamStaffPreviewSearch, teamPreviewDepsKey, teamProfileOnboardingRequired, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
+import {
+  applyTeamPreviewSession,
+  clearTeamPreviewSession,
+  hrefWithTeamPreview,
+  readTeamPreviewSession,
+  safeAdminReturnPath,
+  sessionFromPreviewSearch,
+  writeTeamPreviewSession,
+} from '../../utils/teamPreviewSession';
 import { TeamLeaderHomeAddressGate } from '../team/TeamLeaderHomeAddressGate';
 import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
@@ -36,7 +45,7 @@ import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { performStaffLogout } from '../../utils/staffLogout';
-import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
+import { isStandalonePwa } from '../../utils/pwaStandalone';
 import {
   TEAM_MOBILE_BOTTOM_NAV_MAIN_SCROLL_PB,
   TEAM_MOBILE_BOTTOM_NAV_SCROLL_SPACER,
@@ -387,6 +396,30 @@ export function TeamLayout() {
   useStaffAppNativePushRegister(teamToken);
   const previewKey = teamPreviewDepsKey(location.search);
   const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
+
+  useEffect(() => {
+    const admin = getToken();
+    const team = getTeamToken();
+    const sameAccount = Boolean(admin && team && admin === team);
+    if (!sameAccount) {
+      if (readTeamPreviewSession()) clearTeamPreviewSession();
+      return;
+    }
+    if (isTeamStaffPreviewSearch(location.search)) {
+      if (!readTeamPreviewSession()) {
+        const created = sessionFromPreviewSearch(location.search, '/admin/dashboard');
+        if (created) writeTeamPreviewSession(created);
+      }
+      return;
+    }
+    const session = readTeamPreviewSession();
+    if (!session) return;
+    const next = new URLSearchParams(location.search);
+    applyTeamPreviewSession(next, session);
+    const built = `?${next.toString()}`;
+    if (!isTeamStaffPreviewSearch(built) || location.search === built) return;
+    navigate({ pathname: location.pathname, search: built }, { replace: true });
+  }, [location.pathname, location.search, navigate]);
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
@@ -504,10 +537,10 @@ export function TeamLayout() {
     const inquiryId = marketplaceHandoffConfirmedAlert?.targetInquiryId;
     closeMarketplaceHandoffConfirmedStrip();
     if (inquiryId) {
-      navigate(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`);
+      navigate(hrefWithTeamPreview(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`));
       return;
     }
-    navigate('/team/db-marketplace?tab=pending');
+    navigate(hrefWithTeamPreview('/team/db-marketplace?tab=pending'));
   }, [closeMarketplaceHandoffConfirmedStrip, marketplaceHandoffConfirmedAlert, navigate]);
 
   useEffect(() => {
@@ -671,12 +704,17 @@ export function TeamLayout() {
   const previewExternalName = (searchParams.get('previewExternalName') || '클린느').trim();
   const previewTeamLeaderId = (searchParams.get('previewTeamLeaderId') || '').trim();
   const adminJwt = getToken();
-  const showAdminScreenLink = Boolean(
+  const previewingAsAdmin = Boolean(
     adminJwt &&
       teamToken &&
       adminJwt === teamToken &&
-      (previewExternal || previewTeamLeader),
+      (previewExternal || previewTeamLeader || readTeamPreviewSession()),
   );
+  const leaveToSolution = () => {
+    const session = readTeamPreviewSession();
+    clearTeamPreviewSession();
+    navigate(safeAdminReturnPath(session?.returnPath));
+  };
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
   const showHouseholdLedger =
     !isExternalPartner && (userRole === 'TEAM_LEADER' || previewTeamLeader);
@@ -723,7 +761,21 @@ export function TeamLayout() {
   } else if (previewTeamLeader && previewTeamLeaderId) {
     previewQuery = `?previewRole=team_leader&previewTeamLeaderId=${encodeURIComponent(previewTeamLeaderId)}`;
   }
-  const teamTo = (path: string) => `${path}${previewQuery}`;
+  const teamTo = (path: string) => {
+    const hashIdx = path.indexOf('#');
+    const hash = hashIdx >= 0 ? path.slice(hashIdx) : '';
+    const before = hashIdx >= 0 ? path.slice(0, hashIdx) : path;
+    const q = before.indexOf('?');
+    const pathname = q >= 0 ? before.slice(0, q) : before;
+    const params = new URLSearchParams(q >= 0 ? before.slice(q + 1) : '');
+    if (previewQuery) {
+      new URLSearchParams(previewQuery.replace(/^\?/, '')).forEach((value, key) => {
+        params.set(key, value);
+      });
+    }
+    const qs = params.toString();
+    return hrefWithTeamPreview(`${pathname}${qs ? `?${qs}` : ''}${hash}`);
+  };
 
   const [scheduleAlertRefreshKey, setScheduleAlertRefreshKey] = useState(0);
   const openInquiryFromAlert = useCallback(
@@ -856,7 +908,7 @@ export function TeamLayout() {
               onClick={(e) => {
                 if (!isStandalonePwa()) return;
                 e.preventDefault();
-                assignStaffHomePath('/team/dashboard');
+                window.location.assign(teamTo('/team/dashboard'));
               }}
             >
               <TenantBrandLogo height={32} />
@@ -866,14 +918,15 @@ export function TeamLayout() {
             </nav>
           </div>
           <div className="flex shrink-0 min-w-0 items-center gap-2 sm:gap-3">
-              {showAdminScreenLink ? (
-                <NavLink
-                  to="/admin/dashboard"
-                  className="inline-flex items-center rounded-md border border-white/20 bg-white/10 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-slate-100 hover:bg-white/15 hover:text-white whitespace-nowrap"
+              {previewingAsAdmin ? (
+                <button
+                  type="button"
+                  onClick={leaveToSolution}
+                  className="inline-flex min-h-9 items-center rounded-md border border-white/20 bg-white/10 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-slate-100 hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 whitespace-nowrap"
                   title={teamT('team.layout.adminScreenTitle')}
                 >
                   <TeamBiInline id="team.layout.adminScreen" />
-                </NavLink>
+                </button>
               ) : null}
               {previewExternal ? (
                 <div className="inline-flex items-center gap-2 rounded-md border border-indigo-300/40 bg-indigo-500/15 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] text-indigo-100 whitespace-nowrap">
@@ -959,7 +1012,8 @@ export function TeamLayout() {
                         ? '/admin/account/kakao-link'
                         : null
                     }
-                    onLogout={handleLogout}
+                    onLogout={previewingAsAdmin ? leaveToSolution : handleLogout}
+                    logoutLabel={previewingAsAdmin ? teamT('team.layout.adminScreen') : undefined}
                     onSessionExpired={handleSessionExpired}
                   />
                 </>
@@ -993,6 +1047,18 @@ export function TeamLayout() {
               </button>
             </div>
             <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-2 pb-6 space-y-1">
+              {previewingAsAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileNavOpen(false);
+                    leaveToSolution();
+                  }}
+                  className="mb-1 flex min-h-10 w-full items-center rounded-lg bg-white px-2.5 py-1.5 text-left text-[14px] font-semibold text-slate-900 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                >
+                  <TeamBiInline id="team.layout.adminScreen" />
+                </button>
+              ) : null}
               <TeamNavFavoriteDrawerStrip
                 teamTo={teamTo}
                 visibility={teamNavFavoriteVisibility}
@@ -1084,7 +1150,7 @@ export function TeamLayout() {
             fetchList={(t, opts) => getTeamChangeHistoryList(t, opts)}
             markSeen={markTeamChangeSeen}
             onOpenInquiry={(inquiryId) =>
-              navigate(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`)
+              navigate(teamTo(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`))
             }
             mobileStack={
               showTeamMobileFabStack

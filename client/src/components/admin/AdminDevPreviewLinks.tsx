@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { crewDevPreviewLogin } from '../../api/crew';
 import { clearToken } from '../../stores/auth';
 import { setCrewToken } from '../../stores/crewAuth';
 import { setTeamToken, clearTeamToken } from '../../stores/teamAuth';
 import { DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY } from '../../constants/devPreviewAuth';
+import { safeAdminReturnPath, writeTeamPreviewSession } from '../../utils/teamPreviewSession';
 import { getUsers, formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { getTeamCrewGroups, type TeamCrewGroupItem } from '../../api/teamCrewGroups';
 
@@ -32,6 +33,7 @@ export function AdminDevPreviewLinks({
   compact?: boolean;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [panel, setPanel] = useState<Panel>(null);
   const [loading, setLoading] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
@@ -81,14 +83,19 @@ export function AdminDevPreviewLinks({
     }
   };
 
+  const adminReturnPath = () =>
+    safeAdminReturnPath(`${location.pathname}${location.search}${location.hash}`);
+
   const goTeamLeader = (id: string) => {
     if (!adminToken || navBusy) return;
     setNavBusy(true);
     setTeamToken(adminToken);
-    navigate(
-      `/team/dashboard?previewRole=team_leader&previewTeamLeaderId=${encodeURIComponent(id)}`,
-      { replace: true },
-    );
+    writeTeamPreviewSession({
+      returnPath: adminReturnPath(),
+      role: 'team_leader',
+      teamLeaderId: id,
+    });
+    navigate(`/team/dashboard?previewRole=team_leader&previewTeamLeaderId=${encodeURIComponent(id)}`);
     closePanel();
     setNavBusy(false);
   };
@@ -101,7 +108,14 @@ export function AdminDevPreviewLinks({
     if (u.externalCompanyId) q.set('externalCompanyId', u.externalCompanyId);
     const name = u.externalCompanyName?.trim() || u.name;
     q.set('previewExternalName', name);
-    navigate(`/team/dashboard?${q.toString()}`, { replace: true });
+    writeTeamPreviewSession({
+      returnPath: adminReturnPath(),
+      role: 'external',
+      externalUserId: u.id,
+      externalName: name,
+      externalCompanyId: u.externalCompanyId || undefined,
+    });
+    navigate(`/team/dashboard?${q.toString()}`);
     closePanel();
     setNavBusy(false);
   };
