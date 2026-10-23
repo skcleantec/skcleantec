@@ -4,6 +4,8 @@ import { expandEcTokenMap } from '../e-contract/eContractDynamicExpand.js';
 import { EC_SIGNATURE_TOKEN } from '../e-contract/eContractField.tokens.js';
 import { signerSignatureUrlLooksValid } from '../e-contract/eContractSigner.expand.js';
 import { uploadBusinessRegistrationBuffer, assertBusinessRegistrationImageMime } from '../onboarding/businessRegistration.service.js';
+import { getTenantConfig } from '../tenants/tenantConfig.service.js';
+import { parseOperatingCompanyConfig } from '../operating-companies/operatingCompany.schema.js';
 import {
   isPgContractStub,
   PG_CONTRACT_DEFAULT_BODY,
@@ -110,12 +112,90 @@ export async function savePgContractTemplate(input: {
   return { title, bodyHtml, fields };
 }
 
-function prefillFor(row: TenantPgOnboarding, token: string): string {
-  if (token === '[[EC_MERCHANT_NAME]]') return row.businessName?.trim() ?? '';
-  if (token === '[[EC_SIGNER_NAME]]') return row.representativeName?.trim() ?? '';
-  if (token === '[[EC_BIZ_NO]]') return row.bizNumber?.trim() ?? '';
-  if (token === '[[EC_SIGNER_ADDRESS]]') return row.addressLine?.trim() ?? '';
-  if (token === '[[EC_SIGNER_PHONE]]') return row.contactPhone?.trim() ?? '';
+type ContractBizPrefill = {
+  merchantName: string;
+  bizNo: string;
+  signerName: string;
+  address: string;
+  phone: string;
+  tel: string;
+  email: string;
+  staffName: string;
+  birth: string;
+  bank: string;
+  account: string;
+  holder: string;
+  seal: string;
+  tenantCode: string;
+  kind: 'solo' | 'corp' | '';
+};
+
+function pickText(...vals: Array<string | null | undefined>): string {
+  for (const v of vals) {
+    const t = typeof v === 'string' ? v.trim() : '';
+    if (t) return t;
+  }
+  return '';
+}
+
+function fillBlank(values: Record<string, string>, key: string, value: string) {
+  if (values[key]?.trim()) return;
+  const next = value.trim();
+  if (next) values[key] = next;
+}
+
+/** 업체등록정보 → 가입 사업자 → PG 신청서. 이미 적은 칸은 건드리지 않는다. */
+async function loadContractBizPrefill(tenantId: string, row: TenantPgOnboarding): Promise<ContractBizPrefill> {
+  const [tenant, brand, signup, config] = await Promise.all([
+    prisma.tenant.findFirst({ where: { id: tenantId }, select: { slug: true, name: true } }),
+    prisma.operatingCompany.findFirst({
+      where: { tenantId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      select: { config: true },
+    }),
+    prisma.tenantSignupBusiness.findUnique({
+      where: { tenantId },
+      select: { businessName: true, bizNumber: true, representativeName: true, addressLine: true },
+    }),
+    getTenantConfig(tenantId),
+  ]);
+  const brandReg = parseOperatingCompanyConfig(brand?.config).companyRegistration;
+  const reg = config.companyRegistration;
+  const seal = pickText(brandReg?.sealSecureUrl, reg?.sealSecureUrl);
+  const kindRaw = row.merchantKind?.trim();
+  const signerName = pickText(
+    brandReg?.representativeName,
+    reg?.representativeName,
+    row.representativeName,
+    signup?.representativeName,
+  );
+  const phone = pickText(row.contactPhone, brandReg?.phone, reg?.phone);
+  return {
+    merchantName: pickText(brandReg?.companyName, reg?.companyName, row.businessName, signup?.businessName, tenant?.name),
+    bizNo: pickText(brandReg?.businessRegistrationNo, reg?.businessRegistrationNo, row.bizNumber, signup?.bizNumber),
+    signerName,
+    address: pickText(brandReg?.addressLine, reg?.addressLine, row.addressLine, signup?.addressLine),
+    phone,
+    tel: pickText(brandReg?.phone, reg?.phone, row.contactPhone),
+    email: pickText(row.contactEmail, brandReg?.contactEmail, reg?.contactEmail),
+    staffName: pickText(row.contactName, signerName),
+    birth: pickText(row.representativeBirth),
+    bank: pickText(row.bankName),
+    account: pickText(row.bankAccount),
+    holder: pickText(row.accountHolder),
+    seal: seal.startsWith('https://') ? seal : '',
+    tenantCode: pickText(tenant?.slug),
+    kind: kindRaw === 'solo' || kindRaw === 'corp' ? kindRaw : '',
+  };
+}
+
+function prefillFor(profile: ContractBizPrefill, token: string): string {
+  if (token === '[[EC_MERCHANT_NAME]]') return profile.merchantName;
+  if (token === '[[EC_SIGNER_NAME]]') return profile.signerName;
+  if (token === '[[EC_BIZ_NO]]') return profile.bizNo;
+  if (token === '[[EC_SIGNER_ADDRESS]]') return profile.address;
+  if (token === '[[EC_SIGNER_PHONE]]') return profile.phone;
+  if (token === '[[EC_SEAL]]') return profile.seal;
   return '';
 }
 
@@ -134,7 +214,9 @@ function extraContractValue(key: string, raw: unknown): string | null {
   if (!PG_EXTRA_KEY.test(key) || typeof raw !== 'string') return null;
   const str = raw.trim();
   if (!str || str.length > 500) return null;
-  if (/\d{13,19}/.test(str.replace(/[\s-]/g, ''))) return null;
+  // 계좌번호·법인등록번호는 13자리 이상일 수 있다. 그 외 칸의 카드번호 형태만 거절한다.
+  const digitIdOk = key === 'pgAccount' || key === 'pgCorpNo';
+  if (!digitIdOk && /\d{13,19}/.test(str.replace(/[\s-]/g, ''))) return null;
   return str;
 }
 
@@ -164,18 +246,33 @@ export async function getTenantPgContract(tenantId: string) {
     return { ready: false as const, reason: 'PG 승인이 난 뒤에 전자계약을 작성합니다.' };
   }
   const template = await getPgContractTemplate();
+  const profile = await loadContractBizPrefill(tenantId, row);
   const saved = asRecord(row.contractValues);
   const values: Record<string, string> = {};
   for (const field of template.fields) {
-    values[field.token] = saved[field.token] || prefillFor(row, field.token);
+    values[field.token] = saved[field.token] || prefillFor(profile, field.token);
   }
   if (saved[EC_SIGNATURE_TOKEN]) values[EC_SIGNATURE_TOKEN] = saved[EC_SIGNATURE_TOKEN];
   for (const [key, value] of Object.entries(saved)) {
     if (key.startsWith('pg') && value) values[key] = value;
   }
-  if (!values.pgBizKind && (row.merchantKind === 'solo' || row.merchantKind === 'corp')) {
-    values.pgBizKind = row.merchantKind;
-  }
+  // 정산 담당·공동대표·실제 소유자 2는 사람이 더 있을 때만 적으므로 채우지 않는다.
+  const known: Array<[string, string]> = [
+    ['pgTel', profile.tel],
+    ['pgStaffName', profile.staffName],
+    ['pgStaffPhone', profile.phone],
+    ['pgStaffMail', profile.email],
+    ['pgBirth', profile.birth],
+    ['pgBank', profile.bank],
+    ['pgAccount', profile.account],
+    ['pgHolder', profile.holder],
+    ['pgMailAddr', profile.address],
+    ['pgTenantCode', profile.tenantCode],
+    ['pgOwner1', profile.signerName],
+    ['pgBizKind', profile.kind],
+  ];
+  for (const [key, value] of known) fillBlank(values, key, value);
+  if (profile.signerName) fillBlank(values, 'pgOwnerSame', 'Y');
   return {
     ready: true as const,
     signed: Boolean(row.contractSignedAt),

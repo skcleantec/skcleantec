@@ -82,6 +82,7 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
             <tr><th>우편물</th><td>{f('pgMailAddr')} <span className="pg-muted">같으면 상동</span></td><th>업체</th><td>{f('pgTenantCode')}</td></tr>
           </tbody>
         </table>
+        <p className="pg-muted">과세·면세와 상호·사업자번호·대표자·휴대폰·사업장만 있으면 다음으로 갑니다. 법인번호·생년월일·대표 전화·업태·판매 용역·우편물·업체코드는 비워도 됩니다.</p>
       </>,
       'identity',
     ),
@@ -92,6 +93,7 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
         <h2>2. 담당자 · 3. 정산 계좌</h2>
         <p>계약 담당 {f('pgStaffName', '24mm')} {f('pgStaffPhone', '28mm')} {f('pgStaffMail', '40mm')}</p>
         <p>정산 담당 {f('pgSettleName', '24mm')} {f('pgSettlePhone', '28mm')} {f('pgSettleMail', '40mm')}</p>
+        <p className="pg-muted">담당자가 한 명이면 계약 담당만 적습니다. 정산 담당과, 이름·전화·이메일 중 없는 칸은 비워도 됩니다. 계좌도 없으면 비워도 됩니다.</p>
         <p>은행 {f('pgBank', '22mm')} 계좌 {f('pgAccount', '42mm')} 예금주 {f('pgHolder', '28mm')}. 예금주는 대표자 또는 상호와 같아야 합니다. 담보는 결제대행사가 요구할 때만 가맹점이 부담하고, 회사는 정산금에서 임의로 빼지 않습니다.</p>
       </>,
     ),

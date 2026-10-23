@@ -93,6 +93,7 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
         <p>
           {kind === 'corp' ? <>본점 {f('pgHqAddr', '50mm')} </> : null}
           대표자 {v(values, '[[EC_SIGNER_NAME]]')} 영문 {f('pgRepEn')} 생년월일 {f('pgBirth')} 공동대표 {f('pgRep2')}
+          <span className="pg-muted"> 공동대표가 없으면 비웁니다.</span>
         </p>
         <p>실제 소유자는 가맹점을 최종적으로 지배하는 사람입니다. 대표자와 같습니까?</p>
         <p>
@@ -121,6 +122,7 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
           </p>
         ) : null}
         <p>실제 소유자 1 {f('pgOwner1', '36mm')} 실제 소유자 2 {f('pgOwner2', '36mm')}</p>
+        <p className="pg-muted">실제 소유자가 한 명이면 2번은 비워도 됩니다. 영문 상호·영문 대표자·국적도 없으면 비워도 됩니다.</p>
       </>,
     ),
     block(
