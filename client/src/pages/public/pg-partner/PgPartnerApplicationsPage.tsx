@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TENANT_PG_ONBOARDING_STATUS_LABEL, type TenantPgOnboardingStatus } from '@shared/cardPayment';
 import { PgPartnerModal } from './PgPartnerModal';
 import { PgPartnerNotifyEmails } from './PgPartnerNotifyEmails';
 import { PgPartnerTabs, usePartnerTab } from './PgPartnerTabs';
@@ -32,15 +31,25 @@ type Application = {
   consentMarketingAt: string | null;
   status: string;
   submittedAt: string | null;
+  contractSignedAt: string | null;
   connected: boolean;
   mid: string | null;
   oid: string | null;
   apiKeyLast4: string | null;
 };
 
-const INPUT = 'login-field-input mt-1 w-full min-h-11 rounded-lg border border-slate-200 px-3 text-fluid-sm';
 const BTN =
   'min-h-11 rounded-xl bg-slate-900 px-4 text-fluid-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+const BTN_REJECT =
+  'min-h-11 rounded-xl border border-red-200 bg-white px-4 text-fluid-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+
+function stageLabel(row: { status: string; contractSignedAt: string | null; connected: boolean }) {
+  if (row.connected) return '연결됨';
+  if (row.status === 'REJECTED') return '거절';
+  if (row.status === 'APPROVED' && row.contractSignedAt) return '코드 대기';
+  if (row.status === 'APPROVED') return '승인 · 계약 전';
+  return '심사 대기';
+}
 
 function DocLink({ label, url }: { label: string; url: string | null }) {
   if (!url) return <p className="text-fluid-2xs text-amber-800">{label} 없음</p>;
@@ -62,85 +71,52 @@ function line(label: string, value: string | null) {
   );
 }
 
-function RailFields({
-  title,
-  hint,
-  mid,
-  oid,
-  tid,
-  apiKey,
-  onMid,
-  onOid,
-  onTid,
-  onApiKey,
-}: {
-  title: string;
-  hint: string;
-  mid: string;
-  oid: string;
-  tid: string;
-  apiKey: string;
-  onMid: (value: string) => void;
-  onOid: (value: string) => void;
-  onTid: (value: string) => void;
-  onApiKey: (value: string) => void;
-}) {
-  return (
-    <section className="rounded-xl border border-slate-200 p-3">
-      <h3 className="text-fluid-sm font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1 text-fluid-2xs text-slate-500">{hint}</p>
-      <div className="mt-3 grid gap-3">
-        <label className="block">
-          <span className="text-fluid-2xs text-slate-500">MID</span>
-          <input className={INPUT} value={mid} onChange={(e) => onMid(e.target.value)} autoComplete="off" />
-        </label>
-        <label className="block">
-          <span className="text-fluid-2xs text-slate-500">주문번호 4자리</span>
-          <input className={INPUT} value={oid} onChange={(e) => onOid(e.target.value.toUpperCase())} autoComplete="off" maxLength={4} />
-        </label>
-        <label className="block">
-          <span className="text-fluid-2xs text-slate-500">TID</span>
-          <input className={INPUT} value={tid} onChange={(e) => onTid(e.target.value)} autoComplete="off" />
-        </label>
-        <label className="block">
-          <span className="text-fluid-2xs text-slate-500">API 키</span>
-          <input className={INPUT} value={apiKey} onChange={(e) => onApiKey(e.target.value)} autoComplete="off" />
-        </label>
-      </div>
-    </section>
-  );
-}
-
 function ApplicationCard({
   row,
-  onSaved,
+  onDecided,
   onClose,
 }: {
   row: Application;
-  onSaved: (id: string) => void;
+  onDecided: (id: string, status: string) => void;
   onClose: () => void;
 }) {
   const navigate = useNavigate();
-  const [sellerLoginId, setSellerLoginId] = useState('');
-  const [sellerPassword, setSellerPassword] = useState('');
-  const [keyinMid, setKeyinMid] = useState('');
-  const [keyinOid, setKeyinOid] = useState('');
-  const [keyinTid, setKeyinTid] = useState('');
-  const [keyinKey, setKeyinKey] = useState('');
-  const [linkMid, setLinkMid] = useState('');
-  const [linkOid, setLinkOid] = useState('');
-  const [linkTid, setLinkTid] = useState('');
-  const [linkKey, setLinkKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const ready = [sellerLoginId, sellerPassword, keyinMid, keyinOid, keyinTid, keyinKey, linkMid, linkOid, linkTid, linkKey].every((value) => value.trim());
+  const waiting = !row.connected && (row.status === 'SUBMITTED' || row.status === 'FORWARDED_TO_PG');
+  const canUndoReject = !row.connected && !row.contractSignedAt && row.status === 'REJECTED';
+  const canUndoApprove = !row.connected && !row.contractSignedAt && row.status === 'APPROVED';
+
+  const decide = (decision: 'APPROVED' | 'REJECTED') => {
+    setBusy(true);
+    setError(null);
+    void fetch(`/api/public/card-payment/pg-partner/applications/${encodeURIComponent(row.id)}/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${readPgPartnerToken()}` },
+      body: JSON.stringify({ decision }),
+    })
+      .then(async (res) => {
+        const body = (await res.json().catch(() => null)) as { error?: string; status?: string } | null;
+        if (res.status === 401) {
+          clearPgPartnerToken();
+          navigate('/pg-partner', { replace: true });
+          return;
+        }
+        if (!res.ok) throw new Error(body?.error || '처리하지 못했습니다.');
+        const status = body?.status ?? decision;
+        setDone(status === 'APPROVED' ? '승인했습니다. 전자계약이 오면 코드를 입력합니다.' : '거절했습니다.');
+        onDecided(row.id, status);
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : '처리하지 못했습니다.'))
+      .finally(() => setBusy(false));
+  };
 
   return (
     <PgPartnerModal title={row.businessName || row.tenantName} onClose={onClose}>
       <div className="space-y-1 text-fluid-xs">
         {line('사업자 구분', row.businessKind === 'CORPORATE' ? '법인 사업자' : row.businessKind === 'SOLE_PROPRIETOR' ? '개인 사업자' : '미선택')}
-        {line('상태', TENANT_PG_ONBOARDING_STATUS_LABEL[row.status as TenantPgOnboardingStatus] ?? row.status)}
+        {line('상태', stageLabel(row))}
         {line('업체', row.tenantName)}
         {line('사업자번호', row.bizNumber)}
         {line('대표자', row.representativeName)}
@@ -157,62 +133,32 @@ function ApplicationCard({
         <DocLink label="사업자등록증" url={row.businessRegistrationImageUrl} />
         <DocLink label="명함" url={row.businessCardImageUrl} />
       </div>
-      <p className="mt-2 text-fluid-2xs leading-snug text-slate-500">서류나 업체가 의심되면 연동하지 말고 반려하면 됩니다. 가맹 서비스는 수기결제와 인증결제입니다.</p>
+      <p className="mt-2 text-fluid-2xs leading-snug text-slate-500">신청 내용만 보고 승인하거나 거절합니다. 코드는 전자계약이 들어온 뒤에 입력합니다.</p>
+      {row.connected ? (
+        <p className="mt-2 text-fluid-xs text-emerald-800">이미 연결된 업체입니다.</p>
+      ) : row.status === 'APPROVED' && row.contractSignedAt ? (
+        <p className="mt-2 text-fluid-xs text-slate-700">전자계약이 들어왔습니다. 전자계약 탭에서 이 업체를 열고 코드를 입력합니다.</p>
+      ) : row.status === 'APPROVED' ? (
+        <p className="mt-2 text-fluid-xs text-slate-700">승인했습니다. 업체가 전자계약을 제출하면 코드를 입력할 수 있습니다.</p>
+      ) : row.status === 'REJECTED' ? (
+        <p className="mt-2 text-fluid-xs text-slate-700">거절했습니다. 업체가 다시 신청할 수 있습니다.</p>
+      ) : null}
       {error ? <p className="mt-2 text-fluid-xs text-red-700">{error}</p> : null}
       {done ? <p className="mt-2 text-fluid-xs font-medium text-emerald-800">{done}</p> : null}
-      <form
-        className="mt-4 space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setBusy(true);
-          setError(null);
-          void fetch(`/api/public/card-payment/pg-partner/applications/${encodeURIComponent(row.id)}/connect`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${readPgPartnerToken()}` },
-            body: JSON.stringify({
-              sellerLoginId,
-              sellerPassword,
-              keyin: { mid: keyinMid, oid: keyinOid, tid: keyinTid, apiKey: keyinKey },
-              link: { mid: linkMid, oid: linkOid, tid: linkTid, apiKey: linkKey },
-            }),
-          })
-            .then(async (res) => {
-              const body = (await res.json().catch(() => null)) as { error?: string } | null;
-              if (res.status === 401) {
-                clearPgPartnerToken();
-                navigate('/pg-partner', { replace: true });
-                return;
-              }
-              if (!res.ok) throw new Error(body?.error || '연동하지 못했습니다.');
-              setDone('연동했습니다. 이 업체 팀장이 카드결재를 쓸 수 있습니다.');
-              onSaved(row.id);
-            })
-            .catch((err: unknown) => setError(err instanceof Error ? err.message : '연동하지 못했습니다.'))
-            .finally(() => setBusy(false));
-        }}
-      >
-        <section className="rounded-xl border border-slate-200 p-3">
-          <h3 className="text-fluid-sm font-semibold text-slate-900">판매자센터</h3>
-          <p className="mt-1 text-fluid-2xs text-slate-500">수기와 인증이 같은 아이디를 씁니다. https://wspay.net</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-fluid-2xs text-slate-500">아이디</span>
-              <input className={INPUT} value={sellerLoginId} onChange={(e) => setSellerLoginId(e.target.value)} autoComplete="off" />
-            </label>
-            <label className="block">
-              <span className="text-fluid-2xs text-slate-500">비밀번호</span>
-              <input className={INPUT} type="password" value={sellerPassword} onChange={(e) => setSellerPassword(e.target.value)} autoComplete="new-password" />
-            </label>
-          </div>
-        </section>
-        <div className="grid gap-3 lg:grid-cols-2">
-          <RailFields title="수기" hint="API 키는 ssp-로 시작합니다." mid={keyinMid} oid={keyinOid} tid={keyinTid} apiKey={keyinKey} onMid={setKeyinMid} onOid={setKeyinOid} onTid={setKeyinTid} onApiKey={setKeyinKey} />
-          <RailFields title="인증" hint="API 키는 결제창 mKey입니다." mid={linkMid} oid={linkOid} tid={linkTid} apiKey={linkKey} onMid={setLinkMid} onOid={setLinkOid} onTid={setLinkTid} onApiKey={setLinkKey} />
+      {waiting || canUndoApprove || canUndoReject ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {waiting || canUndoReject ? (
+            <button type="button" className={BTN} disabled={busy} onClick={() => decide('APPROVED')}>
+              {busy ? '처리 중' : '승인'}
+            </button>
+          ) : null}
+          {waiting || canUndoApprove ? (
+            <button type="button" className={BTN_REJECT} disabled={busy} onClick={() => decide('REJECTED')}>
+              거절
+            </button>
+          ) : null}
         </div>
-        <button type="submit" className={BTN} disabled={busy || !ready}>
-          {busy ? '연동 중' : '연동하기'}
-        </button>
-      </form>
+      ) : null}
     </PgPartnerModal>
   );
 }
@@ -250,7 +196,7 @@ export function PgPartnerApplicationsPage() {
         <p className="mt-1 text-fluid-xs text-slate-600">
           {tab === 'mail'
             ? 'PG 신청과 전자계약이 끝나면 이 주소로 메일이 갑니다.'
-            : '업체를 누르면 수기와 인증 정보를 넣고 연동할 수 있습니다. 연동하면 그 업체 팀장이 카드결재를 쓸 수 있습니다.'}
+            : '신청을 승인하거나 거절합니다. 코드는 전자계약이 들어온 뒤에 입력합니다.'}
         </p>
       </div>
       <PgPartnerTabs
@@ -292,10 +238,10 @@ export function PgPartnerApplicationsPage() {
                       {row.businessName || row.tenantName}
                     </button>
                   </td>
-                  <td className="px-3 py-2 text-center">{TENANT_PG_ONBOARDING_STATUS_LABEL[row.status as TenantPgOnboardingStatus] ?? row.status}</td>
+                  <td className="px-3 py-2 text-center">{stageLabel(row)}</td>
                   <td className="px-3 py-2 text-center">{row.contactName || '—'}</td>
                   <td className="px-3 py-2 text-center">{row.contactPhone || '—'}</td>
-                  <td className="px-3 py-2 text-center">{row.connected ? '연결됨' : '대기'}</td>
+                  <td className="px-3 py-2 text-center">{row.connected ? '연결됨' : row.contractSignedAt ? '코드 대기' : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -308,8 +254,8 @@ export function PgPartnerApplicationsPage() {
           key={row.id}
           row={row}
           onClose={() => setSelectedId(null)}
-          onSaved={(id) => {
-            setItems((prev) => prev?.map((item) => (item.id === id ? { ...item, connected: true, status: 'APPROVED' } : item)) ?? null);
+          onDecided={(id, status) => {
+            setItems((prev) => prev?.map((item) => (item.id === id ? { ...item, status } : item)) ?? null);
           }}
         />
       ))

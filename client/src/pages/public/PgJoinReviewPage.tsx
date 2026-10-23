@@ -18,6 +18,8 @@ type Review = {
   websiteUrl: string | null;
   note: string | null;
   businessRegistrationImageUrl: string | null;
+  status?: string;
+  contractSignedAt?: string | null;
   connected: boolean;
   mid: string | null;
   oid: string | null;
@@ -71,8 +73,8 @@ export function PgJoinReviewPage() {
     <div ref={scrollRef} onFocusCapture={onFieldFocus} className="login-surface min-h-dvh overflow-y-auto bg-slate-100">
       <div className="login-scroll-content mx-auto w-full max-w-lg px-4 py-8">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
-          <h1 className="text-fluid-base font-semibold text-slate-900">가맹 코드 입력</h1>
-          <p className="mt-1 text-fluid-xs text-slate-600">신청 업체를 확인한 뒤 MID, OID, 키를 입력하면 그 업체에 바로 연결됩니다.</p>
+          <h1 className="text-fluid-base font-semibold text-slate-900">가맹 신청 확인</h1>
+          <p className="mt-1 text-fluid-xs text-slate-600">신청을 승인한 뒤, 전자계약이 들어오면 코드를 입력합니다.</p>
           {error ? <p className="mt-3 text-fluid-sm text-red-700">{error}</p> : null}
           {!row && !error ? <p className="mt-4 text-fluid-sm text-slate-500">불러오는 중…</p> : null}
           {row ? (
@@ -107,6 +109,16 @@ export function PgJoinReviewPage() {
                 </p>
               ) : null}
               {done ? <p className="mt-3 text-fluid-sm font-medium text-emerald-800">{done}</p> : null}
+              {row.connected || (row.status === 'APPROVED' && row.contractSignedAt) ? null : (
+                <p className="mt-3 text-fluid-xs text-slate-700">
+                  {row.status === 'REJECTED'
+                    ? '거절된 신청입니다.'
+                    : row.status === 'APPROVED'
+                      ? '승인된 신청입니다. 업체가 전자계약을 제출하면 코드를 입력합니다.'
+                      : '심사 대기입니다. 승인이나 거절은 원성 화면의 PG 신청에서 합니다.'}
+                </p>
+              )}
+              {row.connected || (row.status === 'APPROVED' && row.contractSignedAt) ? (
               <form
                 className="mt-4 space-y-3"
                 onSubmit={(e) => {
@@ -158,6 +170,7 @@ export function PgJoinReviewPage() {
                   {busy ? '연결 중' : '이 업체에 연결'}
                 </button>
               </form>
+              ) : null}
             </>
           ) : null}
         </div>

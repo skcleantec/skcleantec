@@ -10,7 +10,7 @@ const STEPS: Array<{ title: string; body: string; icon: string }> = [
   { title: '가맹 심사완료', body: '제출한 내용을 확인합니다', icon: 'check-list-3' },
   { title: '가맹점 계약서 작성', body: '승인 후 전자계약을 작성합니다', icon: 'document' },
   { title: '계약서 우편발송', body: '원성페이먼츠가 날인해서 우편으로 보냅니다', icon: 'email' },
-  { title: '가맹점 코드 연결및 사용', body: '코드가 연결되면 카드 결제를 씁니다', icon: 'circle-to-confirm-circle-transition' },
+  { title: '가맹점 코드 연결및 사용', body: '원성페이먼츠가 날인·우편 후 코드를 연결합니다', icon: 'circle-to-confirm-circle-transition' },
 ];
 
 const PILL_CLASS: Record<PgConnectionView, string> = {
@@ -32,7 +32,7 @@ export function pgConnectionView(
   if (status === 'REJECTED') return '반려';
   if (connected) return '연결됨';
   if (status === 'APPROVED' && !contractSignedAt) return '전자계약';
-  if (status === 'APPROVED' && contractSignedAt) return '우편발송';
+  if (status === 'APPROVED' && contractSignedAt) return '코드연결';
   if (status === 'SUBMITTED' || status === 'FORWARDED_TO_PG') return '심사중';
   return '미연결';
 }

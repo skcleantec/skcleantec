@@ -4,9 +4,10 @@ import { readCredentialSecrets, saveCredentialFromPlatform, updateCredentialFrom
 import { connectPartnerRails, getPartnerMerchant, listPartnerMerchants, listPartnerPayments } from './pgPartnerMerchant.service.js';
 import { readSellerCenterLogin, saveSellerCenterLogin, saveSellerCenterLoginId } from './cardPaymentSellerCenter.service.js';
 import {
+  assertPartnerCodeEntry,
+  decidePartnerOnboarding,
   getOnboardingByReviewToken,
   listOnboardingsForPartner,
-  tenantIdForSubmittedOnboarding,
 } from './cardPaymentOnboarding.service.js';
 import { partnerRevealAllowed, readPgPartnerLoginId, requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
@@ -191,11 +192,12 @@ router.post('/pg-partner/applications/:id/connect', async (req, res) => {
     res.status(400).json({ error: '카드번호는 받지 않습니다.' });
     return;
   }
-  const tenantId = await tenantIdForSubmittedOnboarding(String(req.params.id));
-  if (!tenantId) {
-    res.status(404).json({ error: 'PG 신청을 찾을 수 없습니다.' });
+  const gate = await assertPartnerCodeEntry(String(req.params.id));
+  if ('error' in gate) {
+    res.status(gate.error === 'PG 신청을 찾을 수 없습니다.' ? 404 : 400).json({ error: gate.error });
     return;
   }
+  const tenantId = gate.tenantId;
   const railOf = (value: unknown) => {
     const row = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
     return {
@@ -264,6 +266,26 @@ router.get('/pg-partner/applications', async (req, res) => {
   res.json({ items });
 });
 
+router.post('/pg-partner/applications/:id/decision', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+  const decision = body.decision === 'APPROVED' || body.decision === 'REJECTED' ? body.decision : null;
+  if (!decision) {
+    res.status(400).json({ error: '승인 또는 거절을 선택해 주세요.' });
+    return;
+  }
+  try {
+    const saved = await decidePartnerOnboarding(String(req.params.id), decision);
+    if (!saved) {
+      res.status(404).json({ error: 'PG 신청을 찾을 수 없습니다.' });
+      return;
+    }
+    res.json(saved);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '처리하지 못했습니다.' });
+  }
+});
+
 router.post('/pg-partner/applications/:id/codes', async (req, res) => {
   if (!requirePgPartner(req, res)) return;
   const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
@@ -271,11 +293,12 @@ router.post('/pg-partner/applications/:id/codes', async (req, res) => {
     res.status(400).json({ error: '카드번호는 받지 않습니다. 가맹 코드만 입력합니다.' });
     return;
   }
-  const tenantId = await tenantIdForSubmittedOnboarding(String(req.params.id));
-  if (!tenantId) {
-    res.status(404).json({ error: 'PG 신청을 찾을 수 없습니다.' });
+  const gate = await assertPartnerCodeEntry(String(req.params.id));
+  if ('error' in gate) {
+    res.status(gate.error === 'PG 신청을 찾을 수 없습니다.' ? 404 : 400).json({ error: gate.error });
     return;
   }
+  const tenantId = gate.tenantId;
   const mid = typeof body.mid === 'string' ? body.mid.trim() : '';
   const oid = typeof body.oid === 'string' ? body.oid.trim() : '';
   const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
@@ -334,6 +357,11 @@ router.post('/pg-join/:token/codes', async (req, res) => {
   const row = await getOnboardingByReviewToken(String(req.params.token));
   if (!row) {
     res.status(404).json({ error: 'PG 신청을 찾을 수 없습니다.' });
+    return;
+  }
+  const gate = await assertPartnerCodeEntry(row.id);
+  if ('error' in gate) {
+    res.status(400).json({ error: gate.error });
     return;
   }
   const mid = typeof body.mid === 'string' ? body.mid.trim() : '';

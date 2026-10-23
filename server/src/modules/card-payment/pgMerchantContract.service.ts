@@ -340,6 +340,10 @@ export async function getPartnerPgContract(onboardingId: string) {
   if (!row) return null;
   const template = await getPgContractTemplate();
   const values = asRecord(row.contractValues);
+  const credential = await prisma.tenantPgCredential.findFirst({
+    where: { tenantId: row.tenantId, isActive: true },
+    select: { id: true },
+  });
   return {
     id: row.id,
     tenantName: row.tenant.name,
@@ -350,5 +354,6 @@ export async function getPartnerPgContract(onboardingId: string) {
     title: template.title,
     bodyHtml: row.contractSignedAt ? expandEcTokenMap(template.bodyHtml, values) : template.bodyHtml,
     values,
+    connected: Boolean(credential),
   };
 }
