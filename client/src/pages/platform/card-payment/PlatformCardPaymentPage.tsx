@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CARD_SECTION, BTN_PRIMARY, BTN_SECONDARY, INPUT_BASE } from '../../../utils/platformUi';
+import { Link } from 'react-router-dom';
+import { CARD_SECTION, BTN_SECONDARY } from '../../../utils/platformUi';
 import { PlatformCardPaymentKeySection } from './PlatformCardPaymentKeySection';
 import { PlatformUsageFeeCheck } from './PlatformUsageFeeCheck';
 import { PlatformCardPaymentTabs } from './PlatformCardPaymentTabs';
@@ -7,14 +8,11 @@ import {
   fetchPlatformCardPaymentSettings,
   fetchPlatformPgOnboardings,
   patchPlatformPgOnboarding,
-  savePlatformCardPaymentSettings,
 } from '../../../api/platformCardPayment';
-import { formatFeeBps, formatWon, TENANT_PG_ONBOARDING_STATUS_LABEL } from '@shared/cardPayment';
+import { formatWon, TENANT_PG_ONBOARDING_STATUS_LABEL } from '@shared/cardPayment';
 import type { TenantPgOnboardingStatus } from '@shared/cardPayment';
 
 export function PlatformCardPaymentPage() {
-  const [tenantFeeBps, setTenantFeeBps] = useState(330);
-  const [platformCostBps, setPlatformCostBps] = useState(260);
   const [summary, setSummary] = useState({
     approvedCount: 0,
     amountWon: 0,
@@ -26,7 +24,6 @@ export function PlatformCardPaymentPage() {
     Awaited<ReturnType<typeof fetchPlatformPgOnboardings>>['items']
   >([]);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [serviceBridge, setServiceBridge] = useState<
     Awaited<ReturnType<typeof fetchPlatformCardPaymentSettings>>['serviceBridge']
   >(undefined);
@@ -34,8 +31,6 @@ export function PlatformCardPaymentPage() {
   const reload = () => {
     void Promise.all([fetchPlatformCardPaymentSettings(), fetchPlatformPgOnboardings({ limit: 50, offset: 0 })])
       .then(([s, list]) => {
-        setTenantFeeBps(s.tenantFeeBps);
-        setPlatformCostBps(s.platformCostBps);
         setSummary(s.summary);
         setServiceBridge(s.serviceBridge);
         setItems(list.items);
@@ -73,59 +68,15 @@ export function PlatformCardPaymentPage() {
       <section className={CARD_SECTION}>
         <h2 className="text-sm font-semibold text-gray-900">수수료</h2>
         <p className="mt-1 text-xs text-gray-500">
-          업체 {formatFeeBps(tenantFeeBps)} · PG 원가 {formatFeeBps(platformCostBps)} · 차액{' '}
-          {formatFeeBps(tenantFeeBps - platformCostBps)}
+          서비스브릿지와 가맹점 사이 마진은 기간·가맹점별로 수수료 현황에서 봅니다. 전체 완료 {summary.approvedCount}건 · 결제합계{' '}
+          {formatWon(summary.amountWon)} · 서비스브릿지 {formatWon(summary.platformCostWon)} · 마진 {formatWon(summary.platformSpreadWon)}
         </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="text-sm text-gray-600">
-            테넌트 수수료 (만분율)
-            <input
-              className={`${INPUT_BASE} mt-1`}
-              value={tenantFeeBps}
-              onChange={(e) => setTenantFeeBps(Number(e.target.value) || 0)}
-            />
-          </label>
-          <label className="text-sm text-gray-600">
-            플랫폼 PG 원가 (만분율)
-            <input
-              className={`${INPUT_BASE} mt-1`}
-              value={platformCostBps}
-              onChange={(e) => setPlatformCostBps(Number(e.target.value) || 0)}
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          disabled={saving}
-          className={`${BTN_PRIMARY} mt-3`}
-          onClick={() => {
-            setSaving(true);
-            void savePlatformCardPaymentSettings({ tenantFeeBps, platformCostBps })
-              .then(() => reload())
-              .catch((e: unknown) => setError(e instanceof Error ? e.message : '저장 실패'))
-              .finally(() => setSaving(false));
-          }}
+        <Link
+          to="/platform/card-payment/fees"
+          className={`${BTN_SECONDARY} mt-3 inline-flex hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2`}
         >
-          수수료 저장
-        </button>
-        <dl className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-          <div>
-            <dt className="text-gray-500">완료 건</dt>
-            <dd className="font-medium">{summary.approvedCount}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">결제합계</dt>
-            <dd className="font-medium">{formatWon(summary.amountWon)}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">PG 원가</dt>
-            <dd className="font-medium">{formatWon(summary.platformCostWon)}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">플랫폼 차액</dt>
-            <dd className="font-medium">{formatWon(summary.platformSpreadWon)}</dd>
-          </div>
-        </dl>
+          수수료 현황
+        </Link>
       </section>
 
       <section className={CARD_SECTION}>

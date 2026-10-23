@@ -10,6 +10,7 @@ import {
   listOnboardingsForPartner,
 } from './cardPaymentOnboarding.service.js';
 import { partnerRevealAllowed, readPgPartnerLoginId, requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
+import { deletePgMerchant, feePercentToBps, listPgFeeLedger, setMerchantFeeBps } from './pgFeeLedger.service.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
 import { getPartnerPgContract, getPgContractTemplate } from './pgMerchantContract.service.js';
 import {
@@ -73,6 +74,49 @@ router.post('/pg-partner/login', async (req, res) => {
   }
   partnerLoginFails.delete(ip);
   res.json({ token: signPgPartnerToken(loginId) });
+});
+
+router.get('/pg-partner/fee-ledger', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const ledger = await listPgFeeLedger({
+    datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : 'all',
+    month: typeof req.query.month === 'string' ? req.query.month : undefined,
+    day: typeof req.query.day === 'string' ? req.query.day : undefined,
+    tenantId: typeof req.query.tenantId === 'string' ? req.query.tenantId : undefined,
+    limit: Math.min(100, Math.max(1, Number(req.query.limit) || 30)),
+    offset: Math.max(0, Number(req.query.offset) || 0),
+  });
+  res.json({ ...ledger, canManage: true });
+});
+
+router.patch('/pg-partner/fee-ledger/:tenantId', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const feeBps = feePercentToBps(req.body?.feePercent);
+  if (feeBps == null) {
+    res.status(400).json({ error: '수수료는 0에서 100 사이 퍼센트로 적어 주세요.' });
+    return;
+  }
+  const saved = await setMerchantFeeBps(String(req.params.tenantId), feeBps);
+  if ('error' in saved) {
+    res.status(400).json(saved);
+    return;
+  }
+  res.json(saved);
+});
+
+router.post('/pg-partner/fee-ledger/:tenantId/delete', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!(await partnerRevealAllowed(readPgPartnerLoginId(req), password))) {
+    res.status(401).json({ error: '비밀번호가 맞지 않습니다.' });
+    return;
+  }
+  const removed = await deletePgMerchant(String(req.params.tenantId));
+  if ('error' in removed) {
+    res.status(400).json(removed);
+    return;
+  }
+  res.json(removed);
 });
 
 router.get('/pg-partner/refunds', async (req, res) => {

@@ -78,6 +78,7 @@ export function serializeOnboarding(row: TenantPgOnboarding) {
     merchantKind: row.merchantKind,
     contractSignedAt: row.contractSignedAt?.toISOString() ?? null,
     contractMailedAt: row.contractMailedAt?.toISOString() ?? null,
+    merchantDeletedAt: row.merchantDeletedAt?.toISOString() ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };
 }

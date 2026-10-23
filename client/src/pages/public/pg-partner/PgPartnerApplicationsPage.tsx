@@ -33,6 +33,7 @@ type Application = {
   submittedAt: string | null;
   contractSignedAt: string | null;
   connected: boolean;
+  merchantDeleted?: boolean;
   mid: string | null;
   oid: string | null;
   apiKeyLast4: string | null;
@@ -43,7 +44,8 @@ const BTN =
 const BTN_REJECT =
   'min-h-11 rounded-xl border border-red-200 bg-white px-4 text-fluid-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
-function stageLabel(row: { status: string; contractSignedAt: string | null; connected: boolean }) {
+function stageLabel(row: { status: string; contractSignedAt: string | null; connected: boolean; merchantDeleted?: boolean }) {
+  if (row.merchantDeleted) return '삭제됨';
   if (row.connected) return '연결됨';
   if (row.status === 'REJECTED') return '거절';
   if (row.status === 'APPROVED' && row.contractSignedAt) return '코드 대기';
@@ -84,9 +86,10 @@ function ApplicationCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const waiting = !row.connected && (row.status === 'SUBMITTED' || row.status === 'FORWARDED_TO_PG');
-  const canUndoReject = !row.connected && !row.contractSignedAt && row.status === 'REJECTED';
-  const canUndoApprove = !row.connected && !row.contractSignedAt && row.status === 'APPROVED';
+  const locked = Boolean(row.merchantDeleted);
+  const waiting = !locked && !row.connected && (row.status === 'SUBMITTED' || row.status === 'FORWARDED_TO_PG');
+  const canUndoReject = !locked && !row.connected && !row.contractSignedAt && row.status === 'REJECTED';
+  const canUndoApprove = !locked && !row.connected && !row.contractSignedAt && row.status === 'APPROVED';
 
   const decide = (decision: 'APPROVED' | 'REJECTED') => {
     setBusy(true);
@@ -134,7 +137,9 @@ function ApplicationCard({
         <DocLink label="명함" url={row.businessCardImageUrl} />
       </div>
       <p className="mt-2 text-fluid-2xs leading-snug text-slate-500">신청 내용만 보고 승인하거나 거절합니다. 코드는 전자계약이 들어온 뒤에 입력합니다.</p>
-      {row.connected ? (
+      {locked ? (
+        <p className="mt-2 text-fluid-xs text-red-700">가맹 연결을 삭제했습니다. 지난 결제 수수료는 수수료 화면에서 볼 수 있습니다.</p>
+      ) : row.connected ? (
         <p className="mt-2 text-fluid-xs text-emerald-800">이미 연결된 업체입니다.</p>
       ) : row.status === 'APPROVED' && row.contractSignedAt ? (
         <p className="mt-2 text-fluid-xs text-slate-700">전자계약이 들어왔습니다. 전자계약 탭에서 이 업체를 열고 코드를 입력합니다.</p>

@@ -5,8 +5,8 @@ export const CARD_PAYMENT_MODULE_ID = 'mod_card_payment' as const;
 /** 테넌트 적용 수수료 3.3% (부가세 포함) */
 export const DEFAULT_TENANT_CARD_FEE_BPS = 330;
 
-/** 서비스브릿지 ← PG 원가 2.6% (부가세 포함) */
-export const DEFAULT_PLATFORM_CARD_COST_BPS = 260;
+/** 서비스브릿지 원가 2.62% (부가세 포함). 가맹점 수수료와의 차이가 서비스브릿지 마진. */
+export const DEFAULT_PLATFORM_CARD_COST_BPS = 262;
 
 export const CARD_PAYMENT_METHODS = ['KEYIN', 'CUSTOMER_LINK'] as const;
 export type CardPaymentMethod = (typeof CARD_PAYMENT_METHODS)[number];

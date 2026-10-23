@@ -18,6 +18,8 @@ import {
   payAndRecordUsageFee,
 } from './usageFeeCardPayment.service.js';
 import { getPgContractTemplate, savePgContractTemplate } from './pgMerchantContract.service.js';
+import { deletePgMerchant, feePercentToBps, listPgFeeLedger, setMerchantFeeBps } from './pgFeeLedger.service.js';
+import { platformUserCanManagePgFees, verifyPyoPassword } from './pgFeeAccess.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -36,6 +38,71 @@ router.get('/settings', async (_req, res) => {
   res.json({ ...rates, summary, serviceBridge: await serviceBridgePublicStatus() });
 });
 
+router.put('/settings', async (req, res) => {
+  const actor = (req as PlatformScopedRequest).platformUser;
+  if (!(await platformUserCanManagePgFees(actor.platformUserId))) {
+    res.status(403).json({ error: '기본 수수료는 pyo만 바꿀 수 있습니다.' });
+    return;
+  }
+  const rates = await savePlatformCardFeeRates({
+    tenantFeeBps: Number(req.body?.tenantFeeBps),
+    platformCostBps: Number(req.body?.platformCostBps),
+  });
+  res.json(rates);
+});
+
+function ledgerQuery(req: { query: Record<string, unknown> }) {
+  return {
+    datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : 'all',
+    month: typeof req.query.month === 'string' ? req.query.month : undefined,
+    day: typeof req.query.day === 'string' ? req.query.day : undefined,
+    tenantId: typeof req.query.tenantId === 'string' ? req.query.tenantId : undefined,
+    limit: Math.min(100, Math.max(1, Number(req.query.limit) || 30)),
+    offset: Math.max(0, Number(req.query.offset) || 0),
+  };
+}
+
+router.get('/fee-ledger', async (req, res) => {
+  const actor = (req as PlatformScopedRequest).platformUser;
+  const ledger = await listPgFeeLedger(ledgerQuery(req));
+  res.json({ ...ledger, canManage: await platformUserCanManagePgFees(actor.platformUserId) });
+});
+
+router.patch('/fee-ledger/:tenantId', async (req, res) => {
+  const actor = (req as unknown as PlatformScopedRequest).platformUser;
+  if (!(await platformUserCanManagePgFees(actor.platformUserId))) {
+    res.status(403).json({ error: '가맹점 수수료는 pyo만 바꿀 수 있습니다.' });
+    return;
+  }
+  const feeBps = feePercentToBps(req.body?.feePercent);
+  if (feeBps == null) {
+    res.status(400).json({ error: '수수료는 0에서 100 사이 퍼센트로 적어 주세요.' });
+    return;
+  }
+  const saved = await setMerchantFeeBps(String(req.params.tenantId), feeBps);
+  if ('error' in saved) {
+    res.status(400).json(saved);
+    return;
+  }
+  res.json(saved);
+});
+
+router.post('/fee-ledger/:tenantId/delete', async (req, res) => {
+  const actor = (req as unknown as PlatformScopedRequest).platformUser;
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const gate = await verifyPyoPassword(actor.platformUserId, password);
+  if ('error' in gate) {
+    res.status(gate.status).json({ error: gate.error });
+    return;
+  }
+  const removed = await deletePgMerchant(String(req.params.tenantId));
+  if ('error' in removed) {
+    res.status(400).json(removed);
+    return;
+  }
+  res.json(removed);
+});
+
 router.get('/contract', async (_req, res) => {
   res.json(await getPgContractTemplate());
 });
@@ -51,14 +118,6 @@ router.put('/contract', async (req, res) => {
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '저장하지 못했습니다.' });
   }
-});
-
-router.put('/settings', async (req, res) => {
-  const rates = await savePlatformCardFeeRates({
-    tenantFeeBps: Number(req.body?.tenantFeeBps),
-    platformCostBps: Number(req.body?.platformCostBps),
-  });
-  res.json(rates);
 });
 
 router.get('/onboardings', async (req, res) => {

@@ -303,7 +303,8 @@ export async function listOnboardingsForPartner() {
       contractSignedAt: row.contractSignedAt?.toISOString() ?? null,
       contractMailedAt: row.contractMailedAt?.toISOString() ?? null,
       submittedAt: row.submittedAt?.toISOString() ?? null,
-      connected: Boolean(credential?.isActive),
+      merchantDeleted: Boolean(row.merchantDeletedAt),
+      connected: Boolean(credential?.isActive) && !row.merchantDeletedAt,
       mid: credential?.mid ?? null,
       oid: credential?.oid ?? null,
       apiKeyLast4: credential?.apiKeyLast4 ?? null,
@@ -334,9 +335,10 @@ export async function tenantIdForSubmittedOnboarding(onboardingId: string): Prom
 export async function assertPartnerCodeEntry(onboardingId: string): Promise<{ tenantId: string } | { error: string }> {
   const row = await prisma.tenantPgOnboarding.findFirst({
     where: { id: onboardingId, status: { not: 'DRAFT' } },
-    select: { tenantId: true, status: true, contractSignedAt: true },
+    select: { tenantId: true, status: true, contractSignedAt: true, merchantDeletedAt: true },
   });
   if (!row) return { error: 'PG 신청을 찾을 수 없습니다.' };
+  if (row.merchantDeletedAt) return { error: '삭제된 가맹점에는 코드를 넣을 수 없습니다.' };
   const credential = await prisma.tenantPgCredential.findFirst({
     where: { tenantId: row.tenantId, isActive: true },
     select: { id: true },
@@ -352,6 +354,7 @@ export async function decidePartnerOnboarding(onboardingId: string, decision: 'A
     where: { id: onboardingId, status: { not: 'DRAFT' } },
   });
   if (!row) return null;
+  if (row.merchantDeletedAt) throw new Error('삭제된 가맹점입니다.');
   const credential = await prisma.tenantPgCredential.findFirst({
     where: { tenantId: row.tenantId, isActive: true },
     select: { id: true },

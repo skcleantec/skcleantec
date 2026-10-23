@@ -69,11 +69,13 @@ import {
   PgPartnerApplicationsPage,
   PgPartnerContractsPage,
   PgPartnerMerchantsPage,
+  PgPartnerFeesPage,
   PgPartnerRefundsPage,
   AdminPgContractSignPage,
   PlatformPgContractSettingsPage,
   PlatformPgContractDeskPage,
   PlatformCardPaymentPage,
+  PlatformPgFeeLedgerPage,
   PlatformCardChargePage,
   PublicCardPaymentLinkPage,
   PaysisCheckoutOkPage,
@@ -208,6 +210,7 @@ function App() {
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="billing/settlement" element={<SuspensePage><PlatformBillingSettlementPage /></SuspensePage>} />
           <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
+          <Route path="card-payment/fees" element={<SuspensePage><PlatformPgFeeLedgerPage /></SuspensePage>} />
           <Route path="card-payment/e-contract" element={<SuspensePage><PlatformPgContractSettingsPage /></SuspensePage>} />
           <Route path="card-payment/charge" element={<SuspensePage><PlatformCardChargePage /></SuspensePage>} />
           <Route path="coin-usage" element={<SuspensePage><PlatformCoinUsagePage /></SuspensePage>} />
@@ -547,6 +550,7 @@ function App() {
           <Route path="/pg-partner/contracts" element={<PgPartnerContractsPage />} />
           <Route path="/pg-partner/merchants" element={<PgPartnerMerchantsPage />} />
           <Route path="/pg-partner/payments" element={<PgPartnerRefundsPage />} />
+          <Route path="/pg-partner/fees" element={<PgPartnerFeesPage />} />
           <Route path="/pg-partner/refunds" element={<PgPartnerRefundsPage />} />
         </Route>
         <Route path="/pg-join/:token" element={<SuspensePage><PgJoinReviewPage /></SuspensePage>} />

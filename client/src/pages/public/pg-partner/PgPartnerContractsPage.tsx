@@ -22,6 +22,7 @@ type Signed = {
   signed: boolean;
   signedAt: string | null;
   connected?: boolean;
+  merchantDeleted?: boolean;
   values?: Record<string, string>;
 };
 
@@ -138,6 +139,8 @@ export function PgPartnerContractsPage() {
           </div>
           {opened.connected ? (
             <p className="mt-3 text-fluid-xs text-emerald-800">연결됨</p>
+          ) : opened.merchantDeleted ? (
+            <p className="mt-3 text-fluid-xs text-red-700">삭제된 가맹점입니다. 코드를 다시 넣지 않습니다.</p>
           ) : opened.signed ? (
             <PgPartnerConnectPanel
               onboardingId={opened.id}

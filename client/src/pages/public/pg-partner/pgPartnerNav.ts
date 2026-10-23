@@ -4,4 +4,5 @@ export const PG_PARTNER_NAV = [
   { to: '/pg-partner/contracts', label: '전자계약', icon: 'document', end: true },
   { to: '/pg-partner/merchants', label: '사용 중 업체', icon: 'clipboard', end: true },
   { to: '/pg-partner/payments', label: '결제 내역', icon: 'alert-circle', end: true },
+  { to: '/pg-partner/fees', label: '수수료', icon: 'confirm', end: true },
 ] as const;

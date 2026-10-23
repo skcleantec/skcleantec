@@ -55,8 +55,10 @@ async function canUseInquiry(tenantId: string, user: AuthPayload, inquiryId: str
 }
 
 router.get('/quote', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
   const amountWon = Math.round(Number(req.query.amount) || 0);
-  const quote = await quoteCardPayment(amountWon);
+  const quote = await quoteCardPayment(amountWon, tenantId);
   res.json(quote);
 });
 
@@ -75,7 +77,7 @@ router.get('/inquiry/:inquiryId/prefill', async (req, res) => {
     return;
   }
   const amountWon = defaultCardPaymentAmountWon(inquiry);
-  const quote = await quoteCardPayment(amountWon);
+  const quote = await quoteCardPayment(amountWon, tenantId);
   const pg = await getCredentialBundle(tenantId);
   const copy = await loadCardPaymentCustomerCopy(tenantId, inquiry.id);
   res.json({

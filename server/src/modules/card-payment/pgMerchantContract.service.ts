@@ -354,6 +354,7 @@ export async function getPartnerPgContract(onboardingId: string) {
     title: template.title,
     bodyHtml: row.contractSignedAt ? expandEcTokenMap(template.bodyHtml, values) : template.bodyHtml,
     values,
-    connected: Boolean(credential),
+    merchantDeleted: Boolean(row.merchantDeletedAt),
+    connected: Boolean(credential) && !row.merchantDeletedAt,
   };
 }
