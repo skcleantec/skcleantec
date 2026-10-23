@@ -242,6 +242,7 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
       <div className="pg-doc-guide">
         <h2>필요 서류와 진행 순서</h2>
         <p>가맹신청 → 가맹 심사완료 → 가맹점 계약서 작성 → 계약서 우편발송 → 가맹점 코드 연결 및 사용</p>
+        <p>계약서 우편은 가맹점이 보내지 않습니다. 원성페이먼츠가 날인해서 보냅니다.</p>
         {kind === 'solo' ? (
           <>
             <p>개인사업자는 가맹 신청할 때 아래 3가지를 사진으로 올립니다.</p>

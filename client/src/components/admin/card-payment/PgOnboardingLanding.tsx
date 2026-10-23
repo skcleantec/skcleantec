@@ -9,7 +9,7 @@ const STEPS: Array<{ title: string; body: string; icon: string }> = [
   { title: '가맹신청', body: '구분과 사업자 정보를 적습니다', icon: 'pencil' },
   { title: '가맹 심사완료', body: '제출한 내용을 확인합니다', icon: 'check-list-3' },
   { title: '가맹점 계약서 작성', body: '승인 후 전자계약을 작성합니다', icon: 'document' },
-  { title: '계약서 우편발송', body: '작성한 계약서를 우편으로 보냅니다', icon: 'email' },
+  { title: '계약서 우편발송', body: '원성페이먼츠가 날인해서 우편으로 보냅니다', icon: 'email' },
   { title: '가맹점 코드 연결및 사용', body: '코드가 연결되면 카드 결제를 씁니다', icon: 'circle-to-confirm-circle-transition' },
 ];
 
@@ -27,13 +27,12 @@ export function pgConnectionView(
   connected: boolean,
   status: string | undefined,
   contractSignedAt?: string | null,
-  contractMailedAt?: string | null,
+  _contractMailedAt?: string | null,
 ): PgConnectionView {
   if (status === 'REJECTED') return '반려';
   if (connected) return '연결됨';
   if (status === 'APPROVED' && !contractSignedAt) return '전자계약';
-  if (status === 'APPROVED' && contractSignedAt && !contractMailedAt) return '우편발송';
-  if (status === 'APPROVED' && contractSignedAt && contractMailedAt) return '코드연결';
+  if (status === 'APPROVED' && contractSignedAt) return '우편발송';
   if (status === 'SUBMITTED' || status === 'FORWARDED_TO_PG') return '심사중';
   return '미연결';
 }
@@ -137,7 +136,6 @@ export function PgOnboardingLanding({
   detail,
   onApply,
   onContract,
-  onMailed,
   onViewContract,
   onDownloadContract,
 }: {
@@ -145,7 +143,6 @@ export function PgOnboardingLanding({
   detail: string | null;
   onApply: () => void;
   onContract?: () => void;
-  onMailed?: () => void;
   onViewContract?: () => void;
   onDownloadContract?: () => void;
 }) {
@@ -183,15 +180,6 @@ export function PgOnboardingLanding({
             전자계약하기
           </button>
         ) : null}
-        {view === '우편발송' && onMailed ? (
-          <button
-            type="button"
-            className="mt-4 flex min-h-14 w-full items-center justify-center rounded-xl bg-white px-5 text-fluid-base font-semibold text-slate-900 shadow-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-            onClick={onMailed}
-          >
-            계약서를 우편으로 보냈습니다
-          </button>
-        ) : null}
       </div>
       <div className="px-3 pt-4 sm:px-5">
         <PgGuideBanner />
@@ -209,15 +197,6 @@ export function PgOnboardingLanding({
             onClick={onContract}
           >
             전자계약하기
-          </button>
-        ) : null}
-        {view === '우편발송' && onMailed ? (
-          <button
-            type="button"
-            className="flex min-h-14 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-fluid-base font-semibold text-white shadow-sm hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            onClick={onMailed}
-          >
-            계약서를 우편으로 보냈습니다
           </button>
         ) : null}
       </div>
