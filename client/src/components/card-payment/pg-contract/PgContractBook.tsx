@@ -21,6 +21,7 @@ type Props = {
   contractNo?: string;
   uploadBlob?: (blob: Blob, filename: string) => Promise<{ secureUrl: string }>;
   onSubmit?: () => void;
+  onClose?: () => void;
   busy?: boolean;
 };
 
@@ -157,7 +158,18 @@ function BlockList({ blocks, indexes }: { blocks: FlowBlock[]; indexes: number[]
   );
 }
 
-export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob, onSubmit, busy }: Props) {
+function printContract() {
+  const prev = document.title;
+  document.title = '청소비서-카드결제-계약서';
+  const restore = () => {
+    document.title = prev;
+    window.removeEventListener('afterprint', restore);
+  };
+  window.addEventListener('afterprint', restore);
+  window.print();
+}
+
+export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob, onSubmit, onClose, busy }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const probeBodyRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
@@ -300,6 +312,33 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
         </div>,
         document.body,
       )}
+      {readOnly ? (
+        <div className="pg-no-print mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            onClick={printContract}
+          >
+            인쇄
+          </button>
+          <button
+            type="button"
+            className="min-h-10 rounded-lg bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            onClick={printContract}
+          >
+            다운로드
+          </button>
+          {onClose ? (
+            <button
+              type="button"
+              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              onClick={onClose}
+            >
+              닫기
+            </button>
+          ) : null}
+        </div>
+      ) : (
       <div className="pg-no-print mb-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -324,7 +363,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
         <button
           type="button"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-          onClick={() => window.print()}
+          onClick={printContract}
         >
           전체 인쇄
         </button>
@@ -346,6 +385,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
           </button>
         ) : null}
       </div>
+      )}
       {block
         ? createPortal(
             <div className="pg-no-print fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 p-4" role="presentation">
@@ -372,10 +412,20 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
             document.body,
           )
         : null}
-      <div ref={hostRef} className="pg-scale-host" style={{ height: `${297 * scale}mm` }}>
-        <div className="pg-scale" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: '210mm' }}>
-          {sheet(pageIndexes, safePage)}
-        </div>
+      <div ref={hostRef} className={readOnly ? 'pg-finished flex w-full flex-col gap-3' : 'pg-scale-host'} style={readOnly ? undefined : { height: `${297 * scale}mm` }}>
+        {readOnly
+          ? slices.map((indexes, index) => (
+              <div key={indexes.join('-') || index} className="pg-scale-host" style={{ height: `${297 * scale}mm` }}>
+                <div className="pg-scale" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: '210mm' }}>
+                  {sheet(indexes, index + 1)}
+                </div>
+              </div>
+            ))
+          : (
+            <div className="pg-scale" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: '210mm' }}>
+              {sheet(pageIndexes, safePage)}
+            </div>
+          )}
       </div>
       {pageGates.has('sign') && !readOnly ? (
         <div className="pg-sign-tools pg-no-print mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3" data-pg-key="[[EC_SIGNATURE]]">

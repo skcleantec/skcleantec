@@ -262,6 +262,39 @@
   margin: 0.3mm 0;
 }
 
+.pg-finished .pg-blank,
+.pg-finished .pg-blank-biz,
+.pg-finished .pg-choice,
+.pg-finished .pg-choice-biz {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pg-finished .pg-blank,
+.pg-finished .pg-blank-biz {
+  border-bottom: 0.25mm solid #0f172a;
+  border-radius: 0;
+  padding: 0;
+  height: 4.2mm;
+}
+
+.pg-finished .pg-choice,
+.pg-finished .pg-choice-biz {
+  border: 0;
+  padding: 0;
+  margin-right: 1.6mm;
+  cursor: default;
+}
+
+.pg-finished .pg-muted {
+  display: none;
+}
+
+.pg-finished .pg-sheet {
+  box-shadow: none;
+}
+
 .pg-print-root {
   display: none;
 }
@@ -305,6 +338,10 @@
     box-shadow: none !important;
     break-after: page;
     page-break-after: always;
+  }
+
+  .pg-muted {
+    display: none !important;
   }
 
   .pg-blank,

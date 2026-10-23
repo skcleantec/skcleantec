@@ -62,6 +62,7 @@ function PgContractDesk() {
       .then((data) => {
         setPayload(data);
         setValues(data.values ?? {});
+        if (data.signed) setMsg('계약이 제출됐습니다.');
       })
       .catch((e: unknown) => setMsg(e instanceof Error ? e.message : '불러오지 못했습니다.'));
   }, []);
@@ -103,9 +104,12 @@ function PgContractDesk() {
       const data = (await res.json().catch(() => ({}))) as { error?: string; contractNo?: string };
       if (!res.ok) throw new Error(data.error || '저장하지 못했습니다.');
       if (data.contractNo) setValues((prev) => ({ ...prev, pgContractNo: data.contractNo as string }));
-      setMsg('전자계약을 마쳤습니다. 이 창을 닫으면 신청 화면으로 돌아갑니다.');
+      setMsg('계약이 제출됐습니다.');
       setPayload((prev) => (prev ? { ...prev, signed: true } : prev));
       window.opener?.postMessage({ type: 'pg-contract:signed' }, window.location.origin);
+      window.requestAnimationFrame(() => {
+        document.querySelector('.pg-desk-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
+      });
     } catch (e) {
       setMsg(e instanceof Error ? e.message : '저장하지 못했습니다.');
     } finally {
@@ -125,6 +129,7 @@ function PgContractDesk() {
           onChange={(key, value) => setValues((prev) => ({ ...prev, [key]: value }))}
           uploadBlob={uploadBlob}
           busy={busy}
+          onClose={closeDesk}
           onSubmit={() => void submit()}
         />
       ) : null}
