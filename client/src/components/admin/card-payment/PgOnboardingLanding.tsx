@@ -99,6 +99,27 @@ export function PgOnboardingSteps({ view, compact = false }: { view: PgConnectio
   );
 }
 
+export function PgContractFileActions({ onView, onDownload }: { onView: () => void; onDownload: () => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-fluid-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        onClick={onView}
+      >
+        계약서 보기
+      </button>
+      <button
+        type="button"
+        className="min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        onClick={onDownload}
+      >
+        계약서 다운로드
+      </button>
+    </div>
+  );
+}
+
 function PgApplyButton({ onApply }: { onApply: () => void }) {
   return (
     <button
@@ -117,12 +138,16 @@ export function PgOnboardingLanding({
   onApply,
   onContract,
   onMailed,
+  onViewContract,
+  onDownloadContract,
 }: {
   view: PgConnectionView;
   detail: string | null;
   onApply: () => void;
   onContract?: () => void;
   onMailed?: () => void;
+  onViewContract?: () => void;
+  onDownloadContract?: () => void;
 }) {
   const canApply = canOpenPgApplication(view);
   return (
@@ -173,6 +198,9 @@ export function PgOnboardingLanding({
       </div>
       <div className="space-y-4 px-3 py-4 sm:px-5">
         <PgOnboardingSteps view={view} />
+        {onViewContract && onDownloadContract ? (
+          <PgContractFileActions onView={onViewContract} onDownload={onDownloadContract} />
+        ) : null}
         {canApply ? <PgApplyButton onApply={onApply} /> : null}
         {view === '전자계약' && onContract ? (
           <button

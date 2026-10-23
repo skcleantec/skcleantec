@@ -1,4 +1,4 @@
-import { Blank, Choice, LockFee, isChecked, type ContractValues, type FlowBlock, type PageProps } from './pgContractChrome';
+import { Blank, Choice, ContractImage, LockFee, isChecked, type ContractValues, type FlowBlock, type PageProps } from './pgContractChrome';
 
 const SEAL = '/brand/service-bridge-seal.png';
 
@@ -57,7 +57,7 @@ export function contractBlocksA({ values, set, readOnly }: PageProps): FlowBlock
             <tr><th>상호</th><td colSpan={3}>주식회사 서비스브릿지</td></tr>
             <tr>
               <th>대표자</th>
-              <td>이정무 <img className="pg-seal" src={SEAL} alt="사용인감" /> (인)</td>
+              <td>이정무 <ContractImage className="pg-seal" src={SEAL} alt="사용인감" /> (인)</td>
               <th>개업일</th>
               <td>2026년 7월 22일</td>
             </tr>

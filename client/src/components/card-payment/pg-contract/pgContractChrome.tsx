@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 export const PG_PREVIEW_CONTRACT_NO = 'SB-PG-00000000-0000';
 
@@ -65,6 +65,29 @@ export function Blank({
     <span className={tone === 'biz' ? 'pg-blank pg-blank-biz' : 'pg-blank'} style={{ minWidth: width }} data-pg-key={fieldKey}>
       <input value={value} readOnly={readOnly} onChange={(e) => onChange(e.target.value)} aria-label="입력" />
     </span>
+  );
+}
+
+export function ContractImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className: string;
+}) {
+  const [hidden, setHidden] = useState(false);
+  const url = src.trim();
+  if (!url || hidden) return null;
+  return (
+    <img
+      className={className}
+      src={url}
+      alt={alt}
+      referrerPolicy="no-referrer"
+      onError={() => setHidden(true)}
+    />
   );
 }
 

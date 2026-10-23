@@ -6,6 +6,7 @@ import { PgOnboardingForm } from '../../../components/admin/card-payment/PgOnboa
 import {
   canOpenPgApplication,
   pgConnectionView,
+  PgContractFileActions,
   PgOnboardingLanding,
   PgOnboardingSteps,
 } from '../../../components/admin/card-payment/PgOnboardingLanding';
@@ -183,6 +184,12 @@ function AdminCardPaymentPgInner() {
           </p>
         </div>
         {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
+        {row?.contractSignedAt ? (
+          <PgContractFileActions
+            onView={() => openPgContractWindow()}
+            onDownload={() => openPgContractWindow('/pg-contract?download=1')}
+          />
+        ) : null}
         <CardPaymentLedger />
       </div>
     );
@@ -238,6 +245,8 @@ function AdminCardPaymentPgInner() {
             detail={detail}
             onApply={() => navigate(applyPath)}
             onContract={() => openPgContractWindow()}
+            onViewContract={row.contractSignedAt ? () => openPgContractWindow() : undefined}
+            onDownloadContract={row.contractSignedAt ? () => openPgContractWindow('/pg-contract?download=1') : undefined}
             onMailed={() => {
               const token = getToken();
               if (!token) return;

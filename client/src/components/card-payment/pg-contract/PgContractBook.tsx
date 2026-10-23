@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SignaturePad } from '../../e-contract/SignaturePad';
 import { knockoutSealPaper } from '../../../utils/sealPaperKnockout';
@@ -49,24 +49,34 @@ function sameSlices(left: number[][], right: number[][]) {
 
 type GateProblem = { message: string; focusKey: string };
 
-function gateProblem(gates: Set<FlowGate>, values: ContractValues): GateProblem | null {
-  if (gates.has('identity')) {
-    if (!values.pgBizKind) return { message: '개인사업자 또는 법인을 선택해 주세요.', focusKey: 'pgBizKind' };
-    if (!values.pgTaxKind) return { message: '과세 또는 면세를 선택해 주세요.', focusKey: 'pgTaxKind' };
-    if (!values['[[EC_MERCHANT_NAME]]']?.trim()) return { message: '상호가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_MERCHANT_NAME]]' };
-    if (!values['[[EC_BIZ_NO]]']?.trim()) return { message: '사업자등록번호가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_BIZ_NO]]' };
-    if (!values['[[EC_SIGNER_NAME]]']?.trim()) return { message: '대표자가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_NAME]]' };
-    if (!values['[[EC_SIGNER_PHONE]]']?.trim()) return { message: '휴대폰이 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_PHONE]]' };
-    if (!values['[[EC_SIGNER_ADDRESS]]']?.trim()) return { message: '사업장 주소가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_ADDRESS]]' };
-  }
-  if (gates.has('privacy') && !isChecked(values.pgPrivacy)) {
+function hasSavedSignature(value: string | undefined) {
+  return Boolean(value?.trim().startsWith('https://'));
+}
+
+function gateProblem(
+  gates: Set<FlowGate>,
+  values: ContractValues,
+  requireSignature: boolean,
+  finish = false,
+): GateProblem | null {
+  if (!values.pgBizKind) return { message: '개인사업자 또는 법인을 선택해 주세요.', focusKey: 'pgBizKind' };
+  if (!values.pgTaxKind) return { message: '과세 또는 면세를 선택해 주세요.', focusKey: 'pgTaxKind' };
+  if (!values['[[EC_MERCHANT_NAME]]']?.trim()) return { message: '상호가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_MERCHANT_NAME]]' };
+  if (!values['[[EC_BIZ_NO]]']?.trim()) return { message: '사업자등록번호가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_BIZ_NO]]' };
+  if (!values['[[EC_SIGNER_NAME]]']?.trim()) return { message: '대표자 이름이 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_NAME]]' };
+  if (!values['[[EC_SIGNER_PHONE]]']?.trim()) return { message: '휴대폰이 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_PHONE]]' };
+  if (!values['[[EC_SIGNER_ADDRESS]]']?.trim()) return { message: '사업장 주소가 비어 있어 다음으로 가지 않습니다.', focusKey: '[[EC_SIGNER_ADDRESS]]' };
+  if ((finish || gates.has('privacy')) && !isChecked(values.pgPrivacy)) {
     return { message: '개인정보 수집에 동의함을 선택해야 다음 장으로 갑니다.', focusKey: 'pgPrivacy' };
   }
-  if (gates.has('share') && !isChecked(values.pgShare)) {
+  if ((finish || gates.has('share')) && !isChecked(values.pgShare)) {
     return { message: '제3자 제공에 동의함을 선택해야 다음 장으로 갑니다.', focusKey: 'pgShare' };
   }
-  if (gates.has('sign') && !isChecked(values['[[EC_CHECK]]'])) {
+  if ((finish || gates.has('sign') || requireSignature) && !isChecked(values['[[EC_CHECK]]'])) {
     return { message: '계약 내용 동의를 체크해야 다음 장으로 갑니다.', focusKey: '[[EC_CHECK]]' };
+  }
+  if ((finish || gates.has('sign') || requireSignature) && !hasSavedSignature(values['[[EC_SIGNATURE]]'])) {
+    return { message: '서명을 그려 저장해야 다음으로 갑니다. 이름만으로는 넘어가지 않습니다.', focusKey: '[[EC_SIGNATURE]]' };
   }
   return null;
 }
@@ -82,7 +92,10 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
 }
 
 function jumpToField(root: HTMLElement, key: string) {
-  const el = root.querySelector<HTMLElement>(`[data-pg-key="${CSS.escape(key)}"]`);
+  const escaped = CSS.escape(key);
+  const el = root.querySelector<HTMLElement>(
+    `.pg-scale-host [data-pg-key="${escaped}"], .pg-sign-tools [data-pg-key="${escaped}"]`,
+  );
   if (!el) return;
   root.querySelectorAll('.pg-aim').forEach((node) => node.classList.remove('pg-aim'));
   el.classList.add('pg-aim');
@@ -126,6 +139,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(0.55);
   const [block, setBlock] = useState<GateProblem | null>(null);
+  const [jumpKey, setJumpKey] = useState<string | null>(null);
   const [slices, setSlices] = useState<number[][]>([[]]);
   const readOnly = mode === 'read';
   const number = contractNo?.trim() || PG_PREVIEW_CONTRACT_NO;
@@ -165,9 +179,13 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
     setSlices((prev) => (sameSlices(prev, next) ? prev : next));
   }, [blocks]);
 
+  const signBlockIndex = blocks.findIndex((item) => item.gate === 'sign');
+  const signPage = slices.findIndex((row) => row.includes(signBlockIndex)) + 1;
+  const requireSignature = signPage > 0 && safePage >= signPage;
+
   const go = (next: number) => {
     if (mode === 'sign' && next > safePage) {
-      const problem = gateProblem(pageGates, values);
+      const problem = gateProblem(pageGates, values, requireSignature);
       if (problem) {
         setBlock(problem);
         return;
@@ -180,11 +198,27 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
   const confirmBlock = () => {
     const problem = block;
     setBlock(null);
-    if (!problem || !hostRef.current) return;
-    window.requestAnimationFrame(() => {
-      if (hostRef.current) jumpToField(hostRef.current, problem.focusKey);
-    });
+    if (!problem) return;
+    if (measureRef.current) {
+      const nodes = [...measureRef.current.children];
+      const index = nodes.findIndex((node) => node.querySelector(`[data-pg-key="${CSS.escape(problem.focusKey)}"]`));
+      if (index >= 0) {
+        const found = slices.findIndex((row) => row.includes(index));
+        if (found >= 0) setPage(found + 1);
+      }
+    }
+    setJumpKey(problem.focusKey);
   };
+
+  useEffect(() => {
+    if (!jumpKey) return;
+    const id = window.requestAnimationFrame(() => {
+      const root = hostRef.current?.parentElement;
+      if (root) jumpToField(root, jumpKey);
+      setJumpKey(null);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [jumpKey, safePage]);
 
   const saveImage = async (blob: Blob, key: string, filename: string) => {
     if (uploadBlob) {
@@ -268,7 +302,14 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
             type="button"
             className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             disabled={busy}
-            onClick={onSubmit}
+            onClick={() => {
+              const problem = gateProblem(pageGates, values, true, true);
+              if (problem) {
+                setBlock(problem);
+                return;
+              }
+              onSubmit?.();
+            }}
           >
             계약 제출
           </button>
@@ -306,7 +347,7 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
         </div>
       </div>
       {pageGates.has('sign') && !readOnly ? (
-        <div className="pg-no-print mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+        <div className="pg-sign-tools pg-no-print mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3" data-pg-key="[[EC_SIGNATURE]]">
           <p className="text-sm font-semibold text-slate-900">이 장의 도장과 서명</p>
           <label className="block text-sm text-slate-700">
             도장 사진

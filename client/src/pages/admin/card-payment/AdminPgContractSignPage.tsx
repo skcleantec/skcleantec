@@ -66,6 +66,13 @@ function PgContractDesk() {
       .catch((e: unknown) => setMsg(e instanceof Error ? e.message : '불러오지 못했습니다.'));
   }, []);
 
+  useEffect(() => {
+    if (!payload?.signed) return;
+    if (new URLSearchParams(window.location.search).get('download') !== '1') return;
+    const id = window.setTimeout(() => window.print(), 600);
+    return () => window.clearTimeout(id);
+  }, [payload?.signed]);
+
   const closeDesk = () => {
     if (window.opener && !window.opener.closed) {
       window.close();

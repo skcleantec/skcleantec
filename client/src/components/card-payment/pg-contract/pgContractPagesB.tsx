@@ -1,4 +1,4 @@
-import { Blank, Choice, isChecked, type ContractValues, type FlowBlock, type PageProps } from './pgContractChrome';
+import { Blank, Choice, ContractImage, isChecked, type ContractValues, type FlowBlock, type PageProps } from './pgContractChrome';
 
 const SEAL = '/brand/service-bridge-seal.png';
 
@@ -52,11 +52,14 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
               <td>
                 <p><strong>가맹점</strong> 상호 {v(values, '[[EC_MERCHANT_NAME]]')} · 사업자 {v(values, '[[EC_BIZ_NO]]')}</p>
                 <p>주소 {v(values, '[[EC_SIGNER_ADDRESS]]')} · 서명자 {v(values, '[[EC_SIGNER_NAME]]')}</p>
-                <p>도장 {seal ? <img className="pg-seal" src={seal} alt="가맹점 도장" /> : null} 서명 {sign ? <img className="pg-sign-img" src={sign} alt="서명" /> : null}</p>
+                <p>
+                  도장 <ContractImage className="pg-seal" src={seal} alt="가맹점 도장" /> 서명{' '}
+                  <ContractImage className="pg-sign-img" src={sign} alt="서명" />
+                </p>
               </td>
               <td>
                 <p><strong>회사</strong> 주식회사 서비스브릿지</p>
-                <p>대표자 이정무 <img className="pg-seal" src={SEAL} alt="사용인감" /> (인)</p>
+                <p>대표자 이정무 <ContractImage className="pg-seal" src={SEAL} alt="사용인감" /> (인)</p>
                 <p>138-87-04035 · 120111-0154855</p>
               </td>
             </tr>
