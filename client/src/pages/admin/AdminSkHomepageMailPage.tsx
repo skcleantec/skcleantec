@@ -73,7 +73,9 @@ export function AdminSkHomepageMailPage() {
     setNotice(null);
     void pullSkHomepageMail(token)
       .then((result) => {
-        setNotice(`메일 ${result.scanned.toLocaleString('ko-KR')}통을 보고, 새로 ${result.imported.toLocaleString('ko-KR')}통을 쌓았습니다.`);
+        setNotice(
+          `간편견적 ${result.imported.toLocaleString('ko-KR')}통을 가져왔고, 서비스접수 ${result.created.toLocaleString('ko-KR')}건을 만들었습니다.`,
+        );
         load();
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '메일을 가져오지 못했습니다.'))
@@ -90,7 +92,7 @@ export function AdminSkHomepageMailPage() {
         <h1 className="text-xl font-semibold text-gray-800">홈페이지 문의메일</h1>
       </PageTitleWithFavorite>
       <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-        옛 홈페이지 문의가 들어오는 네이버 메일만 가져옵니다. 네이버에서 IMAP/SMTP 사용을 켜고, 2단계 인증이면 애플리케이션 비밀번호를 만드세요. 가져온 메일은 접수에 넣기 전에 아래에만 쌓입니다.
+        제목이 「간편견적이 접수되었습니다」인 메일만 가져옵니다. 이름·연락처·청소날짜·이사날짜·지역·공급면적·방·화장실·주방·베란다·특이사항을 서비스접수 대기로 넣습니다. 네이버에서 IMAP/SMTP 사용을 켜고, 2단계 인증이면 애플리케이션 비밀번호를 만드세요.
       </p>
       {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
       {notice ? <p className="text-fluid-xs text-emerald-800">{notice}</p> : null}
@@ -147,7 +149,9 @@ export function AdminSkHomepageMailPage() {
         <p className="text-fluid-2xs text-slate-500">
           마지막 확인 {formatWhen(state?.lastSyncAt ?? null)}
           {state?.lastError ? ` · ${state.lastError}` : ''}
-          {state ? ` · 서식 대기 ${state.pendingCount.toLocaleString('ko-KR')}통` : ''}
+          {state
+            ? ` · 접수 ${state.matchedCount.toLocaleString('ko-KR')}건 · 확인 필요 ${state.pendingCount.toLocaleString('ko-KR')}통`
+            : ''}
         </p>
       </form>
       <ul className="space-y-2">
@@ -157,7 +161,10 @@ export function AdminSkHomepageMailPage() {
               {row.subject || '(제목 없음)'}
             </p>
             <p className="mt-0.5 truncate text-fluid-2xs text-slate-500" title={row.fromAddress}>
-              {formatWhen(row.receivedAt)} · {row.fromAddress || '보낸 사람 없음'}
+              {formatWhen(row.receivedAt)}
+              {row.status === 'MATCHED'
+                ? ` · 서비스접수 대기${row.inquiryNumber ? ` ${row.inquiryNumber}` : ''}`
+                : ' · 표가 달라 접수에 넣지 못함'}
             </p>
             {row.excerpt ? (
               <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-fluid-xs text-slate-700">{row.excerpt}</p>

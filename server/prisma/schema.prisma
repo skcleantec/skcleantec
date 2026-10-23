@@ -2738,6 +2738,7 @@ model Inquiry {
   landingContactInquiries   LandingContactInquiry[]
   householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
   cardPayments              CardPayment[]
+  skHomepageInquiryMail     SkHomepageInquiryMail?
   aiDispatchProposals       AiDispatchProposal[]
 
   @@index([createdAt])
@@ -5125,13 +5126,15 @@ model SkHomepageMailInbox {
   @@map("sk_homepage_mail_inboxes")
 }
 
-/// 가져온 메일 원문. 접수 서식 매칭 전에는 여기만 쌓인다.
+/// 가져온 간편견적 메일. 표가 맞으면 서비스접수 대기로 연결한다.
 model SkHomepageInquiryMail {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   inboxId     String   @map("inbox_id")
   inbox       SkHomepageMailInbox @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  inquiryId   String?  @unique @map("inquiry_id")
+  inquiry     Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
   messageId   String   @map("message_id") @db.VarChar(255)
   imapUid     Int      @map("imap_uid")
   fromAddress String   @default("") @map("from_address") @db.VarChar(320)

@@ -10,6 +10,7 @@ export type SkHomepageMailRow = {
   subject: string;
   receivedAt: string;
   status: string;
+  inquiryNumber: string | null;
   excerpt: string;
 };
 
@@ -20,6 +21,7 @@ export type SkHomepageMailState = {
   lastSyncAt: string | null;
   lastError: string | null;
   pendingCount: number;
+  matchedCount: number;
   recent: SkHomepageMailRow[];
 };
 
@@ -46,11 +48,13 @@ export async function saveSkHomepageMail(
   if (!res.ok) throw new Error(await readError(res, '저장하지 못했습니다.'));
 }
 
-export async function pullSkHomepageMail(token: string): Promise<{ imported: number; scanned: number }> {
+export async function pullSkHomepageMail(
+  token: string,
+): Promise<{ imported: number; scanned: number; created: number }> {
   const res = await fetch(`${API}/admin/sk-homepage-mail/pull`, {
     method: 'POST',
     headers: headers(token),
   });
   if (!res.ok) throw new Error(await readError(res, '메일을 가져오지 못했습니다.'));
-  return res.json() as Promise<{ imported: number; scanned: number }>;
+  return res.json() as Promise<{ imported: number; scanned: number; created: number }>;
 }

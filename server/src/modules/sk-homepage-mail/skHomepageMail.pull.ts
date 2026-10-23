@@ -2,6 +2,8 @@ import { simpleParser } from 'mailparser';
 import { ImapFlow } from 'imapflow';
 import { prisma } from '../../lib/prisma.js';
 import { decryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
+import { matchSkHomepageMail } from './skHomepageMail.match.js';
+import { formatSkHomepageQuote, parseSkHomepageQuote } from './skHomepageMail.parse.js';
 
 const NAVER_IMAP_HOST = 'imap.naver.com';
 const FIRST_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -38,10 +40,15 @@ export async function testSkHomepageMailbox(mailbox: string, password: string): 
   }
 }
 
-export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: number; scanned: number }> {
+function mailRaw(text: string | undefined, html: unknown): string {
+  const htmlText = typeof html === 'string' ? html : '';
+  return `${text ?? ''}\n${htmlText}`;
+}
+
+export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: number; scanned: number; created: number }> {
   const inbox = await prisma.skHomepageMailInbox.findFirst({ where: { tenantId } });
   if (!inbox?.mailbox || !inbox.passwordEnc) {
-    return { imported: 0, scanned: 0 };
+    return { imported: 0, scanned: 0, created: 0 };
   }
   const password = decryptTenantSecret(inbox.passwordEnc);
   if (!password) {
@@ -49,7 +56,7 @@ export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: 
       where: { id: inbox.id },
       data: { lastError: '저장된 비밀번호를 읽지 못했습니다. 다시 저장해 주세요.', lastSyncAt: new Date() },
     });
-    return { imported: 0, scanned: 0 };
+    return { imported: 0, scanned: 0, created: 0 };
   }
 
   const client = new ImapFlow({
@@ -62,6 +69,7 @@ export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: 
 
   let imported = 0;
   let scanned = 0;
+  let created = 0;
   try {
     await client.connect();
     const lock = await client.getMailboxLock('INBOX');
@@ -81,13 +89,16 @@ export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: 
         const fromAddress = clip(parsed.from?.text || msg.envelope?.from?.[0]?.address || '', 320);
         const subject = clip(parsed.subject || msg.envelope?.subject || '', 500);
         const receivedAt = parsed.date ?? msg.envelope?.date ?? new Date();
-        const textBody = clip(parsed.text || '', MAX_BODY);
+        const raw = mailRaw(parsed.text, parsed.html);
+        if (!subject.includes('간편견적')) continue;
+        const quote = parseSkHomepageQuote(subject, raw);
+        const textBody = clip(quote ? formatSkHomepageQuote(quote) : raw.replace(/<[^>]+>/g, ' '), MAX_BODY);
         const exists = await prisma.skHomepageInquiryMail.findFirst({
           where: { tenantId, messageId },
           select: { id: true },
         });
         if (exists) continue;
-        await prisma.skHomepageInquiryMail.create({
+        const row = await prisma.skHomepageInquiryMail.create({
           data: {
             tenantId,
             inboxId: inbox.id,
@@ -99,8 +110,26 @@ export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: 
             textBody,
             status: 'PENDING_MATCH',
           },
+          select: { id: true },
         });
         imported += 1;
+        try {
+          if (await matchSkHomepageMail(tenantId, row.id)) created += 1;
+        } catch (e) {
+          console.error('[sk-homepage-mail] match failed', row.id, e instanceof Error ? e.message : 'error');
+        }
+      }
+      const pending = await prisma.skHomepageInquiryMail.findMany({
+        where: { tenantId, status: 'PENDING_MATCH', inquiryId: null },
+        select: { id: true },
+        take: MAX_PER_RUN,
+      });
+      for (const row of pending) {
+        try {
+          if (await matchSkHomepageMail(tenantId, row.id)) created += 1;
+        } catch (e) {
+          console.error('[sk-homepage-mail] match failed', row.id, e instanceof Error ? e.message : 'error');
+        }
       }
       await prisma.skHomepageMailInbox.update({
         where: { id: inbox.id },
@@ -118,15 +147,16 @@ export async function pullSkHomepageMail(tenantId: string): Promise<{ imported: 
     });
     throw new Error(error);
   }
-  return { imported, scanned };
+  return { imported, scanned, created };
 }
 
-export async function pullEnabledSkHomepageMailboxes(): Promise<{ tenants: number; imported: number }> {
+export async function pullEnabledSkHomepageMailboxes(): Promise<{ tenants: number; imported: number; created: number }> {
   const rows = await prisma.skHomepageMailInbox.findMany({
     where: { enabled: true },
     select: { tenantId: true, tenant: { select: { slug: true } } },
   });
   let imported = 0;
+  let created = 0;
   let tenants = 0;
   for (const row of rows) {
     const slug = row.tenant.slug?.trim().toLowerCase();
@@ -135,9 +165,10 @@ export async function pullEnabledSkHomepageMailboxes(): Promise<{ tenants: numbe
     try {
       const result = await pullSkHomepageMail(row.tenantId);
       imported += result.imported;
+      created += result.created;
     } catch (e) {
       console.error('[sk-homepage-mail] pull failed', row.tenantId, e instanceof Error ? e.message : 'error');
     }
   }
-  return { tenants, imported };
+  return { tenants, imported, created };
 }

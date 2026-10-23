@@ -37,11 +37,15 @@ router.get('/', async (req, res) => {
           receivedAt: true,
           status: true,
           textBody: true,
+          inquiry: { select: { inquiryNumber: true } },
         },
       })
     : [];
   const pendingCount = inbox
     ? await prisma.skHomepageInquiryMail.count({ where: { tenantId, status: 'PENDING_MATCH' } })
+    : 0;
+  const matchedCount = inbox
+    ? await prisma.skHomepageInquiryMail.count({ where: { tenantId, status: 'MATCHED' } })
     : 0;
   res.json({
     enabled: inbox?.enabled ?? false,
@@ -50,12 +54,14 @@ router.get('/', async (req, res) => {
     lastSyncAt: inbox?.lastSyncAt?.toISOString() ?? null,
     lastError: inbox?.lastError ?? null,
     pendingCount,
+    matchedCount,
     recent: recent.map((row) => ({
       id: row.id,
       fromAddress: row.fromAddress,
       subject: row.subject,
       receivedAt: row.receivedAt.toISOString(),
       status: row.status,
+      inquiryNumber: row.inquiry?.inquiryNumber ?? null,
       excerpt: row.textBody.slice(0, 400),
     })),
   });
