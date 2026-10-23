@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchTeamLeaderTrainingImageBlob } from '../../api/teamLeaderTraining';
+import { LineMdIcon } from '../ui/LineMdIcon';
 
 type Slide = { index: number; title: string };
 
@@ -357,6 +358,26 @@ export function SkTeamTrainingSlideViewer({
             {failed ? '이 장을 불러오지 못했습니다.' : '불러오는 중…'}
           </p>
         )}
+        <button
+          type="button"
+          className="absolute left-2 top-1/2 z-10 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => go(index - 1)}
+          disabled={index <= 0}
+          aria-label="이전 장"
+        >
+          <LineMdIcon name="chevron-left" className="size-6" />
+        </button>
+        <button
+          type="button"
+          className="absolute right-2 top-1/2 z-10 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => go(index + 1)}
+          disabled={index >= items.length - 1}
+          aria-label="다음 장"
+        >
+          <LineMdIcon name="chevron-right" className="size-6" />
+        </button>
       </div>
     </div>,
     document.body,

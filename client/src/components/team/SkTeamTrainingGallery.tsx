@@ -134,7 +134,7 @@ export function SkTeamTrainingGallery({ token }: { token: string }) {
       <div className="flex flex-col gap-2">
         {slideButton}
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-          자료보기를 누르면 메뉴 없이 장 전체가 보입니다. 두 손가락으로 키우거나 줄이고, 좌우로 넘기거나 옮깁니다. 뒤로 가면 닫힙니다.
+          자료보기를 누르면 장 전체가 보입니다. 좌우 버튼이나 손가락으로 넘기고, 두 손가락으로 키우거나 줄입니다. 뒤로 가면 닫힙니다.
         </p>
         {viewer}
       </div>
