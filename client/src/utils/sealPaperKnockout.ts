@@ -75,3 +75,13 @@ export async function knockoutSealPaper(file: File, threshold: number): Promise<
   if (!blob) throw new Error('도장 그림을 만들지 못했습니다.');
   return blob;
 }
+
+/** 서명 패드의 흰 배경을 지우고, 획만 남긴 PNG로 자른다. */
+export async function knockoutWhiteInk(blob: Blob): Promise<Blob> {
+  const file = new File([blob], 'signature.png', { type: blob.type || 'image/png' });
+  try {
+    return await knockoutSealPaper(file, 28);
+  } catch {
+    throw new Error('서명이 잘 안 보입니다. 더 진하게 그린 뒤 다시 저장해 주세요.');
+  }
+}

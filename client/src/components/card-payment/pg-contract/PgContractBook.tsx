@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SignaturePad } from '../../e-contract/SignaturePad';
-import { knockoutSealPaper } from '../../../utils/sealPaperKnockout';
+import { knockoutSealPaper, knockoutWhiteInk } from '../../../utils/sealPaperKnockout';
 import './pgContractPrint.css';
 import {
   ContractSheet,
@@ -366,7 +366,11 @@ export function PgContractBook({ mode, values, onChange, contractNo, uploadBlob,
           </label>
           <SignaturePad
             canvasHeightClass="h-28"
-            onSave={(blob) => saveImage(blob, '[[EC_SIGNATURE]]', `signature_${Date.now()}.png`)}
+            hint="도장 파일이 없으면 이 서명이 도장 자리에 들어갑니다. 흰 배경은 빼고 필체만 붙입니다."
+            onSave={async (blob) => {
+              const ink = await knockoutWhiteInk(blob);
+              await saveImage(ink, '[[EC_SIGNATURE]]', `signature_${Date.now()}.png`);
+            }}
             onClear={() => set('[[EC_SIGNATURE]]', '')}
           />
         </div>

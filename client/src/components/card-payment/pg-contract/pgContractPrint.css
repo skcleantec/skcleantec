@@ -223,6 +223,17 @@
   vertical-align: middle;
 }
 
+.pg-ink {
+  display: inline-block;
+  max-width: 32mm;
+  max-height: 11mm;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  vertical-align: middle;
+  background: transparent;
+}
+
 .pg-sign-img {
   display: inline-block;
   max-width: 36mm;

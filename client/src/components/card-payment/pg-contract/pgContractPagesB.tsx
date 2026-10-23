@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Blank, Choice, ContractImage, isChecked, type ContractValues, type FlowBlock, type PageProps } from './pgContractChrome';
 
 const SEAL = '/brand/service-bridge-seal.png';
@@ -9,6 +10,27 @@ function v(values: ContractValues, key: string) {
 function field(values: ContractValues, set: PageProps['set'], readOnly: boolean, key: string, width = '28mm') {
   return (
     <Blank width={width} fieldKey={key} value={v(values, key)} readOnly={readOnly} onChange={(next) => set(key, next)} />
+  );
+}
+
+function MerchantStamp({ seal, sign }: { seal: string; sign: string }) {
+  const [sealBroken, setSealBroken] = useState(false);
+  const sealUrl = seal.trim();
+  const signUrl = sign.trim();
+  useEffect(() => setSealBroken(false), [sealUrl]);
+  const showSeal = Boolean(sealUrl) && !sealBroken;
+  if (showSeal) {
+    return (
+      <>
+        도장 <ContractImage className="pg-seal" src={sealUrl} alt="가맹점 도장" onError={() => setSealBroken(true)} /> 서명{' '}
+        <ContractImage className="pg-ink" src={signUrl} alt="서명" />
+      </>
+    );
+  }
+  return (
+    <>
+      도장 <ContractImage className="pg-ink" src={signUrl} alt="서명" />
+    </>
   );
 }
 
@@ -53,8 +75,7 @@ export function contractBlocksB({ values, set, readOnly }: PageProps): FlowBlock
                 <p><strong>가맹점</strong> 상호 {v(values, '[[EC_MERCHANT_NAME]]')} · 사업자 {v(values, '[[EC_BIZ_NO]]')}</p>
                 <p>주소 {v(values, '[[EC_SIGNER_ADDRESS]]')} · 서명자 {v(values, '[[EC_SIGNER_NAME]]')}</p>
                 <p>
-                  도장 <ContractImage className="pg-seal" src={seal} alt="가맹점 도장" /> 서명{' '}
-                  <ContractImage className="pg-sign-img" src={sign} alt="서명" />
+                  <MerchantStamp seal={seal} sign={sign} />
                 </p>
               </td>
               <td>

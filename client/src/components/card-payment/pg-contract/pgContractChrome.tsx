@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 export const PG_PREVIEW_CONTRACT_NO = 'SB-PG-00000000-0000';
 
@@ -72,13 +72,16 @@ export function ContractImage({
   src,
   alt,
   className,
+  onError,
 }: {
   src: string;
   alt: string;
   className: string;
+  onError?: () => void;
 }) {
   const [hidden, setHidden] = useState(false);
   const url = src.trim();
+  useEffect(() => setHidden(false), [url]);
   if (!url || hidden) return null;
   return (
     <img
@@ -86,7 +89,10 @@ export function ContractImage({
       src={url}
       alt={alt}
       referrerPolicy="no-referrer"
-      onError={() => setHidden(true)}
+      onError={() => {
+        setHidden(true);
+        onError?.();
+      }}
     />
   );
 }
