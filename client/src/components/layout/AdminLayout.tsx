@@ -24,6 +24,7 @@ import { useStaffAppPushNavigation } from '../../hooks/useStaffAppPushNavigation
 import { useStaffAppNativePushRegister } from '../../hooks/useStaffAppNativePushRegister';
 import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 import { performStaffLogout } from '../../utils/staffLogout';
+import { clearTeamPreviewSession } from '../../utils/teamPreviewSession';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import {
   useInboxRealtime,
@@ -258,6 +259,9 @@ export function AdminLayout() {
     [navigate],
   );
   const location = useLocation();
+  useEffect(() => {
+    if (location.pathname.startsWith('/admin')) clearTeamPreviewSession();
+  }, [location.pathname]);
   useStaffAppPushNavigation(Boolean(adminToken));
   useEffect(() => {
     if (isCbiseoStaffNativeApp()) {

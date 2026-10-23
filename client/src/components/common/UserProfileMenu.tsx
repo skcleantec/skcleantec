@@ -38,6 +38,7 @@ export function UserProfileMenu({
   editHomeAddress,
   onSaved,
   onLogout,
+  logoutLabel,
   onSessionExpired,
   showStagingDbImport,
   onStagingDbImport,
@@ -63,6 +64,8 @@ export function UserProfileMenu({
     nameEn?: string | null;
   }) => void;
   onLogout: () => void;
+  /** 팀장 미리보기에서는 로그아웃 대신 솔루션 복귀 문구 */
+  logoutLabel?: string;
   onSessionExpired?: () => void;
   /** 스테이징 등에서만 서버가 true로 내려줌 */
   showStagingDbImport?: boolean;
@@ -271,9 +274,9 @@ export function UserProfileMenu({
             <button
               type="button"
               onClick={onLogout}
-              className="staff-profile-logout block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-100"
+              className="staff-profile-logout block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
-              로그아웃
+              {logoutLabel?.trim() || '로그아웃'}
             </button>
           </div>
         ) : null}

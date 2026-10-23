@@ -18,8 +18,8 @@ export const teamMessages = {
   'team.layout.nav.menuTitle': { ko: '메뉴'},
   'team.layout.nav.menuOpen': { ko: '메뉴 열기'},
   'team.layout.nav.menuClose': { ko: '메뉴 닫기'},
-  'team.layout.adminScreen': { ko: '관리자 화면'},
-  'team.layout.adminScreenTitle': { ko: '관리자 화면으로 전환'},
+  'team.layout.adminScreen': { ko: '솔루션으로'},
+  'team.layout.adminScreenTitle': { ko: '솔루션으로 돌아갑니다'},
   'team.layout.previewExternal': { ko: '타업체 프리뷰'},
   'team.layout.previewTeamLeader': { ko: '팀장 프리뷰'},
 

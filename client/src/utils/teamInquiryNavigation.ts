@@ -1,4 +1,5 @@
 import type { Location } from 'react-router-dom';
+import { hrefWithTeamPreview } from './teamPreviewSession';
 
 export type TeamInquiryNavState = {
   /** `/team/...?openInquiry=` 등 — 상세 모달 복원용 */
@@ -32,9 +33,9 @@ export function resolveTeamInquiryReturnTo(
 ): string {
   const state = location.state as TeamInquiryNavState | null;
   if (state?.returnTo && isSafeTeamPath(state.returnTo)) {
-    return state.returnTo;
+    return hrefWithTeamPreview(state.returnTo);
   }
   const params = new URLSearchParams();
   params.set('openInquiry', inquiryId);
-  return `${fallbackPathname}?${params.toString()}`;
+  return hrefWithTeamPreview(`${fallbackPathname}?${params.toString()}`);
 }

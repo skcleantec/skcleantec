@@ -1,4 +1,14 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { getToken } from '../stores/auth';
+import { getTeamToken } from '../stores/teamAuth';
+import { applyTeamPreviewSession, readTeamPreviewSession } from './teamPreviewSession';
+
+function previewSessionForSameAccount() {
+  const admin = getToken();
+  const team = getTeamToken();
+  if (!admin || !team || admin !== team) return null;
+  return readTeamPreviewSession();
+}
 
 export function isTeamStaffPreviewSearch(search: string): boolean {
   const role = new URLSearchParams(search).get('previewRole');
@@ -17,6 +27,7 @@ export function teamProfileOnboardingRequired(
   search = typeof window !== 'undefined' ? window.location.search : '',
 ): boolean {
   if (u.previewExternal || u.previewTeamLeader || isTeamStaffPreviewSearch(search)) return false;
+  if (previewSessionForSameAccount()) return false;
   if (u.profileCompletedAt) return false;
   if (!u.profileOnboardingRequired) return false;
   if (u.role === 'ADMIN') return false;
@@ -76,6 +87,10 @@ export function withTeamPreviewQuery(url: string, search?: string): string {
   const cur = new URLSearchParams(
     search ?? (typeof window !== 'undefined' ? window.location.search : ''),
   );
+  if (!isTeamStaffPreviewSearch(`?${cur.toString()}`)) {
+    const session = previewSessionForSameAccount();
+    if (session) applyTeamPreviewSession(cur, session);
+  }
   const next = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
   appendTeamPreviewSearchParams(cur, next);
   return `${next.pathname}${next.search}`;

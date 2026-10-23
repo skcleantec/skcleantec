@@ -39,6 +39,7 @@ import { computeQuotationVatAmounts } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
 import { resolveDocumentFooterNotice } from '@shared/quotationDocument';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
+import { hrefWithTeamPreview } from '../../utils/teamPreviewSession';
 
 function pickDefaultOperatingCompanyId(
   companies: QuotationEditorOperatingCompanyDto[],
@@ -70,7 +71,7 @@ export function TeamQuotationEditorPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const seedInquiryId = searchParams.get('inquiryId')?.trim() || null;
-  const returnTo = searchParams.get('returnTo')?.trim() || '/team/assignments';
+  const returnTo = hrefWithTeamPreview(searchParams.get('returnTo')?.trim() || '/team/assignments');
   const isNew = id === 'new' || !id;
   const navigate = useNavigate();
   const token = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
