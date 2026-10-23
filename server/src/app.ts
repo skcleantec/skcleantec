@@ -102,6 +102,8 @@ import notificationPolicyRoutes from './modules/notifications/notificationPolicy
 import teamNotificationPrefRoutes from './modules/notifications/teamNotificationPref.routes.js';
 import adminNotificationPrefRoutes from './modules/notifications/adminNotificationPref.routes.js';
 import happyCallReminderCronRoutes from './modules/notifications/happyCallReminder.cron.routes.js';
+import skHomepageMailRoutes from './modules/sk-homepage-mail/skHomepageMail.routes.js';
+import skHomepageMailCronRoutes from './modules/sk-homepage-mail/skHomepageMail.cron.routes.js';
 import alimtalkScheduleD2CronRoutes from './modules/alimtalk/alimtalkScheduleD2.cron.routes.js';
 import platformSignupInquiryPublicRoutes from './modules/platform-signup-inquiry/platformSignupInquiry.public.routes.js';
 import platformSignupInquiryRoutes from './modules/platform-signup-inquiry/platformSignupInquiry.routes.js';
@@ -195,6 +197,8 @@ app.use('/api/admin/cron', inspectionRetentionCronRoutes);
 app.use('/api/admin/cron', inquiryTrashCronRoutes);
 app.use('/api/admin/cron', billingCronRoutes);
 app.use('/api/admin/cron', happyCallReminderCronRoutes);
+app.use('/api/admin/cron', skHomepageMailCronRoutes);
+app.use('/api/admin/sk-homepage-mail', skHomepageMailRoutes);
 app.use('/api/admin/cron', alimtalkScheduleD2CronRoutes);
 app.use('/api/admin/notification-policy', notificationPolicyRoutes);
 app.use('/api/admin/notification-preferences', adminNotificationPrefRoutes);

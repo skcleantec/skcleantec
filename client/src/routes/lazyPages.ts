@@ -302,6 +302,11 @@ export const AdminTenantCompanyOutboundEmailPage = lazyWithRetry(() =>
     default: m.AdminTenantCompanyOutboundEmailPage,
   }))
 );
+export const AdminSkHomepageMailPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminSkHomepageMailPage').then((m) => ({
+    default: m.AdminSkHomepageMailPage,
+  }))
+);
 export const AdminOperatingCompanyPolicyPage = lazyWithRetry(() =>
   import('../pages/admin/AdminOperatingCompanyPolicyPage').then((m) => ({
     default: m.AdminOperatingCompanyPolicyPage,

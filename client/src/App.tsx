@@ -107,6 +107,7 @@ import {
   AdminTenantSubscriptionPage,
   AdminTenantCompanyBusinessPage,
   AdminTenantCompanyOutboundEmailPage,
+  AdminSkHomepageMailPage,
   AdminOperatingCompanyPolicyPage,
   AdminNotificationPolicyPage,
   AdminAlimtalkPage,
@@ -373,6 +374,10 @@ function App() {
             <Route
               path="company-profile/outbound-email"
               element={<SuspensePage><AdminTenantCompanyOutboundEmailPage /></SuspensePage>}
+            />
+            <Route
+              path="company-profile/homepage-mail"
+              element={<SuspensePage><AdminSkHomepageMailPage /></SuspensePage>}
             />
             <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
             <Route path="notification-policy" element={<SuspensePage><AdminNotificationPolicyPage /></SuspensePage>} />

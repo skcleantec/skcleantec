@@ -24,7 +24,7 @@ const ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-team-leader
 export function AdminTeamLeadersLayout() {
   const token = getToken();
   const location = useLocation();
-  const { features } = useTenantCapabilities();
+  const { features, tenantSlug } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
   const [pgConnected, setPgConnected] = useState(false);
   const [pgLoaded, setPgLoaded] = useState(false);
@@ -53,12 +53,20 @@ export function AdminTeamLeadersLayout() {
   }, [staffMe]);
 
   const navItems = useMemo(() => {
-    const source = pgConnected
+    const skMail = tenantSlug === 'sk' || tenantSlug === 'skcleanteck';
+    const withoutCard = pgConnected
       ? ADMIN_TEAM_LEADERS_NAV_ITEMS
       : ADMIN_TEAM_LEADERS_NAV_ITEMS.filter((item) => item.type !== 'group' || item.label !== '카드결재');
+    const source = skMail
+      ? withoutCard
+      : withoutCard.map((item) =>
+          item.type === 'group'
+            ? { ...item, children: item.children.filter((child) => !child.to.endsWith('/homepage-mail')) }
+            : item,
+        );
     const byFeature = filterAdminSideNavItems(source, features);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [features, pgConnected, staffMe]);
+  }, [features, pgConnected, staffMe, tenantSlug]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),

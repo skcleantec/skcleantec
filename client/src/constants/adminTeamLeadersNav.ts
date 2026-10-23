@@ -29,6 +29,12 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         label: '발송이메일',
         title: '고객 발송 메일 SMTP',
       },
+      {
+        to: '/admin/team-leaders/company-profile/homepage-mail',
+        end: true,
+        label: '홈페이지 문의메일',
+        title: '옛 홈페이지 문의가 들어오는 네이버 메일',
+      },
     ],
   },
   {

@@ -267,6 +267,8 @@ model Tenant {
 
   users     User[]
   inquiries Inquiry[]
+  skHomepageMailInbox SkHomepageMailInbox?
+  skHomepageInquiryMails SkHomepageInquiryMail[]
   features  TenantFeature[]
   orderForms OrderForm[]
   externalCompanies ExternalCompany[]
@@ -5103,4 +5105,43 @@ model AlimtalkChargeRequest {
 
   @@index([tenantId, status, createdAt(sort: Desc)])
   @@map("alimtalk_charge_requests")
+}
+
+/// SK클린텍 전용 — 옛 홈페이지 문의가 들어오는 네이버 메일
+model SkHomepageMailInbox {
+  id          String    @id @default(uuid())
+  tenantId    String    @unique @map("tenant_id")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enabled     Boolean   @default(false)
+  mailbox     String    @default("") @db.VarChar(320)
+  passwordEnc String?   @map("password_enc") @db.Text
+  lastUid     Int       @default(0) @map("last_uid")
+  lastSyncAt  DateTime? @map("last_sync_at")
+  lastError   String?   @map("last_error") @db.VarChar(300)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  mails       SkHomepageInquiryMail[]
+
+  @@map("sk_homepage_mail_inboxes")
+}
+
+/// 가져온 메일 원문. 접수 서식 매칭 전에는 여기만 쌓인다.
+model SkHomepageInquiryMail {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inboxId     String   @map("inbox_id")
+  inbox       SkHomepageMailInbox @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  messageId   String   @map("message_id") @db.VarChar(255)
+  imapUid     Int      @map("imap_uid")
+  fromAddress String   @default("") @map("from_address") @db.VarChar(320)
+  subject     String   @default("") @db.VarChar(500)
+  receivedAt  DateTime @map("received_at")
+  textBody    String   @default("") @map("text_body") @db.Text
+  status      String   @default("PENDING_MATCH") @db.VarChar(24)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, messageId])
+  @@index([tenantId, receivedAt(sort: Desc)])
+  @@map("sk_homepage_inquiry_mails")
 }
