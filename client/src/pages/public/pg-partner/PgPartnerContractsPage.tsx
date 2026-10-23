@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PgContractBook } from '../../../components/card-payment/pg-contract/PgContractBook';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
+import { PgPartnerTabs, usePartnerTab } from './PgPartnerTabs';
 
 type Template = { title: string; bodyHtml: string };
 type Item = {
@@ -27,6 +28,7 @@ export function PgPartnerContractsPage() {
   const [opened, setOpened] = useState<Signed | null>(null);
   const [sim, setSim] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = usePartnerTab(['list', 'preview'] as const, 'list');
 
   useEffect(() => {
     const headers = { Authorization: `Bearer ${readPgPartnerToken()}` };
@@ -69,8 +71,21 @@ export function PgPartnerContractsPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-fluid-base font-semibold text-slate-900">전자계약</h1>
-      <p className="text-fluid-xs text-slate-600">승인이 난 업체가 작성하는 계약서입니다. 서명이 끝나면 그 내용이 여기에 남습니다.</p>
+      <p className="text-fluid-xs text-slate-600">
+        {tab === 'preview'
+          ? '빈 양식입니다. 업체가 적은 내용은 신청 탭에서 봅니다.'
+          : '승인이 난 업체가 작성하는 계약서입니다. 서명이 끝나면 그 내용이 여기에 남습니다.'}
+      </p>
+      <PgPartnerTabs
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'list', label: '신청' },
+          { id: 'preview', label: '미리보기' },
+        ]}
+      />
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
+      {tab === 'preview' ? (
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="text-fluid-sm font-semibold text-slate-900">{template?.title || '계약서'}</h2>
         <div className="mt-3">
@@ -81,6 +96,8 @@ export function PgPartnerContractsPage() {
           />
         </div>
       </section>
+      ) : null}
+      {tab === 'list' ? (
       <section className="rounded-2xl border border-slate-200 bg-white">
         <h2 className="border-b border-slate-100 px-4 py-3 text-fluid-sm font-semibold text-slate-900">승인된 업체</h2>
         {items.length === 0 ? <p className="px-4 py-6 text-center text-fluid-sm text-slate-500">승인된 업체가 없습니다.</p> : null}
@@ -99,7 +116,8 @@ export function PgPartnerContractsPage() {
           ))}
         </ul>
       </section>
-      {opened ? (
+      ) : null}
+      {tab === 'list' && opened ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-fluid-sm font-semibold text-slate-900">
             {opened.businessName || '업체'} · {opened.signed ? '작성본' : '작성 전'}

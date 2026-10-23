@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TENANT_PG_ONBOARDING_STATUS_LABEL, type TenantPgOnboardingStatus } from '@shared/cardPayment';
 import { PgPartnerModal } from './PgPartnerModal';
 import { PgPartnerNotifyEmails } from './PgPartnerNotifyEmails';
+import { PgPartnerTabs, usePartnerTab } from './PgPartnerTabs';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
 
 type Application = {
@@ -221,6 +222,7 @@ export function PgPartnerApplicationsPage() {
   const [items, setItems] = useState<Application[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = usePartnerTab(['list', 'mail'] as const, 'list');
 
   useEffect(() => {
     void fetch('/api/public/card-payment/pg-partner/applications', {
@@ -245,15 +247,27 @@ export function PgPartnerApplicationsPage() {
     <div className="space-y-3">
       <div>
         <h1 className="text-fluid-base font-semibold text-slate-900">PG 신청</h1>
-        <p className="mt-1 text-fluid-xs text-slate-600">업체를 누르면 수기와 인증 정보를 넣고 연동할 수 있습니다. 연동하면 그 업체 팀장이 카드결재를 쓸 수 있습니다.</p>
+        <p className="mt-1 text-fluid-xs text-slate-600">
+          {tab === 'mail'
+            ? 'PG 신청과 전자계약이 끝나면 이 주소로 메일이 갑니다.'
+            : '업체를 누르면 수기와 인증 정보를 넣고 연동할 수 있습니다. 연동하면 그 업체 팀장이 카드결재를 쓸 수 있습니다.'}
+        </p>
       </div>
-      <PgPartnerNotifyEmails />
-      {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
-      {!items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
-      {items && items.length === 0 ? (
+      <PgPartnerTabs
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'list', label: '신청' },
+          { id: 'mail', label: '알림 메일' },
+        ]}
+      />
+      {tab === 'mail' ? <PgPartnerNotifyEmails /> : null}
+      {tab === 'list' && error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
+      {tab === 'list' && !items && !error ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
+      {tab === 'list' && items && items.length === 0 ? (
         <p className="rounded-2xl border border-slate-200 bg-white px-4 py-8 text-center text-fluid-sm text-slate-500">접수된 PG 신청이 없습니다.</p>
       ) : null}
-      {items && items.length > 0 ? (
+      {tab === 'list' && items && items.length > 0 ? (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
           <table className="w-full min-w-[640px] border-collapse text-fluid-xs">
             <thead className="bg-slate-50 text-slate-600">
@@ -288,7 +302,8 @@ export function PgPartnerApplicationsPage() {
           </table>
         </div>
       ) : null}
-      {items?.filter((row) => row.id === selectedId).map((row) => (
+      {tab === 'list'
+        ? items?.filter((row) => row.id === selectedId).map((row) => (
         <ApplicationCard
           key={row.id}
           row={row}
@@ -297,7 +312,8 @@ export function PgPartnerApplicationsPage() {
             setItems((prev) => prev?.map((item) => (item.id === id ? { ...item, connected: true, status: 'APPROVED' } : item)) ?? null);
           }}
         />
-      ))}
+      ))
+        : null}
     </div>
   );
 }
