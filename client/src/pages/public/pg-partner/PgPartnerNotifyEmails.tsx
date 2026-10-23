@@ -67,7 +67,7 @@ export function PgPartnerNotifyEmails() {
       }
       if (!res.ok) throw new Error(body?.error || '저장하지 못했습니다.');
       setEmails(body?.emails ?? emails);
-      setSaved('저장했습니다. 다음 PG 신청부터 이 주소로 알림이 갑니다.');
+      setSaved('저장했습니다. 다음 PG 신청과 전자계약부터 이 주소로 알림이 갑니다.');
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장하지 못했습니다.');
     } finally {
@@ -79,7 +79,7 @@ export function PgPartnerNotifyEmails() {
     <form onSubmit={(e) => void save(e)} className="rounded-2xl border border-slate-200 bg-white p-3">
       <h2 className="text-fluid-sm font-semibold text-slate-900">신청 알림 메일</h2>
       <p className="mt-1 text-fluid-2xs leading-snug text-slate-600">
-        PG 신청이 들어오면 아래 주소로 메일이 갑니다. 주소를 더 넣고 저장하면 그 사람도 받습니다.
+        PG 신청과 전자계약이 끝나면 아래 주소로 메일이 갑니다. 주소를 더 넣고 저장하면 그 사람도 받습니다.
       </p>
       <ul className="mt-2 space-y-1">
         {emails.map((email) => (

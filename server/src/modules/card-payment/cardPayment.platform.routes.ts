@@ -17,6 +17,7 @@ import {
   listUsageFeeOpenPeriods,
   payAndRecordUsageFee,
 } from './usageFeeCardPayment.service.js';
+import { getPgContractTemplate, savePgContractTemplate } from './pgMerchantContract.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -33,6 +34,23 @@ router.get('/settings', async (_req, res) => {
   const rates = await getPlatformCardFeeRates();
   const summary = await platformCardPaymentSummary();
   res.json({ ...rates, summary, serviceBridge: await serviceBridgePublicStatus() });
+});
+
+router.get('/contract', async (_req, res) => {
+  res.json(await getPgContractTemplate());
+});
+
+router.put('/contract', async (req, res) => {
+  try {
+    const saved = await savePgContractTemplate({
+      title: typeof req.body?.title === 'string' ? req.body.title : '',
+      bodyHtml: typeof req.body?.bodyHtml === 'string' ? req.body.bodyHtml : '',
+      fields: req.body?.fields,
+    });
+    res.json(saved);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '저장하지 못했습니다.' });
+  }
 });
 
 router.put('/settings', async (req, res) => {

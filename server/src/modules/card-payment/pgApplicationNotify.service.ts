@@ -114,3 +114,51 @@ export async function notifyPgApplicationSubmitted(input: {
   }
   return { sent };
 }
+
+export async function notifyPgContractSubmitted(input: {
+  tenantId: string;
+  contractNo: string | null;
+  signedAt: string | null;
+}): Promise<{ sent: number; skipped?: string }> {
+  const emails = await getPgApplicationNotifyEmails();
+  if (emails.length === 0) return { sent: 0, skipped: 'NO_NOTIFY_EMAILS' };
+  const [tenant, row] = await Promise.all([
+    prisma.tenant.findFirst({ where: { id: input.tenantId }, select: { name: true } }),
+    prisma.tenantPgOnboarding.findFirst({
+      where: { tenantId: input.tenantId },
+      select: { businessName: true, bizNumber: true, representativeName: true, businessKind: true, merchantKind: true },
+    }),
+  ]);
+  const company = row?.businessName?.trim() || tenant?.name?.trim() || '업체';
+  const when = input.signedAt
+    ? new Date(input.signedAt).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' })
+    : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' });
+  const kind = row?.merchantKind === 'corp' || row?.businessKind === 'CORPORATE'
+    ? '법인사업자'
+    : row?.merchantKind === 'solo' || row?.businessKind === 'SOLE_PROPRIETOR'
+      ? '개인사업자'
+      : '—';
+  const lines: Array<[string, string]> = [
+    ['청소비서 업체', tenant?.name?.trim() || '—'],
+    ['상호', company],
+    ['사업자 구분', kind],
+    ['사업자번호', row?.bizNumber?.trim() || '—'],
+    ['대표자', row?.representativeName?.trim() || '—'],
+    ['계약번호', input.contractNo?.trim() || '—'],
+    ['제출 시각', when],
+  ];
+  const subject = `[청소비서] 전자계약 제출 — ${company}`;
+  const html = `
+    <h2>${escapeHtml(subject)}</h2>
+    ${lines.map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`).join('')}
+    <p style="color:#64748b;font-size:12px;">원성 PG 관리의 전자계약에서 확인하세요.</p>
+  `.trim();
+  const text = [subject, ...lines.map(([label, value]) => `${label}: ${value}`)].join('\n');
+  let sent = 0;
+  for (const to of emails) {
+    const result = await sendPlatformMail({ to, subject, html, text });
+    if (result.sent) sent += 1;
+    else console.error('[pg-contract notify]', to, result.reason ?? 'SEND_FAILED', result.detail ?? '');
+  }
+  return { sent };
+}

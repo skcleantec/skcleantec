@@ -10,12 +10,14 @@ import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { getCredentialBundle, getCredentialPublic } from './cardPaymentCredential.service.js';
 import {
   getOrPrefillOnboarding,
+  markTenantContractMailed,
   saveOnboardingDraft,
   saveTenantBusinessCard,
   saveTenantRegistrationImage,
   submitOnboarding,
 } from './cardPaymentOnboarding.service.js';
-import { notifyPgApplicationSubmitted } from './pgApplicationNotify.service.js';
+import { notifyPgApplicationSubmitted, notifyPgContractSubmitted } from './pgApplicationNotify.service.js';
+import { getTenantPgContract, submitTenantPgContract, uploadPgContractImage } from './pgMerchantContract.service.js';
 import {
   confirmCustomerLink,
   confirmKeyin,
@@ -113,6 +115,77 @@ router.get('/pg', async (req, res) => {
     credentials: reveal ? credentials : { keyin: { connected: credentials.keyin.connected }, link: { connected: credentials.link.connected } },
     sellerCenter,
   });
+});
+
+router.get('/pg/contract', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
+    return;
+  }
+  res.json(await getTenantPgContract(tenantId));
+});
+
+router.post('/pg/contract', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
+    return;
+  }
+  const signerFields =
+    req.body?.signerFields && typeof req.body.signerFields === 'object' && !Array.isArray(req.body.signerFields)
+      ? (req.body.signerFields as Record<string, unknown>)
+      : {};
+  try {
+    const saved = await submitTenantPgContract(tenantId, {
+      signerFields,
+      signatureUrl: typeof req.body?.signatureUrl === 'string' ? req.body.signatureUrl : '',
+      agree: req.body?.agree === true,
+    });
+    void notifyPgContractSubmitted({
+      tenantId,
+      contractNo: saved.contractNo ?? null,
+      signedAt: saved.signedAt,
+    }).catch((err) => console.error('[pg-contract notify]', err));
+    res.json(saved);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '저장하지 못했습니다.' });
+  }
+});
+
+router.post('/pg/contract/upload', registrationUpload.single('file'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '전자계약은 관리자만 작성합니다.' });
+    return;
+  }
+  const file = req.file;
+  if (!file) {
+    res.status(400).json({ error: '그림 파일을 올려 주세요.' });
+    return;
+  }
+  try {
+    res.json(await uploadPgContractImage(tenantId, file.buffer, file.mimetype));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '올리지 못했습니다.' });
+  }
+});
+
+router.post('/pg/contract/mailed', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, scoped(req).user);
+  if (!tenantId) return;
+  if (scoped(req).user.role !== 'ADMIN') {
+    res.status(403).json({ error: '우편 발송은 관리자만 표시할 수 있습니다.' });
+    return;
+  }
+  try {
+    res.json(await markTenantContractMailed(tenantId));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '우편 발송을 표시하지 못했습니다.' });
+  }
 });
 
 router.put('/pg/onboarding', async (req, res) => {

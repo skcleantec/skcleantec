@@ -67,8 +67,12 @@ import {
   PgPartnerPage,
   PgPartnerShell,
   PgPartnerApplicationsPage,
+  PgPartnerContractsPage,
   PgPartnerMerchantsPage,
   PgPartnerRefundsPage,
+  AdminPgContractSignPage,
+  PlatformPgContractSettingsPage,
+  PlatformPgContractDeskPage,
   PlatformCardPaymentPage,
   PlatformCardChargePage,
   PublicCardPaymentLinkPage,
@@ -203,6 +207,7 @@ function App() {
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="billing/settlement" element={<SuspensePage><PlatformBillingSettlementPage /></SuspensePage>} />
           <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
+          <Route path="card-payment/e-contract" element={<SuspensePage><PlatformPgContractSettingsPage /></SuspensePage>} />
           <Route path="card-payment/charge" element={<SuspensePage><PlatformCardChargePage /></SuspensePage>} />
           <Route path="coin-usage" element={<SuspensePage><PlatformCoinUsagePage /></SuspensePage>} />
           <Route path="signup-trial-events" element={<SuspensePage><PlatformSignupTrialEventsPage /></SuspensePage>} />
@@ -496,6 +501,22 @@ function App() {
           }
         />
         <Route path="/e-contract/sign/:token" element={<SuspensePage><EContractPublicSignPage /></SuspensePage>} />
+        <Route
+          path="/pg-contract"
+          element={
+            <ProtectedRoute>
+              <SuspensePage><AdminPgContractSignPage /></SuspensePage>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/platform/pg-contract"
+          element={
+            <PlatformProtectedRoute>
+              <SuspensePage><PlatformPgContractDeskPage /></SuspensePage>
+            </PlatformProtectedRoute>
+          }
+        />
         <Route path="/legal/agree/:token" element={<SuspensePage><LegalAgreePublicPage /></SuspensePage>} />
         <Route
           path="/admin/order-prefill/:orderFormId"
@@ -518,6 +539,7 @@ function App() {
         <Route path="/pg-partner" element={<SuspensePage><PgPartnerPage /></SuspensePage>} />
         <Route element={<SuspensePage><PgPartnerShell /></SuspensePage>}>
           <Route path="/pg-partner/applications" element={<PgPartnerApplicationsPage />} />
+          <Route path="/pg-partner/contracts" element={<PgPartnerContractsPage />} />
           <Route path="/pg-partner/merchants" element={<PgPartnerMerchantsPage />} />
           <Route path="/pg-partner/payments" element={<PgPartnerRefundsPage />} />
           <Route path="/pg-partner/refunds" element={<PgPartnerRefundsPage />} />

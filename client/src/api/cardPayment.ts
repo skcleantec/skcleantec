@@ -79,6 +79,8 @@ export type PgOnboardingRow = {
   forwardedAt: string | null;
   decidedAt: string | null;
   platformMemo: string | null;
+  contractSignedAt?: string | null;
+  contractMailedAt?: string | null;
   updatedAt: string;
 };
 
@@ -149,6 +151,15 @@ export type TenantPgCredentialSlot =
       oid?: string | null;
       connectedAt?: string;
     };
+
+export async function markTenantContractMailed(token: string) {
+  const res = await fetch(`${API}/card-payments/pg/contract/mailed`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<PgOnboardingRow>;
+}
 
 export async function fetchTenantPgState(token: string) {
   const res = await fetch(`${API}/card-payments/pg`, { headers: headers(token) });

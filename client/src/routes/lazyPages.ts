@@ -141,6 +141,22 @@ export const PgPartnerApplicationsPage = lazyWithRetry(() =>
 export const PgPartnerRefundsPage = lazyWithRetry(() =>
   import('../pages/public/pg-partner/PgPartnerRefundsPage').then((m) => ({ default: m.PgPartnerRefundsPage }))
 );
+export const PgPartnerContractsPage = lazyWithRetry(() =>
+  import('../pages/public/pg-partner/PgPartnerContractsPage').then((m) => ({ default: m.PgPartnerContractsPage }))
+);
+export const AdminPgContractSignPage = lazyWithRetry(() =>
+  import('../pages/admin/card-payment/AdminPgContractSignPage').then((m) => ({ default: m.AdminPgContractSignPage }))
+);
+export const PlatformPgContractSettingsPage = lazyWithRetry(() =>
+  import('../pages/platform/card-payment/PlatformPgContractSettingsPage').then((m) => ({
+    default: m.PlatformPgContractSettingsPage,
+  }))
+);
+export const PlatformPgContractDeskPage = lazyWithRetry(() =>
+  import('../pages/platform/card-payment/PlatformPgContractDeskPage').then((m) => ({
+    default: m.PlatformPgContractDeskPage,
+  }))
+);
 export const PgPartnerMerchantsPage = lazyWithRetry(() =>
   import('../pages/public/pg-partner/PgPartnerMerchantsPage').then((m) => ({ default: m.PgPartnerMerchantsPage }))
 );

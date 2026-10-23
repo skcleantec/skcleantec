@@ -10,6 +10,7 @@ import {
 } from './cardPaymentOnboarding.service.js';
 import { partnerRevealAllowed, readPgPartnerLoginId, requirePgPartner, signPgPartnerToken, verifyPgPartnerLogin } from './pgPartnerAuth.js';
 import { listPartnerRefunds } from './pgPartnerRefund.service.js';
+import { getPartnerPgContract, getPgContractTemplate } from './pgMerchantContract.service.js';
 import {
   PLATFORM_PG_AGENCY_ID,
   getPlatformPgAgencyRow,
@@ -240,6 +241,21 @@ router.put('/pg-partner/notify-emails', async (req, res) => {
     const message = e instanceof Error ? e.message : '알림 메일을 저장하지 못했습니다.';
     res.status(400).json({ error: message });
   }
+});
+
+router.get('/pg-partner/contract', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  res.json(await getPgContractTemplate());
+});
+
+router.get('/pg-partner/applications/:id/contract', async (req, res) => {
+  if (!requirePgPartner(req, res)) return;
+  const row = await getPartnerPgContract(String(req.params.id));
+  if (!row) {
+    res.status(404).json({ error: '전자계약을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(row);
 });
 
 router.get('/pg-partner/applications', async (req, res) => {

@@ -620,8 +620,12 @@ model PlatformCardPaymentSettings {
   id               String   @id @default("default")
   tenantFeeBps     Int      @default(330) @map("tenant_fee_bps")
   platformCostBps  Int      @default(260) @map("platform_cost_bps")
-  /// PG 신청이 들어오면 알림을 받을 메일. 원성 화면에서 더 넣을 수 있다.
+  /// PG 신청·전자계약이 끝나면 알림을 받을 메일. 원성 화면에서 더 넣을 수 있다.
   pgApplicationNotifyEmails Json @default("[\"wsgpay@naver.com\"]") @map("pg_application_notify_emails")
+  /// PG 승인 후 가맹점이 작성하는 전자계약 제목·본문·칸
+  pgContractTitle    String @default("카드결제 이용약관") @map("pg_contract_title") @db.VarChar(128)
+  pgContractBodyHtml String @default("") @map("pg_contract_body_html") @db.Text
+  pgContractFields   Json   @default("[]") @map("pg_contract_fields")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("platform_card_payment_settings")
@@ -687,6 +691,18 @@ model TenantPgOnboarding {
   forwardedAt          DateTime?                @map("forwarded_at")
   decidedAt            DateTime?                @map("decided_at")
   platformMemo         String?                  @map("platform_memo") @db.Text
+  /// solo | corp. 신청의 사업자 구분이 없으면 계약서 칸이 이 값을 본다.
+  merchantKind         String?                  @map("merchant_kind") @db.VarChar(16)
+  bankbookImageUrl     String?                  @map("bankbook_image_url") @db.VarChar(2048)
+  bankbookImagePublicId String?                 @map("bankbook_image_public_id") @db.VarChar(512)
+  idCardImageUrl       String?                  @map("id_card_image_url") @db.VarChar(2048)
+  idCardImagePublicId  String?                  @map("id_card_image_public_id") @db.VarChar(512)
+  /// 전자계약 작성 후 계약서를 우편으로 보냈다고 표시한 시각.
+  contractMailedAt     DateTime?                @map("contract_mailed_at")
+  /// PG 승인 후 가맹점이 전자계약을 마친 시각. 없으면 계약 단계.
+  contractSignedAt     DateTime?                @map("contract_signed_at")
+  /// 체결 칸 값. 토큰 → 문자열. 도장·서명은 올린 그림 주소.
+  contractValues       Json?                    @map("contract_values")
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
 
@@ -4473,6 +4489,8 @@ enum EContractFieldInputType {
   NUMBER
   PHONE
   RRN
+  CHECKBOX
+  SEAL
 }
 
 /// 전자계약 본문 치환 필드 정의(팀장/마케터별 설정)

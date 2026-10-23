@@ -300,6 +300,8 @@ export async function listOnboardingsForPartner() {
       consentIllegalUseAt: row.consentIllegalUseAt?.toISOString() ?? null,
       consentMarketingAt: row.consentMarketingAt?.toISOString() ?? null,
       status: row.status,
+      contractSignedAt: row.contractSignedAt?.toISOString() ?? null,
+      contractMailedAt: row.contractMailedAt?.toISOString() ?? null,
       submittedAt: row.submittedAt?.toISOString() ?? null,
       connected: Boolean(credential?.isActive),
       mid: credential?.mid ?? null,
@@ -307,6 +309,17 @@ export async function listOnboardingsForPartner() {
       apiKeyLast4: credential?.apiKeyLast4 ?? null,
     };
   });
+}
+
+export async function markTenantContractMailed(tenantId: string) {
+  const row = await prisma.tenantPgOnboarding.findFirst({ where: { tenantId } });
+  if (!row?.contractSignedAt) throw new Error('전자계약을 작성한 뒤에 우편 발송을 표시합니다.');
+  if (row.contractMailedAt) return serializeOnboarding(row);
+  const saved = await prisma.tenantPgOnboarding.update({
+    where: { tenantId },
+    data: { contractMailedAt: new Date() },
+  });
+  return serializeOnboarding(saved);
 }
 
 export async function tenantIdForSubmittedOnboarding(onboardingId: string): Promise<string | null> {

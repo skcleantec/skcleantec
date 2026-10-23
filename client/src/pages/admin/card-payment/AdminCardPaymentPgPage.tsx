@@ -11,12 +11,14 @@ import {
 } from '../../../components/admin/card-payment/PgOnboardingLanding';
 import {
   fetchTenantPgState,
+  markTenantContractMailed,
   saveTenantPgOnboarding,
   submitTenantPgOnboarding,
   uploadTenantPgBusinessCard,
   uploadTenantPgRegistration,
   type PgOnboardingRow,
 } from '../../../api/cardPayment';
+import { openPgContractWindow } from '../../../utils/openPgContractWindow';
 import { getToken } from '../../../stores/auth';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
@@ -77,17 +79,23 @@ function AdminCardPaymentPgInner() {
       .finally(() => setLoaded(true));
   }, []);
 
-  const view = pgConnectionView(connected, row?.status);
+  const view = pgConnectionView(connected, row?.status, row?.contractSignedAt, row?.contractMailedAt);
   const keyinLine = merchantLine('수기', keyin);
   const linkLine = merchantLine('링크', link);
   const detail =
     view === '연결됨'
       ? [keyinLine, linkLine].join(' / ')
-      : view === '심사중'
-        ? '신청을 확인하는 중입니다.'
-        : view === '반려'
-          ? '신청이 반려되었습니다. 내용을 고쳐 다시 신청할 수 있습니다.'
-          : '아직 PG가 연결되지 않았습니다.';
+      : view === '전자계약'
+        ? '심사가 끝났습니다. 전자계약하기를 누르면 작성 창이 열립니다.'
+        : view === '우편발송'
+          ? '계약서를 작성했습니다. 우편으로 보낸 뒤 표시해 주세요.'
+          : view === '코드연결'
+            ? '우편을 보냈습니다. 가맹 코드가 연결되면 카드 결제를 씁니다.'
+            : view === '심사중'
+              ? '신청을 확인하는 중입니다.'
+              : view === '반려'
+                ? '신청이 반려되었습니다. 내용을 고쳐 다시 신청할 수 있습니다.'
+                : '아직 PG가 연결되지 않았습니다.';
 
   const uploadRegistration = async (file: File) => {
     const token = getToken();
@@ -216,7 +224,26 @@ function AdminCardPaymentPgInner() {
             />
           </div>
         ) : (
-          <PgOnboardingLanding view={view} detail={detail} onApply={() => navigate(applyPath)} />
+          <PgOnboardingLanding
+            view={view}
+            detail={detail}
+            onApply={() => navigate(applyPath)}
+            onContract={() => openPgContractWindow()}
+            onViewContract={row.contractSignedAt ? () => openPgContractWindow() : undefined}
+            onDownloadContract={row.contractSignedAt ? () => openPgContractWindow('/pg-contract?download=1') : undefined}
+            onMailed={() => {
+              const token = getToken();
+              if (!token) return;
+              setSaving(true);
+              void markTenantContractMailed(token)
+                .then((next) => {
+                  setRow(next);
+                  setError(null);
+                })
+                .catch((e: unknown) => setError(e instanceof Error ? e.message : '우편 발송을 표시하지 못했습니다.'))
+                .finally(() => setSaving(false));
+            }}
+          />
         )}
       </div>
     </div>
