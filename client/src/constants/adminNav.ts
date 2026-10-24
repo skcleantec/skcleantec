@@ -5,6 +5,7 @@ import {
   hasFeature,
   type TenantFeatureModuleId,
 } from '@shared/tenantFeatureModules';
+import { getModuleVisibility } from '@shared/tenantModuleVisibility';
 import { isSoloOperatorTenant } from '@shared/soloOperator';
 import type { MarketerPermissionMap } from '@shared/marketerPermissions';
 import { canShowAdminGnbItem, type AdminNavId as PermissionNavId } from '@shared/marketerPermissionNav';
@@ -26,6 +27,8 @@ export type AdminNavContext = {
   marketerPermissions?: MarketerPermissionMap | null;
   /** null = /auth/me features 로드 전 — 기존처럼 모듈 필터 생략 */
   enabledModules: readonly string[] | null;
+  /** null = 플랜 미수신. 잠금/숨김을 가르지 않고 켜진 메뉴만 둔다 */
+  plan?: string | null;
 };
 
 export function canShowAdminNavItem(id: AdminNavId, ctx: AdminNavContext | boolean): boolean {
@@ -52,7 +55,20 @@ export function canShowAdminNavItem(id: AdminNavId, ctx: AdminNavContext | boole
   if (!enabledModules) return true;
   const mod = ADMIN_NAV_MODULE_MAP[id as keyof typeof ADMIN_NAV_MODULE_MAP];
   if (!mod) return true;
+  if (!isLegacyBoolean && ctx.plan) {
+    return getModuleVisibility(mod, ctx.plan, enabledModules).state !== 'hidden';
+  }
   return hasFeature(enabledModules, mod as TenantFeatureModuleId);
+}
+
+/** 상단 메뉴가 플랜 잠금이면 「Standard부터」 같은 문구. 숨김·사용 가능이면 null. */
+export function adminNavLockLabel(id: AdminNavId, ctx: AdminNavContext): string | null {
+  if (!ctx.enabledModules || !ctx.plan) return null;
+  const mod = ADMIN_NAV_MODULE_MAP[id as keyof typeof ADMIN_NAV_MODULE_MAP];
+  if (!mod) return null;
+  const vis = getModuleVisibility(mod, ctx.plan, ctx.enabledModules);
+  if (vis.state !== 'locked' || !vis.requiredPlanLabel) return null;
+  return `${vis.requiredPlanLabel}부터`;
 }
 
 export const ADMIN_NAV_DEF: Record<
@@ -96,8 +112,12 @@ export const DEFAULT_NON_ADMIN_NAV_ORDER: AdminNavId[] = [
 ];
 
 
-function navContext(isAdmin: boolean, enabledModules: readonly string[] | null): AdminNavContext {
-  return { isAdmin, enabledModules };
+function navContext(
+  isAdmin: boolean,
+  enabledModules: readonly string[] | null,
+  plan: string | null,
+): AdminNavContext {
+  return { isAdmin, enabledModules, plan };
 }
 
 function mergeWithDefaults(saved: string[], defaults: AdminNavId[]): AdminNavId[] {
@@ -116,10 +136,14 @@ function mergeWithDefaults(saved: string[], defaults: AdminNavId[]): AdminNavId[
   return out;
 }
 
-export function loadAdminNavOrder(isAdmin: boolean, enabledModules: readonly string[] | null = null): AdminNavId[] {
+export function loadAdminNavOrder(
+  isAdmin: boolean,
+  enabledModules: readonly string[] | null = null,
+  plan: string | null = null,
+): AdminNavId[] {
   const defaults = isAdmin ? DEFAULT_ADMIN_NAV_ORDER : DEFAULT_NON_ADMIN_NAV_ORDER;
   const key = isAdmin ? STORAGE_ADMIN : STORAGE_NON_ADMIN;
-  const ctx = navContext(isAdmin, enabledModules);
+  const ctx = navContext(isAdmin, enabledModules, plan);
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return defaults.filter((id) => canShowAdminNavItem(id, ctx));

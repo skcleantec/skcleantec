@@ -24,7 +24,7 @@ const ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-team-leader
 export function AdminTeamLeadersLayout() {
   const token = getToken();
   const location = useLocation();
-  const { features, tenantSlug } = useTenantCapabilities();
+  const { features, plan, tenantSlug } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
   const [pgConnected, setPgConnected] = useState(false);
   const [pgLoaded, setPgLoaded] = useState(false);
@@ -64,9 +64,9 @@ export function AdminTeamLeadersLayout() {
             ? { ...item, children: item.children.filter((child) => !child.to.endsWith('/homepage-mail')) }
             : item,
         );
-    const byFeature = hideSoloOperatorSideNav(filterAdminSideNavItems(source, features), features);
+    const byFeature = hideSoloOperatorSideNav(filterAdminSideNavItems(source, features, plan), features);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [features, pgConnected, staffMe, tenantSlug]);
+  }, [features, plan, pgConnected, staffMe, tenantSlug]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),

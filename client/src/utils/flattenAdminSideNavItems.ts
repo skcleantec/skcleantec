@@ -8,6 +8,7 @@ export type AdminSideNavFlatLink = {
   end?: boolean;
   title?: string;
   badge?: number;
+  lockedPlanLabel?: string;
   icon: AdminSideNavIconId;
 };
 
@@ -22,6 +23,7 @@ export function flattenAdminSideNavItems(items: AdminSideNavItem[]): AdminSideNa
         end: item.end,
         title: item.title ?? item.label,
         badge: item.badge,
+        lockedPlanLabel: item.lockedPlanLabel,
         icon: item.icon ?? resolveAdminSideNavIcon(item.to),
       });
       continue;
@@ -32,6 +34,7 @@ export function flattenAdminSideNavItems(items: AdminSideNavItem[]): AdminSideNa
         label: child.label,
         end: child.end,
         title: child.title ?? child.label,
+        lockedPlanLabel: child.lockedPlanLabel,
         icon: child.icon ?? resolveAdminSideNavIcon(child.to),
       });
     }

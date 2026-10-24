@@ -1,8 +1,9 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import type { TenantFeatureModuleId } from '@shared/tenantFeatureModules';
-import { hasFeature } from '@shared/tenantFeatureModules';
+import { getModuleVisibility } from '@shared/tenantModuleVisibility';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
+import { PlanLockedNotice } from './PlanLockedNotice';
 
 type Props = {
   module: TenantFeatureModuleId;
@@ -15,7 +16,7 @@ type Props = {
 
 /** 테넌트 기능 모듈 off 시 redirectTo 로 돌려보냄 */
 export function FeatureGate({ module, children, redirectTo = '/admin/dashboard', fallback }: Props) {
-  const { features } = useTenantCapabilities();
+  const { features, plan } = useTenantCapabilities();
   const location = useLocation();
 
   if (features === null) {
@@ -24,20 +25,24 @@ export function FeatureGate({ module, children, redirectTo = '/admin/dashboard',
     );
   }
 
-  if (!hasFeature(features, module)) {
-    if (fallback) return <>{fallback}</>;
-    const target =
-      redirectTo.startsWith('/team') && !redirectTo.includes('?') && location.search
-        ? `${redirectTo}${location.search}`
-        : redirectTo;
-    return (
-      <Navigate
-        to={target}
-        replace
-        state={{ featureDisabled: module, from: location.pathname + location.search }}
-      />
-    );
+  const visibility = plan ? getModuleVisibility(module, plan, features) : null;
+  if (visibility?.state === 'enabled' || (!visibility && features.includes(module))) {
+    return <>{children}</>;
+  }
+  if (visibility?.state === 'locked') {
+    return <PlanLockedNotice module={module} planLabel={visibility.requiredPlanLabel ?? ''} />;
   }
 
-  return <>{children}</>;
+  if (fallback) return <>{fallback}</>;
+  const target =
+    redirectTo.startsWith('/team') && !redirectTo.includes('?') && location.search
+      ? `${redirectTo}${location.search}`
+      : redirectTo;
+  return (
+    <Navigate
+      to={target}
+      replace
+      state={{ featureDisabled: module, from: location.pathname + location.search }}
+    />
+  );
 }

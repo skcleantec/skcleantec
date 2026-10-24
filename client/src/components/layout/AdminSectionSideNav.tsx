@@ -3,6 +3,7 @@ import { NavLink, matchPath, useLocation } from 'react-router-dom';
 import type { AdminSideNavIconId } from './adminSideNavIcons';
 import { AdminSideNavIcon, resolveAdminSideNavIcon } from './adminSideNavIcons';
 import { flattenAdminSideNavItems } from '../../utils/flattenAdminSideNavItems';
+import { PlanLockBadge } from '../ui/PlanLockBadge';
 import { notifyAdminSectionSideNavLayoutChange } from '../../utils/adminSectionSideNavLayout';
 
 export type AdminSideNavChildLink = {
@@ -11,6 +12,8 @@ export type AdminSideNavChildLink = {
   end?: boolean;
   title?: string;
   icon?: AdminSideNavIconId;
+  /** 플랜 잠금 배지. 예: Standard부터 */
+  lockedPlanLabel?: string;
 };
 
 export type AdminSideNavLink = {
@@ -22,6 +25,8 @@ export type AdminSideNavLink = {
   icon?: AdminSideNavIconId;
   /** 미확인 건수 등 — 0이면 숨김 */
   badge?: number;
+  /** 플랜 잠금 배지. 예: Standard부터 */
+  lockedPlanLabel?: string;
 };
 
 export type AdminSideNavGroup = {
@@ -144,6 +149,7 @@ function HierarchicalNavList({
                       {isActive ? <ActiveBar /> : null}
                       <AdminSideNavIcon id={icon} className="h-4 w-4 shrink-0 opacity-90" />
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.lockedPlanLabel ? <PlanLockBadge label={item.lockedPlanLabel} tone="dark" /> : null}
                       <NavBadge count={item.badge ?? 0} collapsed={false} />
                     </>
                   )}
@@ -185,6 +191,9 @@ function HierarchicalNavList({
                               ].join(' ')}
                             />
                             <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                            {child.lockedPlanLabel ? (
+                              <PlanLockBadge label={child.lockedPlanLabel} tone="dark" />
+                            ) : null}
                           </>
                         )}
                       </NavLink>
@@ -212,7 +221,7 @@ function CollapsedIconRail({ items, ariaLabel }: { items: AdminSideNavItem[]; ar
             <NavLink
               to={link.to}
               end={link.end}
-              title={linkTitle(link.label, link.title, link.badge)}
+              title={linkTitle(link.label, link.lockedPlanLabel ?? link.title, link.badge)}
               className={({ isActive }) => collapsedLinkClass(isActive)}
             >
               <AdminSideNavIcon id={link.icon} />

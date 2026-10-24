@@ -4,6 +4,7 @@
  */
 
 import { hasFeature, type TenantFeatureModuleId } from './tenantFeatureModules.js';
+import { getModuleVisibility, type ModuleVisibility } from './tenantModuleVisibility.js';
 
 export type TenantNavFeatureRow = {
   label: string;
@@ -219,4 +220,19 @@ export function canShowTenantNavPath(
   const mod = moduleIdForTenantNavPath(pathname);
   if (!mod) return true;
   return hasFeature(enabledModules, mod);
+}
+
+/** 플랜이 있으면 잠금과 숨김을 가른다. 플랜이 없으면 켜진 것만 보여 준다. */
+export function tenantNavPathVisibility(
+  pathname: string,
+  plan: string | null | undefined,
+  enabledModules: readonly string[] | null,
+): ModuleVisibility {
+  if (!enabledModules) return { state: 'enabled' };
+  const mod = moduleIdForTenantNavPath(pathname);
+  if (!mod) return { state: 'enabled' };
+  if (!plan) {
+    return hasFeature(enabledModules, mod) ? { state: 'enabled' } : { state: 'hidden' };
+  }
+  return getModuleVisibility(mod, plan, enabledModules);
 }

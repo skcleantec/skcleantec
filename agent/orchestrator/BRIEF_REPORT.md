@@ -1,22 +1,25 @@
-﻿# BRIEF — 1인 사업자 모드 (Phase 0–2)
+# BRIEF — 1인 업체 잠금 메뉴 (Phase 3)
 
-상태: `staging`에 푸시됨. 기능 커밋 `f7354942`. `main`은 안 올림. Phase 3 대기. migrate 없음.
+**요청:** Phase 3 진행 **상태:** `staging`에 푸시. `main`은 안 올림.
 
-## 한 일
+## 한 줄 결론
 
-- 1인 작업만 `origin/staging` 기준 브랜치로 분리. 정보공유 인계·Android 파일 5개는 원래 작업 트리에 그대로 둠.
-- 판별 `isSoloOperatorTenant`, 담당 `resolveFieldOwnerIds`, 메뉴 `getModuleVisibility`.
-- 해피콜·일정 알림이 1인 사장에게 감. 사장이 직접 고친 변경은 1인 업체에서만 그 사람 푸시에서 뺌.
-- 1인 관리자 가계부 `/admin/my-ledger` (팀장 화면 재사용). 월정산표·팀장 가계부는 그 업체 메뉴에서 뺌.
+지금 플랜에 없는 메뉴는 자물쇠와 「OO부터」로 남고, 누르면 안내 카드가 나온다. 업체가 끈 기능은 메뉴에서 빠진다.
 
-## 확인
+## 잘 된 점
 
-- server·client tsc 통과.
-- 수정 파일 diff는 파일 전체 재작성이 아님 (약 363줄 추가 / 119줄 삭제, 새 파일 별도).
-- 스키마 변경 없음, tenantId 누락 없음.
-- 본사(배정 ON)는 `affectedTeamLeaderIds`가 있으면 수신자 목록을 그대로 씀.
+- 상단은 상위 메뉴만 잠금. 하위 잠금은 왼쪽·휴대폰 하위 메뉴.
+- 잠긴 주소는 대시보드로 보내지 않음. 메시지 화면도 같은 안내.
+- 플랜·기능이 바뀌면 `tenant:capabilities`로 `/auth/me`를 다시 읽음.
+- server·client tsc 통과. 스키마 변경 없음.
 
-## 주의
+## 주의 · 할 일
 
-- `canReceiveHappyCallPush`에 ADMIN을 넣음. 1인 해피콜 FCM이 필터에 막히던 것을 통과시키기 위함. 본사 수신자 목록은 팀장 분기 그대로.
-- `.gitattributes`의 `* text=auto eol=lf`는 아직 없음. 추가는 승인 전.
+| 우선 | 내용 |
+|------|------|
+| 1 | 배포 후 health의 gitSha가 이 푸시와 같은지 확인 |
+| 2 | 1인 업체 월정산표는 숨기지 않고 Standard+ 잠금으로 바꿈. 팀장 가계부 조회는 계속 숨김 |
+
+## 상세
+
+- reports/packs/2026-10-24-solo-operator/phase-3.md

@@ -983,6 +983,21 @@
         "client/src/pages/team/TeamHouseholdLedgerPage.tsx"
       ],
       "notes": "톱니바퀴 임금 설정. 업체 스위치 「팀장이 임금 설정을 바꿀 수 있음」 기본 켜짐. 끄면 팀장 화면 설정 버튼이 사라지고 관리자가 정한 임금 문구만 남음."
+    },
+    {
+      "id": "nav.planLock",
+      "labelKo": "플랜 잠금 (OO부터)",
+      "surfaces": ["admin.gnb", "admin.sideNav", "admin.mobileSubNav"],
+      "visual": { "type": "badge", "token": "amber-200", "hex": "#fde68a" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": [
+        "client/src/components/ui/PlanLockBadge.tsx",
+        "shared/tenantModuleVisibility.ts"
+      ],
+      "notes": "플랜에 없는 메뉴만. 업체가 끈 기능은 숨김이라 이 배지가 없다. 끄기 설정 없음."
     }
   ]
 }

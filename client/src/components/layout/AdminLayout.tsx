@@ -50,6 +50,7 @@ import { bootstrapAuthMeFromLocal } from '../../api/authMeSnapshot';
 import {
   ADMIN_NAV_DEF,
   type AdminNavId,
+  adminNavLockLabel,
   canShowAdminNavItem,
   insertBefore,
   loadAdminNavOrder,
@@ -57,6 +58,7 @@ import {
 } from '../../constants/adminNav';
 import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
+import { LineMdIcon } from '../ui/LineMdIcon';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
@@ -220,11 +222,25 @@ function adminGnbItemClass(isActive: boolean): string {
   }`;
 }
 
-function AdminGnbItemContent({ id, label }: { id: string; label: string }) {
+function AdminGnbItemContent({
+  id,
+  label,
+  lockLabel,
+}: {
+  id: string;
+  label: string;
+  lockLabel?: string | null;
+}) {
   return (
     <>
       <AdminNavIcon id={id} className={MOBILE_GNB_ICON_CLASS} />
       <span className="whitespace-nowrap leading-none">{label}</span>
+      {lockLabel ? (
+        <span className="inline-flex items-center gap-0.5 rounded-md bg-white/10 px-1 py-0 text-fluid-2xs leading-none text-amber-200">
+          <LineMdIcon name="lock" className="size-3" />
+          {lockLabel}
+        </span>
+      ) : null}
     </>
   );
 }
@@ -329,6 +345,7 @@ export function AdminLayout() {
     () => initialSession?.tenantTelecrm ?? null,
   );
   const [tenantPlan, setTenantPlan] = useState<string | null>(() => initialSession?.tenantPlan ?? null);
+  const [capabilitiesRefreshKey, setCapabilitiesRefreshKey] = useState(0);
   const [tenantSlug, setTenantSlug] = useState<string | null>(() => initialSession?.tenantSlug ?? null);
   const [tenantName, setTenantName] = useState<string | null>(() => initialSession?.tenantName ?? null);
   const [meTenantId, setMeTenantId] = useState<string | null>(() => initialSession?.meTenantId ?? null);
@@ -609,7 +626,13 @@ export function AdminLayout() {
     return () => {
       cancelled = true;
     };
-  }, [adminToken]);
+  }, [adminToken, capabilitiesRefreshKey]);
+
+  useEffect(() => {
+    const onCapabilities = () => setCapabilitiesRefreshKey((key) => key + 1);
+    window.addEventListener('cbiseo:tenant-capabilities', onCapabilities);
+    return () => window.removeEventListener('cbiseo:tenant-capabilities', onCapabilities);
+  }, []);
 
   /** ADMIN — 로그인·메뉴(pathname) 이동마다 미결재 독촉 팝업 재시도 */
   useEffect(() => {
@@ -622,14 +645,15 @@ export function AdminLayout() {
 
   useEffect(() => {
     if (!meRole) return;
-    setNavOrder(loadAdminNavOrder(effectiveStaffAdmin, tenantFeatures));
-  }, [meRole, effectiveStaffAdmin, tenantFeatures]);
+    setNavOrder(loadAdminNavOrder(effectiveStaffAdmin, tenantFeatures, tenantPlan));
+  }, [meRole, effectiveStaffAdmin, tenantFeatures, tenantPlan]);
 
   const navCtx = {
     isAdmin: effectiveStaffAdmin,
     role: meRole,
     marketerPermissions: staffMe?.marketerPermissions ?? null,
     enabledModules: tenantFeatures,
+    plan: tenantPlan,
   };
 
   const handleNavDragStart = (e: React.DragEvent, id: AdminNavId) => {
@@ -1202,7 +1226,7 @@ export function AdminLayout() {
                           onMouseEnter={() => prefetchTeamLeadersSettlementPages()}
                           onFocus={() => prefetchTeamLeadersSettlementPages()}
                         >
-                          <AdminGnbItemContent id={id} label={def.label} />
+                          <AdminGnbItemContent id={id} label={def.label} lockLabel={adminNavLockLabel(id, navCtx)} />
                         </NavLink>
                       </div>
                     );
@@ -1226,7 +1250,7 @@ export function AdminLayout() {
                               unreadCount > 0 ? `${def.label}, 새 메시지 ${unreadCount}건` : def.label
                             }
                           >
-                            <AdminGnbItemContent id={id} label={def.label} />
+                            <AdminGnbItemContent id={id} label={def.label} lockLabel={adminNavLockLabel(id, navCtx)} />
                           </NavLink>
                           {unreadCount > 0 ? (
                             <span
@@ -1262,7 +1286,7 @@ export function AdminLayout() {
                                 : def.label
                             }
                           >
-                            <AdminGnbItemContent id={id} label={def.label} />
+                            <AdminGnbItemContent id={id} label={def.label} lockLabel={adminNavLockLabel(id, navCtx)} />
                           </NavLink>
                           {inquiriesNavBadge > 0 ? (
                             <span
@@ -1309,7 +1333,7 @@ export function AdminLayout() {
                                 : def.label
                             }
                           >
-                            <AdminGnbItemContent id={id} label={def.label} />
+                            <AdminGnbItemContent id={id} label={def.label} lockLabel={adminNavLockLabel(id, navCtx)} />
                           </NavLink>
                           {marketplaceSellerPendingCount > 0 ? (
                             <Link
@@ -1371,7 +1395,7 @@ export function AdminLayout() {
                           ? adminNavPrefetchHandlers(id)
                           : {})}
                       >
-                        <AdminGnbItemContent id={id} label={def.label} />
+                        <AdminGnbItemContent id={id} label={def.label} lockLabel={adminNavLockLabel(id, navCtx)} />
                       </NavLink>
                     </div>
                   );

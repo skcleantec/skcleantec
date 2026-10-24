@@ -452,7 +452,7 @@ function App() {
           <Route path="teams" element={<Navigate to="/admin/team-leaders/team-members" replace />} />
           <Route path="teams/holidays" element={<Navigate to="/admin/team-leaders/holiday-calendar" replace />} />
           <Route path="teams/leader-stats" element={<Navigate to="/admin/team-leaders/leader-stats" replace />} />
-          <Route path="messages" element={<SuspensePage><AdminMessagesPage /></SuspensePage>} />
+          <Route path="messages" element={<FeatureGate module="core_messages"><SuspensePage><AdminMessagesPage /></SuspensePage></FeatureGate>} />
           <Route
             path="notification-settings"
             element={<SuspensePage><AdminNotificationSettingsPage /></SuspensePage>}
