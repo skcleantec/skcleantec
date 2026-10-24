@@ -429,7 +429,11 @@ export function TeamDbMarketplacePage() {
       </div>
 
       {selectable ? (
-        <DbMarketplaceBulkActionBar selectedCount={selectedCount} onClear={() => setSelectedIds(new Set())}>
+        <DbMarketplaceBulkActionBar
+          selectedCount={selectedCount}
+          onClear={() => setSelectedIds(new Set())}
+          liftAboveTeamNav
+        >
           <DbMarketplaceBuyBulkButton disabled={bulkBusy} onClick={() => void runBulkBuy()} />
           <DbMarketplaceBuyerDeclineBulkButton
             disabled={bulkBusy}

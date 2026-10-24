@@ -341,7 +341,7 @@ export function InquiryDbMarketplaceSellPanel({
 
   const panelMetaText = 'text-[11px] leading-snug text-gray-600 sm:text-[12px]';
   const panelBtn =
-    'min-h-10 touch-manipulation rounded-md border px-2 py-1 text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[12px]';
+    'min-h-10 touch-manipulation rounded-lg border px-3 py-2 text-fluid-xs font-medium hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-9 sm:px-3 sm:py-1.5';
 
   return (
     <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-2 space-y-1.5 sm:rounded-xl sm:p-3 sm:space-y-2">
@@ -420,17 +420,17 @@ export function InquiryDbMarketplaceSellPanel({
       ) : null}
 
       {listing ? (
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5 sm:gap-x-3 sm:gap-y-1">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 pr-8 sm:pr-0">
           <Link
             to={`/admin/db-marketplace?side=share&tab=${listing.status === 'DRAFT' ? 'draft' : 'open'}&openListing=${encodeURIComponent(listing.id)}`}
-            className="inline-block text-[11px] font-medium text-violet-800 underline hover:text-violet-950 sm:text-[12px]"
+            className="inline-flex min-h-9 items-center text-fluid-xs font-medium text-violet-800 underline hover:text-violet-950"
           >
             <span className="sm:hidden">목록</span>
             <span className="hidden sm:inline">정보공유 목록에서 보기</span>
           </Link>
           <Link
             to={`/admin/schedule?openInquiry=${encodeURIComponent(inquiryId)}`}
-            className="inline-block text-[11px] font-medium text-sky-800 underline hover:text-sky-950 sm:text-[12px]"
+            className="inline-flex min-h-9 items-center text-fluid-xs font-medium text-sky-800 underline hover:text-sky-950"
           >
             <span className="sm:hidden">스케줄</span>
             <span className="hidden sm:inline">스케줄에서 접수 보기</span>
@@ -439,12 +439,12 @@ export function InquiryDbMarketplaceSellPanel({
       ) : null}
 
       {listing?.status === 'PENDING_SELLER' ? (
-        <div className="flex flex-wrap gap-1 sm:gap-2">
+        <div className="flex flex-col gap-1.5 pr-8 sm:flex-row sm:flex-wrap sm:gap-2 sm:pr-0">
           <button
             type="button"
             disabled={busy}
             onClick={() => void sellerConfirm()}
-            className={`${panelBtn} flex-1 min-w-[6.5rem] border-transparent bg-slate-900 text-white hover:bg-slate-800`}
+            className={`${panelBtn} w-full border-transparent bg-slate-900 text-white hover:bg-slate-800 sm:w-auto sm:min-w-[6.5rem] sm:flex-1`}
           >
             인계 확정
           </button>
@@ -452,7 +452,7 @@ export function InquiryDbMarketplaceSellPanel({
             type="button"
             disabled={busy}
             onClick={() => void sellerDecline()}
-            className={`${panelBtn} flex-1 min-w-[6.5rem] border-amber-300 bg-white text-amber-900 hover:bg-amber-50`}
+            className={`${panelBtn} w-full border-amber-300 bg-white text-amber-900 hover:bg-amber-50 sm:w-auto sm:min-w-[6.5rem] sm:flex-1`}
           >
             <span className="sm:hidden">거절</span>
             <span className="hidden sm:inline">인수 신청 거절</span>
@@ -486,7 +486,7 @@ export function InquiryDbMarketplaceSellPanel({
             <strong> 공유 준비로 되돌리기</strong>는 정보공유 준비 상태로 돌아갑니다(TO 제외). 하위 재공유가
             있으면 함께 되돌립니다.
           </p>
-          <div className="flex flex-col gap-1.5 sm:flex-row">
+          <div className="flex flex-col gap-1.5 pr-8 sm:flex-row sm:pr-0">
             <button
               type="button"
               disabled={busy}
@@ -556,7 +556,7 @@ export function InquiryDbMarketplaceSellPanel({
             />
           </div>
 
-          <div className="flex flex-wrap gap-1 sm:gap-2">
+          <div className="flex flex-col gap-1.5 pr-8 sm:flex-row sm:flex-wrap sm:gap-2 sm:pr-0">
             <DbMarketplaceCartAddButton
               disabled={busy || !listingFeeValid}
               onClick={() => void saveDraft()}

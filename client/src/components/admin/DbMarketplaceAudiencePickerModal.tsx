@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getToken } from '../../stores/auth';
 import {
   listDbMarketplaceAudienceOptions,
@@ -208,8 +209,8 @@ export function DbMarketplaceAudiencePickerModal({
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[520] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
       <div className="flex w-full max-w-md max-h-[min(90vh,100dvh)] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl">
         <div className="sticky top-0 z-10 relative flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 py-3 pr-12">
           <h2 className="min-w-0 text-fluid-sm font-semibold text-slate-900">{title}</h2>
@@ -318,10 +319,11 @@ export function DbMarketplaceAudiencePickerModal({
               )}
             </>
           ) : null}
-          <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
+        </div>
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
             <button
               type="button"
-              className="min-h-[2.75rem] w-full rounded-lg px-3 py-2 text-[12px] text-gray-600 sm:min-h-0 sm:w-auto"
+              className="min-h-11 w-full touch-manipulation rounded-lg px-3 py-2 text-fluid-xs text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:min-h-0 sm:w-auto"
               onClick={onClose}
             >
               취소
@@ -329,14 +331,14 @@ export function DbMarketplaceAudiencePickerModal({
             <button
               type="button"
               disabled={busy || loading}
-              className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-3 py-2 text-[12px] font-medium text-white disabled:opacity-50 sm:min-h-0 sm:w-auto"
+              className="min-h-11 w-full touch-manipulation rounded-lg bg-violet-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-0 sm:w-auto"
               onClick={handleConfirm}
             >
               {confirmLabel}
             </button>
-          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

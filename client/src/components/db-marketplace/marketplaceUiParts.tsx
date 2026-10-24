@@ -40,7 +40,11 @@ export function DbMarketplaceStatusBadge({
 
 function MarketplaceActionButton({ className, children, ...rest }: BtnProps & { className: string }) {
   return (
-    <button type="button" className={className} {...rest}>
+    <button
+      type="button"
+      className={`${className} touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none`}
+      {...rest}
+    >
       {children}
     </button>
   );
@@ -62,7 +66,7 @@ export const marketplaceDeclineBulkButtonClass =
   'min-h-[2.75rem] flex-1 rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:min-h-0 sm:flex-none';
 
 export const marketplaceCartAddButtonClass =
-  'rounded-md bg-violet-700 px-2 py-1 text-[11px] font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[12px]';
+  'min-h-10 w-full rounded-lg bg-violet-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:w-auto sm:px-3 sm:py-1.5';
 
 export const marketplaceRevertToCartButtonClass =
   'min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:min-h-0 sm:flex-none';

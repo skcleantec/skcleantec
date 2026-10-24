@@ -148,7 +148,7 @@ export function DbMarketplaceSideSegment<T extends string>({
           title={opt.longLabel}
           aria-selected={active === opt.id}
           onClick={() => onChange(opt.id)}
-          className={`relative shrink-0 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors whitespace-nowrap sm:px-3 sm:py-1.5 sm:text-fluid-xs ${
+          className={`relative min-h-9 shrink-0 touch-manipulation rounded-md px-2.5 py-1 text-fluid-2xs font-semibold whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 sm:min-h-0 sm:px-3 sm:py-1.5 sm:text-fluid-xs ${
             active === opt.id
               ? opt.id === 'share'
                 ? 'bg-violet-700 text-white shadow-sm'
@@ -217,7 +217,7 @@ export function DbMarketplaceTabBar<T extends string>({
             title={opt.longLabel}
             aria-selected={active === opt.id}
             onClick={() => onChange(opt.id)}
-            className={`relative shrink-0 rounded-md px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap sm:px-2.5 sm:py-1.5 sm:text-fluid-2xs ${
+            className={`relative min-h-9 min-w-0 flex-1 touch-manipulation rounded-md px-2 py-1 text-fluid-2xs font-medium whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 sm:min-h-0 sm:flex-none sm:shrink-0 sm:px-2.5 sm:py-1.5 ${
               active === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
@@ -244,22 +244,31 @@ export function DbMarketplaceTabBar<T extends string>({
 export function DbMarketplaceBulkActionBar({
   selectedCount,
   onClear,
+  liftAboveTeamNav = false,
   children,
 }: {
   selectedCount: number;
   onClear: () => void;
+  /** 팀장 하단 탭(z-48)은 main(z-10) 위에 그려진다. 바를 body로 올려 탭 바로 위에 둔다. */
+  liftAboveTeamNav?: boolean;
   children: ReactNode;
 }) {
   if (selectedCount <= 0 || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="pointer-events-auto fixed bottom-0 left-0 right-0 z-[130] border-t border-gray-200 bg-white/95 shadow-lg pb-[max(0.75rem,env(safe-area-inset-bottom))] [&_button]:touch-manipulation">
-      <div className="mx-auto flex max-w-4xl flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+    <div
+      className={`pointer-events-auto fixed inset-x-0 z-[130] border-t border-gray-200 bg-white/95 shadow-lg backdrop-blur [&_button]:touch-manipulation ${
+        liftAboveTeamNav
+          ? 'bottom-[var(--team-mobile-bottom-nav-offset)] pb-2 lg:bottom-0 lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]'
+          : 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]'
+      }`}
+    >
+      <div className="mx-auto flex max-w-4xl flex-col gap-2 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4 sm:py-3">
         <p className="text-fluid-xs font-medium text-slate-900">{selectedCount}건 선택</p>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <button
             type="button"
-            className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-xs text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:flex-none sm:min-h-0"
+            className="min-h-10 flex-1 touch-manipulation rounded-lg border border-gray-300 px-3 py-2 text-fluid-xs text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:min-h-0 sm:flex-none"
             onClick={onClear}
           >
             선택 해제
@@ -306,7 +315,7 @@ export function DbMarketplaceRowCard({
     <div className="flex gap-1.5 rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
       {selectable ? (
         <label
-          className={`relative z-[1] flex shrink-0 items-start justify-center touch-manipulation select-none ${
+          className={`relative z-[1] flex shrink-0 items-center justify-center touch-manipulation select-none ${
             canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
           }`}
           style={{
@@ -320,7 +329,7 @@ export function DbMarketplaceRowCard({
         >
           <input
             type="checkbox"
-            className="mt-1 size-4 shrink-0 accent-slate-900 touch-manipulation disabled:opacity-100"
+            className="size-5 shrink-0 accent-slate-900 touch-manipulation disabled:opacity-100"
             checked={selected}
             disabled={!canSelect}
             onChange={(e) => {

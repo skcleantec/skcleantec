@@ -529,7 +529,7 @@ export function DbMarketplaceListingDetailModal({
                   type="button"
                   disabled={busy}
                   onClick={() => void runBuyerConfirm()}
-                  className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                  className="min-h-11 w-full touch-manipulation rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:w-auto sm:min-h-0"
                 >
                   인수 신청
                 </button>
@@ -538,7 +538,7 @@ export function DbMarketplaceListingDetailModal({
                     type="button"
                     disabled={busy}
                     onClick={() => void runBuyerPriorityDecline()}
-                    className="min-h-[2.75rem] w-full rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                    className="min-h-11 w-full touch-manipulation rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:w-auto sm:min-h-0"
                   >
                     거절하기
                   </button>
@@ -551,7 +551,7 @@ export function DbMarketplaceListingDetailModal({
                   type="button"
                   disabled={busy}
                   onClick={() => void runSellerConfirm()}
-                  className="min-h-[2.75rem] w-full rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:min-h-0"
+                  className="min-h-11 w-full touch-manipulation rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:w-auto sm:min-h-0"
                 >
                   인계 확정
                 </button>
@@ -559,7 +559,7 @@ export function DbMarketplaceListingDetailModal({
                   type="button"
                   disabled={busy}
                   onClick={() => void runSellerDecline()}
-                  className="min-h-[2.75rem] w-full rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                  className="min-h-11 w-full touch-manipulation rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:w-auto sm:min-h-0"
                 >
                   인수 신청 거절
                 </button>
@@ -570,7 +570,7 @@ export function DbMarketplaceListingDetailModal({
                 type="button"
                 disabled={busy}
                 onClick={() => void runRemoveFromCart()}
-                className="min-h-[2.75rem] w-full rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                className="min-h-11 w-full touch-manipulation rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:w-auto sm:min-h-0"
               >
                 원상복귀
               </button>
@@ -580,14 +580,14 @@ export function DbMarketplaceListingDetailModal({
                 type="button"
                 disabled={busy}
                 onClick={() => void runRevertToCart()}
-                className="min-h-[2.75rem] w-full rounded-lg border border-violet-300 px-4 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                className="min-h-11 w-full touch-manipulation rounded-lg border border-violet-300 px-4 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:w-auto sm:min-h-0"
               >
                 공유 준비로 되돌리기
               </button>
             ) : null}
             <button
               type="button"
-              className="min-h-[2.75rem] w-full rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs text-gray-700 sm:w-auto sm:min-h-0"
+              className="min-h-11 w-full touch-manipulation rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:w-auto sm:min-h-0"
               onClick={onClose}
             >
               닫기

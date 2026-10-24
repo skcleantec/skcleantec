@@ -229,7 +229,7 @@ export function InquiryEditSettlementSection({
                   <button
                     type="button"
                     onClick={handleRegisterViaMarketplace}
-                    className="w-full rounded-lg border border-violet-300 bg-white px-3 py-2 text-fluid-2xs font-medium text-violet-900 hover:bg-violet-50"
+                    className="mr-8 min-h-10 w-[calc(100%-2rem)] touch-manipulation rounded-lg border border-violet-300 bg-white px-3 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 sm:mr-0 sm:min-h-9 sm:w-full"
                   >
                     정보공유로 등록하기
                   </button>
