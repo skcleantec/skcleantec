@@ -334,6 +334,9 @@ function connectBucket(bucket: Bucket) {
   ws.onmessage = (ev) => {
     try {
       const data = JSON.parse(String(ev.data)) as { type?: string };
+      if (data?.type === 'tenant:capabilities') {
+        window.dispatchEvent(new Event('cbiseo:tenant-capabilities'));
+      }
       if (data?.type === 'inbox:refresh') {
         for (const fn of bucket.refreshListeners) {
           try {

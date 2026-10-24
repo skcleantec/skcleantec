@@ -5,26 +5,126 @@
 import { normalizePlanId } from './tenantPlanNormalize.js';
 
 export const TENANT_FEATURE_MODULES = {
-  core_inquiries: { label: '서비스접수·발주서', tier: 'core' as const, defaultOn: true },
-  core_schedule: { label: '스케줄', tier: 'core' as const, defaultOn: true },
-  core_assignments: { label: '배정', tier: 'core' as const, defaultOn: true },
-  core_messages: { label: '메시지', tier: 'standard' as const, defaultOn: true },
-  mod_cs: { label: 'C/S 관리', tier: 'standard' as const, defaultOn: true },
-  mod_advertising: { label: '광고비', tier: 'standard' as const, defaultOn: false },
-  mod_payroll: { label: '급여·정산', tier: 'premium' as const, defaultOn: false },
-  mod_e_contract: { label: '전자계약', tier: 'premium' as const, defaultOn: false },
-  mod_external_co: { label: '타업체·외부정산', tier: 'standard' as const, defaultOn: true },
-  mod_tenant_exchange: { label: '파트너 접수 연계', tier: 'premium' as const, defaultOn: false },
-  mod_db_marketplace: { label: '정보공유(DB 마켓)', tier: 'standard' as const, defaultOn: false },
-  mod_crew: { label: '크루(현장)', tier: 'standard' as const, defaultOn: true },
-  mod_team_stats: { label: '팀장 통계', tier: 'standard' as const, defaultOn: true },
-  mod_inspection: { label: '현장 검수', tier: 'standard' as const, defaultOn: true },
-  mod_telecrm: { label: '텔레CRM', tier: 'premium' as const, defaultOn: false },
-  mod_landing_inquiry: { label: '랜딩 문의내역', tier: 'premium' as const, defaultOn: false },
-  mod_quick_paste: { label: '빠른등록', tier: 'standard' as const, defaultOn: true },
-  mod_alimtalk: { label: '알림톡', tier: 'standard' as const, defaultOn: true },
-  mod_card_payment: { label: '카드결재', tier: 'standard' as const, defaultOn: true },
-  mod_ai_dispatch: { label: 'AI 미리 배정', tier: 'premium' as const, defaultOn: false },
+  core_inquiries: {
+    label: '서비스접수·발주서',
+    tier: 'core' as const,
+    defaultOn: true,
+    upsellDescription: '손님 접수와 발주서를 한곳에서 다룹니다.',
+  },
+  core_schedule: {
+    label: '스케줄',
+    tier: 'core' as const,
+    defaultOn: true,
+    upsellDescription: '날짜별 오전·오후 일정을 봅니다.',
+  },
+  core_assignments: {
+    label: '배정',
+    tier: 'core' as const,
+    defaultOn: true,
+    upsellDescription: '직원이 생기면 — Standard부터',
+  },
+  core_messages: {
+    label: '메시지',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '직원과 메시지를 주고받습니다.',
+  },
+  mod_cs: {
+    label: 'C/S 관리',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '청소 후 고객 문의를 한곳에서 처리합니다.',
+  },
+  mod_advertising: {
+    label: '광고비',
+    tier: 'standard' as const,
+    defaultOn: false,
+    upsellDescription: '광고 채널별 비용을 모읍니다.',
+  },
+  mod_payroll: {
+    label: '급여·정산',
+    tier: 'premium' as const,
+    defaultOn: false,
+    upsellDescription: '직원 급여와 월정산을 만듭니다.',
+  },
+  mod_e_contract: {
+    label: '전자계약',
+    tier: 'premium' as const,
+    defaultOn: false,
+    upsellDescription: '계약서를 보내고 서명을 받습니다.',
+  },
+  mod_external_co: {
+    label: '타업체·외부정산',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '다른 업체에 일을 넘기고 정산합니다.',
+  },
+  mod_tenant_exchange: {
+    label: '파트너 접수 연계',
+    tier: 'premium' as const,
+    defaultOn: false,
+    upsellDescription: '파트너 업체와 접수를 주고받습니다.',
+  },
+  mod_db_marketplace: {
+    label: '정보공유(DB 마켓)',
+    tier: 'standard' as const,
+    defaultOn: false,
+    upsellDescription: '청소 일감을 다른 업체와 나눕니다.',
+  },
+  mod_crew: {
+    label: '크루(현장)',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '현장 직원이 앱으로 일정을 봅니다.',
+  },
+  mod_team_stats: {
+    label: '팀장 통계',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '팀장별 실적을 봅니다.',
+  },
+  mod_inspection: {
+    label: '현장 검수',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '청소 전후 사진을 검수합니다.',
+  },
+  mod_telecrm: {
+    label: '텔레CRM',
+    tier: 'premium' as const,
+    defaultOn: false,
+    upsellDescription: '전화와 문자를 접수와 연결합니다.',
+  },
+  mod_landing_inquiry: {
+    label: '랜딩 문의내역',
+    tier: 'premium' as const,
+    defaultOn: false,
+    upsellDescription: '홈페이지 문의를 접수로 받습니다.',
+  },
+  mod_quick_paste: {
+    label: '빠른등록',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '문자 내용을 붙여 접수를 만듭니다.',
+  },
+  mod_alimtalk: {
+    label: '알림톡',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '고객에게 알림톡을 보냅니다.',
+  },
+  mod_card_payment: {
+    label: '카드결재',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '카드로 대금을 받습니다.',
+  },
+  mod_ai_dispatch: {
+    label: 'AI 미리 배정',
+    tier: 'premium' as const,
+    defaultOn: false,
+    upsellDescription: '일정에 맞춰 팀을 미리 제안합니다.',
+  },
 } as const;
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
@@ -97,6 +197,10 @@ export function modulesForPlan(plan: string): TenantFeatureModuleId[] {
 
 export function hasFeature(enabled: readonly string[], moduleId: TenantFeatureModuleId): boolean {
   return enabled.includes(moduleId);
+}
+
+export function moduleUpsellDescription(moduleId: TenantFeatureModuleId): string {
+  return TENANT_FEATURE_MODULES[moduleId].upsellDescription;
 }
 
 /** 관리자·마케터 GNB id → 기능 모듈 (null = 플랜과 무관하게 항상 표시) */

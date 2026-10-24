@@ -27,7 +27,7 @@ const LEADS_PATH = '/admin/inquiries/leads';
 export function AdminInquiriesLayout() {
   const token = getToken();
   const location = useLocation();
-  const { features } = useTenantCapabilities();
+  const { features, plan } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
   const { badges } = useInquiriesSubNavBadges(ready && Boolean(token));
 
@@ -44,9 +44,9 @@ export function AdminInquiriesLayout() {
       }
       return item;
     });
-    const byFeature = filterAdminSideNavItems(withBadge, features);
+    const byFeature = filterAdminSideNavItems(withBadge, features, plan);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [badges, features, staffMe]);
+  }, [badges, features, plan, staffMe]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),

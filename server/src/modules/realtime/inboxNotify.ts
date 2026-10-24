@@ -34,3 +34,14 @@ export async function notifyInboxRefresh(
   }
   await notifyStaffAppFcmRefresh(regularIds, tenantByUser, pushByUserId);
 }
+
+/** 플랜·기능이 바뀌면 관리·마케터 화면에 /auth/me 를 다시 읽게 한다. 휴대폰 푸시는 보내지 않는다. */
+export async function notifyTenantCapabilitiesRefresh(tenantId: string): Promise<void> {
+  const rows = await prisma.user.findMany({
+    where: { tenantId, isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
+    select: { id: true },
+  });
+  for (const row of rows) {
+    sendJsonToUser(row.id, { type: 'tenant:capabilities' }, tenantId);
+  }
+}

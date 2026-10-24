@@ -12,6 +12,7 @@ import { NavLink } from 'react-router-dom';
 import type { AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSideNavIcon, resolveAdminSideNavIcon } from './adminSideNavIcons';
 import { MobileInlineMenuButton } from './MobileFloatingMenuButton';
+import { PlanLockBadge } from '../ui/PlanLockBadge';
 
 function BarsIcon({ className }: { className?: string }) {
   return (
@@ -173,6 +174,7 @@ function AdminInquiriesMobileMenuSheet({
                             }`}
                           />
                           <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                          {item.lockedPlanLabel ? <PlanLockBadge label={item.lockedPlanLabel} tone="light" /> : null}
                           {badge > 0 ? (
                             <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] font-bold text-white tabular-nums shadow-sm">
                               {badge > 99 ? '99+' : badge}
@@ -211,6 +213,9 @@ function AdminInquiriesMobileMenuSheet({
                                   }`}
                                 />
                                 <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                            {child.lockedPlanLabel ? (
+                              <PlanLockBadge label={child.lockedPlanLabel} tone="light" />
+                            ) : null}
                               </>
                             )}
                           </NavLink>

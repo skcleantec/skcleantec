@@ -24,7 +24,7 @@ const ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-team-leader
 export function AdminTeamLeadersLayout() {
   const token = getToken();
   const location = useLocation();
-  const { features } = useTenantCapabilities();
+  const { features, plan } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
   const [pgConnected, setPgConnected] = useState(false);
   const [pgLoaded, setPgLoaded] = useState(false);
@@ -59,9 +59,9 @@ export function AdminTeamLeadersLayout() {
     const source = pgConnected
       ? ADMIN_TEAM_LEADERS_NAV_ITEMS
       : ADMIN_TEAM_LEADERS_NAV_ITEMS.filter((item) => item.type !== 'group' || item.label !== '카드결재');
-    const byFeature = hideSoloOperatorSideNav(filterAdminSideNavItems(source, features), features);
+    const byFeature = hideSoloOperatorSideNav(filterAdminSideNavItems(source, features, plan), features);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [features, pgConnected, staffMe]);
+  }, [features, plan, pgConnected, staffMe]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),

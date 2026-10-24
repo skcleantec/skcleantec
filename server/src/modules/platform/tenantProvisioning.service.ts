@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import type { Prisma, TenantStatus, TenantSuspendReason } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { notifyTenantCapabilitiesRefresh } from '../realtime/inboxNotify.js';
 import { seedTenantDefaults } from '../tenants/tenantConfigSeed.service.js';
 import {
   isKnownFeatureModuleId,
@@ -346,11 +347,15 @@ export async function updateTenantBasics(
     }
   }
 
-  return prisma.tenant.update({
+  const updated = await prisma.tenant.update({
     where: { id: tenantId },
     data: patch,
     select: { id: true, slug: true, name: true, plan: true, status: true },
   });
+  if (patch.plan && patch.plan !== existing.plan) {
+    void notifyTenantCapabilitiesRefresh(tenantId).catch((e) => console.error('[tenant-capabilities]', e));
+  }
+  return updated;
 }
 
 export async function replaceTenantFeatureOverrides(
@@ -395,6 +400,7 @@ export async function replaceTenantFeatureOverrides(
   });
 
   await restoreTelecrmMetaIfMissing(tenantId, preservedTelecrmMeta);
+  void notifyTenantCapabilitiesRefresh(tenantId).catch((e) => console.error('[tenant-capabilities]', e));
 }
 
 export async function resetTenantFeaturesFromPlan(tenantId: string) {
@@ -426,6 +432,7 @@ export async function resetTenantFeaturesFromPlan(tenantId: string) {
   } else {
     await restoreTelecrmMetaIfMissing(tenantId, preservedTelecrmMeta);
   }
+  void notifyTenantCapabilitiesRefresh(tenantId).catch((e) => console.error('[tenant-capabilities]', e));
 }
 
 export async function updateTenantConfigForPlatform(tenantId: string, body: unknown) {

@@ -40,15 +40,15 @@ function MobileAdvertisingSubNavTabs({ items }: { items: ReturnType<typeof getAd
 export function AdminAdvertisingLayout() {
   const token = getToken();
   const location = useLocation();
-  const { features } = useTenantCapabilities();
+  const { features, plan } = useTenantCapabilities();
   const { ready, role, staffMe } = useAdminStaffSession();
 
   const showSettingsNav = hasStaffPermission(staffMe, 'ads.settings');
   const navItems = useMemo(() => {
     const raw = getAdminAdvertisingNavItems(showSettingsNav);
-    const byFeature = filterAdminSideNavItems(raw, features);
+    const byFeature = filterAdminSideNavItems(raw, features, plan);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [showSettingsNav, features, staffMe]);
+  }, [showSettingsNav, features, plan, staffMe]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),
