@@ -17,6 +17,7 @@ import {
 } from './notificationPolicy.service.js';
 import { shouldSendPushToUser } from '../../lib/notificationPolicy.helpers.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
+import { resolveFieldOwnerIds } from '../../lib/fieldOwner.js';
 
 export type HappyCallReminderJobResult = {
   tenantsScanned: number;
@@ -198,11 +199,6 @@ export async function runHappyCallReminderJob(opts?: {
         createdAt: true,
       },
     });
-    const adminRows = await prisma.user.findMany({
-      where: { tenantId: tenant.id, role: 'ADMIN', isActive: true },
-      select: { id: true },
-    });
-
     for (const inv of soloInquiries) {
       if (!inv.preferredDate) continue;
       if (!isHappyCallEligible(inv.status, inv.preferredDate)) continue;
@@ -229,13 +225,14 @@ export async function runHappyCallReminderJob(opts?: {
         skipped += 1;
         continue;
       }
-      for (const admin of adminRows) {
+      const ownerIds = await resolveFieldOwnerIds(tenant.id, inv.id);
+      for (const ownerId of ownerIds) {
         const dedupeKey = `happy_call:${inv.id}:hourly:${hourIndex}`;
         const existing = await prisma.notificationDeliveryLog.findUnique({
           where: {
             tenantId_userId_dedupeKey: {
               tenantId: tenant.id,
-              userId: admin.id,
+              userId: ownerId,
               dedupeKey,
             },
           },
@@ -245,7 +242,7 @@ export async function runHappyCallReminderJob(opts?: {
           skipped += 1;
           continue;
         }
-        const userPref = await getUserNotificationPreferences(tenant.id, admin.id);
+        const userPref = await getUserNotificationPreferences(tenant.id, ownerId);
         if (!shouldSendPushToUser('happy_call', policy, userPref)) {
           skipped += 1;
           continue;
@@ -264,10 +261,10 @@ export async function runHappyCallReminderJob(opts?: {
           path: `/admin/inquiries?openInquiry=${encodeURIComponent(inv.id)}`,
         });
         if (!dryRun) {
-          await notifyInboxRefresh([admin.id], { [admin.id]: payload });
+          await notifyInboxRefresh([ownerId], { [ownerId]: payload });
           await recordNotificationDelivery({
             tenantId: tenant.id,
-            userId: admin.id,
+            userId: ownerId,
             kind: 'happy_call',
             dedupeKey,
           });

@@ -7,6 +7,9 @@ import {
   type InquiryPrefillSource,
 } from './teamLeaderHouseholdLedgerPrefill.service.js';
 import { getHouseholdWageSetting, syncHouseholdWageEntries } from './teamLeaderHouseholdWage.service.js';
+import { resolveFieldOwnerIds } from '../../lib/fieldOwner.js';
+import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
+import { isSoloOperatorTenant } from '../../lib/soloOperator.js';
 
 /** 총액 참고(`total`)는 예약금·잔금과 중복되므로 자동·일괄 반영에서 제외 */
 export const HOUSEHOLD_LEDGER_SYNC_PREFILL_KINDS = new Set<TeamLeaderHouseholdPrefillKind>([
@@ -59,10 +62,11 @@ export async function applyHouseholdLedgerPrefillForInquiryLeader(
       where: {
         id: opts.teamLeaderId,
         tenantId: opts.tenantId,
-        role: 'TEAM_LEADER',
         isActive: true,
+        role: { in: ['TEAM_LEADER', 'ADMIN'] },
       },
       select: {
+        role: true,
         teamLeaderAdditionalReceiptCompanyShareBps: true,
         teamLeaderHouseholdDepositAsTeamIncome: true,
       },
@@ -75,15 +79,24 @@ export async function applyHouseholdLedgerPrefillForInquiryLeader(
 
   if (!leader || !inquiry) return { created: 0, updated: 0, removed: 0 };
 
-  const assigned = await db.assignment.findFirst({
-    where: {
-      tenantId: opts.tenantId,
-      inquiryId: opts.inquiryId,
-      teamLeaderId: opts.teamLeaderId,
-    },
-    select: { id: true },
-  });
-  if (!assigned) return { created: 0, updated: 0, removed: 0 };
+  if (leader.role === 'TEAM_LEADER') {
+    const assigned = await db.assignment.findFirst({
+      where: {
+        tenantId: opts.tenantId,
+        inquiryId: opts.inquiryId,
+        teamLeaderId: opts.teamLeaderId,
+      },
+      select: { id: true },
+    });
+    if (!assigned) return { created: 0, updated: 0, removed: 0 };
+  } else if (leader.role === 'ADMIN') {
+    const enabled = await getEffectiveEnabledModules(opts.tenantId);
+    if (!isSoloOperatorTenant(enabled)) return { created: 0, updated: 0, removed: 0 };
+    const owners = await resolveFieldOwnerIds(opts.tenantId, opts.inquiryId);
+    if (!owners.includes(opts.teamLeaderId)) return { created: 0, updated: 0, removed: 0 };
+  } else {
+    return { created: 0, updated: 0, removed: 0 };
+  }
 
   const depositAsTeamIncome = leader.teamLeaderHouseholdDepositAsTeamIncome === true;
   const companyBps =
@@ -191,15 +204,23 @@ export async function syncHouseholdLedgerForInquiryAssignments(
   db: PrismaClient,
   opts: { tenantId: string; inquiryId: string },
 ): Promise<void> {
-  const assignments = await db.assignment.findMany({
-    where: { tenantId: opts.tenantId, inquiryId: opts.inquiryId },
-    select: { teamLeaderId: true, teamLeader: { select: { role: true } } },
-  });
-  const leaderIds = assignments
-    .filter((a) => a.teamLeader.role === 'TEAM_LEADER')
-    .map((a) => a.teamLeaderId);
+  const ownerIds = await resolveFieldOwnerIds(opts.tenantId, opts.inquiryId);
+  const owners = ownerIds.length
+    ? await db.user.findMany({
+        where: {
+          tenantId: opts.tenantId,
+          id: { in: ownerIds },
+          isActive: true,
+          role: { in: ['TEAM_LEADER', 'ADMIN'] },
+        },
+        select: { id: true, role: true },
+      })
+    : [];
+  const ledgerIds = owners
+    .filter((owner) => owner.role === 'TEAM_LEADER' || owner.role === 'ADMIN')
+    .map((owner) => owner.id);
 
-  for (const teamLeaderId of leaderIds) {
+  for (const teamLeaderId of ledgerIds) {
     await applyHouseholdLedgerPrefillForInquiryLeader(db, {
       tenantId: opts.tenantId,
       teamLeaderId,
@@ -212,7 +233,7 @@ export async function syncHouseholdLedgerForInquiryAssignments(
       tenantId: opts.tenantId,
       inquiryId: opts.inquiryId,
       prefillKind: { not: null },
-      ...(leaderIds.length > 0 ? { teamLeaderId: { notIn: leaderIds } } : {}),
+      ...(ledgerIds.length > 0 ? { teamLeaderId: { notIn: ledgerIds } } : {}),
     },
   });
 }
@@ -245,12 +266,25 @@ export async function resyncHouseholdLedgerForAllTeamLeaders(
     distinct: ['inquiryId'],
   });
 
-  for (const row of assignments) {
+  const enabled = await getEffectiveEnabledModules(tenantId);
+  const soloInquiries = isSoloOperatorTenant(enabled)
+    ? await db.inquiry.findMany({
+        where: { tenantId, deletedAt: null, assignments: { none: {} } },
+        select: { id: true },
+      })
+    : [];
+
+  const inquiryIds = new Set<string>([
+    ...assignments.map((row) => row.inquiryId),
+    ...soloInquiries.map((row) => row.id),
+  ]);
+
+  for (const inquiryId of inquiryIds) {
     await syncHouseholdLedgerForInquiryAssignments(db, {
       tenantId,
-      inquiryId: row.inquiryId,
+      inquiryId,
     });
   }
 
-  return { leaderCount: leaders.length, inquiryCount: assignments.length };
+  return { leaderCount: leaders.length, inquiryCount: inquiryIds.size };
 }

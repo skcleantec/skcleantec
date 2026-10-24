@@ -159,9 +159,13 @@ export async function assertTeamLeaderCanAccessInquiry(
     },
     select: { id: true },
   });
-  if (!row) {
-    throw new HouseholdLedgerAccessError('배정된 접수만 가계부에 연결할 수 있습니다.', 404);
-  }
+  if (row) return;
+
+  const { resolveFieldOwnerIds } = await import('../../lib/fieldOwner.js');
+  const owners = await resolveFieldOwnerIds(tenantId, inquiryId);
+  if (owners.includes(teamLeaderId)) return;
+
+  throw new HouseholdLedgerAccessError('배정된 접수만 가계부에 연결할 수 있습니다.', 404);
 }
 
 export async function buildHouseholdLedgerPrefillOptions(

@@ -10,7 +10,7 @@ import {
 } from './AdminTeamLeadersMobileSubNav';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
-import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
+import { filterAdminSideNavItems, hideSoloOperatorSideNav } from '../../utils/filterAdminSideNavByFeatures';
 import {
   filterAdminSideNavByPermissions,
   firstAllowedAdminSideNavPath,
@@ -64,7 +64,7 @@ export function AdminTeamLeadersLayout() {
             ? { ...item, children: item.children.filter((child) => !child.to.endsWith('/homepage-mail')) }
             : item,
         );
-    const byFeature = filterAdminSideNavItems(source, features);
+    const byFeature = hideSoloOperatorSideNav(filterAdminSideNavItems(source, features), features);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
   }, [features, pgConnected, staffMe, tenantSlug]);
 

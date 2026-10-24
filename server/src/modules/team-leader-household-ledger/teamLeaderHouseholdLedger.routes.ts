@@ -20,38 +20,52 @@ import {
   isHouseholdWageEditableByLeader,
   upsertHouseholdWageSetting,
 } from './teamLeaderHouseholdWage.service.js';
+import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
+import { isSoloOperatorTenant } from '../../lib/soloOperator.js';
 
 const router = Router();
 
-function requireTeamLeader(req: import('express').Request, res: import('express').Response): AuthPayload | null {
+/** 팀장 본인, 또는 1인 업체 관리자 본인. 그 외는 기존처럼 차단. */
+async function requireHouseholdSelf(
+  req: import('express').Request,
+  res: import('express').Response,
+): Promise<AuthPayload | null> {
   const user = (req as unknown as { user: AuthPayload }).user;
-  if (user.role !== 'TEAM_LEADER') {
-    res.status(403).json({ error: '팀장 전용 메뉴입니다.' });
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return null;
   }
-  return user;
+  if (user.role === 'TEAM_LEADER') return user;
+  if (user.role === 'ADMIN') {
+    const enabled = await getEffectiveEnabledModules(tenantId);
+    if (isSoloOperatorTenant(enabled)) return user;
+  }
+  res.status(403).json({ error: '팀장 전용 메뉴입니다.' });
+  return null;
 }
 
 router.get('/wage-settings', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
-  const [{ setting }, leaderCanEdit] = await Promise.all([
+  const [{ setting }, leaderLocked] = await Promise.all([
     getHouseholdWageSetting(prisma, {
       tenantId,
       teamLeaderId: user.userId,
     }),
     isHouseholdWageEditableByLeader(prisma, tenantId),
   ]);
+  const leaderCanEdit = user.role === 'ADMIN' ? true : leaderLocked;
   res.json({ setting, leaderCanEdit });
 });
 
 router.put('/wage-settings', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -59,7 +73,8 @@ router.put('/wage-settings', async (req, res) => {
     return;
   }
   try {
-    const leaderCanEdit = await isHouseholdWageEditableByLeader(prisma, tenantId);
+    const leaderCanEdit =
+      user.role === 'ADMIN' ? true : await isHouseholdWageEditableByLeader(prisma, tenantId);
     if (!leaderCanEdit) {
       res.status(403).json({ error: '관리자가 임금 설정을 잠갔습니다.' });
       return;
@@ -81,13 +96,13 @@ router.put('/wage-settings', async (req, res) => {
 });
 
 router.get('/categories', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   res.json(householdLedgerCategoriesResponse());
 });
 
 router.get('/entries', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -108,7 +123,7 @@ router.get('/entries', async (req, res) => {
 });
 
 router.get('/prefill/:inquiryId', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -136,7 +151,7 @@ router.get('/prefill/:inquiryId', async (req, res) => {
 });
 
 router.post('/sync-assignments', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -156,7 +171,7 @@ router.post('/sync-assignments', async (req, res) => {
 });
 
 router.post('/entries', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -185,7 +200,7 @@ router.post('/entries', async (req, res) => {
 });
 
 router.patch('/entries/:id', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -215,7 +230,7 @@ router.patch('/entries/:id', async (req, res) => {
 });
 
 router.delete('/entries/:id', async (req, res) => {
-  const user = requireTeamLeader(req, res);
+  const user = await requireHouseholdSelf(req, res);
   if (!user) return;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {

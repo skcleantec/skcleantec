@@ -367,6 +367,10 @@ export const AdminPayrollPage = lazyWithRetry(() =>
 export const AdminHouseholdLedgerPage = lazyWithRetry(() =>
   import('../pages/admin/AdminHouseholdLedgerPage').then((m) => ({ default: m.AdminHouseholdLedgerPage }))
 );
+
+export const AdminMyLedgerPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminMyLedgerPage').then((m) => ({ default: m.AdminMyLedgerPage }))
+);
 export const AdminEContractListPage = lazyWithRetry(() =>
   import('../pages/admin/AdminEContractListPage').then((m) => ({ default: m.AdminEContractListPage }))
 );

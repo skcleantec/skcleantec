@@ -38,10 +38,10 @@ export function isTeamSideStaffRole(role: string | null | undefined): boolean {
   return role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER';
 }
 
-/** 해피콜 FCM — 팀장·타업체 담당만 (마케터·사무직 제외) */
+/** 해피콜 FCM — 팀장·타업체 담당·1인 사장(ADMIN). 마케터·사무직 제외. */
 export function canReceiveHappyCallPush(role: string | null | undefined): boolean {
   if (role === 'MARKETER' || role === 'OFFICE_STAFF') return false;
-  return role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER';
+  return role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER' || role === 'ADMIN';
 }
 
 export function staffAppMessagesPathForRole(

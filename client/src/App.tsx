@@ -122,6 +122,7 @@ import {
   AdminInspectionTemplatePage,
   AdminPayrollPage,
   AdminHouseholdLedgerPage,
+  AdminMyLedgerPage,
   AdminEContractListPage,
   AdminEContractDefinitionPage,
   AdminEContractFieldSettingsPage,
@@ -254,6 +255,7 @@ function App() {
           }
         >
           <Route path="dashboard" element={<SuspensePage><AdminDashboardPage /></SuspensePage>} />
+          <Route path="my-ledger" element={<SuspensePage><AdminMyLedgerPage /></SuspensePage>} />
           <Route path="subscription" element={<SuspensePage><AdminTenantSubscriptionPage /></SuspensePage>} />
           <Route path="inquiries" element={<AdminInquiriesLayout />}>
             <Route index element={<SuspensePage><AdminInquiriesPage /></SuspensePage>} />

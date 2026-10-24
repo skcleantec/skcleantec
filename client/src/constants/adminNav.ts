@@ -5,6 +5,7 @@ import {
   hasFeature,
   type TenantFeatureModuleId,
 } from '@shared/tenantFeatureModules';
+import { isSoloOperatorTenant } from '@shared/soloOperator';
 import type { MarketerPermissionMap } from '@shared/marketerPermissions';
 import { canShowAdminGnbItem, type AdminNavId as PermissionNavId } from '@shared/marketerPermissionNav';
 
@@ -15,7 +16,8 @@ export type AdminNavId =
   | 'db-marketplace'
   | 'team-leaders'
   | 'advertising'
-  | 'messages';
+  | 'messages'
+  | 'my-ledger';
 
 export type AdminNavContext = {
   /** @deprecated marketerPermissions 기반 canShowAdminGnbItem 사용 */
@@ -32,6 +34,11 @@ export function canShowAdminNavItem(id: AdminNavId, ctx: AdminNavContext | boole
   const enabledModules = isLegacyBoolean ? null : ctx.enabledModules;
   const role = isLegacyBoolean ? (isAdmin ? 'ADMIN' : 'MARKETER') : ctx.role;
   const permissions = isLegacyBoolean ? null : ctx.marketerPermissions;
+
+  if (id === 'my-ledger') {
+    if (role !== 'ADMIN' && !isAdmin) return false;
+    return Boolean(enabledModules && isSoloOperatorTenant(enabledModules));
+  }
 
   const d = ADMIN_NAV_DEF[id];
   if (d.adminOnly && !isAdmin && role !== 'ADMIN') return false;
@@ -56,6 +63,7 @@ export const ADMIN_NAV_DEF: Record<
   /** 상단 GNB 명칭 — 본문 첫 탭은 `AdminInquiriesLayout`에서 「접수목록」으로 별도 표기 */
   inquiries: { to: '/admin/inquiries', label: '서비스접수' },
   schedule: { to: '/admin/schedule', label: '스케쥴' },
+  'my-ledger': { to: '/admin/my-ledger', label: '가계부', adminOnly: true },
   'db-marketplace': { to: '/admin/db-marketplace', label: '정보공유' },
   /** 팀장·마케터·타업체 등 — 관리자만 GNB에 노출 */
   'team-leaders': { to: '/admin/team-leaders', label: '관리자 전용', adminOnly: true },
@@ -70,6 +78,7 @@ export const DEFAULT_ADMIN_NAV_ORDER: AdminNavId[] = [
   'dashboard',
   'inquiries',
   'schedule',
+  'my-ledger',
   'db-marketplace',
   'team-leaders',
   'advertising',
