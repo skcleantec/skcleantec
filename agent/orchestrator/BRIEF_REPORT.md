@@ -1,6 +1,6 @@
 # BRIEF — 1인 사업자 모드 (Phase 0–2)
 
-상태: `staging`에 푸시됨 (`f4880e2c` → `f7354942`). `main`은 안 올림. Phase 3 대기. migrate 없음.
+상태: `staging`에 푸시됨. 기능 커밋 `f7354942`. `main`은 안 올림. Phase 3 대기. migrate 없음.
 
 ## 한 일
 
