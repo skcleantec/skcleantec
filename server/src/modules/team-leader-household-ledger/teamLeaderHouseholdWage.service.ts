@@ -11,6 +11,8 @@ import {
 } from './teamLeaderHouseholdLedger.constants.js';
 import { HouseholdLedgerValidationError } from './teamLeaderHouseholdLedger.errors.js';
 import { parseOccurredOnYmd } from './teamLeaderHouseholdLedgerDateRange.js';
+import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
+import { isSoloOperatorTenant } from '../../lib/soloOperator.js';
 
 export type HouseholdWageSettingDto = {
   wageMode: TeamLeaderHouseholdWageMode;
@@ -195,6 +197,36 @@ async function listWorkJobs(
   db: PrismaClient,
   opts: { tenantId: string; teamLeaderId: string },
 ): Promise<WorkJob[]> {
+  const subject = await db.user.findFirst({
+    where: { id: opts.teamLeaderId, tenantId: opts.tenantId, isActive: true },
+    select: { role: true },
+  });
+  if (subject?.role === 'ADMIN') {
+    const enabled = await getEffectiveEnabledModules(opts.tenantId);
+    if (isSoloOperatorTenant(enabled)) {
+      const inquiries = await db.inquiry.findMany({
+        where: {
+          tenantId: opts.tenantId,
+          deletedAt: null,
+          status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+          assignments: { none: {} },
+        },
+        select: { id: true, preferredDate: true, createdAt: true, customerName: true },
+      });
+      const jobs: WorkJob[] = [];
+      for (const inquiry of inquiries) {
+        const ymd = ymdOfInquiry(inquiry);
+        if (!ymd) continue;
+        jobs.push({
+          inquiryId: inquiry.id,
+          ymd,
+          customerName: inquiry.customerName?.trim() || null,
+        });
+      }
+      return jobs.sort((a, b) => a.ymd.localeCompare(b.ymd) || a.inquiryId.localeCompare(b.inquiryId));
+    }
+  }
+
   const assignments = await db.assignment.findMany({
     where: {
       tenantId: opts.tenantId,

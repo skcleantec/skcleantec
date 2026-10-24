@@ -52,8 +52,22 @@ function directionLabel(d: HouseholdLedgerEntry['direction']): string {
   return d === 'INCOME' ? '수입' : '지출';
 }
 
-export function TeamHouseholdLedgerPage() {
-  const token = getTeamToken();
+type TeamHouseholdLedgerPageProps = {
+  /** 관리자 1인 가계부처럼 팀 토큰이 아닌 세션으로 열 때 */
+  authToken?: string | null;
+  hideTitle?: boolean;
+  syncButtonLabel?: string;
+  onSessionExpired?: () => void;
+};
+
+export function TeamHouseholdLedgerPage({
+  authToken,
+  hideTitle = false,
+  syncButtonLabel = '배정 접수 불러오기',
+  onSessionExpired,
+}: TeamHouseholdLedgerPageProps = {}) {
+  const teamToken = getTeamToken();
+  const token = authToken !== undefined ? authToken : teamToken;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -115,8 +129,11 @@ export function TeamHouseholdLedgerPage() {
         setData(res);
       } catch (e) {
         if (isAuthSessionExpiredError(e)) {
-          clearTeamToken();
-          navigate('/login');
+          if (onSessionExpired) onSessionExpired();
+          else {
+            clearTeamToken();
+            navigate('/login');
+          }
           return;
         }
         setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.');
@@ -124,7 +141,7 @@ export function TeamHouseholdLedgerPage() {
         if (!silent) setLoading(false);
       }
     },
-    [token, navigate, datePreset, monthKey, dayKey, page, pageSize],
+    [token, navigate, datePreset, monthKey, dayKey, page, pageSize, onSessionExpired],
   );
 
   useEffect(() => {
@@ -238,9 +255,13 @@ export function TeamHouseholdLedgerPage() {
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <h1 className="mr-auto hidden text-fluid-base font-bold text-slate-900 sm:block sm:text-lg">
-          <TeamBiInline id="team.layout.nav.householdLedger" />
-        </h1>
+        {hideTitle ? (
+          <span className="mr-auto" />
+        ) : (
+          <h1 className="mr-auto hidden text-fluid-base font-bold text-slate-900 sm:block sm:text-lg">
+            <TeamBiInline id="team.layout.nav.householdLedger" />
+          </h1>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           {leaderCanEdit ? (
             <button
@@ -264,7 +285,7 @@ export function TeamHouseholdLedgerPage() {
             onClick={() => void handleSyncAssignments()}
             className="min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-10 sm:px-4 sm:text-fluid-xs"
           >
-            {syncing ? '불러오는 중…' : '배정 접수 불러오기'}
+            {syncing ? '불러오는 중…' : syncButtonLabel}
           </button>
           <button
             type="button"

@@ -10,7 +10,7 @@ import {
 } from './AdminTeamLeadersMobileSubNav';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
-import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
+import { filterAdminSideNavItems, hideSoloOperatorSideNav } from '../../utils/filterAdminSideNavByFeatures';
 import {
   filterAdminSideNavByPermissions,
   firstAllowedAdminSideNavPath,
@@ -59,7 +59,7 @@ export function AdminTeamLeadersLayout() {
     const source = pgConnected
       ? ADMIN_TEAM_LEADERS_NAV_ITEMS
       : ADMIN_TEAM_LEADERS_NAV_ITEMS.filter((item) => item.type !== 'group' || item.label !== '카드결재');
-    const byFeature = filterAdminSideNavItems(source, features);
+    const byFeature = hideSoloOperatorSideNav(filterAdminSideNavItems(source, features), features);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
   }, [features, pgConnected, staffMe]);
 

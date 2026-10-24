@@ -11,6 +11,21 @@ import { filterMarketerOnlyChangeLogLines } from '../inquiries/internalCustomerT
 import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { notifyInboxRefresh } from './inboxNotify.js';
 import { notifyStaffInboxRefresh, notifyScheduleAlertToOfficeStaff } from './navBadgeNotify.js';
+import { resolveFieldOwnerIds } from '../../lib/fieldOwner.js';
+import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
+import { isSoloOperatorTenant } from '../../lib/soloOperator.js';
+
+/** 1인 업체만, 담당 목록에서 직접 고친 사람을 뺀다. 본사는 목록을 그대로 둔다. */
+async function omitSoloActor(
+  tenantId: string,
+  userIds: string[],
+  actorId?: string | null,
+): Promise<string[]> {
+  if (!actorId) return userIds;
+  const enabled = await getEffectiveEnabledModules(tenantId);
+  if (!isSoloOperatorTenant(enabled)) return userIds;
+  return userIds.filter((id) => id !== actorId);
+}
 
 export type ChangeLogWsPayload = {
   type: 'changelog:new';
@@ -93,16 +108,11 @@ async function notifyScheduleAlertToStaff(params: {
       leaderIds.push(id);
     }
   } else if (params.inquiryId) {
-    const assigns = await prisma.assignment.findMany({
-      where: { inquiryId: params.inquiryId, tenantId: params.tenantId },
-      select: { teamLeaderId: true },
-    });
-    const seen = new Set<string>();
-    for (const a of assigns) {
-      if (!a.teamLeaderId || seen.has(a.teamLeaderId)) continue;
-      seen.add(a.teamLeaderId);
-      leaderIds.push(a.teamLeaderId);
-    }
+    leaderIds = await omitSoloActor(
+      params.tenantId,
+      await resolveFieldOwnerIds(params.tenantId, params.inquiryId),
+      params.actorId,
+    );
   }
   if (leaderIds.length === 0) return;
 
@@ -184,18 +194,11 @@ export function notifyChangeLogToStaff(params: {
   );
 
   void (async () => {
-    const assigns = await prisma.assignment.findMany({
-      where: { inquiryId: params.inquiryId as string, tenantId: params.tenantId },
-      select: { teamLeaderId: true },
-    });
-    const leaderIds: string[] = [];
-    const seen = new Set<string>();
-    for (const a of assigns) {
-      if (a.teamLeaderId && !seen.has(a.teamLeaderId)) {
-        seen.add(a.teamLeaderId);
-        leaderIds.push(a.teamLeaderId);
-      }
-    }
+    const leaderIds = await omitSoloActor(
+      params.tenantId,
+      await resolveFieldOwnerIds(params.tenantId, params.inquiryId as string),
+      params.actorId,
+    );
     if (leaderIds.length === 0) return;
 
     const summary =

@@ -7,6 +7,10 @@ import {
 } from 'react';
 import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import { getToken, subscribeAdminAuth } from '../../stores/auth';
+import { isSoloOperatorTenant } from '@shared/soloOperator';
+import { TeamNavIcon } from './TeamNavIcons';
+import { AdminSoloMobileBottomNav } from './AdminSoloMobileBottomNav';
+import { TEAM_MOBILE_BOTTOM_NAV_MAIN_PB } from '../../utils/staffAppSafeArea';
 import { getTeamToken, setTeamToken } from '../../stores/teamAuth';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { notifyInquiriesSubNavBadgesRefresh } from '../../utils/adminInquiriesNavBadges';
@@ -163,6 +167,9 @@ function AdminNavIcon({ id, className }: { id: string; className?: string }) {
         <line x1="3" y1="10" x2="21" y2="10" />
       </svg>
     );
+  }
+  if (id === 'my-ledger') {
+    return <TeamNavIcon type="household-ledger" className={className} />;
   }
   if (id === 'team-leaders') {
     return (
@@ -1403,7 +1410,7 @@ export function AdminLayout() {
         </div>
       </header>
       </div>
-      <main className="staff-app-surface relative z-10 w-full px-3 sm:px-4 lg:px-5 lg:pr-12 py-3 lg:py-4 min-w-0 flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+      <main className={`staff-app-surface relative z-10 w-full px-3 sm:px-4 lg:px-5 lg:pr-12 py-3 lg:py-4 min-w-0 flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] ${isSoloOperatorTenant(tenantFeatures) ? TEAM_MOBILE_BOTTOM_NAV_MAIN_PB : ''}`}>
         {isPlatformSupportAccess ? (
           <div className="mb-4 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm text-violet-900">
             플랫폼 <strong className="font-semibold">지원 접속</strong> 모드입니다. 장애 확인·복구 목적으로만
@@ -1555,6 +1562,7 @@ export function AdminLayout() {
         onChangelogMount={setChangelogRailMount}
         onDockDragChange={setDesktopDockDrag}
       />
+      {meRole === 'ADMIN' && isSoloOperatorTenant(tenantFeatures) ? <AdminSoloMobileBottomNav /> : null}
     </div>
     </NavFavoritesProvider>
     </StaffAppUpdateProvider>
