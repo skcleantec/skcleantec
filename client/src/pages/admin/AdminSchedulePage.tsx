@@ -1842,7 +1842,11 @@ export function AdminSchedulePage() {
       {/* 범례·안내 — 모바일: 접기 카드 / PC: 캘린더 왼쪽 세로 박스 */}
       {token && (meRole === 'ADMIN' || meRole === 'MARKETER') ? (
         <div className="lg:hidden mb-2">
-          <ScheduleStaffNoticeBoardPanel token={token} canEdit={canEditStaffMemo} />
+          <ScheduleStaffNoticeBoardPanel
+            token={token}
+            canEdit={canEditStaffMemo}
+            canResize={meRole === 'ADMIN'}
+          />
         </div>
       ) : null}
       <div className="lg:hidden rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden divide-y divide-slate-200/70 shadow-sm">
@@ -1931,7 +1935,11 @@ export function AdminSchedulePage() {
       <div className="lg:grid lg:grid-cols-[minmax(210px,260px)_minmax(0,1fr)] lg:gap-3 lg:items-start">
         <aside className="hidden lg:flex lg:flex-col lg:gap-2 lg:min-w-0">
           {token && (meRole === 'ADMIN' || meRole === 'MARKETER') ? (
-            <ScheduleStaffNoticeBoardPanel token={token} canEdit={canEditStaffMemo} />
+            <ScheduleStaffNoticeBoardPanel
+              token={token}
+              canEdit={canEditStaffMemo}
+              canResize={meRole === 'ADMIN'}
+            />
           ) : null}
           <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 shadow-sm">
             <ScheduleLegendItems compact />

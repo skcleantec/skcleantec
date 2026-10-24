@@ -3169,11 +3169,13 @@ model ScheduleStaffNoticeBoard {
   id          String   @id @default(uuid())
   tenantId    String   @unique @map("tenant_id")
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  body        String   @default("") @db.Text
-  updatedById String   @map("updated_by_id")
-  updatedBy   User     @relation("ScheduleStaffNoticeBoardUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  createdAt   DateTime @default(now()) @map("created_at")
+  body         String   @default("") @db.Text
+  /// 포스트잇 세로 높이(px). 관리자만 바꾸고, 업체 전원이 같은 높이로 본다.
+  bodyHeightPx Int      @default(176) @map("body_height_px")
+  updatedById  String   @map("updated_by_id")
+  updatedBy    User     @relation("ScheduleStaffNoticeBoardUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("schedule_staff_notice_boards")
 }

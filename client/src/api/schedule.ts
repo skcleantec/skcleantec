@@ -375,6 +375,8 @@ export async function putScheduleDayStaffMemo(
 
 export type ScheduleStaffNoticeBoardDto = {
   body: string;
+  /** 포스트잇 세로 높이(px). 관리자가 저장한 값을 모두 같이 본다. */
+  bodyHeightPx: number;
   updatedAt: string | null;
   updatedBy: { id: string; name: string } | null;
 };
@@ -386,6 +388,25 @@ export async function getScheduleStaffNoticeBoard(token: string): Promise<Schedu
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '공유 메모를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function putScheduleStaffNoticeBoardHeight(
+  token: string,
+  heightPx: number,
+): Promise<ScheduleStaffNoticeBoardDto> {
+  const res = await fetch(`${API}/schedule/notice-board/height`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers(token),
+    },
+    body: JSON.stringify({ heightPx }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '공유 메모 높이 저장에 실패했습니다.');
   }
   return res.json();
 }

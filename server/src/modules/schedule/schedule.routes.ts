@@ -47,6 +47,36 @@ router.use(requireStaffPermission('schedule.edit.inquiry'));
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_STAFF_MEMO_MAX_LEN = 4000;
 const NOTICE_BOARD_MAX_LEN = 4000;
+const NOTICE_BOARD_HEIGHT_DEFAULT = 176;
+const NOTICE_BOARD_HEIGHT_MIN = 120;
+const NOTICE_BOARD_HEIGHT_MAX = 640;
+
+const noticeBoardSelect = {
+  body: true,
+  bodyHeightPx: true,
+  updatedAt: true,
+  updatedBy: { select: { id: true, name: true } },
+} as const;
+
+function noticeBoardJson(row: {
+  body: string;
+  bodyHeightPx: number;
+  updatedAt: Date;
+  updatedBy: { id: string; name: string };
+}) {
+  return {
+    body: row.body,
+    bodyHeightPx: row.bodyHeightPx,
+    updatedAt: row.updatedAt.toISOString(),
+    updatedBy: row.updatedBy,
+  };
+}
+
+function parseNoticeBoardHeight(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return null;
+  return Math.min(NOTICE_BOARD_HEIGHT_MAX, Math.max(NOTICE_BOARD_HEIGHT_MIN, Math.round(n)));
+}
 
 function scheduleDayDateFromYmd(date: string): Date {
   return new Date(`${date}T12:00:00+09:00`);
@@ -133,14 +163,11 @@ router.get('/notice-board', async (req, res) => {
   if (!tenantId) return;
   const row = await prisma.scheduleStaffNoticeBoard.findUnique({
     where: { tenantId },
-    select: {
-      body: true,
-      updatedAt: true,
-      updatedBy: { select: { id: true, name: true } },
-    },
+    select: noticeBoardSelect,
   });
   res.json({
     body: row?.body ?? '',
+    bodyHeightPx: row?.bodyHeightPx ?? NOTICE_BOARD_HEIGHT_DEFAULT,
     updatedAt: row?.updatedAt?.toISOString() ?? null,
     updatedBy: row?.updatedBy ?? null,
   });
@@ -173,20 +200,51 @@ router.put('/notice-board', requireStaffPermission('schedule.staffMemo'), async 
       body: trimmed,
       updatedById: user.userId,
     },
-    select: {
-      body: true,
-      updatedAt: true,
-      updatedBy: { select: { id: true, name: true } },
-    },
+    select: noticeBoardSelect,
   });
 
   notifyScheduleStaffNoticeBoardRefresh({ tenantId });
 
-  res.json({
-    body: saved.body,
-    updatedAt: saved.updatedAt.toISOString(),
-    updatedBy: saved.updatedBy,
+  res.json(noticeBoardJson(saved));
+});
+
+/** 관리자만: 공유 메모 포스트잇 세로 높이. 본문·작성자는 바꾸지 않는다. */
+router.put('/notice-board/height', async (req, res) => {
+  const tenantId = await tenantFromReq(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (user.role !== 'ADMIN') {
+    res.status(403).json({ error: '공유 메모 높이는 관리자만 바꿀 수 있습니다.' });
+    return;
+  }
+  const heightPx = parseNoticeBoardHeight((req.body as { heightPx?: unknown }).heightPx);
+  if (heightPx == null) {
+    res.status(400).json({ error: '높이가 필요합니다.' });
+    return;
+  }
+
+  const existing = await prisma.scheduleStaffNoticeBoard.findUnique({
+    where: { tenantId },
+    select: { id: true },
   });
+  const saved = existing
+    ? await prisma.scheduleStaffNoticeBoard.update({
+        where: { tenantId },
+        data: { bodyHeightPx: heightPx },
+        select: noticeBoardSelect,
+      })
+    : await prisma.scheduleStaffNoticeBoard.create({
+        data: {
+          tenantId,
+          body: '',
+          bodyHeightPx: heightPx,
+          updatedById: user.userId,
+        },
+        select: noticeBoardSelect,
+      });
+
+  notifyScheduleStaffNoticeBoardRefresh({ tenantId });
+  res.json(noticeBoardJson(saved));
 });
 
 /**
