@@ -1,9 +1,13 @@
 package com.cbiseo.app.web
 
+import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Message
+import android.webkit.JsResult
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -77,5 +81,53 @@ class StaffWebChromeClient(
         transport.webView = popup
         resultMsg.sendToTarget()
         return true
+    }
+
+    /**
+     * 기본 WebChromeClient는 confirm을 바로 취소한다.
+     * 정보공유 「인계 확정」처럼 window.confirm을 쓰는 버튼이 앱에서 눌려도 아무 일이 없다.
+     */
+    override fun onJsConfirm(
+        view: WebView?,
+        url: String?,
+        message: String?,
+        result: JsResult?,
+    ): Boolean {
+        val activity = findActivity(view) ?: return false
+        activity.runOnUiThread {
+            AlertDialog.Builder(activity)
+                .setMessage(message.orEmpty())
+                .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                .setNegativeButton(android.R.string.cancel) { _, _ -> result?.cancel() }
+                .setOnCancelListener { result?.cancel() }
+                .show()
+        }
+        return true
+    }
+
+    override fun onJsAlert(
+        view: WebView?,
+        url: String?,
+        message: String?,
+        result: JsResult?,
+    ): Boolean {
+        val activity = findActivity(view) ?: return false
+        activity.runOnUiThread {
+            AlertDialog.Builder(activity)
+                .setMessage(message.orEmpty())
+                .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                .setOnCancelListener { result?.confirm() }
+                .show()
+        }
+        return true
+    }
+
+    private fun findActivity(view: WebView?): Activity? {
+        var ctx = view?.context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
     }
 }

@@ -56,7 +56,7 @@ export const marketplaceBuyBulkButtonClass =
   'min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none';
 
 export const marketplaceConfirmBulkButtonClass =
-  'min-h-[2.75rem] flex-1 rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 sm:min-h-0 sm:flex-none';
+  'min-h-[2.75rem] flex-1 touch-manipulation rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:min-h-0 sm:flex-none';
 
 export const marketplaceDeclineBulkButtonClass =
   'min-h-[2.75rem] flex-1 rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:min-h-0 sm:flex-none';

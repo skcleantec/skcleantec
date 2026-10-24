@@ -341,7 +341,7 @@ export function InquiryDbMarketplaceSellPanel({
 
   const panelMetaText = 'text-[11px] leading-snug text-gray-600 sm:text-[12px]';
   const panelBtn =
-    'rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[12px]';
+    'min-h-10 touch-manipulation rounded-md border px-2 py-1 text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[12px]';
 
   return (
     <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-2 space-y-1.5 sm:rounded-xl sm:p-3 sm:space-y-2">

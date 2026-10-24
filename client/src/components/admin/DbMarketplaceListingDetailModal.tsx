@@ -366,7 +366,7 @@ export function DbMarketplaceListingDetailModal({
       aria-modal="true"
       aria-labelledby="db-marketplace-listing-detail-title"
     >
-      <div className="flex w-full max-w-lg max-h-[min(90vh,100dvh)] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl sm:my-auto">
+      <div className="flex w-full min-h-0 max-w-lg max-h-[min(90vh,100dvh)] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl sm:my-auto">
         <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 py-3 rounded-t-2xl sm:rounded-t-2xl">
           <h2 id="db-marketplace-listing-detail-title" className="text-fluid-sm font-semibold text-slate-900">
             정보공유 상세
@@ -520,8 +520,8 @@ export function DbMarketplaceListingDetailModal({
               ) : null}
             </div>
           ) : null}
-
-          <div className="sticky bottom-0 -mx-4 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        </div>
+        <div className="relative z-10 shrink-0 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] [&_button]:touch-manipulation">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {d.status === 'OPEN' && d.role === 'VIEWER' && !d.platformSuspended ? (
               <>
@@ -551,7 +551,7 @@ export function DbMarketplaceListingDetailModal({
                   type="button"
                   disabled={busy}
                   onClick={() => void runSellerConfirm()}
-                  className="min-h-[2.75rem] w-full rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                  className="min-h-[2.75rem] w-full rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:min-h-0"
                 >
                   인계 확정
                 </button>
@@ -593,7 +593,6 @@ export function DbMarketplaceListingDetailModal({
               닫기
             </button>
             </div>
-          </div>
         </div>
       </div>
     </div>,

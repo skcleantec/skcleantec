@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { DbMarketplaceMaskedItem } from '../../api/dbMarketplace';
 import {
   formatMarketplaceCleaningSummary,
@@ -249,16 +250,16 @@ export function DbMarketplaceBulkActionBar({
   onClear: () => void;
   children: ReactNode;
 }) {
-  if (selectedCount <= 0) return null;
+  if (selectedCount <= 0 || typeof document === 'undefined') return null;
 
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur shadow-lg pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+  return createPortal(
+    <div className="pointer-events-auto fixed bottom-0 left-0 right-0 z-[130] border-t border-gray-200 bg-white/95 shadow-lg pb-[max(0.75rem,env(safe-area-inset-bottom))] [&_button]:touch-manipulation">
       <div className="mx-auto flex max-w-4xl flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p className="text-fluid-xs font-medium text-slate-900">{selectedCount}건 선택</p>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <button
             type="button"
-            className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-xs text-gray-700 sm:flex-none sm:min-h-0"
+            className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-xs text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:flex-none sm:min-h-0"
             onClick={onClear}
           >
             선택 해제
@@ -266,7 +267,8 @@ export function DbMarketplaceBulkActionBar({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -308,9 +310,9 @@ export function DbMarketplaceRowCard({
             canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
           }`}
           style={{
-            width: 36,
-            minWidth: 36,
-            minHeight: 36,
+            width: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
+            minWidth: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
+            minHeight: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
           }}
           title={disabledReason ?? undefined}
           onClick={(e) => e.stopPropagation()}
