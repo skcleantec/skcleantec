@@ -362,6 +362,7 @@ model Tenant {
   alimtalkSendLogs AlimtalkSendLog[]
   alimtalkWalletChargeLogs AlimtalkWalletChargeLog[]
   alimtalkChargeRequests AlimtalkChargeRequest[]
+  walletUsageLogs TenantWalletUsageLog[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
   landingContactSourceLinks LandingContactSourceLink[]
@@ -1710,6 +1711,9 @@ model CashBillIssue {
   issuedAt           DateTime?         @map("issued_at")
   chargedKrw         Int               @default(0) @map("charged_krw")
   lastError          String?           @map("last_error") @db.Text
+  copyPngUrl         String?           @map("copy_png_url") @db.VarChar(2048)
+  copyPdfUrl         String?           @map("copy_pdf_url") @db.VarChar(2048)
+  publicToken        String?           @unique @map("public_token") @db.VarChar(64)
   createdById        String?           @map("created_by_id")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
@@ -1765,8 +1769,12 @@ model TaxInvoiceIssue {
   internalMemo       String?          @map("internal_memo") @db.VarChar(500)
   barobillState      String?          @map("barobill_state") @db.VarChar(8)
   ntsSendState       String?          @map("nts_send_state") @db.VarChar(8)
+  ntsSendKey         String?          @map("nts_send_key") @db.VarChar(64)
   chargedKrw         Int              @default(0) @map("charged_krw")
   lastError          String?          @map("last_error") @db.Text
+  copyPngUrl         String?          @map("copy_png_url") @db.VarChar(2048)
+  copyPdfUrl         String?          @map("copy_pdf_url") @db.VarChar(2048)
+  publicToken        String?          @unique @map("public_token") @db.VarChar(64)
   createdById        String?          @map("created_by_id")
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
@@ -5255,4 +5263,20 @@ model AlimtalkChargeRequest {
 
   @@index([tenantId, status, createdAt(sort: Desc)])
   @@map("alimtalk_charge_requests")
+}
+
+/// 청소비서 지갑 사용 원장. 충전 원장(alimtalk_wallet_charge_logs)과 테이블을 나누어 둔다.
+model TenantWalletUsageLog {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type            String   @db.VarChar(32)
+  refId           String?  @map("ref_id") @db.VarChar(64)
+  amountKrw       Int      @map("amount_krw")
+  balanceAfterKrw Int      @map("balance_after_krw")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, type, createdAt(sort: Desc)])
+  @@map("tenant_wallet_usage_logs")
 }

@@ -10,6 +10,7 @@ import {
 } from '../../lib/alimtalkPolicy.js';
 import { kstYm } from './alimtalkKst.js';
 import { ALIMTALK_TEMPLATE_SEED, solapiTemplateIdFromEnv } from './alimtalkSolapi.client.js';
+import { recordWalletUsage } from '../wallet/walletUsageLog.js';
 
 export type AlimtalkWalletView = {
   prepaidBalanceKrw: number;
@@ -133,6 +134,7 @@ export async function applyAlimtalkCharge(params: {
   tenantId: string;
   plan: string;
   channel: 'ATA' | 'LMS';
+  refId: string;
 }): Promise<{ chargeStatus: 'FREE' | 'PAID'; freeUnitsConsumed: number; tenantUnitPriceKrw: number }> {
   const wallet = await getAlimtalkWalletView(params.tenantId, params.plan);
   const needFree = params.channel === 'LMS' ? ALIMTALK_LMS_FREE_UNITS : 1;
@@ -147,9 +149,18 @@ export async function applyAlimtalkCharge(params: {
     return { chargeStatus: 'FREE', freeUnitsConsumed: needFree, tenantUnitPriceKrw: 0 };
   }
 
-  await prisma.tenantAlimtalkWallet.update({
-    where: { tenantId: params.tenantId },
-    data: { prepaidBalanceKrw: { decrement: unitPrice } },
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.tenantAlimtalkWallet.update({
+      where: { tenantId: params.tenantId },
+      data: { prepaidBalanceKrw: { decrement: unitPrice } },
+    });
+    await recordWalletUsage(tx, {
+      tenantId: params.tenantId,
+      type: 'ALIMTALK',
+      refId: params.refId,
+      amountKrw: -unitPrice,
+      balanceAfterKrw: updated.prepaidBalanceKrw,
+    });
   });
   return { chargeStatus: 'PAID', freeUnitsConsumed: 0, tenantUnitPriceKrw: unitPrice };
 }

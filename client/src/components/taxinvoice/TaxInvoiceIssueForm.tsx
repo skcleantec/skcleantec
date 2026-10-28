@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { isValidKoreanBizNumberChecksum } from '@shared/authSignup';
 import { ensureInputVisibleAboveKeyboard } from '../../hooks/useMobileInputVisibility';
 import { getStaffAppScrollElement } from '../../utils/staffAppScrollRestore';
 import { issueTaxInvoice, searchTaxInvoiceInquiries, type TaxInvoiceBrand, type TaxInvoiceSearchHit } from '../../api/taxInvoices';
+import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 
 const INPUT =
   'mt-1 block w-full min-h-9 rounded-lg border border-gray-200 px-3 py-2 text-fluid-xs text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -41,6 +43,7 @@ function splitTotal(total: number): { supply: number; tax: number } {
 const emptyLine = (): Line => ({ name: '청소 서비스', total: '', supply: '', tax: '', edited: false });
 
 export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBrand[]; onDone: () => void }) {
+  const { summary, openCharge, reload } = useReceiptWallet();
   const linkedBrands = brands.filter((brand) => brand.linked);
   const dates = useMemo(() => writeDateOptions(), []);
   const [query, setQuery] = useState('');
@@ -133,6 +136,7 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
         })),
         internalMemo: memo,
       });
+      await reload();
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : '세금계산서 발행에 실패했습니다.');
@@ -211,10 +215,16 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
       ))}
       <button type="button" className="min-h-9 rounded-lg border border-slate-300 px-3 text-fluid-xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => setLines((prev) => [...prev, emptyLine()])}>품목 추가</button>
       <label className="block text-fluid-2xs text-slate-600">내부 메모<textarea className={INPUT} value={memo} onChange={(e) => setMemo(e.target.value)} /></label>
-      {error ? <p className="text-fluid-xs text-red-700">{error}{error.includes('충전') ? <> <Link className="underline" to="/admin/team-leaders/alimtalk">충전</Link></> : null}</p> : null}
-      <button type="submit" className="min-h-10 rounded-lg bg-slate-900 px-4 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={saving || Boolean(blocked)}>
-        {saving ? '발행 중…' : '세금계산서 발행'}
-      </button>
+      {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
+      {!blocked && summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW ? (
+        <button type="button" className="min-h-10 rounded-lg bg-amber-700 px-4 text-fluid-xs font-medium text-white hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2" onClick={openCharge}>
+          잔액이 부족합니다 · 충전하기
+        </button>
+      ) : (
+        <button type="submit" className="min-h-10 rounded-lg bg-slate-900 px-4 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={saving || Boolean(blocked)}>
+          {saving ? '발행 중…' : '세금계산서 발행'}
+        </button>
+      )}
     </form>
   );
 }

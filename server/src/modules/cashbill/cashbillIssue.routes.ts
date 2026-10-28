@@ -12,6 +12,7 @@ import {
   listCashbillIssues,
   searchCashbillInquiries,
 } from './cashbillIssue.service.js';
+import { getReceiptWalletSummary, listReceiptWalletLedger, parseWalletLedgerFilter } from '../wallet/receiptWallet.service.js';
 
 const router = Router();
 router.use(authMiddleware, requireTenantAuth, requireFeature(CASHBILL_MODULE_ID));
@@ -103,6 +104,30 @@ router.post('/issues/:issueId/cancel', async (req, res) => {
   } catch (err) {
     sendError(res, err, '현금영수증 취소에 실패했습니다.');
   }
+});
+
+router.get('/wallet', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const summary = await getReceiptWalletSummary(tenantId);
+  if (!summary) {
+    res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(summary);
+});
+
+router.get('/wallet/ledger', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
+  const offset = Math.max(0, Number(req.query.offset) || 0);
+  const filter = parseWalletLedgerFilter(req.query.type);
+  res.json(await listReceiptWalletLedger(tenantId, filter, limit, offset));
 });
 
 export default router;

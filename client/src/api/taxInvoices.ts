@@ -40,6 +40,8 @@ export type TaxInvoiceRow = {
   lastError: string | null;
   canCancel: boolean;
   modifyLater: boolean;
+  copyReady?: boolean;
+  publicToken?: string | null;
   createdAt: string;
 };
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { issueCashbill, searchCashbillInquiries, type CashbillSearchHit, type CashbillUsage } from '../../api/cashbillIssues';
+import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { ensureInputVisibleAboveKeyboard } from '../../hooks/useMobileInputVisibility';
 import { getStaffAppScrollElement } from '../../utils/staffAppScrollRestore';
 
@@ -27,6 +28,7 @@ function won(n: number): string {
 type Brand = { id: string; name: string; linked: boolean };
 
 export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone: () => void }) {
+  const { summary, openCharge, reload } = useReceiptWallet();
   const linkedBrands = brands.filter((brand) => brand.linked);
   const today = kstToday();
   const yesterday = previousYmd(today);
@@ -101,6 +103,7 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
       setSelected(null);
       setAmount('');
       setIdentity('');
+      await reload();
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : '현금영수증 발급에 실패했습니다.');
@@ -108,8 +111,6 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
       setBusy(false);
     }
   }
-
-  const walletShort = (error ?? '').includes('지갑');
 
   return (
     <form
@@ -126,11 +127,6 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
     >
       <p className="text-fluid-sm font-medium text-slate-900">현금영수증 발행</p>
       {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-xs text-red-800">{error}</p> : null}
-      {walletShort ? (
-        <Link to="/admin/team-leaders/alimtalk" className={`${BTN_GHOST} inline-flex items-center`}>
-          청소비서 지갑 충전
-        </Link>
-      ) : null}
       <label className="block space-y-1 text-fluid-xs text-slate-700">
         <span>고객 검색</span>
         <input
@@ -207,9 +203,15 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
           <option value={yesterday}>어제 {yesterday}</option>
         </select>
       </label>
-      <button type="submit" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0}>
-        발행
-      </button>
+      {summary != null && summary.balanceKrw < CASHBILL_UNIT_PRICE_KRW ? (
+        <button type="button" className="min-h-10 rounded-lg bg-amber-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2" onClick={openCharge}>
+          잔액이 부족합니다 · 충전하기
+        </button>
+      ) : (
+        <button type="submit" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0}>
+          발행
+        </button>
+      )}
     </form>
   );
 }

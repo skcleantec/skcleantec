@@ -1,69 +1,80 @@
 import { prisma } from '../../lib/prisma.js';
 import { CASHBILL_UNIT_PRICE_KRW, TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
+import type { WalletUsageType } from '../../lib/walletPolicy.js';
 import { ensureTenantAlimtalkDefaults } from '../alimtalk/alimtalkWallet.service.js';
+import { recordWalletUsage } from '../wallet/walletUsageLog.js';
 
 export const CASHBILL_WALLET_SHORT_MESSAGE = '청소비서 지갑 잔액이 부족합니다. 충전해 주세요.';
 
-async function writeWalletLog(tenantId: string, amountKrw: number, memo: string): Promise<void> {
-  const wallet = await prisma.tenantAlimtalkWallet.findUnique({
-    where: { tenantId },
-    select: { prepaidBalanceKrw: true },
-  });
-  await prisma.alimtalkWalletChargeLog.create({
-    data: {
+async function debit(
+  tenantId: string,
+  amountKrw: number,
+  type: WalletUsageType,
+  refId: string,
+): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.$executeRaw`
+      UPDATE tenant_alimtalk_wallets
+      SET prepaid_balance_krw = prepaid_balance_krw - ${amountKrw},
+          updated_at = NOW()
+      WHERE tenant_id = ${tenantId}
+        AND prepaid_balance_krw >= ${amountKrw}
+    `;
+    if (Number(updated) !== 1) return false;
+    const wallet = await tx.tenantAlimtalkWallet.findUnique({
+      where: { tenantId },
+      select: { prepaidBalanceKrw: true },
+    });
+    await recordWalletUsage(tx, {
       tenantId,
-      amountKrw,
+      type,
+      refId,
+      amountKrw: -amountKrw,
       balanceAfterKrw: wallet?.prepaidBalanceKrw ?? 0,
-      memo,
-    },
+    });
+    return true;
   });
 }
 
-/** 성공 건만 22원. 잔액이 부족하면 false. */
-export async function chargeCashbillWallet(tenantId: string, plan: string): Promise<boolean> {
-  await ensureTenantAlimtalkDefaults(tenantId, plan);
-  const updated = await prisma.$executeRaw`
-    UPDATE tenant_alimtalk_wallets
-    SET prepaid_balance_krw = prepaid_balance_krw - ${CASHBILL_UNIT_PRICE_KRW},
-        updated_at = NOW()
-    WHERE tenant_id = ${tenantId}
-      AND prepaid_balance_krw >= ${CASHBILL_UNIT_PRICE_KRW}
-  `;
-  if (Number(updated) !== 1) return false;
-  await writeWalletLog(tenantId, -CASHBILL_UNIT_PRICE_KRW, '현금영수증');
-  return true;
-}
-
-export async function refundCashbillWallet(tenantId: string, plan: string): Promise<void> {
-  await ensureTenantAlimtalkDefaults(tenantId, plan);
-  await prisma.tenantAlimtalkWallet.update({
-    where: { tenantId },
-    data: { prepaidBalanceKrw: { increment: CASHBILL_UNIT_PRICE_KRW } },
+async function credit(tenantId: string, amountKrw: number, type: WalletUsageType, refId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const wallet = await tx.tenantAlimtalkWallet.update({
+      where: { tenantId },
+      data: { prepaidBalanceKrw: { increment: amountKrw } },
+    });
+    await recordWalletUsage(tx, {
+      tenantId,
+      type,
+      refId,
+      amountKrw,
+      balanceAfterKrw: wallet.prepaidBalanceKrw,
+    });
   });
-  await writeWalletLog(tenantId, CASHBILL_UNIT_PRICE_KRW, '현금영수증 차감 취소');
 }
 
-export async function chargeTaxInvoiceWallet(tenantId: string, plan: string): Promise<boolean> {
+export async function chargeCashbillWallet(
+  tenantId: string,
+  plan: string,
+  refId: string,
+  type: 'CASHBILL_ISSUE' | 'CASHBILL_CANCEL',
+): Promise<boolean> {
   await ensureTenantAlimtalkDefaults(tenantId, plan);
-  const updated = await prisma.$executeRaw`
-    UPDATE tenant_alimtalk_wallets
-    SET prepaid_balance_krw = prepaid_balance_krw - ${TAXINVOICE_UNIT_PRICE_KRW},
-        updated_at = NOW()
-    WHERE tenant_id = ${tenantId}
-      AND prepaid_balance_krw >= ${TAXINVOICE_UNIT_PRICE_KRW}
-  `;
-  if (Number(updated) !== 1) return false;
-  await writeWalletLog(tenantId, -TAXINVOICE_UNIT_PRICE_KRW, '세금계산서');
-  return true;
+  return debit(tenantId, CASHBILL_UNIT_PRICE_KRW, type, refId);
 }
 
-export async function refundTaxInvoiceWallet(tenantId: string, plan: string): Promise<void> {
+export async function refundCashbillWallet(tenantId: string, plan: string, refId: string): Promise<void> {
   await ensureTenantAlimtalkDefaults(tenantId, plan);
-  await prisma.tenantAlimtalkWallet.update({
-    where: { tenantId },
-    data: { prepaidBalanceKrw: { increment: TAXINVOICE_UNIT_PRICE_KRW } },
-  });
-  await writeWalletLog(tenantId, TAXINVOICE_UNIT_PRICE_KRW, '세금계산서 차감 취소');
+  await credit(tenantId, CASHBILL_UNIT_PRICE_KRW, 'CASHBILL_REFUND', refId);
+}
+
+export async function chargeTaxInvoiceWallet(tenantId: string, plan: string, refId: string): Promise<boolean> {
+  await ensureTenantAlimtalkDefaults(tenantId, plan);
+  return debit(tenantId, TAXINVOICE_UNIT_PRICE_KRW, 'TAXINVOICE_ISSUE', refId);
+}
+
+export async function refundTaxInvoiceWallet(tenantId: string, plan: string, refId: string): Promise<void> {
+  await ensureTenantAlimtalkDefaults(tenantId, plan);
+  await credit(tenantId, TAXINVOICE_UNIT_PRICE_KRW, 'TAXINVOICE_REFUND', refId);
 }
 
 export async function readCashbillWalletBalance(tenantId: string, plan: string): Promise<number> {

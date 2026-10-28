@@ -1012,7 +1012,7 @@
         "client/src/pages/admin/AdminCashbillSettingsPage.tsx",
         "shared/barobillPolicy.ts"
       ],
-      "notes": "가입완료 emerald-50/800, 검토 중 amber-50/900, 반려 red-50/800, 연결 필요 amber-50/800, 실패 red-50/700, 처리 중 slate-100/700. 10분 넘은 처리 중은 확인 필요 red-50/800. 다른 업체 신청 경고 amber-50/900. 현금영수증 국세청 전송완료 emerald-800, 전송중 amber-800, 전송실패 red-800. 세금계산서 전송전 slate-700, 전송중 amber-800, 성공 emerald-800, 실패 red-800. 끄기 설정 없음. 메뉴 이름 계산서 연결. 공동인증서 등록 버튼. 목록 /admin/inquiries/receipts/cashbill, /admin/inquiries/receipts/taxinvoice."
+      "notes": "가입완료 emerald-50/800, 검토 중 amber-50/900, 반려 red-50/800, 연결 필요 amber-50/800, 실패 red-50/700, 처리 중 slate-100/700. 10분 넘은 처리 중은 확인 필요 red-50/800. 다른 업체 신청 경고 amber-50/900. 현금영수증 국세청 전송완료 emerald-800, 전송중 amber-800, 전송실패 red-800. 세금계산서 전송전 slate-700, 전송중 amber-800, 성공 emerald-800, 실패 red-800. 영수증 화면 청소비서 지갑은 잔액 1,000원 미만이면 amber-50/amber-300/amber-950 과 「곧 발행이 멈춥니다」. 끄기 설정 없음. 메뉴 이름 계산서 연결. 공동인증서 등록 버튼. 목록 /admin/inquiries/receipts/cashbill, /admin/inquiries/receipts/taxinvoice."
     }
   ]
 }

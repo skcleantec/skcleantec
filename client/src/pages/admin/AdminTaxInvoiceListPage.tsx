@@ -4,6 +4,9 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { TaxInvoiceIssueForm } from '../../components/taxinvoice/TaxInvoiceIssueForm';
+import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
+import { ReceiptWalletCard } from '../../components/wallet/ReceiptWalletCard';
+import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
 import {
   cancelTaxInvoice,
   listTaxInvoices,
@@ -55,6 +58,7 @@ export function AdminTaxInvoiceListPage() {
   const [issueOpen, setIssueOpen] = useState(false);
   const [reload, setReload] = useState(0);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [walletTick, setWalletTick] = useState(0);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
 
   const patch = useCallback((next: Record<string, string | null>) => {
@@ -98,6 +102,7 @@ export function AdminTaxInvoiceListPage() {
     setError(null);
     try {
       await cancelTaxInvoice(issueId);
+      setWalletTick((n) => n + 1);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '세금계산서 취소에 실패했습니다.');
@@ -111,10 +116,13 @@ export function AdminTaxInvoiceListPage() {
   const needsLink = !loading && (brands.length === 0 || (selected ? !selected.linked : brands.every((brand) => !brand.linked)));
 
   return (
+    <ReceiptWalletProvider>
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
       <PageTitleWithFavorite label="세금계산서" path="/admin/inquiries/receipts/taxinvoice">
         <h1 className="text-fluid-lg font-semibold text-slate-900">세금계산서</h1>
       </PageTitleWithFavorite>
+      <ReceiptWalletCard />
+      <ReceiptWalletRefresh tick={walletTick} />
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
           <p>계산서 연결을 먼저 해주세요.</p>
@@ -187,19 +195,25 @@ export function AdminTaxInvoiceListPage() {
         </>
       ) : null}
     </div>
+    </ReceiptWalletProvider>
   );
 }
 
 function RowAction({ row, cancelling, onCancel }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void }) {
-  if (row.canCancel) {
-    return (
-      <button type="button" className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-2xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={cancelling} onClick={onCancel}>
-        {cancelling ? '취소 중…' : '발급취소'}
-      </button>
-    );
-  }
-  if (row.modifyLater) return <span className="text-fluid-2xs text-slate-500">수정세금계산서는 추후 지원</span>;
-  return <span className="text-fluid-2xs text-slate-400">{row.lastError ? '실패' : '—'}</span>;
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1">
+      <ReceiptCopyButtons publicToken={row.publicToken ?? null} copyReady={Boolean(row.copyReady)} />
+      {row.canCancel ? (
+        <button type="button" className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-2xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={cancelling} onClick={onCancel}>
+          {cancelling ? '취소 중…' : '발급취소'}
+        </button>
+      ) : row.modifyLater ? (
+        <span className="text-fluid-2xs text-slate-500">수정세금계산서는 추후 지원</span>
+      ) : row.lastError ? (
+        <span className="text-fluid-2xs text-slate-400">실패</span>
+      ) : null}
+    </div>
+  );
 }
 
 function TaxCard({ row, cancelling, onCancel }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void }) {

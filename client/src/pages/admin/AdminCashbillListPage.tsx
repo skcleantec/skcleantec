@@ -13,6 +13,9 @@ import {
   type CashbillKind,
 } from '../../api/cashbillIssues';
 import { CashbillIssueForm } from '../../components/cashbill/CashbillIssueForm';
+import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
+import { ReceiptWalletCard } from '../../components/wallet/ReceiptWalletCard';
+import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 
@@ -57,6 +60,7 @@ export function AdminCashbillListPage() {
   const [issueOpen, setIssueOpen] = useState(false);
   const [reload, setReload] = useState(0);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [walletTick, setWalletTick] = useState(0);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
 
   const patch = useCallback((next: Record<string, string | null>) => {
@@ -105,6 +109,7 @@ export function AdminCashbillListPage() {
     setError(null);
     try {
       await cancelCashbillIssue(issueId, crypto.randomUUID());
+      setWalletTick((n) => n + 1);
       const qs = new URLSearchParams();
       qs.set('datePreset', datePreset);
       if (datePreset === 'month') qs.set('month', monthKey);
@@ -129,10 +134,13 @@ export function AdminCashbillListPage() {
   const needsLink = !loading && (brands.length === 0 || (selectedBrand ? !selectedBrand.linked : brands.every((brand) => !brand.linked)));
 
   return (
+    <ReceiptWalletProvider>
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
       <PageTitleWithFavorite label="현금영수증" path="/admin/inquiries/receipts/cashbill">
         <h1 className="text-fluid-lg font-semibold text-slate-900">현금영수증</h1>
       </PageTitleWithFavorite>
+      <ReceiptWalletCard />
+      <ReceiptWalletRefresh tick={walletTick} />
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
           <p>계산서 연결을 먼저 해주세요.</p>
@@ -229,6 +237,7 @@ export function AdminCashbillListPage() {
         <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
       ) : null}
     </div>
+    </ReceiptWalletProvider>
   );
 }
 
@@ -250,6 +259,7 @@ function ReceiptActions({
   const btn = 'min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   return (
     <div className="flex flex-wrap items-center justify-center gap-1">
+      <ReceiptCopyButtons publicToken={row.publicToken ?? null} copyReady={Boolean(row.copyReady)} />
       {canViewReceipt(row) ? (
         <button type="button" className={btn} onClick={() => void openCashbillReceipt(row.id).catch((err: unknown) => onError(err instanceof Error ? err.message : '영수증을 열지 못했습니다.'))}>
           영수증 보기
@@ -270,9 +280,7 @@ function CashbillCard({ row, cancelling, onCancel, onError }: { row: CashbillIss
       <p className="truncate text-fluid-sm font-medium">{row.customerName}</p>
       <p className="text-fluid-xs text-slate-700">{CASHBILL_KIND_LABEL[row.kind as CashbillKind]} {won(row.totalWon)} · {cashbillStateLabel(row.barobillState, row.lastError)}</p>
       <p className="truncate text-fluid-2xs text-slate-500">{row.brandName} · {row.inquiryNumber ?? ''} · 국세청 {row.ntsConfirmNum || '대기'}</p>
-      {row.canCancel || canViewReceipt(row) ? (
-        <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} />
-      ) : null}
+      <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} />
     </article>
   );
 }

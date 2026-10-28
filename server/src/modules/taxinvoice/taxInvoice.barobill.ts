@@ -69,16 +69,21 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-export function readTaxInvoiceState(raw: unknown): { barobillState: string; ntsSendState: string } | null {
+export function readTaxInvoiceState(raw: unknown): { barobillState: string; ntsSendState: string; ntsSendKey: string | null } | null {
   const row = asRecord(raw);
   if (!row) return null;
   const state = row.BarobillState;
   const nts = row.NTSSendState;
   if ((typeof state !== 'number' && typeof state !== 'string') || (typeof nts !== 'number' && typeof nts !== 'string')) return null;
-  return { barobillState: String(state), ntsSendState: String(nts) };
+  const key = row.NTSSendKey;
+  return {
+    barobillState: String(state),
+    ntsSendState: String(nts),
+    ntsSendKey: typeof key === 'string' && key.trim() ? key.trim() : null,
+  };
 }
 
-export function readTaxInvoiceStates(raw: unknown): { mgtKey: string; barobillState: string; ntsSendState: string }[] {
+export function readTaxInvoiceStates(raw: unknown): { mgtKey: string; barobillState: string; ntsSendState: string; ntsSendKey: string | null }[] {
   const row = asRecord(raw);
   const list = row?.TaxInvoiceStateEX;
   const items = Array.isArray(list) ? list : list ? [list] : [];

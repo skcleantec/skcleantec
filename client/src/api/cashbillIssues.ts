@@ -20,6 +20,8 @@ export type CashbillIssueRow = {
   lastError: string | null;
   cancelOfId: string | null;
   createdAt: string;
+  copyReady?: boolean;
+  publicToken?: string | null;
   inquiryNumber?: string | null;
   customerName?: string;
   brandName?: string;

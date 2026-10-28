@@ -233,6 +233,11 @@ export const InspectionCustomerViewPage = lazyWithRetry(() =>
     default: m.InspectionCustomerViewPage,
   }))
 );
+export const PublicReceiptPage = lazyWithRetry(() =>
+  import('../pages/public/PublicReceiptPage').then((m) => ({
+    default: m.PublicReceiptPage,
+  }))
+);
 export const AdminReviewPaybackPage = lazyWithRetry(() =>
   import('../pages/admin/AdminReviewPaybackPage').then((m) => ({ default: m.AdminReviewPaybackPage }))
 );

@@ -88,6 +88,7 @@ import {
   ReviewPaybackPage,
   PublicDepositConfirmPage,
   InspectionCustomerViewPage,
+  PublicReceiptPage,
   AdminReviewPaybackPage,
   AdminCsPage,
   AdminLandingContactLayout,
@@ -589,6 +590,7 @@ function App() {
         <Route path="/pay/paysis/close" element={<SuspensePage><PaysisCheckoutClosePage /></SuspensePage>} />
         <Route path="/ops/deposit-confirm" element={<SuspensePage><PublicDepositConfirmPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
+        <Route path="/receipt/:token" element={<SuspensePage><PublicReceiptPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/team/card-payment"

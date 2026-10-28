@@ -16,6 +16,7 @@ import {
   registAndIssueTaxInvoice,
 } from './taxInvoice.barobill.js';
 import { certBlockMessage, refreshBarobillCerts } from './taxInvoiceCert.service.js';
+import { safeRenderTaxInvoiceCopy } from '../receipts/receiptCopy.service.js';
 
 export const TAX_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
 export const TAX_SIMPLIFIED_MESSAGE = '간이과세자는 세금계산서를 발행할 수 없습니다';
@@ -146,19 +147,26 @@ function toPublic(row: TaxInvoiceIssue) {
     createdAt: row.createdAt.toISOString(),
     canCancel: row.ntsSendState === '1' && row.barobillState !== '5031',
     modifyLater: Boolean(row.barobillState && row.barobillState !== '5031' && row.ntsSendState && row.ntsSendState !== '1'),
+    copyReady: Boolean(row.copyPngUrl && row.publicToken),
+    publicToken: row.publicToken,
   };
 }
 
-async function remember(row: TaxInvoiceIssue, state: { barobillState: string; ntsSendState: string }) {
+async function remember(row: TaxInvoiceIssue, state: { barobillState: string; ntsSendState: string; ntsSendKey?: string | null }) {
   await prisma.taxInvoiceIssue.updateMany({
     where: { id: row.id, tenantId: row.tenantId },
-    data: { barobillState: state.barobillState, ntsSendState: state.ntsSendState },
+    data: {
+      barobillState: state.barobillState,
+      ntsSendState: state.ntsSendState,
+      ...(state.ntsSendKey !== undefined ? { ntsSendKey: state.ntsSendKey } : {}),
+    },
   });
+  await safeRenderTaxInvoiceCopy(row.id);
 }
 
 async function failIssue(row: TaxInvoiceIssue, err: unknown, plan: string): Promise<never> {
   if (row.chargedKrw > 0) {
-    await refundTaxInvoiceWallet(row.tenantId, plan);
+    await refundTaxInvoiceWallet(row.tenantId, plan, row.id);
     await prisma.taxInvoiceIssue.updateMany({ where: { id: row.id, tenantId: row.tenantId }, data: { chargedKrw: 0 } });
   }
   if (err instanceof BarobillCallError && PARTNER_BALANCE_CODES.has(err.code)) {
@@ -296,7 +304,7 @@ export async function issueTaxInvoice(
       createdById: userId,
     },
   });
-  const charged = await chargeTaxInvoiceWallet(tenantId, plan);
+  const charged = await chargeTaxInvoiceWallet(tenantId, plan, created.id);
   if (!charged) {
     await prisma.taxInvoiceIssue.updateMany({ where: { id: created.id, tenantId }, data: { lastError: CASHBILL_WALLET_SHORT_MESSAGE } });
     throw new TaxInvoiceError(CASHBILL_WALLET_SHORT_MESSAGE, 402, 'wallet_short');
@@ -440,7 +448,7 @@ export async function syncOpenTaxInvoiceStates(): Promise<{ checked: number; upd
     for (const row of rows) {
       const state = states.find((item) => item.mgtKey === row.mgtKey);
       if (!state) continue;
-      if (state.barobillState === row.barobillState && state.ntsSendState === row.ntsSendState) continue;
+      if (state.barobillState === row.barobillState && state.ntsSendState === row.ntsSendState && (state.ntsSendKey ?? '') === (row.ntsSendKey ?? '')) continue;
       await remember(row, state);
       updated += 1;
     }

@@ -17,6 +17,7 @@ import {
   registAndIssueCashBill,
 } from './cashbillIssue.barobill.js';
 import { chargeCashbillWallet, CASHBILL_WALLET_SHORT_MESSAGE, refundCashbillWallet } from './cashbillWallet.js';
+import { safeRenderCashbillCopy } from '../receipts/receiptCopy.service.js';
 
 export const CASHBILL_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
 export const CASHBILL_SIMPLIFIED_MESSAGE = '간이과세자 현금영수증은 바로빌 답변 전까지 발급할 수 없습니다.';
@@ -243,6 +244,8 @@ function toPublicIssue(row: CashBillIssue) {
     lastError: row.lastError,
     cancelOfId: row.cancelOfId,
     createdAt: row.createdAt.toISOString(),
+    copyReady: Boolean(row.copyPngUrl && row.publicToken),
+    publicToken: row.publicToken,
   };
 }
 
@@ -258,6 +261,7 @@ async function rememberState(row: CashBillIssue, state: { barobillState: string;
     },
   });
   if (failed && row.barobillState !== '4000') await notifyTenantAdmins(row.tenantId);
+  await safeRenderCashbillCopy(row.id);
 }
 
 async function notifyTenantAdmins(tenantId: string): Promise<void> {
@@ -274,7 +278,7 @@ async function holdForPlatform(tenantId: string, code: number): Promise<void> {
 
 async function applyBarobillFailure(row: CashBillIssue, err: unknown, plan: string): Promise<never> {
   if (row.chargedKrw > 0) {
-    await refundCashbillWallet(row.tenantId, plan);
+    await refundCashbillWallet(row.tenantId, plan, row.id);
     await prisma.cashBillIssue.updateMany({
       where: { id: row.id, tenantId: row.tenantId },
       data: { chargedKrw: 0 },
@@ -364,7 +368,7 @@ export async function issueCashbill(
     }
     throw err;
   }
-  const charged = await chargeCashbillWallet(tenantId, plan);
+  const charged = await chargeCashbillWallet(tenantId, plan, created.id, 'CASHBILL_ISSUE');
   if (!charged) {
     await prisma.cashBillIssue.updateMany({
       where: { id: created.id, tenantId },
@@ -470,7 +474,7 @@ export async function cancelCashbillIssue(
     },
   });
   if (created.chargedKrw === 0 && !created.lastError) {
-    const charged = await chargeCashbillWallet(tenantId, plan);
+    const charged = await chargeCashbillWallet(tenantId, plan, created.id, 'CASHBILL_CANCEL');
     if (!charged) {
       await prisma.cashBillIssue.updateMany({
         where: { id: created.id, tenantId },
@@ -616,7 +620,7 @@ export async function syncOpenCashbillStates(): Promise<{ checked: number; updat
     }).catch(() => []);
     for (const state of states) {
       const row = rows.find((item) => item.mgtKey === state.mgtKey);
-      if (!row || row.barobillState === state.barobillState) continue;
+      if (!row || (row.barobillState === state.barobillState && (row.ntsConfirmNum ?? '') === (state.ntsConfirmNum ?? ''))) continue;
       await rememberState(row, state);
       updated += 1;
     }

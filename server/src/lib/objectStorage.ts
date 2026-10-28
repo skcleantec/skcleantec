@@ -30,6 +30,12 @@ function extFromContentType(contentType: string, resourceType: 'image' | 'raw'):
   return resourceType === 'raw' ? 'bin' : 'jpg';
 }
 
+function sanitizeStableFileName(name: string | undefined, ext: string): string | null {
+  const cleaned = String(name ?? '').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 80);
+  if (!cleaned) return null;
+  return cleaned.includes('.') ? cleaned : `${cleaned}.${ext}`;
+}
+
 function publicUrlForKey(base: string, key: string): string {
   const encoded = key.split('/').map(encodeURIComponent).join('/');
   return `${base}/${encoded}`;
@@ -48,6 +54,8 @@ export async function uploadObjectBuffer(params: {
   contentType?: string;
   resourceType?: 'image' | 'raw';
   fileNameHint?: string;
+  /** 있으면 UUID 대신 이 파일명으로 저장하고, 다시 올리면 같은 키를 덮어쓴다. */
+  stableFileName?: string;
 }): Promise<StoredObject> {
   if (!isObjectStorageReady()) {
     throw new Error('CLOUDINARY_NOT_CONFIGURED');
@@ -63,7 +71,9 @@ export async function uploadObjectBuffer(params: {
       ? params.fileNameHint.split('.').pop()!.replace(/[^\w]/g, '').slice(0, 8) ||
         extFromContentType(contentType, resourceType)
       : extFromContentType(contentType, resourceType);
-    const key = `${normalizeFolder(params.folder)}/${randomUUID()}.${ext}`;
+    const folder = normalizeFolder(params.folder);
+    const stable = sanitizeStableFileName(params.stableFileName, ext);
+    const key = stable ? `${folder}/${stable}` : `${folder}/${randomUUID()}.${ext}`;
     await getR2Client().send(
       new PutObjectCommand({
         Bucket: r2.bucket,
@@ -86,11 +96,20 @@ export async function uploadObjectBuffer(params: {
     width?: number;
     height?: number;
   }>((resolve, reject) => {
+    const folder = normalizeFolder(params.folder);
+    const stable = sanitizeStableFileName(params.stableFileName, extFromContentType(contentType, resourceType));
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: params.folder,
         resource_type: resourceType,
-        ...(resourceType === 'raw' && params.fileNameHint?.endsWith('.pdf')
+        ...(stable
+          ? {
+              public_id: `${folder}/${stable.replace(/\.[^.]+$/, '')}`,
+              overwrite: true,
+              unique_filename: false,
+              invalidate: true,
+            }
+          : { folder: params.folder }),
+        ...(resourceType === 'raw' && (params.fileNameHint?.endsWith('.pdf') || stable?.endsWith('.pdf'))
           ? { format: 'pdf' }
           : {}),
       },
