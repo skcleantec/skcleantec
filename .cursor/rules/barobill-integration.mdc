@@ -1,0 +1,27 @@
+---
+description: 바로빌(세금계산서·현금영수증·사업자상태·알림톡) 연동 규칙. barobill·현금영수증·세금계산서·cashbill·taxinvoice 작업 시 적용.
+globs: server/src/**/barobill/**,server/src/modules/cashbill/**,server/src/modules/taxinvoice/**,shared/barobill*.ts
+alwaysApply: false
+---
+
+# 바로빌 연동 규칙
+
+조사 노트: `docs/barobill/BAROBILL_API_NOTES.md` — API 이름·파라미터·상태코드는 여기서 확인하고 다시 웹 조사하지 않는다.
+
+## 보안
+- `BAROBILL_CERTKEY` 는 서버 환경변수만. 코드·문서·로그·클라이언트 번들·에러 응답에 절대 노출 금지.
+- 로그에는 사업자번호 뒤 5자리 마스킹, 소비자 휴대폰은 끝 4자리만.
+- 소비자 신분확인번호(휴대폰 등) 원문은 DB에 저장하지 않는다. 표시용 마스킹 값만 저장.
+
+## 구조
+- 파트너 = 서비스브릿지 1개. 업체·브랜드는 **사업자번호 1개 = 바로빌 회원사 1개**. 브랜드(OperatingCompany)는 별도 사업자 → 브랜드 1 : 회원사 1.
+- 알림톡은 회원사 가입과 무관 — 항상 **서비스브릿지 회원사 + 청소비서 채널**로 발송, 업체명은 템플릿 변수.
+- 과금 = **파트너 결제**. 업체 차감은 청소비서 지갑(`TenantAlimtalkWallet.prepaidBalanceKrw`, 화면 표기 "청소비서 지갑")에서. 단가는 `shared/barobillPolicy.ts` 상수만 사용 (현금영수증 발행·취소 각 22원, 세금계산서 150원, VAT 포함). 요금제 무료 제공량 없음 — Standard 이상 + 지갑 별도 충전.
+- 테스트/운영은 `BAROBILL_ENV=test|prod`. 회원사 레코드는 env 별로 따로 저장(바로빌 DB가 분리돼 있음).
+
+## 호출
+- SOAP(`soap` 패키지). WSDL 클라이언트는 서비스별 1회 생성 후 재사용, 호출 타임아웃 필수.
+- 반환 음수 = 오류코드 → `GetErrString` 으로 한국어 메시지. 사용자 화면에는 바로빌 원문 대신 정리된 문구 + 코드.
+- 결과는 웹훅이 없다 → 상태조회 폴링 크론. 최종 상태(전송완료·실패·취소)는 DB 반영 후 재조회 중단.
+- MgtKey 는 회원사 단위 고유, 24자 이내. 재시도 시 같은 MgtKey 로 중복 발급 금지(먼저 상태조회).
+- 모든 서버 쿼리는 tenantId 스코프.
