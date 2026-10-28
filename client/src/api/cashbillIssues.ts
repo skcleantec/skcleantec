@@ -109,3 +109,12 @@ export async function listCashbillIssues(qs: URLSearchParams): Promise<{
   if (!res.ok) throw new Error(await apiErrorMessage(res, '현금영수증 목록을 불러오지 못했습니다.'));
   return res.json() as Promise<{ items: CashbillIssueRow[]; total: number; brands: { id: string; name: string; linked: boolean }[] }>;
 }
+
+export async function openCashbillReceipt(issueId: string): Promise<void> {
+  const res = await fetch(`${API}/cashbill/issues/${issueId}/mail-url`, { headers: headers() });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '영수증을 열지 못했습니다.'));
+  const body = (await res.json()) as { url?: string };
+  if (!body.url) throw new Error('영수증을 열지 못했습니다.');
+  const opened = window.open(body.url, 'cbiseoCashbillReceipt', 'popup,width=480,height=720');
+  if (!opened) throw new Error('영수증 창이 브라우저에 막혔습니다. 팝업을 허용해 주세요.');
+}

@@ -3,6 +3,7 @@ import { BAROBILL_MEMBER_STATUS_LABEL, barobillTaxTypeLabel } from '@shared/baro
 import { formatBizNumberDisplay, isValidKoreanBizNumberChecksum } from '@shared/authSignup';
 import type { CashbillSettings } from '../../api/cashbill';
 import { registerCashbillMember, uploadCashbillRegistration } from '../../api/cashbill';
+import { CashbillCertRegisterModal } from './CashbillCertRegisterModal';
 
 const INPUT =
   'mt-1 block w-full min-h-9 rounded-lg border border-gray-200 px-3 py-2 text-fluid-xs text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -48,6 +49,7 @@ export function CashbillBrandCard({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [certOpen, setCertOpen] = useState(false);
   const retryable = !member || member.status === 'FAILED' || (extra && member.status === 'REJECTED');
   const locked = !canRegister || !retryable;
 
@@ -106,7 +108,18 @@ export function CashbillBrandCard({
       ? member?.status === 'REJECTED'
         ? '다시 제출'
         : '검토 요청'
-      : '바로빌 가입';
+      : '연결하기';
+
+  const linked = Boolean(member?.linked);
+  const registered = linked && member?.certValid === true;
+  const certText = registered
+    ? `등록 완료 · 만료일 ${member?.certExpireDate ?? '확인 중'}`
+    : null;
+
+  function finishCert(status: { valid: boolean; expireDate: string | null }) {
+    setCertOpen(false);
+    onDone(`등록 완료 · 만료일 ${status.expireDate ?? ''}`.trim());
+  }
 
   return (
     <section className="space-y-2 rounded-xl border border-gray-200 bg-white p-2 sm:p-4">
@@ -131,8 +144,29 @@ export function CashbillBrandCard({
         {shownName} · {shownCorp || '사업자번호 없음'} · {shownCeo}
         {member?.taxType ? ` · ${barobillTaxTypeLabel(member.taxType)}` : ''}
       </p>
+      {registered ? <p className="text-fluid-2xs text-emerald-800 sm:text-fluid-xs">{certText}</p> : null}
+      {linked && registered ? (
+        <button type="button" className={BTN} onClick={() => setCertOpen(true)}>
+          공동인증서 등록
+        </button>
+      ) : null}
+      {linked && !registered ? (
+        <details className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+          <summary className="cursor-pointer text-fluid-2xs text-slate-700">세금계산서를 쓸 때만 필요</summary>
+          <button type="button" className={`${BTN} mt-2`} onClick={() => setCertOpen(true)}>
+            공동인증서 등록
+          </button>
+        </details>
+      ) : null}
+      {certOpen ? (
+        <CashbillCertRegisterModal
+          operatingCompanyId={brand.operatingCompanyId}
+          onClose={() => setCertOpen(false)}
+          onRegistered={finishCert}
+        />
+      ) : null}
       {extra && !member ? (
-        <p className="text-fluid-2xs leading-snug text-slate-600">사업자등록증을 올리면 검토 요청이 됩니다. 승인 전에는 바로빌에 가입하지 않습니다.</p>
+        <p className="text-fluid-2xs leading-snug text-slate-600">사업자등록증을 올리면 검토 요청이 됩니다. 승인 전에는 연결하지 않습니다.</p>
       ) : null}
       {member?.rejectReason ? <p className="text-fluid-2xs text-red-800 sm:text-fluid-xs">반려 사유: {member.rejectReason}</p> : null}
       {member?.lastError ? <p className="text-fluid-2xs text-amber-800 sm:text-fluid-xs">{member.lastError}</p> : null}

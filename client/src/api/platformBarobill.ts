@@ -82,10 +82,10 @@ export async function checkPlatformBarobillMember(id: string): Promise<{ isMembe
   return res.json() as Promise<{ isMember: boolean; message: string }>;
 }
 
-export async function fetchPlatformCashbillHolds(): Promise<{ id: string; code: number; tenantName: string; tenantSlug: string; createdAt: string }[]> {
+export async function fetchPlatformCashbillHolds(): Promise<{ id: string; code: number; tenantName: string; tenantSlug: string; kind: string; createdAt: string }[]> {
   const res = await fetch(`${API}/platform/barobill/holds`, { headers: headers() });
   if (!res.ok) throw new Error(await parseError(res, '발급 보류 알림을 불러오지 못했습니다.'));
-  const body = (await res.json()) as { items: { id: string; code: number; tenantName: string; tenantSlug: string; createdAt: string }[] };
+  const body = (await res.json()) as { items: { id: string; code: number; tenantName: string; tenantSlug: string; kind: string; createdAt: string }[] };
   return body.items;
 }
 

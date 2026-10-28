@@ -10,6 +10,7 @@ import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js'
 import { cashbillRemaining, splitCashbillTax, type CashbillPartKind } from './cashbillIssue.amounts.js';
 import {
   cancelCashBillFull,
+  fetchCashbillMailUrl,
   fetchCashbillState,
   fetchCashbillStates,
   PARTNER_BALANCE_CODES,
@@ -556,6 +557,21 @@ export async function listCashbillIssues(tenantId: string, query: {
   };
 }
 
+export async function cashbillCustomerUrl(tenantId: string, issueId: string): Promise<string> {
+  const row = await prisma.cashBillIssue.findFirst({
+    where: { id: issueId, tenantId },
+    include: { member: { select: { tenantId: true, corpNum: true, barobillUserId: true } } },
+  });
+  if (!row || row.member.tenantId !== tenantId || !row.barobillState || row.barobillState === '1000') {
+    throw new CashbillIssueError('영수증을 볼 수 있는 발급 건이 아닙니다.', 404);
+  }
+  return fetchCashbillMailUrl({
+    corpNum: row.member.corpNum,
+    userId: row.member.barobillUserId,
+    mgtKey: row.mgtKey,
+  });
+}
+
 export async function listCashbillPlatformHolds() {
   const rows = await prisma.cashbillPlatformHold.findMany({
     orderBy: { createdAt: 'desc' },
@@ -567,6 +583,7 @@ export async function listCashbillPlatformHolds() {
     code: row.code,
     tenantName: row.tenant.name,
     tenantSlug: row.tenant.slug,
+    kind: row.kind,
     createdAt: row.createdAt.toISOString(),
   }));
 }

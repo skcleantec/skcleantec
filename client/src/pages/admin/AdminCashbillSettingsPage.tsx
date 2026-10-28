@@ -41,7 +41,7 @@ export function AdminCashbillSettingsPage() {
       <PageTitleWithFavorite label="계산서 연결" path="/admin/team-leaders/cashbill">
         <span className="inline-flex items-center gap-1">
           계산서 연결
-          <HelpTooltip text="기본 브랜드는 사업자정보로 바로 가입합니다. 추가 브랜드는 사업자등록증을 올리고 검토 요청을 합니다. 승인 전에는 바로빌에 가입하지 않습니다. 반려되면 다시 제출할 수 있습니다." />
+          <HelpTooltip text="기본 브랜드는 사업자정보로 바로 연결합니다. 추가 브랜드는 사업자등록증을 올리고 검토 요청을 합니다. 승인 전에는 연결하지 않습니다. 공동인증서는 세금계산서를 쓸 때만 필요하고, 만료 30일 전에 관리자에게 알립니다. 인증서가 없어도 현금영수증은 발행할 수 있습니다." />
         </span>
       </PageTitleWithFavorite>
 

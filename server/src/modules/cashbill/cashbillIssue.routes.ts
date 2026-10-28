@@ -6,6 +6,7 @@ import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import {
   cancelCashbillIssue,
+  cashbillCustomerUrl,
   CashbillIssueError,
   issueCashbill,
   listCashbillIssues,
@@ -76,6 +77,18 @@ router.post('/issues', async (req, res) => {
     res.json(await issueCashbill(tenantId, user.userId, req.body ?? {}));
   } catch (err) {
     sendError(res, err, '현금영수증 발급에 실패했습니다.');
+  }
+});
+
+router.get('/issues/:issueId/mail-url', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    res.json({ url: await cashbillCustomerUrl(tenantId, String(req.params.issueId ?? '')) });
+  } catch (err) {
+    sendError(res, err, '영수증 주소를 받지 못했습니다.');
   }
 });
 

@@ -8,6 +8,7 @@ import {
   cashbillStateLabel,
   CASHBILL_KIND_LABEL,
   listCashbillIssues,
+  openCashbillReceipt,
   type CashbillIssueRow,
   type CashbillKind,
 } from '../../api/cashbillIssues';
@@ -192,14 +193,14 @@ export function AdminCashbillListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-2 lg:hidden">
-            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} />)}
+            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} />)}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
             <table className="w-full border-collapse text-fluid-xs">
               <thead className="bg-slate-100">
                 <tr>
-                  {['발급일', '접수', '브랜드', '구분', '금액', '상태', '국세청', '취소'].map((label) => (
+                  {['발급일', '접수', '브랜드', '구분', '금액', '상태', '국세청', ''].map((label) => (
                     <th key={label} className="px-2 py-2 text-center font-medium text-slate-700">{label}</th>
                   ))}
                 </tr>
@@ -215,11 +216,7 @@ export function AdminCashbillListPage() {
                     <td className="px-2 py-2 text-center">{cashbillStateLabel(row.barobillState, row.lastError)}</td>
                     <td className="px-2 py-2 text-center">{row.ntsConfirmNum || '—'}</td>
                     <td className="px-2 py-2 text-center">
-                      {row.canCancel ? (
-                        <button type="button" className="min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={cancellingId === row.id} onClick={() => void cancelRow(row.id)}>
-                          취소
-                        </button>
-                      ) : '—'}
+                      <ReceiptActions row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} />
                     </td>
                   </tr>
                 ))}
@@ -235,16 +232,46 @@ export function AdminCashbillListPage() {
   );
 }
 
-function CashbillCard({ row, cancelling, onCancel }: { row: CashbillIssueRow; cancelling: boolean; onCancel: () => void }) {
+function canViewReceipt(row: CashbillIssueRow): boolean {
+  return row.barobillState === '2000' || row.barobillState === '2500' || row.barobillState === '3000' || row.barobillState === '7000';
+}
+
+function ReceiptActions({
+  row,
+  cancelling,
+  onCancel,
+  onError,
+}: {
+  row: CashbillIssueRow;
+  cancelling: boolean;
+  onCancel: () => void;
+  onError: (message: string) => void;
+}) {
+  const btn = 'min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1">
+      {canViewReceipt(row) ? (
+        <button type="button" className={btn} onClick={() => void openCashbillReceipt(row.id).catch((err: unknown) => onError(err instanceof Error ? err.message : '영수증을 열지 못했습니다.'))}>
+          영수증 보기
+        </button>
+      ) : null}
+      {row.canCancel ? (
+        <button type="button" className={btn} disabled={cancelling} onClick={onCancel}>
+          {cancelling ? '취소 중…' : '취소'}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function CashbillCard({ row, cancelling, onCancel, onError }: { row: CashbillIssueRow; cancelling: boolean; onCancel: () => void; onError: (message: string) => void }) {
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-2">
       <p className="truncate text-fluid-sm font-medium">{row.customerName}</p>
       <p className="text-fluid-xs text-slate-700">{CASHBILL_KIND_LABEL[row.kind as CashbillKind]} {won(row.totalWon)} · {cashbillStateLabel(row.barobillState, row.lastError)}</p>
       <p className="truncate text-fluid-2xs text-slate-500">{row.brandName} · {row.inquiryNumber ?? ''} · 국세청 {row.ntsConfirmNum || '대기'}</p>
-      {row.canCancel ? (
-        <button type="button" className="mt-1 min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={cancelling} onClick={onCancel}>
-          취소
-        </button>
+      {row.canCancel || canViewReceipt(row) ? (
+        <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} />
       ) : null}
     </article>
   );

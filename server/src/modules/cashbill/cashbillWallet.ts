@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
-import { CASHBILL_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
+import { CASHBILL_UNIT_PRICE_KRW, TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
 import { ensureTenantAlimtalkDefaults } from '../alimtalk/alimtalkWallet.service.js';
 
 export const CASHBILL_WALLET_SHORT_MESSAGE = '청소비서 지갑 잔액이 부족합니다. 충전해 주세요.';
@@ -41,6 +41,29 @@ export async function refundCashbillWallet(tenantId: string, plan: string): Prom
     data: { prepaidBalanceKrw: { increment: CASHBILL_UNIT_PRICE_KRW } },
   });
   await writeWalletLog(tenantId, CASHBILL_UNIT_PRICE_KRW, '현금영수증 차감 취소');
+}
+
+export async function chargeTaxInvoiceWallet(tenantId: string, plan: string): Promise<boolean> {
+  await ensureTenantAlimtalkDefaults(tenantId, plan);
+  const updated = await prisma.$executeRaw`
+    UPDATE tenant_alimtalk_wallets
+    SET prepaid_balance_krw = prepaid_balance_krw - ${TAXINVOICE_UNIT_PRICE_KRW},
+        updated_at = NOW()
+    WHERE tenant_id = ${tenantId}
+      AND prepaid_balance_krw >= ${TAXINVOICE_UNIT_PRICE_KRW}
+  `;
+  if (Number(updated) !== 1) return false;
+  await writeWalletLog(tenantId, -TAXINVOICE_UNIT_PRICE_KRW, '세금계산서');
+  return true;
+}
+
+export async function refundTaxInvoiceWallet(tenantId: string, plan: string): Promise<void> {
+  await ensureTenantAlimtalkDefaults(tenantId, plan);
+  await prisma.tenantAlimtalkWallet.update({
+    where: { tenantId },
+    data: { prepaidBalanceKrw: { increment: TAXINVOICE_UNIT_PRICE_KRW } },
+  });
+  await writeWalletLog(tenantId, TAXINVOICE_UNIT_PRICE_KRW, '세금계산서 차감 취소');
 }
 
 export async function readCashbillWalletBalance(tenantId: string, plan: string): Promise<number> {

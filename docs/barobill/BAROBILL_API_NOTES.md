@@ -52,6 +52,7 @@
 - 정발급 권장 흐름: **간편발급 `RegistAndIssueTaxInvoice`** (임시저장+발급 분리 시 재처리 로직 필요).
 - InvoicerParty.MgtNum(공급자 관리번호) · InvoicerParty.ContactID(공급자 바로빌 아이디) 필수. 공급받는자 MgtNum/ContactID 는 빈 값.
 - 상태: `GetTaxInvoiceStateEX(s)` → BarobillState 1000 임시 · 3014 발급완료 · 5031 발급취소 / NTSSendState 1 전송전(취소가능) · 2·3 전송중 · 4 성공 · 5 실패.
+- 발급취소(국세청 전송 전): 현재 TI WSDL의 `ProcTaxInvoice`. `ProcType=ISSUE_CANCEL`, `Memo`는 빈 문자열. 전송 후 취소 API는 쓰지 않는다.
 - 국세청 전송 기본값: **발급 익일 14시 자동전송**(콘솔 환경설정). 지연발급(익월 10일 후) 기본 차단.
 - 발급 시 공급받는자 이메일 자동 발송(테스트환경도 실제 발송 주의).
 

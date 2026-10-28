@@ -12,6 +12,7 @@ import {
   loadBrandForTenant,
   registerCashbillMember,
 } from './cashbillMember.service.js';
+import { certificateRegisterUrl, refreshOneBarobillCert } from '../taxinvoice/taxInvoiceCert.service.js';
 
 const router = Router();
 const registrationUpload = multer({
@@ -47,6 +48,41 @@ router.get('/settings', async (req, res) => {
     res.json(await getCashbillSettings(tenantId));
   } catch (err) {
     sendError(res, err, '계산서 연결을 불러오지 못했습니다.');
+  }
+});
+
+router.get('/certificate-status', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!requireTenantAdmin(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const operatingCompanyId = typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : '';
+  if (!operatingCompanyId) {
+    res.status(400).json({ error: '브랜드를 선택해 주세요.' });
+    return;
+  }
+  try {
+    res.json(await refreshOneBarobillCert(tenantId, operatingCompanyId));
+  } catch (err) {
+    sendError(res, err, '공동인증서 상태를 확인하지 못했습니다.');
+  }
+});
+
+router.post('/certificate-url', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!requireTenantAdmin(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const operatingCompanyId = typeof req.body?.operatingCompanyId === 'string' ? req.body.operatingCompanyId.trim() : '';
+  if (!operatingCompanyId) {
+    res.status(400).json({ error: '브랜드를 선택해 주세요.' });
+    return;
+  }
+  try {
+    res.json(await certificateRegisterUrl(tenantId, operatingCompanyId));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '공동인증서 등록 주소를 받지 못했습니다.';
+    res.status(400).json({ error: message.slice(0, 200) });
   }
 });
 
@@ -118,7 +154,7 @@ router.post('/members', async (req, res) => {
       businessRegistrationImageUrl: typeof body.businessRegistrationImageUrl === 'string' ? body.businessRegistrationImageUrl : undefined,
       businessRegistrationImagePublicId: typeof body.businessRegistrationImagePublicId === 'string' ? body.businessRegistrationImagePublicId : undefined,
     });
-    res.json(result);
+    res.json({ status: result.status, lastError: result.lastError, taxType: result.taxType });
   } catch (err) {
     sendError(res, err, '회원사 가입에 실패했습니다.');
   }

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request } from 'express';
 import { syncOpenCashbillStates } from './cashbillIssue.service.js';
+import { syncOpenTaxInvoiceStates } from '../taxinvoice/taxInvoice.service.js';
 
 const router = Router();
 
@@ -19,9 +20,16 @@ router.post('/cashbill-states', async (req, res) => {
     return;
   }
   try {
-    const result = await syncOpenCashbillStates();
-    console.info('[cashbill-states] cron', result);
-    res.json(result);
+    const cashbill = await syncOpenCashbillStates();
+    let taxInvoice: { checked: number; updated: number } | { error: true } = { checked: 0, updated: 0 };
+    try {
+      taxInvoice = await syncOpenTaxInvoiceStates();
+    } catch (err) {
+      console.error('[cashbill-states] tax invoice', err instanceof Error ? err.name : 'error');
+      taxInvoice = { error: true };
+    }
+    console.info('[cashbill-states] cron', { cashbill, taxInvoice });
+    res.json({ cashbill, taxInvoice });
   } catch (err) {
     console.error('[cashbill-states] cron failed', err instanceof Error ? err.name : 'error');
     res.status(500).json({ error: '현금영수증 상태 조회에 실패했습니다.' });

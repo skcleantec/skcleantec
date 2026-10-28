@@ -9,6 +9,7 @@ import { BAROBILL_ALREADY_MEMBER_CODE, BAROBILL_PROCESSING_STALE_MS } from '../.
 import { BarobillCallError } from '../../lib/barobill/soap.js';
 import { checkCorpIsMember, newBarobillPassword, newBarobillUserId, registCorp } from '../../lib/barobill/ti.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
+import { refreshBarobillCerts } from '../taxinvoice/taxInvoiceCert.service.js';
 
 export class CashbillMemberError extends Error {
   readonly statusCode: number;
@@ -65,6 +66,7 @@ async function loadSignupProfile(tenantId: string) {
 
 export async function getCashbillSettings(tenantId: string) {
   assertTestEnv();
+  await refreshBarobillCerts(tenantId).catch(() => undefined);
   const env = resolveBarobillEnv();
   const { signup, pg } = await loadSignupProfile(tenantId);
   const individual = signup?.businessType === 'individual';
@@ -91,6 +93,8 @@ export async function getCashbillSettings(tenantId: string) {
           rejectReason: true,
           businessRegistrationImageUrl: true,
           businessRegistrationImagePublicId: true,
+          certValid: true,
+          certExpireDate: true,
         },
       },
     },
@@ -133,7 +137,9 @@ export async function getCashbillSettings(tenantId: string) {
               rejectReason: visible.rejectReason,
               businessRegistrationImageUrl: visible.businessRegistrationImageUrl,
               businessRegistrationImagePublicId: visible.businessRegistrationImagePublicId,
-              barobillUserId: visible.barobillUserId,
+              linked: visible.status === 'ACTIVE' && Boolean(visible.barobillUserId.trim()),
+              certValid: visible.certValid,
+              certExpireDate: visible.certExpireDate,
             }
           : null,
       };

@@ -34,7 +34,9 @@ export type CashbillSettings = {
       rejectReason: string | null;
       businessRegistrationImageUrl: string | null;
       businessRegistrationImagePublicId: string | null;
-      barobillUserId: string;
+      linked: boolean;
+      certValid: boolean | null;
+      certExpireDate: string | null;
     } | null;
   }[];
 };
@@ -97,4 +99,24 @@ export async function registerCashbillMember(body: {
     lastError: string | null;
     taxType: string | null;
   }>;
+}
+
+export async function openCashbillCertificateUrl(operatingCompanyId: string): Promise<{ url: string; embed: boolean }> {
+  const res = await fetch(`${API}/cashbill/certificate-url`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ operatingCompanyId }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '공동인증서 등록 주소를 받지 못했습니다.'));
+  const body = (await res.json()) as { url?: string; embed?: boolean };
+  if (!body.url) throw new Error('공동인증서 등록 주소를 받지 못했습니다.');
+  return { url: body.url, embed: body.embed !== false };
+}
+
+export async function fetchCashbillCertificateStatus(operatingCompanyId: string): Promise<{ valid: boolean; expireDate: string | null }> {
+  const res = await fetch(`${API}/cashbill/certificate-status?operatingCompanyId=${encodeURIComponent(operatingCompanyId)}`, {
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '공동인증서 상태를 확인하지 못했습니다.'));
+  return res.json() as Promise<{ valid: boolean; expireDate: string | null }>;
 }

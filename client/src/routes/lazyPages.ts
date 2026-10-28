@@ -334,9 +334,9 @@ export const AdminCashbillListPage = lazyWithRetry(() =>
     default: m.AdminCashbillListPage,
   }))
 );
-export const AdminTaxInvoicePlaceholderPage = lazyWithRetry(() =>
-  import('../pages/admin/AdminTaxInvoicePlaceholderPage').then((m) => ({
-    default: m.AdminTaxInvoicePlaceholderPage,
+export const AdminTaxInvoiceListPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminTaxInvoiceListPage').then((m) => ({
+    default: m.AdminTaxInvoiceListPage,
   }))
 );
 export const AdminNotificationSettingsPage = lazyWithRetry(() =>

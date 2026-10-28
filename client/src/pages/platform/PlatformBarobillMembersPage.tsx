@@ -52,7 +52,7 @@ export function PlatformBarobillMembersPage() {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [checks, setChecks] = useState<Record<string, { isMember: boolean; message: string }>>({});
-  const [holds, setHolds] = useState<{ id: string; tenantName: string; code: number; createdAt: string }[]>([]);
+  const [holds, setHolds] = useState<{ id: string; tenantName: string; code: number; kind?: string; createdAt: string }[]>([]);
 
   function replace(next: Record<string, string | null>, resetPage: boolean) {
     const qs = new URLSearchParams(params);
@@ -206,7 +206,7 @@ export function PlatformBarobillMembersPage() {
           <p className="font-medium">발급 보류</p>
           <ul className="mt-1 space-y-0.5">
             {holds.map((hold) => (
-              <li key={hold.id}>{hold.tenantName} · 일시적으로 발급할 수 없습니다 · {hold.code}</li>
+              <li key={hold.id}>{hold.tenantName} · {hold.kind === 'taxinvoice' ? '세금계산서' : '현금영수증'} · 일시적으로 발급할 수 없습니다 · {hold.code}</li>
             ))}
           </ul>
         </div>
@@ -404,7 +404,7 @@ function LinkComplete({
       <input
         className="w-28 rounded-lg border border-gray-300 px-2 py-1 text-fluid-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
         value={userId}
-        placeholder="바로빌 아이디"
+        placeholder="회원 아이디"
         onChange={(e) => onUserId(e.target.value)}
         disabled={busy}
       />
