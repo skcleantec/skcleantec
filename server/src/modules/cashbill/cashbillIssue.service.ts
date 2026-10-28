@@ -1,21 +1,21 @@
 import { randomBytes } from 'node:crypto';
-import type { CashBillIssue, CashBillIssueKind, Prisma } from '@prisma/client';
+import type { CashBillIssue, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError } from '../../lib/barobill/soap.js';
 import { maskCorpNum, maskPhone, normalizeCorpNum } from '../../lib/barobill/mask.js';
 import { CASHBILL_UNIT_PRICE_KRW, publicBarobillMessage } from '../../lib/barobill/policy.js';
 import { addDaysToKstYmd, createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
-import { cashbillCaps, splitCashbillTax, type CashbillPartKind } from './cashbillIssue.amounts.js';
+import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
+import { cashbillRemaining, splitCashbillTax, type CashbillPartKind } from './cashbillIssue.amounts.js';
 import {
   cancelCashBillFull,
-  fetchCashbillMailUrl,
   fetchCashbillState,
   fetchCashbillStates,
   PARTNER_BALANCE_CODES,
   registAndIssueCashBill,
 } from './cashbillIssue.barobill.js';
-import { chargeCashbillWallet, CASHBILL_WALLET_SHORT_MESSAGE, readCashbillWalletBalance, refundCashbillWallet } from './cashbillWallet.js';
+import { chargeCashbillWallet, CASHBILL_WALLET_SHORT_MESSAGE, refundCashbillWallet } from './cashbillWallet.js';
 
 export const CASHBILL_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
 export const CASHBILL_SIMPLIFIED_MESSAGE = '간이과세자 현금영수증은 바로빌 답변 전까지 발급할 수 없습니다.';
@@ -57,15 +57,30 @@ function tradeDateYmd(raw: string | undefined): string {
   return chosen.replace(/-/g, '');
 }
 
-function identityFor(usage: 1 | 2, raw: string | undefined, customerPhone: string): { num: string; masked: string; method: '4' | '5' } {
-  if (usage === 2) {
-    const biz = normalizeCorpNum(raw);
-    if (!biz) throw new CashbillIssueError('지출증빙은 사업자번호 10자리가 필요합니다.');
-    return { num: biz, masked: maskCorpNum(biz), method: '4' };
+type UsageMode = 'phone' | 'biz' | 'voluntary';
+
+function identityFor(mode: UsageMode, raw: string | undefined, customerPhone: string): { num: string; masked: string; method: '4' | '5'; usage: 1 | 2 } {
+  if (mode === 'voluntary') {
+    return { num: '0100001234', masked: '자진발급', method: '5', usage: 1 };
   }
+  if (mode === 'biz') {
+    const biz = normalizeCorpNum(raw);
+    if (!biz || biz.length !== 10 || !isValidKoreanBizNumberChecksum(biz)) {
+      throw new CashbillIssueError('사업자등록번호 10자리 검증에 맞지 않습니다.');
+    }
+    return { num: biz, masked: maskCorpNum(biz), method: '4', usage: 2 };
+  }
+  if (mode !== 'phone') throw new CashbillIssueError('용도는 소득공제, 지출증빙, 자진발급만 가능합니다.');
   const phone = digits(raw) || digits(customerPhone);
-  const num = phone.length >= 10 ? phone : '0100001234';
-  return { num, masked: num === '0100001234' ? '자진발급' : maskPhone(num), method: '5' };
+  if (!/^01\d{8,9}$/.test(phone)) {
+    throw new CashbillIssueError('소득공제는 휴대폰 번호만 입력할 수 있습니다.');
+  }
+  return { num: phone, masked: maskPhone(phone), method: '5', usage: 1 };
+}
+
+function itemNameOf(raw: string | undefined): string {
+  const name = String(raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 50);
+  return name || '청소 서비스';
 }
 
 function isOpen(row: { barobillState: string | null; chargedKrw: number; lastError: string | null }): boolean {
@@ -156,30 +171,58 @@ async function cardPaidWon(tenantId: string, inquiryId: string): Promise<number>
   return sum._sum.amountWon ?? 0;
 }
 
-export async function getInquiryCashbill(tenantId: string, inquiryId: string) {
-  const inquiry = await loadInquiry(tenantId, inquiryId);
-  const { brand, member, linked } = await loadActiveMember(tenantId, inquiry.operatingCompanyId);
-  const rows = await issueRows(tenantId, inquiryId);
-  const paid = await cardPaidWon(tenantId, inquiryId);
-  const caps = cashbillCaps({ ...amountsOf(inquiry), cardPaidWon: paid, counted: countedRows(rows) });
-  const plan = await tenantPlan(tenantId);
-  const simplified = member?.taxType === '2';
-  return {
-    inquiryId: inquiry.id,
-    inquiryNumber: inquiry.inquiryNumber,
-    customerName: inquiry.customerName,
-    brandId: brand.id,
-    brandName: brand.name,
-    linkState: !linked ? 'unlinked' : simplified ? 'simplified' : 'ready',
-    linkMessage: !linked ? CASHBILL_LINK_MESSAGE : simplified ? CASHBILL_SIMPLIFIED_MESSAGE : null,
-    settingsPath: '/admin/team-leaders/cashbill',
-    chargePath: '/admin/team-leaders/alimtalk',
-    unitPriceKrw: CASHBILL_UNIT_PRICE_KRW,
-    walletBalanceKrw: await readCashbillWalletBalance(tenantId, plan),
-    cardPaidWon: paid,
-    caps,
-    issues: rows.map(toPublicIssue),
-  };
+function issuedWonOf(rows: IssueRow[]): number {
+  return countedRows(rows).reduce((sum, row) => sum + row.totalWon, 0);
+}
+
+export async function searchCashbillInquiries(tenantId: string, rawQuery: string) {
+  const q = rawQuery.trim().slice(0, 40);
+  const phone = digits(q);
+  if (q.length < 2 && phone.length < 3) return [];
+  const or: Prisma.InquiryWhereInput[] = [];
+  if (q.length >= 2) or.push({ customerName: { contains: q, mode: 'insensitive' } });
+  if (phone.length >= 3) or.push({ customerPhone: { contains: phone } });
+  if (q.length >= 3) or.push({ customerPhone: { contains: q } });
+  const found = await prisma.inquiry.findMany({
+    where: { tenantId, deletedAt: null, OR: or },
+    select: {
+      id: true,
+      inquiryNumber: true,
+      customerName: true,
+      customerPhone: true,
+      operatingCompanyId: true,
+      serviceTotalAmount: true,
+      serviceDepositAmount: true,
+      serviceBalanceAmount: true,
+      orderForm: { select: { totalAmount: true, depositAmount: true, balanceAmount: true } },
+      operatingCompany: {
+        select: {
+          name: true,
+          barobillMember: { select: { status: true, barobillUserId: true, taxType: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 8,
+  });
+  const rows = await Promise.all(found.map(async (inquiry) => {
+    const issued = await issueRows(tenantId, inquiry.id);
+    const paid = await cardPaidWon(tenantId, inquiry.id);
+    const member = inquiry.operatingCompany.barobillMember;
+    const linked = member?.status === 'ACTIVE' && Boolean(member.barobillUserId.trim());
+    return {
+      id: inquiry.id,
+      inquiryNumber: inquiry.inquiryNumber,
+      customerName: inquiry.customerName,
+      customerPhone: inquiry.customerPhone,
+      brandId: inquiry.operatingCompanyId,
+      brandName: inquiry.operatingCompany.name,
+      linked,
+      simplified: member?.taxType === '2',
+      remainingWon: cashbillRemaining(amountsOf(inquiry).total, paid, issuedWonOf(issued)),
+    };
+  }));
+  return rows;
 }
 
 function toPublicIssue(row: CashBillIssue) {
@@ -188,6 +231,7 @@ function toPublicIssue(row: CashBillIssue) {
     kind: row.kind,
     tradeUsage: row.tradeUsage,
     identityMasked: row.identityMasked,
+    itemName: row.itemName,
     totalWon: row.totalWon,
     amount: row.amount,
     tax: row.tax,
@@ -251,30 +295,40 @@ async function applyBarobillFailure(row: CashBillIssue, err: unknown, plan: stri
   throw new CashbillIssueError(message, 502);
 }
 
-export async function issueInquiryCashbill(
+export async function issueCashbill(
   tenantId: string,
   userId: string,
-  inquiryId: string,
-  input: { kind?: string; tradeUsage?: number; identity?: string; tradeDate?: string; requestId?: string },
+  input: {
+    inquiryId?: string | null;
+    operatingCompanyId?: string;
+    amount?: number;
+    usage?: string;
+    identity?: string;
+    itemName?: string;
+    tradeDate?: string;
+    requestId?: string;
+  },
 ) {
-  const kind = input.kind;
-  if (kind !== 'DEPOSIT' && kind !== 'BALANCE' && kind !== 'FULL') {
-    throw new CashbillIssueError('예약금, 잔금, 전체 중 하나를 선택해 주세요.');
-  }
-  const usage = input.tradeUsage === 2 ? 2 : 1;
-  const inquiry = await loadInquiry(tenantId, inquiryId);
-  const { member, linked } = await loadActiveMember(tenantId, inquiry.operatingCompanyId);
+  const inquiry = input.inquiryId ? await loadInquiry(tenantId, input.inquiryId) : null;
+  const brandId = inquiry?.operatingCompanyId || input.operatingCompanyId?.trim() || '';
+  if (!brandId) throw new CashbillIssueError('브랜드를 선택해 주세요.');
+  const { member, linked } = await loadActiveMember(tenantId, brandId);
   if (!linked || !member) throw new CashbillIssueError(CASHBILL_LINK_MESSAGE, 409, 'link_required');
   if (member.taxType === '2') throw new CashbillIssueError(CASHBILL_SIMPLIFIED_MESSAGE, 409, 'simplified');
-  const rows = await issueRows(tenantId, inquiryId);
-  const caps = cashbillCaps({
-    ...amountsOf(inquiry),
-    cardPaidWon: await cardPaidWon(tenantId, inquiryId),
-    counted: countedRows(rows),
-  });
-  const totalWon = caps[kind === 'DEPOSIT' ? 'deposit' : kind === 'BALANCE' ? 'balance' : 'full'];
-  if (totalWon <= 0) throw new CashbillIssueError('발급할 현금 금액이 없습니다. 카드결제분을 뺀 한도를 확인해 주세요.');
-  const who = identityFor(usage, input.identity, inquiry.customerPhone);
+  const totalWon = Math.round(Number(input.amount));
+  if (!Number.isFinite(totalWon) || totalWon < 1) throw new CashbillIssueError('금액을 입력해 주세요.');
+  if (inquiry) {
+    const remain = cashbillRemaining(
+      amountsOf(inquiry).total,
+      await cardPaidWon(tenantId, inquiry.id),
+      issuedWonOf(await issueRows(tenantId, inquiry.id)),
+    );
+    if (totalWon > remain) throw new CashbillIssueError('발급 가능한 금액을 넘었습니다.');
+  }
+  const mode = input.usage === 'biz' || input.usage === 'voluntary' || input.usage === 'phone' ? input.usage : null;
+  if (!mode) throw new CashbillIssueError('용도는 소득공제, 지출증빙, 자진발급만 가능합니다.');
+  const who = identityFor(mode, input.identity, inquiry?.customerPhone ?? '');
+  const itemName = itemNameOf(input.itemName);
   const date = tradeDateYmd(input.tradeDate);
   const tax = splitCashbillTax(totalWon);
   const key = mgtKey('i', input.requestId);
@@ -287,12 +341,13 @@ export async function issueInquiryCashbill(
       data: {
         tenantId,
         memberId: member.id,
-        inquiryId: inquiry.id,
-        operatingCompanyId: inquiry.operatingCompanyId,
+        inquiryId: inquiry?.id ?? null,
+        operatingCompanyId: brandId,
         mgtKey: key,
-        kind: kind as CashBillIssueKind,
-        tradeUsage: usage,
+        kind: 'FULL',
+        tradeUsage: who.usage,
         identityMasked: who.masked,
+        itemName,
         amount: tax.amount,
         tax: tax.tax,
         serviceCharge: tax.serviceCharge,
@@ -329,12 +384,12 @@ export async function issueInquiryCashbill(
       addr: member.addr1,
       tel: member.contactTel,
       tradeDate: date,
-      tradeUsage: usage === 2 ? '2' : '1',
+      tradeUsage: who.usage === 2 ? '2' : '1',
       tradeMethod: who.method,
       amount: String(tax.amount),
       tax: String(tax.tax),
       serviceCharge: String(tax.serviceCharge),
-      itemName: '청소 서비스',
+      itemName,
     });
     const state = await fetchCashbillState({ corpNum: member.corpNum, userId: member.barobillUserId, mgtKey: key }).catch(() => null);
     await rememberState(chargedRow, state ?? { barobillState: '2000', ntsConfirmNum: null });
@@ -368,25 +423,26 @@ async function resumeIssue(
   throw new CashbillIssueError('이미 처리 중', 409);
 }
 
-export async function cancelInquiryCashbill(
+export async function cancelCashbillIssue(
   tenantId: string,
   userId: string,
-  inquiryId: string,
-  input: { issueId?: string; requestId?: string },
+  issueId: string,
+  requestId: string | undefined,
 ) {
-  const inquiry = await loadInquiry(tenantId, inquiryId);
-  const { member, linked } = await loadActiveMember(tenantId, inquiry.operatingCompanyId);
-  if (!linked || !member) throw new CashbillIssueError(CASHBILL_LINK_MESSAGE, 409, 'link_required');
-  const rows = await issueRows(tenantId, inquiryId);
-  const original = rows.find((row) => row.id === input.issueId);
+  const original = await prisma.cashBillIssue.findFirst({
+    where: { id: issueId, tenantId },
+    include: { cancellations: { select: { barobillState: true } } },
+  });
   if (!original || original.kind === 'CANCEL') throw new CashbillIssueError('취소할 발급 건이 없습니다.', 404);
+  const { member, linked } = await loadActiveMember(tenantId, original.operatingCompanyId);
+  if (!linked || !member) throw new CashbillIssueError(CASHBILL_LINK_MESSAGE, 409, 'link_required');
   if (!original.barobillState || !COUNTED_STATES.has(original.barobillState)) {
     throw new CashbillIssueError('발급이 끝난 건만 취소할 수 있습니다.');
   }
   if (original.cancellations.some((child) => child.barobillState && CANCEL_DONE.has(child.barobillState))) {
     throw new CashbillIssueError('이미 취소된 현금영수증입니다.');
   }
-  const key = mgtKey('c', input.requestId);
+  const key = mgtKey('c', requestId);
   const plan = await tenantPlan(tenantId);
   const existing = await prisma.cashBillIssue.findFirst({ where: { tenantId, memberId: member.id, mgtKey: key } });
   if (existing?.barobillState) return toPublicIssue(existing);
@@ -396,13 +452,14 @@ export async function cancelInquiryCashbill(
     data: {
       tenantId,
       memberId: member.id,
-      inquiryId: inquiry.id,
-      operatingCompanyId: inquiry.operatingCompanyId,
+      inquiryId: original.inquiryId,
+      operatingCompanyId: original.operatingCompanyId,
       mgtKey: key,
       kind: 'CANCEL',
       cancelOfId: original.id,
       tradeUsage: original.tradeUsage,
       identityMasked: original.identityMasked,
+      itemName: original.itemName,
       amount: original.amount,
       tax: original.tax,
       serviceCharge: original.serviceCharge,
@@ -440,16 +497,6 @@ export async function cancelInquiryCashbill(
   return saved ? toPublicIssue(saved) : toPublicIssue(chargedRow);
 }
 
-export async function copyInquiryCashbillMail(tenantId: string, inquiryId: string, issueId: string) {
-  const inquiry = await loadInquiry(tenantId, inquiryId);
-  const { member, linked } = await loadActiveMember(tenantId, inquiry.operatingCompanyId);
-  if (!linked || !member) throw new CashbillIssueError(CASHBILL_LINK_MESSAGE, 409, 'link_required');
-  const row = await prisma.cashBillIssue.findFirst({ where: { id: issueId, tenantId, inquiryId } });
-  if (!row?.barobillState) throw new CashbillIssueError('발급된 현금영수증만 주소를 받을 수 있습니다.', 404);
-  const url = await fetchCashbillMailUrl({ corpNum: member.corpNum, userId: member.barobillUserId, mgtKey: row.mgtKey });
-  return { url };
-}
-
 export async function listCashbillIssues(tenantId: string, query: {
   datePreset?: string;
   month?: string;
@@ -478,6 +525,7 @@ export async function listCashbillIssues(tenantId: string, query: {
       include: {
         inquiry: { select: { inquiryNumber: true, customerName: true } },
         operatingCompany: { select: { name: true } },
+        cancellations: { select: { barobillState: true } },
       },
     }),
     prisma.cashBillIssue.count({ where }),
@@ -494,9 +542,10 @@ export async function listCashbillIssues(tenantId: string, query: {
   return {
     items: items.map((row) => ({
       ...toPublicIssue(row),
-      inquiryNumber: row.inquiry.inquiryNumber,
-      customerName: row.inquiry.customerName,
+      inquiryNumber: row.inquiry?.inquiryNumber ?? null,
+      customerName: row.inquiry?.customerName ?? '매칭 없음',
       brandName: row.operatingCompany.name,
+      canCancel: row.kind !== 'CANCEL' && COUNTED_STATES.has(row.barobillState ?? '') && !row.cancellations.some((child) => child.barobillState && CANCEL_DONE.has(child.barobillState)),
     })),
     total,
     brands: brands.map((brand) => ({

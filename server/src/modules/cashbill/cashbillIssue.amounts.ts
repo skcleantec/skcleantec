@@ -52,6 +52,11 @@ export function cashbillCaps(input: {
   return { cashCeiling, deposit: depositRoom, balance: balanceRoom, full: cashCeiling };
 }
 
+/** 총액에서 카드결제와 이미 발행한 금액(취소분 제외)을 뺀 남은 한도. */
+export function cashbillRemaining(total: number, cardPaidWon: number, issuedWon: number): number {
+  return Math.max(0, Math.round(total) - Math.max(0, Math.round(cardPaidWon)) - Math.max(0, Math.round(issuedWon)));
+}
+
 /** 일반과세. 공급가액 = round(합계/1.1), 부가세 = 합계 − 공급가액. */
 export function splitCashbillTax(totalWon: number): { amount: number; tax: number; serviceCharge: number } {
   const total = Math.max(0, Math.round(totalWon));

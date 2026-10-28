@@ -4,12 +4,14 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import {
+  cancelCashbillIssue,
   cashbillStateLabel,
   CASHBILL_KIND_LABEL,
   listCashbillIssues,
   type CashbillIssueRow,
   type CashbillKind,
 } from '../../api/cashbillIssues';
+import { CashbillIssueForm } from '../../components/cashbill/CashbillIssueForm';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 
@@ -51,6 +53,9 @@ export function AdminCashbillListPage() {
   const [brands, setBrands] = useState<{ id: string; name: string; linked: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
 
   const patch = useCallback((next: Record<string, string | null>) => {
@@ -92,7 +97,31 @@ export function AdminCashbillListPage() {
     return () => {
       cancelled = true;
     };
-  }, [datePreset, monthKey, dayKey, state, brandId, pageSize, safePage]);
+  }, [datePreset, monthKey, dayKey, state, brandId, pageSize, safePage, reload]);
+
+  async function cancelRow(issueId: string) {
+    setCancellingId(issueId);
+    setError(null);
+    try {
+      await cancelCashbillIssue(issueId, crypto.randomUUID());
+      const qs = new URLSearchParams();
+      qs.set('datePreset', datePreset);
+      if (datePreset === 'month') qs.set('month', monthKey);
+      if (datePreset === 'day') qs.set('day', dayKey);
+      if (state) qs.set('state', state);
+      if (brandId) qs.set('brandId', brandId);
+      qs.set('limit', String(pageSize));
+      qs.set('offset', String((safePage - 1) * pageSize));
+      const res = await listCashbillIssues(qs);
+      setItems(res.items);
+      setTotal(res.total);
+      setBrands(res.brands);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '현금영수증 취소에 실패했습니다.');
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   const blocking = shouldShowListBlockingLoading(loading, items.length);
   const selectedBrand = brands.find((brand) => brand.id === brandId);
@@ -113,6 +142,20 @@ export function AdminCashbillListPage() {
             계산서 연결로 가기
           </Link>
         </div>
+      ) : null}
+      {!needsLink ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            onClick={() => setIssueOpen((open) => !open)}
+          >
+            현금영수증 발행
+          </button>
+        </div>
+      ) : null}
+      {!needsLink && issueOpen ? (
+        <CashbillIssueForm brands={brands} onDone={() => { setIssueOpen(false); setReload((n) => n + 1); }} />
       ) : null}
       {!needsLink ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
         <span className="text-fluid-xs text-slate-600">발급일</span>
@@ -149,14 +192,14 @@ export function AdminCashbillListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-2 lg:hidden">
-            {items.map((row) => <CashbillCard key={row.id} row={row} />)}
+            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} />)}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
             <table className="w-full border-collapse text-fluid-xs">
               <thead className="bg-slate-100">
                 <tr>
-                  {['발급일', '접수', '브랜드', '구분', '금액', '상태', '국세청'].map((label) => (
+                  {['발급일', '접수', '브랜드', '구분', '금액', '상태', '국세청', '취소'].map((label) => (
                     <th key={label} className="px-2 py-2 text-center font-medium text-slate-700">{label}</th>
                   ))}
                 </tr>
@@ -171,6 +214,13 @@ export function AdminCashbillListPage() {
                     <td className="px-2 py-2 text-right tabular-nums">{won(row.totalWon)}</td>
                     <td className="px-2 py-2 text-center">{cashbillStateLabel(row.barobillState, row.lastError)}</td>
                     <td className="px-2 py-2 text-center">{row.ntsConfirmNum || '—'}</td>
+                    <td className="px-2 py-2 text-center">
+                      {row.canCancel ? (
+                        <button type="button" className="min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={cancellingId === row.id} onClick={() => void cancelRow(row.id)}>
+                          취소
+                        </button>
+                      ) : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -185,12 +235,17 @@ export function AdminCashbillListPage() {
   );
 }
 
-function CashbillCard({ row }: { row: CashbillIssueRow }) {
+function CashbillCard({ row, cancelling, onCancel }: { row: CashbillIssueRow; cancelling: boolean; onCancel: () => void }) {
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-2">
       <p className="truncate text-fluid-sm font-medium">{row.customerName}</p>
       <p className="text-fluid-xs text-slate-700">{CASHBILL_KIND_LABEL[row.kind as CashbillKind]} {won(row.totalWon)} · {cashbillStateLabel(row.barobillState, row.lastError)}</p>
       <p className="truncate text-fluid-2xs text-slate-500">{row.brandName} · {row.inquiryNumber ?? ''} · 국세청 {row.ntsConfirmNum || '대기'}</p>
+      {row.canCancel ? (
+        <button type="button" className="mt-1 min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={cancelling} onClick={onCancel}>
+          취소
+        </button>
+      ) : null}
     </article>
   );
 }

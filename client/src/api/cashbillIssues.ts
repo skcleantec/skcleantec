@@ -2,12 +2,14 @@ import { API, apiErrorMessage } from './apiPrefix';
 import { getToken } from '../stores/auth';
 
 export type CashbillKind = 'DEPOSIT' | 'BALANCE' | 'FULL' | 'CANCEL';
+export type CashbillUsage = 'phone' | 'biz' | 'voluntary';
 
 export type CashbillIssueRow = {
   id: string;
   kind: CashbillKind;
   tradeUsage: number;
   identityMasked: string;
+  itemName: string;
   totalWon: number;
   amount: number;
   tax: number;
@@ -21,29 +23,25 @@ export type CashbillIssueRow = {
   inquiryNumber?: string | null;
   customerName?: string;
   brandName?: string;
+  canCancel?: boolean;
 };
 
-export type CashbillInquiryView = {
-  inquiryId: string;
+export type CashbillSearchHit = {
+  id: string;
   inquiryNumber: string | null;
   customerName: string;
+  customerPhone: string | null;
   brandId: string;
   brandName: string;
-  linkState: 'unlinked' | 'simplified' | 'ready';
-  linkMessage: string | null;
-  settingsPath: string;
-  chargePath: string;
-  unitPriceKrw: number;
-  walletBalanceKrw: number;
-  cardPaidWon: number;
-  caps: { cashCeiling: number; deposit: number; balance: number; full: number };
-  issues: CashbillIssueRow[];
+  linked: boolean;
+  simplified: boolean;
+  remainingWon: number;
 };
 
 export const CASHBILL_KIND_LABEL: Record<CashbillKind, string> = {
-  DEPOSIT: '예약금',
-  BALANCE: '잔금',
-  FULL: '전체',
+  DEPOSIT: '발급',
+  BALANCE: '발급',
+  FULL: '발급',
   CANCEL: '취소',
 };
 
@@ -66,20 +64,24 @@ function headers(): HeadersInit {
   return { Authorization: `Bearer ${getToken() ?? ''}`, 'Content-Type': 'application/json' };
 }
 
-export async function fetchInquiryCashbill(inquiryId: string): Promise<CashbillInquiryView> {
-  const res = await fetch(`${API}/cashbill/inquiries/${inquiryId}`, { headers: headers() });
-  if (!res.ok) throw new Error(await apiErrorMessage(res, '현금영수증을 불러오지 못했습니다.'));
-  return res.json() as Promise<CashbillInquiryView>;
+export async function searchCashbillInquiries(q: string): Promise<CashbillSearchHit[]> {
+  const res = await fetch(`${API}/cashbill/inquiry-search?q=${encodeURIComponent(q)}`, { headers: headers() });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '접수를 검색하지 못했습니다.'));
+  const body = (await res.json()) as { items: CashbillSearchHit[] };
+  return body.items;
 }
 
-export async function issueInquiryCashbill(inquiryId: string, body: {
-  kind: 'DEPOSIT' | 'BALANCE' | 'FULL';
-  tradeUsage: 1 | 2;
+export async function issueCashbill(body: {
+  inquiryId?: string | null;
+  operatingCompanyId?: string;
+  amount: number;
+  usage: CashbillUsage;
   identity?: string;
+  itemName?: string;
   tradeDate?: string;
   requestId: string;
 }): Promise<CashbillIssueRow> {
-  const res = await fetch(`${API}/cashbill/inquiries/${inquiryId}/issue`, {
+  const res = await fetch(`${API}/cashbill/issues`, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify(body),
@@ -88,24 +90,14 @@ export async function issueInquiryCashbill(inquiryId: string, body: {
   return res.json() as Promise<CashbillIssueRow>;
 }
 
-export async function cancelInquiryCashbill(inquiryId: string, issueId: string, requestId: string): Promise<CashbillIssueRow> {
-  const res = await fetch(`${API}/cashbill/inquiries/${inquiryId}/cancel`, {
+export async function cancelCashbillIssue(issueId: string, requestId: string): Promise<CashbillIssueRow> {
+  const res = await fetch(`${API}/cashbill/issues/${issueId}/cancel`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ issueId, requestId }),
+    body: JSON.stringify({ requestId }),
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '현금영수증 취소에 실패했습니다.'));
   return res.json() as Promise<CashbillIssueRow>;
-}
-
-export async function copyInquiryCashbillMail(inquiryId: string, issueId: string): Promise<string> {
-  const res = await fetch(`${API}/cashbill/inquiries/${inquiryId}/issues/${issueId}/mail`, {
-    method: 'POST',
-    headers: headers(),
-  });
-  if (!res.ok) throw new Error(await apiErrorMessage(res, '확인 주소를 만들지 못했습니다.'));
-  const body = (await res.json()) as { url?: string };
-  return body.url ?? '';
 }
 
 export async function listCashbillIssues(qs: URLSearchParams): Promise<{

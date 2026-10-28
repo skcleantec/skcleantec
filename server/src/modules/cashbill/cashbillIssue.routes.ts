@@ -5,12 +5,11 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import {
-  cancelInquiryCashbill,
+  cancelCashbillIssue,
   CashbillIssueError,
-  copyInquiryCashbillMail,
-  getInquiryCashbill,
-  issueInquiryCashbill,
+  issueCashbill,
   listCashbillIssues,
+  searchCashbillInquiries,
 } from './cashbillIssue.service.js';
 
 const router = Router();
@@ -32,6 +31,19 @@ function sendError(res: Response, err: unknown, fallback: string): void {
   console.error('[cashbill-issue]', err instanceof Error ? err.name : 'error');
   res.status(500).json({ error: fallback });
 }
+
+router.get('/inquiry-search', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  try {
+    res.json({ items: await searchCashbillInquiries(tenantId, q) });
+  } catch (err) {
+    sendError(res, err, '접수를 검색하지 못했습니다.');
+  }
+});
 
 router.get('/issues', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
@@ -55,51 +67,28 @@ router.get('/issues', async (req, res) => {
   }
 });
 
-router.get('/inquiries/:inquiryId', async (req, res) => {
+router.post('/issues', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   if (!staff(res, user)) return;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
-    res.json(await getInquiryCashbill(tenantId, req.params.inquiryId));
-  } catch (err) {
-    sendError(res, err, '현금영수증을 불러오지 못했습니다.');
-  }
-});
-
-router.post('/inquiries/:inquiryId/issue', async (req, res) => {
-  const user = (req as unknown as { user: AuthPayload }).user;
-  if (!staff(res, user)) return;
-  const tenantId = await requireTenantIdFromAuth(res, user);
-  if (!tenantId) return;
-  try {
-    res.json(await issueInquiryCashbill(tenantId, user.userId, req.params.inquiryId, req.body ?? {}));
+    res.json(await issueCashbill(tenantId, user.userId, req.body ?? {}));
   } catch (err) {
     sendError(res, err, '현금영수증 발급에 실패했습니다.');
   }
 });
 
-router.post('/inquiries/:inquiryId/cancel', async (req, res) => {
+router.post('/issues/:issueId/cancel', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   if (!staff(res, user)) return;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
+  const requestId = typeof req.body?.requestId === 'string' ? req.body.requestId : undefined;
   try {
-    res.json(await cancelInquiryCashbill(tenantId, user.userId, req.params.inquiryId, req.body ?? {}));
+    res.json(await cancelCashbillIssue(tenantId, user.userId, req.params.issueId, requestId));
   } catch (err) {
     sendError(res, err, '현금영수증 취소에 실패했습니다.');
-  }
-});
-
-router.post('/inquiries/:inquiryId/issues/:issueId/mail', async (req, res) => {
-  const user = (req as unknown as { user: AuthPayload }).user;
-  if (!staff(res, user)) return;
-  const tenantId = await requireTenantIdFromAuth(res, user);
-  if (!tenantId) return;
-  try {
-    res.json(await copyInquiryCashbillMail(tenantId, req.params.inquiryId, req.params.issueId));
-  } catch (err) {
-    sendError(res, err, '확인 주소를 만들지 못했습니다.');
   }
 });
 

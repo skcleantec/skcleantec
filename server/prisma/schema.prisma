@@ -1677,8 +1677,9 @@ model CashBillIssue {
   tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   memberId           String            @map("member_id")
   member             BarobillMember    @relation(fields: [memberId], references: [id], onDelete: Restrict)
-  inquiryId          String            @map("inquiry_id")
-  inquiry            Inquiry           @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
+  /// 매칭 없이 발행하면 null
+  inquiryId          String?           @map("inquiry_id")
+  inquiry            Inquiry?          @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
   operatingCompanyId String            @map("operating_company_id")
   operatingCompany   OperatingCompany  @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
   mgtKey             String            @map("mgt_key") @db.VarChar(24)
@@ -1688,6 +1689,7 @@ model CashBillIssue {
   cancellations      CashBillIssue[]   @relation("CashBillCancel")
   tradeUsage         Int               @map("trade_usage")
   identityMasked     String            @map("identity_masked") @db.VarChar(32)
+  itemName           String            @default("청소 서비스") @map("item_name") @db.VarChar(50)
   amount             Int
   tax                Int
   serviceCharge      Int               @default(0) @map("service_charge")
