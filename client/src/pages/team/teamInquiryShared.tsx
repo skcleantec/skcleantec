@@ -893,11 +893,81 @@ function leaderSummaryLabel(
   return solo ? `${base} · ${SOLO_LEADER_CREW_LABEL}` : base;
 }
 
-export function coLeadersSummaryForViewer(item: InquiryItem, viewerId: string): string {
-  const others = item.assignments
+function coLeaderPeers(item: InquiryItem, viewerId: string) {
+  return item.assignments
     .filter((a) => a.teamLeader.id !== viewerId)
-    .map((a) => leaderSummaryLabel(a.teamLeader, a.noCrewMembers ?? false));
-  return others.length ? others.join(' · ') : '—';
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
+export function coLeadersSummaryForViewer(item: InquiryItem, viewerId: string): string {
+  const others = coLeaderPeers(item, viewerId);
+  if (!others.length) return '—';
+  const missing = teamBiPlain('team.assign.coLeaderNoPhone');
+  return others
+    .map((a) => {
+      const name = leaderSummaryLabel(a.teamLeader, a.noCrewMembers ?? false);
+      const phone = a.teamLeader.phone?.trim();
+      return phone ? `${name} ${phone}` : `${name} ${missing}`;
+    })
+    .join(' · ');
+}
+
+const CO_LEADER_CHIP =
+  'inline-flex min-h-9 max-w-full shrink-0 items-center gap-1 rounded-md px-1.5 text-fluid-2xs font-semibold leading-none';
+
+/** 목록·상세 — 공동배정 배지와 다른 팀장 전화번호. 한 줄 가로 스크롤이라 카드 높이가 늘지 않는다. */
+export function TeamCoLeadersListHint({
+  item,
+  viewerId,
+  className = 'mt-1',
+}: {
+  item: InquiryItem;
+  viewerId: string | null | undefined;
+  className?: string;
+}) {
+  if (!viewerId) return null;
+  const others = coLeaderPeers(item, viewerId);
+  if (!others.length) return null;
+  const badge = teamBiPlain('team.assign.coAssignBadge');
+  const missing = teamBiPlain('team.assign.coLeaderNoPhone');
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <div className="team-chip-scroll">
+        <span className={`${CO_LEADER_CHIP} bg-blue-600 text-white`} title={badge}>
+          {badge}
+        </span>
+        {others.map((a) => {
+          const name = leaderSummaryLabel(a.teamLeader, a.noCrewMembers ?? false);
+          const phone = a.teamLeader.phone?.trim() ?? '';
+          if (phone) {
+            return (
+              <a
+                key={a.teamLeader.id}
+                href={`tel:${phone}`}
+                title={`${name} ${phone}`}
+                aria-label={`${name} ${phone}`}
+                onClick={(e) => e.stopPropagation()}
+                className={`${CO_LEADER_CHIP} border border-blue-300 bg-blue-50 text-blue-950 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2`}
+              >
+                <span className="max-w-[7rem] truncate">{name}</span>
+                <span className="tabular-nums">{phone}</span>
+              </a>
+            );
+          }
+          return (
+            <span
+              key={a.teamLeader.id}
+              className={`${CO_LEADER_CHIP} border border-slate-200 bg-slate-50 font-medium text-slate-700`}
+              title={`${name} ${missing}`}
+            >
+              <span className="max-w-[7rem] truncate">{name}</span>
+              <span>{missing}</span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 /** 접수 상세 상단 — 공동 배정 팀장 강조 */
@@ -909,36 +979,11 @@ export function TeamCoLeadersDetailBanner({
   viewerId: string | null | undefined;
 }) {
   if (!viewerId) return null;
-  const summary = coLeadersSummaryForViewer(item, viewerId);
-  if (summary === '—') return null;
+  if (coLeadersSummaryForViewer(item, viewerId) === '—') return null;
   return (
-    <div className="shrink-0 border-b border-blue-200 bg-blue-50 px-4 py-3" role="status">
-      <p className="text-fluid-xs font-semibold text-blue-900">
-        <TeamBiLine id="team.modal.coLeadersBanner" koClassName="text-fluid-xs font-semibold text-blue-900" />
-      </p>
-      <p className="mt-1 break-words text-fluid-sm font-semibold text-blue-950">{summary}</p>
+    <div className="shrink-0 border-b border-blue-200 bg-blue-50 px-3 py-2" role="status">
+      <TeamCoLeadersListHint item={item} viewerId={viewerId} className="" />
     </div>
-  );
-}
-
-/** 목록 카드 — 공동 배정 팀장이 있을 때만 한 줄 표시 */
-export function TeamCoLeadersListHint({
-  item,
-  viewerId,
-  className = 'mt-1.5 text-fluid-2xs text-gray-600',
-}: {
-  item: InquiryItem;
-  viewerId: string | null | undefined;
-  className?: string;
-}) {
-  if (!viewerId) return null;
-  const summary = coLeadersSummaryForViewer(item, viewerId);
-  if (summary === '—') return null;
-  return (
-    <p className={className} title={summary}>
-      <span className="text-gray-500">{teamBiPlain('team.assign.thCoLeaders')}</span>{' '}
-      <span className="font-medium text-gray-800">{summary}</span>
-    </p>
   );
 }
 
@@ -1019,16 +1064,14 @@ export function TeamAssignedLeadersBlock({
         {phone ? (
           <a
             href={`tel:${phone}`}
-            className={
-              compact
-                ? 'inline-flex shrink-0 items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-px text-fluid-2xs font-medium text-blue-700'
-                : 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-blue-700 hover:bg-blue-50'
-            }
-            aria-label={`${a.teamLeader.name} 전화`}
+            className="inline-flex min-h-9 shrink-0 items-center rounded-md border border-blue-300 bg-blue-50 px-1.5 text-fluid-2xs font-semibold tabular-nums text-blue-950 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
+            aria-label={`${a.teamLeader.name} ${phone}`}
             onClick={(e) => e.stopPropagation()}
           >
-            {compact ? <TeamBiInline id="team.common.phoneCall" /> : <PhoneMiniIcon className="h-4 w-4" />}
+            {phone}
           </a>
+        ) : !isSelf ? (
+          <span className="shrink-0 text-fluid-2xs text-slate-500">{teamBiPlain('team.assign.coLeaderNoPhone')}</span>
         ) : null}
       </div>
     );
@@ -1692,7 +1735,11 @@ export function TeamInquiryDetailModal({
                 <TeamModalRow
                   label={<TeamBiLine id="team.modal.row.coLeaders" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
-                  <span className="text-gray-800">{coLeadersSummary}</span>
+                  {coLeadersSummary === '—' ? (
+                    <span className="text-gray-800">{teamBiPlain('team.common.emDash')}</span>
+                  ) : (
+                    <TeamCoLeadersListHint item={item} viewerId={effectiveViewerId} className="" />
+                  )}
                 </TeamModalRow>
               </TeamModalSection>
             ) : null}

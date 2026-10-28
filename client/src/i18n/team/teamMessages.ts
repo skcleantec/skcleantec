@@ -250,6 +250,8 @@ export const teamMessages = {
   'team.assign.happyComplete': { ko: '완료'},
   'team.assign.happyIncomplete': { ko: '미완료'},
   'team.assign.thCoLeaders': { ko: '공동 배정'},
+  'team.assign.coAssignBadge': { ko: '공동배정'},
+  'team.assign.coLeaderNoPhone': { ko: '번호 없음'},
   'team.assign.csDotAria': { ko: 'C/S 표시'},
 
   'team.assign.footerShowing': { ko: '표시 {count}건'},

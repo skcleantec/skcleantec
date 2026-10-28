@@ -598,12 +598,8 @@ export function TeamAssignmentListPage() {
                           {hasInspectionModule ? (
                             <TeamInspectionStatusBadge item={item} variant="list" />
                           ) : null}
-                          <TeamCoLeadersListHint
-                            item={item}
-                            viewerId={myId}
-                            className="text-[11px] text-gray-600 sm:text-fluid-2xs"
-                          />
                         </div>
+                        <TeamCoLeadersListHint item={item} viewerId={myId} className="mt-1" />
                       </div>
                       <div className="flex shrink-0 flex-col items-stretch gap-1 self-start">
                         <a
@@ -850,11 +846,14 @@ export function TeamAssignmentListPage() {
                             <TeamInspectionStatusBadge item={item} variant="list" />
                           </td>
                         ) : null}
-                        <td
-                          className={`align-middle py-2 px-2 text-gray-600 text-center max-w-[120px] truncate ${pBorder}`}
-                          title={coLeadersSummaryForViewer(item, myId!)}
-                        >
-                          {coLeadersSummaryForViewer(item, myId!)}
+                        <td className={`align-middle py-2 px-2 text-left min-w-0 max-w-[18rem] ${pBorder}`}>
+                          {coLeadersSummaryForViewer(item, myId!) === '—' ? (
+                            <span className="block text-center text-fluid-xs text-gray-400">
+                              {teamBiPlain('team.common.emDash')}
+                            </span>
+                          ) : (
+                            <TeamCoLeadersListHint item={item} viewerId={myId} className="" />
+                          )}
                         </td>
                       </tr>
                     );

@@ -474,7 +474,7 @@ export function TeamDashboardPage() {
                               <TeamHappyCallBadge item={item} />
                               <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                             </div>
-                            <TeamCoLeadersListHint item={item} viewerId={myId} className="mt-0.5 text-[11px] text-gray-600 sm:mt-1 sm:text-fluid-2xs" />
+                            <TeamCoLeadersListHint item={item} viewerId={myId} className="mt-1" />
                           </div>
                           <a
                             href={`tel:${item.customerPhone}`}
