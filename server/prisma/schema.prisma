@@ -321,6 +321,7 @@ model Tenant {
   orderFormTemplateFields OrderFormTemplateField[]
   orderFormSubmissionEmailLogs OrderFormSubmissionEmailLog[]
   operatingCompanies OperatingCompany[]
+  barobillMembers BarobillMember[]
   userOperatingCompanies UserOperatingCompany[]
   partnershipsAsLow TenantPartnership[] @relation("TenantPartnershipLow")
   partnershipsAsHigh TenantPartnership[] @relation("TenantPartnershipHigh")
@@ -1605,10 +1606,57 @@ model OperatingCompany {
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSmsTemplates         TelecrmSmsTemplate[]
   orderFormBrandCustomerLinkConfigs OrderFormBrandCustomerLinkConfig[]
+  barobillMemberId String?         @unique @map("barobill_member_id")
+  barobillMember   BarobillMember? @relation(fields: [barobillMemberId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
   @@map("operating_companies")
+}
+
+enum BarobillMemberStatus {
+  ACTIVE
+  LINK_REQUIRED
+  FAILED
+  PENDING_REVIEW
+  REJECTED
+  PROCESSING
+}
+
+/// 바로빌 회원사. 브랜드(OperatingCompany) 1 : 회원사 1. 비밀번호는 저장하지 않는다.
+model BarobillMember {
+  id             String               @id @default(uuid())
+  tenantId       String               @map("tenant_id")
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// test | prod. 바로빌 DB가 환경별로 분리된다.
+  env            String               @db.VarChar(8)
+  corpNum        String               @map("corp_num") @db.VarChar(16)
+  corpName       String               @map("corp_name") @db.VarChar(128)
+  ceoName        String               @map("ceo_name") @db.VarChar(128)
+  bizType        String               @map("biz_type") @db.VarChar(64)
+  bizClass       String               @map("biz_class") @db.VarChar(64)
+  addr1          String               @db.Text
+  addr2          String?              @db.VarChar(256)
+  contactName    String               @map("contact_name") @db.VarChar(128)
+  contactTel     String               @map("contact_tel") @db.VarChar(32)
+  contactEmail   String               @map("contact_email") @db.VarChar(256)
+  barobillUserId String               @default("") @map("barobill_user_id") @db.VarChar(20)
+  /// GetCorpState.TaxType 정수 문자열
+  taxType        String?              @map("tax_type") @db.VarChar(32)
+  businessRegistrationImageUrl      String? @map("business_registration_image_url") @db.Text
+  businessRegistrationImagePublicId String? @map("business_registration_image_public_id") @db.VarChar(256)
+  reviewedAt     DateTime?            @map("reviewed_at")
+  reviewedByPlatformUserId String?    @map("reviewed_by_platform_user_id")
+  rejectReason   String?              @map("reject_reason") @db.Text
+  status         BarobillMemberStatus
+  lastError      String?              @map("last_error") @db.Text
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  operatingCompany OperatingCompany?
+
+  @@unique([env, tenantId, corpNum])
+  @@index([tenantId, env])
+  @@map("barobill_members")
 }
 
 /// 마케터·팀장의 영업 업체 소속(다중). isPrimary 1개 권장.

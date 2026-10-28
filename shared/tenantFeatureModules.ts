@@ -119,6 +119,12 @@ export const TENANT_FEATURE_MODULES = {
     defaultOn: true,
     upsellDescription: '카드로 대금을 받습니다.',
   },
+  mod_cashbill: {
+    label: '현금영수증',
+    tier: 'standard' as const,
+    defaultOn: true,
+    upsellDescription: '현금영수증을 발행하려면 브랜드별 회원사 가입이 필요합니다.',
+  },
   mod_ai_dispatch: {
     label: 'AI 미리 배정',
     tier: 'premium' as const,
@@ -149,6 +155,7 @@ export const TENANT_PREMIUM_BUSINESS_MODULE_IDS = [
   'mod_quick_paste',
   'mod_alimtalk',
   'mod_card_payment',
+  'mod_cashbill',
 ] as const satisfies readonly TenantFeatureModuleId[];
 
 export const TENANT_PLANS = {
@@ -173,6 +180,7 @@ export const TENANT_PLANS = {
       'mod_quick_paste',
       'mod_alimtalk',
       'mod_card_payment',
+      'mod_cashbill',
     ] as TenantFeatureModuleId[],
   },
   standard_plus: {

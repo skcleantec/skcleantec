@@ -41,6 +41,18 @@ export function isValidBizNumber(raw: unknown): boolean {
   return normalizeBizNumber(raw).length === 10;
 }
 
+/** 사업자등록번호 10자리 검증식. 가입 폼의 길이 검사(isValidBizNumber)와는 따로 둔다. */
+export function isValidKoreanBizNumberChecksum(raw: unknown): boolean {
+  const digits = normalizeBizNumber(raw);
+  if (digits.length !== 10) return false;
+  const weights = [1, 3, 7, 1, 3, 7, 1, 3, 5];
+  let sum = 0;
+  for (let i = 0; i < 9; i += 1) sum += Number(digits[i]) * weights[i];
+  sum += Math.floor((Number(digits[8]) * 5) / 10);
+  const check = (10 - (sum % 10)) % 10;
+  return check === Number(digits[9]);
+}
+
 export function formatBizNumberDisplay(raw: unknown): string {
   const digits = normalizeBizNumber(raw);
   if (digits.length !== 10) return digits || '—';

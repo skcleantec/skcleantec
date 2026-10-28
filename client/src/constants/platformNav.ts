@@ -17,6 +17,7 @@ export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
       { label: '카드결제 PG', to: '/platform/card-payment' },
       { label: '전자계약', to: '/platform/card-payment/e-contract' },
       { label: '카드결재', to: '/platform/card-payment/charge' },
+      { label: '현금영수증 회원', to: '/platform/barobill-members' },
     ],
   },
   { label: '가입 체험 이벤트', to: '/platform/signup-trial-events', icon: '🎁' },
@@ -52,7 +53,8 @@ export function isPlatformNavActive(pathname: string, to: string): boolean {
     return (
       pathname === '/platform/billing' ||
       pathname.startsWith('/platform/billing/') ||
-      pathname.startsWith('/platform/card-payment')
+      pathname.startsWith('/platform/card-payment') ||
+      pathname.startsWith('/platform/barobill-members')
     );
   }
   if (to === '/platform/signup-trial-events') {

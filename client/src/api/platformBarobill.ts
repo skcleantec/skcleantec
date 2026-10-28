@@ -1,0 +1,91 @@
+import { API } from './apiPrefix';
+import { getPlatformToken } from '../stores/platformAuth';
+import type { CashbillMemberStatus } from './cashbill';
+
+export type PlatformBarobillMemberRow = {
+  id: string;
+  env: string;
+  status: CashbillMemberStatus;
+  taxType: string | null;
+  lastError: string | null;
+  rejectReason: string | null;
+  businessRegistrationImageUrl: string | null;
+  corpName: string;
+  hasUserId: boolean;
+  corpNumMasked: string;
+  createdAt: string;
+  updatedAt: string;
+  confirmNeeded: boolean;
+  duplicateApplicants: { tenantName: string; status: CashbillMemberStatus }[];
+  tenantName: string;
+  tenantSlug: string;
+  brandName: string | null;
+};
+
+function headers(): HeadersInit {
+  return {
+    Authorization: `Bearer ${getPlatformToken() ?? ''}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+async function parseError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: string };
+    return body.error || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function fetchPlatformBarobillMembers(query: URLSearchParams): Promise<{
+  items: PlatformBarobillMemberRow[];
+  total: number;
+}> {
+  const res = await fetch(`${API}/platform/barobill/members?${query.toString()}`, { headers: headers() });
+  if (!res.ok) throw new Error(await parseError(res, '회원사 목록을 불러오지 못했습니다.'));
+  return res.json() as Promise<{ items: PlatformBarobillMemberRow[]; total: number }>;
+}
+
+export async function approvePlatformBarobillMember(id: string): Promise<void> {
+  const res = await fetch(`${API}/platform/barobill/members/${id}/approve`, {
+    method: 'POST',
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '승인에 실패했습니다.'));
+}
+
+export async function rejectPlatformBarobillMember(id: string, rejectReason: string): Promise<void> {
+  const res = await fetch(`${API}/platform/barobill/members/${id}/reject`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ rejectReason }),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '반려에 실패했습니다.'));
+}
+
+export async function completePlatformBarobillLink(id: string, barobillUserId: string): Promise<void> {
+  const res = await fetch(`${API}/platform/barobill/members/${id}/link-complete`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ barobillUserId }),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '처리완료에 실패했습니다.'));
+}
+
+export async function checkPlatformBarobillMember(id: string): Promise<{ isMember: boolean; message: string }> {
+  const res = await fetch(`${API}/platform/barobill/members/${id}/check-member`, {
+    method: 'POST',
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '회원 여부를 확인하지 못했습니다.'));
+  return res.json() as Promise<{ isMember: boolean; message: string }>;
+}
+
+export async function releasePlatformBarobillProcessing(id: string): Promise<void> {
+  const res = await fetch(`${API}/platform/barobill/members/${id}/release-processing`, {
+    method: 'POST',
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '검토 중으로 되돌리지 못했습니다.'));
+}

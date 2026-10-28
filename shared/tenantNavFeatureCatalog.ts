@@ -186,6 +186,12 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
         moduleId: 'mod_alimtalk',
         group: '설정',
       },
+      {
+        label: '증빙 발급 설정',
+        path: '/admin/team-leaders/cashbill',
+        moduleId: 'mod_cashbill',
+        group: '설정',
+      },
     ],
   },
 ];

@@ -160,6 +160,11 @@ export const PlatformCardPaymentPage = lazyWithRetry(() =>
     default: m.PlatformCardPaymentPage,
   }))
 );
+export const PlatformBarobillMembersPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformBarobillMembersPage').then((m) => ({
+    default: m.PlatformBarobillMembersPage,
+  }))
+);
 export const PlatformPgFeeLedgerPage = lazyWithRetry(() =>
   import('../pages/platform/card-payment/PlatformPgFeeLedgerPage').then((m) => ({
     default: m.PlatformPgFeeLedgerPage,
@@ -317,6 +322,11 @@ export const AdminNotificationPolicyPage = lazyWithRetry(() =>
 export const AdminAlimtalkPage = lazyWithRetry(() =>
   import('../pages/admin/AdminAlimtalkPage').then((m) => ({
     default: m.AdminAlimtalkPage,
+  }))
+);
+export const AdminCashbillSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminCashbillSettingsPage').then((m) => ({
+    default: m.AdminCashbillSettingsPage,
   }))
 );
 export const AdminNotificationSettingsPage = lazyWithRetry(() =>

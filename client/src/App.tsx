@@ -71,6 +71,7 @@ import {
   PgPartnerContractsPage,
   PgPartnerFeesPage,
   PlatformCardPaymentPage,
+  PlatformBarobillMembersPage,
   PlatformPgFeeLedgerPage,
   PlatformPgContractSettingsPage,
   PlatformPgContractDeskPage,
@@ -110,6 +111,7 @@ import {
   AdminOperatingCompanyPolicyPage,
   AdminNotificationPolicyPage,
   AdminAlimtalkPage,
+  AdminCashbillSettingsPage,
   AdminNotificationSettingsPage,
   AdminKakaoLinkPage,
   AdminStaffAccessSettingsPage,
@@ -208,6 +210,7 @@ function App() {
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="billing/settlement" element={<SuspensePage><PlatformBillingSettlementPage /></SuspensePage>} />
           <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
+          <Route path="barobill-members" element={<SuspensePage><PlatformBarobillMembersPage /></SuspensePage>} />
           <Route path="card-payment/fees" element={<SuspensePage><PlatformPgFeeLedgerPage /></SuspensePage>} />
           <Route path="card-payment/e-contract" element={<SuspensePage><PlatformPgContractSettingsPage /></SuspensePage>} />
           <Route path="card-payment/charge" element={<SuspensePage><PlatformCardChargePage /></SuspensePage>} />
@@ -392,6 +395,14 @@ function App() {
               element={
                 <FeatureGate module="mod_alimtalk">
                   <SuspensePage><AdminAlimtalkPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="cashbill"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminCashbillSettingsPage /></SuspensePage>
                 </FeatureGate>
               }
             />

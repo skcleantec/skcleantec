@@ -147,6 +147,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '알림톡 이용·충전·발송 설정',
       },
       {
+        to: '/admin/team-leaders/cashbill',
+        label: '증빙 발급 설정',
+        title: '브랜드별 현금영수증 회원사 가입',
+      },
+      {
         to: '/admin/team-leaders/inspection-template',
         label: '검수템플릿',
         title: '현장 검수 체크리스트 템플릿',

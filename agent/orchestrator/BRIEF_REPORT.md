@@ -1,25 +1,13 @@
-# BRIEF — 1인 업체 잠금 메뉴 (Phase 3)
+# 바로빌 현금영수증 — Phase 0·1
 
-**요청:** Phase 3 진행 **상태:** `staging`에 푸시. `main`은 안 올림.
+브랜치 `feat/barobill-cashbill`. 커밋·푸시·staging migrate 없음. Phase 2 없음.
 
-## 한 줄 결론
+1. 서버 SOAP 클라이언트(`soap`, TI·CASHBILL·CORPSTATE)와 단가 정책. 클라이언트 번들 소스에 SOAP·인증키 없음.
+2. `BarobillMember` 스키마와 마이그레이션 SQL만 추가. DB에는 아직 없음.
+3. 관리 「증빙 발급 설정」, 플랫폼 「현금영수증 회원」. `mod_cashbill`은 Standard 이상. Free는 잠금.
+4. test 호출은 인증키가 로컬·Railway에 없어 잔액·회원조회 전에 중단. 키는 기록하지 않음.
+5. 서버·클라이언트 tsc 통과. 본사·1인 기존 화면 파일은 그대로.
 
-지금 플랜에 없는 메뉴는 자물쇠와 「OO부터」로 남고, 누르면 안내 카드가 나온다. 업체가 끈 기능은 메뉴에서 빠진다.
+확인할 곳 (migrate 승인 후): 관리자 전용 → 증빙 발급 설정, 플랫폼 결제 관리 → 현금영수증 회원.
 
-## 잘 된 점
-
-- 상단은 상위 메뉴만 잠금. 하위 잠금은 왼쪽·휴대폰 하위 메뉴.
-- 잠긴 주소는 대시보드로 보내지 않음. 메시지 화면도 같은 안내.
-- 플랜·기능이 바뀌면 `tenant:capabilities`로 `/auth/me`를 다시 읽음.
-- server·client tsc 통과. 스키마 변경 없음.
-
-## 주의 · 할 일
-
-| 우선 | 내용 |
-|------|------|
-| 1 | 배포 후 health의 gitSha가 이 푸시와 같은지 확인 |
-| 2 | 1인 업체 월정산표는 숨기지 않고 Standard+ 잠금으로 바꿈. 팀장 가계부 조회는 계속 숨김 |
-
-## 상세
-
-- reports/packs/2026-10-24-solo-operator/phase-3.md
+리포트: `agent/orchestrator/reports/packs/2026-10-28-barobill-cashbill/`
