@@ -148,7 +148,7 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
       },
       {
         to: '/admin/team-leaders/cashbill',
-        label: '증빙 발급 설정',
+        label: '계산서 연결',
         title: '브랜드별 현금영수증 회원사 가입',
       },
       {

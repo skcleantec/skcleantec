@@ -441,7 +441,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
   },
   {
     path: '/admin/team-leaders/cashbill',
-    title: '증빙 발급 설정',
+    title: '계산서 연결',
     intro: '브랜드마다 현금영수증을 발행할 수 있게 회원사에 가입하는 화면입니다.',
     steps: [
       {

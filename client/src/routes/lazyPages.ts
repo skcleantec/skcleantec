@@ -329,6 +329,16 @@ export const AdminCashbillSettingsPage = lazyWithRetry(() =>
     default: m.AdminCashbillSettingsPage,
   }))
 );
+export const AdminCashbillListPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminCashbillListPage').then((m) => ({
+    default: m.AdminCashbillListPage,
+  }))
+);
+export const AdminTaxInvoicePlaceholderPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminTaxInvoicePlaceholderPage').then((m) => ({
+    default: m.AdminTaxInvoicePlaceholderPage,
+  }))
+);
 export const AdminNotificationSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminNotificationSettingsPage').then((m) => ({
     default: m.AdminNotificationSettingsPage,

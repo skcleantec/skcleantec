@@ -112,6 +112,8 @@ import {
   AdminNotificationPolicyPage,
   AdminAlimtalkPage,
   AdminCashbillSettingsPage,
+  AdminCashbillListPage,
+  AdminTaxInvoicePlaceholderPage,
   AdminNotificationSettingsPage,
   AdminKakaoLinkPage,
   AdminStaffAccessSettingsPage,
@@ -282,6 +284,22 @@ function App() {
             <Route path="quotations" element={<SuspensePage><AdminQuotationsListPage /></SuspensePage>} />
             <Route path="quotations/new" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
             <Route path="quotations/settings" element={<SuspensePage><AdminQuotationSettingsPage /></SuspensePage>} />
+            <Route
+              path="receipts/cashbill"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminCashbillListPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="receipts/taxinvoice"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminTaxInvoicePlaceholderPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
             <Route path="quotations/:id" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
             <Route
               path="cs"

@@ -322,6 +322,8 @@ model Tenant {
   orderFormSubmissionEmailLogs OrderFormSubmissionEmailLog[]
   operatingCompanies OperatingCompany[]
   barobillMembers BarobillMember[]
+  cashBillIssues CashBillIssue[]
+  cashbillPlatformHolds CashbillPlatformHold[]
   userOperatingCompanies UserOperatingCompany[]
   partnershipsAsLow TenantPartnership[] @relation("TenantPartnershipLow")
   partnershipsAsHigh TenantPartnership[] @relation("TenantPartnershipHigh")
@@ -1608,6 +1610,7 @@ model OperatingCompany {
   orderFormBrandCustomerLinkConfigs OrderFormBrandCustomerLinkConfig[]
   barobillMemberId String?         @unique @map("barobill_member_id")
   barobillMember   BarobillMember? @relation(fields: [barobillMemberId], references: [id], onDelete: SetNull)
+  cashBillIssues   CashBillIssue[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -1653,10 +1656,70 @@ model BarobillMember {
   createdAt      DateTime             @default(now()) @map("created_at")
   updatedAt      DateTime             @updatedAt @map("updated_at")
   operatingCompany OperatingCompany?
+  cashBillIssues CashBillIssue[]
 
   @@unique([env, tenantId, corpNum])
   @@index([tenantId, env])
   @@map("barobill_members")
+}
+
+enum CashBillIssueKind {
+  DEPOSIT
+  BALANCE
+  FULL
+  CANCEL
+}
+
+/// 현금영수증 발급·취소. 식별번호 원문은 저장하지 않는다.
+model CashBillIssue {
+  id                 String            @id @default(uuid())
+  tenantId           String            @map("tenant_id")
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberId           String            @map("member_id")
+  member             BarobillMember    @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  inquiryId          String            @map("inquiry_id")
+  inquiry            Inquiry           @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
+  operatingCompanyId String            @map("operating_company_id")
+  operatingCompany   OperatingCompany  @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  mgtKey             String            @map("mgt_key") @db.VarChar(24)
+  kind               CashBillIssueKind
+  cancelOfId         String?           @map("cancel_of_id")
+  cancelOf           CashBillIssue?    @relation("CashBillCancel", fields: [cancelOfId], references: [id], onDelete: Restrict)
+  cancellations      CashBillIssue[]   @relation("CashBillCancel")
+  tradeUsage         Int               @map("trade_usage")
+  identityMasked     String            @map("identity_masked") @db.VarChar(32)
+  amount             Int
+  tax                Int
+  serviceCharge      Int               @default(0) @map("service_charge")
+  totalWon           Int               @map("total_won")
+  tradeDate          String            @map("trade_date") @db.VarChar(8)
+  barobillState      String?           @map("barobill_state") @db.VarChar(8)
+  ntsConfirmNum      String?           @map("nts_confirm_num") @db.VarChar(32)
+  issuedAt           DateTime?         @map("issued_at")
+  chargedKrw         Int               @default(0) @map("charged_krw")
+  lastError          String?           @map("last_error") @db.Text
+  createdById        String?           @map("created_by_id")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@unique([memberId, mgtKey])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, inquiryId])
+  @@index([tenantId, operatingCompanyId, createdAt(sort: Desc)])
+  @@index([barobillState])
+  @@map("cash_bill_issues")
+}
+
+/// 파트너·회원사 잔액 부족으로 업체 지갑을 차감하지 않은 건. 플랫폼 화면 알림.
+model CashbillPlatformHold {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code      Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@map("cashbill_platform_holds")
 }
 
 /// 마케터·팀장의 영업 업체 소속(다중). isPrimary 1개 권장.
@@ -2766,6 +2829,7 @@ model Inquiry {
   landingContactInquiries   LandingContactInquiry[]
   householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
   cardPayments              CardPayment[]
+  cashBillIssues            CashBillIssue[]
   aiDispatchProposals       AiDispatchProposal[]
 
   @@index([createdAt])

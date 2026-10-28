@@ -35,3 +35,14 @@ jobs:
           fi
           curl -sf -X POST "${BASE_URL%/}/api/admin/cron/alimtalk-schedule-d2" \
             -H "Authorization: Bearer ${CRON_SECRET}"
+      - name: POST cashbill-states
+        env:
+          BASE_URL: ${{ secrets.CBISEO_CRON_BASE_URL }}
+          HAPPY_CALL_CRON_SECRET: ${{ secrets.HAPPY_CALL_CRON_SECRET }}
+        run: |
+          if [ -z "$BASE_URL" ] || [ -z "$HAPPY_CALL_CRON_SECRET" ]; then
+            echo "Skip: CBISEO_CRON_BASE_URL or HAPPY_CALL_CRON_SECRET not set"
+            exit 0
+          fi
+          curl -sf -X POST "${BASE_URL%/}/api/admin/cron/cashbill-states" \
+            -H "Authorization: Bearer ${HAPPY_CALL_CRON_SECRET}"

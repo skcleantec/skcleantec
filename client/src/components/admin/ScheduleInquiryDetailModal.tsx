@@ -103,6 +103,7 @@ import { PropertyTypeSticker } from '../ui/PropertyTypeSticker';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 import { AdminInspectionPanel } from '../inquiry-inspection/AdminInspectionPanel';
 import { QuotationInquiryLinkPanel } from '../quotations/QuotationInquiryLinkPanel';
+import { CashbillInquiryPanel } from '../cashbill/CashbillInquiryPanel';
 import { InquiryConsultationPhotosPanel } from '../inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../inquiry/InquirySettlementPanel';
@@ -3189,6 +3190,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               inquiryNumber={item.inquiryNumber}
               customerName={item.customerName}
             />
+          </AdminScheduleDetailSection>
+        )}
+
+        {!isCreate && item && (
+          <AdminScheduleDetailSection
+            title="현금영수증"
+            sectionAnchor="cashbill"
+            collapsible
+            defaultOpen={false}
+          >
+            <CashbillInquiryPanel inquiryId={item.id} />
           </AdminScheduleDetailSection>
         )}
 

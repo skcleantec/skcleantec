@@ -48,7 +48,7 @@ function headers(): HeadersInit {
 
 export async function fetchCashbillSettings(): Promise<CashbillSettings> {
   const res = await fetch(`${API}/cashbill/settings`, { headers: headers() });
-  if (!res.ok) throw new Error(await apiErrorMessage(res, '증빙 발급 설정을 불러오지 못했습니다.'));
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '계산서 연결을 불러오지 못했습니다.'));
   return res.json() as Promise<CashbillSettings>;
 }
 

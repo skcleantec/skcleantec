@@ -69,6 +69,7 @@ export const ADMIN_PATH_PERMISSION_RULES: AdminPathPermissionRule[] = [
   { prefix: '/admin/inquiries/quotations/settings', permissions: ['quotation.config'] },
   { prefix: '/admin/inquiries/quotations/new', permissions: ['quotation.create'] },
   { prefix: '/admin/inquiries/quotations', permissions: ['quotation.create'] },
+  { prefix: '/admin/inquiries/receipts', permissions: ['inquiry.view'] },
   { prefix: '/admin/inquiries/followup', permissions: ['followup.view'] },
   { prefix: '/admin/inquiries/review-payback', permissions: ['inquiry.view'] },
   { prefix: '/admin/inquiries/cs', permissions: ['cs.view'] },

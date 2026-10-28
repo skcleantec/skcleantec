@@ -46,7 +46,7 @@ router.get('/settings', async (req, res) => {
   try {
     res.json(await getCashbillSettings(tenantId));
   } catch (err) {
-    sendError(res, err, '증빙 발급 설정을 불러오지 못했습니다.');
+    sendError(res, err, '계산서 연결을 불러오지 못했습니다.');
   }
 });
 

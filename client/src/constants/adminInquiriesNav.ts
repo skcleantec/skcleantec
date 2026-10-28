@@ -41,6 +41,14 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
   },
   {
     type: 'group',
+    label: '영수증',
+    children: [
+      { to: '/admin/inquiries/receipts/cashbill', label: '현금영수증' },
+      { to: '/admin/inquiries/receipts/taxinvoice', label: '세금계산서' },
+    ],
+  },
+  {
+    type: 'group',
     label: '일괄접수',
     children: [
       { to: '/admin/inquiries/bulk-excel/mappings', label: '매칭 서식' },

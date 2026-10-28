@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BAROBILL_MEMBER_STATUS_LABEL, barobillTaxTypeLabel } from '@shared/barobillPolicy';
-import { approvePlatformBarobillMember, checkPlatformBarobillMember, completePlatformBarobillLink, fetchPlatformBarobillMembers, rejectPlatformBarobillMember, releasePlatformBarobillProcessing, type PlatformBarobillMemberRow } from '../../api/platformBarobill';
+import { approvePlatformBarobillMember, checkPlatformBarobillMember, completePlatformBarobillLink, fetchPlatformBarobillMembers, fetchPlatformCashbillHolds, rejectPlatformBarobillMember, releasePlatformBarobillProcessing, type PlatformBarobillMemberRow } from '../../api/platformBarobill';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -52,6 +52,7 @@ export function PlatformBarobillMembersPage() {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [checks, setChecks] = useState<Record<string, { isMember: boolean; message: string }>>({});
+  const [holds, setHolds] = useState<{ id: string; tenantName: string; code: number; createdAt: string }[]>([]);
 
   function replace(next: Record<string, string | null>, resetPage: boolean) {
     const qs = new URLSearchParams(params);
@@ -91,6 +92,20 @@ export function PlatformBarobillMembersPage() {
       cancelled = true;
     };
   }, [datePreset, month, day, status, env, page, pageSize]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPlatformCashbillHolds()
+      .then((items) => {
+        if (!cancelled) setHolds(items);
+      })
+      .catch(() => {
+        if (!cancelled) setHolds([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
 
   async function reload() {
     const qs = new URLSearchParams();
@@ -186,6 +201,16 @@ export function PlatformBarobillMembersPage() {
   return (
     <div className="min-w-0 w-full max-w-full space-y-3">
       <h1 className="text-fluid-lg font-semibold text-slate-900">현금영수증 회원</h1>
+      {holds.length > 0 ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">
+          <p className="font-medium">발급 보류</p>
+          <ul className="mt-1 space-y-0.5">
+            {holds.map((hold) => (
+              <li key={hold.id}>{hold.tenantName} · 일시적으로 발급할 수 없습니다 · {hold.code}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white p-3">
         <span className="text-fluid-xs text-slate-600">등록일</span>
         <div className="inline-flex gap-0.5 rounded-lg border border-gray-200 p-0.5">

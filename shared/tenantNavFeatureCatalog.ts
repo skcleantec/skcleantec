@@ -55,6 +55,8 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
       { label: '견적 목록', path: '/admin/inquiries/quotations', moduleId: 'core_inquiries', group: '견적서' },
       { label: '견적 작성', path: '/admin/inquiries/quotations/new', moduleId: 'core_inquiries', group: '견적서' },
       { label: '견적 설정', path: '/admin/inquiries/quotations/settings', moduleId: 'core_inquiries', group: '견적서' },
+      { label: '현금영수증', path: '/admin/inquiries/receipts/cashbill', moduleId: 'mod_cashbill', group: '영수증' },
+      { label: '세금계산서', path: '/admin/inquiries/receipts/taxinvoice', moduleId: 'mod_cashbill', group: '영수증' },
       { label: 'C/S 관리', path: '/admin/inquiries/cs', moduleId: 'mod_cs' },
       { label: '문의내역', path: '/admin/inquiries/leads', moduleId: 'mod_landing_inquiry' },
       {
@@ -187,7 +189,7 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
         group: '설정',
       },
       {
-        label: '증빙 발급 설정',
+        label: '계산서 연결',
         path: '/admin/team-leaders/cashbill',
         moduleId: 'mod_cashbill',
         group: '설정',

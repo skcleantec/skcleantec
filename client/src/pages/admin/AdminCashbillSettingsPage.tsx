@@ -38,9 +38,9 @@ export function AdminCashbillSettingsPage() {
         ensureInputVisibleAboveKeyboard(target, getStaffAppScrollElement(), 'smooth', 28);
       }}
     >
-      <PageTitleWithFavorite label="증빙 발급 설정" path="/admin/team-leaders/cashbill">
+      <PageTitleWithFavorite label="계산서 연결" path="/admin/team-leaders/cashbill">
         <span className="inline-flex items-center gap-1">
-          증빙 발급 설정
+          계산서 연결
           <HelpTooltip text="기본 브랜드는 사업자정보로 바로 가입합니다. 추가 브랜드는 사업자등록증을 올리고 검토 요청을 합니다. 승인 전에는 바로빌에 가입하지 않습니다. 반려되면 다시 제출할 수 있습니다." />
         </span>
       </PageTitleWithFavorite>

@@ -9,6 +9,7 @@ import {
   rejectBarobillMember,
   releaseStaleBarobillProcessing,
 } from './cashbillMember.service.js';
+import { listCashbillPlatformHolds } from './cashbillIssue.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -87,6 +88,14 @@ router.post('/members/:id/reject', async (req, res) => {
     res.json(await rejectBarobillMember(id, actor, reason));
   } catch (err) {
     sendMemberError(res, err, '반려에 실패했습니다.');
+  }
+});
+
+router.get('/holds', async (_req, res) => {
+  try {
+    res.json({ items: await listCashbillPlatformHolds() });
+  } catch (err) {
+    sendMemberError(res, err, '발급 보류 알림을 불러오지 못했습니다.');
   }
 });
 
