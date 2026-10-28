@@ -1,15 +1,15 @@
 import { LineMdIcon } from './LineMdIcon';
 
-/** 플랜에 없는 메뉴의 작은 배지. 예: Standard부터 */
+/** 메뉴용 잠금 표시. 글자 대신 자물쇠만 둔다. 플랜 이름은 눌러서 연 안내와 툴팁에 있다. */
 export function PlanLockBadge({ label, tone }: { label: string; tone: 'dark' | 'light' }) {
-  const toneClass =
-    tone === 'dark' ? 'bg-white/10 text-amber-200' : 'bg-amber-50 text-amber-800';
+  const toneClass = tone === 'dark' ? 'text-amber-200' : 'text-amber-700';
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-0 text-fluid-2xs leading-none ${toneClass}`}
+      className={`inline-flex size-4 shrink-0 items-center justify-center ${toneClass}`}
+      title={label}
+      aria-label={label}
     >
-      <LineMdIcon name="lock" className="size-3" />
-      {label}
+      <LineMdIcon name="lock" className="size-3.5" />
     </span>
   );
 }

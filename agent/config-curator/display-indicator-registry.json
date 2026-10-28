@@ -997,7 +997,7 @@
         "client/src/components/ui/PlanLockBadge.tsx",
         "shared/tenantModuleVisibility.ts"
       ],
-      "notes": "플랜에 없는 메뉴만. 업체가 끈 기능은 숨김이라 이 배지가 없다. 끄기 설정 없음."
+      "notes": "메뉴에는 자물쇠 아이콘만. 플랜 이름은 툴팁과 잠금 안내 화면에 있다. 업체가 끈 기능은 이 아이콘 없이 메뉴에서 빠진다."
     }
   ]
 }

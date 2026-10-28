@@ -58,7 +58,7 @@ import {
 } from '../../constants/adminNav';
 import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
-import { LineMdIcon } from '../ui/LineMdIcon';
+import { PlanLockBadge } from '../ui/PlanLockBadge';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
@@ -235,12 +235,7 @@ function AdminGnbItemContent({
     <>
       <AdminNavIcon id={id} className={MOBILE_GNB_ICON_CLASS} />
       <span className="whitespace-nowrap leading-none">{label}</span>
-      {lockLabel ? (
-        <span className="inline-flex items-center gap-0.5 rounded-md bg-white/10 px-1 py-0 text-fluid-2xs leading-none text-amber-200">
-          <LineMdIcon name="lock" className="size-3" />
-          {lockLabel}
-        </span>
-      ) : null}
+      {lockLabel ? <PlanLockBadge label={lockLabel} tone="dark" /> : null}
     </>
   );
 }
