@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { formatBizInput, formatMoneyInput, lineSupply, lineTax, won, type TaxFormLine, type TaxParty } from './taxInvoiceFormModel';
+import { docTitle, formatBizInput, formatMoneyInput, lineSupply, lineTax, won, type TaxFormLine, type TaxKind, type TaxParty } from './taxInvoiceFormModel';
 import './taxinvoice-issue.css';
 
 const RED = 'var(--red-line)';
@@ -32,6 +32,7 @@ export type TaxFormProps = {
   supplySum: number;
   taxSum: number;
   totalSum: number;
+  taxKind: TaxKind;
 };
 
 function dash(value: string): string {
@@ -45,14 +46,19 @@ function purposeClass(on: boolean, side: 'l' | 'r'): string {
 }
 
 export function TaxInvoicePaper({ idPrefix = 'pc', ...props }: TaxFormProps & { idPrefix?: string }) {
-  const { readOnly, supplier, buyer, lines } = props;
+  const { readOnly, supplier, buyer, lines, taxKind } = props;
+  const exempt = taxKind === 'exempt';
+  const lineCols = exempt
+    ? '44px 44px 1fr 90px 70px 120px 150px 1fr 32px'
+    : '44px 44px 1fr 90px 70px 120px 130px 110px 1fr 32px';
+  const dateCols = exempt ? '150px 1fr 2fr' : '150px 1fr 1fr 2fr';
   const bizMark = props.corpState === 'ok' ? '✓' : props.corpState === 'bad' ? '확인 필요' : '';
   return (
     <div className="overflow-x-auto">
       <article className="mx-auto min-w-[1000px] max-w-[1080px] rounded-sm bg-white px-10 py-8 shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(17,24,39,.08)]">
         <header className="mb-5 flex items-end justify-between">
           <div className="w-48 text-xs text-gray-500">공급자 보관용</div>
-          <h2 className="text-center text-[28px] font-black tracking-[.55em] text-gray-900">전자세금계산서</h2>
+          <h2 id="doc-title" className="text-center text-[28px] font-black tracking-[.55em] text-gray-900">{docTitle(taxKind)}</h2>
           <div className="w-48 text-right text-xs text-gray-500">승인번호 <span className="num ml-1 text-gray-400">발행 후 표시</span></div>
         </header>
 
@@ -136,23 +142,23 @@ export function TaxInvoicePaper({ idPrefix = 'pc', ...props }: TaxFormProps & { 
           </div>
         </div>
 
-        <div className="grid grid-cols-[150px_1fr_1fr_2fr] border-x-2 border-b-2 border-gray-800 text-[13px]">
+        <div className="grid border-x-2 border-b-2 border-gray-800 text-[13px]" style={{ gridTemplateColumns: dateCols }}>
           <div className="border-r border-gray-300 bg-gray-50 px-3 py-1.5 text-center text-xs text-gray-600">작성일자</div>
           <div className="border-r border-gray-300 bg-gray-50 px-3 py-1.5 text-center text-xs text-gray-600">공급가액</div>
-          <div className="border-r border-gray-300 bg-gray-50 px-3 py-1.5 text-center text-xs text-gray-600">세액</div>
+          {exempt ? null : <div className="taxcol border-r border-gray-300 bg-gray-50 px-3 py-1.5 text-center text-xs text-gray-600">세액</div>}
           <div className="bg-gray-50 px-3 py-1.5 text-center text-xs text-gray-600">비고</div>
           <div className="cell num border-r border-t border-gray-300 px-3 py-2 text-center">
             <input id={`${idPrefix}-w-date`} type="date" value={props.writeDate} min={props.dateMin} max={props.dateMax} className="text-center" readOnly={readOnly} onChange={(event) => props.onWriteDate(event.target.value)} />
           </div>
           <div className="num border-r border-t border-gray-300 px-3 py-2 text-right text-[15px] font-semibold">{won(props.supplySum)}</div>
-          <div className="num border-r border-t border-gray-300 px-3 py-2 text-right text-[15px] font-semibold">{won(props.taxSum)}</div>
+          {exempt ? null : <div className="taxcol num border-r border-t border-gray-300 px-3 py-2 text-right text-[15px] font-semibold">{won(props.taxSum)}</div>}
           <div className="cell border-t border-gray-300 px-3 py-2">
             <input id={`${idPrefix}-w-note`} placeholder="예: 10월 정기 청소" value={props.remark} readOnly={readOnly} onChange={(event) => props.onRemark(event.target.value)} />
           </div>
         </div>
 
         <div className="border-x-2 border-b-2 border-gray-800 text-[13px]">
-          <div className="grid grid-cols-[44px_44px_1fr_90px_70px_120px_130px_110px_1fr_32px] bg-gray-50 text-center text-xs text-gray-600">
+          <div className="grid bg-gray-50 text-center text-xs text-gray-600" style={{ gridTemplateColumns: lineCols }}>
             <div className="border-r border-gray-300 py-1.5">월</div>
             <div className="border-r border-gray-300 py-1.5">일</div>
             <div className="border-r border-gray-300 py-1.5">품목</div>
@@ -160,15 +166,15 @@ export function TaxInvoicePaper({ idPrefix = 'pc', ...props }: TaxFormProps & { 
             <div className="border-r border-gray-300 py-1.5">수량</div>
             <div className="border-r border-gray-300 py-1.5">단가</div>
             <div className="border-r border-gray-300 py-1.5">공급가액</div>
-            <div className="border-r border-gray-300 py-1.5">세액</div>
+            {exempt ? null : <div className="taxcol border-r border-gray-300 py-1.5">세액</div>}
             <div className="border-r border-gray-300 py-1.5">비고</div>
             <div className="py-1.5" />
           </div>
           {lines.map((line, index) => {
             const supply = line.supplyEdited ? line.supply : won(lineSupply(line));
-            const tax = line.taxEdited ? line.tax : won(lineTax(line));
+            const tax = taxKind === 'taxable' && line.taxEdited ? line.tax : won(lineTax(line, taxKind));
             return (
-              <div key={index} className="grid grid-cols-[44px_44px_1fr_90px_70px_120px_130px_110px_1fr_32px] border-t border-gray-300 text-[13px]">
+              <div key={index} className="grid border-t border-gray-300 text-[13px]" style={{ gridTemplateColumns: lineCols }}>
                 <div className="cell num border-r border-gray-300 px-1 py-1.5"><input className="text-center" value={line.month} inputMode="numeric" aria-label="월" readOnly={readOnly} onChange={(event) => props.onLine(index, { month: event.target.value.replace(/\D/g, '').slice(0, 2) })} /></div>
                 <div className="cell num border-r border-gray-300 px-1 py-1.5"><input className="text-center" value={line.day} inputMode="numeric" aria-label="일" readOnly={readOnly} onChange={(event) => props.onLine(index, { day: event.target.value.replace(/\D/g, '').slice(0, 2) })} /></div>
                 <div className="cell border-r border-gray-300 px-2.5 py-1.5"><input value={line.name} placeholder="품목명" aria-label="품목" readOnly={readOnly} onChange={(event) => props.onLine(index, { name: event.target.value })} /></div>
@@ -176,7 +182,9 @@ export function TaxInvoicePaper({ idPrefix = 'pc', ...props }: TaxFormProps & { 
                 <div className="cell num border-r border-gray-300 px-2 py-1.5"><input className="text-right" value={line.qty} inputMode="numeric" aria-label="수량" readOnly={readOnly} onChange={(event) => props.onLine(index, { qty: event.target.value.replace(/\D/g, '') })} /></div>
                 <div className="cell num border-r border-gray-300 px-2 py-1.5"><input className="text-right" value={line.unitPrice} inputMode="numeric" aria-label="단가" readOnly={readOnly} onChange={(event) => props.onLine(index, { unitPrice: formatMoneyInput(event.target.value) })} /></div>
                 <div className="cell num border-r border-gray-300 bg-gray-50/60 px-2 py-1.5 font-medium"><input className="text-right" value={supply} inputMode="numeric" aria-label="공급가액" readOnly={readOnly} onChange={(event) => props.onLine(index, { supply: formatMoneyInput(event.target.value) })} /></div>
-                <div className="cell num border-r border-gray-300 bg-gray-50/60 px-2 py-1.5"><input className="text-right" value={tax} inputMode="numeric" aria-label="세액" readOnly={readOnly} onChange={(event) => props.onLine(index, { tax: formatMoneyInput(event.target.value) })} /></div>
+                {exempt ? null : (
+                  <div className="taxcol cell num border-r border-gray-300 bg-gray-50/60 px-2 py-1.5"><input className="text-right" value={tax} inputMode="numeric" aria-label="세액" readOnly={readOnly} disabled={taxKind !== 'taxable'} onChange={(event) => props.onLine(index, { tax: formatMoneyInput(event.target.value) })} /></div>
+                )}
                 <div className="cell border-r border-gray-300 px-2 py-1.5"><input value={line.remark} aria-label="품목 비고" readOnly={readOnly} onChange={(event) => props.onLine(index, { remark: event.target.value })} /></div>
                 <button type="button" className="text-gray-300 hover:text-red-600" aria-label="품목 삭제" disabled={readOnly || lines.length === 1} onClick={() => props.onRemoveLine(index)}>✕</button>
               </div>
@@ -224,7 +232,8 @@ function MobileField({ label, children }: { label: string; children: ReactNode }
 }
 
 export function TaxInvoiceMobileCards(props: TaxFormProps) {
-  const { supplier, buyer, lines, readOnly } = props;
+  const { supplier, buyer, lines, readOnly, taxKind } = props;
+  const exempt = taxKind === 'exempt';
   const [extra, setExtra] = useState(false);
   const bizMark = props.corpState === 'ok' ? '✓' : props.corpState === 'bad' ? '확인 필요' : '';
   return (
@@ -293,7 +302,7 @@ export function TaxInvoiceMobileCards(props: TaxFormProps) {
               <input className="num h-11 rounded-lg px-3 text-right ring-1 ring-gray-300" inputMode="numeric" aria-label="수량" value={line.qty} readOnly={readOnly} onChange={(event) => props.onLine(index, { qty: event.target.value.replace(/\D/g, '') })} />
               <input className="num h-11 rounded-lg px-3 text-right ring-1 ring-gray-300" inputMode="numeric" aria-label="단가" value={line.unitPrice} readOnly={readOnly} onChange={(event) => props.onLine(index, { unitPrice: formatMoneyInput(event.target.value) })} />
             </div>
-            <p className="num flex justify-between text-[13px] text-gray-500"><span>공급가액 {won(lineSupply(line))}</span><span>세액 {won(lineTax(line))}</span></p>
+            <p className="num flex justify-between text-[13px] text-gray-500"><span>공급가액 {won(lineSupply(line))}</span>{exempt ? null : <span>세액 {won(lineTax(line, taxKind))}</span>}</p>
           </div>
           {index === lines.length - 1 && !readOnly ? (
             <button type="button" className="w-full border-t border-dashed border-gray-200 py-2.5 text-[13px] font-medium text-gray-500" disabled={lines.length >= 16} onClick={props.onAddLine}>＋ 품목 추가</button>
@@ -303,7 +312,7 @@ export function TaxInvoiceMobileCards(props: TaxFormProps) {
 
       <div className="rounded-xl bg-white px-3 py-3 ring-1 ring-gray-200">
         <div className="num flex justify-between text-[13px] text-gray-500"><span>공급가액</span><span>{won(props.supplySum)}</span></div>
-        <div className="num flex justify-between text-[13px] text-gray-500"><span>세액</span><span>{won(props.taxSum)}</span></div>
+        {exempt ? null : <div className="num flex justify-between text-[13px] text-gray-500"><span>세액</span><span>{won(props.taxSum)}</span></div>}
         <div className="num mt-1.5 flex items-baseline justify-between border-t border-gray-100 pt-2">
           <span className="text-[13px] font-medium">합계금액</span>
           <span className="text-2xl font-bold">{won(props.totalSum)}<span className="text-base">원</span></span>

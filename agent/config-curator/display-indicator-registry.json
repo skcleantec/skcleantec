@@ -1172,6 +1172,18 @@
       "helpPath": null,
       "codeRefs": ["client/src/components/taxinvoice/TaxInvoiceFormViews.tsx"],
       "notes": "발행 화면 /admin/inquiries/receipts/taxinvoice/new. 공급자 #c8102e, 칸선 #f0b7c0, 배경 #fff5f6. 공급받는자 #1d4ed8, 칸선 #b9c8f3, 배경 #f4f7ff. 모바일은 왼쪽 색 띠. 끄기 설정 없음."
+    },
+    {
+      "id": "taxinvoice.form.taxKind",
+      "labelKo": "세금계산서 과세 구분",
+      "surfaces": ["admin.taxinvoice.issue", "admin.taxinvoice.list"],
+      "visual": { "type": "chip", "token": "gray-100", "hex": "#f3f4f6" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/components/taxinvoice/TaxInvoiceIssueWorkspace.tsx", "client/src/pages/admin/AdminTaxInvoiceListPage.tsx"],
+      "notes": "과세·영세·면세. 선택됨은 흰 배경 #ffffff. 글자 선택 전 #6b7280. 목록 배지도 gray-100. 끄기 설정 없음. 면세사업자는 면세만 켜진다."
     }
   ]
 }

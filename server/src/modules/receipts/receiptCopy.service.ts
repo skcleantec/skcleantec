@@ -131,6 +131,17 @@ function taxLines(raw: unknown): TaxLine[] {
   });
 }
 
+function taxKindFromStored(lines: unknown): 'taxable' | 'zero' | 'exempt' {
+  if (!Array.isArray(lines)) return 'taxable';
+  for (const item of lines) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as { kind?: unknown; taxKind?: unknown };
+    if (row.kind !== 'settlement') continue;
+    if (row.taxKind === 'zero' || row.taxKind === 'exempt' || row.taxKind === 'taxable') return row.taxKind;
+  }
+  return 'taxable';
+}
+
 function taxView(
   row: TaxInvoiceIssue & { member: Merchant; operatingCompany: { name: string } },
   logo: Buffer | null,
@@ -143,7 +154,7 @@ function taxView(
   const addr = merchantAddr(row.member);
   const lines = taxLines(row.lines);
   return {
-    title: '세금계산서',
+    title: taxKindFromStored(row.lines) === 'exempt' ? '계산서' : '세금계산서',
     badge,
     logo,
     rows: [
@@ -163,12 +174,12 @@ function taxView(
     items: (lines.length ? lines : [{ name: '청소 서비스', supply: row.supplyAmount, tax: row.taxAmount, total: row.totalAmount }]).map((line) => ({
       name: line.name,
       supply: won(line.supply),
-      tax: won(line.tax),
+      tax: taxKindFromStored(row.lines) === 'exempt' ? '' : won(line.tax),
       total: won(line.total),
     })),
     totals: [
       { label: '공급가액', value: won(row.supplyAmount) },
-      { label: '세액', value: won(row.taxAmount) },
+      ...(taxKindFromStored(row.lines) === 'exempt' ? [] : [{ label: '세액', value: won(row.taxAmount) }]),
       { label: '합계', value: won(row.totalAmount) },
     ],
     approval: approval || (cancelled || failed ? '—' : PENDING),

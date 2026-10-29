@@ -75,7 +75,24 @@ function writeDateOf(raw: string | undefined): string {
   return ymd.replace(/-/g, '');
 }
 
-function linesOf(raw: LineInput[] | undefined) {
+type InvoiceTaxKind = 'taxable' | 'zero' | 'exempt';
+
+function invoiceTaxKind(raw: unknown): InvoiceTaxKind {
+  if (raw === 'zero' || raw === 'exempt' || raw === 'taxable') return raw;
+  return 'taxable';
+}
+
+function taxKindFromLines(lines: unknown): InvoiceTaxKind {
+  if (!Array.isArray(lines)) return 'taxable';
+  for (const item of lines) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as { kind?: unknown; taxKind?: unknown };
+    if (row.kind === 'settlement') return invoiceTaxKind(row.taxKind);
+  }
+  return 'taxable';
+}
+
+function linesOf(raw: LineInput[] | undefined, kind: InvoiceTaxKind) {
   const rows = (Array.isArray(raw) ? raw : []).filter((row) => row?.kind !== 'settlement');
   if (rows.length < 1) throw new TaxInvoiceError('품목을 한 줄 이상 입력해 주세요.');
   if (rows.length > 16) throw new TaxInvoiceError('품목은 16줄까지입니다.');
@@ -88,7 +105,12 @@ function linesOf(raw: LineInput[] | undefined) {
     let supply: number;
     let tax: number;
     let total: number;
-    if (Number.isFinite(supplyIn) && Number.isFinite(taxIn) && supplyIn >= 0 && taxIn >= 0 && supplyIn + taxIn >= 1) {
+    if (kind !== 'taxable') {
+      if (!Number.isFinite(supplyIn) || supplyIn < 1) throw new TaxInvoiceError('품목 금액을 입력해 주세요.');
+      supply = supplyIn;
+      tax = 0;
+      total = supply;
+    } else if (Number.isFinite(supplyIn) && Number.isFinite(taxIn) && supplyIn >= 0 && taxIn >= 0 && supplyIn + taxIn >= 1) {
       supply = supplyIn;
       tax = taxIn;
       total = supply + tax;
@@ -201,6 +223,7 @@ function toPublic(row: TaxInvoiceIssue) {
     modifyLater: Boolean(row.barobillState && row.barobillState !== '5031' && row.ntsSendState && row.ntsSendState !== '1'),
     copyReady: Boolean(row.copyPngUrl && row.publicToken),
     publicToken: row.publicToken,
+    taxKind: taxKindFromLines(row.lines),
   };
 }
 
@@ -314,6 +337,7 @@ export async function issueTaxInvoice(
     credit?: string;
     remark?: string;
     buyerTaxRegId?: string;
+    taxKind?: unknown;
   },
 ) {
   const inquiry = input.inquiryId
@@ -326,13 +350,18 @@ export async function issueTaxInvoice(
   const { member } = await loadMember(tenantId, brandId);
   if (!member) throw new TaxInvoiceError(TAX_LINK_MESSAGE, 409, 'link_required');
   if (member.taxType === '2') throw new TaxInvoiceError(TAX_SIMPLIFIED_MESSAGE, 409, 'simplified');
+  const taxKind = member.taxType === '4' ? 'exempt' : invoiceTaxKind(input.taxKind);
+  if (member.taxType === '4' && invoiceTaxKind(input.taxKind) !== 'exempt') {
+    throw new TaxInvoiceError('면세사업자는 전자계산서만 발행할 수 있습니다.');
+  }
   if (member.certValid !== true) throw new TaxInvoiceError(certBlockMessage(), 409, 'cert');
   const purposeType = input.purposeType === 2 ? 2 : input.purposeType === 1 ? 1 : null;
   if (!purposeType) throw new TaxInvoiceError('영수 또는 청구를 선택해 주세요.');
   const buyer = buyerOf(input.buyer ?? {});
-  const priced = linesOf(input.lines);
+  const priced = linesOf(input.lines, taxKind);
   const settlement = {
     kind: 'settlement' as const,
+    taxKind,
     cash: digitsOnly(input.cash, 15),
     chkBill: digitsOnly(input.chkBill, 15),
     note: digitsOnly(input.note, 15),
@@ -400,6 +429,8 @@ export async function issueTaxInvoice(
       buyerBizClass: buyer.bizClass,
       writeDate,
       purposeType,
+      taxType: taxKind === 'zero' ? 2 : taxKind === 'exempt' ? 3 : 1,
+      taxInvoiceType: taxKind === 'exempt' ? 2 : 1,
       supply: priced.supply,
       tax: priced.tax,
       total: priced.total,
@@ -539,6 +570,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       name: brand.name,
       linked: brand.barobillMember?.status === 'ACTIVE' && Boolean(brand.barobillMember.barobillUserId.trim()),
       simplified: brand.barobillMember?.taxType === '2',
+      memberTaxType: brand.barobillMember?.taxType ?? null,
       certValid: brand.barobillMember?.certValid === true,
       certExpireDate: brand.barobillMember?.certExpireDate ?? null,
       supplier: brand.barobillMember

@@ -88,6 +88,18 @@ export function emptyLine(writeDate: string, name = '청소 서비스'): TaxForm
   };
 }
 
+export type TaxKind = 'taxable' | 'zero' | 'exempt';
+
+export const TAX_KIND_HINT: Record<TaxKind, string> = {
+  taxable: '과세 · 세액 10%가 붙는 일반 세금계산서입니다.',
+  zero: '영세율 · 세액 0원으로 발행합니다. 영세율 적용 대상 거래인지 확인하세요.',
+  exempt: '면세 · 세액이 없는 「전자계산서」로 발행합니다. 면세 용역·재화에만 쓰세요.',
+};
+
+export function docTitle(kind: TaxKind): string {
+  return kind === 'exempt' ? '전자계산서' : '전자세금계산서';
+}
+
 /** 시안 스크립트: 수량·단가를 고치면 공급가액·세액 수정을 지우고 다시 계산한다. 공급가액을 고치면 세액만 다시 계산한다. */
 export function patchLine(line: TaxFormLine, patch: Partial<TaxFormLine>): TaxFormLine {
   const next = { ...line, ...patch };
@@ -112,7 +124,9 @@ export function lineSupply(line: TaxFormLine): number {
   return moneyNumber(line.qty) * moneyNumber(line.unitPrice);
 }
 
-export function lineTax(line: TaxFormLine): number {
+/** 과세만 10% 내림. 영세·면세는 세액 0. 직접 고친 세액은 과세일 때만 유지한다. */
+export function lineTax(line: TaxFormLine, kind: TaxKind = 'taxable'): number {
+  if (kind !== 'taxable') return 0;
   if (line.taxEdited) return moneyNumber(line.tax);
   return Math.floor(lineSupply(line) * 0.1);
 }

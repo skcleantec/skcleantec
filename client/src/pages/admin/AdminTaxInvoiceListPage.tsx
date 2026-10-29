@@ -234,7 +234,7 @@ export function AdminTaxInvoiceListPage() {
                       {row.inquiryNumber ? <Link className="text-fluid-2xs text-slate-600 underline hover:text-slate-900" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.inquiryNumber}</Link> : null}
                       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
                     </td>
-                    <td className="truncate px-2 py-2 text-center">{row.itemName || '청소 서비스'}</td>
+                    <td className="truncate px-2 py-2 text-center"><TaxKindBadge kind={row.taxKind} /> {row.itemName || '청소 서비스'}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{won(row.totalAmount)}</td>
                     <td className="px-2 py-2 text-center">{row.purposeType === 2 ? '청구' : '영수'}</td>
                     <td className="px-2 py-2 text-center"><TaxStatus row={row} /></td>
@@ -272,6 +272,11 @@ function taxFailed(row: TaxInvoiceRow): boolean {
   return row.ntsSendState === '5' || (!row.barobillState && Boolean(row.lastError));
 }
 
+function TaxKindBadge({ kind }: { kind?: TaxInvoiceRow['taxKind'] }) {
+  const label = kind === 'zero' ? '영세' : kind === 'exempt' ? '면세' : '과세';
+  return <span className="mr-1 inline-flex rounded-full bg-gray-100 px-1.5 py-0 text-fluid-2xs font-medium text-gray-700">{label}</span>;
+}
+
 function TaxStatus({ row }: { row: TaxInvoiceRow }) {
   const label = row.barobillState === '5031' ? '취소' : taxFailed(row) ? '실패' : taxNtsStateLabel(row.ntsSendState) || taxBarobillStateLabel(row.barobillState);
   const tone = row.barobillState === '5031'
@@ -294,7 +299,7 @@ function RowAction({ row, cancelling, onCancel, onReissue }: { row: TaxInvoiceRo
       {taxFailed(row) ? (
         <button type="button" className={btn} onClick={onReissue}>다시 발행</button>
       ) : (
-        <button type="button" className={btn} disabled={!official} onClick={() => void openTaxMail(row.id)}>영수증</button>
+        <button type="button" className={btn} disabled={!official} onClick={() => void openTaxMail(row.id)}>{row.taxKind === 'exempt' ? '계산서' : '영수증'}</button>
       )}
       <ReceiptRowMenu
         kind="taxinvoice"
@@ -321,7 +326,7 @@ function TaxCard({ row, cancelling, onCancel, onReissue, highlight }: { row: Tax
   return (
     <article className={`space-y-1 rounded-lg border border-slate-200 p-2 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
       <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
-      <p className="truncate text-fluid-sm font-medium text-slate-900">{taxCustomerLine(row)}</p>
+      <p className="truncate text-fluid-sm font-medium text-slate-900"><TaxKindBadge kind={row.taxKind} /> {taxCustomerLine(row)}</p>
       <p className="text-right text-fluid-sm font-semibold tabular-nums text-slate-900">{won(row.totalAmount)}</p>
       <p className="truncate text-fluid-2xs text-slate-600">{row.itemName || '청소 서비스'} · {row.purposeType === 2 ? '청구' : '영수'} · <TaxStatus row={row} /></p>
       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700">실패 이유: {row.lastError}</p> : null}

@@ -35,6 +35,10 @@ export type TaxInvoicePayload = {
   buyerBizClass: string;
   writeDate: string;
   purposeType: 1 | 2;
+  /** 바로빌 TaxInvoice.TaxType. 1 과세, 2 영세, 3 면세. */
+  taxType: 1 | 2 | 3;
+  /** 바로빌 TaxInvoice.TaxInvoiceType. 면세는 2(계산서), 그 외 1(세금계산서). */
+  taxInvoiceType: 1 | 2;
   supply: number;
   tax: number;
   total: number;
@@ -116,7 +120,7 @@ function linePurchaseExpiry(writeDate: string, month?: string, day?: string): st
   return `${writeDate.slice(0, 4)}${m.padStart(2, '0').slice(-2)}${d.padStart(2, '0').slice(-2)}`;
 }
 
-/** 간편발급. 과세·정발행만. 내부 메모는 넣지 않는다. */
+/** 간편발급. 정발행. 과세·영세·면세는 TaxType, 면세 계산서는 TaxInvoiceType 2. 내부 메모는 넣지 않는다. */
 export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promise<void> {
   await callBarobill(
     'TI',
@@ -150,8 +154,8 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
           taxRegId: input.buyerTaxRegId,
         }),
         IssueDirection: 1,
-        TaxInvoiceType: 1,
-        TaxType: 1,
+        TaxInvoiceType: input.taxInvoiceType,
+        TaxType: input.taxType,
         TaxCalcType: 1,
         PurposeType: input.purposeType,
         ModifyCode: '',

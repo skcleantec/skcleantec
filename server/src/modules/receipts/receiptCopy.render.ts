@@ -63,7 +63,7 @@ export function renderReceiptPdf(view: ReceiptCopyView): Promise<Buffer> {
     doc.moveDown(0.3);
     for (const item of view.items) {
       draw(item.name, 10);
-      draw(`공급가액 ${item.supply}   세액 ${item.tax}   합계 ${item.total}`, 9, '#334155');
+      draw(item.tax ? `공급가액 ${item.supply}   세액 ${item.tax}   합계 ${item.total}` : `공급가액 ${item.supply}   합계 ${item.total}`, 9, '#334155');
     }
     doc.moveDown(0.3);
     for (const row of view.totals) draw(`${row.label}  ${row.value}`, 11);
@@ -104,7 +104,7 @@ export async function renderReceiptPng(view: ReceiptCopyView): Promise<Buffer> {
   for (const row of view.rows) push(`${row.label}  ${row.value}`, 20);
   for (const item of view.items) {
     push(item.name, 20);
-    push(`공급가액 ${item.supply}   세액 ${item.tax}   합계 ${item.total}`, 18, '#334155');
+    push(item.tax ? `공급가액 ${item.supply}   세액 ${item.tax}   합계 ${item.total}` : `공급가액 ${item.supply}   합계 ${item.total}`, 18, '#334155');
   }
   for (const row of view.totals) push(`${row.label}  ${row.value}`, 22);
   push(`국세청 승인번호  ${view.approval}`, 22);

@@ -32,6 +32,8 @@ export type TaxInvoiceBrand = {
   simplified: boolean;
   certValid: boolean;
   certExpireDate: string | null;
+  /** GetCorpState.TaxType. 4면 면세사업자. */
+  memberTaxType?: string | null;
   supplier?: TaxInvoiceSupplier | null;
 };
 
@@ -58,6 +60,7 @@ export type TaxInvoiceRow = {
   copyReady?: boolean;
   publicToken?: string | null;
   createdAt: string;
+  taxKind?: 'taxable' | 'zero' | 'exempt';
 };
 
 function headers(): HeadersInit {

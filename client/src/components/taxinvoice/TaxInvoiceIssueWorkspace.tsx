@@ -22,12 +22,48 @@ import {
   lineTax,
   moneyNumber,
   patchLine,
+  TAX_KIND_HINT,
   won,
   writeDateOptions,
   type TaxFormLine,
+  type TaxKind,
   type TaxParty,
 } from './taxInvoiceFormModel';
 import './taxinvoice-issue.css';
+
+const TAX_KIND_LABEL: Record<TaxKind, string> = { taxable: '과세', zero: '영세', exempt: '면세' };
+
+function TaxKindSwitch({ kind, locked, disabled, mobile, onChange }: {
+  kind: TaxKind;
+  locked: boolean;
+  disabled: boolean;
+  mobile?: boolean;
+  onChange: (kind: TaxKind) => void;
+}) {
+  const items: TaxKind[] = ['taxable', 'zero', 'exempt'];
+  if (mobile) {
+    return (
+      <div role="radiogroup" aria-label="과세 구분" className="grid grid-cols-3 rounded-lg bg-gray-100 p-0.5 text-[13px] font-semibold">
+        {items.map((item) => {
+          const on = kind === item;
+          return (
+            <button key={item} type="button" role="radio" aria-checked={on} disabled={disabled || (locked && item !== 'exempt')} className={on ? 'rounded-md bg-white py-2 text-center shadow-sm' : 'py-2 text-center text-gray-500'} onClick={() => onChange(item)}>{TAX_KIND_LABEL[item]}</button>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div role="radiogroup" aria-label="과세 구분" className="inline-flex rounded-lg bg-gray-100 p-0.5 text-sm">
+      {items.map((item) => {
+        const on = kind === item;
+        return (
+          <button key={item} type="button" role="radio" aria-checked={on} disabled={disabled || (locked && item !== 'exempt')} className={`tt rounded-md px-3 py-1.5 font-semibold ${on ? 'bg-white shadow-sm' : 'text-gray-500'}`} onClick={() => onChange(item)}>{TAX_KIND_LABEL[item]}</button>
+        );
+      })}
+    </div>
+  );
+}
 
 function supplierParty(supplier: TaxInvoiceSupplier | null | undefined): TaxParty {
   if (!supplier) return emptyParty();
@@ -56,6 +92,7 @@ export function TaxInvoiceIssueWorkspace() {
   const [unmatched, setUnmatched] = useState(false);
   const [brandId, setBrandId] = useState('');
   const [purpose, setPurpose] = useState<1 | 2>(1);
+  const [taxKind, setTaxKind] = useState<TaxKind>('taxable');
   const [writeDate, setWriteDate] = useState(dates[0] ?? kstToday());
   const [buyer, setBuyer] = useState<TaxParty>(emptyParty());
   const [lines, setLines] = useState<TaxFormLine[]>(() => [emptyLine(dates[0] ?? kstToday())]);
@@ -97,6 +134,7 @@ export function TaxInvoiceIssueWorkspace() {
   }, [inquiryId]);
 
   const brand = (picked && !unmatched ? brands.find((item) => item.id === picked.brandId) : brands.find((item) => item.id === brandId)) ?? null;
+  const exemptLocked = brand?.memberTaxType === '4';
   const supplier = supplierParty(brand?.supplier);
   const blocked = brand?.simplified
     ? '간이과세자는 세금계산서를 발행할 수 없습니다'
@@ -105,8 +143,9 @@ export function TaxInvoiceIssueWorkspace() {
       : null;
   const digits = buyer.corpNum.replace(/\D/g, '');
   const corpState = digits.length < 10 ? 'empty' : isValidKoreanBizNumberChecksum(digits) ? 'ok' : 'bad';
+  const activeKind: TaxKind = exemptLocked ? 'exempt' : taxKind;
   const supplySum = lines.reduce((sum, line) => sum + lineSupply(line), 0);
-  const taxSum = lines.reduce((sum, line) => sum + lineTax(line), 0);
+  const taxSum = lines.reduce((sum, line) => sum + lineTax(line, activeKind), 0);
   const short = summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW;
 
   function applyHit(hit: TaxInvoiceSearchHit) {
@@ -165,6 +204,7 @@ export function TaxInvoiceIssueWorkspace() {
         chkBill,
         note,
         credit,
+        taxKind: activeKind,
         lines: lines.map((line) => ({
           name: line.name,
           month: line.month,
@@ -173,7 +213,7 @@ export function TaxInvoiceIssueWorkspace() {
           qty: line.qty,
           unitPrice: String(moneyNumber(line.unitPrice)),
           supply: lineSupply(line),
-          tax: lineTax(line),
+          tax: lineTax(line, activeKind),
           remark: line.remark,
         })),
       });
@@ -223,6 +263,7 @@ export function TaxInvoiceIssueWorkspace() {
     supplySum,
     taxSum,
     totalSum: supplySum + taxSum,
+    taxKind: activeKind,
   };
 
   function issue() {
@@ -270,10 +311,16 @@ export function TaxInvoiceIssueWorkspace() {
               </span>
             ) : null}
           </div>
+          <span className="h-4 w-px bg-gray-200" />
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-xs font-medium text-gray-500">과세 구분</span>
+            <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} onChange={setTaxKind} />
+          </div>
           {brand?.certValid && brand.certExpireDate ? (
             <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">● 인증서 {brand.certExpireDate.slice(0, 10)}</span>
           ) : null}
         </div>
+        <p id="tt-hint" className="-mt-2 px-1 text-xs text-gray-500">{TAX_KIND_HINT[activeKind]}</p>
         {hits.length > 0 && !picked ? (
           <ul className="rounded-xl bg-white ring-1 ring-gray-200">
             {hits.map((hit) => (
@@ -319,6 +366,10 @@ export function TaxInvoiceIssueWorkspace() {
           <h2 className="flex-1 text-[15px] font-bold">세금계산서 발행</h2>
           {brand?.certValid ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">인증서 ✓</span> : null}
         </header>
+        <div className="bg-white px-3 pb-2.5">
+          <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} mobile onChange={setTaxKind} />
+          <p className="mt-1.5 text-[11px] text-gray-500">면세를 고르면 「전자계산서」로 바뀌고 세액 칸이 사라집니다.</p>
+        </div>
         <div className="space-y-3 px-3 py-3 pb-28">
           <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-gray-200">
             <p className="text-[11px] text-gray-500">접수 연결</p>
