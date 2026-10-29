@@ -3,6 +3,8 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from './tenant.middleware.js';
 import { isFeatureEnabled } from './tenantFeatures.service.js';
 import { isKnownFeatureModuleId, type TenantFeatureModuleId } from './tenantFeatureCatalog.js';
+import { BAROBILL_CLOSED_MESSAGE, isBarobillOpenForTenant } from '../../lib/barobill/barobillOpen.js';
+import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 
 export function requireFeature(moduleId: TenantFeatureModuleId) {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -13,6 +15,10 @@ export function requireFeature(moduleId: TenantFeatureModuleId) {
     }
     if (!isKnownFeatureModuleId(moduleId)) {
       res.status(500).json({ error: '알 수 없는 기능 모듈입니다.' });
+      return;
+    }
+    if (moduleId === CASHBILL_MODULE_ID && !isBarobillOpenForTenant(tenantId)) {
+      res.status(403).json({ error: BAROBILL_CLOSED_MESSAGE });
       return;
     }
     const ok = await isFeatureEnabled(tenantId, moduleId);

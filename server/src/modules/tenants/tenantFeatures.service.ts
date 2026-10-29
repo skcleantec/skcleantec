@@ -1,4 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
+import { isBarobillOpenForTenant } from '../../lib/barobill/barobillOpen.js';
+import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import {
   applyExternalCompanyModuleAccess,
   CORE_FEATURE_MODULE_IDS,
@@ -44,7 +46,11 @@ export async function getEffectiveEnabledModules(tenantId: string): Promise<stri
     base.add(core);
   }
 
-  return applyExternalCompanyModuleAccess([...base], tenant?.slug);
+  const modules = applyExternalCompanyModuleAccess([...base], tenant?.slug);
+  if (!isBarobillOpenForTenant(tenantId)) {
+    return modules.filter((id) => id !== CASHBILL_MODULE_ID);
+  }
+  return modules;
 }
 
 export async function isFeatureEnabled(

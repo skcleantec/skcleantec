@@ -1159,7 +1159,7 @@
       "settingsPath": null,
       "helpPath": "/admin/team-leaders/cashbill",
       "codeRefs": ["client/src/components/cashbill/CashbillBrandCard.tsx"],
-      "notes": "가입완료 카드의 줄. 세금계산서는 곧 만료면 주황 amber-800 #92400e 과 다시 등록. 미가입일 때는 입력칸만 보이고 이 줄은 없다."
+      "notes": "가입완료 카드의 줄. 세금계산서는 곧 만료면 주황 amber-800 #92400e 과 다시 등록. 미가입일 때는 입력칸만 보이고 이 줄은 없다. 서버 BAROBILL_OPEN 이 off 이거나 pilot 인데 그 업체가 아니면 mod_cashbill 이 빠져 영수증·계산서 연결 메뉴가 숨고 API 는 403."
     },
     {
       "id": "taxinvoice.form.partyColor",
