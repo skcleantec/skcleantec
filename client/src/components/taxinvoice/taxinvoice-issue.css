@@ -1,0 +1,64 @@
+.taxinvoice-issue {
+  --page: #eef0f3;
+  --sheet: #ffffff;
+  --ink: #111827;
+  --muted: #6b7280;
+  --line: #d1d5db;
+  --red: #c8102e;
+  --red-bg: #fff5f6;
+  --red-line: #f0b7c0;
+  --blue: #1d4ed8;
+  --blue-bg: #f4f7ff;
+  --blue-line: #b9c8f3;
+  --font: 'Noto Sans KR', 'Inter', -apple-system, sans-serif;
+  --num: 'Inter', 'Noto Sans KR', sans-serif;
+  color: var(--ink);
+  font-family: var(--font);
+  color-scheme: light;
+}
+.taxinvoice-issue .num {
+  font-family: var(--num);
+  font-variant-numeric: tabular-nums;
+}
+.taxinvoice-issue .cell input,
+.taxinvoice-issue .cell select {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  padding: 2px 0;
+  outline: none;
+  font: inherit;
+  color: inherit;
+}
+.taxinvoice-issue .cell input:focus {
+  border-bottom-color: currentColor;
+  background: rgba(29, 78, 216, 0.04);
+}
+.taxinvoice-issue .cell input::placeholder {
+  color: #b6bcc6;
+}
+.taxinvoice-issue .lbl {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.taxinvoice-issue .side-red .lbl { color: var(--red); }
+.taxinvoice-issue .side-blue .lbl { color: var(--blue); }
+.taxinvoice-issue .side-red { border-color: var(--red); }
+.taxinvoice-issue .side-blue { border-color: var(--blue); }
+.taxinvoice-issue .vtitle {
+  writing-mode: vertical-rl;
+  letter-spacing: 0.35em;
+  font-weight: 700;
+}
+.taxinvoice-issue :focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.taxinvoice-issue button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .taxinvoice-issue * { transition: none !important; }
+}

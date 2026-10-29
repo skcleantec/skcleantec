@@ -88,27 +88,33 @@ export function emptyLine(writeDate: string, name = '청소 서비스'): TaxForm
   };
 }
 
+/** 시안 스크립트: 수량·단가를 고치면 공급가액·세액 수정을 지우고 다시 계산한다. 공급가액을 고치면 세액만 다시 계산한다. */
 export function patchLine(line: TaxFormLine, patch: Partial<TaxFormLine>): TaxFormLine {
   const next = { ...line, ...patch };
   if (patch.month != null || patch.day != null) next.dateEdited = true;
-  const qty = moneyNumber(next.qty || '0');
-  const unit = moneyNumber(next.unitPrice);
   if (patch.qty != null || patch.unitPrice != null) {
-    if (!next.supplyEdited) {
-      const supply = qty * unit;
-      next.supply = supply ? formatMoneyInput(String(supply)) : '';
-      if (!next.taxEdited) next.tax = supply ? formatMoneyInput(String(Math.round(supply * 0.1))) : '';
-    }
-  }
-  if (patch.supply != null) {
+    next.supplyEdited = false;
+    next.taxEdited = false;
+    next.supply = '';
+    next.tax = '';
+  } else if (patch.supply != null) {
     next.supplyEdited = true;
-    if (!next.taxEdited) {
-      const supply = moneyNumber(next.supply);
-      next.tax = formatMoneyInput(String(Math.round(supply * 0.1)));
-    }
+    next.taxEdited = false;
+    next.tax = '';
+  } else if (patch.tax != null) {
+    next.taxEdited = true;
   }
-  if (patch.tax != null) next.taxEdited = true;
   return next;
+}
+
+export function lineSupply(line: TaxFormLine): number {
+  if (line.supplyEdited) return moneyNumber(line.supply);
+  return moneyNumber(line.qty) * moneyNumber(line.unitPrice);
+}
+
+export function lineTax(line: TaxFormLine): number {
+  if (line.taxEdited) return moneyNumber(line.tax);
+  return Math.floor(lineSupply(line) * 0.1);
 }
 
 export function won(n: number): string {
