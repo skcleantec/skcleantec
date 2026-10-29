@@ -12,7 +12,7 @@ export function IssueModalFrame({
   title: string;
   onClose: () => void;
   children: ReactNode;
-  footer: ReactNode;
+  footer?: ReactNode;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
@@ -28,7 +28,7 @@ export function IssueModalFrame({
   return createPortal(
     <div className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 lg:items-center" role="presentation" onMouseDown={onClose}>
       <div
-        className="modal-mobile-fullscreen-panel flex max-h-[100dvh] w-full flex-col bg-white lg:max-h-[90vh] lg:max-w-[560px] lg:rounded-2xl"
+        className="modal-mobile-fullscreen-panel flex max-h-[100dvh] w-full flex-col bg-white lg:max-h-[90vh] lg:max-w-[640px] lg:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -38,7 +38,7 @@ export function IssueModalFrame({
           <h2 className="text-fluid-sm font-semibold text-slate-900">{title}</h2>
           <button
             type="button"
-            className="inline-flex size-10 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            className="inline-flex size-11 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             aria-label="닫기"
             onClick={onClose}
           >
@@ -48,7 +48,7 @@ export function IssueModalFrame({
         <div ref={scrollRef} className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto p-3" onFocusCapture={onFieldFocus}>
           {children}
         </div>
-        <footer className="shrink-0 border-t border-slate-200 px-3 py-2">{footer}</footer>
+        {footer ? <footer className="shrink-0 border-t border-slate-200 px-3 py-2">{footer}</footer> : null}
       </div>
     </div>,
     document.body,

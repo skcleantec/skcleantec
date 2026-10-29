@@ -96,6 +96,11 @@ export async function getCashbillSettings(tenantId: string) {
           businessRegistrationImagePublicId: true,
           certValid: true,
           certExpireDate: true,
+          bizType: true,
+          bizClass: true,
+          contactName: true,
+          contactTel: true,
+          contactEmail: true,
         },
       },
     },
@@ -141,6 +146,11 @@ export async function getCashbillSettings(tenantId: string) {
               linked: visible.status === 'ACTIVE' && Boolean(visible.barobillUserId.trim()),
               certValid: visible.certValid,
               certExpireDate: visible.certExpireDate,
+              bizType: visible.bizType,
+              bizClass: visible.bizClass,
+              contactName: visible.contactName,
+              contactTel: visible.contactTel,
+              contactEmail: visible.contactEmail,
             }
           : null,
       };
@@ -803,4 +813,31 @@ export async function releaseStaleBarobillProcessing(memberId: string) {
   });
   if (updated.count !== 1) throw new CashbillMemberError(ALREADY_PROCESSING_MESSAGE, 409);
   return { id: row.id, status: 'PENDING_REVIEW' as const };
+}
+
+/** 가입완료 브랜드의 업태·연락만 청소비서에 저장한다. 바로빌 재가입은 하지 않는다. */
+export async function updateActiveCashbillContact(tenantId: string, input: RegisterInput) {
+  const brand = await loadBrandForTenant(tenantId, input.operatingCompanyId);
+  const owner = await prisma.operatingCompany.findFirst({
+    where: { id: brand.id, tenantId },
+    select: { barobillMember: { select: { id: true, tenantId: true, status: true } } },
+  });
+  const member = owner?.barobillMember;
+  if (!member || member.tenantId !== tenantId || member.status !== 'ACTIVE') {
+    throw new CashbillMemberError('가입완료인 브랜드만 연락 정보를 수정할 수 있습니다.', 409);
+  }
+  const { signup, pg } = await loadSignupProfile(tenantId);
+  const contact = readContact(input, pg?.contactName?.trim() || signup?.representativeName?.trim() || '담당자');
+  const saved = await prisma.barobillMember.updateMany({
+    where: { id: member.id, tenantId, status: 'ACTIVE' },
+    data: {
+      bizType: contact.bizType,
+      bizClass: contact.bizClass,
+      contactName: contact.contactName,
+      contactTel: contact.contactTel,
+      contactEmail: contact.contactEmail,
+    },
+  });
+  if (saved.count !== 1) throw new CashbillMemberError('연락 정보를 저장하지 못했습니다.', 409);
+  return { ok: true as const };
 }

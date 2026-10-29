@@ -157,11 +157,11 @@ export function TaxInvoiceIssueForm({ brands, onClose, onDone }: { brands: TaxIn
               : `발행 비용 ${TAXINVOICE_UNIT_PRICE_KRW.toLocaleString('ko-KR')}원 · 지갑 ${summary ? summary.balanceKrw.toLocaleString('ko-KR') : '…'}원 → ${summary ? (summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW).toLocaleString('ko-KR') : '…'}원`}
           </p>
           <div className="flex gap-2">
-            <button type="button" className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={onClose}>취소</button>
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={onClose}>취소</button>
             {summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW ? (
-              <button type="button" className="min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={openCharge}>충전하기</button>
+              <button type="button" className="min-h-11 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={openCharge}>충전하기</button>
             ) : (
-              <button type="button" className="min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={saving || Boolean(blocked)} onClick={() => void submit()}>
+              <button type="button" className="min-h-11 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={saving || Boolean(blocked)} onClick={() => void submit()}>
                 {saving ? '발행 중…' : '발행하기'}
               </button>
             )}

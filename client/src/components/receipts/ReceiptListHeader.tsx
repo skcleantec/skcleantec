@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 
@@ -6,9 +7,9 @@ function won(n: number): string {
 }
 
 const GHOST =
-  'min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  'min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 const PRIMARY =
-  'min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  'min-h-11 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
 export function ReceiptListHeader({
   title,
@@ -16,12 +17,14 @@ export function ReceiptListHeader({
   issueLabel,
   onIssue,
   issueDisabled,
+  statusChip,
 }: {
   title: string;
   path: string;
   issueLabel: string;
   onIssue: () => void;
   issueDisabled?: boolean;
+  statusChip?: ReactNode;
 }) {
   const { summary, openCharge, openHistory } = useReceiptWallet();
   return (
@@ -33,6 +36,7 @@ export function ReceiptListHeader({
         <span className="text-fluid-sm font-semibold tabular-nums text-slate-900">지갑 {summary ? won(summary.balanceKrw) : '…'}</span>
         <button type="button" className={GHOST} onClick={openHistory}>내역</button>
         <button type="button" className={GHOST} onClick={openCharge}>충전</button>
+        {statusChip}
         <button type="button" className={PRIMARY} disabled={issueDisabled} onClick={onIssue}>{issueLabel}</button>
       </div>
     </div>

@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { fetchCashbillCertificateStatus, openCashbillCertificateUrl } from '../../api/cashbill';
+import { IssueModalFrame } from '../receipts/IssueModalFrame';
+import { certExpireLabel } from './cashbillCertDisplay';
 
-const STEP = 'rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-800';
+const BTN =
+  'min-h-11 w-full rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none sm:w-auto';
+const GHOST =
+  'min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
 function openCertPopup(url: string): Window | null {
   const left = Math.max(0, window.screenX + 460);
@@ -14,20 +18,22 @@ export function CashbillCertRegisterModal({
   operatingCompanyId,
   onClose,
   onRegistered,
+  onIssue,
 }: {
   operatingCompanyId: string;
-  onClose: (status: { valid: boolean; expireDate: string | null }) => void;
+  onClose: () => void;
   onRegistered: (status: { valid: boolean; expireDate: string | null }) => void;
+  onIssue?: () => void;
 }) {
-  const [embed, setEmbed] = useState<boolean | null>(null);
-  const [frameUrl, setFrameUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
+  const [frameUrl, setFrameUrl] = useState<string | null>(null);
+  const [watching, setWatching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ expireDate: string | null } | null>(null);
   const popupRef = useRef<Window | null>(null);
+  const openedAt = useRef<number | null>(null);
   const onRegisteredRef = useRef(onRegistered);
-  const onCloseRef = useRef(onClose);
   onRegisteredRef.current = onRegistered;
-  onCloseRef.current = onClose;
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1023px)');
@@ -37,48 +43,53 @@ export function CashbillCertRegisterModal({
     return () => media.removeEventListener('change', apply);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    let opened: Window | null = null;
-    openCashbillCertificateUrl(operatingCompanyId)
-      .then((issued) => {
-        if (cancelled) return;
-        setEmbed(issued.embed);
-        if (issued.embed) setFrameUrl(issued.url);
-        else {
-          opened = openCertPopup(issued.url);
-          popupRef.current = opened;
-          if (!opened) setError('등록 창이 브라우저에 막혔습니다. 팝업을 허용한 뒤 다시 열어 주세요.');
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : '공동인증서 등록 창을 열지 못했습니다.');
-      });
-    return () => {
-      cancelled = true;
-      popupRef.current?.close();
-    };
-  }, [operatingCompanyId]);
+  useEffect(() => () => {
+    popupRef.current?.close();
+  }, []);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      void fetchCashbillCertificateStatus(operatingCompanyId)
-        .then((status) => {
-        if (!status.valid) return;
+  async function checkOnce(fromClose = false) {
+    try {
+      const status = await fetchCashbillCertificateStatus(operatingCompanyId);
+      if (status.valid) {
         popupRef.current?.close();
+        setWatching(false);
+        setError(null);
+        setDone({ expireDate: status.expireDate });
         onRegisteredRef.current(status);
-        })
-        .catch(() => undefined);
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [operatingCompanyId]);
+        return;
+      }
+      if (fromClose || (openedAt.current != null && Date.now() - openedAt.current > 90_000)) {
+        setError('등록이 확인되지 않았어요');
+        setWatching(false);
+      }
+    } catch {
+      if (fromClose) setError('등록이 확인되지 않았어요');
+    }
+  }
 
-  async function reopen() {
+  useEffect(() => {
+    if (!watching) return undefined;
+    let ticks = 0;
+    const poll = window.setInterval(() => {
+      ticks += 1;
+      if (popupRef.current?.closed) {
+        popupRef.current = null;
+        void checkOnce(true);
+        return;
+      }
+      if (ticks % 5 === 0) void checkOnce(false);
+    }, 1000);
+    return () => window.clearInterval(poll);
+  }, [watching, operatingCompanyId]);
+
+  async function openWindow() {
     setError(null);
+    setDone(null);
     popupRef.current?.close();
     try {
       const issued = await openCashbillCertificateUrl(operatingCompanyId);
-      setEmbed(issued.embed);
+      openedAt.current = Date.now();
+      setWatching(true);
       if (issued.embed) {
         setFrameUrl(issued.url);
         popupRef.current = null;
@@ -93,54 +104,40 @@ export function CashbillCertRegisterModal({
     }
   }
 
-  async function close() {
-    popupRef.current?.close();
-    const status = await fetchCashbillCertificateStatus(operatingCompanyId).catch(() => ({ valid: false, expireDate: null }));
-    if (status.valid) onRegisteredRef.current(status);
-    else onCloseRef.current(status);
-  }
-
-  return createPortal(
-    <div className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 lg:items-center">
-      <div className="modal-mobile-fullscreen-panel flex max-h-[100dvh] w-full flex-col bg-white lg:max-h-[90vh] lg:max-w-3xl lg:rounded-2xl">
-        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
-          <h2 className="text-fluid-sm font-semibold text-slate-900">공동인증서 등록</h2>
-          <button
-            type="button"
-            className="min-h-10 rounded-lg px-3 text-fluid-xs text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            onClick={() => void close()}
-          >
-            닫기
-          </button>
-        </header>
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2 sm:p-3">
-          {mobile ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-amber-950">
-              PC에서 등록을 권장합니다
-            </p>
+  return (
+    <IssueModalFrame
+      title="공동인증서 등록"
+      onClose={onClose}
+      footer={done ? (
+        <button type="button" className={BTN} onClick={() => { onIssue?.(); onClose(); }}>
+          세금계산서 발행하기
+        </button>
+      ) : (
+        <div className="flex flex-wrap justify-end gap-2">
+          {watching ? (
+            <button type="button" className={GHOST} onClick={() => void checkOnce(true)}>다시 확인</button>
           ) : null}
-          <ol className="grid gap-1.5 sm:grid-cols-3">
-            <li className={STEP}>① 인증서 위치 선택</li>
-            <li className={STEP}>② 인증서 선택</li>
-            <li className={STEP}>③ 비밀번호 입력</li>
-          </ol>
-          {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
-          {embed === false ? (
-            <p className="text-fluid-xs text-slate-600">등록 창이 따로 열렸습니다. 위 순서대로 진행하면 끝나면 이 창이 닫힙니다.</p>
-          ) : null}
-          {embed && frameUrl ? (
-            <iframe title="공동인증서 등록" src={frameUrl} className="h-[60dvh] w-full rounded-lg border border-slate-200 lg:h-[480px]" />
-          ) : null}
-          <button
-            type="button"
-            className="min-h-10 rounded-lg border border-slate-300 px-3 text-fluid-xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            onClick={() => void reopen()}
-          >
-            등록 창 다시 열기
+          <button type="button" className={BTN} onClick={() => void openWindow()}>
+            {frameUrl || watching ? '다시 열기' : '등록 창 열기'}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+      )}
+    >
+      <p className="text-fluid-xs text-slate-700">세금계산서를 발행하려면 사업자 공동인증서가 필요합니다. 1년에 한 번.</p>
+      {mobile ? (
+        <p className="rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-fluid-xs text-slate-700">
+          공동인증서는 보통 PC에 있어요. PC에서 등록을 권장합니다
+        </p>
+      ) : null}
+      <ol className="space-y-1 text-fluid-xs text-slate-800">
+        <li>① 인증서 위치 선택 (PC·USB 등)</li>
+        <li>② 사업자 인증서 선택 (전자세금용 또는 사업자 범용)</li>
+        <li>③ 인증서 비밀번호 입력</li>
+      </ol>
+      {watching && !done ? <p className="text-fluid-xs text-slate-600">등록을 확인하는 중…</p> : null}
+      {done ? <p className="text-fluid-sm font-medium text-emerald-800">등록 완료 · 만료일 {certExpireLabel(done.expireDate)}</p> : null}
+      {error ? <p className="text-fluid-xs text-red-700">{error} · 다시 확인 / 다시 열기</p> : null}
+      {frameUrl ? <iframe title="공동인증서 등록" src={frameUrl} className="h-[50dvh] w-full rounded-lg border border-slate-200" /> : null}
+    </IssueModalFrame>
   );
 }

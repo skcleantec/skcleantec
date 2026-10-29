@@ -316,7 +316,7 @@ function ReceiptActions({
   onError: (message: string) => void;
   onReissue: () => void;
 }) {
-  const btn = 'min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  const btn = 'min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   const failed = isFailedRow(row);
   return (
     <div className="inline-flex items-center justify-center gap-1">

@@ -1123,7 +1123,31 @@
       "settingsPath": "/admin/team-leaders/cashbill",
       "helpPath": null,
       "codeRefs": ["client/src/pages/admin/AdminTaxInvoiceListPage.tsx"],
-      "notes": "인증서가 없거나 만료면 발행 버튼을 끈다. 등록하기는 계산서 연결로 간다."
+      "notes": "인증서가 없거나 만료면 발행 버튼을 끈다. 배너의 공동인증서 등록은 같은 등록 창을 연다. 등록이 확인되면 배너가 사라지고 발행이 켜진다."
+    },
+    {
+      "id": "receipt.tax.certChip",
+      "labelKo": "인증서 미등록",
+      "surfaces": ["admin.receipts.taxinvoice"],
+      "visual": { "type": "chip", "token": "amber-50", "hex": "#fffbeb" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/pages/admin/AdminTaxInvoiceListPage.tsx", "client/src/components/receipts/ReceiptListHeader.tsx"],
+      "notes": "제목 오른쪽. 없으면 인증서 미등록(주황). 있으면 인증서 ~만료일(초록 emerald-50 #ecfdf5). 누르면 등록 창."
+    },
+    {
+      "id": "cashbill.link.capability",
+      "labelKo": "현금영수증·세금계산서 사용 가능",
+      "surfaces": ["admin.cashbill.settings"],
+      "visual": { "type": "text", "token": "emerald-700", "hex": "#047857" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": "/admin/team-leaders/cashbill",
+      "codeRefs": ["client/src/components/cashbill/CashbillBrandCard.tsx"],
+      "notes": "가입완료 카드의 줄. 세금계산서는 곧 만료면 주황 amber-800 #92400e 과 다시 등록. 미가입일 때는 입력칸만 보이고 이 줄은 없다."
     }
   ]
 }

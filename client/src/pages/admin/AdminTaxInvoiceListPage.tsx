@@ -4,6 +4,7 @@ import { API } from '../../api/apiPrefix';
 import { getToken } from '../../stores/auth';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
+import { CashbillCertRegisterModal } from '../../components/cashbill/CashbillCertRegisterModal';
 import { TaxInvoiceIssueForm } from '../../components/taxinvoice/TaxInvoiceIssueForm';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
 import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
@@ -59,6 +60,7 @@ export function AdminTaxInvoiceListPage() {
   const [summary, setSummary] = useState({ issuedCount: 0, issuedWon: 0, waitingCount: 0, failedCount: 0, costWon: 0 });
   const [toastId, setToastId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [certBrandId, setCertBrandId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [issueOpen, setIssueOpen] = useState(false);
@@ -123,11 +125,30 @@ export function AdminTaxInvoiceListPage() {
   const selected = brands.find((brand) => brand.id === brandId);
   const needsLink = !loading && (brands.length === 0 || (selected ? !selected.linked : brands.every((brand) => !brand.linked)));
   const certMissing = !loading && brands.length > 0 && !brands.some((brand) => brand.linked && brand.certValid && !brand.simplified);
+  const certTargets = brands.filter((brand) => brand.linked && !brand.simplified);
+  const missingCert = certTargets.find((brand) => !brand.certValid) ?? null;
+  const expireDates = certTargets.map((brand) => brand.certExpireDate).filter((day): day is string => Boolean(day)).sort();
+  const certChip = !needsLink && certTargets.length > 0
+    ? missingCert
+      ? { id: missingCert.id, label: '인증서 미등록', className: 'border-amber-300 bg-amber-50 text-amber-950' }
+      : { id: certTargets[0].id, label: `인증서 ~${(expireDates[0] ?? '').slice(0, 10)}`, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' }
+    : null;
 
   return (
     <ReceiptWalletProvider>
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
-      <ReceiptListHeader title="세금계산서" path="/admin/inquiries/receipts/taxinvoice" issueLabel="+ 세금계산서 발행" issueDisabled={needsLink || certMissing} onIssue={() => setIssueOpen(true)} />
+      <ReceiptListHeader
+        title="세금계산서"
+        path="/admin/inquiries/receipts/taxinvoice"
+        issueLabel="+ 세금계산서 발행"
+        issueDisabled={needsLink || certMissing}
+        onIssue={() => setIssueOpen(true)}
+        statusChip={certChip ? (
+          <button type="button" className={`min-h-11 rounded-full border px-3 text-fluid-2xs font-medium hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${certChip.className}`} onClick={() => setCertBrandId(certChip.id)}>
+            {certChip.label}
+          </button>
+        ) : null}
+      />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />
       {needsLink ? (
@@ -139,7 +160,7 @@ export function AdminTaxInvoiceListPage() {
       {certMissing && !needsLink ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-950">
           공동인증서를 등록해야 세금계산서를 발행할 수 있습니다
-          <Link to="/admin/team-leaders/cashbill" className="inline-flex min-h-9 items-center rounded-lg bg-slate-900 px-2 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">등록하기</Link>
+          <button type="button" className="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => missingCert && setCertBrandId(missingCert.id)}>공동인증서 등록</button>
         </div>
       ) : null}
       {!needsLink && issueOpen ? (
@@ -230,6 +251,16 @@ export function AdminTaxInvoiceListPage() {
           <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
         </>
       ) : null}
+      {certBrandId ? (
+        <CashbillCertRegisterModal
+          operatingCompanyId={certBrandId}
+          onClose={() => setCertBrandId(null)}
+          onRegistered={(status) => {
+            setBrands((prev) => prev.map((brand) => brand.id === certBrandId ? { ...brand, certValid: true, certExpireDate: status.expireDate } : brand));
+          }}
+          onIssue={() => setIssueOpen(true)}
+        />
+      ) : null}
     </div>
     </ReceiptWalletProvider>
   );
@@ -258,7 +289,7 @@ function TaxStatus({ row }: { row: TaxInvoiceRow }) {
 }
 
 function RowAction({ row, cancelling, onCancel, onReissue }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void; onReissue: () => void }) {
-  const btn = 'min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  const btn = 'min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   const official = row.barobillState === '3014' || row.barobillState === '5031';
   return (
     <div className="inline-flex items-center justify-center gap-1">

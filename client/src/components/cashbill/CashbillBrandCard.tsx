@@ -1,24 +1,16 @@
 import { useState } from 'react';
-import { BAROBILL_MEMBER_STATUS_LABEL, barobillTaxTypeLabel } from '@shared/barobillPolicy';
-import { formatBizNumberDisplay, isValidKoreanBizNumberChecksum } from '@shared/authSignup';
+import { BAROBILL_MEMBER_STATUS_LABEL } from '@shared/barobillPolicy';
+import { formatBizNumberDisplay } from '@shared/authSignup';
 import type { CashbillSettings } from '../../api/cashbill';
-import { registerCashbillMember, uploadCashbillRegistration } from '../../api/cashbill';
+import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { CashbillCertRegisterModal } from './CashbillCertRegisterModal';
+import { CashbillLinkForm } from './CashbillLinkForm';
+import { certDaysLeft, certExpireLabel, maskPhone } from './cashbillCertDisplay';
 
-const INPUT =
-  'mt-1 block w-full min-h-9 rounded-lg border border-gray-200 px-3 py-2 text-fluid-xs text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
-
-const BTN =
-  'min-h-10 rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none lg:min-h-[44px] lg:text-fluid-sm';
-
-const BADGE: Record<string, string> = {
-  ACTIVE: 'bg-emerald-50 text-emerald-800',
-  LINK_REQUIRED: 'bg-amber-50 text-amber-800',
-  FAILED: 'bg-red-50 text-red-700',
-  PENDING_REVIEW: 'bg-amber-50 text-amber-900',
-  REJECTED: 'bg-red-50 text-red-800',
-  PROCESSING: 'bg-slate-100 text-slate-700',
-};
+const GHOST =
+  'min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none max-lg:w-full';
+const PRIMARY =
+  'min-h-11 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none max-lg:w-full';
 
 type Brand = CashbillSettings['brands'][number];
 
@@ -27,218 +19,114 @@ export function CashbillBrandCard({
   prefill,
   canRegister,
   onDone,
+  onCert,
+  onIssue,
 }: {
   brand: Brand;
   prefill: CashbillSettings['prefill'];
   canRegister: boolean;
   onDone: (message: string) => void;
+  onCert: (expireDate: string | null) => void;
+  onIssue: () => void;
 }) {
   const member = brand.member;
-  const extra = !brand.isDefault;
-  const [bizType, setBizType] = useState('');
-  const [bizClass, setBizClass] = useState('');
-  const [contactTel, setContactTel] = useState(prefill.contactTel);
-  const [contactEmail, setContactEmail] = useState(prefill.contactEmail);
-  const [contactName, setContactName] = useState(prefill.contactName);
-  const [addr1, setAddr1] = useState(extra ? (member?.addr1 ?? '') : prefill.addr1);
-  const [corpNum, setCorpNum] = useState(member?.corpNum ?? '');
-  const [corpName, setCorpName] = useState(member?.corpName ?? '');
-  const [ceoName, setCeoName] = useState(member?.ceoName ?? '');
-  const [imageUrl, setImageUrl] = useState(member?.businessRegistrationImageUrl ?? '');
-  const [imageId, setImageId] = useState(member?.businessRegistrationImagePublicId ?? '');
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [certOpen, setCertOpen] = useState(false);
-  const retryable = !member || member.status === 'FAILED' || (extra && member.status === 'REJECTED');
-  const locked = !canRegister || !retryable;
-
-  async function onFile(file: File | null) {
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const uploaded = await uploadCashbillRegistration(brand.operatingCompanyId, file);
-      setImageUrl(uploaded.businessRegistrationImageUrl);
-      setImageId(uploaded.businessRegistrationImagePublicId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '사업자등록증을 올리지 못했습니다.');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function submit() {
-    if (extra && !isValidKoreanBizNumberChecksum(corpNum)) {
-      setError('사업자등록번호 10자리 검증에 맞지 않습니다.');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      const result = await registerCashbillMember({
-        operatingCompanyId: brand.operatingCompanyId,
-        bizType,
-        bizClass,
-        contactTel,
-        contactEmail,
-        contactName,
-        addr1,
-        corpNum: extra ? corpNum : undefined,
-        corpName: extra ? corpName : undefined,
-        ceoName: extra ? ceoName : undefined,
-        businessRegistrationImageUrl: extra ? imageUrl : undefined,
-        businessRegistrationImagePublicId: extra ? imageId : undefined,
-      });
-      const label = BAROBILL_MEMBER_STATUS_LABEL[result.status];
-      onDone(result.lastError ? `${brand.name}: ${label}. ${result.lastError}` : `${brand.name}: ${label}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '가입에 실패했습니다.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const shownCorp = extra ? formatBizNumberDisplay(corpNum || member?.corpNum) : formatBizNumberDisplay(prefill.corpNum);
-  const shownName = extra ? corpName || member?.corpName || '상호 없음' : prefill.corpName || '상호 없음';
-  const shownCeo = extra ? ceoName || member?.ceoName || '대표자 없음' : prefill.ceoName || '대표자 없음';
-  const buttonLabel = saving
-    ? '저장 중…'
-    : extra
-      ? member?.status === 'REJECTED'
-        ? '다시 제출'
-        : '검토 요청'
-      : '연결하기';
-
   const linked = Boolean(member?.linked);
-  const registered = linked && member?.certValid === true;
-  const certText = registered
-    ? `등록 완료 · 만료일 ${member?.certExpireDate ?? '확인 중'}`
-    : null;
+  const active = member?.status === 'ACTIVE' && linked;
+  const [certOpen, setCertOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(!member || member.status === 'FAILED');
+  const days = certDaysLeft(member?.certExpireDate);
+  const soon = Boolean(member?.certValid) && days != null && days <= 30;
+  const taxReady = Boolean(member?.certValid) && member?.taxType !== '2' && !soon;
+  const corp = formatBizNumberDisplay(member?.corpNum || prefill.corpNum);
+  const name = member?.corpName || prefill.corpName || brand.name;
 
-  function finishCert(status: { valid: boolean; expireDate: string | null }) {
-    setCertOpen(false);
-    onDone(`등록 완료 · 만료일 ${status.expireDate ?? ''}`.trim());
-  }
+  const banner = !active && member && member.status !== 'FAILED'
+    ? member.status === 'REJECTED'
+      ? { tone: 'border-red-200 bg-red-50 text-red-800', text: member.rejectReason || '반려되었습니다.', action: '다시 제출' }
+      : member.status === 'LINK_REQUIRED'
+        ? { tone: 'border-amber-200 bg-amber-50 text-amber-950', text: member.lastError || '연결이 필요합니다.', action: '연결하기' }
+        : member.status === 'PENDING_REVIEW'
+          ? { tone: 'border-slate-200 bg-slate-100 text-slate-800', text: '검토 중입니다. 승인 전에는 연결하지 않습니다.', action: '' }
+          : member.status === 'PROCESSING'
+            ? { tone: 'border-slate-200 bg-slate-100 text-slate-800', text: '처리 중입니다.', action: '' }
+            : null
+    : member?.status === 'FAILED'
+      ? { tone: 'border-red-200 bg-red-50 text-red-800', text: member.lastError || '가입에 실패했습니다.', action: '' }
+      : null;
 
   return (
-    <section className="space-y-2 rounded-xl border border-gray-200 bg-white p-2 sm:p-4">
+    <section className="max-w-[640px] space-y-3 rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900" title={brand.name}>
-          {brand.name}
-        </h2>
-        {brand.isDefault ? (
-          <span className="rounded-full bg-slate-100 px-1.5 py-0 text-fluid-2xs text-slate-700 sm:px-2 sm:py-0.5">기본 브랜드</span>
-        ) : (
-          <span className="rounded-full bg-slate-100 px-1.5 py-0 text-fluid-2xs text-slate-700 sm:px-2 sm:py-0.5">추가 브랜드</span>
-        )}
-        {member ? (
-          <span className={`rounded-full px-1.5 py-0 text-fluid-2xs sm:px-2 sm:py-0.5 ${BADGE[member.status]}`}>
-            {BAROBILL_MEMBER_STATUS_LABEL[member.status]}
-          </span>
-        ) : (
-          <span className="rounded-full bg-slate-100 px-1.5 py-0 text-fluid-2xs text-slate-600 sm:px-2 sm:py-0.5">미가입</span>
-        )}
+        <h2 className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900" title={brand.name}>{brand.name}</h2>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-fluid-2xs text-slate-700">{brand.isDefault ? '기본 브랜드' : '추가 브랜드'}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-fluid-2xs text-slate-700">
+          {member ? BAROBILL_MEMBER_STATUS_LABEL[member.status] : '미가입'}
+        </span>
       </div>
-      <p className="text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-        {shownName} · {shownCorp || '사업자번호 없음'} · {shownCeo}
-        {member?.taxType ? ` · ${barobillTaxTypeLabel(member.taxType)}` : ''}
-      </p>
-      {registered ? <p className="text-fluid-2xs text-emerald-800 sm:text-fluid-xs">{certText}</p> : null}
-      {linked && registered ? (
-        <button type="button" className={BTN} onClick={() => setCertOpen(true)}>
-          공동인증서 등록
-        </button>
+      <p className="text-fluid-xs text-slate-700">{name} · {corp || '사업자번호 없음'}</p>
+      {banner ? (
+        <div className={`flex flex-col gap-2 rounded-lg border px-3 py-2 text-fluid-xs sm:flex-row sm:items-center sm:justify-between ${banner.tone}`}>
+          <p>{banner.text}</p>
+          {banner.action ? (
+            <button type="button" className={PRIMARY} onClick={() => setFormOpen(true)}>{banner.action}</button>
+          ) : null}
+        </div>
       ) : null}
-      {linked && !registered ? (
-        <details className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
-          <summary className="cursor-pointer text-fluid-2xs text-slate-700">세금계산서를 쓸 때만 필요</summary>
-          <button type="button" className={`${BTN} mt-2`} onClick={() => setCertOpen(true)}>
-            공동인증서 등록
-          </button>
-        </details>
+      {active ? (
+        <div className="space-y-2 text-fluid-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p><span className="text-emerald-700">●</span> 현금영수증 · 사용 가능</p>
+          </div>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            {member?.taxType === '2' ? (
+              <p className="text-slate-600">세금계산서 · 간이과세자는 발행할 수 없습니다</p>
+            ) : soon ? (
+              <p className="text-amber-800">세금계산서 · 곧 만료 · {certExpireLabel(member?.certExpireDate)}</p>
+            ) : taxReady ? (
+              <p><span className="text-emerald-700">●</span> 세금계산서 · 사용 가능 · 인증서 {certExpireLabel(member?.certExpireDate)} 만료</p>
+            ) : (
+              <p><span className="text-amber-700">●</span> 세금계산서 · 공동인증서 필요</p>
+            )}
+            {member?.taxType === '2' ? null : (
+              <button type="button" className={soon || taxReady ? GHOST : PRIMARY} onClick={() => setCertOpen(true)}>
+                {soon || taxReady ? '다시 등록' : '공동인증서 등록'}
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-2 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-slate-700">
+              업태 {member?.bizType || '없음'} · 종목 {member?.bizClass || '없음'} · 담당 {maskPhone(member?.contactTel)} · {member?.contactEmail || '이메일 없음'}
+            </p>
+            <button type="button" className={GHOST} onClick={() => setEditOpen(true)}>수정</button>
+          </div>
+        </div>
+      ) : null}
+      {formOpen && !active ? (
+        <CashbillLinkForm brand={brand} prefill={prefill} canRegister={canRegister} mode="join" onDone={onDone} />
+      ) : null}
+      {editOpen ? (
+        <IssueModalFrame title="연결 정보 수정" onClose={() => setEditOpen(false)} footer={null}>
+          <CashbillLinkForm
+            brand={brand}
+            prefill={prefill}
+            canRegister={canRegister}
+            mode="edit"
+            onDone={(message) => {
+              setEditOpen(false);
+              onDone(message);
+            }}
+          />
+        </IssueModalFrame>
       ) : null}
       {certOpen ? (
         <CashbillCertRegisterModal
           operatingCompanyId={brand.operatingCompanyId}
           onClose={() => setCertOpen(false)}
-          onRegistered={finishCert}
+          onRegistered={(status) => onCert(status.expireDate)}
+          onIssue={onIssue}
         />
       ) : null}
-      {extra && !member ? (
-        <p className="text-fluid-2xs leading-snug text-slate-600">사업자등록증을 올리면 검토 요청이 됩니다. 승인 전에는 연결하지 않습니다.</p>
-      ) : null}
-      {member?.rejectReason ? <p className="text-fluid-2xs text-red-800 sm:text-fluid-xs">반려 사유: {member.rejectReason}</p> : null}
-      {member?.lastError ? <p className="text-fluid-2xs text-amber-800 sm:text-fluid-xs">{member.lastError}</p> : null}
-      <div className="grid gap-2 sm:grid-cols-2">
-        {extra ? (
-          <>
-            <label className="block text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-              사업자번호
-              <input className={INPUT} value={corpNum} disabled={locked || saving} inputMode="numeric" onChange={(e) => setCorpNum(e.target.value)} />
-            </label>
-            <label className="block text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-              상호
-              <input className={INPUT} value={corpName} disabled={locked || saving} onChange={(e) => setCorpName(e.target.value)} />
-            </label>
-            <label className="block text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-              대표자
-              <input className={INPUT} value={ceoName} disabled={locked || saving} onChange={(e) => setCeoName(e.target.value)} />
-            </label>
-            <label className="block text-fluid-2xs text-slate-600 sm:col-span-2 sm:text-fluid-xs">
-              주소
-              <input className={INPUT} value={addr1} disabled={locked || saving} onChange={(e) => setAddr1(e.target.value)} />
-            </label>
-            <label className="block text-fluid-2xs text-slate-600 sm:col-span-2 sm:text-fluid-xs">
-              사업자등록증
-              <input
-                className={`${INPUT} file:mr-2 file:rounded-md file:border-0 file:bg-slate-100 file:px-2 file:py-1`}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                disabled={locked || saving || uploading}
-                onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
-              />
-            </label>
-            {imageUrl ? (
-              <a href={imageUrl} target="_blank" rel="noreferrer" className="text-fluid-2xs text-slate-800 underline sm:col-span-2">
-                올린 사업자등록증 보기
-              </a>
-            ) : null}
-          </>
-        ) : null}
-        <label className="block text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-          업태
-          <input className={INPUT} value={bizType} disabled={locked || saving} onChange={(e) => setBizType(e.target.value)} />
-        </label>
-        <label className="block text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-          종목
-          <input className={INPUT} value={bizClass} disabled={locked || saving} onChange={(e) => setBizClass(e.target.value)} />
-        </label>
-        <label className="block text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-          담당 전화
-          <input className={INPUT} value={contactTel} disabled={locked || saving} onChange={(e) => setContactTel(e.target.value)} inputMode="tel" />
-        </label>
-        <label className="block text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-          담당 이메일
-          <input className={INPUT} value={contactEmail} disabled={locked || saving} onChange={(e) => setContactEmail(e.target.value)} inputMode="email" />
-        </label>
-        {!prefill.contactName || extra ? (
-          <label className="block text-fluid-2xs text-slate-600 sm:text-fluid-xs">
-            담당자 이름
-            <input className={INPUT} value={contactName} disabled={locked || saving} onChange={(e) => setContactName(e.target.value)} />
-          </label>
-        ) : null}
-        {!extra && !prefill.addr1 ? (
-          <label className="block text-fluid-2xs text-slate-600 sm:col-span-2 sm:text-fluid-xs">
-            주소
-            <input className={INPUT} value={addr1} disabled={locked || saving} onChange={(e) => setAddr1(e.target.value)} />
-          </label>
-        ) : null}
-      </div>
-      {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
-      <button type="button" className={BTN} disabled={locked || saving || uploading} onClick={() => void submit()}>
-        {uploading ? '올리는 중…' : buttonLabel}
-      </button>
     </section>
   );
 }

@@ -11,6 +11,7 @@ import {
   getCashbillSettings,
   loadBrandForTenant,
   registerCashbillMember,
+  updateActiveCashbillContact,
 } from './cashbillMember.service.js';
 import { certificateRegisterUrl, refreshOneBarobillCert } from '../taxinvoice/taxInvoiceCert.service.js';
 
@@ -157,6 +158,31 @@ router.post('/members', async (req, res) => {
     res.json({ status: result.status, lastError: result.lastError, taxType: result.taxType });
   } catch (err) {
     sendError(res, err, '회원사 가입에 실패했습니다.');
+  }
+});
+
+router.patch('/members/contact', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!requireTenantAdmin(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const operatingCompanyId = String(body.operatingCompanyId ?? '');
+  if (!operatingCompanyId) {
+    res.status(400).json({ error: '브랜드를 지정해 주세요.' });
+    return;
+  }
+  try {
+    res.json(await updateActiveCashbillContact(tenantId, {
+      operatingCompanyId,
+      bizType: String(body.bizType ?? ''),
+      bizClass: String(body.bizClass ?? ''),
+      contactTel: String(body.contactTel ?? ''),
+      contactEmail: String(body.contactEmail ?? ''),
+      contactName: typeof body.contactName === 'string' ? body.contactName : undefined,
+    }));
+  } catch (err) {
+    sendError(res, err, '연락 정보를 저장하지 못했습니다.');
   }
 });
 

@@ -37,6 +37,11 @@ export type CashbillSettings = {
       linked: boolean;
       certValid: boolean | null;
       certExpireDate: string | null;
+      bizType: string;
+      bizClass: string;
+      contactName: string;
+      contactTel: string;
+      contactEmail: string;
     } | null;
   }[];
 };
@@ -99,6 +104,22 @@ export async function registerCashbillMember(body: {
     lastError: string | null;
     taxType: string | null;
   }>;
+}
+
+export async function updateCashbillMemberContact(body: {
+  operatingCompanyId: string;
+  bizType: string;
+  bizClass: string;
+  contactTel: string;
+  contactEmail: string;
+  contactName?: string;
+}): Promise<void> {
+  const res = await fetch(`${API}/cashbill/members/contact`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '연락 정보를 저장하지 못했습니다.'));
 }
 
 export async function openCashbillCertificateUrl(operatingCompanyId: string): Promise<{ url: string; embed: boolean }> {

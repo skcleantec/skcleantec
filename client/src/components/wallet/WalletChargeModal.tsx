@@ -10,9 +10,9 @@ import { LineMdIcon } from '../ui/LineMdIcon';
 
 const TEST_AMOUNT = 1000;
 const BTN =
-  'min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  'min-h-11 w-full rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none sm:w-auto';
 const GHOST =
-  'min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  'min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
 function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
@@ -114,7 +114,7 @@ export function WalletChargeModal({ onClose, onDone }: { onClose: () => void; on
   return createPortal(
     <div className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 lg:items-center" onMouseDown={onClose}>
       <div
-        className="modal-mobile-fullscreen-panel flex max-h-[100dvh] w-full flex-col bg-white lg:max-h-[90vh] lg:max-w-[560px] lg:rounded-2xl"
+        className="modal-mobile-fullscreen-panel flex max-h-[100dvh] w-full flex-col bg-white lg:max-h-[90vh] lg:max-w-[640px] lg:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-label="청소비서 지갑 충전"
@@ -122,7 +122,7 @@ export function WalletChargeModal({ onClose, onDone }: { onClose: () => void; on
       >
         <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-3 py-2">
           <h2 className="text-fluid-sm font-semibold text-slate-900">청소비서 지갑 충전</h2>
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-lg hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" aria-label="닫기" onClick={onClose}>
+          <button type="button" className="inline-flex size-11 items-center justify-center rounded-lg hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" aria-label="닫기" onClick={onClose}>
             <LineMdIcon name="close" className="size-5" />
           </button>
         </header>
@@ -175,11 +175,6 @@ export function WalletChargeModal({ onClose, onDone }: { onClose: () => void; on
           {method === 'card' ? (
             <div className="space-y-2 rounded-lg border border-slate-200 p-2">
               <p className="text-fluid-xs text-slate-700">결제창에서 카드 정보를 입력합니다. 승인되면 바로 잔액에 들어갑니다.</p>
-              <div className="flex justify-end">
-                <button type="button" className={BTN} disabled={busy || !admin} onClick={() => void payCard()}>
-                  {busy ? '결제창 여는 중' : `${won(amount)} 카드로 결제`}
-                </button>
-              </div>
             </div>
           ) : (
             <div className="space-y-2 rounded-lg border border-slate-200 p-2">
@@ -194,17 +189,23 @@ export function WalletChargeModal({ onClose, onDone }: { onClose: () => void; on
                 <input className="mt-1 min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs" value={depositor} disabled={busy || Boolean(pending)} onChange={(event) => setDepositor(event.target.value)} />
               </label>
               <p className="text-fluid-2xs text-slate-600">입금 후 아래 버튼을 눌러주세요. 확인되면 알림으로 알려드립니다.</p>
-              <div className="flex justify-end">
-                <button type="button" className={BTN} disabled={busy || !admin || Boolean(pending) || samePending} onClick={() => void requestBank()}>
-                  {busy ? '신청 중…' : `입금했어요 · ${won(amount)} 충전 신청`}
-                </button>
-              </div>
             </div>
           )}
           {!admin ? <p className="text-fluid-xs text-slate-700">관리자만 충전할 수 있습니다.</p> : null}
           {done ? <p className="text-fluid-xs text-emerald-800">{done}</p> : null}
           {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
         </div>
+        <footer className="shrink-0 border-t border-slate-200 px-3 py-2">
+          {method === 'card' ? (
+            <button type="button" className={BTN} disabled={busy || !admin} onClick={() => void payCard()}>
+              {busy ? '결제창 여는 중' : `${won(amount)} 카드로 결제`}
+            </button>
+          ) : (
+            <button type="button" className={BTN} disabled={busy || !admin || Boolean(pending) || samePending} onClick={() => void requestBank()}>
+              {busy ? '신청 중…' : `입금했어요 · ${won(amount)} 충전 신청`}
+            </button>
+          )}
+        </footer>
       </div>
     </div>,
     document.body,
