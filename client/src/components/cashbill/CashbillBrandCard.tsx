@@ -60,7 +60,7 @@ export function CashbillBrandCard({
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900" title={brand.name}>{brand.name}</h2>
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-fluid-2xs text-slate-700">{brand.isDefault ? '기본 브랜드' : '추가 브랜드'}</span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-fluid-2xs text-slate-700">
+        <span className={`rounded-full px-2 py-0.5 text-fluid-2xs ${member?.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
           {member ? BAROBILL_MEMBER_STATUS_LABEL[member.status] : '미가입'}
         </span>
       </div>
@@ -94,11 +94,17 @@ export function CashbillBrandCard({
               </button>
             )}
           </div>
-          <div className="flex flex-col gap-2 border-t border-slate-100 pt-2 lg:flex-row lg:items-center lg:justify-between">
-            <p className="text-slate-700">
+          <div className="flex items-start justify-between gap-2 border-t border-slate-100 pt-2">
+            <p className="min-w-0 flex-1 break-all text-slate-700">
               업태 {member?.bizType || '없음'} · 종목 {member?.bizClass || '없음'} · 담당 {maskPhone(member?.contactTel)} · {member?.contactEmail || '이메일 없음'}
             </p>
-            <button type="button" className={GHOST} onClick={() => setEditOpen(true)}>수정</button>
+            <button
+              type="button"
+              className="inline-flex min-h-11 min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              onClick={() => setEditOpen(true)}
+            >
+              수정
+            </button>
           </div>
         </div>
       ) : null}

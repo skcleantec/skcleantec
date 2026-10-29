@@ -32,6 +32,7 @@ export type TaxInvoiceRow = {
   purposeType: number;
   writeDate: string;
   buyerCorpName: string;
+  buyerCorpNum?: string;
   totalAmount: number;
   supplyAmount: number;
   taxAmount: number;

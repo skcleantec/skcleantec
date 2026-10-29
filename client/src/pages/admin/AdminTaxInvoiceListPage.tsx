@@ -10,6 +10,7 @@ import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons
 import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
+import { formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 import {
   cancelTaxInvoice,
   listTaxInvoices,
@@ -230,9 +231,9 @@ export function AdminTaxInvoiceListPage() {
               <tbody>
                 {items.map((row) => (
                   <tr key={row.id} className={`border-t border-slate-100 ${highlightId === row.id ? 'bg-emerald-50' : ''}`}>
-                    <td className="px-2 py-2 text-center tabular-nums">{issuedAtLabel(row.createdAt)}</td>
+                    <td className="px-2 py-2 text-center tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</td>
                     <td className="px-2 py-2 text-center">
-                      <p className="truncate" title={row.buyerCorpName}>{row.buyerCorpName}</p>
+                      <p className="truncate" title={taxCustomerLine(row)}>{taxCustomerLine(row)}</p>
                       {row.inquiryNumber ? <Link className="text-fluid-2xs text-slate-600 underline hover:text-slate-900" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.inquiryNumber}</Link> : null}
                       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
                     </td>
@@ -266,8 +267,8 @@ export function AdminTaxInvoiceListPage() {
   );
 }
 
-function issuedAtLabel(iso: string): string {
-  return new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '').slice(0, 11);
+function taxCustomerLine(row: TaxInvoiceRow): string {
+  return [row.buyerCorpName, row.buyerCorpNum].filter(Boolean).join(' ');
 }
 
 function taxFailed(row: TaxInvoiceRow): boolean {
@@ -322,7 +323,8 @@ async function openTaxMail(issueId: string): Promise<void> {
 function TaxCard({ row, cancelling, onCancel, onReissue, highlight }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void; onReissue: () => void; highlight: boolean }) {
   return (
     <article className={`space-y-1 rounded-lg border border-slate-200 p-2 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
-      <p className="truncate text-fluid-sm font-medium text-slate-900">{row.buyerCorpName}</p>
+      <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
+      <p className="truncate text-fluid-sm font-medium text-slate-900">{taxCustomerLine(row)}</p>
       <p className="text-right text-fluid-sm font-semibold tabular-nums text-slate-900">{won(row.totalAmount)}</p>
       <p className="truncate text-fluid-2xs text-slate-600">{row.itemName || '청소 서비스'} · {row.purposeType === 2 ? '청구' : '영수'} · <TaxStatus row={row} /></p>
       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700">실패 이유: {row.lastError}</p> : null}

@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError } from '../../lib/barobill/soap.js';
 import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { normalizeCorpNum } from '../../lib/barobill/mask.js';
+import { displayBizIdentity } from '../receipts/receiptCopy.mask.js';
 import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
 import { TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
 import { addDaysToKstYmd, createdAtRangeFromQuery, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
@@ -143,7 +144,7 @@ function toPublic(row: TaxInvoiceIssue) {
     operatingCompanyId: row.operatingCompanyId,
     purposeType: row.purposeType,
     writeDate: row.writeDate,
-    buyerCorpNum: row.buyerCorpNum,
+    buyerCorpNum: displayBizIdentity(row.buyerCorpNum),
     buyerCorpName: row.buyerCorpName,
     supplyAmount: row.supplyAmount,
     taxAmount: row.taxAmount,

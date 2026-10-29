@@ -1,15 +1,15 @@
-/** 사업자번호 뒤 5자리 마스킹 */
+/** 사업자번호는 123-45-***** */
 export function maskCorpNum(raw: string | null | undefined): string {
-  const digits = String(raw ?? '').replace(/\D/g, '');
-  if (digits.length <= 5) return '*****';
-  return `${digits.slice(0, digits.length - 5)}*****`;
+  const head = String(raw ?? '').replace(/\D/g, '').slice(0, 5);
+  if (head.length < 5) return '***-**-*****';
+  return `${head.slice(0, 3)}-${head.slice(3, 5)}-*****`;
 }
 
-/** 휴대폰은 끝 4자리만 */
+/** 휴대폰은 010-****-1234 */
 export function maskPhone(raw: string | null | undefined): string {
-  const digits = String(raw ?? '').replace(/\D/g, '');
-  if (digits.length < 4) return '****';
-  return `***${digits.slice(-4)}`;
+  const tail = String(raw ?? '').replace(/\D/g, '').slice(-4);
+  if (tail.length < 4) return '010-****-****';
+  return `010-****-${tail}`;
 }
 
 export function normalizeCorpNum(raw: string | null | undefined): string | null {

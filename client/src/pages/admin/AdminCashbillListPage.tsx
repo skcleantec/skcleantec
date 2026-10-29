@@ -16,6 +16,7 @@ import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
+import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 
 const SEG =
   'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
@@ -232,7 +233,7 @@ export function AdminCashbillListPage() {
               <tbody>
                 {items.map((row) => (
                   <tr key={row.id} className={`border-t border-slate-100 ${highlightId === row.id ? 'bg-emerald-50' : ''}`}>
-                    <td className="px-2 py-2 text-center tabular-nums">{issuedAtLabel(row.createdAt)}</td>
+                    <td className="px-2 py-2 text-center tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</td>
                     <td className="px-2 py-2 text-center">
                       <p className="truncate" title={customerLine(row)}>{customerLine(row)}</p>
                       {row.inquiryNumber ? (
@@ -263,11 +264,6 @@ export function AdminCashbillListPage() {
   );
 }
 
-function issuedAtLabel(iso: string): string {
-  const text = new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-  return text.replace(',', '').slice(0, 11);
-}
-
 function usageLabel(row: CashbillIssueRow): string {
   if (row.kind === 'CANCEL') return '취소';
   if (row.tradeUsage === 2) return '지출증빙';
@@ -278,7 +274,8 @@ function usageLabel(row: CashbillIssueRow): string {
 function customerLine(row: CashbillIssueRow): string {
   if (row.identityMasked === '자진발급') return '(번호 없음·자진발급)';
   const name = row.customerName && row.customerName !== '매칭 없음' ? row.customerName : '';
-  return [name, row.identityMasked].filter(Boolean).join(' ') || '(번호 없음)';
+  const number = row.tradeUsage === 2 ? displayReceiptBiz(row.identityMasked) : displayReceiptPhone(row.identityMasked);
+  return [name, number].filter(Boolean).join(' ') || '(번호 없음)';
 }
 
 function isFailedRow(row: CashbillIssueRow): boolean {
@@ -344,6 +341,7 @@ function ReceiptActions({
 function CashbillCard({ row, cancelling, onCancel, onError, onReissue, highlight }: { row: CashbillIssueRow; cancelling: boolean; onCancel: () => void; onError: (message: string) => void; onReissue: () => void; highlight: boolean }) {
   return (
     <article className={`rounded-lg border border-slate-200 p-2 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
+      <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
       <p className="truncate text-fluid-sm font-medium">{customerLine(row)}</p>
       <p className="text-right text-fluid-sm font-semibold tabular-nums text-slate-900">{won(row.totalWon)}</p>
       <p className="truncate text-fluid-xs text-slate-700">{row.itemName} · {usageLabel(row)} · <StatusBadge row={row} /></p>

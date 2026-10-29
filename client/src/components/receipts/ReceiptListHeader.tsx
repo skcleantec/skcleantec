@@ -70,9 +70,13 @@ export function ReceiptSummaryCards({
         <p className="text-fluid-sm text-slate-800">
           대기 {waitingCount}
           {' · '}
-          <button type="button" className="font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2" onClick={onFailed}>
-            실패 {failedCount}
-          </button>
+          {failedCount > 0 ? (
+            <button type="button" className="font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2" onClick={onFailed}>
+              실패 {failedCount}
+            </button>
+          ) : (
+            <span className="text-slate-600">실패 0</span>
+          )}
         </p>
       </section>
       <section className={card}>
