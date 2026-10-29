@@ -705,3 +705,16 @@ export async function syncOpenCashbillStates(): Promise<{ checked: number; updat
   }
   return { checked: open.length, updated };
 }
+
+export async function cashbillReissueSource(tenantId: string, issueId: string) {
+  const row = await prisma.cashBillIssue.findFirst({ where: { id: issueId, tenantId } });
+  if (!row) throw new CashbillIssueError('다시 발행할 현금영수증이 없습니다.', 404);
+  const usage = row.identityMasked === '자진발급' ? 'voluntary' : row.tradeUsage === 2 ? 'biz' : 'phone';
+  return {
+    operatingCompanyId: row.operatingCompanyId,
+    amount: row.totalWon,
+    usage,
+    itemName: row.itemName,
+    memo: row.internalMemo ?? '',
+  };
+}

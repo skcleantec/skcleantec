@@ -85,6 +85,7 @@ export async function updateBarobillSupplier(
     bizClass?: unknown;
     contactEmail?: unknown;
     contactTel?: unknown;
+    contactName?: unknown;
   },
 ) {
   const brand = await prisma.operatingCompany.findFirst({
@@ -103,6 +104,9 @@ export async function updateBarobillSupplier(
   const contactEmail = clip(input.contactEmail, 120);
   const contactTel = clip(input.contactTel, 32);
   if (contactEmail && !contactEmail.includes('@')) throw new TaxInvoiceError('담당 이메일을 입력해 주세요.');
+  const contactName = isBlankSupplierField(input.contactName)
+    ? (isBlankSupplierField(input.ceoName) ? member.ceoName : clip(input.ceoName, 128))
+    : clip(input.contactName, 128);
 
   const data: {
     corpName?: string;
@@ -112,7 +116,9 @@ export async function updateBarobillSupplier(
     bizClass: string;
     contactEmail?: string;
     contactTel: string;
+    contactName?: string;
   } = { bizType, bizClass, contactTel };
+  if (contactName.trim()) data.contactName = contactName.trim().slice(0, 128);
   if (!isBlankSupplierField(input.corpName)) data.corpName = clip(input.corpName, 128);
   if (!isBlankSupplierField(input.ceoName)) data.ceoName = clip(input.ceoName, 128);
   if (!isBlankSupplierField(input.addr1)) data.addr1 = clip(input.addr1, 500);
@@ -158,6 +164,7 @@ export async function updateBarobillSupplier(
     bizClass,
     email,
     tel: contactTel,
+    contactName: data.contactName ?? member.contactName,
   };
 }
 

@@ -26,7 +26,26 @@ function won(n: number): string {
 
 type Brand = { id: string; name: string; linked: boolean };
 
-export function CashbillIssueForm({ brands, onClose, onDone }: { brands: Brand[]; onClose: () => void; onDone: (issueId: string) => void }) {
+export type CashbillIssueSeed = {
+  brandId: string;
+  amount: string;
+  usage: CashbillUsage;
+  itemName: string;
+  memo: string;
+  askIdentity: boolean;
+};
+
+export function CashbillIssueForm({
+  brands,
+  onClose,
+  onDone,
+  seed,
+}: {
+  brands: Brand[];
+  onClose: () => void;
+  onDone: (issueId: string) => void;
+  seed?: CashbillIssueSeed | null;
+}) {
   const { summary, openCharge, reload } = useReceiptWallet();
   const linkedBrands = brands.filter((brand) => brand.linked);
   const today = kstToday();
@@ -35,15 +54,16 @@ export function CashbillIssueForm({ brands, onClose, onDone }: { brands: Brand[]
   const [hits, setHits] = useState<CashbillSearchHit[]>([]);
   const [selected, setSelected] = useState<CashbillSearchHit | null>(null);
   const [unmatched, setUnmatched] = useState(false);
-  const [brandId, setBrandId] = useState(linkedBrands[0]?.id ?? '');
-  const [amount, setAmount] = useState('');
-  const [usage, setUsage] = useState<CashbillUsage>('phone');
+  const [brandId, setBrandId] = useState(seed?.brandId || linkedBrands[0]?.id || '');
+  const [amount, setAmount] = useState(seed?.amount ?? '');
+  const [usage, setUsage] = useState<CashbillUsage>(seed?.usage ?? 'phone');
   const [identity, setIdentity] = useState('');
-  const [itemName, setItemName] = useState('청소 서비스');
+  const identityHint = seed?.askIdentity ? '번호를 다시 입력해 주세요' : null;
+  const [itemName, setItemName] = useState(seed?.itemName ?? '청소 서비스');
   const [tradeDate, setTradeDate] = useState(today);
   const [email, setEmail] = useState('');
-  const [memoOpen, setMemoOpen] = useState(false);
-  const [memo, setMemo] = useState('');
+  const [memoOpen, setMemoOpen] = useState(Boolean(seed?.memo));
+  const [memo, setMemo] = useState(seed?.memo ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -197,6 +217,7 @@ export function CashbillIssueForm({ brands, onClose, onDone }: { brands: Brand[]
           ))}
         </div>
       </div>
+      {identityHint ? <p className="text-fluid-xs text-amber-800">{identityHint}</p> : null}
       {usage === 'voluntary' ? (
         <p className="text-fluid-xs text-slate-600">자진발급 010-000-1234</p>
       ) : (

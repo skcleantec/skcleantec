@@ -370,6 +370,7 @@ export async function issueTaxInvoice(
     ceoName: member.ceoName,
     addr: member.addr1,
     email: member.contactEmail,
+    contactName: member.contactName,
   });
   if (supplierGap) throw new TaxInvoiceError(supplierGap, 409, 'supplier_incomplete');
   const purposeType = input.purposeType === 2 ? 2 : input.purposeType === 1 ? 1 : null;
@@ -447,11 +448,13 @@ export async function issueTaxInvoice(
       bizClass: member.bizClass,
       email: member.contactEmail,
       tel: member.contactTel,
+      contactName: member.contactName.trim() || member.ceoName.trim(),
       buyerCorpNum: buyer.corpNum,
       buyerCorpName: buyer.corpName,
       buyerCeoName: buyer.ceoName,
       buyerAddr: buyer.addr,
       buyerEmail: buyer.email,
+      buyerContactName: buyer.ceoName,
       buyerBizType: buyer.bizType,
       buyerBizClass: buyer.bizClass,
       writeDate,
@@ -569,6 +572,7 @@ export async function listTaxInvoices(tenantId: string, query: {
             bizClass: true,
             contactEmail: true,
             contactTel: true,
+            contactName: true,
           },
         },
       },
@@ -614,6 +618,7 @@ export async function listTaxInvoices(tenantId: string, query: {
             bizClass: brand.barobillMember.bizClass,
             email: brand.barobillMember.contactEmail,
             tel: brand.barobillMember.contactTel,
+            contactName: brand.barobillMember.contactName,
           }
         : null,
     })),
@@ -657,6 +662,51 @@ export async function syncOpenTaxInvoiceStates(): Promise<{ checked: number; upd
     }
   }
   return { checked: open.length, updated };
+}
+
+export async function taxInvoiceReissueSource(tenantId: string, issueId: string) {
+  const row = await prisma.taxInvoiceIssue.findFirst({ where: { id: issueId, tenantId } });
+  if (!row) throw new TaxInvoiceError('다시 발행할 세금계산서가 없습니다.', 404);
+  const stored = Array.isArray(row.lines) ? row.lines : [];
+  const settlement = stored.find((item) => item && typeof item === 'object' && (item as { kind?: unknown }).kind === 'settlement') as {
+    remark?: unknown;
+    buyerTaxRegId?: unknown;
+  } | undefined;
+  const lines = stored.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const line = item as Record<string, unknown>;
+    if (line.kind === 'settlement') return [];
+    const name = typeof line.name === 'string' ? line.name : '';
+    if (!name.trim()) return [];
+    return [{
+      name,
+      month: typeof line.month === 'string' ? line.month : '',
+      day: typeof line.day === 'string' ? line.day : '',
+      spec: typeof line.spec === 'string' ? line.spec : '',
+      qty: typeof line.qty === 'string' ? line.qty : '',
+      unitPrice: typeof line.unitPrice === 'string' ? line.unitPrice : '',
+      supply: line.supply ?? '',
+      tax: line.tax ?? '',
+      remark: typeof line.remark === 'string' ? line.remark : '',
+    }];
+  });
+  return {
+    operatingCompanyId: row.operatingCompanyId,
+    purposeType: row.purposeType === 2 ? 2 : 1,
+    taxKind: taxKindFromLines(row.lines),
+    remark: typeof settlement?.remark === 'string' ? settlement.remark : '',
+    buyerTaxRegId: typeof settlement?.buyerTaxRegId === 'string' ? settlement.buyerTaxRegId : '',
+    buyer: {
+      corpNum: row.buyerCorpNum,
+      corpName: row.buyerCorpName,
+      ceoName: row.buyerCeoName,
+      addr: row.buyerAddr,
+      email: row.buyerEmail,
+      bizType: row.buyerBizType,
+      bizClass: row.buyerBizClass,
+    },
+    lines,
+  };
 }
 
 async function issuedTaxRow(tenantId: string, issueId: string) {

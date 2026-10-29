@@ -4,6 +4,7 @@ import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { isValidKoreanBizNumberChecksum } from '@shared/authSignup';
 import { isBlankSupplierField, supplierIncompleteMessage } from '@shared/supplierFieldText';
 import {
+  fetchTaxInvoiceSource,
   issueTaxInvoice,
   listTaxInvoices,
   searchTaxInvoiceInquiries,
@@ -14,6 +15,7 @@ import {
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { SupplierInfoModal } from './SupplierInfoModal';
+import { clearTaxInvoiceDraft, readTaxInvoiceDraft, writeTaxInvoiceDraft, type TaxInvoiceDraft } from './taxInvoiceDraft';
 import { TaxInvoiceMobileCards, TaxInvoicePaper, type TaxFormProps } from './TaxInvoiceFormViews';
 import {
   emptyLine,
@@ -85,6 +87,7 @@ export function TaxInvoiceIssueWorkspace() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inquiryId = searchParams.get('inquiryId') || '';
+  const fromId = searchParams.get('from') || '';
   const { summary, openCharge, reload } = useReceiptWallet();
   const dates = useMemo(() => writeDateOptions(), []);
   const [brands, setBrands] = useState<TaxInvoiceBrand[]>([]);
@@ -107,6 +110,7 @@ export function TaxInvoiceIssueWorkspace() {
   const [paperOpen, setPaperOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftOffer, setDraftOffer] = useState<TaxInvoiceDraft | null>(null);
   const [supplierOpen, setSupplierOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true, 96);
@@ -158,6 +162,7 @@ export function TaxInvoiceIssueWorkspace() {
     ceoName: supplier.ceoName,
     addr: supplier.addr,
     email: supplier.email,
+    contactName: brand?.supplier?.contactName,
   });
   const supplierBlocked = supplierGap != null;
   const supplierAttention = isBlankSupplierField(supplier.corpName) || isBlankSupplierField(supplier.ceoName) || isBlankSupplierField(supplier.addr);
@@ -169,6 +174,81 @@ export function TaxInvoiceIssueWorkspace() {
   const digits = buyer.corpNum.replace(/\D/g, '');
   const corpState = digits.length < 10 ? 'empty' : isValidKoreanBizNumberChecksum(digits) ? 'ok' : 'bad';
   const activeKind: TaxKind = exemptLocked ? 'exempt' : taxKind;
+
+  useEffect(() => {
+    if (!fromId) return;
+    let stop = false;
+    fetchTaxInvoiceSource(fromId)
+      .then((src) => {
+        if (stop) return;
+        const today = kstToday();
+        setBrandId(src.operatingCompanyId);
+        setUnmatched(true);
+        setPicked(null);
+        setPurpose(src.purposeType === 2 ? 2 : 1);
+        setTaxKind(src.taxKind);
+        setWriteDate(today);
+        setRemark(src.remark);
+        setBuyer({
+          corpNum: formatBizInput(src.buyer.corpNum),
+          taxRegId: src.buyerTaxRegId,
+          corpName: src.buyer.corpName,
+          ceoName: src.buyer.ceoName,
+          addr: src.buyer.addr,
+          email: src.buyer.email,
+          bizType: src.buyer.bizType,
+          bizClass: src.buyer.bizClass,
+        });
+        const mapped = src.lines.map((line) => ({
+          month: today.slice(5, 7),
+          day: today.slice(8, 10),
+          name: line.name,
+          spec: line.spec,
+          qty: line.qty,
+          unitPrice: String(line.unitPrice ?? ''),
+          supply: String(line.supply ?? ''),
+          tax: String(line.tax ?? ''),
+          remark: line.remark,
+          supplyEdited: true,
+          taxEdited: true,
+          dateEdited: false,
+        }));
+        setLines(mapped.length ? mapped : [emptyLine(today)]);
+        setPreview(false);
+        setDraftOffer(null);
+      })
+      .catch((err: unknown) => {
+        if (!stop) setError(err instanceof Error ? err.message : '다시 발행할 내용을 불러오지 못했습니다.');
+      });
+    return () => { stop = true; };
+  }, [fromId]);
+
+  useEffect(() => {
+    if (!brandId || fromId) return;
+    setDraftOffer(readTaxInvoiceDraft(brandId));
+  }, [brandId, fromId]);
+
+  useEffect(() => {
+    if (!brandId || draftOffer) return;
+    const empty = !buyer.corpNum && !buyer.corpName && !buyer.ceoName && !remark && lines.every((line) => !line.name);
+    if (empty) return;
+    const handle = window.setTimeout(() => {
+      writeTaxInvoiceDraft({
+        brandId,
+        buyer,
+        lines,
+        taxKind: activeKind,
+        purpose,
+        remark,
+        cash,
+        chkBill,
+        note,
+        credit,
+        writeDate,
+      });
+    }, 1000);
+    return () => window.clearTimeout(handle);
+  }, [brandId, draftOffer, buyer, lines, activeKind, purpose, remark, cash, chkBill, note, credit, writeDate]);
   const supplySum = lines.reduce((sum, line) => sum + lineSupply(line), 0);
   const taxSum = lines.reduce((sum, line) => sum + lineTax(line, activeKind), 0);
   const short = summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW;
@@ -247,8 +327,10 @@ export function TaxInvoiceIssueWorkspace() {
         })),
       });
       await reload();
+      clearTaxInvoiceDraft(unmatched || !picked ? brandId : picked.brandId);
       navigate('/admin/inquiries/receipts/taxinvoice', { state: { taxIssuedId: issued.id } });
     } catch (err) {
+      setPreview(false);
       setError(err instanceof Error ? err.message : '세금계산서 발행에 실패했습니다.');
     } finally {
       setSaving(false);
@@ -321,6 +403,43 @@ export function TaxInvoiceIssueWorkspace() {
           {blocked}{' '}
           {!brand?.simplified ? <Link className="font-medium underline" to="/admin/team-leaders/cashbill">공동인증서 등록</Link> : null}
         </p>
+      ) : null}
+      {draftOffer ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-xs text-slate-800">
+          <span className="min-w-0 flex-1">작성하던 세금계산서가 있어요</span>
+          <button
+            type="button"
+            className="min-h-11 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+            onClick={() => {
+              const today = kstToday();
+              setBrandId(draftOffer.brandId);
+              setBuyer(draftOffer.buyer);
+              setLines(draftOffer.lines.length ? draftOffer.lines : [emptyLine(today)]);
+              setTaxKind(draftOffer.taxKind);
+              setPurpose(draftOffer.purpose);
+              setRemark(draftOffer.remark);
+              setCash(draftOffer.cash);
+              setChkBill(draftOffer.chkBill);
+              setNote(draftOffer.note);
+              setCredit(draftOffer.credit);
+              setWriteDate(draftOffer.writeDate || today);
+              setPreview(false);
+              setDraftOffer(null);
+            }}
+          >
+            이어서 쓰기
+          </button>
+          <button
+            type="button"
+            className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+            onClick={() => {
+              clearTaxInvoiceDraft(brandId);
+              setDraftOffer(null);
+            }}
+          >
+            새로 쓰기
+          </button>
+        </div>
       ) : null}
       {error ? <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800 ring-1 ring-red-200">{error}</p> : null}
 
@@ -460,6 +579,7 @@ export function TaxInvoiceIssueWorkspace() {
             bizClass: supplier.bizClass,
             email: supplier.email,
             tel: brand.supplier?.tel ?? '',
+            contactName: brand.supplier?.contactName ?? '',
           }}
           onClose={() => setSupplierOpen(false)}
           onSaved={(saved) => {

@@ -213,7 +213,7 @@ export function AdminTaxInvoiceListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-1.5 lg:hidden">
-            {items.map((row) => <TaxCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(row.inquiryId ? `/admin/inquiries/receipts/taxinvoice/new?inquiryId=${encodeURIComponent(row.inquiryId)}` : '/admin/inquiries/receipts/taxinvoice/new')} highlight={highlightId === row.id} />)}
+            {items.map((row) => <TaxCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} highlight={highlightId === row.id} />)}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
@@ -239,7 +239,7 @@ export function AdminTaxInvoiceListPage() {
                     <td className="px-2 py-2 text-center">{row.purposeType === 2 ? '청구' : '영수'}</td>
                     <td className="px-2 py-2 text-center"><TaxStatus row={row} /></td>
                     <td className="max-w-[6rem] truncate px-2 py-2 text-center tabular-nums" title={row.ntsSendKey || ''}>{row.ntsSendKey || '—'}</td>
-                    <td className="px-2 py-2 text-center"><RowAction row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(row.inquiryId ? `/admin/inquiries/receipts/taxinvoice/new?inquiryId=${encodeURIComponent(row.inquiryId)}` : '/admin/inquiries/receipts/taxinvoice/new')} /></td>
+                    <td className="px-2 py-2 text-center"><RowAction row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -296,7 +296,7 @@ function RowAction({ row, cancelling, onCancel, onReissue }: { row: TaxInvoiceRo
   const official = row.barobillState === '3014' || row.barobillState === '5031';
   return (
     <div className="inline-flex items-center justify-center gap-1">
-      {taxFailed(row) ? (
+      {taxFailed(row) || row.barobillState === '5031' ? (
         <button type="button" className={btn} onClick={onReissue}>다시 발행</button>
       ) : (
         <button type="button" className={btn} disabled={!official} onClick={() => void openTaxMail(row.id)}>{row.taxKind === 'exempt' ? '계산서' : '영수증'}</button>

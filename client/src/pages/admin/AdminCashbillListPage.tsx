@@ -5,11 +5,12 @@ import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects
 import {
   cancelCashbillIssue,
   cashbillStateLabel,
+  fetchCashbillSource,
   listCashbillIssues,
   openCashbillReceipt,
   type CashbillIssueRow,
 } from '../../api/cashbillIssues';
-import { CashbillIssueForm } from '../../components/cashbill/CashbillIssueForm';
+import { CashbillIssueForm, type CashbillIssueSeed } from '../../components/cashbill/CashbillIssueForm';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
 import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
@@ -61,6 +62,8 @@ export function AdminCashbillListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [issueOpen, setIssueOpen] = useState(false);
+  const [issueSeed, setIssueSeed] = useState<CashbillIssueSeed | null>(null);
+  const fromId = searchParams.get('from') || '';
   const [reload, setReload] = useState(0);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [walletTick, setWalletTick] = useState(0);
@@ -76,6 +79,28 @@ export function AdminCashbillListPage() {
       return qs;
     });
   }, [setSearchParams]);
+
+  useEffect(() => {
+    if (!fromId) return;
+    let stop = false;
+    fetchCashbillSource(fromId)
+      .then((src) => {
+        if (stop) return;
+        setIssueSeed({
+          brandId: src.operatingCompanyId,
+          amount: String(src.amount),
+          usage: src.usage,
+          itemName: src.itemName,
+          memo: src.memo,
+          askIdentity: true,
+        });
+        setIssueOpen(true);
+      })
+      .catch((err: unknown) => {
+        if (!stop) setError(err instanceof Error ? err.message : '다시 발행할 내용을 불러오지 못했습니다.');
+      });
+    return () => { stop = true; };
+  }, [fromId]);
 
   useEffect(() => {
     const qs = new URLSearchParams();
@@ -141,7 +166,7 @@ export function AdminCashbillListPage() {
   return (
     <ReceiptWalletProvider>
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
-      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} onIssue={() => setIssueOpen(true)} />
+      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} onIssue={() => { setIssueSeed(null); patch({ from: null }); setIssueOpen(true); }} />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />
       {needsLink ? (
@@ -157,8 +182,10 @@ export function AdminCashbillListPage() {
       ) : null}
       {!needsLink && issueOpen ? (
         <CashbillIssueForm
+          key={fromId || 'new'}
           brands={brands}
-          onClose={() => setIssueOpen(false)}
+          seed={issueSeed}
+          onClose={() => { setIssueOpen(false); patch({ from: null }); }}
           onDone={(issueId) => {
             setIssueOpen(false);
             setHighlightId(issueId);
@@ -218,7 +245,7 @@ export function AdminCashbillListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-2 lg:hidden">
-            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => setIssueOpen(true)} highlight={highlightId === row.id} />)}
+            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} highlight={highlightId === row.id} />)}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
@@ -247,7 +274,7 @@ export function AdminCashbillListPage() {
                     <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
                     <td className="px-2 py-2 text-center tabular-nums">{row.ntsConfirmNum || '—'}</td>
                     <td className="px-2 py-2 text-center">
-                      <ReceiptActions row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => setIssueOpen(true)} />
+                      <ReceiptActions row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} />
                     </td>
                   </tr>
                 ))}
@@ -314,7 +341,7 @@ function ReceiptActions({
   onReissue: () => void;
 }) {
   const btn = 'min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
-  const failed = isFailedRow(row);
+  const failed = isFailedRow(row) || row.barobillState === '7000' || row.kind === 'CANCEL';
   return (
     <div className="inline-flex items-center justify-center gap-1">
       {failed ? (

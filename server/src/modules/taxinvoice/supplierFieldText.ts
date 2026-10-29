@@ -16,10 +16,12 @@ export function supplierIncompleteMessage(fields: {
   ceoName?: unknown;
   addr?: unknown;
   email?: unknown;
+  contactName?: unknown;
 }): string | null {
   const names: string[] = [];
   if (isBlankSupplierField(fields.corpName)) names.push('상호');
   if (isBlankSupplierField(fields.ceoName)) names.push('대표자');
+  if (isBlankSupplierField(fields.ceoName) && isBlankSupplierField(fields.contactName)) names.push('담당자');
   if (isBlankSupplierField(fields.addr)) names.push('주소');
   if (!String(fields.email ?? '').trim()) names.push('이메일');
   if (names.length === 0) return null;

@@ -75,6 +75,20 @@ export async function searchCashbillInquiries(q: string): Promise<CashbillSearch
   return body.items;
 }
 
+export type CashbillReissueSource = {
+  operatingCompanyId: string;
+  amount: number;
+  usage: CashbillUsage;
+  itemName: string;
+  memo: string;
+};
+
+export async function fetchCashbillSource(issueId: string): Promise<CashbillReissueSource> {
+  const res = await fetch(`${API}/cashbill/issues/${issueId}/source`, { headers: headers() });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '다시 발행할 내용을 불러오지 못했습니다.'));
+  return res.json() as Promise<CashbillReissueSource>;
+}
+
 export async function issueCashbill(body: {
   inquiryId?: string | null;
   operatingCompanyId?: string;

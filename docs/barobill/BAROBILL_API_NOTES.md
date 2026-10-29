@@ -83,6 +83,7 @@
 - 과세·영세·면세 모두 이 함수다. WSDL에 전자계산서 전용 발급 함수는 없다. 면세는 같은 `Invoice`에 `TaxType=3`, `TaxInvoiceType=2`를 넣는다. 과세는 `TaxType=1`·`TaxInvoiceType=1`, 영세는 `TaxType=2`·`TaxInvoiceType=1`. 출처: [세금계산서 API 레퍼런스](https://dev.barobill.co.kr/docs/references/%EC%84%B8%EA%B8%88%EA%B3%84%EC%82%B0%EC%84%9C-API) `TaxInvoice` 객체 (2026-10-29).
 - 공급자 과세유형은 사업자등록 상태조회 `GetCorpState.TaxType`이다. 이 코드가 쓰는 구버전 `CorpState`: 1 일반과세자, 2 간이과세자, 4 면세사업자. 출처: [사업자등록 상태조회 API](https://dev.barobill.co.kr/docs/references/%EC%82%AC%EC%97%85%EC%9E%90%EB%93%B1%EB%A1%9D-%EC%83%81%ED%83%9C%EC%A1%B0%ED%9A%8C-API) `CorpState` (2026-10-29). 조회 API의 `TaxType` 1은 「과세+영세」라서 발급 필드와 코드가 다르다.
 - InvoicerParty.MgtNum(공급자 관리번호) · InvoicerParty.ContactID(공급자 바로빌 아이디) 필수. 공급받는자 MgtNum/ContactID 는 빈 값.
+- `InvoiceParty.ContactName`(담당자명)은 공급자·공급받는자 모두 필수(O). 빈 문자열이면 정발급이 `-11107`로 거절된다. 공급자는 회원 담당자명, 없으면 대표자명. 공급받는자는 성명(대표자). 출처: 같은 레퍼런스 `InvoiceParty` (2026-10-29). `TEL`·`HP`·품목 필드는 X(선택). `Email`은 정발급에서 공급자만 △ 필수.
 - 상태: `GetTaxInvoiceStateEX(s)` → BarobillState 1000 임시 · 3014 발급완료 · 5031 발급취소 / NTSSendState 1 전송전(취소가능) · 2·3 전송중 · 4 성공 · 5 실패.
 - 발급취소(국세청 전송 전): 현재 TI WSDL의 `ProcTaxInvoice`. `ProcType=ISSUE_CANCEL`, `Memo`는 빈 문자열. 전송 후 취소 API는 쓰지 않는다.
 - 국세청 전송 기본값: **발급 익일 14시 자동전송**(콘솔 환경설정). 지연발급(익월 10일 후) 기본 차단.

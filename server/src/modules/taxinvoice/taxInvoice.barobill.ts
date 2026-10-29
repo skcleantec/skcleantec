@@ -26,11 +26,13 @@ export type TaxInvoicePayload = {
   bizClass: string;
   email: string;
   tel: string;
+  contactName: string;
   buyerCorpNum: string;
   buyerCorpName: string;
   buyerCeoName: string;
   buyerAddr: string;
   buyerEmail: string;
+  buyerContactName: string;
   buyerBizType: string;
   buyerBizClass: string;
   writeDate: string;
@@ -63,8 +65,10 @@ function party(input: {
   bizClass: string;
   email: string;
   tel: string;
+  contactName: string;
   taxRegId?: string;
 }) {
+  const contactName = input.contactName.trim() || input.ceoName.trim() || input.corpName.trim();
   return {
     ContactID: input.contactId,
     CorpNum: input.corpNum,
@@ -75,7 +79,7 @@ function party(input: {
     Addr: input.addr,
     BizClass: input.bizClass,
     BizType: input.bizType,
-    ContactName: '',
+    ContactName: contactName.slice(0, 100),
     TEL: input.tel,
     HP: '',
     Email: input.email,
@@ -139,6 +143,7 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
           bizClass: input.bizClass,
           email: input.email,
           tel: input.tel,
+          contactName: input.contactName,
         }),
         InvoiceeParty: party({
           contactId: '',
@@ -151,6 +156,7 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
           bizClass: input.buyerBizClass,
           email: input.buyerEmail,
           tel: '',
+          contactName: input.buyerContactName,
           taxRegId: input.buyerTaxRegId,
         }),
         IssueDirection: 1,

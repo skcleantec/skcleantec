@@ -21,7 +21,7 @@ export function SupplierInfoModal({
 }: {
   operatingCompanyId: string;
   corpNum: string;
-  initial: { corpName: string; ceoName: string; addr: string; bizType: string; bizClass: string; email: string; tel: string };
+  initial: { corpName: string; ceoName: string; addr: string; bizType: string; bizClass: string; email: string; tel: string; contactName?: string };
   onClose: () => void;
   onSaved: (supplier: TaxInvoiceSupplier) => void;
 }) {
@@ -29,6 +29,7 @@ export function SupplierInfoModal({
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
   const [corpName, setCorpName] = useState(visibleSupplierField(initial.corpName));
   const [ceoName, setCeoName] = useState(visibleSupplierField(initial.ceoName));
+  const [contactName, setContactName] = useState(visibleSupplierField(initial.contactName) || visibleSupplierField(initial.ceoName));
   const [addr, setAddr] = useState(visibleSupplierField(initial.addr));
   const [bizType, setBizType] = useState(initial.bizType);
   const [bizClass, setBizClass] = useState(initial.bizClass);
@@ -48,6 +49,7 @@ export function SupplierInfoModal({
         if (!latest) return;
         setCorpName(visibleSupplierField(latest.corpName));
         setCeoName(visibleSupplierField(latest.ceoName));
+        setContactName(visibleSupplierField(latest.contactName) || visibleSupplierField(latest.ceoName));
         setAddr(visibleSupplierField(latest.addr));
         setBizType(latest.bizType);
         setBizClass(latest.bizClass);
@@ -75,6 +77,7 @@ export function SupplierInfoModal({
         bizClass,
         contactEmail: email,
         contactTel: tel,
+        contactName: contactName.trim() || ceoName.trim(),
       });
       onSaved(saved);
     } catch (err) {
@@ -109,6 +112,10 @@ export function SupplierInfoModal({
           <label className="block text-xs text-slate-600">
             대표자명 *
             <input className={FIELD} value={ceoName} placeholder="대표자명" aria-label="대표자명" onChange={(event) => setCeoName(event.target.value)} />
+          </label>
+          <label className="block text-xs text-slate-600">
+            담당자명
+            <input className={FIELD} value={contactName} placeholder={ceoName || '담당자명'} aria-label="담당자명" onChange={(event) => setContactName(event.target.value)} />
           </label>
           <label className="block text-xs text-slate-600">
             사업장 주소 *

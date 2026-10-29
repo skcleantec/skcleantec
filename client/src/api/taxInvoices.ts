@@ -23,6 +23,7 @@ export type TaxInvoiceSupplier = {
   bizClass: string;
   email: string;
   tel: string;
+  contactName?: string;
 };
 
 export type TaxInvoiceBrand = {
@@ -118,6 +119,7 @@ export async function updateTaxInvoiceSupplier(
     bizClass: string;
     contactEmail: string;
     contactTel: string;
+    contactName: string;
   },
 ): Promise<TaxInvoiceSupplier> {
   const res = await fetch(`${API}/tax-invoices/supplier`, {
@@ -133,6 +135,40 @@ export async function issueTaxInvoice(body: Record<string, unknown>): Promise<{ 
   const res = await fetch(`${API}/tax-invoices`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '세금계산서 발행에 실패했습니다.'));
   return res.json() as Promise<{ id: string }>;
+}
+
+export type TaxInvoiceReissueSource = {
+  operatingCompanyId: string;
+  purposeType: 1 | 2;
+  taxKind: 'taxable' | 'zero' | 'exempt';
+  remark: string;
+  buyerTaxRegId: string;
+  buyer: {
+    corpNum: string;
+    corpName: string;
+    ceoName: string;
+    addr: string;
+    email: string;
+    bizType: string;
+    bizClass: string;
+  };
+  lines: Array<{
+    name: string;
+    month: string;
+    day: string;
+    spec: string;
+    qty: string;
+    unitPrice: string;
+    supply: string | number;
+    tax: string | number;
+    remark: string;
+  }>;
+};
+
+export async function fetchTaxInvoiceSource(issueId: string): Promise<TaxInvoiceReissueSource> {
+  const res = await fetch(`${API}/tax-invoices/${issueId}/source`, { headers: headers() });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '다시 발행할 내용을 불러오지 못했습니다.'));
+  return res.json() as Promise<TaxInvoiceReissueSource>;
 }
 
 export async function cancelTaxInvoice(issueId: string): Promise<void> {

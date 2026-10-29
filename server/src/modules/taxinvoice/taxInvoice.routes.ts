@@ -8,6 +8,7 @@ import {
   cancelTaxInvoice,
   issueTaxInvoice,
   listTaxInvoices,
+  taxInvoiceReissueSource,
   taxInvoiceCustomerUrl,
   taxInvoicePrintUrl,
   searchTaxInvoiceInquiries,
@@ -99,6 +100,18 @@ router.post('/', async (req, res) => {
     res.json(await issueTaxInvoice(tenantId, user.userId, req.body ?? {}));
   } catch (err) {
     sendError(res, err, '세금계산서 발행에 실패했습니다.');
+  }
+});
+
+router.get('/:issueId/source', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    res.json(await taxInvoiceReissueSource(tenantId, String(req.params.issueId ?? '')));
+  } catch (err) {
+    sendError(res, err, '다시 발행할 내용을 불러오지 못했습니다.');
   }
 });
 
