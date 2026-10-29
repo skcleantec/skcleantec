@@ -72,6 +72,6 @@ Ensure **new/changed code does not break existing behavior**, follows **all proj
 
 ## Report template
 
-`agent/orchestrator/reports/YYYY-MM-DD-HHmm-code-guardian-<slug>.md`
+`agent/orchestrator/reports/packs/YYYY-MM-DD-<slug>/code-guardian.md`
 
 Include: files reviewed, related files checked, rules applied, findings by severity, commands run.

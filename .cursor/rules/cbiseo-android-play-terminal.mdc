@@ -48,6 +48,7 @@ AAB 경로를 보고할 때 **`.cursor/rules/android-play-aab-release-copy.mdc`*
 - Studio GUI를 Play 릴리스 **유일** 경로로 안내
 - `versionCode` bump·AAB 빌드 후 **`RELEASE_PROGRESS.md` 미갱신**
 - AAB만 전달하고 **Play 출시명·출시 노트 복붙 블록 생략** — **`.cursor/rules/android-play-aab-release-copy.mdc`**
+- Play **권장 조치**를 보고도 `RELEASE_PROGRESS`·**`.cursor/rules/play-console-quality.mdc`** 에 안 남김
 
 ## 참고
 

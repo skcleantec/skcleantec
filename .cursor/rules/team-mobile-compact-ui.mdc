@@ -56,11 +56,13 @@ alwaysApply: true
 |------|----------------|---------|
 | 페이지 gap | `gap-2` | `sm:gap-4` |
 | 카드 padding | `p-2` | `sm:p-3` / `lg:p-4` |
-| 라벨 | `text-fluid-2xs` | `sm:text-fluid-xs` |
-| 값·본문 | `text-fluid-xs` | `sm:text-fluid-sm` |
-| 배지 | `px-1.5 py-0 text-fluid-2xs` | `sm:px-2 sm:py-0.5` |
+| 라벨 | `text-fluid-2xs` → 모바일 13px | `sm:text-fluid-xs` |
+| 값·본문 | `text-fluid-xs` → 모바일 15px | `sm:text-fluid-sm` |
+| 이름 | `team-card-title` (16px, 한 줄) | 동일 |
+| 배지 | `px-1.5 py-0` + 가로 스크롤 | `sm:px-2 sm:py-0.5` |
 
-- **`text-[10px]` 등 임의 px 금지** — **`text-fluid-2xs` / `text-fluid-xs`** 사용.
+- **`text-[10px]` 등 임의 px 금지** — **`text-fluid-*`** 또는 `team-card-title` / `team-card-meta`.
+- 긴 주소·이름·배너: **줄바꿈으로 카드 높이를 늘리지 않음.** 말줄임 + `title`. 칩 줄은 `team-chip-scroll`.
 
 ## 7) 새 `/team` 기능 체크리스트
 

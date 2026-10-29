@@ -53,7 +53,7 @@ Prevent **legal/compliance issues** and **cross-tenant data leaks**, especially 
 
 ## Report template
 
-`agent/orchestrator/reports/YYYY-MM-DD-HHmm-db-sentinel-<slug>.md`
+`agent/orchestrator/reports/packs/YYYY-MM-DD-<slug>/db-sentinel.md`
 
 Sections: Legal watch summary, Isolation findings, Exchange/mirror status, Migration notes, Action items.
 

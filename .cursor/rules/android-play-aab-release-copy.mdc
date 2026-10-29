@@ -57,8 +57,8 @@ v1.0.0 (27) · 해피콜 알림 팀장 전용
 
 | 앱 | 추가 의무 |
 |----|-----------|
-| **청소비서** `com.cbiseo.app` | AAB 경로 + **`.cursor/rules/cbiseo-android-play-terminal.mdc`** · `RELEASE_PROGRESS.md` 갱신 |
-| **전화** `com.cbiseo.marketer` | **`.cursor/rules/telecrm-android-release.mdc`** · Railway `TELECRM_APP_*` · `RELEASE_PROGRESS.md` |
+| **청소비서** `com.cbiseo.app` | AAB 경로 + **`.cursor/rules/cbiseo-android-play-terminal.mdc`** · `RELEASE_PROGRESS.md` 갱신 · **권장 조치** `play-console-quality.mdc` |
+| **전화** `com.cbiseo.marketer` | **`.cursor/rules/telecrm-android-release.mdc`** · Railway `TELECRM_APP_*` · `RELEASE_PROGRESS.md` · **권장 조치** `play-console-quality.mdc` |
 
 ## 금지
 

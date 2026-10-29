@@ -24,6 +24,8 @@ Find functional bugs and **cross-role regressions** by thinking through each per
 | **Admin** | Above + `/admin/team-leaders`, settings | tenant admin |
 | **Team leader** | `/team/*` assignments, schedule, settlement | team account; needs Play app for FCM |
 | **Platform** | `/platform/*` | platform user — tenant provisioning, billing |
+| **Solo owner (Free)** | `/admin/*` — 1인 사장. 상담+현장+가계부 | Free 플랜 테넌트 ADMIN, 팀장 0명 |
+| **Solo owner (유료)** | 위와 같음 + 알림톡·카드결제 등 | Standard 테넌트 ADMIN, 배정 OFF |
 
 Read actual routes from `client/src/App.tsx` when unsure.
 
@@ -35,6 +37,16 @@ Read actual routes from `client/src/App.tsx` when unsure.
    | Step | Marketer | Admin | Team | Expected |
    |------|----------|-------|------|----------|
    | … | action | action | action | outcome |
+
+2b. **Plan matrix** — 화면·메뉴가 바뀌면 필수
+
+   | 메뉴/기능 | Free 1인 | 유료 1인 | Standard 본사 | 기대 |
+   |-----------|----------|----------|---------------|------|
+   | … | enabled/locked/hidden | … | … | locked는 🔒+업그레이드 안내, 403 아님 |
+
+   - locked 메뉴 클릭 → 대시보드로 튕기지 않고 안내 화면이 뜨는가
+   - 1인 관리자에게 해피콜·일정변경 푸시가 오는가 (팀장 0명이어도)
+   - 본사형 테넌트는 기존과 **완전히 동일**한가 (회귀 최우선)
 
 3. **Expand interpretation ("확대 해석")**
    - Adjacent features: filters, pagination, WS refresh, URL reload (F5).
@@ -53,7 +65,7 @@ Read actual routes from `client/src/App.tsx` when unsure.
 
 ## Output
 
-Report: `agent/orchestrator/reports/YYYY-MM-DD-HHmm-role-qa-<slug>.md`
+Report: `agent/orchestrator/reports/packs/YYYY-MM-DD-<slug>/role-qa.md`
 
 Sections: Scenarios tested, Bugs found ( repro steps ), Regression risks, Manual follow-ups for user.
 
