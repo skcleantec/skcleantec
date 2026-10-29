@@ -44,6 +44,9 @@ function supplierEditClass(attention?: boolean): string {
     : `${focus} text-gray-500 hover:bg-gray-50 hover:text-gray-900`;
 }
 
+const MOBILE_SUPPLIER_EDIT =
+  'inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-3 text-fluid-xs font-semibold touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
+
 function dash(value: string): string {
   return isBlankSupplierField(value) ? '—' : value.trim();
 }
@@ -247,11 +250,18 @@ export function TaxInvoiceMobileCards(props: TaxFormProps) {
   return (
     <div className="space-y-3 text-[14px]">
       <details className="overflow-hidden rounded-xl bg-white ring-1 ring-gray-200">
-        <summary className="flex cursor-pointer list-none items-center gap-2 border-l-4 px-3 py-3" style={{ borderColor: 'var(--red)' }}>
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 border-l-4 px-3 py-3" style={{ borderColor: 'var(--red)' }}>
           <span className="text-xs font-bold" style={{ color: 'var(--red)' }}>공급자</span>
           <span className="min-w-0 flex-1 truncate">{dash(supplier.corpName)}</span>
           {props.onEditSupplier ? (
-            <button type="button" className={supplierEditClass(props.supplierAttention)} onClick={(event) => { event.preventDefault(); event.stopPropagation(); props.onEditSupplier?.(); }}>공급자 정보 수정</button>
+            <button
+              type="button"
+              className={props.supplierAttention ? `${MOBILE_SUPPLIER_EDIT} bg-amber-50 text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100 focus-visible:ring-amber-400` : `${MOBILE_SUPPLIER_EDIT} border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus-visible:ring-slate-400`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => { event.preventDefault(); event.stopPropagation(); props.onEditSupplier?.(); }}
+            >
+              공급자 정보 수정
+            </button>
           ) : null}
           <span className="num text-xs text-gray-500">{dash(formatBizInput(supplier.corpNum))}</span>
         </summary>

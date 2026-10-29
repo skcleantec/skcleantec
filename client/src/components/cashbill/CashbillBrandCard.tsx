@@ -101,7 +101,7 @@ export function CashbillBrandCard({
             </p>
             <button
               type="button"
-              className={`inline-flex min-h-11 min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-3 text-fluid-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${isBlankSupplierField(member?.ceoName) || isBlankSupplierField(member?.addr1) ? 'bg-amber-50 text-amber-950 ring-1 ring-amber-300 hover:bg-amber-100 focus-visible:ring-amber-400' : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus-visible:ring-slate-400'}`}
+              className={`inline-flex min-h-11 min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-3 text-fluid-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${isBlankSupplierField(member?.corpName) || isBlankSupplierField(member?.ceoName) || isBlankSupplierField(member?.addr1) ? 'bg-amber-50 text-amber-950 ring-1 ring-amber-300 hover:bg-amber-100 focus-visible:ring-amber-400' : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus-visible:ring-slate-400'}`}
               onClick={() => setEditOpen(true)}
             >
               수정

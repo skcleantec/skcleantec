@@ -98,39 +98,55 @@ export async function updateBarobillSupplier(
   if (member.status !== 'ACTIVE') {
     throw new TaxInvoiceError('가입완료인 브랜드만 공급자 정보를 수정할 수 있습니다.', 409);
   }
-  const corpName = clip(input.corpName, 128);
-  const ceoName = clip(input.ceoName, 128);
-  const addr1 = clip(input.addr1, 500);
   const bizType = clip(input.bizType, 64);
   const bizClass = clip(input.bizClass, 64);
   const contactEmail = clip(input.contactEmail, 120);
   const contactTel = clip(input.contactTel, 32);
-  if (isBlankSupplierField(corpName)) throw new TaxInvoiceError('상호를 입력해 주세요.');
-  if (isBlankSupplierField(ceoName)) throw new TaxInvoiceError('대표자명을 입력해 주세요.');
-  if (isBlankSupplierField(addr1)) throw new TaxInvoiceError('사업장 주소를 입력해 주세요.');
-  if (!contactEmail.includes('@')) throw new TaxInvoiceError('담당 이메일을 입력해 주세요.');
+  if (contactEmail && !contactEmail.includes('@')) throw new TaxInvoiceError('담당 이메일을 입력해 주세요.');
+
+  const data: {
+    corpName?: string;
+    ceoName?: string;
+    addr1?: string;
+    bizType: string;
+    bizClass: string;
+    contactEmail?: string;
+    contactTel: string;
+  } = { bizType, bizClass, contactTel };
+  if (!isBlankSupplierField(input.corpName)) data.corpName = clip(input.corpName, 128);
+  if (!isBlankSupplierField(input.ceoName)) data.ceoName = clip(input.ceoName, 128);
+  if (!isBlankSupplierField(input.addr1)) data.addr1 = clip(input.addr1, 500);
+  if (contactEmail) data.contactEmail = contactEmail;
 
   await freezeIssuedTaxSuppliers(tenantId, member.id, snapFromMember(member));
   const saved = await prisma.barobillMember.updateMany({
     where: { id: member.id, tenantId },
-    data: { corpName, ceoName, addr1, bizType, bizClass, contactEmail, contactTel },
+    data,
   });
   if (saved.count !== 1) throw new TaxInvoiceError('공급자 정보를 저장하지 못했습니다.', 409);
 
+  const corpName = data.corpName ?? member.corpName;
+  const ceoName = data.ceoName ?? member.ceoName;
+  const addr1 = data.addr1 ?? member.addr1;
+  const email = data.contactEmail ?? member.contactEmail;
+
   if (brand.isDefault) {
-    await prisma.tenantSignupBusiness.updateMany({
-      where: { tenantId },
-      data: { representativeName: ceoName, addressLine: addr1, businessName: corpName },
-    });
-    const existing = await getTenantConfig(tenantId);
-    await updateTenantConfig(tenantId, {
-      companyRegistration: {
-        ...(existing.companyRegistration ?? {}),
-        companyName: corpName,
-        representativeName: ceoName,
-        addressLine: addr1,
-      },
-    });
+    const signup: { businessName?: string; representativeName?: string; addressLine?: string } = {};
+    if (data.corpName) signup.businessName = data.corpName;
+    if (data.ceoName) signup.representativeName = data.ceoName;
+    if (data.addr1) signup.addressLine = data.addr1;
+    if (Object.keys(signup).length > 0) {
+      await prisma.tenantSignupBusiness.updateMany({ where: { tenantId }, data: signup });
+      const existing = await getTenantConfig(tenantId);
+      await updateTenantConfig(tenantId, {
+        companyRegistration: {
+          ...(existing.companyRegistration ?? {}),
+          ...(signup.businessName ? { companyName: signup.businessName } : {}),
+          ...(signup.representativeName ? { representativeName: signup.representativeName } : {}),
+          ...(signup.addressLine ? { addressLine: signup.addressLine } : {}),
+        },
+      });
+    }
   }
 
   return {
@@ -140,7 +156,7 @@ export async function updateBarobillSupplier(
     addr: addr1,
     bizType,
     bizClass,
-    email: contactEmail,
+    email,
     tel: contactTel,
   };
 }

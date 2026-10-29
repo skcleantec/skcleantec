@@ -7,6 +7,7 @@ import {
   QUOTATION_SEAL_DISPLAY_WIDTH_MIN,
   QUOTATION_SEAL_SOURCE_PX,
 } from '@shared/quotationSeal';
+import { isBlankSupplierField } from '@shared/supplierFieldText';
 import { CompanyProfileSuccessModal } from './CompanyProfileSuccessModal';
 import { useTenantCompanyProfileForm } from './useTenantCompanyProfileForm';
 
@@ -203,7 +204,13 @@ export function AdminTenantCompanyBusinessPage() {
           <button
             type="button"
             disabled={form.busy}
-            onClick={() => setConfirmSupplier(true)}
+            onClick={() => {
+              if (isBlankSupplierField(form.companyName)) {
+                form.setErr('상호를 입력해 주세요.');
+                return;
+              }
+              setConfirmSupplier(true);
+            }}
             className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
           >
             {form.busy ? '저장 중…' : '저장'}

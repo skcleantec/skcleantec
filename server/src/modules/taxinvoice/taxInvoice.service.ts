@@ -19,11 +19,10 @@ import {
   registAndIssueTaxInvoice,
 } from './taxInvoice.barobill.js';
 import { certBlockMessage, refreshBarobillCerts } from './taxInvoiceCert.service.js';
-import { isBlankSupplierField } from './supplierFieldText.js';
+import { supplierIncompleteMessage } from './supplierFieldText.js';
 import { safeRenderTaxInvoiceCopy } from '../receipts/receiptCopy.service.js';
 
 export const TAX_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
-export const TAX_SUPPLIER_INCOMPLETE_MESSAGE = '공급자 정보(대표자·주소)가 비어 있습니다. 계산서 연결에서 입력해 주세요';
 export const TAX_SIMPLIFIED_MESSAGE = '간이과세자는 세금계산서를 발행할 수 없습니다';
 export const TAX_TEMPORARY_MESSAGE = '일시적으로 발급할 수 없습니다.';
 export const TAX_MODIFY_LATER = '수정세금계산서는 추후 지원';
@@ -366,14 +365,13 @@ export async function issueTaxInvoice(
     throw new TaxInvoiceError('면세사업자는 전자계산서만 발행할 수 있습니다.');
   }
   if (member.certValid !== true) throw new TaxInvoiceError(certBlockMessage(), 409, 'cert');
-  if (
-    isBlankSupplierField(member.corpName) ||
-    isBlankSupplierField(member.ceoName) ||
-    isBlankSupplierField(member.addr1) ||
-    !member.contactEmail.trim()
-  ) {
-    throw new TaxInvoiceError(TAX_SUPPLIER_INCOMPLETE_MESSAGE, 409, 'supplier_incomplete');
-  }
+  const supplierGap = supplierIncompleteMessage({
+    corpName: member.corpName,
+    ceoName: member.ceoName,
+    addr: member.addr1,
+    email: member.contactEmail,
+  });
+  if (supplierGap) throw new TaxInvoiceError(supplierGap, 409, 'supplier_incomplete');
   const purposeType = input.purposeType === 2 ? 2 : input.purposeType === 1 ? 1 : null;
   if (!purposeType) throw new TaxInvoiceError('영수 또는 청구를 선택해 주세요.');
   const buyer = buyerOf(input.buyer ?? {});

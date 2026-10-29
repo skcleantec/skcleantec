@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { isValidKoreanBizNumberChecksum } from '@shared/authSignup';
-import { isBlankSupplierField } from '@shared/supplierFieldText';
+import { isBlankSupplierField, supplierIncompleteMessage } from '@shared/supplierFieldText';
 import {
   issueTaxInvoice,
   listTaxInvoices,
@@ -111,19 +111,33 @@ export function TaxInvoiceIssueWorkspace() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true, 96);
 
-  useEffect(() => {
-    let stop = false;
+  const reloadBrands = useCallback((announce: boolean) => {
     listTaxInvoices(new URLSearchParams({ datePreset: 'today', limit: '1' }))
       .then((res) => {
-        if (stop) return;
         setBrands(res.brands);
         setBrandId((prev) => prev || res.brands.find((brand) => brand.linked)?.id || res.brands[0]?.id || '');
       })
       .catch((err: unknown) => {
-        if (!stop) setError(err instanceof Error ? err.message : '브랜드를 불러오지 못했습니다.');
+        if (announce) setError(err instanceof Error ? err.message : '브랜드를 불러오지 못했습니다.');
       });
-    return () => { stop = true; };
   }, []);
+
+  useEffect(() => {
+    reloadBrands(true);
+  }, [reloadBrands]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      reloadBrands(false);
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [reloadBrands]);
 
   useEffect(() => {
     if (!inquiryId) return;
@@ -139,6 +153,14 @@ export function TaxInvoiceIssueWorkspace() {
   const brand = (picked && !unmatched ? brands.find((item) => item.id === picked.brandId) : brands.find((item) => item.id === brandId)) ?? null;
   const exemptLocked = brand?.memberTaxType === '4';
   const supplier = supplierParty(brand?.supplier);
+  const supplierGap = supplierIncompleteMessage({
+    corpName: supplier.corpName,
+    ceoName: supplier.ceoName,
+    addr: supplier.addr,
+    email: supplier.email,
+  });
+  const supplierBlocked = supplierGap != null;
+  const supplierAttention = isBlankSupplierField(supplier.corpName) || isBlankSupplierField(supplier.ceoName) || isBlankSupplierField(supplier.addr);
   const blocked = brand?.simplified
     ? '간이과세자는 세금계산서를 발행할 수 없습니다'
     : brand && !brand.certValid
@@ -175,8 +197,8 @@ export function TaxInvoiceIssueWorkspace() {
   }
 
   async function submit() {
-    if (supplierBlocked) {
-      setError('공급자 정보(대표자·주소)가 비어 있습니다. 계산서 연결에서 입력해 주세요');
+    if (supplierGap) {
+      setError(supplierGap);
       return;
     }
     if (blocked) {
@@ -235,8 +257,6 @@ export function TaxInvoiceIssueWorkspace() {
 
   const dateMin = dates[dates.length - 1] ?? writeDate;
   const dateMax = dates[0] ?? writeDate;
-  const supplierBlocked = isBlankSupplierField(supplier.corpName) || isBlankSupplierField(supplier.ceoName) || isBlankSupplierField(supplier.addr) || !supplier.email.trim();
-  const supplierAttention = isBlankSupplierField(supplier.ceoName) || isBlankSupplierField(supplier.addr);
   const linkedBrands = brands.filter((item) => item.linked);
   const chipName = picked?.buyer?.corpName || picked?.customerName || '';
 
@@ -292,7 +312,7 @@ export function TaxInvoiceIssueWorkspace() {
     <div ref={scrollRef} className="taxinvoice-issue modal-form-scroll-surface -mx-4 flex max-h-[calc(100dvh-3.5rem)] min-h-0 flex-col gap-5 overflow-y-auto bg-[#eef0f3] px-4 py-6" onFocusCapture={onFieldFocus}>
       {supplierBlocked ? (
         <p className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
-          공급자 정보(대표자·주소)가 비어 있습니다. 계산서 연결에서 입력해 주세요
+          {supplierGap}
           <button type="button" className="rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-950 ring-1 ring-amber-300 hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2" onClick={() => setSupplierOpen(true)}>계산서 연결에서 입력</button>
         </p>
       ) : null}

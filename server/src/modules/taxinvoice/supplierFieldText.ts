@@ -9,3 +9,22 @@ export function isBlankSupplierField(value: unknown): boolean {
   }
   return false;
 }
+
+/** 비어 있는 공급자 칸만 고른다. `shared/supplierFieldText.ts` 와 동기화 */
+export function supplierIncompleteMessage(fields: {
+  corpName?: unknown;
+  ceoName?: unknown;
+  addr?: unknown;
+  email?: unknown;
+}): string | null {
+  const names: string[] = [];
+  if (isBlankSupplierField(fields.corpName)) names.push('상호');
+  if (isBlankSupplierField(fields.ceoName)) names.push('대표자');
+  if (isBlankSupplierField(fields.addr)) names.push('주소');
+  if (!String(fields.email ?? '').trim()) names.push('이메일');
+  if (names.length === 0) return null;
+  const last = names[names.length - 1] ?? '';
+  const particle = last === '이메일' ? '이' : '가';
+  const head = names.length === 1 ? last : names.join('·');
+  return `공급자 ${head}${particle} 비어 있습니다`;
+}

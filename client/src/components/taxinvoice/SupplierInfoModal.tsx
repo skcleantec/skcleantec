@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatBizNumberDisplay } from '@shared/authSignup';
 import { visibleSupplierField } from '@shared/supplierFieldText';
-import { updateTaxInvoiceSupplier, type TaxInvoiceSupplier } from '../../api/taxInvoices';
+import { listTaxInvoices, updateTaxInvoiceSupplier, type TaxInvoiceSupplier } from '../../api/taxInvoices';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 
 const FIELD =
@@ -36,6 +36,32 @@ export function SupplierInfoModal({
   const [tel, setTel] = useState(initial.tel);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let stop = false;
+    setLoading(true);
+    listTaxInvoices(new URLSearchParams({ datePreset: 'today', limit: '1' }))
+      .then((res) => {
+        if (stop) return;
+        const latest = res.brands.find((brand) => brand.id === operatingCompanyId)?.supplier;
+        if (!latest) return;
+        setCorpName(visibleSupplierField(latest.corpName));
+        setCeoName(visibleSupplierField(latest.ceoName));
+        setAddr(visibleSupplierField(latest.addr));
+        setBizType(latest.bizType);
+        setBizClass(latest.bizClass);
+        setEmail(latest.email);
+        setTel(latest.tel);
+      })
+      .catch(() => {
+        if (!stop) setError('공급자 정보를 다시 불러오지 못했습니다.');
+      })
+      .finally(() => {
+        if (!stop) setLoading(false);
+      });
+    return () => { stop = true; };
+  }, [operatingCompanyId]);
 
   async function save() {
     setSaving(true);
@@ -70,7 +96,8 @@ export function SupplierInfoModal({
         <header className="shrink-0 border-b border-slate-200 px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-900">공급자 정보 수정</h2>
         </header>
-        <div ref={scrollRef} className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3" onFocusCapture={onFieldFocus}>
+        <div ref={scrollRef} className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3" onFocusCapture={onFieldFocus} aria-busy={loading}>
+          <fieldset disabled={loading} className="min-w-0 space-y-3 disabled:opacity-60">
           <label className="block text-xs text-slate-600">
             사업자등록번호
             <input className={`${FIELD} bg-slate-50`} value={formatBizNumberDisplay(corpNum) || '—'} readOnly aria-label="사업자등록번호" />
@@ -105,11 +132,13 @@ export function SupplierInfoModal({
             담당 전화
             <input className={FIELD} type="tel" inputMode="tel" value={tel} aria-label="담당 전화" onChange={(event) => setTel(event.target.value)} />
           </label>
+          {loading ? <p className="text-xs text-slate-500">불러오는 중…</p> : null}
           {error ? <p className="text-xs text-red-700">{error}</p> : null}
+          </fieldset>
         </div>
         <footer className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-4 py-3">
           <button type="button" className={GHOST} disabled={saving} onClick={onClose}>취소</button>
-          <button type="button" className={PRIMARY} disabled={saving} onClick={() => void save()}>{saving ? '저장 중…' : '저장'}</button>
+          <button type="button" className={PRIMARY} disabled={saving || loading} onClick={() => void save()}>{saving ? '저장 중…' : '저장'}</button>
         </footer>
       </div>
     </div>,

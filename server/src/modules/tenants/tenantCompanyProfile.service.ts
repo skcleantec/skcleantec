@@ -133,6 +133,13 @@ function mergeCompanyRegistration(
     }
     if (typeof v === 'string') {
       const t = v.trim();
+      const keepExisting = key === 'companyName' || key === 'representativeName' || key === 'addressLine';
+      if (keepExisting && isBlankSupplierField(t)) {
+        const prev = existing?.[key];
+        if (typeof prev === 'string' && prev.trim() && !isBlankSupplierField(prev)) merged[key] = prev.trim();
+        else delete merged[key];
+        continue;
+      }
       if (t) merged[key] = t;
       else delete merged[key];
     }
@@ -266,20 +273,12 @@ async function patchOperatingCompanySmtp(
 function assertCompanySupplierText(
   patch: TenantCompanyProfilePatch['companyRegistration'],
 ): void {
-  if (!patch) return;
-  const fields: Array<[string, unknown]> = [
-    ['상호를', patch.companyName],
-    ['대표자명을', patch.representativeName],
-    ['사업장 주소를', patch.addressLine],
-  ];
-  for (const [label, value] of fields) {
-    if (typeof value !== 'string') continue;
-    if (isBlankSupplierField(value)) {
-      throw Object.assign(new Error('supplier_placeholder'), {
-        code: 'bad_request' as const,
-        message: `${label} 입력해 주세요.`,
-      });
-    }
+  if (!patch || !('companyName' in patch)) return;
+  if (isBlankSupplierField(patch.companyName)) {
+    throw Object.assign(new Error('supplier_placeholder'), {
+      code: 'bad_request' as const,
+      message: '상호를 입력해 주세요.',
+    });
   }
 }
 
