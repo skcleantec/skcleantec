@@ -107,7 +107,7 @@ export function AdminInquiriesLayout() {
             </div>
           ) : (
             <div className="flex min-w-0 flex-col gap-2">
-              <StaffWorkflowGuideBar surface="inquiry" />
+              {location.pathname.includes('/receipts') ? null : <StaffWorkflowGuideBar surface="inquiry" />}
               <Outlet />
             </div>
           )}

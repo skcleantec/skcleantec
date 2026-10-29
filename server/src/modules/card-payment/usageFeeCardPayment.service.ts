@@ -5,7 +5,7 @@ import { confirmPaymentForSchedulePeriod, getTenantBillingSchedule } from '../bi
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
 import { creditWalletFromCardOnce, reverseWalletCardOnce } from '../alimtalk/alimtalkWallet.service.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
-import { validateAlimtalkTopUpAmountKrw } from '../../lib/alimtalkPolicy.js';
+import { validateWalletChargeAmountKrw } from '../../lib/paymentTestAmount.js';
 import { chargeUsageFeeKeyin, parseUsageFeeKeyinBody, type UsageFeeKeyinResult } from './cardPaymentUsageFeeKeyin.service.js';
 import { paysisSha256, requestPaysisFullCancel, requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
@@ -347,7 +347,7 @@ export async function openTenantWalletWindow(
   tenantId: string,
   amountKrw: number,
 ): Promise<{ error: string; status: 400 | 404 } | { result: { redirectUrl: string; amountKrw: number } }> {
-  const invalid = validateAlimtalkTopUpAmountKrw(amountKrw);
+  const invalid = validateWalletChargeAmountKrw(amountKrw);
   if (invalid) return { error: invalid, status: 400 };
   const tenant = await prisma.tenant.findFirst({ where: { id: tenantId }, select: { id: true, name: true } });
   if (!tenant) return { error: '업체를 찾을 수 없습니다.', status: 404 };

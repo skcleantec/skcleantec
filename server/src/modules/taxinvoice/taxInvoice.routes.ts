@@ -61,6 +61,7 @@ router.get('/', async (req, res) => {
       day: typeof req.query.day === 'string' ? req.query.day : undefined,
       state: typeof req.query.state === 'string' ? req.query.state : undefined,
       operatingCompanyId: typeof req.query.brandId === 'string' ? req.query.brandId : undefined,
+      q: typeof req.query.q === 'string' ? req.query.q : undefined,
       limit,
       offset,
     }));

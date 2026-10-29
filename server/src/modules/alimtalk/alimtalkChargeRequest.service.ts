@@ -1,8 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
-import {
-  ALIMTALK_TEMPLATE_CODES,
-  validateAlimtalkTopUpAmountKrw,
-} from '../../lib/alimtalkPolicy.js';
+import { ALIMTALK_TEMPLATE_CODES } from '../../lib/alimtalkPolicy.js';
+import { validateWalletChargeAmountKrw } from '../../lib/paymentTestAmount.js';
 import { applyPlatformAlimtalkTopUp } from './alimtalkWallet.service.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 
@@ -55,7 +53,7 @@ export async function createAlimtalkChargeRequest(params: {
   amountKrw: number;
   memo?: string | null;
 }): Promise<AlimtalkChargeRequestDto> {
-  const validationError = validateAlimtalkTopUpAmountKrw(params.amountKrw);
+  const validationError = validateWalletChargeAmountKrw(params.amountKrw);
   if (validationError) throw new Error(validationError);
 
   const pending = await prisma.alimtalkChargeRequest.findFirst({

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { fetchReceiptWallet, type ReceiptWalletSummary } from '../../api/receiptWallet';
-import { ReceiptWalletChargeModal } from './ReceiptWalletChargeModal';
+import { WalletChargeModal } from './WalletChargeModal';
 import { ReceiptWalletHistoryModal } from './ReceiptWalletHistoryModal';
 
 type ReceiptWalletContextValue = {
@@ -64,11 +64,7 @@ export function ReceiptWalletProvider({ children }: { children: ReactNode }) {
     <ReceiptWalletContext.Provider value={value}>
       {children}
       {chargeOpen ? (
-        <ReceiptWalletChargeModal
-          summary={summary}
-          onClose={() => setChargeOpen(false)}
-          onDone={() => void reload()}
-        />
+        <WalletChargeModal onClose={() => setChargeOpen(false)} onDone={() => void reload()} />
       ) : null}
       {historyOpen ? <ReceiptWalletHistoryModal onClose={() => setHistoryOpen(false)} /> : null}
     </ReceiptWalletContext.Provider>

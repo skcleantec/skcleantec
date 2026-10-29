@@ -28,12 +28,16 @@ export function ReceiptCopyButtons({
   official,
   publicToken,
   copyReady,
+  menu = false,
+  shareOnly = false,
 }: {
   kind: Kind;
   issueId: string;
   official: boolean;
   publicToken: string | null;
   copyReady: boolean;
+  menu?: boolean;
+  shareOnly?: boolean;
 }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -87,14 +91,19 @@ export function ReceiptCopyButtons({
     }
   };
 
+  const klass = menu
+    ? 'block w-full min-h-9 rounded-md px-2 text-left text-fluid-xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:opacity-50 disabled:pointer-events-none'
+    : BTN;
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1">
-      <button type="button" className={BTN} disabled={busy || (!official && !readyCopy)} onClick={() => void share()}>
-        공유
+    <div className={menu ? 'space-y-0.5' : 'flex flex-wrap items-center justify-center gap-1'}>
+      <button type="button" className={klass} disabled={busy || (!official && !readyCopy)} onClick={() => void share()}>
+        {shareOnly ? '링크 복사' : '공유 링크 복사'}
       </button>
-      <button type="button" className={BTN} disabled={busy || !official} onClick={() => void print()}>
-        인쇄·PDF
-      </button>
+      {shareOnly ? null : (
+        <button type="button" className={klass} disabled={busy || !official} onClick={() => void print()}>
+          인쇄/PDF
+        </button>
+      )}
       {fallback && readyCopy ? (
         <>
           <button type="button" className={BTN} onClick={() => publicToken && window.open(fileUrl(publicToken, 'png'), '_blank', 'noopener')}>

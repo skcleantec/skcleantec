@@ -38,6 +38,8 @@ export type CashbillSearchHit = {
   linked: boolean;
   simplified: boolean;
   remainingWon: number;
+  totalWon?: number;
+  createdAt?: string;
 };
 
 export const CASHBILL_KIND_LABEL: Record<CashbillKind, string> = {
@@ -82,6 +84,7 @@ export async function issueCashbill(body: {
   itemName?: string;
   tradeDate?: string;
   email?: string;
+  internalMemo?: string;
   requestId: string;
 }): Promise<CashbillIssueRow> {
   const res = await fetch(`${API}/cashbill/issues`, {
@@ -107,6 +110,7 @@ export async function listCashbillIssues(qs: URLSearchParams): Promise<{
   items: CashbillIssueRow[];
   total: number;
   brands: { id: string; name: string; linked: boolean }[];
+  summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number };
 }> {
   const res = await fetch(`${API}/cashbill/issues?${qs.toString()}`, { headers: headers() });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '현금영수증 목록을 불러오지 못했습니다.'));

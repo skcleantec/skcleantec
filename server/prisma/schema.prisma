@@ -1711,6 +1711,8 @@ model CashBillIssue {
   issuedAt           DateTime?         @map("issued_at")
   chargedKrw         Int               @default(0) @map("charged_krw")
   lastError          String?           @map("last_error") @db.Text
+  /// 고객에게 보이지 않는 내부 메모
+  internalMemo       String?           @map("internal_memo") @db.VarChar(500)
   copyPngUrl         String?           @map("copy_png_url") @db.VarChar(2048)
   copyPdfUrl         String?           @map("copy_pdf_url") @db.VarChar(2048)
   publicToken        String?           @unique @map("public_token") @db.VarChar(64)

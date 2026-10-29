@@ -3,22 +3,24 @@ import { prisma } from '../../lib/prisma.js';
 import { WALLET_LOW_BALANCE_KRW } from '../../lib/walletPolicy.js';
 import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { ensurePlatformBillingSettings } from '../billing/tenantBilling.service.js';
+import { isPaymentTestAmountEnabled } from '../../lib/paymentTestAmount.js';
 import { ensureTenantAlimtalkDefaults, walletChargePresentation } from '../alimtalk/alimtalkWallet.service.js';
 
 const LEDGER_FILTERS = ['all', 'charge', 'cashbill', 'taxinvoice', 'alimtalk'] as const;
 export type WalletLedgerFilter = (typeof LEDGER_FILTERS)[number];
 
 export async function getReceiptWalletSummary(tenantId: string) {
-  const tenant = await prisma.tenant.findFirst({ where: { id: tenantId }, select: { plan: true } });
+  const tenant = await prisma.tenant.findFirst({ where: { id: tenantId }, select: { plan: true, name: true } });
   if (!tenant) return null;
   await ensureTenantAlimtalkDefaults(tenantId, tenant.plan);
   const monthKey = kstTodayYmd().slice(0, 7);
   const range = kstMonthRangeYm(monthKey);
-  const [wallet, pending, grouped, billing] = await Promise.all([
+  const [wallet, pendingRow, grouped, billing] = await Promise.all([
     prisma.tenantAlimtalkWallet.findUnique({ where: { tenantId }, select: { prepaidBalanceKrw: true } }),
-    prisma.alimtalkChargeRequest.aggregate({
+    prisma.alimtalkChargeRequest.findFirst({
       where: { tenantId, status: 'PENDING' },
-      _sum: { amountKrw: true },
+      orderBy: { createdAt: 'asc' },
+      select: { amountKrw: true, createdAt: true },
     }),
     range
       ? prisma.tenantWalletUsageLog.groupBy({
@@ -61,7 +63,12 @@ export async function getReceiptWalletSummary(tenantId: string) {
   return {
     balanceKrw,
     lowBalance: balanceKrw < WALLET_LOW_BALANCE_KRW,
-    pendingChargeKrw: pending._sum.amountKrw ?? 0,
+    pendingChargeKrw: pendingRow?.amountKrw ?? 0,
+    pendingCharge: pendingRow
+      ? { amountKrw: pendingRow.amountKrw, createdAt: pendingRow.createdAt.toISOString() }
+      : null,
+    tenantName: tenant.name,
+    testAmountEnabled: isPaymentTestAmountEnabled(),
     month: {
       cashbillCount: cashbill.count,
       cashbillKrw: cashbill.amountKrw,

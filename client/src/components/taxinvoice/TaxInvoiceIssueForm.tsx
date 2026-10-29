@@ -2,9 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { isValidKoreanBizNumberChecksum } from '@shared/authSignup';
-import { ensureInputVisibleAboveKeyboard } from '../../hooks/useMobileInputVisibility';
-import { getStaffAppScrollElement } from '../../utils/staffAppScrollRestore';
 import { issueTaxInvoice, searchTaxInvoiceInquiries, type TaxInvoiceBrand, type TaxInvoiceSearchHit } from '../../api/taxInvoices';
+import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 
 const INPUT =
@@ -42,7 +41,7 @@ function splitTotal(total: number): { supply: number; tax: number } {
 
 const emptyLine = (): Line => ({ name: '청소 서비스', total: '', supply: '', tax: '', edited: false });
 
-export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBrand[]; onDone: () => void }) {
+export function TaxInvoiceIssueForm({ brands, onClose, onDone }: { brands: TaxInvoiceBrand[]; onClose: () => void; onDone: (issueId: string) => void }) {
   const { summary, openCharge, reload } = useReceiptWallet();
   const linkedBrands = brands.filter((brand) => brand.linked);
   const dates = useMemo(() => writeDateOptions(), []);
@@ -62,6 +61,7 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
   const [bizClass, setBizClass] = useState('');
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [memo, setMemo] = useState('');
+  const [memoOpen, setMemoOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,7 +121,7 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
     setSaving(true);
     setError(null);
     try {
-      await issueTaxInvoice({
+      const issued = await issueTaxInvoice({
         inquiryId: unmatched ? null : picked?.id ?? null,
         operatingCompanyId: unmatched || !picked ? brandId : picked.brandId,
         requestId: crypto.randomUUID(),
@@ -137,7 +137,7 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
         internalMemo: memo,
       });
       await reload();
-      onDone();
+      onDone(issued.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : '세금계산서 발행에 실패했습니다.');
     } finally {
@@ -146,15 +146,28 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
   }
 
   return (
-    <form
-      className="space-y-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-4"
-      onSubmit={(e) => { e.preventDefault(); void submit(); }}
-      onFocusCapture={(e) => {
-        const target = e.target;
-        if (target instanceof HTMLElement && target.matches('input, textarea, select')) {
-          ensureInputVisibleAboveKeyboard(target, getStaffAppScrollElement(), 'smooth', 28);
-        }
-      }}
+    <IssueModalFrame
+      title="세금계산서 발행"
+      onClose={onClose}
+      footer={(
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className={`text-fluid-xs ${summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW ? 'text-red-700' : 'text-slate-600'}`}>
+            {summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW
+              ? '잔액이 부족합니다'
+              : `발행 비용 ${TAXINVOICE_UNIT_PRICE_KRW.toLocaleString('ko-KR')}원 · 지갑 ${summary ? summary.balanceKrw.toLocaleString('ko-KR') : '…'}원 → ${summary ? (summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW).toLocaleString('ko-KR') : '…'}원`}
+          </p>
+          <div className="flex gap-2">
+            <button type="button" className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={onClose}>취소</button>
+            {summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW ? (
+              <button type="button" className="min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={openCharge}>충전하기</button>
+            ) : (
+              <button type="button" className="min-h-10 rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={saving || Boolean(blocked)} onClick={() => void submit()}>
+                {saving ? '발행 중…' : '발행하기'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     >
       <div className="flex flex-wrap gap-2">
         <input className={INPUT} value={query} placeholder="고객명·전화번호" aria-label="고객 검색" onChange={(e) => setQuery(e.target.value)} />
@@ -200,9 +213,13 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
         <label className="text-fluid-2xs text-slate-600">업태<input className={INPUT} value={bizType} onChange={(e) => setBizType(e.target.value)} /></label>
         <label className="text-fluid-2xs text-slate-600">종목<input className={INPUT} value={bizClass} onChange={(e) => setBizClass(e.target.value)} /></label>
       </div>
-      <div className="flex flex-wrap gap-3 text-fluid-xs">
-        <label className="inline-flex items-center gap-1"><input type="radio" checked={purpose === 1} onChange={() => setPurpose(1)} />영수</label>
-        <label className="inline-flex items-center gap-1"><input type="radio" checked={purpose === 2} onChange={() => setPurpose(2)} />청구</label>
+      <div className="flex flex-wrap items-center gap-2 text-fluid-xs">
+        <span className="text-slate-700">④ 영수·청구</span>
+        {([1, 2] as const).map((id) => (
+          <button key={id} type="button" className={`min-h-9 rounded-lg border px-2 text-fluid-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${purpose === id ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`} onClick={() => setPurpose(id)}>
+            {id === 1 ? '영수' : '청구'}
+          </button>
+        ))}
         <label className="inline-flex items-center gap-1">작성일자
           <select className="min-h-9 rounded-lg border border-gray-200 px-2" value={writeDate} onChange={(e) => setWriteDate(e.target.value)}>
             {dates.map((day) => <option key={day} value={day}>{day}</option>)}
@@ -218,17 +235,9 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
         </div>
       ))}
       <button type="button" className="min-h-9 rounded-lg border border-slate-300 px-3 text-fluid-xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => setLines((prev) => [...prev, emptyLine()])}>품목 추가</button>
-      <label className="block text-fluid-2xs text-slate-600">내부 메모<textarea className={INPUT} value={memo} onChange={(e) => setMemo(e.target.value)} /></label>
+      <button type="button" className="text-fluid-xs text-slate-600 underline hover:text-slate-900" onClick={() => setMemoOpen((open) => !open)}>+ 내부 메모 추가 (고객에게 안 보임)</button>
+      {memoOpen ? <label className="block text-fluid-2xs text-slate-600">내부 메모<textarea className={INPUT} value={memo} onChange={(e) => setMemo(e.target.value)} /></label> : null}
       {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
-      {!blocked && summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW ? (
-        <button type="button" className="min-h-10 rounded-lg bg-amber-700 px-4 text-fluid-xs font-medium text-white hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2" onClick={openCharge}>
-          잔액이 부족합니다 · 충전하기
-        </button>
-      ) : (
-        <button type="submit" className="min-h-10 rounded-lg bg-slate-900 px-4 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={saving || Boolean(blocked)}>
-          {saving ? '발행 중…' : '세금계산서 발행'}
-        </button>
-      )}
-    </form>
+    </IssueModalFrame>
   );
 }

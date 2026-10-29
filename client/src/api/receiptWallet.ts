@@ -5,6 +5,9 @@ export type ReceiptWalletSummary = {
   balanceKrw: number;
   lowBalance: boolean;
   pendingChargeKrw: number;
+  pendingCharge?: { amountKrw: number; createdAt: string } | null;
+  tenantName?: string;
+  testAmountEnabled?: boolean;
   month: {
     cashbillCount: number;
     cashbillKrw: number;

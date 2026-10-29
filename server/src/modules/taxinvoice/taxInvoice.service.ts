@@ -5,7 +5,7 @@ import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { normalizeCorpNum } from '../../lib/barobill/mask.js';
 import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
 import { TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
-import { addDaysToKstYmd, createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { addDaysToKstYmd, createdAtRangeFromQuery, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { splitCashbillTax } from '../cashbill/cashbillIssue.amounts.js';
 import { CASHBILL_WALLET_SHORT_MESSAGE, chargeTaxInvoiceWallet, refundTaxInvoiceWallet } from '../cashbill/cashbillWallet.js';
 import {
@@ -130,6 +130,12 @@ async function loadMember(tenantId: string, operatingCompanyId: string) {
   return { member: linked ? member : null };
 }
 
+function firstLineName(lines: unknown): string {
+  if (!Array.isArray(lines) || !lines[0] || typeof lines[0] !== 'object') return '청소 서비스';
+  const name = (lines[0] as { name?: unknown }).name;
+  return typeof name === 'string' && name.trim() ? name.trim() : '청소 서비스';
+}
+
 function toPublic(row: TaxInvoiceIssue) {
   return {
     id: row.id,
@@ -145,6 +151,7 @@ function toPublic(row: TaxInvoiceIssue) {
     internalMemo: row.internalMemo,
     barobillState: row.barobillState,
     ntsSendState: row.ntsSendState,
+    ntsSendKey: row.ntsSendKey,
     lastError: row.lastError,
     createdAt: row.createdAt.toISOString(),
     canCancel: row.ntsSendState === '1' && row.barobillState !== '5031',
@@ -375,6 +382,7 @@ export async function listTaxInvoices(tenantId: string, query: {
   day?: string;
   state?: string;
   operatingCompanyId?: string;
+  q?: string;
   limit: number;
   offset: number;
 }) {
@@ -382,6 +390,17 @@ export async function listTaxInvoices(tenantId: string, query: {
   const where: Prisma.TaxInvoiceIssueWhereInput = { tenantId };
   if (createdAt) where.createdAt = createdAt;
   if (query.operatingCompanyId) where.operatingCompanyId = query.operatingCompanyId;
+  const q = query.q?.trim().slice(0, 40);
+  if (q) {
+    where.AND = [{
+      OR: [
+        { buyerCorpName: { contains: q, mode: 'insensitive' } },
+        { buyerCorpNum: { contains: q } },
+        { inquiry: { customerName: { contains: q, mode: 'insensitive' } } },
+        { inquiry: { inquiryNumber: { contains: q, mode: 'insensitive' } } },
+      ],
+    }];
+  }
   if (query.state === 'failed') {
     where.barobillState = null;
     where.lastError = { not: null };
@@ -389,7 +408,9 @@ export async function listTaxInvoices(tenantId: string, query: {
   else if (query.state === 'nts1' || query.state === 'nts4' || query.state === 'nts5') {
     where.ntsSendState = query.state.replace('nts', '');
   } else if (query.state) where.barobillState = query.state;
-  const [items, total, brands] = await Promise.all([
+  const monthRange = kstMonthRangeYm(kstTodayYmd().slice(0, 7));
+  const monthWhere: Prisma.TaxInvoiceIssueWhereInput = monthRange ? { tenantId, createdAt: monthRange } : { tenantId };
+  const [items, total, brands, issuedAgg, waitingCount, failedCount, costAgg] = await Promise.all([
     prisma.taxInvoiceIssue.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -406,6 +427,18 @@ export async function listTaxInvoices(tenantId: string, query: {
       select: { id: true, name: true, barobillMember: { select: { status: true, barobillUserId: true, taxType: true, certValid: true, certExpireDate: true } } },
       orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
     }),
+    prisma.taxInvoiceIssue.aggregate({
+      where: { ...monthWhere, barobillState: '3014' },
+      _count: { _all: true },
+      _sum: { totalAmount: true },
+    }),
+    prisma.taxInvoiceIssue.count({
+      where: { ...monthWhere, ntsSendState: { in: ['1', '2', '3'] }, barobillState: { not: '5031' } },
+    }),
+    prisma.taxInvoiceIssue.count({
+      where: { ...monthWhere, OR: [{ ntsSendState: '5' }, { barobillState: null, lastError: { not: null } }] },
+    }),
+    prisma.taxInvoiceIssue.aggregate({ where: monthWhere, _sum: { chargedKrw: true } }),
   ]);
   return {
     items: items.map((row) => ({
@@ -413,6 +446,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       inquiryNumber: row.inquiry?.inquiryNumber ?? null,
       customerName: row.inquiry?.customerName ?? '매칭 없음',
       brandName: row.operatingCompany.name,
+      itemName: firstLineName(row.lines),
     })),
     total,
     brands: brands.map((brand) => ({
@@ -423,6 +457,13 @@ export async function listTaxInvoices(tenantId: string, query: {
       certValid: brand.barobillMember?.certValid === true,
       certExpireDate: brand.barobillMember?.certExpireDate ?? null,
     })),
+    summary: {
+      issuedCount: issuedAgg._count._all,
+      issuedWon: issuedAgg._sum.totalAmount ?? 0,
+      waitingCount,
+      failedCount,
+      costWon: costAgg._sum.chargedKrw ?? 0,
+    },
   };
 }
 

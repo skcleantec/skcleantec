@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { issueCashbill, searchCashbillInquiries, type CashbillSearchHit, type CashbillUsage } from '../../api/cashbillIssues';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
-import { ensureInputVisibleAboveKeyboard } from '../../hooks/useMobileInputVisibility';
-import { getStaffAppScrollElement } from '../../utils/staffAppScrollRestore';
+import { IssueModalFrame } from '../receipts/IssueModalFrame';
 
 const BTN =
   'min-h-10 rounded-lg bg-slate-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -27,7 +26,7 @@ function won(n: number): string {
 
 type Brand = { id: string; name: string; linked: boolean };
 
-export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone: () => void }) {
+export function CashbillIssueForm({ brands, onClose, onDone }: { brands: Brand[]; onClose: () => void; onDone: (issueId: string) => void }) {
   const { summary, openCharge, reload } = useReceiptWallet();
   const linkedBrands = brands.filter((brand) => brand.linked);
   const today = kstToday();
@@ -43,6 +42,8 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
   const [itemName, setItemName] = useState('청소 서비스');
   const [tradeDate, setTradeDate] = useState(today);
   const [email, setEmail] = useState('');
+  const [memoOpen, setMemoOpen] = useState(false);
+  const [memo, setMemo] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +90,7 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
     setBusy(true);
     setError(null);
     try {
-      await issueCashbill({
+      const issued = await issueCashbill({
         inquiryId: unmatched ? null : selected?.id,
         operatingCompanyId: unmatched ? brandId : selected?.brandId,
         amount: Math.round(Number(amount.replace(/,/g, ''))),
@@ -98,6 +99,7 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
         itemName,
         tradeDate,
         email: email.trim() || undefined,
+        internalMemo: memo.trim() || undefined,
         requestId: crypto.randomUUID(),
       });
       setQuery('');
@@ -106,7 +108,7 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
       setAmount('');
       setIdentity('');
       await reload();
-      onDone();
+      onDone(issued.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : '현금영수증 발급에 실패했습니다.');
     } finally {
@@ -114,48 +116,36 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
     }
   }
 
+  const total = Math.round(Number(amount) || 0);
+  const supply = Math.round(total / 1.1);
+  const vat = Math.max(0, total - supply);
+  const short = summary != null && summary.balanceKrw < CASHBILL_UNIT_PRICE_KRW;
+  const after = summary ? summary.balanceKrw - CASHBILL_UNIT_PRICE_KRW : 0;
+
   return (
-    <form
-      className="space-y-2 rounded-xl border border-slate-200 bg-white p-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void submit();
-      }}
-      onFocusCapture={(e) => {
-        const target = e.target;
-        if (!(target instanceof HTMLElement) || !target.matches('input, textarea, select')) return;
-        ensureInputVisibleAboveKeyboard(target, getStaffAppScrollElement(), 'smooth', 28);
-      }}
-    >
-      <p className="text-fluid-sm font-medium text-slate-900">현금영수증 발행</p>
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-xs text-red-800">{error}</p> : null}
-      <label className="block space-y-1 text-fluid-xs text-slate-700">
-        <span>고객 검색</span>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="고객명 또는 전화번호"
-          className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
-        />
-      </label>
-      {hits.length > 0 ? (
-        <ul className="space-y-1">
-          {hits.map((hit) => (
-            <li key={hit.id}>
-              <button type="button" className={`${BTN_GHOST} w-full text-left`} onClick={() => pick(hit)}>
-                {hit.customerName} · {hit.customerPhone || '연락처 없음'} · {hit.brandName} · 가능 {won(hit.remainingWon)}
+    <IssueModalFrame
+      title="현금영수증 발행"
+      onClose={onClose}
+      footer={(
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className={`text-fluid-xs ${short ? 'text-red-700' : 'text-slate-600'}`}>
+            {short ? '잔액이 부족합니다' : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑 ${summary ? won(summary.balanceKrw) : '…'} → ${won(after)}`}
+          </p>
+          <div className="flex gap-2">
+            <button type="button" className={BTN_GHOST} onClick={onClose}>취소</button>
+            {short ? (
+              <button type="button" className={BTN} onClick={openCharge}>충전하기</button>
+            ) : (
+              <button type="button" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0} onClick={() => void submit()}>
+                {busy ? '발행 중…' : '발행하기'}
               </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <button type="button" className={BTN_GHOST} onClick={clearMatch}>
-        매칭 없이 발행
-      </button>
-      {selected && !unmatched ? (
-        <p className="text-fluid-xs text-slate-700">접수 {selected.customerName} · {selected.brandName} · 가능 {won(selected.remainingWon)}</p>
-      ) : null}
-      {unmatched ? (
+            )}
+          </div>
+        </div>
+      )}
+    >
+      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-xs text-red-800">{error}</p> : null}
+      {linkedBrands.length > 1 ? (
         <label className="block space-y-1 text-fluid-xs text-slate-700">
           <span>브랜드</span>
           <select value={brandId} onChange={(e) => setBrandId(e.target.value)} className="min-h-9 w-full rounded-lg border border-slate-300 px-2">
@@ -163,26 +153,49 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
           </select>
         </label>
       ) : null}
+      <div className="flex items-end gap-2">
+        <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
+          <span>① 고객</span>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="고객명 또는 전화번호" className="min-h-9 w-full rounded-lg border border-slate-300 px-2" />
+        </label>
+        <button type="button" className={BTN_GHOST} onClick={clearMatch}>직접 입력</button>
+      </div>
+      {hits.length > 0 ? (
+        <ul className="space-y-1">
+          {hits.map((hit) => (
+            <li key={hit.id}>
+              <button type="button" className={`${BTN_GHOST} w-full text-left`} onClick={() => pick(hit)}>
+                {hit.customerName} · {hit.customerPhone || '번호 없음'} · {hit.createdAt?.slice(0, 10) ?? ''} · 총액 {won(hit.totalWon ?? hit.remainingWon)} · 발행 가능 {won(hit.remainingWon)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {selected && !unmatched ? (
+        <p className="text-fluid-xs text-slate-700">접수 {selected.customerName} · {selected.brandName} · 가능 {won(selected.remainingWon)}</p>
+      ) : null}
       <label className="block space-y-1 text-fluid-xs text-slate-700">
-        <span>금액</span>
-        <input
-          inputMode="numeric"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-          className="min-h-9 w-full rounded-lg border border-slate-300 px-2 tabular-nums"
-        />
+        <span>② 금액</span>
+        <span className="flex items-center gap-2">
+          <input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))} className="min-h-9 w-36 rounded-lg border border-slate-300 px-2 text-right tabular-nums" />
+          <span>원</span>
+        </span>
+        {selected && !unmatched ? <span className="text-fluid-2xs text-slate-500">발행 가능 한도 {won(selected.remainingWon)}</span> : null}
+        {total > 0 ? <span className="text-fluid-2xs text-slate-600">공급가액 {won(supply)} · 부가세 {won(vat)}</span> : null}
       </label>
-      <div className="flex flex-wrap gap-2 text-fluid-xs">
-        {([
-          ['phone', '소득공제(휴대폰)'],
-          ['biz', '지출증빙(사업자번호)'],
-          ['voluntary', '자진발급'],
-        ] as const).map(([id, label]) => (
-          <label key={id} className="inline-flex items-center gap-1">
-            <input type="radio" name="cashbill-usage" checked={usage === id} onChange={() => setUsage(id)} />
-            {label}
-          </label>
-        ))}
+      <div className="space-y-1">
+        <p className="text-fluid-xs text-slate-700">③ 용도</p>
+        <div className="flex flex-wrap gap-1">
+          {([
+            ['phone', '소득공제(휴대폰)'],
+            ['biz', '지출증빙(사업자)'],
+            ['voluntary', '자진발급'],
+          ] as const).map(([id, label]) => (
+            <button key={id} type="button" className={`min-h-9 rounded-lg border px-2 text-fluid-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${usage === id ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`} onClick={() => setUsage(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       {usage === 'voluntary' ? (
         <p className="text-fluid-xs text-slate-600">자진발급 010-000-1234</p>
@@ -190,40 +203,41 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
         <input
           value={identity}
           onChange={(e) => setIdentity(e.target.value)}
-          placeholder={usage === 'phone' ? '휴대폰 번호' : '사업자번호 10자리'}
+          placeholder={usage === 'phone' ? '휴대폰 11자리' : '사업자번호 10자리'}
+          maxLength={usage === 'phone' ? 13 : 12}
+          aria-label={usage === 'phone' ? '휴대폰 번호' : '사업자번호'}
           className="min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs"
         />
       )}
       <label className="block space-y-1 text-fluid-xs text-slate-700">
-        <span>고객 이메일</span>
+        <span>④ 고객 이메일 (선택)</span>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
         />
-        <span className="text-fluid-2xs text-slate-500">입력하면 바로빌이 공식 영수증 안내 메일을 자동 발송합니다</span>
+        <span className="text-fluid-2xs text-slate-500">입력하면 바로빌이 공식 영수증 메일을 보냅니다</span>
       </label>
-      <label className="block space-y-1 text-fluid-xs text-slate-700">
-        <span>품목명</span>
-        <input value={itemName} onChange={(e) => setItemName(e.target.value)} className="min-h-9 w-full rounded-lg border border-slate-300 px-2" />
-      </label>
-      <label className="block space-y-1 text-fluid-xs text-slate-700">
-        <span>거래일</span>
-        <select value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} className="min-h-9 rounded-lg border border-slate-300 px-2">
-          <option value={today}>오늘 {today}</option>
-          <option value={yesterday}>어제 {yesterday}</option>
-        </select>
-      </label>
-      {summary != null && summary.balanceKrw < CASHBILL_UNIT_PRICE_KRW ? (
-        <button type="button" className="min-h-10 rounded-lg bg-amber-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2" onClick={openCharge}>
-          잔액이 부족합니다 · 충전하기
-        </button>
-      ) : (
-        <button type="submit" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0}>
-          발행
-        </button>
-      )}
-    </form>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="space-y-1 text-fluid-xs text-slate-700">
+          <span>⑤ 품목명</span>
+          <input value={itemName} onChange={(e) => setItemName(e.target.value)} className="min-h-9 rounded-lg border border-slate-300 px-2" />
+        </label>
+        <label className="space-y-1 text-fluid-xs text-slate-700">
+          <span>거래일</span>
+          <select value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} className="min-h-9 rounded-lg border border-slate-300 px-2">
+            <option value={today}>오늘</option>
+            <option value={yesterday}>어제</option>
+          </select>
+        </label>
+      </div>
+      <button type="button" className="text-fluid-xs text-slate-600 underline hover:text-slate-900" onClick={() => setMemoOpen((open) => !open)}>
+        + 내부 메모 추가 (고객에게 안 보임)
+      </button>
+      {memoOpen ? (
+        <textarea value={memo} onChange={(e) => setMemo(e.target.value)} className="min-h-16 w-full rounded-lg border border-slate-300 px-2 py-1 text-fluid-xs" placeholder="내부 메모" />
+      ) : null}
+    </IssueModalFrame>
   );
 }

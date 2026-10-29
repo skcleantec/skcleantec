@@ -38,6 +38,8 @@ export type TaxInvoiceRow = {
   barobillState: string | null;
   ntsSendState: string | null;
   lastError: string | null;
+  ntsSendKey?: string | null;
+  itemName?: string;
   canCancel: boolean;
   modifyLater: boolean;
   copyReady?: boolean;
@@ -71,15 +73,26 @@ export async function searchTaxInvoiceInquiries(q: string): Promise<TaxInvoiceSe
   return body.items;
 }
 
-export async function listTaxInvoices(qs: URLSearchParams): Promise<{ items: TaxInvoiceRow[]; total: number; brands: TaxInvoiceBrand[] }> {
+export async function listTaxInvoices(qs: URLSearchParams): Promise<{
+  items: TaxInvoiceRow[];
+  total: number;
+  brands: TaxInvoiceBrand[];
+  summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number };
+}> {
   const res = await fetch(`${API}/tax-invoices?${qs.toString()}`, { headers: headers() });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '세금계산서 목록을 불러오지 못했습니다.'));
-  return res.json() as Promise<{ items: TaxInvoiceRow[]; total: number; brands: TaxInvoiceBrand[] }>;
+  return res.json() as Promise<{
+    items: TaxInvoiceRow[];
+    total: number;
+    brands: TaxInvoiceBrand[];
+    summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number };
+  }>;
 }
 
-export async function issueTaxInvoice(body: Record<string, unknown>): Promise<void> {
+export async function issueTaxInvoice(body: Record<string, unknown>): Promise<{ id: string }> {
   const res = await fetch(`${API}/tax-invoices`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '세금계산서 발행에 실패했습니다.'));
+  return res.json() as Promise<{ id: string }>;
 }
 
 export async function cancelTaxInvoice(issueId: string): Promise<void> {

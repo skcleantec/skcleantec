@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError } from '../../lib/barobill/soap.js';
 import { maskCorpNum, maskPhone, normalizeCorpNum } from '../../lib/barobill/mask.js';
 import { CASHBILL_UNIT_PRICE_KRW, publicBarobillMessage } from '../../lib/barobill/policy.js';
-import { addDaysToKstYmd, createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { addDaysToKstYmd, createdAtRangeFromQuery, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
 import { cashbillRemaining, splitCashbillTax, type CashbillPartKind } from './cashbillIssue.amounts.js';
@@ -193,6 +193,7 @@ export async function searchCashbillInquiries(tenantId: string, rawQuery: string
       inquiryNumber: true,
       customerName: true,
       customerPhone: true,
+      createdAt: true,
       operatingCompanyId: true,
       serviceTotalAmount: true,
       serviceDepositAmount: true,
@@ -223,6 +224,8 @@ export async function searchCashbillInquiries(tenantId: string, rawQuery: string
       linked,
       simplified: member?.taxType === '2',
       remainingWon: cashbillRemaining(amountsOf(inquiry).total, paid, issuedWonOf(issued)),
+      totalWon: amountsOf(inquiry).total,
+      createdAt: inquiry.createdAt.toISOString(),
     };
   }));
   return rows;
@@ -243,6 +246,7 @@ function toPublicIssue(row: CashBillIssue) {
     ntsConfirmNum: row.ntsConfirmNum,
     chargedKrw: row.chargedKrw,
     lastError: row.lastError,
+    internalMemo: row.internalMemo,
     cancelOfId: row.cancelOfId,
     createdAt: row.createdAt.toISOString(),
     copyReady: Boolean(row.copyPngUrl && row.publicToken),
@@ -314,6 +318,7 @@ export async function issueCashbill(
     tradeDate?: string;
     requestId?: string;
     email?: string;
+    internalMemo?: string;
   },
 ) {
   const inquiry = input.inquiryId ? await loadInquiry(tenantId, input.inquiryId) : null;
@@ -361,6 +366,7 @@ export async function issueCashbill(
         serviceCharge: tax.serviceCharge,
         totalWon,
         tradeDate: date,
+        internalMemo: String(input.internalMemo ?? '').trim().slice(0, 500) || null,
         createdById: userId,
       },
     });
@@ -512,6 +518,7 @@ export async function listCashbillIssues(tenantId: string, query: {
   day?: string;
   state?: string;
   operatingCompanyId?: string;
+  q?: string;
   limit: number;
   offset: number;
 }) {
@@ -519,13 +526,26 @@ export async function listCashbillIssues(tenantId: string, query: {
   const where: Prisma.CashBillIssueWhereInput = { tenantId };
   if (createdAt) where.createdAt = createdAt;
   if (query.operatingCompanyId) where.operatingCompanyId = query.operatingCompanyId;
+  const q = query.q?.trim().slice(0, 40);
+  if (q) {
+    where.AND = [{
+      OR: [
+        { identityMasked: { contains: q, mode: 'insensitive' } },
+        { itemName: { contains: q, mode: 'insensitive' } },
+        { inquiry: { customerName: { contains: q, mode: 'insensitive' } } },
+        { inquiry: { inquiryNumber: { contains: q, mode: 'insensitive' } } },
+      ],
+    }];
+  }
   if (query.state === 'failed') {
     where.barobillState = null;
     where.lastError = { not: null };
   } else if (query.state) {
     where.barobillState = query.state;
   }
-  const [items, total, brands] = await Promise.all([
+  const monthRange = kstMonthRangeYm(kstTodayYmd().slice(0, 7));
+  const monthWhere: Prisma.CashBillIssueWhereInput = monthRange ? { tenantId, createdAt: monthRange } : { tenantId };
+  const [items, total, brands, issuedAgg, waitingCount, failedCount, costAgg] = await Promise.all([
     prisma.cashBillIssue.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -547,6 +567,24 @@ export async function listCashbillIssues(tenantId: string, query: {
       },
       orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
     }),
+    prisma.cashBillIssue.aggregate({
+      where: { ...monthWhere, barobillState: { in: ['2000', '2500', '3000'] }, kind: { not: 'CANCEL' } },
+      _count: { _all: true },
+      _sum: { totalWon: true },
+    }),
+    prisma.cashBillIssue.count({
+      where: { ...monthWhere, barobillState: { in: ['2000', '2500'] } },
+    }),
+    prisma.cashBillIssue.count({
+      where: {
+        ...monthWhere,
+        OR: [{ barobillState: '4000' }, { barobillState: null, lastError: { not: null } }],
+      },
+    }),
+    prisma.cashBillIssue.aggregate({
+      where: monthWhere,
+      _sum: { chargedKrw: true },
+    }),
   ]);
   return {
     items: items.map((row) => ({
@@ -562,6 +600,13 @@ export async function listCashbillIssues(tenantId: string, query: {
       name: brand.name,
       linked: brand.barobillMember?.status === 'ACTIVE' && Boolean(brand.barobillMember.barobillUserId.trim()),
     })),
+    summary: {
+      issuedCount: issuedAgg._count._all,
+      issuedWon: issuedAgg._sum.totalWon ?? 0,
+      waitingCount,
+      failedCount,
+      costWon: costAgg._sum.chargedKrw ?? 0,
+    },
   };
 }
 
