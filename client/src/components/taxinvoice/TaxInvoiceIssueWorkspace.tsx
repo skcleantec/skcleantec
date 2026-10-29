@@ -12,6 +12,7 @@ import {
 } from '../../api/taxInvoices';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
+import { SupplierInfoModal } from './SupplierInfoModal';
 import { TaxInvoiceMobileCards, TaxInvoicePaper, type TaxFormProps } from './TaxInvoiceFormViews';
 import {
   emptyLine,
@@ -105,6 +106,7 @@ export function TaxInvoiceIssueWorkspace() {
   const [paperOpen, setPaperOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [supplierOpen, setSupplierOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true, 96);
 
@@ -172,6 +174,10 @@ export function TaxInvoiceIssueWorkspace() {
   }
 
   async function submit() {
+    if (supplierBlocked) {
+      setError('공급자 정보(대표자·주소)가 비어 있습니다. 계산서 연결에서 입력해 주세요');
+      return;
+    }
     if (blocked) {
       setError(blocked);
       return;
@@ -228,7 +234,8 @@ export function TaxInvoiceIssueWorkspace() {
 
   const dateMin = dates[dates.length - 1] ?? writeDate;
   const dateMax = dates[0] ?? writeDate;
-  const supplierMissing = ['corpNum', 'corpName', 'ceoName', 'addr', 'bizType', 'bizClass', 'email'].some((key) => !supplier[key as keyof TaxParty].trim());
+  const supplierBlocked = !supplier.corpName.trim() || !supplier.ceoName.trim() || !supplier.addr.trim() || !supplier.email.trim();
+  const supplierAttention = !supplier.ceoName.trim() || !supplier.addr.trim();
   const linkedBrands = brands.filter((item) => item.linked);
   const chipName = picked?.buyer?.corpName || picked?.customerName || '';
 
@@ -264,6 +271,8 @@ export function TaxInvoiceIssueWorkspace() {
     taxSum,
     totalSum: supplySum + taxSum,
     taxKind: activeKind,
+    onEditSupplier: brand ? () => setSupplierOpen(true) : undefined,
+    supplierAttention,
   };
 
   function issue() {
@@ -280,10 +289,10 @@ export function TaxInvoiceIssueWorkspace() {
 
   return (
     <div ref={scrollRef} className="taxinvoice-issue modal-form-scroll-surface -mx-4 flex max-h-[calc(100dvh-3.5rem)] min-h-0 flex-col gap-5 overflow-y-auto bg-[#eef0f3] px-4 py-6" onFocusCapture={onFieldFocus}>
-      {supplierMissing ? (
-        <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
-          공급자 정보에 빈 칸이 있습니다.{' '}
-          <Link to="/admin/team-leaders/cashbill" className="font-medium underline">계산서 연결에서 입력</Link>
+      {supplierBlocked ? (
+        <p className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
+          공급자 정보(대표자·주소)가 비어 있습니다. 계산서 연결에서 입력해 주세요
+          <button type="button" className="rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-950 ring-1 ring-amber-300 hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2" onClick={() => setSupplierOpen(true)}>계산서 연결에서 입력</button>
         </p>
       ) : null}
       {blocked ? (
@@ -352,7 +361,7 @@ export function TaxInvoiceIssueWorkspace() {
             {short ? (
               <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black" onClick={openCharge}>충전하기</button>
             ) : (
-              <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black" disabled={saving || Boolean(blocked)} onClick={issue}>
+              <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
                 {saving ? '발행 중…' : preview ? '이대로 발행' : '미리보고 발행'}
               </button>
             )}
@@ -412,12 +421,32 @@ export function TaxInvoiceIssueWorkspace() {
           {short ? (
             <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white" onClick={openCharge}>충전하기</button>
           ) : (
-            <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white" disabled={saving || Boolean(blocked)} onClick={issue}>
+            <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
               {saving ? '발행 중…' : preview ? '이대로 발행' : `${won(supplySum + taxSum)}원 미리보고 발행`}
             </button>
           )}
         </footer>
       </section>
+      {supplierOpen && brand ? (
+        <SupplierInfoModal
+          operatingCompanyId={brand.id}
+          corpNum={supplier.corpNum}
+          initial={{
+            corpName: supplier.corpName,
+            ceoName: supplier.ceoName,
+            addr: supplier.addr,
+            bizType: supplier.bizType,
+            bizClass: supplier.bizClass,
+            email: supplier.email,
+            tel: brand.supplier?.tel ?? '',
+          }}
+          onClose={() => setSupplierOpen(false)}
+          onSaved={(saved) => {
+            setBrands((prev) => prev.map((item) => item.id === brand.id ? { ...item, supplier: saved } : item));
+            setSupplierOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

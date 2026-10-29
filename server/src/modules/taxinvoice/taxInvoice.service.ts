@@ -1,6 +1,6 @@
 import type { Prisma, TaxInvoiceIssue } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { BarobillCallError } from '../../lib/barobill/soap.js';
+import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
 import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { normalizeCorpNum } from '../../lib/barobill/mask.js';
 import { displayBizIdentity } from '../receipts/receiptCopy.mask.js';
@@ -22,6 +22,7 @@ import { certBlockMessage, refreshBarobillCerts } from './taxInvoiceCert.service
 import { safeRenderTaxInvoiceCopy } from '../receipts/receiptCopy.service.js';
 
 export const TAX_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
+export const TAX_SUPPLIER_INCOMPLETE_MESSAGE = '공급자 정보(대표자·주소)가 비어 있습니다. 계산서 연결에서 입력해 주세요';
 export const TAX_SIMPLIFIED_MESSAGE = '간이과세자는 세금계산서를 발행할 수 없습니다';
 export const TAX_TEMPORARY_MESSAGE = '일시적으로 발급할 수 없습니다.';
 export const TAX_MODIFY_LATER = '수정세금계산서는 추후 지원';
@@ -245,23 +246,32 @@ async function failIssue(row: TaxInvoiceIssue, err: unknown, plan: string): Prom
     await prisma.taxInvoiceIssue.updateMany({ where: { id: row.id, tenantId: row.tenantId }, data: { chargedKrw: 0 } });
   }
   if (err instanceof BarobillCallError && PARTNER_BALANCE_CODES.has(err.code)) {
+    const message = formatBarobillCallError(err);
+    console.info(`[taxinvoice] barobill_fail code=${err.code} mgtKey=${row.mgtKey} tenantId=${row.tenantId}`);
     await prisma.taxInvoiceIssue.updateMany({
       where: { id: row.id, tenantId: row.tenantId },
-      data: { lastError: TAX_TEMPORARY_MESSAGE },
+      data: { lastError: message },
     });
     await prisma.cashbillPlatformHold.create({ data: { tenantId: row.tenantId, code: err.code, kind: 'taxinvoice' } });
-    throw new TaxInvoiceError(TAX_TEMPORARY_MESSAGE, 503, 'partner_balance');
+    throw new TaxInvoiceError(message, 503, 'partner_balance');
   }
-  const cert = err instanceof BarobillCallError && CERT_ERROR_CODES.has(err.code);
-  const message = cert ? certBlockMessage() : err instanceof TaxInvoiceError ? err.message : '세금계산서 발행에 실패했습니다.';
+  if (err instanceof BarobillCallError) {
+    console.info(`[taxinvoice] barobill_fail code=${err.code} mgtKey=${row.mgtKey} tenantId=${row.tenantId}`);
+    const message = formatBarobillCallError(err);
+    await prisma.taxInvoiceIssue.updateMany({
+      where: { id: row.id, tenantId: row.tenantId },
+      data: { lastError: message },
+    });
+    if (CERT_ERROR_CODES.has(err.code)) {
+      await prisma.barobillMember.updateMany({ where: { id: row.memberId, tenantId: row.tenantId }, data: { certValid: false } });
+    }
+    throw new TaxInvoiceError(message, 502);
+  }
+  const message = err instanceof TaxInvoiceError ? err.message : '세금계산서 발행에 실패했습니다.';
   await prisma.taxInvoiceIssue.updateMany({
     where: { id: row.id, tenantId: row.tenantId },
     data: { lastError: message },
   });
-  if (cert) {
-    await prisma.barobillMember.updateMany({ where: { id: row.memberId, tenantId: row.tenantId }, data: { certValid: false } });
-    throw new TaxInvoiceError(message, 409, 'cert');
-  }
   throw new TaxInvoiceError(message, err instanceof TaxInvoiceError ? err.statusCode : 502);
 }
 
@@ -355,6 +365,9 @@ export async function issueTaxInvoice(
     throw new TaxInvoiceError('면세사업자는 전자계산서만 발행할 수 있습니다.');
   }
   if (member.certValid !== true) throw new TaxInvoiceError(certBlockMessage(), 409, 'cert');
+  if (!member.corpName.trim() || !member.ceoName.trim() || !member.addr1.trim() || !member.contactEmail.trim()) {
+    throw new TaxInvoiceError(TAX_SUPPLIER_INCOMPLETE_MESSAGE, 409, 'supplier_incomplete');
+  }
   const purposeType = input.purposeType === 2 ? 2 : input.purposeType === 1 ? 1 : null;
   if (!purposeType) throw new TaxInvoiceError('영수 또는 청구를 선택해 주세요.');
   const buyer = buyerOf(input.buyer ?? {});
@@ -368,6 +381,16 @@ export async function issueTaxInvoice(
     credit: digitsOnly(input.credit, 15),
     remark: String(input.remark ?? '').trim().slice(0, 150),
     buyerTaxRegId: digitsOnly(input.buyerTaxRegId, 10),
+    supplier: {
+      corpNum: member.corpNum,
+      corpName: member.corpName,
+      ceoName: member.ceoName,
+      addr: member.addr1,
+      bizType: member.bizType,
+      bizClass: member.bizClass,
+      email: member.contactEmail,
+      tel: member.contactTel,
+    },
   };
   const writeDate = writeDateOf(input.writeDate);
   const key = mgtKey(input.requestId);
@@ -464,6 +487,10 @@ export async function cancelTaxInvoice(tenantId: string, issueId: string) {
   } catch (err) {
     if (err instanceof BarobillCallError && CERT_ERROR_CODES.has(err.code)) {
       throw new TaxInvoiceError(certBlockMessage(), 409, 'cert');
+    }
+    if (err instanceof BarobillCallError) {
+      console.info(`[taxinvoice] barobill_fail code=${err.code} mgtKey=${row.mgtKey} tenantId=${tenantId}`);
+      throw new TaxInvoiceError(formatBarobillCallError(err), 502);
     }
     throw new TaxInvoiceError('세금계산서 취소에 실패했습니다.', 502);
   }

@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import type { CashBillIssue, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { BarobillCallError } from '../../lib/barobill/soap.js';
+import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
 import { maskCorpNum, maskPhone, normalizeCorpNum } from '../../lib/barobill/mask.js';
-import { CASHBILL_UNIT_PRICE_KRW, publicBarobillMessage } from '../../lib/barobill/policy.js';
+import { CASHBILL_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
 import { addDaysToKstYmd, createdAtRangeFromQuery, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
@@ -290,14 +290,19 @@ async function applyBarobillFailure(row: CashBillIssue, err: unknown, plan: stri
     });
   }
   if (err instanceof BarobillCallError && PARTNER_BALANCE_CODES.has(err.code)) {
+    const message = formatBarobillCallError(err);
+    console.info(`[cashbill] barobill_fail code=${err.code} mgtKey=${row.mgtKey} tenantId=${row.tenantId}`);
     await prisma.cashBillIssue.updateMany({
       where: { id: row.id, tenantId: row.tenantId },
-      data: { lastError: CASHBILL_TEMPORARY_MESSAGE },
+      data: { lastError: message },
     });
     await holdForPlatform(row.tenantId, err.code);
-    throw new CashbillIssueError(CASHBILL_TEMPORARY_MESSAGE, 503, 'partner_balance');
+    throw new CashbillIssueError(message, 503, 'partner_balance');
   }
-  const message = err instanceof BarobillCallError ? publicBarobillMessage(err.code) : '현금영수증 처리에 실패했습니다.';
+  if (err instanceof BarobillCallError) {
+    console.info(`[cashbill] barobill_fail code=${err.code} mgtKey=${row.mgtKey} tenantId=${row.tenantId}`);
+  }
+  const message = err instanceof BarobillCallError ? formatBarobillCallError(err) : '현금영수증 처리에 실패했습니다.';
   await prisma.cashBillIssue.updateMany({
     where: { id: row.id, tenantId: row.tenantId },
     data: { lastError: message },

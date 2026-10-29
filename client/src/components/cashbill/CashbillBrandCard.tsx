@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BAROBILL_MEMBER_STATUS_LABEL } from '@shared/barobillPolicy';
 import { formatBizNumberDisplay } from '@shared/authSignup';
 import type { CashbillSettings } from '../../api/cashbill';
-import { IssueModalFrame } from '../receipts/IssueModalFrame';
+import { SupplierInfoModal } from '../taxinvoice/SupplierInfoModal';
 import { CashbillCertRegisterModal } from './CashbillCertRegisterModal';
 import { CashbillLinkForm } from './CashbillLinkForm';
 import { certDaysLeft, certExpireLabel, maskPhone } from './cashbillCertDisplay';
@@ -100,7 +100,7 @@ export function CashbillBrandCard({
             </p>
             <button
               type="button"
-              className="inline-flex min-h-11 min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              className={`inline-flex min-h-11 min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-3 text-fluid-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${!member?.ceoName?.trim() || !member?.addr1?.trim() ? 'bg-amber-50 text-amber-950 ring-1 ring-amber-300 hover:bg-amber-100 focus-visible:ring-amber-400' : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus-visible:ring-slate-400'}`}
               onClick={() => setEditOpen(true)}
             >
               수정
@@ -111,19 +111,25 @@ export function CashbillBrandCard({
       {formOpen && !active ? (
         <CashbillLinkForm brand={brand} prefill={prefill} canRegister={canRegister} mode="join" onDone={onDone} />
       ) : null}
-      {editOpen ? (
-        <IssueModalFrame title="연결 정보 수정" onClose={() => setEditOpen(false)} footer={null}>
-          <CashbillLinkForm
-            brand={brand}
-            prefill={prefill}
-            canRegister={canRegister}
-            mode="edit"
-            onDone={(message) => {
-              setEditOpen(false);
-              onDone(message);
-            }}
-          />
-        </IssueModalFrame>
+      {editOpen && member ? (
+        <SupplierInfoModal
+          operatingCompanyId={brand.operatingCompanyId}
+          corpNum={member.corpNum}
+          initial={{
+            corpName: member.corpName,
+            ceoName: member.ceoName,
+            addr: member.addr1,
+            bizType: member.bizType,
+            bizClass: member.bizClass,
+            email: member.contactEmail,
+            tel: member.contactTel,
+          }}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false);
+            onDone(`${brand.name}: 공급자 정보를 저장했습니다.`);
+          }}
+        />
       ) : null}
       {certOpen ? (
         <CashbillCertRegisterModal

@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { docTitle, formatBizInput, formatMoneyInput, lineSupply, lineTax, won, type TaxFormLine, type TaxKind, type TaxParty } from './taxInvoiceFormModel';
 import './taxinvoice-issue.css';
 
@@ -33,7 +32,16 @@ export type TaxFormProps = {
   taxSum: number;
   totalSum: number;
   taxKind: TaxKind;
+  onEditSupplier?: () => void;
+  supplierAttention?: boolean;
 };
+
+function supplierEditClass(attention?: boolean): string {
+  const focus = 'shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2';
+  return attention
+    ? `${focus} bg-amber-50 text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100`
+    : `${focus} text-gray-500 hover:bg-gray-50 hover:text-gray-900`;
+}
 
 function dash(value: string): string {
   const text = value.trim();
@@ -88,9 +96,9 @@ export function TaxInvoicePaper({ idPrefix = 'pc', ...props }: TaxFormProps & { 
                 <div className="lbl border-r px-2.5 py-2" style={{ borderColor: RED }}>이메일</div>
                 <div className="col-span-3 flex items-center justify-between px-2.5 py-2">
                   <span className="min-w-0 break-all">{dash(supplier.email)}</span>
-                  {readOnly ? null : (
-                    <Link to="/admin/team-leaders/cashbill" className="shrink-0 text-[11px] text-gray-400 underline-offset-2 hover:underline">계산서 연결에서 수정</Link>
-                  )}
+                  {props.onEditSupplier ? (
+                    <button type="button" className={supplierEditClass(props.supplierAttention)} onClick={props.onEditSupplier}>공급자 정보 수정</button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -242,6 +250,9 @@ export function TaxInvoiceMobileCards(props: TaxFormProps) {
         <summary className="flex cursor-pointer list-none items-center gap-2 border-l-4 px-3 py-3" style={{ borderColor: 'var(--red)' }}>
           <span className="text-xs font-bold" style={{ color: 'var(--red)' }}>공급자</span>
           <span className="min-w-0 flex-1 truncate">{dash(supplier.corpName)}</span>
+          {props.onEditSupplier ? (
+            <button type="button" className={supplierEditClass(props.supplierAttention)} onClick={(event) => { event.preventDefault(); event.stopPropagation(); props.onEditSupplier?.(); }}>공급자 정보 수정</button>
+          ) : null}
           <span className="num text-xs text-gray-500">{dash(formatBizInput(supplier.corpNum))}</span>
         </summary>
         <dl className="grid grid-cols-[72px_1fr] gap-y-1.5 border-t border-gray-100 px-3 py-3 text-[13px]">

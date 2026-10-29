@@ -13,6 +13,7 @@ import {
   searchTaxInvoiceInquiries,
   TaxInvoiceError,
 } from './taxInvoice.service.js';
+import { updateBarobillSupplier } from './taxInvoiceSupplier.service.js';
 
 const router = Router();
 router.use(authMiddleware, requireTenantAuth, requireFeature(CASHBILL_MODULE_ID));
@@ -68,6 +69,24 @@ router.get('/', async (req, res) => {
     }));
   } catch (err) {
     sendError(res, err, '세금계산서 목록을 불러오지 못했습니다.');
+  }
+});
+
+router.patch('/supplier', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const operatingCompanyId = String(body.operatingCompanyId ?? '');
+  if (!operatingCompanyId) {
+    res.status(400).json({ error: '브랜드를 지정해 주세요.' });
+    return;
+  }
+  try {
+    res.json(await updateBarobillSupplier(tenantId, operatingCompanyId, body));
+  } catch (err) {
+    sendError(res, err, '공급자 정보를 저장하지 못했습니다.');
   }
 });
 

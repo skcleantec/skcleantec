@@ -108,6 +108,27 @@ export async function listTaxInvoices(qs: URLSearchParams): Promise<{
   }>;
 }
 
+export async function updateTaxInvoiceSupplier(
+  operatingCompanyId: string,
+  body: {
+    corpName: string;
+    ceoName: string;
+    addr1: string;
+    bizType: string;
+    bizClass: string;
+    contactEmail: string;
+    contactTel: string;
+  },
+): Promise<TaxInvoiceSupplier> {
+  const res = await fetch(`${API}/tax-invoices/supplier`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify({ operatingCompanyId, ...body }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '공급자 정보를 저장하지 못했습니다.'));
+  return res.json() as Promise<TaxInvoiceSupplier>;
+}
+
 export async function issueTaxInvoice(body: Record<string, unknown>): Promise<{ id: string }> {
   const res = await fetch(`${API}/tax-invoices`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '세금계산서 발행에 실패했습니다.'));

@@ -142,6 +142,24 @@ function taxKindFromStored(lines: unknown): 'taxable' | 'zero' | 'exempt' {
   return 'taxable';
 }
 
+function issuedSupplier(lines: unknown): { corpNum: string; corpName: string; ceoName: string; addr: string; tel: string } | null {
+  if (!Array.isArray(lines)) return null;
+  for (const item of lines) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as { kind?: unknown; supplier?: unknown };
+    if (row.kind !== 'settlement' || !row.supplier || typeof row.supplier !== 'object') continue;
+    const snap = row.supplier as { corpNum?: unknown; corpName?: unknown; ceoName?: unknown; addr?: unknown; tel?: unknown };
+    return {
+      corpNum: String(snap.corpNum ?? ''),
+      corpName: String(snap.corpName ?? ''),
+      ceoName: String(snap.ceoName ?? ''),
+      addr: String(snap.addr ?? ''),
+      tel: String(snap.tel ?? ''),
+    };
+  }
+  return null;
+}
+
 function taxView(
   row: TaxInvoiceIssue & { member: Merchant; operatingCompany: { name: string } },
   logo: Buffer | null,
@@ -151,18 +169,19 @@ function taxView(
   const approval = row.ntsSendKey?.trim() || '';
   const confirmed = !cancelled && !failed && row.ntsSendState === '4' && Boolean(approval);
   const badge = cancelled ? '취소' : failed ? '국세청 전송 실패' : confirmed ? null : PENDING;
-  const addr = merchantAddr(row.member);
+  const snap = issuedSupplier(row.lines);
+  const addr = snap ? snap.addr : merchantAddr(row.member);
   const lines = taxLines(row.lines);
   return {
     title: taxKindFromStored(row.lines) === 'exempt' ? '계산서' : '세금계산서',
     badge,
     logo,
     rows: [
-      { label: '공급자 상호', value: row.operatingCompany.name || row.member.corpName },
-      { label: '공급자 사업자번호', value: formatBizFull(row.member.corpNum) },
-      { label: '공급자 대표자', value: row.member.ceoName || '—' },
+      { label: '공급자 상호', value: snap?.corpName || row.operatingCompany.name || row.member.corpName },
+      { label: '공급자 사업자번호', value: formatBizFull(snap?.corpNum || row.member.corpNum) },
+      { label: '공급자 대표자', value: (snap ? snap.ceoName : row.member.ceoName) || '—' },
       { label: '공급자 주소', value: addr || '—' },
-      { label: '공급자 전화', value: row.member.contactTel || '—' },
+      { label: '공급자 전화', value: (snap ? snap.tel : row.member.contactTel) || '—' },
       { label: '공급받는자 상호', value: row.buyerCorpName },
       { label: '공급받는자 사업자번호', value: displayBizIdentity(row.buyerCorpNum) },
       { label: '공급받는자 대표자', value: row.buyerCeoName || '—' },

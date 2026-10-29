@@ -33,6 +33,12 @@ export class BarobillCallError extends Error {
   }
 }
 
+/** 화면·lastError 용. detail 은 GetErrString 에서 인증키를 뺀 값이다. */
+export function formatBarobillCallError(err: BarobillCallError): string {
+  const detail = err.detail.replace(/\s+/g, ' ').trim();
+  return `바로빌 오류 ${err.code}: ${detail || '바로빌 처리에 실패했습니다.'}`;
+}
+
 async function getClient(service: BarobillServiceName): Promise<Client> {
   const url = barobillWsdlUrl(service);
   let pending = clients.get(url);

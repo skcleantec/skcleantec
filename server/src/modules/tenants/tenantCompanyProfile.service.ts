@@ -21,6 +21,7 @@ import {
 import type { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
+import { syncDefaultBrandSupplierFromCompany } from '../taxinvoice/taxInvoiceSupplier.service.js';
 
 async function assertActorLoginPassword(params: {
   tenantId: string;
@@ -307,6 +308,13 @@ export async function patchTenantCompanyProfile(
   }
 
   await updateTenantConfig(tenantId, patchConfig);
+  if (body.companyRegistration) {
+    await syncDefaultBrandSupplierFromCompany(tenantId, {
+      companyName: body.companyRegistration.companyName,
+      representativeName: body.companyRegistration.representativeName,
+      addressLine: body.companyRegistration.addressLine,
+    });
+  }
 
   return getTenantCompanyProfile(tenantId);
 }
