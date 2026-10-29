@@ -10,7 +10,17 @@
 | `pgClerk` / `TenantPgClerkCode` 없음 | 통과 | `schema.prisma` 에 모델 없음. `git grep pgClerk -- server/src client/src` 0건. staging 전용 `pgClerk.service.ts` 삭제 |
 | 스키마에 두 줄기 | 통과 | `TenantPgRail` `schema.prisma:93`, `PlatformPgAgency` `schema.prisma:642`, `TenantPgCredential` `schema.prisma:725`, `BarobillMember` `schema.prisma:1660`, `SkHomepageMailInbox` `schema.prisma:5299`, `TenantWalletUsageLog` `schema.prisma:5342` |
 | `prisma validate` | 통과 | 더미 URL 로 schema valid |
-| `migrate diff` 빈 결과 | 실패 | 빈 로컬 Postgres 에 `npx prisma migrate diff --from-migrations ... --shadow-database-url` → `P3006` `20250418130400_assignment_detail_viewed_at` (`assignments` 없음). 이 폴더는 합치기 전부터 main·staging 양쪽에 있고, 이미 적용된 SQL 은 고치지 않음 |
+| `migrate diff` 빈 결과 | 실패 (2025 기존 이력) | 빈 Postgres `--from-migrations` → `P3006` `20250418130400_assignment_detail_viewed_at` (`assignments` 없음). 이미 적용된 SQL 은 고치지 않음. 대체 비교는 아래 |
+
+## 스키마끼리 비교 (2026-10-29 추가)
+
+`npx prisma migrate diff --from-schema-datamodel --to-schema-datamodel --script`. 스냅샷은 `origin/main`, `origin/staging`(`ebebe2e6`), `release/barobill-prod`(`c85de283`).
+
+| 방향 | 결과 |
+| --- | --- |
+| main → release | 바로빌만 추가. `barobill_members`, `cash_bill_issues`, `tax_invoice_issues`, `tenant_wallet_usage_logs`, `cashbill_platform_holds`, `operating_companies.barobill_member_id`. main 의 PG·홈페이지 메일·스케줄 높이를 지우지 않음 |
+| staging → release | main 기능만 추가·clerk 제거. `TenantPgRail`, `tenant_pg_credentials.rail`, `card_payments.goods_name`, `platform_pg_agencies`, `sk_homepage_mail_inboxes`, `sk_homepage_inquiry_mails`, `schedule_staff_notice_boards.body_height_px`. `tenant_pg_clerk_codes` 와 `pg_clerk_no`/`pg_clerk_code` 삭제. 바로빌 테이블은 유지 |
+| main → staging | 위험 방향. 바로빌은 생기지만 `platform_pg_agencies`·홈페이지 메일·`body_height_px`·`rail` 이 빠지고 clerk 가 되살아남. 이번 합치기는 이 방향을 쓰지 않음 |
 
 ## CodeGuardian
 

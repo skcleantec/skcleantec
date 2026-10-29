@@ -7,12 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// ?�???�반 ?�산 ??건당 고정(?? ?�는 ?�반 ?�비??금액(`service_total_amount` ?? ?��?만분??enum TeamLeaderGeneralSettlementMode {
+/// 팀장 일반 정산 — 건당 고정(원) 또는 일반 서비스 금액(`service_total_amount` 등) 대비 만분율
+enum TeamLeaderGeneralSettlementMode {
   FIXED_PER_JOB_WON
   PERCENT_OF_GENERAL_SERVICE_BPS
 }
 
-/// ?�????지�?기록 구분 ???�반(건당) ?�산 vs 추�?결재 ?�산
+/// 팀장 월 지급 기록 구분 — 일반(건당) 정산 vs 추가결재 정산
 enum TeamLeaderPayrollPaymentBucket {
   GENERAL_JOB_SETTLEMENT
   ADDITIONAL_RECEIPT_SETTLEMENT
@@ -24,14 +25,14 @@ enum TenantStatus {
   SUSPENDED
 }
 
-/// ?�체 ?�용 중�? ?�유 ??PLATFORM�?공개 고객 링크 차단
+/// 업체 이용 중지 사유 — PLATFORM만 공개 고객 링크 차단
 enum TenantSuspendReason {
   TRIAL_EXPIRED
   BILLING_OVERDUE
   PLATFORM
 }
 
-/// ?�넌???�료 ?�랜 ?�환 ?�청 ???�??가??Free) ???�랫???�인
+/// 테넌트 유료 플랜 전환 신청 — 셀프 가입(Free) 후 플랫폼 승인
 enum TenantPlanUpgradeRequestStatus {
   PENDING
   APPROVED
@@ -39,7 +40,7 @@ enum TenantPlanUpgradeRequestStatus {
   CANCELLED
 }
 
-/// 마�????�딩 ???�입 ?�담·가??문의 (?�랫???�인 게시??
+/// 마케팅 랜딩 — 도입 상담·가입 문의 (플랫폼 승인 게시판)
 enum PlatformSignupInquiryStatus {
   PENDING
   CONTACTED
@@ -54,13 +55,13 @@ enum EmailVerificationPurpose {
   PASSWORD_RESET
 }
 
-/// ?�??가?????�업??/ 비사?�자 구분 (`docs/auth-signup/POLICY.md`)
+/// 셀프 가입 — 사업자 / 비사업자 구분 (`docs/auth-signup/POLICY.md`)
 enum SignupBusinessType {
   registered_business
   individual
 }
 
-/// ADMIN SNS 로그?�·�???(`docs/auth-signup/POLICY.md`)
+/// ADMIN SNS 로그인·가입 (`docs/auth-signup/POLICY.md`)
 enum AuthIdentityProvider {
   google
   kakao
@@ -88,7 +89,7 @@ enum TenantPgOnboardingStatus {
   REJECTED
 }
 
-/// ?�체 가�???�? ?�기(구인�??� 링크(?�증결제)???�로 ?�른 MID·OID·?��? ?�다.
+/// 업체 가맹 키 칸. 수기(구인증)와 링크(인증결제)는 서로 다른 MID·OID·키를 쓴다.
 enum TenantPgRail {
   KEYIN
   LINK
@@ -124,7 +125,7 @@ enum TenantInvoiceSource {
   MANUAL
 }
 
-/// ?�랫??추천???�형 ??개인·?�트???�체
+/// 플랫폼 추천인 유형 — 개인·파트너 업체
 enum PlatformReferrerType {
   INDIVIDUAL
   PARTNER
@@ -148,7 +149,7 @@ enum PlatformReferrerCommissionStatus {
   REVERSED
 }
 
-/// ?�넌??�?DB 거래 ?�트?�십 ?�태
+/// 테넌트 간 DB 거래 파트너십 상태
 enum TenantPartnershipStatus {
   PENDING
   ACTIVE
@@ -156,7 +157,7 @@ enum TenantPartnershipStatus {
   REJECTED
 }
 
-/// ?�트?�십 중�? 주체 (?�랫?�·참???�넌??
+/// 파트너십 중지 주체 (플랫폼·참여 테넌트)
 enum TenantPartnershipSuspendedBy {
   PLATFORM
   TENANT_LOW
@@ -174,7 +175,7 @@ enum TenantInquiryShareSyncStatus {
   REVOKED
 }
 
-/// ?�트???�계 ?�산 경로 ???�?�체 ?�격 ?��? ??EXTERNAL_LEGACY
+/// 파트너 연계 정산 경로 — 타업체 승격 이관 시 EXTERNAL_LEGACY
 enum TenantInquiryShareSettlementMode {
   PARTNER_NATIVE
   EXTERNAL_LEGACY
@@ -185,7 +186,7 @@ enum TenantPartnerSettlementRole {
   BUYER
 }
 
-/// DB 마켓(?�보공유) listing ?�태
+/// DB 마켓(정보공유) listing 상태
 enum InquiryDbListingStatus {
   DRAFT
   OPEN
@@ -200,7 +201,7 @@ enum InquiryDbListingVisibility {
   SELECTED
 }
 
-/// SELECTED ?�출 ???�시 vs 1·2·3?�위 ?�터fall
+/// SELECTED 노출 — 동시 vs 1·2·3순위 워터fall
 enum InquiryDbListingOfferMode {
   SIMULTANEOUS
   PRIORITY
@@ -221,13 +222,13 @@ enum InquiryDbListingMessageAuthorRole {
   BUYER
 }
 
-/// DB 마켓 hop ?�수�??�장 ?�태
+/// DB 마켓 hop 수수료 원장 상태
 enum InquiryDbListingFeeLedgerStatus {
   ACTIVE
   REVERSED
 }
 
-/// DB 마켓 체인 ?�벤???�형
+/// DB 마켓 체인 이벤트 유형
 enum InquiryDbListingEventType {
   HANDOVER_CONFIRMED
   COMPLETE_RECALL
@@ -254,7 +255,7 @@ model Tenant {
   plan        String       @default("premium") @db.VarChar(32)
   timezone    String       @default("Asia/Seoul") @db.VarChar(64)
   config      Json         @default("{}")
-  /** ?�화·?�기 ?�수 �? null=?�주�?�� ?��?. 배열?�면 ?�당 ?�만(?�름·?�화·주소 강제). */
+  /** 전화·수기 접수 칸. null=입주청소 전부. 배열이면 해당 키만(이름·전화·주소 강제). */
   inquiryIntakeSystemFieldKeys Json? @map("inquiry_intake_system_field_keys")
   createdAt   DateTime     @default(now()) @map("created_at")
   suspendedAt DateTime?    @map("suspended_at")
@@ -401,13 +402,13 @@ model Tenant {
   platformSupportThread      PlatformSupportThread?
   platformSupportMessages    PlatformSupportMessage[]
   platformSupportTenantReads PlatformSupportTenantRead[]
-  /// ?�?�이 가계�? ?�금(?�금·?�당·?�급)??직접 바�? ???�는지. ?�면 관리자�??�한??
+  /// 팀장이 가계부 임금(잔금·일당·월급)을 직접 바꿀 수 있는지. 끄면 관리자만 정한다.
   teamLeaderHouseholdWageLeaderEditable Boolean @default(true) @map("team_leader_household_wage_leader_editable")
 
   @@map("tenants")
 }
 
-/// 빠른?�록 ???�넌?�별 ?�습 규칙 (?�벨·?�규??
+/// 빠른등록 — 테넌트별 학습 규칙 (라벨·정규식)
 model QuickPasteTenantRule {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -426,7 +427,7 @@ model QuickPasteTenantRule {
   @@map("quick_paste_tenant_rules")
 }
 
-/// 빠른?�록 ??parse/commit ?�습 로그
+/// 빠른등록 — parse/commit 학습 로그
 model QuickPasteLearningLog {
   id                String   @id @default(uuid())
   tenantId          String   @map("tenant_id")
@@ -450,7 +451,7 @@ model QuickPasteLearningLog {
   @@map("quick_paste_learning_logs")
 }
 
-/// 빠른?�록 AI ??OpenAI ?�큰·추정 ?��? (?�품�?OpenAI ??집계??
+/// 빠른등록 AI — OpenAI 토큰·추정 원가 (제품별 OpenAI 키 집계용)
 model QuickPasteAiUsageLog {
   id                     String   @id @default(uuid())
   tenantId               String   @map("tenant_id")
@@ -472,7 +473,7 @@ model QuickPasteAiUsageLog {
   @@map("quick_paste_ai_usage_logs")
 }
 
-/// Free ?�??가???�체 ???�료 ?�랜 ?�환 ?�청
+/// Free 셀프 가입 업체 → 유료 플랜 전환 신청
 model TenantPlanUpgradeRequest {
   id                       String                         @id @default(uuid())
   tenantId                 String                         @map("tenant_id")
@@ -495,7 +496,8 @@ model TenantPlanUpgradeRequest {
   @@map("tenant_plan_upgrade_requests")
 }
 
-/// 마�????�딩 ?�입 ?�담 ???�랫??가?�승??게시??model PlatformSignupInquiry {
+/// 마케팅 랜딩 도입 상담 — 플랫폼 가입승인 게시판
+model PlatformSignupInquiry {
   id                       String                      @id @default(uuid())
   status                   PlatformSignupInquiryStatus @default(PENDING)
   companyName              String                      @map("company_name") @db.VarChar(128)
@@ -524,7 +526,8 @@ model TenantPlanUpgradeRequest {
   @@map("platform_signup_inquiries")
 }
 
-/// ?�입 ?�담 ?�림 ?�신 ?�메??(복수) ???��???model PlatformSignupInquirySettings {
+/// 도입 상담 알림 수신 이메일 (복수) — 싱글톤
+model PlatformSignupInquirySettings {
   id            String   @id @default("default")
   notifyEmails  Json     @default("[]") @map("notify_emails")
   replyToEmail  String?  @map("reply_to_email") @db.VarChar(256)
@@ -534,7 +537,7 @@ model TenantPlanUpgradeRequest {
   @@map("platform_signup_inquiry_settings")
 }
 
-/// 공개 ?�메???�증 ???�??가?�·비밀번호 찾기
+/// 공개 이메일 인증 — 셀프 가입·비밀번호 찾기
 model EmailVerificationChallenge {
   id         String                   @id @default(uuid())
   purpose    EmailVerificationPurpose
@@ -552,7 +555,7 @@ model EmailVerificationChallenge {
   @@map("email_verification_challenges")
 }
 
-/// ?�??가??complete ???�업??비사?�자 ?�냅?????�넌??1:1
+/// 셀프 가입 complete 시 사업자/비사업자 스냅샷 — 테넌트 1:1
 model TenantSignupBusiness {
   id                                String              @id @default(uuid())
   tenantId                          String              @unique @map("tenant_id")
@@ -574,7 +577,7 @@ model TenantSignupBusiness {
   @@map("tenant_signup_businesses")
 }
 
-/// SNS ??User ?�결 ??(provider, providerSub) ?�역 unique
+/// SNS ↔ User 연결 — (provider, providerSub) 전역 unique
 model UserAuthIdentity {
   id            String               @id @default(uuid())
   tenantId      String               @map("tenant_id")
@@ -593,7 +596,7 @@ model UserAuthIdentity {
   @@map("user_auth_identities")
 }
 
-/// ?�랫??SaaS 과금 ???�역 ?�금 ?�내 (?��???
+/// 플랫폼 SaaS 과금 — 전역 입금 안내 (싱글톤)
 model PlatformBillingSettings {
   id               String   @id @default("default")
   bankName         String?  @map("bank_name") @db.VarChar(64)
@@ -619,14 +622,15 @@ model PlatformBillingSettings {
   @@map("platform_billing_settings")
 }
 
-/// 카드결제 ?�수�????�랫???��???(만분?? 부가???�함)
+/// 카드결제 수수료 — 플랫폼 싱글톤 (만분율, 부가세 포함)
 model PlatformCardPaymentSettings {
   id               String   @id @default("default")
   tenantFeeBps     Int      @default(330) @map("tenant_fee_bps")
   platformCostBps  Int      @default(262) @map("platform_cost_bps")
-  /// PG ?�청·?�자계약???�나�??�림??받을 메일. ?�성 ?�면?�서 ???�을 ???�다.
+  /// PG 신청·전자계약이 끝나면 알림을 받을 메일. 원성 화면에서 더 넣을 수 있다.
   pgApplicationNotifyEmails Json @default("[\"wsgpay@naver.com\"]") @map("pg_application_notify_emails")
-  /// PG ?�인 ??가맹점???�성?�는 ?�자계약 ?�목·본문·�?  pgContractTitle    String @default("카드결제 ?�용?��?") @map("pg_contract_title") @db.VarChar(128)
+  /// PG 승인 후 가맹점이 작성하는 전자계약 제목·본문·칸
+  pgContractTitle    String @default("카드결제 이용약관") @map("pg_contract_title") @db.VarChar(128)
   pgContractBodyHtml String @default("") @map("pg_contract_body_html") @db.Text
   pgContractFields   Json   @default("[]") @map("pg_contract_fields")
   updatedAt        DateTime @updatedAt @map("updated_at")
@@ -634,10 +638,10 @@ model PlatformCardPaymentSettings {
   @@map("platform_card_payment_settings")
 }
 
-/// ?�비?�브릿�? ?�리점. ?�용�?가�? ?�성 ?�면?�서 ?�매?�센?��? ?�기·?�증 코드�?고친??
+/// 서비스브릿지 대리점. 이용료 가맹. 원성 화면에서 판매자센터와 수기·인증 코드를 고친다.
 model PlatformPgAgency {
   id                      String   @id @default("service-bridge")
-  businessName            String   @default("?�비?�브릿�? (?�리점)") @map("business_name") @db.VarChar(128)
+  businessName            String   @default("서비스브릿지 (대리점)") @map("business_name") @db.VarChar(128)
   sellerCenterLoginId     String?  @map("seller_center_login_id") @db.VarChar(64)
   sellerCenterPasswordEnc String?  @map("seller_center_password_enc") @db.Text
   keyinMid                String?  @map("keyin_mid") @db.VarChar(32)
@@ -657,14 +661,14 @@ model PlatformPgAgency {
   @@map("platform_pg_agencies")
 }
 
-/// ?�넌?????�성?�이먼츠 가???�청. reviewToken 주소?�서 가�?코드�??�으�??�결
+/// 테넌트 → 원성페이먼츠 가입 신청. reviewToken 주소에서 가맹 코드를 넣으면 연결
 model TenantPgOnboarding {
   id                   String                   @id @default(uuid())
   tenantId             String                   @unique @map("tenant_id")
   tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   status               TenantPgOnboardingStatus @default(DRAFT)
   businessName         String?                  @map("business_name") @db.VarChar(128)
-  /// CORPORATE 법인?�업??· SOLE_PROPRIETOR 개인?�업?? ?�업???�는 개인?� 받�? ?�는??
+  /// CORPORATE 법인사업자 · SOLE_PROPRIETOR 개인사업자. 사업자 없는 개인은 받지 않는다.
   businessKind         String?                  @map("business_kind") @db.VarChar(32)
   bizNumber            String?                  @map("biz_number") @db.VarChar(64)
   representativeName   String?                  @map("representative_name") @db.VarChar(128)
@@ -685,30 +689,30 @@ model TenantPgOnboarding {
   consentThirdPartyAt  DateTime?                @map("consent_third_party_at")
   consentIllegalUseAt  DateTime?                @map("consent_illegal_use_at")
   consentMarketingAt   DateTime?                @map("consent_marketing_at")
-  /// ?�샤?�페???�매?�센??로그???�이?? 취소 창에 ?�용?�다.
+  /// 선샤인페이 판매자센터 로그인 아이디. 취소 창에 사용한다.
   sellerCenterLoginId  String?                  @map("seller_center_login_id") @db.VarChar(64)
-  /// ?�매?�센??비�?번호. ?�문?� ?�호?�만 ?�?�한??
+  /// 판매자센터 비밀번호. 원문은 암호화만 저장한다.
   sellerCenterPasswordEnc String?               @map("seller_center_password_enc") @db.Text
   reviewToken          String?                  @unique @map("review_token") @db.VarChar(64)
   submittedAt          DateTime?                @map("submitted_at")
   forwardedAt          DateTime?                @map("forwarded_at")
   decidedAt            DateTime?                @map("decided_at")
   platformMemo         String?                  @map("platform_memo") @db.Text
-  /// solo | corp. ?�청???�업??구분???�으�?계약??칸이 ??값을 본다.
+  /// solo | corp. 신청의 사업자 구분이 없으면 계약서 칸이 이 값을 본다.
   merchantKind         String?                  @map("merchant_kind") @db.VarChar(16)
   bankbookImageUrl     String?                  @map("bankbook_image_url") @db.VarChar(2048)
   bankbookImagePublicId String?                 @map("bankbook_image_public_id") @db.VarChar(512)
   idCardImageUrl       String?                  @map("id_card_image_url") @db.VarChar(2048)
   idCardImagePublicId  String?                  @map("id_card_image_public_id") @db.VarChar(512)
-  /// ?�자계약 ?�성 ??계약?��? ?�편?�로 보냈?�고 ?�시???�각.
+  /// 전자계약 작성 후 계약서를 우편으로 보냈다고 표시한 시각.
   contractMailedAt     DateTime?                @map("contract_mailed_at")
-  /// PG ?�인 ??가맹점???�자계약??마친 ?�각. ?�으�?계약 ?�계.
+  /// PG 승인 후 가맹점이 전자계약을 마친 시각. 없으면 계약 단계.
   contractSignedAt     DateTime?                @map("contract_signed_at")
-  /// 체결 �?�? ?�큰 ??문자?? ?�장·?�명?� ?�린 그림 주소.
+  /// 체결 칸 값. 토큰 → 문자열. 도장·서명은 올린 그림 주소.
   contractValues       Json?                    @map("contract_values")
-  /// ??가맹점 ?�수�?만분?? 부가???�함). ?�으�??�랫??기본�?
+  /// 이 가맹점 수수료(만분율, 부가세 포함). 없으면 플랫폼 기본값.
   feeBps               Int?                     @map("fee_bps")
-  /// 가�??�결�??��? ?�각. 결제 ?�역?� ?�긴??
+  /// 가맹 연결만 끊은 시각. 결제 내역은 남긴다.
   merchantDeletedAt    DateTime?                @map("merchant_deleted_at")
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
@@ -717,7 +721,8 @@ model TenantPgOnboarding {
   @@map("tenant_pg_onboardings")
 }
 
-/// ?�넌?�별 ?�샤?�페???�격증명 ???�문 ?�는 ?�호??model TenantPgCredential {
+/// 테넌트별 선샤인페이 자격증명 — 원문 키는 암호화
+model TenantPgCredential {
   id              String       @id @default(uuid())
   tenantId        String       @map("tenant_id")
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -737,7 +742,7 @@ model TenantPgOnboarding {
   @@map("tenant_pg_credentials")
 }
 
-/// 카드결제 �???카드번호 ?�문 ?�??금�?
+/// 카드결제 건 — 카드번호 원문 저장 금지
 model CardPayment {
   id                 String            @id @default(uuid())
   tenantId           String            @map("tenant_id")
@@ -756,7 +761,7 @@ model CardPayment {
   platformSpreadWon  Int               @map("platform_spread_won")
   tenantNetWon       Int               @map("tenant_net_won")
   customerName       String            @map("customer_name") @db.VarChar(128)
-  /// ?�증결제 링크·결제창에 보이??결제 ?�용
+  /// 인증결제 링크·결제창에 보이는 결제 내용
   goodsName          String?           @map("goods_name") @db.VarChar(80)
   customerPhoneMasked String?          @map("customer_phone_masked") @db.VarChar(32)
   inquiryNumber      String?           @map("inquiry_number") @db.VarChar(24)
@@ -781,7 +786,8 @@ model CardPayment {
   @@map("card_payments")
 }
 
-/// ?�넌?�별 과금 ?�로??model TenantBillingProfile {
+/// 테넌트별 과금 프로필
+model TenantBillingProfile {
   id                     String                   @id @default(uuid())
   tenantId               String                   @unique @map("tenant_id")
   billingCycle           TenantBillingCycle       @default(MONTHLY) @map("billing_cycle")
@@ -800,7 +806,8 @@ model CardPayment {
   @@map("tenant_billing_profiles")
 }
 
-/// ?�넌??과금 ?�외 ??면제·?�월·1??금액 변�?model TenantBillingAdjustment {
+/// 테넌트 과금 예외 — 면제·이월·1회 금액 변경
+model TenantBillingAdjustment {
   id                      String                      @id @default(uuid())
   tenantId                String                      @map("tenant_id")
   type                    TenantBillingAdjustmentType
@@ -821,7 +828,8 @@ model CardPayment {
   @@map("tenant_billing_adjustments")
 }
 
-/// ?�넌??SaaS ?�용�?�?��??model TenantInvoice {
+/// 테넌트 SaaS 이용료 청구서
+model TenantInvoice {
   id                          String              @id @default(uuid())
   tenantId                    String              @map("tenant_id")
   periodStart                 DateTime            @map("period_start")
@@ -853,7 +861,7 @@ model CardPayment {
   @@map("tenant_invoices")
 }
 
-/// ?�용�??�금·카드 ?�인 기록. 카드번호???�?�하지 ?�는??
+/// 이용료 입금·카드 승인 기록. 카드번호는 저장하지 않는다.
 model UsageFeeCardPayment {
   id                      String                      @id @default(uuid())
   purpose                 UsageFeeCardPaymentPurpose
@@ -915,7 +923,7 @@ enum TenantCoinLedgerSourceType {
   DB_MARKETPLACE_PURCHASE
 }
 
-/// ?�넌???�용 코인 차감 ?�장 ??inquiryId·listingId 중복 차감 방�?
+/// 테넌트 이용 코인 차감 원장 — inquiryId·listingId 중복 차감 방지
 model TenantCoinLedgerEntry {
   id         String                     @id @default(uuid())
   tenantId   String                     @map("tenant_id")
@@ -932,7 +940,7 @@ model TenantCoinLedgerEntry {
   @@map("tenant_coin_ledger_entries")
 }
 
-/// ?�루??가???�넌??�?DB 거래 ?�트?�십 (Phase 1: 관계·동?�만)
+/// 솔루션 가입 테넌트 간 DB 거래 파트너십 (Phase 1: 관계·동의만)
 model TenantPartnership {
   id                  String                      @id @default(uuid())
   tenantLowId         String                      @map("tenant_low_id")
@@ -960,7 +968,8 @@ model TenantPartnership {
   @@map("tenant_partnerships")
 }
 
-/// ?�넌??�??�수(DB) ?�달 링크 ???�신 ?�본 + ?�신 mirror Inquiry ??model TenantInquiryShare {
+/// 테넌트 간 접수(DB) 전달 링크 — 송신 원본 + 수신 mirror Inquiry 쌍
+model TenantInquiryShare {
   id                          String                       @id @default(uuid())
   partnershipId               String                       @map("partnership_id")
   sourceTenantId              String                       @map("source_tenant_id")
@@ -993,7 +1002,8 @@ model TenantPartnership {
   @@map("tenant_inquiry_shares")
 }
 
-/// ?�넌??DB 거래 ?�산 ???�금(?�매)·지�?구매) 1??model TenantPartnerSettlementPayment {
+/// 테넌트 DB 거래 정산 — 수금(판매)·지급(구매) 1행
+model TenantPartnerSettlementPayment {
   id              String                    @id @default(uuid())
   tenantId        String                    @map("tenant_id")
   partnerTenantId String                    @map("partner_tenant_id")
@@ -1012,7 +1022,7 @@ model TenantPartnership {
   @@map("tenant_partner_settlement_payments")
 }
 
-/// ?�넌??DB 거래 ?�산 ?�적 초기???�트?�·역?�별)
+/// 테넌트 DB 거래 정산 누적 초기화(파트너·역할별)
 model TenantPartnerSettlementReset {
   id              String                    @id @default(uuid())
   tenantId        String                    @map("tenant_id")
@@ -1030,7 +1040,7 @@ model TenantPartnerSettlementReset {
   @@map("tenant_partner_settlement_resets")
 }
 
-/// ?�수 DB 마켓(?�보공유) ???�매???�바구니·게시·?�쪽 ?�정
+/// 접수 DB 마켓(정보공유) — 판매자 장바구니·게시·양쪽 확정
 model InquiryDbListing {
   id                        String                     @id @default(uuid())
   tenantId                  String                     @map("tenant_id")
@@ -1098,7 +1108,7 @@ model InquiryDbListing {
   @@map("inquiry_db_listings")
 }
 
-/// DB 마켓 hop�??�수�??�장 ???�계 ?�정 ??ACTIVE, ?�수·??�� ??REVERSED
+/// DB 마켓 hop별 수수료 원장 — 인계 확정 시 ACTIVE, 회수·역순 시 REVERSED
 model InquiryDbListingFeeLedger {
   id                     String                           @id @default(uuid())
   tenantId               String                           @map("tenant_id")
@@ -1126,7 +1136,7 @@ model InquiryDbListingFeeLedger {
   @@map("inquiry_db_listing_fee_ledgers")
 }
 
-/// DB 마켓 체인·?�수 ?�스?�리
+/// DB 마켓 체인·회수 히스토리
 model InquiryDbListingEvent {
   id           String                    @id @default(uuid())
   tenantId     String                    @map("tenant_id")
@@ -1146,7 +1156,7 @@ model InquiryDbListingEvent {
   @@map("inquiry_db_listing_events")
 }
 
-/// DB 마켓 ?�출 ?�??(visibility=SELECTED)
+/// DB 마켓 노출 대상 (visibility=SELECTED)
 model InquiryDbListingAudience {
   id                 String                       @id @default(uuid())
   listingId          String                       @map("listing_id")
@@ -1165,7 +1175,7 @@ model InquiryDbListingAudience {
   @@map("inquiry_db_listing_audiences")
 }
 
-/// DB 마켓 listing 구매 ??문의(Q&A)
+/// DB 마켓 listing 구매 전 문의(Q&A)
 model InquiryDbListingMessage {
   id           String                            @id @default(uuid())
   tenantId     String                            @map("tenant_id")
@@ -1184,7 +1194,8 @@ model InquiryDbListingMessage {
   @@map("inquiry_db_listing_messages")
 }
 
-/// ?�랜 ?��?per-tenant 모듈 on/off ?�버?�이??model TenantFeature {
+/// 플랜 대비 per-tenant 모듈 on/off 오버라이드
+model TenantFeature {
   tenantId String  @map("tenant_id")
   moduleId String  @map("module_id") @db.VarChar(64)
   enabled  Boolean
@@ -1217,7 +1228,7 @@ model PlatformUser {
   @@map("platform_users")
 }
 
-/// ?�랫??추천?????�??가??추천 코드(slug) · ?�수료율
+/// 플랫폼 추천인 — 셀프 가입 추천 코드(slug) · 수수료율
 model PlatformReferrer {
   id               String               @id @default(uuid())
   type             PlatformReferrerType
@@ -1243,7 +1254,7 @@ model PlatformReferrer {
   @@map("platform_referrers")
 }
 
-/// ?�체??1??추천??귀????가????변�?불�?
+/// 업체당 1회 추천인 귀속 — 가입 후 변경 불가
 model TenantReferralAttribution {
   id           String                    @id @default(uuid())
   tenantId     String                    @unique @map("tenant_id")
@@ -1260,7 +1271,8 @@ model TenantReferralAttribution {
   @@map("tenant_referral_attributions")
 }
 
-/// 추천 ?�수�??�립 ???�료 �?��??PAID마다 1??model PlatformReferrerCommissionAccrual {
+/// 추천 수수료 적립 — 유료 청구서 PAID마다 1행
+model PlatformReferrerCommissionAccrual {
   id                 String                         @id @default(uuid())
   referrerId         String                         @map("referrer_id")
   tenantId           String                         @map("tenant_id")
@@ -1288,31 +1300,33 @@ model TenantReferralAttribution {
   @@map("platform_referrer_commission_accruals")
 }
 
-/// /help 고객문의 ???�랫???�일 ?�정 (카테고리·?�락처·작???��?�?
+/// /help 고객문의 — 플랫폼 단일 설정 (카테고리·연락처·작성 도움말)
 model HelpInquirySettings {
   id              String   @id @default("default")
   contactEmail    String   @default("pyo0829@gmail.com") @map("contact_email") @db.VarChar(256)
   notifyEmail     String   @default("pyo0829@gmail.com") @map("notify_email") @db.VarChar(256)
   composeHelpText String?  @map("compose_help_text") @db.Text
-  categoriesJson  Json     @default("[{\"id\":\"general\",\"label\":\"?�반 문의\",\"sortOrder\":0},{\"id\":\"feature\",\"label\":\"기능 ?�청\",\"sortOrder\":1},{\"id\":\"bug\",\"label\":\"버그 ?�고\",\"sortOrder\":2}]") @map("categories_json")
+  categoriesJson  Json     @default("[{\"id\":\"general\",\"label\":\"일반 문의\",\"sortOrder\":0},{\"id\":\"feature\",\"label\":\"기능 요청\",\"sortOrder\":1},{\"id\":\"bug\",\"label\":\"버그 신고\",\"sortOrder\":2}]") @map("categories_json")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("help_inquiry_settings")
 }
 
-/// ?�보 배너 ?�시 ?�서 (고정 sortOrder vs 무작??
+/// 홍보 배너 표시 순서 (고정 sortOrder vs 무작위)
 enum PlatformPromoOrderMode {
   FIXED
   RANDOM
 }
 
-/// 배너�??�서 방식 ???�랫??기본�??�속 ?�는 개별 지??enum PlatformPromoOrderModeOverride {
+/// 배너별 순서 방식 — 플랫폼 기본값 상속 또는 개별 지정
+enum PlatformPromoOrderModeOverride {
   INHERIT
   FIXED
   RANDOM
 }
 
-/// ?�랫????가?????�료 ?�랜 ?�동 체험 ?�벤??model PlatformSignupTrialEvent {
+/// 플랫폼 — 가입 시 유료 플랜 자동 체험 이벤트
+model PlatformSignupTrialEvent {
   id                     String    @id @default(uuid())
   name                   String    @db.VarChar(128)
   isActive               Boolean   @default(true) @map("is_active")
@@ -1331,7 +1345,7 @@ enum PlatformPromoOrderMode {
   @@map("platform_signup_trial_events")
 }
 
-/// ?�랫?????�보 배너 ?�역 ?�시 ?�서 (?��???
+/// 플랫폼 — 홍보 배너 전역 표시 순서 (싱글톤)
 model PlatformPartnerPromoSettings {
   id                        String               @id @default("default")
   externalPartnerOrderMode  PlatformPromoOrderMode @default(FIXED) @map("external_partner_order_mode")
@@ -1341,7 +1355,7 @@ model PlatformPartnerPromoSettings {
   @@map("platform_partner_promo_settings")
 }
 
-/// ?�랫?????�?�체·?�넌???�?�보???�보 배너
+/// 플랫폼 — 타업체·테넌트 대시보드 홍보 배너
 model PlatformPartnerPromo {
   id                    String    @id @default(uuid())
   title                 String    @db.VarChar(128)
@@ -1369,13 +1383,13 @@ model PlatformPartnerPromo {
   @@map("platform_partner_promos")
 }
 
-/// ?�랫???��?·계약??종류
+/// 플랫폼 약관·계약서 종류
 enum PlatformLegalDocumentType {
   MEMBER_TERMS
   CONSUMER_ORDER_CONSENT
 }
 
-/// ?�랫???��?·계약??(�?��비서 ?�원??�고�??�의 문서)
+/// 플랫폼 약관·계약서 (청소비서 회원사·고객 동의 문서)
 model PlatformLegalDocument {
   id           String                    @id @default(uuid())
   slug         String                    @unique @db.VarChar(64)
@@ -1394,7 +1408,7 @@ model PlatformLegalDocument {
   @@map("platform_legal_documents")
 }
 
-/// ?��? 체결 초�? 링크
+/// 약관 체결 초대 링크
 model PlatformLegalInvite {
   id          String    @id @default(uuid())
   token       String    @unique @db.VarChar(64)
@@ -1412,7 +1426,7 @@ model PlatformLegalInvite {
   @@map("platform_legal_invites")
 }
 
-/// ?��?·계약 체결 기록
+/// 약관·계약 체결 기록
 model PlatformLegalAgreement {
   id              String   @id @default(uuid())
   documentId      String   @map("document_id")
@@ -1436,7 +1450,7 @@ model PlatformLegalAgreement {
   @@map("platform_legal_agreements")
 }
 
-/// /help 고객문의 게시??글 (공개 ?�성)
+/// /help 고객문의 게시판 글 (공개 작성)
 model HelpInquiryPost {
   id           String   @id @default(uuid())
   categoryId   String   @map("category_id") @db.VarChar(64)
@@ -1451,7 +1465,7 @@ model HelpInquiryPost {
   @@map("help_inquiry_posts")
 }
 
-/// /help ?��?�?CMS ??카테고리 (?�랫???�역)
+/// /help 도움말 CMS — 카테고리 (플랫폼 전역)
 model HelpCmsCategory {
   id          String   @id @default(uuid())
   slug        String   @unique @db.VarChar(64)
@@ -1468,7 +1482,7 @@ model HelpCmsCategory {
   @@map("help_cms_categories")
 }
 
-/// /help ?��?�?CMS ??게시글 (?�랫???�역)
+/// /help 도움말 CMS — 게시글 (플랫폼 전역)
 model HelpCmsArticle {
   id                   String          @id @default(uuid())
   categoryId           String          @map("category_id")
@@ -1492,7 +1506,7 @@ model HelpCmsArticle {
   @@map("help_cms_articles")
 }
 
-/// ?�랫??고객?�터 ??보드 종류 (공�?·문의 ??
+/// 플랫폼 고객센터 — 보드 종류 (공지·문의 등)
 enum PlatformBoardType {
   NOTICE
   INQUIRY
@@ -1504,7 +1518,7 @@ enum PlatformBoardPostStatus {
   HIDDEN
 }
 
-/// ?�랫??고객?�터 ??게시???�의 (공�?·문의 ?? ?�랫???�역)
+/// 플랫폼 고객센터 — 게시판 정의 (공지·문의 등, 플랫폼 전역)
 model PlatformBoard {
   id          String            @id @default(uuid())
   slug        String            @unique @db.VarChar(64)
@@ -1512,7 +1526,7 @@ model PlatformBoard {
   boardType   PlatformBoardType @map("board_type")
   sortOrder   Int               @default(0) @map("sort_order")
   isPublished Boolean           @default(true) @map("is_published")
-  /// listPublic: 목록 공개 ?��? (문의??true + ?�름 마스?�·비밀글)
+  /// listPublic: 목록 공개 여부 (문의는 true + 이름 마스킹·비밀글)
   listPublic  Boolean           @default(true) @map("list_public")
   settings    Json              @default("{}")
   createdAt   DateTime          @default(now()) @map("created_at")
@@ -1575,7 +1589,7 @@ model PlatformBoardPost {
   @@map("platform_board_posts")
 }
 
-/// ?�랫???�영 ??모든 ?�넌??관리자(/admin) 로그?�용 글로벌 지??계정
+/// 플랫폼 운영 — 모든 테넌트 관리자(/admin) 로그인용 글로벌 지원 계정
 model TenantSupportAccess {
   id           String    @id @default(uuid())
   loginId      String    @unique @map("login_id") @db.VarChar(48)
@@ -1592,18 +1606,19 @@ model TenantSupportAccess {
   @@map("tenant_support_access")
 }
 
-/// ?�넌?????�업 브랜???�영 ?�체) ??SK?�린?�·�??�클�??? ?�?�체(ExternalCompany)?� 별개.
+/// 테넌트 내 영업 브랜드(운영 업체) — SK클린텍·타나클린 등. 타업체(ExternalCompany)와 별개.
 model OperatingCompany {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String   @db.VarChar(128)
-  /// 고객 URL `?brand=` �??�넌?????�별???�문 slug
+  /// 고객 URL `?brand=` 및 테넌트 내 식별용 영문 slug
   slug      String   @db.VarChar(48)
   isDefault Boolean  @default(false) @map("is_default")
   isActive  Boolean  @default(true) @map("is_active")
   sortOrder Int      @default(0) @map("sort_order")
-  /// branding·orderForm·inquiry.numberPrefix ??  config    Json     @default("{}")
+  /// branding·orderForm·inquiry.numberPrefix 등
+  config    Json     @default("{}")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -1641,12 +1656,12 @@ enum BarobillMemberStatus {
   PROCESSING
 }
 
-/// 바로�??�원?? 브랜??OperatingCompany) 1 : ?�원??1. 비�?번호???�?�하지 ?�는??
+/// 바로빌 회원사. 브랜드(OperatingCompany) 1 : 회원사 1. 비밀번호는 저장하지 않는다.
 model BarobillMember {
   id             String               @id @default(uuid())
   tenantId       String               @map("tenant_id")
   tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  /// test | prod. 바로�?DB가 ?�경별로 분리?�다.
+  /// test | prod. 바로빌 DB가 환경별로 분리된다.
   env            String               @db.VarChar(8)
   corpNum        String               @map("corp_num") @db.VarChar(16)
   corpName       String               @map("corp_name") @db.VarChar(128)
@@ -1659,7 +1674,8 @@ model BarobillMember {
   contactTel     String               @map("contact_tel") @db.VarChar(32)
   contactEmail   String               @map("contact_email") @db.VarChar(256)
   barobillUserId String               @default("") @map("barobill_user_id") @db.VarChar(20)
-  /// GetCorpState.TaxType ?�수 문자??  taxType        String?              @map("tax_type") @db.VarChar(32)
+  /// GetCorpState.TaxType 정수 문자열
+  taxType        String?              @map("tax_type") @db.VarChar(32)
   businessRegistrationImageUrl      String? @map("business_registration_image_url") @db.Text
   businessRegistrationImagePublicId String? @map("business_registration_image_public_id") @db.VarChar(256)
   reviewedAt     DateTime?            @map("reviewed_at")
@@ -1667,12 +1683,12 @@ model BarobillMember {
   rejectReason   String?              @map("reject_reason") @db.Text
   status         BarobillMemberStatus
   lastError      String?              @map("last_error") @db.Text
-  /// CheckCERTIsValid 캐시. ?�면 진입 ??갱신?�다.
+  /// CheckCERTIsValid 캐시. 화면 진입 때 갱신한다.
   certValid      Boolean?             @map("cert_valid")
   /// GetCertificateExpireDate. YYYY-MM-DD
   certExpireDate String?              @map("cert_expire_date") @db.VarChar(16)
   certCheckedAt  DateTime?            @map("cert_checked_at")
-  /// ??만료?�로 관리자 ?�림???��? 보냈?�면 ?�시 보내지 ?�는??
+  /// 이 만료일로 관리자 알림을 이미 보냈으면 다시 보내지 않는다.
   certWarnForExpire String?           @map("cert_warn_for_expire") @db.VarChar(16)
   createdAt      DateTime             @default(now()) @map("created_at")
   updatedAt      DateTime             @updatedAt @map("updated_at")
@@ -1692,14 +1708,14 @@ enum CashBillIssueKind {
   CANCEL
 }
 
-/// ?�금?�수�?발급·취소. ?�별번호 ?�문?� ?�?�하지 ?�는??
+/// 현금영수증 발급·취소. 식별번호 원문은 저장하지 않는다.
 model CashBillIssue {
   id                 String            @id @default(uuid())
   tenantId           String            @map("tenant_id")
   tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   memberId           String            @map("member_id")
   member             BarobillMember    @relation(fields: [memberId], references: [id], onDelete: Restrict)
-  /// 매칭 ?�이 발행?�면 null
+  /// 매칭 없이 발행하면 null
   inquiryId          String?           @map("inquiry_id")
   inquiry            Inquiry?          @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
   operatingCompanyId String            @map("operating_company_id")
@@ -1711,7 +1727,7 @@ model CashBillIssue {
   cancellations      CashBillIssue[]   @relation("CashBillCancel")
   tradeUsage         Int               @map("trade_usage")
   identityMasked     String            @map("identity_masked") @db.VarChar(32)
-  itemName           String            @default("�?�� ?�비??) @map("item_name") @db.VarChar(50)
+  itemName           String            @default("청소 서비스") @map("item_name") @db.VarChar(50)
   amount             Int
   tax                Int
   serviceCharge      Int               @default(0) @map("service_charge")
@@ -1722,7 +1738,7 @@ model CashBillIssue {
   issuedAt           DateTime?         @map("issued_at")
   chargedKrw         Int               @default(0) @map("charged_krw")
   lastError          String?           @map("last_error") @db.Text
-  /// 고객?�게 보이지 ?�는 ?��? 메모
+  /// 고객에게 보이지 않는 내부 메모
   internalMemo       String?           @map("internal_memo") @db.VarChar(500)
   copyPngUrl         String?           @map("copy_png_url") @db.VarChar(2048)
   copyPdfUrl         String?           @map("copy_pdf_url") @db.VarChar(2048)
@@ -1739,7 +1755,7 @@ model CashBillIssue {
   @@map("cash_bill_issues")
 }
 
-/// ?�트?�·회?�사 ?�액 부족으�??�체 지갑을 차감?��? ?��? �? ?�랫???�면 ?�림.
+/// 파트너·회원사 잔액 부족으로 업체 지갑을 차감하지 않은 건. 플랫폼 화면 알림.
 model CashbillPlatformHold {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -1753,7 +1769,7 @@ model CashbillPlatformHold {
   @@map("cashbill_platform_holds")
 }
 
-/// ?�금계산???�발�? ?��? 메모??바로빌에 보내지 ?�는??
+/// 세금계산서 정발급. 내부 메모는 바로빌에 보내지 않는다.
 model TaxInvoiceIssue {
   id                 String           @id @default(uuid())
   tenantId           String           @map("tenant_id")
@@ -1765,7 +1781,7 @@ model TaxInvoiceIssue {
   operatingCompanyId String           @map("operating_company_id")
   operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
   mgtKey             String           @map("mgt_key") @db.VarChar(24)
-  /// 1 ?�수, 2 �?��
+  /// 1 영수, 2 청구
   purposeType        Int              @map("purpose_type")
   writeDate          String           @map("write_date") @db.VarChar(8)
   buyerCorpNum       String           @map("buyer_corp_num") @db.VarChar(16)
@@ -1800,7 +1816,7 @@ model TaxInvoiceIssue {
   @@map("tax_invoice_issues")
 }
 
-/// 마�??�·�??�의 ?�업 ?�체 ?�속(?�중). isPrimary 1�?권장.
+/// 마케터·팀장의 영업 업체 소속(다중). isPrimary 1개 권장.
 model UserOperatingCompany {
   tenantId           String @map("tenant_id")
   userId             String @map("user_id")
@@ -1817,7 +1833,7 @@ model UserOperatingCompany {
   @@map("user_operating_companies")
 }
 
-/// ?�사가 고객 ?�보�??�기???��? ?�력 ?�체 (?�?�체)
+/// 자사가 고객 정보를 넘기는 외부 협력 업체 (타업체)
 model ExternalCompany {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -1826,11 +1842,11 @@ model ExternalCompany {
   bizNumber String?  @map("biz_number") @db.VarChar(64)
   phone     String?  @db.VarChar(64)
   memo      String?  @db.Text
-  /// ?�?�체 ?�당?��? 최초 로그?????�로?????�업?�등록증 ?��?지(Cloudinary). PDF 불�?.
+  /// 타업체 담당자가 최초 로그인 시 업로드 — 사업자등록증 이미지(Cloudinary). PDF 불가.
   businessRegistrationImageUrl      String? @map("business_registration_image_url") @db.VarChar(2048)
   businessRegistrationImagePublicId String? @map("business_registration_image_public_id") @db.VarChar(512)
   isActive  Boolean  @default(true) @map("is_active")
-  /// ?�규 배정·DB마켓 ?�출 ?�에???�외(??��·isActive=false ?� 별도). 과거 배정·?�산?� ?��?.
+  /// 신규 배정·DB마켓 노출 등에서 제외(삭제·isActive=false 와 별도). 과거 배정·정산은 유지.
   usageDisabledAt       DateTime? @map("usage_disabled_at")
   usageDisabledByUserId String?   @map("usage_disabled_by_user_id")
   linkedPartnerTenantId String?  @map("linked_partner_tenant_id")
@@ -1856,7 +1872,7 @@ model ExternalCompany {
   @@map("external_companies")
 }
 
-/// ?�?�체 ?�산 지�?부�??�체) ?�력 1?????�업 브랜?�별 분리
+/// 타업체 정산 지급(부분/전체) 이력 1행 — 영업 브랜드별 분리
 model ExternalCompanySettlementPayment {
   id                String   @id @default(uuid())
   externalCompanyId String   @map("external_company_id")
@@ -1874,7 +1890,7 @@ model ExternalCompanySettlementPayment {
   @@map("external_company_settlement_payments")
 }
 
-/// ?�?�체 ?�산 ?�료 ??관리자가 ?�수�??�적??초기?�할 ?�마??1?????�업 브랜?�별
+/// 타업체 정산 완료 후 관리자가 수수료 누적을 초기화할 때마다 1행 — 영업 브랜드별
 model ExternalCompanySettlementReset {
   id                  String   @id @default(uuid())
   externalCompanyId   String   @map("external_company_id")
@@ -1895,63 +1911,65 @@ model User {
   tenantId     String   @map("tenant_id")
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email        String
-  /// null ??SNS-only ADMIN (비�?번호 로그??불�?, OAuth·?�메??OTP ?�정 ??가??
+  /// null — SNS-only ADMIN (비밀번호 로그인 불가, OAuth·이메일 OTP 설정 후 가능)
   passwordHash String?  @map("password_hash")
   name         String
-  /// ?�루 ?�장 ?�정 ???�시??로마???�름 (?�택)
+  /// 크루 현장 일정 등 표시용 로마자 이름 (선택)
   nameEn       String?  @map("name_en") @db.VarChar(128)
   role         UserRole @default(TEAM_LEADER)
   phone        String?
-  /// 비�?번호 찾기???�증 ?�메??(?�??가?????�록)
+  /// 비밀번호 찾기용 인증 이메일 (셀프 가입 시 등록)
   recoveryEmail String? @map("recovery_email") @db.VarChar(256)
   vehicleNumber String? @map("vehicle_number") @db.VarChar(64)
   isActive     Boolean  @default(true) @map("is_active")
-  /// ?�넌????최고 관리자 (?�랫??SUPER_ADMIN �?별개)
+  /// 테넌트 내 최고 관리자 (플랫폼 SUPER_ADMIN 과 별개)
   isTenantOwner Boolean @default(false) @map("is_tenant_owner")
-  /// ?�?�체 로그??계정(EXTERNAL_PARTNER)???�속???�체
+  /// 타업체 로그인 계정(EXTERNAL_PARTNER)이 소속된 업체
   externalCompanyId String? @map("external_company_id")
   externalCompany   ExternalCompany? @relation(fields: [externalCompanyId], references: [id], onDelete: SetNull)
-  /// ?�사???�함) ???�당?��????��?줄·TO·배정 ?�?? null?�면 ?�한 ?�음(기존 ?�이???�환)
+  /// 입사일(포함) — 해당일부터 스케줄·TO·배정 대상. null이면 제한 없음(기존 데이터 호환)
   hireDate     DateTime? @map("hire_date") @db.Date
-  /// ?�사??미포?? ???�당?��???근무·배정·?�롭?�운 ?�외. null?�면 ?�직 �?  resignationDate DateTime? @map("resignation_date") @db.Date
+  /// 퇴사일(미포함) — 해당일부터 근무·배정·드롭다운 제외. null이면 재직 중
+  resignationDate DateTime? @map("resignation_date") @db.Date
   payrollMonthlySalary Int? @map("payroll_monthly_salary")
   payrollPayDay       Int? @map("payroll_pay_day")
-  /// ?�?�만 ?�용 ???�반 결재 ?�산: 건당 고정(?? ?�는 ?�반 ?�비??금액 ?��?만분??  teamLeaderGeneralSettlementMode TeamLeaderGeneralSettlementMode? @map("team_leader_general_settlement_mode")
-  /// FIXED_PER_JOB_WON ?�면 ??�? PERCENT_OF_GENERAL_SERVICE_BPS ?�면 만분????1500=15%)
+  /// 팀장만 사용 — 일반 결재 정산: 건당 고정(원) 또는 일반 서비스 금액 대비 만분율
+  teamLeaderGeneralSettlementMode TeamLeaderGeneralSettlementMode? @map("team_leader_general_settlement_mode")
+  /// FIXED_PER_JOB_WON 이면 원/건, PERCENT_OF_GENERAL_SERVICE_BPS 이면 만분율(예 1500=15%)
   teamLeaderGeneralSettlementValue Int? @map("team_leader_general_settlement_value")
-  /// ?�?�만 ?�용 ??추�?결재 ?�산 ???�사 �?만분??0~10000). null?�면 UI?�서 기본 50% ?�용
+  /// 팀장만 사용 — 추가결재 정산 시 회사 몫 만분율(0~10000). null이면 UI에서 기본 50% 적용
   teamLeaderAdditionalReceiptCompanyShareBps Int? @map("team_leader_additional_receipt_company_share_bps")
-  /// ?�??가계�? ??true�??�약금을 ?�???�입(가계�?)???�함. false(기본)�??�사 ?�입?�로 ?�외
+  /// 팀장 가계부 — true면 예약금을 팀장 수입(가계부)에 포함. false(기본)면 회사 수입으로 제외
   teamLeaderHouseholdDepositAsTeamIncome Boolean @default(false) @map("team_leader_household_deposit_as_team_income")
   createdAt    DateTime @default(now()) @map("created_at")
-  /// ?�??본인 ?�무???�록·??�� ?�용(관리자 ?�용??목록?�서 ?�어). 기본 true.
+  /// 팀장 본인 휴무일 등록·삭제 허용(관리자 사용자 목록에서 제어). 기본 true.
   allowSelfDayOffEdit Boolean @default(true) @map("allow_self_day_off_edit")
-  /// 고객 ?�면용 ?�원�??��?지(Cloudinary). ?�?�·마케????관리자 ?�로??
+  /// 고객 대면용 사원증 이미지(Cloudinary). 팀장·마케터 — 관리자 업로드.
   staffIdCardPublicId String? @map("staff_id_card_public_id") @db.VarChar(512)
   staffIdCardUrl      String? @map("staff_id_card_url") @db.VarChar(2048)
-  /// ?�수 변�??�력 ?�림 ?????�용?��? 변�??�력??마�?막으�??�인???�각. ?�후 ?�성분이 미확???�림.
+  /// 접수 변경 이력 알림 — 이 사용자가 변경 이력을 마지막으로 확인한 시각. 이후 생성분이 미확인 알림.
   changeLogSeenAt     DateTime? @map("change_log_seen_at")
   scheduleAlertAcks   InquiryScheduleAlertAck[]
-  /// ?�랫??지???�속 ???�넌?�별 ?�동 ?�성 ADMIN (목록·?�반 로그?�에???��?)
+  /// 플랫폼 지원 접속 — 테넌트별 자동 생성 ADMIN (목록·일반 로그인에서 숨김)
   platformSupportAccessId String? @map("platform_support_access_id")
   platformSupportAccess   TenantSupportAccess? @relation(fields: [platformSupportAccessId], references: [id], onDelete: SetNull)
-  /// 마�???관리자 권한 ??NONE: 기본, LIMITED: 배정·??�� ???��?, FULL: 관리자 ?�용 메뉴 ?�함
+  /// 마케터 관리자 권한 — NONE: 기본, LIMITED: 배정·삭제 등 일부, FULL: 관리자 전용 메뉴 포함
   marketerAdminLevel MarketerAdminLevel @default(NONE) @map("marketer_admin_level")
-  /// 마�????��? 권한 �?JSON). null?�면 marketerAdminLevel ?�리?�만 ?�용
+  /// 마케터 세부 권한 맵(JSON). null이면 marketerAdminLevel 프리셋만 적용
   marketerPermissions Json? @map("marketer_permissions")
-  /// ?�?�·마케?�·�??�체 ??최초 로그??본인 ?�보 ?�력 ?�료 ?�각. null?�면 ?�무 ?�면 차단.
+  /// 팀장·마케터·타업체 — 최초 로그인 본인 정보 입력 완료 시각. null이면 업무 화면 차단.
   profileCompletedAt DateTime? @map("profile_completed_at")
-  /// ?�??�?주소 ??좌표가 ?�어???�???�을 ?�다. ?�선?� 집→?�장?�집.
+  /// 팀장 집 주소 — 좌표가 있어야 팀장 앱을 연다. 동선은 집→현장→집.
   homeAddress       String? @map("home_address") @db.VarChar(512)
   homeAddressDetail String? @map("home_address_detail") @db.VarChar(256)
   homeGeoLat        Float?  @map("home_geo_lat")
   homeGeoLng        Float?  @map("home_geo_lng")
   homeGeoQuery      String? @map("home_geo_query") @db.VarChar(512)
-  /// 추�? ?�공 ?�버?�이?�을 받는 직속 ?�위 마�??? ???�계�?계산?�다.
+  /// 추가 시공 오버라이딩을 받는 직속 상위 마케터. 한 단계만 계산한다.
   parentMarketerId String? @map("parent_marketer_id")
   parentMarketer   User?   @relation("MarketerUpline", fields: [parentMarketerId], references: [id], onDelete: SetNull)
   downlineMarketers User[] @relation("MarketerUpline")
-  /// null?�면 ?�체 기본 비율. ??값이 ?�으�?�?마�??�만 ?�로 ?�다.
+  /// null이면 업체 기본 비율. 세 값이 있으면 그 마케터만 따로 쓴다.
   extraWorkCompanyBps    Int? @map("extra_work_company_bps")
   extraWorkTeamLeaderBps Int? @map("extra_work_team_leader_bps")
   extraWorkMarketerBps   Int? @map("extra_work_marketer_bps")
@@ -1975,7 +1993,7 @@ model User {
   inquiriesCollaborationMarketer Inquiry[] @relation("InquiryCollaborationMarketer")
   inquiriesSoftDeleted Inquiry[]   @relation("InquiryDeletedBy")
   adWorkSessions      AdWorkSession[]
-  /// ?�?�당 1?� (비로그인 ?�?�·휴�?
+  /// 팀장당 1팀 (비로그인 팀원·휴무)
   team                Team? @relation("TeamLeaderTeam")
   scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
   inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
@@ -2032,13 +2050,13 @@ model User {
   teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[] @relation("TeamLeaderHouseholdLedgerOwner")
   teamLeaderHouseholdWageSettings TeamLeaderHouseholdWageSetting[] @relation("TeamLeaderHouseholdWageSettingOwner")
   csReportsForwardedTo          CsReport[] @relation("CsReportForwardedTo")
-  /// 관리자가 ?�성???�자계약(?�?? ?�의 ??`modules/e-contract`
+  /// 관리자가 생성한 전자계약(팀장) 정의 — `modules/e-contract`
   eContractDefinitionsCreated  EContractDefinition[] @relation("EContractDefinitionCreator")
-  /// 발행�?�? ?�로??마�?�??�정????`modules/e-contract`
+  /// 발행측(갑) 프로필 마지막 수정자 — `modules/e-contract`
   eContractIssuerProfilesUpdated EContractIssuerProfile[] @relation("EContractIssuerProfileUpdater")
-  /// ?�자계약 버전 게시??관리자)
+  /// 전자계약 버전 게시자(관리자)
   eContractVersionsPublishedBy EContractVersion[]    @relation("EContractVersionPublisher")
-  /// ?�?�에�?발급·체결???�자계약(?�신�??�용??
+  /// 팀장에게 발급·체결된 전자계약(수신측 사용자)
   eContractIssuancesAsTeamLeader EContractIssuance[] @relation("EContractIssuanceTeamLeader")
   inquiryExcelImportProfilesCreated InquiryExcelImportProfile[] @relation("InquiryExcelImportProfileCreator")
   inquiryExcelImportRunsAsActor InquiryExcelImportRun[] @relation("InquiryExcelImportRunActor")
@@ -2069,7 +2087,7 @@ model User {
   @@map("users")
 }
 
-/// ?�??AI 배정 ?�향 ???�으�??�루 2건·크�??�한 ?�음
+/// 팀장 AI 배정 성향 — 없으면 하루 2건·크기 제한 없음
 model TeamLeaderDispatchProfile {
   userId     String               @id @map("user_id")
   tenantId   String               @map("tenant_id")
@@ -2084,18 +2102,18 @@ model TeamLeaderDispatchProfile {
   @@map("team_leader_dispatch_profiles")
 }
 
-/// ?�체 AI 미리 배정 규칙. ?�수 ?�상?�면 ?�???�원, ?�룸?�로 �??�수 ?�한.
+/// 업체 AI 미리 배정 규칙. 평수 이상이면 팀장 인원, 투룸으로 볼 평수 상한.
 model TenantAiDispatchSettings {
   tenantId             String   @id @map("tenant_id")
   tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   extraLeaderMinPyeong Int      @default(40) @map("extra_leader_min_pyeong")
   extraLeaderCount     Int      @default(2) @map("extra_leader_count")
   twoRoomMaxPyeong     Int      @default(15) @map("two_room_max_pyeong")
-  /// 켜면 ?�???�이 �?건에 ?�로 ?�수�??�한?? ?�?�을 ???�는 ?�체???�다.
+  /// 켜면 팀원 없이 간 건에 피로 점수를 더한다. 팀원을 안 쓰는 업체는 끈다.
   includeCrewInFatigue Boolean  @default(false) @map("include_crew_in_fatigue")
-  /// ??근무?�수�??�로??보통?�다. 기본 �?6??
+  /// 이 근무일수면 피로의 보통이다. 기본 주 6일.
   normalWorkDaysPerWeek Int     @default(6) @map("normal_work_days_per_week")
-  /// ??건수�??�로??보통?�다. 기본 �?12�?
+  /// 이 건수면 피로의 보통이다. 기본 주 12건.
   normalJobsPerWeek    Int      @default(12) @map("normal_jobs_per_week")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -2115,7 +2133,7 @@ enum AiDispatchProposalStatus {
   STALE
 }
 
-/// 관리자가 ?�짜�?고르�?버튼???��????�만 ?�기??AI 초안. ?�인 ?�에??배정???�니??
+/// 관리자가 날짜를 고르고 버튼을 눌렀을 때만 생기는 AI 초안. 승인 전에는 배정이 아니다.
 model AiDispatchRun {
   id                String             @id @default(uuid())
   tenantId          String             @map("tenant_id")
@@ -2143,7 +2161,7 @@ model AiDispatchProposal {
   inquiry          Inquiry                  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
   teamLeaderId     String?                  @map("team_leader_id")
   teamLeader       User?                    @relation(fields: [teamLeaderId], references: [id], onDelete: SetNull)
-  /// 초안??만들 ??AI가 ?��? ?�?? 관리자가 바꾸�???값과 비교???�습?�다.
+  /// 초안을 만들 때 AI가 넣은 팀장. 관리자가 바꾸면 이 값과 비교해 학습한다.
   aiTeamLeaderId   String?                  @map("ai_team_leader_id")
   /// AM | PM | ALL_DAY | HUMAN
   slot             String                   @db.VarChar(16)
@@ -2157,7 +2175,7 @@ model AiDispatchProposal {
   @@map("ai_dispatch_proposals")
 }
 
-/// 배정 ?�습. 고객 ?�름·?�화???��? ?�는?? CORRECTION=관리자 ?�정, HISTORY=지??배정 ?�약.
+/// 배정 학습. 고객 이름·전화는 넣지 않는다. CORRECTION=관리자 수정, HISTORY=지난 배정 요약.
 model AiDispatchLesson {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -2173,7 +2191,7 @@ model AiDispatchLesson {
   @@map("ai_dispatch_lessons")
 }
 
-/// ?�??급여????귀???�별 ?�시 지�??�역(관리자 기록). 고정 급여???�이 ?�러 차�? ?�금 가??
+/// 팀장 급여표 — 귀속 월별 수시 지급 내역(관리자 기록). 고정 급여일 없이 여러 차례 입금 가능.
 model TeamLeaderPayrollPayment {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
@@ -2193,7 +2211,7 @@ model TeamLeaderPayrollPayment {
   @@map("team_leader_payroll_payments")
 }
 
-/// ?�???�?�체 계정 브라?��? Web Push 구독 (?�드?�인?�당 1??
+/// 팀장/타업체 계정 브라우저 Web Push 구독 (엔드포인트당 1행)
 model TeamLeaderWebPushSubscription {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
@@ -2210,7 +2228,7 @@ model TeamLeaderWebPushSubscription {
   @@map("team_leader_web_push_subscriptions")
 }
 
-/// Google Play ?�청?�비?��??�무 ??FCM ?�큰 (com.cbiseo.app)
+/// Google Play 「청소비서」 업무 앱 FCM 토큰 (com.cbiseo.app)
 model StaffAppFcmToken {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -2228,7 +2246,7 @@ model StaffAppFcmToken {
   @@map("staff_app_fcm_tokens")
 }
 
-/// ?�넌???�림 ?�책 ??종류�?on/off·?�수·반복 주기 (관리자 ?�정)
+/// 테넌트 알림 정책 — 종류별 on/off·필수·반복 주기 (관리자 설정)
 model TenantNotificationPolicy {
   tenantId  String   @id @map("tenant_id")
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -2238,7 +2256,7 @@ model TenantNotificationPolicy {
   @@map("tenant_notification_policies")
 }
 
-/// ?�용???�???? ?�시 on/off ??mandatory 종류???�버?�서 무시
+/// 사용자(팀장 등) 푸시 on/off — mandatory 종류는 서버에서 무시
 model UserNotificationPreference {
   tenantId  String   @map("tenant_id")
   userId    String   @map("user_id")
@@ -2251,7 +2269,7 @@ model UserNotificationPreference {
   @@map("user_notification_preferences")
 }
 
-/// cron·반복 ?�림 dedupe (?�피�???
+/// cron·반복 알림 dedupe (해피콜 등)
 model NotificationDeliveryLog {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -2268,7 +2286,7 @@ model NotificationDeliveryLog {
   @@map("notification_delivery_logs")
 }
 
-/// ?�?�당 1?� (?�?��? 로그???�음, 마스?�·휴무만 관�?
+/// 팀장당 1팀 (팀원은 로그인 없음, 마스터·휴무만 관리)
 model Team {
   id           String   @id @default(uuid())
   tenantId     String   @map("tenant_id")
@@ -2289,24 +2307,27 @@ model TeamMember {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  /// null?�면 ?�???�속 ?�이 ?�사 ?� ?�??  teamId    String?  @map("team_id")
+  /// null이면 팀장 소속 없이 전사 풀 팀원
+  teamId    String?  @map("team_id")
   name      String
   nameTh    String?  @map("name_th") @db.VarChar(128)
-  /// KO/TH/MN ??보조 ?�시�?nameTh) ?�벨·?�루 ?�면 ?�기 구분
+  /// KO/TH/MN — 보조 표시명(nameTh) 라벨·크루 화면 표기 구분
   nationality CrewUiLanguage @default(KO) @map("nationality")
   phone     String?
-  /// ?�루 그룹???�정 ???�업·?�비??�?주소 (카카??검??기본 + ?�세)
+  /// 크루 그룹장 설정 — 픽업·네비용 집 주소 (카카오 검색 기본 + 상세)
   homeAddress       String? @map("home_address") @db.VarChar(512)
   homeAddressDetail String? @map("home_address_detail") @db.VarChar(256)
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")
-  /// ?�사???�함) ???�당?��????��?줄·배???�?? null?�면 ?�한 ?�음
+  /// 입사일(포함) — 해당일부터 스케줄·배정 대상. null이면 제한 없음
   hireDate     DateTime? @map("hire_date") @db.Date
-  /// ?�사??미포?? ???�당?��???근무·배정 ?�외. null?�면 ?�직 �?  resignationDate DateTime? @map("resignation_date") @db.Date
-  /// 매월 급여 지급일(1~31). null?�면 미설?????�???�급 ?�산(근무??????  monthlyPayDay   Int? @map("monthly_pay_day")
-  /// 1??급여(?�당, ??. null?�면 미설?????�산 ??근무???�×일??계산???�용(같�? ???�러 ?�장??1?�로 집계)
+  /// 퇴사일(미포함) — 해당일부터 근무·배정 제외. null이면 재직 중
+  resignationDate DateTime? @map("resignation_date") @db.Date
+  /// 매월 급여 지급일(1~31). null이면 미설정 — 팀원 월급 정산(근무일 수)용
+  monthlyPayDay   Int? @map("monthly_pay_day")
+  /// 1일 급여(일당, 원). null이면 미설정 — 정산 시 근무일 수×일당 계산에 사용(같은 날 여러 현장도 1일로 집계)
   payAmountPerJob Int? @map("pay_amount_per_job")
-  /// 고객 ?�면용 ?�원�??��?지(Cloudinary). ?�장 ?�????관리자 ?�로??
+  /// 고객 대면용 사원증 이미지(Cloudinary). 현장 팀원 — 관리자 업로드.
   staffIdCardPublicId String? @map("staff_id_card_public_id") @db.VarChar(512)
   staffIdCardUrl      String? @map("staff_id_card_url") @db.VarChar(2048)
   createdAt DateTime @default(now()) @map("created_at")
@@ -2327,7 +2348,7 @@ model TeamMember {
   @@map("team_members")
 }
 
-/// ?�장 ?�??급여 ?�산 ?�료 (귀???�당 1�????�정 지급액 ?�냅??
+/// 현장 팀원 급여 정산 완료 (귀속 월당 1건 — 확정 지급액 스냅샷)
 model TeamMemberPayrollSettlement {
   id           String   @id @default(uuid())
   teamMemberId String   @map("team_member_id")
@@ -2344,7 +2365,7 @@ model TeamMemberPayrollSettlement {
   @@map("team_member_payroll_settlements")
 }
 
-/// 마�???급여 ?�산 ?�료 (귀???�당 1�???부�?지�???미정?�액?� ?�음 ???�산)
+/// 마케터 급여 정산 완료 (귀속 월당 1건 — 부분 지급 시 미정산액은 다음 달 합산)
 model MarketerPayrollSettlement {
   id                     String   @id @default(uuid())
   userId                 String   @map("user_id")
@@ -2364,7 +2385,7 @@ model MarketerPayrollSettlement {
   @@map("marketer_payroll_settlements")
 }
 
-/// ??급여?????�장 ?�?�별 ?�당 귀?????�기 추�? 근무???�동 ?�정 ?�수??가??
+/// 월 급여표 — 현장 팀원별 해당 귀속 월 수기 추가 근무일(자동 산정 일수에 가산)
 model TeamMemberPayrollMonthAdjust {
   id             String   @id @default(uuid())
   teamMemberId   String   @map("team_member_id")
@@ -2380,43 +2401,45 @@ model TeamMemberPayrollMonthAdjust {
   @@map("team_member_payroll_month_adjusts")
 }
 
-/// ?�루 그룹 가??방식 ??ROSTER: ?�루???�자 명단 / DAY_OFF: 기본 근무·?�무�??�외
+/// 크루 그룹 가용 방식 — ROSTER: 크루장 일자 명단 / DAY_OFF: 기본 근무·휴무만 제외
 enum CrewGroupAvailabilityMode {
   ROSTER
   DAY_OFF
 }
 
-/// ?�루 ??UI ?�시 ?�어 (그룹??1�?
+/// 크루 앱 UI 표시 언어 (그룹당 1개)
 enum CrewUiLanguage {
   KO
   TH
   MN
 }
 
-/// ?�루 그룹 급여·?�적 집계 ?�위
+/// 크루 그룹 급여·실적 집계 단위
 enum CrewWorkCountMode {
   DISTINCT_DAY
   PER_INQUIRY
 }
 
-/// ?�국???�????공유 로그?�으�?같�? ?�면??보는 ?�루 그룹(?�??관리에???�성·?�정)
+/// 태국인 팀원 등 공유 로그인으로 같은 화면을 보는 크루 그룹(팀원 관리에서 생성·설정)
 model TeamCrewGroup {
   id     String @id @default(uuid())
   tenantId String @map("tenant_id")
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name   String
-  /// 공유 로그???�이???�넌????고유)
+  /// 공유 로그인 아이디(테넌트 내 고유)
   loginId String @map("login_id") @db.VarChar(64)
   passwordHash String @map("password_hash")
   phone   String? @db.VarChar(32)
-  /// ROSTER: ?�자 명단???�는 멤버�?가??명단 ?�선·?�무 무시). DAY_OFF: ?�무 ?�닌 ??기본 가??  availabilityMode CrewGroupAvailabilityMode @default(ROSTER) @map("availability_mode")
-  /// ?�루 ?�면 UI ?�어
+  /// ROSTER: 일자 명단에 있는 멤버만 가용(명단 우선·휴무 무시). DAY_OFF: 휴무 아닌 날 기본 가용
+  availabilityMode CrewGroupAvailabilityMode @default(ROSTER) @map("availability_mode")
+  /// 크루 화면 UI 언어
   crewUiLanguage CrewUiLanguage @default(KO) @map("crew_ui_language")
-  /// DAY_OFF 그룹 ???�루 ?�에???�무???�록 ?�용(관리자 ON/OFF)
+  /// DAY_OFF 그룹 — 크루 앱에서 휴무일 등록 허용(관리자 ON/OFF)
   allowCrewDayOffEdit Boolean @default(false) @map("allow_crew_day_off_edit")
-  /// DISTINCT_DAY: KST ?�약??기�? 1??1?? PER_INQUIRY: ?�장 메모 매칭 ?�수 건수
+  /// DISTINCT_DAY: KST 예약일 기준 1일 1회. PER_INQUIRY: 현장 메모 매칭 접수 건수
   workCountMode CrewWorkCountMode @default(DISTINCT_DAY) @map("work_count_mode")
-  /// 민감 ?�정 ??별도 ?�인??비�?번호(공유 로그??비번�?별개). null?�면 미설??  settingsPasswordHash String? @map("settings_password_hash")
+  /// 민감 설정 시 별도 확인용 비밀번호(공유 로그인 비번과 별개). null이면 미설정
+  settingsPasswordHash String? @map("settings_password_hash")
   isActive Boolean @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -2431,7 +2454,7 @@ model TeamCrewGroup {
   @@map("team_crew_groups")
 }
 
-/// ?�영(관리자·마�?????공�? ???�크루�??�신???�택??경우 ??공유 로그???� ?�루 그룹)??조회
+/// 운영(관리자·마케터)이 공지 시 「크루」 수신을 선택한 경우 — 공유 로그인(팀 크루 그룹)이 조회
 model CrewStaffNotice {
   id          String   @id @default(uuid())
   batchId     String   @map("batch_id") @db.VarChar(64)
@@ -2462,13 +2485,13 @@ model TeamCrewGroupMember {
   @@map("team_crew_group_members")
 }
 
-/// 그룹?�이 ?�짜별로 ?�이???�할 ???�는???�??명단
+/// 그룹장이 날짜별로 「이날 일할 수 있는」 팀원 명단
 model TeamCrewGroupDayRoster {
   id           String   @id @default(uuid())
   groupId      String   @map("group_id")
   date         DateTime @db.Date
   teamMemberId String   @map("team_member_id")
-  /** ?�루 ?�장 ?�정 미팅 �??��?기�??�시 ??가??마�???배정) ?��??� 무�? */
+  /** 크루 현장 일정 미팅 칸 「대기」 표시 — 가용(마케터 배정) 여부와 무관 */
   isStandby    Boolean  @default(false) @map("is_standby")
   createdAt    DateTime @default(now()) @map("created_at")
 
@@ -2480,12 +2503,12 @@ model TeamCrewGroupDayRoster {
   @@map("team_crew_group_day_roster")
 }
 
-/// ?�루 그룹?�이 ?�록?�는 ?�?�별 ?�별 지�??�수�?첨�? 가??
+/// 크루 그룹장이 등록하는 팀원별 월별 지출(영수증 첨부 가능)
 model TeamCrewGroupExpense {
   id           String   @id @default(uuid())
   crewGroupId  String   @map("crew_group_id")
   teamMemberId String   @map("team_member_id")
-  /// 귀????YYYY-MM (KST ?�력 기�?�??�일?�게 ?�라?�언?�에???�달)
+  /// 귀속 월 YYYY-MM (KST 달력 기준과 동일하게 클라이언트에서 전달)
   monthKey     String   @map("month_key") @db.VarChar(7)
   amount       Int
   memo         String?  @db.Text
@@ -2516,7 +2539,7 @@ model TeamCrewGroupExpenseAttachment {
   @@map("team_crew_group_expense_attachments")
 }
 
-/// 급여???��?출」탭 ??관리자가 귀???�별�?기록?�는 개인·?�무 지�?참고?? ?�건�??�정�?무�?)
+/// 급여표 「지출」탭 — 관리자가 귀속 월별로 기록하는 개인·업무 지출(참고용, 인건비 산정과 무관)
 model PayrollAdminPersonalExpense {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -2534,7 +2557,7 @@ model PayrollAdminPersonalExpense {
   @@map("payroll_admin_personal_expenses")
 }
 
-/// 급여???�정?�」탭 ??관리자가 귀???�별�?기록?�는 공용·부??지�?참고?? ?�건�??�정�?무�?)
+/// 급여표 「정산」탭 — 관리자가 귀속 월별로 기록하는 공용·부서 지출(참고용, 인건비 산정과 무관)
 model PayrollAdminSharedExpense {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -2552,7 +2575,7 @@ model PayrollAdminSharedExpense {
   @@map("payroll_admin_shared_expenses")
 }
 
-/// 급여???�정?�」탭 ?�입 ?�역 ??귀???�별 ?�제 ?�금 기록(참고?? ?�수 매출 ?�동 집계?� 별개)
+/// 급여표 「정산」탭 수입 영역 — 귀속 월별 실제 입금 기록(참고용, 접수 매출 자동 집계와 별개)
 model PayrollIncomeDeposit {
   id           String   @id @default(uuid())
   tenantId     String   @map("tenant_id")
@@ -2576,7 +2599,7 @@ enum PayrollAccountLedgerManualDirection {
   OUT
 }
 
-/// ?�기 ?��? 지출을 급여 ?�???�장·?�????�??�결????구분 ???�장??enum
+/// 수기 장부 지출을 급여 대상(현장·팀장 등)과 연결할 때 구분 — 확장용 enum
 enum PayrollLedgerManualPayrollLinkKind {
   NONE
   POOL_MEMBER
@@ -2585,7 +2608,7 @@ enum PayrollLedgerManualPayrollLinkKind {
   EXTERNAL_COMPANY
 }
 
-/// ?�정?�표 ?�계???�입·지�??�」�?관리자 ?�기 ?�입·지�??�금???��? 반영)
+/// 월정산표 「계정 수입·지출 표」— 관리자 수기 수입·지출(현금성 장부 반영)
 model PayrollAccountLedgerManualEntry {
   id           String                          @id @default(uuid())
   tenantId     String                          @map("tenant_id")
@@ -2596,7 +2619,7 @@ model PayrollAccountLedgerManualEntry {
   accountLabel String                          @map("account_label") @db.VarChar(128)
   amount       Int
   memo         String?                         @db.Text
-  /// 지출을 ?�정 급여 ?�???��?�??�상?�서 차감?????�입?� NONE 고정)
+  /// 지출을 특정 급여 대상 실지급 예상에서 차감할 때(수입은 NONE 고정)
   payrollLinkKind PayrollLedgerManualPayrollLinkKind @default(NONE) @map("payroll_link_kind")
   linkTeamMemberId String?                        @map("link_team_member_id")
   linkUserId       String?                        @map("link_user_id")
@@ -2621,20 +2644,20 @@ enum TeamLeaderHouseholdLedgerDirection {
   EXPENSE
 }
 
-/// ?�??가계�? ??본인 ?�금 계산 방식 (?�사 급여?��? 별도)
+/// 팀장 가계부 — 본인 임금 계산 방식 (회사 급여표와 별도)
 enum TeamLeaderHouseholdWageMode {
   BALANCE_PCT
   DAILY
   MONTHLY
 }
 
-/// ?�당???�장마다 ?�눌지, 같�? ?��? ??줄로 모을지
+/// 일당을 현장마다 나눌지, 같은 날은 한 줄로 모을지
 enum TeamLeaderHouseholdDailyPayBasis {
   PER_DAY
   PER_INQUIRY
 }
 
-/// ?�??개인 가계�? ???�사 ?�산�?별도, 본인 ?�입·지�?기록
+/// 팀장 개인 가계부 — 회사 정산과 별도, 본인 수입·지출 기록
 model TeamLeaderHouseholdLedgerEntry {
   id           String                           @id @default(uuid())
   tenantId     String                           @map("tenant_id")
@@ -2646,7 +2669,7 @@ model TeamLeaderHouseholdLedgerEntry {
   memo         String?                          @db.Text
   inquiryId    String?                          @map("inquiry_id")
   prefillKind  String?                          @map("prefill_kind") @db.VarChar(32)
-  /// true�??�?�이 금액??직접 고침 ???�동 ?�기?��? ??��?��? ?�음
+  /// true면 팀장이 금액을 직접 고침 — 자동 동기화가 덮어쓰지 않음
   amountLocked Boolean                          @default(false) @map("amount_locked")
   createdAt    DateTime                         @default(now()) @map("created_at")
   updatedAt    DateTime                         @updatedAt @map("updated_at")
@@ -2660,7 +2683,7 @@ model TeamLeaderHouseholdLedgerEntry {
   @@map("team_leader_household_ledger_entries")
 }
 
-/// ?�??본인 가계�? ?�금 ?�정 ???�체 급여?��? 분리
+/// 팀장 본인 가계부 임금 설정 — 업체 급여표와 분리
 model TeamLeaderHouseholdWageSetting {
   id                   String                       @id @default(uuid())
   tenantId             String                       @map("tenant_id")
@@ -2669,9 +2692,9 @@ model TeamLeaderHouseholdWageSetting {
   balanceSharePercent  Int                          @default(100) @map("balance_share_percent")
   dailyAmountWon       Int?                         @map("daily_amount_won")
   monthlyAmountWon     Int?                         @map("monthly_amount_won")
-  /// ?�당????건마??PER_INQUIRY) ?�는 ?�루 ?�합(PER_DAY)
+  /// 일당일 때 건마다(PER_INQUIRY) 또는 하루 통합(PER_DAY)
   dailyPayBasis        TeamLeaderHouseholdDailyPayBasis @default(PER_DAY) @map("daily_pay_basis")
-  /// ??��???�당/?�급 �???(`D:YYYY-MM-DD`, `M:YYYY-MM`)
+  /// 삭제한 일당/월급 줄 키 (`D:YYYY-MM-DD`, `M:YYYY-MM`)
   suppressedWageKeys   Json                         @default("[]") @map("suppressed_wage_keys")
   createdAt            DateTime                     @default(now()) @map("created_at")
   updatedAt            DateTime                     @updatedAt @map("updated_at")
@@ -2699,9 +2722,9 @@ model UserDayOff {
   id            String   @id @default(uuid())
   teamLeaderId  String   @map("team_leader_id")
   date          DateTime @db.Date @map("date")
-  /// true = 관�??��?�??��??�조?��??�롯 ?�외�? ?�???�무 ?�력·본인 ?�무?� 분리)
+  /// true = 관리 스케줄 「팀장조정」(슬롯 제외만, 팀장 휴무 달력·본인 휴무와 분리)
   adminSlotAdjust Boolean @default(false) @map("admin_slot_adjust")
-  /// true = ?�??본인???�무 ?�력???�록
+  /// true = 팀장 본인이 휴무 달력에 등록
   selfRegistered    Boolean @default(false) @map("self_registered")
   createdAt     DateTime @default(now()) @map("created_at")
 
@@ -2722,9 +2745,9 @@ enum UserRole {
   ADMIN
   TEAM_LEADER
   MARKETER
-  /// ?�반 ?�무�???급여?�·정???�건비만(관�??�무 로그???�음)
+  /// 일반 사무직 — 급여표·정산 인건비만(관리 업무 로그인 없음)
   OFFICE_STAFF
-  /// ?�?�체 ?�당?????�?�과 ?�일?�게 /team 로그?�·담???�수 조회
+  /// 타업체 담당자 — 팀장과 동일하게 /team 로그인·담당 접수 조회
   EXTERNAL_PARTNER
 }
 
@@ -2734,7 +2757,7 @@ enum MarketerAdminLevel {
   FULL
 }
 
-/// KST ?�자�??�수 ?�번 (YYMMDD + 4?�리 = 10?�리 `inquiry_number` 발급?? ?�업 ?�체�?
+/// KST 일자별 접수 순번 (YYMMDD + 4자리 = 10자리 `inquiry_number` 발급용, 영업 업체별)
 model DailyInquiryCounter {
   tenantId           String @map("tenant_id")
   tenant             Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -2747,14 +2770,14 @@ model DailyInquiryCounter {
   @@map("daily_inquiry_counters")
 }
 
-/// 발주?�·접?????�사 구분(10�?
+/// 발주서·접수 — 이사 구분(10번)
 enum MoveInTiming {
   SAME_DAY
   PLANNED
   NOT_APPLICABLE
 }
 
-/// 마�??�·�?리자 ?��???고객 ?�급(?�수 ?�위) ??고객·?��? ?�출 금�?
+/// 마케터·관리자 내부용 고객 등급(접수 단위) — 고객·외부 노출 금지
 enum InternalCustomerTone {
   GOOD
   NORMAL
@@ -2769,98 +2792,101 @@ model Inquiry {
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   operatingCompanyId String    @map("operating_company_id")
   operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
-  /// 고객·검?�용 ?�수번호 (KST YYMMDD + 4?�리 + ?�택 ?�두)
+  /// 고객·검색용 접수번호 (KST YYMMDD + 4자리 + 선택 접두)
   inquiryNumber   String?      @map("inquiry_number") @db.VarChar(24)
   customerName    String       @map("customer_name")
-  /// ?�택 ?�력: 고객 ?�칭·별칭(?? ?�머?? 관리실)
+  /// 선택 입력: 고객 호칭·별칭(예: 어머님, 관리실)
   nickname        String?      @map("nickname")
   customerPhone   String       @map("customer_phone")
   customerPhone2  String?      @map("customer_phone_2")
-  /// 고객 발주???�출 ???�력 ???�수 ?�인 메일 ?�신
+  /// 고객 발주서 제출 시 입력 — 접수 확인 메일 수신
   customerEmail   String?      @map("customer_email") @db.VarChar(320)
   address         String
   addressDetail   String?      @map("address_detail")
-  /// ?�로�???지?�코???�력�??�일??문자??변�??�에�?카카?�·Nominatim ?�조??
+  /// 도로명 등 지오코딩 입력과 동일한 문자열(변경 시에만 카카오·Nominatim 재조회)
   addressGeoQuery String?      @map("address_geo_query") @db.VarChar(512)
   addressGeoLat   Float?       @map("address_geo_lat")
   addressGeoLng   Float?       @map("address_geo_lng")
   areaPyeong      Float?       @map("area_pyeong")
   areaBasis       String?      @map("area_basis")
-  /// ?�용면적 기�? ??고객·관리자 참고???�곱미터(??. ?�수?� 별도.
+  /// 전용면적 기준 시 고객·관리자 참고용 제곱미터(㎡). 평수와 별도.
   exclusiveAreaSqm Float?      @map("exclusive_area_sqm")
   propertyType    String?      @map("property_type")
-  /// 발주?�·접???�집?�서 ?�룸 체크 ??true ??목록·?��?�??�시??  isOneRoom       Boolean      @default(false) @map("is_one_room")
+  /// 발주서·접수 편집에서 원룸 체크 시 true — 목록·스케줄 표시용
+  isOneRoom       Boolean      @default(false) @map("is_one_room")
   roomCount       Int?         @map("room_count")
   bathroomCount   Int?         @map("bathroom_count")
   balconyCount    Int?         @map("balcony_count")
   preferredDate       DateTime? @map("preferred_date")
   preferredTime       String?   @map("preferred_time")
-  /// ?�이�?���? 미확??null, ?�정 ???�전/?�후 �??�나(?�당 ?�롯 1�??�모)
+  /// 사이청소만: 미확정 null, 확정 시 오전/오후 중 하나(해당 슬롯 1건 소모)
   betweenScheduleSlot String?   @map("between_schedule_slot")
   preferredTimeDetail String?   @map("preferred_time_detail")
   callAttempt     Int?         @map("call_attempt")
   memo            String?
   claimMemo       String?       @map("claim_memo")
   status          InquiryStatus @default(RECEIVED)
-  source          String?      @default("?�화")
-  /// ?�수 ?�무 경로 ??telecrm, order_issue, order_form_submit, schedule, phone, manual
+  source          String?      @default("전화")
+  /// 접수 업무 경로 — telecrm, order_issue, order_form_submit, schedule, phone, manual
   intakeChannel   String?      @map("intake_channel") @db.VarChar(32)
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at")
-  /// ?�?�이 지?�한 ?�루 ?�장 미팅 ?�각(KST, "HH:mm"). ?�전 ?�망 ?�수?�만 ?�출 ?�에 ?�용
+  /// 팀장이 지정한 크루 현장 미팅 시각(KST, "HH:mm"). 오전 희망 접수에만 노출 등에 사용
   crewMeetingTime   String?       @map("crew_meeting_time") @db.VarChar(5)
-  /// true(기본): crewMeetingTime???�입 ?�???�원??공용 ?�용. false: ?�?�별 ???�용
+  /// true(기본): crewMeetingTime을 투입 팀원 전원에 공용 적용. false: 팀원별 행 사용
   crewMeetingTimeShared Boolean     @default(true) @map("crew_meeting_time_shared")
-  /// ?�?�이 미팅 ?�각???�?�·�?경한 ?�각(?�루 UI «?�정?��?배�???
+  /// 팀장이 미팅 시각을 저장·변경한 시각(크루 UI «수정됨» 배지용)
   crewMeetingTimeUpdatedAt DateTime? @map("crew_meeting_time_updated_at")
-  /// ?�?�이 고객?�게 ?�화�??�정 ?�내(?�피�? ?�료 ?�각 ??미입?�이�?미완�?  happyCallCompletedAt DateTime? @map("happy_call_completed_at")
+  /// 팀장이 고객에게 전화로 일정 안내(해피콜) 완료 시각 — 미입력이면 미완료
+  happyCallCompletedAt DateTime? @map("happy_call_completed_at")
 
   assignments   Assignment[]
   extraCharges  InquiryExtraCharge[]
   additionalReceipts InquiryAdditionalReceipt[]
   extraWorkRecords ExtraWorkRecord[]
   buildingType String?       @map("building_type")
-  /// 발주??10�????�일?�사 / ?�사?�정 / ?�당?�음
+  /// 발주서 10번 — 당일이사 / 이사예정 / 해당없음
   moveInTiming MoveInTiming? @map("move_in_timing")
   moveInDate   DateTime?     @map("move_in_date")
-  /// 거주 ???�택 ???�사??미입???�???��??��??�시(발주?�·접???�기??
+  /// 거주 외 선택 시 이사일 미입력 대신 「미정」 표시(발주서·접수 동기화)
   moveInDateUndecided Boolean @default(false) @map("move_in_date_undecided")
   specialNotes String?       @map("special_notes")
   kitchenCount Int?          @map("kitchen_count")
-  /// ?�산·?��?줄용 금액(발주???�동 ???�동 ?�력, 개별 ?�수??관리자 ?�력)
+  /// 정산·스케줄용 금액(발주서 연동 시 자동 입력, 개별 접수는 관리자 입력)
   serviceTotalAmount   Int? @map("service_total_amount")
   serviceDepositAmount Int? @map("service_deposit_amount")
   serviceBalanceAmount Int? @map("service_balance_amount")
-  /// ?�장 ?�입 비로그인 ?�???�원 ??관리자 ?�력)
+  /// 현장 투입 비로그인 팀원 인원 수(관리자 입력)
   crewMemberCount Int?       @map("crew_member_count")
-  /// ?�???�구 ?�입 ???�기 메모(?? 김,??
+  /// 팀원 누구 투입 등 수기 메모(예: 김,태)
   crewMemberNote  String?    @map("crew_member_note")
-  /// ?��?�?목록(?�름·?�수번호 ???�만 ?�는 짧�? 메모 ???�이?�항·발주??메모?� 별개
+  /// 스케줄 목록(이름·접수번호 옆)에만 쓰는 짧은 메모 — 특이사항·발주서 메모와 별개
   scheduleMemo    String?    @map("schedule_memo")
-  /// ?�담·참고 ?�진�??�께 ?�는 마�???메모 ???�당 ?�?�·�??�체·마�???공유
+  /// 상담·참고 사진과 함께 쓰는 마케터 메모 — 담당 팀장·타업체·마케터 공유
   consultationMemo String?   @map("consultation_memo") @db.Text
-  /// ?�?�체 ?�당 ??받는 ?�수�???. 미입????null
+  /// 타업체 담당 시 받는 수수료(원). 미입력 시 null
   externalTransferFee Int?   @map("external_transfer_fee")
-  /// 취소 ?�에???�?�체 ?�수�???��개�? ?�해 취소 ?�점 ?�체 id 보�?
+  /// 취소 후에도 타업체 수수료 역분개를 위해 취소 시점 업체 id 보관
   cancelFeeExternalCompanyId String?          @map("cancel_fee_external_company_id")
   cancelFeeExternalCompany   ExternalCompany? @relation("InquiryCancelFeeExternalCompany", fields: [cancelFeeExternalCompanyId], references: [id], onDelete: SetNull)
   orderFormId  String?       @map("order_form_id")
-  /// ?�화·?�기 ?�수 ??고른 발주???�식. 발주?��? ?�기�?orderForm.templateId 가 ?�선.
+  /// 전화·수기 접수 때 고른 발주서 양식. 발주서가 생기면 orderForm.templateId 가 우선.
   intakeTemplateId String?   @map("intake_template_id")
-  /// ?�식?�만 ?�는 추�? �????�어�??�????. 발주?��? ?�기�?그쪽?�로 ???.
+  /// 양식에만 있는 추가 칸 답(에어컨 대수 등). 발주서가 생기면 그쪽으로 옮김.
   intakeCustomAnswers Json?  @map("intake_custom_answers")
-  /// ?�수 ?�록??마�?????. 발주???�출 ??발주???�성 마�???기�?.
+  /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
-  /// ?�업 마�??? 마�??�별 ?�정 ?�약 집계 ?�협?�」열??반영. 광고비�? 무�?.
+  /// 협업 마케터. 마케터별 확정 예약 집계 「협업」열에 반영. 광고비와 무관.
   collaborationMarketerId String? @map("collaboration_marketer_id")
-  /// ?��? 고객 ?�급(?��/?��/?��) ??마�??�·�?리자�?조회·?�정
+  /// 내부 고객 등급(😊/😐/😠) — 마케터·관리자만 조회·수정
   internalCustomerTone InternalCustomerTone @default(NORMAL) @map("internal_customer_tone")
-  /// ?�문 ?�공 ?�션 id 목록(JSON 배열 문자??
+  /// 전문 시공 옵션 id 목록(JSON 배열 문자열)
   professionalOptionIds Json? @map("professional_option_ids")
-  /// 고객??발주?�에??추�? ?�공 ?�션 ?�택 ??마�???금액·추�?결재 ?�정 ??true
+  /// 고객이 발주서에서 추가 시공 옵션 선택 — 마케터 금액·추가결재 확정 전 true
   profOptionsAmountReviewPending Boolean @default(false) @map("prof_options_amount_review_pending")
-  /// 발주??추�? ??�� �?목록 ?�출 ?�?????�출 ???�벨·�??�냅??  orderFormListSnapshot Json? @map("order_form_list_snapshot")
-  /// ?��???soft delete) ??null?�면 ?�성 ?�수
+  /// 발주서 추가 항목 중 목록 노출 대상 — 제출 시 라벨·값 스냅샷
+  orderFormListSnapshot Json? @map("order_form_list_snapshot")
+  /// 휴지통(soft delete) — null이면 활성 접수
   deletedAt   DateTime? @map("deleted_at")
   deletedById String?   @map("deleted_by_id")
   deletedBy   User?     @relation("InquiryDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
@@ -2927,7 +2953,7 @@ enum ExtraWorkSettlementKind {
   COMPANY_SUPPORT
 }
 
-/// ?�체 기본 추�? ?�공 비율. ?��? 10000. ?�습 ?�용?� 견적 ?�이 ?�기�??�까지 기록�??�다.
+/// 업체 기본 추가 시공 비율. 합은 10000. 학습 사용은 견적 앱이 생기기 전까지 기록만 한다.
 model TenantExtraWorkSetting {
   tenantId       String   @id @map("tenant_id")
   companyBps     Int      @default(10000) @map("company_bps")
@@ -2942,7 +2968,7 @@ model TenantExtraWorkSetting {
   @@map("tenant_extra_work_settings")
 }
 
-/// ?�장 추�? ?�공. ?�수 총액·?�금�??�??추�?결재?� ?�로 ?�다. 비율?� ?�???�점 ?�냅??
+/// 현장 추가 시공. 접수 총액·잔금과 팀장 추가결재와 따로 둔다. 비율은 저장 시점 스냅샷.
 model ExtraWorkRecord {
   id                String                   @id @default(uuid())
   tenantId          String                   @map("tenant_id")
@@ -2981,7 +3007,7 @@ model ExtraWorkRecord {
   @@map("extra_work_records")
 }
 
-/// ??�?추�? ?�공????��. 종류·?�치·?�량·금액?� ??��마다 ?�로 ?�고, ?�진?� ????��??붙인??
+/// 한 집 추가 시공의 항목. 종류·위치·수량·금액은 항목마다 따로 두고, 사진은 이 항목에 붙인다.
 model ExtraWorkLine {
   id         String  @id @default(uuid())
   tenantId   String  @map("tenant_id")
@@ -3038,7 +3064,7 @@ model ExtraWorkLeaderShare {
   @@map("extra_work_leader_shares")
 }
 
-/// ?�수·?�?�별 ?�루 미팅 ?�각(crewMeetingTimeShared=false ????
+/// 접수·팀원별 크루 미팅 시각(crewMeetingTimeShared=false 일 때)
 model InquiryCrewMemberMeetingTime {
   id           String   @id @default(uuid())
   tenantId     String   @map("tenant_id")
@@ -3055,7 +3081,7 @@ model InquiryCrewMemberMeetingTime {
   @@map("inquiry_crew_member_meeting_times")
 }
 
-/// ?�수·?�?�별 ?�당 ?�??복수 ?�?�·오???�후 분리 ??
+/// 접수·팀원별 담당 팀장(복수 팀장·오전/오후 분리 등)
 model InquiryCrewLeaderAssignment {
   id             String   @id @default(uuid())
   tenantId       String   @map("tenant_id")
@@ -3078,20 +3104,21 @@ model InquiryCrewLeaderAssignment {
 enum CleaningPhotoPhase {
   BEFORE
   AFTER
-  /// ?�수 목록 ?�에??C/S(?�레?? ?�록 ??첨�? ??�?�� ?�·후?� 구분
+  /// 접수 목록 등에서 C/S(클레임) 등록 시 첨부 — 청소 전·후와 구분
   CLAIM
 }
 
-/// 추�?결재 ?�금 경로 ???�산(?�당 가?�·차�? 방식???�름
+/// 추가결재 수금 경로 — 정산(일당 가산·차감) 방식이 다름
 enum AdditionalReceiptSettlementChannel {
-  /// ?�사 계좌 ?�금 ???�??지급액??본인 몫만??가??  COMPANY_DEPOSIT
-  /// ?�장?�서 ?�?�이 직접 ?�금 ???�당?�서 ?�사 몫만??차감
+  /// 회사 계좌 입금 — 팀장 지급액에 본인 몫만큼 가산
+  COMPANY_DEPOSIT
+  /// 현장에서 팀장이 직접 수금 — 일당에서 회사 몫만큼 차감
   FIELD_RECEIVED
 }
 
-/// ?�?�·�?리자·마�??��? ?�장?�서 발생??추�? �?��·?�인 ??���?금액??기록 (?�거??.
-/// `amount`???�화 ?�수, ?�수�??�인. �?결제받을 금액 = balance + sum(amount).
-/// ?�규 ?�추가결재??별도 ?�산)??`InquiryAdditionalReceipt` ?�용.
+/// 팀장·관리자·마케터가 현장에서 발생한 추가 청구·할인 항목과 금액을 기록 (레거시).
+/// `amount`는 원화 정수, 음수면 할인. 총 결제받을 금액 = balance + sum(amount).
+/// 신규 「추가결재」(별도 정산)는 `InquiryAdditionalReceipt` 사용.
 model InquiryExtraCharge {
   id          String   @id @default(uuid())
   inquiryId   String   @map("inquiry_id")
@@ -3109,14 +3136,14 @@ model InquiryExtraCharge {
   @@map("inquiry_extra_charges")
 }
 
-/// ?�추가결재?��??�반 ?�비??금액(`service_*`)�?분리 ?�?? ?�산 ???�?�별 추�?결재 ?�사 �?만분?�로 별도 계산.
+/// 「추가결재」— 일반 서비스 금액(`service_*`)과 분리 저장. 정산 시 팀장별 추가결재 회사 몫 만분율로 별도 계산.
 model InquiryAdditionalReceipt {
   id          String   @id @default(uuid())
   inquiryId   String   @map("inquiry_id")
   description String   @db.VarChar(120)
-  /// ?�화 ?�수, 1???�상
+  /// 원화 정수, 1원 이상
   amount      Int
-  /// ?�사?�금 vs ?�장?�금 ??급여 ?�산 가?�·차�?구분
+  /// 회사입금 vs 현장수금 — 급여 정산 가산·차감 구분
   settlementChannel AdditionalReceiptSettlementChannel @default(COMPANY_DEPOSIT) @map("settlement_channel")
   sortOrder   Int      @default(0) @map("sort_order")
   createdById String?  @map("created_by_id")
@@ -3130,7 +3157,7 @@ model InquiryAdditionalReceipt {
   @@map("inquiry_additional_receipts")
 }
 
-/// ?�장 �?�� ?�·후 ?�진 (Cloudinary)
+/// 현장 청소 전·후 사진 (Cloudinary)
 model InquiryCleaningPhoto {
   id                 String   @id @default(uuid())
   inquiryId          String   @map("inquiry_id")
@@ -3149,7 +3176,7 @@ model InquiryCleaningPhoto {
   @@map("inquiry_cleaning_photos")
 }
 
-/// ?�장 검??체크리스?????�??�?��?�료(마감) 공식 기록 (?�수 ?�위 �?�� ?�·후 ?�진�???�� 분리)
+/// 현장 검수 체크리스트 — 팀장 청소완료(마감) 공식 기록 (접수 단위 청소 전·후 사진과 역할 분리)
 enum InquiryInspectionStatus {
   NOT_STARTED
   IN_PROGRESS
@@ -3191,7 +3218,7 @@ model InquiryInspectionChecklist {
   emailSentAt            DateTime?                @map("email_sent_at")
   completionPdfPublicId  String?                  @map("completion_pdf_public_id") @db.VarChar(512)
   completionPdfSecureUrl String?                  @map("completion_pdf_secure_url") @db.VarChar(2048)
-  /** 고객 ?�람??공개 링크 ?�큰 ??COMPLETED ??발급 */
+  /** 고객 열람용 공개 링크 토큰 — COMPLETED 시 발급 */
   customerViewToken      String?                  @unique @map("customer_view_token") @db.VarChar(64)
   createdAt              DateTime                 @default(now()) @map("created_at")
   updatedAt              DateTime                 @updatedAt @map("updated_at")
@@ -3254,7 +3281,7 @@ model InquiryInspectionAreaPhoto {
   height             Int?
   uploadedById       String                   @map("uploaded_by_id")
   createdAt          DateTime                 @default(now()) @map("created_at")
-  /// �?�� ??촬영 ???�염 ?�함 ??고객 ?�달???�시
+  /// 청소 전 촬영 — 오염 심함 등 고객 전달용 표시
   flagged            Boolean                  @default(false)
 
   item       InquiryInspectionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -3264,7 +3291,7 @@ model InquiryInspectionAreaPhoto {
   @@map("inquiry_inspection_area_photos")
 }
 
-/// 마�??�·�?리자가 ?�담 �?받�? 참고 ?�진 (Cloudinary) ???�당 ?�?�·�??�체·마�???조회
+/// 마케터·관리자가 상담 중 받은 참고 사진 (Cloudinary) — 담당 팀장·타업체·마케터 조회
 model InquiryConsultationPhoto {
   id                 String   @id @default(uuid())
   inquiryId          String   @map("inquiry_id")
@@ -3288,7 +3315,7 @@ enum ScheduleClosureScope {
   AFTERNOON
 }
 
-/// 관리자 ?�동 ?�정 마감(범위�??�여 ?�롯·TO 조정)
+/// 관리자 수동 일정 마감(범위별 잔여 슬롯·TO 조정)
 model ScheduleDayClosure {
   id        String               @id @default(uuid())
   tenantId  String               @map("tenant_id")
@@ -3301,7 +3328,7 @@ model ScheduleDayClosure {
   @@map("schedule_day_closures")
 }
 
-/// ?��?�??�일 공유 메모(관리자·마�??? ?�넌?�·날짜당 1�?
+/// 스케줄 당일 공유 메모(관리자·마케터, 테넌트·날짜당 1건)
 model ScheduleDayStaffMemo {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -3317,13 +3344,13 @@ model ScheduleDayStaffMemo {
   @@map("schedule_day_staff_memos")
 }
 
-/// ?��?�?좌측 공유 메모???�넌?�당 1�? 관리자·마�???
+/// 스케줄 좌측 공유 메모판(테넌트당 1건, 관리자·마케터)
 model ScheduleStaffNoticeBoard {
   id          String   @id @default(uuid())
   tenantId    String   @unique @map("tenant_id")
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   body         String   @default("") @db.Text
-  /// ?�스?�잇 ?�로 ?�이(px). 관리자�?바꾸�? ?�체 ?�원??같�? ?�이�?본다.
+  /// 포스트잇 세로 높이(px). 관리자만 바꾸고, 업체 전원이 같은 높이로 본다.
   bodyHeightPx Int      @default(176) @map("body_height_px")
   updatedById  String   @map("updated_by_id")
   updatedBy    User     @relation("ScheduleStaffNoticeBoardUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
@@ -3333,7 +3360,7 @@ model ScheduleStaffNoticeBoard {
   @@map("schedule_staff_notice_boards")
 }
 
-/// ?��?줄표·캘린?�에 ?�시?�는 ?�전·?�후 ?�여 ?�롯(TO) ?�자 보정(가??
+/// 스케줄표·캘린더에 표시되는 오전·오후 잔여 슬롯(TO) 숫자 보정(가산)
 model ScheduleDaySlotToAdjustment {
   id             String   @id @default(uuid())
   tenantId       String   @map("tenant_id")
@@ -3347,7 +3374,7 @@ model ScheduleDaySlotToAdjustment {
   @@map("schedule_day_slot_to_adjustments")
 }
 
-/// ?�자�??�???�전·?�후 가??관리자 ?�동, ?�으�??�무??기�?)
+/// 일자별 팀장 오전·오후 가용(관리자 수동, 없으면 휴무일 기준)
 model ScheduleDayLeaderSlot {
   id                 String   @id @default(uuid())
   tenantId           String   @map("tenant_id")
@@ -3364,7 +3391,7 @@ model ScheduleDayLeaderSlot {
   @@map("schedule_day_leader_slots")
 }
 
-/// ?�자�??�??가??관리자 ?�동, ?�으�??�무??기�?)
+/// 일자별 팀원 가용(관리자 수동, 없으면 휴무일 기준)
 model ScheduleDayTeamMemberSlot {
   id           String   @id @default(uuid())
   tenantId     String   @map("tenant_id")
@@ -3380,21 +3407,22 @@ model ScheduleDayTeamMemberSlot {
   @@map("schedule_day_team_member_slots")
 }
 
-/// 발주?�·접?�에???�택?�는 ?�문 ?�공 ?�션 (관리자 ?�정)
-/// - 루트+`isGroup`: ?�분류(?�션 ?�목, 직접 ?�택 불�?). ?�위??`parentId`�??�결
-/// - 루트+!`isGroup`+?�식 ?�음: 기존 ?�일 ?�션�??�일(고객??직접 체크)
-/// - `parentId`가 ?�으�??�세 ?�션?�며 `priceAmount`�?가�??? ?�정 가??model ProfessionalSpecialtyOption {
+/// 발주서·접수에서 선택하는 전문 시공 옵션 (관리자 설정)
+/// - 루트+`isGroup`: 대분류(섹션 제목, 직접 선택 불가). 하위는 `parentId`로 연결
+/// - 루트+!`isGroup`+자식 없음: 기존 단일 옵션과 동일(고객이 직접 체크)
+/// - `parentId`가 있으면 상세 옵션이며 `priceAmount`로 가격(원) 설정 가능
+model ProfessionalSpecialtyOption {
   tenantId  String  @map("tenant_id")
   tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   id        String
   parentId  String? @map("parent_id")
   parent    ProfessionalSpecialtyOption?  @relation("ProfSpecTree", fields: [tenantId, parentId], references: [tenantId, id], onDelete: Cascade)
   children  ProfessionalSpecialtyOption[]  @relation("ProfSpecTree")
-  /// 루트(`parentId` null)?�서�??�용. true�??�분류(?�션), 고객?� ?�위 ??���??�택
+  /// 루트(`parentId` null)에서만 사용. true면 대분류(섹션), 고객은 하위 항목만 선택
   isGroup   Boolean @default(false) @map("is_group")
   label     String
   priceHint String? @map("price_hint")
-  /// ?�세 ?�션(?�위) ?�는 ?�독 루트??금액(??. ?�분류 루트??null
+  /// 상세 옵션(하위) 또는 단독 루트의 금액(원). 대분류 루트는 null
   priceAmount Int?  @map("price_amount")
   emoji     String?
   color     String?
@@ -3407,7 +3435,7 @@ model ScheduleDayTeamMemberSlot {
   @@map("professional_specialty_options")
 }
 
-/// 관리자 ?�정 ???�짜·금액 ??변�??�력 (?�수 목록·?��?줄에??조회)
+/// 관리자 수정 시 날짜·금액 등 변경 이력 (접수 목록·스케줄에서 조회)
 model InquiryChangeLog {
   id           String   @id @default(uuid())
   inquiryId    String?  @map("inquiry_id")
@@ -3443,7 +3471,8 @@ model InquiryScheduleAlertAck {
   @@map("inquiry_schedule_alert_acks")
 }
 
-/// ?�수 ?�태 ?�환 ?�각 ???�영 ?�간?�·?�수(RECEIVED) ?�크 분석??model InquiryStatusEvent {
+/// 접수 상태 전환 시각 — 운영 시간대·접수(RECEIVED) 피크 분석용
+model InquiryStatusEvent {
   id         String        @id @default(uuid())
   tenantId   String        @map("tenant_id")
   tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -3466,7 +3495,7 @@ model EstimateConfig {
   tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   pricePerPyeong      Int      @map("price_per_pyeong")
   depositAmount       Int      @default(20000) @map("deposit_amount")
-  /// 0?�면 미적?? ?�수×?�당 계산값이 ?�보???�을 ????금액???�용?�다.
+  /// 0이면 미적용. 평수×평당 계산값이 이보다 작을 때 이 금액을 사용한다.
   minimumTotalAmount  Int      @default(0) @map("minimum_total_amount")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
@@ -3487,7 +3516,7 @@ model EstimateOption {
   @@map("estimate_options")
 }
 
-/// 마�??�·텔?�CRM·발주??발급 ???�택?�는 ?�입 ?�랫???�넌?�별 카탈로그)
+/// 마케터·텔레CRM·발주서 발급 시 선택하는 유입 플랫폼(테넌트별 카탈로그)
 model InquiryLeadSourceOption {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -3518,7 +3547,7 @@ enum QuotationVatMode {
   VAT_SEPARATE
 }
 
-/// 견적 ?�정 ???�비????�� 카탈로그 (발주??EstimateOption �?별개)
+/// 견적 설정 — 서비스 항목 카탈로그 (발주서 EstimateOption 과 별개)
 model QuotationServiceItem {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -3537,7 +3566,7 @@ model QuotationServiceItem {
   @@map("quotation_service_items")
 }
 
-/// ?�립 견적?????�약·?�수 ??발행
+/// 독립 견적서 — 예약·접수 전 발행
 model Quotation {
   id              String          @id @default(uuid())
   tenantId        String          @map("tenant_id")
@@ -3615,29 +3644,29 @@ model QuotationReceiptDailyCounter {
   @@map("quotation_receipt_daily_counters")
 }
 
-/// 견적???�식·기본�?(?�넌?�당 1�?
+/// 견적서 서식·기본값 (테넌트당 1건)
 model QuotationConfig {
   id               String   @id @default(uuid())
   tenantId         String   @unique @map("tenant_id")
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  /// PDF ?�단 고정 ?�내 (?? 견적 ?�효 7??
+  /// PDF 하단 고정 안내 (예: 견적 유효 7일)
   footerNotice     String?  @map("footer_notice") @db.Text
-  /// ?�수�?PDF ?�단 고정 ?�내
+  /// 영수증 PDF 하단 고정 안내
   receiptFooterNotice String? @map("receipt_footer_notice") @db.Text
-  /// PDF ?�단 문서 ?�목 (기본: 견적??
+  /// PDF 상단 문서 제목 (기본: 견적서)
   documentTitle    String?  @map("document_title") @db.VarChar(40)
-  /// ??견적 ?�성 ???�효기간 기본 ?�수 (null?�면 미적??
+  /// 새 견적 작성 시 유효기간 기본 일수 (null이면 미적용)
   defaultValidDays     Int?     @map("default_valid_days")
-  /// ?�메??기본 ?�목 (?�레?�스?�?? {{companyName}}, {{quoteNumber}}, {{customerName}} ??
+  /// 이메일 기본 제목 (플레이스홀더: {{companyName}}, {{quoteNumber}}, {{customerName}} 등)
   defaultEmailSubject  String?  @map("default_email_subject") @db.VarChar(200)
-  /// ?�메??기본 본문
+  /// 이메일 기본 본문
   defaultEmailBody     String?  @map("default_email_body") @db.Text
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("quotation_config")
 }
 
-/// 견적???�메??발송 ?�력
+/// 견적서 이메일 발송 이력
 model QuotationEmailLog {
   id           String   @id @default(uuid())
   tenantId     String   @map("tenant_id")
@@ -3662,8 +3691,8 @@ model OrderFormConfig {
   id                  String   @id @default(uuid())
   tenantId            String   @unique @map("tenant_id")
   tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  formTitle           String   @default("?�주�?�� 발주??) @map("form_title")
-  priceLabel          String?  @default("(?��?)") @map("price_label")
+  formTitle           String   @default("입주청소 발주서") @map("form_title")
+  priceLabel          String?  @default("(특가)") @map("price_label")
   reviewEventText     String?  @map("review_event_text")
   footerNotice1       String?  @map("footer_notice_1")
   footerNotice2       String?  @map("footer_notice_2")
@@ -3671,21 +3700,21 @@ model OrderFormConfig {
   infoLinkText        String?  @map("info_link_text")
   submitSuccessTitle  String?  @map("submit_success_title")
   submitSuccessBody   String?  @map("submit_success_body")
-  /// 고객 발주?????�간?� ?�택 ???�인 모달 ?�목
+  /// 고객 발주서 — 시간대 선택 전 확인 모달 제목
   timeSlotAckTitle       String? @map("time_slot_ack_title")
-  /// 고객 발주?????�간?� ?�내 본문(?�러 �?가??
+  /// 고객 발주서 — 시간대 안내 본문(여러 줄 가능)
   timeSlotAckBody        String? @map("time_slot_ack_body") @db.Text
-  /// 고객 발주?????�의 버튼 ?�단 ?�내(?��? 박스)
+  /// 고객 발주서 — 동의 버튼 상단 안내(노란 박스)
   timeSlotAckConsentHint String? @map("time_slot_ack_consent_hint") @db.Text
-  /// 고객 발주????�?��?�짜 ?�택 ?�인 모달 ?�목
+  /// 고객 발주서 — 청소날짜 선택 확인 모달 제목
   serviceDateAckTitle       String? @map("service_date_ack_title")
-  /// 고객 발주????�?��?�짜 ?�내 본문
+  /// 고객 발주서 — 청소날짜 안내 본문
   serviceDateAckBody        String? @map("service_date_ack_body") @db.Text
-  /// 고객 발주????�?��?�짜 ?�의 ?�내(?��? 박스)
+  /// 고객 발주서 — 청소날짜 동의 안내(노란 박스)
   serviceDateAckConsentHint String? @map("service_date_ack_consent_hint") @db.Text
-  /// 고객 발주?�·접?????�간?�(?�전/?�후/?�이�?��) ?�시 ?�벨�?커스?�. ?�?�값?� 고정 3�?
+  /// 고객 발주서·접수 — 시간대(오전/오후/사이청소) 표시 라벨만 커스텀. 저장값은 고정 3개.
   timeSlotLabelsJson     Json?   @map("time_slot_labels_json")
-  /// 고객 링크 메시지 ??금액·?�정·?�내 문구(링크 URL ?�외). {{amount}} ??치환
+  /// 고객 링크 메시지 — 금액·일정·안내 문구(링크 URL 제외). {{amount}} 등 치환
   customerLinkTotalLine      String? @map("customer_link_total_line") @db.Text
   customerLinkBalanceLine    String? @map("customer_link_balance_line") @db.Text
   customerLinkScheduleLine   String? @map("customer_link_schedule_line") @db.Text
@@ -3694,25 +3723,26 @@ model OrderFormConfig {
   customerLinkCsNotice       String? @map("customer_link_cs_notice") @db.Text
   customerLinkCsUrlLabel     String? @map("customer_link_cs_url_label") @db.Text
   customerLinkPaybackBlock   String? @map("customer_link_payback_block") @db.Text
-  /// 고객 링크 메시지 블록 ?�서 (string[]). null?�면 기본 ?�서
+  /// 고객 링크 메시지 블록 순서 (string[]). null이면 기본 순서
   customerLinkBlockOrder     Json?   @map("customer_link_block_order")
-  /// 고객 링크 메시지 ?�체 본문(?�유 ?�집). ?�으�?조각 ?�드·?�서보다 ?�선
+  /// 고객 링크 메시지 전체 본문(자유 편집). 있으면 조각 필드·순서보다 우선
   customerLinkMessageTemplate String? @map("customer_link_message_template") @db.Text
-  /// 발주??칸별 ?�성 주체(고객·마�??�·필??. null?�면 코드 기본�?  issueFillRules      Json?    @map("issue_fill_rules")
+  /// 발주서 칸별 작성 주체(고객·마케터·필수). null이면 코드 기본값
+  issueFillRules      Json?    @map("issue_fill_rules")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("order_form_config")
 }
 
-/// 고객 발주??링크 ?�내 메시지 ???�업 브랜?�별 문구
+/// 고객 발주서 링크 안내 메시지 — 영업 브랜드별 문구
 model OrderFormBrandCustomerLinkConfig {
   id                         String           @id @default(uuid())
   tenantId                   String           @map("tenant_id")
   tenant                     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   operatingCompanyId         String           @map("operating_company_id")
   operatingCompany           OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
-  formTitle                  String           @default("?�주�?�� 발주??) @map("form_title")
-  priceLabel                 String?          @default("(?��?)") @map("price_label")
+  formTitle                  String           @default("입주청소 발주서") @map("form_title")
+  priceLabel                 String?          @default("(특가)") @map("price_label")
   reviewEventText            String?          @map("review_event_text")
   footerNotice1              String?          @map("footer_notice_1")
   footerNotice2              String?          @map("footer_notice_2")
@@ -3724,9 +3754,9 @@ model OrderFormBrandCustomerLinkConfig {
   customerLinkCsNotice       String?          @map("customer_link_cs_notice") @db.Text
   customerLinkCsUrlLabel     String?          @map("customer_link_cs_url_label") @db.Text
   customerLinkPaybackBlock   String?          @map("customer_link_payback_block") @db.Text
-  /// 고객 링크 메시지 블록 ?�서 (string[]). null?�면 기본 ?�서
+  /// 고객 링크 메시지 블록 순서 (string[]). null이면 기본 순서
   customerLinkBlockOrder     Json?            @map("customer_link_block_order")
-  /// 고객 링크 메시지 ?�체 본문(?�유 ?�집). ?�으�?조각 ?�드·?�서보다 ?�선
+  /// 고객 링크 메시지 전체 본문(자유 편집). 있으면 조각 필드·순서보다 우선
   customerLinkMessageTemplate String?         @map("customer_link_message_template") @db.Text
   createdAt                  DateTime         @default(now()) @map("created_at")
   updatedAt                  DateTime         @updatedAt @map("updated_at")
@@ -3736,7 +3766,7 @@ model OrderFormBrandCustomerLinkConfig {
   @@map("order_form_brand_customer_link_configs")
 }
 
-/// 발주???�력 ?�드 ?�??(?�적 발주??빌더)
+/// 발주서 입력 필드 타입 (동적 발주서 빌더)
 enum OrderFormFieldInputType {
   TEXT
   TEXTAREA
@@ -3752,7 +3782,7 @@ enum OrderFormFieldInputType {
   PHOTO
 }
 
-/// ?�드 값을 채우??주체 ??고객 ?�력 / 관리자 발급 ??고정 / 관리자 ?�입??고객 ?�정 가??
+/// 필드 값을 채우는 주체 — 고객 입력 / 관리자 발급 시 고정 / 관리자 선입력(고객 수정 가능)
 enum OrderFormFieldFillMode {
   CUSTOMER
   ADMIN_LOCKED
@@ -3765,32 +3795,33 @@ enum OrderFormTemplateStatus {
   ARCHIVED
 }
 
-/// 공개 발주???�더 방식 ??STANDARD: ?��? ???�체(?�거?? / TEMPLATE: ?�플릿에 ?��? ??���??�수 코어 강제 ?�함)
+/// 공개 발주서 렌더 방식 — STANDARD: 표준 폼 전체(레거시) / TEMPLATE: 템플릿에 넣은 항목만(필수 코어 강제 포함)
 enum OrderFormTemplateRenderMode {
   STANDARD
   TEMPLATE
 }
 
-/// ?�적 발주???�플�?(구�??�식). ?�넌?�별�??�러 �?기본·?�어컨·특?�청??????만들??고객??맞게 발송.
+/// 동적 발주서 템플릿 (구글폼식). 테넌트별로 여러 종(기본·에어컨·특수청소 등)을 만들어 고객에 맞게 발송.
 model OrderFormTemplate {
   id          String                  @id @default(uuid())
   tenantId    String                  @map("tenant_id")
   tenant      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title       String                  @db.VarChar(128)
-  /// 목록·?�수 배�????�이�????�택)
+  /// 목록·접수 배지용 아이콘 키(선택)
   icon        String?                 @db.VarChar(32)
   description String?                 @db.Text
   status      OrderFormTemplateStatus @default(DRAFT)
-  /// 공개 ???�더 방식 ??STANDARD: ?��? ???�체 / TEMPLATE: ?�플�???���?  renderMode  OrderFormTemplateRenderMode @default(STANDARD) @map("render_mode")
-  /// 발행 버전 ??발행 ??+1, ?�출 ?�냅?�에 박제
+  /// 공개 폼 렌더 방식 — STANDARD: 표준 폼 전체 / TEMPLATE: 템플릿 항목만
+  renderMode  OrderFormTemplateRenderMode @default(STANDARD) @map("render_mode")
+  /// 발행 버전 — 발행 시 +1, 제출 스냅샷에 박제
   version     Int                     @default(1)
-  /// ?�넌??기본 발주???��?(?�거???�일 발주???�식�?
+  /// 테넌트 기본 발주서 여부(레거시 단일 발주서 이식분)
   isDefault   Boolean                 @default(false) @map("is_default")
-  /// ?�종 ????move_in, aircon ?? ???�내 기본 문구
+  /// 업종 팩 키(move_in, aircon …) — 안내 기본 문구
   industryPackId String?              @map("industry_pack_id") @db.VarChar(32)
-  /// 고객 ?�내 ?�션 { sections: [{ title, items }] }. ?�으�??�종 기본
+  /// 고객 안내 섹션 { sections: [{ title, items }] }. 없으면 업종 기본
   guideSections  Json?                @map("guide_sections")
-  /// ?�님 발주???�이지 문구·?�택지. null?�면 코드???�는 ?�재 문장
+  /// 손님 발주서 페이지 문구·선택지. null이면 코드에 있는 현재 문장
   customerWizardJson Json?            @map("customer_wizard_json")
   sortOrder   Int                     @default(0) @map("sort_order")
   createdById String?                 @map("created_by_id")
@@ -3806,31 +3837,32 @@ model OrderFormTemplate {
   @@map("order_form_templates")
 }
 
-/// 발주???�플릿의 질문(?�드) 1�? systemField 가 지?�되�??�출 ??Inquiry ?�형 컬럼?�로 ?�영?�다.
+/// 발주서 템플릿의 질문(필드) 1개. systemField 가 지정되면 제출 시 Inquiry 정형 컬럼으로 투영된다.
 model OrderFormTemplateField {
   id          String                  @id @default(uuid())
   tenantId    String                  @map("tenant_id")
   tenant      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   templateId  String                  @map("template_id")
   template    OrderFormTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  /// ????고유 ??answers JSON ??. ?? customerName, airconCount
+  /// 폼 내 고유 키(answers JSON 키). 예: customerName, airconCount
   fieldKey    String                  @map("field_key") @db.VarChar(64)
   label       String                  @db.VarChar(128)
   helpText    String?                 @map("help_text") @db.Text
   inputType   OrderFormFieldInputType @default(TEXT) @map("input_type")
-  /// SELECT/MULTISELECT 보기 ?�션 ??JSON 배열)
+  /// SELECT/MULTISELECT 보기 옵션 등(JSON 배열)
   options     Json                    @default("[]")
-  /// ?�력?� ?�에 ?�리�??�시??부?�설�?주로 TEXTAREA/TEXT). null?�면 미표??  placeholder String?                 @db.VarChar(300)
-  /// ?�일 ?�택(SELECT) ?�시 방식 ??'RADIO' | 'DROPDOWN'. null?�면 ?�롭?�운(기본)
+  /// 입력란 안에 흐리게 표시할 부연설명(주로 TEXTAREA/TEXT). null이면 미표시
+  placeholder String?                 @db.VarChar(300)
+  /// 단일 선택(SELECT) 표시 방식 — 'RADIO' | 'DROPDOWN'. null이면 드롭다운(기본)
   optionStyle String?                 @map("option_style") @db.VarChar(16)
-  /// ?�택지 배치 ??'VERTICAL' | 'HORIZONTAL' | 'COLS_2'. null?�면 ?�로
+  /// 선택지 배치 — 'VERTICAL' | 'HORIZONTAL' | 'COLS_2'. null이면 세로
   optionLayout String?                @map("option_layout") @db.VarChar(16)
   required    Boolean                 @default(false)
   sortOrder   Int                     @default(0) @map("sort_order")
-  /// 코어 매핑 ???�으�??�유 ?�드). ?? customerName, customerPhone, address, totalAmount, areaPyeong, preferredDate, preferredTime
+  /// 코어 매핑 키(없으면 자유 필드). 예: customerName, customerPhone, address, totalAmount, areaPyeong, preferredDate, preferredTime
   systemField String?                 @map("system_field") @db.VarChar(48)
   fillMode    OrderFormFieldFillMode  @default(CUSTOMER) @map("fill_mode")
-  /// ?�수 목록 ?�에 ?�출??추�? ??��(?�넌?�당 최�? 3�?fieldKey)
+  /// 접수 목록 표에 노출할 추가 항목(테넌트당 최대 3개 fieldKey)
   showInInquiryList Boolean             @default(false) @map("show_in_inquiry_list")
   createdAt   DateTime                @default(now()) @map("created_at")
   updatedAt   DateTime                @updatedAt @map("updated_at")
@@ -3847,25 +3879,25 @@ model CsReport {
   customerName  String   @map("customer_name")
   customerPhone String   @map("customer_phone")
   content       String
-  /// 고객 ?�비???�질 ?��? (1~5, 별점)
+  /// 고객 서비스 품질 평가 (1~5, 별점)
   serviceRating Int?     @map("service_rating")
   imageUrls     Json     @map("image_urls") // ["url1","url2"]
   status        String   @default("RECEIVED") @map("status")
   memo          String?  @map("memo")
   createdAt     DateTime @default(now()) @map("created_at")
-  /// ?�수 목록(inquiries)�??�름·?�락�?매칭 ???�결 (미매�?���?null)
+  /// 접수 목록(inquiries)과 이름·연락처 매칭 시 연결 (미매칭이면 null)
   inquiryId     String?  @map("inquiry_id")
   inquiry       Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
-  /// 처리?�료 ?�각 (?�태가 DONE?�로 최초 ?�환????기록)
+  /// 처리완료 시각 (상태가 DONE으로 최초 전환될 때 기록)
   completedAt       DateTime? @map("completed_at")
   completedById     String?   @map("completed_by_id")
   completedBy       User?     @relation("CsReportCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
-  /// ?�떤 방법?�로 처리?�는지 (?�화 ?�내, ?�방�???
+  /// 어떤 방법으로 처리했는지 (전화 안내, 재방문 등)
   completionMethod  String?   @map("completion_method") @db.Text
-  /// 관리자가 ?�???�?�체 계정?�로 C/S�??�길 ???�???�용??(?�수 미연결·�?배정 �??�달??
+  /// 관리자가 팀장/타업체 계정으로 C/S를 넘길 때 대상 사용자 (접수 미연결·미배정 건 전달용)
   forwardedToUserId String?  @map("forwarded_to_user_id")
   forwardedToUser   User?    @relation("CsReportForwardedTo", fields: [forwardedToUserId], references: [id], onDelete: SetNull)
-  /// A/S(?�방�??? ?�정????관�??��?줄에�??�시, ?�반 ?�약?�·�? 캘린???�롯?�는 반영?��? ?�음
+  /// A/S(재방문 등) 예정일 — 관리 스케줄에만 표시, 일반 예약일·팀 캘린더 슬롯에는 반영하지 않음
   asServiceDate     DateTime? @map("as_service_date") @db.Date
 
   @@index([tenantId, createdAt])
@@ -3879,7 +3911,7 @@ model CsReport {
   @@map("cs_reports")
 }
 
-/// ?�딩·?��? ?�이지 문의 ???�정 (브랜?�별)
+/// 랜딩·외부 페이지 문의 폼 설정 (브랜드별)
 model LandingContactFormConfig {
   id                 String           @id @default(uuid())
   tenantId           String           @map("tenant_id")
@@ -3898,7 +3930,7 @@ model LandingContactFormConfig {
   @@map("landing_contact_form_configs")
 }
 
-/// ?�딩·?��? ?�이지?�서 ?�신??고객 문의 (?�수 ??리드)
+/// 랜딩·외부 페이지에서 수신한 고객 문의 (접수 전 리드)
 model LandingContactInquiry {
   id                 String           @id @default(uuid())
   tenantId           String           @map("tenant_id")
@@ -3914,7 +3946,7 @@ model LandingContactInquiry {
   sourcePageUrl      String?          @map("source_page_url") @db.Text
   sourceLinkId       String?          @map("source_link_id")
   sourceLink         LandingContactSourceLink? @relation(fields: [sourceLinkId], references: [id], onDelete: SetNull)
-  /// ?�출 ?�시 ?�입�??�냅??(링크 ?�름???�중??바꿔??목록?� ?��?)
+  /// 제출 당시 유입명 스냅샷 (링크 이름을 나중에 바꿔도 목록은 유지)
   sourceLabel        String?          @map("source_label") @db.VarChar(40)
   inquiryId          String?          @map("inquiry_id")
   inquiry            Inquiry?         @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
@@ -3948,7 +3980,7 @@ enum LandingContactLinkRequestStatus {
   CANCELLED
 }
 
-/// 문의 짧�? 링크. 기존 /contact 주소?� 별도. ?�체??무료 2�? �??�상?� ?�인???�료 ?�리.
+/// 문의 짧은 링크. 기존 /contact 주소와 별도. 업체당 무료 2개, 그 이상은 승인된 유료 자리.
 model LandingContactSourceLink {
   id                 String                     @id @default(uuid())
   tenantId           String                     @map("tenant_id")
@@ -3957,7 +3989,7 @@ model LandingContactSourceLink {
   operatingCompany   OperatingCompany?          @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
   code               String                     @unique @db.VarChar(32)
   label              String                     @db.VarChar(40)
-  /// ??링크 ?�용 추�? ?�력. 비어 ?�으�??�함·?�락처·문???�용�?
+  /// 이 링크 전용 추가 입력. 비어 있으면 성함·연락처·문의 내용만.
   customFields       Json                       @default("[]") @map("custom_fields")
   slotKind           LandingContactLinkSlotKind @map("slot_kind")
   isActive           Boolean                    @default(true) @map("is_active")
@@ -3971,7 +4003,7 @@ model LandingContactSourceLink {
   @@map("landing_contact_source_links")
 }
 
-/// 무료 2개�? ?�는 짧�? 링크 ?�리 ?�청. ?�인??개수만큼 ?�료 링크�?만들 ???�다.
+/// 무료 2개를 넘는 짧은 링크 자리 신청. 승인된 개수만큼 유료 링크를 만들 수 있다.
 model LandingContactLinkSlotRequest {
   id              String                           @id @default(uuid())
   tenantId        String                           @map("tenant_id")
@@ -3991,11 +4023,11 @@ model LandingContactLinkSlotRequest {
   @@map("landing_contact_link_slot_requests")
 }
 
-/// ?�레마�????�무 종료 ??채널�??�력 방식
+/// 텔레마케팅 업무 종료 시 채널별 입력 방식
 enum AdChannelSettlementMode {
-  /** 채널???�일 광고�??? ??�??�력 */
+  /** 채널당 당일 광고비(원) 한 번 입력 */
   DIRECT_AMOUNT
-  /** 과목(건수)×건당금액?�로 ?�산 ??과목?� AdChannelLineItem ?�로 ?�정 */
+  /** 과목(건수)×건당금액으로 합산 — 과목은 AdChannelLineItem 으로 설정 */
   COUNT_LINES
 }
 
@@ -4017,15 +4049,15 @@ model AdChannel {
   @@map("ad_channels")
 }
 
-/// 채널�?광고�?과목(?�고 받�??�청·?�동견적 ??. 건당 금액 0 + 집계 ?�외�?참고 건수�??? ?�약?�정 건수).
+/// 채널별 광고비 과목(숨고 받은요청·자동견적 등). 건당 금액 0 + 집계 제외면 참고 건수만(예: 예약확정 건수).
 model AdChannelLineItem {
   id               String   @id @default(uuid())
   channelId        String   @map("channel_id")
   label            String   @db.VarChar(128)
   unitAmountWon    Int      @map("unit_amount_won")
-  /// false ?�면 금액 ?�산???�함?��? ?�음. 건수??종료 ?�면?�서 ?�총 광고비÷합???�외 과목 건수???�균 분모�??�동 ?�용.
+  /// false 이면 금액 합산에 포함하지 않음. 건수는 종료 화면에서 「총 광고비÷합산 제외 과목 건수」 평균 분모로 자동 사용.
   countsForSpend   Boolean  @default(true) @map("counts_for_spend")
-  /** ?�???�드: ??�� !countsForSpend ?� ?�기??API ?�동). ?�냅??JSON ?�환?? */
+  /** 저장 필드: 항상 !countsForSpend 와 동기화(API 자동). 스냅샷 JSON 호환용. */
   useAsAvgDenominator Boolean @default(false) @map("use_as_avg_denominator")
   sortOrder        Int      @default(0) @map("sort_order")
   createdAt        DateTime @default(now()) @map("created_at")
@@ -4043,9 +4075,10 @@ model AdWorkSession {
   userId    String    @map("user_id")
   startedAt DateTime  @map("started_at")
   endedAt   DateTime? @map("ended_at")
-  /// ?�균 분모???�약(고객 발주???�출) 건수. ?�동 집계 ?�는 ?�동 ?�력 최종�?
+  /// 평균 분모용 예약(고객 발주서 제출) 건수. 자동 집계 또는 수동 입력 최종값.
   bookingDenominatorCount Int? @map("booking_denominator_count")
-  /// true�?종료 ?�점???�용?��? ?�동 ?�력??건수�??�용??  bookingDenominatorManual Boolean @default(false) @map("booking_denominator_manual")
+  /// true면 종료 시점에 사용자가 수동 입력한 건수를 사용함
+  bookingDenominatorManual Boolean @default(false) @map("booking_denominator_manual")
 
   user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   spendLines AdSpendLine[]
@@ -4064,7 +4097,7 @@ model AdSpendLine {
   soomgoReceivedCount Int? @map("soomgo_received_count")
   soomgoAutoEstimateCount Int? @map("soomgo_auto_estimate_count")
   soomgoConfirmedCount Int? @map("soomgo_confirmed_count")
-  /// COUNT_LINES 채널 ?�????과목�?건수 ?�냅??JSON 배열)
+  /// COUNT_LINES 채널 저장 시 과목별 건수 스냅샷(JSON 배열)
   countBreakdown Json? @map("count_breakdown")
 
   session AdWorkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -4078,41 +4111,42 @@ model OrderForm {
   id              String   @id @default(uuid())
   tenantId        String   @map("tenant_id")
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  /// 발급 ??고정 ??고객 링크·?�출 ??브랜??귀??  operatingCompanyId String? @map("operating_company_id")
+  /// 발급 시 고정 — 고객 링크·제출 시 브랜드 귀속
+  operatingCompanyId String? @map("operating_company_id")
   operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
   token           String   @unique
   customerName    String   @map("customer_name")
-  /// 발급 ??관리자가 ?�는 ?�???�락�??�택) ??고객 발주???�화?�???�동 반영
+  /// 발급 시 관리자가 넣는 대표 연락처(선택) — 고객 발주서 전화란에 자동 반영
   customerPhone   String?  @map("customer_phone")
-  /// 고객 ?�출 ???�력 ???�수 ?�인 메일 ?�신
+  /// 고객 제출 시 입력 — 접수 확인 메일 수신
   customerEmail   String?  @map("customer_email") @db.VarChar(320)
   totalAmount     Int      @map("total_amount")
   depositAmount   Int      @default(20000) @map("deposit_amount")
   balanceAmount   Int      @map("balance_amount")
   optionNote      String?  @map("option_note")
-  preferredDate       String?  @map("preferred_date")   // YYYY-MM-DD, 관리자 ?�정
-  preferredTime       String?  @map("preferred_time")    // ?�전/?�후/?�이�?��
-  preferredTimeDetail String?  @map("preferred_time_detail") // 구체???�각 (?�택)
-  /// 발급 ??마�??��? 지?�한 �?�� 면적(?? ???�으�?고객 발주?�에???�정 불�?
+  preferredDate       String?  @map("preferred_date")   // YYYY-MM-DD, 관리자 설정
+  preferredTime       String?  @map("preferred_time")    // 오전/오후/사이청소
+  preferredTimeDetail String?  @map("preferred_time_detail") // 구체적 시각 (선택)
+  /// 발급 시 마케터가 지정한 청소 면적(평) — 있으면 고객 발주서에서 수정 불가
   areaPyeong      Float?   @map("area_pyeong")
   areaBasis       String?  @map("area_basis")
   createdById     String   @map("created_by_id")
   createdAt       DateTime @default(now()) @map("created_at")
   submittedAt     DateTime? @map("submitted_at")
-  /// 고객 발주???�특?�사??�??�유 ?�력 ???�수 `specialNotes`(관리자·?� 공유)?� 분리
+  /// 고객 발주서 「특이사항」 자유 입력 — 접수 `specialNotes`(관리자·팀 공유)와 분리
   customerSpecialNotes String? @map("customer_special_notes") @db.Text
-  /// 발급 ??체크?�면 고객 ?�인 ?�계?�서 추�? ?�공�??�내�??�운?? 기본?� ??
+  /// 발급 시 체크하면 고객 확인 단계에서 추가 시공비 안내를 띄운다. 기본은 끔.
   extraWorkNotice Boolean @default(false) @map("extra_work_notice")
   customerSubmissionSnapshot Json? @map("customer_submission_snapshot")
-  /// ?�적 ?�플�?추�? ??��(systemField 미연�???고객 ?��? {fieldKey: value}
+  /// 동적 템플릿 추가 항목(systemField 미연결)의 고객 답변 {fieldKey: value}
   customerAnswers Json? @map("customer_answers")
-  /// 마�??��? 발급/?�정 ??미리 채운 �?{key: value} ???��? ??�� ??customerName ?? + 커스?� fieldKey ?�합.
-  /// 값이 ?�어�??�는 고객 ?�면?�서 ?�기?�용(?�인 ?�용)?�로 ?�긴?? ?�출 ???�금 ?�는 ??값이 ?�선.
+  /// 마케터가 발급/수정 시 미리 채운 값 {key: value} — 표준 항목 키(customerName 등) + 커스텀 fieldKey 통합.
+  /// 값이 들어간 키는 고객 화면에서 읽기전용(확인 전용)으로 잠긴다. 제출 시 잠금 키는 이 값이 우선.
   prefillAnswers Json? @map("prefill_answers")
-  /// ??발급???�용?�는 ?�적 발주???�플�??�거??발급?� ?�넌??기본 ?�플�?
+  /// 이 발급이 사용하는 동적 발주서 템플릿(레거시 발급은 테넌트 기본 템플릿)
   templateId      String?  @map("template_id")
   template        OrderFormTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  /// 발급 ?�점 ?�플�?버전(?�냅??
+  /// 발급 시점 템플릿 버전(스냅샷)
   templateVersion Int?     @map("template_version")
   reviewPaybackToken String? @unique @map("review_payback_token")
 
@@ -4130,8 +4164,8 @@ model OrderForm {
   @@map("order_forms")
 }
 
-/// 고객??발주???�출 ?�·후 첨�????�장 ?�진 (Cloudinary).
-/// 추�? 견적 ?�정 근거 ??관리자/?�?��? ?�수 ?�세?�서 ?�람???�염 ?�도·?�이 구역???�인?�다.
+/// 고객이 발주서 제출 전·후 첨부한 현장 사진 (Cloudinary).
+/// 추가 견적 산정 근거 — 관리자/팀장은 접수 상세에서 열람해 오염 정도·특이 구역을 확인한다.
 model OrderFormPhoto {
   id                 String   @id @default(uuid())
   orderFormId        String   @map("order_form_id")
@@ -4147,7 +4181,7 @@ model OrderFormPhoto {
   @@map("order_form_photos")
 }
 
-/// 고객 발주???�출 ?�인 메일 발송 ?�력(브랜??SMTP ?�용, 발주?�당 1??
+/// 고객 발주서 제출 확인 메일 발송 이력(브랜드 SMTP 전용, 발주서당 1행)
 enum OrderFormSubmissionEmailStatus {
   SENT
   FAILED
@@ -4155,13 +4189,13 @@ enum OrderFormSubmissionEmailStatus {
   SKIPPED_NO_PLATFORM_SMTP
 }
 
-/// ?�랫??SMTP ?�로????purpose�?고객·기능 메일 발송 (목록 관�?
+/// 플랫폼 SMTP 프로필 — purpose별 고객·기능 메일 발송 (목록 관리)
 model PlatformSmtpProfile {
   id                 String   @id @default(uuid())
   slug               String   @unique @db.VarChar(64)
   label              String   @db.VarChar(128)
   enabled            Boolean  @default(true)
-  /// OutboundEmailPurpose 문자??배열 JSON ??shared/outboundEmailPurpose.ts
+  /// OutboundEmailPurpose 문자열 배열 JSON — shared/outboundEmailPurpose.ts
   purposes           Json     @default("[]")
   smtpHost           String?  @map("smtp_host") @db.VarChar(256)
   smtpPort           Int?     @map("smtp_port")
@@ -4178,7 +4212,7 @@ model PlatformSmtpProfile {
   @@map("platform_smtp_profiles")
 }
 
-/// ?�랫??고객 메일 ?�플�???purpose�??�목·본문 (CMS)
+/// 플랫폼 고객 메일 템플릿 — purpose별 제목·본문 (CMS)
 model PlatformEmailTemplate {
   id                String   @id @default(uuid())
   /// ORDER_FORM_SUBMISSION | INSPECTION_COMPLETION
@@ -4217,18 +4251,19 @@ model OrderFormSubmissionEmailLog {
   @@map("order_form_submission_email_logs")
 }
 
-/// 발주????�� 로그 (관리자/마�??? 비�?번호 검�?????�� ??기록)
+/// 발주서 삭제 로그 (관리자/마케터, 비밀번호 검증 후 삭제 시 기록)
 model OrderFormDeleteLog {
   id           String   @id @default(uuid())
   orderFormId  String   @map("order_form_id")
   actorId      String   @map("actor_id")
   actorRole    String   @map("actor_role") @db.VarChar(32)
-  /// 발급 마�?????광고 ?�약 분모 ??�� 건수 귀??  createdById  String   @map("created_by_id")
+  /// 발급 마케터 — 광고 예약 분모 삭제 건수 귀속
+  createdById  String   @map("created_by_id")
   customerName String   @map("customer_name")
   totalAmount  Int      @map("total_amount")
-  /// ??�� ?�점 발주???�출 ?��?(미제출이�?null)
+  /// 삭제 시점 발주서 제출 여부(미제출이면 null)
   submittedAt  DateTime? @map("submitted_at")
-  /// ??�� ?�점 발주??발급 ?�각 ??미제�?분모 구간 ?�별
+  /// 삭제 시점 발주서 발급 시각 — 미제출 분모 구간 판별
   orderFormCreatedAt DateTime @map("order_form_created_at")
   deletedAt    DateTime @default(now()) @map("deleted_at")
 
@@ -4242,8 +4277,9 @@ model OrderFormDeleteLog {
   @@map("order_form_delete_logs")
 }
 
-/// 발주??메뉴 ?��??�현?�」�??�화 부??�예?�금 ?�기·보�????�속 관�?enum OrderFollowupStatus {
-  /// 부??�보�??�면: 고객 ?�청·?�뢰 ?�계
+/// 발주서 메뉴 「부재현황」— 전화 부재·예약금 대기·보류 등 후속 관리
+enum OrderFollowupStatus {
+  /// 부재·보류 화면: 고객 요청·의뢰 단계
   REQUESTED
   ABSENT
   DEPOSIT_PENDING
@@ -4266,10 +4302,12 @@ model OrderFollowup {
   status             OrderFollowupStatus  @map("status")
   deferCount         Int                  @default(0) @map("defer_count")
   goldDb             Boolean              @default(false) @map("gold_db")
-  /// ?�주�?�� ?�망???�택) ??YYYY-MM-DD 문자??  preferredMoveInCleaningDate String?     @map("preferred_move_in_cleaning_date") @db.VarChar(10)
-  /// ?�입 ?�랫???�수 ??부??�보�? ??Inquiry.source ?� ?�일 ?�벨 체계
+  /// 입주청소 희망일(선택) — YYYY-MM-DD 문자열
+  preferredMoveInCleaningDate String?     @map("preferred_move_in_cleaning_date") @db.VarChar(10)
+  /// 유입 플랫폼(접수 전 부재·보류) — Inquiry.source 와 동일 라벨 체계
   leadSource         String?              @map("lead_source") @db.VarChar(64)
-  /// CRM 추�? ?�드 ???�수 ??부??�보�??�냅??  address            String?              @map("address") @db.Text
+  /// CRM 추가 필드 — 접수 전 부재·보류 스냅샷
+  address            String?              @map("address") @db.Text
   areaPyeong         Float?               @map("area_pyeong")
   roomCount          Int?                 @map("room_count")
   bathroomCount      Int?                 @map("bathroom_count")
@@ -4333,7 +4371,7 @@ model ReviewPaybackRequest {
   accountNumber       String              @map("account_number")
   reviewImageUrl      String              @map("review_image_url") @db.VarChar(1024)
   reviewImagePublicId String?             @map("review_image_public_id") @db.VarChar(512)
-  /// [{ url, publicId? }] ??목록 ?�네?��? reviewImageUrl(�??? ?��?
+  /// [{ url, publicId? }] — 목록 썸네일은 reviewImageUrl(첫 장) 유지
   reviewImages        Json                @default("[]") @map("review_images")
   status              ReviewPaybackStatus @default(PENDING)
   adminMemo           String?             @map("admin_memo") @db.Text
@@ -4349,18 +4387,20 @@ model ReviewPaybackRequest {
 }
 
 enum InquiryStatus {
-  PENDING       // ?��?(마�????�접?? 고객 발주??미제�?
-  RECEIVED      // ?�수
-  /// ?�금 ?�인 ?????�태�??�환 ???�수번호 발급)
+  PENDING       // 대기 (마케터 선접수, 고객 발주서 미제출)
+  RECEIVED      // 접수
+  /// 입금 확인 전(이 상태로 전환 시 접수번호 발급)
   DEPOSIT_PENDING
-  /// ?�금 ?�료·발주??미제�????�수 목록???�시)
+  /// 입금 완료·발주서 미제출 전(접수 목록에 표시)
   DEPOSIT_COMPLETED
-  /// 발주??링크 발급 ??고객 ?�출 ?��??�수 목록?�서?��??�출??
+  /// 발주서 링크 발급 후 고객 제출 대기(접수 목록에서「미제출」)
   ORDER_FORM_PENDING
-  ASSIGNED      // 분배?�료
-  IN_PROGRESS   // 진행�?  COMPLETED     // ?�료
+  ASSIGNED      // 분배완료
+  IN_PROGRESS   // 진행중
+  COMPLETED     // 완료
   CANCELLED     // 취소
-  CS_PROCESSING // C/S 처리�?  ON_HOLD       // 보류 (?�정 미확????
+  CS_PROCESSING // C/S 처리중
+  ON_HOLD       // 보류 (일정 미확정 등)
 }
 
 model Assignment {
@@ -4371,13 +4411,13 @@ model Assignment {
   teamLeaderId  String   @map("team_leader_id")
   assignedById  String   @map("assigned_by_id")
   assignedAt    DateTime @default(now()) @map("assigned_at")
-  /// ?�?�이 ?�수 ?�세 모달�??�인???�각 ??null?�면 메뉴 미확??배�????�함
+  /// 팀장이 접수 상세 모달로 확인한 시각 — null이면 메뉴 미확인 배지에 포함
   detailViewedAt DateTime? @map("detail_viewed_at")
-  /// 같�? ?�수???�???�러 명일 ???�시 ?�서
+  /// 같은 접수에 팀장 여러 명일 때 표시 순서
   sortOrder     Int      @default(0) @map("sort_order")
-  /// true: ???�?�만 ?�독 ?�장(?�루 ?�음). ?�수 ?�???�보??공유.
+  /// true: 이 팀장만 단독 현장(크루 없음). 접수 팀원 정보는 공유.
   noCrewMembers Boolean  @default(false) @map("no_crew_members")
-  /// 복수 ?�?�·�????�트 배정 ?????�???�루??공용 미팅 ?�각(KST HH:mm)
+  /// 복수 팀장·팀원 세트 배정 시 이 팀장 크루의 공용 미팅 시각(KST HH:mm)
   crewMeetingTime String? @map("crew_meeting_time") @db.VarChar(5)
   crewMeetingTimeUpdatedAt DateTime? @map("crew_meeting_time_updated_at")
 
@@ -4422,7 +4462,8 @@ enum PlatformSupportWaitingOn {
   TENANT
 }
 
-/// ?�랫???�영?� ???�체(관리자·마�??? ?�?�방 ???�체??1�?model PlatformSupportThread {
+/// 플랫폼 운영팀 ↔ 업체(관리자·마케터) 대화방 — 업체당 1개
+model PlatformSupportThread {
   id                 String                     @id @default(uuid())
   tenantId           String                     @unique @map("tenant_id")
   tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -4481,13 +4522,13 @@ model PlatformSupportTenantRead {
   @@map("platform_support_tenant_reads")
 }
 
-/// ?�넌??공통 ?�비??권역 ???�???�당 지??��???캘린?�·배??규칙??기�?
+/// 테넌트 공통 서비스 권역 — 팀장 담당 지역·지역 캘린더·배정 규칙의 기준
 model ServiceZone {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String   @db.VarChar(64)
-  /// ?�·도/?�·군 문자??배열(JSON). 맞춤 캘린??`regions` ?� ?�일 ?�식
+  /// 시·도/시·군 문자열 배열(JSON). 맞춤 캘린더 `regions` 와 동일 형식
   regions   Json
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")
@@ -4502,7 +4543,7 @@ model ServiceZone {
   @@map("service_zones")
 }
 
-/// ?�?????�비??권역 (?��???
+/// 팀장 ↔ 서비스 권역 (다대다)
 model UserServiceZone {
   id            String      @id @default(uuid())
   tenantId      String      @map("tenant_id")
@@ -4519,10 +4560,10 @@ model UserServiceZone {
   @@map("user_service_zones")
 }
 
-/// ?�용?�별 맞춤 '지???�터 캘린??
-/// 관리자·마�??��? ?�주 보는 지??묶음???�?�해 ?��?�??�면?�서 빠르�??�환?�다.
-/// `regions` ?????�위 문자??배열(JSON). ?? ["천안??,"?�산??,"?�?�광??��"]
-/// ?�수 address 문자?�에 ???�위 ?�름???�어 경계�??�함?�면 ?�치�?간주(?�라?�언???�터).
+/// 사용자별 맞춤 '지역 필터 캘린더'
+/// 관리자·마케터가 자주 보는 지역 묶음을 저장해 스케줄 화면에서 빠르게 전환한다.
+/// `regions` 는 시 단위 문자열 배열(JSON). 예: ["천안시","아산시","대전광역시"]
+/// 접수 address 문자열에 시 단위 이름이 단어 경계로 포함되면 일치로 간주(클라이언트 필터).
 model UserCustomCalendar {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -4530,10 +4571,11 @@ model UserCustomCalendar {
   userId    String   @map("user_id")
   name      String   @db.VarChar(64)
   regions   Json
-  /// ?�결???�비??권역 ??지??캘린????��???�당 권역 ?�?�만 배정
+  /// 연결된 서비스 권역 — 지역 캘린더 탭에서 해당 권역 팀장만 배정
   serviceZoneId String?     @map("service_zone_id")
   serviceZone   ServiceZone? @relation(fields: [serviceZoneId], references: [id], onDelete: SetNull)
-  /// ???�상 ????`CUSTOM_CALENDAR_COLOR_KEYS`(?�라·?�버 constants)???�의??짧�? ?�문 ?�별??  colorKey  String   @default("teal") @map("color_key") @db.VarChar(16)
+  /// 탭 색상 키 — `CUSTOM_CALENDAR_COLOR_KEYS`(클라·서버 constants)에 정의된 짧은 영문 식별자
+  colorKey  String   @default("teal") @map("color_key") @db.VarChar(16)
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -4546,7 +4588,7 @@ model UserCustomCalendar {
   @@map("user_custom_calendars")
 }
 
-/// ?�용??맞춤 캘린?�에 ?�동 ?�함???�수(지???�동 매칭 ??
+/// 사용자 맞춤 캘린더에 수동 포함된 접수(지역 자동 매칭 외)
 model UserCustomCalendarInquiryPin {
   id         String   @id @default(uuid())
   tenantId   String   @map("tenant_id")
@@ -4565,14 +4607,14 @@ model UserCustomCalendarInquiryPin {
   @@map("user_custom_calendar_inquiry_pins")
 }
 
-/// �??? 칸에 ?�을 ?��?지 종류 ???�일 ?�큰 `[[EC_ISSUER_SEAL]]` �?치환.
+/// 갑(인) 칸에 넣을 이미지 종류 — 동일 토큰 `[[EC_ISSUER_SEAL]]` 로 치환.
 enum EContractIssuerStampKind {
   SEAL
   SIGNATURE
 }
 
-/// ?�자계약 발행�?�? ?�기 ??본문 `[[EC_ISSUER_*]]` 치환·배포 ?�점 ?�냅??
-/// ?�법????`profile_key`�??�장 가???�일?�넌?�는 `default`).
+/// 전자계약 발행측(갑) 표기 — 본문 `[[EC_ISSUER_*]]` 치환·배포 시점 스냅샷.
+/// 다법인 시 `profile_key`로 확장 가능(단일테넌트는 `default`).
 model EContractIssuerProfile {
   id                       String                     @id @default(uuid())
   tenantId                 String                     @map("tenant_id")
@@ -4601,7 +4643,7 @@ model EContractIssuerProfile {
   @@map("e_contract_issuer_profiles")
 }
 
-/// ?�???�자계약 ??계약 종류(?�의). 본문 ?�스?�리??`EContractVersion`.
+/// 팀장 전자계약 — 계약 종류(정의). 본문 히스토리는 `EContractVersion`.
 /// 모듈: `server/src/modules/e-contract`
 enum EContractVersionStatus {
   DRAFT
@@ -4616,14 +4658,14 @@ enum EContractIssuanceStatus {
   REVOKED
 }
 
-/// 계약???�신 ?�?????�???� ?�면) / 마�???링크�? / ?�??링크�? User 계정 ?�음)
+/// 계약서 수신 대상 — 팀장(팀 화면) / 마케터(링크만) / 팀원(링크만, User 계정 없음)
 enum EContractAudience {
   TEAM_LEADER
   MARKETER
   TEAM_MEMBER
 }
 
-/// 체결·매핑 ?�드 ??값을 채우??주체
+/// 체결·매핑 필드 — 값을 채우는 주체
 enum EContractFieldFilledBy {
   SIGNER
   ADMIN
@@ -4641,13 +4683,13 @@ enum EContractFieldInputType {
   SEAL
 }
 
-/// ?�자계약 본문 치환 ?�드 ?�의(?�??마�??�별 ?�정)
+/// 전자계약 본문 치환 필드 정의(팀장/마케터별 설정)
 model EContractFieldDefinition {
   id         String                   @id @default(uuid())
   tenantId   String                   @map("tenant_id")
   tenant     Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   audience   EContractAudience        @map("audience")
-  /// 본문 ?�입 ?�큰 ???? [[EC_SIGNER_NAME]]
+  /// 본문 삽입 토큰 — 예: [[EC_SIGNER_NAME]]
   token      String                   @db.VarChar(64)
   label      String                   @db.VarChar(128)
   inputType  EContractFieldInputType  @default(TEXT) @map("input_type")
@@ -4669,9 +4711,9 @@ model EContractDefinition {
   tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title        String             @db.VarChar(512)
   description  String?            @db.Text
-  /// ?�신???�형 ??발급·체결 ?�???�??vs 마�???링크)
+  /// 수신자 유형 — 발급·체결 대상(팀장 vs 마케터 링크)
   audience     EContractAudience  @default(TEAM_LEADER) @map("audience")
-  /// 보�? 종료 etc ??목록?�서 기본 ?��? 처리???�용 (체결본�? ?��?)
+  /// 보관 종료 etc — 목록에서 기본 숨김 처리에 사용 (체결본은 유지)
   isArchived   Boolean            @default(false) @map("is_archived")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -4685,21 +4727,22 @@ model EContractDefinition {
   @@map("e_contract_definitions")
 }
 
-/// 계약 문안 버전 ??발행 ??본문·?�시 변�?금�?(?�비???�이??. ?�스?�리 = 같�? definitionId ??묶음.
+/// 계약 문안 버전 — 발행 후 본문·해시 변경 금지(서비스 레이어). 히스토리 = 같은 definitionId 행 묶음.
 model EContractVersion {
   id                 String                   @id @default(uuid())
   definitionId       String                   @map("definition_id")
   status             EContractVersionStatus   @default(DRAFT)
-  /// 배포 ?�번(1,2,??. 초안?� null.
+  /// 배포 순번(1,2,…). 초안은 null.
   publishedOrdinal   Int?                     @map("published_ordinal")
-  /// 배포 ?�점 문서 ?�목 ?�냅??  titleSnapshot      String                   @map("title_snapshot") @db.VarChar(512)
-  /// 관리자 ?�집�??�시 ??마크?�운?�HTML ???�라?�서 처리 가??
+  /// 배포 시점 문서 제목 스냅샷
+  titleSnapshot      String                   @map("title_snapshot") @db.VarChar(512)
+  /// 관리자 편집본(표시 시 마크다운→HTML 등 클라에서 처리 가능)
   bodyMarkdown       String                   @map("body_markdown") @db.Text
-  /// 배포 ?�점 발행�??�냅??JSON). ?�거??배포??null.
+  /// 배포 시점 발행측 스냅샷(JSON). 레거시 배포는 null.
   issuerSnapshot     Json?                    @map("issuer_snapshot")
-  /// 배포 ??체결?�에�?보이??HTML(?�레?�스?�??치환 ??. ?�으�?`bodyMarkdown` 그�?�?
+  /// 배포 후 체결자에게 보이는 HTML(플레이스홀더 치환 후). 없으면 `bodyMarkdown` 그대로.
   bodyDisplayHtml    String?                  @map("body_display_html") @db.Text
-  /// 배포 ??본문+?�목+ordinal ?�규 문자???�시(hex) ???�당??문안?�증명용
+  /// 배포 시 본문+제목+ordinal 정규 문자열 해시(hex) — 「당시 문안」증명용
   contentHash        String?                  @map("content_hash") @db.VarChar(128)
   publishedAt        DateTime?                @map("published_at")
   publishedById      String?                  @map("published_by_id")
@@ -4716,21 +4759,23 @@ model EContractVersion {
   @@map("e_contract_versions")
 }
 
-/// ?�신?�에�???링크(?�큰) 1�????�느 배포 버전?�로 체결 ?�?�인지 고정.
+/// 수신자에게 낸 링크(토큰) 1건 — 어느 배포 버전으로 체결 대상인지 고정.
 model EContractIssuance {
   id             String                  @id @default(uuid())
   token          String                  @unique @db.VarChar(128)
   definitionId   String                  @map("definition_id")
   versionId      String                  @map("version_id")
-  /// ?�?�·마케??User) ?�신 ??TEAM_MEMBER 발급 ??null
+  /// 팀장·마케터(User) 수신 — TEAM_MEMBER 발급 시 null
   teamLeaderId   String?                 @map("team_leader_id")
-  /// ?�??TeamMember) ?�신 ??User 계정 ?�이 링크�?  teamMemberId   String?                 @map("team_member_id")
-  /// 발급 ?�점 ?�신???�시�??�냅???�?�명 ??
+  /// 팀원(TeamMember) 수신 — User 계정 없이 링크만
+  teamMemberId   String?                 @map("team_member_id")
+  /// 발급 시점 수신자 표시명 스냅샷(팀원명 등)
   recipientLabel String?                 @map("recipient_label") @db.VarChar(128)
   status         EContractIssuanceStatus @default(PENDING)
   expiresAt      DateTime?               @map("expires_at")
   notes          String?                 @db.Text
-  /// 발급 ??관리자 ?�력 치환�???token ???�시 문자??  mergeFields    Json?                   @map("merge_fields")
+  /// 발급 시 관리자 입력 치환값 — token → 표시 문자열
+  mergeFields    Json?                   @map("merge_fields")
   createdAt      DateTime                @default(now()) @map("created_at")
   updatedAt      DateTime                @updatedAt @map("updated_at")
 
@@ -4746,7 +4791,7 @@ model EContractIssuance {
   @@map("e_contract_issuances")
 }
 
-/// 체결 ?�료 1�?감사 로그 코어). `versionContentHash`??배포 ?�시 `EContractVersion.contentHash` 복사.
+/// 체결 완료 1건(감사 로그 코어). `versionContentHash`는 배포 당시 `EContractVersion.contentHash` 복사.
 model EContractSubmission {
   id                  String   @id @default(uuid())
   issuanceId          String   @unique @map("issuance_id")
@@ -4758,7 +4803,7 @@ model EContractSubmission {
   selfieUrl           String?  @map("selfie_url") @db.VarChar(2048)
   signaturePublicId   String?  @map("signature_public_id") @db.VarChar(512)
   signatureUrl        String?  @map("signature_url") @db.VarChar(2048)
-  /// 체결 직후 버전 본문?????�보·?�명 ?�큰??치환??HTML(감사·?�람??
+  /// 체결 직후 버전 본문에 을 정보·서명 토큰을 치환한 HTML(감사·열람용)
   mergedContractHtml  String?  @map("merged_contract_html") @db.Text
   finalPdfPublicId    String?  @map("final_pdf_public_id") @db.VarChar(512)
   finalPdfUrl         String?  @map("final_pdf_url") @db.VarChar(2048)
@@ -4779,7 +4824,8 @@ enum InquiryExcelImportRunStatus {
   FAILED
 }
 
-/// ?��? ?�괄 ?�수 ???�더·�?매핑 ?�로??model InquiryExcelImportProfile {
+/// 엑셀 일괄 접수 — 헤더·값 매핑 프로필
+model InquiryExcelImportProfile {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
   name        String   @db.VarChar(128)
@@ -4797,7 +4843,7 @@ enum InquiryExcelImportRunStatus {
   @@map("inquiry_excel_import_profiles")
 }
 
-/// ?��? ?�괄 ?�수 ?�행 ?�력
+/// 엑셀 일괄 접수 실행 이력
 model InquiryExcelImportRun {
   id           String                      @id @default(uuid())
   tenantId     String                      @map("tenant_id")
@@ -4820,7 +4866,7 @@ model InquiryExcelImportRun {
   @@map("inquiry_excel_import_runs")
 }
 
-/// ?�레CRM ???�담 ?�크립트 카테고리
+/// 텔레CRM — 상담 스크립트 카테고리
 model TelecrmScriptCategory {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -4839,7 +4885,7 @@ model TelecrmScriptCategory {
   @@map("telecrm_script_categories")
 }
 
-/// ?�레CRM ???�담 ?�크립트 ??본문)
+/// 텔레CRM — 상담 스크립트 탭(본문)
 model TelecrmScriptTab {
   id         String                @id @default(uuid())
   tenantId   String                @map("tenant_id")
@@ -4857,7 +4903,7 @@ model TelecrmScriptTab {
   @@map("telecrm_script_tabs")
 }
 
-/// ?�레CRM ??가�?카테고리
+/// 텔레CRM — 가격 카테고리
 model TelecrmPriceCategory {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -4876,7 +4922,7 @@ model TelecrmPriceCategory {
   @@map("telecrm_price_categories")
 }
 
-/// ?�레CRM ??가�???��
+/// 텔레CRM — 가격 항목
 model TelecrmPriceItem {
   id          String               @id @default(uuid())
   tenantId    String               @map("tenant_id")
@@ -4895,7 +4941,7 @@ model TelecrmPriceItem {
   @@map("telecrm_price_items")
 }
 
-/// ?�레CRM Android ???�화 ?�션(?�무???��? ??· Phase 1)
+/// 텔레CRM Android — 통화 세션(사무실 내부 앱 · Phase 1)
 model TelecrmCallSession {
   id               String    @id @default(uuid())
   tenantId         String    @map("tenant_id")
@@ -4928,7 +4974,7 @@ model TelecrmCallSession {
   @@map("telecrm_call_sessions")
 }
 
-/// PC CRM ???�레CRM Android dispatch ?�기열 (멀???�스?�스·WS ?�락 ?�백)
+/// PC CRM → 텔레CRM Android dispatch 대기열 (멀티 인스턴스·WS 누락 폴백)
 model TelecrmMobileDispatchPending {
   id            String   @id @default(uuid())
   tenantId      String   @map("tenant_id")
@@ -4950,14 +4996,15 @@ model TelecrmMobileDispatchPending {
   @@map("telecrm_mobile_dispatch_pending")
 }
 
-/// ?�레CRM ??문자 ?�플�?(?�체 공통·마�???개인)
+/// 텔레CRM — 문자 템플릿 (업체 공통·마케터 개인)
 model TelecrmSmsTemplate {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   ownerUserId String?  @map("owner_user_id")
   ownerUser   User?    @relation("TelecrmSmsTemplateOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  /// null = ?�체 기본(모든 브랜??공통) · 브랜?�별 문자 ?�플�?  operatingCompanyId String? @map("operating_company_id")
+  /// null = 업체 기본(모든 브랜드 공통) · 브랜드별 문자 템플릿
+  operatingCompanyId String? @map("operating_company_id")
   operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
   label       String   @db.VarChar(120)
   body        String   @db.Text
@@ -4972,7 +5019,7 @@ model TelecrmSmsTemplate {
   @@map("telecrm_sms_templates")
 }
 
-/// ?�레CRM ???�화 메모 ?�력 (고객 SMS?� 분리)
+/// 텔레CRM — 통화 메모 이력 (고객 SMS와 분리)
 model TelecrmCallNote {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -4989,14 +5036,14 @@ model TelecrmCallNote {
   @@map("telecrm_call_notes")
 }
 
-/// ?�레CRM ???�고 ?�동 계정 (?�넌?�당 1�? 브릿지 로그?�용)
+/// 텔레CRM — 숨고 연동 계정 (테넌트당 1건, 브릿지 로그인용)
 model TelecrmSoomgoConfig {
   id          String   @id @default(uuid())
   tenantId    String   @unique @map("tenant_id")
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email       String   @db.VarChar(255)
   passwordEnc String   @map("password_enc") @db.Text
-  /// email | kakao ??카카?�는 브릿지 Chrome?�서 ?�동/QR, ?�로?�로 ?�션 ?��?
+  /// email | kakao — 카카오는 브릿지 Chrome에서 수동/QR, 프로필로 세션 유지
   loginMode   String   @default("email") @map("login_mode") @db.VarChar(20)
   enabled     Boolean  @default(true) @map("enabled")
   followupAbsentAutoEnabled Boolean @default(false) @map("followup_absent_auto_enabled")
@@ -5009,7 +5056,7 @@ model TelecrmSoomgoConfig {
   @@map("telecrm_soomgo_configs")
 }
 
-/// ?�레CRM ???�고 메시지 ?�리??(1·2·3�??�차 매크�?
+/// 텔레CRM — 숨고 메시지 프리셋 (1·2·3번 순차 매크로)
 model TelecrmSoomgoMessagePreset {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -5022,10 +5069,11 @@ model TelecrmSoomgoMessagePreset {
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
   triggerKind String?  @map("trigger_kind") @db.VarChar(20)
-  /// 견적보내�?auto_quote) · ?�수 처리 6�???브랜?�별 ?�동메시지 ??null?�면 ?�넌??기본
+  /// 견적보내기(auto_quote) · 접수 처리 6종 등 브랜드별 자동메시지 — null이면 테넌트 기본
   operatingCompanyId String? @map("operating_company_id")
   operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
-  /// 견적보내�??�식 ??리뷰 ?�이�?차감????. {?�벤?��?} 계산??  paybackWon  Int?     @map("payback_won")
+  /// 견적보내기 서식 — 리뷰 페이백 차감액(원). {이벤트가} 계산용
+  paybackWon  Int?     @map("payback_won")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -5043,7 +5091,7 @@ enum TelecrmConsultationQuoteStatus {
   SUPERSEDED
 }
 
-/// ?�레CRM ???�담 견적 ?�냅??(?�락�?기�? · ?�넌??공유)
+/// 텔레CRM — 상담 견적 스냅샷 (연락처 기준 · 테넌트 공유)
 model TelecrmConsultationQuote {
   id                 String                         @id @default(uuid())
   tenantId           String                         @map("tenant_id")
@@ -5073,7 +5121,7 @@ model TelecrmConsultationQuote {
   @@map("telecrm_consultation_quotes")
 }
 
-/// ?�레CRM ???�약?�정 ?�수 기반 견적·?�원 ?�습 ?�냅??(1?�수 1??
+/// 텔레CRM — 예약확정 접수 기반 견적·인원 학습 스냅샷 (1접수 1행)
 model TelecrmQuoteCrewLearningSnapshot {
   id                     String   @id @default(uuid())
   tenantId               String   @map("tenant_id")
@@ -5104,7 +5152,7 @@ model TelecrmQuoteCrewLearningSnapshot {
   @@map("telecrm_quote_crew_learning_snapshots")
 }
 
-/// ?�레CRM AI ?�약 ???�용??로그 (?�문 미�???
+/// 텔레CRM AI 요약 — 사용량 로그 (원문 미저장)
 model TelecrmAiUsageLog {
   id               String   @id @default(uuid())
   tenantId         String   @map("tenant_id")
@@ -5127,7 +5175,7 @@ model TelecrmAiUsageLog {
   @@map("telecrm_ai_usage_logs")
 }
 
-/// ?�레CRM AI ?�약 ??구조??결과 (?�문 messages[] 미�???
+/// 텔레CRM AI 요약 — 구조화 결과 (원문 messages[] 미저장)
 model TelecrmAiSummary {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -5147,7 +5195,7 @@ model TelecrmAiSummary {
   @@map("telecrm_ai_summaries")
 }
 
-/// ?�랫??공통 ?�라???�림???�식 (카카???�인 templateId)
+/// 플랫폼 공통 솔라피 알림톡 서식 (카카오 승인 templateId)
 model AlimtalkTemplate {
   id               String   @id @default(uuid())
   code             String   @unique @db.VarChar(64)
@@ -5161,7 +5209,7 @@ model AlimtalkTemplate {
   @@map("alimtalk_templates")
 }
 
-/// ?�넌???�림???�불·??무료 ?�용??(브랜??공유)
+/// 테넌트 알림톡 선불·월 무료 사용량 (브랜드 공유)
 model TenantAlimtalkWallet {
   tenantId             String   @id @map("tenant_id")
   tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -5169,27 +5217,27 @@ model TenantAlimtalkWallet {
   monthlyFreeUsed      Int      @default(0) @map("monthly_free_used")
   monthlyFreePeriodYm  String   @default("") @map("monthly_free_period_ym") @db.VarChar(7)
   monthlyFreeEnabled   Boolean  @default(true) @map("monthly_free_enabled")
-  /** ?�랫???�영 면제 ????무료·?�불 ?�액 검???�이 발송 */
+  /** 플랫폼 운영 면제 — 월 무료·선불 잔액 검사 없이 발송 */
   monthlyFreeUnlimited Boolean  @default(false) @map("monthly_free_unlimited")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("tenant_alimtalk_wallets")
 }
 
-/// ?�넌?�별 ?�플�?ON/OFF
+/// 테넌트별 템플릿 ON/OFF
 model TenantAlimtalkTemplateSetting {
   tenantId     String  @map("tenant_id")
   tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   templateCode String  @map("template_code") @db.VarChar(64)
   isEnabled    Boolean @default(true) @map("is_enabled")
-  /** SCHEDULE_D2 ???�약�?발생??며칠 ??발송 (null = 기본 1) */
+  /** SCHEDULE_D2 — 위약금 발생일 며칠 전 발송 (null = 기본 1) */
   scheduleD2DaysBeforePenalty Int? @map("schedule_d2_days_before_penalty")
 
   @@id([tenantId, templateCode])
   @@map("tenant_alimtalk_template_settings")
 }
 
-/// ?�림??발송·과금 로그
+/// 알림톡 발송·과금 로그
 model AlimtalkSendLog {
   id                          String   @id @default(uuid())
   tenantId                    String   @map("tenant_id")
@@ -5214,7 +5262,7 @@ model AlimtalkSendLog {
   @@map("alimtalk_send_logs")
 }
 
-/// ?�랫???�림???�불 충전 ?�력
+/// 플랫폼 알림톡 선불 충전 이력
 model AlimtalkWalletChargeLog {
   id                    String   @id @default(uuid())
   tenantId              String   @map("tenant_id")
@@ -5229,7 +5277,7 @@ model AlimtalkWalletChargeLog {
   @@map("alimtalk_wallet_charge_logs")
 }
 
-/// ?�넌???�림??충전 ?�청 (?�금 ?�인 ???�랫???�인)
+/// 테넌트 알림톡 충전 신청 (입금 확인 후 플랫폼 승인)
 model AlimtalkChargeRequest {
   id                  String    @id @default(uuid())
   tenantId            String    @map("tenant_id")
@@ -5247,7 +5295,7 @@ model AlimtalkChargeRequest {
   @@map("alimtalk_charge_requests")
 }
 
-/// SK?�린???�용 ?????�페?��? 문의가 ?�어?�는 ?�이�?메일
+/// SK클린텍 전용 — 옛 홈페이지 문의가 들어오는 네이버 메일
 model SkHomepageMailInbox {
   id          String    @id @default(uuid())
   tenantId    String    @unique @map("tenant_id")
@@ -5265,7 +5313,7 @@ model SkHomepageMailInbox {
   @@map("sk_homepage_mail_inboxes")
 }
 
-/// 가?�온 간편견적 메일. ?��? 맞으�?문의?�역?�로 ?�결?�다.
+/// 가져온 간편견적 메일. 표가 맞으면 문의내역으로 연결한다.
 model SkHomepageInquiryMail {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
@@ -5290,7 +5338,7 @@ model SkHomepageInquiryMail {
   @@map("sk_homepage_inquiry_mails")
 }
 
-/// �?��비서 지�??�용 ?�장. 충전 ?�장(alimtalk_wallet_charge_logs)�??�이블을 ?�누???�다.
+/// 청소비서 지갑 사용 원장. 충전 원장(alimtalk_wallet_charge_logs)과 테이블을 나누어 둔다.
 model TenantWalletUsageLog {
   id              String   @id @default(uuid())
   tenantId        String   @map("tenant_id")
