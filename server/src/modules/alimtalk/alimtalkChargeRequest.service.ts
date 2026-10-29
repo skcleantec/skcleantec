@@ -4,6 +4,7 @@ import {
   validateAlimtalkTopUpAmountKrw,
 } from '../../lib/alimtalkPolicy.js';
 import { applyPlatformAlimtalkTopUp } from './alimtalkWallet.service.js';
+import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 
 export type AlimtalkChargeRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
@@ -74,6 +75,12 @@ export async function createAlimtalkChargeRequest(params: {
       requestedByUserId: params.requestedByUserId,
     },
   });
+  void notifyPlatformOps({
+    event: 'wallet_charge',
+    tenantId: params.tenantId,
+    title: '청소비서 지갑 충전 신청',
+    body: `${row.amountKrw.toLocaleString('ko-KR')}원`,
+  }).catch((err) => console.error('[platform-inbox] wallet charge', err));
   return mapChargeRequestDto(row);
 }
 
@@ -98,21 +105,30 @@ export async function approveAlimtalkChargeRequest(params: {
   ].filter(Boolean);
   const memo = memoParts.length > 0 ? memoParts.join(' · ') : null;
 
-  await applyPlatformAlimtalkTopUp({
-    tenantId: params.tenantId,
-    amountKrw: request.amountKrw,
-    memo,
-    actorPlatformUserId: params.actorPlatformUserId ?? null,
-  });
-
-  await prisma.alimtalkChargeRequest.update({
-    where: { id: request.id },
+  const claimed = await prisma.alimtalkChargeRequest.updateMany({
+    where: { id: request.id, tenantId: params.tenantId, status: 'PENDING' },
     data: {
       status: 'APPROVED',
       reviewedAt: new Date(),
       actorPlatformUserId: params.actorPlatformUserId ?? null,
     },
   });
+  if (claimed.count !== 1) throw new Error('이미 처리된 충전 신청입니다.');
+
+  try {
+    await applyPlatformAlimtalkTopUp({
+      tenantId: params.tenantId,
+      amountKrw: request.amountKrw,
+      memo,
+      actorPlatformUserId: params.actorPlatformUserId ?? null,
+    });
+  } catch (err) {
+    await prisma.alimtalkChargeRequest.updateMany({
+      where: { id: request.id, tenantId: params.tenantId, status: 'APPROVED' },
+      data: { status: 'PENDING', reviewedAt: null, actorPlatformUserId: null },
+    });
+    throw err;
+  }
 }
 
 export async function upsertTenantAlimtalkTemplateSettings(

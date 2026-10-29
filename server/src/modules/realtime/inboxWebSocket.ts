@@ -3,8 +3,9 @@ import { WebSocketServer } from 'ws';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { isPlatformAuthPayload } from '../platform/platformAuth.types.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
-import { registerUserSocket } from './realtimeHub.js';
+import { registerPlatformSocket, registerUserSocket } from './realtimeHub.js';
 
 /**
  * 인박스 실시간 갱신용 WebSocket — 경로 /ws?token=JWT
@@ -23,7 +24,21 @@ export function attachInboxWebSocket(server: Server): void {
           ws.close(4001, 'token required');
           return;
         }
-        const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
+        const decoded = jwt.verify(token, config.jwtSecret);
+        if (isPlatformAuthPayload(decoded)) {
+          registerPlatformSocket(decoded.platformUserId, ws);
+          try {
+            ws.send(JSON.stringify({ type: 'connected', v: 1, scope: 'platform' }));
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
+        const payload = decoded as AuthPayload;
+        if (!payload.userId) {
+          ws.close(4002, 'invalid token');
+          return;
+        }
         const client = url.searchParams.get('client')?.trim().toLowerCase();
         const platform = client === 'telecrm-app' ? 'telecrm-app' : 'web';
         const tenantId =

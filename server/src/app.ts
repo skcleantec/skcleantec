@@ -102,6 +102,7 @@ import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.rou
 import authSignupPublicRoutes from './modules/auth-signup/authSignup.public.routes.js';
 import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.public.routes.js';
 import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
+import platformInboxRoutes from './modules/platform/platformInbox.routes.js';
 import platformLandingContactLinkRoutes from './modules/platform/platformLandingContactLink.routes.js';
 import staffAppPushRoutes from './modules/push/staffAppPush.routes.js';
 import notificationPolicyRoutes from './modules/notifications/notificationPolicy.routes.js';
@@ -155,6 +156,7 @@ app.use('/api/platform/tenant-partnerships', platformTenantPartnershipsRoutes);
 app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
 app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);
 app.use('/api/platform/billing', platformBillingRoutes);
+app.use('/api/platform/inbox', platformInboxRoutes);
 app.use('/api/platform/card-payment', cardPaymentPlatformRoutes);
 app.use('/api/card-payments', cardPaymentRoutes);
 app.use('/api/public/card-payment', cardPaymentPublicRoutes);

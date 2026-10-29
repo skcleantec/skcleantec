@@ -1,4 +1,5 @@
 import type { PlatformTenantFeatureRow } from '../../api/platformTenants';
+import { PlatformStatusBadge } from './PlatformStatusBadge';
 import {
   featureSelectMode,
   previewEffective,
@@ -20,7 +21,7 @@ export function PlatformTenantFeatureReasonTable({ features, plan, disabled, onC
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-center text-fluid-sm">
+      <table className="w-full min-w-[720px] border-collapse text-fluid-sm">
         <thead>
           <tr className="border-b border-gray-200 text-fluid-xs text-gray-500">
             <th className="px-2 py-2 text-center font-medium">기능</th>
@@ -37,9 +38,9 @@ export function PlatformTenantFeatureReasonTable({ features, plan, disabled, onC
             const reason = previewReason(row, mode, plan, enabledModules);
             return (
               <tr key={row.moduleId} className="border-b border-gray-100">
-                <td className="px-2 py-2 text-center text-gray-900">{row.label}</td>
-                <td className="px-2 py-2 text-center text-gray-600">{row.inPlan ? '포함' : '미포함'}</td>
-                <td className="px-2 py-2 text-center">
+                <td className="px-2 py-1.5 text-left text-gray-900">{row.label}</td>
+                <td className="px-2 py-1.5 text-left text-gray-700">{row.inPlan ? '포함' : '미포함'}</td>
+                <td className="px-2 py-1.5 text-left">
                   <select
                     aria-label={`${row.label} 개별 설정`}
                     value={mode}
@@ -52,8 +53,12 @@ export function PlatformTenantFeatureReasonTable({ features, plan, disabled, onC
                     <option value="off">끄기</option>
                   </select>
                 </td>
-                <td className="px-2 py-2 text-center font-medium text-gray-900">{on ? '켜짐' : '꺼짐'}</td>
-                <td className="px-2 py-2 text-center text-gray-500">{reason}</td>
+                <td className="px-2 py-1.5 text-left">
+                  <PlatformStatusBadge tone={row.locked ? 'lock' : on ? 'ok' : 'muted'}>
+                    {row.locked ? '잠김' : on ? '켜짐' : '꺼짐'}
+                  </PlatformStatusBadge>
+                </td>
+                <td className="px-2 py-1.5 text-left text-gray-600">{reason}</td>
               </tr>
             );
           })}

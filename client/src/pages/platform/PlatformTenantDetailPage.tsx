@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   getPlatformTenant,
@@ -26,6 +26,7 @@ import {
 } from '../../components/platform/platformFeatureChoice';
 import { PlatformTenantWalletCard } from '../../components/platform/PlatformTenantWalletCard';
 import { PlatformTenantAddonStatus } from '../../components/platform/PlatformTenantAddonStatus';
+import { PlatformTenantAddonSummary } from '../../components/platform/PlatformTenantAddonSummary';
 import {
   PlatformTenantSetupChecklist,
   type TenantDetailTabId,
@@ -180,6 +181,16 @@ export function PlatformTenantDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const unsavedCount = useMemo(() => {
+    if (!detail) return 0;
+    let count = 0;
+    if (name.trim() !== detail.tenant.name) count += 1;
+    if (slug.trim() !== detail.tenant.slug) count += 1;
+    if (plan !== normalizePlanId(detail.tenant.plan)) count += 1;
+    if (JSON.stringify(features) !== JSON.stringify(detail.features)) count += 1;
+    return count;
+  }, [detail, features, name, plan, slug]);
 
   useEffect(() => {
     if (!rawTab || rawTab === activeTab) return;
@@ -541,28 +552,19 @@ export function PlatformTenantDetailPage() {
       {(activeTab === 'billing' || activeTab === 'features' || activeTab === 'addons') ? (
         <div className="space-y-5">
           {activeTab === 'addons' && id ? (
-            <PlatformTenantTelecrmPanel
-              tenantId={id}
-              disabled={saving}
-              onSaved={() => void load()}
-            />
+            <>
+              <PlatformTenantAddonSummary tenantId={id} features={features} />
+              <div className="grid gap-3 lg:grid-cols-2">
+                <PlatformTenantTelecrmPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
+                <PlatformTenantAlimtalkPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
+                <PlatformTenantWalletCard tenantId={id} disabled={saving} />
+                <PlatformTenantAddonStatus tenantId={id} />
+                <div className="lg:col-span-2">
+                  <PlatformTenantUsagePanel tenantId={id} />
+                </div>
+              </div>
+            </>
           ) : null}
-
-          {activeTab === 'addons' && id ? (
-            <PlatformTenantAlimtalkPanel
-              tenantId={id}
-              disabled={saving}
-              onSaved={() => void load()}
-            />
-          ) : null}
-
-          {activeTab === 'addons' && id ? (
-            <PlatformTenantWalletCard tenantId={id} disabled={saving} />
-          ) : null}
-
-          {activeTab === 'addons' && id ? <PlatformTenantAddonStatus tenantId={id} /> : null}
-
-          {activeTab === 'addons' && id ? <PlatformTenantUsagePanel tenantId={id} /> : null}
 
           {(activeTab === 'billing' || activeTab === 'features') ? (
             <>
@@ -595,7 +597,7 @@ export function PlatformTenantDetailPage() {
                     ].join(' ')}
                   >
                     {desc.recommended ? (
-                      <span className="absolute right-3 top-3 rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white">
+                      <span className="absolute right-3 top-3 rounded-full bg-blue-600 px-2 py-0.5 text-fluid-2xs font-medium text-white">
                         추천
                       </span>
                     ) : null}
@@ -612,23 +614,26 @@ export function PlatformTenantDetailPage() {
                       {desc.label}
                       {isSelected ? ' ✓' : ''}
                     </div>
-                    <p className="mb-2 text-[12px] text-gray-500">{desc.tagline}</p>
-                    <p className="mb-2 text-[12px] font-medium text-gray-700">{desc.monthlyPriceHint}</p>
-                    <p className="mb-2 text-[11px] text-gray-500">{desc.annualPriceHint}</p>
-                    <ul className="space-y-1">
-                      {desc.features.map((f) => (
-                        <li key={f} className="text-xs text-gray-600">
-                          · {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <ul className="mt-2 space-y-0.5 border-t border-gray-100 pt-2">
-                      {limits.map((line) => (
-                        <li key={line} className="text-[11px] text-gray-400">
-                          {line}
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="mb-1 text-fluid-xs text-gray-500">{desc.tagline}</p>
+                    <p className="text-fluid-sm font-semibold tabular-nums text-gray-900">{desc.monthlyPriceHint}</p>
+                    <p className="text-fluid-2xs text-gray-500">{desc.annualPriceHint}</p>
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-fluid-2xs text-gray-500">포함 기능</summary>
+                      <ul className="mt-1 space-y-1">
+                        {desc.features.map((f) => (
+                          <li key={f} className="text-fluid-xs text-gray-600">
+                            · {f}
+                          </li>
+                        ))}
+                      </ul>
+                      <ul className="mt-2 space-y-0.5 border-t border-gray-100 pt-2">
+                        {limits.map((line) => (
+                          <li key={line} className="text-fluid-2xs text-gray-500">
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
                   </button>
                 );
               })}
@@ -859,6 +864,11 @@ export function PlatformTenantDetailPage() {
               삭제
             </button>
           </div>
+        </div>
+      ) : null}
+      {unsavedCount > 0 ? (
+        <div className="sticky bottom-3 z-20 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-950 shadow-sm">
+          저장 안 된 변경 {unsavedCount}개 · 각 카드의 저장 버튼을 누르세요.
         </div>
       ) : null}
     </div>

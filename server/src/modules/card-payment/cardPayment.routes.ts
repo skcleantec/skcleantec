@@ -18,6 +18,7 @@ import {
 } from './cardPaymentOnboarding.service.js';
 import { getTenantPgContract, submitTenantPgContract, uploadPgContractImage } from './pgMerchantContract.service.js';
 import { notifyPgApplicationSubmitted, notifyPgContractSubmitted } from './pgApplicationNotify.service.js';
+import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 import { listPgClerkSlots, savePgClerkSlots } from './pgClerk.service.js';
 import {
   confirmCustomerLink,
@@ -291,6 +292,13 @@ router.post('/pg/onboarding/submit', async (req, res) => {
       contactEmail: row.contactEmail,
       submittedAt: row.submittedAt,
     }).catch((err) => console.error('[pg-application notify]', err));
+    void notifyPlatformOps({
+      event: 'pg_submit',
+      tenantId,
+      title: 'PG 가입 신청',
+      body: row.businessName?.trim() || '가입 신청',
+      email: false,
+    }).catch((err) => console.error('[platform-inbox] pg submit', err));
     res.json(row);
   } catch (e) {
     if (e instanceof Error && (

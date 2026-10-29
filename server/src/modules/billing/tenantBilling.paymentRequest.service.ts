@@ -3,6 +3,7 @@ import { ensurePlatformBillingSettings } from './tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { notifyPaymentConfirmationRequestByEmail } from './tenantBilling.paymentRequest.email.js';
 import { PLATFORM_SYSTEM_MAIL_FROM } from '../../lib/platformWorkspace.constants.js';
+import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 import {
   isPaymentNotifyEmailValid,
   normalizePaymentNotifyEmails,
@@ -102,6 +103,13 @@ export async function requestTenantPaymentConfirmation(input: {
     where: { id: invoice.id },
     data: { paymentConfirmationRequestedAt: new Date() },
   });
+  void notifyPlatformOps({
+    event: 'payment_confirm',
+    tenantId: tenant.id,
+    title: '이용료 입금 확인 요청',
+    body: `${invoice.amountKrw.toLocaleString('ko-KR')}원`,
+    email: false,
+  }).catch((err) => console.error('[platform-inbox] payment confirm', err));
 
   const anySent = mailResults.some((r) => r.sent);
   if (!anySent) {

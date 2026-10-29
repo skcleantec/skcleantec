@@ -11,6 +11,8 @@ type RegisteredSocket = {
 const socketsByUser = new Map<string, Set<RegisteredSocket>>();
 /** tenantId → ADMIN·MARKETER tabs (테넌트별 staff broadcast) */
 const staffBroadcastByTenant = new Map<string, Set<WebSocket>>();
+/** 플랫폼 운영자 탭. 테넌트 소켓과 키를 섞지 않는다. */
+const platformSockets = new Map<string, Set<WebSocket>>();
 
 function isStaffRole(role: string): boolean {
   return role === 'ADMIN' || role === 'MARKETER';
@@ -64,6 +66,41 @@ export function registerUserSocket(
   };
   ws.on('close', onDone);
   ws.on('error', onDone);
+}
+
+export function registerPlatformSocket(platformUserId: string, ws: WebSocket): void {
+  const key = `platform:${platformUserId}`;
+  let set = platformSockets.get(key);
+  if (!set) {
+    set = new Set();
+    platformSockets.set(key, set);
+  }
+  set.add(ws);
+  const onDone = () => {
+    const current = platformSockets.get(key);
+    current?.delete(ws);
+    if (current && current.size === 0) platformSockets.delete(key);
+    ws.off('close', onDone);
+    ws.off('error', onDone);
+  };
+  ws.on('close', onDone);
+  ws.on('error', onDone);
+}
+
+/** 로그인 중인 플랫폼 운영자 화면 전부 */
+export function broadcastJsonToPlatform(data: object): void {
+  const payload = JSON.stringify(data);
+  for (const set of platformSockets.values()) {
+    for (const ws of set) {
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(payload);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
 }
 
 /** 연결된 ADMIN·MARKETER 소켓에만 전송 (동일 테넌트) */

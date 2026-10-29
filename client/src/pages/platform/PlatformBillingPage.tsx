@@ -50,7 +50,7 @@ function PaymentConfirmationRequestedBadge({ at }: { at: string | null | undefin
   if (!at) return null;
   return (
     <span
-      className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[12px] font-medium text-sky-900"
+      className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-fluid-2xs font-medium text-amber-900 ring-1 ring-amber-200"
       title={`업체 입금 확인 요청: ${formatKoDate(at)}`}
     >
       입금 확인 요청

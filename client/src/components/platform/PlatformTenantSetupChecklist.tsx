@@ -107,7 +107,7 @@ export function PlatformTenantSetupChecklist({ tenantId, detail, features, admin
           tab: 'account',
           sectionId: 'section-business',
         },
-    contractSaved === null
+    contractSaved === null && normalizePlanId(plan) !== 'free'
       ? {
           label: '플랜·과금',
           value: `${planLabel} · 확인 중`,
@@ -115,7 +115,15 @@ export function PlatformTenantSetupChecklist({ tenantId, detail, features, admin
           tab: 'billing',
           sectionId: 'section-billing-contract',
         }
-      : contractSaved
+      : normalizePlanId(plan) === 'free'
+        ? {
+            label: '플랜·과금',
+            value: '무료 플랜 · 과금 없음',
+            tone: 'ok',
+            tab: 'billing',
+            sectionId: 'section-billing-contract',
+          }
+        : contractSaved
         ? {
             label: '플랜·과금',
             value: `${planLabel} · 계약 설정됨`,

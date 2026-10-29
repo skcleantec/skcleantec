@@ -254,7 +254,7 @@ PG가 연결된 뒤에만 왼쪽 메뉴에 나옵니다.
 
 | 묶음 | 화면 글자 | 경로 |
 |------|-----------|------|
-| 오늘 할 일 | 오늘 할 일, 가입승인 게시판, 유료 전환 신청, 문의 링크 신청 | `/platform/inbox` 등. 건수 배지는 아직 없습니다 |
+| 오늘 할 일 | 오늘 할 일, 가입승인 게시판, 유료 전환 신청, 문의 링크 신청 | `/platform/inbox`. 왼쪽 메뉴에 대기 건수. 돈 처리에서 승인·반려 |
 | 업체 | 업체 목록, 업체 추가 | `/platform/tenants`, `/platform/tenants/new` |
 | 매출·수납 | 이용료 청구, 입금 내역, 수기 카드결제, PG 수수료 | `/platform/billing`, `/platform/billing/settlement`, `/platform/card-payment/charge`, `/platform/card-payment/fees` |
 | 부가서비스 | 카드결제 PG, 전자계약, 계산서(바로빌), DB 마켓 | 기존 주소 그대로. 코인 사용 주소 `/platform/coin-usage`는 메뉴 없이 그대로 열림 |

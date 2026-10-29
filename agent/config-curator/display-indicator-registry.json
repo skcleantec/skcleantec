@@ -1,8 +1,32 @@
 {
   "_comment": "CBISEO 화면 표시 신호 카탈로그 — ConfigCurator가 유지. userConfigurable=true 만 UI 토글 대상.",
-  "_lastUpdated": "2026-09-28-staff-id-preview-download",
+  "_lastUpdated": "2026-10-29-platform-fastlane",
   "_settingsHubPlanned": "/admin/settings/display",
   "indicators": [
+    {
+      "id": "platform.inbox.pendingBadge",
+      "labelKo": "오늘 할 일 대기 건수",
+      "surfaces": ["platform.sidebar", "platform.inbox"],
+      "visual": { "type": "badge", "token": "amber-400", "hex": "#fbbf24" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/components/layout/PlatformLayout.tsx", "client/src/components/platform/PlatformInboxQueue.tsx"],
+      "notes": "1시간 넘으면 주황, 24시간 넘으면 빨강. 끄면 돈 처리가 늦어진다."
+    },
+    {
+      "id": "platform.status.tone",
+      "labelKo": "플랫폼 상태 배지",
+      "surfaces": ["platform.inbox", "platform.tenant.features", "platform.tenant.addons", "platform.billing"],
+      "visual": { "type": "badge", "token": "emerald-50 / amber-50 / red-50 / gray-100" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": null,
+      "helpPath": null,
+      "codeRefs": ["client/src/components/platform/PlatformStatusBadge.tsx"],
+      "notes": "정상 초록, 확인 필요 주황, 문제 빨강, 해당 없음 회색, 잠금은 자물쇠."
+    },
     {
       "id": "inquiry.pinTier.pendingSubmit",
       "labelKo": "미제출 (발주서 링크만 발급)",

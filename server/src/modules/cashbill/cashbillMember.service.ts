@@ -10,6 +10,7 @@ import { BarobillCallError } from '../../lib/barobill/soap.js';
 import { checkCorpIsMember, newBarobillPassword, newBarobillUserId, registCorp } from '../../lib/barobill/ti.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { refreshBarobillCerts } from '../taxinvoice/taxInvoiceCert.service.js';
+import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 
 export class CashbillMemberError extends Error {
   readonly statusCode: number;
@@ -508,6 +509,12 @@ export async function registerCashbillMember(tenantId: string, input: RegisterIn
     reviewedAt: null,
     reviewedByPlatformUserId: null,
   });
+  void notifyPlatformOps({
+    event: 'barobill_review',
+    tenantId,
+    title: '바로빌 검토 대기',
+    body: corpName,
+  }).catch((err) => console.error('[platform-inbox] barobill', err));
   return { id, status: 'PENDING_REVIEW' as const, lastError: null, taxType: null };
 }
 
