@@ -352,6 +352,10 @@ export type PlatformAlimtalkPolicyResponse = {
     balanceAfterKrw: number;
     memo: string | null;
     createdAt: string;
+    actorName?: string | null;
+    kind?: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
+    reason?: string | null;
+    tenantLabel?: string;
   }[];
   pendingChargeRequests: {
     id: string;
@@ -396,7 +400,7 @@ export async function patchPlatformTenantAlimtalkPolicy(
 export async function postPlatformTenantAlimtalkCharge(
   token: string,
   tenantId: string,
-  body: { amountKrw: number; memo?: string; chargeRequestId?: string },
+  body: { amountKrw: number; memo?: string; chargeRequestId?: string; kind?: 'paid' | 'grant' | 'clawback' },
 ) {
   const res = await fetch(`${API}/platform/tenants/${tenantId}/alimtalk-policy/charge`, {
     method: 'POST',

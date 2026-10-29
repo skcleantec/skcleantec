@@ -45,6 +45,8 @@ export type TenantAlimtalkSettings = {
     balanceAfterKrw: number;
     memo: string | null;
     createdAt: string;
+    tenantLabel?: string;
+    reason?: string | null;
   }[];
 };
 

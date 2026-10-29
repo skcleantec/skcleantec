@@ -98,12 +98,8 @@ export async function approveAlimtalkChargeRequest(params: {
     throw new Error('이미 처리된 충전 신청입니다.');
   }
 
-  const memoParts = [
-    params.memo?.trim() || null,
-    request.memo?.trim() || null,
-    `chargeRequest:${request.id}`,
-  ].filter(Boolean);
-  const memo = memoParts.length > 0 ? memoParts.join(' · ') : null;
+  const reason = [params.memo?.trim() || null, request.memo?.trim() || null].filter(Boolean).join(' · ');
+  const memo = `cbiseo:paid:${reason || '충전 신청 승인'}`;
 
   const claimed = await prisma.alimtalkChargeRequest.updateMany({
     where: { id: request.id, tenantId: params.tenantId, status: 'PENDING' },
@@ -121,6 +117,7 @@ export async function approveAlimtalkChargeRequest(params: {
       amountKrw: request.amountKrw,
       memo,
       actorPlatformUserId: params.actorPlatformUserId ?? null,
+      revenue: true,
     });
   } catch (err) {
     await prisma.alimtalkChargeRequest.updateMany({

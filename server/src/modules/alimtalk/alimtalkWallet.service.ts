@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import {
   ALIMTALK_LMS_FREE_UNITS,
@@ -182,19 +183,51 @@ export async function isTenantAlimtalkTemplateEnabled(
   return row?.isEnabled !== false;
 }
 
+export const PLATFORM_WALLET_ADJUST_MAX_KRW = 1_000_000;
+export type PlatformWalletAdjustKind = 'paid' | 'grant' | 'clawback';
+
+export function validatePlatformWalletAdjustKrw(amount: number): string | null {
+  if (!Number.isInteger(amount) || amount < 1 || amount > PLATFORM_WALLET_ADJUST_MAX_KRW) {
+    return '금액은 1원 이상 1,000,000원 이하로 입력해 주세요.';
+  }
+  return null;
+}
+
+export function walletChargePresentation(memo: string | null): {
+  kind: PlatformWalletAdjustKind | 'card' | 'other';
+  reason: string | null;
+  tenantLabel: string;
+} {
+  if (memo?.startsWith('cbiseo:paid:')) {
+    return { kind: 'paid', reason: memo.slice('cbiseo:paid:'.length) || null, tenantLabel: '청소비서 지급' };
+  }
+  if (memo?.startsWith('cbiseo:grant:')) {
+    return { kind: 'grant', reason: memo.slice('cbiseo:grant:'.length) || null, tenantLabel: '청소비서 지급' };
+  }
+  if (memo?.startsWith('cbiseo:clawback:')) {
+    return { kind: 'clawback', reason: memo.slice('cbiseo:clawback:'.length) || null, tenantLabel: '청소비서 회수' };
+  }
+  if (memo?.startsWith('card:')) return { kind: 'card', reason: null, tenantLabel: '카드 충전' };
+  return { kind: 'other', reason: memo, tenantLabel: '충전' };
+}
+
 export type AlimtalkWalletChargeLogView = {
   id: string;
   amountKrw: number;
   balanceAfterKrw: number;
   memo: string | null;
   createdAt: Date;
+  actorName: string | null;
+  kind: ReturnType<typeof walletChargePresentation>['kind'];
+  reason: string | null;
+  tenantLabel: string;
 };
 
 export async function listRecentAlimtalkChargeLogs(
   tenantId: string,
   limit = 10,
 ): Promise<AlimtalkWalletChargeLogView[]> {
-  return prisma.alimtalkWalletChargeLog.findMany({
+  const rows = await prisma.alimtalkWalletChargeLog.findMany({
     where: { tenantId },
     orderBy: { createdAt: 'desc' },
     take: limit,
@@ -204,6 +237,49 @@ export async function listRecentAlimtalkChargeLogs(
       balanceAfterKrw: true,
       memo: true,
       createdAt: true,
+      actorPlatformUserId: true,
+    },
+  });
+  const actorIds = [...new Set(rows.map((row) => row.actorPlatformUserId).filter((id): id is string => Boolean(id)))];
+  const actors = actorIds.length
+    ? await prisma.platformUser.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } })
+    : [];
+  const names = new Map(actors.map((actor) => [actor.id, actor.name]));
+  return rows.map((row) => {
+    const shown = walletChargePresentation(row.memo);
+    return {
+      id: row.id,
+      amountKrw: row.amountKrw,
+      balanceAfterKrw: row.balanceAfterKrw,
+      memo: shown.reason,
+      createdAt: row.createdAt,
+      actorName: row.actorPlatformUserId ? names.get(row.actorPlatformUserId) ?? null : null,
+      kind: shown.kind,
+      reason: shown.reason,
+      tenantLabel: shown.tenantLabel,
+    };
+  });
+}
+
+async function recordPaidWalletDeposit(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  params: { tenantId: string; amountKrw: number; reason: string | null; actorPlatformUserId: string | null },
+): Promise<void> {
+  await tx.usageFeeCardPayment.create({
+    data: {
+      purpose: 'OTHER',
+      payMethod: 'BANK',
+      status: 'APPROVED',
+      tenantId: params.tenantId,
+      goodsName: '청소비서 지갑',
+      supplyAmountKrw: params.amountKrw,
+      vatAmountKrw: 0,
+      amountKrw: params.amountKrw,
+      pgOrderId: `wlt${randomBytes(12).toString('hex')}`,
+      memo: params.reason || '입금 확인',
+      invoiceApplied: true,
+      paidAt: new Date(),
+      createdByPlatformUserId: params.actorPlatformUserId,
     },
   });
 }
@@ -213,8 +289,12 @@ export async function applyPlatformAlimtalkTopUp(params: {
   amountKrw: number;
   memo?: string | null;
   actorPlatformUserId?: string | null;
+  /** 입금 확인(유상)이면 입금 내역에 통장 건으로 남긴다. */
+  revenue?: boolean;
 }): Promise<{ balanceAfterKrw: number; logId: string }> {
-  const validationError = validateAlimtalkTopUpAmountKrw(params.amountKrw);
+  const validationError = params.memo?.startsWith('cbiseo:')
+    ? validatePlatformWalletAdjustKrw(params.amountKrw)
+    : validateAlimtalkTopUpAmountKrw(params.amountKrw);
   if (validationError) throw new Error(validationError);
 
   const tenant = await prisma.tenant.findUnique({
@@ -239,7 +319,52 @@ export async function applyPlatformAlimtalkTopUp(params: {
         actorPlatformUserId: params.actorPlatformUserId ?? null,
       },
     });
+    if (params.revenue) {
+      const shown = walletChargePresentation(params.memo ?? null);
+      await recordPaidWalletDeposit(tx, {
+        tenantId: params.tenantId,
+        amountKrw: params.amountKrw,
+        reason: shown.reason,
+        actorPlatformUserId: params.actorPlatformUserId ?? null,
+      });
+    }
     return { balanceAfterKrw: wallet.prepaidBalanceKrw, logId: log.id };
+  });
+}
+
+export async function applyPlatformWalletClawback(params: {
+  tenantId: string;
+  amountKrw: number;
+  reason: string;
+  actorPlatformUserId?: string | null;
+}): Promise<{ balanceAfterKrw: number }> {
+  const validationError = validatePlatformWalletAdjustKrw(params.amountKrw);
+  if (validationError) throw new Error(validationError);
+  const reason = params.reason.trim();
+  if (!reason) throw new Error('회수 사유를 입력해 주세요.');
+  const tenant = await prisma.tenant.findUnique({ where: { id: params.tenantId }, select: { plan: true } });
+  if (!tenant) throw new Error('Tenant not found');
+  await ensureTenantAlimtalkDefaults(params.tenantId, tenant.plan);
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.tenantAlimtalkWallet.updateMany({
+      where: { tenantId: params.tenantId, prepaidBalanceKrw: { gte: params.amountKrw } },
+      data: { prepaidBalanceKrw: { decrement: params.amountKrw } },
+    });
+    if (updated.count !== 1) throw new Error('잔액보다 많이 회수할 수 없습니다.');
+    const wallet = await tx.tenantAlimtalkWallet.findUnique({
+      where: { tenantId: params.tenantId },
+      select: { prepaidBalanceKrw: true },
+    });
+    await tx.alimtalkWalletChargeLog.create({
+      data: {
+        tenantId: params.tenantId,
+        amountKrw: -params.amountKrw,
+        balanceAfterKrw: wallet?.prepaidBalanceKrw ?? 0,
+        memo: `cbiseo:clawback:${reason}`,
+        actorPlatformUserId: params.actorPlatformUserId ?? null,
+      },
+    });
+    return { balanceAfterKrw: wallet?.prepaidBalanceKrw ?? 0 };
   });
 }
 

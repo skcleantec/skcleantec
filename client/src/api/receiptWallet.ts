@@ -28,6 +28,7 @@ export type ReceiptWalletLedgerItem = {
   balanceAfterKrw: number;
   createdAt: string;
   memo: string | null;
+  tenantLabel?: string | null;
 };
 
 function headers(): HeadersInit {

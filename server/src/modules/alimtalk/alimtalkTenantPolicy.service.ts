@@ -9,7 +9,15 @@ import {
   alimtalkPlanAllowsFeature,
 } from '../../lib/alimtalkPolicy.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
-import { getAlimtalkWalletView, ensureTenantAlimtalkDefaults, listRecentAlimtalkChargeLogs, applyPlatformAlimtalkTopUp } from './alimtalkWallet.service.js';
+import {
+  getAlimtalkWalletView,
+  ensureTenantAlimtalkDefaults,
+  listRecentAlimtalkChargeLogs,
+  applyPlatformAlimtalkTopUp,
+  applyPlatformWalletClawback,
+  validatePlatformWalletAdjustKrw,
+  type PlatformWalletAdjustKind,
+} from './alimtalkWallet.service.js';
 import {
   approveAlimtalkChargeRequest,
   listPendingAlimtalkChargeRequestsForTenant,
@@ -23,6 +31,10 @@ export type AlimtalkChargeLogDto = {
   balanceAfterKrw: number;
   memo: string | null;
   createdAt: string;
+  actorName: string | null;
+  kind: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
+  reason: string | null;
+  tenantLabel: string;
 };
 
 export type AlimtalkSettingsForPlatform = {
@@ -81,8 +93,12 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
       id: log.id,
       amountKrw: log.amountKrw,
       balanceAfterKrw: log.balanceAfterKrw,
-      memo: log.memo,
+      memo: log.reason,
       createdAt: log.createdAt.toISOString(),
+      actorName: log.actorName,
+      kind: log.kind,
+      reason: log.reason,
+      tenantLabel: log.tenantLabel,
     })),
     pendingChargeRequests,
     monthUsage,
@@ -169,7 +185,7 @@ export async function saveAlimtalkPolicyForPlatform(
 
 export async function chargeAlimtalkWalletForPlatform(
   tenantId: string,
-  input: { amountKrw: number; memo?: string | null; chargeRequestId?: string | null },
+  input: { amountKrw: number; memo?: string | null; chargeRequestId?: string | null; kind?: string | null },
   actorPlatformUserId?: string | null,
 ): Promise<AlimtalkSettingsForPlatform> {
   if (input.chargeRequestId) {
@@ -179,12 +195,27 @@ export async function chargeAlimtalkWalletForPlatform(
       actorPlatformUserId,
       memo: input.memo,
     });
+    return getAlimtalkSettingsForPlatform(tenantId);
+  }
+  const kind: PlatformWalletAdjustKind = input.kind === 'grant' || input.kind === 'clawback' || input.kind === 'paid' ? input.kind : 'paid';
+  const amountError = validatePlatformWalletAdjustKrw(input.amountKrw);
+  if (amountError) throw new Error(amountError);
+  const reason = input.memo?.trim() ?? '';
+  if ((kind === 'grant' || kind === 'clawback') && !reason) throw new Error('사유를 입력해 주세요.');
+  if (kind === 'clawback') {
+    await applyPlatformWalletClawback({
+      tenantId,
+      amountKrw: input.amountKrw,
+      reason,
+      actorPlatformUserId,
+    });
   } else {
     await applyPlatformAlimtalkTopUp({
       tenantId,
       amountKrw: input.amountKrw,
-      memo: input.memo,
+      memo: `cbiseo:${kind}:${reason}`,
       actorPlatformUserId,
+      revenue: kind === 'paid',
     });
   }
   return getAlimtalkSettingsForPlatform(tenantId);

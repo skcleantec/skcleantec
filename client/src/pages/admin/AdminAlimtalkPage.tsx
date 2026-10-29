@@ -351,12 +351,14 @@ export function AdminAlimtalkPage() {
                       className="flex flex-wrap items-baseline justify-between gap-x-2 text-fluid-2xs text-gray-600"
                     >
                       <span className="tabular-nums">
-                        +{log.amountKrw.toLocaleString('ko-KR')}원 → 잔액{' '}
+                        {log.tenantLabel ? `${log.tenantLabel} ` : ''}
+                        {log.amountKrw > 0 ? '+' : ''}
+                        {log.amountKrw.toLocaleString('ko-KR')}원 → 잔액{' '}
                         {log.balanceAfterKrw.toLocaleString('ko-KR')}원
                       </span>
                       <span className="text-gray-400">
                         {new Date(log.createdAt).toLocaleString('ko-KR')}
-                        {log.memo ? ` · ${log.memo}` : ''}
+                        {log.reason ? ` · ${log.reason}` : ''}
                       </span>
                     </li>
                   ))}

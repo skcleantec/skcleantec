@@ -19,7 +19,7 @@ function won(n: number): string {
 }
 
 function labelOf(row: ReceiptWalletLedgerItem): string {
-  if (row.kind === 'CHARGE') return '충전';
+  if (row.kind === 'CHARGE') return row.tenantLabel || '충전';
   if (row.type && row.type in WALLET_USAGE_LABEL) return WALLET_USAGE_LABEL[row.type as WalletUsageType];
   return '사용';
 }

@@ -61,6 +61,10 @@ export type AlimtalkSettingsForTenantAdmin = {
     balanceAfterKrw: number;
     memo: string | null;
     createdAt: string;
+    actorName: string | null;
+    kind: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
+    reason: string | null;
+    tenantLabel: string;
   }[];
 };
 
@@ -69,8 +73,12 @@ function mapChargeLogs(logs: AlimtalkWalletChargeLogView[]) {
     id: log.id,
     amountKrw: log.amountKrw,
     balanceAfterKrw: log.balanceAfterKrw,
-    memo: log.memo,
+    memo: log.reason,
     createdAt: log.createdAt.toISOString(),
+    actorName: log.actorName,
+    kind: log.kind,
+    reason: log.reason,
+    tenantLabel: log.tenantLabel,
   }));
 }
 

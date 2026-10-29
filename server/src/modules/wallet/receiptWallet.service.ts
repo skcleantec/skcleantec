@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { WALLET_LOW_BALANCE_KRW } from '../../lib/walletPolicy.js';
 import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { ensurePlatformBillingSettings } from '../billing/tenantBilling.service.js';
-import { ensureTenantAlimtalkDefaults } from '../alimtalk/alimtalkWallet.service.js';
+import { ensureTenantAlimtalkDefaults, walletChargePresentation } from '../alimtalk/alimtalkWallet.service.js';
 
 const LEDGER_FILTERS = ['all', 'charge', 'cashbill', 'taxinvoice', 'alimtalk'] as const;
 export type WalletLedgerFilter = (typeof LEDGER_FILTERS)[number];
@@ -147,15 +147,19 @@ export async function listReceiptWalletLedger(tenantId: string, filter: WalletLe
     LIMIT 30
   `;
   return {
-    items: rows.map((row) => ({
-      id: row.id,
-      kind: row.kind === 'CHARGE' ? 'CHARGE' as const : 'USAGE' as const,
-      type: row.type,
-      amountKrw: row.amount_krw,
-      balanceAfterKrw: row.balance_after_krw,
-      createdAt: row.created_at.toISOString(),
-      memo: row.memo,
-    })),
+    items: rows.map((row) => {
+      const shown = row.kind === 'CHARGE' ? walletChargePresentation(row.memo) : null;
+      return {
+        id: row.id,
+        kind: row.kind === 'CHARGE' ? 'CHARGE' as const : 'USAGE' as const,
+        type: row.type,
+        amountKrw: row.amount_krw,
+        balanceAfterKrw: row.balance_after_krw,
+        createdAt: row.created_at.toISOString(),
+        memo: shown && shown.kind !== 'other' ? shown.reason : row.memo,
+        tenantLabel: shown?.tenantLabel ?? null,
+      };
+    }),
     total: Number(totalRows[0]?.n ?? 0),
     trend: trendDesc.reverse().map((row) => ({
       at: row.created_at.toISOString(),

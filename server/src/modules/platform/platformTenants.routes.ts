@@ -335,7 +335,7 @@ router.patch('/:id/alimtalk-policy', platformSuperAdminOnly, async (req, res) =>
 
 router.post('/:id/alimtalk-policy/charge', platformSuperAdminOnly, async (req, res) => {
   try {
-    const body = req.body as { amountKrw?: number; memo?: string; chargeRequestId?: string };
+    const body = req.body as { amountKrw?: number; memo?: string; chargeRequestId?: string; kind?: string };
     const chargeRequestId = body.chargeRequestId?.trim() || null;
     const amountKrw = Number(body.amountKrw);
     const platformUser = (req as PlatformScopedRequest).platformUser;
@@ -349,6 +349,7 @@ router.post('/:id/alimtalk-policy/charge', platformSuperAdminOnly, async (req, r
         amountKrw: Number.isFinite(amountKrw) ? amountKrw : 0,
         memo: body.memo,
         chargeRequestId,
+        kind: body.kind,
       },
       platformUser?.platformUserId ?? null,
     );
