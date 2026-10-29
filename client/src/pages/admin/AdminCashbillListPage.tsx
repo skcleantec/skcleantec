@@ -259,7 +259,13 @@ function ReceiptActions({
   const btn = 'min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   return (
     <div className="flex flex-wrap items-center justify-center gap-1">
-      <ReceiptCopyButtons publicToken={row.publicToken ?? null} copyReady={Boolean(row.copyReady)} />
+      <ReceiptCopyButtons
+        kind="cashbill"
+        issueId={row.id}
+        official={canViewReceipt(row)}
+        publicToken={row.publicToken ?? null}
+        copyReady={Boolean(row.copyReady)}
+      />
       {canViewReceipt(row) ? (
         <button type="button" className={btn} onClick={() => void openCashbillReceipt(row.id).catch((err: unknown) => onError(err instanceof Error ? err.message : '영수증을 열지 못했습니다.'))}>
           영수증 보기

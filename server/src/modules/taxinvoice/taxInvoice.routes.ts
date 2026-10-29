@@ -8,6 +8,8 @@ import {
   cancelTaxInvoice,
   issueTaxInvoice,
   listTaxInvoices,
+  taxInvoiceCustomerUrl,
+  taxInvoicePrintUrl,
   searchTaxInvoiceInquiries,
   TaxInvoiceError,
 } from './taxInvoice.service.js';
@@ -76,6 +78,22 @@ router.post('/', async (req, res) => {
     res.json(await issueTaxInvoice(tenantId, user.userId, req.body ?? {}));
   } catch (err) {
     sendError(res, err, '세금계산서 발행에 실패했습니다.');
+  }
+});
+
+router.get('/:issueId/mail-url', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    const kind = req.query.kind === 'print' ? 'print' : 'mail';
+    const url = kind === 'print'
+      ? await taxInvoicePrintUrl(tenantId, String(req.params.issueId ?? ''))
+      : await taxInvoiceCustomerUrl(tenantId, String(req.params.issueId ?? ''));
+    res.json({ url });
+  } catch (err) {
+    sendError(res, err, '영수증 주소를 받지 못했습니다.');
   }
 });
 

@@ -202,7 +202,13 @@ export function AdminTaxInvoiceListPage() {
 function RowAction({ row, cancelling, onCancel }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-1">
-      <ReceiptCopyButtons publicToken={row.publicToken ?? null} copyReady={Boolean(row.copyReady)} />
+      <ReceiptCopyButtons
+        kind="taxinvoice"
+        issueId={row.id}
+        official={row.barobillState === '3014' || row.barobillState === '5031'}
+        publicToken={row.publicToken ?? null}
+        copyReady={Boolean(row.copyReady)}
+      />
       {row.canCancel ? (
         <button type="button" className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-2xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={cancelling} onClick={onCancel}>
           {cancelling ? '취소 중…' : '발급취소'}

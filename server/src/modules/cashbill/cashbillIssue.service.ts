@@ -11,6 +11,7 @@ import { cashbillRemaining, splitCashbillTax, type CashbillPartKind } from './ca
 import {
   cancelCashBillFull,
   fetchCashbillMailUrl,
+  fetchCashbillPrintUrl,
   fetchCashbillState,
   fetchCashbillStates,
   PARTNER_BALANCE_CODES,
@@ -312,6 +313,7 @@ export async function issueCashbill(
     itemName?: string;
     tradeDate?: string;
     requestId?: string;
+    email?: string;
   },
 ) {
   const inquiry = input.inquiryId ? await loadInquiry(tenantId, input.inquiryId) : null;
@@ -334,6 +336,7 @@ export async function issueCashbill(
   if (!mode) throw new CashbillIssueError('용도는 소득공제, 지출증빙, 자진발급만 가능합니다.');
   const who = identityFor(mode, input.identity, inquiry?.customerPhone ?? '');
   const itemName = itemNameOf(input.itemName);
+  const email = customerEmailOf(input.email);
   const date = tradeDateYmd(input.tradeDate);
   const tax = splitCashbillTax(totalWon);
   const key = mgtKey('i', input.requestId);
@@ -395,6 +398,7 @@ export async function issueCashbill(
       tax: String(tax.tax),
       serviceCharge: String(tax.serviceCharge),
       itemName,
+      email,
     });
     const state = await fetchCashbillState({ corpNum: member.corpNum, userId: member.barobillUserId, mgtKey: key }).catch(() => null);
     await rememberState(chargedRow, state ?? { barobillState: '2000', ntsConfirmNum: null });
@@ -561,6 +565,15 @@ export async function listCashbillIssues(tenantId: string, query: {
   };
 }
 
+function customerEmailOf(raw: unknown): string {
+  const text = typeof raw === 'string' ? raw.trim() : '';
+  if (!text) return '';
+  if (text.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+    throw new CashbillIssueError('고객 이메일 형식을 확인해 주세요.');
+  }
+  return text;
+}
+
 export async function cashbillCustomerUrl(tenantId: string, issueId: string): Promise<string> {
   const row = await prisma.cashBillIssue.findFirst({
     where: { id: issueId, tenantId },
@@ -570,6 +583,21 @@ export async function cashbillCustomerUrl(tenantId: string, issueId: string): Pr
     throw new CashbillIssueError('영수증을 볼 수 있는 발급 건이 아닙니다.', 404);
   }
   return fetchCashbillMailUrl({
+    corpNum: row.member.corpNum,
+    userId: row.member.barobillUserId,
+    mgtKey: row.mgtKey,
+  });
+}
+
+export async function cashbillPrintUrl(tenantId: string, issueId: string): Promise<string> {
+  const row = await prisma.cashBillIssue.findFirst({
+    where: { id: issueId, tenantId },
+    include: { member: { select: { tenantId: true, corpNum: true, barobillUserId: true } } },
+  });
+  if (!row || row.member.tenantId !== tenantId || !row.barobillState || row.barobillState === '1000') {
+    throw new CashbillIssueError('인쇄할 수 있는 발급 건이 아닙니다.', 404);
+  }
+  return fetchCashbillPrintUrl({
     corpNum: row.member.corpNum,
     userId: row.member.barobillUserId,
     mgtKey: row.mgtKey,

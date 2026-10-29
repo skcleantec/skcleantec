@@ -11,6 +11,8 @@ import {
   won,
 } from './receiptCopy.mask.js';
 import { renderReceiptPdf, renderReceiptPng, type ReceiptCopyView } from './receiptCopy.render.js';
+import { fetchCashbillMailUrl } from '../cashbill/cashbillIssue.barobill.js';
+import { fetchTaxInvoiceMailUrl } from '../taxinvoice/taxInvoice.barobill.js';
 
 const PENDING = '국세청 전송 중';
 
@@ -18,6 +20,7 @@ export type PublicReceipt = ReceiptCopyView & {
   updatedAt: string;
   hasImage: boolean;
   hasPdf: boolean;
+  officialUrl: string | null;
 };
 
 function sealUrl(config: unknown): string | null {
@@ -180,6 +183,7 @@ const memberSelect = {
   addr2: true,
   contactTel: true,
   tenantId: true,
+  barobillUserId: true,
 } as const;
 
 export async function renderCashbillCopy(issueId: string): Promise<void> {
@@ -228,8 +232,48 @@ export async function safeRenderTaxInvoiceCopy(issueId: string): Promise<void> {
   }
 }
 
-function publicOf(view: ReceiptCopyView, updatedAt: Date, png: string | null, pdf: string | null): PublicReceipt {
-  return { ...view, logo: null, updatedAt: updatedAt.toISOString(), hasImage: Boolean(png), hasPdf: Boolean(pdf) };
+function publicOf(
+  view: ReceiptCopyView,
+  updatedAt: Date,
+  png: string | null,
+  pdf: string | null,
+  officialUrl: string | null,
+): PublicReceipt {
+  const official = Boolean(officialUrl);
+  return {
+    ...view,
+    logo: null,
+    updatedAt: updatedAt.toISOString(),
+    hasImage: official ? false : Boolean(png),
+    hasPdf: official ? false : Boolean(pdf),
+    officialUrl,
+  };
+}
+
+async function cashbillOfficialMail(row: {
+  barobillState: string | null;
+  mgtKey: string;
+  member: { corpNum: string; barobillUserId: string };
+}): Promise<string | null> {
+  if (!row.barobillState || row.barobillState === '1000') return null;
+  try {
+    return await fetchCashbillMailUrl({
+      corpNum: row.member.corpNum,
+      userId: row.member.barobillUserId,
+      mgtKey: row.mgtKey,
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function taxOfficialMail(row: { barobillState: string | null; mgtKey: string; member: { corpNum: string } }): Promise<string | null> {
+  if (!row.barobillState || row.barobillState === '1000') return null;
+  try {
+    return await fetchTaxInvoiceMailUrl({ corpNum: row.member.corpNum, mgtKey: row.mgtKey });
+  } catch {
+    return null;
+  }
 }
 
 /** 토큰 1건만 조회한다. 같은 업체의 다른 영수증은 읽지 않는다. */
@@ -241,12 +285,14 @@ export async function findPublicReceipt(token: string): Promise<{ doc: PublicRec
       include: { member: { select: memberSelect }, operatingCompany: { select: { name: true, config: true, tenantId: true } } },
     });
     if (!row || row.member.tenantId !== row.tenantId) return null;
-    return { doc: publicOf(cashView(row, null), row.updatedAt, row.copyPngUrl, row.copyPdfUrl), pngUrl: row.copyPngUrl, pdfUrl: row.copyPdfUrl };
+    const officialUrl = await cashbillOfficialMail(row);
+    return { doc: publicOf(cashView(row, null), row.updatedAt, row.copyPngUrl, row.copyPdfUrl, officialUrl), pngUrl: officialUrl ? null : row.copyPngUrl, pdfUrl: officialUrl ? null : row.copyPdfUrl };
   }
   const row = await prisma.taxInvoiceIssue.findFirst({
     where: { publicToken: token },
     include: { member: { select: memberSelect }, operatingCompany: { select: { name: true, config: true, tenantId: true } } },
   });
   if (!row || row.member.tenantId !== row.tenantId) return null;
-  return { doc: publicOf(taxView(row, null), row.updatedAt, row.copyPngUrl, row.copyPdfUrl), pngUrl: row.copyPngUrl, pdfUrl: row.copyPdfUrl };
+  const officialUrl = await taxOfficialMail(row);
+  return { doc: publicOf(taxView(row, null), row.updatedAt, row.copyPngUrl, row.copyPdfUrl, officialUrl), pngUrl: officialUrl ? null : row.copyPngUrl, pdfUrl: officialUrl ? null : row.copyPdfUrl };
 }

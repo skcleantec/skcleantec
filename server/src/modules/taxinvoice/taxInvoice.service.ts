@@ -13,6 +13,8 @@ import {
   CERT_ERROR_CODES,
   fetchTaxInvoiceStates,
   PARTNER_BALANCE_CODES,
+  fetchTaxInvoiceMailUrl,
+  fetchTaxInvoicePrintUrl,
   registAndIssueTaxInvoice,
 } from './taxInvoice.barobill.js';
 import { certBlockMessage, refreshBarobillCerts } from './taxInvoiceCert.service.js';
@@ -454,4 +456,29 @@ export async function syncOpenTaxInvoiceStates(): Promise<{ checked: number; upd
     }
   }
   return { checked: open.length, updated };
+}
+
+async function issuedTaxRow(tenantId: string, issueId: string) {
+  const row = await prisma.taxInvoiceIssue.findFirst({
+    where: { id: issueId, tenantId },
+    include: { member: { select: { tenantId: true, corpNum: true, barobillUserId: true } } },
+  });
+  if (!row || row.member.tenantId !== tenantId || !row.barobillState || row.barobillState === '1000') {
+    throw new TaxInvoiceError('영수증을 볼 수 있는 발급 건이 아닙니다.', 404);
+  }
+  return row;
+}
+
+export async function taxInvoiceCustomerUrl(tenantId: string, issueId: string): Promise<string> {
+  const row = await issuedTaxRow(tenantId, issueId);
+  return fetchTaxInvoiceMailUrl({ corpNum: row.member.corpNum, mgtKey: row.mgtKey });
+}
+
+export async function taxInvoicePrintUrl(tenantId: string, issueId: string): Promise<string> {
+  const row = await issuedTaxRow(tenantId, issueId);
+  return fetchTaxInvoicePrintUrl({
+    corpNum: row.member.corpNum,
+    userId: row.member.barobillUserId,
+    mgtKey: row.mgtKey,
+  });
 }

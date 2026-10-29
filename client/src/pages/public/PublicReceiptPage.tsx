@@ -12,7 +12,15 @@ type ReceiptDoc = {
   updatedAt: string;
   hasImage: boolean;
   hasPdf: boolean;
+  officialUrl: string | null;
 };
+
+function OfficialRedirect({ url }: { url: string }) {
+  useEffect(() => {
+    window.location.replace(url);
+  }, [url]);
+  return <main className="mx-auto max-w-lg p-6 text-center text-fluid-sm text-slate-600">공식 영수증으로 이동합니다.</main>;
+}
 
 export function PublicReceiptPage() {
   const { token = '' } = useParams();
@@ -44,6 +52,9 @@ export function PublicReceiptPage() {
   }
   if (!doc) {
     return <main className="mx-auto max-w-lg p-6 text-center text-fluid-sm text-slate-500">불러오는 중…</main>;
+  }
+  if (doc.officialUrl) {
+    return <OfficialRedirect url={doc.officialUrl} />;
   }
   const png = `${API}/public/receipts/${encodeURIComponent(token)}/png?v=${encodeURIComponent(doc.updatedAt)}`;
   const pdf = `${API}/public/receipts/${encodeURIComponent(token)}/pdf?v=${encodeURIComponent(doc.updatedAt)}`;

@@ -19,6 +19,7 @@ export type CashbillInvoice = {
   tax: string;
   serviceCharge: string;
   itemName: string;
+  email?: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -75,7 +76,7 @@ export async function registAndIssueCashBill(invoice: CashbillInvoice): Promise<
         IdentityNum: invoice.identityNum,
         HP: '',
         Fax: '',
-        Email: '',
+        Email: invoice.email?.trim() ?? '',
         TradeDate: invoice.tradeDate,
         TradeType: 'N',
         TradeUsage: invoice.tradeUsage,
@@ -145,6 +146,19 @@ export async function fetchCashbillMailUrl(input: { corpNum: string; userId: str
   );
   if (typeof raw !== 'string' || !raw.startsWith('http')) {
     throw new BarobillCallError(-1, '현금영수증 확인 주소를 받지 못했습니다.');
+  }
+  return raw;
+}
+
+/** 인쇄 화면. 레퍼런스상 60초만 유효하고, 회원 아이디로 로그인된 화면이다. */
+export async function fetchCashbillPrintUrl(input: { corpNum: string; userId: string; mgtKey: string }): Promise<string> {
+  const raw = await callCashbill(
+    'GetCashBillPrintURL',
+    { CorpNum: input.corpNum, UserID: input.userId, PWD: '', MgtKey: input.mgtKey },
+    { corpNum: input.corpNum },
+  );
+  if (typeof raw !== 'string' || !raw.startsWith('http')) {
+    throw new BarobillCallError(-1, '현금영수증 인쇄 주소를 받지 못했습니다.');
   }
   return raw;
 }

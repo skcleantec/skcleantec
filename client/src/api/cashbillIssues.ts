@@ -81,6 +81,7 @@ export async function issueCashbill(body: {
   identity?: string;
   itemName?: string;
   tradeDate?: string;
+  email?: string;
   requestId: string;
 }): Promise<CashbillIssueRow> {
   const res = await fetch(`${API}/cashbill/issues`, {

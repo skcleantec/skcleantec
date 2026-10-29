@@ -176,6 +176,33 @@ export async function cancelIssuedTaxInvoice(input: { corpNum: string; mgtKey: s
   );
 }
 
+export async function fetchTaxInvoiceMailUrl(input: { corpNum: string; mgtKey: string }): Promise<string> {
+  const raw = await callBarobill(
+    'TI',
+    'GetTaxinvoiceMailURL',
+    { CorpNum: input.corpNum, MgtKey: input.mgtKey },
+    { corpNum: input.corpNum },
+  );
+  if (typeof raw !== 'string' || !raw.startsWith('http')) {
+    throw new Error('세금계산서 확인 주소를 받지 못했습니다.');
+  }
+  return raw;
+}
+
+/** 인쇄 화면. 레퍼런스상 60초만 유효하다. PWD 는 빈 값. */
+export async function fetchTaxInvoicePrintUrl(input: { corpNum: string; userId: string; mgtKey: string }): Promise<string> {
+  const raw = await callBarobill(
+    'TI',
+    'GetTaxInvoicePrintURL',
+    { CorpNum: input.corpNum, MgtKey: input.mgtKey, ID: input.userId, PWD: '' },
+    { corpNum: input.corpNum },
+  );
+  if (typeof raw !== 'string' || !raw.startsWith('http')) {
+    throw new Error('세금계산서 인쇄 주소를 받지 못했습니다.');
+  }
+  return raw;
+}
+
 export async function fetchTaxInvoiceStates(input: { corpNum: string; mgtKeys: string[] }) {
   const raw = await callBarobill(
     'TI',

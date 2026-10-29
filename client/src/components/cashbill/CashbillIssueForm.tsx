@@ -42,6 +42,7 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
   const [identity, setIdentity] = useState('');
   const [itemName, setItemName] = useState('청소 서비스');
   const [tradeDate, setTradeDate] = useState(today);
+  const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,6 +97,7 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
         identity: usage === 'voluntary' ? undefined : identity.trim(),
         itemName,
         tradeDate,
+        email: email.trim() || undefined,
         requestId: crypto.randomUUID(),
       });
       setQuery('');
@@ -192,6 +194,16 @@ export function CashbillIssueForm({ brands, onDone }: { brands: Brand[]; onDone:
           className="min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs"
         />
       )}
+      <label className="block space-y-1 text-fluid-xs text-slate-700">
+        <span>고객 이메일</span>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+        />
+        <span className="text-fluid-2xs text-slate-500">입력하면 바로빌이 공식 영수증 안내 메일을 자동 발송합니다</span>
+      </label>
       <label className="block space-y-1 text-fluid-xs text-slate-700">
         <span>품목명</span>
         <input value={itemName} onChange={(e) => setItemName(e.target.value)} className="min-h-9 w-full rounded-lg border border-slate-300 px-2" />

@@ -7,6 +7,7 @@ import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import {
   cancelCashbillIssue,
   cashbillCustomerUrl,
+  cashbillPrintUrl,
   CashbillIssueError,
   issueCashbill,
   listCashbillIssues,
@@ -87,7 +88,11 @@ router.get('/issues/:issueId/mail-url', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
-    res.json({ url: await cashbillCustomerUrl(tenantId, String(req.params.issueId ?? '')) });
+    const kind = req.query.kind === 'print' ? 'print' : 'mail';
+    const url = kind === 'print'
+      ? await cashbillPrintUrl(tenantId, String(req.params.issueId ?? ''))
+      : await cashbillCustomerUrl(tenantId, String(req.params.issueId ?? ''));
+    res.json({ url });
   } catch (err) {
     sendError(res, err, '영수증 주소를 받지 못했습니다.');
   }

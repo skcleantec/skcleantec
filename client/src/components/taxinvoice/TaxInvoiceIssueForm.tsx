@@ -191,7 +191,11 @@ export function TaxInvoiceIssueForm({ brands, onDone }: { brands: TaxInvoiceBran
         <label className="text-fluid-2xs text-slate-600">사업자등록번호<input className={INPUT} inputMode="numeric" value={corpNum} onChange={(e) => setCorpNum(e.target.value)} /></label>
         <label className="text-fluid-2xs text-slate-600">상호<input className={INPUT} value={corpName} onChange={(e) => setCorpName(e.target.value)} /></label>
         <label className="text-fluid-2xs text-slate-600">대표자<input className={INPUT} value={ceoName} onChange={(e) => setCeoName(e.target.value)} /></label>
-        <label className="text-fluid-2xs text-slate-600">이메일<input className={INPUT} type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+        <label className="text-fluid-2xs text-slate-600">
+          이메일
+          <input className={INPUT} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <span className="mt-1 block text-fluid-2xs text-slate-500">입력하면 바로빌이 공식 영수증 안내 메일을 자동 발송합니다</span>
+        </label>
         <label className="text-fluid-2xs text-slate-600 sm:col-span-2">주소<input className={INPUT} value={addr} onChange={(e) => setAddr(e.target.value)} /></label>
         <label className="text-fluid-2xs text-slate-600">업태<input className={INPUT} value={bizType} onChange={(e) => setBizType(e.target.value)} /></label>
         <label className="text-fluid-2xs text-slate-600">종목<input className={INPUT} value={bizClass} onChange={(e) => setBizClass(e.target.value)} /></label>
