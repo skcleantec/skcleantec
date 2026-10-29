@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { API } from '../../api/apiPrefix';
 import { getToken } from '../../stores/auth';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { CashbillCertRegisterModal } from '../../components/cashbill/CashbillCertRegisterModal';
-import { TaxInvoiceIssueForm } from '../../components/taxinvoice/TaxInvoiceIssueForm';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
 import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
@@ -46,6 +45,8 @@ function won(n: number): string {
 }
 
 export function AdminTaxInvoiceListPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const datePreset = searchParams.get('datePreset') || 'today';
   const monthKey = searchParams.get('month') || kstMonthKeyNow();
@@ -64,7 +65,6 @@ export function AdminTaxInvoiceListPage() {
   const [certBrandId, setCertBrandId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [issueOpen, setIssueOpen] = useState(false);
   const [reload, setReload] = useState(0);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [walletTick, setWalletTick] = useState(0);
@@ -108,6 +108,16 @@ export function AdminTaxInvoiceListPage() {
     return () => { cancelled = true; };
   }, [load, reload]);
 
+  useEffect(() => {
+    const issuedId = (location.state as { taxIssuedId?: string } | null)?.taxIssuedId;
+    if (!issuedId) return;
+    setToastId(issuedId);
+    setHighlightId(issuedId);
+    setReload((n) => n + 1);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    window.setTimeout(() => setHighlightId(null), 4000);
+  }, [location.pathname, location.search, location.state, navigate]);
+
   async function cancelRow(issueId: string) {
     setCancellingId(issueId);
     setError(null);
@@ -143,7 +153,7 @@ export function AdminTaxInvoiceListPage() {
         path="/admin/inquiries/receipts/taxinvoice"
         issueLabel="+ 세금계산서 발행"
         issueDisabled={needsLink || certMissing}
-        onIssue={() => setIssueOpen(true)}
+        onIssue={() => navigate('/admin/inquiries/receipts/taxinvoice/new')}
         statusChip={certChip ? (
           <button type="button" className={`min-h-11 rounded-full border px-3 text-fluid-2xs font-medium hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${certChip.className}`} onClick={() => setCertBrandId(certChip.id)}>
             {certChip.label}
@@ -163,19 +173,6 @@ export function AdminTaxInvoiceListPage() {
           공동인증서를 등록해야 세금계산서를 발행할 수 있습니다
           <button type="button" className="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => missingCert && setCertBrandId(missingCert.id)}>공동인증서 등록</button>
         </div>
-      ) : null}
-      {!needsLink && issueOpen ? (
-        <TaxInvoiceIssueForm
-          brands={brands}
-          onClose={() => setIssueOpen(false)}
-          onDone={(issueId) => {
-            setIssueOpen(false);
-            setHighlightId(issueId);
-            setToastId(issueId);
-            setReload((n) => n + 1);
-            window.setTimeout(() => setHighlightId(null), 4000);
-          }}
-        />
       ) : null}
       {toastId ? (
         <p className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs text-emerald-900">
@@ -216,7 +213,7 @@ export function AdminTaxInvoiceListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-1.5 lg:hidden">
-            {items.map((row) => <TaxCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => setIssueOpen(true)} highlight={highlightId === row.id} />)}
+            {items.map((row) => <TaxCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(row.inquiryId ? `/admin/inquiries/receipts/taxinvoice/new?inquiryId=${encodeURIComponent(row.inquiryId)}` : '/admin/inquiries/receipts/taxinvoice/new')} highlight={highlightId === row.id} />)}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
@@ -242,7 +239,7 @@ export function AdminTaxInvoiceListPage() {
                     <td className="px-2 py-2 text-center">{row.purposeType === 2 ? '청구' : '영수'}</td>
                     <td className="px-2 py-2 text-center"><TaxStatus row={row} /></td>
                     <td className="max-w-[6rem] truncate px-2 py-2 text-center tabular-nums" title={row.ntsSendKey || ''}>{row.ntsSendKey || '—'}</td>
-                    <td className="px-2 py-2 text-center"><RowAction row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => setIssueOpen(true)} /></td>
+                    <td className="px-2 py-2 text-center"><RowAction row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(row.inquiryId ? `/admin/inquiries/receipts/taxinvoice/new?inquiryId=${encodeURIComponent(row.inquiryId)}` : '/admin/inquiries/receipts/taxinvoice/new')} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -259,7 +256,7 @@ export function AdminTaxInvoiceListPage() {
           onRegistered={(status) => {
             setBrands((prev) => prev.map((brand) => brand.id === certBrandId ? { ...brand, certValid: true, certExpireDate: status.expireDate } : brand));
           }}
-          onIssue={() => setIssueOpen(true)}
+          onIssue={() => navigate('/admin/inquiries/receipts/taxinvoice/new')}
         />
       ) : null}
     </div>

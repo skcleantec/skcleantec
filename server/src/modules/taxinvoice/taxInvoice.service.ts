@@ -38,7 +38,23 @@ export class TaxInvoiceError extends Error {
   }
 }
 
-type LineInput = { name?: string; total?: number; supply?: number; tax?: number };
+type LineInput = {
+  name?: string;
+  total?: number;
+  supply?: number;
+  tax?: number;
+  month?: string;
+  day?: string;
+  spec?: string;
+  qty?: string | number;
+  unitPrice?: string | number;
+  remark?: string;
+  kind?: string;
+};
+
+function digitsOnly(raw: unknown, max: number): string {
+  return String(raw ?? '').replace(/\D/g, '').slice(0, max);
+}
 
 function mgtKey(requestId: string | undefined): string {
   const cleaned = String(requestId ?? '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 22);
@@ -60,21 +76,42 @@ function writeDateOf(raw: string | undefined): string {
 }
 
 function linesOf(raw: LineInput[] | undefined) {
-  const rows = Array.isArray(raw) ? raw : [];
+  const rows = (Array.isArray(raw) ? raw : []).filter((row) => row?.kind !== 'settlement');
   if (rows.length < 1) throw new TaxInvoiceError('품목을 한 줄 이상 입력해 주세요.');
+  if (rows.length > 16) throw new TaxInvoiceError('품목은 16줄까지입니다.');
   const lines = rows.map((row) => {
     const name = String(row.name ?? '').trim().slice(0, 80);
-    const total = Math.round(Number(row.total));
     if (!name) throw new TaxInvoiceError('품목명을 입력해 주세요.');
-    if (!Number.isFinite(total) || total < 1) throw new TaxInvoiceError('품목 금액을 입력해 주세요.');
     const supplyIn = Math.round(Number(row.supply));
     const taxIn = Math.round(Number(row.tax));
-    const split = splitCashbillTax(total);
-    const edited = Number.isFinite(supplyIn) && Number.isFinite(taxIn) && supplyIn >= 0 && taxIn >= 0 && supplyIn + taxIn === total;
-    const supply = edited ? supplyIn : split.amount;
-    const tax = edited ? taxIn : split.tax;
+    const totalIn = Math.round(Number(row.total));
+    let supply: number;
+    let tax: number;
+    let total: number;
+    if (Number.isFinite(supplyIn) && Number.isFinite(taxIn) && supplyIn >= 0 && taxIn >= 0 && supplyIn + taxIn >= 1) {
+      supply = supplyIn;
+      tax = taxIn;
+      total = supply + tax;
+    } else {
+      if (!Number.isFinite(totalIn) || totalIn < 1) throw new TaxInvoiceError('품목 금액을 입력해 주세요.');
+      const split = splitCashbillTax(totalIn);
+      supply = split.amount;
+      tax = split.tax;
+      total = totalIn;
+    }
     if (supply < 0 || tax < 0 || supply + tax !== total) throw new TaxInvoiceError('공급가액과 세액의 합이 품목 금액과 같아야 합니다.');
-    return { name, supply, tax, total };
+    return {
+      name,
+      supply,
+      tax,
+      total,
+      month: digitsOnly(row.month, 2),
+      day: digitsOnly(row.day, 2),
+      spec: String(row.spec ?? '').trim().slice(0, 40),
+      qty: digitsOnly(row.qty, 8),
+      unitPrice: digitsOnly(row.unitPrice, 12),
+      remark: String(row.remark ?? '').trim().slice(0, 40),
+    };
   });
   return {
     lines,
@@ -132,9 +169,14 @@ async function loadMember(tenantId: string, operatingCompanyId: string) {
 }
 
 function firstLineName(lines: unknown): string {
-  if (!Array.isArray(lines) || !lines[0] || typeof lines[0] !== 'object') return '청소 서비스';
-  const name = (lines[0] as { name?: unknown }).name;
-  return typeof name === 'string' && name.trim() ? name.trim() : '청소 서비스';
+  if (!Array.isArray(lines)) return '청소 서비스';
+  for (const item of lines) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as { kind?: unknown; name?: unknown };
+    if (row.kind === 'settlement') continue;
+    if (typeof row.name === 'string' && row.name.trim()) return row.name.trim();
+  }
+  return '청소 서비스';
 }
 
 function toPublic(row: TaxInvoiceIssue) {
@@ -200,15 +242,16 @@ async function failIssue(row: TaxInvoiceIssue, err: unknown, plan: string): Prom
   throw new TaxInvoiceError(message, err instanceof TaxInvoiceError ? err.statusCode : 502);
 }
 
-export async function searchTaxInvoiceInquiries(tenantId: string, rawQuery: string) {
+export async function searchTaxInvoiceInquiries(tenantId: string, rawQuery: string, inquiryId?: string) {
+  const id = String(inquiryId ?? '').trim();
   const q = rawQuery.trim().slice(0, 40);
   const phone = q.replace(/\D/g, '');
-  if (q.length < 2 && phone.length < 3) return [];
+  if (!id && q.length < 2 && phone.length < 3) return [];
   const or: Prisma.InquiryWhereInput[] = [];
   if (q.length >= 2) or.push({ customerName: { contains: q, mode: 'insensitive' } });
   if (phone.length >= 3) or.push({ customerPhone: { contains: phone } });
   const found = await prisma.inquiry.findMany({
-    where: { tenantId, deletedAt: null, OR: or },
+    where: id ? { id, tenantId, deletedAt: null } : { tenantId, deletedAt: null, OR: or },
     select: {
       id: true,
       inquiryNumber: true,
@@ -265,6 +308,12 @@ export async function issueTaxInvoice(
     };
     lines?: LineInput[];
     internalMemo?: string;
+    cash?: string;
+    chkBill?: string;
+    note?: string;
+    credit?: string;
+    remark?: string;
+    buyerTaxRegId?: string;
   },
 ) {
   const inquiry = input.inquiryId
@@ -282,6 +331,15 @@ export async function issueTaxInvoice(
   if (!purposeType) throw new TaxInvoiceError('영수 또는 청구를 선택해 주세요.');
   const buyer = buyerOf(input.buyer ?? {});
   const priced = linesOf(input.lines);
+  const settlement = {
+    kind: 'settlement' as const,
+    cash: digitsOnly(input.cash, 15),
+    chkBill: digitsOnly(input.chkBill, 15),
+    note: digitsOnly(input.note, 15),
+    credit: digitsOnly(input.credit, 15),
+    remark: String(input.remark ?? '').trim().slice(0, 150),
+    buyerTaxRegId: digitsOnly(input.buyerTaxRegId, 10),
+  };
   const writeDate = writeDateOf(input.writeDate);
   const key = mgtKey(input.requestId);
   const memo = String(input.internalMemo ?? '').trim().slice(0, 500);
@@ -309,7 +367,7 @@ export async function issueTaxInvoice(
       supplyAmount: priced.supply,
       taxAmount: priced.tax,
       totalAmount: priced.total,
-      lines: priced.lines,
+      lines: [...priced.lines, settlement],
       internalMemo: memo || null,
       createdById: userId,
     },
@@ -346,6 +404,12 @@ export async function issueTaxInvoice(
       tax: priced.tax,
       total: priced.total,
       lines: priced.lines,
+      cash: settlement.cash,
+      chkBill: settlement.chkBill,
+      note: settlement.note,
+      credit: settlement.credit,
+      remark: settlement.remark,
+      buyerTaxRegId: settlement.buyerTaxRegId,
     });
     const [state] = await fetchTaxInvoiceStates({ corpNum: member.corpNum, mgtKeys: [key] }).catch(() => []);
     await remember(chargedRow, state ?? { barobillState: '3014', ntsSendState: '1' });
@@ -425,7 +489,27 @@ export async function listTaxInvoices(tenantId: string, query: {
     prisma.taxInvoiceIssue.count({ where }),
     prisma.operatingCompany.findMany({
       where: { tenantId, isActive: true },
-      select: { id: true, name: true, barobillMember: { select: { status: true, barobillUserId: true, taxType: true, certValid: true, certExpireDate: true } } },
+      select: {
+        id: true,
+        name: true,
+        barobillMember: {
+          select: {
+            status: true,
+            barobillUserId: true,
+            taxType: true,
+            certValid: true,
+            certExpireDate: true,
+            corpNum: true,
+            corpName: true,
+            ceoName: true,
+            addr1: true,
+            bizType: true,
+            bizClass: true,
+            contactEmail: true,
+            contactTel: true,
+          },
+        },
+      },
       orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
     }),
     prisma.taxInvoiceIssue.aggregate({
@@ -457,6 +541,18 @@ export async function listTaxInvoices(tenantId: string, query: {
       simplified: brand.barobillMember?.taxType === '2',
       certValid: brand.barobillMember?.certValid === true,
       certExpireDate: brand.barobillMember?.certExpireDate ?? null,
+      supplier: brand.barobillMember
+        ? {
+            corpNum: brand.barobillMember.corpNum,
+            corpName: brand.barobillMember.corpName,
+            ceoName: brand.barobillMember.ceoName,
+            addr: brand.barobillMember.addr1,
+            bizType: brand.barobillMember.bizType,
+            bizClass: brand.barobillMember.bizClass,
+            email: brand.barobillMember.contactEmail,
+            tel: brand.barobillMember.contactTel,
+          }
+        : null,
     })),
     summary: {
       issuedCount: issuedAgg._count._all,

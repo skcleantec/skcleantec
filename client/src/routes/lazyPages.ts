@@ -344,6 +344,11 @@ export const AdminTaxInvoiceListPage = lazyWithRetry(() =>
     default: m.AdminTaxInvoiceListPage,
   }))
 );
+export const AdminTaxInvoiceIssuePage = lazyWithRetry(() =>
+  import('../pages/admin/AdminTaxInvoiceIssuePage').then((m) => ({
+    default: m.AdminTaxInvoiceIssuePage,
+  }))
+);
 export const AdminNotificationSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminNotificationSettingsPage').then((m) => ({
     default: m.AdminNotificationSettingsPage,

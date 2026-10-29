@@ -115,6 +115,7 @@ import {
   AdminCashbillSettingsPage,
   AdminCashbillListPage,
   AdminTaxInvoiceListPage,
+  AdminTaxInvoiceIssuePage,
   AdminNotificationSettingsPage,
   AdminKakaoLinkPage,
   AdminStaffAccessSettingsPage,
@@ -300,6 +301,14 @@ function App() {
               element={
                 <FeatureGate module="mod_cashbill">
                   <SuspensePage><AdminTaxInvoiceListPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="receipts/taxinvoice/new"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminTaxInvoiceIssuePage /></SuspensePage>
                 </FeatureGate>
               }
             />

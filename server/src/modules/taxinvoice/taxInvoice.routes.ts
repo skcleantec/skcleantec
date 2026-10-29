@@ -40,8 +40,9 @@ router.get('/inquiry-search', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const q = typeof req.query.q === 'string' ? req.query.q : '';
+  const inquiryId = typeof req.query.inquiryId === 'string' ? req.query.inquiryId : '';
   try {
-    res.json({ items: await searchTaxInvoiceInquiries(tenantId, q) });
+    res.json({ items: await searchTaxInvoiceInquiries(tenantId, q, inquiryId) });
   } catch (err) {
     sendError(res, err, '접수를 찾지 못했습니다.');
   }

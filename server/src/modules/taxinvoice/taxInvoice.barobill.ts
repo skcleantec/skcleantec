@@ -7,6 +7,12 @@ export type TaxInvoiceLine = {
   name: string;
   supply: number;
   tax: number;
+  month?: string;
+  day?: string;
+  spec?: string;
+  qty?: string;
+  unitPrice?: string;
+  remark?: string;
 };
 
 export type TaxInvoicePayload = {
@@ -33,6 +39,13 @@ export type TaxInvoicePayload = {
   tax: number;
   total: number;
   lines: TaxInvoiceLine[];
+  /** WSDL 필드명만 확인. 한글 칸 뜻은 BAROBILL_API_NOTES §6. */
+  cash?: string;
+  chkBill?: string;
+  note?: string;
+  credit?: string;
+  remark?: string;
+  buyerTaxRegId?: string;
 };
 
 function party(input: {
@@ -46,13 +59,14 @@ function party(input: {
   bizClass: string;
   email: string;
   tel: string;
+  taxRegId?: string;
 }) {
   return {
     ContactID: input.contactId,
     CorpNum: input.corpNum,
     MgtNum: input.mgtNum,
     CorpName: input.corpName,
-    TaxRegID: '',
+    TaxRegID: String(input.taxRegId ?? '').replace(/\D/g, '').slice(0, 10),
     CEOName: input.ceoName,
     Addr: input.addr,
     BizClass: input.bizClass,
@@ -95,6 +109,13 @@ export function readTaxInvoiceStates(raw: unknown): { mgtKey: string; barobillSt
   });
 }
 
+function linePurchaseExpiry(writeDate: string, month?: string, day?: string): string {
+  const m = String(month ?? '').replace(/\D/g, '');
+  const d = String(day ?? '').replace(/\D/g, '');
+  if (!m || !d || writeDate.length !== 8) return writeDate;
+  return `${writeDate.slice(0, 4)}${m.padStart(2, '0').slice(-2)}${d.padStart(2, '0').slice(-2)}`;
+}
+
 /** 간편발급. 과세·정발행만. 내부 메모는 넣지 않는다. */
 export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promise<void> {
   await callBarobill(
@@ -126,6 +147,7 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
           bizClass: input.buyerBizClass,
           email: input.buyerEmail,
           tel: '',
+          taxRegId: input.buyerTaxRegId,
         }),
         IssueDirection: 1,
         TaxInvoiceType: 1,
@@ -134,22 +156,26 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
         PurposeType: input.purposeType,
         ModifyCode: '',
         WriteDate: input.writeDate,
+        Cash: input.cash ?? '',
+        ChkBill: input.chkBill ?? '',
+        Note: input.note ?? '',
+        Credit: input.credit ?? '',
         AmountTotal: String(input.supply),
         TaxTotal: String(input.tax),
         TotalAmount: String(input.total),
-        Remark1: '',
+        Remark1: input.remark ?? '',
         Remark2: '',
         Remark3: '',
         TaxInvoiceTradeLineItems: {
           TaxInvoiceTradeLineItem: input.lines.map((line) => ({
-            PurchaseExpiry: input.writeDate,
+            PurchaseExpiry: linePurchaseExpiry(input.writeDate, line.month, line.day),
             Name: line.name,
-            Information: '',
-            ChargeableUnit: '1',
-            UnitPrice: String(line.supply),
+            Information: line.spec ?? '',
+            ChargeableUnit: line.qty ? line.qty : '1',
+            UnitPrice: line.unitPrice ? line.unitPrice : String(line.supply),
             Amount: String(line.supply),
             Tax: String(line.tax),
-            Description: '',
+            Description: line.remark ?? '',
           })),
         },
       },

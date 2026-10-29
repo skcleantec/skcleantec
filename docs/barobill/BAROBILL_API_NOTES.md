@@ -50,6 +50,33 @@
 - 세금계산서도 같다. 거래처용은 `GetTaxinvoiceMailURL`(유효기간 문구 없음). 인쇄는 `GetTaxInvoicePrintURL`(60초, `PWD` 빈 문자열). PDF 전용 API는 없다.
 
 ## 6. 세금계산서 (TI)
+
+### 양식 칸 ↔ 바로빌 필드 (2026-10-29)
+
+출처는 바로빌 세금계산서 SOAP `https://ws.baroservice.com/TI.asmx?wsdl` 의 `complexType TaxInvoice` · `TaxInvoiceTradeLineItem` · `InvoiceParty`, 그리고 `RegistAndIssueTaxInvoice` 샘플(`https://testws.baroservice.com/TI.asmx?op=RegistAndIssueTaxInvoice`)이다. WSDL과 샘플은 **영문 필드명과 타입만** 있고, 양식 칸의 한글 뜻은 적혀 있지 않다. 한글 칸과 필드를 잇는 설명은 **확인 못 함**. 아래 표의 「양식 칸」은 화면 칸 이름이고, 오른쪽은 그 요청에 **실제로 있는 필드명**이다.
+
+| 양식 칸 | 바로빌 필드 | 확인 |
+| --- | --- | --- |
+| 품목 줄 | `TaxInvoice.TaxInvoiceTradeLineItems.TaxInvoiceTradeLineItem` | 타입·자식 필드명 확인. 한 장 최대 줄 수는 WSDL에 상한이 없어 **확인 못 함** |
+| 품목 월·일 | `PurchaseExpiry` (string) | 필드명만 확인. 월/일이라는 설명은 **확인 못 함** |
+| 품목명 | `Name` (string) | 필드명만 확인. 품목명이라는 설명은 **확인 못 함** |
+| 규격 | `Information` (string) | 필드명만 확인. 규격이라는 설명은 **확인 못 함** |
+| 수량 | `ChargeableUnit` (string) | 필드명만 확인. 수량이라는 설명은 **확인 못 함** |
+| 단가 | `UnitPrice` (string) | 필드명만 확인. 단가라는 설명은 **확인 못 함** |
+| 줄 공급가액 | `Amount` (string) | 필드명만 확인. 공급가액이라는 설명은 **확인 못 함** |
+| 줄 세액 | `Tax` (string) | 필드명만 확인. 세액이라는 설명은 **확인 못 함** |
+| 줄 비고 | `Description` (string) | 필드명만 확인. 비고라는 설명은 **확인 못 함** |
+| 공급가액 합계 | `AmountTotal` (string) | 필드명만 확인 |
+| 세액 합계 | `TaxTotal` (string) | 필드명만 확인 |
+| 합계금액 | `TotalAmount` (string) | 필드명만 확인 |
+| 현금 | `Cash` (string) | 필드명만 확인. 현금이라는 설명은 **확인 못 함** |
+| 수표 | `ChkBill` (string) | 필드명만 확인. 수표라는 설명은 **확인 못 함** |
+| 어음 | `Note` (string) | 필드명만 확인. 어음이라는 설명은 **확인 못 함** |
+| 외상미수금 | `Credit` (string) | 필드명만 확인. 외상미수금이라는 설명은 **확인 못 함** |
+| 영수/청구 | `PurposeType` (int) | 필드명·정수 타입만 확인. 1·2가 영수/청구라는 설명은 이 레퍼런스에 없어 **확인 못 함**. 이미 발행에 쓰던 값(1 영수, 2 청구)은 그대로 둔다 |
+| 비고 | `Remark1` · `Remark2` · `Remark3` (string) | 필드명만 확인. 양식의 비고 한 칸이 셋 중 어느 것인지는 **확인 못 함**. 화면 비고는 `Remark1`만 보내고 나머지 둘은 빈 문자열 |
+| 종사업장번호 | `InvoiceParty.TaxRegID` (string) | 공급자 `InvoicerParty` · 공급받는자 `InvoiceeParty` 양쪽에 필드명 확인. 종사업장이라는 설명은 **확인 못 함** |
+
 - 정발급 권장 흐름: **간편발급 `RegistAndIssueTaxInvoice`** (임시저장+발급 분리 시 재처리 로직 필요).
 - InvoicerParty.MgtNum(공급자 관리번호) · InvoicerParty.ContactID(공급자 바로빌 아이디) 필수. 공급받는자 MgtNum/ContactID 는 빈 값.
 - 상태: `GetTaxInvoiceStateEX(s)` → BarobillState 1000 임시 · 3014 발급완료 · 5031 발급취소 / NTSSendState 1 전송전(취소가능) · 2·3 전송중 · 4 성공 · 5 실패.

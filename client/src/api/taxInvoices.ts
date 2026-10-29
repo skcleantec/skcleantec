@@ -14,6 +14,17 @@ export type TaxInvoiceSearchHit = {
   buyer: { corpName: string; email: string; addr: string } | null;
 };
 
+export type TaxInvoiceSupplier = {
+  corpNum: string;
+  corpName: string;
+  ceoName: string;
+  addr: string;
+  bizType: string;
+  bizClass: string;
+  email: string;
+  tel: string;
+};
+
 export type TaxInvoiceBrand = {
   id: string;
   name: string;
@@ -21,6 +32,7 @@ export type TaxInvoiceBrand = {
   simplified: boolean;
   certValid: boolean;
   certExpireDate: string | null;
+  supplier?: TaxInvoiceSupplier | null;
 };
 
 export type TaxInvoiceRow = {
@@ -67,8 +79,11 @@ export function taxNtsStateLabel(state: string | null): string {
   return '확인 중';
 }
 
-export async function searchTaxInvoiceInquiries(q: string): Promise<TaxInvoiceSearchHit[]> {
-  const res = await fetch(`${API}/tax-invoices/inquiry-search?q=${encodeURIComponent(q)}`, { headers: headers() });
+export async function searchTaxInvoiceInquiries(q: string, inquiryId?: string): Promise<TaxInvoiceSearchHit[]> {
+  const qs = new URLSearchParams();
+  if (q) qs.set('q', q);
+  if (inquiryId) qs.set('inquiryId', inquiryId);
+  const res = await fetch(`${API}/tax-invoices/inquiry-search?${qs.toString()}`, { headers: headers() });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '접수를 찾지 못했습니다.'));
   const body = (await res.json()) as { items: TaxInvoiceSearchHit[] };
   return body.items;
