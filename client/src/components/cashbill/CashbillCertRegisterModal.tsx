@@ -8,10 +8,20 @@ const BTN =
 const GHOST =
   'min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
-function openCertPopup(url: string): Window | null {
-  const left = Math.max(0, window.screenX + 460);
-  const top = Math.max(0, window.screenY + 80);
-  return window.open(url, 'cbiseoCertRegister', `popup,width=480,height=720,left=${left},top=${top}`);
+const POPUP_BLOCKED = '팝업이 차단됐어요. 주소창 오른쪽의 팝업 허용을 눌러 주세요';
+
+function openBlankCertWindow(): Window | null {
+  const width = 900;
+  const height = 760;
+  const left = Math.round(window.screenX + Math.max(0, (window.outerWidth - width) / 2));
+  const top = Math.round(window.screenY + Math.max(0, (window.outerHeight - height) / 2));
+  const popup = window.open(
+    'about:blank',
+    'cbiseoCertRegister',
+    `popup,width=${width},height=${height},left=${left},top=${top}`,
+  );
+  if (!popup) return null;
+  return popup;
 }
 
 export function CashbillCertRegisterModal({
@@ -26,8 +36,8 @@ export function CashbillCertRegisterModal({
   onIssue?: () => void;
 }) {
   const [mobile, setMobile] = useState(false);
-  const [frameUrl, setFrameUrl] = useState<string | null>(null);
   const [watching, setWatching] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ expireDate: string | null } | null>(null);
   const popupRef = useRef<Window | null>(null);
@@ -53,6 +63,7 @@ export function CashbillCertRegisterModal({
       if (status.valid) {
         popupRef.current?.close();
         setWatching(false);
+        setBlocked(false);
         setError(null);
         setDone({ expireDate: status.expireDate });
         onRegisteredRef.current(status);
@@ -82,24 +93,38 @@ export function CashbillCertRegisterModal({
     return () => window.clearInterval(poll);
   }, [watching, operatingCompanyId]);
 
-  async function openWindow() {
+  function openWindow() {
     setError(null);
     setDone(null);
-    popupRef.current?.close();
+    setBlocked(false);
+    const previous = popupRef.current;
+    const popup = openBlankCertWindow();
+    if (!popup) {
+      setWatching(false);
+      setBlocked(true);
+      return;
+    }
+    if (previous && previous !== popup && !previous.closed) previous.close();
+    popupRef.current = popup;
+    void loadUrl(popup);
+  }
+
+  async function loadUrl(popup: Window) {
     try {
       const issued = await openCashbillCertificateUrl(operatingCompanyId);
+      if (popup.closed || popupRef.current !== popup) {
+        setWatching(false);
+        setError('등록이 확인되지 않았어요');
+        return;
+      }
+      popup.location.href = issued.url;
       openedAt.current = Date.now();
       setWatching(true);
-      if (issued.embed) {
-        setFrameUrl(issued.url);
-        popupRef.current = null;
-      } else {
-        setFrameUrl(null);
-        const next = openCertPopup(issued.url);
-        popupRef.current = next;
-        if (!next) setError('등록 창이 브라우저에 막혔습니다. 팝업을 허용한 뒤 다시 열어 주세요.');
-      }
+      setBlocked(false);
     } catch (err) {
+      if (!popup.closed) popup.close();
+      popupRef.current = null;
+      setWatching(false);
       setError(err instanceof Error ? err.message : '공동인증서 등록 창을 열지 못했습니다.');
     }
   }
@@ -117,8 +142,8 @@ export function CashbillCertRegisterModal({
           {watching ? (
             <button type="button" className={GHOST} onClick={() => void checkOnce(true)}>다시 확인</button>
           ) : null}
-          <button type="button" className={BTN} onClick={() => void openWindow()}>
-            {frameUrl || watching ? '다시 열기' : '등록 창 열기'}
+          <button type="button" className={BTN} onClick={openWindow}>
+            {watching || blocked ? '다시 열기' : '등록 창 열기'}
           </button>
         </div>
       )}
@@ -134,10 +159,12 @@ export function CashbillCertRegisterModal({
         <li>② 사업자 인증서 선택 (전자세금용 또는 사업자 범용)</li>
         <li>③ 인증서 비밀번호 입력</li>
       </ol>
-      {watching && !done ? <p className="text-fluid-xs text-slate-600">등록을 확인하는 중…</p> : null}
-      {done ? <p className="text-fluid-sm font-medium text-emerald-800">등록 완료 · 만료일 {certExpireLabel(done.expireDate)}</p> : null}
+      {watching && !done ? (
+        <p className="text-fluid-xs text-slate-700">바로빌 창에서 등록을 진행해 주세요 · 등록을 확인하는 중…</p>
+      ) : null}
+      {done ? <p className="text-fluid-sm font-medium text-emerald-800">✓ 등록 완료 · 만료일 {certExpireLabel(done.expireDate)}</p> : null}
+      {blocked ? <p className="text-fluid-xs text-red-700">{POPUP_BLOCKED}</p> : null}
       {error ? <p className="text-fluid-xs text-red-700">{error} · 다시 확인 / 다시 열기</p> : null}
-      {frameUrl ? <iframe title="공동인증서 등록" src={frameUrl} className="h-[50dvh] w-full rounded-lg border border-slate-200" /> : null}
     </IssueModalFrame>
   );
 }

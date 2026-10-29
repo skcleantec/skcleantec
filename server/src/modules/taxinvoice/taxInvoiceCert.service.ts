@@ -79,36 +79,10 @@ export async function refreshBarobillCerts(tenantId: string): Promise<void> {
   }
 }
 
-function frameHeadersAllow(headers: Headers): boolean {
-  const xfo = (headers.get('x-frame-options') ?? '').toLowerCase();
-  if (xfo.includes('deny') || xfo.includes('sameorigin')) return false;
-  const csp = (headers.get('content-security-policy') ?? '').toLowerCase();
-  const ancestors = csp.match(/frame-ancestors\s+([^;]+)/)?.[1]?.trim() ?? '';
-  if (!ancestors) return true;
-  return ancestors.split(/\s+/).some((token) => token === '*' || token.includes('cbiseo.com'));
-}
-
-/** 등록 주소 본문은 읽지 않는다. HEAD 로 iframe 차단 헤더만 본다. */
-export async function certUrlCanEmbed(url: string): Promise<boolean> {
-  let current = url;
-  for (let hop = 0; hop < 4; hop += 1) {
-    let res: Response;
-    try {
-      res = await fetch(current, { method: 'HEAD', redirect: 'manual' });
-    } catch {
-      return true;
-    }
-    if (res.status === 405 || res.status === 501) return true;
-    if (!frameHeadersAllow(res.headers)) return false;
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get('location');
-      if (!loc) return true;
-      current = new URL(loc, current).toString();
-      continue;
-    }
-    return true;
-  }
-  return false;
+function maskBarobillUserId(id: string): string {
+  const text = id.trim();
+  if (text.length <= 4) return `${text.slice(0, 1)}***`;
+  return `${text.slice(0, 2)}***${text.slice(-2)}`;
 }
 
 async function loadLinkedMember(tenantId: string, operatingCompanyId: string) {
@@ -163,20 +137,22 @@ export async function refreshOneBarobillCert(tenantId: string, operatingCompanyI
 export async function certificateRegisterUrl(
   tenantId: string,
   operatingCompanyId: string,
-): Promise<{ url: string; embed: boolean }> {
+): Promise<{ url: string }> {
   const loaded = await loadLinkedMember(tenantId, operatingCompanyId);
   if (!loaded) throw new Error('연결된 브랜드에서만 공동인증서를 등록할 수 있습니다.');
+  const userId = loaded.member.barobillUserId.trim();
+  console.info(
+    `[barobill] cert-url id=${maskBarobillUserId(userId)} source=BarobillMember.barobillUserId match=${userId === loaded.member.barobillUserId.trim()}`,
+  );
   const raw = await callBarobill(
     'TI',
     'GetBaroBillURL',
-    { CorpNum: loaded.member.corpNum, ID: loaded.member.barobillUserId, PWD: '', TOGO: 'CERT' },
+    { CorpNum: loaded.member.corpNum, ID: userId, PWD: '', TOGO: 'CERT' },
     { corpNum: loaded.member.corpNum },
   );
   const url = typeof raw === 'string' ? raw.trim() : '';
   if (!url.startsWith('http')) throw new Error('공동인증서 등록 주소를 받지 못했습니다.');
-  const embed = await certUrlCanEmbed(url);
-  console.info(`[barobill] cert-url embed=${embed}`);
-  return { url, embed };
+  return { url };
 }
 
 export function certBlockMessage(): string {

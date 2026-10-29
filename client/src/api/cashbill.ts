@@ -122,16 +122,16 @@ export async function updateCashbillMemberContact(body: {
   if (!res.ok) throw new Error(await apiErrorMessage(res, '연락 정보를 저장하지 못했습니다.'));
 }
 
-export async function openCashbillCertificateUrl(operatingCompanyId: string): Promise<{ url: string; embed: boolean }> {
+export async function openCashbillCertificateUrl(operatingCompanyId: string): Promise<{ url: string }> {
   const res = await fetch(`${API}/cashbill/certificate-url`, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({ operatingCompanyId }),
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '공동인증서 등록 주소를 받지 못했습니다.'));
-  const body = (await res.json()) as { url?: string; embed?: boolean };
+  const body = (await res.json()) as { url?: string };
   if (!body.url) throw new Error('공동인증서 등록 주소를 받지 못했습니다.');
-  return { url: body.url, embed: body.embed !== false };
+  return { url: body.url };
 }
 
 export async function fetchCashbillCertificateStatus(operatingCompanyId: string): Promise<{ valid: boolean; expireDate: string | null }> {
