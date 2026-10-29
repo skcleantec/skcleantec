@@ -207,7 +207,7 @@ export function TaxInvoiceIssueForm({ brands, onClose, onDone }: { brands: TaxIn
         <label className="text-fluid-2xs text-slate-600">
           이메일
           <input className={INPUT} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <span className="mt-1 block text-fluid-2xs text-slate-500">입력하면 바로빌이 공식 영수증 안내 메일을 자동 발송합니다</span>
+          <span className="mt-1 block text-fluid-2xs text-slate-500">입력하면 바로빌이 공식 영수증 메일을 보냅니다</span>
         </label>
         <label className="text-fluid-2xs text-slate-600 sm:col-span-2">주소<input className={INPUT} value={addr} onChange={(e) => setAddr(e.target.value)} /></label>
         <label className="text-fluid-2xs text-slate-600">업태<input className={INPUT} value={bizType} onChange={(e) => setBizType(e.target.value)} /></label>
