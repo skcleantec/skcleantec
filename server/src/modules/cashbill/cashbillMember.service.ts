@@ -245,11 +245,11 @@ async function revertProcessing(
 }
 
 function readContact(input: RegisterInput, fallbackName: string) {
-  const bizType = clean(input.bizType, 40);
-  const bizClass = clean(input.bizClass, 40);
+  const bizType = realSupplierText(input.bizType, 40);
+  const bizClass = realSupplierText(input.bizClass, 40);
   const contactTel = clean(input.contactTel, 20);
-  const contactEmail = clean(input.contactEmail, 120);
-  const contactName = clean(input.contactName, 40) || fallbackName;
+  const contactEmail = realSupplierText(input.contactEmail, 120);
+  const contactName = realSupplierText(input.contactName, 40) || realSupplierText(fallbackName, 40);
   const addr2 = clean(input.addr2, 120);
   if (!bizType || !bizClass) throw new CashbillMemberError('업태와 종목을 입력해 주세요.');
   if (contactTel.replace(/\D/g, '').length < 8) throw new CashbillMemberError('담당 전화를 입력해 주세요.');

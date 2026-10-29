@@ -11,6 +11,7 @@ import {
   cashbillPrintUrl,
   CashbillIssueError,
   issueCashbill,
+  linkCashbillInquiry,
   listCashbillIssues,
   searchCashbillInquiries,
 } from './cashbillIssue.service.js';
@@ -81,6 +82,25 @@ router.post('/issues', async (req, res) => {
     res.json(await issueCashbill(tenantId, user.userId, req.body ?? {}));
   } catch (err) {
     sendError(res, err, '현금영수증 발급에 실패했습니다.');
+  }
+});
+
+router.post('/issues/:issueId/inquiry', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as { inquiryId?: unknown };
+  const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId : '';
+  if (!inquiryId.trim()) {
+    res.status(400).json({ error: '연결할 접수를 선택해 주세요.' });
+    return;
+  }
+  try {
+    await linkCashbillInquiry(tenantId, String(req.params.issueId ?? ''), inquiryId);
+    res.json({ ok: true });
+  } catch (err) {
+    sendError(res, err, '접수를 연결하지 못했습니다.');
   }
 });
 

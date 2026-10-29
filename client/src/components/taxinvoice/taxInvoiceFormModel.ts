@@ -119,6 +119,15 @@ export function patchLine(line: TaxFormLine, patch: Partial<TaxFormLine>): TaxFo
   return next;
 }
 
+/** 단가가 비어 있으면 공급가액÷수량. 0은 보내지 않는다. */
+export function shownUnitPrice(line: TaxFormLine): string {
+  if (moneyNumber(line.unitPrice) > 0) return String(moneyNumber(line.unitPrice));
+  const supply = line.supplyEdited ? moneyNumber(line.supply) : 0;
+  const qty = moneyNumber(line.qty) || 1;
+  if (supply < 1) return '';
+  return String(Math.round(supply / qty));
+}
+
 export function lineSupply(line: TaxFormLine): number {
   if (line.supplyEdited) return moneyNumber(line.supply);
   return moneyNumber(line.qty) * moneyNumber(line.unitPrice);

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { isBlankSupplierField } from '@shared/supplierFieldText';
-import { docTitle, formatBizInput, formatMoneyInput, lineSupply, lineTax, won, type TaxFormLine, type TaxKind, type TaxParty } from './taxInvoiceFormModel';
+import { docTitle, formatBizInput, formatMoneyInput, lineSupply, lineTax, shownUnitPrice, won, type TaxFormLine, type TaxKind, type TaxParty } from './taxInvoiceFormModel';
 import './taxinvoice-issue.css';
 
 const RED = 'var(--red-line)';
@@ -191,7 +191,7 @@ export function TaxInvoicePaper({ idPrefix = 'pc', ...props }: TaxFormProps & { 
                 <div className="cell border-r border-gray-300 px-2.5 py-1.5"><input value={line.name} placeholder="품목명" aria-label="품목" readOnly={readOnly} onChange={(event) => props.onLine(index, { name: event.target.value })} /></div>
                 <div className="cell border-r border-gray-300 px-2 py-1.5"><input value={line.spec} aria-label="규격" readOnly={readOnly} onChange={(event) => props.onLine(index, { spec: event.target.value })} /></div>
                 <div className="cell num border-r border-gray-300 px-2 py-1.5"><input className="text-right" value={line.qty} inputMode="numeric" aria-label="수량" readOnly={readOnly} onChange={(event) => props.onLine(index, { qty: event.target.value.replace(/\D/g, '') })} /></div>
-                <div className="cell num border-r border-gray-300 px-2 py-1.5"><input className="text-right" value={line.unitPrice} inputMode="numeric" aria-label="단가" readOnly={readOnly} onChange={(event) => props.onLine(index, { unitPrice: formatMoneyInput(event.target.value) })} /></div>
+                <div className="cell num border-r border-gray-300 px-2 py-1.5"><input className="text-right" value={shownUnitPrice(line)} inputMode="numeric" aria-label="단가" readOnly={readOnly} onChange={(event) => props.onLine(index, { unitPrice: formatMoneyInput(event.target.value) })} /></div>
                 <div className="cell num border-r border-gray-300 bg-gray-50/60 px-2 py-1.5 font-medium"><input className="text-right" value={supply} inputMode="numeric" aria-label="공급가액" readOnly={readOnly} onChange={(event) => props.onLine(index, { supply: formatMoneyInput(event.target.value) })} /></div>
                 {exempt ? null : (
                   <div className="taxcol cell num border-r border-gray-300 bg-gray-50/60 px-2 py-1.5"><input className="text-right" value={tax} inputMode="numeric" aria-label="세액" readOnly={readOnly} disabled={taxKind !== 'taxable'} onChange={(event) => props.onLine(index, { tax: formatMoneyInput(event.target.value) })} /></div>
@@ -321,7 +321,7 @@ export function TaxInvoiceMobileCards(props: TaxFormProps) {
             <input className="h-11 w-full rounded-lg px-3 font-medium ring-1 ring-gray-300" aria-label="품목" placeholder="품목명" value={line.name} readOnly={readOnly} onChange={(event) => props.onLine(index, { name: event.target.value })} />
             <div className="grid grid-cols-[64px_1fr] gap-2">
               <input className="num h-11 rounded-lg px-3 text-right ring-1 ring-gray-300" inputMode="numeric" aria-label="수량" value={line.qty} readOnly={readOnly} onChange={(event) => props.onLine(index, { qty: event.target.value.replace(/\D/g, '') })} />
-              <input className="num h-11 rounded-lg px-3 text-right ring-1 ring-gray-300" inputMode="numeric" aria-label="단가" value={line.unitPrice} readOnly={readOnly} onChange={(event) => props.onLine(index, { unitPrice: formatMoneyInput(event.target.value) })} />
+              <input className="num h-11 rounded-lg px-3 text-right ring-1 ring-gray-300" inputMode="numeric" aria-label="단가" value={shownUnitPrice(line)} readOnly={readOnly} onChange={(event) => props.onLine(index, { unitPrice: formatMoneyInput(event.target.value) })} />
             </div>
             <p className="num flex justify-between text-[13px] text-gray-500"><span>공급가액 {won(lineSupply(line))}</span>{exempt ? null : <span>세액 {won(lineTax(line, taxKind))}</span>}</p>
           </div>

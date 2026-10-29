@@ -29,7 +29,7 @@ export function supplierIncompleteMessage(fields: {
   if (isBlankSupplierField(fields.ceoName)) names.push('대표자');
   if (isBlankSupplierField(fields.ceoName) && isBlankSupplierField(fields.contactName)) names.push('담당자');
   if (isBlankSupplierField(fields.addr)) names.push('주소');
-  if (!String(fields.email ?? '').trim()) names.push('이메일');
+  if (isBlankSupplierField(fields.email)) names.push('이메일');
   if (names.length === 0) return null;
   const last = names[names.length - 1] ?? '';
   const particle = last === '이메일' ? '이' : '가';

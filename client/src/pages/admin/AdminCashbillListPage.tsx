@@ -6,11 +6,13 @@ import {
   cancelCashbillIssue,
   cashbillStateLabel,
   fetchCashbillSource,
+  linkCashbillInquiry,
   listCashbillIssues,
   openCashbillReceipt,
   type CashbillIssueRow,
 } from '../../api/cashbillIssues';
 import { CashbillIssueForm, type CashbillIssueSeed } from '../../components/cashbill/CashbillIssueForm';
+import { ReceiptInquiryLinkModal } from '../../components/receipts/ReceiptInquiryLinkModal';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
 import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
@@ -66,6 +68,7 @@ export function AdminCashbillListPage() {
   const fromId = searchParams.get('from') || '';
   const [reload, setReload] = useState(0);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [linkIssueId, setLinkIssueId] = useState<string | null>(null);
   const [walletTick, setWalletTick] = useState(0);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
 
@@ -245,7 +248,7 @@ export function AdminCashbillListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-2 lg:hidden">
-            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} highlight={highlightId === row.id} />)}
+            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} highlight={highlightId === row.id} />)}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
@@ -262,7 +265,8 @@ export function AdminCashbillListPage() {
                   <tr key={row.id} className={`border-t border-slate-100 ${highlightId === row.id ? 'bg-emerald-50' : ''}`}>
                     <td className="px-2 py-2 text-center tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</td>
                     <td className="px-2 py-2 text-center">
-                      <p className="truncate" title={customerLine(row)}>{customerLine(row)}</p>
+                      <p className="truncate" title={customerNameOf(row)}>{customerNameOf(row)}</p>
+                      <p className="truncate text-fluid-2xs text-slate-500" title={customerLine(row)}>{customerLine(row)}</p>
                       {row.inquiryNumber ? (
                         <Link className="text-fluid-2xs text-slate-600 underline hover:text-slate-900" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.inquiryNumber}</Link>
                       ) : null}
@@ -274,7 +278,7 @@ export function AdminCashbillListPage() {
                     <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
                     <td className="px-2 py-2 text-center tabular-nums">{row.ntsConfirmNum || '—'}</td>
                     <td className="px-2 py-2 text-center">
-                      <ReceiptActions row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} />
+                      <ReceiptActions row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} />
                     </td>
                   </tr>
                 ))}
@@ -285,6 +289,16 @@ export function AdminCashbillListPage() {
       ) : null}
       {!needsLink && !loading ? (
         <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
+      ) : null}
+      {linkIssueId ? (
+        <ReceiptInquiryLinkModal
+          kind="cashbill"
+          onClose={() => setLinkIssueId(null)}
+          onPick={async (inquiryId) => {
+            await linkCashbillInquiry(linkIssueId, inquiryId);
+            setReload((n) => n + 1);
+          }}
+        />
       ) : null}
     </div>
     </ReceiptWalletProvider>
@@ -298,11 +312,13 @@ function usageLabel(row: CashbillIssueRow): string {
   return '소득공제';
 }
 
+function customerNameOf(row: CashbillIssueRow): string {
+  return row.customerName && row.customerName !== '매칭 없음' ? row.customerName : '—';
+}
+
 function customerLine(row: CashbillIssueRow): string {
-  if (row.identityMasked === '자진발급') return '(번호 없음·자진발급)';
-  const name = row.customerName && row.customerName !== '매칭 없음' ? row.customerName : '';
-  const number = row.tradeUsage === 2 ? displayReceiptBiz(row.identityMasked) : displayReceiptPhone(row.identityMasked);
-  return [name, number].filter(Boolean).join(' ') || '(번호 없음)';
+  if (row.identityMasked === '자진발급') return '자진발급';
+  return row.tradeUsage === 2 ? displayReceiptBiz(row.identityMasked) : displayReceiptPhone(row.identityMasked);
 }
 
 function isFailedRow(row: CashbillIssueRow): boolean {
@@ -333,12 +349,14 @@ function ReceiptActions({
   onCancel,
   onError,
   onReissue,
+  onLink,
 }: {
   row: CashbillIssueRow;
   cancelling: boolean;
   onCancel: () => void;
   onError: (message: string) => void;
   onReissue: () => void;
+  onLink: () => void;
 }) {
   const btn = 'min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   const failed = isFailedRow(row) || row.barobillState === '7000' || row.kind === 'CANCEL';
@@ -360,20 +378,22 @@ function ReceiptActions({
         canCancel={Boolean(row.canCancel)}
         cancelling={cancelling}
         onCancel={onCancel}
+        onLinkInquiry={onLink}
       />
     </div>
   );
 }
 
-function CashbillCard({ row, cancelling, onCancel, onError, onReissue, highlight }: { row: CashbillIssueRow; cancelling: boolean; onCancel: () => void; onError: (message: string) => void; onReissue: () => void; highlight: boolean }) {
+function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, highlight }: { row: CashbillIssueRow; cancelling: boolean; onCancel: () => void; onError: (message: string) => void; onReissue: () => void; onLink: () => void; highlight: boolean }) {
   return (
     <article className={`rounded-lg border border-slate-200 p-2 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
       <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
-      <p className="truncate text-fluid-sm font-medium">{customerLine(row)}</p>
+      <p className="truncate text-fluid-sm font-medium" title={customerNameOf(row)}>{customerNameOf(row)}</p>
+      <p className="truncate text-fluid-2xs text-slate-500">{customerLine(row)}</p>
       <p className="text-right text-fluid-sm font-semibold tabular-nums text-slate-900">{won(row.totalWon)}</p>
       <p className="truncate text-fluid-xs text-slate-700">{row.itemName} · {usageLabel(row)} · <StatusBadge row={row} /></p>
       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
-      <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} onReissue={onReissue} />
+      <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} onReissue={onReissue} onLink={onLink} />
     </article>
   );
 }

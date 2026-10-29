@@ -19,7 +19,7 @@ import {
   registAndIssueTaxInvoice,
 } from './taxInvoice.barobill.js';
 import { certBlockMessage, refreshBarobillCerts } from './taxInvoiceCert.service.js';
-import { supplierIncompleteMessage } from './supplierFieldText.js';
+import { isBlankSupplierField, supplierIncompleteMessage } from './supplierFieldText.js';
 import { safeRenderTaxInvoiceCopy } from '../receipts/receiptCopy.service.js';
 
 export const TAX_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
@@ -123,6 +123,10 @@ function linesOf(raw: LineInput[] | undefined, kind: InvoiceTaxKind) {
       total = totalIn;
     }
     if (supply < 0 || tax < 0 || supply + tax !== total) throw new TaxInvoiceError('공급가액과 세액의 합이 품목 금액과 같아야 합니다.');
+    const qty = digitsOnly(row.qty, 8);
+    const qtyNum = Number(qty) || 1;
+    const typedUnit = Number(digitsOnly(row.unitPrice, 12));
+    const unitPrice = typedUnit > 0 ? String(Math.round(typedUnit)) : supply > 0 ? String(Math.round(supply / qtyNum)) : '';
     return {
       name,
       supply,
@@ -131,8 +135,8 @@ function linesOf(raw: LineInput[] | undefined, kind: InvoiceTaxKind) {
       month: digitsOnly(row.month, 2),
       day: digitsOnly(row.day, 2),
       spec: String(row.spec ?? '').trim().slice(0, 40),
-      qty: digitsOnly(row.qty, 8),
-      unitPrice: digitsOnly(row.unitPrice, 12),
+      qty,
+      unitPrice,
       remark: String(row.remark ?? '').trim().slice(0, 40),
     };
   });
@@ -444,11 +448,11 @@ export async function issueTaxInvoice(
       corpName: member.corpName,
       ceoName: member.ceoName,
       addr: member.addr1,
-      bizType: member.bizType,
-      bizClass: member.bizClass,
-      email: member.contactEmail,
+      bizType: isBlankSupplierField(member.bizType) ? '' : member.bizType.trim(),
+      bizClass: isBlankSupplierField(member.bizClass) ? '' : member.bizClass.trim(),
+      email: isBlankSupplierField(member.contactEmail) ? '' : member.contactEmail.trim(),
       tel: member.contactTel,
-      contactName: member.contactName.trim() || member.ceoName.trim(),
+      contactName: (isBlankSupplierField(member.contactName) ? '' : member.contactName.trim()) || member.ceoName.trim(),
       buyerCorpNum: buyer.corpNum,
       buyerCorpName: buyer.corpName,
       buyerCeoName: buyer.ceoName,
@@ -506,6 +510,17 @@ export async function cancelTaxInvoice(tenantId: string, issueId: string) {
   return toPublic(saved ?? { ...row, barobillState: '5031', ntsSendState: '1' });
 }
 
+export async function linkTaxInvoiceInquiry(tenantId: string, issueId: string, inquiryId: string | null) {
+  const row = await prisma.taxInvoiceIssue.findFirst({ where: { id: issueId, tenantId }, select: { id: true } });
+  if (!row) throw new TaxInvoiceError('세금계산서를 찾을 수 없습니다.', 404);
+  const nextId = inquiryId?.trim() || null;
+  if (nextId) {
+    const inquiry = await prisma.inquiry.findFirst({ where: { id: nextId, tenantId, deletedAt: null }, select: { id: true } });
+    if (!inquiry) throw new TaxInvoiceError('접수를 찾을 수 없습니다.', 404);
+  }
+  await prisma.taxInvoiceIssue.updateMany({ where: { id: issueId, tenantId }, data: { inquiryId: nextId } });
+}
+
 export async function listTaxInvoices(tenantId: string, query: {
   datePreset?: string;
   month?: string;
@@ -526,6 +541,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       OR: [
         { buyerCorpName: { contains: q, mode: 'insensitive' } },
         { buyerCorpNum: { contains: q } },
+        { buyerCeoName: { contains: q, mode: 'insensitive' } },
         { inquiry: { customerName: { contains: q, mode: 'insensitive' } } },
         { inquiry: { inquiryNumber: { contains: q, mode: 'insensitive' } } },
       ],
@@ -540,7 +556,7 @@ export async function listTaxInvoices(tenantId: string, query: {
   } else if (query.state) where.barobillState = query.state;
   const monthRange = kstMonthRangeYm(kstTodayYmd().slice(0, 7));
   const monthWhere: Prisma.TaxInvoiceIssueWhereInput = monthRange ? { tenantId, createdAt: monthRange } : { tenantId };
-  const [items, total, brands, issuedAgg, waitingCount, failedCount, costAgg] = await Promise.all([
+  const [items, total, brands, issuedAgg, waitingCount, ntsFailCount, issueFailCount, costAgg] = await Promise.all([
     prisma.taxInvoiceIssue.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -587,7 +603,10 @@ export async function listTaxInvoices(tenantId: string, query: {
       where: { ...monthWhere, ntsSendState: { in: ['1', '2', '3'] }, barobillState: { not: '5031' } },
     }),
     prisma.taxInvoiceIssue.count({
-      where: { ...monthWhere, OR: [{ ntsSendState: '5' }, { barobillState: null, lastError: { not: null } }] },
+      where: { ...monthWhere, ntsSendState: '5' },
+    }),
+    prisma.taxInvoiceIssue.count({
+      where: { ...monthWhere, barobillState: null, lastError: { not: null } },
     }),
     prisma.taxInvoiceIssue.aggregate({ where: monthWhere, _sum: { chargedKrw: true } }),
   ]);
@@ -595,7 +614,7 @@ export async function listTaxInvoices(tenantId: string, query: {
     items: items.map((row) => ({
       ...toPublic(row),
       inquiryNumber: row.inquiry?.inquiryNumber ?? null,
-      customerName: row.inquiry?.customerName ?? '매칭 없음',
+      customerName: row.inquiry?.customerName?.trim() || row.buyerCeoName.trim() || '—',
       brandName: row.operatingCompany.name,
       itemName: firstLineName(row.lines),
     })),
@@ -626,7 +645,8 @@ export async function listTaxInvoices(tenantId: string, query: {
       issuedCount: issuedAgg._count._all,
       issuedWon: issuedAgg._sum.totalAmount ?? 0,
       waitingCount,
-      failedCount,
+      failedCount: ntsFailCount,
+      issueFailCount,
       costWon: costAgg._sum.chargedKrw ?? 0,
     },
   };

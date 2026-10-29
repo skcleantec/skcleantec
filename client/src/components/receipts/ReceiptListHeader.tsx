@@ -50,6 +50,8 @@ export function ReceiptSummaryCards({
   failedCount,
   costWon,
   onFailed,
+  issueFailCount,
+  onIssueFailed,
 }: {
   issuedCount: number;
   issuedWon: number;
@@ -57,6 +59,8 @@ export function ReceiptSummaryCards({
   failedCount: number;
   costWon: number;
   onFailed: () => void;
+  issueFailCount?: number;
+  onIssueFailed?: () => void;
 }) {
   const card = 'min-w-[9rem] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2';
   return (
@@ -71,13 +75,18 @@ export function ReceiptSummaryCards({
           대기 {waitingCount}
           {' · '}
           {failedCount > 0 ? (
-            <button type="button" className="font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2" onClick={onFailed}>
+            <button type="button" className="font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" onClick={onFailed}>
               실패 {failedCount}
             </button>
           ) : (
             <span className="text-slate-600">실패 0</span>
           )}
         </p>
+        {onIssueFailed ? (
+          <button type="button" className="mt-1 text-fluid-xs font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" onClick={onIssueFailed}>
+            발행 실패 {issueFailCount ?? 0}
+          </button>
+        ) : null}
       </section>
       <section className={card}>
         <p className="text-fluid-2xs text-slate-500">이번 달 비용</p>

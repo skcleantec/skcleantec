@@ -7,6 +7,7 @@ import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import {
   cancelTaxInvoice,
   issueTaxInvoice,
+  linkTaxInvoiceInquiry,
   listTaxInvoices,
   taxInvoiceReissueSource,
   taxInvoiceCustomerUrl,
@@ -100,6 +101,25 @@ router.post('/', async (req, res) => {
     res.json(await issueTaxInvoice(tenantId, user.userId, req.body ?? {}));
   } catch (err) {
     sendError(res, err, '세금계산서 발행에 실패했습니다.');
+  }
+});
+
+router.post('/:issueId/inquiry', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as { inquiryId?: unknown };
+  const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId : '';
+  if (!inquiryId.trim()) {
+    res.status(400).json({ error: '연결할 접수를 선택해 주세요.' });
+    return;
+  }
+  try {
+    await linkTaxInvoiceInquiry(tenantId, String(req.params.issueId ?? ''), inquiryId);
+    res.json({ ok: true });
+  } catch (err) {
+    sendError(res, err, '접수를 연결하지 못했습니다.');
   }
 });
 

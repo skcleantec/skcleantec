@@ -13,6 +13,7 @@ export function ReceiptRowMenu({
   canCancel,
   cancelling,
   onCancel,
+  onLinkInquiry,
 }: {
   kind: 'cashbill' | 'taxinvoice';
   issueId: string;
@@ -22,6 +23,7 @@ export function ReceiptRowMenu({
   canCancel: boolean;
   cancelling: boolean;
   onCancel: () => void;
+  onLinkInquiry?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -37,6 +39,9 @@ export function ReceiptRowMenu({
       {open ? (
         <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
           <ReceiptCopyButtons kind={kind} issueId={issueId} official={official} publicToken={publicToken} copyReady={copyReady} menu />
+          {onLinkInquiry ? (
+            <button type="button" className={ITEM} onClick={() => { setOpen(false); onLinkInquiry(); }}>접수 연결</button>
+          ) : null}
           {canCancel ? (
             <button type="button" className={ITEM} disabled={cancelling} onClick={onCancel}>
               {cancelling ? '취소 중…' : '취소'}

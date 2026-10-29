@@ -181,8 +181,10 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
             PurchaseExpiry: linePurchaseExpiry(input.writeDate, line.month, line.day),
             Name: line.name,
             Information: line.spec ?? '',
-            ChargeableUnit: line.qty ? line.qty : '1',
-            UnitPrice: line.unitPrice ? line.unitPrice : String(line.supply),
+            ChargeableUnit: line.qty && line.qty !== '0' ? line.qty : '1',
+            UnitPrice: line.unitPrice && line.unitPrice !== '0'
+              ? line.unitPrice
+              : String(Math.round(line.supply / (Number(line.qty) || 1))),
             Amount: String(line.supply),
             Tax: String(line.tax),
             Description: line.remark ?? '',

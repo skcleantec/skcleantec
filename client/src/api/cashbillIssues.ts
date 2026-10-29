@@ -1,4 +1,5 @@
 import { API, apiErrorMessage } from './apiPrefix';
+import { openReceiptWindow } from '../components/receipts/receiptListDisplay';
 import { getToken } from '../stores/auth';
 
 export type CashbillKind = 'DEPOSIT' | 'BALANCE' | 'FULL' | 'CANCEL';
@@ -89,6 +90,15 @@ export async function fetchCashbillSource(issueId: string): Promise<CashbillReis
   return res.json() as Promise<CashbillReissueSource>;
 }
 
+export async function linkCashbillInquiry(issueId: string, inquiryId: string): Promise<void> {
+  const res = await fetch(`${API}/cashbill/issues/${issueId}/inquiry`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ inquiryId }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '접수를 연결하지 못했습니다.'));
+}
+
 export async function issueCashbill(body: {
   inquiryId?: string | null;
   operatingCompanyId?: string;
@@ -136,6 +146,5 @@ export async function openCashbillReceipt(issueId: string): Promise<void> {
   if (!res.ok) throw new Error(await apiErrorMessage(res, '영수증을 열지 못했습니다.'));
   const body = (await res.json()) as { url?: string };
   if (!body.url) throw new Error('영수증을 열지 못했습니다.');
-  const opened = window.open(body.url, 'cbiseoCashbillReceipt', 'popup,width=480,height=720');
-  if (!opened) throw new Error('영수증 창이 브라우저에 막혔습니다. 팝업을 허용해 주세요.');
+  openReceiptWindow(body.url);
 }

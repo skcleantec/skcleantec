@@ -517,6 +517,17 @@ export async function cancelCashbillIssue(
   return saved ? toPublicIssue(saved) : toPublicIssue(chargedRow);
 }
 
+export async function linkCashbillInquiry(tenantId: string, issueId: string, inquiryId: string | null) {
+  const row = await prisma.cashBillIssue.findFirst({ where: { id: issueId, tenantId }, select: { id: true } });
+  if (!row) throw new CashbillIssueError('현금영수증을 찾을 수 없습니다.', 404);
+  const nextId = inquiryId?.trim() || null;
+  if (nextId) {
+    const inquiry = await prisma.inquiry.findFirst({ where: { id: nextId, tenantId, deletedAt: null }, select: { id: true } });
+    if (!inquiry) throw new CashbillIssueError('접수를 찾을 수 없습니다.', 404);
+  }
+  await prisma.cashBillIssue.updateMany({ where: { id: issueId, tenantId }, data: { inquiryId: nextId } });
+}
+
 export async function listCashbillIssues(tenantId: string, query: {
   datePreset?: string;
   month?: string;

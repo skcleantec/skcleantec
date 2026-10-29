@@ -97,7 +97,7 @@ export async function listTaxInvoices(qs: URLSearchParams): Promise<{
   items: TaxInvoiceRow[];
   total: number;
   brands: TaxInvoiceBrand[];
-  summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number };
+  summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; issueFailCount: number; costWon: number };
 }> {
   const res = await fetch(`${API}/tax-invoices?${qs.toString()}`, { headers: headers() });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '세금계산서 목록을 불러오지 못했습니다.'));
@@ -105,7 +105,7 @@ export async function listTaxInvoices(qs: URLSearchParams): Promise<{
     items: TaxInvoiceRow[];
     total: number;
     brands: TaxInvoiceBrand[];
-    summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number };
+    summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; issueFailCount: number; costWon: number };
   }>;
 }
 
@@ -129,6 +129,15 @@ export async function updateTaxInvoiceSupplier(
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '공급자 정보를 저장하지 못했습니다.'));
   return res.json() as Promise<TaxInvoiceSupplier>;
+}
+
+export async function linkTaxInvoiceInquiry(issueId: string, inquiryId: string): Promise<void> {
+  const res = await fetch(`${API}/tax-invoices/${issueId}/inquiry`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ inquiryId }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '접수를 연결하지 못했습니다.'));
 }
 
 export async function issueTaxInvoice(body: Record<string, unknown>): Promise<{ id: string }> {
