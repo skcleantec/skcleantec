@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
+import { isBlankSupplierField } from './supplierFieldText.js';
 import { TaxInvoiceError } from './taxInvoice.service.js';
 
 type SupplierSnap = {
@@ -104,9 +105,9 @@ export async function updateBarobillSupplier(
   const bizClass = clip(input.bizClass, 64);
   const contactEmail = clip(input.contactEmail, 120);
   const contactTel = clip(input.contactTel, 32);
-  if (!corpName) throw new TaxInvoiceError('상호를 입력해 주세요.');
-  if (!ceoName) throw new TaxInvoiceError('대표자명을 입력해 주세요.');
-  if (!addr1) throw new TaxInvoiceError('사업장 주소를 입력해 주세요.');
+  if (isBlankSupplierField(corpName)) throw new TaxInvoiceError('상호를 입력해 주세요.');
+  if (isBlankSupplierField(ceoName)) throw new TaxInvoiceError('대표자명을 입력해 주세요.');
+  if (isBlankSupplierField(addr1)) throw new TaxInvoiceError('사업장 주소를 입력해 주세요.');
   if (!contactEmail.includes('@')) throw new TaxInvoiceError('담당 이메일을 입력해 주세요.');
 
   await freezeIssuedTaxSuppliers(tenantId, member.id, snapFromMember(member));
@@ -150,9 +151,11 @@ export async function syncDefaultBrandSupplierFromCompany(
   patch: { companyName?: string; representativeName?: string; addressLine?: string },
 ): Promise<void> {
   const data: { corpName?: string; ceoName?: string; addr1?: string } = {};
-  if (typeof patch.companyName === 'string') data.corpName = clip(patch.companyName, 128);
-  if (typeof patch.representativeName === 'string') data.ceoName = clip(patch.representativeName, 128);
-  if (typeof patch.addressLine === 'string') data.addr1 = clip(patch.addressLine, 500);
+  if (typeof patch.companyName === 'string' && !isBlankSupplierField(patch.companyName)) data.corpName = clip(patch.companyName, 128);
+  if (typeof patch.representativeName === 'string' && !isBlankSupplierField(patch.representativeName)) {
+    data.ceoName = clip(patch.representativeName, 128);
+  }
+  if (typeof patch.addressLine === 'string' && !isBlankSupplierField(patch.addressLine)) data.addr1 = clip(patch.addressLine, 500);
   if (Object.keys(data).length === 0) return;
 
   const brand = await prisma.operatingCompany.findFirst({

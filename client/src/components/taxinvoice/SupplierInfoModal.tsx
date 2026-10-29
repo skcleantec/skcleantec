@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatBizNumberDisplay } from '@shared/authSignup';
+import { visibleSupplierField } from '@shared/supplierFieldText';
 import { updateTaxInvoiceSupplier, type TaxInvoiceSupplier } from '../../api/taxInvoices';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 
@@ -26,9 +27,9 @@ export function SupplierInfoModal({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
-  const [corpName, setCorpName] = useState(initial.corpName);
-  const [ceoName, setCeoName] = useState(initial.ceoName);
-  const [addr, setAddr] = useState(initial.addr);
+  const [corpName, setCorpName] = useState(visibleSupplierField(initial.corpName));
+  const [ceoName, setCeoName] = useState(visibleSupplierField(initial.ceoName));
+  const [addr, setAddr] = useState(visibleSupplierField(initial.addr));
   const [bizType, setBizType] = useState(initial.bizType);
   const [bizClass, setBizClass] = useState(initial.bizClass);
   const [email, setEmail] = useState(initial.email);
@@ -76,15 +77,15 @@ export function SupplierInfoModal({
           </label>
           <label className="block text-xs text-slate-600">
             상호
-            <input className={FIELD} value={corpName} aria-label="상호" onChange={(event) => setCorpName(event.target.value)} />
+            <input className={FIELD} value={corpName} placeholder="상호" aria-label="상호" onChange={(event) => setCorpName(event.target.value)} />
           </label>
           <label className="block text-xs text-slate-600">
             대표자명 *
-            <input className={FIELD} value={ceoName} aria-label="대표자명" onChange={(event) => setCeoName(event.target.value)} />
+            <input className={FIELD} value={ceoName} placeholder="대표자명" aria-label="대표자명" onChange={(event) => setCeoName(event.target.value)} />
           </label>
           <label className="block text-xs text-slate-600">
             사업장 주소 *
-            <input className={FIELD} value={addr} aria-label="사업장 주소" onChange={(event) => setAddr(event.target.value)} />
+            <input className={FIELD} value={addr} placeholder="사업장 주소" aria-label="사업장 주소" onChange={(event) => setAddr(event.target.value)} />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs text-slate-600">

@@ -9,6 +9,7 @@ import { BAROBILL_ALREADY_MEMBER_CODE, BAROBILL_PROCESSING_STALE_MS } from '../.
 import { BarobillCallError } from '../../lib/barobill/soap.js';
 import { checkCorpIsMember, newBarobillPassword, newBarobillUserId, registCorp } from '../../lib/barobill/ti.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
+import { isBlankSupplierField } from '../taxinvoice/supplierFieldText.js';
 import { refreshBarobillCerts } from '../taxinvoice/taxInvoiceCert.service.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 
@@ -37,6 +38,11 @@ function isStaleProcessing(status: BarobillMemberStatus, updatedAt: Date, now = 
 
 function clean(raw: unknown, max: number): string {
   return String(raw ?? '').trim().slice(0, max);
+}
+
+function realSupplierText(raw: unknown, max = 200): string {
+  const text = clean(raw, max);
+  return isBlankSupplierField(text) ? '' : text;
 }
 
 function assertTestEnv(): void {
@@ -409,9 +415,9 @@ export async function registerCashbillMember(tenantId: string, input: RegisterIn
 
   if (brand.isDefault) {
     const corpNum = normalizeCorpNum(signup?.bizNumber) ?? '';
-    const corpName = signup?.businessName?.trim() ?? '';
-    const ceoName = signup?.representativeName?.trim() ?? '';
-    const addr1 = signup?.addressLine?.trim() || clean(input.addr1, 200);
+    const corpName = realSupplierText(signup?.businessName);
+    const ceoName = realSupplierText(signup?.representativeName);
+    const addr1 = realSupplierText(signup?.addressLine) || realSupplierText(input.addr1);
     if (!corpNum || !corpName || !ceoName || !addr1) {
       throw new CashbillMemberError('사업자정보(사업자번호·상호·대표자·주소)를 먼저 저장해 주세요.');
     }
@@ -466,9 +472,9 @@ export async function registerCashbillMember(tenantId: string, input: RegisterIn
   }
 
   const corpNum = normalizeCorpNum(input.corpNum) ?? '';
-  const corpName = clean(input.corpName, 80);
-  const ceoName = clean(input.ceoName, 40);
-  const addr1 = clean(input.addr1, 200);
+  const corpName = realSupplierText(clean(input.corpName, 80));
+  const ceoName = realSupplierText(clean(input.ceoName, 40));
+  const addr1 = realSupplierText(clean(input.addr1, 200));
   const imageUrl = clean(input.businessRegistrationImageUrl, 500);
   const imageId = clean(input.businessRegistrationImagePublicId, 200);
   if (!corpNum || !corpName || !ceoName || !addr1) {

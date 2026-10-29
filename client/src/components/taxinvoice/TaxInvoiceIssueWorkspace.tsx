@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { isValidKoreanBizNumberChecksum } from '@shared/authSignup';
+import { isBlankSupplierField } from '@shared/supplierFieldText';
 import {
   issueTaxInvoice,
   listTaxInvoices,
@@ -234,8 +235,8 @@ export function TaxInvoiceIssueWorkspace() {
 
   const dateMin = dates[dates.length - 1] ?? writeDate;
   const dateMax = dates[0] ?? writeDate;
-  const supplierBlocked = !supplier.corpName.trim() || !supplier.ceoName.trim() || !supplier.addr.trim() || !supplier.email.trim();
-  const supplierAttention = !supplier.ceoName.trim() || !supplier.addr.trim();
+  const supplierBlocked = isBlankSupplierField(supplier.corpName) || isBlankSupplierField(supplier.ceoName) || isBlankSupplierField(supplier.addr) || !supplier.email.trim();
+  const supplierAttention = isBlankSupplierField(supplier.ceoName) || isBlankSupplierField(supplier.addr);
   const linkedBrands = brands.filter((item) => item.linked);
   const chipName = picked?.buyer?.corpName || picked?.customerName || '';
 

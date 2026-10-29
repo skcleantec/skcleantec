@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { isBlankSupplierField } from '@shared/supplierFieldText';
 import { docTitle, formatBizInput, formatMoneyInput, lineSupply, lineTax, won, type TaxFormLine, type TaxKind, type TaxParty } from './taxInvoiceFormModel';
 import './taxinvoice-issue.css';
 
@@ -44,8 +45,7 @@ function supplierEditClass(attention?: boolean): string {
 }
 
 function dash(value: string): string {
-  const text = value.trim();
-  return text || '—';
+  return isBlankSupplierField(value) ? '—' : value.trim();
 }
 
 function purposeClass(on: boolean, side: 'l' | 'r'): string {

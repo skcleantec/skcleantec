@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatBizNumberDisplay, isValidKoreanBizNumberChecksum } from '@shared/authSignup';
+import { visibleSupplierField } from '@shared/supplierFieldText';
 import type { CashbillSettings } from '../../api/cashbill';
 import { registerCashbillMember, updateCashbillMemberContact, uploadCashbillRegistration } from '../../api/cashbill';
 
@@ -30,10 +31,10 @@ export function CashbillLinkForm({
   const [contactTel, setContactTel] = useState(member?.contactTel || prefill.contactTel);
   const [contactEmail, setContactEmail] = useState(member?.contactEmail || prefill.contactEmail);
   const contactName = member?.contactName || prefill.contactName;
-  const [addr1, setAddr1] = useState(extra ? (member?.addr1 ?? '') : prefill.addr1);
+  const [addr1, setAddr1] = useState(visibleSupplierField(extra ? member?.addr1 : prefill.addr1));
   const [corpNum, setCorpNum] = useState(member?.corpNum ?? '');
-  const [corpName, setCorpName] = useState(member?.corpName ?? '');
-  const [ceoName, setCeoName] = useState(member?.ceoName ?? '');
+  const [corpName, setCorpName] = useState(visibleSupplierField(extra ? member?.corpName : prefill.corpName));
+  const [ceoName, setCeoName] = useState(visibleSupplierField(extra ? member?.ceoName : prefill.ceoName));
   const [imageUrl, setImageUrl] = useState(member?.businessRegistrationImageUrl ?? '');
   const [imageId, setImageId] = useState(member?.businessRegistrationImagePublicId ?? '');
   const [uploading, setUploading] = useState(false);
@@ -113,9 +114,9 @@ export function CashbillLinkForm({
         {extra ? (
           <>
             <label className="text-fluid-xs text-slate-700">사업자번호<input className={INPUT} value={corpNum} disabled={locked || saving} inputMode="numeric" onChange={(e) => setCorpNum(e.target.value)} /></label>
-            <label className="text-fluid-xs text-slate-700">상호<input className={INPUT} value={corpName} disabled={locked || saving} onChange={(e) => setCorpName(e.target.value)} /></label>
-            <label className="text-fluid-xs text-slate-700">대표자<input className={INPUT} value={ceoName} disabled={locked || saving} onChange={(e) => setCeoName(e.target.value)} /></label>
-            <label className="text-fluid-xs text-slate-700 lg:col-span-2">주소<input className={INPUT} value={addr1} disabled={locked || saving} onChange={(e) => setAddr1(e.target.value)} /></label>
+            <label className="text-fluid-xs text-slate-700">상호<input className={INPUT} value={corpName} placeholder="상호" disabled={locked || saving} onChange={(e) => setCorpName(e.target.value)} /></label>
+            <label className="text-fluid-xs text-slate-700">대표자<input className={INPUT} value={ceoName} placeholder="대표자명" disabled={locked || saving} onChange={(e) => setCeoName(e.target.value)} /></label>
+            <label className="text-fluid-xs text-slate-700 lg:col-span-2">주소<input className={INPUT} value={addr1} placeholder="사업장 주소" disabled={locked || saving} onChange={(e) => setAddr1(e.target.value)} /></label>
             <label className="text-fluid-xs text-slate-700 lg:col-span-2">
               사업자등록증
               <input className={INPUT} type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={locked || saving || uploading} onChange={(e) => void onFile(e.target.files?.[0] ?? null)} />

@@ -21,6 +21,7 @@ import {
 import type { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
+import { isBlankSupplierField } from '../taxinvoice/supplierFieldText.js';
 import { syncDefaultBrandSupplierFromCompany } from '../taxinvoice/taxInvoiceSupplier.service.js';
 
 async function assertActorLoginPassword(params: {
@@ -262,6 +263,26 @@ async function patchOperatingCompanySmtp(
   });
 }
 
+function assertCompanySupplierText(
+  patch: TenantCompanyProfilePatch['companyRegistration'],
+): void {
+  if (!patch) return;
+  const fields: Array<[string, unknown]> = [
+    ['상호를', patch.companyName],
+    ['대표자명을', patch.representativeName],
+    ['사업장 주소를', patch.addressLine],
+  ];
+  for (const [label, value] of fields) {
+    if (typeof value !== 'string') continue;
+    if (isBlankSupplierField(value)) {
+      throw Object.assign(new Error('supplier_placeholder'), {
+        code: 'bad_request' as const,
+        message: `${label} 입력해 주세요.`,
+      });
+    }
+  }
+}
+
 export async function patchTenantCompanyProfile(
   tenantId: string,
   body: TenantCompanyProfilePatch,
@@ -289,6 +310,7 @@ export async function patchTenantCompanyProfile(
     validateSmtpPatch(body.smtp, existing.smtp);
   }
 
+  assertCompanySupplierText(body.companyRegistration);
   const companyRegistration = mergeCompanyRegistration(
     existing.companyRegistration,
     body.companyRegistration,

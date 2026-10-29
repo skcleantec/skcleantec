@@ -12,6 +12,7 @@ import {
   QUOTATION_SEAL_DISPLAY_WIDTH_MAX,
   QUOTATION_SEAL_DISPLAY_WIDTH_MIN,
 } from '@shared/quotationSeal';
+import { visibleSupplierField } from '@shared/supplierFieldText';
 
 export function useTenantCompanyProfileForm() {
   const token = getToken();
@@ -46,10 +47,10 @@ export function useTenantCompanyProfileForm() {
   const hydrate = useCallback((dto: TenantCompanyProfileDto) => {
     setProfile(dto);
     const c = dto.companyRegistration;
-    setCompanyName(c.companyName ?? '');
-    setRepresentativeName(c.representativeName ?? '');
+    setCompanyName(visibleSupplierField(c.companyName));
+    setRepresentativeName(visibleSupplierField(c.representativeName));
     setBusinessRegistrationNo(c.businessRegistrationNo ?? '');
-    setAddressLine(c.addressLine ?? '');
+    setAddressLine(visibleSupplierField(c.addressLine));
     setPhone(c.phone ?? '');
     setFax(c.fax ?? '');
     setContactEmail(c.contactEmail ?? '');

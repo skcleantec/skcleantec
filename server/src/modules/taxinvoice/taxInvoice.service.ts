@@ -19,6 +19,7 @@ import {
   registAndIssueTaxInvoice,
 } from './taxInvoice.barobill.js';
 import { certBlockMessage, refreshBarobillCerts } from './taxInvoiceCert.service.js';
+import { isBlankSupplierField } from './supplierFieldText.js';
 import { safeRenderTaxInvoiceCopy } from '../receipts/receiptCopy.service.js';
 
 export const TAX_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
@@ -365,7 +366,12 @@ export async function issueTaxInvoice(
     throw new TaxInvoiceError('면세사업자는 전자계산서만 발행할 수 있습니다.');
   }
   if (member.certValid !== true) throw new TaxInvoiceError(certBlockMessage(), 409, 'cert');
-  if (!member.corpName.trim() || !member.ceoName.trim() || !member.addr1.trim() || !member.contactEmail.trim()) {
+  if (
+    isBlankSupplierField(member.corpName) ||
+    isBlankSupplierField(member.ceoName) ||
+    isBlankSupplierField(member.addr1) ||
+    !member.contactEmail.trim()
+  ) {
     throw new TaxInvoiceError(TAX_SUPPLIER_INCOMPLETE_MESSAGE, 409, 'supplier_incomplete');
   }
   const purposeType = input.purposeType === 2 ? 2 : input.purposeType === 1 ? 1 : null;

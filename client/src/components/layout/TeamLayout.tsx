@@ -62,6 +62,7 @@ import { TeamMobileBottomNav } from './TeamMobileBottomNav';
 import { TeamNavIcon } from './TeamNavIcons';
 import { MOBILE_GNB_ITEM_BASE, TEAM_MOBILE_BOTTOM_NAV_RESERVE_PX } from './mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from './staffRightRailStyles';
+import { useBodyHasModalOverlay } from '../../hooks/useBodyHasModalOverlay';
 import { useStaffMobileFabStack } from '../../hooks/useStaffMobileFabStack';
 import { isTeamMessagesPath } from '../../utils/teamMessagesRoute';
 
@@ -465,7 +466,8 @@ export function TeamLayout() {
     onFavoritesTap: () => openMobileFavoritesRef.current?.(),
     bottomReservePx: TEAM_MOBILE_BOTTOM_NAV_RESERVE_PX,
   });
-  const showTeamMobileFabStack = showTeamMobileFabStackBase && showMobileFabStack;
+  const modalOverlayOpen = useBodyHasModalOverlay();
+  const showTeamMobileFabStack = showTeamMobileFabStackBase && showMobileFabStack && !modalOverlayOpen;
 
   const reloadTeamMe = useCallback(() => {
     const token = getTeamToken();

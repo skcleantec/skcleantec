@@ -44,6 +44,7 @@ export function AdminTenantCompanyBusinessPage() {
               type="text"
               value={form.companyName}
               onChange={(e) => form.setCompanyName(e.target.value)}
+              placeholder="상호"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
@@ -53,6 +54,7 @@ export function AdminTenantCompanyBusinessPage() {
               type="text"
               value={form.representativeName}
               onChange={(e) => form.setRepresentativeName(e.target.value)}
+              placeholder="대표자명"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
@@ -164,6 +166,7 @@ export function AdminTenantCompanyBusinessPage() {
               type="text"
               value={form.addressLine}
               onChange={(e) => form.setAddressLine(e.target.value)}
+              placeholder="사업장 주소"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </label>

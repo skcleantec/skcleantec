@@ -84,6 +84,7 @@ import { getDbMarketplaceNavCounts } from '../../api/dbMarketplace';
 import { AdminStaffPathGate } from './AdminStaffPathGate';
 import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
 import { NavFavoritesProvider } from '../../hooks/useNavFavorites';
+import { useBodyHasModalOverlay } from '../../hooks/useBodyHasModalOverlay';
 import { AdminMobileNavFavoritesAccess } from './AdminMobileNavFavoritesAccess';
 import { AdminDesktopNavFavoritesAccess } from './AdminDesktopNavFavoritesAccess';
 import {
@@ -797,7 +798,8 @@ export function AdminLayout() {
     Boolean(fabTop != null) && !location.pathname.startsWith('/admin/schedule');
   const showOrderIssueFab =
     Boolean(fabTop != null) && !location.pathname.startsWith('/admin/inquiries/order-issue');
-  const showMobileFabStack = Boolean(fabTop != null);
+  const modalOverlayOpen = useBodyHasModalOverlay();
+  const showMobileFabStack = Boolean(fabTop != null) && !modalOverlayOpen;
   const fabSafeRight = 'max(12px, env(safe-area-inset-right, 0px))';
 
   useEffect(() => {
