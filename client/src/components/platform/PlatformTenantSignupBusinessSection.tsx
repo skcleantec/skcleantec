@@ -28,7 +28,7 @@ export function PlatformTenantSignupBusinessSection({
   signupAuthCategory?: TenantSignupAuthCategory;
 }) {
   return (
-    <section className={CARD_SECTION}>
+    <section id="section-business" className={`${CARD_SECTION} scroll-mt-24`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold text-gray-900">가입 사업자 정보</h2>

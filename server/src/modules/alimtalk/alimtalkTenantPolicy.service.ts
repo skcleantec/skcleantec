@@ -1,4 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
+import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import type { WalletUsageType } from '../../lib/walletPolicy.js';
 import {
   ALIMTALK_MODULE_ID,
   ALIMTALK_TEMPLATE_CODES,
@@ -36,6 +38,7 @@ export type AlimtalkSettingsForPlatform = {
   templates: { code: string; label: string; enabled: boolean }[];
   recentChargeLogs: AlimtalkChargeLogDto[];
   pendingChargeRequests: AlimtalkChargeRequestDto[];
+  monthUsage: { key: 'alimtalk' | 'cashbill' | 'taxinvoice'; label: string; amountKrw: number }[];
 };
 
 export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<AlimtalkSettingsForPlatform> {
@@ -57,6 +60,7 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
   const settingMap = new Map(settings.map((s) => [s.templateCode, s.isEnabled]));
   const recentChargeLogs = await listRecentAlimtalkChargeLogs(tenantId, 10);
   const pendingChargeRequests = await listPendingAlimtalkChargeRequestsForTenant(tenantId);
+  const monthUsage = await walletMonthUsage(tenantId);
 
   return {
     licensed,
@@ -81,7 +85,31 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
       createdAt: log.createdAt.toISOString(),
     })),
     pendingChargeRequests,
+    monthUsage,
   };
+}
+
+const WALLET_MONTH_BUCKETS: { key: 'alimtalk' | 'cashbill' | 'taxinvoice'; label: string; types: WalletUsageType[] }[] = [
+  { key: 'alimtalk', label: '알림톡', types: ['ALIMTALK'] },
+  { key: 'cashbill', label: '현금영수증', types: ['CASHBILL_ISSUE', 'CASHBILL_CANCEL', 'CASHBILL_REFUND'] },
+  { key: 'taxinvoice', label: '세금계산서', types: ['TAXINVOICE_ISSUE', 'TAXINVOICE_REFUND'] },
+];
+
+async function walletMonthUsage(tenantId: string) {
+  const range = kstMonthRangeYm(kstTodayYmd().slice(0, 7));
+  if (!range) {
+    return WALLET_MONTH_BUCKETS.map((bucket) => ({ key: bucket.key, label: bucket.label, amountKrw: 0 }));
+  }
+  const rows = await prisma.tenantWalletUsageLog.groupBy({
+    by: ['type'],
+    where: { tenantId, createdAt: { gte: range.gte, lte: range.lte } },
+    _sum: { amountKrw: true },
+  });
+  const net = new Map(rows.map((row) => [row.type, row._sum.amountKrw ?? 0]));
+  return WALLET_MONTH_BUCKETS.map((bucket) => {
+    const signed = bucket.types.reduce((sum, type) => sum + (net.get(type) ?? 0), 0);
+    return { key: bucket.key, label: bucket.label, amountKrw: signed < 0 ? -signed : 0 };
+  });
 }
 
 export async function saveAlimtalkPolicyForPlatform(

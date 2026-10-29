@@ -312,7 +312,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
         ) : null}
       </section>
 
-      <section className={CARD_SECTION}>
+      <section id="section-billing-contract" className={`${CARD_SECTION} scroll-mt-24`}>
         <h3 className="text-sm font-semibold text-gray-900">계약 조건</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">

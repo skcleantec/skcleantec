@@ -1012,7 +1012,46 @@
         "client/src/pages/admin/AdminCashbillSettingsPage.tsx",
         "shared/barobillPolicy.ts"
       ],
-      "notes": "가입완료 emerald-50/800, 검토 중 amber-50/900, 반려 red-50/800, 연결 필요 amber-50/800, 실패 red-50/700, 처리 중 slate-100/700. 10분 넘은 처리 중은 확인 필요 red-50/800. 다른 업체 신청 경고 amber-50/900. 현금영수증 국세청 전송완료 emerald-800, 전송중 amber-800, 전송실패 red-800. 세금계산서 전송전 slate-700, 전송중 amber-800, 성공 emerald-800, 실패 red-800. 영수증 화면 청소비서 지갑은 잔액 1,000원 미만이면 amber-50/amber-300/amber-950 과 「곧 발행이 멈춥니다」. 끄기 설정 없음. 메뉴 이름 계산서 연결. 공동인증서 등록 버튼. 목록 /admin/inquiries/receipts/cashbill, /admin/inquiries/receipts/taxinvoice. 플랫폼 메뉴 이름은 계산서(바로빌), 경로 /platform/barobill-members. 업체 상세는 /platform/tenants/:id?tab=addons."
+      "notes": "가입완료 emerald-50/800, 검토 중 amber-50/900, 반려 red-50/800, 연결 필요 amber-50/800, 실패 red-50/700, 처리 중 slate-100/700. 10분 넘은 처리 중은 확인 필요 red-50/800. 다른 업체 신청 경고 amber-50/900. 현금영수증 국세청 전송완료 emerald-800, 전송중 amber-800, 전송실패 red-800. 세금계산서 전송전 slate-700, 전송중 amber-800, 성공 emerald-800, 실패 red-800. 영수증 화면 청소비서 지갑은 잔액 1,000원 미만이면 amber-50/amber-300/amber-950 과 「곧 발행이 멈춥니다」. 끄기 설정 없음. 메뉴 이름 계산서 연결. 공동인증서 등록 버튼. 목록 /admin/inquiries/receipts/cashbill, /admin/inquiries/receipts/taxinvoice. 플랫폼 메뉴 이름은 계산서(바로빌), 경로 /platform/barobill-members. 업체 상세 부가서비스의 청소비서 지갑은 /platform/tenants/:id?tab=addons#section-wallet."
+    },
+    {
+      "id": "platform.tenant.featureOverride",
+      "labelKo": "기능 개별 설정",
+      "surfaces": ["platform.tenant.features"],
+      "visual": { "type": "select", "token": "slate-900" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/platform/tenants/:id?tab=features",
+      "helpPath": null,
+      "codeRefs": [
+        "client/src/components/platform/PlatformTenantFeatureReasonTable.tsx",
+        "client/src/components/platform/platformFeatureChoice.ts"
+      ],
+      "notes": "선택: 기본 따름 / 켜기 / 끄기. 이유: 플랜 기본(켜짐), 상위 플랜명부터, 개별 켜기, 개별 끄기, 메뉴 숨김, 필수 기능. 필수 기능은 접수·스케줄만. 배정은 Free에서 미포함·꺼짐·Standard부터."
+    },
+    {
+      "id": "platform.tenant.setupChecklist",
+      "labelKo": "업체 설정 점검",
+      "surfaces": ["platform.tenant.overview"],
+      "visual": { "type": "statusText", "token": "slate-700" },
+      "defaultVisible": true,
+      "userConfigurable": false,
+      "settingsPath": "/platform/tenants/:id",
+      "helpPath": null,
+      "codeRefs": ["client/src/components/platform/PlatformTenantSetupChecklist.tsx"],
+      "notes": "✓ 완료, ⚠ 확인 필요, ✗ 미설정, 🔒 플랜 미포함. 줄은 ?tab= 과 section= 으로 해당 섹션 이동. Free의 계산서·카드결제 PG는 🔒 Standard부터."
+    },
+    {
+      "id": "platform.tenant.wallet",
+      "labelKo": "청소비서 지갑 (플랫폼 업체)",
+      "surfaces": ["platform.tenant.addons"],
+      "visual": { "type": "card", "token": "white" },
+      "defaultVisible": true,
+      "userConfigurable": true,
+      "settingsPath": "/platform/tenants/:id?tab=addons&section=section-wallet",
+      "helpPath": null,
+      "codeRefs": ["client/src/components/platform/PlatformTenantWalletCard.tsx"],
+      "notes": "알림톡 섹션 밖. 알림톡·현금영수증·세금계산서 공용. 잔액, 이번 달 유형별 사용액, 충전 반영, 대기 신청, 최근 충전. 직접 충전은 알림톡 라이선스가 켜져 있을 때."
     }
   ]
 }

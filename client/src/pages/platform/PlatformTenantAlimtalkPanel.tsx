@@ -2,25 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ALIMTALK_TEMPLATE_CODES,
   ALIMTALK_TEMPLATE_LABELS,
-  ALIMTALK_CHARGE_MAX_KRW,
-  ALIMTALK_CHARGE_UNIT_KRW,
   type AlimtalkTemplateCode,
 } from '@shared/alimtalkPolicy';
 import {
   getPlatformTenantAlimtalkPolicy,
   patchPlatformTenantAlimtalkPolicy,
-  postPlatformTenantAlimtalkCharge,
   type PlatformAlimtalkPolicyResponse,
 } from '../../api/platformTenants';
 import { getPlatformToken } from '../../stores/platformAuth';
-import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE, PlatformAlert, PlatformToggle } from '../../utils/platformUi';
-
-const CHARGE_PRESETS_KRW = [
-  ALIMTALK_CHARGE_UNIT_KRW,
-  ALIMTALK_CHARGE_UNIT_KRW * 2,
-  ALIMTALK_CHARGE_UNIT_KRW * 3,
-  ALIMTALK_CHARGE_MAX_KRW,
-] as const;
+import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, PlatformAlert, PlatformToggle } from '../../utils/platformUi';
 
 type Props = {
   tenantId: string;
@@ -40,10 +30,6 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [charging, setCharging] = useState(false);
-  const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
-  const [chargeAmountKrw, setChargeAmountKrw] = useState<number>(ALIMTALK_CHARGE_UNIT_KRW);
-  const [chargeMemo, setChargeMemo] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -106,56 +92,12 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
     }
   };
 
-  const handleCharge = async () => {
-    const token = getPlatformToken();
-    if (!token || !tenantId) return;
-    setCharging(true);
-    setMessage('');
-    setError('');
-    try {
-      const data = await postPlatformTenantAlimtalkCharge(token, tenantId, {
-        amountKrw: chargeAmountKrw,
-        memo: chargeMemo.trim() || undefined,
-      });
-      setSettings(data);
-      setChargeMemo('');
-      setMessage(`${chargeAmountKrw.toLocaleString('ko-KR')}원 충전을 반영했습니다.`);
-      onSaved?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '충전 반영 실패');
-    } finally {
-      setCharging(false);
-    }
-  };
-
-  const handleApproveChargeRequest = async (requestId: string, amountKrw: number) => {
-    const token = getPlatformToken();
-    if (!token || !tenantId) return;
-    setApprovingRequestId(requestId);
-    setMessage('');
-    setError('');
-    try {
-      const data = await postPlatformTenantAlimtalkCharge(token, tenantId, {
-        chargeRequestId: requestId,
-        amountKrw,
-        memo: '충전 신청 승인',
-      });
-      setSettings(data);
-      setMessage(`${amountKrw.toLocaleString('ko-KR')}원 충전 신청을 반영했습니다.`);
-      onSaved?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '충전 신청 승인 실패');
-    } finally {
-      setApprovingRequestId(null);
-    }
-  };
-
   if (loading) {
     return <p className="text-sm text-gray-500">알림톡 설정 불러오는 중…</p>;
   }
 
   return (
-    <div className="space-y-4">
+    <div id="section-alimtalk" className="scroll-mt-24 space-y-4">
       {message ? <PlatformAlert message={message} variant="success" /> : null}
       {error ? <PlatformAlert message={error} variant="error" /> : null}
 
@@ -207,7 +149,7 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
           />
         </div>
         {settings && licensed ? (
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-3">
             <div>
               <dt className="text-gray-400">이번 달 사용</dt>
               <dd className="font-medium tabular-nums text-gray-900">
@@ -223,112 +165,10 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
               </dd>
             </div>
             <div>
-              <dt className="text-gray-400">선불 잔액</dt>
-              <dd className="font-medium tabular-nums text-gray-900">
-                {settings.prepaidBalanceKrw.toLocaleString('ko-KR')}원
-              </dd>
-            </div>
-            <div>
               <dt className="text-gray-400">플랜</dt>
               <dd className="font-medium text-gray-900">{settings.plan}</dd>
             </div>
           </dl>
-        ) : null}
-      </section>
-
-      <section className={CARD_SECTION}>
-        <h2 className="text-base font-semibold text-gray-900">충전금 관리</h2>
-        <p className="mt-0.5 text-xs text-gray-500">
-          입금 확인 후 반영합니다. {ALIMTALK_CHARGE_UNIT_KRW.toLocaleString('ko-KR')}원 단위, 1회 최대{' '}
-          {ALIMTALK_CHARGE_MAX_KRW.toLocaleString('ko-KR')}원.
-          {monthlyFreeUnlimited ? ' 무제한이면 잔액이 없어도 발송됩니다.' : ''}
-        </p>
-        {settings?.pendingChargeRequests?.length ? (
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <h3 className="text-xs font-medium text-amber-900">업체 충전 신청 (대기)</h3>
-            <ul className="mt-2 space-y-2">
-              {settings.pendingChargeRequests.map((req) => (
-                <li
-                  key={req.id}
-                  className="flex flex-wrap items-center justify-between gap-2 text-xs text-amber-950"
-                >
-                  <span className="tabular-nums">
-                    {req.amountKrw.toLocaleString('ko-KR')}원 ·{' '}
-                    {new Date(req.createdAt).toLocaleString('ko-KR')}
-                    {req.memo ? ` · ${req.memo}` : ''}
-                  </span>
-                  <button
-                    type="button"
-                    className={BTN_PRIMARY}
-                    disabled={disabled || approvingRequestId === req.id}
-                    onClick={() => void handleApproveChargeRequest(req.id, req.amountKrw)}
-                  >
-                    {approvingRequestId === req.id ? '반영 중…' : '입금 확인 · 반영'}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {CHARGE_PRESETS_KRW.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              disabled={disabled || charging || !licensed}
-              className={`rounded-lg border px-3 py-1.5 text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
-                chargeAmountKrw === amount
-                  ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
-                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-              onClick={() => setChargeAmountKrw(amount)}
-            >
-              {amount.toLocaleString('ko-KR')}원
-            </button>
-          ))}
-        </div>
-        <label className="mt-3 block text-xs text-gray-500">
-          메모 (선택)
-          <input
-            type="text"
-            className={`${INPUT_BASE} mt-1`}
-            value={chargeMemo}
-            disabled={disabled || charging || !licensed}
-            placeholder="입금 확인·계좌 등"
-            onChange={(e) => setChargeMemo(e.target.value)}
-          />
-        </label>
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            className={BTN_PRIMARY}
-            disabled={disabled || charging || !licensed}
-            onClick={() => void handleCharge()}
-          >
-            {charging ? '반영 중…' : `${chargeAmountKrw.toLocaleString('ko-KR')}원 충전 반영`}
-          </button>
-        </div>
-        {settings?.recentChargeLogs?.length ? (
-          <div className="mt-4 border-t border-gray-100 pt-3">
-            <h3 className="text-xs font-medium text-gray-700">최근 충전 이력</h3>
-            <ul className="mt-2 space-y-1.5">
-              {settings.recentChargeLogs.map((log) => (
-                <li
-                  key={log.id}
-                  className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs text-gray-600"
-                >
-                  <span className="tabular-nums">
-                    +{log.amountKrw.toLocaleString('ko-KR')}원 → 잔액{' '}
-                    {log.balanceAfterKrw.toLocaleString('ko-KR')}원
-                  </span>
-                  <span className="text-gray-400">
-                    {new Date(log.createdAt).toLocaleString('ko-KR')}
-                    {log.memo ? ` · ${log.memo}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
         ) : null}
       </section>
 

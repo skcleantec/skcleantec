@@ -18,6 +18,13 @@ import { PlatformTenantAlimtalkPanel } from './PlatformTenantAlimtalkPanel';
 import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
 import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
 import { PlatformTenantFeatureReasonTable } from '../../components/platform/PlatformTenantFeatureReasonTable';
+import {
+  featureSelectMode,
+  previewEffective,
+  shouldPersistFeatureChoice,
+  type FeatureSelectMode,
+} from '../../components/platform/platformFeatureChoice';
+import { PlatformTenantWalletCard } from '../../components/platform/PlatformTenantWalletCard';
 import { PlatformTenantAddonStatus } from '../../components/platform/PlatformTenantAddonStatus';
 import {
   PlatformTenantSetupChecklist,
@@ -118,6 +125,7 @@ export function PlatformTenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
+  const sectionId = searchParams.get('section');
   const activeTab = resolveTenantDetailTab(rawTab);
   const [detail, setDetail] = useState<DetailWithStats | null>(null);
   const [features, setFeatures] = useState<PlatformTenantFeatureRow[]>([]);
@@ -129,12 +137,14 @@ export function PlatformTenantDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const setActiveTab = (tab: TenantDetailTabId) => {
+  const setActiveTab = (tab: TenantDetailTabId, section?: string) => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         if (tab === 'overview') next.delete('tab');
         else next.set('tab', tab);
+        if (section) next.set('section', section);
+        else next.delete('section');
         return next;
       },
       { replace: true },
@@ -175,6 +185,14 @@ export function PlatformTenantDetailPage() {
     if (!rawTab || rawTab === activeTab) return;
     setActiveTab(activeTab);
   }, [rawTab, activeTab]);
+
+  useEffect(() => {
+    if (!sectionId || loading) return;
+    const scroll = () => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scroll();
+    const timer = window.setTimeout(scroll, 400);
+    return () => window.clearTimeout(timer);
+  }, [sectionId, activeTab, loading]);
 
   const saveBasics = async (overrides?: Partial<{ slug: string; name: string; plan: string; status: string }>) => {
     const token = getPlatformToken();
@@ -226,10 +244,23 @@ export function PlatformTenantDetailPage() {
     }
   };
 
-  const toggleFeature = (moduleId: string) => {
+  const applyFeatureChoice = (moduleId: string, mode: FeatureSelectMode) => {
     setFeatures((prev) =>
-      prev.map((f) => (f.moduleId === moduleId && !f.locked ? { ...f, enabled: !f.enabled } : f)),
+      prev.map((row) => {
+        if (row.moduleId !== moduleId || row.locked) return row;
+        const override = mode === 'inherit' ? null : mode === 'on';
+        const effective = previewEffective({ ...row, override }, mode);
+        return { ...row, override, enabled: effective, effective };
+      }),
     );
+  };
+
+  const toggleFeature = (moduleId: string) => {
+    const row = features.find((item) => item.moduleId === moduleId);
+    if (!row || row.locked) return;
+    const on = previewEffective(row, featureSelectMode(row));
+    if (on) applyFeatureChoice(moduleId, row.inPlan ? 'off' : 'inherit');
+    else applyFeatureChoice(moduleId, row.inPlan ? 'inherit' : 'on');
   };
 
   const handleSaveFeatures = async () => {
@@ -240,8 +271,8 @@ export function PlatformTenantDetailPage() {
     setError('');
     try {
       const payload = features
-        .filter((f) => !f.locked)
-        .map((f) => ({ moduleId: f.moduleId, enabled: f.enabled }));
+        .filter((row) => shouldPersistFeatureChoice(row, featureSelectMode(row)))
+        .map((row) => ({ moduleId: row.moduleId, enabled: featureSelectMode(row) === 'on' }));
       const data = await savePlatformTenantFeatures(token, id, payload);
       setDetail(data);
       setAdmins(normalizePlatformTenantAdmins(data));
@@ -525,6 +556,10 @@ export function PlatformTenantDetailPage() {
             />
           ) : null}
 
+          {activeTab === 'addons' && id ? (
+            <PlatformTenantWalletCard tenantId={id} disabled={saving} />
+          ) : null}
+
           {activeTab === 'addons' && id ? <PlatformTenantAddonStatus tenantId={id} /> : null}
 
           {activeTab === 'addons' && id ? <PlatformTenantUsagePanel tenantId={id} /> : null}
@@ -532,7 +567,7 @@ export function PlatformTenantDetailPage() {
           {(activeTab === 'billing' || activeTab === 'features') ? (
             <>
           {activeTab === 'billing' ? (
-          <section className={CARD_SECTION}>
+          <section id="section-plan" className={`${CARD_SECTION} scroll-mt-24`}>
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-gray-900">플랜 선택</h2>
               <p className="text-xs text-gray-400">변경 시 기능 모듈이 자동 재설정됩니다</p>
@@ -617,7 +652,7 @@ export function PlatformTenantDetailPage() {
               <div>
                 <h2 className="text-base font-semibold text-gray-900">기능 모듈</h2>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  플랜에 포함된 값과 이 업체만 바꾼 값을 함께 봅니다. 메뉴 on/off는 아래 화면 표시 설정에서 그대로 저장합니다.
+                  개별 설정은 기본 따름·켜기·끄기입니다. 최종과 이유는 저장 전에 바로 바뀝니다. 기능 저장은 플랜과 다른 값만 남깁니다.
                 </p>
               </div>
               <button
@@ -630,7 +665,12 @@ export function PlatformTenantDetailPage() {
               </button>
             </div>
             <div className="mt-3">
-              <PlatformTenantFeatureReasonTable features={features} />
+              <PlatformTenantFeatureReasonTable
+                features={features}
+                plan={detail.tenant.plan}
+                disabled={saving}
+                onChange={applyFeatureChoice}
+              />
             </div>
             <details open className="mt-3 rounded-lg border border-gray-200 p-3">
               <summary className="cursor-pointer text-sm font-medium text-gray-800">화면 표시 설정</summary>
@@ -726,7 +766,7 @@ export function PlatformTenantDetailPage() {
       ) : null}
 
       {activeTab === 'account' ? (
-        <section className={CARD_SECTION}>
+        <section id="section-admins" className={`${CARD_SECTION} scroll-mt-24`}>
           <h2 className="text-base font-semibold text-gray-900">관리자 계정</h2>
           <p className="mb-4 text-xs text-gray-500">
             이 업체에 관리자 권한으로 로그인할 수 있는 계정 목록입니다.

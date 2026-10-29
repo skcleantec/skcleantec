@@ -55,36 +55,37 @@ export function PlatformTenantAddonStatus({ tenantId }: { tenantId: string }) {
     <section className="rounded-xl border border-gray-200 bg-white p-4">
       <h2 className="text-base font-semibold text-gray-900">카드결제 PG · 계산서</h2>
       <p className="mt-0.5 text-xs text-gray-500">이 업체의 연결 상태입니다. 키 원문은 보여 주지 않습니다.</p>
-      {snap.loading ? <p className="mt-3 text-sm text-gray-500">불러오는 중…</p> : null}
-      {!snap.loading ? (
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs text-gray-500">카드결제 PG</dt>
-            <dd className="mt-1 text-sm text-gray-900">
-              {snap.pgConnected ? `연결됨 · 끝자리 ${snap.pgLast4 ?? ''}` : '연결 안 됨'}
-              {snap.onboardingStatus ? ` · 가입 ${snap.onboardingStatus}` : ''}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-gray-500">계산서(바로빌)</dt>
-            <dd className="mt-1 text-sm text-gray-900">
-              {snap.members.length === 0
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div id="section-pg" className="scroll-mt-24">
+          <dt className="text-xs text-gray-500">카드결제 PG</dt>
+          <dd className="mt-1 text-sm text-gray-900">
+            {snap.loading
+              ? '확인 중'
+              : snap.pgConnected
+                ? `연결됨 · 끝자리 ${snap.pgLast4 ?? ''}`
+                : '연결 안 됨'}
+            {!snap.loading && snap.onboardingStatus ? ` · 가입 ${snap.onboardingStatus}` : ''}
+          </dd>
+        </div>
+        <div id="section-cashbill" className="scroll-mt-24">
+          <dt className="text-xs text-gray-500">계산서(바로빌)</dt>
+          <dd className="mt-1 text-sm text-gray-900">
+            {snap.loading
+              ? '확인 중'
+              : snap.members.length === 0
                 ? '회원 없음'
-                : snap.members
-                    .map((row) => BAROBILL_MEMBER_STATUS_LABEL[row.status] ?? row.status)
-                    .join(', ')}
+                : snap.members.map((row) => BAROBILL_MEMBER_STATUS_LABEL[row.status] ?? row.status).join(', ')}
+          </dd>
+        </div>
+        {!snap.loading && snap.members.some((row) => row.status === 'ACTIVE') ? (
+          <div id="section-cert" className="scroll-mt-24">
+            <dt className="text-xs text-gray-500">공동인증서</dt>
+            <dd className="mt-1 text-sm text-gray-900">
+              {snap.members.some((row) => row.status === 'ACTIVE' && row.certValid) ? '유효' : '미등록'}
             </dd>
           </div>
-          {snap.members.length > 0 ? (
-            <div>
-              <dt className="text-xs text-gray-500">공동인증서</dt>
-              <dd className="mt-1 text-sm text-gray-900">
-                {snap.members.some((row) => row.certValid) ? '유효' : '미등록'}
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-      ) : null}
+        ) : null}
+      </dl>
     </section>
   );
 }
