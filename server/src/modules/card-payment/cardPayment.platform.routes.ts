@@ -212,7 +212,7 @@ router.post('/usage-fee/payments/:id/cancel', async (req, res) => {
     res.status(cancelled.status).json({ error: cancelled.error });
     return;
   }
-  res.json({ ok: true });
+  res.json(cancelled);
 });
 
 router.post('/usage-fee/keyin', async (req, res) => {

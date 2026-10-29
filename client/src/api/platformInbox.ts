@@ -5,7 +5,7 @@ function authHeaders() {
   return { Authorization: `Bearer ${getPlatformToken() ?? ''}`, 'Content-Type': 'application/json' };
 }
 
-export type InboxMoneyKind = 'charge' | 'deposit' | 'overdue';
+export type InboxMoneyKind = 'charge' | 'deposit' | 'overdue' | 'reconcile';
 
 export type InboxMoneyRow = {
   id: string;

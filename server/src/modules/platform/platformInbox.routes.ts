@@ -20,7 +20,7 @@ router.get('/', async (_req, res) => {
 });
 
 function readKind(value: unknown): InboxMoneyKind | null {
-  if (value === 'charge' || value === 'deposit' || value === 'overdue') return value;
+  if (value === 'charge' || value === 'deposit' || value === 'overdue' || value === 'reconcile') return value;
   return null;
 }
 

@@ -4,6 +4,7 @@ import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 import { confirmPaymentForSchedulePeriod, getTenantBillingSchedule } from '../billing/tenantBilling.service.js';
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
 import { creditWalletFromCardOnce, reverseWalletCardOnce } from '../alimtalk/alimtalkWallet.service.js';
+import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 import { validateAlimtalkTopUpAmountKrw } from '../../lib/alimtalkPolicy.js';
 import { chargeUsageFeeKeyin, parseUsageFeeKeyinBody, type UsageFeeKeyinResult } from './cardPaymentUsageFeeKeyin.service.js';
 import { paysisSha256, requestPaysisFullCancel, requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
@@ -18,6 +19,14 @@ function usageFeeVatKrw(supplyKrw: number): number {
 
 const OPEN_PERIOD = new Set(['DRAFT', 'ISSUED', 'OVERDUE', 'SCHEDULED']);
 export const WALLET_CARD_GOODS_NAME = '청소비서 지갑';
+
+/** 카드 취소는 됐지만 지갑·청구 반영이 끝나지 않은 건. 오늘 할 일에서 이 문구로 찾는다. */
+export const USAGE_FEE_RECONCILE_MEMO = '반영 확인 필요';
+
+export function walletFullCancelBlockedMessage(balanceKrw: number): string {
+  const balance = Math.max(0, Math.trunc(balanceKrw)).toLocaleString('ko-KR');
+  return `업체가 충전금 일부를 이미 사용해 전액 취소할 수 없습니다(잔액 ${balance}원). 원성 판매자센터에서 부분 환불 후 지갑 회수를 하세요`;
+}
 
 function isWalletPayment(row: { purpose: string; goodsName: string }): boolean {
   return row.purpose === 'OTHER' && row.goodsName === WALLET_CARD_GOODS_NAME;
@@ -205,6 +214,21 @@ export async function listUsageFeeCardPayments(limit: number, offset: number, pa
     }),
     prisma.usageFeeCardPayment.count({ where }),
   ]);
+  const walletTenantIds = [
+    ...new Set(
+      rows
+        .filter((row) => isWalletPayment(row) && row.invoiceApplied && row.tenantId && isSameDayCardCancel(row))
+        .map((row) => row.tenantId as string),
+    ),
+  ];
+  const wallets =
+    walletTenantIds.length === 0
+      ? []
+      : await prisma.tenantAlimtalkWallet.findMany({
+          where: { tenantId: { in: walletTenantIds } },
+          select: { tenantId: true, prepaidBalanceKrw: true },
+        });
+  const balanceByTenant = new Map(wallets.map((wallet) => [wallet.tenantId, wallet.prepaidBalanceKrw]));
   return {
     total,
     items: rows.map((row) => ({
@@ -225,8 +249,20 @@ export async function listUsageFeeCardPayments(limit: number, offset: number, pa
       memo: row.memo,
       invoiceApplied: row.invoiceApplied,
       paidAt: row.paidAt.toISOString(),
+      needsReconcile: row.status === 'CANCELLED' && row.memo === USAGE_FEE_RECONCILE_MEMO,
+      cancelBlockReason: walletCancelBlockReason(row, balanceByTenant),
     })),
   };
+}
+
+function walletCancelBlockReason(
+  row: { purpose: string; goodsName: string; invoiceApplied: boolean; tenantId: string | null; supplyAmountKrw: number; status: string; payMethod: string; paidAt: Date; pgOrderId: string | null; pgMid: string | null },
+  balanceByTenant: Map<string, number>,
+): string | null {
+  if (!isWalletPayment(row) || !row.invoiceApplied || !row.tenantId || !isSameDayCardCancel(row)) return null;
+  const balance = balanceByTenant.get(row.tenantId) ?? 0;
+  if (balance >= row.supplyAmountKrw) return null;
+  return walletFullCancelBlockedMessage(balance);
 }
 
 function toPeriodYmd(raw: string): string {
@@ -390,7 +426,7 @@ async function markUsageFeeCancelled(row: {
 }) {
   const updated = await prisma.usageFeeCardPayment.updateMany({
     where: { id: row.id, status: 'APPROVED' },
-    data: { status: 'CANCELLED', invoiceApplied: false, memo: '당일 전액 취소' },
+    data: { status: 'CANCELLED', memo: '당일 전액 취소' },
   });
   if (updated.count === 0) return;
   try {
@@ -403,17 +439,37 @@ async function markUsageFeeCancelled(row: {
     } else if (row.invoiceApplied && row.invoiceId && row.tenantId) {
       await reopenInvoiceAfterCardCancel(row.invoiceId, row.tenantId);
     }
-  } catch (err) {
     await prisma.usageFeeCardPayment.updateMany({
       where: { id: row.id, status: 'CANCELLED' },
-      data: { status: 'APPROVED', invoiceApplied: row.invoiceApplied },
+      data: { invoiceApplied: false },
     });
+  } catch (err) {
+    await flagUsageFeeReconcile(row);
     throw err;
   }
 }
 
+async function flagUsageFeeReconcile(row: { id: string; tenantId: string | null }): Promise<void> {
+  await prisma.usageFeeCardPayment.updateMany({
+    where: { id: row.id, status: 'CANCELLED' },
+    data: { memo: USAGE_FEE_RECONCILE_MEMO },
+  });
+  if (!row.tenantId) return;
+  await notifyPlatformOps({
+    event: 'payment_confirm',
+    tenantId: row.tenantId,
+    title: '반영 확인 필요',
+    body: '카드 취소는 됐지만 지갑 또는 이용료 청구 반영을 확인해야 합니다.',
+    email: false,
+  }).catch((err) => {
+    console.error('[usage-fee reconcile notify]', err);
+  });
+}
+
 /** 정산의 당일 전액 취소. 결제창만 페이시스로 취소한다. 수기는 판매자센터다. */
-export async function cancelUsageFeeCardPayment(id: string): Promise<{ error: string; status: 400 | 404 } | { ok: true }> {
+export async function cancelUsageFeeCardPayment(
+  id: string,
+): Promise<{ error: string; status: 400 | 404 } | { ok: true; needsReconcile?: boolean; message?: string }> {
   const row = await prisma.usageFeeCardPayment.findFirst({ where: { id } });
   if (!row) return { error: '정산 기록을 찾을 수 없습니다.', status: 404 };
   if (!isSameDayCardCancel(row)) return { error: '결제 당일에만 전액 취소할 수 있습니다.', status: 400 };
@@ -422,6 +478,16 @@ export async function cancelUsageFeeCardPayment(id: string): Promise<{ error: st
   }
   if (row.payMethod !== 'PAY_WINDOW' || !row.pgOrderId || !row.pgMid) {
     return { error: '주문번호가 없어 취소할 수 없습니다.', status: 400 };
+  }
+  if (isWalletPayment(row) && row.invoiceApplied && row.tenantId) {
+    const wallet = await prisma.tenantAlimtalkWallet.findUnique({
+      where: { tenantId: row.tenantId },
+      select: { prepaidBalanceKrw: true },
+    });
+    const balance = wallet?.prepaidBalanceKrw ?? 0;
+    if (balance < row.supplyAmountKrw) {
+      return { error: walletFullCancelBlockedMessage(balance), status: 400 };
+    }
   }
   const cancelled = await requestPaysisFullCancel({
     mid: row.pgMid,
@@ -434,7 +500,12 @@ export async function cancelUsageFeeCardPayment(id: string): Promise<{ error: st
     try {
       await markUsageFeeCancelled(row);
     } catch (err) {
-      return { error: err instanceof Error ? err.message : '취소를 반영하지 못했습니다.', status: 400 };
+      console.error('[usage-fee cancel apply]', err);
+      return {
+        ok: true,
+        needsReconcile: true,
+        message: '카드는 취소됐지만 잔액·청구 반영을 확인해야 합니다. 오늘 할 일 「돈 처리」에 올려 두었습니다.',
+      };
     }
   }
   if (!cancelled.ok) return { error: cancelled.message, status: 400 };

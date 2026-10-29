@@ -1,8 +1,9 @@
 import { prisma } from '../../lib/prisma.js';
 import { approveAlimtalkChargeRequest } from '../alimtalk/alimtalkChargeRequest.service.js';
 import { confirmInvoicePayment } from '../billing/tenantBilling.service.js';
+import { USAGE_FEE_RECONCILE_MEMO } from '../card-payment/usageFeeCardPayment.service.js';
 
-export type InboxMoneyKind = 'charge' | 'deposit' | 'overdue';
+export type InboxMoneyKind = 'charge' | 'deposit' | 'overdue' | 'reconcile';
 
 export type InboxMoneyRow = {
   id: string;
@@ -22,7 +23,7 @@ function moneyRow(input: InboxMoneyRow): InboxMoneyRow {
 }
 
 export async function getPlatformInbox() {
-  const [charges, depositInvoices, overdueInvoices, signup, planUpgrade, landingLink, pg, barobill] =
+  const [charges, depositInvoices, overdueInvoices, reconciles, signup, planUpgrade, landingLink, pg, barobill] =
     await Promise.all([
       prisma.alimtalkChargeRequest.findMany({
         where: { status: 'PENDING' },
@@ -42,6 +43,12 @@ export async function getPlatformInbox() {
       prisma.tenantInvoice.findMany({
         where: { status: 'OVERDUE', paymentConfirmationRequestedAt: null },
         orderBy: { dueDate: 'asc' },
+        take: 100,
+        include: { tenant: { select: { name: true } } },
+      }),
+      prisma.usageFeeCardPayment.findMany({
+        where: { status: 'CANCELLED', memo: USAGE_FEE_RECONCILE_MEMO },
+        orderBy: { paidAt: 'asc' },
         take: 100,
         include: { tenant: { select: { name: true } } },
       }),
@@ -89,6 +96,18 @@ export async function getPlatformInbox() {
         canReject: false,
       }),
     ),
+    ...reconciles.map((row) =>
+      moneyRow({
+        id: row.id,
+        kind: 'reconcile',
+        tenantId: row.tenantId ?? '',
+        tenantName: row.tenant?.name ?? '업체 없음',
+        amountKrw: row.amountKrw,
+        depositorName: '카드는 취소됨 · 지갑·청구 확인',
+        waitingSince: row.paidAt.toISOString(),
+        canReject: false,
+      }),
+    ),
   ].sort((a, b) => a.waitingSince.localeCompare(b.waitingSince));
 
   const review = { signup, planUpgrade, landingLink, pg, barobill };
@@ -109,6 +128,9 @@ export type InboxActionInput = {
 };
 
 export async function applyPlatformInboxAction(input: InboxActionInput): Promise<void> {
+  if (input.kind === 'reconcile') {
+    throw new Error('입금 내역에서 지갑 회수 또는 이용료 청구를 확인하세요. 여기서 승인하면 돈이 다시 움직이지 않습니다.');
+  }
   if (input.kind === 'charge' && input.action === 'approve') {
     await approveAlimtalkChargeRequest({
       tenantId: input.tenantId,

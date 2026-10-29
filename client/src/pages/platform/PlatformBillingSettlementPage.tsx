@@ -18,10 +18,11 @@ const METHOD_LABEL: Record<UsageFeeCardPaymentRow['payMethod'], string> = {
   PAY_WINDOW: '카드 결제창',
 };
 
-function statusLabel(status: UsageFeeCardPaymentRow['status']): string {
-  if (status === 'PENDING') return '승인 대기';
-  if (status === 'FAILED') return '실패';
-  if (status === 'CANCELLED') return '취소';
+function statusLabel(row: UsageFeeCardPaymentRow): string {
+  if (row.needsReconcile) return '반영 확인 필요';
+  if (row.status === 'PENDING') return '승인 대기';
+  if (row.status === 'FAILED') return '실패';
+  if (row.status === 'CANCELLED') return '취소';
   return '승인';
 }
 
@@ -115,7 +116,7 @@ export function PlatformBillingSettlementPage() {
             <article key={row.id} className="rounded-lg border border-gray-200 p-2">
               <p className="truncate text-sm font-medium text-gray-900">{row.tenantName ?? '업체 없음'}</p>
               <p className="text-xs text-gray-500">
-                {formatWhen(row.paidAt)} · {METHOD_LABEL[row.payMethod]} · {row.goodsName === '청소비서 지갑' ? '지갑' : row.purpose === 'INVOICE' ? '이용료' : '기타'} · {statusLabel(row.status)}
+                {formatWhen(row.paidAt)} · {METHOD_LABEL[row.payMethod]} · {row.goodsName === '청소비서 지갑' ? '지갑' : row.purpose === 'INVOICE' ? '이용료' : '기타'} · {statusLabel(row)}
               </p>
               <p className="text-right text-sm tabular-nums text-gray-900">{won(row.amountKrw)}</p>
               <div className="mt-1 flex justify-end">
@@ -146,7 +147,7 @@ export function PlatformBillingSettlementPage() {
                   <td className="px-2 py-2 text-center text-xs">{formatWhen(row.paidAt)}</td>
                   <td className="px-2 py-2 text-center">{row.tenantName ?? '—'}</td>
                   <td className="px-2 py-2 text-center">{METHOD_LABEL[row.payMethod]}</td>
-                  <td className="px-2 py-2 text-center">{statusLabel(row.status)}</td>
+                  <td className="px-2 py-2 text-center">{statusLabel(row)}</td>
                   <td className="px-2 py-2 text-center">{row.goodsName === '청소비서 지갑' ? '지갑' : row.purpose === 'INVOICE' ? '이용료' : '기타'}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.supplyAmountKrw)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.vatAmountKrw)}</td>

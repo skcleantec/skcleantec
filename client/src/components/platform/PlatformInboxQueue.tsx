@@ -13,6 +13,7 @@ const KIND_LABEL = {
   charge: '충전 신청',
   deposit: '입금 확인 요청',
   overdue: '미납·연체',
+  reconcile: '반영 확인 필요',
 } as const;
 
 const REVIEW = [
@@ -124,7 +125,9 @@ export function PlatformInboxQueue({
                   {inbox.money.map((row) => (
                     <tr key={rowKey(row)} className="border-b border-gray-100">
                       <td className="px-2 py-2 text-center">
-                        <input type="checkbox" checked={selected.includes(rowKey(row))} onChange={() => toggle(row)} aria-label={`${row.tenantName} 선택`} />
+                        {row.kind === 'reconcile' ? null : (
+                          <input type="checkbox" checked={selected.includes(rowKey(row))} onChange={() => toggle(row)} aria-label={`${row.tenantName} 선택`} />
+                        )}
                       </td>
                       <td className="px-2 py-2 text-left text-gray-800">{KIND_LABEL[row.kind]}</td>
                       <td className="px-2 py-2 text-left font-medium text-gray-900">{row.tenantName}</td>
@@ -203,6 +206,16 @@ function RowActions({
   busy: boolean;
   onAct: (next: ConfirmState) => void;
 }) {
+  if (row.kind === 'reconcile') {
+    return (
+      <Link
+        to="/platform/billing/settlement"
+        className={`${BTN_SECONDARY} ${BTN}`}
+      >
+        입금 내역
+      </Link>
+    );
+  }
   return (
     <div className="flex justify-end gap-1">
       <button type="button" className={`${BTN_PRIMARY} ${BTN}`} disabled={busy} onClick={() => onAct({ mode: 'one', row, action: 'approve' })}>
@@ -233,7 +246,9 @@ function MoneyBody({
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
-        <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`${row.tenantName} 선택`} />
+        {row.kind === 'reconcile' ? null : (
+          <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`${row.tenantName} 선택`} />
+        )}
         <p className="min-w-0 flex-1 truncate text-fluid-sm font-medium text-gray-900">{row.tenantName}</p>
         <PlatformStatusBadge tone={waitingTone(row.waitingSince)}>{waitingLabel(row.waitingSince)}</PlatformStatusBadge>
       </div>
