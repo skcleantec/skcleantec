@@ -6,6 +6,7 @@ import {
 } from '../../api/alimtalk';
 import type { ReceiptWalletSummary } from '../../api/receiptWallet';
 import { getToken } from '../../stores/auth';
+import { TenantWalletWindowButton } from '../admin/TenantWalletWindowButton';
 import { bootstrapAuthMeFromLocal } from '../../api/authMeSnapshot';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 
@@ -81,9 +82,12 @@ export function ReceiptWalletChargeModal({
                 메모 (선택, 입금자명 등)
                 <input className="mt-1 min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs" value={memo} disabled={busy || pending} onChange={(e) => setMemo(e.target.value)} />
               </label>
-              <button type="button" className={BTN} disabled={busy || pending} onClick={() => void submit()}>
-                {busy ? '신청 중…' : `${amount.toLocaleString('ko-KR')}원 충전 신청`}
-              </button>
+              <div className="flex flex-wrap items-start gap-2">
+                <button type="button" className={BTN} disabled={busy || pending} onClick={() => void submit()}>
+                  {busy ? '신청 중…' : `${amount.toLocaleString('ko-KR')}원 충전 신청`}
+                </button>
+                <TenantWalletWindowButton token={getToken() ?? ''} amountKrw={amount} className="min-h-10 text-fluid-xs" />
+              </div>
             </>
           ) : null}
         </div>

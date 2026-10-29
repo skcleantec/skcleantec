@@ -555,10 +555,10 @@ export function PlatformTenantDetailPage() {
             <>
               <PlatformTenantAddonSummary tenantId={id} features={features} />
               <div className="grid gap-3 lg:grid-cols-2">
-                <PlatformTenantTelecrmPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
-                <PlatformTenantAlimtalkPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
                 <PlatformTenantWalletCard tenantId={id} disabled={saving} />
+                <PlatformTenantAlimtalkPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
                 <PlatformTenantAddonStatus tenantId={id} />
+                <PlatformTenantTelecrmPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
                 <div className="lg:col-span-2">
                   <PlatformTenantUsagePanel tenantId={id} />
                 </div>

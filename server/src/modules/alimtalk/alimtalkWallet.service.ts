@@ -242,3 +242,81 @@ export async function applyPlatformAlimtalkTopUp(params: {
     return { balanceAfterKrw: wallet.prepaidBalanceKrw, logId: log.id };
   });
 }
+
+/** 카드 승인 통지가 여러 번 와도 같은 주문번호는 잔액을 한 번만 올린다. */
+export async function creditWalletFromCardOnce(params: {
+  tenantId: string;
+  amountKrw: number;
+  pgOrderId: string;
+}): Promise<{ already: boolean }> {
+  const validationError = validateAlimtalkTopUpAmountKrw(params.amountKrw);
+  if (validationError) throw new Error(validationError);
+  const memo = `card:${params.pgOrderId}`;
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: params.tenantId },
+    select: { plan: true },
+  });
+  if (!tenant) throw new Error('Tenant not found');
+  await ensureTenantAlimtalkDefaults(params.tenantId, tenant.plan);
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.alimtalkWalletChargeLog.findFirst({
+      where: { tenantId: params.tenantId, memo },
+      select: { id: true },
+    });
+    if (existing) return { already: true };
+    const wallet = await tx.tenantAlimtalkWallet.update({
+      where: { tenantId: params.tenantId },
+      data: { prepaidBalanceKrw: { increment: params.amountKrw } },
+    });
+    await tx.alimtalkWalletChargeLog.create({
+      data: {
+        tenantId: params.tenantId,
+        amountKrw: params.amountKrw,
+        balanceAfterKrw: wallet.prepaidBalanceKrw,
+        memo,
+      },
+    });
+    return { already: false };
+  });
+}
+
+/** 카드 취소 통지가 여러 번 와도 같은 주문번호는 잔액을 한 번만 되돌린다. */
+export async function reverseWalletCardOnce(params: {
+  tenantId: string;
+  amountKrw: number;
+  pgOrderId: string;
+}): Promise<void> {
+  const creditMemo = `card:${params.pgOrderId}`;
+  const cancelMemo = `card-cancel:${params.pgOrderId}`;
+  await prisma.$transaction(async (tx) => {
+    const credit = await tx.alimtalkWalletChargeLog.findFirst({
+      where: { tenantId: params.tenantId, memo: creditMemo },
+      select: { id: true },
+    });
+    if (!credit) return;
+    const cancel = await tx.alimtalkWalletChargeLog.findFirst({
+      where: { tenantId: params.tenantId, memo: cancelMemo },
+      select: { id: true },
+    });
+    if (cancel) return;
+    const claimed = await tx.tenantAlimtalkWallet.updateMany({
+      where: { tenantId: params.tenantId, prepaidBalanceKrw: { gte: params.amountKrw } },
+      data: { prepaidBalanceKrw: { decrement: params.amountKrw } },
+    });
+    if (claimed.count !== 1) {
+      throw new Error('잔액을 이미 사용해 카드 취소를 반영할 수 없습니다.');
+    }
+    const wallet = await tx.tenantAlimtalkWallet.findUnique({
+      where: { tenantId: params.tenantId },
+      select: { prepaidBalanceKrw: true },
+    });
+    await tx.alimtalkWalletChargeLog.create({
+      data: {
+        tenantId: params.tenantId,
+        amountKrw: -params.amountKrw,
+        balanceAfterKrw: wallet?.prepaidBalanceKrw ?? 0,
+        memo: cancelMemo,
+      },
+    });
+  });
+}

@@ -3,6 +3,8 @@ import { prisma } from '../../lib/prisma.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 import { confirmPaymentForSchedulePeriod, getTenantBillingSchedule } from '../billing/tenantBilling.service.js';
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
+import { creditWalletFromCardOnce, reverseWalletCardOnce } from '../alimtalk/alimtalkWallet.service.js';
+import { validateAlimtalkTopUpAmountKrw } from '../../lib/alimtalkPolicy.js';
 import { chargeUsageFeeKeyin, parseUsageFeeKeyinBody, type UsageFeeKeyinResult } from './cardPaymentUsageFeeKeyin.service.js';
 import { paysisSha256, requestPaysisFullCancel, requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
@@ -15,6 +17,11 @@ function usageFeeVatKrw(supplyKrw: number): number {
 }
 
 const OPEN_PERIOD = new Set(['DRAFT', 'ISSUED', 'OVERDUE', 'SCHEDULED']);
+export const WALLET_CARD_GOODS_NAME = '청소비서 지갑';
+
+function isWalletPayment(row: { purpose: string; goodsName: string }): boolean {
+  return row.purpose === 'OTHER' && row.goodsName === WALLET_CARD_GOODS_NAME;
+}
 
 export type UsageFeeOpenPeriod = {
   periodStartYmd: string;
@@ -299,6 +306,60 @@ export async function openTenantUsageFeeWindow(
   };
 }
 
+/** 업체 관리자가 청소비서 지갑을 같은 이용료 결제창으로 충전한다. 승인 통지가 오기 전에는 잔액이 안 변한다. */
+export async function openTenantWalletWindow(
+  tenantId: string,
+  amountKrw: number,
+): Promise<{ error: string; status: 400 | 404 } | { result: { redirectUrl: string; amountKrw: number } }> {
+  const invalid = validateAlimtalkTopUpAmountKrw(amountKrw);
+  if (invalid) return { error: invalid, status: 400 };
+  const tenant = await prisma.tenant.findFirst({ where: { id: tenantId }, select: { id: true, name: true } });
+  if (!tenant) return { error: '업체를 찾을 수 없습니다.', status: 404 };
+  const app = loadServiceBridgeMerchants().appCard;
+  if (!app) return { error: '이용료 결제창 키가 서버에 없습니다.', status: 400 };
+  const orderNo = buildWspayOrderId(app.oid, `wal${Date.now().toString(36)}`)?.slice(0, 30);
+  if (!orderNo) return { error: '주문번호를 만들지 못했습니다.', status: 400 };
+  const base = getPublicAppBaseUrl();
+  const pending = await prisma.usageFeeCardPayment.create({
+    data: {
+      purpose: 'OTHER',
+      payMethod: 'PAY_WINDOW',
+      status: 'PENDING',
+      tenantId,
+      goodsName: WALLET_CARD_GOODS_NAME,
+      supplyAmountKrw: amountKrw,
+      vatAmountKrw: 0,
+      amountKrw,
+      pgOrderId: orderNo,
+      pgMid: app.mid,
+      payScreen: 'P',
+      buyerName: tenant.name.slice(0, 40),
+      memo: 'wallet',
+      invoiceApplied: false,
+      paidAt: new Date(),
+    },
+  });
+  const window = await requestPaysisPaymentWindow({
+    mid: app.mid,
+    mKey: app.apiKey,
+    type: 'P',
+    amount: String(amountKrw),
+    productName: '지갑충전',
+    userId: tenantId.replace(/-/g, '').slice(0, 20),
+    userName: tenant.name.slice(0, 20) || '업체',
+    orderNo,
+    returnUrl: `${base}/api/public/card-payment/paysis-noti`,
+    successUrl: `${base}/pay/paysis/ok`,
+    failUrl: `${base}/pay/paysis/fail`,
+    closeUrl: `${base}/pay/paysis/close`,
+  });
+  if (!window.ok) {
+    await prisma.usageFeeCardPayment.deleteMany({ where: { id: pending.id, tenantId } });
+    return { error: window.message, status: 400 };
+  }
+  return { result: { redirectUrl: window.redirectUrl, amountKrw } };
+}
+
 function isSameDayCardCancel(row: { status: string; payMethod: string; paidAt: Date; pgOrderId: string | null; pgMid: string | null }): boolean {
   if (row.status !== 'APPROVED') return false;
   if (kstYmdFromDate(row.paidAt) !== kstYmdFromDate(new Date())) return false;
@@ -317,13 +378,37 @@ async function reopenInvoiceAfterCardCancel(invoiceId: string, tenantId: string)
   });
 }
 
-async function markUsageFeeCancelled(row: { id: string; invoiceId: string | null; invoiceApplied: boolean; tenantId: string | null }) {
+async function markUsageFeeCancelled(row: {
+  id: string;
+  invoiceId: string | null;
+  invoiceApplied: boolean;
+  tenantId: string | null;
+  purpose: string;
+  goodsName: string;
+  supplyAmountKrw: number;
+  pgOrderId: string | null;
+}) {
   const updated = await prisma.usageFeeCardPayment.updateMany({
     where: { id: row.id, status: 'APPROVED' },
     data: { status: 'CANCELLED', invoiceApplied: false, memo: '당일 전액 취소' },
   });
-  if (updated.count > 0 && row.invoiceApplied && row.invoiceId && row.tenantId) {
-    await reopenInvoiceAfterCardCancel(row.invoiceId, row.tenantId);
+  if (updated.count === 0) return;
+  try {
+    if (isWalletPayment(row) && row.invoiceApplied && row.tenantId && row.pgOrderId) {
+      await reverseWalletCardOnce({
+        tenantId: row.tenantId,
+        amountKrw: row.supplyAmountKrw,
+        pgOrderId: row.pgOrderId,
+      });
+    } else if (row.invoiceApplied && row.invoiceId && row.tenantId) {
+      await reopenInvoiceAfterCardCancel(row.invoiceId, row.tenantId);
+    }
+  } catch (err) {
+    await prisma.usageFeeCardPayment.updateMany({
+      where: { id: row.id, status: 'CANCELLED' },
+      data: { status: 'APPROVED', invoiceApplied: row.invoiceApplied },
+    });
+    throw err;
   }
 }
 
@@ -345,8 +430,14 @@ export async function cancelUsageFeeCardPayment(id: string): Promise<{ error: st
     canMsg: '이용료전액취소',
     canAmt: String(row.amountKrw),
   });
+  if (cancelled.ok) {
+    try {
+      await markUsageFeeCancelled(row);
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : '취소를 반영하지 못했습니다.', status: 400 };
+    }
+  }
   if (!cancelled.ok) return { error: cancelled.message, status: 400 };
-  await markUsageFeeCancelled(row);
   return { ok: true };
 }
 
@@ -360,11 +451,51 @@ export async function applyUsageFeePaysisCancel(rec: Record<string, unknown>): P
   if (amount && Number(amount) !== row.amountKrw) return 'FAIL';
   if (row.status === 'CANCELLED') return 'SUCCESS';
   if (row.status !== 'APPROVED') return 'FAIL';
-  await markUsageFeeCancelled(row);
+  try {
+    await markUsageFeeCancelled(row);
+  } catch (err) {
+    console.error('[usage-fee cancel]', err);
+    return 'FAIL';
+  }
   return 'SUCCESS';
 }
 
-/** 페이시스 승인 통보. 이용료 주문이면 청구를 납부 처리한다. */
+async function applyUsageFeeSideEffect(row: {
+  purpose: string;
+  goodsName: string;
+  tenantId: string | null;
+  periodStart: Date | null;
+  supplyAmountKrw: number;
+  pgOrderId: string | null;
+  invoiceId: string | null;
+}): Promise<{ invoiceId: string | null; invoiceApplied: boolean }> {
+  if (isWalletPayment(row)) {
+    if (!row.tenantId || !row.pgOrderId) throw new Error('지갑 결제 정보가 없습니다.');
+    await creditWalletFromCardOnce({
+      tenantId: row.tenantId,
+      amountKrw: row.supplyAmountKrw,
+      pgOrderId: row.pgOrderId,
+    });
+    return { invoiceId: null, invoiceApplied: true };
+  }
+  if (row.purpose === 'INVOICE' && row.tenantId && row.periodStart) {
+    try {
+      const invoice = await confirmPaymentForSchedulePeriod(row.tenantId, kstYmdFromDate(row.periodStart), '');
+      return { invoiceId: invoice.id, invoiceApplied: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (!message.includes('이미')) throw err;
+      const invoice = await prisma.tenantInvoice.findFirst({
+        where: { tenantId: row.tenantId, status: 'PAID', periodStart: row.periodStart },
+        select: { id: true },
+      });
+      return { invoiceId: invoice?.id ?? row.invoiceId, invoiceApplied: true };
+    }
+  }
+  return { invoiceId: row.invoiceId, invoiceApplied: true };
+}
+
+/** 페이시스 승인 통보. 이용료는 청구를 납부 처리하고, 지갑은 잔액을 올린다. 같은 통지는 한 번만 반영한다. */
 export async function applyUsageFeePaysisNotification(
   rec: Record<string, unknown>,
 ): Promise<'SUCCESS' | 'FAIL' | null> {
@@ -378,36 +509,48 @@ export async function applyUsageFeePaysisNotification(
   if (Number(amount) !== row.amountKrw) return 'FAIL';
   const expected = paysisSha256([row.pgMid, row.payScreen, orderNo, amount]);
   if (expected !== givenHash) return 'FAIL';
-  if (row.status === 'APPROVED') return 'SUCCESS';
+  if (row.status === 'CANCELLED' || row.status === 'FAILED') return 'FAIL';
+  if (row.status === 'APPROVED' && row.invoiceApplied) return 'SUCCESS';
 
-  let invoiceId: string | null = null;
-  let invoiceApplied = false;
-  let applyNote = '';
-  if (row.purpose === 'INVOICE' && row.tenantId && row.periodStart) {
-    try {
-      const invoice = await confirmPaymentForSchedulePeriod(row.tenantId, kstYmdFromDate(row.periodStart), '');
-      invoiceId = invoice.id;
-      invoiceApplied = true;
-    } catch (e) {
-      applyNote = e instanceof Error ? e.message : '청구서에 반영하지 못했습니다.';
-    }
-  }
   const masked = String(rec.cardNo ?? '');
   const last4 = masked.replace(/\D/g, '').slice(-4);
   const approvalNo = String(rec.authNo ?? '').slice(0, 32);
-  await prisma.usageFeeCardPayment.updateMany({
-    where: { id: row.id, status: 'PENDING' },
-    data: {
-      status: 'APPROVED',
-      invoiceId,
-      invoiceApplied,
-      approvalNo: approvalNo || null,
-      cardLast4: last4.length === 4 ? last4 : null,
-      paidAt: new Date(),
-      memo: applyNote || null,
-    },
-  });
-  return 'SUCCESS';
+  let ownedClaim = false;
+  if (row.status === 'PENDING') {
+    const claimed = await prisma.usageFeeCardPayment.updateMany({
+      where: { id: row.id, status: 'PENDING' },
+      data: {
+        status: 'APPROVED',
+        approvalNo: approvalNo || null,
+        cardLast4: last4.length === 4 ? last4 : null,
+        paidAt: new Date(),
+      },
+    });
+    if (claimed.count !== 1) {
+      const again = await prisma.usageFeeCardPayment.findFirst({ where: { id: row.id } });
+      if (again?.status === 'APPROVED' && again.invoiceApplied) return 'SUCCESS';
+      return 'FAIL';
+    }
+    ownedClaim = true;
+  }
+
+  try {
+    const applied = await applyUsageFeeSideEffect(row);
+    await prisma.usageFeeCardPayment.updateMany({
+      where: { id: row.id, status: 'APPROVED', invoiceApplied: false },
+      data: { invoiceId: applied.invoiceId, invoiceApplied: applied.invoiceApplied },
+    });
+    return 'SUCCESS';
+  } catch (err) {
+    console.error('[usage-fee noti]', err);
+    if (ownedClaim) {
+      await prisma.usageFeeCardPayment.updateMany({
+        where: { id: row.id, status: 'APPROVED', invoiceApplied: false },
+        data: { status: 'PENDING', approvalNo: null, cardLast4: null },
+      });
+    }
+    return 'FAIL';
+  }
 }
 
 /** 플랫폼 입금 확인은 통장 입금으로 기록한다. 같은 청구에 통장 기록이 있으면 다시 만들지 않는다. */

@@ -41,7 +41,7 @@ export function PlatformTenantAddonSummary({
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
       <span className="text-fluid-xs text-gray-500">지갑</span>
-      <span className="text-fluid-sm font-semibold tabular-nums text-gray-900">
+      <span className="text-fluid-sm font-bold tabular-nums text-gray-900">
         {balance === null ? '—' : `${balance.toLocaleString('ko-KR')}원`}
       </span>
       <PlatformStatusBadge tone={on(features, 'mod_alimtalk') ? 'ok' : 'muted'}>

@@ -112,13 +112,26 @@ export function PlatformTenantWalletCard({ tenantId, disabled }: Props) {
       {loading ? <p className="mt-3 text-fluid-sm text-gray-500">불러오는 중…</p> : null}
       {settings ? (
         <>
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-fluid-xs text-gray-600 sm:grid-cols-4">
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <dt className="text-gray-400">잔액</dt>
-              <dd className="font-medium tabular-nums text-gray-900">
+              <p className="text-fluid-xs text-gray-400">잔액</p>
+              <p className="text-3xl font-semibold tabular-nums leading-none text-gray-900">
                 {settings.prepaidBalanceKrw.toLocaleString('ko-KR')}원
-              </dd>
+              </p>
             </div>
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              disabled={disabled || charging || !licensed}
+              onClick={() => void handleCharge()}
+            >
+              {charging ? '반영 중…' : '충전 반영'}
+            </button>
+          </div>
+          {!licensed ? (
+            <p className="mt-2 text-fluid-xs text-amber-700">직접 충전은 알림톡 라이선스가 켜져 있을 때 반영됩니다. 대기 신청은 라이선스와 상관없이 반영할 수 있습니다.</p>
+          ) : null}
+          <dl className="mt-3 grid grid-cols-3 gap-2 text-fluid-xs text-gray-600">
             {usage.map((row) => (
               <div key={row.key}>
                 <dt className="text-gray-400">이번 달 {row.label}</dt>
@@ -179,19 +192,6 @@ export function PlatformTenantWalletCard({ tenantId, disabled }: Props) {
               onChange={(e) => setChargeMemo(e.target.value)}
             />
           </label>
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              className={BTN_PRIMARY}
-              disabled={disabled || charging || !licensed}
-              onClick={() => void handleCharge()}
-            >
-              {charging ? '반영 중…' : `${chargeAmountKrw.toLocaleString('ko-KR')}원 충전 반영`}
-            </button>
-          </div>
-          {!licensed ? (
-            <p className="mt-2 text-fluid-xs text-amber-700">직접 충전은 알림톡 라이선스가 켜져 있을 때 반영됩니다. 대기 신청은 라이선스와 상관없이 반영할 수 있습니다.</p>
-          ) : null}
           <div className="mt-4 border-t border-gray-100 pt-3">
             <h3 className="text-fluid-xs font-medium text-gray-700">최근 충전 이력</h3>
             {settings.recentChargeLogs?.length ? (

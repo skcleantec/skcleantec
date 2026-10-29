@@ -21,6 +21,7 @@ import {
   type TenantAlimtalkSettings,
 } from '../../api/alimtalk';
 import { AlimtalkScheduleD2SendHint } from '../../components/admin/AlimtalkScheduleD2SendHint';
+import { TenantWalletWindowButton } from '../../components/admin/TenantWalletWindowButton';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { getToken } from '../../stores/auth';
@@ -329,7 +330,8 @@ export function AdminAlimtalkPage() {
                 onChange={(e) => setChargeMemo(e.target.value)}
               />
             </label>
-            <div className="flex justify-end">
+            <div className="flex flex-wrap items-start justify-end gap-2">
+              <TenantWalletWindowButton token={token ?? ''} amountKrw={chargeAmountKrw} />
               <button
                 type="button"
                 className={BTN_PRIMARY}
