@@ -89,7 +89,7 @@ alwaysApply: true
 
 - **모바일 키보드 — 입력 필드 가시성**: **`.cursor/rules/mobile-keyboard-input-visibility.mdc`**
 - **슬레이트 프리미엄 SaaS**: 심플·간결, `slate` 계열 + 부드러운 shadow·`rounded-xl`/`rounded-2xl`
-- 전역 폰트 **Pretendard Variable** (`client/index.html` · `client/src/index.css`)
+- 전역 폰트 **Inter + Noto Sans KR** (`client/src/index.css`)
 - 관리·팀·크루 **다크 GNB** (`theme-dark-header`), 본문은 밝은 카드
 - 불필요한 장식은 지양; GNB·칩 등 **미세 scale** hover는 허용
 - **PC와 모바일을 항상 함께 고려**해 구현한다. 목록·상세는 **서식을 맞춘 깔끔한 레이아웃**(표/카드 분기, 섹션 정리, 말줄임·요약)으로 만든다.
@@ -117,6 +117,11 @@ alwaysApply: true
 
 - **`tools/soomgo-bridge/**`** 또는 상담사 PC 배포에 영향 주는 CRM·매니페스트 변경 시: **`.cursor/rules/soomgo-bridge-auto-update.mdc`**
 - 작업 마무리 시 에이전트가 **semver bump → GitHub Release 태그 → Railway 변수 → 매니페스트 최종 확인(환경변수·sha256, 운영 redeploy 필요 시)** 까지 **직접** 수행 (사용자가 릴리스 금지하지 않은 경우). **변수 설정만 하고 끝내지 않는다.**
+
+## 8.3 카드결재 (원성페이먼츠)
+
+- **카드번호는 우리 페이지에 받지 않는다.** 원성페이먼츠 창만. 상세·금지·화면 맵: **`docs/카드결제/SYSTEM.md`**, **`.cursor/rules/card-payment-wspay.mdc`**
+- 코딩·점검: **`.cursor/skills/card-pay/SKILL.md`** (CardPay). 공개 스펙: `docs/카드결제/SUNSHINE_PAY.md`
 
 ## 9. 배포 (운영)
 

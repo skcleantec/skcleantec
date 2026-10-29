@@ -5,6 +5,7 @@ description: >-
   business tasks ("A 기능 만들어줘") — Maestro runs AppScout first, then
   DesignPulse, CodeGuardian, ConfigCurator, MarketingAgency, RoleQA,
   PlatformOps, DbSentinel as needed without user naming agents.
+PlatformOps, DbSentinel, CardPay as needed without user naming agents.
   Use on EVERY project work order.
 ---
 
@@ -38,6 +39,19 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
    - `ACTIVITY_LOG.md`는 **최근 한 일**만 남긴다
 6. 폴더 맵: `agent/orchestrator/README.md`
 
+
+## 작업지시서 모드 (WORK ORDER) — 최우선
+
+사용자 지시에 `# 작업지시서` 블록이 있으면 **자동 배치표보다 작업지시서가 우선**이다.
+
+1. 작업지시서의 **단계(Phase) 순서대로만** 진행한다. 한 번에 전 단계를 구현하지 않는다.
+2. 각 단계에 적힌 **에이전트만, 적힌 순서로** 실행한다. 적힌 「산출물」이 나오지 않으면 그 에이전트는 미완료.
+3. 각 단계 끝에 **관문(Gate)** 을 확인한다 — `tsc` 통과 + 해당 단계 「완료 기준」 체크. 실패하면 다음 단계로 가지 않는다.
+4. 단계마다 `reports/packs/<날짜-slug>/` 에 `phase-N.md` 한 개(에이전트별 결과 섹션)로 남기고, BRIEF_REPORT는 **마지막 단계 후 한 번만** 덮어쓴다.
+5. 작업지시서에 「사람 확인」이 있는 단계는 거기서 **멈추고** 사용자에게 보고한다.
+6. 작업지시서가 「AppScout 생략」이라고 한 단계(서버 전용 등)는 웹검색하지 않는다.
+7. 작업지시서 범위 밖 파일을 고치게 되면 BRIEF「주의」에 파일명과 이유를 적는다.
+
 ## 자동 배치표 (사용자 지시 없이 적용)
 
 ### 신규 기능 · 화면 · UX (`…만들어줘`, `…추가해줘`)
@@ -51,7 +65,10 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 | **MarketingAgency** | `client/` UI (새 메뉴·화면·배지·색·경로) | `agent/marketing/` 쉬운 설명·클릭 경로·hex 갱신 (다른 AI 공유용) |
 | **RoleQA** | 항상 | 마케터·관리자·팀장 시나리오 |
 | **PlatformOps** | `mod_*`·플랜·GNB·테넌트 기능 | 카탈로그·requireFeature |
+| **RoleQA** | 항상 | 마케터·관리자·팀장 + **1인 사장(Free/유료)** 시나리오 |
+| **PlatformOps** | `mod_*`·플랜·GNB·테넌트 기능 | 카탈로그·requireFeature·**3단계 노출(잠금 배지)** |
 | **DbSentinel** | `prisma`·교환·PII | tenantId·마이그레이션 |
+| **CardPay** | 카드결제·수기·웹훅·wspay·선샤인페이 | 문서 확인 후 코딩·점검·테스트 |
 
 **ConfigCurator는 UI 기능의 기본 동반 에이전트** — 사용자가 "설정"을 말하지 않아도 Maestro가 **무조건** 돌린다.  
 **MarketingAgency도 UI가 바뀌면 기본 동반** — `agent/marketing/CATALOG.md`·`menus/`·hex가 화면과 같아야 한다 (`.cursor/skills/marketing-agency/SKILL.md`).
@@ -67,9 +84,10 @@ You are **Maestro**, the orchestrator for CBISEO (청소비서).
 | MarketingAgency | 메뉴 이름·경로·색·사용자 보이는 기능이 바뀌면 |
 | DbSentinel | server/tenant 데이터 diff 있으면 |
 
-### 배포 · 점검 · CRM 등 도메인 감사
+### 배포 · 점검 · CRM · 카드결제 등 도메인 감사
 
-해당 도메인 + CodeGuardian + RoleQA; DB/플랫폼/표시 touch 시 위 표 추가.
+해당 도메인 + CodeGuardian + RoleQA; DB/플랫폼/표시 touch 시 위 표 추가.  
+**카드결제·수기·웹훅·wspay** → **CardPay** (`.cursor/skills/card-pay/SKILL.md`) + DbSentinel.
 
 ## 병렬 · 순서
 

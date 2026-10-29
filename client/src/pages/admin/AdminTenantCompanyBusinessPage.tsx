@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import {
   QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT,
@@ -5,11 +7,13 @@ import {
   QUOTATION_SEAL_DISPLAY_WIDTH_MIN,
   QUOTATION_SEAL_SOURCE_PX,
 } from '@shared/quotationSeal';
+import { isBlankSupplierField } from '@shared/supplierFieldText';
 import { CompanyProfileSuccessModal } from './CompanyProfileSuccessModal';
 import { useTenantCompanyProfileForm } from './useTenantCompanyProfileForm';
 
 export function AdminTenantCompanyBusinessPage() {
   const form = useTenantCompanyProfileForm();
+  const [confirmSupplier, setConfirmSupplier] = useState(false);
 
   if (form.loading) {
     return <div className="p-8 text-center text-gray-500 text-sm">불러오는 중…</div>;
@@ -41,6 +45,7 @@ export function AdminTenantCompanyBusinessPage() {
               type="text"
               value={form.companyName}
               onChange={(e) => form.setCompanyName(e.target.value)}
+              placeholder="상호"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
@@ -50,6 +55,7 @@ export function AdminTenantCompanyBusinessPage() {
               type="text"
               value={form.representativeName}
               onChange={(e) => form.setRepresentativeName(e.target.value)}
+              placeholder="대표자명"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
@@ -161,6 +167,7 @@ export function AdminTenantCompanyBusinessPage() {
               type="text"
               value={form.addressLine}
               onChange={(e) => form.setAddressLine(e.target.value)}
+              placeholder="사업장 주소"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
@@ -197,13 +204,44 @@ export function AdminTenantCompanyBusinessPage() {
           <button
             type="button"
             disabled={form.busy}
-            onClick={() => void form.handleSaveCompany()}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            onClick={() => {
+              if (isBlankSupplierField(form.companyName)) {
+                form.setErr('상호를 입력해 주세요.');
+                return;
+              }
+              setConfirmSupplier(true);
+            }}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
           >
             {form.busy ? '저장 중…' : '저장'}
           </button>
         </div>
       </section>
+
+      {confirmSupplier
+        ? createPortal(
+            <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-900/40 p-4 lg:items-center" role="presentation" onMouseDown={() => setConfirmSupplier(false)}>
+              <div className="w-full max-w-[560px] rounded-2xl bg-white p-4 shadow-lg" role="dialog" aria-modal="true" aria-label="기본 브랜드 공급자 반영" onMouseDown={(event) => event.stopPropagation()}>
+                <p className="text-sm text-slate-800">기본 브랜드의 세금계산서 공급자(상호·대표자·주소)도 같이 바꿉니다.</p>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button type="button" className="h-11 rounded-lg px-4 text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => setConfirmSupplier(false)}>취소</button>
+                  <button
+                    type="button"
+                    className="h-11 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                    disabled={form.busy}
+                    onClick={() => {
+                      setConfirmSupplier(false);
+                      void form.handleSaveCompany();
+                    }}
+                  >
+                    같이 저장
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <CompanyProfileSuccessModal message={form.successModal} onClose={() => form.setSuccessModal(null)} />
     </div>

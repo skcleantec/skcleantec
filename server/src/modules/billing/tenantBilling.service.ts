@@ -904,8 +904,12 @@ export async function confirmInvoicePayment(
   const now = new Date();
   const confirmedBy = platformUserId?.trim() || null;
   const updated = await prisma.$transaction(async (tx) => {
-    const inv = await tx.tenantInvoice.update({
-      where: { id: invoiceId },
+    const claimed = await tx.tenantInvoice.updateMany({
+      where: {
+        id: invoiceId,
+        tenantId: invoice.tenantId,
+        status: { in: ['ISSUED', 'OVERDUE'] },
+      },
       data: {
         status: 'PAID',
         paidAt: now,
@@ -913,6 +917,11 @@ export async function confirmInvoicePayment(
         confirmedByPlatformUserId: confirmedBy,
       },
     });
+    if (claimed.count !== 1) throw new Error('이미 납부 처리된 청구서입니다.');
+    const inv = await tx.tenantInvoice.findFirst({
+      where: { id: invoiceId, tenantId: invoice.tenantId },
+    });
+    if (!inv) throw new Error('청구서를 찾을 수 없습니다.');
 
     const stillOverdue = await tx.tenantInvoice.count({
       where: { tenantId: invoice.tenantId, status: 'OVERDUE' },

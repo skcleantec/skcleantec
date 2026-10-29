@@ -1,0 +1,31 @@
+---
+description: 1인 업체(솔로 운영) — 팀장 기능을 사장에게 합치는 규칙, 메뉴 3단계 노출, 가계부 메인 메뉴. 1인·Free·solo·가계부·잠금·업그레이드 작업 시 적용.
+globs: client/src/**,server/src/**,shared/**
+alwaysApply: false
+---
+
+# 1인 업체 운영 모드 (solo operator)
+
+## 판별 — 한 곳에서만
+
+- `shared/soloOperator.ts` 의 `isSoloOperatorTenant(features)` 하나만 쓴다 (현재 기준: `core_assignments` OFF).
+- 기능마다 `hasFeature(..., 'core_assignments')` 로 직접 판별하지 않는다. 나중에 운영방식 필드(solo/small/hq)로 바뀌면 이 함수만 고친다.
+
+## 현장 담당자 — 팀장 기능을 사장에게
+
+- 계정 역할(`role`)은 하나뿐이라 사장을 팀장으로 만들 수 없다. 대신 **"이 접수의 현장 담당자"** 를 구한다.
+- 서버 `resolveFieldOwnerIds(tenantId, inquiryId)`: 배정 팀장 → 없고 1인 업체면 활성 ADMIN.
+- 해피콜·일정변경 알림·가계부 자동입력·현장 사진 권한은 **반드시 이 함수**를 쓴다. 기존 해피콜 solo 분기(`happyCallReminder.service.ts`)가 원형.
+- 본사형(배정 ON) 테넌트 동작은 1바이트도 바뀌면 안 된다.
+
+## 가계부
+
+- 1인 업체는 월정산(급여표) 대신 **가계부가 GNB 메인 메뉴** (팀장 하단탭의 가계부와 같은 위치감).
+- 가계부 저장은 `TeamLeaderHouseholdLedgerEntry.teamLeaderId = 사장 userId` (FK는 User — 스키마 변경 없음).
+- 접수 금액 자동 입력은 1인 업체에서 "배정" 대신 "테넌트 접수" 기준.
+
+## 메뉴 3단계 노출
+
+- enabled / **locked(플랜 잠금 → 🔒 + 「OO부터」 + 업그레이드 안내)** / hidden(업체가 끔·역할 불가).
+- 판정은 `shared/` 단일 함수. GNB·사이드·FeatureGate 공통. 자세히: `.cursor/skills/platform-ops/SKILL.md` §3-state.
+- 서버 `requireFeature` 403 은 유지 — 잠금은 표시만.

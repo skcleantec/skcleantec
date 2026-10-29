@@ -9,8 +9,9 @@ import {
 } from '../../api/eContractPublic';
 import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
-import { EContractDynamicFieldInputs, emptyFieldValues } from '../../components/e-contract/EContractDynamicFieldInputs';
-import { isCoreSignerToken, EC_SIGNER_ADDRESS_TOKEN } from '../../utils/eContractDisplay';
+import { emptyFieldValues } from '../../components/e-contract/EContractDynamicFieldInputs';
+import { EContractFillStepper } from '../../components/e-contract/EContractFillStepper';
+import { EC_SIGNER_ADDRESS_TOKEN } from '../../utils/eContractDisplay';
 import { splitEContractSignerAddressValue } from '../../components/e-contract/eContractSignerAddressValue';
 import { EContractSelfiePicker } from '../../components/e-contract/EContractSelfiePicker';
 import { SignaturePad } from '../../components/e-contract/SignaturePad';
@@ -145,6 +146,10 @@ export function EContractPublicSignPage() {
     if (!decoded || !session) return;
     const fields = session.signFields ?? [];
     for (const f of fields) {
+      if (f.required && f.inputType === 'CHECKBOX' && signerFieldValues[f.token] !== 'Y') {
+        setMsg(`「${f.label}」에 체크해 주세요.`);
+        return;
+      }
       if (f.required && f.token === EC_SIGNER_ADDRESS_TOKEN) {
         const { base } = splitEContractSignerAddressValue(signerFieldValues[f.token] ?? '');
         if (!base.trim()) {
@@ -223,8 +228,6 @@ export function EContractPublicSignPage() {
   }
 
   const signFields = session.signFields ?? [];
-  const coreSignFields = signFields.filter((f) => isCoreSignerToken(f.token));
-  const extraSignFields = signFields.filter((f) => !isCoreSignerToken(f.token));
 
   if (session.alreadySigned) {
     return (
@@ -337,36 +340,22 @@ export function EContractPublicSignPage() {
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-fluid-sm font-semibold text-gray-900">체결 정보 입력</div>
         <p className="mt-2 text-fluid-2xs text-gray-600">
-          아래 정보는 계약 본문·부록에 반영됩니다. 제출 전 다시 확인해 주세요.
+          칸을 하나씩 넘기며 적고 체크합니다. 마지막에 서명으로 이어집니다.
         </p>
-        {coreSignFields.length > 0 ? (
-          <div className="mt-5">
-            <div className="mb-3 text-fluid-xs font-medium text-gray-800">기본 정보</div>
-            <EContractDynamicFieldInputs
-              fields={coreSignFields}
-              values={signerFieldValues}
-              onChange={(t, v) => setSignerFieldValues((prev) => ({ ...prev, [t]: v }))}
-              idPrefix="ec-sign-core"
-            />
-          </div>
-        ) : null}
-        {extraSignFields.length > 0 ? (
-          <div className={coreSignFields.length > 0 ? 'mt-6 border-t border-gray-100 pt-5' : 'mt-5'}>
-            <div className="mb-3 text-fluid-xs font-medium text-gray-800">추가 입력</div>
-            <EContractDynamicFieldInputs
-              fields={extraSignFields}
-              values={signerFieldValues}
-              onChange={(t, v) => setSignerFieldValues((prev) => ({ ...prev, [t]: v }))}
-              idPrefix="ec-sign-extra"
-            />
-          </div>
-        ) : null}
-        {signFields.length === 0 ? (
+        {signFields.length > 0 && decoded ? (
+          <EContractFillStepper
+            fields={signFields}
+            values={signerFieldValues}
+            onChange={(t, v) => setSignerFieldValues((prev) => ({ ...prev, [t]: v }))}
+            uploadToken={decoded}
+            signatureAnchorId="ec-sign-pad"
+          />
+        ) : (
           <p className="mt-4 text-fluid-2xs text-amber-800">입력할 항목이 없습니다. 관리자에게 문의해 주세요.</p>
-        ) : null}
+        )}
       </section>
 
-      <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <section id="ec-sign-pad" className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-fluid-sm font-semibold text-gray-900">서명</div>
         <SignaturePad busy={busy} onSave={savePublicSignature} onClear={() => setSigUploaded(null)} />
       </section>

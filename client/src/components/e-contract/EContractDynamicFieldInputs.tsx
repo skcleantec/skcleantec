@@ -1,6 +1,7 @@
 import type { PublicSignFieldDto } from '../../api/eContractPublic';
 import type { EContractFieldInputTypeKind } from '../../api/adminEContract';
 import { EC_SIGNER_ADDRESS_TOKEN } from '../../utils/eContractDisplay';
+import { EContractSealField } from './EContractSealField';
 import { EContractSignerAddressInput } from './EContractSignerAddressInput';
 
 type FieldLike = Pick<PublicSignFieldDto, 'token' | 'label' | 'inputType' | 'required'> & { prefill?: string };
@@ -10,13 +11,22 @@ type Props = {
   values: Record<string, string>;
   onChange: (token: string, value: string) => void;
   idPrefix?: string;
+  uploadToken?: string;
+  uploadBlob?: (blob: Blob, filename: string) => Promise<{ secureUrl: string }>;
 };
 
 function inputId(prefix: string, token: string): string {
   return `${prefix}-${token.replace(/[^\w]/g, '_')}`;
 }
 
-export function EContractDynamicFieldInputs({ fields, values, onChange, idPrefix = 'ec-field' }: Props) {
+export function EContractDynamicFieldInputs({
+  fields,
+  values,
+  onChange,
+  idPrefix = 'ec-field',
+  uploadToken,
+  uploadBlob,
+}: Props) {
   if (fields.length === 0) return null;
 
   return (
@@ -41,6 +51,50 @@ export function EContractDynamicFieldInputs({ fields, values, onChange, idPrefix
               required={f.required}
               onChange={(next) => onChange(f.token, next)}
             />
+          );
+        }
+
+        if (f.inputType === 'CHECKBOX') {
+          const on = val === 'Y';
+          return (
+            <button
+              key={f.token}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              onClick={() => onChange(f.token, on ? '' : 'Y')}
+              className={`flex min-h-10 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-fluid-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+                on ? 'border-slate-900 bg-slate-50' : 'border-slate-300 bg-white'
+              }`}
+            >
+              <span
+                className={`inline-flex size-5 shrink-0 items-center justify-center rounded border text-fluid-xs ${
+                  on ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-400 bg-white text-transparent'
+                }`}
+                aria-hidden
+              >
+                ✓
+              </span>
+              <span>{label}</span>
+            </button>
+          );
+        }
+
+        if (f.inputType === 'SEAL') {
+          return uploadToken || uploadBlob ? (
+            <EContractSealField
+              key={f.token}
+              label={f.label}
+              required={f.required}
+              value={val}
+              uploadToken={uploadToken}
+              uploadBlob={uploadBlob}
+              onChange={(url) => onChange(f.token, url)}
+            />
+          ) : (
+            <p key={f.token} className="text-fluid-2xs text-gray-600">
+              {f.label} — 체결하는 사람이 도장 사진을 올립니다.
+            </p>
           );
         }
 
@@ -117,6 +171,10 @@ export function eContractFieldInputTypeLabel(t: EContractFieldInputTypeKind): st
       return '연락처';
     case 'RRN':
       return '주민번호';
+    case 'CHECKBOX':
+      return '체크';
+    case 'SEAL':
+      return '도장';
     default:
       return '한 줄';
   }

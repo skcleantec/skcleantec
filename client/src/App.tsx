@@ -63,6 +63,7 @@ import {
   StaffInquiryCardPayEntry,
   AdminCardPaymentPage,
   AdminCardPaymentPgPage,
+  AdminPgContractSignPage,
   PgJoinReviewPage,
   PgPartnerPage,
   PgPartnerShell,
@@ -71,10 +72,10 @@ import {
   PgPartnerMerchantsPage,
   PgPartnerFeesPage,
   PgPartnerRefundsPage,
-  AdminPgContractSignPage,
   PlatformPgContractSettingsPage,
   PlatformPgContractDeskPage,
   PlatformCardPaymentPage,
+  PlatformBarobillMembersPage,
   PlatformPgFeeLedgerPage,
   PlatformCardChargePage,
   PublicCardPaymentLinkPage,
@@ -89,6 +90,7 @@ import {
   ReviewPaybackPage,
   PublicDepositConfirmPage,
   InspectionCustomerViewPage,
+  PublicReceiptPage,
   AdminReviewPaybackPage,
   AdminCsPage,
   AdminLandingContactLayout,
@@ -113,6 +115,10 @@ import {
   AdminOperatingCompanyPolicyPage,
   AdminNotificationPolicyPage,
   AdminAlimtalkPage,
+  AdminCashbillSettingsPage,
+  AdminCashbillListPage,
+  AdminTaxInvoiceListPage,
+  AdminTaxInvoiceIssuePage,
   AdminNotificationSettingsPage,
   AdminKakaoLinkPage,
   AdminStaffAccessSettingsPage,
@@ -147,6 +153,7 @@ import {
   PlatformReferrersPage,
   PlatformReferrerDetailPage,
   PlatformBillingPage,
+  PlatformInboxHubPage,
   PlatformBillingSettlementPage,
   PlatformCoinUsagePage,
   PlatformSignupTrialEventsPage,
@@ -206,11 +213,13 @@ function App() {
           <Route path="plan-upgrade-requests" element={<SuspensePage><PlatformPlanUpgradeRequestsPage /></SuspensePage>} />
           <Route path="landing-contact-link-requests" element={<SuspensePage><PlatformLandingContactLinkRequestsPage /></SuspensePage>} />
           <Route path="signup-inquiries" element={<SuspensePage><PlatformSignupInquiriesPage /></SuspensePage>} />
+          <Route path="inbox" element={<SuspensePage><PlatformInboxHubPage /></SuspensePage>} />
           <Route path="referrers" element={<SuspensePage><PlatformReferrersPage /></SuspensePage>} />
           <Route path="referrers/:id" element={<SuspensePage><PlatformReferrerDetailPage /></SuspensePage>} />
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="billing/settlement" element={<SuspensePage><PlatformBillingSettlementPage /></SuspensePage>} />
           <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
+          <Route path="barobill-members" element={<SuspensePage><PlatformBarobillMembersPage /></SuspensePage>} />
           <Route path="card-payment/fees" element={<SuspensePage><PlatformPgFeeLedgerPage /></SuspensePage>} />
           <Route path="card-payment/e-contract" element={<SuspensePage><PlatformPgContractSettingsPage /></SuspensePage>} />
           <Route path="card-payment/charge" element={<SuspensePage><PlatformCardChargePage /></SuspensePage>} />
@@ -282,6 +291,30 @@ function App() {
             <Route path="quotations" element={<SuspensePage><AdminQuotationsListPage /></SuspensePage>} />
             <Route path="quotations/new" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
             <Route path="quotations/settings" element={<SuspensePage><AdminQuotationSettingsPage /></SuspensePage>} />
+            <Route
+              path="receipts/cashbill"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminCashbillListPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="receipts/taxinvoice"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminTaxInvoiceListPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="receipts/taxinvoice/new"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminTaxInvoiceIssuePage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
             <Route path="quotations/:id" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
             <Route
               path="cs"
@@ -361,12 +394,20 @@ function App() {
               }
             />
             <Route
+              path="card-payment/pg/contract"
+              element={<Navigate to="/pg-contract" replace />}
+            />
+            <Route
               path="card-payment/pg"
               element={
                 <FeatureGate module="mod_card_payment">
                   <SuspensePage><AdminCardPaymentPgPage /></SuspensePage>
                 </FeatureGate>
               }
+            />
+            <Route
+              path="pg-onboarding/contract"
+              element={<Navigate to="/pg-contract" replace />}
             />
             <Route
               path="pg-onboarding/apply"
@@ -391,6 +432,14 @@ function App() {
               element={
                 <FeatureGate module="mod_alimtalk">
                   <SuspensePage><AdminAlimtalkPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="cashbill"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminCashbillSettingsPage /></SuspensePage>
                 </FeatureGate>
               }
             />
@@ -571,6 +620,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/receipt/:token" element={<SuspensePage><PublicReceiptPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/team/card-payment"

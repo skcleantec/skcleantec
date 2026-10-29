@@ -76,6 +76,15 @@ export function createdAtRangeFromQuery(query: {
   /** YYYY-MM-DD (KST 하루) — datePreset === 'day' 일 때 */
   day?: string;
 }): { gte: Date; lte: Date } | null {
+  if (query.datePreset === 'week') {
+    const today = kstTodayYmd();
+    const weekday = new Date(`${today}T12:00:00+09:00`).getUTCDay();
+    const sinceMonday = weekday === 0 ? 6 : weekday - 1;
+    const start = kstDayRangeYmd(addDaysToKstYmd(today, -sinceMonday));
+    const end = kstDayRangeYmd(today);
+    if (!start || !end) return null;
+    return { gte: start.gte, lte: end.lte };
+  }
   const preset = query.datePreset as DatePreset | undefined;
   if (!preset || preset === 'all') return null;
   if (preset === 'today') {

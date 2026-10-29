@@ -5,6 +5,7 @@ import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { normalizePlanId } from '../tenants/tenantFeatureCatalog.js';
 import { TENANT_SELF_SIGNUP_UPGRADE_PLAN_IDS } from './tenantSignup.constants.js';
 import { resetTenantFeaturesFromPlan } from './tenantProvisioning.service.js';
+import { notifyPlatformOps } from './platformInboxNotify.service.js';
 import {
   buildSignupConfigPatch,
   resolveSignupTrialApplication,
@@ -108,6 +109,13 @@ export async function createTenantPlanUpgradeRequest(input: {
     },
     include: requestInclude,
   });
+
+  void notifyPlatformOps({
+    event: 'plan_upgrade',
+    tenantId: input.tenantId,
+    title: '유료 전환 신청',
+    body: requestedPlan,
+  }).catch((err) => console.error('[platform-inbox] plan upgrade', err));
 
   return mapRequestRow(row);
 }

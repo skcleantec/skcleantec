@@ -147,8 +147,28 @@ export const PgPartnerContractsPage = lazyWithRetry(() =>
 export const PgPartnerFeesPage = lazyWithRetry(() =>
   import('../pages/public/pg-partner/PgPartnerFeesPage').then((m) => ({ default: m.PgPartnerFeesPage }))
 );
+export const PgJoinReviewPage = lazyWithRetry(() =>
+  import('../pages/public/PgJoinReviewPage').then((m) => ({ default: m.PgJoinReviewPage }))
+);
+export const AdminCardPaymentPgPage = lazyWithRetry(() =>
+  import('../pages/admin/card-payment/AdminCardPaymentPgPage').then((m) => ({
+    default: m.AdminCardPaymentPgPage,
+  }))
+);
 export const AdminPgContractSignPage = lazyWithRetry(() =>
-  import('../pages/admin/card-payment/AdminPgContractSignPage').then((m) => ({ default: m.AdminPgContractSignPage }))
+  import('../pages/admin/card-payment/AdminPgContractSignPage').then((m) => ({
+    default: m.AdminPgContractSignPage,
+  }))
+);
+export const PlatformCardPaymentPage = lazyWithRetry(() =>
+  import('../pages/platform/card-payment/PlatformCardPaymentPage').then((m) => ({
+    default: m.PlatformCardPaymentPage,
+  }))
+);
+export const PlatformBarobillMembersPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformBarobillMembersPage').then((m) => ({
+    default: m.PlatformBarobillMembersPage,
+  }))
 );
 export const PlatformPgFeeLedgerPage = lazyWithRetry(() =>
   import('../pages/platform/card-payment/PlatformPgFeeLedgerPage').then((m) => ({
@@ -167,19 +187,6 @@ export const PlatformPgContractDeskPage = lazyWithRetry(() =>
 );
 export const PgPartnerMerchantsPage = lazyWithRetry(() =>
   import('../pages/public/pg-partner/PgPartnerMerchantsPage').then((m) => ({ default: m.PgPartnerMerchantsPage }))
-);
-export const PgJoinReviewPage = lazyWithRetry(() =>
-  import('../pages/public/PgJoinReviewPage').then((m) => ({ default: m.PgJoinReviewPage }))
-);
-export const AdminCardPaymentPgPage = lazyWithRetry(() =>
-  import('../pages/admin/card-payment/AdminCardPaymentPgPage').then((m) => ({
-    default: m.AdminCardPaymentPgPage,
-  }))
-);
-export const PlatformCardPaymentPage = lazyWithRetry(() =>
-  import('../pages/platform/card-payment/PlatformCardPaymentPage').then((m) => ({
-    default: m.PlatformCardPaymentPage,
-  }))
 );
 export const PlatformCardChargePage = lazyWithRetry(() =>
   import('../pages/platform/card-payment/PlatformCardChargePage').then((m) => ({
@@ -232,6 +239,11 @@ export const PublicDepositConfirmPage = lazyWithRetry(() =>
 export const InspectionCustomerViewPage = lazyWithRetry(() =>
   import('../pages/inspection/InspectionCustomerViewPage').then((m) => ({
     default: m.InspectionCustomerViewPage,
+  }))
+);
+export const PublicReceiptPage = lazyWithRetry(() =>
+  import('../pages/public/PublicReceiptPage').then((m) => ({
+    default: m.PublicReceiptPage,
   }))
 );
 export const AdminReviewPaybackPage = lazyWithRetry(() =>
@@ -328,6 +340,26 @@ export const AdminNotificationPolicyPage = lazyWithRetry(() =>
 export const AdminAlimtalkPage = lazyWithRetry(() =>
   import('../pages/admin/AdminAlimtalkPage').then((m) => ({
     default: m.AdminAlimtalkPage,
+  }))
+);
+export const AdminCashbillSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminCashbillSettingsPage').then((m) => ({
+    default: m.AdminCashbillSettingsPage,
+  }))
+);
+export const AdminCashbillListPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminCashbillListPage').then((m) => ({
+    default: m.AdminCashbillListPage,
+  }))
+);
+export const AdminTaxInvoiceListPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminTaxInvoiceListPage').then((m) => ({
+    default: m.AdminTaxInvoiceListPage,
+  }))
+);
+export const AdminTaxInvoiceIssuePage = lazyWithRetry(() =>
+  import('../pages/admin/AdminTaxInvoiceIssuePage').then((m) => ({
+    default: m.AdminTaxInvoiceIssuePage,
   }))
 );
 export const AdminNotificationSettingsPage = lazyWithRetry(() =>
@@ -458,6 +490,9 @@ export const PlatformReferrerDetailPage = lazyWithRetry(() =>
 );
 export const PlatformBillingPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformBillingPage').then((m) => ({ default: m.PlatformBillingPage }))
+);
+export const PlatformInboxHubPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformInboxHubPage').then((m) => ({ default: m.PlatformInboxHubPage }))
 );
 export const PlatformBillingSettlementPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformBillingSettlementPage').then((m) => ({

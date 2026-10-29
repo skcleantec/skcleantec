@@ -128,6 +128,16 @@ export async function openTenantUsageFeeWindow(token: string, periodStart: strin
   }>;
 }
 
+export async function openTenantWalletWindow(token: string, amountKrw: number) {
+  const res = await fetch(`${API}/admin/tenant-billing/wallet/window`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amountKrw }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '결제창을 열지 못했습니다.'));
+  return res.json() as Promise<{ redirectUrl: string; amountKrw: number }>;
+}
+
 export async function fetchTenantBillingSchedule(token: string) {
   const res = await fetch(`${API}/admin/tenant-billing/schedule`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '납부 일정 조회 실패'));

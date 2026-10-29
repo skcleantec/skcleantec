@@ -5,7 +5,7 @@ import type { EContractAudienceKind } from './adminEContract';
 export type PublicSignFieldDto = {
   token: string;
   label: string;
-  inputType: 'TEXT' | 'TEXTAREA' | 'DATE' | 'NUMBER' | 'PHONE' | 'RRN';
+  inputType: 'TEXT' | 'TEXTAREA' | 'DATE' | 'NUMBER' | 'PHONE' | 'RRN' | 'CHECKBOX' | 'SEAL';
   required: boolean;
   prefill?: string;
 };

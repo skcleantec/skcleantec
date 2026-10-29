@@ -329,6 +329,10 @@ model Tenant {
   orderFormTemplateFields OrderFormTemplateField[]
   orderFormSubmissionEmailLogs OrderFormSubmissionEmailLog[]
   operatingCompanies OperatingCompany[]
+  barobillMembers BarobillMember[]
+  cashBillIssues CashBillIssue[]
+  taxInvoiceIssues TaxInvoiceIssue[]
+  cashbillPlatformHolds CashbillPlatformHold[]
   userOperatingCompanies UserOperatingCompany[]
   partnershipsAsLow TenantPartnership[] @relation("TenantPartnershipLow")
   partnershipsAsHigh TenantPartnership[] @relation("TenantPartnershipHigh")
@@ -366,6 +370,7 @@ model Tenant {
   alimtalkSendLogs AlimtalkSendLog[]
   alimtalkWalletChargeLogs AlimtalkWalletChargeLog[]
   alimtalkChargeRequests AlimtalkChargeRequest[]
+  walletUsageLogs TenantWalletUsageLog[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
   landingContactSourceLinks LandingContactSourceLink[]
@@ -1632,10 +1637,183 @@ model OperatingCompany {
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSmsTemplates         TelecrmSmsTemplate[]
   orderFormBrandCustomerLinkConfigs OrderFormBrandCustomerLinkConfig[]
+  barobillMemberId String?         @unique @map("barobill_member_id")
+  barobillMember   BarobillMember? @relation(fields: [barobillMemberId], references: [id], onDelete: SetNull)
+  cashBillIssues   CashBillIssue[]
+  taxInvoiceIssues TaxInvoiceIssue[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
   @@map("operating_companies")
+}
+
+enum BarobillMemberStatus {
+  ACTIVE
+  LINK_REQUIRED
+  FAILED
+  PENDING_REVIEW
+  REJECTED
+  PROCESSING
+}
+
+/// 바로빌 회원사. 브랜드(OperatingCompany) 1 : 회원사 1. 비밀번호는 저장하지 않는다.
+model BarobillMember {
+  id             String               @id @default(uuid())
+  tenantId       String               @map("tenant_id")
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// test | prod. 바로빌 DB가 환경별로 분리된다.
+  env            String               @db.VarChar(8)
+  corpNum        String               @map("corp_num") @db.VarChar(16)
+  corpName       String               @map("corp_name") @db.VarChar(128)
+  ceoName        String               @map("ceo_name") @db.VarChar(128)
+  bizType        String               @map("biz_type") @db.VarChar(64)
+  bizClass       String               @map("biz_class") @db.VarChar(64)
+  addr1          String               @db.Text
+  addr2          String?              @db.VarChar(256)
+  contactName    String               @map("contact_name") @db.VarChar(128)
+  contactTel     String               @map("contact_tel") @db.VarChar(32)
+  contactEmail   String               @map("contact_email") @db.VarChar(256)
+  barobillUserId String               @default("") @map("barobill_user_id") @db.VarChar(20)
+  /// GetCorpState.TaxType 정수 문자열
+  taxType        String?              @map("tax_type") @db.VarChar(32)
+  businessRegistrationImageUrl      String? @map("business_registration_image_url") @db.Text
+  businessRegistrationImagePublicId String? @map("business_registration_image_public_id") @db.VarChar(256)
+  reviewedAt     DateTime?            @map("reviewed_at")
+  reviewedByPlatformUserId String?    @map("reviewed_by_platform_user_id")
+  rejectReason   String?              @map("reject_reason") @db.Text
+  status         BarobillMemberStatus
+  lastError      String?              @map("last_error") @db.Text
+  /// CheckCERTIsValid 캐시. 화면 진입 때 갱신한다.
+  certValid      Boolean?             @map("cert_valid")
+  /// GetCertificateExpireDate. YYYY-MM-DD
+  certExpireDate String?              @map("cert_expire_date") @db.VarChar(16)
+  certCheckedAt  DateTime?            @map("cert_checked_at")
+  /// 이 만료일로 관리자 알림을 이미 보냈으면 다시 보내지 않는다.
+  certWarnForExpire String?           @map("cert_warn_for_expire") @db.VarChar(16)
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  operatingCompany OperatingCompany?
+  cashBillIssues CashBillIssue[]
+  taxInvoiceIssues TaxInvoiceIssue[]
+
+  @@unique([env, tenantId, corpNum])
+  @@index([tenantId, env])
+  @@map("barobill_members")
+}
+
+enum CashBillIssueKind {
+  DEPOSIT
+  BALANCE
+  FULL
+  CANCEL
+}
+
+/// 현금영수증 발급·취소. 식별번호 원문은 저장하지 않는다.
+model CashBillIssue {
+  id                 String            @id @default(uuid())
+  tenantId           String            @map("tenant_id")
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberId           String            @map("member_id")
+  member             BarobillMember    @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  /// 매칭 없이 발행하면 null
+  inquiryId          String?           @map("inquiry_id")
+  inquiry            Inquiry?          @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
+  operatingCompanyId String            @map("operating_company_id")
+  operatingCompany   OperatingCompany  @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  mgtKey             String            @map("mgt_key") @db.VarChar(24)
+  kind               CashBillIssueKind
+  cancelOfId         String?           @map("cancel_of_id")
+  cancelOf           CashBillIssue?    @relation("CashBillCancel", fields: [cancelOfId], references: [id], onDelete: Restrict)
+  cancellations      CashBillIssue[]   @relation("CashBillCancel")
+  tradeUsage         Int               @map("trade_usage")
+  identityMasked     String            @map("identity_masked") @db.VarChar(32)
+  itemName           String            @default("청소 서비스") @map("item_name") @db.VarChar(50)
+  amount             Int
+  tax                Int
+  serviceCharge      Int               @default(0) @map("service_charge")
+  totalWon           Int               @map("total_won")
+  tradeDate          String            @map("trade_date") @db.VarChar(8)
+  barobillState      String?           @map("barobill_state") @db.VarChar(8)
+  ntsConfirmNum      String?           @map("nts_confirm_num") @db.VarChar(32)
+  issuedAt           DateTime?         @map("issued_at")
+  chargedKrw         Int               @default(0) @map("charged_krw")
+  lastError          String?           @map("last_error") @db.Text
+  /// 고객에게 보이지 않는 내부 메모
+  internalMemo       String?           @map("internal_memo") @db.VarChar(500)
+  copyPngUrl         String?           @map("copy_png_url") @db.VarChar(2048)
+  copyPdfUrl         String?           @map("copy_pdf_url") @db.VarChar(2048)
+  publicToken        String?           @unique @map("public_token") @db.VarChar(64)
+  createdById        String?           @map("created_by_id")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@unique([memberId, mgtKey])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, inquiryId])
+  @@index([tenantId, operatingCompanyId, createdAt(sort: Desc)])
+  @@index([barobillState])
+  @@map("cash_bill_issues")
+}
+
+/// 파트너·회원사 잔액 부족으로 업체 지갑을 차감하지 않은 건. 플랫폼 화면 알림.
+model CashbillPlatformHold {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code      Int
+  /// cashbill | taxinvoice
+  kind      String   @default("cashbill") @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@map("cashbill_platform_holds")
+}
+
+/// 세금계산서 정발급. 내부 메모는 바로빌에 보내지 않는다.
+model TaxInvoiceIssue {
+  id                 String           @id @default(uuid())
+  tenantId           String           @map("tenant_id")
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberId           String           @map("member_id")
+  member             BarobillMember   @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  inquiryId          String?          @map("inquiry_id")
+  inquiry            Inquiry?         @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
+  operatingCompanyId String           @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  mgtKey             String           @map("mgt_key") @db.VarChar(24)
+  /// 1 영수, 2 청구
+  purposeType        Int              @map("purpose_type")
+  writeDate          String           @map("write_date") @db.VarChar(8)
+  buyerCorpNum       String           @map("buyer_corp_num") @db.VarChar(16)
+  buyerCorpName      String           @map("buyer_corp_name") @db.VarChar(128)
+  buyerCeoName       String           @map("buyer_ceo_name") @db.VarChar(128)
+  buyerAddr          String           @map("buyer_addr") @db.VarChar(300)
+  buyerEmail         String           @map("buyer_email") @db.VarChar(256)
+  buyerBizType       String           @default("") @map("buyer_biz_type") @db.VarChar(64)
+  buyerBizClass      String           @default("") @map("buyer_biz_class") @db.VarChar(64)
+  supplyAmount       Int              @map("supply_amount")
+  taxAmount          Int              @map("tax_amount")
+  totalAmount        Int              @map("total_amount")
+  lines              Json
+  internalMemo       String?          @map("internal_memo") @db.VarChar(500)
+  barobillState      String?          @map("barobill_state") @db.VarChar(8)
+  ntsSendState       String?          @map("nts_send_state") @db.VarChar(8)
+  ntsSendKey         String?          @map("nts_send_key") @db.VarChar(64)
+  chargedKrw         Int              @default(0) @map("charged_krw")
+  lastError          String?          @map("last_error") @db.Text
+  copyPngUrl         String?          @map("copy_png_url") @db.VarChar(2048)
+  copyPdfUrl         String?          @map("copy_pdf_url") @db.VarChar(2048)
+  publicToken        String?          @unique @map("public_token") @db.VarChar(64)
+  createdById        String?          @map("created_by_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  @@unique([memberId, mgtKey])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, inquiryId])
+  @@index([tenantId, operatingCompanyId, createdAt(sort: Desc)])
+  @@index([ntsSendState])
+  @@map("tax_invoice_issues")
 }
 
 /// 마케터·팀장의 영업 업체 소속(다중). isPrimary 1개 권장.
@@ -2743,6 +2921,8 @@ model Inquiry {
   householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
   cardPayments              CardPayment[]
   skHomepageInquiryMail     SkHomepageInquiryMail?
+  cashBillIssues            CashBillIssue[]
+  taxInvoiceIssues          TaxInvoiceIssue[]
   aiDispatchProposals       AiDispatchProposal[]
 
   @@index([createdAt])
@@ -5156,4 +5336,20 @@ model SkHomepageInquiryMail {
   @@unique([tenantId, messageId])
   @@index([tenantId, receivedAt(sort: Desc)])
   @@map("sk_homepage_inquiry_mails")
+}
+
+/// 청소비서 지갑 사용 원장. 충전 원장(alimtalk_wallet_charge_logs)과 테이블을 나누어 둔다.
+model TenantWalletUsageLog {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type            String   @db.VarChar(32)
+  refId           String?  @map("ref_id") @db.VarChar(64)
+  amountKrw       Int      @map("amount_krw")
+  balanceAfterKrw Int      @map("balance_after_krw")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, type, createdAt(sort: Desc)])
+  @@map("tenant_wallet_usage_logs")
 }

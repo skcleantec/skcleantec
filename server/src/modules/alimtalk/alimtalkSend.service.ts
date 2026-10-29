@@ -117,6 +117,7 @@ async function executeAlimtalkSend(params: {
     tenantId: params.billingTenantId,
     plan: params.tenant.plan,
     channel,
+    refId: pendingLog.id,
   });
 
   await prisma.alimtalkSendLog.update({

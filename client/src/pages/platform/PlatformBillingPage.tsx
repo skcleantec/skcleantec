@@ -5,9 +5,7 @@ import {
   confirmPlatformInvoicePayment,
   confirmPlatformPrepaid,
   confirmPlatformSchedulePeriodPayment,
-  getPlatformBillingSettings,
   listPlatformBillingTenants,
-  patchPlatformBillingSettings,
   type PlatformBillingActionQueueItem,
   type PlatformBillingKpi,
   type PlatformBillingTenantRow,
@@ -24,7 +22,6 @@ import {
   PlatformAlert,
   StatusBadge,
 } from '../../utils/platformUi';
-import { KoreanBankNameField } from '../../components/ui/KoreanBankNameField';
 import {
   TENANT_BILLING_CYCLE_LABEL,
   TENANT_BILLING_PRICING_MODE_LABEL,
@@ -53,7 +50,7 @@ function PaymentConfirmationRequestedBadge({ at }: { at: string | null | undefin
   if (!at) return null;
   return (
     <span
-      className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[12px] font-medium text-sky-900"
+      className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-fluid-2xs font-medium text-amber-900 ring-1 ring-amber-200"
       title={`업체 입금 확인 요청: ${formatKoDate(at)}`}
     >
       입금 확인 요청
@@ -130,15 +127,7 @@ export function PlatformBillingPage() {
   const [kpi, setKpi] = useState<PlatformBillingKpi>(EMPTY_KPI);
   const [actionQueue, setActionQueue] = useState<PlatformBillingActionQueueItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [settings, setSettings] = useState({
-    bankName: '',
-    accountNumber: '',
-    accountHolder: '',
-    paymentGuideText: '',
-    overdueGraceDays: 3,
-  });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -196,22 +185,6 @@ export function PlatformBillingPage() {
   }, [q, filterPlan, filterStatus, filterOperational, actionQueueOnly, page, pageSize]);
 
   useEffect(() => {
-    const token = getPlatformToken();
-    if (!token) return;
-    getPlatformBillingSettings(token)
-      .then((s) => {
-        setSettings({
-          bankName: s.bankName ?? '',
-          accountNumber: s.accountNumber ?? '',
-          accountHolder: s.accountHolder ?? '',
-          paymentGuideText: s.paymentGuideText ?? '',
-          overdueGraceDays: s.overdueGraceDays,
-        });
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
     void loadList();
   }, [loadList]);
 
@@ -252,28 +225,6 @@ export function PlatformBillingPage() {
       setError(e instanceof Error ? e.message : '처리 실패');
     } finally {
       setBusyKey(null);
-    }
-  };
-
-  const saveSettings = async () => {
-    const token = getPlatformToken();
-    if (!token) return;
-    setSaving(true);
-    setError('');
-    setMessage('');
-    try {
-      await patchPlatformBillingSettings(token, {
-        bankName: settings.bankName || null,
-        accountNumber: settings.accountNumber || null,
-        accountHolder: settings.accountHolder || null,
-        paymentGuideText: settings.paymentGuideText || null,
-        overdueGraceDays: settings.overdueGraceDays,
-      });
-      setMessage('입금 안내 설정이 저장되었습니다.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '저장 실패');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -388,66 +339,6 @@ export function PlatformBillingPage() {
           </ul>
         </section>
       ) : null}
-
-      <section className={CARD_SECTION}>
-        <h2 className="text-base font-semibold text-gray-900">입금 안내 (전체 공통)</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="block text-sm sm:col-span-2">
-            <span className="text-gray-600">은행</span>
-            <div className="mt-1">
-              <KoreanBankNameField
-                value={settings.bankName}
-                onChange={(bankName) => setSettings((s) => ({ ...s, bankName }))}
-                selectClassName={INPUT_BASE}
-                inputClassName={INPUT_BASE}
-              />
-            </div>
-          </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">계좌번호</span>
-            <input
-              className={`mt-1 ${INPUT_BASE}`}
-              value={settings.accountNumber}
-              onChange={(e) => setSettings((s) => ({ ...s, accountNumber: e.target.value }))}
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">예금주</span>
-            <input
-              className={`mt-1 ${INPUT_BASE}`}
-              value={settings.accountHolder}
-              onChange={(e) => setSettings((s) => ({ ...s, accountHolder: e.target.value }))}
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">연체 유예 (일)</span>
-            <input
-              type="number"
-              min={0}
-              max={30}
-              className={`mt-1 ${INPUT_BASE}`}
-              value={settings.overdueGraceDays}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, overdueGraceDays: Number(e.target.value) || 0 }))
-              }
-            />
-          </label>
-          <label className="block text-sm sm:col-span-2">
-            <span className="text-gray-600">납부 안내 문구</span>
-            <textarea
-              rows={3}
-              className={`mt-1 ${INPUT_BASE}`}
-              value={settings.paymentGuideText}
-              onChange={(e) => setSettings((s) => ({ ...s, paymentGuideText: e.target.value }))}
-            />
-          </label>
-        </div>
-        <div className="mt-3 flex justify-end">
-          <button type="button" disabled={saving} onClick={() => void saveSettings()} className={BTN_PRIMARY}>
-            설정 저장
-          </button>
-        </div>
-      </section>
 
       <section className={CARD_SECTION}>
         <div className="flex flex-wrap items-center justify-between gap-3">

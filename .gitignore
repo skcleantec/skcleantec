@@ -1,5 +1,5 @@
 # Dependencies
-node_modules/
+node_modules
 
 # Environment (보안 - 절대 push 금지)
 .env

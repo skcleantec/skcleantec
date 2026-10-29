@@ -18,10 +18,11 @@ const METHOD_LABEL: Record<UsageFeeCardPaymentRow['payMethod'], string> = {
   PAY_WINDOW: '카드 결제창',
 };
 
-function statusLabel(status: UsageFeeCardPaymentRow['status']): string {
-  if (status === 'PENDING') return '승인 대기';
-  if (status === 'FAILED') return '실패';
-  if (status === 'CANCELLED') return '취소';
+function statusLabel(row: UsageFeeCardPaymentRow): string {
+  if (row.needsReconcile) return '반영 확인 필요';
+  if (row.status === 'PENDING') return '승인 대기';
+  if (row.status === 'FAILED') return '실패';
+  if (row.status === 'CANCELLED') return '취소';
   return '승인';
 }
 
@@ -74,7 +75,7 @@ export function PlatformBillingSettlementPage() {
         <div>
           <h1 className="text-xl font-semibold text-gray-900">정산</h1>
           <p className="mt-1 text-sm text-gray-500">
-            입금 확인은 통장, 카드 승인은 카드로 남습니다. 카드 금액은 이용료에 부가세 10%를 더한 금액입니다.
+            입금 확인은 통장, 카드 승인은 카드로 남습니다. 카드는 이용료(부가세 10%)와 청소비서 지갑 충전입니다.
           </p>
         </div>
         <Link
@@ -115,7 +116,7 @@ export function PlatformBillingSettlementPage() {
             <article key={row.id} className="rounded-lg border border-gray-200 p-2">
               <p className="truncate text-sm font-medium text-gray-900">{row.tenantName ?? '업체 없음'}</p>
               <p className="text-xs text-gray-500">
-                {formatWhen(row.paidAt)} · {METHOD_LABEL[row.payMethod]} · {statusLabel(row.status)}
+                {formatWhen(row.paidAt)} · {METHOD_LABEL[row.payMethod]} · {row.goodsName === '청소비서 지갑' ? '지갑' : row.purpose === 'INVOICE' ? '이용료' : '기타'} · {statusLabel(row)}
               </p>
               <p className="text-right text-sm tabular-nums text-gray-900">{won(row.amountKrw)}</p>
               <div className="mt-1 flex justify-end">
@@ -146,12 +147,22 @@ export function PlatformBillingSettlementPage() {
                   <td className="px-2 py-2 text-center text-xs">{formatWhen(row.paidAt)}</td>
                   <td className="px-2 py-2 text-center">{row.tenantName ?? '—'}</td>
                   <td className="px-2 py-2 text-center">{METHOD_LABEL[row.payMethod]}</td>
-                  <td className="px-2 py-2 text-center">{statusLabel(row.status)}</td>
-                  <td className="px-2 py-2 text-center">{row.purpose === 'INVOICE' ? '이용료' : '기타'}</td>
+                  <td className="px-2 py-2 text-center">{statusLabel(row)}</td>
+                  <td className="px-2 py-2 text-center">{row.goodsName === '청소비서 지갑' ? '지갑' : row.purpose === 'INVOICE' ? '이용료' : '기타'}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.supplyAmountKrw)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.vatAmountKrw)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{won(row.amountKrw)}</td>
-                  <td className="px-2 py-2 text-center">{row.purpose === 'INVOICE' ? (row.invoiceApplied ? '반영' : '미반영') : '—'}</td>
+                  <td className="px-2 py-2 text-center">
+                    {row.goodsName === '청소비서 지갑'
+                      ? row.invoiceApplied
+                        ? '잔액 반영'
+                        : '미반영'
+                      : row.purpose === 'INVOICE'
+                        ? row.invoiceApplied
+                          ? '반영'
+                          : '미반영'
+                        : '—'}
+                  </td>
                   <td className="px-2 py-2 text-center">
                     <UsageFeeSameDayCancelButton row={row} onDone={load} />
                   </td>

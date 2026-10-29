@@ -21,6 +21,8 @@ import {
 import type { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { compareUserPasswordHash } from '../../lib/userPassword.js';
+import { isBlankSupplierField } from '../taxinvoice/supplierFieldText.js';
+import { syncDefaultBrandSupplierFromCompany } from '../taxinvoice/taxInvoiceSupplier.service.js';
 
 async function assertActorLoginPassword(params: {
   tenantId: string;
@@ -131,6 +133,13 @@ function mergeCompanyRegistration(
     }
     if (typeof v === 'string') {
       const t = v.trim();
+      const keepExisting = key === 'companyName' || key === 'representativeName' || key === 'addressLine';
+      if (keepExisting && isBlankSupplierField(t)) {
+        const prev = existing?.[key];
+        if (typeof prev === 'string' && prev.trim() && !isBlankSupplierField(prev)) merged[key] = prev.trim();
+        else delete merged[key];
+        continue;
+      }
       if (t) merged[key] = t;
       else delete merged[key];
     }
@@ -261,6 +270,18 @@ async function patchOperatingCompanySmtp(
   });
 }
 
+function assertCompanySupplierText(
+  patch: TenantCompanyProfilePatch['companyRegistration'],
+): void {
+  if (!patch || !('companyName' in patch)) return;
+  if (isBlankSupplierField(patch.companyName)) {
+    throw Object.assign(new Error('supplier_placeholder'), {
+      code: 'bad_request' as const,
+      message: '상호를 입력해 주세요.',
+    });
+  }
+}
+
 export async function patchTenantCompanyProfile(
   tenantId: string,
   body: TenantCompanyProfilePatch,
@@ -288,6 +309,7 @@ export async function patchTenantCompanyProfile(
     validateSmtpPatch(body.smtp, existing.smtp);
   }
 
+  assertCompanySupplierText(body.companyRegistration);
   const companyRegistration = mergeCompanyRegistration(
     existing.companyRegistration,
     body.companyRegistration,
@@ -307,6 +329,13 @@ export async function patchTenantCompanyProfile(
   }
 
   await updateTenantConfig(tenantId, patchConfig);
+  if (body.companyRegistration) {
+    await syncDefaultBrandSupplierFromCompany(tenantId, {
+      companyName: body.companyRegistration.companyName,
+      representativeName: body.companyRegistration.representativeName,
+      addressLine: body.companyRegistration.addressLine,
+    });
+  }
 
   return getTenantCompanyProfile(tenantId);
 }

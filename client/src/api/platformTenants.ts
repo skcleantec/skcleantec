@@ -94,6 +94,8 @@ export type PlatformTenantFeatureRow = {
   tier: string;
   locked: boolean;
   inPlan: boolean;
+  /** null = 기본 따름. true = 개별 켜기. false = 개별 끄기. */
+  override?: boolean | null;
   enabled: boolean;
   effective: boolean;
 };
@@ -342,6 +344,7 @@ export type PlatformAlimtalkPolicyResponse = {
   monthlyFreeUsed: number;
   monthlyFreeRemaining: number;
   prepaidBalanceKrw: number;
+  monthUsage?: { key: 'alimtalk' | 'cashbill' | 'taxinvoice'; label: string; amountKrw: number }[];
   templates: { code: string; label: string; enabled: boolean }[];
   recentChargeLogs: {
     id: string;
@@ -349,6 +352,10 @@ export type PlatformAlimtalkPolicyResponse = {
     balanceAfterKrw: number;
     memo: string | null;
     createdAt: string;
+    actorName?: string | null;
+    kind?: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
+    reason?: string | null;
+    tenantLabel?: string;
   }[];
   pendingChargeRequests: {
     id: string;
@@ -393,7 +400,7 @@ export async function patchPlatformTenantAlimtalkPolicy(
 export async function postPlatformTenantAlimtalkCharge(
   token: string,
   tenantId: string,
-  body: { amountKrw: number; memo?: string; chargeRequestId?: string },
+  body: { amountKrw: number; memo?: string; chargeRequestId?: string; kind?: 'paid' | 'grant' | 'clawback' },
 ) {
   const res = await fetch(`${API}/platform/tenants/${tenantId}/alimtalk-policy/charge`, {
     method: 'POST',

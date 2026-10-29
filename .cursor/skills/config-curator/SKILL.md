@@ -125,7 +125,7 @@ Maestro **신규 기능 파이프라인**의 일부 — 사용자 추가 지시 
 ## Report outputs
 
 1. Update `agent/config-curator/display-indicator-registry.json` when inventory changed.
-2. Maestro detail report: `agent/orchestrator/reports/YYYY-MM-DD-HHmm-config-curator-<slug>.md`
+2. Maestro detail report: `agent/orchestrator/reports/packs/YYYY-MM-DD-<slug>/config-curator.md`
 3. Maestro BRIEF에 **표시·설정 요약** 한 줄 (사용자에게 2차 에이전트 지시 금지).
 
 ## Checklist template (new feature)

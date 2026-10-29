@@ -1,4 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
+import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import type { WalletUsageType } from '../../lib/walletPolicy.js';
 import {
   ALIMTALK_MODULE_ID,
   ALIMTALK_TEMPLATE_CODES,
@@ -7,7 +9,15 @@ import {
   alimtalkPlanAllowsFeature,
 } from '../../lib/alimtalkPolicy.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
-import { getAlimtalkWalletView, ensureTenantAlimtalkDefaults, listRecentAlimtalkChargeLogs, applyPlatformAlimtalkTopUp } from './alimtalkWallet.service.js';
+import {
+  getAlimtalkWalletView,
+  ensureTenantAlimtalkDefaults,
+  listRecentAlimtalkChargeLogs,
+  applyPlatformAlimtalkTopUp,
+  applyPlatformWalletClawback,
+  validatePlatformWalletAdjustKrw,
+  type PlatformWalletAdjustKind,
+} from './alimtalkWallet.service.js';
 import {
   approveAlimtalkChargeRequest,
   listPendingAlimtalkChargeRequestsForTenant,
@@ -21,6 +31,10 @@ export type AlimtalkChargeLogDto = {
   balanceAfterKrw: number;
   memo: string | null;
   createdAt: string;
+  actorName: string | null;
+  kind: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
+  reason: string | null;
+  tenantLabel: string;
 };
 
 export type AlimtalkSettingsForPlatform = {
@@ -36,6 +50,7 @@ export type AlimtalkSettingsForPlatform = {
   templates: { code: string; label: string; enabled: boolean }[];
   recentChargeLogs: AlimtalkChargeLogDto[];
   pendingChargeRequests: AlimtalkChargeRequestDto[];
+  monthUsage: { key: 'alimtalk' | 'cashbill' | 'taxinvoice'; label: string; amountKrw: number }[];
 };
 
 export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<AlimtalkSettingsForPlatform> {
@@ -57,6 +72,7 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
   const settingMap = new Map(settings.map((s) => [s.templateCode, s.isEnabled]));
   const recentChargeLogs = await listRecentAlimtalkChargeLogs(tenantId, 10);
   const pendingChargeRequests = await listPendingAlimtalkChargeRequestsForTenant(tenantId);
+  const monthUsage = await walletMonthUsage(tenantId);
 
   return {
     licensed,
@@ -77,11 +93,39 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
       id: log.id,
       amountKrw: log.amountKrw,
       balanceAfterKrw: log.balanceAfterKrw,
-      memo: log.memo,
+      memo: log.reason,
       createdAt: log.createdAt.toISOString(),
+      actorName: log.actorName,
+      kind: log.kind,
+      reason: log.reason,
+      tenantLabel: log.tenantLabel,
     })),
     pendingChargeRequests,
+    monthUsage,
   };
+}
+
+const WALLET_MONTH_BUCKETS: { key: 'alimtalk' | 'cashbill' | 'taxinvoice'; label: string; types: WalletUsageType[] }[] = [
+  { key: 'alimtalk', label: '알림톡', types: ['ALIMTALK'] },
+  { key: 'cashbill', label: '현금영수증', types: ['CASHBILL_ISSUE', 'CASHBILL_CANCEL', 'CASHBILL_REFUND'] },
+  { key: 'taxinvoice', label: '세금계산서', types: ['TAXINVOICE_ISSUE', 'TAXINVOICE_REFUND'] },
+];
+
+async function walletMonthUsage(tenantId: string) {
+  const range = kstMonthRangeYm(kstTodayYmd().slice(0, 7));
+  if (!range) {
+    return WALLET_MONTH_BUCKETS.map((bucket) => ({ key: bucket.key, label: bucket.label, amountKrw: 0 }));
+  }
+  const rows = await prisma.tenantWalletUsageLog.groupBy({
+    by: ['type'],
+    where: { tenantId, createdAt: { gte: range.gte, lte: range.lte } },
+    _sum: { amountKrw: true },
+  });
+  const net = new Map(rows.map((row) => [row.type, row._sum.amountKrw ?? 0]));
+  return WALLET_MONTH_BUCKETS.map((bucket) => {
+    const signed = bucket.types.reduce((sum, type) => sum + (net.get(type) ?? 0), 0);
+    return { key: bucket.key, label: bucket.label, amountKrw: signed < 0 ? -signed : 0 };
+  });
 }
 
 export async function saveAlimtalkPolicyForPlatform(
@@ -141,7 +185,7 @@ export async function saveAlimtalkPolicyForPlatform(
 
 export async function chargeAlimtalkWalletForPlatform(
   tenantId: string,
-  input: { amountKrw: number; memo?: string | null; chargeRequestId?: string | null },
+  input: { amountKrw: number; memo?: string | null; chargeRequestId?: string | null; kind?: string | null },
   actorPlatformUserId?: string | null,
 ): Promise<AlimtalkSettingsForPlatform> {
   if (input.chargeRequestId) {
@@ -151,12 +195,27 @@ export async function chargeAlimtalkWalletForPlatform(
       actorPlatformUserId,
       memo: input.memo,
     });
+    return getAlimtalkSettingsForPlatform(tenantId);
+  }
+  const kind: PlatformWalletAdjustKind = input.kind === 'grant' || input.kind === 'clawback' || input.kind === 'paid' ? input.kind : 'paid';
+  const amountError = validatePlatformWalletAdjustKrw(input.amountKrw);
+  if (amountError) throw new Error(amountError);
+  const reason = input.memo?.trim() ?? '';
+  if ((kind === 'grant' || kind === 'clawback') && !reason) throw new Error('사유를 입력해 주세요.');
+  if (kind === 'clawback') {
+    await applyPlatformWalletClawback({
+      tenantId,
+      amountKrw: input.amountKrw,
+      reason,
+      actorPlatformUserId,
+    });
   } else {
     await applyPlatformAlimtalkTopUp({
       tenantId,
       amountKrw: input.amountKrw,
-      memo: input.memo,
+      memo: `cbiseo:${kind}:${reason}`,
       actorPlatformUserId,
+      revenue: kind === 'paid',
     });
   }
   return getAlimtalkSettingsForPlatform(tenantId);

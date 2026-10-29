@@ -1,6 +1,7 @@
 import type { EContractFieldInputType } from '@prisma/client';
 import type { ResolvedFieldForBody } from './eContractFieldDefinition.service.js';
 import { EC_SIGNATURE_TOKEN } from './eContractField.tokens.js';
+import { signerSignatureUrlLooksValid } from './eContractSigner.expand.js';
 
 /** 레거시 호환 — 고정 필드 구조 */
 export type ValidatedSignerSubmissionFields = {
@@ -38,6 +39,13 @@ function normalizeRrn(raw: string): string {
 
 function validateOneField(field: ResolvedFieldForBody, rawVal: unknown): string {
   const str = typeof rawVal === 'string' ? rawVal.trim().replace(/\r\n/g, '\n') : '';
+  if (field.inputType === 'CHECKBOX') {
+    const on = str === 'Y' || str === '1' || str === '■' || str === 'true';
+    if (field.required && !on) {
+      throw Object.assign(new Error(`signer_field:${field.token}`), { code: 'bad_request' as const });
+    }
+    return on ? '■' : '□';
+  }
   if (!str) {
     if (field.required) {
       throw Object.assign(new Error(`signer_field:${field.token}`), { code: 'bad_request' as const });
@@ -61,6 +69,11 @@ function validateOneField(field: ResolvedFieldForBody, rawVal: unknown): string 
       return str.replace(/,/g, '');
     case 'DATE':
       if (!/^\d{4}-\d{2}-\d{2}$/.test(str) && !/^\d{4}년/.test(str)) {
+        throw Object.assign(new Error(`signer_field:${field.token}`), { code: 'bad_request' as const });
+      }
+      return str;
+    case 'SEAL':
+      if (!signerSignatureUrlLooksValid(str)) {
         throw Object.assign(new Error(`signer_field:${field.token}`), { code: 'bad_request' as const });
       }
       return str;

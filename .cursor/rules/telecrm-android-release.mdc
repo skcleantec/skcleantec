@@ -19,6 +19,7 @@ APK·`versionCode`·GitHub Release만 올리고 **Railway Variables를 안 바�
 2. 템플릿은 해당 MD 파일 **「새 버전 항목 템플릿」** 절을 따른다.
 3. 기록만 하고 **끝내지 않는다** — 아래 Railway·릴리스 체크리스트도 이어서 수행.
 4. **Play AAB/APK 빌드를 사용자에게 보고할 때** — **`.cursor/rules/android-play-aab-release-copy.mdc`** 출시명·출시 노트 **복붙 블록** 필수.
+5. **Play 권장 조치** — **`.cursor/rules/play-console-quality.mdc`**. `RELEASE_PROGRESS.md`에 버전별 문구를 남기고, 넓은 화면 잠금·Display API·R8 minify 끄기를 재도입하지 않는다.
 
 ## 에이전트 의무 — 릴리스 완료 = Variables 갱신까지
 

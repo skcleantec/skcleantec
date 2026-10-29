@@ -7,7 +7,7 @@ import {
   PaymentConfirmationRequestError,
   requestTenantPaymentConfirmation,
 } from '../billing/tenantBilling.paymentRequest.service.js';
-import { openTenantUsageFeeWindow } from '../card-payment/usageFeeCardPayment.service.js';
+import { openTenantUsageFeeWindow, openTenantWalletWindow } from '../card-payment/usageFeeCardPayment.service.js';
 
 const router = Router();
 
@@ -94,6 +94,29 @@ router.post('/usage-fee/window', async (req, res) => {
   }
   const periodStart = typeof body.periodStart === 'string' ? body.periodStart : '';
   const opened = await openTenantUsageFeeWindow(tenantId, periodStart);
+  if ('error' in opened) {
+    res.status(opened.status).json({ error: opened.error });
+    return;
+  }
+  res.json(opened.result);
+});
+
+/** POST /api/admin/tenant-billing/wallet/window — 지갑 충전 결제창. 카드번호는 받지 않는다. */
+router.post('/wallet/window', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  if (auth.role !== 'ADMIN') {
+    res.status(403).json({ error: '관리자만 지갑을 충전할 수 있습니다.' });
+    return;
+  }
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+  if (body.cardNo || body.cardNumber || body.cvc) {
+    res.status(400).json({ error: '카드번호는 결제창에서만 입력합니다.' });
+    return;
+  }
+  const amountKrw = typeof body.amountKrw === 'number' ? body.amountKrw : Number(body.amountKrw);
+  const opened = await openTenantWalletWindow(tenantId, amountKrw);
   if ('error' in opened) {
     res.status(opened.status).json({ error: opened.error });
     return;

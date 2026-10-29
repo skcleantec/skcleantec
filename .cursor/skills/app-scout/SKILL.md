@@ -57,7 +57,7 @@ You are **AppScout** for CBISEO (청소비서).
 
 ## 산출물 (필수)
 
-`agent/orchestrator/reports/YYYY-MM-DD-HHmm-app-scout-<slug>.md`
+`agent/orchestrator/reports/packs/YYYY-MM-DD-<slug>/app-scout.md`
 
 ```markdown
 # AppScout — <업무 한 줄>

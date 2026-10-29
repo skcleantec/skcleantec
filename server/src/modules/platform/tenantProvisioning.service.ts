@@ -4,12 +4,14 @@ import { prisma } from '../../lib/prisma.js';
 import { notifyTenantCapabilitiesRefresh } from '../realtime/inboxNotify.js';
 import { seedTenantDefaults } from '../tenants/tenantConfigSeed.service.js';
 import {
+  CORE_FEATURE_MODULE_IDS,
   isKnownFeatureModuleId,
   modulesForPlan,
   TENANT_FEATURE_MODULES,
   type TenantFeatureModuleId,
   TENANT_PLAN_ID_SET,
 } from '../tenants/tenantFeatureCatalog.js';
+import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import {
   readTelecrmMetaForPreserve,
   restoreTelecrmMetaIfMissing,
@@ -179,6 +181,18 @@ export async function listTenantsForPlatform() {
   });
 }
 
+/** 플랜과 같은 행은 개별 설정이 아니다. 없는 행·같은 값은 기본 따름. */
+function displayFeatureOverride(
+  stored: boolean | undefined,
+  inPlan: boolean,
+  forced: boolean,
+): boolean | null {
+  if (forced || stored === undefined) return null;
+  if (stored && !inPlan) return true;
+  if (!stored && inPlan) return false;
+  return null;
+}
+
 export async function getTenantDetailForPlatform(tenantId: string) {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
@@ -207,12 +221,12 @@ export async function getTenantDetailForPlatform(tenantId: string) {
   const baseCatalog = Object.entries(TENANT_FEATURE_MODULES).map(([moduleId, meta]) => {
     const id = moduleId as TenantFeatureModuleId;
     const inPlan = planModules.has(id);
-    const override = overrideMap.get(moduleId);
-    const locked = meta.tier === 'core';
+    const stored = overrideMap.has(moduleId) ? overrideMap.get(moduleId)! : undefined;
+    const locked = CORE_FEATURE_MODULE_IDS.has(id);
+    const override = displayFeatureOverride(stored, inPlan, locked);
     let effective = inPlan;
-    if (override !== undefined && !locked) {
-      effective = override;
-    }
+    if (override === true) effective = true;
+    if (override === false) effective = false;
     if (locked) effective = true;
     return {
       moduleId: id,
@@ -220,22 +234,25 @@ export async function getTenantDetailForPlatform(tenantId: string) {
       tier: meta.tier,
       locked,
       inPlan,
-      enabled: override ?? inPlan,
+      override,
+      enabled: effective,
       effective,
     };
   });
 
   const customCatalog = customDefs.map((def) => {
-    const override = overrideMap.get(def.moduleId);
-    const enabled = override ?? false;
+    const stored = overrideMap.has(def.moduleId) ? overrideMap.get(def.moduleId)! : undefined;
+    const override = displayFeatureOverride(stored, false, false);
+    const effective = override === true;
     return {
       moduleId: def.moduleId,
       label: def.label,
       tier: 'custom' as const,
       locked: false,
       inPlan: false,
-      enabled,
-      effective: enabled,
+      override,
+      enabled: effective,
+      effective,
     };
   });
 
@@ -274,8 +291,20 @@ export async function getTenantDetailForPlatform(tenantId: string) {
     tenantId,
   );
 
+  const monthRange = kstMonthRangeYm(kstTodayYmd().slice(0, 7));
+  const [userCount, inquiryCount, monthInquiryCount] = await Promise.all([
+    prisma.user.count({ where: { tenantId } }),
+    prisma.inquiry.count({ where: { tenantId } }),
+    monthRange
+      ? prisma.inquiry.count({
+          where: { tenantId, createdAt: { gte: monthRange.gte, lte: monthRange.lte } },
+        })
+      : Promise.resolve(0),
+  ]);
+
   return {
-    tenant,
+    tenant: { ...tenant, userCount, inquiryCount },
+    stats: { monthInquiryCount },
     admins,
     owner: admins[0] ?? null,
     features: [...baseCatalog, ...customCatalog],
@@ -369,7 +398,6 @@ export async function replaceTenantFeatureOverrides(
 
   await prisma.$transaction(async (tx) => {
     await tx.tenantFeature.deleteMany({ where: { tenantId } });
-    const planModules = new Set(modulesForPlan(tenant.plan));
 
     for (const item of items) {
       if (isCustomModuleId(item.moduleId)) {
@@ -380,24 +408,34 @@ export async function replaceTenantFeatureOverrides(
         continue;
       }
       if (!isKnownFeatureModuleId(item.moduleId)) continue;
-      const meta = TENANT_FEATURE_MODULES[item.moduleId];
-      if (meta.tier === 'core') continue;
+      if (CORE_FEATURE_MODULE_IDS.has(item.moduleId)) continue;
       await tx.tenantFeature.create({
         data: { tenantId, moduleId: item.moduleId, enabled: item.enabled },
       });
     }
-
-    for (const moduleId of planModules) {
-      const meta = TENANT_FEATURE_MODULES[moduleId];
-      if (meta.tier === 'core') continue;
-      const hasRow = items.some((i) => i.moduleId === moduleId);
-      if (!hasRow) {
-        await tx.tenantFeature.create({
-          data: { tenantId, moduleId, enabled: true },
-        });
-      }
-    }
   });
+
+  const telecrmSent = items.find((item) => item.moduleId === 'mod_telecrm');
+  if (
+    preservedTelecrmMeta &&
+    modulesForPlan(tenant.plan).includes('mod_telecrm') &&
+    telecrmSent?.enabled !== false
+  ) {
+    const existing = await prisma.tenantFeature.findUnique({
+      where: { tenantId_moduleId: { tenantId, moduleId: 'mod_telecrm' } },
+      select: { moduleId: true },
+    });
+    if (!existing) {
+      await prisma.tenantFeature.create({
+        data: {
+          tenantId,
+          moduleId: 'mod_telecrm',
+          enabled: true,
+          meta: preservedTelecrmMeta,
+        },
+      });
+    }
+  }
 
   await restoreTelecrmMetaIfMissing(tenantId, preservedTelecrmMeta);
   void notifyTenantCapabilitiesRefresh(tenantId).catch((e) => console.error('[tenant-capabilities]', e));

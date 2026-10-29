@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ALIMTALK_TEMPLATE_CODES,
   ALIMTALK_TEMPLATE_LABELS,
-  ALIMTALK_CHARGE_MAX_KRW,
-  ALIMTALK_CHARGE_UNIT_KRW,
   type AlimtalkTemplateCode,
 } from '@shared/alimtalkPolicy';
 import { formatAlimtalkTemplateHelpText } from '@shared/alimtalkTemplateHelp';
@@ -15,18 +13,14 @@ import {
   getTenantAlimtalkSendLogs,
   getTenantAlimtalkSettings,
   patchTenantAlimtalkSettings,
-  postTenantAlimtalkChargeRequest,
-  TENANT_ALIMTALK_CHARGE_PRESETS_KRW,
   type AlimtalkSendLogListItem,
   type TenantAlimtalkSettings,
 } from '../../api/alimtalk';
 import { AlimtalkScheduleD2SendHint } from '../../components/admin/AlimtalkScheduleD2SendHint';
+import { WalletChargeModal } from '../../components/wallet/WalletChargeModal';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { getToken } from '../../stores/auth';
-
-const INPUT_BASE =
-  'mt-1 block w-full min-h-9 rounded-lg border border-gray-200 px-3 py-2 text-fluid-xs text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50';
 
 const BTN_PRIMARY =
   'rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -56,12 +50,6 @@ function formatPreferredDateShort(ymd: string | null): string {
   return `${Number(m)}/${Number(d)}`;
 }
 
-function formatBankLine(bank: TenantAlimtalkSettings['bank']): string | null {
-  const parts = [bank.bankName, bank.accountNumber, bank.accountHolder].filter(Boolean);
-  if (parts.length === 0) return null;
-  return parts.join(' · ');
-}
-
 export function AdminAlimtalkPage() {
   const token = getToken();
   const [settings, setSettings] = useState<TenantAlimtalkSettings | null>(null);
@@ -72,9 +60,7 @@ export function AdminAlimtalkPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [requesting, setRequesting] = useState(false);
-  const [chargeAmountKrw, setChargeAmountKrw] = useState<number>(ALIMTALK_CHARGE_UNIT_KRW);
-  const [chargeMemo, setChargeMemo] = useState('');
+  const [chargeOpen, setChargeOpen] = useState(false);
   const [scheduleD2DaysBeforePenalty, setScheduleD2DaysBeforePenalty] = useState<string>('');
   const [sendLogs, setSendLogs] = useState<AlimtalkSendLogListItem[]>([]);
   const [sendLogsTotal, setSendLogsTotal] = useState(0);
@@ -175,27 +161,6 @@ export function AdminAlimtalkPage() {
     }
   };
 
-  const handleChargeRequest = async () => {
-    if (!token) return;
-    setRequesting(true);
-    setMessage('');
-    setError('');
-    try {
-      const data = await postTenantAlimtalkChargeRequest(token, {
-        amountKrw: chargeAmountKrw,
-        memo: chargeMemo.trim() || undefined,
-      });
-      setSettings(data);
-      setChargeMemo('');
-      setMessage(`${chargeAmountKrw.toLocaleString('ko-KR')}원 충전 신청을 접수했습니다. 입금 후 반영까지 시간이 걸릴 수 있습니다.`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '충전 신청 실패');
-    } finally {
-      setRequesting(false);
-    }
-  };
-
-  const bankLine = settings ? formatBankLine(settings.bank) : null;
   const editable = Boolean(settings?.licensed && settings?.planAllows);
 
   return (
@@ -280,65 +245,27 @@ export function AdminAlimtalkPage() {
           </section>
 
           <section className={CARD}>
-            <h2 className="text-fluid-sm font-semibold text-gray-900">충전 신청</h2>
-            <p className="text-fluid-2xs text-gray-500">
-              {ALIMTALK_CHARGE_UNIT_KRW.toLocaleString('ko-KR')}원 단위, 1회 최대{' '}
-              {ALIMTALK_CHARGE_MAX_KRW.toLocaleString('ko-KR')}원. 입금 확인 후 잔액에 반영됩니다.
-            </p>
-            {bankLine ? (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs text-slate-700">
-                입금 계좌: {bankLine}
-                {settings.bank.paymentGuideText ? (
-                  <>
-                    <br />
-                    {settings.bank.paymentGuideText}
-                  </>
-                ) : null}
-              </p>
-            ) : null}
-            {settings.pendingChargeRequest ? (
-              <p className="text-fluid-2xs text-amber-800">
-                처리 대기 중: {settings.pendingChargeRequest.amountKrw.toLocaleString('ko-KR')}원 (
-                {new Date(settings.pendingChargeRequest.createdAt).toLocaleString('ko-KR')} 신청)
-              </p>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              {TENANT_ALIMTALK_CHARGE_PRESETS_KRW.map((amount) => (
-                <button
-                  key={amount}
-                  type="button"
-                  disabled={!editable || requesting || Boolean(settings.pendingChargeRequest)}
-                  className={`rounded-lg border px-3 py-1.5 text-fluid-xs tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
-                    chargeAmountKrw === amount
-                      ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setChargeAmountKrw(amount)}
-                >
-                  {amount.toLocaleString('ko-KR')}원
-                </button>
-              ))}
-            </div>
-            <label className="block text-fluid-2xs text-gray-500">
-              메모 (선택, 입금자명 등)
-              <input
-                type="text"
-                className={INPUT_BASE}
-                value={chargeMemo}
-                disabled={!editable || requesting || Boolean(settings.pendingChargeRequest)}
-                onChange={(e) => setChargeMemo(e.target.value)}
-              />
-            </label>
-            <div className="flex justify-end">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-fluid-sm font-semibold text-gray-900">지갑 충전</h2>
               <button
                 type="button"
                 className={BTN_PRIMARY}
-                disabled={!editable || requesting || Boolean(settings.pendingChargeRequest)}
-                onClick={() => void handleChargeRequest()}
+                disabled={!editable}
+                onClick={() => setChargeOpen(true)}
               >
-                {requesting ? '신청 중…' : `${chargeAmountKrw.toLocaleString('ko-KR')}원 충전 신청`}
+                충전
               </button>
             </div>
+            <p className="text-fluid-2xs text-gray-500">영수증과 같은 청소비서 지갑입니다. 카드는 바로 반영되고, 무통장 입금은 확인 후 반영됩니다.</p>
+            {chargeOpen ? (
+              <WalletChargeModal
+                onClose={() => setChargeOpen(false)}
+                onDone={() => {
+                  setChargeOpen(false);
+                  void load();
+                }}
+              />
+            ) : null}
             {settings.recentChargeLogs.length > 0 ? (
               <div className="border-t border-gray-100 pt-3">
                 <h3 className="text-fluid-2xs font-medium text-gray-700">최근 충전 반영</h3>
@@ -349,12 +276,14 @@ export function AdminAlimtalkPage() {
                       className="flex flex-wrap items-baseline justify-between gap-x-2 text-fluid-2xs text-gray-600"
                     >
                       <span className="tabular-nums">
-                        +{log.amountKrw.toLocaleString('ko-KR')}원 → 잔액{' '}
+                        {log.tenantLabel ? `${log.tenantLabel} ` : ''}
+                        {log.amountKrw > 0 ? '+' : ''}
+                        {log.amountKrw.toLocaleString('ko-KR')}원 → 잔액{' '}
                         {log.balanceAfterKrw.toLocaleString('ko-KR')}원
                       </span>
                       <span className="text-gray-400">
                         {new Date(log.createdAt).toLocaleString('ko-KR')}
-                        {log.memo ? ` · ${log.memo}` : ''}
+                        {log.reason ? ` · ${log.reason}` : ''}
                       </span>
                     </li>
                   ))}

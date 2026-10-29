@@ -359,7 +359,7 @@ export function PlatformTenantListPage() {
     <div className="min-w-0 space-y-4 sm:space-y-5 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">업체 관리</h1>
+          <h1 className="text-xl font-bold text-gray-900">업체 목록</h1>
           <p className="mt-0.5 text-sm text-gray-500">
             {periodYm} 기준 · 업체 목록과 코인·AI·알림톡 사용량을 한 화면에서 확인합니다. 요약을 누르면 목록이
             필터됩니다.

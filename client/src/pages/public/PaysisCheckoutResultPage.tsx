@@ -32,8 +32,14 @@ export function PaysisCheckoutResultPage({ title }: { title: string }) {
         <p className="text-fluid-sm font-semibold text-slate-900">{title}</p>
         <p className="mt-2 text-fluid-xs text-slate-600">이 창은 닫아도 됩니다. 결제 결과는 업체로 전달됩니다.</p>
         <Link
-          to={mainPath()}
+          to="/admin/inquiries/receipts/cashbill"
           className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 text-fluid-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        >
+          지갑으로 돌아가기
+        </Link>
+        <Link
+          to={mainPath()}
+          className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white text-fluid-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
         >
           메인으로
         </Link>

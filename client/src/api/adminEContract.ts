@@ -603,7 +603,15 @@ export function buildEContractPublicSignUrl(token: string): string {
 }
 
 export type EContractFieldFilledByKind = 'SIGNER' | 'ADMIN' | 'AUTO';
-export type EContractFieldInputTypeKind = 'TEXT' | 'TEXTAREA' | 'DATE' | 'NUMBER' | 'PHONE' | 'RRN';
+export type EContractFieldInputTypeKind =
+  | 'TEXT'
+  | 'TEXTAREA'
+  | 'DATE'
+  | 'NUMBER'
+  | 'PHONE'
+  | 'RRN'
+  | 'CHECKBOX'
+  | 'SEAL';
 
 export type EContractFieldDefinitionDto = {
   id: string;

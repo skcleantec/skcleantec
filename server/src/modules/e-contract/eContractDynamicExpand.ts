@@ -19,10 +19,18 @@ function signatureMarkup(url: string): string {
   return `<img src="${src}" alt="서명" crossorigin="anonymous" class="e-contract-signer-signature-img inline-block max-w-[260px] align-middle border border-gray-200 bg-white p-1" loading="lazy" />`;
 }
 
+function sealMarkup(url: string): string {
+  if (!signerSignatureUrlLooksValid(url)) return '';
+  const src = escapeHtml(url.trim());
+  return `<img src="${src}" alt="도장" crossorigin="anonymous" class="e-contract-seal-img inline-block h-16 w-16 object-contain align-middle" loading="lazy" />`;
+}
+
 function formatValueForHtml(token: string, raw: string): string {
   const t = raw.trim();
   if (!t) return '';
   if (token === EC_SIGNATURE_TOKEN) return signatureMarkup(t);
+  if (token.includes('SEAL') && signerSignatureUrlLooksValid(t)) return sealMarkup(t);
+  if (t === '■' || t === '□') return `<span class="e-contract-check">${t}</span>`;
   return escapeHtml(t).replace(/\n/g, '<br />');
 }
 

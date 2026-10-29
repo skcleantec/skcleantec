@@ -106,7 +106,7 @@ export function PlatformDbMarketplacePage() {
   return (
     <div className="min-w-0 space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">정보공유 관리</h1>
+        <h1 className="text-xl font-bold text-gray-900">DB 마켓</h1>
         <p className="mt-0.5 text-sm text-gray-500">
           회원사 간 접수 정보 공유·인계 현황입니다. 고객 PII는 표시하지 않으며, 플랫폼은 거래 당사자가 아닙니다.
         </p>

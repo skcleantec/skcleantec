@@ -47,6 +47,14 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
   },
   {
     type: 'group',
+    label: '카드결재',
+    children: [
+      { to: '/admin/team-leaders/card-payment', end: true, label: '결제 내역' },
+      { to: '/admin/team-leaders/card-payment/pg', label: 'PG 연동' },
+    ],
+  },
+  {
+    type: 'group',
     label: '사용자등록',
     children: [
       {
@@ -151,6 +159,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         to: '/admin/team-leaders/alimtalk',
         label: '알림톡',
         title: '알림톡 이용·충전·발송 설정',
+      },
+      {
+        to: '/admin/team-leaders/cashbill',
+        label: '계산서 연결',
+        title: '브랜드별 현금영수증 회원사 가입',
       },
       {
         to: '/admin/team-leaders/inspection-template',

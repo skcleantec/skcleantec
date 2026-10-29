@@ -166,6 +166,8 @@ export type UsageFeeCardPaymentRow = {
   memo: string | null;
   invoiceApplied: boolean;
   paidAt: string;
+  needsReconcile?: boolean;
+  cancelBlockReason?: string | null;
 };
 
 export async function fetchUsageFeeCardPayments(limit: number, offset: number, payMethod?: string) {
@@ -184,7 +186,7 @@ export async function cancelUsageFeeCardPayment(id: string) {
     headers: platformHeaders(),
   });
   if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<{ ok: true }>;
+  return res.json() as Promise<{ ok: true; needsReconcile?: boolean; message?: string }>;
 }
 
 export async function payPlatformUsageFeeKeyin(input: {

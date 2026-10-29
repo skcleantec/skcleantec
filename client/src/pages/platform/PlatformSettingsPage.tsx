@@ -9,12 +9,13 @@ import { PlatformSettingsSmtpTab } from './settings/PlatformSettingsSmtpTab';
 import { PlatformSettingsBillingNotifyTab } from './settings/PlatformSettingsBillingNotifyTab';
 import { PlatformSettingsEmailTemplatesTab } from './settings/PlatformSettingsEmailTemplatesTab';
 import { PlatformSettingsLegalTab } from './settings/PlatformSettingsLegalTab';
+import { PlatformSettingsBankTab } from './settings/PlatformSettingsBankTab';
 import { CARD_SECTION } from '../../utils/platformUi';
 
 function PlatformSettingsBusinessTab() {
   return (
     <section className={`${CARD_SECTION} text-sm text-gray-600`}>
-      <h2 className="text-sm font-semibold text-gray-900">사업자 정보</h2>
+      <h2 className="text-sm font-semibold text-gray-900">우리 회사 정보</h2>
       <p className="mt-2">
         사업자등록번호·상호·대표자·주소 등 플랫폼 운영사 정보를 관리하는 화면입니다. 추후 제공 예정입니다.
       </p>
@@ -28,6 +29,7 @@ function TabPanel({ tab }: { tab: PlatformSettingsTabId }) {
   if (tab === 'email-templates') return <PlatformSettingsEmailTemplatesTab />;
   if (tab === 'business') return <PlatformSettingsBusinessTab />;
   if (tab === 'legal') return <PlatformSettingsLegalTab />;
+  if (tab === 'bank') return <PlatformSettingsBankTab />;
   return null;
 }
 

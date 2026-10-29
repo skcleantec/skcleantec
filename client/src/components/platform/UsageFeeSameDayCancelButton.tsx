@@ -12,7 +12,20 @@ export function UsageFeeSameDayCancelButton({
   onDone: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  if (row.needsReconcile) return <span className="text-xs text-amber-800">반영 확인 필요</span>;
   if (!row.cancelable) return <span className="text-gray-400">—</span>;
+  if (row.cancelBlockReason) {
+    return (
+      <div className="max-w-xs space-y-1 text-left">
+        <button type="button" className={BTN} disabled>
+          전액 취소
+        </button>
+        <p className="text-xs leading-snug text-amber-800" title={row.cancelBlockReason}>
+          {row.cancelBlockReason}
+        </p>
+      </div>
+    );
+  }
 
   if (row.payMethod === 'KEYIN') {
     return (
@@ -32,7 +45,10 @@ export function UsageFeeSameDayCancelButton({
         if (!ok) return;
         setBusy(true);
         void cancelUsageFeeCardPayment(row.id)
-          .then(() => onDone())
+          .then((result) => {
+            onDone();
+            if (result.needsReconcile && result.message) window.alert(result.message);
+          })
           .catch((e: unknown) => window.alert(e instanceof Error ? e.message : '전액 취소를 하지 못했습니다.'))
           .finally(() => setBusy(false));
       }}
