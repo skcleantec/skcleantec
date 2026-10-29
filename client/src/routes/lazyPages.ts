@@ -473,6 +473,9 @@ export const PlatformReferrerDetailPage = lazyWithRetry(() =>
 export const PlatformBillingPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformBillingPage').then((m) => ({ default: m.PlatformBillingPage }))
 );
+export const PlatformInboxHubPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformInboxHubPage').then((m) => ({ default: m.PlatformInboxHubPage }))
+);
 export const PlatformBillingSettlementPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformBillingSettlementPage').then((m) => ({
     default: m.PlatformBillingSettlementPage,

@@ -45,7 +45,7 @@ export function PlatformCardChargePage() {
   return (
     <div className="min-w-0 w-full max-w-5xl space-y-6 pb-8">
       <div className="space-y-3">
-        <h1 className="text-xl font-semibold text-gray-900">카드결재</h1>
+        <h1 className="text-xl font-semibold text-gray-900">수기 카드결제</h1>
         <PlatformCardPaymentTabs />
       </div>
       <section className={CARD_SECTION}>

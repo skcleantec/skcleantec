@@ -9,7 +9,7 @@ export function PlatformPgFeeLedgerPage() {
       <PgFeeLedgerView
         basePath="/platform/card-payment/fee-ledger"
         token={() => getPlatformToken() ?? ''}
-        title="수수료 현황"
+        title="PG 수수료"
       />
     </div>
   );

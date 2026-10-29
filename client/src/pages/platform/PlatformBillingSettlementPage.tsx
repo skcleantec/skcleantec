@@ -51,7 +51,7 @@ export function PlatformBillingSettlementPage() {
         setTotal(res.total);
         setError(null);
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : '정산 기록을 불러오지 못했습니다.'));
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : '입금 내역을 불러오지 못했습니다.'));
   }, [page, pageSize, method]);
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export function PlatformBillingSettlementPage() {
     <div className="min-w-0 w-full max-w-6xl space-y-4 pb-8">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">정산</h1>
+          <h1 className="text-xl font-semibold text-gray-900">입금 내역</h1>
           <p className="mt-1 text-sm text-gray-500">
             입금 확인은 통장, 카드 승인은 카드로 남습니다. 카드 금액은 이용료에 부가세 10%를 더한 금액입니다.
           </p>
@@ -81,7 +81,7 @@ export function PlatformBillingSettlementPage() {
           to="/platform/billing"
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
         >
-          결제 관리
+          이용료 청구
         </Link>
       </div>
       <section className={CARD_SECTION}>
@@ -160,7 +160,7 @@ export function PlatformBillingSettlementPage() {
             </tbody>
           </table>
         </div>
-        {items.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">아직 정산 기록이 없습니다.</p> : null}
+        {items.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">아직 입금 내역이 없습니다.</p> : null}
         <ListPaginationBar
           mode="nav"
           page={page}

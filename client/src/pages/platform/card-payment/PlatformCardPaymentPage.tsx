@@ -82,7 +82,7 @@ export function PlatformCardPaymentPage() {
       <section className={CARD_SECTION}>
         <h2 className="text-sm font-semibold text-gray-900">이용료 결제 (서비스브릿지)</h2>
         <p className="mt-1 text-xs text-gray-500">
-          솔루션 이용료 전용입니다. 팀장 청소비 결재에는 쓰이지 않습니다. 수기 승인은 카드결재 탭에서 받습니다.
+          솔루션 이용료 전용입니다. 팀장 청소비 결재에는 쓰이지 않습니다. 수기 승인은 수기 카드결제에서 받습니다.
         </p>
         <ul className="mt-3 space-y-1 text-sm text-gray-800">
           <li>

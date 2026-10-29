@@ -68,7 +68,7 @@ export function PlatformHelpCmsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">도움말 CMS</h1>
+          <h1 className="text-2xl font-bold text-gray-900">도움말</h1>
           <p className="mt-1 text-sm text-gray-600">
             청소비서 `/help`에 게시할 글을 작성합니다. 사진·설명은 글쓰기 창에서 자유롭게 넣을 수 있습니다.
           </p>

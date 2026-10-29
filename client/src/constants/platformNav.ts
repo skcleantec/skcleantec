@@ -1,88 +1,104 @@
-export type PlatformNavItem = {
+export type PlatformNavLink = {
   label: string;
   to: string;
-  icon: string;
-  children?: { label: string; to: string }[];
 };
 
-export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
-  { label: '업체 관리', to: '/platform/tenants', icon: '🏢', children: [{ label: '유료 전환 신청', to: '/platform/plan-upgrade-requests' }, { label: '문의 링크 신청', to: '/platform/landing-contact-link-requests' }, { label: '가입승인 게시판', to: '/platform/signup-inquiries' }] },
-  { label: '추천인', to: '/platform/referrers', icon: '🤝' },
+export type PlatformNavGroup = {
+  label: string;
+  items: PlatformNavLink[];
+};
+
+/** 플랫폼 사이드바 6개 업무 그룹. 경로 문자열은 기존 화면을 그대로 가리킨다. */
+export const PLATFORM_NAV_GROUPS: PlatformNavGroup[] = [
   {
-    label: '결제 관리',
-    to: '/platform/billing',
-    icon: '💳',
-    children: [
-      { label: '정산', to: '/platform/billing/settlement' },
-      { label: '카드결제 PG', to: '/platform/card-payment' },
-      { label: '전자계약', to: '/platform/card-payment/e-contract' },
-      { label: '카드결재', to: '/platform/card-payment/charge' },
-      { label: '현금영수증 회원', to: '/platform/barobill-members' },
+    label: '오늘 할 일',
+    items: [
+      { label: '오늘 할 일', to: '/platform/inbox' },
+      { label: '가입승인 게시판', to: '/platform/signup-inquiries' },
+      { label: '유료 전환 신청', to: '/platform/plan-upgrade-requests' },
+      { label: '문의 링크 신청', to: '/platform/landing-contact-link-requests' },
     ],
   },
-  { label: '가입 체험 이벤트', to: '/platform/signup-trial-events', icon: '🎁' },
   {
-    label: '안내팝업',
-    to: '/platform/popups/unpaid',
-    icon: '🔔',
-    children: [{ label: '미결재 팝업', to: '/platform/popups/unpaid' }, { label: '타업체·테넌트 홍보', to: '/platform/popups/partner-promo' }],
+    label: '업체',
+    items: [
+      { label: '업체 목록', to: '/platform/tenants' },
+      { label: '업체 추가', to: '/platform/tenants/new' },
+    ],
   },
-  { label: '정보공유', to: '/platform/db-marketplace', icon: '🛒' },
-  { label: '메시지', to: '/platform/messages', icon: '💬' },
-  { label: '고객센터', to: '/platform/customer-boards', icon: '📋', children: [{ label: '공지·문의', to: '/platform/customer-boards' }, { label: '카테고리', to: '/platform/customer-boards/categories?board=notice' }] },
-  { label: '도움말 CMS', to: '/platform/help-cms', icon: '📚' },
-  { label: '지원 접속', to: '/platform/support-access', icon: '🔑' },
-  // { label: '플랜 설정', to: '/platform/plans', icon: '📋' },
-  // { label: '공지 발송', to: '/platform/notices', icon: '📢' },
+  {
+    label: '매출·수납',
+    items: [
+      { label: '이용료 청구', to: '/platform/billing' },
+      { label: '입금 내역', to: '/platform/billing/settlement' },
+      { label: '수기 카드결제', to: '/platform/card-payment/charge' },
+      { label: 'PG 수수료', to: '/platform/card-payment/fees' },
+    ],
+  },
+  {
+    label: '부가서비스',
+    items: [
+      { label: '카드결제 PG', to: '/platform/card-payment' },
+      { label: '전자계약', to: '/platform/card-payment/e-contract' },
+      { label: '계산서(바로빌)', to: '/platform/barobill-members' },
+      { label: 'DB 마켓', to: '/platform/db-marketplace' },
+    ],
+  },
+  {
+    label: '마케팅·고객',
+    items: [
+      { label: '가입 체험 이벤트', to: '/platform/signup-trial-events' },
+      { label: '추천인', to: '/platform/referrers' },
+      { label: '미결재 팝업', to: '/platform/popups/unpaid' },
+      { label: '타업체·테넌트 홍보', to: '/platform/popups/partner-promo' },
+      { label: '고객센터', to: '/platform/customer-boards' },
+      { label: '도움말', to: '/platform/help-cms' },
+      { label: '메시지', to: '/platform/messages' },
+    ],
+  },
+  {
+    label: '설정',
+    items: [
+      { label: '우리 회사 정보', to: '/platform/settings/business' },
+      { label: '입금 계좌·연체', to: '/platform/settings/bank' },
+      { label: '메일', to: '/platform/settings/smtp' },
+      { label: '고객 메일', to: '/platform/settings/email-templates' },
+      { label: '약관', to: '/platform/settings/legal' },
+      { label: '이용료 알림', to: '/platform/settings/billing-notify' },
+      { label: '지원 접속', to: '/platform/support-access' },
+    ],
+  },
 ];
 
+function pathOnly(to: string): string {
+  const q = to.indexOf('?');
+  return q === -1 ? to : to.slice(0, q);
+}
+
 export function isPlatformNavActive(pathname: string, to: string): boolean {
-  if (to === '/platform/tenants') {
+  const path = pathOnly(to);
+  if (path === '/platform/tenants/new') return pathname === path;
+  if (path === '/platform/tenants') {
     return (
       pathname === '/platform/tenants' ||
-      pathname === '/platform/plan-upgrade-requests' ||
-      pathname === '/platform/landing-contact-link-requests' ||
-      pathname === '/platform/signup-inquiries' ||
-      /^\/platform\/tenants\/[^/]+$/.test(pathname)
+      (/^\/platform\/tenants\/[^/]+$/.test(pathname) && pathname !== '/platform/tenants/new')
     );
   }
-  if (to === '/platform/card-payment/e-contract') return pathname.startsWith('/platform/card-payment/e-contract');
-  if (to === '/platform/card-payment') return pathname === '/platform/card-payment';
-  if (to === '/platform/card-payment/charge') return pathname.startsWith('/platform/card-payment/charge');
-  if (to === '/platform/billing') {
-    return (
-      pathname === '/platform/billing' ||
-      pathname.startsWith('/platform/billing/') ||
-      pathname.startsWith('/platform/card-payment') ||
-      pathname.startsWith('/platform/barobill-members')
-    );
+  if (path === '/platform/card-payment/e-contract') return pathname.startsWith(path);
+  if (path === '/platform/card-payment/charge') return pathname.startsWith(path);
+  if (path === '/platform/card-payment/fees') return pathname.startsWith(path);
+  if (path === '/platform/card-payment') return pathname === path;
+  if (path === '/platform/billing/settlement') return pathname.startsWith(path);
+  if (path === '/platform/billing') return pathname === path;
+  if (path === '/platform/customer-boards') {
+    return pathname === path || pathname.startsWith(`${path}/`);
   }
-  if (to === '/platform/signup-trial-events') {
-    return (
-      pathname === '/platform/signup-trial-events' ||
-      pathname.startsWith('/platform/signup-trial-events/')
-    );
+  if (path === '/platform/settings/smtp') {
+    return pathname === '/platform/settings' || pathname === path;
   }
-  if (to === '/platform/referrers') {
-    return pathname === '/platform/referrers' || pathname.startsWith('/platform/referrers/');
-  }
-  if (to === '/platform/popups/unpaid') {
-    return pathname === '/platform/popups/unpaid' || pathname.startsWith('/platform/popups/partner-promo');
-  }
-  if (to === '/platform/customer-boards') {
-    return (
-      pathname === '/platform/customer-boards' ||
-      pathname.startsWith('/platform/customer-boards/')
-    );
-  }
-  if (to === '/platform/messages') {
-    return pathname === '/platform/messages' || pathname.startsWith('/platform/messages/');
-  }
-  if (to === '/platform/help-inquiry') {
-    return pathname.startsWith('/platform/customer-boards');
-  }
-  if (to === '/platform/help-cms') {
-    return pathname === '/platform/help-cms' || pathname.startsWith('/platform/help-cms/');
-  }
-  return pathname === to || pathname.startsWith(`${to}/`);
+  if (path.startsWith('/platform/settings/')) return pathname === path;
+  if (path === '/platform/popups/unpaid') return pathname === path;
+  if (path === '/platform/popups/partner-promo') return pathname.startsWith(path);
+  if (path === '/platform/help-inquiry') return pathname.startsWith('/platform/customer-boards');
+  return pathname === path || pathname.startsWith(`${path}/`);
 }

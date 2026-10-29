@@ -1,54 +1,36 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { PLATFORM_NAV_ITEMS, isPlatformNavActive } from '../../constants/platformNav';
+import { PLATFORM_NAV_GROUPS, isPlatformNavActive } from '../../constants/platformNav';
 import { clearPlatformToken } from '../../stores/platformAuth';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 
 function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
     <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-y-contain px-3 py-2">
-      {PLATFORM_NAV_ITEMS.map((item) => {
-        const active = isPlatformNavActive(pathname, item.to);
-        const childActive = item.children?.some((c) => isPlatformNavActive(pathname, c.to)) ?? false;
-        return (
-          <Fragment key={item.to}>
-            <NavLink
-              to={item.to}
-              end={item.to === '/platform/tenants'}
-              onClick={onNavigate}
-              className={[
-                'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
-                active || childActive
-                  ? 'bg-white/10 font-medium text-white'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white',
-              ].join(' ')}
-            >
-              <span className="text-base leading-none" aria-hidden>
-                {item.icon}
-              </span>
-              {item.label}
-            </NavLink>
-            {item.children?.map((child) => {
-              const subActive = isPlatformNavActive(pathname, child.to);
-              return (
-                <NavLink
-                  key={child.to}
-                  to={child.to}
-                  onClick={onNavigate}
-                  className={[
-                    'ml-3 flex items-center rounded-lg py-2 pl-7 pr-3 text-sm transition-colors',
-                    subActive
-                      ? 'bg-white/10 font-medium text-white'
-                      : 'text-gray-500 hover:bg-white/5 hover:text-gray-200',
-                  ].join(' ')}
-                >
-                  {child.label}
-                </NavLink>
-              );
-            })}
-          </Fragment>
-        );
-      })}
+      {PLATFORM_NAV_GROUPS.map((group) => (
+        <div key={group.label} className="mb-1">
+          <p className="px-3 pb-1 pt-3 text-xs font-semibold text-gray-500">{group.label}</p>
+          {group.items.map((item) => {
+            const active = isPlatformNavActive(pathname, item.to);
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/platform/tenants' || item.to === '/platform/card-payment' || item.to === '/platform/billing'}
+                onClick={onNavigate}
+                className={[
+                  'flex items-center rounded-lg px-3 py-2 text-sm transition-colors',
+                  active
+                    ? 'bg-white/10 font-medium text-white'
+                    : 'text-gray-400 hover:bg-white/5 hover:text-white',
+                ].join(' ')}
+              >
+                {item.label}
+              </NavLink>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }
@@ -74,23 +56,6 @@ export function PlatformLayout() {
       </div>
       <SidebarNav pathname={pathname} onNavigate={onNavigate} />
       <div className="mt-auto shrink-0 space-y-1 border-t border-white/10 p-3">
-        <NavLink
-          to="/platform/settings/legal"
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            [
-              'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
-              isActive || pathname.startsWith('/platform/settings')
-                ? 'bg-white/10 font-medium text-white'
-                : 'text-gray-400 hover:bg-white/5 hover:text-white',
-            ].join(' ')
-          }
-        >
-          <span className="text-base leading-none" aria-hidden>
-            ⚙️
-          </span>
-          설정
-        </NavLink>
         <button
           type="button"
           onClick={handleLogout}

@@ -540,10 +540,13 @@ export async function listBarobillMembersForPlatform(query: {
   datePreset?: string;
   month?: string;
   day?: string;
+  tenantId?: string;
   limit: number;
   offset: number;
 }) {
   const where: Prisma.BarobillMemberWhereInput = {};
+  const tenantId = query.tenantId?.trim();
+  if (tenantId) where.tenantId = tenantId;
   if (query.env === 'test' || query.env === 'prod') where.env = query.env;
   if (
     query.status === 'ACTIVE' ||
@@ -580,6 +583,8 @@ export async function listBarobillMembersForPlatform(query: {
         businessRegistrationImageUrl: true,
         corpName: true,
         barobillUserId: true,
+        certValid: true,
+        certExpireDate: true,
         createdAt: true,
         updatedAt: true,
         tenant: { select: { name: true, slug: true } },
@@ -616,6 +621,8 @@ export async function listBarobillMembersForPlatform(query: {
       businessRegistrationImageUrl: row.businessRegistrationImageUrl,
       corpName: row.corpName,
       hasUserId: row.barobillUserId.length > 0,
+      certValid: row.certValid,
+      certExpireDate: row.certExpireDate,
       corpNumMasked: maskCorpNum(row.corpNum),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),

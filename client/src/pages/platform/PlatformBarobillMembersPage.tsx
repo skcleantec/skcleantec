@@ -200,7 +200,7 @@ export function PlatformBarobillMembersPage() {
 
   return (
     <div className="min-w-0 w-full max-w-full space-y-3">
-      <h1 className="text-fluid-lg font-semibold text-slate-900">현금영수증 회원</h1>
+      <h1 className="text-fluid-lg font-semibold text-slate-900">계산서(바로빌)</h1>
       {holds.length > 0 ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">
           <p className="font-medium">발급 보류</p>

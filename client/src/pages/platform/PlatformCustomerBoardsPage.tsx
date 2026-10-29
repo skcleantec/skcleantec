@@ -139,6 +139,12 @@ export function PlatformCustomerBoardsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/platform/customer-boards/categories?board=${activeBoard?.slug ?? 'notice'}`}
+            className={BTN_SECONDARY}
+          >
+            카테고리
+          </Link>
           {activeBoard?.boardType === 'NOTICE' ? (
             <Link
               to={`/platform/customer-boards/notice/posts/new`}
@@ -214,9 +220,6 @@ export function PlatformCustomerBoardsPage() {
             >
               {savingSettings ? '저장 중…' : '설정 저장'}
             </button>
-            <Link to={`/platform/customer-boards/categories?board=${activeBoard.slug}`} className={BTN_SECONDARY}>
-              카테고리 관리
-            </Link>
           </div>
         </div>
       ) : null}

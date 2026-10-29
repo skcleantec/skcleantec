@@ -47,9 +47,15 @@ export async function savePlatformCardPaymentSettings(body: { tenantFeeBps: numb
   return res.json();
 }
 
-export async function fetchPlatformPgOnboardings(query: { status?: string; limit: number; offset: number }) {
+export async function fetchPlatformPgOnboardings(query: {
+  status?: string;
+  tenantId?: string;
+  limit: number;
+  offset: number;
+}) {
   const q = new URLSearchParams();
   if (query.status) q.set('status', query.status);
+  if (query.tenantId) q.set('tenantId', query.tenantId);
   q.set('limit', String(query.limit));
   q.set('offset', String(query.offset));
   const res = await fetch(`${API}/platform/card-payment/onboardings?${q}`, { headers: platformHeaders() });

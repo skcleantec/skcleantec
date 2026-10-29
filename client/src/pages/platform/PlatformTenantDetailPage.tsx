@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   getPlatformTenant,
   normalizePlatformTenantAdmins,
@@ -17,6 +17,12 @@ import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
 import { PlatformTenantAlimtalkPanel } from './PlatformTenantAlimtalkPanel';
 import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
 import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
+import { PlatformTenantFeatureReasonTable } from '../../components/platform/PlatformTenantFeatureReasonTable';
+import { PlatformTenantAddonStatus } from '../../components/platform/PlatformTenantAddonStatus';
+import {
+  PlatformTenantSetupChecklist,
+  type TenantDetailTabId,
+} from '../../components/platform/PlatformTenantSetupChecklist';
 import { PlatformTenantSignupBusinessSection } from '../../components/platform/PlatformTenantSignupBusinessSection';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
@@ -77,17 +83,27 @@ const SETTINGS_FIELDS: {
   },
 ];
 
-const TABS = [
+const TABS: { id: TenantDetailTabId; label: string }[] = [
   { id: 'overview', label: '개요' },
-  { id: 'plan', label: '플랜 · 기능' },
-  { id: 'usage', label: '이용량' },
-  { id: 'billing', label: '결제' },
-  { id: 'settings', label: '설정' },
-  { id: 'admins', label: '관리자 계정' },
-  { id: 'danger', label: '위험 구역' },
-] as const;
+  { id: 'billing', label: '요금·청구' },
+  { id: 'features', label: '기능' },
+  { id: 'addons', label: '부가서비스' },
+  { id: 'account', label: '사업자·계정' },
+  { id: 'danger', label: '위험' },
+];
 
-type TabId = (typeof TABS)[number]['id'];
+const LEGACY_TAB: Record<string, TenantDetailTabId> = {
+  plan: 'billing',
+  usage: 'addons',
+  settings: 'account',
+  admins: 'account',
+};
+
+function resolveTenantDetailTab(raw: string | null): TenantDetailTabId {
+  if (raw && TABS.some((tab) => tab.id === raw)) return raw as TenantDetailTabId;
+  if (raw && LEGACY_TAB[raw]) return LEGACY_TAB[raw];
+  return 'overview';
+}
 
 type TenantWithStats = PlatformTenantDetail['tenant'] & {
   userCount?: number;
@@ -100,6 +116,9 @@ type DetailWithStats = PlatformTenantDetail & {
 
 export function PlatformTenantDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab');
+  const activeTab = resolveTenantDetailTab(rawTab);
   const [detail, setDetail] = useState<DetailWithStats | null>(null);
   const [features, setFeatures] = useState<PlatformTenantFeatureRow[]>([]);
   const [name, setName] = useState('');
@@ -110,8 +129,17 @@ export function PlatformTenantDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [planSubTab, setPlanSubTab] = useState<'modules' | 'crm' | 'alimtalk'>('modules');
+  const setActiveTab = (tab: TenantDetailTabId) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (tab === 'overview') next.delete('tab');
+        else next.set('tab', tab);
+        return next;
+      },
+      { replace: true },
+    );
+  };
   const [configForm, setConfigForm] = useState<TenantConfigFormFields>(EMPTY_TENANT_CONFIG_FORM);
   const [configJson, setConfigJson] = useState('{}');
   const [configErr, setConfigErr] = useState('');
@@ -142,6 +170,11 @@ export function PlatformTenantDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!rawTab || rawTab === activeTab) return;
+    setActiveTab(activeTab);
+  }, [rawTab, activeTab]);
 
   const saveBasics = async (overrides?: Partial<{ slug: string; name: string; plan: string; status: string }>) => {
     const token = getPlatformToken();
@@ -393,7 +426,20 @@ export function PlatformTenantDetailPage() {
               </div>
             ))}
           </div>
+          {id ? (
+            <PlatformTenantSetupChecklist
+              tenantId={id}
+              detail={detail}
+              features={features}
+              admins={admins}
+              onOpenTab={setActiveTab}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
+      {activeTab === 'account' ? (
+        <div className="space-y-5">
           <section className={CARD_SECTION}>
             <h2 className="text-base font-semibold text-gray-900">기본 정보</h2>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -461,33 +507,9 @@ export function PlatformTenantDetailPage() {
         </div>
       ) : null}
 
-      {activeTab === 'plan' ? (
+      {(activeTab === 'billing' || activeTab === 'features' || activeTab === 'addons') ? (
         <div className="space-y-5">
-          <div className="flex gap-0 overflow-x-auto border-b border-gray-200">
-            {(
-              [
-                { id: 'modules' as const, label: '플랜 · 기능 모듈' },
-                { id: 'crm' as const, label: 'CRM · 연동' },
-                { id: 'alimtalk' as const, label: '알림톡' },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setPlanSubTab(tab.id)}
-                className={[
-                  '-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-                  planSubTab === tab.id
-                    ? 'border-gray-900 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
-                ].join(' ')}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {planSubTab === 'crm' && id ? (
+          {activeTab === 'addons' && id ? (
             <PlatformTenantTelecrmPanel
               tenantId={id}
               disabled={saving}
@@ -495,7 +517,7 @@ export function PlatformTenantDetailPage() {
             />
           ) : null}
 
-          {planSubTab === 'alimtalk' && id ? (
+          {activeTab === 'addons' && id ? (
             <PlatformTenantAlimtalkPanel
               tenantId={id}
               disabled={saving}
@@ -503,8 +525,13 @@ export function PlatformTenantDetailPage() {
             />
           ) : null}
 
-          {planSubTab === 'modules' ? (
+          {activeTab === 'addons' && id ? <PlatformTenantAddonStatus tenantId={id} /> : null}
+
+          {activeTab === 'addons' && id ? <PlatformTenantUsagePanel tenantId={id} /> : null}
+
+          {(activeTab === 'billing' || activeTab === 'features') ? (
             <>
+          {activeTab === 'billing' ? (
           <section className={CARD_SECTION}>
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-gray-900">플랜 선택</h2>
@@ -582,14 +609,15 @@ export function PlatformTenantDetailPage() {
               </button>
             </div>
           </section>
+          ) : null}
 
+          {activeTab === 'features' ? (
           <section className={CARD_SECTION}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-semibold text-gray-900">기능 모듈 개별 설정</h2>
+                <h2 className="text-base font-semibold text-gray-900">기능 모듈</h2>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  테넌트 GNB·하위 메뉴를 카테고리별로 보고, 연결된 기능 모듈을 on/off 할 수 있습니다. core
-                  모듈은 잠겨 있습니다.
+                  플랜에 포함된 값과 이 업체만 바꾼 값을 함께 봅니다. 메뉴 on/off는 아래 화면 표시 설정에서 그대로 저장합니다.
                 </p>
               </div>
               <button
@@ -601,11 +629,17 @@ export function PlatformTenantDetailPage() {
                 플랜 기본값으로 재설정
               </button>
             </div>
-            <PlatformTenantFeatureCatalog
-              features={features}
-              onToggle={toggleFeature}
-              disabled={saving}
-            />
+            <div className="mt-3">
+              <PlatformTenantFeatureReasonTable features={features} />
+            </div>
+            <details open className="mt-3 rounded-lg border border-gray-200 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-gray-800">화면 표시 설정</summary>
+              <PlatformTenantFeatureCatalog
+                features={features}
+                onToggle={toggleFeature}
+                disabled={saving}
+              />
+            </details>
             <div className="flex justify-end border-t border-gray-100 pt-3">
               <button
                 type="button"
@@ -617,21 +651,20 @@ export function PlatformTenantDetailPage() {
               </button>
             </div>
           </section>
+          ) : null}
             </>
           ) : null}
         </div>
       ) : null}
 
-      {activeTab === 'usage' && id ? <PlatformTenantUsagePanel tenantId={id} /> : null}
-
       {activeTab === 'billing' && id ? (
         <PlatformTenantBillingPanel tenantId={id} compact />
       ) : null}
 
-      {activeTab === 'settings' ? (
+      {activeTab === 'account' ? (
         <div className="space-y-5">
           <section className={CARD_SECTION}>
-            <h2 className="text-base font-semibold text-gray-900">화면 표시 설정</h2>
+            <h2 className="text-base font-semibold text-gray-900">표시 문구</h2>
             <p className="mb-4 mt-0.5 text-xs text-gray-500">
               코드 없이 입력만으로 업체별 표시 문구와 기본값을 설정합니다.
             </p>
@@ -692,7 +725,7 @@ export function PlatformTenantDetailPage() {
         </div>
       ) : null}
 
-      {activeTab === 'admins' ? (
+      {activeTab === 'account' ? (
         <section className={CARD_SECTION}>
           <h2 className="text-base font-semibold text-gray-900">관리자 계정</h2>
           <p className="mb-4 text-xs text-gray-500">

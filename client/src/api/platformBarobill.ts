@@ -12,6 +12,8 @@ export type PlatformBarobillMemberRow = {
   businessRegistrationImageUrl: string | null;
   corpName: string;
   hasUserId: boolean;
+  certValid: boolean | null;
+  certExpireDate: string | null;
   corpNumMasked: string;
   createdAt: string;
   updatedAt: string;

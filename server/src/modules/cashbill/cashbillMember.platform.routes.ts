@@ -24,6 +24,7 @@ router.get('/members', async (req, res) => {
       datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : 'all',
       month: typeof req.query.month === 'string' ? req.query.month : undefined,
       day: typeof req.query.day === 'string' ? req.query.day : undefined,
+      tenantId: typeof req.query.tenantId === 'string' ? req.query.tenantId : undefined,
       limit,
       offset,
     });

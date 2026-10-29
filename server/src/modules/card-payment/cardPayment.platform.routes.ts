@@ -128,7 +128,8 @@ router.get('/onboardings', async (req, res) => {
   const status = ONBOARDING_STATUSES.includes(statusRaw as TenantPgOnboardingStatus)
     ? (statusRaw as TenantPgOnboardingStatus)
     : undefined;
-  const result = await listOnboardingsForPlatform({ status, limit, offset });
+  const tenantId = typeof req.query.tenantId === 'string' ? req.query.tenantId : undefined;
+  const result = await listOnboardingsForPlatform({ status, tenantId, limit, offset });
   res.json(result);
 });
 

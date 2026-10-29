@@ -338,11 +338,14 @@ export async function getOnboardingByReviewToken(token: string) {
 
 export async function listOnboardingsForPlatform(query: {
   status?: TenantPgOnboardingStatus;
+  tenantId?: string;
   limit: number;
   offset: number;
 }) {
   const where: Prisma.TenantPgOnboardingWhereInput = {};
   if (query.status) where.status = query.status;
+  const tenantId = query.tenantId?.trim();
+  if (tenantId) where.tenantId = tenantId;
   const [items, total] = await Promise.all([
     prisma.tenantPgOnboarding.findMany({
       where,
