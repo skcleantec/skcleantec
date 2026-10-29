@@ -69,7 +69,8 @@ export function hydrateAdminSessionFromAuthMe(u: AuthMeSnapshot): AdminAuthMeHyd
     showVolumeStatsMenu: Boolean(u.showVolumeStats),
     isPlatformSupportAccess: Boolean(u.isPlatformSupportAccess),
     suppressCelebrateBar: Boolean(u.isPlatformSupportAccess) || isTeamPreviewAdminEmail(email),
-    tenantFeatures: Array.isArray(u.features) ? u.features : role ? [] : null,
+    // features 가 없으면 빈 배열로 두지 않는다. 빈 배열은 FeatureGate가 기능을 끈 것으로 보고 대시보드로 보낸다.
+    tenantFeatures: Array.isArray(u.features) ? u.features : null,
     tenantTelecrm: parseTelecrmCapabilitiesFromMe((u as { telecrm?: unknown }).telecrm),
     tenantPlan:
       typeof (u.tenant as { plan?: string } | undefined)?.plan === 'string'

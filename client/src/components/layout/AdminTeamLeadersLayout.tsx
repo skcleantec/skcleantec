@@ -25,6 +25,7 @@ export function AdminTeamLeadersLayout() {
   const token = getToken();
   const location = useLocation();
   const { features, plan } = useTenantCapabilities();
+  const capabilitiesKnown = features !== null;
   const { ready, staffMe } = useAdminStaffSession();
   const [pgConnected, setPgConnected] = useState(false);
   const [pgLoaded, setPgLoaded] = useState(false);
@@ -76,17 +77,25 @@ export function AdminTeamLeadersLayout() {
   if (!token) {
     return <Navigate to="/login" replace />;
   }
-  if (ready && !hasTeamLeadersAccess) {
+  // JWT만 있는 첫 화면은 기능·권한이 아직 없다. 이때 대시보드로 보내면 주소 직접 열기·새로고침이 끊긴다.
+  if (!ready || !capabilitiesKnown) {
+    return (
+      <div className="min-w-0 w-full max-w-full p-8 text-center text-fluid-sm text-slate-500">
+        메뉴 권한 확인 중…
+      </div>
+    );
+  }
+  if (!hasTeamLeadersAccess) {
     return <Navigate to="/admin/dashboard" replace />;
   }
-  if (ready && staffMe && navItems.length === 0) {
+  if (staffMe && navItems.length === 0) {
     return (
       <div className="min-w-0 w-full max-w-full p-8 text-center text-fluid-sm text-gray-600">
         관리자 전용 메뉴에 접근할 권한이 없습니다.
       </div>
     );
   }
-  if (ready && staffMe && !pathAllowed && fallbackPath && fallbackPath !== location.pathname.split('?')[0]) {
+  if (staffMe && !pathAllowed && fallbackPath && fallbackPath !== location.pathname.split('?')[0]) {
     return <Navigate to={fallbackPath} replace />;
   }
   if (pgLoaded && !pgConnected && location.pathname.startsWith('/admin/team-leaders/card-payment')) {
