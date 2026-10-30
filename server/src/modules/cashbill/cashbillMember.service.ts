@@ -10,6 +10,7 @@ import { BarobillCallError } from '../../lib/barobill/soap.js';
 import { checkCorpIsMember, newBarobillPassword, newBarobillUserId, registCorp } from '../../lib/barobill/ti.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { isBlankSupplierField } from '../taxinvoice/supplierFieldText.js';
+import { parseTenantConfig } from '../tenants/tenantConfig.schema.js';
 import { refreshBarobillCerts } from '../taxinvoice/taxInvoiceCert.service.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 
@@ -57,8 +58,53 @@ function assertMemberEnv(env: string): void {
   }
 }
 
-async function loadSignupProfile(tenantId: string) {
-  const [signup, pg] = await Promise.all([
+type BusinessField = 'corpNum' | 'corpName' | 'ceoName' | 'addr1';
+
+const BUSINESS_FIELD_LABEL: Record<BusinessField, string> = {
+  corpNum: '사업자번호',
+  corpName: '상호',
+  ceoName: '대표자',
+  addr1: '주소',
+};
+
+type BusinessProfile = {
+  businessType: 'registered_business' | 'individual' | null;
+  corpNum: string;
+  corpName: string;
+  ceoName: string;
+  addr1: string;
+  contactTel: string;
+  contactEmail: string;
+  contactName: string;
+};
+
+function firstFilled(...values: unknown[]): string {
+  for (const value of values) {
+    const text = realSupplierText(value);
+    if (text) return text;
+  }
+  return '';
+}
+
+function missingBusinessFields(profile: Pick<BusinessProfile, BusinessField>): BusinessField[] {
+  const missing: BusinessField[] = [];
+  if (!profile.corpNum) missing.push('corpNum');
+  if (!profile.corpName) missing.push('corpName');
+  if (!profile.ceoName) missing.push('ceoName');
+  if (!profile.addr1) missing.push('addr1');
+  return missing;
+}
+
+function missingBusinessMessage(missing: BusinessField[]): string {
+  return `사업자정보에 ${missing.map((key) => BUSINESS_FIELD_LABEL[key]).join('·')}가 없습니다.`;
+}
+
+async function loadBusinessProfile(tenantId: string): Promise<BusinessProfile> {
+  const [tenant, signup, pg] = await Promise.all([
+    prisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: { config: true },
+    }),
     prisma.tenantSignupBusiness.findFirst({
       where: { tenantId },
       select: {
@@ -74,15 +120,28 @@ async function loadSignupProfile(tenantId: string) {
       select: { contactName: true, contactPhone: true, contactEmail: true },
     }),
   ]);
-  return { signup, pg };
+  const registration = parseTenantConfig(tenant?.config).companyRegistration;
+  const corpName = firstFilled(registration?.companyName, signup?.businessName);
+  const ceoName = firstFilled(registration?.representativeName, signup?.representativeName);
+  const addr1 = firstFilled(registration?.addressLine, signup?.addressLine);
+  return {
+    businessType: signup?.businessType ?? null,
+    corpNum: normalizeCorpNum(firstFilled(registration?.businessRegistrationNo, signup?.bizNumber)) ?? '',
+    corpName,
+    ceoName,
+    addr1,
+    contactTel: firstFilled(registration?.phone, pg?.contactPhone),
+    contactEmail: firstFilled(registration?.contactEmail, pg?.contactEmail),
+    contactName: firstFilled(pg?.contactName, ceoName),
+  };
 }
 
 export async function getCashbillSettings(tenantId: string) {
   assertBarobillConfigured();
   await refreshBarobillCerts(tenantId).catch(() => undefined);
   const env = resolveBarobillEnv();
-  const { signup, pg } = await loadSignupProfile(tenantId);
-  const individual = signup?.businessType === 'individual';
+  const profile = await loadBusinessProfile(tenantId);
+  const individual = profile.businessType === 'individual';
   const brands = await prisma.operatingCompany.findMany({
     where: { tenantId, isActive: true },
     orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }],
@@ -120,20 +179,21 @@ export async function getCashbillSettings(tenantId: string) {
 
   return {
     env,
-    businessType: signup?.businessType ?? null,
+    businessType: profile.businessType,
     canRegister: !individual,
     blockReason: individual
       ? '개인(비사업자) 업체는 현금영수증 회원사에 가입할 수 없습니다. 사업자등록 업체만 가입할 수 있습니다.'
       : null,
     prefill: {
-      corpNum: normalizeCorpNum(signup?.bizNumber) ?? '',
-      corpName: signup?.businessName?.trim() ?? '',
-      ceoName: signup?.representativeName?.trim() ?? '',
-      addr1: signup?.addressLine?.trim() ?? '',
-      contactName: pg?.contactName?.trim() || signup?.representativeName?.trim() || '',
-      contactTel: pg?.contactPhone?.trim() ?? '',
-      contactEmail: pg?.contactEmail?.trim() ?? '',
+      corpNum: profile.corpNum,
+      corpName: profile.corpName,
+      ceoName: profile.ceoName,
+      addr1: profile.addr1,
+      contactName: profile.contactName,
+      contactTel: profile.contactTel,
+      contactEmail: profile.contactEmail,
     },
+    missing: missingBusinessFields(profile),
     brands: brands.map((brand) => {
       const member = brand.barobillMember;
       const visible = member && member.tenantId === tenantId && member.env === env ? member : null;
@@ -413,22 +473,18 @@ async function claimDefaultBrandProcessing(
 export async function registerCashbillMember(tenantId: string, input: RegisterInput) {
   assertBarobillConfigured();
   const env = resolveBarobillEnv();
-  const { signup, pg } = await loadSignupProfile(tenantId);
-  if (signup?.businessType === 'individual') {
+  const profile = await loadBusinessProfile(tenantId);
+  if (profile.businessType === 'individual') {
     throw new CashbillMemberError('개인(비사업자) 업체는 현금영수증 회원사에 가입할 수 없습니다.');
   }
   const brand = await loadBrandForTenant(tenantId, input.operatingCompanyId);
 
   if (brand.isDefault) {
-    const corpNum = normalizeCorpNum(signup?.bizNumber) ?? '';
-    const corpName = realSupplierText(signup?.businessName);
-    const ceoName = realSupplierText(signup?.representativeName);
-    const addr1 = realSupplierText(signup?.addressLine) || realSupplierText(input.addr1);
-    if (!corpNum || !corpName || !ceoName || !addr1) {
-      throw new CashbillMemberError('사업자정보(사업자번호·상호·대표자·주소)를 먼저 저장해 주세요.');
-    }
+    const missing = missingBusinessFields(profile);
+    if (missing.length > 0) throw new CashbillMemberError(missingBusinessMessage(missing));
+    const { corpNum, corpName, ceoName, addr1 } = profile;
     assertBizChecksum(corpNum);
-    const contact = readContact(input, pg?.contactName?.trim() || ceoName);
+    const contact = readContact(input, profile.contactName || ceoName);
     await assertNoOtherTenantHoldsCorp(env, corpNum, tenantId);
     const existing = await findSameTenantCorp(env, tenantId, corpNum);
     assertSameTenantBrandLink(existing, brand.id);
@@ -837,8 +893,8 @@ export async function updateActiveCashbillContact(tenantId: string, input: Regis
   if (!member || member.tenantId !== tenantId || member.status !== 'ACTIVE') {
     throw new CashbillMemberError('가입완료인 브랜드만 연락 정보를 수정할 수 있습니다.', 409);
   }
-  const { signup, pg } = await loadSignupProfile(tenantId);
-  const contact = readContact(input, pg?.contactName?.trim() || signup?.representativeName?.trim() || '담당자');
+  const profile = await loadBusinessProfile(tenantId);
+  const contact = readContact(input, profile.contactName || '담당자');
   const saved = await prisma.barobillMember.updateMany({
     where: { id: member.id, tenantId, status: 'ACTIVE' },
     data: {

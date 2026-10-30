@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { BAROBILL_MEMBER_STATUS_LABEL } from '@shared/barobillPolicy';
-import { formatBizNumberDisplay } from '@shared/authSignup';
 import { isBlankSupplierField } from '@shared/supplierFieldText';
 import type { CashbillSettings } from '../../api/cashbill';
 import { SupplierInfoModal } from '../taxinvoice/SupplierInfoModal';
@@ -15,9 +14,17 @@ const PRIMARY =
 
 type Brand = CashbillSettings['brands'][number];
 
+function maskBizTitle(raw: string): string {
+  const head = raw.replace(/\D/g, '').slice(0, 3);
+  if (head.length < 3) return '***-**-*****';
+  return `${head}-**-*****`;
+}
+
 export function CashbillBrandCard({
   brand,
   prefill,
+  missing,
+  canEditCompany,
   canRegister,
   onDone,
   onCert,
@@ -25,6 +32,8 @@ export function CashbillBrandCard({
 }: {
   brand: Brand;
   prefill: CashbillSettings['prefill'];
+  missing: CashbillSettings['missing'];
+  canEditCompany: boolean;
   canRegister: boolean;
   onDone: (message: string) => void;
   onCert: (expireDate: string | null) => void;
@@ -39,8 +48,7 @@ export function CashbillBrandCard({
   const days = certDaysLeft(member?.certExpireDate);
   const soon = Boolean(member?.certValid) && days != null && days <= 30;
   const taxReady = Boolean(member?.certValid) && member?.taxType !== '2' && !soon;
-  const corp = formatBizNumberDisplay(member?.corpNum || prefill.corpNum);
-  const name = member?.corpName || prefill.corpName || brand.name;
+  const corpTitle = maskBizTitle(member?.corpNum || prefill.corpNum);
 
   const banner = !active && member && member.status !== 'FAILED'
     ? member.status === 'REJECTED'
@@ -65,7 +73,7 @@ export function CashbillBrandCard({
           {member ? BAROBILL_MEMBER_STATUS_LABEL[member.status] : '미가입'}
         </span>
       </div>
-      <p className="text-fluid-xs text-slate-700">{name} · {corp || '사업자번호 없음'}</p>
+      <p className="text-fluid-xs tabular-nums text-slate-700">{corpTitle}</p>
       {banner ? (
         <div className={`flex flex-col gap-2 rounded-lg border px-3 py-2 text-fluid-xs sm:flex-row sm:items-center sm:justify-between ${banner.tone}`}>
           <p>{banner.text}</p>
@@ -110,7 +118,15 @@ export function CashbillBrandCard({
         </div>
       ) : null}
       {formOpen && !active ? (
-        <CashbillLinkForm brand={brand} prefill={prefill} canRegister={canRegister} mode="join" onDone={onDone} />
+        <CashbillLinkForm
+          brand={brand}
+          prefill={prefill}
+          missing={brand.isDefault ? missing : []}
+          canEditCompany={canEditCompany}
+          canRegister={canRegister}
+          mode="join"
+          onDone={onDone}
+        />
       ) : null}
       {editOpen && member ? (
         <SupplierInfoModal

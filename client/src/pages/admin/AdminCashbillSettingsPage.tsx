@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { ensureInputVisibleAboveKeyboard } from '../../hooks/useMobileInputVisibility';
 import { getStaffAppScrollElement } from '../../utils/staffAppScrollRestore';
 import { fetchCashbillSettings, type CashbillSettings } from '../../api/cashbill';
+import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { CashbillBrandCard } from '../../components/cashbill/CashbillBrandCard';
 
 export function AdminCashbillSettingsPage() {
   const navigate = useNavigate();
+  const permissions = useMarketerPermissions();
+  const canEditCompany = !permissions.loading && permissions.has('admin.companyProfile');
   const [settings, setSettings] = useState<CashbillSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +73,8 @@ export function AdminCashbillSettingsPage() {
             key={`${brand.operatingCompanyId}-${cardKey}`}
             brand={brand}
             prefill={settings.prefill}
+            missing={settings.missing}
+            canEditCompany={canEditCompany}
             canRegister={settings.canRegister}
             onDone={(message) => {
               setNotice(message);

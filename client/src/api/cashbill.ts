@@ -17,6 +17,7 @@ export type CashbillSettings = {
     contactTel: string;
     contactEmail: string;
   };
+  missing: ('corpNum' | 'corpName' | 'ceoName' | 'addr1')[];
   brands: {
     operatingCompanyId: string;
     name: string;
