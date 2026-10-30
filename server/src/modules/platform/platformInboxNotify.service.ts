@@ -68,6 +68,7 @@ export async function notifyPlatformOps(input: {
     console.info('[platform-inbox] 운영 알림 이메일이 없어 메일은 생략합니다.');
     return;
   }
+  console.info(`[platform-inbox] ${input.event} mail recipients=${recipients.length}`);
   const text = input.mailText ?? `${input.title}\n${summary}\n오늘 할 일에서 처리하기 → ${inboxUrl}`;
   const html = input.mailHtml ?? `<p>${escapeHtml(input.title)}</p><p>${escapeHtml(summary)}</p><p><a href="${escapeHtml(inboxUrl)}">오늘 할 일에서 처리하기</a></p>`;
   await Promise.all(

@@ -237,7 +237,24 @@ export type LandingContactSourceLinkBoard = {
     canCreateFree: boolean;
     canCreatePaid: boolean;
     needsApplication: boolean;
-    pendingRequest: { id: string; requestedCount: number; status: string; message: string | null; createdAt: string } | null;
+    billingPhrase: string;
+    pendingRequest: {
+      id: string;
+      requestedCount: number;
+      status: string;
+      message: string | null;
+      createdAt: string;
+      monthlyKrw: number;
+    } | null;
+    latestResult: {
+      id: string;
+      status: 'APPROVED' | 'REJECTED';
+      requestedCount: number;
+      adminNote: string | null;
+      reviewedAt: string | null;
+      monthlyKrw: number;
+      billingPhrase: string;
+    } | null;
   };
 };
 
@@ -300,11 +317,14 @@ export async function updateLandingContactSourceLink(
   return res.json();
 }
 
-export async function createLandingContactLinkRequest(token: string): Promise<void> {
+export async function createLandingContactLinkRequest(
+  token: string,
+  input: { requestedCount: number; message?: string },
+): Promise<void> {
   const res = await fetch(`${API}/landing-contact/source-link-requests`, {
     method: 'POST',
     headers: headers(token),
-    body: JSON.stringify({}),
+    body: JSON.stringify(input),
   });
   if (!res.ok) return readError(res, '신청에 실패했습니다.');
 }

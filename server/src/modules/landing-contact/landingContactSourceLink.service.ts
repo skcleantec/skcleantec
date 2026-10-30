@@ -5,8 +5,17 @@
  */
 import type { LandingContactLinkRequestStatus, LandingContactLinkSlotKind, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 import { toOperatingCompanyPublicSummary } from '../operating-companies/operatingCompanyPublicSummary.js';
+import {
+  formatKstStamp,
+  landingLinkResultEmail,
+  linkMonthlyKrw,
+  loadLinkUsage,
+  notifyLandingLinkPurchaseRequested,
+  notifyLandingLinkPurchaseResult,
+  staffRoleLabel,
+  type LinkUsage,
+} from './landingContactLinkRequestNotify.js';
 import { parseLandingContactCustomFields } from './landingContactForm.schema.js';
 
 export const LANDING_CONTACT_FREE_SHORT_LINK_SLOTS = 2;
@@ -81,7 +90,7 @@ async function approvedPaidSlots(tenantId: string): Promise<number> {
 }
 
 async function slotCounts(tenantId: string) {
-  const [activeFree, activePaid, approved, pending] = await Promise.all([
+  const [activeFree, activePaid, approved, pending, latest] = await Promise.all([
     prisma.landingContactSourceLink.count({
       where: { tenantId, slotKind: 'FREE', isActive: true },
     }),
@@ -93,13 +102,24 @@ async function slotCounts(tenantId: string) {
       where: { tenantId, status: 'PENDING' },
       orderBy: { createdAt: 'desc' },
     }),
+    prisma.landingContactLinkSlotRequest.findFirst({
+      where: { tenantId, status: { in: ['APPROVED', 'REJECTED'] } },
+      orderBy: { reviewedAt: 'desc' },
+    }),
   ]);
-  return { activeFree, activePaid, approved, pending };
+  return { activeFree, activePaid, approved, pending, latest };
 }
 
-function quotaDto(counts: Awaited<ReturnType<typeof slotCounts>>) {
+function quotaDto(counts: Awaited<ReturnType<typeof slotCounts>>, usage: LinkUsage) {
   const canCreateFree = counts.activeFree < LANDING_CONTACT_FREE_SHORT_LINK_SLOTS;
   const canCreatePaid = counts.activePaid < counts.approved;
+  const latest = counts.latest;
+  const reviewedAt = latest?.reviewedAt ?? null;
+  const approvedFresh =
+    latest?.status === 'APPROVED' &&
+    reviewedAt != null &&
+    Date.now() - reviewedAt.getTime() <= 7 * 24 * 60 * 60 * 1000;
+  const showLatest = latest?.status === 'REJECTED' || approvedFresh;
   return {
     freeIncluded: LANDING_CONTACT_FREE_SHORT_LINK_SLOTS,
     activeFree: counts.activeFree,
@@ -107,6 +127,7 @@ function quotaDto(counts: Awaited<ReturnType<typeof slotCounts>>) {
     approvedPaidSlots: counts.approved,
     monthlyKrwPerExtra: LANDING_CONTACT_EXTRA_LINK_MONTHLY_KRW,
     nextInvoiceAddonKrw: landingContactLinkAddonMonthlyKrw(counts.approved),
+    billingPhrase: usage.billingPhrase,
     canCreateFree,
     canCreatePaid,
     needsApplication: !canCreateFree && !canCreatePaid,
@@ -117,8 +138,21 @@ function quotaDto(counts: Awaited<ReturnType<typeof slotCounts>>) {
           status: counts.pending.status,
           message: counts.pending.message,
           createdAt: counts.pending.createdAt.toISOString(),
+          monthlyKrw: linkMonthlyKrw(counts.pending.requestedCount),
         }
       : null,
+    latestResult:
+      showLatest && latest
+        ? {
+            id: latest.id,
+            status: latest.status,
+            requestedCount: latest.requestedCount,
+            adminNote: latest.adminNote,
+            reviewedAt: reviewedAt?.toISOString() ?? null,
+            monthlyKrw: linkMonthlyKrw(latest.requestedCount),
+            billingPhrase: usage.billingPhrase,
+          }
+        : null,
   };
 }
 
@@ -171,10 +205,11 @@ export async function getLandingContactSourceLinkBoard(tenantId: string) {
     listActiveBrands(tenantId),
     slotCounts(tenantId),
   ]);
+  const usage = (await loadLinkUsage([tenantId])).get(tenantId)!;
   return {
     links: links.map(serializeLink),
     brands,
-    quota: quotaDto(counts),
+    quota: quotaDto(counts, usage),
   };
 }
 
@@ -220,7 +255,8 @@ export async function createLandingContactSourceLink(input: {
   if (!label) throw new LandingContactSourceLinkError('유입명을 입력해 주세요. 예: 유튜브, 블로그');
 
   const counts = await slotCounts(input.tenantId);
-  const quota = quotaDto(counts);
+  const usage = (await loadLinkUsage([input.tenantId])).get(input.tenantId)!;
+  const quota = quotaDto(counts, usage);
   let slotKind: LandingContactLinkSlotKind;
   if (quota.canCreateFree) slotKind = 'FREE';
   else if (quota.canCreatePaid) slotKind = 'PAID';
@@ -312,28 +348,44 @@ export async function updateLandingContactSourceLink(input: {
 export async function createLandingContactLinkSlotRequest(input: {
   tenantId: string;
   requesterUserId: string | null;
+  requestedCount: number;
   message?: string | null;
 }) {
+  const count = Math.trunc(input.requestedCount);
+  if (!Number.isFinite(count) || count < 1 || count > 10) {
+    throw new LandingContactSourceLinkError('구매 개수는 1개에서 10개까지 정해 주세요.');
+  }
   const pending = await prisma.landingContactLinkSlotRequest.findFirst({
     where: { tenantId: input.tenantId, status: 'PENDING' },
     select: { id: true },
   });
   if (pending) throw new LandingContactSourceLinkError('이미 검토 중인 신청이 있습니다.', 409);
 
+  const requester = input.requesterUserId
+    ? await prisma.user.findFirst({
+        where: { id: input.requesterUserId, tenantId: input.tenantId },
+        select: { name: true, role: true },
+      })
+    : null;
   const row = await prisma.landingContactLinkSlotRequest.create({
     data: {
       tenantId: input.tenantId,
-      requestedCount: 0,
+      requestedCount: count,
       message: input.message?.trim().slice(0, 500) || null,
       requesterUserId: input.requesterUserId,
       status: 'PENDING',
     },
+    include: { tenant: { select: { name: true } } },
   });
-  void notifyPlatformOps({
-    event: 'link_slot',
+  const usage = (await loadLinkUsage([input.tenantId])).get(input.tenantId)!;
+  void notifyLandingLinkPurchaseRequested({
     tenantId: input.tenantId,
-    title: '문의 링크 추가 요청',
-    body: '개수 미정 · 대기',
+    tenantName: row.tenant.name,
+    count,
+    requestedAt: row.createdAt,
+    requesterLabel: requester ? `${requester.name}(${staffRoleLabel(requester.role)})` : '요청자 없음',
+    message: row.message,
+    usage,
   }).catch((err) => console.error('[platform-inbox] link slot', err instanceof Error ? err.name : 'error'));
   return {
     id: row.id,
@@ -356,6 +408,13 @@ export async function cancelLandingContactLinkSlotRequest(tenantId: string, requ
   return { ok: true };
 }
 
+const STATUS_LABEL: Record<LandingContactLinkRequestStatus, string> = {
+  PENDING: '대기',
+  APPROVED: '승인',
+  REJECTED: '반려',
+  CANCELLED: '취소',
+};
+
 export async function listLandingContactLinkSlotRequestsForPlatform(status?: LandingContactLinkRequestStatus) {
   const rows = await prisma.landingContactLinkSlotRequest.findMany({
     where: status ? { status } : undefined,
@@ -365,18 +424,59 @@ export async function listLandingContactLinkSlotRequestsForPlatform(status?: Lan
       tenant: { select: { id: true, name: true, slug: true } },
     },
   });
-  return rows.map((row) => ({
-    id: row.id,
-    tenantId: row.tenantId,
-    tenantName: row.tenant.name,
-    tenantSlug: row.tenant.slug,
-    requestedCount: row.requestedCount,
-    status: row.status,
-    message: row.message,
-    adminNote: row.adminNote,
-    createdAt: row.createdAt.toISOString(),
-    reviewedAt: row.reviewedAt?.toISOString() ?? null,
-  }));
+  const tenantIds = rows.map((row) => row.tenantId);
+  const requesterIds = rows.map((row) => row.requesterUserId).filter((id): id is string => Boolean(id));
+  const reviewerIds = rows.map((row) => row.reviewedByPlatformUserId).filter((id): id is string => Boolean(id));
+  const [usageMap, users, reviewers] = await Promise.all([
+    loadLinkUsage(tenantIds),
+    requesterIds.length === 0
+      ? Promise.resolve([])
+      : prisma.user.findMany({
+          where: {
+            OR: rows
+              .filter((row) => row.requesterUserId)
+              .map((row) => ({ id: row.requesterUserId as string, tenantId: row.tenantId })),
+          },
+          select: { id: true, tenantId: true, name: true, role: true },
+        }),
+    reviewerIds.length === 0
+      ? Promise.resolve([])
+      : prisma.platformUser.findMany({
+          where: { id: { in: reviewerIds } },
+          select: { id: true, name: true },
+        }),
+  ]);
+  const userByKey = new Map(users.map((user) => [`${user.tenantId}:${user.id}`, user]));
+  const reviewerById = new Map(reviewers.map((user) => [user.id, user.name]));
+  return rows.map((row) => {
+    const usage = usageMap.get(row.tenantId)!;
+    const requester = row.requesterUserId ? userByKey.get(`${row.tenantId}:${row.requesterUserId}`) : undefined;
+    const count = row.requestedCount > 0 ? row.requestedCount : 1;
+    return {
+      id: row.id,
+      tenantId: row.tenantId,
+      tenantName: row.tenant.name,
+      tenantSlug: row.tenant.slug,
+      requestedCount: row.requestedCount,
+      suggestedCount: count,
+      status: row.status,
+      statusLabel: row.status === 'APPROVED' ? `승인 · ${row.requestedCount}개` : STATUS_LABEL[row.status],
+      message: row.message,
+      adminNote: row.adminNote,
+      createdAt: row.createdAt.toISOString(),
+      requestedStamp: formatKstStamp(row.createdAt),
+      reviewedAt: row.reviewedAt?.toISOString() ?? null,
+      reviewedStamp: row.reviewedAt ? formatKstStamp(row.reviewedAt) : null,
+      requesterName: requester?.name ?? null,
+      requesterRoleLabel: requester ? staffRoleLabel(requester.role) : null,
+      reviewerName: row.reviewedByPlatformUserId ? reviewerById.get(row.reviewedByPlatformUserId) ?? null : null,
+      activeFree: usage.activeFree,
+      freeIncluded: usage.freeIncluded,
+      approvedPaid: usage.approvedPaid,
+      billingPhrase: usage.billingPhrase,
+      unitKrw: LANDING_CONTACT_EXTRA_LINK_MONTHLY_KRW,
+    };
+  });
 }
 
 export async function reviewLandingContactLinkSlotRequest(input: {
@@ -394,17 +494,34 @@ export async function reviewLandingContactLinkSlotRequest(input: {
   if (input.approve && (!Number.isFinite(granted) || granted < 1 || granted > 50)) {
     throw new LandingContactSourceLinkError('늘릴 개수는 1개에서 50개까지 정해 주세요.');
   }
+  const reason = input.adminNote?.trim().slice(0, 500) || '';
+  if (!input.approve && !reason) {
+    throw new LandingContactSourceLinkError('반려 사유를 적어 주세요.');
+  }
   const updated = await prisma.landingContactLinkSlotRequest.update({
     where: { id: row.id },
     data: {
       status: input.approve ? 'APPROVED' : 'REJECTED',
       requestedCount: input.approve ? granted : row.requestedCount,
-      adminNote: input.adminNote?.trim().slice(0, 500) || null,
+      adminNote: reason || null,
       reviewedByPlatformUserId: input.platformUserId,
       reviewedAt: new Date(),
     },
     include: { tenant: { select: { id: true, name: true, slug: true } } },
   });
+  try {
+    const usage = (await loadLinkUsage([updated.tenantId])).get(updated.tenantId)!;
+    const to = await landingLinkResultEmail(updated.tenantId, row.requesterUserId);
+    await notifyLandingLinkPurchaseResult({
+      to,
+      approved: input.approve,
+      count: input.approve ? granted : row.requestedCount,
+      reason,
+      billingPhrase: usage.billingPhrase,
+    });
+  } catch (err) {
+    console.error('[landing-link] result mail', err instanceof Error ? err.name : 'error');
+  }
   return {
     id: updated.id,
     tenantId: updated.tenantId,

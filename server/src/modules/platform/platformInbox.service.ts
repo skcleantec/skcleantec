@@ -124,7 +124,6 @@ export async function getPlatformInbox() {
     ),
   ].sort((a, b) => a.waitingSince.localeCompare(b.waitingSince));
 
-  const review = { signup, planUpgrade, landingLink, pg, barobill };
   const barobillLinks = barobillLinkRows.map((row) => {
     const head = row.corpNum.replace(/\D/g, '').slice(0, 3);
     return {
@@ -136,12 +135,14 @@ export async function getPlatformInbox() {
     contactTel: row.contactTel,
   };
   });
-  const reviewTotal = signup + planUpgrade + landingLink + pg + barobill;
+  const barobillTodo = barobill + barobillLinks.length;
+  const review = { signup, planUpgrade, landingLink, pg, barobill: barobillTodo };
+  const reviewTotal = signup + planUpgrade + landingLink + pg + barobillTodo;
   return {
     money,
     barobillLinks,
     review,
-    pendingTotal: money.length + reviewTotal + barobillLinks.length,
+    pendingTotal: money.length + reviewTotal,
   };
 }
 

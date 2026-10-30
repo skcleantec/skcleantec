@@ -97,11 +97,12 @@ router.post('/source-link-requests', requireStaffPermission('leads.edit'), async
     return;
   }
   const auth = (req as unknown as { user: AuthPayload }).user;
-  const body = req.body as { message?: string | null };
+  const body = req.body as { message?: string | null; requestedCount?: number };
   try {
     const row = await createLandingContactLinkSlotRequest({
       tenantId,
       requesterUserId: auth.userId ?? null,
+      requestedCount: Number(body.requestedCount),
       message: body.message,
     });
     res.status(201).json(row);

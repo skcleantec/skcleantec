@@ -8,7 +8,12 @@ const GHOST =
 const INPUT =
   'min-h-9 w-full max-w-[220px] rounded-lg border border-[#dde3ea] px-2 text-fluid-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4fb8] focus-visible:ring-offset-2 disabled:opacity-50';
 
-const CONSOLE_URL = 'https://dev.barobill.co.kr/console/partners';
+function consoleFor(env: string): { label: string; url: string } {
+  if (env === 'prod') {
+    return { label: '운영서버', url: 'https://dev.barobill.co.kr/console/partners' };
+  }
+  return { label: '테스트서버', url: 'https://test.barobill.co.kr' };
+}
 
 function maskDots(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -52,6 +57,7 @@ export function PlatformBarobillLinkCard({
   const [reason, setReason] = useState('');
   const [copied, setCopied] = useState(false);
   const shown = maskDots(row.corpNum);
+  const consoleTarget = consoleFor(row.env);
 
   async function copyCorp() {
     try {
@@ -69,7 +75,7 @@ export function PlatformBarobillLinkCard({
       </p>
       <ol className="list-decimal space-y-3 pl-5 text-fluid-xs text-slate-800">
         <li>
-          바로빌 개발자센터 › <b>운영서버</b> › 회원사 관리 › <b>회원사 추가</b>에서 이 사업자를 연결합니다.
+          바로빌 개발자센터 › <b>{consoleTarget.label}</b> › 회원사 관리 › <b>회원사 추가</b>에서 이 사업자를 연결합니다.
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <span className="tabular-nums">{shown}</span>
             <button type="button" className={GHOST} disabled={busy} onClick={() => void copyCorp()}>
@@ -77,7 +83,7 @@ export function PlatformBarobillLinkCard({
             </button>
             <a
               className="text-fluid-xs font-medium text-[#1f4fb8] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4fb8] focus-visible:ring-offset-2"
-              href={CONSOLE_URL}
+              href={consoleTarget.url}
               target="_blank"
               rel="noreferrer"
             >
