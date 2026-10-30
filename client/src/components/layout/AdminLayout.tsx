@@ -92,6 +92,7 @@ import {
   MOBILE_GNB_ITEM_BASE,
   MOBILE_GNB_ICON_CLASS,
   MOBILE_STAFF_DOCK_BTN_CLASS,
+  MOBILE_STAFF_DOCK_FACE_CLASS,
   MOBILE_STAFF_DOCK_BTN_PX,
   MOBILE_STAFF_DOCK_GAP_PX,
   MOBILE_STAFF_DOCK_ICON_CLASS,
@@ -1494,10 +1495,11 @@ export function AdminLayout() {
               aria-label="발주서 발급으로 이동"
               title={fabDragging ? '세로 위치 이동 중' : '발주서 발급 (길게 눌러 세로 위치만 이동)'}
               onPointerDown={(evt) => beginFabPointer('issue', evt)}
-              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} ${STAFF_MOBILE_FAB_GLASS_AMBER} ${
+              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} text-amber-950 ${
                 fabDragging ? 'cursor-grabbing' : 'cursor-pointer'
               }`}
             >
+              <span aria-hidden className={`${MOBILE_STAFF_DOCK_FACE_CLASS} ${STAFF_MOBILE_FAB_GLASS_AMBER}`} />
               <OrderIssueFabIcon className={MOBILE_STAFF_DOCK_ICON_CLASS} />
             </button>
           )}
@@ -1507,10 +1509,11 @@ export function AdminLayout() {
               aria-label="스케줄 바로가기"
               title={fabDragging ? '세로 위치 이동 중' : '스케줄 바로가기 (길게 눌러 세로 위치만 이동)'}
               onPointerDown={(evt) => beginFabPointer('schedule', evt)}
-              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} ${STAFF_MOBILE_FAB_GLASS_BLUE} ${
+              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} text-white ${
                 fabDragging ? 'cursor-grabbing' : 'cursor-pointer'
               }`}
             >
+              <span aria-hidden className={`${MOBILE_STAFF_DOCK_FACE_CLASS} ${STAFF_MOBILE_FAB_GLASS_BLUE}`} />
               <CalendarCuteIcon className={`${MOBILE_STAFF_DOCK_ICON_CLASS} drop-shadow-sm`} />
             </button>
           )}

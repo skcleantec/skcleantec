@@ -54,10 +54,10 @@ export function NavFavoriteStar({ navKey, label, onDark = false, compact = false
     [ready, toggle, navKey, label, max],
   );
 
-  const size = compact ? 'h-3.5 w-3.5' : 'h-4 w-4';
+  const size = compact ? 'h-4 w-4' : 'h-5 w-5';
   const btnClass = [
-    'inline-flex shrink-0 items-center justify-center rounded-md touch-manipulation transition-colors',
-    compact ? 'min-h-7 min-w-7' : 'min-h-9 min-w-9',
+    'inline-flex shrink-0 items-center justify-center rounded-md touch-manipulation transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2',
+    compact ? 'min-h-11 min-w-11 lg:min-h-7 lg:min-w-7' : 'min-h-11 min-w-11 lg:min-h-9 lg:min-w-9',
     onDark
       ? active
         ? 'text-amber-300 hover:text-amber-200'

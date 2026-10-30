@@ -9,8 +9,8 @@ import {
 
 /** NavFavoritesRightRail·UI 가이드와 동일 — 길게 누르기 후 세로 이동 */
 export const STAFF_MOBILE_FAB_HOLD_MS = 420;
-/** 롱프레스 대기 중 이 이상 움직이면 홀드 취소(짧은 탭과 구분) */
-const HOLD_CANCEL_MOVE_PX = 10;
+/** 롱프레스 대기 중 이 이상 움직이면 홀드 취소. 손가락 떨림(10px 안팎)은 탭으로 둔다. */
+const HOLD_CANCEL_MOVE_PX = 28;
 
 export type StaffMobileFabPressRefs = {
   pointerIdRef: MutableRefObject<number | null>;

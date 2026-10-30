@@ -1226,7 +1226,8 @@ body.team-mobile-bottom-nav-suppressed .team-mobile-bottom-nav {
   }
 }
 
-.staff-mobile-fab-glass-violet:active {
+.staff-mobile-fab-glass-violet:active,
+button:active > .staff-mobile-fab-glass-violet {
   box-shadow:
     0 4px 14px rgba(109, 40, 217, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
@@ -1234,7 +1235,10 @@ body.team-mobile-bottom-nav-suppressed .team-mobile-bottom-nav {
 
 .staff-mobile-fab-glass-amber:active,
 .staff-mobile-fab-glass-blue:active,
-.staff-mobile-fab-glass-emerald:active {
+.staff-mobile-fab-glass-emerald:active,
+button:active > .staff-mobile-fab-glass-amber,
+button:active > .staff-mobile-fab-glass-blue,
+button:active > .staff-mobile-fab-glass-emerald {
   box-shadow:
     0 4px 14px rgba(15, 23, 42, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);

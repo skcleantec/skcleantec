@@ -6,7 +6,11 @@ export const MOBILE_STAFF_DOCK_GAP_PX = 4;
 /** glass FAB 공통 — `index.css` `.staff-mobile-fab-glass*` */
 export const STAFF_MOBILE_FAB_GLASS_BASE = 'staff-mobile-fab-glass';
 
-export const MOBILE_STAFF_DOCK_BTN_CLASS = `relative flex h-[44px] w-[44px] shrink-0 touch-manipulation items-center justify-center rounded-full ${STAFF_MOBILE_FAB_GLASS_BASE} transition-[transform,box-shadow,background] active:scale-[0.94]`;
+/** 네모 히트 영역. 원형 얼굴은 자식 span — border-radius는 모서리 탭을 버튼 뒤로 통과시킨다. */
+export const MOBILE_STAFF_DOCK_BTN_CLASS =
+  'relative flex h-[44px] w-[44px] shrink-0 touch-manipulation items-center justify-center bg-transparent active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
+
+export const MOBILE_STAFF_DOCK_FACE_CLASS = `pointer-events-none absolute inset-0 rounded-full ${STAFF_MOBILE_FAB_GLASS_BASE}`;
 
 export const MOBILE_STAFF_DOCK_ICON_CLASS = 'relative z-[1] h-5 w-5';
 

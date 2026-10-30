@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import {
   MOBILE_STAFF_DOCK_BTN_CLASS,
+  MOBILE_STAFF_DOCK_FACE_CLASS,
   MOBILE_STAFF_DOCK_ICON_CLASS,
   STAFF_MOBILE_FAB_BADGE_CLASS,
   STAFF_MOBILE_FAB_GLASS_VIOLET,
@@ -52,12 +53,14 @@ function MobileNavFavoritesSheet({
   items: MobileNavFavoriteItem[];
 }) {
   const [visible, setVisible] = useState(false);
+  const openedAtRef = useRef(0);
 
   useEffect(() => {
     if (!open) {
       setVisible(false);
       return;
     }
+    openedAtRef.current = performance.now();
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
   }, [open]);
@@ -92,7 +95,10 @@ function MobileNavFavoritesSheet({
         className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${
           visible ? 'opacity-100' : 'opacity-0'
         }`}
-        onClick={onClose}
+        onClick={() => {
+          if (performance.now() - openedAtRef.current < 450) return;
+          onClose();
+        }}
       />
       <div
         role="dialog"
@@ -164,21 +170,20 @@ type FabButtonProps = {
   count: number;
   onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onOpen: () => void;
-  /** admin/team FAB 스택 — 탭은 부모 pointerup에서 처리 */
-  deferTapToParent?: boolean;
 };
 
-function MobileNavFavoritesFabButton({ count, onPointerDown, onOpen, deferTapToParent }: FabButtonProps) {
+function MobileNavFavoritesFabButton({ count, onPointerDown, onOpen }: FabButtonProps) {
   return (
     <div className="relative h-[44px] w-[44px] shrink-0">
       <button
         type="button"
         aria-label={count > 0 ? `즐겨찾기 ${count}개 — 메뉴 열기` : '즐겨찾기 — 메뉴 열기'}
         title="즐겨찾기 (길게 눌러 세로 위치 이동)"
-        onClick={deferTapToParent ? undefined : onOpen}
+        onClick={onOpen}
         onPointerDown={onPointerDown}
-        className={`${MOBILE_STAFF_DOCK_BTN_CLASS} ${STAFF_MOBILE_FAB_GLASS_VIOLET}`}
+        className={`${MOBILE_STAFF_DOCK_BTN_CLASS} text-white`}
       >
+        <span aria-hidden className={`${MOBILE_STAFF_DOCK_FACE_CLASS} ${STAFF_MOBILE_FAB_GLASS_VIOLET}`} />
         <StarFabIcon className={MOBILE_STAFF_DOCK_ICON_CLASS} />
       </button>
       {count > 0 ? (
@@ -240,7 +245,6 @@ export function MobileNavFavoritesAccess({
           count={items.length}
           onOpen={openPanel}
           onPointerDown={fabStack.onPointerDown}
-          deferTapToParent
         />
       ) : null}
       <MobileNavFavoritesSheet open={open} onClose={closePanel} items={items} />

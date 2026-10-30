@@ -16,6 +16,7 @@ import {
 import { staffDesktopDockButtonClass } from '../layout/staffRightRailStyles';
 import {
   MOBILE_STAFF_DOCK_BTN_CLASS,
+  MOBILE_STAFF_DOCK_FACE_CLASS,
   MOBILE_STAFF_DOCK_ICON_CLASS,
   STAFF_MOBILE_FAB_BADGE_CLASS,
   STAFF_MOBILE_FAB_GLASS_EMERALD,
@@ -429,9 +430,7 @@ export function ChangeLogBell({
               dragging: bellDragging,
             })
           : mobileStack
-            ? `${MOBILE_STAFF_DOCK_BTN_CLASS} ${
-                unseen > 0 ? STAFF_MOBILE_FAB_GLASS_EMERALD : STAFF_MOBILE_FAB_GLASS_WHITE_EMERALD
-              } ${bellDragging ? 'scale-110 cursor-grabbing ring-2 ring-emerald-400/80' : 'cursor-pointer'} ${
+            ? `${MOBILE_STAFF_DOCK_BTN_CLASS} ${unseen > 0 ? 'text-white' : 'text-emerald-700'} ${bellDragging ? 'scale-110 cursor-grabbing ring-2 ring-emerald-400/80' : 'cursor-pointer'} ${
                 blink && unseen > 0 && !bellDragging ? 'animate-pulse' : ''
               }`
             : `relative flex h-10 w-10 shrink-0 touch-none items-center justify-center rounded-full border shadow-md transition-[transform,box-shadow,colors] active:scale-[0.94] ${
@@ -443,6 +442,14 @@ export function ChangeLogBell({
             }`
       }
     >
+      {mobileStack ? (
+        <span
+          aria-hidden
+          className={`${MOBILE_STAFF_DOCK_FACE_CLASS} ${
+            unseen > 0 ? STAFF_MOBILE_FAB_GLASS_EMERALD : STAFF_MOBILE_FAB_GLASS_WHITE_EMERALD
+          }`}
+        />
+      ) : null}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
