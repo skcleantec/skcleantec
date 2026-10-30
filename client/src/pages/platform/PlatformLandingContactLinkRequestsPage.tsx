@@ -71,10 +71,9 @@ export function PlatformLandingContactLinkRequestsPage() {
   return (
     <div className="min-w-0 max-w-[760px] space-y-4">
       <div>
-        <p className="text-fluid-2xs font-bold tracking-wide text-slate-500">플랫폼 › 문의 링크 신청</p>
-        <h1 className="text-xl font-semibold text-slate-900">대기 카드</h1>
+        <h1 className="text-xl font-semibold text-slate-900">문의 링크 신청</h1>
         <p className="mt-1 text-fluid-sm text-slate-600">
-          승인할 개수와 월 금액이 버튼에 같이 나옵니다. 처리한 카드는 전체에서 승인·반려로 남고, 영문 상태는 나오지 않습니다.
+          업체가 링크 구매를 누르면 여기에 들어옵니다. 늘릴 개수를 정하고 승인하면, 그 개수 × 월 5,000원이 아직 청구서가 없는 이번 달 이용료부터 더해집니다.
         </p>
       </div>
       <div className="flex gap-2">

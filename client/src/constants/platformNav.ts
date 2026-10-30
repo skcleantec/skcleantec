@@ -31,7 +31,7 @@ export const PLATFORM_NAV_GROUPS: PlatformNavGroup[] = [
     items: [
       { label: '이용료 청구', to: '/platform/billing' },
       { label: '입금 내역', to: '/platform/billing/settlement' },
-      { label: '수기 카드결제', to: '/platform/card-payment/charge' },
+      { label: '카드결제', to: '/platform/card-payment/charge' },
       { label: 'PG 수수료', to: '/platform/card-payment/fees' },
     ],
   },

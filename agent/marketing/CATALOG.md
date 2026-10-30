@@ -282,7 +282,7 @@ PG가 연결된 뒤에만 왼쪽 메뉴에 나옵니다.
 |------|-----------|------|
 | 오늘 할 일 | 오늘 할 일, 가입승인 게시판, 유료 전환 신청, 문의 링크 신청 | `/platform/inbox`. 왼쪽 메뉴에 대기 건수. 돈 처리에서 승인·반려. 카드 취소 후 반영이 안 끝나면 **반영 확인 필요** |
 | 업체 | 업체 목록, 업체 추가 | `/platform/tenants`, `/platform/tenants/new` |
-| 매출·수납 | 이용료 청구, 입금 내역, 수기 카드결제, PG 수수료 | `/platform/billing`, `/platform/billing/settlement`, `/platform/card-payment/charge`, `/platform/card-payment/fees` |
+| 매출·수납 | 이용료 청구, 입금 내역, 카드결제, PG 수수료 | `/platform/billing`, `/platform/billing/settlement`, `/platform/card-payment/charge`, `/platform/card-payment/fees` |
 | 부가서비스 | 카드결제 PG, 전자계약, 계산서(바로빌), DB 마켓 | 기존 주소 그대로. 코인 사용 주소 `/platform/coin-usage`는 메뉴 없이 그대로 열림 |
 | 마케팅·고객 | 가입 체험 이벤트, 추천인, 미결재 팝업, 타업체·테넌트 홍보, 고객센터, 도움말, 메시지 | 고객센터 상단 **카테고리** 버튼. 메시지 안 읽음은 호박색 숫자 `#fbbf24` |
 | 설정 | 우리 회사 정보, 입금 계좌·연체, 메일, 고객 메일, 약관, 이용료 알림, 지원 접속 | 입금 계좌는 `/platform/settings/bank` |

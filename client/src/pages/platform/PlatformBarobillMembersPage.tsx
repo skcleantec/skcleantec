@@ -466,11 +466,8 @@ function ReviewActions({
   onCheck: () => void;
   onRelease: () => void;
 }) {
-  if (row.status === 'LINK_REQUIRED' && row.linkRequestedAt) {
-    return <PlatformBarobillLinkCard row={row} busy={busy} onComplete={onComplete} onReturn={onReturn} />;
-  }
   if (row.status === 'LINK_REQUIRED') {
-    return <LinkComplete userId={userId} busy={busy} onUserId={onUserId} onComplete={onComplete} />;
+    return <PlatformBarobillLinkCard row={row} busy={busy} onComplete={onComplete} onReturn={onReturn} />;
   }
   if (row.confirmNeeded) {
     return (

@@ -71,7 +71,9 @@ export function PlatformBarobillLinkCard({
   return (
     <div className="space-y-3 text-left">
       <p className="text-fluid-2xs text-slate-500">
-        {formatKstStamp(row.linkRequestedAt)} 요청 · 바로빌 아이디: {row.linkRequestUserIdHint?.trim() || '적지 않음'} · 담당 {row.contactTel || '없음'}
+        {row.linkRequestedAt
+          ? `${formatKstStamp(row.linkRequestedAt)} 요청 · 바로빌 아이디: ${row.linkRequestUserIdHint?.trim() || '적지 않음'} · 담당 ${row.contactTel || '없음'}`
+          : '업체 요청 전'}
       </p>
       <ol className="list-decimal space-y-3 pl-5 text-fluid-xs text-slate-800">
         <li>
