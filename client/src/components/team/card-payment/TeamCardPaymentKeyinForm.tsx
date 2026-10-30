@@ -78,6 +78,8 @@ export function TeamCardPaymentKeyinForm({
         <label className={TEAM_PAY_LABEL}>
           카드번호
           <input
+            id="kc-no"
+            name="kc-no"
             inputMode="numeric"
             autoComplete="off"
             className={`${TEAM_PAY_FIELD} tabular-nums tracking-wide`}
@@ -90,6 +92,9 @@ export function TeamCardPaymentKeyinForm({
           <label className={TEAM_PAY_LABEL}>
             유효기간 월
             <select
+              id="kc-mm"
+              name="kc-mm"
+              autoComplete="off"
               className={TEAM_PAY_FIELD}
               value={card.expireMM}
               onChange={(e) => setCard((prev) => ({ ...prev, expireMM: e.target.value }))}
@@ -105,6 +110,9 @@ export function TeamCardPaymentKeyinForm({
           <label className={TEAM_PAY_LABEL}>
             유효기간 년
             <select
+              id="kc-yy"
+              name="kc-yy"
+              autoComplete="off"
               className={TEAM_PAY_FIELD}
               value={card.expireYY}
               onChange={(e) => setCard((prev) => ({ ...prev, expireYY: e.target.value }))}
@@ -121,6 +129,9 @@ export function TeamCardPaymentKeyinForm({
         <label className={TEAM_PAY_LABEL}>
           할부
           <select
+            id="kc-inst"
+            name="kc-inst"
+            autoComplete="off"
             className={TEAM_PAY_FIELD}
             value={card.installment}
             onChange={(e) => setCard((prev) => ({ ...prev, installment: e.target.value }))}
@@ -136,9 +147,11 @@ export function TeamCardPaymentKeyinForm({
           <label className={TEAM_PAY_LABEL}>
             비밀번호 앞 2자리
             <input
+              id="kc-pin"
+              name="kc-pin"
               type="password"
               inputMode="numeric"
-              autoComplete="off"
+              autoComplete="new-password"
               maxLength={2}
               className={TEAM_PAY_FIELD}
               value={card.certPw}
@@ -148,6 +161,8 @@ export function TeamCardPaymentKeyinForm({
           <label className={TEAM_PAY_LABEL}>
             생년월일 또는 사업자번호
             <input
+              id="kc-owner"
+              name="kc-owner"
               inputMode="numeric"
               autoComplete="off"
               className={TEAM_PAY_FIELD}

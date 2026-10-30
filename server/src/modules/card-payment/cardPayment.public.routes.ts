@@ -33,10 +33,6 @@ router.get('/link/:token', async (req, res) => {
     res.status(404).json({ error: '결제 링크가 없거나 만료되었습니다.' });
     return;
   }
-  if ('expired' in data) {
-    res.status(410).json({ error: '결제 링크가 만료되었습니다.' });
-    return;
-  }
   res.json(data);
 });
 

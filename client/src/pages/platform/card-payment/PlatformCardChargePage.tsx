@@ -3,9 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { fetchPlatformSellerCenterStatus, revealPlatformSellerCenter } from '../../../api/platformCardPayment';
 import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
 import { PlatformCardPaymentTabs } from './PlatformCardPaymentTabs';
+import { Button } from '../../../components/ui/Button';
 import { PlatformUsageFeeKeyinForm } from './PlatformUsageFeeKeyinForm';
 import { PlatformPayLinkPanel } from './PlatformPayLinkPanel';
 import { PlatformPayHistory } from './PlatformPayHistory';
+import type { PayLinkSeed } from './keyinPayUi';
 
 const TABS = [
   { id: 'keyin', label: '수기 결제' },
@@ -25,6 +27,14 @@ export function PlatformCardChargePage() {
   const tab = tabOf(params.get('tab'));
   const [sellerSaved, setSellerSaved] = useState<boolean | null>(null);
   const [sellerError, setSellerError] = useState<string | null>(null);
+  const [linkSeed, setLinkSeed] = useState<PayLinkSeed | null>(null);
+
+  function openTab(id: TabId) {
+    const next = new URLSearchParams(params);
+    next.set('tab', id);
+    next.set('page', '1');
+    setParams(next, { replace: true });
+  }
 
   useEffect(() => {
     void fetchPlatformSellerCenterStatus()
@@ -53,13 +63,7 @@ export function PlatformCardChargePage() {
           </p>
         </div>
         {sellerSaved ? (
-          <button
-            type="button"
-            onClick={openSellerCenter}
-            className="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-          >
-            원성페이 바로가기 ↗
-          </button>
+          <Button size="md" variant="secondary" onClick={openSellerCenter}>원성페이 바로가기 ↗</Button>
         ) : sellerSaved === false ? (
           <p className="max-w-xs text-sm text-gray-600">
             판매자센터 아이디가 저장돼 있지 않아요. 원성 파트너의 서비스브릿지 판매자센터에 아이디를 저장하세요.
@@ -78,20 +82,24 @@ export function PlatformCardChargePage() {
             className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4fb8] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
               tab === item.id ? 'border-[#111a2b] font-semibold text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-800'
             }`}
-            onClick={() => {
-              const next = new URLSearchParams(params);
-              next.set('tab', item.id);
-              next.set('page', '1');
-              setParams(next, { replace: true });
-            }}
+            onClick={() => openTab(item.id)}
           >
             {item.label}
           </button>
         ))}
       </div>
-      <section className="rounded-2xl border border-gray-200 bg-white p-4">
-        {tab === 'keyin' ? <PlatformUsageFeeKeyinForm onPaid={() => undefined} /> : null}
-        {tab === 'link' ? <PlatformPayLinkPanel /> : null}
+      <section className={tab === 'keyin' ? '' : 'rounded-2xl border border-gray-200 bg-white p-4'}>
+        {tab === 'keyin' ? (
+          <PlatformUsageFeeKeyinForm
+            onPaid={() => undefined}
+            onOpenHistory={() => openTab('list')}
+            onSendLink={(seed) => {
+              setLinkSeed(seed);
+              openTab('link');
+            }}
+          />
+        ) : null}
+        {tab === 'link' ? <PlatformPayLinkPanel seed={linkSeed} /> : null}
         {tab === 'list' ? <PlatformPayHistory /> : null}
       </section>
     </div>

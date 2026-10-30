@@ -320,15 +320,7 @@ export async function confirmCardPaymentLink(token: string, id: string) {
 export async function fetchPublicServiceBridgeLink(token: string) {
   const res = await fetch(`${API}/public/card-payment/sb/${encodeURIComponent(token)}`);
   if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<{
-    merchantName: string;
-    goodsName: string;
-    amountKrw: number;
-    buyerName: string | null;
-    statusLabel: string;
-    payable: boolean;
-    expired: boolean;
-  }>;
+  return res.json() as Promise<import('../components/card-payment/PublicPayLinkView').PublicPayLinkViewData>;
 }
 
 export async function openPublicServiceBridgeWindow(token: string, payScreen: 'P' | 'M') {
@@ -344,14 +336,5 @@ export async function openPublicServiceBridgeWindow(token: string, payScreen: 'P
 export async function fetchPublicCardPaymentLink(token: string) {
   const res = await fetch(`${API}/public/card-payment/link/${encodeURIComponent(token)}`);
   if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<{
-    customerName: string;
-    amountWon: number;
-    status: CardPaymentStatus;
-    tenantName: string;
-    inquiryNumber: string | null;
-    goodsName: string | null;
-    paidAt: string | null;
-    pgWindowUrl: string;
-  }>;
+  return res.json() as Promise<import('../components/card-payment/PublicPayLinkView').PublicPayLinkViewData>;
 }

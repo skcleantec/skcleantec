@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { fetchUsageFeeCardPayments, type UsageFeeCardPaymentRow } from '../../../api/platformCardPayment';
+import {
+  cancelUsageFeeCardPayment,
+  closePlatformPayLink,
+  fetchUsageFeeCardPayments,
+  type UsageFeeCardPaymentRow,
+} from '../../../api/platformCardPayment';
+import { InlineConfirm } from '../../../components/ui/InlineConfirm';
 import { ListPaginationBar } from '../../../components/ui/ListPaginationBar';
-import { UsageFeeSameDayCancelButton } from '../../../components/platform/UsageFeeSameDayCancelButton';
+import { RowActions, type RowMenuItem } from '../../../components/ui/RowActions';
 import { INQUIRY_LIST_PAGE_SIZE_OPTIONS, parseInquiryListPageSize, parseListPage } from '../../../utils/listPagination';
 
 const FILTERS = [
@@ -14,21 +20,36 @@ const FILTERS = [
   { id: 'other', label: '기타' },
 ] as const;
 
+const HEADS = ['날짜', '방식', '용도', '업체·건', '상품명', '금액', '상태', '작업'];
+
 function chipClass(label: string): string {
   if (label === '결제 완료') return 'border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]';
   if (label === '결제 대기') return 'border-[#f0d27a] bg-[#fff6dc] text-[#7a5300]';
-  if (label === '취소' || label === '결제 실패') return 'border-red-200 bg-red-50 text-[#b42318]';
-  return 'border-gray-200 bg-gray-100 text-gray-600';
+  if (label === '취소' || label === '결제 실패') return 'border-[#f3b8b1] bg-[#fdecea] text-[#b42318]';
+  return 'border-[#dde3ea] bg-[#f1f3f6] text-[#5d6878]';
 }
 
 function formatWhen(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
 }
 
 function party(row: UsageFeeCardPaymentRow): string {
-  return [row.tenantName, row.inquiryLabel].filter(Boolean).join(' · ') || '—';
+  return [row.tenantName, row.inquiryLabel].filter(Boolean).join(' · ');
+}
+
+function Chip({ label }: { label: string }) {
+  return <span className={`inline-flex h-[22px] items-center whitespace-nowrap rounded-full border px-2 text-xs ${chipClass(label)}`}>{label}</span>;
 }
 
 export function PlatformPayHistory() {
@@ -40,6 +61,8 @@ export function PlatformPayHistory() {
   const [items, setItems] = useState<UsageFeeCardPaymentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [open, setOpen] = useState<{ id: string; kind: 'detail' | 'receipt' | 'cancel' | 'close' } | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const channel = filter === 'keyin' ? 'KEYIN' : filter === 'link' ? 'LINK' : undefined;
   const purpose = filter === 'invoice' ? 'INVOICE' : filter === 'proxy' ? 'CLEANING_PROXY' : filter === 'other' ? 'OTHER' : undefined;
@@ -73,6 +96,68 @@ export function PlatformPayHistory() {
     });
   }
 
+  function actions(row: UsageFeeCardPaymentRow) {
+    const waiting = row.statusLabel === '결제 대기' && Boolean(row.linkUrl);
+    const done = row.status === 'APPROVED';
+    if (!waiting && !done) return { action: undefined, menu: undefined };
+    if (waiting) {
+      return {
+        action: { label: copiedId === row.id ? '복사됨' : '링크 복사', onClick: () => copyLink(row) },
+        menu: [{ label: '링크 닫기', danger: true, onSelect: () => setOpen({ id: row.id, kind: 'close' }) }],
+      };
+    }
+    const menu: RowMenuItem[] = [{ label: '상세 보기', onSelect: () => setOpen({ id: row.id, kind: 'detail' }) }];
+    if (row.cancelable) menu.push({ label: '전액 취소', danger: true, onSelect: () => setOpen({ id: row.id, kind: 'cancel' }) });
+    return {
+      action: { label: '영수증', onClick: () => setOpen({ id: row.id, kind: 'receipt' }) },
+      menu,
+    };
+  }
+
+  function extra(row: UsageFeeCardPaymentRow) {
+    if (open?.id !== row.id) return null;
+    if (open.kind === 'close' || open.kind === 'cancel') {
+      const question = open.kind === 'close' ? '이 결제 링크를 닫을까요?' : `${row.amountKrw.toLocaleString('ko-KR')}원을 취소할까요?`;
+      return (
+        <InlineConfirm
+          question={question}
+          confirmLabel={open.kind === 'close' ? '닫기' : '취소하기'}
+          busy={busy}
+          onCancel={() => setOpen(null)}
+          onConfirm={() => {
+            setBusy(true);
+            const task = open.kind === 'close'
+              ? closePlatformPayLink(row.id)
+              : row.payMethod === 'KEYIN'
+                ? Promise.resolve().then(() => {
+                    window.open('https://wspay.net', '_blank', 'noopener,noreferrer');
+                  })
+                : cancelUsageFeeCardPayment(row.id);
+            void task
+              .then(() => {
+                setOpen(null);
+                load();
+              })
+              .catch((e: unknown) => setError(e instanceof Error ? e.message : '처리하지 못했습니다.'))
+              .finally(() => setBusy(false));
+          }}
+        />
+      );
+    }
+    return (
+      <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-1 py-2 text-xs">
+        <dt className="text-[#5d6878]">상품명</dt>
+        <dd className="truncate">{row.goodsName}</dd>
+        <dt className="text-[#5d6878]">고객</dt>
+        <dd>{row.buyerName || ''}</dd>
+        <dt className="text-[#5d6878]">승인번호</dt>
+        <dd className="tabular-nums">{row.approvalNo || ''}</dd>
+        <dt className="text-[#5d6878]">카드</dt>
+        <dd className="tabular-nums">{row.cardLast4 ? `끝 ${row.cardLast4}` : ''}</dd>
+      </dl>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1">
@@ -80,8 +165,8 @@ export function PlatformPayHistory() {
           <button
             key={item.id}
             type="button"
-            className={`rounded-full border px-2.5 py-1 text-xs hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
-              filter === item.id ? 'border-[#111a2b] bg-[#111a2b] text-white hover:bg-slate-800' : 'border-gray-200 bg-white text-gray-700'
+            className={`h-7 whitespace-nowrap rounded-[7px] border px-2.5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4fb8] disabled:pointer-events-none disabled:opacity-45 ${
+              filter === item.id ? 'border-[#111a2b] bg-[#111a2b] font-bold text-white' : 'border-[#dde3ea] bg-white text-[#141b26] hover:bg-[#eef2f7]'
             }`}
             onClick={() => writeQuery({ page: 1, hist: item.id })}
           >
@@ -89,86 +174,65 @@ export function PlatformPayHistory() {
           </button>
         ))}
       </div>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <ListPaginationBar
-        mode="summary"
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        pageSizeOptions={INQUIRY_LIST_PAGE_SIZE_OPTIONS}
-        onPageChange={(next) => writeQuery({ page: next })}
-        onPageSizeChange={(size) => writeQuery({ page: 1, pageSize: size })}
-      />
-      <div className="space-y-2 lg:hidden">
-        {items.map((row) => (
-          <article key={row.id} className="rounded-lg border border-gray-200 p-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-sm font-medium text-gray-900">{row.goodsName}</p>
-              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs ${chipClass(row.statusLabel ?? '')}`}>{row.statusLabel}</span>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">{formatWhen(row.paidAt)} · {row.methodLabel} · {row.purposeLabel}</p>
-            <p className="truncate text-xs text-gray-600" title={party(row)}>{party(row)}</p>
-            <p className="text-right text-sm tabular-nums">{row.amountKrw.toLocaleString('ko-KR')}원</p>
-            {row.statusLabel === '결제 대기' && row.linkUrl ? (
-              <button type="button" className="mt-1 text-xs text-[#1f4fb8] underline" onClick={() => copyLink(row)}>
-                {copiedId === row.id ? '복사됨' : '링크 복사'}
-              </button>
-            ) : null}
-            {row.status === 'APPROVED' ? <UsageFeeSameDayCancelButton row={row} onDone={load} /> : null}
-          </article>
-        ))}
+      {error ? <p className="text-sm text-[#b42318]">{error}</p> : null}
+      <ListPaginationBar mode="summary" page={page} pageSize={pageSize} total={total} pageSizeOptions={INQUIRY_LIST_PAGE_SIZE_OPTIONS} onPageChange={(next) => writeQuery({ page: next })} onPageSizeChange={(size) => writeQuery({ page: 1, pageSize: size })} />
+      <div className="grid max-w-[390px] gap-2 lg:hidden">
+        {items.map((row) => {
+          const rowActions = actions(row);
+          return (
+            <article key={row.id} className="grid grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-1 rounded-xl border border-[#dde3ea] bg-white px-3.5 py-3">
+              <span className="truncate font-bold">{row.purposeLabel} · <span className="tabular-nums">{row.amountKrw.toLocaleString('ko-KR')}원</span></span>
+              <span className="row-span-2 grid justify-items-end gap-1.5">
+                <Chip label={row.statusLabel ?? ''} />
+                <RowActions action={rowActions.action} menu={rowActions.menu} />
+              </span>
+              <span className="truncate text-xs tabular-nums text-[#5d6878]">{formatWhen(row.paidAt)} · {row.methodLabel}</span>
+              <div className="col-span-2">{extra(row)}</div>
+            </article>
+          );
+        })}
       </div>
       <div className="hidden w-full min-w-0 overflow-x-auto lg:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="border-b border-gray-200 text-xs text-gray-500">
-              {['날짜', '방식', '용도', '업체·건', '상품명', '금액', '상태'].map((head) => (
-                <th key={head} className="px-2 py-2 text-center">{head}</th>
+            <tr className="bg-[#f6f8fb] text-xs font-medium text-[#5d6878]">
+              {HEADS.map((head) => (
+                <th key={head} className={`h-9 whitespace-nowrap px-3.5 text-center ${head === '작업' ? 'w-[132px]' : ''}`}>{head}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {items.map((row) => (
-              <tr key={row.id} className="border-b border-gray-100">
-                <td className="px-2 py-2 text-center text-xs">{formatWhen(row.paidAt)}</td>
-                <td className="px-2 py-2 text-center">{row.methodLabel}</td>
-                <td className="px-2 py-2 text-center">{row.purposeLabel}</td>
-                <td className="max-w-[180px] truncate px-2 py-2 text-center" title={party(row)}>{party(row)}</td>
-                <td className="max-w-[160px] truncate px-2 py-2 text-center" title={row.goodsName}>{row.goodsName}</td>
-                <td className="px-2 py-2 text-right tabular-nums">{row.amountKrw.toLocaleString('ko-KR')}원</td>
-                <td className="px-2 py-2 text-center">
-                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${chipClass(row.statusLabel ?? '')}`}>{row.statusLabel}</span>
-                  {row.approvalNo ? <p className="mt-1 text-xs text-gray-500">승인 {row.approvalNo}{row.cardLast4 ? ` · ${row.cardLast4}` : ''}</p> : null}
-                  {row.statusLabel === '결제 대기' && row.linkUrl ? (
-                    <button
-                      type="button"
-                      className="mt-1 text-xs text-[#1f4fb8] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                      onClick={() => copyLink(row)}
-                    >
-                      {copiedId === row.id ? '복사됨' : '링크 복사'}
-                    </button>
+            {items.map((row) => {
+              const rowActions = actions(row);
+              return (
+                <Fragment key={row.id}>
+                  <tr className="border-b border-[#dde3ea]">
+                    <td className="h-12 whitespace-nowrap px-3.5 text-center tabular-nums">{formatWhen(row.paidAt)}</td>
+                    <td className="h-12 whitespace-nowrap px-3.5 text-center">{row.methodLabel}</td>
+                    <td className="h-12 whitespace-nowrap px-3.5 text-center">{row.purposeLabel}</td>
+                    <td className="h-12 max-w-[180px] truncate whitespace-nowrap px-3.5 text-center" title={party(row)}>{party(row)}</td>
+                    <td className="h-12 max-w-[160px] truncate whitespace-nowrap px-3.5 text-center" title={row.goodsName}>{row.goodsName}</td>
+                    <td className="h-12 whitespace-nowrap px-3.5 text-right tabular-nums">{row.amountKrw.toLocaleString('ko-KR')}원</td>
+                    <td className="h-12 whitespace-nowrap px-3.5 text-center"><Chip label={row.statusLabel ?? ''} /></td>
+                    <td className="h-12 whitespace-nowrap px-3.5 text-right"><RowActions action={rowActions.action} menu={rowActions.menu} /></td>
+                  </tr>
+                  {open?.id === row.id ? (
+                    <tr key={`${row.id}-extra`} className="border-b border-[#dde3ea]">
+                      <td colSpan={8} className="px-3.5">{extra(row)}</td>
+                    </tr>
                   ) : null}
-                  {row.status === 'APPROVED' ? <UsageFeeSameDayCancelButton row={row} onDone={load} /> : null}
-                </td>
-              </tr>
-            ))}
+                </Fragment>
+              );
+            })}
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-2 py-8 text-center text-sm text-gray-500">결제 내역이 없습니다.</td>
+                <td colSpan={8} className="px-2 py-8 text-center text-sm text-[#5d6878]">결제 내역이 없습니다.</td>
               </tr>
             ) : null}
           </tbody>
         </table>
       </div>
-      <ListPaginationBar
-        mode="nav"
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        pageSizeOptions={INQUIRY_LIST_PAGE_SIZE_OPTIONS}
-        onPageChange={(next) => writeQuery({ page: next })}
-        onPageSizeChange={(size) => writeQuery({ page: 1, pageSize: size })}
-      />
+      <ListPaginationBar mode="nav" page={page} pageSize={pageSize} total={total} pageSizeOptions={INQUIRY_LIST_PAGE_SIZE_OPTIONS} onPageChange={(next) => writeQuery({ page: next })} onPageSizeChange={(size) => writeQuery({ page: 1, pageSize: size })} />
     </div>
   );
 }

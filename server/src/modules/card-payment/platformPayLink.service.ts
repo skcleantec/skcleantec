@@ -8,6 +8,7 @@ import { listUsageFeeOpenPeriods, usageFeeStatusLabel } from './usageFeeCardPaym
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
+import { buildServiceBridgePayLinkView, type PublicPayLinkView } from './publicPayLink.service.js';
 
 const TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const LINK_DAYS = 7;
@@ -230,44 +231,10 @@ export async function closePlatformPayLink(id: string): Promise<ApiFail | { ok: 
   return { ok: true };
 }
 
-export async function getPublicServiceBridgeLink(token: string): Promise<
-  | ApiFail
-  | {
-      result: {
-        merchantName: string;
-        goodsName: string;
-        amountKrw: number;
-        buyerName: string | null;
-        statusLabel: string;
-        payable: boolean;
-        expired: boolean;
-      };
-    }
-> {
-  const row = await prisma.usageFeeCardPayment.findFirst({
-    where: { linkToken: token },
-    select: {
-      goodsName: true,
-      amountKrw: true,
-      buyerName: true,
-      status: true,
-      linkExpiresAt: true,
-      linkClosedAt: true,
-    },
-  });
-  if (!row) return { error: '결제 링크가 없거나 만료되었습니다.', status: 404 as const };
-  const expired = linkClosed(row);
-  return {
-    result: {
-      merchantName: '서비스브릿지',
-      goodsName: row.goodsName,
-      amountKrw: row.amountKrw,
-      buyerName: row.buyerName,
-      statusLabel: usageFeeStatusLabel(row),
-      payable: row.status === 'PENDING' && !expired,
-      expired,
-    },
-  };
+export async function getPublicServiceBridgeLink(token: string): Promise<ApiFail | { result: PublicPayLinkView }> {
+  const view = await buildServiceBridgePayLinkView(token);
+  if (!view) return { error: '결제 링크가 없거나 만료되었습니다.', status: 404 as const };
+  return { result: view };
 }
 
 export async function openServiceBridgeLinkWindow(

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 import { hashLinkToken, maskCustomerPhone, newLinkToken } from './cardPayment.mask.js';
+import { buildTenantPayLinkView } from './publicPayLink.service.js';
 import { computeCardPaymentFees, defaultCardPaymentAmountWon } from './cardPaymentFee.js';
 import { getDecryptedCredential } from './cardPaymentCredential.service.js';
 import { resolveKeyinMerchant } from './cardPaymentMerchant.js';
@@ -213,25 +214,7 @@ export async function confirmCustomerLink(input: {
 }
 
 export async function getPublicPaymentByToken(token: string) {
-  const hash = hashLinkToken(token);
-  const row = await prisma.cardPayment.findFirst({
-    where: { linkTokenHash: hash },
-    include: {
-      tenant: { select: { name: true } },
-    },
-  });
-  if (!row) return null;
-  if (row.linkExpiresAt && row.linkExpiresAt.getTime() < Date.now()) return { expired: true as const };
-  return {
-    customerName: row.customerName,
-    amountWon: row.amountWon,
-    status: row.status,
-    tenantName: row.tenant.name,
-    inquiryNumber: row.inquiryNumber,
-    goodsName: row.goodsName,
-    paidAt: row.paidAt?.toISOString() ?? null,
-    pgWindowUrl: resolveWspayHostedWindowUrl(),
-  };
+  return buildTenantPayLinkView(hashLinkToken(token));
 }
 
 export function newWebhookEventId(raw: string): string {

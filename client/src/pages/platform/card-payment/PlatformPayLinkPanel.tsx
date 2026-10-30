@@ -9,7 +9,9 @@ import {
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import { getPlatformToken } from '../../../stores/platformAuth';
 import { INPUT_BASE } from '../../../utils/platformUi';
+import { Button } from '../../../components/ui/Button';
 import { PlatformPayInquiryPick } from './PlatformPayInquiryPick';
+import type { PayLinkSeed } from './keyinPayUi';
 
 type Purpose = 'INVOICE' | 'CLEANING_PROXY' | 'OTHER';
 
@@ -23,9 +25,6 @@ type MadeLink = {
   goodsName: string;
 };
 
-const BTN =
-  'inline-flex min-h-10 items-center justify-center rounded-lg px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
-
 function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
 }
@@ -36,7 +35,7 @@ function when(iso: string): string {
   return date.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export function PlatformPayLinkPanel() {
+export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
   const [purpose, setPurpose] = useState<Purpose>('CLEANING_PROXY');
   const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
   const [tenantId, setTenantId] = useState('');
@@ -55,6 +54,19 @@ export function PlatformPayLinkPanel() {
   const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLFormElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
+
+  useEffect(() => {
+    if (!seed) return;
+    setPurpose(seed.purpose);
+    setTenantId(seed.tenantId);
+    setInquiryId(seed.inquiryId);
+    setPeriodStartYmd(seed.periodStartYmd);
+    setGoodsName(seed.goodsName);
+    setAmountWon(seed.amountWon);
+    setBuyerName(seed.buyerName);
+    setBuyerPhone(seed.buyerPhone);
+    setMemo(seed.memo);
+  }, [seed]);
 
   useEffect(() => {
     const token = getPlatformToken();
@@ -241,9 +253,9 @@ export function PlatformPayLinkPanel() {
           <p className="mt-1">서비스브릿지 · {previewGoods} · {won(amount)}</p>
           <p className="mt-1 text-xs text-gray-500">링크는 7일 동안 열립니다.</p>
         </div>
-        <button type="submit" disabled={busy} className={`${BTN} bg-[#111a2b] text-white hover:bg-slate-800 focus-visible:ring-slate-400`}>
+        <Button type="submit" variant="primary" size="lg" disabled={busy}>
           {busy ? '만드는 중' : '결제 링크 만들기'}
-        </button>
+        </Button>
         {error ? <p className="text-sm text-red-700">{error}</p> : null}
       </form>
       {made || toast ? (
@@ -258,9 +270,9 @@ export function PlatformPayLinkPanel() {
             <span className="ml-auto rounded-full border border-[#f0d27a] bg-[#fff6dc] px-2 py-0.5 text-xs text-[#7a5300]">결제 대기</span>
           </div>
           <p className="break-all text-sm text-gray-900">{made.url}</p>
-          <button
-            type="button"
-            className={`${BTN} border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus-visible:ring-gray-400`}
+          <Button
+            size="sm"
+            variant="secondary"
             onClick={() => {
               void navigator.clipboard.writeText(made.url).then(() => {
                 setCopied(true);
@@ -269,7 +281,7 @@ export function PlatformPayLinkPanel() {
             }}
           >
             {copied ? '복사됨' : '링크 복사'}
-          </button>
+          </Button>
           <dl className="grid grid-cols-[6rem_1fr] gap-y-1 text-sm">
             <dt className="text-gray-500">금액</dt>
             <dd className="text-right tabular-nums">{won(made.amountKrw)}</dd>
@@ -280,9 +292,9 @@ export function PlatformPayLinkPanel() {
             <dt className="text-gray-500">열림</dt>
             <dd className="text-right">{when(made.expiresAt)}까지</dd>
           </dl>
-          <button
-            type="button"
-            className={`${BTN} border border-red-200 text-red-700 hover:bg-red-50 focus-visible:ring-red-300`}
+          <Button
+            size="sm"
+            variant="danger"
             onClick={() => {
               void closePlatformPayLink(made.id)
                 .then(() => setMade(null))
@@ -290,7 +302,7 @@ export function PlatformPayLinkPanel() {
             }}
           >
             링크 닫기
-          </button>
+          </Button>
           </div> : null}
           <p className="text-xs leading-relaxed text-gray-500">
             결제되면 칩이 「결제 완료」로 바뀌고 승인번호·카드 끝 4자리가 붙습니다. 결제 취소는 결제 내역에서 같은 날 전액 취소만 할 수 있어요.
