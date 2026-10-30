@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BAROBILL_MEMBER_STATUS_LABEL, barobillTaxTypeLabel } from '@shared/barobillPolicy';
-import { approvePlatformBarobillMember, checkPlatformBarobillMember, completePlatformBarobillLink, fetchPlatformBarobillMembers, fetchPlatformCashbillHolds, rejectPlatformBarobillMember, releasePlatformBarobillProcessing, type PlatformBarobillMemberRow } from '../../api/platformBarobill';
+import { approvePlatformBarobillMember, checkPlatformBarobillMember, completePlatformBarobillLink, fetchPlatformBarobillMembers, fetchPlatformCashbillHolds, rejectPlatformBarobillMember, releasePlatformBarobillProcessing, returnPlatformBarobillLink, type PlatformBarobillMemberRow } from '../../api/platformBarobill';
+import { PlatformBarobillLinkCard } from '../../components/platform/PlatformBarobillLinkCard';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -182,8 +183,21 @@ export function PlatformBarobillMembersPage() {
       setBusyId(null);
     }
   }
-  async function complete(row: PlatformBarobillMemberRow) {
-    const barobillUserId = (userIds[row.id] ?? '').trim();
+  async function returnLink(row: PlatformBarobillMemberRow, reason: string) {
+    setBusyId(row.id);
+    setError(null);
+    try {
+      await returnPlatformBarobillLink(row.id, reason);
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '연결 불가로 돌려보내지 못했습니다.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function complete(row: PlatformBarobillMemberRow, userIdOverride?: string) {
+    const barobillUserId = (userIdOverride ?? userIds[row.id] ?? '').trim();
     setBusyId(row.id);
     setError(null);
     try {
@@ -287,7 +301,8 @@ export function PlatformBarobillMembersPage() {
                 busy={busyId === row.id}
                 onUserId={(value) => setUserIds((prev) => ({ ...prev, [row.id]: value }))}
                 onReason={(value) => setReasons((prev) => ({ ...prev, [row.id]: value }))}
-                onComplete={() => void complete(row)}
+                onComplete={(userId) => void complete(row, userId)}
+                onReturn={(reason) => void returnLink(row, reason)}
                 onApprove={() => void approve(row)}
                 onReject={() => void reject(row)}
                 check={checks[row.id] ?? null}
@@ -332,7 +347,8 @@ export function PlatformBarobillMembersPage() {
                           busy={busyId === row.id}
                           onUserId={(value) => setUserIds((prev) => ({ ...prev, [row.id]: value }))}
                           onReason={(value) => setReasons((prev) => ({ ...prev, [row.id]: value }))}
-                          onComplete={() => void complete(row)}
+                          onComplete={(userId) => void complete(row, userId)}
+                          onReturn={(reason) => void returnLink(row, reason)}
                           onApprove={() => void approve(row)}
                           onReject={() => void reject(row)}
                           check={checks[row.id] ?? null}
@@ -365,6 +381,7 @@ export function PlatformBarobillMembersPage() {
 
 function statusView(row: PlatformBarobillMemberRow): { label: string; className: string } {
   if (row.confirmNeeded) return { label: '확인 필요', className: 'bg-red-50 text-red-800' };
+  if (row.status === 'LINK_REQUIRED' && row.linkRequestedAt) return { label: '대기', className: 'bg-amber-50 text-amber-800' };
   return {
     label: BAROBILL_MEMBER_STATUS_LABEL[row.status],
     className: BADGE[row.status] ?? 'bg-slate-100 text-slate-700',
@@ -412,7 +429,7 @@ function LinkComplete({
         type="button"
         className={`${BTN_PRIMARY} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none`}
         disabled={busy || userId.trim().length < 6}
-        onClick={onComplete}
+        onClick={() => onComplete()}
       >
         처리완료
       </button>
@@ -429,6 +446,7 @@ function ReviewActions({
   onUserId,
   onReason,
   onComplete,
+  onReturn,
   onApprove,
   onReject,
   onCheck,
@@ -441,12 +459,16 @@ function ReviewActions({
   check: { isMember: boolean; message: string } | null;
   onUserId: (value: string) => void;
   onReason: (value: string) => void;
-  onComplete: () => void;
+  onComplete: (userId?: string) => void;
+  onReturn: (reason: string) => void;
   onApprove: () => void;
   onReject: () => void;
   onCheck: () => void;
   onRelease: () => void;
 }) {
+  if (row.status === 'LINK_REQUIRED' && row.linkRequestedAt) {
+    return <PlatformBarobillLinkCard row={row} busy={busy} onComplete={onComplete} onReturn={onReturn} />;
+  }
   if (row.status === 'LINK_REQUIRED') {
     return <LinkComplete userId={userId} busy={busy} onUserId={onUserId} onComplete={onComplete} />;
   }
@@ -527,6 +549,7 @@ function MemberCard({
   onUserId,
   onReason,
   onComplete,
+  onReturn,
   onApprove,
   onReject,
   onCheck,
@@ -539,7 +562,8 @@ function MemberCard({
   check: { isMember: boolean; message: string } | null;
   onUserId: (value: string) => void;
   onReason: (value: string) => void;
-  onComplete: () => void;
+  onComplete: (userId?: string) => void;
+  onReturn: (reason: string) => void;
   onApprove: () => void;
   onReject: () => void;
   onCheck: () => void;
@@ -569,6 +593,7 @@ function MemberCard({
         onUserId={onUserId}
         onReason={onReason}
         onComplete={onComplete}
+        onReturn={onReturn}
         onApprove={onApprove}
         onReject={onReject}
         onCheck={onCheck}

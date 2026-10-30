@@ -5,6 +5,7 @@
  */
 import type { LandingContactLinkRequestStatus, LandingContactLinkSlotKind, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 import { toOperatingCompanyPublicSummary } from '../operating-companies/operatingCompanyPublicSummary.js';
 import { parseLandingContactCustomFields } from './landingContactForm.schema.js';
 
@@ -328,6 +329,12 @@ export async function createLandingContactLinkSlotRequest(input: {
       status: 'PENDING',
     },
   });
+  void notifyPlatformOps({
+    event: 'link_slot',
+    tenantId: input.tenantId,
+    title: '문의 링크 추가 요청',
+    body: '개수 미정 · 대기',
+  }).catch((err) => console.error('[platform-inbox] link slot', err instanceof Error ? err.name : 'error'));
   return {
     id: row.id,
     requestedCount: row.requestedCount,

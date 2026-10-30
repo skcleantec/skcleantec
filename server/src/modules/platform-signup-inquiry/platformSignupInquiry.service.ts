@@ -1,5 +1,6 @@
 import type { PlatformSignupInquiryStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 
 export class PlatformSignupInquiryError extends Error {
   constructor(
@@ -115,6 +116,13 @@ export async function createPlatformSignupInquiry(input: {
     },
     include: listInclude,
   });
+
+  void notifyPlatformOps({
+    event: 'signup_inquiry',
+    tenantLabel: companyName,
+    title: '가입 문의',
+    body: `${contactName} · 가입 문의가 도착했습니다.`,
+  }).catch((err) => console.error('[platform-inbox] signup', err instanceof Error ? err.name : 'error'));
 
   return mapRow(row);
 }

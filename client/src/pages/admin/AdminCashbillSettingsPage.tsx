@@ -15,7 +15,6 @@ export function AdminCashbillSettingsPage() {
   const [settings, setSettings] = useState<CashbillSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [cardKey, setCardKey] = useState(0);
 
   const load = useCallback(async () => {
@@ -55,11 +54,6 @@ export function AdminCashbillSettingsPage() {
           {settings.blockReason}
         </p>
       ) : null}
-      {notice ? (
-        <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-800">
-          {notice}
-        </p>
-      ) : null}
       {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
       {loading ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
       {!loading && settings && settings.brands.length === 0 ? (
@@ -76,8 +70,7 @@ export function AdminCashbillSettingsPage() {
             missing={settings.missing}
             canEditCompany={canEditCompany}
             canRegister={settings.canRegister}
-            onDone={(message) => {
-              setNotice(message);
+            onDone={() => {
               setCardKey((n) => n + 1);
               void load();
             }}

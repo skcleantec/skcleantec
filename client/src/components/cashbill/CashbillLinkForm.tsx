@@ -129,7 +129,7 @@ export function CashbillLinkForm({
         businessRegistrationImageUrl: extra ? imageUrl : undefined,
         businessRegistrationImagePublicId: extra ? imageId : undefined,
       });
-      onDone(result.lastError ? `${brand.name}: ${result.status}. ${result.lastError}` : `${brand.name}: 연결을 요청했습니다.`);
+      onDone(result.lastError && result.status !== 'LINK_REQUIRED' ? result.lastError : '');
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장하지 못했습니다.');
     } finally {
@@ -138,26 +138,28 @@ export function CashbillLinkForm({
   }
 
   const buttonLabel = mode === 'edit' ? '저장' : extra ? (member?.status === 'REJECTED' ? '다시 제출' : '검토 요청') : '바로빌 연결하기';
-  const businessSummary = [prefill.corpName, prefill.ceoName, prefill.addr1].map((part) => part.trim()).filter(Boolean).join(' · ');
 
   return (
     <div className="max-w-[640px] space-y-2">
       {!extra && mode === 'join' ? (
-        <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 flex-1 truncate text-fluid-xs text-slate-700" title={businessSummary || undefined}>
-            <span className="mr-1 font-medium text-slate-500">사업자정보</span>
-            {businessSummary}
-          </p>
-          <Link to={BUSINESS_PATH} className={LINK_BTN}>수정</Link>
+        <div className="flex items-start justify-between gap-3 rounded-[10px] border border-[#dde3ea] px-3.5 py-3">
+          <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-fluid-xs">
+            <dt className="text-fluid-2xs text-[#5d6878]">상호</dt>
+            <dd className="break-all">{prefill.corpName.trim() || '없음'}</dd>
+            <dt className="text-fluid-2xs text-[#5d6878]">대표자</dt>
+            <dd className="break-all">{prefill.ceoName.trim() || '없음'}</dd>
+            <dt className="text-fluid-2xs text-[#5d6878]">주소</dt>
+            <dd className="break-all">{prefill.addr1.trim() || '없음'}</dd>
+          </dl>
+          <Link to={BUSINESS_PATH} className={LINK_BTN}>사업자정보 수정</Link>
         </div>
       ) : null}
-      {mode === 'join' ? <p className="text-fluid-xs font-medium text-slate-800">연결 정보 입력</p> : null}
       {extra ? (
         <p className="text-fluid-2xs text-slate-600">
           {formatBizNumberDisplay(corpNum) || '사업자번호'} · {corpName || '상호'} · {ceoName || '대표자'}
         </p>
       ) : null}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {extra ? (
           <>
             <label className="text-fluid-xs text-slate-700">사업자번호<input className={INPUT} value={corpNum} disabled={locked || saving} inputMode="numeric" onChange={(e) => setCorpNum(e.target.value)} /></label>
@@ -189,6 +191,9 @@ export function CashbillLinkForm({
         <label className="text-fluid-xs text-slate-700">담당 전화<input className={INPUT} value={contactTel} disabled={locked || saving} inputMode="tel" onChange={(e) => setContactTel(e.target.value)} /></label>
         <label className="text-fluid-xs text-slate-700">담당 이메일<input className={INPUT} value={contactEmail} disabled={locked || saving} inputMode="email" onChange={(e) => setContactEmail(e.target.value)} /></label>
       </div>
+      {!extra && mode === 'join' ? (
+        <p className="text-fluid-2xs text-[#5d6878]">업태·종목은 사업자등록증에 적힌 대로 넣어 주세요.</p>
+      ) : null}
       {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
       <button type="button" className={`${BTN}${mode === 'edit' ? ' sticky bottom-0 z-10 bg-slate-900' : ''}`} disabled={locked || saving || uploading || !ready} onClick={() => void submit()}>
         {uploading ? '올리는 중…' : saving ? '저장 중…' : buttonLabel}

@@ -15,6 +15,10 @@ export type PlatformBarobillMemberRow = {
   certValid: boolean | null;
   certExpireDate: string | null;
   corpNumMasked: string;
+  corpNum: string;
+  linkRequestedAt: string | null;
+  linkRequestUserIdHint: string | null;
+  contactTel: string | null;
   createdAt: string;
   updatedAt: string;
   confirmNeeded: boolean;
@@ -64,6 +68,15 @@ export async function rejectPlatformBarobillMember(id: string, rejectReason: str
     body: JSON.stringify({ rejectReason }),
   });
   if (!res.ok) throw new Error(await parseError(res, '반려에 실패했습니다.'));
+}
+
+export async function returnPlatformBarobillLink(id: string, reason: string): Promise<void> {
+  const res = await fetch(`${API}/platform/barobill/members/${id}/link-return`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '연결 불가로 돌려보내지 못했습니다.'));
 }
 
 export async function completePlatformBarobillLink(id: string, barobillUserId: string): Promise<void> {

@@ -82,8 +82,38 @@ export function PlatformInboxQueue({
     }
   };
 
+  const links = inbox.barobillLinks ?? [];
+
   return (
     <div className="space-y-4">
+      {links.length > 0 ? (
+        <section className={CARD_SECTION}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-gray-900">바로빌 연결 요청</h2>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-fluid-2xs text-amber-900">대기 {links.length}</span>
+          </div>
+          <ul className="space-y-2">
+            {links.map((row) => (
+              <li key={row.id}>
+                <Link
+                  to="/platform/barobill-members"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                >
+                  <span className="min-w-0">
+                    <b className="text-fluid-sm text-gray-900">바로빌 연결 요청</b>
+                    <span className="text-fluid-sm text-gray-700"> · {row.tenantName} </span>
+                    <span className="text-fluid-xs tabular-nums text-slate-500">{row.corpNumMasked}</span>
+                    <span className="mt-0.5 block truncate text-fluid-2xs text-slate-500">
+                      {formatKstStamp(row.requestedAt)} 요청 · 바로빌 아이디: {row.hint?.trim() || '적지 않음'} · 담당 {row.contactTel || '없음'}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-fluid-2xs text-amber-900">대기</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section className={CARD_SECTION}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-gray-900">돈 처리</h2>
@@ -191,6 +221,20 @@ export function PlatformInboxQueue({
       ) : null}
     </div>
   );
+}
+
+function formatKstStamp(iso: string): string {
+  if (!iso) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
 }
 
 function rowKey(row: InboxMoneyRow) {

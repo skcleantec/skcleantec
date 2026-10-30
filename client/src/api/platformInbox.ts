@@ -18,8 +18,18 @@ export type InboxMoneyRow = {
   canReject: boolean;
 };
 
+export type InboxBarobillLinkRow = {
+  id: string;
+  tenantName: string;
+  corpNumMasked: string;
+  requestedAt: string;
+  hint: string | null;
+  contactTel: string | null;
+};
+
 export type PlatformInboxPayload = {
   money: InboxMoneyRow[];
+  barobillLinks: InboxBarobillLinkRow[];
   review: {
     signup: number;
     planUpgrade: number;

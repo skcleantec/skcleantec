@@ -13,6 +13,7 @@ import { isBlankSupplierField } from '../taxinvoice/supplierFieldText.js';
 import { parseTenantConfig } from '../tenants/tenantConfig.schema.js';
 import { refreshBarobillCerts } from '../taxinvoice/taxInvoiceCert.service.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
+import { notifyBarobillLinkCompleted, notifyBarobillLinkRequested } from './cashbillLinkMail.js';
 
 export class CashbillMemberError extends Error {
   readonly statusCode: number;
@@ -172,6 +173,11 @@ export async function getCashbillSettings(tenantId: string) {
           contactName: true,
           contactTel: true,
           contactEmail: true,
+          linkRequestedAt: true,
+          linkRequestUserIdHint: true,
+          createdAt: true,
+          reviewedAt: true,
+          updatedAt: true,
         },
       },
     },
@@ -223,6 +229,11 @@ export async function getCashbillSettings(tenantId: string) {
               contactName: visible.contactName,
               contactTel: visible.contactTel,
               contactEmail: visible.contactEmail,
+              linkRequestedAt: visible.linkRequestedAt?.toISOString() ?? null,
+              linkRequestUserIdHint: visible.linkRequestUserIdHint,
+              createdAt: visible.createdAt.toISOString(),
+              reviewedAt: visible.reviewedAt?.toISOString() ?? null,
+              updatedAt: visible.updatedAt.toISOString(),
             }
           : null,
       };
@@ -373,7 +384,7 @@ async function callBarobillSignup(input: {
     if (memberFlag > 0) {
       return {
         status: 'LINK_REQUIRED',
-        lastError: '이미 바로빌 회원사입니다. 콘솔에서 연결한 뒤 플랫폼에서 처리완료 해 주세요.',
+        lastError: '이미 바로빌에 가입된 사업자입니다.',
         barobillUserId: '',
         taxType: null,
       };
@@ -671,6 +682,9 @@ export async function listBarobillMembersForPlatform(query: {
         barobillUserId: true,
         certValid: true,
         certExpireDate: true,
+        linkRequestedAt: true,
+        linkRequestUserIdHint: true,
+        contactTel: true,
         createdAt: true,
         updatedAt: true,
         tenant: { select: { name: true, slug: true } },
@@ -710,6 +724,10 @@ export async function listBarobillMembersForPlatform(query: {
       certValid: row.certValid,
       certExpireDate: row.certExpireDate,
       corpNumMasked: maskCorpNum(row.corpNum),
+      corpNum: row.corpNum,
+      linkRequestedAt: row.linkRequestedAt?.toISOString() ?? null,
+      linkRequestUserIdHint: row.linkRequestUserIdHint,
+      contactTel: row.contactTel,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       confirmNeeded: isStaleProcessing(row.status, row.updatedAt),
@@ -810,7 +828,16 @@ export async function completeBarobillLink(memberId: string, barobillUserIdRaw: 
   }
   const row = await prisma.barobillMember.findFirst({
     where: { id: memberId },
-    select: { id: true, tenantId: true, env: true, corpNum: true, status: true, updatedAt: true },
+    select: {
+      id: true,
+      tenantId: true,
+      env: true,
+      corpNum: true,
+      status: true,
+      updatedAt: true,
+      contactEmail: true,
+      tenant: { select: { name: true } },
+    },
   });
   if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
   assertMemberEnv(row.env);
@@ -827,10 +854,110 @@ export async function completeBarobillLink(memberId: string, barobillUserIdRaw: 
   }
   const updated = await prisma.barobillMember.updateMany({
     where: { id: row.id, tenantId: row.tenantId, status: row.status },
-    data: { status: 'ACTIVE', barobillUserId: userId, lastError: null },
+    data: { status: 'ACTIVE', barobillUserId: userId, lastError: null, reviewedAt: new Date() },
   });
   if (updated.count !== 1) throw new CashbillMemberError(ALREADY_PROCESSING_MESSAGE, 409);
+  try {
+    await notifyBarobillLinkCompleted({
+      to: row.contactEmail,
+      tenantName: row.tenant.name,
+    });
+  } catch (err) {
+    console.error('[cashbill] link complete mail', err instanceof Error ? err.name : 'error');
+  }
   return { id: row.id, status: 'ACTIVE' as const };
+}
+
+const LINK_REQUEST_STATUSES: BarobillMemberStatus[] = ['LINK_REQUIRED', 'FAILED', 'REJECTED'];
+
+export async function requestBarobillLink(tenantId: string, memberId: string, hintRaw: unknown) {
+  const hint = typeof hintRaw === 'string' ? hintRaw.trim().slice(0, 20) : '';
+  if (hint && !/^[A-Za-z0-9]{1,20}$/.test(hint)) {
+    throw new CashbillMemberError('바로빌 아이디는 영문·숫자로 적어 주세요.');
+  }
+  const row = await prisma.barobillMember.findFirst({
+    where: { id: memberId, tenantId },
+    select: {
+      id: true,
+      env: true,
+      status: true,
+      corpNum: true,
+      tenant: { select: { name: true } },
+    },
+  });
+  if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
+  assertMemberEnv(row.env);
+  if (!LINK_REQUEST_STATUSES.includes(row.status)) {
+    throw new CashbillMemberError('연결 요청을 보낼 수 있는 상태가 아닙니다.');
+  }
+  const requestedAt = new Date();
+  const updated = await prisma.barobillMember.updateMany({
+    where: { id: row.id, tenantId, status: row.status },
+    data: {
+      status: 'LINK_REQUIRED',
+      linkRequestedAt: requestedAt,
+      linkRequestUserIdHint: hint || null,
+      rejectReason: null,
+      lastError: null,
+    },
+  });
+  if (updated.count !== 1) throw new CashbillMemberError('이미 처리 중입니다. 새로고침 후 다시 확인해 주세요.', 409);
+  try {
+    await notifyBarobillLinkRequested({
+      tenantId,
+      tenantName: row.tenant.name,
+      corpNum: row.corpNum,
+      requestedAt,
+      hint: hint || null,
+    });
+  } catch (err) {
+    console.error('[cashbill] link request mail', err instanceof Error ? err.name : 'error');
+  }
+  return { id: row.id, linkRequestedAt: requestedAt.toISOString() };
+}
+
+export async function cancelBarobillLinkRequest(tenantId: string, memberId: string) {
+  const row = await prisma.barobillMember.findFirst({
+    where: { id: memberId, tenantId },
+    select: { id: true, env: true, status: true, linkRequestedAt: true },
+  });
+  if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
+  assertMemberEnv(row.env);
+  if (row.status !== 'LINK_REQUIRED' || !row.linkRequestedAt) {
+    throw new CashbillMemberError('취소할 연결 요청이 없습니다.');
+  }
+  const updated = await prisma.barobillMember.updateMany({
+    where: { id: row.id, tenantId, status: 'LINK_REQUIRED' },
+    data: { linkRequestedAt: null, linkRequestUserIdHint: null },
+  });
+  if (updated.count !== 1) throw new CashbillMemberError('이미 처리 중입니다. 새로고침 후 다시 확인해 주세요.', 409);
+  return { id: row.id, linkRequestedAt: null };
+}
+
+export async function returnBarobillLink(memberId: string, reasonRaw: string) {
+  const reason = reasonRaw.trim().slice(0, 500);
+  if (!reason) throw new CashbillMemberError('사유를 입력해 주세요.');
+  const row = await prisma.barobillMember.findFirst({
+    where: { id: memberId },
+    select: { id: true, tenantId: true, env: true, status: true, linkRequestedAt: true },
+  });
+  if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
+  assertMemberEnv(row.env);
+  if (row.status !== 'LINK_REQUIRED' || !row.linkRequestedAt) {
+    throw new CashbillMemberError('연결 요청이 있는 건만 돌려보낼 수 있습니다.');
+  }
+  const updated = await prisma.barobillMember.updateMany({
+    where: { id: row.id, tenantId: row.tenantId, status: 'LINK_REQUIRED' },
+    data: {
+      status: 'FAILED',
+      rejectReason: reason,
+      linkRequestedAt: null,
+      linkRequestUserIdHint: null,
+      lastError: null,
+    },
+  });
+  if (updated.count !== 1) throw new CashbillMemberError(ALREADY_PROCESSING_MESSAGE, 409);
+  return { id: row.id, status: 'FAILED' as const };
 }
 
 export async function checkStaleBarobillProcessing(memberId: string) {

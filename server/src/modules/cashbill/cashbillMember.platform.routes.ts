@@ -8,6 +8,7 @@ import {
   listBarobillMembersForPlatform,
   rejectBarobillMember,
   releaseStaleBarobillProcessing,
+  returnBarobillLink,
 } from './cashbillMember.service.js';
 import { listCashbillPlatformHolds } from './cashbillIssue.service.js';
 
@@ -32,6 +33,21 @@ router.get('/members', async (req, res) => {
   } catch (err) {
     console.error('[cashbill] platform list', err instanceof Error ? err.name : 'error');
     res.status(500).json({ error: '회원사 목록을 불러오지 못했습니다.' });
+  }
+});
+
+router.post('/members/:id/link-return', async (req, res) => {
+  const id = String(req.params.id ?? '').trim();
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason : '';
+  try {
+    res.json(await returnBarobillLink(id, reason));
+  } catch (err) {
+    if (err instanceof CashbillMemberError) {
+      res.status(err.statusCode).json({ error: err.message });
+      return;
+    }
+    console.error('[cashbill] link-return', err instanceof Error ? err.name : 'error');
+    res.status(500).json({ error: '연결 불가로 돌려보내지 못했습니다.' });
   }
 });
 

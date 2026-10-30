@@ -1690,6 +1690,10 @@ model BarobillMember {
   certCheckedAt  DateTime?            @map("cert_checked_at")
   /// 이 만료일로 관리자 알림을 이미 보냈으면 다시 보내지 않는다.
   certWarnForExpire String?           @map("cert_warn_for_expire") @db.VarChar(16)
+  /// 업체가 「연결 요청하기」를 누른 시각. 없으면 아직 요청 전.
+  linkRequestedAt DateTime?            @map("link_requested_at")
+  /// 업체가 알고 있는 바로빌 아이디. 없어도 요청할 수 있다.
+  linkRequestUserIdHint String?        @map("link_request_user_id_hint") @db.VarChar(20)
   createdAt      DateTime             @default(now()) @map("created_at")
   updatedAt      DateTime             @updatedAt @map("updated_at")
   operatingCompany OperatingCompany?

@@ -1,3 +1,4 @@
+import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { prisma } from '../../lib/prisma.js';
 import { approveAlimtalkChargeRequest } from '../alimtalk/alimtalkChargeRequest.service.js';
 import { confirmInvoicePayment } from '../billing/tenantBilling.service.js';
@@ -23,7 +24,7 @@ function moneyRow(input: InboxMoneyRow): InboxMoneyRow {
 }
 
 export async function getPlatformInbox() {
-  const [charges, depositInvoices, overdueInvoices, reconciles, signup, planUpgrade, landingLink, pg, barobill] =
+  const [charges, depositInvoices, overdueInvoices, reconciles, signup, planUpgrade, landingLink, pg, barobill, barobillLinkRows] =
     await Promise.all([
       prisma.alimtalkChargeRequest.findMany({
         where: { status: 'PENDING' },
@@ -57,6 +58,19 @@ export async function getPlatformInbox() {
       prisma.landingContactLinkSlotRequest.count({ where: { status: 'PENDING' } }),
       prisma.tenantPgOnboarding.count({ where: { status: 'SUBMITTED' } }),
       prisma.barobillMember.count({ where: { status: 'PENDING_REVIEW' } }),
+      prisma.barobillMember.findMany({
+        where: { status: 'LINK_REQUIRED', linkRequestedAt: { not: null }, env: resolveBarobillEnv() },
+        orderBy: { linkRequestedAt: 'asc' },
+        take: 30,
+        select: {
+          id: true,
+          corpNum: true,
+          linkRequestedAt: true,
+          linkRequestUserIdHint: true,
+          contactTel: true,
+          tenant: { select: { name: true } },
+        },
+      }),
     ]);
 
   const money: InboxMoneyRow[] = [
@@ -111,11 +125,23 @@ export async function getPlatformInbox() {
   ].sort((a, b) => a.waitingSince.localeCompare(b.waitingSince));
 
   const review = { signup, planUpgrade, landingLink, pg, barobill };
+  const barobillLinks = barobillLinkRows.map((row) => {
+    const head = row.corpNum.replace(/\D/g, '').slice(0, 3);
+    return {
+    id: row.id,
+    tenantName: row.tenant.name,
+    corpNumMasked: head.length === 3 ? `${head}-**-*****` : '***-**-*****',
+    requestedAt: row.linkRequestedAt?.toISOString() ?? '',
+    hint: row.linkRequestUserIdHint,
+    contactTel: row.contactTel,
+  };
+  });
   const reviewTotal = signup + planUpgrade + landingLink + pg + barobill;
   return {
     money,
+    barobillLinks,
     review,
-    pendingTotal: money.length + reviewTotal,
+    pendingTotal: money.length + reviewTotal + barobillLinks.length,
   };
 }
 

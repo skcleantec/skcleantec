@@ -43,6 +43,11 @@ export type CashbillSettings = {
       contactName: string;
       contactTel: string;
       contactEmail: string;
+      linkRequestedAt: string | null;
+      linkRequestUserIdHint: string | null;
+      createdAt: string;
+      reviewedAt: string | null;
+      updatedAt: string;
     } | null;
   }[];
 };
@@ -141,4 +146,21 @@ export async function fetchCashbillCertificateStatus(operatingCompanyId: string)
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '공동인증서 상태를 확인하지 못했습니다.'));
   return res.json() as Promise<{ valid: boolean; expireDate: string | null }>;
+}
+
+export async function requestCashbillLink(memberId: string, barobillUserIdHint: string): Promise<void> {
+  const res = await fetch(`${API}/cashbill/members/${memberId}/link-request`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ barobillUserIdHint }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '연결 요청을 보내지 못했습니다.'));
+}
+
+export async function cancelCashbillLinkRequest(memberId: string): Promise<void> {
+  const res = await fetch(`${API}/cashbill/members/${memberId}/link-request/cancel`, {
+    method: 'POST',
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '연결 요청을 취소하지 못했습니다.'));
 }

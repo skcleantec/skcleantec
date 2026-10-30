@@ -102,7 +102,7 @@ export function PlatformLandingContactLinkRequestsPage() {
               {row.tenantName} <span className="font-normal text-slate-500">({row.tenantSlug})</span>
             </p>
             <p className="mt-1 text-fluid-xs text-slate-600">
-              {row.status === 'PENDING' ? '개수 미정' : `${row.requestedCount}개`} · {row.status}
+              {row.status === 'PENDING' ? '개수 미정 · 대기' : `${row.requestedCount}개 · ${row.status}`}
               {row.message ? ` · ${row.message}` : ''}
             </p>
             {row.status === 'PENDING' ? (

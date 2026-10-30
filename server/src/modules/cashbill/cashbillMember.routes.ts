@@ -7,10 +7,12 @@ import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import { uploadCashbillRegistrationImage } from './cashbillRegistration.upload.js';
 import {
+  cancelBarobillLinkRequest,
   CashbillMemberError,
   getCashbillSettings,
   loadBrandForTenant,
   registerCashbillMember,
+  requestBarobillLink,
   updateActiveCashbillContact,
 } from './cashbillMember.service.js';
 import { certificateRegisterUrl, refreshOneBarobillCert } from '../taxinvoice/taxInvoiceCert.service.js';
@@ -158,6 +160,33 @@ router.post('/members', async (req, res) => {
     res.json({ status: result.status, lastError: result.lastError, taxType: result.taxType });
   } catch (err) {
     sendError(res, err, '회원사 가입에 실패했습니다.');
+  }
+});
+
+router.post('/members/:id/link-request', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!requireTenantAdmin(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const memberId = String(req.params.id ?? '').trim();
+  const hint = (req.body ?? {}) as { barobillUserIdHint?: unknown };
+  try {
+    res.json(await requestBarobillLink(tenantId, memberId, hint.barobillUserIdHint));
+  } catch (err) {
+    sendError(res, err, '연결 요청을 보내지 못했습니다.');
+  }
+});
+
+router.post('/members/:id/link-request/cancel', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!requireTenantAdmin(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const memberId = String(req.params.id ?? '').trim();
+  try {
+    res.json(await cancelBarobillLinkRequest(tenantId, memberId));
+  } catch (err) {
+    sendError(res, err, '연결 요청을 취소하지 못했습니다.');
   }
 });
 

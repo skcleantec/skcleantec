@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { sendPlatformMail } from '../../lib/platformSmtp.service.js';
+import { platformInboxAbsoluteUrl } from '../platform/platformInboxNotify.service.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEFAULT_NOTIFY_EMAILS = ['wsgpay@naver.com'];
@@ -97,9 +98,10 @@ export async function notifyPgApplicationSubmitted(input: {
     ${lines
       .map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`)
       .join('')}
+    <p><a href="${platformInboxAbsoluteUrl()}">오늘 할 일에서 처리하기 → ${platformInboxAbsoluteUrl()}</a></p>
     <p style="color:#64748b;font-size:12px;">원성 PG 관리의 PG 신청에서 확인하세요.</p>
   `.trim();
-  const text = ['[청소비서 PG 신청]', ...lines.map(([label, value]) => `${label}: ${value}`)].join('\n');
+  const text = ['[청소비서 PG 신청]', ...lines.map(([label, value]) => `${label}: ${value}`), '', `오늘 할 일에서 처리하기 → ${platformInboxAbsoluteUrl()}`].join('\n');
 
   let sent = 0;
   for (const to of emails) {
