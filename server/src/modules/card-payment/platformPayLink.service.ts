@@ -9,6 +9,7 @@ import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { buildServiceBridgePayLinkView, type PublicPayLinkView } from './publicPayLink.service.js';
+import { splitTaxIncluded } from './cardVat.js';
 
 const TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const LINK_DAYS = 7;
@@ -136,8 +137,9 @@ export async function createPlatformPayLink(
   if (!buyerName) return { error: '고객 이름을 입력하세요.', status: 400 as const };
 
   let periodStart: Date | null = null;
-  let supplyAmountKrw = amountWon;
-  let vatAmountKrw = 0;
+  const taxed = splitTaxIncluded(amountWon);
+  let supplyAmountKrw = taxed.supplyKrw;
+  let vatAmountKrw = taxed.vatKrw;
   if (purpose === 'INVOICE') {
     const periodStartYmd = clip(raw.periodStartYmd, 10);
     if (!tenantId) return { error: '업체를 선택하세요.', status: 400 as const };

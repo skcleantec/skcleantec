@@ -5,6 +5,7 @@ import { requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { probeWspayListAuth } from './wspayAdapter.js';
 import { buildWspayOrderId, normalizeWspayOid } from './wspayOrderId.js';
+import { splitTaxIncluded } from './cardVat.js';
 
 export type TenantPaymentProbe =
   | { rail: 'KEYIN'; ok: boolean; message: string }
@@ -80,8 +81,8 @@ export async function openUsageFeeWindow(): Promise<
       payMethod: 'PAY_WINDOW',
       status: 'PENDING',
       goodsName: '이용료 결제창',
-      supplyAmountKrw: amountKrw,
-      vatAmountKrw: 0,
+      supplyAmountKrw: splitTaxIncluded(amountKrw).supplyKrw,
+      vatAmountKrw: splitTaxIncluded(amountKrw).vatKrw,
       amountKrw,
       pgOrderId: orderNo,
       pgMid: app.mid,

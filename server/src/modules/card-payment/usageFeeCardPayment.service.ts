@@ -11,6 +11,7 @@ import { paysisSha256, requestPaysisFullCancel, requestPaysisPaymentWindow } fro
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { instrumentKeyNames, monthsFromInstallmentCode, paidSourceFromScreen, readCardInstrument } from './cardInstrument.js';
+import { splitTaxIncluded } from './cardVat.js';
 
 /** shared/tenantBilling.ts usageFeeVatKrw 와 동일 */
 function usageFeeVatKrw(supplyKrw: number): number {
@@ -130,8 +131,9 @@ export async function payAndRecordUsageFee(
   const linked = readLink(raw);
   if ('error' in linked) return { error: linked.error, status: 400 };
 
-  let supplyAmountKrw = parsed.input.amountWon;
-  let vatAmountKrw = 0;
+  const taxed = splitTaxIncluded(parsed.input.amountWon);
+  let supplyAmountKrw = taxed.supplyKrw;
+  let vatAmountKrw = taxed.vatKrw;
   if (linked.link.purpose === 'INVOICE') {
     const checked = await assertInvoiceAmount(linked.link, parsed.input.amountWon);
     if ('error' in checked) return { error: checked.error, status: checked.status ?? 400 };
@@ -458,8 +460,8 @@ export async function openTenantWalletWindow(
       status: 'PENDING',
       tenantId,
       goodsName: WALLET_CARD_GOODS_NAME,
-      supplyAmountKrw: amountKrw,
-      vatAmountKrw: 0,
+      supplyAmountKrw: splitTaxIncluded(amountKrw).supplyKrw,
+      vatAmountKrw: splitTaxIncluded(amountKrw).vatKrw,
       amountKrw,
       pgOrderId: orderNo,
       pgMid: app.mid,

@@ -132,6 +132,19 @@ function clampBps(n: number): number {
   return v;
 }
 
+/** 받은 금액은 부가세 포함. 저장된 부가세가 0이면 금액/11로 다시 나눈다. */
+export function splitTaxIncluded(
+  amountKrw: number,
+  supply?: number | null,
+  vat?: number | null,
+): { supplyKrw: number; vatKrw: number } {
+  if (supply != null && vat != null && vat > 0 && supply + vat === amountKrw) {
+    return { supplyKrw: supply, vatKrw: vat };
+  }
+  const vatKrw = Math.round(amountKrw / 11);
+  return { supplyKrw: amountKrw - vatKrw, vatKrw };
+}
+
 function toWon(n: number | null | undefined): number {
   const v = Math.round(Number(n) || 0);
   return v > 0 ? v : 0;

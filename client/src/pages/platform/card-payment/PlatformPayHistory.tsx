@@ -10,6 +10,8 @@ import { InlineConfirm } from '../../../components/ui/InlineConfirm';
 import { ListPaginationBar } from '../../../components/ui/ListPaginationBar';
 import { RowActions, type RowMenuItem } from '../../../components/ui/RowActions';
 import { INQUIRY_LIST_PAGE_SIZE_OPTIONS, parseInquiryListPageSize, parseListPage } from '../../../utils/listPagination';
+import { splitTaxIncluded } from '@shared/cardPayment';
+import { PayDetailDrawer } from './PayDetailDrawer';
 
 const FILTERS = [
   { id: 'all', label: '전체' },
@@ -63,6 +65,7 @@ export function PlatformPayHistory() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [open, setOpen] = useState<{ id: string; kind: 'detail' | 'receipt' | 'cancel' | 'close' } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [wide, setWide] = useState(true);
 
   const channel = filter === 'keyin' ? 'KEYIN' : filter === 'link' ? 'LINK' : undefined;
   const purpose = filter === 'invoice' ? 'INVOICE' : filter === 'proxy' ? 'CLEANING_PROXY' : filter === 'other' ? 'OTHER' : undefined;
@@ -75,6 +78,14 @@ export function PlatformPayHistory() {
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '결제 기록을 불러오지 못했습니다.'));
   }, [page, pageSize, channel, purpose]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const apply = () => setWide(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
 
   useEffect(() => {
     load();
@@ -144,19 +155,12 @@ export function PlatformPayHistory() {
         />
       );
     }
-    return (
-      <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-1 py-2 text-xs">
-        <dt className="text-[#5d6878]">상품명</dt>
-        <dd className="truncate">{row.goodsName}</dd>
-        <dt className="text-[#5d6878]">고객</dt>
-        <dd>{row.buyerName || ''}</dd>
-        <dt className="text-[#5d6878]">승인번호</dt>
-        <dd className="tabular-nums">{row.approvalNo || ''}</dd>
-        <dt className="text-[#5d6878]">카드</dt>
-        <dd className="tabular-nums">{row.cardLast4 ? `끝 ${row.cardLast4}` : ''}</dd>
-      </dl>
-    );
+    return null;
   }
+
+  const detailRow = open && (open.kind === 'detail' || open.kind === 'receipt')
+    ? items.find((row) => row.id === open.id) ?? null
+    : null;
 
   return (
     <div className="space-y-3">
@@ -176,24 +180,25 @@ export function PlatformPayHistory() {
       </div>
       {error ? <p className="text-sm text-[#b42318]">{error}</p> : null}
       <ListPaginationBar mode="summary" page={page} pageSize={pageSize} total={total} pageSizeOptions={INQUIRY_LIST_PAGE_SIZE_OPTIONS} onPageChange={(next) => writeQuery({ page: next })} onPageSizeChange={(size) => writeQuery({ page: 1, pageSize: size })} />
-      <div className="grid max-w-[390px] gap-2 lg:hidden">
+      <div className="rounded-xl border border-[#dde3ea] bg-white">
+      <div className="grid gap-2 p-2 lg:hidden">
         {items.map((row) => {
           const rowActions = actions(row);
           return (
-            <article key={row.id} className="grid grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-1 rounded-xl border border-[#dde3ea] bg-white px-3.5 py-3">
+            <article key={row.id} className="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-1 rounded-xl border border-[#dde3ea] bg-white px-3.5 py-3" onClick={() => setOpen({ id: row.id, kind: 'detail' })}>
               <span className="truncate font-bold">{row.purposeLabel} · <span className="tabular-nums">{row.amountKrw.toLocaleString('ko-KR')}원</span></span>
-              <span className="row-span-2 grid justify-items-end gap-1.5">
+              <span className="row-span-2 grid justify-items-end gap-1.5" onClick={(event) => event.stopPropagation()}>
                 <Chip label={row.statusLabel ?? ''} />
                 <RowActions action={rowActions.action} menu={rowActions.menu} />
               </span>
               <span className="truncate text-xs tabular-nums text-[#5d6878]">{formatWhen(row.paidAt)} · {row.methodLabel}</span>
-              <div className="col-span-2">{extra(row)}</div>
+              {extra(row) ? <div className="col-span-2" onClick={(event) => event.stopPropagation()}>{extra(row)}</div> : null}
             </article>
           );
         })}
       </div>
-      <div className="hidden w-full min-w-0 overflow-x-auto lg:block">
-        <table className="w-full border-collapse text-[13px]">
+      <div className="hidden w-full min-w-0 lg:block">
+        <table className="w-full table-fixed border-collapse text-[13px]">
           <thead>
             <tr className="bg-[#f6f8fb] text-xs font-medium text-[#5d6878]">
               {HEADS.map((head) => (
@@ -206,7 +211,7 @@ export function PlatformPayHistory() {
               const rowActions = actions(row);
               return (
                 <Fragment key={row.id}>
-                  <tr className="border-b border-[#dde3ea]">
+                  <tr className="cursor-pointer border-b border-[#dde3ea] hover:bg-[#eef2f7]" onClick={() => setOpen({ id: row.id, kind: 'detail' })}>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center tabular-nums">{formatWhen(row.paidAt)}</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center">{row.methodLabel}</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center">{row.purposeLabel}</td>
@@ -214,9 +219,9 @@ export function PlatformPayHistory() {
                     <td className="h-12 max-w-[160px] truncate whitespace-nowrap px-3.5 text-center" title={row.goodsName}>{row.goodsName}</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-right tabular-nums">{row.amountKrw.toLocaleString('ko-KR')}원</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center"><Chip label={row.statusLabel ?? ''} /></td>
-                    <td className="h-12 whitespace-nowrap px-3.5 text-right"><RowActions action={rowActions.action} menu={rowActions.menu} /></td>
+                    <td className="h-12 whitespace-nowrap px-3.5 text-right" onClick={(event) => event.stopPropagation()}><RowActions action={rowActions.action} menu={rowActions.menu} /></td>
                   </tr>
-                  {open?.id === row.id ? (
+                  {open?.id === row.id && extra(row) ? (
                     <tr key={`${row.id}-extra`} className="border-b border-[#dde3ea]">
                       <td colSpan={8} className="px-3.5">{extra(row)}</td>
                     </tr>
@@ -226,13 +231,45 @@ export function PlatformPayHistory() {
             })}
             {items.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-2 py-8 text-center text-sm text-[#5d6878]">결제 내역이 없습니다.</td>
+                <td colSpan={8} className="px-2 py-8 text-center text-sm text-[#5d6878]">이 기간에 결제가 없어요. 기간을 넓혀 보세요.</td>
               </tr>
             ) : null}
           </tbody>
         </table>
       </div>
-      <ListPaginationBar mode="nav" page={page} pageSize={pageSize} total={total} pageSizeOptions={INQUIRY_LIST_PAGE_SIZE_OPTIONS} onPageChange={(next) => writeQuery({ page: next })} onPageSizeChange={(size) => writeQuery({ page: 1, pageSize: size })} />
+      {items.length === 0 ? <p className="p-6 text-center text-sm text-[#5d6878] lg:hidden">이 기간에 결제가 없어요. 기간을 넓혀 보세요.</p> : null}
+      {total > pageSize ? (
+        <ListPaginationBar mode="nav" page={page} pageSize={pageSize} total={total} pageSizeOptions={INQUIRY_LIST_PAGE_SIZE_OPTIONS} onPageChange={(next) => writeQuery({ page: next })} onPageSizeChange={(size) => writeQuery({ page: 1, pageSize: size })} />
+      ) : null}
+      </div>
+      <PayDetailDrawer
+        open={Boolean(detailRow)}
+        wide={wide}
+        title={open?.kind === 'receipt' ? '영수증' : '결제 상세'}
+        onClose={() => setOpen(null)}
+      >
+        {detailRow ? <ServiceBridgePayDetail row={detailRow} /> : null}
+      </PayDetailDrawer>
     </div>
+  );
+}
+
+function ServiceBridgePayDetail({ row }: { row: UsageFeeCardPaymentRow }) {
+  const split = splitTaxIncluded(row.amountKrw, row.supplyAmountKrw, row.vatAmountKrw);
+  return (
+    <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-1 text-sm">
+      <dt className="text-[#5d6878]">상품명</dt>
+      <dd>{row.goodsName}</dd>
+      <dt className="text-[#5d6878]">고객</dt>
+      <dd>{row.buyerName || ''}</dd>
+      <dt className="text-[#5d6878]">공급가</dt>
+      <dd className="tabular-nums">{split.supplyKrw.toLocaleString('ko-KR')}원</dd>
+      <dt className="text-[#5d6878]">부가세</dt>
+      <dd className="tabular-nums">{split.vatKrw.toLocaleString('ko-KR')}원</dd>
+      <dt className="text-[#5d6878]">승인번호</dt>
+      <dd className="tabular-nums">{row.approvalNo || ''}</dd>
+      <dt className="text-[#5d6878]">카드</dt>
+      <dd className="tabular-nums">{row.cardLast4 ? `····${row.cardLast4}` : ''}</dd>
+    </dl>
   );
 }

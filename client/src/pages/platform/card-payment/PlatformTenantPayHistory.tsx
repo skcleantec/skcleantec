@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   fetchTenantPayDetail,
@@ -10,7 +9,7 @@ import {
 } from '../../../api/platformTenantPayHistory';
 import { Button } from '../../../components/ui/Button';
 import { ListPaginationBar } from '../../../components/ui/ListPaginationBar';
-import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
+import { PayDetailDrawer } from './PayDetailDrawer';
 import { PlatformTenantPayDetail } from './PlatformTenantPayDetail';
 import { cardLabel, installmentLabel, kstStamp, methodLabel, statusLabel, won } from './tenantPayFormat';
 
@@ -27,8 +26,6 @@ export function PlatformTenantPayHistory() {
   const [error, setError] = useState<string | null>(null);
   const [wide, setWide] = useState(true);
   const [draftQ, setDraftQ] = useState(read(params, 'q'));
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const { onFieldFocus } = useModalScrollKeyboardAvoidance(sheetRef, !wide && Boolean(detail));
   const [reload, setReload] = useState(0);
   const page = Math.max(1, Number(params.get('page') || '1'));
   const pageSize = [30, 50, 80, 100].includes(Number(params.get('pageSize'))) ? Number(params.get('pageSize')) : PAGE_SIZE;
@@ -57,7 +54,7 @@ export function PlatformTenantPayHistory() {
     let stop = false;
     setError(null);
     void fetchTenantPayHistory({
-      period: read(params, 'period', 'today'),
+      period: read(params, 'period', 'month'),
       from: read(params, 'from'),
       to: read(params, 'to'),
       tenantId: read(params, 'tenantId'),
@@ -96,28 +93,27 @@ export function PlatformTenantPayHistory() {
     setFilter({ pay: row.id, page: String(page) });
   }
 
+  const closeDetail = useCallback(() => {
+    setFilter({ pay: '', page: String(page) });
+  }, [page, params]);
+
   const summary = list?.summary;
-  const detailNode = detail ? (
-    <PlatformTenantPayDetail
-      row={detail}
-      onChanged={() => setReload((n) => n + 1)}
-    />
-  ) : (
-    <p className="text-sm text-[#5d6878]">왼쪽 목록에서 결제를 고르면 상세가 열립니다.</p>
-  );
+  const pages = Math.max(1, Math.ceil((list?.total ?? 0) / pageSize));
+  const stats = [
+    { label: '승인', value: summary ? `${summary.approvedCount.toLocaleString('ko-KR')}건 · ${won(summary.approvedAmountWon)}` : '…', hint: '' },
+    { label: '취소', value: summary ? `${summary.cancelledCount.toLocaleString('ko-KR')}건 · ${won(summary.cancelledAmountWon)}` : '…', hint: '' },
+    { label: '업체 정산 예정', value: summary ? won(summary.tenantNetWon) : '…', hint: '수수료 뺀 금액' },
+    { label: '플랫폼 수익', value: summary ? won(summary.platformSpreadWon) : '…', hint: '' },
+  ];
 
   return (
     <div className="space-y-3 text-[#141b26]">
       <div className="grid grid-cols-2 gap-2 min-[720px]:grid-cols-4">
-        {[
-          ['승인', summary ? `${summary.approvedCount.toLocaleString('ko-KR')}건 · ${won(summary.approvedAmountWon)}` : '…'],
-          ['취소', summary ? `${summary.cancelledCount.toLocaleString('ko-KR')}건 · ${won(summary.cancelledAmountWon)}` : '…'],
-          ['업체 정산 예정', summary ? won(summary.tenantNetWon) : '…'],
-          ['플랫폼 수익', summary ? won(summary.platformSpreadWon) : '…'],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-[#dde3ea] bg-white px-3 py-2">
-            <p className="text-xs text-[#5d6878]">{label}</p>
-            <p className="text-sm font-semibold tabular-nums">{value}</p>
+        {stats.map((item) => (
+          <div key={item.label} className="rounded-xl border border-[#dde3ea] bg-white px-3 py-2">
+            <p className="text-[12px] text-[#5d6878]">{item.label}</p>
+            <p className="text-[20px] font-bold tabular-nums leading-tight">{item.value}</p>
+            {item.hint ? <p className="text-[12px] text-[#5d6878]">{item.hint}</p> : null}
           </div>
         ))}
       </div>
@@ -129,7 +125,7 @@ export function PlatformTenantPayHistory() {
           ['month', '이번 달'],
           ['custom', '직접'],
         ].map(([id, label]) => (
-          <Button key={id} size="sm" variant={read(params, 'period', 'today') === id ? 'primary' : 'secondary'} onClick={() => setFilter({ period: id })}>
+          <Button key={id} size="sm" variant={read(params, 'period', 'month') === id ? 'primary' : 'secondary'} onClick={() => setFilter({ period: id })}>
             {label}
           </Button>
         ))}
@@ -169,9 +165,27 @@ export function PlatformTenantPayHistory() {
       {error ? <p className="text-sm text-[#b42318]">{error}</p> : null}
       <ListPaginationBar mode="summary" page={page} pageSize={pageSize} total={list?.total ?? 0} onPageChange={(next) => setFilter({ page: String(next) })} onPageSizeChange={(size) => setFilter({ pageSize: String(size), page: '1' })} />
 
-      <div className="grid items-start gap-3 min-[1000px]:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="overflow-x-auto rounded-xl border border-[#dde3ea] bg-white">
-          <table className="w-full min-w-[760px] border-collapse text-sm">
+      <div className="rounded-xl border border-[#dde3ea] bg-white">
+        <div className="space-y-2 p-2 min-[1000px]:hidden">
+          {(list?.items ?? []).map((row) => {
+            const chip = statusLabel(row);
+            return (
+              <button
+                key={row.id}
+                type="button"
+                className="grid w-full grid-cols-[1fr_auto] gap-x-2 rounded-lg border border-[#eef2f6] p-2 text-left hover:bg-[#eef2f7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4fb8] focus-visible:ring-offset-2"
+                onClick={() => selectRow(row)}
+              >
+                <span className="truncate text-sm font-semibold">{row.merchantName}</span>
+                <span className="text-sm font-semibold tabular-nums">{won(row.amountWon)}</span>
+                <span className="col-span-1 truncate text-xs text-[#5d6878]">{kstStamp(row.paidAt)} · {row.customerName} · {installmentLabel(row.installmentMonths)}</span>
+                <span className={`justify-self-end rounded-full border px-1.5 py-0.5 text-xs ${chip.className}`}>{chip.text}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="hidden min-[1000px]:block">
+          <table className="w-full table-fixed border-collapse text-sm">
             <thead>
               <tr className="h-9 bg-[#f6f8fb] text-center text-xs text-[#5d6878]">
                 {['승인 시각', '가맹점', '고객', '금액', '할부', '카드', '방식', '상태', '작업'].map((head) => (
@@ -200,36 +214,21 @@ export function PlatformTenantPayHistory() {
                     <td className="px-2 whitespace-nowrap">{cardLabel(row)}</td>
                     <td className="px-2">{methodLabel(row.method)}</td>
                     <td className="px-2"><span className={`rounded-full border px-1.5 py-0.5 text-xs ${chip.className}`}>{chip.text}</span></td>
-                    <td className="px-2">
-                      <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); selectRow(row); }}>상세</Button>
-                    </td>
+                    <td className="px-2 text-xs text-[#1f4fb8]">상세</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {list && list.items.length === 0 ? <p className="p-6 text-center text-sm text-[#5d6878]">이 조건의 결제가 없습니다.</p> : null}
         </div>
-        {wide ? <aside className="sticky top-4 rounded-xl border border-[#dde3ea] bg-white p-4">{detailNode}</aside> : null}
+        {list && list.items.length === 0 ? <p className="p-6 text-center text-sm text-[#5d6878]">이 기간에 결제가 없어요. 기간을 넓혀 보세요.</p> : null}
+        {pages > 1 ? (
+          <ListPaginationBar mode="nav" page={page} pageSize={pageSize} total={list?.total ?? 0} onPageChange={(next) => setFilter({ page: String(next) })} onPageSizeChange={(size) => setFilter({ pageSize: String(size), page: '1' })} />
+        ) : null}
       </div>
-      <ListPaginationBar mode="nav" page={page} pageSize={pageSize} total={list?.total ?? 0} onPageChange={(next) => setFilter({ page: String(next) })} onPageSizeChange={(size) => setFilter({ pageSize: String(size), page: '1' })} />
-
-      {!wide && detail ? createPortal(
-        <div className="fixed inset-0 z-[80] flex items-end bg-black/40" onClick={() => setFilter({ pay: '', page: String(page) })}>
-          <div
-            ref={sheetRef}
-            className="modal-form-scroll-surface max-h-[90dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-4"
-            onClick={(e) => e.stopPropagation()}
-            onFocusCapture={onFieldFocus}
-          >
-            <div className="mb-2 flex justify-end">
-              <Button size="sm" variant="secondary" onClick={() => setFilter({ pay: '', page: String(page) })}>닫기</Button>
-            </div>
-            {detailNode}
-          </div>
-        </div>,
-        document.body,
-      ) : null}
+      <PayDetailDrawer open={Boolean(detail)} wide={wide} title="결제 상세" onClose={closeDetail}>
+        {detail ? <PlatformTenantPayDetail row={detail} onChanged={() => setReload((n) => n + 1)} /> : null}
+      </PayDetailDrawer>
     </div>
   );
 }

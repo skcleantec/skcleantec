@@ -1,5 +1,6 @@
 import { companyTrustFromLoaded } from '../orderform/publicOrderFormCompanyTrust.js';
 import { prisma } from '../../lib/prisma.js';
+import { splitTaxIncluded } from './cardVat.js';
 
 export type PublicPayLinkState = 'wait' | 'done' | 'expired' | 'cancelled';
 
@@ -68,10 +69,28 @@ export function maskPersonName(raw: string | null | undefined): string | null {
   return `${chars[0]}${'*'.repeat(chars.length - 2)}${chars[chars.length - 1]}`;
 }
 
-function splitVat(amountKrw: number, supply?: number | null, vat?: number | null): { supplyKrw: number; vatKrw: number } {
-  if (supply != null && vat != null && supply + vat === amountKrw) return { supplyKrw: supply, vatKrw: vat };
-  const vatKrw = Math.round(amountKrw / 11);
-  return { supplyKrw: amountKrw - vatKrw, vatKrw };
+function kstYmd(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(date);
+}
+
+async function serviceBridgePayNo(row: { id: string; createdAt: Date }): Promise<string> {
+  const ymd = kstYmd(row.createdAt);
+  const start = new Date(`${ymd}T00:00:00+09:00`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const earlier = await prisma.usageFeeCardPayment.count({
+    where: {
+      AND: [
+        { createdAt: { gte: start, lt: end } },
+        {
+          OR: [
+            { createdAt: { lt: row.createdAt } },
+            { createdAt: row.createdAt, id: { lt: row.id } },
+          ],
+        },
+      ],
+    },
+  });
+  return `SB-${ymd.slice(5, 7)}${ymd.slice(8, 10)}-${earlier + 1}`;
 }
 
 function sellerFromTrust(trust: {
@@ -114,7 +133,7 @@ export async function buildTenantPayLinkView(tokenHash: string): Promise<PublicP
   });
   const seller = sellerFromTrust(trust, row.tenant.name);
   const expired = Boolean(row.linkExpiresAt && row.linkExpiresAt.getTime() < Date.now());
-  const split = splitVat(row.amountWon);
+  const split = splitTaxIncluded(row.amountWon);
   let state: PublicPayLinkState = 'wait';
   let offTitle: string | null = null;
   if (row.status === 'APPROVED') state = 'done';
@@ -134,7 +153,7 @@ export async function buildTenantPayLinkView(tokenHash: string): Promise<PublicP
     goodsName: row.goodsName?.trim() || '청소 서비스',
     serviceDateLabel: row.inquiry?.preferredDate ? kstDay(row.inquiry.preferredDate) : null,
     customerMasked: maskPersonName(row.customerName),
-    orderNo: row.pgOrderId || row.inquiryNumber,
+    orderNo: row.inquiryNumber?.trim() || null,
     deadlineLabel: row.linkExpiresAt ? `${kstStamp(row.linkExpiresAt)}까지` : null,
     paidAtLabel: row.paidAt ? kstStamp(row.paidAt) : null,
     cardLabel: row.cardLast4 ? `····${row.cardLast4}` : null,
@@ -171,7 +190,7 @@ export async function buildServiceBridgePayLinkView(token: string): Promise<Publ
     state = 'expired';
     offTitle = '결제 기한이 지났어요';
   }
-  const split = splitVat(row.amountKrw, row.supplyAmountKrw, row.vatAmountKrw);
+  const split = splitTaxIncluded(row.amountKrw, row.supplyAmountKrw, row.vatAmountKrw);
   return {
     state,
     sellerName: SERVICE_BRIDGE.sellerName,
@@ -186,7 +205,7 @@ export async function buildServiceBridgePayLinkView(token: string): Promise<Publ
     goodsName: row.goodsName,
     serviceDateLabel: inquiry?.preferredDate ? kstDay(inquiry.preferredDate) : null,
     customerMasked: maskPersonName(row.buyerName),
-    orderNo: row.pgOrderId,
+    orderNo: await serviceBridgePayNo(row),
     deadlineLabel: row.linkExpiresAt ? `${kstStamp(row.linkExpiresAt)}까지` : null,
     paidAtLabel: row.status === 'APPROVED' ? kstStamp(row.paidAt) : null,
     cardLabel: row.cardLast4 ? `····${row.cardLast4}` : null,

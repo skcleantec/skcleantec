@@ -55,7 +55,7 @@ export function PlatformCardChargePage() {
   }
 
   return (
-    <div className={`min-w-0 w-full space-y-4 pb-8 ${tab === 'tenant' ? 'max-w-none' : 'max-w-5xl'}`}>
+    <div className={`min-w-0 w-full space-y-4 pb-8 ${tab === 'tenant' || tab === 'list' ? 'max-w-none' : 'max-w-5xl'}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-xs text-gray-500">플랫폼 › 매출·수납</p>
@@ -64,13 +64,9 @@ export function PlatformCardChargePage() {
             서비스브릿지 가맹으로 받습니다. 고객 카드 영수증에는 서비스브릿지가 찍힙니다.
           </p>
         </div>
-        {sellerSaved ? (
-          <Button size="md" variant="secondary" onClick={openSellerCenter}>원성페이 바로가기 ↗</Button>
-        ) : sellerSaved === false ? (
-          <p className="max-w-xs text-sm text-gray-600">
-            판매자센터 아이디가 저장돼 있지 않아요. 원성 파트너의 서비스브릿지 판매자센터에 아이디를 저장하세요.
-          </p>
-        ) : null}
+        <span title={sellerSaved ? undefined : '판매자센터 아이디를 먼저 저장하세요'}>
+          <Button size="md" variant="secondary" disabled={!sellerSaved} onClick={openSellerCenter}>원성페이 바로가기</Button>
+        </span>
       </div>
       {sellerError ? <p className="text-sm text-red-700">{sellerError}</p> : null}
       <PlatformCardPaymentTabs />

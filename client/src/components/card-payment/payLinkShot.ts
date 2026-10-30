@@ -33,6 +33,10 @@ const SB: PublicPayLinkViewData = {
   address: '인천광역시 연수구 송도미래로 30, 이동 801호, 엠46(송도동, 스마트밸리지식산업센터)',
   statementName: '서비스브릿지',
   supportPhone: null,
+  amountKrw: 1000,
+  supplyKrw: 909,
+  vatKrw: 91,
+  orderNo: 'SB-1030-1',
 };
 
 export function payLinkShot(who: string | null, state: string | null): PublicPayLinkViewData | null {

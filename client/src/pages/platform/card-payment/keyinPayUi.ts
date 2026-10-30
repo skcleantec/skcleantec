@@ -1,3 +1,5 @@
+import { splitTaxIncluded } from '@shared/cardPayment';
+
 export type PayLinkSeed = {
   purpose: 'INVOICE' | 'OTHER' | 'CLEANING_PROXY';
   tenantId: string;
@@ -11,8 +13,8 @@ export type PayLinkSeed = {
 };
 
 export function splitVatIncluded(amount: number): { supply: number; vat: number } {
-  const vat = Math.round(amount / 11);
-  return { supply: amount - vat, vat };
+  const split = splitTaxIncluded(amount);
+  return { supply: split.supplyKrw, vat: split.vatKrw };
 }
 
 const BRANDS: Array<[string, string]> = [

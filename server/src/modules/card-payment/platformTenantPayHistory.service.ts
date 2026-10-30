@@ -54,8 +54,8 @@ function rangeOf(query: TenantPayQuery): { gte: Date; lt: Date } {
     return { gte: kstStart(from), lt: kstStart(addDays(to, 1)) };
   }
   if (query.period === '7d') return { gte: kstStart(addDays(today, -6)), lt: kstStart(addDays(today, 1)) };
-  if (query.period === 'month') return { gte: kstStart(monthStart(today)), lt: kstStart(addDays(today, 1)) };
-  return { gte: kstStart(today), lt: kstStart(addDays(today, 1)) };
+  if (query.period === 'today') return { gte: kstStart(today), lt: kstStart(addDays(today, 1)) };
+  return { gte: kstStart(monthStart(today)), lt: kstStart(addDays(today, 1)) };
 }
 
 function whereOf(query: TenantPayQuery): Prisma.CardPaymentWhereInput {

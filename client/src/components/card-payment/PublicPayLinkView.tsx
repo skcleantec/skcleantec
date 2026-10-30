@@ -107,7 +107,7 @@ export function PublicPayLinkView({
                 ) : null}
                 {view.orderNo ? (
                   <>
-                    <dt className="text-[#6b7280] dark:text-[#9aa4b5]">주문번호</dt>
+                    <dt className="text-[#6b7280] dark:text-[#9aa4b5]">결제번호</dt>
                     <dd className="text-right tabular-nums">{view.orderNo}</dd>
                   </>
                 ) : null}
@@ -121,7 +121,7 @@ export function PublicPayLinkView({
             </section>
             <section className="grid gap-2.5 rounded-2xl border border-[#e3e7ee] bg-white p-5 text-[13px] text-[#6b7280] dark:border-[#2a3240] dark:bg-[#161b24] dark:text-[#9aa4b5]" aria-label="안전 안내">
               <div className="grid grid-cols-[20px_1fr] gap-2">
-                <LineMdIcon name="lock" className="mt-0.5 size-[18px]" />
+                <LineMdIcon name="security" className="mt-0.5 size-[18px] text-[#111827] dark:text-[#eef1f6]" />
                 <span>
                   <b className="font-medium text-[#111827] dark:text-[#eef1f6]">카드 정보는 이 화면에서 받지 않아요.</b> 다음 단계의 카드사 인증 결제창(PG)에서 직접 입력해요.
                 </span>
@@ -170,7 +170,7 @@ export function PublicPayLinkView({
                 ) : null}
                 {view.orderNo ? (
                   <>
-                    <dt className="text-[#6b7280] dark:text-[#9aa4b5]">주문번호</dt>
+                    <dt className="text-[#6b7280] dark:text-[#9aa4b5]">결제번호</dt>
                     <dd className="text-right tabular-nums">{view.orderNo}</dd>
                   </>
                 ) : null}
