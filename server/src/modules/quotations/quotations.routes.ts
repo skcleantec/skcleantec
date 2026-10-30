@@ -34,6 +34,7 @@ import {
   verifyActorPassword,
   parseQuotationVatMode,
 } from './quotations.service.js';
+import { resolveQuotationRecipient } from './quotationRecipient.js';
 import { resolveQuotationInquiryId } from './quotationInquiry.service.js';
 import {
   listQuotationEditorOperatingCompanies,
@@ -397,9 +398,17 @@ router.post('/', async (req, res) => {
   }
   const documentType = documentTypeParsed;
 
+  const recipient = resolveQuotationRecipient(body);
+  if ('error' in recipient) {
+    res.status(400).json({ error: recipient.error });
+    return;
+  }
+
   const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : '';
   if (!customerName) {
-    res.status(400).json({ error: '상대 이름을 입력해주세요.' });
+    res.status(400).json({
+      error: recipient.recipientKind === 'PARTNER' ? '상호를 입력해 주세요.' : '상대 이름을 입력해주세요.',
+    });
     return;
   }
 
@@ -458,6 +467,9 @@ router.post('/', async (req, res) => {
           typeof body.customerAddress === 'string' && body.customerAddress.trim()
             ? body.customerAddress.trim()
             : null,
+        recipientKind: recipient.recipientKind,
+        customerBizNo: recipient.customerBizNo,
+        customerRepName: recipient.customerRepName,
         memo: typeof body.memo === 'string' && body.memo.trim() ? body.memo.trim() : null,
         subtotal,
         discountAmount,
@@ -497,10 +509,21 @@ router.patch('/:id', async (req, res) => {
   }
 
   const body = req.body as Record<string, unknown>;
+  const recipient = resolveQuotationRecipient(body, {
+    recipientKind: existing.recipientKind,
+    customerBizNo: existing.customerBizNo,
+    customerRepName: existing.customerRepName,
+  });
+  if ('error' in recipient) {
+    res.status(400).json({ error: recipient.error });
+    return;
+  }
   const customerName =
     typeof body.customerName === 'string' ? body.customerName.trim() : existing.customerName;
   if (!customerName) {
-    res.status(400).json({ error: '상대 이름을 입력해주세요.' });
+    res.status(400).json({
+      error: recipient.recipientKind === 'PARTNER' ? '상호를 입력해 주세요.' : '상대 이름을 입력해주세요.',
+    });
     return;
   }
 
@@ -634,6 +657,9 @@ router.patch('/:id', async (req, res) => {
               ? body.customerAddress.trim()
               : null
             : undefined,
+        recipientKind: recipient.recipientKind,
+        customerBizNo: recipient.customerBizNo,
+        customerRepName: recipient.customerRepName,
         memo:
           body.memo !== undefined
             ? typeof body.memo === 'string' && body.memo.trim()

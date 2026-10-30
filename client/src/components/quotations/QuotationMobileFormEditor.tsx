@@ -7,6 +7,7 @@ import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
 import type { QuotationVatMode } from '@shared/quotationVat';
 import { computeLineAmounts, vatModeLabel } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
+import type { QuotationRecipientKind } from '@shared/quotationRecipient';
 import {
   getDocumentClosingPhrase,
   QUOTATION_DOCUMENT_TYPE_OPTIONS,
@@ -51,6 +52,13 @@ type Props = {
   customerPhone: string;
   customerEmail: string;
   customerAddress: string;
+  showRecipientKind?: boolean;
+  recipientKind?: QuotationRecipientKind;
+  onRecipientKindChange?: (kind: QuotationRecipientKind) => void;
+  customerBizNo?: string;
+  customerRepName?: string;
+  onCustomerBizNoChange?: (v: string) => void;
+  onCustomerRepNameChange?: (v: string) => void;
   validUntil: string;
   onCustomerNameChange: (v: string) => void;
   onCustomerPhoneChange: (v: string) => void;
@@ -134,6 +142,13 @@ export function QuotationMobileFormEditor(props: Props) {
     customerPhone,
     customerEmail,
     customerAddress,
+    showRecipientKind = false,
+    recipientKind = 'CUSTOMER',
+    onRecipientKindChange,
+    customerBizNo = '',
+    customerRepName = '',
+    onCustomerBizNoChange,
+    onCustomerRepNameChange,
     validUntil,
     onCustomerNameChange,
     onCustomerPhoneChange,
@@ -278,7 +293,14 @@ export function QuotationMobileFormEditor(props: Props) {
       </p>
 
       {step === 'customer' ? (
-        <SectionCard title="손님" subtitle="견적서에 찍히는 이름과 연락처">
+        <SectionCard
+          title={recipientKind === 'PARTNER' ? '타업체' : '손님'}
+          subtitle={
+            recipientKind === 'PARTNER'
+              ? '견적서에 찍히는 상호와 연락처'
+              : '견적서에 찍히는 이름과 연락처'
+          }
+        >
           {showBrandSelector ? (
             <label className="block">
               <span className={qUi.label}>영업 브랜드</span>
@@ -313,18 +335,65 @@ export function QuotationMobileFormEditor(props: Props) {
             </div>
           </fieldset>
 
+          {showRecipientKind ? (
+            <fieldset>
+              <legend className={qUi.label}>공급받는자</legend>
+              <div className={`${qUi.segmentWrap} flex w-full min-w-0 max-w-full`}>
+                {(
+                  [
+                    ['CUSTOMER', '손님'],
+                    ['PARTNER', '타업체'],
+                  ] as const
+                ).map(([kind, label], i) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    className={`${qUi.segmentBtn(recipientKind === kind, i > 0)} min-h-10 flex-1 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50`}
+                    aria-pressed={recipientKind === kind}
+                    onClick={() => onRecipientKindChange?.(kind)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
           <label className="block">
             <span className={qUi.label}>
-              이름 <span className="text-rose-600">*</span>
+              {recipientKind === 'PARTNER' ? '상호' : '이름'} <span className="text-rose-600">*</span>
             </span>
             <input
               className={fieldCls}
-              placeholder="고객 성함"
+              placeholder={recipientKind === 'PARTNER' ? '업체 상호' : '고객 성함'}
               value={customerName}
               onChange={(e) => onCustomerNameChange(e.target.value)}
-              autoComplete="name"
+              autoComplete={recipientKind === 'PARTNER' ? 'organization' : 'name'}
             />
           </label>
+          {showRecipientKind && recipientKind === 'PARTNER' ? (
+            <>
+              <label className="block">
+                <span className={qUi.label}>사업자번호</span>
+                <input
+                  className={fieldCls}
+                  inputMode="numeric"
+                  placeholder="000-00-00000"
+                  value={customerBizNo}
+                  onChange={(e) => onCustomerBizNoChange?.(e.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className={qUi.label}>대표자</span>
+                <input
+                  className={fieldCls}
+                  placeholder="대표자 이름"
+                  value={customerRepName}
+                  onChange={(e) => onCustomerRepNameChange?.(e.target.value)}
+                />
+              </label>
+            </>
+          ) : null}
           <label className="block">
             <span className={qUi.label}>수신 이메일</span>
             <input
@@ -528,7 +597,15 @@ export function QuotationMobileFormEditor(props: Props) {
       {step === 'review' ? (
         <SectionCard title="확인" subtitle="맞으면 아래 「저장」을 누르세요">
           <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-fluid-xs text-slate-700">
-            <p className="font-semibold text-slate-900">{customerName.trim() || '이름 없음'}</p>
+            <p className="font-semibold text-slate-900">
+              {recipientKind === 'PARTNER' && customerName.trim() ? `타업체 · ${customerName.trim()}` : customerName.trim() || '이름 없음'}
+            </p>
+            {recipientKind === 'PARTNER' && customerBizNo.trim() ? (
+              <p className="mt-0.5">사업자 {customerBizNo.trim()}</p>
+            ) : null}
+            {recipientKind === 'PARTNER' && customerRepName.trim() ? (
+              <p className="mt-0.5">대표 {customerRepName.trim()}</p>
+            ) : null}
             {customerEmail.trim() ? <p className="mt-0.5">{customerEmail.trim()}</p> : (
               <p className="mt-0.5 text-amber-800">수신 이메일이 없습니다. 손님 칸에서 적어 주세요.</p>
             )}
