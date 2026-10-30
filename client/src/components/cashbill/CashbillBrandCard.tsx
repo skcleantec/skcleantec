@@ -48,7 +48,8 @@ export function CashbillBrandCard({
   const days = certDaysLeft(member?.certExpireDate);
   const soon = Boolean(member?.certValid) && days != null && days <= 30;
   const taxReady = Boolean(member?.certValid) && member?.taxType !== '2' && !soon;
-  const corpTitle = maskBizTitle(member?.corpNum || prefill.corpNum);
+  const corpSource = member?.corpNum || (brand.isDefault ? prefill.corpNum : '');
+  const corpTitle = corpSource ? maskBizTitle(corpSource) : '사업자번호 없음';
 
   const banner = !active && member && member.status !== 'FAILED'
     ? member.status === 'REJECTED'
