@@ -38,6 +38,11 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { QuotationHelpModal } from '../../components/admin/quotation-help/QuotationHelpModal';
 import { QuotationHelpTrigger } from '../../components/admin/quotation-help/QuotationHelpTrigger';
 import { computeQuotationVatAmounts } from '@shared/quotationVat';
+import {
+  formatQuotationBizNo,
+  parseQuotationBizNo,
+  type QuotationRecipientKind,
+} from '@shared/quotationRecipient';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
 import { resolveDocumentFooterNotice } from '@shared/quotationDocument';
 import { getToken } from '../../stores/auth';
@@ -96,6 +101,9 @@ export function AdminQuotationEditorPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [recipientKind, setRecipientKind] = useState<QuotationRecipientKind>('CUSTOMER');
+  const [customerBizNo, setCustomerBizNo] = useState('');
+  const [customerRepName, setCustomerRepName] = useState('');
   const [memo, setMemo] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
   const [vatMode, setVatMode] = useState<QuotationVatMode>('VAT_SEPARATE');
@@ -214,6 +222,9 @@ export function AdminQuotationEditorPage() {
       setCustomerPhone(row.customerPhone ?? '');
       setCustomerEmail(row.customerEmail ?? '');
       setCustomerAddress(row.customerAddress ?? '');
+      setRecipientKind(row.recipientKind ?? 'CUSTOMER');
+      setCustomerBizNo(row.customerBizNo ? formatQuotationBizNo(row.customerBizNo) : '');
+      setCustomerRepName(row.customerRepName ?? '');
       setMemo(row.memo ?? '');
       setSentAt(row.sentAt);
       setLastEmailedAt(row.lastEmailedAt);
@@ -337,6 +348,18 @@ export function AdminQuotationEditorPage() {
     if (next === 'RECEIPT') setValidUntil('');
   }, []);
 
+  const handleRecipientKindChange = useCallback((next: QuotationRecipientKind) => {
+    setRecipientKind((prev) => {
+      if (prev === next) return prev;
+      if (next === 'PARTNER') setCustomerName('');
+      else {
+        setCustomerBizNo('');
+        setCustomerRepName('');
+      }
+      return next;
+    });
+  }, []);
+
   const totals = useMemo(() => {
     let subtotal = 0;
     for (const li of lines) {
@@ -370,7 +393,11 @@ export function AdminQuotationEditorPage() {
   async function handleSave(finalize = false) {
     if (!token) return;
     if (!customerName.trim()) {
-      alert('공급받는자 이름을 입력해 주세요.');
+      alert(recipientKind === 'PARTNER' ? '상호를 입력해 주세요.' : '이름을 입력해 주세요.');
+      return;
+    }
+    if (recipientKind === 'PARTNER' && customerBizNo.trim() && parseQuotationBizNo(customerBizNo) === 'INVALID') {
+      alert('사업자번호는 숫자 10자리로 입력해 주세요.');
       return;
     }
     const normalizedLines = syncLinesWithCatalog(lines, catalog);
@@ -392,6 +419,9 @@ export function AdminQuotationEditorPage() {
         customerPhone: customerPhone.trim() || null,
         customerEmail: customerEmail.trim() || null,
         customerAddress: customerAddress.trim() || null,
+        recipientKind,
+        customerBizNo: recipientKind === 'PARTNER' ? customerBizNo.trim() || null : null,
+        customerRepName: recipientKind === 'PARTNER' ? customerRepName.trim() || null : null,
         memo: memo.trim() || null,
         discountAmount: disc,
         validUntil: documentType === 'RECEIPT' ? null : validUntil.trim() || null,
@@ -452,7 +482,7 @@ export function AdminQuotationEditorPage() {
           )}
         </div>
         <p className={`${qUi.pageDesc} hidden lg:block`}>
-          견적서 양식에 바로 입력합니다. 저장 후 PDF·이메일 발송이 가능합니다.
+          접수 없이도 저장할 수 있습니다. 공급받는자는 손님 또는 타업체를 고릅니다.
         </p>
       </div>
 
@@ -488,6 +518,13 @@ export function AdminQuotationEditorPage() {
         customerPhone={customerPhone}
         customerEmail={customerEmail}
         customerAddress={customerAddress}
+        showRecipientKind
+        recipientKind={recipientKind}
+        onRecipientKindChange={handleRecipientKindChange}
+        customerBizNo={customerBizNo}
+        customerRepName={customerRepName}
+        onCustomerBizNoChange={setCustomerBizNo}
+        onCustomerRepNameChange={setCustomerRepName}
         validUntil={validUntil}
         onCustomerNameChange={setCustomerName}
         onCustomerPhoneChange={setCustomerPhone}
@@ -545,6 +582,13 @@ export function AdminQuotationEditorPage() {
           customerPhone={customerPhone}
           customerEmail={customerEmail}
           customerAddress={customerAddress}
+          showRecipientKind
+          recipientKind={recipientKind}
+          onRecipientKindChange={handleRecipientKindChange}
+          customerBizNo={customerBizNo}
+          customerRepName={customerRepName}
+          onCustomerBizNoChange={setCustomerBizNo}
+          onCustomerRepNameChange={setCustomerRepName}
           validUntil={validUntil}
           onCustomerNameChange={setCustomerName}
           onCustomerPhoneChange={setCustomerPhone}

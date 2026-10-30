@@ -24,6 +24,7 @@ async function readError(res: Response): Promise<string> {
 }
 
 import type { QuotationDocumentType } from '@shared/quotationDocument';
+import type { QuotationRecipientKind } from '@shared/quotationRecipient';
 
 export type QuotationStatus = 'DRAFT' | 'FINALIZED' | 'SENT';
 
@@ -109,6 +110,9 @@ export interface QuotationDto {
   customerPhone: string | null;
   customerEmail: string | null;
   customerAddress: string | null;
+  recipientKind: QuotationRecipientKind;
+  customerBizNo: string | null;
+  customerRepName: string | null;
   memo: string | null;
   subtotal: number;
   discountAmount: number;
@@ -281,6 +285,9 @@ export async function createQuotation(
     customerPhone?: string | null;
     customerEmail?: string | null;
     customerAddress?: string | null;
+    recipientKind?: QuotationRecipientKind;
+    customerBizNo?: string | null;
+    customerRepName?: string | null;
     memo?: string | null;
     discountAmount?: number;
     validUntil?: string | null;
@@ -308,6 +315,9 @@ export async function updateQuotation(
     customerPhone: string | null;
     customerEmail: string | null;
     customerAddress: string | null;
+    recipientKind?: QuotationRecipientKind;
+    customerBizNo?: string | null;
+    customerRepName?: string | null;
     memo: string | null;
     discountAmount: number;
     validUntil: string | null;

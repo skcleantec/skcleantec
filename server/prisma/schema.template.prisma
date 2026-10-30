@@ -3557,6 +3557,11 @@ enum QuotationVatMode {
   VAT_SEPARATE
 }
 
+enum QuotationRecipientKind {
+  CUSTOMER
+  PARTNER
+}
+
 /// 견적 설정 — 서비스 항목 카탈로그 (발주서 EstimateOption 과 별개)
 model QuotationServiceItem {
   id          String   @id @default(uuid())
@@ -3588,6 +3593,9 @@ model Quotation {
   customerPhone   String?         @map("customer_phone") @db.VarChar(32)
   customerEmail   String?         @map("customer_email") @db.VarChar(254)
   customerAddress String?         @map("customer_address") @db.VarChar(500)
+  recipientKind   QuotationRecipientKind @default(CUSTOMER) @map("recipient_kind")
+  customerBizNo   String?         @map("customer_biz_no") @db.VarChar(20)
+  customerRepName String?         @map("customer_rep_name") @db.VarChar(80)
   memo            String?         @db.VarChar(1000)
   subtotal        Int             @default(0)
   discountAmount  Int             @default(0) @map("discount_amount")

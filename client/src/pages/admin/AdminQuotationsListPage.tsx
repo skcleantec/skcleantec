@@ -268,7 +268,16 @@ export function AdminQuotationsListPage() {
                       <td className={`${qUi.td} font-mono text-fluid-2xs tabular-nums`}>
                         {row.quoteNumber}
                       </td>
-                      <td className={`${qUi.td} font-medium text-slate-900`}>{row.customerName}</td>
+                      <td className={`${qUi.td} font-medium text-slate-900`}>
+                        <span className="inline-flex max-w-full items-center justify-center gap-1">
+                          <span className="truncate">{row.customerName}</span>
+                          {row.recipientKind === 'PARTNER' ? (
+                            <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0 text-fluid-2xs font-medium text-amber-800 ring-1 ring-amber-200">
+                              타업체
+                            </span>
+                          ) : null}
+                        </span>
+                      </td>
                       <td className={`${qUi.td} font-mono text-fluid-2xs text-slate-500`}>
                         {row.inquiry?.inquiryNumber ?? '—'}
                       </td>
@@ -323,7 +332,14 @@ export function AdminQuotationsListPage() {
                 <li key={row.id} className={qUi.mobileCard}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 truncate">{row.customerName}</p>
+                      <p className="flex items-center gap-1 font-semibold text-slate-900">
+                        <span className="truncate">{row.customerName}</span>
+                        {row.recipientKind === 'PARTNER' ? (
+                          <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0 text-fluid-2xs font-medium text-amber-800 ring-1 ring-amber-200">
+                            타업체
+                          </span>
+                        ) : null}
+                      </p>
                       <p className="mt-0.5 font-mono text-fluid-2xs text-slate-500 tabular-nums">
                         {row.quoteNumber}
                       </p>

@@ -8,6 +8,7 @@ import { resolveQuotationSealDisplayWidth } from '@shared/quotationSeal';
 import type { QuotationVatMode } from '@shared/quotationVat';
 import { computeLineAmounts, vatModeLabel } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
+import type { QuotationRecipientKind } from '@shared/quotationRecipient';
 import {
   getDocumentClosingPhrase,
   QUOTATION_DOCUMENT_TYPE_OPTIONS,
@@ -55,6 +56,14 @@ type Props = {
   customerPhone: string;
   customerEmail: string;
   customerAddress: string;
+  /** 관리자·마케터 견적만. 팀장 화면은 손님 칸만 유지 */
+  showRecipientKind?: boolean;
+  recipientKind?: QuotationRecipientKind;
+  onRecipientKindChange?: (kind: QuotationRecipientKind) => void;
+  customerBizNo?: string;
+  customerRepName?: string;
+  onCustomerBizNoChange?: (v: string) => void;
+  onCustomerRepNameChange?: (v: string) => void;
   validUntil: string;
   onCustomerNameChange: (v: string) => void;
   onCustomerPhoneChange: (v: string) => void;
@@ -161,6 +170,13 @@ export function QuotationDocumentEditor({
   customerPhone,
   customerEmail,
   customerAddress,
+  showRecipientKind = false,
+  recipientKind = 'CUSTOMER',
+  onRecipientKindChange,
+  customerBizNo = '',
+  customerRepName = '',
+  onCustomerBizNoChange,
+  onCustomerRepNameChange,
   validUntil,
   onCustomerNameChange,
   onCustomerPhoneChange,
@@ -363,7 +379,7 @@ export function QuotationDocumentEditor({
             {/* ── 본문(가변) ── */}
             <div className="flex-1 flex flex-col min-h-0 text-[14px] leading-relaxed">
               {/* 공급자 / 공급받는자 */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-1 gap-3 mb-4 min-[720px]:grid-cols-2">
                 <div className="border border-slate-300 bg-[#f9fafb] p-3 min-h-[100px]">
                   <p className="text-[11px] font-bold text-slate-500 mb-2 tracking-wide">공급자</p>
                   <div className="space-y-0.5 text-[13px] text-slate-800">
@@ -386,19 +402,72 @@ export function QuotationDocumentEditor({
                 </div>
 
                 <div className="border border-slate-300 bg-[#f9fafb] p-3 min-h-[100px]">
-                  <p className="text-[11px] font-bold text-slate-500 mb-2 tracking-wide">
-                    공급받는자
-                  </p>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] font-bold text-slate-500 tracking-wide">공급받는자</p>
+                    {showRecipientKind ? (
+                      <div
+                        className="inline-flex overflow-hidden rounded-md border border-slate-200"
+                        role="group"
+                        aria-label="공급받는자 구분"
+                      >
+                        {(
+                          [
+                            ['CUSTOMER', '손님'],
+                            ['PARTNER', '타업체'],
+                          ] as const
+                        ).map(([kind, label], i) => (
+                          <button
+                            key={kind}
+                            type="button"
+                            className={`px-2 py-0.5 text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 ${
+                              i > 0 ? 'border-l border-slate-200' : ''
+                            } ${
+                              recipientKind === kind
+                                ? 'bg-slate-900 text-white'
+                                : 'bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
+                            aria-pressed={recipientKind === kind}
+                            onClick={() => onRecipientKindChange?.(kind)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="space-y-1.5">
                     <label className="block">
-                      <span className="sr-only">이름</span>
+                      <span className="sr-only">{recipientKind === 'PARTNER' ? '상호' : '이름'}</span>
                       <input
                         className={docInput}
-                        placeholder="이름 *"
+                        placeholder={recipientKind === 'PARTNER' ? '상호 *' : '이름 *'}
                         value={customerName}
                         onChange={(e) => onCustomerNameChange(e.target.value)}
                       />
                     </label>
+                    {showRecipientKind && recipientKind === 'PARTNER' ? (
+                      <>
+                        <label className="block">
+                          <span className="sr-only">사업자번호</span>
+                          <input
+                            className={docInput}
+                            inputMode="numeric"
+                            placeholder="사업자번호"
+                            value={customerBizNo}
+                            onChange={(e) => onCustomerBizNoChange?.(e.target.value)}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="sr-only">대표자</span>
+                          <input
+                            className={docInput}
+                            placeholder="대표자"
+                            value={customerRepName}
+                            onChange={(e) => onCustomerRepNameChange?.(e.target.value)}
+                          />
+                        </label>
+                      </>
+                    ) : null}
                     <label className="block">
                       <span className="sr-only">수신 이메일</span>
                       <input

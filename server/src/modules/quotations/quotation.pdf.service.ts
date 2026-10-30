@@ -9,6 +9,7 @@ import {
   vatModeLabel,
   type QuotationVatMode,
 } from './quotationVat.js';
+import { quotationRecipientLines } from './quotationRecipient.js';
 
 const QUOTATION_TEMPLATE_MIN_ROWS = 8;
 
@@ -212,8 +213,18 @@ export async function buildQuotationPdfBuffer(
         doc.fontSize(10).fillColor('#555').text(`No. ${quotation.quoteNumber}`, { align: 'center' });
         doc.moveDown(0.9);
 
-        const boxH = 88;
         const boxW = (pageWidth - 12) / 2;
+        const rightLines = quotationRecipientLines(quotation);
+        const supplierLineCount =
+          (companyName && companyName !== '—' ? 1 : 0) +
+          (company?.representativeName?.trim() ? 1 : 0) +
+          [
+            company?.businessRegistrationNo?.trim(),
+            company?.addressLine?.trim(),
+            company?.phone?.trim(),
+            company?.contactEmail?.trim(),
+          ].filter(Boolean).length;
+        const boxH = Math.max(88, 22 + Math.max(supplierLineCount, rightLines.length) * 13 + 8);
         const boxY = doc.y;
 
         drawBox(doc, ml, boxY, boxW, boxH, '#f9fafb');
@@ -273,12 +284,6 @@ export async function buildQuotationPdfBuffer(
         }
 
         let rightY = boxY + 18;
-        const rightLines = [
-          quotation.customerName,
-          quotation.customerPhone?.trim() ? `Tel ${quotation.customerPhone.trim()}` : null,
-          quotation.customerEmail?.trim() ?? null,
-          quotation.customerAddress?.trim() ?? null,
-        ].filter(Boolean) as string[];
         for (const line of rightLines) {
           doc.text(line, ml + boxW + 20, rightY, { width: boxW - 16, lineGap: 1 });
           rightY += doc.currentLineHeight() + 1;
