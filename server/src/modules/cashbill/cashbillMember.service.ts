@@ -45,9 +45,15 @@ function realSupplierText(raw: unknown, max = 200): string {
   return isBlankSupplierField(text) ? '' : text;
 }
 
-function assertTestEnv(): void {
-  if (resolveBarobillEnv() !== 'test') {
-    throw new CashbillMemberError('지금은 바로빌 테스트 환경만 사용할 수 있습니다.', 403);
+function assertBarobillConfigured(): void {
+  if (!(process.env.BAROBILL_CERTKEY ?? '').trim()) {
+    throw new CashbillMemberError('바로빌 연결 설정이 없습니다.', 503);
+  }
+}
+
+function assertMemberEnv(env: string): void {
+  if (env !== resolveBarobillEnv()) {
+    throw new CashbillMemberError('현재 바로빌 환경과 다른 회원사입니다.', 403);
   }
 }
 
@@ -72,7 +78,7 @@ async function loadSignupProfile(tenantId: string) {
 }
 
 export async function getCashbillSettings(tenantId: string) {
-  assertTestEnv();
+  assertBarobillConfigured();
   await refreshBarobillCerts(tenantId).catch(() => undefined);
   const env = resolveBarobillEnv();
   const { signup, pg } = await loadSignupProfile(tenantId);
@@ -405,7 +411,7 @@ async function claimDefaultBrandProcessing(
 }
 
 export async function registerCashbillMember(tenantId: string, input: RegisterInput) {
-  assertTestEnv();
+  assertBarobillConfigured();
   const env = resolveBarobillEnv();
   const { signup, pg } = await loadSignupProfile(tenantId);
   if (signup?.businessType === 'individual') {
@@ -570,7 +576,8 @@ export async function listBarobillMembersForPlatform(query: {
   const where: Prisma.BarobillMemberWhereInput = {};
   const tenantId = query.tenantId?.trim();
   if (tenantId) where.tenantId = tenantId;
-  if (query.env === 'test' || query.env === 'prod') where.env = query.env;
+  const listedEnv = (['test', 'prod'] as const).find((name) => name === query.env);
+  if (listedEnv) where.env = listedEnv;
   if (
     query.status === 'ACTIVE' ||
     query.status === 'LINK_REQUIRED' ||
@@ -664,12 +671,12 @@ export async function listBarobillMembersForPlatform(query: {
 }
 
 export async function approveBarobillMember(memberId: string, platformUserId: string) {
-  assertTestEnv();
+  assertBarobillConfigured();
   const row = await prisma.barobillMember.findFirst({
     where: { id: memberId },
   });
   if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
-  if (row.env !== 'test') throw new CashbillMemberError('테스트 환경 회원사만 처리할 수 있습니다.', 403);
+  assertMemberEnv(row.env);
   if (row.status === 'PROCESSING') throw new CashbillMemberError(ALREADY_PROCESSING_MESSAGE, 409);
   if (row.status !== 'PENDING_REVIEW') throw new CashbillMemberError('검토 중인 건만 승인할 수 있습니다.');
   const claimed = await prisma.barobillMember.updateMany({
@@ -715,7 +722,7 @@ export async function approveBarobillMember(memberId: string, platformUserId: st
 }
 
 export async function rejectBarobillMember(memberId: string, platformUserId: string, reasonRaw: string) {
-  assertTestEnv();
+  assertBarobillConfigured();
   const reason = clean(reasonRaw, 500);
   if (!reason) throw new CashbillMemberError('반려 사유를 입력해 주세요.');
   const row = await prisma.barobillMember.findFirst({
@@ -723,7 +730,7 @@ export async function rejectBarobillMember(memberId: string, platformUserId: str
     select: { id: true, tenantId: true, env: true, status: true },
   });
   if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
-  if (row.env !== 'test') throw new CashbillMemberError('테스트 환경 회원사만 처리할 수 있습니다.', 403);
+  assertMemberEnv(row.env);
   if (row.status !== 'PENDING_REVIEW') throw new CashbillMemberError('검토 중인 건만 반려할 수 있습니다.');
   const updated = await prisma.barobillMember.updateMany({
     where: { id: row.id, tenantId: row.tenantId, status: 'PENDING_REVIEW' },
@@ -740,7 +747,7 @@ export async function rejectBarobillMember(memberId: string, platformUserId: str
 }
 
 export async function completeBarobillLink(memberId: string, barobillUserIdRaw: string) {
-  assertTestEnv();
+  assertBarobillConfigured();
   const userId = barobillUserIdRaw.trim();
   if (!/^[A-Za-z0-9]{6,20}$/.test(userId)) {
     throw new CashbillMemberError('바로빌 아이디는 영문·숫자 6~20자입니다.');
@@ -750,9 +757,7 @@ export async function completeBarobillLink(memberId: string, barobillUserIdRaw: 
     select: { id: true, tenantId: true, env: true, corpNum: true, status: true, updatedAt: true },
   });
   if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
-  if (row.env !== 'test') {
-    throw new CashbillMemberError('테스트 환경 회원사만 처리할 수 있습니다.', 403);
-  }
+  assertMemberEnv(row.env);
   const stale = isStaleProcessing(row.status, row.updatedAt);
   if (row.status === 'PROCESSING' && !stale) {
     throw new CashbillMemberError(ALREADY_PROCESSING_MESSAGE, 409);
@@ -773,13 +778,13 @@ export async function completeBarobillLink(memberId: string, barobillUserIdRaw: 
 }
 
 export async function checkStaleBarobillProcessing(memberId: string) {
-  assertTestEnv();
+  assertBarobillConfigured();
   const row = await prisma.barobillMember.findFirst({
     where: { id: memberId },
     select: { id: true, env: true, corpNum: true, status: true, updatedAt: true },
   });
   if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
-  if (row.env !== 'test') throw new CashbillMemberError('테스트 환경 회원사만 처리할 수 있습니다.', 403);
+  assertMemberEnv(row.env);
   if (row.status !== 'PROCESSING') throw new CashbillMemberError('처리 중인 건만 확인할 수 있습니다.');
   if (!isStaleProcessing(row.status, row.updatedAt)) {
     throw new CashbillMemberError('10분이 지나지 않아 아직 확인하지 않습니다.');
@@ -796,13 +801,13 @@ export async function checkStaleBarobillProcessing(memberId: string) {
 }
 
 export async function releaseStaleBarobillProcessing(memberId: string) {
-  assertTestEnv();
+  assertBarobillConfigured();
   const row = await prisma.barobillMember.findFirst({
     where: { id: memberId },
     select: { id: true, tenantId: true, env: true, corpNum: true, status: true, updatedAt: true },
   });
   if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
-  if (row.env !== 'test') throw new CashbillMemberError('테스트 환경 회원사만 처리할 수 있습니다.', 403);
+  assertMemberEnv(row.env);
   if (!isStaleProcessing(row.status, row.updatedAt)) {
     throw new CashbillMemberError('10분이 지나지 않은 처리 중 건은 되돌릴 수 없습니다.');
   }
