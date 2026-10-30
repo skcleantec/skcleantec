@@ -189,7 +189,7 @@ export function CashbillBrandCard({
 
       {member && linkFlow && !requested ? (
         <>
-          {safeReason(member) ? <p className="text-fluid-xs text-[#b42318]">{safeReason(member)}</p> : null}
+          {retry && safeReason(member) ? <p className="text-fluid-xs text-[#b42318]">{safeReason(member)}</p> : null}
           <div className="grid gap-1.5 rounded-[10px] border border-[#f0d27a] bg-[#fff6dc] px-4 py-3.5">
             <strong className="text-fluid-xs text-[#141b26]">이미 바로빌을 쓰고 있는 사업자예요</strong>
             <p className="text-fluid-xs text-[#141b26]">이 사업자번호는 바로빌에 가입돼 있어서 자동으로 연결되지 않아요. 연결 요청을 보내 주시면 청소비서가 대신 연결해 드려요.</p>
