@@ -150,11 +150,15 @@ export async function fetchUsageFeeOpenPeriods(tenantId: string) {
 
 export type UsageFeeCardPaymentRow = {
   id: string;
-  purpose: 'INVOICE' | 'OTHER';
+  purpose: 'INVOICE' | 'OTHER' | 'CLEANING_PROXY';
+  purposeLabel?: string;
   payMethod: 'BANK' | 'KEYIN' | 'PAY_WINDOW';
+  methodLabel?: string;
   status: 'PENDING' | 'APPROVED' | 'FAILED' | 'CANCELLED';
+  statusLabel?: string;
   cancelable: boolean;
   tenantName: string | null;
+  inquiryLabel?: string | null;
   periodStart: string | null;
   goodsName: string;
   supplyAmountKrw: number;
@@ -163,16 +167,26 @@ export type UsageFeeCardPaymentRow = {
   approvalNo: string | null;
   cardLast4: string | null;
   buyerName: string | null;
+  buyerPhone?: string | null;
   memo: string | null;
+  linkUrl?: string | null;
+  linkExpiresAt?: string | null;
   invoiceApplied: boolean;
   paidAt: string;
   needsReconcile?: boolean;
   cancelBlockReason?: string | null;
 };
 
-export async function fetchUsageFeeCardPayments(limit: number, offset: number, payMethod?: string) {
+export async function fetchUsageFeeCardPayments(
+  limit: number,
+  offset: number,
+  payMethod?: string,
+  filters?: { purpose?: string; channel?: string },
+) {
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (payMethod) query.set('payMethod', payMethod);
+  if (filters?.purpose) query.set('purpose', filters.purpose);
+  if (filters?.channel) query.set('channel', filters.channel);
   const res = await fetch(`${API}/platform/card-payment/usage-fee/payments?${query.toString()}`, {
     headers: platformHeaders(),
   });
@@ -189,10 +203,74 @@ export async function cancelUsageFeeCardPayment(id: string) {
   return res.json() as Promise<{ ok: true; needsReconcile?: boolean; message?: string }>;
 }
 
-export async function payPlatformUsageFeeKeyin(input: {
-  purpose: 'INVOICE' | 'OTHER';
+export type PlatformPayInquiryHit = { id: string; label: string; inquiryNumber: string | null };
+
+export async function searchPlatformPayInquiries(tenantId: string, q: string) {
+  const query = new URLSearchParams({ tenantId, q });
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/inquiries?${query.toString()}`, {
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()).items as PlatformPayInquiryHit[];
+}
+
+export async function fetchPlatformSellerCenterStatus() {
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/seller-center`, { headers: platformHeaders() });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ saved: boolean; loginIdPrefix: string }>;
+}
+
+export async function revealPlatformSellerCenter() {
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/seller-center/reveal`, {
+    method: 'POST',
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ loginId: string; password: string }>;
+}
+
+export async function createPlatformPayLink(input: {
+  purpose: 'INVOICE' | 'OTHER' | 'CLEANING_PROXY';
   tenantId?: string;
   periodStartYmd?: string;
+  inquiryId?: string;
+  goodsName: string;
+  amountWon: number;
+  buyerName: string;
+  buyerPhone?: string;
+  memo?: string;
+}) {
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/links`, {
+    method: 'POST',
+    headers: { ...platformHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{
+    id: string;
+    url: string;
+    amountKrw: number;
+    buyerName: string | null;
+    tenantName: string | null;
+    expiresAt: string;
+    goodsName: string;
+  }>;
+}
+
+export async function closePlatformPayLink(id: string) {
+  const res = await fetch(`${API}/platform/card-payment/usage-fee/links/${encodeURIComponent(id)}/close`, {
+    method: 'POST',
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ ok: true }>;
+}
+
+export async function payPlatformUsageFeeKeyin(input: {
+  purpose: 'INVOICE' | 'OTHER' | 'CLEANING_PROXY';
+  tenantId?: string;
+  periodStartYmd?: string;
+  inquiryId?: string;
   memo?: string;
   goodsName: string;
   amountWon: number;

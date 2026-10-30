@@ -17,6 +17,13 @@ import {
   listUsageFeeOpenPeriods,
   payAndRecordUsageFee,
 } from './usageFeeCardPayment.service.js';
+import {
+  closePlatformPayLink,
+  createPlatformPayLink,
+  platformSellerCenterStatus,
+  revealPlatformSellerCenter,
+  searchPayLinkInquiries,
+} from './platformPayLink.service.js';
 import { getPgContractTemplate, savePgContractTemplate } from './pgMerchantContract.service.js';
 import { deletePgMerchant, feePercentToBps, listPgFeeLedger, setMerchantFeeBps } from './pgFeeLedger.service.js';
 import { platformUserCanManagePgFees, verifyPyoPassword } from './pgFeeAccess.js';
@@ -204,7 +211,47 @@ router.get('/usage-fee/payments', async (req, res) => {
   const limit = Number(req.query.limit ?? 30);
   const offset = Number(req.query.offset ?? 0);
   const payMethod = typeof req.query.payMethod === 'string' ? req.query.payMethod : undefined;
-  res.json(await listUsageFeeCardPayments(limit, offset, payMethod));
+  const purpose = typeof req.query.purpose === 'string' ? req.query.purpose : undefined;
+  const channel = typeof req.query.channel === 'string' ? req.query.channel : undefined;
+  res.json(await listUsageFeeCardPayments(limit, offset, payMethod, purpose, channel));
+});
+
+router.get('/usage-fee/seller-center', async (_req, res) => {
+  res.json(await platformSellerCenterStatus());
+});
+
+router.post('/usage-fee/seller-center/reveal', async (_req, res) => {
+  const revealed = await revealPlatformSellerCenter();
+  if ('error' in revealed) {
+    res.status(revealed.status).json({ error: revealed.error });
+    return;
+  }
+  res.json(revealed);
+});
+
+router.get('/usage-fee/inquiries', async (req, res) => {
+  const tenantId = typeof req.query.tenantId === 'string' ? req.query.tenantId : '';
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  res.json({ items: await searchPayLinkInquiries(tenantId, q) });
+});
+
+router.post('/usage-fee/links', async (req, res) => {
+  const platformUserId = (req as PlatformScopedRequest).platformUser.platformUserId;
+  const created = await createPlatformPayLink(req.body, platformUserId);
+  if ('error' in created) {
+    res.status(created.status).json({ error: created.error });
+    return;
+  }
+  res.json(created.result);
+});
+
+router.post('/usage-fee/links/:id/close', async (req, res) => {
+  const closed = await closePlatformPayLink(String(req.params.id));
+  if ('error' in closed) {
+    res.status(closed.status).json({ error: closed.error });
+    return;
+  }
+  res.json(closed);
 });
 
 router.post('/usage-fee/payments/:id/cancel', async (req, res) => {

@@ -9,6 +9,7 @@ import { usageFeeChargeKrw } from '@shared/tenantBilling';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import { getPlatformToken } from '../../../stores/platformAuth';
 import { BTN_PRIMARY, INPUT_BASE } from '../../../utils/platformUi';
+import { PlatformPayInquiryPick } from './PlatformPayInquiryPick';
 
 const BTN =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 disabled:pointer-events-none';
@@ -41,7 +42,8 @@ const emptyCard = {
 };
 
 export function PlatformUsageFeeKeyinForm({ onPaid }: { onPaid: () => void }) {
-  const [purpose, setPurpose] = useState<'INVOICE' | 'OTHER'>('INVOICE');
+  const [purpose, setPurpose] = useState<'INVOICE' | 'OTHER' | 'CLEANING_PROXY'>('INVOICE');
+  const [inquiryId, setInquiryId] = useState('');
   const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
   const [tenantId, setTenantId] = useState('');
   const [periods, setPeriods] = useState<UsageFeeOpenPeriod[]>([]);
@@ -103,7 +105,8 @@ export function PlatformUsageFeeKeyinForm({ onPaid }: { onPaid: () => void }) {
       purpose,
       tenantId: tenantId || undefined,
       periodStartYmd: purpose === 'INVOICE' ? periodStartYmd : undefined,
-      memo: purpose === 'OTHER' ? memo : undefined,
+      memo: purpose === 'INVOICE' ? undefined : memo,
+      inquiryId: purpose === 'CLEANING_PROXY' ? inquiryId || undefined : undefined,
       goodsName,
       amountWon: Number(amountWon.replace(/,/g, '')),
       buyerName,
@@ -148,16 +151,29 @@ export function PlatformUsageFeeKeyinForm({ onPaid }: { onPaid: () => void }) {
         >
           기타
         </button>
+        <button
+          type="button"
+          className={`${BTN} rounded-md px-3 py-1.5 text-sm ${purpose === 'CLEANING_PROXY' ? 'bg-slate-900 text-white' : 'text-gray-700 hover:bg-white'}`}
+          onClick={() => {
+            setPurpose('CLEANING_PROXY');
+            setGoodsName('입주청소 서비스');
+            setAmountWon('');
+          }}
+        >
+          청소비 대신 받기
+        </button>
       </div>
       <p className="text-xs text-gray-500">
         {purpose === 'INVOICE'
           ? '업체와 달을 고르면 이용료에 부가세 10%를 더한 금액으로 승인되고, 성공하면 그 달 청구가 납부 처리됩니다.'
-          : '업체나 달과 관계없는 결제입니다. 청구서 상태는 바뀌지 않고 기록만 남습니다.'}
+          : purpose === 'CLEANING_PROXY'
+            ? '손님 카드로 받고, 돈의 정산은 이 화면 밖에서 합니다. 여기에는 기록만 남습니다.'
+            : '업체나 달과 관계없는 결제입니다. 청구서 상태는 바뀌지 않고 기록만 남습니다.'}
       </p>
       <label className="block text-xs text-gray-600">
-        업체{purpose === 'OTHER' ? ' (선택)' : ''}
-        <select className={`${INPUT_BASE} mt-1`} value={tenantId} onChange={(e) => setTenantId(e.target.value)} required={purpose === 'INVOICE'}>
-          <option value="">{purpose === 'INVOICE' ? '업체를 선택하세요' : '업체 없음'}</option>
+        {purpose === 'CLEANING_PROXY' ? '청소한 업체' : `업체${purpose === 'OTHER' ? ' (선택)' : ''}`}
+        <select className={`${INPUT_BASE} mt-1`} value={tenantId} onChange={(e) => { setTenantId(e.target.value); setInquiryId(''); }} required={purpose !== 'OTHER'}>
+          <option value="">{purpose === 'OTHER' ? '업체 없음' : '업체를 선택하세요'}</option>
           {tenants.map((tenant) => (
             <option key={tenant.id} value={tenant.id}>
               {tenant.name}
@@ -177,11 +193,19 @@ export function PlatformUsageFeeKeyinForm({ onPaid }: { onPaid: () => void }) {
             <option value="">달을 선택하세요</option>
             {periods.map((period) => (
               <option key={period.periodStartYmd} value={period.periodStartYmd}>
-                {period.periodLabel} · {period.amountKrw.toLocaleString('ko-KR')}원 · {STATUS_LABEL[period.status] ?? period.status}
+                {period.periodLabel} · {period.amountKrw.toLocaleString('ko-KR')}원 · {STATUS_LABEL[period.status] ?? '상태'}
               </option>
             ))}
           </select>
         </label>
+      ) : purpose === 'CLEANING_PROXY' ? (
+        <>
+          <PlatformPayInquiryPick tenantId={tenantId} inquiryId={inquiryId} onChange={(id) => setInquiryId(id)} />
+          <label className="block text-xs text-gray-600">
+            내부 메모
+            <input className={`${INPUT_BASE} mt-1`} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="정산은 밖에서 합니다" />
+          </label>
+        </>
       ) : (
         <label className="block text-xs text-gray-600">
           내용

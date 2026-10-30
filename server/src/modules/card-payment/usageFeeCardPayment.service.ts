@@ -78,19 +78,26 @@ export async function listUsageFeeOpenPeriods(
 
 type PayLink =
   | { purpose: 'INVOICE'; tenantId: string; periodStartYmd: string }
-  | { purpose: 'OTHER'; tenantId: string | null; memo: string };
+  | { purpose: 'OTHER'; tenantId: string | null; memo: string }
+  | { purpose: 'CLEANING_PROXY'; tenantId: string; inquiryId: string | null; memo: string };
 
 function readLink(body: Record<string, unknown>): { error: string } | { link: PayLink } {
-  const purpose = body.purpose === 'OTHER' ? 'OTHER' : body.purpose === 'INVOICE' ? 'INVOICE' : '';
+  const purpose =
+    body.purpose === 'OTHER' ? 'OTHER' : body.purpose === 'INVOICE' ? 'INVOICE' : body.purpose === 'CLEANING_PROXY' ? 'CLEANING_PROXY' : '';
   if (!purpose) return { error: '결제 구분을 선택하세요.' };
   const tenantId = typeof body.tenantId === 'string' ? body.tenantId.trim() : '';
+  const memo = typeof body.memo === 'string' ? body.memo.trim().slice(0, 500) : '';
   if (purpose === 'INVOICE') {
     const periodStartYmd = typeof body.periodStartYmd === 'string' ? body.periodStartYmd.trim() : '';
     if (!tenantId) return { error: '업체를 선택하세요.' };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(periodStartYmd)) return { error: '결제할 달을 선택하세요.' };
     return { link: { purpose, tenantId, periodStartYmd } };
   }
-  const memo = typeof body.memo === 'string' ? body.memo.trim().slice(0, 200) : '';
+  if (purpose === 'CLEANING_PROXY') {
+    if (!tenantId) return { error: '청소한 업체를 선택하세요.' };
+    const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId.trim() : '';
+    return { link: { purpose, tenantId, inquiryId: inquiryId || null, memo } };
+  }
   if (!memo) return { error: '기타 결제는 내용을 입력하세요.' };
   return { link: { purpose, tenantId: tenantId || null, memo } };
 }
@@ -132,6 +139,13 @@ export async function payAndRecordUsageFee(
   } else if (linked.link.tenantId) {
     const tenant = await prisma.tenant.findFirst({ where: { id: linked.link.tenantId }, select: { id: true } });
     if (!tenant) return { error: '업체를 찾을 수 없습니다.', status: 404 };
+  }
+  if (linked.link.purpose === 'CLEANING_PROXY' && linked.link.inquiryId) {
+    const inquiry = await prisma.inquiry.findFirst({
+      where: { id: linked.link.inquiryId, tenantId: linked.link.tenantId },
+      select: { id: true },
+    });
+    if (!inquiry) return { error: '접수를 찾을 수 없습니다.', status: 404 };
   }
 
   const charged = await chargeUsageFeeKeyin(parsed.input);
@@ -175,7 +189,12 @@ export async function payAndRecordUsageFee(
         pgOrderId: charged.result.orderNo,
         cardLast4: charged.result.cardLast4 ?? parsed.input.cardNo.slice(-4),
         buyerName: parsed.input.buyerName,
-        memo: linked.link.purpose === 'OTHER' ? linked.link.memo : applyNote || null,
+        buyerPhone: parsed.input.buyerPhone || null,
+        inquiryId: linked.link.purpose === 'CLEANING_PROXY' ? linked.link.inquiryId : null,
+        memo:
+          linked.link.purpose === 'INVOICE'
+            ? applyNote || null
+            : linked.link.memo || null,
         invoiceApplied,
         paidAt: new Date(),
         createdByPlatformUserId: platformUserId,
@@ -193,16 +212,60 @@ export async function payAndRecordUsageFee(
   return { result: { ...charged.result, message, invoiceApplied } };
 }
 
-export async function listUsageFeeCardPayments(limit: number, offset: number, payMethodRaw?: string) {
+function linkRowClosed(row: { status: string; linkClosedAt: Date | null; linkExpiresAt: Date | null }): boolean {
+  if (row.status !== 'PENDING') return false;
+  if (row.linkClosedAt) return true;
+  return Boolean(row.linkExpiresAt && row.linkExpiresAt.getTime() <= Date.now());
+}
+
+export function usageFeeStatusLabel(row: {
+  status: string;
+  linkClosedAt: Date | null;
+  linkExpiresAt: Date | null;
+}): string {
+  if (row.status === 'APPROVED') return '결제 완료';
+  if (row.status === 'CANCELLED') return '취소';
+  if (row.status === 'FAILED') return '결제 실패';
+  if (linkRowClosed(row)) return '링크 만료';
+  return '결제 대기';
+}
+
+export function usageFeeMethodLabel(row: { payMethod: string; linkToken: string | null }): string {
+  if (row.linkToken) return '링크';
+  if (row.payMethod === 'KEYIN') return '수기';
+  if (row.payMethod === 'BANK') return '통장';
+  return '결제창';
+}
+
+export function usageFeePurposeLabel(purpose: string): string {
+  if (purpose === 'INVOICE') return '이용료';
+  if (purpose === 'CLEANING_PROXY') return '청소비 대신 받기';
+  return '기타';
+}
+
+export async function listUsageFeeCardPayments(
+  limit: number,
+  offset: number,
+  payMethodRaw?: string,
+  purposeRaw?: string,
+  channelRaw?: string,
+) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = Math.max(offset, 0);
   const payMethod = payMethodRaw?.trim().toUpperCase() ?? '';
+  const purpose = purposeRaw?.trim().toUpperCase() ?? '';
+  const channel = channelRaw?.trim().toUpperCase() ?? '';
   const where: Prisma.UsageFeeCardPaymentWhereInput = {
     OR: [{ status: 'APPROVED' }, { status: 'CANCELLED' }, { status: 'PENDING', payMethod: 'PAY_WINDOW' }],
   };
-  if (payMethod === 'CARD') where.payMethod = { in: ['KEYIN', 'PAY_WINDOW'] };
+  if (channel === 'LINK') where.linkToken = { not: null };
+  else if (channel === 'KEYIN') where.payMethod = 'KEYIN';
+  else if (payMethod === 'CARD') where.payMethod = { in: ['KEYIN', 'PAY_WINDOW'] };
   else if (payMethod === 'BANK' || payMethod === 'KEYIN' || payMethod === 'PAY_WINDOW') {
     where.payMethod = payMethod;
+  }
+  if (purpose === 'INVOICE' || purpose === 'OTHER' || purpose === 'CLEANING_PROXY') {
+    where.purpose = purpose;
   }
   const [rows, total] = await Promise.all([
     prisma.usageFeeCardPayment.findMany({
@@ -229,29 +292,56 @@ export async function listUsageFeeCardPayments(limit: number, offset: number, pa
           select: { tenantId: true, prepaidBalanceKrw: true },
         });
   const balanceByTenant = new Map(wallets.map((wallet) => [wallet.tenantId, wallet.prepaidBalanceKrw]));
+  const inquiryIds = [...new Set(rows.map((row) => row.inquiryId).filter((id): id is string => Boolean(id)))];
+  const inquiries =
+    inquiryIds.length === 0
+      ? []
+      : await prisma.inquiry.findMany({
+          where: { id: { in: inquiryIds } },
+          select: { id: true, customerName: true, preferredDate: true, address: true },
+        });
+  const inquiryLabel = new Map(
+    inquiries.map((inquiry) => {
+      const ymd = inquiry.preferredDate ? kstYmdFromDate(inquiry.preferredDate) : '';
+      const day = ymd ? `${ymd.slice(5, 7)}.${ymd.slice(8, 10)}` : '';
+      const place = inquiry.address.split(/\s+/).slice(0, 2).join(' ');
+      return [inquiry.id, [day, inquiry.customerName, place].filter(Boolean).join(' · ')] as const;
+    }),
+  );
   return {
     total,
-    items: rows.map((row) => ({
-      id: row.id,
-      purpose: row.purpose,
-      payMethod: row.payMethod,
-      status: row.status,
-      cancelable: isSameDayCardCancel(row),
-      tenantName: row.tenant?.name ?? null,
-      periodStart: row.periodStart?.toISOString() ?? null,
-      goodsName: row.goodsName,
-      supplyAmountKrw: row.supplyAmountKrw,
-      vatAmountKrw: row.vatAmountKrw,
-      amountKrw: row.amountKrw,
-      approvalNo: row.approvalNo,
-      cardLast4: row.cardLast4,
-      buyerName: row.buyerName,
-      memo: row.memo,
-      invoiceApplied: row.invoiceApplied,
-      paidAt: row.paidAt.toISOString(),
-      needsReconcile: row.status === 'CANCELLED' && row.memo === USAGE_FEE_RECONCILE_MEMO,
-      cancelBlockReason: walletCancelBlockReason(row, balanceByTenant),
-    })),
+    items: rows.map((row) => {
+      const statusLabel = usageFeeStatusLabel(row);
+      const copyable = Boolean(row.linkToken) && statusLabel === '결제 대기';
+      return {
+        id: row.id,
+        purpose: row.purpose,
+        purposeLabel: usageFeePurposeLabel(row.purpose),
+        payMethod: row.payMethod,
+        methodLabel: usageFeeMethodLabel(row),
+        status: row.status,
+        statusLabel,
+        cancelable: isSameDayCardCancel(row),
+        tenantName: row.tenant?.name ?? null,
+        inquiryLabel: row.inquiryId ? inquiryLabel.get(row.inquiryId) ?? null : null,
+        periodStart: row.periodStart?.toISOString() ?? null,
+        goodsName: row.goodsName,
+        supplyAmountKrw: row.supplyAmountKrw,
+        vatAmountKrw: row.vatAmountKrw,
+        amountKrw: row.amountKrw,
+        approvalNo: row.approvalNo,
+        cardLast4: row.cardLast4,
+        buyerName: row.buyerName,
+        buyerPhone: row.buyerPhone,
+        memo: row.memo,
+        linkUrl: copyable && row.linkToken ? `${getPublicAppBaseUrl()}/pay/sb/${row.linkToken}` : null,
+        linkExpiresAt: row.linkExpiresAt?.toISOString() ?? null,
+        invoiceApplied: row.invoiceApplied,
+        paidAt: row.paidAt.toISOString(),
+        needsReconcile: row.status === 'CANCELLED' && row.memo === USAGE_FEE_RECONCILE_MEMO,
+        cancelBlockReason: walletCancelBlockReason(row, balanceByTenant),
+      };
+    }),
   };
 }
 

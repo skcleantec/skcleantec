@@ -23,6 +23,7 @@ import {
 import { applyWspayWebhook } from './cardPaymentWebhook.service.js';
 import { getPgApplicationNotifyEmails, savePgApplicationNotifyEmails } from './pgApplicationNotify.service.js';
 import { applyPaysisNotification, startPaysisWindowByLinkToken } from './cardPaymentWindow.service.js';
+import { getPublicServiceBridgeLink, openServiceBridgeLinkWindow } from './platformPayLink.service.js';
 
 const router = Router();
 
@@ -37,6 +38,29 @@ router.get('/link/:token', async (req, res) => {
     return;
   }
   res.json(data);
+});
+
+router.get('/sb/:token', async (req, res) => {
+  const data = await getPublicServiceBridgeLink(String(req.params.token));
+  if ('error' in data) {
+    res.status(data.status).json({ error: data.error });
+    return;
+  }
+  res.json(data.result);
+});
+
+router.post('/sb/:token/window', async (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  if (body.cardNumber || body.cardNo || body.cvc) {
+    res.status(400).json({ error: '카드번호는 결제창에서만 입력합니다.' });
+    return;
+  }
+  const opened = await openServiceBridgeLinkWindow(String(req.params.token), body.payScreen === 'M' ? 'M' : 'P');
+  if ('error' in opened) {
+    res.status(opened.status).json({ error: opened.error });
+    return;
+  }
+  res.json({ redirectUrl: opened.redirectUrl });
 });
 
 router.post('/link/:token/window', async (req, res) => {

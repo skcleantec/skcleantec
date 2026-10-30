@@ -198,6 +198,11 @@ export const PublicCardPaymentLinkPage = lazyWithRetry(() =>
     default: m.PublicCardPaymentLinkPage,
   }))
 );
+export const PublicServiceBridgePayPage = lazyWithRetry(() =>
+  import('../pages/public/PublicServiceBridgePayPage').then((m) => ({
+    default: m.PublicServiceBridgePayPage,
+  }))
+);
 export const PaysisCheckoutOkPage = lazyWithRetry(() =>
   import('../pages/public/PaysisCheckoutResultPage').then((m) => ({
     default: () => m.PaysisCheckoutResultPage({ title: '결제가 완료되었습니다.' }),

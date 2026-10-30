@@ -317,6 +317,30 @@ export async function confirmCardPaymentLink(token: string, id: string) {
   }>;
 }
 
+export async function fetchPublicServiceBridgeLink(token: string) {
+  const res = await fetch(`${API}/public/card-payment/sb/${encodeURIComponent(token)}`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{
+    merchantName: string;
+    goodsName: string;
+    amountKrw: number;
+    buyerName: string | null;
+    statusLabel: string;
+    payable: boolean;
+    expired: boolean;
+  }>;
+}
+
+export async function openPublicServiceBridgeWindow(token: string, payScreen: 'P' | 'M') {
+  const res = await fetch(`${API}/public/card-payment/sb/${encodeURIComponent(token)}/window`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payScreen }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ redirectUrl: string }>;
+}
+
 export async function fetchPublicCardPaymentLink(token: string) {
   const res = await fetch(`${API}/public/card-payment/link/${encodeURIComponent(token)}`);
   if (!res.ok) throw new Error(await parseError(res));

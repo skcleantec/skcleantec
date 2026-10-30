@@ -880,6 +880,11 @@ model UsageFeeCardPayment {
   payScreen               String?                     @map("pay_screen") @db.VarChar(2)
   cardLast4               String?                     @map("card_last4") @db.VarChar(4)
   buyerName               String?                     @map("buyer_name") @db.VarChar(40)
+  buyerPhone              String?                     @map("buyer_phone") @db.VarChar(32)
+  inquiryId               String?                     @map("inquiry_id")
+  linkToken               String?                     @unique @map("link_token") @db.VarChar(16)
+  linkExpiresAt           DateTime?                   @map("link_expires_at")
+  linkClosedAt            DateTime?                   @map("link_closed_at")
   memo                    String?                     @db.Text
   invoiceApplied          Boolean                     @default(false) @map("invoice_applied")
   paidAt                  DateTime                    @map("paid_at")
@@ -899,6 +904,7 @@ model UsageFeeCardPayment {
 enum UsageFeeCardPaymentPurpose {
   INVOICE
   OTHER
+  CLEANING_PROXY
 }
 
 enum UsageFeePayMethod {
