@@ -28,6 +28,16 @@ function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
 }
 
+/** 받침 없으면 「로」, 있으면 「으로」. ㄹ 받침도 「로」. */
+function euro(name: string): '로' | '으로' {
+  const last = [...name.trim()].at(-1);
+  if (!last) return '으로';
+  const code = last.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return '으로';
+  const jong = (code - 0xac00) % 28;
+  return jong === 0 || jong === 8 ? '로' : '으로';
+}
+
 export function PublicPayLinkView({
   view,
   opening,
@@ -119,7 +129,7 @@ export function PublicPayLinkView({
               <div className="grid grid-cols-[20px_1fr] gap-2">
                 <LineMdIcon name="clipboard" className="mt-0.5 size-[18px]" />
                 <span>
-                  카드 명세서에는 <b className="font-medium text-[#111827] dark:text-[#eef1f6]">{view.statementName}</b>으로 표시돼요.
+                  카드 명세서에는 <b className="font-medium text-[#111827] dark:text-[#eef1f6]">{view.statementName}</b>{euro(view.statementName)} 표시돼요.
                 </span>
               </div>
               <div className="grid grid-cols-[20px_1fr] gap-2">
