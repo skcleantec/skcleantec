@@ -21,9 +21,6 @@ import {
 /** PC 표 — 선택 열 px (데스크톱) */
 export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 36;
 
-/** 모바일 카드 — 터치 최소 영역 (iOS·Android 권장 44px) */
-export const MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX = 44;
-
 export function MarketplaceBulkSelectCheckbox({
   checked,
   indeterminate = false,
@@ -314,31 +311,33 @@ export function DbMarketplaceRowCard({
   return (
     <div className="flex gap-1.5 rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
       {selectable ? (
-        <label
-          className={`relative z-[1] flex shrink-0 items-center justify-center touch-manipulation select-none ${
-            canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
-          }`}
-          style={{
-            width: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
-            minWidth: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
-            minHeight: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={selected}
+          aria-label={disabledReason ?? '선택'}
+          title={disabledReason ?? '선택'}
+          disabled={!canSelect}
+          onClick={() => {
+            if (canSelect) onToggleSelect();
           }}
-          title={disabledReason ?? undefined}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
+          className={`relative z-[1] flex w-11 shrink-0 touch-manipulation items-center justify-center self-stretch rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${
+            canSelect ? 'hover:bg-slate-50' : ''
+          }`}
         >
-          <input
-            type="checkbox"
-            className="size-5 shrink-0 accent-slate-900 touch-manipulation disabled:opacity-100"
-            checked={selected}
-            disabled={!canSelect}
-            onChange={(e) => {
-              e.stopPropagation();
-              if (canSelect) onToggleSelect();
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
-        </label>
+          <span
+            aria-hidden
+            className={`flex size-5 shrink-0 items-center justify-center rounded border ${
+              selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-400 bg-white'
+            }`}
+          >
+            {selected ? (
+              <svg viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 6l3 3 5-5" />
+              </svg>
+            ) : null}
+          </span>
+        </button>
       ) : null}
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left hover:opacity-90 touch-manipulation">
         <div className="flex items-start justify-between gap-1.5">
