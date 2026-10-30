@@ -45,7 +45,7 @@ export function PayDetailDrawer({
   if (!wide) {
     return createPortal(
       <div className="fixed inset-0 z-[80] flex items-end bg-black/40" onClick={onClose}>
-        <div className="max-h-[90dvh] w-full overflow-hidden rounded-t-2xl bg-white" onClick={(event) => event.stopPropagation()}>
+        <div className="max-h-[90dvh] w-full overflow-hidden rounded-t-2xl bg-white shadow-[0_0_24px_rgba(0,0,0,0.12)]" onClick={(event) => event.stopPropagation()}>
           {body}
         </div>
       </div>,
@@ -55,7 +55,7 @@ export function PayDetailDrawer({
 
   return createPortal(
     <div className="fixed inset-0 z-[80]" onClick={onClose}>
-      <aside className="absolute inset-y-0 right-0 flex w-[380px] max-w-full flex-col border-l border-[#dde3ea] bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+      <aside className="absolute inset-y-0 right-0 flex w-[380px] max-w-full flex-col border-l border-[#dde3ea] bg-white shadow-[0_0_24px_rgba(0,0,0,0.12)]" onClick={(event) => event.stopPropagation()}>
         {body}
       </aside>
     </div>,

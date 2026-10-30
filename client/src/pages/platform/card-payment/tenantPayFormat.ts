@@ -6,14 +6,18 @@ export function won(value: number): string {
 
 export function kstStamp(iso: string | null): string {
   if (!iso) return '기록 없음';
-  return new Intl.DateTimeFormat('ko-KR', {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '기록 없음';
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Seoul',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
-  }).format(new Date(iso)).replace(/\.\s/g, '.').replace(/\.$/, '');
+  }).formatToParts(date);
+  const get = (type: string) => (parts.find((part) => part.type === type)?.value ?? '').trim().padStart(2, '0');
+  return `${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
 }
 
 export function installmentLabel(months: number | null): string {

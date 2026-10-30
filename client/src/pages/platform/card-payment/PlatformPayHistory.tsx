@@ -10,6 +10,7 @@ import { ListPaginationBar } from '../../../components/ui/ListPaginationBar';
 import { RowActions, type RowMenuItem } from '../../../components/ui/RowActions';
 import { INQUIRY_LIST_PAGE_SIZE_OPTIONS, parseInquiryListPageSize, parseListPage } from '../../../utils/listPagination';
 import { PayDetailDrawer } from './PayDetailDrawer';
+import { kstStamp } from './tenantPayFormat';
 import { ServiceBridgePayDetail } from './ServiceBridgePayDetail';
 
 const FILTERS = [
@@ -31,18 +32,8 @@ function chipClass(label: string): string {
 }
 
 function formatWhen(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Seoul',
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date);
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
-  return `${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
+  const stamp = kstStamp(iso);
+  return stamp === '기록 없음' ? iso : stamp;
 }
 
 function party(row: UsageFeeCardPaymentRow): string {
