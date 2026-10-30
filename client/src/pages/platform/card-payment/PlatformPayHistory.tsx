@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   cancelUsageFeeCardPayment,
@@ -6,12 +6,11 @@ import {
   fetchUsageFeeCardPayments,
   type UsageFeeCardPaymentRow,
 } from '../../../api/platformCardPayment';
-import { InlineConfirm } from '../../../components/ui/InlineConfirm';
 import { ListPaginationBar } from '../../../components/ui/ListPaginationBar';
 import { RowActions, type RowMenuItem } from '../../../components/ui/RowActions';
 import { INQUIRY_LIST_PAGE_SIZE_OPTIONS, parseInquiryListPageSize, parseListPage } from '../../../utils/listPagination';
-import { splitTaxIncluded } from '@shared/cardPayment';
 import { PayDetailDrawer } from './PayDetailDrawer';
+import { ServiceBridgePayDetail } from './ServiceBridgePayDetail';
 
 const FILTERS = [
   { id: 'all', label: '전체' },
@@ -114,53 +113,29 @@ export function PlatformPayHistory() {
     if (waiting) {
       return {
         action: { label: copiedId === row.id ? '복사됨' : '링크 복사', onClick: () => copyLink(row) },
-        menu: [{ label: '링크 닫기', danger: true, onSelect: () => setOpen({ id: row.id, kind: 'close' }) }],
+        menu: [{ label: '상세 보기', onSelect: () => setOpen({ id: row.id, kind: 'detail' }) }],
       };
     }
     const menu: RowMenuItem[] = [{ label: '상세 보기', onSelect: () => setOpen({ id: row.id, kind: 'detail' }) }];
-    if (row.cancelable) menu.push({ label: '전액 취소', danger: true, onSelect: () => setOpen({ id: row.id, kind: 'cancel' }) });
+    if (row.cancelable) menu.push({ label: '전액 취소', danger: true, onSelect: () => setOpen({ id: row.id, kind: 'detail' }) });
     return {
       action: { label: '영수증', onClick: () => setOpen({ id: row.id, kind: 'receipt' }) },
       menu,
     };
   }
 
-  function extra(row: UsageFeeCardPaymentRow) {
-    if (open?.id !== row.id) return null;
-    if (open.kind === 'close' || open.kind === 'cancel') {
-      const question = open.kind === 'close' ? '이 결제 링크를 닫을까요?' : `${row.amountKrw.toLocaleString('ko-KR')}원을 취소할까요?`;
-      return (
-        <InlineConfirm
-          question={question}
-          confirmLabel={open.kind === 'close' ? '닫기' : '취소하기'}
-          busy={busy}
-          onCancel={() => setOpen(null)}
-          onConfirm={() => {
-            setBusy(true);
-            const task = open.kind === 'close'
-              ? closePlatformPayLink(row.id)
-              : row.payMethod === 'KEYIN'
-                ? Promise.resolve().then(() => {
-                    window.open('https://wspay.net', '_blank', 'noopener,noreferrer');
-                  })
-                : cancelUsageFeeCardPayment(row.id);
-            void task
-              .then(() => {
-                setOpen(null);
-                load();
-              })
-              .catch((e: unknown) => setError(e instanceof Error ? e.message : '처리하지 못했습니다.'))
-              .finally(() => setBusy(false));
-          }}
-        />
-      );
-    }
-    return null;
-  }
+  const detailRow = open ? items.find((row) => row.id === open.id) ?? null : null;
 
-  const detailRow = open && (open.kind === 'detail' || open.kind === 'receipt')
-    ? items.find((row) => row.id === open.id) ?? null
-    : null;
+  function runRow(task: Promise<unknown>) {
+    setBusy(true);
+    void task
+      .then(() => {
+        setOpen(null);
+        load();
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : '처리하지 못했습니다.'))
+      .finally(() => setBusy(false));
+  }
 
   return (
     <div className="space-y-3">
@@ -192,7 +167,6 @@ export function PlatformPayHistory() {
                 <RowActions action={rowActions.action} menu={rowActions.menu} />
               </span>
               <span className="truncate text-xs tabular-nums text-[#5d6878]">{formatWhen(row.paidAt)} · {row.methodLabel}</span>
-              {extra(row) ? <div className="col-span-2" onClick={(event) => event.stopPropagation()}>{extra(row)}</div> : null}
             </article>
           );
         })}
@@ -210,8 +184,7 @@ export function PlatformPayHistory() {
             {items.map((row) => {
               const rowActions = actions(row);
               return (
-                <Fragment key={row.id}>
-                  <tr className="cursor-pointer border-b border-[#dde3ea] hover:bg-[#eef2f7]" onClick={() => setOpen({ id: row.id, kind: 'detail' })}>
+                  <tr key={row.id} className="cursor-pointer border-b border-[#dde3ea] hover:bg-[#eef2f7]" onClick={() => setOpen({ id: row.id, kind: 'detail' })}>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center tabular-nums">{formatWhen(row.paidAt)}</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center">{row.methodLabel}</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center">{row.purposeLabel}</td>
@@ -221,12 +194,6 @@ export function PlatformPayHistory() {
                     <td className="h-12 whitespace-nowrap px-3.5 text-center"><Chip label={row.statusLabel ?? ''} /></td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-right" onClick={(event) => event.stopPropagation()}><RowActions action={rowActions.action} menu={rowActions.menu} /></td>
                   </tr>
-                  {open?.id === row.id && extra(row) ? (
-                    <tr key={`${row.id}-extra`} className="border-b border-[#dde3ea]">
-                      <td colSpan={8} className="px-3.5">{extra(row)}</td>
-                    </tr>
-                  ) : null}
-                </Fragment>
               );
             })}
             {items.length === 0 ? (
@@ -248,28 +215,24 @@ export function PlatformPayHistory() {
         title={open?.kind === 'receipt' ? '영수증' : '결제 상세'}
         onClose={() => setOpen(null)}
       >
-        {detailRow ? <ServiceBridgePayDetail row={detailRow} /> : null}
+        {detailRow ? (
+          <ServiceBridgePayDetail
+            row={detailRow}
+            copied={copiedId === detailRow.id}
+            busy={busy}
+            onCopy={() => copyLink(detailRow)}
+            onCloseLink={() => {
+              runRow(closePlatformPayLink(detailRow.id));
+              return Promise.resolve();
+            }}
+            onCancel={() => {
+              runRow(cancelUsageFeeCardPayment(detailRow.id));
+              return Promise.resolve();
+            }}
+          />
+        ) : null}
       </PayDetailDrawer>
     </div>
   );
 }
 
-function ServiceBridgePayDetail({ row }: { row: UsageFeeCardPaymentRow }) {
-  const split = splitTaxIncluded(row.amountKrw, row.supplyAmountKrw, row.vatAmountKrw);
-  return (
-    <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-1 text-sm">
-      <dt className="text-[#5d6878]">상품명</dt>
-      <dd>{row.goodsName}</dd>
-      <dt className="text-[#5d6878]">고객</dt>
-      <dd>{row.buyerName || ''}</dd>
-      <dt className="text-[#5d6878]">공급가</dt>
-      <dd className="tabular-nums">{split.supplyKrw.toLocaleString('ko-KR')}원</dd>
-      <dt className="text-[#5d6878]">부가세</dt>
-      <dd className="tabular-nums">{split.vatKrw.toLocaleString('ko-KR')}원</dd>
-      <dt className="text-[#5d6878]">승인번호</dt>
-      <dd className="tabular-nums">{row.approvalNo || ''}</dd>
-      <dt className="text-[#5d6878]">카드</dt>
-      <dd className="tabular-nums">{row.cardLast4 ? `····${row.cardLast4}` : ''}</dd>
-    </dl>
-  );
-}

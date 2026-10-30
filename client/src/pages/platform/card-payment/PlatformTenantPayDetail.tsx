@@ -9,15 +9,12 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { InlineConfirm } from '../../../components/ui/InlineConfirm';
 import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
-import { cardLabel, installmentLabel, kstStamp, statusLabel, won } from './tenantPayFormat';
+import { PayDetailHeader, PayDetailHistory, PayDetailSection } from './PayDetailSections';
+import { installmentLabel, kstStamp, statusLabel, won } from './tenantPayFormat';
 
-function Line({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3 border-b border-[#eef2f6] py-2 text-sm">
-      <span className="text-[#5d6878]">{label}</span>
-      <span className="min-w-0 text-right text-[#141b26]">{value}</span>
-    </div>
-  );
+function filled(value: string | null | undefined): string | null {
+  const text = (value ?? '').trim();
+  return text && text !== '기록 없음' ? text : null;
 }
 
 export function PlatformTenantPayDetail({
@@ -53,56 +50,55 @@ export function PlatformTenantPayDetail({
     }
   }
 
+  const card = [row.cardIssuer, row.cardLast4 ? `··${row.cardLast4}` : '', row.cardKind ? `(${row.cardKind})` : '']
+    .filter(Boolean)
+    .join(' ');
+  const subtitle = [row.customerName, row.inquiryNumber, row.installmentMonths == null ? null : installmentLabel(row.installmentMonths)]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <div className="space-y-4 text-[#141b26]">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs text-[#5d6878]">{row.merchantName}</p>
-          <h2 className="text-lg font-semibold">{row.customerName}</h2>
-          <p className="text-right text-xl font-semibold tabular-nums">{won(row.amountWon)}</p>
-        </div>
-        <span className={`rounded-full border px-2 py-0.5 text-xs ${chip.className}`}>{chip.text}</span>
-      </div>
+      <PayDetailHeader chipText={chip.text} chipClassName={chip.className} amount={won(row.amountWon)} subtitle={subtitle} />
 
-      <section>
-        <h3 className="mb-1 text-xs font-semibold text-[#5d6878]">결제</h3>
-        <Line label="카드" value={[cardLabel(row), row.cardKind].filter(Boolean).join(' · ') || '기록 없음'} />
-        <Line label="할부" value={installmentLabel(row.installmentMonths)} />
-        <Line label="승인번호" value={row.approvalNo || '기록 없음'} />
-        <Line label="승인 시각" value={kstStamp(row.paidAt)} />
-        <Line label="방식" value={methodLine} />
-        <Line label="주문번호" value={row.pgOrderId || '기록 없음'} />
-        <Line label="MID" value={row.pgMidTail ? `····${row.pgMidTail}` : '기록 없음'} />
-      </section>
+      <PayDetailSection
+        title="결제"
+        rows={[
+          { label: '카드', value: filled(card) },
+          { label: '할부', value: row.installmentMonths == null ? null : installmentLabel(row.installmentMonths) },
+          { label: '승인번호', value: filled(row.approvalNo) },
+          { label: '승인 시각', value: row.paidAt ? kstStamp(row.paidAt) : null },
+          { label: '방식', value: methodLine },
+          { label: '주문번호', value: filled(row.inquiryNumber) },
+          { label: '가맹점 번호', value: row.pgMidTail ? `····${row.pgMidTail}` : null },
+        ]}
+      />
 
-      <section>
-        <h3 className="mb-1 text-xs font-semibold text-[#5d6878]">업체</h3>
-        <Line label="가맹점" value={row.merchantName} />
-        <Line label="브랜드" value={row.brandName} />
-        <Line label="고객 연락처" value={row.customerPhoneMasked || '기록 없음'} />
-        <Line label="접수" value={row.inquiryNumber || '기록 없음'} />
-      </section>
+      <PayDetailSection
+        title="업체"
+        rows={[
+          { label: '가맹점', value: [row.merchantName, row.brandName].filter(Boolean).join(' · ') },
+          { label: '접수', value: filled(row.inquiryNumber) },
+          { label: '고객 연락처', value: filled(row.customerPhoneMasked) },
+        ]}
+      />
 
-      <section>
-        <h3 className="mb-1 text-xs font-semibold text-[#5d6878]">금액</h3>
-        <Line label="업체 수수료" value={row.tenantFeeLabel} />
-        <Line label="PG 원가" value={row.platformCostLabel} />
-        <Line label="플랫폼 수익" value={won(row.platformSpreadWon)} />
-        <Line label="업체 정산" value={won(row.tenantNetWon)} />
-      </section>
+      <PayDetailSection
+        title="금액"
+        rows={[
+          { label: '업체 수수료', value: row.tenantFeeLabel },
+          { label: 'PG 원가', value: row.platformCostLabel },
+          { label: '플랫폼 수익', value: won(row.platformSpreadWon) },
+          { label: '업체 정산', value: won(row.tenantNetWon) },
+        ]}
+      />
 
-      <section>
-        <h3 className="mb-1 text-xs font-semibold text-[#5d6878]">이력</h3>
-        <ul className="space-y-2 text-sm">
-          {row.history.map((item, index) => (
-            <li key={`${item.label}-${index}`}>
-              <span className="font-medium">{item.label}</span>
-              <span className="text-[#5d6878]"> · {kstStamp(item.at)} {item.who}</span>
-              {item.note ? <span className="block text-[#5d6878]">{item.note}</span> : null}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <PayDetailHistory
+        items={row.history.map((item) => ({
+          at: kstStamp(item.at),
+          text: [item.label, item.who, item.note].filter(Boolean).join(' · '),
+        }))}
+      />
 
       {row.status === 'APPROVED' ? (
         <section className="rounded-xl border border-[#dde3ea] bg-[#f6f8fb] p-3">

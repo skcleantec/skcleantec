@@ -73,6 +73,27 @@ function kstYmd(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(date);
 }
 
+export async function serviceBridgePayNos(rows: { id: string; createdAt: Date }[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (rows.length === 0) return map;
+  const days = [...new Set(rows.map((row) => kstYmd(row.createdAt)))].sort();
+  const start = new Date(`${days[0]}T00:00:00+09:00`);
+  const end = new Date(new Date(`${days[days.length - 1]}T00:00:00+09:00`).getTime() + 24 * 60 * 60 * 1000);
+  const found = await prisma.usageFeeCardPayment.findMany({
+    where: { createdAt: { gte: start, lt: end } },
+    select: { id: true, createdAt: true },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
+  const seq = new Map<string, number>();
+  for (const row of found) {
+    const ymd = kstYmd(row.createdAt);
+    const n = (seq.get(ymd) ?? 0) + 1;
+    seq.set(ymd, n);
+    map.set(row.id, `SB-${ymd.slice(5, 7)}${ymd.slice(8, 10)}-${n}`);
+  }
+  return map;
+}
+
 async function serviceBridgePayNo(row: { id: string; createdAt: Date }): Promise<string> {
   const ymd = kstYmd(row.createdAt);
   const start = new Date(`${ymd}T00:00:00+09:00`);

@@ -12,6 +12,7 @@ import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { instrumentKeyNames, monthsFromInstallmentCode, paidSourceFromScreen, readCardInstrument } from './cardInstrument.js';
 import { splitTaxIncluded } from './cardVat.js';
+import { serviceBridgePayNos } from './publicPayLink.service.js';
 
 /** shared/tenantBilling.ts usageFeeVatKrw 와 동일 */
 function usageFeeVatKrw(supplyKrw: number): number {
@@ -249,6 +250,12 @@ export function usageFeePurposeLabel(purpose: string): string {
   return '기타';
 }
 
+function maskPhone(raw: string | null): string | null {
+  const digits = (raw ?? '').replace(/\D/g, '');
+  if (digits.length < 7) return null;
+  return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
+}
+
 export async function listUsageFeeCardPayments(
   limit: number,
   offset: number,
@@ -279,7 +286,7 @@ export async function listUsageFeeCardPayments(
       orderBy: { paidAt: 'desc' },
       skip,
       take,
-      include: { tenant: { select: { name: true } } },
+      include: { tenant: { select: { name: true } }, createdBy: { select: { name: true } } },
     }),
     prisma.usageFeeCardPayment.count({ where }),
   ]);
@@ -304,7 +311,7 @@ export async function listUsageFeeCardPayments(
       ? []
       : await prisma.inquiry.findMany({
           where: { id: { in: inquiryIds } },
-          select: { id: true, customerName: true, preferredDate: true, address: true },
+          select: { id: true, inquiryNumber: true, customerName: true, preferredDate: true, address: true },
         });
   const inquiryLabel = new Map(
     inquiries.map((inquiry) => {
@@ -314,6 +321,7 @@ export async function listUsageFeeCardPayments(
       return [inquiry.id, [day, inquiry.customerName, place].filter(Boolean).join(' · ')] as const;
     }),
   );
+  const payNos = await serviceBridgePayNos(rows);
   return {
     total,
     items: rows.map((row) => {
@@ -330,6 +338,16 @@ export async function listUsageFeeCardPayments(
         cancelable: isSameDayCardCancel(row),
         tenantName: row.tenant?.name ?? null,
         inquiryLabel: row.inquiryId ? inquiryLabel.get(row.inquiryId) ?? null : null,
+        inquiryNumber: row.inquiryId ? inquiries.find((item) => item.id === row.inquiryId)?.inquiryNumber ?? null : null,
+        payNo: payNos.get(row.id) ?? null,
+        installmentMonths: row.installmentMonths,
+        cardIssuer: row.cardIssuer,
+        cardKind: row.cardKind,
+        paidSource: row.paidSource,
+        customerPhoneMasked: maskPhone(row.buyerPhone),
+        createdAt: row.createdAt.toISOString(),
+        linkClosedAt: row.linkClosedAt?.toISOString() ?? null,
+        createdByName: row.createdBy?.name ?? null,
         periodStart: row.periodStart?.toISOString() ?? null,
         goodsName: row.goodsName,
         supplyAmountKrw: row.supplyAmountKrw,
@@ -338,7 +356,7 @@ export async function listUsageFeeCardPayments(
         approvalNo: row.approvalNo,
         cardLast4: row.cardLast4,
         buyerName: row.buyerName,
-        buyerPhone: row.buyerPhone,
+        buyerPhone: null,
         memo: row.memo,
         linkUrl: copyable && row.linkToken ? `${getPublicAppBaseUrl()}/pay/sb/${row.linkToken}` : null,
         linkExpiresAt: row.linkExpiresAt?.toISOString() ?? null,

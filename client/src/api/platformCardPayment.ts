@@ -168,6 +168,16 @@ export type UsageFeeCardPaymentRow = {
   cardLast4: string | null;
   buyerName: string | null;
   buyerPhone?: string | null;
+  customerPhoneMasked?: string | null;
+  inquiryNumber?: string | null;
+  payNo?: string | null;
+  installmentMonths?: number | null;
+  cardIssuer?: string | null;
+  cardKind?: string | null;
+  paidSource?: string | null;
+  createdAt?: string;
+  linkClosedAt?: string | null;
+  createdByName?: string | null;
   memo: string | null;
   linkUrl?: string | null;
   linkExpiresAt?: string | null;
