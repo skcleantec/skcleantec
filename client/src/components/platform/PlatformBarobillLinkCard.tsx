@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { PlatformBarobillMemberRow } from '../../api/platformBarobill';
+import { BAROBILL_USER_ID_MESSAGE, barobillUserIdError } from '@shared/barobillPolicy';
 
 const PRIMARY =
   'inline-flex min-h-9 items-center justify-center rounded-lg bg-[#111a2b] px-3 text-fluid-xs font-bold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4fb8] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
@@ -100,12 +101,16 @@ export function PlatformBarobillLinkCard({
               className={INPUT}
               placeholder="바로빌 아이디"
               value={userId}
+              maxLength={50}
               disabled={busy}
               onChange={(e) => setUserId(e.target.value)}
             />
-            <button type="button" className={PRIMARY} disabled={busy || userId.trim().length === 0} onClick={() => onComplete(userId.trim())}>
+            <button type="button" className={PRIMARY} disabled={busy || Boolean(barobillUserIdError(userId))} onClick={() => onComplete(userId.trim())}>
               연결 완료
             </button>
+            {userId.trim() && barobillUserIdError(userId) ? (
+              <p className="basis-full text-fluid-2xs text-[#b42318]">{BAROBILL_USER_ID_MESSAGE}</p>
+            ) : null}
             <button
               type="button"
               className={GHOST}

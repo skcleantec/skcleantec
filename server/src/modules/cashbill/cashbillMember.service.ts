@@ -5,7 +5,12 @@ import { cashbillRegistrationFolder, isValidKoreanBizNumberChecksum } from '../.
 import { getCorpTaxType } from '../../lib/barobill/corpState.js';
 import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { maskCorpNum, normalizeCorpNum } from '../../lib/barobill/mask.js';
-import { BAROBILL_ALREADY_MEMBER_CODE, BAROBILL_PROCESSING_STALE_MS } from '../../lib/barobill/policy.js';
+import {
+  BAROBILL_ALREADY_MEMBER_CODE,
+  BAROBILL_PROCESSING_STALE_MS,
+  BAROBILL_USER_ID_MESSAGE,
+  BAROBILL_USER_ID_PATTERN,
+} from '../../lib/barobill/policy.js';
 import { BarobillCallError } from '../../lib/barobill/soap.js';
 import { checkCorpIsMember, newBarobillPassword, newBarobillUserId, registCorp } from '../../lib/barobill/ti.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
@@ -823,8 +828,8 @@ export async function rejectBarobillMember(memberId: string, platformUserId: str
 export async function completeBarobillLink(memberId: string, barobillUserIdRaw: string) {
   assertBarobillConfigured();
   const userId = barobillUserIdRaw.trim();
-  if (!/^[A-Za-z0-9]{6,20}$/.test(userId)) {
-    throw new CashbillMemberError('바로빌 아이디는 영문·숫자 6~20자입니다.');
+  if (!BAROBILL_USER_ID_PATTERN.test(userId)) {
+    throw new CashbillMemberError(BAROBILL_USER_ID_MESSAGE);
   }
   const row = await prisma.barobillMember.findFirst({
     where: { id: memberId },
@@ -871,9 +876,9 @@ export async function completeBarobillLink(memberId: string, barobillUserIdRaw: 
 const LINK_REQUEST_STATUSES: BarobillMemberStatus[] = ['LINK_REQUIRED', 'FAILED', 'REJECTED'];
 
 export async function requestBarobillLink(tenantId: string, memberId: string, hintRaw: unknown) {
-  const hint = typeof hintRaw === 'string' ? hintRaw.trim().slice(0, 20) : '';
-  if (hint && !/^[A-Za-z0-9]{1,20}$/.test(hint)) {
-    throw new CashbillMemberError('바로빌 아이디는 영문·숫자로 적어 주세요.');
+  const hint = typeof hintRaw === 'string' ? hintRaw.trim() : '';
+  if (!BAROBILL_USER_ID_PATTERN.test(hint)) {
+    throw new CashbillMemberError(BAROBILL_USER_ID_MESSAGE);
   }
   const row = await prisma.barobillMember.findFirst({
     where: { id: memberId, tenantId },

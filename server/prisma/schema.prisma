@@ -1714,7 +1714,7 @@ model BarobillMember {
   contactName    String               @map("contact_name") @db.VarChar(128)
   contactTel     String               @map("contact_tel") @db.VarChar(32)
   contactEmail   String               @map("contact_email") @db.VarChar(256)
-  barobillUserId String               @default("") @map("barobill_user_id") @db.VarChar(20)
+  barobillUserId String               @default("") @map("barobill_user_id") @db.VarChar(50)
   /// GetCorpState.TaxType 정수 문자열
   taxType        String?              @map("tax_type") @db.VarChar(32)
   businessRegistrationImageUrl      String? @map("business_registration_image_url") @db.Text
@@ -1733,8 +1733,8 @@ model BarobillMember {
   certWarnForExpire String?           @map("cert_warn_for_expire") @db.VarChar(16)
   /// 업체가 「연결 요청하기」를 누른 시각. 없으면 아직 요청 전.
   linkRequestedAt DateTime?            @map("link_requested_at")
-  /// 업체가 알고 있는 바로빌 아이디. 없어도 요청할 수 있다.
-  linkRequestUserIdHint String?        @map("link_request_user_id_hint") @db.VarChar(20)
+  /// 업체가 적은 바로빌 아이디. 새 연결 요청은 필수. 예전 행은 비어 있을 수 있다.
+  linkRequestUserIdHint String?        @map("link_request_user_id_hint") @db.VarChar(50)
   createdAt      DateTime             @default(now()) @map("created_at")
   updatedAt      DateTime             @updatedAt @map("updated_at")
   operatingCompany OperatingCompany?

@@ -13,6 +13,10 @@ export const CORP_STATE_CHARGED_TO_TENANT = false;
 
 export const BAROBILL_ALREADY_MEMBER_CODE = -32000;
 
+/** shared/barobillPolicy.ts BAROBILL_USER_ID_PATTERN 과 같게 유지한다. */
+export const BAROBILL_USER_ID_PATTERN = /^[A-Za-z0-9._-]{4,50}$/;
+export const BAROBILL_USER_ID_MESSAGE = '바로빌 아이디는 영문·숫자와 _ . - 만 쓸 수 있어요.';
+
 /** shared/barobillPolicy.ts BAROBILL_PROCESSING_STALE_MS 와 같게 유지한다. */
 export const BAROBILL_PROCESSING_STALE_MS = 10 * 60 * 1000;
 

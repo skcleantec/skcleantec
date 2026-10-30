@@ -18,6 +18,14 @@ export const CORP_STATE_CHARGED_TO_TENANT = false;
 
 export const BAROBILL_ALREADY_MEMBER_CODE = -32000;
 
+/** 바로빌 로그인 아이디. 서버 server/src/lib/barobill/policy.ts 와 같게 유지한다. */
+export const BAROBILL_USER_ID_PATTERN = /^[A-Za-z0-9._-]{4,50}$/;
+export const BAROBILL_USER_ID_MESSAGE = '바로빌 아이디는 영문·숫자와 _ . - 만 쓸 수 있어요.';
+
+export function barobillUserIdError(raw: string): string | null {
+  return BAROBILL_USER_ID_PATTERN.test(raw.trim()) ? null : BAROBILL_USER_ID_MESSAGE;
+}
+
 /** PROCESSING 이 이 시간보다 오래면 플랫폼에서 확인 필요로 본다. 자동 재시도 없음. */
 export const BAROBILL_PROCESSING_STALE_MS = 10 * 60 * 1000;
 

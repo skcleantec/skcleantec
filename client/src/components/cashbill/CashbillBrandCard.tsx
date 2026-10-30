@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { CashbillSettings } from '../../api/cashbill';
 import { cancelCashbillLinkRequest, requestCashbillLink } from '../../api/cashbill';
+import { BAROBILL_USER_ID_MESSAGE, barobillUserIdError } from '@shared/barobillPolicy';
 import { SupplierInfoModal } from '../taxinvoice/SupplierInfoModal';
 import { CashbillCertRegisterModal } from './CashbillCertRegisterModal';
 import { CashbillLinkForm } from './CashbillLinkForm';
@@ -122,6 +123,11 @@ export function CashbillBrandCard({
 
   async function sendRequest() {
     if (!member) return;
+    const invalid = barobillUserIdError(hint);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -195,13 +201,24 @@ export function CashbillBrandCard({
             <p className="text-fluid-xs text-[#141b26]">이 사업자번호는 바로빌에 가입돼 있어서 자동으로 연결되지 않아요. 연결 요청을 보내 주시면 청소비서가 대신 연결해 드려요.</p>
           </div>
           <label className="grid gap-1 text-fluid-xs text-[#5d6878]">
-            바로빌 아이디 <span>(알고 있으면)</span>
-            <input className={INPUT} value={hint} placeholder="예: skclean01" disabled={busy} onChange={(e) => setHint(e.target.value)} />
+            바로빌 아이디
+            <input
+              className={INPUT}
+              value={hint}
+              placeholder="예: clean_1234"
+              maxLength={50}
+              required
+              disabled={busy}
+              onChange={(e) => setHint(e.target.value)}
+            />
           </label>
-          <p className="text-fluid-2xs text-[#5d6878]">몰라도 요청할 수 있어요. 적어 주시면 더 빨리 연결돼요.</p>
+          <p className="text-fluid-2xs leading-snug text-[#5d6878]">
+            아이디를 모르시나요? 바로빌 홈페이지(barobill.co.kr) 아이디 찾기에서 사업자번호로 찾을 수 있어요. 안 되면 대표자 본인이 바로빌 고객센터 1544-9256에 확인해 주세요.
+          </p>
+          {hint.trim() && barobillUserIdError(hint) ? <p className="text-fluid-xs text-[#b42318]">{BAROBILL_USER_ID_MESSAGE}</p> : null}
           {error ? <p className="text-fluid-xs text-[#b42318]">{error}</p> : null}
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={PRIMARY} disabled={busy} onClick={() => void sendRequest()}>
+            <button type="button" className={PRIMARY} disabled={busy || Boolean(barobillUserIdError(hint))} onClick={() => void sendRequest()}>
               {busy ? '보내는 중…' : retry ? '다시 요청하기' : '연결 요청하기'}
             </button>
           </div>

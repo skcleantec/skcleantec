@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BAROBILL_MEMBER_STATUS_LABEL, barobillTaxTypeLabel } from '@shared/barobillPolicy';
+import { BAROBILL_MEMBER_STATUS_LABEL, barobillTaxTypeLabel, barobillUserIdError } from '@shared/barobillPolicy';
 import { approvePlatformBarobillMember, checkPlatformBarobillMember, completePlatformBarobillLink, fetchPlatformBarobillMembers, fetchPlatformCashbillHolds, rejectPlatformBarobillMember, releasePlatformBarobillProcessing, returnPlatformBarobillLink, type PlatformBarobillMemberRow } from '../../api/platformBarobill';
 import { PlatformBarobillLinkCard } from '../../components/platform/PlatformBarobillLinkCard';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -198,6 +198,11 @@ export function PlatformBarobillMembersPage() {
 
   async function complete(row: PlatformBarobillMemberRow, userIdOverride?: string) {
     const barobillUserId = (userIdOverride ?? userIds[row.id] ?? '').trim();
+    const invalid = barobillUserIdError(barobillUserId);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setBusyId(row.id);
     setError(null);
     try {
