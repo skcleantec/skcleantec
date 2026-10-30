@@ -7,18 +7,20 @@ import { Button } from '../../../components/ui/Button';
 import { PlatformUsageFeeKeyinForm } from './PlatformUsageFeeKeyinForm';
 import { PlatformPayLinkPanel } from './PlatformPayLinkPanel';
 import { PlatformPayHistory } from './PlatformPayHistory';
+import { PlatformTenantPayHistory } from './PlatformTenantPayHistory';
 import type { PayLinkSeed } from './keyinPayUi';
 
 const TABS = [
   { id: 'keyin', label: '수기 결제' },
   { id: 'link', label: '링크 결제' },
-  { id: 'list', label: '결제 내역' },
+  { id: 'list', label: '서비스브릿지 내역' },
+  { id: 'tenant', label: '업체 결제 내역' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
 
 function tabOf(raw: string | null): TabId {
-  if (raw === 'keyin' || raw === 'list' || raw === 'link') return raw;
+  if (raw === 'keyin' || raw === 'list' || raw === 'link' || raw === 'tenant') return raw;
   return 'link';
 }
 
@@ -53,7 +55,7 @@ export function PlatformCardChargePage() {
   }
 
   return (
-    <div className="min-w-0 w-full max-w-5xl space-y-4 pb-8">
+    <div className={`min-w-0 w-full space-y-4 pb-8 ${tab === 'tenant' ? 'max-w-none' : 'max-w-5xl'}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-xs text-gray-500">플랫폼 › 매출·수납</p>
@@ -88,7 +90,8 @@ export function PlatformCardChargePage() {
           </button>
         ))}
       </div>
-      <section className={tab === 'keyin' ? '' : 'rounded-2xl border border-gray-200 bg-white p-4'}>
+      {tab === 'tenant' ? <PlatformTenantPayHistory /> : null}
+      <section className={tab === 'keyin' || tab === 'tenant' ? 'hidden' : 'rounded-2xl border border-gray-200 bg-white p-4'}>
         {tab === 'keyin' ? (
           <PlatformUsageFeeKeyinForm
             onPaid={() => undefined}

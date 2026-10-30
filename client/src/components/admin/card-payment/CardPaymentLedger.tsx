@@ -2,14 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   cancelCardPayment,
+  requestCardPaymentCancel,
   deleteCardPayment,
   fetchCardPaymentList,
-  fetchTenantPgState,
   type CardPaymentListResponse,
   type CardPaymentRow,
 } from '../../../api/cardPayment';
 import { useEffectiveStaffAdmin } from '../../../hooks/useEffectiveStaffAdmin';
-import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
 import { getToken } from '../../../stores/auth';
 import { YearMonthSelect, YmdSelect } from '../../ui/DateQuerySelects';
 import { ListPaginationBar } from '../../ui/ListPaginationBar';
@@ -19,6 +18,8 @@ import { CardPaymentFeeSummary } from './CardPaymentFeeSummary';
 import { CardPaymentListCards } from './CardPaymentListCards';
 import { CardPaymentListTable } from './CardPaymentListTable';
 import { CardPaymentDeleteDialog } from './CardPaymentDeleteDialog';
+import { Button } from '../../ui/Button';
+import { InlineConfirm } from '../../ui/InlineConfirm';
 
 const PRESETS = [
   { id: 'today', label: '당일' },
@@ -37,9 +38,11 @@ export function CardPaymentLedger() {
   const page = parseListPage(params.get('page'));
   const pageSize = parseInquiryListPageSize(params.get('pageSize'));
   const [data, setData] = useState<CardPaymentListResponse | null>(null);
-  const [sellerLogin, setSellerLogin] = useState<{ loginId: string; password: string } | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [confirmRow, setConfirmRow] = useState<CardPaymentRow | null>(null);
+  const [requestRow, setRequestRow] = useState<CardPaymentRow | null>(null);
+  const [requestReason, setRequestReason] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<CardPaymentRow | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -60,37 +63,43 @@ export function CardPaymentLedger() {
     [params, setParams],
   );
 
-  useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    void fetchTenantPgState(token)
-      .then((res) => {
-        const seller = res.sellerCenter;
-        if (seller?.loginId && seller.password) setSellerLogin({ loginId: seller.loginId, password: seller.password });
-      })
-      .catch(() => setSellerLogin(null));
-  }, []);
-
   const cancelPayment = (row: CardPaymentRow) => {
-    if (row.cancelVia === 'api') {
-      const token = getToken();
-      if (!token) return;
-      if (!window.confirm('이 인증결재를 전액 취소할까요?')) return;
-      setCancelError(null);
-      setCancellingId(row.id);
-      void cancelCardPayment(token, row.id)
-        .then(() => setReloadKey((n) => n + 1))
-        .catch((e: unknown) => setCancelError(e instanceof Error ? e.message : '취소하지 못했습니다.'))
-        .finally(() => setCancellingId(null));
-      return;
-    }
-    if (!sellerLogin) {
-      setCancelError('판매자센터 아이디가 없습니다. PG 연동에서 원성이 아이디와 비밀번호를 넣어야 합니다.');
-      return;
-    }
     setCancelError(null);
-    const opened = openSellerCenterLoggedIn(sellerLogin.loginId, sellerLogin.password);
-    if (!opened) setCancelError('팝업이 막혀 판매자센터를 열지 못했습니다.');
+    if (row.cancelVia === 'api') {
+      setRequestRow(null);
+      setConfirmRow(row);
+      return;
+    }
+    setConfirmRow(null);
+    setRequestRow(row);
+    setRequestReason('');
+  };
+
+  const runDirectCancel = () => {
+    const token = getToken();
+    if (!token || !confirmRow) return;
+    setCancellingId(confirmRow.id);
+    void cancelCardPayment(token, confirmRow.id)
+      .then(() => {
+        setConfirmRow(null);
+        setReloadKey((n) => n + 1);
+      })
+      .catch((e: unknown) => setCancelError(e instanceof Error ? e.message : '취소하지 못했습니다.'))
+      .finally(() => setCancellingId(null));
+  };
+
+  const sendCancelRequest = () => {
+    const token = getToken();
+    if (!token || !requestRow) return;
+    setCancellingId(requestRow.id);
+    void requestCardPaymentCancel(token, requestRow.id, requestReason)
+      .then(() => {
+        setRequestRow(null);
+        setRequestReason('');
+        setReloadKey((n) => n + 1);
+      })
+      .catch((e: unknown) => setCancelError(e instanceof Error ? e.message : '취소 요청을 올리지 못했습니다.'))
+      .finally(() => setCancellingId(null));
   };
 
   const { effectiveStaffAdmin } = useEffectiveStaffAdmin();
@@ -146,7 +155,7 @@ export function CardPaymentLedger() {
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
       <div className="rounded-xl border border-slate-200 bg-white p-2 sm:p-4">
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-          시각은 한국시간입니다. 오늘 인증결재는 결제 취소로 바로 취소되고, 수기는 판매자센터에서 취소합니다. 결재완료와 취소 건은 삭제할 수 없습니다.
+          시각은 한국시간입니다. 오늘 링크 결제는 결제 취소로 바로 취소되고, 수기와 지난 결제는 취소 요청을 올립니다. 결재완료와 취소 건은 삭제할 수 없습니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {PRESETS.map((p) => (
@@ -212,6 +221,25 @@ export function CardPaymentLedger() {
       <div className="rounded-xl border border-slate-200 bg-white p-2 sm:p-4">
         {error ? <p className="p-6 text-center text-fluid-sm text-red-700">{error}</p> : null}
         {cancelError ? <p className="px-2 pb-2 text-fluid-xs text-red-700">{cancelError}</p> : null}
+        {confirmRow ? (
+          <InlineConfirm
+            question="이 인증결재를 전액 취소할까요?"
+            confirmLabel="전액 취소"
+            busy={cancellingId === confirmRow.id}
+            onConfirm={runDirectCancel}
+            onCancel={() => setConfirmRow(null)}
+          />
+        ) : null}
+        {requestRow ? (
+          <div className="mb-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <p className="text-fluid-xs text-slate-700">{requestRow.customerName} 결제의 취소 사유</p>
+            <textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value)} className="min-h-16 w-full rounded-lg border border-slate-300 p-2 text-fluid-xs" />
+            <div className="flex gap-2">
+              <Button size="sm" variant="primary" disabled={!requestReason.trim() || cancellingId === requestRow.id} onClick={sendCancelRequest}>취소 요청</Button>
+              <Button size="sm" variant="secondary" onClick={() => setRequestRow(null)}>그만두기</Button>
+            </div>
+          </div>
+        ) : null}
         {loading && !data ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
         {data && data.items.length === 0 && !loading ? (
           <p className="p-8 text-center text-fluid-sm text-slate-500">결제 내역이 없습니다.</p>
@@ -223,7 +251,6 @@ export function CardPaymentLedger() {
               items={data.items}
               onCancel={cancelPayment}
               onDelete={effectiveStaffAdmin ? (row) => { setDeleteError(null); setDeleteTarget(row); } : undefined}
-              sellerReady={Boolean(sellerLogin)}
               cancellingId={cancellingId}
               deletingId={deleting ? deleteTarget?.id : null}
             />
@@ -231,7 +258,6 @@ export function CardPaymentLedger() {
               items={data.items}
               onCancel={cancelPayment}
               onDelete={effectiveStaffAdmin ? (row) => { setDeleteError(null); setDeleteTarget(row); } : undefined}
-              sellerReady={Boolean(sellerLogin)}
               cancellingId={cancellingId}
               deletingId={deleting ? deleteTarget?.id : null}
             />

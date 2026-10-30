@@ -24,7 +24,7 @@ function moneyRow(input: InboxMoneyRow): InboxMoneyRow {
 }
 
 export async function getPlatformInbox() {
-  const [charges, depositInvoices, overdueInvoices, reconciles, signup, planUpgrade, landingLink, pg, barobill, barobillLinkRows] =
+  const [charges, depositInvoices, overdueInvoices, reconciles, signup, planUpgrade, landingLink, pg, barobill, barobillLinkRows, cancelRequestRows] =
     await Promise.all([
       prisma.alimtalkChargeRequest.findMany({
         where: { status: 'PENDING' },
@@ -69,6 +69,16 @@ export async function getPlatformInbox() {
           linkRequestUserIdHint: true,
           contactTel: true,
           tenant: { select: { name: true } },
+        },
+      }),
+      prisma.cardPaymentCancelRequest.findMany({
+        where: { status: 'PENDING' },
+        orderBy: { requestedAt: 'asc' },
+        take: 100,
+        include: {
+          tenant: { select: { name: true } },
+          requestedBy: { select: { name: true } },
+          cardPayment: { select: { amountWon: true, customerName: true } },
         },
       }),
     ]);
@@ -136,11 +146,21 @@ export async function getPlatformInbox() {
   };
   });
   const barobillTodo = barobill + barobillLinks.length;
+  const cardCancelRequests = cancelRequestRows.map((row) => ({
+    id: row.cardPaymentId,
+    tenantName: row.tenant.name,
+    customerName: row.cardPayment.customerName,
+    amountWon: row.cardPayment.amountWon,
+    reason: row.reason,
+    requestedBy: row.requestedBy.name,
+    requestedAt: row.requestedAt.toISOString(),
+  }));
   const review = { signup, planUpgrade, landingLink, pg, barobill: barobillTodo };
-  const reviewTotal = signup + planUpgrade + landingLink + pg + barobillTodo;
+  const reviewTotal = signup + planUpgrade + landingLink + pg + barobillTodo + cardCancelRequests.length;
   return {
     money,
     barobillLinks,
+    cardCancelRequests,
     review,
     pendingTotal: money.length + reviewTotal,
   };

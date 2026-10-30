@@ -27,9 +27,20 @@ export type InboxBarobillLinkRow = {
   contactTel: string | null;
 };
 
+export type InboxCardCancelRow = {
+  id: string;
+  tenantName: string;
+  customerName: string;
+  amountWon: number;
+  reason: string;
+  requestedBy: string;
+  requestedAt: string;
+};
+
 export type PlatformInboxPayload = {
   money: InboxMoneyRow[];
   barobillLinks: InboxBarobillLinkRow[];
+  cardCancelRequests?: InboxCardCancelRow[];
   review: {
     signup: number;
     planUpgrade: number;

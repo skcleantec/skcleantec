@@ -83,6 +83,7 @@ export function PlatformInboxQueue({
   };
 
   const links = inbox.barobillLinks ?? [];
+  const cardCancels = inbox.cardCancelRequests ?? [];
 
   return (
     <div className="space-y-4">
@@ -108,6 +109,34 @@ export function PlatformInboxQueue({
                     </span>
                   </span>
                   <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-fluid-2xs text-amber-900">대기</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {cardCancels.length > 0 ? (
+        <section className={CARD_SECTION}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-gray-900">카드 취소 요청</h2>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-fluid-2xs text-amber-900">대기 {cardCancels.length}</span>
+          </div>
+          <ul className="space-y-2">
+            {cardCancels.map((row) => (
+              <li key={row.id}>
+                <Link
+                  to={`/platform/card-payment/charge?tab=tenant&status=REQUEST&pay=${row.id}`}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                >
+                  <span className="min-w-0">
+                    <b className="text-fluid-sm text-gray-900">카드 취소 요청</b>
+                    <span className="text-fluid-sm text-gray-700"> · {row.tenantName} · {row.customerName} </span>
+                    <span className="text-fluid-xs tabular-nums text-slate-500">{row.amountWon.toLocaleString('ko-KR')}원</span>
+                    <span className="mt-0.5 block truncate text-fluid-2xs text-slate-500">
+                      {formatKstStamp(row.requestedAt)} · {row.requestedBy} · {row.reason}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-fluid-2xs text-amber-900">취소 요청</span>
                 </Link>
               </li>
             ))}

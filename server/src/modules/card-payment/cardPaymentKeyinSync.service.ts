@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { readCardInstrument } from './cardInstrument.js';
 import { getDecryptedCredential } from './cardPaymentCredential.service.js';
 import { WSPAY_BASE_URL, WSPAY_KEYIN_LIST_PATH, wspayAuthHeaders } from './wspayAdapter.js';
 
@@ -38,14 +39,19 @@ export async function syncKeyinCancelsFromPg(tenantId: string): Promise<void> {
       ? (parsed as { data?: { items?: unknown } }).data
       : null;
   const items = Array.isArray(data?.items) ? (data.items as KeyinListItem[]) : [];
-  const orderNos = items
-    .filter((item) => String(item.status ?? '').trim().toLowerCase() === 'cancelled')
-    .map((item) => String(item.order_no ?? '').trim())
-    .filter((orderNo) => orderNo.length > 0);
-  if (orderNos.length === 0) return;
-
-  await prisma.cardPayment.updateMany({
-    where: { tenantId, status: 'APPROVED', pgOrderId: { in: orderNos } },
-    data: { status: 'CANCELLED' },
-  });
+  for (const item of items) {
+    const orderNo = String(item.order_no ?? '').trim();
+    if (!orderNo) continue;
+    const instrument = readCardInstrument(item as Record<string, unknown>);
+    const cancelled = String(item.status ?? '').trim().toLowerCase() === 'cancelled';
+    if (!instrument.cardIssuer && instrument.installmentMonths == null && !cancelled) continue;
+    await prisma.cardPayment.updateMany({
+      where: { tenantId, pgOrderId: orderNo, status: { in: ['APPROVED', 'CANCELLED'] } },
+      data: {
+        ...(instrument.cardIssuer ? { cardIssuer: instrument.cardIssuer } : {}),
+        ...(instrument.installmentMonths != null ? { installmentMonths: instrument.installmentMonths } : {}),
+        ...(cancelled ? { status: 'CANCELLED' as const } : {}),
+      },
+    });
+  }
 }

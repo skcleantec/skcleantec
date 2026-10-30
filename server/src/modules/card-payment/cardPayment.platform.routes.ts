@@ -27,6 +27,14 @@ import {
 import { getPgContractTemplate, savePgContractTemplate } from './pgMerchantContract.service.js';
 import { deletePgMerchant, feePercentToBps, listPgFeeLedger, setMerchantFeeBps } from './pgFeeLedger.service.js';
 import { platformUserCanManagePgFees, verifyPyoPassword } from './pgFeeAccess.js';
+import {
+  cancelPlatformTenantPayment,
+  getPlatformTenantPayment,
+  listPlatformTenantPayments,
+  markPlatformTenantCancelled,
+  rejectPlatformTenantCancel,
+  revealTenantSellerCenter,
+} from './platformTenantPayHistory.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -280,6 +288,83 @@ router.post('/usage-fee/keyin-probe', async (_req, res) => {
     return;
   }
   res.json(probed.result);
+});
+
+router.get('/tenant-payments', async (req, res) => {
+  const limit = Number(req.query.limit ?? 30);
+  const offset = Number(req.query.offset ?? 0);
+  res.json(await listPlatformTenantPayments({
+    period: String(req.query.period ?? 'today'),
+    from: String(req.query.from ?? ''),
+    to: String(req.query.to ?? ''),
+    tenantId: String(req.query.tenantId ?? ''),
+    method: String(req.query.method ?? ''),
+    status: String(req.query.status ?? ''),
+    q: String(req.query.q ?? ''),
+    limit: Number.isFinite(limit) ? limit : 30,
+    offset: Number.isFinite(offset) ? offset : 0,
+  }));
+});
+
+router.get('/tenant-payments/:id', async (req, res) => {
+  const row = await getPlatformTenantPayment(String(req.params.id));
+  if (!row) {
+    res.status(404).json({ error: '결제를 찾지 못했습니다.' });
+    return;
+  }
+  res.json(row);
+});
+
+router.post('/tenant-payments/:id/cancel', async (req, res) => {
+  const platformUserId = (req as unknown as PlatformScopedRequest).platformUser.platformUserId;
+  const result = await cancelPlatformTenantPayment({
+    paymentId: String(req.params.id),
+    platformUserId,
+    reason: String(req.body?.reason ?? ''),
+    notifyTenant: req.body?.notifyTenant !== false,
+  });
+  if ('error' in result) {
+    res.status(result.status ?? 400).json({ error: result.error });
+    return;
+  }
+  res.json(result);
+});
+
+router.post('/tenant-payments/:id/reject-cancel', async (req, res) => {
+  const platformUserId = (req as unknown as PlatformScopedRequest).platformUser.platformUserId;
+  const result = await rejectPlatformTenantCancel({
+    paymentId: String(req.params.id),
+    platformUserId,
+    reason: String(req.body?.reason ?? ''),
+  });
+  if ('error' in result) {
+    res.status(result.status ?? 400).json({ error: result.error });
+    return;
+  }
+  res.json(result);
+});
+
+router.post('/tenant-payments/:id/mark-cancelled', async (req, res) => {
+  const platformUserId = (req as unknown as PlatformScopedRequest).platformUser.platformUserId;
+  const result = await markPlatformTenantCancelled({
+    paymentId: String(req.params.id),
+    platformUserId,
+    approvalNo: String(req.body?.approvalNo ?? ''),
+  });
+  if ('error' in result) {
+    res.status(result.status ?? 400).json({ error: result.error });
+    return;
+  }
+  res.json(result);
+});
+
+router.post('/tenant-payments/:id/seller-center', async (req, res) => {
+  const result = await revealTenantSellerCenter(String(req.params.id));
+  if ('error' in result) {
+    res.status(result.status ?? 400).json({ error: result.error });
+    return;
+  }
+  res.json(result.login);
 });
 
 export default router;

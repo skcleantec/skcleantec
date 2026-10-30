@@ -399,6 +399,7 @@ model Tenant {
   pgOnboarding               TenantPgOnboarding?
   pgCredentials              TenantPgCredential[]
   cardPayments               CardPayment[]
+  cardPaymentCancelRequests  CardPaymentCancelRequest[]
   platformSupportThread      PlatformSupportThread?
   platformSupportMessages    PlatformSupportMessage[]
   platformSupportTenantReads PlatformSupportTenantRead[]
@@ -766,6 +767,10 @@ model CardPayment {
   customerPhoneMasked String?          @map("customer_phone_masked") @db.VarChar(32)
   inquiryNumber      String?           @map("inquiry_number") @db.VarChar(24)
   cardLast4          String?           @map("card_last4") @db.VarChar(4)
+  installmentMonths  Int?              @map("installment_months")
+  cardIssuer         String?           @map("card_issuer") @db.VarChar(40)
+  cardKind           String?           @map("card_kind") @db.VarChar(16)
+  paidSource         String?           @map("paid_source") @db.VarChar(16)
   approvalNo         String?           @map("approval_no") @db.VarChar(64)
   pgOrderId          String?           @unique @map("pg_order_id") @db.VarChar(64)
   payRail            String            @default("KEYIN") @map("pay_rail") @db.VarChar(16)
@@ -778,12 +783,37 @@ model CardPayment {
   failReason         String?           @map("fail_reason") @db.VarChar(256)
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
+  cancelRequests     CardPaymentCancelRequest[]
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
   @@index([tenantId, createdById])
   @@index([inquiryId])
   @@map("card_payments")
+}
+
+/// 업체가 플랫폼에 올리는 카드 취소 요청. 링크 당일 전액은 이 표를 거치지 않고 바로 취소한다.
+model CardPaymentCancelRequest {
+  id                       String    @id @default(uuid())
+  tenantId                 String    @map("tenant_id")
+  cardPaymentId            String    @map("card_payment_id")
+  reason                   String    @db.VarChar(500)
+  requestedById            String    @map("requested_by_id")
+  status                   String    @default("PENDING") @db.VarChar(16)
+  notifyTenant             Boolean   @default(true) @map("notify_tenant")
+  decisionNote             String?   @map("decision_note") @db.VarChar(500)
+  decidedByPlatformUserId  String?   @map("decided_by_platform_user_id")
+  requestedAt              DateTime  @default(now()) @map("requested_at")
+  decidedAt                DateTime? @map("decided_at")
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cardPayment CardPayment   @relation(fields: [cardPaymentId], references: [id], onDelete: Cascade)
+  requestedBy User          @relation("CardCancelRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  decidedBy   PlatformUser? @relation(fields: [decidedByPlatformUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([cardPaymentId, requestedAt])
+  @@map("card_payment_cancel_requests")
 }
 
 /// 테넌트별 과금 프로필
@@ -879,6 +909,10 @@ model UsageFeeCardPayment {
   pgMid                   String?                     @map("pg_mid") @db.VarChar(20)
   payScreen               String?                     @map("pay_screen") @db.VarChar(2)
   cardLast4               String?                     @map("card_last4") @db.VarChar(4)
+  installmentMonths       Int?                        @map("installment_months")
+  cardIssuer              String?                     @map("card_issuer") @db.VarChar(40)
+  cardKind                String?                     @map("card_kind") @db.VarChar(16)
+  paidSource              String?                     @map("paid_source") @db.VarChar(16)
   buyerName               String?                     @map("buyer_name") @db.VarChar(40)
   buyerPhone              String?                     @map("buyer_phone") @db.VarChar(32)
   inquiryId               String?                     @map("inquiry_id")
@@ -1224,6 +1258,7 @@ model PlatformUser {
 
   confirmedInvoices TenantInvoice[]
   usageFeeCardPaymentsCreated UsageFeeCardPayment[]
+  cardCancelDecisions CardPaymentCancelRequest[]
   billingAdjustmentsCreated TenantBillingAdjustment[]
   reviewedPlanUpgradeRequests TenantPlanUpgradeRequest[]
   reviewedSignupInquiries     PlatformSignupInquiry[]
@@ -2000,6 +2035,7 @@ model User {
   orderFormsCreated   OrderForm[]  @relation("OrderFormCreatedBy")
   inquiriesCreated    Inquiry[]    @relation("InquiryCreatedBy")
   cardPaymentsCreated CardPayment[] @relation("CardPaymentCreatedBy")
+  cardCancelRequests CardPaymentCancelRequest[] @relation("CardCancelRequestedBy")
   inquiriesCollaborationMarketer Inquiry[] @relation("InquiryCollaborationMarketer")
   inquiriesSoftDeleted Inquiry[]   @relation("InquiryDeletedBy")
   adWorkSessions      AdWorkSession[]

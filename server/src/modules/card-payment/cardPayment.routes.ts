@@ -32,6 +32,7 @@ import { loadCardPaymentCustomerCopy } from './cardPaymentCustomerCopy.js';
 import { prisma } from '../../lib/prisma.js';
 import { readSellerCenterLogin } from './cardPaymentSellerCenter.service.js';
 import { cancelCustomerLinkPayment } from './cardPaymentCancel.service.js';
+import { requestCardPaymentCancel } from './platformTenantPayHistory.service.js';
 import { deleteOpenCardPayment } from './cardPaymentDelete.service.js';
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 const router = Router();
@@ -433,6 +434,27 @@ router.post('/:id/cancel', async (req, res) => {
     return;
   }
   res.json({ ok: true });
+});
+
+router.post('/:id/cancel-request', async (req, res) => {
+  const user = scoped(req).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  if (!(await userHasStaffAdminAccess(user))) {
+    res.status(403).json({ error: '취소 요청은 관리자만 할 수 있습니다.' });
+    return;
+  }
+  const result = await requestCardPaymentCancel({
+    tenantId,
+    paymentId: String(req.params.id),
+    userId: user.userId,
+    reason: String(req.body?.reason ?? ''),
+  });
+  if ('error' in result) {
+    res.status(result.status ?? 400).json({ error: result.error });
+    return;
+  }
+  res.json(result);
 });
 
 router.post('/:id/delete', async (req, res) => {

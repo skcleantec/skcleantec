@@ -11,7 +11,8 @@ export type PlatformOpsEvent =
   | 'barobill_review'
   | 'barobill_link'
   | 'link_slot'
-  | 'signup_inquiry';
+  | 'signup_inquiry'
+  | 'card_cancel_request';
 
 export function platformAppBaseUrl(): string {
   return (process.env.PUBLIC_APP_URL || 'https://www.cbiseo.com').replace(/\/$/, '');

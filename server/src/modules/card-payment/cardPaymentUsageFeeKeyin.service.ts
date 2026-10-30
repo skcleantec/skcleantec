@@ -6,6 +6,7 @@ import {
   type WspayCredential,
 } from './wspayAdapter.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
+import { instrumentKeyNames, readCardInstrument, type CardInstrument } from './cardInstrument.js';
 
 export type UsageFeeKeyinInput = {
   goodsName: string;
@@ -27,6 +28,7 @@ export type UsageFeeKeyinResult = {
   orderNo?: string;
   amountWon?: number;
   cardLast4?: string;
+  instrument?: CardInstrument;
 };
 
 function digits(value: string): string {
@@ -125,8 +127,10 @@ export async function chargeWspayKeyin(
         ? '결제를 처리했습니다.'
         : '결제에 실패했습니다.',
   );
+  console.info('[card-instrument] keyin keys', instrumentKeyNames(data).join(','));
   const approved = parsed.success === true;
   const approvalNo = typeof data.app_no === 'string' ? data.app_no : undefined;
+  const instrument = readCardInstrument(data);
   const returnedOrder = typeof data.order_no === 'string' ? data.order_no : orderNo;
   if (!approved) {
     return { result: { ok: false, message, orderNo: returnedOrder, amountWon: input.amountWon } };
@@ -139,6 +143,7 @@ export async function chargeWspayKeyin(
       orderNo: returnedOrder,
       amountWon: input.amountWon,
       cardLast4: input.cardNo.slice(-4),
+      instrument,
     },
   };
 }

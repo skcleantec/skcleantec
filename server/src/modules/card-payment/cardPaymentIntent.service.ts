@@ -10,6 +10,7 @@ import { getPlatformCardFeeRates, resolveCardFeeRates } from './cardPayment.sett
 import { serializeCardPayment } from './cardPayment.serialize.js';
 import { requestWspayPaymentLink, resolveWspayHostedWindowUrl } from './wspayAdapter.js';
 import { chargeWspayKeyin, parseUsageFeeKeyinBody } from './cardPaymentUsageFeeKeyin.service.js';
+import { monthsFromInstallmentCode } from './cardInstrument.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { notifyCardPaymentApproved } from './cardPaymentPaidNotify.js';
 
@@ -157,6 +158,9 @@ export async function confirmKeyin(input: {
       pgOrderId: charged.result.orderNo?.slice(0, 64) ?? orderNo.slice(0, 30),
       status: approved ? 'APPROVED' : 'FAILED',
       cardLast4: approved ? charged.result.cardLast4 ?? null : null,
+      installmentMonths: monthsFromInstallmentCode(parsed.input.installment),
+      cardIssuer: charged.result.instrument?.cardIssuer ?? null,
+      cardKind: charged.result.instrument?.cardKind ?? null,
       approvalNo: approved ? charged.result.approvalNo ?? null : null,
       paidAt: approved ? new Date() : null,
       failReason: approved ? null : charged.result.message.slice(0, 256),

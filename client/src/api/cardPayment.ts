@@ -292,6 +292,16 @@ export async function deleteCardPayment(token: string, id: string, password: str
   return res.json() as Promise<{ ok: true }>;
 }
 
+export async function requestCardPaymentCancel(token: string, id: string, reason: string) {
+  const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/cancel-request`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ ok: true }>;
+}
+
 export async function cancelCardPayment(token: string, id: string) {
   const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/cancel`, {
     method: 'POST',

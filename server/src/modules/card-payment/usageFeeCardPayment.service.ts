@@ -10,6 +10,7 @@ import { chargeUsageFeeKeyin, parseUsageFeeKeyinBody, type UsageFeeKeyinResult }
 import { paysisSha256, requestPaysisFullCancel, requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
+import { instrumentKeyNames, monthsFromInstallmentCode, paidSourceFromScreen, readCardInstrument } from './cardInstrument.js';
 
 /** shared/tenantBilling.ts usageFeeVatKrw 와 동일 */
 function usageFeeVatKrw(supplyKrw: number): number {
@@ -188,6 +189,9 @@ export async function payAndRecordUsageFee(
         approvalNo: charged.result.approvalNo ?? null,
         pgOrderId: charged.result.orderNo,
         cardLast4: charged.result.cardLast4 ?? parsed.input.cardNo.slice(-4),
+        installmentMonths: monthsFromInstallmentCode(parsed.input.installment),
+        cardIssuer: charged.result.instrument?.cardIssuer ?? null,
+        cardKind: charged.result.instrument?.cardKind ?? null,
         buyerName: parsed.input.buyerName,
         buyerPhone: parsed.input.buyerPhone || null,
         inquiryId: linked.link.purpose === 'CLEANING_PROXY' ? linked.link.inquiryId : null,
@@ -399,6 +403,7 @@ export async function openTenantUsageFeeWindow(
       pgOrderId: orderNo,
       pgMid: app.mid,
       payScreen: 'P',
+      paidSource: paidSourceFromScreen('P'),
       buyerName: tenant.name.slice(0, 40),
       invoiceApplied: false,
       paidAt: new Date(),
@@ -459,6 +464,7 @@ export async function openTenantWalletWindow(
       pgOrderId: orderNo,
       pgMid: app.mid,
       payScreen: 'P',
+      paidSource: paidSourceFromScreen('P'),
       buyerName: tenant.name.slice(0, 40),
       memo: 'wallet',
       invoiceApplied: false,
@@ -671,6 +677,8 @@ export async function applyUsageFeePaysisNotification(
   const expected = paysisSha256([row.pgMid, row.payScreen, orderNo, amount]);
   if (expected !== givenHash) return 'FAIL';
   if (row.status === 'CANCELLED' || row.status === 'FAILED') return 'FAIL';
+  console.info('[card-instrument] usage-fee paysis keys', instrumentKeyNames(rec).join(','));
+  const instrument = readCardInstrument(rec);
   if (row.status === 'APPROVED' && row.invoiceApplied) return 'SUCCESS';
 
   const masked = String(rec.cardNo ?? '');
@@ -684,6 +692,10 @@ export async function applyUsageFeePaysisNotification(
         status: 'APPROVED',
         approvalNo: approvalNo || null,
         cardLast4: last4.length === 4 ? last4 : null,
+        cardIssuer: instrument.cardIssuer,
+        installmentMonths: instrument.installmentMonths,
+        cardKind: instrument.cardKind,
+        paidSource: row.paidSource ?? paidSourceFromScreen(row.payScreen),
         paidAt: new Date(),
       },
     });

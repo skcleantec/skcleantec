@@ -7,14 +7,12 @@ export function CardPaymentListCards({
   items,
   onCancel,
   onDelete,
-  sellerReady,
   cancellingId,
   deletingId,
 }: {
   items: CardPaymentRow[];
   onCancel?: (row: CardPaymentRow) => void;
   onDelete?: (row: CardPaymentRow) => void;
-  sellerReady?: boolean;
   cancellingId?: string | null;
   deletingId?: string | null;
 }) {
@@ -37,14 +35,14 @@ export function CardPaymentListCards({
             {row.inquiryNumber ? ` · ${row.inquiryNumber}` : ''}
           </p>
           <div className="mt-2 flex flex-wrap gap-1">
-            {(row.cancelVia === 'api' || (row.cancelVia === 'seller' && sellerReady)) && onCancel ? (
+            {row.status === 'APPROVED' && onCancel ? (
               <button
                 type="button"
                 disabled={cancellingId === row.id}
                 className="min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                 onClick={() => onCancel(row)}
               >
-                {cancellingId === row.id ? '취소 중' : '결제 취소'}
+                {cancellingId === row.id ? '취소 중' : row.cancelVia === 'api' ? '결제 취소' : '취소 요청'}
               </button>
             ) : null}
             {onDelete && canDeleteCardPaymentStatus(row.status) ? (

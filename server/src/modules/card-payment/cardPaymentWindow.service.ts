@@ -6,6 +6,7 @@ import { resolveWindowMerchant } from './cardPaymentMerchant.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 import { notifyCardPaymentApproved } from './cardPaymentPaidNotify.js';
+import { instrumentKeyNames, paidSourceFromScreen, readCardInstrument } from './cardInstrument.js';
 import { hashLinkToken } from './cardPayment.mask.js';
 
 const PAYMENT_INCLUDE = {
@@ -61,6 +62,7 @@ export async function startPaysisWindow(input: {
     data: {
       payRail: 'PAY_WINDOW',
       payScreen: input.payScreen,
+      paidSource: paidSourceFromScreen(input.payScreen),
       pgMid: merchant.mid,
       pgOrderId: orderNo,
       status: 'AWAITING_PG',
@@ -122,6 +124,8 @@ export async function applyPaysisNotification(body: unknown): Promise<'SUCCESS' 
   if (row.status !== 'APPROVED') {
     const masked = String(rec.cardNo ?? '');
     const last4 = masked.includes('*') ? masked.replace(/\D/g, '').slice(-4) : null;
+    const instrument = readCardInstrument(rec);
+    console.info('[card-instrument] paysis keys', instrumentKeyNames(rec).join(','));
     await prisma.cardPayment.update({
       where: { id: row.id },
       data: {
@@ -129,6 +133,10 @@ export async function applyPaysisNotification(body: unknown): Promise<'SUCCESS' 
         paidAt: new Date(),
         approvalNo: String(rec.authNo ?? '').slice(0, 64) || null,
         cardLast4: last4 && last4.length === 4 ? last4 : null,
+        cardIssuer: instrument.cardIssuer,
+        installmentMonths: instrument.installmentMonths,
+        cardKind: instrument.cardKind,
+        paidSource: row.paidSource ?? paidSourceFromScreen(row.payScreen),
         failReason: null,
       },
     });
