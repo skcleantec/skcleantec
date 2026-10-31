@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ORDER_FORM_LINK_PLACEHOLDERS } from '@shared/orderFormCustomerLinkPlaceholders';
 import { copyTextToClipboard } from '../../utils/clipboard';
+import { Button } from '../ui/Button';
+import { placeholderDisplayLabel } from '../../utils/customerLinkTokenDisplay';
 
 type Props = {
   className?: string;
@@ -42,50 +44,43 @@ export function OrderFormLinkPlaceholderPicker({
     <div
       className={`flex flex-wrap items-center gap-2 ${className}`.trim()}
       role="group"
-      aria-label="치환 명령어"
+      aria-label="넣을 자리"
     >
       <label className="sr-only" htmlFor="order-link-placeholder-select">
-        치환 명령어
+        넣을 자리
       </label>
+      <span aria-hidden className="shrink-0 text-fluid-2xs font-semibold text-slate-600">넣을 자리</span>
       <select
         id="order-link-placeholder-select"
         value={selected}
         onChange={(e) => setSelected(e.target.value)}
-        className={`min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-fluid-xs text-gray-800 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 ${
+        className={`h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-fluid-xs text-slate-800 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 ${
           compact ? 'max-w-[min(100%,14rem)] sm:max-w-xs' : 'w-full sm:max-w-md'
         }`}
       >
         {ORDER_FORM_LINK_PLACEHOLDERS.filter((p) => !p.composite).map((p) => (
           <option key={p.id} value={p.token}>
-            {p.label} — {p.token}
+            {placeholderDisplayLabel(p.label)}
           </option>
         ))}
-        <optgroup label="통째 치환 (라벨 수정 어려움)">
+        <optgroup label="문장 통째로 넣기 (글자 고치기 어려움)">
           {ORDER_FORM_LINK_PLACEHOLDERS.filter((p) => p.composite).map((p) => (
             <option key={p.id} value={p.token}>
-              {p.label} — {p.token}
+              {placeholderDisplayLabel(p.label)}
             </option>
           ))}
         </optgroup>
       </select>
       {onInsert ? (
-        <button
-          type="button"
-          onClick={handleInsert}
-          className="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800"
-        >
+        <Button size="md" variant="primary" onClick={handleInsert}>
           넣기
-        </button>
+        </Button>
       ) : null}
-      <button
-        type="button"
-        onClick={() => void handleCopy()}
-        className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50"
-      >
+      <Button size="md" variant="secondary" onClick={() => void handleCopy()}>
         {copied ? '복사됨' : '복사'}
-      </button>
+      </Button>
       {current && !compact ? (
-        <p className="w-full text-fluid-2xs text-gray-500">{current.description}</p>
+        <p className="w-full text-fluid-2xs text-slate-500">{current.description}</p>
       ) : null}
     </div>
   );
