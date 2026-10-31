@@ -1,3 +1,4 @@
+import { cleanChangeLogLine } from '../../utils/changeLogLineText';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -650,7 +651,7 @@ export function ChangeLogBell({
                           <CategoryChips categories={row.categories} />
                         </div>
                         <ul className="mt-1.5 list-inside list-disc text-fluid-sm text-gray-700">
-                          {row.lines.map((line, i) => (
+                          {row.lines.map(cleanChangeLogLine).map((line, i) => (
                             <li key={i}>{line}</li>
                           ))}
                         </ul>

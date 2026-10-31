@@ -1703,10 +1703,23 @@ router.patch('/:id', async (req, res) => {
   if (data.externalTransferFee !== undefined)
     pushIfChanged('타업체 수수료', inquiry.externalTransferFee, data.externalTransferFee, fmtNum);
   if (data.professionalOptionIds !== undefined) {
-    const before = Array.isArray(inquiry.professionalOptionIds) ? inquiry.professionalOptionIds : [];
-    const after = Array.isArray(data.professionalOptionIds) ? data.professionalOptionIds : [];
-    const beforeTxt = before.length > 0 ? before.join(', ') : '(없음)';
-    const afterTxt = after.length > 0 ? after.join(', ') : '(없음)';
+    // 저장값은 [{ id, quantity, unitAmount }] 객체라 그대로 join하면 「[object Object]」가 된다 → 옵션 이름(수량)으로 적는다.
+    const before = parseProfessionalOptionSelectionsRaw(inquiry.professionalOptionIds);
+    const after = parseProfessionalOptionSelectionsRaw(data.professionalOptionIds);
+    const optionIds = [...new Set([...before, ...after].map((o) => o.id))];
+    const optionRows = optionIds.length
+      ? await prisma.professionalSpecialtyOption.findMany({
+          where: { tenantId: inquiry.tenantId, id: { in: optionIds } },
+          select: { id: true, label: true },
+        })
+      : [];
+    const optionLabel = new Map(optionRows.map((r) => [r.id, r.label]));
+    const fmtOptions = (list: typeof before) =>
+      list.length > 0
+        ? list.map((o) => `${optionLabel.get(o.id) ?? o.id}${o.quantity > 1 ? ` ×${o.quantity}` : ''}`).join(', ')
+        : '(없음)';
+    const beforeTxt = fmtOptions(before);
+    const afterTxt = fmtOptions(after);
     if (beforeTxt !== afterTxt) lines.push(`전문 작업 옵션: ${beforeTxt} → ${afterTxt}`);
   }
   if (wantsTeamSync) {

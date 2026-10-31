@@ -1,3 +1,4 @@
+import { cleanChangeLogLine } from '../../utils/changeLogLineText';
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -285,7 +286,7 @@ export function DashboardChangeHistory({ token, variant = 'default', compact = f
                           <span className="text-fluid-2xs text-slate-500 font-medium">작업자: {row.actorName ?? '—'}</span>
                         </div>
                         <ul className="mt-2.5 list-disc list-inside text-slate-700 space-y-1 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
-                          {row.lines.map((line, i) => (
+                          {row.lines.map(cleanChangeLogLine).map((line, i) => (
                             <li key={i} className="text-fluid-2xs font-medium">{line}</li>
                           ))}
                         </ul>
