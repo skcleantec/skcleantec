@@ -43,26 +43,43 @@ function CloseIcon({ className }: { className?: string }) {
   );
 }
 
+/** 연 직후 같은 손가락의 click이 새 배경에 떨어지지 않게 막는 시간. Safari·Android 모두. */
+const OPEN_GESTURE_SHIELD_MS = 320;
+
 function MobileNavFavoritesSheet({
   open,
+  openedAt,
   onClose,
   items,
 }: {
   open: boolean;
+  /** openPanel이 setState 전에 찍은 시각. useEffect보다 먼저라 같은 탭을 걸러낸다. */
+  openedAt: number;
   onClose: () => void;
   items: MobileNavFavoriteItem[];
 }) {
   const [visible, setVisible] = useState(false);
-  const openedAtRef = useRef(0);
+  /** 첫 페인트부터 false. useEffect에서 켜면 그 전에 도착한 탭을 못 막는다. */
+  const [backdropArmed, setBackdropArmed] = useState(false);
+  const backdropPressedRef = useRef(false);
 
   useEffect(() => {
     if (!open) {
       setVisible(false);
+      setBackdropArmed(false);
       return;
     }
-    openedAtRef.current = performance.now();
-    const id = requestAnimationFrame(() => setVisible(true));
-    return () => cancelAnimationFrame(id);
+    setBackdropArmed(false);
+    backdropPressedRef.current = false;
+    const armId = window.setTimeout(() => {
+      backdropPressedRef.current = false;
+      setBackdropArmed(true);
+    }, OPEN_GESTURE_SHIELD_MS);
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => {
+      window.clearTimeout(armId);
+      cancelAnimationFrame(frame);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -87,16 +104,28 @@ function MobileNavFavoritesSheet({
   const root = typeof document !== 'undefined' ? document.body : null;
   if (!root) return null;
 
+  const gestureShield = performance.now() - openedAt < OPEN_GESTURE_SHIELD_MS || !backdropArmed;
+
   return createPortal(
-    <div className="fixed inset-0 z-[125] lg:hidden" role="presentation">
+    <div
+      className={`fixed inset-0 z-[125] lg:hidden ${gestureShield ? 'pointer-events-none' : 'pointer-events-auto'}`}
+      role="presentation"
+    >
       <button
         type="button"
         aria-label="즐겨찾기 닫기"
         className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${
           visible ? 'opacity-100' : 'opacity-0'
         }`}
-        onClick={() => {
-          if (performance.now() - openedAtRef.current < 450) return;
+        onPointerDown={() => {
+          if (performance.now() - openedAt < OPEN_GESTURE_SHIELD_MS) return;
+          backdropPressedRef.current = true;
+        }}
+        onClick={(e) => {
+          if (performance.now() - openedAt < OPEN_GESTURE_SHIELD_MS) return;
+          const fromKeyboard = e.detail === 0;
+          if (!fromKeyboard && !backdropPressedRef.current) return;
+          backdropPressedRef.current = false;
           onClose();
         }}
       />
@@ -219,7 +248,11 @@ export function MobileNavFavoritesAccess({
   standalone = false,
 }: AccessProps) {
   const [open, setOpen] = useState(false);
-  const openPanel = useCallback(() => setOpen(true), []);
+  const openedAtRef = useRef(0);
+  const openPanel = useCallback(() => {
+    openedAtRef.current = performance.now();
+    setOpen(true);
+  }, []);
   const closePanel = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
@@ -247,7 +280,12 @@ export function MobileNavFavoritesAccess({
           onPointerDown={fabStack.onPointerDown}
         />
       ) : null}
-      <MobileNavFavoritesSheet open={open} onClose={closePanel} items={items} />
+      <MobileNavFavoritesSheet
+        open={open}
+        openedAt={openedAtRef.current}
+        onClose={closePanel}
+        items={items}
+      />
     </>
   );
 }

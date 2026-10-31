@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNavFavorites } from '../../hooks/useNavFavorites';
 
 function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
@@ -32,31 +32,57 @@ type Props = {
 export function NavFavoriteStar({ navKey, label, onDark = false, compact = false, className = '' }: Props) {
   const { ready, isFavorite, toggle, max } = useNavFavorites();
   const [hint, setHint] = useState<string | null>(null);
+  const lastToggleAtRef = useRef(0);
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
   const active = ready && isFavorite(navKey);
+
+  const runToggle = useCallback(() => {
+    if (!ready) return;
+    const now = performance.now();
+    if (now - lastToggleAtRef.current < 500) return;
+    lastToggleAtRef.current = now;
+    const result = toggle(navKey, label);
+    if (!result.ok && result.reason === 'max') {
+      setHint(`즐겨찾기는 최대 ${max}개까지 가능합니다.`);
+      window.setTimeout(() => setHint(null), 2500);
+      return;
+    }
+    if (result.ok) {
+      setHint(result.added ? '즐겨찾기에 추가했습니다' : '즐겨찾기에서 제거했습니다');
+      window.setTimeout(() => setHint(null), 1500);
+    }
+  }, [ready, toggle, navKey, label, max]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!ready) return;
-      const result = toggle(navKey, label);
-      if (!result.ok && result.reason === 'max') {
-        setHint(`즐겨찾기는 최대 ${max}개까지 가능합니다.`);
-        window.setTimeout(() => setHint(null), 2500);
-        return;
-      }
-      if (result.ok) {
-        setHint(result.added ? '즐겨찾기에 추가했습니다' : '즐겨찾기에서 제거했습니다');
-        window.setTimeout(() => setHint(null), 1500);
-      }
+      runToggle();
     },
-    [ready, toggle, navKey, label, max],
+    [runToggle],
+  );
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    pointerDownRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const down = pointerDownRef.current;
+      pointerDownRef.current = null;
+      if (!down || e.pointerType === 'mouse') return;
+      const moved = Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y);
+      if (moved > 18) return;
+      runToggle();
+    },
+    [runToggle],
   );
 
   const size = compact ? 'h-4 w-4' : 'h-5 w-5';
   const btnClass = [
-    'inline-flex shrink-0 items-center justify-center rounded-md touch-manipulation transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2',
+    'inline-flex shrink-0 items-center justify-center rounded-md touch-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2',
     compact ? 'min-h-11 min-w-11 lg:min-h-7 lg:min-w-7' : 'min-h-11 min-w-11 lg:min-h-9 lg:min-w-9',
     onDark
       ? active
@@ -72,6 +98,8 @@ export function NavFavoriteStar({ navKey, label, onDark = false, compact = false
     <span className="relative inline-flex shrink-0">
       <button
         type="button"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
         onClick={handleClick}
         className={btnClass}
         aria-pressed={active}
