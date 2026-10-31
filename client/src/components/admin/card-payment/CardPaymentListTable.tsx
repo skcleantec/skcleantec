@@ -5,7 +5,8 @@ import {
 } from '@shared/cardPayment';
 import type { CardPaymentRow } from '../../../api/cardPayment';
 import { CardPaymentStatusChip } from './CardPaymentStatusChip';
-import { canDeleteCardPaymentStatus, formatCardPaymentKst } from '../../../utils/cardPaymentTime';
+import { formatCardPaymentKst } from '../../../utils/cardPaymentTime';
+import { CardPaymentRowMenu } from './CardPaymentRowMenu';
 
 export function CardPaymentListTable({
   items,
@@ -70,28 +71,13 @@ export function CardPaymentListTable({
               <td className="px-2 py-2 text-right tabular-nums">{formatWon(row.tenantFeeWon)}</td>
               <td className="px-2 py-2 text-right tabular-nums">{formatWon(row.tenantNetWon)}</td>
               <td className="px-2 py-2 text-center">
-                <div className="flex flex-col items-center gap-1">
-                  {row.status === 'APPROVED' && onCancel ? (
-                    <button
-                      type="button"
-                      disabled={cancellingId === row.id}
-                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-                      onClick={() => onCancel(row)}
-                    >
-                      {cancellingId === row.id ? '취소 중' : row.cancelVia === 'api' ? '결제 취소' : '취소 요청'}
-                    </button>
-                  ) : null}
-                  {onDelete && canDeleteCardPaymentStatus(row.status) ? (
-                    <button
-                      type="button"
-                      disabled={deletingId === row.id}
-                      className="rounded-lg border border-red-200 bg-white px-2 py-1 text-fluid-2xs font-medium text-red-800 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-                      onClick={() => onDelete(row)}
-                    >
-                      삭제
-                    </button>
-                  ) : null}
-                </div>
+                <CardPaymentRowMenu
+                  row={row}
+                  onCancel={onCancel}
+                  onDelete={onDelete}
+                  cancelling={cancellingId === row.id}
+                  deleting={deletingId === row.id}
+                />
               </td>
             </tr>
           ))}

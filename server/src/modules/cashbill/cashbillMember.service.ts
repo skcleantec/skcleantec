@@ -17,6 +17,12 @@ import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { isBlankSupplierField } from '../taxinvoice/supplierFieldText.js';
 import { parseTenantConfig } from '../tenants/tenantConfig.schema.js';
 import { refreshBarobillCerts } from '../taxinvoice/taxInvoiceCert.service.js';
+import {
+  changeNtsSendOptionNextDay,
+  getNtsSendOption,
+  isNextDayNtsBlocked,
+  type NtsSendOption,
+} from '../taxinvoice/taxInvoice.barobill.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
 import { notifyBarobillLinkCompleted, notifyBarobillLinkRequested } from './cashbillLinkMail.js';
 
@@ -687,6 +693,11 @@ export async function listBarobillMembersForPlatform(query: {
         barobillUserId: true,
         certValid: true,
         certExpireDate: true,
+        ntsTaxationOption: true,
+        ntsTaxExemptionOption: true,
+        ntsTaxationAddTaxAllow: true,
+        ntsTaxExemptionAddTaxAllow: true,
+        ntsAlignFailed: true,
         linkRequestedAt: true,
         linkRequestUserIdHint: true,
         contactTel: true,
@@ -728,6 +739,15 @@ export async function listBarobillMembersForPlatform(query: {
       hasUserId: row.barobillUserId.length > 0,
       certValid: row.certValid,
       certExpireDate: row.certExpireDate,
+      ntsTaxationOption: row.ntsTaxationOption,
+      ntsTaxExemptionOption: row.ntsTaxExemptionOption,
+      ntsTaxationAddTaxAllow: row.ntsTaxationAddTaxAllow,
+      ntsTaxExemptionAddTaxAllow: row.ntsTaxExemptionAddTaxAllow,
+      ntsAlignFailed: row.ntsAlignFailed,
+      ntsNextDayBlocked: row.ntsTaxationOption === 1
+        && row.ntsTaxExemptionOption === 1
+        && row.ntsTaxationAddTaxAllow === 0
+        && row.ntsTaxExemptionAddTaxAllow === 0,
       corpNumMasked: maskCorpNum(row.corpNum),
       corpNum: row.corpNum,
       linkRequestedAt: row.linkRequestedAt?.toISOString() ?? null,
@@ -825,6 +845,65 @@ export async function rejectBarobillMember(memberId: string, platformUserId: str
   return { id: row.id, status: 'REJECTED' as const };
 }
 
+const NTS_CONSOLE_HINT = '바로빌 콘솔 › 회원사 관리에서 국세청 전송을 익일 전송으로 바꿔 주세요';
+
+function ntsSaveData(option: NtsSendOption | null, failed: boolean) {
+  return {
+    ntsTaxationOption: option?.taxation ?? null,
+    ntsTaxExemptionOption: option?.exemption ?? null,
+    ntsTaxationAddTaxAllow: option?.taxationAddTax ?? null,
+    ntsTaxExemptionAddTaxAllow: option?.exemptionAddTax ?? null,
+    ntsAlignFailed: failed,
+  };
+}
+
+/** 연결 완료 직후·「익일로 맞추기」. 실패해도 연결 상태는 유지하고 ntsAlignFailed 만 남긴다. */
+async function applyNextDayNts(row: { id: string; tenantId: string; corpNum: string; userId: string }): Promise<boolean> {
+  try {
+    await changeNtsSendOptionNextDay({ corpNum: row.corpNum, userId: row.userId });
+    const option = await getNtsSendOption(row.corpNum);
+    const ok = isNextDayNtsBlocked(option);
+    await prisma.barobillMember.updateMany({
+      where: { id: row.id, tenantId: row.tenantId },
+      data: ntsSaveData(option, !ok),
+    });
+    return ok;
+  } catch (err) {
+    console.error('[cashbill] nts align', err instanceof Error ? err.name : 'error');
+    let option: NtsSendOption | null = null;
+    try {
+      option = await getNtsSendOption(row.corpNum);
+    } catch {
+      option = null;
+    }
+    await prisma.barobillMember.updateMany({
+      where: { id: row.id, tenantId: row.tenantId },
+      data: ntsSaveData(option, true),
+    });
+    return false;
+  }
+}
+
+export async function alignBarobillNtsNextDay(memberId: string) {
+  const row = await prisma.barobillMember.findFirst({
+    where: { id: memberId },
+    select: { id: true, tenantId: true, env: true, corpNum: true, status: true, barobillUserId: true },
+  });
+  if (!row) throw new CashbillMemberError('회원사를 찾을 수 없습니다.', 404);
+  assertMemberEnv(row.env);
+  if (row.status !== 'ACTIVE' || !row.barobillUserId.trim()) {
+    throw new CashbillMemberError('연결된 회원사만 익일로 맞출 수 있습니다.');
+  }
+  const ok = await applyNextDayNts({
+    id: row.id,
+    tenantId: row.tenantId,
+    corpNum: row.corpNum,
+    userId: row.barobillUserId.trim(),
+  });
+  if (!ok) throw new CashbillMemberError(NTS_CONSOLE_HINT);
+  return { id: row.id, ntsNextDayBlocked: true as const };
+}
+
 export async function completeBarobillLink(memberId: string, barobillUserIdRaw: string) {
   assertBarobillConfigured();
   const userId = barobillUserIdRaw.trim();
@@ -862,6 +941,7 @@ export async function completeBarobillLink(memberId: string, barobillUserIdRaw: 
     data: { status: 'ACTIVE', barobillUserId: userId, lastError: null, reviewedAt: new Date() },
   });
   if (updated.count !== 1) throw new CashbillMemberError(ALREADY_PROCESSING_MESSAGE, 409);
+  await applyNextDayNts({ id: row.id, tenantId: row.tenantId, corpNum: row.corpNum, userId });
   try {
     await notifyBarobillLinkCompleted({
       to: row.contactEmail,

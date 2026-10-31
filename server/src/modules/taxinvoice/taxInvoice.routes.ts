@@ -6,6 +6,7 @@ import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import {
   cancelTaxInvoice,
+  TaxInvoiceError,
   issueTaxInvoice,
   linkTaxInvoiceInquiry,
   listTaxInvoices,
@@ -13,8 +14,8 @@ import {
   taxInvoiceCustomerUrl,
   taxInvoicePrintUrl,
   searchTaxInvoiceInquiries,
-  TaxInvoiceError,
 } from './taxInvoice.service.js';
+import { modifyTaxInvoice } from './taxInvoiceModify.service.js';
 import { updateBarobillSupplier } from './taxInvoiceSupplier.service.js';
 
 const router = Router();
@@ -148,6 +149,18 @@ router.get('/:issueId/mail-url', async (req, res) => {
     res.json({ url });
   } catch (err) {
     sendError(res, err, '영수증 주소를 받지 못했습니다.');
+  }
+});
+
+router.post('/:issueId/modify', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    res.json(await modifyTaxInvoice(tenantId, user.userId, String(req.params.issueId ?? ''), req.body ?? {}));
+  } catch (err) {
+    sendError(res, err, '수정세금계산서 발급에 실패했습니다.');
   }
 });
 

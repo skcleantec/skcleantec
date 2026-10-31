@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request } from 'express';
 import { syncOpenCashbillStates } from './cashbillIssue.service.js';
 import { syncOpenTaxInvoiceStates } from '../taxinvoice/taxInvoice.service.js';
+import { sendDueCertExpiryMails } from '../taxinvoice/taxInvoiceCert.service.js';
 
 const router = Router();
 
@@ -28,8 +29,15 @@ router.post('/cashbill-states', async (req, res) => {
       console.error('[cashbill-states] tax invoice', err instanceof Error ? err.name : 'error');
       taxInvoice = { error: true };
     }
-    console.info('[cashbill-states] cron', { cashbill, taxInvoice });
-    res.json({ cashbill, taxInvoice });
+    let certMail: { sent: number } | { error: true } = { sent: 0 };
+    try {
+      certMail = { sent: await sendDueCertExpiryMails() };
+    } catch (err) {
+      console.error('[cashbill-states] cert mail', err instanceof Error ? err.name : 'error');
+      certMail = { error: true };
+    }
+    console.info('[cashbill-states] cron', { cashbill, taxInvoice, certMail });
+    res.json({ cashbill, taxInvoice, certMail });
   } catch (err) {
     console.error('[cashbill-states] cron failed', err instanceof Error ? err.name : 'error');
     res.status(500).json({ error: '현금영수증 상태 조회에 실패했습니다.' });

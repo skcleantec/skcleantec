@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { isValidKoreanBizNumberChecksum } from '@shared/authSignup';
-import { issueTaxInvoice, searchTaxInvoiceInquiries, type TaxInvoiceBrand, type TaxInvoiceSearchHit } from '../../api/taxInvoices';
+import { issueTaxInvoice, searchTaxInvoiceInquiries, taxNtsIssueNotice, type TaxInvoiceBrand, type TaxInvoiceSearchHit } from '../../api/taxInvoices';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 
@@ -151,6 +151,7 @@ export function TaxInvoiceIssueForm({ brands, onClose, onDone }: { brands: TaxIn
       onClose={onClose}
       footer={(
         <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="w-full text-fluid-xs font-medium text-slate-800">{taxNtsIssueNotice(brand)}</p>
           <p className={`text-fluid-xs ${summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW ? 'text-red-700' : 'text-slate-600'}`}>
             {summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW
               ? '잔액이 부족합니다'

@@ -16,24 +16,25 @@ import {
   cancelTaxInvoice,
   linkTaxInvoiceInquiry,
   listTaxInvoices,
-  taxBarobillStateLabel,
-  taxNtsStateLabel,
+  taxStatusView,
   type TaxInvoiceBrand,
   type TaxInvoiceRow,
 } from '../../api/taxInvoices';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
+import { TaxInvoiceCertBand } from '../../components/taxinvoice/TaxInvoiceCertBand';
+import { TaxInvoiceModifyModal } from '../../components/taxinvoice/TaxInvoiceModifyModal';
 
 const SEG = 'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
 const SEG_ON = 'bg-slate-900 text-white hover:bg-slate-800';
 const STATES = [
   ['', '전체 상태'],
   ['3014', '발급완료'],
-  ['5031', '발급취소'],
-  ['nts1', '전송전'],
-  ['nts23', '전송중'],
-  ['nts4', '성공'],
-  ['nts5', '실패'],
+  ['5031', '발급 취소'],
+  ['nts1', '국세청 전송 대기'],
+  ['nts4', '국세청 전송 완료'],
+  ['nts5', '전송 실패'],
+  ['amended', '수정됨'],
   ['failed', '발행 실패'],
 ] as const;
 
@@ -71,6 +72,7 @@ export function AdminTaxInvoiceListPage() {
   const [reload, setReload] = useState(0);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [linkIssueId, setLinkIssueId] = useState<string | null>(null);
+  const [modifyRow, setModifyRow] = useState<TaxInvoiceRow | null>(null);
   const [walletTick, setWalletTick] = useState(0);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
 
@@ -143,6 +145,8 @@ export function AdminTaxInvoiceListPage() {
   const certTargets = brands.filter((brand) => brand.linked && !brand.simplified);
   const missingCert = certTargets.find((brand) => !brand.certValid) ?? null;
   const expireDates = certTargets.map((brand) => brand.certExpireDate).filter((day): day is string => Boolean(day)).sort();
+  const soonestExpire = expireDates[0] ?? null;
+  const bandBrand = certTargets.find((brand) => brand.certExpireDate === soonestExpire) ?? certTargets[0] ?? null;
   const certChip = !needsLink && certTargets.length > 0
     ? missingCert
       ? { id: missingCert.id, label: '인증서 미등록', className: 'border-amber-300 bg-amber-50 text-amber-950' }
@@ -166,6 +170,9 @@ export function AdminTaxInvoiceListPage() {
       />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'nts5', page: '1' })} onIssueFailed={() => patch({ state: 'failed', page: '1' })} />
+      {!needsLink && bandBrand ? (
+        <TaxInvoiceCertBand expireDate={soonestExpire} onRegister={() => setCertBrandId(bandBrand.id)} />
+      ) : null}
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
           <p>계산서 연결을 먼저 해주세요.</p>
@@ -217,7 +224,7 @@ export function AdminTaxInvoiceListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-1.5 lg:hidden">
-            {items.map((row) => <TaxCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onError={setError} highlight={highlightId === row.id} />)}
+            {items.map((row) => <TaxCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={setError} highlight={highlightId === row.id} />)}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
@@ -244,9 +251,12 @@ export function AdminTaxInvoiceListPage() {
                     <td className="truncate px-2 py-2 text-center" title={row.itemName || '청소 서비스'}>{row.itemName || '청소 서비스'}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{won(row.totalAmount)}</td>
                     <td className="px-2 py-2 text-center">{row.purposeType === 2 ? '청구' : '영수'}</td>
-                    <td className="px-2 py-2 text-center"><TaxStatus row={row} /></td>
+                    <td className="px-2 py-2 text-center">
+                      <TaxStatus row={row} />
+                      {row.modifyCode && row.originalWriteDate ? <p className="text-fluid-2xs text-slate-500">수정 · 원래 {originalMd(row.originalWriteDate)} 건</p> : null}
+                    </td>
                     <td className="px-2 py-2 text-center"><ApprovalNumberCell value={row.ntsSendKey} /></td>
-                    <td className="px-2 py-2 text-center"><RowAction row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onError={setError} /></td>
+                    <td className="px-2 py-2 text-center"><RowAction row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={setError} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -264,6 +274,13 @@ export function AdminTaxInvoiceListPage() {
             await linkTaxInvoiceInquiry(linkIssueId, inquiryId);
             await load();
           }}
+        />
+      ) : null}
+      {modifyRow ? (
+        <TaxInvoiceModifyModal
+          row={modifyRow}
+          onClose={() => setModifyRow(null)}
+          onDone={() => { setModifyRow(null); setWalletTick((n) => n + 1); setReload((n) => n + 1); }}
         />
       ) : null}
       {certBrandId ? (
@@ -290,21 +307,18 @@ function TaxKindBadge({ kind }: { kind?: TaxInvoiceRow['taxKind'] }) {
   return <span className="mr-1 inline-flex rounded-full bg-gray-100 px-1.5 py-0 text-fluid-2xs font-medium text-gray-700">{label}</span>;
 }
 
-function TaxStatus({ row }: { row: TaxInvoiceRow }) {
-  const label = row.barobillState === '5031' ? '발급취소' : taxFailed(row) ? '실패' : taxNtsStateLabel(row.ntsSendState) || taxBarobillStateLabel(row.barobillState);
-  const tone = row.barobillState === '5031'
-    ? 'bg-slate-100 text-slate-500 line-through'
-    : taxFailed(row)
-      ? 'bg-red-50 text-red-800'
-      : row.ntsSendState === '4' || row.barobillState === '3014'
-        ? 'bg-emerald-50 text-emerald-800'
-        : row.ntsSendState === '2' || row.ntsSendState === '3' || row.ntsSendState === '1'
-          ? 'bg-slate-100 text-slate-700'
-          : 'bg-amber-50 text-amber-900';
-  return <span className={`inline-flex rounded-full px-1.5 py-0 text-fluid-2xs ${tone}`}>{label}</span>;
+function originalMd(writeDate: string): string {
+  const text = writeDate.replace(/\D/g, '');
+  if (text.length < 8) return writeDate;
+  return `${Number(text.slice(4, 6))}.${Number(text.slice(6, 8))}`;
 }
 
-function RowAction({ row, cancelling, onCancel, onReissue, onLink, onError }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onError: (message: string) => void }) {
+function TaxStatus({ row }: { row: TaxInvoiceRow }) {
+  const view = taxStatusView(row);
+  return <span className={`inline-flex rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>;
+}
+
+function RowAction({ row, cancelling, onCancel, onReissue, onLink, onModify, onError }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onModify: () => void; onError: (message: string) => void }) {
   const btn = 'min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   const official = row.barobillState === '3014' || row.barobillState === '5031';
   return (
@@ -324,6 +338,7 @@ function RowAction({ row, cancelling, onCancel, onReissue, onLink, onError }: { 
         cancelling={cancelling}
         onCancel={onCancel}
         onLinkInquiry={onLink}
+        onModify={row.canModify ? onModify : undefined}
       />
     </div>
   );
@@ -337,7 +352,7 @@ async function openTaxMail(issueId: string): Promise<void> {
   openReceiptWindow(body.url);
 }
 
-function TaxCard({ row, cancelling, onCancel, onReissue, onLink, onError, highlight }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onError: (message: string) => void; highlight: boolean }) {
+function TaxCard({ row, cancelling, onCancel, onReissue, onLink, onModify, onError, highlight }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onModify: () => void; onError: (message: string) => void; highlight: boolean }) {
   return (
     <article className={`space-y-1 rounded-lg border border-slate-200 p-2 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
       <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
@@ -346,7 +361,8 @@ function TaxCard({ row, cancelling, onCancel, onReissue, onLink, onError, highli
       <p className="text-right text-fluid-sm font-semibold tabular-nums text-slate-900">{won(row.totalAmount)}</p>
       <p className="truncate text-fluid-2xs text-slate-600"><TaxKindBadge kind={row.taxKind} /> {row.itemName || '청소 서비스'} · {row.purposeType === 2 ? '청구' : '영수'} · <TaxStatus row={row} /></p>
       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700">실패 이유: {row.lastError}</p> : null}
-      <RowAction row={row} cancelling={cancelling} onCancel={onCancel} onReissue={onReissue} onLink={onLink} onError={onError} />
+      {row.modifyCode && row.originalWriteDate ? <p className="text-fluid-2xs text-slate-500">수정 · 원래 {originalMd(row.originalWriteDate)} 건</p> : null}
+      <RowAction row={row} cancelling={cancelling} onCancel={onCancel} onReissue={onReissue} onLink={onLink} onModify={onModify} onError={onError} />
     </article>
   );
 }

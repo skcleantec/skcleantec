@@ -87,6 +87,8 @@
 - 상태: `GetTaxInvoiceStateEX(s)` → BarobillState 1000 임시 · 3014 발급완료 · 5031 발급취소 / NTSSendState 1 전송전(취소가능) · 2·3 전송중 · 4 성공 · 5 실패.
 - 발급취소(국세청 전송 전): 현재 TI WSDL의 `ProcTaxInvoice`. `ProcType=ISSUE_CANCEL`, `Memo`는 빈 문자열. 전송 후 취소 API는 쓰지 않는다.
 - 국세청 전송 기본값: **발급 익일 14시 자동전송**(콘솔 환경설정). 지연발급(익월 10일 후) 기본 차단.
+- 회원사 전송설정 API는 현재 TI에 있다. `GetNTSSendOption`(국세청 전송설정 확인) · `ChangeNTSSendOption`(국세청 전송설정 변경). 필드 `TaxationOption` · `TaxExemptionOption` · `TaxationAddTaxAllowYN` · `TaxExemptionAddTaxAllowYN`은 int. WSDL에는 1/2 뜻이 없고, 운영 GetNTSSendOption(2026-10-31, SK클린텍·서비스브릿지)에서 **1=익일, 2=즉시**. `AddTaxAllowYN`은 **1=지연발급 허용, 0=차단**. 연결 완료 직후에만 Change(1, 0, 1, 0) 후 Get으로 다시 읽는다. 이미 연결된 회원사는 자동으로 바꾸지 않는다. 출처: `https://ws.baroservice.com/TI.asmx?WSDL` + 운영 조회.
+- 수정 발급은 구버전 `RegistModifyTaxInvoice`(문서에 「구버전」)의 `OriginalNTSSendKey`가 아니라, 현재 `RegistAndIssueTaxInvoice`(문서: 일반(수정)세금계산서 저장 + 발급)의 `Invoice.ModifyCode`다. 같은 `TaxInvoice`에 원본 승인번호 전용 칸은 없고 비고 `Remark1`에 원본 `NTSSendKey`를 넣는다. 사유 1 기재사항 착오, 2 공급가액 변동, 4 계약의 해제.
 - 발급 시 공급받는자 이메일 자동 발송(테스트환경도 실제 발송 주의).
 
 ## 7. 결과 확인

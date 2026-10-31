@@ -72,7 +72,7 @@ export function ReceiptSummaryCards({
       <section className={card}>
         <p className="text-fluid-2xs text-slate-500">국세청 전송</p>
         <p className="text-fluid-sm text-slate-800">
-          대기 {waitingCount}
+          국세청 전송 대기 {waitingCount}
           {' · '}
           {failedCount > 0 ? (
             <button type="button" className="font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" onClick={onFailed}>
