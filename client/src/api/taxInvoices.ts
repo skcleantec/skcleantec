@@ -66,6 +66,8 @@ export type TaxInvoiceRow = {
   barobillState: string | null;
   ntsSendState: string | null;
   lastError: string | null;
+  /** 발급한 직원 이름 */
+  issuerName?: string | null;
   ntsSendKey?: string | null;
   itemName?: string;
   canCancel: boolean;

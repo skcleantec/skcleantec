@@ -21,6 +21,8 @@ import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../ut
 import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { Button } from '../../components/ui/Button';
+import { FailReasonChip, showReceiptDone, showReceiptFailure } from '../../components/receipts/receiptToasts';
+import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider';
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 
 const SEG =
@@ -58,7 +60,6 @@ export function AdminCashbillListPage() {
   const [total, setTotal] = useState(0);
   const [brands, setBrands] = useState<{ id: string; name: string; linked: boolean }[]>([]);
   const [summary, setSummary] = useState({ issuedCount: 0, issuedWon: 0, waitingCount: 0, failedCount: 0, costWon: 0 });
-  const [toastId, setToastId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +140,6 @@ export function AdminCashbillListPage() {
 
   async function cancelRow(issueId: string) {
     setCancellingId(issueId);
-    setError(null);
     try {
       await cancelCashbillIssue(issueId, crypto.randomUUID());
       setWalletTick((n) => n + 1);
@@ -155,8 +155,9 @@ export function AdminCashbillListPage() {
       setItems(res.items);
       setTotal(res.total);
       setBrands(res.brands);
+      showReceiptDone('발급을 취소했어요', '국세청에 취소분이 함께 전송됩니다.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '현금영수증 취소에 실패했습니다.');
+      showReceiptFailure('발급을 취소하지 못했어요', err instanceof Error ? err.message : '현금영수증 취소에 실패했습니다.');
     } finally {
       setCancellingId(null);
     }
@@ -192,18 +193,18 @@ export function AdminCashbillListPage() {
           onDone={(issueId) => {
             setIssueOpen(false);
             setHighlightId(issueId);
-            setToastId(issueId);
+            showReceiptDone(
+              '현금영수증을 발행했어요',
+              '목록 맨 위에 표시해 두었어요.',
+              <>
+                <Button size="sm" variant="primary" onClick={() => void openCashbillReceipt(issueId).catch((err: unknown) => showReceiptFailure('영수증을 열지 못했어요', err instanceof Error ? err.message : null))}>영수증 보기</Button>
+                <ReceiptCopyButtons kind="cashbill" issueId={issueId} official publicToken={null} copyReady={false} shareOnly />
+              </>,
+            );
             setReload((n) => n + 1);
             window.setTimeout(() => setHighlightId(null), 4000);
           }}
         />
-      ) : null}
-      {toastId ? (
-        <p className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs text-emerald-900">
-          발행했습니다
-          <button type="button" className="min-h-8 rounded-lg border border-emerald-300 bg-white px-2 text-emerald-900 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2" onClick={() => void openCashbillReceipt(toastId).catch((err: unknown) => setError(err instanceof Error ? err.message : '영수증을 열지 못했습니다.'))}>영수증 보기</button>
-          <ReceiptCopyButtons kind="cashbill" issueId={toastId} official publicToken={null} copyReady={false} shareOnly />
-        </p>
       ) : null}
       {!needsLink ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
         <div className="inline-flex gap-0.5 rounded-lg border border-slate-200 p-0.5">
@@ -248,7 +249,7 @@ export function AdminCashbillListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-2 lg:hidden">
-            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} highlight={highlightId === row.id} />)}
+            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} highlight={highlightId === row.id} />)}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
@@ -278,8 +279,9 @@ export function AdminCashbillListPage() {
                     <td className={`whitespace-nowrap px-2 py-2 text-right font-medium tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</td>
                     <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
                     <td className={`truncate px-2 py-2 text-center tabular-nums text-slate-600 ${XL_HIDE}`} title={row.ntsConfirmNum ?? ''}>{row.ntsConfirmNum || '—'}</td>
+                    <td className="truncate px-2 py-2 text-center text-slate-600" title={row.issuerName ?? ''}>{row.issuerName || '—'}</td>
                     <td className="px-2 py-2 text-right">
-                      <ReceiptActions compact row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} />
+                      <ReceiptActions compact row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} />
                     </td>
                   </tr>
                 ))}
@@ -298,6 +300,7 @@ export function AdminCashbillListPage() {
           onPick={async (inquiryId) => {
             await linkCashbillInquiry(linkIssueId, inquiryId);
             setReload((n) => n + 1);
+            showReceiptDone('접수에 연결했어요', '접수 히스토리에도 남겨 두었어요.');
           }}
         />
       ) : null}
@@ -326,6 +329,7 @@ const CASH_COLS = [
   { key: 'won', label: '금액', width: '100px', align: 'text-right', hide: '' },
   { key: 'st', label: '상태', width: '190px', align: 'text-center', hide: '' },
   { key: 'nts', label: '승인번호', width: '108px', align: 'text-center', hide: XL_HIDE },
+  { key: 'by', label: '발급자', width: '84px', align: 'text-center', hide: '' },
   { key: 'act', label: '', width: '120px', align: 'text-right', hide: '' },
 ] as const;
 
@@ -350,9 +354,7 @@ function CustomerNameCell({ row }: { row: CashbillIssueRow }) {
       ) : (
         <p className="truncate text-slate-400">연계 없음</p>
       )}
-      {row.lastError ? (
-        <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p>
-      ) : name && !row.linked ? (
+      {name && !row.linked ? (
         <p className="text-fluid-2xs text-slate-500">직접 입력</p>
       ) : null}
     </div>
@@ -380,7 +382,9 @@ function canViewReceipt(row: CashbillIssueRow): boolean {
 }
 
 function StatusBadge({ row }: { row: CashbillIssueRow }) {
+  const { openCharge } = useReceiptWallet();
   const label = cashbillStateLabel(row.barobillState, row.lastError);
+  if (isFailedRow(row) && row.kind !== 'CANCEL') return <FailReasonChip label={label} reason={row.lastError} onCharge={openCharge} />;
   const tone = row.barobillState === '7000' || row.kind === 'CANCEL'
     ? 'border border-slate-200 bg-slate-100 text-slate-500'
     : isFailedRow(row)
@@ -451,9 +455,9 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fluid-2xs text-slate-500">
         <span className="tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</span>
         <span className="truncate">{row.itemName}</span>
+        {row.issuerName ? <span className="truncate">발급 {row.issuerName}</span> : null}
         <StatusBadge row={row} />
       </div>
-      {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
         {row.inquiryNumber ? (
           <p className="min-w-0 truncate text-fluid-xs text-slate-500">접수 <InquiryCell row={row} onLink={onLink} /></p>

@@ -26,6 +26,8 @@ import { TaxInvoiceCertBand } from '../../components/taxinvoice/TaxInvoiceCertBa
 import { TaxInvoiceModifyModal } from '../../components/taxinvoice/TaxInvoiceModifyModal';
 import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { Button } from '../../components/ui/Button';
+import { FailReasonChip, showReceiptDone, showReceiptFailure } from '../../components/receipts/receiptToasts';
+import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider';
 import { approvalTail, groupTaxInvoiceRows, type TaxListConnect } from '../../utils/taxInvoiceListGroup';
 
 const SEG = 'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
@@ -56,6 +58,7 @@ const TAX_COLS: Array<{ key: string; label: string; width?: string; hide?: strin
   { key: 'purpose', label: '영수/청구', width: 'w-[80px]', hide: NARROW_HIDE },
   { key: 'status', label: '상태', width: 'w-[180px]' },
   { key: 'approval', label: '승인번호', width: 'w-[140px]', hide: XL_HIDE },
+  { key: 'by', label: '발급자', width: 'w-[84px]' },
   { key: 'act', label: '', width: 'w-[128px]' },
 ];
 
@@ -81,7 +84,6 @@ export function AdminTaxInvoiceListPage() {
   const [total, setTotal] = useState(0);
   const [brands, setBrands] = useState<TaxInvoiceBrand[]>([]);
   const [summary, setSummary] = useState({ issuedCount: 0, issuedWon: 0, waitingCount: 0, failedCount: 0, issueFailCount: 0, costWon: 0 });
-  const [toastId, setToastId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [certBrandId, setCertBrandId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,8 +136,12 @@ export function AdminTaxInvoiceListPage() {
   useEffect(() => {
     const issuedId = (location.state as { taxIssuedId?: string } | null)?.taxIssuedId;
     if (!issuedId) return;
-    setToastId(issuedId);
     setHighlightId(issuedId);
+    showReceiptDone(
+      '세금계산서를 발행했어요',
+      '목록 맨 위에 표시해 두었어요.',
+      <ReceiptCopyButtons kind="taxinvoice" issueId={issuedId} official publicToken={null} copyReady={false} shareOnly />,
+    );
     setReload((n) => n + 1);
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
     window.setTimeout(() => setHighlightId(null), 4000);
@@ -143,13 +149,13 @@ export function AdminTaxInvoiceListPage() {
 
   async function cancelRow(issueId: string) {
     setCancellingId(issueId);
-    setError(null);
     try {
       await cancelTaxInvoice(issueId);
       setWalletTick((n) => n + 1);
       await load();
+      showReceiptDone('발급을 취소했어요', '국세청 전송 전이라 바로 취소됐어요.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '세금계산서 취소에 실패했습니다.');
+      showReceiptFailure('발급을 취소하지 못했어요', err instanceof Error ? err.message : '세금계산서 취소에 실패했습니다.');
     } finally {
       setCancellingId(null);
     }
@@ -211,12 +217,6 @@ export function AdminTaxInvoiceListPage() {
           <button type="button" className="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => missingCert && setCertBrandId(missingCert.id)}>공동인증서 등록</button>
         </div>
       ) : null}
-      {toastId ? (
-        <p className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs text-emerald-900">
-          발행했습니다
-          <ReceiptCopyButtons kind="taxinvoice" issueId={toastId} official publicToken={null} copyReady={false} shareOnly />
-        </p>
-      ) : null}
       {!needsLink ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
           <div className="inline-flex gap-0.5 rounded-lg border border-slate-200 p-0.5">
@@ -253,7 +253,7 @@ export function AdminTaxInvoiceListPage() {
             {mobileGroups(slots).map((group) => (
               <div key={group[0].row.id} className={group.length > 1 ? 'space-y-1.5 border-l border-slate-300 pl-2' : 'space-y-1.5'}>
                 {group.map((slot) => (
-                  <TaxCard key={slot.row.id} row={slot.row} nested={slot.nested} cancelling={cancellingId === slot.row.id} onCancel={() => void cancelRow(slot.row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(slot.row.id)}`)} onLink={() => setLinkIssueId(slot.row.id)} onModify={() => setModifyRow(slot.row)} onError={setError} onFocusOriginal={focusOriginal} highlight={highlightId === slot.row.id} />
+                  <TaxCard key={slot.row.id} row={slot.row} nested={slot.nested} cancelling={cancellingId === slot.row.id} onCancel={() => void cancelRow(slot.row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(slot.row.id)}`)} onLink={() => setLinkIssueId(slot.row.id)} onModify={() => setModifyRow(slot.row)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} onFocusOriginal={focusOriginal} highlight={highlightId === slot.row.id} />
                 ))}
               </div>
             ))}
@@ -281,7 +281,6 @@ export function AdminTaxInvoiceListPage() {
                     <td className={`text-center ${cell}`}>
                       <p className="truncate" title={row.customerName}>{row.customerName}</p>
                       {row.inquiryNumber ? <Link className="text-fluid-2xs text-slate-600 underline hover:text-slate-900" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.inquiryNumber}</Link> : null}
-                      {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
                     </td>
                     <td className={`truncate text-center ${cell}`} title={row.buyerCorpName}>{row.buyerCorpName}</td>
                     <td className={`text-center tabular-nums ${cell}`}>{row.buyerCorpNum || '—'}</td>
@@ -296,7 +295,8 @@ export function AdminTaxInvoiceListPage() {
                       </div>
                     </td>
                     <td className={`text-center ${cell} ${XL_HIDE}`}><ApprovalNumberCell value={row.ntsSendKey} /></td>
-                    <td className="h-[52px] px-2 py-0 text-right align-middle"><RowAction compact row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={setError} /></td>
+                    <td className={`truncate text-center text-slate-600 ${cell}`} title={row.issuerName ?? ''}>{row.issuerName || '—'}</td>
+                    <td className="h-[52px] px-2 py-0 text-right align-middle"><RowAction compact row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} /></td>
                   </tr>
                   );
                 })}
@@ -314,6 +314,7 @@ export function AdminTaxInvoiceListPage() {
           onPick={async (inquiryId) => {
             await linkTaxInvoiceInquiry(linkIssueId, inquiryId);
             await load();
+            showReceiptDone('접수에 연결했어요', '접수 히스토리에도 남겨 두었어요.');
           }}
         />
       ) : null}
@@ -321,7 +322,7 @@ export function AdminTaxInvoiceListPage() {
         <TaxInvoiceModifyModal
           row={modifyRow}
           onClose={() => setModifyRow(null)}
-          onDone={() => { setModifyRow(null); setWalletTick((n) => n + 1); setReload((n) => n + 1); }}
+          onDone={() => { setModifyRow(null); setWalletTick((n) => n + 1); setReload((n) => n + 1); showReceiptDone('수정세금계산서를 발급했어요', '원래 건 아래에 붙여 두었어요.'); }}
         />
       ) : null}
       {certBrandId ? (
@@ -349,7 +350,9 @@ function TaxKindBadge({ kind }: { kind?: TaxInvoiceRow['taxKind'] }) {
 }
 
 function TaxStatus({ row }: { row: TaxInvoiceRow }) {
+  const { openCharge } = useReceiptWallet();
   const view = taxStatusView(row);
+  if (taxFailed(row)) return <FailReasonChip label={view.label} reason={row.lastError} onCharge={openCharge} />;
   return <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>;
 }
 
@@ -429,12 +432,11 @@ async function openTaxMail(issueId: string): Promise<void> {
 function TaxCard({ row, nested, cancelling, onCancel, onReissue, onLink, onModify, onError, onFocusOriginal, highlight }: { row: TaxInvoiceRow; nested: boolean; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onModify: () => void; onError: (message: string) => void; onFocusOriginal: (id: string) => void; highlight: boolean }) {
   return (
     <article data-tax-row={row.id} className={`space-y-1 rounded-lg border border-slate-200 p-2 ${nested ? 'ml-2' : ''} ${highlight ? 'bg-amber-50' : 'bg-white'}`}>
-      <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
+      <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}{row.issuerName ? ` · 발급 ${row.issuerName}` : ''}</p>
       <p className="truncate text-fluid-sm font-medium text-slate-900" title={row.customerName}>{row.customerName}</p>
       <p className="truncate text-fluid-xs text-slate-700" title={row.buyerCorpName}>{row.buyerCorpName} · {row.buyerCorpNum || '—'}</p>
       <p className={`text-right text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalAmount) || 'text-slate-900'}`}>{formatSignedWon(row.totalAmount)}</p>
       <p className="truncate text-fluid-2xs text-slate-600"><TaxKindBadge kind={row.taxKind} /> {row.itemName || '청소 서비스'} · {row.purposeType === 2 ? '청구' : '영수'} · <TaxStatus row={row} /></p>
-      {row.lastError ? <p className="truncate text-fluid-2xs text-red-700">실패 이유: {row.lastError}</p> : null}
       <OriginalLink row={row} onFocus={onFocusOriginal} />
       <RowAction row={row} cancelling={cancelling} onCancel={onCancel} onReissue={onReissue} onLink={onLink} onModify={onModify} onError={onError} />
     </article>

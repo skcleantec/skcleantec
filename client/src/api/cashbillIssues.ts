@@ -28,6 +28,8 @@ export type CashbillIssueRow = {
   customerName?: string | null;
   /** 접수와 연결됐는지 */
   linked?: boolean;
+  /** 발급한 직원 이름 */
+  issuerName?: string | null;
   brandName?: string;
   canCancel?: boolean;
 };
