@@ -52,11 +52,11 @@ export const CASHBILL_KIND_LABEL: Record<CashbillKind, string> = {
 
 export const CASHBILL_STATE_LABEL: Record<string, string> = {
   '1000': '임시저장',
-  '2000': '발급완료',
-  '2500': '국세청 전송중',
-  '3000': '국세청 전송완료',
-  '4000': '국세청 전송실패',
-  '7000': '취소완료',
+  '2000': '발급 완료 · 국세청 전송 대기',
+  '2500': '국세청 전송 대기',
+  '3000': '국세청 전송 완료',
+  '4000': '전송 실패',
+  '7000': '발급 취소',
 };
 
 export function cashbillStateLabel(state: string | null, lastError: string | null): string {

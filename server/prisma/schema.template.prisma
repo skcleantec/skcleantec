@@ -1731,6 +1731,18 @@ model BarobillMember {
   certCheckedAt  DateTime?            @map("cert_checked_at")
   /// 이 만료일로 관리자 알림을 이미 보냈으면 다시 보내지 않는다.
   certWarnForExpire String?           @map("cert_warn_for_expire") @db.VarChar(16)
+  /// 만료 7일 전 대표 메일을 이 만료일로 이미 보냈으면 다시 보내지 않는다.
+  certMailD7ForExpire String?         @map("cert_mail_d7_for_expire") @db.VarChar(16)
+  /// 만료 당일 대표 메일을 이 만료일로 이미 보냈으면 다시 보내지 않는다.
+  certMailDayForExpire String?        @map("cert_mail_day_for_expire") @db.VarChar(16)
+  /// GetNTSSendOption. 1 익일, 2 즉시. 운영 조회(2026-10-31)로 확인.
+  ntsTaxationOption Int?              @map("nts_taxation_option")
+  ntsTaxExemptionOption Int?          @map("nts_tax_exemption_option")
+  /// 1 지연발급 허용, 0 차단.
+  ntsTaxationAddTaxAllow Int?         @map("nts_taxation_add_tax_allow")
+  ntsTaxExemptionAddTaxAllow Int?     @map("nts_tax_exemption_add_tax_allow")
+  /// 익일·지연발급 차단으로 맞추지 못하면 true. 이미 연결된 업체는 버튼으로만 바꾼다.
+  ntsAlignFailed Boolean              @default(false) @map("nts_align_failed")
   /// 업체가 「연결 요청하기」를 누른 시각. 없으면 아직 요청 전.
   linkRequestedAt DateTime?            @map("link_requested_at")
   /// 업체가 적은 바로빌 아이디. 새 연결 요청은 필수. 예전 행은 비어 있을 수 있다.
@@ -1849,11 +1861,17 @@ model TaxInvoiceIssue {
   copyPngUrl         String?          @map("copy_png_url") @db.VarChar(2048)
   copyPdfUrl         String?          @map("copy_pdf_url") @db.VarChar(2048)
   publicToken        String?          @unique @map("public_token") @db.VarChar(64)
+  /// 수정세금계산서 사유. 1 기재사항 착오, 2 공급가액 변동, 4 계약의 해제.
+  modifyCode         String?          @map("modify_code") @db.VarChar(2)
+  originalIssueId    String?          @map("original_issue_id")
+  originalIssue      TaxInvoiceIssue? @relation("TaxInvoiceModify", fields: [originalIssueId], references: [id], onDelete: Restrict)
+  modifications      TaxInvoiceIssue[] @relation("TaxInvoiceModify")
   createdById        String?          @map("created_by_id")
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
 
   @@unique([memberId, mgtKey])
+  @@index([tenantId, originalIssueId])
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([tenantId, inquiryId])
   @@index([tenantId, operatingCompanyId, createdAt(sort: Desc)])

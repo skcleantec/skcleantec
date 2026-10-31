@@ -8,6 +8,7 @@ import {
   issueTaxInvoice,
   listTaxInvoices,
   searchTaxInvoiceInquiries,
+  taxNtsIssueNotice,
   type TaxInvoiceBrand,
   type TaxInvoiceSearchHit,
   type TaxInvoiceSupplier,
@@ -489,6 +490,7 @@ export function TaxInvoiceIssueWorkspace() {
         ) : null}
         <TaxInvoicePaper {...form} />
         <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/95 px-5 py-3 shadow-[0_-4px_16px_rgba(17,24,39,.06)] ring-1 ring-gray-200 backdrop-blur">
+          <p className="w-full text-xs font-medium text-slate-800">{taxNtsIssueNotice(brand)}</p>
           <div className="flex items-center gap-4 text-sm">
             <div><span className="text-gray-500">합계</span> <b className="num ml-1 text-lg">{won(supplySum + taxSum)}원</b></div>
             <span className="h-5 w-px bg-gray-200" />
@@ -552,6 +554,7 @@ export function TaxInvoiceIssueWorkspace() {
           {paperOpen ? <TaxInvoicePaper {...form} readOnly idPrefix="sheet" /> : null}
         </div>
         <footer className="fixed inset-x-0 bottom-0 z-[80] border-t border-gray-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 lg:hidden">
+          <p className="mb-1 text-center text-[11px] font-medium text-slate-800">{taxNtsIssueNotice(brand)}</p>
           <p className={`num mb-2 text-center text-[11px] ${short ? 'text-red-700' : 'text-gray-500'}`}>
             {short ? '잔액이 부족합니다' : `발행 비용 150원 · 잔액 ${summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}`}
           </p>

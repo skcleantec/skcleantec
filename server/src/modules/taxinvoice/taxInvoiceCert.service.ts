@@ -3,6 +3,7 @@ import { callBarobill, BarobillCallError } from '../../lib/barobill/soap.js';
 import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { notifyInboxRefreshWithPush } from '../notifications/staffAppPushDispatch.helpers.js';
+import { isSmtpConfigured, sendMail } from '../../lib/mailer.js';
 
 const CERT_GUIDE = '공동인증서가 없거나 만료되었습니다. 계산서 연결에서 공동인증서 등록을 해 주세요.';
 
@@ -77,6 +78,7 @@ export async function refreshBarobillCerts(tenantId: string): Promise<void> {
       await notifyCertExpiry(tenantId, member.operatingCompany?.name ?? '브랜드', expireDate);
     }
   }
+  await sendDueCertExpiryMails(tenantId);
 }
 
 function maskBarobillUserId(id: string): string {
@@ -153,6 +155,65 @@ export async function certificateRegisterUrl(
   const url = typeof raw === 'string' ? raw.trim() : '';
   if (!url.startsWith('http')) throw new Error('공동인증서 등록 주소를 받지 못했습니다.');
   return { url };
+}
+
+function daysUntil(expire: string, today: string): number | null {
+  const end = Date.parse(`${expire}T00:00:00+09:00`);
+  const start = Date.parse(`${today}T00:00:00+09:00`);
+  if (!Number.isFinite(end) || !Number.isFinite(start)) return null;
+  return Math.round((end - start) / 86_400_000);
+}
+
+/** 만료 7일 전과 당일에 계산서 연결 이메일로 한 번씩. SMTP가 없으면 표시를 남기지 않는다. */
+export async function sendDueCertExpiryMails(tenantId?: string): Promise<number> {
+  if (!isSmtpConfigured()) return 0;
+  const today = kstTodayYmd();
+  const rows = await prisma.barobillMember.findMany({
+    where: {
+      status: 'ACTIVE',
+      ...(tenantId ? { tenantId } : {}),
+      certExpireDate: { not: null },
+      NOT: { contactEmail: '' },
+    },
+    select: {
+      id: true,
+      tenantId: true,
+      contactEmail: true,
+      certExpireDate: true,
+      certMailD7ForExpire: true,
+      certMailDayForExpire: true,
+      operatingCompany: { select: { name: true } },
+    },
+  });
+  let sent = 0;
+  for (const row of rows) {
+    const expire = row.certExpireDate;
+    if (!expire || !row.contactEmail.includes('@')) continue;
+    const left = daysUntil(expire, today);
+    const slot = left === 7 ? 'd7' : left === 0 ? 'day' : null;
+    if (!slot) continue;
+    if (slot === 'd7' && row.certMailD7ForExpire === expire) continue;
+    if (slot === 'day' && row.certMailDayForExpire === expire) continue;
+    const brand = row.operatingCompany?.name ?? '브랜드';
+    const when = slot === 'd7' ? '7일 뒤' : '오늘';
+    try {
+      await sendMail({
+        to: row.contactEmail,
+        subject: '[청소비서] 공동인증서 만료 안내',
+        text: `${brand} 공동인증서가 ${when}(${expire}) 만료됩니다. 만료되면 세금계산서를 발행할 수 없어요. 새 인증서를 받은 뒤 계산서 연결에서 다시 등록해 주세요.`,
+        html: `<p>${brand} 공동인증서가 ${when}(${expire}) 만료됩니다.</p><p>만료되면 세금계산서를 발행할 수 없어요. 새 인증서를 받은 뒤 계산서 연결에서 다시 등록해 주세요.</p>`,
+      });
+    } catch (err) {
+      console.error('[taxinvoice] cert mail', err instanceof Error ? err.name : 'error');
+      continue;
+    }
+    await prisma.barobillMember.updateMany({
+      where: { id: row.id, tenantId: row.tenantId },
+      data: slot === 'd7' ? { certMailD7ForExpire: expire } : { certMailDayForExpire: expire },
+    });
+    sent += 1;
+  }
+  return sent;
 }
 
 export function certBlockMessage(): string {

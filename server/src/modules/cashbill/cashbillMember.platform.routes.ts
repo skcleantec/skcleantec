@@ -4,6 +4,7 @@ import {
   approveBarobillMember,
   CashbillMemberError,
   checkStaleBarobillProcessing,
+  alignBarobillNtsNextDay,
   completeBarobillLink,
   listBarobillMembersForPlatform,
   rejectBarobillMember,
@@ -48,6 +49,20 @@ router.post('/members/:id/link-return', async (req, res) => {
     }
     console.error('[cashbill] link-return', err instanceof Error ? err.name : 'error');
     res.status(500).json({ error: '연결 불가로 돌려보내지 못했습니다.' });
+  }
+});
+
+router.post('/members/:id/align-nts', async (req, res) => {
+  const id = String(req.params.id ?? '').trim();
+  try {
+    res.json(await alignBarobillNtsNextDay(id));
+  } catch (err) {
+    if (err instanceof CashbillMemberError) {
+      res.status(err.statusCode).json({ error: err.message });
+      return;
+    }
+    console.error('[cashbill] align-nts', err instanceof Error ? err.name : 'error');
+    res.status(500).json({ error: '국세청 전송 설정을 바꾸지 못했습니다.' });
   }
 });
 

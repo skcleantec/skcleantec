@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BAROBILL_MEMBER_STATUS_LABEL, barobillTaxTypeLabel, barobillUserIdError } from '@shared/barobillPolicy';
-import { approvePlatformBarobillMember, checkPlatformBarobillMember, completePlatformBarobillLink, fetchPlatformBarobillMembers, fetchPlatformCashbillHolds, rejectPlatformBarobillMember, releasePlatformBarobillProcessing, returnPlatformBarobillLink, type PlatformBarobillMemberRow } from '../../api/platformBarobill';
+import { alignPlatformBarobillNts, approvePlatformBarobillMember, checkPlatformBarobillMember, completePlatformBarobillLink, fetchPlatformBarobillMembers, fetchPlatformCashbillHolds, rejectPlatformBarobillMember, releasePlatformBarobillProcessing, returnPlatformBarobillLink, type PlatformBarobillMemberRow } from '../../api/platformBarobill';
 import { PlatformBarobillLinkCard } from '../../components/platform/PlatformBarobillLinkCard';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
@@ -196,6 +196,20 @@ export function PlatformBarobillMembersPage() {
     }
   }
 
+  async function alignNts(row: PlatformBarobillMemberRow) {
+    setBusyId(row.id);
+    setError(null);
+    try {
+      await alignPlatformBarobillNts(row.id);
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '국세청 전송 설정을 바꾸지 못했습니다.');
+      await reload();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function complete(row: PlatformBarobillMemberRow, userIdOverride?: string) {
     const barobillUserId = (userIdOverride ?? userIds[row.id] ?? '').trim();
     const invalid = barobillUserIdError(barobillUserId);
@@ -313,6 +327,7 @@ export function PlatformBarobillMembersPage() {
                 check={checks[row.id] ?? null}
                 onCheck={() => void checkMember(row)}
                 onRelease={() => void release(row)}
+                onAlign={() => void alignNts(row)}
               />
             ))}
           </div>
@@ -321,7 +336,7 @@ export function PlatformBarobillMembersPage() {
               <table className="w-full border-collapse text-fluid-xs">
                 <thead className="bg-gray-100">
                   <tr>
-                    {['환경', '업체', '브랜드', '사업자번호', '상태', '과세유형', '처리'].map((label) => (
+                    {['환경', '업체', '브랜드', '사업자번호', '상태', '과세유형', '인증서 만료', '처리'].map((label) => (
                       <th key={label} className="px-2 py-2 text-center font-medium text-slate-700">
                         {label}
                       </th>
@@ -344,6 +359,7 @@ export function PlatformBarobillMembersPage() {
                         <DuplicateWarning row={row} />
                       </td>
                       <td className="px-2 py-2 text-center">{barobillTaxTypeLabel(row.taxType)}</td>
+                      <td className="px-2 py-2 text-center"><CertExpireCell expireDate={row.certExpireDate} /></td>
                       <td className="px-2 py-2 text-center">
                         <ReviewActions
                           row={row}
@@ -359,6 +375,7 @@ export function PlatformBarobillMembersPage() {
                           check={checks[row.id] ?? null}
                           onCheck={() => void checkMember(row)}
                           onRelease={() => void release(row)}
+                          onAlign={() => void alignNts(row)}
                         />
                       </td>
                     </tr>
@@ -456,6 +473,7 @@ function ReviewActions({
   onReject,
   onCheck,
   onRelease,
+  onAlign,
 }: {
   row: PlatformBarobillMemberRow;
   userId: string;
@@ -470,7 +488,9 @@ function ReviewActions({
   onReject: () => void;
   onCheck: () => void;
   onRelease: () => void;
+  onAlign: () => void;
 }) {
+  if (row.status === 'ACTIVE') return <NtsAlignControl row={row} busy={busy} onAlign={onAlign} />;
   if (row.status === 'LINK_REQUIRED') {
     return <PlatformBarobillLinkCard row={row} busy={busy} onComplete={onComplete} onReturn={onReturn} />;
   }
@@ -542,6 +562,49 @@ function ReviewActions({
   );
 }
 
+const NTS_CONSOLE_HINT = '바로빌 콘솔 › 회원사 관리에서 국세청 전송을 익일 전송으로 바꿔 주세요';
+
+function NtsAlignControl({
+  row,
+  busy,
+  onAlign,
+}: {
+  row: PlatformBarobillMemberRow;
+  busy: boolean;
+  onAlign: () => void;
+}) {
+  if (row.ntsNextDayBlocked) {
+    return <span className="text-fluid-2xs text-slate-700">국세청 전송: 익일 · 지연발급: 차단</span>;
+  }
+  return (
+    <div className="space-y-1">
+      {row.ntsAlignFailed ? <p className="text-fluid-2xs text-amber-800">{NTS_CONSOLE_HINT}</p> : null}
+      <button
+        type="button"
+        className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-fluid-2xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        disabled={busy}
+        onClick={onAlign}
+      >
+        {busy ? '맞추는 중…' : '익일로 맞추기'}
+      </button>
+    </div>
+  );
+}
+
+function CertExpireCell({ expireDate }: { expireDate: string | null }) {
+  if (!expireDate) return <span className="text-slate-400">—</span>;
+  const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+  const end = Date.parse(`${expireDate.slice(0, 10)}T00:00:00+09:00`);
+  const start = Date.parse(`${today}T00:00:00+09:00`);
+  const left = Number.isFinite(end) && Number.isFinite(start) ? Math.round((end - start) / 86_400_000) : null;
+  const tone = left != null && left < 0
+    ? 'font-medium text-[#b42318]'
+    : left != null && left <= 30
+      ? 'font-medium text-amber-700'
+      : 'text-slate-700';
+  return <span className={`tabular-nums ${tone}`}>{expireDate.slice(0, 10)}</span>;
+}
+
 function MemberCard({
   row,
   userId,
@@ -556,6 +619,7 @@ function MemberCard({
   onReject,
   onCheck,
   onRelease,
+  onAlign,
 }: {
   row: PlatformBarobillMemberRow;
   userId: string;
@@ -570,6 +634,7 @@ function MemberCard({
   onReject: () => void;
   onCheck: () => void;
   onRelease: () => void;
+  onAlign: () => void;
 }) {
   return (
     <article className="space-y-1 rounded-lg border border-gray-200 bg-white p-2">
@@ -582,6 +647,7 @@ function MemberCard({
       <p className="text-fluid-xs">
         <StatusBadge row={row} />
         <span className="ml-2 text-slate-600">{barobillTaxTypeLabel(row.taxType)}</span>
+        <CertExpireCell expireDate={row.certExpireDate} />
       </p>
       <DuplicateWarning row={row} />
       {row.rejectReason ? <p className="text-fluid-2xs text-red-800">반려 사유: {row.rejectReason}</p> : null}
@@ -600,6 +666,7 @@ function MemberCard({
         onReject={onReject}
         onCheck={onCheck}
         onRelease={onRelease}
+        onAlign={onAlign}
       />
     </article>
   );

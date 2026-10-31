@@ -5,7 +5,7 @@ import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { normalizeCorpNum } from '../../lib/barobill/mask.js';
 import { displayBizIdentity } from '../receipts/receiptCopy.mask.js';
 import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
-import { TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
+import { barobillModifyEnabled, TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
 import { addDaysToKstYmd, createdAtRangeFromQuery, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { splitCashbillTax } from '../cashbill/cashbillIssue.amounts.js';
 import { CASHBILL_WALLET_SHORT_MESSAGE, chargeTaxInvoiceWallet, refundTaxInvoiceWallet } from '../cashbill/cashbillWallet.js';
@@ -224,8 +224,10 @@ function toPublic(row: TaxInvoiceIssue) {
     ntsSendKey: row.ntsSendKey,
     lastError: row.lastError,
     createdAt: row.createdAt.toISOString(),
-    canCancel: row.ntsSendState === '1' && row.barobillState !== '5031',
-    modifyLater: Boolean(row.barobillState && row.barobillState !== '5031' && row.ntsSendState && row.ntsSendState !== '1'),
+    canCancel: row.ntsSendState === '1' && row.barobillState === '3014',
+    modifyLater: false,
+    modifyCode: row.modifyCode,
+    originalIssueId: row.originalIssueId,
     copyReady: Boolean(row.copyPngUrl && row.publicToken),
     publicToken: row.publicToken,
     taxKind: taxKindFromLines(row.lines),
@@ -440,8 +442,9 @@ export async function issueTaxInvoice(
   }
   await prisma.taxInvoiceIssue.updateMany({ where: { id: created.id, tenantId }, data: { chargedKrw: TAXINVOICE_UNIT_PRICE_KRW } });
   const chargedRow = { ...created, chargedKrw: TAXINVOICE_UNIT_PRICE_KRW };
+  let barobillCode: number | null = null;
   try {
-    await registAndIssueTaxInvoice({
+    barobillCode = await registAndIssueTaxInvoice({
       corpNum: member.corpNum,
       userId: member.barobillUserId,
       mgtKey: key,
@@ -483,14 +486,16 @@ export async function issueTaxInvoice(
     await failIssue(chargedRow, err, plan);
   }
   const saved = await prisma.taxInvoiceIssue.findFirst({ where: { id: created.id, tenantId } });
-  return toPublic(saved ?? chargedRow);
+  return { ...toPublic(saved ?? chargedRow), barobillCode };
 }
 
 export async function cancelTaxInvoice(tenantId: string, issueId: string) {
   const row = await prisma.taxInvoiceIssue.findFirst({ where: { id: issueId, tenantId } });
   if (!row) throw new TaxInvoiceError('취소할 세금계산서가 없습니다.', 404);
   if (row.barobillState === '5031') return toPublic(row);
-  if (row.ntsSendState !== '1') throw new TaxInvoiceError(TAX_MODIFY_LATER, 409, 'nts_sent');
+  if (row.ntsSendState !== '1') {
+    throw new TaxInvoiceError('국세청에 전송된 세금계산서는 발급 취소할 수 없어요. 수정 발급을 이용해 주세요.', 409, 'nts_sent');
+  }
   const { member } = await loadMember(tenantId, row.operatingCompanyId);
   if (!member) throw new TaxInvoiceError(TAX_LINK_MESSAGE, 409, 'link_required');
   try {
@@ -550,8 +555,13 @@ export async function listTaxInvoices(tenantId: string, query: {
   if (query.state === 'failed') {
     where.barobillState = null;
     where.lastError = { not: null };
-  } else if (query.state === 'nts23') where.ntsSendState = { in: ['2', '3'] };
-  else if (query.state === 'nts1' || query.state === 'nts4' || query.state === 'nts5') {
+  } else if (query.state === 'amended') {
+    where.modifyCode = null;
+    where.modifications = { some: { barobillState: '3014' } };
+  } else if (query.state === 'nts1' || query.state === 'nts23') {
+    where.ntsSendState = { in: ['1', '2', '3'] };
+    where.NOT = { barobillState: '5031' };
+  } else if (query.state === 'nts4' || query.state === 'nts5') {
     where.ntsSendState = query.state.replace('nts', '');
   } else if (query.state) where.barobillState = query.state;
   const monthRange = kstMonthRangeYm(kstTodayYmd().slice(0, 7));
@@ -565,6 +575,8 @@ export async function listTaxInvoices(tenantId: string, query: {
       include: {
         inquiry: { select: { inquiryNumber: true, customerName: true } },
         operatingCompany: { select: { name: true } },
+        originalIssue: { select: { writeDate: true, ntsSendKey: true } },
+        modifications: { where: { barobillState: '3014' }, select: { id: true } },
       },
     }),
     prisma.taxInvoiceIssue.count({ where }),
@@ -580,6 +592,8 @@ export async function listTaxInvoices(tenantId: string, query: {
             taxType: true,
             certValid: true,
             certExpireDate: true,
+            ntsTaxationOption: true,
+            ntsTaxExemptionOption: true,
             corpNum: true,
             corpName: true,
             ceoName: true,
@@ -616,6 +630,10 @@ export async function listTaxInvoices(tenantId: string, query: {
       inquiryNumber: row.inquiry?.inquiryNumber ?? null,
       customerName: row.inquiry?.customerName?.trim() || row.buyerCeoName.trim() || '—',
       brandName: row.operatingCompany.name,
+      amended: row.modifications.length > 0,
+      canModify: barobillModifyEnabled() && row.barobillState === '3014' && !row.modifyCode && row.modifications.length === 0,
+      originalWriteDate: row.originalIssue?.writeDate ?? null,
+      originalNtsSendKey: row.originalIssue?.ntsSendKey ?? null,
       itemName: firstLineName(row.lines),
     })),
     total,
@@ -627,6 +645,8 @@ export async function listTaxInvoices(tenantId: string, query: {
       memberTaxType: brand.barobillMember?.taxType ?? null,
       certValid: brand.barobillMember?.certValid === true,
       certExpireDate: brand.barobillMember?.certExpireDate ?? null,
+      ntsTaxationOption: brand.barobillMember?.ntsTaxationOption ?? null,
+      ntsTaxExemptionOption: brand.barobillMember?.ntsTaxExemptionOption ?? null,
       supplier: brand.barobillMember
         ? {
             corpNum: brand.barobillMember.corpNum,

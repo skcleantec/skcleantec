@@ -18,6 +18,7 @@ import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipt
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
+import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 
@@ -31,17 +32,14 @@ function kstMonthKeyNow(): string {
 function kstYmdNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
-function won(n: number): string {
-  return `${Number(n).toLocaleString('ko-KR')}원`;
-}
 
 const STATES = [
   ['', '전체 상태'],
-  ['2000', '발급완료'],
-  ['2500', '국세청 전송중'],
-  ['3000', '국세청 전송완료'],
-  ['4000', '국세청 전송실패'],
-  ['7000', '취소완료'],
+  ['2000', '발급 완료 · 국세청 전송 대기'],
+  ['2500', '국세청 전송 대기'],
+  ['3000', '국세청 전송 완료'],
+  ['4000', '전송 실패'],
+  ['7000', '발급 취소'],
   ['failed', '실패'],
 ] as const;
 
@@ -265,15 +263,15 @@ export function AdminCashbillListPage() {
                   <tr key={row.id} className={`border-t border-slate-100 ${highlightId === row.id ? 'bg-emerald-50' : ''}`}>
                     <td className="px-2 py-2 text-center tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</td>
                     <td className="px-2 py-2 text-center">
-                      <p className="truncate" title={customerNameOf(row)}>{customerNameOf(row)}</p>
-                      <p className="truncate text-fluid-2xs text-slate-500" title={customerLine(row)}>{customerLine(row)}</p>
+                      <p className={`truncate ${hasCustomerName(row) ? '' : 'text-fluid-sm font-medium text-slate-900'}`} title={customerPrimary(row)}>{customerPrimary(row)}</p>
+                      {customerSecondary(row) ? <p className="truncate text-fluid-2xs text-slate-500" title={customerSecondary(row) ?? ''}>{customerSecondary(row)}</p> : null}
                       {row.inquiryNumber ? (
                         <Link className="text-fluid-2xs text-slate-600 underline hover:text-slate-900" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.inquiryNumber}</Link>
                       ) : null}
                       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
                     </td>
                     <td className="max-w-[8rem] truncate px-2 py-2 text-center" title={row.itemName}>{row.itemName}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{won(row.totalWon)}</td>
+                    <td className={`px-2 py-2 text-right tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</td>
                     <td className="px-2 py-2 text-center">{usageLabel(row)}</td>
                     <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
                     <td className="px-2 py-2 text-center tabular-nums">{row.ntsConfirmNum || '—'}</td>
@@ -312,8 +310,22 @@ function usageLabel(row: CashbillIssueRow): string {
   return '소득공제';
 }
 
-function customerNameOf(row: CashbillIssueRow): string {
-  return row.customerName && row.customerName !== '매칭 없음' ? row.customerName : '—';
+function hasCustomerName(row: CashbillIssueRow): boolean {
+  const name = row.customerName?.trim() ?? '';
+  return name.length > 0 && name !== '매칭 없음' && name !== '—';
+}
+
+function customerPrimary(row: CashbillIssueRow): string {
+  if (hasCustomerName(row)) return (row.customerName ?? '').trim();
+  const line = customerLine(row).trim();
+  if (line && line !== '—') return line;
+  return '고객 정보 없음';
+}
+
+function customerSecondary(row: CashbillIssueRow): string | null {
+  if (!hasCustomerName(row)) return null;
+  const line = customerLine(row).trim();
+  return line && line !== '—' ? line : null;
 }
 
 function customerLine(row: CashbillIssueRow): string {
@@ -332,14 +344,14 @@ function canViewReceipt(row: CashbillIssueRow): boolean {
 function StatusBadge({ row }: { row: CashbillIssueRow }) {
   const label = cashbillStateLabel(row.barobillState, row.lastError);
   const tone = row.barobillState === '7000' || row.kind === 'CANCEL'
-    ? 'bg-slate-100 text-slate-500 line-through'
+    ? 'border border-slate-200 bg-slate-100 text-slate-500'
     : isFailedRow(row)
-      ? 'bg-red-50 text-red-800'
-      : row.barobillState === '2500'
-        ? 'bg-slate-100 text-slate-700'
-        : row.barobillState === '2000' || row.barobillState === '3000'
-          ? 'bg-emerald-50 text-emerald-800'
-          : 'bg-amber-50 text-amber-900';
+      ? 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]'
+      : row.barobillState === '3000'
+        ? 'border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]'
+        : row.barobillState === '2000' || row.barobillState === '2500'
+          ? 'border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]'
+          : 'border border-slate-200 bg-slate-50 text-slate-700';
   return <span className={`inline-flex rounded-full px-1.5 py-0 text-fluid-2xs ${tone}`}>{label}</span>;
 }
 
@@ -388,9 +400,9 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
   return (
     <article className={`rounded-lg border border-slate-200 p-2 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
       <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
-      <p className="truncate text-fluid-sm font-medium" title={customerNameOf(row)}>{customerNameOf(row)}</p>
-      <p className="truncate text-fluid-2xs text-slate-500">{customerLine(row)}</p>
-      <p className="text-right text-fluid-sm font-semibold tabular-nums text-slate-900">{won(row.totalWon)}</p>
+      <p className="truncate text-fluid-sm font-medium" title={customerPrimary(row)}>{customerPrimary(row)}</p>
+      {customerSecondary(row) ? <p className="truncate text-fluid-2xs text-slate-500">{customerSecondary(row)}</p> : null}
+      <p className={`text-right text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalWon) || 'text-slate-900'}`}>{formatSignedWon(row.totalWon)}</p>
       <p className="truncate text-fluid-xs text-slate-700">{row.itemName} · {usageLabel(row)} · <StatusBadge row={row} /></p>
       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
       <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} onReissue={onReissue} onLink={onLink} />

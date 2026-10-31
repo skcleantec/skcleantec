@@ -14,6 +14,12 @@ export type PlatformBarobillMemberRow = {
   hasUserId: boolean;
   certValid: boolean | null;
   certExpireDate: string | null;
+  ntsTaxationOption?: number | null;
+  ntsTaxExemptionOption?: number | null;
+  ntsTaxationAddTaxAllow?: number | null;
+  ntsTaxExemptionAddTaxAllow?: number | null;
+  ntsAlignFailed?: boolean;
+  ntsNextDayBlocked?: boolean;
   corpNumMasked: string;
   corpNum: string;
   linkRequestedAt: string | null;
@@ -77,6 +83,14 @@ export async function returnPlatformBarobillLink(id: string, reason: string): Pr
     body: JSON.stringify({ reason }),
   });
   if (!res.ok) throw new Error(await parseError(res, '연결 불가로 돌려보내지 못했습니다.'));
+}
+
+export async function alignPlatformBarobillNts(id: string): Promise<void> {
+  const res = await fetch(`${API}/platform/barobill/members/${id}/align-nts`, {
+    method: 'POST',
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '국세청 전송 설정을 바꾸지 못했습니다.'));
 }
 
 export async function completePlatformBarobillLink(id: string, barobillUserId: string): Promise<void> {

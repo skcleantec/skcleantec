@@ -52,6 +52,8 @@ export type TaxInvoicePayload = {
   credit?: string;
   remark?: string;
   buyerTaxRegId?: string;
+  /** 빈 문자열이면 일반 발급. 1 기재사항 착오, 2 공급가액 변동, 4 계약의 해제. */
+  modifyCode?: string;
 };
 
 function party(input: {
@@ -124,9 +126,9 @@ function linePurchaseExpiry(writeDate: string, month?: string, day?: string): st
   return `${writeDate.slice(0, 4)}${m.padStart(2, '0').slice(-2)}${d.padStart(2, '0').slice(-2)}`;
 }
 
-/** 간편발급. 정발행. 과세·영세·면세는 TaxType, 면세 계산서는 TaxInvoiceType 2. 내부 메모는 넣지 않는다. */
-export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promise<void> {
-  await callBarobill(
+/** 간편발급. 정발행. 과세·영세·면세는 TaxType, 면세 계산서는 TaxInvoiceType 2. 내부 메모는 넣지 않는다. 성공 시 바로빌 결과 코드. */
+export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promise<number | null> {
+  const raw = await callBarobill(
     'TI',
     'RegistAndIssueTaxInvoice',
     {
@@ -164,7 +166,7 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
         TaxType: input.taxType,
         TaxCalcType: 1,
         PurposeType: input.purposeType,
-        ModifyCode: '',
+        ModifyCode: input.modifyCode ?? '',
         WriteDate: input.writeDate,
         Cash: input.cash ?? '',
         ChkBill: input.chkBill ?? '',
@@ -197,6 +199,9 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
     },
     { corpNum: input.corpNum },
   );
+  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.trunc(raw);
+  if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) return Number(raw.trim());
+  return null;
 }
 
 /** 국세청 전송 전 발급취소. ProcType 은 현재 TI WSDL 기준 ISSUE_CANCEL. */
@@ -249,4 +254,63 @@ export async function fetchTaxInvoiceStates(input: { corpNum: string; mgtKeys: s
     { corpNum: input.corpNum },
   );
   return readTaxInvoiceStates(raw);
+}
+
+function readOptionInt(raw: unknown, key: string): number | null {
+  const row = asRecord(raw);
+  const value = row?.[key];
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+export type NtsSendOption = {
+  taxation: number;
+  exemption: number;
+  taxationAddTax: number;
+  exemptionAddTax: number;
+};
+
+/** 1 익일, 2 즉시. AddTax 1 허용, 0 차단. 운영 GetNTSSendOption 확인(2026-10-31). */
+export const NTS_NEXT_DAY = 1;
+export const NTS_IMMEDIATE = 2;
+
+/** 회원사 국세청 전송설정. WSDL GetNTSSendOption. */
+export async function getNtsSendOption(corpNum: string): Promise<NtsSendOption | null> {
+  const raw = await callBarobill('TI', 'GetNTSSendOption', { CorpNum: corpNum }, { corpNum });
+  const taxation = readOptionInt(raw, 'TaxationOption');
+  const exemption = readOptionInt(raw, 'TaxExemptionOption');
+  const taxationAddTax = readOptionInt(raw, 'TaxationAddTaxAllowYN');
+  const exemptionAddTax = readOptionInt(raw, 'TaxExemptionAddTaxAllowYN');
+  if (taxation == null || exemption == null || taxationAddTax == null || exemptionAddTax == null) return null;
+  return { taxation, exemption, taxationAddTax, exemptionAddTax };
+}
+
+export function isNextDayNtsBlocked(option: NtsSendOption | null): boolean {
+  return Boolean(
+    option
+    && option.taxation === NTS_NEXT_DAY
+    && option.exemption === NTS_NEXT_DAY
+    && option.taxationAddTax === 0
+    && option.exemptionAddTax === 0,
+  );
+}
+
+/** 익일 전송 + 지연발급 차단. ChangeNTSSendOption. */
+export async function changeNtsSendOptionNextDay(input: { corpNum: string; userId: string }): Promise<void> {
+  await callBarobill(
+    'TI',
+    'ChangeNTSSendOption',
+    {
+      CorpNum: input.corpNum,
+      ID: input.userId,
+      NTSSendOption: {
+        TaxationOption: NTS_NEXT_DAY,
+        TaxationAddTaxAllowYN: 0,
+        TaxExemptionOption: NTS_NEXT_DAY,
+        TaxExemptionAddTaxAllowYN: 0,
+      },
+    },
+    { corpNum: input.corpNum },
+  );
 }

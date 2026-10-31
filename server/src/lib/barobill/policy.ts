@@ -34,3 +34,11 @@ export function publicBarobillMessage(code: number): string {
   }
   return `바로빌 처리에 실패했습니다. (${code})`;
 }
+
+/**
+ * 수정세금계산서 공개 스위치. 운영 첫 수정 발급 전 바로빌 확인(당초 승인번호 Remark1, 사유별 작성일자)이 끝나면 켠다.
+ * Railway: BAROBILL_MODIFY_ENABLED=true (스테이징 true, 운영은 확인 후).
+ */
+export function barobillModifyEnabled(): boolean {
+  return (process.env.BAROBILL_MODIFY_ENABLED ?? '').trim().toLowerCase() === 'true';
+}

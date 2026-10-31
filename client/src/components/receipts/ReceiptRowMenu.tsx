@@ -1,8 +1,10 @@
-import { useState } from 'react';
 import { ReceiptCopyButtons } from './ReceiptCopyButtons';
+import { AnchoredMenu } from '../ui/AnchoredMenu';
 
 const ITEM =
   'block w-full min-h-9 rounded-md px-2 text-left text-fluid-xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:opacity-50 disabled:pointer-events-none';
+const DANGER =
+  'block w-full min-h-9 rounded-md px-2 text-left text-fluid-xs font-medium text-[#b42318] hover:bg-[#fdecea] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:opacity-50 disabled:pointer-events-none';
 
 export function ReceiptRowMenu({
   kind,
@@ -14,6 +16,8 @@ export function ReceiptRowMenu({
   cancelling,
   onCancel,
   onLinkInquiry,
+  onModify,
+  compact = false,
 }: {
   kind: 'cashbill' | 'taxinvoice';
   issueId: string;
@@ -24,31 +28,34 @@ export function ReceiptRowMenu({
   cancelling: boolean;
   onCancel: () => void;
   onLinkInquiry?: () => void;
+  onModify?: () => void;
+  /** 표 작업 칸: ⋯ 28px */
+  compact?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div className="relative inline-block text-left">
-      <button
-        type="button"
-        className="inline-flex size-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-fluid-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-        aria-label="더보기"
-        onClick={() => setOpen((value) => !value)}
-      >
-        ⋯
-      </button>
-      {open ? (
-        <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+    <AnchoredMenu label="더 보기" size={compact ? 'sm' : 'md'}>
+      {(close) => (
+        <>
           <ReceiptCopyButtons kind={kind} issueId={issueId} official={official} publicToken={publicToken} copyReady={copyReady} menu />
           {onLinkInquiry ? (
-            <button type="button" className={ITEM} onClick={() => { setOpen(false); onLinkInquiry(); }}>접수 연결</button>
+            <button type="button" className={ITEM} onClick={() => { close(); onLinkInquiry(); }}>접수 연결</button>
           ) : null}
           {canCancel ? (
-            <button type="button" className={ITEM} disabled={cancelling} onClick={onCancel}>
-              {cancelling ? '취소 중…' : '취소'}
-            </button>
+            <>
+              <div className="my-1 border-t border-slate-200" />
+              <button type="button" className={ITEM} disabled={cancelling} onClick={() => { close(); onCancel(); }}>
+                {cancelling ? '취소 중…' : '발급 취소'}
+              </button>
+            </>
           ) : null}
-        </div>
-      ) : null}
-    </div>
+          {onModify ? (
+            <>
+              <div className="my-1 border-t border-slate-200" />
+              <button type="button" className={DANGER} onClick={() => { close(); onModify(); }}>수정 발급 (취소·금액 변경)</button>
+            </>
+          ) : null}
+        </>
+      )}
+    </AnchoredMenu>
   );
 }
