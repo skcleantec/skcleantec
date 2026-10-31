@@ -66,11 +66,21 @@ import { useOrderIssueOperatingCompanies } from '../../hooks/useOrderIssueOperat
 import { IssueFillRulesSettingsModal } from '../../components/admin/order-issue/IssueFillRulesSettingsModal';
 import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { FilterBar, FilterSearch, FilterSegment, FilterSelect } from '../../components/ui/FilterBar';
+import { StatusChip } from '../../components/ui/StatusChip';
+import { Button } from '../../components/ui/Button';
 import { ISSUE_FILL_RULES_PAGE_HELP } from '@shared/orderFormFillRules';
 
 type Tab = 'issue' | 'followup' | 'list';
 
 const VALID_TABS: Tab[] = ['issue', 'followup', 'list'];
+
+const ORDER_LIST_DATE_PRESET_OPTIONS = [
+  ['today', '오늘'],
+  ['all', '전체'],
+  ['month', '월별'],
+  ['day', '일별'],
+] as const;
 
 function orderFormSubmissionEmailColumnLabel(o: OrderForm): string {
   if (!o.submittedAt) return '—';
@@ -739,26 +749,22 @@ export function AdminOrderFormPage() {
       )}
 
       {tab === 'issue' && (
-        <div className="min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6 sm:py-5">
+        <div className="min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50 px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <PageTitleWithFavorite label="발주서 발급">
-                <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">발주서 발급</h2>
+                <h2 className="text-fluid-xl font-extrabold text-slate-900">발주서 발급</h2>
               </PageTitleWithFavorite>
               <OrderIssueHelpTrigger className="shrink-0" onClick={() => setOrderIssueHelpOpen(true)} />
               <span className="ml-auto inline-flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:text-fluid-xs"
-                  onClick={() => setIssueSettingsOpen(true)}
-                >
+                <Button size="sm" variant="secondary" onClick={() => setIssueSettingsOpen(true)}>
                   설정
-                </button>
+                </Button>
                 <HelpTooltip className="shrink-0" text={ISSUE_FILL_RULES_PAGE_HELP} />
               </span>
             </div>
           </div>
-          <div className="border-b border-gray-100 px-4 py-3 sm:px-6">
+          <div className="border-b border-slate-100 px-4 py-3 sm:px-6">
             <TenantCoinUsageBannerSection />
           </div>
           <div className="p-4 sm:p-6 lg:p-8">
@@ -782,13 +788,13 @@ export function AdminOrderFormPage() {
               <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 md:gap-x-8 lg:grid-cols-12 lg:gap-x-8 lg:gap-y-5">
                 {issueTemplatesLoaded ? (
                   <div className="md:col-span-2 lg:col-span-12">
-                    <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                    <label className="mb-1.5 block text-fluid-xs font-semibold text-slate-700">
                       발주서 양식
                     </label>
                     {orderTemplates.length > 0 ? (
                       <>
                         <select
-                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 sm:py-2"
                           value={issueTemplateId}
                           onChange={(e) => setIssueTemplateId(e.target.value)}
                         >
@@ -800,7 +806,7 @@ export function AdminOrderFormPage() {
                             </option>
                           ))}
                         </select>
-                        <p className="mt-1 text-fluid-2xs text-gray-500">
+                        <p className="mt-1 text-fluid-2xs text-slate-500">
                           고객에게 보낼 발주서 양식을 선택합니다. 「발주서 양식」 메뉴에서 직접 만들 수 있습니다.
                         </p>
                       </>
@@ -813,11 +819,11 @@ export function AdminOrderFormPage() {
                   </div>
                 ) : null}
                 <div className="md:col-span-2 lg:col-span-12">
-                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                  <label className="mb-1.5 block text-fluid-xs font-semibold text-slate-700">
                     대기 접수 연결 (선택)
                   </label>
                   <select
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 sm:py-2"
                     value={pendingLinkId}
                     onChange={(e) => {
                       const id = e.target.value;
@@ -840,11 +846,11 @@ export function AdminOrderFormPage() {
                 </div>
                 {issueBrands.items.length > 0 ? (
                   <div className="md:col-span-2 lg:col-span-12">
-                    <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                    <label className="mb-1.5 block text-fluid-xs font-semibold text-slate-700">
                       영업 브랜드 *
                     </label>
                     <select
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2 disabled:bg-gray-50 disabled:text-gray-600"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 sm:py-2 disabled:bg-slate-50 disabled:text-slate-600"
                       value={effectiveIssueOperatingCompanyId}
                       disabled={issueBrandLocked || issueBrands.loading}
                       onChange={(e) => setIssueOperatingCompanyId(e.target.value)}
@@ -856,7 +862,7 @@ export function AdminOrderFormPage() {
                         </option>
                       ))}
                     </select>
-                    <p className="mt-1 text-fluid-2xs text-gray-500">
+                    <p className="mt-1 text-fluid-2xs text-slate-500">
                       {issueBrandLocked
                         ? '대기 접수에 연결된 영업 브랜드로 발급됩니다.'
                         : issueBrands.isAdmin
@@ -879,18 +885,18 @@ export function AdminOrderFormPage() {
                         ? { id: issueUserId, name: issueUserName, role: issueUserRole ?? undefined }
                         : null
                     }
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 sm:py-2"
                   />
                 </div>
                 <div className="md:col-span-2 lg:col-span-12">
-                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                  <label className="mb-1.5 block text-fluid-xs font-semibold text-slate-700">
                     유입 경로 *
                   </label>
                   <InquiryLeadSourceSelect
                     value={issueLeadSource}
                     onChange={setIssueLeadSource}
                     required
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 sm:py-2"
                   />
                 </div>
                 <div className="md:col-span-2 lg:col-span-12">
@@ -906,12 +912,12 @@ export function AdminOrderFormPage() {
                 </div>
               </div>
               {token ? (
-                <div className="mt-5 border-t border-gray-100 pt-5">
-                  <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
+                <div className="mt-5 border-t border-slate-100 pt-5">
+                  <p className="mb-3 text-fluid-2xs leading-relaxed text-slate-500">
                     선택한 양식이 그대로 아래에 표시됩니다. 칸 옆 「마케터 필수」「고객 필수」「둘 다 가능」을 보면 지금 적어야 하는지 알 수 있습니다. 알림톡을 보내려면 고객 전화번호(대표 연락처)를 적어 주세요.
                   </p>
                   {!issueTemplatesLoaded ? (
-                    <p className="py-6 text-center text-fluid-sm text-gray-500">발주서 양식 불러오는 중…</p>
+                    <p className="py-6 text-center text-fluid-sm text-slate-500">발주서 양식 불러오는 중…</p>
                   ) : (
                     <OrderFormPage
                       key={`issue-${issueTemplateId}-${issueFormKey}`}
@@ -942,7 +948,7 @@ export function AdminOrderFormPage() {
               {newOrder ? (
                 <div
                   ref={issueCompleteRef}
-                  className="mx-auto mt-6 w-full max-w-md border-t border-gray-100 pt-6 lg:mx-0 lg:max-w-none"
+                  className="mx-auto mt-6 w-full max-w-md border-t border-slate-100 pt-6 lg:mx-0 lg:max-w-none"
                 >
                   <OrderFormIssueCompleteCard
                     customerName={newOrder.customerName}
@@ -976,16 +982,19 @@ export function AdminOrderFormPage() {
 
       {tab === 'list' && (
         <div className="min-w-0 w-full max-w-full">
-          <p className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-700">
-            여기는 손님에게 <strong className="font-medium">이미 보낸 발주서</strong>입니다. 양식을 켜고 끄려면{' '}
-            <Link
-              to="/admin/inquiries/order-customer-preview?section=basics"
-              className="font-medium text-slate-900 underline hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            >
-              발주서설정
-            </Link>
-            에서 발주서를 고른 뒤 「사용하기 / 사용 끄기」를 누르세요.
-          </p>
+          <div className="mb-3 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-fluid-xl font-extrabold text-slate-900">발주서 목록</h1>
+            <p className="min-w-0 text-fluid-2xs leading-snug text-slate-500">
+              손님에게 <strong className="font-semibold text-slate-700">이미 보낸 발주서</strong>입니다. 양식을 켜고 끄려면{' '}
+              <Link
+                to="/admin/inquiries/order-customer-preview?section=basics"
+                className="font-semibold text-[#2563eb] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              >
+                발주서설정
+              </Link>
+              에서 발주서를 고른 뒤 「사용하기 / 사용 끄기」를 누르세요.
+            </p>
+          </div>
           {listOpsRange ? (
             <p className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-fluid-xs text-indigo-900">
               대시보드 시간대 필터:{' '}
@@ -997,150 +1006,92 @@ export function AdminOrderFormPage() {
               })}
             </p>
           ) : null}
-          <div className="rounded-lg border border-gray-200 bg-white">
-            <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-3 py-3 sm:px-4">
-              <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
-                <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">발급일</span>
-                <div className="inline-flex flex-wrap items-center gap-2">
-                  <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setListDatePreset('today')}
-                      className={`px-3 py-1.5 font-medium ${
-                        listDatePreset === 'today' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      오늘
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListDatePreset('all')}
-                      className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                        listDatePreset === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      전체
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListDatePreset('month')}
-                      className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                        listDatePreset === 'month' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      월별
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListDatePreset('day')}
-                      className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                        listDatePreset === 'day' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      일별
-                    </button>
-                  </div>
-                  {listDatePreset === 'month' && (
-                    <YearMonthSelect
-                      value={listMonthKey}
-                      onChange={setListMonthKey}
-                      idPrefix="orderform-list-month"
-                      className="items-center"
-                    />
-                  )}
-                  {listDatePreset === 'day' && (
-                    <YmdSelect
-                      value={listDayKey}
-                      onChange={setListDayKey}
-                      idPrefix="orderform-list-day"
-                      className="items-center"
-                    />
-                  )}
-                </div>
-                </div>
-                <ListPaginationBar
-                  mode="summary"
-                  page={listPage}
-                  pageSize={listPageSize}
-                  total={total}
-                  onPageChange={handleListPageChange}
-                  onPageSizeChange={handleListPageSizeChange}
-                  className="shrink-0"
+          <FilterBar
+            period={(
+              <>
+                <span className="shrink-0 text-fluid-2xs font-semibold text-slate-600">발급일</span>
+                <FilterSegment
+                  label="발급일"
+                  value={listDatePreset}
+                  options={ORDER_LIST_DATE_PRESET_OPTIONS}
+                  onChange={(preset) => setListDatePreset(preset)}
                 />
-              </div>
-              <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
-                <div className="min-w-0 w-full lg:max-w-sm">
-                  <label htmlFor="orderform-list-customer" className="mb-1 block text-fluid-2xs font-medium text-gray-600">
-                    고객명
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="orderform-list-customer"
-                      type="text"
-                      value={listCustomerName}
-                      onChange={(e) => setListCustomerName(e.target.value)}
-                      placeholder="고객명 검색"
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-fluid-sm text-gray-900"
-                    />
-                    {listCustomerName.trim() ? (
-                      <button
-                        type="button"
-                        onClick={() => setListCustomerName('')}
-                        className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-fluid-2xs text-gray-600 hover:bg-gray-50"
-                      >
-                        초기화
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="min-w-0 w-full lg:max-w-sm">
-                  <label htmlFor="orderform-list-issuer" className="mb-1 block text-fluid-2xs font-medium text-gray-600">
-                    담당(발급)
-                  </label>
-                  <select
-                    id="orderform-list-issuer"
-                    value={listCreatedById}
-                    onChange={(e) => setListCreatedById(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-fluid-sm text-gray-900"
+                {listDatePreset === 'month' && (
+                  <YearMonthSelect
+                    value={listMonthKey}
+                    onChange={setListMonthKey}
+                    idPrefix="orderform-list-month"
+                    className="items-center"
+                  />
+                )}
+                {listDatePreset === 'day' && (
+                  <YmdSelect
+                    value={listDayKey}
+                    onChange={setListDayKey}
+                    idPrefix="orderform-list-day"
+                    className="items-center"
+                  />
+                )}
+              </>
+            )}
+            search={(
+              <FilterSearch
+                value={listCustomerName}
+                onSearch={setListCustomerName}
+                placeholder="고객명 검색"
+                debounceMs={0}
+              />
+            )}
+            activeCount={listCreatedById ? 1 : 0}
+          >
+            <FilterSelect
+              label="담당(발급)"
+              value={listCreatedById}
+              onChange={setListCreatedById}
+              options={[['', '전체 담당'] as const, ...listIssuers.map((u) => [u.id, u.label] as const)]}
+            />
+          </FilterBar>
+          <div className="mt-3 rounded-xl border border-slate-200 bg-white">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 border-b border-slate-200 px-3 sm:px-4">
+              <div role="tablist" aria-label="상태" className="flex items-center gap-4">
+                {(
+                  [
+                    { v: 'all' as const, label: '전체' },
+                    { v: 'pending' as const, label: '미제출' },
+                    { v: 'submitted' as const, label: '제출완료' },
+                  ] as const
+                ).map((c) => (
+                  <button
+                    key={c.v}
+                    type="button"
+                    role="tab"
+                    aria-selected={listSubmitStatus === c.v}
+                    onClick={() => setListSubmitStatus(c.v === listSubmitStatus && c.v !== 'all' ? 'all' : c.v)}
+                    className={`-mb-px h-10 border-b-2 px-0.5 text-fluid-xs font-semibold touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                      listSubmitStatus === c.v
+                        ? 'border-slate-900 text-slate-900'
+                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
                   >
-                    <option value="">전체 담당</option>
-                    {listIssuers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">상태</span>
-                  {(
-                    [
-                      { v: 'all' as const, label: '전체' },
-                      { v: 'pending' as const, label: '미제출' },
-                      { v: 'submitted' as const, label: '제출완료' },
-                    ] as const
-                  ).map((c) => (
-                    <button
-                      key={c.v}
-                      type="button"
-                      onClick={() => setListSubmitStatus(c.v === listSubmitStatus && c.v !== 'all' ? 'all' : c.v)}
-                      className={`rounded-full border px-2.5 py-1 text-[12px] sm:text-fluid-2xs font-medium touch-manipulation ${
-                        listSubmitStatus === c.v
-                          ? 'border-gray-800 bg-gray-900 text-white'
-                          : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
+                    {c.label}
+                  </button>
+                ))}
               </div>
+              <div className="flex-1" />
+              <ListPaginationBar
+                mode="summary"
+                page={listPage}
+                pageSize={listPageSize}
+                total={total}
+                onPageChange={handleListPageChange}
+                onPageSizeChange={handleListPageSizeChange}
+                className="shrink-0 py-1.5"
+              />
             </div>
             {shouldShowListBlockingLoading(loading, orderForms.length) ? (
-              <div className="p-8 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
+              <div className="p-8 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
             ) : orderForms.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-fluid-sm">
+              <div className="p-8 text-center text-slate-500 text-fluid-sm">
                 {hasActiveListFilters ? '조건에 맞는 발주서가 없습니다.' : '발급된 발주서가 없습니다.'}
               </div>
             ) : (
@@ -1189,26 +1140,16 @@ export function AdminOrderFormPage() {
                             <span className="tabular-nums font-semibold text-slate-900">
                               {o.totalAmount.toLocaleString('ko-KR')}원
                             </span>
-                            <span
-                              className={`rounded-md px-2 py-0.5 text-fluid-2xs font-semibold ${
-                                o.submittedAt
-                                  ? 'bg-green-50 text-green-700 ring-1 ring-green-200/50'
-                                  : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200/55'
-                              }`}
-                            >
+                            <StatusChip tone={o.submittedAt ? 'green' : 'gray'}>
                               {o.submittedAt ? '제출완료' : '미제출'}
-                            </span>
+                            </StatusChip>
                             {o.submittedAt ? (
-                              <span
-                                className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
-                                  o.submissionEmail?.status === 'SENT'
-                                    ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200/50'
-                                    : 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/50'
-                                }`}
+                              <StatusChip
+                                tone={o.submissionEmail?.status === 'SENT' ? 'blue' : 'amber'}
                                 title={orderFormSubmissionEmailColumnTitle(o)}
                               >
                                 {orderFormSubmissionEmailColumnLabel(o)}
-                              </span>
+                              </StatusChip>
                             ) : null}
                           </div>
                         </div>
@@ -1305,13 +1246,9 @@ export function AdminOrderFormPage() {
                               </td>
                               <td className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center xl:px-1.5 xl:py-2.5">
                                 {o.submittedAt ? (
-                                  <span className="text-fluid-2xs font-semibold text-green-700 bg-green-50 ring-1 ring-green-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
-                                    제출완료
-                                  </span>
+                                  <StatusChip tone="green">제출완료</StatusChip>
                                 ) : (
-                                  <span className="text-fluid-2xs text-slate-500 bg-slate-50 ring-1 ring-slate-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
-                                    미제출
-                                  </span>
+                                  <StatusChip tone="gray">미제출</StatusChip>
                                 )}
                               </td>
                               <td
@@ -1319,17 +1256,15 @@ export function AdminOrderFormPage() {
                                 title={orderFormSubmissionEmailColumnTitle(o)}
                               >
                                 <div className="flex flex-col items-center gap-1">
-                                  <span
-                                    className={`text-fluid-2xs rounded px-1.5 py-0.5 xl:text-fluid-xs ${
-                                      !o.submittedAt
-                                        ? 'text-slate-400'
-                                        : o.submissionEmail?.status === 'SENT'
-                                          ? 'font-semibold text-sky-700 bg-sky-50 ring-1 ring-sky-200/50'
-                                          : 'font-medium text-amber-800 bg-amber-50 ring-1 ring-amber-200/50'
-                                    }`}
-                                  >
-                                    {orderFormSubmissionEmailColumnLabel(o)}
-                                  </span>
+                                  {!o.submittedAt ? (
+                                    <span className="text-fluid-2xs text-slate-400 xl:text-fluid-xs">
+                                      {orderFormSubmissionEmailColumnLabel(o)}
+                                    </span>
+                                  ) : (
+                                    <StatusChip tone={o.submissionEmail?.status === 'SENT' ? 'blue' : 'amber'}>
+                                      {orderFormSubmissionEmailColumnLabel(o)}
+                                    </StatusChip>
+                                  )}
                                 </div>
                               </td>
                               <td
@@ -1359,8 +1294,8 @@ export function AdminOrderFormPage() {
               </>
             )}
             {!shouldShowListBlockingLoading(loading, orderForms.length) && total > 0 ? (
-              <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 space-y-2">
-                <div className="text-fluid-xs text-gray-600">
+              <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 space-y-2">
+                <div className="text-fluid-xs text-slate-600">
                   <span className="lg:hidden">모바일은 카드 요약 · </span>
                   발주서 목록(최근 발급 순)
                   <span className="hidden lg:inline">

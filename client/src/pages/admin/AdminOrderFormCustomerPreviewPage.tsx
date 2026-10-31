@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '../../components/ui/Button';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   getDesignerPreviewOrderToken,
@@ -430,8 +431,8 @@ export function AdminOrderFormCustomerPreviewPage() {
   );
 
   const previewPane = (
-    <OrderFormPreviewViewport className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-amber-50 px-3 py-1.5">
+    <OrderFormPreviewViewport className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-amber-50 px-3 py-1.5">
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-fluid-2xs font-medium leading-snug text-amber-950">
             손님 화면 · {selectedTitle || '발주서'}
@@ -446,19 +447,15 @@ export function AdminOrderFormCustomerPreviewPage() {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void bumpIframe()}
-            className="rounded border border-amber-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-amber-950 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-          >
+          <Button size="sm" variant="secondary" onClick={() => void bumpIframe()}>
             새로고침
-          </button>
+          </Button>
           {previewToken ? (
             <a
               href={iframeSrc}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-fluid-2xs font-medium text-blue-700 underline hover:text-blue-800"
+              className="text-fluid-2xs font-semibold text-[#2563eb] underline-offset-2 hover:underline"
             >
               새 탭
             </a>
@@ -467,14 +464,14 @@ export function AdminOrderFormCustomerPreviewPage() {
       </div>
       <div className="min-h-[28rem] flex-1 bg-white lg:min-h-0">
         {loading ? (
-          <div className="flex h-full items-center justify-center text-fluid-sm text-gray-500">고객 화면 불러오는 중…</div>
+          <div className="flex h-full items-center justify-center text-fluid-sm text-slate-500">고객 화면 불러오는 중…</div>
         ) : iframeSrc ? (
           <iframe
             ref={previewFrameRef}
             key={iframeKey}
             title="고객 발주서"
             src={iframeSrc}
-            className="h-full min-h-[28rem] w-full border-0 bg-gray-50 lg:min-h-full"
+            className="h-full min-h-[28rem] w-full border-0 bg-slate-50 lg:min-h-full"
             onLoad={() => {
               window.setTimeout(() => {
                 if (activeSectionRef.current !== 'fields') return;
@@ -486,7 +483,7 @@ export function AdminOrderFormCustomerPreviewPage() {
             }}
           />
         ) : (
-          <p className="p-4 text-fluid-sm text-gray-600">미리보기 주소를 불러오지 못했습니다.</p>
+          <p className="p-4 text-fluid-sm text-slate-600">미리보기 주소를 불러오지 못했습니다.</p>
         )}
       </div>
     </OrderFormPreviewViewport>
@@ -494,19 +491,19 @@ export function AdminOrderFormCustomerPreviewPage() {
 
   return (
     <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-3">
-      <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 sm:px-4">
+      <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 sm:px-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <PageTitleWithFavorite label="발주서설정">
-              <h2 className="text-fluid-base font-semibold text-gray-900">발주서설정</h2>
+              <h2 className="text-fluid-xl font-extrabold text-slate-900">발주서설정</h2>
             </PageTitleWithFavorite>
-            <p className="mt-1 text-fluid-xs text-gray-500">
+            <p className="mt-1 text-fluid-xs text-slate-500">
               왼쪽에서 발주서를 고르면 오른쪽이 그 양식 설정입니다. 금액·전문시공은 모든 발주서가 같이 씁니다.
             </p>
           </div>
           <Link
             to="/admin/inquiries/order-templates?new=1"
-            className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-[#111a2b] bg-[#111a2b] px-3.5 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
           >
             + 새 발주서
           </Link>
@@ -523,9 +520,9 @@ export function AdminOrderFormCustomerPreviewPage() {
         </details>
         <div className="hidden min-h-0 lg:flex lg:flex-col">{previewPane}</div>
 
-        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-slate-50">
-          <div className="shrink-0 border-b border-gray-200 bg-white px-3 py-2">
-            <p className="truncate text-fluid-sm font-semibold text-slate-900" title={selectedTitle}>
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+          <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-2">
+            <p className="truncate text-fluid-sm font-bold text-slate-900" title={selectedTitle}>
               {selectedTitle || '발주서를 고르세요'}
             </p>
             <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
@@ -536,8 +533,8 @@ export function AdminOrderFormCustomerPreviewPage() {
                     key={id}
                     type="button"
                     onClick={() => setActiveSection(id)}
-                    className={`shrink-0 rounded-lg px-2.5 py-1.5 text-fluid-2xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
-                      selected ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    className={`h-8 shrink-0 whitespace-nowrap rounded-lg border px-2.5 text-fluid-2xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+                      selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     {ORDER_FORM_SETTINGS_SECTION_LABELS[id]}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { Button } from '../../components/ui/Button';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getBrandCustomerLinkConfig, updateBrandCustomerLinkConfig } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
@@ -189,14 +190,14 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
 
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <PageTitleWithFavorite label="고객링크설정">
-              <h1 className="text-fluid-base font-semibold text-gray-900">고객링크설정</h1>
+              <h1 className="text-fluid-xl font-extrabold text-slate-900">고객링크설정</h1>
             </PageTitleWithFavorite>
-            <div className="mt-1 flex flex-wrap items-start gap-1 text-fluid-xs leading-relaxed text-gray-600">
-              <span>고객 발송 메시지를 한 칸에서 자유롭게 편집합니다.</span>
+            <div className="mt-1 flex flex-wrap items-start gap-1 text-fluid-xs leading-relaxed text-slate-600">
+              <span>고객 발송 메시지를 한 칸에서 자유롭게 편집합니다. 대괄호 [ ] 자리는 보낼 때 손님 정보로 바뀝니다.</span>
               <CustomerLinkHelpTrigger
                 className="shrink-0 align-middle"
                 onClick={() => setCustomerLinkHelpOpen(true)}
@@ -206,7 +207,7 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Link
               to="/admin/inquiries/order-customer-preview"
-              className="text-fluid-xs text-blue-700 underline hover:text-blue-800"
+              className="text-fluid-xs font-semibold text-[#2563eb] underline-offset-2 hover:underline"
             >
               발주서설정
             </Link>
@@ -214,14 +215,14 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <label className="text-fluid-xs font-medium text-gray-700" htmlFor="customer-link-brand">
+          <label className="text-fluid-2xs font-semibold text-slate-600" htmlFor="customer-link-brand">
             영업 브랜드
           </label>
           <select
             id="customer-link-brand"
             value={operatingCompanyId}
             onChange={(e) => setBrandId(e.target.value)}
-            className="min-w-[10rem] rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-fluid-xs text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="h-9 min-w-[10rem] rounded-lg border border-slate-200 bg-white px-3 text-fluid-xs text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
           >
             {activeBrands.map((b) => (
               <option key={b.id} value={b.id}>
@@ -247,29 +248,24 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
           loading={loading}
         />
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
-          <button
-            type="button"
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          <Button
+            size="md"
+            variant="primary"
             onClick={() => void handleSave()}
             disabled={saving || loading || !operatingCompanyId}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
             {saving ? '저장 중…' : '저장'}
-          </button>
-          <button
-            type="button"
-            onClick={handleResetDefaultTemplate}
-            disabled={loading}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
+          </Button>
+          <Button size="md" variant="secondary" onClick={handleResetDefaultTemplate} disabled={loading}>
             기본 양식으로 다시 채우기
-          </button>
+          </Button>
           {savedAt ? (
             <span className="text-fluid-2xs text-emerald-700">
               저장되었습니다. 새로 발급·복사하는 메시지부터 반영됩니다.
             </span>
           ) : (
-            <span className="text-fluid-2xs text-gray-500">본문을 수정한 뒤 저장하세요.</span>
+            <span className="text-fluid-2xs text-slate-500">본문을 수정한 뒤 저장하세요.</span>
           )}
         </div>
       </div>
