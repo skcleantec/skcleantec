@@ -54,6 +54,7 @@ export function CashbillIssueForm({
   const yesterday = previousYmd(today);
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<CashbillSearchHit[]>([]);
+  const [searched, setSearched] = useState('');
   const [selected, setSelected] = useState<CashbillSearchHit | null>(null);
   const [unmatched, setUnmatched] = useState(false);
   const [brandId, setBrandId] = useState(seed?.brandId || linkedBrands[0]?.id || '');
@@ -81,7 +82,10 @@ export function CashbillIssueForm({
     const timer = window.setTimeout(() => {
       searchCashbillInquiries(q)
         .then((items) => {
-          if (!cancelled) setHits(items);
+          if (!cancelled) {
+            setHits(items);
+            setSearched(q);
+          }
         })
         .catch((err: unknown) => {
           if (!cancelled) setError(err instanceof Error ? err.message : '접수를 검색하지 못했습니다.');
@@ -129,6 +133,8 @@ export function CashbillIssueForm({
 
   function clearMatch() {
     if (selected) setCustomerName('');
+    setQuery('');
+    setHits([]);
     setSelected(null);
     setUnmatched(true);
     setBrandId(linkedBrands[0]?.id ?? '');
@@ -205,14 +211,37 @@ export function CashbillIssueForm({
           </select>
         </label>
       ) : null}
-      <div className="flex items-end gap-2">
-        <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
-          <span>① 고객</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="고객명 또는 전화번호" className="min-h-9 w-full rounded-lg border border-slate-300 px-2" />
-        </label>
-        <button type="button" className={BTN_GHOST} onClick={clearMatch}>직접 입력</button>
-      </div>
-      {hits.length > 0 ? (
+      {unmatched ? (
+        <div className="space-y-1">
+          <div className="flex items-end gap-2">
+            <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
+              <span>① 고객명 (선택)</span>
+              <input
+                autoFocus
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                maxLength={64}
+                placeholder="예: 홍길동"
+                className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+              />
+            </label>
+            <button type="button" className={BTN_GHOST} onClick={() => { setUnmatched(false); setPhoneHits([]); }}>접수에서 찾기</button>
+          </div>
+          <p className="text-fluid-2xs text-slate-500">접수 없이 발행합니다. 이름을 적어 두면 목록에서 누구 건인지 보이고, 비우면 「연계 없음」으로 보입니다.</p>
+        </div>
+      ) : (
+        <div className="flex items-end gap-2">
+          <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
+            <span>① 고객</span>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="고객명 또는 전화번호로 접수 찾기" className="min-h-9 w-full rounded-lg border border-slate-300 px-2" />
+          </label>
+          <button type="button" className={BTN_GHOST} onClick={clearMatch}>직접 입력</button>
+        </div>
+      )}
+      {!unmatched && !selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
+        <p className="text-fluid-2xs text-slate-500">찾는 접수가 없어요. 접수 없이 발행하려면 「직접 입력」을 누르세요.</p>
+      ) : null}
+      {!unmatched && hits.length > 0 ? (
         <ul className="space-y-1">
           {hits.map((hit) => (
             <li key={hit.id}>
@@ -274,19 +303,6 @@ export function CashbillIssueForm({
             </div>
           ))}
         </div>
-      ) : null}
-      {unmatched ? (
-        <label className="block space-y-1 text-fluid-xs text-slate-700">
-          <span>고객명 (선택)</span>
-          <input
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            maxLength={64}
-            placeholder="예: 홍길동"
-            className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
-          />
-          <span className="text-fluid-2xs text-slate-500">목록에서 누구 건인지 알아보는 용도예요. 비우면 「연계 없음」으로 보입니다.</span>
-        </label>
       ) : null}
       <label className="block space-y-1 text-fluid-xs text-slate-700">
         <span>④ 고객 이메일 (선택)</span>

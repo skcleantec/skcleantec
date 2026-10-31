@@ -336,7 +336,7 @@ function customerNameOf(row: CashbillIssueRow): string | null {
 }
 
 function identityText(row: CashbillIssueRow): string {
-  if (row.identityMasked === '자진발급') return '자진발급 번호';
+  if (row.identityMasked === '자진발급') return '010-000-1234';
   const text = row.tradeUsage === 2 ? displayReceiptBiz(row.identityMasked) : displayReceiptPhone(row.identityMasked);
   return text && text !== '—' ? text : '—';
 }
@@ -457,7 +457,7 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
         {row.inquiryNumber ? (
           <p className="min-w-0 truncate text-fluid-xs text-slate-500">접수 <InquiryCell row={row} onLink={onLink} /></p>
-        ) : <InquiryCell row={row} onLink={onLink} size="md" />}
+        ) : row.kind === 'CANCEL' ? <span /> : <InquiryCell row={row} onLink={onLink} size="md" />}
         <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} onReissue={onReissue} onLink={onLink} />
       </div>
     </article>
