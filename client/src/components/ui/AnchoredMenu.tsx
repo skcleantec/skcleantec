@@ -7,9 +7,12 @@ type Box = { top: number; left: number; width: number };
 export function AnchoredMenu({
   label,
   children,
+  size = 'md',
 }: {
   label: string;
   children: (close: () => void) => ReactNode;
+  /** md 36px(기본) · sm 28px(표 작업 칸, 버튼 규칙) */
+  size?: 'md' | 'sm';
 }) {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<Box | null>(null);
@@ -52,7 +55,7 @@ export function AnchoredMenu({
       <button
         ref={buttonRef}
         type="button"
-        className="inline-flex size-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-fluid-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        className={`inline-flex ${size === 'sm' ? 'size-7 rounded-[7px] text-xs' : 'size-9 rounded-lg text-fluid-sm'} items-center justify-center border border-slate-300 bg-white hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2`}
         aria-label={label}
         aria-expanded={open}
         aria-controls={menuId}

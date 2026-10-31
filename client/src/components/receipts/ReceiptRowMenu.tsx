@@ -17,6 +17,7 @@ export function ReceiptRowMenu({
   onCancel,
   onLinkInquiry,
   onModify,
+  compact = false,
 }: {
   kind: 'cashbill' | 'taxinvoice';
   issueId: string;
@@ -28,9 +29,11 @@ export function ReceiptRowMenu({
   onCancel: () => void;
   onLinkInquiry?: () => void;
   onModify?: () => void;
+  /** 표 작업 칸: ⋯ 28px */
+  compact?: boolean;
 }) {
   return (
-    <AnchoredMenu label="더 보기">
+    <AnchoredMenu label="더 보기" size={compact ? 'sm' : 'md'}>
       {(close) => (
         <>
           <ReceiptCopyButtons kind={kind} issueId={issueId} official={official} publicToken={publicToken} copyReady={copyReady} menu />

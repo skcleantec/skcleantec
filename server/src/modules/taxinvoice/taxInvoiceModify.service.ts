@@ -5,7 +5,7 @@ import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/s
 import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { normalizeCorpNum } from '../../lib/barobill/mask.js';
 import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
-import { TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
+import { barobillModifyEnabled, TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
 import { kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { CASHBILL_WALLET_SHORT_MESSAGE, chargeTaxInvoiceWallet, refundTaxInvoiceWallet } from '../cashbill/cashbillWallet.js';
 import { CERT_ERROR_CODES, PARTNER_BALANCE_CODES, fetchTaxInvoiceStates, registAndIssueTaxInvoice } from './taxInvoice.barobill.js';
@@ -111,6 +111,7 @@ export async function modifyTaxInvoice(
   },
 ) {
   const kind = input.kind === 'release' || input.kind === 'supply' || input.kind === 'correction' ? input.kind : null;
+  if (!barobillModifyEnabled()) throw new TaxInvoiceError('수정세금계산서 발급은 준비 중입니다.', 403, 'modify_disabled');
   if (!kind) throw new TaxInvoiceError('수정 사유를 선택해 주세요.');
   const original = await prisma.taxInvoiceIssue.findFirst({
     where: { id: issueId, tenantId },

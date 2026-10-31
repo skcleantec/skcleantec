@@ -5,7 +5,7 @@ import { resolveBarobillEnv } from '../../lib/barobill/env.js';
 import { normalizeCorpNum } from '../../lib/barobill/mask.js';
 import { displayBizIdentity } from '../receipts/receiptCopy.mask.js';
 import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
-import { TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
+import { barobillModifyEnabled, TAXINVOICE_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
 import { addDaysToKstYmd, createdAtRangeFromQuery, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { splitCashbillTax } from '../cashbill/cashbillIssue.amounts.js';
 import { CASHBILL_WALLET_SHORT_MESSAGE, chargeTaxInvoiceWallet, refundTaxInvoiceWallet } from '../cashbill/cashbillWallet.js';
@@ -631,7 +631,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       customerName: row.inquiry?.customerName?.trim() || row.buyerCeoName.trim() || '—',
       brandName: row.operatingCompany.name,
       amended: row.modifications.length > 0,
-      canModify: row.barobillState === '3014' && !row.modifyCode && row.modifications.length === 0,
+      canModify: barobillModifyEnabled() && row.barobillState === '3014' && !row.modifyCode && row.modifications.length === 0,
       originalWriteDate: row.originalIssue?.writeDate ?? null,
       originalNtsSendKey: row.originalIssue?.ntsSendKey ?? null,
       itemName: firstLineName(row.lines),
