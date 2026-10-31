@@ -1,10 +1,11 @@
+import { cleanChangeLogLine } from '../../utils/changeLogLineText';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { filterMarketerOnlyChangeLogLines } from '../../constants/internalCustomerTone';
 
 function normalizeLines(raw: unknown, hideMarketerOnlyLines: boolean): string[] {
   if (!Array.isArray(raw)) return [];
-  const lines = raw.filter((x): x is string => typeof x === 'string');
+  const lines = raw.filter((x): x is string => typeof x === 'string').map(cleanChangeLogLine);
   return hideMarketerOnlyLines ? filterMarketerOnlyChangeLogLines(lines) : lines;
 }
 

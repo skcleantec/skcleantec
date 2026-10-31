@@ -18,9 +18,19 @@ export type ChangeHistoryItemDto = {
   categories: ChangeLogCategory[];
 };
 
+/**
+ * 변경 이력 한 줄을 사람이 읽는 말로 정리한다 — 예전 버그로 저장된 「[object Object]」「undefined」 같은 코드 글자를 감춘다.
+ * (client/src/utils/changeLogLineText.ts 와 같게 유지)
+ */
+export function cleanChangeLogLine(line: string): string {
+  return line
+    .replace(/\[object Object\](?:\s*,\s*\[object Object\])*/g, '(이전 기록)')
+    .replace(/(^|[\s:→(,])(undefined|null|NaN)(?=$|[\s,)→])/g, '$1(없음)');
+}
+
 export function parseLinesJson(lines: unknown): string[] {
   if (!Array.isArray(lines)) return [];
-  return lines.map((x) => String(x)).filter(Boolean);
+  return lines.map((x) => cleanChangeLogLine(String(x))).filter(Boolean);
 }
 
 /** 변경 요약 한 줄을 유형으로 분류 (한국어 키워드 기반 휴리스틱) */
