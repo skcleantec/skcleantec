@@ -1,3 +1,6 @@
+/** 모달이 열렸을 때 스택을 화면에서만 뺀다. 언마운트하면 즐겨찾기 시트 상태가 같이 죽는다. */
+export const MOBILE_STAFF_FAB_STACK_HIDDEN_CLASS = 'invisible pointer-events-none';
+
 /** 모바일(lg 미만) — 우측 FAB·GNB 톤 (터치 최소 ~44px) */
 
 export const MOBILE_STAFF_DOCK_BTN_PX = 44;

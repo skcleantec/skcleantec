@@ -61,7 +61,11 @@ import { TeamMobileNavFavoritesAccess } from './TeamMobileNavFavoritesAccess';
 import { TeamDesktopNavFavoritesAccess } from './TeamDesktopNavFavoritesAccess';
 import { TeamMobileBottomNav } from './TeamMobileBottomNav';
 import { TeamNavIcon } from './TeamNavIcons';
-import { MOBILE_GNB_ITEM_BASE, TEAM_MOBILE_BOTTOM_NAV_RESERVE_PX } from './mobileStaffDockStyles';
+import {
+  MOBILE_GNB_ITEM_BASE,
+  MOBILE_STAFF_FAB_STACK_HIDDEN_CLASS,
+  TEAM_MOBILE_BOTTOM_NAV_RESERVE_PX,
+} from './mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from './staffRightRailStyles';
 import { useBodyHasModalOverlay } from '../../hooks/useBodyHasModalOverlay';
 import { useStaffMobileFabStack } from '../../hooks/useStaffMobileFabStack';
@@ -468,7 +472,8 @@ export function TeamLayout() {
     bottomReservePx: TEAM_MOBILE_BOTTOM_NAV_RESERVE_PX,
   });
   const modalOverlayOpen = useBodyHasModalOverlay();
-  const showTeamMobileFabStack = showTeamMobileFabStackBase && showMobileFabStack && !modalOverlayOpen;
+  const teamFabStackMounted = showTeamMobileFabStackBase && showMobileFabStack;
+  const teamFabStackHidden = modalOverlayOpen;
 
   const reloadTeamMe = useCallback(() => {
     const token = getTeamToken();
@@ -1116,12 +1121,13 @@ export function TeamLayout() {
       />
       {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') ? (
         <>
-          {showTeamMobileFabStack ? (
+          {teamFabStackMounted ? (
             <div
               ref={fabStackRef}
+              aria-hidden={teamFabStackHidden || undefined}
               className={`fixed z-[120] lg:hidden flex flex-col items-end gap-1 ${
-                fabDragging ? 'touch-none select-none' : ''
-              }`}
+                teamFabStackHidden ? MOBILE_STAFF_FAB_STACK_HIDDEN_CLASS : ''
+              } ${fabDragging ? 'touch-none select-none' : ''}`}
               style={{
                 top: fabTop ?? undefined,
                 right: fabSafeRight,
@@ -1148,7 +1154,7 @@ export function TeamLayout() {
               navigate(teamTo(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`))
             }
             mobileStack={
-              showTeamMobileFabStack
+              teamFabStackMounted
                 ? {
                     onPointerDown: (evt) => beginFabPointer('bell', evt),
                     dragging: fabDragging,
