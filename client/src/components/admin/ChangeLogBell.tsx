@@ -535,6 +535,7 @@ export function ChangeLogBell({
         >
           <div
             role="dialog"
+            data-fab-sheet
             className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-gray-200 bg-white shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >

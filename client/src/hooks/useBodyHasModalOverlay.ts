@@ -1,7 +1,11 @@
 import { useSyncExternalStore } from 'react';
 
+/** FAB가 직접 연 시트는 플로팅 버튼을 숨기지 않는다. 시트가 버튼 위를 덮는다. */
+const MODAL_OVERLAY_SELECTOR =
+  '.modal-mobile-safe-overlay:not([data-fab-sheet]), [role="dialog"][aria-modal="true"]:not([data-fab-sheet])';
+
 function overlayOpen(): boolean {
-  return document.querySelector('.modal-mobile-safe-overlay, [role="dialog"][aria-modal="true"]') != null;
+  return document.querySelector(MODAL_OVERLAY_SELECTOR) != null;
 }
 
 function subscribe(onStoreChange: () => void): () => void {
@@ -10,7 +14,7 @@ function subscribe(onStoreChange: () => void): () => void {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['class', 'role', 'aria-modal', 'hidden'],
+    attributeFilter: ['class', 'role', 'aria-modal', 'hidden', 'data-fab-sheet'],
   });
   return () => observer.disconnect();
 }

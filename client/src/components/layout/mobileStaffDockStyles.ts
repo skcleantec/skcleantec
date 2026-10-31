@@ -1,3 +1,6 @@
+/** 모달이 열렸을 때 스택을 화면에서만 뺀다. 언마운트하면 즐겨찾기 시트 상태가 같이 죽는다. */
+export const MOBILE_STAFF_FAB_STACK_HIDDEN_CLASS = 'invisible pointer-events-none';
+
 /** 모바일(lg 미만) — 우측 FAB·GNB 톤 (터치 최소 ~44px) */
 
 export const MOBILE_STAFF_DOCK_BTN_PX = 44;
@@ -6,9 +9,12 @@ export const MOBILE_STAFF_DOCK_GAP_PX = 4;
 /** glass FAB 공통 — `index.css` `.staff-mobile-fab-glass*` */
 export const STAFF_MOBILE_FAB_GLASS_BASE = 'staff-mobile-fab-glass';
 
-/** 네모 히트 영역. 원형 얼굴은 자식 span — border-radius는 모서리 탭을 버튼 뒤로 통과시킨다. */
+/**
+ * 네모 히트 영역. 원형 얼굴은 자식 span — border-radius는 모서리 탭을 버튼 뒤로 통과시킨다.
+ * touch-none: 스크롤이 짧은 탭의 click을 가져가지 않게 한다.
+ */
 export const MOBILE_STAFF_DOCK_BTN_CLASS =
-  'relative flex h-[44px] w-[44px] shrink-0 touch-manipulation items-center justify-center bg-transparent active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
+  'relative flex h-[44px] w-[44px] shrink-0 touch-none items-center justify-center bg-transparent active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
 
 export const MOBILE_STAFF_DOCK_FACE_CLASS = `pointer-events-none absolute inset-0 rounded-full ${STAFF_MOBILE_FAB_GLASS_BASE}`;
 

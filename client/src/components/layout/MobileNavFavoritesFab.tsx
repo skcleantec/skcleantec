@@ -43,26 +43,30 @@ function CloseIcon({ className }: { className?: string }) {
   );
 }
 
+/** 연 직후 같은 탭이 배경을 눌러 닫지 않게 하는 최소 간격. */
+const SAME_TAP_CLOSE_MS = 400;
+
 function MobileNavFavoritesSheet({
   open,
+  openedAt,
   onClose,
   items,
 }: {
   open: boolean;
+  /** openPanel이 setState 전에 찍은 시각. */
+  openedAt: number;
   onClose: () => void;
   items: MobileNavFavoriteItem[];
 }) {
   const [visible, setVisible] = useState(false);
-  const openedAtRef = useRef(0);
 
   useEffect(() => {
     if (!open) {
       setVisible(false);
       return;
     }
-    openedAtRef.current = performance.now();
-    const id = requestAnimationFrame(() => setVisible(true));
-    return () => cancelAnimationFrame(id);
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   useEffect(() => {
@@ -88,7 +92,7 @@ function MobileNavFavoritesSheet({
   if (!root) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[125] lg:hidden" role="presentation">
+    <div className="fixed inset-0 z-[125] lg:hidden" role="presentation" data-fab-sheet>
       <button
         type="button"
         aria-label="즐겨찾기 닫기"
@@ -96,13 +100,14 @@ function MobileNavFavoritesSheet({
           visible ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={() => {
-          if (performance.now() - openedAtRef.current < 450) return;
+          if (performance.now() - openedAt < SAME_TAP_CLOSE_MS) return;
           onClose();
         }}
       />
       <div
         role="dialog"
-        aria-modal
+        aria-modal="true"
+        data-fab-sheet
         aria-labelledby="mobile-nav-favorites-title"
         className={`theme-dark-header absolute inset-x-0 top-0 max-h-[min(52dvh,22rem)] flex flex-col border-b border-white/10 bg-slate-900 shadow-2xl transition-transform duration-200 ease-out staff-top-safe ${
           visible ? 'translate-y-0' : '-translate-y-full'
@@ -219,7 +224,11 @@ export function MobileNavFavoritesAccess({
   standalone = false,
 }: AccessProps) {
   const [open, setOpen] = useState(false);
-  const openPanel = useCallback(() => setOpen(true), []);
+  const openedAtRef = useRef(0);
+  const openPanel = useCallback(() => {
+    openedAtRef.current = performance.now();
+    setOpen(true);
+  }, []);
   const closePanel = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
@@ -247,7 +256,12 @@ export function MobileNavFavoritesAccess({
           onPointerDown={fabStack.onPointerDown}
         />
       ) : null}
-      <MobileNavFavoritesSheet open={open} onClose={closePanel} items={items} />
+      <MobileNavFavoritesSheet
+        open={open}
+        openedAt={openedAtRef.current}
+        onClose={closePanel}
+        items={items}
+      />
     </>
   );
 }
