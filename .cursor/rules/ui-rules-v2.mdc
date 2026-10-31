@@ -1,0 +1,20 @@
+---
+description: 청소비서 UI 규칙 v2 — 색·글자 5단계·둥글기·높이·Button·FilterBar·StatusChip·팝업 (필수)
+globs: client/src/**/*.{tsx,ts}
+alwaysApply: true
+---
+
+# UI 규칙 v2 (필수) — 전문: `docs/design/ui-rules.md`
+
+이 규칙이 `client-ui-tailwind.mdc`·`docs/UI_DESIGN_GUIDE.md`와 다르면 **이 규칙이 우선**한다.
+
+- **검사**: 화면을 고친 뒤 `cd client && npm run ui:audit` — ▲(늘어남)가 있으면 고친다. 위반을 줄였으면 `node scripts/ui-audit.mjs --update`.
+- **색**: 지금 색 그대로. 회색은 `slate-*`만(`gray-*` 금지). 진한 바탕 버튼은 #111A2B(Button primary) 하나, 파랑 `blue-600`은 선택·링크 전용.
+- **글자 5단계만**: `text-fluid-xl`(페이지 제목) · `text-fluid-base`(소제목) · `text-fluid-sm`(강조·버튼) · `text-fluid-xs`(본문) · `text-fluid-2xs`(캡션). `text-[Npx]`, `text-xs/sm/base` 금지.
+- **둥글기**: `rounded-lg` 버튼·입력 / `rounded-xl` 카드 / `rounded-2xl` 팝업 / `rounded-full` 칩. `rounded`·`rounded-md`·`rounded-sm` 금지.
+- **높이**: 28 표 안 · 36 PC 기본 · 44 모바일·팝업.
+- **버튼**: `components/ui/Button` 만(`variant` primary/secondary/danger/quiet, `size` lg/md/sm). 한 덩어리에 primary 하나, [보조][주] 순서.
+- **목록 필터**: `components/ui/FilterBar` (`FilterSegment` → `FilterSelect` ≤4 → `more` → `FilterSearch`, `ActiveFilters`). 조회 버튼 없음, 모바일은 FilterBar가 시트로 처리.
+- **상태**: `StatusChip tone=gray|blue|green|amber|red`, 부가 정보는 `Tag`. 표 상태 칸은 칩만, 작업 칸은 `RowActions`(버튼 1 + ⋯).
+- **팝업**: 결과 `toast.success/error`, 확인 `confirmDialog`, 입력은 모달(모바일 시트). `window.alert/confirm` 금지.
+- **화면 디자인**은 Claude가 만든 시안을 그대로 옮긴다. 시안에 없는 장식(그라데이션, 그림자 남발, 이모지)을 더하지 않는다.

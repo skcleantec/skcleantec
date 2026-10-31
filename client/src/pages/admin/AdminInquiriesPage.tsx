@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, type ReactNode } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
@@ -96,11 +96,12 @@ import { useDebouncedCallback } from '../../utils/debounceCallback';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
 import { useProfessionalOptionsCatalog } from '../../hooks/useProfessionalOptionsCatalog';
-import {
-  InquiryDatePresetBar,
-  InquiryManualIntakeButton,
-  InquiryMarketerDailyButton,
-} from '../../components/inquiries/inquiriesUiParts';
+import { InquiryMarketerDailyButton } from '../../components/inquiries/inquiriesUiParts';
+import { Button } from '../../components/ui/Button';
+import { confirmDialog } from '../../components/ui/Toast';
+import { AnchoredMenu } from '../../components/ui/AnchoredMenu';
+import { StatusChip, Tag, type StatusTone } from '../../components/ui/StatusChip';
+import { ActiveFilters, FilterBar, FilterSearch, FilterSegment, FilterSelect } from '../../components/ui/FilterBar';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { buildStaffInquiryTimeSlotSelectOptions } from '../../utils/staffInquiryTimeSlotOptions';
@@ -642,45 +643,46 @@ function inquiryListStatusBadgeText(item: InquiryItem): string {
   return STATUS_LABELS[statusValueForPicker(item)] ?? item.status;
 }
 
+/** 상태 칩 색 — UI 규칙 v2 (회색 시작 전 · 파랑 진행 · 초록 끝 · 노랑 확인 필요 · 빨강 문제) */
+function inquiryStatusTone(item: InquiryItem): StatusTone {
+  if (isInquiryLinkedOrderFormPendingSubmit(item)) return 'amber';
+  switch (statusValueForPicker(item)) {
+    case 'PENDING':
+      return 'gray';
+    case 'DEPOSIT_PENDING':
+    case 'ORDER_FORM_PENDING':
+    case 'ON_HOLD':
+    case 'CS_PROCESSING':
+      return 'amber';
+    case 'COMPLETED':
+      return 'green';
+    case 'CANCELLED':
+    case 'CANCEL_CONFIRMED':
+      return 'red';
+    default:
+      return 'blue';
+  }
+}
+
 function InquiryProfOptionsReviewListBadge({ item }: { item: InquiryItem }) {
   if (item.profOptionsAmountReviewPending) return <ProfOptionsAmountReviewBadge />;
   if (item.profOptionsAmountReviewCompleted) return <ProfOptionsAmountReviewCompletedBadge />;
   return null;
 }
 
-function InquiryListAttachmentOx({
-  yes,
-  shortLabel,
-}: {
-  yes: boolean;
-  shortLabel: string;
-}) {
+/** 예약금·특이사항·사진 — O/X 칸 대신 있는 것만 회색 태그로 (UI 규칙 v2) */
+function InquiryListInfoTags({ item, className = '', extra }: { item: InquiryItem; className?: string; extra?: ReactNode }) {
+  const deposit = inquiryDepositPresence(item);
+  const notes = inquiryListHasCustomerSpecialNotes(item);
+  const photos = inquiryListHasOrderFormPhotos(item.orderFormPhotoCount);
+  if (!extra && deposit === 'no' && !notes && !photos) return null;
   return (
-    <span
-      className={`inline-flex min-w-[1.125rem] items-center justify-center rounded px-0.5 py-px text-[11px] font-bold tabular-nums xl:min-w-[1.25rem] xl:text-fluid-2xs ${
-        yes ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
-      }`}
-      title={`${shortLabel}: ${yes ? '있음' : '없음'}`}
-    >
-      {yes ? 'O' : 'X'}
-    </span>
-  );
-}
-
-function InquiryListDepositMark({ item }: { item: InquiryItem }) {
-  const presence = inquiryDepositPresence(item);
-  if (presence === 'unknown') {
-    return (
-      <span
-        className="inline-flex min-w-[1.125rem] items-center justify-center text-[11px] text-slate-300 xl:text-fluid-2xs"
-        title="예약금 미정"
-      >
-        —
-      </span>
-    );
-  }
-  return (
-    <InquiryListAttachmentOx yes={presence === 'yes'} shortLabel="예약금" />
+    <div className={`flex flex-wrap items-center gap-1 ${className}`}>
+      {extra}
+      {deposit === 'yes' ? <Tag title="예약금 있음">예약금 ✓</Tag> : deposit === 'unknown' ? <Tag title="예약금 미정">예약금 —</Tag> : null}
+      {notes ? <Tag title="고객 발주 특이사항 있음">특이 ✓</Tag> : null}
+      {photos ? <Tag title={`발주서 첨부 사진 ${item.orderFormPhotoCount ?? 0}장`}>사진 {item.orderFormPhotoCount ?? 0}</Tag> : null}
+    </div>
   );
 }
 
@@ -818,27 +820,14 @@ function InquiryListMarketerDisplay({ item }: { item: InquiryItem }) {
 }
 
 const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
+const INQUIRY_DATE_PRESET_OPTIONS = [
+  ['today', '당일'],
+  ['all', '전체'],
+  ['month', '월별'],
+  ['day', '날짜'],
+] as const;
 const TEAM_LEADER_FILTER_UNASSIGNED = '__unassigned__';
-const INQUIRY_LIST_FILTER_LABEL_CLASS =
-  'text-[11px] leading-tight text-slate-600 whitespace-nowrap shrink-0 sm:text-fluid-2xs';
-const INQUIRY_LIST_FILTER_SELECT_CLASS =
-  'min-w-[4.75rem] max-w-[7rem] rounded border border-slate-300 bg-white px-1 py-0.5 text-[11px] leading-tight text-slate-900 sm:min-w-[5.25rem] sm:max-w-[7.5rem] sm:text-fluid-2xs';
-const INQUIRY_LIST_DATE_LABEL_CLASS =
-  'shrink-0 text-[11px] leading-tight text-slate-600 sm:text-fluid-2xs';
-const INQUIRY_LIST_DATE_SELECT_CLASS =
-  'rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] leading-tight text-slate-900 sm:text-fluid-2xs';
-const INQUIRY_LIST_SEARCH_ROW_CLASS =
-  'relative z-[2] flex min-w-0 flex-row items-stretch gap-1 sm:gap-1.5';
-const INQUIRY_LIST_SEARCH_INPUT_CLASS =
-  'min-h-8 min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-fluid-2xs text-slate-900 placeholder:text-slate-400';
-const INQUIRY_LIST_STATUS_FILTER_BTN_CLASS =
-  'flex min-h-8 w-[6.75rem] shrink-0 items-center justify-between gap-0.5 rounded border border-slate-300 bg-white px-1.5 py-1 text-fluid-2xs text-slate-900 sm:min-w-[7.25rem] sm:px-2';
-const INQUIRY_LIST_SEARCH_SUBMIT_CLASS =
-  'relative z-[2] min-h-8 shrink-0 rounded-lg bg-slate-900 px-2.5 py-1 text-fluid-2xs font-medium text-white hover:bg-slate-800 touch-manipulation';
 const INQUIRY_MOBILE_CARD_LIST_CLASS = 'flex flex-col gap-1.5 p-1.5 sm:gap-2 sm:p-2 lg:gap-3 lg:p-3';
-const INQUIRY_MOBILE_CARD_BODY_CLASS = 'cursor-pointer px-2 pt-2 pb-1.5 sm:px-3 sm:pt-3 sm:pb-2';
-const INQUIRY_MOBILE_CARD_FOOTER_CLASS =
-  'border-t border-slate-100 bg-slate-50/60 px-2 py-1.5 sm:px-3 sm:py-2';
 
 function labelForMarketerFilter(
   filterId: string,
@@ -2390,9 +2379,11 @@ export function AdminInquiriesPage() {
 
   const handleForceMatchOrderForm = async (orderFormId: string) => {
     if (!token || !editItem) return;
-    const ok = window.confirm(
-      '선택한 제출 완료 발주서를 이 접수에 강제 매칭하고, 발주서 고객 작성 정보를 현재 접수에 반영할까요?'
-    );
+    const ok = await confirmDialog({
+      title: '발주서를 강제 매칭할까요?',
+      body: '선택한 제출 완료 발주서를 이 접수에 매칭하고, 발주서 고객 작성 정보를 현재 접수에 반영합니다.',
+      confirmLabel: '매칭',
+    });
     if (!ok) return;
     setOrderForceMatchApplyingId(orderFormId);
     setSaving(true);
@@ -2486,11 +2477,14 @@ export function AdminInquiriesPage() {
     const isCancelConfirm = newStatus === 'CANCEL_CONFIRMED';
     const requestStatus = isCancelConfirm ? 'CANCELLED' : newStatus;
     if (requestStatus === 'CANCELLED' && !isCancelConfirm) {
-      if (!window.confirm('이 접수를 취소하시겠습니까?')) {
+      if (!(await confirmDialog({ title: '이 접수를 취소할까요?', confirmLabel: '접수 취소', danger: true }))) {
         return;
       }
     }
-    if (isCancelConfirm && !window.confirm('취소확인 처리하시겠습니까? (목록 상단 고정이 해제됩니다)')) {
+    if (
+      isCancelConfirm &&
+      !(await confirmDialog({ title: '취소확인 처리할까요?', body: '목록 상단 고정이 해제됩니다.', confirmLabel: '취소확인' }))
+    ) {
       return;
     }
     setSaving(true);
@@ -2509,7 +2503,7 @@ export function AdminInquiriesPage() {
 
   const handleCancelInquiry = async (item: InquiryItem) => {
     if (!token || item.status === 'CANCELLED') return;
-    if (!window.confirm('이 접수를 취소하시겠습니까?')) return;
+    if (!(await confirmDialog({ title: '이 접수를 취소할까요?', confirmLabel: '접수 취소', danger: true }))) return;
     setSaving(true);
     try {
       await updateInquiry(token, item.id, { status: 'CANCELLED', happyCallCompletedAt: null });
@@ -2632,6 +2626,32 @@ export function AdminInquiriesPage() {
   const handleCopyOrderCustomerShareLink = async () => {
     if (!orderCustomerSharePreviewContent) return;
     await copyClipboardWithAlert(orderCustomerSharePreviewContent.url);
+  };
+
+  /** 모바일 카드 버튼 — 그 상태에서 가장 급한 일 하나는 진한 버튼, 나머지는 ⋯ 메뉴 (데스크톱 작업 칸과 같은 동작) */
+  const inquiryMobileCardActions = (item: InquiryItem) => {
+    type Act = { label: string; onClick: () => void; disabled?: boolean; danger?: boolean };
+    const menu: Act[] = [];
+    let primary: Act | null = null;
+    const goOrderIssue = () =>
+      navigate(`/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`);
+    const del: Act | null = canDeleteInquiry ? { label: '삭제', onClick: () => setDeleteTarget(item), danger: true } : null;
+    if (item.status === 'DEPOSIT_PENDING') {
+      primary = { label: '입금완료', onClick: () => void handleStatusChange(item.id, 'DEPOSIT_COMPLETED'), disabled: saving };
+    } else if (item.status === 'ORDER_FORM_PENDING') {
+      primary = { label: '고객 발송', onClick: () => openOrderCustomerShareModal(item) };
+    } else if (item.status === 'DEPOSIT_COMPLETED') {
+      primary = { label: '발주서', onClick: goOrderIssue };
+      menu.push({ label: '수정', onClick: () => openListIntakeEditModal(item) });
+      menu.push({ label: '취소', onClick: () => handleCancelInquiry(item), disabled: saving });
+    } else {
+      if (item.status === 'PENDING') primary = { label: '발주서 생성', onClick: goOrderIssue };
+      if (item.status === 'CS_PROCESSING') primary = { label: '완료', onClick: () => void handleStatusChange(item.id, 'COMPLETED'), disabled: saving };
+      menu.push({ label: '클레임', onClick: () => openClaim(item) });
+      if (item.status !== 'CANCELLED') menu.push({ label: '취소', onClick: () => handleCancelInquiry(item), disabled: saving });
+    }
+    if (del) menu.push(del);
+    return { primary, menu };
   };
 
   const renderOrderFormPendingRowActions = (item: InquiryItem) => (
@@ -2846,7 +2866,7 @@ export function AdminInquiriesPage() {
         return;
       }
       if (editForm.status === 'CANCELLED' && editItem.status !== 'CANCELLED') {
-        if (!window.confirm('이 접수를 취소하시겠습니까?')) {
+        if (!(await confirmDialog({ title: '이 접수를 취소할까요?', confirmLabel: '접수 취소', danger: true }))) {
           setSaving(false);
           return;
         }
@@ -2918,6 +2938,98 @@ export function AdminInquiriesPage() {
     }
   };
 
+  /** 걸린 필터 칩 — 칩 ✕는 기존 「… 필터 해제」 버튼과 같은 동작 */
+  const inquiryActiveFilterChips: { key: string; label: string; onRemove: () => void }[] = [];
+  if ((me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId) {
+    inquiryActiveFilterChips.push({
+      key: 'marketer',
+      label: `접수자: ${labelForMarketerFilter(marketerFilterId, me, marketers)}`,
+      onRemove: () => {
+        setMarketerStatsDay('');
+        setMarketerFilterId('');
+        patchInquiryListSearchParams((next) => {
+          next.delete('createdById');
+          next.delete('marketerStatsDay');
+        });
+      },
+    });
+  }
+  if (marketerStatsDay) {
+    inquiryActiveFilterChips.push({
+      key: 'marketerStats',
+      label: '확정 집계',
+      onRemove: () => {
+        setMarketerStatsDay('');
+        patchInquiryListSearchParams((next) => next.delete('marketerStatsDay'));
+      },
+    });
+  }
+  if (collaborationStatsDay) {
+    inquiryActiveFilterChips.push({
+      key: 'collaborationStats',
+      label: '협업 집계',
+      onRemove: () => {
+        setCollaborationStatsDay('');
+        setCollaborationFilterId('');
+        patchInquiryListSearchParams((next) => {
+          next.delete('collaborationStatsDay');
+          next.delete('collaborationMarketerId');
+        });
+      },
+    });
+  }
+  if (teamLeaderFilterId) {
+    const tl = filterableTeamLeaders.find((t) => t.id === teamLeaderFilterId);
+    inquiryActiveFilterChips.push({
+      key: 'teamLeader',
+      label: `${hasExternalCo ? '팀장·타업체' : '팀장'}: ${teamLeaderFilterId === TEAM_LEADER_FILTER_UNASSIGNED ? '미배정' : tl ? formatAssignableUserLabel(tl) : '선택됨'}`,
+      onRemove: () => setTeamLeaderFilterId(''),
+    });
+  }
+  if (operatingCompanyFilterId) {
+    const oc = operatingCompanies.find((o) => o.id === operatingCompanyFilterId);
+    inquiryActiveFilterChips.push({
+      key: 'brand',
+      label: `브랜드: ${oc?.name ?? '선택됨'}`,
+      onRemove: () => setOperatingCompanyFilterId(''),
+    });
+  }
+  if (statusFilter) {
+    inquiryActiveFilterChips.push({
+      key: 'status',
+      label: `상태: ${STATUS_LABELS[statusFilter] ?? statusFilter}`,
+      onRemove: () => {
+        setMarketerStatsDay('');
+        setStatusFilter('');
+        patchInquiryListSearchParams((next) => {
+          next.delete('status');
+          next.delete('marketerStatsDay');
+          next.delete('q');
+        });
+      },
+    });
+  }
+  if (sourceFilterId) {
+    inquiryActiveFilterChips.push({
+      key: 'source',
+      label: `유입: ${formatInquiryLeadPlatformLabel(sourceFilterId)}`,
+      onRemove: () => setSourceFilterId(''),
+    });
+  }
+  if (me?.role === 'ADMIN' && hasInspectionModule && inspectionStatusFilter) {
+    inquiryActiveFilterChips.push({
+      key: 'inspection',
+      label: `현장검수: ${({ NONE: '없음', IN_PROGRESS: '진행중', COMPLETED: '완료', VOID: '무효' } as Record<string, string>)[inspectionStatusFilter] ?? inspectionStatusFilter}`,
+      onRemove: () => {
+        setInspectionStatusFilter('');
+        patchInquiryListSearchParams((next) => next.delete('inspectionStatus'));
+      },
+    });
+  }
+  const inquiryFilterActiveCount =
+    inquiryActiveFilterChips.filter((c) => c.key !== 'marketerStats' && c.key !== 'collaborationStats').length +
+    (dateBasis !== 'createdAt' ? 1 : 0);
+
   return (
     <div className="min-w-0 space-y-2 lg:space-y-6">
       <div className="flex flex-col gap-1.5 lg:gap-2">
@@ -2925,9 +3037,13 @@ export function AdminInquiriesPage() {
           <div className="flex min-w-0 flex-1 items-center gap-1.5 lg:gap-2">
             <AdminInquiriesMobileInlineMenuButton />
             <PageTitleWithFavorite label="서비스접수">
-              <h1 className="text-slate-900">서비스접수</h1>
+              <h1 className="text-fluid-xl font-extrabold text-slate-900">서비스접수</h1>
             </PageTitleWithFavorite>
             <InquiryHelpTrigger className="shrink-0" onClick={() => setInquiryHelpOpen(true)} />
+            <HelpTooltip
+              className="shrink-0"
+              text={`목록 상단 고정(날짜·상태 필터와 무관): ${INQUIRY_LIST_PIN_TIER_LABELS[0]}(분홍) · ${INQUIRY_LIST_PIN_TIER_LABELS[1]}(초록) · ${INQUIRY_LIST_PIN_TIER_LABELS[2]}(하늘) · ${INQUIRY_LIST_PIN_TIER_LABELS[3]}(노랑) 건은 줄 색으로 구분해 맨 위에 둡니다.`}
+            />
           </div>
             {token && (
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
@@ -2935,57 +3051,147 @@ export function AdminInquiriesPage() {
                   size="responsive-compact"
                   onClick={() => setQuickPasteOpen(true)}
                 />
-                <button
-                  type="button"
+                <Button
+                  size="md"
+                  variant="secondary"
+                  onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
+                  title="수동접수 (스케줄 상세 폼)"
+                >
+                  <CirclePlusIcon className="h-4 w-4" />
+                  수동접수
+                </Button>
+                <Button
+                  size="md"
+                  variant="primary"
                   onClick={openListIntakeModal}
-                  className="inline-flex min-h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2 sm:px-2.5 py-1 text-[12px] sm:text-fluid-2xs lg:text-fluid-xs font-medium text-sky-700 shadow-sm transition-all hover:border-sky-300 hover:bg-sky-100 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1 whitespace-nowrap"
                   title="일반 워크플로우(부재/보류/입금)로 신규 등록"
                 >
                   일반 등록
-                </button>
-                <InquiryManualIntakeButton
-                  onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
-                  title="수동접수 버튼 (스케줄 상세 폼)"
-                  aria-label="수동접수 버튼"
-                >
-                  <CirclePlusIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                </InquiryManualIntakeButton>
+                </Button>
               </div>
             )}
           </div>
-        <div className="overflow-hidden rounded-md border border-slate-200/80 bg-white" data-staff-list-filter>
-          <div className="flex flex-col gap-1 p-1.5 sm:p-2">
-          <div className="flex w-full flex-wrap items-center gap-1">
-            <span className={INQUIRY_LIST_DATE_LABEL_CLASS}>날짜 기준</span>
-            <select
-              value={dateBasis}
-              onChange={(e) => {
-                setMarketerStatsDay('');
-                setMarketerStatsFrom('');
-                setMarketerStatsTo('');
-                setCollaborationStatsDay('');
-                setCollaborationStatsFrom('');
-                setCollaborationStatsTo('');
-                setDateBasis(e.target.value as 'createdAt' | 'preferredDate');
-                patchInquiryListSearchParams((next) => {
-                  next.delete('marketerStatsDay');
-                  next.delete('marketerStatsFrom');
-                  next.delete('marketerStatsTo');
-                  next.delete('collaborationStatsDay');
-                  next.delete('collaborationStatsFrom');
-                  next.delete('collaborationStatsTo');
-                });
-              }}
-              className={INQUIRY_LIST_DATE_SELECT_CLASS}
-            >
-              <option value="createdAt">접수일</option>
-              <option value="preferredDate">예약일</option>
-            </select>
-            <HelpTooltip text="접수일 기준 또는 예약일 기준으로 날짜 필터를 적용합니다." />
-            <InquiryDatePresetBar active={datePreset} onSelect={applyDatePreset} />
-            {datePreset === 'month' && (
-              <YearMonthSelect
-                value={monthKey}
+        <div className="flex flex-col gap-2" data-staff-list-filter>
+          <FilterBar
+            period={(
+              <>
+                <FilterSegment
+                  label="기간"
+                  value={datePreset}
+                  options={INQUIRY_DATE_PRESET_OPTIONS}
+                  onChange={(preset) => applyDatePreset(preset)}
+                />
+                {datePreset === 'month' && (
+                  <YearMonthSelect
+                    value={monthKey}
+                    onChange={(v) => {
+                      setMarketerStatsDay('');
+                      setMarketerStatsFrom('');
+                      setMarketerStatsTo('');
+                      setCollaborationStatsDay('');
+                      setCollaborationStatsFrom('');
+                      setCollaborationStatsTo('');
+                      setMonthKey(v);
+                      patchInquiryListSearchParams((next) => {
+                        next.set('datePreset', 'month');
+                        next.set('month', v);
+                        next.delete('day');
+                        next.delete('dayFrom');
+                        next.delete('dayTo');
+                        next.delete('marketerStatsDay');
+                        next.delete('marketerStatsFrom');
+                        next.delete('marketerStatsTo');
+                        next.delete('collaborationStatsDay');
+                        next.delete('collaborationStatsFrom');
+                        next.delete('collaborationStatsTo');
+                      });
+                    }}
+                    idPrefix="inq-created-month"
+                    compact
+                  />
+                )}
+                {datePreset === 'day' && (
+                  <>
+                    <InquiryDayRangeFields from={dayFrom} to={dayTo} onChange={applyDayRange} />
+                    {dayRangeClamped ? (
+                      <span className="text-fluid-2xs text-amber-700">최대 366일까지 맞췄습니다.</span>
+                    ) : null}
+                  </>
+                )}
+              </>
+            )}
+            search={(
+              <FilterSearch
+                value={searchInput}
+                placeholder="고객명·연락처·접수번호 검색"
+                onSearch={(v) => {
+                  setSearchInput(v);
+                  applySearchQuery(v);
+                }}
+              />
+            )}
+            activeCount={inquiryFilterActiveCount}
+            more={(
+              <>
+                <FilterSelect
+                  label="유입"
+                  value={sourceFilterId}
+                  onChange={(v) => setSourceFilterId(v)}
+                  options={[
+                    ['', '전체'],
+                    ...(sourceFilterId && !leadSourceFilterOptions.some((o) => o.label === sourceFilterId)
+                      ? [[sourceFilterId, `${formatInquiryLeadPlatformLabel(sourceFilterId)} (기존)`] as const]
+                      : []),
+                    ...leadSourceFilterOptions.map((o) => [o.label, o.label] as const),
+                  ]}
+                />
+                {me?.role === 'ADMIN' && hasInspectionModule ? (
+                  <FilterSelect
+                    label="현장검수"
+                    value={inspectionStatusFilter}
+                    onChange={(v) => {
+                      setInspectionStatusFilter(v);
+                      patchInquiryListSearchParams((next) => {
+                        if (v) next.set('inspectionStatus', v);
+                        else next.delete('inspectionStatus');
+                      });
+                    }}
+                    options={[
+                      ['', '전체'],
+                      ['NONE', '없음'],
+                      ['IN_PROGRESS', '진행중'],
+                      ['COMPLETED', '완료'],
+                      ['VOID', '무효'],
+                    ]}
+                  />
+                ) : null}
+              </>
+            )}
+            chips={(
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <ActiveFilters
+                  items={inquiryActiveFilterChips}
+                  onClearAll={inquiryActiveFilterChips.length > 1 ? () => inquiryActiveFilterChips.forEach((c) => c.onRemove()) : undefined}
+                />
+                <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end">
+                  <ListPaginationBar
+                    mode="summary"
+                    page={listPage}
+                    pageSize={listPageSize}
+                    total={total}
+                    onPageChange={handleListPageChange}
+                    onPageSizeChange={handleListPageSizeChange}
+                    compact
+                  />
+                </div>
+              </div>
+            )}
+          >
+            <span className="inline-flex items-center gap-1">
+              <FilterSelect
+                label="기준"
+                value={dateBasis}
+                defaultValue="createdAt"
                 onChange={(v) => {
                   setMarketerStatsDay('');
                   setMarketerStatsFrom('');
@@ -2993,13 +3199,8 @@ export function AdminInquiriesPage() {
                   setCollaborationStatsDay('');
                   setCollaborationStatsFrom('');
                   setCollaborationStatsTo('');
-                  setMonthKey(v);
+                  setDateBasis(v as 'createdAt' | 'preferredDate');
                   patchInquiryListSearchParams((next) => {
-                    next.set('datePreset', 'month');
-                    next.set('month', v);
-                    next.delete('day');
-                    next.delete('dayFrom');
-                    next.delete('dayTo');
                     next.delete('marketerStatsDay');
                     next.delete('marketerStatsFrom');
                     next.delete('marketerStatsTo');
@@ -3008,32 +3209,78 @@ export function AdminInquiriesPage() {
                     next.delete('collaborationStatsTo');
                   });
                 }}
-                idPrefix="inq-created-month"
-                compact
+                options={[
+                  ['createdAt', '접수일'],
+                  ['preferredDate', '예약일'],
+                ]}
               />
-            )}
-            {datePreset === 'day' && (
-              <>
-                <InquiryDayRangeFields from={dayFrom} to={dayTo} onChange={applyDayRange} />
-                {dayRangeClamped ? (
-                  <span className="text-fluid-2xs text-amber-700">최대 366일까지 맞췄습니다.</span>
-                ) : null}
-              </>
-            )}
-            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end">
-              <ListPaginationBar
-                mode="summary"
-                page={listPage}
-                pageSize={listPageSize}
-                total={total}
-                onPageChange={handleListPageChange}
-                onPageSizeChange={handleListPageSizeChange}
-                compact
+              <HelpTooltip text="접수일 기준 또는 예약일 기준으로 날짜 필터를 적용합니다." />
+            </span>
+            {me?.role === 'ADMIN' || me?.role === 'MARKETER' ? (
+              <FilterSelect
+                label="접수자"
+                value={marketerFilterId}
+                onChange={(v) => {
+                  setMarketerStatsDay('');
+                  setMarketerFilterId(v);
+                  patchInquiryListSearchParams((next) => {
+                    next.delete('marketerStatsDay');
+                    if (v) next.set('createdById', v);
+                    else next.delete('createdById');
+                  });
+                }}
+                options={[
+                  ['', '전체'],
+                  [CREATED_BY_FILTER_UNASSIGNED, '미지정'],
+                  ...(me && !marketers.some((u) => u.id === me.id)
+                    ? [[me.id, formatStaffAttributionLabel({ name: me.name, loginId: me.email ?? '', role: me.role ?? 'ADMIN' })] as const]
+                    : []),
+                  ...marketers.map((m) => [m.id, formatStaffAttributionLabel({ name: m.name, loginId: m.email, role: m.role })] as const),
+                ]}
               />
-            </div>
-          </div>
-          <details className="overflow-hidden rounded-md border border-slate-200 bg-slate-50 [&_summary::-webkit-details-marker]:hidden">
-            <summary className="flex cursor-pointer select-none items-center gap-1 px-2 py-1 text-fluid-2xs hover:bg-slate-100/80">
+            ) : null}
+            <FilterSelect
+              label={hasExternalCo ? '팀장·타업체' : '팀장'}
+              value={teamLeaderFilterId}
+              onChange={(v) => setTeamLeaderFilterId(v)}
+              options={[
+                ['', '전체'],
+                [TEAM_LEADER_FILTER_UNASSIGNED, '미배정'],
+                ...filterableTeamLeaders.map((t) => [t.id, formatAssignableUserLabel(t)] as const),
+              ]}
+            />
+            {operatingCompanies.length > 0 ? (
+              <FilterSelect
+                label="브랜드"
+                value={operatingCompanyFilterId}
+                onChange={(v) => setOperatingCompanyFilterId(v)}
+                options={[
+                  ['', '전체'],
+                  ...operatingCompanies.map((oc) => [oc.id, `${oc.name}${!oc.isActive ? ' (비활성)' : ''}`] as const),
+                ]}
+              />
+            ) : null}
+            <FilterSelect
+              label="상태"
+              value={statusFilter}
+              onChange={(v) => {
+                setMarketerStatsDay('');
+                setStatusFilter(v);
+                patchInquiryListSearchParams((next) => {
+                  if (v) next.set('status', v);
+                  else next.delete('status');
+                  next.delete('marketerStatsDay');
+                  next.delete('q');
+                });
+              }}
+              options={[
+                ['', '전체'],
+                ...STATUS_FILTER_VALUES.map((value) => [value, STATUS_LABELS[value] ?? value] as const),
+              ]}
+            />
+          </FilterBar>
+          <details className="overflow-hidden rounded-xl border border-slate-200 bg-white [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex min-h-9 cursor-pointer select-none items-center gap-1 px-3 py-1.5 text-fluid-2xs hover:bg-slate-50">
               <span className="font-medium text-slate-800">마케터별 확정 예약</span>
               {marketerOverview && (
                 <span className="min-w-0 truncate text-slate-500">
@@ -3235,355 +3482,6 @@ export function AdminInquiriesPage() {
             )}
             </div>
           </details>
-          <div className="flex min-w-0 flex-col gap-1">
-            <div
-              className="flex min-w-0 max-w-full flex-nowrap items-center gap-x-1 gap-y-0.5 overflow-x-auto overscroll-x-contain pb-0.5"
-              style={{ WebkitOverflowScrolling: 'touch' }}
-            >
-              {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
-                <div className="flex shrink-0 items-center gap-1">
-                  <label
-                    htmlFor="inquiry-marketer-filter"
-                    className={INQUIRY_LIST_FILTER_LABEL_CLASS}
-                  >
-                    접수자
-                  </label>
-                  <select
-                    id="inquiry-marketer-filter"
-                    value={marketerFilterId}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setMarketerStatsDay('');
-                      setMarketerFilterId(v);
-                      patchInquiryListSearchParams((next) => {
-                        next.delete('marketerStatsDay');
-                        if (v) next.set('createdById', v);
-                        else next.delete('createdById');
-                      });
-                    }}
-                    className={INQUIRY_LIST_FILTER_SELECT_CLASS}
-                  >
-                    <option value="">전체</option>
-                    <option value={CREATED_BY_FILTER_UNASSIGNED}>미지정</option>
-                    {me && !marketers.some((u) => u.id === me.id) ? (
-                      <option value={me.id}>
-                        {formatStaffAttributionLabel({
-                          name: me.name,
-                          loginId: me.email ?? '',
-                          role: me.role ?? 'ADMIN',
-                        })}
-                      </option>
-                    ) : null}
-                    {marketers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {formatStaffAttributionLabel({
-                          name: m.name,
-                          loginId: m.email,
-                          role: m.role,
-                        })}
-                      </option>
-                    ))}
-                  </select>
-                  {marketerFilterId ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMarketerStatsDay('');
-                        setMarketerFilterId('');
-                        patchInquiryListSearchParams((next) => {
-                          next.delete('createdById');
-                          next.delete('marketerStatsDay');
-                        });
-                      }}
-                      className="shrink-0 whitespace-nowrap text-[12px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
-                    >
-                      접수자 필터 해제
-                    </button>
-                  ) : null}
-                  {marketerStatsDay ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMarketerStatsDay('');
-                        patchInquiryListSearchParams((next) => next.delete('marketerStatsDay'));
-                      }}
-                      className="shrink-0 whitespace-nowrap text-[12px] text-blue-700 underline hover:text-blue-900 sm:text-fluid-xs"
-                    >
-                      확정 집계 해제
-                    </button>
-                  ) : null}
-                  {collaborationStatsDay ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCollaborationStatsDay('');
-                        setCollaborationFilterId('');
-                        patchInquiryListSearchParams((next) => {
-                          next.delete('collaborationStatsDay');
-                          next.delete('collaborationMarketerId');
-                        });
-                      }}
-                      className="shrink-0 whitespace-nowrap text-[12px] text-violet-700 underline hover:text-violet-900 sm:text-fluid-xs"
-                    >
-                      협업 집계 해제
-                    </button>
-                  ) : null}
-                </div>
-              )}
-              {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
-                <span
-                  className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block"
-                  aria-hidden
-                />
-              )}
-              <div className="flex shrink-0 items-center gap-1">
-                <label
-                  htmlFor="inquiry-team-leader-filter"
-                  className={INQUIRY_LIST_FILTER_LABEL_CLASS}
-                >
-                  팀장{hasExternalCo ? '·타업체' : ''}
-                </label>
-                <select
-                  id="inquiry-team-leader-filter"
-                  value={teamLeaderFilterId}
-                  onChange={(e) => setTeamLeaderFilterId(e.target.value)}
-                  className={INQUIRY_LIST_FILTER_SELECT_CLASS}
-                >
-                  <option value="">전체</option>
-                  <option value={TEAM_LEADER_FILTER_UNASSIGNED}>미배정</option>
-                  {filterableTeamLeaders.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {formatAssignableUserLabel(t)}
-                    </option>
-                  ))}
-                </select>
-                {teamLeaderFilterId ? (
-                  <button
-                    type="button"
-                    onClick={() => setTeamLeaderFilterId('')}
-                    className="shrink-0 whitespace-nowrap text-[12px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
-                  >
-                    배정 필터 해제
-                  </button>
-                ) : null}
-              </div>
-              {me?.role === 'ADMIN' && hasInspectionModule ? (
-                <div className="flex shrink-0 items-center gap-1">
-                  <label
-                    htmlFor="inquiry-inspection-status-filter"
-                    className={INQUIRY_LIST_FILTER_LABEL_CLASS}
-                  >
-                    현장검수
-                  </label>
-                  <select
-                    id="inquiry-inspection-status-filter"
-                    value={inspectionStatusFilter}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setInspectionStatusFilter(v);
-                      patchInquiryListSearchParams((next) => {
-                        if (v) next.set('inspectionStatus', v);
-                        else next.delete('inspectionStatus');
-                      });
-                    }}
-                    className={INQUIRY_LIST_FILTER_SELECT_CLASS}
-                  >
-                    <option value="">전체</option>
-                    <option value="NONE">없음</option>
-                    <option value="IN_PROGRESS">진행중</option>
-                    <option value="COMPLETED">완료</option>
-                    <option value="VOID">무효</option>
-                  </select>
-                </div>
-              ) : null}
-              {operatingCompanies.length > 0 ? (
-                <div className="flex shrink-0 items-center gap-1">
-                  <label
-                    htmlFor="inquiry-operating-company-filter"
-                    className={INQUIRY_LIST_FILTER_LABEL_CLASS}
-                  >
-                    브랜드
-                  </label>
-                  <select
-                    id="inquiry-operating-company-filter"
-                    value={operatingCompanyFilterId}
-                    onChange={(e) => setOperatingCompanyFilterId(e.target.value)}
-                    className={INQUIRY_LIST_FILTER_SELECT_CLASS}
-                  >
-                    <option value="">전체</option>
-                    {operatingCompanies.map((oc) => (
-                      <option key={oc.id} value={oc.id}>
-                        {oc.name}
-                        {!oc.isActive ? ' (비활성)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {operatingCompanyFilterId ? (
-                    <button
-                      type="button"
-                      onClick={() => setOperatingCompanyFilterId('')}
-                      className="shrink-0 whitespace-nowrap text-[12px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
-                    >
-                      브랜드 필터 해제
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-              <div className="flex shrink-0 items-center gap-1">
-                <label htmlFor="inquiry-source-filter" className={INQUIRY_LIST_FILTER_LABEL_CLASS}>
-                  유입
-                </label>
-                <select
-                  id="inquiry-source-filter"
-                  value={sourceFilterId}
-                  onChange={(e) => setSourceFilterId(e.target.value)}
-                  className={INQUIRY_LIST_FILTER_SELECT_CLASS}
-                >
-                  <option value="">전체</option>
-                  {sourceFilterId &&
-                  !leadSourceFilterOptions.some((o) => o.label === sourceFilterId) ? (
-                    <option value={sourceFilterId}>
-                      {formatInquiryLeadPlatformLabel(sourceFilterId)} (기존)
-                    </option>
-                  ) : null}
-                  {leadSourceFilterOptions.map((o) => (
-                    <option key={o.id} value={o.label}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                {sourceFilterId ? (
-                  <button
-                    type="button"
-                    onClick={() => setSourceFilterId('')}
-                    className="shrink-0 whitespace-nowrap text-[12px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
-                  >
-                    유입 필터 해제
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            <form
-              className={INQUIRY_LIST_SEARCH_ROW_CLASS}
-              onSubmit={(e) => {
-                e.preventDefault();
-                applySearchQuery(searchInput);
-              }}
-            >
-              <input
-                type="search"
-                enterKeyHint="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="고객명·연락처·접수번호 검색"
-                className={INQUIRY_LIST_SEARCH_INPUT_CLASS}
-              />
-              <div className="relative shrink-0" ref={statusFilterPanelRef}>
-                <button
-                  type="button"
-                  onClick={() => setStatusFilterOpen((prev) => !prev)}
-                  className={INQUIRY_LIST_STATUS_FILTER_BTN_CLASS}
-                  aria-haspopup="dialog"
-                  aria-expanded={statusFilterOpen}
-                  aria-label="상태 필터 선택"
-                  title={statusFilter ? STATUS_LABELS[statusFilter] ?? statusFilter : '전체 상태'}
-                >
-                  <span className="flex min-w-0 flex-1 items-center gap-0.5 truncate sm:gap-1.5">
-                    <span aria-hidden className="shrink-0">
-                      {statusFilter ? STATUS_ICON_MAP[statusFilter] ?? '📋' : '📋'}
-                    </span>
-                    <span className="truncate">
-                      {statusFilter ? STATUS_LABELS[statusFilter] ?? statusFilter : '전체 상태'}
-                    </span>
-                  </span>
-                  <span aria-hidden className="shrink-0 text-slate-500">
-                    ▾
-                  </span>
-                </button>
-                {statusFilterOpen ? (
-                  <div className="absolute right-0 z-30 mt-1.5 w-[15rem] rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
-                    <p className="px-1 pb-2 text-fluid-2xs text-slate-500">상태를 선택하면 바로 필터에 적용됩니다.</p>
-                    <div className="grid grid-cols-2 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMarketerStatsDay('');
-                          setStatusFilter('');
-                          setStatusFilterOpen(false);
-                          patchInquiryListSearchParams((next) => {
-                            next.delete('status');
-                            next.delete('marketerStatsDay');
-                            next.delete('q');
-                          });
-                        }}
-                        className={`flex items-center gap-1 rounded px-1.5 py-1 text-left text-fluid-2xs transition ${
-                          statusFilter === '' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span aria-hidden>📋</span>
-                        <span>전체 상태</span>
-                      </button>
-                      {STATUS_FILTER_VALUES.map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => {
-                            setMarketerStatsDay('');
-                            setStatusFilter(value);
-                            setStatusFilterOpen(false);
-                            patchInquiryListSearchParams((next) => {
-                              next.set('status', value);
-                              next.delete('marketerStatsDay');
-                              next.delete('q');
-                            });
-                          }}
-                          className={`flex items-center gap-1 rounded px-1.5 py-1 text-left text-fluid-2xs transition ${
-                            statusFilter === value
-                              ? 'bg-slate-900 text-white'
-                              : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-                          }`}
-                          title={STATUS_LABELS[value] ?? value}
-                        >
-                          <span aria-hidden>{STATUS_ICON_MAP[value] ?? '🏷️'}</span>
-                          <span className="truncate">{STATUS_LABELS[value] ?? value}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              <button
-                type="submit"
-                className={INQUIRY_LIST_SEARCH_SUBMIT_CLASS}
-              >
-                조회
-              </button>
-            </form>
-          </div>
-          {!marketerStatsDay && !collaborationStatsDay ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/80 bg-slate-50/80 px-2 py-1 text-[11px] text-slate-600 sm:text-fluid-2xs">
-              <span className="font-medium text-slate-700">목록 상단 고정</span>
-              <span className="hidden text-slate-500 md:inline">(날짜·상태 필터와 무관)</span>
-              {([0, 1, 2, 3] as const).map((tier) => (
-                <span key={tier} className="inline-flex items-center gap-1">
-                  <span
-                    className={`inline-block h-2 w-2 rounded-sm sm:h-2.5 sm:w-2.5 ${
-                      tier === 0
-                        ? 'bg-rose-100'
-                        : tier === 1
-                          ? 'bg-emerald-100'
-                          : tier === 2
-                            ? 'bg-sky-100'
-                            : 'bg-amber-100'
-                    }`}
-                    aria-hidden
-                  />
-                  {INQUIRY_LIST_PIN_TIER_LABELS[tier]}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
         </div>
       </div>
 
@@ -3629,147 +3527,91 @@ export function AdminInquiriesPage() {
                 return (
                   <div key={item.id} className={inquiryMobileCardShellClass(item, prevItem, isSoloOperator)}>
                     <div
-                      className={`${INQUIRY_MOBILE_CARD_BODY_CLASS} flex items-start gap-1.5 sm:gap-2`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${item.customerName} 상세`}
+                      onClick={() => openEdit(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openEdit(item);
+                        }
+                      }}
+                      className="flex cursor-pointer flex-col gap-1 px-3 pb-2 pt-3"
                     >
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`${item.customerName} 상세`}
-                        onClick={() => openEdit(item)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            openEdit(item);
-                          }
-                        }}
-                        className="min-w-0 flex-1 cursor-pointer"
-                      >
-                      <div className="flex items-start gap-1.5 sm:gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                            <CustomerNameWithInternalTone
-                              name={item.customerName}
-                              tone={item.internalCustomerTone}
-                              viewerRole={me?.role}
-                              nameClassName="truncate text-fluid-xs font-semibold text-slate-900 sm:text-fluid-sm"
-                            />
-                            {item.claimMemo ? (
-                              <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="클레임">
-                                ●
-                              </span>
-                            ) : null}
-                            {item.inquiryNumber ? (
-                              <span className="shrink-0 rounded bg-slate-900 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-white">
-                                {item.inquiryNumber}
-                              </span>
-                            ) : null}
-                            <OperatingCompanyBadge company={item.operatingCompany} />
-                      {item.tenantShare ? (
-                        <TenantInquiryShareBadge share={item.tenantShare} compact />
-                      ) : null}
-                      {item.dbListing ? (
-                        <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly />
-                      ) : null}
-                            <InquiryProfOptionsReviewListBadge item={item} />
-                            <span
-                              className={`shrink-0 rounded-full px-1.5 py-0.5 text-fluid-2xs font-semibold ring-1 ${
-                                inquiryListServiceKindLabel(item) === '에어컨'
-                                  ? 'bg-sky-100 text-sky-900 ring-sky-200/80'
-                                  : 'bg-slate-100 text-slate-600 ring-slate-200'
-                              }`}
-                            >
-                              {inquiryListServiceKindLabel(item)}
+                      <div className="flex items-start gap-1.5">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <CustomerNameWithInternalTone
+                            name={item.customerName}
+                            tone={item.internalCustomerTone}
+                            viewerRole={me?.role}
+                            nameClassName="truncate text-fluid-sm font-bold text-slate-900"
+                          />
+                          {item.claimMemo ? (
+                            <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="클레임">
+                              ●
                             </span>
-                            {!isInquirySourceHiddenFromUi(item.source) &&
-                            shouldShowInquiryLeadPlatform(item.source) ? (
-                              <span className="shrink-0 rounded-full bg-violet-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-violet-800 ring-1 ring-violet-200/80">
-                                {formatInquiryLeadPlatformLabel(item.source)}
-                              </span>
-                            ) : null}
-                          </div>
-                          {item.scheduleMemo?.trim() ? (
-                            <p
-                              className="mt-0.5 line-clamp-1 text-fluid-2xs text-slate-700 sm:mt-1 sm:text-fluid-xs"
-                              title={item.scheduleMemo}
-                            >
-                              {item.scheduleMemo}
-                            </p>
                           ) : null}
-                          <p
-                            className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-slate-500 sm:mt-1 sm:text-fluid-xs"
-                            title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)}${collabMarketer ? ` · 협업 ${collabMarketer}` : ''} · ${mobileSpecsTail}`}
-                          >
-                            접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
-                            {collabMarketer ? (
-                              <span className="text-slate-400"> · 협업 {collabMarketer}</span>
-                            ) : null}
-                            <span className="text-slate-600"> · {mobileSpecsTail}</span>
-                          </p>
-                          <p className="mt-0.5 line-clamp-1 text-fluid-2xs leading-snug text-slate-600 sm:mt-1 sm:line-clamp-2 sm:text-fluid-xs" title={addrFull}>
-                            {addrShort}
-                          </p>
+                          {item.inquiryNumber ? (
+                            <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">{item.inquiryNumber}</span>
+                          ) : null}
                         </div>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1 text-fluid-2xs text-slate-700 sm:mt-2 sm:gap-2 sm:text-fluid-xs">
-                        <span className="tabular-nums text-slate-800">
-                          예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
-                        </span>
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-fluid-2xs font-medium text-slate-800">
-                          {item.preferredTime ? shortTimeSlotLabelForTenant(item.preferredTime) : '시간 미정'} · 주안{' '}
-                          {formatDistanceFromJuan(item)}
-                        </span>
                         <span
-                          className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
-                            isInquiryLinkedOrderFormPendingSubmit(item)
-                              ? 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
-                              : 'bg-slate-200 text-slate-800'
-                          }`}
+                          className="shrink-0"
                           title={
                             isInquiryLinkedOrderFormPendingSubmit(item)
                               ? `접수 상태: ${STATUS_LABELS[item.status] ?? item.status} · 발주서 고객 미제출`
                               : undefined
                           }
                         >
-                            {inquiryListStatusBadgeText(item)}
-                            </span>
-                        <span
-                          className="inline-flex items-center gap-0.5 rounded-md bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600 ring-1 ring-slate-200/80"
-                          title="예약금 있음 O · 없음 X · 미정 —"
-                        >
-                          예약금 <InquiryListDepositMark item={item} />
+                          <StatusChip tone={inquiryStatusTone(item)}>{inquiryListStatusBadgeText(item)}</StatusChip>
                         </span>
-                        <span
-                          className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600 ring-1 ring-slate-200/80"
-                          title="고객 발주 특이사항 · 발주서 첨부 사진"
-                        >
-                          특이사항{' '}
-                          <InquiryListAttachmentOx
-                            yes={inquiryListHasCustomerSpecialNotes(item)}
-                            shortLabel="특이사항"
-                          />
-                          <span className="text-slate-300">·</span>
-                          사진첨부{' '}
-                          <InquiryListAttachmentOx
-                            yes={inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)}
-                            shortLabel="사진첨부"
-                          />
-                        </span>
-                          </div>
                       </div>
-                      <InquiryCustomerCallButton
-                        phone={item.customerPhone}
-                        customerName={item.customerName}
-                        disabled={Boolean(editItem)}
-                        className="shrink-0 self-start rounded-lg bg-indigo-600 px-2 py-1 text-center text-fluid-2xs font-semibold text-white shadow-sm shadow-indigo-600/10 hover:bg-indigo-700 active:scale-[0.97] sm:rounded-xl sm:px-3.5 sm:py-2 sm:text-fluid-xs lg:hover:scale-[1.03] transition-all duration-200"
+                      {item.scheduleMemo?.trim() ? (
+                        <p className="line-clamp-1 text-fluid-2xs text-slate-700" title={item.scheduleMemo}>
+                          {item.scheduleMemo}
+                        </p>
+                      ) : null}
+                      <p className="line-clamp-2 text-fluid-xs leading-snug text-slate-800" title={addrFull}>
+                        <span className="tabular-nums">
+                          예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
+                        </span>
+                        {' · '}
+                        {item.preferredTime ? shortTimeSlotLabelForTenant(item.preferredTime) : '시간 미정'}
+                        {addrShort ? ` · ${addrShort}` : ''}
+                        <span className="text-slate-600"> · {mobileSpecsTail}</span>
+                        <span className="text-slate-500"> · 주안 {formatDistanceFromJuan(item)}</span>
+                      </p>
+                      <p
+                        className="line-clamp-1 text-fluid-2xs text-slate-500"
+                        title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)}${collabMarketer ? ` · 협업 ${collabMarketer}` : ''}`}
+                      >
+                        접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
+                        {collabMarketer ? ` · 협업 ${collabMarketer}` : ''}
+                      </p>
+                      <InquiryListInfoTags
+                        item={item}
+                        extra={(
+                          <>
+                            <Tag>{inquiryListServiceKindLabel(item)}</Tag>
+                            {!isInquirySourceHiddenFromUi(item.source) && shouldShowInquiryLeadPlatform(item.source) ? (
+                              <Tag>{formatInquiryLeadPlatformLabel(item.source)}</Tag>
+                            ) : null}
+                            <OperatingCompanyBadge company={item.operatingCompany} />
+                            {item.tenantShare ? <TenantInquiryShareBadge share={item.tenantShare} compact /> : null}
+                            {item.dbListing ? <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly /> : null}
+                            <InquiryProfOptionsReviewListBadge item={item} />
+                          </>
+                        )}
                       />
                     </div>
                     <div
-                      className={INQUIRY_MOBILE_CARD_FOOTER_CLASS}
+                      className="flex flex-col gap-2 border-t border-slate-100 px-3 pb-3 pt-2"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3">
-                        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-                          <span className="w-7 shrink-0 text-left text-[11px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
+                      <div className="grid w-full min-w-0 grid-cols-2 gap-2">
+                        <div className="flex min-w-0 items-center gap-1">
+                          <span className="w-7 shrink-0 text-left text-fluid-2xs font-semibold leading-tight text-slate-500">
                             상태
                           </span>
                           <StatusQuickPicker
@@ -3779,8 +3621,8 @@ export function AdminInquiriesPage() {
                             compact
                           />
                         </div>
-                        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-                          <span className="w-7 shrink-0 text-left text-[11px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
+                        <div className="flex min-w-0 items-center gap-1">
+                          <span className="w-7 shrink-0 text-left text-fluid-2xs font-semibold leading-tight text-slate-500">
                             배정
                           </span>
                           <select
@@ -3808,7 +3650,7 @@ export function AdminInquiriesPage() {
                                       ? '보류 건에는 분배할 수 없습니다.'
                                       : undefined
                             }
-                            className="min-h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 sm:min-h-[34px] sm:px-2 sm:py-1 sm:text-fluid-2xs md:text-fluid-xs"
+                            className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-fluid-2xs font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                           >
                             <option value="">미배정</option>
                             {filterableTeamLeaders.map((tl) => (
@@ -3819,141 +3661,56 @@ export function AdminInquiriesPage() {
                           </select>
                         </div>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-1 sm:mt-2 sm:gap-1.5 sm:pt-2">
-                        {item.status === 'DEPOSIT_PENDING' ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleStatusChange(item.id, 'DEPOSIT_COMPLETED');
-                              }}
-                              disabled={saving}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-sky-700`}
-                            >
-                              입금완료
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEdit(item)}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
-                            >
-                              메모
-                            </button>
-                            {canDeleteInquiry && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteTarget(item)}
-                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
+                      {(() => {
+                        const acts = inquiryMobileCardActions(item);
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <InquiryCustomerCallButton
+                              phone={item.customerPhone}
+                              customerName={item.customerName}
+                              disabled={Boolean(editItem)}
+                              className="inline-flex h-11 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-[10px] border border-[#dde3ea] bg-white px-3 text-fluid-sm font-semibold text-[#141b26] hover:bg-[#eef2f7] disabled:opacity-45"
+                            />
+                            <Button size="lg" variant="secondary" className="min-w-0 flex-1 !px-3 !text-fluid-sm" onClick={() => openEdit(item)}>
+                              상세
+                            </Button>
+                            {acts.primary ? (
+                              <Button
+                                size="lg"
+                                variant="primary"
+                                className="min-w-0 flex-1 !px-3 !text-fluid-sm"
+                                disabled={acts.primary.disabled}
+                                onClick={acts.primary.onClick}
                               >
-                                삭제
-                              </button>
-                            )}
-                          </>
-                        ) : item.status === 'ORDER_FORM_PENDING' ? (
-                          renderOrderFormPendingRowActions(item)
-                        ) : item.status === 'DEPOSIT_COMPLETED' ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(
-                                  `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
-                                );
-                              }}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
-                            >
-                              발주서
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openListIntakeEditModal(item)}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
-                            >
-                              수정
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCancelInquiry(item)}
-                              disabled={saving}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
-                            >
-                              취소
-                            </button>
-                            {canDeleteInquiry && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteTarget(item)}
-                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
-                              >
-                                삭제
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {(item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED') && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(
-                                    `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
-                                  );
-                                }}
-                                className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
-                              >
-                                발주서 생성
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => openEdit(item)}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
-                            >
-                              상세보기
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openClaim(item)}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-orange-600`}
-                            >
-                              클레임
-                            </button>
-                            {item.status !== 'CANCELLED' && (
-                              <button
-                                type="button"
-                                onClick={() => handleCancelInquiry(item)}
-                                disabled={saving}
-                                className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
-                              >
-                                취소
-                              </button>
-                            )}
-                            {canDeleteInquiry && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteTarget(item)}
-                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
-                              >
-                                삭제
-                              </button>
-                            )}
-                            {item.status === 'CS_PROCESSING' && (
-                              <button
-                                type="button"
-                                onClick={() => handleStatusChange(item.id, 'COMPLETED')}
-                                disabled={saving}
-                                className={`${INQUIRY_LIST_ACTION_BTN} text-green-600`}
-                              >
-                                완료
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      </div>
+                                {acts.primary.label}
+                              </Button>
+                            ) : null}
+                            {acts.menu.length > 0 ? (
+                              <AnchoredMenu label="더 보기" size="lg">
+                                {(close) => (
+                                  <>
+                                    {acts.menu.map((m) => (
+                                      <button
+                                        key={m.label}
+                                        type="button"
+                                        disabled={m.disabled}
+                                        onClick={() => {
+                                          close();
+                                          m.onClick();
+                                        }}
+                                        className={`block min-h-11 w-full rounded-lg px-3 text-left text-fluid-sm font-medium hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-50 ${m.danger ? 'text-[#b42318] hover:bg-[#fdecea]' : 'text-slate-800'}`}
+                                      >
+                                        {m.label}
+                                      </button>
+                                    ))}
+                                  </>
+                                )}
+                              </AnchoredMenu>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </div>
                     </div>
                 );
               })}
@@ -3975,16 +3732,13 @@ export function AdminInquiriesPage() {
                     <col className="w-[4%]" />
                     <col className="w-[4%]" />
                     <col className="w-[4%]" />
-                    <col className="w-[11%]" />
+                    <col className="w-[20%]" />
                     <col className="w-[8%]" />
                     <col className="w-[12%]" />
                     <col className="w-[4%]" />
                     <col className="w-[6%]" />
                     <col className="w-[6%]" />
                     <col className="w-[6%]" />
-                    <col className="w-[3%]" />
-                    <col className="w-[3%]" />
-                    <col className="w-[3%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col style={{ width: '14%' }} />
@@ -3995,38 +3749,35 @@ export function AdminInquiriesPage() {
                     <col className="w-[4%]" />
                     <col className="w-[4%]" />
                     <col className="w-[4%]" />
-                    <col className="w-[11%]" />
+                    <col className="w-[20%]" />
                     <col className="w-[8%]" />
                     <col className="w-[12%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col className="w-[6%]" />
                     <col className="w-[7%]" />
-                    <col className="w-[3%]" />
-                    <col className="w-[3%]" />
-                    <col className="w-[3%]" />
                     <col className="w-[8%]" />
                     <col style={{ width: '12%' }} />
                   </>
                 )}
               </colgroup>
               <thead>
-                <tr className="bg-slate-50/85 border-b border-slate-200/60">
+                <tr className="h-10 border-b border-slate-200 bg-slate-50">
                   <InquiryListSortTh
                     label="접수일"
                     field="createdAt"
                     activeField={listSort.field}
                     activeDir={listSort.dir}
                     onSort={handleListSort}
-                    className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
+                    className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50 px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5"
                   />
-                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
-                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">서비스</th>
-                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">유입</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">주소</th>
-                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-[12px]">
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold leading-tight text-slate-500 xl:px-1.5">접수자</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold leading-tight text-slate-500 xl:px-1.5">서비스</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold leading-tight text-slate-500 xl:px-1.5">유입</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">고객</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">연락처</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">주소</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold leading-tight text-slate-500 xl:px-1.5">
                     평수
                   </th>
                   <InquiryListSortTh
@@ -4035,10 +3786,10 @@ export function AdminInquiriesPage() {
                     activeField={listSort.field}
                     activeDir={listSort.dir}
                     onSort={handleListSort}
-                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5"
                   />
                   <th
-                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs"
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5"
                     title="희망 시간대 · 인천 주안 기준 직선거리"
                   >
                     시간·거리
@@ -4049,31 +3800,13 @@ export function AdminInquiriesPage() {
                     activeField={listSort.field}
                     activeDir={listSort.dir}
                     onSort={handleListSort}
-                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5"
                   />
-                  <th
-                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
-                    title="예약금 있음 O · 없음 X · 미정 —"
-                  >
-                    예약금
-                  </th>
-                  <th
-                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
-                    title="고객 발주 특이사항"
-                  >
-                    <span className="line-clamp-2 break-keep leading-tight">특이사항</span>
-                  </th>
-                  <th
-                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
-                    title="발주서 고객 첨부 사진"
-                  >
-                    <span className="line-clamp-2 break-keep leading-tight">사진첨부</span>
-                  </th>
                   {hasInspectionModule ? (
-                    <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">현장검수</th>
+                    <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">현장검수</th>
                   ) : null}
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">팀장</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">작업</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">팀장</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -4131,7 +3864,7 @@ export function AdminInquiriesPage() {
                   return (
                   <tr
                     key={item.id}
-                    className={`cursor-pointer group active:bg-slate-100 ${rowBg} ${rowHover} ${tierGroupTop}`}
+                    className={`h-[52px] cursor-pointer group active:bg-slate-100 ${rowBg} ${rowHover} ${tierGroupTop}`}
                     onClick={() => openEdit(item)}
                     title={inquiryListPinRowTitle(item)}
                   >
@@ -4163,12 +3896,12 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[9px] leading-snug text-slate-600 break-keep whitespace-normal xl:text-[11px] ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-fluid-2xs leading-snug text-slate-600 break-keep whitespace-normal ${pBorder}`}
                     >
                       <InquiryListMarketerDisplay item={item} />
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[11px] font-medium leading-tight xl:text-fluid-2xs ${pBorder} ${
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-fluid-2xs font-medium leading-tight ${pBorder} ${
                         inquiryListServiceKindLabel(item) === '에어컨'
                           ? 'text-sky-800'
                           : 'text-slate-600'
@@ -4177,7 +3910,7 @@ export function AdminInquiriesPage() {
                       {inquiryListServiceKindLabel(item)}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight text-slate-600 xl:px-1 xl:text-fluid-2xs ${pBorder}`}
+                      className={`min-w-0 truncate px-0.5 py-0.5 align-middle text-center text-fluid-2xs leading-tight text-slate-600 xl:px-1 ${pBorder}`}
                       title={formatInquiryLeadPlatformLabel(item.source)}
                     >
                       {!isInquirySourceHiddenFromUi(item.source)
@@ -4210,6 +3943,7 @@ export function AdminInquiriesPage() {
                             {item.scheduleMemo}
                           </div>
                         ) : null}
+                        <InquiryListInfoTags item={item} className="mt-1 justify-center" />
                       </div>
                     </td>
                     <td
@@ -4225,7 +3959,7 @@ export function AdminInquiriesPage() {
                       <span className="block break-keep">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 2xl:text-[12px] ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-fluid-2xs leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 xl:text-fluid-xs ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -4288,44 +4022,6 @@ export function AdminInquiriesPage() {
                         </div>
                       ) : null}
                     </td>
-                    <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
-                      title={
-                        inquiryDepositPresence(item) === 'yes'
-                          ? '예약금 있음'
-                          : inquiryDepositPresence(item) === 'no'
-                            ? '예약금 없음'
-                            : '예약금 미정'
-                      }
-                    >
-                      <InquiryListDepositMark item={item} />
-                    </td>
-                    <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
-                      title={
-                        inquiryListHasCustomerSpecialNotes(item)
-                          ? '고객 발주 특이사항 있음'
-                          : '고객 발주 특이사항 없음'
-                      }
-                    >
-                      <InquiryListAttachmentOx
-                        yes={inquiryListHasCustomerSpecialNotes(item)}
-                        shortLabel="특이사항"
-                      />
-                    </td>
-                    <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
-                      title={
-                        inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)
-                          ? `발주서 첨부 사진 ${item.orderFormPhotoCount ?? 0}장`
-                          : '발주서 첨부 사진 없음'
-                      }
-                    >
-                      <InquiryListAttachmentOx
-                        yes={inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)}
-                        shortLabel="사진첨부"
-                      />
-                    </td>
                     {hasInspectionModule ? (
                       <td className={`min-w-0 px-1 py-0.5 align-middle text-center xl:px-1.5 ${pBorder}`}>
                         <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
@@ -4358,7 +4054,7 @@ export function AdminInquiriesPage() {
                                   ? ' · 보류 건에는 분배할 수 없습니다.'
                                   : '')
                         }
-                        className="w-full min-w-0 max-w-full rounded-lg border border-slate-200 px-1 py-0.5 text-fluid-2xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 bg-white"
+                        className="h-8 w-full min-w-0 max-w-full rounded-lg border border-slate-200 bg-white px-1.5 text-fluid-2xs focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                       >
                         <option value="">미배정</option>
                         {filterableTeamLeaders.map((tl) => (

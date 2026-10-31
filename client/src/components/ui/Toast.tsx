@@ -13,6 +13,8 @@ export type ToastInput = {
   actions?: ReactNode;
   /** ms. 0이면 직접 닫을 때까지 */
   duration?: number;
+  /** 어떤 방법으로든 닫힐 때 */
+  onClose?: () => void;
 };
 
 type ToastItem = ToastInput & { id: number; tone: ToastTone };
@@ -28,7 +30,9 @@ function emit() {
 
 function dismiss(id?: number) {
   if (id != null && current?.id !== id) return;
+  const closing = current;
   current = null;
+  closing?.onClose?.();
   window.clearTimeout(timer);
   emit();
 }
@@ -36,12 +40,53 @@ function dismiss(id?: number) {
 function push(tone: ToastTone, input: ToastInput | string): number {
   const base = typeof input === 'string' ? { title: input } : input;
   const id = ++seq;
+  const previous = current;
   current = { ...base, id, tone };
+  previous?.onClose?.();
   window.clearTimeout(timer);
   const duration = base.duration ?? (tone === 'error' ? 0 : 4000);
   if (duration > 0) timer = window.setTimeout(() => dismiss(id), duration);
   emit();
   return id;
+}
+
+/**
+ * 확인창 — 지우기·취소처럼 되돌리기 어려운 일 전에 한 번 더 묻는다. 결과 알림과 같은 모양.
+ * const ok = await confirmDialog({ title: '이 접수를 삭제할까요?', body: '…', confirmLabel: '삭제', danger: true });
+ */
+export function confirmDialog(input: {
+  title: string;
+  body?: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+}): Promise<boolean> {
+  return new Promise((resolve) => {
+    let answered = false;
+    const answer = (value: boolean) => {
+      if (answered) return;
+      answered = true;
+      resolve(value);
+    };
+    push(input.danger ? 'error' : 'info', {
+      title: input.title,
+      body: input.body,
+      duration: 0,
+      onClose: () => answer(false),
+      actions: (
+        <>
+          <ToastButton onClick={() => answer(false)}>{input.cancelLabel ?? '그만두기'}</ToastButton>
+          <ToastButton
+            variant="primary"
+            className={input.danger ? '!bg-[#b42318] hover:!bg-[#912018]' : ''}
+            onClick={() => answer(true)}
+          >
+            {input.confirmLabel ?? '확인'}
+          </ToastButton>
+        </>
+      ),
+    });
+  });
 }
 
 export const toast = {
