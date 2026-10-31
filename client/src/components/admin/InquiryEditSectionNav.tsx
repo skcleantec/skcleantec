@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useLayoutEffect, useState, type RefObject } from 'react';
 import {
   INQUIRY_EDIT_SECTION_ANCHOR_ORDER,
   INQUIRY_EDIT_SECTION_SHORT_LABELS,
@@ -59,7 +59,6 @@ function jumpTo(scroller: HTMLElement, item: NavItem) {
 export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props) {
   const [items, setItems] = useState<NavItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const chipRowRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
     const sc = scrollContainerRef.current;
@@ -98,19 +97,16 @@ export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props
     };
   }, [scrollContainerRef]);
 
-  /** 모바일 칩 줄: 지금 칸 칩이 보이도록 가로로만 맞춘다 */
-  useLayoutEffect(() => {
-    const row = chipRowRef.current;
-    if (!row || !activeId) return;
-    const chip = row.querySelector<HTMLElement>(`[data-nav-for="${CSS.escape(activeId)}"]`);
-    if (!chip) return;
-    const left = chip.offsetLeft - row.offsetLeft;
-    if (left < row.scrollLeft || left + chip.offsetWidth > row.scrollLeft + row.clientWidth) {
-      row.scrollLeft = Math.max(0, left - 12);
-    }
-  }, [activeId]);
 
   if (items.length === 0) return null;
+
+  /** 숫자 칸만(모바일 줄). 지금 보는 칸이 번호 없는 칸이면 바로 앞 번호 칸을 표시 */
+  const numbered = items.filter((it) => it.num != null);
+  let activeNumberedId: string | null = null;
+  for (const it of items) {
+    if (it.num != null) activeNumberedId = it.domId;
+    if (it.domId === activeId) break;
+  }
 
   const onPick = (item: NavItem) => {
     const sc = scrollContainerRef.current;
@@ -147,25 +143,26 @@ export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props
           })}
         </nav>
       ) : null}
+      {/* 모바일(·패널): 예전 오른쪽 1~11 숫자 막대와 같은 숫자만, 가로 스크롤 없이 한 줄에 */}
       <div
-        ref={chipRowRef}
         role="navigation"
         aria-label="접수 수정 칸 이동"
-        className={`order-first flex shrink-0 gap-1.5 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 [scrollbar-width:none] ${wide ? 'lg:hidden' : ''}`}
+        className={`order-first grid shrink-0 gap-1 border-b border-slate-200 bg-white px-3 py-2 ${wide ? 'lg:hidden' : ''}`}
+        style={{ gridTemplateColumns: `repeat(${Math.max(1, numbered.length)}, minmax(0, 1fr))` }}
       >
-        {items.map((item) => {
-          const on = item.domId === activeId;
+        {numbered.map((item) => {
+          const on = item.domId === activeNumberedId;
           return (
             <button
               key={item.domId}
               type="button"
-              data-nav-for={item.domId}
               onClick={() => onPick(item)}
+              aria-label={`${item.num}. ${item.label}`}
+              title={`${item.num}. ${item.label}`}
               aria-current={on ? 'true' : undefined}
-              className={`inline-flex h-[30px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-fluid-2xs font-semibold touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${on ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`}
+              className={`inline-flex h-8 min-w-0 items-center justify-center rounded-lg text-fluid-xs font-bold tabular-nums touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${on ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 active:bg-slate-200'}`}
             >
-              <span className={on ? 'text-slate-400' : 'text-slate-400'} aria-hidden>{item.num ?? '·'}</span>
-              {item.label}
+              {item.num}
             </button>
           );
         })}

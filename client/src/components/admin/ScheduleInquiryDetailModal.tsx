@@ -2501,8 +2501,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     : 'mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5'
               }
             >
-              <div className="flex items-center justify-between gap-2 min-w-0">
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                <div className="flex min-w-[11rem] flex-1 items-center gap-1.5 overflow-hidden">
                   {detailAllDayAssignment ? (
                     <span className={SCHEDULE_ALL_DAY_BADGE_CLASS} title="종일 일정 — 오전·오후 TO 모두 사용">
                       종일
