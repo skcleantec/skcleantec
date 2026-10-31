@@ -6,6 +6,7 @@ import {
 import type { CardPaymentRow } from '../../../api/cardPayment';
 import { CardPaymentStatusChip } from './CardPaymentStatusChip';
 import { formatCardPaymentKst } from '../../../utils/cardPaymentTime';
+import { formatSignedWon, signedWonTextClass } from '../../../utils/signedWon';
 import { CardPaymentRowMenu } from './CardPaymentRowMenu';
 
 export function CardPaymentListTable({
@@ -67,7 +68,7 @@ export function CardPaymentListTable({
               <td className="px-2 py-2 text-center">
                 <CardPaymentStatusChip status={row.status as CardPaymentStatus} />
               </td>
-              <td className="px-2 py-2 text-right tabular-nums">{formatWon(row.amountWon)}</td>
+              <td className={`px-2 py-2 text-right tabular-nums ${signedWonTextClass(row.amountWon)}`}>{formatSignedWon(row.amountWon)}</td>
               <td className="px-2 py-2 text-right tabular-nums">{formatWon(row.tenantFeeWon)}</td>
               <td className="px-2 py-2 text-right tabular-nums">{formatWon(row.tenantNetWon)}</td>
               <td className="px-2 py-2 text-center">

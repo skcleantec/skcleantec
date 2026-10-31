@@ -38,9 +38,12 @@ export function ReceiptRowMenu({
             <button type="button" className={ITEM} onClick={() => { close(); onLinkInquiry(); }}>접수 연결</button>
           ) : null}
           {canCancel ? (
-            <button type="button" className={ITEM} disabled={cancelling} onClick={() => { close(); onCancel(); }}>
-              {cancelling ? '취소 중…' : '발급 취소'}
-            </button>
+            <>
+              <div className="my-1 border-t border-slate-200" />
+              <button type="button" className={ITEM} disabled={cancelling} onClick={() => { close(); onCancel(); }}>
+                {cancelling ? '취소 중…' : '발급 취소'}
+              </button>
+            </>
           ) : null}
           {onModify ? (
             <>

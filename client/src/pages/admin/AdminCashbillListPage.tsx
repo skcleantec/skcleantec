@@ -18,6 +18,7 @@ import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipt
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
+import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 
@@ -30,9 +31,6 @@ function kstMonthKeyNow(): string {
 }
 function kstYmdNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
-}
-function won(n: number): string {
-  return `${Number(n).toLocaleString('ko-KR')}원`;
 }
 
 const STATES = [
@@ -273,7 +271,7 @@ export function AdminCashbillListPage() {
                       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
                     </td>
                     <td className="max-w-[8rem] truncate px-2 py-2 text-center" title={row.itemName}>{row.itemName}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{won(row.totalWon)}</td>
+                    <td className={`px-2 py-2 text-right tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</td>
                     <td className="px-2 py-2 text-center">{usageLabel(row)}</td>
                     <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
                     <td className="px-2 py-2 text-center tabular-nums">{row.ntsConfirmNum || '—'}</td>
@@ -404,7 +402,7 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
       <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
       <p className="truncate text-fluid-sm font-medium" title={customerPrimary(row)}>{customerPrimary(row)}</p>
       {customerSecondary(row) ? <p className="truncate text-fluid-2xs text-slate-500">{customerSecondary(row)}</p> : null}
-      <p className="text-right text-fluid-sm font-semibold tabular-nums text-slate-900">{won(row.totalWon)}</p>
+      <p className={`text-right text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalWon) || 'text-slate-900'}`}>{formatSignedWon(row.totalWon)}</p>
       <p className="truncate text-fluid-xs text-slate-700">{row.itemName} · {usageLabel(row)} · <StatusBadge row={row} /></p>
       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
       <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} onReissue={onReissue} onLink={onLink} />

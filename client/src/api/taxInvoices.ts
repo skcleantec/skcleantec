@@ -73,7 +73,9 @@ export type TaxInvoiceRow = {
   canModify?: boolean;
   amended?: boolean;
   modifyCode?: string | null;
+  originalIssueId?: string | null;
   originalWriteDate?: string | null;
+  originalNtsSendKey?: string | null;
   copyReady?: boolean;
   publicToken?: string | null;
   createdAt: string;
@@ -102,7 +104,7 @@ export function taxStatusView(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSen
   }
   if (row.ntsSendState === '4') return { label: '국세청 전송 완료', className: 'border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]' };
   if (row.ntsSendState === '1' || row.ntsSendState === '2' || row.ntsSendState === '3') {
-    return { label: `국세청 전송 대기 · ${nextNtsMd(row.createdAt)} 14시`, className: 'border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]' };
+    return { label: `전송 대기 · ${nextNtsMd(row.createdAt)} 14시`, className: 'whitespace-nowrap border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]' };
   }
   return { label: taxBarobillStateLabel(row.barobillState), className: 'border border-slate-200 bg-slate-50 text-slate-700' };
 }

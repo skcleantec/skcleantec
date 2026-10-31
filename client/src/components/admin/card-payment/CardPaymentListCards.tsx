@@ -1,6 +1,7 @@
-import { CARD_PAYMENT_METHOD_LABEL, formatWon, type CardPaymentStatus } from '@shared/cardPayment';
+import { CARD_PAYMENT_METHOD_LABEL, type CardPaymentStatus } from '@shared/cardPayment';
 import type { CardPaymentRow } from '../../../api/cardPayment';
 import { formatCardPaymentKst } from '../../../utils/cardPaymentTime';
+import { formatSignedWon, signedWonTextClass } from '../../../utils/signedWon';
 import { CardPaymentRowMenu } from './CardPaymentRowMenu';
 import { CardPaymentStatusChip } from './CardPaymentStatusChip';
 
@@ -30,7 +31,7 @@ export function CardPaymentListCards({
             </div>
             <CardPaymentStatusChip status={row.status as CardPaymentStatus} />
           </div>
-          <p className="mt-1 text-fluid-xs tabular-nums text-slate-800">{formatWon(row.amountWon)}</p>
+          <p className={`mt-1 text-fluid-xs tabular-nums ${signedWonTextClass(row.amountWon) || 'text-slate-800'}`}>{formatSignedWon(row.amountWon)}</p>
           <p className="mt-0.5 truncate text-fluid-2xs text-slate-500" title={`${formatCardPaymentKst(row.createdAt)} · ${row.createdBy.name} · ${row.inquiryNumber ?? ''}`}>
             {formatCardPaymentKst(row.createdAt)} · {row.createdBy.name} · {CARD_PAYMENT_METHOD_LABEL[row.method]}
             {row.inquiryNumber ? ` · ${row.inquiryNumber}` : ''}

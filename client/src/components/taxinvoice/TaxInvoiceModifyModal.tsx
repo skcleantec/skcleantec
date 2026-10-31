@@ -2,14 +2,11 @@ import { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '../ui/Button';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
+import { LineMdIcon } from '../ui/LineMdIcon';
 import { modifyTaxInvoice, type TaxInvoiceRow } from '../../api/taxInvoices';
+import { formatSignedWon } from '../../utils/signedWon';
 
 const INPUT = 'min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs';
-
-function won(n: number): string {
-  const sign = n < 0 ? '−' : '';
-  return `${sign}${Math.abs(n).toLocaleString('ko-KR')}원`;
-}
 
 function md(writeDate: string | null | undefined): string {
   const text = (writeDate ?? '').replace(/\D/g, '');
@@ -72,7 +69,7 @@ export function TaxInvoiceModifyModal({
     ? '수정 발급'
     : preview.sheets === 2
       ? '2장 수정 발급'
-      : `${won(preview.amount)} 수정 발급`;
+      : `${formatSignedWon(preview.amount)} 수정 발급`;
 
   return createPortal(
     <div className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
@@ -83,14 +80,17 @@ export function TaxInvoiceModifyModal({
         aria-modal="true"
         aria-labelledby="tax-modify-title"
       >
-        <header className="shrink-0 border-b border-slate-200 px-3 py-2">
+        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
           <h2 id="tax-modify-title" className="text-fluid-sm font-semibold text-slate-900">수정세금계산서 발급</h2>
+          <button type="button" aria-label="닫기" className="inline-flex size-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" onClick={onClose} disabled={busy}>
+            <LineMdIcon name="close" className="size-5" />
+          </button>
         </header>
         <div ref={scrollRef} className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto p-3" onFocusCapture={onFieldFocus}>
           <p className="text-fluid-xs text-slate-700">발급된 세금계산서는 수정세금계산서로 바로잡아요. 국세청 전송 전이면 발급 취소도 할 수 있어요.</p>
           <dl className="grid grid-cols-[5rem_1fr] gap-y-1 text-fluid-xs">
             <dt className="text-slate-500">원래 건</dt>
-            <dd>{md(row.writeDate) || '—'} · {won(row.totalAmount)}</dd>
+            <dd>{md(row.writeDate) || '—'} · {formatSignedWon(row.totalAmount)}</dd>
             <dt className="text-slate-500">받는 곳</dt>
             <dd className="truncate" title={row.buyerCorpName}>{row.buyerCorpName}</dd>
             <dt className="text-slate-500">승인번호</dt>
@@ -118,7 +118,7 @@ export function TaxInvoiceModifyModal({
           </fieldset>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
             <p className="text-fluid-2xs text-slate-500">발급될 수정세금계산서</p>
-            <p className="text-fluid-sm font-semibold tabular-nums text-slate-900">{preview.amount == null ? '차액을 입력해 주세요' : won(preview.amount)}</p>
+            <p className={`tabular-nums ${preview.amount == null ? 'text-fluid-sm font-semibold text-slate-900' : 'text-[20px] font-bold text-[#b42318]'}`}>{preview.amount == null ? '차액을 입력해 주세요' : formatSignedWon(preview.amount)}</p>
             <p className="text-fluid-xs text-slate-600">{preview.note}</p>
           </div>
           {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}

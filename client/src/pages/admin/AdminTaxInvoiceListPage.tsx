@@ -24,6 +24,8 @@ import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../ut
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { TaxInvoiceCertBand } from '../../components/taxinvoice/TaxInvoiceCertBand';
 import { TaxInvoiceModifyModal } from '../../components/taxinvoice/TaxInvoiceModifyModal';
+import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
+import { approvalTail, groupTaxInvoiceRows, type TaxListConnect } from '../../utils/taxInvoiceListGroup';
 
 const SEG = 'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
 const SEG_ON = 'bg-slate-900 text-white hover:bg-slate-800';
@@ -44,10 +46,6 @@ function kstMonthKeyNow(): string {
 function kstYmdNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
-function won(n: number): string {
-  return `${Number(n).toLocaleString('ko-KR')}원`;
-}
-
 export function AdminTaxInvoiceListPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -138,7 +136,16 @@ export function AdminTaxInvoiceListPage() {
     }
   }
 
+  const slots = useMemo(() => groupTaxInvoiceRows(items), [items]);
   const blocking = shouldShowListBlockingLoading(loading, items.length);
+
+  function focusOriginal(id: string) {
+    const nodes = document.querySelectorAll<HTMLElement>(`[data-tax-row="${id}"]`);
+    const visible = [...nodes].find((el) => el.getClientRects().length > 0);
+    visible?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setHighlightId(id);
+    window.setTimeout(() => setHighlightId((cur) => (cur === id ? null : cur)), 2500);
+  }
   const selected = brands.find((brand) => brand.id === brandId);
   const needsLink = !loading && (brands.length === 0 || (selected ? !selected.linked : brands.every((brand) => !brand.linked)));
   const certMissing = !loading && brands.length > 0 && !brands.some((brand) => brand.linked && brand.certValid && !brand.simplified);
@@ -224,7 +231,13 @@ export function AdminTaxInvoiceListPage() {
       {!needsLink && !blocking ? (
         <>
           <div className="space-y-1.5 lg:hidden">
-            {items.map((row) => <TaxCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={setError} highlight={highlightId === row.id} />)}
+            {mobileGroups(slots).map((group) => (
+              <div key={group[0].row.id} className={group.length > 1 ? 'space-y-1.5 border-l border-slate-300 pl-2' : 'space-y-1.5'}>
+                {group.map((slot) => (
+                  <TaxCard key={slot.row.id} row={slot.row} nested={slot.nested} cancelling={cancellingId === slot.row.id} onCancel={() => void cancelRow(slot.row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(slot.row.id)}`)} onLink={() => setLinkIssueId(slot.row.id)} onModify={() => setModifyRow(slot.row)} onError={setError} onFocusOriginal={focusOriginal} highlight={highlightId === slot.row.id} />
+                ))}
+              </div>
+            ))}
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
@@ -237,28 +250,37 @@ export function AdminTaxInvoiceListPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((row) => (
-                  <tr key={row.id} className={`border-t border-slate-100 ${highlightId === row.id ? 'bg-emerald-50' : ''}`}>
-                    <td className="px-2 py-2 text-center tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</td>
-                    <td className="px-2 py-2 text-center">
+                {slots.map((slot) => {
+                  const row = slot.row;
+                  const cell = 'h-[52px] max-h-[52px] overflow-hidden px-2 py-0 align-middle';
+                  return (
+                  <tr key={row.id} data-tax-row={row.id} className={`h-[52px] border-t border-slate-100 ${highlightId === row.id ? 'bg-amber-50' : ''}`}>
+                    <td className={`relative text-center tabular-nums ${cell} ${slot.nested ? 'pl-4' : ''}`}>
+                      <ConnectRail connect={slot.connect} />
+                      {formatReceiptIssuedAt(row.createdAt)}
+                    </td>
+                    <td className={`text-center ${cell}`}>
                       <p className="truncate" title={row.customerName}>{row.customerName}</p>
                       {row.inquiryNumber ? <Link className="text-fluid-2xs text-slate-600 underline hover:text-slate-900" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.inquiryNumber}</Link> : null}
                       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
                     </td>
-                    <td className="truncate px-2 py-2 text-center" title={row.buyerCorpName}>{row.buyerCorpName}</td>
-                    <td className="px-2 py-2 text-center tabular-nums">{row.buyerCorpNum || '—'}</td>
-                    <td className="px-2 py-2 text-center"><TaxKindBadge kind={row.taxKind} /></td>
-                    <td className="truncate px-2 py-2 text-center" title={row.itemName || '청소 서비스'}>{row.itemName || '청소 서비스'}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{won(row.totalAmount)}</td>
-                    <td className="px-2 py-2 text-center">{row.purposeType === 2 ? '청구' : '영수'}</td>
-                    <td className="px-2 py-2 text-center">
-                      <TaxStatus row={row} />
-                      {row.modifyCode && row.originalWriteDate ? <p className="text-fluid-2xs text-slate-500">수정 · 원래 {originalMd(row.originalWriteDate)} 건</p> : null}
+                    <td className={`truncate text-center ${cell}`} title={row.buyerCorpName}>{row.buyerCorpName}</td>
+                    <td className={`text-center tabular-nums ${cell}`}>{row.buyerCorpNum || '—'}</td>
+                    <td className={`text-center ${cell}`}><TaxKindBadge kind={row.taxKind} /></td>
+                    <td className={`truncate text-center ${cell}`} title={row.itemName || '청소 서비스'}>{row.itemName || '청소 서비스'}</td>
+                    <td className={`text-right tabular-nums ${cell} ${signedWonTextClass(row.totalAmount)}`}>{formatSignedWon(row.totalAmount)}</td>
+                    <td className={`text-center ${cell}`}>{row.purposeType === 2 ? '청구' : '영수'}</td>
+                    <td className={`text-center ${cell}`}>
+                      <div className="flex max-h-[52px] flex-col items-center justify-center overflow-hidden leading-tight">
+                        <TaxStatus row={row} />
+                        <OriginalLink row={row} onFocus={focusOriginal} />
+                      </div>
                     </td>
-                    <td className="px-2 py-2 text-center"><ApprovalNumberCell value={row.ntsSendKey} /></td>
-                    <td className="px-2 py-2 text-center"><RowAction row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={setError} /></td>
+                    <td className={`text-center ${cell}`}><ApprovalNumberCell value={row.ntsSendKey} /></td>
+                    <td className={`text-center ${cell}`}><RowAction row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice/new?from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={setError} /></td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {items.length === 0 ? <p className="p-6 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
@@ -307,15 +329,44 @@ function TaxKindBadge({ kind }: { kind?: TaxInvoiceRow['taxKind'] }) {
   return <span className="mr-1 inline-flex rounded-full bg-gray-100 px-1.5 py-0 text-fluid-2xs font-medium text-gray-700">{label}</span>;
 }
 
-function originalMd(writeDate: string): string {
-  const text = writeDate.replace(/\D/g, '');
-  if (text.length < 8) return writeDate;
-  return `${Number(text.slice(4, 6))}.${Number(text.slice(6, 8))}`;
-}
-
 function TaxStatus({ row }: { row: TaxInvoiceRow }) {
   const view = taxStatusView(row);
-  return <span className={`inline-flex rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>;
+  return <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>;
+}
+
+function OriginalLink({ row, onFocus }: { row: TaxInvoiceRow; onFocus: (id: string) => void }) {
+  if (!row.modifyCode || !row.originalIssueId) return null;
+  const tail = approvalTail(row.originalNtsSendKey);
+  const label = tail ? `수정 · 원래 건 …${tail}` : '수정 · 원래 건';
+  return (
+    <button
+      type="button"
+      className="max-w-full truncate text-fluid-2xs leading-tight text-slate-500 hover:text-slate-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+      onClick={() => onFocus(row.originalIssueId!)}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ConnectRail({ connect }: { connect: TaxListConnect }) {
+  if (connect === 'none') return null;
+  const line = connect === 'start' ? 'top-1/2 bottom-0' : connect === 'end' ? 'top-0 h-1/2' : 'inset-y-0';
+  return (
+    <>
+      <span className={`pointer-events-none absolute left-1 w-px bg-slate-300 ${line}`} aria-hidden />
+      {connect === 'start' ? null : <span className="pointer-events-none absolute left-1 top-1/2 h-px w-2 bg-slate-300" aria-hidden />}
+    </>
+  );
+}
+
+function mobileGroups(slots: ReturnType<typeof groupTaxInvoiceRows>) {
+  const groups: Array<typeof slots> = [];
+  for (const slot of slots) {
+    if (!slot.nested || groups.length === 0) groups.push([slot]);
+    else groups[groups.length - 1].push(slot);
+  }
+  return groups;
 }
 
 function RowAction({ row, cancelling, onCancel, onReissue, onLink, onModify, onError }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onModify: () => void; onError: (message: string) => void }) {
@@ -352,16 +403,16 @@ async function openTaxMail(issueId: string): Promise<void> {
   openReceiptWindow(body.url);
 }
 
-function TaxCard({ row, cancelling, onCancel, onReissue, onLink, onModify, onError, highlight }: { row: TaxInvoiceRow; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onModify: () => void; onError: (message: string) => void; highlight: boolean }) {
+function TaxCard({ row, nested, cancelling, onCancel, onReissue, onLink, onModify, onError, onFocusOriginal, highlight }: { row: TaxInvoiceRow; nested: boolean; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onModify: () => void; onError: (message: string) => void; onFocusOriginal: (id: string) => void; highlight: boolean }) {
   return (
-    <article className={`space-y-1 rounded-lg border border-slate-200 p-2 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
+    <article data-tax-row={row.id} className={`space-y-1 rounded-lg border border-slate-200 p-2 ${nested ? 'ml-2' : ''} ${highlight ? 'bg-amber-50' : 'bg-white'}`}>
       <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
       <p className="truncate text-fluid-sm font-medium text-slate-900" title={row.customerName}>{row.customerName}</p>
       <p className="truncate text-fluid-xs text-slate-700" title={row.buyerCorpName}>{row.buyerCorpName} · {row.buyerCorpNum || '—'}</p>
-      <p className="text-right text-fluid-sm font-semibold tabular-nums text-slate-900">{won(row.totalAmount)}</p>
+      <p className={`text-right text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalAmount) || 'text-slate-900'}`}>{formatSignedWon(row.totalAmount)}</p>
       <p className="truncate text-fluid-2xs text-slate-600"><TaxKindBadge kind={row.taxKind} /> {row.itemName || '청소 서비스'} · {row.purposeType === 2 ? '청구' : '영수'} · <TaxStatus row={row} /></p>
       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700">실패 이유: {row.lastError}</p> : null}
-      {row.modifyCode && row.originalWriteDate ? <p className="text-fluid-2xs text-slate-500">수정 · 원래 {originalMd(row.originalWriteDate)} 건</p> : null}
+      <OriginalLink row={row} onFocus={onFocusOriginal} />
       <RowAction row={row} cancelling={cancelling} onCancel={onCancel} onReissue={onReissue} onLink={onLink} onModify={onModify} onError={onError} />
     </article>
   );

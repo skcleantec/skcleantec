@@ -575,7 +575,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       include: {
         inquiry: { select: { inquiryNumber: true, customerName: true } },
         operatingCompany: { select: { name: true } },
-        originalIssue: { select: { writeDate: true } },
+        originalIssue: { select: { writeDate: true, ntsSendKey: true } },
         modifications: { where: { barobillState: '3014' }, select: { id: true } },
       },
     }),
@@ -633,6 +633,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       amended: row.modifications.length > 0,
       canModify: row.barobillState === '3014' && !row.modifyCode && row.modifications.length === 0,
       originalWriteDate: row.originalIssue?.writeDate ?? null,
+      originalNtsSendKey: row.originalIssue?.ntsSendKey ?? null,
       itemName: firstLineName(row.lines),
     })),
     total,
