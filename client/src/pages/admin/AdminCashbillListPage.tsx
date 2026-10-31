@@ -20,6 +20,7 @@ import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wa
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
 import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
+import { Button } from '../../components/ui/Button';
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 
 const SEG =
@@ -94,6 +95,7 @@ export function AdminCashbillListPage() {
           itemName: src.itemName,
           memo: src.memo,
           askIdentity: true,
+          customerName: src.customerName ?? '',
         });
         setIssueOpen(true);
       })
@@ -232,8 +234,8 @@ export function AdminCashbillListPage() {
         </select>
         <input
           defaultValue={queryText}
-          placeholder="고객명·번호"
-          aria-label="고객명·번호"
+          placeholder="고객명·발급번호·접수번호"
+          aria-label="고객명·발급번호·접수번호"
           className="min-h-9 min-w-[10rem] flex-1 rounded-lg border border-slate-300 px-2 text-fluid-xs"
           onKeyDown={(event) => {
             if (event.key === 'Enter') patch({ q: (event.target as HTMLInputElement).value.trim(), page: '1' });
@@ -250,33 +252,34 @@ export function AdminCashbillListPage() {
             {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
           </div>
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
-            <table className="w-full border-collapse text-fluid-xs">
+            <table className="w-full table-fixed border-collapse text-fluid-xs">
               <thead className="bg-slate-100">
                 <tr>
-                  {['발급일시', '고객', '품목', '금액', '용도', '상태', '승인번호', ''].map((label) => (
-                    <th key={label || 'act'} className="px-2 py-2 text-center font-medium text-slate-700">{label}</th>
+                  {CASH_COLS.map((col) => (
+                    <th key={col.key} style={col.width ? { width: col.width } : undefined} className={`whitespace-nowrap px-2 py-2 font-medium text-slate-700 ${col.align} ${col.hide}`}>{col.label}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {items.map((row) => (
-                  <tr key={row.id} className={`border-t border-slate-100 ${highlightId === row.id ? 'bg-emerald-50' : ''}`}>
-                    <td className="px-2 py-2 text-center tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</td>
-                    <td className="px-2 py-2 text-center">
-                      <p className={`truncate ${hasCustomerName(row) ? '' : 'text-fluid-sm font-medium text-slate-900'}`} title={customerPrimary(row)}>{customerPrimary(row)}</p>
-                      {customerSecondary(row) ? <p className="truncate text-fluid-2xs text-slate-500" title={customerSecondary(row) ?? ''}>{customerSecondary(row)}</p> : null}
-                      {row.inquiryNumber ? (
-                        <Link className="text-fluid-2xs text-slate-600 underline hover:text-slate-900" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.inquiryNumber}</Link>
-                      ) : null}
-                      {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
+                  <tr key={row.id} className={`h-[52px] border-t border-slate-100 ${highlightId === row.id ? 'bg-emerald-50' : ''}`}>
+                    <td className="whitespace-nowrap px-2 py-2 text-center tabular-nums text-slate-600">{formatReceiptIssuedAt(row.createdAt)}</td>
+                    <td className="px-2 py-2 text-left">
+                      <CustomerNameCell row={row} />
                     </td>
-                    <td className="max-w-[8rem] truncate px-2 py-2 text-center" title={row.itemName}>{row.itemName}</td>
-                    <td className={`px-2 py-2 text-right tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</td>
-                    <td className="px-2 py-2 text-center">{usageLabel(row)}</td>
-                    <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
-                    <td className="px-2 py-2 text-center tabular-nums">{row.ntsConfirmNum || '—'}</td>
+                    <td className="px-2 py-2 text-left">
+                      <p className="truncate tabular-nums text-slate-900" title={identityText(row)}>{identityText(row)}</p>
+                      <p className="text-fluid-2xs text-slate-500">{usageLabel(row)}</p>
+                    </td>
                     <td className="px-2 py-2 text-center">
-                      <ReceiptActions row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} />
+                      <InquiryCell row={row} onLink={() => setLinkIssueId(row.id)} />
+                    </td>
+                    <td className={`truncate px-2 py-2 text-left ${NARROW_HIDE}`} title={row.itemName}>{row.itemName}</td>
+                    <td className={`whitespace-nowrap px-2 py-2 text-right font-medium tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</td>
+                    <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
+                    <td className={`truncate px-2 py-2 text-center tabular-nums text-slate-600 ${XL_HIDE}`} title={row.ntsConfirmNum ?? ''}>{row.ntsConfirmNum || '—'}</td>
+                    <td className="px-2 py-2 text-right">
+                      <ReceiptActions compact row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={setError} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} />
                     </td>
                   </tr>
                 ))}
@@ -310,27 +313,62 @@ function usageLabel(row: CashbillIssueRow): string {
   return '소득공제';
 }
 
-function hasCustomerName(row: CashbillIssueRow): boolean {
+const NARROW_HIDE = 'hidden min-[1440px]:table-cell';
+const XL_HIDE = 'hidden xl:table-cell';
+
+/** 고객명·품목은 남는 폭을 나눠 쓰고, 좁은 화면에서는 품목→승인번호 순으로 숨긴다. */
+const CASH_COLS = [
+  { key: 'at', label: '발급일시', width: '96px', align: 'text-center', hide: '' },
+  { key: 'name', label: '고객명', width: undefined, align: 'text-left', hide: '' },
+  { key: 'id', label: '발급번호', width: '140px', align: 'text-left', hide: '' },
+  { key: 'inq', label: '접수', width: '112px', align: 'text-center', hide: '' },
+  { key: 'item', label: '품목', width: undefined, align: 'text-left', hide: NARROW_HIDE },
+  { key: 'won', label: '금액', width: '100px', align: 'text-right', hide: '' },
+  { key: 'st', label: '상태', width: '190px', align: 'text-center', hide: '' },
+  { key: 'nts', label: '승인번호', width: '108px', align: 'text-center', hide: XL_HIDE },
+  { key: 'act', label: '', width: '120px', align: 'text-right', hide: '' },
+] as const;
+
+/** 고객명: 접수 이름 → 발급 때 적은 이름 → 「연계 없음」 */
+function customerNameOf(row: CashbillIssueRow): string | null {
   const name = row.customerName?.trim() ?? '';
-  return name.length > 0 && name !== '매칭 없음' && name !== '—';
+  return name && name !== '매칭 없음' ? name : null;
 }
 
-function customerPrimary(row: CashbillIssueRow): string {
-  if (hasCustomerName(row)) return (row.customerName ?? '').trim();
-  const line = customerLine(row).trim();
-  if (line && line !== '—') return line;
-  return '고객 정보 없음';
+function identityText(row: CashbillIssueRow): string {
+  if (row.identityMasked === '자진발급') return '자진발급 번호';
+  const text = row.tradeUsage === 2 ? displayReceiptBiz(row.identityMasked) : displayReceiptPhone(row.identityMasked);
+  return text && text !== '—' ? text : '—';
 }
 
-function customerSecondary(row: CashbillIssueRow): string | null {
-  if (!hasCustomerName(row)) return null;
-  const line = customerLine(row).trim();
-  return line && line !== '—' ? line : null;
+function CustomerNameCell({ row }: { row: CashbillIssueRow }) {
+  const name = customerNameOf(row);
+  return (
+    <div className="min-w-0">
+      {name ? (
+        <p className="truncate font-semibold text-slate-900" title={name}>{name}</p>
+      ) : (
+        <p className="truncate text-slate-400">연계 없음</p>
+      )}
+      {row.lastError ? (
+        <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p>
+      ) : name && !row.linked ? (
+        <p className="text-fluid-2xs text-slate-500">직접 입력</p>
+      ) : null}
+    </div>
+  );
 }
 
-function customerLine(row: CashbillIssueRow): string {
-  if (row.identityMasked === '자진발급') return '자진발급';
-  return row.tradeUsage === 2 ? displayReceiptBiz(row.identityMasked) : displayReceiptPhone(row.identityMasked);
+function InquiryCell({ row, onLink, size = 'sm' }: { row: CashbillIssueRow; onLink: () => void; size?: 'sm' | 'md' }) {
+  if (row.inquiryNumber) {
+    return (
+      <Link className="whitespace-nowrap tabular-nums text-[#1f4fb8] underline-offset-2 hover:underline" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`} title="접수 보기">
+        {row.inquiryNumber}
+      </Link>
+    );
+  }
+  if (row.kind === 'CANCEL') return <span className="text-slate-400">—</span>;
+  return <Button size={size} variant="secondary" onClick={onLink}>접수 연결</Button>;
 }
 
 function isFailedRow(row: CashbillIssueRow): boolean {
@@ -352,7 +390,7 @@ function StatusBadge({ row }: { row: CashbillIssueRow }) {
         : row.barobillState === '2000' || row.barobillState === '2500'
           ? 'border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]'
           : 'border border-slate-200 bg-slate-50 text-slate-700';
-  return <span className={`inline-flex rounded-full px-1.5 py-0 text-fluid-2xs ${tone}`}>{label}</span>;
+  return <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${tone}`}>{label}</span>;
 }
 
 function ReceiptActions({
@@ -362,6 +400,7 @@ function ReceiptActions({
   onError,
   onReissue,
   onLink,
+  compact = false,
 }: {
   row: CashbillIssueRow;
   cancelling: boolean;
@@ -369,17 +408,18 @@ function ReceiptActions({
   onError: (message: string) => void;
   onReissue: () => void;
   onLink: () => void;
+  compact?: boolean;
 }) {
-  const btn = 'min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  const size = compact ? 'sm' : 'md';
   const failed = isFailedRow(row) || row.barobillState === '7000' || row.kind === 'CANCEL';
   return (
-    <div className="inline-flex items-center justify-center gap-1">
+    <div className="inline-flex items-center justify-end gap-1">
       {failed ? (
-        <button type="button" className={btn} onClick={onReissue}>다시 발행</button>
+        <Button size={size} onClick={onReissue}>다시 발행</Button>
       ) : (
-        <button type="button" className={btn} disabled={!canViewReceipt(row)} onClick={() => void openCashbillReceipt(row.id).catch((err: unknown) => onError(err instanceof Error ? err.message : '영수증을 열지 못했습니다.'))}>
+        <Button size={size} disabled={!canViewReceipt(row)} onClick={() => void openCashbillReceipt(row.id).catch((err: unknown) => onError(err instanceof Error ? err.message : '영수증을 열지 못했습니다.'))}>
           영수증
-        </button>
+        </Button>
       )}
       <ReceiptRowMenu
         kind="cashbill"
@@ -390,22 +430,36 @@ function ReceiptActions({
         canCancel={Boolean(row.canCancel)}
         cancelling={cancelling}
         onCancel={onCancel}
-        onLinkInquiry={onLink}
+        onLinkInquiry={row.kind === 'CANCEL' ? undefined : onLink}
+        compact={compact}
       />
     </div>
   );
 }
 
 function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, highlight }: { row: CashbillIssueRow; cancelling: boolean; onCancel: () => void; onError: (message: string) => void; onReissue: () => void; onLink: () => void; highlight: boolean }) {
+  const name = customerNameOf(row);
   return (
-    <article className={`rounded-lg border border-slate-200 p-2 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
-      <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}</p>
-      <p className="truncate text-fluid-sm font-medium" title={customerPrimary(row)}>{customerPrimary(row)}</p>
-      {customerSecondary(row) ? <p className="truncate text-fluid-2xs text-slate-500">{customerSecondary(row)}</p> : null}
-      <p className={`text-right text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalWon) || 'text-slate-900'}`}>{formatSignedWon(row.totalWon)}</p>
-      <p className="truncate text-fluid-xs text-slate-700">{row.itemName} · {usageLabel(row)} · <StatusBadge row={row} /></p>
+    <article className={`space-y-1.5 rounded-xl border border-slate-200 p-3 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          {name ? <p className="truncate text-fluid-sm font-semibold text-slate-900">{name}</p> : <p className="text-fluid-sm text-slate-400">연계 없음</p>}
+          <p className="truncate text-fluid-2xs tabular-nums text-slate-500">{identityText(row)} · {usageLabel(row)}{name && !row.linked ? ' · 직접 입력' : ''}</p>
+        </div>
+        <p className={`shrink-0 text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalWon) || 'text-slate-900'}`}>{formatSignedWon(row.totalWon)}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fluid-2xs text-slate-500">
+        <span className="tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</span>
+        <span className="truncate">{row.itemName}</span>
+        <StatusBadge row={row} />
+      </div>
       {row.lastError ? <p className="truncate text-fluid-2xs text-red-700" title={row.lastError}>실패 이유: {row.lastError}</p> : null}
-      <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} onReissue={onReissue} onLink={onLink} />
+      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+        {row.inquiryNumber ? (
+          <p className="min-w-0 truncate text-fluid-xs text-slate-500">접수 <InquiryCell row={row} onLink={onLink} /></p>
+        ) : <InquiryCell row={row} onLink={onLink} size="md" />}
+        <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} onReissue={onReissue} onLink={onLink} />
+      </div>
     </article>
   );
 }

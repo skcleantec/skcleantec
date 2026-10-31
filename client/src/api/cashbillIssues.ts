@@ -24,7 +24,10 @@ export type CashbillIssueRow = {
   copyReady?: boolean;
   publicToken?: string | null;
   inquiryNumber?: string | null;
-  customerName?: string;
+  /** 접수 이름 → 발급 때 적은 이름 → null */
+  customerName?: string | null;
+  /** 접수와 연결됐는지 */
+  linked?: boolean;
   brandName?: string;
   canCancel?: boolean;
 };
@@ -82,6 +85,7 @@ export type CashbillReissueSource = {
   usage: CashbillUsage;
   itemName: string;
   memo: string;
+  customerName?: string;
 };
 
 export async function fetchCashbillSource(issueId: string): Promise<CashbillReissueSource> {
@@ -109,6 +113,7 @@ export async function issueCashbill(body: {
   tradeDate?: string;
   email?: string;
   internalMemo?: string;
+  customerName?: string;
   requestId: string;
 }): Promise<CashbillIssueRow> {
   const res = await fetch(`${API}/cashbill/issues`, {

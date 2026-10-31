@@ -3,6 +3,7 @@ import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { issueCashbill, searchCashbillInquiries, type CashbillSearchHit, type CashbillUsage } from '../../api/cashbillIssues';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
+import { Button } from '../ui/Button';
 
 const BTN =
   'min-h-11 rounded-lg bg-slate-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -33,6 +34,7 @@ export type CashbillIssueSeed = {
   itemName: string;
   memo: string;
   askIdentity: boolean;
+  customerName?: string;
 };
 
 export function CashbillIssueForm({
@@ -62,6 +64,8 @@ export function CashbillIssueForm({
   const [itemName, setItemName] = useState(seed?.itemName ?? '청소 서비스');
   const [tradeDate, setTradeDate] = useState(today);
   const [email, setEmail] = useState('');
+  const [customerName, setCustomerName] = useState(seed?.customerName ?? '');
+  const [phoneHits, setPhoneHits] = useState<CashbillSearchHit[]>([]);
   const [memoOpen, setMemoOpen] = useState(Boolean(seed?.memo));
   const [memo, setMemo] = useState(seed?.memo ?? '');
   const [busy, setBusy] = useState(false);
@@ -89,9 +93,34 @@ export function CashbillIssueForm({
     };
   }, [query]);
 
+  // 직접 입력 중 휴대폰 번호가 접수에 있으면 연결을 제안한다.
+  const identityDigits = identity.replace(/\D/g, '');
+  useEffect(() => {
+    if (!unmatched || usage !== 'phone' || identityDigits.length < 10) {
+      setPhoneHits([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchCashbillInquiries(identityDigits)
+        .then((items) => {
+          if (!cancelled) setPhoneHits(items.filter((hit) => (hit.customerPhone ?? '').replace(/\D/g, '') === identityDigits).slice(0, 3));
+        })
+        .catch(() => {
+          if (!cancelled) setPhoneHits([]);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [unmatched, usage, identityDigits]);
+
   function pick(hit: CashbillSearchHit) {
     setSelected(hit);
     setUnmatched(false);
+    setPhoneHits([]);
+    setCustomerName(hit.customerName ?? '');
     setBrandId(hit.brandId);
     setAmount(String(hit.remainingWon));
     if (usage === 'phone') setIdentity(hit.customerPhone ?? '');
@@ -99,6 +128,7 @@ export function CashbillIssueForm({
   }
 
   function clearMatch() {
+    if (selected) setCustomerName('');
     setSelected(null);
     setUnmatched(true);
     setBrandId(linkedBrands[0]?.id ?? '');
@@ -120,6 +150,7 @@ export function CashbillIssueForm({
         tradeDate,
         email: email.trim() || undefined,
         internalMemo: memo.trim() || undefined,
+        customerName: (unmatched ? customerName : selected?.customerName ?? '').trim() || undefined,
         requestId: crypto.randomUUID(),
       });
       setQuery('');
@@ -127,6 +158,7 @@ export function CashbillIssueForm({
       setSelected(null);
       setAmount('');
       setIdentity('');
+      setCustomerName('');
       await reload();
       onDone(issued.id);
     } catch (err) {
@@ -230,6 +262,32 @@ export function CashbillIssueForm({
           className="min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs"
         />
       )}
+      {phoneHits.length > 0 ? (
+        <div className="space-y-1 rounded-lg border border-[#b9cdf7] bg-[#f3f7ff] px-2.5 py-2">
+          <p className="text-fluid-2xs font-medium text-[#1f4fb8]">이 번호로 받은 접수가 있어요. 연결하면 고객명과 발행 가능 금액이 함께 들어갑니다.</p>
+          {phoneHits.map((hit) => (
+            <div key={hit.id} className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-fluid-xs text-slate-800">
+                <b className="font-semibold">{hit.customerName}</b> · {hit.inquiryNumber ?? '접수'} · {hit.createdAt?.slice(5, 10).replace('-', '.') ?? ''} · 가능 {won(hit.remainingWon)}
+              </span>
+              <Button size="sm" variant="primary" onClick={() => pick(hit)}>연결</Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {unmatched ? (
+        <label className="block space-y-1 text-fluid-xs text-slate-700">
+          <span>고객명 (선택)</span>
+          <input
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            maxLength={64}
+            placeholder="예: 홍길동"
+            className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+          />
+          <span className="text-fluid-2xs text-slate-500">목록에서 누구 건인지 알아보는 용도예요. 비우면 「연계 없음」으로 보입니다.</span>
+        </label>
+      ) : null}
       <label className="block space-y-1 text-fluid-xs text-slate-700">
         <span>④ 고객 이메일 (선택)</span>
         <input
