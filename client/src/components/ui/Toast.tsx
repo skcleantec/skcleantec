@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
 /**
- * 화면 위쪽에 잠깐 뜨는 알림(발급 완료·실패 이유 등).
+ * 화면 가운데에 잠깐 뜨는 알림(발급 완료·실패 이유 등).
  * 어디서든 toast.success / toast.error 로 띄우고, <ToastHost />는 App에 한 번만 둔다.
  */
 export type ToastTone = 'success' | 'error' | 'info';
@@ -63,14 +63,14 @@ export function ToastHost() {
   }, []);
   if (list.length === 0) return null;
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-[120] flex flex-col items-center gap-2 px-4 sm:top-5" aria-live="polite">
+    <div className="pointer-events-none fixed inset-0 z-[120] flex flex-col items-center justify-center gap-2 px-4" aria-live="polite">
       {list.map((item) => {
         const tone = TONE[item.tone];
         return (
           <div
             key={item.id}
             role={item.tone === 'error' ? 'alert' : 'status'}
-            className={`pointer-events-auto flex w-full max-w-[420px] items-start gap-3 rounded-xl border bg-white px-3.5 py-3 shadow-[0_8px_28px_rgba(15,23,42,0.16)] ${tone.ring}`}
+            className={`pointer-events-auto flex w-full max-w-[420px] items-start gap-3 rounded-2xl border bg-white px-4 py-3.5 shadow-[0_16px_48px_rgba(15,23,42,0.24)] ${tone.ring}`}
           >
             <span className={`mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${tone.dot}`} aria-hidden>{tone.mark}</span>
             <div className="min-w-0 flex-1">
