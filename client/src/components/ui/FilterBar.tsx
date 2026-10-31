@@ -127,7 +127,7 @@ export function FilterSelect({
 }) {
   const active = value !== defaultValue;
   return (
-    <label className={`relative inline-flex min-w-0 max-w-[15rem] items-center gap-1.5 pl-3 pr-7 ${BOX} ${active ? 'border-[#93b4f5] bg-[#eff4ff]' : 'border-slate-200'}`}>
+    <label className={`relative inline-flex min-w-0 max-w-[12rem] items-center gap-1.5 pl-3 pr-7 ${BOX} ${active ? 'border-[#93b4f5] bg-[#eff4ff]' : 'border-slate-200'}`}>
       <span className="shrink-0 text-slate-500">{label}</span>
       <select
         value={value}

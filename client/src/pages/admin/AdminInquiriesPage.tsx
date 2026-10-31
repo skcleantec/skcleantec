@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
@@ -99,8 +99,6 @@ import { useProfessionalOptionsCatalog } from '../../hooks/useProfessionalOption
 import { InquiryMarketerDailyButton } from '../../components/inquiries/inquiriesUiParts';
 import { Button } from '../../components/ui/Button';
 import { confirmDialog } from '../../components/ui/Toast';
-import { AnchoredMenu } from '../../components/ui/AnchoredMenu';
-import { StatusChip, Tag, type StatusTone } from '../../components/ui/StatusChip';
 import { ActiveFilters, FilterBar, FilterSearch, FilterSegment, FilterSelect } from '../../components/ui/FilterBar';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
@@ -643,47 +641,10 @@ function inquiryListStatusBadgeText(item: InquiryItem): string {
   return STATUS_LABELS[statusValueForPicker(item)] ?? item.status;
 }
 
-/** 상태 칩 색 — UI 규칙 v2 (회색 시작 전 · 파랑 진행 · 초록 끝 · 노랑 확인 필요 · 빨강 문제) */
-function inquiryStatusTone(item: InquiryItem): StatusTone {
-  if (isInquiryLinkedOrderFormPendingSubmit(item)) return 'amber';
-  switch (statusValueForPicker(item)) {
-    case 'PENDING':
-      return 'gray';
-    case 'DEPOSIT_PENDING':
-    case 'ORDER_FORM_PENDING':
-    case 'ON_HOLD':
-    case 'CS_PROCESSING':
-      return 'amber';
-    case 'COMPLETED':
-      return 'green';
-    case 'CANCELLED':
-    case 'CANCEL_CONFIRMED':
-      return 'red';
-    default:
-      return 'blue';
-  }
-}
-
 function InquiryProfOptionsReviewListBadge({ item }: { item: InquiryItem }) {
   if (item.profOptionsAmountReviewPending) return <ProfOptionsAmountReviewBadge />;
   if (item.profOptionsAmountReviewCompleted) return <ProfOptionsAmountReviewCompletedBadge />;
   return null;
-}
-
-/** 예약금·특이사항·사진 — O/X 칸 대신 있는 것만 회색 태그로 (UI 규칙 v2) */
-function InquiryListInfoTags({ item, className = '', extra }: { item: InquiryItem; className?: string; extra?: ReactNode }) {
-  const deposit = inquiryDepositPresence(item);
-  const notes = inquiryListHasCustomerSpecialNotes(item);
-  const photos = inquiryListHasOrderFormPhotos(item.orderFormPhotoCount);
-  if (!extra && deposit === 'no' && !notes && !photos) return null;
-  return (
-    <div className={`flex flex-wrap items-center gap-1 ${className}`}>
-      {extra}
-      {deposit === 'yes' ? <Tag title="예약금 있음">예약금 ✓</Tag> : deposit === 'unknown' ? <Tag title="예약금 미정">예약금 —</Tag> : null}
-      {notes ? <Tag title="고객 발주 특이사항 있음">특이 ✓</Tag> : null}
-      {photos ? <Tag title={`발주서 첨부 사진 ${item.orderFormPhotoCount ?? 0}장`}>사진 {item.orderFormPhotoCount ?? 0}</Tag> : null}
-    </div>
-  );
 }
 
 /** 모바일 카드 목록 — pin tier·해피콜 강조 */
@@ -891,6 +852,47 @@ function patchInquiryProfReviewInList(
         : it,
     ),
     sort,
+  );
+}
+
+const INQUIRY_MOBILE_CARD_BODY_CLASS = 'cursor-pointer px-2 pt-2 pb-1.5 sm:px-3 sm:pt-3 sm:pb-2';
+
+const INQUIRY_MOBILE_CARD_FOOTER_CLASS =
+  'border-t border-slate-100 bg-slate-50/60 px-2 py-1.5 sm:px-3 sm:py-2';
+
+function InquiryListAttachmentOx({
+  yes,
+  shortLabel,
+}: {
+  yes: boolean;
+  shortLabel: string;
+}) {
+  return (
+    <span
+      className={`inline-flex min-w-[1.125rem] items-center justify-center rounded px-0.5 py-px text-[11px] font-bold tabular-nums xl:min-w-[1.25rem] xl:text-fluid-2xs ${
+        yes ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
+      }`}
+      title={`${shortLabel}: ${yes ? '있음' : '없음'}`}
+    >
+      {yes ? 'O' : 'X'}
+    </span>
+  );
+}
+
+function InquiryListDepositMark({ item }: { item: InquiryItem }) {
+  const presence = inquiryDepositPresence(item);
+  if (presence === 'unknown') {
+    return (
+      <span
+        className="inline-flex min-w-[1.125rem] items-center justify-center text-[11px] text-slate-300 xl:text-fluid-2xs"
+        title="예약금 미정"
+      >
+        —
+      </span>
+    );
+  }
+  return (
+    <InquiryListAttachmentOx yes={presence === 'yes'} shortLabel="예약금" />
   );
 }
 
@@ -2628,32 +2630,6 @@ export function AdminInquiriesPage() {
     await copyClipboardWithAlert(orderCustomerSharePreviewContent.url);
   };
 
-  /** 모바일 카드 버튼 — 그 상태에서 가장 급한 일 하나는 진한 버튼, 나머지는 ⋯ 메뉴 (데스크톱 작업 칸과 같은 동작) */
-  const inquiryMobileCardActions = (item: InquiryItem) => {
-    type Act = { label: string; onClick: () => void; disabled?: boolean; danger?: boolean };
-    const menu: Act[] = [];
-    let primary: Act | null = null;
-    const goOrderIssue = () =>
-      navigate(`/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`);
-    const del: Act | null = canDeleteInquiry ? { label: '삭제', onClick: () => setDeleteTarget(item), danger: true } : null;
-    if (item.status === 'DEPOSIT_PENDING') {
-      primary = { label: '입금완료', onClick: () => void handleStatusChange(item.id, 'DEPOSIT_COMPLETED'), disabled: saving };
-    } else if (item.status === 'ORDER_FORM_PENDING') {
-      primary = { label: '고객 발송', onClick: () => openOrderCustomerShareModal(item) };
-    } else if (item.status === 'DEPOSIT_COMPLETED') {
-      primary = { label: '발주서', onClick: goOrderIssue };
-      menu.push({ label: '수정', onClick: () => openListIntakeEditModal(item) });
-      menu.push({ label: '취소', onClick: () => handleCancelInquiry(item), disabled: saving });
-    } else {
-      if (item.status === 'PENDING') primary = { label: '발주서 생성', onClick: goOrderIssue };
-      if (item.status === 'CS_PROCESSING') primary = { label: '완료', onClick: () => void handleStatusChange(item.id, 'COMPLETED'), disabled: saving };
-      menu.push({ label: '클레임', onClick: () => openClaim(item) });
-      if (item.status !== 'CANCELLED') menu.push({ label: '취소', onClick: () => handleCancelInquiry(item), disabled: saving });
-    }
-    if (del) menu.push(del);
-    return { primary, menu };
-  };
-
   const renderOrderFormPendingRowActions = (item: InquiryItem) => (
     <>
       <button
@@ -3281,7 +3257,7 @@ export function AdminInquiriesPage() {
           </FilterBar>
           <details className="overflow-hidden rounded-xl border border-slate-200 bg-white [&_summary::-webkit-details-marker]:hidden">
             <summary className="flex min-h-9 cursor-pointer select-none items-center gap-1 px-3 py-1.5 text-fluid-2xs hover:bg-slate-50">
-              <span className="font-medium text-slate-800">마케터별 확정 예약</span>
+              <span className="shrink-0 whitespace-nowrap font-medium text-slate-800">마케터별 확정 예약</span>
               {marketerOverview && (
                 <span className="min-w-0 truncate text-slate-500">
                   · {marketerOverview.periodKind === 'range'
@@ -3527,91 +3503,147 @@ export function AdminInquiriesPage() {
                 return (
                   <div key={item.id} className={inquiryMobileCardShellClass(item, prevItem, isSoloOperator)}>
                     <div
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${item.customerName} 상세`}
-                      onClick={() => openEdit(item)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          openEdit(item);
-                        }
-                      }}
-                      className="flex cursor-pointer flex-col gap-1 px-3 pb-2 pt-3"
+                      className={`${INQUIRY_MOBILE_CARD_BODY_CLASS} flex items-start gap-1.5 sm:gap-2`}
                     >
-                      <div className="flex items-start gap-1.5">
-                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                          <CustomerNameWithInternalTone
-                            name={item.customerName}
-                            tone={item.internalCustomerTone}
-                            viewerRole={me?.role}
-                            nameClassName="truncate text-fluid-sm font-bold text-slate-900"
-                          />
-                          {item.claimMemo ? (
-                            <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="클레임">
-                              ●
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${item.customerName} 상세`}
+                        onClick={() => openEdit(item)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openEdit(item);
+                          }
+                        }}
+                        className="min-w-0 flex-1 cursor-pointer"
+                      >
+                      <div className="flex items-start gap-1.5 sm:gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                            <CustomerNameWithInternalTone
+                              name={item.customerName}
+                              tone={item.internalCustomerTone}
+                              viewerRole={me?.role}
+                              nameClassName="truncate text-fluid-xs font-semibold text-slate-900 sm:text-fluid-sm"
+                            />
+                            {item.claimMemo ? (
+                              <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="클레임">
+                                ●
+                              </span>
+                            ) : null}
+                            {item.inquiryNumber ? (
+                              <span className="shrink-0 rounded bg-slate-900 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-white">
+                                {item.inquiryNumber}
+                              </span>
+                            ) : null}
+                            <OperatingCompanyBadge company={item.operatingCompany} />
+                      {item.tenantShare ? (
+                        <TenantInquiryShareBadge share={item.tenantShare} compact />
+                      ) : null}
+                      {item.dbListing ? (
+                        <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly />
+                      ) : null}
+                            <InquiryProfOptionsReviewListBadge item={item} />
+                            <span
+                              className={`shrink-0 rounded-full px-1.5 py-0.5 text-fluid-2xs font-semibold ring-1 ${
+                                inquiryListServiceKindLabel(item) === '에어컨'
+                                  ? 'bg-sky-100 text-sky-900 ring-sky-200/80'
+                                  : 'bg-slate-100 text-slate-600 ring-slate-200'
+                              }`}
+                            >
+                              {inquiryListServiceKindLabel(item)}
                             </span>
+                            {!isInquirySourceHiddenFromUi(item.source) &&
+                            shouldShowInquiryLeadPlatform(item.source) ? (
+                              <span className="shrink-0 rounded-full bg-violet-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-violet-800 ring-1 ring-violet-200/80">
+                                {formatInquiryLeadPlatformLabel(item.source)}
+                              </span>
+                            ) : null}
+                          </div>
+                          {item.scheduleMemo?.trim() ? (
+                            <p
+                              className="mt-0.5 line-clamp-1 text-fluid-2xs text-slate-700 sm:mt-1 sm:text-fluid-xs"
+                              title={item.scheduleMemo}
+                            >
+                              {item.scheduleMemo}
+                            </p>
                           ) : null}
-                          {item.inquiryNumber ? (
-                            <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-500">{item.inquiryNumber}</span>
-                          ) : null}
+                          <p
+                            className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-slate-500 sm:mt-1 sm:text-fluid-xs"
+                            title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)}${collabMarketer ? ` · 협업 ${collabMarketer}` : ''} · ${mobileSpecsTail}`}
+                          >
+                            접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
+                            {collabMarketer ? (
+                              <span className="text-slate-400"> · 협업 {collabMarketer}</span>
+                            ) : null}
+                            <span className="text-slate-600"> · {mobileSpecsTail}</span>
+                          </p>
+                          <p className="mt-0.5 line-clamp-1 text-fluid-2xs leading-snug text-slate-600 sm:mt-1 sm:line-clamp-2 sm:text-fluid-xs" title={addrFull}>
+                            {addrShort}
+                          </p>
                         </div>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-fluid-2xs text-slate-700 sm:mt-2 sm:gap-2 sm:text-fluid-xs">
+                        <span className="tabular-nums text-slate-800">
+                          예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
+                        </span>
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-fluid-2xs font-medium text-slate-800">
+                          {item.preferredTime ? shortTimeSlotLabelForTenant(item.preferredTime) : '시간 미정'} · 주안{' '}
+                          {formatDistanceFromJuan(item)}
+                        </span>
                         <span
-                          className="shrink-0"
+                          className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
+                            isInquiryLinkedOrderFormPendingSubmit(item)
+                              ? 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
+                              : 'bg-slate-200 text-slate-800'
+                          }`}
                           title={
                             isInquiryLinkedOrderFormPendingSubmit(item)
                               ? `접수 상태: ${STATUS_LABELS[item.status] ?? item.status} · 발주서 고객 미제출`
                               : undefined
                           }
                         >
-                          <StatusChip tone={inquiryStatusTone(item)}>{inquiryListStatusBadgeText(item)}</StatusChip>
+                            {inquiryListStatusBadgeText(item)}
+                            </span>
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded-md bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600 ring-1 ring-slate-200/80"
+                          title="예약금 있음 O · 없음 X · 미정 —"
+                        >
+                          예약금 <InquiryListDepositMark item={item} />
                         </span>
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600 ring-1 ring-slate-200/80"
+                          title="고객 발주 특이사항 · 발주서 첨부 사진"
+                        >
+                          특이사항{' '}
+                          <InquiryListAttachmentOx
+                            yes={inquiryListHasCustomerSpecialNotes(item)}
+                            shortLabel="특이사항"
+                          />
+                          <span className="text-slate-300">·</span>
+                          사진첨부{' '}
+                          <InquiryListAttachmentOx
+                            yes={inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)}
+                            shortLabel="사진첨부"
+                          />
+                        </span>
+                          </div>
                       </div>
-                      {item.scheduleMemo?.trim() ? (
-                        <p className="line-clamp-1 text-fluid-2xs text-slate-700" title={item.scheduleMemo}>
-                          {item.scheduleMemo}
-                        </p>
-                      ) : null}
-                      <p className="line-clamp-2 text-fluid-xs leading-snug text-slate-800" title={addrFull}>
-                        <span className="tabular-nums">
-                          예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
-                        </span>
-                        {' · '}
-                        {item.preferredTime ? shortTimeSlotLabelForTenant(item.preferredTime) : '시간 미정'}
-                        {addrShort ? ` · ${addrShort}` : ''}
-                        <span className="text-slate-600"> · {mobileSpecsTail}</span>
-                        <span className="text-slate-500"> · 주안 {formatDistanceFromJuan(item)}</span>
-                      </p>
-                      <p
-                        className="line-clamp-1 text-fluid-2xs text-slate-500"
-                        title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)}${collabMarketer ? ` · 협업 ${collabMarketer}` : ''}`}
-                      >
-                        접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
-                        {collabMarketer ? ` · 협업 ${collabMarketer}` : ''}
-                      </p>
-                      <InquiryListInfoTags
-                        item={item}
-                        extra={(
-                          <>
-                            <Tag>{inquiryListServiceKindLabel(item)}</Tag>
-                            {!isInquirySourceHiddenFromUi(item.source) && shouldShowInquiryLeadPlatform(item.source) ? (
-                              <Tag>{formatInquiryLeadPlatformLabel(item.source)}</Tag>
-                            ) : null}
-                            <OperatingCompanyBadge company={item.operatingCompany} />
-                            {item.tenantShare ? <TenantInquiryShareBadge share={item.tenantShare} compact /> : null}
-                            {item.dbListing ? <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly /> : null}
-                            <InquiryProfOptionsReviewListBadge item={item} />
-                          </>
-                        )}
+                      <InquiryCustomerCallButton
+                        phone={item.customerPhone}
+                        customerName={item.customerName}
+                        disabled={Boolean(editItem)}
+                        className="shrink-0 self-start rounded-lg bg-indigo-600 px-2 py-1 text-center text-fluid-2xs font-semibold text-white shadow-sm shadow-indigo-600/10 hover:bg-indigo-700 active:scale-[0.97] sm:rounded-xl sm:px-3.5 sm:py-2 sm:text-fluid-xs lg:hover:scale-[1.03] transition-all duration-200"
                       />
                     </div>
                     <div
-                      className="flex flex-col gap-2 border-t border-slate-100 px-3 pb-3 pt-2"
+                      className={INQUIRY_MOBILE_CARD_FOOTER_CLASS}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="grid w-full min-w-0 grid-cols-2 gap-2">
-                        <div className="flex min-w-0 items-center gap-1">
-                          <span className="w-7 shrink-0 text-left text-fluid-2xs font-semibold leading-tight text-slate-500">
+                      <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3">
+                        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                          <span className="w-7 shrink-0 text-left text-[11px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
                             상태
                           </span>
                           <StatusQuickPicker
@@ -3621,8 +3653,8 @@ export function AdminInquiriesPage() {
                             compact
                           />
                         </div>
-                        <div className="flex min-w-0 items-center gap-1">
-                          <span className="w-7 shrink-0 text-left text-fluid-2xs font-semibold leading-tight text-slate-500">
+                        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                          <span className="w-7 shrink-0 text-left text-[11px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
                             배정
                           </span>
                           <select
@@ -3650,7 +3682,7 @@ export function AdminInquiriesPage() {
                                       ? '보류 건에는 분배할 수 없습니다.'
                                       : undefined
                             }
-                            className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-fluid-2xs font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                            className="min-h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 sm:min-h-[34px] sm:px-2 sm:py-1 sm:text-fluid-2xs md:text-fluid-xs"
                           >
                             <option value="">미배정</option>
                             {filterableTeamLeaders.map((tl) => (
@@ -3661,56 +3693,141 @@ export function AdminInquiriesPage() {
                           </select>
                         </div>
                       </div>
-                      {(() => {
-                        const acts = inquiryMobileCardActions(item);
-                        return (
-                          <div className="flex items-center gap-1.5">
-                            <InquiryCustomerCallButton
-                              phone={item.customerPhone}
-                              customerName={item.customerName}
-                              disabled={Boolean(editItem)}
-                              className="inline-flex h-11 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-[10px] border border-[#dde3ea] bg-white px-3 text-fluid-sm font-semibold text-[#141b26] hover:bg-[#eef2f7] disabled:opacity-45"
-                            />
-                            <Button size="lg" variant="secondary" className="min-w-0 flex-1 !px-3 !text-fluid-sm" onClick={() => openEdit(item)}>
-                              상세
-                            </Button>
-                            {acts.primary ? (
-                              <Button
-                                size="lg"
-                                variant="primary"
-                                className="min-w-0 flex-1 !px-3 !text-fluid-sm"
-                                disabled={acts.primary.disabled}
-                                onClick={acts.primary.onClick}
+                      <div className="mt-1 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-1 sm:mt-2 sm:gap-1.5 sm:pt-2">
+                        {item.status === 'DEPOSIT_PENDING' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleStatusChange(item.id, 'DEPOSIT_COMPLETED');
+                              }}
+                              disabled={saving}
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-sky-700`}
+                            >
+                              입금완료
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
+                            >
+                              메모
+                            </button>
+                            {canDeleteInquiry && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
-                                {acts.primary.label}
-                              </Button>
-                            ) : null}
-                            {acts.menu.length > 0 ? (
-                              <AnchoredMenu label="더 보기" size="lg">
-                                {(close) => (
-                                  <>
-                                    {acts.menu.map((m) => (
-                                      <button
-                                        key={m.label}
-                                        type="button"
-                                        disabled={m.disabled}
-                                        onClick={() => {
-                                          close();
-                                          m.onClick();
-                                        }}
-                                        className={`block min-h-11 w-full rounded-lg px-3 text-left text-fluid-sm font-medium hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-50 ${m.danger ? 'text-[#b42318] hover:bg-[#fdecea]' : 'text-slate-800'}`}
-                                      >
-                                        {m.label}
-                                      </button>
-                                    ))}
-                                  </>
-                                )}
-                              </AnchoredMenu>
-                            ) : null}
-                          </div>
-                        );
-                      })()}
-                    </div>
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : item.status === 'ORDER_FORM_PENDING' ? (
+                          renderOrderFormPendingRowActions(item)
+                        ) : item.status === 'DEPOSIT_COMPLETED' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(
+                                  `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                );
+                              }}
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
+                            >
+                              발주서
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openListIntakeEditModal(item)}
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
+                            >
+                              수정
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelInquiry(item)}
+                              disabled={saving}
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
+                            >
+                              취소
+                            </button>
+                            {canDeleteInquiry && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {(item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED') && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(
+                                    `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                  );
+                                }}
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
+                              >
+                                발주서 생성
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
+                            >
+                              상세보기
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openClaim(item)}
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-orange-600`}
+                            >
+                              클레임
+                            </button>
+                            {item.status !== 'CANCELLED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelInquiry(item)}
+                                disabled={saving}
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
+                              >
+                                취소
+                              </button>
+                            )}
+                            {canDeleteInquiry && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
+                              >
+                                삭제
+                              </button>
+                            )}
+                            {item.status === 'CS_PROCESSING' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(item.id, 'COMPLETED')}
+                                disabled={saving}
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-green-600`}
+                              >
+                                완료
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      </div>
                     </div>
                 );
               })}
@@ -3732,13 +3849,16 @@ export function AdminInquiriesPage() {
                     <col className="w-[4%]" />
                     <col className="w-[4%]" />
                     <col className="w-[4%]" />
-                    <col className="w-[20%]" />
+                    <col className="w-[11%]" />
                     <col className="w-[8%]" />
                     <col className="w-[12%]" />
                     <col className="w-[4%]" />
                     <col className="w-[6%]" />
                     <col className="w-[6%]" />
                     <col className="w-[6%]" />
+                    <col className="w-[3%]" />
+                    <col className="w-[3%]" />
+                    <col className="w-[3%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col style={{ width: '14%' }} />
@@ -3749,35 +3869,38 @@ export function AdminInquiriesPage() {
                     <col className="w-[4%]" />
                     <col className="w-[4%]" />
                     <col className="w-[4%]" />
-                    <col className="w-[20%]" />
+                    <col className="w-[11%]" />
                     <col className="w-[8%]" />
                     <col className="w-[12%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col className="w-[6%]" />
                     <col className="w-[7%]" />
+                    <col className="w-[3%]" />
+                    <col className="w-[3%]" />
+                    <col className="w-[3%]" />
                     <col className="w-[8%]" />
                     <col style={{ width: '12%' }} />
                   </>
                 )}
               </colgroup>
               <thead>
-                <tr className="h-10 border-b border-slate-200 bg-slate-50">
+                <tr className="bg-slate-50/85 border-b border-slate-200/60">
                   <InquiryListSortTh
                     label="접수일"
                     field="createdAt"
                     activeField={listSort.field}
                     activeDir={listSort.dir}
                     onSort={handleListSort}
-                    className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50 px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5"
+                    className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold leading-tight text-slate-500 xl:px-1.5">접수자</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold leading-tight text-slate-500 xl:px-1.5">서비스</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold leading-tight text-slate-500 xl:px-1.5">유입</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">고객</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">연락처</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">주소</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold leading-tight text-slate-500 xl:px-1.5">
+                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
+                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">서비스</th>
+                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">유입</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">주소</th>
+                  <th className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-[12px]">
                     평수
                   </th>
                   <InquiryListSortTh
@@ -3786,10 +3909,10 @@ export function AdminInquiriesPage() {
                     activeField={listSort.field}
                     activeDir={listSort.dir}
                     onSort={handleListSort}
-                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5"
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
                   <th
-                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5"
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs"
                     title="희망 시간대 · 인천 주안 기준 직선거리"
                   >
                     시간·거리
@@ -3800,13 +3923,31 @@ export function AdminInquiriesPage() {
                     activeField={listSort.field}
                     activeDir={listSort.dir}
                     onSort={handleListSort}
-                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5"
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
+                  <th
+                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    title="예약금 있음 O · 없음 X · 미정 —"
+                  >
+                    예약금
+                  </th>
+                  <th
+                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    title="고객 발주 특이사항"
+                  >
+                    <span className="line-clamp-2 break-keep leading-tight">특이사항</span>
+                  </th>
+                  <th
+                    className="px-0.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    title="발주서 고객 첨부 사진"
+                  >
+                    <span className="line-clamp-2 break-keep leading-tight">사진첨부</span>
+                  </th>
                   {hasInspectionModule ? (
-                    <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">현장검수</th>
+                    <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">현장검수</th>
                   ) : null}
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">팀장</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5">작업</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">팀장</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -3864,7 +4005,7 @@ export function AdminInquiriesPage() {
                   return (
                   <tr
                     key={item.id}
-                    className={`h-[52px] cursor-pointer group active:bg-slate-100 ${rowBg} ${rowHover} ${tierGroupTop}`}
+                    className={`cursor-pointer group active:bg-slate-100 ${rowBg} ${rowHover} ${tierGroupTop}`}
                     onClick={() => openEdit(item)}
                     title={inquiryListPinRowTitle(item)}
                   >
@@ -3896,12 +4037,12 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-fluid-2xs leading-snug text-slate-600 break-keep whitespace-normal ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[9px] leading-snug text-slate-600 break-keep whitespace-normal xl:text-[11px] ${pBorder}`}
                     >
                       <InquiryListMarketerDisplay item={item} />
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-fluid-2xs font-medium leading-tight ${pBorder} ${
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[11px] font-medium leading-tight xl:text-fluid-2xs ${pBorder} ${
                         inquiryListServiceKindLabel(item) === '에어컨'
                           ? 'text-sky-800'
                           : 'text-slate-600'
@@ -3910,7 +4051,7 @@ export function AdminInquiriesPage() {
                       {inquiryListServiceKindLabel(item)}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-0.5 py-0.5 align-middle text-center text-fluid-2xs leading-tight text-slate-600 xl:px-1 ${pBorder}`}
+                      className={`min-w-0 truncate px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight text-slate-600 xl:px-1 xl:text-fluid-2xs ${pBorder}`}
                       title={formatInquiryLeadPlatformLabel(item.source)}
                     >
                       {!isInquirySourceHiddenFromUi(item.source)
@@ -3943,7 +4084,6 @@ export function AdminInquiriesPage() {
                             {item.scheduleMemo}
                           </div>
                         ) : null}
-                        <InquiryListInfoTags item={item} className="mt-1 justify-center" />
                       </div>
                     </td>
                     <td
@@ -3959,7 +4099,7 @@ export function AdminInquiriesPage() {
                       <span className="block break-keep">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-fluid-2xs leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 xl:text-fluid-xs ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 2xl:text-[12px] ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -4022,6 +4162,44 @@ export function AdminInquiriesPage() {
                         </div>
                       ) : null}
                     </td>
+                    <td
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
+                      title={
+                        inquiryDepositPresence(item) === 'yes'
+                          ? '예약금 있음'
+                          : inquiryDepositPresence(item) === 'no'
+                            ? '예약금 없음'
+                            : '예약금 미정'
+                      }
+                    >
+                      <InquiryListDepositMark item={item} />
+                    </td>
+                    <td
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
+                      title={
+                        inquiryListHasCustomerSpecialNotes(item)
+                          ? '고객 발주 특이사항 있음'
+                          : '고객 발주 특이사항 없음'
+                      }
+                    >
+                      <InquiryListAttachmentOx
+                        yes={inquiryListHasCustomerSpecialNotes(item)}
+                        shortLabel="특이사항"
+                      />
+                    </td>
+                    <td
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
+                      title={
+                        inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)
+                          ? `발주서 첨부 사진 ${item.orderFormPhotoCount ?? 0}장`
+                          : '발주서 첨부 사진 없음'
+                      }
+                    >
+                      <InquiryListAttachmentOx
+                        yes={inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)}
+                        shortLabel="사진첨부"
+                      />
+                    </td>
                     {hasInspectionModule ? (
                       <td className={`min-w-0 px-1 py-0.5 align-middle text-center xl:px-1.5 ${pBorder}`}>
                         <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
@@ -4054,7 +4232,7 @@ export function AdminInquiriesPage() {
                                   ? ' · 보류 건에는 분배할 수 없습니다.'
                                   : '')
                         }
-                        className="h-8 w-full min-w-0 max-w-full rounded-lg border border-slate-200 bg-white px-1.5 text-fluid-2xs focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                        className="w-full min-w-0 max-w-full rounded-lg border border-slate-200 px-1 py-0.5 text-fluid-2xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 bg-white"
                       >
                         <option value="">미배정</option>
                         {filterableTeamLeaders.map((tl) => (

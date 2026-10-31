@@ -11,8 +11,8 @@ export function AnchoredMenu({
 }: {
   label: string;
   children: (close: () => void) => ReactNode;
-  /** lg 44px(모바일 카드) · md 36px(기본) · sm 28px(표 작업 칸, 버튼 규칙) */
-  size?: 'lg' | 'md' | 'sm';
+  /** md 36px(기본) · sm 28px(표 작업 칸, 버튼 규칙) */
+  size?: 'md' | 'sm';
 }) {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<Box | null>(null);
@@ -55,7 +55,7 @@ export function AnchoredMenu({
       <button
         ref={buttonRef}
         type="button"
-        className={`inline-flex ${size === 'sm' ? 'size-7 rounded-[7px] text-xs' : size === 'lg' ? 'size-11 rounded-[10px] text-fluid-sm' : 'size-9 rounded-lg text-fluid-sm'} items-center justify-center border border-slate-300 bg-white hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2`}
+        className={`inline-flex ${size === 'sm' ? 'size-7 rounded-[7px] text-xs' : 'size-9 rounded-lg text-fluid-sm'} items-center justify-center border border-slate-300 bg-white hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2`}
         aria-label={label}
         aria-expanded={open}
         aria-controls={menuId}

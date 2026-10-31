@@ -8,6 +8,8 @@ alwaysApply: true
 
 이 규칙이 `client-ui-tailwind.mdc`·`docs/UI_DESIGN_GUIDE.md`와 다르면 **이 규칙이 우선**한다.
 
+- **기존 화면은 모양만**: 열 구성·칸 안 정보·버튼 종류·순서·위치는 그대로. 열 합치기, 버튼을 ⋯로 옮기기, 정보 빼기는 사용자가 따로 정했을 때만.
+
 - **검사**: 화면을 고친 뒤 `cd client && npm run ui:audit` — ▲(늘어남)가 있으면 고친다. 위반을 줄였으면 `node scripts/ui-audit.mjs --update`.
 - **색**: 지금 색 그대로. 회색은 `slate-*`만(`gray-*` 금지). 진한 바탕 버튼은 #111A2B(Button primary) 하나, 파랑 `blue-600`은 선택·링크 전용.
 - **글자 5단계만**: `text-fluid-xl`(페이지 제목) · `text-fluid-base`(소제목) · `text-fluid-sm`(강조·버튼) · `text-fluid-xs`(본문) · `text-fluid-2xs`(캡션). `text-[Npx]`, `text-xs/sm/base` 금지.
