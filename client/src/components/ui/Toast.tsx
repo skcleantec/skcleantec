@@ -129,7 +129,7 @@ export function ToastHost() {
     <CloseContext.Provider value={close}>
       <style>{'@keyframes cbToastIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}@keyframes cbToastFade{from{opacity:0}to{opacity:1}}'}</style>
       <div
-        className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/30 px-4"
+        className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/30 px-4"
         style={{ animation: 'cbToastFade .15s ease-out' }}
         role="presentation"
         onMouseDown={(event) => {
@@ -137,7 +137,10 @@ export function ToastHost() {
         }}
       >
         <div
-          role={item.tone === 'error' ? 'alertdialog' : 'status'}
+          // dialog + aria-modal: 모바일 즐겨찾기 버튼 묶음이 팝업 위로 올라오지 않게 숨긴다(useBodyHasModalOverlay).
+          role="dialog"
+          aria-modal="true"
+          aria-label={item.title}
           aria-live="polite"
           className="relative w-full max-w-[360px] rounded-2xl bg-white px-6 pb-6 pt-7 text-center shadow-[0_24px_64px_rgba(15,23,42,0.28)]"
           style={{ animation: 'cbToastIn .18s ease-out' }}
