@@ -1941,7 +1941,8 @@ export function AdminSchedulePage() {
               canResize={meRole === 'ADMIN'}
             />
           ) : null}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <p className="mb-2 text-fluid-sm font-bold leading-tight text-slate-900">표시 안내</p>
             <ScheduleLegendItems compact />
           </div>
           {leaderSlotDeficitKeysInMonth.length > 0 ? (

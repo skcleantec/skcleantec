@@ -72,12 +72,12 @@ export function ScheduleInquirySearchPanel({
 
   return (
     <div className={className}>
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="shrink-0 border-b border-slate-100 px-2.5 py-2">
-          <h2 className="font-semibold text-slate-900 text-[13px] leading-tight">접수 검색</h2>
-          <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">고객명 · 전화 · 접수번호 · 주소</p>
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="shrink-0 px-3 pb-1 pt-3">
+          <h2 className="text-fluid-sm font-bold leading-tight text-slate-900">접수 검색</h2>
+          <p className="mt-0.5 text-fluid-2xs leading-tight text-slate-500">고객명 · 전화 · 접수번호 · 주소</p>
         </div>
-        <div className="px-2.5 py-2">
+        <div className="px-3 pb-3 pt-1.5">
           <input
             type="search"
             value={input}
