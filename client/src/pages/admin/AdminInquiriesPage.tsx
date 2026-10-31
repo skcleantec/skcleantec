@@ -3033,8 +3033,8 @@ export function AdminInquiriesPage() {
   return (
     <div className="min-w-0 space-y-2 lg:space-y-6">
       <div className="flex flex-col gap-1.5 lg:gap-2">
-        <div className="flex items-center justify-between gap-3 min-w-0">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 lg:gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 basis-[14rem] items-center gap-1.5 lg:gap-2">
             <AdminInquiriesMobileInlineMenuButton />
             <PageTitleWithFavorite label="서비스접수">
               <h1 className="text-fluid-xl font-extrabold text-slate-900">서비스접수</h1>
@@ -3046,7 +3046,7 @@ export function AdminInquiriesPage() {
             />
           </div>
             {token && (
-              <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
+              <div className="flex shrink-0 items-center justify-end gap-1.5 max-lg:w-full sm:gap-2">
                 <InquiryQuickPasteTriggerButton
                   size="responsive-compact"
                   onClick={() => setQuickPasteOpen(true)}

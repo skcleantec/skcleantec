@@ -37,7 +37,7 @@ export function FilterBar({
     <section className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex flex-wrap items-center gap-2">
         {period}
-        <div className="hidden flex-wrap items-center gap-2 lg:flex">
+        <div className="hidden lg:contents">
           {children}
           {more ? (
             <Button size="md" variant="quiet" className="!text-[#2563eb]" aria-expanded={moreOpen} onClick={() => setMoreOpen((v) => !v)}>
@@ -68,7 +68,7 @@ export function FilterBar({
               <div className="flex-1" />
               <Button size="sm" variant="quiet" icon aria-label="닫기" onClick={() => setSheetOpen(false)}>✕</Button>
             </div>
-            <div className="flex flex-col gap-3 p-4 [&>*]:w-full [&_label]:w-full">
+            <div className="flex flex-col gap-3 p-4 [&>*]:w-full [&_label]:w-full [&_label]:max-w-none">
               {children}
               {more}
             </div>
@@ -127,12 +127,12 @@ export function FilterSelect({
 }) {
   const active = value !== defaultValue;
   return (
-    <label className={`relative inline-flex min-w-0 items-center gap-1.5 pl-3 pr-7 ${BOX} ${active ? 'border-[#93b4f5] bg-[#eff4ff]' : 'border-slate-200'}`}>
+    <label className={`relative inline-flex min-w-0 max-w-[15rem] items-center gap-1.5 pl-3 pr-7 ${BOX} ${active ? 'border-[#93b4f5] bg-[#eff4ff]' : 'border-slate-200'}`}>
       <span className="shrink-0 text-slate-500">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-w-0 flex-1 cursor-pointer appearance-none bg-transparent font-medium text-slate-900 outline-none"
+        className="min-w-0 max-w-full cursor-pointer appearance-none truncate bg-transparent font-medium text-slate-900 outline-none"
       >
         {options.map(([id, text]) => <option key={id || 'all'} value={id}>{text}</option>)}
       </select>
