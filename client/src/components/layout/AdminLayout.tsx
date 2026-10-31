@@ -90,6 +90,7 @@ import { AdminMobileNavFavoritesAccess } from './AdminMobileNavFavoritesAccess';
 import { AdminDesktopNavFavoritesAccess } from './AdminDesktopNavFavoritesAccess';
 import {
   MOBILE_GNB_ITEM_BASE,
+  MOBILE_STAFF_FAB_STACK_HIDDEN_CLASS,
   MOBILE_GNB_ICON_CLASS,
   MOBILE_STAFF_DOCK_BTN_CLASS,
   MOBILE_STAFF_DOCK_FACE_CLASS,
@@ -802,7 +803,8 @@ export function AdminLayout() {
   const showOrderIssueFab =
     Boolean(fabTop != null) && !location.pathname.startsWith('/admin/inquiries/order-issue');
   const modalOverlayOpen = useBodyHasModalOverlay();
-  const showMobileFabStack = Boolean(fabTop != null) && !modalOverlayOpen;
+  const fabStackMounted = fabTop != null;
+  const fabStackHidden = modalOverlayOpen;
   const fabSafeRight = 'max(12px, env(safe-area-inset-right, 0px))';
 
   useEffect(() => {
@@ -1469,12 +1471,13 @@ export function AdminLayout() {
           </AdminStaffSessionProvider>
         </TenantCapabilitiesProvider>
       </main>
-          {showMobileFabStack && (
+          {fabStackMounted ? (
         <div
           ref={fabStackRef}
+          aria-hidden={fabStackHidden || undefined}
           className={`fixed z-[120] lg:hidden flex flex-col items-end gap-1 ${
-            fabDragging ? 'touch-none select-none' : ''
-          }`}
+            fabStackHidden ? MOBILE_STAFF_FAB_STACK_HIDDEN_CLASS : ''
+          } ${fabDragging ? 'touch-none select-none' : ''}`}
           style={{
             top: fabTop ?? undefined,
             right: fabSafeRight,
@@ -1519,7 +1522,7 @@ export function AdminLayout() {
           )}
           <div ref={setFabBellMount} className="contents" aria-hidden={!adminToken} />
         </div>
-      )}
+      ) : null}
       <AdminStagingDbImportModal
         open={stagingDbImportModalOpen}
         onClose={() => setStagingDbImportModalOpen(false)}
@@ -1569,7 +1572,7 @@ export function AdminLayout() {
             navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(inquiryId)}`)
           }
           mobileStack={
-            showMobileFabStack
+            fabStackMounted
               ? {
                   onPointerDown: (evt) => beginFabPointer('bell', evt),
                   dragging: fabDragging,
