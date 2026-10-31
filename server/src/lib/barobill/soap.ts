@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import soap, { type Client } from 'soap';
 import { readBarobillCertKey, resolveBarobillEnv, type BarobillEnvName } from './env.js';
 import { maskCorpNum, redactSecrets } from './mask.js';
+import { notifyBarobillNotLinked } from './notLinkedNotify.js';
 import { publicBarobillMessage } from './policy.js';
 
 const require = createRequire(import.meta.url);
@@ -33,10 +34,18 @@ export class BarobillCallError extends Error {
   }
 }
 
-/** 화면·lastError 용. detail 은 GetErrString 에서 인증키를 뺀 값이다. */
+/** 화면·lastError 용. detail 은 GetErrString 에서 인증키를 뺀 값이다. 업체 화면의 -10001 은 원인 대신 안내 문구다. */
 export function formatBarobillCallError(err: BarobillCallError): string {
+  if (err.code === -10001) return err.message;
   const detail = err.detail.replace(/\s+/g, ' ').trim();
   return `바로빌 오류 ${err.code}: ${detail || '바로빌 처리에 실패했습니다.'}`;
+}
+
+/** 플랫폼 화면. -10001 은 GetErrString 원인 그대로. */
+export function platformBarobillCause(err: BarobillCallError): string {
+  const detail = err.detail.replace(/\s+/g, ' ').trim();
+  if (err.code === -10001) return detail || '해당 인증키와 연결된 연계사가 아닙니다.';
+  return formatBarobillCallError(err);
 }
 
 async function getClient(service: BarobillServiceName): Promise<Client> {
@@ -119,6 +128,7 @@ export async function callBarobill(
   if (code != null) {
     const detail = await errorDetail(service, code, secrets);
     console.info(`[barobill] ${service}.${method} code=${code}`);
+    if (code === -10001) notifyBarobillNotLinked({ corpNum: options?.corpNum, detail });
     throw new BarobillCallError(code, detail);
   }
   return value;

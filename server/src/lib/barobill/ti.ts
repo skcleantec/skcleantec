@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { SERVICE_BRIDGE_CORP_NUM } from './env.js';
-import { callBarobill } from './soap.js';
+import { BarobillCallError, callBarobill } from './soap.js';
 
 const ALPHANUM = 'abcdefghijkmnopqrstuvwxyz23456789';
 
@@ -38,6 +38,21 @@ export async function checkCorpIsMember(checkCorpNum: string): Promise<number> {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) throw new Error('바로빌 회원 확인 형식이 올바르지 않습니다.');
   return Math.trunc(n);
+}
+
+/**
+ * 파트너 인증키 소속인지 1회 확인한다.
+ * API: TI.GetCertificateRegistDate(CERTKEY, CorpNum) — 등록한 공동인증서 등록일시.
+ * 소속이 아니면 -10001. 소속인데 인증서가 없으면 -26001·-26002·-26003 이라 연결 완료는 막지 않는다.
+ */
+export async function assertPartnerCorpLinked(corpNum: string): Promise<void> {
+  try {
+    await callBarobill('TI', 'GetCertificateRegistDate', { CorpNum: corpNum }, { corpNum });
+  } catch (err) {
+    if (!(err instanceof BarobillCallError)) throw err;
+    if (err.code === -26001 || err.code === -26002 || err.code === -26003) return;
+    throw err;
+  }
 }
 
 export type RegistCorpInput = {
