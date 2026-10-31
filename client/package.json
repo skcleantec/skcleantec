@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predev:vite": "node scripts/copy-pagedjs-polyfill.mjs",
-    "prebuild": "node scripts/copy-pagedjs-polyfill.mjs"
+    "prebuild": "node scripts/copy-pagedjs-polyfill.mjs",
+    "ui:audit": "node scripts/ui-audit.mjs",
+    "ui:audit:files": "node scripts/ui-audit.mjs --files"
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",
