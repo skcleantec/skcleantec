@@ -34,6 +34,21 @@ export const INQUIRY_EDIT_SECTION_TITLE_HINTS = [
   '날짜·금액 변경 이력',
 ] as const;
 
+/** 섹션 이동 목록에 보이는 짧은 이름 (ORDER와 같은 길이) */
+export const INQUIRY_EDIT_SECTION_SHORT_LABELS = [
+  '고객 · 주소',
+  '유형 · 면적',
+  '일정',
+  '정산 · 옵션',
+  '결제 금액 내역',
+  '상태 · 배정 · 메모',
+  '상담 · 참고',
+  '발주서 첨부 사진',
+  '현장 검수 · 완료',
+  '현장 사진',
+  '변경 이력',
+] as const;
+
 export function getInquiryEditSectionNumber(anchor: string | undefined): number | null {
   if (!anchor) return null;
   const i = (INQUIRY_EDIT_SECTION_ANCHOR_ORDER as readonly string[]).indexOf(anchor);

@@ -1,12 +1,13 @@
 /** 접수 수정 모달 — compact 폼 밀도 (ScheduleInquiryDetailModal 공통) */
 
 export const inqEditSectionShell =
-  'min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm';
+  'min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white';
 
+/** 칸 제목 줄 — 번호 상자 + 굵은 제목 (UI 규칙 v2) */
 export const inqEditSectionHeader =
-  'border-b border-gray-200 bg-gray-50 px-3 py-1.5 text-fluid-2xs font-semibold text-gray-600 sm:px-4 sm:py-2';
+  'flex min-h-[44px] items-center px-3 py-2 text-fluid-sm font-bold text-slate-900 sm:min-h-[48px] sm:px-4';
 
-export const inqEditSectionBody = 'p-3 sm:p-4';
+export const inqEditSectionBody = 'px-3 pb-3 pt-1 sm:px-4 sm:pb-4';
 
 /** 2열 필드 그리드 */
 export const inqEditFormGrid = 'grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 text-fluid-sm';

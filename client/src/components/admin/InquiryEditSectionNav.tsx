@@ -1,26 +1,27 @@
-import {
-  useState,
-  useLayoutEffect,
-  useRef,
-  useCallback,
-  type RefObject,
-  type PointerEvent as ReactPointerEvent,
-} from 'react';
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import {
   INQUIRY_EDIT_SECTION_ANCHOR_ORDER,
-  INQUIRY_EDIT_SECTION_TITLE_HINTS,
+  INQUIRY_EDIT_SECTION_SHORT_LABELS,
   inquiryEditSecDomId,
 } from '../../constants/inquiryEditSectionOrder';
 
-const STORAGE_KEY = 'sk_inquiry_edit_section_nav_y_ratio_v1';
-const HOLD_MS = 420;
-/** ▲+그립+▼ 최소 높이(측정 전 폴백) */
-const FAB_MIN_H = 96;
+/**
+ * 접수 수정 — 섹션 이동 목록 (UI 규칙 v2)
+ * - 예전 오른쪽 숫자(1~11) 막대와 같은 고정 번호로, 같은 방식(scrollIntoView block:start)으로 이동한다.
+ * - 이름을 붙여 보여 주고, 지금 보고 있는 칸을 표시한다.
+ * - PC(넓은 창): 창 왼쪽 목록 / 모바일·패널: 머리 아래 가로 칩 줄.
+ * - 번호 없는 칸(발주서 추가 정보·내 추가 캘린더·견적서·클레임)은 「·」로 함께 보여 준다.
+ */
 
 type Props = {
   scrollContainerRef: RefObject<HTMLElement | null>;
-  boundsRef: RefObject<HTMLElement | null>;
+  /** 예전 떠 있는 막대 위치 계산용 — 지금은 쓰지 않지만 호출부 호환을 위해 둔다 */
+  boundsRef?: RefObject<HTMLElement | null>;
+  /** true: lg 이상에서 왼쪽 목록, false: 항상 가로 칩 (패널 모드) */
+  wide?: boolean;
 };
+
+type NavItem = { domId: string; num: number | null; label: string };
 
 function collectSections(scroller: HTMLElement | null): HTMLElement[] {
   if (!scroller) return [];
@@ -33,343 +34,141 @@ function getScrollYForSection(section: HTMLElement, scroller: HTMLElement): numb
   return scroller.scrollTop + (sr.top - cr.top);
 }
 
-function scrollToPrev(scroller: HTMLElement, sections: HTMLElement[]) {
-  if (sections.length === 0) return;
-  const st = scroller.scrollTop;
-  const margin = 6;
-  for (let i = sections.length - 1; i >= 0; i--) {
-    const s = sections[i]!;
-    const y = getScrollYForSection(s, scroller);
-    if (y < st - margin) {
-      s.scrollIntoView({ behavior: 'auto', block: 'start' });
-      return;
-    }
-  }
-  scroller.scrollTo({ top: 0, behavior: 'auto' });
+function readItems(scroller: HTMLElement | null): NavItem[] {
+  return collectSections(scroller).map((el) => {
+    const anchor = el.id.replace(/^inq-edit-sec-/, '');
+    const i = (INQUIRY_EDIT_SECTION_ANCHOR_ORDER as readonly string[]).indexOf(anchor);
+    const label = i >= 0
+      ? INQUIRY_EDIT_SECTION_SHORT_LABELS[i] ?? anchor
+      : (el.dataset.inqEditTitle || anchor).trim();
+    return { domId: el.id, num: i >= 0 ? i + 1 : null, label };
+  });
 }
 
-function scrollToNext(scroller: HTMLElement, sections: HTMLElement[]) {
-  if (sections.length === 0) return;
-  const st = scroller.scrollTop;
-  const margin = 6;
-  for (const s of sections) {
-    const y = getScrollYForSection(s, scroller);
-    if (y > st + margin) {
-      s.scrollIntoView({ behavior: 'auto', block: 'start' });
-      return;
-    }
-  }
-  scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'auto' });
-}
-
-/** 고정 번호 N → `#inq-edit-sec-{anchor}` (없으면 무시) */
-function scrollToCanonicalSection(sc: HTMLElement, oneBased: number) {
-  const i = oneBased - 1;
-  if (i < 0 || i >= INQUIRY_EDIT_SECTION_ANCHOR_ORDER.length) return;
-  const anchor = INQUIRY_EDIT_SECTION_ANCHOR_ORDER[i]!;
-  const el = sc.querySelector(`#${CSS.escape(inquiryEditSecDomId(anchor))}`) as HTMLElement | null;
+/** 예전 숫자 버튼과 같은 이동: 고정 번호 → `#inq-edit-sec-{anchor}` 를 scrollIntoView */
+function jumpTo(scroller: HTMLElement, item: NavItem) {
+  const id = item.num != null
+    ? inquiryEditSecDomId(INQUIRY_EDIT_SECTION_ANCHOR_ORDER[item.num - 1]!)
+    : item.domId;
+  const el = scroller.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
   if (!el) return;
   el.scrollIntoView({ behavior: 'auto', block: 'start' });
 }
 
-const SECTION_JUMP_COUNT = INQUIRY_EDIT_SECTION_ANCHOR_ORDER.length;
-
-/** 우측 FAB — 본문을 덜 가리도록 낮은 불투명도 */
-const navPanelShell =
-  'rounded-l-xl border border-gray-200/35 bg-white/15 backdrop-blur-[2px] shadow-none';
-const navBtnIdle = 'text-gray-600 hover:bg-white/25 active:bg-white/35';
-const navBtnDivider = 'border-b border-gray-200/30';
-
-export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) {
-  const [topPx, setTopPx] = useState(80);
-  const [dragging, setDragging] = useState(false);
-  const [stackHeight, setStackHeight] = useState(FAB_MIN_H);
-  const topPxRef = useRef(80);
-  const holdTimerRef = useRef<number | null>(null);
-  const pointerIdRef = useRef<number | null>(null);
-  const downPosRef = useRef({ x: 0, y: 0 });
-  const dragStartClientYRef = useRef(0);
-  const dragStartTopRef = useRef(0);
-  const dragActiveRef = useRef(false);
-  const stackRef = useRef<HTMLDivElement | null>(null);
-  const appliedStorageRatio = useRef(false);
-
-  const clampTop = useCallback(
-    (raw: number) => {
-      const bounds = boundsRef.current;
-      if (!bounds) return raw;
-      const h = bounds.clientHeight;
-      const wh = Math.max(FAB_MIN_H, stackHeight);
-      const min = 8;
-      const max = Math.max(min, h - wh - 8);
-      return Math.min(max, Math.max(min, raw));
-    },
-    [boundsRef, stackHeight]
-  );
+export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props) {
+  const [items, setItems] = useState<NavItem[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const chipRowRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
-    const el = stackRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => {
-      setStackHeight(el.getBoundingClientRect().height);
-    });
-    ro.observe(el);
-    setStackHeight(el.getBoundingClientRect().height);
-    return () => ro.disconnect();
-  }, []);
-
-  /** 저장된 세로 위치는 스택 실측 이후 한 번만 적용 (섹션 수 변화로 비율 재적용 X) */
-  useLayoutEffect(() => {
-    if (appliedStorageRatio.current) return;
-    const bounds = boundsRef.current;
-    if (!bounds || stackHeight <= 0) return;
-    let ratio = 0.38;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const n = parseFloat(raw);
-        if (Number.isFinite(n) && n >= 0 && n <= 1) ratio = n;
+    const sc = scrollContainerRef.current;
+    if (!sc) return;
+    let key = '';
+    const sync = () => {
+      const next = readItems(sc);
+      const nextKey = next.map((n) => `${n.domId}:${n.label}`).join('|');
+      if (nextKey !== key) {
+        key = nextKey;
+        setItems(next);
       }
-    } catch {
-      /* ignore */
+    };
+    const onScroll = () => {
+      const sections = collectSections(sc);
+      if (sections.length === 0) return;
+      const st = sc.scrollTop;
+      let current = sections[0]!.id;
+      for (const s of sections) {
+        if (getScrollYForSection(s, sc) <= st + 24) current = s.id;
+      }
+      if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) current = sections[sections.length - 1]!.id;
+      setActiveId(current);
+    };
+    sync();
+    onScroll();
+    const mo = new MutationObserver(() => {
+      sync();
+      onScroll();
+    });
+    mo.observe(sc, { childList: true, subtree: true });
+    sc.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      mo.disconnect();
+      sc.removeEventListener('scroll', onScroll);
+    };
+  }, [scrollContainerRef]);
+
+  /** 모바일 칩 줄: 지금 칸 칩이 보이도록 가로로만 맞춘다 */
+  useLayoutEffect(() => {
+    const row = chipRowRef.current;
+    if (!row || !activeId) return;
+    const chip = row.querySelector<HTMLElement>(`[data-nav-for="${CSS.escape(activeId)}"]`);
+    if (!chip) return;
+    const left = chip.offsetLeft - row.offsetLeft;
+    if (left < row.scrollLeft || left + chip.offsetWidth > row.scrollLeft + row.clientWidth) {
+      row.scrollLeft = Math.max(0, left - 12);
     }
-    const h = bounds.clientHeight;
-    if (h <= 0) return;
-    const wh = Math.max(FAB_MIN_H, stackHeight);
-    const min = 8;
-    const max = Math.max(min, h - wh - 8);
-    const next = Math.min(max, Math.max(min, ratio * h - wh / 2));
-    setTopPx(next);
-    topPxRef.current = next;
-    appliedStorageRatio.current = true;
-  }, [stackHeight]);
+  }, [activeId]);
 
-  /** 스택 높이·클램프 변화 시 현재 top만 경계 안으로 (튀는 현상 방지) */
-  useLayoutEffect(() => {
-    if (!appliedStorageRatio.current) return;
-    setTopPx((prev) => {
-      const next = clampTop(prev);
-      topPxRef.current = next;
-      return next;
-    });
-  }, [clampTop, stackHeight]);
+  if (items.length === 0) return null;
 
-  useLayoutEffect(() => {
-    const onResize = () => {
-      setTopPx((prev) => {
-        const next = clampTop(prev);
-        topPxRef.current = next;
-        return next;
-      });
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [clampTop]);
-
-  const endDragListeners = useRef<(() => void) | null>(null);
-
-  const attachWindowDrag = useCallback(
-    (startClientY: number) => {
-      if (endDragListeners.current) {
-        endDragListeners.current();
-        endDragListeners.current = null;
-      }
-      dragStartClientYRef.current = startClientY;
-      dragStartTopRef.current = topPxRef.current;
-      const onMove = (evt: PointerEvent) => {
-        if (pointerIdRef.current == null || evt.pointerId !== pointerIdRef.current) return;
-        evt.preventDefault();
-        const dy = evt.clientY - dragStartClientYRef.current;
-        const next = clampTop(dragStartTopRef.current + dy);
-        topPxRef.current = next;
-        setTopPx(next);
-      };
-      const onUp = (evt: PointerEvent) => {
-        if (pointerIdRef.current == null || evt.pointerId !== pointerIdRef.current) return;
-        pointerIdRef.current = null;
-        dragActiveRef.current = false;
-        setDragging(false);
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onUp);
-        endDragListeners.current = null;
-        const bounds = boundsRef.current;
-        if (bounds) {
-          const y = topPxRef.current;
-          const wh = Math.max(FAB_MIN_H, stackRef.current?.getBoundingClientRect().height ?? stackHeight);
-          const ratio = (y + wh / 2) / Math.max(1, bounds.clientHeight);
-          const clamped = Math.min(1, Math.max(0, ratio));
-          try {
-            window.localStorage.setItem(STORAGE_KEY, String(clamped));
-          } catch {
-            /* ignore */
-          }
-        }
-      };
-      window.addEventListener('pointermove', onMove, { passive: false });
-      window.addEventListener('pointerup', onUp);
-      window.addEventListener('pointercancel', onUp);
-      endDragListeners.current = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onUp);
-      };
-    },
-    [boundsRef, clampTop, stackHeight]
-  );
-
-  useLayoutEffect(
-    () => () => {
-      if (endDragListeners.current) endDragListeners.current();
-      if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
-    },
-    []
-  );
-
-  const lastPointerYRef = useRef(0);
-
-  const onHandlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    e.preventDefault();
-    const pid = e.pointerId;
-    pointerIdRef.current = pid;
-    downPosRef.current = { x: e.clientX, y: e.clientY };
-    lastPointerYRef.current = e.clientY;
-    if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
-
-    const onEarlyMove = (evt: PointerEvent) => {
-      if (pointerIdRef.current == null || evt.pointerId !== pid) return;
-      lastPointerYRef.current = evt.clientY;
-      const dx = Math.abs(evt.clientX - downPosRef.current.x);
-      const dy = Math.abs(evt.clientY - downPosRef.current.y);
-      if (dx + dy > 8 && holdTimerRef.current != null) {
-        window.clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
-    };
-    const cleanupEarly = () => {
-      window.removeEventListener('pointermove', onEarlyMove);
-      window.removeEventListener('pointerup', onEarlyUp);
-      window.removeEventListener('pointercancel', onEarlyUp);
-    };
-    const onEarlyUp = (evt: PointerEvent) => {
-      if (pointerIdRef.current == null || evt.pointerId !== pid) return;
-      if (holdTimerRef.current != null) {
-        window.clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
-      if (!dragActiveRef.current) {
-        pointerIdRef.current = null;
-      }
-      cleanupEarly();
-    };
-    window.addEventListener('pointermove', onEarlyMove, { passive: true });
-    window.addEventListener('pointerup', onEarlyUp);
-    window.addEventListener('pointercancel', onEarlyUp);
-
-    holdTimerRef.current = window.setTimeout(() => {
-      holdTimerRef.current = null;
-      if (pointerIdRef.current !== pid) return;
-      cleanupEarly();
-      dragActiveRef.current = true;
-      setDragging(true);
-      try {
-        e.currentTarget.setPointerCapture(pid);
-      } catch {
-        /* ignore */
-      }
-      attachWindowDrag(lastPointerYRef.current);
-    }, HOLD_MS);
-  };
-
-  const onSectionNav = (dir: 'up' | 'down') => {
+  const onPick = (item: NavItem) => {
     const sc = scrollContainerRef.current;
     if (!sc) return;
-    const sections = collectSections(sc);
-    if (dir === 'up') scrollToPrev(sc, sections);
-    else scrollToNext(sc, sections);
-  };
-
-  const onJumpTo = (n: number) => {
-    const sc = scrollContainerRef.current;
-    if (!sc) return;
-    scrollToCanonicalSection(sc, n);
+    jumpTo(sc, item);
   };
 
   return (
-    <div className="pointer-events-none absolute inset-y-0 right-0 z-[50] w-0" aria-hidden={false}>
-      <div
-        ref={stackRef}
-        className="pointer-events-auto absolute flex w-[44px] flex-col gap-1"
-        style={{
-          top: topPx,
-          right: 0,
-        }}
-      >
-        <div className={`flex flex-col overflow-hidden ${navPanelShell}`}>
-          <button
-            type="button"
-            onClick={() => onSectionNav('up')}
-            className={`flex h-10 w-full min-h-[40px] items-center justify-center ${navBtnDivider} ${navBtnIdle} touch-manipulation`}
-            aria-label="이전 섹션으로"
-            title="이전 섹션"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 15l6-6 6 6" />
-            </svg>
-          </button>
-          <div
-            onPointerDown={onHandlePointerDown}
-            className={`flex min-h-[16px] flex-1 cursor-grab select-none items-center justify-center ${navBtnDivider} py-0.5 text-gray-400 active:cursor-grabbing ${
-              dragging ? 'cursor-grabbing bg-white/30' : 'hover:bg-white/20'
-            }`}
-            style={{ touchAction: 'none' }}
-            title="길게 눌러 세로 위치만 이동"
-            role="separator"
-            aria-label="길게 눌러 위젯 위치를 세로로 이동"
-          >
-            <span className="text-[11px] font-bold leading-none tracking-tighter text-gray-400" aria-hidden>
-              ⋮
-              <br />
-              ⋮
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => onSectionNav('down')}
-            className={`flex h-10 w-full min-h-[40px] items-center justify-center ${navBtnIdle} touch-manipulation`}
-            aria-label="다음 섹션으로"
-            title="다음 섹션"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-        </div>
-
-        <div
-          className={`flex flex-col gap-0.5 py-1 pl-0.5 ${navPanelShell}`}
-          role="group"
-          aria-label="섹션 고정 번호로 이동 (1~9번, 7~9는 발주서·현장·이력)"
+    <>
+      {wide ? (
+        <nav
+          aria-label="접수 수정 칸 이동"
+          className="order-first hidden w-[200px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-slate-200 bg-white p-2 lg:flex"
         >
-          {Array.from({ length: SECTION_JUMP_COUNT }, (_, idx) => idx + 1).map((num) => {
-            const hint = INQUIRY_EDIT_SECTION_TITLE_HINTS[num - 1] ?? '';
+          {items.map((item) => {
+            const on = item.domId === activeId;
             return (
               <button
-                key={num}
+                key={item.domId}
                 type="button"
-                onClick={() => onJumpTo(num)}
-                className="flex h-7 w-full min-h-0 items-center justify-center rounded-md text-[12px] font-semibold tabular-nums text-gray-700 hover:bg-white/25 active:bg-white/35 sm:h-8 sm:text-fluid-2xs touch-manipulation"
-                title={hint ? `${num}. ${hint}` : `${num}번 섹션`}
-                aria-label={hint ? `${num}번, ${hint}` : `${num}번 섹션으로 이동`}
+                onClick={() => onPick(item)}
+                aria-current={on ? 'true' : undefined}
+                className={`flex h-8 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-fluid-xs touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${on ? 'bg-[#eff4ff] font-bold text-slate-900' : 'text-slate-600 hover:bg-slate-100'}`}
               >
-                {num}
+                <span
+                  className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[11px] font-bold tabular-nums ${on ? 'bg-[#2563eb] text-white' : 'bg-slate-100 text-slate-500'}`}
+                  aria-hidden
+                >
+                  {item.num ?? '·'}
+                </span>
+                <span className="min-w-0 truncate">{item.label}</span>
               </button>
             );
           })}
-        </div>
+        </nav>
+      ) : null}
+      <div
+        ref={chipRowRef}
+        role="navigation"
+        aria-label="접수 수정 칸 이동"
+        className={`order-first flex shrink-0 gap-1.5 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 [scrollbar-width:none] ${wide ? 'lg:hidden' : ''}`}
+      >
+        {items.map((item) => {
+          const on = item.domId === activeId;
+          return (
+            <button
+              key={item.domId}
+              type="button"
+              data-nav-for={item.domId}
+              onClick={() => onPick(item)}
+              aria-current={on ? 'true' : undefined}
+              className={`inline-flex h-[30px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-fluid-2xs font-semibold touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${on ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`}
+            >
+              <span className={on ? 'text-slate-400' : 'text-slate-400'} aria-hidden>{item.num ?? '·'}</span>
+              {item.label}
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Button } from '../ui/Button';
 import {
   getScheduleStaffNoticeBoard,
   putScheduleStaffNoticeBoard,
@@ -143,13 +144,13 @@ export function ScheduleStaffNoticeBoardPanel({ token, canEdit, canResize }: Pro
   };
 
   return (
-    <div className="relative rounded-lg border border-amber-200/90 bg-gradient-to-br from-yellow-100 via-amber-50 to-yellow-50 px-3 pb-2.5 pt-3 shadow-[2px_3px_10px_rgba(120,90,20,0.12)]">
+    <div className="relative rounded-xl border border-[#f3d58a] bg-[#fffbeb] px-3 pb-3 pt-3">
       <div
         className="pointer-events-none absolute -top-1 left-1/2 h-2.5 w-12 -translate-x-1/2 rounded-sm bg-amber-200/70 shadow-sm"
         aria-hidden
       />
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-fluid-xs font-semibold text-amber-950">공유 메모</p>
+        <p className="text-fluid-sm font-bold text-amber-950">공유 메모</p>
         {hasMemo ? (
           <span className="inline-flex items-center rounded-full bg-amber-600/90 px-1.5 py-px text-[11px] font-semibold text-white leading-none">
             공지
@@ -201,14 +202,14 @@ export function ScheduleStaffNoticeBoardPanel({ token, canEdit, canResize }: Pro
           {error ? <p className="mt-1 text-fluid-2xs text-rose-700">{error}</p> : null}
           {canEdit ? (
             <div className="mt-2 flex justify-end">
-              <button
-                type="button"
+              <Button
+                size="sm"
+                variant="primary"
                 disabled={saving || !dirty}
                 onClick={() => void handleSave()}
-                className="rounded-md border border-slate-800 bg-slate-900 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
                 {saving ? '저장 중…' : '저장'}
-              </button>
+              </Button>
             </div>
           ) : null}
         </>

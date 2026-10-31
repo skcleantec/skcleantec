@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Button } from '../ui/Button';
 import { createPortal } from 'react-dom';
 import {
   createInquiry,
@@ -2407,7 +2408,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
   const shellClassName = isPanel
     ? 'relative flex h-full min-h-0 max-h-[calc(100dvh-9rem)] flex-col rounded-xl border border-slate-200 bg-white shadow-sm'
-    : 'modal-mobile-fullscreen-panel relative z-10 flex max-w-2xl w-full flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:flex-none sm:rounded-2xl';
+    : 'modal-mobile-fullscreen-panel relative z-10 flex max-w-2xl lg:max-w-[920px] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:flex-none sm:rounded-2xl';
 
   const detailPanel = (
       <div
@@ -2508,7 +2509,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     name={item.customerName}
                     tone={editForm.internalCustomerTone}
                     viewerRole={meUser?.role}
-                    nameClassName="min-w-0 truncate text-fluid-sm font-semibold text-gray-900 sm:text-fluid-base lg:text-base"
+                    nameClassName="min-w-0 truncate text-fluid-base font-extrabold tracking-tight text-slate-900 lg:text-fluid-lg"
                   />
                   <CardPaymentDoneMark paid={cardPaid} />
                   <PropertyTypeSticker
@@ -2544,40 +2545,40 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 </div>
                 <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                   {!isCreate && item.orderForm?.token ? (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => setCustomerOrderOpen(true)}
-                      className="inline-flex items-center rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-medium leading-tight text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:bg-slate-100 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                       title="고객이 작성한 발주서를 봅니다."
                     >
                       발주서
-                    </button>
+                    </Button>
                   ) : null}
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={() => setCopyInfoViewOpen(true)}
-                    className="inline-flex items-center rounded-md border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium leading-tight text-slate-800 hover:bg-slate-100 active:bg-slate-200 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     title="고객·현장·일정·금액 요약을 한 화면에서 봅니다."
                   >
                     보기
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={() => void copyInquiryInfo()}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] font-medium leading-tight text-gray-700 hover:bg-gray-50 active:bg-gray-100 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
                     aria-live="polite"
                   >
                     {copyHint ?? '복사'}
-                  </button>
+                  </Button>
                   {meUser?.role === 'ADMIN' || meUser?.role === 'MARKETER' ? (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => setExtraWorkOpen(true)}
-                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] font-medium leading-tight text-gray-700 hover:bg-gray-50 active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     >
                       추가 시공
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </div>
@@ -2600,10 +2601,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </div>
         </div>
 
-        <div ref={inquiryEditNavBoundsRef} className="relative isolate flex min-h-0 flex-1 flex-col">
+        <div ref={inquiryEditNavBoundsRef} className={`relative isolate flex min-h-0 flex-1 flex-col ${isPanel ? '' : 'lg:flex-row'}`}>
         <div
           ref={inquiryEditScrollRef}
-          className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
+          className="modal-form-scroll-surface min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
           onFocusCapture={onInquiryEditFieldFocus}
         >
         <div className="space-y-4">
@@ -2815,7 +2816,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         <AdminScheduleDetailSection title="일정" sectionAnchor="schedule">
           <div className="space-y-4">
             {/* 예약일시 그룹 */}
-            <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-3 sm:p-4">
+            <div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
@@ -2919,7 +2920,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
             {/* 이사 & 현장 정보 그룹 */}
             {showMoveIn || showBuildingType ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
+            <div className="border-t border-slate-100 pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 {showMoveIn ? (
                 <div>
@@ -3251,6 +3252,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         <InquiryEditSectionNav
           scrollContainerRef={inquiryEditScrollRef}
           boundsRef={inquiryEditNavBoundsRef}
+          wide={!isPanel}
         />
         </div>
 
@@ -3266,7 +3268,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 e.stopPropagation();
                 setDeleteConfirmOpen(true);
               }}
-              className="min-h-[44px] touch-manipulation px-4 py-2.5 border border-red-300 text-red-700 rounded text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+              className="min-h-[44px] touch-manipulation rounded-[10px] border border-[#f3b8b1] bg-white px-4 py-2.5 text-fluid-sm font-semibold text-[#b42318] hover:bg-[#fdecea] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:opacity-50"
             >
               삭제
             </button>
@@ -3279,7 +3281,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               e.stopPropagation();
               void handleSave();
             }}
-            className="min-h-[44px] flex-1 touch-manipulation py-2.5 bg-blue-600 text-white rounded text-sm font-medium disabled:opacity-50 active:bg-blue-700"
+            className="min-h-[44px] flex-1 touch-manipulation rounded-[10px] bg-[#111a2b] py-2.5 text-fluid-sm font-bold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50"
           >
             {saving ? (isCreate ? '등록 중…' : '저장 중…') : isCreate ? '등록' : '저장'}
           </button>
@@ -3289,7 +3291,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               e.stopPropagation();
               onClose();
             }}
-            className="min-h-[44px] touch-manipulation px-4 py-2.5 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
+            className="min-h-[44px] touch-manipulation rounded-[10px] border border-[#dde3ea] bg-white px-4 py-2.5 text-fluid-sm font-semibold text-[#141b26] hover:bg-[#eef2f7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
           >
             닫기
           </button>

@@ -25,7 +25,20 @@ export function AdminScheduleDetailSection({
   resetKey?: string | number | null;
 }) {
   const sectionNo = getInquiryEditSectionNumber(sectionAnchor);
-  const displayTitle = sectionNo != null ? `${sectionNo}. ${title}` : title;
+  /** 번호 상자 + 제목 (UI 규칙 v2). 번호 없는 칸은 제목만 */
+  const titleNode = (
+    <span className="flex min-w-0 items-center gap-2">
+      {sectionNo != null ? (
+        <span className="inline-flex h-[22px] min-w-[22px] shrink-0 items-center justify-center rounded-md bg-slate-900 px-1 text-fluid-2xs font-bold tabular-nums text-white" aria-hidden>
+          {sectionNo}
+        </span>
+      ) : null}
+      <span className="min-w-0 truncate">
+        {sectionNo != null ? <span className="sr-only">{sectionNo}. </span> : null}
+        {title}
+      </span>
+    </span>
+  );
   const [open, setOpen] = useState(defaultOpen);
   const userToggledRef = useRef(false);
 
@@ -45,8 +58,9 @@ export function AdminScheduleDetailSection({
         className={inqEditSectionShell}
         id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
         data-inq-edit-section={sectionAnchor ? '' : undefined}
+        data-inq-edit-title={sectionAnchor ? title : undefined}
       >
-        <h3 className={inqEditSectionHeader}>{displayTitle}</h3>
+        <h3 className={inqEditSectionHeader}>{titleNode}</h3>
         <div className={inqEditSectionBody}>{children}</div>
       </section>
     );
@@ -57,6 +71,7 @@ export function AdminScheduleDetailSection({
       className={inqEditSectionShell}
       id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
       data-inq-edit-section={sectionAnchor ? '' : undefined}
+      data-inq-edit-title={sectionAnchor ? title : undefined}
     >
       <details
         open={open}
@@ -67,10 +82,10 @@ export function AdminScheduleDetailSection({
         className="group [&_summary::-webkit-details-marker]:hidden"
       >
         <summary className={`cursor-pointer list-none touch-manipulation ${inqEditSectionHeader}`}>
-          <span className="flex items-center justify-between gap-2">
-            <span>{displayTitle}</span>
-            <span className="shrink-0 text-[11px] font-normal text-gray-400" aria-hidden>
-              {open ? '접기 ▲' : '펼치기 ▼'}
+          <span className="flex w-full min-w-0 items-center justify-between gap-2">
+            {titleNode}
+            <span className="shrink-0 text-fluid-2xs font-medium text-slate-500" aria-hidden>
+              {open ? '접기 ▴' : '펼치기 ▾'}
             </span>
           </span>
         </summary>

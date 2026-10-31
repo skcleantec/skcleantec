@@ -117,7 +117,7 @@ export function InquiryEditStatusSection({
     >
       <div className="space-y-4">
         {/* 상태 및 마케터 그룹 */}
-        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
+        <div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3">
             <div>
               <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">상태</label>
@@ -215,7 +215,7 @@ export function InquiryEditStatusSection({
         </div>
 
         {showTeamAssignment ? (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 sm:p-4 space-y-3">
+        <div className="space-y-3 border-t border-slate-100 pt-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-fluid-sm font-semibold text-slate-700 inline-flex items-center gap-1">
               배정 · 팀원
@@ -320,7 +320,7 @@ export function InquiryEditStatusSection({
           </p>
         )}
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
+        <div className="border-t border-slate-100 pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
             <div>
               <div className="flex items-center justify-between mb-1.5">

@@ -65,15 +65,15 @@ export function ScheduleCustomCalendarSidebar({
   };
 
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="shrink-0 border-b border-slate-100 px-2 py-1.5">
-        <h2 className="font-semibold text-slate-900 text-[13px] leading-tight">맞춤 캘린더</h2>
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="shrink-0 px-3 pb-1 pt-3">
+        <h2 className="text-fluid-sm font-bold leading-tight text-slate-900">맞춤 캘린더</h2>
         {activeFilterLabels.length > 0 ? (
-          <p className="mt-0.5 truncate text-[11px] text-slate-500 leading-tight" title={activeFilterLabels.join(' ∩ ')}>
+          <p className="mt-0.5 truncate text-fluid-2xs text-slate-500 leading-tight" title={activeFilterLabels.join(' ∩ ')}>
             {activeFilterLabels.join(' ∩ ')}
           </p>
         ) : (
-          <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">지역 · 업체 · 파트너 필터</p>
+          <p className="mt-0.5 text-fluid-2xs text-slate-500 leading-tight">지역 · 업체 · 파트너 필터</p>
         )}
       </div>
 
@@ -186,10 +186,10 @@ export function ScheduleCustomCalendarSidebar({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-2 py-1.5">
+      <div className="shrink-0 px-3 pb-3 pt-1">
         <Link
           to="/admin/service-zones"
-          className="block text-center text-[11px] font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline py-0.5 leading-tight"
+          className="flex h-8 w-full items-center justify-center rounded-lg border border-[#dde3ea] bg-white text-fluid-2xs font-semibold text-[#141b26] hover:bg-[#eef2f7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
           서비스 권역 관리
         </Link>
