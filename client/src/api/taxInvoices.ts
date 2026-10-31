@@ -80,6 +80,8 @@ export type TaxInvoiceRow = {
   publicToken?: string | null;
   createdAt: string;
   taxKind?: 'taxable' | 'zero' | 'exempt';
+  /** 회원사 전송 설정이 익일(과세는 ntsTaxationOption, 면세는 ntsTaxExemptionOption 이 1)일 때. */
+  ntsNextDay?: boolean;
 };
 
 function headers(): HeadersInit {
@@ -93,7 +95,9 @@ export function taxBarobillStateLabel(state: string | null): string {
   return state ? `상태 ${state}` : '확인 중';
 }
 
-export function taxStatusView(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSendState' | 'lastError' | 'amended' | 'createdAt'>): { label: string; className: string } {
+const NTS_WAIT = 'whitespace-nowrap border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]';
+
+export function taxStatusView(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSendState' | 'lastError' | 'amended' | 'createdAt' | 'ntsNextDay'>): { label: string; className: string } {
   if (row.amended) return { label: '수정됨', className: 'border border-slate-300 bg-slate-100 text-slate-700' };
   if (row.barobillState === '5031') return { label: '발급 취소', className: 'border border-slate-200 bg-slate-100 text-slate-500' };
   if (!row.barobillState && row.lastError) {
@@ -103,8 +107,10 @@ export function taxStatusView(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSen
     return { label: '전송 실패', className: 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]' };
   }
   if (row.ntsSendState === '4') return { label: '국세청 전송 완료', className: 'border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]' };
-  if (row.ntsSendState === '1' || row.ntsSendState === '2' || row.ntsSendState === '3') {
-    return { label: `전송 대기 · ${nextNtsMd(row.createdAt)} 14시`, className: 'whitespace-nowrap border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]' };
+  if (row.ntsSendState === '2' || row.ntsSendState === '3') return { label: '전송 중', className: NTS_WAIT };
+  if (row.ntsSendState === '1') {
+    const when = row.ntsNextDay ? ` · ${nextNtsMd(row.createdAt)} 14시` : '';
+    return { label: `전송 전${when}`, className: NTS_WAIT };
   }
   return { label: taxBarobillStateLabel(row.barobillState), className: 'border border-slate-200 bg-slate-50 text-slate-700' };
 }

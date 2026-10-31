@@ -237,6 +237,7 @@ function toPublicIssue(row: CashBillIssue) {
     kind: row.kind,
     tradeUsage: row.tradeUsage,
     identityMasked: row.identityMasked,
+    customerName: row.customerName,
     itemName: row.itemName,
     totalWon: row.totalWon,
     amount: row.amount,
@@ -324,6 +325,7 @@ export async function issueCashbill(
     requestId?: string;
     email?: string;
     internalMemo?: string;
+    customerName?: string;
   },
 ) {
   const inquiry = input.inquiryId ? await loadInquiry(tenantId, input.inquiryId) : null;
@@ -365,6 +367,7 @@ export async function issueCashbill(
         kind: 'FULL',
         tradeUsage: who.usage,
         identityMasked: who.masked,
+        customerName: customerNameOf(input.customerName) || inquiry?.customerName?.trim().slice(0, 64) || null,
         itemName,
         amount: tax.amount,
         tax: tax.tax,
@@ -479,6 +482,7 @@ export async function cancelCashbillIssue(
       cancelOfId: original.id,
       tradeUsage: original.tradeUsage,
       identityMasked: original.identityMasked,
+      customerName: original.customerName,
       itemName: original.itemName,
       amount: original.amount,
       tax: original.tax,
@@ -521,11 +525,20 @@ export async function linkCashbillInquiry(tenantId: string, issueId: string, inq
   const row = await prisma.cashBillIssue.findFirst({ where: { id: issueId, tenantId }, select: { id: true } });
   if (!row) throw new CashbillIssueError('현금영수증을 찾을 수 없습니다.', 404);
   const nextId = inquiryId?.trim() || null;
+  let name: string | null = null;
   if (nextId) {
-    const inquiry = await prisma.inquiry.findFirst({ where: { id: nextId, tenantId, deletedAt: null }, select: { id: true } });
+    const inquiry = await prisma.inquiry.findFirst({ where: { id: nextId, tenantId, deletedAt: null }, select: { id: true, customerName: true } });
     if (!inquiry) throw new CashbillIssueError('접수를 찾을 수 없습니다.', 404);
+    name = inquiry.customerName?.trim().slice(0, 64) || null;
   }
-  await prisma.cashBillIssue.updateMany({ where: { id: issueId, tenantId }, data: { inquiryId: nextId } });
+  // 연결하면 접수 이름을 함께 남기고, 연결을 풀어도 적어 둔 이름은 지우지 않는다.
+  await prisma.cashBillIssue.updateMany({
+    where: { id: issueId, tenantId },
+    data: name ? { inquiryId: nextId, customerName: name } : { inquiryId: nextId },
+  });
+  if (nextId) {
+    await prisma.cashBillIssue.updateMany({ where: { cancelOfId: issueId, tenantId }, data: name ? { inquiryId: nextId, customerName: name } : { inquiryId: nextId } });
+  }
 }
 
 export async function listCashbillIssues(tenantId: string, query: {
@@ -547,6 +560,7 @@ export async function listCashbillIssues(tenantId: string, query: {
     where.AND = [{
       OR: [
         { identityMasked: { contains: q, mode: 'insensitive' } },
+        { customerName: { contains: q, mode: 'insensitive' } },
         { itemName: { contains: q, mode: 'insensitive' } },
         { inquiry: { customerName: { contains: q, mode: 'insensitive' } } },
         { inquiry: { inquiryNumber: { contains: q, mode: 'insensitive' } } },
@@ -606,7 +620,8 @@ export async function listCashbillIssues(tenantId: string, query: {
     items: items.map((row) => ({
       ...toPublicIssue(row),
       inquiryNumber: row.inquiry?.inquiryNumber ?? null,
-      customerName: row.inquiry?.customerName ?? '매칭 없음',
+      customerName: row.inquiry?.customerName?.trim() || row.customerName?.trim() || null,
+      linked: Boolean(row.inquiryId),
       brandName: row.operatingCompany.name,
       canCancel: row.kind !== 'CANCEL' && COUNTED_STATES.has(row.barobillState ?? '') && !row.cancellations.some((child) => child.barobillState && CANCEL_DONE.has(child.barobillState)),
     })),
@@ -624,6 +639,10 @@ export async function listCashbillIssues(tenantId: string, query: {
       costWon: costAgg._sum.chargedKrw ?? 0,
     },
   };
+}
+
+function customerNameOf(raw: unknown): string {
+  return typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim().slice(0, 64) : '';
 }
 
 function customerEmailOf(raw: unknown): string {
@@ -727,5 +746,6 @@ export async function cashbillReissueSource(tenantId: string, issueId: string) {
     usage,
     itemName: row.itemName,
     memo: row.internalMemo ?? '',
+    customerName: row.customerName ?? '',
   };
 }

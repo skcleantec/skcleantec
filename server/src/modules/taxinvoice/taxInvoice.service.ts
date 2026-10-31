@@ -206,6 +206,13 @@ function firstLineName(lines: unknown): string {
   return '청소 서비스';
 }
 
+/** 익일 전송(1)일 때만 칩에 「· M.D 14시」. 면세사업자(taxType 4)는 면세 옵션. */
+function ntsNextDaySend(member: { taxType: string | null; ntsTaxationOption: number | null; ntsTaxExemptionOption: number | null } | null | undefined): boolean {
+  if (!member) return false;
+  const option = member.taxType === '4' ? member.ntsTaxExemptionOption : member.ntsTaxationOption;
+  return option === 1;
+}
+
 function toPublic(row: TaxInvoiceIssue) {
   return {
     id: row.id,
@@ -558,8 +565,11 @@ export async function listTaxInvoices(tenantId: string, query: {
   } else if (query.state === 'amended') {
     where.modifyCode = null;
     where.modifications = { some: { barobillState: '3014' } };
-  } else if (query.state === 'nts1' || query.state === 'nts23') {
-    where.ntsSendState = { in: ['1', '2', '3'] };
+  } else if (query.state === 'nts1') {
+    where.ntsSendState = '1';
+    where.NOT = { barobillState: '5031' };
+  } else if (query.state === 'nts23') {
+    where.ntsSendState = { in: ['2', '3'] };
     where.NOT = { barobillState: '5031' };
   } else if (query.state === 'nts4' || query.state === 'nts5') {
     where.ntsSendState = query.state.replace('nts', '');
@@ -574,7 +584,12 @@ export async function listTaxInvoices(tenantId: string, query: {
       take: query.limit,
       include: {
         inquiry: { select: { inquiryNumber: true, customerName: true } },
-        operatingCompany: { select: { name: true } },
+        operatingCompany: {
+          select: {
+            name: true,
+            barobillMember: { select: { taxType: true, ntsTaxationOption: true, ntsTaxExemptionOption: true } },
+          },
+        },
         originalIssue: { select: { writeDate: true, ntsSendKey: true } },
         modifications: { where: { barobillState: '3014' }, select: { id: true } },
       },
@@ -614,7 +629,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       _sum: { totalAmount: true },
     }),
     prisma.taxInvoiceIssue.count({
-      where: { ...monthWhere, ntsSendState: { in: ['1', '2', '3'] }, barobillState: { not: '5031' } },
+      where: { ...monthWhere, ntsSendState: '1', barobillState: { not: '5031' } },
     }),
     prisma.taxInvoiceIssue.count({
       where: { ...monthWhere, ntsSendState: '5' },
@@ -635,6 +650,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       originalWriteDate: row.originalIssue?.writeDate ?? null,
       originalNtsSendKey: row.originalIssue?.ntsSendKey ?? null,
       itemName: firstLineName(row.lines),
+      ntsNextDay: ntsNextDaySend(row.operatingCompany.barobillMember),
     })),
     total,
     brands: brands.map((brand) => ({
