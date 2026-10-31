@@ -11,8 +11,8 @@ import {
   BAROBILL_USER_ID_MESSAGE,
   BAROBILL_USER_ID_PATTERN,
 } from '../../lib/barobill/policy.js';
-import { BarobillCallError } from '../../lib/barobill/soap.js';
-import { checkCorpIsMember, newBarobillPassword, newBarobillUserId, registCorp } from '../../lib/barobill/ti.js';
+import { BarobillCallError, platformBarobillCause } from '../../lib/barobill/soap.js';
+import { assertPartnerCorpLinked, checkCorpIsMember, newBarobillPassword, newBarobillUserId, registCorp } from '../../lib/barobill/ti.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { isBlankSupplierField } from '../taxinvoice/supplierFieldText.js';
 import { parseTenantConfig } from '../tenants/tenantConfig.schema.js';
@@ -853,9 +853,16 @@ export async function completeBarobillLink(memberId: string, barobillUserIdRaw: 
   if (row.status !== 'LINK_REQUIRED' && !stale) {
     throw new CashbillMemberError('연결이 필요한 건만 처리완료 할 수 있습니다.');
   }
-  const flag = await checkCorpIsMember(row.corpNum);
-  if (flag <= 0) {
-    throw new CashbillMemberError('콘솔에서 회원사 추가가 아직 확인되지 않습니다.');
+  try {
+    await assertPartnerCorpLinked(row.corpNum);
+  } catch (err) {
+    if (err instanceof BarobillCallError && err.code === -10001) {
+      throw new CashbillMemberError('바로빌 콘솔 › 회원사 관리 › 회원사 추가를 먼저 해 주세요');
+    }
+    if (err instanceof BarobillCallError) {
+      throw new CashbillMemberError(platformBarobillCause(err));
+    }
+    throw err;
   }
   const updated = await prisma.barobillMember.updateMany({
     where: { id: row.id, tenantId: row.tenantId, status: row.status },

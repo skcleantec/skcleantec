@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchCashbillCertificateStatus, openCashbillCertificateUrl } from '../../api/cashbill';
+import { Button } from '../ui/Button';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { certExpireLabel } from './cashbillCertDisplay';
 
@@ -164,7 +165,13 @@ export function CashbillCertRegisterModal({
       ) : null}
       {done ? <p className="text-fluid-sm font-medium text-emerald-800">✓ 등록 완료 · 만료일 {certExpireLabel(done.expireDate)}</p> : null}
       {blocked ? <p className="text-fluid-xs text-red-700">{POPUP_BLOCKED}</p> : null}
-      {error ? <p className="text-fluid-xs text-red-700">{error} · 다시 확인 / 다시 열기</p> : null}
+      {error ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-fluid-xs text-red-700">{error}</p>
+          <Button variant="secondary" size="sm" onClick={() => void checkOnce(true)}>다시 확인</Button>
+          <Button variant="secondary" size="sm" onClick={openWindow}>다시 열기</Button>
+        </div>
+      ) : null}
     </IssueModalFrame>
   );
 }
