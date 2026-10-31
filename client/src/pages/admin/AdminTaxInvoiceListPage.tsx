@@ -299,7 +299,7 @@ export function AdminTaxInvoiceListPage() {
 }
 
 function taxFailed(row: TaxInvoiceRow): boolean {
-  return row.ntsSendState === '5' || (!row.barobillState && Boolean(row.lastError));
+  return !row.barobillState && Boolean(row.lastError);
 }
 
 function TaxKindBadge({ kind }: { kind?: TaxInvoiceRow['taxKind'] }) {

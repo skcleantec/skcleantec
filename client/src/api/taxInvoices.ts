@@ -94,7 +94,10 @@ export function taxBarobillStateLabel(state: string | null): string {
 export function taxStatusView(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSendState' | 'lastError' | 'amended' | 'createdAt'>): { label: string; className: string } {
   if (row.amended) return { label: '수정됨', className: 'border border-slate-300 bg-slate-100 text-slate-700' };
   if (row.barobillState === '5031') return { label: '발급 취소', className: 'border border-slate-200 bg-slate-100 text-slate-500' };
-  if (row.ntsSendState === '5' || (!row.barobillState && row.lastError)) {
+  if (!row.barobillState && row.lastError) {
+    return { label: '발행 실패', className: 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]' };
+  }
+  if (row.ntsSendState === '5') {
     return { label: '전송 실패', className: 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]' };
   }
   if (row.ntsSendState === '4') return { label: '국세청 전송 완료', className: 'border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]' };

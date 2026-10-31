@@ -87,7 +87,7 @@ export function TaxInvoiceModifyModal({
           <h2 id="tax-modify-title" className="text-fluid-sm font-semibold text-slate-900">수정세금계산서 발급</h2>
         </header>
         <div ref={scrollRef} className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto p-3" onFocusCapture={onFieldFocus}>
-          <p className="text-fluid-xs text-slate-700">국세청에 이미 전송된 세금계산서는 지울 수 없어요. 대신 수정세금계산서를 발급해 원래 건을 바로잡아요.</p>
+          <p className="text-fluid-xs text-slate-700">발급된 세금계산서는 수정세금계산서로 바로잡아요. 국세청 전송 전이면 발급 취소도 할 수 있어요.</p>
           <dl className="grid grid-cols-[5rem_1fr] gap-y-1 text-fluid-xs">
             <dt className="text-slate-500">원래 건</dt>
             <dd>{md(row.writeDate) || '—'} · {won(row.totalAmount)}</dd>

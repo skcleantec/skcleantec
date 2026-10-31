@@ -442,8 +442,9 @@ export async function issueTaxInvoice(
   }
   await prisma.taxInvoiceIssue.updateMany({ where: { id: created.id, tenantId }, data: { chargedKrw: TAXINVOICE_UNIT_PRICE_KRW } });
   const chargedRow = { ...created, chargedKrw: TAXINVOICE_UNIT_PRICE_KRW };
+  let barobillCode: number | null = null;
   try {
-    await registAndIssueTaxInvoice({
+    barobillCode = await registAndIssueTaxInvoice({
       corpNum: member.corpNum,
       userId: member.barobillUserId,
       mgtKey: key,
@@ -485,7 +486,7 @@ export async function issueTaxInvoice(
     await failIssue(chargedRow, err, plan);
   }
   const saved = await prisma.taxInvoiceIssue.findFirst({ where: { id: created.id, tenantId } });
-  return toPublic(saved ?? chargedRow);
+  return { ...toPublic(saved ?? chargedRow), barobillCode };
 }
 
 export async function cancelTaxInvoice(tenantId: string, issueId: string) {
@@ -630,7 +631,7 @@ export async function listTaxInvoices(tenantId: string, query: {
       customerName: row.inquiry?.customerName?.trim() || row.buyerCeoName.trim() || '—',
       brandName: row.operatingCompany.name,
       amended: row.modifications.length > 0,
-      canModify: row.ntsSendState === '4' && Boolean(row.ntsSendKey) && row.barobillState === '3014' && !row.modifyCode && row.modifications.length === 0,
+      canModify: row.barobillState === '3014' && !row.modifyCode && row.modifications.length === 0,
       originalWriteDate: row.originalIssue?.writeDate ?? null,
       itemName: firstLineName(row.lines),
     })),

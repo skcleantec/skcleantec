@@ -120,10 +120,7 @@ export async function modifyTaxInvoice(
   if (original.barobillState === '5031') throw new TaxInvoiceError('발급 취소된 건은 수정 발급할 수 없어요.');
   if (original.modifyCode) throw new TaxInvoiceError('수정세금계산서에는 다시 수정 발급할 수 없어요.');
   if (original.modifications.length > 0) throw new TaxInvoiceError('이미 수정세금계산서를 발급한 건입니다.');
-  if (original.ntsSendState === '1') throw new TaxInvoiceError('국세청 전송 전에는 발급 취소를 이용해 주세요.', 409, 'cancel_instead');
-  if (original.ntsSendState !== '4' || !original.ntsSendKey) {
-    throw new TaxInvoiceError('국세청 전송이 끝난 뒤에 수정 발급할 수 있어요.', 409, 'nts_pending');
-  }
+  if (original.barobillState !== '3014') throw new TaxInvoiceError('발급된 세금계산서만 수정 발급할 수 있어요.');
   const env = resolveBarobillEnv();
   const member = await prisma.barobillMember.findFirst({
     where: { id: original.memberId, tenantId, env, status: 'ACTIVE' },
@@ -136,12 +133,16 @@ export async function modifyTaxInvoice(
   if (lines.length < 1) throw new TaxInvoiceError('원래 품목을 찾지 못했습니다.');
   const sheets = buildSheets(kind, original, lines, taxKind, input);
   const plan = (await prisma.tenant.findFirst({ where: { id: tenantId }, select: { plan: true } }))?.plan ?? 'free';
-  const issued: string[] = [];
+  const issued: { id: string; barobillCode: number | null }[] = [];
   for (const sheet of sheets) {
-    const rowId = await issueSheet({ tenantId, userId, plan, member, original, sheet, taxKind });
-    issued.push(rowId);
+    issued.push(await issueSheet({ tenantId, userId, plan, member, original, sheet, taxKind }));
   }
-  return { issuedCount: issued.length, chargedKrw: issued.length * TAXINVOICE_UNIT_PRICE_KRW, ids: issued };
+  return {
+    issuedCount: issued.length,
+    chargedKrw: issued.length * TAXINVOICE_UNIT_PRICE_KRW,
+    ids: issued.map((row) => row.id),
+    barobillCodes: issued.map((row) => row.barobillCode),
+  };
 }
 
 function buildSheets(
@@ -288,7 +289,7 @@ async function issueSheet(input: {
   original: TaxInvoiceIssue;
   sheet: Sheet;
   taxKind: 'taxable' | 'zero' | 'exempt';
-}): Promise<string> {
+}): Promise<{ id: string; barobillCode: number | null }> {
   const key = newMgtKey();
   const created = await prisma.taxInvoiceIssue.create({
     data: {
@@ -328,7 +329,7 @@ async function issueSheet(input: {
     data: { chargedKrw: TAXINVOICE_UNIT_PRICE_KRW },
   });
   try {
-    await registAndIssueTaxInvoice({
+    const barobillCode = await registAndIssueTaxInvoice({
       corpNum: input.member.corpNum,
       userId: input.member.barobillUserId,
       mgtKey: key,
@@ -361,7 +362,7 @@ async function issueSheet(input: {
     });
     const [state] = await fetchTaxInvoiceStates({ corpNum: input.member.corpNum, mgtKeys: [key] }).catch(() => []);
     await remember(created, state ?? { barobillState: '3014', ntsSendState: '1' });
-    return created.id;
+    return { id: created.id, barobillCode };
   } catch (err) {
     await refundTaxInvoiceWallet(input.tenantId, input.plan, created.id);
     await prisma.taxInvoiceIssue.updateMany({

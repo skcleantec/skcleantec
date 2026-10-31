@@ -126,9 +126,9 @@ function linePurchaseExpiry(writeDate: string, month?: string, day?: string): st
   return `${writeDate.slice(0, 4)}${m.padStart(2, '0').slice(-2)}${d.padStart(2, '0').slice(-2)}`;
 }
 
-/** 간편발급. 정발행. 과세·영세·면세는 TaxType, 면세 계산서는 TaxInvoiceType 2. 내부 메모는 넣지 않는다. */
-export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promise<void> {
-  await callBarobill(
+/** 간편발급. 정발행. 과세·영세·면세는 TaxType, 면세 계산서는 TaxInvoiceType 2. 내부 메모는 넣지 않는다. 성공 시 바로빌 결과 코드. */
+export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promise<number | null> {
+  const raw = await callBarobill(
     'TI',
     'RegistAndIssueTaxInvoice',
     {
@@ -199,6 +199,9 @@ export async function registAndIssueTaxInvoice(input: TaxInvoicePayload): Promis
     },
     { corpNum: input.corpNum },
   );
+  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.trunc(raw);
+  if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) return Number(raw.trim());
+  return null;
 }
 
 /** 국세청 전송 전 발급취소. ProcType 은 현재 TI WSDL 기준 ISSUE_CANCEL. */
