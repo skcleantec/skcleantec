@@ -27,6 +27,7 @@ import { TaxInvoiceModifyModal } from '../../components/taxinvoice/TaxInvoiceMod
 import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { Button } from '../../components/ui/Button';
 import { FailReasonChip, showReceiptDone, showReceiptFailure } from '../../components/receipts/receiptToasts';
+import { ToastButton } from '../../components/ui/Toast';
 import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider';
 import { approvalTail, groupTaxInvoiceRows, type TaxListConnect } from '../../utils/taxInvoiceListGroup';
 
@@ -140,7 +141,10 @@ export function AdminTaxInvoiceListPage() {
     showReceiptDone(
       '세금계산서를 발행했어요',
       '목록 맨 위에 표시해 두었어요.',
-      <ReceiptCopyButtons kind="taxinvoice" issueId={issuedId} official publicToken={null} copyReady={false} shareOnly />,
+      <>
+        <ReceiptCopyButtons kind="taxinvoice" issueId={issuedId} official publicToken={null} copyReady={false} shareOnly inToast />
+        <ToastButton variant="primary">확인</ToastButton>
+      </>,
     );
     setReload((n) => n + 1);
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });

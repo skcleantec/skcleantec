@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
-import { Button } from '../ui/Button';
-import { toast } from '../ui/Toast';
+import { toast, ToastButton } from '../ui/Toast';
 
 /** 지갑 잔액 부족 문구면 충전 버튼을 붙인다. */
 export function isWalletShortMessage(message: string | null | undefined): boolean {
@@ -13,12 +12,17 @@ export function showReceiptFailure(title: string, reason: string | null | undefi
   toast.error({
     title,
     body: message,
-    actions: charge ? <Button size="sm" variant="primary" onClick={onCharge}>충전하기</Button> : undefined,
+    actions: charge ? (
+      <>
+        <ToastButton>닫기</ToastButton>
+        <ToastButton variant="primary" onClick={onCharge}>충전하기</ToastButton>
+      </>
+    ) : undefined,
   });
 }
 
 export function showReceiptDone(title: string, body?: ReactNode, actions?: ReactNode): void {
-  toast.success({ title, body, actions, duration: actions ? 8000 : 5000 });
+  toast.success({ title, body, actions, duration: actions ? 0 : 3500 });
 }
 
 /** 실패 칩: 누르면 실패 이유를 팝업으로 보여 준다. */

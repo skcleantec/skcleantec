@@ -22,6 +22,7 @@ import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { Button } from '../../components/ui/Button';
 import { FailReasonChip, showReceiptDone, showReceiptFailure } from '../../components/receipts/receiptToasts';
+import { ToastButton } from '../../components/ui/Toast';
 import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider';
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 
@@ -197,8 +198,8 @@ export function AdminCashbillListPage() {
               '현금영수증을 발행했어요',
               '목록 맨 위에 표시해 두었어요.',
               <>
-                <Button size="sm" variant="primary" onClick={() => void openCashbillReceipt(issueId).catch((err: unknown) => showReceiptFailure('영수증을 열지 못했어요', err instanceof Error ? err.message : null))}>영수증 보기</Button>
-                <ReceiptCopyButtons kind="cashbill" issueId={issueId} official publicToken={null} copyReady={false} shareOnly />
+                <ReceiptCopyButtons kind="cashbill" issueId={issueId} official publicToken={null} copyReady={false} shareOnly inToast />
+                <ToastButton variant="primary" onClick={() => void openCashbillReceipt(issueId).catch((err: unknown) => showReceiptFailure('영수증을 열지 못했어요', err instanceof Error ? err.message : null))}>영수증 보기</ToastButton>
               </>,
             );
             setReload((n) => n + 1);
