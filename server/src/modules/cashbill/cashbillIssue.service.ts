@@ -599,7 +599,13 @@ export async function listCashbillIssues(tenantId: string, query: {
       orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
     }),
     prisma.cashBillIssue.aggregate({
-      where: { ...monthWhere, barobillState: { in: ['2000', '2500', '3000'] }, kind: { not: 'CANCEL' } },
+      where: {
+        ...monthWhere,
+        barobillState: { in: ['2000', '2500', '3000'] },
+        kind: { not: 'CANCEL' },
+        // 취소까지 끝난 원래 건은 이번 달 발행에서 뺀다.
+        cancellations: { none: { barobillState: { in: [...CANCEL_DONE] } } },
+      },
       _count: { _all: true },
       _sum: { totalWon: true },
     }),
@@ -627,6 +633,7 @@ export async function listCashbillIssues(tenantId: string, query: {
       linked: Boolean(row.inquiryId),
       brandName: row.operatingCompany.name,
       canCancel: row.kind !== 'CANCEL' && COUNTED_STATES.has(row.barobillState ?? '') && !row.cancellations.some((child) => child.barobillState && CANCEL_DONE.has(child.barobillState)),
+      cancelled: row.kind !== 'CANCEL' && row.cancellations.some((child) => child.barobillState && CANCEL_DONE.has(child.barobillState)),
     })),
     total,
     brands: brands.map((brand) => ({

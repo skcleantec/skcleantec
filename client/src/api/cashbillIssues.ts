@@ -30,6 +30,8 @@ export type CashbillIssueRow = {
   linked?: boolean;
   /** 발급한 직원 이름 */
   issuerName?: string | null;
+  /** 취소분까지 발급돼 무효가 된 원래 건 */
+  cancelled?: boolean;
   brandName?: string;
   canCancel?: boolean;
 };

@@ -383,9 +383,9 @@ function canViewReceipt(row: CashbillIssueRow): boolean {
 
 function StatusBadge({ row }: { row: CashbillIssueRow }) {
   const { openCharge } = useReceiptWallet();
-  const label = cashbillStateLabel(row.barobillState, row.lastError);
+  const label = row.cancelled ? '발급 취소됨' : cashbillStateLabel(row.barobillState, row.lastError);
   if (isFailedRow(row) && row.kind !== 'CANCEL') return <FailReasonChip label={label} reason={row.lastError} onCharge={openCharge} />;
-  const tone = row.barobillState === '7000' || row.kind === 'CANCEL'
+  const tone = row.cancelled || row.barobillState === '7000' || row.kind === 'CANCEL'
     ? 'border border-slate-200 bg-slate-100 text-slate-500'
     : isFailedRow(row)
       ? 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]'
