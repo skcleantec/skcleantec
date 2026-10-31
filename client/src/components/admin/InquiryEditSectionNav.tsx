@@ -45,14 +45,15 @@ function readItems(scroller: HTMLElement | null): NavItem[] {
   });
 }
 
-/** 예전 숫자 버튼과 같은 이동: 고정 번호 → `#inq-edit-sec-{anchor}` 를 scrollIntoView */
+/** 예전 숫자 버튼과 같은 이동: 고정 번호 → `#inq-edit-sec-{anchor}` 맨 위로 (본문 스크롤만) */
 function jumpTo(scroller: HTMLElement, item: NavItem) {
   const id = item.num != null
     ? inquiryEditSecDomId(INQUIRY_EDIT_SECTION_ANCHOR_ORDER[item.num - 1]!)
     : item.domId;
   const el = scroller.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
   if (!el) return;
-  el.scrollIntoView({ behavior: 'auto', block: 'start' });
+  // scrollIntoView는 바깥 창(overflow-hidden)까지 밀어 올려 머리가 사라지고 아래가 비는 문제가 있어, 본문 스크롤만 움직인다.
+  scroller.scrollTo({ top: Math.max(0, getScrollYForSection(el, scroller)), behavior: 'auto' });
 }
 
 export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props) {

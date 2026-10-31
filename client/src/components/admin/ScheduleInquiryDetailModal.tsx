@@ -673,7 +673,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const section = (event as CustomEvent<{ section?: string }>).detail?.section;
       if (!section) return;
       const el = document.getElementById(`inq-edit-sec-${section}`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const sc = inquiryEditScrollRef.current;
+      if (el && sc && sc.contains(el)) {
+        // 바깥 창까지 밀리지 않게 본문 스크롤만 움직인다.
+        const top = sc.scrollTop + el.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+        sc.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      } else {
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     };
     window.addEventListener(WORKFLOW_GUIDE_SCROLL_EVENT, onGuideScroll);
     return () => window.removeEventListener(WORKFLOW_GUIDE_SCROLL_EVENT, onGuideScroll);
