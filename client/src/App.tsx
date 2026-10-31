@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from 'react';
+import { ToastHost } from './components/ui/Toast';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { TeamLayout } from './components/layout/TeamLayout';
@@ -698,6 +699,7 @@ function App() {
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      <ToastHost />
     </BrowserRouter>
     </div>
   );

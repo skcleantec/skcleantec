@@ -1,4 +1,5 @@
 import { Router, type Response } from 'express';
+import { logTaxInvoiceFailure, logTaxInvoiceHistory } from '../receipts/receiptHistory.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
@@ -99,8 +100,12 @@ router.post('/', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
-    res.json(await issueTaxInvoice(tenantId, user.userId, req.body ?? {}));
+    const issued = await issueTaxInvoice(tenantId, user.userId, req.body ?? {});
+    void logTaxInvoiceHistory(tenantId, user.userId, issued.id, 'issue');
+    res.json(issued);
   } catch (err) {
+    const body = (req.body ?? {}) as { inquiryId?: unknown; buyer?: { corpName?: unknown } };
+    void logTaxInvoiceFailure({ tenantId, actorId: user.userId, action: 'issue', err, inquiryId: body.inquiryId, buyerName: body.buyer?.corpName });
     sendError(res, err, '세금계산서 발행에 실패했습니다.');
   }
 });
@@ -118,6 +123,7 @@ router.post('/:issueId/inquiry', async (req, res) => {
   }
   try {
     await linkTaxInvoiceInquiry(tenantId, String(req.params.issueId ?? ''), inquiryId);
+    void logTaxInvoiceHistory(tenantId, user.userId, String(req.params.issueId ?? ''), 'link');
     res.json({ ok: true });
   } catch (err) {
     sendError(res, err, '접수를 연결하지 못했습니다.');
@@ -158,8 +164,11 @@ router.post('/:issueId/modify', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
-    res.json(await modifyTaxInvoice(tenantId, user.userId, String(req.params.issueId ?? ''), req.body ?? {}));
+    const modified = await modifyTaxInvoice(tenantId, user.userId, String(req.params.issueId ?? ''), req.body ?? {});
+    void logTaxInvoiceHistory(tenantId, user.userId, String(req.params.issueId ?? ''), 'modify', modifyKindLabel((req.body ?? {}).kind));
+    res.json(modified);
   } catch (err) {
+    void logTaxInvoiceFailure({ tenantId, actorId: user.userId, action: 'modify', err, issueId: String(req.params.issueId ?? '') });
     sendError(res, err, '수정세금계산서 발급에 실패했습니다.');
   }
 });
@@ -170,10 +179,20 @@ router.post('/:issueId/cancel', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
-    res.json(await cancelTaxInvoice(tenantId, String(req.params.issueId ?? '')));
+    const cancelled = await cancelTaxInvoice(tenantId, String(req.params.issueId ?? ''));
+    void logTaxInvoiceHistory(tenantId, user.userId, String(req.params.issueId ?? ''), 'cancel');
+    res.json(cancelled);
   } catch (err) {
+    void logTaxInvoiceFailure({ tenantId, actorId: user.userId, action: 'cancel', err, issueId: String(req.params.issueId ?? '') });
     sendError(res, err, '세금계산서 취소에 실패했습니다.');
   }
 });
+
+function modifyKindLabel(kind: unknown): string {
+  if (kind === 'release') return '계약의 해제';
+  if (kind === 'supply') return '공급가액 변동';
+  if (kind === 'correction') return '기재사항 착오';
+  return '';
+}
 
 export default router;

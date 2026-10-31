@@ -1,4 +1,5 @@
 import type { Prisma, TaxInvoiceIssue } from '@prisma/client';
+import { issuerNameMap } from '../receipts/receiptHistory.js';
 import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
 import { resolveBarobillEnv } from '../../lib/barobill/env.js';
@@ -639,9 +640,11 @@ export async function listTaxInvoices(tenantId: string, query: {
     }),
     prisma.taxInvoiceIssue.aggregate({ where: monthWhere, _sum: { chargedKrw: true } }),
   ]);
+  const issuers = await issuerNameMap(items.map((row) => row.createdById));
   return {
     items: items.map((row) => ({
       ...toPublic(row),
+      issuerName: row.createdById ? issuers.get(row.createdById) ?? '탈퇴한 사용자' : null,
       inquiryNumber: row.inquiry?.inquiryNumber ?? null,
       customerName: row.inquiry?.customerName?.trim() || row.buyerCeoName.trim() || '—',
       brandName: row.operatingCompany.name,

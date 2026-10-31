@@ -1,4 +1,5 @@
 import { Router, type Response } from 'express';
+import { logCashbillFailure, logCashbillHistory } from '../receipts/receiptHistory.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
@@ -79,8 +80,12 @@ router.post('/issues', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
-    res.json(await issueCashbill(tenantId, user.userId, req.body ?? {}));
+    const issued = await issueCashbill(tenantId, user.userId, req.body ?? {});
+    void logCashbillHistory(tenantId, user.userId, issued.id, 'issue');
+    res.json(issued);
   } catch (err) {
+    const body = (req.body ?? {}) as { inquiryId?: unknown; customerName?: unknown; amount?: unknown };
+    void logCashbillFailure({ tenantId, actorId: user.userId, action: 'issue', err, inquiryId: body.inquiryId, customerName: body.customerName, amount: body.amount });
     sendError(res, err, '현금영수증 발급에 실패했습니다.');
   }
 });
@@ -98,6 +103,7 @@ router.post('/issues/:issueId/inquiry', async (req, res) => {
   }
   try {
     await linkCashbillInquiry(tenantId, String(req.params.issueId ?? ''), inquiryId);
+    void logCashbillHistory(tenantId, user.userId, String(req.params.issueId ?? ''), 'link');
     res.json({ ok: true });
   } catch (err) {
     sendError(res, err, '접수를 연결하지 못했습니다.');
@@ -139,8 +145,11 @@ router.post('/issues/:issueId/cancel', async (req, res) => {
   if (!tenantId) return;
   const requestId = typeof req.body?.requestId === 'string' ? req.body.requestId : undefined;
   try {
-    res.json(await cancelCashbillIssue(tenantId, user.userId, req.params.issueId, requestId));
+    const cancelled = await cancelCashbillIssue(tenantId, user.userId, req.params.issueId, requestId);
+    void logCashbillHistory(tenantId, user.userId, cancelled.id, 'cancel');
+    res.json(cancelled);
   } catch (err) {
+    void logCashbillFailure({ tenantId, actorId: user.userId, action: 'cancel', err, issueId: req.params.issueId });
     sendError(res, err, '현금영수증 취소에 실패했습니다.');
   }
 });

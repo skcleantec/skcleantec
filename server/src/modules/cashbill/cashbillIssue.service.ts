@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { issuerNameMap } from '../receipts/receiptHistory.js';
 import type { CashBillIssue, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
@@ -598,7 +599,13 @@ export async function listCashbillIssues(tenantId: string, query: {
       orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
     }),
     prisma.cashBillIssue.aggregate({
-      where: { ...monthWhere, barobillState: { in: ['2000', '2500', '3000'] }, kind: { not: 'CANCEL' } },
+      where: {
+        ...monthWhere,
+        barobillState: { in: ['2000', '2500', '3000'] },
+        kind: { not: 'CANCEL' },
+        // 취소까지 끝난 원래 건은 이번 달 발행에서 뺀다.
+        cancellations: { none: { barobillState: { in: [...CANCEL_DONE] } } },
+      },
       _count: { _all: true },
       _sum: { totalWon: true },
     }),
@@ -616,14 +623,17 @@ export async function listCashbillIssues(tenantId: string, query: {
       _sum: { chargedKrw: true },
     }),
   ]);
+  const issuers = await issuerNameMap(items.map((row) => row.createdById));
   return {
     items: items.map((row) => ({
       ...toPublicIssue(row),
+      issuerName: row.createdById ? issuers.get(row.createdById) ?? '탈퇴한 사용자' : null,
       inquiryNumber: row.inquiry?.inquiryNumber ?? null,
       customerName: row.inquiry?.customerName?.trim() || row.customerName?.trim() || null,
       linked: Boolean(row.inquiryId),
       brandName: row.operatingCompany.name,
       canCancel: row.kind !== 'CANCEL' && COUNTED_STATES.has(row.barobillState ?? '') && !row.cancellations.some((child) => child.barobillState && CANCEL_DONE.has(child.barobillState)),
+      cancelled: row.kind !== 'CANCEL' && row.cancellations.some((child) => child.barobillState && CANCEL_DONE.has(child.barobillState)),
     })),
     total,
     brands: brands.map((brand) => ({

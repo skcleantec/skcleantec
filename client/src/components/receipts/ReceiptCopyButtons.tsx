@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TOAST_BTN } from '../ui/Toast';
 import { API, apiErrorMessage } from '../../api/apiPrefix';
 import { getToken } from '../../stores/auth';
 
@@ -30,6 +31,7 @@ export function ReceiptCopyButtons({
   copyReady,
   menu = false,
   shareOnly = false,
+  inToast = false,
 }: {
   kind: Kind;
   issueId: string;
@@ -38,6 +40,8 @@ export function ReceiptCopyButtons({
   copyReady: boolean;
   menu?: boolean;
   shareOnly?: boolean;
+  /** 결과 팝업 안: 팝업 버튼 모양으로, 감싸는 div 없이 */
+  inToast?: boolean;
 }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -93,9 +97,11 @@ export function ReceiptCopyButtons({
 
   const klass = menu
     ? 'block w-full min-h-9 rounded-md px-2 text-left text-fluid-xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:opacity-50 disabled:pointer-events-none'
-    : BTN;
+    : inToast
+      ? TOAST_BTN.secondary
+      : BTN;
   return (
-    <div className={menu ? 'space-y-0.5' : 'flex flex-wrap items-center justify-center gap-1'}>
+    <div className={inToast ? 'contents' : menu ? 'space-y-0.5' : 'flex flex-wrap items-center justify-center gap-1'}>
       <button type="button" className={klass} disabled={busy || (!official && !readyCopy)} onClick={() => void share()}>
         {shareOnly ? '링크 복사' : '공유 링크 복사'}
       </button>
@@ -114,7 +120,7 @@ export function ReceiptCopyButtons({
           </button>
         </>
       ) : null}
-      {note ? <span className="w-full text-center text-fluid-2xs text-slate-500">{note}</span> : null}
+      {note ? <span className={`w-full text-center text-fluid-2xs text-slate-500 ${inToast ? 'col-span-full' : ''}`}>{note}</span> : null}
     </div>
   );
 }
