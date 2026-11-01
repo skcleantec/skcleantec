@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ORDER_FORM_LINK_PLACEHOLDERS } from '@shared/orderFormCustomerLinkPlaceholders';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { Button } from '../ui/Button';
-import { placeholderDisplayLabel } from '../../utils/customerLinkTokenDisplay';
+import { customerLinkTemplateToDisplay, customerLinkTokenToShown, placeholderDisplayLabel } from '../../utils/customerLinkTokenDisplay';
 
 type Props = {
   className?: string;
@@ -23,7 +23,8 @@ export function OrderFormLinkPlaceholderPicker({
   const handleCopy = async () => {
     const token = selected.trim();
     if (!token) return;
-    const ok = await copyTextToClipboard(token);
+    // 붙여 넣는 곳(고객링크설정 본문)이 [라벨]을 저장할 때 {{…}}로 되돌리므로, 사람이 읽는 [라벨]을 복사한다.
+    const ok = await copyTextToClipboard(customerLinkTokenToShown(token));
     if (ok) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
@@ -80,7 +81,7 @@ export function OrderFormLinkPlaceholderPicker({
         {copied ? '복사됨' : '복사'}
       </Button>
       {current && !compact ? (
-        <p className="w-full text-fluid-2xs text-slate-500">{current.description}</p>
+        <p className="w-full text-fluid-2xs text-slate-500">{customerLinkTemplateToDisplay(current.description)}</p>
       ) : null}
     </div>
   );

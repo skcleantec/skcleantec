@@ -112,17 +112,17 @@ export const ORDER_FORM_GUIDE_PLACEHOLDERS: readonly GuidePlaceholderDef[] = [
   {
     token: penaltyLineGuideToken(0),
     label: '위약 구간 — 당일',
-    description: 'daysBefore=0 구간 1줄. 없으면 빈 칸',
+    description: '당일 위약 구간 1줄. 없으면 빈 칸',
   },
   {
     token: penaltyLineGuideToken(1),
     label: '위약 구간 — 1일 전',
-    description: 'daysBefore=1 구간 1줄',
+    description: '1일 전 위약 구간 1줄',
   },
   {
     token: penaltyLineGuideToken(2),
     label: '위약 구간 — 2일 전',
-    description: 'daysBefore=2 구간 1줄',
+    description: '2일 전 위약 구간 1줄',
   },
   {
     token: GUIDE_PLACEHOLDER_FREE_CHANGE_DEADLINE_DATE,

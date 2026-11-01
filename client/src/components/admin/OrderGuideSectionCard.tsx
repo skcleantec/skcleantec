@@ -1,3 +1,4 @@
+import { ORDER_GUIDE_TOKENS } from '../../utils/templateTokenDisplay';
 import { guideItemsToEditorText } from '../../utils/orderGuideSectionDraft';
 import type { GuideSection } from '../../constants/orderInfoDefaultSections';
 
@@ -45,8 +46,8 @@ export function OrderGuideSectionCard(props: {
         <textarea
           rows={Math.max(6, section.items.length + 2)}
           className="w-full resize-y min-h-[8rem] px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 font-mono leading-relaxed whitespace-pre-wrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-          value={itemsText}
-          onChange={(e) => onItemsTextChange(e.target.value)}
+          value={ORDER_GUIDE_TOKENS.toDisplay(itemsText)}
+          onChange={(e) => onItemsTextChange(ORDER_GUIDE_TOKENS.toStored(e.target.value))}
           placeholder={'첫 번째 안내\n두 번째 안내'}
           spellCheck={false}
         />

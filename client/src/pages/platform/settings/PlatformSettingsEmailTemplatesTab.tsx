@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { makeTemplateTokenDisplay } from '../../../utils/templateTokenDisplay';
 import type { CustomerOutboundEmailPurpose } from '@shared/outboundEmailPurpose';
 import { OUTBOUND_EMAIL_PURPOSE_LABELS } from '@shared/outboundEmailPurpose';
 import {
@@ -120,6 +121,18 @@ export function PlatformSettingsEmailTemplatesTab() {
   useEffect(() => {
     if (currentRow) setForm(dtoToForm(currentRow));
   }, [currentRow]);
+
+  /** 화면에는 [고객명] 같은 우리말로 보이고, 상태·저장·미리보기는 원래 {{…}} 그대로 */
+  const tokenView = useMemo(() => {
+    const seen = new Set<string>();
+    const pairs: { token: string; label: string }[] = [];
+    for (const p of [...subjectPlaceholders, ...Object.values(bodyPlaceholders).flat()]) {
+      if (!p || seen.has(p.key)) continue;
+      seen.add(p.key);
+      pairs.push({ token: `{{${p.key}}}`, label: p.label });
+    }
+    return makeTemplateTokenDisplay(pairs);
+  }, [subjectPlaceholders, bodyPlaceholders]);
 
   const insertIntoSubject = (token: string) => {
     setForm((f) => (f ? { ...f, subjectTemplate: `${f.subjectTemplate}${token}` } : f));
@@ -264,8 +277,8 @@ export function PlatformSettingsEmailTemplatesTab() {
             <span className="text-fluid-xs font-medium text-gray-800">메일 제목</span>
             <PlaceholderChips items={subjectPlaceholders} onInsert={insertIntoSubject} />
             <input
-              value={form.subjectTemplate}
-              onChange={(e) => setForm((f) => (f ? { ...f, subjectTemplate: e.target.value } : f))}
+              value={tokenView.toDisplay(form.subjectTemplate)}
+              onChange={(e) => setForm((f) => (f ? { ...f, subjectTemplate: tokenView.toStored(e.target.value) } : f))}
               className={INPUT_BASE}
             />
           </label>
@@ -274,16 +287,16 @@ export function PlatformSettingsEmailTemplatesTab() {
             <label className="block space-y-1">
               <span className="text-fluid-xs font-medium text-gray-800">본문 헤드라인</span>
               <input
-                value={form.headline}
-                onChange={(e) => setForm((f) => (f ? { ...f, headline: e.target.value } : f))}
+                value={tokenView.toDisplay(form.headline)}
+                onChange={(e) => setForm((f) => (f ? { ...f, headline: tokenView.toStored(e.target.value) } : f))}
                 className={INPUT_BASE}
               />
             </label>
             <label className="block space-y-1">
               <span className="text-fluid-xs font-medium text-gray-800">프리헤더(미리보기 한 줄)</span>
               <input
-                value={form.preheader}
-                onChange={(e) => setForm((f) => (f ? { ...f, preheader: e.target.value } : f))}
+                value={tokenView.toDisplay(form.preheader)}
+                onChange={(e) => setForm((f) => (f ? { ...f, preheader: tokenView.toStored(e.target.value) } : f))}
                 className={INPUT_BASE}
               />
             </label>
@@ -296,8 +309,8 @@ export function PlatformSettingsEmailTemplatesTab() {
             </div>
             <p className="text-fluid-2xs text-gray-500">
               slate·sky 브랜드 컬러 인라인 HTML(강조 카드·본문 단계)로 작성합니다.{' '}
-              <strong className="font-medium text-gray-600">{'{{brandDisplayName}}'}</strong>는 발송 시
-              운영사(업체) 표시명으로 치환됩니다. 동적 표·링크는 아래 자동 삽입됩니다.
+              <strong className="font-medium text-gray-600">[업체/브랜드명]</strong>은 발송 시
+              운영사(업체) 표시명으로 바뀝니다. 위 버튼으로 넣은 [ ] 자리는 보낼 때 실제 값으로 바뀝니다. 동적 표·링크는 아래 자동 삽입됩니다.
             </p>
             <PlaceholderChips
               items={bodyPh.filter((p) => !['detailSections', 'inspectionBody'].includes(p.key))}
@@ -309,8 +322,8 @@ export function PlatformSettingsEmailTemplatesTab() {
             />
             <HelpCmsRichEditor
               editorKey={`platform-email-intro-${purpose}`}
-              value={form.introHtml}
-              onChange={(html) => setForm((f) => (f ? { ...f, introHtml: html } : f))}
+              value={tokenView.toDisplay(form.introHtml)}
+              onChange={(html) => setForm((f) => (f ? { ...f, introHtml: tokenView.toStored(html) } : f))}
               onUploadImage={async () => {
                 throw new Error('이메일 템플릿에서는 이미지 업로드를 지원하지 않습니다.');
               }}
@@ -325,8 +338,8 @@ export function PlatformSettingsEmailTemplatesTab() {
             </p>
             <HelpCmsRichEditor
               editorKey={`platform-email-footer-${purpose}`}
-              value={form.footerHtml}
-              onChange={(html) => setForm((f) => (f ? { ...f, footerHtml: html } : f))}
+              value={tokenView.toDisplay(form.footerHtml)}
+              onChange={(html) => setForm((f) => (f ? { ...f, footerHtml: tokenView.toStored(html) } : f))}
               onUploadImage={async () => {
                 throw new Error('이메일 템플릿에서는 이미지 업로드를 지원하지 않습니다.');
               }}
@@ -341,8 +354,8 @@ export function PlatformSettingsEmailTemplatesTab() {
             </p>
             <HelpCmsRichEditor
               editorKey={`platform-email-noreply-${purpose}`}
-              value={form.noreplyNoticeHtml}
-              onChange={(html) => setForm((f) => (f ? { ...f, noreplyNoticeHtml: html } : f))}
+              value={tokenView.toDisplay(form.noreplyNoticeHtml)}
+              onChange={(html) => setForm((f) => (f ? { ...f, noreplyNoticeHtml: tokenView.toStored(html) } : f))}
               onUploadImage={async () => {
                 throw new Error('이메일 템플릿에서는 이미지 업로드를 지원하지 않습니다.');
               }}
