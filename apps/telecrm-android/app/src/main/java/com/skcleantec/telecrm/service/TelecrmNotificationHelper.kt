@@ -29,6 +29,7 @@ object TelecrmNotificationHelper {
     const val NOTIFICATION_CALL_BASE = 7100
     const val NOTIFICATION_INCOMING_CALL = 7150
     const val NOTIFICATION_IN_CALL = 7160
+    const val NOTIFICATION_OVERLAY_REMINDER = 7170
     const val NOTIFICATION_MISSED_BASE = 7400
 
     fun ensureChannels(context: Context) {
@@ -252,6 +253,34 @@ object TelecrmNotificationHelper {
 
     fun cancelInCallCustomer(context: Context) {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_IN_CALL)
+    }
+
+    /**
+     * 「다른 앱 위에 표시」가 꺼져 있으면 통화가 끝난 뒤 알려 줌 (6시간에 한 번).
+     * 누르면 이 앱의 해당 설정 화면으로 바로 이동.
+     */
+    fun showOverlayPermissionReminder(context: Context) {
+        val prefs = context.getSharedPreferences("telecrm_caller_overlay", Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        if (now - prefs.getLong("reminder_at", 0L) < 6 * 60 * 60 * 1000L) return
+        prefs.edit().putLong("reminder_at", now).apply()
+        ensureChannels(context)
+        val settings = Intent(
+            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            android.net.Uri.parse("package:${context.packageName}"),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val open = PendingIntent.getActivity(context, NOTIFICATION_OVERLAY_REMINDER, settings, pendingIntentFlags())
+        val body = context.getString(R.string.overlay_reminder_body)
+        val notification = NotificationCompat.Builder(context, CHANNEL_MISSED_CALL)
+            .setSmallIcon(R.drawable.ic_notification_phone)
+            .setContentTitle(context.getString(R.string.overlay_reminder_title))
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(open)
+            .build()
+        NotificationManagerCompat.from(context).notify(NOTIFICATION_OVERLAY_REMINDER, notification)
     }
 
     fun showMissedCall(context: Context, phone: String, lookup: JSONObject?) {

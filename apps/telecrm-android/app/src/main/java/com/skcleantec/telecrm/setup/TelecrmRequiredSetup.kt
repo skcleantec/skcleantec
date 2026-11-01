@@ -9,6 +9,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.service.TelecrmDeviceHints
+import com.skcleantec.telecrm.telephony.CallerOverlay
 import com.skcleantec.telecrm.telephony.TelecrmCallScreeningSetup
 
 enum class TelecrmSetupKind {
@@ -18,6 +19,7 @@ enum class TelecrmSetupKind {
     FULL_SCREEN,
     BATTERY,
     CALL_SCREENING,
+    OVERLAY,
 }
 
 data class TelecrmSetupItem(
@@ -81,6 +83,16 @@ object TelecrmRequiredSetup {
                     R.string.setup_item_call_screening,
                     R.string.setup_item_call_screening_hint,
                     TelecrmCallScreeningSetup.isRoleHeld(context),
+                ),
+            )
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            list.add(
+                TelecrmSetupItem(
+                    TelecrmSetupKind.OVERLAY,
+                    R.string.setup_item_overlay,
+                    R.string.setup_item_overlay_hint,
+                    CallerOverlay.canShow(context),
                 ),
             )
         }
