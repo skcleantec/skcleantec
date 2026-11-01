@@ -30,7 +30,7 @@ export const CUSTOMER_LINK_EDIT_ACTIONS: readonly CustomerLinkHelpActionRow[] = 
       </>
     ),
     meaning:
-      '치환코드를 고르고 「넣기」를 누르면 커서 위치에 `{{date}}` 같은 코드가 들어갑니다. 직접 타이핑해도 됩니다.',
+      '넣을 자리를 고르고 「넣기」를 누르면 커서 위치에 [청소 예약일] 같은 자리가 들어갑니다. 직접 타이핑해도 됩니다.',
     when: '메시지 본문 우측',
   },
   {
@@ -40,7 +40,7 @@ export const CUSTOMER_LINK_EDIT_ACTIONS: readonly CustomerLinkHelpActionRow[] = 
       </span>
     ),
     meaning:
-      '게시판 글처럼 전체 문장을 한 칸에서 편집합니다. 라벨·안내 문구는 여기서 바로 고치고, 바뀌는 숫자·날짜·링크만 치환코드로 둡니다.',
+      '게시판 글처럼 전체 문장을 한 칸에서 편집합니다. 라벨·안내 문구는 여기서 바로 고치고, 바뀌는 숫자·날짜·링크만 넣을 자리로 둡니다.',
     when: '메시지 본문',
   },
   {

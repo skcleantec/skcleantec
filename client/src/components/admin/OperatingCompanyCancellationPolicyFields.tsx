@@ -1,3 +1,4 @@
+import { ORDER_GUIDE_TOKENS } from '../../utils/templateTokenDisplay';
 import { Link } from 'react-router-dom';
 import { formatScheduleD2SendHourKo } from '@shared/alimtalkScheduleD2Timing';
 import {
@@ -113,7 +114,7 @@ export function OperatingCompanyCancellationPolicyFields(props: {
     <div className="space-y-4">
       <p className="text-xs text-gray-500 leading-relaxed">
         먼저 <strong>위약 없이 바꿀 수 있는 마지막 날</strong>만 정하면 됩니다. 위약 금액 구간과 안내
-        문구 치환코드는 아래 「자세히」에 있습니다.
+        문구에 넣을 자리는 아래 「자세히」에 있습니다.
       </p>
 
       <label className="flex items-center gap-2 text-sm">
@@ -337,8 +338,8 @@ export function OperatingCompanyCancellationPolicyFields(props: {
               </div>
               {penaltyLineMap.get(tier.daysBefore) ? (
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  <code className="rounded bg-white px-1 font-mono text-[11px]">
-                    {penaltyLineGuideToken(tier.daysBefore)}
+                  <code className="rounded bg-white px-1 text-[11px]">
+                    {ORDER_GUIDE_TOKENS.shownOf(penaltyLineGuideToken(tier.daysBefore))}
                   </code>{' '}
                   → {penaltyLineMap.get(tier.daysBefore)}
                 </p>
@@ -353,10 +354,10 @@ export function OperatingCompanyCancellationPolicyFields(props: {
           <span className="text-sm font-medium text-gray-800">전체 미리보기</span>
           <button
             type="button"
-            onClick={() => void copyToken(GUIDE_PLACEHOLDER_CANCELLATION_POLICY)}
+            onClick={() => void copyToken(ORDER_GUIDE_TOKENS.shownOf(GUIDE_PLACEHOLDER_CANCELLATION_POLICY))}
             className="text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
           >
-            {GUIDE_PLACEHOLDER_CANCELLATION_POLICY} 복사
+            {ORDER_GUIDE_TOKENS.shownOf(GUIDE_PLACEHOLDER_CANCELLATION_POLICY)} 복사
           </button>
         </div>
         {previewLines.length ? (
@@ -373,7 +374,7 @@ export function OperatingCompanyCancellationPolicyFields(props: {
         )}
 
         <div className="border-t border-slate-200 pt-2 space-y-1.5">
-          <p className="text-xs font-medium text-gray-800">치환코드 (구간별)</p>
+          <p className="text-xs font-medium text-gray-800">넣을 자리 (구간별) — 누르면 복사</p>
           <ul className="space-y-1 text-xs text-gray-600">
             {ORDER_FORM_GUIDE_PLACEHOLDERS.filter((p) =>
               [
@@ -387,10 +388,10 @@ export function OperatingCompanyCancellationPolicyFields(props: {
               <li key={p.token} className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <button
                   type="button"
-                  onClick={() => void copyToken(p.token)}
-                  className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-[11px] hover:bg-gray-50"
+                  onClick={() => void copyToken(ORDER_GUIDE_TOKENS.shownOf(p.token))}
+                  className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] hover:bg-gray-50"
                 >
-                  {p.token}
+                  {ORDER_GUIDE_TOKENS.shownOf(p.token)}
                 </button>
                 <span>{p.description}</span>
               </li>

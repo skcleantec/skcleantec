@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CELEBRATE_BAR_TOKENS } from '../../utils/templateTokenDisplay';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { dispatchCelebrateBarTest } from '../../utils/adminCelebrateBarTest';
 import {
@@ -114,8 +115,8 @@ export function AdminPageSettingsPage() {
             </span>
           </label>
           <textarea
-            value={tplOrder}
-            onChange={(e) => setTplOrder(e.target.value)}
+            value={CELEBRATE_BAR_TOKENS.toDisplay(tplOrder)}
+            onChange={(e) => setTplOrder(CELEBRATE_BAR_TOKENS.toStored(e.target.value))}
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 font-mono"
             spellCheck={false}
@@ -130,8 +131,8 @@ export function AdminPageSettingsPage() {
             </span>
           </label>
           <textarea
-            value={tplInquiry}
-            onChange={(e) => setTplInquiry(e.target.value)}
+            value={CELEBRATE_BAR_TOKENS.toDisplay(tplInquiry)}
+            onChange={(e) => setTplInquiry(CELEBRATE_BAR_TOKENS.toStored(e.target.value))}
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 font-mono"
             spellCheck={false}

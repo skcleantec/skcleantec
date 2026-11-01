@@ -239,7 +239,7 @@ export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOp
 
         <select
           className="max-w-[9.5rem] truncate rounded border border-dashed border-blue-300 bg-white px-2 py-1 text-fluid-xs text-blue-900"
-          aria-label="발행측 플레이스홀더 삽입"
+          aria-label="발행측 정보 자리 넣기"
           value=""
           onChange={(e) => {
             const v = e.target.value;
@@ -247,7 +247,7 @@ export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOp
             e.target.value = '';
           }}
           onMouseDown={(e) => e.stopPropagation()}
-          title="발행측(갑) 치환용 토큰 — 배포 시 프로필 정보로 채워집니다."
+          title="발행측(갑) 정보 자리 — 계약서를 보낼 때 업체 정보로 채워집니다."
         >
           <option value="">+발행측</option>
           {EC_ISSUER_PLACEHOLDER_OPTIONS.map((o) => (
@@ -267,7 +267,7 @@ export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOp
             e.target.value = '';
           }}
           onMouseDown={(e) => e.stopPropagation()}
-          title="설정된 치환 코드 — 본문에 삽입 후 체결·발급 시 값이 채워집니다."
+          title="설정된 입력 자리 — 본문에 넣으면 체결·발급 때 값이 채워집니다."
         >
           <option value="">+매핑 필드</option>
           {(mappingFieldOptions ?? []).map((o) => (

@@ -1,3 +1,4 @@
+import { ORDER_GUIDE_TOKENS } from '../../utils/templateTokenDisplay';
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getFormConfig, updateFormConfig, updateBrandCancellationGuide } from '../../api/orderform';
@@ -517,13 +518,13 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
             />
             <details className="rounded-lg border border-slate-200 bg-white px-3 py-2">
               <summary className="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-950">
-                다른 치환코드 (자세히)
+                다른 넣을 자리 (자세히)
               </summary>
               <ul className="mt-2 space-y-1.5">
                 {ORDER_FORM_GUIDE_PLACEHOLDERS.map((p) => (
                   <li key={p.token} className="text-xs text-gray-700">
-                    <code className="rounded bg-slate-50 border border-gray-200 px-1.5 py-0.5 font-mono">
-                      {p.token}
+                    <code className="rounded bg-slate-50 border border-gray-200 px-1.5 py-0.5">
+                      {ORDER_GUIDE_TOKENS.shownOf(p.token)}
                     </code>{' '}
                     — {p.description}
                   </li>

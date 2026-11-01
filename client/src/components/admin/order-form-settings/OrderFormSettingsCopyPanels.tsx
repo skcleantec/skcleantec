@@ -1,3 +1,4 @@
+import { ORDER_GUIDE_TOKENS } from '../../../utils/templateTokenDisplay';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   DEFAULT_ORDER_TIME_SLOT_LABELS,
@@ -211,10 +212,10 @@ export function OrderFormSettingsCopyPanel(props: {
           <OrderFormModalTextEditor
             label=""
             minHeightClassName="min-h-[120px]"
-            value={withDefaultText(msgConfig.serviceDateAckBody, 'serviceDateAckBody')}
-            onChange={(next) => setMsgConfig((c) => ({ ...c, serviceDateAckBody: next }))}
+            value={ORDER_GUIDE_TOKENS.toDisplay(withDefaultText(msgConfig.serviceDateAckBody, 'serviceDateAckBody'))}
+            onChange={(next) => setMsgConfig((c) => ({ ...c, serviceDateAckBody: ORDER_GUIDE_TOKENS.toStored(next) }))}
             onSave={(markup) =>
-              saveMsgPartial('serviceDateAckBody', { serviceDateAckBody: markup || undefined })
+              saveMsgPartial('serviceDateAckBody', { serviceDateAckBody: ORDER_GUIDE_TOKENS.toStored(markup) || undefined })
             }
             saving={msgSavingKey === 'serviceDateAckBody'}
           />

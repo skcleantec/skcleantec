@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { QUOTATION_EMAIL_TOKENS } from '../../utils/templateTokenDisplay';
 import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -65,8 +66,9 @@ export function AdminQuotationSettingsPage() {
       setItems(list);
       setFooterNotice(config.footerNotice ?? '');
       setReceiptFooterNotice(config.receiptFooterNotice ?? '');
-      setDefaultEmailSubject(config.defaultEmailSubject ?? '');
-      setDefaultEmailBody(config.defaultEmailBody ?? '');
+      // 화면에는 [고객명] 같은 우리말로, 저장할 때는 원래 {{…}} 로 되돌린다.
+      setDefaultEmailSubject(QUOTATION_EMAIL_TOKENS.toDisplay(config.defaultEmailSubject ?? ''));
+      setDefaultEmailBody(QUOTATION_EMAIL_TOKENS.toDisplay(config.defaultEmailBody ?? ''));
       setDefaultValidDays(
         config.defaultValidDays != null ? String(config.defaultValidDays) : '',
       );
@@ -152,8 +154,8 @@ export function AdminQuotationSettingsPage() {
       await updateQuotationConfig(token, {
         footerNotice: footerNotice.trim() || null,
         receiptFooterNotice: receiptFooterNotice.trim() || null,
-        defaultEmailSubject: defaultEmailSubject.trim() || null,
-        defaultEmailBody: defaultEmailBody.trim() || null,
+        defaultEmailSubject: QUOTATION_EMAIL_TOKENS.toStored(defaultEmailSubject.trim()) || null,
+        defaultEmailBody: QUOTATION_EMAIL_TOKENS.toStored(defaultEmailBody.trim()) || null,
         defaultValidDays: defaultValidDaysVal,
       });
       alert('서식 설정을 저장했습니다.');
@@ -272,8 +274,7 @@ export function AdminQuotationSettingsPage() {
           <div>
             <h3 className="text-sm font-semibold text-slate-900">이메일 기본값</h3>
             <p className="text-fluid-2xs text-slate-500 mt-1">
-              치환: {'{{customerName}}'}, {'{{quoteNumber}}'}, {'{{total}}'}, {'{{companyName}}'},{' '}
-              {'{{validUntil}}'}, {'{{documentLabel}}'} (견적서·영수증)
+              바뀌는 자리: [고객명], [견적 번호], [총액], [회사명], [유효기간], [문서 종류](견적서·영수증) — 이 글자를 제목·본문에 넣으면 보낼 때 실제 값으로 바뀝니다.
             </p>
           </div>
 

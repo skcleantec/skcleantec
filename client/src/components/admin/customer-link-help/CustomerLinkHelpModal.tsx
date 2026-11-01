@@ -1,3 +1,4 @@
+import { customerLinkTemplateToDisplay } from '../../../utils/customerLinkTokenDisplay';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -68,11 +69,11 @@ function PlaceholderTable() {
       </p>
 
       <div className="overflow-x-auto -mx-1 px-1">
-        <p className="mb-2 text-fluid-2xs font-semibold text-slate-800">값만 치환 (권장)</p>
+        <p className="mb-2 text-fluid-2xs font-semibold text-slate-800">값만 바뀌는 자리 (권장)</p>
         <table className="w-full min-w-[20rem] border-collapse text-fluid-2xs sm:text-fluid-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-600">
-              <th className="py-1.5 px-2 text-left font-medium">치환코드</th>
+              <th className="py-1.5 px-2 text-left font-medium">넣을 자리</th>
               <th className="py-1.5 px-2 text-left font-medium">의미</th>
               <th className="py-1.5 px-2 text-left font-medium">채워지는 값</th>
             </tr>
@@ -84,7 +85,7 @@ function PlaceholderTable() {
                   <CustomerLinkHelpTokenChip token={p.token} />
                 </td>
                 <td className="py-2 px-2 text-slate-800 font-medium">{p.label}</td>
-                <td className="py-2 px-2 text-slate-600 leading-snug">{p.description}</td>
+                <td className="py-2 px-2 text-slate-600 leading-snug">{customerLinkTemplateToDisplay(p.description)}</td>
               </tr>
             ))}
           </tbody>
@@ -92,12 +93,12 @@ function PlaceholderTable() {
       </div>
 
       <div className="overflow-x-auto -mx-1 px-1">
-        <p className="mb-2 text-fluid-2xs font-semibold text-amber-900">통째 치환 (라벨 수정 어려움)</p>
+        <p className="mb-2 text-fluid-2xs font-semibold text-amber-900">문장 통째로 들어가는 자리 (글자 고치기 어려움)</p>
         <p className="mb-2 text-fluid-2xs text-amber-950/90 leading-snug">{CUSTOMER_LINK_COMPOSITE_WARNING}</p>
         <table className="w-full min-w-[20rem] border-collapse text-fluid-2xs sm:text-fluid-xs">
           <thead>
             <tr className="border-b border-amber-200/80 bg-amber-50/60 text-slate-600">
-              <th className="py-1.5 px-2 text-left font-medium">치환코드</th>
+              <th className="py-1.5 px-2 text-left font-medium">넣을 자리</th>
               <th className="py-1.5 px-2 text-left font-medium">의미</th>
               <th className="py-1.5 px-2 text-left font-medium">비고</th>
             </tr>
@@ -109,7 +110,7 @@ function PlaceholderTable() {
                   <CustomerLinkHelpTokenChip token={p.token} />
                 </td>
                 <td className="py-2 px-2 text-slate-800 font-medium">{p.label}</td>
-                <td className="py-2 px-2 text-slate-600 leading-snug">{p.description}</td>
+                <td className="py-2 px-2 text-slate-600 leading-snug">{customerLinkTemplateToDisplay(p.description)}</td>
               </tr>
             ))}
           </tbody>
@@ -119,15 +120,15 @@ function PlaceholderTable() {
       <div className="rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-2.5 text-fluid-2xs text-sky-950 leading-snug space-y-1">
         <p className="font-medium">작성 예시</p>
         <p>
-          ✅ <code className="text-fluid-2xs">{'실제청소일시: {{date}} ({{timeSlot}})'}</code> — 「실제청소일시」는
+          ✅ <code className="text-fluid-2xs">{'실제청소일시: [청소 예약일] ([시간대])'}</code> — 「실제청소일시」는
           글자, 날짜·시간대만 치환
         </p>
         <p>
-          ✅ <code className="text-fluid-2xs">{'페이백 신청: {{paybackLink}}'}</code> — 앞 문구는 자유롭게 수정
+          ✅ <code className="text-fluid-2xs">{'페이백 신청: [페이백 링크]'}</code> — 앞 문구는 자유롭게 수정
         </p>
         <p>
-          ⚠️ <code className="text-fluid-2xs">{'{{scheduleLine}}'}</code> — 「청소일시: …」줄 전체. 라벨을 바꾸려면{' '}
-          <code className="text-fluid-2xs">{'{{date}}'}</code> 방식 사용
+          ⚠️ <code className="text-fluid-2xs">{'[청소일시 줄]'}</code> — 「청소일시: …」줄 전체. 라벨을 바꾸려면{' '}
+          <code className="text-fluid-2xs">{'[청소 예약일]'}</code> 방식 사용
         </p>
       </div>
     </div>
@@ -144,7 +145,7 @@ function EditTab() {
       <HelpSection title="수정 순서">
         <ol className="list-decimal space-y-1.5 pl-4 text-fluid-2xs sm:text-fluid-xs text-slate-600 leading-snug">
           <li>「영업 브랜드」로 편집할 브랜드를 고릅니다.</li>
-          <li>「메시지 본문」에서 문장·라벨을 수정하고, 필요한 곳에 치환코드를 넣습니다.</li>
+          <li>「메시지 본문」에서 문장·라벨을 수정하고, 필요한 곳에 넣을 자리를 넣습니다.</li>
           <li>「샘플 미리보기」로 치환 결과를 확인합니다.</li>
           <li>「저장」 — 이후 발급·「메시지 복사」부터 적용됩니다.</li>
         </ol>
@@ -169,7 +170,7 @@ function EditTab() {
 function PlaceholdersTab() {
   return (
     <div className="space-y-3">
-      <HelpSection title="치환코드 목록">
+      <HelpSection title="넣을 자리 목록">
         <PlaceholderTable />
       </HelpSection>
     </div>
@@ -186,21 +187,21 @@ function CautionTab() {
           <li>본문이 비어 있으면 저장할 수 없습니다.</li>
         </ul>
       </HelpSection>
-      <HelpSection title="치환·빈 값">
+      <HelpSection title="자리·빈 값">
         <ul className="list-disc space-y-1.5 pl-4 text-fluid-2xs sm:text-fluid-xs text-slate-600 leading-snug">
           <li>
             일정·희망 시각이 없으면 「청소일시:」「희망 시각:」처럼 값만 비어 라벨만 남은 줄은 복사본에서
             자동으로 빠집니다.
           </li>
           <li>
-            <code className="text-fluid-2xs">{'{{optionNote}}'}</code> — 옵션·특이 메모가 없으면 빈 줄로 처리됩니다.
+            <code className="text-fluid-2xs">{'[옵션·특이사항]'}</code> — 옵션·특이 메모가 없으면 빈 줄로 처리됩니다.
           </li>
           <li>
             페이백 링크가 없는 발급 건은 ★ 페이백 안내 단락 전체가 빠질 수 있습니다. 페이백 문구는 꼭 필요할
             때만 넣으세요.
           </li>
           <li>
-            <code className="text-fluid-2xs">{'{{brandName}}'}</code> 이 비어 있으면 제목 줄이 「발주서설정」의
+            <code className="text-fluid-2xs">{'[브랜드명]'}</code> 이 비어 있으면 제목 줄이 「발주서설정」의
             양식 제목으로 대체될 수 있습니다.
           </li>
         </ul>
@@ -208,16 +209,16 @@ function CautionTab() {
       <HelpSection title="자주 하는 실수">
         <ul className="list-disc space-y-1.5 pl-4 text-fluid-2xs sm:text-fluid-xs text-slate-600 leading-snug">
           <li>
-            <code className="text-fluid-2xs">{'{{scheduleLine}}'}</code> 를 쓰고 「청소일시」를 「실제청소일시」로
-            바꾸려 함 → <code className="text-fluid-2xs">{'{{date}}'}</code>·
-            <code className="text-fluid-2xs">{'{{timeSlot}}'}</code> 와 글자 조합 사용
+            <code className="text-fluid-2xs">{'[청소일시 줄]'}</code> 를 쓰고 「청소일시」를 「실제청소일시」로
+            바꾸려 함 → <code className="text-fluid-2xs">{'[청소 예약일]'}</code>·
+            <code className="text-fluid-2xs">{'[시간대]'}</code> 와 글자 조합 사용
           </li>
           <li>링크 URL을 직접 붙여 넣음 → 발급마다 바뀌므로 반드시{' '}
-            <code className="text-fluid-2xs">{'{{orderLink}}'}</code>·
-            <code className="text-fluid-2xs">{'{{paybackLink}}'}</code> 사용
+            <code className="text-fluid-2xs">{'[발주서 링크]'}</code>·
+            <code className="text-fluid-2xs">{'[페이백 링크]'}</code> 사용
           </li>
-          <li>치환코드 철자 오타 — <code className="text-fluid-2xs">{'{{ date }}'}</code> 처럼 공백 넣으면
-            치환되지 않습니다. 「넣기」 버튼 사용 권장
+          <li>자리 이름 오타 — <code className="text-fluid-2xs">{'[청소예약일]'}</code> 처럼 글자를 바꾸면
+            값이 들어가지 않습니다. 「넣기」 버튼 사용 권장
           </li>
           <li>「기본 양식으로 다시 채우기」는 저장 전 편집 중인 내용을 지웁니다. 확인 창을 꼭 읽으세요.</li>
         </ul>
@@ -285,7 +286,7 @@ export function CustomerLinkHelpModal({ open, onClose }: Props) {
             고객링크설정 도움말
           </h2>
           <p className="mt-1 text-fluid-2xs sm:text-fluid-xs text-slate-500">
-            편집 방법 · 치환코드 · 주의할 점
+            편집 방법 · 넣을 자리 · 주의할 점
           </p>
           <div
             className="mt-3 inline-flex max-w-full flex-nowrap gap-0.5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-0.5"

@@ -4,7 +4,7 @@ const KEY_ORDER = 'skcleantec_celebrate_bar_tpl_order';
 const KEY_DEFAULT = 'skcleantec_celebrate_bar_tpl_default';
 
 export const CELEBRATE_BAR_PLACEHOLDER_HELP =
-  '사용 가능: {{registrarName}}(접수자), {{customerName}}(고객), {{source}}(출처), {{inquiryNumber}}(접수번호)';
+  '넣을 수 있는 자리: [접수자], [고객], [출처], [접수번호] — 알림이 뜰 때 실제 값으로 바뀝니다.';
 
 export const DEFAULT_CELEBRATE_TPL_ORDER =
   '{{registrarName}}님이 {{customerName}}님의 발주서가 접수되었습니다 👏👏👏';

@@ -1,3 +1,4 @@
+import { customerLinkTokenToShown } from '../../../utils/customerLinkTokenDisplay';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 function previewProps(disabled = true) {
@@ -95,7 +96,7 @@ export function CustomerLinkHelpPlaceholderSelect() {
         aria-hidden
         tabIndex={-1}
       >
-        <option>{'청소 예약일 — {{date}}'}</option>
+        <option>{'청소 예약일'}</option>
       </select>
     </HelpUiShell>
   );
@@ -104,7 +105,7 @@ export function CustomerLinkHelpPlaceholderSelect() {
 export function CustomerLinkHelpTokenChip({ token }: { token: string }) {
   return (
     <HelpUiShell>
-      <code className="rounded bg-slate-100 px-1.5 py-0.5 text-fluid-2xs text-slate-800">{token}</code>
+      <code className="rounded bg-[#e8f0ff] px-1.5 py-0.5 text-fluid-2xs font-semibold text-[#1f4fb8]">{customerLinkTokenToShown(token)}</code>
     </HelpUiShell>
   );
 }

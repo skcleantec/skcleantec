@@ -1,3 +1,4 @@
+import { ORDER_GUIDE_TOKENS } from '../../utils/templateTokenDisplay';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -65,8 +66,8 @@ export function OrderGuideCancellationPreview(props: {
     <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2.5 space-y-1.5">
       <p className="text-fluid-2xs text-gray-700 leading-relaxed">
         취소·변경에는{' '}
-        <code className="rounded bg-white px-1 font-mono text-[11px]">
-          {GUIDE_PLACEHOLDER_CANCELLATION_POLICY}
+        <code className="rounded bg-white px-1 text-[11px]">
+          {ORDER_GUIDE_TOKENS.shownOf(GUIDE_PLACEHOLDER_CANCELLATION_POLICY)}
         </code>
         가 들어가 있어야 합니다. 고객 화면에서{' '}
         <Link
