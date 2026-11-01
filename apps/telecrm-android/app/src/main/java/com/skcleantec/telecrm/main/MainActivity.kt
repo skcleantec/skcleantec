@@ -147,6 +147,11 @@ class MainActivity : AppCompatActivity() {
 
         binding.logoutButton.setOnClickListener { logout() }
 
+        // 필수 설정 모아 보기 — 꺼진 설정을 여기서 바로 켬
+        binding.setupButton.setOnClickListener {
+            startActivity(SetupRequiredActivity.manageIntent(this))
+        }
+
         binding.checkUpdateButton.visibility = View.VISIBLE
         binding.checkUpdateButton.setOnClickListener {
             TelecrmUpdateCoordinator.checkManually(this, apiBaseUrl)
