@@ -150,6 +150,19 @@ class SetupRequiredActivity : AppCompatActivity() {
                 if (intent != null) callScreeningLauncher.launch(intent)
                 else TelecrmCallScreeningSetup.openCallScreeningSettings(this)
             }
+            TelecrmSetupKind.OVERLAY -> {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName"),
+                )
+                if (runCatching { startActivity(intent) }.isFailure) {
+                    startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", packageName, null)
+                        },
+                    )
+                }
+            }
         }
     }
 

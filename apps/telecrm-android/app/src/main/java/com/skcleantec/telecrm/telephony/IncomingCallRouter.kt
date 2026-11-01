@@ -37,6 +37,8 @@ object IncomingCallRouter {
 
         // 잠금 화면: startActivity 는 막히므로 full-screen 알림만 사용
         TelecrmNotificationHelper.showIncomingCall(app, phone, null)
+        // 기본 전화 화면 위에 겹쳐 뜨는 고객 카드
+        CallerOverlay.showRinging(app, phone, null, null)
 
         // PC 화면 알림은 따로 보냄 — 고객 조회가 이 요청을 기다리지 않게
         scope.launch(Dispatchers.IO) {
@@ -67,13 +69,18 @@ object IncomingCallRouter {
                     result.exceptionOrNull()?.message?.takeIf { it.isNotBlank() } ?: "고객 정보를 불러오지 못했어요.",
                 )
                 IncomingCallSession.notifyUpdated()
+                if (!incomingUiDismissed) {
+                    CallerOverlay.showRinging(app, phone, null, IncomingCallSession.lookupError())
+                }
                 return@launch
             }
             IncomingCallSession.set(phone, lookup)
             if (!incomingUiDismissed) {
                 TelecrmNotificationHelper.showIncomingCall(app, phone, lookup)
+                CallerOverlay.showRinging(app, phone, lookup, null)
             } else if (callAnswered) {
                 TelecrmNotificationHelper.showInCallCustomer(app, phone, lookup)
+                CallerOverlay.showInCall(app, phone, lookup)
             }
             IncomingCallSession.notifyUpdated()
         }
@@ -90,6 +97,7 @@ object IncomingCallRouter {
         // 조회는 계속 — 받은 뒤 도착해도 「통화 중 · 고객명」 알림으로 보여 줌
         val lookup = IncomingCallSession.lookup()?.takeIf { IncomingCallSession.phone() == phone }
         if (lookup != null) TelecrmNotificationHelper.showInCallCustomer(app, phone, lookup)
+        CallerOverlay.showInCall(app, phone, lookup)
     }
 
     fun onMissed(context: Context, rawPhone: String) {
@@ -109,6 +117,10 @@ object IncomingCallRouter {
         IncomingCallSession.clear()
         TelecrmNotificationHelper.cancelIncomingCall(context.applicationContext)
         TelecrmNotificationHelper.cancelInCallCustomer(context.applicationContext)
+        CallerOverlay.hide(context.applicationContext)
+        if (!CallerOverlay.canShow(context.applicationContext)) {
+            TelecrmNotificationHelper.showOverlayPermissionReminder(context.applicationContext)
+        }
     }
 }
 

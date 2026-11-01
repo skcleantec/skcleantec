@@ -149,6 +149,12 @@
     <string name="setup_item_battery_hint">백그라운드에서 수신을 놓치지 않게 합니다.</string>
     <string name="setup_item_call_screening">발신번호·스팸 앱</string>
     <string name="setup_item_call_screening_hint">청소비서(마케터)를 선택해야 수신 번호가 전달됩니다.</string>
+    <string name="setup_item_overlay">다른 앱 위에 표시</string>
+    <string name="setup_item_overlay_hint">전화가 오면 기본 전화 화면 위에 고객 이름·접수 정보를 겹쳐 보여 줍니다. 목록에서 청소비서(마케터)를 켜 주세요.</string>
+    <string name="caller_overlay_label">청소비서 · 고객 전화</string>
+    <string name="caller_overlay_close">고객 정보 닫기</string>
+    <string name="overlay_reminder_title">전화 화면에 고객 정보를 띄우려면</string>
+    <string name="overlay_reminder_body">여기를 눌러 「다른 앱 위에 표시」를 켜 주세요. 다음 전화부터 고객 이름이 전화 화면 위에 뜹니다.</string>
 
     <string name="incoming_unregistered">미등록</string>
     <string name="incoming_detail_title">수신 상세</string>
