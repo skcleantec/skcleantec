@@ -13,6 +13,9 @@ import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import { FilterBar, FilterSearch, FilterSegment, FilterSelect } from '../../components/ui/FilterBar';
+import { Button } from '../../components/ui/Button';
+import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
   clampListPage,
   parseInquiryListPageSize,
@@ -25,6 +28,19 @@ const STATUS_OPTIONS: { value: '' | QuotationStatus; label: string }[] = [
   { value: 'FINALIZED', label: '확정' },
   { value: 'SENT', label: '발송됨' },
 ];
+
+const DATE_PRESET_OPTIONS = [
+  ['today', '오늘'],
+  ['all', '전체'],
+  ['month', '월별'],
+  ['day', '일별'],
+] as const;
+
+/** 「열기」 링크 — Button sm secondary와 같은 모양 */
+const OPEN_LINK_SM =
+  'inline-flex h-7 items-center justify-center whitespace-nowrap rounded-[7px] border border-[#dde3ea] bg-white px-2.5 text-fluid-2xs font-medium leading-none text-[#141b26] hover:bg-[#eef2f7]';
+const OPEN_LINK_MD =
+  'inline-flex h-9 items-center justify-center whitespace-nowrap rounded-lg border border-[#dde3ea] bg-white px-3.5 text-fluid-xs font-medium leading-none text-[#141b26] hover:bg-[#eef2f7]';
 
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -151,30 +167,17 @@ export function AdminQuotationsListPage() {
       </div>
 
       <div className={qUi.card}>
-        <div className={qUi.filterBar}>
-          <div className="flex flex-col gap-3 min-w-0 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
-              <span className="text-fluid-2xs font-semibold text-slate-700 shrink-0">작성일</span>
-              <div className="inline-flex flex-wrap items-center gap-2">
-                <div className={qUi.segmentWrap}>
-                  {(
-                    [
-                      ['today', '오늘'],
-                      ['all', '전체'],
-                      ['month', '월별'],
-                      ['day', '일별'],
-                    ] as const
-                  ).map(([key, label], i) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => patchParams({ datePreset: key, page: '1' })}
-                      className={qUi.segmentBtn(datePreset === key, i > 0)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+        <div className="border-b border-slate-100 p-3">
+          <FilterBar
+            period={(
+              <>
+                <span className="shrink-0 text-fluid-2xs font-semibold text-slate-600">작성일</span>
+                <FilterSegment
+                  label="작성일"
+                  value={datePreset}
+                  options={DATE_PRESET_OPTIONS}
+                  onChange={(key) => patchParams({ datePreset: key, page: '1' })}
+                />
                 {datePreset === 'month' && (
                   <YearMonthSelect
                     value={monthKey}
@@ -191,43 +194,35 @@ export function AdminQuotationsListPage() {
                     className="items-center"
                   />
                 )}
-              </div>
-            </div>
+              </>
+            )}
+            search={(
+              <FilterSearch
+                value={customerName}
+                onSearch={(v) => patchParams({ customerName: v, page: '1' })}
+                placeholder="상대 이름 검색"
+                debounceMs={0}
+              />
+            )}
+            activeCount={statusFilter ? 1 : 0}
+          >
+            <FilterSelect
+              label="상태"
+              value={statusFilter}
+              onChange={(v) => patchParams({ status: v || null, page: '1' })}
+              options={STATUS_OPTIONS.map((o) => [o.value, o.label] as const)}
+            />
+          </FilterBar>
+          <div className="mt-2 flex justify-end">
             <ListPaginationBar
               mode="summary"
               page={safePage}
               pageSize={pageSize}
               total={total}
               onPageChange={(p) => patchParams({ page: String(p) })}
-              onPageSizeChange={(s) => patchParams({ pageSize: String(s), page: '1' })}
+              onPageSizeChange={(sz) => patchParams({ pageSize: String(sz), page: '1' })}
               className="shrink-0"
             />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <label className="block min-w-0 flex-1 sm:max-w-xs">
-              <span className={qUi.label}>상대 이름</span>
-              <input
-                className={qUi.input}
-                value={customerName}
-                onChange={(e) => patchParams({ customerName: e.target.value, page: '1' })}
-                placeholder="이름으로 검색"
-              />
-            </label>
-            <label className="block sm:w-40">
-              <span className={qUi.label}>상태</span>
-              <select
-                className={qUi.select}
-                value={statusFilter}
-                onChange={(e) => patchParams({ status: e.target.value || null, page: '1' })}
-              >
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value || 'all'} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
         </div>
 
@@ -265,7 +260,7 @@ export function AdminQuotationsListPage() {
                 <tbody>
                   {items.map((row) => (
                     <tr key={row.id} className={qUi.tr}>
-                      <td className={`${qUi.td} font-mono text-fluid-2xs tabular-nums`}>
+                      <td className={`${qUi.td} text-fluid-2xs tabular-nums text-slate-600`}>
                         {row.quoteNumber}
                       </td>
                       <td className={`${qUi.td} font-medium text-slate-900`}>
@@ -278,7 +273,7 @@ export function AdminQuotationsListPage() {
                           ) : null}
                         </span>
                       </td>
-                      <td className={`${qUi.td} font-mono text-fluid-2xs text-slate-500`}>
+                      <td className={`${qUi.td} text-fluid-2xs tabular-nums text-slate-500`}>
                         {row.inquiry?.inquiryNumber ?? '—'}
                       </td>
                       <td className={`${qUi.td} text-right tabular-nums font-medium text-slate-900`}>
@@ -293,32 +288,32 @@ export function AdminQuotationsListPage() {
                       >
                         {formatQuotationIssuer(row.createdBy)}
                       </td>
-                      <td className={`${qUi.td} text-slate-500 whitespace-nowrap`}>
-                        {new Date(row.createdAt).toLocaleDateString('ko-KR')}
+                      <td className={`${qUi.td} text-fluid-2xs tabular-nums text-slate-500 whitespace-nowrap`}>
+                        {formatDateCompactWithWeekday(row.createdAt)}
                       </td>
-                      <td className={`${qUi.td} text-slate-500 whitespace-nowrap`}>
+                      <td className={`${qUi.td} text-fluid-2xs tabular-nums text-slate-500 whitespace-nowrap`}>
                         {(row.lastEmailedAt ?? row.sentAt)
-                          ? new Date(row.lastEmailedAt ?? row.sentAt!).toLocaleDateString('ko-KR')
+                          ? formatDateCompactWithWeekday(row.lastEmailedAt ?? row.sentAt!)
                           : '—'}
                       </td>
                       <td className={`${qUi.td} whitespace-nowrap`}>
                         <div className="inline-flex items-center justify-center gap-1.5">
                           <Link
                             to={`/admin/inquiries/quotations/${row.id}`}
-                            className={qUi.btnChip}
+                            className={OPEN_LINK_SM}
                           >
                             열기
                           </Link>
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
+                            variant="danger"
                             onClick={() => {
                               setDeleteTarget(row);
                               setDeletePassword('');
                             }}
-                            className={qUi.btnDanger}
                           >
                             삭제
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -340,7 +335,7 @@ export function AdminQuotationsListPage() {
                           </span>
                         ) : null}
                       </p>
-                      <p className="mt-0.5 font-mono text-fluid-2xs text-slate-500 tabular-nums">
+                      <p className="mt-0.5 text-fluid-2xs text-slate-500 tabular-nums">
                         {row.quoteNumber}
                       </p>
                     </div>
@@ -350,29 +345,29 @@ export function AdminQuotationsListPage() {
                     <span className="tabular-nums font-medium text-slate-800">
                       {row.total.toLocaleString('ko-KR')}원
                     </span>
-                    <span>{new Date(row.createdAt).toLocaleDateString('ko-KR')}</span>
+                    <span className="tabular-nums">{formatDateCompactWithWeekday(row.createdAt)}</span>
                     <span title="발행자">{formatQuotationIssuer(row.createdBy)}</span>
                     {row.inquiry?.inquiryNumber && (
-                      <span className="font-mono">접수 {row.inquiry.inquiryNumber}</span>
+                      <span className="tabular-nums">접수 {row.inquiry.inquiryNumber}</span>
                     )}
                   </div>
                   <div className="mt-3 flex gap-2">
                     <Link
                       to={`/admin/inquiries/quotations/${row.id}`}
-                      className={`${qUi.btnSecondary} flex-1 text-center`}
+                      className={`${OPEN_LINK_MD} flex-1`}
                     >
                       열기
                     </Link>
-                    <button
-                      type="button"
+                    <Button
+                      size="md"
+                      variant="danger"
                       onClick={() => {
                         setDeleteTarget(row);
                         setDeletePassword('');
                       }}
-                      className={qUi.btnDanger}
                     >
                       삭제
-                    </button>
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -403,7 +398,7 @@ export function AdminQuotationsListPage() {
             </div>
             <div className="p-4">
               <p className="text-fluid-sm text-slate-600 mb-3">
-                <span className="font-mono font-medium text-slate-800">{deleteTarget.quoteNumber}</span>
+                <span className="font-medium tabular-nums text-slate-800">{deleteTarget.quoteNumber}</span>
                 {' — '}
                 {deleteTarget.customerName}
               </p>
@@ -419,22 +414,12 @@ export function AdminQuotationsListPage() {
               </label>
             </div>
             <div className={qUi.modalFooter}>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => setDeleteTarget(null)}
-                className={qUi.btnSecondary}
-              >
+              <Button size="md" variant="secondary" disabled={deleting} onClick={() => setDeleteTarget(null)}>
                 취소
-              </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => void handleDelete()}
-                className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
-              >
+              </Button>
+              <Button size="md" variant="danger" disabled={deleting} onClick={() => void handleDelete()}>
                 {deleting ? '삭제 중…' : '삭제'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
