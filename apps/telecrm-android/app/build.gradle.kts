@@ -35,8 +35,8 @@ android {
         applicationId = "com.cbiseo.marketer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 35
-        versionName = "0.8.5-internal"
+        versionCode = 36
+        versionName = "0.8.6-internal"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "ADMIN_TOKEN_KEY", "\"sk_admin_token\"")
     }
@@ -109,4 +109,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    add("playImplementation", "com.google.android.play:app-update:2.1.0")
+    add("playImplementation", "com.google.android.play:app-update-ktx:2.1.0")
 }

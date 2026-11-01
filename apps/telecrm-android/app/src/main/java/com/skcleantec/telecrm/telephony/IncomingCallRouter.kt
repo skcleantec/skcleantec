@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -19,46 +20,80 @@ object IncomingCallRouter {
     private var lastRingAtMs: Long = 0
     private var ringGeneration: Long = 0
     private var incomingUiDismissed = false
+    private var callAnswered = false
 
-    fun onRinging(context: Context, phone: String) {
+    fun onRinging(context: Context, rawPhone: String) {
         val app = context.applicationContext
+        val phone = CallerInfo.normalizeDigits(rawPhone)
+        if (phone.length < 4) return
         val now = System.currentTimeMillis()
         if (phone == activePhone && now - lastRingAtMs < 2500) return
         activePhone = phone
         lastRingAtMs = now
         incomingUiDismissed = false
+        callAnswered = false
         val generation = ++ringGeneration
         IncomingCallSession.set(phone, null)
 
         // 잠금 화면: startActivity 는 막히므로 full-screen 알림만 사용
         TelecrmNotificationHelper.showIncomingCall(app, phone, null)
 
+        // PC 화면 알림은 따로 보냄 — 고객 조회가 이 요청을 기다리지 않게
+        scope.launch(Dispatchers.IO) {
+            val token = TokenStore.get(app).getToken() ?: return@launch
+            ApiClient.fromContext(app).notifyMobileIncomingRing(token, phone)
+        }
+
         lookupJob?.cancel()
         lookupJob = scope.launch {
-            withContext(Dispatchers.IO) {
-                val token = TokenStore.get(app).getToken() ?: return@withContext
-                ApiClient.fromContext(app).notifyMobileIncomingRing(token, phone)
+            var result: Result<JSONObject> = Result.failure(IllegalStateException("고객 정보를 불러오지 못했어요."))
+            for (attempt in 0 until 2) {
+                result = withContext(Dispatchers.IO) {
+                    val token = TokenStore.get(app).getToken()
+                    if (token.isNullOrBlank()) {
+                        Result.failure(IllegalStateException("앱에 다시 로그인해 주세요."))
+                    } else {
+                        ApiClient.fromContext(app).customerLookup(token, phone, null)
+                    }
+                }
+                if (result.isSuccess || ringGeneration != generation) break
+                delay(1200)
             }
-            val lookup = withContext(Dispatchers.IO) {
-                val token = TokenStore.get(app).getToken() ?: return@withContext null
-                ApiClient.fromContext(app).customerLookup(token, phone, null).getOrNull()
+            if (ringGeneration != generation || activePhone != phone) return@launch
+            val lookup = result.getOrNull()
+            if (lookup == null) {
+                IncomingCallSession.setError(
+                    phone,
+                    result.exceptionOrNull()?.message?.takeIf { it.isNotBlank() } ?: "고객 정보를 불러오지 못했어요.",
+                )
+                IncomingCallSession.notifyUpdated()
+                return@launch
             }
-            if (incomingUiDismissed || ringGeneration != generation || activePhone != phone) return@launch
             IncomingCallSession.set(phone, lookup)
-            TelecrmNotificationHelper.showIncomingCall(app, phone, lookup)
+            if (!incomingUiDismissed) {
+                TelecrmNotificationHelper.showIncomingCall(app, phone, lookup)
+            } else if (callAnswered) {
+                TelecrmNotificationHelper.showInCallCustomer(app, phone, lookup)
+            }
             IncomingCallSession.notifyUpdated()
         }
     }
 
     fun onOffHook(context: Context) {
+        val app = context.applicationContext
+        val phone = activePhone
         incomingUiDismissed = true
-        lookupJob?.cancel()
+        if (phone == null) return // 내가 건 전화(발신) — 수신 화면과 무관
+        callAnswered = true
         IncomingCallSession.markCallTaken()
-        TelecrmNotificationHelper.cancelIncomingCall(context.applicationContext)
+        TelecrmNotificationHelper.cancelIncomingCall(app)
+        // 조회는 계속 — 받은 뒤 도착해도 「통화 중 · 고객명」 알림으로 보여 줌
+        val lookup = IncomingCallSession.lookup()?.takeIf { IncomingCallSession.phone() == phone }
+        if (lookup != null) TelecrmNotificationHelper.showInCallCustomer(app, phone, lookup)
     }
 
-    fun onMissed(context: Context, phone: String) {
-        val digits = phone.filter { it.isDigit() }
+    fun onMissed(context: Context, rawPhone: String) {
+        val digits = CallerInfo.normalizeDigits(rawPhone)
         if (digits.length < 4) return
         val lookup = IncomingCallSession.lookup()?.takeIf { IncomingCallSession.phone() == digits }
         TelecrmNotificationHelper.showMissedCall(context.applicationContext, digits, lookup)
@@ -66,12 +101,14 @@ object IncomingCallRouter {
 
     fun onIdle(context: Context) {
         incomingUiDismissed = true
+        callAnswered = false
         ringGeneration++
         activePhone = null
         lookupJob?.cancel()
         lookupJob = null
         IncomingCallSession.clear()
         TelecrmNotificationHelper.cancelIncomingCall(context.applicationContext)
+        TelecrmNotificationHelper.cancelInCallCustomer(context.applicationContext)
     }
 }
 
@@ -85,9 +122,13 @@ object IncomingCallSession {
     @Volatile
     private var callTaken = false
 
+    @Volatile
+    private var lookupError: String? = null
+
     private val listeners = mutableListOf<() -> Unit>()
 
     fun set(phoneDigits: String, lookupJson: JSONObject?) {
+        lookupError = null
         if (callTaken && phone == phoneDigits) {
             lookup = lookupJson
             return
@@ -101,6 +142,14 @@ object IncomingCallSession {
 
     fun lookup(): JSONObject? = lookup
 
+    /** 고객 조회 실패 사유 — 있으면 「조회 중」 대신 이 문구를 보여 줌 */
+    fun lookupError(): String? = lookupError
+
+    fun setError(phoneDigits: String, message: String) {
+        if (phone != phoneDigits) return
+        lookupError = message
+    }
+
     fun isIncomingUiActive(): Boolean = !phone.isNullOrBlank() && !callTaken
 
     fun markCallTaken() {
@@ -111,9 +160,10 @@ object IncomingCallSession {
     fun clear() {
         phone = null
         lookup = null
+        lookupError = null
         callTaken = false
         notifyUpdated()
-        listeners.clear()
+        // 리스너는 각 화면이 닫힐 때 직접 뺀다(여기서 지우면 다음 전화 때 이름이 안 바뀜)
     }
 
     fun addListener(listener: () -> Unit) {

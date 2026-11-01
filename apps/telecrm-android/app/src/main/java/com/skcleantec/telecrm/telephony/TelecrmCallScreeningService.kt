@@ -11,7 +11,7 @@ import android.util.Log
  */
 class TelecrmCallScreeningService : CallScreeningService() {
     override fun onScreenCall(callDetails: Call.Details) {
-        val digits = callDetails.handle?.schemeSpecificPart?.filter { it.isDigit() }.orEmpty()
+        val digits = CallerInfo.normalizeDigits(callDetails.handle?.schemeSpecificPart)
         if (digits.length >= 4) {
             IncomingCallRouter.onRinging(applicationContext, digits)
         } else {
