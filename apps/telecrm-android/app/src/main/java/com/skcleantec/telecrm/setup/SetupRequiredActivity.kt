@@ -29,6 +29,9 @@ class SetupRequiredActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySetupRequiredBinding
     private val tokenStore by lazy { TokenStore.get(this) }
 
+    /** 앱 상단 설정 단추로 연 경우 — 다 켜져 있어도 목록을 보여 주고, 닫으면 원래 화면으로 */
+    private val manageMode by lazy { intent.getBooleanExtra(EXTRA_MANAGE, false) }
+
     private val callScreeningLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { bindChecklist() }
@@ -42,12 +45,20 @@ class SetupRequiredActivity : AppCompatActivity() {
         }
         binding = ActivitySetupRequiredBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.continueButton.setOnClickListener { tryEnterCrm() }
+        binding.continueButton.setOnClickListener { if (manageMode) finish() else tryEnterCrm() }
         binding.logoutButton.setOnClickListener { logout() }
+        if (manageMode) {
+            binding.continueButton.text = getString(R.string.setup_manage_close)
+            binding.logoutButton.visibility = View.GONE
+        }
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (manageMode) {
+                        finish()
+                        return
+                    }
                     if (TelecrmRequiredSetup.isComplete(this@SetupRequiredActivity)) {
                         tryEnterCrm()
                     }
@@ -60,7 +71,7 @@ class SetupRequiredActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         bindChecklist()
-        if (TelecrmRequiredSetup.isComplete(this)) {
+        if (!manageMode && TelecrmRequiredSetup.isComplete(this)) {
             tryEnterCrm()
         }
     }
@@ -79,8 +90,8 @@ class SetupRequiredActivity : AppCompatActivity() {
         binding.setupItems.removeAllViews()
         items.forEach { item -> binding.setupItems.addView(buildRow(item)) }
         val complete = items.all { it.done }
-        binding.continueButton.isEnabled = complete
-        binding.continueButton.alpha = if (complete) 1f else 0.45f
+        binding.continueButton.isEnabled = complete || manageMode
+        binding.continueButton.alpha = if (complete || manageMode) 1f else 0.45f
     }
 
     private fun buildRow(item: TelecrmSetupItem): View {
@@ -199,6 +210,11 @@ class SetupRequiredActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val EXTRA_MANAGE = "extra_setup_manage"
+
         fun intent(context: Context): Intent = Intent(context, SetupRequiredActivity::class.java)
+
+        fun manageIntent(context: Context): Intent =
+            Intent(context, SetupRequiredActivity::class.java).putExtra(EXTRA_MANAGE, true)
     }
 }

@@ -134,6 +134,8 @@
     <string name="setup_required_title">필수 설정</string>
     <string name="setup_required_lead">전화·수신·메시지를 쓰려면 아래 설정을 모두 마쳐 주세요. 나중에 건너뛸 수 없습니다.</string>
     <string name="setup_continue">설정 완료 · 시작하기</string>
+    <string name="setup_manage_close">닫기</string>
+    <string name="setup_open_button">필수 설정</string>
     <string name="setup_status_done">완료</string>
     <string name="setup_status_needed">필요</string>
     <string name="setup_item_action">설정하기</string>

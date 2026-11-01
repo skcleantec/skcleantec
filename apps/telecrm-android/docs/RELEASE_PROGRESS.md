@@ -7,18 +7,18 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-09-16)
+## 현재 상태 (최종 갱신: 2026-11-01)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 35 |
-| **최신 versionName** | `0.8.5-internal` |
+| **최신 versionCode** | 38 |
+| **최신 versionName** | `0.8.8-internal` |
 | **targetSdk** | **36** |
 | **Play 공개 테스트** | v30 AAB · API 36 |
-| **Play 내부 테스트** | **v35 AAB** (v34 Play 경고: 크기·매핑 없음 → R8 켜고 재빌드) |
-| **Play 비공개 테스트** | **v35 승격 필요** |
-| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · **v35 업로드** |
-| **sideload (`/telecrm-app`)** | v35 APK · GitHub Release · Railway 변수 갱신 |
+| **Play 내부 테스트** | **v38 AAB** (Play Console 업로드는 별도) |
+| **Play 비공개 테스트** | v35 기준 · v38 승격은 별도 |
+| **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · 스토어 최신은 v35 · **v38 AAB는 로컬 빌드만** |
+| **sideload (`/telecrm-app`)** | v38 APK · GitHub Release `telecrm-v0.8.8-internal` · Railway 변수 갱신 (MIN은 35 유지) |
 | **release 최적화** | `isMinifyEnabled` + `isShrinkResources` + R8 fullMode |
 
 ---
@@ -51,6 +51,22 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v38 · `0.8.8-internal` — 2026-11-01
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | AAB만 빌드 · Play Console 업로드는 아직 안 함 |
+| **AAB** | `apps/telecrm-android/dist/telecrm-play-0.8.8-internal-38.aab` |
+| **AAB SHA256** | `25d0ddcc6a74ef0c6232822daff537a844043acacbb7999e9a103fda42880138` |
+| **mapping** | `apps/telecrm-android/dist/telecrm-play-0.8.8-internal-38-mapping.txt` |
+| **sideload APK** | `apps/telecrm-android/dist/telecrm-release-0.8.8-internal.apk` |
+| **APK SHA256** | `08fc301b6fcefe479375c02f60ec204afa201ce8cfafb3ac2017266138c5c9de` |
+| **Git** | `874771b4` — 마케터 앱: 상단 필수 설정 단추 — 꺼진 설정을 앱 안에서 바로 켜기 |
+| **변경 요약** | 상단 필수 설정 단추 · 전화 화면 위 고객 이름·접수 정보 카드 |
+| **서버/CRM** | 매니페스트 fallback 38 · 운영 Railway LATEST 38 · MIN 35 유지 |
+| **검증** | `bundlePlayRelease` · `assembleSideloadRelease` |
+| **메모** | Release `telecrm-v0.8.8-internal` · 필수 업데이트(MIN)는 올리지 않음 |
 
 ### v35 · `0.8.5-internal` — 2026-09-16
 
