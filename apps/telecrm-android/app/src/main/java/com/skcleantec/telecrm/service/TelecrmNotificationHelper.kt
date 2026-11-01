@@ -14,7 +14,7 @@ import com.skcleantec.telecrm.dispatch.CallDispatchActivity
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
 import com.skcleantec.telecrm.incoming.IncomingCallActivity
 import com.skcleantec.telecrm.main.MainActivity
-import com.skcleantec.telecrm.ui.TelecrmInquiryLabels
+import com.skcleantec.telecrm.telephony.CallerInfo
 import com.skcleantec.telecrm.ui.TelecrmLookupDetailRenderer
 import org.json.JSONObject
 
@@ -28,6 +28,7 @@ object TelecrmNotificationHelper {
     const val NOTIFICATION_ONGOING = 7001
     const val NOTIFICATION_CALL_BASE = 7100
     const val NOTIFICATION_INCOMING_CALL = 7150
+    const val NOTIFICATION_IN_CALL = 7160
     const val NOTIFICATION_MISSED_BASE = 7400
 
     fun ensureChannels(context: Context) {
@@ -184,23 +185,8 @@ object TelecrmNotificationHelper {
             pendingIntentFlags(),
         )
 
-        val inq = lookup?.optJSONArray("inquiries")?.optJSONObject(0)
-        val title = if (inq != null) {
-            val name = inq.optString("customerName").ifBlank {
-                lookup.optJSONObject("customer")?.optString("name").orEmpty()
-            }
-            if (name.isNotBlank()) {
-                context.getString(
-                    R.string.notification_incoming_title_named,
-                    name,
-                    TelecrmInquiryLabels.statusLabel(inq.optString("status")),
-                )
-            } else {
-                context.getString(R.string.notification_incoming_title)
-            }
-        } else {
-            context.getString(R.string.notification_incoming_title)
-        }
+        val inq = CallerInfo.latestInquiry(lookup)
+        val title = CallerInfo.title(lookup) ?: context.getString(R.string.notification_incoming_title)
         val body = buildIncomingBody(context, digits, lookup, inq)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_INCOMING_CALL)
@@ -230,6 +216,44 @@ object TelecrmNotificationHelper {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_INCOMING_CALL)
     }
 
+    /** 전화를 받은 뒤에도 누구와 통화 중인지 보이게 — 상단에 조용히 고정 */
+    fun showInCallCustomer(context: Context, phone: String, lookup: JSONObject) {
+        ensureChannels(context)
+        val digits = phone.filter { it.isDigit() }
+        if (digits.length < 4) return
+        val title = CallerInfo.title(lookup) ?: return
+        val open = PendingIntent.getActivity(
+            context,
+            NOTIFICATION_IN_CALL,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(MainActivity.EXTRA_OPEN_INCOMING_PHONE, digits)
+            },
+            pendingIntentFlags(),
+        )
+        val inq = CallerInfo.latestInquiry(lookup)
+        val summary = inq?.let { TelecrmLookupDetailRenderer.summaryLines(it, lookup).joinToString("\n") }.orEmpty()
+        val body = if (summary.isBlank()) formatPhone(digits) else "${formatPhone(digits)}\n$summary"
+        val notification = NotificationCompat.Builder(context, CHANNEL_ONGOING)
+            .setSmallIcon(R.drawable.ic_notification_phone)
+            .setContentTitle(context.getString(R.string.notification_in_call_title, title))
+            .setContentText(body.lines().firstOrNull() ?: body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setContentIntent(open)
+            .build()
+        NotificationManagerCompat.from(context).notify(NOTIFICATION_IN_CALL, notification)
+    }
+
+    fun cancelInCallCustomer(context: Context) {
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_IN_CALL)
+    }
+
     fun showMissedCall(context: Context, phone: String, lookup: JSONObject?) {
         ensureChannels(context)
         val digits = phone.filter { it.isDigit() }
@@ -246,9 +270,7 @@ object TelecrmNotificationHelper {
             },
             pendingIntentFlags(),
         )
-        val inq = lookup?.optJSONArray("inquiries")?.optJSONObject(0)
-        val name = inq?.optString("customerName")?.takeIf { it.isNotBlank() }
-            ?: lookup?.optJSONObject("customer")?.optString("name")?.takeIf { it.isNotBlank() }
+        val name = CallerInfo.displayName(lookup)
         val title = if (!name.isNullOrBlank()) {
             context.getString(R.string.notification_missed_title_named, name)
         } else {

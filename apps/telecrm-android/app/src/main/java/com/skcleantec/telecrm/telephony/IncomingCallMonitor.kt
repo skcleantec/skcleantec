@@ -47,7 +47,8 @@ object IncomingCallMonitor {
                         IncomingCallRouter.onOffHook(app)
                     }
                     TelephonyManager.EXTRA_STATE_IDLE -> {
-                        val missedPhone = lastRingPhone
+                        // 잠금 화면 등에서 번호가 CallScreening 으로만 들어온 경우도 부재 알림
+                        val missedPhone = lastRingPhone ?: IncomingCallSession.phone()
                         if (isRinging && !answeredThisRing && !missedPhone.isNullOrBlank()) {
                             IncomingCallRouter.onMissed(app, missedPhone)
                         }

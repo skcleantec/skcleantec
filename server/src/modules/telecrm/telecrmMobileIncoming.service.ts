@@ -57,7 +57,13 @@ export async function notifyTelecrmMobileIncomingRing(
 
   const lookup = await searchTelecrmCustomer(tenantId, operatingCompanyId, { phone, name: '' });
   const inq = lookup.inquiries[0];
-  const customerName = inq?.customerName ?? lookup.customer.name ?? null;
+  const otherBrandName = lookup.otherBrand?.name ?? null;
+  const customerName =
+    inq?.customerName ??
+    (lookup.customer.name && otherBrandName
+      ? `${lookup.customer.name} (${otherBrandName})`
+      : lookup.customer.name) ??
+    null;
   const payload: TelecrmMobileIncomingRingPayload = {
     type: 'telecrm:incoming-ring',
     phone,

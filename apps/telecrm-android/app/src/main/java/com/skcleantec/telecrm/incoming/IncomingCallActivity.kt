@@ -12,9 +12,9 @@ import com.skcleantec.telecrm.databinding.ActivityIncomingCallBinding
 import com.skcleantec.telecrm.inquiry.InquiryDetailActivity
 import com.skcleantec.telecrm.service.TelecrmNotificationHelper
 import com.skcleantec.telecrm.telephony.CallReturnMonitor
+import com.skcleantec.telecrm.telephony.CallerInfo
 import com.skcleantec.telecrm.telephony.IncomingCallSession
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
-import com.skcleantec.telecrm.ui.TelecrmInquiryLabels
 import com.skcleantec.telecrm.ui.TelecrmLookupDetailRenderer
 import org.json.JSONObject
 
@@ -85,23 +85,21 @@ class IncomingCallActivity : AppCompatActivity() {
 
     private fun refreshCustomerUi(lookup: JSONObject?) {
         if (lookup == null) {
-            binding.incomingCallCustomerName.text =
-                getString(com.skcleantec.telecrm.R.string.incoming_call_lookup_loading)
+            val error = IncomingCallSession.lookupError()
+            if (error != null) {
+                binding.incomingCallCustomerName.text =
+                    getString(com.skcleantec.telecrm.R.string.incoming_call_lookup_failed)
+                binding.incomingCallSummary.text = error
+            } else {
+                binding.incomingCallCustomerName.text =
+                    getString(com.skcleantec.telecrm.R.string.incoming_call_lookup_loading)
+            }
             binding.incomingCallDetailButton.visibility = android.view.View.GONE
             return
         }
-        val inq = lookup.optJSONArray("inquiries")?.optJSONObject(0)
-        val customer = lookup.optJSONObject("customer")
-        val name = inq?.optString("customerName")
-            ?: customer?.optString("name")
-            ?: getString(com.skcleantec.telecrm.R.string.incoming_call_unknown_customer)
-        val match = TelecrmInquiryLabels.matchLabel(lookup.optString("match"))
-        val status = inq?.let { TelecrmInquiryLabels.statusLabel(it.optString("status")) }
-        binding.incomingCallCustomerName.text = buildString {
-            append(name)
-            if (!status.isNullOrBlank()) append(" · ").append(status)
-            else append(" · ").append(match)
-        }
+        val inq = CallerInfo.latestInquiry(lookup)
+        binding.incomingCallCustomerName.text = CallerInfo.title(lookup)
+            ?: getString(com.skcleantec.telecrm.R.string.incoming_call_first_caller)
         binding.incomingCallSummary.text = if (inq != null) {
             TelecrmLookupDetailRenderer.summaryLines(inq, lookup).joinToString("\n")
         } else {
