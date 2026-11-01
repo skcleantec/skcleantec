@@ -71,6 +71,11 @@ export type TelecrmCustomerLookupResult = {
     inquiryId: string | null;
   }[];
   latestQuote: TelecrmConsultationQuoteDto | null;
+  /**
+   * 작업 브랜드에는 기록이 없고 같은 업체의 다른 브랜드에만 있는 번호 —
+   * 이름만 채워 알려 준다(목록·상태는 비움, match 는 'new' 유지).
+   */
+  otherBrand?: { id: string; name: string } | null;
 };
 
 function emptyResult(
@@ -380,12 +385,48 @@ async function searchTelecrmCustomerByName(
   };
 }
 
+/** 작업 브랜드에서 못 찾은 번호 → 같은 업체의 다른 브랜드에서 고객 이름만 찾아 붙임 */
+async function withOtherBrandName(
+  tenantId: string,
+  operatingCompanyId: string,
+  rawPhone: string,
+  result: TelecrmCustomerLookupResult,
+): Promise<TelecrmCustomerLookupResult> {
+  if (result.match !== 'new' || result.customer.name) return result;
+  if (normalizeKrPhoneDigits(rawPhone).length < 7) return result;
+  try {
+    const others = await prisma.operatingCompany.findMany({
+      where: { tenantId, id: { not: operatingCompanyId } },
+      orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }],
+      select: { id: true, name: true },
+    });
+    for (const oc of others) {
+      const other = await resolveTelecrmCustomerByPhone(tenantId, oc.id, rawPhone, 'phone');
+      if (other.match === 'existing' && other.customer.name) {
+        return {
+          ...result,
+          customer: {
+            ...result.customer,
+            name: other.customer.name,
+            nickname: other.customer.nickname,
+          },
+          otherBrand: { id: oc.id, name: oc.name },
+        };
+      }
+    }
+  } catch (e) {
+    console.error('[telecrm/customer-lookup] other brand fallback', e);
+  }
+  return result;
+}
+
 export async function lookupTelecrmCustomer(
   tenantId: string,
   operatingCompanyId: string,
   rawPhone: string,
 ): Promise<TelecrmCustomerLookupResult> {
-  return resolveTelecrmCustomerByPhone(tenantId, operatingCompanyId, rawPhone, 'phone');
+  const result = await resolveTelecrmCustomerByPhone(tenantId, operatingCompanyId, rawPhone, 'phone');
+  return withOtherBrandName(tenantId, operatingCompanyId, rawPhone, result);
 }
 
 const BATCH_LOOKUP_MAX = 30;
@@ -420,7 +461,7 @@ export async function searchTelecrmCustomer(
 ): Promise<TelecrmCustomerLookupResult> {
   const phone = params.phone?.trim() ?? '';
   const name = params.name?.trim() ?? '';
-  if (phone) return resolveTelecrmCustomerByPhone(tenantId, operatingCompanyId, phone, 'phone');
+  if (phone) return lookupTelecrmCustomer(tenantId, operatingCompanyId, phone);
   if (name) return searchTelecrmCustomerByName(tenantId, operatingCompanyId, name);
   return emptyResult('phone');
 }
