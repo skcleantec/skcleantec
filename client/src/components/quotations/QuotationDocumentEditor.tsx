@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   QuotationEditorOperatingCompanyDto,
   QuotationServiceItemDto,
@@ -111,26 +111,34 @@ function RepresentativeWithSeal({
   sealWidth: number;
   className?: string;
 }) {
+  /** 도장 그림을 못 불러오면(주소 만료·삭제 등) 깨진 그림이 이름을 가리지 않게 숨긴다 */
+  const [sealFailed, setSealFailed] = useState(false);
+  useEffect(() => setSealFailed(false), [sealUrl]);
   return (
     <p className={`leading-snug ${className}`}>
-      <span className="relative inline-block whitespace-nowrap">
-        대표 {repName}
-        {sealUrl ? (
-          <img
-            src={sealUrl}
-            alt=""
-            width={sealWidth}
-            className="pointer-events-none absolute object-contain"
-            style={{
-              width: sealWidth,
-              height: sealWidth,
-              left: `calc(100% - ${Math.round(sealWidth * 0.45)}px)`,
-              top: '50%',
-              transform: 'translateY(-50%)',
-            }}
-          />
-        ) : null}
-      </span>
+      <span className="whitespace-nowrap">대표 {repName}</span>
+      {sealUrl ? (
+        /* 이름 오른쪽에 간격을 두고 「(인)」, 도장은 「(인)」 위에 찍힘 — 이름은 가리지 않음 */
+        <span className="relative ml-2.5 inline-block whitespace-nowrap">
+          (인)
+          {!sealFailed ? (
+            <img
+              src={sealUrl}
+              alt=""
+              onError={() => setSealFailed(true)}
+              width={sealWidth}
+              className="pointer-events-none absolute object-contain"
+              style={{
+                width: sealWidth,
+                height: sealWidth,
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          ) : null}
+        </span>
+      ) : null}
     </p>
   );
 }
@@ -310,12 +318,8 @@ export function QuotationDocumentEditor({
       <p className="text-center text-fluid-2xs text-slate-500 px-2">
         A4 공문 양식(210×297mm)에 직접 입력합니다. 좁은 화면에서는 전체가 비율에 맞게 축소되어
         표시됩니다.
+        {catalog.length === 0 ? ' · 견적 설정에 서비스 항목을 등록하면 품목명이 자동으로 맞춰집니다.' : null}
       </p>
-      {catalog.length === 0 && (
-        <p className="text-center text-fluid-2xs text-amber-800 px-2">
-          견적 설정에 서비스 항목을 등록하면 품목명이 자동으로 맞춰집니다.
-        </p>
-      )}
 
       {/* A4 용지 — 모바일에서 전체 축소, PC에서는 실제 크기 */}
       <div className="bg-slate-100/90 rounded-xl py-3 px-2 sm:py-4 sm:px-4">
