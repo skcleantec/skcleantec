@@ -255,13 +255,14 @@ export async function buildQuotationPdfBuffer(
           doc.text(repText, textX, leftY, { lineBreak: false });
           const textW = doc.widthOfString(repText);
           if (sealBuf) {
+            // 이름 오른쪽에 간격을 두고 「(인)」, 직인은 「(인)」 가운데에 겹쳐 찍음 — 이름은 가리지 않음
+            const markText = '(인)';
+            const markX = textX + textW + 10;
+            const markW = doc.widthOfString(markText);
+            doc.text(markText, markX, leftY, { lineBreak: false });
             try {
-              // 직인은 줄 높이에 포함하지 않고 대표자명 위에 스티커처럼 겹침
               const boxInnerRight = ml + boxW - 8;
-              const sealX = Math.min(
-                Math.max(textX + textW - sealPt * 0.45, textX),
-                boxInnerRight - sealPt,
-              );
+              const sealX = Math.min(markX + markW / 2 - sealPt / 2, boxInnerRight - sealPt);
               const sealY = leftY + lineH / 2 - sealPt / 2;
               doc.image(sealBuf, sealX, sealY, { width: sealPt });
             } catch {

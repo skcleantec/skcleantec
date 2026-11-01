@@ -116,25 +116,29 @@ function RepresentativeWithSeal({
   useEffect(() => setSealFailed(false), [sealUrl]);
   return (
     <p className={`leading-snug ${className}`}>
-      <span className="relative inline-block whitespace-nowrap">
-        대표 {repName}
-        {sealUrl && !sealFailed ? (
-          <img
-            src={sealUrl}
-            alt=""
-            onError={() => setSealFailed(true)}
-            width={sealWidth}
-            className="pointer-events-none absolute object-contain"
-            style={{
-              width: sealWidth,
-              height: sealWidth,
-              left: `calc(100% - ${Math.round(sealWidth * 0.45)}px)`,
-              top: '50%',
-              transform: 'translateY(-50%)',
-            }}
-          />
-        ) : null}
-      </span>
+      <span className="whitespace-nowrap">대표 {repName}</span>
+      {sealUrl ? (
+        /* 이름 오른쪽에 간격을 두고 「(인)」, 도장은 「(인)」 위에 찍힘 — 이름은 가리지 않음 */
+        <span className="relative ml-2.5 inline-block whitespace-nowrap">
+          (인)
+          {!sealFailed ? (
+            <img
+              src={sealUrl}
+              alt=""
+              onError={() => setSealFailed(true)}
+              width={sealWidth}
+              className="pointer-events-none absolute object-contain"
+              style={{
+                width: sealWidth,
+                height: sealWidth,
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          ) : null}
+        </span>
+      ) : null}
     </p>
   );
 }
