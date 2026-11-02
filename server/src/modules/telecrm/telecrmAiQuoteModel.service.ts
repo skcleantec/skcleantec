@@ -111,9 +111,10 @@ function monotoneNonDecreasing(points: { p: number; v: number; w: number }[]): M
 
 /**
  * 평수별 금액 곡선.
- * scaleNeighbors: 가까운 평수 예약을 「평당 금액 × 이 평수」로 바꿀지 (평수 곡선) / 그대로 쓸지 (구조 묶음 — 같은 구조는 같은 가격대)
+ * scaleNeighbors: true 면 가까운 평수 예약을 「평당 금액 × 이 평수」로 (평수 곡선),
+ *   평수 곡선(Curve)을 주면 그 곡선이 오르내린 비율만큼만 맞춤 (구조 묶음 — 평평한 구간은 금액 그대로)
  */
-function computeCurve(rows: TrainRow[], scaleNeighbors: boolean, minRows: number): Curve | null {
+function computeCurve(rows: TrainRow[], scaleNeighbors: boolean | Curve, minRows: number): Curve | null {
   const byP = new Map<number, TrainRow[]>();
   for (const r of rows) {
     const list = byP.get(r.p) ?? [];
@@ -130,7 +131,15 @@ function computeCurve(rows: TrainRow[], scaleNeighbors: boolean, minRows: number
     for (let k = 0; k <= MAX_WINDOW; k += 1) {
       const near = k === 0 ? byP.get(p) ?? [] : [...(byP.get(p - k) ?? []), ...(byP.get(p + k) ?? [])];
       for (const r of near) {
-        const v = k === 0 || !scaleNeighbors ? r.amount : (r.amount / r.p) * p;
+        let v = r.amount;
+        if (k > 0 && scaleNeighbors === true) v = (r.amount / r.p) * p;
+        else if (k > 0 && scaleNeighbors !== false && scaleNeighbors !== true) {
+          // 구조 묶음: 평수 곡선이 평평한 구간이면 그대로, 오르는 구간이면 그만큼만 올리고 내림
+          const here = overallAt(scaleNeighbors, p);
+          const there = overallAt(scaleNeighbors, r.p);
+          // 더 작은 집은 깎지 않음(같은 구조면 최소 그 가격), 더 큰 집만 평수 곡선이 오른 만큼 올림
+          if (here != null && there != null && there > 0) v = r.amount * Math.max(1, here / there);
+        }
         vals.push({ v, w: k === 0 ? r.w : r.w / (1 + k), age: r.age });
       }
       if (vals.length >= minRows) break;
@@ -143,7 +152,8 @@ function computeCurve(rows: TrainRow[], scaleNeighbors: boolean, minRows: number
   if (points.length === 0) return null;
   const mono = monotoneNonDecreasing(points);
   const out = new Map<number, number>();
-  for (const [p, v] of mono) out.set(p, round1000(v));
+  // 실제 가격이 1만원 단위라 곡선도 1만원 단위로 — 근거 줄이 「+27,000원」처럼 어색하지 않게
+  for (const [p, v] of mono) out.set(p, Math.round(v / 10000) * 10000);
   const keys = [...out.keys()];
   return { points: out, minP: Math.min(...keys), maxP: Math.max(...keys) };
 }
@@ -239,7 +249,7 @@ async function trainModel(tenantId: string, operatingCompanyId: string | null): 
   // 1차 곡선 → 자기 구조(없으면 평수) 금액에서 너무 벗어난 예약(특수 작업 등)은 빼고 다시
   const overall0 = computeCurve(rows, true, MIN_BASE_ROWS);
   if (!overall0) return null;
-  const groups0 = buildGroups(rows);
+  const groups0 = buildGroups(rows, overall0);
   rows = rows.filter((r) => {
     const g = r.structKey ? groups0.get(r.structKey) : undefined;
     const ref = g ? groupAt(g, overall0, r.p) : overallAt(overall0, r.p);
@@ -247,7 +257,7 @@ async function trainModel(tenantId: string, operatingCompanyId: string | null): 
   });
   const overall = computeCurve(rows, true, MIN_BASE_ROWS);
   if (!overall) return null;
-  const groups = buildGroups(rows);
+  const groups = buildGroups(rows, overall);
 
   // 건물 유형 — 구조(또는 평수) 금액과의 차이. 가장 많은 유형을 기준(0원)으로
   const typeCounts = new Map<string, number>();
@@ -287,7 +297,7 @@ async function trainModel(tenantId: string, operatingCompanyId: string | null): 
   };
 }
 
-function buildGroups(rows: TrainRow[]): Map<string, Curve> {
+function buildGroups(rows: TrainRow[], overall: Curve): Map<string, Curve> {
   const byKey = new Map<string, TrainRow[]>();
   for (const r of rows) {
     if (!r.structKey) continue;
@@ -298,7 +308,7 @@ function buildGroups(rows: TrainRow[]): Map<string, Curve> {
   const out = new Map<string, Curve>();
   for (const [key, list] of byKey) {
     if (list.length < MIN_GROUP_ROWS) continue;
-    const curve = computeCurve(list, false, MIN_GROUP_POINT_ROWS);
+    const curve = computeCurve(list, overall, MIN_GROUP_POINT_ROWS);
     if (curve) out.set(key, curve);
   }
   return out;
