@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { invalidateTelecrmAiQuoteModel, predictTelecrmAiQuote } from './telecrmAiQuoteModel.service.js';
 import {
   bucketAreaPyeong,
   buildTelecrmQuoteCrewFeatureKey,
@@ -252,6 +253,7 @@ export async function backfillTelecrmQuoteCrewLearningSnapshots(
     });
     removed += trashed.count;
   }
+  invalidateTelecrmAiQuoteModel(tenantId);
   return { processed, upserted, removed, skipped };
 }
 
@@ -463,6 +465,21 @@ export async function getTelecrmQuoteCrewLearningHints(
 
   if (structure.areaPyeong == null || !(structure.areaPyeong > 0)) return emptyHints(null);
 
+  const operatingCompanyId =
+    typeof query.operatingCompanyId === 'string' && query.operatingCompanyId.trim() ? query.operatingCompanyId.trim() : null;
+  const quote = await predictTelecrmAiQuote(tenantId, {
+    operatingCompanyId,
+    areaPyeong: structure.areaPyeong,
+    propertyType: structure.propertyType,
+    isOneRoom: structure.isOneRoom,
+    roomCount: structure.roomCount,
+    bathroomCount: structure.bathroomCount,
+    balconyCount: structure.balconyCount,
+  }).catch((e) => {
+    console.error('[telecrm-ai-quote] predict failed', e instanceof Error ? e.message : e);
+    return null;
+  });
+
   const resolver = await loadTelecrmPropertyChoiceResolver(tenantId);
   const featureLabel = featureLabelWithNames(structure, resolver);
   const pyeongToken = bucketAreaPyeong(structure.areaPyeong);
@@ -526,7 +543,7 @@ export async function getTelecrmQuoteCrewLearningHints(
   matches = [...matches]
     .sort((a, b) => (b.inquiry?.createdAt?.getTime() ?? 0) - (a.inquiry?.createdAt?.getTime() ?? 0))
     .slice(0, 50);
-  if (matches.length === 0) return emptyHints(null);
+  if (matches.length === 0) return { ...emptyHints(null), quote };
 
   const pyeongText = `${pyeongToken}평`;
   const propertyLabel = resolver.labelOf('property', structure.propertyType);
@@ -581,6 +598,7 @@ export async function getTelecrmQuoteCrewLearningHints(
     // 유형을 입력하지 않았으면 「전부 같음」이어도 유형 비교를 안 한 것이라 강한 추천으로 보지 않음
     matchLevelIsStrong: (matchLevel === 'exact' && Boolean(structure.propertyType)) || matchLevel === 'type',
     matchLabel,
+    quote,
     examples: matches.slice(0, 5).map((m) => ({
       date: m.inquiry?.createdAt ? m.inquiry.createdAt.toISOString() : null,
       customerName: m.customerName?.trim() || null,

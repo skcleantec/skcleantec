@@ -86,6 +86,24 @@ export type TelecrmQuoteCrewLearningHints = {
   matchLevelIsStrong?: boolean;
   /** 화면용 설명 (예: 「34평 · 아파트 · 방3·화2·베1까지 같은 예약」) — 선택지 코드는 절대 넣지 않음 */
   matchLabel?: string | null;
+  /** AI 견적 — 과거 예약 전체로 배운 「우리 업체 표준 가격」 (1만원 단위 확정 금액). 배울 예약이 없으면 null */
+  quote?: TelecrmAiQuote | null;
+};
+
+/** AI 견적 근거 한 줄 (예: 「24평 아파트 기본」 240,000 / 「화장실 2개」 +10,000) */
+export type TelecrmAiQuotePart = { label: string; amountWon: number };
+
+export type TelecrmAiQuote = {
+  /** 확정 금액 — 1만원 단위 */
+  amountWon: number;
+  /** 금액이 어떻게 나왔는지 (기본 + 더하고 빼는 항목) */
+  parts: TelecrmAiQuotePart[];
+  /** 배운 예약 수 */
+  sampleCount: number;
+  /** 마지막으로 다시 배운 시각 */
+  trainedAt: string;
+  /** brand: 이 브랜드 예약으로 배움 / tenant: 업체 전체 예약으로 배움 */
+  scope: 'brand' | 'tenant';
 };
 
 export type TelecrmQuoteCrewMatchLevel = 'exact' | 'type' | 'structure' | 'pyeong' | 'none';

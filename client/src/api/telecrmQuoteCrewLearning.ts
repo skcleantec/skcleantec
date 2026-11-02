@@ -32,6 +32,7 @@ export async function fetchTelecrmQuoteCrewLearningHints(
     roomCount?: string;
     bathroomCount?: string;
     balconyCount?: string;
+    operatingCompanyId?: string;
   },
 ): Promise<TelecrmQuoteCrewLearningHints> {
   const params = new URLSearchParams();
@@ -42,6 +43,7 @@ export async function fetchTelecrmQuoteCrewLearningHints(
   if (query.roomCount?.trim()) params.set('roomCount', query.roomCount.trim());
   if (query.bathroomCount?.trim()) params.set('bathroomCount', query.bathroomCount.trim());
   if (query.balconyCount?.trim()) params.set('balconyCount', query.balconyCount.trim());
+  if (query.operatingCompanyId?.trim()) params.set('operatingCompanyId', query.operatingCompanyId.trim());
   const qs = params.toString();
   const res = await fetch(`${API}/quote-learning/hints${qs ? `?${qs}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` },

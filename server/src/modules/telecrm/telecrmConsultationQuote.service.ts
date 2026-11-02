@@ -257,6 +257,24 @@ export async function supersedeTelecrmConsultationQuotesForPhone(
   });
 }
 
+/** 이 번호로 견적보내기 한 기록 — 최신순 (누가·언제·얼마) */
+export async function listSentTelecrmConsultationQuotes(
+  tenantId: string,
+  operatingCompanyId: string,
+  phoneRaw: string,
+  limit = 10,
+): Promise<TelecrmConsultationQuoteDto[]> {
+  const phone = normalizeTelecrmQuotePhone(phoneRaw);
+  if (phone.length < 4) return [];
+  const rows = await prisma.telecrmConsultationQuote.findMany({
+    where: { tenantId, operatingCompanyId, phone, status: 'SENT' },
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(30, Math.max(1, limit)),
+    select: quoteSelect,
+  });
+  return rows.map(serializeQuoteRow);
+}
+
 export async function getLatestTelecrmConsultationQuoteSummary(
   tenantId: string,
   operatingCompanyId: string,
@@ -284,12 +302,8 @@ export async function recordTelecrmConsultationQuoteSent(
 
   const jsonPayload = payload as unknown as Prisma.InputJsonValue;
 
+  // 예전 보낸 견적도 SENT 로 남겨 둠 — 「누가 언제 얼마로 보냈는지」 기록을 모두 보여 주기 위함 (가장 최근 것은 updatedAt 순으로 찾음)
   return prisma.$transaction(async (tx) => {
-    await tx.telecrmConsultationQuote.updateMany({
-      where: { tenantId, operatingCompanyId, phone, status: 'SENT' },
-      data: { status: 'SUPERSEDED', updatedById: userId },
-    });
-
     const row = await tx.telecrmConsultationQuote.create({
       data: {
         tenantId,

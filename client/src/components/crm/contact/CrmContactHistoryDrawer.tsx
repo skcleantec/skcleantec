@@ -22,6 +22,7 @@ function kindBadgeClass(kind: string, active: boolean): string {
     return 'bg-violet-100 text-violet-800';
   }
   if (kind === 'dispatch_sms') return 'bg-indigo-100 text-indigo-800';
+  if (kind === 'quote_sent') return 'bg-emerald-100 text-emerald-800';
   if (kind.startsWith('followup')) return 'bg-amber-100 text-amber-900';
   if (kind === 'cs') return 'bg-rose-100 text-rose-800';
   if (kind === 'memo') return 'bg-slate-100 text-slate-700';
@@ -40,7 +41,7 @@ function TimelineRow({ row }: { row: TelecrmContactTimelineItemDto }) {
         <span
           className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-fluid-2xs font-bold leading-none ${kindBadgeClass(row.kind, row.active)}`}
         >
-          {row.active ? '진행' : '이력'}
+          {row.active ? '진행' : row.kind === 'quote_sent' ? '견적' : '이력'}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-fluid-xs font-semibold text-slate-900">{display.title}</p>

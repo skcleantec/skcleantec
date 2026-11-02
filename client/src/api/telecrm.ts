@@ -152,6 +152,8 @@ export type TelecrmCustomerLookupDto = {
     inquiryId: string | null;
   }[];
   latestQuote: TelecrmConsultationQuoteDto | null;
+  /** 이 번호로 견적보내기 한 기록 — 최신순 (예전 서버는 없을 수 있음) */
+  sentQuotes?: TelecrmConsultationQuoteDto[];
 };
 
 export async function fetchTelecrmCustomerLookup(
