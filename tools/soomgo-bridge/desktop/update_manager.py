@@ -110,6 +110,44 @@ def clear_stale_update_cache(manifest: dict[str, Any]) -> None:
     write_update_state(phase='idle', message=None, latest_version=None, artifact=None)
 
 
+def prune_old_update_cache(keep_versions: set[str] | None = None) -> tuple[int, int]:
+    """
+    예전 업데이트 설치 파일 정리 — 지금 버전보다 낮은 버전 파일만 지움.
+    (지금 버전·더 새 버전·받는 중인 파일은 남김) 반환: (지운 개수, 지운 바이트)
+    """
+    try:
+        from desktop.manifest_client import parse_version_tuple
+    except Exception:
+        return 0, 0
+    if not UPDATE_CACHE_DIR.is_dir():
+        return 0, 0
+    current = parse_version_tuple(APP_VERSION)
+    keep = {v.strip() for v in (keep_versions or set()) if v and v.strip()}
+    removed = 0
+    freed = 0
+    for path in UPDATE_CACHE_DIR.iterdir():
+        if not path.is_file():
+            continue
+        version = path.name.split('-', 1)[0]
+        if not version or version in keep or not version[0].isdigit():
+            continue
+        try:
+            if parse_version_tuple(version) >= current:
+                continue
+        except Exception:
+            continue
+        try:
+            size = path.stat().st_size
+            path.unlink()
+            removed += 1
+            freed += size
+        except OSError as e:
+            logger.warning('update cache prune failed %s: %s', path.name, e)
+    if removed:
+        logger.info('old update cache pruned: %d files, %.1f MB', removed, freed / 1024 / 1024)
+    return removed, freed
+
+
 def clear_stale_update_phase_if_current(manifest: dict[str, Any] | None) -> None:
     """업데이트 완료 후 남은 installing/ready/downloading 플래그 정리."""
     if not manifest:

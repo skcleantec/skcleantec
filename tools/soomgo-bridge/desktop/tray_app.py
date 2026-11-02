@@ -565,6 +565,18 @@ class TrayApp:
 
         _append_launch_log(f'start v{APP_VERSION}')
         ensure_app_data()
+        # 예전 버전 설치 파일 정리 (실행에 영향 없게 뒤에서)
+        def _prune_cache() -> None:
+            try:
+                from desktop.update_manager import prune_old_update_cache
+
+                removed, freed = prune_old_update_cache()
+                if removed:
+                    _append_launch_log(f'pruned old update cache files={removed} mb={freed / 1024 / 1024:.1f}')
+            except Exception as exc:  # noqa: BLE001
+                _append_launch_log(f'prune update cache failed: {exc}')
+
+        threading.Thread(target=_prune_cache, daemon=True).start()
         self._kill_stale_bridge_listeners()
         self._ensure_dependencies()
         ok, detail = self._verify_bridge_runtime()
