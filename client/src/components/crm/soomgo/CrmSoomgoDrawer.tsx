@@ -1,3 +1,4 @@
+import { applyPlaceholdersToSoomgoSteps, type TelecrmSoomgoMessageFieldCtx } from '@shared/telecrmSoomgoFollowupAuto';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SoomgoBridgeStatus } from '@shared/soomgoBridge';
 import type { SoomgoMessagePresetDto, SoomgoMessageStep } from '@shared/soomgoMessagePresets';
@@ -107,6 +108,7 @@ export function CrmSoomgoDrawer({
   bridgeStatus,
   onDispatchNotice,
   onOpenPresetSettings,
+  messageFieldCtx,
 }: {
   open: boolean;
   onClose: () => void;
@@ -114,6 +116,8 @@ export function CrmSoomgoDrawer({
   bridgeStatus?: SoomgoBridgeStatus | null;
   onDispatchNotice?: (message: string) => void;
   onOpenPresetSettings?: () => void;
+  /** 단추 문구의 {고객명}·{닉네임}·{마케터명}·{평수}·{예상가} 를 지금 고객 값으로 바꿈 */
+  messageFieldCtx?: TelecrmSoomgoMessageFieldCtx;
 }) {
   const token = getToken();
   const [message, setMessage] = useState('');
@@ -225,7 +229,7 @@ export function CrmSoomgoDrawer({
     setPresetBusyId(preset.id);
     setError(null);
     try {
-      await sendSoomgoBridgeSequence(preset.steps, bridgeStatus);
+      await sendSoomgoBridgeSequence(applyPlaceholdersToSoomgoSteps(preset.steps, messageFieldCtx ?? {}), bridgeStatus);
       notify(`「${preset.label}」 프리셋을 전송했습니다.`);
       onClose();
     } catch (e) {

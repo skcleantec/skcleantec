@@ -11,11 +11,9 @@ import {
 import type { TelecrmCatalogOwnerScope } from '../../../../api/telecrm';
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { crmFieldClass } from '../../../../components/crm/crmUi';
-import { Button } from '../../../../components/ui/Button';
 import { TelecrmBrandSelect } from '../../../../components/crm/settings/TelecrmBrandSelect';
 import { CrmCustomerMessagePreview, renderCrmMessageFields } from '../../../../components/crm/settings/CrmSettingsUsageGuide';
-
-const SMS_FILL_FIELDS = ['고객명', '연락처', '평수', '예상가', '발주서링크'] as const;
+import { CrmMessageFieldsButton } from '../../../../components/crm/settings/CrmMessageFieldsButton';
 
 export function TelecrmSmsTemplateSettingsPage({
   catalogScope: catalogScopeProp,
@@ -122,22 +120,12 @@ export function TelecrmSmsTemplateSettingsPage({
             placeholder="문자 본문"
             className={crmFieldClass}
           />
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="text-fluid-2xs text-slate-500">자동으로 바뀌는 칸 넣기</span>
-            {SMS_FILL_FIELDS.map((field) => (
-              <Button
-                key={field}
-                size="sm"
-                onClick={() => setForm((f) => ({ ...f, body: `${f.body}{${field}}` }))}
-                className="!h-6 !px-1.5"
-                title={`보낼 때 실제 ${field}(으)로 바뀌어요`}
-              >
-                + {field}
-              </Button>
-            ))}
+          <div className="flex justify-end">
+            <CrmMessageFieldsButton menu="sms" />
           </div>
           <CrmCustomerMessagePreview
             channel="sms"
+            menu="sms"
             steps={[
               { type: 'text', text: form.body },
               ...(form.imageUrl ? [{ type: 'images' as const, urls: [form.imageUrl], mode: 'bundle' as const }] : []),

@@ -247,6 +247,7 @@ export function TelecrmSoomgoMessagePresetsSection({
             setDeleteError(null);
           }}
           onImagePick={(stepIndex, file) => void onImagePick(draft.id, stepIndex, file)}
+          fieldsMenu="soomgo-macro"
         />
       ))}
 
@@ -258,6 +259,7 @@ export function TelecrmSoomgoMessagePresetsSection({
           onChange={(patch) => setNewDraft((prev) => (prev ? { ...prev, ...patch } : prev))}
           onSave={() => void saveDraft(newDraft)}
           onImagePick={(stepIndex, file) => void onImagePick(null, stepIndex, file)}
+          fieldsMenu="soomgo-macro"
         />
       ) : null}
 

@@ -1,3 +1,5 @@
+import { normalizeMessageFieldTokens } from '@shared/telecrmSoomgoFollowupAuto';
+
 export type TelecrmSmsPlaceholderCtx = {
   customerName?: string;
   phone?: string;
@@ -8,7 +10,7 @@ export type TelecrmSmsPlaceholderCtx = {
 
 /** `{고객명}` `{연락처}` `{평수}` `{예상가}` `{발주서링크}` 치환 */
 export function applyTelecrmSmsPlaceholders(body: string, ctx: TelecrmSmsPlaceholderCtx): string {
-  return body
+  return normalizeMessageFieldTokens(body)
     .replace(/\{고객명\}/g, ctx.customerName?.trim() || '고객님')
     .replace(/\{연락처\}/g, ctx.phone?.trim() || '—')
     .replace(/\{평수\}/g, ctx.pyeong?.trim() || '—')

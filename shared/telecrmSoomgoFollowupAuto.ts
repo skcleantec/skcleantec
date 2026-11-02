@@ -36,23 +36,43 @@ export function normalizeTelecrmSoomgoFollowupAutoMessages(
 
 import type { SoomgoMessageStep } from './soomgoMessagePresets';
 
+/** 「{ 고객명 }」처럼 괄호 안 앞뒤 띄어쓰기가 섞여도 같은 칸으로 보이게 정리 */
+export function normalizeMessageFieldTokens(text: string): string {
+  return text.replace(/\{([^{}\n]{1,30})\}/g, (_all, key: string) => `{${key.trim()}}`);
+}
+
+export type TelecrmSoomgoMessageFieldCtx = {
+  customerName?: string;
+  nickname?: string;
+  marketerName?: string;
+  /** 가격 안내에 넣은 평수 — 값이 있을 때만 바꿈 */
+  pyeong?: string;
+  /** 가격 안내 합계 (예: 「250,000원」) — 값이 있을 때만 바꿈 */
+  estimate?: string;
+};
+
 export function applyTelecrmSoomgoFollowupPlaceholders(
   template: string,
-  ctx: { customerName?: string; nickname?: string; marketerName?: string },
+  ctx: TelecrmSoomgoMessageFieldCtx,
 ): string {
   const nickname = ctx.nickname?.trim() || '';
   const customerName = ctx.customerName?.trim() || nickname || '고객';
   const nickLabel = nickname || customerName;
   const marketerName = ctx.marketerName?.trim() || '상담사';
-  return template
+  let result = normalizeMessageFieldTokens(template)
     .replace(/\{고객명\}/g, customerName)
     .replace(/\{닉네임\}/g, nickLabel)
     .replace(/\{마케터명\}/g, marketerName);
+  const pyeong = ctx.pyeong?.trim();
+  if (pyeong) result = result.replace(/\{평수\}/g, pyeong);
+  const estimate = ctx.estimate?.trim();
+  if (estimate) result = result.replace(/\{예상가\}/g, estimate);
+  return result;
 }
 
 export function applyPlaceholdersToSoomgoSteps(
   steps: SoomgoMessageStep[],
-  ctx: { customerName?: string; nickname?: string; marketerName?: string },
+  ctx: TelecrmSoomgoMessageFieldCtx,
 ): SoomgoMessageStep[] {
   return steps.map((step) => {
     if (step.type === 'text') {

@@ -151,8 +151,7 @@ export function TelecrmSoomgoAutoMessagesSection() {
       ) : null}
       <p className="text-fluid-2xs leading-snug text-slate-600">
         접수란 처리 구분별로 숨고 채팅 자동 전송 ON/OFF·메시지를 설정합니다. 브랜드별로 다르게 설정할 수
-        있으며, 미설정 시 <strong>업체 기본</strong>이 사용됩니다.{' '}
-        <span className="text-slate-500">{'{고객명}'}, {'{닉네임}'} 치환 가능.</span>
+        있으며, 미설정 시 <strong>업체 기본</strong>이 사용됩니다.
       </p>
       {msg ? (
         <p className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-fluid-2xs text-green-800">
@@ -210,6 +209,7 @@ export function TelecrmSoomgoAutoMessagesSection() {
                     textPlaceholder="예: {닉네임}님, 안내드립니다."
                     hint={INTAKE_HINT[draft.triggerKind]}
                     compact
+                    fieldsMenu="soomgo-intake"
                     onChange={(patch) => patchDraft(draft.triggerKind, patch)}
                     onSave={() => void saveDraft(draft)}
                     onImagePick={(stepIndex, file) =>

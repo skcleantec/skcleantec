@@ -14,6 +14,7 @@ import { CrmActionButton, CrmIconCopy, CrmSegment, CrmSegmentItem, crmFieldClass
 import { applyTelecrmSmsPlaceholders } from '../../../utils/telecrmSmsPlaceholders';
 import { telecrmSms, isTelecrmNativeApp, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
 import { DeletePasswordModal } from '../settings/DeletePasswordModal';
+import { CrmMessageFieldsButton } from '../settings/CrmMessageFieldsButton';
 
 type DrawerTab = 'send' | 'manage';
 type SendMode = 'template' | 'live';
@@ -244,7 +245,7 @@ export function CrmSmsDrawer({
           </CrmSegment>
 
           <p className="text-fluid-2xs leading-relaxed text-slate-500">
-            치환: {'{고객명}'} {'{연락처}'} {'{평수}'} {'{예상가}'} {'{발주서링크}'}
+            <CrmMessageFieldsButton menu="sms" className="mr-1" />
             {inquiryId && !orderLink ? (
               <button type="button" className="ml-1 text-violet-700 underline" onClick={onOpenOrderIssue}>
                 발주서 발급 후 링크 사용

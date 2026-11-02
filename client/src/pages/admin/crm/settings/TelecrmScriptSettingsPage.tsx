@@ -19,7 +19,8 @@ import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/se
 import { TelecrmReorderButtons } from '../../../../components/crm/settings/telecrmSettingsUi';
 import { HelpTooltip } from '../../../../components/ui/HelpTooltip';
 import { OnOffSwitch } from '../../../../components/ui/OnOffSwitch';
-import { fillCrmMessageSample } from '../../../../components/crm/settings/CrmSettingsUsageGuide';
+import { fillCrmMessageFields } from '../../../../components/crm/settings/crmMessageFields';
+import { CrmMessageFieldsButton } from '../../../../components/crm/settings/CrmMessageFieldsButton';
 
 type DeleteTarget =
   | { kind: 'category'; row: TelecrmScriptCategoryDto }
@@ -281,7 +282,10 @@ export function TelecrmScriptSettingsPage({
             </div>
           </SettingsCard>
 
-          <SettingsCard title={selectedCategory ? `② 「${selectedCategory.label}」에 스크립트 넣기` : '② 스크립트 넣기'}>
+          <SettingsCard
+            title={selectedCategory ? `② 「${selectedCategory.label}」에 스크립트 넣기` : '② 스크립트 넣기'}
+            actions={<CrmMessageFieldsButton menu="script" />}
+          >
             {selectedCategory ? (
               <div className="min-w-0 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -473,7 +477,7 @@ function ScriptLivePreview({
           <ul className="space-y-1">
             {items.map((t, i) => {
               const body = t.id === selectedTabId ? editingBody : t.body ?? '';
-              const oneLine = fillCrmMessageSample(body).replace(/\s*\n+\s*/g, ' ').trim();
+              const oneLine = fillCrmMessageFields(body, 'script').replace(/\s*\n+\s*/g, ' ').trim();
               const isSel = t.id === selectedTabId;
               return (
                 <li
