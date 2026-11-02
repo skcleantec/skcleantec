@@ -896,6 +896,14 @@ function InquiryListDepositMark({ item }: { item: InquiryItem }) {
   );
 }
 
+/**
+ * 주소창의 현재 검색 조건. react-router 의 setSearchParams(prev => …) 의 prev 는
+ * 마지막 화면 그릴 때 값이라, 한 번에 여러 곳에서 바꾸면 앞의 변경(검색어 등)이 지워짐 → 항상 실제 주소 기준으로 고침.
+ */
+function currentUrlSearchParams(): URLSearchParams {
+  return new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+}
+
 export function AdminInquiriesPage() {
   const token = getToken();
   const { labels: orderFormTimeSlotLabels, shortLabelFor: shortTimeSlotLabelForTenant } = useOrderFormTimeSlotLabels();
@@ -1523,29 +1531,22 @@ export function AdminInquiriesPage() {
   }, [token]);
 
   useEffect(() => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        const v = operatingCompanyFilterId.trim();
-        if (v) next.set('operatingCompanyId', v);
-        else next.delete('operatingCompanyId');
-        return next;
-      },
-      { replace: true }
-    );
+    // 주소창의 「지금」 값을 기준으로 고침 — 같은 순간 다른 변경(검색어 등)을 지우지 않게
+    const next = currentUrlSearchParams();
+    const v = operatingCompanyFilterId.trim();
+    if ((next.get('operatingCompanyId') ?? '') === v) return;
+    if (v) next.set('operatingCompanyId', v);
+    else next.delete('operatingCompanyId');
+    setSearchParams(next, { replace: true });
   }, [operatingCompanyFilterId, setSearchParams]);
 
   useEffect(() => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        const v = sourceFilterId.trim();
-        if (v) next.set('source', v);
-        else next.delete('source');
-        return next;
-      },
-      { replace: true }
-    );
+    const next = currentUrlSearchParams();
+    const v = sourceFilterId.trim();
+    if ((next.get('source') ?? '') === v) return;
+    if (v) next.set('source', v);
+    else next.delete('source');
+    setSearchParams(next, { replace: true });
   }, [sourceFilterId, setSearchParams]);
   const loadMarketerOverview = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -1794,15 +1795,10 @@ export function AdminInquiriesPage() {
 
   const patchInquiryListSearchParams = useCallback(
     (patch: (next: URLSearchParams) => void) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          patch(next);
-          next.delete('page');
-          return next;
-        },
-        { replace: true }
-      );
+      const next = currentUrlSearchParams();
+      patch(next);
+      next.delete('page');
+      setSearchParams(next, { replace: true });
     },
     [setSearchParams]
   );
@@ -2195,14 +2191,11 @@ export function AdminInquiriesPage() {
     if (prevListFilterKeyRef.current === listFilterKey) return;
     prevListFilterKeyRef.current = listFilterKey;
     setListPage(1);
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete('page');
-        return next;
-      },
-      { replace: true }
-    );
+    // 주소창의 「지금」 값에서 page 만 뺌 — 예전 값으로 덮어써서 검색어(q)가 사라지던 문제 수정
+    const next = currentUrlSearchParams();
+    if (!next.has('page')) return;
+    next.delete('page');
+    setSearchParams(next, { replace: true });
   }, [listFilterKey, setSearchParams]);
 
   const listQueryKey = useMemo(
