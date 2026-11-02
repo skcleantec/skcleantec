@@ -92,20 +92,26 @@ function weightedMode(values: { v: number; w: number }[]): number | null {
   return best;
 }
 
-/** 평수가 클수록 기본 금액이 줄지 않게 (가중 평균으로 뭉쳐서 맞춤) */
+/**
+ * 평수가 클수록 기본 금액이 줄지 않게 — 거꾸로 된 구간은 묶어서 그 구간의 가운데 금액(예약 수 기준)으로 맞춤.
+ * 평균이 아니라 가운데 금액이라, 한 평수만 싸게 받은 경우 앞뒤 평수 금액이 같이 내려가지 않음.
+ */
 function monotoneNonDecreasing(points: { p: number; v: number; w: number }[]): Map<number, number> {
-  const blocks: { ps: number[]; sum: number; w: number }[] = [];
+  type Block = { pts: { p: number; v: number; w: number }[]; value: number };
+  const blocks: Block[] = [];
   for (const pt of points) {
-    blocks.push({ ps: [pt.p], sum: pt.v * pt.w, w: pt.w });
+    blocks.push({ pts: [pt], value: pt.v });
     while (blocks.length >= 2) {
       const b = blocks[blocks.length - 1];
       const a = blocks[blocks.length - 2];
-      if (a.sum / a.w <= b.sum / b.w) break;
-      blocks.splice(blocks.length - 2, 2, { ps: [...a.ps, ...b.ps], sum: a.sum + b.sum, w: a.w + b.w });
+      if (a.value <= b.value) break;
+      const pts = [...a.pts, ...b.pts];
+      const value = weightedMedian(pts.map((x) => ({ v: x.v, w: x.w }))) ?? b.value;
+      blocks.splice(blocks.length - 2, 2, { pts, value });
     }
   }
   const out = new Map<number, number>();
-  for (const b of blocks) for (const p of b.ps) out.set(p, b.sum / b.w);
+  for (const b of blocks) for (const pt of b.pts) out.set(pt.p, b.value);
   return out;
 }
 
