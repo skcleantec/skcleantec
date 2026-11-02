@@ -18,6 +18,7 @@ import {
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { TelecrmReorderButtons } from '../../../../components/crm/settings/telecrmSettingsUi';
 import { HelpTooltip } from '../../../../components/ui/HelpTooltip';
+import { OnOffSwitch } from '../../../../components/ui/OnOffSwitch';
 import { fillCrmMessageSample } from '../../../../components/crm/settings/CrmSettingsUsageGuide';
 
 type DeleteTarget =
@@ -296,19 +297,14 @@ export function TelecrmScriptSettingsPage({
                     }}
                     className="rounded-lg border border-slate-300 px-2.5 py-1 text-fluid-sm font-medium"
                   />
-                  <label className="flex items-center gap-1 text-fluid-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={selectedCategory.isActive}
-                      onChange={(e) => {
-                        if (!token) return;
-                        void updateTelecrmScriptCategory(token, selectedCategory.id, {
-                          isActive: e.target.checked,
-                        }).then(load);
-                      }}
-                    />
-                    상담 화면에 보이기
-                  </label>
+                  <OnOffSwitch
+                    checked={selectedCategory.isActive}
+                    onChange={(next) => {
+                      if (!token) return;
+                      void updateTelecrmScriptCategory(token, selectedCategory.id, { isActive: next }).then(load);
+                    }}
+                    label="상담 화면에 보이기"
+                  />
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">

@@ -18,6 +18,7 @@ import {
 import { invalidateSoomgoFollowupAutoConfigCache } from '../../../utils/soomgoFollowupAutoSend';
 import { TelecrmBrandSelect } from './TelecrmBrandSelect';
 import { TelecrmSoomgoQuoteAutoMessageSection } from './TelecrmSoomgoQuoteAutoMessageSection';
+import { OnOffSwitch } from '../../ui/OnOffSwitch';
 
 type AutoDraft = SoomgoPresetDraft & { triggerKind: SoomgoIntakeAutoTriggerKind };
 
@@ -171,17 +172,12 @@ export function TelecrmSoomgoAutoMessagesSection() {
           return (
             <div key={draft.triggerKind} className="border-b border-slate-100 last:border-b-0">
               <div className="flex min-w-0 items-center gap-2 px-2.5 py-2">
-                <label className="flex shrink-0 items-center gap-1.5" title="자동 전송">
-                  <input
-                    type="checkbox"
-                    checked={draft.isActive}
-                    onChange={(e) => patchDraft(draft.triggerKind, { isActive: e.target.checked })}
-                    className="rounded-lg border-slate-300"
-                  />
-                  <span className="text-fluid-xs font-medium text-slate-900">
-                    {SOOMGO_AUTO_TRIGGER_LABELS[draft.triggerKind]}
-                  </span>
-                </label>
+                <OnOffSwitch
+                  checked={draft.isActive}
+                  onChange={(next) => patchDraft(draft.triggerKind, { isActive: next })}
+                  label={SOOMGO_AUTO_TRIGGER_LABELS[draft.triggerKind]}
+                  title="자동 전송 켜기/끄기 — 바꾼 뒤 「저장」을 눌러야 적용돼요"
+                />
                 <span className="min-w-0 flex-1 truncate text-fluid-2xs text-slate-500">
                   {INTAKE_HINT[draft.triggerKind]}
                   {stepCount > 0 ? ` · ${stepCount}스텝` : ' · 미설정'}

@@ -242,9 +242,9 @@ export function CrmQuoteLearningHintBanner({
   const tip = strongMatch
     ? null
     : !hasRooms && !hasType
-      ? '방·화장실·건물 유형이 아직 안 맞춰졌어요. 「정보 갖고오기」나 접수란에 방 구조·유형을 넣으면 같은 구조 예약만 골라서 더 정확해져요.'
+      ? '방·화장실·건물 유형이 비어 있어요. 「정보 갖고오기」나 접수란에 넣으면 같은 구조 예약만 골라 더 정확해져요.'
       : !hasType
-        ? '건물 유형(아파트·빌라 등)이 비어 있어요. 접수란에 유형을 넣으면 같은 유형 예약만 골라서 더 정확해져요.'
+        ? '건물 유형(아파트·빌라 등)이 비어 있어요. 접수란에 넣으면 같은 유형 예약만 골라 더 정확해져요.'
         : !hasRooms
           ? '방·화장실 수가 비어 있어요. 「정보 갖고오기」나 접수란에 방 구조를 넣으면 더 정확해져요.'
           : '같은 구조·유형 예약이 아직 적어서 평수가 같은 예약까지 넣어 계산했어요. 참고만 하세요.';
@@ -267,20 +267,11 @@ export function CrmQuoteLearningHintBanner({
           </span>
         ) : null}
         {diff != null ? (
-          <span className="min-w-0 truncate text-slate-600">
+          <span className="min-w-0 truncate text-slate-600" title="업체 평당 기준가로 계산한 금액과 비교">
             {diff === 0
-              ? '(평당 기준가와 같아요)'
-              : `(평당 기준가보다 ${fmtDiffWon(Math.abs(diff))} ${diff > 0 ? '↑' : '↓'})`}
+              ? '(기준가와 같아요)'
+              : `(기준가보다 ${fmtDiffWon(Math.abs(diff))} ${diff > 0 ? '↑' : '↓'})`}
           </span>
-        ) : null}
-        {onOpenLearningSettings ? (
-          <button
-            type="button"
-            onClick={onOpenLearningSettings}
-            className="ml-auto shrink-0 text-slate-500 underline hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-          >
-            학습 현황
-          </button>
         ) : null}
       </div>
       <p className="mt-0.5 text-slate-700">
@@ -315,8 +306,9 @@ export function CrmQuoteLearningHintBanner({
           </ul>
         </div>
       ) : null}
-      {onApplyRecommended && recommendedAmount != null ? (
-        <div className="mt-1">
+      {(onApplyRecommended && recommendedAmount != null) || onOpenLearningSettings ? (
+        <div className="mt-1 flex items-center gap-2">
+          {onApplyRecommended && recommendedAmount != null ? (
           <Button
             size="sm"
             variant={strongMatch ? 'primary' : 'secondary'}
@@ -325,6 +317,16 @@ export function CrmQuoteLearningHintBanner({
           >
             AI 추천가 넣기
           </Button>
+          ) : null}
+          {onOpenLearningSettings ? (
+            <button
+              type="button"
+              onClick={onOpenLearningSettings}
+              className="ml-auto shrink-0 text-slate-500 underline hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            >
+              학습 현황
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

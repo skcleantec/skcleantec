@@ -4,6 +4,7 @@ import { getToken } from '../../../stores/auth';
 import { parseJwtPayload } from '../../../utils/jwtPayload';
 import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
 import { SettingsCard } from './DeletePasswordModal';
+import { OnOffSwitch } from '../../ui/OnOffSwitch';
 import {
   createSoomgoInboxMessageRule,
   loadSoomgoInboxRules,
@@ -86,16 +87,12 @@ function RuleKeywordList({
               key={row.id}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2"
             >
-              <label className="flex shrink-0 items-center gap-1.5 text-fluid-2xs text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={row.enabled !== false}
-                  disabled={busy}
-                  onChange={() => toggleRule(row.id)}
-                  className="rounded-lg border-slate-300"
-                />
-                사용
-              </label>
+              <OnOffSwitch
+                checked={row.enabled !== false}
+                disabled={busy}
+                onChange={() => toggleRule(row.id)}
+                title="이 알림 규칙 켜기/끄기"
+              />
               <span
                 className={`min-w-0 flex-1 truncate text-fluid-sm font-medium ${
                   row.enabled === false ? 'text-slate-400 line-through' : 'text-slate-800'

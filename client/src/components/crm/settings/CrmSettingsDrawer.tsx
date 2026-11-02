@@ -127,7 +127,7 @@ export function CrmSettingsDrawer({
           : tab === 'soomgo-presets'
             ? '숨고 채팅 매크로·알림함 키워드(브랜드별, 업체 기본 폴백)를 편집합니다.'
             : tab === 'soomgo-auto'
-              ? '통화 뒤·견적보내기·처리 구분 저장 때 숨고로 자동으로 나가는 메시지를 편집합니다.'
+              ? '통화·견적보내기·처리 구분 저장 때 숨고로 자동으로 나가는 메시지를 편집합니다.'
               : '개인 스크립트·가격 또는 업체 공통 설정을 편집합니다.';
 
   return (
@@ -175,7 +175,7 @@ export function CrmSettingsDrawer({
               <p className="text-fluid-2xs text-slate-500">
                 {tab === 'soomgo-auto'
                   ? catalogScope === 'personal'
-                    ? '내 통화가 끝난 뒤 숨고로 나가는 안내예요.'
+                    ? '내가 「통화」를 누를 때 숨고로 먼저 나가는 안내예요.'
                     : '견적보내기·처리 구분 저장 때 나가는 업체 공통 메시지예요.'
                   : tab === 'soomgo-presets'
                     ? catalogScope === 'personal'

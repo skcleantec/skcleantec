@@ -12,6 +12,7 @@ import {
   SoomgoMessagePresetEditor,
   type SoomgoPresetDraft,
 } from './SoomgoMessagePresetEditor';
+import { OnOffSwitch } from '../../ui/OnOffSwitch';
 
 /** 숨고 프리셋 — 통화 시 자동 안내 (마케터 개인·브랜드별) */
 export function TelecrmSoomgoCallAutoMessageSection() {
@@ -158,15 +159,12 @@ export function TelecrmSoomgoCallAutoMessageSection() {
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="flex min-w-0 items-center gap-2 px-2.5 py-2">
-          <label className="flex shrink-0 items-center gap-1.5" title="자동 전송">
-            <input
-              type="checkbox"
-              checked={draft.isActive}
-              onChange={(e) => setDraft((d) => (d ? { ...d, isActive: e.target.checked } : d))}
-              className="rounded-lg border-slate-300"
-            />
-            <span className="text-fluid-xs font-medium text-slate-900">{SOOMGO_CALL_AUTO_TRIGGER_LABEL}</span>
-          </label>
+          <OnOffSwitch
+            checked={draft.isActive}
+            onChange={(next) => setDraft((d) => (d ? { ...d, isActive: next } : d))}
+            label={SOOMGO_CALL_AUTO_TRIGGER_LABEL}
+            title="자동 전송 켜기/끄기 — 바꾼 뒤 「저장」을 눌러야 적용돼요"
+          />
           <span className="min-w-0 flex-1 truncate text-fluid-2xs text-slate-500">
             통화 버튼 클릭 시 · {stepCount > 0 ? `${stepCount}스텝` : '미설정'} · {placeholderHint}
           </span>

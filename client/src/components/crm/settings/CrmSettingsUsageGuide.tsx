@@ -71,7 +71,7 @@ const GUIDES: Record<CrmSettingsGuideKey, Guide> = {
     rect: [72.6, 92.8, 5.9, 4.3],
     where: '상담사가 따로 누르지 않아도 숨고 채팅방으로 자동으로 나가는 메시지예요.',
     when: [
-      '통화가 끝난 뒤 자동 (「통화」 탭)',
+      '상담사가 「통화」 단추를 누를 때 (「통화」 탭)',
       '「견적보내기」를 누를 때',
       '처리 구분(부재·요청·예약완료 등)을 저장할 때',
     ],
@@ -113,7 +113,7 @@ export function CrmSettingsUsageGuide({ guideKey }: { guideKey: CrmSettingsGuide
         </Button>
       </div>
       {collapsed ? null : (
-        <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,260px)_1fr]">
+        <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,340px)_1fr]">
           <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
             <img src={src} alt="CRM 화면에서 이 설정이 보이는 위치" className="block w-full" loading="lazy" />
             <span
@@ -147,9 +147,24 @@ export function CrmSettingsUsageGuide({ guideKey }: { guideKey: CrmSettingsGuide
 /** 문자·숨고 메시지 미리보기에 쓰는 예시 값 */
 const SAMPLE_VALUES: Record<string, string> = {
   고객명: '김고객',
+  닉네임: '어머님',
   연락처: '010-1234-5678',
+  주소: '서울 강남구 ○○아파트',
   평수: '24',
   예상가: '250,000원',
+  견적가: '250,000원',
+  총금액: '250,000원',
+  이벤트가: '230,000원',
+  예약금: '50,000원',
+  페이백금액: '10,000원',
+  청소일: '11월 15일',
+  시간대: '오전',
+  무위약마감일: '11월 12일',
+  마케터명: '이상담',
+  브랜드명: 'SK클린텍',
+  업체명: 'SK클린텍',
+  문의전화: '1588-0000',
+  접수번호: 'SK2611020001',
   발주서링크: 'https://cbiseo.com/…',
 };
 
