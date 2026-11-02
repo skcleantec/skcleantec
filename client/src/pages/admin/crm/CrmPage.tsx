@@ -1024,7 +1024,11 @@ export function CrmPage() {
     async (...args: Parameters<typeof openChatByNicknameRaw>) => {
       markSoomgoSelfNav();
       try {
-        return await openChatByNicknameRaw(...args);
+        const opened = await openChatByNicknameRaw(...args);
+        // 우리가 이 고객 방으로 옮긴 것 — 「방이 바뀌었다」로 보고 접수란을 비우지 않게 기준 방을 바꿔 둠
+        const openedChatId = opened?.chatId != null ? String(opened.chatId).trim() : '';
+        if (openedChatId) lastIntakeChatIdRef.current = openedChatId;
+        return opened;
       } finally {
         markSoomgoSelfNav();
       }
