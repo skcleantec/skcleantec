@@ -162,29 +162,29 @@ export function CrmSoomgoStaleCleanupModal({
             <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
               <table className="w-full min-w-[520px] table-fixed border-collapse text-fluid-2xs">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-600">
-                    <th className="px-2 py-1.5 text-center font-medium">고객</th>
-                    <th className="px-2 py-1.5 text-center font-medium">결과</th>
-                    <th className="px-2 py-1.5 text-center font-medium">희망일</th>
-                    <th className="px-2 py-1.5 text-center font-medium">개설일</th>
-                    <th className="px-2 py-1.5 text-center font-medium">사유</th>
+                  <tr className="h-9 border-b border-slate-200 bg-slate-50 text-fluid-2xs font-semibold text-slate-600">
+                    <th className="whitespace-nowrap px-3 text-center font-semibold">고객</th>
+                    <th className="whitespace-nowrap px-3 text-center font-semibold">결과</th>
+                    <th className="whitespace-nowrap px-3 text-center font-semibold">희망일</th>
+                    <th className="whitespace-nowrap px-3 text-center font-semibold">개설일</th>
+                    <th className="whitespace-nowrap px-3 text-center font-semibold">사유</th>
                   </tr>
                 </thead>
                 <tbody>
                   {leaveItems.map((row) => (
-                    <tr key={row.chatId} className="border-t border-slate-100">
-                      <td className="truncate px-2 py-1.5 text-center" title={row.nickname ?? row.chatId}>
+                    <tr key={row.chatId} className="h-11 border-t border-slate-100">
+                      <td className="truncate px-3 text-center" title={row.nickname ?? row.chatId}>
                         {row.nickname ?? row.chatId}
                       </td>
-                      <td className="px-2 py-1.5 text-center">{actionLabel(row.action)}</td>
+                      <td className="px-3 text-center">{actionLabel(row.action)}</td>
                       <td
-                        className="truncate px-2 py-1.5 text-center"
+                        className="truncate px-3 text-center tabular-nums"
                         title={row.preferredDateRaw ?? undefined}
                       >
                         {row.preferredDateRaw ?? '—'}
                       </td>
-                      <td className="px-2 py-1.5 text-center tabular-nums">{row.roomOpenedAt ?? '—'}</td>
-                      <td className="truncate px-2 py-1.5 text-center" title={row.preferredReason ?? undefined}>
+                      <td className="whitespace-nowrap px-3 text-center tabular-nums">{row.roomOpenedAt ?? '—'}</td>
+                      <td className="truncate px-3 text-center" title={row.preferredReason ?? undefined}>
                         {row.reasons.map(reasonLabel).join(' · ') || row.skipReason || '—'}
                       </td>
                     </tr>

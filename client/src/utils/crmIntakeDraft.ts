@@ -18,6 +18,11 @@ export type CrmIntakeFormSnapshot = {
   roomCount: string;
   bathroomCount: string;
   balconyCount: string;
+  /** 건축물 유형 — 발주서 선택지 저장값 */
+  propertyType?: string;
+  /** 건물 형태(신축·구축 등) — 발주서 선택지 저장값 */
+  buildingType?: string;
+  isOneRoom?: boolean;
   kind: CrmIntakeKind;
   goldDb: boolean;
   leadSource: string;
@@ -147,6 +152,9 @@ export function crmIntakeDraftHasContent(draft: Partial<CrmIntakeDraft>): boolea
       draft.leadSource?.trim() ||
       draft.roomCount?.trim() ||
       draft.bathroomCount?.trim() ||
-      draft.balconyCount?.trim(),
+      draft.balconyCount?.trim() ||
+      draft.propertyType?.trim() ||
+      draft.buildingType?.trim() ||
+      draft.isOneRoom,
   );
 }

@@ -2,6 +2,7 @@ import type {
   TelecrmQuoteCrewLearningBackfillResult,
   TelecrmQuoteCrewLearningHints,
   TelecrmQuoteCrewLearningOverview,
+  TelecrmPropertyChoiceOptions,
 } from '@shared/telecrmQuoteCrewLearning';
 
 const API = '/api/crm';
@@ -65,4 +66,12 @@ export async function backfillTelecrmQuoteCrewLearning(
     body: JSON.stringify({ limit }),
   });
   return parseJson<TelecrmQuoteCrewLearningBackfillResponse>(res);
+}
+
+/** 접수란 건축물 유형·건물 형태 선택지 — 손님 발주서와 같은 목록 */
+export async function fetchTelecrmPropertyChoiceOptions(token: string): Promise<TelecrmPropertyChoiceOptions> {
+  const res = await fetch(`${API}/quote-learning/property-options`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJson<TelecrmPropertyChoiceOptions>(res);
 }

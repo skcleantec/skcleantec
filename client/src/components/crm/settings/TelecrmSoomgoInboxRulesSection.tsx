@@ -52,7 +52,7 @@ function RuleKeywordList({
 
   return (
     <SettingsCard title={title}>
-      <p className="text-fluid-sm text-gray-500">{description}</p>
+      <p className="text-fluid-sm text-slate-500">{description}</p>
       <div className="mt-3 flex gap-2">
         <input
           type="text"
@@ -66,7 +66,7 @@ function RuleKeywordList({
               addKeyword();
             }
           }}
-          className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
         />
         <button
           type="button"
@@ -78,7 +78,7 @@ function RuleKeywordList({
         </button>
       </div>
       {filtered.length === 0 ? (
-        <p className="mt-3 text-fluid-xs text-gray-400">등록된 키워드가 없습니다.</p>
+        <p className="mt-3 text-fluid-xs text-slate-400">등록된 키워드가 없습니다.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {filtered.map((row) => (
@@ -86,13 +86,13 @@ function RuleKeywordList({
               key={row.id}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2"
             >
-              <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-slate-600">
+              <label className="flex shrink-0 items-center gap-1.5 text-fluid-2xs text-slate-600">
                 <input
                   type="checkbox"
                   checked={row.enabled !== false}
                   disabled={busy}
                   onChange={() => toggleRule(row.id)}
-                  className="rounded border-slate-300"
+                  className="rounded-lg border-slate-300"
                 />
                 사용
               </label>
@@ -108,7 +108,7 @@ function RuleKeywordList({
                 type="button"
                 disabled={busy}
                 onClick={() => removeRule(row.id)}
-                className="shrink-0 rounded border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-50 disabled:opacity-40"
+                className="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-fluid-2xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-40"
               >
                 삭제
               </button>
@@ -163,7 +163,7 @@ export function TelecrmSoomgoInboxRulesSection() {
   };
 
   if (!userId) {
-    return <p className="text-fluid-sm text-gray-500">로그인 후 설정할 수 있습니다.</p>;
+    return <p className="text-fluid-sm text-slate-500">로그인 후 설정할 수 있습니다.</p>;
   }
 
   return (
@@ -173,7 +173,7 @@ export function TelecrmSoomgoInboxRulesSection() {
           {msg}
         </p>
       ) : null}
-      <p className="text-fluid-sm text-gray-500">
+      <p className="text-fluid-sm text-slate-500">
         메시지 미리보기에 키워드가 <strong className="font-medium text-slate-700">부분 일치</strong>하면
         규칙이 적용됩니다. 설정은 이 PC·브라우저에 저장되며, 작업 브랜드(
         {workBrandActive?.displayName?.trim() || workBrandActive?.name?.trim() || '기본'})별로 구분됩니다.

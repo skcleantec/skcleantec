@@ -3,6 +3,7 @@ import { requireStaffPermission } from '../auth/marketerPermission.middleware.js
 import { requireTelecrmTenant } from './telecrm.helpers.js';
 import {
   backfillTelecrmQuoteCrewLearningSnapshots,
+  getTelecrmPropertyChoiceOptions,
   getTelecrmQuoteCrewLearningHints,
   getTelecrmQuoteCrewLearningOverview,
 } from './telecrmQuoteCrewLearning.service.js';
@@ -30,6 +31,19 @@ router.get('/hints', requireStaffPermission('crm.view', 'crm.settings'), async (
   } catch (e) {
     console.error('[telecrm-quote-learning] hints failed', e instanceof Error ? e.message : e);
     res.status(500).json({ error: '학습 힌트를 불러올 수 없습니다.' });
+  }
+});
+
+/** 접수란 건축물 유형·건물 형태 선택지 — 손님 발주서와 같은 목록 */
+router.get('/property-options', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  try {
+    const options = await getTelecrmPropertyChoiceOptions(tenantId);
+    res.json(options);
+  } catch (e) {
+    console.error('[telecrm-quote-learning] property-options failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: '유형 선택지를 불러올 수 없습니다.' });
   }
 });
 

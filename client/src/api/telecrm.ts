@@ -86,6 +86,10 @@ export type TelecrmInquiryBriefDto = {
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
+  /** 건축물 유형·건물 형태 저장값(발주서 선택지 값) */
+  propertyType?: string | null;
+  buildingType?: string | null;
+  isOneRoom?: boolean;
   source: string | null;
   preferredDate: string | null;
   preferredTime: string | null;

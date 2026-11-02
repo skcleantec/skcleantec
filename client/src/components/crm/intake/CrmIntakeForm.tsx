@@ -15,11 +15,30 @@ import {
 import { toast } from '../../ui/Toast';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
+import { HelpTooltip } from '../../ui/HelpTooltip';
+
+/** 접수란 입력 칸 — 높이 36px 통일 */
+const crmIntakeFieldClass = `${crmFieldCompactClass} h-9`;
+/** 접수란 칸 이름 */
+const crmIntakeLabelClass = 'mb-1 block whitespace-nowrap text-fluid-2xs font-semibold text-slate-700';
 import { CrmRequestMemoField } from './CrmRequestMemoField';
 import { InquiryLeadSourceSelect } from '../../inquiry/InquiryLeadSourceSelect';
 import { CollaborationMarketerSelect } from '../../inquiry/CollaborationMarketerSelect';
 import { useCollaborationMarketerOptions } from '../../../hooks/useCollaborationMarketerOptions';
 import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
+import { useCrmPropertyChoiceOptions } from './useCrmPropertyChoiceOptions';
+import type { TelecrmPropertyChoiceOption } from '@shared/telecrmQuoteCrewLearning';
+
+/** 저장값이 지금 선택지에 없으면(예전 글) 그 글을 그대로 보여 줌 — 영문 코드는 「이전 선택」으로 */
+function choiceListWithCurrent(
+  options: TelecrmPropertyChoiceOption[],
+  current: string,
+): TelecrmPropertyChoiceOption[] {
+  const v = current.trim();
+  if (!v || options.some((o) => o.value === v)) return options;
+  const label = /[가-힣]/.test(v) ? v : '이전 선택';
+  return [...options, { value: v, label }];
+}
 
 const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
   { value: 'absent', label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT, hint: '부재현황' },
@@ -89,6 +108,10 @@ export function CrmIntakeForm({
   const [roomCount, setRoomCount] = useState('');
   const [bathroomCount, setBathroomCount] = useState('');
   const [balconyCount, setBalconyCount] = useState('');
+  const [propertyType, setPropertyType] = useState('');
+  const [buildingType, setBuildingType] = useState('');
+  const [isOneRoom, setIsOneRoom] = useState(false);
+  const propertyChoices = useCrmPropertyChoiceOptions();
   const [kind, setKind] = useState<CrmIntakeKind>('absent');
   const [goldDb, setGoldDb] = useState(false);
   const [leadSource, setLeadSource] = useState('');
@@ -121,6 +144,9 @@ export function CrmIntakeForm({
     setRoomCount('');
     setBathroomCount('');
     setBalconyCount('');
+    setPropertyType('');
+    setBuildingType('');
+    setIsOneRoom(false);
     setKind('absent');
     setGoldDb(false);
     setLeadSource('');
@@ -144,6 +170,9 @@ export function CrmIntakeForm({
     if (initialFormDraft.roomCount != null) setRoomCount(initialFormDraft.roomCount);
     if (initialFormDraft.bathroomCount != null) setBathroomCount(initialFormDraft.bathroomCount);
     if (initialFormDraft.balconyCount != null) setBalconyCount(initialFormDraft.balconyCount);
+    if (initialFormDraft.propertyType != null) setPropertyType(initialFormDraft.propertyType);
+    if (initialFormDraft.buildingType != null) setBuildingType(initialFormDraft.buildingType);
+    if (initialFormDraft.isOneRoom != null) setIsOneRoom(initialFormDraft.isOneRoom);
     if (initialFormDraft.kind != null) setKind(initialFormDraft.kind);
     if (initialFormDraft.goldDb != null) setGoldDb(initialFormDraft.goldDb);
     if (initialFormDraft.leadSource != null) setLeadSource(initialFormDraft.leadSource);
@@ -158,6 +187,9 @@ export function CrmIntakeForm({
       initialFormDraft.roomCount?.trim() ||
       initialFormDraft.bathroomCount?.trim() ||
       initialFormDraft.balconyCount?.trim() ||
+      initialFormDraft.propertyType?.trim() ||
+      initialFormDraft.buildingType?.trim() ||
+      initialFormDraft.isOneRoom ||
       pyeong.trim()
     ) {
       setShowMore(true);
@@ -181,6 +213,9 @@ export function CrmIntakeForm({
         roomCount,
         bathroomCount,
         balconyCount,
+        propertyType,
+        buildingType,
+        isOneRoom,
         kind,
         goldDb,
         leadSource,
@@ -197,6 +232,9 @@ export function CrmIntakeForm({
     roomCount,
     bathroomCount,
     balconyCount,
+    propertyType,
+    buildingType,
+    isOneRoom,
     kind,
     goldDb,
     leadSource,
@@ -238,6 +276,9 @@ export function CrmIntakeForm({
           roomCount,
           bathroomCount,
           balconyCount,
+          propertyType,
+          buildingType,
+          isOneRoom,
           kind,
           goldDb,
           leadSource,
@@ -279,31 +320,38 @@ export function CrmIntakeForm({
       : '';
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {soomgoHiredOther ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[12px] leading-snug text-amber-950">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-amber-950">
           <span className="font-semibold text-amber-900">다른 고수 고용</span>
           {' '}
           — 숨고 채팅 목록에 「다른 고수를 고용함」이 표시됩니다. 재연락·통화를 권장하지 않습니다.
         </div>
       ) : null}
       <div className="grid grid-cols-2 gap-2">
-        <label className="block min-w-0 space-y-0.5">
-          <span className="text-[12px] font-medium text-slate-600">닉네임 · 호칭</span>
+        <div className="block min-w-0">
+          <span className="mb-1 flex items-center gap-1 whitespace-nowrap text-fluid-2xs font-semibold text-slate-700">
+            <label htmlFor="crm-intake-nickname">닉네임 · 호칭</label>
+            <HelpTooltip
+              text="최초 통화는 닉네임만으로 저장 가능합니다. 고객명은 통화·발주서 확인 후 입력하세요."
+              className="[&>div]:-left-20 [&>div]:w-64 [&>div]:font-normal"
+            />
+          </span>
           <input
+            id="crm-intake-nickname"
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="어머님, 관리실"
-            className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && nickname.trim() ? flashRing : ''}`}
+            className={`${crmIntakeFieldClass} ${soomgoImportFlashKey > 0 && nickname.trim() ? flashRing : ''}`}
             disabled={saving}
           />
-        </label>
-        <label className="block min-w-0 space-y-0.5">
-          <span className="flex flex-wrap items-center gap-1.5 text-[12px] font-medium text-slate-600">
+        </div>
+        <label className="block min-w-0">
+          <span className="mb-1 flex flex-nowrap items-center gap-1.5 whitespace-nowrap text-fluid-2xs font-semibold text-slate-700">
             <span>고객명</span>
             {soomgoHiredOther ? (
-              <span className="rounded border border-amber-200 bg-amber-100 px-1.5 py-0 text-[11px] font-semibold text-amber-900">
+              <span className="rounded-lg border border-amber-200 bg-amber-100 px-1.5 py-0 text-fluid-2xs font-semibold text-amber-900">
                 다른 고수 고용
               </span>
             ) : null}
@@ -313,17 +361,13 @@ export function CrmIntakeForm({
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             placeholder="확인 후 입력"
-            className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && customerName.trim() ? flashRing : ''}`}
+            className={`${crmIntakeFieldClass} ${soomgoImportFlashKey > 0 && customerName.trim() ? flashRing : ''}`}
             disabled={saving}
           />
         </label>
       </div>
-      <p className="text-[11px] leading-snug text-slate-500">
-        최초 통화는 닉네임만으로 저장 가능합니다. 고객명은 통화·발주서 확인 후 입력하세요.
-      </p>
-
       <fieldset>
-        <legend className="mb-1 text-[12px] font-semibold text-slate-700">처리 구분</legend>
+        <legend className="mb-1 text-fluid-2xs font-semibold text-slate-700">처리 구분</legend>
         <div className="flex flex-wrap gap-1">
           {KIND_OPTIONS.map((opt) => (
             <button
@@ -332,7 +376,7 @@ export function CrmIntakeForm({
               title={opt.hint}
               onClick={() => setKind(opt.value)}
               disabled={saving}
-              className={`rounded-md border px-2 py-1 text-[12px] font-semibold whitespace-nowrap transition-colors ${
+              className={`inline-flex h-7 items-center rounded-lg border px-2 text-fluid-2xs font-semibold whitespace-nowrap transition-colors ${
                 kind === opt.value
                   ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/80'
@@ -344,6 +388,8 @@ export function CrmIntakeForm({
         </div>
       </fieldset>
 
+      <div className="grid grid-cols-2 gap-2">
+      <div className="min-w-0">
       <CollaborationMarketerSelect
         value={collaborationMarketerId}
         onChange={setCollaborationMarketerId}
@@ -355,31 +401,33 @@ export function CrmIntakeForm({
             : null
         }
         disabled={saving}
-        labelClassName="text-[12px] font-medium text-slate-600"
-        className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 ? '' : ''}`}
+        labelClassName="mb-1 whitespace-nowrap text-fluid-2xs font-semibold text-slate-700"
+        className={`${crmIntakeFieldClass} ${soomgoImportFlashKey > 0 ? '' : ''}`}
         showHelp
       />
+      </div>
 
-      <label className="block space-y-0.5">
-        <span className="text-[12px] font-medium text-slate-600">유입 경로 *</span>
+      <label className="block min-w-0">
+        <span className={crmIntakeLabelClass}>유입 경로 *</span>
         <InquiryLeadSourceSelect
           value={leadSource}
           onChange={setLeadSource}
           required
           disabled={saving}
-          className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && leadSource.trim() ? flashRing : ''}`}
+          className={`${crmIntakeFieldClass} ${soomgoImportFlashKey > 0 && leadSource.trim() ? flashRing : ''}`}
         />
       </label>
+      </div>
 
       {kind === 'received' ? (
-        <label className="block space-y-0.5">
-          <span className="text-[12px] font-medium text-slate-600">주소 * (예약완료)</span>
+        <label className="block">
+          <span className={crmIntakeLabelClass}>주소 * (예약완료)</span>
           <input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="실 주소를 입력해 주세요"
-            className={crmFieldCompactClass}
+            className={crmIntakeFieldClass}
             disabled={saving}
           />
         </label>
@@ -388,82 +436,126 @@ export function CrmIntakeForm({
       <button
         type="button"
         onClick={() => setShowMore((v) => !v)}
-        className="text-[12px] font-medium text-sky-700 hover:underline"
+        className="text-fluid-2xs font-medium text-sky-700 hover:underline"
       >
         {showMore ? '추가 필드 접기' : kind === 'received' ? '평수·희망일 등 추가' : '주소·희망일 등 추가'}
       </button>
 
       {showMore ? (
-        <div className="space-y-2 rounded-lg border border-emerald-100/80 bg-emerald-50/30 p-2.5">
-          <label className="block space-y-0.5">
-            <span className="text-[12px] font-medium text-slate-600">평수</span>
+        <div className="space-y-3 rounded-lg border border-emerald-100/80 bg-emerald-50/30 p-2.5">
+          <label className="block">
+            <span className={crmIntakeLabelClass}>평수</span>
             <input
               type="text"
               inputMode="decimal"
               value={pyeong}
               onChange={(e) => onPyeongChange(e.target.value)}
               placeholder="예: 33"
-              className={`${crmFieldCompactClass} tabular-nums ${soomgoImportFlashKey > 0 && pyeong.trim() ? flashRing : ''}`}
+              className={`${crmIntakeFieldClass} tabular-nums ${soomgoImportFlashKey > 0 && pyeong.trim() ? flashRing : ''}`}
               disabled={saving}
             />
           </label>
           <div className="grid grid-cols-3 gap-2">
-            <label className="block min-w-0 space-y-0.5">
-              <span className="text-[12px] font-medium text-slate-600">방</span>
+            <label className="block min-w-0">
+              <span className={crmIntakeLabelClass}>방</span>
               <input
                 type="text"
                 inputMode="numeric"
                 value={roomCount}
                 onChange={(e) => setRoomCount(e.target.value)}
                 placeholder="개수"
-                className={`${crmFieldCompactClass} tabular-nums ${soomgoImportFlashKey > 0 && roomCount.trim() ? flashRing : ''}`}
+                className={`${crmIntakeFieldClass} tabular-nums ${soomgoImportFlashKey > 0 && roomCount.trim() ? flashRing : ''}`}
                 disabled={saving}
               />
             </label>
-            <label className="block min-w-0 space-y-0.5">
-              <span className="text-[12px] font-medium text-slate-600">화장실</span>
+            <label className="block min-w-0">
+              <span className={crmIntakeLabelClass}>화장실</span>
               <input
                 type="text"
                 inputMode="numeric"
                 value={bathroomCount}
                 onChange={(e) => setBathroomCount(e.target.value)}
                 placeholder="개수"
-                className={`${crmFieldCompactClass} tabular-nums ${soomgoImportFlashKey > 0 && bathroomCount.trim() ? flashRing : ''}`}
+                className={`${crmIntakeFieldClass} tabular-nums ${soomgoImportFlashKey > 0 && bathroomCount.trim() ? flashRing : ''}`}
                 disabled={saving}
               />
             </label>
-            <label className="block min-w-0 space-y-0.5">
-              <span className="text-[12px] font-medium text-slate-600">베란다</span>
+            <label className="block min-w-0">
+              <span className={crmIntakeLabelClass}>베란다</span>
               <input
                 type="text"
                 inputMode="numeric"
                 value={balconyCount}
                 onChange={(e) => setBalconyCount(e.target.value)}
                 placeholder="개수"
-                className={`${crmFieldCompactClass} tabular-nums ${soomgoImportFlashKey > 0 && balconyCount.trim() ? flashRing : ''}`}
+                className={`${crmIntakeFieldClass} tabular-nums ${soomgoImportFlashKey > 0 && balconyCount.trim() ? flashRing : ''}`}
                 disabled={saving}
               />
             </label>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block min-w-0">
+              <span className={crmIntakeLabelClass}>건축물 유형</span>
+              <select
+                value={propertyType}
+                onChange={(e) => setPropertyType(e.target.value)}
+                className={`${crmIntakeFieldClass} ${soomgoImportFlashKey > 0 && propertyType ? flashRing : ''}`}
+                disabled={saving}
+              >
+                <option value="">선택 안 함</option>
+                {choiceListWithCurrent(propertyChoices.propertyTypes, propertyType).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block min-w-0">
+              <span className={crmIntakeLabelClass}>건물 형태</span>
+              <select
+                value={buildingType}
+                onChange={(e) => setBuildingType(e.target.value)}
+                className={`${crmIntakeFieldClass} ${soomgoImportFlashKey > 0 && buildingType ? flashRing : ''}`}
+                disabled={saving}
+              >
+                <option value="">선택 안 함</option>
+                {choiceListWithCurrent(propertyChoices.buildingTypes, buildingType).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="flex items-center gap-1.5 text-fluid-2xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={isOneRoom}
+              onChange={(e) => setIsOneRoom(e.target.checked)}
+              disabled={saving}
+              className="border-slate-300"
+            />
+            원룸
+          </label>
           {kind !== 'received' ? (
-            <label className="block space-y-0.5">
-              <span className="text-[12px] font-medium text-slate-600">주소</span>
+            <label className="block">
+              <span className={crmIntakeLabelClass}>주소</span>
               <input
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && address.trim() ? flashRing : ''}`}
+                className={`${crmIntakeFieldClass} ${soomgoImportFlashKey > 0 && address.trim() ? flashRing : ''}`}
                 disabled={saving}
               />
             </label>
           ) : null}
-          <label className="block space-y-0.5">
-            <span className="text-[12px] font-medium text-slate-600">입주청소 희망일</span>
+          <label className="block">
+            <span className={crmIntakeLabelClass}>입주청소 희망일</span>
             <input
               type="date"
               value={preferredMoveInCleanYmd}
               onChange={(e) => setPreferredMoveInCleanYmd(e.target.value)}
-              className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && preferredMoveInCleanYmd ? flashRing : ''}`}
+              className={`${crmIntakeFieldClass} ${soomgoImportFlashKey > 0 && preferredMoveInCleanYmd ? flashRing : ''}`}
               disabled={saving}
             />
           </label>
@@ -473,13 +565,13 @@ export function CrmIntakeForm({
             disabled={saving}
             highlight={soomgoImportFlashKey > 0 && requestMemo.trim().length > 0}
           />
-          <label className="flex items-center gap-1.5 text-[12px] text-slate-700">
+          <label className="flex items-center gap-1.5 text-fluid-2xs text-slate-700">
             <input
               type="checkbox"
               checked={goldDb}
               onChange={(e) => setGoldDb(e.target.checked)}
               disabled={saving}
-              className="rounded border-slate-300"
+              className="rounded-lg border-slate-300"
             />
             골드DB
           </label>
@@ -487,20 +579,20 @@ export function CrmIntakeForm({
       ) : null}
 
       {!permissionsLoading && !canSave ? (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[12px] text-amber-900">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-fluid-2xs text-amber-900">
           <strong>{crmIntakePermissionLabel(kind)}</strong> 권한이 필요합니다.
         </p>
       ) : null}
 
-      {msg ? <p className="text-[12px] text-green-700">{msg}</p> : null}
-      {err ? <p className="text-[12px] text-red-600">{err}</p> : null}
+      {msg ? <p className="text-fluid-2xs text-green-700">{msg}</p> : null}
+      {err ? <p className="text-fluid-2xs text-red-600">{err}</p> : null}
 
-      <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2">
+      <div className="sticky -bottom-2.5 z-10 -mx-2.5 flex flex-nowrap gap-1.5 border-t border-slate-200 bg-white px-2.5 py-2">
         <button
           type="button"
           disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit({ keepForm: false })}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-emerald-600 bg-emerald-600 px-3 text-fluid-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? '저장 중…' : '저장'}
         </button>
@@ -510,7 +602,7 @@ export function CrmIntakeForm({
             disabled={saving || permissionsLoading || !canSave}
             onClick={() => void submit({ keepForm: false, incrementDefer: true })}
             title="저장 후 부재 횟수 +1"
-            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+            className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-3 text-fluid-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
           >
             {saving ? '저장 중…' : '부재+1'}
           </button>
@@ -519,7 +611,7 @@ export function CrmIntakeForm({
           type="button"
           disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit({ keepForm: true })}
-          className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[12px] font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
+          className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-emerald-200 bg-white px-3 text-fluid-xs font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
         >
           저장 후 계속
         </button>
@@ -527,7 +619,7 @@ export function CrmIntakeForm({
           <button
             type="button"
             onClick={() => onOpenOrderIssue(lastInquiryId)}
-            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[12px] font-medium text-sky-900 hover:bg-sky-100"
+            className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-3 text-fluid-xs font-medium text-sky-900 hover:bg-sky-100"
           >
             발주서
           </button>

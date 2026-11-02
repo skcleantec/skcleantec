@@ -48,7 +48,7 @@ function NoteBlock({ title, body, tint = 'emerald' }: { title: string; body: str
   return (
     <div className={`rounded-xl border p-3 shadow-sm ${border}`}>
       <p className={`mb-1 text-fluid-xs font-semibold ${titleColor}`}>{title}</p>
-      <p className="whitespace-pre-wrap text-fluid-sm leading-relaxed text-gray-800">{body}</p>
+      <p className="whitespace-pre-wrap text-fluid-sm leading-relaxed text-slate-800">{body}</p>
     </div>
   );
 }
@@ -92,13 +92,13 @@ export function CrmInquiryBriefPanel({
     <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/20 p-3 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-fluid-sm font-semibold text-gray-900">
+          <p className="text-fluid-sm font-semibold text-slate-900">
             {inquiry.customerName}
             {inquiry.nickname ? (
-              <span className="ml-1 font-normal text-gray-500">({inquiry.nickname})</span>
+              <span className="ml-1 font-normal text-slate-500">({inquiry.nickname})</span>
             ) : null}
           </p>
-          <p className="text-fluid-2xs text-gray-600">
+          <p className="text-fluid-2xs text-slate-600">
             <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">
               {INQUIRY_STATUS_LABELS[inquiry.status] ?? inquiry.status}
             </span>
@@ -146,26 +146,26 @@ export function CrmInquiryBriefPanel({
         ) : null}
       </div>
 
-      <dl className="grid gap-2 rounded-xl border border-emerald-100/80 bg-white/80 p-3 text-fluid-xs text-gray-700 sm:grid-cols-2">
+      <dl className="grid gap-2 rounded-xl border border-emerald-100/80 bg-white/80 p-3 text-fluid-xs text-slate-700 sm:grid-cols-2">
         <div>
-          <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">연락처</dt>
+          <dt className="text-fluid-2xs font-bold uppercase tracking-wide text-emerald-700/80">연락처</dt>
           <dd className="tabular-nums">{inquiry.customerPhone}</dd>
         </div>
         <div>
-          <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">주소</dt>
+          <dt className="text-fluid-2xs font-bold uppercase tracking-wide text-emerald-700/80">주소</dt>
           <dd className="truncate" title={inquiry.address}>
             {inquiry.address || '—'}
           </dd>
         </div>
         {inquiry.areaPyeong ? (
           <div>
-            <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">평수</dt>
+            <dt className="text-fluid-2xs font-bold uppercase tracking-wide text-emerald-700/80">평수</dt>
             <dd>{inquiry.areaPyeong}평</dd>
           </div>
         ) : null}
         {inquiry.preferredDate ? (
           <div>
-            <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">희망일</dt>
+            <dt className="text-fluid-2xs font-bold uppercase tracking-wide text-emerald-700/80">희망일</dt>
             <dd>
               {fmtYmd(inquiry.preferredDate)}
               {inquiry.preferredTime ? ` · ${inquiry.preferredTime}` : ''}
@@ -182,9 +182,9 @@ export function CrmInquiryBriefPanel({
             {formatWon(of.balanceAmount)}
           </p>
           {of.submittedAt ? (
-            <p className="text-[11px] text-amber-800/80">제출 {fmtDate(of.submittedAt)}</p>
+            <p className="text-fluid-2xs text-amber-800/80">제출 {fmtDate(of.submittedAt)}</p>
           ) : (
-            <p className="text-[11px] font-medium text-amber-800">미제출 발주서</p>
+            <p className="text-fluid-2xs font-medium text-amber-800">미제출 발주서</p>
           )}
           {of.optionNote ? (
             <p className="whitespace-pre-wrap text-fluid-xs text-amber-950">{of.optionNote}</p>

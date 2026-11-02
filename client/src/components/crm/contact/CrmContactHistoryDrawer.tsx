@@ -38,18 +38,18 @@ function TimelineRow({ row }: { row: TelecrmContactTimelineItemDto }) {
     >
       <div className="flex min-w-0 items-start gap-2">
         <span
-          className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold leading-none ${kindBadgeClass(row.kind, row.active)}`}
+          className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-fluid-2xs font-bold leading-none ${kindBadgeClass(row.kind, row.active)}`}
         >
           {row.active ? '진행' : '이력'}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-fluid-xs font-semibold text-slate-900">{display.title}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-slate-500">
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-fluid-2xs text-slate-500">
             <span className="tabular-nums">{fmtWhen(row.at)}</span>
             {row.actorName ? <span className="font-medium text-slate-700">{row.actorName}</span> : null}
           </p>
           {display.detail ? (
-            <p className="mt-1 text-[12px] leading-snug text-slate-600 line-clamp-3" title={display.detail}>
+            <p className="mt-1 text-fluid-2xs leading-snug text-slate-600 line-clamp-3" title={display.detail}>
               {display.detail}
             </p>
           ) : null}
@@ -87,10 +87,17 @@ export function CrmContactHistoryDrawer({
       open={open}
       onClose={onClose}
       title="접촉 이력"
-      subtitle={[label, region].filter(Boolean).join(' · ')}
+      titleAddon={
+        <span
+          className="min-w-0 truncate whitespace-nowrap text-fluid-2xs font-medium text-slate-500"
+          title={[label, region].filter(Boolean).join(' · ')}
+        >
+          {[label, region].filter(Boolean).join(' · ')}
+        </span>
+      }
     >
       {activeCount > 0 ? (
-        <p className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] font-medium text-sky-800">
+        <p className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-fluid-2xs font-medium text-sky-800">
           접촉 진행 {activeCount}건
         </p>
       ) : null}
@@ -101,6 +108,8 @@ export function CrmContactHistoryDrawer({
         </p>
       ) : error ? (
         <p className="text-fluid-sm text-red-600">{error}</p>
+      ) : items.length === 0 ? (
+        <p className="py-6 text-center text-fluid-xs text-slate-500">접촉 이력이 없어요</p>
       ) : (
         <ul className="space-y-2">
           {items.map((row) => (
@@ -127,7 +136,7 @@ export function CrmContactHistoryReopenChip({
     <button
       type="button"
       onClick={onOpen}
-      className="fixed bottom-24 right-3 z-[90] rounded-full border border-emerald-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-emerald-800 shadow-lg hover:bg-emerald-50"
+      className="fixed bottom-24 right-3 z-[90] rounded-full border border-emerald-300/80 bg-white px-3 py-2 text-fluid-2xs font-semibold text-emerald-800 shadow-lg hover:bg-emerald-50"
     >
       접촉 이력 {count}건{activeCount > 0 ? ` · 진행 ${activeCount}` : ''}
     </button>

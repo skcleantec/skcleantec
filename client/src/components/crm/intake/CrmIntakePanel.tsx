@@ -61,17 +61,17 @@ function CrmPhoneField({
   onPhoneUnknownChange?: (checked: boolean) => void;
 }) {
   return (
-    <div className="space-y-0.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[12px] font-semibold text-emerald-800">{label}</span>
-        <div className="flex flex-wrap items-center gap-2">
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="whitespace-nowrap text-fluid-2xs font-semibold text-slate-700">{label}</span>
+        <div className="flex flex-nowrap items-center gap-2">
           {onPhoneUnknownChange ? (
-            <label className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-slate-600">
+            <label className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-fluid-2xs font-medium text-slate-600">
               <input
                 type="checkbox"
                 checked={phoneUnknown}
                 onChange={(e) => onPhoneUnknownChange(e.target.checked)}
-                className="rounded border-slate-300"
+                className="rounded-lg border-slate-300"
               />
               전화번호 없음
             </label>
@@ -80,7 +80,7 @@ function CrmPhoneField({
             <button
               type="button"
               onClick={onClear}
-              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+              className="inline-flex h-6 items-center whitespace-nowrap rounded-lg px-1.5 text-fluid-2xs font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"
             >
               연락처 지우기
             </button>
@@ -94,13 +94,13 @@ function CrmPhoneField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={phoneUnknown ? '전화번호 없음' : '010-0000-0000'}
           disabled={phoneUnknown}
-          className={`${crmFieldCompactClass} min-w-0 flex-1 tabular-nums disabled:bg-slate-100 disabled:text-slate-500 ${highlight ? 'ring-2 ring-sky-400/80 ring-offset-1' : ''}`}
+          className={`${crmFieldCompactClass} h-9 min-w-0 flex-1 tabular-nums disabled:bg-slate-100 disabled:text-slate-500 ${highlight ? 'ring-2 ring-sky-400/80 ring-offset-1' : ''}`}
         />
         {canDial && !phoneUnknown ? (
           <button
             type="button"
             onClick={onCall}
-            className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-600 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-emerald-700"
+            className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-600 px-2.5 text-fluid-xs font-semibold text-white hover:bg-emerald-700"
           >
             {callLabel}
           </button>
@@ -432,7 +432,6 @@ export function CrmIntakePanel({
       accent="intake"
       title="접수 · 고객"
       subtitle="연락처 · 처리 구분"
-      headerBelow={workBrandBar ?? undefined}
       headerAction={
         onIntakeReset ? (
           <button
@@ -447,7 +446,8 @@ export function CrmIntakePanel({
         ) : null
       }
     >
-      <div className="space-y-2.5">
+      <div className="space-y-3">
+        {workBrandBar ? <div className="min-w-0">{workBrandBar}</div> : null}
         <CrmSegment accent="intake" className="w-full flex flex-wrap">
           <CrmSegmentItem
             accent="intake"
@@ -506,14 +506,14 @@ export function CrmIntakePanel({
                 callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
               />
             ) : (
-              <label className="block space-y-0.5">
-                <span className="text-[12px] font-semibold text-emerald-800">고객 이름 검색</span>
+              <label className="block">
+                <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">고객 이름 검색</span>
                 <input
                   type="text"
                   value={nameSearch}
                   onChange={(e) => setNameSearch(e.target.value)}
                   placeholder="홍길동 (2자 이상)"
-                  className={crmFieldCompactClass}
+                  className={`${crmFieldCompactClass} h-9`}
                 />
               </label>
             )}
@@ -539,7 +539,7 @@ export function CrmIntakePanel({
             />
           </>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
           <CrmPhoneField
             label="안심번호"
             value={safePhone}
@@ -571,9 +571,9 @@ export function CrmIntakePanel({
           </div>
         )}
 
-        <div className="border-t border-emerald-100/80 pt-2">
+        <div className="border-t border-emerald-100/80 pt-3">
           {soomgoImportBanner ? (
-            <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-2 text-[12px] leading-snug text-sky-950">
+            <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-2 text-fluid-2xs leading-snug text-sky-950">
               <p className="font-semibold text-sky-900">가져온 정보</p>
               <p className="mt-0.5 whitespace-pre-wrap">{soomgoImportBanner}</p>
             </div>

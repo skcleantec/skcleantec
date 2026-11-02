@@ -52,12 +52,12 @@ export function TelecrmSoomgoPresetsHub({
 
   return (
     <div className="space-y-4">
-      <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+      <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
         <button
           type="button"
           onClick={() => setView('macro')}
-          className={`rounded-md px-4 py-1.5 text-fluid-sm font-medium ${
-            view === 'macro' ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+          className={`rounded-lg px-4 py-1.5 text-fluid-sm font-medium ${
+            view === 'macro' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
           }`}
         >
           매크로
@@ -66,8 +66,8 @@ export function TelecrmSoomgoPresetsHub({
           <button
             type="button"
             onClick={() => setView('auto')}
-            className={`rounded-md px-4 py-1.5 text-fluid-sm font-medium ${
-              view === 'auto' ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+            className={`rounded-lg px-4 py-1.5 text-fluid-sm font-medium ${
+              view === 'auto' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
             }`}
           >
             자동메시지
@@ -77,8 +77,8 @@ export function TelecrmSoomgoPresetsHub({
           <button
             type="button"
             onClick={() => setView('call')}
-            className={`rounded-md px-4 py-1.5 text-fluid-sm font-medium ${
-              view === 'call' ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+            className={`rounded-lg px-4 py-1.5 text-fluid-sm font-medium ${
+              view === 'call' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
             }`}
           >
             통화
@@ -87,8 +87,8 @@ export function TelecrmSoomgoPresetsHub({
         <button
           type="button"
           onClick={() => setView('inbox')}
-          className={`rounded-md px-4 py-1.5 text-fluid-sm font-medium ${
-            view === 'inbox' ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+          className={`rounded-lg px-4 py-1.5 text-fluid-sm font-medium ${
+            view === 'inbox' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
           }`}
         >
           알림함

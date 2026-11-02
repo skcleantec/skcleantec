@@ -115,14 +115,14 @@ export function CrmSettingsDrawer({
       onClose={onClose}
       widthClass={drawerWidth}
     >
-      <nav className="mb-4 flex flex-wrap gap-2 border-b border-gray-100 pb-3">
+      <nav className="mb-4 flex flex-wrap gap-1.5 border-b border-slate-100 pb-3">
         {visibleTabs.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => onTabChange(item.id)}
-            className={`rounded-lg px-4 py-2 text-fluid-sm font-medium ${
-              tab === item.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+            className={`inline-flex h-8 items-center whitespace-nowrap rounded-lg px-3.5 text-fluid-sm font-medium ${
+              tab === item.id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
             {item.label}
@@ -138,7 +138,7 @@ export function CrmSettingsDrawer({
             showPersonal={canEditPersonal}
             showShared={canEditShared}
           />
-          <p className="mt-2 text-[12px] text-gray-500">
+          <p className="mt-2 text-fluid-2xs text-slate-500">
             {tab === 'soomgo-presets'
               ? catalogScope === 'personal'
                 ? '본인 숨고 메시지 매크로입니다. 「통화」 탭에서 통화 시 숨고 자동 안내(브랜드별)를 설정합니다.'
@@ -150,7 +150,7 @@ export function CrmSettingsDrawer({
         </div>
       ) : null}
 
-      <Suspense fallback={<p className="text-fluid-sm text-gray-500">불러오는 중…</p>}>
+      <Suspense fallback={<p className="text-fluid-sm text-slate-500">불러오는 중…</p>}>
         <div key={`${tab}-${catalogScope}`} className="min-w-0">
           {tab === 'scripts' ? <TelecrmScriptSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'sms' ? <TelecrmSmsTemplateSettingsPage catalogScope={catalogScope} /> : null}

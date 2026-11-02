@@ -93,7 +93,7 @@ function SummaryCard({
   return (
     <div className={`rounded-xl border p-2 shadow-sm ${CRM_ACCENT.soomgo.panel}`}>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold text-sky-900" style={{ fontSize: `${fontScale * 1.05}rem` }}>
+        <p className="text-fluid-2xs font-semibold text-sky-900" style={{ fontSize: `${fontScale * 1.05}rem` }}>
           {title}
         </p>
         <div className="flex shrink-0 items-center gap-1">
@@ -101,7 +101,7 @@ function SummaryCard({
           <button
             type="button"
             onClick={() => void copy()}
-            className="inline-flex items-center gap-0.5 rounded border border-sky-200 bg-white/80 px-1.5 py-0.5 text-[9px] font-medium text-sky-800 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1"
+            className="inline-flex items-center gap-0.5 rounded-lg border border-sky-200 bg-white/80 px-1.5 py-0.5 text-[9px] font-medium text-sky-800 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1"
           >
             <CrmIconCopy className="h-3 w-3" />
             {copied ? '복사됨' : '복사'}
@@ -576,43 +576,43 @@ export function CrmAiSummaryPanel({
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain px-2 py-1.5">
         {extractBlockedByPeer ? (
-          <p className="rounded-lg border border-sky-200 bg-sky-50/80 px-2 py-1.5 text-[12px] leading-snug text-sky-900">
+          <p className="rounded-lg border border-sky-200 bg-sky-50/80 px-2 py-1.5 text-fluid-2xs leading-snug text-sky-900">
             다른 숨고 추출이 진행 중입니다. 잠시 후 「AI 정리」를 다시 눌러 주세요.
           </p>
         ) : null}
         {blockReason ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-[12px] leading-snug text-amber-900">
+          <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-fluid-2xs leading-snug text-amber-900">
             {blockReason}
           </p>
         ) : null}
 
         {aiDisabled ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-[12px] leading-snug text-amber-900">
+          <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-fluid-2xs leading-snug text-amber-900">
             이 업체는 CRM AI 정리 기능이 비활성화되어 있습니다.
           </p>
         ) : null}
         {aiLimitReached ? (
-          <p className="rounded-lg border border-red-200 bg-red-50/80 px-2 py-1.5 text-[12px] leading-snug text-red-900">
+          <p className="rounded-lg border border-red-200 bg-red-50/80 px-2 py-1.5 text-fluid-2xs leading-snug text-red-900">
             이번 달 AI 정리 한도({monthUsage?.limit}회)를 모두 사용했습니다.
           </p>
         ) : null}
 
         {loadingCache ? (
-          <p className="text-[12px] text-gray-500">저장된 대화 확인 중…</p>
+          <p className="text-fluid-2xs text-slate-500">저장된 대화 확인 중…</p>
         ) : null}
 
         {error ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-[12px] text-red-700">{error}</p>
+          <p className="rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-fluid-2xs text-red-700">{error}</p>
         ) : null}
 
         {!blockReason && !transcript && !loadingCache && !error ? (
-          <p className="text-[12px] leading-snug text-gray-500">
+          <p className="text-fluid-2xs leading-snug text-slate-500">
             숨고 채팅방을 연 뒤 「AI 정리」 한 번으로 정보 수집·고객요청 창 닫기·대화 수집·요약이 진행됩니다.
           </p>
         ) : null}
 
         {summaryStale ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-[12px] leading-snug text-amber-900">
+          <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-fluid-2xs leading-snug text-amber-900">
             대화가 변경되었습니다. 「AI 재정리」를 실행해 주세요.
           </p>
         ) : null}
@@ -649,7 +649,7 @@ export function CrmAiSummaryPanel({
               />
             ) : null}
             {missingActionReplies ? (
-              <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-[12px] leading-snug text-amber-900">
+              <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-fluid-2xs leading-snug text-amber-900">
                 일부 질문에 대한 추천 답장이 비어 있습니다. 「AI 재정리」를 실행해 주세요.
               </p>
             ) : null}
@@ -662,7 +662,7 @@ export function CrmAiSummaryPanel({
               />
             ) : null}
             {summary.warnings?.length ? (
-              <p className="text-[11px] leading-snug text-amber-800">
+              <p className="text-fluid-2xs leading-snug text-amber-800">
                 {summary.warnings.join(' · ')}
               </p>
             ) : null}
@@ -682,7 +682,7 @@ export function CrmAiSummaryPanel({
                 type="button"
                 onClick={() => void handleFetchTranscript()}
                 disabled={extractBusy || summarizing || Boolean(blockReason)}
-                className="mb-1.5 rounded-lg border border-sky-200 bg-white/90 px-2 py-1 text-[11px] font-medium text-sky-800 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50"
+                className="mb-1.5 rounded-lg border border-sky-200 bg-white/90 px-2 py-1 text-fluid-2xs font-medium text-sky-800 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50"
               >
                 대화만 다시 수집
               </button>
@@ -691,7 +691,7 @@ export function CrmAiSummaryPanel({
               {previewMessages.map((msg, idx) => (
                 <div
                   key={`${msg.role}-${idx}-${msg.text.slice(0, 24)}`}
-                  className={`rounded-md px-2 py-1 leading-snug ${
+                  className={`rounded-lg px-2 py-1 leading-snug ${
                     msg.role === 'customer'
                       ? 'bg-white/90 text-slate-800'
                       : 'bg-sky-100/70 text-slate-800'
@@ -699,7 +699,7 @@ export function CrmAiSummaryPanel({
                   style={{ fontSize: `${fontScale}rem` }}
                 >
                   <span
-                    className={`mr-1.5 inline-block rounded px-1 py-0 font-semibold ${
+                    className={`mr-1.5 inline-block rounded-lg px-1 py-0 font-semibold ${
                       msg.role === 'customer' ? 'bg-slate-200 text-slate-700' : 'bg-sky-600 text-white'
                     }`}
                     style={{ fontSize: `${fontScale * 0.85}rem` }}
@@ -715,7 +715,7 @@ export function CrmAiSummaryPanel({
 
         {monthUsageLabel ? (
           <p
-            className={`text-[11px] tabular-nums ${
+            className={`text-fluid-2xs tabular-nums ${
               aiLimitReached ? 'text-red-500' : aiDisabled ? 'text-amber-600' : 'text-slate-400'
             }`}
           >

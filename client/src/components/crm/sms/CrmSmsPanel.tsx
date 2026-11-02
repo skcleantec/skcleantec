@@ -140,7 +140,7 @@ export function CrmSmsPanel({
           </CrmSegmentItem>
         </CrmSegment>
 
-        <p className="text-[11px] leading-relaxed text-slate-500">
+        <p className="text-fluid-2xs leading-relaxed text-slate-500">
           치환: {'{고객명}'} {'{연락처}'} {'{평수}'} {'{예상가}'} {'{발주서링크}'}
           {inquiryId && !orderLink ? (
             <button type="button" className="ml-1 text-violet-700 underline" onClick={onOpenOrderIssue}>
@@ -151,10 +151,10 @@ export function CrmSmsPanel({
 
         {mode === 'template' ? (
           loading ? (
-            <p className="text-fluid-sm text-gray-500">템플릿 불러오는 중…</p>
+            <p className="text-fluid-sm text-slate-500">템플릿 불러오는 중…</p>
           ) : templates.length === 0 ? (
             <div className="space-y-2">
-              <p className="text-fluid-sm text-gray-500">저장된 문자 템플릿이 없습니다.</p>
+              <p className="text-fluid-sm text-slate-500">저장된 문자 템플릿이 없습니다.</p>
               {onOpenSettings ? (
                 <CrmActionButton accent="script" onClick={onOpenSettings}>
                   템플릿 설정
@@ -171,7 +171,7 @@ export function CrmSmsPanel({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-fluid-xs font-semibold text-violet-900">{t.label}</p>
-                      <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-fluid-xs text-gray-700">
+                      <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-fluid-xs text-slate-700">
                         {applyTelecrmSmsPlaceholders(t.body, placeholderCtx)}
                       </p>
                       {t.imageUrl ? (
@@ -213,7 +213,7 @@ export function CrmSmsPanel({
               </label>
               {liveImageUrl ? (
                 <>
-                  <img src={liveImageUrl} alt="" className="h-12 rounded border object-cover" />
+                  <img src={liveImageUrl} alt="" className="h-12 rounded-lg border object-cover" />
                   <button
                     type="button"
                     className="text-fluid-xs text-rose-600"

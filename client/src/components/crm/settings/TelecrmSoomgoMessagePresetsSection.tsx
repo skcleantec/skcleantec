@@ -51,7 +51,7 @@ function PresetOrderPanel({
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-fluid-xs font-semibold text-slate-800">표시 순서</p>
-        <p className="text-[11px] text-slate-500">⋮⋮ 드래그 후 항목 사이에 놓기</p>
+        <p className="text-fluid-2xs text-slate-500">⋮⋮ 드래그 후 항목 사이에 놓기</p>
       </div>
       <PresetDragReorderList
         items={saved}
@@ -69,7 +69,7 @@ function PresetOrderPanel({
             <span className="min-w-0 flex-1 truncate text-fluid-xs font-medium text-slate-800">
               {draft.label.trim() || `프리셋 ${index + 1}`}
             </span>
-            <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{index + 1}</span>
+            <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-400">{index + 1}</span>
           </div>
         )}
       />
@@ -217,7 +217,7 @@ export function TelecrmSoomgoMessagePresetsSection({
 
   return (
     <div className="space-y-4">
-      <p className="text-fluid-xs text-gray-600">
+      <p className="text-fluid-xs text-slate-600">
         상담 화면 <strong>숨고 메시지</strong>에서 저장한 프리셋 버튼으로 텍스트·이미지를 순서대로 전송합니다.
         {catalogScope === 'personal'
           ? ' 본인 계정에만 저장되며, 다른 마케터와 공유되지 않습니다.'
@@ -227,7 +227,7 @@ export function TelecrmSoomgoMessagePresetsSection({
         <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-fluid-sm text-green-800">{msg}</p>
       ) : null}
       {error ? <p className="text-fluid-sm text-red-600">{error}</p> : null}
-      {loading ? <p className="text-fluid-sm text-gray-500">불러오는 중…</p> : null}
+      {loading ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
 
       {!loading && drafts.length >= 2 ? (
         <PresetOrderPanel drafts={drafts} busy={busy || draggingOrder} onReorder={(a, b) => void handleReorderPresets(a, b)} />
@@ -266,12 +266,12 @@ export function TelecrmSoomgoMessagePresetsSection({
           type="button"
           disabled={busy || newDraft != null}
           onClick={() => setNewDraft(emptyDraft())}
-          className="w-full rounded-xl border border-dashed border-gray-300 px-4 py-3 text-fluid-sm text-gray-600 hover:border-slate-400 hover:bg-gray-50 disabled:opacity-50"
+          className="w-full rounded-xl border border-dashed border-slate-300 px-4 py-3 text-fluid-sm text-slate-600 hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
         >
           + 프리셋 추가
         </button>
       ) : (
-        <p className="text-fluid-xs text-gray-500">프리셋은 최대 {SOOMGO_MESSAGE_PRESET_MAX}개까지 등록할 수 있습니다.</p>
+        <p className="text-fluid-xs text-slate-500">프리셋은 최대 {SOOMGO_MESSAGE_PRESET_MAX}개까지 등록할 수 있습니다.</p>
       )}
 
       <DeletePasswordModal

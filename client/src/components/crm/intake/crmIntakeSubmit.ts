@@ -33,6 +33,11 @@ export type CrmIntakeFormValues = {
   roomCount: string;
   bathroomCount: string;
   balconyCount: string;
+  /** 건축물 유형 — 발주서 선택지 저장값 */
+  propertyType?: string;
+  /** 건물 형태(신축·구축 등) — 발주서 선택지 저장값 */
+  buildingType?: string;
+  isOneRoom?: boolean;
   kind: CrmIntakeKind;
   goldDb: boolean;
   /** 유입 플랫폼 — 카탈로그 label, 저장 전 필수(브릿지 extract 시 자동) */
@@ -123,19 +128,27 @@ function submitMeta(values: CrmIntakeFormValues): Pick<CrmIntakeSubmitResult, 'i
 function inquiryExtras(
   pyeong: string,
   preferredMoveInCleanYmd: string,
-  structure: Pick<CrmIntakeFormValues, 'roomCount' | 'bathroomCount' | 'balconyCount'>,
+  structure: Pick<
+    CrmIntakeFormValues,
+    'roomCount' | 'bathroomCount' | 'balconyCount' | 'propertyType' | 'buildingType' | 'isOneRoom'
+  >,
 ) {
   const areaPyeong = parseCrmIntakePyeong(pyeong);
   const pmd = preferredMoveInCleanYmd.trim();
   const roomCount = parseCrmRoomCountInput(structure.roomCount);
   const bathroomCount = parseCrmRoomCountInput(structure.bathroomCount);
   const balconyCount = parseCrmRoomCountInput(structure.balconyCount);
+  const propertyType = structure.propertyType?.trim() ?? '';
+  const buildingType = structure.buildingType?.trim() ?? '';
   return {
     ...(areaPyeong != null ? { areaPyeong } : {}),
     ...(pmd ? { preferredDate: pmd } : {}),
     ...(roomCount != null ? { roomCount } : {}),
     ...(bathroomCount != null ? { bathroomCount } : {}),
     ...(balconyCount != null ? { balconyCount } : {}),
+    ...(propertyType ? { propertyType } : {}),
+    ...(buildingType ? { buildingType } : {}),
+    ...(structure.isOneRoom ? { isOneRoom: true } : {}),
   };
 }
 

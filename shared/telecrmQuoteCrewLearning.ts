@@ -46,6 +46,20 @@ export type TelecrmQuoteCrewLearningOverview = {
   recent: TelecrmQuoteCrewLearningRecentRow[];
 };
 
+export type TelecrmQuoteCrewLearningExample = {
+  date: string | null;
+  customerName: string | null;
+  inquiryNumber: string | null;
+  pyeong: number | null;
+  propertyLabel: string | null;
+  buildingLabel: string | null;
+  isOneRoom: boolean;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
+  amount: number | null;
+};
+
 export type TelecrmQuoteCrewLearningHints = {
   matchCount: number;
   confidence: TelecrmQuoteCrewLearningConfidence;
@@ -57,7 +71,65 @@ export type TelecrmQuoteCrewLearningHints = {
   typicalTeamLeaderCount: number | null;
   typicalCrewMemberCount: number | null;
   sampleInquiryNumbers: string[];
+  /** 비교에 쓴 실제 접수 — 최신순 최대 5건 (날짜·이름·평수·구조·금액) */
+  examples?: TelecrmQuoteCrewLearningExample[];
+  /**
+   * 어디까지 같은 예약으로 찾았는지 (평수는 항상 같음)
+   * exact: 유형·건물 형태·방·화·베까지 / type: 유형·방·화 / structure: 방·화만(유형 다를 수 있음) / pyeong: 평수만
+   */
+  matchLevel?: TelecrmQuoteCrewMatchLevel;
+  /** exact·type 이면 true — 구조·유형까지 맞춘 믿을 만한 추천 */
+  matchLevelIsStrong?: boolean;
+  /** 화면용 설명 (예: 「34평 · 아파트 · 방3·화2·베1까지 같은 예약」) — 선택지 코드는 절대 넣지 않음 */
+  matchLabel?: string | null;
 };
+
+export type TelecrmQuoteCrewMatchLevel = 'exact' | 'type' | 'structure' | 'pyeong' | 'none';
+
+/** 발주서와 같은 건축물 유형·건물 형태 선택지 (value 는 저장값, label 은 화면 글) */
+export type TelecrmPropertyChoiceOption = { value: string; label: string };
+
+export type TelecrmPropertyChoiceOptions = {
+  propertyTypes: TelecrmPropertyChoiceOption[];
+  buildingTypes: TelecrmPropertyChoiceOption[];
+};
+
+function squashChoiceText(raw: unknown): string {
+  return String(raw ?? '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+function stripChoiceParens(raw: string): string {
+  return raw.replace(/\([^)]*\)/g, '');
+}
+
+/**
+ * 숨고·미소 등에서 온 자유 글(예: 「아파트」)을 선택지 저장값으로 바꾼다.
+ * 공백 무시 · 괄호 설명 무시 · 포함 관계(2글자 이상, 가장 긴 이름 우선). 못 찾으면 빈 문자.
+ */
+export function matchTelecrmChoiceByText(
+  options: readonly TelecrmPropertyChoiceOption[] | null | undefined,
+  raw: unknown,
+): string {
+  const text = squashChoiceText(raw);
+  if (!text || !options?.length) return '';
+  for (const o of options) {
+    if (squashChoiceText(o.value) === text || squashChoiceText(o.label) === text) return o.value;
+  }
+  const bare = squashChoiceText(stripChoiceParens(String(raw ?? '')));
+  for (const o of options) {
+    if (bare && squashChoiceText(stripChoiceParens(o.label)) === bare) return o.value;
+  }
+  let best: { value: string; len: number } | null = null;
+  for (const o of options) {
+    const label = squashChoiceText(stripChoiceParens(o.label));
+    if (label.length < 2) continue;
+    const hit = text.includes(label) || (bare.length >= 2 && label.includes(bare));
+    if (hit && (!best || label.length > best.len)) best = { value: o.value, len: label.length };
+  }
+  return best?.value ?? '';
+}
 
 export type TelecrmQuoteCrewLearningBackfillResult = {
   processed: number;
@@ -73,7 +145,8 @@ function normToken(raw: string | null | undefined): string {
 
 export function bucketAreaPyeong(areaPyeong: number | null | undefined): string {
   if (areaPyeong == null || !Number.isFinite(areaPyeong) || areaPyeong <= 0) return '?';
-  return String(Math.round(areaPyeong / 5) * 5);
+  // 평수는 묶지 않고 1평 단위로 나눔 (20평과 21평은 다른 가격대) — 소수점은 반올림
+  return String(Math.round(areaPyeong));
 }
 
 export function buildTelecrmQuoteCrewFeatureKey(input: TelecrmQuoteCrewLearningStructureInput): string {

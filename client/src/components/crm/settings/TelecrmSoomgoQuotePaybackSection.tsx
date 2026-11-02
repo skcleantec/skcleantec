@@ -83,7 +83,7 @@ export function TelecrmSoomgoQuotePaybackSection() {
 
   return (
     <SettingsCard title="숨고 견적보내기 — 페이백 금액">
-      <p className="mb-3 text-fluid-xs text-gray-600">
+      <p className="mb-3 text-fluid-xs text-slate-600">
         CRM 「견적보내기」 숨고 메시지에서 {'{페이백금액}'}, {'{이벤트가}'}(견적가−페이백) 치환에
         쓰입니다. 서식 본문은 설정 → 숨고 프리셋 → 자동메시지에서 편집합니다.
       </p>
@@ -98,15 +98,15 @@ export function TelecrmSoomgoQuotePaybackSection() {
         </p>
       ) : null}
       {loading ? (
-        <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
+        <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
       ) : (
         <div className="space-y-3">
-          <label className="flex flex-wrap items-center gap-2 text-fluid-sm text-gray-700">
+          <label className="flex flex-wrap items-center gap-2 text-fluid-sm text-slate-700">
             <span className="font-medium">브랜드</span>
             <select
               value={brandId}
               onChange={(e) => setBrandId(e.target.value)}
-              className="min-w-[10rem] rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm"
+              className="min-w-[10rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-sm"
             >
               <option value="default">업체 기본</option>
               {brands.map((b) => (
@@ -116,7 +116,7 @@ export function TelecrmSoomgoQuotePaybackSection() {
               ))}
             </select>
           </label>
-          <label className="flex flex-wrap items-center gap-2 text-fluid-sm text-gray-700">
+          <label className="flex flex-wrap items-center gap-2 text-fluid-sm text-slate-700">
             <span className="font-medium">페이백 금액</span>
             <input
               type="text"
@@ -124,11 +124,11 @@ export function TelecrmSoomgoQuotePaybackSection() {
               value={paybackDraft}
               onChange={(e) => setPaybackDraft(e.target.value)}
               placeholder="20000"
-              className="w-32 rounded-lg border border-gray-300 px-3 py-2 tabular-nums"
+              className="w-32 rounded-lg border border-slate-300 px-3 py-2 tabular-nums"
             />
             <span>원</span>
             {parsePriceInt(paybackDraft) != null ? (
-              <span className="text-fluid-xs text-gray-500">
+              <span className="text-fluid-xs text-slate-500">
                 표시 예: {formatWon(parsePriceInt(paybackDraft)!)}
               </span>
             ) : null}

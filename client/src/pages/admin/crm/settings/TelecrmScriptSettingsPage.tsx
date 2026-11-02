@@ -219,7 +219,7 @@ export function TelecrmScriptSettingsPage({
             value={newCategoryLabel}
             onChange={(e) => setNewCategoryLabel(e.target.value)}
             placeholder="새 카테고리 이름"
-            className="min-w-[160px] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+            className="min-w-[160px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
           />
           <button
             type="button"
@@ -232,7 +232,7 @@ export function TelecrmScriptSettingsPage({
         </div>
 
         {loading ? (
-          <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
+          <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr]">
             <ul className="space-y-1">
@@ -240,16 +240,16 @@ export function TelecrmScriptSettingsPage({
                 <li key={c.id}>
                   <div
                     className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 ${
-                      selectedCategoryId === c.id ? 'border-slate-900 bg-slate-50' : 'border-gray-200'
+                      selectedCategoryId === c.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200'
                     }`}
                   >
                     <button
                       type="button"
                       onClick={() => setSelectedCategoryId(c.id)}
-                      className="min-w-0 flex-1 truncate text-left text-fluid-sm text-gray-900"
+                      className="min-w-0 flex-1 truncate text-left text-fluid-sm text-slate-900"
                     >
                       {c.label}
-                      {!c.isActive ? <span className="text-gray-400"> (비활성)</span> : null}
+                      {!c.isActive ? <span className="text-slate-400"> (비활성)</span> : null}
                     </button>
                     <TelecrmReorderButtons
                       disabled={busy}
@@ -288,9 +288,9 @@ export function TelecrmScriptSettingsPage({
                         if (!token || !v || v === selectedCategory.label) return;
                         void updateTelecrmScriptCategory(token, selectedCategory.id, { label: v }).then(load);
                       }}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm font-medium"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm font-medium"
                     />
-                    <label className="flex items-center gap-1 text-fluid-xs text-gray-600">
+                    <label className="flex items-center gap-1 text-fluid-xs text-slate-600">
                       <input
                         type="checkbox"
                         checked={selectedCategory.isActive}
@@ -305,14 +305,14 @@ export function TelecrmScriptSettingsPage({
                     </label>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                  <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
                     {tabs.map((t, index) => (
                       <div key={t.id} className="flex items-center gap-0.5">
                         <button
                           type="button"
                           onClick={() => setSelectedTabId(t.id)}
                           className={`rounded-lg px-3 py-1.5 text-fluid-xs ${
-                            selectedTab?.id === t.id ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-700'
+                            selectedTab?.id === t.id ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
                           }`}
                         >
                           {t.label}
@@ -326,7 +326,7 @@ export function TelecrmScriptSettingsPage({
                         />
                         <button
                           type="button"
-                          className="text-[11px] text-red-600 px-0.5"
+                          className="text-fluid-2xs text-red-600 px-0.5"
                           onClick={() => {
                             setDeleteTarget({ kind: 'tab', row: t });
                             setDeletePassword('');
@@ -345,13 +345,13 @@ export function TelecrmScriptSettingsPage({
                       value={newTabLabel}
                       onChange={(e) => setNewTabLabel(e.target.value)}
                       placeholder="새 탭 이름"
-                      className="min-w-[120px] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                      className="min-w-[120px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
                     />
                     <button
                       type="button"
                       disabled={busy || !newTabLabel.trim()}
                       onClick={() => void addTab()}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
                     >
                       탭 추가
                     </button>
@@ -368,13 +368,13 @@ export function TelecrmScriptSettingsPage({
                           if (!token || !v || v === selectedTab.label) return;
                           void updateTelecrmScriptTab(token, selectedTab.id, { label: v }).then(load);
                         }}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
                       />
                       <textarea
                         value={editingTabBody}
                         onChange={(e) => setEditingTabBody(e.target.value)}
                         rows={12}
-                        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-fluid-sm font-mono leading-relaxed"
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-fluid-sm font-mono leading-relaxed"
                         placeholder="상담 스크립트 본문…"
                       />
                       <button
@@ -389,7 +389,7 @@ export function TelecrmScriptSettingsPage({
                   ) : null}
                 </>
               ) : (
-                <p className="text-fluid-sm text-gray-500">카테고리를 선택하거나 추가해 주세요.</p>
+                <p className="text-fluid-sm text-slate-500">카테고리를 선택하거나 추가해 주세요.</p>
               )}
             </div>
           </div>

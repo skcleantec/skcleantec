@@ -83,7 +83,7 @@ function OrderOptionTreeSection({
   const pad = depth === 0 ? 'px-2' : depth === 1 ? 'pl-5 pr-2' : 'pl-8 pr-2';
 
   return (
-    <li className={depth === 0 ? 'rounded-md border border-amber-100/80 bg-white/60' : ''}>
+    <li className={depth === 0 ? 'rounded-lg border border-amber-100/80 bg-white/60' : ''}>
       {hasNested ? (
         <button
           type="button"
@@ -97,7 +97,7 @@ function OrderOptionTreeSection({
             ▶
           </span>
           <span
-            className={`min-w-0 flex-1 truncate font-semibold text-amber-900 ${depth === 0 ? 'text-[11px]' : 'text-[9px]'}`}
+            className={`min-w-0 flex-1 truncate font-semibold text-amber-900 ${depth === 0 ? 'text-fluid-2xs' : 'text-[9px]'}`}
             title={node.label}
           >
             {node.label}
@@ -128,12 +128,12 @@ function OrderOptionTreeSection({
                     className={`flex w-full items-center gap-2 py-1 text-left transition-colors hover:bg-amber-50/60 ${pad}`}
                   >
                     <span
-                      className="min-w-0 flex-1 truncate text-[12px] font-medium text-gray-900"
+                      className="min-w-0 flex-1 truncate text-fluid-2xs font-medium text-slate-900"
                       title={row.label}
                     >
                       {row.label}
                     </span>
-                    <span className="shrink-0 text-[12px] font-bold tabular-nums text-amber-700">
+                    <span className="shrink-0 text-fluid-2xs font-bold tabular-nums text-amber-700">
                       {row.price}
                     </span>
                   </button>
@@ -568,7 +568,7 @@ export function CrmPricingPanel({
               return next;
             });
           }}
-          className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-right text-[11px] tabular-nums"
+          className="w-[4.5rem] rounded-lg border border-amber-200/80 bg-white px-1 py-0.5 text-right text-fluid-2xs tabular-nums"
           title="안내 금액 (직접 입력)"
         />
         {showReset ? (
@@ -576,7 +576,7 @@ export function CrmPricingPanel({
             type="button"
             title="카탈로그 가격으로"
             onClick={() => resetQuoteLineAmount(line.key)}
-            className="rounded px-0.5 text-[9px] text-amber-700 hover:bg-amber-100"
+            className="rounded-lg px-0.5 text-[9px] text-amber-700 hover:bg-amber-100"
           >
             ↺
           </button>
@@ -606,13 +606,13 @@ export function CrmPricingPanel({
           />
         ) : null}
         {quoteSaveError ? (
-          <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[11px] text-red-700">{quoteSaveError}</p>
+          <p className="shrink-0 truncate whitespace-nowrap border-b border-red-100 bg-red-50 px-2 py-1 text-fluid-2xs text-red-700">{quoteSaveError}</p>
         ) : null}
         {quoteSaving ? (
-          <p className="shrink-0 border-b border-amber-50 px-2 py-0.5 text-[9px] text-amber-700/80">견적 저장 중…</p>
+          <p className="shrink-0 whitespace-nowrap border-b border-amber-50 px-2 py-0.5 text-fluid-2xs text-amber-700/80">견적 저장 중…</p>
         ) : null}
         {quoteFinalizeError ? (
-          <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[11px] text-red-700">{quoteFinalizeError}</p>
+          <p className="shrink-0 truncate whitespace-nowrap border-b border-red-100 bg-red-50 px-2 py-1 text-fluid-2xs text-red-700">{quoteFinalizeError}</p>
         ) : null}
         {learningContext ? (
           <div className="shrink-0 border-b border-amber-100/80 px-2 py-1.5">
@@ -620,6 +620,7 @@ export function CrmPricingPanel({
               context={learningContext}
               onOpenLearningSettings={onOpenLearningSettings}
               onApplyRecommended={(input) => void applyAiRecommended(input)}
+              baseAmountWon={catalogBaseEstimate}
             />
           </div>
         ) : null}
@@ -631,10 +632,10 @@ export function CrmPricingPanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="항목 검색…"
-              className="w-full rounded-md border border-amber-200/80 bg-white py-1 pl-7 pr-2 text-[12px] outline-none focus:border-amber-400"
+              className="h-7 w-full rounded-lg border border-amber-200/80 bg-white pl-7 pr-2 text-fluid-2xs outline-none focus:border-amber-400"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-amber-900/90">
+          <div className="flex flex-nowrap items-center gap-x-2 whitespace-nowrap text-fluid-2xs text-amber-900/90">
             <span className="font-semibold">평당 {formatWon(pricePerPyeong)}</span>
             {minimumTotalAmount > 0 ? (
               <span className="text-amber-800/70">· 최소 {formatWon(minimumTotalAmount)}</span>
@@ -646,13 +647,13 @@ export function CrmPricingPanel({
                 value={pyeong}
                 onChange={(e) => onPyeongChange(e.target.value)}
                 placeholder="평수"
-                className="w-14 rounded border border-amber-200/80 bg-white px-1.5 py-0.5 text-center text-[12px] tabular-nums"
+                className="h-6 w-14 rounded-lg border border-amber-200/80 bg-white px-1.5 text-center text-fluid-2xs tabular-nums"
               />
               <span>평</span>
             </span>
           </div>
           {minimumApplied ? (
-            <p className="text-[9px] text-amber-800/80">최소 금액 적용됨</p>
+            <p className="text-fluid-2xs text-amber-800/80">최소 금액 적용됨</p>
           ) : null}
         </div>
 
@@ -675,15 +676,15 @@ export function CrmPricingPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
           {loading ? (
-            <p className="text-[12px] text-gray-500">불러오는 중…</p>
+            <p className="text-fluid-2xs text-slate-500">불러오는 중…</p>
           ) : error ? (
-            <p className="text-[12px] text-red-600">{error}</p>
+            <p className="text-fluid-2xs text-red-600">{error}</p>
           ) : isOrderformCategory ? (
             orderOptionTree.length === 0 ? (
-              <div className="space-y-2 text-[12px] text-gray-500">
-                <p>전문시공 옵션이 없습니다.</p>
+              <div className="flex flex-nowrap items-center gap-2 text-fluid-2xs text-slate-500">
+                <p className="whitespace-nowrap">전문시공 옵션이 없습니다.</p>
                 {onOpenSettings ? (
-                  <CrmActionButton accent="pricing" onClick={onOpenSettings}>
+                  <CrmActionButton accent="pricing" className="h-6 whitespace-nowrap px-2 py-0 text-fluid-2xs" onClick={onOpenSettings}>
                     발주서 설정
                   </CrmActionButton>
                 ) : null}
@@ -703,10 +704,10 @@ export function CrmPricingPanel({
               </ul>
             )
           ) : priceMenuItems.length === 0 ? (
-            <div className="space-y-2 text-[12px] text-gray-500">
-              <p>항목이 없습니다.</p>
+            <div className="flex flex-nowrap items-center gap-2 text-fluid-2xs text-slate-500">
+              <p className="whitespace-nowrap">항목이 없습니다.</p>
               {onOpenSettings ? (
-                <CrmActionButton accent="pricing" onClick={onOpenSettings}>
+                <CrmActionButton accent="pricing" className="h-6 whitespace-nowrap px-2 py-0 text-fluid-2xs" onClick={onOpenSettings}>
                   가격 항목 추가
                 </CrmActionButton>
               ) : null}
@@ -720,13 +721,13 @@ export function CrmPricingPanel({
                     onClick={row.onAdd}
                     className="flex w-full items-center gap-2 py-1.5 text-left transition-colors hover:bg-amber-50/60"
                   >
-                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-gray-900" title={row.label}>
+                    <span className="min-w-0 flex-1 truncate text-fluid-2xs font-medium text-slate-900" title={row.label}>
                       {row.label}
                     </span>
-                    <span className="shrink-0 text-[12px] font-bold tabular-nums text-amber-700">{row.price}</span>
+                    <span className="shrink-0 text-fluid-2xs font-bold tabular-nums text-amber-700">{row.price}</span>
                   </button>
                   {row.sublabel ? (
-                    <p className="pb-1 pl-0 text-[9px] text-gray-400 line-clamp-1" title={row.sublabel}>
+                    <p className="pb-1 pl-0 text-fluid-2xs text-slate-400 line-clamp-1" title={row.sublabel}>
                       {row.sublabel}
                     </p>
                   ) : null}
@@ -741,12 +742,12 @@ export function CrmPricingPanel({
         >
           {(estimatedBase != null || quoteLines.length > 0) && (
             <div className={`${compact ? 'max-h-28' : 'max-h-36'} overflow-y-auto border-b border-amber-100/60 px-2 py-1`}>
-              <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800/70">
+              <p className="mb-0.5 whitespace-nowrap text-fluid-2xs font-semibold text-amber-800/70">
                 안내 목록 · 금액 입력/↺ 재설정
               </p>
               <ul className="space-y-1">
                 {estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0 ? (
-                  <li className="flex items-center gap-1 text-[11px]">
+                  <li className="flex items-center gap-1 text-fluid-2xs">
                     <span
                       className="min-w-0 flex-1 truncate font-medium text-slate-800"
                       title={aiBaseLabel ?? `${pyeongNum}평 기본견적`}
@@ -766,7 +767,7 @@ export function CrmPricingPanel({
                             return next;
                           });
                         }}
-                        className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-right text-[11px] tabular-nums"
+                        className="w-[4.5rem] rounded-lg border border-amber-200/80 bg-white px-1 py-0.5 text-right text-fluid-2xs tabular-nums"
                         title="기본견적 금액 (직접 입력)"
                       />
                       {showBaseAmountReset ? (
@@ -774,7 +775,7 @@ export function CrmPricingPanel({
                           type="button"
                           title="평당·최소 설정 기준으로"
                           onClick={resetBaseEstimateAmount}
-                          className="rounded px-0.5 text-[9px] text-amber-700 hover:bg-amber-100"
+                          className="rounded-lg px-0.5 text-[9px] text-amber-700 hover:bg-amber-100"
                         >
                           ↺
                         </button>
@@ -783,16 +784,16 @@ export function CrmPricingPanel({
                   </li>
                 ) : null}
                 {quoteLines.map((line) => (
-                  <li key={line.key} className="flex items-center gap-1 text-[11px]">
+                  <li key={line.key} className="flex items-center gap-1 text-fluid-2xs">
                     <button
                       type="button"
                       title="제거"
                       onClick={() => setQuoteLines(quoteLines.filter((l) => l.key !== line.key))}
-                      className="shrink-0 rounded px-0.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                      className="shrink-0 rounded-lg px-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
                     >
                       ×
                     </button>
-                    <span className="min-w-0 flex-1 truncate text-gray-700" title={line.label}>
+                    <span className="min-w-0 flex-1 truncate text-slate-700" title={line.label}>
                       + {line.label}
                     </span>
                     {renderQuoteAmountEditor(line)}
@@ -803,9 +804,9 @@ export function CrmPricingPanel({
           )}
 
           <div className="flex min-w-0 flex-col gap-1.5 px-2 py-1.5">
-            <div className="min-w-0">
-              <p className="text-[9px] font-semibold text-amber-900/70">합계</p>
-              <p className="text-sm font-bold tabular-nums text-amber-900">
+            <div className="flex min-w-0 items-baseline justify-between gap-2">
+              <p className="whitespace-nowrap text-fluid-2xs font-semibold text-amber-900/70">합계</p>
+              <p className="text-fluid-sm font-bold tabular-nums text-amber-900">
                 {grandTotal != null ? formatWon(grandTotal) : '—'}
               </p>
             </div>
@@ -815,7 +816,7 @@ export function CrmPricingPanel({
                   type="button"
                   onClick={onSendSoomgoQuote}
                   disabled={soomgoQuoteSending || (grandTotal == null && quoteLines.length === 0 && estimatedBase == null)}
-                  className="inline-flex items-center rounded-md bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-40"
+                  className="inline-flex h-7 items-center whitespace-nowrap rounded-lg border border-sky-600 bg-sky-600 px-2.5 text-fluid-2xs font-semibold text-white enabled:hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-50"
                   title="설정된 견적보내기 서식으로 숨고 채팅 전송"
                 >
                   {soomgoQuoteSending ? '전송 중…' : '견적보내기'}
@@ -826,7 +827,7 @@ export function CrmPricingPanel({
                   type="button"
                   onClick={onFinalizeHold}
                   disabled={quoteFinalizing || (grandTotal == null && quoteLines.length === 0 && estimatedBase == null)}
-                  className="inline-flex items-center rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                  className="inline-flex h-7 items-center whitespace-nowrap rounded-lg border border-emerald-600 bg-emerald-600 px-2.5 text-fluid-2xs font-semibold text-white enabled:hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-50"
                   title="견적 확정 + 부재/보류 등록 (처리구분: 부재·보류)"
                 >
                   {quoteFinalizing ? '저장 중…' : '견적 저장 · 보류'}
@@ -836,7 +837,7 @@ export function CrmPricingPanel({
                 type="button"
                 onClick={() => void copyAll()}
                 disabled={grandTotal == null && quoteLines.length === 0}
-                className="inline-flex items-center gap-1 rounded-md border border-amber-300/80 bg-white px-2 py-1 text-[11px] font-semibold text-amber-900 transition-colors hover:bg-amber-50 disabled:opacity-40"
+                className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-lg border border-amber-300/80 bg-white px-2.5 text-fluid-2xs font-semibold text-amber-900 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <CrmIconCopy className="h-3 w-3" />
                 {copiedAll ? '복사됨' : '전체 복사'}
@@ -848,7 +849,7 @@ export function CrmPricingPanel({
                     setQuoteLines([]);
                     setAmountDrafts({});
                   }}
-                  className="text-[11px] text-gray-500 underline hover:text-gray-800"
+                  className="inline-flex h-7 items-center whitespace-nowrap px-1 text-fluid-2xs text-slate-500 underline hover:text-slate-800"
                 >
                   비우기
                 </button>

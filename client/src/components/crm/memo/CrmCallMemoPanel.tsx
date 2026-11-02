@@ -86,7 +86,7 @@ export function CrmCallMemoSection({
     <div className="space-y-3 border-t border-emerald-100/80 pt-4">
       <div>
         <p className="text-fluid-xs font-semibold text-emerald-900">통화 메모</p>
-        <p className="text-[11px] text-slate-500">상담 기록 · 고객에게 보내지 않음</p>
+        <p className="text-fluid-2xs text-slate-500">상담 기록 · 고객에게 보내지 않음</p>
       </div>
       <label className="block space-y-1">
         <span className="text-fluid-xs font-medium text-emerald-800">이번 통화</span>
@@ -113,17 +113,17 @@ export function CrmCallMemoSection({
       <div className="border-t border-emerald-100 pt-3">
         <p className="mb-2 text-fluid-xs font-semibold text-emerald-900">통화 메모 이력</p>
         {digits.length < 4 ? (
-          <p className="text-fluid-xs text-gray-500">연락처 입력 후 이력이 표시됩니다.</p>
+          <p className="text-fluid-xs text-slate-500">연락처 입력 후 이력이 표시됩니다.</p>
         ) : loading ? (
-          <p className="text-fluid-xs text-gray-500">불러오는 중…</p>
+          <p className="text-fluid-xs text-slate-500">불러오는 중…</p>
         ) : history.length === 0 ? (
-          <p className="text-fluid-xs text-gray-500">저장된 통화 메모가 없습니다.</p>
+          <p className="text-fluid-xs text-slate-500">저장된 통화 메모가 없습니다.</p>
         ) : (
           <ul className="max-h-40 space-y-2 overflow-y-auto">
             {history.map((row) => (
               <li key={row.id} className="rounded-lg border border-emerald-100 bg-white/80 p-2.5">
-                <p className="text-[11px] tabular-nums text-emerald-700">{fmtNoteTime(row.createdAt)}</p>
-                <p className="mt-1 whitespace-pre-wrap text-fluid-xs text-gray-800">{row.body}</p>
+                <p className="text-fluid-2xs tabular-nums text-emerald-700">{fmtNoteTime(row.createdAt)}</p>
+                <p className="mt-1 whitespace-pre-wrap text-fluid-xs text-slate-800">{row.body}</p>
               </li>
             ))}
           </ul>

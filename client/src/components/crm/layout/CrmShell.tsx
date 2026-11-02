@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { CRM_ACCENT, CrmColumnIcon, type CrmAccent } from '../crmUi';
+import { HelpTooltip } from '../../ui/HelpTooltip';
 
 export function CrmColumn({
   title,
@@ -11,8 +12,11 @@ export function CrmColumn({
   disableBodyScroll = false,
   headerAction,
   headerBelow,
+  titleAddon,
 }: {
   title: string;
+  /** 제목 바로 옆 작은 요소 (도움말 「?」 등) */
+  titleAddon?: ReactNode;
   subtitle?: string;
   accent: CrmAccent;
   children: ReactNode;
@@ -35,8 +39,11 @@ export function CrmColumn({
         <div className="flex items-center gap-2">
           <CrmColumnIcon accent={accent} />
           <div className="min-w-0 flex-1">
-            <h2 className="text-fluid-xs font-bold tracking-tight text-slate-900">{title}</h2>
-            {subtitle ? <p className="text-[11px] text-slate-500 leading-tight">{subtitle}</p> : null}
+            <div className="flex min-w-0 items-center gap-1">
+              <h2 className="truncate whitespace-nowrap text-fluid-xs font-bold tracking-tight text-slate-900">{title}</h2>
+              {subtitle ? <HelpTooltip text={subtitle} className="shrink-0 [&>div]:-left-16 [&>div]:w-64" /> : null}
+              {titleAddon}
+            </div>
           </div>
           {headerAction ? <div className="ml-auto shrink-0">{headerAction}</div> : null}
         </div>

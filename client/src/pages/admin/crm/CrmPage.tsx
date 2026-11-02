@@ -136,6 +136,8 @@ import {
 } from '../../../utils/crmFollowupApply';
 import type { OrderFollowupItem } from '../../../api/orderFollowups';
 import type { TelecrmCustomerLookupDto } from '../../../api/telecrm';
+import { useCrmPropertyChoiceOptions } from '../../../components/crm/intake/useCrmPropertyChoiceOptions';
+import { matchCrmImportedPropertyChoice } from '../../../utils/crmPropertyChoiceMatch';
 import {
   noticeForSoomgoQuoteAutoSend,
   sendSoomgoQuoteAutoMessage,
@@ -190,11 +192,22 @@ export function CrmPage() {
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
   const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
   const [baseEstimateOverrideWon, setBaseEstimateOverrideWon] = useState<number | null>(null);
-  const [intakeStructure, setIntakeStructure] = useState({
+  const [intakeStructure, setIntakeStructure] = useState<{
+    roomCount: string;
+    bathroomCount: string;
+    balconyCount: string;
+    propertyType?: string;
+    buildingType?: string;
+    isOneRoom?: boolean;
+  }>({
     roomCount: '',
     bathroomCount: '',
     balconyCount: '',
   });
+  /** 숨고·미소 글을 발주서 선택지로 맞출 때 씀 — 콜백 deps 를 늘리지 않으려고 ref 로 둠 */
+  const propertyChoiceOptions = useCrmPropertyChoiceOptions();
+  const propertyChoiceOptionsRef = useRef(propertyChoiceOptions);
+  propertyChoiceOptionsRef.current = propertyChoiceOptions;
   const [pricingResetKey, setPricingResetKey] = useState(0);
   const [depositAmount, setDepositAmount] = useState(0);
   const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
@@ -516,6 +529,9 @@ export function CrmPage() {
         roomCount: snapshot.roomCount,
         bathroomCount: snapshot.bathroomCount,
         balconyCount: snapshot.balconyCount,
+        propertyType: snapshot.propertyType ?? '',
+        buildingType: snapshot.buildingType ?? '',
+        isOneRoom: snapshot.isOneRoom === true,
       });
       setIntakeIdentity({
         customerName: snapshot.customerName,
@@ -557,6 +573,9 @@ export function CrmPage() {
           roomCount: '',
           bathroomCount: '',
           balconyCount: '',
+          propertyType: '',
+          buildingType: '',
+          isOneRoom: false,
           kind: 'absent',
           goldDb: false,
           leadSource: '',
@@ -714,6 +733,9 @@ export function CrmPage() {
         roomCount: '',
         bathroomCount: '',
         balconyCount: '',
+        propertyType: '',
+        buildingType: '',
+        isOneRoom: false,
         kind: 'absent',
         goldDb: false,
         leadSource: '',
@@ -759,6 +781,9 @@ export function CrmPage() {
       roomCount: draft.roomCount ?? '',
       bathroomCount: draft.bathroomCount ?? '',
       balconyCount: draft.balconyCount ?? '',
+      propertyType: draft.propertyType ?? '',
+      buildingType: draft.buildingType ?? '',
+      isOneRoom: draft.isOneRoom === true,
     });
     setInitialFormDraft({
       customerName: draft.customerName,
@@ -769,6 +794,9 @@ export function CrmPage() {
       roomCount: draft.roomCount ?? '',
       bathroomCount: draft.bathroomCount ?? '',
       balconyCount: draft.balconyCount ?? '',
+      propertyType: draft.propertyType ?? '',
+      buildingType: draft.buildingType ?? '',
+      isOneRoom: draft.isOneRoom === true,
       kind: draft.kind,
       goldDb: draft.goldDb,
       leadSource: draft.leadSource ?? '',
@@ -789,7 +817,17 @@ export function CrmPage() {
       const mergeBase = followupSoomgoMergeRef.current;
       if (mergeBase) {
         followupSoomgoMergeRef.current = null;
-        const merged = mergeSoomgoIntoFollowupSnapshot(mergeBase, data);
+        const mergedBase = mergeSoomgoIntoFollowupSnapshot(mergeBase, data);
+        const mergedChoice = matchCrmImportedPropertyChoice(propertyChoiceOptionsRef.current, [
+          data.buildingType,
+          data.serviceType,
+        ]);
+        const merged = {
+          ...mergedBase,
+          propertyType: mergedBase.propertyType?.trim() || mergedChoice.propertyType,
+          buildingType: mergedBase.buildingType?.trim() || mergedChoice.buildingType,
+          isOneRoom: mergedBase.isOneRoom === true || mergedChoice.isOneRoom,
+        };
         const summary = summarizeSoomgoImport(data);
         setSoomgoImportBanner(
           summary.lines.length > 0
@@ -800,6 +838,9 @@ export function CrmPage() {
           roomCount: merged.roomCount,
           bathroomCount: merged.bathroomCount,
           balconyCount: merged.balconyCount,
+          propertyType: merged.propertyType,
+          buildingType: merged.buildingType,
+          isOneRoom: merged.isOneRoom,
         });
         applyFollowupFieldsRef.current(merged, {
           closeDrawer: false,
@@ -821,6 +862,10 @@ export function CrmPage() {
       const preferredYmd = resolveSoomgoPreferredDate(data);
       const requestMemo = (data.requestMemo || data.memo)?.trim() || '';
       const summary = summarizeSoomgoImport(data);
+      const choice = matchCrmImportedPropertyChoice(propertyChoiceOptionsRef.current, [
+        data.buildingType,
+        data.serviceType,
+      ]);
 
       setContactPhone(split.contactPhone ?? '');
       setSafePhone(split.safePhone ?? '');
@@ -841,6 +886,9 @@ export function CrmPage() {
         roomCount: formatSoomgoCountForCrm(data.roomCount),
         bathroomCount: formatSoomgoCountForCrm(data.bathroomCount),
         balconyCount: formatSoomgoCountForCrm(data.balconyCount),
+        propertyType: choice.propertyType,
+        buildingType: choice.buildingType,
+        isOneRoom: choice.isOneRoom,
         kind: intakeDefaults.kind,
         goldDb: false,
         leadSource: BRIDGE_INQUIRY_LEAD_SOURCE_LABEL.soomgo,
@@ -850,6 +898,7 @@ export function CrmPage() {
         roomCount: formatSoomgoCountForCrm(data.roomCount),
         bathroomCount: formatSoomgoCountForCrm(data.bathroomCount),
         balconyCount: formatSoomgoCountForCrm(data.balconyCount),
+        ...choice,
       });
       setIntakeIdentity({
         customerName: name,
@@ -869,6 +918,11 @@ export function CrmPage() {
       const address = resolveMisoAddress(data);
       const requestMemo = buildMisoRequestMemo(data);
       const summary = summarizeMisoImport(data);
+      const choice = matchCrmImportedPropertyChoice(propertyChoiceOptionsRef.current, [
+        data.orderDetail?.residenceType,
+        data.orderDetail?.serviceTypeDetail,
+        data.orderDetail?.roomLayout,
+      ]);
 
       setContactPhone(data.phone?.trim() ?? '');
       setSafePhone('');
@@ -888,6 +942,9 @@ export function CrmPage() {
         roomCount: '',
         bathroomCount: '',
         balconyCount: '',
+        propertyType: choice.propertyType,
+        buildingType: choice.buildingType,
+        isOneRoom: choice.isOneRoom,
         kind: intakeDefaults.kind,
         goldDb: false,
         leadSource: BRIDGE_INQUIRY_LEAD_SOURCE_LABEL.miso,
@@ -1449,6 +1506,9 @@ export function CrmPage() {
         roomCount: snapshot.roomCount,
         bathroomCount: snapshot.bathroomCount,
         balconyCount: snapshot.balconyCount,
+        propertyType: snapshot.propertyType ?? '',
+        buildingType: snapshot.buildingType ?? '',
+        isOneRoom: snapshot.isOneRoom === true,
       });
       const extractPlatform = opts?.extractPlatform;
       const leadSource =
@@ -1463,6 +1523,9 @@ export function CrmPage() {
         roomCount: snapshot.roomCount,
         bathroomCount: snapshot.bathroomCount,
         balconyCount: snapshot.balconyCount,
+        propertyType: snapshot.propertyType ?? '',
+        buildingType: snapshot.buildingType ?? '',
+        isOneRoom: snapshot.isOneRoom === true,
         kind: snapshot.kind,
         goldDb: snapshot.goldDb,
         leadSource,
@@ -1686,7 +1749,7 @@ export function CrmPage() {
   if (!getToken()) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8 text-center">
-        <p className="text-fluid-sm text-gray-600">로그인이 필요합니다.</p>
+        <p className="text-fluid-sm text-slate-600">로그인이 필요합니다.</p>
       </div>
     );
   }
@@ -1694,7 +1757,7 @@ export function CrmPage() {
   if (permissions.loading || features === null || telecrm === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8 text-center">
-        <p className="text-fluid-sm text-gray-500">권한 확인 중…</p>
+        <p className="text-fluid-sm text-slate-500">권한 확인 중…</p>
       </div>
     );
   }
@@ -1823,18 +1886,18 @@ export function CrmPage() {
                 </div>
               ) : null}
               {hasUnsavedDraft ? (
-                <span className="order-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-amber-100 ring-1 ring-inset ring-amber-300/30 sm:order-none">
+                <span className="order-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-fluid-2xs font-semibold whitespace-nowrap text-amber-100 ring-1 ring-inset ring-amber-300/30 sm:order-none">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
                   미저장
                 </span>
               ) : null}
               <CrmHeaderStats refreshKey={statsRefreshKey} />
-              <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2 lg:ml-0">
+              <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 lg:ml-0 lg:flex-nowrap">
                 {isMobileApp ? (
                   <button
                     type="button"
                     onClick={() => setSmsDrawerOpen(true)}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-violet-100"
+                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 text-fluid-xs font-semibold whitespace-nowrap text-violet-100"
                   >
                     <CrmIconMessage className="h-4 w-4" />
                     문자
@@ -1844,7 +1907,7 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={handleToggleSoomgoBar}
-                    className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
+                    className={`relative inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-fluid-xs font-semibold whitespace-nowrap ${
                       soomgoBarOpen
                         ? 'border-cyan-300/60 bg-cyan-400/25 text-white'
                         : soomgoUpdateNoticeVisible
@@ -1866,7 +1929,7 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={handleToggleMisoBar}
-                    className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
+                    className={`relative inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-fluid-xs font-semibold whitespace-nowrap ${
                       misoBarOpen
                         ? 'border-violet-300/60 bg-violet-400/25 text-white'
                         : 'border-violet-400/40 bg-violet-500/15 text-violet-100 hover:bg-violet-500/25'
@@ -1880,7 +1943,7 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={() => openFollowup()}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-amber-100 hover:bg-amber-500/25"
+                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 text-fluid-xs font-semibold whitespace-nowrap text-amber-100 hover:bg-amber-500/25"
                   >
                     부재·보류
                   </button>
@@ -1889,7 +1952,7 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={() => openIssue()}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-sky-400/40 bg-sky-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-sky-100 hover:bg-sky-500/25"
+                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border border-sky-400/40 bg-sky-500/15 px-3 text-fluid-xs font-semibold whitespace-nowrap text-sky-100 hover:bg-sky-500/25"
                   >
                     발주서
                   </button>
@@ -1900,7 +1963,7 @@ export function CrmPage() {
                     onClick={() =>
                       openSettings('scripts', canPersonalCatalog ? 'personal' : 'shared')
                     }
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-violet-100 hover:bg-violet-500/25"
+                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 text-fluid-xs font-semibold whitespace-nowrap text-violet-100 hover:bg-violet-500/25"
                   >
                     설정
                   </button>
@@ -1909,14 +1972,14 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={() => window.close()}
-                    className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium whitespace-nowrap hover:bg-white/20"
+                    className="inline-flex h-8 shrink-0 items-center rounded-xl bg-white/10 px-3 text-fluid-xs font-medium whitespace-nowrap hover:bg-white/20"
                   >
                     창 닫기
                   </button>
                 ) : isMobileApp ? null : (
                   <Link
                     to="/admin/dashboard"
-                    className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium whitespace-nowrap hover:bg-white/20"
+                    className="inline-flex h-8 shrink-0 items-center rounded-xl bg-white/10 px-3 text-fluid-xs font-medium whitespace-nowrap hover:bg-white/20"
                   >
                     관리자로
                   </Link>
@@ -2064,14 +2127,14 @@ export function CrmPage() {
                         />
                       ) : null}
                       {recoverableDraftVisible ? (
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
-                          <span className="min-w-0 flex-1 text-fluid-2xs font-medium text-slate-700">
+                        <div className="mt-1.5 flex flex-nowrap items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 py-0.5 pl-2 pr-0.5">
+                          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-fluid-2xs font-medium text-slate-700" title="방금 입력하던 내용이 있어요">
                             방금 입력하던 내용이 있어요
                           </span>
-                          <Button size="sm" variant="secondary" onClick={applyRecoverableDraft}>
+                          <Button size="sm" variant="secondary" className="h-6 shrink-0 px-2" onClick={applyRecoverableDraft}>
                             이전 입력 복구
                           </Button>
-                          <Button size="sm" variant="quiet" onClick={dismissRecoverableDraft}>
+                          <Button size="sm" variant="quiet" className="h-6 shrink-0 px-1.5" onClick={dismissRecoverableDraft}>
                             지우기
                           </Button>
                         </div>
@@ -2129,7 +2192,7 @@ export function CrmPage() {
                       contactHistoryDismissedKeyRef.current = null;
                       setContactHistoryOpen(true);
                     }}
-                    className="rounded-lg border border-emerald-300/80 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1"
+                    className="rounded-lg border border-emerald-300/80 bg-white px-2 py-1 text-fluid-2xs font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1"
                   >
                     접촉 이력 {contactTimelineItems.length}건
                     {contactTimelineActiveCount > 0 ? ` · 진행 ${contactTimelineActiveCount}` : ''}
@@ -2157,6 +2220,9 @@ export function CrmPage() {
                 roomCount: intakeStructure.roomCount,
                 bathroomCount: intakeStructure.bathroomCount,
                 balconyCount: intakeStructure.balconyCount,
+                propertyType: intakeStructure.propertyType,
+                buildingType: intakeStructure.buildingType,
+                isOneRoom: intakeStructure.isOneRoom,
               }}
               onOpenLearningSettings={
                 canOpenSettings

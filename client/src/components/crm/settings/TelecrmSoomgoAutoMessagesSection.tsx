@@ -137,59 +137,59 @@ export function TelecrmSoomgoAutoMessagesSection() {
   };
 
   if (loading) {
-    return <p className="text-fluid-sm text-gray-500">불러오는 중…</p>;
+    return <p className="text-fluid-sm text-slate-500">불러오는 중…</p>;
   }
 
   return (
     <div className="space-y-3">
       <TelecrmBrandSelect token={token} value={brandId} onChange={setBrandId} />
       {fallbackFromDefault ? (
-        <p className="text-[12px] text-amber-700">
+        <p className="text-fluid-2xs text-amber-700">
           이 브랜드 전용 설정이 없습니다 — 아래 내용은 업체 기본입니다. 저장하면 브랜드별로 생성됩니다.
         </p>
       ) : null}
-      <p className="text-[12px] leading-snug text-gray-600">
+      <p className="text-fluid-2xs leading-snug text-slate-600">
         접수란 처리 구분별로 숨고 채팅 자동 전송 ON/OFF·메시지를 설정합니다. 브랜드별로 다르게 설정할 수
         있으며, 미설정 시 <strong>업체 기본</strong>이 사용됩니다.{' '}
-        <span className="text-gray-500">{'{고객명}'}, {'{닉네임}'} 치환 가능.</span>
+        <span className="text-slate-500">{'{고객명}'}, {'{닉네임}'} 치환 가능.</span>
       </p>
       {msg ? (
-        <p className="rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-[12px] text-green-800">
+        <p className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-fluid-2xs text-green-800">
           {msg}
         </p>
       ) : null}
       {error ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] text-red-700">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-2xs text-red-700">
           {error}
         </p>
       ) : null}
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         {drafts.map((draft) => {
           const open = expanded === draft.triggerKind;
           const stepCount = draft.steps.length;
           const busy = busyKind === draft.triggerKind;
           return (
-            <div key={draft.triggerKind} className="border-b border-gray-100 last:border-b-0">
+            <div key={draft.triggerKind} className="border-b border-slate-100 last:border-b-0">
               <div className="flex min-w-0 items-center gap-2 px-2.5 py-2">
                 <label className="flex shrink-0 items-center gap-1.5" title="자동 전송">
                   <input
                     type="checkbox"
                     checked={draft.isActive}
                     onChange={(e) => patchDraft(draft.triggerKind, { isActive: e.target.checked })}
-                    className="rounded border-gray-300"
+                    className="rounded-lg border-slate-300"
                   />
-                  <span className="text-fluid-xs font-medium text-gray-900">
+                  <span className="text-fluid-xs font-medium text-slate-900">
                     {SOOMGO_AUTO_TRIGGER_LABELS[draft.triggerKind]}
                   </span>
                 </label>
-                <span className="min-w-0 flex-1 truncate text-[11px] text-gray-500">
+                <span className="min-w-0 flex-1 truncate text-fluid-2xs text-slate-500">
                   {INTAKE_HINT[draft.triggerKind]}
                   {stepCount > 0 ? ` · ${stepCount}스텝` : ' · 미설정'}
                 </span>
                 <button
                   type="button"
                   onClick={() => setExpanded(open ? null : draft.triggerKind)}
-                  className="shrink-0 rounded border border-gray-200 px-2 py-0.5 text-[11px] text-gray-600 hover:bg-gray-50"
+                  className="shrink-0 rounded-lg border border-slate-200 px-2 py-0.5 text-fluid-2xs text-slate-600 hover:bg-slate-50"
                 >
                   {open ? '접기' : '편집'}
                 </button>
@@ -197,13 +197,13 @@ export function TelecrmSoomgoAutoMessagesSection() {
                   type="button"
                   disabled={busy}
                   onClick={() => void saveDraft(draft)}
-                  className="shrink-0 rounded bg-slate-900 px-2 py-0.5 text-[11px] text-white disabled:opacity-50"
+                  className="shrink-0 rounded-lg bg-slate-900 px-2 py-0.5 text-fluid-2xs text-white disabled:opacity-50"
                 >
                   저장
                 </button>
               </div>
               {open ? (
-                <div className="border-t border-gray-100 bg-gray-50/80 px-2 pb-2 pt-1">
+                <div className="border-t border-slate-100 bg-slate-50/80 px-2 pb-2 pt-1">
                   <SoomgoMessagePresetEditor
                     draft={draft}
                     index={0}

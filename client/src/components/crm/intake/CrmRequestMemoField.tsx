@@ -29,14 +29,14 @@ export function CrmRequestMemoField({
 
   return (
     <>
-      <label className="block space-y-0.5">
-        <span className="flex items-center justify-between gap-2">
-          <span className="text-[12px] font-medium text-slate-600">요청 메모</span>
+      <label className="block">
+        <span className="mb-1 flex items-center justify-between gap-2">
+          <span className="whitespace-nowrap text-fluid-2xs font-semibold text-slate-700">요청 메모</span>
           {hasContent ? (
             <button
               type="button"
               onClick={() => setPreviewOpen(true)}
-              className="shrink-0 rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-800 hover:bg-sky-100"
+              className="inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-1.5 text-fluid-2xs font-medium text-sky-800 hover:bg-sky-100"
             >
               크게 보기
             </button>
@@ -61,23 +61,23 @@ export function CrmRequestMemoField({
               aria-labelledby="crm-request-memo-preview-title"
             >
               <div className="absolute inset-0" aria-hidden onClick={() => setPreviewOpen(false)} />
-              <div className="relative flex max-h-[min(88vh,720px)] w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+              <div className="relative flex max-h-[min(88vh,720px)] w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                 <ModalCloseButton onClick={() => setPreviewOpen(false)} />
-                <div className="shrink-0 border-b border-gray-100 px-5 pb-3 pt-4 pr-14">
+                <div className="shrink-0 border-b border-slate-100 px-5 pb-3 pt-4 pr-14">
                   <h2
                     id="crm-request-memo-preview-title"
-                    className="text-fluid-base font-semibold text-gray-900"
+                    className="text-fluid-base font-semibold text-slate-900"
                   >
                     요청 메모
                   </h2>
-                  <p className="mt-0.5 text-[12px] text-gray-500">고객 요청 모달에서 가져온 전체 내용</p>
+                  <p className="mt-0.5 text-fluid-2xs text-slate-500">고객 요청 모달에서 가져온 전체 내용</p>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4">
-                  <p className="whitespace-pre-wrap break-words text-fluid-sm leading-relaxed text-gray-800">
+                  <p className="whitespace-pre-wrap break-words text-fluid-sm leading-relaxed text-slate-800">
                     {value.trim()}
                   </p>
                 </div>
-                <div className="shrink-0 border-t border-gray-100 px-5 py-3 text-right">
+                <div className="shrink-0 border-t border-slate-100 px-5 py-3 text-right">
                   <button
                     type="button"
                     onClick={() => setPreviewOpen(false)}

@@ -47,7 +47,7 @@ export function CrmWorkBrandBar({
         }}
         className={
           variant === 'inline'
-            ? `inline-flex max-w-[8.5rem] items-center rounded-md px-2 py-0.5 text-[11px] font-semibold truncate transition ${
+            ? `inline-flex h-6 max-w-[8.5rem] items-center whitespace-nowrap rounded-lg px-2 text-fluid-2xs font-semibold truncate transition ${
                 selected
                   ? `ring-1 ring-emerald-400/80 ring-offset-1 ring-offset-white ${colorCls}`
                   : `opacity-80 hover:opacity-100 ${colorCls}`
@@ -69,7 +69,7 @@ export function CrmWorkBrandBar({
   if (variant === 'inline') {
     return (
       <div className="flex flex-wrap items-center gap-1" role="group" aria-label="작업 브랜드">
-        <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap">브랜드</span>
+        <span className="mr-0.5 whitespace-nowrap text-fluid-2xs font-medium text-slate-500">브랜드</span>
         {chips}
       </div>
     );
@@ -81,7 +81,7 @@ export function CrmWorkBrandBar({
       role="group"
       aria-label="작업 브랜드"
     >
-      <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">
+      <span className="mr-1 text-fluid-2xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">
         작업 브랜드
       </span>
       {chips}
