@@ -89,6 +89,8 @@ export async function supersedeTelecrmConsultationQuotes(
 
 export type FinalizeTelecrmConsultationQuoteBody = {
   phone: string;
+  /** 연락처(010)가 있을 때 함께 저장할 안심번호(050) */
+  customerPhone2?: string | null;
   payload: TelecrmConsultationQuotePayload;
   customerName: string;
   nickname?: string | null;

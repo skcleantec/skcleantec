@@ -14,7 +14,13 @@ import {
   assertActiveLeadSourceLabel,
   mapLeadSourceValidationError,
 } from '../inquiry-lead-sources/inquiryLeadSource.service.js';
-import { appendFollowupLog, findOpenFollowupForPhones } from '../order-followups/orderFollowups.service.js';
+import {
+  appendFollowupLog,
+  findOpenFollowupForPhones,
+  mergeFollowupMemo,
+  OPEN_FOLLOWUP_MERGE_STATUSES,
+} from '../order-followups/orderFollowups.service.js';
+import { mergeCustomerPhones, relinkSafeNumberRecords } from '../order-followups/customerPhoneRelink.service.js';
 
 export type TelecrmConsultationQuoteDto = {
   id: string;
@@ -302,6 +308,8 @@ export async function recordTelecrmConsultationQuoteSent(
 
 export type FinalizeTelecrmConsultationQuoteInput = {
   phone: string;
+  /** 연락처2 (주로 050 안심번호) — 비우면 기존 연락처2 유지 */
+  customerPhone2?: string | null;
   payload: TelecrmConsultationQuotePayload;
   customerName: string;
   nickname?: string | null;
@@ -384,25 +392,37 @@ export async function finalizeTelecrmConsultationQuote(
   if (input.bathroomCount !== undefined) intakeExtrasData.bathroomCount = input.bathroomCount;
   if (input.balconyCount !== undefined) intakeExtrasData.balconyCount = input.balconyCount;
 
-  return prisma.$transaction(async (tx) => {
+  const phone2Input =
+    typeof input.customerPhone2 === 'string' ? input.customerPhone2.trim().slice(0, 32) || null : null;
+
+  const finalized = await prisma.$transaction(async (tx) => {
     const existing = await findOpenFollowupForPhones(tx, {
       tenantId,
       operatingCompanyId,
       customerPhone: phone,
+      customerPhone2: phone2Input,
+      statuses: OPEN_FOLLOWUP_MERGE_STATUSES,
     });
     let followup: { id: string };
     let followupCreated = false;
 
     if (existing) {
+      const mergedPhones = mergeCustomerPhones({
+        prevPhone: existing.customerPhone,
+        prevPhone2: existing.customerPhone2,
+        nextPhone: phone,
+        nextPhone2: phone2Input,
+      });
       followup = await tx.orderFollowup.update({
         where: { id: existing.id },
         data: {
           customerName,
           nickname,
-          customerPhone: phone,
+          customerPhone: mergedPhones.customerPhone || phone,
+          customerPhone2: mergedPhones.customerPhone2,
           status: followupStatus,
-          goldDb,
-          memo: followupMemo,
+          goldDb: goldDb || existing.goldDb,
+          memo: mergeFollowupMemo(existing.memo, followupMemo),
           handledById: userId,
           ...(resolvedLeadSource != null ? { leadSource: resolvedLeadSource } : {}),
           ...(preferredMoveInCleaningDate !== undefined
@@ -419,13 +439,20 @@ export async function finalizeTelecrmConsultationQuote(
         detail: JSON.stringify({ status: followupStatus, quoteGrandTotalWon: input.payload.grandTotalWon }),
       });
     } else {
+      const createPhones = mergeCustomerPhones({
+        prevPhone: null,
+        prevPhone2: null,
+        nextPhone: phone,
+        nextPhone2: phone2Input,
+      });
       followup = await tx.orderFollowup.create({
         data: {
           tenantId,
           operatingCompanyId,
           customerName,
           nickname,
-          customerPhone: phone,
+          customerPhone: createPhones.customerPhone || phone,
+          customerPhone2: createPhones.customerPhone2,
           status: followupStatus,
           goldDb,
           memo: followupMemo,
@@ -521,6 +548,26 @@ export async function finalizeTelecrmConsultationQuote(
       followupCreated,
     };
   });
+
+  try {
+    const saved = await prisma.orderFollowup.findUnique({
+      where: { id: finalized.followupId },
+      select: { customerPhone: true, customerPhone2: true },
+    });
+    if (saved) {
+      await relinkSafeNumberRecords(prisma, {
+        tenantId,
+        operatingCompanyId,
+        customerPhone: saved.customerPhone,
+        customerPhone2: saved.customerPhone2,
+        actorUserId: userId,
+        excludeFollowupId: finalized.followupId,
+      });
+    }
+  } catch (e) {
+    console.error('[telecrm-quote] finalize phone relink failed', e instanceof Error ? e.message : e);
+  }
+  return finalized;
 }
 
 export async function linkTelecrmConsultationQuoteInquiry(

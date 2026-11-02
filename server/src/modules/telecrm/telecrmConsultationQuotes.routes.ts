@@ -158,6 +158,7 @@ router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'cr
     const intakeExtras = parseFollowupIntakeExtrasFromBody(body);
     const result = await finalizeTelecrmConsultationQuote(tenantId, operatingCompanyId, user.userId, {
       phone,
+      customerPhone2: typeof body.customerPhone2 === 'string' ? body.customerPhone2 : null,
       payload: parsed,
       customerName,
       nickname: typeof body.nickname === 'string' ? body.nickname : null,

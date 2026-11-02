@@ -4,6 +4,7 @@ import {
   intakeKindFromFollowupStatus,
   splitFollowupStoredPhones,
 } from './crmFollowupApply';
+import { isCrmMobilePhone, isCrmSafePhone } from './crmContactPhone';
 import { formatSoomgoCountForCrm, pickRicherSoomgoRequestMemo } from './crmSoomgoImport';
 
 export type CrmLookupApplyResult = {
@@ -39,6 +40,18 @@ function formatPyeong(n: number | null | undefined): string {
   return String(n);
 }
 
+/** 접수·부재현황 연락처 중 010 이 있으면 연락처로, 050 은 안심번호로 */
+function resolveLookupPhones(
+  candidates: (string | null | undefined)[],
+  fallback: { primary: string; second: string | null },
+): { contactPhone: string; safePhone: string } {
+  const list = candidates.map((p) => (p ?? '').trim()).filter(Boolean);
+  const mobile = list.find((p) => isCrmMobilePhone(p)) ?? '';
+  const safe = list.find((p) => isCrmSafePhone(p)) ?? '';
+  if (mobile) return { contactPhone: mobile, safePhone: safe };
+  return splitFollowupStoredPhones(fallback.primary, fallback.second);
+}
+
 /** customer-lookup 결과 → CRM 접수란(추가 필드 포함) 일괄 채움 */
 export function buildCrmLookupApply(
   data: TelecrmCustomerLookupDto,
@@ -52,10 +65,22 @@ export function buildCrmLookupApply(
     data.followups[0] ??
     null;
 
-  const dialPhone = data.customer.phone.trim() || inquiry?.customerPhone.trim() || '';
-  const phones = splitFollowupStoredPhones(
-    inquiry?.customerPhone.trim() || dialPhone,
-    inquiry?.customerPhone2 ?? null,
+  const dialPhone =
+    data.customer.phone.trim() || inquiry?.customerPhone.trim() || followup?.customerPhone?.trim() || '';
+  const phones = resolveLookupPhones(
+    [
+      inquiry?.customerPhone,
+      inquiry?.customerPhone2,
+      followup?.customerPhone,
+      followup?.customerPhone2,
+      dialPhone,
+    ],
+    inquiry
+      ? { primary: inquiry.customerPhone.trim() || dialPhone, second: inquiry.customerPhone2 ?? null }
+      : {
+          primary: followup?.customerPhone?.trim() || dialPhone,
+          second: followup?.customerPhone2 ?? null,
+        },
   );
 
   const customerName = inquiry?.customerName ?? data.customer.name ?? followup?.customerName ?? '';

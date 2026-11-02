@@ -3,7 +3,13 @@ import type { TelecrmCustomerCandidateDto, TelecrmCustomerLookupDto } from '../.
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import { buildCrmLookupApply } from '../../../utils/crmLookupApply';
 import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultationQuote';
-import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
+import {
+  isCrmIntakeContinuableInquiryStatus,
+  type CrmIntakeExistingInquiry,
+  type CrmIntakeSubmitResult,
+} from './crmIntakeSubmit';
+import { confirmDialog } from '../../ui/Toast';
+import type { SoomgoBridgeStatus } from '@shared/soomgoBridge';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmIconIntake, CrmIconPhone, CrmIconReset, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
 import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
@@ -119,6 +125,7 @@ export function CrmIntakePanel({
   onOpenInquiryEdit,
   lookupRefreshKey,
   onSaved,
+  soomgoBridgeStatus = null,
   initialFormDraft,
   onFormChange,
   skipAutoFillPhone,
@@ -180,6 +187,8 @@ export function CrmIntakePanel({
   }) => void;
   /** 멀티 브랜드 — 패널 헤더 하단 */
   workBrandBar?: ReactNode;
+  /** CRM 이 폴링한 숨고 연동 상태 — 자동 안내 전송 전 다시 묻지 않도록 */
+  soomgoBridgeStatus?: SoomgoBridgeStatus | null;
 }) {
   const outboundPhone = resolveCrmOutboundPhone(contactPhone, safePhone);
   const token = getToken();
@@ -259,6 +268,12 @@ export function CrmIntakePanel({
   }, [mode]);
 
   const activeInquiryId = lastInquiryId ?? data?.inquiries?.[0]?.id ?? null;
+  const existingInquiryForSave = useMemo<CrmIntakeExistingInquiry | null>(() => {
+    if (mode !== 'existing' || !activeInquiryId) return null;
+    const inq = data?.inquiries?.find((row) => row.id === activeInquiryId);
+    if (!inq || !isCrmIntakeContinuableInquiryStatus(inq.status)) return null;
+    return { id: inq.id, status: inq.status, memo: inq.memo, source: inq.source };
+  }, [mode, activeInquiryId, data?.inquiries]);
   const activeCustomerMatch: 'new' | 'existing' | 'pick' | 'unknown' =
     mode === 'new' ? 'new' : data?.match === 'pick' ? 'pick' : data?.match === 'existing' ? 'existing' : 'unknown';
 
@@ -343,7 +358,7 @@ export function CrmIntakePanel({
       customerName: result.customerName,
       nickname: result.nickname,
       operatingCompanyId,
-    }).then((auto) => {
+    }, soomgoBridgeStatus).then((auto) => {
       const notice = noticeForSoomgoFollowupAutoSend(auto);
       if (notice) onDispatchNotice?.(notice);
     });
@@ -367,9 +382,11 @@ export function CrmIntakePanel({
   const handleCall = async () => {
     if (!canDial || !token) return;
     if (soomgoHiredOther) {
-      const ok = window.confirm(
-        '숨고에서 「다른 고수를 고용함」 상태입니다. 재연락·통화는 권장하지 않습니다.\n\n그래도 통화하시겠습니까?',
-      );
+      const ok = await confirmDialog({
+        title: '숨고에서 「다른 고수를 고용함」 상태입니다.',
+        body: '재연락·통화는 권장하지 않습니다. 그래도 통화하시겠습니까?',
+        confirmLabel: '통화하기',
+      });
       if (!ok) return;
     }
     const matchedInquiry = data?.inquiries?.find((inq) => inq.id === activeInquiryId);
@@ -393,6 +410,7 @@ export function CrmIntakePanel({
         nickname: formSeed.nickname,
         marketerName: userName ?? undefined,
       },
+      bridgeStatus: soomgoBridgeStatus,
     });
     const notice = autoNotice ?? callNotice;
     if (notice) onDispatchNotice?.(notice);
@@ -581,6 +599,7 @@ export function CrmIntakePanel({
             soomgoImportFlashKey={soomgoImportFlashKey}
             soomgoHiredOther={soomgoHiredOther}
             operatingCompanyId={operatingCompanyId}
+            existingInquiry={existingInquiryForSave}
           />
         </div>
 

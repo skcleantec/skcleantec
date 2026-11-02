@@ -3,6 +3,7 @@ import { fetchTelecrmQuoteCrewLearningHints } from '../../../api/telecrmQuoteCre
 import type { TelecrmQuoteCrewLearningHints } from '@shared/telecrmQuoteCrewLearning';
 import { getToken } from '../../../stores/auth';
 import { formatWon } from '../settings/telecrmSettingsUi';
+import { Button } from '../../ui/Button';
 
 export type CrmQuoteLearningContext = {
   pyeong: string;
@@ -33,6 +34,21 @@ function buildHintLine(hints: TelecrmQuoteCrewLearningHints): string | null {
   return parts.join(' · ');
 }
 
+/** 서버 `recommendedAmount`(중앙값 1만원 반올림) 우선, 없으면 중앙값을 1만원 단위로 반올림 */
+export function resolveQuoteLearningRecommendedAmount(
+  hints: TelecrmQuoteCrewLearningHints | null,
+): number | null {
+  if (!hints || hints.confidence === 'none' || !(hints.matchCount > 0)) return null;
+  const rec = (hints as TelecrmQuoteCrewLearningHints & { recommendedAmount?: number | null })
+    .recommendedAmount;
+  if (typeof rec === 'number' && Number.isFinite(rec) && rec > 0) return Math.round(rec);
+  const median = hints.medianAmountWon;
+  if (typeof median === 'number' && Number.isFinite(median) && median > 0) {
+    return Math.round(median / 10000) * 10000;
+  }
+  return null;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error('timeout')), ms);
@@ -51,13 +67,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 export function CrmQuoteLearningHintBanner({
   context,
   onOpenLearningSettings,
+  onApplyRecommended,
 }: {
   context: CrmQuoteLearningContext;
   onOpenLearningSettings?: () => void;
+  /** 「AI 추천가 넣기」 — 안내 목록에 추천 금액 반영 */
+  onApplyRecommended?: (input: { amountWon: number; matchCount: number }) => void;
 }) {
   const token = getToken();
   const [hints, setHints] = useState<TelecrmQuoteCrewLearningHints | null>(null);
   const [showLoadingUi, setShowLoadingUi] = useState(false);
+  const [fetched, setFetched] = useState(false);
 
   const queryKey = useMemo(
     () =>
@@ -83,12 +103,14 @@ export function CrmQuoteLearningHintBanner({
       Boolean(context.balconyCount?.trim());
     if (!hasSignal) {
       setHints(null);
+      setFetched(false);
       setShowLoadingUi(false);
       return;
     }
 
     let cancelled = false;
     setHints(null);
+    setFetched(false);
     setShowLoadingUi(false);
 
     const debounceTimer = window.setTimeout(() => {
@@ -117,7 +139,10 @@ export function CrmQuoteLearningHintBanner({
         })
         .finally(() => {
           if (loadingUiTimer != null) window.clearTimeout(loadingUiTimer);
-          if (!cancelled) setShowLoadingUi(false);
+          if (!cancelled) {
+            setShowLoadingUi(false);
+            setFetched(true);
+          }
         });
     }, FETCH_DEBOUNCE_MS);
 
@@ -129,7 +154,11 @@ export function CrmQuoteLearningHintBanner({
   }, [token, queryKey, context]);
 
   const line = hints ? buildHintLine(hints) : null;
-  if (!showLoadingUi && !line) return null;
+  const recommendedAmount = resolveQuoteLearningRecommendedAmount(hints);
+  if (!showLoadingUi && !line) {
+    if (!fetched) return null;
+    return <p className="px-0.5 text-fluid-2xs text-slate-500">비슷한 예약 데이터가 아직 부족해요</p>;
+  }
 
   const tone =
     hints?.confidence === 'high'
@@ -147,7 +176,19 @@ export function CrmQuoteLearningHintBanner({
       ) : (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-medium">📊 {line}</span>
-          {hints?.featureLabel ? <span className="text-gray-600">({hints.featureLabel})</span> : null}
+          {hints?.featureLabel ? <span className="text-slate-600">({hints.featureLabel})</span> : null}
+          {onApplyRecommended && recommendedAmount != null && hints ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              title={`추천가 ${formatWon(recommendedAmount)}을 안내 목록에 넣어요`}
+              onClick={() =>
+                onApplyRecommended({ amountWon: recommendedAmount, matchCount: hints.matchCount })
+              }
+            >
+              AI 추천가 넣기
+            </Button>
+          ) : null}
           {onOpenLearningSettings ? (
             <button
               type="button"

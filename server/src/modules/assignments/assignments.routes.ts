@@ -10,6 +10,7 @@ import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSel
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { notifyNewAssignmentForInquiry } from '../push/inquiryTeamWebPush.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import { syncTelecrmQuoteCrewLearningFromInquiry } from '../telecrm/telecrmQuoteCrewLearning.service.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import {
   assertTeamLeadersMatchInquiryBrand,
@@ -236,6 +237,9 @@ router.post('/', async (req, res) => {
 
   void notifyNewAssignmentForInquiry(tenantId, inquiryId, [teamLeaderId], [...prevLeaderSet]).catch((e) =>
     console.error('[assignment-notify] notifyNewAssignmentForInquiry', e),
+  );
+  void syncTelecrmQuoteCrewLearningFromInquiry(prisma, tenantId, inquiryId).catch((e) =>
+    console.error('[telecrm-quote-learning] sync after assignment', e instanceof Error ? e.message : e),
   );
   if (teamLeader.role === 'TEAM_LEADER') {
     queueHouseholdLedgerInquirySync(prisma, { tenantId, inquiryId });

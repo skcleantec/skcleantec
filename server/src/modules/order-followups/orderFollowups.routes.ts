@@ -18,8 +18,10 @@ import {
   appendFollowupLog,
   findOpenFollowupForPhones,
   FOLLOWUP_INCLUDE,
-  OPEN_FOLLOWUP_DEDUP_STATUSES,
+  mergeFollowupMemo,
+  OPEN_FOLLOWUP_MERGE_STATUSES,
   parseStatus,
+  type FollowupWithRelations,
   serializeFollowup,
   serializeLog,
 } from './orderFollowups.service.js';
@@ -46,10 +48,25 @@ import {
   mapOperatingCompanyResolveError,
 } from '../operating-companies/operatingCompanyResolve.service.js';
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
-import type { UserRole, OrderFollowupStatus } from '@prisma/client';
+import type { UserRole } from '@prisma/client';
+import { mergeCustomerPhones, relinkSafeNumberRecords } from './customerPhoneRelink.service.js';
 import { readCrmWorkBrandInput, resolveCrmWorkOperatingCompanyId } from '../telecrm/crmWorkBrandResolve.service.js';
 
 const router = Router();
+
+/** 부재현황 상태 순위 — 요청·부재·보류는 같은 단계(서로 이동 가능) */
+function followupStatusRank(st: string): number {
+  switch (st) {
+    case 'DEPOSIT_PENDING':
+      return 2;
+    case 'RESERVED':
+      return 3;
+    case 'FULFILLED':
+      return 4;
+    default:
+      return 1;
+  }
+}
 
 /** 부재현황이 입금 완료(RESERVED)일 때, 연결 접수가 입금대기면 접수 목록용 입금완료(DEPOSIT_COMPLETED)로 맞춤 */
 async function syncInquiryWhenFollowupDepositComplete(inquiryId: string, tenantId: string): Promise<void> {
@@ -512,17 +529,6 @@ router.post('/', async (req, res) => {
     connectInquiryId = iid;
   }
   try {
-  if (!connectInquiryId && (status === 'DEPOSIT_PENDING' || status === 'RESERVED')) {
-    connectInquiryId = await createInquiryForDepositFlow({
-      actorId: user.userId,
-      customerName,
-      nickname,
-      customerPhone,
-      customerPhone2: customerPhone2 ?? null,
-      memo,
-      followupStatus: status,
-    });
-  }
   let operatingCompanyId: string;
   try {
     const isStaffAdmin = await userHasStaffAdminAccess(user);
@@ -543,23 +549,63 @@ router.post('/', async (req, res) => {
     throw e;
   }
 
-  const dedupStatuses = OPEN_FOLLOWUP_DEDUP_STATUSES as readonly OrderFollowupStatus[];
-  if ((dedupStatuses as OrderFollowupStatus[]).includes(status)) {
-    const existing = await findOpenFollowupForPhones(prisma, {
+  /**
+   * 동일 연락처(연락처1·2 교차 비교)의 열린 부재현황, 또는 같은 접수에 연결된 부재현황이 있으면
+   * 들어온 상태와 관계없이 그 행에 합친다(메모는 이어 붙임).
+   */
+  let existing: FollowupWithRelations | null = null;
+  if (connectInquiryId) {
+    existing = await prisma.orderFollowup.findFirst({
+      where: { tenantId, inquiryId: connectInquiryId },
+      include: FOLLOWUP_INCLUDE,
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+  if (!existing) {
+    existing = await findOpenFollowupForPhones(prisma, {
       tenantId,
       operatingCompanyId,
       customerPhone,
       customerPhone2: customerPhone2 ?? null,
+      statuses: OPEN_FOLLOWUP_MERGE_STATUSES,
     });
+  }
+  if (!connectInquiryId && existing?.inquiryId && (status === 'DEPOSIT_PENDING' || status === 'RESERVED')) {
+    connectInquiryId = existing.inquiryId;
+  }
+  if (!connectInquiryId && (status === 'DEPOSIT_PENDING' || status === 'RESERVED')) {
+    connectInquiryId = await createInquiryForDepositFlow({
+      actorId: user.userId,
+      customerName,
+      nickname,
+      customerPhone,
+      customerPhone2: customerPhone2 ?? null,
+      memo,
+      followupStatus: status,
+    });
+  }
+
+  {
     if (existing) {
+      const mergedPhones = mergeCustomerPhones({
+        prevPhone: existing.customerPhone,
+        prevPhone2: existing.customerPhone2,
+        nextPhone: customerPhone,
+        nextPhone2: customerPhone2 ?? null,
+      });
+      const mergedMemo = mergeFollowupMemo(existing.memo, memo);
+      /** 합칠 때 상태는 내리지 않는다 (요청·부재·보류 < 예약금 대기 < 입금 완료 < 처리 완료) */
+      const mergedStatus =
+        followupStatusRank(status) < followupStatusRank(existing.status) ? existing.status : status;
       const updateData: import('@prisma/client').Prisma.OrderFollowupUpdateInput = {
         customerName,
         nickname,
-        customerPhone,
-        ...(customerPhone2 !== undefined ? { customerPhone2 } : {}),
-        status,
-        goldDb,
-        memo,
+        customerPhone: mergedPhones.customerPhone || customerPhone,
+        customerPhone2: mergedPhones.customerPhone2,
+        status: mergedStatus,
+        goldDb: goldDb || existing.goldDb,
+        memo: mergedMemo,
+        ...(mergedStatus === 'RESERVED' && !existing.depositReceivedAt ? { depositReceivedAt: new Date() } : {}),
         nextContactAt: nextContactAt === undefined ? undefined : nextContactAt,
         handledBy: { connect: { id: user.userId } },
         ...(resolvedLeadSource != null ? { leadSource: resolvedLeadSource } : {}),
@@ -573,20 +619,20 @@ router.post('/', async (req, res) => {
         data: updateData,
       });
 
-      if (existing.status !== status) {
+      if (existing.status !== mergedStatus) {
         await appendFollowupLog(prisma, {
           followupId: existing.id,
           actorId: user.userId,
           action: 'STATUS',
-          detail: JSON.stringify({ from: existing.status, to: status }),
+          detail: JSON.stringify({ from: existing.status, to: mergedStatus }),
         });
       }
-      if ((existing.memo ?? null) !== (memo ?? null)) {
+      if ((existing.memo ?? null) !== (mergedMemo ?? null)) {
         await appendFollowupLog(prisma, {
           followupId: existing.id,
           actorId: user.userId,
           action: 'MEMO',
-          detail: memo ?? null,
+          detail: memo ?? mergedMemo ?? null,
         });
       }
       await appendFollowupLog(prisma, {
@@ -597,9 +643,10 @@ router.post('/', async (req, res) => {
           source: 'create_dedup',
           customerName,
           nickname,
-          customerPhone,
-          customerPhone2: customerPhone2 ?? existing.customerPhone2 ?? null,
-          status,
+          customerPhone: mergedPhones.customerPhone || customerPhone,
+          customerPhone2: mergedPhones.customerPhone2,
+          status: mergedStatus,
+          ...(mergedStatus !== status ? { requestedStatus: status } : {}),
           goldDb,
           ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
           ...(preferredMoveInCleaningDate !== undefined
@@ -615,12 +662,20 @@ router.post('/', async (req, res) => {
       });
       const linkedInquiryId = full.inquiryId;
       if (linkedInquiryId) {
-        if (status === 'DEPOSIT_PENDING') {
+        if (mergedStatus === 'DEPOSIT_PENDING') {
           await syncInquiryWhenFollowupDepositPending(linkedInquiryId, tenantId);
-        } else if (status === 'RESERVED') {
+        } else if (mergedStatus === 'RESERVED') {
           await syncInquiryWhenFollowupDepositComplete(linkedInquiryId, tenantId);
         }
       }
+      await relinkSafeNumberRecords(prisma, {
+        tenantId,
+        operatingCompanyId,
+        customerPhone: full.customerPhone,
+        customerPhone2: full.customerPhone2,
+        actorUserId: user.userId,
+        excludeFollowupId: full.id,
+      });
       res.json({ item: serializeFollowup(full), deduped: true });
       return;
     }
@@ -678,6 +733,14 @@ router.post('/', async (req, res) => {
       await syncInquiryWhenFollowupDepositComplete(connectInquiryId, tenantId);
     }
   }
+  await relinkSafeNumberRecords(prisma, {
+    tenantId,
+    operatingCompanyId,
+    customerPhone: full.customerPhone,
+    customerPhone2: full.customerPhone2,
+    actorUserId: user.userId,
+    excludeFollowupId: full.id,
+  });
   res.status(201).json({ item: serializeFollowup(full) });
   } catch (e) {
     const coinErr = mapTenantCoinError(e);
@@ -943,6 +1006,16 @@ router.patch('/:id', async (req, res) => {
       await syncInquiryWhenFollowupDepositComplete(full.inquiryId, tenantId);
     }
   }
+  if (data.customerPhone !== undefined || data.customerPhone2 !== undefined) {
+    await relinkSafeNumberRecords(prisma, {
+      tenantId,
+      operatingCompanyId: full.operatingCompanyId,
+      customerPhone: full.customerPhone,
+      customerPhone2: full.customerPhone2,
+      actorUserId: user.userId,
+      excludeFollowupId: full.id,
+    });
+  }
   res.json({ item: serializeFollowup(full) });
   } catch (e) {
     const coinErr = mapTenantCoinError(e);
@@ -971,6 +1044,15 @@ router.post('/:id/defer', async (req, res) => {
   }
   if (prev.status === 'FULFILLED') {
     res.status(400).json({ error: '처리 완료된 건에는 부재 누적을 할 수 없습니다.' });
+    return;
+  }
+  /** 예약금 대기·입금 완료로 진행된 건은 부재 누적을 올리지 않고 그대로 돌려준다(접수 저장 후 자동 호출 대비) */
+  if (prev.status === 'DEPOSIT_PENDING' || prev.status === 'RESERVED') {
+    const unchanged = await prisma.orderFollowup.findUniqueOrThrow({
+      where: { id },
+      include: FOLLOWUP_INCLUDE,
+    });
+    res.json({ item: serializeFollowup(unchanged), deferSkipped: true });
     return;
   }
   const note = typeof body.note === 'string' ? body.note.trim() : '';

@@ -51,6 +51,8 @@ export type TelecrmQuoteCrewLearningHints = {
   confidence: TelecrmQuoteCrewLearningConfidence;
   featureLabel: string | null;
   medianAmountWon: number | null;
+  /** 추천 견적가 — 유사 건 중앙값을 1만원 단위로 반올림 */
+  recommendedAmount: number | null;
   amountRangeWon: { p25: number; p75: number } | null;
   typicalTeamLeaderCount: number | null;
   typicalCrewMemberCount: number | null;

@@ -109,6 +109,7 @@ export function formatFollowupLogDetail(action: string, detail: string | null | 
   if (key === 'STATUS') {
     const from = statusLabel(o.from);
     const to = statusLabel(o.to);
+    if (typeof o.note === 'string' && o.note.trim()) return o.note.trim();
     if (from && to && from === to) return `상태 ${to}`;
     if (from && to) return `${from} → ${to}`;
     if (to) return `상태 ${to}`;
@@ -116,6 +117,7 @@ export function formatFollowupLogDetail(action: string, detail: string | null | 
   }
 
   if (key === 'CUSTOMER_PHONE' || key === 'CUSTOMER_PHONE2') {
+    if (typeof o.note === 'string' && o.note.trim()) return o.note.trim();
     return `${fmtPhone(o.from)} → ${fmtPhone(o.to)}`;
   }
 

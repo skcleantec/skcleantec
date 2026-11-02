@@ -1,5 +1,6 @@
 import { operatingCompanyBadgeColorClasses } from '../../../utils/operatingCompanyBadgeColors';
 import type { MyOperatingCompanyItem } from '../../../api/operatingCompanies';
+import { confirmDialog } from '../../ui/Toast';
 
 type CrmWorkBrandBarProps = {
   items: MyOperatingCompanyItem[];
@@ -35,10 +36,14 @@ export function CrmWorkBrandBar({
         disabled={switching || selected}
         onClick={() => {
           if (selected) return;
-          const ok = window.confirm(
-            `작업 브랜드를 「${item.displayName}」로 바꿉니다.\n고객 조회·저장·숨고 연동이 해당 브랜드 기준으로 바뀁니다.`,
-          );
-          if (ok) onSwitch(item.slug);
+          void (async () => {
+            const ok = await confirmDialog({
+              title: `작업 브랜드를 「${item.displayName}」로 바꿉니다.`,
+              body: '고객 조회·저장·숨고 연동이 해당 브랜드 기준으로 바뀁니다.',
+              confirmLabel: '바꾸기',
+            });
+            if (ok) onSwitch(item.slug);
+          })();
         }}
         className={
           variant === 'inline'

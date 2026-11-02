@@ -9,8 +9,10 @@ import {
   submitCrmIntake,
   type CrmIntakeFormValues,
   type CrmIntakeKind,
+  type CrmIntakeExistingInquiry,
   type CrmIntakeSubmitResult,
 } from './crmIntakeSubmit';
+import { toast } from '../../ui/Toast';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
 import { CrmRequestMemoField } from './CrmRequestMemoField';
@@ -54,6 +56,7 @@ export function CrmIntakeForm({
   lookupImportKey = 0,
   seedSyncDisabled = false,
   operatingCompanyId = null,
+  existingInquiry = null,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
@@ -75,6 +78,8 @@ export function CrmIntakeForm({
   quotePayload?: TelecrmConsultationQuotePayload | null;
   soomgoImportFlashKey?: number;
   soomgoHiredOther?: boolean;
+  /** 기존 고객 — 진행 중 접수에 이어서 저장 */
+  existingInquiry?: CrmIntakeExistingInquiry | null;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -240,11 +245,22 @@ export function CrmIntakeForm({
           extractPlatform,
         },
         pyeong,
-        { operatingCompanyId, quotePayload, incrementDefer },
+        { operatingCompanyId, quotePayload, incrementDefer, existingInquiry },
       );
       const freshStart = incrementDefer || !keepForm;
       onSaved(result, { freshStart });
-      setMsg(incrementDefer ? '저장했습니다. 부재+1 반영' : '저장했습니다.');
+      if (result.kind === 'inquiry' && result.continued === 'appended') {
+        toast.success('이미 진행 중인 접수에 내용을 더했어요');
+        setMsg('이미 진행 중인 접수에 내용을 더했어요.');
+      } else if (result.kind === 'inquiry' && result.continued === 'merged') {
+        toast.success('기존 접수에 이어서 저장했어요');
+        setMsg('기존 접수에 이어서 저장했어요.');
+      } else if (result.kind === 'inquiry') {
+        toast.success('새 접수로 저장했어요');
+        setMsg('새 접수로 저장했어요.');
+      } else {
+        setMsg(incrementDefer ? '저장했습니다. 부재+1 반영' : '저장했습니다.');
+      }
       if (!freshStart) {
         window.setTimeout(() => setMsg(null), 2500);
       }

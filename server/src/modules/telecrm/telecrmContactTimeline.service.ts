@@ -36,6 +36,46 @@ function phonesMatch(a: string, b: string): boolean {
   return false;
 }
 
+/** 부재현황·접수 연결용 — 끝 10~11자리까지 같아야 같은 번호 */
+function phonesStrictMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  const da = normalizePhone(a ?? '');
+  const db = normalizePhone(b ?? '');
+  if (da.length < 7 || db.length < 7) return false;
+  if (da === db) return true;
+  if (da.length >= 11 && db.length >= 11 && da.slice(-11) === db.slice(-11)) return true;
+  return da.length >= 10 && db.length >= 10 && da.slice(-10) === db.slice(-10);
+}
+
+function rowPhoneMatches(
+  row: { customerPhone: string | null; customerPhone2?: string | null },
+  phones: string[],
+): boolean {
+  if (phones.length === 0) return false;
+  return phones.some(
+    (p) => phonesStrictMatch(row.customerPhone, p) || phonesStrictMatch(row.customerPhone2 ?? null, p),
+  );
+}
+
+function phoneTailOrFilter(phones: string[]): { customerPhone?: { contains: string }; customerPhone2?: { contains: string } }[] {
+  const tails = [...new Set(phones.map((p) => p.slice(-4)).filter((t) => t.length === 4))];
+  return tails.flatMap((tail) => [
+    { customerPhone: { contains: tail } },
+    { customerPhone2: { contains: tail } },
+  ]);
+}
+
+/** 이 상태의 접수가 나중에 생기면 부재·보류는 이미 진행된 것으로 본다 */
+const INQUIRY_PROGRESSED_STATUSES = [
+  'RECEIVED',
+  'DEPOSIT_PENDING',
+  'DEPOSIT_COMPLETED',
+  'ORDER_FORM_PENDING',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CS_PROCESSING',
+] as const;
+
 function collectPhones(phoneRaw?: string, phone2Raw?: string): string[] {
   const out = new Set<string>();
   for (const raw of [phoneRaw ?? '', phone2Raw ?? '']) {
@@ -146,11 +186,19 @@ export async function listTelecrmContactTimeline(
     ],
   };
 
+  /** 연락처가 있으면 부재현황은 번호(연락처1·2)로만 매칭, 없을 때만 이름으로 */
+  const followupByPhone = phones.length > 0;
   const followupWhere: Prisma.OrderFollowupWhereInput = {
     tenantId,
     ...(search.operatingCompanyId ? { operatingCompanyId: search.operatingCompanyId } : {}),
-    OR: followupNameOrFilter(tokens),
+    OR: followupByPhone ? phoneTailOrFilter(phones) : followupNameOrFilter(tokens),
   };
+  const followupMatches = (row: {
+    customerName: string;
+    nickname?: string | null;
+    customerPhone: string;
+    customerPhone2?: string | null;
+  }) => (followupByPhone ? rowPhoneMatches(row, phones) : rowNameMatches(row, tokens));
 
   const csWhere: Prisma.CsReportWhereInput = {
     tenantId,
@@ -160,7 +208,7 @@ export async function listTelecrmContactTimeline(
     })),
   };
 
-  const [inquiryRows, followupRows, csRows] = await Promise.all([
+  const [inquiryRows, followupRows, csRows, phoneInquiryRows] = await Promise.all([
     prisma.inquiry.findMany({
       where: inquiryWhere,
       orderBy: { updatedAt: 'desc' },
@@ -199,12 +247,31 @@ export async function listTelecrmContactTimeline(
         createdAt: true,
       },
     }),
+    phones.length > 0
+      ? prisma.inquiry.findMany({
+          where: {
+            tenantId,
+            deletedAt: null,
+            ...(search.operatingCompanyId ? { operatingCompanyId: search.operatingCompanyId } : {}),
+            status: { in: [...INQUIRY_PROGRESSED_STATUSES] },
+            OR: phoneTailOrFilter(phones),
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 40,
+          select: { id: true, status: true, createdAt: true, customerPhone: true, customerPhone2: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const matchedInquiryIds = inquiryRows.map((r) => r.id);
-  const matchedFollowupIds = followupRows
-    .filter((row) => rowNameMatches(row, tokens))
-    .map((r) => r.id);
+  const matchedFollowupRows = followupRows.filter(followupMatches);
+  const matchedFollowupIds = matchedFollowupRows.map((r) => r.id);
+  const progressedInquiries = phoneInquiryRows.filter((r) => rowPhoneMatches(r, phones));
+  /** 같은 번호로 부재현황 이후 접수(접수·입금대기 이후)가 생겼으면 진행 중으로 보지 않음 — 과거 데이터 보정 */
+  const followupSupersededByInquiry = (row: { createdAt: Date; inquiryId: string | null }) =>
+    progressedInquiries.some(
+      (inq) => inq.createdAt.getTime() >= row.createdAt.getTime() || (row.inquiryId != null && inq.id === row.inquiryId),
+    );
 
   const sessionOr: Prisma.TelecrmCallSessionWhereInput[] = [
     ...(matchedInquiryIds.length > 0 ? [{ inquiryId: { in: matchedInquiryIds } }] : []),
@@ -359,8 +426,9 @@ export async function listTelecrmContactTimeline(
     });
   }
 
-  for (const row of followupRows.filter((r) => rowNameMatches(r, tokens))) {
+  for (const row of matchedFollowupRows) {
     const statusLabel = FOLLOWUP_STATUS_LABEL[row.status] ?? row.status;
+    const openStatus = row.status === 'ABSENT' || row.status === 'ON_HOLD' || row.status === 'REQUESTED';
     items.push({
       id: `followup:${row.id}`,
       kind: 'followup',
@@ -369,7 +437,7 @@ export async function listTelecrmContactTimeline(
       actorName: actorLabel(row.createdBy),
       title: `부재·보류 · ${statusLabel}`,
       detail: row.customerName?.trim() || row.nickname?.trim() || row.memo?.trim() || null,
-      active: row.status === 'ABSENT' || row.status === 'ON_HOLD' || row.status === 'REQUESTED',
+      active: openStatus && !followupSupersededByInquiry(row),
     });
   }
 
