@@ -249,7 +249,10 @@ export function CrmQuoteLearningHintBanner({
         <ul className="mt-1 min-w-0 space-y-0.5">
           {quote.parts.map((part, i) => (
             <li key={`${part.label}-${i}`} className="flex min-w-0 items-center gap-2 tabular-nums text-slate-700">
-              <span className="min-w-0 flex-1 truncate">{part.label}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {part.rule ? '📌 ' : ''}
+                {part.label}
+              </span>
               <span className="shrink-0 font-semibold">
                 {i === 0 ? formatWon(part.amountWon) : `${part.amountWon > 0 ? '+' : '−'}${formatWon(Math.abs(part.amountWon))}`}
               </span>

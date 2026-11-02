@@ -87,7 +87,7 @@ export type TelecrmQuoteCrewLearningHints = {
 };
 
 /** AI 견적 근거 한 줄 (예: 「24평 아파트 기본」 240,000 / 「화장실 2개」 +10,000) */
-export type TelecrmAiQuotePart = { label: string; amountWon: number };
+export type TelecrmAiQuotePart = { label: string; amountWon: number; /** 말로 넣은 규칙에서 나온 줄 */ rule?: boolean };
 
 export type TelecrmAiQuote = {
   /** 확정 금액 — 1만원 단위 */
@@ -255,3 +255,56 @@ export function percentileInt(values: number[], p: number): number | null {
   const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * p)));
   return sorted[idx] ?? null;
 }
+
+/** AI 견적 규칙 조건 — 비어 있는 칸은 「상관없음」 */
+export type TelecrmAiQuoteRuleCondition = {
+  pyeongMin?: number | null;
+  pyeongMax?: number | null;
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  balconyCount?: number | null;
+  isOneRoom?: boolean | null;
+  /** 건물 유형 화면 이름 (아파트·오피스텔·빌라(연립) 등) */
+  propertyType?: string | null;
+};
+
+/** min: 이 금액보다 낮으면 올림 / max: 높으면 내림 / add: 더하기(빼기는 음수) / set: 이 금액으로 / perPyeong: 평수 × 금액 */
+export type TelecrmAiQuoteRuleActionKind = 'min' | 'max' | 'add' | 'set' | 'perPyeong';
+
+export type TelecrmAiQuoteRuleSpec = {
+  condition: TelecrmAiQuoteRuleCondition;
+  action: { kind: TelecrmAiQuoteRuleActionKind; amountWon: number };
+  /** 화면용 짧은 이름 (예: 「방3·화2 최소 25만원」) */
+  summary: string;
+};
+
+export type TelecrmAiQuoteRuleDto = {
+  id: string;
+  text: string;
+  spec: TelecrmAiQuoteRuleSpec;
+  summary: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdByName: string | null;
+  createdAt: string;
+};
+
+/** 규칙을 넣기 전·후 금액 비교 (AI가 제대로 배웠는지 보여 주기) */
+export type TelecrmAiQuoteRuleExample = { label: string; beforeWon: number | null; afterWon: number | null };
+
+export type TelecrmAiQuoteRuleParseResult =
+  | {
+      ok: true;
+      spec: TelecrmAiQuoteRuleSpec;
+      /** 「이렇게 이해했어요」 줄들 */
+      understood: string[];
+      examples: TelecrmAiQuoteRuleExample[];
+    }
+  | { ok: false; reason: string };
+
+export type TelecrmAiQuoteModelStatus = {
+  trainedAt: string | null;
+  sampleCount: number;
+  ruleCount: number;
+  activeRuleCount: number;
+};
