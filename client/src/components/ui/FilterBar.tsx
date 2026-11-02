@@ -143,17 +143,27 @@ export function FilterSelect({
   );
 }
 
-/** ⑤ 검색칸 — Enter나 0.4초 멈추면 적용 */
+/**
+ * ⑤ 검색칸 — 키보드 「검색/엔터」로 적용, 기본은 0.4초 멈추면 자동 적용.
+ * `manual` 이면 자동 적용 없이 「조회」 단추·엔터로만 적용(원래 단추가 있던 화면용).
+ * form 으로 감싸서 휴대폰 키보드의 「검색」 키(한글 입력 중 포함)도 동작.
+ */
 export function FilterSearch({
   value,
   onSearch,
   placeholder = '검색',
   debounceMs = 400,
+  manual = false,
+  submitLabel,
 }: {
   value: string;
   onSearch: (value: string) => void;
   placeholder?: string;
   debounceMs?: number;
+  /** true 면 입력 중 자동 검색 안 함 */
+  manual?: boolean;
+  /** 오른쪽 단추 글자 (예: 「조회」). 없으면 단추 없음 */
+  submitLabel?: string;
 }) {
   const [text, setText] = useState(value);
   const first = useRef(true);
@@ -163,33 +173,47 @@ export function FilterSearch({
       first.current = false;
       return;
     }
+    if (manual) return;
     if (text.trim() === value.trim()) return;
     const t = window.setTimeout(() => onSearch(text.trim()), debounceMs);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
   return (
-    <label className={`flex w-full items-center gap-2 px-3 text-slate-400 ${BOX} border-slate-200 focus-within:border-slate-400`}>
-      <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-        <circle cx="11" cy="11" r="7" />
-        <path d="M20 20l-3.5-3.5" />
-      </svg>
-      <input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') onSearch(text.trim());
-        }}
-        placeholder={placeholder}
-        aria-label={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-slate-900 outline-none placeholder:text-slate-400"
-      />
-      {text ? (
-        <button type="button" aria-label="검색어 지우기" className="text-slate-400 hover:text-slate-700" onClick={() => { setText(''); onSearch(''); }}>
-          ✕
-        </button>
+    <form
+      role="search"
+      className="flex w-full min-w-0 items-center gap-1.5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSearch(text.trim());
+      }}
+    >
+      <label className={`flex min-w-0 flex-1 items-center gap-2 px-3 text-slate-400 ${BOX} border-slate-200 focus-within:border-slate-400`}>
+        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3.5-3.5" />
+        </svg>
+        <input
+          type="search"
+          enterKeyHint="search"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          className="min-w-0 flex-1 bg-transparent text-slate-900 outline-none placeholder:text-slate-400 [&::-webkit-search-cancel-button]:hidden"
+        />
+        {text ? (
+          <button type="button" aria-label="검색어 지우기" className="text-slate-400 hover:text-slate-700" onClick={() => { setText(''); onSearch(''); }}>
+            ✕
+          </button>
+        ) : null}
+      </label>
+      {submitLabel ? (
+        <Button type="submit" size="md" variant="primary" className="shrink-0">
+          {submitLabel}
+        </Button>
       ) : null}
-    </label>
+    </form>
   );
 }
 
