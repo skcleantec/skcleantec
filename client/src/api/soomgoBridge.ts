@@ -33,7 +33,7 @@ export const SOOMGO_BUSY_LABELS: Record<SoomgoBusyAction, string> = {
 };
 
 export const SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE =
-  '숨고 연동 프로그램이 실행 중이 아닙니다. PC에서「청소비서 숨고 연동」을 실행한 뒤 다시 시도해 주세요.';
+  '숨고 연동 프로그램이 실행 중이 아닙니다. PC에서「청소비서 숨고 연동」을 실행한 뒤 다시 시도해 주세요. PC 시작 메뉴에서 \'청소비서 숨고 연동\'을 검색해 실행하세요. 안 되면 컴퓨터를 다시 켜 주세요.';
 
 export const SOOMGO_BRIDGE_LOCAL_NETWORK_BLOCKED_MESSAGE =
   'Chrome이 로컬 숨고 연동(127.0.0.1) 접근을 차단했습니다. ① 주소창 🔒 → 사이트 설정 → 「로컬 네트워크」(로컬 네트워크 액세스) 허용 ② PC에서「청소비서 숨고 연동」을 실행한 뒤 다시 시도해 주세요.';

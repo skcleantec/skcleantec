@@ -41,6 +41,23 @@ def try_acquire_single_instance() -> bool:
     return True
 
 
+def tray_mutex_is_held() -> bool:
+    """트레이 프로세스가 뮤텍스를 잡고 있으면 True. 핸들은 바로 닫는다."""
+    if sys.platform != 'win32':
+        return False
+    k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    k32.OpenMutexW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+    k32.OpenMutexW.restype = wintypes.HANDLE
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    k32.CloseHandle.restype = wintypes.BOOL
+    synchronize = 0x00100000
+    handle = k32.OpenMutexW(synchronize, False, _MUTEX_NAME)
+    if not handle:
+        return False
+    k32.CloseHandle(handle)
+    return True
+
+
 def release_single_instance() -> None:
     global _mutex_handle
     if sys.platform != 'win32' or _mutex_handle is None:

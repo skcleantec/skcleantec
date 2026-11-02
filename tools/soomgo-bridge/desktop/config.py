@@ -71,6 +71,24 @@ def ensure_app_data() -> None:
     _migrate_legacy_app_data()
 
 
+def append_tray_event(message: str) -> None:
+    """트레이·재시작 로그. launch.log(cmd 리다이렉트)와 분리. 실패 시 stderr."""
+    import sys
+    import time
+
+    line = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n"
+    try:
+        ensure_app_data()
+        with (APP_DATA_DIR / 'tray-events.log').open('a', encoding='utf-8') as handle:
+            handle.write(line)
+    except OSError as exc:
+        try:
+            sys.stderr.write(f'tray-events.log write failed: {exc} | {line}')
+            sys.stderr.flush()
+        except Exception:
+            pass
+
+
 def resolve_chat_transcripts_dir() -> pathlib.Path:
     ensure_app_data()
     CHAT_TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)

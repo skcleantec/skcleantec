@@ -53,8 +53,22 @@ if not defined PYW (
   exit /b 1
 )
 
+powershell -NoProfile -Command "[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()" > "%TEMP%\soomgo-launch-t0.txt"
 "%PYW%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1
-if not errorlevel 1 exit /b 0
-
->>"%LOG%" echo pythonw failed — retry with python.exe
-start "" /min /D "%~dp0" "%PY%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1
+set "RC=!ERRORLEVEL!"
+if "!RC!"=="0" (
+  >>"%LOG%" echo pythonw exit 0 — no retry
+  exit /b 0
+)
+set "ELAPSED=999"
+powershell -NoProfile -Command "$t0=[int64](Get-Content -LiteralPath $env:TEMP\soomgo-launch-t0.txt); $sec=[int](([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()-$t0)/1000); Set-Content -LiteralPath $env:TEMP\soomgo-launch-elapsed.txt -Value $sec -NoNewline"
+if exist "%TEMP%\soomgo-launch-elapsed.txt" set /p ELAPSED=<"%TEMP%\soomgo-launch-elapsed.txt"
+if !ELAPSED! GEQ 10 (
+  >>"%LOG%" echo pythonw exit !RC! after !ELAPSED!s — no retry
+  exit /b !RC!
+)
+>>"%LOG%" echo pythonw exit !RC! within !ELAPSED!s — retry python.exe
+"%PY%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1
+set "RC=!ERRORLEVEL!"
+>>"%LOG%" echo python.exe exit !RC!
+exit /b !RC!

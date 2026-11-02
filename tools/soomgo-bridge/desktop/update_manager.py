@@ -259,7 +259,7 @@ def perform_tray_handoff_update(
 ) -> tuple[bool, str, TrayHandoffAction | None]:
     """
     트레이·브릿지를 먼저 내린 뒤 설치.
-    exe 성공 시 호출 측에서 os._exit(0), zip 성공 시 restart_self().
+    설치 후 재실행은 이 프로세스가 아니라 post_update_restart.py 가 맡는다.
     """
     ok, msg, dest = ensure_update_artifact_ready(manifest)
     if not ok or not dest:
@@ -492,8 +492,11 @@ def perform_update(manifest: dict[str, Any]) -> tuple[bool, str]:
 
 def schedule_post_setup_restart(*, installer_pid: int = 0) -> bool:
     """Setup.exe 완료·뮤텍스 해제 후 트레이 앱을 다시 띄웁니다."""
+    from desktop.config import append_tray_event
+
     helper = BRIDGE_DIR / 'desktop' / 'post_update_restart.py'
     if not helper.is_file():
+        append_tray_event(f'schedule post_update_restart missing file installer_pid={installer_pid}')
         return False
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     try:
@@ -503,34 +506,21 @@ def schedule_post_setup_restart(*, installer_pid: int = 0) -> bool:
             creationflags=flags,
             close_fds=True,
         )
+        append_tray_event(f'schedule post_update_restart ok installer_pid={installer_pid}')
         return True
     except OSError as e:
         logger.error('post-update restart schedule failed: %s', e)
+        append_tray_event(f'schedule post_update_restart failed installer_pid={installer_pid} error={e}')
         return False
 
 
 def restart_self() -> None:
-    """트레이 앱 재시작 (콘솔 없음)."""
+    """꺼지는 프로세스에서 바로 띄우지 않고, 별도 프로세스가 뮤텍스 해제 후 실행."""
+    from desktop.config import append_tray_event
     from desktop.single_instance import release_single_instance
 
+    ok = schedule_post_setup_restart(installer_pid=0)
+    if not ok:
+        append_tray_event('restart_self failed — post_update_restart was not started')
     release_single_instance()
-    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-    vbs = BRIDGE_DIR / 'launch-desktop.vbs'
-    if sys.platform == 'win32' and vbs.exists():
-        subprocess.Popen(
-            ['wscript.exe', str(vbs)],
-            cwd=str(BRIDGE_DIR),
-            creationflags=flags,
-            close_fds=True,
-        )
-    else:
-        from desktop.config import bridge_python_env
-
-        subprocess.Popen(
-            [sys.executable, '-m', 'desktop.tray_app'],
-            cwd=str(BRIDGE_DIR),
-            env=bridge_python_env(),
-            creationflags=flags,
-            close_fds=True,
-        )
     os._exit(0)
