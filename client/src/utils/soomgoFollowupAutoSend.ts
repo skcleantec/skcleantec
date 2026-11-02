@@ -24,7 +24,7 @@ export function invalidateSoomgoFollowupAutoConfigCache(): void {
 export async function trySoomgoFollowupAutoMessage(
   token: string,
   kind: CrmIntakeKind,
-  ctx: { customerName: string; nickname: string; operatingCompanyId?: string | null },
+  ctx: { customerName: string; nickname: string; marketerName?: string; operatingCompanyId?: string | null },
   bridgeStatus?: SoomgoBridgeStatus | null,
 ): Promise<SoomgoFollowupAutoSendResult> {
   const triggerKind = soomgoAutoTriggerForIntakeKind(kind);

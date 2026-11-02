@@ -142,6 +142,7 @@ import {
   noticeForSoomgoQuoteAutoSend,
   sendSoomgoQuoteAutoMessage,
 } from '../../../utils/soomgoQuoteAutoSend';
+import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 
 export function CrmPage() {
   const [searchParams] = useSearchParams();
@@ -187,6 +188,7 @@ export function CrmPage() {
   );
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
+  const { userName: crmMarketerName } = useAdminStaffSession();
   const [quoteLines, setQuoteLines] = useState<CrmPricingQuoteLine[]>([]);
   const [intakeKind, setIntakeKind] = useState<CrmIntakeKind>('absent');
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
@@ -2312,6 +2314,16 @@ export function CrmPage() {
                   busy={soomgoBusy}
                   bridgeStatus={soomgoStatus}
                   onDispatchNotice={showDispatchNotice}
+                  messageFieldCtx={{
+                    customerName: intakeIdentity.customerName,
+                    nickname: intakeIdentity.nickname,
+                    marketerName: crmMarketerName ?? undefined,
+                    pyeong: pyeong || undefined,
+                    estimate:
+                      scriptEstimateWon != null && Number.isFinite(scriptEstimateWon)
+                        ? `${Number(scriptEstimateWon).toLocaleString('ko-KR')}원`
+                        : undefined,
+                  }}
                   onOpenPresetSettings={
                     canOpenSettings
                       ? () => {

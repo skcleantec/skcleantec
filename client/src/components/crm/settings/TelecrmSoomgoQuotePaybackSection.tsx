@@ -84,8 +84,8 @@ export function TelecrmSoomgoQuotePaybackSection() {
   return (
     <SettingsCard title="숨고 견적보내기 — 페이백 금액">
       <p className="mb-3 text-fluid-xs text-slate-600">
-        CRM 「견적보내기」 숨고 메시지에서 {'{페이백금액}'}, {'{이벤트가}'}(견적가−페이백) 치환에
-        쓰입니다. 서식 본문은 설정 → 숨고 프리셋 → 자동메시지에서 편집합니다.
+        CRM 「견적보내기」 숨고 메시지의 페이백금액·이벤트가(견적가−페이백) 칸에 쓰입니다. 메시지 본문은
+        설정 → 자동 메시지 → 견적보내기에서 편집합니다.
       </p>
       {msg ? (
         <p className="mb-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-fluid-xs text-green-800">

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SOOMGO_QUOTE_AUTO_TRIGGER_LABEL } from '@shared/soomgoMessagePresets';
-import { SOOMGO_QUOTE_PLACEHOLDER_HINTS } from '@shared/telecrmSoomgoQuotePlaceholders';
 import { getToken } from '../../../stores/auth';
 import {
   fetchTelecrmSoomgoQuoteAutoMessage,
@@ -140,7 +139,6 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
   }
 
   const stepCount = draft.steps.length;
-  const placeholderHint = SOOMGO_QUOTE_PLACEHOLDER_HINTS.join(', ');
 
   return (
     <div className="space-y-3 border-t border-slate-200 pt-4">
@@ -216,7 +214,6 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
         </div>
         {expanded ? (
           <div className="border-t border-slate-100 bg-slate-50/80 px-2 pb-2 pt-1">
-            <p className="mb-2 text-fluid-2xs text-slate-500">치환: {placeholderHint}</p>
             <SoomgoMessagePresetEditor
               draft={draft}
               index={0}
@@ -227,6 +224,7 @@ export function TelecrmSoomgoQuoteAutoMessageSection({
               textPlaceholder="예: {닉네임}님, 견적 {견적가} / 이벤트가 {이벤트가} 입니다."
               hint="CRM 견적보내기 버튼으로 전송"
               compact
+              fieldsMenu="soomgo-quote"
               onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
               onSave={() => void save()}
               onImagePick={(stepIndex, file) => void onImagePick(stepIndex, file)}

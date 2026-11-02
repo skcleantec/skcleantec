@@ -3,6 +3,8 @@ import { SettingsCard } from './DeletePasswordModal';
 import { crmFieldClass } from '../crmUi';
 import { CrmCustomerMessagePreview } from './CrmSettingsUsageGuide';
 import { OnOffSwitch } from '../../ui/OnOffSwitch';
+import { CrmMessageFieldsButton } from './CrmMessageFieldsButton';
+import type { CrmMessageFieldsMenu } from './crmMessageFields';
 
 export type SoomgoPresetDraft = {
   id: string | null;
@@ -47,6 +49,7 @@ export function SoomgoMessagePresetEditor({
   textPlaceholder = '채팅 메시지',
   hint,
   compact = false,
+  fieldsMenu,
 }: {
   draft: SoomgoPresetDraft;
   index: number;
@@ -61,6 +64,8 @@ export function SoomgoMessagePresetEditor({
   textPlaceholder?: string;
   hint?: string;
   compact?: boolean;
+  /** 「치환코드 보기」·미리보기에 쓸 메뉴 */
+  fieldsMenu?: CrmMessageFieldsMenu;
 }) {
   const patchStep = (stepIndex: number, step: SoomgoMessageStep) => {
     const steps = [...draft.steps];
@@ -210,8 +215,9 @@ export function SoomgoMessagePresetEditor({
           >
             + 이미지
           </button>
+          {fieldsMenu ? <CrmMessageFieldsButton menu={fieldsMenu} className="ml-auto" /> : null}
         </div>
-        <CrmCustomerMessagePreview steps={draft.steps} channel="soomgo" />
+        <CrmCustomerMessagePreview steps={draft.steps} channel="soomgo" menu={fieldsMenu} />
       </div>
   );
 

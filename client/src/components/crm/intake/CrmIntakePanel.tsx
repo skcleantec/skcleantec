@@ -357,6 +357,7 @@ export function CrmIntakePanel({
     void trySoomgoFollowupAutoMessage(token, result.intakeKind, {
       customerName: result.customerName,
       nickname: result.nickname,
+      marketerName: userName ?? undefined,
       operatingCompanyId,
     }, soomgoBridgeStatus).then((auto) => {
       const notice = noticeForSoomgoFollowupAutoSend(auto);

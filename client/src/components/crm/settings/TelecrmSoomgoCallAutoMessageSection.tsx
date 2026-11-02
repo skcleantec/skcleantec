@@ -120,7 +120,6 @@ export function TelecrmSoomgoCallAutoMessageSection() {
   }
 
   const stepCount = draft.steps.length;
-  const placeholderHint = '{마케터명}, {고객명}, {닉네임}';
 
   return (
     <div className="space-y-3">
@@ -166,7 +165,7 @@ export function TelecrmSoomgoCallAutoMessageSection() {
             title="자동 전송 켜기/끄기 — 바꾼 뒤 「저장」을 눌러야 적용돼요"
           />
           <span className="min-w-0 flex-1 truncate text-fluid-2xs text-slate-500">
-            통화 버튼 클릭 시 · {stepCount > 0 ? `${stepCount}스텝` : '미설정'} · {placeholderHint}
+            통화 버튼 클릭 시 · {stepCount > 0 ? `${stepCount}스텝` : '미설정'}
           </span>
           <button
             type="button"
@@ -194,8 +193,8 @@ export function TelecrmSoomgoCallAutoMessageSection() {
               fixedTitle={SOOMGO_CALL_AUTO_TRIGGER_LABEL}
               activeCheckboxLabel="자동 전송 사용"
               textPlaceholder="예: {마케터명}님이 지금 전화 연결을 시도 중입니다."
-              hint={`치환: ${placeholderHint}`}
               compact
+              fieldsMenu="soomgo-call"
               onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
               onSave={() => void save()}
               onImagePick={onImagePick}

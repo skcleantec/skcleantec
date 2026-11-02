@@ -1,6 +1,7 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import type { SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import { Button } from '../../ui/Button';
+import { fillCrmMessageFields, type CrmMessageFieldsMenu } from './crmMessageFields';
 
 /** 설정 화면 위 「이 설정이 쓰이는 곳」 안내 — 실제 CRM 화면 사진 + 강조 박스 + 한 줄 설명 */
 export type CrmSettingsGuideKey =
@@ -144,44 +145,25 @@ export function CrmSettingsUsageGuide({ guideKey }: { guideKey: CrmSettingsGuide
   );
 }
 
-/** 문자·숨고 메시지 미리보기에 쓰는 예시 값 */
-const SAMPLE_VALUES: Record<string, string> = {
-  고객명: '김고객',
-  닉네임: '어머님',
-  연락처: '010-1234-5678',
-  주소: '서울 강남구 ○○아파트',
-  평수: '24',
-  예상가: '250,000원',
-  견적가: '250,000원',
-  총금액: '250,000원',
-  이벤트가: '230,000원',
-  예약금: '50,000원',
-  페이백금액: '10,000원',
-  청소일: '11월 15일',
-  시간대: '오전',
-  무위약마감일: '11월 12일',
-  마케터명: '이상담',
-  브랜드명: 'SK클린텍',
-  업체명: 'SK클린텍',
-  문의전화: '1588-0000',
-  접수번호: 'SK2611020001',
-  발주서링크: 'https://cbiseo.com/…',
-};
-
-export function fillCrmMessageSample(text: string): string {
-  return text.replace(/\{([^{}]+)\}/g, (all, key: string) => SAMPLE_VALUES[key.trim()] ?? all);
-}
-
 /** 「고객이 받는 모습」 — 말풍선 미리보기 */
 export function CrmCustomerMessagePreview({
   steps,
   channel,
+  menu,
 }: {
   steps: SoomgoMessageStep[];
   channel: 'sms' | 'soomgo';
+  /** 이 메뉴에서 바뀌는 치환코드만 예시 값으로 — 안 바뀌는 코드는 빨갛게 */
+  menu?: CrmMessageFieldsMenu;
 }) {
   const visible = steps.filter((s) => (s.type === 'text' ? s.text.trim() : s.urls.length > 0));
   if (visible.length === 0) return null;
+  const filled = visible.map((step) => (step.type === 'text' ? fillCrmMessageFields(step.text, menu) : null));
+  const leftover = new Set<string>();
+  for (const t of filled) {
+    if (!t) continue;
+    for (const m of t.matchAll(/\{([^{}]+)\}/g)) leftover.add(m[1]);
+  }
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-100/70 p-2.5">
       <p className="mb-1.5 text-fluid-2xs font-semibold text-slate-600">
@@ -192,11 +174,11 @@ export function CrmCustomerMessagePreview({
           step.type === 'text' ? (
             <div
               key={i}
-              className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tl-md px-3 py-1.5 text-fluid-xs leading-relaxed shadow-sm ${
-                channel === 'sms' ? 'bg-white text-slate-800' : 'bg-white text-slate-800 ring-1 ring-slate-200'
+              className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tl-md bg-white px-3 py-1.5 text-fluid-xs leading-relaxed text-slate-800 shadow-sm ${
+                channel === 'soomgo' ? 'ring-1 ring-slate-200' : ''
               }`}
             >
-              {fillCrmMessageSample(step.text)}
+              {renderLeftoverFields(filled[i] ?? '')}
             </div>
           ) : (
             <div key={i} className="flex flex-wrap gap-1">
@@ -207,7 +189,25 @@ export function CrmCustomerMessagePreview({
           ),
         )}
       </div>
+      {leftover.size > 0 ? (
+        <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-fluid-2xs text-amber-900">
+          ⚠ {[...leftover].map((k) => `「{${k}}」`).join(' ')}은(는) 여기서 바뀌지 않는 코드예요. 글자 그대로 나가니 지우거나 「치환코드 보기」에서 맞는 코드를 골라 주세요.
+        </p>
+      ) : null}
     </div>
+  );
+}
+
+/** 바뀌지 않고 남은 「{…}」 를 빨간 물결 밑줄로 */
+function renderLeftoverFields(text: string): ReactNode {
+  return text.split(/(\{[^{}]+\})/g).map((part, i) =>
+    /^\{[^{}]+\}$/.test(part) ? (
+      <span key={i} className="rounded-lg bg-rose-50 px-0.5 font-semibold text-rose-700 underline decoration-rose-400 decoration-wavy">
+        {part}
+      </span>
+    ) : (
+      <Fragment key={i}>{part}</Fragment>
+    ),
   );
 }
 
