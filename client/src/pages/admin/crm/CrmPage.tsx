@@ -293,6 +293,8 @@ export function CrmPage() {
   const [recoverableDraft, setRecoverableDraft] = useState<CrmIntakeDraft | null>(null);
   /** 접수란 내용이 속한 숨고 채팅방(가져오기·빈 접수란에서 방 진입 시) */
   const lastIntakeChatIdRef = useRef<string | null>(null);
+  /** 기존 고객 찾기로 숨고 채팅방을 연 고객 — 같은 고객을 다시 불러와도 또 이동하지 않게 */
+  const lookupChatOpenedKeyRef = useRef<string | null>(null);
   /** 우리가 직접 숨고 창을 옮긴 직후에는 채팅방 변경으로 보지 않음 */
   const soomgoSelfNavUntilRef = useRef(0);
   const soomgoRoomChangeStreakRef = useRef<{ key: string; count: number } | null>(null);
@@ -751,6 +753,7 @@ export function CrmPage() {
       formSnapshotRef.current = null;
       pricingContextPhoneRef.current = '';
       lastIntakeChatIdRef.current = null;
+      lookupChatOpenedKeyRef.current = null;
       soomgoRoomChangeStreakRef.current = null;
       if (notice) showDispatchNotice(notice);
     },
@@ -873,7 +876,7 @@ export function CrmPage() {
       setSafePhone(split.safePhone ?? '');
       setContactUnknown(intakeDefaults.contactUnknown);
       setCustomerName(name);
-      setPyeong(parseSoomgoPyeongForCrm(data.pyeong));
+      setPyeong(parseSoomgoPyeongForCrm(data.pyeong, data.buildingType));
       setMode('new');
       setIntakeKind(intakeDefaults.kind);
       setSoomgoImportBanner(summary.lines.join('\n'));
@@ -2113,6 +2116,20 @@ export function CrmPage() {
                     nickname: payload.nickname,
                     address: payload.address,
                   });
+                  // 기존 고객을 불러오면 숨고 창도 그 고객 채팅방으로 (같은 고객은 한 번만)
+                  const chatKey = `${payload.nickname.trim()}|${payload.customerName.trim()}`;
+                  if (
+                    soomgoBarOpen &&
+                    chatKey !== '|' &&
+                    lookupChatOpenedKeyRef.current !== chatKey
+                  ) {
+                    lookupChatOpenedKeyRef.current = chatKey;
+                    void openSoomgoChatForNickname({
+                      nickname: payload.nickname,
+                      customerName: payload.customerName,
+                      address: payload.address,
+                    });
+                  }
                   setCrmContext((prev) => ({
                     inquiryId: payload.inquiryId ?? prev.inquiryId,
                     customerMatch: payload.inquiryId ? 'existing' : prev.customerMatch,

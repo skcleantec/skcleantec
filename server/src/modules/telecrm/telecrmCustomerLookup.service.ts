@@ -346,7 +346,8 @@ async function searchTelecrmCustomerByName(
 
   const [inquiryRows, followupRows, csRows] = await Promise.all([
     prisma.inquiry.findMany({
-      where: { tenantId, operatingCompanyId, customerName: nameFilter },
+      // 이름 또는 숨고 닉네임으로 찾음
+      where: { tenantId, operatingCompanyId, OR: [{ customerName: nameFilter }, { nickname: nameFilter }] },
       orderBy: { createdAt: 'desc' },
       take: 120,
       select: {
@@ -359,7 +360,7 @@ async function searchTelecrmCustomerByName(
       },
     }),
     prisma.orderFollowup.findMany({
-      where: { tenantId, operatingCompanyId, customerName: nameFilter },
+      where: { tenantId, operatingCompanyId, OR: [{ customerName: nameFilter }, { nickname: nameFilter }] },
       orderBy: { createdAt: 'desc' },
       take: 60,
       select: {

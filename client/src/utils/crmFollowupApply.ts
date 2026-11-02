@@ -70,7 +70,7 @@ export function mergeSoomgoIntoFollowupSnapshot(
   data: SoomgoExtractedChat,
 ): CrmFollowupApplySnapshot {
   const address = resolveSoomgoAddress(data);
-  const pyeong = parseSoomgoPyeongForCrm(data.pyeong);
+  const pyeong = parseSoomgoPyeongForCrm(data.pyeong, data.buildingType);
   const preferredYmd = resolveSoomgoPreferredDate(data);
   const soomgoMemo = (data.requestMemo || data.memo)?.trim() || '';
   return {
