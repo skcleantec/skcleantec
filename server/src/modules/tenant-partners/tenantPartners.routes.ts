@@ -7,7 +7,9 @@ import {
   acceptPartnership,
   listPartnershipsForTenant,
   lookupPartnerTenantBySlug,
+  deletePartnership,
   rejectPartnership,
+  rerequestPartnership,
   requestPartnership,
   suspendPartnership,
   TenantPartnershipError,
@@ -444,6 +446,32 @@ router.post('/:id/suspend', async (req, res) => {
   try {
     const partnership = await suspendPartnership(id, tenantId);
     res.json({ partnership });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/rerequest', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  try {
+    const partnership = await rerequestPartnership(id, tenantId);
+    res.json({ partnership });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  try {
+    await deletePartnership(id, tenantId);
+    res.json({ ok: true });
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;
