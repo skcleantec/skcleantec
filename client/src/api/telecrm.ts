@@ -124,6 +124,8 @@ export type TelecrmCustomerLookupDto = {
     customerName: string;
     nickname: string | null;
     customerPhone: string;
+    /** 서버 신규 필드 — 안심번호(050) 또는 보조 연락처 */
+    customerPhone2?: string | null;
     memo: string | null;
     inquiryId: string | null;
     goldDb: boolean;

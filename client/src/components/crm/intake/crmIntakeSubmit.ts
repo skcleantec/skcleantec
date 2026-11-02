@@ -1,5 +1,5 @@
 import { createOrderFollowup, deferOrderFollowup } from '../../../api/orderFollowups';
-import { createInquiry } from '../../../api/inquiries';
+import { createInquiry, updateInquiry } from '../../../api/inquiries';
 import { finalizeTelecrmConsultationQuote } from '../../../api/telecrmConsultationQuote';
 import type { OrderFollowupStatus } from '../../../constants/orderFollowupStatus';
 import {
@@ -49,8 +49,64 @@ export type CrmIntakeSubmitResult = {
   nickname: string;
 } & (
   | { kind: 'followup'; followupId?: string; deferIncremented?: boolean }
-  | { kind: 'inquiry'; inquiryId: string; status: string }
+  | {
+      kind: 'inquiry';
+      inquiryId: string;
+      status: string;
+      /** 기존 접수에 이어서 저장 — merged: 상태까지 반영, appended: 더 진행된 접수라 내용만 추가 */
+      continued?: 'merged' | 'appended';
+    }
 );
+
+/** 기존 고객 모드에서 이어서 저장할 접수(취소·완료 제외) */
+export type CrmIntakeExistingInquiry = {
+  id: string;
+  status: string;
+  memo?: string | null;
+  source?: string | null;
+};
+
+/** 접수 진행 단계 — 높을수록 더 진행됨(보류·대기는 처음 단계로 봄) */
+const INQUIRY_STATUS_RANK: Record<string, number> = {
+  PENDING: 0,
+  ON_HOLD: 0,
+  RECEIVED: 1,
+  DEPOSIT_PENDING: 2,
+  DEPOSIT_COMPLETED: 3,
+  ORDER_FORM_PENDING: 4,
+  ASSIGNED: 5,
+  IN_PROGRESS: 6,
+  CS_PROCESSING: 7,
+  COMPLETED: 8,
+};
+
+const CRM_INTAKE_CONTINUABLE_BLOCKED = new Set(['CANCELLED', 'COMPLETED']);
+
+export function isCrmIntakeContinuableInquiryStatus(status: string | null | undefined): boolean {
+  const st = String(status ?? '').trim();
+  return Boolean(st) && !CRM_INTAKE_CONTINUABLE_BLOCKED.has(st);
+}
+
+/** 기존 메모 뒤에 새 내용만 덧붙임(이미 있는 줄은 건너뜀) */
+export function appendCrmIntakeMemo(existing: string | null | undefined, addition: string | null | undefined): string | null {
+  const base = String(existing ?? '').trim();
+  const add = String(addition ?? '').trim();
+  if (!add) return base || null;
+  if (!base) return add;
+  if (base.includes(add)) return base;
+  const baseLines = new Set(
+    base
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean),
+  );
+  const newLines = add
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !baseLines.has(l));
+  if (newLines.length === 0) return base;
+  return `${base}\n${newLines.join('\n')}`;
+}
 
 const CRM_INTAKE_FOLLOWUP_DEFER_KINDS = new Set<CrmIntakeKind>(['requested', 'absent', 'hold']);
 
@@ -104,6 +160,8 @@ export async function submitCrmIntake(
     quotePayload?: TelecrmConsultationQuotePayload | null;
     /** 저장 후 부재 횟수 +1 (`POST …/defer`) */
     incrementDefer?: boolean;
+    /** 기존 고객 — 진행 중 접수가 있으면 새로 만들지 않고 이어서 저장 */
+    existingInquiry?: CrmIntakeExistingInquiry | null;
   },
 ): Promise<CrmIntakeSubmitResult> {
   if (opts.incrementDefer && !CRM_INTAKE_FOLLOWUP_DEFER_KINDS.has(values.kind)) {
@@ -151,6 +209,7 @@ export async function submitCrmIntake(
         token,
         {
           phone: outbound,
+          ...(stored.customerPhone2 ? { customerPhone2: stored.customerPhone2 } : {}),
           payload: quotePayload,
           customerName: n,
           nickname: values.nickname.trim() || null,
@@ -195,6 +254,56 @@ export async function submitCrmIntake(
       kind: 'followup',
       followupId,
       deferIncremented: Boolean(opts.incrementDefer),
+      ...submitMeta(values),
+    };
+  }
+
+  const existing =
+    opts.existingInquiry?.id?.trim() && isCrmIntakeContinuableInquiryStatus(opts.existingInquiry.status)
+      ? opts.existingInquiry
+      : null;
+  if (existing) {
+    const targetStatus =
+      values.kind === 'received' ? 'RECEIVED' : values.kind === 'deposit' ? 'DEPOSIT_PENDING' : 'DEPOSIT_COMPLETED';
+    const currentRank = INQUIRY_STATUS_RANK[existing.status] ?? 0;
+    const targetRank = INQUIRY_STATUS_RANK[targetStatus] ?? 0;
+    const upgrade = targetRank > currentRank;
+    const mergedMemo = appendCrmIntakeMemo(existing.memo, followupMemo);
+    const address = values.address.trim();
+    const patch: Record<string, unknown> = {
+      customerName: n,
+      ...(values.nickname.trim() ? { nickname: values.nickname.trim() } : {}),
+      ...(stored.customerPhone ? { customerPhone: stored.customerPhone } : {}),
+      ...(stored.customerPhone2 ? { customerPhone2: stored.customerPhone2 } : {}),
+      ...(address ? { address } : {}),
+      ...(mergedMemo != null && mergedMemo !== (existing.memo ?? '').trim() ? { memo: mergedMemo } : {}),
+      ...extras,
+      ...(!existing.source?.trim() && values.leadSource.trim() ? { source: values.leadSource.trim() } : {}),
+      ...(upgrade ? { status: targetStatus } : {}),
+    };
+    await updateInquiry(token, existing.id, patch);
+    if (upgrade && values.kind !== 'received') {
+      const fuSt: OrderFollowupStatus = values.kind === 'deposit' ? 'DEPOSIT_PENDING' : 'RESERVED';
+      await createOrderFollowup(token, {
+        customerName: n,
+        nickname: values.nickname.trim() || null,
+        customerPhone: stored.customerPhone,
+        customerPhone2: stored.customerPhone2,
+        status: fuSt,
+        memo: followupMemo,
+        goldDb: values.goldDb,
+        inquiryId: existing.id,
+        leadSource: values.leadSource.trim(),
+        strictLeadSource: true,
+        ...followupExtras,
+        ...brandBody,
+      });
+    }
+    return {
+      kind: 'inquiry',
+      inquiryId: existing.id,
+      status: upgrade ? targetStatus : existing.status,
+      continued: upgrade ? 'merged' : 'appended',
       ...submitMeta(values),
     };
   }

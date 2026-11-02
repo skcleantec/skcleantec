@@ -36,6 +36,9 @@ import {
 } from '../inquiry-lead-sources/inquiryLeadSource.service.js';
 import { resolveCollaborationMarketerIdForWrite } from './collaborationMarketer.helpers.js';
 import { resolvePublishedIntakeTemplateId } from './inquiryIntakeFormProfile.service.js';
+import { closeOpenFollowupsForInquiry } from '../order-followups/orderFollowups.service.js';
+import { relinkSafeNumberRecords } from '../order-followups/customerPhoneRelink.service.js';
+import { syncTelecrmQuoteCrewLearningFromInquiry } from '../telecrm/telecrmQuoteCrewLearning.service.js';
 
 export const CREATE_INQUIRY_STATUSES: InquiryStatus[] = [
   'PENDING',
@@ -305,6 +308,34 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
     source: inquiry.source,
   });
   await syncInquiryAddressGeo(db, inquiry.id);
+
+  /** 같은 연락처 부재현황 자동 정리 · 050→010 연결 · 견적 학습 — 실패해도 접수 생성은 유지 */
+  try {
+    if (inquiry.status !== 'PENDING' && inquiry.status !== 'CANCELLED') {
+      await closeOpenFollowupsForInquiry(db, {
+        tenantId,
+        operatingCompanyId: inquiry.operatingCompanyId,
+        customerPhone: inquiry.customerPhone,
+        customerPhone2: inquiry.customerPhone2,
+        inquiryId: inquiry.id,
+        inquiryStatus: inquiry.status,
+        actorUserId: userId ?? null,
+      });
+    }
+    await relinkSafeNumberRecords(db, {
+      tenantId,
+      operatingCompanyId: inquiry.operatingCompanyId,
+      customerPhone: inquiry.customerPhone,
+      customerPhone2: inquiry.customerPhone2,
+      actorUserId: userId ?? null,
+      excludeInquiryId: inquiry.id,
+    });
+  } catch (e) {
+    console.error('[inquiry-create] followup close / phone relink failed', e instanceof Error ? e.message : e);
+  }
+  void syncTelecrmQuoteCrewLearningFromInquiry(db, tenantId, inquiry.id).catch((e) =>
+    console.error('[telecrm-quote-learning] sync after inquiry create', e instanceof Error ? e.message : e),
+  );
 
   const createLogLines = buildIntakeCreateChangeLogLines(inquiry.source, intakeMeta);
   if (createLogLines.length > 0) {

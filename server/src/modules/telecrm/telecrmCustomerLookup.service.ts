@@ -50,6 +50,8 @@ export type TelecrmCustomerLookupResult = {
     customerName: string;
     nickname: string | null;
     customerPhone: string;
+    /** 연락처2 (주로 050 안심번호) */
+    customerPhone2: string | null;
     memo: string | null;
     inquiryId: string | null;
     goldDb: boolean;
@@ -103,14 +105,42 @@ type CandidateAcc = {
   latestAt: Date;
 };
 
+function isMobile010Digits(d: string): boolean {
+  return /^010\d{8}$/.test(d);
+}
+
+/** 연락처1·2(010/050)를 같은 사람으로 묶기 위한 별칭 → 후보 키 */
+type CandidateAliases = Map<string, string>;
+
 function upsertCandidate(
   map: Map<string, CandidateAcc>,
   phoneRaw: string,
   patch: Partial<CandidateAcc> & { customerName: string; latestAt: Date },
+  aliases?: CandidateAliases,
+  phone2Raw?: string | null,
 ) {
-  const key = normalizeKrPhoneDigits(phoneRaw);
-  if (key.length < 4) return;
+  const d1 = normalizeKrPhoneDigits(phoneRaw);
+  const d2 = normalizeKrPhoneDigits(phone2Raw ?? '');
+  const own = [d1, d2].filter((d) => d.length >= 4);
+  if (own.length === 0) return;
+  if (d1.length < 4) {
+    phoneRaw = phone2Raw ?? '';
+  }
+  let key = own[0]!;
+  if (aliases) {
+    const found = own.map((d) => aliases.get(d)).find((k): k is string => Boolean(k && map.has(k)));
+    if (found) key = found;
+    for (const d of own) aliases.set(d, key);
+  }
   const prev = map.get(key);
+  /** 같은 사람에 010 실제 번호가 보이면 대표 번호를 010으로 */
+  const mobileRaw = [phoneRaw, phone2Raw ?? ''].find((r) => isMobile010Digits(normalizeKrPhoneDigits(r)));
+  if (!prev && mobileRaw) phoneRaw = mobileRaw;
+  if (prev) {
+    if (mobileRaw && !isMobile010Digits(normalizeKrPhoneDigits(prev.customerPhone))) {
+      prev.customerPhone = mobileRaw.trim();
+    }
+  }
   if (!prev) {
     map.set(key, {
       customerName: patch.customerName,
@@ -169,7 +199,11 @@ async function resolveTelecrmCustomerByPhone(
       select: telecrmInquiryBriefSelect,
     }),
     prisma.orderFollowup.findMany({
-      where: { tenantId, operatingCompanyId, customerPhone: { endsWith: last4 } },
+      where: {
+        tenantId,
+        operatingCompanyId,
+        OR: [{ customerPhone: { endsWith: last4 } }, { customerPhone2: { endsWith: last4 } }],
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
       select: {
@@ -179,6 +213,7 @@ async function resolveTelecrmCustomerByPhone(
         customerName: true,
         nickname: true,
         customerPhone: true,
+        customerPhone2: true,
         memo: true,
         inquiryId: true,
         goldDb: true,
@@ -223,7 +258,11 @@ async function resolveTelecrmCustomerByPhone(
     .map(serializeTelecrmInquiryBrief);
 
   const followups = followupRows
-    .filter((row) => phonesMatch(row.customerPhone, phoneDigits))
+    .filter(
+      (row) =>
+        phonesMatch(row.customerPhone, phoneDigits) ||
+        (row.customerPhone2 != null && phonesMatch(row.customerPhone2, phoneDigits)),
+    )
     .slice(0, 15)
     .map((row) => ({
       id: row.id,
@@ -232,6 +271,7 @@ async function resolveTelecrmCustomerByPhone(
       customerName: row.customerName,
       nickname: row.nickname,
       customerPhone: row.customerPhone,
+      customerPhone2: row.customerPhone2 ?? null,
       memo: row.memo,
       inquiryId: row.inquiryId,
       goldDb: row.goldDb,
@@ -307,6 +347,7 @@ async function searchTelecrmCustomerByName(
         customerName: true,
         nickname: true,
         customerPhone: true,
+        customerPhone2: true,
         address: true,
         createdAt: true,
       },
@@ -319,6 +360,7 @@ async function searchTelecrmCustomerByName(
         customerName: true,
         nickname: true,
         customerPhone: true,
+        customerPhone2: true,
         createdAt: true,
       },
     }),
@@ -335,30 +377,48 @@ async function searchTelecrmCustomerByName(
   ]);
 
   const map = new Map<string, CandidateAcc>();
+  const aliases: CandidateAliases = new Map();
 
   for (const row of inquiryRows) {
-    upsertCandidate(map, row.customerPhone, {
-      customerName: row.customerName,
-      nickname: row.nickname,
-      lastAddress: row.address?.trim() || null,
-      latestAt: row.createdAt,
-      inquiryCount: 1,
-    });
+    upsertCandidate(
+      map,
+      row.customerPhone,
+      {
+        customerName: row.customerName,
+        nickname: row.nickname,
+        lastAddress: row.address?.trim() || null,
+        latestAt: row.createdAt,
+        inquiryCount: 1,
+      },
+      aliases,
+      row.customerPhone2,
+    );
   }
   for (const row of followupRows) {
-    upsertCandidate(map, row.customerPhone, {
-      customerName: row.customerName,
-      nickname: row.nickname,
-      latestAt: row.createdAt,
-      inquiryCount: 0,
-    });
+    upsertCandidate(
+      map,
+      row.customerPhone,
+      {
+        customerName: row.customerName,
+        nickname: row.nickname,
+        latestAt: row.createdAt,
+        inquiryCount: 0,
+      },
+      aliases,
+      row.customerPhone2,
+    );
   }
   for (const row of csRows) {
-    upsertCandidate(map, row.customerPhone, {
-      customerName: row.customerName,
-      latestAt: row.createdAt,
-      inquiryCount: 0,
-    });
+    upsertCandidate(
+      map,
+      row.customerPhone,
+      {
+        customerName: row.customerName,
+        latestAt: row.createdAt,
+        inquiryCount: 0,
+      },
+      aliases,
+    );
   }
 
   const candidates = mapToCandidates(map);

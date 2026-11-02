@@ -172,6 +172,7 @@ export function crmFollowupApplyFromLookupRow(row: {
   customerName: string;
   nickname: string | null;
   customerPhone: string;
+  customerPhone2?: string | null;
   memo: string | null;
   inquiryId: string | null;
   goldDb?: boolean;
@@ -183,7 +184,7 @@ export function crmFollowupApplyFromLookupRow(row: {
   balconyCount?: number | null;
   leadSource?: string | null;
 }): CrmFollowupApplySnapshot {
-  const phones = splitFollowupStoredPhones(row.customerPhone, null);
+  const phones = splitFollowupStoredPhones(row.customerPhone, row.customerPhone2 ?? null);
   const extras = followupIntakeExtrasFromRow(row);
   return {
     followupId: row.id,

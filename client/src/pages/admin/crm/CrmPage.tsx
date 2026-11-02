@@ -56,11 +56,18 @@ import {
 import type { CrmIntakeKind } from '../../../components/crm/intake/crmIntakeSubmit';
 import {
   clearCrmIntakeDraft,
+  clearCrmIntakeRecoverDraft,
+  CRM_INTAKE_DRAFT_RECOVER_MS,
   crmIntakeDraftHasContent,
+  isCrmIntakeDraftRecoverable,
   loadCrmIntakeDraft,
+  loadCrmIntakeRecoverDraft,
   saveCrmIntakeDraft,
+  saveCrmIntakeRecoverDraft,
+  type CrmIntakeDraft,
   type CrmIntakeFormSnapshot,
 } from '../../../utils/crmIntakeDraft';
+import { Button } from '../../../components/ui/Button';
 import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import {
   deriveSoomgoIntakeDefaults,
@@ -267,6 +274,13 @@ export function CrmPage() {
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
+  /** 「이전 입력 복구」 — 10분 안의 내 초안(화면에는 바로 넣지 않음) */
+  const [recoverableDraft, setRecoverableDraft] = useState<CrmIntakeDraft | null>(null);
+  /** 접수란 내용이 속한 숨고 채팅방(가져오기·빈 접수란에서 방 진입 시) */
+  const lastIntakeChatIdRef = useRef<string | null>(null);
+  /** 우리가 직접 숨고 창을 옮긴 직후에는 채팅방 변경으로 보지 않음 */
+  const soomgoSelfNavUntilRef = useRef(0);
+  const soomgoRoomChangeStreakRef = useRef<{ key: string; count: number } | null>(null);
 
   const resetQuotePricingState = useCallback(() => {
     setQuoteLines([]);
@@ -330,31 +344,18 @@ export function CrmPage() {
   const { refreshManifest } = useSoomgoBridgeManifestRefresh(Boolean(getToken()), setSoomgoBridgeManifest);
 
   useEffect(() => {
-    const draft = loadCrmIntakeDraft();
-    if (draft && crmIntakeDraftHasContent(draft)) {
-      setMode(draft.mode);
-      setContactPhone(draft.contactPhone ?? draft.phone ?? '');
-      setSafePhone(draft.safePhone ?? '');
-      setContactUnknown(Boolean(draft.contactUnknown ?? draft.phoneUnknown));
-      setCustomerName(draft.customerName);
-      setPyeong(draft.pyeong);
-      setInitialFormDraft({
-        customerName: draft.customerName,
-        nickname: draft.nickname,
-        address: draft.address,
-        preferredMoveInCleanYmd: draft.preferredMoveInCleanYmd,
-        requestMemo: draft.requestMemo ?? '',
-        roomCount: draft.roomCount ?? '',
-        bathroomCount: draft.bathroomCount ?? '',
-        balconyCount: draft.balconyCount ?? '',
-        kind: draft.kind,
-        goldDb: draft.goldDb,
-        leadSource: draft.leadSource ?? '',
-        extractPlatform: draft.extractPlatform,
-      });
-      const restored = (draft.contactPhone ?? draft.phone ?? '').trim();
-      if (restored) setDraftRestoredPhone(restored);
-      setHasUnsavedDraft(true);
+    /* 새로 열면 항상 빈 접수란(신규)으로 시작 — 10분 안의 내 초안만 「이전 입력 복구」로 제안 */
+    const candidates = [loadCrmIntakeDraft(), loadCrmIntakeRecoverDraft()].filter(
+      (d): d is CrmIntakeDraft => isCrmIntakeDraftRecoverable(d, {}),
+    );
+    candidates.sort((a, b) => b.savedAt - a.savedAt);
+    const pick = candidates[0] ?? null;
+    clearCrmIntakeDraft();
+    if (pick) {
+      saveCrmIntakeRecoverDraft(pick);
+      setRecoverableDraft(pick);
+    } else {
+      clearCrmIntakeRecoverDraft();
     }
     draftReadyRef.current = true;
   }, []);
@@ -402,6 +403,7 @@ export function CrmPage() {
         contactUnknown,
         pyeong,
         ...form,
+        operatingCompanyId: activeOperatingCompanyId ?? null,
         savedAt: Date.now(),
       };
       if (crmIntakeDraftHasContent(draft)) {
@@ -412,7 +414,7 @@ export function CrmPage() {
         setHasUnsavedDraft(false);
       }
     },
-    [mode, contactPhone, safePhone, contactUnknown, pyeong],
+    [mode, contactPhone, safePhone, contactUnknown, pyeong, activeOperatingCompanyId],
   );
 
   useEffect(() => {
@@ -446,6 +448,7 @@ export function CrmPage() {
           kind: 'absent',
           goldDb: false,
           leadSource: '',
+          operatingCompanyId: activeOperatingCompanyId ?? null,
           savedAt: Date.now(),
         });
         setHasUnsavedDraft(true);
@@ -453,7 +456,58 @@ export function CrmPage() {
       return;
     }
     persistDraft(form);
-  }, [mode, contactPhone, safePhone, contactUnknown, pyeong, customerName, persistDraft]);
+  }, [mode, contactPhone, safePhone, contactUnknown, pyeong, customerName, persistDraft, activeOperatingCompanyId]);
+
+  /** 지금 접수란 내용 → 초안(복구용) */
+  const buildCurrentIntakeDraft = useCallback((): CrmIntakeDraft | null => {
+    const form = formSnapshotRef.current;
+    const draft: CrmIntakeDraft = {
+      mode,
+      contactPhone,
+      safePhone,
+      contactUnknown,
+      pyeong,
+      customerName: form?.customerName ?? customerName,
+      nickname: form?.nickname ?? '',
+      address: form?.address ?? '',
+      preferredMoveInCleanYmd: form?.preferredMoveInCleanYmd ?? '',
+      requestMemo: form?.requestMemo ?? '',
+      roomCount: form?.roomCount ?? '',
+      bathroomCount: form?.bathroomCount ?? '',
+      balconyCount: form?.balconyCount ?? '',
+      kind: form?.kind ?? intakeKind,
+      goldDb: form?.goldDb ?? false,
+      leadSource: form?.leadSource ?? '',
+      extractPlatform: form?.extractPlatform,
+      operatingCompanyId: activeOperatingCompanyId ?? null,
+      savedAt: Date.now(),
+    };
+    return crmIntakeDraftHasContent(draft) ? draft : null;
+  }, [mode, contactPhone, safePhone, contactUnknown, pyeong, customerName, intakeKind, activeOperatingCompanyId]);
+
+  const dismissRecoverableDraft = useCallback(() => {
+    setRecoverableDraft(null);
+    clearCrmIntakeRecoverDraft();
+  }, []);
+
+  /** 「이전 입력 복구」 배너 — 저장 시각 기준 10분 뒤 자동으로 숨김 */
+  useEffect(() => {
+    if (!recoverableDraft) return;
+    const left = recoverableDraft.savedAt + CRM_INTAKE_DRAFT_RECOVER_MS - Date.now();
+    if (left <= 0) {
+      dismissRecoverableDraft();
+      return;
+    }
+    const timer = window.setTimeout(dismissRecoverableDraft, left);
+    return () => window.clearTimeout(timer);
+  }, [recoverableDraft, dismissRecoverableDraft]);
+
+  const recoverableDraftVisible = Boolean(
+    recoverableDraft &&
+      (!activeOperatingCompanyId ||
+        !recoverableDraft.operatingCompanyId ||
+        recoverableDraft.operatingCompanyId === activeOperatingCompanyId),
+  );
 
   const handleFormChange = useCallback(
     (snapshot: CrmIntakeFormSnapshot) => {
@@ -672,6 +726,8 @@ export function CrmPage() {
       setHasUnsavedDraft(false);
       formSnapshotRef.current = null;
       pricingContextPhoneRef.current = '';
+      lastIntakeChatIdRef.current = null;
+      soomgoRoomChangeStreakRef.current = null;
       if (notice) showDispatchNotice(notice);
     },
     [resetQuotePricingState, showDispatchNotice],
@@ -681,8 +737,55 @@ export function CrmPage() {
     resetIntakeFormState('접수란을 초기화했습니다.');
   }, [resetIntakeFormState]);
 
+  /** 「이전 입력 복구」 — 신규로 넣되, 기존 고객으로 쓰던 연락처가 있으면 기존 고객 조회로 */
+  const applyRecoverableDraft = useCallback(() => {
+    const draft = recoverableDraft;
+    if (!draft) return;
+    const restoredContact = (draft.contactPhone ?? draft.phone ?? '').trim();
+    const restoredSafe = (draft.safePhone ?? '').trim();
+    const restoreMode: CrmCustomerMode =
+      draft.mode === 'existing' && (restoredContact || restoredSafe) ? 'existing' : 'new';
+    resetQuotePricingState();
+    setFollowupImport(null);
+    setSoomgoImportBanner(null);
+    setMode(restoreMode);
+    setContactPhone(restoredContact);
+    setSafePhone(restoredSafe);
+    setContactUnknown(Boolean(draft.contactUnknown ?? draft.phoneUnknown));
+    setCustomerName(draft.customerName);
+    setPyeong(draft.pyeong);
+    setIntakeKind(draft.kind);
+    setIntakeStructure({
+      roomCount: draft.roomCount ?? '',
+      bathroomCount: draft.bathroomCount ?? '',
+      balconyCount: draft.balconyCount ?? '',
+    });
+    setInitialFormDraft({
+      customerName: draft.customerName,
+      nickname: draft.nickname,
+      address: draft.address,
+      preferredMoveInCleanYmd: draft.preferredMoveInCleanYmd,
+      requestMemo: draft.requestMemo ?? '',
+      roomCount: draft.roomCount ?? '',
+      bathroomCount: draft.bathroomCount ?? '',
+      balconyCount: draft.balconyCount ?? '',
+      kind: draft.kind,
+      goldDb: draft.goldDb,
+      leadSource: draft.leadSource ?? '',
+      extractPlatform: draft.extractPlatform,
+    });
+    const dial = restoredContact || restoredSafe;
+    if (dial) setDraftRestoredPhone(dial);
+    setHasUnsavedDraft(true);
+    setRecoverableDraft(null);
+    clearCrmIntakeRecoverDraft();
+    showDispatchNotice('이전에 입력하던 내용을 되살렸어요.');
+  }, [recoverableDraft, resetQuotePricingState, showDispatchNotice]);
+
   const handleSoomgoImport = useCallback(
     (data: SoomgoExtractedChat) => {
+      if (data.chatId?.trim()) lastIntakeChatIdRef.current = data.chatId.trim();
+      soomgoRoomChangeStreakRef.current = null;
       const mergeBase = followupSoomgoMergeRef.current;
       if (mergeBase) {
         followupSoomgoMergeRef.current = null;
@@ -838,9 +941,9 @@ export function CrmPage() {
     extract,
     callFromChat,
     restartBridge,
-    openChatByNickname,
-    openChatRoomAndExtract,
-    returnToChatList,
+    openChatByNickname: openChatByNicknameRaw,
+    openChatRoomAndExtract: openChatRoomAndExtractRaw,
+    returnToChatList: returnToChatListRaw,
     busy: soomgoBusy,
     busyAction: soomgoBusyAction,
     busyLabel: soomgoBusyLabel,
@@ -852,6 +955,89 @@ export function CrmPage() {
     requestBridgeUpdate,
     updateBusy: soomgoUpdateBusy,
   } = soomgoBridge;
+
+  /** 우리가 숨고 창을 옮기는 동안·직후(약 12초)는 채팅방 변경 감지에서 제외 */
+  const markSoomgoSelfNav = useCallback(() => {
+    soomgoSelfNavUntilRef.current = Date.now() + 12_000;
+    soomgoRoomChangeStreakRef.current = null;
+  }, []);
+  const openChatByNickname = useCallback(
+    async (...args: Parameters<typeof openChatByNicknameRaw>) => {
+      markSoomgoSelfNav();
+      try {
+        return await openChatByNicknameRaw(...args);
+      } finally {
+        markSoomgoSelfNav();
+      }
+    },
+    [markSoomgoSelfNav, openChatByNicknameRaw],
+  );
+  const openChatRoomAndExtract = useCallback(
+    async (...args: Parameters<typeof openChatRoomAndExtractRaw>) => {
+      markSoomgoSelfNav();
+      try {
+        return await openChatRoomAndExtractRaw(...args);
+      } finally {
+        markSoomgoSelfNav();
+      }
+    },
+    [markSoomgoSelfNav, openChatRoomAndExtractRaw],
+  );
+  const returnToChatList = useCallback(async () => {
+    markSoomgoSelfNav();
+    try {
+      return await returnToChatListRaw();
+    } finally {
+      markSoomgoSelfNav();
+    }
+  }, [markSoomgoSelfNav, returnToChatListRaw]);
+
+  /**
+   * 숨고 창에서 채팅방을 나가거나 다른 방으로 옮기면 접수란을 비움(연속 2번 확인).
+   * 비우기 전 내용은 「이전 입력 복구」로 10분간 되살릴 수 있음.
+   */
+  useEffect(() => {
+    const st = soomgoStatus;
+    if (!st?.bridgeRunning) {
+      soomgoRoomChangeStreakRef.current = null;
+      return;
+    }
+    if (
+      Date.now() < soomgoSelfNavUntilRef.current ||
+      soomgoBusyAction === 'open' ||
+      soomgoBusyAction === 'extract'
+    ) {
+      soomgoRoomChangeStreakRef.current = null;
+      return;
+    }
+    const inRoom = Boolean(st.inChatRoom) || st.pageMode === 'chat_room';
+    const currentChatId = inRoom ? st.chatId?.trim() || null : null;
+    const prevChatId = lastIntakeChatIdRef.current;
+    const formDraftNow = buildCurrentIntakeDraft();
+    if (!prevChatId) {
+      soomgoRoomChangeStreakRef.current = null;
+      if (inRoom && currentChatId && !formDraftNow) lastIntakeChatIdRef.current = currentChatId;
+      return;
+    }
+    const changed = !inRoom || (currentChatId != null && currentChatId !== prevChatId);
+    if (!changed) {
+      soomgoRoomChangeStreakRef.current = null;
+      return;
+    }
+    const key = currentChatId ?? '__left__';
+    const streak = soomgoRoomChangeStreakRef.current;
+    if (streak?.key === key) streak.count += 1;
+    else soomgoRoomChangeStreakRef.current = { key, count: 1 };
+    if ((soomgoRoomChangeStreakRef.current?.count ?? 0) < 2) return;
+    soomgoRoomChangeStreakRef.current = null;
+    if (!formDraftNow) {
+      lastIntakeChatIdRef.current = currentChatId;
+      return;
+    }
+    resetIntakeFormState('숨고 채팅방이 바뀌어 접수란을 비웠어요.');
+    saveCrmIntakeRecoverDraft(formDraftNow);
+    setRecoverableDraft(formDraftNow);
+  }, [soomgoStatus, soomgoBusyAction, buildCurrentIntakeDraft, resetIntakeFormState]);
 
   const soomgoPanelBusy = soomgoBusy || soomgoStaleCleanupRunning;
   const soomgoPanelBusyLabel = soomgoStaleCleanupRunning
@@ -1070,12 +1256,17 @@ export function CrmPage() {
       setStatsRefreshKey((k) => k + 1);
       if (!meta?.freshStart) return;
       resetIntakeFormState(null);
-      if (soomgoBarOpen) {
+      const inSoomgoRoom =
+        Boolean(soomgoStatus?.bridgeRunning) &&
+        (Boolean(soomgoStatus?.inChatRoom) || soomgoStatus?.pageMode === 'chat_room');
+      if (soomgoBarOpen || inSoomgoRoom) {
         void returnToChatList();
-        void applyTelecrmSoomgoSplitLayout(arrangeSoomgoBridgeLayout, { resizeCrm: isPopup });
+        if (soomgoBarOpen) {
+          void applyTelecrmSoomgoSplitLayout(arrangeSoomgoBridgeLayout, { resizeCrm: isPopup });
+        }
       }
     },
-    [isPopup, resetIntakeFormState, returnToChatList, soomgoBarOpen],
+    [isPopup, resetIntakeFormState, returnToChatList, soomgoBarOpen, soomgoStatus],
   );
 
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
@@ -1199,6 +1390,8 @@ export function CrmPage() {
         nickname,
         quoteTotalWon: quoteGrandTotal,
         pyeong,
+        bridgeStatus: soomgoStatus,
+        expectedChatId: lastIntakeChatIdRef.current,
       });
       const notice = noticeForSoomgoQuoteAutoSend(result);
       if (notice) showDispatchNotice(notice);
@@ -1232,6 +1425,7 @@ export function CrmPage() {
     pyeong,
     reloadQuotes,
     showDispatchNotice,
+    soomgoStatus,
   ]);
 
   const applyFollowupFieldsToCrm = useCallback(
@@ -1813,6 +2007,7 @@ export function CrmPage() {
           left={
             <div className="flex h-full min-h-0 flex-col overflow-y-auto">
               <CrmIntakePanel
+                soomgoBridgeStatus={soomgoStatus}
                 mode={mode}
                 onModeChange={handleModeChange}
                 contactPhone={contactPhone}
@@ -1857,14 +2052,31 @@ export function CrmPage() {
                 followupImport={followupImport}
                 onSelectFollowup={canFollowupEdit ? handleSelectFollowupFromLookup : undefined}
                 workBrandBar={
-                  showWorkBrandSwitcher ? (
-                    <CrmWorkBrandBar
-                      variant="inline"
-                      items={workBrandItems}
-                      activeSlug={workBrandActive?.slug ?? null}
-                      onSwitch={handleWorkBrandSwitch}
-                      switching={workBrandLoading}
-                    />
+                  showWorkBrandSwitcher || recoverableDraftVisible ? (
+                    <>
+                      {showWorkBrandSwitcher ? (
+                        <CrmWorkBrandBar
+                          variant="inline"
+                          items={workBrandItems}
+                          activeSlug={workBrandActive?.slug ?? null}
+                          onSwitch={handleWorkBrandSwitch}
+                          switching={workBrandLoading}
+                        />
+                      ) : null}
+                      {recoverableDraftVisible ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
+                          <span className="min-w-0 flex-1 text-fluid-2xs font-medium text-slate-700">
+                            방금 입력하던 내용이 있어요
+                          </span>
+                          <Button size="sm" variant="secondary" onClick={applyRecoverableDraft}>
+                            이전 입력 복구
+                          </Button>
+                          <Button size="sm" variant="quiet" onClick={dismissRecoverableDraft}>
+                            지우기
+                          </Button>
+                        </div>
+                      ) : null}
+                    </>
                   ) : null
                 }
               />

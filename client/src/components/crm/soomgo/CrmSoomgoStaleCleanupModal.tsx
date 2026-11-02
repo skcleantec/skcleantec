@@ -7,6 +7,7 @@ import {
   SOOMGO_BRIDGE_STALE_LEAVE_OUTDATED_MESSAGE,
 } from '../../../api/soomgoBridge';
 import type { SoomgoBridgeStatus } from '@shared/soomgoBridge';
+import { confirmDialog } from '../../ui/Toast';
 
 function reasonLabel(code: string): string {
   if (code === 'preferred_date_passed') return '희망일 만료';
@@ -57,9 +58,12 @@ export function CrmSoomgoStaleCleanupModal({
       }
       if (
         execute &&
-        !window.confirm(
-          '선택한 조건에 해당하는 채팅방에서 나갑니다. 되돌릴 수 없습니다. 계속할까요?',
-        )
+        !(await confirmDialog({
+          title: '선택한 조건에 해당하는 채팅방에서 나갑니다.',
+          body: '되돌릴 수 없습니다. 계속할까요?',
+          confirmLabel: '계속',
+          danger: true,
+        }))
       ) {
         return;
       }

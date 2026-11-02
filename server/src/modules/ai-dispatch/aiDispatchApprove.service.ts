@@ -10,6 +10,7 @@ import {
 } from '../service-zones/serviceZoneAssignment.js';
 import { loadDispatchDay } from './aiDispatchContext.service.js';
 import { rememberDispatchCorrection } from './aiDispatchLessons.js';
+import { syncTelecrmQuoteCrewLearningFromInquiry } from '../telecrm/telecrmQuoteCrewLearning.service.js';
 import type { AiDispatchSlot } from './aiDispatch.constants.js';
 
 type Db = PrismaClient;
@@ -185,6 +186,9 @@ export async function approveDraftProposals(db: Db, tenantId: string, actorId: s
       });
     });
     approvedInquiryIds.push(inquiryId);
+    void syncTelecrmQuoteCrewLearningFromInquiry(db, tenantId, inquiryId).catch((e) =>
+      console.error('[telecrm-quote-learning] sync after ai-dispatch approve', e instanceof Error ? e.message : e),
+    );
     void notifyNewAssignmentForInquiry(
       tenantId,
       inquiryId,

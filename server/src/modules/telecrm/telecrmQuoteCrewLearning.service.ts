@@ -48,16 +48,30 @@ function structureFromInquiry(row: {
   };
 }
 
+/** 실제 진행(확정) 건만 학습 — 대기·취소·보류·입금대기 제외 */
+export const TELECRM_QUOTE_LEARNING_ELIGIBLE_STATUSES = [
+  'RECEIVED',
+  'DEPOSIT_COMPLETED',
+  'ORDER_FORM_PENDING',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+] as const;
+
+const ELIGIBLE_STATUS_SET = new Set<string>(TELECRM_QUOTE_LEARNING_ELIGIBLE_STATUSES);
+
 function inquiryEligibleForLearning(row: {
   deletedAt: Date | null;
   status: string;
+  serviceTotalAmount: number | null;
   areaPyeong: number | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
   isOneRoom: boolean;
 }): boolean {
-  if (row.deletedAt || row.status !== 'RECEIVED') return false;
+  if (row.deletedAt || !ELIGIBLE_STATUS_SET.has(row.status)) return false;
+  if (row.serviceTotalAmount == null || !(row.serviceTotalAmount > 0)) return false;
   return (
     (row.areaPyeong != null && row.areaPyeong > 0) ||
     row.roomCount != null ||
@@ -67,20 +81,53 @@ function inquiryEligibleForLearning(row: {
   );
 }
 
-export async function syncTelecrmQuoteCrewLearningFromInquiry(
+type LearningInquiryRow = {
+  id: string;
+  deletedAt: Date | null;
+  status: string;
+  inquiryNumber: string | null;
+  customerName: string;
+  areaPyeong: number | null;
+  propertyType: string | null;
+  buildingType: string | null;
+  isOneRoom: boolean;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
+  serviceTotalAmount: number | null;
+  crewMemberCount: number | null;
+  updatedAt: Date;
+  assignments: { id: string }[];
+};
+
+const LEARNING_INQUIRY_SELECT = {
+  id: true,
+  deletedAt: true,
+  status: true,
+  inquiryNumber: true,
+  customerName: true,
+  areaPyeong: true,
+  propertyType: true,
+  buildingType: true,
+  isOneRoom: true,
+  roomCount: true,
+  bathroomCount: true,
+  balconyCount: true,
+  serviceTotalAmount: true,
+  crewMemberCount: true,
+  updatedAt: true,
+  assignments: { select: { id: true } },
+} as const;
+
+async function syncLearningSnapshotForRow(
   db: Prisma.TransactionClient | typeof prisma,
   tenantId: string,
-  inquiryId: string,
+  inquiry: LearningInquiryRow,
 ): Promise<'upserted' | 'removed' | 'skipped'> {
-  const inquiry = await db.inquiry.findFirst({
-    where: { id: inquiryId, tenantId },
-    include: { assignments: { select: { id: true } } },
-  });
-  if (!inquiry) return 'skipped';
-
+  const inquiryId = inquiry.id;
   if (!inquiryEligibleForLearning(inquiry)) {
-    await db.telecrmQuoteCrewLearningSnapshot.deleteMany({ where: { tenantId, inquiryId } });
-    return inquiry.deletedAt || inquiry.status !== 'RECEIVED' ? 'removed' : 'skipped';
+    const del = await db.telecrmQuoteCrewLearningSnapshot.deleteMany({ where: { tenantId, inquiryId } });
+    return del.count > 0 ? 'removed' : 'skipped';
   }
 
   const structure = structureFromInquiry(inquiry);
@@ -89,10 +136,10 @@ export async function syncTelecrmQuoteCrewLearningFromInquiry(
   const data = {
     tenantId,
     inquiryNumber: inquiry.inquiryNumber,
-    customerName: inquiry.customerName,
+    customerName: inquiry.customerName ? inquiry.customerName.slice(0, 120) : null,
     areaPyeong: inquiry.areaPyeong,
-    propertyType: inquiry.propertyType,
-    buildingType: inquiry.buildingType,
+    propertyType: inquiry.propertyType ? inquiry.propertyType.slice(0, 64) : null,
+    buildingType: inquiry.buildingType ? inquiry.buildingType.slice(0, 64) : null,
     isOneRoom: inquiry.isOneRoom,
     roomCount: inquiry.roomCount,
     bathroomCount: inquiry.bathroomCount,
@@ -100,8 +147,8 @@ export async function syncTelecrmQuoteCrewLearningFromInquiry(
     serviceTotalAmount: inquiry.serviceTotalAmount,
     teamLeaderCount: inquiry.assignments.length,
     crewMemberCount: inquiry.crewMemberCount,
-    featureKey,
-    featureLabel,
+    featureKey: featureKey.slice(0, 128),
+    featureLabel: featureLabel.slice(0, 256),
     sourceInquiryUpdatedAt: inquiry.updatedAt,
   };
 
@@ -113,27 +160,66 @@ export async function syncTelecrmQuoteCrewLearningFromInquiry(
   return 'upserted';
 }
 
+export async function syncTelecrmQuoteCrewLearningFromInquiry(
+  db: Prisma.TransactionClient | typeof prisma,
+  tenantId: string,
+  inquiryId: string,
+): Promise<'upserted' | 'removed' | 'skipped'> {
+  const inquiry = await db.inquiry.findFirst({
+    where: { id: inquiryId, tenantId },
+    select: LEARNING_INQUIRY_SELECT,
+  });
+  if (!inquiry) return 'skipped';
+  return syncLearningSnapshotForRow(db, tenantId, inquiry);
+}
+
+const BACKFILL_BATCH_SIZE = 500;
+
+/** 전체 동기화 — limit 미지정 시 테넌트의 모든 접수를 500건씩 나눠 처리 */
 export async function backfillTelecrmQuoteCrewLearningSnapshots(
   tenantId: string,
-  limit = 500,
+  limit?: number | null,
 ): Promise<TelecrmQuoteCrewLearningBackfillResult> {
-  const inquiries = await prisma.inquiry.findMany({
-    where: { tenantId, deletedAt: null },
-    orderBy: { updatedAt: 'desc' },
-    take: limit,
-    select: { id: true },
-  });
-
+  const max = limit != null && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : Number.POSITIVE_INFINITY;
+  let processed = 0;
   let upserted = 0;
   let removed = 0;
   let skipped = 0;
-  for (const row of inquiries) {
-    const result = await syncTelecrmQuoteCrewLearningFromInquiry(prisma, tenantId, row.id);
-    if (result === 'upserted') upserted += 1;
-    else if (result === 'removed') removed += 1;
-    else skipped += 1;
+  let cursor: string | null = null;
+
+  while (processed < max) {
+    const take = Math.min(BACKFILL_BATCH_SIZE, max - processed);
+    const batch: LearningInquiryRow[] = await prisma.inquiry.findMany({
+      where: { tenantId, deletedAt: null },
+      orderBy: { id: 'asc' },
+      take,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: LEARNING_INQUIRY_SELECT,
+    });
+    if (batch.length === 0) break;
+    for (const row of batch) {
+      try {
+        const result = await syncLearningSnapshotForRow(prisma, tenantId, row);
+        if (result === 'upserted') upserted += 1;
+        else if (result === 'removed') removed += 1;
+        else skipped += 1;
+      } catch (e) {
+        skipped += 1;
+        console.error('[telecrm-quote-learning] backfill row failed', row.id, e instanceof Error ? e.message : e);
+      }
+    }
+    processed += batch.length;
+    cursor = batch[batch.length - 1]!.id;
+    if (batch.length < take) break;
   }
-  return { processed: inquiries.length, upserted, removed, skipped };
+
+  if (!Number.isFinite(max)) {
+    const trashed = await prisma.telecrmQuoteCrewLearningSnapshot.deleteMany({
+      where: { tenantId, inquiry: { deletedAt: { not: null } } },
+    });
+    removed += trashed.count;
+  }
+  return { processed, upserted, removed, skipped };
 }
 
 function serializeRecent(row: SnapshotRow) {
@@ -281,35 +367,53 @@ export async function getTelecrmQuoteCrewLearningHints(
   const featureKey = buildTelecrmQuoteCrewFeatureKey(structure);
   const featureLabel = buildTelecrmQuoteCrewFeatureLabel(structure);
 
-  const exactMatches = await prisma.telecrmQuoteCrewLearningSnapshot.findMany({
+  const matchSelect = {
+    serviceTotalAmount: true,
+    teamLeaderCount: true,
+    crewMemberCount: true,
+    inquiryNumber: true,
+    featureKey: true,
+  } as const;
+
+  let matches = await prisma.telecrmQuoteCrewLearningSnapshot.findMany({
     where: { tenantId, featureKey },
     orderBy: { updatedAt: 'desc' },
     take: 50,
-    select: {
-      serviceTotalAmount: true,
-      teamLeaderCount: true,
-      crewMemberCount: true,
-      inquiryNumber: true,
-    },
+    select: matchSelect,
   });
 
-  let matches = exactMatches;
   if (matches.length === 0 && structure.areaPyeong != null && structure.areaPyeong > 0) {
     const bucket = bucketAreaPyeong(structure.areaPyeong);
-    matches = await prisma.telecrmQuoteCrewLearningSnapshot.findMany({
+    const bucketRows = await prisma.telecrmQuoteCrewLearningSnapshot.findMany({
       where: {
         tenantId,
         featureKey: { startsWith: `${bucket}|` },
       },
       orderBy: { updatedAt: 'desc' },
-      take: 50,
-      select: {
-        serviceTotalAmount: true,
-        teamLeaderCount: true,
-        crewMemberCount: true,
-        inquiryNumber: true,
-      },
+      take: 500,
+      select: matchSelect,
     });
+    /** key: bucket|propertyType|buildingType|1r/0r|rooms|baths|balconies */
+    const oneRoomToken = structure.isOneRoom ? '1r' : '0r';
+    const roomsToken = structure.roomCount != null ? String(structure.roomCount) : null;
+    const bathsToken = structure.bathroomCount != null ? String(structure.bathroomCount) : null;
+    const balcToken = structure.balconyCount != null ? String(structure.balconyCount) : null;
+    const hasStructure = structure.isOneRoom || roomsToken != null || bathsToken != null;
+    const structureMatch = (key: string, withBalcony: boolean) => {
+      const parts = key.split('|');
+      if (parts.length < 7) return false;
+      if (parts[3] !== oneRoomToken) return false;
+      if (roomsToken != null && parts[4] !== roomsToken) return false;
+      if (bathsToken != null && parts[5] !== bathsToken) return false;
+      if (withBalcony && balcToken != null && parts[6] !== balcToken) return false;
+      return true;
+    };
+    let tier: typeof bucketRows = [];
+    if (hasStructure) {
+      tier = bucketRows.filter((r) => structureMatch(r.featureKey, true));
+      if (tier.length === 0) tier = bucketRows.filter((r) => structureMatch(r.featureKey, false));
+    }
+    matches = (tier.length > 0 ? tier : bucketRows).slice(0, 50);
   }
 
   const amounts = matches
@@ -321,12 +425,15 @@ export async function getTelecrmQuoteCrewLearningHints(
     .filter((n): n is number => n != null && n >= 0);
   const p25 = percentileInt(amounts, 0.25);
   const p75 = percentileInt(amounts, 0.75);
+  const medianAmountWon = medianInt(amounts);
 
   return {
     matchCount: matches.length,
     confidence: resolveTelecrmQuoteCrewLearningConfidence(matches.length),
     featureLabel: matches.length > 0 ? featureLabel : null,
-    medianAmountWon: medianInt(amounts),
+    medianAmountWon,
+    recommendedAmount:
+      medianAmountWon != null && medianAmountWon > 0 ? Math.round(medianAmountWon / 10000) * 10000 : null,
     amountRangeWon: p25 != null && p75 != null ? { p25, p75 } : null,
     typicalTeamLeaderCount: medianInt(leaders),
     typicalCrewMemberCount: medianInt(crews),

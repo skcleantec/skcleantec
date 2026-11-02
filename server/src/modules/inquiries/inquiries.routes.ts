@@ -169,6 +169,8 @@ import {
   attachDbListingMetaToInquiry,
 } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { syncTelecrmQuoteCrewLearningFromInquiry } from '../telecrm/telecrmQuoteCrewLearning.service.js';
+import { closeOpenFollowupsForInquiry } from '../order-followups/orderFollowups.service.js';
+import { relinkSafeNumberRecords } from '../order-followups/customerPhoneRelink.service.js';
 import {
   attachMarketplaceHandoffBuyerMetaToInquiries,
   attachMarketplaceHandoffBuyerMetaToInquiry,
@@ -2111,6 +2113,32 @@ router.patch('/:id', async (req, res) => {
   void syncTelecrmQuoteCrewLearningFromInquiry(prisma, tenantId, id).catch((e) =>
     console.error('[telecrm-quote-learning] sync after inquiry patch', e),
   );
+  /** 상태 변경 시 같은 연락처 부재현황 자동 정리, 연락처 변경 시 050→010 연결 — best-effort */
+  try {
+    if (mergedStatus !== inquiry.status && mergedStatus !== 'PENDING' && mergedStatus !== 'CANCELLED') {
+      await closeOpenFollowupsForInquiry(prisma, {
+        tenantId,
+        operatingCompanyId: updated.operatingCompanyId,
+        customerPhone: updated.customerPhone,
+        customerPhone2: updated.customerPhone2,
+        inquiryId: id,
+        inquiryStatus: mergedStatus,
+        actorUserId: user?.userId ?? null,
+      });
+    }
+    if (data.customerPhone !== undefined || data.customerPhone2 !== undefined) {
+      await relinkSafeNumberRecords(prisma, {
+        tenantId,
+        operatingCompanyId: updated.operatingCompanyId,
+        customerPhone: updated.customerPhone,
+        customerPhone2: updated.customerPhone2,
+        actorUserId: user?.userId ?? null,
+        excludeInquiryId: id,
+      });
+    }
+  } catch (e) {
+    console.error('[inquiry-patch] followup close / phone relink failed', e instanceof Error ? e.message : e);
+  }
   res.json(
     await attachDbListingMetaToInquiry(
       tenantId,

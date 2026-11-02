@@ -9,6 +9,7 @@ import {
 } from '../../../api/telecrm';
 import { formatWon, partitionTelecrmCategories } from '../settings/telecrmSettingsUi';
 import { CrmQuoteLearningHintBanner } from './CrmQuoteLearningHintBanner';
+import { confirmDialog, toast } from '../../ui/Toast';
 import { CrmColumn } from '../layout/CrmShell';
 import {
   CrmActionButton,
@@ -147,6 +148,7 @@ function OrderOptionTreeSection({
 }
 
 const BASE_ESTIMATE_AMOUNT_KEY = '__base_estimate__';
+const AI_RECOMMEND_LINE_KEY_PREFIX = 'ai-recommend:';
 
 export function CrmPricingPanel({
   pyeong,
@@ -223,10 +225,17 @@ export function CrmPricingPanel({
   const [copiedAll, setCopiedAll] = useState(false);
   const [expandedOrderGroups, setExpandedOrderGroups] = useState<Set<string>>(() => new Set());
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
+  /** AI 추천가로 기본견적을 바꿨을 때 안내 목록에 보여줄 이름 */
+  const [aiBaseLabel, setAiBaseLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (baseEstimateOverrideWon == null) setAiBaseLabel(null);
+  }, [baseEstimateOverrideWon]);
 
   useEffect(() => {
     if (pricingResetKey <= 0) return;
     setAmountDrafts({});
+    setAiBaseLabel(null);
     setSearch('');
     setExpandedOrderGroups(new Set());
   }, [pricingResetKey]);
@@ -383,8 +392,69 @@ export function CrmPricingPanel({
       delete next[BASE_ESTIMATE_AMOUNT_KEY];
       return next;
     });
+    setAiBaseLabel(null);
     onBaseEstimateOverrideChange?.(null);
   }, [onBaseEstimateOverrideChange]);
+
+  const hasBaseRow = estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0;
+
+  const applyAiRecommended = useCallback(
+    async ({ amountWon, matchCount }: { amountWon: number; matchCount: number }) => {
+      const label = `AI 추천 견적 (유사 예약 ${matchCount}건)`;
+      const existingAiLine = quoteLines.find((l) => l.key.startsWith(AI_RECOMMEND_LINE_KEY_PREFIX));
+      if (hasBaseRow && onBaseEstimateOverrideChange) {
+        const manuallyEdited =
+          (baseEstimateOverrideWon != null && baseEstimateOverrideWon !== amountWon) ||
+          (existingAiLine != null && existingAiLine.amountWon !== existingAiLine.catalogAmountWon);
+        if (manuallyEdited) {
+          const ok = await confirmDialog({
+            title: '직접 고친 금액이 있어요',
+            body: `기본견적을 AI 추천가 ${formatWon(amountWon)}으로 바꿀까요?`,
+            confirmLabel: '추천가로 바꾸기',
+          });
+          if (!ok) return;
+        }
+        setAmountDrafts((drafts) => {
+          const next = { ...drafts };
+          delete next[BASE_ESTIMATE_AMOUNT_KEY];
+          return next;
+        });
+        if (existingAiLine) {
+          setQuoteLines(quoteLines.filter((l) => !l.key.startsWith(AI_RECOMMEND_LINE_KEY_PREFIX)));
+        }
+        onBaseEstimateOverrideChange(amountWon);
+        setAiBaseLabel(label);
+      } else {
+        if (existingAiLine && existingAiLine.amountWon !== existingAiLine.catalogAmountWon) {
+          const ok = await confirmDialog({
+            title: '직접 고친 금액이 있어요',
+            body: `AI 추천가 ${formatWon(amountWon)}으로 바꿀까요?`,
+            confirmLabel: '추천가로 바꾸기',
+          });
+          if (!ok) return;
+        }
+        const aiLine: CrmPricingQuoteLine = {
+          key: `${AI_RECOMMEND_LINE_KEY_PREFIX}${Date.now()}`,
+          label,
+          source: 'telecrm',
+          catalogAmountWon: amountWon,
+          amountWon,
+        };
+        if (existingAiLine) {
+          setAmountDrafts((drafts) => {
+            const next = { ...drafts };
+            delete next[existingAiLine.key];
+            return next;
+          });
+          setQuoteLines(quoteLines.map((l) => (l.key === existingAiLine.key ? aiLine : l)));
+        } else {
+          setQuoteLines([aiLine, ...quoteLines]);
+        }
+      }
+      toast.success(`AI 추천가 ${formatWon(amountWon)}을 넣었어요`);
+    },
+    [baseEstimateOverrideWon, hasBaseRow, onBaseEstimateOverrideChange, quoteLines, setQuoteLines],
+  );
 
   const resetQuoteLineAmount = useCallback(
     (key: string) => {
@@ -549,6 +619,7 @@ export function CrmPricingPanel({
             <CrmQuoteLearningHintBanner
               context={learningContext}
               onOpenLearningSettings={onOpenLearningSettings}
+              onApplyRecommended={(input) => void applyAiRecommended(input)}
             />
           </div>
         ) : null}
@@ -676,8 +747,11 @@ export function CrmPricingPanel({
               <ul className="space-y-1">
                 {estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0 ? (
                   <li className="flex items-center gap-1 text-[11px]">
-                    <span className="min-w-0 flex-1 truncate font-medium text-gray-800" title={`${pyeongNum}평 기본견적`}>
-                      {pyeongNum}평 기본견적
+                    <span
+                      className="min-w-0 flex-1 truncate font-medium text-slate-800"
+                      title={aiBaseLabel ?? `${pyeongNum}평 기본견적`}
+                    >
+                      {aiBaseLabel ?? `${pyeongNum}평 기본견적`}
                     </span>
                     <span className="flex shrink-0 items-center gap-0.5">
                       <input

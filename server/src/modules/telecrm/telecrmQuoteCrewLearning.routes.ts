@@ -36,8 +36,10 @@ router.get('/hints', requireStaffPermission('crm.view', 'crm.settings'), async (
 router.post('/backfill', requireStaffPermission('crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
-  const limitRaw = Number((req.body as { limit?: number } | undefined)?.limit ?? req.query.limit);
-  const limit = Number.isFinite(limitRaw) ? Math.min(2000, Math.max(50, limitRaw)) : 500;
+  const limitInput = (req.body as { limit?: number } | undefined)?.limit ?? req.query.limit;
+  const limitRaw = limitInput == null || limitInput === '' ? NaN : Number(limitInput);
+  /** limit 미지정 → 전체 접수(500건 단위 페이지) */
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.max(50, Math.floor(limitRaw)) : null;
   try {
     const result = await backfillTelecrmQuoteCrewLearningSnapshots(tenantId, limit);
     const overview = await getTelecrmQuoteCrewLearningOverview(tenantId);
