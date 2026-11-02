@@ -151,7 +151,9 @@ export function CrmQuoteLearningHintBanner({
       window.clearTimeout(debounceTimer);
       setShowLoadingUi(false);
     };
-  }, [token, queryKey, context]);
+    // context 는 화면이 다시 그려질 때마다 새 객체라 deps 에 넣으면 디바운스가 계속 취소돼 조회가 안 됨 → 값 묶음(queryKey)만 봄
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, queryKey]);
 
   const line = hints ? buildHintLine(hints) : null;
   const recommendedAmount = resolveQuoteLearningRecommendedAmount(hints);
