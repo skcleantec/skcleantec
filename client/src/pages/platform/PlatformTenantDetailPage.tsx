@@ -32,6 +32,7 @@ import {
   type TenantDetailTabId,
 } from '../../components/platform/PlatformTenantSetupChecklist';
 import { PlatformTenantSignupBusinessSection } from '../../components/platform/PlatformTenantSignupBusinessSection';
+import { PlatformTenantPartnershipsCard } from '../../components/platform/PlatformTenantPartnershipsCard';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
   EMPTY_TENANT_CONFIG_FORM,
@@ -477,6 +478,7 @@ export function PlatformTenantDetailPage() {
               onOpenTab={setActiveTab}
             />
           ) : null}
+          {id ? <PlatformTenantPartnershipsCard tenantId={id} /> : null}
         </div>
       ) : null}
 

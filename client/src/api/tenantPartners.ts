@@ -25,6 +25,9 @@ export type TenantPartnershipItem = {
   canAccept: boolean;
   canReject: boolean;
   canSuspend: boolean;
+  canRerequest: boolean;
+  canDelete: boolean;
+  suspendedByPlatform: boolean;
 };
 
 export async function listTenantPartnerships(token: string): Promise<{ items: TenantPartnershipItem[] }> {
@@ -92,6 +95,33 @@ export async function rejectTenantPartnership(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '거절에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function rerequestTenantPartnership(
+  token: string,
+  id: string,
+): Promise<{ partnership: TenantPartnershipItem }> {
+  const res = await fetch(`${API}/tenant-partners/${encodeURIComponent(id)}/rerequest`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '재연결 요청에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function deleteTenantPartnership(token: string, id: string): Promise<{ ok: true }> {
+  const res = await fetch(`${API}/tenant-partners/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
   }
   return res.json();
 }

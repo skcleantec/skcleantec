@@ -3,11 +3,15 @@ import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTi
 import { getToken } from '../../stores/auth';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { AdminOnlyHelpButton } from '../../components/admin/admin-only-help/AdminOnlyHelpButton';
+import { Button } from '../../components/ui/Button';
+import { confirmDialog, toast } from '../../components/ui/Toast';
 import {
   acceptTenantPartnership,
+  deleteTenantPartnership,
   listTenantPartnerships,
   lookupTenantPartner,
   rejectTenantPartnership,
+  rerequestTenantPartnership,
   requestTenantPartnership,
   suspendTenantPartnership,
   type TenantPartnershipItem,
@@ -62,6 +66,22 @@ export function AdminTenantPartnersPage() {
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : '처리에 실패했습니다.');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const runNotified = async (id: string, fn: () => Promise<unknown>, success: string) => {
+    setActionId(id);
+    setError(null);
+    try {
+      await fn();
+      toast.success(success);
+      load();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '처리에 실패했습니다.';
+      setError(message);
+      toast.error(message);
     } finally {
       setActionId(null);
     }
@@ -237,6 +257,61 @@ export function AdminTenantPartnersPage() {
                             중지
                           </button>
                         ) : null}
+                        {row.suspendedByPlatform ? (
+                          <span className="text-fluid-xs text-slate-500">플랫폼에서 중지됨 — 관리자에게 문의</span>
+                        ) : (
+                          <>
+                            {row.canRerequest ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={actionId === row.id}
+                                onClick={() => {
+                                  void (async () => {
+                                    const ok = await confirmDialog({
+                                      title: `${row.partner.name}에 재연결을 요청할까요?`,
+                                      body: '상대 업체가 승인하면 다시 연결됩니다.',
+                                      confirmLabel: '재연결 요청',
+                                    });
+                                    if (!ok || !token) return;
+                                    await runNotified(
+                                      row.id,
+                                      () => rerequestTenantPartnership(token, row.id),
+                                      '재연결을 요청했습니다.',
+                                    );
+                                  })();
+                                }}
+                              >
+                                재연결 요청
+                              </Button>
+                            ) : null}
+                            {row.canDelete ? (
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                disabled={actionId === row.id}
+                                onClick={() => {
+                                  void (async () => {
+                                    const ok = await confirmDialog({
+                                      title: `${row.partner.name} 연결을 삭제할까요?`,
+                                      body: '주고받은 기록이 없는 중지·거절 연결만 지워집니다.',
+                                      confirmLabel: '삭제',
+                                      danger: true,
+                                    });
+                                    if (!ok || !token) return;
+                                    await runNotified(
+                                      row.id,
+                                      () => deleteTenantPartnership(token, row.id),
+                                      '연결을 삭제했습니다.',
+                                    );
+                                  })();
+                                }}
+                              >
+                                삭제
+                              </Button>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

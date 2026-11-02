@@ -36,6 +36,7 @@ function partnershipInclude() {
     tenantLow: { select: { id: true, slug: true, name: true, status: true } },
     tenantHigh: { select: { id: true, slug: true, name: true, status: true } },
     requestedBy: { select: { id: true, slug: true, name: true } },
+    _count: { select: { inquiryShares: true, settlementPayments: true, settlementResets: true } },
   } satisfies Prisma.TenantPartnershipInclude;
 }
 
@@ -57,6 +58,9 @@ export type SerializedTenantPartnership = {
   canAccept: boolean;
   canReject: boolean;
   canSuspend: boolean;
+  canRerequest: boolean;
+  canDelete: boolean;
+  suspendedByPlatform: boolean;
 };
 
 export function serializePartnership(row: PartnershipRow, viewerTenantId: string): SerializedTenantPartnership {
@@ -68,6 +72,15 @@ export function serializePartnership(row: PartnershipRow, viewerTenantId: string
   const canAccept = row.status === 'PENDING' && needsMyAcceptance;
   const canReject = row.status === 'PENDING';
   const canSuspend = row.status === 'ACTIVE';
+  const tenantSuspended =
+    row.status === 'SUSPENDED' && (row.suspendedBy === 'TENANT_LOW' || row.suspendedBy === 'TENANT_HIGH');
+  const suspendedByPlatform = row.status === 'SUSPENDED' && row.suspendedBy === 'PLATFORM';
+  const canRerequest = tenantSuspended || row.status === 'REJECTED';
+  const recordCount =
+    (row._count?.inquiryShares ?? 0) +
+    (row._count?.settlementPayments ?? 0) +
+    (row._count?.settlementResets ?? 0);
+  const canDelete = (row.status === 'SUSPENDED' || row.status === 'REJECTED') && recordCount === 0;
 
   return {
     id: row.id,
@@ -90,6 +103,9 @@ export function serializePartnership(row: PartnershipRow, viewerTenantId: string
     canAccept,
     canReject,
     canSuspend,
+    canRerequest,
+    canDelete,
+    suspendedByPlatform,
   };
 }
 
@@ -128,6 +144,35 @@ async function assertPartnerTenantAvailable(tenantId: string) {
 
 function maybeActivate(row: { lowAcceptedAt: Date | null; highAcceptedAt: Date | null }): TenantPartnershipStatus {
   return row.lowAcceptedAt && row.highAcceptedAt ? 'ACTIVE' : 'PENDING';
+}
+
+const PLATFORM_SUSPEND_MESSAGE = '플랫폼에서 중지한 연결입니다. 플랫폼 관리자에게 재개를 요청해 주세요.';
+
+function isTenantSuspendedBy(by: TenantPartnershipSuspendedBy | null): boolean {
+  return by === 'TENANT_LOW' || by === 'TENANT_HIGH';
+}
+
+/** 거절·업체 중지 건을 다시 승인 대기로. 요청한 쪽만 승인한 것으로 둔다. */
+async function reopenPartnershipPending(
+  existing: Pick<TenantPartnership, 'id' | 'tenantLowId' | 'tenantHighId' | 'memo'>,
+  viewerTenantId: string,
+  memo?: string,
+) {
+  const now = new Date();
+  const updated = await prisma.tenantPartnership.update({
+    where: { id: existing.id },
+    data: {
+      status: 'PENDING',
+      requestedBy: { connect: { id: viewerTenantId } },
+      suspendedAt: null,
+      suspendedBy: null,
+      memo: memo !== undefined ? memo.trim() || null : existing.memo,
+      lowAcceptedAt: viewerTenantId === existing.tenantLowId ? now : null,
+      highAcceptedAt: viewerTenantId === existing.tenantHighId ? now : null,
+    },
+    include: partnershipInclude(),
+  });
+  return serializePartnership(updated, viewerTenantId);
 }
 
 export async function lookupPartnerTenantBySlug(viewerTenantId: string, slugRaw: string) {
@@ -176,24 +221,14 @@ export async function requestPartnership(viewerTenantId: string, partnerSlug: st
       throw new TenantPartnershipError('이미 파트너 요청이 진행 중입니다.', 400);
     }
     if (existing.status === 'SUSPENDED') {
-      throw new TenantPartnershipError('중지된 파트너십입니다. 플랫폼 또는 재협의 후 다시 요청해 주세요.', 400);
+      if (existing.suspendedBy === 'PLATFORM') {
+        throw new TenantPartnershipError(PLATFORM_SUSPEND_MESSAGE, 400);
+      }
+      if (!isTenantSuspendedBy(existing.suspendedBy)) {
+        throw new TenantPartnershipError('중지된 파트너십입니다. 플랫폼 또는 재협의 후 다시 요청해 주세요.', 400);
+      }
     }
-    // REJECTED → 재요청
-    const patch: Prisma.TenantPartnershipUpdateInput = {
-      status: 'PENDING',
-      requestedBy: { connect: { id: viewerTenantId } },
-      suspendedAt: null,
-      suspendedBy: null,
-      memo: memo?.trim() || null,
-      lowAcceptedAt: viewerTenantId === low ? now : null,
-      highAcceptedAt: viewerTenantId === high ? now : null,
-    };
-    const updated = await prisma.tenantPartnership.update({
-      where: { id: existing.id },
-      data: patch,
-      include: partnershipInclude(),
-    });
-    return serializePartnership(updated, viewerTenantId);
+    return reopenPartnershipPending(existing, viewerTenantId, memo ?? '');
   }
 
   const created = await prisma.tenantPartnership.create({
@@ -268,4 +303,40 @@ export async function suspendPartnership(partnershipId: string, viewerTenantId: 
     include: partnershipInclude(),
   });
   return serializePartnership(updated, viewerTenantId);
+}
+
+export async function rerequestPartnership(partnershipId: string, viewerTenantId: string) {
+  const row = await assertPartnershipMember(partnershipId, viewerTenantId);
+  if (row.status === 'SUSPENDED') {
+    if (row.suspendedBy === 'PLATFORM') {
+      throw new TenantPartnershipError(PLATFORM_SUSPEND_MESSAGE, 400);
+    }
+    if (!isTenantSuspendedBy(row.suspendedBy)) {
+      throw new TenantPartnershipError('중지된 파트너십입니다. 플랫폼 또는 재협의 후 다시 요청해 주세요.', 400);
+    }
+    return reopenPartnershipPending(row, viewerTenantId);
+  }
+  if (row.status === 'REJECTED') {
+    return reopenPartnershipPending(row, viewerTenantId);
+  }
+  throw new TenantPartnershipError('다시 요청할 수 있는 상태가 아닙니다.', 400);
+}
+
+export async function deletePartnership(partnershipId: string, viewerTenantId: string) {
+  const row = await assertPartnershipMember(partnershipId, viewerTenantId);
+  if (row.status !== 'SUSPENDED' && row.status !== 'REJECTED') {
+    throw new TenantPartnershipError('중지되었거나 거절된 연결만 삭제할 수 있습니다.', 400);
+  }
+  const [shares, payments, resets] = await Promise.all([
+    prisma.tenantInquiryShare.count({ where: { partnershipId: row.id } }),
+    prisma.tenantPartnerSettlementPayment.count({ where: { partnershipId: row.id } }),
+    prisma.tenantPartnerSettlementReset.count({ where: { partnershipId: row.id } }),
+  ]);
+  if (shares + payments + resets > 0) {
+    throw new TenantPartnershipError(
+      '주고받은 접수·정산 기록이 있어 삭제할 수 없어요. 재연결을 이용해 주세요.',
+      400,
+    );
+  }
+  await prisma.tenantPartnership.delete({ where: { id: row.id } });
 }
