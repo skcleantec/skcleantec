@@ -400,7 +400,7 @@ export function CrmPricingPanel({
 
   const applyAiRecommended = useCallback(
     async ({ amountWon, matchCount }: { amountWon: number; matchCount: number }) => {
-      const label = `AI 추천 견적 (유사 예약 ${matchCount}건)`;
+      const label = matchCount > 0 ? `AI 견적 (예약 ${matchCount.toLocaleString('ko-KR')}건으로 배움)` : 'AI 견적';
       const existingAiLine = quoteLines.find((l) => l.key.startsWith(AI_RECOMMEND_LINE_KEY_PREFIX));
       if (hasBaseRow && onBaseEstimateOverrideChange) {
         const manuallyEdited =
@@ -409,8 +409,8 @@ export function CrmPricingPanel({
         if (manuallyEdited) {
           const ok = await confirmDialog({
             title: '직접 고친 금액이 있어요',
-            body: `기본견적을 AI 추천가 ${formatWon(amountWon)}으로 바꿀까요?`,
-            confirmLabel: '추천가로 바꾸기',
+            body: `기본견적을 AI 견적 ${formatWon(amountWon)}으로 바꿀까요?`,
+            confirmLabel: 'AI 견적으로 바꾸기',
           });
           if (!ok) return;
         }
@@ -428,8 +428,8 @@ export function CrmPricingPanel({
         if (existingAiLine && existingAiLine.amountWon !== existingAiLine.catalogAmountWon) {
           const ok = await confirmDialog({
             title: '직접 고친 금액이 있어요',
-            body: `AI 추천가 ${formatWon(amountWon)}으로 바꿀까요?`,
-            confirmLabel: '추천가로 바꾸기',
+            body: `AI 견적 ${formatWon(amountWon)}으로 바꿀까요?`,
+            confirmLabel: 'AI 견적으로 바꾸기',
           });
           if (!ok) return;
         }
@@ -451,7 +451,7 @@ export function CrmPricingPanel({
           setQuoteLines([aiLine, ...quoteLines]);
         }
       }
-      toast.success(`AI 추천가 ${formatWon(amountWon)}을 넣었어요`);
+      toast.success(`AI 견적 ${formatWon(amountWon)}을 넣었어요`);
     },
     [baseEstimateOverrideWon, hasBaseRow, onBaseEstimateOverrideChange, quoteLines, setQuoteLines],
   );

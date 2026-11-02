@@ -2229,6 +2229,7 @@ export function CrmPage() {
                 propertyType: intakeStructure.propertyType,
                 buildingType: intakeStructure.buildingType,
                 isOneRoom: intakeStructure.isOneRoom,
+                operatingCompanyId: activeOperatingCompanyId ?? undefined,
               }}
               onOpenLearningSettings={
                 canOpenSettings

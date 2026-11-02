@@ -16,39 +16,25 @@ export type CrmQuoteLearningContext = {
   propertyType?: string;
   buildingType?: string;
   isOneRoom?: boolean;
+  /** 작업 브랜드 — 브랜드 예약이 충분하면 그 브랜드 가격으로 배움 */
+  operatingCompanyId?: string;
 };
 
 const FETCH_DEBOUNCE_MS = 400;
 const LOADING_UI_DELAY_MS = 280;
 const FETCH_TIMEOUT_MS = 12000;
 
-function buildHintLine(hints: TelecrmQuoteCrewLearningHints): string | null {
-  if (hints.confidence === 'none') return null;
-  const matchLabel = hints.matchLabel;
-  const parts: string[] = [matchLabel ? `${matchLabel} ${hints.matchCount}건` : `유사 예약 ${hints.matchCount}건`];
-  if (hints.medianAmountWon != null) {
-    parts.push(`보통 ${formatWon(hints.medianAmountWon)}`);
-  }
-  if (hints.typicalTeamLeaderCount != null && hints.typicalTeamLeaderCount > 0) {
-    parts.push(`팀장 ${hints.typicalTeamLeaderCount}명`);
-  }
-  if (hints.typicalCrewMemberCount != null) {
-    parts.push(`팀원 ${hints.typicalCrewMemberCount}명`);
-  }
-  return parts.join(' · ');
-}
-
-/** 서버 `recommendedAmount`(1천원 단위 반올림) 우선, 없으면 중앙값을 1만원 단위로 반올림 */
+/** AI 견적(1만원 단위 확정 금액) 우선 — 없으면 같은 평수 예약 가운데 금액을 1만원 단위로 */
 export function resolveQuoteLearningRecommendedAmount(
   hints: TelecrmQuoteCrewLearningHints | null,
 ): number | null {
-  if (!hints || hints.confidence === 'none' || !(hints.matchCount > 0)) return null;
-  const rec = (hints as TelecrmQuoteCrewLearningHints & { recommendedAmount?: number | null })
-    .recommendedAmount;
-  if (typeof rec === 'number' && Number.isFinite(rec) && rec > 0) return Math.round(rec);
+  if (!hints) return null;
+  const q = hints.quote?.amountWon;
+  if (typeof q === 'number' && Number.isFinite(q) && q > 0) return q;
+  if (hints.confidence === 'none' || !(hints.matchCount > 0)) return null;
   const median = hints.medianAmountWon;
   if (typeof median === 'number' && Number.isFinite(median) && median > 0) {
-    return Math.round(median / 1000) * 1000;
+    return Math.round(median / 10000) * 10000;
   }
   return null;
 }
@@ -147,6 +133,7 @@ export function CrmQuoteLearningHintBanner({
         context.propertyType ?? '',
         context.buildingType ?? '',
         context.isOneRoom ? '1' : '0',
+        context.operatingCompanyId ?? '',
       ].join('|'),
     [context],
   );
@@ -183,6 +170,7 @@ export function CrmQuoteLearningHintBanner({
           propertyType: context.propertyType,
           buildingType: context.buildingType,
           isOneRoom: context.isOneRoom,
+          operatingCompanyId: context.operatingCompanyId,
         }),
         FETCH_TIMEOUT_MS,
       )
@@ -210,62 +198,44 @@ export function CrmQuoteLearningHintBanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, queryKey]);
 
-  const line = hints ? buildHintLine(hints) : null;
   const recommendedAmount = resolveQuoteLearningRecommendedAmount(hints);
   const examples = hints?.examples?.length ? sortExamplesLatestFirst(hints.examples) : [];
-  if (!showLoadingUi && !line) {
+  if (!showLoadingUi && recommendedAmount == null) {
     if (!fetched) return null;
-    return <p className="px-0.5 text-fluid-2xs text-slate-500">비슷한 예약 데이터가 아직 부족해요</p>;
+    return <p className="px-0.5 text-fluid-2xs text-slate-500">배울 예약이 아직 없어 평당 기준가로 안내해요</p>;
   }
 
-  if (showLoadingUi || !hints) {
+  if (showLoadingUi || !hints || recommendedAmount == null) {
     return (
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs text-slate-600">
-        예약 학습 데이터 조회 중…
+        AI 견적 계산 중…
       </div>
     );
   }
 
-  /** 같은 유형·구조 예약끼리 비교한 추천 — 믿고 써도 되는 수준 */
-  const strongMatch = hints.matchLevelIsStrong === true;
-  const pyeongNum = Math.round(parseFloat(context.pyeong.replace(/,/g, '')));
-  const pyeongLabel = Number.isFinite(pyeongNum) && pyeongNum > 0 ? `${pyeongNum}평` : '같은 평수';
+  const quote = hints.quote ?? null;
   const hasRooms = Boolean(context.roomCount?.trim()) || Boolean(context.bathroomCount?.trim()) || context.isOneRoom === true;
   const hasType = Boolean(context.propertyType?.trim());
-  const basisLine = strongMatch
-    ? `${hints.matchLabel?.trim() || pyeongLabel} 같은 예약 ${hints.matchCount}건의 가운데 금액이에요`
-    : `최근 ${pyeongLabel} 실제 예약 ${hints.matchCount}건의 가운데 금액이에요`;
+  const tip =
+    !hasRooms && !hasType
+      ? '방·화장실 수와 건물 유형을 넣으면 그 조건으로 다시 계산해요.'
+      : !hasType
+        ? '건물 유형(아파트·빌라 등)을 넣으면 그 조건으로 다시 계산해요.'
+        : !hasRooms
+          ? '방·화장실 수를 넣으면 그 조건으로 다시 계산해요.'
+          : null;
+  const diff = baseAmountWon != null && baseAmountWon > 0 ? recommendedAmount - baseAmountWon : null;
+  const partsSum = quote ? quote.parts.reduce((sum, x) => sum + x.amountWon, 0) : null;
   const crewParts = [
     hints.typicalTeamLeaderCount != null && hints.typicalTeamLeaderCount > 0 ? `팀장 ${hints.typicalTeamLeaderCount}명` : null,
     hints.typicalCrewMemberCount != null && hints.typicalCrewMemberCount > 0 ? `팀원 ${hints.typicalCrewMemberCount}명` : null,
   ].filter(Boolean);
-  const tip = strongMatch
-    ? null
-    : !hasRooms && !hasType
-      ? '방·화장실·건물 유형이 비어 있어요. 「정보 갖고오기」나 접수란에 넣으면 같은 구조 예약만 골라 더 정확해져요.'
-      : !hasType
-        ? '건물 유형(아파트·빌라 등)이 비어 있어요. 접수란에 넣으면 같은 유형 예약만 골라 더 정확해져요.'
-        : !hasRooms
-          ? '방·화장실 수가 비어 있어요. 「정보 갖고오기」나 접수란에 방 구조를 넣으면 더 정확해져요.'
-          : '같은 구조·유형 예약이 아직 적어서 평수가 같은 예약까지 넣어 계산했어요. 참고만 하세요.';
-  const diff =
-    recommendedAmount != null && baseAmountWon != null && baseAmountWon > 0
-      ? recommendedAmount - baseAmountWon
-      : null;
 
   return (
-    <div
-      className={`rounded-lg border px-2.5 py-1.5 text-fluid-2xs leading-snug ${
-        strongMatch ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-sky-200 bg-sky-50 text-sky-900'
-      }`}
-    >
+    <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-emerald-900">
       <div className="flex min-w-0 items-baseline gap-2">
-        <span className="shrink-0 font-semibold">AI 추천가</span>
-        {recommendedAmount != null ? (
-          <span className="shrink-0 text-fluid-base font-bold tabular-nums text-slate-900">
-            {formatWon(recommendedAmount)}
-          </span>
-        ) : null}
+        <span className="shrink-0 font-semibold">AI 견적</span>
+        <span className="shrink-0 text-fluid-base font-bold tabular-nums text-slate-900">{formatWon(recommendedAmount)}</span>
         {diff != null ? (
           <span className="min-w-0 truncate text-slate-600" title="업체 평당 기준가로 계산한 금액과 비교">
             {diff === 0
@@ -274,17 +244,40 @@ export function CrmQuoteLearningHintBanner({
           </span>
         ) : null}
       </div>
-      <p className="mt-0.5 text-slate-700">
-        {strongMatch ? <span className="font-semibold text-emerald-700">✓ </span> : null}
-        {basisLine}
-        {crewParts.length > 0 ? <span className="text-slate-500"> · 보통 {crewParts.join('·')}</span> : null}
-      </p>
-      {tip ? (
-        <p className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900">💡 {tip}</p>
+
+      {quote && quote.parts.length > 0 ? (
+        <ul className="mt-1 min-w-0 space-y-0.5">
+          {quote.parts.map((part, i) => (
+            <li key={`${part.label}-${i}`} className="flex min-w-0 items-center gap-2 tabular-nums text-slate-700">
+              <span className="min-w-0 flex-1 truncate">{part.label}</span>
+              <span className="shrink-0 font-semibold">
+                {i === 0 ? formatWon(part.amountWon) : `${part.amountWon > 0 ? '+' : '−'}${formatWon(Math.abs(part.amountWon))}`}
+              </span>
+            </li>
+          ))}
+          {partsSum != null && partsSum !== recommendedAmount ? (
+            <li className="flex items-center gap-2 text-slate-500">
+              <span className="flex-1">만원 단위로 맞춤</span>
+              <span className="shrink-0 tabular-nums">
+                {recommendedAmount - partsSum > 0 ? '+' : '−'}
+                {formatWon(Math.abs(recommendedAmount - partsSum))}
+              </span>
+            </li>
+          ) : null}
+        </ul>
       ) : null}
+
+      <p className="mt-1 text-slate-500">
+        {quote
+          ? `우리 업체 예약 ${quote.sampleCount.toLocaleString('ko-KR')}건으로 배운 금액이에요`
+          : `같은 평수 실제 예약 ${hints.matchCount}건의 가운데 금액이에요`}
+        {crewParts.length > 0 ? ` · 보통 ${crewParts.join('·')}` : ''}
+      </p>
+      {tip ? <p className="mt-0.5 text-slate-600">💡 {tip}</p> : null}
+
       {examples.length > 0 ? (
         <div className="mt-1 min-w-0">
-          <p className="whitespace-nowrap font-semibold text-slate-600">비교한 실제 접수 (최신 5건)</p>
+          <p className="whitespace-nowrap font-semibold text-slate-600">같은 평수 실제 예약 (최신 5건)</p>
           <ul className="min-w-0">
             {examples.map((ex, i) => {
               const label = buildExampleLabel(ex);
@@ -306,17 +299,20 @@ export function CrmQuoteLearningHintBanner({
           </ul>
         </div>
       ) : null}
-      {(onApplyRecommended && recommendedAmount != null) || onOpenLearningSettings ? (
+
+      {onApplyRecommended || onOpenLearningSettings ? (
         <div className="mt-1 flex items-center gap-2">
-          {onApplyRecommended && recommendedAmount != null ? (
-          <Button
-            size="sm"
-            variant={strongMatch ? 'primary' : 'secondary'}
-            title={`추천가 ${formatWon(recommendedAmount)}을 안내 목록에 넣어요`}
-            onClick={() => onApplyRecommended({ amountWon: recommendedAmount, matchCount: hints.matchCount })}
-          >
-            AI 추천가 넣기
-          </Button>
+          {onApplyRecommended ? (
+            <Button
+              size="sm"
+              variant="primary"
+              title={`AI 견적 ${formatWon(recommendedAmount)}을 안내 목록에 넣어요`}
+              onClick={() =>
+                onApplyRecommended({ amountWon: recommendedAmount, matchCount: quote?.sampleCount ?? hints.matchCount })
+              }
+            >
+              AI 견적 넣기
+            </Button>
           ) : null}
           {onOpenLearningSettings ? (
             <button
