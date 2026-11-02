@@ -3100,6 +3100,8 @@ export function AdminInquiriesPage() {
               <FilterSearch
                 value={searchInput}
                 placeholder="고객명·연락처·접수번호 검색"
+                manual
+                submitLabel="조회"
                 onSearch={(v) => {
                   setSearchInput(v);
                   applySearchQuery(v);
