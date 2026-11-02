@@ -256,7 +256,7 @@ export async function summarizeTelecrmChat(params: {
     formatTranscriptLines(promptMessages).slice(0, MAX_MESSAGE_CHARS + 500),
   ].join('\n');
 
-  const { json: rawJson, usage, failed } = await callOpenAiJson({
+  const { json: rawJson, usage, failed, failKind } = await callOpenAiJson({
     product: 'telecrm_summary',
     system,
     user,
@@ -271,11 +271,23 @@ export async function summarizeTelecrmChat(params: {
   });
   const json = rawJson as AiSummaryJson | null;
   if (failed || !json || !usage) {
+    const reason: Record<string, string> = {
+      no_key: 'AI 키가 설정되지 않았어요. 관리자에게 확인을 요청해 주세요.',
+      auth: 'AI 키가 맞지 않거나 만료됐어요(OpenAI 인증 실패). 관리자에게 키 확인을 요청해 주세요.',
+      quota: 'OpenAI 충전 잔액(사용 한도)이 다 됐어요. 결제 잔액을 확인해 주세요.',
+      rate: 'AI 요청이 잠깐 몰렸어요. 1분 뒤 다시 눌러 주세요.',
+      bad_request: 'AI 모델 설정이 맞지 않아요. 관리자 확인이 필요해요.',
+      server: 'OpenAI 쪽 일시 장애예요. 잠시 후 다시 시도해 주세요.',
+      timeout: 'AI 응답이 너무 늦어 중단됐어요. 다시 한 번 눌러 주세요.',
+      network: 'AI 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
+      empty: 'AI가 빈 답을 보냈어요. 다시 한 번 눌러 주세요.',
+      parse: 'AI 답 형식이 깨졌어요. 다시 한 번 눌러 주세요.',
+    };
     return {
       ok: false,
       status: 502,
-      error: 'AI 정리에 실패했습니다. 잠시 후 다시 시도해 주세요.',
-      code: 'telecrm_ai_failed',
+      error: (failKind && reason[failKind]) || 'AI 정리에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+      code: failKind ? `telecrm_ai_${failKind}` : 'telecrm_ai_failed',
     };
   }
 
