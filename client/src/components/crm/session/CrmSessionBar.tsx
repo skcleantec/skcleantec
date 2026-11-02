@@ -51,7 +51,7 @@ export function CrmSessionBar({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="inline-flex max-w-full shrink-0 flex-nowrap items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-fluid-xs whitespace-nowrap sm:gap-2 sm:px-2.5">
+      <div className="inline-flex max-w-full shrink-0 flex-nowrap items-center gap-1.5 h-8 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 text-fluid-xs whitespace-nowrap sm:gap-2 sm:px-2.5">
         {loading ? (
           <span className="text-white/60">세션…</span>
         ) : session ? (
@@ -65,7 +65,7 @@ export function CrmSessionBar({ enabled }: { enabled: boolean }) {
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="shrink-0 rounded-md bg-emerald-500/25 px-2 py-0.5 font-semibold text-emerald-50 hover:bg-emerald-500/40"
+              className="inline-flex h-6 shrink-0 items-center rounded-full bg-emerald-500/25 px-2 font-semibold text-emerald-50 hover:bg-emerald-500/40"
             >
               종료·정산
             </button>

@@ -84,7 +84,7 @@ export function SoomgoMessagePresetEditor({
 
   const body = (
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
-      {hint && !compact ? <p className="text-fluid-xs text-gray-600">{hint}</p> : null}
+      {hint && !compact ? <p className="text-fluid-xs text-slate-600">{hint}</p> : null}
       {!hideLabel ? (
         <input
           type="text"
@@ -95,12 +95,12 @@ export function SoomgoMessagePresetEditor({
         />
       ) : null}
       {!compact ? (
-        <label className="flex items-center gap-2 text-fluid-xs text-gray-700">
+        <label className="flex items-center gap-2 text-fluid-xs text-slate-700">
           <input
             type="checkbox"
             checked={draft.isActive}
             onChange={(e) => onChange({ isActive: e.target.checked })}
-            className="rounded border-gray-300"
+            className="rounded-lg border-slate-300"
           />
           {activeCheckboxLabel}
         </label>
@@ -111,17 +111,17 @@ export function SoomgoMessagePresetEditor({
             key={`${draft.id ?? 'new'}-${stepIndex}`}
             className={
               compact
-                ? 'rounded border border-gray-200 bg-white p-2'
-                : 'rounded-lg border border-gray-200 bg-gray-50 p-3'
+                ? 'rounded-lg border border-slate-200 bg-white p-2'
+                : 'rounded-lg border border-slate-200 bg-slate-50 p-3'
             }
           >
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-fluid-xs font-medium text-gray-700">{stepSummary(step)}</span>
+                <span className="text-fluid-xs font-medium text-slate-700">{stepSummary(step)}</span>
                 <div className="flex gap-1">
-                  <button type="button" className="text-fluid-xs text-gray-500" onClick={() => moveStep(stepIndex, -1)}>
+                  <button type="button" className="text-fluid-xs text-slate-500" onClick={() => moveStep(stepIndex, -1)}>
                     ↑
                   </button>
-                  <button type="button" className="text-fluid-xs text-gray-500" onClick={() => moveStep(stepIndex, 1)}>
+                  <button type="button" className="text-fluid-xs text-slate-500" onClick={() => moveStep(stepIndex, 1)}>
                     ↓
                   </button>
                   <button type="button" className="text-fluid-xs text-rose-600" onClick={() => removeStep(stepIndex)}>
@@ -140,7 +140,7 @@ export function SoomgoMessagePresetEditor({
               ) : (
                 <div className="space-y-2">
                   <div className="flex flex-wrap gap-2">
-                    <label className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-fluid-xs">
+                    <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-fluid-xs">
                       이미지 추가
                       <input
                         type="file"
@@ -161,7 +161,7 @@ export function SoomgoMessagePresetEditor({
                           mode: e.target.value as SoomgoMessageImageMode,
                         })
                       }
-                      className="rounded-lg border border-gray-200 px-2 py-1 text-fluid-xs"
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-fluid-xs"
                     >
                       <option value="bundle">묶음 전송</option>
                       <option value="single">개별 전송</option>
@@ -170,10 +170,10 @@ export function SoomgoMessagePresetEditor({
                   <div className="flex flex-wrap gap-2">
                     {step.urls.map((url, urlIndex) => (
                       <div key={url} className="relative">
-                        <img src={url} alt="" className="h-14 w-14 rounded border object-cover" />
+                        <img src={url} alt="" className="h-14 w-14 rounded-lg border object-cover" />
                         <button
                           type="button"
-                          className="absolute -right-1 -top-1 rounded-full bg-rose-600 px-1 text-[11px] text-white"
+                          className="absolute -right-1 -top-1 rounded-full bg-rose-600 px-1 text-fluid-2xs text-white"
                           onClick={() =>
                             patchStep(stepIndex, {
                               ...step,
@@ -196,7 +196,7 @@ export function SoomgoMessagePresetEditor({
             type="button"
             disabled={busy}
             onClick={() => onChange({ steps: [...draft.steps, { type: 'text', text: '' }] })}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-fluid-xs hover:bg-gray-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-fluid-xs hover:bg-slate-50"
           >
             + 텍스트
           </button>
@@ -208,7 +208,7 @@ export function SoomgoMessagePresetEditor({
                 steps: [...draft.steps, { type: 'images', urls: [], mode: 'bundle' }],
               })
             }
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-fluid-xs hover:bg-gray-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-fluid-xs hover:bg-slate-50"
           >
             + 이미지
           </button>

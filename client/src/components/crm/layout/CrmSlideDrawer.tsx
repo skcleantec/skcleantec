@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { HelpTooltip } from '../../ui/HelpTooltip';
 
 const TOOL_NAV_COLLAPSED_KEY = 'sk_telecrm_tool_nav_collapsed';
 const TOOL_NAV_WIDTH_EXPANDED = 132;
@@ -21,6 +22,7 @@ export function CrmSlideDrawer({
   open,
   title,
   subtitle,
+  titleAddon,
   onClose,
   widthClass = 'w-[min(420px,92vw)]',
   /** body 전체 스크롤(기본) vs 본문 flex·내부 스크롤(숨고 메시지 등) */
@@ -32,6 +34,8 @@ export function CrmSlideDrawer({
   open: boolean;
   title: string;
   subtitle?: string;
+  /** 제목 옆 작은 요소 (도움말 등) — 선택 */
+  titleAddon?: ReactNode;
   onClose: () => void;
   widthClass?: string;
   bodyLayout?: 'scroll' | 'split';
@@ -93,7 +97,7 @@ export function CrmSlideDrawer({
       />
       <aside
         className={[
-          'fixed top-0 z-10 flex max-h-[100dvh] min-h-0 flex-col border-r border-gray-200 bg-white shadow-2xl',
+          'fixed top-0 z-10 flex max-h-[100dvh] min-h-0 flex-col border-r border-slate-200 bg-white shadow-2xl',
           'transition-transform duration-300 ease-out motion-reduce:transition-none',
           widthClass,
         ].join(' ')}
@@ -107,17 +111,18 @@ export function CrmSlideDrawer({
         aria-labelledby="crm-slide-drawer-title"
         aria-hidden={!open}
       >
-        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
-          <div className="min-w-0">
-            <h2 id="crm-slide-drawer-title" className="text-fluid-sm font-semibold text-gray-900">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h2 id="crm-slide-drawer-title" className="truncate whitespace-nowrap text-fluid-sm font-semibold text-slate-900">
               {title}
             </h2>
-            {subtitle ? <p className="mt-0.5 text-fluid-xs text-gray-500">{subtitle}</p> : null}
+            {subtitle ? <HelpTooltip text={subtitle} className="shrink-0" /> : null}
+            {titleAddon}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-fluid-xs text-gray-700 hover:bg-gray-50"
+            className="inline-flex h-7 shrink-0 items-center rounded-lg border border-slate-300 px-3 text-fluid-xs text-slate-700 hover:bg-slate-50"
           >
             닫기
           </button>

@@ -84,44 +84,44 @@ export function TelecrmGeneralSettingsPage() {
       ) : null}
 
       <SettingsCard title="기본 단가 · 최소 금액 · 예약금">
-        <p className="text-fluid-sm text-gray-500">
+        <p className="text-fluid-sm text-slate-500">
           발주서 견적 설정과 동일한 값입니다. 텔레CRM 가격 패널·스크립트 {'{예상가}'} 치환에 사용됩니다.
           최소 금액을 0보다 크게 두면, 평수×평당 계산이 그보다 작을 때 최소 금액이 적용됩니다.
         </p>
         {loading ? (
-          <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
+          <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
         ) : (
           <div className="grid max-w-md gap-4">
             <label className="block space-y-1">
-              <span className="text-fluid-xs font-medium text-gray-700">평당 단가 (원)</span>
+              <span className="text-fluid-xs font-medium text-slate-700">평당 단가 (원)</span>
               <input
                 type="text"
                 value={pricePerPyeong}
                 onChange={(e) => setPricePerPyeong(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm tabular-nums"
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-fluid-xs font-medium text-gray-700">최소 금액 (원)</span>
+              <span className="text-fluid-xs font-medium text-slate-700">최소 금액 (원)</span>
               <input
                 type="text"
                 value={minimumTotalAmount}
                 onChange={(e) => setMinimumTotalAmount(e.target.value)}
                 placeholder="0 — 미적용"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm tabular-nums"
               />
-              <span className="text-[11px] text-gray-500">0이면 평수×평당만 사용합니다.</span>
+              <span className="text-fluid-2xs text-slate-500">0이면 평수×평당만 사용합니다.</span>
             </label>
             <label className="block space-y-1">
-              <span className="text-fluid-xs font-medium text-gray-700">예약금 (원)</span>
+              <span className="text-fluid-xs font-medium text-slate-700">예약금 (원)</span>
               <input
                 type="text"
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm tabular-nums"
               />
             </label>
-            <p className="text-fluid-xs text-gray-500">
+            <p className="text-fluid-xs text-slate-500">
               예: 평당 {formatWon(previewPpp)} · 30평 ≈ {formatWon(preview30)}
               {previewMin > 0 ? ` · 10평 ≈ ${formatWon(preview10)} (최소 ${formatWon(previewMin)} 적용 가능)` : ''}
             </p>

@@ -17,7 +17,7 @@ export function TelecrmReorderButtons({
         type="button"
         disabled={disabled || !canMoveUp}
         onClick={onMoveUp}
-        className="px-1.5 py-0.5 text-[12px] border border-gray-300 rounded text-gray-600 disabled:opacity-30"
+        className="px-1.5 py-0.5 text-fluid-2xs border border-slate-300 rounded-lg text-slate-600 disabled:opacity-30"
         title="위로"
         aria-label="순서 위로"
       >
@@ -27,7 +27,7 @@ export function TelecrmReorderButtons({
         type="button"
         disabled={disabled || !canMoveDown}
         onClick={onMoveDown}
-        className="px-1.5 py-0.5 text-[12px] border border-gray-300 rounded text-gray-600 disabled:opacity-30"
+        className="px-1.5 py-0.5 text-fluid-2xs border border-slate-300 rounded-lg text-slate-600 disabled:opacity-30"
         title="아래로"
         aria-label="순서 아래로"
       >
@@ -66,13 +66,13 @@ export function TelecrmCatalogScopeSegment({
   if (onlyOne) return null;
 
   return (
-    <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
       {showPersonal ? (
         <button
           type="button"
           onClick={() => onChange('personal')}
-          className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
-            value === 'personal' ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+          className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium ${
+            value === 'personal' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
           }`}
         >
           내 스크립트·가격
@@ -82,8 +82,8 @@ export function TelecrmCatalogScopeSegment({
         <button
           type="button"
           onClick={() => onChange('shared')}
-          className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
-            value === 'shared' ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+          className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium ${
+            value === 'shared' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
           }`}
         >
           업체 공통

@@ -275,7 +275,7 @@ export function FollowupInlinePanel({
       ? '선택한 희망일 범위에 맞는 건이 없습니다.'
       : filters.phoneLock && crmPhoneAvailable
         ? 'CRM 연락처와 일치하는 부재·보류 건이 없습니다.'
-        : '부재·보류 건이 없습니다.';
+        : '부재·보류 건이 없어요';
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
@@ -321,14 +321,14 @@ export function FollowupInlinePanel({
         onPageSizeChange={handleListPageSizeChange}
       />
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <p className="border-b border-slate-100 px-2 py-1 text-[11px] text-slate-500 lg:hidden">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <p className="border-b border-slate-100 px-3 py-1 text-fluid-2xs text-slate-500 lg:hidden">
           표는 좌우로 스크롤할 수 있습니다.
         </p>
         {shouldShowListBlockingLoading(loading, items.length) ? (
-          <p className="p-4 text-center text-fluid-xs text-gray-500">불러오는 중…</p>
+          <p className="px-3 py-6 text-center text-fluid-xs text-slate-500">불러오는 중…</p>
         ) : items.length === 0 ? (
-          <p className="p-4 text-center text-fluid-xs text-gray-500">{emptyMessage}</p>
+          <p className="px-3 py-6 text-center text-fluid-xs text-slate-500">{emptyMessage}</p>
         ) : (
           <div className="max-h-[min(42vh,360px)] overflow-y-auto overscroll-contain">
             <FollowupListTable
@@ -358,14 +358,14 @@ export function FollowupInlinePanel({
             <button
               type="button"
               onClick={handleApply}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-fluid-xs font-semibold text-white hover:bg-emerald-700"
+              className="inline-flex h-8 items-center whitespace-nowrap rounded-lg bg-emerald-600 px-3 text-fluid-xs font-semibold text-white hover:bg-emerald-700"
             >
               CRM 접수란으로 가져오기
             </button>
             <button
               type="button"
               onClick={() => void handleCall()}
-              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-fluid-xs font-semibold text-sky-800 hover:bg-sky-100"
+              className="inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-3 text-fluid-xs font-semibold text-sky-800 hover:bg-sky-100"
             >
               전화
             </button>
@@ -374,7 +374,7 @@ export function FollowupInlinePanel({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleDefer()}
-                className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-fluid-xs font-semibold text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+                className="inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-amber-300 bg-white px-3 text-fluid-xs font-semibold text-amber-900 hover:bg-amber-50 disabled:opacity-50"
               >
                 부재+1 ({selected.deferCount})
               </button>
@@ -382,39 +382,39 @@ export function FollowupInlinePanel({
             <button
               type="button"
               onClick={() => void loadList()}
-              className="ml-auto rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-fluid-xs text-gray-600 hover:bg-gray-50"
+              className="ml-auto inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-fluid-xs text-slate-600 hover:bg-slate-50"
             >
               새로고침
             </button>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="block space-y-0.5 sm:col-span-2">
-              <span className="text-[12px] font-medium text-gray-700">고객명</span>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">고객명</span>
               <input
                 type="text"
                 value={draft.customerName}
                 onChange={(e) => setDraft((d) => (d ? { ...d, customerName: e.target.value } : d))}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-fluid-sm"
               />
             </label>
-            <label className="block space-y-0.5">
-              <span className="text-[12px] font-medium text-gray-700">닉네임</span>
+            <label className="block">
+              <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">닉네임</span>
               <input
                 type="text"
                 value={draft.nickname}
                 onChange={(e) => setDraft((d) => (d ? { ...d, nickname: e.target.value } : d))}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-fluid-sm"
               />
             </label>
-            <label className="block space-y-0.5">
-              <span className="text-[12px] font-medium text-gray-700">상태</span>
+            <label className="block">
+              <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">상태</span>
               <select
                 value={draft.status}
                 onChange={(e) =>
                   setDraft((d) => (d ? { ...d, status: e.target.value as OrderFollowupStatus } : d))
                 }
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-fluid-sm"
               >
                 {ORDER_FOLLOWUP_STATUS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -423,33 +423,33 @@ export function FollowupInlinePanel({
                 ))}
               </select>
             </label>
-            <label className="block space-y-0.5">
-              <span className="text-[12px] font-medium text-gray-700">연락처</span>
+            <label className="block">
+              <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">연락처</span>
               <input
                 type="text"
                 value={draft.contactPhone}
                 onChange={(e) => setDraft((d) => (d ? { ...d, contactPhone: e.target.value } : d))}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-fluid-sm"
               />
             </label>
-            <label className="block space-y-0.5">
-              <span className="text-[12px] font-medium text-gray-700">안심번호</span>
+            <label className="block">
+              <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">안심번호</span>
               <input
                 type="text"
                 value={draft.safePhone}
                 onChange={(e) => setDraft((d) => (d ? { ...d, safePhone: e.target.value } : d))}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-fluid-sm"
               />
             </label>
-            <label className="block space-y-0.5 sm:col-span-2">
-              <span className="text-[12px] font-medium text-gray-700">입주청소 희망일</span>
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">입주청소 희망일</span>
               <input
                 type="date"
                 value={draft.preferredMoveInCleanYmd}
                 onChange={(e) =>
                   setDraft((d) => (d ? { ...d, preferredMoveInCleanYmd: e.target.value } : d))
                 }
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-fluid-sm"
               />
             </label>
             <label className="flex items-center gap-2 sm:col-span-2">
@@ -457,9 +457,9 @@ export function FollowupInlinePanel({
                 type="checkbox"
                 checked={draft.goldDb}
                 onChange={(e) => setDraft((d) => (d ? { ...d, goldDb: e.target.checked } : d))}
-                className="rounded border-gray-300"
+                className="rounded-lg border-slate-300"
               />
-              <span className="text-fluid-xs font-medium text-gray-700">골드DB</span>
+              <span className="text-fluid-xs font-medium text-slate-700">골드DB</span>
             </label>
             <div className="sm:col-span-2">
               <FollowupIntakeExtrasFields
@@ -473,13 +473,13 @@ export function FollowupInlinePanel({
                 }
               />
             </div>
-            <label className="block space-y-0.5 sm:col-span-2">
-              <span className="text-[12px] font-medium text-gray-700">메모</span>
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">메모</span>
               <textarea
                 value={draft.memo}
                 onChange={(e) => setDraft((d) => (d ? { ...d, memo: e.target.value } : d))}
                 rows={3}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm"
               />
             </label>
           </div>
@@ -488,14 +488,12 @@ export function FollowupInlinePanel({
             type="button"
             disabled={busy}
             onClick={() => void saveDetail()}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm text-white disabled:opacity-50"
+            className="inline-flex h-9 items-center rounded-lg bg-slate-900 px-4 text-fluid-sm text-white disabled:opacity-50"
           >
             {busy ? '저장 중…' : '저장'}
           </button>
         </div>
-      ) : (
-        <p className="text-fluid-xs text-gray-500">목록에서 건을 선택하면 상세·편집할 수 있습니다.</p>
-      )}
+      ) : null}
 
       {memoView
         ? createPortal(
@@ -506,13 +504,13 @@ export function FollowupInlinePanel({
               aria-labelledby="crm-followup-memo-title"
             >
               <div className="max-h-[min(80vh,520px)] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
-                <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-                  <h2 id="crm-followup-memo-title" className="text-fluid-sm font-semibold text-gray-900">
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                  <h2 id="crm-followup-memo-title" className="text-fluid-sm font-semibold text-slate-900">
                     메모 — {memoView.customerName}
                   </h2>
                   <ModalCloseButton onClick={() => setMemoView(null)} />
                 </div>
-                <div className="max-h-[min(60vh,400px)] overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 text-fluid-sm text-gray-800">
+                <div className="max-h-[min(60vh,400px)] overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 text-fluid-sm text-slate-800">
                   {memoView.memo?.trim() || '—'}
                 </div>
               </div>

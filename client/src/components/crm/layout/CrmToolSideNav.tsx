@@ -70,8 +70,8 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg shadow-slate-900/20">
         {!collapsed ? (
-          <div className="border-b border-slate-800 px-3 py-2.5">
-            <p className="truncate text-[12px] font-semibold uppercase tracking-wide text-slate-200">도구</p>
+          <div className="flex h-10 items-center border-b border-slate-800 px-3">
+            <p className="truncate text-fluid-2xs font-semibold uppercase tracking-wide text-slate-200">도구</p>
           </div>
         ) : (
           <div className="flex h-10 items-center justify-center border-b border-slate-800" aria-hidden>
@@ -80,7 +80,7 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
         )}
 
         <nav className="min-h-0 flex-1 overflow-y-auto py-2">
-          <ul className="space-y-1 px-1.5">
+          <ul className="space-y-0.5 px-1.5">
             {items.map((item) => (
               <li key={item.id}>
                 <button
@@ -89,12 +89,12 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
                   disabled={item.disabled || item.loading}
                   onClick={item.onClick}
                   className={[
-                    'relative flex w-full items-center rounded-xl text-slate-300 transition-colors',
+                    'relative flex h-9 w-full items-center rounded-xl text-slate-300 transition-colors',
                     'hover:bg-white/10 hover:text-white active:bg-white/10',
                     item.active ? 'bg-white/10 text-white' : '',
                     item.loading ? 'cursor-wait opacity-90' : '',
                     item.disabled && !item.loading ? 'cursor-not-allowed opacity-40' : '',
-                    collapsed ? 'justify-center py-2.5' : 'gap-2 px-2.5 py-2',
+                    collapsed ? 'justify-center' : 'gap-2 px-2.5',
                   ].join(' ')}
                 >
                   {item.active ? (
@@ -112,7 +112,7 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
                     ) : null}
                   </span>
                   {!collapsed ? (
-                    <span className="min-w-0 truncate text-[12px] font-medium">
+                    <span className="min-w-0 truncate whitespace-nowrap text-fluid-2xs font-medium">
                       {item.loading ? '가져오는 중…' : item.label}
                     </span>
                   ) : null}
@@ -127,15 +127,15 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
             type="button"
             onClick={() => setCollapsedPersisted(!collapsed)}
             className={[
-              'flex w-full items-center rounded-xl text-slate-300 transition-colors',
+              'flex h-9 w-full items-center rounded-xl text-slate-300 transition-colors',
               'hover:bg-white/10 hover:text-white',
-              collapsed ? 'justify-center py-2.5' : 'gap-2 px-2.5 py-2',
+              collapsed ? 'justify-center' : 'gap-2 px-2.5',
             ].join(' ')}
             aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
             aria-expanded={!collapsed}
           >
             <PanelCollapseIcon className="h-[18px] w-[18px] shrink-0" />
-            {!collapsed ? <span className="text-[12px] font-medium text-slate-200">메뉴 접기</span> : null}
+            {!collapsed ? <span className="whitespace-nowrap text-fluid-2xs font-medium text-slate-200">메뉴 접기</span> : null}
           </button>
         </div>
       </div>

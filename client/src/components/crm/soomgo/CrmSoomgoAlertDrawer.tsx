@@ -36,7 +36,7 @@ function SoomgoHiredMeBadge() {
   return (
     <span
       title="고객이 나를 고용함 (숨고 「내 고용」)"
-      className="inline-flex shrink-0 items-center rounded border border-emerald-500/70 bg-emerald-50 px-0.5 py-px text-[8px] font-bold leading-none text-emerald-800"
+      className="inline-flex shrink-0 items-center rounded-lg border border-emerald-500/70 bg-emerald-50 px-0.5 py-px text-[8px] font-bold leading-none text-emerald-800"
     >
       고용
     </span>
@@ -86,7 +86,7 @@ function InboxOneLineRow({
           aria-label={pinned ? '고정 해제' : '상단 고정'}
           title={pinned ? '고정 해제' : '상단 고정'}
           className={[
-            'inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors',
+            'inline-flex h-7 w-7 items-center justify-center rounded-lg border transition-colors',
             pinned
               ? 'border-amber-400 bg-amber-100 text-amber-700 shadow-sm'
               : 'border-slate-300 bg-slate-100 text-slate-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700',
@@ -103,13 +103,13 @@ function InboxOneLineRow({
             <span className="h-1.5 w-1.5 shrink-0" aria-hidden />
           )}
           {hiredMe ? <SoomgoHiredMeBadge /> : null}
-          <span className="truncate text-[12px] font-semibold text-slate-900" title={displayName}>
+          <span className="truncate text-fluid-2xs font-semibold text-slate-900" title={displayName}>
             {displayName}
           </span>
         </div>
       </td>
       <td className="min-w-0 px-1 py-1 align-middle">
-        <span className="block truncate text-[11px] text-slate-600" title={`[${kindLabel}] ${chatPreview}`}>
+        <span className="block truncate text-fluid-2xs text-slate-600" title={`[${kindLabel}] ${chatPreview}`}>
           {chatPreview}
         </span>
       </td>
@@ -122,14 +122,14 @@ function InboxOneLineRow({
             type="button"
             disabled={busy}
             onClick={onOpenSoomgo}
-            className="shrink-0 rounded border border-sky-400 bg-sky-600 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white hover:bg-sky-700 disabled:opacity-40"
+            className="shrink-0 rounded-lg border border-sky-400 bg-sky-600 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white hover:bg-sky-700 disabled:opacity-40"
           >
             숨고에서 열기
           </button>
           <button
             type="button"
             onClick={onDismiss}
-            className="shrink-0 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[9px] font-medium leading-none text-slate-700 hover:bg-slate-50"
+            className="shrink-0 rounded-lg border border-slate-300 bg-white px-1.5 py-0.5 text-[9px] font-medium leading-none text-slate-700 hover:bg-slate-50"
           >
             읽음
           </button>
@@ -190,7 +190,7 @@ export function CrmSoomgoAlertDrawer({
     >
       <div className="flex min-h-[min(72vh,640px)] flex-col gap-2">
         <div className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+          <div className="flex items-center gap-1.5 text-fluid-2xs text-slate-600">
             <CrmIconBell className="h-3.5 w-3.5 text-sky-600" />
             <span>
               대기 <strong className="tabular-nums">{pendingCount}</strong>건
@@ -202,7 +202,7 @@ export function CrmSoomgoAlertDrawer({
                 type="button"
                 disabled={refreshing || busy}
                 onClick={onRefresh}
-                className="rounded border border-sky-300 bg-white px-2 py-0.5 text-[9px] font-semibold text-sky-800 hover:bg-sky-50 disabled:opacity-40"
+                className="rounded-lg border border-sky-300 bg-white px-2 py-0.5 text-[9px] font-semibold text-sky-800 hover:bg-sky-50 disabled:opacity-40"
               >
                 {refreshing ? '새로고침…' : '새로고침'}
               </button>
@@ -211,7 +211,7 @@ export function CrmSoomgoAlertDrawer({
               <button
                 type="button"
                 onClick={onDismissAll}
-                className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded-lg border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-medium text-slate-600 hover:bg-slate-50"
               >
                 모두 읽음
               </button>
@@ -222,8 +222,8 @@ export function CrmSoomgoAlertDrawer({
         {items.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-10 text-center">
             <CrmIconBell className="mb-2 h-8 w-8 text-slate-300" />
-            <p className="text-[12px] font-medium text-slate-700">대기 중인 알림이 없습니다</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+            <p className="text-fluid-2xs font-medium text-slate-700">대기 중인 알림이 없습니다</p>
+            <p className="mt-1 text-fluid-2xs leading-relaxed text-slate-500">
               숨고 채팅 목록에서 <strong>오른쪽 미읽음 배지</strong>가 있거나 견적 읽음인 건만 표시됩니다. 열기·읽음 시
               사라지며, 📌 고정은 유지됩니다.
             </p>

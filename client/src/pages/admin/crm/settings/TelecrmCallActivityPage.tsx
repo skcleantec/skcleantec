@@ -99,7 +99,7 @@ export function TelecrmCallActivityPage() {
 
   if (!isAdmin) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-fluid-sm text-gray-500">
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-fluid-sm text-slate-500">
         관리자만 상담사 통화 현황을 볼 수 있습니다.
       </div>
     );
@@ -109,12 +109,12 @@ export function TelecrmCallActivityPage() {
     <div className="min-w-0 w-full max-w-full space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">상담 통화 현황</h2>
-        <p className="mt-1 text-fluid-sm text-gray-500">
+        <p className="mt-1 text-fluid-sm text-slate-500">
           CallLog 기준 · {connectedMinSec}초 이상만 연결 통화로 집계합니다.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
         <div className="flex flex-wrap gap-2">
           {PRESETS.map((p) => (
             <button
@@ -122,7 +122,7 @@ export function TelecrmCallActivityPage() {
               type="button"
               onClick={() => applyPreset(p.id)}
               className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium ${
-                preset === p.id ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                preset === p.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
               {p.label}
@@ -135,28 +135,28 @@ export function TelecrmCallActivityPage() {
               type="date"
               value={from}
               onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
             />
-            <span className="text-gray-400">~</span>
+            <span className="text-slate-400">~</span>
             <input
               type="date"
               value={to}
               onChange={(e) => { setTo(e.target.value); setPage(1); }}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
             />
           </div>
         ) : null}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl bg-slate-50 p-3 text-center">
-            <div className="text-[12px] text-slate-500">팀 연결</div>
+            <div className="text-fluid-2xs text-slate-500">팀 연결</div>
             <div className="text-lg font-semibold tabular-nums text-slate-900">{totals.connected}</div>
           </div>
           <div className="rounded-xl bg-slate-50 p-3 text-center">
-            <div className="text-[12px] text-slate-500">팀 미연결</div>
+            <div className="text-fluid-2xs text-slate-500">팀 미연결</div>
             <div className="text-lg font-semibold tabular-nums text-slate-900">{totals.noAnswer}</div>
           </div>
           <div className="rounded-xl bg-slate-50 p-3 text-center col-span-2 sm:col-span-2">
-            <div className="text-[12px] text-slate-500">팀 연결 시간</div>
+            <div className="text-fluid-2xs text-slate-500">팀 연결 시간</div>
             <div className="text-lg font-semibold tabular-nums text-slate-900">{formatDuration(totals.duration)}</div>
           </div>
         </div>
@@ -171,7 +171,7 @@ export function TelecrmCallActivityPage() {
         onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
       />
 
-      <div className="bg-white border border-gray-200 rounded-lg">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[720px] table-fixed border-collapse text-fluid-xs xl:text-fluid-sm">
             <colgroup>
@@ -184,43 +184,43 @@ export function TelecrmCallActivityPage() {
               <col className="w-[12%]" />
             </colgroup>
             <thead>
-              <tr className="bg-gray-100 text-gray-600">
-                <th className="px-2 py-2 text-center font-medium">상담사</th>
-                <th className="px-2 py-2 text-center font-medium">연결</th>
-                <th className="px-2 py-2 text-center font-medium">미연결</th>
-                <th className="px-2 py-2 text-center font-medium">연결시간</th>
-                <th className="px-2 py-2 text-center font-medium">평균통화</th>
-                <th className="px-2 py-2 text-center font-medium">마지막 연결</th>
-                <th className="px-2 py-2 text-center font-medium">평균 간격</th>
+              <tr className="h-9 border-b border-slate-200 bg-slate-50 text-fluid-2xs font-semibold text-slate-600">
+                <th className="whitespace-nowrap px-3 text-center font-semibold">상담사</th>
+                <th className="whitespace-nowrap px-3 text-center font-semibold">연결</th>
+                <th className="whitespace-nowrap px-3 text-center font-semibold">미연결</th>
+                <th className="whitespace-nowrap px-3 text-center font-semibold">연결시간</th>
+                <th className="whitespace-nowrap px-3 text-center font-semibold">평균통화</th>
+                <th className="whitespace-nowrap px-3 text-center font-semibold">마지막 연결</th>
+                <th className="whitespace-nowrap px-3 text-center font-semibold">평균 간격</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-500">불러오는 중…</td>
+                  <td colSpan={7} className="px-3 py-8 text-center text-fluid-xs text-slate-500">불러오는 중…</td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-red-600">{error}</td>
+                  <td colSpan={7} className="px-3 py-8 text-center text-fluid-xs text-red-600">{error}</td>
                 </tr>
               ) : pageItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-500">표시할 통화 기록이 없습니다.</td>
+                  <td colSpan={7} className="px-3 py-8 text-center text-fluid-xs text-slate-500">통화 기록이 없어요</td>
                 </tr>
               ) : (
                 pageItems.map((row) => (
-                  <tr key={row.userId} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-2 py-2 text-center truncate" title={row.loginId ?? undefined}>
+                  <tr key={row.userId} className="h-11 border-t border-slate-100 hover:bg-slate-50">
+                    <td className="whitespace-nowrap px-3 text-center truncate" title={row.loginId ?? undefined}>
                       {row.userName ?? row.loginId ?? '—'}
                     </td>
-                    <td className="px-2 py-2 text-center tabular-nums">{row.connectedCount}</td>
-                    <td className="px-2 py-2 text-center tabular-nums text-gray-500">{row.noAnswerCount}</td>
-                    <td className="px-2 py-2 text-center tabular-nums">{formatDuration(row.connectedDurationSec)}</td>
-                    <td className="px-2 py-2 text-center tabular-nums">
+                    <td className="whitespace-nowrap px-3 text-center tabular-nums">{row.connectedCount}</td>
+                    <td className="whitespace-nowrap px-3 text-center tabular-nums text-slate-500">{row.noAnswerCount}</td>
+                    <td className="whitespace-nowrap px-3 text-center tabular-nums">{formatDuration(row.connectedDurationSec)}</td>
+                    <td className="whitespace-nowrap px-3 text-center tabular-nums">
                       {row.avgConnectedDurationSec > 0 ? formatDuration(row.avgConnectedDurationSec) : '—'}
                     </td>
-                    <td className="px-2 py-2 text-center text-fluid-2xs">{formatWhen(row.lastConnectedAt)}</td>
-                    <td className="px-2 py-2 text-center tabular-nums">
+                    <td className="whitespace-nowrap px-3 text-center text-fluid-2xs">{formatWhen(row.lastConnectedAt)}</td>
+                    <td className="whitespace-nowrap px-3 text-center tabular-nums">
                       {row.avgGapMin != null ? `${row.avgGapMin}분` : '—'}
                     </td>
                   </tr>

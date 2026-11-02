@@ -2,6 +2,7 @@ import type {
   TelecrmQuoteCrewLearningBackfillResult,
   TelecrmQuoteCrewLearningHints,
   TelecrmQuoteCrewLearningOverview,
+  TelecrmPropertyChoiceOptions,
 } from '@shared/telecrmQuoteCrewLearning';
 
 const API = '/api/crm';
@@ -54,7 +55,8 @@ export type TelecrmQuoteCrewLearningBackfillResponse = TelecrmQuoteCrewLearningB
 
 export async function backfillTelecrmQuoteCrewLearning(
   token: string,
-  limit = 500,
+  /** 비우면 전체 접수를 학습 (서버가 500건씩 나눠 처리) */
+  limit?: number,
 ): Promise<TelecrmQuoteCrewLearningBackfillResponse> {
   const res = await fetch(`${API}/quote-learning/backfill`, {
     method: 'POST',
@@ -62,7 +64,15 @@ export async function backfillTelecrmQuoteCrewLearning(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ limit }),
+    body: JSON.stringify(limit != null ? { limit } : {}),
   });
   return parseJson<TelecrmQuoteCrewLearningBackfillResponse>(res);
+}
+
+/** 접수란 건축물 유형·건물 형태 선택지 — 손님 발주서와 같은 목록 */
+export async function fetchTelecrmPropertyChoiceOptions(token: string): Promise<TelecrmPropertyChoiceOptions> {
+  const res = await fetch(`${API}/quote-learning/property-options`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJson<TelecrmPropertyChoiceOptions>(res);
 }

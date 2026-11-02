@@ -95,7 +95,7 @@ export function TelecrmSoomgoSettingsPage({
 
   return (
     <div className="space-y-4">
-      <p className="text-fluid-sm text-gray-600">
+      <p className="text-fluid-sm text-slate-600">
         <strong>업체 공통</strong> 숨고 연동 계정·PC 프로그램입니다. 채팅 매크로·자동 안내는 설정{' '}
         <strong>「숨고 프리셋」</strong> 탭에서 편집합니다.
       </p>
@@ -121,16 +121,16 @@ export function TelecrmSoomgoSettingsPage({
         }
       >
         {loading ? (
-          <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
+          <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
         ) : (
           <div className="space-y-4">
-            <p className="text-fluid-sm text-gray-600">
+            <p className="text-fluid-sm text-slate-600">
               「숨고 보조창」 열기 시 아래 방식으로 로그인합니다. 아래에서 다른 계정이 필요한 브랜드만
               따로 등록할 수 있습니다.
             </p>
             <fieldset className="space-y-1.5">
-              <legend className="text-fluid-sm font-medium text-gray-700">로그인 방식</legend>
-              <label className="flex items-center gap-2 text-fluid-sm text-gray-700">
+              <legend className="text-fluid-sm font-medium text-slate-700">로그인 방식</legend>
+              <label className="flex items-center gap-2 text-fluid-sm text-slate-700">
                 <input
                   type="radio"
                   name="tenant-soomgo-login-mode"
@@ -139,7 +139,7 @@ export function TelecrmSoomgoSettingsPage({
                 />
                 이메일 로그인 (자동 입력)
               </label>
-              <label className="flex items-center gap-2 text-fluid-sm text-gray-700">
+              <label className="flex items-center gap-2 text-fluid-sm text-slate-700">
                 <input
                   type="radio"
                   name="tenant-soomgo-login-mode"
@@ -152,17 +152,17 @@ export function TelecrmSoomgoSettingsPage({
             {loginMode === 'email' ? (
               <>
                 <label className="block space-y-1">
-                  <span className="text-fluid-sm font-medium text-gray-700">숨고 이메일</span>
+                  <span className="text-fluid-sm font-medium text-slate-700">숨고 이메일</span>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                    className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
                     autoComplete="off"
                   />
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-fluid-sm font-medium text-gray-700">
+                  <span className="text-fluid-sm font-medium text-slate-700">
                     숨고 비밀번호 {hasPassword ? '(변경 시에만 입력)' : ''}
                   </span>
                   <input
@@ -170,7 +170,7 @@ export function TelecrmSoomgoSettingsPage({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={hasPassword ? '••••••••' : ''}
-                    className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                    className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
                     autoComplete="new-password"
                   />
                 </label>
@@ -182,12 +182,12 @@ export function TelecrmSoomgoSettingsPage({
                 같은 PC에서는 이후 세션이 유지됩니다.
               </p>
             )}
-            <label className="flex items-center gap-2 text-fluid-sm text-gray-700">
+            <label className="flex items-center gap-2 text-fluid-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={enabled}
                 onChange={(e) => setEnabled(e.target.checked)}
-                className="rounded border-gray-300"
+                className="rounded-lg border-slate-300"
               />
               숨고 연동 사용
             </label>
@@ -200,7 +200,7 @@ export function TelecrmSoomgoSettingsPage({
       </SettingsCard>
 
       <SettingsCard title="숨고 연동 프로그램 (PC)">
-        <div className="space-y-3 text-fluid-sm text-gray-600">
+        <div className="space-y-3 text-fluid-sm text-slate-600">
           <p>
             상담사 PC에 <strong>「청소비서 숨고 연동」</strong> 프로그램을 설치·실행합니다. 트레이 아이콘이
             떠 있으면 텔레CRM 상단 <strong>숨고 연동</strong> 바에서 Chrome 숨고와 연결할 수 있습니다.
@@ -209,7 +209,7 @@ export function TelecrmSoomgoSettingsPage({
             <p>
               최신 버전: <strong>v{bridgeManifest.latestVersion}</strong>
               {bridgeManifest.releaseNotes ? (
-                <span className="text-gray-500"> — {bridgeManifest.releaseNotes}</span>
+                <span className="text-slate-500"> — {bridgeManifest.releaseNotes}</span>
               ) : null}
             </p>
           ) : null}

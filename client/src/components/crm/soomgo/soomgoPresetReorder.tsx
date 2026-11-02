@@ -70,7 +70,7 @@ export function SoomgoPresetDragHandle({
       title={`${label} — 드래그하여 순서 변경`}
       aria-label={`${label} 순서 변경`}
       className={[
-        'inline-flex shrink-0 cursor-grab select-none items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-1 py-1 text-slate-400 active:cursor-grabbing',
+        'inline-flex shrink-0 cursor-grab select-none items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-1 py-1 text-slate-400 active:cursor-grabbing',
         disabled ? 'pointer-events-none opacity-40' : 'hover:border-slate-300 hover:bg-white hover:text-slate-600',
       ].join(' ')}
     >

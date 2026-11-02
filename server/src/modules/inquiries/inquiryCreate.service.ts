@@ -242,6 +242,7 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
         })(),
         propertyType: body.propertyType ? String(body.propertyType) : null,
         buildingType: body.buildingType ? String(body.buildingType) : null,
+        ...(body.isOneRoom === true || body.isOneRoom === 'true' ? { isOneRoom: true } : {}),
         roomCount: body.roomCount != null ? Number(body.roomCount) : null,
         bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,
         balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,

@@ -12,9 +12,9 @@ function formatDuration(sec: number): string {
 
 function StatChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 px-3">
-      <span className="text-[11px] font-medium text-white/55">{label}</span>
-      <span className="text-fluid-xs font-semibold tabular-nums text-white">{value}</span>
+    <div className="flex flex-col items-center justify-center gap-0.5 px-2.5">
+      <span className="whitespace-nowrap text-fluid-2xs font-medium leading-none text-white/55">{label}</span>
+      <span className="whitespace-nowrap text-fluid-xs font-semibold leading-none tabular-nums text-white">{value}</span>
     </div>
   );
 }
@@ -46,14 +46,14 @@ export function CrmHeaderStats({ refreshKey = 0 }: { refreshKey?: number }) {
   if (!stats) {
     return (
       <div className="flex min-w-0 flex-1 items-center justify-center overflow-x-auto">
-        <span className="text-[12px] text-white/40">집계…</span>
+        <span className="text-fluid-2xs text-white/40">집계…</span>
       </div>
     );
   }
 
   return (
     <div className="flex min-w-0 flex-1 items-center justify-center overflow-x-auto px-1">
-      <div className="inline-flex shrink-0 items-center divide-x divide-white/15 rounded-xl border border-white/10 bg-white/5 px-0.5 py-1 sm:px-1 sm:py-1.5">
+      <div className="inline-flex h-10 shrink-0 items-center divide-x divide-white/15 rounded-xl border border-white/10 bg-white/5 px-1">
         <StatChip label="연결" value={`${stats.connectedCount}건`} />
         <StatChip label="미연결" value={`${stats.noAnswerCount}건`} />
         <StatChip label="연결시간" value={formatDuration(stats.connectedDurationSec)} />

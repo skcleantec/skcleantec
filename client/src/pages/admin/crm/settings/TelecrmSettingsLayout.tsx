@@ -62,9 +62,9 @@ export function TelecrmSettingsLayout() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <PageTitleWithFavorite label="텔레CRM 설정">
-            <h1 className="text-xl font-semibold text-gray-800">텔레CRM 설정</h1>
+            <h1 className="text-xl font-semibold text-slate-800">텔레CRM 설정</h1>
           </PageTitleWithFavorite>
-          <p className="mt-1 text-fluid-sm text-gray-500">
+          <p className="mt-1 text-fluid-sm text-slate-500">
             개인 스크립트·가격과 업체 공통 설정을 등록하면 텔레CRM 작업 화면에 바로 반영됩니다.
           </p>
         </div>
@@ -72,27 +72,27 @@ export function TelecrmSettingsLayout() {
           <button
             type="button"
             onClick={() => openTelecrmWindow()}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-sm text-gray-800 hover:bg-gray-50"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-fluid-sm text-slate-800 hover:bg-slate-50"
           >
             텔레CRM 열기
           </button>
           <Link
             to="/admin/dashboard"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-fluid-sm text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-fluid-sm text-slate-600 hover:bg-slate-50"
           >
             대시보드
           </Link>
         </div>
       </div>
 
-      <nav className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+      <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
         {visibleNav.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               `rounded-lg px-4 py-2 text-fluid-sm font-medium ${
-                isActive ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+                isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
               }`
             }
           >
@@ -110,7 +110,7 @@ export function TelecrmSettingsLayout() {
             showShared={canShared}
           />
           {location.pathname.endsWith('/soomgo-presets') ? (
-            <p className="mt-2 text-[12px] text-gray-500">
+            <p className="mt-2 text-fluid-2xs text-slate-500">
               {catalogScope === 'personal'
                 ? '본인 숨고 메시지 프리셋입니다.'
                 : '업체 공유 숨고 메시지 프리셋입니다.'}

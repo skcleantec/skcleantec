@@ -93,16 +93,16 @@ export function TelecrmSmsTemplateSettingsPage({
       {catalogScope === 'shared' ? (
         <>
           <TelecrmBrandSelect token={token} value={brandId} onChange={setBrandId} />
-          <p className="text-fluid-xs text-gray-600">
+          <p className="text-fluid-xs text-slate-600">
             업체 공유 문자 템플릿을 브랜드별로 관리합니다. <strong>업체 기본</strong>은 모든 브랜드에서
             함께 보입니다.
           </p>
         </>
       ) : null}
-      <p className="text-fluid-xs text-gray-600">
+      <p className="text-fluid-xs text-slate-600">
         치환: {'{고객명}'} {'{연락처}'} {'{평수}'} {'{예상가}'} {'{발주서링크}'}
       </p>
-      {loading ? <p className="text-fluid-sm text-gray-500">불러오는 중…</p> : null}
+      {loading ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
       {error ? <p className="text-fluid-sm text-red-600">{error}</p> : null}
 
       <SettingsCard title="새 문자 템플릿">
@@ -122,13 +122,13 @@ export function TelecrmSmsTemplateSettingsPage({
             className={crmFieldClass}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <label className="cursor-pointer rounded-lg border border-gray-200 px-3 py-1.5 text-fluid-xs">
+            <label className="cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-fluid-xs">
               사진 첨부
               <input type="file" accept="image/*" className="hidden" onChange={(e) => void onImagePick(e.target.files?.[0] ?? null)} />
             </label>
             {form.imageUrl ? (
               <>
-                <img src={form.imageUrl} alt="" className="h-12 rounded border" />
+                <img src={form.imageUrl} alt="" className="h-12 rounded-lg border" />
                 <button type="button" className="text-fluid-xs text-rose-600" onClick={() => setForm((f) => ({ ...f, imageUrl: '' }))}>
                   제거
                 </button>
@@ -149,8 +149,8 @@ export function TelecrmSmsTemplateSettingsPage({
       <div className="space-y-2">
         {templates.map((t) => (
           <SettingsCard key={t.id} title={t.label}>
-            <p className="whitespace-pre-wrap text-fluid-xs text-gray-700">{t.body}</p>
-            {t.imageUrl ? <img src={t.imageUrl} alt="" className="mt-2 h-16 rounded border object-cover" /> : null}
+            <p className="whitespace-pre-wrap text-fluid-xs text-slate-700">{t.body}</p>
+            {t.imageUrl ? <img src={t.imageUrl} alt="" className="mt-2 h-16 rounded-lg border object-cover" /> : null}
             <div className="mt-2 flex gap-2">
               <button
                 type="button"

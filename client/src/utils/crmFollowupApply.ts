@@ -29,6 +29,10 @@ export type CrmFollowupApplySnapshot = {
   goldDb: boolean;
   preferredMoveInCleanYmd: string;
   leadSource: string;
+  /** 건축물 유형·건물 형태 — 발주서 선택지 저장값(숨고 등에서 맞춘 경우만) */
+  propertyType?: string;
+  buildingType?: string;
+  isOneRoom?: boolean;
 };
 
 /** 부재·보류 스냅샷에 추가 필드(주소·평수·구조·희망일)가 비어 있으면 true */

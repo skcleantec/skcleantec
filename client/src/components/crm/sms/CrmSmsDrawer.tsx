@@ -243,7 +243,7 @@ export function CrmSmsDrawer({
             </CrmSegmentItem>
           </CrmSegment>
 
-          <p className="text-[11px] leading-relaxed text-slate-500">
+          <p className="text-fluid-2xs leading-relaxed text-slate-500">
             치환: {'{고객명}'} {'{연락처}'} {'{평수}'} {'{예상가}'} {'{발주서링크}'}
             {inquiryId && !orderLink ? (
               <button type="button" className="ml-1 text-violet-700 underline" onClick={onOpenOrderIssue}>
@@ -265,9 +265,9 @@ export function CrmSmsDrawer({
 
               {sendMode === 'template' ? (
                 loading ? (
-                  <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
+                  <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
                 ) : templates.length === 0 ? (
-                  <p className="text-fluid-sm text-gray-500">
+                  <p className="text-fluid-sm text-slate-500">
                     저장된 문구가 없습니다. 「문구 관리」 탭에서 추가하세요.
                   </p>
                 ) : (
@@ -279,7 +279,7 @@ export function CrmSmsDrawer({
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <p className="text-fluid-xs font-semibold text-violet-900">{t.label}</p>
-                              <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-fluid-xs text-gray-700">
+                              <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-fluid-xs text-slate-700">
                                 {preview}
                               </p>
                               {t.imageUrl ? (
@@ -335,7 +335,7 @@ export function CrmSmsDrawer({
                     </label>
                     {liveImageUrl ? (
                       <>
-                        <img src={liveImageUrl} alt="" className="h-12 rounded border object-cover" />
+                        <img src={liveImageUrl} alt="" className="h-12 rounded-lg border object-cover" />
                         <button type="button" className="text-fluid-xs text-rose-600" onClick={() => setLiveImageUrl(null)}>
                           제거
                         </button>
@@ -395,7 +395,7 @@ export function CrmSmsDrawer({
                     </label>
                     {form.imageUrl ? (
                       <>
-                        <img src={form.imageUrl} alt="" className="h-12 rounded border object-cover" />
+                        <img src={form.imageUrl} alt="" className="h-12 rounded-lg border object-cover" />
                         <button
                           type="button"
                           className="text-fluid-xs text-rose-600"
@@ -427,13 +427,13 @@ export function CrmSmsDrawer({
               {manageError ? <p className="text-fluid-xs text-red-600">{manageError}</p> : null}
 
               {loading ? (
-                <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
+                <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
               ) : (
                 <ul className="space-y-2">
                   {templates.map((t) => (
-                    <li key={t.id} className="rounded-xl border border-gray-200 bg-white p-3">
-                      <p className="text-fluid-xs font-semibold text-gray-900">{t.label}</p>
-                      <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-fluid-xs text-gray-600">{t.body}</p>
+                    <li key={t.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-fluid-xs font-semibold text-slate-900">{t.label}</p>
+                      <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-fluid-xs text-slate-600">{t.body}</p>
                       <div className="mt-2 flex flex-wrap gap-3">
                         <button type="button" className="text-fluid-xs text-violet-700" onClick={() => startEdit(t)}>
                           수정

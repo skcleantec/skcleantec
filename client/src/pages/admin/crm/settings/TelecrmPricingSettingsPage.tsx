@@ -190,7 +190,7 @@ export function TelecrmPricingSettingsPage({
             value={newCategoryLabel}
             onChange={(e) => setNewCategoryLabel(e.target.value)}
             placeholder="새 카테고리"
-            className="min-w-[160px] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+            className="min-w-[160px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
           />
           <button
             type="button"
@@ -203,7 +203,7 @@ export function TelecrmPricingSettingsPage({
         </div>
 
         {loading ? (
-          <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
+          <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,220px)_1fr]">
             <ul className="space-y-1">
@@ -211,7 +211,7 @@ export function TelecrmPricingSettingsPage({
                 <li key={c.id}>
                   <div
                     className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 ${
-                      selectedCategoryId === c.id ? 'border-slate-900 bg-slate-50' : 'border-gray-200'
+                      selectedCategoryId === c.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200'
                     }`}
                   >
                     <button
@@ -256,28 +256,28 @@ export function TelecrmPricingSettingsPage({
                       if (!token || !v || v === selectedCategory.label) return;
                       void updateTelecrmPriceCategory(token, selectedCategory.id, { label: v }).then(load);
                     }}
-                    className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                    className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
                   />
 
-                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
                     <table className="w-full table-fixed border-collapse text-fluid-sm">
                       <thead>
-                        <tr className="bg-gray-100 text-gray-700">
-                          <th className="px-2 py-2 text-center w-[28%]">항목</th>
-                          <th className="px-2 py-2 text-center w-[18%]">금액</th>
-                          <th className="px-2 py-2 text-center">설명</th>
-                          <th className="px-2 py-2 text-center w-[88px]">순서</th>
-                          <th className="px-2 py-2 text-center w-[52px]">삭제</th>
+                        <tr className="h-9 border-b border-slate-200 bg-slate-50 text-fluid-2xs font-semibold text-slate-600">
+                          <th className="whitespace-nowrap px-3 text-center font-semibold w-[28%]">항목</th>
+                          <th className="whitespace-nowrap px-3 text-center font-semibold w-[18%]">금액</th>
+                          <th className="whitespace-nowrap px-3 text-center font-semibold">설명</th>
+                          <th className="whitespace-nowrap px-2 text-center font-semibold w-[88px]">순서</th>
+                          <th className="whitespace-nowrap px-2 text-center font-semibold w-[52px]">삭제</th>
                         </tr>
                       </thead>
                       <tbody>
                         {items.map((item, index) => (
-                          <tr key={item.id} className="border-t border-gray-100">
-                            <td className="px-2 py-2 text-center">
+                          <tr key={item.id} className="h-11 border-t border-slate-100">
+                            <td className="px-3 py-1 text-center">
                               <input
                                 type="text"
                                 defaultValue={item.name}
-                                className="w-full rounded border border-gray-200 px-1 py-0.5 text-center text-fluid-xs"
+                                className="h-8 w-full rounded-lg border border-slate-200 px-1.5 text-center text-fluid-xs"
                                 onBlur={(e) => {
                                   const v = e.target.value.trim();
                                   if (!token || !v || v === item.name) return;
@@ -285,11 +285,11 @@ export function TelecrmPricingSettingsPage({
                                 }}
                               />
                             </td>
-                            <td className="px-2 py-2 text-right tabular-nums">
+                            <td className="px-3 py-1 text-right tabular-nums">
                               <input
                                 type="text"
                                 defaultValue={String(item.amountWon)}
-                                className="w-full rounded border border-gray-200 px-1 py-0.5 text-right text-fluid-xs tabular-nums"
+                                className="h-8 w-full rounded-lg border border-slate-200 px-1.5 text-right text-fluid-xs tabular-nums"
                                 onBlur={(e) => {
                                   const n = parsePriceInt(e.target.value);
                                   if (!token || n == null || n === item.amountWon) return;
@@ -297,11 +297,11 @@ export function TelecrmPricingSettingsPage({
                                 }}
                               />
                             </td>
-                            <td className="px-2 py-2 text-center">
+                            <td className="px-3 py-1 text-center">
                               <input
                                 type="text"
                                 defaultValue={item.description ?? ''}
-                                className="w-full rounded border border-gray-200 px-1 py-0.5 text-center text-fluid-xs"
+                                className="h-8 w-full rounded-lg border border-slate-200 px-1.5 text-center text-fluid-xs"
                                 onBlur={(e) => {
                                   if (!token) return;
                                   const v = e.target.value.trim();
@@ -311,7 +311,7 @@ export function TelecrmPricingSettingsPage({
                                 }}
                               />
                             </td>
-                            <td className="px-2 py-2 text-center">
+                            <td className="px-2 py-1 text-center">
                               <TelecrmReorderButtons
                                 disabled={busy}
                                 canMoveUp={index > 0}
@@ -320,7 +320,7 @@ export function TelecrmPricingSettingsPage({
                                 onMoveDown={() => void moveItem(index, 1)}
                               />
                             </td>
-                            <td className="px-2 py-2 text-center">
+                            <td className="px-2 py-1 text-center">
                               <button
                                 type="button"
                                 className="text-fluid-xs text-red-600"
@@ -339,29 +339,29 @@ export function TelecrmPricingSettingsPage({
                     </table>
                   </div>
 
-                  <div className="rounded-xl border border-dashed border-gray-200 p-3 space-y-2">
-                    <p className="text-fluid-xs font-medium text-gray-700">항목 추가</p>
+                  <div className="rounded-xl border border-dashed border-slate-200 p-3 space-y-2">
+                    <p className="text-fluid-xs font-medium text-slate-700">항목 추가</p>
                     <div className="grid gap-2 sm:grid-cols-3">
                       <input
                         type="text"
                         value={itemForm.name}
                         onChange={(e) => setItemForm((f) => ({ ...f, name: e.target.value }))}
                         placeholder="이름"
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
                       />
                       <input
                         type="text"
                         value={itemForm.amountWon}
                         onChange={(e) => setItemForm((f) => ({ ...f, amountWon: e.target.value }))}
                         placeholder="금액"
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm tabular-nums"
                       />
                       <input
                         type="text"
                         value={itemForm.description}
                         onChange={(e) => setItemForm((f) => ({ ...f, description: e.target.value }))}
                         placeholder="설명 (선택)"
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm sm:col-span-3"
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm sm:col-span-3"
                       />
                     </div>
                     <button
@@ -372,11 +372,11 @@ export function TelecrmPricingSettingsPage({
                     >
                       추가
                     </button>
-                    <p className="text-fluid-xs text-gray-500">표시 예: {formatWon(150000)}</p>
+                    <p className="text-fluid-xs text-slate-500">표시 예: {formatWon(150000)}</p>
                   </div>
                 </>
               ) : (
-                <p className="text-fluid-sm text-gray-500">카테고리를 추가해 주세요.</p>
+                <p className="text-fluid-sm text-slate-500">카테고리를 추가해 주세요.</p>
               )}
             </div>
           </div>

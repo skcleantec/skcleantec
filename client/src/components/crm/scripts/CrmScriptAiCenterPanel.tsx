@@ -4,7 +4,8 @@ import { CrmColumn } from '../layout/CrmShell';
 import { CrmSegment, CrmSegmentItem } from '../crmUi';
 import { CrmAiSummaryPanel } from '../ai/CrmAiSummaryPanel';
 import { CrmAiFontScaleDropdown, useCrmAiFontScale } from '../ai/CrmAiFontScaleDropdown';
-import { CrmScriptPanel } from './CrmScriptPanel';
+import { HelpTooltip } from '../../ui/HelpTooltip';
+import { CRM_SCRIPT_SHORTCUT_HELP, CrmScriptPanel } from './CrmScriptPanel';
 
 const CENTER_TAB_KEY = 'crm.scriptAiCenterTab';
 
@@ -70,16 +71,14 @@ export function CrmScriptAiCenterPanel({
   }, [soomgoEnabled, selectTab, tab]);
 
   const title = tab === 'ai' ? 'AI 정리' : '상담 스크립트';
-  const subtitle =
-    tab === 'ai'
-      ? '숨고 대화 · PC 저장'
-      : 'Ctrl+1~5 · Shift+←→ · 복사';
+  const subtitle = tab === 'ai' ? '숨고 대화 · PC 저장' : undefined;
 
   return (
     <CrmColumn
       accent="script"
       title={title}
       subtitle={subtitle}
+      titleAddon={tab === 'ai' ? undefined : <HelpTooltip text={CRM_SCRIPT_SHORTCUT_HELP} />}
       disableBodyScroll
       bodyClassName="p-0"
       headerAction={
@@ -92,7 +91,7 @@ export function CrmScriptAiCenterPanel({
               <button
                 type="button"
                 onClick={() => selectTab('ai')}
-                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-semibold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1 ${
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-fluid-xs font-semibold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1 ${
                   tab === 'ai'
                     ? 'crm-ai-shimmer border border-violet-300/70 bg-gradient-to-r from-violet-600 via-sky-500 to-cyan-500 text-white shadow-md shadow-violet-400/35 crm-ai-glow-ring'
                     : 'text-slate-600 hover:bg-white/80'

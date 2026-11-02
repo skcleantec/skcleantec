@@ -144,7 +144,7 @@ export function TelecrmBrandSoomgoSettingsSection() {
   };
 
   if (loading) {
-    return <p className="text-fluid-sm text-gray-500">브랜드 목록 불러오는 중…</p>;
+    return <p className="text-fluid-sm text-slate-500">브랜드 목록 불러오는 중…</p>;
   }
 
   return (
@@ -159,32 +159,32 @@ export function TelecrmBrandSoomgoSettingsSection() {
           {error}
         </p>
       ) : null}
-      <p className="text-fluid-sm text-gray-600">
+      <p className="text-fluid-sm text-slate-600">
         <strong>업체 공통</strong> 숨고 계정과 다른 계정을 쓰는 브랜드만 등록합니다. 기본 브랜드·공통과
         같은 계정은 여기에 넣지 않아도 됩니다.
       </p>
 
       {drafts.length === 0 ? (
-        <p className="text-fluid-sm text-gray-500 rounded-lg border border-dashed border-gray-200 px-3 py-4 text-center">
+        <p className="text-fluid-sm text-slate-500 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center">
           별도 숨고 계정이 필요한 브랜드가 없습니다.
         </p>
       ) : (
         drafts.map((draft, index) => (
           <div
             key={draft.brand.id}
-            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3"
+            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-fluid-sm font-semibold text-gray-900">{draft.brand.displayName}</p>
-                <p className="text-[12px] text-gray-500">{draft.brand.slug}</p>
+                <p className="text-fluid-sm font-semibold text-slate-900">{draft.brand.displayName}</p>
+                <p className="text-fluid-2xs text-slate-500">{draft.brand.slug}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   disabled={savingId === draft.brand.id}
                   onClick={() => void clearBrandOverride(draft.brand.id)}
-                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-fluid-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-fluid-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
                   공통 계정 사용
                 </button>
@@ -212,13 +212,13 @@ export function TelecrmBrandSoomgoSettingsSection() {
       )}
 
       {brandsAvailableToAdd.length > 0 ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
           <label className="min-w-[12rem] flex-1 space-y-1">
-            <span className="text-fluid-xs font-medium text-gray-700">다른 숨고 계정이 필요한 브랜드</span>
+            <span className="text-fluid-xs font-medium text-slate-700">다른 숨고 계정이 필요한 브랜드</span>
             <select
               value={addBrandId}
               onChange={(e) => setAddBrandId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
             >
               <option value="">브랜드 선택…</option>
               {brandsAvailableToAdd.map((b) => (

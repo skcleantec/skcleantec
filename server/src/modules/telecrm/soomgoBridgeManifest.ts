@@ -1,7 +1,7 @@
 /** @see shared/soomgoBridge.ts — 클라이언트와 값 동기화 */
 
 const SOOMGO_BRIDGE_MIN_VERSION = 2;
-const SOOMGO_BRIDGE_APP_VERSION = '2.2.53';
+const SOOMGO_BRIDGE_APP_VERSION = '2.2.54';
 
 /** Release Setup.exe sha256 — Railway 변수 누락·구버전 URL일 때 폴백 */
 const SETUP_SHA256_BY_VERSION: Record<string, string> = {
@@ -37,6 +37,7 @@ const SETUP_SHA256_BY_VERSION: Record<string, string> = {
   '2.2.51': '172aace11ac94d383d12455a4df63dda9661569eb9133da92fb3263c7289b079',
   '2.2.52': 'bd1ef5742f4f79e46ed21bc6d851b31986837af819c6069c41e8a8aedef6f97b',
   '2.2.53': 'ecdb881c29e854c905e8153aa51f02d7e6c29c44c9b66096e77b1665835059e2',
+  '2.2.54': 'b3bf932a41ff63d75fc4d62fb01085ea33e192e68cb3597003367daf7595b33a',
 };
 
 export type SoomgoBridgeManifest = {
