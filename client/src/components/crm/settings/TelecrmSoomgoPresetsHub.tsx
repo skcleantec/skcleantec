@@ -13,13 +13,16 @@ export function TelecrmSoomgoPresetsHub({
   catalogScope,
   canEditAuto,
   syncViewToUrl = true,
+  initialView = 'macro',
 }: {
   catalogScope: TelecrmCatalogOwnerScope;
   canEditAuto: boolean;
   syncViewToUrl?: boolean;
+  /** 설정 서랍 「자동 메시지」에서 열 때 — 처음 보여 줄 하위 탭 */
+  initialView?: SoomgoPresetsView;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [localView, setLocalView] = useState<SoomgoPresetsView>('macro');
+  const [localView, setLocalView] = useState<SoomgoPresetsView>(initialView);
   const showAutoTab = canEditAuto && catalogScope === 'shared';
   const showCallTab = catalogScope === 'personal';
   const urlView: SoomgoPresetsView =

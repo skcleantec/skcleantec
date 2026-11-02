@@ -11,7 +11,11 @@ import {
 import type { TelecrmCatalogOwnerScope } from '../../../../api/telecrm';
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { crmFieldClass } from '../../../../components/crm/crmUi';
+import { Button } from '../../../../components/ui/Button';
 import { TelecrmBrandSelect } from '../../../../components/crm/settings/TelecrmBrandSelect';
+import { CrmCustomerMessagePreview, renderCrmMessageFields } from '../../../../components/crm/settings/CrmSettingsUsageGuide';
+
+const SMS_FILL_FIELDS = ['고객명', '연락처', '평수', '예상가', '발주서링크'] as const;
 
 export function TelecrmSmsTemplateSettingsPage({
   catalogScope: catalogScopeProp,
@@ -99,9 +103,6 @@ export function TelecrmSmsTemplateSettingsPage({
           </p>
         </>
       ) : null}
-      <p className="text-fluid-xs text-slate-600">
-        치환: {'{고객명}'} {'{연락처}'} {'{평수}'} {'{예상가}'} {'{발주서링크}'}
-      </p>
       {loading ? <p className="text-fluid-sm text-slate-500">불러오는 중…</p> : null}
       {error ? <p className="text-fluid-sm text-red-600">{error}</p> : null}
 
@@ -120,6 +121,27 @@ export function TelecrmSmsTemplateSettingsPage({
             rows={4}
             placeholder="문자 본문"
             className={crmFieldClass}
+          />
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="text-fluid-2xs text-slate-500">자동으로 바뀌는 칸 넣기</span>
+            {SMS_FILL_FIELDS.map((field) => (
+              <Button
+                key={field}
+                size="sm"
+                onClick={() => setForm((f) => ({ ...f, body: `${f.body}{${field}}` }))}
+                className="!h-6 !px-1.5"
+                title={`보낼 때 실제 ${field}(으)로 바뀌어요`}
+              >
+                + {field}
+              </Button>
+            ))}
+          </div>
+          <CrmCustomerMessagePreview
+            channel="sms"
+            steps={[
+              { type: 'text', text: form.body },
+              ...(form.imageUrl ? [{ type: 'images' as const, urls: [form.imageUrl], mode: 'bundle' as const }] : []),
+            ]}
           />
           <div className="flex flex-wrap items-center gap-2">
             <label className="cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-fluid-xs">
@@ -149,7 +171,7 @@ export function TelecrmSmsTemplateSettingsPage({
       <div className="space-y-2">
         {templates.map((t) => (
           <SettingsCard key={t.id} title={t.label}>
-            <p className="whitespace-pre-wrap text-fluid-xs text-slate-700">{t.body}</p>
+            <p className="whitespace-pre-wrap text-fluid-xs text-slate-700">{renderCrmMessageFields(t.body)}</p>
             {t.imageUrl ? <img src={t.imageUrl} alt="" className="mt-2 h-16 rounded-lg border object-cover" /> : null}
             <div className="mt-2 flex gap-2">
               <button

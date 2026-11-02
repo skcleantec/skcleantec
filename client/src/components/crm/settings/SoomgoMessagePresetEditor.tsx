@@ -1,6 +1,7 @@
 import type { SoomgoMessageImageMode, SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import { SettingsCard } from './DeletePasswordModal';
 import { crmFieldClass } from '../crmUi';
+import { CrmCustomerMessagePreview } from './CrmSettingsUsageGuide';
 
 export type SoomgoPresetDraft = {
   id: string | null;
@@ -213,6 +214,7 @@ export function SoomgoMessagePresetEditor({
             + 이미지
           </button>
         </div>
+        <CrmCustomerMessagePreview steps={draft.steps} channel="soomgo" />
       </div>
   );
 

@@ -18,6 +18,7 @@ import {
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { TelecrmReorderButtons } from '../../../../components/crm/settings/telecrmSettingsUi';
 import { HelpTooltip } from '../../../../components/ui/HelpTooltip';
+import { fillCrmMessageSample } from '../../../../components/crm/settings/CrmSettingsUsageGuide';
 
 type DeleteTarget =
   | { kind: 'category'; row: TelecrmScriptCategoryDto }
@@ -201,45 +202,27 @@ export function TelecrmScriptSettingsPage({
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-700">{error}</p>
       ) : null}
 
-      <SettingsCard
-        title={catalogScope === 'personal' ? '내 스크립트 카테고리' : '업체 공통 스크립트'}
-        actions={
-          <HelpTooltip
-            text={
-              catalogScope === 'personal'
-                ? '본인만 보는 개인 스크립트입니다. 텔레CRM 작업 화면에서 「내 스크립트」로 표시됩니다. {고객명} {평수} {예상가} 치환을 지원합니다.'
-                : '업체 전체 마케터가 보는 공통 스크립트입니다. crm.settings 권한이 있어야 편집할 수 있습니다.'
+      {loading ? (
+        <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
+      ) : (
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_1fr]">
+          <SettingsCard
+            title="① 단계 고르기"
+            actions={
+              <HelpTooltip
+                text={
+                  catalogScope === 'personal'
+                    ? '단계는 상담 화면 위쪽 묶음 단추(첫 인사·가격 안내 등)예요. 나만 보는 스크립트예요.'
+                    : '단계는 상담 화면 위쪽 묶음 단추(첫 인사·가격 안내 등)예요. 우리 업체 상담사 모두에게 보여요. 설정 권한이 있어야 바꿀 수 있어요.'
+                }
+              />
             }
-          />
-        }
-      >
-        <div className="flex flex-wrap gap-2">
-          <input
-            type="text"
-            value={newCategoryLabel}
-            onChange={(e) => setNewCategoryLabel(e.target.value)}
-            placeholder="새 카테고리 이름"
-            className="min-w-[160px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
-          />
-          <button
-            type="button"
-            disabled={busy || !newCategoryLabel.trim()}
-            onClick={() => void addCategory()}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm text-white disabled:opacity-50"
           >
-            카테고리 추가
-          </button>
-        </div>
-
-        {loading ? (
-          <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr]">
             <ul className="space-y-1">
               {categories.map((c, index) => (
                 <li key={c.id}>
                   <div
-                    className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 ${
+                    className={`flex items-center gap-1 rounded-lg border px-2 py-1 ${
                       selectedCategoryId === c.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200'
                     }`}
                   >
@@ -249,7 +232,8 @@ export function TelecrmScriptSettingsPage({
                       className="min-w-0 flex-1 truncate text-left text-fluid-sm text-slate-900"
                     >
                       {c.label}
-                      {!c.isActive ? <span className="text-slate-400"> (비활성)</span> : null}
+                      <span className="ml-1 text-fluid-2xs text-slate-400">{c.tabs?.length ?? 0}</span>
+                      {!c.isActive ? <span className="text-slate-400"> (숨김)</span> : null}
                     </button>
                     <TelecrmReorderButtons
                       disabled={busy}
@@ -266,7 +250,7 @@ export function TelecrmScriptSettingsPage({
                         setDeletePassword('');
                         setDeleteError(null);
                       }}
-                      className="text-fluid-xs text-red-600 px-1"
+                      className="px-1 text-fluid-xs text-red-600"
                     >
                       삭제
                     </button>
@@ -274,127 +258,167 @@ export function TelecrmScriptSettingsPage({
                 </li>
               ))}
             </ul>
+            <div className="mt-2 flex gap-1.5">
+              <input
+                type="text"
+                value={newCategoryLabel}
+                onChange={(e) => setNewCategoryLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) void addCategory();
+                }}
+                placeholder="새 단계 이름"
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm"
+              />
+              <button
+                type="button"
+                disabled={busy || !newCategoryLabel.trim()}
+                onClick={() => void addCategory()}
+                className="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs text-white disabled:opacity-50"
+              >
+                새 단계
+              </button>
+            </div>
+          </SettingsCard>
 
-            <div className="min-w-0 space-y-3">
-              {selectedCategory ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-2">
+          <SettingsCard title={selectedCategory ? `② 「${selectedCategory.label}」에 스크립트 넣기` : '② 스크립트 넣기'}>
+            {selectedCategory ? (
+              <div className="min-w-0 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-fluid-2xs text-slate-500">단계 이름</span>
+                  <input
+                    type="text"
+                    defaultValue={selectedCategory.label}
+                    key={selectedCategory.id}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      if (!token || !v || v === selectedCategory.label) return;
+                      void updateTelecrmScriptCategory(token, selectedCategory.id, { label: v }).then(load);
+                    }}
+                    className="rounded-lg border border-slate-300 px-2.5 py-1 text-fluid-sm font-medium"
+                  />
+                  <label className="flex items-center gap-1 text-fluid-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategory.isActive}
+                      onChange={(e) => {
+                        if (!token) return;
+                        void updateTelecrmScriptCategory(token, selectedCategory.id, {
+                          isActive: e.target.checked,
+                        }).then(load);
+                      }}
+                    />
+                    상담 화면에 보이기
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                  {tabs.map((t, index) => (
+                    <div key={t.id} className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTabId(t.id)}
+                        className={`rounded-lg px-2.5 py-1 text-fluid-xs ${
+                          selectedTab?.id === t.id ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                      <TelecrmReorderButtons
+                        disabled={busy}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < tabs.length - 1}
+                        onMoveUp={() => void moveTab(index, -1)}
+                        onMoveDown={() => void moveTab(index, 1)}
+                      />
+                      <button
+                        type="button"
+                        className="px-0.5 text-fluid-2xs text-red-600"
+                        aria-label={`${t.label} 삭제`}
+                        onClick={() => {
+                          setDeleteTarget({ kind: 'tab', row: t });
+                          setDeletePassword('');
+                          setDeleteError(null);
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={newTabLabel}
+                    onChange={(e) => setNewTabLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) void addTab();
+                    }}
+                    placeholder="새 스크립트 제목 (예: 꼬시기)"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || !newTabLabel.trim()}
+                    onClick={() => void addTab()}
+                    className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-fluid-xs"
+                  >
+                    제목 추가
+                  </button>
+                </div>
+
+                {selectedTab ? (
+                  <div className="space-y-2">
                     <input
                       type="text"
-                      defaultValue={selectedCategory.label}
-                      key={selectedCategory.id}
+                      defaultValue={selectedTab.label}
+                      key={`label-${selectedTab.id}`}
                       onBlur={(e) => {
                         const v = e.target.value.trim();
-                        if (!token || !v || v === selectedCategory.label) return;
-                        void updateTelecrmScriptCategory(token, selectedCategory.id, { label: v }).then(load);
+                        if (!token || !v || v === selectedTab.label) return;
+                        void updateTelecrmScriptTab(token, selectedTab.id, { label: v }).then(load);
                       }}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm font-medium"
+                      className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm font-medium"
+                      aria-label="스크립트 제목"
                     />
-                    <label className="flex items-center gap-1 text-fluid-xs text-slate-600">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategory.isActive}
-                        onChange={(e) => {
-                          if (!token) return;
-                          void updateTelecrmScriptCategory(token, selectedCategory.id, {
-                            isActive: e.target.checked,
-                          }).then(load);
-                        }}
-                      />
-                      활성
-                    </label>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                    {tabs.map((t, index) => (
-                      <div key={t.id} className="flex items-center gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTabId(t.id)}
-                          className={`rounded-lg px-3 py-1.5 text-fluid-xs ${
-                            selectedTab?.id === t.id ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {t.label}
-                        </button>
-                        <TelecrmReorderButtons
-                          disabled={busy}
-                          canMoveUp={index > 0}
-                          canMoveDown={index < tabs.length - 1}
-                          onMoveUp={() => void moveTab(index, -1)}
-                          onMoveDown={() => void moveTab(index, 1)}
-                        />
-                        <button
-                          type="button"
-                          className="text-fluid-2xs text-red-600 px-0.5"
-                          onClick={() => {
-                            setDeleteTarget({ kind: 'tab', row: t });
-                            setDeletePassword('');
-                            setDeleteError(null);
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      type="text"
-                      value={newTabLabel}
-                      onChange={(e) => setNewTabLabel(e.target.value)}
-                      placeholder="새 탭 이름"
-                      className="min-w-[120px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
+                    <textarea
+                      value={editingTabBody}
+                      onChange={(e) => setEditingTabBody(e.target.value)}
+                      rows={8}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-fluid-sm leading-relaxed"
+                      placeholder="통화할 때 읽을 내용을 적어 주세요"
                     />
-                    <button
-                      type="button"
-                      disabled={busy || !newTabLabel.trim()}
-                      onClick={() => void addTab()}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
-                    >
-                      탭 추가
-                    </button>
-                  </div>
-
-                  {selectedTab ? (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        defaultValue={selectedTab.label}
-                        key={`label-${selectedTab.id}`}
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (!token || !v || v === selectedTab.label) return;
-                          void updateTelecrmScriptTab(token, selectedTab.id, { label: v }).then(load);
-                        }}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
-                      />
-                      <textarea
-                        value={editingTabBody}
-                        onChange={(e) => setEditingTabBody(e.target.value)}
-                        rows={12}
-                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-fluid-sm font-mono leading-relaxed"
-                        placeholder="상담 스크립트 본문…"
-                      />
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() => void saveTabBody()}
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm text-white disabled:opacity-50"
+                        className="rounded-lg bg-slate-900 px-4 py-1.5 text-fluid-sm text-white disabled:opacity-50"
                       >
-                        본문 저장
+                        내용 저장
                       </button>
+                      {editingTabBody !== (selectedTab.body ?? '') ? (
+                        <span className="text-fluid-2xs text-amber-700">저장 안 한 변경이 있어요</span>
+                      ) : null}
                     </div>
-                  ) : null}
-                </>
-              ) : (
-                <p className="text-fluid-sm text-slate-500">카테고리를 선택하거나 추가해 주세요.</p>
-              )}
-            </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-fluid-sm text-slate-500">왼쪽에서 단계를 고르거나 새 단계를 만들어 주세요.</p>
+            )}
+          </SettingsCard>
+
+          <div className="lg:col-span-2">
+            <ScriptLivePreview
+              categories={categories}
+              selectedCategoryId={selectedCategoryId}
+              selectedTabId={selectedTab?.id ?? null}
+              editingBody={editingTabBody}
+            />
           </div>
-        )}
-      </SettingsCard>
+        </div>
+      )}
 
       <DeletePasswordModal
         open={deleteTarget != null}
@@ -411,5 +435,75 @@ export function TelecrmScriptSettingsPage({
         }}
       />
     </div>
+  );
+}
+
+/** ③ 상담 화면에 이렇게 보여요 — 텔레CRM 상담 스크립트 칸 모양 그대로 (입력 중인 내용 바로 반영) */
+function ScriptLivePreview({
+  categories,
+  selectedCategoryId,
+  selectedTabId,
+  editingBody,
+}: {
+  categories: TelecrmScriptCategoryDto[];
+  selectedCategoryId: string | null;
+  selectedTabId: string | null;
+  editingBody: string;
+}) {
+  const active = categories.filter((c) => c.isActive || c.id === selectedCategoryId);
+  const current = categories.find((c) => c.id === selectedCategoryId) ?? null;
+  const items = current?.tabs ?? [];
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-3">
+      <p className="mb-2 text-fluid-xs font-semibold text-slate-800">
+        ③ 상담 화면에 이렇게 보여요 <span className="font-normal text-slate-400">· 적는 대로 바로 바뀌어요</span>
+      </p>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+        <div className="mb-2 flex flex-wrap gap-1">
+          {active.map((c) => (
+            <span
+              key={c.id}
+              className={`rounded-full px-2 py-0.5 text-fluid-2xs ${
+                c.id === selectedCategoryId ? 'bg-violet-100 font-semibold text-violet-800' : 'bg-white text-slate-600 ring-1 ring-slate-200'
+              }`}
+            >
+              {c.label} {c.tabs?.length ?? 0}
+            </span>
+          ))}
+        </div>
+        {items.length === 0 ? (
+          <p className="px-1 py-2 text-fluid-2xs text-slate-400">이 단계에 스크립트를 넣으면 여기 보여요.</p>
+        ) : (
+          <ul className="space-y-1">
+            {items.map((t, i) => {
+              const body = t.id === selectedTabId ? editingBody : t.body ?? '';
+              const oneLine = fillCrmMessageSample(body).replace(/\s*\n+\s*/g, ' ').trim();
+              const isSel = t.id === selectedTabId;
+              return (
+                <li
+                  key={t.id}
+                  className={`flex min-w-0 items-start gap-2 rounded-lg border bg-white px-2 py-1.5 ${
+                    isSel ? 'border-violet-400 ring-1 ring-violet-200' : 'border-slate-200'
+                  }`}
+                >
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-fluid-2xs text-slate-500">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 text-fluid-xs font-semibold text-slate-800">
+                      {t.label}
+                      <span className="rounded-lg bg-violet-50 px-1 text-fluid-2xs font-normal text-violet-600">
+                        {current?.label}
+                      </span>
+                    </p>
+                    <p className="line-clamp-2 text-fluid-2xs text-slate-600">{oneLine || '내용 없음'}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 }

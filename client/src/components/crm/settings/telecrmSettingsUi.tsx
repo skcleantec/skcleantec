@@ -66,6 +66,8 @@ export function TelecrmCatalogScopeSegment({
   if (onlyOne) return null;
 
   return (
+    <div className="inline-flex items-center gap-2">
+    <span className="text-fluid-xs font-medium text-slate-600">누구에게 보이나요?</span>
     <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
       {showPersonal ? (
         <button
@@ -75,7 +77,7 @@ export function TelecrmCatalogScopeSegment({
             value === 'personal' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
           }`}
         >
-          내 스크립트·가격
+          나만
         </button>
       ) : null}
       {showShared ? (
@@ -86,9 +88,10 @@ export function TelecrmCatalogScopeSegment({
             value === 'shared' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
           }`}
         >
-          업체 공통
+          우리 업체 모두
         </button>
       ) : null}
+    </div>
     </div>
   );
 }
