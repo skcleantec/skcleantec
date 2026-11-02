@@ -9,6 +9,7 @@ import { INQUIRY_STATUS_LABELS } from '../../inquiries/inquiriesUiParts';
 import { CrmActionButton, CrmIconSearch, CrmIconUser, CrmSectionLabel } from '../crmUi';
 import { CrmInquiryBriefPanel } from './CrmInquiryBriefPanel';
 import { formatTelecrmQuoteWon } from '@shared/telecrmConsultationQuote';
+import type { TelecrmConsultationQuoteDto } from '../../../api/telecrmConsultationQuote';
 
 function fmtDate(iso: string): string {
   try {
@@ -144,15 +145,7 @@ export function CrmCustomerHistoryPanel({
             : '이 연락처로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'}
         </div>
         {data.latestQuote ? (
-          <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-fluid-2xs text-sky-950">
-            <p className="font-semibold">보낸 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
-            {data.latestQuote.payload.grandTotalWon != null ? (
-              <p className="tabular-nums">{formatTelecrmQuoteWon(data.latestQuote.payload.grandTotalWon)}</p>
-            ) : null}
-            {data.latestQuote.updatedByName ? (
-              <p className="text-sky-800/70">전송: {data.latestQuote.updatedByName}</p>
-            ) : null}
-          </div>
+          <SentQuotesBox quotes={data.sentQuotes?.length ? data.sentQuotes : [data.latestQuote]} />
         ) : (
           <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-fluid-2xs text-slate-600">
             보낸 견적 없음 — 견적보내기를 한 적이 없습니다.
@@ -188,16 +181,7 @@ export function CrmCustomerHistoryPanel({
       </div>
 
       {data.latestQuote ? (
-        <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-fluid-2xs text-sky-950">
-          <p className="font-semibold">보낸 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
-          {data.latestQuote.payload.grandTotalWon != null ? (
-            <p className="tabular-nums">{formatTelecrmQuoteWon(data.latestQuote.payload.grandTotalWon)}</p>
-          ) : null}
-          {data.latestQuote.updatedByName ? (
-            <p className="text-sky-800/70">전송: {data.latestQuote.updatedByName}</p>
-          ) : null}
-          <p className="mt-0.5 text-sky-800/70">견적보내기로 고객에게 전송한 금액입니다.</p>
-        </div>
+        <SentQuotesBox quotes={data.sentQuotes?.length ? data.sentQuotes : [data.latestQuote]} />
       ) : (
         <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-fluid-2xs text-slate-600">
           보낸 견적 없음 — 견적보내기를 한 적이 없습니다.
@@ -291,6 +275,33 @@ export function CrmCustomerHistoryPanel({
           </ul>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+/** 견적보내기 기록 — 「11.2 14:30 · 이상담 · 24평 · 250,000원」 최신순 */
+function SentQuotesBox({ quotes }: { quotes: TelecrmConsultationQuoteDto[] }) {
+  return (
+    <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-fluid-2xs text-sky-950">
+      <p className="font-semibold">
+        보낸 견적 {quotes.length > 1 ? `${quotes.length}번` : ''}
+        <span className="ml-1 font-normal text-sky-800/70">견적보내기로 고객에게 보낸 금액</span>
+      </p>
+      <ul className="mt-1 space-y-0.5">
+        {quotes.map((q, i) => (
+          <li key={q.id} className={`flex min-w-0 items-center gap-2 tabular-nums ${i === 0 ? 'font-semibold' : 'text-sky-900/80'}`}>
+            <span className="shrink-0">{fmtDate(q.createdAt)}</span>
+            <span className="min-w-0 flex-1 truncate">
+              {[q.createdByName ?? '마케터', q.payload.pyeong?.trim() ? `${q.payload.pyeong.trim()}평` : null]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+            <span className="shrink-0">
+              {q.payload.grandTotalWon != null ? formatTelecrmQuoteWon(q.payload.grandTotalWon) : '금액 없음'}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

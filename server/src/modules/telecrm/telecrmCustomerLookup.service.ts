@@ -6,6 +6,7 @@ import {
 } from './telecrmInquiryBrief.helpers.js';
 import {
   getLatestTelecrmConsultationQuoteSummary,
+  listSentTelecrmConsultationQuotes,
   type TelecrmConsultationQuoteDto,
 } from './telecrmConsultationQuote.service.js';
 
@@ -73,6 +74,8 @@ export type TelecrmCustomerLookupResult = {
     inquiryId: string | null;
   }[];
   latestQuote: TelecrmConsultationQuoteDto | null;
+  /** 이 번호로 견적보내기 한 기록 — 최신순 (누가·언제·얼마) */
+  sentQuotes: TelecrmConsultationQuoteDto[];
   /**
    * 작업 브랜드에는 기록이 없고 같은 업체의 다른 브랜드에만 있는 번호 —
    * 이름만 채워 알려 준다(목록·상태는 비움, match 는 'new' 유지).
@@ -93,6 +96,7 @@ function emptyResult(
     followups: [],
     csReports: [],
     latestQuote: null,
+    sentQuotes: [],
   };
 }
 
@@ -187,7 +191,7 @@ async function resolveTelecrmCustomerByPhone(
 
   const last4 = phoneDigits.slice(-4);
 
-  const [inquiryRows, followupRows, csRows, latestQuote] = await Promise.all([
+  const [inquiryRows, followupRows, csRows, sentQuotes] = await Promise.all([
     prisma.inquiry.findMany({
       where: {
         tenantId,
@@ -245,8 +249,9 @@ async function resolveTelecrmCustomerByPhone(
         inquiryId: true,
       },
     }),
-    getLatestTelecrmConsultationQuoteSummary(tenantId, operatingCompanyId, phoneDigits),
+    listSentTelecrmConsultationQuotes(tenantId, operatingCompanyId, phoneDigits, 10),
   ]);
+  const latestQuote = sentQuotes[0] ?? null;
 
   const inquiries = inquiryRows
     .filter(
@@ -324,6 +329,7 @@ async function resolveTelecrmCustomerByPhone(
     followups,
     csReports,
     latestQuote,
+    sentQuotes,
   };
 }
 
@@ -442,6 +448,7 @@ async function searchTelecrmCustomerByName(
     followups: [],
     csReports: [],
     latestQuote: null,
+    sentQuotes: [],
   };
 }
 

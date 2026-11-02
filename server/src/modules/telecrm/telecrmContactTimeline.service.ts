@@ -389,6 +389,31 @@ export async function listTelecrmContactTimeline(
         })
       : [];
 
+  // 견적보내기 기록 — 누가·언제·얼마로 보냈는지
+  const sentQuotes =
+    phones.length > 0 || matchedInquiryIds.length > 0 || matchedFollowupIds.length > 0
+      ? await prisma.telecrmConsultationQuote.findMany({
+          where: {
+            tenantId,
+            status: 'SENT',
+            createdAt: { gte: since },
+            OR: [
+              ...(phones.length > 0 ? [{ phone: { in: phones } }] : []),
+              ...(matchedInquiryIds.length > 0 ? [{ inquiryId: { in: matchedInquiryIds } }] : []),
+              ...(matchedFollowupIds.length > 0 ? [{ followupId: { in: matchedFollowupIds } }] : []),
+            ],
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            payload: true,
+            createdAt: true,
+            createdBy: { select: { id: true, name: true, email: true } },
+          },
+        })
+      : [];
+
   const items: TelecrmContactTimelineItem[] = [];
   const actorLabel = (u: { name: string | null; email: string | null } | null | undefined) =>
     u?.name?.trim() || u?.email?.trim() || null;
@@ -438,6 +463,28 @@ export async function listTelecrmContactTimeline(
       title: `부재·보류 · ${statusLabel}`,
       detail: row.customerName?.trim() || row.nickname?.trim() || row.memo?.trim() || null,
       active: openStatus && !followupSupersededByInquiry(row),
+    });
+  }
+
+  for (const row of sentQuotes) {
+    const payload = (row.payload ?? {}) as { grandTotalWon?: unknown; pyeong?: unknown; lines?: unknown };
+    const total = typeof payload.grandTotalWon === 'number' && payload.grandTotalWon > 0 ? payload.grandTotalWon : null;
+    const pyeong = typeof payload.pyeong === 'string' && payload.pyeong.trim() ? `${payload.pyeong.trim()}평` : null;
+    const lineLabels = Array.isArray(payload.lines)
+      ? (payload.lines as { label?: unknown }[])
+          .map((l) => (typeof l?.label === 'string' ? l.label.trim() : ''))
+          .filter(Boolean)
+          .slice(0, 3)
+      : [];
+    items.push({
+      id: `quote:${row.id}`,
+      kind: 'quote_sent',
+      at: row.createdAt.toISOString(),
+      actorId: row.createdBy.id,
+      actorName: actorLabel(row.createdBy),
+      title: total != null ? `견적 보냄 · ${total.toLocaleString('ko-KR')}원` : '견적 보냄',
+      detail: [pyeong, lineLabels.join(', ') || null].filter(Boolean).join(' · ') || null,
+      active: false,
     });
   }
 

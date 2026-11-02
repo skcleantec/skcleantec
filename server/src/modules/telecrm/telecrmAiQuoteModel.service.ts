@@ -2,7 +2,7 @@
  * 텔레CRM AI 견적 — 과거 예약 전체로 「우리 업체 표준 가격」을 배우고, 조건을 넣으면 1만원 단위 금액 하나로 답한다.
  *
  * 배우는 방법 (같은 데이터면 늘 같은 결과):
- *  1) 평수별 기본 금액 — 같은 평수 예약의 가운데 금액(최근 예약일수록 더 크게 반영).
+ *  1) 평수별 기본 금액 — 같은 평수 최근 예약 60건의 가운데 금액(최근 예약일수록 더 크게 반영).
  *     같은 평수 예약이 적으면 가까운 평수의 「평당 금액」으로 채우고, 평수가 클수록 금액이 줄지 않게 맞춤.
  *     기본 금액에서 너무 벗어난 예약(옵션·특수 작업 등으로 보이는 것)은 빼고 다시 계산.
  *  2) 기본 금액과 실제 금액의 차이로 건물 유형·화장실·방·베란다·원룸이 각각 얼마를 더하고 빼는지 계산.
@@ -16,8 +16,10 @@ import {
   type TelecrmPropertyChoiceResolver,
 } from './telecrmPropertyChoices.service.js';
 
-const HALF_LIFE_DAYS = 180;
-const MAX_AGE_DAYS = 3 * 365;
+const HALF_LIFE_DAYS = 90;
+const MAX_AGE_DAYS = 2 * 365;
+/** 평수별 기본 금액은 최근 예약 이만큼만 봄 — 가격이 오른 뒤의 지금 시세를 따라가게 */
+const BASE_RECENT_ROWS = 60;
 const MIN_BASE_ROWS = 8;
 const MAX_WINDOW = 5;
 const MIN_ADJ_ROWS = 20;
@@ -33,6 +35,8 @@ type TrainRow = {
   p: number;
   amount: number;
   w: number;
+  /** 예약 후 지난 날 수 */
+  age: number;
   typeKey: string | null;
   typeLabel: string | null;
   rooms: number | null;
@@ -136,17 +140,18 @@ function computeBase(rows: TrainRow[]): Map<number, number> {
   const hi = Math.min(MAX_P, Math.max(...ps));
   const points: { p: number; v: number; w: number }[] = [];
   for (let p = lo; p <= hi; p += 1) {
-    const vals: { v: number; w: number }[] = [];
+    const vals: { v: number; w: number; age: number }[] = [];
     for (let k = 0; k <= MAX_WINDOW; k += 1) {
       const near = k === 0 ? byP.get(p) ?? [] : [...(byP.get(p - k) ?? []), ...(byP.get(p + k) ?? [])];
       for (const r of near) {
         // 다른 평수 예약은 「평당 금액 × 이 평수」로 바꿔서 덜 반영
-        vals.push({ v: k === 0 ? r.amount : (r.amount / r.p) * p, w: k === 0 ? r.w : r.w / (1 + k) });
+        vals.push({ v: k === 0 ? r.amount : (r.amount / r.p) * p, w: k === 0 ? r.w : r.w / (1 + k), age: r.age });
       }
       if (vals.length >= MIN_BASE_ROWS) break;
     }
-    const med = weightedMedian(vals);
-    if (med != null) points.push({ p, v: med, w: Math.max(1, (byP.get(p) ?? []).length) });
+    const recent = vals.sort((a, b) => a.age - b.age).slice(0, BASE_RECENT_ROWS);
+    const med = weightedMedian(recent);
+    if (med != null) points.push({ p, v: med, w: Math.max(0.01, recent.reduce((sum, x) => sum + x.w, 0)) });
   }
   const mono = monotoneNonDecreasing(points);
   const out = new Map<number, number>();
@@ -253,6 +258,7 @@ async function trainModel(tenantId: string, operatingCompanyId: string | null): 
         p,
         amount: Number(r.serviceTotalAmount),
         w: Math.pow(0.5, ageDays / HALF_LIFE_DAYS),
+        age: ageDays,
         typeKey: type?.key ?? null,
         typeLabel: type?.label ?? null,
         rooms: r.roomCount,
