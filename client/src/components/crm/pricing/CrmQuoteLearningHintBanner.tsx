@@ -98,6 +98,12 @@ function sortExamplesLatestFirst(list: TelecrmQuoteCrewLearningExample[]): Telec
   return [...list].sort((a, b) => t(b) - t(a)).slice(0, 5);
 }
 
+/** 차액 → 「1만원」 「5,000원」 */
+function fmtDiffWon(n: number): string {
+  if (n > 0 && n % 10000 === 0) return `${(n / 10000).toLocaleString('ko-KR')}만원`;
+  return formatWon(n);
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error('timeout')), ms);
@@ -212,86 +218,117 @@ export function CrmQuoteLearningHintBanner({
     return <p className="px-0.5 text-fluid-2xs text-slate-500">비슷한 예약 데이터가 아직 부족해요</p>;
   }
 
-  /** 평수만 같거나 유형이 다른 예약이 섞인 추천 — 참고용 */
-  const weakMatch =
-    hints != null && (hints.matchLevel === 'structure' || hints.matchLevel === 'pyeong') && !hints.matchLevelIsStrong;
-  const tone =
-    weakMatch
-      ? 'border-amber-200 bg-amber-50 text-amber-900'
-      : hints?.confidence === 'high'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-      : hints?.confidence === 'medium'
-        ? 'border-sky-200 bg-sky-50 text-sky-900'
-        : 'border-amber-200 bg-amber-50 text-amber-900';
+  if (showLoadingUi || !hints) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs text-slate-600">
+        예약 학습 데이터 조회 중…
+      </div>
+    );
+  }
+
+  /** 같은 유형·구조 예약끼리 비교한 추천 — 믿고 써도 되는 수준 */
+  const strongMatch = hints.matchLevelIsStrong === true;
+  const pyeongNum = Math.round(parseFloat(context.pyeong.replace(/,/g, '')));
+  const pyeongLabel = Number.isFinite(pyeongNum) && pyeongNum > 0 ? `${pyeongNum}평` : '같은 평수';
+  const hasRooms = Boolean(context.roomCount?.trim()) || Boolean(context.bathroomCount?.trim()) || context.isOneRoom === true;
+  const hasType = Boolean(context.propertyType?.trim());
+  const basisLine = strongMatch
+    ? `${hints.matchLabel?.trim() || pyeongLabel} 같은 예약 ${hints.matchCount}건의 가운데 금액이에요`
+    : `최근 ${pyeongLabel} 실제 예약 ${hints.matchCount}건의 가운데 금액이에요`;
+  const crewParts = [
+    hints.typicalTeamLeaderCount != null && hints.typicalTeamLeaderCount > 0 ? `팀장 ${hints.typicalTeamLeaderCount}명` : null,
+    hints.typicalCrewMemberCount != null && hints.typicalCrewMemberCount > 0 ? `팀원 ${hints.typicalCrewMemberCount}명` : null,
+  ].filter(Boolean);
+  const tip = strongMatch
+    ? null
+    : !hasRooms && !hasType
+      ? '방·화장실·건물 유형이 비어 있어요. 「정보 갖고오기」나 접수란에 넣으면 같은 구조 예약만 골라 더 정확해져요.'
+      : !hasType
+        ? '건물 유형(아파트·빌라 등)이 비어 있어요. 접수란에 넣으면 같은 유형 예약만 골라 더 정확해져요.'
+        : !hasRooms
+          ? '방·화장실 수가 비어 있어요. 「정보 갖고오기」나 접수란에 방 구조를 넣으면 더 정확해져요.'
+          : '같은 구조·유형 예약이 아직 적어서 평수가 같은 예약까지 넣어 계산했어요. 참고만 하세요.';
+  const diff =
+    recommendedAmount != null && baseAmountWon != null && baseAmountWon > 0
+      ? recommendedAmount - baseAmountWon
+      : null;
 
   return (
     <div
-      className={`rounded-lg border px-2.5 py-1.5 text-fluid-2xs leading-snug ${showLoadingUi ? 'border-slate-200 bg-slate-50 text-slate-600' : tone}`}
+      className={`rounded-lg border px-2.5 py-1.5 text-fluid-2xs leading-snug ${
+        strongMatch ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-sky-200 bg-sky-50 text-sky-900'
+      }`}
     >
-      {showLoadingUi ? (
-        <span>예약 학습 데이터 조회 중…</span>
-      ) : (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-medium">📊 {line}</span>
-          {recommendedAmount != null && baseAmountWon != null && baseAmountWon > 0 ? (
-            <span className="text-slate-600">
-              {recommendedAmount === baseAmountWon
-                ? '· 평당 기준가와 같아요'
-                : `· 평당 기준가 ${formatWon(baseAmountWon)}보다 ${recommendedAmount > baseAmountWon ? '+' : '−'}${formatWon(Math.abs(recommendedAmount - baseAmountWon))}`}
-            </span>
-          ) : null}
-          {examples.length > 0 ? (
-            <div className="basis-full min-w-0">
-              <p className="whitespace-nowrap font-semibold text-slate-600">비교한 실제 접수 (최신 5건)</p>
-              <ul className="min-w-0">
-                {examples.map((ex, i) => {
-                  const label = buildExampleLabel(ex);
-                  return (
-                    <li
-                      key={`${ex.inquiryNumber ?? ''}-${ex.date ?? ''}-${i}`}
-                      className="flex h-5 min-w-0 items-center gap-2 text-fluid-2xs tabular-nums text-slate-600"
-                      title={ex.inquiryNumber ? `${label} · 접수번호 ${ex.inquiryNumber}` : label}
-                    >
-                      <span className="min-w-0 flex-1 truncate whitespace-nowrap">{label}</span>
-                      {ex.amount != null ? (
-                        <span className="shrink-0 whitespace-nowrap text-right font-bold text-slate-700">
-                          {formatWon(ex.amount)}
-                        </span>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
-          {onApplyRecommended && recommendedAmount != null && hints ? (
-            <Button
-              size="sm"
-              variant={weakMatch ? 'secondary' : 'primary'}
-              title={`추천가 ${formatWon(recommendedAmount)}을 안내 목록에 넣어요`}
-              onClick={() =>
-                onApplyRecommended({ amountWon: recommendedAmount, matchCount: hints.matchCount })
-              }
-            >
-              AI 추천가 넣기
-            </Button>
-          ) : null}
-          {weakMatch ? (
-            <span className="basis-full text-fluid-2xs text-amber-800">
-              구조·유형이 다른 예약도 섞여 있어요 — 참고만 하세요
-            </span>
+      <div className="flex min-w-0 items-baseline gap-2">
+        <span className="shrink-0 font-semibold">AI 추천가</span>
+        {recommendedAmount != null ? (
+          <span className="shrink-0 text-fluid-base font-bold tabular-nums text-slate-900">
+            {formatWon(recommendedAmount)}
+          </span>
+        ) : null}
+        {diff != null ? (
+          <span className="min-w-0 truncate text-slate-600" title="업체 평당 기준가로 계산한 금액과 비교">
+            {diff === 0
+              ? '(기준가와 같아요)'
+              : `(기준가보다 ${fmtDiffWon(Math.abs(diff))} ${diff > 0 ? '↑' : '↓'})`}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-0.5 text-slate-700">
+        {strongMatch ? <span className="font-semibold text-emerald-700">✓ </span> : null}
+        {basisLine}
+        {crewParts.length > 0 ? <span className="text-slate-500"> · 보통 {crewParts.join('·')}</span> : null}
+      </p>
+      {tip ? (
+        <p className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900">💡 {tip}</p>
+      ) : null}
+      {examples.length > 0 ? (
+        <div className="mt-1 min-w-0">
+          <p className="whitespace-nowrap font-semibold text-slate-600">비교한 실제 접수 (최신 5건)</p>
+          <ul className="min-w-0">
+            {examples.map((ex, i) => {
+              const label = buildExampleLabel(ex);
+              return (
+                <li
+                  key={`${ex.inquiryNumber ?? ''}-${ex.date ?? ''}-${i}`}
+                  className="flex h-5 min-w-0 items-center gap-2 text-fluid-2xs tabular-nums text-slate-600"
+                  title={ex.inquiryNumber ? `${label} · 접수번호 ${ex.inquiryNumber}` : label}
+                >
+                  <span className="min-w-0 flex-1 truncate whitespace-nowrap">{label}</span>
+                  {ex.amount != null ? (
+                    <span className="shrink-0 whitespace-nowrap text-right font-bold text-slate-700">
+                      {formatWon(ex.amount)}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {(onApplyRecommended && recommendedAmount != null) || onOpenLearningSettings ? (
+        <div className="mt-1 flex items-center gap-2">
+          {onApplyRecommended && recommendedAmount != null ? (
+          <Button
+            size="sm"
+            variant={strongMatch ? 'primary' : 'secondary'}
+            title={`추천가 ${formatWon(recommendedAmount)}을 안내 목록에 넣어요`}
+            onClick={() => onApplyRecommended({ amountWon: recommendedAmount, matchCount: hints.matchCount })}
+          >
+            AI 추천가 넣기
+          </Button>
           ) : null}
           {onOpenLearningSettings ? (
             <button
               type="button"
               onClick={onOpenLearningSettings}
-              className="underline hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              className="ml-auto shrink-0 text-slate-500 underline hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
               학습 현황
             </button>
           ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

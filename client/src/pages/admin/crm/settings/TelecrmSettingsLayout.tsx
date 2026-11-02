@@ -8,17 +8,17 @@ import { resolveEffectiveStaffAdminFromMe } from '../../../../utils/staffAdminAc
 import { PageTitleWithFavorite } from '../../../../components/layout/NavFavoritePageTitle';
 
 const NAV = [
-  { to: '/admin/crm/settings/scripts', label: '스크립트' },
-  { to: '/admin/crm/settings/pricing', label: '가격' },
-  { to: '/admin/crm/settings/quote-learning', label: '견적·인원 학습' },
-  { to: '/admin/crm/settings/general', label: '기본 단가' },
+  { to: '/admin/crm/settings/scripts', label: '상담 스크립트' },
+  { to: '/admin/crm/settings/pricing', label: '가격 항목' },
+  { to: '/admin/crm/settings/quote-learning', label: 'AI 견적 학습' },
+  { to: '/admin/crm/settings/general', label: '기본 단가(평당가)' },
   {
     to: '/admin/crm/settings/lead-sources',
-    label: '유입경로',
+    label: '유입 경로',
     formConfigOnly: true,
   },
   { to: '/admin/crm/settings/soomgo', label: '숨고 연동' },
-  { to: '/admin/crm/settings/soomgo-presets', label: '숨고 프리셋' },
+  { to: '/admin/crm/settings/soomgo-presets', label: '숨고 메시지 단추' },
   { to: '/admin/crm/settings/call-activity', label: '통화 현황', adminOnly: true },
 ] as const;
 

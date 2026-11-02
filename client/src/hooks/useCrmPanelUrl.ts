@@ -10,6 +10,7 @@ export type CrmSettingsTab =
   | 'sms'
   | 'soomgo'
   | 'soomgo-presets'
+  | 'soomgo-auto'
   | 'quote-learning';
 export type CrmCatalogScope = 'shared' | 'personal';
 
@@ -22,6 +23,7 @@ const SETTINGS_TABS: CrmSettingsTab[] = [
   'sms',
   'soomgo',
   'soomgo-presets',
+  'soomgo-auto',
 ];
 
 function parseSettingsTab(raw: string | null): CrmSettingsTab {

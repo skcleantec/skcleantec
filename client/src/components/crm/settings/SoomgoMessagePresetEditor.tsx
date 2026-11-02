@@ -1,6 +1,8 @@
 import type { SoomgoMessageImageMode, SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import { SettingsCard } from './DeletePasswordModal';
 import { crmFieldClass } from '../crmUi';
+import { CrmCustomerMessagePreview } from './CrmSettingsUsageGuide';
+import { OnOffSwitch } from '../../ui/OnOffSwitch';
 
 export type SoomgoPresetDraft = {
   id: string | null;
@@ -95,15 +97,11 @@ export function SoomgoMessagePresetEditor({
         />
       ) : null}
       {!compact ? (
-        <label className="flex items-center gap-2 text-fluid-xs text-slate-700">
-          <input
-            type="checkbox"
-            checked={draft.isActive}
-            onChange={(e) => onChange({ isActive: e.target.checked })}
-            className="rounded-lg border-slate-300"
-          />
-          {activeCheckboxLabel}
-        </label>
+        <OnOffSwitch
+          checked={draft.isActive}
+          onChange={(next) => onChange({ isActive: next })}
+          label={activeCheckboxLabel}
+        />
       ) : null}
       <div className="space-y-2">
         {draft.steps.map((step, stepIndex) => (
@@ -213,6 +211,7 @@ export function SoomgoMessagePresetEditor({
             + 이미지
           </button>
         </div>
+        <CrmCustomerMessagePreview steps={draft.steps} channel="soomgo" />
       </div>
   );
 
