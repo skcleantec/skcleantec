@@ -36,6 +36,7 @@ from automation.selectors import URLS
 from automation.stale_chat_cleanup import leave_current_if_stale, scan_stale_chats
 from automation.http_download import download_bytes
 from automation.chat_list_search import open_chat_room_by_nickname
+from automation.sequence_sender import run_send_sequence
 from automation.navigation import (
     ensure_chat_workspace,
     is_in_chat_room_url,
