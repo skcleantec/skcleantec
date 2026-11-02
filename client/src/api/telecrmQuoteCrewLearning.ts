@@ -55,7 +55,8 @@ export type TelecrmQuoteCrewLearningBackfillResponse = TelecrmQuoteCrewLearningB
 
 export async function backfillTelecrmQuoteCrewLearning(
   token: string,
-  limit = 500,
+  /** 비우면 전체 접수를 학습 (서버가 500건씩 나눠 처리) */
+  limit?: number,
 ): Promise<TelecrmQuoteCrewLearningBackfillResponse> {
   const res = await fetch(`${API}/quote-learning/backfill`, {
     method: 'POST',
@@ -63,7 +64,7 @@ export async function backfillTelecrmQuoteCrewLearning(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ limit }),
+    body: JSON.stringify(limit != null ? { limit } : {}),
   });
   return parseJson<TelecrmQuoteCrewLearningBackfillResponse>(res);
 }

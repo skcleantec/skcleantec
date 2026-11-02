@@ -72,7 +72,7 @@ export function TelecrmQuoteLearningSettingsPage() {
     setSyncMessage(null);
     setError(null);
     try {
-      const result = await backfillTelecrmQuoteCrewLearning(token, 500);
+      const result = await backfillTelecrmQuoteCrewLearning(token);
       setOverview(result.overview);
       setSyncMessage(
         `동기화 완료 — 반영 ${result.upserted}건 · 제외 ${result.skipped}건 · 학습 데이터 ${result.overview.totalSnapshots}건`,

@@ -391,10 +391,11 @@ export function CrmScriptPanel({
     const pinned = pins.includes(id);
     const copied = copiedId === id;
     const showStage = searching || activeStage === ALL_STAGE;
-    let preview = item.body;
+    // 미리보기는 줄바꿈·빈 줄을 한 칸으로 — 두 줄 안에 내용이 최대한 보이게
+    let preview = item.body.replace(/\s*\n+\s*/g, ' ').trim();
     if (searching && !expanded) {
       const first = findScriptMatches(item.body, needle)[0];
-      if (first && first[0] > 50) preview = `…${item.body.slice(Math.max(0, first[0] - 20))}`;
+      if (first && first[0] > 50) preview = `…${item.body.slice(Math.max(0, first[0] - 20)).replace(/\s*\n+\s*/g, ' ')}`;
     }
     return (
       <li
@@ -440,7 +441,7 @@ export function CrmScriptPanel({
                 ) : null}
               </span>
               {!expanded ? (
-                <span className="mt-0.5 line-clamp-2 whitespace-pre-line text-fluid-2xs leading-snug text-slate-500">
+                <span className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-slate-500">
                   {preview ? <Highlighted text={preview} needle={needle} /> : '(본문이 비어 있어요)'}
                 </span>
               ) : null}

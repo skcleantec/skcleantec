@@ -468,7 +468,11 @@ export async function getTelecrmQuoteCrewLearningHints(
   const pyeongToken = bucketAreaPyeong(structure.areaPyeong);
 
   const samePyeongRows = await prisma.telecrmQuoteCrewLearningSnapshot.findMany({
-    where: { tenantId, featureKey: { startsWith: `${pyeongToken}|` } },
+    // 저장된 키(예전 5평 묶음 키 포함)와 상관없이 실제 평수로 같은 평수만 찾음
+    where: {
+      tenantId,
+      areaPyeong: { gte: Number(pyeongToken) - 0.5, lt: Number(pyeongToken) + 0.5 },
+    },
     orderBy: { updatedAt: 'desc' },
     take: 500,
     select: {
