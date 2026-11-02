@@ -341,11 +341,13 @@ export function CrmIntakePanel({
     if (mode !== 'existing' || loading || !data || data.match !== 'existing') return;
     if (followupImport?.snapshot) return;
     if (autoFilledKeyRef.current?.startsWith('followup:')) return;
-    const dialKey = outboundPhone.replace(/\D/g, '');
+    // 전화번호로 찾았으면 번호, 이름·닉네임으로 찾아 한 사람만 나왔으면 그 이름으로 — 바로 접수란에 채움(숨고 방 이동 포함)
+    const dialKey = searchMode === 'phone' ? outboundPhone.replace(/\D/g, '') : nameSearch.trim();
     const key = `${searchMode}:${dialKey}`;
     if (!dialKey || autoFilledKeyRef.current === key) return;
     applyLookupData(data);
-  }, [mode, loading, data, searchMode, outboundPhone, followupImport?.key]);
+    autoFilledKeyRef.current = key;
+  }, [mode, loading, data, searchMode, outboundPhone, nameSearch, followupImport?.key]);
 
   const handleSelectCandidate = (row: TelecrmCustomerCandidateDto) => {
     onPricingReset?.();
