@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { getToken } from '../../../stores/auth';
 import { ORDER_FOLLOWUP_STATUS_LABEL } from '../../../constants/orderFollowupStatus';
 import { INQUIRY_STATUS_LABELS } from '../../inquiries/inquiriesUiParts';
@@ -84,6 +85,7 @@ export function CrmIntakeForm({
   linkedHotMark = null,
   hotEditable = true,
   hotLinkKey = 0,
+  hotSlotHost = null,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
@@ -112,6 +114,8 @@ export function CrmIntakeForm({
   linkedHotMark?: OrderFollowupHotMark | null;
   hotEditable?: boolean;
   hotLinkKey?: number;
+  /** 연락처·조회 결과 바로 아래. 없으면 그리지 않는다 */
+  hotSlotHost?: HTMLElement | null;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -357,7 +361,25 @@ export function CrmIntakeForm({
       ? 'ring-2 ring-sky-400/80 ring-offset-1 transition-shadow duration-500'
       : '';
 
+  const hotSlot: ReactNode = (
+    <FollowupHotIntakeSlot
+      followupId={hotSession?.followupId ?? linkedFollowupId}
+      mark={hotSession ? hotSession.mark : (linkedHotMark ?? null)}
+      editable={hotEditable}
+      pending={pendingHot}
+      onPendingChange={setPendingHot}
+      onServerMark={(mark) => {
+        if (!linkedFollowupId) return;
+        setHotSession({ followupId: linkedFollowupId, mark });
+        setPendingHot(null);
+      }}
+      disabled={saving}
+    />
+  );
+
   return (
+    <>
+    {hotSlotHost ? createPortal(hotSlot, hotSlotHost) : null}
     <div className="space-y-3">
       {soomgoHiredOther ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-amber-950">
@@ -404,19 +426,6 @@ export function CrmIntakeForm({
           />
         </label>
       </div>
-      <FollowupHotIntakeSlot
-        followupId={hotSession?.followupId ?? linkedFollowupId}
-        mark={hotSession ? hotSession.mark : (linkedHotMark ?? null)}
-        editable={hotEditable}
-        pending={pendingHot}
-        onPendingChange={setPendingHot}
-        onServerMark={(mark) => {
-          if (!linkedFollowupId) return;
-          setHotSession({ followupId: linkedFollowupId, mark });
-          setPendingHot(null);
-        }}
-        disabled={saving}
-      />
       <fieldset>
         <legend className="mb-1 text-fluid-2xs font-semibold text-slate-700">처리 구분</legend>
         <div className="flex flex-wrap gap-1">
@@ -677,5 +686,6 @@ export function CrmIntakeForm({
         ) : null}
       </div>
     </div>
+    </>
   );
 }

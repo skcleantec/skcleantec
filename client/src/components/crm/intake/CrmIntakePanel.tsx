@@ -208,6 +208,7 @@ export function CrmIntakePanel({
   const token = getToken();
   const { userName } = useAdminStaffSession();
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
+  const [hotSlotHost, setHotSlotHost] = useState<HTMLDivElement | null>(null);
   const [nameSearch, setNameSearch] = useState('');
   const searchText = searchMode === 'phone' ? outboundPhone : nameSearch;
   const lookupEnabled =
@@ -573,6 +574,8 @@ export function CrmIntakePanel({
           </div>
         )}
 
+        <div ref={setHotSlotHost} />
+
         <div className="border-t border-emerald-100/80 pt-3">
           {soomgoImportBanner ? (
             <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-2 text-fluid-2xs leading-snug text-sky-950">
@@ -606,6 +609,7 @@ export function CrmIntakePanel({
             linkedHotMark={followupImport?.snapshot.myHotMark ?? null}
             hotEditable={followupImport?.snapshot.myHotMarkEditable !== false}
             hotLinkKey={followupImport?.key ?? 0}
+            hotSlotHost={hotSlotHost}
           />
         </div>
 
