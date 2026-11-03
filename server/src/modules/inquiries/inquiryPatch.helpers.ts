@@ -2,6 +2,10 @@ import type { Inquiry } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { parseMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
 
+function parseInquiryBoolFlag(v: unknown): boolean {
+  return v === true || v === 'true' || v === 1 || v === '1';
+}
+
 /** PATCH body → Prisma update data (inquiries.routes 와 동일 조건) */
 export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.InquiryUpdateInput {
   const data: Prisma.InquiryUpdateInput = {};
@@ -41,8 +45,10 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
     data.propertyType = body.propertyType ? String(body.propertyType) : null;
   }
   if (Object.prototype.hasOwnProperty.call(body, 'isOneRoom')) {
-    data.isOneRoom =
-      body.isOneRoom === true || body.isOneRoom === 'true' || body.isOneRoom === 1 || body.isOneRoom === '1';
+    data.isOneRoom = parseInquiryBoolFlag(body.isOneRoom);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'isTwoRoom')) {
+    data.isTwoRoom = parseInquiryBoolFlag(body.isTwoRoom);
   }
   if (body.roomCount !== undefined) {
     data.roomCount =

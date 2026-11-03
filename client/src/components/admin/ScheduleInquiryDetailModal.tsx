@@ -298,7 +298,10 @@ function omitHiddenIntakeSystemFields(
     drop('moveInDateUndecided');
   }
   if (!inquiryFormHasSystemField(profile, 'professionalOptions')) drop('professionalOptionIds');
-  if (!inquiryFormShowsPropertySection(profile)) drop('isOneRoom');
+  if (!inquiryFormShowsPropertySection(profile)) {
+    drop('isOneRoom');
+    drop('isTwoRoom');
+  }
 }
 
 function buildPatchFromEditForm(
@@ -332,6 +335,7 @@ function buildPatchFromEditForm(
     customerPhone2: editForm.customerPhone2.trim(),
     propertyType: editForm.propertyType.trim(),
     isOneRoom: editForm.isOneRoom,
+    isTwoRoom: editForm.isOneRoom ? editForm.isTwoRoom : false,
     areaBasis: editForm.areaBasis.trim(),
     buildingType: editForm.buildingType.trim(),
     moveInTiming: editForm.moveInTiming || null,
@@ -952,6 +956,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         customerPhone2: '',
         propertyType: '',
         isOneRoom: false,
+        isTwoRoom: false,
         areaBasis: '',
         areaPyeong: '',
         exclusiveAreaSqm: '',
@@ -1012,6 +1017,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         detectOneRoomFromNotes(
           effectiveCustomerOrderNotes({ specialNotes: it.specialNotes, orderForm: it.orderForm }),
         ),
+      isTwoRoom: Boolean(it.isTwoRoom),
       areaBasis: it.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
@@ -1502,6 +1508,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         detectOneRoomFromNotes(
           effectiveCustomerOrderNotes({ specialNotes: it.specialNotes, orderForm: it.orderForm }),
         ),
+      isTwoRoom: Boolean(it.isTwoRoom),
       areaBasis: it.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
@@ -2522,6 +2529,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   <PropertyTypeSticker
                     propertyType={editForm.propertyType?.trim() || item.propertyType}
                     isOneRoom={editForm.isOneRoom}
+                    isTwoRoom={editForm.isTwoRoom}
                     oneRoomTitle={oneRoomLabel}
                     className="shrink-0 hidden sm:inline-flex"
                   />
