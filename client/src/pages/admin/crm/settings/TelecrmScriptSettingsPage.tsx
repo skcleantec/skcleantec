@@ -17,6 +17,9 @@ import {
 } from '../../../../api/telecrm';
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { TelecrmReorderButtons } from '../../../../components/crm/settings/telecrmSettingsUi';
+import { usePublishScriptBrandEdit } from '../../../../components/crm/settings/scriptBrandEditContext';
+import { OperatingCompanyBadge } from '../../../../components/admin/OperatingCompanyBadge';
+import { useOperatingCompanies } from '../../../../hooks/useOperatingCompanies';
 import { HelpTooltip } from '../../../../components/ui/HelpTooltip';
 import { OnOffSwitch } from '../../../../components/ui/OnOffSwitch';
 import { fillCrmMessageFields } from '../../../../components/crm/settings/crmMessageFields';
@@ -79,6 +82,47 @@ export function TelecrmScriptSettingsPage({
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === selectedCategoryId) ?? null,
     [categories, selectedCategoryId],
+  );
+
+  const operatingCompanies = useOperatingCompanies(token);
+  const brandCompanies = useMemo(
+    () =>
+      operatingCompanies
+        .filter((c) => c.isActive)
+        .map((c) => ({ id: c.id, displayName: c.displayName || c.name })),
+    [operatingCompanies],
+  );
+
+  const changeBrand = useCallback(
+    async (operatingCompanyId: string | null) => {
+      if (!token || !selectedCategory) return;
+      if ((selectedCategory.operatingCompanyId ?? null) === operatingCompanyId) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await updateTelecrmScriptCategory(token, selectedCategory.id, { operatingCompanyId });
+        await load();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '브랜드를 바꾸지 못했습니다.');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [token, selectedCategory, load],
+  );
+
+  usePublishScriptBrandEdit(
+    selectedCategory && brandCompanies.length > 1
+      ? {
+          visible: true,
+          value: selectedCategory.operatingCompanyId ?? null,
+          busy,
+          companies: brandCompanies,
+          onChange: (id) => {
+            void changeBrand(id);
+          },
+        }
+      : null,
   );
 
   const tabs = selectedCategory?.tabs ?? [];
@@ -237,6 +281,9 @@ export function TelecrmScriptSettingsPage({
                       <span className="ml-1 text-fluid-2xs text-slate-400">{c.tabs?.length ?? 0}</span>
                       {!c.isActive ? <span className="text-slate-400"> (숨김)</span> : null}
                     </button>
+                    {c.operatingCompany ? (
+                      <OperatingCompanyBadge company={c.operatingCompany} className="shrink-0" />
+                    ) : null}
                     <TelecrmReorderButtons
                       disabled={busy}
                       canMoveUp={index > 0}

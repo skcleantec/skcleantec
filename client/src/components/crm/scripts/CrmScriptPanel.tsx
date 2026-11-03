@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { getToken } from '../../../stores/auth';
+import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
 import {
   fetchTelecrmScripts,
   type TelecrmScriptCategoryDto,
@@ -120,6 +121,7 @@ export function CrmScriptPanel({
   embedded?: boolean;
 }) {
   const token = getToken();
+  const { loading: brandLoading, activeOperatingCompanyId } = useCrmWorkBrand();
   const userId = useMemo(
     () => (token ? parseJwtPayload<{ userId?: string }>(token)?.userId ?? null : null),
     [token],
@@ -150,18 +152,21 @@ export function CrmScriptPanel({
   );
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || brandLoading) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchTelecrmScripts(token, { scope: 'work' });
+      const res = await fetchTelecrmScripts(token, {
+        scope: 'work',
+        operatingCompanyId: activeOperatingCompanyId,
+      });
       setCategories(res.categories);
     } catch (e) {
       setError(e instanceof Error ? e.message : '스크립트를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, brandLoading, activeOperatingCompanyId]);
 
   useEffect(() => {
     void load();

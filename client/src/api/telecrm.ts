@@ -25,6 +25,14 @@ export type TelecrmScriptTabDto = {
   isActive: boolean;
 };
 
+export type TelecrmScriptBrandDto = {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  badgeColorKey?: string | null;
+};
+
 export type TelecrmScriptCategoryDto = {
   id: string;
   label: string;
@@ -32,6 +40,9 @@ export type TelecrmScriptCategoryDto = {
   isActive: boolean;
   ownerUserId?: string | null;
   ownerScope?: TelecrmCatalogOwnerScope;
+  /** null = 모든 브랜드 공통 */
+  operatingCompanyId?: string | null;
+  operatingCompany?: TelecrmScriptBrandDto | null;
   tabs?: TelecrmScriptTabDto[];
 };
 
@@ -172,11 +183,12 @@ export async function fetchTelecrmCustomerLookup(
 
 export async function fetchTelecrmScripts(
   token: string,
-  opts?: { includeInactive?: boolean; scope?: TelecrmCatalogScope },
+  opts?: { includeInactive?: boolean; scope?: TelecrmCatalogScope; operatingCompanyId?: string | null },
 ): Promise<{ categories: TelecrmScriptCategoryDto[] }> {
   const params = new URLSearchParams();
   if (opts?.includeInactive) params.set('includeInactive', '1');
   if (opts?.scope) params.set('scope', opts.scope);
+  if (opts?.scope === 'work') appendCrmWorkBrandQuery(params, opts.operatingCompanyId);
   const q = params.toString() ? `?${params}` : '';
   const res = await fetch(`${API}/script-categories${q}`, { headers: authHeaders(token) });
   return parseJson(res);
@@ -184,7 +196,7 @@ export async function fetchTelecrmScripts(
 
 export async function createTelecrmScriptCategory(
   token: string,
-  body: { label: string; ownerScope?: TelecrmCatalogOwnerScope },
+  body: { label: string; ownerScope?: TelecrmCatalogOwnerScope; operatingCompanyId?: string | null },
 ): Promise<TelecrmScriptCategoryDto> {
   const res = await fetch(`${API}/script-categories`, {
     method: 'POST',
@@ -197,7 +209,7 @@ export async function createTelecrmScriptCategory(
 export async function updateTelecrmScriptCategory(
   token: string,
   id: string,
-  body: Partial<{ label: string; sortOrder: number; isActive: boolean }>,
+  body: Partial<{ label: string; sortOrder: number; isActive: boolean; operatingCompanyId: string | null }>,
 ): Promise<TelecrmScriptCategoryDto> {
   const res = await fetch(`${API}/script-categories/${id}`, {
     method: 'PATCH',

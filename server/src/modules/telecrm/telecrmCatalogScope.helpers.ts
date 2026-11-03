@@ -21,13 +21,19 @@ export function telecrmScriptCategoryWhere(
   scope: TelecrmCatalogScope,
   tenantId: string,
   userId: string,
+  operatingCompanyId?: string | null,
 ): Prisma.TelecrmScriptCategoryWhereInput {
-  if (scope === 'shared') return { tenantId, ownerUserId: null };
-  if (scope === 'personal') return { tenantId, ownerUserId: userId };
-  return {
-    tenantId,
-    OR: [{ ownerUserId: null }, { ownerUserId: userId }],
-  };
+  const owner: Prisma.TelecrmScriptCategoryWhereInput =
+    scope === 'shared'
+      ? { tenantId, ownerUserId: null }
+      : scope === 'personal'
+        ? { tenantId, ownerUserId: userId }
+        : { tenantId, OR: [{ ownerUserId: null }, { ownerUserId: userId }] };
+  if (scope !== 'work') return owner;
+  const brand: Prisma.TelecrmScriptCategoryWhereInput = operatingCompanyId
+    ? { OR: [{ operatingCompanyId: null }, { operatingCompanyId }] }
+    : { operatingCompanyId: null };
+  return { AND: [owner, brand] };
 }
 
 export function telecrmPriceCategoryWhere(

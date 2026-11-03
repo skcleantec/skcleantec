@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom';
 import { openTelecrmWindow } from '../../../../utils/openTelecrmWindow';
 import { TelecrmCatalogScopeSegment } from '../../../../components/crm/settings/telecrmSettingsUi';
+import { ScriptBrandEditProvider, ScriptBrandEditSlot } from '../../../../components/crm/settings/scriptBrandEditContext';
 import { useMarketerPermissions } from '../../../../hooks/useMarketerPermissions';
 import { useAdminStaffSession } from '../../../../hooks/useAdminStaffSession';
 import { resolveEffectiveStaffAdminFromMe } from '../../../../utils/staffAdminAccess';
@@ -58,6 +59,7 @@ export function TelecrmSettingsLayout() {
   });
 
   return (
+    <ScriptBrandEditProvider>
     <div className="min-w-0 w-full max-w-5xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -103,12 +105,15 @@ export function TelecrmSettingsLayout() {
 
       {isCatalogRoute && (canShared || canPersonal) ? (
         <div>
-          <TelecrmCatalogScopeSegment
-            value={catalogScope}
-            onChange={setCatalogScope}
-            showPersonal={canPersonal}
-            showShared={canShared}
-          />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <TelecrmCatalogScopeSegment
+              value={catalogScope}
+              onChange={setCatalogScope}
+              showPersonal={canPersonal}
+              showShared={canShared}
+            />
+            {location.pathname.endsWith('/scripts') ? <ScriptBrandEditSlot /> : null}
+          </div>
           {location.pathname.endsWith('/soomgo-presets') ? (
             <p className="mt-2 text-fluid-2xs text-slate-500">
               {catalogScope === 'personal'
@@ -121,5 +126,6 @@ export function TelecrmSettingsLayout() {
 
       <Outlet />
     </div>
+    </ScriptBrandEditProvider>
   );
 }
