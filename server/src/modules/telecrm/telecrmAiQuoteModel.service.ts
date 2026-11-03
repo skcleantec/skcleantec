@@ -10,7 +10,13 @@
  *  6시간마다(또는 학습 데이터를 다시 모으면 바로) 새 예약까지 넣어 다시 배움. 같은 데이터면 늘 같은 결과.
  */
 import { prisma } from '../../lib/prisma.js';
-import type { TelecrmAiQuote, TelecrmAiQuotePart } from '../../lib/telecrmQuoteCrewLearning.js';
+import type {
+  TelecrmAiQuote,
+  TelecrmAiQuoteModelStatus,
+  TelecrmAiQuotePart,
+  TelecrmAiQuoteRuleSpec,
+} from '../../lib/telecrmQuoteCrewLearning.js';
+import { loadActiveTelecrmAiQuoteRuleSpecs } from './telecrmAiQuoteRules.store.js';
 import {
   loadTelecrmPropertyChoiceResolver,
   type TelecrmPropertyChoiceResolver,
@@ -332,16 +338,71 @@ export function invalidateTelecrmAiQuoteModel(tenantId: string): void {
   for (const key of cache.keys()) if (key.startsWith(`${tenantId}|`)) cache.delete(key);
 }
 
+export type TelecrmAiQuoteInput = {
+  operatingCompanyId?: string | null;
+  areaPyeong: number;
+  propertyType?: string | null;
+  isOneRoom?: boolean;
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  balconyCount?: number | null;
+};
+
+/** 지금 배운 상태 — 설정 화면 「마지막 학습」 표시용 */
+export async function getTelecrmAiQuoteModelStatus(
+  tenantId: string,
+  operatingCompanyId?: string | null,
+): Promise<Pick<TelecrmAiQuoteModelStatus, 'trainedAt' | 'sampleCount'>> {
+  const model = await getModel(tenantId, operatingCompanyId?.trim() || null);
+  return { trainedAt: model?.trainedAt.toISOString() ?? null, sampleCount: model?.sampleCount ?? 0 };
+}
+
+function normLabel(text: string | null | undefined): string {
+  return String(text ?? '').replace(/\s+/g, '').toLowerCase();
+}
+
+/** 규칙 조건이 이 손님에게 맞는지 — 규칙에 적힌 칸만 비교 (손님 쪽 값이 비어 있으면 맞지 않음) */
+function ruleMatches(
+  spec: TelecrmAiQuoteRuleSpec,
+  input: TelecrmAiQuoteInput,
+  p: number,
+  typeLabel: string | null,
+): boolean {
+  const c = spec.condition ?? {};
+  if (c.pyeongMin != null && p < c.pyeongMin) return false;
+  if (c.pyeongMax != null && p > c.pyeongMax) return false;
+  if (c.roomCount != null && input.roomCount !== c.roomCount) return false;
+  if (c.bathroomCount != null && input.bathroomCount !== c.bathroomCount) return false;
+  if (c.balconyCount != null && input.balconyCount !== c.balconyCount) return false;
+  if (c.isOneRoom != null && Boolean(input.isOneRoom) !== c.isOneRoom) return false;
+  if (c.propertyType && normLabel(c.propertyType) !== normLabel(typeLabel)) return false;
+  return true;
+}
+
+function ruleDelta(spec: TelecrmAiQuoteRuleSpec, current: number, p: number): number {
+  const amt = Math.round(Number(spec.action?.amountWon) || 0);
+  switch (spec.action?.kind) {
+    case 'min':
+      return current < amt ? amt - current : 0;
+    case 'max':
+      return current > amt ? amt - current : 0;
+    case 'add':
+      return amt;
+    case 'set':
+      return amt - current;
+    case 'perPyeong':
+      return p * amt - current;
+    default:
+      return 0;
+  }
+}
+
 export async function predictTelecrmAiQuote(
   tenantId: string,
-  input: {
-    operatingCompanyId?: string | null;
-    areaPyeong: number;
-    propertyType?: string | null;
-    isOneRoom?: boolean;
-    roomCount?: number | null;
-    bathroomCount?: number | null;
-    balconyCount?: number | null;
+  input: TelecrmAiQuoteInput,
+  opts?: {
+    /** 미리보기 — 저장된 규칙 대신 이 규칙 목록으로 계산 */
+    rulesOverride?: TelecrmAiQuoteRuleSpec[];
   },
 ): Promise<TelecrmAiQuote | null> {
   const model = await getModel(tenantId, input.operatingCompanyId?.trim() || null);
@@ -377,8 +438,18 @@ export async function predictTelecrmAiQuote(
     parts[0] = { ...parts[0], label: `${parts[0].label.replace(/ 기본$/, '')} ${type.label} 기본` };
   }
 
-  const sum = parts.reduce((s, x) => s + x.amountWon, 0);
-  const amountWon = Math.max(10000, Math.round(sum / 10000) * 10000);
+  // 말로 넣은 규칙 — 위에서부터 차례로 얹음
+  const rules = opts?.rulesOverride ?? (await loadActiveTelecrmAiQuoteRuleSpecs(tenantId));
+  let current = parts.reduce((s, x) => s + x.amountWon, 0);
+  for (const spec of rules) {
+    if (!ruleMatches(spec, input, p, type?.label ?? null)) continue;
+    const delta = ruleDelta(spec, current, p);
+    if (delta === 0) continue;
+    parts.push({ label: `규칙: ${spec.summary}`, amountWon: delta, rule: true });
+    current += delta;
+  }
+
+  const amountWon = Math.max(10000, Math.round(current / 10000) * 10000);
   return {
     amountWon,
     parts,

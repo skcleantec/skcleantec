@@ -7,6 +7,7 @@ import {
 } from '../../../../api/telecrmQuoteCrewLearning';
 import type { TelecrmQuoteCrewLearningOverview } from '@shared/telecrmQuoteCrewLearning';
 import { SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
+import { CrmAiQuoteRulesSection } from '../../../../components/crm/settings/CrmAiQuoteRulesSection';
 import { formatWon } from '../../../../components/crm/settings/telecrmSettingsUi';
 
 const READINESS_BAR: Record<TelecrmQuoteCrewLearningOverview['readiness'], number> = {
@@ -90,6 +91,8 @@ export function TelecrmQuoteLearningSettingsPage() {
 
   return (
     <div className="space-y-4">
+      <CrmAiQuoteRulesSection />
+
       <SettingsCard title="견적·인원 학습">
         <p className="text-fluid-sm text-slate-600">
           <strong>예약확정(RECEIVED)</strong> 접수에서 평수·건축물·방/화/베·확정 금액·팀장·팀원 수를 자동으로

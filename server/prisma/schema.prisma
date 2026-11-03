@@ -360,6 +360,7 @@ model Tenant {
   telecrmCallNotes    TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
+  telecrmAiQuoteRules TelecrmAiQuoteRule[]
   telecrmSoomgoConfig       TelecrmSoomgoConfig?
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
@@ -5193,6 +5194,28 @@ model TelecrmConsultationQuote {
   @@index([tenantId, followupId])
   @@index([tenantId, inquiryId])
   @@map("telecrm_consultation_quotes")
+}
+
+/// 텔레CRM AI 견적 — 사장님·상담사가 말로 넣은 가격 규칙 (AI가 조건·적용으로 바꿔 저장)
+model TelecrmAiQuoteRule {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// 사람이 적은 말 그대로
+  text          String   @db.Text
+  /// AI가 바꾼 규칙 (조건·적용)
+  spec          Json
+  /// 화면용 짧은 이름 (예: 「방3·화2 최소 25만원」)
+  summary       String   @db.VarChar(200)
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdById   String?  @map("created_by_id")
+  createdByName String?  @map("created_by_name") @db.VarChar(120)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, sortOrder])
+  @@map("telecrm_ai_quote_rules")
 }
 
 /// 텔레CRM — 예약확정 접수 기반 견적·인원 학습 스냅샷 (1접수 1행)

@@ -20,18 +20,73 @@ export function formatSoomgoCountForCrm(value: number | null | undefined): strin
   return String(value);
 }
 
-/** 숨고 추출 평수 — "24", "24평", 24 등 */
-export function parseSoomgoPyeongForCrm(raw: string | number | null | undefined): string {
-  if (raw == null) return '';
+const SQM_PER_PYEONG = 3.305785;
+/** 아파트는 고객이 아는 ㎡가 대부분 전용면적 — 공급(평형)은 전용의 약 1.33배 (59㎡ → 24평, 84㎡ → 34평) */
+const APT_EXCLUSIVE_TO_SUPPLY = 1.33;
+const SQM_UNIT = /(\d{1,4}(?:[.,]\d+)?)\s*(?:㎡|m²|m\^?2|제곱\s*미터|제곱m|제곱|평방\s*미터|미터|헤베|sqm)/i;
+
+export type SoomgoAreaParse = {
+  /** 접수란에 넣을 평수 (숫자 글자) */
+  pyeong: string;
+  /** 고객이 ㎡로 적었으면 그 값 */
+  sqm: number | null;
+  /** 상담사에게 보여 줄 한 줄 (㎡를 평으로 바꿨을 때 등) */
+  note: string | null;
+};
+
+/**
+ * 숨고 추출 면적 — 「24」「24평」「59제곱미터」「84㎡」 등.
+ * ㎡로 적은 경우: 아파트(또는 유형 모름)는 전용면적으로 보고 공급 평형으로, 그 밖의 건물은 ㎡ ÷ 3.3 으로 바꿈.
+ */
+export function parseSoomgoAreaForCrm(
+  raw: string | number | null | undefined,
+  buildingType?: string | null,
+): SoomgoAreaParse {
+  if (raw == null) return { pyeong: '', sqm: null, note: null };
   const t = String(raw).trim();
-  if (!t) return '';
+  if (!t) return { pyeong: '', sqm: null, note: null };
+
+  const sqmMatch = t.match(SQM_UNIT);
+  if (sqmMatch && !/평/.test(t)) {
+    const sqm = parseFloat(sqmMatch[1].replace(/,/g, '.'));
+    if (Number.isFinite(sqm) && sqm > 0) {
+      const building = (buildingType ?? '').trim();
+      const isApt = !building || /아파트/.test(building);
+      const pyeong = Math.max(1, Math.round(isApt ? (sqm * APT_EXCLUSIVE_TO_SUPPLY) / SQM_PER_PYEONG : sqm / SQM_PER_PYEONG));
+      return {
+        pyeong: String(pyeong),
+        sqm,
+        note: isApt
+          ? `고객이 ${sqm}㎡로 적어서 ${pyeong}평으로 바꿨어요 (아파트 전용면적 기준 — 다르면 평수를 고쳐 주세요)`
+          : `고객이 ${sqm}㎡로 적어서 ${pyeong}평으로 바꿨어요 (㎡ ÷ 3.3 — 다르면 평수를 고쳐 주세요)`,
+      };
+    }
+  }
+
   const plain = t.match(/^(\d{1,4}(?:\.\d+)?)$/);
-  if (plain) return plain[1];
   const withUnit = t.match(/(\d{1,4}(?:\.\d+)?)\s*평(?:형|수)?/);
-  if (withUnit) return withUnit[1];
-  const n = parseFloat(t.replace(/,/g, ''));
-  if (Number.isFinite(n) && n > 0 && n <= 9999) return String(n);
-  return t;
+  let value: string | null = plain?.[1] ?? withUnit?.[1] ?? null;
+  if (value == null) {
+    const n = parseFloat(t.replace(/,/g, ''));
+    if (Number.isFinite(n) && n > 0 && n <= 9999) value = String(n);
+  }
+  if (value == null) return { pyeong: t, sqm: null, note: null };
+  const n = parseFloat(value);
+  // 단위 없이 59·84 처럼 아파트 대표 ㎡ 숫자를 적은 경우 — 바꾸지는 않고 확인만 부탁
+  const looksLikeSqm = !withUnit && [39, 49, 59, 74, 84, 101, 114, 135].includes(Math.round(n));
+  return {
+    pyeong: value,
+    sqm: null,
+    note: looksLikeSqm ? `평수가 ${value}로 들어왔어요. ㎡로 적은 숫자인지 고객에게 확인해 주세요` : null,
+  };
+}
+
+/** 숨고 추출 평수 — 숫자 글자만 (설명이 필요하면 parseSoomgoAreaForCrm) */
+export function parseSoomgoPyeongForCrm(
+  raw: string | number | null | undefined,
+  buildingType?: string | null,
+): string {
+  return parseSoomgoAreaForCrm(raw, buildingType).pyeong;
 }
 
 export function resolveSoomgoAddress(data: SoomgoExtractedChat): string {
@@ -130,7 +185,9 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
 
   if (data.pyeong) {
     filled.push('pyeong');
-    lines.push(`평수 → 추가 필드 (${parseSoomgoPyeongForCrm(data.pyeong)}평)`);
+    const area = parseSoomgoAreaForCrm(data.pyeong, data.buildingType);
+    lines.push(`평수 → 추가 필드 (${area.pyeong}평)`);
+    if (area.note) lines.push(`⚠ ${area.note}`);
   } else {
     empty.push('평수');
   }

@@ -110,6 +110,44 @@ def clear_stale_update_cache(manifest: dict[str, Any]) -> None:
     write_update_state(phase='idle', message=None, latest_version=None, artifact=None)
 
 
+def prune_old_update_cache(keep_versions: set[str] | None = None) -> tuple[int, int]:
+    """
+    예전 업데이트 설치 파일 정리 — 지금 버전보다 낮은 버전 파일만 지움.
+    (지금 버전·더 새 버전·받는 중인 파일은 남김) 반환: (지운 개수, 지운 바이트)
+    """
+    try:
+        from desktop.manifest_client import parse_version_tuple
+    except Exception:
+        return 0, 0
+    if not UPDATE_CACHE_DIR.is_dir():
+        return 0, 0
+    current = parse_version_tuple(APP_VERSION)
+    keep = {v.strip() for v in (keep_versions or set()) if v and v.strip()}
+    removed = 0
+    freed = 0
+    for path in UPDATE_CACHE_DIR.iterdir():
+        if not path.is_file():
+            continue
+        version = path.name.split('-', 1)[0]
+        if not version or version in keep or not version[0].isdigit():
+            continue
+        try:
+            if parse_version_tuple(version) >= current:
+                continue
+        except Exception:
+            continue
+        try:
+            size = path.stat().st_size
+            path.unlink()
+            removed += 1
+            freed += size
+        except OSError as e:
+            logger.warning('update cache prune failed %s: %s', path.name, e)
+    if removed:
+        logger.info('old update cache pruned: %d files, %.1f MB', removed, freed / 1024 / 1024)
+    return removed, freed
+
+
 def clear_stale_update_phase_if_current(manifest: dict[str, Any] | None) -> None:
     """업데이트 완료 후 남은 installing/ready/downloading 플래그 정리."""
     if not manifest:
@@ -221,7 +259,7 @@ def perform_tray_handoff_update(
 ) -> tuple[bool, str, TrayHandoffAction | None]:
     """
     트레이·브릿지를 먼저 내린 뒤 설치.
-    exe 성공 시 호출 측에서 os._exit(0), zip 성공 시 restart_self().
+    설치 후 재실행은 이 프로세스가 아니라 post_update_restart.py 가 맡는다.
     """
     ok, msg, dest = ensure_update_artifact_ready(manifest)
     if not ok or not dest:
@@ -454,8 +492,11 @@ def perform_update(manifest: dict[str, Any]) -> tuple[bool, str]:
 
 def schedule_post_setup_restart(*, installer_pid: int = 0) -> bool:
     """Setup.exe 완료·뮤텍스 해제 후 트레이 앱을 다시 띄웁니다."""
+    from desktop.config import append_tray_event
+
     helper = BRIDGE_DIR / 'desktop' / 'post_update_restart.py'
     if not helper.is_file():
+        append_tray_event(f'schedule post_update_restart missing file installer_pid={installer_pid}')
         return False
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     try:
@@ -465,34 +506,21 @@ def schedule_post_setup_restart(*, installer_pid: int = 0) -> bool:
             creationflags=flags,
             close_fds=True,
         )
+        append_tray_event(f'schedule post_update_restart ok installer_pid={installer_pid}')
         return True
     except OSError as e:
         logger.error('post-update restart schedule failed: %s', e)
+        append_tray_event(f'schedule post_update_restart failed installer_pid={installer_pid} error={e}')
         return False
 
 
 def restart_self() -> None:
-    """트레이 앱 재시작 (콘솔 없음)."""
+    """꺼지는 프로세스에서 바로 띄우지 않고, 별도 프로세스가 뮤텍스 해제 후 실행."""
+    from desktop.config import append_tray_event
     from desktop.single_instance import release_single_instance
 
+    ok = schedule_post_setup_restart(installer_pid=0)
+    if not ok:
+        append_tray_event('restart_self failed — post_update_restart was not started')
     release_single_instance()
-    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-    vbs = BRIDGE_DIR / 'launch-desktop.vbs'
-    if sys.platform == 'win32' and vbs.exists():
-        subprocess.Popen(
-            ['wscript.exe', str(vbs)],
-            cwd=str(BRIDGE_DIR),
-            creationflags=flags,
-            close_fds=True,
-        )
-    else:
-        from desktop.config import bridge_python_env
-
-        subprocess.Popen(
-            [sys.executable, '-m', 'desktop.tray_app'],
-            cwd=str(BRIDGE_DIR),
-            env=bridge_python_env(),
-            creationflags=flags,
-            close_fds=True,
-        )
     os._exit(0)

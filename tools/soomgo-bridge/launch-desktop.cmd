@@ -4,7 +4,7 @@ cd /d "%~dp0"
 
 set "LOGDIR=%LOCALAPPDATA%\Cbiseo\SoomgoBridge"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%" >nul 2>&1
-rem tray_app도 launch.log에 쓰므로 cmd 부트스트랩은 별도 파일 (동시 실행 시 잠금 방지)
+rem tray_app writes tray-events.log. This bootstrap uses launch-cmd.log.
 set "LOG=%LOGDIR%\launch-cmd.log"
 set "PYTHONPATH=%~dp0"
 
@@ -14,7 +14,7 @@ set "PYTHONPATH=%~dp0"
 set "PYW="
 set "PY="
 
-rem 1) 번들 Python — tkinter 포함 시 우선 (Setup 본편)
+rem 1) Bundled Python with tkinter (Setup)
 if exist "%~dp0python\python.exe" (
   "%~dp0python\python.exe" -c "import tkinter" 2>nul
   if not errorlevel 1 (
@@ -22,11 +22,11 @@ if exist "%~dp0python\python.exe" (
     set "PY=%~dp0python\python.exe"
     >>"%LOG%" echo python=bundled tkinter=ok
   ) else (
-    >>"%LOG%" echo bundled python missing tkinter — try system python
+    >>"%LOG%" echo bundled python missing tkinter - try system python
   )
 )
 
-rem 2) PC에 설치된 Python (tkinter 있는 경우 — 구버전 Setup 임시 폴백)
+rem 2) System Python with tkinter
 if not defined PY (
   where python >nul 2>&1
   if not errorlevel 1 (
@@ -48,13 +48,27 @@ if not defined PY (
 
 :launch
 if not defined PYW (
-  >>"%LOG%" echo FATAL: tkinter 없는 Python만 발견됨 — Setup 2.1.14 이상 재설치 또는 run-desktop-debug.bat
-  mshta "javascript:alert('Python(tkinter) 환경이 없어 숨고 연동을 시작할 수 없습니다.\n\nSetup 2.1.14 이상을 설치하거나,\n개발 PC에서는 run-desktop-debug.bat 으로 오류를 확인하세요.');close()"
+  >>"%LOG%" echo FATAL: no python with tkinter
+  mshta "javascript:alert('Python(tkinter) is missing. Install Setup again, or run run-desktop-debug.bat.');close()"
   exit /b 1
 )
 
+powershell -NoProfile -Command "[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()" > "%TEMP%\soomgo-launch-t0.txt"
 "%PYW%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1
-if not errorlevel 1 exit /b 0
-
->>"%LOG%" echo pythonw failed — retry with python.exe
-start "" /min /D "%~dp0" "%PY%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1
+set "RC=!ERRORLEVEL!"
+if "!RC!"=="0" (
+  >>"%LOG%" echo pythonw exit 0 - no retry
+  exit /b 0
+)
+set "ELAPSED=999"
+powershell -NoProfile -Command "$t0=[int64](Get-Content -LiteralPath $env:TEMP\soomgo-launch-t0.txt); $sec=[int](([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()-$t0)/1000); Set-Content -LiteralPath $env:TEMP\soomgo-launch-elapsed.txt -Value $sec -NoNewline"
+if exist "%TEMP%\soomgo-launch-elapsed.txt" set /p ELAPSED=<"%TEMP%\soomgo-launch-elapsed.txt"
+if !ELAPSED! GEQ 10 (
+  >>"%LOG%" echo pythonw exit !RC! after !ELAPSED!s - no retry
+  exit /b !RC!
+)
+>>"%LOG%" echo pythonw exit !RC! within !ELAPSED!s - retry python.exe
+"%PY%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1
+set "RC=!ERRORLEVEL!"
+>>"%LOG%" echo python.exe exit !RC!
+exit /b !RC!

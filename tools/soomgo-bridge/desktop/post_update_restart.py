@@ -63,6 +63,19 @@ def _launch_tray(bridge_dir: Path) -> None:
     )
 
 
+def _event(message: str) -> None:
+    try:
+        from desktop.config import append_tray_event
+
+        append_tray_event(message)
+    except Exception as exc:
+        try:
+            sys.stderr.write(f'post_update_restart log failed: {exc} | {message}\n')
+            sys.stderr.flush()
+        except Exception:
+            pass
+
+
 def main() -> None:
     bridge_dir = Path(__file__).resolve().parent.parent
     installer_pid = 0
@@ -71,8 +84,13 @@ def main() -> None:
             installer_pid = int(sys.argv[1].strip())
         except ValueError:
             installer_pid = 0
+    _event(f'post_update_restart start installer_pid={installer_pid}')
 
-    _wait_for_installer(installer_pid)
+    try:
+        _wait_for_installer(installer_pid)
+    except Exception as exc:
+        _event(f'post_update_restart installer wait failed: {exc}')
+
     try:
         from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity
         from desktop.manifest_client import fetch_manifest_for_update
@@ -86,11 +104,21 @@ def main() -> None:
             ensure_bridge_pack_integrity(manifest)
             clear_stale_update_phase_if_current(manifest)
         write_update_state(phase='idle', message=None, latest_version=None, artifact=None)
-    except Exception:
-        pass
-    wait_until_single_instance_free(timeout_sec=MUTEX_WAIT_SEC)
+    except Exception as exc:
+        _event(f'post_update_restart cleanup failed: {exc}')
+
+    try:
+        free = wait_until_single_instance_free(timeout_sec=MUTEX_WAIT_SEC)
+        _event(f'post_update_restart mutex free={free}')
+    except Exception as exc:
+        _event(f'post_update_restart mutex wait failed: {exc}')
+
     time.sleep(1.5)
-    _launch_tray(bridge_dir)
+    try:
+        _launch_tray(bridge_dir)
+        _event('post_update_restart launched launch-desktop.vbs')
+    except Exception as exc:
+        _event(f'post_update_restart launch failed: {exc}')
     os._exit(0)
 
 

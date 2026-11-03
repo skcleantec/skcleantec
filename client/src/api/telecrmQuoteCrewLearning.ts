@@ -1,4 +1,13 @@
 import type {
+  TelecrmAiQuote,
+  TelecrmAiQuoteModelStatus,
+  TelecrmAiQuoteRuleDto,
+  TelecrmAiQuoteRuleExample,
+  TelecrmAiQuoteRuleParseResult,
+  TelecrmAiQuoteRuleSpec,
+} from '@shared/telecrmQuoteCrewLearning';
+
+import type {
   TelecrmQuoteCrewLearningBackfillResult,
   TelecrmQuoteCrewLearningHints,
   TelecrmQuoteCrewLearningOverview,
@@ -77,4 +86,83 @@ export async function fetchTelecrmPropertyChoiceOptions(token: string): Promise<
     headers: { Authorization: `Bearer ${token}` },
   });
   return parseJson<TelecrmPropertyChoiceOptions>(res);
+}
+
+// ── AI 견적 — 말로 넣는 규칙 · 학습 상태 · 직접 물어보기 ──
+function jsonHeaders(token: string) {
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+function brandQs(operatingCompanyId?: string | null): string {
+  return operatingCompanyId ? `?operatingCompanyId=${encodeURIComponent(operatingCompanyId)}` : '';
+}
+
+export async function fetchTelecrmAiQuoteStatus(token: string, operatingCompanyId?: string | null) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/status${brandQs(operatingCompanyId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJson<TelecrmAiQuoteModelStatus>(res);
+}
+
+export async function fetchTelecrmAiQuoteRules(token: string) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/rules`, { headers: { Authorization: `Bearer ${token}` } });
+  return parseJson<{ items: TelecrmAiQuoteRuleDto[] }>(res);
+}
+
+export async function parseTelecrmAiQuoteRule(token: string, text: string, operatingCompanyId?: string | null) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/rules/parse`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ text, operatingCompanyId: operatingCompanyId ?? undefined }),
+  });
+  return parseJson<TelecrmAiQuoteRuleParseResult>(res);
+}
+
+export async function saveTelecrmAiQuoteRule(
+  token: string,
+  input: { text: string; spec: TelecrmAiQuoteRuleSpec; operatingCompanyId?: string | null },
+) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/rules`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ ...input, operatingCompanyId: input.operatingCompanyId ?? undefined }),
+  });
+  return parseJson<{ rule: TelecrmAiQuoteRuleDto; examples: TelecrmAiQuoteRuleExample[]; status: TelecrmAiQuoteModelStatus }>(res);
+}
+
+export async function updateTelecrmAiQuoteRule(token: string, id: string, patch: { isActive?: boolean }) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/rules/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(patch),
+  });
+  return parseJson<{ rule: TelecrmAiQuoteRuleDto; status: TelecrmAiQuoteModelStatus }>(res);
+}
+
+export async function deleteTelecrmAiQuoteRule(token: string, id: string) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/rules/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJson<{ ok: true; status: TelecrmAiQuoteModelStatus }>(res);
+}
+
+export async function previewTelecrmAiQuote(
+  token: string,
+  input: {
+    pyeong: number;
+    roomCount?: number | null;
+    bathroomCount?: number | null;
+    balconyCount?: number | null;
+    isOneRoom?: boolean;
+    propertyType?: string | null;
+    operatingCompanyId?: string | null;
+  },
+) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/preview`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(input),
+  });
+  return parseJson<{ quote: TelecrmAiQuote | null }>(res);
 }

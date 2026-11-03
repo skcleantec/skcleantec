@@ -11,7 +11,7 @@ import {
 import { confirmDialog } from '../../ui/Toast';
 import type { SoomgoBridgeStatus } from '@shared/soomgoBridge';
 import { CrmColumn } from '../layout/CrmShell';
-import { CrmIconIntake, CrmIconPhone, CrmIconReset, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
+import { CrmIconIntake, CrmIconReset, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
 import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import {
   findInquiryIdForDialPhone,
@@ -48,7 +48,14 @@ function CrmPhoneField({
   highlight = false,
   phoneUnknown = false,
   onPhoneUnknownChange,
+  inputType = 'tel',
+  placeholder,
+  clearLabel = '연락처 지우기',
 }: {
+  /** 기존 고객 찾기처럼 이름도 받는 칸이면 'text' */
+  inputType?: 'tel' | 'text';
+  placeholder?: string;
+  clearLabel?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -82,17 +89,17 @@ function CrmPhoneField({
               onClick={onClear}
               className="inline-flex h-6 items-center whitespace-nowrap rounded-lg px-1.5 text-fluid-2xs font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"
             >
-              연락처 지우기
+              {clearLabel}
             </button>
           ) : null}
         </div>
       </div>
       <div className="flex gap-1.5">
         <input
-          type="tel"
+          type={inputType}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={phoneUnknown ? '전화번호 없음' : '010-0000-0000'}
+          placeholder={phoneUnknown ? '전화번호 없음' : placeholder ?? '010-0000-0000'}
           disabled={phoneUnknown}
           className={`${crmFieldCompactClass} h-9 min-w-0 flex-1 tabular-nums disabled:bg-slate-100 disabled:text-slate-500 ${highlight ? 'ring-2 ring-sky-400/80 ring-offset-1' : ''}`}
         />
@@ -108,6 +115,13 @@ function CrmPhoneField({
       </div>
     </div>
   );
+}
+
+/** 기존 고객 찾기 칸 — 숫자·하이픈만이고 숫자 4자리 이상이면 전화번호 */
+function looksLikePhoneQuery(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return true;
+  return /^[\d\s\-+().]+$/.test(t) && (t.replace(/\D/g, '').length >= 4 || t.replace(/\D/g, '').length === t.replace(/[\s\-+().]/g, '').length);
 }
 
 export function CrmIntakePanel({
@@ -327,11 +341,13 @@ export function CrmIntakePanel({
     if (mode !== 'existing' || loading || !data || data.match !== 'existing') return;
     if (followupImport?.snapshot) return;
     if (autoFilledKeyRef.current?.startsWith('followup:')) return;
-    const dialKey = outboundPhone.replace(/\D/g, '');
+    // 전화번호로 찾았으면 번호, 이름·닉네임으로 찾아 한 사람만 나왔으면 그 이름으로 — 바로 접수란에 채움(숨고 방 이동 포함)
+    const dialKey = searchMode === 'phone' ? outboundPhone.replace(/\D/g, '') : nameSearch.trim();
     const key = `${searchMode}:${dialKey}`;
     if (!dialKey || autoFilledKeyRef.current === key) return;
     applyLookupData(data);
-  }, [mode, loading, data, searchMode, outboundPhone, followupImport?.key]);
+    autoFilledKeyRef.current = key;
+  }, [mode, loading, data, searchMode, outboundPhone, nameSearch, followupImport?.key]);
 
   const handleSelectCandidate = (row: TelecrmCustomerCandidateDto) => {
     onPricingReset?.();
@@ -472,52 +488,37 @@ export function CrmIntakePanel({
 
         {mode === 'existing' ? (
           <>
-            <CrmSegment accent="intake" className="w-full flex flex-wrap">
-              <CrmSegmentItem
-                accent="intake"
-                compact
-                active={searchMode === 'phone'}
-                onClick={() => setSearchMode('phone')}
-                icon={<CrmIconPhone className="h-3 w-3" />}
-              >
-                전화번호
-              </CrmSegmentItem>
-              <CrmSegmentItem
-                accent="intake"
-                compact
-                active={searchMode === 'name'}
-                onClick={() => setSearchMode('name')}
-                icon={<CrmIconSearch className="h-3 w-3" />}
-              >
-                이름
-              </CrmSegmentItem>
-            </CrmSegment>
-
-            {searchMode === 'phone' ? (
-              <CrmPhoneField
-                label="연락처 검색"
-                value={outboundPhone}
-                onChange={onContactPhoneChange}
-                onClear={() => {
-                  onContactPhoneChange('');
+            <CrmPhoneField
+              label="전화번호·이름·닉네임으로 찾기"
+              inputType="text"
+              placeholder="010-1234-5678 또는 홍길동 · 닉네임"
+              clearLabel="지우기"
+              value={searchMode === 'phone' ? outboundPhone : nameSearch}
+              onChange={(v) => {
+                // 숫자(4자리 이상)만 있으면 전화번호, 글자가 섞이면 이름·닉네임으로 찾음
+                if (looksLikePhoneQuery(v)) {
+                  setSearchMode('phone');
+                  onContactPhoneChange(v);
                   onSafePhoneChange('');
-                }}
-                canDial={canDial}
-                onCall={() => void handleCall()}
-                callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
-              />
-            ) : (
-              <label className="block">
-                <span className="mb-1 block text-fluid-2xs font-semibold text-slate-700">고객 이름 검색</span>
-                <input
-                  type="text"
-                  value={nameSearch}
-                  onChange={(e) => setNameSearch(e.target.value)}
-                  placeholder="홍길동 (2자 이상)"
-                  className={`${crmFieldCompactClass} h-9`}
-                />
-              </label>
-            )}
+                } else {
+                  setSearchMode('name');
+                  setNameSearch(v);
+                  if (searchMode === 'phone') {
+                    onContactPhoneChange('');
+                    onSafePhoneChange('');
+                  }
+                }
+              }}
+              onClear={() => {
+                onContactPhoneChange('');
+                onSafePhoneChange('');
+                setNameSearch('');
+                setSearchMode('phone');
+              }}
+              canDial={searchMode === 'phone' && canDial}
+              onCall={() => void handleCall()}
+              callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
+            />
 
             {lookupBlockedByBrand ? (
               <p className="rounded-xl border border-dashed border-amber-200 bg-amber-50/80 px-3 py-2 text-fluid-2xs leading-snug text-amber-900">

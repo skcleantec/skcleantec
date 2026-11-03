@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 import pathlib
 import shutil
@@ -1079,6 +1080,44 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     mode = str(body.get('mode', 'bridge')).strip().lower()
                     if mode not in ('bridge', 'desktop'):
                         mode = 'bridge'
+                    tray_held = False
+                    try:
+                        from desktop.single_instance import tray_mutex_is_held
+
+                        tray_held = tray_mutex_is_held()
+                    except Exception as exc:
+                        logger.warning('tray mutex check failed: %s', exc)
+                        tray_held = False
+                    if not tray_held:
+                        from desktop.config import BRIDGE_DIR, append_tray_event
+
+                        vbs = BRIDGE_DIR / 'launch-desktop.vbs'
+                        append_tray_event('restart-bridge: tray mutex absent — launch desktop and exit')
+                        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                        if not vbs.is_file():
+                            append_tray_event(f'restart-bridge: launch-desktop.vbs missing path={vbs}')
+                            _json_response(self, 500, {'ok': False, 'error': '실행 파일을 찾지 못했습니다.'})
+                            return
+                        try:
+                            subprocess.Popen(
+                                ['wscript.exe', str(vbs)],
+                                cwd=str(BRIDGE_DIR),
+                                creationflags=flags,
+                                close_fds=True,
+                            )
+                        except OSError as exc:
+                            append_tray_event(f'restart-bridge: launch failed: {exc}')
+                            _json_response(self, 500, {'ok': False, 'error': f'재시작 실행 실패: {exc}'})
+                            return
+                        _json_response(self, 200, {'ok': True, 'message': '트레이를 다시 실행합니다.'})
+
+                        def _exit_after_response() -> None:
+                            time.sleep(0.4)
+                            _shutdown_bridge()
+                            os._exit(0)
+
+                        threading.Thread(target=_exit_after_response, daemon=True).start()
+                        return
                     flag_path = _restart_flag_path()
                     flag_path.parent.mkdir(parents=True, exist_ok=True)
                     flag_path.write_text(mode, encoding='utf-8')

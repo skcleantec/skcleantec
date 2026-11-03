@@ -17,10 +17,10 @@ from pystray import MenuItem as item
 
 from desktop.python_runtime import resolve_python_exe
 from desktop.config import (
-    APP_DATA_DIR,
     BRIDGE_DIR,
     BRIDGE_REQUEST_UPDATE_URL,
     BRIDGE_STATUS_URL,
+    append_tray_event,
     bridge_python_env,
     ensure_app_data,
     resolve_restart_flag_path,
@@ -55,17 +55,13 @@ logger = logging.getLogger('soomgo-bridge-desktop')
 
 _BRIDGE_PORT = 17890
 _WIN_CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
-_LAUNCH_LOG = APP_DATA_DIR / 'launch.log'
+_STATUS_HANG_SEC = 30.0
+_RESTART_WINDOW_SEC = 600.0
+_RESTART_MAX_IN_WINDOW = 5
 
 
 def _append_launch_log(message: str) -> None:
-    try:
-        ensure_app_data()
-        stamp = time.strftime('%Y-%m-%d %H:%M:%S')
-        with _LAUNCH_LOG.open('a', encoding='utf-8') as f:
-            f.write(f'{stamp} {message}\n')
-    except OSError:
-        pass
+    append_tray_event(message)
 
 
 def _python_exe() -> str:
@@ -98,7 +94,9 @@ class TrayApp:
         self._update_busy = False
         self._idle_install_ticks = 0
         self._last_bg_download_at = 0.0
-        self._bridge_failures = 0
+        self._bridge_fail_times: list[float] = []
+        self._status_fail_since: float | None = None
+        self._user_quit = False
         self._window = StatusWindow()
         self._window.bind_actions(
             on_restart=self._restart_bridge,
@@ -297,23 +295,53 @@ class TrayApp:
                 title = f"숨고 연동 · {self._status.get('nickname') or '채팅방'}"
             self._icon.title = title
 
+    def _restart_allowed(self) -> bool:
+        """10분 안에 5회까지만 자동 재시작. 사용자가 종료한 경우는 제외."""
+        if self._user_quit or self._stop.is_set():
+            return False
+        now = time.time()
+        self._bridge_fail_times = [stamp for stamp in self._bridge_fail_times if now - stamp < _RESTART_WINDOW_SEC]
+        if len(self._bridge_fail_times) >= _RESTART_MAX_IN_WINDOW:
+            _append_launch_log(
+                f'bridge restart give-up count={len(self._bridge_fail_times)} within {_RESTART_WINDOW_SEC:.0f}s'
+            )
+            return False
+        self._bridge_fail_times.append(now)
+        return True
+
+    def _restart_bridge_after_failure(self, reason: str) -> None:
+        self._bridge_proc = None
+        self._status_fail_since = None
+        _append_launch_log(reason)
+        if not self._restart_allowed():
+            self._log(f'브릿지 자동 재시작 중단 — {reason}', level='error')
+            return
+        self._log('브릿지 자동 재시작…')
+        time.sleep(1.0)
+        self._kill_stale_bridge_listeners()
+        self._start_bridge()
+
     def _poll_loop(self) -> None:
         while not self._stop.is_set():
             proc_dead = self._bridge_proc is not None and self._bridge_proc.poll() is not None
             if proc_dead:
                 code = self._bridge_proc.poll() if self._bridge_proc else None
                 self._log(f'브릿지 서버가 종료되었습니다 (코드 {code})', level='error')
-                _append_launch_log(f'bridge exit code={code}')
-                self._bridge_proc = None
-                self._bridge_failures += 1
-                if not self._stop.is_set() and self._bridge_failures <= 5 and code not in (0, None):
-                    self._log('브릿지 자동 재시작…')
-                    time.sleep(1.0)
-                    self._kill_stale_bridge_listeners()
-                    self._start_bridge()
+                self._stop_bridge()
+                self._restart_bridge_after_failure(f'bridge exit code={code} — restart unless user quit')
             self._status = self._fetch_status()
+            alive = self._bridge_proc is not None and self._bridge_proc.poll() is None
             if self._status:
-                self._bridge_failures = 0
+                self._status_fail_since = None
+            elif alive and not self._user_quit and not self._stop.is_set():
+                now = time.time()
+                if self._status_fail_since is None:
+                    self._status_fail_since = now
+                elif now - self._status_fail_since >= _STATUS_HANG_SEC:
+                    self._log('브릿지 응답이 30초 넘게 없습니다. 강제 종료 후 재시작합니다.', level='error')
+                    self._stop_bridge()
+                    self._kill_stale_bridge_listeners()
+                    self._restart_bridge_after_failure('bridge status hung >30s — force restart')
             hint = None
             if self._manifest and (is_update_required(self._manifest) or is_update_available(self._manifest)):
                 hint = '새 버전이 있습니다. 트레이 → 업데이트 확인'
@@ -538,6 +566,9 @@ class TrayApp:
 
     def _quit(self, *_args) -> None:
         """완전 종료 — 상태창·브릿지 서버·트레이 아이콘까지 종료."""
+        self._user_quit = True
+        self._stop.set()
+        _append_launch_log('user quit')
         self._log('프로그램 종료…')
 
         def _exit_ui() -> None:
@@ -565,6 +596,18 @@ class TrayApp:
 
         _append_launch_log(f'start v{APP_VERSION}')
         ensure_app_data()
+        # 예전 버전 설치 파일 정리 (실행에 영향 없게 뒤에서)
+        def _prune_cache() -> None:
+            try:
+                from desktop.update_manager import prune_old_update_cache
+
+                removed, freed = prune_old_update_cache()
+                if removed:
+                    _append_launch_log(f'pruned old update cache files={removed} mb={freed / 1024 / 1024:.1f}')
+            except Exception as exc:  # noqa: BLE001
+                _append_launch_log(f'prune update cache failed: {exc}')
+
+        threading.Thread(target=_prune_cache, daemon=True).start()
         self._kill_stale_bridge_listeners()
         self._ensure_dependencies()
         ok, detail = self._verify_bridge_runtime()
@@ -630,7 +673,7 @@ def main() -> None:
             mb.showerror(
                 APP_DISPLAY_NAME,
                 f'프로그램을 시작하지 못했습니다.\n\n{exc}\n\n'
-                f'로그: %LOCALAPPDATA%\\Cbiseo\\SoomgoBridge\\launch.log',
+                f'로그: %LOCALAPPDATA%\\Cbiseo\\SoomgoBridge\\tray-events.log',
             )
         except Exception:
             pass
