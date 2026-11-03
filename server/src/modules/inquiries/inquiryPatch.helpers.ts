@@ -6,6 +6,10 @@ function parseInquiryBoolFlag(v: unknown): boolean {
   return v === true || v === 'true' || v === 1 || v === '1';
 }
 
+function parseOneTwoRoomKind(v: unknown): 'ONE' | 'TWO' | null {
+  return v === 'ONE' || v === 'TWO' ? v : null;
+}
+
 /** PATCH body → Prisma update data (inquiries.routes 와 동일 조건) */
 export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.InquiryUpdateInput {
   const data: Prisma.InquiryUpdateInput = {};
@@ -47,8 +51,8 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   if (Object.prototype.hasOwnProperty.call(body, 'isOneRoom')) {
     data.isOneRoom = parseInquiryBoolFlag(body.isOneRoom);
   }
-  if (Object.prototype.hasOwnProperty.call(body, 'isTwoRoom')) {
-    data.isTwoRoom = parseInquiryBoolFlag(body.isTwoRoom);
+  if (Object.prototype.hasOwnProperty.call(body, 'oneTwoRoomKind')) {
+    data.oneTwoRoomKind = parseOneTwoRoomKind(body.oneTwoRoomKind);
   }
   if (body.roomCount !== undefined) {
     data.roomCount =

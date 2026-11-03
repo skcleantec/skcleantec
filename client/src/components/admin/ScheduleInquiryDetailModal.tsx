@@ -300,7 +300,7 @@ function omitHiddenIntakeSystemFields(
   if (!inquiryFormHasSystemField(profile, 'professionalOptions')) drop('professionalOptionIds');
   if (!inquiryFormShowsPropertySection(profile)) {
     drop('isOneRoom');
-    drop('isTwoRoom');
+    drop('oneTwoRoomKind');
   }
 }
 
@@ -335,7 +335,7 @@ function buildPatchFromEditForm(
     customerPhone2: editForm.customerPhone2.trim(),
     propertyType: editForm.propertyType.trim(),
     isOneRoom: editForm.isOneRoom,
-    isTwoRoom: editForm.isOneRoom ? editForm.isTwoRoom : false,
+    oneTwoRoomKind: editForm.isOneRoom ? editForm.oneTwoRoomKind : null,
     areaBasis: editForm.areaBasis.trim(),
     buildingType: editForm.buildingType.trim(),
     moveInTiming: editForm.moveInTiming || null,
@@ -956,7 +956,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         customerPhone2: '',
         propertyType: '',
         isOneRoom: false,
-        isTwoRoom: false,
+        oneTwoRoomKind: null,
         areaBasis: '',
         areaPyeong: '',
         exclusiveAreaSqm: '',
@@ -1017,7 +1017,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         detectOneRoomFromNotes(
           effectiveCustomerOrderNotes({ specialNotes: it.specialNotes, orderForm: it.orderForm }),
         ),
-      isTwoRoom: Boolean(it.isTwoRoom),
+      oneTwoRoomKind: it.oneTwoRoomKind === 'ONE' || it.oneTwoRoomKind === 'TWO' ? it.oneTwoRoomKind : null,
       areaBasis: it.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
@@ -1508,7 +1508,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         detectOneRoomFromNotes(
           effectiveCustomerOrderNotes({ specialNotes: it.specialNotes, orderForm: it.orderForm }),
         ),
-      isTwoRoom: Boolean(it.isTwoRoom),
+      oneTwoRoomKind: it.oneTwoRoomKind === 'ONE' || it.oneTwoRoomKind === 'TWO' ? it.oneTwoRoomKind : null,
       areaBasis: it.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
@@ -2529,7 +2529,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   <PropertyTypeSticker
                     propertyType={editForm.propertyType?.trim() || item.propertyType}
                     isOneRoom={editForm.isOneRoom}
-                    isTwoRoom={editForm.isTwoRoom}
+                    oneTwoRoomKind={editForm.oneTwoRoomKind}
                     oneRoomTitle={oneRoomLabel}
                     className="shrink-0 hidden sm:inline-flex"
                   />

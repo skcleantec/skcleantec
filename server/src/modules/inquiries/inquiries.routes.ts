@@ -1000,7 +1000,10 @@ router.patch('/:id', async (req, res) => {
 
   const data = buildInquiryPatchData(body);
   const nextIsOneRoom = data.isOneRoom !== undefined ? Boolean(data.isOneRoom) : inquiry.isOneRoom;
-  if (!nextIsOneRoom) data.isTwoRoom = false;
+  if (!nextIsOneRoom) data.oneTwoRoomKind = null;
+  else if (data.oneTwoRoomKind !== undefined && data.oneTwoRoomKind !== 'ONE' && data.oneTwoRoomKind !== 'TWO') {
+    data.oneTwoRoomKind = null;
+  }
   if (
     data.externalTransferFee != null &&
     !(await isFeatureEnabled(tenantId, 'mod_external_co'))
@@ -1579,9 +1582,9 @@ router.patch('/:id', async (req, res) => {
     const fmtOneRoom = (v: unknown) => (v ? oneRoomLabel : '(아님)');
     pushIfChanged(oneRoomLabel, inquiry.isOneRoom, data.isOneRoom, fmtOneRoom);
   }
-  if (data.isTwoRoom !== undefined) {
-    const fmtTwoRoom = (v: unknown) => (v ? '투룸' : '(아님)');
-    pushIfChanged('투룸', inquiry.isTwoRoom, data.isTwoRoom, fmtTwoRoom);
+  if (data.oneTwoRoomKind !== undefined) {
+    const fmtKind = (v: unknown) => (v === 'ONE' ? '원룸' : v === 'TWO' ? '투룸' : '(미구분)');
+    pushIfChanged('원/투룸 구분', inquiry.oneTwoRoomKind, data.oneTwoRoomKind, fmtKind);
   }
   if (data.roomCount !== undefined) pushIfChanged('방', inquiry.roomCount, data.roomCount, fmtNum);
   if (data.bathroomCount !== undefined) pushIfChanged('화장실', inquiry.bathroomCount, data.bathroomCount, fmtNum);

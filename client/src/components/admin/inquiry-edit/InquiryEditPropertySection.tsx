@@ -9,8 +9,9 @@ import {
   inqEditPropertyAreaRow,
   inqEditRoomGrid,
 } from './inquiryEditFormClasses';
-import { TwoRoomSticker } from '../../ui/PropertyTypeSticker';
+import { OneRoomKindSticker, TwoRoomSticker } from '../../ui/PropertyTypeSticker';
 import type { InquiryEditFormFields } from './inquiryEditTypes';
+import { nextOneTwoRoomFields } from './oneTwoRoomKind';
 
 type Props = {
   editForm: InquiryEditFormFields;
@@ -38,37 +39,61 @@ export function InquiryEditPropertySection({
     <AdminScheduleDetailSection title="유형 · 면적 · 방·주방" sectionAnchor="property">
       <div className="space-y-2">
         {showOneRoom ? (
-        <label className="flex cursor-pointer items-center gap-1.5 text-fluid-2xs text-gray-800">
-          <input
-            type="checkbox"
-            className="rounded border-gray-300"
-            checked={editForm.isOneRoom}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setEditForm((p) => ({ ...p, isOneRoom: checked, isTwoRoom: checked ? p.isTwoRoom : false }));
-            }}
-          />
-          {skOpsUi
-            ? oneRoomLabel
-            : '원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)'}
-        </label>
-        ) : null}
-        {showOneRoom && skOpsUi ? (
-          <label
-            className={`ml-5 flex items-center gap-1.5 text-fluid-2xs text-slate-700 ${
-              editForm.isOneRoom ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
-            }`}
-          >
-            <input
-              type="checkbox"
-              className="rounded-lg border-slate-300 disabled:cursor-not-allowed"
-              checked={editForm.isTwoRoom}
-              disabled={!editForm.isOneRoom}
-              onChange={(e) => setEditForm((p) => ({ ...p, isTwoRoom: e.target.checked }))}
-            />
-            투룸
-            <TwoRoomSticker />
-          </label>
+          skOpsUi ? (
+            <div className="flex flex-nowrap items-center gap-x-3 text-fluid-2xs text-slate-800 max-sm:flex-wrap">
+              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  className="rounded-lg border-slate-300"
+                  checked={editForm.isOneRoom}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEditForm((p) => ({ ...p, ...nextOneTwoRoomFields(p, 'parent', checked) }));
+                  }}
+                />
+                {oneRoomLabel}
+              </label>
+              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  className="rounded-lg border-slate-300"
+                  checked={editForm.oneTwoRoomKind === 'ONE'}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEditForm((p) => ({ ...p, ...nextOneTwoRoomFields(p, 'ONE', checked) }));
+                  }}
+                />
+                원룸
+                <OneRoomKindSticker />
+              </label>
+              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  className="rounded-lg border-slate-300"
+                  checked={editForm.oneTwoRoomKind === 'TWO'}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEditForm((p) => ({ ...p, ...nextOneTwoRoomFields(p, 'TWO', checked) }));
+                  }}
+                />
+                투룸
+                <TwoRoomSticker />
+              </label>
+            </div>
+          ) : (
+            <label className="flex cursor-pointer items-center gap-1.5 text-fluid-2xs text-gray-800">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300"
+                checked={editForm.isOneRoom}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setEditForm((p) => ({ ...p, ...nextOneTwoRoomFields(p, 'parent', checked) }));
+                }}
+              />
+              원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)
+            </label>
+          )
         ) : null}
         {showPropertyType || showArea ? (
         <div className={inqEditPropertyAreaRow}>

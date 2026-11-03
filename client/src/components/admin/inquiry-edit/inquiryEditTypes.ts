@@ -1,3 +1,4 @@
+import type { OneTwoRoomKind } from './oneTwoRoomKind';
 import type { InternalCustomerTone } from '../../../constants/internalCustomerTone';
 import type { LeaderCrewSet } from '../../../utils/leaderCrewSets';
 import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
@@ -32,7 +33,7 @@ export type InquiryEditFormFields = {
   customerPhone2: string;
   propertyType: string;
   isOneRoom: boolean;
-  isTwoRoom: boolean;
+  oneTwoRoomKind: OneTwoRoomKind;
   areaBasis: string;
   areaPyeong: string;
   exclusiveAreaSqm: string;

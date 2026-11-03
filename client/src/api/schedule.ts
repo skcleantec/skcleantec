@@ -40,7 +40,7 @@ export interface ScheduleItem {
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
   isOneRoom?: boolean | null;
-  isTwoRoom?: boolean | null;
+  oneTwoRoomKind?: 'ONE' | 'TWO' | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
