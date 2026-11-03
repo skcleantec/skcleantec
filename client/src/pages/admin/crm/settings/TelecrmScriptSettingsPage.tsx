@@ -275,15 +275,18 @@ export function TelecrmScriptSettingsPage({
                     <button
                       type="button"
                       onClick={() => setSelectedCategoryId(c.id)}
-                      className="min-w-0 flex-1 truncate text-left text-fluid-sm text-slate-900"
+                      className="min-w-0 flex-1 whitespace-normal break-words text-left text-fluid-sm leading-snug text-slate-900"
                     >
                       {c.label}
                       <span className="ml-1 text-fluid-2xs text-slate-400">{c.tabs?.length ?? 0}</span>
                       {!c.isActive ? <span className="text-slate-400"> (숨김)</span> : null}
+                      {c.operatingCompany ? (
+                        <OperatingCompanyBadge
+                          company={c.operatingCompany}
+                          className="ml-1 mt-0.5 align-middle"
+                        />
+                      ) : null}
                     </button>
-                    {c.operatingCompany ? (
-                      <OperatingCompanyBadge company={c.operatingCompany} className="shrink-0" />
-                    ) : null}
                     <TelecrmReorderButtons
                       disabled={busy}
                       canMoveUp={index > 0}
