@@ -276,6 +276,7 @@ model Tenant {
   adChannels AdChannel[]
   teams Team[]
   orderFollowups OrderFollowup[]
+  orderFollowupHotMarks OrderFollowupHotMark[]
   inquiryStatusEvents InquiryStatusEvent[]
   reviewPaybackRequests ReviewPaybackRequest[]
   csReports CsReport[]
@@ -2086,6 +2087,7 @@ model User {
   authIdentities               UserAuthIdentity[]
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
+  orderFollowupHotMarks         OrderFollowupHotMark[]
   quotationsCreated             Quotation[]            @relation("QuotationCreatedBy")
   quotationEmailsSent           QuotationEmailLog[]    @relation("QuotationEmailSentBy")
   reviewPaybacksHandled         ReviewPaybackRequest[] @relation("ReviewPaybackHandledBy")
@@ -4402,6 +4404,7 @@ model OrderFollowup {
   createdBy       User       @relation("OrderFollowupCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   handledBy       User?      @relation("OrderFollowupHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
   logs              OrderFollowupLog[]
+  hotMarks          OrderFollowupHotMark[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
 
   @@index([tenantId, status, updatedAt])
@@ -4426,6 +4429,29 @@ model OrderFollowupLog {
 
   @@index([followupId, createdAt])
   @@map("order_followup_logs")
+}
+
+/// 마케터 개인 가망 표시. 골드DB(업체 전체)와 별개.
+model OrderFollowupHotMark {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  followupId    String    @map("followup_id")
+  followup      OrderFollowup @relation(fields: [followupId], references: [id], onDelete: Cascade)
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason        String    @db.VarChar(16)
+  memo          String?   @db.Text
+  nextContactAt DateTime? @map("next_contact_at")
+  contactTries  Int       @default(0) @map("contact_tries")
+  outcome       String?   @db.VarChar(16)
+  closedAt      DateTime? @map("closed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@unique([followupId, userId])
+  @@index([tenantId, userId, outcome, nextContactAt])
+  @@map("order_followup_hot_marks")
 }
 
 enum ReviewPaybackStatus {

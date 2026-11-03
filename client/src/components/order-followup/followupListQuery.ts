@@ -13,6 +13,8 @@ export type FollowupListFilterState = {
   filterStatus: OrderFollowupStatus | '';
   filterCustomerName: string;
   filterGoldDbOnly: boolean;
+  filterHotOnly: boolean;
+  hotUserId: string;
   brandScope: FollowupBrandScope;
   phoneLock: boolean;
 };
@@ -23,13 +25,15 @@ export type FollowupListQueryOpts = {
   crmPhone?: string;
   listPage: number;
   listPageSize: number;
+  /** 관리자만 다른 마케터 가망 목록 */
+  allowHotUser?: boolean;
 };
 
 type ListOrderFollowupsOpts = NonNullable<Parameters<typeof listOrderFollowups>[1]>;
 
 /** 관리 부재·보류 · CRM 드로어 공통 — listOrderFollowups opts */
 export function buildFollowupListQuery(opts: FollowupListQueryOpts): ListOrderFollowupsOpts {
-  const { filters, operatingCompanyId, crmPhone, listPage, listPageSize } = opts;
+  const { filters, operatingCompanyId, crmPhone, listPage, listPageSize, allowHotUser } = opts;
   const phoneDigits = (crmPhone ?? '').replace(/\D/g, '');
   const usePhone = filters.phoneLock && phoneDigits.length >= 4;
 
@@ -37,6 +41,8 @@ export function buildFollowupListQuery(opts: FollowupListQueryOpts): ListOrderFo
     status: filters.filterStatus || undefined,
     customerName: filters.filterCustomerName.trim() || undefined,
     goldDbOnly: filters.filterGoldDbOnly || undefined,
+    hotOnly: filters.filterHotOnly || undefined,
+    hotUserId: filters.filterHotOnly && allowHotUser ? filters.hotUserId || undefined : undefined,
     limit: listPageSize,
     offset: (listPage - 1) * listPageSize,
   };

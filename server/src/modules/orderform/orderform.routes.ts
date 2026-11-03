@@ -36,6 +36,7 @@ import {
   serializeProfessionalOptionSelectionsJson,
 } from './specialtyOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
+import { bookOpenHotMarksForCustomerPhones } from '../order-followups/orderFollowupHotMark.service.js';
 import { parseInternalCustomerToneInput } from '../inquiries/internalCustomerTone.js';
 import {
   mapOperatingCompanyResolveError,
@@ -3601,6 +3602,11 @@ router.post('/submit/:token', async (req, res) => {
       });
       submitChangeLogRef.value = { id: log.id, scheduleAlertKind: log.scheduleAlertKind, lines: changeLines };
       changedInquiryId = createdInquiry.id;
+      await bookOpenHotMarksForCustomerPhones(tx, {
+        tenantId: submitTenantId,
+        customerPhone: body.customerPhone,
+        customerPhone2: customerPhone2Norm,
+      });
     });
   }
   } catch (e) {

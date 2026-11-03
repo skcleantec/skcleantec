@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import type { OrderFollowupDatePreset } from '../../api/orderFollowups';
 import { ORDER_FOLLOWUP_STATUS_LABEL, type OrderFollowupStatus } from '../../constants/orderFollowupStatus';
 import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
+import { HotFilterChip } from '../ui/FollowupHotMarkUi';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
+import { SelectWithChevron } from '../ui/SelectWithChevron';
 import type { InquiryListPageSize } from '../../utils/listPagination';
 import type { FollowupBrandScope, FollowupListDateBasis, FollowupListFilterState } from './followupListQuery';
 
@@ -24,6 +26,7 @@ function followupFilterSummary(filters: FollowupListFilterState): string {
   if (filters.phoneLock) parts.push('CRM 연락처');
   if (filters.filterStatus) parts.push(ORDER_FOLLOWUP_STATUS_LABEL[filters.filterStatus]);
   if (filters.filterGoldDbOnly) parts.push('골드DB');
+  if (filters.filterHotOnly) parts.push('내 가망');
   if (filters.filterCustomerName.trim()) parts.push(`「${filters.filterCustomerName.trim()}」`);
   return parts.join(' · ');
 }
@@ -45,6 +48,12 @@ export function FollowupListFilters({
   onFilterCustomerNameChange,
   filterGoldDbOnly,
   onFilterGoldDbOnlyChange,
+  filterHotOnly = false,
+  hotCount = 0,
+  onFilterHotOnlyChange,
+  hotUserId = '',
+  onHotUserIdChange,
+  hotUserOptions = [],
   brandScope,
   onBrandScopeChange,
   showBrandScope = false,
@@ -74,6 +83,12 @@ export function FollowupListFilters({
   onFilterCustomerNameChange: (v: string) => void;
   filterGoldDbOnly: boolean;
   onFilterGoldDbOnlyChange: (v: boolean) => void;
+  filterHotOnly?: boolean;
+  hotCount?: number;
+  onFilterHotOnlyChange?: (v: boolean) => void;
+  hotUserId?: string;
+  onHotUserIdChange?: (v: string) => void;
+  hotUserOptions?: { id: string; name: string }[];
   brandScope: FollowupBrandScope;
   onBrandScopeChange: (v: FollowupBrandScope) => void;
   showBrandScope?: boolean;
@@ -205,6 +220,25 @@ export function FollowupListFilters({
               >
                 초기화
               </button>
+            ) : null}
+            {onFilterHotOnlyChange ? (
+              <HotFilterChip active={filterHotOnly} count={hotCount} onClick={() => onFilterHotOnlyChange(!filterHotOnly)} />
+            ) : null}
+            {filterHotOnly && hotUserOptions.length > 0 && onHotUserIdChange ? (
+              <SelectWithChevron
+                aria-label="마케터 선택"
+                value={hotUserId}
+                onChange={(event) => onHotUserIdChange(event.target.value)}
+                className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-fluid-2xs text-slate-800"
+                wrapperClassName="w-36"
+              >
+                <option value="">내 가망</option>
+                {hotUserOptions.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </SelectWithChevron>
             ) : null}
             <button
               type="button"

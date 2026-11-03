@@ -340,6 +340,7 @@ export function CrmPage() {
     openSettings,
     openIssue,
     openFollowup,
+    openHotFollowups,
     setFollowupId,
     closePanel,
     setSettingsTab,
@@ -1900,7 +1901,7 @@ export function CrmPage() {
                   미저장
                 </span>
               ) : null}
-              <CrmHeaderStats refreshKey={statsRefreshKey} />
+              <CrmHeaderStats refreshKey={statsRefreshKey} onOpenHotFollowups={openHotFollowups} />
               <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 lg:ml-0 lg:flex-nowrap">
                 {isMobileApp ? (
                   <button
