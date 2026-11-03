@@ -91,6 +91,16 @@ function stepShortLabel(label: string): string {
   return stripped || label.trim();
 }
 
+/** 탭에만 쓴다. 「4. 신뢰 (하청 비교)」 → 「신뢰」. 본문 제목은 카테고리 이름 그대로. */
+function stepTabLabel(label: string): string {
+  const stripped = label
+    .replace(/^\d+\.\s*/, '')
+    .replace(/\s*[（(][^）)]*[）)]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return stripped || stepShortLabel(label);
+}
+
 function reactionButtonLabel(tab: FlowTab): string {
   const name = tab.title.trim();
   if (!name || name === '기본') return tab.categoryLabel;
@@ -133,9 +143,7 @@ export function CrmScriptPanel({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [reactionOrder, setReactionOrder] = useState<string[]>([]);
   const [closingIndex, setClosingIndex] = useState(0);
-  const [stepCols, setStepCols] = useState(1);
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const stepRowRef = useRef<HTMLDivElement | null>(null);
   const reactionSourceRef = useRef<FlowTab[]>([]);
   const copyTimer = useRef<number | null>(null);
 
@@ -260,23 +268,6 @@ export function CrmScriptPanel({
     setStepId(steps[0]?.id ?? null);
   }, [stepId, steps]);
 
-  useEffect(() => {
-    const el = stepRowRef.current;
-    if (!el) return;
-    const measure = () => {
-      const width = el.clientWidth;
-      const gap = 4;
-      const min = 76;
-      const fit = Math.max(1, Math.floor((width + gap) / (min + gap)));
-      const count = steps.length;
-      setStepCols(count <= fit ? Math.max(count, 1) : Math.ceil(count / 2));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [steps.length]);
-
   const stepIndex = Math.max(0, steps.findIndex((step) => step.id === stepId));
   const currentStep = steps[stepIndex] ?? null;
   const currentTabs = useMemo(() => {
@@ -363,30 +354,36 @@ export function CrmScriptPanel({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [query, reactionId]);
 
-  const stepBtn = (step: TelecrmScriptCategoryDto, index: number) => {
+  const selectStep = (step: TelecrmScriptCategoryDto) => {
+    setQuery('');
+    setReactionId(null);
+    setStepId(step.id);
+    setTabId(null);
+  };
+
+  const stepBtn = (step: TelecrmScriptCategoryDto) => {
     const current = step.id === currentStep?.id;
-    const past = index < stepIndex;
     return (
       <ScriptBtn
         key={step.id}
-        onClick={() => {
-          setQuery('');
-          setReactionId(null);
-          setStepId(step.id);
-          setTabId(null);
+        data-step={step.id}
+        role="tab"
+        aria-selected={current}
+        onClick={() => selectStep(step)}
+        className="inline-flex max-w-full shrink-0 items-center whitespace-nowrap bg-transparent"
+        style={{
+          height: 32,
+          marginBottom: -1,
+          padding: '6px 0',
+          boxSizing: 'border-box',
+          borderBottom: current ? '2px solid #6d28d9' : '2px solid transparent',
+          fontSize: '0.75rem',
+          lineHeight: 1.25,
+          fontWeight: current ? 700 : 400,
+          color: current ? '#6d28d9' : '#64748b',
         }}
-        style={{ width: `calc((100% - ${(Math.max(stepCols, 1) - 1) * 4}px) / ${Math.max(stepCols, 1)})` }}
-        className={`inline-flex h-[30px] min-w-0 items-center justify-center gap-1 truncate rounded-lg px-1.5 text-fluid-2xs font-semibold hover:bg-violet-50 ${
-          current
-            ? 'bg-[#6d28d9] text-white hover:bg-[#5b21b6]'
-            : past
-              ? 'border border-[#ddd6fe] bg-white text-[#6d28d9]'
-              : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-        }`}
       >
-        <span className="truncate">
-          {index + 1} {stepShortLabel(step.label)}
-        </span>
+        {stepTabLabel(step.label)}
       </ScriptBtn>
     );
   };
@@ -478,7 +475,24 @@ export function CrmScriptPanel({
             </ScriptBtn>
           </div>
         </div>
-        <div ref={stepRowRef} className="flex flex-wrap gap-1">
+        <div
+          className="flex w-full min-w-0 flex-wrap overflow-x-hidden"
+          style={{ columnGap: 14, borderBottom: '1px solid #e2e8f0' }}
+          role="tablist"
+          aria-label="대본 단계"
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            const dir = e.key === 'ArrowRight' ? 1 : -1;
+            const next = steps[stepIndex + dir];
+            if (!next) return;
+            e.preventDefault();
+            selectStep(next);
+            const row = e.currentTarget;
+            window.requestAnimationFrame(() => {
+              row.querySelector<HTMLButtonElement>(`button[data-step="${next.id}"]`)?.focus();
+            });
+          }}
+        >
           {steps.length > 0 ? (
             steps.map(stepBtn)
           ) : (
