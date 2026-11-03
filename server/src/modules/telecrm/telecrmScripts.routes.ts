@@ -36,6 +36,7 @@ function serializeCategory(row: {
   isActive: boolean;
   ownerUserId?: string | null;
   operatingCompanyId?: string | null;
+  kind?: string;
   operatingCompany?: {
     id: string;
     name: string;
@@ -48,6 +49,8 @@ function serializeCategory(row: {
     categoryId: string;
     label: string;
     body: string;
+    keywords?: string | null;
+    useCount?: number;
     sortOrder: number;
     isActive: boolean;
   }[];
@@ -61,6 +64,7 @@ function serializeCategory(row: {
     ownerUserId: row.ownerUserId ?? null,
     ownerScope: telecrmCategoryOwnerScope(row.ownerUserId ?? null),
     operatingCompanyId: row.operatingCompanyId ?? null,
+    kind: row.kind === 'reaction' || row.kind === 'closing' ? row.kind : 'step',
     operatingCompany: company
       ? {
           id: company.id,
@@ -89,6 +93,8 @@ function serializeTab(row: {
   categoryId: string;
   label: string;
   body: string;
+  keywords?: string | null;
+  useCount?: number;
   sortOrder: number;
   isActive: boolean;
 }) {
@@ -97,9 +103,17 @@ function serializeTab(row: {
     categoryId: row.categoryId,
     label: row.label,
     body: row.body,
+    keywords: row.keywords ?? null,
+    useCount: row.useCount ?? 0,
     sortOrder: row.sortOrder,
     isActive: row.isActive,
   };
+}
+
+function readScriptKind(raw: unknown): 'step' | 'reaction' | 'closing' | undefined {
+  if (raw == null) return undefined;
+  if (raw === 'step' || raw === 'reaction' || raw === 'closing') return raw;
+  throw new Error('INVALID_KIND');
 }
 
 /** 작업 화면·설정 — 카테고리+탭 목록 */
@@ -146,10 +160,11 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
       (req.body as { scope?: string }).scope,
   );
   if (!(await denyUnlessCanCreateTelecrmCatalog(res, user, ownerScope))) return;
-  const { label, sortOrder, operatingCompanyId: operatingCompanyIdRaw } = req.body as {
+  const { label, sortOrder, operatingCompanyId: operatingCompanyIdRaw, kind: kindRaw } = req.body as {
     label?: string;
     sortOrder?: number;
     operatingCompanyId?: string | null;
+    kind?: string;
   };
   const trimmed = label?.trim() ?? '';
   if (!trimmed) {
@@ -158,6 +173,7 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
   }
   try {
     const operatingCompanyId = await readBrandId(tenantId, operatingCompanyIdRaw);
+    const kind = readScriptKind(kindRaw) ?? 'step';
     const maxOrder = await prisma.telecrmScriptCategory.aggregate({
       where: {
         tenantId,
@@ -171,6 +187,7 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
         tenantId,
         ownerUserId: ownerScope === 'personal' ? user.userId : null,
         operatingCompanyId,
+        kind,
         label: trimmed,
         sortOrder: sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
         tabs: {
@@ -188,6 +205,10 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
   } catch (e) {
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'INVALID_KIND') {
+      res.status(400).json({ error: '대본 단계 또는 고객 반응 중에서 골라 주세요.' });
       return;
     }
     throw e;
@@ -210,10 +231,13 @@ router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (
     sortOrder?: number;
     isActive?: boolean;
     operatingCompanyId?: string | null;
+    kind?: string;
   };
   const brandProvided = Object.prototype.hasOwnProperty.call(req.body ?? {}, 'operatingCompanyId');
+  const kindProvided = Object.prototype.hasOwnProperty.call(req.body ?? {}, 'kind');
   try {
     const operatingCompanyId = brandProvided ? await readBrandId(tenantId, body.operatingCompanyId) : undefined;
+    const kind = kindProvided ? readScriptKind(body.kind) : undefined;
     const updated = await prisma.telecrmScriptCategory.update({
       where: { id: existing.id },
       data: {
@@ -221,6 +245,7 @@ router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (
         ...(body.sortOrder != null && { sortOrder: parseSortOrder(body.sortOrder) }),
         ...(body.isActive != null && { isActive: Boolean(body.isActive) }),
         ...(brandProvided ? { operatingCompanyId } : {}),
+        ...(kindProvided ? { kind } : {}),
       },
       include: categoryInclude,
     });
@@ -228,6 +253,10 @@ router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (
   } catch (e) {
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'INVALID_KIND') {
+      res.status(400).json({ error: '대본 단계 또는 고객 반응 중에서 골라 주세요.' });
       return;
     }
     throw e;
@@ -322,11 +351,12 @@ tabsRouter.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const { categoryId, label, body, sortOrder } = req.body as {
+  const { categoryId, label, body, sortOrder, keywords } = req.body as {
     categoryId?: string;
     label?: string;
     body?: string;
     sortOrder?: number;
+    keywords?: string | null;
   };
   if (!categoryId) {
     res.status(400).json({ error: 'categoryId가 필요합니다.' });
@@ -355,10 +385,27 @@ tabsRouter.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (
       categoryId,
       label: trimmed,
       body: body ?? '',
+      keywords: keywords?.trim() ? keywords.trim() : null,
       sortOrder: sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
   res.status(201).json(serializeTab(created));
+});
+
+tabsRouter.post('/:id/use', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const { id } = req.params;
+  const existing = await prisma.telecrmScriptTab.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    res.status(404).json({ error: '탭을 찾을 수 없습니다.' });
+    return;
+  }
+  const updated = await prisma.telecrmScriptTab.update({
+    where: { id: existing.id },
+    data: { useCount: { increment: 1 } },
+  });
+  res.json(serializeTab(updated));
 });
 
 tabsRouter.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
@@ -375,12 +422,14 @@ tabsRouter.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), asy
     return;
   }
   if (!(await denyUnlessCanMutateTelecrmCategory(res, user, existing.category))) return;
-  const { label, body, sortOrder, isActive } = req.body as {
+  const { label, body, sortOrder, isActive, keywords } = req.body as {
     label?: string;
     body?: string;
     sortOrder?: number;
     isActive?: boolean;
+    keywords?: string | null;
   };
+  const keywordsProvided = Object.prototype.hasOwnProperty.call(req.body ?? {}, 'keywords');
   const updated = await prisma.telecrmScriptTab.update({
     where: { id: existing.id },
     data: {
@@ -388,6 +437,7 @@ tabsRouter.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), asy
       ...(body != null && { body: String(body) }),
       ...(sortOrder != null && { sortOrder: parseSortOrder(sortOrder) }),
       ...(isActive != null && { isActive: Boolean(isActive) }),
+      ...(keywordsProvided ? { keywords: keywords?.trim() ? String(keywords).trim() : null } : {}),
     },
   });
   res.json(serializeTab(updated));

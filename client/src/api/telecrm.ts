@@ -15,12 +15,15 @@ function authHeaders(token: string): HeadersInit {
 
 export type TelecrmCatalogScope = 'work' | 'shared' | 'personal';
 export type TelecrmCatalogOwnerScope = 'shared' | 'personal';
+export type TelecrmScriptKind = 'step' | 'reaction' | 'closing';
 
 export type TelecrmScriptTabDto = {
   id: string;
   categoryId: string;
   label: string;
   body: string;
+  keywords?: string | null;
+  useCount?: number;
   sortOrder: number;
   isActive: boolean;
 };
@@ -43,6 +46,7 @@ export type TelecrmScriptCategoryDto = {
   /** null = 모든 브랜드 공통 */
   operatingCompanyId?: string | null;
   operatingCompany?: TelecrmScriptBrandDto | null;
+  kind?: TelecrmScriptKind;
   tabs?: TelecrmScriptTabDto[];
 };
 
@@ -196,7 +200,12 @@ export async function fetchTelecrmScripts(
 
 export async function createTelecrmScriptCategory(
   token: string,
-  body: { label: string; ownerScope?: TelecrmCatalogOwnerScope; operatingCompanyId?: string | null },
+  body: {
+    label: string;
+    ownerScope?: TelecrmCatalogOwnerScope;
+    operatingCompanyId?: string | null;
+    kind?: TelecrmScriptKind;
+  },
 ): Promise<TelecrmScriptCategoryDto> {
   const res = await fetch(`${API}/script-categories`, {
     method: 'POST',
@@ -209,7 +218,13 @@ export async function createTelecrmScriptCategory(
 export async function updateTelecrmScriptCategory(
   token: string,
   id: string,
-  body: Partial<{ label: string; sortOrder: number; isActive: boolean; operatingCompanyId: string | null }>,
+  body: Partial<{
+    label: string;
+    sortOrder: number;
+    isActive: boolean;
+    operatingCompanyId: string | null;
+    kind: TelecrmScriptKind;
+  }>,
 ): Promise<TelecrmScriptCategoryDto> {
   const res = await fetch(`${API}/script-categories/${id}`, {
     method: 'PATCH',
@@ -259,12 +274,20 @@ export async function createTelecrmScriptTab(
 export async function updateTelecrmScriptTab(
   token: string,
   id: string,
-  body: Partial<{ label: string; body: string; sortOrder: number; isActive: boolean }>,
+  body: Partial<{ label: string; body: string; sortOrder: number; isActive: boolean; keywords: string | null }>,
 ): Promise<TelecrmScriptTabDto> {
   const res = await fetch(`${API}/script-tabs/${id}`, {
     method: 'PATCH',
     headers: authHeaders(token),
     body: JSON.stringify(body),
+  });
+  return parseJson(res);
+}
+
+export async function markTelecrmScriptTabUsed(token: string, id: string): Promise<TelecrmScriptTabDto> {
+  const res = await fetch(`${API}/script-tabs/${id}/use`, {
+    method: 'POST',
+    headers: authHeaders(token),
   });
   return parseJson(res);
 }

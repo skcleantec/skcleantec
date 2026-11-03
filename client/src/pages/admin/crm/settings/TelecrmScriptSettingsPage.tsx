@@ -19,6 +19,8 @@ import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/se
 import { TelecrmReorderButtons } from '../../../../components/crm/settings/telecrmSettingsUi';
 import { usePublishScriptBrandEdit } from '../../../../components/crm/settings/scriptBrandEditContext';
 import { OperatingCompanyBadge } from '../../../../components/admin/OperatingCompanyBadge';
+import { TelecrmScriptKindSegment } from '../../../../components/ui/TelecrmScriptKindSegment';
+import type { TelecrmScriptKind } from '../../../../api/telecrm';
 import { useOperatingCompanies } from '../../../../hooks/useOperatingCompanies';
 import { HelpTooltip } from '../../../../components/ui/HelpTooltip';
 import { OnOffSwitch } from '../../../../components/ui/OnOffSwitch';
@@ -179,13 +181,37 @@ export function TelecrmScriptSettingsPage({
     }
   };
 
-  const moveCategory = async (index: number, dir: -1 | 1) => {
+  const changeKind = useCallback(
+    async (kind: TelecrmScriptKind) => {
+      if (!token || !selectedCategory) return;
+      const current: TelecrmScriptKind =
+        selectedCategory.kind === 'reaction' || selectedCategory.kind === 'closing' ? selectedCategory.kind : 'step';
+      if (current === kind) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await updateTelecrmScriptCategory(token, selectedCategory.id, { kind });
+        await load();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '구분을 바꾸지 못했습니다.');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [token, selectedCategory, load],
+  );
+
+  const moveCategory = async (group: readonly TelecrmScriptCategoryDto[], index: number, dir: -1 | 1) => {
     if (!token) return;
     const next = index + dir;
-    if (next < 0 || next >= categories.length) return;
+    if (next < 0 || next >= group.length) return;
     const ordered = [...categories];
-    const [row] = ordered.splice(index, 1);
-    ordered.splice(next, 0, row);
+    const ia = ordered.findIndex((row) => row.id === group[index]?.id);
+    const ib = ordered.findIndex((row) => row.id === group[next]?.id);
+    if (ia < 0 || ib < 0) return;
+    const tmp = ordered[ia];
+    ordered[ia] = ordered[ib]!;
+    ordered[ib] = tmp!;
     setBusy(true);
     try {
       await reorderTelecrmScriptCategories(
@@ -264,52 +290,69 @@ export function TelecrmScriptSettingsPage({
               />
             }
           >
-            <ul className="space-y-1">
-              {categories.map((c, index) => (
-                <li key={c.id}>
-                  <div
-                    className={`flex items-center gap-1 rounded-lg border px-2 py-1 ${
-                      selectedCategoryId === c.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCategoryId(c.id)}
-                      className="min-w-0 flex-1 whitespace-normal break-words text-left text-fluid-sm leading-snug text-slate-900"
-                    >
-                      {c.label}
-                      <span className="ml-1 text-fluid-2xs text-slate-400">{c.tabs?.length ?? 0}</span>
-                      {!c.isActive ? <span className="text-slate-400"> (숨김)</span> : null}
-                      {c.operatingCompany ? (
-                        <OperatingCompanyBadge
-                          company={c.operatingCompany}
-                          className="ml-1 mt-0.5 align-middle"
-                        />
-                      ) : null}
-                    </button>
-                    <TelecrmReorderButtons
-                      disabled={busy}
-                      canMoveUp={index > 0}
-                      canMoveDown={index < categories.length - 1}
-                      onMoveUp={() => void moveCategory(index, -1)}
-                      onMoveDown={() => void moveCategory(index, 1)}
-                    />
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setDeleteTarget({ kind: 'category', row: c });
-                        setDeletePassword('');
-                        setDeleteError(null);
-                      }}
-                      className="px-1 text-fluid-xs text-red-600"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </li>
+            <div className="space-y-3">
+              {(
+                [
+                  ['대본 단계', categories.filter((c) => c.kind !== 'reaction' && c.kind !== 'closing')],
+                  ['고객 반응 버튼', categories.filter((c) => c.kind === 'reaction')],
+                  ['예약 끌어내기', categories.filter((c) => c.kind === 'closing')],
+                ] as const
+              ).map(([title, group]) => (
+                <div key={title} className="space-y-1">
+                  <p className="px-0.5 text-fluid-2xs font-medium text-slate-500">{title}</p>
+                  {group.length === 0 ? (
+                    <p className="px-0.5 text-fluid-2xs text-slate-400">없음</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {group.map((c, index) => (
+                        <li key={c.id}>
+                          <div
+                            className={`flex items-center gap-1 rounded-lg border px-2 py-1 ${
+                              selectedCategoryId === c.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCategoryId(c.id)}
+                              className="min-w-0 flex-1 whitespace-normal break-words text-left text-fluid-sm leading-snug text-slate-900"
+                            >
+                              {c.label}
+                              <span className="ml-1 text-fluid-2xs text-slate-400">{c.tabs?.length ?? 0}</span>
+                              {!c.isActive ? <span className="text-slate-400"> (숨김)</span> : null}
+                              {c.operatingCompany ? (
+                                <OperatingCompanyBadge
+                                  company={c.operatingCompany}
+                                  className="ml-1 mt-0.5 align-middle"
+                                />
+                              ) : null}
+                            </button>
+                            <TelecrmReorderButtons
+                              disabled={busy}
+                              canMoveUp={index > 0}
+                              canMoveDown={index < group.length - 1}
+                              onMoveUp={() => void moveCategory(group, index, -1)}
+                              onMoveDown={() => void moveCategory(group, index, 1)}
+                            />
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => {
+                                setDeleteTarget({ kind: 'category', row: c });
+                                setDeletePassword('');
+                                setDeleteError(null);
+                              }}
+                              className="px-1 text-fluid-xs text-red-600"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               ))}
-            </ul>
+            </div>
             <div className="mt-2 flex gap-1.5">
               <input
                 type="text"
@@ -359,6 +402,17 @@ export function TelecrmScriptSettingsPage({
                     }}
                     label="상담 화면에 보이기"
                   />
+                  <TelecrmScriptKindSegment
+                    value={
+                      selectedCategory.kind === 'reaction' || selectedCategory.kind === 'closing'
+                        ? selectedCategory.kind
+                        : 'step'
+                    }
+                    disabled={busy}
+                    onChange={(kind) => {
+                      void changeKind(kind);
+                    }}
+                  />
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
@@ -404,7 +458,11 @@ export function TelecrmScriptSettingsPage({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.nativeEvent.isComposing) void addTab();
                     }}
-                    placeholder="새 스크립트 제목 (예: 꼬시기)"
+                    placeholder={
+                      selectedCategory.kind === 'reaction'
+                        ? '버튼 이름(고객이 하는 말)'
+                        : '새 스크립트 제목 (예: 꼬시기)'
+                    }
                     className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm"
                   />
                   <button
@@ -419,7 +477,13 @@ export function TelecrmScriptSettingsPage({
 
                 {selectedTab ? (
                   <div className="space-y-2">
+                    {selectedCategory.kind === 'reaction' ? (
+                      <label className="block text-fluid-2xs font-medium text-slate-600" htmlFor="script-tab-label">
+                        버튼 이름(고객이 하는 말)
+                      </label>
+                    ) : null}
                     <input
+                      id="script-tab-label"
                       type="text"
                       defaultValue={selectedTab.label}
                       key={`label-${selectedTab.id}`}
@@ -429,14 +493,42 @@ export function TelecrmScriptSettingsPage({
                         void updateTelecrmScriptTab(token, selectedTab.id, { label: v }).then(load);
                       }}
                       className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm font-medium"
-                      aria-label="스크립트 제목"
+                      aria-label={selectedCategory.kind === 'reaction' ? '버튼 이름(고객이 하는 말)' : '스크립트 제목'}
                     />
+                    {selectedCategory.kind === 'reaction' ? (
+                      <>
+                        <label className="block text-fluid-2xs font-medium text-slate-600" htmlFor="script-tab-keywords">
+                          비슷한 말(찾기용)
+                        </label>
+                        <input
+                          id="script-tab-keywords"
+                          type="text"
+                          defaultValue={selectedTab.keywords ?? ''}
+                          key={`kw-${selectedTab.id}`}
+                          onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if (!token || v === (selectedTab.keywords ?? '').trim()) return;
+                            void updateTelecrmScriptTab(token, selectedTab.id, { keywords: v || null }).then(load);
+                          }}
+                          placeholder="비싸, 가격 부담, 다른 데가 더 싸요"
+                          className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-fluid-sm"
+                        />
+                        <label className="block text-fluid-2xs font-medium text-slate-600" htmlFor="script-tab-body">
+                          이렇게 답해요
+                        </label>
+                      </>
+                    ) : null}
                     <textarea
+                      id="script-tab-body"
                       value={editingTabBody}
                       onChange={(e) => setEditingTabBody(e.target.value)}
                       rows={8}
                       className="w-full rounded-xl border border-slate-300 px-3 py-2 text-fluid-sm leading-relaxed"
-                      placeholder="통화할 때 읽을 내용을 적어 주세요"
+                      placeholder={
+                        selectedCategory.kind === 'reaction'
+                          ? '고객이 그렇게 말하면 이렇게 답해요'
+                          : '통화할 때 읽을 내용을 적어 주세요'
+                      }
                     />
                     <div className="flex items-center gap-2">
                       <button
