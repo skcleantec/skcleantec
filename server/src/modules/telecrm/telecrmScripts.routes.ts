@@ -16,10 +16,18 @@ import {
   telecrmCategoryOwnerScope,
   telecrmScriptCategoryWhere,
 } from './telecrmCatalogScope.helpers.js';
+import { assertOperatingCompanyForTenant, parseTelecrmOperatingCompanyId } from './telecrmBrand.helpers.js';
+import { requireCrmWorkOperatingCompanyId } from './telecrm.helpers.js';
 import { ensureTelecrmDefaults } from './telecrmSeed.service.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
+
+function badgeColorKeyOf(config: unknown): string | null {
+  if (!config || typeof config !== 'object') return null;
+  const key = (config as { branding?: { badgeColorKey?: unknown } }).branding?.badgeColorKey;
+  return typeof key === 'string' && key.trim() ? key.trim() : null;
+}
 
 function serializeCategory(row: {
   id: string;
@@ -27,6 +35,14 @@ function serializeCategory(row: {
   sortOrder: number;
   isActive: boolean;
   ownerUserId?: string | null;
+  operatingCompanyId?: string | null;
+  operatingCompany?: {
+    id: string;
+    name: string;
+    slug: string;
+    isActive: boolean;
+    config: unknown;
+  } | null;
   tabs?: {
     id: string;
     categoryId: string;
@@ -36,6 +52,7 @@ function serializeCategory(row: {
     isActive: boolean;
   }[];
 }) {
+  const company = row.operatingCompany;
   return {
     id: row.id,
     label: row.label,
@@ -43,8 +60,28 @@ function serializeCategory(row: {
     isActive: row.isActive,
     ownerUserId: row.ownerUserId ?? null,
     ownerScope: telecrmCategoryOwnerScope(row.ownerUserId ?? null),
+    operatingCompanyId: row.operatingCompanyId ?? null,
+    operatingCompany: company
+      ? {
+          id: company.id,
+          name: company.name,
+          slug: company.slug,
+          isActive: company.isActive,
+          badgeColorKey: badgeColorKeyOf(company.config),
+        }
+      : null,
     tabs: row.tabs?.map(serializeTab) ?? undefined,
   };
+}
+
+const categoryInclude = {
+  operatingCompany: { select: { id: true, name: true, slug: true, isActive: true, config: true } },
+} as const;
+
+async function readBrandId(tenantId: string, raw: unknown): Promise<string | null> {
+  const operatingCompanyId = parseTelecrmOperatingCompanyId(raw);
+  if (operatingCompanyId) await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
+  return operatingCompanyId;
 }
 
 function serializeTab(row: {
@@ -75,14 +112,20 @@ router.get(
     const user = (req as unknown as { user: AuthPayload }).user;
     const scope = parseTelecrmCatalogScope(req.query.scope);
     const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
+    let workBrandId: string | null = null;
+    if (scope === 'work') {
+      workBrandId = await requireCrmWorkOperatingCompanyId(req, res);
+      if (!workBrandId) return;
+    }
     await ensureTelecrmDefaults(prisma, tenantId);
     const rows = await prisma.telecrmScriptCategory.findMany({
       where: {
-        ...telecrmScriptCategoryWhere(scope, tenantId, user.userId),
+        ...telecrmScriptCategoryWhere(scope, tenantId, user.userId, workBrandId),
         ...(includeInactive ? {} : { isActive: true }),
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
+        ...categoryInclude,
         tabs: {
           where: includeInactive ? { tenantId } : { tenantId, isActive: true },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -103,37 +146,52 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
       (req.body as { scope?: string }).scope,
   );
   if (!(await denyUnlessCanCreateTelecrmCatalog(res, user, ownerScope))) return;
-  const { label, sortOrder } = req.body as { label?: string; sortOrder?: number };
+  const { label, sortOrder, operatingCompanyId: operatingCompanyIdRaw } = req.body as {
+    label?: string;
+    sortOrder?: number;
+    operatingCompanyId?: string | null;
+  };
   const trimmed = label?.trim() ?? '';
   if (!trimmed) {
     res.status(400).json({ error: '카테고리 이름을 입력해주세요.' });
     return;
   }
-  const maxOrder = await prisma.telecrmScriptCategory.aggregate({
-    where: {
-      tenantId,
-      ownerUserId: ownerScope === 'personal' ? user.userId : null,
-    },
-    _max: { sortOrder: true },
-  });
-  const created = await prisma.telecrmScriptCategory.create({
-    data: {
-      tenantId,
-      ownerUserId: ownerScope === 'personal' ? user.userId : null,
-      label: trimmed,
-      sortOrder: sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
-      tabs: {
-        create: {
-          tenantId,
-          label: '기본',
-          body: '',
-          sortOrder: 0,
+  try {
+    const operatingCompanyId = await readBrandId(tenantId, operatingCompanyIdRaw);
+    const maxOrder = await prisma.telecrmScriptCategory.aggregate({
+      where: {
+        tenantId,
+        ownerUserId: ownerScope === 'personal' ? user.userId : null,
+        operatingCompanyId,
+      },
+      _max: { sortOrder: true },
+    });
+    const created = await prisma.telecrmScriptCategory.create({
+      data: {
+        tenantId,
+        ownerUserId: ownerScope === 'personal' ? user.userId : null,
+        operatingCompanyId,
+        label: trimmed,
+        sortOrder: sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
+        tabs: {
+          create: {
+            tenantId,
+            label: '기본',
+            body: '',
+            sortOrder: 0,
+          },
         },
       },
-    },
-    include: { tabs: true },
-  });
-  res.status(201).json(serializeCategory(created));
+      include: { ...categoryInclude, tabs: true },
+    });
+    res.status(201).json(serializeCategory(created));
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
 });
 
 router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
@@ -147,20 +205,33 @@ router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (
     return;
   }
   if (!(await denyUnlessCanMutateTelecrmCategory(res, user, existing))) return;
-  const { label, sortOrder, isActive } = req.body as {
+  const body = req.body as {
     label?: string;
     sortOrder?: number;
     isActive?: boolean;
+    operatingCompanyId?: string | null;
   };
-  const updated = await prisma.telecrmScriptCategory.update({
-    where: { id: existing.id },
-    data: {
-      ...(label != null && { label: String(label).trim() }),
-      ...(sortOrder != null && { sortOrder: parseSortOrder(sortOrder) }),
-      ...(isActive != null && { isActive: Boolean(isActive) }),
-    },
-  });
-  res.json(serializeCategory(updated));
+  const brandProvided = Object.prototype.hasOwnProperty.call(req.body ?? {}, 'operatingCompanyId');
+  try {
+    const operatingCompanyId = brandProvided ? await readBrandId(tenantId, body.operatingCompanyId) : undefined;
+    const updated = await prisma.telecrmScriptCategory.update({
+      where: { id: existing.id },
+      data: {
+        ...(body.label != null && { label: String(body.label).trim() }),
+        ...(body.sortOrder != null && { sortOrder: parseSortOrder(body.sortOrder) }),
+        ...(body.isActive != null && { isActive: Boolean(body.isActive) }),
+        ...(brandProvided ? { operatingCompanyId } : {}),
+      },
+      include: categoryInclude,
+    });
+    res.json(serializeCategory(updated));
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
 });
 
 router.delete('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {

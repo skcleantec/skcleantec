@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { CrmDrawerShell } from '../layout/CrmDrawerShell';
 import { TelecrmCatalogScopeSegment } from './telecrmSettingsUi';
+import { ScriptBrandEditProvider, ScriptBrandEditSlot } from './scriptBrandEditContext';
 import { CrmSettingsUsageGuide } from './CrmSettingsUsageGuide';
 import type { CrmCatalogScope, CrmSettingsTab } from '../../../hooks/useCrmPanelUrl';
 
@@ -138,6 +139,7 @@ export function CrmSettingsDrawer({
       onClose={onClose}
       widthClass={drawerWidth}
     >
+      <ScriptBrandEditProvider>
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
         <nav className="flex shrink-0 flex-wrap gap-x-3 gap-y-2 border-b border-slate-100 pb-3 sm:w-40 sm:flex-col sm:flex-nowrap sm:gap-3 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-3">
           {visibleGroups.map((group) => (
@@ -172,6 +174,7 @@ export function CrmSettingsDrawer({
                 showPersonal={canEditPersonal}
                 showShared={canEditShared}
               />
+              {tab === 'scripts' ? <ScriptBrandEditSlot /> : null}
               <p className="text-fluid-2xs text-slate-500">
                 {tab === 'soomgo-auto'
                   ? catalogScope === 'personal'
@@ -220,6 +223,7 @@ export function CrmSettingsDrawer({
           </Suspense>
         </div>
       </div>
+      </ScriptBrandEditProvider>
     </CrmDrawerShell>
   );
 }

@@ -1678,6 +1678,7 @@ model OperatingCompany {
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSmsTemplates         TelecrmSmsTemplate[]
+  telecrmScriptCategories     TelecrmScriptCategory[]
   orderFormBrandCustomerLinkConfigs OrderFormBrandCustomerLinkConfig[]
   barobillMemberId String?         @unique @map("barobill_member_id")
   barobillMember   BarobillMember? @relation(fields: [barobillMemberId], references: [id], onDelete: SetNull)
@@ -4950,6 +4951,9 @@ model TelecrmScriptCategory {
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   ownerUserId String?  @map("owner_user_id")
   ownerUser   User?    @relation("TelecrmScriptCategoryOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  /// null = 모든 브랜드 공통. 값이 있으면 그 작업 브랜드 상담 화면에만.
+  operatingCompanyId String?           @map("operating_company_id")
+  operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
   label       String   @db.VarChar(120)
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
@@ -4959,6 +4963,7 @@ model TelecrmScriptCategory {
 
   @@index([tenantId, sortOrder])
   @@index([tenantId, ownerUserId, sortOrder])
+  @@index([tenantId, operatingCompanyId])
   @@map("telecrm_script_categories")
 }
 
