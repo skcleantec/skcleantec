@@ -12,6 +12,9 @@ import {
   type CrmIntakeExistingInquiry,
   type CrmIntakeSubmitResult,
 } from './crmIntakeSubmit';
+import { saveOrderFollowupHotMark, type OrderFollowupHotMark } from '../../../api/orderFollowups';
+import { FollowupHotIntakeSlot } from '../followup/FollowupHotIntakeSlot';
+import type { HotMarkDraft } from '../followup/FollowupHotMarkPopover';
 import { toast } from '../../ui/Toast';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
@@ -76,6 +79,10 @@ export function CrmIntakeForm({
   seedSyncDisabled = false,
   operatingCompanyId = null,
   existingInquiry = null,
+  linkedFollowupId = null,
+  linkedHotMark = null,
+  hotEditable = true,
+  hotLinkKey = 0,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
@@ -99,6 +106,11 @@ export function CrmIntakeForm({
   soomgoHiredOther?: boolean;
   /** 기존 고객 — 진행 중 접수에 이어서 저장 */
   existingInquiry?: CrmIntakeExistingInquiry | null;
+  /** 부재·보류에서 가져온 건. 있으면 가망 표시를 그 건에 바로 저장 */
+  linkedFollowupId?: string | null;
+  linkedHotMark?: OrderFollowupHotMark | null;
+  hotEditable?: boolean;
+  hotLinkKey?: number;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -123,6 +135,11 @@ export function CrmIntakeForm({
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [pendingHot, setPendingHot] = useState<HotMarkDraft | null>(null);
+  const [hotSession, setHotSession] = useState<{
+    followupId: string;
+    mark: OrderFollowupHotMark | null;
+  } | null>(null);
 
   const canSave = canSubmitKind(kind);
 
@@ -155,8 +172,15 @@ export function CrmIntakeForm({
     setShowMore(false);
     setMsg(null);
     setErr(null);
+    setPendingHot(null);
+    setHotSession(null);
     appliedDraftRef.current = 0;
   }, [formResetKey]);
+
+  useEffect(() => {
+    setPendingHot(null);
+    setHotSession(null);
+  }, [hotLinkKey]);
 
   useEffect(() => {
     if (!initialFormDraft) return;
@@ -289,6 +313,14 @@ export function CrmIntakeForm({
         { operatingCompanyId, quotePayload, incrementDefer, existingInquiry },
       );
       const freshStart = incrementDefer || !keepForm;
+      if (result.kind === 'followup' && result.followupId && pendingHot) {
+        const saved = await saveOrderFollowupHotMark(token, result.followupId, pendingHot);
+        window.dispatchEvent(new Event('crm-hot-summary-refresh'));
+        if (!freshStart) {
+          setHotSession({ followupId: result.followupId, mark: saved.myHotMark });
+          setPendingHot(null);
+        }
+      }
       onSaved(result, { freshStart });
       if (result.kind === 'inquiry' && result.continued === 'appended') {
         toast.success('이미 진행 중인 접수에 내용을 더했어요');
@@ -366,6 +398,19 @@ export function CrmIntakeForm({
           />
         </label>
       </div>
+      <FollowupHotIntakeSlot
+        followupId={hotSession?.followupId ?? linkedFollowupId}
+        mark={hotSession ? hotSession.mark : (linkedHotMark ?? null)}
+        editable={hotEditable}
+        pending={pendingHot}
+        onPendingChange={setPendingHot}
+        onServerMark={(mark) => {
+          if (!linkedFollowupId) return;
+          setHotSession({ followupId: linkedFollowupId, mark });
+          setPendingHot(null);
+        }}
+        disabled={saving}
+      />
       <fieldset>
         <legend className="mb-1 text-fluid-2xs font-semibold text-slate-700">처리 구분</legend>
         <div className="flex flex-wrap gap-1">

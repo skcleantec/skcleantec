@@ -8,6 +8,12 @@ import {
 import { HotChipButton, HotTextButton } from '../../ui/FollowupHotMarkUi';
 import { HOT_MARK_REASONS, type HotMarkReasonId, hotWhenPresets } from '../../../utils/orderFollowupHotMark';
 
+export type HotMarkDraft = {
+  reason: HotMarkReasonId;
+  memo: string | null;
+  nextContactAt: string | null;
+};
+
 export function FollowupHotMarkPopover({
   token,
   followupId,
@@ -15,13 +21,16 @@ export function FollowupHotMarkPopover({
   anchor,
   onClose,
   onSaved,
+  onDraft,
 }: {
   token: string;
-  followupId: string;
+  /** 없으면 서버에 저장하지 않고 onDraft로 넘긴다 */
+  followupId: string | null;
   current: OrderFollowupHotMark | null;
   anchor: DOMRect;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (mark: OrderFollowupHotMark | null) => void;
+  onDraft?: (draft: HotMarkDraft | null) => void;
 }) {
   const [reason, setReason] = useState<HotMarkReasonId | ''>(
     (HOT_MARK_REASONS.some((row) => row.id === current?.reason) ? current?.reason : '') as HotMarkReasonId | '',
@@ -57,13 +66,21 @@ export function FollowupHotMarkPopover({
     }
     setBusy(true);
     setError(null);
+    const draft: HotMarkDraft = {
+      reason,
+      memo: memo.trim() || null,
+      nextContactAt: nextContactAt(),
+    };
+    if (!followupId) {
+      onDraft?.(draft);
+      onClose();
+      setBusy(false);
+      return;
+    }
     try {
-      await saveOrderFollowupHotMark(token, followupId, {
-        reason,
-        memo: memo.trim() || null,
-        nextContactAt: nextContactAt(),
-      });
-      onSaved();
+      const saved = await saveOrderFollowupHotMark(token, followupId, draft);
+      window.dispatchEvent(new Event('crm-hot-summary-refresh'));
+      onSaved(saved.myHotMark);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장하지 못했습니다.');
@@ -75,9 +92,16 @@ export function FollowupHotMarkPopover({
   const clear = async () => {
     setBusy(true);
     setError(null);
+    if (!followupId) {
+      onDraft?.(null);
+      onClose();
+      setBusy(false);
+      return;
+    }
     try {
       await deleteOrderFollowupHotMark(token, followupId);
-      onSaved();
+      window.dispatchEvent(new Event('crm-hot-summary-refresh'));
+      onSaved(null);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : '표시를 해제하지 못했습니다.');
@@ -91,9 +115,9 @@ export function FollowupHotMarkPopover({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[80]" onClick={onClose} />
+      <div className="fixed inset-0 z-[190]" onClick={onClose} />
       <div
-        className="fixed z-[90] w-[min(18rem,calc(100vw-1rem))] rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+        className="fixed z-[191] w-[min(18rem,calc(100vw-1rem))] rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
         style={{ top, left }}
         role="dialog"
         aria-label="내 가망 표시"

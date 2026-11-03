@@ -34,7 +34,6 @@ import {
 } from '../../../utils/soomgoFollowupAutoSend';
 import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
 import type { CrmFollowupApplySnapshot } from '../../../utils/crmFollowupApply';
-import { FollowupHotIntakeBanner } from '../followup/FollowupHotIntakeBanner';
 
 export type CrmCustomerMode = 'new' | 'existing';
 
@@ -465,14 +464,6 @@ export function CrmIntakePanel({
       }
     >
       <div className="space-y-3">
-        {followupImport?.snapshot.myHotMark ? (
-          <FollowupHotIntakeBanner
-            key={`${followupImport.key}:${followupImport.snapshot.followupId}`}
-            followupId={followupImport.snapshot.followupId}
-            mark={followupImport.snapshot.myHotMark}
-            editable={followupImport.snapshot.myHotMarkEditable !== false}
-          />
-        ) : null}
         {workBrandBar ? <div className="min-w-0">{workBrandBar}</div> : null}
         <CrmSegment accent="intake" className="w-full flex flex-wrap">
           <CrmSegmentItem
@@ -611,6 +602,10 @@ export function CrmIntakePanel({
             soomgoHiredOther={soomgoHiredOther}
             operatingCompanyId={operatingCompanyId}
             existingInquiry={existingInquiryForSave}
+            linkedFollowupId={followupImport?.snapshot.followupId ?? null}
+            linkedHotMark={followupImport?.snapshot.myHotMark ?? null}
+            hotEditable={followupImport?.snapshot.myHotMarkEditable !== false}
+            hotLinkKey={followupImport?.key ?? 0}
           />
         </div>
 

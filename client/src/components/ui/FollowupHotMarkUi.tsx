@@ -89,6 +89,20 @@ export function HotTextButton({
   );
 }
 
+export function HotMarkIntakeButton({
+  marked = false,
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { marked?: boolean }) {
+  return (
+    <Btn
+      className="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-fluid-2xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+      {...rest}
+    >
+      {marked ? '⭐ 내 가망으로 표시' : '☆ 내 가망으로 표시'}
+    </Btn>
+  );
+}
+
 export function HotHeaderStatButton({
   today,
   overdue,
