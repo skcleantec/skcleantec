@@ -32,6 +32,7 @@ export type InquiryEditFormFields = {
   customerPhone2: string;
   propertyType: string;
   isOneRoom: boolean;
+  isTwoRoom: boolean;
   areaBasis: string;
   areaPyeong: string;
   exclusiveAreaSqm: string;

@@ -271,6 +271,7 @@ const scheduleListSelectLite = {
   exclusiveAreaSqm: true,
   propertyType: true,
   isOneRoom: true,
+  isTwoRoom: true,
   roomCount: true,
   bathroomCount: true,
   balconyCount: true,

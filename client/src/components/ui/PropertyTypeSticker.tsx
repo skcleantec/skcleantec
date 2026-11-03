@@ -15,11 +15,21 @@ const TONE_CLASS: Record<PropertyTypeStickerTone, string> = {
   oneroom: 'bg-rose-100 text-rose-800 ring-rose-300/90',
 };
 
-function TypeStickerChip({ label, title }: { label: string; title: string }) {
+const TWO_ROOM_CHIP_CLASS = 'bg-violet-100 text-violet-800 ring-violet-300/90';
+
+function TypeStickerChip({
+  label,
+  title,
+  toneClass,
+}: {
+  label: string;
+  title: string;
+  toneClass?: string;
+}) {
   const tone = propertyTypeStickerTone(label);
   return (
     <span
-      className={`inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold leading-none ring-1 ${TONE_CLASS[tone]}`}
+      className={`inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold leading-none ring-1 ${toneClass ?? TONE_CLASS[tone]}`}
       title={title}
       aria-label={title}
     >
@@ -28,16 +38,23 @@ function TypeStickerChip({ label, title }: { label: string; title: string }) {
   );
 }
 
+/** SK 스케줄 — 투룸 원형 스티커 */
+export function TwoRoomSticker() {
+  return <TypeStickerChip label="투" title="투룸" toneClass={TWO_ROOM_CHIP_CLASS} />;
+}
+
 /** 건축물 유형(아·빌 등) + 원룸(원) 원형 스티커 */
 export function PropertyTypeSticker({
   propertyType,
   isOneRoom,
+  isTwoRoom = false,
   oneRoomTitle = '원룸',
   emphasizeOneRoomInList = false,
   className = '',
 }: {
   propertyType?: string | null;
   isOneRoom?: boolean | null;
+  isTwoRoom?: boolean | null;
   oneRoomTitle?: string;
   /** 스케줄 접수 내역 — 원/투룸만 강조 */
   emphasizeOneRoomInList?: boolean;
@@ -55,10 +72,13 @@ export function PropertyTypeSticker({
       {typeLabel ? <TypeStickerChip label={typeLabel} title={typeFull || typeLabel} /> : null}
       {showOneRoom ? (
         emphasizeOneRoom ? (
-          <span className="inline-flex items-center gap-0.5 rounded-md bg-gradient-to-r from-red-50 to-blue-50 px-1.5 py-0.5 text-[11px] font-extrabold text-red-900 ring-2 ring-red-400/90 shadow-sm">
-            <img src={SK_TAEGEUK_FLAG_ASSET} alt="" className="size-3.5 object-contain" aria-hidden />
-            {oneRoomTitle}
-          </span>
+          <>
+            <span className="inline-flex items-center gap-0.5 rounded-md bg-gradient-to-r from-red-50 to-blue-50 px-1.5 py-0.5 text-[11px] font-extrabold text-red-900 ring-2 ring-red-400/90 shadow-sm">
+              <img src={SK_TAEGEUK_FLAG_ASSET} alt="" className="size-3.5 object-contain" aria-hidden />
+              {oneRoomTitle}
+            </span>
+            {isTwoRoom ? <TwoRoomSticker /> : null}
+          </>
         ) : (
           <TypeStickerChip label={ONE_ROOM_STICKER_CHAR} title={oneRoomTitle} />
         )

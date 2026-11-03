@@ -98,6 +98,7 @@ import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBr
 import { useProfessionalOptionsCatalog } from '../../hooks/useProfessionalOptionsCatalog';
 import { InquiryMarketerDailyButton } from '../../components/inquiries/inquiriesUiParts';
 import { Button } from '../../components/ui/Button';
+import { TwoRoomSticker } from '../../components/ui/PropertyTypeSticker';
 import { confirmDialog } from '../../components/ui/Toast';
 import { ActiveFilters, FilterBar, FilterSearch, FilterSegment, FilterSelect } from '../../components/ui/FilterBar';
 import { AddressSearch } from '../../components/forms/AddressSearch';
@@ -511,6 +512,7 @@ interface InquiryItem {
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
   isOneRoom?: boolean | null;
+  isTwoRoom?: boolean | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
@@ -1010,6 +1012,7 @@ export function AdminInquiriesPage() {
     customerPhone2: '',
     propertyType: '',
     isOneRoom: false,
+    isTwoRoom: false,
     areaBasis: '',
     areaPyeong: '',
     exclusiveAreaSqm: '',
@@ -2282,6 +2285,7 @@ export function AdminInquiriesPage() {
         detectOneRoomFromNotes(
           effectiveCustomerOrderNotes({ specialNotes: item.specialNotes, orderForm: item.orderForm }),
         ),
+      isTwoRoom: Boolean(item.isTwoRoom),
       areaBasis: item.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(item),
       buildingType: item.buildingType || '',
@@ -2706,6 +2710,7 @@ export function AdminInquiriesPage() {
         customerPhone2: editForm.customerPhone2.trim(),
         propertyType: editForm.propertyType.trim(),
         isOneRoom: editForm.isOneRoom,
+        isTwoRoom: editForm.isOneRoom ? editForm.isTwoRoom : false,
         areaBasis: editForm.areaBasis.trim(),
         buildingType: editForm.buildingType.trim(),
         moveInTiming: editForm.moveInTiming || null,
@@ -4939,13 +4944,34 @@ export function AdminInquiriesPage() {
                     checked={editForm.isOneRoom}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      setEditForm((p) => ({ ...p, isOneRoom: checked }));
+                      setEditForm((p) => ({
+                        ...p,
+                        isOneRoom: checked,
+                        isTwoRoom: checked ? p.isTwoRoom : false,
+                      }));
                     }}
                   />
                   {skOpsUi
                     ? oneRoomLabel
                     : '원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)'}
                 </label>
+                {skOpsUi ? (
+                  <label
+                    className={`mt-1.5 ml-5 flex items-center gap-1.5 text-fluid-xs text-slate-700 ${
+                      editForm.isOneRoom ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded-lg border-slate-300 disabled:cursor-not-allowed"
+                      checked={editForm.isTwoRoom}
+                      disabled={!editForm.isOneRoom}
+                      onChange={(e) => setEditForm((p) => ({ ...p, isTwoRoom: e.target.checked }))}
+                    />
+                    투룸
+                    <TwoRoomSticker />
+                  </label>
+                ) : null}
               </div>
               <div>
                 <label className="block text-fluid-sm text-slate-600 mb-1">면적 기준</label>

@@ -999,6 +999,8 @@ router.patch('/:id', async (req, res) => {
   }
 
   const data = buildInquiryPatchData(body);
+  const nextIsOneRoom = data.isOneRoom !== undefined ? Boolean(data.isOneRoom) : inquiry.isOneRoom;
+  if (!nextIsOneRoom) data.isTwoRoom = false;
   if (
     data.externalTransferFee != null &&
     !(await isFeatureEnabled(tenantId, 'mod_external_co'))
@@ -1576,6 +1578,10 @@ router.patch('/:id', async (req, res) => {
     const oneRoomLabel = oneRoomLabelWhenSkOpsEnabled(skOpsUiEnabled);
     const fmtOneRoom = (v: unknown) => (v ? oneRoomLabel : '(아님)');
     pushIfChanged(oneRoomLabel, inquiry.isOneRoom, data.isOneRoom, fmtOneRoom);
+  }
+  if (data.isTwoRoom !== undefined) {
+    const fmtTwoRoom = (v: unknown) => (v ? '투룸' : '(아님)');
+    pushIfChanged('투룸', inquiry.isTwoRoom, data.isTwoRoom, fmtTwoRoom);
   }
   if (data.roomCount !== undefined) pushIfChanged('방', inquiry.roomCount, data.roomCount, fmtNum);
   if (data.bathroomCount !== undefined) pushIfChanged('화장실', inquiry.bathroomCount, data.bathroomCount, fmtNum);
