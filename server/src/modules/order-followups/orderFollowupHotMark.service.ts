@@ -78,11 +78,11 @@ export function plusOneDaySameClock(from: Date): Date {
   return new Date(`${ymd}T${hour}:${minute}:00+09:00`);
 }
 
-export function hotContactSortRank(at: Date | null, today = kstTodayYmd()): number {
+/** 0 시각이 지난 것, 1 오늘 남은 것, 2 이후, 3 시각 없음 */
+export function hotContactSortRank(at: Date | null, now = new Date()): number {
   if (!at) return 3;
-  const ymd = dateToYmdKst(at);
-  if (ymd < today) return 0;
-  if (ymd === today) return 1;
+  if (at.getTime() < now.getTime()) return 0;
+  if (dateToYmdKst(at) === kstTodayYmd()) return 1;
   return 2;
 }
 
@@ -105,9 +105,9 @@ export async function listHotFollowupPage(
     },
     select: { followupId: true, nextContactAt: true, createdAt: true },
   });
-  const today = kstTodayYmd();
+  const now = new Date();
   marks.sort((a, b) => {
-    const rank = hotContactSortRank(a.nextContactAt, today) - hotContactSortRank(b.nextContactAt, today);
+    const rank = hotContactSortRank(a.nextContactAt, now) - hotContactSortRank(b.nextContactAt, now);
     if (rank !== 0) return rank;
     const at = a.nextContactAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
     const bt = b.nextContactAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
@@ -137,11 +137,9 @@ export async function hotMarkSummary(db: PrismaClient, params: { tenantId: strin
           where: { ...openWhere, nextContactAt: { gte: todayRange.gte, lte: todayRange.lte } },
         })
       : Promise.resolve(0),
-    todayRange
-      ? db.orderFollowupHotMark.count({
-          where: { ...openWhere, nextContactAt: { lt: todayRange.gte } },
-        })
-      : Promise.resolve(0),
+    db.orderFollowupHotMark.count({
+      where: { ...openWhere, nextContactAt: { lt: new Date() } },
+    }),
     db.orderFollowupHotMark.count({ where: openWhere }),
   ]);
   return { today, overdue, open };

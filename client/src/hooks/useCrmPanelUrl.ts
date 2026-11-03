@@ -111,6 +111,9 @@ export function useCrmPanelUrl() {
       next.delete('pendingInquiryId');
       next.delete('followupId');
       next.set('fuHot', '1');
+      next.set('fuDatePreset', 'all');
+      next.delete('fuMonth');
+      next.delete('fuDay');
     });
   }, [patchParams]);
 

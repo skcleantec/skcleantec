@@ -51,9 +51,9 @@ export function formatHotWhen(iso: string | null | undefined, now = new Date()):
     minute: '2-digit',
     hour12: false,
   }).formatToParts(date);
-  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? '0');
-  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? '0');
-  const clock = minute === 0 ? `${hour}시` : `${hour}시 ${minute}분`;
+  const hour = parts.find((part) => part.type === 'hour')?.value ?? '00';
+  const minute = parts.find((part) => part.type === 'minute')?.value ?? '00';
+  const clock = `${hour === '24' ? '00' : hour}:${minute}`;
   if (ymd === today) return `오늘 ${clock}`;
   if (ymd === addKstDays(today, 1)) return `내일 ${clock}`;
   if (ymd === addKstDays(today, 2)) return `모레 ${clock}`;
@@ -64,5 +64,5 @@ export function isHotOverdue(iso: string | null | undefined, now = new Date()): 
   if (!iso) return false;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return false;
-  return kstYmd(date) < kstYmd(now);
+  return date.getTime() < now.getTime();
 }

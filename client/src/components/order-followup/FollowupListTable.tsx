@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { OrderFollowupItem } from '../../api/orderFollowups';
 import { FollowupHotMarkPopover } from '../crm/followup/FollowupHotMarkPopover';
 import { HotStarButton } from '../ui/FollowupHotMarkUi';
@@ -62,9 +62,10 @@ export function FollowupListTable({
         <tbody>
           {items.map((row) => {
             const selected = row.id === selectedId;
+            const rowClass = `cursor-pointer border-b border-slate-100/80 transition-colors ${followupRowGoldClass(row.goldDb, selected)}`;
             return (
+              <Fragment key={row.id}>
               <tr
-                key={row.id}
                 role="button"
                 tabIndex={0}
                 onClick={() => onSelect(row)}
@@ -74,7 +75,7 @@ export function FollowupListTable({
                     onSelect(row);
                   }
                 }}
-                className={`cursor-pointer border-b border-slate-100/80 transition-colors ${followupRowGoldClass(row.goldDb, selected)}`}
+                className={rowClass}
               >
                 <td className="py-2 px-1.5 font-medium text-slate-900">
                   <div className="flex min-w-0 items-center justify-center gap-0.5">
@@ -91,19 +92,7 @@ export function FollowupListTable({
                     ) : null}
                     <span className="min-w-0 truncate font-semibold">{row.customerName}</span>
                   </div>
-                  {row.myHotMark ? (
-                    <span className="mt-0.5 flex items-center justify-center gap-1 truncate text-fluid-2xs font-normal text-slate-500">
-                      <span className="truncate">
-                        {hotReasonLabel(row.myHotMark.reason)}
-                        {formatHotWhen(row.myHotMark.nextContactAt)
-                          ? ` · ${formatHotWhen(row.myHotMark.nextContactAt)}`
-                          : ''}
-                      </span>
-                      {isHotOverdue(row.myHotMark.nextContactAt) ? (
-                        <span className="shrink-0 rounded-full bg-[#fdecea] px-1 text-[#b42318]">늦음</span>
-                      ) : null}
-                    </span>
-                  ) : row.nickname?.trim() ? (
+                  {!row.myHotMark && row.nickname?.trim() ? (
                     <span className="block truncate text-[11px] font-normal text-slate-500">{row.nickname}</span>
                   ) : null}
                 </td>
@@ -142,6 +131,22 @@ export function FollowupListTable({
                   <FollowupMemoCell row={row} onOpenMemo={onOpenMemo} />
                 </td>
               </tr>
+              {row.myHotMark ? (
+                <tr className={rowClass} onClick={() => onSelect(row)}>
+                  <td colSpan={9} className="px-2 pb-2 pt-0 text-left">
+                    <p className="whitespace-normal break-words text-fluid-2xs font-normal leading-snug text-slate-600">
+                      {hotReasonLabel(row.myHotMark.reason)}
+                      {formatHotWhen(row.myHotMark.nextContactAt)
+                        ? ` · ${formatHotWhen(row.myHotMark.nextContactAt)}`
+                        : ''}
+                      {isHotOverdue(row.myHotMark.nextContactAt) ? (
+                        <span className="ml-1 inline-flex rounded-full bg-[#fdecea] px-1.5 text-[#b42318]">늦음</span>
+                      ) : null}
+                    </p>
+                  </td>
+                </tr>
+              ) : null}
+              </Fragment>
             );
           })}
         </tbody>

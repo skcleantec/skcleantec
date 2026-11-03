@@ -350,7 +350,13 @@ export function FollowupInlinePanel({
         onFilterGoldDbOnlyChange={(v) => patchFilters({ filterGoldDbOnly: v })}
         filterHotOnly={filters.filterHotOnly}
         hotCount={hotOpenCount}
-        onFilterHotOnlyChange={(v) => patchFilters({ filterHotOnly: v, hotUserId: v ? filters.hotUserId : '' })}
+        onFilterHotOnlyChange={(v) =>
+          patchFilters({
+            filterHotOnly: v,
+            hotUserId: v ? filters.hotUserId : '',
+            ...(v ? { datePreset: 'all' as const } : {}),
+          })
+        }
         hotUserId={isAdmin ? filters.hotUserId : ''}
         onHotUserIdChange={isAdmin ? (v) => patchFilters({ hotUserId: v }) : undefined}
         hotUserOptions={isAdmin && filters.filterHotOnly ? hotUsers : []}
