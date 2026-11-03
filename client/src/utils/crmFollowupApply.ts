@@ -1,4 +1,4 @@
-import type { OrderFollowupItem } from '../api/orderFollowups';
+import type { OrderFollowupHotMark, OrderFollowupItem } from '../api/orderFollowups';
 import type { OrderFollowupStatus } from '../constants/orderFollowupStatus';
 import type { CrmIntakeKind } from '../components/crm/intake/crmIntakeSubmit';
 import type { SoomgoExtractedChat } from '@shared/soomgoBridge';
@@ -28,6 +28,8 @@ export type CrmFollowupApplySnapshot = {
   kind: CrmIntakeKind;
   goldDb: boolean;
   preferredMoveInCleanYmd: string;
+  myHotMark?: OrderFollowupHotMark | null;
+  myHotMarkEditable?: boolean;
   leadSource: string;
   /** 건축물 유형·건물 형태 — 발주서 선택지 저장값(숨고 등에서 맞춘 경우만) */
   propertyType?: string;
@@ -167,6 +169,8 @@ export function crmFollowupApplyFromItem(item: OrderFollowupItem): CrmFollowupAp
     ...extras,
     kind: intakeKindFromFollowupStatus(item.status),
     leadSource: item.leadSource?.trim() ?? '',
+    myHotMark: item.myHotMark ?? null,
+    myHotMarkEditable: item.myHotMarkEditable !== false,
   };
 }
 

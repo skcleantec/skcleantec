@@ -51,6 +51,16 @@ import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import type { UserRole } from '@prisma/client';
 import { mergeCustomerPhones, relinkSafeNumberRecords } from './customerPhoneRelink.service.js';
 import { readCrmWorkBrandInput, resolveCrmWorkOperatingCompanyId } from '../telecrm/crmWorkBrandResolve.service.js';
+import {
+  bookOpenHotMarksForCustomerPhones,
+  hotMarkSummary,
+  listHotFollowupPage,
+  loadOpenHotMarksForFollowups,
+  parseHotMarkReason,
+  parseHotMarkResult,
+  plusOneDaySameClock,
+  serializeFollowupWithHotMark,
+} from './orderFollowupHotMark.service.js';
 
 const router = Router();
 
@@ -206,6 +216,11 @@ async function createInquiryForDepositFlow(params: {
         status: 'DEPOSIT_PENDING',
       });
     }
+    await bookOpenHotMarksForCustomerPhones(tx, {
+      tenantId,
+      customerPhone: params.customerPhone,
+      customerPhone2: params.customerPhone2,
+    });
     return created.id;
   });
 }
@@ -339,6 +354,27 @@ router.get('/', async (req, res) => {
   if (goldDbOnly) {
     where.goldDb = true;
   }
+  const hotOnlyRaw = req.query.hotOnly;
+  const hotOnly = hotOnlyRaw === '1' || hotOnlyRaw === 'true' || hotOnlyRaw === 'yes';
+  let hotListUserId = user.userId;
+  if (hotOnly) {
+    const requested = typeof req.query.hotUserId === 'string' ? req.query.hotUserId.trim() : '';
+    if (requested && requested !== user.userId) {
+      if (user.role !== 'ADMIN') {
+        res.status(403).json({ error: '다른 사람의 가망 목록은 관리자만 볼 수 있습니다.' });
+        return;
+      }
+      const target = await prisma.user.findFirst({
+        where: { id: requested, tenantId, role: { in: ['ADMIN', 'MARKETER'] } },
+        select: { id: true },
+      });
+      if (!target) {
+        res.status(400).json({ error: '마케터를 찾을 수 없습니다.' });
+        return;
+      }
+      hotListUserId = target.id;
+    }
+  }
   if (missingInquiryLink) {
     const rows = await prisma.orderFollowup.findMany({
       where,
@@ -355,6 +391,27 @@ router.get('/', async (req, res) => {
   const take = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 30;
   const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
 
+  const markOwnerId = hotOnly ? hotListUserId : user.userId;
+  if (hotOnly) {
+    const page = await listHotFollowupPage(prisma, {
+      tenantId,
+      userId: hotListUserId,
+      followupWhere: where,
+      skip,
+      take,
+    });
+    const marks = await loadOpenHotMarksForFollowups(prisma, {
+      tenantId,
+      userId: markOwnerId,
+      followupIds: page.rows.map((row) => row.id),
+    });
+    res.json({
+      items: page.rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
+      total: page.total,
+    });
+    return;
+  }
+
   const [total, rows] = await Promise.all([
     prisma.orderFollowup.count({ where }),
     prisma.orderFollowup.findMany({
@@ -365,7 +422,147 @@ router.get('/', async (req, res) => {
       skip,
     }),
   ]);
-  res.json({ items: rows.map((r) => serializeFollowup(r)), total });
+  const marks = await loadOpenHotMarksForFollowups(prisma, {
+    tenantId,
+    userId: user.userId,
+    followupIds: rows.map((row) => row.id),
+  });
+  res.json({
+    items: rows.map((row) => serializeFollowupWithHotMark(row, marks.get(row.id) ?? null)),
+    total,
+  });
+});
+
+router.get('/hot-summary', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  res.json(await hotMarkSummary(prisma, { tenantId, userId: user.userId }));
+});
+
+async function findFollowupForHotMark(tenantId: string, followupId: string) {
+  return prisma.orderFollowup.findFirst({
+    where: { id: followupId, tenantId },
+    select: { id: true },
+  });
+}
+
+router.put('/:id/hot-mark', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const followup = await findFollowupForHotMark(tenantId, req.params.id);
+  if (!followup) {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    return;
+  }
+  const reason = parseHotMarkReason(req.body?.reason);
+  if (!reason) {
+    res.status(400).json({ error: '가망 이유를 선택해 주세요.' });
+    return;
+  }
+  const memoRaw = typeof req.body?.memo === 'string' ? req.body.memo.trim() : '';
+  const memo = memoRaw ? memoRaw.slice(0, 2000) : null;
+  const nextContactAt = parseNextContact(req.body?.nextContactAt);
+  if (req.body?.nextContactAt != null && req.body.nextContactAt !== '' && nextContactAt === undefined) {
+    res.status(400).json({ error: '다음 연락 시각이 올바르지 않습니다.' });
+    return;
+  }
+  const mark = await prisma.orderFollowupHotMark.upsert({
+    where: { followupId_userId: { followupId: followup.id, userId: user.userId } },
+    create: {
+      tenantId,
+      followupId: followup.id,
+      userId: user.userId,
+      reason,
+      memo,
+      nextContactAt: nextContactAt ?? null,
+    },
+    update: {
+      reason,
+      memo,
+      nextContactAt: nextContactAt === undefined ? undefined : nextContactAt,
+      outcome: null,
+      closedAt: null,
+    },
+  });
+  res.json({ myHotMark: { reason: mark.reason, memo: mark.memo, nextContactAt: mark.nextContactAt?.toISOString() ?? null, contactTries: mark.contactTries } });
+});
+
+router.delete('/:id/hot-mark', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const followup = await findFollowupForHotMark(tenantId, req.params.id);
+  if (!followup) {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    return;
+  }
+  await prisma.orderFollowupHotMark.deleteMany({
+    where: { tenantId, followupId: followup.id, userId: user.userId },
+  });
+  res.json({ ok: true });
+});
+
+router.post('/:id/hot-mark/result', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const result = parseHotMarkResult(req.body?.result);
+  if (!result) {
+    res.status(400).json({ error: '결과를 선택해 주세요.' });
+    return;
+  }
+  const followup = await findFollowupForHotMark(tenantId, req.params.id);
+  if (!followup) {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    return;
+  }
+  const current = await prisma.orderFollowupHotMark.findFirst({
+    where: { tenantId, followupId: followup.id, userId: user.userId },
+  });
+  if (!current || current.outcome) {
+    res.status(404).json({ error: '진행 중인 내 가망 표시가 없습니다.' });
+    return;
+  }
+  if (result === 'BOOKED' || result === 'DROPPED') {
+    const mark = await prisma.orderFollowupHotMark.update({
+      where: { id: current.id },
+      data: { outcome: result, closedAt: new Date() },
+    });
+    res.json({ myHotMark: null, outcome: mark.outcome });
+    return;
+  }
+  const given = parseNextContact(req.body?.nextContactAt);
+  if (req.body?.nextContactAt != null && req.body.nextContactAt !== '' && given === undefined) {
+    res.status(400).json({ error: '다음 연락 시각이 올바르지 않습니다.' });
+    return;
+  }
+  const nextContactAt = given ?? plusOneDaySameClock(current.nextContactAt ?? new Date());
+  const mark = await prisma.orderFollowupHotMark.update({
+    where: { id: current.id },
+    data: { contactTries: { increment: 1 }, nextContactAt },
+  });
+  res.json({
+    myHotMark: {
+      reason: mark.reason,
+      memo: mark.memo,
+      nextContactAt: mark.nextContactAt?.toISOString() ?? null,
+      contactTries: mark.contactTries,
+    },
+  });
 });
 
 function normalizeFollowupCallNotePhone(raw: string): string {
@@ -434,7 +631,12 @@ router.get('/:id', async (req, res) => {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
   }
-  res.json({ item: serializeFollowup(row) });
+  const marks = await loadOpenHotMarksForFollowups(prisma, {
+    tenantId,
+    userId: user.userId,
+    followupIds: [row.id],
+  });
+  res.json({ item: serializeFollowupWithHotMark(row, marks.get(row.id) ?? null) });
 });
 
 router.get('/:id/logs', async (req, res) => {

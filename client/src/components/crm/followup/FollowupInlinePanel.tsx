@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import {
   deferOrderFollowup,
   fetchOrderFollowup,
+  fetchOrderFollowupHotSummary,
   listOrderFollowups,
   patchOrderFollowup,
   type OrderFollowupItem,
 } from '../../../api/orderFollowups';
+import { getUsers } from '../../../api/users';
 import {
   ORDER_FOLLOWUP_STATUS_OPTIONS,
   type OrderFollowupStatus,
@@ -78,7 +80,10 @@ export function FollowupInlinePanel({
   onSaved?: () => void;
 }) {
   const token = getToken();
-  const { userName } = useAdminStaffSession();
+  const { userName, userId, role } = useAdminStaffSession();
+  const isAdmin = role === 'ADMIN';
+  const [hotOpenCount, setHotOpenCount] = useState(0);
+  const [hotUsers, setHotUsers] = useState<{ id: string; name: string }[]>([]);
   const {
     filters,
     patchFilters,
@@ -118,6 +123,7 @@ export function FollowupInlinePanel({
           token,
           buildFollowupListQuery({
             filters,
+            allowHotUser: isAdmin,
             operatingCompanyId,
             crmPhone,
             listPage,
@@ -134,8 +140,38 @@ export function FollowupInlinePanel({
         if (!silent) setLoading(false);
       }
     },
-    [token, filters, operatingCompanyId, crmPhone, listPage, listPageSize, setTotal],
+    [token, filters, operatingCompanyId, crmPhone, listPage, listPageSize, setTotal, isAdmin],
   );
+
+  const loadHotSummary = useCallback(async () => {
+    if (!token) return;
+    try {
+      const summary = await fetchOrderFollowupHotSummary(token);
+      setHotOpenCount(summary.open);
+    } catch {
+      setHotOpenCount(0);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadHotSummary();
+    const onRefresh = () => void loadHotSummary();
+    window.addEventListener('crm-hot-summary-refresh', onRefresh);
+    return () => window.removeEventListener('crm-hot-summary-refresh', onRefresh);
+  }, [loadHotSummary, listQueryKey]);
+
+  useEffect(() => {
+    if (!token || !isAdmin) return;
+    void Promise.all([getUsers(token, 'MARKETER'), getUsers(token, 'ADMIN')])
+      .then(([marketers, admins]) => {
+        const rows = [...marketers, ...admins]
+          .filter((user) => user.id !== userId)
+          .map((user) => ({ id: user.id, name: user.name }))
+          .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+        setHotUsers(rows);
+      })
+      .catch(() => setHotUsers([]));
+  }, [token, isAdmin, userId]);
 
   useEffect(() => {
     void loadList();
@@ -264,12 +300,16 @@ export function FollowupInlinePanel({
     if (notice) setMsg(notice);
   };
 
+  const viewingOtherHot = isAdmin && filters.filterHotOnly && Boolean(filters.hotUserId) && filters.hotUserId !== userId;
+
   const handleApply = () => {
     if (!selected) return;
-    onApplyToCrm(selected);
+    onApplyToCrm({ ...selected, myHotMarkEditable: !viewingOtherHot });
   };
 
-  const emptyMessage = filters.filterGoldDbOnly
+  const emptyMessage = filters.filterHotOnly
+    ? '내 가망으로 표시한 건이 없습니다.'
+    : filters.filterGoldDbOnly
     ? '골드DB 건이 없습니다.'
     : filters.listDateBasis === 'preferredMoveIn' && filters.datePreset !== 'all'
       ? '선택한 희망일 범위에 맞는 건이 없습니다.'
@@ -308,6 +348,18 @@ export function FollowupInlinePanel({
         onFilterCustomerNameChange={(v) => patchFilters({ filterCustomerName: v })}
         filterGoldDbOnly={filters.filterGoldDbOnly}
         onFilterGoldDbOnlyChange={(v) => patchFilters({ filterGoldDbOnly: v })}
+        filterHotOnly={filters.filterHotOnly}
+        hotCount={hotOpenCount}
+        onFilterHotOnlyChange={(v) =>
+          patchFilters({
+            filterHotOnly: v,
+            hotUserId: v ? filters.hotUserId : '',
+            ...(v ? { datePreset: 'all' as const } : {}),
+          })
+        }
+        hotUserId={isAdmin ? filters.hotUserId : ''}
+        onHotUserIdChange={isAdmin ? (v) => patchFilters({ hotUserId: v }) : undefined}
+        hotUserOptions={isAdmin && filters.filterHotOnly ? hotUsers : []}
         brandScope={filters.brandScope}
         onBrandScopeChange={(v) => patchFilters({ brandScope: v })}
         showBrandScope
@@ -336,6 +388,13 @@ export function FollowupInlinePanel({
               selectedId={selectedFollowupId}
               onSelect={selectRow}
               onOpenMemo={setMemoView}
+              hotToken={token}
+              hotEditable={!viewingOtherHot}
+              onHotChanged={() => {
+                void loadList({ silent: true });
+                void loadHotSummary();
+                window.dispatchEvent(new Event('crm-hot-summary-refresh'));
+              }}
             />
           </div>
         )}

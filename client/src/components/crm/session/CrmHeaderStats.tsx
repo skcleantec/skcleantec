@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { fetchOrderFollowupHotSummary } from '../../../api/orderFollowups';
 import { getToken } from '../../../stores/auth';
 import { fetchTelecrmWorkdeskStats, type TelecrmWorkdeskStatsDto } from '../../../api/telecrm';
+import { HotHeaderStatButton } from '../../ui/FollowupHotMarkUi';
 
 function formatDuration(sec: number): string {
   if (sec <= 0) return '0분';
@@ -20,9 +22,16 @@ function StatChip({ label, value }: { label: string; value: string }) {
 }
 
 /** CRM 헤더 중앙 — 오늘 통화·접수 집계 */
-export function CrmHeaderStats({ refreshKey = 0 }: { refreshKey?: number }) {
+export function CrmHeaderStats({
+  refreshKey = 0,
+  onOpenHotFollowups,
+}: {
+  refreshKey?: number;
+  onOpenHotFollowups?: () => void;
+}) {
   const token = getToken();
   const [stats, setStats] = useState<TelecrmWorkdeskStatsDto | null>(null);
+  const [hot, setHot] = useState<{ today: number; overdue: number } | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -32,6 +41,12 @@ export function CrmHeaderStats({ refreshKey = 0 }: { refreshKey?: number }) {
     } catch {
       setStats(null);
     }
+    try {
+      const summary = await fetchOrderFollowupHotSummary(token);
+      setHot({ today: summary.today, overdue: summary.overdue });
+    } catch {
+      setHot(null);
+    }
   }, [token]);
 
   useEffect(() => {
@@ -40,7 +55,12 @@ export function CrmHeaderStats({ refreshKey = 0 }: { refreshKey?: number }) {
 
   useEffect(() => {
     const id = window.setInterval(() => void load(), 60_000);
-    return () => window.clearInterval(id);
+    const onRefresh = () => void load();
+    window.addEventListener('crm-hot-summary-refresh', onRefresh);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('crm-hot-summary-refresh', onRefresh);
+    };
   }, [load]);
 
   if (!stats) {
@@ -59,6 +79,11 @@ export function CrmHeaderStats({ refreshKey = 0 }: { refreshKey?: number }) {
         <StatChip label="연결시간" value={formatDuration(stats.connectedDurationSec)} />
         <StatChip label="예약완료" value={`${stats.receivedCount}건`} />
         <StatChip label="부재·보류" value={`${stats.absentHoldCount}건`} />
+        <HotHeaderStatButton
+          today={hot?.today ?? 0}
+          overdue={hot?.overdue ?? 0}
+          onClick={onOpenHotFollowups}
+        />
       </div>
     </div>
   );

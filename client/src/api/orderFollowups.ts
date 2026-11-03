@@ -62,6 +62,23 @@ export interface OrderFollowupItem {
   createdBy: OrderFollowupUserBrief;
   handledBy: OrderFollowupUserBrief | null;
   leadSource?: string | null;
+  /** 로그인한 사람(또는 관리자가 고른 마케터)의 진행 중 가망 표시 */
+  myHotMark?: OrderFollowupHotMark | null;
+  /** 관리자가 다른 마케터 목록을 볼 때는 결과 버튼을 숨긴다 */
+  myHotMarkEditable?: boolean;
+}
+
+export interface OrderFollowupHotMark {
+  reason: string;
+  memo: string | null;
+  nextContactAt: string | null;
+  contactTries: number;
+}
+
+export interface OrderFollowupHotSummary {
+  today: number;
+  overdue: number;
+  open: number;
 }
 
 export interface OrderFollowupLogItem {
@@ -81,6 +98,9 @@ export async function listOrderFollowups(
     customerName?: string;
     /** 골드DB 표시된 행만 */
     goldDbOnly?: boolean;
+    /** 내 가망 표시만. 관리자는 hotUserId로 다른 마케터 */
+    hotOnly?: boolean;
+    hotUserId?: string;
     /** 등록일(createdAt) 기준 — 접수 목록과 동일 KST 구간 (`preferredDatePreset`이 지정되면 무시됨) */
     datePreset?: OrderFollowupDatePreset;
     month?: string;
@@ -110,6 +130,8 @@ export async function listOrderFollowups(
   if (opts?.status) q.set('status', opts.status);
   if (opts?.customerName?.trim()) q.set('customerName', opts.customerName.trim());
   if (opts?.goldDbOnly) q.set('goldDbOnly', '1');
+  if (opts?.hotOnly) q.set('hotOnly', '1');
+  if (opts?.hotUserId?.trim()) q.set('hotUserId', opts.hotUserId.trim());
   if (opts?.inquiryId?.trim()) q.set('inquiryId', opts.inquiryId.trim());
   if (opts?.phone?.trim()) q.set('phone', opts.phone.trim());
   if (opts?.operatingCompanyId?.trim()) q.set('operatingCompanyId', opts.operatingCompanyId.trim());
@@ -284,6 +306,51 @@ export async function fetchOrderFollowupCallNotes(
   if (opts.limit != null) q.set('limit', String(opts.limit));
   const res = await fetch(`${API}/order-followups/call-notes?${q}`, {
     headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function fetchOrderFollowupHotSummary(token: string): Promise<OrderFollowupHotSummary> {
+  const res = await fetch(`${API}/order-followups/hot-summary`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function saveOrderFollowupHotMark(
+  token: string,
+  id: string,
+  body: { reason: string; memo?: string | null; nextContactAt?: string | null },
+): Promise<{ myHotMark: OrderFollowupHotMark }> {
+  const res = await fetch(`${API}/order-followups/${encodeURIComponent(id)}/hot-mark`, {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function deleteOrderFollowupHotMark(token: string, id: string): Promise<{ ok: true }> {
+  const res = await fetch(`${API}/order-followups/${encodeURIComponent(id)}/hot-mark`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function recordOrderFollowupHotResult(
+  token: string,
+  id: string,
+  body: { result: 'BOOKED' | 'NO_ANSWER' | 'THINKING' | 'DROPPED'; nextContactAt?: string },
+): Promise<{ myHotMark: OrderFollowupHotMark | null; outcome?: string }> {
+  const res = await fetch(`${API}/order-followups/${encodeURIComponent(id)}/hot-mark/result`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await readError(res));
   return res.json();

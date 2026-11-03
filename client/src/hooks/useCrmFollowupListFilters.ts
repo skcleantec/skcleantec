@@ -41,6 +41,8 @@ export function parseCrmFollowupListFilters(searchParams: URLSearchParams): Foll
     filterStatus: parseStatus(searchParams.get('fuStatus')),
     filterCustomerName: searchParams.get('fuCustomerName')?.trim() ?? '',
     filterGoldDbOnly: searchParams.get('fuGoldDb') === '1',
+    filterHotOnly: searchParams.get('fuHot') === '1',
+    hotUserId: searchParams.get('fuHotUser')?.trim() ?? '',
     brandScope: parseBrandScope(searchParams.get('fuBrand')),
     phoneLock: searchParams.get('fuPhoneLock') === '1',
   };
@@ -67,6 +69,12 @@ function writeCrmFollowupListFilters(next: URLSearchParams, filters: FollowupLis
 
   if (filters.filterGoldDbOnly) next.set('fuGoldDb', '1');
   else next.delete('fuGoldDb');
+
+  if (filters.filterHotOnly) next.set('fuHot', '1');
+  else next.delete('fuHot');
+
+  if (filters.filterHotOnly && filters.hotUserId) next.set('fuHotUser', filters.hotUserId);
+  else next.delete('fuHotUser');
 
   if (filters.brandScope === 'work') next.set('fuBrand', 'work');
   else next.delete('fuBrand');

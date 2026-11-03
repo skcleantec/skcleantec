@@ -104,6 +104,19 @@ export function useCrmPanelUrl() {
     [patchParams],
   );
 
+  const openHotFollowups = useCallback(() => {
+    patchParams((next) => {
+      next.set('panel', 'followup');
+      next.delete('tab');
+      next.delete('pendingInquiryId');
+      next.delete('followupId');
+      next.set('fuHot', '1');
+      next.set('fuDatePreset', 'all');
+      next.delete('fuMonth');
+      next.delete('fuDay');
+    });
+  }, [patchParams]);
+
   const setFollowupId = useCallback(
     (id: string | null) => {
       patchParams((next) => {
@@ -182,6 +195,7 @@ export function useCrmPanelUrl() {
     openSettings,
     openIssue,
     openFollowup,
+    openHotFollowups,
     setFollowupId,
     closePanel,
     setSettingsTab,

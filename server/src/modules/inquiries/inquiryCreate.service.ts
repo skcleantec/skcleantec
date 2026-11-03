@@ -38,6 +38,7 @@ import { resolveCollaborationMarketerIdForWrite } from './collaborationMarketer.
 import { resolvePublishedIntakeTemplateId } from './inquiryIntakeFormProfile.service.js';
 import { closeOpenFollowupsForInquiry } from '../order-followups/orderFollowups.service.js';
 import { relinkSafeNumberRecords } from '../order-followups/customerPhoneRelink.service.js';
+import { bookOpenHotMarksForCustomerPhones } from '../order-followups/orderFollowupHotMark.service.js';
 import { syncTelecrmQuoteCrewLearningFromInquiry } from '../telecrm/telecrmQuoteCrewLearning.service.js';
 
 export const CREATE_INQUIRY_STATUSES: InquiryStatus[] = [
@@ -321,6 +322,11 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
         inquiryId: inquiry.id,
         inquiryStatus: inquiry.status,
         actorUserId: userId ?? null,
+      });
+      await bookOpenHotMarksForCustomerPhones(db, {
+        tenantId,
+        customerPhone: inquiry.customerPhone,
+        customerPhone2: inquiry.customerPhone2,
       });
     }
     await relinkSafeNumberRecords(db, {
