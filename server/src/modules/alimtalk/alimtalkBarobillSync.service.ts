@@ -167,14 +167,14 @@ export async function syncBarobillAlimtalkTemplates(options?: {
       continue;
     }
     const warnings = templateVariableWarnings(found);
-    const subtitle = [found.TemplateSubtitle, found.TemplateExtra].filter((part) => part.trim()).join('\n');
     await prisma.alimtalkTemplate.update({
       where: { code },
       data: {
         barobillTemplateName: found.TemplateName,
         barobillContent: found.TemplateContent,
         barobillTitle: found.TemplateTitle,
-        barobillSubtitle: subtitle,
+        barobillSubtitle: found.TemplateSubtitle,
+        barobillExtra: found.TemplateExtra,
         barobillButtonsJson: buttonsJson(found.Buttons),
         barobillStatus: found.Status,
         barobillSyncedAt: new Date(),

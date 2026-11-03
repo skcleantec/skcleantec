@@ -5344,6 +5344,8 @@ model AlimtalkTemplate {
   barobillContent       String?   @map("barobill_content") @db.Text
   barobillTitle         String?   @map("barobill_title") @db.VarChar(200)
   barobillSubtitle      String?   @map("barobill_subtitle") @db.Text
+  /** 바로빌 보조문구(TemplateExtra). 승인 원문만 저장한다. */
+  barobillExtra         String?   @map("barobill_extra") @db.Text
   barobillButtonsJson   Json?     @map("barobill_buttons_json")
   barobillStatus        Int?      @map("barobill_status")
   barobillSyncedAt      DateTime? @map("barobill_synced_at")
