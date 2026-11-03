@@ -85,6 +85,7 @@ import { LineMdIcon } from '../../components/ui/LineMdIcon';
 import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
+import { scheduleListOneRoomPhrase } from '../../components/admin/inquiry-edit/oneTwoRoomKind';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { SkCleantecScheduleOneRoomIndicator } from '../../components/admin/SkCleantecScheduleOneRoomIndicator';
 import { SkCleantecScheduleLargeAreaIndicator } from '../../components/admin/SkCleantecScheduleLargeAreaIndicator';
@@ -694,7 +695,9 @@ function ScheduleDayListItem({
                 isOneRoom: isOneRoomItem,
                 orderForm: item.orderForm,
               },
-              { oneRoomLabel },
+              {
+                oneRoomLabel: scheduleListOneRoomPhrase(skOneRoomHighlight, item.oneTwoRoomKind, oneRoomLabel),
+              },
             );
             return areaStr !== '—' ? ` / ${areaStr}` : '';
           })()}
