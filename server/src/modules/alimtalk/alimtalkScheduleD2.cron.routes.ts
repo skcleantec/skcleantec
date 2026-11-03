@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request } from 'express';
 import { runAlimtalkScheduleD2Job } from './alimtalkScheduleD2.service.js';
+import { syncBarobillAlimtalkTemplates } from './alimtalkBarobillSync.service.js';
 
 const router = Router();
 
@@ -32,6 +33,29 @@ router.post('/alimtalk-schedule-d2', async (req, res) => {
   } catch (e) {
     console.error('[alimtalk-schedule-d2] cron failed', e);
     res.status(500).json({ error: '일정 확인 알림톡 작업에 실패했습니다.' });
+  }
+});
+
+/** POST — 바로빌 승인 템플릿 동기화. 20시간 안이면 건너뛴다. */
+router.post('/alimtalk-barobill-sync', async (req, res) => {
+  if (!verifyAlimtalkCronSecret(req)) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    const result = await syncBarobillAlimtalkTemplates();
+    console.info('[alimtalk-barobill] cron', {
+      skipped: result.skipped ?? null,
+      saved: result.templates.filter((row) => row.saved).length,
+      missing: result.missing.length,
+      channelStatus: result.channelStatus,
+      notified: result.notified,
+      configGap: Boolean(result.configGap),
+    });
+    res.json(result);
+  } catch (e) {
+    console.error('[alimtalk-barobill] cron failed', e instanceof Error ? e.name : 'error');
+    res.status(500).json({ error: '바로빌 템플릿 동기화에 실패했습니다.' });
   }
 });
 

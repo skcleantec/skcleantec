@@ -41,6 +41,7 @@ export const PLATFORM_NAV_GROUPS: PlatformNavGroup[] = [
       { label: '카드결제 PG', to: '/platform/card-payment' },
       { label: '전자계약', to: '/platform/card-payment/e-contract' },
       { label: '계산서(바로빌)', to: '/platform/barobill-members' },
+      { label: '알림톡', to: '/platform/alimtalk' },
       { label: 'DB 마켓', to: '/platform/db-marketplace' },
     ],
   },

@@ -5338,6 +5338,17 @@ model AlimtalkTemplate {
   name             String   @db.VarChar(200)
   triggerType      String   @map("trigger_type") @db.VarChar(32)
   isActive         Boolean  @default(true) @map("is_active")
+  /** 발송 대행. 이 단계의 실제 발송은 아직 솔라피만 사용한다. */
+  provider              String    @default("solapi") @db.VarChar(16)
+  barobillTemplateName  String?   @map("barobill_template_name") @db.VarChar(200)
+  barobillContent       String?   @map("barobill_content") @db.Text
+  barobillTitle         String?   @map("barobill_title") @db.VarChar(200)
+  barobillSubtitle      String?   @map("barobill_subtitle") @db.Text
+  barobillButtonsJson   Json?     @map("barobill_buttons_json")
+  barobillStatus        Int?      @map("barobill_status")
+  barobillSyncedAt      DateTime? @map("barobill_synced_at")
+  barobillSmsSubject    String?   @map("barobill_sms_subject") @db.VarChar(120)
+  barobillSmsMessage    String?   @map("barobill_sms_message") @db.Text
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -5382,6 +5393,12 @@ model AlimtalkSendLog {
   inquiryId                   String?  @map("inquiry_id")
   toPhone                     String   @map("to_phone") @db.VarChar(32)
   solapiMessageId             String?  @map("solapi_message_id") @db.VarChar(64)
+  provider                    String   @default("solapi") @db.VarChar(16)
+  barobillSendKey             String?  @map("barobill_send_key") @db.VarChar(64)
+  sendStatus                  Int?     @map("send_status")
+  resultMessage               String?  @map("result_message") @db.Text
+  smsSendState                String?  @map("sms_send_state") @db.VarChar(32)
+  finalizedAt                 DateTime? @map("finalized_at")
   chargeStatus                String   @map("charge_status") @db.VarChar(16)
   deliveredChannel            String?  @map("delivered_channel") @db.VarChar(8)
   freeUnitsConsumed           Int      @default(0) @map("free_units_consumed")

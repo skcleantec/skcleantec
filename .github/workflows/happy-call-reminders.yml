@@ -35,6 +35,8 @@ jobs:
           fi
           curl -sf -X POST "${BASE_URL%/}/api/admin/cron/alimtalk-schedule-d2" \
             -H "Authorization: Bearer ${CRON_SECRET}"
+          curl -sf -X POST "${BASE_URL%/}/api/admin/cron/alimtalk-barobill-sync" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
       - name: POST cashbill-states
         env:
           BASE_URL: ${{ secrets.CBISEO_CRON_BASE_URL }}

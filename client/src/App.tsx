@@ -77,6 +77,7 @@ import {
   PlatformPgContractDeskPage,
   PlatformCardPaymentPage,
   PlatformBarobillMembersPage,
+  PlatformAlimtalkPage,
   PlatformPgFeeLedgerPage,
   PlatformCardChargePage,
   PublicCardPaymentLinkPage,
@@ -222,6 +223,7 @@ function App() {
           <Route path="billing/settlement" element={<SuspensePage><PlatformBillingSettlementPage /></SuspensePage>} />
           <Route path="card-payment" element={<SuspensePage><PlatformCardPaymentPage /></SuspensePage>} />
           <Route path="barobill-members" element={<SuspensePage><PlatformBarobillMembersPage /></SuspensePage>} />
+          <Route path="alimtalk" element={<SuspensePage><PlatformAlimtalkPage /></SuspensePage>} />
           <Route path="card-payment/fees" element={<SuspensePage><PlatformPgFeeLedgerPage /></SuspensePage>} />
           <Route path="card-payment/e-contract" element={<SuspensePage><PlatformPgContractSettingsPage /></SuspensePage>} />
           <Route path="card-payment/charge" element={<SuspensePage><PlatformCardChargePage /></SuspensePage>} />

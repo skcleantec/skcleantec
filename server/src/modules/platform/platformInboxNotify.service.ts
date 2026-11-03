@@ -10,6 +10,7 @@ export type PlatformOpsEvent =
   | 'pg_submit'
   | 'barobill_review'
   | 'barobill_link'
+  | 'alimtalk_barobill'
   | 'link_slot'
   | 'signup_inquiry'
   | 'card_cancel_request';
