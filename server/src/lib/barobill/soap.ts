@@ -11,14 +11,20 @@ debugNs.disable?.('soap');
 
 const CALL_TIMEOUT_MS = 20_000;
 
-export type BarobillServiceName = 'TI' | 'CASHBILL' | 'CORPSTATE';
+export type BarobillServiceName = 'TI' | 'CASHBILL' | 'CORPSTATE' | 'KAKAOTALK';
+
+const WSDL_FILE: Record<BarobillServiceName, string> = {
+  TI: 'TI.asmx',
+  CASHBILL: 'CASHBILL.asmx',
+  CORPSTATE: 'CORPSTATE.asmx',
+  KAKAOTALK: 'KAKAOTALK.asmx',
+};
 
 const clients = new Map<string, Promise<Client>>();
 
 export function barobillWsdlUrl(service: BarobillServiceName, env: BarobillEnvName = resolveBarobillEnv()): string {
   const host = env === 'prod' ? 'https://ws.baroservice.com' : 'https://testws.baroservice.com';
-  const file = service === 'TI' ? 'TI.asmx' : service === 'CASHBILL' ? 'CASHBILL.asmx' : 'CORPSTATE.asmx';
-  return `${host}/${file}?wsdl`;
+  return `${host}/${WSDL_FILE[service]}?wsdl`;
 }
 
 export class BarobillCallError extends Error {

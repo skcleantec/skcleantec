@@ -170,6 +170,11 @@ export const PlatformBarobillMembersPage = lazyWithRetry(() =>
     default: m.PlatformBarobillMembersPage,
   }))
 );
+export const PlatformAlimtalkPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformAlimtalkPage').then((m) => ({
+    default: m.PlatformAlimtalkPage,
+  }))
+);
 export const PlatformPgFeeLedgerPage = lazyWithRetry(() =>
   import('../pages/platform/card-payment/PlatformPgFeeLedgerPage').then((m) => ({
     default: m.PlatformPgFeeLedgerPage,

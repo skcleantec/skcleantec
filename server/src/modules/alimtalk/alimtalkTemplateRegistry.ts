@@ -21,6 +21,47 @@ type OrderFormWithBrand = OrderForm & {
   operatingCompany: OperatingCompany | null;
 };
 
+/** 바로빌 #{동의일시}. 솔라피 템플릿은 이 변수를 쓰지 않는다. */
+export function formatConsentAtKst(at: Date | null | undefined): string {
+  if (!at || Number.isNaN(at.getTime())) return '—';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(at);
+  const pick = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+  const year = pick('year');
+  const month = pick('month');
+  const day = pick('day');
+  const hour = pick('hour');
+  const minute = pick('minute');
+  if (!year || !month || !day) return '—';
+  return `${year}-${month}-${day} ${hour || '00'}:${minute || '00'}`;
+}
+
+/** 승인 본문에 나와도 우리가 채울 수 있는 변수. */
+export const ALIMTALK_FILLABLE_VARIABLES = [
+  '#{고객명}',
+  '#{브랜드명}',
+  '#{총금액}',
+  '#{예약금}',
+  '#{청소일}',
+  '#{시간대}',
+  '#{업체명}',
+  '#{문의전화}',
+  '#{발주토큰}',
+  '#{업체코드}',
+  '#{브랜드코드}',
+  '#{접수번호}',
+  '#{주소}',
+  '#{무위약마감일}',
+  '#{동의일시}',
+] as const;
+
 export type AlimtalkTemplateBuildContext = {
   order: OrderFormWithBrand;
   tenant: Pick<Tenant, 'id' | 'slug'>;
@@ -113,6 +154,7 @@ export async function buildOrderLinkAlimtalkVariables(params: AlimtalkTemplateBu
   return {
     '#{고객명}': order.customerName?.trim() || '고객',
     '#{브랜드명}': brandDisplay || trust?.companyName || '',
+    '#{동의일시}': formatConsentAtKst(order.submittedAt),
     '#{총금액}': formatWonAmount(order.totalAmount),
     '#{예약금}': formatWonAmount(order.depositAmount),
     '#{청소일}': order.preferredDate?.trim() || '—',
@@ -146,6 +188,7 @@ export async function buildOrderDoneAlimtalkVariables(
   return {
     '#{고객명}': inquiry.customerName?.trim() || order.customerName?.trim() || '고객',
     '#{브랜드명}': brandDisplay || trust?.companyName || '',
+    '#{동의일시}': formatConsentAtKst(order.submittedAt),
     '#{접수번호}': inquiry.inquiryNumber?.trim() || '—',
     '#{청소일}': formatPreferredDateYmd(inquiry.preferredDate ?? order.preferredDate),
     '#{시간대}': timeLabel,
@@ -191,6 +234,7 @@ export async function buildScheduleD2AlimtalkVariables(
   return {
     '#{고객명}': inquiry.customerName?.trim() || order.customerName?.trim() || '고객',
     '#{브랜드명}': brandDisplay || trust?.companyName || '',
+    '#{동의일시}': formatConsentAtKst(order.submittedAt),
     '#{청소일}': preferredDateYmd,
     '#{시간대}': timeLabel,
     '#{주소}': formatInquiryAddress(inquiry.address, inquiry.addressDetail),
