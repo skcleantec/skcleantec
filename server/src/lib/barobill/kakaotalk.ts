@@ -152,7 +152,7 @@ export async function getTemplates(channelId: string): Promise<BarobillKakaoTemp
     CorpNum: SERVICE_BRIDGE_CORP_NUM,
     ChannelId: channel,
   });
-  return rowsOf(value, 'KakaotalkTemplate').map((row) => ({
+  const parsed = rowsOf(value, 'KakaotalkTemplate').map((row) => ({
     ChannelId: asText(row.ChannelId),
     TemplateName: asText(row.TemplateName),
     TemplateMessageType: asInt(row.TemplateMessageType),
@@ -165,6 +165,18 @@ export async function getTemplates(channelId: string): Promise<BarobillKakaoTemp
     SecurityFlag: row.SecurityFlag === true || row.SecurityFlag === 'true',
     Buttons: readButtons(row.Buttons),
   }));
+  const failed = parsed.find((row) => row.Status < 0 && !row.TemplateName.trim());
+  if (failed) {
+    let detail = '';
+    try {
+      const text = await callBarobill('KAKAOTALK', 'GetErrString', { ErrCode: failed.Status });
+      detail = asText(text).replace(/\s+/g, ' ').trim();
+    } catch {
+      detail = '';
+    }
+    throw new Error(detail || `바로빌 오류 ${failed.Status}`);
+  }
+  return parsed;
 }
 
 async function managementUrl(method: string, id: string): Promise<string> {
