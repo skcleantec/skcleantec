@@ -72,7 +72,7 @@ router.post('/mobile-incoming-ring', async (req, res) => {
   }
   try {
     const { wsDelivered, skipped } = await notifyTelecrmMobileIncomingRing(tenantId, user, phone);
-    res.status(201).json({ ok: true, wsDelivered, skipped: Boolean(skipped) });
+    res.status(201).json({ ok: true, wsDelivered, skipped: skipped ?? false });
   } catch (e) {
     console.error('[telecrm/mobile-incoming-ring]', e);
     res.status(500).json({ error: '수신 알림 처리에 실패했습니다.' });

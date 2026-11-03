@@ -16,6 +16,7 @@ import { saveOrderFollowupHotMark, type OrderFollowupHotMark } from '../../../ap
 import { FollowupHotIntakeSlot } from '../followup/FollowupHotIntakeSlot';
 import type { HotMarkDraft } from '../followup/FollowupHotMarkPopover';
 import { toast } from '../../ui/Toast';
+import { formatHotWhen, hotReasonLabel } from '../../../utils/orderFollowupHotMark';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
 import { HelpTooltip } from '../../ui/HelpTooltip';
@@ -313,9 +314,12 @@ export function CrmIntakeForm({
         { operatingCompanyId, quotePayload, incrementDefer, existingInquiry },
       );
       const freshStart = incrementDefer || !keepForm;
+      let hotNote = '';
       if (result.kind === 'followup' && result.followupId && pendingHot) {
         const saved = await saveOrderFollowupHotMark(token, result.followupId, pendingHot);
         window.dispatchEvent(new Event('crm-hot-summary-refresh'));
+        const when = formatHotWhen(saved.myHotMark.nextContactAt);
+        hotNote = ` · ⭐ 내 가망에 넣었어요 (${hotReasonLabel(saved.myHotMark.reason)}${when ? ` · ${when}` : ''})`;
         if (!freshStart) {
           setHotSession({ followupId: result.followupId, mark: saved.myHotMark });
           setPendingHot(null);
@@ -332,7 +336,9 @@ export function CrmIntakeForm({
         toast.success('새 접수로 저장했어요');
         setMsg('새 접수로 저장했어요.');
       } else {
-        setMsg(incrementDefer ? '저장했습니다. 부재+1 반영' : '저장했습니다.');
+        const text = `${incrementDefer ? '저장했습니다. 부재+1 반영' : '저장했습니다.'}${hotNote}`;
+        setMsg(text);
+        if (hotNote) toast.success(text);
       }
       if (!freshStart) {
         window.setTimeout(() => setMsg(null), 2500);

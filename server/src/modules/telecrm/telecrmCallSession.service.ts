@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { rememberTelecrmRecentOutbound } from './telecrmMobileIncoming.service.js';
 import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { kstDayRangeYmd } from '../inquiries/inquiryListDateRange.js';
 import {
@@ -237,6 +238,9 @@ export async function createTelecrmCallSession(
   }
 
   const verified = Boolean(input.androidCallLogId) || (input.durationSec != null && input.durationSec > 0);
+  if (input.direction === 'OUTBOUND' && (input.source === 'APP_DIAL' || input.status === 'DIAL_ATTEMPT')) {
+    rememberTelecrmRecentOutbound(tenantId, userId, input.phone);
+  }
   return prisma.telecrmCallSession.create({
     data: {
       tenantId,

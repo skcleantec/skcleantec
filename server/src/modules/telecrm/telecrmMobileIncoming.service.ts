@@ -11,6 +11,44 @@ function normalizePhone(raw: string): string {
 
 const recentByKey = new Map<string, number>();
 const DEDUPE_MS = 2500;
+const recentOutbound = new Map<string, { phone: string; at: number }>();
+const OUTBOUND_WINDOW_MS = 90_000;
+
+function phonesSame(a: string, b: string): boolean {
+  const left = a.replace(/^82(?=\d{8,})/, '0');
+  const right = b.replace(/^82(?=\d{8,})/, '0');
+  if (left === right) return true;
+  const shorter = left.length <= right.length ? left : right;
+  const longer = left.length <= right.length ? right : left;
+  return shorter.length >= 8 && longer.endsWith(shorter);
+}
+
+/** PC 통화 요청·앱 발신 — 같은 번호의 수신 알림을 잠시 막는다 */
+export function rememberTelecrmRecentOutbound(tenantId: string, userId: string, phoneRaw: string): void {
+  const phone = normalizePhone(phoneRaw);
+  if (!tenantId || !userId || phone.length < 4) return;
+  const now = Date.now();
+  recentOutbound.set(`${tenantId}:${userId}:${phone}`, { phone, at: now });
+  if (recentOutbound.size > 500) {
+    for (const [key, row] of recentOutbound) {
+      if (now - row.at > OUTBOUND_WINDOW_MS) recentOutbound.delete(key);
+    }
+  }
+}
+
+function isRecentOutbound(tenantId: string, userId: string, phone: string): boolean {
+  const now = Date.now();
+  const prefix = `${tenantId}:${userId}:`;
+  let matched = false;
+  for (const [key, row] of recentOutbound) {
+    if (now - row.at > OUTBOUND_WINDOW_MS) {
+      recentOutbound.delete(key);
+      continue;
+    }
+    if (key.startsWith(prefix) && phonesSame(row.phone, phone)) matched = true;
+  }
+  return matched;
+}
 
 export type TelecrmMobileIncomingRingPayload = {
   type: 'telecrm:incoming-ring';
@@ -27,14 +65,17 @@ export async function notifyTelecrmMobileIncomingRing(
   tenantId: string,
   user: AuthPayload,
   phoneRaw: string,
-): Promise<{ wsDelivered: boolean; skipped?: boolean }> {
+): Promise<{ wsDelivered: boolean; skipped?: 'recent-outbound' | 'dedupe' }> {
   const phone = normalizePhone(phoneRaw);
   if (phone.length < 4) return { wsDelivered: false };
+  if (isRecentOutbound(tenantId, user.userId, phone)) {
+    return { wsDelivered: false, skipped: 'recent-outbound' };
+  }
 
   const dedupeKey = `${tenantId}:${user.userId}:${phone}`;
   const now = Date.now();
   const last = recentByKey.get(dedupeKey) ?? 0;
-  if (now - last < DEDUPE_MS) return { wsDelivered: false, skipped: true };
+  if (now - last < DEDUPE_MS) return { wsDelivered: false, skipped: 'dedupe' };
   recentByKey.set(dedupeKey, now);
   if (recentByKey.size > 500) {
     for (const [k, t] of recentByKey) {

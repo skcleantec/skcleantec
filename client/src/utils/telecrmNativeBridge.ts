@@ -1,6 +1,7 @@
 /** PC CRM ↔ Android 앱 연동 (WebView 브릿지 + PC→폰 dispatch) */
 import { postTelecrmMobileDispatch } from '../api/telecrmMobileDispatch';
 import { getToken } from '../stores/auth';
+import { rememberCrmOutboundCall } from './telecrmRecentOutbound';
 
 declare global {
   interface Window {
@@ -89,6 +90,7 @@ export async function telecrmCall(
   if (digits.length < 4) {
     return { mode: 'fallback', errorMessage: '전화번호(4자 이상)를 입력해 주세요.' };
   }
+  rememberCrmOutboundCall(digits);
   if (window.TelecrmApp?.call) {
     window.TelecrmApp.call(digits, opts.inquiryId ?? '');
     return { mode: 'native' };

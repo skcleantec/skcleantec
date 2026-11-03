@@ -1,6 +1,7 @@
 import type { Prisma, TelecrmMobileDispatchPending } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { deliverTelecrmDispatch, countTelecrmAppsInTenant } from '../realtime/realtimeHub.js';
+import { rememberTelecrmRecentOutbound } from './telecrmMobileIncoming.service.js';
 
 export type TelecrmMobileDispatchAction = 'call' | 'sms' | 'prefill';
 
@@ -134,6 +135,7 @@ export async function enqueueTelecrmMobileDispatch(
 
   if (parsed.action === 'call') {
     await clearPendingCallDispatches(tenantId, actorUserId);
+    rememberTelecrmRecentOutbound(tenantId, actorUserId, parsed.phone);
   }
 
   const item: TelecrmMobileDispatchItem = {

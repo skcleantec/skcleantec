@@ -21,11 +21,37 @@ object IncomingCallRouter {
     private var ringGeneration: Long = 0
     private var incomingUiDismissed = false
     private var callAnswered = false
+    private val outboundUntilMs = mutableMapOf<String, Long>()
+
+    /** 앱이 직접 건 번호 — 이 동안 수신 벨로 처리하지 않음 */
+    fun rememberOutbound(rawPhone: String) {
+        val phone = CallerInfo.normalizeDigits(rawPhone)
+        if (phone.length < 4) return
+        val now = System.currentTimeMillis()
+        outboundUntilMs[phone] = now + OUTBOUND_IGNORE_MS
+        outboundUntilMs.entries.removeAll { it.value < now }
+    }
+
+    private fun isRecentOutbound(phone: String): Boolean {
+        val now = System.currentTimeMillis()
+        var matched = false
+        val iterator = outboundUntilMs.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.value < now) {
+                iterator.remove()
+                continue
+            }
+            if (phonesSame(entry.key, phone)) matched = true
+        }
+        return matched
+    }
 
     fun onRinging(context: Context, rawPhone: String) {
         val app = context.applicationContext
         val phone = CallerInfo.normalizeDigits(rawPhone)
         if (phone.length < 4) return
+        if (isRecentOutbound(phone)) return
         val now = System.currentTimeMillis()
         if (phone == activePhone && now - lastRingAtMs < 2500) return
         activePhone = phone
@@ -122,6 +148,18 @@ object IncomingCallRouter {
             TelecrmNotificationHelper.showOverlayPermissionReminder(context.applicationContext)
         }
     }
+}
+
+private const val OUTBOUND_IGNORE_MS = 60_000L
+
+private fun phonesSame(a: String, b: String): Boolean {
+    if (a == b) return true
+    val na = if (a.startsWith("82") && a.length > 9) "0" + a.removePrefix("82") else a
+    val nb = if (b.startsWith("82") && b.length > 9) "0" + b.removePrefix("82") else b
+    if (na == nb) return true
+    val shorter = if (na.length <= nb.length) na else nb
+    val longer = if (na.length <= nb.length) nb else na
+    return shorter.length >= 8 && longer.endsWith(shorter)
 }
 
 object IncomingCallSession {
