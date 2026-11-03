@@ -90,15 +90,29 @@ export function HotTextButton({
 }
 
 export function HotMarkIntakeButton({
-  marked = false,
+  pendingText = null,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { marked?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { pendingText?: string | null }) {
+  const pending = Boolean(pendingText);
   return (
     <Btn
-      className="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-fluid-2xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+      className="flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-[#fbbf24] bg-[#fffbeb] px-2.5 text-left hover:bg-[#fef3c7]"
       {...rest}
     >
-      {marked ? '⭐ 내 가망으로 표시' : '☆ 내 가망으로 표시'}
+      {pending ? (
+        <span className="min-w-0 truncate text-fluid-xs font-semibold text-[#92400e]">
+          ⭐ 내 가망 · {pendingText} · 저장하면 들어가요
+        </span>
+      ) : (
+        <>
+          <span className="min-w-0 truncate text-fluid-xs font-semibold text-[#92400e]">
+            <span className="text-[#fbbf24]">☆</span> 내 가망으로 표시
+          </span>
+          <span className="ml-auto shrink-0 text-fluid-2xs font-normal text-slate-500">
+            할 것 같은 고객이면 눌러 두세요
+          </span>
+        </>
+      )}
     </Btn>
   );
 }

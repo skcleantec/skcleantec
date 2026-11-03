@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { OrderFollowupHotMark } from '../../../api/orderFollowups';
 import { getToken } from '../../../stores/auth';
 import { HotMarkIntakeButton } from '../../ui/FollowupHotMarkUi';
+import { formatHotWhen, hotReasonLabel } from '../../../utils/orderFollowupHotMark';
 import { FollowupHotIntakeBanner } from './FollowupHotIntakeBanner';
 import { FollowupHotMarkPopover, type HotMarkDraft } from './FollowupHotMarkPopover';
 
@@ -37,16 +38,18 @@ export function FollowupHotIntakeSlot({
     ? { reason: pending.reason, memo: pending.memo, nextContactAt: pending.nextContactAt, contactTries: 0 }
     : null;
 
+  const when = pending ? formatHotWhen(pending.nextContactAt) : '';
+  const pendingText = pending
+    ? [hotReasonLabel(pending.reason), when].filter(Boolean).join(' · ')
+    : null;
+
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+    <div>
       <HotMarkIntakeButton
-        marked={Boolean(pending)}
+        pendingText={pendingText}
         disabled={disabled}
         onClick={(event) => setAnchor(event.currentTarget.getBoundingClientRect())}
       />
-      {pending ? (
-        <span className="text-fluid-2xs leading-snug text-slate-500">저장하면 내 가망에 들어가요</span>
-      ) : null}
       {anchor ? (
         <FollowupHotMarkPopover
           token={token}
