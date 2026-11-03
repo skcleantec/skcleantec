@@ -1,5 +1,7 @@
 import type {
   TelecrmAiQuote,
+  TelecrmAiQuoteChatMessage,
+  TelecrmAiQuoteChatReply,
   TelecrmAiQuoteModelStatus,
   TelecrmAiQuoteRuleDto,
   TelecrmAiQuoteRuleExample,
@@ -165,4 +167,17 @@ export async function previewTelecrmAiQuote(
     body: JSON.stringify(input),
   });
   return parseJson<{ quote: TelecrmAiQuote | null }>(res);
+}
+
+export async function chatTelecrmAiQuoteRule(
+  token: string,
+  messages: TelecrmAiQuoteChatMessage[],
+  operatingCompanyId?: string | null,
+) {
+  const res = await fetch(`${API}/quote-learning/ai-quote/rules/chat`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ messages, operatingCompanyId: operatingCompanyId ?? undefined }),
+  });
+  return parseJson<TelecrmAiQuoteChatReply>(res);
 }
