@@ -11,11 +11,18 @@ import android.util.Log
  */
 class TelecrmCallScreeningService : CallScreeningService() {
     override fun onScreenCall(callDetails: Call.Details) {
-        val digits = CallerInfo.normalizeDigits(callDetails.handle?.schemeSpecificPart)
-        if (digits.length >= 4) {
-            IncomingCallRouter.onRinging(applicationContext, digits)
+        val outgoing =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                callDetails.callDirection == Call.Details.DIRECTION_OUTGOING
+        if (outgoing) {
+            Log.i(TAG, "skip outgoing screen call")
         } else {
-            Log.w(TAG, "onScreenCall without number handle=${callDetails.handle}")
+            val digits = CallerInfo.normalizeDigits(callDetails.handle?.schemeSpecificPart)
+            if (digits.length >= 4) {
+                IncomingCallRouter.onRinging(applicationContext, digits)
+            } else {
+                Log.w(TAG, "onScreenCall without number handle=${callDetails.handle}")
+            }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             respondToCall(

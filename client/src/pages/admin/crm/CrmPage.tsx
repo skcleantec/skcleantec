@@ -69,6 +69,8 @@ import {
 } from '../../../utils/crmIntakeDraft';
 import { Button } from '../../../components/ui/Button';
 import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import { isRecentCrmOutboundCall, phonesMatchDigits } from '../../../utils/telecrmRecentOutbound';
+import { CrmDispatchNotice } from '../../../components/ui/CrmDispatchNotice';
 import {
   deriveSoomgoIntakeDefaults,
   formatSoomgoCountForCrm,
@@ -253,6 +255,10 @@ export function CrmPage() {
   const [draftRestoredPhone, setDraftRestoredPhone] = useState<string | null>(null);
   const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
   const [dispatchNotice, setDispatchNotice] = useState<string | null>(null);
+  const [dispatchNoticeAction, setDispatchNoticeAction] = useState<{
+    label: string;
+    run: () => void;
+  } | null>(null);
   const [crmContext, setCrmContext] = useState<{
     inquiryId: string | null;
     customerMatch: 'new' | 'existing' | 'pick' | 'unknown';
@@ -591,32 +597,83 @@ export function CrmPage() {
     [resetQuotePricingState],
   );
 
-  const showDispatchNotice = useCallback((message: string) => {
+  const showDispatchNotice = useCallback((message: string, action?: { label: string; run: () => void } | null) => {
     setDispatchNotice(message);
+    setDispatchNoticeAction(action ?? null);
     if (dispatchNoticeTimer.current) clearTimeout(dispatchNoticeTimer.current);
-    dispatchNoticeTimer.current = setTimeout(() => setDispatchNotice(null), 4000);
+    dispatchNoticeTimer.current = setTimeout(() => {
+      setDispatchNotice(null);
+      setDispatchNoticeAction(null);
+    }, action ? 20000 : 4000);
   }, []);
 
   const applyMobileIncomingRing = useCallback(
     (payload: { phone: string; customerName?: string | null; inquiryStatus?: string | null }) => {
       const digits = payload.phone.replace(/\D/g, '');
       if (digits.length < 4) return;
-      resetQuotePricingState();
-      setMode('existing');
+      if (isRecentCrmOutboundCall(digits)) return;
+      const name = payload.customerName?.trim();
+      if (phonesMatchDigits(digits, contactPhone) || phonesMatchDigits(digits, safePhone)) {
+        showDispatchNotice(`휴대폰 통화 중 · ${name || customerName.trim() || '고객'}`);
+        return;
+      }
       const formatted =
         digits.length === 11 && digits.startsWith('010')
           ? `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
           : digits;
-      setContactPhone(isCrmMobilePhone(digits) || isCrmSafePhone(digits) ? formatted : digits);
-      setSafePhone('');
-      setContactUnknown(false);
-      setLookupRefreshKey((k) => k + 1);
-      const name = payload.customerName?.trim();
-      const noticeParts = ['휴대폰 수신', name || formatted];
-      if (payload.inquiryStatus) noticeParts.push(payload.inquiryStatus);
-      showDispatchNotice(noticeParts.join(' · '));
+      const form = formSnapshotRef.current;
+      const intakeBusy =
+        Boolean(followupImport) ||
+        quoteLines.length > 0 ||
+        baseEstimateOverrideWon != null ||
+        hasUnsavedDraft ||
+        crmIntakeDraftHasContent({
+          contactPhone,
+          safePhone,
+          customerName,
+          pyeong,
+          nickname: form?.nickname,
+          address: form?.address,
+          preferredMoveInCleanYmd: form?.preferredMoveInCleanYmd,
+          requestMemo: form?.requestMemo,
+          leadSource: form?.leadSource,
+          roomCount: form?.roomCount,
+          bathroomCount: form?.bathroomCount,
+          balconyCount: form?.balconyCount,
+          propertyType: form?.propertyType,
+          buildingType: form?.buildingType,
+          isOneRoom: form?.isOneRoom,
+        });
+      const fill = () => {
+        resetQuotePricingState();
+        setMode('existing');
+        setContactPhone(isCrmMobilePhone(digits) || isCrmSafePhone(digits) ? formatted : digits);
+        setSafePhone('');
+        setContactUnknown(false);
+        setFollowupImport(null);
+        setLookupRefreshKey((k) => k + 1);
+        const noticeParts = ['휴대폰 수신', name || formatted];
+        if (payload.inquiryStatus) noticeParts.push(payload.inquiryStatus);
+        showDispatchNotice(noticeParts.join(' · '));
+      };
+      if (intakeBusy) {
+        showDispatchNotice(`휴대폰 수신 · ${name || formatted}`, { label: '불러오기', run: fill });
+        return;
+      }
+      fill();
     },
-    [resetQuotePricingState, showDispatchNotice],
+    [
+      baseEstimateOverrideWon,
+      contactPhone,
+      customerName,
+      followupImport,
+      hasUnsavedDraft,
+      pyeong,
+      quoteLines.length,
+      resetQuotePricingState,
+      safePhone,
+      showDispatchNotice,
+    ],
   );
 
   useTelecrmIncomingRingRealtime(
@@ -2294,9 +2351,17 @@ export function CrmPage() {
           />
         ) : null}
         {dispatchNotice ? (
-          <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-2.5 text-fluid-sm text-white shadow-lg">
-            {dispatchNotice}
-          </div>
+          <CrmDispatchNotice
+            text={dispatchNotice}
+            actionLabel={dispatchNoticeAction?.label}
+            onAction={
+              dispatchNoticeAction
+                ? () => {
+                    dispatchNoticeAction.run();
+                  }
+                : undefined
+            }
+          />
         ) : null}
         <CrmSmsDrawer
           open={smsDrawerOpen}

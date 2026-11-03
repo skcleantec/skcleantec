@@ -7,18 +7,18 @@
 
 ---
 
-## 현재 상태 (최종 갱신: 2026-11-01)
+## 현재 상태 (최종 갱신: 2026-11-03)
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 38 |
-| **최신 versionName** | `0.8.8-internal` |
+| **최신 versionCode** | 39 |
+| **최신 versionName** | `0.8.9-internal` |
 | **targetSdk** | **36** |
 | **Play 공개 테스트** | v30 AAB · API 36 |
-| **Play 내부 테스트** | **v38 AAB** (Play Console 업로드는 별도) |
+| **Play 내부 테스트** | **v39 AAB** 로컬 빌드 · Play Console 업로드는 별도 |
 | **Play 비공개 테스트** | v35 기준 · v38 승격은 별도 |
 | **Play 프로덕션** | 검토 완료 · 출시 (2026-09-03) · 스토어 최신은 v35 · **v38 AAB는 로컬 빌드만** |
-| **sideload (`/telecrm-app`)** | v38 APK · GitHub Release `telecrm-v0.8.8-internal` · Railway 변수 갱신 (MIN은 35 유지) |
+| **sideload (`/telecrm-app`)** | 아직 v38 · v39 Play 업로드 전이라 Railway는 그대로 |
 | **release 최적화** | `isMinifyEnabled` + `isShrinkResources` + R8 fullMode |
 
 ---
@@ -51,6 +51,20 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v39 · `0.8.9-internal` — 2026-11-03
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | AAB만 빌드 · Play Console 업로드는 아직 안 함 |
+| **AAB** | `apps/telecrm-android/dist/telecrm-play-0.8.9-internal-39.aab` |
+| **SHA256** | `8ec3f588ccdced1a4941beb19206afdf69f2dad44fdedcef2b939bfd2d214b93` |
+| **mapping** | `apps/telecrm-android/dist/telecrm-play-0.8.9-internal-39-mapping.txt` |
+| **Git** | 발신 통화가 수신 벨로 PC 접수란을 지우지 않게 |
+| **변경 요약** | 앱이 직접 건 전화는 수신 화면·PC 알림으로 올리지 않음 |
+| **서버/CRM** | 최근 발신이면 수신 알림 생략 · PC는 같은 번호면 접수란 유지 |
+| **검증** | `bundlePlayRelease` |
+| **메모** | Play 업로드·sideload Railway 변수는 이번 빌드에서 하지 않음 |
 
 ### v38 · `0.8.8-internal` — 2026-11-01
 

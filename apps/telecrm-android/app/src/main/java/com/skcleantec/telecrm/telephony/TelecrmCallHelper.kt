@@ -22,6 +22,7 @@ object TelecrmCallHelper {
             Toast.makeText(context, "전화번호(4자 이상)를 입력해 주세요.", Toast.LENGTH_SHORT).show()
             return
         }
+        IncomingCallRouter.rememberOutbound(digits)
         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$digits"))
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
@@ -39,6 +40,7 @@ object TelecrmCallHelper {
             Toast.makeText(activity, "전화번호(4자 이상)를 입력해 주세요.", Toast.LENGTH_SHORT).show()
             return
         }
+        IncomingCallRouter.rememberOutbound(digits)
         CallReturnMonitor.watch(activity)
         CallLogSync.armOutbound(digits, inquiryId, customerMatch)
         val uri = Uri.parse("tel:$digits")
@@ -62,6 +64,7 @@ object TelecrmCallHelper {
     fun onCallPermissionGranted(activity: Activity, pendingPhone: String?) {
         val digits = pendingPhone?.filter { it.isDigit() }.orEmpty()
         if (digits.length < 4) return
+        IncomingCallRouter.rememberOutbound(digits)
         CallReturnMonitor.watch(activity)
         CallLogSync.armOutbound(digits, null, null)
         activity.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$digits")))
