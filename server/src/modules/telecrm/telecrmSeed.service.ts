@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 
-const DEFAULT_SCRIPT_CATEGORIES: { label: string; tabLabel: string; body: string }[] = [
+const DEFAULT_SCRIPT_CATEGORIES: { label: string; tabLabel: string; body: string; kind?: 'step' | 'reaction' }[] = [
   {
     label: '첫 인사',
     tabLabel: '기본',
@@ -44,6 +44,7 @@ const DEFAULT_SCRIPT_CATEGORIES: { label: string; tabLabel: string; body: string
   },
   {
     label: '반론',
+    kind: 'reaction',
     tabLabel: '기본',
     body: `[비교·고민하신다면]
 네, 충분히 비교해 보시는 게 맞습니다.
@@ -189,6 +190,7 @@ export async function ensureTelecrmDefaults(prisma: PrismaClient, tenantId: stri
             tenantId,
             ownerUserId: null,
             label: row.label,
+            kind: row.kind ?? 'step',
             sortOrder: index,
             tabs: {
               create: {
