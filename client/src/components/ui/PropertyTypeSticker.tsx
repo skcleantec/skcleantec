@@ -38,7 +38,12 @@ function TypeStickerChip({
   );
 }
 
-/** SK 스케줄 — 투룸 원형 스티커 */
+/** 접수 수정 — 원룸 원형 아이콘 */
+export function OneRoomKindSticker() {
+  return <TypeStickerChip label={ONE_ROOM_STICKER_CHAR} title="원룸" />;
+}
+
+/** 접수 수정 — 투룸 원형 아이콘 */
 export function TwoRoomSticker() {
   return <TypeStickerChip label="투" title="투룸" toneClass={TWO_ROOM_CHIP_CLASS} />;
 }
@@ -47,14 +52,15 @@ export function TwoRoomSticker() {
 export function PropertyTypeSticker({
   propertyType,
   isOneRoom,
-  isTwoRoom = false,
+  oneTwoRoomKind = null,
   oneRoomTitle = '원룸',
   emphasizeOneRoomInList = false,
   className = '',
 }: {
   propertyType?: string | null;
   isOneRoom?: boolean | null;
-  isTwoRoom?: boolean | null;
+  /** SK 스케줄 강조 칩 글자. ONE 원룸, TWO 투룸, 그 외 원/투룸 */
+  oneTwoRoomKind?: 'ONE' | 'TWO' | null;
   oneRoomTitle?: string;
   /** 스케줄 접수 내역 — 원/투룸만 강조 */
   emphasizeOneRoomInList?: boolean;
@@ -64,6 +70,8 @@ export function PropertyTypeSticker({
   const typeFull = String(propertyType ?? '').trim();
   const showOneRoom = Boolean(isOneRoom);
   const emphasizeOneRoom = emphasizeOneRoomInList && showOneRoom;
+  const kind = oneTwoRoomKind === 'ONE' || oneTwoRoomKind === 'TWO' ? oneTwoRoomKind : null;
+  const emphasizedLabel = kind === 'ONE' ? '원룸' : kind === 'TWO' ? '투룸' : oneRoomTitle;
 
   if (!typeLabel && !showOneRoom) return null;
 
@@ -74,12 +82,12 @@ export function PropertyTypeSticker({
         emphasizeOneRoom ? (
           <span
             className={`inline-flex items-center gap-0.5 rounded-md bg-gradient-to-r from-red-50 to-blue-50 px-1.5 py-0.5 text-[11px] font-extrabold ring-2 shadow-sm ${
-              isTwoRoom ? 'text-violet-800 ring-violet-400/90' : 'text-red-900 ring-red-400/90'
+              kind === 'TWO' ? 'text-violet-800 ring-violet-400/90' : 'text-red-900 ring-red-400/90'
             }`}
-            title={isTwoRoom ? '투룸' : oneRoomTitle}
+            title={emphasizedLabel}
           >
             <img src={SK_TAEGEUK_FLAG_ASSET} alt="" className="size-3.5 object-contain" aria-hidden />
-            {isTwoRoom ? '투룸' : oneRoomTitle}
+            {emphasizedLabel}
           </span>
         ) : (
           <TypeStickerChip label={ONE_ROOM_STICKER_CHAR} title={oneRoomTitle} />

@@ -2881,8 +2881,8 @@ model Inquiry {
   propertyType    String?      @map("property_type")
   /// 발주서·접수 편집에서 원룸 체크 시 true — 목록·스케줄 표시용
   isOneRoom       Boolean      @default(false) @map("is_one_room")
-  /// SK 원/투룸 중 투룸. isOneRoom 이 false 이면 항상 false
-  isTwoRoom       Boolean      @default(false) @map("is_two_room")
+  /// SK 원/투룸 세부. ONE | TWO. isOneRoom 이 false 이면 null
+  oneTwoRoomKind  String?      @map("one_two_room_kind")
   roomCount       Int?         @map("room_count")
   bathroomCount   Int?         @map("bathroom_count")
   balconyCount    Int?         @map("balcony_count")

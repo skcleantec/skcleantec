@@ -564,7 +564,7 @@ function ScheduleDayListItem({
                 <PropertyTypeSticker
                   propertyType={item.propertyType}
                   isOneRoom={isOneRoomItem}
-                  isTwoRoom={item.isTwoRoom}
+                  oneTwoRoomKind={item.oneTwoRoomKind === 'ONE' || item.oneTwoRoomKind === 'TWO' ? item.oneTwoRoomKind : null}
                   oneRoomTitle={oneRoomLabel}
                   emphasizeOneRoomInList={emphasizeOneRoomInList}
                   className="shrink-0"
