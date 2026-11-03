@@ -4954,7 +4954,7 @@ model TelecrmScriptCategory {
   /// null = 모든 브랜드 공통. 값이 있으면 그 작업 브랜드 상담 화면에만.
   operatingCompanyId String?           @map("operating_company_id")
   operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
-  /// step = 대본 단계, reaction = 고객 반응 버튼
+  /// step = 대본 단계, reaction = 고객 반응 버튼, closing = 예약 끌어내기
   kind        String   @default("step")
   label       String   @db.VarChar(120)
   sortOrder   Int      @default(0) @map("sort_order")

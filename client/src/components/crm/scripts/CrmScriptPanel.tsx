@@ -20,11 +20,16 @@ export const CRM_SCRIPT_SHORTCUT_HELP = [
   '• 위 숫자 단추로 단계를 옮기고, 아래는 고객이 한 말에 대한 답이에요',
 ].join('\n');
 
+type ScriptAudience = 'shared' | 'personal';
+
+const AUDIENCE_KEY = 'crm.scriptAudience.v1';
+
 type FlowTab = {
   id: string;
   categoryId: string;
   categoryLabel: string;
   kind: TelecrmScriptKind;
+  shared: boolean;
   title: string;
   body: string;
   keywords: string;
@@ -69,7 +74,27 @@ function Highlighted({ text, needle }: { text: string; needle: string }) {
 }
 
 function kindOf(category: TelecrmScriptCategoryDto): TelecrmScriptKind {
-  return category.kind === 'reaction' ? 'reaction' : 'step';
+  if (category.kind === 'reaction' || category.kind === 'closing') return category.kind;
+  return 'step';
+}
+
+function readAudience(): ScriptAudience {
+  try {
+    return localStorage.getItem(AUDIENCE_KEY) === 'personal' ? 'personal' : 'shared';
+  } catch {
+    return 'shared';
+  }
+}
+
+function stepShortLabel(label: string): string {
+  const stripped = label.replace(/^\d+\.\s*/, '').trim();
+  return stripped || label.trim();
+}
+
+function reactionButtonLabel(tab: FlowTab): string {
+  const name = tab.title.trim();
+  if (!name || name === '기본') return tab.categoryLabel;
+  return name;
 }
 
 function tabMatches(tab: FlowTab, needle: string): boolean {
@@ -100,12 +125,18 @@ export function CrmScriptPanel({
   const [categories, setCategories] = useState<TelecrmScriptCategoryDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [audience, setAudience] = useState<ScriptAudience>(readAudience);
   const [query, setQuery] = useState('');
   const [stepId, setStepId] = useState<string | null>(null);
   const [tabId, setTabId] = useState<string | null>(null);
   const [reactionId, setReactionId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [reactionOrder, setReactionOrder] = useState<string[]>([]);
+  const [closingIndex, setClosingIndex] = useState(0);
+  const [stepCols, setStepCols] = useState(1);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const stepRowRef = useRef<HTMLDivElement | null>(null);
+  const reactionSourceRef = useRef<FlowTab[]>([]);
   const copyTimer = useRef<number | null>(null);
 
   useEffect(
@@ -151,9 +182,25 @@ export function CrmScriptPanel({
     [customerName, pyeong, estimateLabel],
   );
 
-  const steps = useMemo(
-    () => categories.filter((c) => kindOf(c) === 'step' && c.isActive !== false),
+  const inAudience = useCallback(
+    (shared: boolean) => (audience === 'shared' ? shared : !shared),
+    [audience],
+  );
+
+  const personalCount = useMemo(
+    () => categories.filter((category) => category.isActive !== false && Boolean(category.ownerUserId)).length,
     [categories],
+  );
+
+  const steps = useMemo(
+    () =>
+      categories.filter(
+        (category) =>
+          kindOf(category) === 'step' &&
+          category.isActive !== false &&
+          inAudience(!category.ownerUserId),
+      ),
+    [categories, inAudience],
   );
 
   const flowTabs = useMemo<FlowTab[]>(() => {
@@ -167,6 +214,7 @@ export function CrmScriptPanel({
           categoryId: category.id,
           categoryLabel: category.label.trim(),
           kind: kindOf(category),
+          shared: !category.ownerUserId,
           title: tab.label,
           body: fill(tab.body),
           keywords: tab.keywords ?? '',
@@ -178,18 +226,56 @@ export function CrmScriptPanel({
     return out;
   }, [categories, fill]);
 
-  const reactions = useMemo(
-    () =>
-      flowTabs
-        .filter((tab) => tab.kind === 'reaction')
-        .sort((a, b) => b.useCount - a.useCount || a.sortOrder - b.sortOrder),
-    [flowTabs],
+  const reactionSource = useMemo(
+    () => flowTabs.filter((tab) => tab.kind === 'reaction' && inAudience(tab.shared)),
+    [flowTabs, inAudience],
   );
+  reactionSourceRef.current = flowTabs.filter((tab) => tab.kind === 'reaction');
+  const reactionIdKey = reactionSource
+    .map((tab) => tab.id)
+    .sort()
+    .join(',');
+
+  useEffect(() => {
+    const pool = reactionSourceRef.current.filter((tab) => (audience === 'shared' ? tab.shared : !tab.shared));
+    const sorted = [...pool].sort((a, b) => b.useCount - a.useCount || a.sortOrder - b.sortOrder);
+    setReactionOrder(sorted.map((tab) => tab.id));
+  }, [audience, customerName, reactionIdKey]);
+
+  const reactions = useMemo(() => {
+    const byId = new Map(reactionSource.map((tab) => [tab.id, tab]));
+    const ordered = reactionOrder.map((id) => byId.get(id)).filter((tab): tab is FlowTab => Boolean(tab));
+    const rest = reactionSource.filter((tab) => !reactionOrder.includes(tab.id));
+    return [...ordered, ...rest];
+  }, [reactionOrder, reactionSource]);
+
+  const closingTabs = useMemo(
+    () => flowTabs.filter((tab) => tab.kind === 'closing' && inAudience(tab.shared)),
+    [flowTabs, inAudience],
+  );
+  const closingPhrase = closingTabs.length > 0 ? closingTabs[closingIndex % closingTabs.length] : null;
 
   useEffect(() => {
     if (stepId && steps.some((step) => step.id === stepId)) return;
     setStepId(steps[0]?.id ?? null);
   }, [stepId, steps]);
+
+  useEffect(() => {
+    const el = stepRowRef.current;
+    if (!el) return;
+    const measure = () => {
+      const width = el.clientWidth;
+      const gap = 4;
+      const min = 76;
+      const fit = Math.max(1, Math.floor((width + gap) / (min + gap)));
+      const count = steps.length;
+      setStepCols(count <= fit ? Math.max(count, 1) : Math.ceil(count / 2));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [steps.length]);
 
   const stepIndex = Math.max(0, steps.findIndex((step) => step.id === stepId));
   const currentStep = steps[stepIndex] ?? null;
@@ -289,7 +375,8 @@ export function CrmScriptPanel({
           setStepId(step.id);
           setTabId(null);
         }}
-        className={`flex min-h-8 flex-col items-center justify-center rounded-lg px-1 py-1 text-center text-fluid-2xs font-semibold leading-tight hover:bg-violet-50 ${
+        style={{ width: `calc((100% - ${(Math.max(stepCols, 1) - 1) * 4}px) / ${Math.max(stepCols, 1)})` }}
+        className={`inline-flex h-[30px] min-w-0 items-center justify-center gap-1 truncate rounded-lg px-1.5 text-fluid-2xs font-semibold hover:bg-violet-50 ${
           current
             ? 'bg-[#6d28d9] text-white hover:bg-[#5b21b6]'
             : past
@@ -297,8 +384,9 @@ export function CrmScriptPanel({
               : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
         }`}
       >
-        <span>{index + 1}</span>
-        <span className="w-full break-words">{step.label}</span>
+        <span className="truncate">
+          {index + 1} {stepShortLabel(step.label)}
+        </span>
       </ScriptBtn>
     );
   };
@@ -326,41 +414,79 @@ export function CrmScriptPanel({
   ) : (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 space-y-1.5 border-b border-violet-100 px-2 py-1.5">
-        <div className="relative">
-          <CrmIconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-violet-400" />
-          <input
-            ref={searchRef}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="고객 말 그대로 찾기 (예: 비싸, 부모님, 환불)"
-            aria-label="고객 말 그대로 찾기"
-            className="h-[34px] w-full rounded-lg border border-violet-300 bg-white pl-8 pr-14 text-fluid-xs text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-[#6d28d9] focus:outline-none focus:ring-2 focus:ring-violet-200 [&::-webkit-search-cancel-button]:hidden"
-          />
-          {query ? (
+        <div className="flex items-center gap-1">
+          <div className="relative min-w-0 flex-1">
+            <CrmIconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-violet-400" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="고객 말 그대로 찾기 (예: 비싸, 부모님, 환불)"
+              aria-label="고객 말 그대로 찾기"
+              className="h-[34px] w-full rounded-lg border border-violet-300 bg-white pl-8 pr-14 text-fluid-xs text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-[#6d28d9] focus:outline-none focus:ring-2 focus:ring-violet-200 [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query ? (
+              <ScriptBtn
+                onClick={() => {
+                  setQuery('');
+                  searchRef.current?.focus();
+                }}
+                className="absolute right-1.5 top-1/2 inline-flex h-6 -translate-y-1/2 items-center rounded-lg px-1.5 text-fluid-2xs font-semibold text-[#6d28d9] hover:bg-violet-50"
+              >
+                지우기
+              </ScriptBtn>
+            ) : onOpenSettings ? (
+              <ScriptBtn
+                onClick={onOpenSettings}
+                className="absolute right-1.5 top-1/2 inline-flex h-6 -translate-y-1/2 items-center rounded-lg px-1.5 text-fluid-2xs font-semibold text-[#6d28d9] hover:bg-violet-50"
+              >
+                관리
+              </ScriptBtn>
+            ) : null}
+          </div>
+          <div className="inline-flex h-7 shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5" role="group" aria-label="공용 또는 내 것">
             <ScriptBtn
               onClick={() => {
-                setQuery('');
-                searchRef.current?.focus();
+                setAudience('shared');
+                try {
+                  localStorage.setItem(AUDIENCE_KEY, 'shared');
+                } catch {
+                  /* ignore */
+                }
               }}
-              className="absolute right-1.5 top-1/2 inline-flex h-6 -translate-y-1/2 items-center rounded-lg px-1.5 text-fluid-2xs font-semibold text-[#6d28d9] hover:bg-violet-50"
+              className={`inline-flex h-full items-center rounded-lg px-2 text-fluid-2xs font-semibold ${
+                audience === 'shared' ? 'bg-slate-900 text-white hover:bg-slate-800' : 'text-slate-600 hover:bg-white'
+              }`}
             >
-              지우기
+              공용
             </ScriptBtn>
-          ) : onOpenSettings ? (
             <ScriptBtn
-              onClick={onOpenSettings}
-              className="absolute right-1.5 top-1/2 inline-flex h-6 -translate-y-1/2 items-center rounded-lg px-1.5 text-fluid-2xs font-semibold text-[#6d28d9] hover:bg-violet-50"
+              onClick={() => {
+                setAudience('personal');
+                try {
+                  localStorage.setItem(AUDIENCE_KEY, 'personal');
+                } catch {
+                  /* ignore */
+                }
+              }}
+              className={`inline-flex h-full items-center rounded-lg px-2 text-fluid-2xs font-semibold ${
+                audience === 'personal' ? 'bg-slate-900 text-white hover:bg-slate-800' : 'text-slate-600 hover:bg-white'
+              }`}
             >
-              관리
+              내 것 {personalCount}
             </ScriptBtn>
-          ) : null}
+          </div>
         </div>
-        {steps.length > 0 ? (
-          <div className="grid grid-cols-6 gap-1">{steps.map(stepBtn)}</div>
-        ) : (
-          <p className="text-fluid-2xs text-slate-500">대본 단계가 아직 없어요.</p>
-        )}
+        <div ref={stepRowRef} className="flex flex-wrap gap-1">
+          {steps.length > 0 ? (
+            steps.map(stepBtn)
+          ) : (
+            <p className="text-fluid-2xs text-slate-500">
+              {audience === 'personal' ? '내 대본 단계가 아직 없어요.' : '대본 단계가 아직 없어요.'}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
@@ -373,8 +499,11 @@ export function CrmScriptPanel({
               matches.map((tab) => (
                 <article key={tab.id} className="rounded-lg border border-slate-200 bg-white p-2">
                   <div className="mb-1 flex flex-wrap items-center gap-1">
+                    <span className="rounded-full bg-slate-100 px-1.5 text-fluid-2xs font-medium text-slate-600">
+                      {tab.shared ? '공용' : '내 것'}
+                    </span>
                     <span className="rounded-full bg-violet-50 px-1.5 text-fluid-2xs font-medium text-[#6d28d9]">
-                      {tab.kind === 'reaction' ? '고객 반응' : '대본'}
+                      {tab.kind === 'reaction' ? '고객 반응' : tab.kind === 'closing' ? '예약 끌어내기' : '대본'}
                     </span>
                     <span className="min-w-0 text-fluid-xs font-semibold text-slate-800">
                       {tab.categoryLabel} · {tab.title}
@@ -384,6 +513,24 @@ export function CrmScriptPanel({
                 </article>
               ))
             )}
+            {closingPhrase ? (
+              <div className="rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-2 py-2">
+                <p className="text-fluid-2xs font-semibold text-[#c2410c]">
+                  예약 끌어내기 · 고객이 「할게요」 하기 전에 먼저
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-slate-800" style={bodyStyle}>
+                  {closingPhrase.body || '(멘트가 비어 있어요)'}
+                </p>
+                {closingTabs.length > 1 ? (
+                  <ScriptBtn
+                    onClick={() => setClosingIndex((index) => index + 1)}
+                    className="mt-2 inline-flex h-8 items-center rounded-lg border border-[#fed7aa] bg-white px-2 text-fluid-xs font-semibold text-[#c2410c] hover:bg-[#ffedd5]"
+                  >
+                    다른 멘트
+                  </ScriptBtn>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : currentStep && currentTab ? (
           <div className="space-y-2">
@@ -428,9 +575,27 @@ export function CrmScriptPanel({
                 }}
                 className="inline-flex h-8 flex-[1.4] items-center justify-center rounded-lg bg-[#6d28d9] px-2 text-center text-fluid-xs font-semibold text-white hover:bg-[#5b21b6]"
               >
-                {nextStep ? `다음 단계 · ${nextStep.label}` : '다음 단계'}
+                {nextStep ? `다음 단계 · ${stepShortLabel(nextStep.label)}` : '다음 단계'}
               </ScriptBtn>
             </div>
+            {closingPhrase ? (
+              <div className="rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-2 py-2">
+                <p className="text-fluid-2xs font-semibold text-[#c2410c]">
+                  예약 끌어내기 · 고객이 「할게요」 하기 전에 먼저
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-slate-800" style={bodyStyle}>
+                  {closingPhrase.body || '(멘트가 비어 있어요)'}
+                </p>
+                {closingTabs.length > 1 ? (
+                  <ScriptBtn
+                    onClick={() => setClosingIndex((index) => index + 1)}
+                    className="mt-2 inline-flex h-8 items-center rounded-lg border border-[#fed7aa] bg-white px-2 text-fluid-xs font-semibold text-[#c2410c] hover:bg-[#ffedd5]"
+                  >
+                    다른 멘트
+                  </ScriptBtn>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : (
           <p className="text-fluid-xs text-slate-500">이 단계에 읽을 대본이 아직 없어요.</p>
@@ -451,7 +616,7 @@ export function CrmScriptPanel({
                   reactionId === tab.id ? 'border-[#6d28d9]' : 'border-violet-200'
                 }`}
               >
-                {tab.title}
+                {reactionButtonLabel(tab)}
               </ScriptBtn>
             ))}
           </div>
@@ -461,7 +626,9 @@ export function CrmScriptPanel({
       {openReaction ? (
         <div className="absolute inset-x-0 bottom-0 z-10 flex max-h-[75%] flex-col rounded-t-2xl border border-violet-200 bg-white shadow-lg">
           <div className="flex items-center gap-2 border-b border-violet-100 px-2 py-1.5">
-            <p className="min-w-0 flex-1 text-fluid-xs font-semibold text-slate-900">{openReaction.title}</p>
+            <p className="min-w-0 flex-1 text-fluid-xs font-semibold text-slate-900">
+              {reactionButtonLabel(openReaction)}
+            </p>
             <ScriptBtn
               onClick={() => setReactionId(null)}
               className="inline-flex h-8 shrink-0 items-center rounded-lg px-2 text-fluid-2xs font-semibold text-[#6d28d9] hover:bg-violet-50"

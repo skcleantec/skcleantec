@@ -64,7 +64,7 @@ function serializeCategory(row: {
     ownerUserId: row.ownerUserId ?? null,
     ownerScope: telecrmCategoryOwnerScope(row.ownerUserId ?? null),
     operatingCompanyId: row.operatingCompanyId ?? null,
-    kind: row.kind === 'reaction' ? 'reaction' : 'step',
+    kind: row.kind === 'reaction' || row.kind === 'closing' ? row.kind : 'step',
     operatingCompany: company
       ? {
           id: company.id,
@@ -110,9 +110,9 @@ function serializeTab(row: {
   };
 }
 
-function readScriptKind(raw: unknown): 'step' | 'reaction' | undefined {
+function readScriptKind(raw: unknown): 'step' | 'reaction' | 'closing' | undefined {
   if (raw == null) return undefined;
-  if (raw === 'step' || raw === 'reaction') return raw;
+  if (raw === 'step' || raw === 'reaction' || raw === 'closing') return raw;
   throw new Error('INVALID_KIND');
 }
 

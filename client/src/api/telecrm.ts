@@ -15,7 +15,7 @@ function authHeaders(token: string): HeadersInit {
 
 export type TelecrmCatalogScope = 'work' | 'shared' | 'personal';
 export type TelecrmCatalogOwnerScope = 'shared' | 'personal';
-export type TelecrmScriptKind = 'step' | 'reaction';
+export type TelecrmScriptKind = 'step' | 'reaction' | 'closing';
 
 export type TelecrmScriptTabDto = {
   id: string;

@@ -184,7 +184,9 @@ export function TelecrmScriptSettingsPage({
   const changeKind = useCallback(
     async (kind: TelecrmScriptKind) => {
       if (!token || !selectedCategory) return;
-      if ((selectedCategory.kind === 'reaction' ? 'reaction' : 'step') === kind) return;
+      const current: TelecrmScriptKind =
+        selectedCategory.kind === 'reaction' || selectedCategory.kind === 'closing' ? selectedCategory.kind : 'step';
+      if (current === kind) return;
       setBusy(true);
       setError(null);
       try {
@@ -291,8 +293,9 @@ export function TelecrmScriptSettingsPage({
             <div className="space-y-3">
               {(
                 [
-                  ['대본 단계', categories.filter((c) => c.kind !== 'reaction')],
+                  ['대본 단계', categories.filter((c) => c.kind !== 'reaction' && c.kind !== 'closing')],
                   ['고객 반응 버튼', categories.filter((c) => c.kind === 'reaction')],
+                  ['예약 끌어내기', categories.filter((c) => c.kind === 'closing')],
                 ] as const
               ).map(([title, group]) => (
                 <div key={title} className="space-y-1">
@@ -400,7 +403,11 @@ export function TelecrmScriptSettingsPage({
                     label="상담 화면에 보이기"
                   />
                   <TelecrmScriptKindSegment
-                    value={selectedCategory.kind === 'reaction' ? 'reaction' : 'step'}
+                    value={
+                      selectedCategory.kind === 'reaction' || selectedCategory.kind === 'closing'
+                        ? selectedCategory.kind
+                        : 'step'
+                    }
                     disabled={busy}
                     onChange={(kind) => {
                       void changeKind(kind);

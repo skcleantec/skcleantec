@@ -33,6 +33,14 @@ export function TelecrmScriptKindSegment({
         >
           고객 반응 버튼
         </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange('closing')}
+          className={`${kindBtn} ${value === 'closing' ? 'bg-slate-900 text-white hover:bg-slate-800' : 'text-slate-600'}`}
+        >
+          예약 끌어내기
+        </button>
       </div>
     </div>
   );
