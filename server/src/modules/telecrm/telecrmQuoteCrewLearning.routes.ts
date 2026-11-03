@@ -6,6 +6,7 @@ import { prisma } from '../../lib/prisma.js';
 import { predictTelecrmAiQuote } from './telecrmAiQuoteModel.service.js';
 import {
   buildTelecrmAiQuoteRuleExamples,
+  chatTelecrmAiQuoteRule,
   getTelecrmAiQuoteStatus,
   parseTelecrmAiQuoteRule,
   validateTelecrmAiQuoteRuleSpec,
@@ -120,6 +121,26 @@ router.post('/ai-quote/rules/parse', requireStaffPermission('crm.settings'), asy
   } catch (e) {
     console.error('[telecrm-ai-quote] rule parse failed', e instanceof Error ? e.message : e);
     res.status(500).json({ error: '규칙을 알아듣지 못했어요. 다시 시도해 주세요.' });
+  }
+});
+
+/** 대화로 가르치기 — 되묻기 또는 규칙(여러 개) */
+router.post('/ai-quote/rules/chat', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const raw = (req.body as { messages?: unknown } | undefined)?.messages;
+  const messages = Array.isArray(raw)
+    ? (raw as { role?: unknown; text?: unknown }[]).map((m) => ({
+        role: m.role === 'ai' ? ('ai' as const) : ('user' as const),
+        text: String(m.text ?? ''),
+      }))
+    : [];
+  try {
+    res.json(await chatTelecrmAiQuoteRule(tenantId, user.userId, messages, brandOf(req)));
+  } catch (e) {
+    console.error('[telecrm-ai-quote] rule chat failed', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'AI가 답하지 못했어요. 다시 보내 주세요.' });
   }
 });
 

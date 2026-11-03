@@ -4,6 +4,8 @@
  */
 import { prisma } from '../../lib/prisma.js';
 import type {
+  TelecrmAiQuoteChatMessage,
+  TelecrmAiQuoteChatReply,
   TelecrmAiQuoteModelStatus,
   TelecrmAiQuoteRuleActionKind,
   TelecrmAiQuoteRuleCondition,
@@ -17,6 +19,9 @@ import { loadActiveTelecrmAiQuoteRuleSpecs } from './telecrmAiQuoteRules.store.j
 import { loadTelecrmPropertyChoiceResolver } from './telecrmPropertyChoices.service.js';
 
 const KINDS: TelecrmAiQuoteRuleActionKind[] = ['min', 'max', 'add', 'set', 'perPyeong'];
+
+/** AI 견적 가르치기(대화) 기본 모델 — 상담·판단이 필요해서 평소 요약 모델보다 똑똑한 모델 */
+const DEFAULT_RULE_MODEL = 'gpt-6.1-terra';
 
 function man(won: number): string {
   const abs = Math.abs(won);
@@ -222,6 +227,113 @@ export async function parseTelecrmAiQuoteRule(
     understood: [`조건: ${describeTelecrmAiQuoteCondition(spec.condition)}`, `적용: ${describeTelecrmAiQuoteAction(spec.action)}`],
     examples,
   };
+}
+
+/**
+ * 대화로 가르치기 — 애매한 말(1.5룸·LH 아파트 등)은 되묻고, 정리되면 규칙(여러 개 가능)으로 바꿔 넣기 전·후 금액까지 보여 준다.
+ */
+export async function chatTelecrmAiQuoteRule(
+  tenantId: string,
+  userId: string,
+  messages: TelecrmAiQuoteChatMessage[],
+  operatingCompanyId: string | null,
+): Promise<TelecrmAiQuoteChatReply> {
+  const history = messages
+    .filter((m) => (m.role === 'user' || m.role === 'ai') && typeof m.text === 'string' && m.text.trim())
+    .slice(-12)
+    .map((m) => ({ role: m.role, text: m.text.trim().slice(0, 1000) }));
+  if (!history.some((m) => m.role === 'user')) {
+    return { type: 'ask', reply: '어떤 가격 기준을 알려 주실래요? 예) 방 3개 화장실 2개면 최소 25만원', choices: [] };
+  }
+  const resolver = await loadTelecrmPropertyChoiceResolver(tenantId);
+  const propertyLabels = resolver.options.propertyTypes.map((o) => o.label).filter(Boolean);
+  const userTurns = history.filter((m) => m.role === 'user').length;
+
+  const system = [
+    'You are the pricing assistant of a Korean cleaning company CRM. The owner teaches you pricing rules by chatting in Korean.',
+    'Your job: turn what the owner wants into one or more structured rules, asking short clarifying questions when needed. Reply in friendly, short Korean (해요체).',
+    'The quote calculator can ONLY see these facts about a house: 평수 (pyeong, integer), 방 수 (roomCount), 화장실 수 (bathroomCount), 베란다 수 (balconyCount),',
+    `원룸 여부 (isOneRoom, a checkbox the agent ticks), 건물 유형 (propertyType, one of: ${propertyLabels.join(', ') || '아파트, 오피스텔, 빌라(연립), 상가, 기타'}).`,
+    'It can NOT see: LH/SH·임대·브랜드 아파트 여부, 요청 내용의 단어(베란다 확장·곰팡이 등), 지역, 날짜, 고객 유형.',
+    'Act like a helpful consultant, not a strict parser: never answer only "복잡해요" or "지원하지 않아요".',
+    'If something cannot be done directly, explain briefly WHY in plain words and offer 2-3 concrete workarounds as choices, for example:',
+    '(a) 보이는 정보로 바꿔서 정하기 (예: LH·SH 대신 「아파트 + 원룸 + 15평 이상」), (b) 비슷한 규칙 여러 개로 나누기, (c) 「접수란에 ○○ 체크 칸이 생기면 구분할 수 있어요 — 개발 요청으로 남길까요?」.',
+    'If the owner said several things at once, first restate them as a short numbered list of what you understood, then ask about only the unclear part.',
+    'When the owner uses a concept the calculator cannot see or that is ambiguous (e.g. 1.5룸, 투룸, 복층, LH/SH 아파트, 큰 평수), do NOT refuse.',
+    'Instead ask ONE question at a time that maps it to the visible facts, with 2-4 short answer choices. Examples:',
+    '- "1.5룸은 접수할 때 어떻게 들어와요?" choices ["원룸 체크 + 방1·화1", "방2·화1", "원룸 체크만"]',
+    '- "LH·SH 아파트인지는 접수 정보에 없어서 구분이 안 돼요. 아파트 + 원룸 + 15평 이상이면 모두 같은 가격으로 할까요?" choices ["네, 그렇게 해요", "아니요, 다르게 할게요"]',
+    'When you have enough, return the rules. One owner sentence may need several rules (e.g. 원룸 and 1.5룸 both → two rules).',
+    `After ${userTurns >= 3 ? 'this many turns, stop asking and' : 'at most 3 questions,'} return your best rules with a reply that states your assumptions.`,
+    'Return JSON only, one of:',
+    '{"type":"ask","reply":"<question>","choices":["..",".."]}',
+    '{"type":"rules","reply":"<one short confirmation sentence>","rules":[{"condition":{...},"action":{"kind":..,"amountWon":..}}]}',
+    '{"type":"unsupported","reply":"<why, plus workarounds>"} — almost never; prefer "ask" with workaround choices.',
+    'If the owner picks a workaround that needs a new 접수란 field (개발 요청), reply type "ask" saying you noted it as a 개발 요청 and ask whether to make a temporary rule with the visible facts meanwhile.',
+    'condition keys (omit = any): pyeongMin, pyeongMax, roomCount, bathroomCount, balconyCount, isOneRoom (boolean), propertyType (exact label from the list).',
+    'action.kind: "min" (at least), "max" (at most), "add" (negative for 할인/빼기), "set" (exactly this price — 고정/딱/무조건), "perPyeong" (평수 × amount).',
+    'amountWon: integer KRW (20만원 → 200000, 1만2천원 → 12000). "15평 이상" → pyeongMin 15, "15평 넘으면" → pyeongMin 16, "15평 미만" → pyeongMax 14.',
+    'Never invent conditions the owner did not imply.',
+  ].join(' ');
+
+  const transcript = history.map((m) => `${m.role === 'user' ? '사장님' : 'AI'}: ${m.text}`).join('\n');
+  // 가르치기는 가끔만 쓰는 상담이라 더 똑똑한 모델을 씀 (TELECRM_AI_RULE_MODEL 로 바꿀 수 있음).
+  // 그 모델을 못 쓰면(권한·이름 문제) 평소 모델로 한 번 더.
+  const callChat = (model?: string) =>
+    callOpenAiJson({
+      product: 'telecrm_summary',
+      system,
+      user: transcript,
+      temperature: 0,
+      timeoutMs: 60_000,
+      model,
+      logContext: { tenantId, userId, chatId: null, inquiryId: null, source: 'quote_rule_chat' },
+    });
+  const ruleModel = process.env.TELECRM_AI_RULE_MODEL?.trim() || DEFAULT_RULE_MODEL;
+  let { json, failed, failKind } = await callChat(ruleModel);
+  if (failed && (failKind === 'bad_request' || failKind === 'timeout' || failKind === 'server')) {
+    console.warn(`[telecrm-ai-quote] rule model ${ruleModel} failed (${failKind}) — fallback to default model`);
+    ({ json, failed, failKind } = await callChat(undefined));
+  }
+  if (failed || !json) {
+    return {
+      type: 'unsupported',
+      reply:
+        failKind === 'auth' || failKind === 'no_key'
+          ? 'AI 키 문제로 지금은 대화할 수 없어요. 관리자에게 알려 주세요.'
+          : 'AI가 잠깐 응답하지 않았어요. 한 번 더 보내 주세요.',
+    };
+  }
+  const type = String(json.type ?? '');
+  const reply = String(json.reply ?? '').trim().slice(0, 600);
+  if (type === 'ask') {
+    const choices = Array.isArray(json.choices)
+      ? (json.choices as unknown[]).map((c) => String(c).trim()).filter(Boolean).slice(0, 4)
+      : [];
+    return { type: 'ask', reply: reply || '조금만 더 알려 주실래요?', choices };
+  }
+  if (type === 'rules' && Array.isArray(json.rules) && json.rules.length > 0) {
+    const drafts: TelecrmAiQuoteChatReply & { type: 'rules' } = { type: 'rules', reply: reply || '이렇게 이해했어요.', rules: [] };
+    const problems: string[] = [];
+    for (const raw of (json.rules as unknown[]).slice(0, 6)) {
+      const spec = normalizeSpec((raw ?? {}) as Record<string, unknown>, propertyLabels);
+      if (typeof spec === 'string') {
+        problems.push(spec);
+        continue;
+      }
+      drafts.rules.push({
+        spec,
+        understood: [`조건: ${describeTelecrmAiQuoteCondition(spec.condition)}`, `적용: ${describeTelecrmAiQuoteAction(spec.action)}`],
+        examples: await buildTelecrmAiQuoteRuleExamples(tenantId, spec, operatingCompanyId, 'add'),
+      });
+    }
+    if (drafts.rules.length === 0) {
+      return { type: 'unsupported', reply: problems[0] ?? '규칙으로 바꾸지 못했어요. 조금 다르게 말해 주세요.' };
+    }
+    if (problems.length) drafts.reply = `${drafts.reply} (일부는 못 바꿨어요: ${problems[0]})`;
+    return drafts;
+  }
+  return { type: 'unsupported', reply: reply || '규칙으로 바꾸기 어려워요. 평수·방·화장실·베란다·원룸·건물 유형으로 말해 주세요.' };
 }
 
 export async function getTelecrmAiQuoteStatus(

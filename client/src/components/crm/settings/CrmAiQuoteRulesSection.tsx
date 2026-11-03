@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   TelecrmAiQuote,
+  TelecrmAiQuoteChatReply,
   TelecrmAiQuoteModelStatus,
   TelecrmAiQuoteRuleDto,
   TelecrmAiQuoteRuleExample,
-  TelecrmAiQuoteRuleParseResult,
 } from '@shared/telecrmQuoteCrewLearning';
 import { getToken } from '../../../stores/auth';
 import {
+  chatTelecrmAiQuoteRule,
   deleteTelecrmAiQuoteRule,
   fetchTelecrmAiQuoteRules,
   fetchTelecrmAiQuoteStatus,
-  parseTelecrmAiQuoteRule,
   previewTelecrmAiQuote,
   saveTelecrmAiQuoteRule,
   updateTelecrmAiQuoteRule,
@@ -36,6 +36,21 @@ function fmtWhen(iso: string | null | undefined): string {
     hour12: false,
   });
 }
+
+type ChatTurn = {
+  role: 'user' | 'ai';
+  text: string;
+  reply?: TelecrmAiQuoteChatReply;
+  /** 이 답의 규칙을 배웠는지 */
+  saved?: boolean;
+  /** 배운 뒤 바뀐 금액 */
+  learned?: TelecrmAiQuoteRuleExample[];
+};
+
+const GREETING: ChatTurn = {
+  role: 'ai',
+  text: '어떤 가격 기준을 알려 주실래요? 편하게 말해 주시면 애매한 건 제가 되물어볼게요.\n예) 방 3개 화장실 2개 집은 평수가 작아도 최소 25만원',
+};
 
 function ExampleList({ examples, afterOnly = false }: { examples: TelecrmAiQuoteRuleExample[]; afterOnly?: boolean }) {
   if (examples.length === 0) return null;
@@ -72,8 +87,9 @@ export function CrmAiQuoteRulesSection() {
   const [rules, setRules] = useState<TelecrmAiQuoteRuleDto[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [parsed, setParsed] = useState<TelecrmAiQuoteRuleParseResult | null>(null);
-  const [learned, setLearned] = useState<{ summary: string; examples: TelecrmAiQuoteRuleExample[] } | null>(null);
+  /** 대화 — 사람 말·AI 답 (AI 답에는 되묻기 선택지·규칙 초안·배운 결과가 붙음) */
+  const [thread, setThread] = useState<ChatTurn[]>([GREETING]);
+  const threadEndRef = useRef<HTMLDivElement | null>(null);
   const [ask, setAsk] = useState({ pyeong: '', rooms: '', baths: '', balc: '', type: '', oneRoom: false });
   const [answer, setAnswer] = useState<TelecrmAiQuote | null | undefined>(undefined);
 
@@ -95,40 +111,71 @@ export function CrmAiQuoteRulesSection() {
     void load();
   }, [load]);
 
-  const teach = async () => {
-    if (!token || !text.trim()) return;
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [thread]);
+
+  const send = async (raw: string) => {
+    const msg = raw.trim();
+    if (!token || !msg || busy) return;
+    const next: ChatTurn[] = [...thread, { role: 'user', text: msg }];
+    setThread(next);
+    setText('');
     setBusy(true);
-    setParsed(null);
-    setLearned(null);
     try {
-      setParsed(await parseTelecrmAiQuoteRule(token, text.trim(), activeOperatingCompanyId));
+      const history = next
+        .filter((t) => t !== GREETING)
+        .map((t) => ({ role: t.role, text: t.text }));
+      const res = await chatTelecrmAiQuoteRule(token, history, activeOperatingCompanyId);
+      setThread([...next, { role: 'ai', text: res.reply, reply: res }]);
     } catch (e) {
-      setParsed({ ok: false, reason: e instanceof Error ? e.message : 'AI가 알아듣지 못했어요.' });
+      setThread([...next, { role: 'ai', text: e instanceof Error ? e.message : 'AI가 답하지 못했어요. 다시 보내 주세요.' }]);
     } finally {
       setBusy(false);
     }
   };
 
-  const save = async () => {
-    if (!token || !parsed?.ok) return;
+  const learn = async (turnIndex: number) => {
+    const turn = thread[turnIndex];
+    if (!token || !turn?.reply || turn.reply.type !== 'rules' || turn.saved) return;
+    const userWords = thread.filter((t) => t.role === 'user').map((t) => t.text);
+    const sourceText = userWords.join(' / ').slice(0, 1800);
     setBusy(true);
     try {
-      const res = await saveTelecrmAiQuoteRule(token, {
-        text: text.trim(),
-        spec: parsed.spec,
-        operatingCompanyId: activeOperatingCompanyId,
-      });
-      setLearned({ summary: res.rule.summary, examples: res.examples });
-      setStatus(res.status);
-      setRules((prev) => [...prev, res.rule]);
-      setParsed(null);
-      setText('');
+      const after: TelecrmAiQuoteRuleExample[] = [];
+      const savedRules: TelecrmAiQuoteRuleDto[] = [];
+      let lastStatus: TelecrmAiQuoteModelStatus | null = null;
+      for (const draft of turn.reply.rules) {
+        const res = await saveTelecrmAiQuoteRule(token, {
+          text: sourceText,
+          spec: draft.spec,
+          operatingCompanyId: activeOperatingCompanyId,
+        });
+        savedRules.push(res.rule);
+        after.push(...res.examples);
+        lastStatus = res.status;
+      }
+      if (lastStatus) setStatus(lastStatus);
+      setRules((prev) => [...prev, ...savedRules]);
+      setThread((prev) => [
+        ...prev.map((t, i) => (i === turnIndex ? { ...t, saved: true } : t)),
+        {
+          role: 'ai',
+          text: `✓ 배웠어요! 「${savedRules.map((r) => r.summary).join('」, 「')}」 — 다음 견적부터 이렇게 계산해요.`,
+          learned: after,
+        },
+      ]);
       toast.success('배웠어요! 다음 견적부터 바로 적용돼요.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장하지 못했어요.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const restart = () => {
+    setThread([GREETING]);
+    setText('');
   };
 
   const toggle = async (rule: TelecrmAiQuoteRuleDto, next: boolean) => {
@@ -199,57 +246,94 @@ export function CrmAiQuoteRulesSection() {
         </span>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-fluid-xs text-slate-600">
-          가격 기준을 말로 적으면 AI가 규칙으로 바꿔서 보여줘요. 확인하고 「이대로 배우기」를 누르면 다음 견적부터 바로 적용돼요.
-        </p>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={2}
-          placeholder="예) 방 3개 화장실 2개 집은 평수가 작아도 최소 25만원은 받아"
-          className={crmFieldClass}
-        />
-        <div className="flex gap-2">
-          <Button size="sm" variant="primary" disabled={busy || !text.trim()} onClick={() => void teach()}>
-            {busy && !parsed ? 'AI가 읽는 중…' : 'AI에게 알려주기'}
-          </Button>
-        </div>
-
-        {parsed?.ok ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs text-emerald-950">
-            <p className="font-semibold">이렇게 이해했어요</p>
-            {parsed.understood.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-            {parsed.examples.length > 0 ? (
-              <div className="mt-1.5">
-                <p className="text-fluid-2xs font-semibold text-slate-600">넣으면 이렇게 바뀌어요</p>
-                <ExampleList examples={parsed.examples} />
+      <div className="rounded-xl border border-slate-200">
+        <div className="max-h-80 space-y-2 overflow-y-auto p-3">
+          {thread.map((turn, i) =>
+            turn.role === 'user' ? (
+              <div key={i} className="flex justify-end">
+                <p className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-slate-900 px-3 py-1.5 text-fluid-xs text-white">
+                  {turn.text}
+                </p>
               </div>
+            ) : (
+              <div key={i} className="flex justify-start">
+                <div className="max-w-[90%] rounded-2xl rounded-tl-md bg-slate-100 px-3 py-1.5 text-fluid-xs text-slate-800">
+                  <p className="whitespace-pre-wrap">
+                    <span className="mr-1">🤖</span>
+                    {turn.text}
+                  </p>
+                  {turn.reply?.type === 'ask' && turn.reply.choices.length > 0 && i === thread.length - 1 ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {turn.reply.choices.map((c) => (
+                        <Button key={c} size="sm" className="!h-7" disabled={busy} onClick={() => void send(c)}>
+                          {c}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {turn.reply?.type === 'rules' ? (
+                    <div className="mt-1.5 space-y-1.5">
+                      {turn.reply.rules.map((draft, k) => (
+                        <div key={k} className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5">
+                          <p className="font-semibold text-emerald-800">규칙 {k + 1} · {draft.spec.summary}</p>
+                          {draft.understood.map((line) => (
+                            <p key={line} className="text-slate-600">
+                              {line}
+                            </p>
+                          ))}
+                          {draft.examples.length > 0 ? (
+                            <>
+                              <p className="mt-1 text-fluid-2xs font-semibold text-slate-500">넣으면 이렇게 바뀌어요</p>
+                              <ExampleList examples={draft.examples} />
+                            </>
+                          ) : null}
+                        </div>
+                      ))}
+                      {turn.saved ? (
+                        <p className="text-fluid-2xs font-semibold text-emerald-700">✓ 배운 규칙이에요</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          <Button size="sm" variant="primary" disabled={busy} onClick={() => void learn(i)}>
+                            {turn.reply.rules.length > 1 ? `${turn.reply.rules.length}개 다 배우기` : '이대로 배우기'}
+                          </Button>
+                          <span className="self-center text-fluid-2xs text-slate-500">다르면 아래에 고칠 점을 말해 주세요</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                  {turn.learned && turn.learned.length > 0 ? <ExampleList examples={turn.learned} afterOnly /> : null}
+                </div>
+              </div>
+            ),
+          )}
+          {busy ? <p className="text-fluid-2xs text-slate-400">🤖 생각하는 중…</p> : null}
+          <div ref={threadEndRef} />
+        </div>
+        <div className="flex items-end gap-1.5 border-t border-slate-200 p-2">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                void send(text);
+              }
+            }}
+            rows={2}
+            placeholder="가격 기준을 편하게 말해 주세요 (Enter 보내기, Shift+Enter 줄바꿈)"
+            className={`${crmFieldClass} min-w-0 flex-1 resize-none`}
+          />
+          <div className="flex shrink-0 flex-col gap-1">
+            <Button size="sm" variant="primary" disabled={busy || !text.trim()} onClick={() => void send(text)}>
+              보내기
+            </Button>
+            {thread.length > 1 ? (
+              <Button size="sm" variant="quiet" className="!h-6" onClick={restart}>
+                새로 시작
+              </Button>
             ) : null}
-            <div className="mt-2 flex gap-2">
-              <Button size="sm" variant="primary" disabled={busy} onClick={() => void save()}>
-                이대로 배우기
-              </Button>
-              <Button size="sm" onClick={() => setParsed(null)}>
-                다시 적기
-              </Button>
-            </div>
           </div>
-        ) : parsed && !parsed.ok ? (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-900">
-            🤔 {parsed.reason}
-          </p>
-        ) : null}
-
-        {learned ? (
-          <div className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-fluid-xs">
-            <p className="font-semibold text-emerald-800">✓ 배웠어요 — 「{learned.summary}」</p>
-            <p className="text-slate-600">지금부터 이렇게 계산해요:</p>
-            <ExampleList examples={learned.examples} afterOnly />
-          </div>
-        ) : null}
+        </div>
       </div>
 
       <div>

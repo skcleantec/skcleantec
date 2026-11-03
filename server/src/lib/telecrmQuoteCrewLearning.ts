@@ -312,3 +312,21 @@ export type TelecrmAiQuoteModelStatus = {
   ruleCount: number;
   activeRuleCount: number;
 };
+
+/** AI 견적 가르치기 대화 한 줄 */
+export type TelecrmAiQuoteChatMessage = { role: 'user' | 'ai'; text: string };
+
+/** AI가 바꾼 규칙 하나 + 이해한 내용 + 넣기 전·후 금액 */
+export type TelecrmAiQuoteRuleDraft = {
+  spec: TelecrmAiQuoteRuleSpec;
+  understood: string[];
+  examples: TelecrmAiQuoteRuleExample[];
+};
+
+/**
+ * AI 답 — ask: 되묻기(고를 수 있는 답 포함) / rules: 규칙으로 바꿈(여러 개 가능) / unsupported: 못 하는 이유
+ */
+export type TelecrmAiQuoteChatReply =
+  | { type: 'ask'; reply: string; choices: string[] }
+  | { type: 'rules'; reply: string; rules: TelecrmAiQuoteRuleDraft[] }
+  | { type: 'unsupported'; reply: string };
