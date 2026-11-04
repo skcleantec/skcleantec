@@ -53,3 +53,17 @@ def is_update_required(manifest: dict[str, Any] | None) -> bool:
     except (TypeError, ValueError):
         required = BRIDGE_API_VERSION
     return BRIDGE_API_VERSION < required
+
+
+def update_should_install(
+    manifest: dict[str, Any] | None,
+    *,
+    automation_active: bool,
+    app_version: str = APP_VERSION,
+) -> bool:
+    """requiredVersion에 못 미치면 바로 설치하고, 그 외 새 버전은 자동화가 없을 때만."""
+    if is_update_required(manifest):
+        return True
+    if not is_update_available(manifest, app_version):
+        return False
+    return not automation_active

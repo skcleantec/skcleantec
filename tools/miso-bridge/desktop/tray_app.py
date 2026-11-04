@@ -22,7 +22,7 @@ from desktop.config import (
     ensure_app_data,
     setup_finished,
 )
-from desktop.manifest_client import fetch_manifest, is_update_available
+from desktop.manifest_client import fetch_manifest, is_update_available, update_should_install
 from desktop.python_runtime import resolve_python_exe
 from desktop.setup_wizard import run_setup_wizard
 from desktop.single_instance import (
@@ -38,6 +38,7 @@ from version_info import APP_DISPLAY_NAME
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger('miso-desktop')
 _PORT = 17891
+_UPDATE_CHECK_SEC = 30 * 60
 
 
 class TrayApp:
@@ -124,11 +125,21 @@ class TrayApp:
         self._log('로그 파일을 만들었습니다. 열린 폴더의 압축 파일을 관리자에게 보내 주세요.')
 
     def _maybe_update(self) -> None:
+        while not self._stop.is_set():
+            try:
+                self._install_update_if_due()
+            except Exception as exc:
+                self._log(f'업데이트 확인에 실패했습니다. ({exc})')
+            if self._stop.wait(_UPDATE_CHECK_SEC):
+                return
+
+    def _install_update_if_due(self) -> None:
         manifest = fetch_manifest()
-        if not manifest or not is_update_available(manifest):
-            return
         status = self._window.latest_status()
-        if status and status.get('automationActive'):
+        automation_active = bool(status and status.get('automationActive'))
+        if not manifest or not update_should_install(manifest, automation_active=automation_active):
+            if manifest and is_update_available(manifest) and automation_active:
+                self._log('작업 중이라 업데이트를 다음 확인까지 미룹니다.')
             return
         ok, message = perform_update(manifest)
         self._log(message)

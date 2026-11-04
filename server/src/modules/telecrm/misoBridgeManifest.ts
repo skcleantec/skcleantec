@@ -1,12 +1,13 @@
 /** @see tools/miso-bridge/version_info.py — 설치 프로그램 버전과 맞춘다 */
 
 const MISO_BRIDGE_MIN_VERSION = 1;
-const MISO_BRIDGE_APP_VERSION = '0.3.1';
+const MISO_BRIDGE_APP_VERSION = '0.3.2';
 
 /** Release Setup.exe sha256 — Railway 변수 누락일 때 폴백. 빌드 후 채운다. */
 const SETUP_SHA256_BY_VERSION: Record<string, string> = {
   '0.3.0': '2024bea750c2b6a0decd9160bce5225e0d156f1d2c2df826c9f38de4c0bf4089',
   '0.3.1': 'dc85bd8d9045ec35677a3730d78c82995f5c8ca371630ee1c3b7b10d88c467b7',
+  '0.3.2': 'e0996d156a000026eba57ade0df8c0b4a3d38338f942cad8e1cc77f413ae730e',
 };
 
 export type MisoBridgeManifest = {
