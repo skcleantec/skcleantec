@@ -201,7 +201,13 @@ export async function createOrderFollowup(
     leadSource?: string;
     strictLeadSource?: boolean;
   }
-): Promise<{ item: OrderFollowupItem }> {
+): Promise<{
+  item: OrderFollowupItem;
+  /** 같은 연락처의 열린 부재·보류에 합쳐짐 */
+  deduped?: boolean;
+  registeredAt?: string | null;
+  handlerName?: string | null;
+}> {
   const res = await fetch(`${API}/order-followups`, {
     method: 'POST',
     headers: headers(token),

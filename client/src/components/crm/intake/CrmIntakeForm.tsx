@@ -16,8 +16,7 @@ import {
 import { saveOrderFollowupHotMark, type OrderFollowupHotMark } from '../../../api/orderFollowups';
 import { FollowupHotIntakeSlot } from '../followup/FollowupHotIntakeSlot';
 import type { HotMarkDraft } from '../followup/FollowupHotMarkPopover';
-import { toast } from '../../ui/Toast';
-import { formatHotWhen, hotReasonLabel } from '../../../utils/orderFollowupHotMark';
+import { confirmAlreadySavedIntake } from './CrmIntakeSaveNotice';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
 import { HelpTooltip } from '../../ui/HelpTooltip';
@@ -86,6 +85,7 @@ export function CrmIntakeForm({
   hotEditable = true,
   hotLinkKey = 0,
   hotSlotHost = null,
+  onSaveFlash,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
@@ -116,6 +116,8 @@ export function CrmIntakeForm({
   hotLinkKey?: number;
   /** 연락처·조회 결과 바로 아래. 없으면 그리지 않는다 */
   hotSlotHost?: HTMLElement | null;
+  /** 폼 초기화 후에도 남도록 접수란 밖에서 띄운다 */
+  onSaveFlash: (flash: { tone: 'ok' | 'err'; text: string }) => void;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -138,7 +140,6 @@ export function CrmIntakeForm({
   const { userId: crmUserId, userName: crmUserName, role: crmUserRole } = useAdminStaffSession();
   const [showMore, setShowMore] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pendingHot, setPendingHot] = useState<HotMarkDraft | null>(null);
   const [hotSession, setHotSession] = useState<{
@@ -175,7 +176,6 @@ export function CrmIntakeForm({
     setCollaborationMarketerId('');
     setExtractPlatform(undefined);
     setShowMore(false);
-    setMsg(null);
     setErr(null);
     setPendingHot(null);
     setHotSession(null);
@@ -271,25 +271,29 @@ export function CrmIntakeForm({
     onFormChange,
   ]);
 
+  const flashSaveError = (text: string) => {
+    setErr(text);
+    onSaveFlash({ tone: 'err', text });
+  };
+
   const submit = async (opts: { keepForm: boolean; incrementDefer?: boolean }) => {
     const { keepForm, incrementDefer = false } = opts;
     const token = getToken();
     if (!token) return;
     if (!canSubmitKind(kind)) {
-      setErr(`${crmIntakePermissionLabel(kind)} 권한이 필요합니다.`);
+      flashSaveError(`${crmIntakePermissionLabel(kind)} 권한이 필요합니다.`);
       return;
     }
     if (!operatingCompanyId) {
-      setErr('작업 브랜드가 선택되지 않았습니다. 상단에서 브랜드를 선택해 주세요.');
+      flashSaveError('작업 브랜드가 선택되지 않았습니다. 상단에서 브랜드를 선택해 주세요.');
       return;
     }
     if (incrementDefer && !CRM_INTAKE_FOLLOWUP_DEFER_KINDS.has(kind)) {
-      setErr('부재+1은 요청·부재·보류 처리 구분에서만 사용할 수 있습니다.');
+      flashSaveError('부재+1은 요청·부재·보류 처리 구분에서만 사용할 수 있습니다.');
       return;
     }
     setSaving(true);
     setErr(null);
-    setMsg(null);
     try {
       const result = await submitCrmIntake(
         token,
@@ -318,37 +322,25 @@ export function CrmIntakeForm({
         { operatingCompanyId, quotePayload, incrementDefer, existingInquiry },
       );
       const freshStart = incrementDefer || !keepForm;
-      let hotNote = '';
       if (result.kind === 'followup' && result.followupId && pendingHot) {
         const saved = await saveOrderFollowupHotMark(token, result.followupId, pendingHot);
         window.dispatchEvent(new Event('crm-hot-summary-refresh'));
-        const when = formatHotWhen(saved.myHotMark.nextContactAt);
-        hotNote = ` · ⭐ 내 가망에 넣었어요 (${hotReasonLabel(saved.myHotMark.reason)}${when ? ` · ${when}` : ''})`;
         if (!freshStart) {
           setHotSession({ followupId: result.followupId, mark: saved.myHotMark });
           setPendingHot(null);
         }
       }
-      onSaved(result, { freshStart });
-      if (result.kind === 'inquiry' && result.continued === 'appended') {
-        toast.success('이미 진행 중인 접수에 내용을 더했어요');
-        setMsg('이미 진행 중인 접수에 내용을 더했어요.');
-      } else if (result.kind === 'inquiry' && result.continued === 'merged') {
-        toast.success('기존 접수에 이어서 저장했어요');
-        setMsg('기존 접수에 이어서 저장했어요.');
-      } else if (result.kind === 'inquiry') {
-        toast.success('새 접수로 저장했어요');
-        setMsg('새 접수로 저장했어요.');
+      if (result.alreadySaved) {
+        await confirmAlreadySavedIntake({ result, contactPhone, safePhone });
       } else {
-        const text = `${incrementDefer ? '저장했습니다. 부재+1 반영' : '저장했습니다.'}${hotNote}`;
-        setMsg(text);
-        if (hotNote) toast.success(text);
+        const kindLabel = KIND_OPTIONS.find((opt) => opt.value === result.intakeKind)?.label ?? '';
+        const parts = ['저장했어요', result.customerName.trim() || '고객', kindLabel];
+        if (incrementDefer) parts.push('부재+1');
+        onSaveFlash({ tone: 'ok', text: parts.filter(Boolean).join(' · ') });
       }
-      if (!freshStart) {
-        window.setTimeout(() => setMsg(null), 2500);
-      }
+      onSaved(result, { freshStart });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : '저장 실패');
+      flashSaveError(e instanceof Error ? e.message : '저장 실패');
     } finally {
       setSaving(false);
     }
@@ -644,7 +636,6 @@ export function CrmIntakeForm({
         </p>
       ) : null}
 
-      {msg ? <p className="text-fluid-2xs text-green-700">{msg}</p> : null}
       {err ? <p className="text-fluid-2xs text-red-600">{err}</p> : null}
 
       <div className="sticky -bottom-2.5 z-10 -mx-2.5 flex flex-nowrap gap-1.5 border-t border-slate-200 bg-white px-2.5 py-2">

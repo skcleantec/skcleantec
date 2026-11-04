@@ -48,10 +48,18 @@ export type CrmIntakeFormValues = {
   extractPlatform?: 'miso' | 'soomgo';
 };
 
+export type CrmIntakeExistingSummary = {
+  registeredAt: string | null;
+  handlerName: string | null;
+};
+
 export type CrmIntakeSubmitResult = {
   intakeKind: CrmIntakeKind;
   customerName: string;
   nickname: string;
+  /** 같은 연락처의 열린 부재·보류에 합쳐졌거나, 진행 중 접수에 이어서 저장 */
+  alreadySaved?: boolean;
+  existingSummary?: CrmIntakeExistingSummary;
 } & (
   | { kind: 'followup'; followupId?: string; deferIncremented?: boolean }
   | {
@@ -69,6 +77,8 @@ export type CrmIntakeExistingInquiry = {
   status: string;
   memo?: string | null;
   source?: string | null;
+  createdAt?: string | null;
+  handlerName?: string | null;
 };
 
 /** 접수 진행 단계 — 높을수록 더 진행됨(보류·대기는 처음 단계로 봄) */
@@ -116,6 +126,20 @@ export function appendCrmIntakeMemo(existing: string | null | undefined, additio
 const CRM_INTAKE_FOLLOWUP_DEFER_KINDS = new Set<CrmIntakeKind>(['requested', 'absent', 'hold']);
 
 export { CRM_INTAKE_FOLLOWUP_DEFER_KINDS };
+
+function existingSummaryFromFollowup(input: {
+  deduped?: boolean;
+  registeredAt?: string | null;
+  handlerName?: string | null;
+  item?: { createdAt?: string | null; handledBy?: { name?: string | null } | null; createdBy?: { name?: string | null } | null };
+}): CrmIntakeExistingSummary | undefined {
+  if (input.deduped !== true) return undefined;
+  const registeredAt = input.registeredAt ?? input.item?.createdAt ?? null;
+  const handlerName =
+    input.handlerName ??
+    (input.item?.handledBy?.name?.trim() || input.item?.createdBy?.name?.trim() || null);
+  return { registeredAt, handlerName };
+}
 
 function submitMeta(values: CrmIntakeFormValues): Pick<CrmIntakeSubmitResult, 'intakeKind' | 'customerName' | 'nickname'> {
   return {
@@ -243,6 +267,8 @@ export async function submitCrmIntake(
         kind: 'followup',
         followupId,
         deferIncremented: Boolean(opts.incrementDefer),
+        alreadySaved: finalized.deduped === true,
+        existingSummary: existingSummaryFromFollowup(finalized),
         ...submitMeta(values),
       };
     }
@@ -267,6 +293,8 @@ export async function submitCrmIntake(
       kind: 'followup',
       followupId,
       deferIncremented: Boolean(opts.incrementDefer),
+      alreadySaved: created.deduped === true,
+      existingSummary: existingSummaryFromFollowup(created),
       ...submitMeta(values),
     };
   }
@@ -295,9 +323,13 @@ export async function submitCrmIntake(
       ...(upgrade ? { status: targetStatus } : {}),
     };
     await updateInquiry(token, existing.id, patch);
+    let existingSummary: CrmIntakeExistingSummary = {
+      registeredAt: existing.createdAt ?? null,
+      handlerName: existing.handlerName?.trim() || null,
+    };
     if (upgrade && values.kind !== 'received') {
       const fuSt: OrderFollowupStatus = values.kind === 'deposit' ? 'DEPOSIT_PENDING' : 'RESERVED';
-      await createOrderFollowup(token, {
+      const linked = await createOrderFollowup(token, {
         customerName: n,
         nickname: values.nickname.trim() || null,
         customerPhone: stored.customerPhone,
@@ -311,12 +343,16 @@ export async function submitCrmIntake(
         ...followupExtras,
         ...brandBody,
       });
+      const fromFollowup = existingSummaryFromFollowup(linked);
+      if (fromFollowup) existingSummary = fromFollowup;
     }
     return {
       kind: 'inquiry',
       inquiryId: existing.id,
       status: upgrade ? targetStatus : existing.status,
       continued: upgrade ? 'merged' : 'appended',
+      alreadySaved: true,
+      existingSummary,
       ...submitMeta(values),
     };
   }
@@ -353,7 +389,7 @@ export async function submitCrmIntake(
     ...brandBody,
   })) as { id: string };
   const fuSt: OrderFollowupStatus = values.kind === 'deposit' ? 'DEPOSIT_PENDING' : 'RESERVED';
-  await createOrderFollowup(token, {
+  const linked = await createOrderFollowup(token, {
     customerName: n,
     nickname: values.nickname.trim() || null,
     customerPhone: stored.customerPhone,
@@ -367,5 +403,13 @@ export async function submitCrmIntake(
     ...followupExtras,
     ...brandBody,
   });
-  return { kind: 'inquiry', inquiryId: created.id, status: inqSt, ...submitMeta(values) };
+  const fromFollowup = existingSummaryFromFollowup(linked);
+  return {
+    kind: 'inquiry',
+    inquiryId: created.id,
+    status: inqSt,
+    alreadySaved: linked.deduped === true,
+    existingSummary: fromFollowup,
+    ...submitMeta(values),
+  };
 }

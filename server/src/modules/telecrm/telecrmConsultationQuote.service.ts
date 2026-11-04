@@ -345,6 +345,12 @@ export type FinalizeTelecrmConsultationQuoteResult = {
   quote: TelecrmConsultationQuoteDto;
   followupId: string;
   followupCreated: boolean;
+  /** 같은 연락처의 열린 부재·보류에 합쳐짐 */
+  deduped: boolean;
+  /** deduped 일 때 처음 등록 시각 */
+  registeredAt: string | null;
+  /** deduped 일 때 당시 담당 이름 */
+  handlerName: string | null;
 };
 
 export async function finalizeTelecrmConsultationQuote(
@@ -556,10 +562,19 @@ export async function finalizeTelecrmConsultationQuote(
       },
     });
 
+    const prior = existing
+      ? {
+          registeredAt: existing.createdAt.toISOString(),
+          handlerName: existing.handledBy?.name?.trim() || existing.createdBy?.name?.trim() || null,
+        }
+      : null;
     return {
       quote: serializeQuoteRow(quoteRow),
       followupId: followup.id,
       followupCreated,
+      deduped: !followupCreated,
+      registeredAt: prior?.registeredAt ?? null,
+      handlerName: prior?.handlerName ?? null,
     };
   });
 

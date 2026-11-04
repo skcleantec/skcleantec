@@ -20,6 +20,7 @@ import {
 import { runTelecrmCallWithSoomgoAuto } from '../../../utils/soomgoCallAutoSend';
 import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { CrmIntakeForm, type CrmIntakeSavedMeta } from './CrmIntakeForm';
+import { CrmIntakeSaveNotice, type CrmIntakeSaveFlash } from './CrmIntakeSaveNotice';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
 import { CrmCallMemoSection } from '../memo/CrmCallMemoPanel';
@@ -224,6 +225,7 @@ export function CrmIntakePanel({
     operatingCompanyId,
   );
   const [lastInquiryId, setLastInquiryId] = useState<string | null>(null);
+  const [saveFlash, setSaveFlash] = useState<CrmIntakeSaveFlash | null>(null);
   const [formSeed, setFormSeed] = useState({
     customerName: '',
     nickname: '',
@@ -287,7 +289,13 @@ export function CrmIntakePanel({
     if (mode !== 'existing' || !activeInquiryId) return null;
     const inq = data?.inquiries?.find((row) => row.id === activeInquiryId);
     if (!inq || !isCrmIntakeContinuableInquiryStatus(inq.status)) return null;
-    return { id: inq.id, status: inq.status, memo: inq.memo, source: inq.source };
+    return {
+      id: inq.id,
+      status: inq.status,
+      memo: inq.memo,
+      source: inq.source,
+      createdAt: inq.createdAt,
+    };
   }, [mode, activeInquiryId, data?.inquiries]);
   const activeCustomerMatch: 'new' | 'existing' | 'pick' | 'unknown' =
     mode === 'new' ? 'new' : data?.match === 'pick' ? 'pick' : data?.match === 'existing' ? 'existing' : 'unknown';
@@ -610,7 +618,9 @@ export function CrmIntakePanel({
             hotEditable={followupImport?.snapshot.myHotMarkEditable !== false}
             hotLinkKey={followupImport?.key ?? 0}
             hotSlotHost={hotSlotHost}
+            onSaveFlash={(flash) => setSaveFlash({ id: Date.now(), tone: flash.tone, text: flash.text })}
           />
+          <CrmIntakeSaveNotice notice={saveFlash} onDone={() => setSaveFlash(null)} />
         </div>
 
         <CrmCallMemoSection phone={outboundPhone} inquiryId={activeInquiryId} resetKey={formResetKey} />
