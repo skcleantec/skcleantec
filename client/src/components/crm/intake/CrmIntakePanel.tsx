@@ -287,7 +287,13 @@ export function CrmIntakePanel({
     if (mode !== 'existing' || !activeInquiryId) return null;
     const inq = data?.inquiries?.find((row) => row.id === activeInquiryId);
     if (!inq || !isCrmIntakeContinuableInquiryStatus(inq.status)) return null;
-    return { id: inq.id, status: inq.status, memo: inq.memo, source: inq.source };
+    return {
+      id: inq.id,
+      status: inq.status,
+      memo: inq.memo,
+      source: inq.source,
+      createdAt: inq.createdAt,
+    };
   }, [mode, activeInquiryId, data?.inquiries]);
   const activeCustomerMatch: 'new' | 'existing' | 'pick' | 'unknown' =
     mode === 'new' ? 'new' : data?.match === 'pick' ? 'pick' : data?.match === 'existing' ? 'existing' : 'unknown';

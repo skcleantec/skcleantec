@@ -35,6 +35,18 @@ export async function appendFollowupLog(
   });
 }
 
+/** 이미 있던 부재·보류에 합칠 때 안내 — 처음 등록일과 당시 담당 */
+export function followupExistingSaveSummary(row: FollowupWithRelations): {
+  registeredAt: string;
+  handlerName: string | null;
+} {
+  const name = row.handledBy?.name?.trim() || row.createdBy?.name?.trim() || '';
+  return {
+    registeredAt: row.createdAt.toISOString(),
+    handlerName: name || null,
+  };
+}
+
 export function serializeFollowup(row: FollowupWithRelations) {
   const inq = row.inquiry;
   return {

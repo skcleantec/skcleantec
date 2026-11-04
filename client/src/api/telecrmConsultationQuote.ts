@@ -112,6 +112,10 @@ export type FinalizeTelecrmConsultationQuoteResult = {
   quote: TelecrmConsultationQuoteDto;
   followupId: string;
   followupCreated: boolean;
+  /** 같은 연락처의 열린 부재·보류에 합쳐짐 */
+  deduped?: boolean;
+  registeredAt?: string | null;
+  handlerName?: string | null;
 };
 
 export async function finalizeTelecrmConsultationQuote(
