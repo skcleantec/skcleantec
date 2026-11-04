@@ -1,4 +1,6 @@
 * text=auto eol=lf
+tools/miso-bridge/*.bat text eol=crlf
+tools/miso-bridge/*.cmd text eol=crlf
 
 *.png binary
 *.jpg binary
