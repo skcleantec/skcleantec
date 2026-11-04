@@ -1188,6 +1188,8 @@ export function CrmPage() {
     error: misoError,
     refreshStatus: refreshMisoStatus,
     startEmulator: startMisoEmulator,
+    openInstall: openMisoInstall,
+    openPartnerApp: openMisoPartnerApp,
   } = misoBridge;
 
   const openSoomgoChatForNickname = useCallback(
@@ -1920,6 +1922,8 @@ export function CrmPage() {
                     onOpenMiso={() => void openMiso()}
                     onRefresh={() => void refreshMisoStatus()}
                     onStartEmulator={() => void startMisoEmulator()}
+                    onOpenInstall={() => void openMisoInstall()}
+                    onOpenMisoApp={() => void openMisoPartnerApp()}
                     chatItems={misoChatItems}
                     onExtractChat={(chatId) => void extractMiso(chatId)}
                     extractBusy={misoBusyAction === 'extract'}

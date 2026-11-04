@@ -10,6 +10,7 @@ if not exist "%EMU%" (
 )
 
 echo AVD: %MISO_AVD% (cold boot)
-start "Miso %MISO_AVD%" "%EMU%" -avd %MISO_AVD% -gpu swiftshader_indirect -no-boot-anim -no-audio -no-snapshot-load -prop persist.sys.locale=%MISO_LOCALE%
+start "Miso %MISO_AVD%" "%EMU%" -avd %MISO_AVD% -gpu swiftshader_indirect -no-boot-anim -no-audio -no-snapshot-load
+
 start "Miso Boot" /MIN cmd /c ""%~dp0emulator-boot-helper.bat""
 endlocal

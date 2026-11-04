@@ -5,11 +5,20 @@ export const MISO_BRIDGE_MIN_VERSION = 1;
 
 export type MisoBridgePhase = 'skeleton' | 'motion' | 'release';
 
+export type MisoSetupStage =
+  | 'no_emulator'
+  | 'emulator_off'
+  | 'booting'
+  | 'no_miso'
+  | 'miso_logged_out'
+  | 'ready';
+
 export type MisoBridgeStatus = {
   ok: boolean;
   bridgeVersion?: number;
   appVersion?: string | null;
   phase?: MisoBridgePhase | string | null;
+  setupStage?: MisoSetupStage | null;
   host?: string;
   port?: number;
   avdName?: string | null;

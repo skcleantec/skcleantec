@@ -9,11 +9,11 @@ if not exist "%EMU%" (
   exit /b 1
 )
 
-echo AVD: %MISO_AVD%  Locale: %MISO_LOCALE%
-echo Boot takes 1-3 min. adb offline in log is OK until home screen.
+echo 가상폰: %MISO_AVD%
+echo 켜지는 데 1~3분 걸릴 수 있습니다. 이미 켜져 있으면 그대로 이어갑니다.
 echo.
 
-start "Miso %MISO_AVD%" "%EMU%" -avd %MISO_AVD% -gpu swiftshader_indirect -no-boot-anim -no-audio -prop persist.sys.locale=%MISO_LOCALE%
+start "Miso %MISO_AVD%" "%EMU%" -avd %MISO_AVD% -gpu swiftshader_indirect -no-boot-anim -no-audio
 
 start "Miso Boot" /MIN cmd /c ""%~dp0emulator-boot-helper.bat""
 

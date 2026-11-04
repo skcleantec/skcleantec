@@ -179,6 +179,28 @@ export async function sendMisoBridgeMessage(
   }
 }
 
+export async function openMisoInstallScreen(): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    return await bridgeFetch<{ ok: boolean; message?: string; error?: string }>('/miso/install', {
+      method: 'POST',
+      body: '{}',
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : '미소 설치 화면을 열지 못했습니다.' };
+  }
+}
+
+export async function openMisoPartnerApp(): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    return await bridgeFetch<{ ok: boolean; message?: string; error?: string }>('/miso/open', {
+      method: 'POST',
+      body: '{}',
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : '미소 앱을 열지 못했습니다.' };
+  }
+}
+
 export async function startMisoEmulator(): Promise<{ ok: boolean; message?: string; error?: string }> {
   try {
     return await bridgeFetch<{ ok: boolean; message?: string; error?: string }>('/emulator/start', {

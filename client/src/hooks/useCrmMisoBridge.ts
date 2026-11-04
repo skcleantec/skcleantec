@@ -8,6 +8,8 @@ import {
   misoBridgeUserMessage,
   MISO_BUSY_LABELS,
   openMisoChats,
+  openMisoInstallScreen,
+  openMisoPartnerApp,
   sendMisoBridgeMessage,
   startMisoEmulator,
   type MisoBusyAction,
@@ -184,13 +186,45 @@ export function useCrmMisoBridge({
     try {
       const res = await startMisoEmulator();
       if (!res.ok) {
-        throw new Error(res.error ?? '에뮬레이터 시작에 실패했습니다.');
+        throw new Error(res.error ?? '가상폰을 켜지 못했습니다.');
       }
-      notify(res.message ?? '에뮬레이터 시작을 요청했습니다.');
+      notify(res.message ?? '가상폰을 켜는 중입니다. 잠시 후 「다시 확인」을 눌러 주세요.');
       window.setTimeout(() => void refreshStatus(), 3000);
       return true;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '에뮬레이터 시작에 실패했습니다.';
+      const msg = e instanceof Error ? e.message : '가상폰을 켜지 못했습니다.';
+      setError(msg);
+      notify(msg);
+      return false;
+    }
+  }, [notify, refreshStatus]);
+
+  const openInstall = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await openMisoInstallScreen();
+      if (!res.ok) throw new Error(res.error ?? '미소 설치 화면을 열지 못했습니다.');
+      notify(res.message ?? '가상폰에서 미소 설치 화면을 열었습니다.');
+      window.setTimeout(() => void refreshStatus(), 3000);
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '미소 설치 화면을 열지 못했습니다.';
+      setError(msg);
+      notify(msg);
+      return false;
+    }
+  }, [notify, refreshStatus]);
+
+  const openPartnerApp = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await openMisoPartnerApp();
+      if (!res.ok) throw new Error(res.error ?? '미소 앱을 열지 못했습니다.');
+      notify(res.message ?? '가상폰에서 미소 앱을 열었습니다.');
+      window.setTimeout(() => void refreshStatus(), 3000);
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '미소 앱을 열지 못했습니다.';
       setError(msg);
       notify(msg);
       return false;
@@ -215,5 +249,7 @@ export function useCrmMisoBridge({
     extract,
     sendMessage,
     startEmulator,
+    openInstall,
+    openPartnerApp,
   };
 }

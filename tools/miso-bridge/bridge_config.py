@@ -7,7 +7,7 @@ from pathlib import Path
 PORT = int(os.environ.get('MISO_BRIDGE_PORT', '17891'))
 HOST = os.environ.get('MISO_BRIDGE_HOST', '127.0.0.1')
 
-MISO_AVD = os.environ.get('MISO_AVD', 'Pixel_7_2')
+MISO_AVD = os.environ.get('MISO_AVD', 'Pixel_7_3')
 MISO_LOCALE = os.environ.get('MISO_LOCALE', 'ko-KR')
 
 MISO_PACKAGE = 'com.miso.cleaner'

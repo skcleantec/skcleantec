@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from automation.chat_extract import extract_current_chat
 from automation.chat_list import CHAT_REQUIRED_MESSAGE, open_chats
 from automation.chat_send import send_chat_message
-from automation.emulator_launcher import start_emulator_detached
+from automation.emulator_launcher import open_miso_app, open_miso_install_screen, start_emulator_detached
 from automation.status_probe import build_status_payload
 from bridge_config import HOST, PORT
 from version_info import APP_VERSION, BRIDGE_API_VERSION
@@ -28,13 +28,22 @@ logger = logging.getLogger('miso-bridge')
 KST = timezone(timedelta(hours=9))
 
 
+def _send_cors_headers(handler: BaseHTTPRequestHandler) -> None:
+    handler.send_header('Access-Control-Allow-Origin', '*')
+    handler.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    handler.send_header(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, Access-Control-Request-Private-Network',
+    )
+    handler.send_header('Access-Control-Allow-Private-Network', 'true')
+    handler.send_header('Access-Control-Max-Age', '86400')
+
+
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     handler.send_response(status)
     handler.send_header('Content-Type', 'application/json; charset=utf-8')
-    handler.send_header('Access-Control-Allow-Origin', '*')
-    handler.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    handler.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    _send_cors_headers(handler)
     handler.send_header('Content-Length', str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
@@ -59,9 +68,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:
         self.send_response(204)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        _send_cors_headers(self)
         self.end_headers()
 
     def do_GET(self) -> None:
@@ -186,8 +193,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     200,
                     {
                         'ok': True,
-                        'avd': detail,
-                        'message': '에뮬레이터 시작 요청을 보냈습니다. boot 후 GET /status 로 확인하세요.',
+                        'message': detail,
                     },
                 )
             else:
@@ -196,6 +202,22 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     500,
                     {'ok': False, 'error': detail, 'code': 'BRIDGE_NOT_READY'},
                 )
+            return
+
+        if path == '/miso/open':
+            ok, detail = open_miso_app()
+            if ok:
+                _json_response(self, 200, {'ok': True, 'message': detail})
+            else:
+                _json_response(self, 503, {'ok': False, 'error': detail, 'code': 'BRIDGE_NOT_READY'})
+            return
+
+        if path == '/miso/install':
+            ok, detail = open_miso_install_screen()
+            if ok:
+                _json_response(self, 200, {'ok': True, 'message': detail})
+            else:
+                _json_response(self, 503, {'ok': False, 'error': detail, 'code': 'BRIDGE_NOT_READY'})
             return
 
         _json_response(self, 404, {'ok': False, 'error': 'not found', 'code': 'NOT_FOUND'})

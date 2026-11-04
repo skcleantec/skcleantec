@@ -1,5 +1,4 @@
 import type { MisoBridgeStatus, MisoChatListItem } from '@shared/misoBridge';
-import { MISO_BRIDGE_NOT_RUNNING_MESSAGE } from '../../../api/misoBridge';
 import { CrmIconMiso } from '../crmUi';
 
 export function CrmMisoTopBar({
@@ -13,6 +12,8 @@ export function CrmMisoTopBar({
   onOpenMiso,
   onRefresh,
   onStartEmulator,
+  onOpenInstall,
+  onOpenMisoApp,
   chatItems = [],
   onExtractChat,
   extractBusy = false,
@@ -27,32 +28,64 @@ export function CrmMisoTopBar({
   onOpenMiso: () => void;
   onRefresh: () => void;
   onStartEmulator?: () => void;
+  onOpenInstall?: () => void;
+  onOpenMisoApp?: () => void;
   chatItems?: MisoChatListItem[];
   onExtractChat?: (chatId: string) => void;
   extractBusy?: boolean;
 }) {
   if (!open) return null;
 
-  const emulatorReady = Boolean(status?.emulatorReady);
-  const misoInstalled = Boolean(status?.misoInstalled);
-  const misoForeground = Boolean(status?.misoForeground);
-  const skeleton = status?.phase === 'skeleton';
   const listCount = chatItems.length;
-
+  const stage = status?.setupStage;
   const automationActive = Boolean(status?.automationActive);
-  const pageHint = !bridgeUp
+  const ready = bridgeUp && (stage === 'ready' || stage == null);
+  const stageText = !bridgeUp
     ? 'PC에서 「청소비서 미소 연동」을 켠 뒤 「다시 확인」을 눌러 주세요.'
-    : !emulatorReady
-      ? '에뮬레이터를 켠 뒤 미소 파트너 앱을 실행하세요'
-      : !misoInstalled
-        ? '에뮬레이터에 미소 파트너 앱을 설치하고 로그인해 주세요'
-        : skeleton
-          ? '채팅 목록을 연 뒤 가져올 방을 고르세요'
-        : listCount > 0
-          ? '채팅 목록이 연결되었습니다. 행을 누르면 정보를 가져옵니다.'
-          : misoForeground
-            ? '미소 앱이 열려 있습니다. 채팅 목록에서 방을 고르세요.'
-            : '에뮬레이터에서 미소 앱을 연 뒤 사용하세요';
+    : stage === 'no_emulator'
+      ? '이 PC에서 가상폰을 찾지 못했습니다. 가상폰을 준비한 뒤 「다시 확인」을 눌러 주세요.'
+      : stage === 'emulator_off'
+        ? '가상폰이 꺼져 있습니다.'
+        : stage === 'booting'
+          ? '가상폰이 켜지는 중입니다. 끝나면 다음 안내가 나옵니다.'
+          : stage === 'no_miso'
+            ? '가상폰에 미소 앱이 없습니다.'
+            : stage === 'miso_logged_out'
+              ? '미소 앱에서 로그인한 뒤 「다시 확인」을 눌러 주세요.'
+              : listCount > 0
+                ? '채팅 목록이 연결되었습니다. 행을 누르면 정보를 가져옵니다.'
+                : '가상폰과 미소가 준비되었습니다. 채팅 목록을 여세요.';
+  const nextLabel =
+    stage === 'emulator_off'
+      ? '가상폰 켜기'
+      : stage === 'no_miso'
+        ? '미소 설치 화면 열기'
+        : stage === 'miso_logged_out'
+          ? '미소 앱 열기'
+          : stage === 'no_emulator' || stage === 'booting' || !bridgeUp
+            ? '다시 확인'
+            : listCount > 0
+              ? '목록 새로고침'
+              : '채팅 목록 열기';
+  const runNext = () => {
+    if (!bridgeUp || stage === 'no_emulator' || stage === 'booting') {
+      void onRefresh();
+      return;
+    }
+    if (stage === 'emulator_off') {
+      void onStartEmulator?.();
+      return;
+    }
+    if (stage === 'no_miso') {
+      void onOpenInstall?.();
+      return;
+    }
+    if (stage === 'miso_logged_out') {
+      void onOpenMisoApp?.();
+      return;
+    }
+    void onOpenMiso();
+  };
 
   return (
     <div className="shrink-0 border-b border-violet-200/90 bg-gradient-to-r from-violet-50 via-fuchsia-50/40 to-violet-50 shadow-sm">
@@ -64,86 +97,33 @@ export function CrmMisoTopBar({
           <span className="text-fluid-xs font-bold text-violet-950">미소 연동</span>
         </div>
 
-        {!bridgeUp ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-fluid-2xs text-amber-900">
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold">연동 프로그램 미실행</span>
-            <span className="hidden min-w-0 truncate sm:inline" title={MISO_BRIDGE_NOT_RUNNING_MESSAGE}>
-              PC에서 「청소비서 미소 연동」을 켠 뒤 「다시 확인」
-            </span>
+        <p className="min-w-0 flex-1 truncate text-fluid-2xs text-slate-700" title={stageText}>
+          {stageText}
+        </p>
+
+        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
+          {!bridgeUp ? (
             <button
               type="button"
               onClick={() => void onRefresh()}
-              className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 font-semibold hover:bg-amber-50"
+              className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-fluid-2xs font-semibold text-amber-950 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
               다시 확인
             </button>
-          </div>
-        ) : (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-fluid-2xs">
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">연동 프로그램 연결</span>
-            {status?.appVersion ? (
-              <span className="rounded-full bg-white px-2 py-0.5 text-slate-600 ring-1 ring-violet-100">
-                v{status.appVersion}
-              </span>
-            ) : null}
-            <span
-              className={`rounded-full px-2 py-0.5 font-semibold ${
-                emulatorReady ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-600'
-              }`}
-            >
-              {emulatorReady ? '에뮬 연결' : '에뮬 없음'}
-            </span>
-            <span
-              className={`rounded-full px-2 py-0.5 font-semibold ${
-                misoInstalled ? 'bg-fuchsia-100 text-fuchsia-800' : 'bg-slate-100 text-slate-600'
-              }`}
-            >
-              {misoInstalled
-                ? status?.misoAppVersion
-                  ? `미소 v${status.misoAppVersion}`
-                  : '미소 설치됨'
-                : '미소 미설치'}
-            </span>
-            {listCount > 0 ? (
-              <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-semibold text-indigo-800">
-                목록 {listCount}건
-              </span>
-            ) : misoForeground ? (
-              <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-semibold text-indigo-800">앱 실행 중</span>
-            ) : null}
-          </div>
-        )}
-
-        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
-          {onStartEmulator && bridgeUp && !emulatorReady ? (
+          ) : (
             <button
               type="button"
               disabled={busy}
-              onClick={() => void onStartEmulator()}
-              className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-violet-800 hover:bg-violet-50 disabled:opacity-50"
+              onClick={runNext}
+              className="rounded-lg bg-violet-600 px-3 py-1 text-fluid-2xs font-semibold text-white hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
-              에뮬 시작
+              {busy ? '연결 중…' : nextLabel}
             </button>
-          ) : null}
-          <button
-            type="button"
-            disabled={busy || !bridgeUp}
-            onClick={() => void onOpenMiso()}
-            className="rounded-lg bg-violet-600 px-3 py-1 text-fluid-2xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
-          >
-            {busy ? '연결 중…' : listCount > 0 ? '목록 새로고침' : '채팅 목록 열기'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void onRefresh()}
-            className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-fluid-2xs text-slate-600 hover:bg-slate-50"
-          >
-            새로고침
-          </button>
+          )}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-fluid-2xs text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-fluid-2xs text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             aria-label="미소 연동 바 닫기"
           >
             닫기
@@ -162,10 +142,7 @@ export function CrmMisoTopBar({
           {busyLabel} 에뮬레이터·미소 앱을 건드리지 마세요.
         </p>
       ) : null}
-      {!error && !busyLabel && pageHint ? (
-        <p className="border-t border-violet-100/80 bg-white/60 px-4 py-1.5 text-fluid-2xs text-violet-800">{pageHint}</p>
-      ) : null}
-      {listCount > 0 ? (
+      {ready && listCount > 0 ? (
         <div className="border-t border-violet-100/80 bg-white/80 px-4 py-2">
           <p className="mb-1 text-fluid-2xs font-semibold text-violet-900">
             최근 채팅 — 행 클릭 시 정보 가져오기
@@ -188,11 +165,6 @@ export function CrmMisoTopBar({
             ))}
           </ul>
         </div>
-      ) : null}
-      {status?.notes?.length ? (
-        <p className="border-t border-amber-100 bg-amber-50/80 px-4 py-1.5 text-fluid-2xs text-amber-900">
-          {status.notes.join(' · ')}
-        </p>
       ) : null}
       {error ? (
         <p className="border-t border-rose-100 bg-rose-50 px-4 py-1.5 text-fluid-2xs text-rose-700">{error}</p>
