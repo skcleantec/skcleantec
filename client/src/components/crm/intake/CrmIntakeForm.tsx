@@ -16,7 +16,7 @@ import {
 import { saveOrderFollowupHotMark, type OrderFollowupHotMark } from '../../../api/orderFollowups';
 import { FollowupHotIntakeSlot } from '../followup/FollowupHotIntakeSlot';
 import type { HotMarkDraft } from '../followup/FollowupHotMarkPopover';
-import { confirmAlreadySavedIntake, CrmIntakeSaveNotice, type CrmIntakeSaveFlash } from './CrmIntakeSaveNotice';
+import { confirmAlreadySavedIntake } from './CrmIntakeSaveNotice';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
 import { HelpTooltip } from '../../ui/HelpTooltip';
@@ -85,6 +85,7 @@ export function CrmIntakeForm({
   hotEditable = true,
   hotLinkKey = 0,
   hotSlotHost = null,
+  onSaveFlash,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
@@ -115,6 +116,8 @@ export function CrmIntakeForm({
   hotLinkKey?: number;
   /** 연락처·조회 결과 바로 아래. 없으면 그리지 않는다 */
   hotSlotHost?: HTMLElement | null;
+  /** 폼 초기화 후에도 남도록 접수란 밖에서 띄운다 */
+  onSaveFlash: (flash: { tone: 'ok' | 'err'; text: string }) => void;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -138,7 +141,6 @@ export function CrmIntakeForm({
   const [showMore, setShowMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [saveFlash, setSaveFlash] = useState<CrmIntakeSaveFlash | null>(null);
   const [pendingHot, setPendingHot] = useState<HotMarkDraft | null>(null);
   const [hotSession, setHotSession] = useState<{
     followupId: string;
@@ -271,7 +273,7 @@ export function CrmIntakeForm({
 
   const flashSaveError = (text: string) => {
     setErr(text);
-    setSaveFlash({ id: Date.now(), tone: 'err', text });
+    onSaveFlash({ tone: 'err', text });
   };
 
   const submit = async (opts: { keepForm: boolean; incrementDefer?: boolean }) => {
@@ -334,7 +336,7 @@ export function CrmIntakeForm({
         const kindLabel = KIND_OPTIONS.find((opt) => opt.value === result.intakeKind)?.label ?? '';
         const parts = ['저장했어요', result.customerName.trim() || '고객', kindLabel];
         if (incrementDefer) parts.push('부재+1');
-        setSaveFlash({ id: Date.now(), tone: 'ok', text: parts.filter(Boolean).join(' · ') });
+        onSaveFlash({ tone: 'ok', text: parts.filter(Boolean).join(' · ') });
       }
       onSaved(result, { freshStart });
     } catch (e) {
@@ -635,7 +637,6 @@ export function CrmIntakeForm({
       ) : null}
 
       {err ? <p className="text-fluid-2xs text-red-600">{err}</p> : null}
-      <CrmIntakeSaveNotice notice={saveFlash} onDone={() => setSaveFlash(null)} />
 
       <div className="sticky -bottom-2.5 z-10 -mx-2.5 flex flex-nowrap gap-1.5 border-t border-slate-200 bg-white px-2.5 py-2">
         <button
