@@ -5,6 +5,7 @@ import time
 
 from automation.device_locale import read_device_locale
 from automation.emulator_launcher import our_emulator_serial
+from automation.phone_runtime import gpu_mode, in_warmup, phone_is_busy, read_timezone
 from bridge_config import MISO_AVD, MISO_PACKAGE, PORT, resolve_adb, resolve_emulator
 from automation.adb_client import (
     first_online_emulator,
@@ -58,6 +59,8 @@ def resolve_setup_stage(
     miso_installed: bool,
     logged_in: bool | None,
     locale_korean: bool = True,
+    warming: bool = False,
+    phone_busy: bool = False,
 ) -> str:
     emulators = [d for d in devices if str(getattr(d, 'serial', '')).startswith('emulator-')]
     if not resolve_adb().is_file():
@@ -70,6 +73,10 @@ def resolve_setup_stage(
         return 'booting'
     if not locale_korean:
         return 'locale_pending'
+    if phone_busy:
+        return 'phone_busy'
+    if warming:
+        return 'warming'
     if not miso_installed:
         return 'no_miso'
     if logged_in is False:
@@ -77,7 +84,14 @@ def resolve_setup_stage(
     return 'ready'
 
 
-def _base_payload(*, serial: str | None, adb_ok: bool, device_count: int, locale: str) -> dict:
+def _base_payload(
+    *,
+    serial: str | None,
+    adb_ok: bool,
+    device_count: int,
+    locale: str,
+    timezone: str,
+) -> dict:
     return {
         'ok': True,
         'bridgeVersion': BRIDGE_API_VERSION,
@@ -87,6 +101,8 @@ def _base_payload(*, serial: str | None, adb_ok: bool, device_count: int, locale
         'port': PORT,
         'avdName': MISO_AVD,
         'locale': locale,
+        'timezone': timezone,
+        'gpuMode': gpu_mode(),
         'adbConnected': adb_ok,
         'emulatorReady': adb_ok,
         'emulatorSerial': serial,
@@ -117,6 +133,9 @@ def build_status_payload(*, lite: bool = False) -> dict:
         miso_installed = is_package_installed(serial) if serial else False
         booted = bool(serial) and _boot_completed(serial)
         locale_value, locale_korean = _locale_for_status(our_serial, booted and our_serial == serial)
+        timezone = read_timezone(our_serial) if our_serial and booted else ''
+        warming = in_warmup()
+        busy = phone_is_busy()
         logged_in = _probe_logged_in(serial) if serial and booted and miso_installed else None
         setup_stage = resolve_setup_stage(
             devices=devices,
@@ -124,16 +143,28 @@ def build_status_payload(*, lite: bool = False) -> dict:
             miso_installed=miso_installed,
             logged_in=logged_in,
             locale_korean=locale_korean,
+            warming=warming,
+            phone_busy=busy,
         )
         notes: list[str] = []
         if setup_stage == 'locale_pending':
             notes.append('가상폰을 한국어로 바꾸는 중')
+        if setup_stage == 'warming':
+            notes.append('가상폰 준비 중')
+        if setup_stage == 'phone_busy':
+            notes.append('가상폰이 아직 바빠요, 잠시 뒤 다시 확인')
         if is_automation_active():
             notes.append(
                 '연동 프로그램이 동작 중입니다. 에뮬레이터 화면을 건드리지 말고 끝날 때까지 기다려 주세요.',
             )
         return {
-            **_base_payload(serial=serial, adb_ok=adb_ok, device_count=len(devices), locale=locale_value),
+            **_base_payload(
+                serial=serial,
+                adb_ok=adb_ok,
+                device_count=len(devices),
+                locale=locale_value,
+                timezone=timezone,
+            ),
             'statusMode': 'lite',
             'setupStage': setup_stage,
             'misoInstalled': miso_installed,
@@ -160,6 +191,9 @@ def build_status_payload(*, lite: bool = False) -> dict:
 
     booted = bool(serial) and _boot_completed(serial)
     locale_value, locale_korean = _locale_for_status(our_serial, booted and our_serial == serial)
+    timezone = read_timezone(our_serial) if our_serial and booted else ''
+    warming = in_warmup()
+    busy = phone_is_busy()
     logged_in = _probe_logged_in(serial) if serial and booted and miso_installed else None
     setup_stage = resolve_setup_stage(
         devices=devices,
@@ -167,17 +201,29 @@ def build_status_payload(*, lite: bool = False) -> dict:
         miso_installed=miso_installed,
         logged_in=logged_in,
         locale_korean=locale_korean,
+        warming=warming,
+        phone_busy=busy,
     )
     notes: list[str] = []
     if setup_stage == 'locale_pending':
         notes.append('가상폰을 한국어로 바꾸는 중')
+    if setup_stage == 'warming':
+        notes.append('가상폰 준비 중')
+    if setup_stage == 'phone_busy':
+        notes.append('가상폰이 아직 바빠요, 잠시 뒤 다시 확인')
     if is_automation_active():
         notes.append(
             '연동 프로그램이 동작 중입니다. 에뮬레이터 화면을 건드리지 말고 끝날 때까지 기다려 주세요.',
         )
 
     payload = {
-        **_base_payload(serial=serial, adb_ok=adb_ok, device_count=len(devices), locale=locale_value),
+        **_base_payload(
+            serial=serial,
+            adb_ok=adb_ok,
+            device_count=len(devices),
+            locale=locale_value,
+            timezone=timezone,
+        ),
         'statusMode': 'full',
         'setupStage': setup_stage,
         'misoInstalled': miso_installed,

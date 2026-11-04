@@ -401,7 +401,13 @@ def _confirm_korean(serial: str) -> bool:
         clear_locale_cache()
         parts = read_device_locale(serial, max_age=0)
     if parts.props_korean:
+        from automation.device_locale import locale_already_applied
+        from automation.phone_runtime import stamp_warmup
+
+        newly_korean = not locale_already_applied()
         mark_locale_applied()
+        if newly_korean:
+            stamp_warmup()
         ensure_korean_keyboard(serial)
         _log(f'가상폰 표시 언어: {parts.actual}')
         return True
@@ -452,6 +458,9 @@ def finish_locale_after_boot() -> int:
             return 0
         try:
             _apply()
+            from automation.phone_runtime import ensure_clock_and_gpu
+
+            ensure_clock_and_gpu()
         finally:
             _release_lock()
     except Exception as exc:

@@ -10,6 +10,8 @@ export type MisoSetupStage =
   | 'emulator_off'
   | 'booting'
   | 'locale_pending'
+  | 'warming'
+  | 'phone_busy'
   | 'no_miso'
   | 'miso_logged_out'
   | 'ready';
@@ -24,6 +26,8 @@ export type MisoBridgeStatus = {
   port?: number;
   avdName?: string | null;
   locale?: string | null;
+  timezone?: string | null;
+  gpuMode?: string | null;
   adbConnected?: boolean;
   emulatorReady?: boolean;
   emulatorSerial?: string | null;

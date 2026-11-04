@@ -295,6 +295,9 @@ def install_packages(progress: Progress) -> None:
 def create_avd(progress: Progress) -> None:
     home = Path.home() / '.android' / 'avd' / f'{AVD_NAME}.avd' / 'config.ini'
     if home.is_file() and sdk_ready():
+        from automation.phone_runtime import patch_avd_spec
+
+        patch_avd_spec()
         progress('가상폰이 이미 만들어져 있습니다.', 0.7)
         return
     progress('가상폰을 만드는 중…', 0.62)
@@ -319,10 +322,13 @@ def create_avd(progress: Progress) -> None:
     text = home.read_text(encoding='utf-8', errors='replace')
     updates = {
         'hw.ramSize': '4096',
+        'hw.cpu.ncore': '4',
         'disk.dataPartition.size': '8192M',
         'hw.keyboard': 'yes',
         'hw.gpu.enabled': 'yes',
-        'hw.gpu.mode': 'swiftshader_indirect',
+        'hw.gpu.mode': 'auto',
+        'fastboot.forceColdBoot': 'no',
+        'fastboot.forceFastBoot': 'yes',
         'showDeviceFrame': 'no',
     }
     lines = text.splitlines()
@@ -363,6 +369,9 @@ def run_first_boot(progress: Progress) -> None:
             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
         )
     _mark('boot')
+    from automation.phone_runtime import stamp_warmup
+
+    stamp_warmup()
     progress('가상폰 첫 설정이 끝났습니다.', 0.95)
 
 
@@ -371,6 +380,12 @@ def open_play_store_if_needed(progress: Progress) -> str:
     from automation.emulator_launcher import open_miso_install_screen
     from automation.adb_client import is_package_installed
 
+    from automation.phone_runtime import install_screen_blocked_message
+
+    blocked = install_screen_blocked_message()
+    if blocked:
+        progress(blocked, 1)
+        return blocked
     device = first_online_emulator()
     if device and is_package_installed(device.serial):
         progress('미소 앱이 설치되어 있습니다.', 1)

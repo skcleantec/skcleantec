@@ -11,8 +11,9 @@ if not exist "%EMU%" (
 )
 
 echo AVD: %MISO_AVD% (cold boot)
+call "%~dp0phone-launch-args.bat"
 call "%~dp0locale-launch-args.bat"
-start "Miso %MISO_AVD%" "%EMU%" -avd %MISO_AVD% -gpu swiftshader_indirect -no-boot-anim -no-audio -no-snapshot-load %MISO_LOCALE_EXTRA%
+start "Miso %MISO_AVD%" "%EMU%" -avd %MISO_AVD% -gpu %MISO_GPU% %MISO_TZ% -no-boot-anim -no-audio -no-snapshot-load %MISO_LOCALE_EXTRA%
 
 start "Miso Boot" /MIN cmd /c ""%~dp0emulator-boot-helper.bat""
 endlocal

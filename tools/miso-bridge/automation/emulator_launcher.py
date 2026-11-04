@@ -7,6 +7,7 @@ from pathlib import Path
 
 from automation.adb_client import first_online_emulator, list_devices, shell
 from automation.device_locale import change_locale_args, locale_already_applied, mark_change_locale_tried, read_device_locale
+from automation.phone_runtime import gpu_args, install_screen_blocked_message, patch_avd_spec, timezone_args
 from automation.uiautomator import launch_miso_app
 from bridge_config import MISO_AVD, MISO_PACKAGE, miso_sdk_root, resolve_emulator
 
@@ -58,12 +59,13 @@ def launch_our_emulator(*, force_change_locale: bool = False) -> bool:
     extra = ['-change-locale', 'ko-KR'] if force_change_locale else change_locale_args()
     if force_change_locale:
         mark_change_locale_tried()
+    patch_avd_spec()
     args = [
         str(emu),
         '-avd',
         MISO_AVD,
-        '-gpu',
-        'swiftshader_indirect',
+        *gpu_args(),
+        *timezone_args(),
         '-no-boot-anim',
         '-no-audio',
         *extra,
@@ -129,6 +131,9 @@ def open_miso_app() -> tuple[bool, str]:
 
 
 def open_miso_install_screen() -> tuple[bool, str]:
+    blocked = install_screen_blocked_message()
+    if blocked:
+        return False, blocked
     device = first_online_emulator()
     if not device:
         return False, '가상폰이 켜진 뒤에 설치 화면을 열 수 있습니다.'

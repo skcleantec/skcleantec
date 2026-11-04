@@ -14,8 +14,9 @@ echo 가상폰: %MISO_AVD%
 echo 켜지는 데 1~3분 걸릴 수 있습니다. 이미 켜져 있으면 그대로 이어갑니다.
 echo.
 
+call "%~dp0phone-launch-args.bat"
 call "%~dp0locale-launch-args.bat"
-start "Miso %MISO_AVD%" "%EMU%" -avd %MISO_AVD% -gpu swiftshader_indirect -no-boot-anim -no-audio %MISO_LOCALE_EXTRA%
+start "Miso %MISO_AVD%" "%EMU%" -avd %MISO_AVD% -gpu %MISO_GPU% %MISO_TZ% -no-boot-anim -no-audio %MISO_LOCALE_EXTRA%
 
 start "Miso Boot" /MIN cmd /c ""%~dp0emulator-boot-helper.bat""
 

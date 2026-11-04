@@ -8,6 +8,7 @@ from automation.uiautomator import collect_nodes, dump_ui, find_by_text
 
 ANR_HINTS = ('응답하지 않음', 'Not Responding', 'not responding')
 WAIT_LABELS = ('대기', 'Wait')
+CLOSE_LABELS = ('앱 닫기', '닫기', 'Close app', 'Close')
 
 
 def _blob(root) -> str:
@@ -21,6 +22,10 @@ def _blob(root) -> str:
 
 
 def anr_blocker_message(root) -> str | None:
+    from automation.phone_runtime import phone_is_busy
+
+    if phone_is_busy():
+        return '가상폰이 아직 바빠요, 잠시 뒤 다시 확인'
     blob = _blob(root)
     if any(h in blob for h in ANR_HINTS):
         return (
@@ -45,8 +50,13 @@ def ensure_emulator_responsive(serial: str | None) -> str | None:
     return anr_blocker_message(root)
 
 
+def _is_close(text: str) -> bool:
+    lowered = text.strip().lower()
+    return any(label.lower() == lowered for label in CLOSE_LABELS)
+
+
 def dismiss_blocking_dialogs(serial: str | None) -> bool:
-    """Tap 「대기」 on system ANR when possible. Returns True if a blocker was handled."""
+    """「응답하지 않음」이면 「대기」만 누른다. 「앱 닫기」는 누르지 않는다."""
     try:
         root = dump_ui(serial, 'miso-anr-check')
     except RuntimeError:
@@ -55,18 +65,14 @@ def dismiss_blocking_dialogs(serial: str | None) -> bool:
     if not anr_blocker_message(root):
         return False
 
-    for label in WAIT_LABELS:
-        node = find_by_text(root, label, clickable=True)
-        if node and node.center:
-            tap(serial, node.center[0], node.center[1])
-            time.sleep(1.2)
-            return True
-        node = find_by_text(root, label)
-        if node and node.center:
-            tap(serial, node.center[0], node.center[1])
-            time.sleep(1.2)
-            return True
+    from automation.phone_runtime import note_anr_wait
 
-    tap(serial, 540, 1398)
-    time.sleep(1.2)
+    note_anr_wait()
+    for label in WAIT_LABELS:
+        node = find_by_text(root, label, clickable=True) or find_by_text(root, label)
+        if not node or not node.center or _is_close(node.text):
+            continue
+        tap(serial, node.center[0], node.center[1])
+        time.sleep(1.2)
+        return True
     return True
