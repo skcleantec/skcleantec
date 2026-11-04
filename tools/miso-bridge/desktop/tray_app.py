@@ -16,14 +16,17 @@ from PIL import Image, ImageDraw
 from automation.emulator_launcher import open_miso_install_screen, start_emulator_detached
 from desktop.config import (
     APP_DATA_DIR,
-    BRIDGE_DIR,
     append_tray_event,
     bridge_python_env,
     ensure_app_data,
     setup_finished,
 )
-from desktop.manifest_client import fetch_manifest, is_update_available, update_should_install
+from desktop.console_quiet import hide_miso_consoles, spawn_hidden
+from desktop.emulator_window import minimize_emulator_window
+from desktop.fault_log import install_fault_hooks, log_exception
 from desktop.python_runtime import resolve_python_exe
+from desktop.watch_task import register_watch_task
+from desktop.manifest_client import fetch_manifest, is_update_available, update_should_install
 from desktop.setup_wizard import run_setup_wizard
 from desktop.single_instance import (
     consume_show_window_request,
@@ -56,6 +59,7 @@ class TrayApp:
     def _log(self, message: str) -> None:
         logger.info(message)
         append_tray_event(message)
+        self._window.note(message)
 
     def _icon_image(self) -> Image.Image:
         img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
@@ -96,12 +100,14 @@ class TrayApp:
         if self._proc and self._proc.poll() is None:
             return
         self._kill_port()
-        python = resolve_python_exe(windowed=False)
-        self._proc = subprocess.Popen(
+        python = resolve_python_exe(windowed=True)
+        from desktop.config import BRIDGE_DIR
+
+        self._proc = spawn_hidden(
             [python, '-u', 'server.py'],
             cwd=str(BRIDGE_DIR),
             env=bridge_python_env(),
-            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+            log_path=APP_DATA_DIR / 'launch.log',
         )
         self._log('연동 프로그램을 켰습니다.')
 
@@ -117,7 +123,7 @@ class TrayApp:
         ensure_app_data()
         dest = APP_DATA_DIR / 'miso-logs.zip'
         with zipfile.ZipFile(dest, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-            for name in ('tray-events.log', 'launch-cmd.log', 'launch.log', 'installer.log'):
+            for name in ('tray-events.log', 'launch-cmd.log', 'launch.log', 'emulator.log', 'installer.log'):
                 path = APP_DATA_DIR / name
                 if path.is_file():
                     archive.write(path, name)
@@ -149,12 +155,14 @@ class TrayApp:
                 self._proc.terminate()
             restart_self(installer_pid)
 
-    def _loop(self) -> None:
-        while not self._stop.wait(8):
-            if self._proc and self._proc.poll() is not None:
-                self._start_server()
-            if consume_show_window_request():
-                self._window.show()
+    def _watch_server(self) -> None:
+        while not self._stop.wait(2):
+            try:
+                if self._proc is not None and self._proc.poll() is not None:
+                    self._log('연동 서버가 꺼져 다시 켭니다.')
+                    self._start_server()
+            except Exception:
+                log_exception('서버 다시 켜기')
 
     def _quit(self, icon: pystray.Icon) -> None:
         self._stop.set()
@@ -165,6 +173,10 @@ class TrayApp:
 
     def run(self) -> None:
         ensure_app_data()
+        try:
+            register_watch_task()
+        except Exception:
+            log_exception('실행 확인 예약')
         if resolve_single_instance() != 'acquired':
             return
         if not setup_finished():
@@ -173,8 +185,8 @@ class TrayApp:
         if setup_finished():
             self._restart_phone()
         self._window.show()
-        threading.Thread(target=self._loop, daemon=True).start()
-        threading.Thread(target=self._maybe_update, daemon=True).start()
+        threading.Thread(target=self._watch_server, name='miso-server-watch', daemon=True).start()
+        threading.Thread(target=self._maybe_update, name='miso-update', daemon=True).start()
         menu = pystray.Menu(
             pystray.MenuItem('상태 창', lambda icon, item: self._window.show()),
             pystray.MenuItem('끝내기', self._quit),
@@ -182,17 +194,32 @@ class TrayApp:
         self._icon = pystray.Icon('miso-bridge', self._icon_image(), APP_DISPLAY_NAME, menu)
         threading.Thread(target=self._icon.run, daemon=True).start()
         last_beat = 0.0
+        last_quiet = 0.0
         while not self._stop.is_set():
-            now = time.monotonic()
-            if now - last_beat >= 5:
-                touch_heartbeat()
-                last_beat = now
-            self._window.pump()
+            try:
+                now = time.monotonic()
+                if now - last_beat >= 5:
+                    touch_heartbeat()
+                    last_beat = now
+                if now - last_quiet >= 1:
+                    hide_miso_consoles()
+                    minimize_emulator_window()
+                    last_quiet = now
+                if consume_show_window_request():
+                    self._window.show()
+                self._window.pump()
+            except Exception:
+                log_exception('메인 루프')
             time.sleep(0.05)
 
 
 def main() -> None:
-    TrayApp().run()
+    install_fault_hooks()
+    try:
+        TrayApp().run()
+    except Exception:
+        log_exception('실행')
+        raise
 
 
 if __name__ == '__main__':

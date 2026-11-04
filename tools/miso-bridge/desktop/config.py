@@ -125,6 +125,8 @@ def save_resolved_manifest_url(url: str) -> None:
 def bridge_python_env() -> dict[str, str]:
     env = os.environ.copy()
     env['PYTHONPATH'] = str(BRIDGE_DIR)
+    env['PYTHONIOENCODING'] = 'utf-8'
+    env['PYTHONUTF8'] = '1'
     env['ANDROID_SDK_ROOT'] = str(SDK_DIR)
     env['ANDROID_HOME'] = str(SDK_DIR)
     return env

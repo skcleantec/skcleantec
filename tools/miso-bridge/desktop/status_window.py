@@ -6,6 +6,7 @@ import threading
 import time
 import tkinter as tk
 from collections.abc import Callable
+from tkinter import scrolledtext, ttk
 
 import requests
 
@@ -15,8 +16,8 @@ from desktop.emulator_window import bring_emulator_to_front
 _POLL_SEC = 4.0
 
 _GUIDE = {
-    'no_emulator': '이 PC에서 가상폰을 찾지 못했습니다 → 「가상폰 다시 켜기」',
-    'emulator_off': '가상폰이 꺼져 있습니다 → 「가상폰 다시 켜기」',
+    'no_emulator': '이 PC에서 가상폰을 찾지 못했습니다.',
+    'emulator_off': '가상폰이 꺼져 있습니다.',
     'booting': '가상폰이 켜지는 중입니다. 잠시만 기다려 주세요.',
     'locale_pending': '가상폰을 한국어로 바꾸는 중',
     'warming': '가상폰 준비 중',
@@ -81,6 +82,7 @@ class StatusWindow:
         self._requests: queue.Queue[tuple[str, dict | None]] = queue.Queue()
         self._last_fetch = 0.0
         self._latest: dict | None = None
+        self._log: scrolledtext.ScrolledText | None = None
 
     def bind_actions(
         self,
@@ -110,26 +112,55 @@ class StatusWindow:
         self._root = root
         self._guide = tk.StringVar(master=root, value='상태를 확인하는 중입니다.')
         root.title('청소비서 미소 연동')
-        root.geometry('460x390')
-        frame = tk.Frame(root, padx=16, pady=12)
-        frame.pack(fill='both', expand=True)
-        tk.Label(frame, textvariable=self._guide, justify='left', wraplength=420, anchor='w').pack(fill='x', pady=(0, 8))
+        root.geometry('460x520')
+        root.minsize(400, 420)
+        header = ttk.Label(root, text='청소비서 미소 연동', font=('Segoe UI', 12, 'bold'))
+        header.pack(anchor='w', padx=12, pady=(12, 4))
+        ttk.Label(root, textvariable=self._guide, wraplength=420).pack(anchor='w', padx=12, pady=4)
+        frame = ttk.Frame(root)
+        frame.pack(fill='x', padx=12, pady=6)
         for key, title in (
             ('phone', '가상폰'),
             ('miso', '미소'),
             ('login', '로그인'),
             ('crm', 'CRM 연결'),
         ):
-            var = tk.StringVar(master=root, value=f'{title}: 확인 중')
+            row = ttk.Frame(frame)
+            row.pack(fill='x', pady=2)
+            ttk.Label(row, text=title, width=14).pack(side='left')
+            var = tk.StringVar(master=root, value='확인 중')
             self._lines[key] = var
-            tk.Label(frame, textvariable=var, anchor='w').pack(fill='x', pady=2)
-        row = tk.Frame(frame)
-        row.pack(fill='x', pady=16)
-        tk.Button(row, text='가상폰 화면 보기', command=self._show_phone).pack(fill='x', pady=2)
-        tk.Button(row, text='가상폰 다시 켜기', command=lambda: self._on_restart_phone and self._on_restart_phone()).pack(fill='x', pady=2)
-        tk.Button(row, text='미소 설치 화면 열기', command=lambda: self._on_install and self._on_install()).pack(fill='x', pady=2)
-        tk.Button(row, text='로그 보내기', command=lambda: self._on_logs and self._on_logs()).pack(fill='x', pady=2)
+            ttk.Label(row, textvariable=var).pack(side='left', fill='x', expand=True)
+        ttk.Label(root, text='실행 로그', font=('Segoe UI', 9, 'bold')).pack(anchor='w', padx=12, pady=(8, 2))
+        self._log = scrolledtext.ScrolledText(
+            root,
+            height=10,
+            wrap='word',
+            font=('Consolas', 9),
+            state='disabled',
+            background='#f8fafc',
+            foreground='#334155',
+        )
+        self._log.pack(fill='both', expand=True, padx=12, pady=(0, 6))
+        self._log.tag_config('error', foreground='#b91c1c')
+        self._log.tag_config('info', foreground='#334155')
+        ttk.Label(
+            root,
+            text='창을 닫아도 프로그램은 계속 실행됩니다.',
+            wraplength=420,
+            foreground='#475569',
+        ).pack(anchor='w', padx=12, pady=(0, 8))
+        buttons = ttk.Frame(root)
+        buttons.pack(fill='x', padx=12, pady=(0, 12))
+        ttk.Button(buttons, text='가상폰 화면 보기', command=self._show_phone).pack(side='left', padx=(0, 6))
+        ttk.Button(buttons, text='미소 설치 화면 열기', command=lambda: self._on_install and self._on_install()).pack(
+            side='left', padx=(0, 6)
+        )
+        ttk.Button(buttons, text='로그 보내기', command=lambda: self._on_logs and self._on_logs()).pack(side='left')
+        self._append_log('프로그램을 시작했습니다.')
         root.protocol('WM_DELETE_WINDOW', root.withdraw)
+        root.deiconify()
+        root.lift()
 
     def _raise(self) -> None:
         if self._root is None:
@@ -137,8 +168,24 @@ class StatusWindow:
         self._root.deiconify()
         self._root.lift()
 
+    def note(self, message: str) -> None:
+        self._requests.put(('log', {'text': message}))
+
+    def _append_log(self, message: str) -> None:
+        if self._log is None:
+            return
+        text = (message or '').rstrip()
+        if not text:
+            return
+        tag = 'error' if '실패' in text or '오류' in text else 'info'
+        self._log.configure(state='normal')
+        self._log.insert('end', text + '\n', tag)
+        self._log.see('end')
+        self._log.configure(state='disabled')
+
     def _show_phone(self) -> None:
-        ok, message = bring_emulator_to_front()
+        ok, message = bring_emulator_to_front(self._root)
+        self._append_log(message)
         if not ok and self._guide is not None:
             self._guide.set(message)
 
@@ -166,10 +213,10 @@ class StatusWindow:
             return
         self._guide.set(guide)
         if self._lines:
-            self._lines['phone'].set(phone)
-            self._lines['miso'].set(miso)
-            self._lines['login'].set(login)
-            self._lines['crm'].set(crm)
+            self._lines['phone'].set(phone.removeprefix('가상폰: ').strip())
+            self._lines['miso'].set(miso.removeprefix('미소: ').strip())
+            self._lines['login'].set(login.removeprefix('로그인: ').strip())
+            self._lines['crm'].set(crm.removeprefix('CRM 연결: ').strip())
 
     def _drain(self) -> None:
         while True:
@@ -181,6 +228,10 @@ class StatusWindow:
                 self._open()
             elif kind == 'status':
                 self._apply_status(payload)
+            elif kind == 'log' and isinstance(payload, dict):
+                if self._root is None:
+                    self._open()
+                self._append_log(str(payload.get('text') or ''))
 
     def pump(self) -> None:
         self._drain()

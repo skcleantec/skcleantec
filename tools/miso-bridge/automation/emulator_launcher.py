@@ -1,8 +1,6 @@
 """Start the Miso AVD and open the Miso app or its install screen."""
 from __future__ import annotations
 
-import os
-import subprocess
 from pathlib import Path
 
 from automation.adb_client import first_online_emulator, list_devices, shell
@@ -15,14 +13,16 @@ _ROOT = Path(__file__).resolve().parents[1]
 
 
 def _spawn_boot_helper() -> None:
-    helper = _ROOT / 'emulator-boot-helper.bat'
-    if not helper.is_file():
-        return
-    subprocess.Popen(
-        ['cmd', '/c', str(helper)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+    from desktop.config import APP_DATA_DIR, bridge_python_env
+    from desktop.console_quiet import spawn_hidden
+    from desktop.python_runtime import resolve_python_exe
+
+    py = resolve_python_exe(windowed=True)
+    spawn_hidden(
+        [py, '-u', '-m', 'automation.locale_apply'],
+        cwd=str(_ROOT),
+        env=bridge_python_env(),
+        log_path=APP_DATA_DIR / 'launch.log',
     )
 
 
@@ -70,20 +70,16 @@ def launch_our_emulator(*, force_change_locale: bool = False) -> bool:
         '-no-audio',
         *extra,
     ]
-    env = os.environ.copy()
+    from desktop.config import APP_DATA_DIR, bridge_python_env
+    from desktop.console_quiet import hide_miso_consoles, spawn_hidden
+
+    env = bridge_python_env()
     sdk = miso_sdk_root()
     env['ANDROID_SDK_ROOT'] = str(sdk)
     env['ANDROID_HOME'] = str(sdk)
-    try:
-        subprocess.Popen(
-            args,
-            env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
-        )
-    except OSError:
+    if spawn_hidden(args, env=env, log_path=APP_DATA_DIR / 'emulator.log') is None:
         return False
+    hide_miso_consoles()
     return True
 
 

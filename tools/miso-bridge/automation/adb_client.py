@@ -27,6 +27,7 @@ def _run(args: list[str], timeout: float = 30.0) -> tuple[int, str, str]:
             timeout=timeout,
             encoding='utf-8',
             errors='replace',
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
         )
     except subprocess.TimeoutExpired:
         return 124, '', f'adb timeout after {timeout}s'

@@ -102,7 +102,7 @@ def _waiter_script(installer_pid: int, bridge_dir: Path, log_path: Path) -> str:
     bridge = str(bridge_dir).replace('"', '')
     module = str((bridge_dir / 'desktop' / 'post_update_restart.py')).replace('"', '')
     python = str((bridge_dir / 'python' / 'python.exe')).replace('"', '')
-    tray_log = str(log_path.parent / 'tray-events.log').replace('"', '')
+    pythonw = str((bridge_dir / 'python' / 'pythonw.exe')).replace('"', '')
     return f'''Option Explicit
 Dim sh, fso, pid
 pid = {int(installer_pid)}
@@ -111,21 +111,13 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 Do While PidRunning(pid)
   WScript.Sleep 1000
 Loop
-AppendLine "{tray_log}", "설치 프로그램이 끝났습니다. 다시 실행을 확인합니다."
+sh.CurrentDirectory = "{bridge}"
 If fso.FileExists("{python}") Then
-  sh.CurrentDirectory = "{bridge}"
+  sh.Run """{pythonw}"" -c ""from desktop.config import append_tray_event; append_tray_event('설치 프로그램이 끝났습니다. 다시 실행을 확인합니다.')""", 0, True
   sh.Run """{python}"" ""{module}"" --finish {int(installer_pid)}", 0, False
 Else
-  AppendLine "{tray_log}", "업데이트 설치 실패: 설치 폴더의 실행 파일을 찾지 못했습니다."
+  sh.Run """{pythonw}"" -c ""from desktop.config import append_tray_event; append_tray_event('업데이트 설치 실패: 설치 폴더의 실행 파일을 찾지 못했습니다.')""", 0, True
 End If
-
-Sub AppendLine(path, text)
-  Dim f
-  On Error Resume Next
-  Set f = fso.OpenTextFile(path, 8, True)
-  f.WriteLine Now & " " & text
-  f.Close
-End Sub
 
 Function PidRunning(target)
   Dim svc, procs

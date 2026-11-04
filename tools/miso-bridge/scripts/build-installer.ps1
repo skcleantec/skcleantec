@@ -1,6 +1,6 @@
 ﻿# 청소비서 미소 연동 — Inno Setup 설치 파일(.exe) 빌드
 param(
-    [string]$Version = '0.3.6'
+    [string]$Version = '0.3.7'
 )
 
 $ErrorActionPreference = 'Stop'

@@ -6,6 +6,8 @@ set "LOGDIR=%LOCALAPPDATA%\Cbiseo\MisoBridge"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%" >nul 2>&1
 set "LOG=%LOGDIR%\launch-cmd.log"
 set "PYTHONPATH=%~dp0"
+set "PYTHONIOENCODING=utf-8"
+set "PYTHONUTF8=1"
 set "ANDROID_SDK_ROOT=%LOCALAPPDATA%\Cbiseo\MisoBridge\sdk"
 set "ANDROID_HOME=%ANDROID_SDK_ROOT%"
 
@@ -48,5 +50,5 @@ if not defined PYW (
   exit /b 1
 )
 
-"%PYW%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1
+"%PYW%" -u -m desktop.tray_app
 exit /b !ERRORLEVEL!
