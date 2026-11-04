@@ -2,7 +2,8 @@
 setlocal EnableDelayedExpansion
 REM 이미 켜진 가상폰(Android Studio 포함)도 알아보고, 한국어·화면 꺼짐·잠금을 맞춘다.
 call "%~dp0avd-config.bat"
-set "ADB=%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe"
+set "ADB=%LOCALAPPDATA%\Cbiseo\MisoBridge\sdk\platform-tools\adb.exe"
+if not exist "%ADB%" set "ADB=%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe"
 if not exist "%ADB%" (
   echo adb를 찾지 못했습니다.
   exit /b 1

@@ -15,6 +15,9 @@ client/dist/
 server/dist/
 tools/soomgo-bridge/dist/
 tools/soomgo-bridge/runtime/python/
+tools/miso-bridge/dist/
+tools/miso-bridge/runtime/python/
+tools/miso-bridge/**/__pycache__/
 tools/soomgo-bridge/**/__pycache__/
 
 # 숨고 크롤링 자동화 — PyInstaller 빌드 산출물

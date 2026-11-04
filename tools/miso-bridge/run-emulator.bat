@@ -1,7 +1,8 @@
 @echo off
 setlocal
 call "%~dp0avd-config.bat"
-set "EMU=%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe"
+set "EMU=%LOCALAPPDATA%\Cbiseo\MisoBridge\sdk\emulator\emulator.exe"
+if not exist "%EMU%" set "EMU=%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe"
 
 if not exist "%EMU%" (
   echo ERROR: emulator.exe not found. Install Android Emulator via SDK Manager.

@@ -1,0 +1,69 @@
+﻿# 청소비서 미소 연동 — Inno Setup 설치 파일(.exe) 빌드
+param(
+    [string]$Version = '0.3.0'
+)
+
+$ErrorActionPreference = 'Stop'
+$BridgeRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+$IssPath = Join-Path $BridgeRoot 'installer\miso-bridge.iss'
+$DistDir = Join-Path $BridgeRoot 'dist'
+$SetupName = "MisoBridge-Setup-$Version.exe"
+$SetupPath = Join-Path $DistDir $SetupName
+
+$IsccCandidates = @(
+    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+)
+$Iscc = $IsccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $Iscc) {
+    throw @"
+Inno Setup 6이 설치되어 있지 않습니다.
+- 다운로드: https://jrsoftware.org/isdl.php
+- 설치 후 다시 실행: .\scripts\build-installer.ps1 -Version $Version
+"@
+}
+
+New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
+if (Test-Path $SetupPath) { Remove-Item -Force $SetupPath }
+
+Write-Host "Building embedded Python runtime..."
+if ($env:CI -eq 'true') {
+    & (Join-Path $PSScriptRoot 'build-python-runtime.ps1') -Force
+} else {
+    & (Join-Path $PSScriptRoot 'build-python-runtime.ps1')
+}
+
+$BundledPy = Join-Path $BridgeRoot 'runtime\python\python.exe'
+if (-not (Test-Path $BundledPy)) {
+    throw "Bundled python.exe missing: $BundledPy"
+}
+Write-Host "Verify bundled runtime..."
+& $BundledPy -c "import tkinter; import pystray; import requests; print('bundled runtime ok')"
+if ($LASTEXITCODE -ne 0) {
+    throw 'Bundled runtime verification failed — tkinter missing'
+}
+
+Write-Host "Verify bridge pack imports..."
+& $BundledPy (Join-Path $PSScriptRoot 'verify-bridge-pack.py') --root $BridgeRoot
+if ($LASTEXITCODE -ne 0) {
+    throw 'Bridge pack import verification failed'
+}
+
+Push-Location $BridgeRoot
+try {
+    & $Iscc "/DMyAppVersion=$Version" $IssPath
+} finally {
+    Pop-Location
+}
+
+if (-not (Test-Path $SetupPath)) {
+    throw "Setup build failed: $SetupPath not found"
+}
+
+$hash = (Get-FileHash -Path $SetupPath -Algorithm SHA256).Hash.ToLower()
+$sizeMb = [math]::Round((Get-Item $SetupPath).Length / 1MB, 2)
+
+Write-Host "Built: $SetupPath ($sizeMb MB)"
+Write-Host "SHA256: $hash"
+Write-Output $hash

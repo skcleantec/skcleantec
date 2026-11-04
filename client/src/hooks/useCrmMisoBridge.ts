@@ -12,6 +12,7 @@ import {
   openMisoPartnerApp,
   sendMisoBridgeMessage,
   startMisoEmulator,
+  fetchMisoBridgePublicManifest,
   type MisoBusyAction,
 } from '../api/misoBridge';
 
@@ -31,12 +32,23 @@ export function useCrmMisoBridge({
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<MisoBusyAction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const busyActionRef = useRef(busyAction);
   busyActionRef.current = busyAction;
   const misoBarOpenRef = useRef(misoBarOpen);
   misoBarOpenRef.current = misoBarOpen;
 
   const notify = useCallback((msg: string) => onDispatchNotice?.(msg), [onDispatchNotice]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchMisoBridgePublicManifest().then((manifest) => {
+      if (!cancelled) setDownloadUrl(manifest?.downloadUrl?.trim() || null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshStatus = useCallback(async (options?: { lite?: boolean }) => {
     const s = await fetchMisoBridgeStatus(options);
@@ -244,6 +256,7 @@ export function useCrmMisoBridge({
     busyAction,
     busyLabel,
     error,
+    downloadUrl,
     refreshStatus,
     openMiso,
     extract,

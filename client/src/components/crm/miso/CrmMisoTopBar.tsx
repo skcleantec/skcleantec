@@ -14,6 +14,7 @@ export function CrmMisoTopBar({
   onStartEmulator,
   onOpenInstall,
   onOpenMisoApp,
+  downloadUrl,
   chatItems = [],
   onExtractChat,
   extractBusy = false,
@@ -30,6 +31,7 @@ export function CrmMisoTopBar({
   onStartEmulator?: () => void;
   onOpenInstall?: () => void;
   onOpenMisoApp?: () => void;
+  downloadUrl?: string | null;
   chatItems?: MisoChatListItem[];
   onExtractChat?: (chatId: string) => void;
   extractBusy?: boolean;
@@ -102,6 +104,16 @@ export function CrmMisoTopBar({
         </p>
 
         <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
+          {!bridgeUp && downloadUrl ? (
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-fluid-2xs font-semibold text-amber-950 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
+            >
+              설치 파일 받기
+            </a>
+          ) : null}
           {!bridgeUp ? (
             <button
               type="button"

@@ -211,3 +211,22 @@ export async function startMisoEmulator(): Promise<{ ok: boolean; message?: stri
     return { ok: false, error: e instanceof Error ? e.message : '에뮬레이터 시작 요청에 실패했습니다.' };
   }
 }
+
+export type MisoBridgePublicManifest = {
+  requiredVersion: number;
+  latestVersion: string;
+  downloadUrl: string;
+  releaseNotes?: string;
+  sha256?: string;
+};
+
+export async function fetchMisoBridgePublicManifest(): Promise<MisoBridgePublicManifest | null> {
+  try {
+    const res = await fetch('/api/public/miso-bridge/manifest', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = (await res.json()) as MisoBridgePublicManifest;
+    return data.downloadUrl?.trim() ? data : null;
+  } catch {
+    return null;
+  }
+}

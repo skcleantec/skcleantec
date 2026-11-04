@@ -1,0 +1,93 @@
+﻿# 청소비서 미소 연동 — Windows full Python (tkinter 포함) + pip 패키지
+param(
+    [string]$PythonVersion = '3.12.7',
+    [switch]$Force
+)
+
+$ErrorActionPreference = 'Stop'
+$BridgeRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+$RuntimeDir = Join-Path $BridgeRoot 'runtime\python'
+$MarkerFile = Join-Path $RuntimeDir '.runtime-ready'
+$PythonExe = Join-Path $RuntimeDir 'python.exe'
+
+function Test-RuntimeReady {
+    if (-not (Test-Path $MarkerFile)) { return $false }
+    if (-not (Test-Path $PythonExe)) { return $false }
+    try {
+        & $PythonExe -c "import tkinter; import pystray; import requests; import _tkinter" 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) { return $false }
+        & $PythonExe -c "from zoneinfo import ZoneInfo; ZoneInfo('Asia/Seoul')" 2>$null | Out-Null
+        return $LASTEXITCODE -eq 0
+    } catch {
+        return $false
+    }
+}
+
+if ((Test-RuntimeReady) -and -not $Force) {
+    Write-Host "Python runtime already built: $RuntimeDir"
+    exit 0
+}
+
+$FullInstaller = "python-$PythonVersion-amd64.exe"
+$FullUrl = "https://www.python.org/ftp/python/$PythonVersion/$FullInstaller"
+$FullPath = Join-Path $env:TEMP $FullInstaller
+
+if (-not (Test-Path $PythonExe)) {
+    if (Test-Path $RuntimeDir) {
+        Remove-Item -Recurse -Force $RuntimeDir
+    }
+    New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+
+    Write-Host "Download full Python $PythonVersion (tkinter included)..."
+    if (-not (Test-Path $FullPath)) {
+        Invoke-WebRequest -Uri $FullUrl -OutFile $FullPath -UseBasicParsing
+    }
+
+    Write-Host "Silent install to $RuntimeDir ..."
+    $installArgs = @(
+        '/quiet'
+        'InstallAllUsers=0'
+        'PrependPath=0'
+        'Include_test=0'
+        'Include_doc=0'
+        'Include_debug=0'
+        'Include_dev=0'
+        'Include_launcher=0'
+        "TargetDir=$RuntimeDir"
+    )
+    $proc = Start-Process -FilePath $FullPath -ArgumentList $installArgs -Wait -PassThru -NoNewWindow
+    if ($proc.ExitCode -ne 0) {
+        throw "Full Python install failed (exit $($proc.ExitCode))"
+    }
+    if (-not (Test-Path $PythonExe)) {
+        Write-Host "Python is already registered. Repairing files into $RuntimeDir ..."
+        $repair = Start-Process -FilePath $FullPath -ArgumentList (@('/repair') + $installArgs) -Wait -PassThru -NoNewWindow
+        if ($repair.ExitCode -ne 0 -or -not (Test-Path $PythonExe)) {
+            throw "python.exe missing after install: $PythonExe"
+        }
+    }
+} else {
+    Write-Host "Using existing embedded Python: $PythonExe"
+}
+
+$SitePackages = Join-Path $RuntimeDir 'Lib\site-packages'
+New-Item -ItemType Directory -Force -Path $SitePackages | Out-Null
+$AppRootPth = Join-Path $SitePackages 'miso-bridge-app-root.pth'
+Set-Content -Path $AppRootPth -Value '..\..\..' -Encoding ASCII
+
+Write-Host "Install bridge dependencies..."
+& $PythonExe -m ensurepip --upgrade
+if ($LASTEXITCODE -ne 0) {
+    throw 'ensurepip failed'
+}
+$ReqDesktop = Join-Path $BridgeRoot 'requirements-desktop.txt'
+& $PythonExe -m pip install -r $ReqDesktop --no-warn-script-location -q
+
+Write-Host "Verify tkinter + tray packages..."
+& $PythonExe -c "import tkinter; import pystray; import requests; from zoneinfo import ZoneInfo; ZoneInfo('Asia/Seoul'); root = tkinter.Tk(); root.withdraw(); root.destroy(); print('runtime ok')"
+if ($LASTEXITCODE -ne 0) {
+    throw 'Runtime verification failed (tkinter)'
+}
+
+Set-Content -Path $MarkerFile -Value "python=$PythonVersion`nfull=1`ntkinter=1`nbuilt=$(Get-Date -Format o)" -Encoding UTF8
+Write-Host "Runtime ready: $RuntimeDir"

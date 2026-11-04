@@ -1186,6 +1186,7 @@ export function CrmPage() {
     bridgeUp: misoBridgeUp,
     chatItems: misoChatItems,
     error: misoError,
+    downloadUrl: misoDownloadUrl,
     refreshStatus: refreshMisoStatus,
     startEmulator: startMisoEmulator,
     openInstall: openMisoInstall,
@@ -1924,6 +1925,7 @@ export function CrmPage() {
                     onStartEmulator={() => void startMisoEmulator()}
                     onOpenInstall={() => void openMisoInstall()}
                     onOpenMisoApp={() => void openMisoPartnerApp()}
+                    downloadUrl={misoDownloadUrl}
                     chatItems={misoChatItems}
                     onExtractChat={(chatId) => void extractMiso(chatId)}
                     extractBusy={misoBusyAction === 'extract'}
