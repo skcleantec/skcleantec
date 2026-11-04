@@ -1211,7 +1211,7 @@ export function CrmPage() {
         await extractMiso();
         return;
       }
-      showDispatchNotice('미소 연동 프로그램이 실행 중이 아닙니다. run-bridge.bat을 실행해 주세요.');
+      showDispatchNotice('PC에서 「청소비서 미소 연동」을 켠 뒤 「다시 확인」을 눌러 주세요.');
       return;
     }
     if (soomgoBarOpen) {

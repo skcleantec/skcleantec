@@ -2,7 +2,19 @@ import type { MisoBridgeStatus, MisoExtractPayload, MisoOpenChatsResult, MisoSen
 import { MISO_BRIDGE_BASE_URL, MISO_BRIDGE_MIN_VERSION } from '@shared/misoBridge';
 
 export const MISO_BRIDGE_NOT_RUNNING_MESSAGE =
-  '미소 연동 프로그램이 실행 중이 아닙니다. PC에서 `tools\\miso-bridge\\run-bridge.bat`(또는 청소비서 미소 연동)을 실행한 뒤 다시 시도해 주세요.';
+  'PC에서 「청소비서 미소 연동」을 켠 뒤 「다시 확인」을 눌러 주세요.';
+
+export const MISO_CHAT_NOT_FOUND_MESSAGE =
+  '선택한 채팅방을 찾지 못했습니다. 채팅 목록을 다시 열어 주세요.';
+
+export const MISO_CHAT_REQUIRED_MESSAGE = '보낼 채팅방을 먼저 고르세요.';
+
+export function misoBridgeUserMessage(code: string | null | undefined, fallback?: string | null): string {
+  if (code === 'CHAT_NOT_FOUND') return MISO_CHAT_NOT_FOUND_MESSAGE;
+  if (code === 'CHAT_REQUIRED') return MISO_CHAT_REQUIRED_MESSAGE;
+  const text = (fallback ?? '').replace(/\bCHAT_NOT_FOUND\b|\bCHAT_REQUIRED\b/g, '').trim();
+  return text || '미소 연동 프로그램 요청에 실패했습니다.';
+}
 
 export type MisoBusyAction = 'open' | 'extract' | 'send';
 
@@ -49,20 +61,20 @@ async function bridgeFetch<T>(path: string, init?: RequestInit, timeoutMs = 8000
       });
       const data = (await res.json()) as T & { error?: string; ok?: boolean; code?: string };
       if (res.status === 404) {
-        throw new Error('미소 브릿지 API를 찾을 수 없습니다.');
+        throw new Error('미소 연동 프로그램을 찾지 못했습니다.');
       }
       if (!res.ok && res.status >= 500 && res.status !== 503) {
-        throw new Error(data.error ?? `브릿지 오류 (${res.status})`);
+        throw new Error(misoBridgeUserMessage(data.code, data.error ?? '연동 프로그램 요청에 실패했습니다.'));
       }
       return data;
     } catch (err) {
       if (controller.signal.aborted) {
-        throw new Error('미소 브릿지 응답 시간이 초과되었습니다.');
+        throw new Error('미소 연동 프로그램 응답 시간이 초과되었습니다.');
       }
       if (isBridgeConnectionError(err)) {
         throw new Error(MISO_BRIDGE_NOT_RUNNING_MESSAGE);
       }
-      throw err instanceof Error ? err : new Error('미소 브릿지 통신에 실패했습니다.');
+      throw err instanceof Error ? err : new Error('미소 연동 프로그램 통신에 실패했습니다.');
     } finally {
       window.clearTimeout(timer);
     }

@@ -51,7 +51,7 @@ def build_status_payload(*, lite: bool = False) -> dict:
         notes: list[str] = []
         if is_automation_active():
             notes.append(
-                '브릿지 자동화 실행 중 — 에뮬 마우스/터치가 잠시 먹지 않을 수 있습니다. 완료 후 사용하세요.',
+                '연동 프로그램이 동작 중입니다. 에뮬레이터 화면을 건드리지 말고 끝날 때까지 기다려 주세요.',
             )
         return {
             **_base_payload(serial=serial, adb_ok=adb_ok, device_count=len(devices)),
@@ -79,15 +79,13 @@ def build_status_payload(*, lite: bool = False) -> dict:
     miso_foreground = foreground == MISO_PACKAGE if foreground else False
 
     notes: list[str] = []
-    if page_size == 16384:
-        notes.append('AVD page size 16KB — some apps may hang; prefer API 34 Play image.')
     if online and not miso_installed:
-        notes.append('Install Miso Partner (com.miso.cleaner) on emulator.')
+        notes.append('에뮬레이터에 미소 파트너 앱을 설치하고 로그인해 주세요.')
     if online and miso_installed and not miso_foreground:
-        notes.append('Open Miso app on emulator for full automation later.')
+        notes.append('에뮬레이터에서 미소 앱을 연 뒤 채팅 목록을 열어 주세요.')
     if is_automation_active():
         notes.append(
-            '브릿지 자동화 실행 중 — 에뮬 마우스/터치가 잠시 먹지 않을 수 있습니다. 완료 후 사용하세요.',
+            '연동 프로그램이 동작 중입니다. 에뮬레이터 화면을 건드리지 말고 끝날 때까지 기다려 주세요.',
         )
 
     payload = {

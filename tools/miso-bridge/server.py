@@ -11,7 +11,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from automation.chat_extract import extract_current_chat
-from automation.chat_list import open_chats
+from automation.chat_list import CHAT_REQUIRED_MESSAGE, open_chats
 from automation.chat_send import send_chat_message
 from automation.emulator_launcher import start_emulator_detached
 from automation.status_probe import build_status_payload
@@ -154,6 +154,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 )
                 return
             chat_id = str(body.get('chatId') or body.get('chat_id') or '').strip() or None
+            if not chat_id:
+                _json_response(
+                    self,
+                    400,
+                    {'ok': False, 'error': CHAT_REQUIRED_MESSAGE, 'code': 'CHAT_REQUIRED'},
+                )
+                return
             try:
                 payload = send_chat_message(message=message, chat_id=chat_id)
                 status = 200 if payload.get('ok') else 503

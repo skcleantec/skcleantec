@@ -9,14 +9,14 @@ from typing import Any
 from automation.adb_client import first_online_emulator, get_foreground_package, shell, tap
 from automation.anr_guard import dismiss_blocking_dialogs, ensure_emulator_responsive
 from automation.chat_list import (
+    CHAT_NOT_FOUND_MESSAGE,
+    MisoChatError,
     _adb_lock,
-    _chat_id,
     _now_iso,
-    _open_chats_body,
-    find_row_by_chat_id,
+    canonical_service_summary,
+    normalize_customer_name,
     open_chat_by_id,
-    parse_list_rows,
-    tap_chat_row,
+    stable_chat_id,
 )
 from automation.uiautomator import (
     collect_nodes,
@@ -342,16 +342,28 @@ def is_on_miso_chat_screen(root) -> bool:
     return False
 
 
-def _guess_chat_id(root, fallback: str | None = None) -> str:
-    if fallback:
-        return fallback
-    for n in collect_nodes(root):
-        if n.clickable and n.content_desc and ' 고객' in n.content_desc:
-            return _chat_id(n.content_desc)
-    customer = parse_customer_name(root)
-    if customer:
-        return _chat_id(customer)
-    return ''
+def open_room_chat_id(root) -> str:
+    """열린 방의 고객명·서비스 요약으로 목록과 같은 구분값을 만든다."""
+    name = normalize_customer_name(parse_customer_name(root))
+    if not name:
+        return ''
+    _box, desc = find_date_summary_box(root)
+    if not desc:
+        _box, desc = find_header_box(root)
+    header = parse_header_summary(desc) if desc else {}
+    summary = canonical_service_summary(
+        f"{header.get('serviceType') or ''} {header.get('serviceDate') or ''}"
+    )
+    return stable_chat_id(name, summary)
+
+
+def _leave_open_chat(serial: str | None) -> None:
+    press_back(serial, 1)
+    time.sleep(0.8)
+    root = dump_ui(serial, 'miso-leave-chat')
+    if is_on_miso_chat_screen(root):
+        press_back(serial, 1)
+        time.sleep(0.8)
 
 
 def tap_bounds(serial: str | None, bounds: tuple[int, int, int, int]) -> None:
@@ -359,57 +371,44 @@ def tap_bounds(serial: str | None, bounds: tuple[int, int, int, int]) -> None:
     tap(serial, (x1 + x2) // 2, (y1 + y2) // 2)
 
 
-def _ensure_chat_detail(serial: str | None, chat_id: str | None) -> tuple[str, Any | None]:
+def _ensure_chat_detail(
+    serial: str | None,
+    chat_id: str | None,
+    *,
+    allow_current: bool = False,
+) -> tuple[str, Any | None]:
+    """대상 방만 연다. 목록 첫 행으로 대체하지 않는다."""
     dismiss_blocking_dialogs(serial)
+    target = (chat_id or '').strip()
 
     root = dump_ui(serial, 'miso-extract-check')
-    if is_on_miso_chat_screen(root):
-        return _guess_chat_id(root, chat_id), root
-
-    if get_foreground_package(serial) == MISO_PACKAGE:
+    if not is_on_miso_chat_screen(root) and get_foreground_package(serial) == MISO_PACKAGE:
         root = dump_ui(serial, 'miso-extract-check-2')
-        if is_on_miso_chat_screen(root):
-            return _guess_chat_id(root, chat_id), root
 
-    target_id = (chat_id or '').strip()
-    result = _open_chats_body(serial, gentle=True)
-    if not result.get('ok'):
-        raise RuntimeError(str(result.get('error') or '채팅 목록을 열 수 없습니다.'))
-    rows: list[dict[str, Any]] = list(result.get('items') or [])
-
-    if not target_id:
-        if rows:
-            target_id = str(rows[0].get('chatId') or '')
-        else:
+    if is_on_miso_chat_screen(root):
+        current_id = open_room_chat_id(root)
+        if not target:
+            if allow_current and current_id:
+                return current_id, root
             return '', None
+        if current_id == target:
+            return target, root
+        _leave_open_chat(serial)
 
-    if not target_id:
+    if not target:
         return '', None
 
     try:
-        open_chat_by_id(serial, target_id)
-    except RuntimeError:
-        root = dump_ui(serial, 'miso-extract-list-retry')
-        rows = parse_list_rows(root)
-        row = find_row_by_chat_id(rows, target_id) or (rows[0] if rows else None)
-        if not row:
-            raise
-        tap_chat_row(serial, row)
-        time.sleep(2.2)
+        open_chat_by_id(serial, target)
+    except MisoChatError:
+        raise
+    except RuntimeError as exc:
+        raise MisoChatError(CHAT_NOT_FOUND_MESSAGE, 'CHAT_NOT_FOUND') from exc
 
     root = dump_ui(serial, 'miso-extract-chat')
-    if not is_on_miso_chat_screen(root):
-        rows = parse_list_rows(root)
-        row = find_row_by_chat_id(rows, target_id) or (rows[0] if rows else None)
-        if row:
-            tap_chat_row(serial, row)
-            time.sleep(2.2)
-            root = dump_ui(serial, 'miso-extract-chat-retry')
-
-    if not is_on_miso_chat_screen(root):
-        return target_id, None
-
-    return _guess_chat_id(root, target_id), root
+    if not is_on_miso_chat_screen(root) or open_room_chat_id(root) != target:
+        raise MisoChatError(CHAT_NOT_FOUND_MESSAGE, 'CHAT_NOT_FOUND')
+    return target, root
 
 
 def build_extract_payload(
@@ -469,7 +468,13 @@ def extract_current_chat(*, chat_id: str | None = None) -> dict[str, Any]:
         if blocked:
             return {'ok': False, 'error': blocked, 'code': 'ADB_ANR'}
         try:
-            resolved_id, chat_root = _ensure_chat_detail(serial, chat_id)
+            resolved_id, chat_root = _ensure_chat_detail(
+                serial,
+                chat_id,
+                allow_current=not (chat_id or '').strip(),
+            )
+        except MisoChatError as e:
+            return {'ok': False, 'error': str(e), 'code': e.code}
         except RuntimeError as e:
             return {'ok': False, 'error': str(e), 'code': 'UI_CHANGED'}
         except Exception as e:
@@ -486,12 +491,15 @@ def extract_current_chat(*, chat_id: str | None = None) -> dict[str, Any]:
             raise
 
         if chat_root is None:
+            if (chat_id or '').strip():
+                return {
+                    'ok': False,
+                    'error': CHAT_NOT_FOUND_MESSAGE,
+                    'code': 'CHAT_NOT_FOUND',
+                }
             return {
                 'ok': False,
-                'error': (
-                    '채팅방을 열지 못했습니다. 에뮬레이터에서 미소 **채팅 상세**를 연 뒤 '
-                    '「미소 정보」를 다시 눌러 주세요.'
-                ),
+                'error': '열린 채팅방이 없습니다. 채팅 목록에서 방을 고른 뒤 다시 시도해 주세요.',
                 'code': 'NO_CHAT_SELECTED',
             }
 
@@ -539,8 +547,16 @@ def extract_current_chat(*, chat_id: str | None = None) -> dict[str, Any]:
                 'code': 'UI_CHANGED',
             }
 
+        room_id = open_room_chat_id(chat_root) or resolved_id
+        if (chat_id or '').strip() and room_id and room_id != (chat_id or '').strip():
+            return {
+                'ok': False,
+                'error': CHAT_NOT_FOUND_MESSAGE,
+                'code': 'CHAT_NOT_FOUND',
+            }
+
         payload = build_extract_payload(
-            chat_id=resolved_id or _chat_id(header_desc or customer or 'miso'),
+            chat_id=room_id or resolved_id,
             customer_name=customer,
             header=header,
             order_detail=order_detail,

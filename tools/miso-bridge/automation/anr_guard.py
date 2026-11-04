@@ -24,9 +24,8 @@ def anr_blocker_message(root) -> str | None:
     blob = _blob(root)
     if any(h in blob for h in ANR_HINTS):
         return (
-            '에뮬레이터가 「응답 없음」 상태입니다. 에뮬레이터 창에서 「대기」를 누르거나 '
-            'AVD를 재시작(Cold Boot)한 뒤, 미소 **채팅방**을 연 뒤 「미소 정보」를 다시 실행해 주세요. '
-            '(16KB page size AVD는 미소 앱이 자주 멈출 수 있습니다 — API 34 Play 이미지 권장)'
+            '에뮬레이터가 「응답 없음」 상태입니다. 에뮬레이터 창에서 「대기」를 누른 뒤 '
+            '미소 채팅방을 열고 다시 시도해 주세요.'
         )
     return None
 
@@ -39,8 +38,8 @@ def ensure_emulator_responsive(serial: str | None) -> str | None:
         msg = str(e).lower()
         if 'timeout' in msg:
             return (
-                '에뮬레이터 adb가 응답하지 않습니다. AVD를 재시작한 뒤 '
-                '미소 채팅방을 연 뒤 다시 시도해 주세요.'
+                '에뮬레이터가 응답하지 않습니다. 에뮬레이터를 다시 켠 뒤 '
+                '미소 채팅방을 열고 다시 시도해 주세요.'
             )
         return str(e)
     return anr_blocker_message(root)

@@ -41,18 +41,18 @@ export function CrmMisoTopBar({
 
   const automationActive = Boolean(status?.automationActive);
   const pageHint = !bridgeUp
-    ? 'run-bridge.bat 실행 후 「다시 확인」'
+    ? 'PC에서 「청소비서 미소 연동」을 켠 뒤 「다시 확인」을 눌러 주세요.'
     : !emulatorReady
-      ? 'Android 에뮬레이터를 켠 뒤 미소 파트너 앱을 실행하세요'
+      ? '에뮬레이터를 켠 뒤 미소 파트너 앱을 실행하세요'
       : !misoInstalled
-        ? '에뮬레이터에 미소 파트너(com.miso.cleaner) 앱을 설치·로그인하세요'
+        ? '에뮬레이터에 미소 파트너 앱을 설치하고 로그인해 주세요'
         : skeleton
-          ? '브릿지 골격 단계 — 채팅·추출·전송은 순차 연결 예정'
+          ? '채팅 목록을 연 뒤 가져올 방을 고르세요'
         : listCount > 0
-          ? '채팅 목록 연결됨 · 행 클릭=정보 가져오기 · 미소 메시지 도구로 전송'
+          ? '채팅 목록이 연결되었습니다. 행을 누르면 정보를 가져옵니다.'
           : misoForeground
-            ? '미소 앱 포그라운드 · 왼쪽 도구로 정보 가져오기(예정)'
-            : '미소 앱을 에뮬레이터에서 연 뒤 도구를 사용하세요';
+            ? '미소 앱이 열려 있습니다. 채팅 목록에서 방을 고르세요.'
+            : '에뮬레이터에서 미소 앱을 연 뒤 사용하세요';
 
   return (
     <div className="shrink-0 border-b border-violet-200/90 bg-gradient-to-r from-violet-50 via-fuchsia-50/40 to-violet-50 shadow-sm">
@@ -62,18 +62,13 @@ export function CrmMisoTopBar({
             <CrmIconMiso className="h-4 w-4" />
           </span>
           <span className="text-fluid-xs font-bold text-violet-950">미소 연동</span>
-          {skeleton ? (
-            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-fluid-2xs font-semibold text-violet-800">
-              골격
-            </span>
-          ) : null}
         </div>
 
         {!bridgeUp ? (
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-fluid-2xs text-amber-900">
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold">브릿지 미실행</span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold">연동 프로그램 미실행</span>
             <span className="hidden min-w-0 truncate sm:inline" title={MISO_BRIDGE_NOT_RUNNING_MESSAGE}>
-              청소비서 미소 연동(17891) 실행 후 연결
+              PC에서 「청소비서 미소 연동」을 켠 뒤 「다시 확인」
             </span>
             <button
               type="button"
@@ -85,7 +80,7 @@ export function CrmMisoTopBar({
           </div>
         ) : (
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-fluid-2xs">
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">브릿지 연결</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">연동 프로그램 연결</span>
             {status?.appVersion ? (
               <span className="rounded-full bg-white px-2 py-0.5 text-slate-600 ring-1 ring-violet-100">
                 v{status.appVersion}
@@ -115,9 +110,6 @@ export function CrmMisoTopBar({
               </span>
             ) : misoForeground ? (
               <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-semibold text-indigo-800">앱 실행 중</span>
-            ) : null}
-            {status?.pageSize === 16384 ? (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-900">16KB AVD</span>
             ) : null}
           </div>
         )}
@@ -161,7 +153,7 @@ export function CrmMisoTopBar({
 
       {automationActive ? (
         <p className="border-t border-amber-200 bg-amber-50 px-4 py-1.5 text-fluid-2xs font-medium text-amber-900">
-          브릿지 자동화 실행 중 — 에뮬레이터 마우스/터치가 잠시 안 먹을 수 있습니다. 완료될 때까지 기다려 주세요.
+          연동 프로그램이 동작 중입니다. 에뮬레이터 화면을 건드리지 말고 끝날 때까지 기다려 주세요.
         </p>
       ) : null}
       {busyLabel ? (

@@ -5,6 +5,7 @@ import {
   fetchMisoBridgeStatus,
   isMisoBridgeReachable,
   MISO_BRIDGE_NOT_RUNNING_MESSAGE,
+  misoBridgeUserMessage,
   MISO_BUSY_LABELS,
   openMisoChats,
   sendMisoBridgeMessage,
@@ -103,11 +104,16 @@ export function useCrmMisoBridge({
         if (!isMisoBridgeReachable(current)) {
           throw new Error(MISO_BRIDGE_NOT_RUNNING_MESSAGE);
         }
-        const targetChatId =
-          chatId?.trim() || activeChatId || chatItems[0]?.chatId || null;
+        const targetChatId = chatId?.trim() || activeChatId || '';
+        if (!targetChatId) {
+          const msg = '가져올 채팅방을 먼저 고르세요';
+          setError(msg);
+          notify(msg);
+          return null;
+        }
         const data = await extractMisoCurrentChat(targetChatId);
         if (!data.ok) {
-          const msg = data.error ?? '미소 정보 가져오기에 실패했습니다.';
+          const msg = misoBridgeUserMessage(data.code, data.error ?? '미소 정보 가져오기에 실패했습니다.');
           setError(msg);
           notify(msg);
           return null;
@@ -133,7 +139,7 @@ export function useCrmMisoBridge({
         setBusyAction(null);
       }
     },
-    [activeChatId, chatItems, notify, onImport, refreshStatus],
+    [activeChatId, notify, onImport, refreshStatus],
   );
 
   const sendMessage = useCallback(
@@ -145,10 +151,16 @@ export function useCrmMisoBridge({
         if (!isMisoBridgeReachable(current)) {
           throw new Error(MISO_BRIDGE_NOT_RUNNING_MESSAGE);
         }
-        const targetChatId = chatId?.trim() || activeChatId;
+        const targetChatId = chatId?.trim() || activeChatId || '';
+        if (!targetChatId) {
+          const msg = '보낼 채팅방을 먼저 고르세요.';
+          setError(msg);
+          notify(msg);
+          return false;
+        }
         const res = await sendMisoBridgeMessage(message, targetChatId);
         if (!res.ok) {
-          const msg = res.error ?? '미소 메시지 전송에 실패했습니다.';
+          const msg = misoBridgeUserMessage(res.code, res.error ?? '미소 메시지 전송에 실패했습니다.');
           setError(msg);
           notify(msg);
           return false;

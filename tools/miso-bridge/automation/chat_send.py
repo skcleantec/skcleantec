@@ -5,8 +5,14 @@ import time
 from typing import Any
 
 from automation.adb_client import first_online_emulator
-from automation.chat_extract import _ensure_chat_detail, is_chat_detail
-from automation.chat_list import _adb_lock, _now_iso
+from automation.chat_extract import _ensure_chat_detail, is_chat_detail, open_room_chat_id
+from automation.chat_list import (
+    CHAT_NOT_FOUND_MESSAGE,
+    CHAT_REQUIRED_MESSAGE,
+    MisoChatError,
+    _adb_lock,
+    _now_iso,
+)
 from automation.text_input import type_into_field
 from automation.uiautomator import collect_nodes, dump_ui, find_clickable_by_desc_contains, tap_node
 
@@ -33,6 +39,9 @@ def send_chat_message(*, message: str, chat_id: str | None = None) -> dict[str, 
     text = message.strip()
     if not text:
         return {'ok': False, 'error': 'message 필드가 필요합니다.', 'code': 'BAD_REQUEST'}
+    target = (chat_id or '').strip()
+    if not target:
+        return {'ok': False, 'error': CHAT_REQUIRED_MESSAGE, 'code': 'CHAT_REQUIRED'}
 
     with _adb_lock:
         device = first_online_emulator()
@@ -45,15 +54,17 @@ def send_chat_message(*, message: str, chat_id: str | None = None) -> dict[str, 
 
         serial = device.serial
         try:
-            _resolved, chat_root = _ensure_chat_detail(serial, chat_id)
+            _resolved, chat_root = _ensure_chat_detail(serial, target, allow_current=False)
+        except MisoChatError as e:
+            return {'ok': False, 'error': str(e), 'code': e.code}
         except RuntimeError as e:
             return {'ok': False, 'error': str(e), 'code': 'UI_CHANGED'}
 
-        if chat_root is None:
+        if chat_root is None or open_room_chat_id(chat_root) != target:
             return {
                 'ok': False,
-                'error': '채팅방을 연 뒤 메시지를 보내 주세요. (또는 chatId 전달)',
-                'code': 'NO_CHAT_SELECTED',
+                'error': CHAT_NOT_FOUND_MESSAGE,
+                'code': 'CHAT_NOT_FOUND',
             }
 
         root = chat_root
@@ -70,6 +81,13 @@ def send_chat_message(*, message: str, chat_id: str | None = None) -> dict[str, 
 
         tap_node(serial, input_node)
         time.sleep(0.4)
+        confirm = dump_ui(serial, 'miso-send-precheck')
+        if open_room_chat_id(confirm) != target:
+            return {
+                'ok': False,
+                'error': CHAT_NOT_FOUND_MESSAGE,
+                'code': 'CHAT_NOT_FOUND',
+            }
         try:
             type_into_field(serial, text)
         except RuntimeError as e:
@@ -100,7 +118,7 @@ def send_chat_message(*, message: str, chat_id: str | None = None) -> dict[str, 
             'ok': True,
             'sentAt': _now_iso(),
             'message': text,
-            'chatId': chat_id,
+            'chatId': target,
         }
 
 
