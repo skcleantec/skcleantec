@@ -17,6 +17,7 @@ import { orderFollowupIdsMatchingKstHour } from '../ops-analytics/kstHourFilterQ
 import {
   appendFollowupLog,
   findOpenFollowupForPhones,
+  followupExistingSaveSummary,
   FOLLOWUP_INCLUDE,
   mergeFollowupMemo,
   OPEN_FOLLOWUP_MERGE_STATUSES,
@@ -878,7 +879,13 @@ router.post('/', async (req, res) => {
         actorUserId: user.userId,
         excludeFollowupId: full.id,
       });
-      res.json({ item: serializeFollowup(full), deduped: true });
+      const prior = followupExistingSaveSummary(existing);
+      res.json({
+        item: serializeFollowup(full),
+        deduped: true,
+        registeredAt: prior.registeredAt,
+        handlerName: prior.handlerName,
+      });
       return;
     }
   }
