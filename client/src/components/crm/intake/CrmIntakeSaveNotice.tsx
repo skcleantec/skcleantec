@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from '../../ui/Toast';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
@@ -9,7 +9,30 @@ export type CrmIntakeSaveFlash = {
   text: string;
 };
 
-/** 화면 상단 가운데. 3초 뒤 사라진다. */
+/** 어두운 헤더 바로 아래. 헤더 높이가 바뀌어도 겹치지 않는다. */
+function useTopBelowCrmHeader(active: boolean): number {
+  const [top, setTop] = useState(64);
+  useEffect(() => {
+    if (!active) return;
+    const header = document.querySelector('[data-crm-app-header]');
+    if (!header) return;
+    const update = () => {
+      const bottom = header.getBoundingClientRect().bottom;
+      setTop(Math.max(0, Math.round(bottom) + 8));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    window.addEventListener('resize', update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [active]);
+  return top;
+}
+
+/** 헤더 바로 아래 가운데. 3초 뒤 사라진다. */
 export function CrmIntakeSaveNotice({
   notice,
   onDone,
@@ -19,6 +42,7 @@ export function CrmIntakeSaveNotice({
 }) {
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
+  const top = useTopBelowCrmHeader(notice != null);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => onDoneRef.current(), 3000);
@@ -27,14 +51,17 @@ export function CrmIntakeSaveNotice({
   if (!notice) return null;
   const err = notice.tone === 'err';
   return createPortal(
-    <div className="pointer-events-none fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-[140] flex justify-center px-3">
+    <div
+      className="pointer-events-none fixed inset-x-0 z-[140] flex justify-center px-3"
+      style={{ top }}
+    >
       <p
         role="status"
         className={`max-w-lg rounded-lg border px-3 py-2 text-center text-fluid-sm font-medium shadow-lg ${
           err ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-white text-slate-900'
         }`}
       >
-        {notice.text}
+        {err ? notice.text : `✓ ${notice.text}`}
       </p>
     </div>,
     document.body,
