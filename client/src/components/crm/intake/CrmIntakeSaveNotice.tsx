@@ -66,7 +66,8 @@ export function confirmAlreadySavedIntake(input: {
 }): Promise<void> {
   const name = input.result.customerName.trim() || '고객';
   const handler = input.result.existingSummary?.handlerName?.trim() || '미지정';
-  const line = `${name} · ${phoneTail(input.contactPhone, input.safePhone)} · 처음 등록 ${formatRegisteredDay(input.result.existingSummary?.registeredAt)} · 담당 ${handler}`;
+  const tail = phoneTail(input.contactPhone, input.safePhone);
+  const registered = formatRegisteredDay(input.result.existingSummary?.registeredAt);
   return new Promise((resolve) => {
     let done = false;
     const finish = () => {
@@ -78,7 +79,16 @@ export function confirmAlreadySavedIntake(input: {
       title: '이미 저장된 건입니다',
       body: (
         <div className="space-y-1.5">
-          <p>{line}</p>
+          <p className="flex flex-wrap items-center justify-center gap-x-1">
+            <span className="whitespace-nowrap">{name}</span>
+            <span aria-hidden="true">·</span>
+            <span className="whitespace-nowrap">{tail}</span>
+          </p>
+          <p className="flex flex-wrap items-center justify-center gap-x-1">
+            <span className="whitespace-nowrap">처음 등록 {registered}</span>
+            <span aria-hidden="true">·</span>
+            <span className="whitespace-nowrap">담당 {handler}</span>
+          </p>
           <p>방금 입력한 내용은 기존 건에 이어서 저장했어요.</p>
         </div>
       ),

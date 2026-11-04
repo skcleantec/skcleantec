@@ -20,6 +20,7 @@ import {
 import { runTelecrmCallWithSoomgoAuto } from '../../../utils/soomgoCallAutoSend';
 import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { CrmIntakeForm, type CrmIntakeSavedMeta } from './CrmIntakeForm';
+import { CrmIntakeSaveNotice, type CrmIntakeSaveFlash } from './CrmIntakeSaveNotice';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
 import { CrmCallMemoSection } from '../memo/CrmCallMemoPanel';
@@ -224,6 +225,7 @@ export function CrmIntakePanel({
     operatingCompanyId,
   );
   const [lastInquiryId, setLastInquiryId] = useState<string | null>(null);
+  const [saveFlash, setSaveFlash] = useState<CrmIntakeSaveFlash | null>(null);
   const [formSeed, setFormSeed] = useState({
     customerName: '',
     nickname: '',
@@ -616,7 +618,9 @@ export function CrmIntakePanel({
             hotEditable={followupImport?.snapshot.myHotMarkEditable !== false}
             hotLinkKey={followupImport?.key ?? 0}
             hotSlotHost={hotSlotHost}
+            onSaveFlash={(flash) => setSaveFlash({ id: Date.now(), tone: flash.tone, text: flash.text })}
           />
+          <CrmIntakeSaveNotice notice={saveFlash} onDone={() => setSaveFlash(null)} />
         </div>
 
         <CrmCallMemoSection phone={outboundPhone} inquiryId={activeInquiryId} resetKey={formResetKey} />
