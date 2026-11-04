@@ -1,6 +1,7 @@
-"""상태 창. /status는 백그라운드에서만 읽고, 글자는 메인 루프 after()에서 바꾼다."""
+"""상태 창. 다른 스레드는 큐에만 넣고, 창은 메인 루프 pump()에서만 다룬다."""
 from __future__ import annotations
 
+import queue
 import threading
 import time
 import tkinter as tk
@@ -63,16 +64,13 @@ def describe_status(data: dict | None) -> tuple[str, str, str, str, str]:
 class StatusWindow:
     def __init__(self) -> None:
         self._root: tk.Tk | None = None
-        self._guide = tk.StringVar(value='상태를 확인하는 중입니다.')
+        self._guide: tk.StringVar | None = None
         self._lines: dict[str, tk.StringVar] = {}
         self._on_restart_phone: Callable[[], None] | None = None
         self._on_install: Callable[[], None] | None = None
         self._on_logs: Callable[[], None] | None = None
-        self._lock = threading.Lock()
-        self._pending: dict | None = None
-        self._pending_ready = False
+        self._requests: queue.Queue[tuple[str, dict | None]] = queue.Queue()
         self._last_fetch = 0.0
-        self._polling = False
         self._latest: dict | None = None
 
     def bind_actions(
@@ -90,15 +88,18 @@ class StatusWindow:
         return self._latest
 
     def show(self) -> None:
+        self._requests.put(('show', None))
+
+    def update_status(self, data: dict | None) -> None:
+        self._requests.put(('status', data if isinstance(data, dict) else None))
+
+    def _open(self) -> None:
         if self._root is not None:
-            try:
-                self._root.after(0, self._raise)
-                return
-            except tk.TclError:
-                self._root = None
-                self._polling = False
+            self._raise()
+            return
         root = tk.Tk()
         self._root = root
+        self._guide = tk.StringVar(master=root, value='상태를 확인하는 중입니다.')
         root.title('청소비서 미소 연동')
         root.geometry('460x390')
         frame = tk.Frame(root, padx=16, pady=12)
@@ -110,7 +111,7 @@ class StatusWindow:
             ('login', '로그인'),
             ('crm', 'CRM 연결'),
         ):
-            var = tk.StringVar(value=f'{title}: 확인 중')
+            var = tk.StringVar(master=root, value=f'{title}: 확인 중')
             self._lines[key] = var
             tk.Label(frame, textvariable=var, anchor='w').pack(fill='x', pady=2)
         row = tk.Frame(frame)
@@ -120,7 +121,6 @@ class StatusWindow:
         tk.Button(row, text='미소 설치 화면 열기', command=lambda: self._on_install and self._on_install()).pack(fill='x', pady=2)
         tk.Button(row, text='로그 보내기', command=lambda: self._on_logs and self._on_logs()).pack(fill='x', pady=2)
         root.protocol('WM_DELETE_WINDOW', root.withdraw)
-        self._arm()
 
     def _raise(self) -> None:
         if self._root is None:
@@ -130,31 +130,8 @@ class StatusWindow:
 
     def _show_phone(self) -> None:
         ok, message = bring_emulator_to_front()
-        if not ok:
+        if not ok and self._guide is not None:
             self._guide.set(message)
-
-    def _arm(self) -> None:
-        if self._polling or self._root is None:
-            return
-        self._polling = True
-        self._last_fetch = 0.0
-        self._root.after(200, self._tick)
-
-    def _tick(self) -> None:
-        root = self._root
-        if root is None:
-            self._polling = False
-            return
-        self._apply_pending()
-        now = time.monotonic()
-        if now - self._last_fetch >= _POLL_SEC:
-            self._last_fetch = now
-            threading.Thread(target=self._fetch, daemon=True).start()
-        try:
-            root.after(250, self._tick)
-        except tk.TclError:
-            self._root = None
-            self._polling = False
 
     def _fetch(self) -> None:
         data: dict | None
@@ -168,29 +145,44 @@ class StatusWindow:
             data = body if isinstance(body, dict) and response.ok else None
         except Exception:
             data = None
-        with self._lock:
-            self._pending = data
-            self._pending_ready = True
+        self.update_status(data)
 
-    def _apply_pending(self) -> None:
-        with self._lock:
-            if not self._pending_ready:
-                return
-            data = self._pending
-            self._pending_ready = False
-        self._latest = data if isinstance(data, dict) else None
-        guide, phone, miso, login, crm = describe_status(data if isinstance(data, dict) else None)
+    def _apply_status(self, data: dict | None) -> None:
+        if self._root is None:
+            self._latest = data
+            return
+        self._latest = data
+        guide, phone, miso, login, crm = describe_status(data)
+        if self._guide is None:
+            return
         self._guide.set(guide)
-        self._lines['phone'].set(phone)
-        self._lines['miso'].set(miso)
-        self._lines['login'].set(login)
-        self._lines['crm'].set(crm)
+        if self._lines:
+            self._lines['phone'].set(phone)
+            self._lines['miso'].set(miso)
+            self._lines['login'].set(login)
+            self._lines['crm'].set(crm)
+
+    def _drain(self) -> None:
+        while True:
+            try:
+                kind, payload = self._requests.get_nowait()
+            except queue.Empty:
+                return
+            if kind == 'show':
+                self._open()
+            elif kind == 'status':
+                self._apply_status(payload)
 
     def pump(self) -> None:
-        if self._root is None:
+        self._drain()
+        root = self._root
+        if root is None:
             return
+        now = time.monotonic()
+        if now - self._last_fetch >= _POLL_SEC:
+            self._last_fetch = now
+            threading.Thread(target=self._fetch, daemon=True).start()
         try:
-            self._root.update()
+            root.update()
         except tk.TclError:
             self._root = None
-            self._polling = False

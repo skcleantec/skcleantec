@@ -6,6 +6,18 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 
+_BIOS_HINTS: tuple[tuple[str, str, str, str], ...] = (
+    ('dell', 'Dell', 'F2', 'Virtualization'),
+    ('hewlett', 'HP', 'F10', 'Virtualization Technology'),
+    ('hp', 'HP', 'F10', 'Virtualization Technology'),
+    ('lenovo', 'Lenovo', 'F1', 'Intel Virtualization Technology 또는 SVM Mode'),
+    ('asus', 'ASUS', 'F2', 'Intel Virtualization Technology'),
+    ('acer', 'Acer', 'F2', 'Intel Virtualization Technology'),
+    ('samsung', 'Samsung', 'F2', 'SVM Mode 또는 Intel Virtualization Technology'),
+    ('msi', 'MSI', 'Delete', 'Intel Virtualization Technology 또는 SVM Mode'),
+    ('gigabyte', 'Gigabyte', 'Delete', 'Intel Virtualization Technology 또는 SVM Mode'),
+)
+
 
 @dataclass
 class PcCheck:
@@ -16,6 +28,10 @@ class PcCheck:
     disk_ok: bool
     virtualization_on: bool | None
     hypervisor_on: bool | None
+    hypervisor_present: bool | None
+    accel_ok: bool | None
+    verdict: str
+    bios_message: str
     message: str
 
 
@@ -57,14 +73,25 @@ def _powershell(script: str) -> str:
     return (result.stdout or '').strip()
 
 
-def virtualization_enabled() -> bool | None:
-    text = _powershell('(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty VirtualizationFirmwareEnabled)')
-    lowered = text.lower()
+def _parse_bool(text: str) -> bool | None:
+    lowered = text.strip().lower()
     if lowered == 'true':
         return True
     if lowered == 'false':
         return False
     return None
+
+
+def virtualization_enabled() -> bool | None:
+    text = _powershell(
+        '(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty VirtualizationFirmwareEnabled)'
+    )
+    return _parse_bool(text)
+
+
+def hypervisor_present() -> bool | None:
+    text = _powershell('(Get-CimInstance Win32_ComputerSystem).HypervisorPresent')
+    return _parse_bool(text)
 
 
 def hypervisor_platform_enabled() -> bool | None:
@@ -78,12 +105,92 @@ def hypervisor_platform_enabled() -> bool | None:
     return None
 
 
+def pc_manufacturer() -> str:
+    return _powershell('(Get-CimInstance Win32_ComputerSystem).Manufacturer')
+
+
+def accel_check() -> bool | None:
+    """emulator -accel-check. 실행 파일이 없으면 None."""
+    try:
+        from bridge_config import resolve_emulator
+    except Exception:
+        return None
+    exe = resolve_emulator()
+    if not exe.is_file():
+        return None
+    try:
+        result = subprocess.run(
+            [str(exe), '-accel-check'],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=25,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    output = f'{result.stdout or ""}\n{result.stderr or ""}'.lower()
+    if result.returncode == 0 or 'is installed and usable' in output:
+        return True
+    if result.returncode != 0:
+        return False
+    return None
+
+
+def classify_virtualization(
+    *,
+    hypervisor_present_flag: bool | None,
+    accel_ok: bool | None,
+    platform_on: bool | None,
+    firmware_on: bool | None,
+) -> str:
+    """ok | need_hypervisor | bios_off.
+
+    HypervisorPresent 또는 accel-check 성공이면 통과한다.
+    펌웨어 플래그만으로 바이오스 꺼짐이라고 하지 않는다.
+    """
+    if hypervisor_present_flag is True or accel_ok is True:
+        return 'ok'
+    if accel_ok is False and platform_on is False:
+        return 'need_hypervisor'
+    if accel_ok is None and platform_on is False:
+        return 'need_hypervisor'
+    if firmware_on is False and hypervisor_present_flag is False and accel_ok is not True:
+        return 'bios_off'
+    if accel_ok is False and hypervisor_present_flag is not True:
+        return 'bios_off'
+    return 'ok'
+
+
+def bios_guidance(manufacturer: str) -> str:
+    lowered = manufacturer.lower()
+    maker, key, menu = 'PC', 'F2 또는 Delete', 'Virtualization Technology 또는 SVM Mode'
+    for needle, label, entry_key, menu_name in _BIOS_HINTS:
+        if needle in lowered:
+            maker, key, menu = label, entry_key, menu_name
+            break
+    return (
+        f'{maker}는 전원을 켠 직후 {key} 키로 바이오스에 들어가 「{menu}」를 켜 주세요.\n'
+        '직접 바꾸기 어려우면 관리자에게 원격 지원을 요청해 주세요.\n'
+        '설치는 이어서 진행할 수 있습니다.'
+    )
+
+
 def inspect_pc(disk_path: str) -> PcCheck:
     ram = _ram_gb()
     usage = shutil.disk_usage(disk_path)
     free_gb = usage.free / (1024 ** 3)
-    virt = virtualization_enabled()
-    hyper = hypervisor_platform_enabled()
+    present = hypervisor_present()
+    platform_on = hypervisor_platform_enabled()
+    firmware = virtualization_enabled()
+    accel = None if present is True else accel_check()
+    verdict = classify_virtualization(
+        hypervisor_present_flag=present,
+        accel_ok=accel,
+        platform_on=platform_on,
+        firmware_on=firmware,
+    )
     lines: list[str] = []
     if ram and ram < 8:
         lines.append(f'메모리가 {ram:.0f}GB입니다. 8GB 미만이면 가상폰이 느릴 수 있습니다. 16GB를 권장합니다.')
@@ -95,22 +202,27 @@ def inspect_pc(disk_path: str) -> PcCheck:
         lines.append(f'디스크 여유 공간이 {free_gb:.1f}GB입니다. 10GB 이상이 필요합니다.')
     else:
         lines.append(f'디스크 여유 {free_gb:.1f}GB')
-    if virt is False:
-        lines.append('CPU 가상화가 꺼져 있습니다. PC 바이오스에서 가상화를 켠 뒤 다시 시작해 주세요.')
-    elif virt is True:
-        lines.append('CPU 가상화가 켜져 있습니다.')
-    if hyper is False:
+    guidance = ''
+    if verdict == 'ok':
+        lines.append('가상폰 가속이 준비되어 있습니다.')
+    elif verdict == 'need_hypervisor':
         lines.append('Windows 하이퍼바이저 플랫폼이 꺼져 있습니다. 「켜기」를 누른 뒤 PC를 다시 시작해야 합니다.')
-    elif hyper is True:
-        lines.append('Windows 하이퍼바이저 플랫폼이 켜져 있습니다.')
+    else:
+        guidance = bios_guidance(pc_manufacturer())
+        lines.append('CPU 가상화가 바이오스에서 꺼져 있습니다.')
+        lines.append(guidance)
     return PcCheck(
         ram_gb=ram,
         ram_ok=ram == 0 or ram >= 8,
         ram_recommended=ram >= 16,
         disk_free_gb=free_gb,
         disk_ok=free_gb >= 10,
-        virtualization_on=virt,
-        hypervisor_on=hyper,
+        virtualization_on=True if verdict == 'ok' else firmware,
+        hypervisor_on=platform_on,
+        hypervisor_present=present,
+        accel_ok=accel,
+        verdict=verdict,
+        bios_message=guidance,
         message='\n'.join(lines),
     )
 

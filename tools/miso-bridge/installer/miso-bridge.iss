@@ -2,7 +2,7 @@
 ; 빌드: scripts\build-installer.ps1 -Version 0.3.0
 
 #ifndef MyAppVersion
-#define MyAppVersion "0.3.2"
+#define MyAppVersion "0.3.3"
 #endif
 
 #define MyAppName "청소비서 미소 연동"
@@ -28,8 +28,9 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
-; 숨고 연동의 pythonw·브라우저를 닫지 않는다
+; 파일 이름만으로 pythonw를 닫으면 숨고 연동까지 죽는다. 설치 폴더 프로세스만 코드에서 닫는다.
 CloseApplications=no
+RestartApplications=no
 UninstallDisplayIcon={sys}\wscript.exe
 
 [Tasks]
@@ -57,10 +58,26 @@ begin
   Result := FileExists(ExpandConstant('{app}\python\pythonw.exe'));
 end;
 
+procedure CloseInstallDirProcesses;
+var
+  ResultCode: Integer;
+  App, Cmd: String;
+begin
+  App := LowerCase(ExpandConstant('{app}'));
+  StringChangeEx(App, '''', '', True);
+  Cmd :=
+    '-NoProfile -ExecutionPolicy Bypass -Command "' +
+    'Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.ToLower().StartsWith(''' + App + ''') } | ' +
+    'ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"';
+  Exec('powershell.exe', Cmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ConfigDir, ConfigPath, Json: String;
 begin
+  if CurStep = ssInstall then
+    CloseInstallDirProcesses;
   if CurStep = ssPostInstall then
   begin
     ConfigDir := ExpandConstant('{localappdata}\Cbiseo\MisoBridge');

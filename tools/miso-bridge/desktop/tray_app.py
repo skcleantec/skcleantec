@@ -28,8 +28,8 @@ from desktop.setup_wizard import run_setup_wizard
 from desktop.single_instance import (
     consume_show_window_request,
     release_single_instance,
-    request_show_existing_window,
-    try_acquire_single_instance,
+    resolve_single_instance,
+    touch_heartbeat,
 )
 from desktop.status_window import StatusWindow
 from desktop.update_manager import perform_update, restart_self
@@ -117,7 +117,7 @@ class TrayApp:
         ensure_app_data()
         dest = APP_DATA_DIR / 'miso-logs.zip'
         with zipfile.ZipFile(dest, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-            for name in ('tray-events.log', 'launch-cmd.log'):
+            for name in ('tray-events.log', 'launch-cmd.log', 'launch.log', 'installer.log'):
                 path = APP_DATA_DIR / name
                 if path.is_file():
                     archive.write(path, name)
@@ -141,10 +141,13 @@ class TrayApp:
             if manifest and is_update_available(manifest) and automation_active:
                 self._log('작업 중이라 업데이트를 다음 확인까지 미룹니다.')
             return
-        ok, message = perform_update(manifest)
+        ok, message, installer_pid = perform_update(manifest)
         self._log(message)
         if ok:
-            restart_self()
+            self._stop.set()
+            if self._proc and self._proc.poll() is None:
+                self._proc.terminate()
+            restart_self(installer_pid)
 
     def _loop(self) -> None:
         while not self._stop.wait(8):
@@ -162,8 +165,7 @@ class TrayApp:
 
     def run(self) -> None:
         ensure_app_data()
-        if not try_acquire_single_instance():
-            request_show_existing_window()
+        if resolve_single_instance() != 'acquired':
             return
         if not setup_finished():
             run_setup_wizard()
@@ -179,7 +181,12 @@ class TrayApp:
         )
         self._icon = pystray.Icon('miso-bridge', self._icon_image(), APP_DISPLAY_NAME, menu)
         threading.Thread(target=self._icon.run, daemon=True).start()
+        last_beat = 0.0
         while not self._stop.is_set():
+            now = time.monotonic()
+            if now - last_beat >= 5:
+                touch_heartbeat()
+                last_beat = now
             self._window.pump()
             time.sleep(0.05)
 

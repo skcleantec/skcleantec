@@ -1,6 +1,7 @@
 """첫 실행 준비 창. 진행 막대와 한글 단계. 중간에 닫아도 다음 실행에서 이어간다."""
 from __future__ import annotations
 
+import queue
 import threading
 import tkinter as tk
 from collections.abc import Callable
@@ -25,13 +26,26 @@ def run_setup_wizard() -> bool:
     root.geometry('520x360')
     root.resizable(False, False)
     done = {'ok': False}
-    status = tk.StringVar(value='PC 상태를 확인하는 중…')
+    status = tk.StringVar(master=root, value='PC 상태를 확인하는 중…')
     bar = ttk.Progressbar(root, maximum=1, mode='determinate')
     tk.Label(root, textvariable=status, justify='left', wraplength=480, anchor='w').pack(fill='x', padx=16, pady=(16, 8))
     bar.pack(fill='x', padx=16, pady=8)
+    ui_queue: queue.Queue[Callable[[], object]] = queue.Queue()
+
+    def poll_ui() -> None:
+        while True:
+            try:
+                fn = ui_queue.get_nowait()
+            except queue.Empty:
+                break
+            fn()
+        try:
+            root.after(50, poll_ui)
+        except tk.TclError:
+            pass
 
     def set_progress(text: str, value: float) -> None:
-        root.after(0, lambda: (status.set(text), bar.configure(value=value)))
+        ui_queue.put(lambda text=text, value=value: (status.set(text), bar.configure(value=value)))
 
     def on_main(fn: Callable[[], object]) -> object:
         finished = threading.Event()
@@ -43,7 +57,7 @@ def run_setup_wizard() -> bool:
             finally:
                 finished.set()
 
-        root.after(0, wrapped)
+        ui_queue.put(wrapped)
         finished.wait()
         return box.get('value')
 
@@ -93,10 +107,12 @@ def run_setup_wizard() -> bool:
             ensure_app_data()
             check = inspect_pc(str(APP_DATA_DIR))
             set_progress(check.message, 0.02)
-            if not check.disk_ok or check.virtualization_on is False:
+            if not check.disk_ok:
                 on_main(lambda: messagebox.showwarning('PC 점검', check.message, parent=root))
                 return
-            if check.hypervisor_on is False:
+            if check.verdict == 'bios_off':
+                on_main(lambda: messagebox.showinfo('바이오스', check.message, parent=root))
+            if check.verdict == 'need_hypervisor':
                 if not on_main(lambda: ask_enable(check.message)):
                     return
                 ok, message = enable_hypervisor_platform()
@@ -120,8 +136,9 @@ def run_setup_wizard() -> bool:
         except Exception as exc:
             on_main(lambda: messagebox.showerror('준비 실패', str(exc), parent=root))
         finally:
-            root.after(0, root.destroy)
+            ui_queue.put(root.destroy)
 
+    root.after(50, poll_ui)
     threading.Thread(target=work, daemon=True).start()
     root.mainloop()
     return done['ok']

@@ -48,6 +48,18 @@ def append_tray_event(message: str) -> None:
         pass
 
 
+def append_launch_log(message: str) -> None:
+    import time
+
+    line = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n"
+    try:
+        ensure_app_data()
+        with (APP_DATA_DIR / 'launch.log').open('a', encoding='utf-8') as handle:
+            handle.write(line)
+    except OSError:
+        pass
+
+
 def load_config() -> dict:
     ensure_app_data()
     if not CONFIG_PATH.is_file():
