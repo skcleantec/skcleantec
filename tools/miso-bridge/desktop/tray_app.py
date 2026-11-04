@@ -11,14 +11,12 @@ import zipfile
 from pathlib import Path
 
 import pystray
-import requests
 from PIL import Image, ImageDraw
 
 from automation.emulator_launcher import open_miso_install_screen, start_emulator_detached
 from desktop.config import (
     APP_DATA_DIR,
     BRIDGE_DIR,
-    BRIDGE_STATUS_URL,
     append_tray_event,
     bridge_python_env,
     ensure_app_data,
@@ -53,7 +51,6 @@ class TrayApp:
             on_install=self._open_install,
             on_logs=self._export_logs,
         )
-        self._status: dict | None = None
 
     def _log(self, message: str) -> None:
         logger.info(message)
@@ -126,34 +123,12 @@ class TrayApp:
         subprocess.Popen(['explorer.exe', '/select,', str(dest)])
         self._log('로그 파일을 만들었습니다. 열린 폴더의 압축 파일을 관리자에게 보내 주세요.')
 
-    def _refresh_status(self) -> None:
-        phone, miso, login, crm = '꺼짐', '확인 안 됨', '확인 안 됨', '연결 안 됨'
-        try:
-            res = requests.get(BRIDGE_STATUS_URL, timeout=4)
-            data = res.json()
-            self._status = data if isinstance(data, dict) else None
-            stage = str((self._status or {}).get('setupStage') or '')
-            phone = '켜짐' if stage in ('no_miso', 'miso_logged_out', 'ready') else ('켜지는 중' if stage == 'booting' else '꺼짐')
-            if stage == 'no_miso':
-                miso = '설치 안 됨'
-            elif stage in ('miso_logged_out', 'ready'):
-                miso = '설치됨'
-            login = '로그인됨' if stage == 'ready' else ('로그인 필요' if stage == 'miso_logged_out' else '확인 안 됨')
-            crm = '준비됨' if res.ok else '연결 안 됨'
-        except Exception:
-            self._status = None
-        self._window.update_status(
-            phone=f'가상폰: {phone}',
-            miso=f'미소: {miso}',
-            login=f'로그인: {login}',
-            crm=f'CRM 연결: {crm}',
-        )
-
     def _maybe_update(self) -> None:
         manifest = fetch_manifest()
         if not manifest or not is_update_available(manifest):
             return
-        if self._status and self._status.get('automationActive'):
+        status = self._window.latest_status()
+        if status and status.get('automationActive'):
             return
         ok, message = perform_update(manifest)
         self._log(message)
@@ -164,7 +139,6 @@ class TrayApp:
         while not self._stop.wait(8):
             if self._proc and self._proc.poll() is not None:
                 self._start_server()
-            self._refresh_status()
             if consume_show_window_request():
                 self._window.show()
 

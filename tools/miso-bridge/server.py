@@ -5,6 +5,7 @@ import json
 import logging
 import signal
 import sys
+import time
 from datetime import datetime, timezone, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -26,6 +27,25 @@ logging.basicConfig(
 logger = logging.getLogger('miso-bridge')
 
 KST = timezone(timedelta(hours=9))
+_crm_status_at = 0.0
+
+
+def note_crm_status_request() -> None:
+    global _crm_status_at
+    _crm_status_at = time.time()
+
+
+def crm_status_recent() -> bool:
+    return (time.time() - _crm_status_at) <= 60
+
+
+def _request_is_from_crm(handler: BaseHTTPRequestHandler) -> bool:
+    client = (handler.headers.get('X-Cbiseo-Client') or '').strip().lower()
+    if client == 'tray':
+        return False
+    if client == 'crm':
+        return True
+    return bool((handler.headers.get('Origin') or '').strip())
 
 
 def _send_cors_headers(handler: BaseHTTPRequestHandler) -> None:
@@ -33,7 +53,7 @@ def _send_cors_headers(handler: BaseHTTPRequestHandler) -> None:
     handler.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     handler.send_header(
         'Access-Control-Allow-Headers',
-        'Content-Type, Authorization, Access-Control-Request-Private-Network',
+        'Content-Type, Authorization, Access-Control-Request-Private-Network, X-Cbiseo-Client',
     )
     handler.send_header('Access-Control-Allow-Private-Network', 'true')
     handler.send_header('Access-Control-Max-Age', '86400')
@@ -76,9 +96,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip('/') or '/'
         if path == '/status':
             try:
+                if _request_is_from_crm(self):
+                    note_crm_status_request()
                 qs = parse_qs(parsed.query or '')
                 lite = qs.get('lite', [''])[0] in ('1', 'true', 'yes')
                 payload = build_status_payload(lite=lite)
+                payload['crmConnected'] = crm_status_recent()
                 _json_response(self, 200, payload)
             except Exception as e:
                 logger.exception('status failed')

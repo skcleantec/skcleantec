@@ -2,7 +2,7 @@
 ; 빌드: scripts\build-installer.ps1 -Version 0.3.0
 
 #ifndef MyAppVersion
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.3.1"
 #endif
 
 #define MyAppName "청소비서 미소 연동"

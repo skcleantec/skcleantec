@@ -56,6 +56,7 @@ async function bridgeFetch<T>(path: string, init?: RequestInit, timeoutMs = 8000
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          'X-Cbiseo-Client': 'crm',
           ...(init?.headers ?? {}),
         },
       });
