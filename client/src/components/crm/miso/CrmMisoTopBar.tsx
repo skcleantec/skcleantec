@@ -50,7 +50,9 @@ export function CrmMisoTopBar({
         ? '가상폰이 꺼져 있습니다.'
         : stage === 'booting'
           ? '가상폰이 켜지는 중입니다. 끝나면 다음 안내가 나옵니다.'
-          : stage === 'no_miso'
+          : stage === 'locale_pending'
+            ? '가상폰을 한국어로 바꾸는 중'
+            : stage === 'no_miso'
             ? '가상폰에 미소 앱이 없습니다.'
             : stage === 'miso_logged_out'
               ? '미소 앱에서 로그인한 뒤 「다시 확인」을 눌러 주세요.'
@@ -64,13 +66,13 @@ export function CrmMisoTopBar({
         ? '미소 설치 화면 열기'
         : stage === 'miso_logged_out'
           ? '미소 앱 열기'
-          : stage === 'no_emulator' || stage === 'booting' || !bridgeUp
+          : stage === 'no_emulator' || stage === 'booting' || stage === 'locale_pending' || !bridgeUp
             ? '다시 확인'
             : listCount > 0
               ? '목록 새로고침'
               : '채팅 목록 열기';
   const runNext = () => {
-    if (!bridgeUp || stage === 'no_emulator' || stage === 'booting') {
+    if (!bridgeUp || stage === 'no_emulator' || stage === 'booting' || stage === 'locale_pending') {
       void onRefresh();
       return;
     }

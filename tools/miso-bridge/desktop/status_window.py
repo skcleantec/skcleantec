@@ -18,6 +18,7 @@ _GUIDE = {
     'no_emulator': '이 PC에서 가상폰을 찾지 못했습니다 → 「가상폰 다시 켜기」',
     'emulator_off': '가상폰이 꺼져 있습니다 → 「가상폰 다시 켜기」',
     'booting': '가상폰이 켜지는 중입니다. 잠시만 기다려 주세요.',
+    'locale_pending': '가상폰을 한국어로 바꾸는 중',
     'no_miso': '가상폰에 미소를 설치해 주세요 → 「미소 설치 화면 열기」',
     'miso_logged_out': '미소에 로그인해 주세요 → 「가상폰 화면 보기」',
     'ready': '미소 연동이 준비되었습니다.',
@@ -36,6 +37,8 @@ def describe_status(data: dict | None) -> tuple[str, str, str, str, str]:
     stage = str(data.get('setupStage') or '')
     if stage == 'booting':
         phone = '켜지는 중'
+    elif stage == 'locale_pending':
+        phone = '한국어로 바꾸는 중'
     elif stage in ('no_miso', 'miso_logged_out', 'ready') or data.get('emulatorReady') is True:
         phone = '준비됨' if stage != 'emulator_off' else '꺼짐'
     elif stage == 'no_emulator':

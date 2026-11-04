@@ -9,6 +9,7 @@ export type MisoSetupStage =
   | 'no_emulator'
   | 'emulator_off'
   | 'booting'
+  | 'locale_pending'
   | 'no_miso'
   | 'miso_logged_out'
   | 'ready';

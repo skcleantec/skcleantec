@@ -9,8 +9,6 @@ if not exist "%ADB%" (
   exit /b 1
 )
 
-set "LOCALE_DONE=0"
-
 :WaitReady
 echo 가상폰 연결을 기다리는 중...
 "%ADB%" wait-for-device
@@ -64,16 +62,15 @@ echo 화면 잠금을 해제하고 화면이 꺼지지 않게 합니다.
 "%ADB%" -s !SERIAL! shell svc power stayon true >nul 2>&1
 call :ApplyKeyboard
 
-if "!LOCALE_DONE!"=="1" goto Done
-set "CUR="
-for /f "delims=" %%L in ('"%ADB%" -s !SERIAL! shell settings get system system_locales 2^>nul') do set "CUR=%%L"
-echo !CUR! | findstr /I "ko-KR" >nul
+REM system_locales 기록은 API 34 화면 언어를 바꾸지 않는다. persist/product 를 보고 -change-locale·설정 화면으로 맞춘다.
+set "PY=%~dp0python\python.exe"
+if not exist "%PY%" set "PY=python"
+set "PYTHONPATH=%~dp0"
+cd /d "%~dp0"
+"%PY%" -m automation.locale_apply
 if errorlevel 1 (
-  echo 표시 언어를 한국어로 맞춘 뒤 가상폰을 다시 시작합니다.
-  "%ADB%" -s !SERIAL! shell settings put system system_locales ko-KR
-  set "LOCALE_DONE=1"
-  "%ADB%" -s !SERIAL! reboot
-  goto WaitReady
+  echo 표시 언어를 맞추지 못했습니다.
+  exit /b 1
 )
 
 :Done

@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from automation.adb_client import first_online_emulator, list_devices, shell
+from automation.device_locale import change_locale_args, locale_already_applied, mark_change_locale_tried, read_device_locale
 from automation.uiautomator import launch_miso_app
 from bridge_config import MISO_AVD, MISO_PACKAGE, miso_sdk_root, resolve_emulator
 
@@ -35,24 +36,28 @@ def _online_emulators() -> list:
     return [d for d in list_devices() if d.serial.startswith('emulator-') and d.state == 'device']
 
 
+def our_emulator_serial() -> str | None:
+    for device in _online_emulators():
+        if _avd_name(device.serial) == MISO_AVD:
+            return device.serial
+    return None
+
+
 def our_emulator_online() -> bool:
-    return any(_avd_name(d.serial) == MISO_AVD for d in _online_emulators())
+    return our_emulator_serial() is not None
 
 
 def foreign_emulator_online() -> bool:
     return any(_avd_name(d.serial) != MISO_AVD for d in _online_emulators())
 
 
-def start_emulator_detached() -> tuple[bool, str]:
-    if our_emulator_online():
-        _spawn_boot_helper()
-        return True, '가상폰이 이미 켜져 있습니다. 잠시 후 「다시 확인」을 눌러 주세요.'
-    if foreign_emulator_online():
-        return False, '다른 가상폰이 켜져 있어요. 닫고 계속'
-
+def launch_our_emulator(*, force_change_locale: bool = False) -> bool:
     emu = resolve_emulator()
     if not emu.is_file():
-        return False, '이 PC에서 가상폰을 켤 수 없습니다.'
+        return False
+    extra = ['-change-locale', 'ko-KR'] if force_change_locale else change_locale_args()
+    if force_change_locale:
+        mark_change_locale_tried()
     args = [
         str(emu),
         '-avd',
@@ -61,6 +66,7 @@ def start_emulator_detached() -> tuple[bool, str]:
         'swiftshader_indirect',
         '-no-boot-anim',
         '-no-audio',
+        *extra,
     ]
     env = os.environ.copy()
     sdk = miso_sdk_root()
@@ -75,8 +81,39 @@ def start_emulator_detached() -> tuple[bool, str]:
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
         )
     except OSError:
+        return False
+    return True
+
+
+def _locale_change_pending() -> bool:
+    if not locale_already_applied():
+        return True
+    serial = our_emulator_serial()
+    if not serial:
+        return False
+    try:
+        return read_device_locale(serial, max_age=0).needs_change
+    except (RuntimeError, OSError):
+        return False
+
+
+def start_emulator_detached() -> tuple[bool, str]:
+    if our_emulator_online():
+        pending = _locale_change_pending()
+        _spawn_boot_helper()
+        if pending:
+            return True, '가상폰을 한국어로 바꾸는 중'
+        return True, '가상폰이 이미 켜져 있습니다. 잠시 후 「다시 확인」을 눌러 주세요.'
+    if foreign_emulator_online():
+        return False, '다른 가상폰이 켜져 있어요. 닫고 계속'
+
+    if not launch_our_emulator():
+        if not resolve_emulator().is_file():
+            return False, '이 PC에서 가상폰을 켤 수 없습니다.'
         return False, '가상폰을 켜지 못했습니다. 잠시 후 다시 시도해 주세요.'
     _spawn_boot_helper()
+    if not locale_already_applied():
+        return True, '가상폰을 한국어로 바꾸는 중'
     return True, '가상폰을 켜는 중입니다. 잠시 후 「다시 확인」을 눌러 주세요.'
 
 
