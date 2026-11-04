@@ -92,7 +92,9 @@ def save_setup_state(data: dict) -> None:
 
 
 def setup_finished() -> bool:
-    return bool(load_setup_state().get('boot'))
+    from desktop.sdk_setup import sdk_ready
+
+    return sdk_ready() and bool(load_setup_state().get('boot'))
 
 
 def iter_manifest_urls() -> list[str]:

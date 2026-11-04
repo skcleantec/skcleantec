@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import urllib.request
@@ -31,6 +32,26 @@ def _mark(key: str) -> None:
     data = _state()
     data[key] = True
     save_setup_state(data)
+
+
+def sdk_ready() -> bool:
+    """자체 SDK와 CbiseoMiso만 본다. 다른 가상폰이 켜져 있는 것으로 완료하지 않는다."""
+    image = SDK_DIR / 'system-images' / 'android-34' / 'google_apis_playstore' / 'x86_64'
+    avd = Path.home() / '.android' / 'avd' / f'{AVD_NAME}.avd' / 'config.ini'
+    return (
+        (SDK_DIR / 'emulator' / 'emulator.exe').is_file()
+        and (SDK_DIR / 'platform-tools' / 'adb.exe').is_file()
+        and ((image / 'system.img').is_file() or (image / 'source.properties').is_file())
+        and avd.is_file()
+    )
+
+
+def setup_needs_resume() -> bool:
+    if sdk_ready() and _state().get('boot'):
+        return False
+    if _state():
+        return True
+    return SDK_DIR.is_dir() and any(SDK_DIR.iterdir())
 
 
 def _sdkmanager() -> Path:
@@ -139,53 +160,141 @@ def ensure_cmdline_tools(progress: Progress) -> None:
     progress('Android 도구 준비가 끝났습니다.', 0.18)
 
 
+_LICENSE_DROP = re.compile(
+    r'^(?:Accept\?|Review licenses|All SDK package licenses|Warning:|Info:|Loading |Downloading )',
+    re.IGNORECASE,
+)
+_PERCENT_RE = re.compile(r'(\d{1,3})\s*%')
+
+
+def clean_license_text(raw: str) -> str:
+    """콘솔 진행 문구를 빼고 약관 본문만 남긴다."""
+    kept: list[str] = []
+    for line in (raw or '').splitlines():
+        stripped = line.strip()
+        if not stripped or _LICENSE_DROP.match(stripped) or _PERCENT_RE.fullmatch(stripped):
+            continue
+        if stripped.endswith('%') and _PERCENT_RE.search(stripped) and len(stripped) < 40:
+            continue
+        kept.append(line.rstrip())
+    text = '\n'.join(kept).strip()
+    return text
+
+
 def license_text() -> str:
     ensure_java(lambda _text, _value: None)
     if not _sdkmanager().is_file():
         return ''
     result = _run([str(_sdkmanager()), f'--sdk_root={SDK_DIR}', '--licenses'], stdin='\n', timeout=60)
-    text = (result.stdout or '') + '\n' + (result.stderr or '')
-    return text.strip() or 'Android SDK 라이선스에 동의해야 가상폰 도구를 설치할 수 있습니다.'
+    return clean_license_text((result.stdout or '') + '\n' + (result.stderr or ''))
+
+
+def _run_watching_percent(
+    args: list[str],
+    *,
+    stdin: str | None,
+    timeout: float,
+    progress: Progress,
+    label: str,
+    start: float,
+    end: float,
+) -> subprocess.CompletedProcess[str]:
+    proc = subprocess.Popen(
+        args,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding='utf-8',
+        errors='replace',
+        env=_env(),
+        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+    )
+    if proc.stdin is not None:
+        if stdin:
+            proc.stdin.write(stdin)
+        proc.stdin.close()
+    chunks: list[str] = []
+    assert proc.stdout is not None
+    try:
+        for line in proc.stdout:
+            chunks.append(line)
+            match = _PERCENT_RE.search(line)
+            if not match:
+                continue
+            pct = max(0, min(100, int(match.group(1))))
+            progress(label, start + (end - start) * (pct / 100))
+        code = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        code = 1
+    output = ''.join(chunks)
+    return subprocess.CompletedProcess(args, code, output, '')
 
 
 def accept_licenses(progress: Progress) -> None:
     ensure_java(progress)
     if _state().get('licenses'):
-        progress('라이선스 동의가 이미 되어 있습니다.', 0.22)
+        progress('사용 약관 동의가 이미 되어 있습니다.', 0.22)
         return
-    progress('라이선스를 적용하는 중…', 0.22)
-    yes = 'y\n' * 40
-    result = _run([str(_sdkmanager()), f'--sdk_root={SDK_DIR}', '--licenses'], stdin=yes, timeout=180)
-    if result.returncode not in (0, None) and 'Accept' in (result.stdout or ''):
-        raise RuntimeError('라이선스 동의에 실패했습니다.')
+    progress('사용 약관을 적용하는 중…', 0.2)
+    yes = 'y\n' * 80
+    result = _run_watching_percent(
+        [str(_sdkmanager()), f'--sdk_root={SDK_DIR}', '--licenses'],
+        stdin=yes,
+        timeout=180,
+        progress=progress,
+        label='사용 약관을 적용하는 중…',
+        start=0.2,
+        end=0.26,
+    )
+    output = result.stdout or ''
+    if result.returncode not in (0, None) and 'Accept' in output:
+        from desktop.config import append_tray_event
+
+        append_tray_event('사용 약관 적용 실패')
+        raise RuntimeError('사용 약관 동의에 실패했습니다. 다시 실행하면 이어서 진행합니다.')
     _mark('licenses')
+    progress('사용 약관 동의를 마쳤습니다.', 0.26)
 
 
 def install_packages(progress: Progress) -> None:
     image_dir = SDK_DIR / 'system-images' / 'android-34' / 'google_apis_playstore' / 'x86_64'
-    if _state().get('packages') and image_dir.is_dir() and (SDK_DIR / 'platform-tools' / 'adb.exe').is_file():
+    image_ready = (image_dir / 'system.img').is_file() or (image_dir / 'source.properties').is_file()
+    if (
+        (SDK_DIR / 'emulator' / 'emulator.exe').is_file()
+        and (SDK_DIR / 'platform-tools' / 'adb.exe').is_file()
+        and image_ready
+    ):
         progress('가상폰 구성 요소가 이미 있습니다.', 0.55)
         return
     if 'ps16k' in SYSTEM_IMAGE or '16kb' in SYSTEM_IMAGE.lower():
         raise RuntimeError('16KB 이미지는 사용하지 않습니다.')
-    progress('가상폰 구성 요소를 받는 중… 몇 분 걸릴 수 있습니다.', 0.28)
+    progress('가상폰 구성 요소를 받는 중…', 0.28)
     packages = ['platform-tools', 'emulator', SYSTEM_IMAGE]
-    result = _run(
+    result = _run_watching_percent(
         [str(_sdkmanager()), f'--sdk_root={SDK_DIR}', *packages],
         stdin='y\n',
         timeout=3600,
+        progress=progress,
+        label='가상폰 구성 요소를 받는 중…',
+        start=0.28,
+        end=0.58,
     )
-    if result.returncode != 0 or not image_dir.is_dir():
-        tail = (result.stderr or result.stdout or '').strip().splitlines()
-        hint = tail[-1] if tail else '받기 실패'
-        raise RuntimeError(f'가상폰 구성 요소를 받지 못했습니다. {hint}')
+    if result.returncode != 0 or not (
+        (image_dir / 'system.img').is_file() or (image_dir / 'source.properties').is_file()
+    ):
+        from desktop.config import append_tray_event
+
+        append_tray_event('가상폰 구성 요소를 받지 못했습니다.')
+        raise RuntimeError('가상폰 구성 요소를 받지 못했습니다. 다시 실행하면 이어서 진행합니다.')
     _mark('packages')
     progress('가상폰 구성 요소 받기가 끝났습니다.', 0.6)
 
 
 def create_avd(progress: Progress) -> None:
     home = Path.home() / '.android' / 'avd' / f'{AVD_NAME}.avd' / 'config.ini'
-    if _state().get('avd') and home.is_file():
+    if home.is_file() and sdk_ready():
         progress('가상폰이 이미 만들어져 있습니다.', 0.7)
         return
     progress('가상폰을 만드는 중…', 0.62)
@@ -226,7 +335,7 @@ def create_avd(progress: Progress) -> None:
 
 
 def run_first_boot(progress: Progress) -> None:
-    if _state().get('boot'):
+    if _state().get('boot') and sdk_ready():
         progress('첫 부팅이 이미 끝났습니다.', 0.95)
         return
     from automation.emulator_launcher import start_emulator_detached

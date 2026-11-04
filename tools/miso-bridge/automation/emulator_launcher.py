@@ -24,14 +24,31 @@ def _spawn_boot_helper() -> None:
     )
 
 
-def _emulator_visible() -> bool:
-    return any(d.serial.startswith('emulator-') for d in list_devices())
+def _avd_name(serial: str) -> str:
+    try:
+        return shell(serial, 'getprop ro.boot.qemu.avd_name', timeout=8).strip()
+    except (RuntimeError, OSError):
+        return ''
+
+
+def _online_emulators() -> list:
+    return [d for d in list_devices() if d.serial.startswith('emulator-') and d.state == 'device']
+
+
+def our_emulator_online() -> bool:
+    return any(_avd_name(d.serial) == MISO_AVD for d in _online_emulators())
+
+
+def foreign_emulator_online() -> bool:
+    return any(_avd_name(d.serial) != MISO_AVD for d in _online_emulators())
 
 
 def start_emulator_detached() -> tuple[bool, str]:
-    if first_online_emulator() or _emulator_visible():
+    if our_emulator_online():
         _spawn_boot_helper()
-        return True, '이미 켜진 가상폰을 사용합니다. 잠시 후 「다시 확인」을 눌러 주세요.'
+        return True, '가상폰이 이미 켜져 있습니다. 잠시 후 「다시 확인」을 눌러 주세요.'
+    if foreign_emulator_online():
+        return False, '다른 가상폰이 켜져 있어요. 닫고 계속'
 
     emu = resolve_emulator()
     if not emu.is_file():
