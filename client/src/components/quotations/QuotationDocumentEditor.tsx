@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type {
   QuotationEditorOperatingCompanyDto,
   QuotationServiceItemDto,
 } from '../../api/quotations';
 import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
 import { resolveQuotationSealDisplayWidth } from '@shared/quotationSeal';
+import { RepresentativeWithSeal } from './RepresentativeWithSeal';
 import type { QuotationVatMode } from '@shared/quotationVat';
 import { computeLineAmounts, vatModeLabel } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
@@ -98,49 +99,6 @@ function formatValidUntil(ymd: string): string {
   const d = new Date(ymd + 'T12:00:00');
   if (Number.isNaN(d.getTime())) return ymd;
   return d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
-}
-
-function RepresentativeWithSeal({
-  repName,
-  sealUrl,
-  sealWidth,
-  className = 'text-[13px] text-slate-800',
-}: {
-  repName: string;
-  sealUrl: string | null;
-  sealWidth: number;
-  className?: string;
-}) {
-  /** 도장 그림을 못 불러오면(주소 만료·삭제 등) 깨진 그림이 이름을 가리지 않게 숨긴다 */
-  const [sealFailed, setSealFailed] = useState(false);
-  useEffect(() => setSealFailed(false), [sealUrl]);
-  return (
-    <p className={`leading-snug ${className}`}>
-      <span className="whitespace-nowrap">대표 {repName}</span>
-      {sealUrl ? (
-        /* 이름 오른쪽에 간격을 두고 「(인)」, 도장은 「(인)」 위에 찍힘 — 이름은 가리지 않음 */
-        <span className="relative ml-2.5 inline-block whitespace-nowrap">
-          (인)
-          {!sealFailed ? (
-            <img
-              src={sealUrl}
-              alt=""
-              onError={() => setSealFailed(true)}
-              width={sealWidth}
-              className="pointer-events-none absolute object-contain"
-              style={{
-                width: sealWidth,
-                height: sealWidth,
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-              }}
-            />
-          ) : null}
-        </span>
-      ) : null}
-    </p>
-  );
 }
 
 function companyLines(c: TenantCompanyRegistration | null): string[] {
@@ -384,9 +342,9 @@ export function QuotationDocumentEditor({
             <div className="flex-1 flex flex-col min-h-0 text-[14px] leading-relaxed">
               {/* 공급자 / 공급받는자 */}
               <div className="grid grid-cols-1 gap-3 mb-4 min-[720px]:grid-cols-2">
-                <div className="border border-slate-300 bg-[#f9fafb] p-3 min-h-[100px]">
+                <div className="relative overflow-visible border border-slate-300 bg-[#f9fafb] p-3 min-h-[100px]">
                   <p className="text-[11px] font-bold text-slate-500 mb-2 tracking-wide">공급자</p>
-                  <div className="space-y-0.5 text-[13px] text-slate-800">
+                  <div className="relative space-y-0.5 overflow-visible text-[13px] text-slate-800">
                     {supplierLines[0] && supplierLines[0] !== '—' ? (
                       <p>{supplierLines[0]}</p>
                     ) : supplierLines[0] === '—' ? (

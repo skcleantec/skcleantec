@@ -8,7 +8,9 @@ import {
 } from '@shared/quotationSeal';
 import type { TenantCompanyRegistration } from '@shared/tenantCompanyProfile';
 import { uploadTenantCompanySeal } from '../../api/tenantCompanyProfile';
+import { RepresentativeWithSeal } from '../quotations/RepresentativeWithSeal';
 import { getToken } from '../../stores/auth';
+import { trimTransparentPngFileToSquare } from '../../utils/quotationSealTrim';
 
 type Props = {
   value: TenantCompanyRegistration;
@@ -22,7 +24,12 @@ export function OperatingCompanyRegistrationFields({ value, onChange, idPrefix =
   const [sealErr, setSealErr] = useState<string | null>(null);
 
   const sealPreviewUrl = value.sealSecureUrl?.trim() || null;
-  const sealWidthStr = String(value.sealDisplayWidthPx ?? QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT);
+  const sealWidthPx = resolveQuotationSealDisplayWidth(value.sealDisplayWidthPx);
+  const sealWidthStr = String(
+    value.sealDisplayWidthPx == null || value.sealDisplayWidthPx === undefined
+      ? QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT
+      : sealWidthPx,
+  );
 
   const set = (key: keyof TenantCompanyRegistration, raw: string) => {
     onChange({ ...value, [key]: raw });
@@ -53,7 +60,12 @@ export function OperatingCompanyRegistrationFields({ value, onChange, idPrefix =
     setSealBusy(true);
     setSealErr(null);
     try {
-      const up = await uploadTenantCompanySeal(file, token, file.name || `seal_${Date.now()}.png`);
+      const trimmed = await trimTransparentPngFileToSquare(file);
+      const up = await uploadTenantCompanySeal(
+        trimmed,
+        token,
+        file.name || `seal_${Date.now()}.png`,
+      );
       onChange({
         ...value,
         sealPublicId: up.publicId,
@@ -169,23 +181,14 @@ export function OperatingCompanyRegistrationFields({ value, onChange, idPrefix =
           ) : null}
         </div>
         {sealPreviewUrl ? (
-          <div className="flex items-center gap-3 pt-1">
-            <span className="text-xs text-gray-500">미리보기 (대표 옆)</span>
-            <span className="text-sm text-gray-800 whitespace-nowrap">
-              대표 {value.representativeName?.trim() || '○○○'}
-              <img
-                src={sealPreviewUrl}
-                alt=""
-                width={resolveQuotationSealDisplayWidth(value.sealDisplayWidthPx)}
-                className="inline-block align-middle ml-0.5 object-contain"
-                style={{
-                  width: resolveQuotationSealDisplayWidth(value.sealDisplayWidthPx),
-                  height: 'auto',
-                  maxHeight: resolveQuotationSealDisplayWidth(value.sealDisplayWidthPx),
-                  verticalAlign: 'middle',
-                }}
-              />
-            </span>
+          <div className="flex items-center gap-3 overflow-visible pt-6 pb-6">
+            <span className="text-xs text-gray-500 shrink-0">미리보기 (대표 옆)</span>
+            <RepresentativeWithSeal
+              repName={value.representativeName?.trim() || '○○○'}
+              sealUrl={sealPreviewUrl}
+              sealWidth={sealWidthPx}
+              className="text-sm text-gray-800"
+            />
           </div>
         ) : null}
       </div>

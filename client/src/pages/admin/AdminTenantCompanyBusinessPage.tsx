@@ -6,8 +6,10 @@ import {
   QUOTATION_SEAL_DISPLAY_WIDTH_MAX,
   QUOTATION_SEAL_DISPLAY_WIDTH_MIN,
   QUOTATION_SEAL_SOURCE_PX,
+  resolveQuotationSealDisplayWidth,
 } from '@shared/quotationSeal';
 import { isBlankSupplierField } from '@shared/supplierFieldText';
+import { RepresentativeWithSeal } from '../../components/quotations/RepresentativeWithSeal';
 import { CompanyProfileSuccessModal } from './CompanyProfileSuccessModal';
 import { useTenantCompanyProfileForm } from './useTenantCompanyProfileForm';
 
@@ -121,33 +123,18 @@ export function AdminTenantCompanyBusinessPage() {
               ) : null}
             </div>
             {form.sealPreviewUrl ? (
-              <div className="flex items-center gap-3 pt-1">
-                <span className="text-xs text-gray-500">미리보기 (대표 옆)</span>
-                <span className="text-sm text-gray-800 whitespace-nowrap">
-                  대표 {form.representativeName.trim() || '○○○'}
-                  <img
-                    src={form.sealPreviewUrl}
-                    alt=""
-                    width={
-                      Number(form.sealDisplayWidthPx) > 0
-                        ? Number(form.sealDisplayWidthPx)
-                        : QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT
-                    }
-                    className="inline-block align-middle ml-0.5 object-contain"
-                    style={{
-                      width:
-                        Number(form.sealDisplayWidthPx) > 0
-                          ? Number(form.sealDisplayWidthPx)
-                          : QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT,
-                      height: 'auto',
-                      maxHeight:
-                        Number(form.sealDisplayWidthPx) > 0
-                          ? Number(form.sealDisplayWidthPx)
-                          : QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT,
-                      verticalAlign: 'middle',
-                    }}
-                  />
-                </span>
+              <div className="flex items-center gap-3 overflow-visible pt-6 pb-6">
+                <span className="text-xs text-gray-500 shrink-0">미리보기 (대표 옆)</span>
+                <RepresentativeWithSeal
+                  repName={form.representativeName.trim() || '○○○'}
+                  sealUrl={form.sealPreviewUrl}
+                  sealWidth={resolveQuotationSealDisplayWidth(
+                    Number(form.sealDisplayWidthPx) > 0
+                      ? Number(form.sealDisplayWidthPx)
+                      : undefined,
+                  )}
+                  className="text-sm text-gray-800"
+                />
               </div>
             ) : null}
           </div>

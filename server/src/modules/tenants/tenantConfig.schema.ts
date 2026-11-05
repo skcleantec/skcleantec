@@ -55,6 +55,7 @@ import {
   type TenantInspectionTemplateConfig,
 } from '../../lib/inquiryInspectionTenantTemplate.js';
 import type { TenantAccessConfig } from '../../lib/staffAccess.js';
+import { resolveQuotationSealDisplayWidth } from '../../lib/quotationSeal.js';
 
 export type TenantConfig = {
   branding?: TenantBrandingConfig;
@@ -155,7 +156,7 @@ function parseCompanyRegistration(raw: unknown): TenantConfig['companyRegistrati
   const sealSecureUrl = trimOptionalString(o.sealSecureUrl, 2048);
   let sealDisplayWidthPx: number | undefined;
   if (typeof o.sealDisplayWidthPx === 'number' && Number.isFinite(o.sealDisplayWidthPx)) {
-    sealDisplayWidthPx = Math.min(96, Math.max(32, Math.round(o.sealDisplayWidthPx)));
+    sealDisplayWidthPx = resolveQuotationSealDisplayWidth(o.sealDisplayWidthPx);
   }
   if (
     !companyName &&

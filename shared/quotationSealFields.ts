@@ -2,7 +2,7 @@
 export type QuotationSealFields = {
   sealPublicId?: string;
   sealSecureUrl?: string;
-  /** 화면·PDF 표시 너비 (px / pt). 기본 48 */
+  /** 화면·PDF 표시 너비 (px / pt). 기본 72 */
   sealDisplayWidthPx?: number;
 };
 
