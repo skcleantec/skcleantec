@@ -1,6 +1,7 @@
 ---
 description: 클라이언트 pages — 거대 페이지 금지·오케스트레이션만 (필수)
-alwaysApply: true
+alwaysApply: false
+globs: client/src/pages/**
 ---
 
 # 클라이언트 페이지 — 모듈화 (서버 원칙의 클라이언트 적용)

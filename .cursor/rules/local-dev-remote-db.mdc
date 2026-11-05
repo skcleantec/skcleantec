@@ -1,6 +1,6 @@
 ---
 description: 로컬 개발 시 공개(Railway 등) DATABASE_URL 사용 — PC·노트북 동일 정책
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 로컬 개발 DB — 공개 URL(Railway) 정책

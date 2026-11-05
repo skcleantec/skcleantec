@@ -1,6 +1,7 @@
 ---
 description: 관리·업무 DB 목록 — 기간 필터·페이지당 건수·하단 페이지 분할 (필수)
-alwaysApply: true
+alwaysApply: false
+globs: client/src/pages/admin/**,client/src/components/admin/**
 ---
 
 # 관리·업무 목록 — 기간 필터·페이지네이션 (필수)

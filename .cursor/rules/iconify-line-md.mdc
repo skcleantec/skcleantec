@@ -1,6 +1,7 @@
 ---
 description: UI 아이콘은 Iconify Material Line Icons(line-md)만 사용
-alwaysApply: true
+alwaysApply: false
+globs: client/src/**/*.tsx
 ---
 
 # 아이콘 — Iconify `line-md` (필수)

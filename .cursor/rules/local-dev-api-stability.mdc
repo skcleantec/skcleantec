@@ -1,6 +1,6 @@
 ---
 description: 로컬 개발 시 API/Vite 기동 안정화 — npm run dev, server 의존성 복구, Prisma generate, 오류 대응
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 로컬 API 안정화 규칙

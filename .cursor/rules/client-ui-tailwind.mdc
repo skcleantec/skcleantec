@@ -1,7 +1,7 @@
 ---
 description: 클라이언트 UI — 색상 토큰, components/ui 재사용, 버튼 hover/focus/disabled
 globs: client/src/**/*.{tsx,ts}
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 클라이언트 UI — Tailwind·컴포넌트·버튼 (필수)

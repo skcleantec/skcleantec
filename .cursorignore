@@ -1,0 +1,43 @@
+# Cursor가 읽고 색인할 필요 없는 것 (토큰 절약). 코드·문서는 그대로 읽음.
+
+# 저장소 안에 만든 작업용 복사본(worktree) — 같은 코드가 여러 번 읽힘
+_wt-*/
+
+# 의존성·빌드 결과물
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+client/public/vendor/
+server/uploads/
+**/.gradle/
+apps/**/build/
+apps/**/.cxx/
+
+# 숨고·미소 연동 — 동봉 파이썬·설치 파일·캐시
+tools/soomgo-bridge/runtime/
+tools/miso-bridge/runtime/
+tools/*/dist/
+**/__pycache__/
+*.pyc
+
+# 숨고 크롤링 프로그램 빌드 산출물
+숨고 크롤링 프로그램/dist-release/
+숨고 크롤링 프로그램/_internal/
+숨고 크롤링 프로그램/source_project/build/
+숨고 크롤링 프로그램/source_project/dist/
+
+# 큰 바이너리·로그·덤프
+*.exe
+*.zip
+*.aab
+*.apk
+*.dump
+*.db
+*.log
+*.ttf
+*.mp4
+*.mov
+*.psd

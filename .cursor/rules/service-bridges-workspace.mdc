@@ -1,6 +1,6 @@
 ---
 description: Service Bridges Google Workspace 도메인·플랫폼 알림 메일 (service-bridges.com)
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Service Bridges Google Workspace

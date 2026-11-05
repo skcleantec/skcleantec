@@ -1,7 +1,7 @@
 ---
 description: 멀티테넌트 데이터 격리·API·마이그레이션 수정 시 필수 안전 규칙
 globs: "server/**/*.{ts,tsx,js,prisma,sql}"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 멀티테넌트 안전 코딩 규칙 (필수)

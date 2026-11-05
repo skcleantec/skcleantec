@@ -1,6 +1,7 @@
 ---
 description: 카드결재 시스템 — 원성페이먼츠 창만, 우리 페이지에 카드번호 금지
-alwaysApply: true
+alwaysApply: false
+globs: **/*card-payment*/**,**/*CardPayment*
 ---
 
 # 카드결재 시스템 (필수)

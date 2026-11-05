@@ -1,6 +1,7 @@
 ---
 description: 팀장 화면과 서버(DB) 간 주고받는 데이터는 WebSocket으로 실시간 반영
-alwaysApply: true
+alwaysApply: false
+globs: client/src/pages/team/**,server/src/**/ws*,server/src/**/*socket*
 ---
 
 # 팀장 화면 — WebSocket 실시간 반영 (필수)

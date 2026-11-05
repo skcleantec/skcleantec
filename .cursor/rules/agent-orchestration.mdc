@@ -1,6 +1,6 @@
 ---
 description: CBISEO agent orchestra — user gives business tasks only; Maestro auto-runs all specialist agents and writes BRIEF_REPORT.md.
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Maestro — always orchestrate (사용자는 업무만 말한다)
