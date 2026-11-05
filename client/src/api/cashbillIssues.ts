@@ -62,9 +62,9 @@ export const CASHBILL_KIND_LABEL: Record<CashbillKind, string> = {
 
 export const CASHBILL_STATE_LABEL: Record<string, string> = {
   '1000': '임시저장',
-  '2000': '발급완료 · 국세청 전송 대기',
-  '2500': '발급완료 · 국세청 전송 대기',
-  '3000': '국세청 전송 완료',
+  '2000': '발급완료',
+  '2500': '발급완료',
+  '3000': '전송완료',
   '4000': '전송 실패',
   '7000': '발급 취소',
 };
@@ -73,6 +73,25 @@ export function cashbillStateLabel(state: string | null, lastError: string | nul
   if (state && CASHBILL_STATE_LABEL[state]) return CASHBILL_STATE_LABEL[state];
   if (lastError) return '실패';
   return '처리 중';
+}
+
+export type CashbillStatusView = { label: string; detail?: string; className: string };
+
+/** 바로빌처럼 배지는 발급완료, 아래 작은 글자로 국세청 전송 상태를 둔다. */
+export function cashbillStatusView(row: Pick<CashbillIssueRow, 'barobillState' | 'lastError' | 'kind' | 'cancelled'>): CashbillStatusView {
+  if (row.cancelled || row.kind === 'CANCEL' || row.barobillState === '7000') {
+    return { label: row.cancelled || row.kind === 'CANCEL' ? '발급 취소됨' : '발급 취소', className: 'border border-slate-200 bg-slate-100 text-slate-500' };
+  }
+  if (row.barobillState === '4000' || (!row.barobillState && row.lastError)) {
+    return { label: '전송 실패', className: 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]' };
+  }
+  if (row.barobillState === '3000') {
+    return { label: '전송완료', className: 'border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]' };
+  }
+  if (row.barobillState === '2000' || row.barobillState === '2500') {
+    return { label: '발급완료', detail: '국세청 전송 대기', className: 'border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]' };
+  }
+  return { label: cashbillStateLabel(row.barobillState, row.lastError), className: 'border border-slate-200 bg-slate-50 text-slate-700' };
 }
 
 /** 국세청 전송 전·중(열린 건). */

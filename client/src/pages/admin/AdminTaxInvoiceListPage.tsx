@@ -45,7 +45,7 @@ const STATES = [
   ['5031', '발급 취소'],
   ['nts1', '국세청 전송 대기'],
   ['nts23', '국세청 전송 중'],
-  ['nts4', '국세청 전송 완료'],
+  ['nts4', '전송완료'],
   ['nts5', '전송 실패'],
   ['amended', '수정됨'],
   ['failed', '발행 실패'],
@@ -417,9 +417,12 @@ function TaxStatus({ row }: { row: TaxInvoiceRow }) {
   if (taxFailed(row)) return <FailReasonChip label={view.label} reason={row.lastError} onCharge={openCharge} />;
   const needCheck = taxInvoiceStateOpen(row) && receiptOpenOverDay(row.createdAt);
   return (
-    <span className="inline-flex flex-wrap items-center justify-center gap-1">
-      <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>
-      {needCheck ? <span className="whitespace-nowrap text-fluid-2xs font-medium text-amber-800">확인 필요</span> : null}
+    <span className="inline-flex flex-col items-center gap-0.5">
+      <span className="inline-flex flex-wrap items-center justify-center gap-1">
+        <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>
+        {needCheck ? <span className="whitespace-nowrap text-fluid-2xs font-medium text-amber-800">확인 필요</span> : null}
+      </span>
+      {view.detail ? <span className="whitespace-nowrap text-fluid-2xs text-slate-500">{view.detail}</span> : null}
     </span>
   );
 }
