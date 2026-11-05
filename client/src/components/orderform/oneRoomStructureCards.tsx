@@ -11,14 +11,15 @@ import {
   type HomeStructureFlags,
   type OneRoomYesNo,
 } from '../../utils/orderFormOneRoomStructure';
+import { Button } from '../ui/Button';
 
 const CARD_BTN =
-  'flex flex-col gap-2 rounded-2xl border-2 px-2 py-2.5 transition touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45';
+  'flex h-auto min-h-0 flex-col gap-2 rounded-2xl border-2 px-2 py-2.5 text-fluid-sm font-semibold leading-snug transition touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45';
 
 function cardClass(selected: boolean, compact?: boolean): string {
   const box = compact ? 'w-[220px] max-w-full shrink-0 items-center text-center' : 'w-full items-stretch text-left';
   const tone = selected
-    ? 'border-violet-600 bg-violet-50 text-slate-900'
+    ? 'border-violet-600 bg-violet-50 text-slate-900 hover:bg-violet-50'
     : 'border-slate-200 bg-white text-slate-900 hover:border-violet-300 hover:bg-slate-50';
   return `${CARD_BTN} ${box} ${tone}`;
 }
@@ -45,8 +46,11 @@ function StructureCard({
   showCheck?: boolean;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="quiet"
+      size="lg"
+      nowrap={false}
       disabled={disabled}
       onClick={onSelect}
       className={`${cardClass(selected, compact)} relative`}
@@ -77,7 +81,7 @@ function StructureCard({
           </span>
         ) : null}
       </span>
-    </button>
+    </Button>
   );
 }
 
