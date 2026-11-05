@@ -103,23 +103,28 @@ export function taxBarobillStateLabel(state: string | null): string {
 }
 
 const NTS_WAIT = 'whitespace-nowrap border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]';
+const NTS_OK = 'whitespace-nowrap border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]';
+const NTS_FAIL = 'whitespace-nowrap border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]';
 
-export function taxStatusView(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSendState' | 'lastError' | 'amended' | 'createdAt' | 'ntsNextDay'>): { label: string; className: string } {
+export type ReceiptStatusView = { label: string; detail?: string; className: string };
+
+/** 바로빌처럼 배지는 발급완료, 아래 작은 글자로 국세청 전송 상태를 둔다. */
+export function taxStatusView(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSendState' | 'lastError' | 'amended' | 'createdAt' | 'ntsNextDay'>): ReceiptStatusView {
   if (row.amended) return { label: '수정됨', className: 'border border-slate-300 bg-slate-100 text-slate-700' };
   if (row.barobillState === '5031') return { label: '발급 취소', className: 'border border-slate-200 bg-slate-100 text-slate-500' };
   if (!row.barobillState && row.lastError) {
-    return { label: '발행 실패', className: 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]' };
+    return { label: '발행 실패', className: NTS_FAIL };
   }
   if (row.ntsSendState === '5') {
-    return { label: '전송 실패', className: 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]' };
+    return { label: '전송 실패', className: NTS_FAIL };
   }
-  if (row.ntsSendState === '4') return { label: '국세청 전송 완료', className: 'border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]' };
+  if (row.ntsSendState === '4') return { label: '전송완료', className: NTS_OK };
   if (row.ntsSendState === '2' || row.ntsSendState === '3') {
-    return { label: '발급완료 · 국세청 전송 중', className: NTS_WAIT };
+    return { label: '발급완료', detail: '국세청 전송 중', className: NTS_WAIT };
   }
   if (row.ntsSendState === '1') {
     const when = row.ntsNextDay ? ` · ${nextNtsMd(row.createdAt)} 14시` : '';
-    return { label: `발급완료 · 국세청 전송 대기${when}`, className: NTS_WAIT };
+    return { label: '발급완료', detail: `국세청 전송 대기${when}`, className: NTS_WAIT };
   }
   return { label: taxBarobillStateLabel(row.barobillState), className: 'border border-slate-200 bg-slate-50 text-slate-700' };
 }

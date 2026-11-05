@@ -4,8 +4,8 @@ import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import {
   cancelCashbillIssue,
-  cashbillStateLabel,
   cashbillStateOpen,
+  cashbillStatusView,
   fetchCashbillSource,
   linkCashbillInquiry,
   listCashbillIssues,
@@ -46,7 +46,7 @@ const STATES = [
   ['', '전체 상태'],
   ['2000', '발급완료 · 국세청 전송 대기'],
   ['2500', '발급완료 · 국세청 전송 대기'],
-  ['3000', '국세청 전송 완료'],
+  ['3000', '전송완료'],
   ['4000', '전송 실패'],
   ['7000', '발급 취소'],
   ['failed', '실패'],
@@ -430,22 +430,16 @@ function canViewReceipt(row: CashbillIssueRow): boolean {
 
 function StatusBadge({ row }: { row: CashbillIssueRow }) {
   const { openCharge } = useReceiptWallet();
-  const label = row.cancelled ? '발급 취소됨' : cashbillStateLabel(row.barobillState, row.lastError);
-  if (isFailedRow(row) && row.kind !== 'CANCEL') return <FailReasonChip label={label} reason={row.lastError} onCharge={openCharge} />;
-  const tone = row.cancelled || row.barobillState === '7000' || row.kind === 'CANCEL'
-    ? 'border border-slate-200 bg-slate-100 text-slate-500'
-    : isFailedRow(row)
-      ? 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]'
-      : row.barobillState === '3000'
-        ? 'border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]'
-        : row.barobillState === '2000' || row.barobillState === '2500'
-          ? 'border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]'
-          : 'border border-slate-200 bg-slate-50 text-slate-700';
+  const view = cashbillStatusView(row);
+  if (isFailedRow(row) && row.kind !== 'CANCEL') return <FailReasonChip label={view.label} reason={row.lastError} onCharge={openCharge} />;
   const needCheck = cashbillStateOpen(row) && receiptOpenOverDay(row.createdAt);
   return (
-    <span className="inline-flex flex-wrap items-center justify-center gap-1">
-      <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${tone}`}>{label}</span>
-      {needCheck ? <span className="whitespace-nowrap text-fluid-2xs font-medium text-amber-800">확인 필요</span> : null}
+    <span className="inline-flex flex-col items-center gap-0.5">
+      <span className="inline-flex flex-wrap items-center justify-center gap-1">
+        <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>
+        {needCheck ? <span className="whitespace-nowrap text-fluid-2xs font-medium text-amber-800">확인 필요</span> : null}
+      </span>
+      {view.detail ? <span className="whitespace-nowrap text-fluid-2xs text-slate-500">{view.detail}</span> : null}
     </span>
   );
 }

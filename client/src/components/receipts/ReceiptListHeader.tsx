@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
+import { HelpTooltip } from '../ui/HelpTooltip';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 
 function won(n: number): string {
@@ -72,7 +73,10 @@ export function ReceiptSummaryCards({
         <p className="text-fluid-sm font-semibold tabular-nums text-slate-900">{issuedCount}건 · {won(issuedWon)}</p>
       </section>
       <section className={card}>
-        <p className="text-fluid-2xs text-slate-500">국세청 전송</p>
+        <p className="inline-flex items-center gap-1 text-fluid-2xs text-slate-500">
+          국세청 전송
+          <HelpTooltip text="발급완료 후 국세청 전송을 기다리는 건" />
+        </p>
         <p className="text-fluid-sm text-slate-800">
           국세청 전송 대기 {waitingCount}
           {' · '}
