@@ -52,7 +52,41 @@ function runCapture(cmd, args) {
   const stdout = r.stdout?.toString() ?? '';
   const stderr = r.stderr?.toString() ?? '';
   const out = [stdout, stderr].filter(Boolean).join('\n');
-  return { ok: r.status === 0, out, stdout, stderr };
+  return { ok: r.status === 0, status: r.status ?? 1, out, stdout, stderr };
+}
+
+/**
+ * migrate deploy(및 resolve --applied 복구) 후 DB ↔ schema.prisma 드리프트 검사.
+ * Prisma: empty=0, error=1, not empty=2 (`--exit-code`).
+ * 차이가 있으면 SQL을 로그하고 exit 1 → Railway가 새 버전으로 전환하지 않음.
+ */
+function assertNoSchemaDriftAfterMigrate() {
+  const r = runCapture('npx', [
+    'prisma',
+    'migrate',
+    'diff',
+    '--from-schema-datasource',
+    'prisma/schema.prisma',
+    '--to-schema-datamodel',
+    'prisma/schema.prisma',
+    '--script',
+    '--exit-code',
+  ]);
+  if (r.status === 0) {
+    console.log('prisma migrate diff: ok (no drift)');
+    return;
+  }
+  if (r.status === 2) {
+    console.error(
+      '[railway-predeploy-migrate] schema drift after migrate deploy — refusing deploy (previous release stays live)',
+    );
+    const sql = (r.stdout || '').trim() || (r.out || '').trim();
+    if (sql) console.error(sql);
+    process.exit(1);
+  }
+  console.error('[railway-predeploy-migrate] prisma migrate diff failed');
+  console.error(r.out);
+  process.exit(1);
 }
 
 function migrateDeploy() {
@@ -174,6 +208,7 @@ function runMigrateDeployWithP3018Recovery() {
       } else {
         console.log(`prisma migrate deploy: ok (after ${attempt} P3018 recovery step(s))`);
       }
+      assertNoSchemaDriftAfterMigrate();
       return true;
     }
 
@@ -221,6 +256,7 @@ function main() {
   const first = migrateDeploy();
   if (first.ok) {
     console.log('prisma migrate deploy: ok');
+    assertNoSchemaDriftAfterMigrate();
     return;
   }
 

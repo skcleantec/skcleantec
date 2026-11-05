@@ -130,6 +130,7 @@ import { getStaffAppManifest } from './modules/push/staffAppManifest.js';
 import { renderTelecrmAppInstallPageHtml } from './modules/telecrm/telecrmAppInstallPageHtml.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
+import { scheduleListSelectLite } from './modules/schedule/scheduleListSelect.js';
 import { isBenignClientAbortError } from './lib/httpClientAbort.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -304,16 +305,46 @@ app.use('/uploads', express.static(uploadDir));
  * 헬스체크 + 워밍 엔드포인트.
  * UptimeRobot 등 외부 핑에서 5분 주기로 호출하면 콜드스타트·풀 유휴를 막을 수 있다.
  * 응답에는 DB 왕복 지연(ms)·uptime(s)·pid 등 진단 정보를 함께 내려준다.
+ * Prisma 스키마에 맞는 inquiry select(스케줄 목록과 동일) 1건도 2초 안에 확인 — 실패 시 503.
  */
+const HEALTH_INQUIRY_PROBE_MS = 2000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label}_timeout`)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 app.get('/api/health', async (_req, res) => {
   const t0 = performance.now();
   try {
     await prisma.$queryRaw`SELECT 1`;
     const dbMs = Math.round(performance.now() - t0);
+    const t1 = performance.now();
+    await withTimeout(
+      prisma.inquiry.findFirst({
+        select: scheduleListSelectLite,
+        take: 1,
+      }),
+      HEALTH_INQUIRY_PROBE_MS,
+      'inquiry_probe',
+    );
+    const inquiryProbeMs = Math.round(performance.now() - t1);
     res.json({
       ok: true,
       db: true,
       dbMs,
+      inquiryProbeMs,
       uptimeSec: Math.round(process.uptime()),
       pid: process.pid,
       /** Railway GitHub 배포 시 주입 — 운영/스테이징 배포 커밋 확인용 */
@@ -321,11 +352,12 @@ app.get('/api/health', async (_req, res) => {
       gitBranch: process.env.RAILWAY_GIT_BRANCH ?? null,
     });
   } catch (err) {
-    console.error('[health] DB 확인 실패:', err);
+    console.error('[health] DB/inquiry 확인 실패:', err);
+    const msg = err instanceof Error ? err.message : String(err);
     res.status(503).json({
       ok: false,
       db: false,
-      error: 'database_unavailable',
+      error: msg.includes('timeout') ? 'inquiry_probe_timeout' : 'database_unavailable',
       uptimeSec: Math.round(process.uptime()),
       pid: process.pid,
     });
