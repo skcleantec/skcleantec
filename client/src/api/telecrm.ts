@@ -107,6 +107,9 @@ export type TelecrmInquiryBriefDto = {
   isOneRoom?: boolean;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   source: string | null;
   preferredDate: string | null;
   preferredTime: string | null;
@@ -159,6 +162,9 @@ export type TelecrmCustomerLookupDto = {
     isOneRoom?: boolean;
     oneRoomLoft?: boolean | null;
     oneRoomSlidingPartition?: boolean | null;
+    structureBalconyNonExpanded?: boolean | null;
+    structurePartitionWall?: boolean | null;
+    structureOutdoorTerrace?: boolean | null;
     leadSource: string | null;
   }[];
   csReports: {

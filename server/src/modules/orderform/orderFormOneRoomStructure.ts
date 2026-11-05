@@ -18,6 +18,34 @@ export function oneRoomStructureForSave(
   };
 }
 
+export function homeStructureForSave(
+  balcony: unknown,
+  partition: unknown,
+  terrace: unknown,
+): {
+  structureBalconyNonExpanded: boolean | null;
+  structurePartitionWall: boolean | null;
+  structureOutdoorTerrace: boolean | null;
+} {
+  return {
+    structureBalconyNonExpanded: parseOneRoomYesNo(balcony),
+    structurePartitionWall: parseOneRoomYesNo(partition),
+    structureOutdoorTerrace: parseOneRoomYesNo(terrace),
+  };
+}
+
+export function isHomeStructureAnswered(flags: {
+  structureBalconyNonExpanded: boolean | null;
+  structurePartitionWall: boolean | null;
+  structureOutdoorTerrace: boolean | null;
+}): boolean {
+  return (
+    flags.structureBalconyNonExpanded != null &&
+    flags.structurePartitionWall != null &&
+    flags.structureOutdoorTerrace != null
+  );
+}
+
 export function formatOneRoomSpaceLine(
   roomLabel: string,
   loft: boolean | null,
@@ -29,4 +57,20 @@ export function formatOneRoomSpaceLine(
   if (sliding === true) parts.push('미닫이 분리형');
   else if (sliding === false) parts.push('분리형 아님');
   return parts.join(' · ');
+}
+
+export function formatHomeStructureLine(input: {
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
+}): string {
+  const parts: string[] = [];
+  if (input.oneRoomLoft === true) parts.push('복층');
+  if (input.oneRoomSlidingPartition === true) parts.push('미닫이 분리형');
+  if (input.structureBalconyNonExpanded === true) parts.push('비확장 베란다');
+  if (input.structurePartitionWall === true) parts.push('증축(가벽)');
+  if (input.structureOutdoorTerrace === true) parts.push('야외 테라스');
+  return parts.length > 0 ? parts.join(' · ') : '해당 없음';
 }

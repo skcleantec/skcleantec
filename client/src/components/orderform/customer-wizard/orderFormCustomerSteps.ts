@@ -26,6 +26,10 @@ import {
   type CustomerPageChoice,
   type CustomerPageLine,
 } from '@shared/orderFormCustomerPages';
+import {
+  COUNSELOR_STRUCTURE_HINT,
+  hasCounselorStructurePrefill,
+} from '../../../utils/orderFormOneRoomStructure';
 
 function systemFieldHelp(order: OrderFormLoadedOrder | null, key: string): string | undefined {
   const text = order?.template?.systemFields?.find((field) => field.systemField === key)?.helpText?.trim();
@@ -41,6 +45,7 @@ export type OrderFormCustomerStepId =
   | 'property'
   | 'oneRoomLoft'
   | 'oneRoomSliding'
+  | 'homeStructure'
   | 'area'
   | 'date'
   | 'time'
@@ -62,6 +67,7 @@ export type OrderFormCustomerStep = {
   kind: OrderFormCustomerStepKind;
   title: string;
   hint?: string;
+  notice?: string;
   skippable?: boolean;
   customField?: OrderFormPublicTemplateField;
   choices?: CustomerPageChoice[];
@@ -155,22 +161,30 @@ export function resolveOrderFormCustomerSteps(args: {
       choices: copy('property')?.choices,
     });
   }
-  if (form.isOneRoom && !prefilled('oneRoomLoft')) {
+  const structureNotice = hasCounselorStructurePrefill(form) ? COUNSELOR_STRUCTURE_HINT : undefined;
+  if (form.isOneRoom) {
     steps.push({
       id: 'oneRoomLoft',
       kind: 'choice',
       title: '복층 구조인가요?',
       hint: '위층(다락) 공간이 계단·사다리로 이어져 있으면 「복층이에요」를 골라 주세요.',
+      notice: structureNotice,
     });
-  }
-  if (form.isOneRoom && !prefilled('oneRoomSlidingPartition')) {
     steps.push({
       id: 'oneRoomSliding',
       kind: 'choice',
       title: '미닫이문으로 나뉜 구조인가요?',
       hint: '방 가운데에 옆으로 미는 문이 있어 공간이 둘로 나뉘면 「분리형이에요」를 골라 주세요.',
+      notice: structureNotice,
     });
   }
+  steps.push({
+    id: 'homeStructure',
+    kind: 'choice',
+    title: '집에 해당하는 구조가 있나요?',
+    hint: '해당하는 것을 모두 골라 주세요. 없으면 「해당 없음」을 눌러 주세요.',
+    notice: structureNotice,
+  });
   if (
     customerMayEditFillKey(order, 'areaPyeong') &&
     (std('areaPyeong') || isOrderFormAreaLockedFromOrder(order)) &&
@@ -388,6 +402,7 @@ export function isOrderFormCustomerStepId(value: string | null | undefined): val
     value === 'property' ||
     value === 'oneRoomLoft' ||
     value === 'oneRoomSliding' ||
+    value === 'homeStructure' ||
     value === 'area' ||
     value === 'date' ||
     value === 'time' ||

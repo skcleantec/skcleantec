@@ -2533,6 +2533,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     oneTwoRoomKind={editForm.oneTwoRoomKind}
                     oneRoomLoft={item.oneRoomLoft}
                     oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                  structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                  structurePartitionWall={item.structurePartitionWall}
+                  structureOutdoorTerrace={item.structureOutdoorTerrace}
                     oneRoomTitle={oneRoomLabel}
                     className="shrink-0 hidden sm:inline-flex"
                   />

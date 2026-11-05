@@ -66,6 +66,15 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   if (Object.prototype.hasOwnProperty.call(body, 'oneRoomSlidingPartition')) {
     data.oneRoomSlidingPartition = parseInquiryOptionalBool(body.oneRoomSlidingPartition);
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'structureBalconyNonExpanded')) {
+    data.structureBalconyNonExpanded = parseInquiryOptionalBool(body.structureBalconyNonExpanded);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'structurePartitionWall')) {
+    data.structurePartitionWall = parseInquiryOptionalBool(body.structurePartitionWall);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'structureOutdoorTerrace')) {
+    data.structureOutdoorTerrace = parseInquiryOptionalBool(body.structureOutdoorTerrace);
+  }
   if (body.roomCount !== undefined) {
     data.roomCount =
       body.roomCount === null || body.roomCount === '' ? null : Number(body.roomCount);

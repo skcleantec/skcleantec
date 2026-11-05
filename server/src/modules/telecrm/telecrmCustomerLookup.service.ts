@@ -65,6 +65,9 @@ export type TelecrmCustomerLookupResult = {
     isOneRoom: boolean;
     oneRoomLoft: boolean | null;
     oneRoomSlidingPartition: boolean | null;
+    structureBalconyNonExpanded: boolean | null;
+    structurePartitionWall: boolean | null;
+    structureOutdoorTerrace: boolean | null;
     leadSource: string | null;
   }[];
   csReports: {
@@ -234,6 +237,9 @@ async function resolveTelecrmCustomerByPhone(
         isOneRoom: true,
         oneRoomLoft: true,
         oneRoomSlidingPartition: true,
+        structureBalconyNonExpanded: true,
+        structurePartitionWall: true,
+        structureOutdoorTerrace: true,
         leadSource: true,
       },
     }),
@@ -296,6 +302,9 @@ async function resolveTelecrmCustomerByPhone(
       isOneRoom: row.isOneRoom === true,
       oneRoomLoft: row.isOneRoom === true ? row.oneRoomLoft ?? null : null,
       oneRoomSlidingPartition: row.isOneRoom === true ? row.oneRoomSlidingPartition ?? null : null,
+      structureBalconyNonExpanded: row.structureBalconyNonExpanded ?? null,
+      structurePartitionWall: row.structurePartitionWall ?? null,
+      structureOutdoorTerrace: row.structureOutdoorTerrace ?? null,
       leadSource: row.leadSource ?? null,
     }));
 

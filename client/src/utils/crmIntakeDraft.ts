@@ -27,6 +27,9 @@ export type CrmIntakeFormSnapshot = {
   oneRoomLoft?: boolean | null;
   /** 원룸 미닫이 분리형. null = 아직 확인 안 함 */
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   kind: CrmIntakeKind;
   goldDb: boolean;
   leadSource: string;

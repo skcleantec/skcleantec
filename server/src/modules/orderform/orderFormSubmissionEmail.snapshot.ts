@@ -5,7 +5,7 @@ import { labelForMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
 import { type OrderFormCleaningKind } from '../../lib/orderFormCleaningKind.js';
 import { displayCleaningKindLabel, humanizeStoredChoice } from '../../lib/orderFormCustomerPages.js';
 import { formatOrderFormSpaceCountsLine } from '../../lib/orderFormSpaceCounts.js';
-import { formatOneRoomSpaceLine } from './orderFormOneRoomStructure.js';
+import { formatHomeStructureLine, formatOneRoomSpaceLine } from './orderFormOneRoomStructure.js';
 
 export type OrderFormSubmissionSnapshotV1 = {
   version: 1;
@@ -26,6 +26,9 @@ export type OrderFormSubmissionSnapshotV1 = {
     isOneRoom?: boolean;
     oneRoomLoft?: boolean | null;
     oneRoomSlidingPartition?: boolean | null;
+    structureBalconyNonExpanded?: boolean | null;
+    structurePartitionWall?: boolean | null;
+    structureOutdoorTerrace?: boolean | null;
     preferredDate: string;
     preferredTime: string;
     preferredTimeDetail: string | null;
@@ -218,6 +221,16 @@ export function buildEmailDetailSections(
               f.oneRoomSlidingPartition ?? null,
             )
           : humanizeStoredChoice(f.propertyType, null, 'property') || f.propertyType,
+      },
+      {
+        label: '구조',
+        value: formatHomeStructureLine({
+          oneRoomLoft: f.oneRoomLoft,
+          oneRoomSlidingPartition: f.oneRoomSlidingPartition,
+          structureBalconyNonExpanded: f.structureBalconyNonExpanded,
+          structurePartitionWall: f.structurePartitionWall,
+          structureOutdoorTerrace: f.structureOutdoorTerrace,
+        }),
       },
       { label: '공급면적 (분양평수)', value: areaSupplyText(f) },
       { label: '전용면적 (실제 내 집 공간)', value: areaExclusiveText(f) },

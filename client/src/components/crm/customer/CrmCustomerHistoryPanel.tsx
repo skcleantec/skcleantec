@@ -258,6 +258,9 @@ export function CrmCustomerHistoryPanel({
                     isOneRoom={row.isOneRoom}
                     oneRoomLoft={row.oneRoomLoft}
                     oneRoomSlidingPartition={row.oneRoomSlidingPartition}
+                                structureBalconyNonExpanded={row.structureBalconyNonExpanded}
+                                structurePartitionWall={row.structurePartitionWall}
+                                structureOutdoorTerrace={row.structureOutdoorTerrace}
                   />
                 </span>
                 <span className="mx-1 text-slate-400">·</span>

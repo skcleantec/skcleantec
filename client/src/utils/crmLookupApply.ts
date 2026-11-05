@@ -119,6 +119,11 @@ export function buildCrmLookupApply(
             oneRoomSlidingPartition: followup.oneRoomSlidingPartition ?? null,
           }
         : { isOneRoom: false, oneRoomLoft: null, oneRoomSlidingPartition: null }),
+    structureBalconyNonExpanded:
+      inquiry?.structureBalconyNonExpanded ?? followup?.structureBalconyNonExpanded ?? null,
+    structurePartitionWall: inquiry?.structurePartitionWall ?? followup?.structurePartitionWall ?? null,
+    structureOutdoorTerrace:
+      inquiry?.structureOutdoorTerrace ?? followup?.structureOutdoorTerrace ?? null,
     kind: followup ? intakeKindFromFollowupStatus(followup.status) : 'absent',
     goldDb: followup?.goldDb === true,
     leadSource: followup?.leadSource?.trim() || inquiry?.source?.trim() || '',

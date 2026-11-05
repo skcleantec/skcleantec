@@ -56,6 +56,9 @@ export function PropertyTypeSticker({
   oneTwoRoomKind = null,
   oneRoomLoft = null,
   oneRoomSlidingPartition = null,
+  structureBalconyNonExpanded = null,
+  structurePartitionWall = null,
+  structureOutdoorTerrace = null,
   oneRoomTitle = '원룸',
   emphasizeOneRoomInList = false,
   className = '',
@@ -66,6 +69,9 @@ export function PropertyTypeSticker({
   oneTwoRoomKind?: 'ONE' | 'TWO' | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   oneRoomTitle?: string;
   /** 스케줄 접수 내역 — 원/투룸만 강조 */
   emphasizeOneRoomInList?: boolean;
@@ -77,8 +83,12 @@ export function PropertyTypeSticker({
   const emphasizeOneRoom = emphasizeOneRoomInList && showOneRoom;
   const kind = oneTwoRoomKind === 'ONE' || oneTwoRoomKind === 'TWO' ? oneTwoRoomKind : null;
   const emphasizedLabel = kind === 'ONE' ? '원룸' : kind === 'TWO' ? '투룸' : oneRoomTitle;
+  const hasHomeStructure =
+    structureBalconyNonExpanded === true ||
+    structurePartitionWall === true ||
+    structureOutdoorTerrace === true;
 
-  if (!typeLabel && !showOneRoom) return null;
+  if (!typeLabel && !showOneRoom && !hasHomeStructure) return null;
 
   return (
     <span className={`inline-flex items-center gap-1 flex-wrap ${className}`}>
@@ -102,6 +112,9 @@ export function PropertyTypeSticker({
         isOneRoom={showOneRoom}
         oneRoomLoft={oneRoomLoft}
         oneRoomSlidingPartition={oneRoomSlidingPartition}
+        structureBalconyNonExpanded={structureBalconyNonExpanded}
+        structurePartitionWall={structurePartitionWall}
+        structureOutdoorTerrace={structureOutdoorTerrace}
       />
     </span>
   );
