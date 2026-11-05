@@ -557,6 +557,8 @@ export interface OrderFormPrefillPayload {
   moveInDate?: string;
   moveInDateUndecided?: boolean;
   isOneRoom?: boolean;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   specialNotes?: string;
   professionalOptionIds?: Array<string | { id: string; quantity?: number; unitAmount?: number | null }>;
   answers?: Record<string, unknown>;
@@ -826,6 +828,8 @@ export async function submitOrderForm(
     moveInDate?: string;
     moveInDateUndecided?: boolean;
     isOneRoom?: boolean;
+    oneRoomLoft?: boolean | null;
+    oneRoomSlidingPartition?: boolean | null;
     specialNotes?: string;
     /** 전문 시공 옵션 id 목록 */
     professionalOptionIds?: Array<string | { id: string; quantity?: number; unitAmount?: number | null }>;

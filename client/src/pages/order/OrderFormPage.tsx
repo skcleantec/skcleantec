@@ -88,6 +88,8 @@ import {
 } from '@shared/orderFormCleaningKind';
 import { OrderFormCleaningKindPicker } from '../../components/orderform/OrderFormCleaningKindPicker';
 import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes, hasOrderFormBuildingTypeChoice } from '../../utils/orderFormOneRoom';
+import { parseOneRoomYesNo } from '../../utils/orderFormOneRoomStructure';
+import { OneRoomLoftChoices, OneRoomSlidingChoices } from '../../components/orderform/oneRoomStructureCards';
 import { resolvePublicTenantSlug, resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import {
   normalizeOrderFormRouteToken,
@@ -949,6 +951,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           isOneRoom:
             pf['isOneRoom'] === true ||
             detectOneRoomFromNotes(pfStr('specialNotes') ?? data.draftCustomerSpecialNotes ?? ''),
+          oneRoomLoft:
+            pf['isOneRoom'] === true ? parseOneRoomYesNo(pf['oneRoomLoft']) : null,
+          oneRoomSlidingPartition:
+            pf['isOneRoom'] === true ? parseOneRoomYesNo(pf['oneRoomSlidingPartition']) : null,
         }));
         setClassicKindConfirmed(false);
         const pfProf = pf['professionalOptionIds'];
@@ -1457,7 +1463,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         moveInDate:
           stdFieldOn('moveInDate') && !form.moveInDateUndecided ? form.moveInDate || undefined : undefined,
         moveInDateUndecided: stdFieldOn('moveInDate') ? form.moveInDateUndecided : undefined,
-        isOneRoom: stdFieldOn('propertyType') && form.isOneRoom ? true : undefined,
+        isOneRoom: stdFieldOn('propertyType') ? form.isOneRoom : undefined,
+        oneRoomLoft: stdFieldOn('propertyType') && form.isOneRoom ? form.oneRoomLoft : null,
+        oneRoomSlidingPartition:
+          stdFieldOn('propertyType') && form.isOneRoom ? form.oneRoomSlidingPartition : null,
         specialNotes: stdFieldOn('specialNotes') ? form.specialNotes.trim() || undefined : undefined,
         professionalOptionIds:
           stdFieldOn('professionalOptions') && profSelections.length
@@ -1528,7 +1537,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       moveInTiming: form.moveInTiming || undefined,
       moveInDate: form.moveInDateUndecided ? undefined : form.moveInDate.trim() || undefined,
       moveInDateUndecided: form.moveInDateUndecided || undefined,
-      isOneRoom: form.isOneRoom || undefined,
+      isOneRoom: form.isOneRoom,
+      oneRoomLoft: form.isOneRoom ? form.oneRoomLoft : null,
+      oneRoomSlidingPartition: form.isOneRoom ? form.oneRoomSlidingPartition : null,
       specialNotes: form.specialNotes.trim() || undefined,
       professionalOptionIds: profSelections.length
         ? serializeProfessionalOptionSelections(profSelections)
@@ -2869,6 +2880,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                           ...f,
                           isOneRoom: true,
                           propertyType: '',
+                          oneRoomLoft: f.isOneRoom ? f.oneRoomLoft : null,
+                          oneRoomSlidingPartition: f.isOneRoom ? f.oneRoomSlidingPartition : null,
                           specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, true, oneRoomNotesOpts),
                         }));
                         setNoSpecialNotes(false);
@@ -2879,6 +2892,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                           setForm((f) => ({
                             ...f,
                             isOneRoom: false,
+                            oneRoomLoft: null,
+                            oneRoomSlidingPartition: null,
                             specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, false, oneRoomNotesOpts),
                           }));
                         }
@@ -2904,6 +2919,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                             ...f,
                             propertyType: o.value,
                             isOneRoom: false,
+                            oneRoomLoft: null,
+                            oneRoomSlidingPartition: null,
                           }))
                         }
                         disabled={lockKey('propertyType')}
@@ -2925,6 +2942,34 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 return nodes;
               })()}
             </div>
+            {form.isOneRoom ? (
+              <div className="mt-3 space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-2.5">
+                <div>
+                  <p className="mb-1 text-fluid-xs font-semibold text-slate-900">복층 구조인가요?</p>
+                  <p className="mb-2 text-fluid-2xs leading-snug text-slate-500">
+                    위층(다락) 공간이 계단·사다리로 이어져 있으면 「예」를 골라 주세요.
+                  </p>
+                  <OneRoomLoftChoices
+                    compact
+                    value={form.oneRoomLoft}
+                    disabled={lockKey('isOneRoom')}
+                    onChange={(oneRoomLoft) => setForm((f) => ({ ...f, oneRoomLoft }))}
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-fluid-xs font-semibold text-slate-900">미닫이문으로 나뉜 구조인가요?</p>
+                  <p className="mb-2 text-fluid-2xs leading-snug text-slate-500">
+                    방 가운데에 옆으로 미는 문이 있어 공간이 둘로 나뉘면 「예」를 골라 주세요.
+                  </p>
+                  <OneRoomSlidingChoices
+                    compact
+                    value={form.oneRoomSlidingPartition}
+                    disabled={lockKey('isOneRoom')}
+                    onChange={(oneRoomSlidingPartition) => setForm((f) => ({ ...f, oneRoomSlidingPartition }))}
+                  />
+                </div>
+              </div>
+            ) : null}
             </div>
             ) : null}
             {stdFieldOn('areaPyeong') ? (
