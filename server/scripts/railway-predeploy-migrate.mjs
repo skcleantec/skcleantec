@@ -59,11 +59,13 @@ function runCapture(cmd, args) {
  * migrate deploy(및 resolve --applied 복구) 후 DB ↔ schema.prisma 드리프트 검사.
  * Prisma: empty=0, error=1, not empty=2 (`--exit-code`).
  *
- * 인덱스 rename·timestamp 기본값 등 레거시 잡음은 경고만 하고 통과.
- * resolve --applied 로 컬럼이 빠진 사고(ADD/DROP COLUMN·CREATE/DROP TABLE)만 exit 1.
+ * critical(배포 중단): 코드(스키마)에 필요한데 DB에 없는 것만 —
+ *   ADD COLUMN / CREATE TABLE / CREATE TYPE / ALTER TYPE … ADD VALUE.
+ * DROP COLUMN·DROP TABLE·DROP INDEX·DEFAULT·SET DATA TYPE·RENAME 등은 DB 여분·잡음 —
+ *   경고만 하고 배포 계속. drift SQL은 절대 자동 실행하지 않는다(데이터 삭제 방지).
  */
 const CRITICAL_DRIFT_RE =
-  /\b(?:ADD|DROP)\s+COLUMN\b|\b(?:CREATE|DROP)\s+TABLE\b|\bCREATE\s+TYPE\b|\bDROP\s+TYPE\b/i;
+  /\bADD\s+COLUMN\b|\bCREATE\s+TABLE\b|\bCREATE\s+TYPE\b|\bALTER\s+TYPE\b[\s\S]{0,200}?\bADD\s+VALUE\b/i;
 
 function assertNoSchemaDriftAfterMigrate() {
   const r = runCapture('npx', [
@@ -91,7 +93,7 @@ function assertNoSchemaDriftAfterMigrate() {
       process.exit(1);
     }
     console.warn(
-      '[railway-predeploy-migrate] non-critical schema drift (indexes/defaults/renames) — deploy continues; diff follows',
+      '[railway-predeploy-migrate] non-critical schema drift (DROP COLUMN/INDEX/DEFAULT/TYPE/RENAME 등) — deploy continues; diff follows (not applied)',
     );
     if (sql) console.warn(sql);
     return;
