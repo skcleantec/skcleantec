@@ -123,18 +123,29 @@ export function AdminTenantCompanyBusinessPage() {
               ) : null}
             </div>
             {form.sealPreviewUrl ? (
-              <div className="flex items-center gap-3 overflow-visible pt-6 pb-6">
-                <span className="text-xs text-gray-500 shrink-0">미리보기 (대표 옆)</span>
-                <RepresentativeWithSeal
-                  repName={form.representativeName.trim() || '○○○'}
-                  sealUrl={form.sealPreviewUrl}
-                  sealWidth={resolveQuotationSealDisplayWidth(
+              <div className="overflow-visible rounded-xl border border-dashed border-slate-200 bg-white px-3 py-4">
+                <p className="mb-2 text-fluid-2xs text-slate-500">미리보기 (공급자 칸 · 직인 오른쪽)</p>
+                {(() => {
+                  const w = resolveQuotationSealDisplayWidth(
                     Number(form.sealDisplayWidthPx) > 0
                       ? Number(form.sealDisplayWidthPx)
                       : undefined,
-                  )}
-                  className="text-sm text-gray-800"
-                />
+                  );
+                  return (
+                    <div className="space-y-0.5 text-fluid-sm text-slate-800">
+                      <p style={{ paddingRight: w + 4 }}>{form.companyName.trim() || '상호'}</p>
+                      <RepresentativeWithSeal
+                        repName={form.representativeName.trim() || '○○○'}
+                        sealUrl={form.sealPreviewUrl}
+                        sealWidth={w}
+                        className="text-fluid-sm text-slate-800"
+                      />
+                      <p style={{ paddingRight: w + 4 }}>
+                        사업자 {form.businessRegistrationNo.trim() || '000-00-00000'}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             ) : null}
           </div>

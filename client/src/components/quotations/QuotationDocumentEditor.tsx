@@ -345,8 +345,11 @@ export function QuotationDocumentEditor({
                 <div className="relative overflow-visible border border-slate-300 bg-[#f9fafb] p-3 min-h-[100px]">
                   <p className="text-[11px] font-bold text-slate-500 mb-2 tracking-wide">공급자</p>
                   <div className="relative space-y-0.5 overflow-visible text-[13px] text-slate-800">
+                    {/* 직인 오른쪽 칸과 글자가 겹치지 않도록 다른 줄도 동일 여백 */}
                     {supplierLines[0] && supplierLines[0] !== '—' ? (
-                      <p>{supplierLines[0]}</p>
+                      <p style={sealUrl && repName ? { paddingRight: sealWidth + 4 } : undefined}>
+                        {supplierLines[0]}
+                      </p>
                     ) : supplierLines[0] === '—' ? (
                       <p>—</p>
                     ) : null}
@@ -358,7 +361,12 @@ export function QuotationDocumentEditor({
                       />
                     ) : null}
                     {supplierLines.slice(1).map((line) => (
-                      <p key={line}>{line}</p>
+                      <p
+                        key={line}
+                        style={sealUrl && repName ? { paddingRight: sealWidth + 4 } : undefined}
+                      >
+                        {line}
+                      </p>
                     ))}
                   </div>
                 </div>
