@@ -20,12 +20,13 @@ export function IssueModalFrame({
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
 
   useEffect(() => {
+    if (inline) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [inline, onClose]);
 
   const panel = (
       <div
@@ -39,14 +40,16 @@ export function IssueModalFrame({
       >
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
           <h2 className="text-fluid-sm font-semibold text-slate-900">{title}</h2>
-          <button
-            type="button"
-            className="inline-flex size-11 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            aria-label="닫기"
-            onClick={onClose}
-          >
-            <LineMdIcon name="close" className="size-5" />
-          </button>
+          {inline ? null : (
+            <button
+              type="button"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              aria-label="닫기"
+              onClick={onClose}
+            >
+              <LineMdIcon name="close" className="size-5" />
+            </button>
+          )}
         </header>
         <div ref={scrollRef} className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto p-3" onFocusCapture={onFieldFocus}>
           {children}
