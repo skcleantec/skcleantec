@@ -62,6 +62,8 @@ export const telecrmInquiryBriefSelect = {
   propertyType: true,
   buildingType: true,
   isOneRoom: true,
+  oneRoomLoft: true,
+  oneRoomSlidingPartition: true,
   source: true,
   preferredDate: true,
   preferredTime: true,
@@ -109,6 +111,8 @@ export function serializeTelecrmInquiryBrief(row: {
   propertyType?: string | null;
   buildingType?: string | null;
   isOneRoom?: boolean;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   source: string | null;
   preferredDate: Date | null;
   preferredTime: string | null;
@@ -133,6 +137,8 @@ export function serializeTelecrmInquiryBrief(row: {
     propertyType: row.propertyType ?? null,
     buildingType: row.buildingType ?? null,
     isOneRoom: row.isOneRoom === true,
+    oneRoomLoft: row.isOneRoom === true ? row.oneRoomLoft ?? null : null,
+    oneRoomSlidingPartition: row.isOneRoom === true ? row.oneRoomSlidingPartition ?? null : null,
     source: row.source,
     preferredDate: row.preferredDate?.toISOString() ?? null,
     preferredTime: row.preferredTime,

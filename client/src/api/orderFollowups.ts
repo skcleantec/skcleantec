@@ -55,6 +55,9 @@ export interface OrderFollowupItem {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+  isOneRoom?: boolean;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   nextContactAt: string | null;
   depositReceivedAt: string | null;
   createdAt: string;
@@ -195,6 +198,9 @@ export async function createOrderFollowup(
     roomCount?: number | null;
     bathroomCount?: number | null;
     balconyCount?: number | null;
+    isOneRoom?: boolean;
+    oneRoomLoft?: boolean | null;
+    oneRoomSlidingPartition?: boolean | null;
     goldDb?: boolean;
     inquiryId?: string;
     operatingCompanyId?: string;

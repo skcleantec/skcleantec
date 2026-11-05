@@ -6,7 +6,18 @@ export type FollowupIntakeExtrasFields = {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+  isOneRoom?: boolean | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
 };
+
+function parseOptionalBool(raw: unknown): boolean | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === true || raw === 'true' || raw === 1 || raw === '1') return true;
+  if (raw === false || raw === 'false' || raw === 0 || raw === '0') return false;
+  if (raw === null || raw === '') return null;
+  return null;
+}
 
 function parseOptionalInt(raw: unknown): number | null | undefined {
   if (raw === undefined) return undefined;
@@ -46,6 +57,20 @@ export function parseFollowupIntakeExtrasFromBody(
   if (Object.prototype.hasOwnProperty.call(body, 'balconyCount')) {
     out.balconyCount = parseOptionalInt(body.balconyCount);
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'isOneRoom')) {
+    const on = body.isOneRoom === true || body.isOneRoom === 'true' || body.isOneRoom === 1 || body.isOneRoom === '1';
+    out.isOneRoom = on;
+    if (!on) {
+      out.oneRoomLoft = null;
+      out.oneRoomSlidingPartition = null;
+    }
+  }
+  if (out.isOneRoom !== false && Object.prototype.hasOwnProperty.call(body, 'oneRoomLoft')) {
+    out.oneRoomLoft = parseOptionalBool(body.oneRoomLoft) ?? null;
+  }
+  if (out.isOneRoom !== false && Object.prototype.hasOwnProperty.call(body, 'oneRoomSlidingPartition')) {
+    out.oneRoomSlidingPartition = parseOptionalBool(body.oneRoomSlidingPartition) ?? null;
+  }
 
   return out;
 }
@@ -53,12 +78,17 @@ export function parseFollowupIntakeExtrasFromBody(
 /** Prisma create/update data 조각으로 변환 */
 export function followupIntakeExtrasToPrismaData(
   extras: FollowupIntakeExtrasFields,
-): Record<string, string | number | null> {
-  const data: Record<string, string | number | null> = {};
+): Record<string, string | number | boolean | null> {
+  const data: Record<string, string | number | boolean | null> = {};
   if (extras.address !== undefined) data.address = extras.address;
   if (extras.areaPyeong !== undefined) data.areaPyeong = extras.areaPyeong;
   if (extras.roomCount !== undefined) data.roomCount = extras.roomCount;
   if (extras.bathroomCount !== undefined) data.bathroomCount = extras.bathroomCount;
   if (extras.balconyCount !== undefined) data.balconyCount = extras.balconyCount;
+  if (extras.isOneRoom !== undefined && extras.isOneRoom !== null) data.isOneRoom = extras.isOneRoom;
+  if (extras.oneRoomLoft !== undefined) data.oneRoomLoft = extras.oneRoomLoft;
+  if (extras.oneRoomSlidingPartition !== undefined) {
+    data.oneRoomSlidingPartition = extras.oneRoomSlidingPartition;
+  }
   return data;
 }

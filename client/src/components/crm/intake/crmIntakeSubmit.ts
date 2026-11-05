@@ -38,6 +38,8 @@ export type CrmIntakeFormValues = {
   /** 건물 형태(신축·구축 등) — 발주서 선택지 저장값 */
   buildingType?: string;
   isOneRoom?: boolean;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   kind: CrmIntakeKind;
   goldDb: boolean;
   /** 유입 플랫폼 — 카탈로그 label, 저장 전 필수(브릿지 extract 시 자동) */
@@ -154,7 +156,14 @@ function inquiryExtras(
   preferredMoveInCleanYmd: string,
   structure: Pick<
     CrmIntakeFormValues,
-    'roomCount' | 'bathroomCount' | 'balconyCount' | 'propertyType' | 'buildingType' | 'isOneRoom'
+    | 'roomCount'
+    | 'bathroomCount'
+    | 'balconyCount'
+    | 'propertyType'
+    | 'buildingType'
+    | 'isOneRoom'
+    | 'oneRoomLoft'
+    | 'oneRoomSlidingPartition'
   >,
 ) {
   const areaPyeong = parseCrmIntakePyeong(pyeong);
@@ -172,7 +181,9 @@ function inquiryExtras(
     ...(balconyCount != null ? { balconyCount } : {}),
     ...(propertyType ? { propertyType } : {}),
     ...(buildingType ? { buildingType } : {}),
-    ...(structure.isOneRoom ? { isOneRoom: true } : {}),
+    isOneRoom: structure.isOneRoom === true,
+    oneRoomLoft: structure.isOneRoom ? (structure.oneRoomLoft ?? null) : null,
+    oneRoomSlidingPartition: structure.isOneRoom ? (structure.oneRoomSlidingPartition ?? null) : null,
   };
 }
 
@@ -185,6 +196,9 @@ function followupIntakeExtras(values: CrmIntakeFormValues, pyeong: string) {
     roomCount: parseCrmRoomCountOrNull(values.roomCount),
     bathroomCount: parseCrmRoomCountOrNull(values.bathroomCount),
     balconyCount: parseCrmRoomCountOrNull(values.balconyCount),
+    isOneRoom: values.isOneRoom === true,
+    oneRoomLoft: values.isOneRoom ? (values.oneRoomLoft ?? null) : null,
+    oneRoomSlidingPartition: values.isOneRoom ? (values.oneRoomSlidingPartition ?? null) : null,
   };
 }
 

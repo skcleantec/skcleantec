@@ -587,6 +587,8 @@ export function CrmPage() {
           propertyType: '',
           buildingType: '',
           isOneRoom: false,
+          oneRoomLoft: null,
+          oneRoomSlidingPartition: null,
           kind: 'absent',
           goldDb: false,
           leadSource: '',
@@ -798,6 +800,8 @@ export function CrmPage() {
         propertyType: '',
         buildingType: '',
         isOneRoom: false,
+        oneRoomLoft: null,
+        oneRoomSlidingPartition: null,
         kind: 'absent',
         goldDb: false,
         leadSource: '',
@@ -860,6 +864,8 @@ export function CrmPage() {
       propertyType: draft.propertyType ?? '',
       buildingType: draft.buildingType ?? '',
       isOneRoom: draft.isOneRoom === true,
+      oneRoomLoft: draft.isOneRoom ? (draft.oneRoomLoft ?? null) : null,
+      oneRoomSlidingPartition: draft.isOneRoom ? (draft.oneRoomSlidingPartition ?? null) : null,
       kind: draft.kind,
       goldDb: draft.goldDb,
       leadSource: draft.leadSource ?? '',
@@ -890,6 +896,12 @@ export function CrmPage() {
           propertyType: mergedBase.propertyType?.trim() || mergedChoice.propertyType,
           buildingType: mergedBase.buildingType?.trim() || mergedChoice.buildingType,
           isOneRoom: mergedBase.isOneRoom === true || mergedChoice.isOneRoom,
+          oneRoomLoft:
+            mergedBase.isOneRoom === true || mergedChoice.isOneRoom ? (mergedBase.oneRoomLoft ?? null) : null,
+          oneRoomSlidingPartition:
+            mergedBase.isOneRoom === true || mergedChoice.isOneRoom
+              ? (mergedBase.oneRoomSlidingPartition ?? null)
+              : null,
         };
         const summary = summarizeSoomgoImport(data);
         setSoomgoImportBanner(
@@ -952,6 +964,8 @@ export function CrmPage() {
         propertyType: choice.propertyType,
         buildingType: choice.buildingType,
         isOneRoom: choice.isOneRoom,
+        oneRoomLoft: null,
+        oneRoomSlidingPartition: null,
         kind: intakeDefaults.kind,
         goldDb: false,
         leadSource: BRIDGE_INQUIRY_LEAD_SOURCE_LABEL.soomgo,
@@ -1008,6 +1022,8 @@ export function CrmPage() {
         propertyType: choice.propertyType,
         buildingType: choice.buildingType,
         isOneRoom: choice.isOneRoom,
+        oneRoomLoft: null,
+        oneRoomSlidingPartition: null,
         kind: intakeDefaults.kind,
         goldDb: false,
         leadSource: BRIDGE_INQUIRY_LEAD_SOURCE_LABEL.miso,
@@ -1596,6 +1612,8 @@ export function CrmPage() {
         propertyType: snapshot.propertyType ?? '',
         buildingType: snapshot.buildingType ?? '',
         isOneRoom: snapshot.isOneRoom === true,
+        oneRoomLoft: snapshot.isOneRoom ? (snapshot.oneRoomLoft ?? null) : null,
+        oneRoomSlidingPartition: snapshot.isOneRoom ? (snapshot.oneRoomSlidingPartition ?? null) : null,
         kind: snapshot.kind,
         goldDb: snapshot.goldDb,
         leadSource,

@@ -35,6 +35,8 @@ export type CrmFollowupApplySnapshot = {
   propertyType?: string;
   buildingType?: string;
   isOneRoom?: boolean;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
 };
 
 /** 부재·보류 스냅샷에 추가 필드(주소·평수·구조·희망일)가 비어 있으면 true */
@@ -137,10 +139,26 @@ type FollowupIntakeExtrasSource = {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+  isOneRoom?: boolean | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   preferredMoveInCleaningDate?: string | null;
   goldDb?: boolean;
   leadSource?: string | null;
 };
+
+function oneRoomStructureFromRow(row: {
+  isOneRoom?: boolean | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
+}) {
+  const on = row.isOneRoom === true;
+  return {
+    isOneRoom: on,
+    oneRoomLoft: on ? (row.oneRoomLoft ?? null) : null,
+    oneRoomSlidingPartition: on ? (row.oneRoomSlidingPartition ?? null) : null,
+  };
+}
 
 function followupIntakeExtrasFromRow(row: FollowupIntakeExtrasSource) {
   return {
@@ -169,6 +187,7 @@ export function crmFollowupApplyFromItem(item: OrderFollowupItem): CrmFollowupAp
     ...extras,
     kind: intakeKindFromFollowupStatus(item.status),
     leadSource: item.leadSource?.trim() ?? '',
+    ...oneRoomStructureFromRow(item),
     myHotMark: item.myHotMark ?? null,
     myHotMarkEditable: item.myHotMarkEditable !== false,
   };
@@ -190,6 +209,9 @@ export function crmFollowupApplyFromLookupRow(row: {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+  isOneRoom?: boolean | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   leadSource?: string | null;
 }): CrmFollowupApplySnapshot {
   const phones = splitFollowupStoredPhones(row.customerPhone, row.customerPhone2 ?? null);
@@ -205,5 +227,6 @@ export function crmFollowupApplyFromLookupRow(row: {
     ...extras,
     kind: intakeKindFromFollowupStatus(row.status),
     leadSource: row.leadSource?.trim() ?? '',
+    ...oneRoomStructureFromRow(row),
   };
 }

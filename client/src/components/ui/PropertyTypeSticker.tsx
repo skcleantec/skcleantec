@@ -5,6 +5,7 @@ import {
   type PropertyTypeStickerTone,
 } from '../../utils/propertyTypeSticker';
 import { SK_TAEGEUK_FLAG_ASSET } from '@shared/custom/skcleantecOpsUi';
+import { OneRoomStructureChips } from './OneRoomStructureChips';
 
 const TONE_CLASS: Record<PropertyTypeStickerTone, string> = {
   apt: 'bg-sky-100 text-sky-800 ring-sky-300/90',
@@ -53,6 +54,8 @@ export function PropertyTypeSticker({
   propertyType,
   isOneRoom,
   oneTwoRoomKind = null,
+  oneRoomLoft = null,
+  oneRoomSlidingPartition = null,
   oneRoomTitle = '원룸',
   emphasizeOneRoomInList = false,
   className = '',
@@ -61,6 +64,8 @@ export function PropertyTypeSticker({
   isOneRoom?: boolean | null;
   /** SK 스케줄 강조 칩 글자. ONE 원룸, TWO 투룸, 그 외 원/투룸 */
   oneTwoRoomKind?: 'ONE' | 'TWO' | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   oneRoomTitle?: string;
   /** 스케줄 접수 내역 — 원/투룸만 강조 */
   emphasizeOneRoomInList?: boolean;
@@ -93,6 +98,11 @@ export function PropertyTypeSticker({
           <TypeStickerChip label={ONE_ROOM_STICKER_CHAR} title={oneRoomTitle} />
         )
       ) : null}
+      <OneRoomStructureChips
+        isOneRoom={showOneRoom}
+        oneRoomLoft={oneRoomLoft}
+        oneRoomSlidingPartition={oneRoomSlidingPartition}
+      />
     </span>
   );
 }

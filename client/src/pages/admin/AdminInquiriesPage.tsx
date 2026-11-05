@@ -99,6 +99,7 @@ import { useProfessionalOptionsCatalog } from '../../hooks/useProfessionalOption
 import { InquiryMarketerDailyButton } from '../../components/inquiries/inquiriesUiParts';
 import { Button } from '../../components/ui/Button';
 import { OneRoomKindSticker, TwoRoomSticker } from '../../components/ui/PropertyTypeSticker';
+import { OneRoomStructureChips } from '../../components/ui/OneRoomStructureChips';
 import { nextOneTwoRoomFields, parseOneTwoRoomKind } from '../../components/admin/inquiry-edit/oneTwoRoomKind';
 import { confirmDialog } from '../../components/ui/Toast';
 import { ActiveFilters, FilterBar, FilterSearch, FilterSegment, FilterSelect } from '../../components/ui/FilterBar';
@@ -514,6 +515,8 @@ interface InquiryItem {
   propertyType?: string | null;
   isOneRoom?: boolean | null;
   oneTwoRoomKind?: 'ONE' | 'TWO' | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
@@ -3578,7 +3581,14 @@ export function AdminInquiriesPage() {
                             {collabMarketer ? (
                               <span className="text-slate-400"> · 협업 {collabMarketer}</span>
                             ) : null}
-                            <span className="text-slate-600"> · {mobileSpecsTail}</span>
+                            <span className="inline-flex flex-wrap items-center gap-1 text-slate-600">
+                              · {mobileSpecsTail}
+                              <OneRoomStructureChips
+                                isOneRoom={item.isOneRoom}
+                                oneRoomLoft={item.oneRoomLoft}
+                                oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                              />
+                            </span>
                           </p>
                           <p className="mt-0.5 line-clamp-1 text-fluid-2xs leading-snug text-slate-600 sm:mt-1 sm:line-clamp-2 sm:text-fluid-xs" title={addrFull}>
                             {addrShort}
@@ -4107,8 +4117,15 @@ export function AdminInquiriesPage() {
                         label="평수·방"
                         onClick={() => setListQuickEdit({ field: 'area', item })}
                       >
-                        <span className="line-clamp-2 break-words" title={formatInquiryAreaKoLine(item)}>
-                          {formatInquiryListAreaOrServiceLabel(item, { oneRoomLabel })}
+                        <span className="inline-flex flex-wrap items-center justify-center gap-1" title={formatInquiryAreaKoLine(item)}>
+                          <span className="line-clamp-2 break-words">
+                            {formatInquiryListAreaOrServiceLabel(item, { oneRoomLabel })}
+                          </span>
+                          <OneRoomStructureChips
+                            isOneRoom={item.isOneRoom}
+                            oneRoomLoft={item.oneRoomLoft}
+                            oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                          />
                         </span>
                       </InquiryListQuickEditTrigger>
                     </td>

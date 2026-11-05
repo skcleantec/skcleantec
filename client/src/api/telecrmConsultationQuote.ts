@@ -101,6 +101,9 @@ export type FinalizeTelecrmConsultationQuoteBody = {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+  isOneRoom?: boolean;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   followupStatus: 'ABSENT' | 'ON_HOLD';
   extraMemo?: string | null;
   actorName?: string | null;

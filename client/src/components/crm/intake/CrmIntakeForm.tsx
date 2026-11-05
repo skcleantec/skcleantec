@@ -130,6 +130,8 @@ export function CrmIntakeForm({
   const [propertyType, setPropertyType] = useState('');
   const [buildingType, setBuildingType] = useState('');
   const [isOneRoom, setIsOneRoom] = useState(false);
+  const [oneRoomLoft, setOneRoomLoft] = useState<boolean | null>(null);
+  const [oneRoomSlidingPartition, setOneRoomSlidingPartition] = useState<boolean | null>(null);
   const propertyChoices = useCrmPropertyChoiceOptions();
   const [kind, setKind] = useState<CrmIntakeKind>('absent');
   const [goldDb, setGoldDb] = useState(false);
@@ -202,6 +204,10 @@ export function CrmIntakeForm({
     if (initialFormDraft.propertyType != null) setPropertyType(initialFormDraft.propertyType);
     if (initialFormDraft.buildingType != null) setBuildingType(initialFormDraft.buildingType);
     if (initialFormDraft.isOneRoom != null) setIsOneRoom(initialFormDraft.isOneRoom);
+    setOneRoomLoft(initialFormDraft.isOneRoom ? (initialFormDraft.oneRoomLoft ?? null) : null);
+    setOneRoomSlidingPartition(
+      initialFormDraft.isOneRoom ? (initialFormDraft.oneRoomSlidingPartition ?? null) : null,
+    );
     if (initialFormDraft.kind != null) setKind(initialFormDraft.kind);
     if (initialFormDraft.goldDb != null) setGoldDb(initialFormDraft.goldDb);
     if (initialFormDraft.leadSource != null) setLeadSource(initialFormDraft.leadSource);
@@ -245,6 +251,8 @@ export function CrmIntakeForm({
         propertyType,
         buildingType,
         isOneRoom,
+        oneRoomLoft,
+        oneRoomSlidingPartition,
         kind,
         goldDb,
         leadSource,
@@ -264,6 +272,8 @@ export function CrmIntakeForm({
     propertyType,
     buildingType,
     isOneRoom,
+    oneRoomLoft,
+    oneRoomSlidingPartition,
     kind,
     goldDb,
     leadSource,
@@ -312,6 +322,8 @@ export function CrmIntakeForm({
           propertyType,
           buildingType,
           isOneRoom,
+          oneRoomLoft,
+          oneRoomSlidingPartition,
           kind,
           goldDb,
           leadSource,
@@ -579,16 +591,49 @@ export function CrmIntakeForm({
               </select>
             </label>
           </div>
-          <label className="flex items-center gap-1.5 text-fluid-2xs text-slate-700">
-            <input
-              type="checkbox"
-              checked={isOneRoom}
-              onChange={(e) => setIsOneRoom(e.target.checked)}
-              disabled={saving}
-              className="border-slate-300"
-            />
-            원룸
-          </label>
+          <div>
+            <label className="flex items-center gap-1.5 text-fluid-2xs text-slate-700">
+              <input
+                type="checkbox"
+                checked={isOneRoom}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setIsOneRoom(on);
+                  if (!on) {
+                    setOneRoomLoft(null);
+                    setOneRoomSlidingPartition(null);
+                  }
+                }}
+                disabled={saving}
+                className="border-slate-300"
+              />
+              원룸
+            </label>
+            {isOneRoom ? (
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-5">
+                <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={oneRoomLoft === true}
+                    onChange={(e) => setOneRoomLoft(e.target.checked)}
+                    disabled={saving}
+                    className="border-slate-300"
+                  />
+                  복층
+                </label>
+                <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={oneRoomSlidingPartition === true}
+                    onChange={(e) => setOneRoomSlidingPartition(e.target.checked)}
+                    disabled={saving}
+                    className="border-slate-300"
+                  />
+                  미닫이 분리형
+                </label>
+              </div>
+            ) : null}
+          </div>
           {kind !== 'received' ? (
             <label className="block">
               <span className={crmIntakeLabelClass}>주소</span>
