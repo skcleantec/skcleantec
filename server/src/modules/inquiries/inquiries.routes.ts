@@ -333,6 +333,7 @@ router.get('/', async (req, res) => {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
+  try {
   const inspectionModuleEnabled = await isFeatureEnabled(tenantId, 'mod_inspection');
   const {
     status,
@@ -660,6 +661,13 @@ router.get('/', async (req, res) => {
     total,
   });
   scheduleBackgroundGeoHydrate(prisma, itemsWithPaybackToken, { maxUniqueQueries: 18 });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('inquiries list error:', msg, err);
+    const hint =
+      process.env.NODE_ENV !== 'production' ? msg : '접수 목록을 불러올 수 없습니다.';
+    res.status(500).json({ error: hint });
+  }
 });
 
 /** 접수일(createdAt) KST 하루 단위 휴지통 이동 — inquiry.bulkDelete */

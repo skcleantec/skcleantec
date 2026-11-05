@@ -397,94 +397,102 @@ router.get('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
-  const { start, end, lite } = req.query as { start?: string; end?: string; lite?: string };
-  const useLite = lite === '1' || lite === 'true';
-  const { startDate, endDate } = rangeFromQuery(
-    typeof start === 'string' ? start : undefined,
-    typeof end === 'string' ? end : undefined
-  );
+  try {
+    const { start, end, lite } = req.query as { start?: string; end?: string; lite?: string };
+    const useLite = lite === '1' || lite === 'true';
+    const { startDate, endDate } = rangeFromQuery(
+      typeof start === 'string' ? start : undefined,
+      typeof end === 'string' ? end : undefined
+    );
 
-  const baseArgs = {
-    where: {
-      tenantId,
-      preferredDate: { gte: startDate, lte: endDate },
-      ...inquiryActiveOnlyWhere(),
-      /** 취소·보류·대기 포함 — 화면에서 배지로 구분(가용 집계는 schedule-stats에서 취소·보류 제외) */
-    },
-    orderBy: [{ preferredDate: 'asc' as const }, { preferredTime: 'asc' as const }],
-  };
+    const baseArgs = {
+      where: {
+        tenantId,
+        preferredDate: { gte: startDate, lte: endDate },
+        ...inquiryActiveOnlyWhere(),
+        /** 취소·보류·대기 포함 — 화면에서 배지로 구분(가용 집계는 schedule-stats에서 취소·보류 제외) */
+      },
+      orderBy: [{ preferredDate: 'asc' as const }, { preferredTime: 'asc' as const }],
+    };
 
-  const itemsRaw = useLite
-    ? await prisma.inquiry.findMany({
-        ...baseArgs,
-        select: scheduleListSelectLite,
-      })
-    : await prisma.inquiry.findMany({
-        ...baseArgs,
-        include: {
-          operatingCompany: {
-            select: { id: true, name: true, slug: true, isActive: true, config: true },
-          },
-          createdBy: { select: { id: true, name: true } },
-          collaborationMarketer: { select: { id: true, name: true } },
-          assignments: {
-            orderBy: { sortOrder: 'asc' },
-            include: { teamLeader: { select: assignmentTeamLeaderSelect } },
-          },
-          crewLeaderAssignments: {
-            orderBy: { sortOrder: 'asc' as const },
-            select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
-          },
-          orderForm: {
-            select: {
-              id: true,
-              token: true,
-              totalAmount: true,
-              depositAmount: true,
-              balanceAmount: true,
-              submittedAt: true,
-              customerSpecialNotes: true,
-              prefillAnswers: true,
-              createdBy: { select: { id: true, name: true } },
-              template: { select: orderFormTemplateListSelect },
+    const itemsRaw = useLite
+      ? await prisma.inquiry.findMany({
+          ...baseArgs,
+          select: scheduleListSelectLite,
+        })
+      : await prisma.inquiry.findMany({
+          ...baseArgs,
+          include: {
+            operatingCompany: {
+              select: { id: true, name: true, slug: true, isActive: true, config: true },
+            },
+            createdBy: { select: { id: true, name: true } },
+            collaborationMarketer: { select: { id: true, name: true } },
+            assignments: {
+              orderBy: { sortOrder: 'asc' },
+              include: { teamLeader: { select: assignmentTeamLeaderSelect } },
+            },
+            crewLeaderAssignments: {
+              orderBy: { sortOrder: 'asc' as const },
+              select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
+            },
+            orderForm: {
+              select: {
+                id: true,
+                token: true,
+                totalAmount: true,
+                depositAmount: true,
+                balanceAmount: true,
+                submittedAt: true,
+                customerSpecialNotes: true,
+                prefillAnswers: true,
+                createdBy: { select: { id: true, name: true } },
+                template: { select: orderFormTemplateListSelect },
+              },
+            },
+            extraCharges: {
+              orderBy: { sortOrder: 'asc' },
+              include: { createdBy: { select: { id: true, name: true } } },
+            },
+            additionalReceipts: {
+              orderBy: { sortOrder: 'asc' },
+              include: { createdBy: { select: { id: true, name: true } } },
+            },
+            extraWorkRecords: {
+              where: { amountWon: { gt: 0 } },
+              select: { id: true },
+              take: 1,
             },
           },
-          extraCharges: {
-            orderBy: { sortOrder: 'asc' },
-            include: { createdBy: { select: { id: true, name: true } } },
-          },
-          additionalReceipts: {
-            orderBy: { sortOrder: 'asc' },
-            include: { createdBy: { select: { id: true, name: true } } },
-          },
-          extraWorkRecords: {
-            where: { amountWon: { gt: 0 } },
-            select: { id: true },
-            take: 1,
-          },
-        },
-      });
-  /** 스케줄 월 단위: changeLogs·카카오 지오는 상세/접수 API에 맡겨 첫 페인트 지연 방지 */
-  const touched = await hydrateMissingGeoForInquiryListItems(prisma, itemsRaw, {
-    maxUniqueQueries: 0,
-  });
-  const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
-
-  const itemsWithDistance = items.map((row) => attachDistanceFromJuanForInquiry(row));
-  /** lite여도 파트너 연계·정보공유 장바구니 배지에 tenantShare·dbListing 필요 */
-  const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
-  const itemsWithHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, itemsWithShare);
-  const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithHandoff);
-  if (useLite) {
-    res.json({
-      items: attachHasExtraWork(mapInquiriesInternalToneForRole(itemsWithDbListing, user.role)),
+        });
+    /** 스케줄 월 단위: changeLogs·카카오 지오는 상세/접수 API에 맡겨 첫 페인트 지연 방지 */
+    const touched = await hydrateMissingGeoForInquiryListItems(prisma, itemsRaw, {
+      maxUniqueQueries: 0,
     });
-    return;
+    const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
+
+    const itemsWithDistance = items.map((row) => attachDistanceFromJuanForInquiry(row));
+    /** lite여도 파트너 연계·정보공유 장바구니 배지에 tenantShare·dbListing 필요 */
+    const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
+    const itemsWithHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, itemsWithShare);
+    const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithHandoff);
+    if (useLite) {
+      res.json({
+        items: attachHasExtraWork(mapInquiriesInternalToneForRole(itemsWithDbListing, user.role)),
+      });
+      return;
+    }
+    const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(prisma, itemsWithDbListing);
+    res.json({
+      items: attachHasExtraWork(mapInquiriesInternalToneForRole(itemsWithProfReview, user.role)),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('schedule list error:', msg, err);
+    const hint =
+      process.env.NODE_ENV !== 'production' ? msg : '스케줄 목록을 불러올 수 없습니다.';
+    res.status(500).json({ error: hint });
   }
-  const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(prisma, itemsWithDbListing);
-  res.json({
-    items: attachHasExtraWork(mapInquiriesInternalToneForRole(itemsWithProfReview, user.role)),
-  });
 });
 
 /** 관리자: 해당일 일정 마감(범위별 잔여 슬롯·TO 조정) */
