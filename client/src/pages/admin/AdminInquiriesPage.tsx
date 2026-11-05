@@ -3584,9 +3584,11 @@ export function AdminInquiriesPage() {
                             {collabMarketer ? (
                               <span className="text-slate-400"> · 협업 {collabMarketer}</span>
                             ) : null}
-                            <span className="inline-flex flex-wrap items-center gap-1 text-slate-600">
-                              · {mobileSpecsTail}
+                            <span className="inline-flex min-w-0 max-w-full items-baseline gap-1 text-slate-600">
+                              <span className="min-w-0 truncate">· {mobileSpecsTail}</span>
                               <OneRoomStructureChips
+                                compact
+                                className="shrink min-w-0"
                                 isOneRoom={item.isOneRoom}
                                 oneRoomLoft={item.oneRoomLoft}
                                 oneRoomSlidingPartition={item.oneRoomSlidingPartition}
@@ -4117,18 +4119,23 @@ export function AdminInquiriesPage() {
                       <span className="block break-keep">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 2xl:text-[12px] ${pBorder}`}
+                      className={`min-w-0 max-w-[5.5rem] px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight tabular-nums text-slate-600 xl:max-w-[6.5rem] xl:px-1 xl:py-0.5 2xl:text-[12px] ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
                         label="평수·방"
                         onClick={() => setListQuickEdit({ field: 'area', item })}
                       >
-                        <span className="inline-flex flex-wrap items-center justify-center gap-1" title={formatInquiryAreaKoLine(item)}>
-                          <span className="line-clamp-2 break-words">
+                        <span
+                          className="flex max-w-full flex-col items-center justify-center gap-0 overflow-hidden leading-tight"
+                          title={formatInquiryAreaKoLine(item)}
+                        >
+                          <span className="line-clamp-1 max-w-full break-words">
                             {formatInquiryListAreaOrServiceLabel(item, { oneRoomLabel })}
                           </span>
                           <OneRoomStructureChips
+                            compact
+                            className="max-w-full"
                             isOneRoom={item.isOneRoom}
                             oneRoomLoft={item.oneRoomLoft}
                             oneRoomSlidingPartition={item.oneRoomSlidingPartition}
