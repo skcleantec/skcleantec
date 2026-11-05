@@ -139,8 +139,8 @@ export function OrderFormCustomerWizard({
 }) {
   const browse = previewWalk || viewOnly;
   const { scrollRef, onFieldFocus } = useLoginScrollSurface({
-    // 고정 막대는 다음/제출 버튼만 — 업체·플랫폼 안내는 스크롤 안으로
-    bottomReservePx: browse ? 72 : 88,
+    // 고정 「다음」+ 집 구조 카드(해당 없음)가 가려지지 않게 — 짧은 폰에서도 마지막 카드 클릭 가능
+    bottomReservePx: browse ? 96 : 168,
   });
   const [stepError, setStepError] = useState<string | null>(null);
   const [extraWorkOpen, setExtraWorkOpen] = useState(false);
@@ -281,7 +281,7 @@ export function OrderFormCustomerWizard({
       >
         <div
           className={`login-scroll-content mx-auto flex min-h-full max-w-lg flex-col px-4 ${
-            browse ? 'py-3 pb-4' : 'py-6 pb-6'
+            browse ? 'py-3 pb-8' : 'py-6 pb-10'
           }`}
         >
           {leaveHint ? (

@@ -104,8 +104,7 @@ export function isOrderFormPrefillLocked(
 ): boolean {
   if (isEditor || !prefillMap) return false;
   if (key === 'cleaningKind') return false;
-  const v = prefillMap[key];
-  if (v == null) return false;
+  /* 복층·미닫이·집 구조는 상담사 선입력이 있어도 고객이 다시 고를 수 있음 */
   if (
     key === 'oneRoomLoft' ||
     key === 'oneRoomSlidingPartition' ||
@@ -113,8 +112,10 @@ export function isOrderFormPrefillLocked(
     key === 'structurePartitionWall' ||
     key === 'structureOutdoorTerrace'
   ) {
-    return typeof v === 'boolean';
+    return false;
   }
+  const v = prefillMap[key];
+  if (v == null) return false;
   if (typeof v === 'string') return v.trim().length > 0;
   if (Array.isArray(v)) return v.length > 0;
   if (typeof v === 'boolean') return v === true;

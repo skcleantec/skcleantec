@@ -250,19 +250,12 @@ export function HomeStructureMultiChoices({
         disabled={disabled}
         showCheck
         onSelect={() =>
-          onChange(
-            noneOn
-              ? {
-                  structureBalconyNonExpanded: null,
-                  structurePartitionWall: null,
-                  structureOutdoorTerrace: null,
-                }
-              : {
-                  structureBalconyNonExpanded: false,
-                  structurePartitionWall: false,
-                  structureOutdoorTerrace: false,
-                },
-          )
+          /* 해당 없음은 토글 해제하지 않음 — 다시 눌러도 선택 유지 */
+          onChange({
+            structureBalconyNonExpanded: false,
+            structurePartitionWall: false,
+            structureOutdoorTerrace: false,
+          })
         }
         src={STRUCTURE_NONE_SRC}
         alt="해당 구조 없음"
