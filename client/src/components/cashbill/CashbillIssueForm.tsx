@@ -3,7 +3,9 @@ import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { issueCashbill, searchCashbillInquiries, type CashbillSearchHit, type CashbillUsage } from '../../api/cashbillIssues';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
+import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
+import { ReceiptExtraConfirm } from '../ui/ReceiptExtraConfirm';
 
 const BTN =
   'min-h-11 rounded-lg bg-slate-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -42,11 +44,15 @@ export function CashbillIssueForm({
   onClose,
   onDone,
   seed,
+  embedded = false,
+  seedInquiryId = '',
 }: {
   brands: Brand[];
   onClose: () => void;
   onDone: (issueId: string) => void;
   seed?: CashbillIssueSeed | null;
+  embedded?: boolean;
+  seedInquiryId?: string;
 }) {
   const { summary, openCharge, reload } = useReceiptWallet();
   const linkedBrands = brands.filter((brand) => brand.linked);
@@ -69,8 +75,21 @@ export function CashbillIssueForm({
   const [phoneHits, setPhoneHits] = useState<CashbillSearchHit[]>([]);
   const [memoOpen, setMemoOpen] = useState(Boolean(seed?.memo));
   const [memo, setMemo] = useState(seed?.memo ?? '');
+  const [extraReason, setExtraReason] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!seedInquiryId) return;
+    let stop = false;
+    searchCashbillInquiries('', seedInquiryId)
+      .then((items) => {
+        if (!stop && items[0]) pick(items[0]);
+      })
+      .catch(() => undefined);
+    return () => { stop = true; };
+  }, [seedInquiryId]);
 
   useEffect(() => {
     const q = query.trim();
@@ -143,6 +162,8 @@ export function CashbillIssueForm({
   }
 
   async function submit() {
+    const issuedTotal = Math.round(Number(amount) || 0);
+    const over = selected && !unmatched ? Math.max(0, issuedTotal - selected.remainingWon) : 0;
     setBusy(true);
     setError(null);
     try {
@@ -157,6 +178,8 @@ export function CashbillIssueForm({
         email: email.trim() || undefined,
         internalMemo: memo.trim() || undefined,
         customerName: (unmatched ? customerName : selected?.customerName ?? '').trim() || undefined,
+        extraAmountWon: over > 0 ? over : undefined,
+        extraReason: over > 0 ? extraReason.trim() : undefined,
         requestId: crypto.randomUUID(),
       });
       setQuery('');
@@ -175,6 +198,16 @@ export function CashbillIssueForm({
   }
 
   const total = Math.round(Number(amount) || 0);
+  const over = selected && !unmatched ? Math.max(0, total - selected.remainingWon) : 0;
+  function askIssue() {
+    if (over > 0 && !extraReason.trim()) {
+      setError('추가 금액 사유를 입력해 주세요.');
+      return;
+    }
+    setError(null);
+    if (over > 0) setConfirmOpen(true);
+    else void submit();
+  }
   const supply = Math.round(total / 1.1);
   const vat = Math.max(0, total - supply);
   const short = summary != null && summary.balanceKrw < CASHBILL_UNIT_PRICE_KRW;
@@ -182,6 +215,7 @@ export function CashbillIssueForm({
 
   return (
     <IssueModalFrame
+      inline={embedded}
       title="현금영수증 발행"
       onClose={onClose}
       footer={(
@@ -194,7 +228,7 @@ export function CashbillIssueForm({
             {short ? (
               <button type="button" className={BTN} onClick={openCharge}>충전하기</button>
             ) : (
-              <button type="button" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0} onClick={() => void submit()}>
+              <button type="button" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0} onClick={askIssue}>
                 {busy ? '발행 중…' : '발행하기'}
               </button>
             )}
@@ -202,6 +236,15 @@ export function CashbillIssueForm({
         </div>
       )}
     >
+      <ReceiptExtraConfirm
+        open={confirmOpen}
+        remainWon={selected?.remainingWon ?? 0}
+        extraWon={over}
+        totalWon={total}
+        busy={busy}
+        onCancel={() => setConfirmOpen(false)}
+        onIssue={() => { setConfirmOpen(false); void submit(); }}
+      />
       {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-xs text-red-800">{error}</p> : null}
       {linkedBrands.length > 1 ? (
         <label className="block space-y-1 text-fluid-xs text-slate-700">
@@ -246,14 +289,14 @@ export function CashbillIssueForm({
           {hits.map((hit) => (
             <li key={hit.id}>
               <button type="button" className={`${BTN_GHOST} w-full text-left`} onClick={() => pick(hit)}>
-                {hit.customerName} · {hit.customerPhone || '번호 없음'} · {hit.createdAt?.slice(0, 10) ?? ''} · 총액 {won(hit.totalWon ?? hit.remainingWon)} · 발행 가능 {won(hit.remainingWon)}
+                {hit.displayName || hit.customerName} · {hit.customerPhone || '번호 없음'} · {hit.createdAt?.slice(0, 10) ?? ''} · 총액 {won(hit.totalWon ?? hit.remainingWon)} · 발행 가능 {won(hit.remainingWon)}
               </button>
             </li>
           ))}
         </ul>
       ) : null}
       {selected && !unmatched ? (
-        <p className="text-fluid-xs text-slate-700">접수 {selected.customerName} · {selected.brandName} · 가능 {won(selected.remainingWon)}</p>
+        <p className="text-fluid-xs text-slate-700">접수 {selected.displayName || selected.customerName} · {selected.brandName} · 가능 {won(selected.remainingWon)}</p>
       ) : null}
       <label className="block space-y-1 text-fluid-xs text-slate-700">
         <span>② 금액</span>
@@ -262,6 +305,7 @@ export function CashbillIssueForm({
           <span>원</span>
         </span>
         {selected && !unmatched ? <span className="text-fluid-2xs text-slate-500">발행 가능 한도 {won(selected.remainingWon)}</span> : null}
+        <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
         {total > 0 ? <span className="text-fluid-2xs text-slate-600">공급가액 {won(supply)} · 부가세 {won(vat)}</span> : null}
       </label>
       <div className="space-y-1">
@@ -297,7 +341,7 @@ export function CashbillIssueForm({
           {phoneHits.map((hit) => (
             <div key={hit.id} className="flex items-center justify-between gap-2">
               <span className="min-w-0 truncate text-fluid-xs text-slate-800">
-                <b className="font-semibold">{hit.customerName}</b> · {hit.inquiryNumber ?? '접수'} · {hit.createdAt?.slice(5, 10).replace('-', '.') ?? ''} · 가능 {won(hit.remainingWon)}
+                <b className="font-semibold">{hit.displayName || hit.customerName}</b> · {hit.inquiryNumber ?? '접수'} · {hit.createdAt?.slice(5, 10).replace('-', '.') ?? ''} · 가능 {won(hit.remainingWon)}
               </span>
               <Button size="sm" variant="primary" onClick={() => pick(hit)}>연결</Button>
             </div>

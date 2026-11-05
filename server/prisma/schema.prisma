@@ -1802,6 +1802,9 @@ model CashBillIssue {
   lastError          String?           @map("last_error") @db.Text
   /// 고객에게 보이지 않는 내부 메모
   internalMemo       String?           @map("internal_memo") @db.VarChar(500)
+  /// 접수 금액을 넘는 추가 발행액. 접수 금액 자체는 바꾸지 않는다.
+  extraAmountWon     Int?              @map("extra_amount_won")
+  extraReason        String?           @map("extra_reason") @db.VarChar(200)
   copyPngUrl         String?           @map("copy_png_url") @db.VarChar(2048)
   copyPdfUrl         String?           @map("copy_pdf_url") @db.VarChar(2048)
   publicToken        String?           @unique @map("public_token") @db.VarChar(64)
@@ -1858,6 +1861,9 @@ model TaxInvoiceIssue {
   totalAmount        Int              @map("total_amount")
   lines              Json
   internalMemo       String?          @map("internal_memo") @db.VarChar(500)
+  /// 접수 금액을 넘는 추가 발행액. 접수 금액 자체는 바꾸지 않는다.
+  extraAmountWon     Int?             @map("extra_amount_won")
+  extraReason        String?          @map("extra_reason") @db.VarChar(200)
   barobillState      String?          @map("barobill_state") @db.VarChar(8)
   ntsSendState       String?          @map("nts_send_state") @db.VarChar(8)
   ntsSendKey         String?          @map("nts_send_key") @db.VarChar(64)

@@ -157,6 +157,7 @@ import { AdminScheduleDetailSection } from './inquiry-edit/AdminScheduleDetailSe
 import { InquiryEditPropertySection } from './inquiry-edit/InquiryEditPropertySection';
 import { InquiryEditCustomAnswersSection } from './inquiry-edit/InquiryEditCustomAnswersSection';
 import { InquiryEditSettlementSection } from './inquiry-edit/InquiryEditSettlementSection';
+import { InquiryReceiptShelf } from './inquiry-edit/InquiryReceiptShelf';
 import { InquiryEditStatusSection } from './inquiry-edit/InquiryEditStatusSection';
 import { useInquiryEditSectionDefaultOpen } from './inquiry-edit/useInquiryEditSectionDefaultOpen';
 import { buildInquiryEditAssignmentHints } from './inquiry-edit/InquiryEditStatusAssignmentHints';
@@ -3077,6 +3078,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           onRefetchProfessionalCatalog={onRefetchProfessionalCatalog}
           showProfessionalOptions={showProfessionalOptions}
         />
+
+        {!isCreate && item ? (
+          <AdminScheduleDetailSection title="영수증" sectionAnchor="receipts" collapsible defaultOpen={false}>
+            <InquiryReceiptShelf inquiryId={item.id} />
+          </AdminScheduleDetailSection>
+        ) : null}
 
         {!isCreate && item ? (
           <AdminScheduleDetailSection

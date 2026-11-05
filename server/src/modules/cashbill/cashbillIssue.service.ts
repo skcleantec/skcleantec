@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { issuerNameMap } from '../receipts/receiptHistory.js';
+import { receiptCustomerLabel, receiptNameKey, receiptRealName } from '../receipts/receiptNameSearch.js';
 import type { CashBillIssue, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
@@ -179,46 +180,46 @@ function issuedWonOf(rows: IssueRow[]): number {
   return countedRows(rows).reduce((sum, row) => sum + row.totalWon, 0);
 }
 
-export async function searchCashbillInquiries(tenantId: string, rawQuery: string) {
-  const q = rawQuery.trim().slice(0, 40);
-  const phone = digits(q);
-  if (q.length < 2 && phone.length < 3) return [];
-  const or: Prisma.InquiryWhereInput[] = [];
-  if (q.length >= 2) or.push({ customerName: { contains: q, mode: 'insensitive' } });
-  if (phone.length >= 3) or.push({ customerPhone: { contains: phone } });
-  if (q.length >= 3) or.push({ customerPhone: { contains: q } });
-  const found = await prisma.inquiry.findMany({
-    where: { tenantId, deletedAt: null, OR: or },
+const cashSearchSelect = {
+  id: true,
+  inquiryNumber: true,
+  customerName: true,
+  nickname: true,
+  customerPhone: true,
+  customerPhone2: true,
+  createdAt: true,
+  operatingCompanyId: true,
+  serviceTotalAmount: true,
+  serviceDepositAmount: true,
+  serviceBalanceAmount: true,
+  orderForm: { select: { customerName: true, totalAmount: true, depositAmount: true, balanceAmount: true } },
+  operatingCompany: {
     select: {
-      id: true,
-      inquiryNumber: true,
-      customerName: true,
-      customerPhone: true,
-      createdAt: true,
-      operatingCompanyId: true,
-      serviceTotalAmount: true,
-      serviceDepositAmount: true,
-      serviceBalanceAmount: true,
-      orderForm: { select: { totalAmount: true, depositAmount: true, balanceAmount: true } },
-      operatingCompany: {
-        select: {
-          name: true,
-          barobillMember: { select: { status: true, barobillUserId: true, taxType: true } },
-        },
-      },
+      name: true,
+      barobillMember: { select: { status: true, barobillUserId: true, taxType: true } },
     },
-    orderBy: { createdAt: 'desc' },
-    take: 8,
-  });
-  const rows = await Promise.all(found.map(async (inquiry) => {
+  },
+} satisfies Prisma.InquirySelect;
+
+type CashSearchRow = Prisma.InquiryGetPayload<{ select: typeof cashSearchSelect }>;
+
+function cashNameHit(row: CashSearchRow, key: string): boolean {
+  if (!key) return false;
+  return [row.customerName, row.nickname ?? '', row.orderForm?.customerName ?? ''].some((name) => receiptNameKey(name).includes(key));
+}
+
+async function mapCashSearch(tenantId: string, found: CashSearchRow[]) {
+  return Promise.all(found.map(async (inquiry) => {
     const issued = await issueRows(tenantId, inquiry.id);
     const paid = await cardPaidWon(tenantId, inquiry.id);
     const member = inquiry.operatingCompany.barobillMember;
     const linked = member?.status === 'ACTIVE' && Boolean(member.barobillUserId.trim());
+    const realName = receiptRealName(inquiry.customerName, inquiry.orderForm?.customerName);
     return {
       id: inquiry.id,
       inquiryNumber: inquiry.inquiryNumber,
-      customerName: inquiry.customerName,
+      customerName: realName,
+      displayName: receiptCustomerLabel(realName, inquiry.nickname),
       customerPhone: inquiry.customerPhone,
       brandId: inquiry.operatingCompanyId,
       brandName: inquiry.operatingCompany.name,
@@ -229,7 +230,46 @@ export async function searchCashbillInquiries(tenantId: string, rawQuery: string
       createdAt: inquiry.createdAt.toISOString(),
     };
   }));
-  return rows;
+}
+
+export async function searchCashbillInquiries(tenantId: string, rawQuery: string, inquiryId?: string) {
+  const id = String(inquiryId ?? '').trim();
+  if (id) {
+    const one = await prisma.inquiry.findFirst({ where: { id, tenantId, deletedAt: null }, select: cashSearchSelect });
+    return one ? mapCashSearch(tenantId, [one]) : [];
+  }
+  const q = rawQuery.trim().slice(0, 40);
+  const phone = digits(q);
+  const key = receiptNameKey(q);
+  if (q.length < 2 && phone.length < 3) return [];
+  const recent = key
+    ? await prisma.inquiry.findMany({
+      where: { tenantId, deletedAt: null },
+      select: cashSearchSelect,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    })
+    : [];
+  const phoneHits = phone.length >= 3
+    ? await prisma.inquiry.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        OR: [{ customerPhone: { contains: phone } }, { customerPhone2: { contains: phone } }],
+      },
+      select: cashSearchSelect,
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    })
+    : [];
+  const merged = new Map<string, CashSearchRow>();
+  for (const row of [...phoneHits, ...recent]) {
+    if (merged.has(row.id)) continue;
+    const phoneOk = phone.length >= 3 && (row.customerPhone.includes(phone) || (row.customerPhone2 ?? '').includes(phone));
+    if (cashNameHit(row, key) || phoneOk) merged.set(row.id, row);
+  }
+  const picked = [...merged.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 8);
+  return mapCashSearch(tenantId, picked);
 }
 
 function toPublicIssue(row: CashBillIssue) {
@@ -249,6 +289,8 @@ function toPublicIssue(row: CashBillIssue) {
     chargedKrw: row.chargedKrw,
     lastError: row.lastError,
     internalMemo: row.internalMemo,
+    extraAmountWon: row.extraAmountWon,
+    extraReason: row.extraReason,
     cancelOfId: row.cancelOfId,
     createdAt: row.createdAt.toISOString(),
     copyReady: Boolean(row.copyPngUrl && row.publicToken),
@@ -327,6 +369,8 @@ export async function issueCashbill(
     email?: string;
     internalMemo?: string;
     customerName?: string;
+    extraAmountWon?: number;
+    extraReason?: string;
   },
 ) {
   const inquiry = input.inquiryId ? await loadInquiry(tenantId, input.inquiryId) : null;
@@ -337,13 +381,21 @@ export async function issueCashbill(
   if (member.taxType === '2') throw new CashbillIssueError(CASHBILL_SIMPLIFIED_MESSAGE, 409, 'simplified');
   const totalWon = Math.round(Number(input.amount));
   if (!Number.isFinite(totalWon) || totalWon < 1) throw new CashbillIssueError('금액을 입력해 주세요.');
+  if (totalWon > 100_000_000) throw new CashbillIssueError('금액이 너무 큽니다.');
+  let extraAmountWon: number | null = null;
+  let extraReason: string | null = null;
   if (inquiry) {
     const remain = cashbillRemaining(
       amountsOf(inquiry).total,
       await cardPaidWon(tenantId, inquiry.id),
       issuedWonOf(await issueRows(tenantId, inquiry.id)),
     );
-    if (totalWon > remain) throw new CashbillIssueError('발급 가능한 금액을 넘었습니다.');
+    if (totalWon > remain) {
+      const reason = String(input.extraReason ?? '').trim().slice(0, 200);
+      if (!reason) throw new CashbillIssueError('추가 금액 사유를 입력해 주세요.');
+      extraAmountWon = totalWon - remain;
+      extraReason = reason;
+    }
   }
   const mode = input.usage === 'biz' || input.usage === 'voluntary' || input.usage === 'phone' ? input.usage : null;
   if (!mode) throw new CashbillIssueError('용도는 소득공제, 지출증빙, 자진발급만 가능합니다.');
@@ -376,6 +428,8 @@ export async function issueCashbill(
         totalWon,
         tradeDate: date,
         internalMemo: String(input.internalMemo ?? '').trim().slice(0, 500) || null,
+        extraAmountWon,
+        extraReason,
         createdById: userId,
       },
     });
@@ -549,12 +603,16 @@ export async function listCashbillIssues(tenantId: string, query: {
   state?: string;
   operatingCompanyId?: string;
   q?: string;
+  inquiryId?: string;
+  extraOnly?: boolean;
   limit: number;
   offset: number;
 }) {
   const createdAt = createdAtRangeFromQuery(query);
   const where: Prisma.CashBillIssueWhereInput = { tenantId };
-  if (createdAt) where.createdAt = createdAt;
+  if (query.inquiryId) where.inquiryId = query.inquiryId;
+  else if (createdAt) where.createdAt = createdAt;
+  if (query.extraOnly) where.extraAmountWon = { gt: 0 };
   if (query.operatingCompanyId) where.operatingCompanyId = query.operatingCompanyId;
   const q = query.q?.trim().slice(0, 40);
   if (q) {

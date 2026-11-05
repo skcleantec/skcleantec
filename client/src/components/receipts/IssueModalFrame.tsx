@@ -8,11 +8,13 @@ export function IssueModalFrame({
   onClose,
   children,
   footer,
+  inline = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  inline?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
@@ -25,12 +27,13 @@ export function IssueModalFrame({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  return createPortal(
-    <div className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 lg:items-center" role="presentation" onMouseDown={onClose}>
+  const panel = (
       <div
-        className="modal-mobile-fullscreen-panel flex max-h-[100dvh] w-full flex-col bg-white lg:max-h-[90vh] lg:max-w-[640px] lg:rounded-2xl"
+        className={inline
+          ? 'flex w-full flex-col rounded-xl border border-slate-200 bg-white'
+          : 'modal-mobile-fullscreen-panel flex max-h-[100dvh] w-full flex-col bg-white lg:max-h-[90vh] lg:max-w-[640px] lg:rounded-2xl'}
         role="dialog"
-        aria-modal="true"
+        aria-modal={inline ? undefined : true}
         aria-label={title}
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -50,6 +53,11 @@ export function IssueModalFrame({
         </div>
         {footer ? <footer className="shrink-0 border-t border-slate-200 px-3 py-2">{footer}</footer> : null}
       </div>
+  );
+  if (inline) return panel;
+  return createPortal(
+    <div className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 lg:items-center" role="presentation" onMouseDown={onClose}>
+      {panel}
     </div>,
     document.body,
   );

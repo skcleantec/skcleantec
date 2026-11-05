@@ -68,6 +68,8 @@ router.get('/', async (req, res) => {
       state: typeof req.query.state === 'string' ? req.query.state : undefined,
       operatingCompanyId: typeof req.query.brandId === 'string' ? req.query.brandId : undefined,
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
+      inquiryId: typeof req.query.inquiryId === 'string' ? req.query.inquiryId : undefined,
+      extraOnly: req.query.extra === '1',
       limit,
       offset,
     }));

@@ -1,5 +1,6 @@
 import type { Prisma, TaxInvoiceIssue } from '@prisma/client';
 import { issuerNameMap } from '../receipts/receiptHistory.js';
+import { receiptCustomerLabel, receiptNameKey, receiptRealName } from '../receipts/receiptNameSearch.js';
 import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
 import { resolveBarobillEnv } from '../../lib/barobill/env.js';
@@ -232,6 +233,8 @@ function toPublic(row: TaxInvoiceIssue) {
     ntsSendKey: row.ntsSendKey,
     lastError: row.lastError,
     createdAt: row.createdAt.toISOString(),
+    extraAmountWon: row.extraAmountWon,
+    extraReason: row.extraReason,
     canCancel: row.ntsSendState === '1' && row.barobillState === '3014',
     modifyLater: false,
     modifyCode: row.modifyCode,
@@ -289,50 +292,105 @@ async function failIssue(row: TaxInvoiceIssue, err: unknown, plan: string): Prom
   throw new TaxInvoiceError(message, err instanceof TaxInvoiceError ? err.statusCode : 502);
 }
 
-export async function searchTaxInvoiceInquiries(tenantId: string, rawQuery: string, inquiryId?: string) {
-  const id = String(inquiryId ?? '').trim();
-  const q = rawQuery.trim().slice(0, 40);
-  const phone = q.replace(/\D/g, '');
-  if (!id && q.length < 2 && phone.length < 3) return [];
-  const or: Prisma.InquiryWhereInput[] = [];
-  if (q.length >= 2) or.push({ customerName: { contains: q, mode: 'insensitive' } });
-  if (phone.length >= 3) or.push({ customerPhone: { contains: phone } });
-  const found = await prisma.inquiry.findMany({
-    where: id ? { id, tenantId, deletedAt: null } : { tenantId, deletedAt: null, OR: or },
-    select: {
-      id: true,
-      inquiryNumber: true,
-      customerName: true,
-      customerPhone: true,
-      operatingCompanyId: true,
-      operatingCompany: { select: { name: true, barobillMember: { select: { status: true, barobillUserId: true, taxType: true, certValid: true } } } },
-      quotations: {
-        orderBy: { updatedAt: 'desc' },
-        take: 1,
-        select: { customerName: true, customerEmail: true, customerAddress: true },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 8,
+const taxSearchSelect = {
+  id: true,
+  inquiryNumber: true,
+  customerName: true,
+  nickname: true,
+  customerPhone: true,
+  customerPhone2: true,
+  createdAt: true,
+  operatingCompanyId: true,
+  serviceTotalAmount: true,
+  orderForm: { select: { customerName: true, totalAmount: true } },
+  operatingCompany: { select: { name: true, barobillMember: { select: { status: true, barobillUserId: true, taxType: true, certValid: true } } } },
+  quotations: {
+    orderBy: { updatedAt: 'desc' },
+    take: 1,
+    select: { customerName: true, customerEmail: true, customerAddress: true },
+  },
+} satisfies Prisma.InquirySelect;
+
+type TaxSearchRow = Prisma.InquiryGetPayload<{ select: typeof taxSearchSelect }>;
+
+async function taxRemainWon(tenantId: string, inquiryId: string, inquiryTotal: number): Promise<number | null> {
+  if (inquiryTotal <= 0) return null;
+  const issued = await prisma.taxInvoiceIssue.aggregate({
+    where: { tenantId, inquiryId, barobillState: '3014' },
+    _sum: { totalAmount: true },
   });
-  return found.map((inquiry) => {
+  return Math.max(0, inquiryTotal - (issued._sum.totalAmount ?? 0));
+}
+
+function taxNameHit(row: TaxSearchRow, key: string): boolean {
+  if (!key) return false;
+  return [row.customerName, row.nickname ?? '', row.orderForm?.customerName ?? ''].some((name) => receiptNameKey(name).includes(key));
+}
+
+async function mapTaxSearch(tenantId: string, found: TaxSearchRow[]) {
+  return Promise.all(found.map(async (inquiry) => {
     const quote = inquiry.quotations[0];
     const member = inquiry.operatingCompany.barobillMember;
+    const realName = receiptRealName(inquiry.customerName, inquiry.orderForm?.customerName);
+    const inquiryTotal = inquiry.serviceTotalAmount ?? inquiry.orderForm?.totalAmount ?? 0;
     return {
       id: inquiry.id,
       inquiryNumber: inquiry.inquiryNumber,
-      customerName: inquiry.customerName,
+      customerName: realName,
+      displayName: receiptCustomerLabel(realName, inquiry.nickname),
       customerPhone: inquiry.customerPhone,
       brandId: inquiry.operatingCompanyId,
       brandName: inquiry.operatingCompany.name,
       linked: member?.status === 'ACTIVE' && Boolean(member.barobillUserId.trim()),
       simplified: member?.taxType === '2',
       certValid: member?.certValid === true,
+      totalWon: inquiryTotal,
+      remainingWon: await taxRemainWon(tenantId, inquiry.id, inquiryTotal),
       buyer: quote
         ? { corpName: quote.customerName, email: quote.customerEmail ?? '', addr: quote.customerAddress ?? '' }
         : null,
     };
-  });
+  }));
+}
+
+export async function searchTaxInvoiceInquiries(tenantId: string, rawQuery: string, inquiryId?: string) {
+  const id = String(inquiryId ?? '').trim();
+  if (id) {
+    const one = await prisma.inquiry.findFirst({ where: { id, tenantId, deletedAt: null }, select: taxSearchSelect });
+    return one ? mapTaxSearch(tenantId, [one]) : [];
+  }
+  const q = rawQuery.trim().slice(0, 40);
+  const phone = q.replace(/\D/g, '');
+  const key = receiptNameKey(q);
+  if (q.length < 2 && phone.length < 3) return [];
+  const recent = key
+    ? await prisma.inquiry.findMany({
+      where: { tenantId, deletedAt: null },
+      select: taxSearchSelect,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    })
+    : [];
+  const phoneHits = phone.length >= 3
+    ? await prisma.inquiry.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        OR: [{ customerPhone: { contains: phone } }, { customerPhone2: { contains: phone } }],
+      },
+      select: taxSearchSelect,
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    })
+    : [];
+  const merged = new Map<string, TaxSearchRow>();
+  for (const row of [...phoneHits, ...recent]) {
+    if (merged.has(row.id)) continue;
+    const phoneOk = phone.length >= 3 && (row.customerPhone.includes(phone) || (row.customerPhone2 ?? '').includes(phone));
+    if (taxNameHit(row, key) || phoneOk) merged.set(row.id, row);
+  }
+  const picked = [...merged.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 8);
+  return mapTaxSearch(tenantId, picked);
 }
 
 export async function issueTaxInvoice(
@@ -362,10 +420,14 @@ export async function issueTaxInvoice(
     remark?: string;
     buyerTaxRegId?: string;
     taxKind?: unknown;
+    extraReason?: string;
   },
 ) {
   const inquiry = input.inquiryId
-    ? await prisma.inquiry.findFirst({ where: { id: input.inquiryId, tenantId, deletedAt: null }, select: { id: true, operatingCompanyId: true } })
+    ? await prisma.inquiry.findFirst({
+      where: { id: input.inquiryId, tenantId, deletedAt: null },
+      select: { id: true, operatingCompanyId: true, serviceTotalAmount: true, orderForm: { select: { totalAmount: true } } },
+    })
     : null;
   if (input.inquiryId && !inquiry) throw new TaxInvoiceError('접수를 찾을 수 없습니다.', 404);
   const brandId = inquiry?.operatingCompanyId || input.operatingCompanyId?.trim() || '';
@@ -391,6 +453,21 @@ export async function issueTaxInvoice(
   if (!purposeType) throw new TaxInvoiceError('영수 또는 청구를 선택해 주세요.');
   const buyer = buyerOf(input.buyer ?? {});
   const priced = linesOf(input.lines, taxKind);
+  if (priced.total > 100_000_000) throw new TaxInvoiceError('금액이 너무 큽니다.');
+  const extraReasonRaw = String(input.extraReason ?? '').trim().slice(0, 200);
+  let extraAmountWon: number | null = null;
+  let extraReason: string | null = null;
+  if (inquiry) {
+    const cap = inquiry.serviceTotalAmount ?? inquiry.orderForm?.totalAmount ?? 0;
+    const remain = await taxRemainWon(tenantId, inquiry.id, cap);
+    if (remain != null && priced.total > remain) {
+      if (!extraReasonRaw) throw new TaxInvoiceError('추가 금액 사유를 입력해 주세요.');
+      extraAmountWon = priced.total - remain;
+      extraReason = extraReasonRaw;
+    } else if (remain == null && extraReasonRaw) {
+      extraReason = extraReasonRaw;
+    }
+  }
   const settlement = {
     kind: 'settlement' as const,
     taxKind,
@@ -440,6 +517,8 @@ export async function issueTaxInvoice(
       totalAmount: priced.total,
       lines: [...priced.lines, settlement],
       internalMemo: memo || null,
+      extraAmountWon,
+      extraReason,
       createdById: userId,
     },
   });
@@ -541,12 +620,16 @@ export async function listTaxInvoices(tenantId: string, query: {
   state?: string;
   operatingCompanyId?: string;
   q?: string;
+  inquiryId?: string;
+  extraOnly?: boolean;
   limit: number;
   offset: number;
 }) {
   const createdAt = createdAtRangeFromQuery(query);
   const where: Prisma.TaxInvoiceIssueWhereInput = { tenantId };
-  if (createdAt) where.createdAt = createdAt;
+  if (query.inquiryId) where.inquiryId = query.inquiryId;
+  else if (createdAt) where.createdAt = createdAt;
+  if (query.extraOnly) where.extraAmountWon = { gt: 0 };
   if (query.operatingCompanyId) where.operatingCompanyId = query.operatingCompanyId;
   const q = query.q?.trim().slice(0, 40);
   if (q) {

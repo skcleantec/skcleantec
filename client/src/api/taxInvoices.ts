@@ -5,7 +5,10 @@ export type TaxInvoiceSearchHit = {
   id: string;
   inquiryNumber: string;
   customerName: string;
+  displayName?: string;
   customerPhone: string | null;
+  totalWon?: number;
+  remainingWon?: number | null;
   brandId: string;
   brandName: string;
   linked: boolean;
@@ -61,6 +64,8 @@ export type TaxInvoiceRow = {
   buyerCorpName: string;
   buyerCorpNum?: string;
   totalAmount: number;
+  extraAmountWon?: number | null;
+  extraReason?: string | null;
   supplyAmount: number;
   taxAmount: number;
   barobillState: string | null;
