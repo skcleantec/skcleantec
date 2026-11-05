@@ -161,7 +161,9 @@ export function resolveOrderFormCustomerSteps(args: {
       choices: copy('property')?.choices,
     });
   }
-  const structureNotice = hasCounselorStructurePrefill(form) ? COUNSELOR_STRUCTURE_HINT : undefined;
+  const structureNotice = hasCounselorStructurePrefill(order?.prefillAnswers)
+    ? COUNSELOR_STRUCTURE_HINT
+    : undefined;
   if (form.isOneRoom) {
     steps.push({
       id: 'oneRoomLoft',
