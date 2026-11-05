@@ -18,6 +18,7 @@ import {
 } from './specialtyOptions.js';
 import { isRealCustomerAddress } from '../../lib/orderFormPendingAddress.js';
 import { parseIsOneRoomFlag } from './orderFormOneRoom.js';
+import { oneRoomStructureForSave, parseOneRoomYesNo } from './orderFormOneRoomStructure.js';
 import { parseMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
 
 /** prefillAnswers 로 다루는 표준(시스템) 항목 키 — 제출 body 필드명과 동일하게 맞춘다 */
@@ -39,6 +40,8 @@ export const PREFILL_STANDARD_KEYS = [
   'kitchenCount',
   'specialNotes',
   'isOneRoom',
+  'oneRoomLoft',
+  'oneRoomSlidingPartition',
   'professionalOptionIds',
 ] as const;
 
@@ -65,6 +68,10 @@ export function lockedKeysFromPrefill(prefill: unknown): Set<string> {
     if (k === 'cleaningKind') continue;
     if (k === 'address') {
       if (typeof v === 'string' && isRealCustomerAddress(v)) out.add(k);
+      continue;
+    }
+    if (k === 'oneRoomLoft' || k === 'oneRoomSlidingPartition') {
+      if (typeof v === 'boolean') out.add(k);
       continue;
     }
     if (k === 'addressDetail') {
@@ -104,8 +111,14 @@ export function buildPrefillFromPayload(
       continue;
     }
     if (key === 'isOneRoom') {
-      const truthy = raw === true || raw === 'true' || String(raw ?? '') === '1';
-      if (truthy) out[key] = true;
+      if (raw === true || raw === 'true' || raw === 1 || raw === '1') out[key] = true;
+      else if (raw === false || raw === 'false' || raw === 0 || raw === '0') out[key] = false;
+      continue;
+    }
+    if (key === 'oneRoomLoft' || key === 'oneRoomSlidingPartition') {
+      if (!parseIsOneRoomFlag(body.isOneRoom)) continue;
+      const parsed = parseOneRoomYesNo(raw);
+      if (parsed !== null) out[key] = parsed;
       continue;
     }
     if (key === 'professionalOptionIds') {
@@ -190,6 +203,13 @@ export function overlayPrefillOntoSubmitBody(
 
   for (const [key, value] of Object.entries(map)) {
     if (key === 'cleaningKind') continue;
+    if (
+      (key === 'oneRoomLoft' || key === 'oneRoomSlidingPartition') &&
+      typeof value === 'boolean'
+    ) {
+      body[key] = value;
+      continue;
+    }
     if (!isNonEmptyValue(value)) continue;
     if (PREFILL_STANDARD_KEY_SET.has(key)) {
       body[key] = value;
@@ -230,9 +250,14 @@ export function inquiryUpdateDataFromPrefillMap(prefill: PrefillMap): Prisma.Inq
   if (isOneRoom) {
     data.isOneRoom = true;
     if (!propertyType) data.propertyType = null;
-  } else if (propertyType) {
-    data.isOneRoom = false;
-    data.propertyType = propertyType;
+    const structure = oneRoomStructureForSave(true, prefill.oneRoomLoft, prefill.oneRoomSlidingPartition);
+    data.oneRoomLoft = structure.oneRoomLoft;
+    data.oneRoomSlidingPartition = structure.oneRoomSlidingPartition;
+  } else {
+    data.oneRoomLoft = null;
+    data.oneRoomSlidingPartition = null;
+    if (prefill.isOneRoom === false) data.isOneRoom = false;
+    if (propertyType) data.propertyType = propertyType;
   }
 
   if (typeof prefill.buildingType === 'string' && prefill.buildingType.trim()) {

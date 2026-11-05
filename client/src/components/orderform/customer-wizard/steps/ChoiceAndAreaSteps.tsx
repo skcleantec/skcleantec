@@ -14,6 +14,7 @@ import {
   AREA_BASIS_COST_WARNING,
   ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE,
 } from '../../../../pages/order/orderFormModel.types';
+import { OneRoomLoftChoices, OneRoomSlidingChoices } from '../../oneRoomStructureCards';
 import { WizardChipGrid, WizardChoiceChip, WizardQuestion, WIZARD_INPUT_CLS } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
 
@@ -36,6 +37,8 @@ export function PropertyStep({
       ...f,
       propertyType: value,
       isOneRoom: false,
+      oneRoomLoft: null,
+      oneRoomSlidingPartition: null,
       specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, false),
     }));
     window.setTimeout(goNext, 220);
@@ -50,6 +53,8 @@ export function PropertyStep({
       ...f,
       isOneRoom: true,
       propertyType: '',
+      oneRoomLoft: f.isOneRoom ? f.oneRoomLoft : null,
+      oneRoomSlidingPartition: f.isOneRoom ? f.oneRoomSlidingPartition : null,
       specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, true),
     }));
     window.setTimeout(goNext, 220);
@@ -78,6 +83,34 @@ export function PropertyStep({
           {oneRoomLabel}
         </WizardChoiceChip>
       </WizardChipGrid>
+    </WizardQuestion>
+  );
+}
+
+export function OneRoomLoftStep({ form, setForm, step, goNext }: CustomerStepBodyProps) {
+  return (
+    <WizardQuestion title={step.title} hint={step.hint}>
+      <OneRoomLoftChoices
+        value={form.oneRoomLoft}
+        onChange={(next) => {
+          setForm((f) => ({ ...f, oneRoomLoft: next }));
+          window.setTimeout(goNext, 220);
+        }}
+      />
+    </WizardQuestion>
+  );
+}
+
+export function OneRoomSlidingStep({ form, setForm, step, goNext }: CustomerStepBodyProps) {
+  return (
+    <WizardQuestion title={step.title} hint={step.hint}>
+      <OneRoomSlidingChoices
+        value={form.oneRoomSlidingPartition}
+        onChange={(next) => {
+          setForm((f) => ({ ...f, oneRoomSlidingPartition: next }));
+          window.setTimeout(goNext, 220);
+        }}
+      />
     </WizardQuestion>
   );
 }

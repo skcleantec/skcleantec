@@ -23,6 +23,7 @@ import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { formatDateCompactWithWeekday } from '../../../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../../../utils/inquiryAreaDisplay';
+import { formatOneRoomSpaceLine } from '../../../../utils/orderFormOneRoomStructure';
 import { shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import {
   displayCleaningKindLabel,
@@ -332,6 +333,7 @@ export function ReviewStep({
   timeSlotOptions,
   propertyTypeOptions,
   buildingTypeOptions,
+  oneRoomLabel,
 }: CustomerStepBodyProps) {
   const pages = order?.template?.customerPages ?? null;
   const jump = (id: OrderFormCustomerStepId) => () => goTo(id);
@@ -367,11 +369,17 @@ export function ReviewStep({
         <ReviewRow
           label="공간"
           value={
-            form.isOneRoom && !form.propertyType.trim()
-              ? '원룸'
+            form.isOneRoom
+              ? formatOneRoomSpaceLine(oneRoomLabel || '원룸', form.oneRoomLoft, form.oneRoomSlidingPartition)
               : choiceLabel(propertyTypeOptions, form.propertyType, pages, 'property')
           }
-          onEdit={jump('property')}
+          onEdit={
+            form.isOneRoom && !lockKey('oneRoomLoft')
+              ? jump('oneRoomLoft')
+              : form.isOneRoom && !lockKey('oneRoomSlidingPartition')
+                ? jump('oneRoomSliding')
+                : jump('property')
+          }
         />
         {areaLine ? <ReviewRow label="면적" value={areaLine} onEdit={jump('area')} /> : null}
         <ReviewRow

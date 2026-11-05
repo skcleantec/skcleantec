@@ -5,6 +5,7 @@ import { labelForMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
 import { type OrderFormCleaningKind } from '../../lib/orderFormCleaningKind.js';
 import { displayCleaningKindLabel, humanizeStoredChoice } from '../../lib/orderFormCustomerPages.js';
 import { formatOrderFormSpaceCountsLine } from '../../lib/orderFormSpaceCounts.js';
+import { formatOneRoomSpaceLine } from './orderFormOneRoomStructure.js';
 
 export type OrderFormSubmissionSnapshotV1 = {
   version: 1;
@@ -22,6 +23,9 @@ export type OrderFormSubmissionSnapshotV1 = {
     areaBasis: string;
     exclusiveAreaSqm?: number | null;
     propertyType: string;
+    isOneRoom?: boolean;
+    oneRoomLoft?: boolean | null;
+    oneRoomSlidingPartition?: boolean | null;
     preferredDate: string;
     preferredTime: string;
     preferredTimeDetail: string | null;
@@ -205,7 +209,16 @@ export function buildEmailDetailSections(
       { label: '이메일', value: dashIfEmpty(f.customerEmail) },
       { label: '주소', value: f.address },
       { label: '상세주소', value: dashIfEmpty(f.addressDetail) },
-      { label: '건축물 유형', value: humanizeStoredChoice(f.propertyType, null, 'property') || f.propertyType },
+      {
+        label: '건축물 유형',
+        value: f.isOneRoom
+          ? formatOneRoomSpaceLine(
+              f.propertyType.trim() || '원룸',
+              f.oneRoomLoft ?? null,
+              f.oneRoomSlidingPartition ?? null,
+            )
+          : humanizeStoredChoice(f.propertyType, null, 'property') || f.propertyType,
+      },
       { label: '공급면적 (분양평수)', value: areaSupplyText(f) },
       { label: '전용면적 (실제 내 집 공간)', value: areaExclusiveText(f) },
       {
