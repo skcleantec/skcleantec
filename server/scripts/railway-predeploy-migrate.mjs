@@ -9,13 +9,39 @@
  */
 import 'dotenv/config';
 import { spawnSync } from 'child_process';
-import { readdirSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const serverRoot = join(__dirname, '..');
 const MAX_P3018_RETRIES = 20;
+
+/** UTF-8 BOM(EF BB BF)이면 Postgres가 첫 식별자를 깨뜨려 마이그레이션이 실패한다. */
+function assertMigrationSqlNoBom() {
+  const migrationsDir = join(serverRoot, 'prisma', 'migrations');
+  const bad = [];
+  for (const d of readdirSync(migrationsDir, { withFileTypes: true })) {
+    if (!d.isDirectory() || !/^\d{14}_/.test(d.name)) continue;
+    const sqlPath = join(migrationsDir, d.name, 'migration.sql');
+    let buf;
+    try {
+      buf = readFileSync(sqlPath);
+    } catch {
+      continue;
+    }
+    if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+      bad.push(`${d.name}/migration.sql`);
+    }
+  }
+  if (bad.length > 0) {
+    console.error(
+      '[railway-predeploy-migrate] migration SQL has UTF-8 BOM (must be UTF-8 without BOM):\n' +
+        bad.map((p) => `  - ${p}`).join('\n'),
+    );
+    process.exit(1);
+  }
+}
 
 function runCapture(cmd, args) {
   const r = spawnSync(cmd, args, {
@@ -190,6 +216,8 @@ function handleP3005Baseline() {
 }
 
 function main() {
+  assertMigrationSqlNoBom();
+
   const first = migrateDeploy();
   if (first.ok) {
     console.log('prisma migrate deploy: ok');
