@@ -1,6 +1,7 @@
 ---
 description: 팀·타업체(/team) 및 좁은 화면 — 컴팩트 UI 필수 (제목·배너·카드·모달)
-alwaysApply: true
+alwaysApply: false
+globs: client/src/pages/team/**,client/src/components/team/**
 ---
 
 # 모바일·팀 화면 컴팩트 UI (필수)

@@ -1,6 +1,7 @@
 ---
 description: 서비스접수 마케터 집계·일별·목록 필터 — RECEIVED·접수일·접수자 기준 통일 (필수)
-alwaysApply: true
+alwaysApply: false
+globs: client/src/pages/admin/AdminInquiriesPage.tsx,server/src/modules/inquiries/**
 ---
 
 # 서비스접수 마케터 집계 (**집계 숫자 = 목록 조회와 동일**)

@@ -1,6 +1,7 @@
 ---
 description: 새로고침·재로그인 후에도 URL 기준으로 같은 화면 유지 — 코딩 시 최우선
-alwaysApply: true
+alwaysApply: false
+globs: client/src/pages/**,client/src/App.tsx,client/src/hooks/**
 ---
 
 # URL·라우트·화면 유지 (최우선)

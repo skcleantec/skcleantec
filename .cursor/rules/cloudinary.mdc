@@ -1,6 +1,6 @@
 ---
 description: 웹하드(이미지·파일 저장)는 Cloudinary 사용 — 환경변수·보안
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 웹하드 — Cloudflare R2 (신규) · Cloudinary (레거시)

@@ -1,6 +1,7 @@
 ---
 description: Prisma Migrate 일관성·배포 DB 오류(P3005 등) 예방 — db push 금지 구역, 마이그레이션 필수, 푸시 전 점검
-alwaysApply: true
+alwaysApply: false
+globs: server/prisma/**
 ---
 
 # Prisma · DB 마이그레이션 · 배포 예방 (필수)

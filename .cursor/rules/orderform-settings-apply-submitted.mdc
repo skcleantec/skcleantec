@@ -1,6 +1,7 @@
 ---
 description: 발주서 설정 문구는 이미 제출한 제출확인서에도 현재 내용으로 적용 (회귀 금지)
-alwaysApply: true
+alwaysApply: false
+globs: client/src/components/orderform/**,client/src/pages/order/**,server/src/modules/orderform/**
 ---
 
 # 발주서 설정 — 제출한 발주서에도 적용 (필수)

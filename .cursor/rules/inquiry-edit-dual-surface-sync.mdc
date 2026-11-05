@@ -1,6 +1,7 @@
 ---
 description: 접수 수정 UI·기능 양면(스케줄 모달 ↔ 접수목록) 필수 동기화
-alwaysApply: true
+alwaysApply: false
+globs: client/src/components/admin/inquiry-edit/**,client/src/pages/admin/AdminInquiriesPage.tsx,client/src/pages/admin/AdminSchedulePage.tsx,client/src/components/admin/ScheduleInquiryDetailModal.tsx
 ---
 
 # 접수 수정 이중 화면 동기화 (**필수·고우선순위**)

@@ -1,6 +1,6 @@
 ---
 description: 새 메뉴·화면·배지·색이 생기면 마케팅 카탈로그를 반드시 갱신
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 마케팅 에이전시 — 기능 카탈로그 자동 갱신 (필수)

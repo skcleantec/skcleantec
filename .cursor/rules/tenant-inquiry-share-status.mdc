@@ -1,7 +1,7 @@
 ---
 description: 파트너 접수 연계(TenantInquiryShare) ↔ mirror 접수 status — 연계·취소·정산 불변 규칙 (필수)
 globs: "server/src/modules/tenant-partners/**,server/src/modules/db-marketplace/**,server/src/modules/inquiries/**,client/src/pages/admin/AdminSchedulePage.tsx,client/src/components/admin/TenantInquiryShare*,docs/TENANT_DB_EXCHANGE.md"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 파트너 연계 — share 상태 ↔ 접수 status (필수·회귀 금지)

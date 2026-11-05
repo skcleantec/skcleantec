@@ -1,6 +1,7 @@
 ---
 description: 모바일 입력 필드 — 키보드가 필드를 가리지 않게 (필수)
-alwaysApply: true
+alwaysApply: false
+globs: client/src/pages/team/**,client/src/pages/order/**,client/src/components/orderform/**
 ---
 
 # 모바일 키보드 — 입력 필드 가시성 (필수)

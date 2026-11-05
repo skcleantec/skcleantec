@@ -1,6 +1,6 @@
 ---
 description: (선택) 로컬 Docker Postgres — 사용자가 명시할 때만. 기본은 공개 웹 DB
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 로컬 Docker Postgres (SK클린텍) — 참고용

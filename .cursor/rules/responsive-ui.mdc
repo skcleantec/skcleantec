@@ -1,6 +1,7 @@
 ---
 description: 관리자·클라이언트 반응형 UI — PC·모바일 동시 설계, 리스트·상세 서식, 가로 스크롤 테이블
-alwaysApply: true
+alwaysApply: false
+globs: client/src/pages/**,client/src/components/**
 ---
 
 # 반응형 UI (클라이언트)

@@ -1,6 +1,7 @@
 ---
 description: Railway 배포 — Dockerfile 멀티스테이지 빌드 고정·속도·안전성 (Railpack 복귀 금지)
-alwaysApply: true
+alwaysApply: false
+globs: Dockerfile,railway.json
 ---
 
 # Railway 배포 — Docker 빌드 표준 (유지 필수)

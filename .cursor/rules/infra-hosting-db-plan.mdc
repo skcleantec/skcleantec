@@ -1,6 +1,6 @@
 ---
 description: 인프라 현황·호스팅/DB 방향 — Railway 싱가포르(운영)·Supabase 서울 보조 백업·향후 한국 근접 리전
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 인프라 현황 & 앞으로의 방향 (호스팅·DB)

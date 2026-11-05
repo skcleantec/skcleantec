@@ -1,7 +1,7 @@
 ---
 description: 청소비서 UI 규칙 v2 — 색·글자 5단계·둥글기·높이·Button·FilterBar·StatusChip·팝업 (필수)
 globs: client/src/**/*.{tsx,ts}
-alwaysApply: true
+alwaysApply: false
 ---
 
 # UI 규칙 v2 (필수) — 전문: `docs/design/ui-rules.md`
