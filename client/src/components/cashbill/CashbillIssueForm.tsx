@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
-import { issueCashbill, searchCashbillInquiries, type CashbillSearchHit, type CashbillUsage } from '../../api/cashbillIssues';
+import {
+  issueCashbill,
+  searchCashbillInquiries,
+  type CashbillBrand,
+  type CashbillSearchHit,
+  type CashbillTaxKind,
+  type CashbillUsage,
+} from '../../api/cashbillIssues';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
@@ -27,8 +34,6 @@ function won(n: number): string {
   return `${Number(n).toLocaleString('ko-KR')}원`;
 }
 
-type Brand = { id: string; name: string; linked: boolean };
-
 export type CashbillIssueSeed = {
   brandId: string;
   amount: string;
@@ -37,7 +42,13 @@ export type CashbillIssueSeed = {
   memo: string;
   askIdentity: boolean;
   customerName?: string;
+  taxKind?: CashbillTaxKind;
 };
+
+const KIND_BTN =
+  'min-h-9 rounded-lg border px-2 text-fluid-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+const KIND_ON = 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800';
+const KIND_OFF = 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50';
 
 export function CashbillIssueForm({
   brands,
@@ -47,7 +58,7 @@ export function CashbillIssueForm({
   embedded = false,
   seedInquiryId = '',
 }: {
-  brands: Brand[];
+  brands: CashbillBrand[];
   onClose: () => void;
   onDone: (issueId: string) => void;
   seed?: CashbillIssueSeed | null;
@@ -65,6 +76,7 @@ export function CashbillIssueForm({
   const [unmatched, setUnmatched] = useState(false);
   const [brandId, setBrandId] = useState(seed?.brandId || linkedBrands[0]?.id || '');
   const [amount, setAmount] = useState(seed?.amount ?? '');
+  const [taxKind, setTaxKind] = useState<CashbillTaxKind>(seed?.taxKind ?? 'taxable');
   const [usage, setUsage] = useState<CashbillUsage>(seed?.usage ?? 'phone');
   const [identity, setIdentity] = useState('');
   const identityHint = seed?.askIdentity ? '번호를 다시 입력해 주세요' : null;
@@ -79,6 +91,11 @@ export function CashbillIssueForm({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const activeBrand = brands.find((brand) => brand.id === brandId) ?? linkedBrands[0];
+  const brandTaxType = selected && !unmatched ? selected.taxType : activeBrand?.taxType;
+  const exemptLocked = brandTaxType === '4';
+  const activeKind: CashbillTaxKind = exemptLocked ? 'exempt' : taxKind;
 
   useEffect(() => {
     if (!seedInquiryId) return;
@@ -146,6 +163,7 @@ export function CashbillIssueForm({
     setCustomerName(hit.customerName ?? '');
     setBrandId(hit.brandId);
     setAmount(String(hit.remainingWon));
+    if (hit.taxType === '4') setTaxKind('exempt');
     if (usage === 'phone') setIdentity(hit.customerPhone ?? '');
     setError(hit.simplified ? '간이과세자 현금영수증은 바로빌 답변 전까지 발급할 수 없습니다.' : null);
   }
@@ -189,6 +207,7 @@ export function CashbillIssueForm({
         customerName: (unmatched ? customerName : selected?.customerName ?? '').trim() || undefined,
         extraAmountWon: over > 0 ? over : undefined,
         extraReason: over > 0 ? extraReason.trim() : undefined,
+        taxKind: activeKind,
         requestId: crypto.randomUUID(),
       });
       setQuery('');
@@ -217,8 +236,8 @@ export function CashbillIssueForm({
     if (over > 0) setConfirmOpen(true);
     else void submit();
   }
-  const supply = Math.round(total / 1.1);
-  const vat = Math.max(0, total - supply);
+  const supply = activeKind === 'exempt' ? total : Math.round(total / 1.1);
+  const vat = activeKind === 'exempt' ? 0 : Math.max(0, total - supply);
   const short = summary != null && summary.balanceKrw < CASHBILL_UNIT_PRICE_KRW;
   const after = summary ? summary.balanceKrw - CASHBILL_UNIT_PRICE_KRW : 0;
 
@@ -258,7 +277,15 @@ export function CashbillIssueForm({
       {linkedBrands.length > 1 ? (
         <label className="block space-y-1 text-fluid-xs text-slate-700">
           <span>브랜드</span>
-          <select value={brandId} onChange={(e) => setBrandId(e.target.value)} className="min-h-9 w-full rounded-lg border border-slate-300 px-2">
+          <select
+            value={brandId}
+            onChange={(e) => {
+              const next = e.target.value;
+              setBrandId(next);
+              if (brands.find((brand) => brand.id === next)?.taxType === '4') setTaxKind('exempt');
+            }}
+            className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+          >
             {linkedBrands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
           </select>
         </label>
@@ -321,6 +348,28 @@ export function CashbillIssueForm({
         </span>
         {selected && !unmatched ? <span className="text-fluid-2xs text-slate-500">발행 가능 한도 {won(selected.remainingWon)}</span> : null}
         <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
+        <div className="space-y-1 pt-1">
+          <p className="text-fluid-xs text-slate-700">거래유형</p>
+          <div role="radiogroup" aria-label="거래유형" className="flex flex-wrap gap-1">
+            {([
+              ['taxable', '과세'],
+              ['exempt', '면세'],
+            ] as const).map(([id, label]) => (
+              <Button
+                key={id}
+                type="button"
+                size="sm"
+                variant={activeKind === id ? 'primary' : 'secondary'}
+                disabled={exemptLocked && id !== 'exempt'}
+                aria-checked={activeKind === id}
+                onClick={() => setTaxKind(id)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          {exemptLocked ? <span className="text-fluid-2xs text-slate-500">면세사업자는 면세로 고정됩니다.</span> : null}
+        </div>
         {total > 0 ? <span className="text-fluid-2xs text-slate-600">공급가액 {won(supply)} · 부가세 {won(vat)}</span> : null}
       </label>
       <div className="space-y-1">
@@ -331,7 +380,7 @@ export function CashbillIssueForm({
             ['biz', '지출증빙(사업자)'],
             ['voluntary', '자진발급'],
           ] as const).map(([id, label]) => (
-            <button key={id} type="button" className={`min-h-9 rounded-lg border px-2 text-fluid-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${usage === id ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`} onClick={() => setUsage(id)}>
+            <button key={id} type="button" className={`${KIND_BTN} ${usage === id ? KIND_ON : KIND_OFF}`} onClick={() => setUsage(id)}>
               {label}
             </button>
           ))}

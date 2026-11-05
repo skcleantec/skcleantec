@@ -1790,6 +1790,8 @@ model CashBillIssue {
   /// 접수 연계 없이 발급할 때 적은 고객명(연계 건은 접수 이름 스냅샷)
   customerName       String?           @map("customer_name") @db.VarChar(64)
   itemName           String            @default("청소 서비스") @map("item_name") @db.VarChar(50)
+  /// taxable | exempt. 바로빌 CashBillEx에 과세구분 필드가 없어 Amount/Tax로만 전달.
+  taxKind            String            @default("taxable") @map("tax_kind") @db.VarChar(16)
   amount             Int
   tax                Int
   serviceCharge      Int               @default(0) @map("service_charge")

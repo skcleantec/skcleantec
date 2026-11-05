@@ -81,6 +81,7 @@ export async function registAndIssueCashBill(invoice: CashbillInvoice): Promise<
         TradeType: 'N',
         TradeUsage: invoice.tradeUsage,
         TradeMethod: invoice.tradeMethod,
+        // CashBillEx에 TaxType 없음 — 면세는 Amount=합계·Tax=0 (BAROBILL_API_NOTES §5).
         Amount: invoice.amount,
         Tax: invoice.tax,
         ServiceCharge: invoice.serviceCharge,

@@ -4,6 +4,7 @@ import { getToken } from '../stores/auth';
 
 export type CashbillKind = 'DEPOSIT' | 'BALANCE' | 'FULL' | 'CANCEL';
 export type CashbillUsage = 'phone' | 'biz' | 'voluntary';
+export type CashbillTaxKind = 'taxable' | 'exempt';
 
 export type CashbillIssueRow = {
   id: string;
@@ -11,6 +12,7 @@ export type CashbillIssueRow = {
   tradeUsage: number;
   identityMasked: string;
   itemName: string;
+  taxKind?: CashbillTaxKind;
   totalWon: number;
   amount: number;
   tax: number;
@@ -48,9 +50,18 @@ export type CashbillSearchHit = {
   brandName: string;
   linked: boolean;
   simplified: boolean;
+  /** 바로빌 회원 taxType. '4' = 면세사업자 */
+  taxType?: string | null;
   remainingWon: number;
   totalWon?: number;
   createdAt?: string;
+};
+
+export type CashbillBrand = {
+  id: string;
+  name: string;
+  linked: boolean;
+  taxType?: string | null;
 };
 
 export const CASHBILL_KIND_LABEL: Record<CashbillKind, string> = {
@@ -128,6 +139,7 @@ export type CashbillReissueSource = {
   itemName: string;
   memo: string;
   customerName?: string;
+  taxKind?: CashbillTaxKind;
 };
 
 export async function fetchCashbillSource(issueId: string): Promise<CashbillReissueSource> {
@@ -158,6 +170,7 @@ export async function issueCashbill(body: {
   customerName?: string;
   extraAmountWon?: number;
   extraReason?: string;
+  taxKind?: CashbillTaxKind;
   requestId: string;
 }): Promise<CashbillIssueRow> {
   const res = await fetch(`${API}/cashbill/issues`, {
@@ -182,12 +195,12 @@ export async function cancelCashbillIssue(issueId: string, requestId: string): P
 export async function listCashbillIssues(qs: URLSearchParams): Promise<{
   items: CashbillIssueRow[];
   total: number;
-  brands: { id: string; name: string; linked: boolean }[];
+  brands: CashbillBrand[];
   summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number };
 }> {
   const res = await fetch(`${API}/cashbill/issues?${qs.toString()}`, { headers: headers() });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '현금영수증 목록을 불러오지 못했습니다.'));
-  return res.json() as Promise<{ items: CashbillIssueRow[]; total: number; brands: { id: string; name: string; linked: boolean }[]; summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number } }>;
+  return res.json() as Promise<{ items: CashbillIssueRow[]; total: number; brands: CashbillBrand[]; summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number } }>;
 }
 
 export async function openCashbillReceipt(issueId: string): Promise<void> {

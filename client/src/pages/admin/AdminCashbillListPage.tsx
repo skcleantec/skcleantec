@@ -11,6 +11,7 @@ import {
   listCashbillIssues,
   openCashbillReceipt,
   syncCashbillStates,
+  type CashbillBrand,
   type CashbillIssueRow,
 } from '../../api/cashbillIssues';
 import { markReceiptStateSynced, receiptOpenOverDay, receiptStateSyncDue } from '../../utils/receiptStateSync';
@@ -54,7 +55,7 @@ const STATES = [
 
 export function AdminCashbillListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const datePreset = searchParams.get('datePreset') || 'today';
+  const datePreset = searchParams.get('datePreset') || 'month';
   const monthKey = searchParams.get('month') || kstMonthKeyNow();
   const dayKey = searchParams.get('day') || kstYmdNow();
   const state = searchParams.get('state') || '';
@@ -67,7 +68,7 @@ export function AdminCashbillListPage() {
   const page = parseListPage(searchParams.get('page'));
   const [items, setItems] = useState<CashbillIssueRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [brands, setBrands] = useState<{ id: string; name: string; linked: boolean }[]>([]);
+  const [brands, setBrands] = useState<CashbillBrand[]>([]);
   const [summary, setSummary] = useState({ issuedCount: 0, issuedWon: 0, waitingCount: 0, failedCount: 0, costWon: 0 });
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,6 +106,7 @@ export function AdminCashbillListPage() {
           memo: src.memo,
           askIdentity: true,
           customerName: src.customerName ?? '',
+          taxKind: src.taxKind ?? 'taxable',
         });
         patch({ tab: 'issue' });
       })
@@ -324,6 +326,7 @@ export function AdminCashbillListPage() {
                       <p className={`whitespace-nowrap font-medium tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</p>
                       <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
                     </td>
+                    <td className={`px-2 py-2 text-center ${NARROW_HIDE}`}><CashTaxKindBadge kind={row.taxKind} /></td>
                     <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
                     <td className={`truncate px-2 py-2 text-center tabular-nums text-slate-600 ${XL_HIDE}`} title={row.ntsConfirmNum ?? ''}>{row.ntsConfirmNum || '—'}</td>
                     <td className="truncate px-2 py-2 text-center text-slate-600" title={row.issuerName ?? ''}>{row.issuerName || '—'}</td>
@@ -363,6 +366,11 @@ function usageLabel(row: CashbillIssueRow): string {
   return '소득공제';
 }
 
+function CashTaxKindBadge({ kind }: { kind?: CashbillIssueRow['taxKind'] }) {
+  const label = kind === 'exempt' ? '면세' : '과세';
+  return <span className="inline-flex rounded-full bg-slate-100 px-1.5 py-0 text-fluid-2xs font-medium text-slate-700">{label}</span>;
+}
+
 const NARROW_HIDE = 'hidden min-[1440px]:table-cell';
 const XL_HIDE = 'hidden xl:table-cell';
 
@@ -374,6 +382,7 @@ const CASH_COLS = [
   { key: 'inq', label: '접수', width: '112px', align: 'text-center', hide: '' },
   { key: 'item', label: '품목', width: undefined, align: 'text-left', hide: NARROW_HIDE },
   { key: 'won', label: '금액', width: '100px', align: 'text-right', hide: '' },
+  { key: 'kind', label: '과세구분', width: '72px', align: 'text-center', hide: NARROW_HIDE },
   { key: 'st', label: '상태', width: '190px', align: 'text-center', hide: '' },
   { key: 'nts', label: '승인번호', width: '108px', align: 'text-center', hide: XL_HIDE },
   { key: 'by', label: '발급자', width: '84px', align: 'text-center', hide: '' },
@@ -504,6 +513,7 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fluid-2xs text-slate-500">
         <span className="tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</span>
+        <CashTaxKindBadge kind={row.taxKind} />
         <span className="truncate">{row.itemName}</span>
         {row.issuerName ? <span className="truncate">발급 {row.issuerName}</span> : null}
         <StatusBadge row={row} />
