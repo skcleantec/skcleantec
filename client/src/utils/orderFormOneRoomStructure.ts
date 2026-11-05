@@ -117,18 +117,16 @@ export function formatHomeStructureLine(input: {
   return parts.length > 0 ? parts.join(' · ') : '해당 없음';
 }
 
-export function hasCounselorStructurePrefill(input: {
-  oneRoomLoft?: boolean | null;
-  oneRoomSlidingPartition?: boolean | null;
-  structureBalconyNonExpanded?: boolean | null;
-  structurePartitionWall?: boolean | null;
-  structureOutdoorTerrace?: boolean | null;
-}): boolean {
+/** 발주서 발급 때 상담사가 넣은 prefill 만 본다. 고객이 고른 form 값으로는 쓰지 않는다. */
+export function hasCounselorStructurePrefill(
+  prefill: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!prefill || typeof prefill !== 'object') return false;
   return (
-    input.oneRoomLoft === true ||
-    input.oneRoomSlidingPartition === true ||
-    input.structureBalconyNonExpanded === true ||
-    input.structurePartitionWall === true ||
-    input.structureOutdoorTerrace === true
+    prefill.oneRoomLoft === true ||
+    prefill.oneRoomSlidingPartition === true ||
+    prefill.structureBalconyNonExpanded === true ||
+    prefill.structurePartitionWall === true ||
+    prefill.structureOutdoorTerrace === true
   );
 }

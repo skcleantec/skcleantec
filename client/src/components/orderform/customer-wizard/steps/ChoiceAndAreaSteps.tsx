@@ -19,7 +19,6 @@ import {
   OneRoomLoftChoices,
   OneRoomSlidingChoices,
 } from '../../oneRoomStructureCards';
-import { Button } from '../../../ui/Button';
 import { WizardChipGrid, WizardChoiceChip, WizardQuestion, WIZARD_INPUT_CLS } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
 
@@ -120,25 +119,18 @@ export function OneRoomSlidingStep({ form, setForm, step, goNext }: CustomerStep
   );
 }
 
-export function HomeStructureStep({ form, setForm, step, goNext }: CustomerStepBodyProps) {
+export function HomeStructureStep({ form, setForm, step }: CustomerStepBodyProps) {
   const flags = {
     structureBalconyNonExpanded: form.structureBalconyNonExpanded,
     structurePartitionWall: form.structurePartitionWall,
     structureOutdoorTerrace: form.structureOutdoorTerrace,
   };
-  const answered =
-    flags.structureBalconyNonExpanded != null &&
-    flags.structurePartitionWall != null &&
-    flags.structureOutdoorTerrace != null;
   return (
     <WizardQuestion title={step.title} hint={step.hint} notice={step.notice}>
       <HomeStructureMultiChoices
         value={flags}
         onChange={(next) => setForm((f) => ({ ...f, ...next }))}
       />
-      <Button type="button" variant="primary" size="lg" className="mt-4 w-full" disabled={!answered} onClick={goNext}>
-        다음
-      </Button>
     </WizardQuestion>
   );
 }
