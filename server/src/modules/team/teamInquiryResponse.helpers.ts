@@ -1,5 +1,6 @@
 import { toOperatingCompanyPublicSummary } from '../operating-companies/operatingCompanyPublicSummary.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
+import { loadTelecrmPropertyChoiceResolver } from '../telecrm/telecrmPropertyChoices.service.js';
 
 type OperatingCompanyEmbed = {
   id: string;
@@ -47,4 +48,35 @@ export function serializeTeamInquiryPreferredDatesKst<T extends Record<string, u
   items: T[],
 ): Array<T & { preferredDate: string | null }> {
   return items.map(serializeTeamInquiryPreferredDateKst);
+}
+
+/** OPT_3 등 저장 코드를 발주서 선택지 화면 이름으로 붙인다 */
+export async function attachTeamPropertyChoiceLabels<T extends object>(
+  tenantId: string,
+  items: T[],
+): Promise<Array<T & { propertyTypeLabel: string | null; buildingTypeLabel: string | null }>> {
+  if (items.length === 0) {
+    return items.map((item) => ({
+      ...item,
+      propertyTypeLabel: null,
+      buildingTypeLabel: null,
+    }));
+  }
+  const resolver = await loadTelecrmPropertyChoiceResolver(tenantId);
+  return items.map((item) => {
+    const row = item as T & { propertyType?: string | null; buildingType?: string | null };
+    return {
+      ...item,
+      propertyTypeLabel: resolver.labelOf('property', row.propertyType) || null,
+      buildingTypeLabel: resolver.labelOf('building', row.buildingType) || null,
+    };
+  });
+}
+
+export async function attachTeamPropertyChoiceLabelsOne<T extends object>(
+  tenantId: string,
+  item: T,
+): Promise<T & { propertyTypeLabel: string | null; buildingTypeLabel: string | null }> {
+  const [row] = await attachTeamPropertyChoiceLabels(tenantId, [item]);
+  return row;
 }

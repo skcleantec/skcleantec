@@ -5,6 +5,7 @@ import {
   type PropertyTypeStickerTone,
 } from '../../utils/propertyTypeSticker';
 import { SK_TAEGEUK_FLAG_ASSET } from '@shared/custom/skcleantecOpsUi';
+import { looksLikeMachineChoiceCode } from '@shared/orderFormCustomerPages';
 import { OneRoomStructureChips } from './OneRoomStructureChips';
 
 const TONE_CLASS: Record<PropertyTypeStickerTone, string> = {
@@ -59,6 +60,7 @@ export function PropertyTypeSticker({
   structureBalconyNonExpanded = null,
   structurePartitionWall = null,
   structureOutdoorTerrace = null,
+  createdAt = null,
   oneRoomTitle = '원룸',
   emphasizeOneRoomInList = false,
   className = '',
@@ -72,13 +74,14 @@ export function PropertyTypeSticker({
   structureBalconyNonExpanded?: boolean | null;
   structurePartitionWall?: boolean | null;
   structureOutdoorTerrace?: boolean | null;
+  createdAt?: string | null;
   oneRoomTitle?: string;
   /** 스케줄 접수 내역 — 원/투룸만 강조 */
   emphasizeOneRoomInList?: boolean;
   className?: string;
 }) {
-  const typeLabel = propertyTypeStickerChar(propertyType);
   const typeFull = String(propertyType ?? '').trim();
+  const typeLabel = looksLikeMachineChoiceCode(typeFull) ? null : propertyTypeStickerChar(propertyType);
   const showOneRoom = Boolean(isOneRoom);
   const emphasizeOneRoom = emphasizeOneRoomInList && showOneRoom;
   const kind = oneTwoRoomKind === 'ONE' || oneTwoRoomKind === 'TWO' ? oneTwoRoomKind : null;
@@ -115,6 +118,7 @@ export function PropertyTypeSticker({
         structureBalconyNonExpanded={structureBalconyNonExpanded}
         structurePartitionWall={structurePartitionWall}
         structureOutdoorTerrace={structureOutdoorTerrace}
+        createdAt={createdAt}
       />
     </span>
   );

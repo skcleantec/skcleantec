@@ -50,7 +50,10 @@ import {
 } from '../../api/team';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { formatInquiryListAreaOrServiceLabel, formatInquiryAreaCompactKo } from '../../utils/inquiryAreaDisplay';
-import { OneRoomStructureChips } from '../../components/ui/OneRoomStructureChips';
+import {
+  hasOneRoomStructureChipContent,
+  OneRoomStructureChips,
+} from '../../components/ui/OneRoomStructureChips';
 import { isAirconOrderFormTemplate } from '@shared/orderFormServiceKind';
 import type { InquiryIntakeFormProfile } from '@shared/inquiryFormProfile';
 import type { OrderFormListSnapshot } from '@shared/orderFormListSnapshot';
@@ -251,6 +254,8 @@ export interface InquiryItem {
   /** 전용면적 기준 시 참고 제곱미터 */
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
+  /** 서버가 발주서 선택지로 해석한 건축물 유형 화면 이름 */
+  propertyTypeLabel?: string | null;
   isOneRoom?: boolean | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
@@ -258,6 +263,8 @@ export interface InquiryItem {
   structurePartitionWall?: boolean | null;
   structureOutdoorTerrace?: boolean | null;
   buildingType?: string | null;
+  /** 서버가 발주서 선택지로 해석한 건물 형태 화면 이름 */
+  buildingTypeLabel?: string | null;
   moveInTiming?: import('@shared/orderFormMoveInTiming').MoveInTiming | null;
   moveInDate?: string | null;
   moveInDateUndecided?: boolean | null;
@@ -543,7 +550,30 @@ export function TeamInquiryBrandListBadge({
   );
 }
 
-/** 배정·스케줄 목록 — 평수 pill (에어컨 발주서는 표시 안 함 — 서비스 배지로만) */
+/** OPT_3 등 기계 코드는 숨기고, 서버 라벨·한글 값만 표시 */
+export function teamInquiryPropertyTypeDisplay(
+  item: Pick<InquiryItem, 'propertyType' | 'propertyTypeLabel'>,
+): string {
+  const label = item.propertyTypeLabel?.trim();
+  if (label) return label;
+  const raw = item.propertyType?.trim() || '';
+  if (!raw) return '';
+  if (/^[A-Za-z][A-Za-z0-9_]*$/.test(raw) && !/[가-힣]/.test(raw)) return '';
+  return raw;
+}
+
+export function teamInquiryBuildingTypeDisplay(
+  item: Pick<InquiryItem, 'buildingType' | 'buildingTypeLabel'>,
+): string {
+  const label = item.buildingTypeLabel?.trim();
+  if (label) return label;
+  const raw = item.buildingType?.trim() || '';
+  if (!raw) return '';
+  if (/^[A-Za-z][A-Za-z0-9_]*$/.test(raw) && !/[가-힣]/.test(raw)) return '';
+  return raw;
+}
+
+/** 배정·스케줄 목록 — 평수 pill + 구조 칩 (평수 없어도 칩은 표시) */
 export function TeamInquiryAreaListBadge({
   item,
   className = '',
@@ -559,29 +589,32 @@ export function TeamInquiryAreaListBadge({
     | 'structureBalconyNonExpanded'
     | 'structurePartitionWall'
     | 'structureOutdoorTerrace'
+    | 'createdAt'
     | 'orderForm'
     | 'intakeFormProfile'
   >;
   className?: string;
 }) {
   const label = formatTeamInquiryAreaCompact(item);
-  if (!label) return null;
-  const detail = formatTeamInquiryAreaSummary(item);
+  const detail = label ? formatTeamInquiryAreaSummary(item) : '';
   return (
     <span className={`inline-flex shrink-0 items-center gap-1 ${className}`}>
-      <span
-        className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-800 ring-1 ring-slate-200/80 tabular-nums"
-        title={detail !== teamT('team.common.emDash') ? detail : undefined}
-      >
-        {label}
-      </span>
+      {label ? (
+        <span
+          className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-800 ring-1 ring-slate-200/80 tabular-nums"
+          title={detail !== teamT('team.common.emDash') ? detail : undefined}
+        >
+          {label}
+        </span>
+      ) : null}
       <OneRoomStructureChips
         isOneRoom={item.isOneRoom}
         oneRoomLoft={item.oneRoomLoft}
         oneRoomSlidingPartition={item.oneRoomSlidingPartition}
-                                structureBalconyNonExpanded={item.structureBalconyNonExpanded}
-                                structurePartitionWall={item.structurePartitionWall}
-                                structureOutdoorTerrace={item.structureOutdoorTerrace}
+        structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+        structurePartitionWall={item.structurePartitionWall}
+        structureOutdoorTerrace={item.structureOutdoorTerrace}
+        createdAt={item.createdAt}
       />
     </span>
   );
@@ -709,7 +742,10 @@ export function buildTeamInquiryShareClipText(
   endSection();
 
   if (teamInquiryShowsField(item, 'propertyType')) {
-    addRow('건축물', item.propertyType?.trim() || '');
+    addRow('건축물', teamInquiryPropertyTypeDisplay(item));
+  }
+  if (teamInquiryShowsField(item, 'buildingType')) {
+    addRow('건물 형태', teamInquiryBuildingTypeDisplay(item));
   }
   const basis = item.areaBasis?.trim();
   const sqmShare =
@@ -1608,14 +1644,30 @@ export function TeamInquiryDetailModal({
                       compact
                       label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-2xs font-medium text-gray-500" />}
                     >
-                      <span className="text-gray-800">
-                        {[
-                          teamInquiryShowsField(item, 'areaPyeong') ? formatTeamInquiryAreaSummary(item) : '',
-                          formatTeamInquiryStructure(item),
-                          teamInquiryShowsField(item, 'propertyType') && item.propertyType ? item.propertyType : '',
-                        ]
-                          .filter((part) => part && part !== teamT('team.common.emDash'))
-                          .join(' · ') || teamT('team.common.emDash')}
+                      <span className="inline-flex flex-wrap items-center gap-1 text-gray-800">
+                        <span>
+                          {[
+                            teamInquiryShowsField(item, 'areaPyeong') ? formatTeamInquiryAreaSummary(item) : '',
+                            formatTeamInquiryStructure(item),
+                            teamInquiryShowsField(item, 'propertyType')
+                              ? teamInquiryPropertyTypeDisplay(item)
+                              : '',
+                            teamInquiryShowsField(item, 'buildingType')
+                              ? teamInquiryBuildingTypeDisplay(item)
+                              : '',
+                          ]
+                            .filter((part) => part && part !== teamT('team.common.emDash'))
+                            .join(' · ') || teamT('team.common.emDash')}
+                        </span>
+                        <OneRoomStructureChips
+                          isOneRoom={item.isOneRoom}
+                          oneRoomLoft={item.oneRoomLoft}
+                          oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                          structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                          structurePartitionWall={item.structurePartitionWall}
+                          structureOutdoorTerrace={item.structureOutdoorTerrace}
+                          createdAt={item.createdAt}
+                        />
                       </span>
                     </TeamModalRow>
                   ) : null}
@@ -1818,11 +1870,26 @@ export function TeamInquiryDetailModal({
                       isOneRoom={item.isOneRoom}
                       oneRoomLoft={item.oneRoomLoft}
                       oneRoomSlidingPartition={item.oneRoomSlidingPartition}
-                                structureBalconyNonExpanded={item.structureBalconyNonExpanded}
-                                structurePartitionWall={item.structurePartitionWall}
-                                structureOutdoorTerrace={item.structureOutdoorTerrace}
+                      structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                      structurePartitionWall={item.structurePartitionWall}
+                      structureOutdoorTerrace={item.structureOutdoorTerrace}
+                      createdAt={item.createdAt}
                     />
                   </span>
+                </TeamModalRow>
+              ) : hasOneRoomStructureChipContent(item) ? (
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-xs font-medium text-slate-500" />}
+                >
+                  <OneRoomStructureChips
+                    isOneRoom={item.isOneRoom}
+                    oneRoomLoft={item.oneRoomLoft}
+                    oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                    structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                    structurePartitionWall={item.structurePartitionWall}
+                    structureOutdoorTerrace={item.structureOutdoorTerrace}
+                    createdAt={item.createdAt}
+                  />
                 </TeamModalRow>
               ) : null}
               {formatTeamInquiryStructure(item) !== teamT('team.common.emDash') ? (
@@ -1832,11 +1899,18 @@ export function TeamInquiryDetailModal({
                   <span className="text-gray-800">{formatTeamInquiryStructure(item)}</span>
                 </TeamModalRow>
               ) : null}
-              {teamInquiryShowsField(item, 'propertyType') && item.propertyType ? (
+              {teamInquiryShowsField(item, 'propertyType') && teamInquiryPropertyTypeDisplay(item) ? (
                 <TeamModalRow
                   label={<TeamBiLine id="team.modal.row.buildingType" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
-                  <span className="text-gray-800">{item.propertyType}</span>
+                  <span className="text-gray-800">{teamInquiryPropertyTypeDisplay(item)}</span>
+                </TeamModalRow>
+              ) : null}
+              {teamInquiryShowsField(item, 'buildingType') && teamInquiryBuildingTypeDisplay(item) ? (
+                <TeamModalRow
+                  label={<span className="text-fluid-xs font-medium text-slate-500">건물 형태</span>}
+                >
+                  <span className="text-slate-800">{teamInquiryBuildingTypeDisplay(item)}</span>
                 </TeamModalRow>
               ) : null}
               {teamInquiryShowsMoveIn(item) && formatInquiryMoveInSummary(item) !== '—' ? (

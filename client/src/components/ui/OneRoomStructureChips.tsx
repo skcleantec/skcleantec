@@ -6,6 +6,9 @@ const YES = 'bg-rose-100 text-rose-800 ring-rose-300/90';
 const UNKNOWN = 'bg-slate-100 text-slate-500 ring-slate-200/80';
 const MAX_VISIBLE = 3;
 
+/** 집 구조(베란다·가벽·테라스) 질문 배포일 — 이 시각(UTC) 이전 접수는 「구조 확인 전」 미표시 */
+export const HOME_STRUCTURE_FEATURE_SINCE_MS = Date.parse('2026-11-04T15:00:00.000Z'); // 2026-11-05 00:00 KST
+
 function collectLabels(input: {
   isOneRoom?: boolean | null;
   oneRoomLoft?: boolean | null;
@@ -25,6 +28,33 @@ function collectLabels(input: {
   return labels;
 }
 
+function createdAtOnOrAfterStructureFeature(createdAt?: string | null): boolean {
+  if (!createdAt) return false;
+  const t = Date.parse(createdAt);
+  return Number.isFinite(t) && t >= HOME_STRUCTURE_FEATURE_SINCE_MS;
+}
+
+export function hasOneRoomStructureChipContent(input: {
+  isOneRoom?: boolean | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
+  createdAt?: string | null;
+}): boolean {
+  if (collectLabels(input).length > 0) return true;
+  return (
+    createdAtOnOrAfterStructureFeature(input.createdAt) &&
+    Boolean(input.isOneRoom) &&
+    input.oneRoomLoft == null &&
+    input.oneRoomSlidingPartition == null &&
+    input.structureBalconyNonExpanded == null &&
+    input.structurePartitionWall == null &&
+    input.structureOutdoorTerrace == null
+  );
+}
+
 export function OneRoomStructureChips({
   isOneRoom,
   oneRoomLoft,
@@ -32,6 +62,7 @@ export function OneRoomStructureChips({
   structureBalconyNonExpanded,
   structurePartitionWall,
   structureOutdoorTerrace,
+  createdAt,
   className = '',
 }: {
   isOneRoom?: boolean | null;
@@ -40,6 +71,8 @@ export function OneRoomStructureChips({
   structureBalconyNonExpanded?: boolean | null;
   structurePartitionWall?: boolean | null;
   structureOutdoorTerrace?: boolean | null;
+  /** 접수 생성 시각 — 「구조 확인 전」은 구조 기능 배포 이후 건만 */
+  createdAt?: string | null;
   className?: string;
 }) {
   const labels = collectLabels({
@@ -51,6 +84,7 @@ export function OneRoomStructureChips({
     structureOutdoorTerrace,
   });
   const oneRoomUnknown =
+    createdAtOnOrAfterStructureFeature(createdAt) &&
     Boolean(isOneRoom) &&
     oneRoomLoft == null &&
     oneRoomSlidingPartition == null &&
