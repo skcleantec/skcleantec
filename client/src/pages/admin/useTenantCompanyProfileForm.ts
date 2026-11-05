@@ -11,8 +11,10 @@ import {
   QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT,
   QUOTATION_SEAL_DISPLAY_WIDTH_MAX,
   QUOTATION_SEAL_DISPLAY_WIDTH_MIN,
+  resolveQuotationSealDisplayWidth,
 } from '@shared/quotationSeal';
 import { isBlankSupplierField, visibleSupplierField } from '@shared/supplierFieldText';
+import { trimTransparentPngFileToSquare } from '../../utils/quotationSealTrim';
 
 export function useTenantCompanyProfileForm() {
   const token = getToken();
@@ -55,7 +57,11 @@ export function useTenantCompanyProfileForm() {
     setFax(c.fax ?? '');
     setContactEmail(c.contactEmail ?? '');
     setSealPreviewUrl(c.sealSecureUrl?.trim() || null);
-    setSealDisplayWidthPx(String(c.sealDisplayWidthPx ?? QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT));
+    setSealDisplayWidthPx(
+      c.sealDisplayWidthPx == null
+        ? String(QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT)
+        : String(resolveQuotationSealDisplayWidth(c.sealDisplayWidthPx)),
+    );
     setSmtpHost(dto.smtp.host);
     setSmtpPort(String(dto.smtp.port || 587));
     setSmtpSecure(dto.smtp.secure);
@@ -108,12 +114,19 @@ export function useTenantCompanyProfileForm() {
     setSealBusy(true);
     setErr(null);
     try {
-      const up = await uploadTenantCompanySeal(file, token, file.name || `seal_${Date.now()}.png`);
+      const trimmed = await trimTransparentPngFileToSquare(file);
+      const up = await uploadTenantCompanySeal(
+        trimmed,
+        token,
+        file.name || `seal_${Date.now()}.png`,
+      );
       const dto = await patchTenantCompanyProfile(token, {
         companyRegistration: {
           sealPublicId: up.publicId,
           sealSecureUrl: up.secureUrl,
-          ...(sealW === 'default' ? {} : { sealDisplayWidthPx: sealW }),
+          ...(sealW === 'default'
+            ? {}
+            : { sealDisplayWidthPx: resolveQuotationSealDisplayWidth(sealW) }),
         },
       });
       hydrate(dto);
@@ -160,7 +173,8 @@ export function useTenantCompanyProfileForm() {
     try {
       const dto = await patchTenantCompanyProfile(token, {
         companyRegistration: {
-          sealDisplayWidthPx: sealW === 'default' ? null : sealW,
+          sealDisplayWidthPx:
+            sealW === 'default' ? null : resolveQuotationSealDisplayWidth(sealW),
         },
       });
       hydrate(dto);

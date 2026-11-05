@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { formatSmtpSendError, resolveSmtpErrorContextForTenant } from '../../lib/tenantSmtp.service.js';
 import { browserImageUpload, uploadBrowserImageToStore } from '../../lib/browserImageUpload.js';
 import { cloudinary, isCloudinaryAccountConfigured } from '../../lib/cloudinary.js';
-import { tenantCompanySealFolder } from '../../lib/quotationSeal.js';
+import { tenantCompanySealFolder, trimTransparentPngToSquare } from '../../lib/quotationSeal.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from './tenantScope.helpers.js';
@@ -111,6 +111,9 @@ router.post('/seal-upload', browserImageUpload.single('file'), async (req, res) 
       res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
       return;
     }
+    const trimmed = await trimTransparentPngToSquare(file.buffer);
+    file.buffer = trimmed;
+    file.mimetype = 'image/png';
     const uploaded = await uploadBrowserImageToStore({
       folder: tenantCompanySealFolder(tenantId),
       file,

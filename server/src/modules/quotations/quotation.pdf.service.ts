@@ -1,6 +1,9 @@
 import PDFDocument from 'pdfkit';
 import { resolvePdfKoreanFontPath } from '../inquiry-inspection/inquiryInspection.report.js';
-import { resolveQuotationSealDisplayWidth } from '../../lib/quotationSeal.js';
+import {
+  resolveQuotationSealDisplayWidth,
+  trimTransparentPngToSquare,
+} from '../../lib/quotationSeal.js';
 import type { TenantCompanyRegistrationConfig } from '../tenants/tenantConfig.schema.js';
 import type { QuotationRow } from './quotations.service.js';
 import {
@@ -224,7 +227,14 @@ export async function buildQuotationPdfBuffer(
             company?.phone?.trim(),
             company?.contactEmail?.trim(),
           ].filter(Boolean).length;
-        const boxH = Math.max(88, 22 + Math.max(supplierLineCount, rightLines.length) * 13 + 8);
+        const sealPt = resolveQuotationSealDisplayWidth(company?.sealDisplayWidthPx);
+        const sealUrl = company?.sealSecureUrl?.trim();
+        const sealPad =
+          sealUrl && company?.representativeName?.trim() ? Math.ceil(sealPt * 0.45) : 0;
+        const boxH = Math.max(
+          88 + sealPad,
+          22 + Math.max(supplierLineCount, rightLines.length) * 13 + 8 + sealPad,
+        );
         const boxY = doc.y;
 
         drawBox(doc, ml, boxY, boxW, boxH, '#f9fafb');
@@ -235,12 +245,11 @@ export async function buildQuotationPdfBuffer(
         doc.text('공급받는자', ml + boxW + 20, boxY + 6);
 
         doc.fontSize(9).fillColor('#111');
-        let leftY = boxY + 18;
-        const sealPt = resolveQuotationSealDisplayWidth(company?.sealDisplayWidthPx);
-        const sealUrl = company?.sealSecureUrl?.trim();
+        let leftY = boxY + 18 + Math.floor(sealPad * 0.35);
         let sealBuf: Buffer | null = null;
         if (sealUrl) {
-          sealBuf = await fetchImageBuffer(sealUrl);
+          const raw = await fetchImageBuffer(sealUrl);
+          if (raw) sealBuf = await trimTransparentPngToSquare(raw);
         }
 
         const repName = company?.representativeName?.trim();
@@ -255,15 +264,18 @@ export async function buildQuotationPdfBuffer(
           doc.text(repText, textX, leftY, { lineBreak: false });
           const textW = doc.widthOfString(repText);
           if (sealBuf) {
-            // 이름 오른쪽에 간격을 두고 「(인)」, 직인은 「(인)」 가운데에 겹쳐 찍음 — 이름은 가리지 않음
+            // 이름 오른쪽에 간격을 두고 「(인)」, 직인은 「(인)」 가운데에 겹쳐 찍음 — 줄은 밀지 않음
             const markText = '(인)';
             const markX = textX + textW + 10;
             const markW = doc.widthOfString(markText);
             doc.text(markText, markX, leftY, { lineBreak: false });
             try {
+              const boxInnerLeft = ml + 8;
               const boxInnerRight = ml + boxW - 8;
-              const sealX = Math.min(markX + markW / 2 - sealPt / 2, boxInnerRight - sealPt);
-              const sealY = leftY + lineH / 2 - sealPt / 2;
+              const idealX = markX + markW / 2 - sealPt / 2;
+              const sealX = Math.max(boxInnerLeft, Math.min(idealX, boxInnerRight - sealPt));
+              const idealY = leftY + lineH / 2 - sealPt / 2;
+              const sealY = Math.max(boxY + 2, Math.min(idealY, boxY + boxH - sealPt - 2));
               doc.image(sealBuf, sealX, sealY, { width: sealPt });
             } catch {
               /* ignore broken image */
