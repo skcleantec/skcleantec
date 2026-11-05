@@ -229,12 +229,13 @@ export async function buildQuotationPdfBuffer(
           ].filter(Boolean).length;
         const sealPt = resolveQuotationSealDisplayWidth(company?.sealDisplayWidthPx);
         const sealUrl = company?.sealSecureUrl?.trim();
-        /* 직인이 (인) 위에만 겹치고 사업자번호 줄은 읽히도록 여유는 절반 수준 */
-        const sealPad =
-          sealUrl && company?.representativeName?.trim() ? Math.ceil(sealPt * 0.28) : 0;
+        const hasSealSlot = Boolean(sealUrl && company?.representativeName?.trim());
+        /* 직인 오른쪽 칸 높이·안쪽 여백 — 칸 밖으로 안 잘리게 */
+        const sealPad = hasSealSlot ? Math.ceil(sealPt * 0.55) : 0;
         const boxH = Math.max(
           88 + sealPad,
           22 + Math.max(supplierLineCount, rightLines.length) * 13 + 8 + sealPad,
+          hasSealSlot ? sealPt + 36 : 0,
         );
         const boxY = doc.y;
 
@@ -246,35 +247,41 @@ export async function buildQuotationPdfBuffer(
         doc.text('공급받는자', ml + boxW + 20, boxY + 6);
 
         doc.fontSize(9).fillColor('#111');
-        let leftY = boxY + 18 + Math.floor(sealPad * 0.35);
+        let leftY = boxY + 18 + Math.floor(sealPad * 0.25);
         let sealBuf: Buffer | null = null;
         if (sealUrl) {
           const raw = await fetchImageBuffer(sealUrl);
           if (raw) sealBuf = await trimTransparentPngToSquare(raw);
         }
 
+        const boxInnerLeft = ml + 8;
+        const boxInnerRight = ml + boxW - 8;
+        /* 글자 영역: 오른쪽 직인 칸(sealPt) + 간격 4pt 확보 — 글자와 도장 겹침 방지 */
+        const textMaxW = sealBuf ? Math.max(40, boxW - 16 - sealPt - 4) : boxW - 16;
+
         const repName = company?.representativeName?.trim();
         if (companyName && companyName !== '—') {
-          doc.text(companyName, ml + 8, leftY, { width: boxW - 16, lineGap: 1 });
+          doc.text(companyName, boxInnerLeft, leftY, { width: textMaxW, lineGap: 1 });
           leftY += doc.currentLineHeight() + 1;
         }
         if (repName) {
           const repText = `대표 ${repName}`;
-          const textX = ml + 8;
           const lineH = doc.currentLineHeight();
-          doc.text(repText, textX, leftY, { lineBreak: false });
-          const textW = doc.widthOfString(repText);
+          let drawRep = repText;
+          while (drawRep.length > 1 && doc.widthOfString(drawRep) > textMaxW) {
+            drawRep = drawRep.slice(0, -1);
+          }
+          if (drawRep !== repText) drawRep = `${drawRep.slice(0, -1)}…`;
+          doc.text(drawRep, boxInnerLeft, leftY, { lineBreak: false });
           if (sealBuf) {
-            // 이름 오른쪽에 간격을 두고 「(인)」, 직인은 「(인)」 가운데에 겹쳐 찍음 — 줄은 밀지 않음
+            // 「(인)」·직인: 공급자 칸 오른쪽 끝 전용 칸 중앙
             const markText = '(인)';
-            const markX = textX + textW + 10;
             const markW = doc.widthOfString(markText);
+            const sealColLeft = boxInnerRight - sealPt;
+            const markX = sealColLeft + (sealPt - markW) / 2;
             doc.text(markText, markX, leftY, { lineBreak: false });
             try {
-              const boxInnerLeft = ml + 8;
-              const boxInnerRight = ml + boxW - 8;
-              const idealX = markX + markW / 2 - sealPt / 2;
-              const sealX = Math.max(boxInnerLeft, Math.min(idealX, boxInnerRight - sealPt));
+              const sealX = sealColLeft;
               const idealY = leftY + lineH / 2 - sealPt / 2;
               const sealY = Math.max(boxY + 2, Math.min(idealY, boxY + boxH - sealPt - 2));
               doc.image(sealBuf, sealX, sealY, { width: sealPt });
@@ -293,7 +300,7 @@ export async function buildQuotationPdfBuffer(
           company?.contactEmail?.trim() ?? null,
         ].filter(Boolean) as string[];
         for (const line of tailLines) {
-          doc.text(line, ml + 8, leftY, { width: boxW - 16, lineGap: 1 });
+          doc.text(line, boxInnerLeft, leftY, { width: textMaxW, lineGap: 1 });
           leftY += doc.currentLineHeight() + 1;
         }
 
