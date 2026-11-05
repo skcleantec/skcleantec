@@ -293,7 +293,7 @@ export function CashbillIssueForm({
               className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
             />
           </label>
-          <button type="button" className={BTN_GHOST} onClick={selected ? chooseOtherCustomer : clearMatch}>{selected ? '다른 고객' : '직접 입력'}</button>
+          <Button size="sm" variant="secondary" onClick={selected ? chooseOtherCustomer : clearMatch}>{selected ? '다른 고객' : '직접 입력'}</Button>
         </div>
       )}
       {!unmatched && !selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
