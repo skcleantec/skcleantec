@@ -176,7 +176,12 @@ export function useOrderFormModel(args: {
   const stepIdRef = useRef(currentStep?.id);
   stepIdRef.current = currentStep?.id;
 
+  /** 카드 자동 넘김 + 하단 「다음」이 겹치면 두 칸 건너뜀 — 짧은 잠금으로 한 번만 이동 */
+  const advancingLockUntilRef = useRef(0);
   const goNext = useCallback(() => {
+    const now = Date.now();
+    if (now < advancingLockUntilRef.current) return;
+    advancingLockUntilRef.current = now + 450;
     const list = stepsRef.current;
     const idx = list.findIndex((s) => s.id === stepIdRef.current);
     const next = list[idx + 1];
