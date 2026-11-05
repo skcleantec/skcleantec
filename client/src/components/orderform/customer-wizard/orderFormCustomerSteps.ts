@@ -39,6 +39,8 @@ export type OrderFormCustomerStepId =
   | 'phones'
   | 'email'
   | 'property'
+  | 'oneRoomLoft'
+  | 'oneRoomSliding'
   | 'area'
   | 'date'
   | 'time'
@@ -151,6 +153,22 @@ export function resolveOrderFormCustomerSteps(args: {
       title: copy('property')?.title || '어떤 공간인가요?',
       hint: copy('property')?.hint,
       choices: copy('property')?.choices,
+    });
+  }
+  if (form.isOneRoom && !prefilled('oneRoomLoft')) {
+    steps.push({
+      id: 'oneRoomLoft',
+      kind: 'choice',
+      title: '복층 구조인가요?',
+      hint: '위층(다락) 공간이 계단·사다리로 이어져 있으면 「복층이에요」를 골라 주세요.',
+    });
+  }
+  if (form.isOneRoom && !prefilled('oneRoomSlidingPartition')) {
+    steps.push({
+      id: 'oneRoomSliding',
+      kind: 'choice',
+      title: '미닫이문으로 나뉜 구조인가요?',
+      hint: '방 가운데에 옆으로 미는 문이 있어 공간이 둘로 나뉘면 「분리형이에요」를 골라 주세요.',
     });
   }
   if (
@@ -368,6 +386,8 @@ export function isOrderFormCustomerStepId(value: string | null | undefined): val
     value === 'phones' ||
     value === 'email' ||
     value === 'property' ||
+    value === 'oneRoomLoft' ||
+    value === 'oneRoomSliding' ||
     value === 'area' ||
     value === 'date' ||
     value === 'time' ||

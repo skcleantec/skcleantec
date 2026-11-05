@@ -184,6 +184,7 @@ import {
   inquiryUpdateDataFromPrefillMap,
 } from './orderFormPrefill.js';
 import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes, hasOrderFormBuildingTypeChoice, orderFormPropertyTypeDisplay } from './orderFormOneRoom.js';
+import { oneRoomStructureForSave } from './orderFormOneRoomStructure.js';
 import {
   ORDER_FORM_CLEANING_KIND_FIELD_KEY,
   ORDER_FORM_CLEANING_KIND_LABEL,
@@ -2891,6 +2892,8 @@ router.post('/submit/:token', async (req, res) => {
     moveInDateUndecided?: boolean | string;
     specialNotes?: string;
     isOneRoom?: boolean | string;
+    oneRoomLoft?: boolean | string | null;
+    oneRoomSlidingPartition?: boolean | string | null;
     professionalOptionIds?: unknown;
     answers?: unknown;
     /** 마케터 주소 잠금이 아닐 때 true — 고객이 「주소 검색」으로 선택했음을 표시 */
@@ -2955,6 +2958,7 @@ router.post('/submit/:token', async (req, res) => {
   const professionalIds = professionalSelections.map((s) => s.id);
   const professionalOptionIdsJson = serializeProfessionalOptionSelectionsJson(professionalSelections);
   const isOneRoom = parseIsOneRoomFlag(body.isOneRoom);
+  const oneRoomStructure = oneRoomStructureForSave(isOneRoom, body.oneRoomLoft, body.oneRoomSlidingPartition);
   const skOpsUi = await isSkCleantecOpsUiEnabled(submitTenantId);
   const customerSpecialNotes = resolveOneRoomSpecialNotes(
     body.specialNotes != null ? String(body.specialNotes) : null,
@@ -2963,6 +2967,13 @@ router.post('/submit/:token', async (req, res) => {
   );
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });
+    return;
+  }
+  if (
+    isOneRoom &&
+    (oneRoomStructure.oneRoomLoft == null || oneRoomStructure.oneRoomSlidingPartition == null)
+  ) {
+    res.status(400).json({ error: '복층 구조와 미닫이문 분리형을 모두 선택해 주세요.' });
     return;
   }
 
@@ -3233,6 +3244,8 @@ router.post('/submit/:token', async (req, res) => {
   if (collectCleaningKind && cleaningKind) {
     customAnswers[ORDER_FORM_CLEANING_KIND_FIELD_KEY] = cleaningKind;
   }
+  customAnswers.oneRoomLoft = oneRoomStructure.oneRoomLoft;
+  customAnswers.oneRoomSlidingPartition = oneRoomStructure.oneRoomSlidingPartition;
   const rawExtraAnswers =
     body.answers && typeof body.answers === 'object' ? (body.answers as Record<string, unknown>) : {};
   for (const page of customerPages) {
@@ -3338,6 +3351,9 @@ router.post('/submit/:token', async (req, res) => {
       areaBasis: areaBasisNorm,
       exclusiveAreaSqm,
       propertyType: propertyTypeForDisplay,
+      isOneRoom,
+      oneRoomLoft: oneRoomStructure.oneRoomLoft,
+      oneRoomSlidingPartition: oneRoomStructure.oneRoomSlidingPartition,
       preferredDate: useDateStr,
       preferredTime: useTimeStr,
       preferredTimeDetail: useDetailStr,
@@ -3445,6 +3461,8 @@ router.post('/submit/:token', async (req, res) => {
           exclusiveAreaSqm,
           propertyType: propertyTypeStored,
           isOneRoom,
+          oneRoomLoft: oneRoomStructure.oneRoomLoft,
+          oneRoomSlidingPartition: oneRoomStructure.oneRoomSlidingPartition,
           roomCount: roomCountOut,
           bathroomCount: bathroomCountOut,
           balconyCount: balconyCountOut,
@@ -3542,6 +3560,8 @@ router.post('/submit/:token', async (req, res) => {
           exclusiveAreaSqm,
           propertyType: propertyTypeStored,
           isOneRoom,
+          oneRoomLoft: oneRoomStructure.oneRoomLoft,
+          oneRoomSlidingPartition: oneRoomStructure.oneRoomSlidingPartition,
           roomCount: roomCountOut,
           bathroomCount: bathroomCountOut,
           balconyCount: balconyCountOut,

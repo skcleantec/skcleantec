@@ -2886,6 +2886,10 @@ model Inquiry {
   isOneRoom       Boolean      @default(false) @map("is_one_room")
   /// SK 원/투룸 세부. ONE | TWO. isOneRoom 이 false 이면 null
   oneTwoRoomKind  String?      @map("one_two_room_kind")
+  /// 원룸 복층. null = 아직 확인 안 함. isOneRoom 이 false 이면 null
+  oneRoomLoft     Boolean?     @map("one_room_loft")
+  /// 원룸 미닫이문 분리형. null = 아직 확인 안 함. isOneRoom 이 false 이면 null
+  oneRoomSlidingPartition Boolean? @map("one_room_sliding_partition")
   roomCount       Int?         @map("room_count")
   bathroomCount   Int?         @map("bathroom_count")
   balconyCount    Int?         @map("balcony_count")

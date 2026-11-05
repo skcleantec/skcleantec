@@ -88,6 +88,12 @@ export function validateCustomerStep(args: {
       return hasOrderFormBuildingTypeChoice(form.propertyType, form.isOneRoom)
         ? null
         : `건축물 유형 또는 ${oneRoomLabel}을 선택해주세요.`;
+    case 'oneRoomLoft':
+      return form.isOneRoom && form.oneRoomLoft == null ? '복층인지 골라 주세요.' : null;
+    case 'oneRoomSliding':
+      return form.isOneRoom && form.oneRoomSlidingPartition == null
+        ? '미닫이문 분리형인지 골라 주세요.'
+        : null;
     case 'area': {
       if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
         return '면적 기준으로 공급면적 또는 전용면적을 선택해주세요.';

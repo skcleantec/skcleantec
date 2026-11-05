@@ -30,6 +30,9 @@ export type OrderFormFields = {
   moveInDate: string;
   moveInDateUndecided: boolean;
   isOneRoom: boolean;
+  /** 원룸일 때만. null = 아직 확인 안 함 */
+  oneRoomLoft: boolean | null;
+  oneRoomSlidingPartition: boolean | null;
   specialNotes: string;
 };
 
@@ -58,6 +61,8 @@ export const EMPTY_ORDER_FORM_FIELDS: OrderFormFields = {
   moveInDate: '',
   moveInDateUndecided: false,
   isOneRoom: false,
+  oneRoomLoft: null,
+  oneRoomSlidingPartition: null,
   specialNotes: '',
 };
 

@@ -10,6 +10,12 @@ function parseOneTwoRoomKind(v: unknown): 'ONE' | 'TWO' | null {
   return v === 'ONE' || v === 'TWO' ? v : null;
 }
 
+function parseInquiryOptionalBool(v: unknown): boolean | null {
+  if (v === true || v === 'true' || v === 1 || v === '1') return true;
+  if (v === false || v === 'false' || v === 0 || v === '0') return false;
+  return null;
+}
+
 /** PATCH body → Prisma update data (inquiries.routes 와 동일 조건) */
 export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.InquiryUpdateInput {
   const data: Prisma.InquiryUpdateInput = {};
@@ -53,6 +59,12 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   }
   if (Object.prototype.hasOwnProperty.call(body, 'oneTwoRoomKind')) {
     data.oneTwoRoomKind = parseOneTwoRoomKind(body.oneTwoRoomKind);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'oneRoomLoft')) {
+    data.oneRoomLoft = parseInquiryOptionalBool(body.oneRoomLoft);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'oneRoomSlidingPartition')) {
+    data.oneRoomSlidingPartition = parseInquiryOptionalBool(body.oneRoomSlidingPartition);
   }
   if (body.roomCount !== undefined) {
     data.roomCount =

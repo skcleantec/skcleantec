@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ProfessionalOptionSelection } from '../constants/professionalSpecialtyOptions';
 import type { OrderFormPublicTemplateField } from '../api/orderform';
@@ -171,10 +171,17 @@ export function useOrderFormModel(args: {
     guideTermsAt,
   });
 
+  const stepsRef = useRef(steps);
+  stepsRef.current = steps;
+  const stepIdRef = useRef(currentStep?.id);
+  stepIdRef.current = currentStep?.id;
+
   const goNext = useCallback(() => {
-    const next = steps[stepIndex + 1];
+    const list = stepsRef.current;
+    const idx = list.findIndex((s) => s.id === stepIdRef.current);
+    const next = list[idx + 1];
     if (next) setStepId(next.id);
-  }, [steps, stepIndex, setStepId]);
+  }, [setStepId]);
 
   const goPrev = useCallback(() => {
     const prev = steps[stepIndex - 1];
