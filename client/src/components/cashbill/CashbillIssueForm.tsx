@@ -161,6 +161,15 @@ export function CashbillIssueForm({
     setIdentity('');
   }
 
+  function chooseOtherCustomer() {
+    setQuery('');
+    setHits([]);
+    setSelected(null);
+    setUnmatched(false);
+    setAmount('');
+    setIdentity('');
+  }
+
   async function submit() {
     const issuedTotal = Math.round(Number(amount) || 0);
     const over = selected && !unmatched ? Math.max(0, issuedTotal - selected.remainingWon) : 0;
@@ -276,15 +285,21 @@ export function CashbillIssueForm({
         <div className="flex items-end gap-2">
           <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
             <span>① 고객</span>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="고객명 또는 전화번호로 접수 찾기" className="min-h-9 w-full rounded-lg border border-slate-300 px-2" />
+            <input
+              readOnly={Boolean(selected)}
+              value={selected ? (selected.displayName || selected.customerName) : query}
+              onChange={(e) => { if (!selected) setQuery(e.target.value); }}
+              placeholder="고객명 또는 전화번호로 접수 찾기"
+              className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+            />
           </label>
-          <button type="button" className={BTN_GHOST} onClick={clearMatch}>직접 입력</button>
+          <button type="button" className={BTN_GHOST} onClick={selected ? chooseOtherCustomer : clearMatch}>{selected ? '다른 고객' : '직접 입력'}</button>
         </div>
       )}
       {!unmatched && !selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
         <p className="text-fluid-2xs text-slate-500">찾는 접수가 없어요. 접수 없이 발행하려면 「직접 입력」을 누르세요.</p>
       ) : null}
-      {!unmatched && hits.length > 0 ? (
+      {!unmatched && !selected && hits.length > 0 ? (
         <ul className="space-y-1">
           {hits.map((hit) => (
             <li key={hit.id}>
@@ -301,7 +316,7 @@ export function CashbillIssueForm({
       <label className="block space-y-1 text-fluid-xs text-slate-700">
         <span>② 금액</span>
         <span className="flex items-center gap-2">
-          <input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))} className="min-h-9 w-36 rounded-lg border border-slate-300 px-2 text-right tabular-nums" />
+          <input inputMode="numeric" value={amount ? Number(amount).toLocaleString('ko-KR') : ''} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))} className="min-h-9 w-36 rounded-lg border border-slate-300 px-2 text-right tabular-nums" aria-label="금액" />
           <span>원</span>
         </span>
         {selected && !unmatched ? <span className="text-fluid-2xs text-slate-500">발행 가능 한도 {won(selected.remainingWon)}</span> : null}

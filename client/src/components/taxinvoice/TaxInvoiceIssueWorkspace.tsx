@@ -18,6 +18,7 @@ import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { SupplierInfoModal } from './SupplierInfoModal';
 import { clearTaxInvoiceDraft, readTaxInvoiceDraft, writeTaxInvoiceDraft, type TaxInvoiceDraft } from './taxInvoiceDraft';
 import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
+import { Button } from '../ui/Button';
 import { ReceiptExtraConfirm } from '../ui/ReceiptExtraConfirm';
 import { TaxInvoiceMobileCards, TaxInvoicePaper, type TaxFormProps } from './TaxInvoiceFormViews';
 import {
@@ -261,10 +262,18 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
   function applyHit(hit: TaxInvoiceSearchHit) {
     setPicked(hit);
     setUnmatched(false);
+    setHits([]);
     setBrandId(hit.brandId);
     if (hit.buyer) {
       setBuyer((prev) => ({ ...prev, corpName: hit.buyer?.corpName ?? '', email: hit.buyer?.email ?? '', addr: hit.buyer?.addr ?? '' }));
     }
+  }
+
+  function chooseOtherCustomer() {
+    setPicked(null);
+    setUnmatched(false);
+    setQuery('');
+    setHits([]);
   }
 
   function changeWriteDate(next: string) {
@@ -351,8 +360,6 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
   const dateMin = dates[dates.length - 1] ?? writeDate;
   const dateMax = dates[0] ?? writeDate;
   const linkedBrands = brands.filter((item) => item.linked);
-  const chipName = picked?.buyer?.corpName || picked?.customerName || '';
-
   const form: TaxFormProps = {
     readOnly: preview,
     supplier,
@@ -472,15 +479,12 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
           <span className="h-4 w-px bg-gray-200" />
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="shrink-0 text-xs font-medium text-gray-500">접수 연결</span>
-            <form className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-200" onSubmit={(event) => { event.preventDefault(); void search(); }}>
+            <form className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-200" onSubmit={(event) => { event.preventDefault(); if (!(picked && !unmatched)) void search(); }}>
               <svg className="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-              <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="고객명·전화번호로 접수 찾기 (선택)" aria-label="고객 검색" value={query} onChange={(event) => setQuery(event.target.value)} />
+              <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="고객명·전화번호로 접수 찾기 (선택)" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
             </form>
             {picked && !unmatched ? (
-              <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 sm:inline-flex">
-                연결됨 · {picked.inquiryNumber} {chipName}
-                <button type="button" className="text-emerald-700" aria-label="연결 해제" onClick={() => { setPicked(null); setUnmatched(true); }}>✕</button>
-              </span>
+              <Button size="sm" variant="secondary" onClick={chooseOtherCustomer}>다른 고객</Button>
             ) : null}
           </div>
           <span className="h-4 w-px bg-gray-200" />
@@ -547,13 +551,12 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
         <div className="space-y-3 px-3 py-3 pb-28">
           <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-gray-200">
             <p className="text-[11px] text-gray-500">접수 연결</p>
-            {picked && !unmatched ? (
-              <p className="font-medium">{picked.inquiryNumber} · {chipName} <button type="button" className="text-xs text-gray-400" onClick={() => { setPicked(null); setUnmatched(true); }}>변경</button></p>
-            ) : (
-              <form className="mt-1 flex gap-2" onSubmit={(event) => { event.preventDefault(); void search(); }}>
-                <input className="h-11 min-w-0 flex-1 rounded-lg bg-gray-50 px-3 text-sm ring-1 ring-gray-200" placeholder="고객명·전화번호" aria-label="고객 검색" value={query} onChange={(event) => setQuery(event.target.value)} />
-              </form>
-            )}
+            <form className="mt-1 flex gap-2" onSubmit={(event) => { event.preventDefault(); if (!(picked && !unmatched)) void search(); }}>
+              <input className="h-11 min-w-0 flex-1 rounded-lg bg-gray-50 px-3 text-sm ring-1 ring-gray-200" placeholder="고객명·전화번호" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
+              {picked && !unmatched ? (
+                <Button size="sm" variant="secondary" onClick={chooseOtherCustomer}>다른 고객</Button>
+              ) : null}
+            </form>
             {hits.length > 0 && !picked ? (
               <ul className="mt-2">
                 {hits.map((hit) => (

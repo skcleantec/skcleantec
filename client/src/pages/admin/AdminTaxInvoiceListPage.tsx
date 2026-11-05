@@ -203,6 +203,7 @@ export function AdminTaxInvoiceListPage() {
         path="/admin/inquiries/receipts/taxinvoice"
         issueLabel="+ 세금계산서 발행"
         issueDisabled={needsLink || certMissing}
+        hideIssue={tab === 'issue'}
         onIssue={() => patch({ tab: 'issue', from: null })}
         statusChip={certChip ? (
           <button type="button" className={`min-h-11 rounded-full border px-3 text-fluid-2xs font-medium hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${certChip.className}`} onClick={() => setCertBrandId(certChip.id)}>
@@ -210,6 +211,7 @@ export function AdminTaxInvoiceListPage() {
           </button>
         ) : null}
       />
+      <ReceiptIssueTabs value={tab === 'issue' ? 'issue' : 'history'} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'nts5', page: '1' })} onIssueFailed={() => patch({ state: 'failed', page: '1' })} />
       {!needsLink && bandBrand ? (
@@ -227,7 +229,6 @@ export function AdminTaxInvoiceListPage() {
           <button type="button" className="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => missingCert && setCertBrandId(missingCert.id)}>공동인증서 등록</button>
         </div>
       ) : null}
-      <ReceiptIssueTabs value={tab === 'issue' ? 'issue' : 'history'} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
       {tab === 'issue' && !needsLink && !certMissing ? (
         <TaxInvoiceIssueWorkspace
           embedded

@@ -17,6 +17,7 @@ export function ReceiptListHeader({
   issueLabel,
   onIssue,
   issueDisabled,
+  hideIssue,
   statusChip,
 }: {
   title: string;
@@ -24,6 +25,7 @@ export function ReceiptListHeader({
   issueLabel: string;
   onIssue: () => void;
   issueDisabled?: boolean;
+  hideIssue?: boolean;
   statusChip?: ReactNode;
 }) {
   const { summary, openCharge, openHistory } = useReceiptWallet();
@@ -37,7 +39,7 @@ export function ReceiptListHeader({
         <button type="button" className={GHOST} onClick={openHistory}>내역</button>
         <button type="button" className={GHOST} onClick={openCharge}>충전</button>
         {statusChip}
-        <button type="button" className={PRIMARY} disabled={issueDisabled} onClick={onIssue}>{issueLabel}</button>
+        {hideIssue ? null : <button type="button" className={PRIMARY} disabled={issueDisabled} onClick={onIssue}>{issueLabel}</button>}
       </div>
     </div>
   );
