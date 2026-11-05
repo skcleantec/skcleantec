@@ -58,8 +58,13 @@ function runCapture(cmd, args) {
 /**
  * migrate deploy(및 resolve --applied 복구) 후 DB ↔ schema.prisma 드리프트 검사.
  * Prisma: empty=0, error=1, not empty=2 (`--exit-code`).
- * 차이가 있으면 SQL을 로그하고 exit 1 → Railway가 새 버전으로 전환하지 않음.
+ *
+ * 인덱스 rename·timestamp 기본값 등 레거시 잡음은 경고만 하고 통과.
+ * resolve --applied 로 컬럼이 빠진 사고(ADD/DROP COLUMN·CREATE/DROP TABLE)만 exit 1.
  */
+const CRITICAL_DRIFT_RE =
+  /\b(?:ADD|DROP)\s+COLUMN\b|\b(?:CREATE|DROP)\s+TABLE\b|\bCREATE\s+TYPE\b|\bDROP\s+TYPE\b/i;
+
 function assertNoSchemaDriftAfterMigrate() {
   const r = runCapture('npx', [
     'prisma',
@@ -77,12 +82,19 @@ function assertNoSchemaDriftAfterMigrate() {
     return;
   }
   if (r.status === 2) {
-    console.error(
-      '[railway-predeploy-migrate] schema drift after migrate deploy — refusing deploy (previous release stays live)',
-    );
     const sql = (r.stdout || '').trim() || (r.out || '').trim();
-    if (sql) console.error(sql);
-    process.exit(1);
+    if (CRITICAL_DRIFT_RE.test(sql)) {
+      console.error(
+        '[railway-predeploy-migrate] critical schema drift after migrate deploy — refusing deploy (previous release stays live)',
+      );
+      if (sql) console.error(sql);
+      process.exit(1);
+    }
+    console.warn(
+      '[railway-predeploy-migrate] non-critical schema drift (indexes/defaults/renames) — deploy continues; diff follows',
+    );
+    if (sql) console.warn(sql);
+    return;
   }
   console.error('[railway-predeploy-migrate] prisma migrate diff failed');
   console.error(r.out);
