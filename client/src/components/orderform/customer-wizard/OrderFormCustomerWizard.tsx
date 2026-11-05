@@ -12,6 +12,7 @@ import type { OrderFormCustomerStep } from './orderFormCustomerSteps';
 import { WelcomeStep, NameStep, PhonesStep, EmailStep, NotesStep } from './steps/WelcomeAndInputSteps';
 import {
   PropertyStep,
+  HomeStructureStep,
   OneRoomLoftStep,
   OneRoomSlidingStep,
   BuildingStep,
@@ -53,6 +54,8 @@ function StepBody(props: CustomerWizardShared & { step: OrderFormCustomerStep })
       return <OneRoomLoftStep {...props} />;
     case 'oneRoomSliding':
       return <OneRoomSlidingStep {...props} />;
+    case 'homeStructure':
+      return <HomeStructureStep {...props} />;
     case 'area':
       return <AreaStep {...props} />;
     case 'date':

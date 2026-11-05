@@ -254,6 +254,9 @@ export interface InquiryItem {
   isOneRoom?: boolean | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   buildingType?: string | null;
   moveInTiming?: import('@shared/orderFormMoveInTiming').MoveInTiming | null;
   moveInDate?: string | null;
@@ -553,6 +556,9 @@ export function TeamInquiryAreaListBadge({
     | 'isOneRoom'
     | 'oneRoomLoft'
     | 'oneRoomSlidingPartition'
+    | 'structureBalconyNonExpanded'
+    | 'structurePartitionWall'
+    | 'structureOutdoorTerrace'
     | 'orderForm'
     | 'intakeFormProfile'
   >;
@@ -573,6 +579,9 @@ export function TeamInquiryAreaListBadge({
         isOneRoom={item.isOneRoom}
         oneRoomLoft={item.oneRoomLoft}
         oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                                structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                                structurePartitionWall={item.structurePartitionWall}
+                                structureOutdoorTerrace={item.structureOutdoorTerrace}
       />
     </span>
   );
@@ -1809,6 +1818,9 @@ export function TeamInquiryDetailModal({
                       isOneRoom={item.isOneRoom}
                       oneRoomLoft={item.oneRoomLoft}
                       oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                                structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                                structurePartitionWall={item.structurePartitionWall}
+                                structureOutdoorTerrace={item.structureOutdoorTerrace}
                     />
                   </span>
                 </TeamModalRow>

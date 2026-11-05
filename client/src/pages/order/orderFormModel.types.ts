@@ -33,6 +33,10 @@ export type OrderFormFields = {
   /** 원룸일 때만. null = 아직 확인 안 함 */
   oneRoomLoft: boolean | null;
   oneRoomSlidingPartition: boolean | null;
+  /** 집 구조. null = 확인 전. 원룸과 무관 */
+  structureBalconyNonExpanded: boolean | null;
+  structurePartitionWall: boolean | null;
+  structureOutdoorTerrace: boolean | null;
   specialNotes: string;
 };
 
@@ -63,6 +67,9 @@ export const EMPTY_ORDER_FORM_FIELDS: OrderFormFields = {
   isOneRoom: false,
   oneRoomLoft: null,
   oneRoomSlidingPartition: null,
+  structureBalconyNonExpanded: null,
+  structurePartitionWall: null,
+  structureOutdoorTerrace: null,
   specialNotes: '',
 };
 

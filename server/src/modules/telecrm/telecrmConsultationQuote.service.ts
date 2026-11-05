@@ -337,6 +337,9 @@ export type FinalizeTelecrmConsultationQuoteInput = {
   isOneRoom?: boolean | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   followupStatus: 'ABSENT' | 'ON_HOLD';
   extraMemo?: string | null;
   actorName?: string | null;
@@ -422,6 +425,15 @@ export async function finalizeTelecrmConsultationQuote(
     intakeExtrasData.isOneRoom = false;
     intakeExtrasData.oneRoomLoft = null;
     intakeExtrasData.oneRoomSlidingPartition = null;
+  }
+  if (input.structureBalconyNonExpanded !== undefined) {
+    intakeExtrasData.structureBalconyNonExpanded = input.structureBalconyNonExpanded;
+  }
+  if (input.structurePartitionWall !== undefined) {
+    intakeExtrasData.structurePartitionWall = input.structurePartitionWall;
+  }
+  if (input.structureOutdoorTerrace !== undefined) {
+    intakeExtrasData.structureOutdoorTerrace = input.structureOutdoorTerrace;
   }
 
   const phone2Input =

@@ -23,7 +23,10 @@ import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { formatDateCompactWithWeekday } from '../../../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../../../utils/inquiryAreaDisplay';
-import { formatOneRoomSpaceLine } from '../../../../utils/orderFormOneRoomStructure';
+import {
+  formatHomeStructureLine,
+  formatOneRoomSpaceLine,
+} from '../../../../utils/orderFormOneRoomStructure';
 import { shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import {
   displayCleaningKindLabel,
@@ -380,6 +383,11 @@ export function ReviewStep({
                 ? jump('oneRoomSliding')
                 : jump('property')
           }
+        />
+        <ReviewRow
+          label="구조"
+          value={formatHomeStructureLine(form)}
+          onEdit={jump('homeStructure')}
         />
         {areaLine ? <ReviewRow label="면적" value={areaLine} onEdit={jump('area')} /> : null}
         <ReviewRow

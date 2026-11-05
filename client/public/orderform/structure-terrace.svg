@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" font-family="Noto Sans KR, Malgun Gothic, sans-serif" viewBox="0 0 300 190">
+ <rect x="20" y="40" width="150" height="130" fill="#fff" stroke="#334155" stroke-width="3"/>
+ <text x="95" y="70" font-size="13" fill="#64748b" text-anchor="middle">집 안</text>
+ <rect x="166" y="95" width="8" height="75" fill="#e0f2fe" stroke="#334155" stroke-width="1.5"/>
+ 
+ <rect x="170" y="150" width="112" height="20" fill="#f5f3ff" stroke="#334155" stroke-width="2"/>
+ 
+ <line x1="170" y1="120" x2="282" y2="120" stroke="#334155" stroke-width="2"/>
+ <line x1="190" y1="120" x2="190" y2="150" stroke="#334155" stroke-width="2"/><line x1="215" y1="120" x2="215" y2="150" stroke="#334155" stroke-width="2"/><line x1="240" y1="120" x2="240" y2="150" stroke="#334155" stroke-width="2"/><line x1="265" y1="120" x2="265" y2="150" stroke="#334155" stroke-width="2"/><line x1="282" y1="120" x2="282" y2="150" stroke="#334155" stroke-width="2"/>
+ 
+ <circle cx="255" cy="45" r="14" fill="#fde68a" stroke="#334155" stroke-width="1.5"/>
+ <rect x="200" y="132" width="14" height="18" fill="#f1f5f9" stroke="#334155" stroke-width="1.5"/>
+ <path d="M207 132 q-10 -18 0 -22 q10 4 0 22" fill="#bbf7d0" stroke="#334155" stroke-width="1.5"/>
+ <text x="226" y="105" font-size="13" fill="#7c3aed" font-weight="700" text-anchor="middle">야외 테라스</text>
+</svg>

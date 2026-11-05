@@ -58,6 +58,9 @@ export interface OrderFollowupItem {
   isOneRoom?: boolean;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   nextContactAt: string | null;
   depositReceivedAt: string | null;
   createdAt: string;
@@ -201,6 +204,9 @@ export async function createOrderFollowup(
     isOneRoom?: boolean;
     oneRoomLoft?: boolean | null;
     oneRoomSlidingPartition?: boolean | null;
+    structureBalconyNonExpanded?: boolean | null;
+    structurePartitionWall?: boolean | null;
+    structureOutdoorTerrace?: boolean | null;
     goldDb?: boolean;
     inquiryId?: string;
     operatingCompanyId?: string;

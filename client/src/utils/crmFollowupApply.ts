@@ -37,6 +37,9 @@ export type CrmFollowupApplySnapshot = {
   isOneRoom?: boolean;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
 };
 
 /** 부재·보류 스냅샷에 추가 필드(주소·평수·구조·희망일)가 비어 있으면 true */
@@ -151,12 +154,18 @@ function oneRoomStructureFromRow(row: {
   isOneRoom?: boolean | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
 }) {
   const on = row.isOneRoom === true;
   return {
     isOneRoom: on,
     oneRoomLoft: on ? (row.oneRoomLoft ?? null) : null,
     oneRoomSlidingPartition: on ? (row.oneRoomSlidingPartition ?? null) : null,
+    structureBalconyNonExpanded: row.structureBalconyNonExpanded ?? null,
+    structurePartitionWall: row.structurePartitionWall ?? null,
+    structureOutdoorTerrace: row.structureOutdoorTerrace ?? null,
   };
 }
 
@@ -212,6 +221,9 @@ export function crmFollowupApplyFromLookupRow(row: {
   isOneRoom?: boolean | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   leadSource?: string | null;
 }): CrmFollowupApplySnapshot {
   const phones = splitFollowupStoredPhones(row.customerPhone, row.customerPhone2 ?? null);

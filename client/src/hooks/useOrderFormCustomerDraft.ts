@@ -57,7 +57,13 @@ export function mergeDraftIntoForm(
   (Object.keys(draft) as (keyof OrderFormFields)[]).forEach((key) => {
     const cur = current[key];
     const incoming = draft[key];
-    if (key === 'oneRoomLoft' || key === 'oneRoomSlidingPartition') {
+    if (
+      key === 'oneRoomLoft' ||
+      key === 'oneRoomSlidingPartition' ||
+      key === 'structureBalconyNonExpanded' ||
+      key === 'structurePartitionWall' ||
+      key === 'structureOutdoorTerrace'
+    ) {
       if (cur == null && (incoming === true || incoming === false)) {
         (next as OrderFormFields)[key] = incoming;
       }

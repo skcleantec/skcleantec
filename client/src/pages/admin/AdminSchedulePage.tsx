@@ -568,6 +568,9 @@ function ScheduleDayListItem({
                   oneTwoRoomKind={item.oneTwoRoomKind === 'ONE' || item.oneTwoRoomKind === 'TWO' ? item.oneTwoRoomKind : null}
                   oneRoomLoft={item.oneRoomLoft}
                   oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                  structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                  structurePartitionWall={item.structurePartitionWall}
+                  structureOutdoorTerrace={item.structureOutdoorTerrace}
                   oneRoomTitle={oneRoomLabel}
                   emphasizeOneRoomInList={emphasizeOneRoomInList}
                   className="shrink-0"
