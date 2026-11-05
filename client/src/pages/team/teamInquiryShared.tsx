@@ -573,7 +573,7 @@ export function teamInquiryBuildingTypeDisplay(
   return raw;
 }
 
-/** 배정·스케줄 목록 — 평수 pill + 구조 칩 (평수 없어도 칩은 표시) */
+/** 배정·스케줄 목록 — 평수 + 구조(compact). 최대 2줄, 옆 칸 침범 없음 */
 export function TeamInquiryAreaListBadge({
   item,
   className = '',
@@ -598,16 +598,19 @@ export function TeamInquiryAreaListBadge({
   const label = formatTeamInquiryAreaCompact(item);
   const detail = label ? formatTeamInquiryAreaSummary(item) : '';
   return (
-    <span className={`inline-flex shrink-0 items-center gap-1 ${className}`}>
+    <span
+      className={`inline-flex min-w-0 max-w-[6.5rem] shrink-0 flex-col items-start justify-center gap-0 leading-tight ${className}`}
+    >
       {label ? (
         <span
-          className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-800 ring-1 ring-slate-200/80 tabular-nums"
+          className="inline-flex max-w-full items-center truncate rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-800 ring-1 ring-slate-200/80 tabular-nums"
           title={detail !== teamT('team.common.emDash') ? detail : undefined}
         >
           {label}
         </span>
       ) : null}
       <OneRoomStructureChips
+        compact
         isOneRoom={item.isOneRoom}
         oneRoomLoft={item.oneRoomLoft}
         oneRoomSlidingPartition={item.oneRoomSlidingPartition}
