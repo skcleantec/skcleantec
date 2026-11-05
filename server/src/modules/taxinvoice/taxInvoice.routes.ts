@@ -15,9 +15,11 @@ import {
   taxInvoiceCustomerUrl,
   taxInvoicePrintUrl,
   searchTaxInvoiceInquiries,
+  syncOpenTaxInvoiceStates,
 } from './taxInvoice.service.js';
 import { modifyTaxInvoice } from './taxInvoiceModify.service.js';
 import { updateBarobillSupplier } from './taxInvoiceSupplier.service.js';
+import { takeReceiptStateSyncSlot } from '../receipts/receiptStateSyncGate.js';
 
 const router = Router();
 router.use(authMiddleware, requireTenantAuth, requireFeature(CASHBILL_MODULE_ID));
@@ -75,6 +77,22 @@ router.get('/', async (req, res) => {
     }));
   } catch (err) {
     sendError(res, err, '세금계산서 목록을 불러오지 못했습니다.');
+  }
+});
+
+router.post('/sync-states', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  if (!takeReceiptStateSyncSlot(`taxinvoice:${tenantId}`)) {
+    res.json({ checked: 0, updated: 0, skipped: true });
+    return;
+  }
+  try {
+    res.json({ ...(await syncOpenTaxInvoiceStates(tenantId)), skipped: false });
+  } catch (err) {
+    sendError(res, err, '세금계산서 상태를 새로고치지 못했습니다.');
   }
 });
 

@@ -16,10 +16,13 @@ import {
   cancelTaxInvoice,
   linkTaxInvoiceInquiry,
   listTaxInvoices,
+  syncTaxInvoiceStates,
+  taxInvoiceStateOpen,
   taxStatusView,
   type TaxInvoiceBrand,
   type TaxInvoiceRow,
 } from '../../api/taxInvoices';
+import { markReceiptStateSynced, receiptOpenOverDay, receiptStateSyncDue } from '../../utils/receiptStateSync';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { TaxInvoiceCertBand } from '../../components/taxinvoice/TaxInvoiceCertBand';
@@ -195,6 +198,33 @@ export function AdminTaxInvoiceListPage() {
       : { id: certTargets[0].id, label: `인증서 ~${(expireDates[0] ?? '').slice(0, 10)}`, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' }
     : null;
 
+  const TAX_SYNC_KEY = 'receipt-taxinvoice-state-sync-at';
+
+  async function refreshStates() {
+    try {
+      await syncTaxInvoiceStates();
+      markReceiptStateSynced(TAX_SYNC_KEY);
+      setReload((n) => n + 1);
+    } catch (err) {
+      showReceiptFailure('상태를 새로고치지 못했어요', err instanceof Error ? err.message : null);
+    }
+  }
+
+  useEffect(() => {
+    if (tab !== 'history' || needsLink) return;
+    if (!receiptStateSyncDue(TAX_SYNC_KEY)) return;
+    if (summary.waitingCount <= 0 && !items.some((row) => taxInvoiceStateOpen(row))) return;
+    let stop = false;
+    void syncTaxInvoiceStates()
+      .then(() => {
+        if (stop) return;
+        markReceiptStateSynced(TAX_SYNC_KEY);
+        setReload((n) => n + 1);
+      })
+      .catch(() => undefined);
+    return () => { stop = true; };
+  }, [tab, needsLink, summary.waitingCount, items]);
+
   return (
     <ReceiptWalletProvider>
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
@@ -243,6 +273,7 @@ export function AdminTaxInvoiceListPage() {
       ) : null}
       {tab === 'history' && !needsLink ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
+          <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
           <div className="inline-flex gap-0.5 rounded-lg border border-slate-200 p-0.5">
             {([['today', '당일'], ['week', '이번주'], ['month', '월별'], ['day', '날짜']] as const).map(([id, label]) => (
               <button key={id} type="button" className={`${SEG} ${datePreset === id ? SEG_ON : 'text-slate-700'}`} onClick={() => patch({ datePreset: id, page: '1' })}>{label}</button>
@@ -384,7 +415,13 @@ function TaxStatus({ row }: { row: TaxInvoiceRow }) {
   const { openCharge } = useReceiptWallet();
   const view = taxStatusView(row);
   if (taxFailed(row)) return <FailReasonChip label={view.label} reason={row.lastError} onCharge={openCharge} />;
-  return <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>;
+  const needCheck = taxInvoiceStateOpen(row) && receiptOpenOverDay(row.createdAt);
+  return (
+    <span className="inline-flex flex-wrap items-center justify-center gap-1">
+      <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>
+      {needCheck ? <span className="whitespace-nowrap text-fluid-2xs font-medium text-amber-800">확인 필요</span> : null}
+    </span>
+  );
 }
 
 function OriginalLink({ row, onFocus }: { row: TaxInvoiceRow; onFocus: (id: string) => void }) {

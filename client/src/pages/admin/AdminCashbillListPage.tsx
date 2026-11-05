@@ -5,12 +5,15 @@ import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects
 import {
   cancelCashbillIssue,
   cashbillStateLabel,
+  cashbillStateOpen,
   fetchCashbillSource,
   linkCashbillInquiry,
   listCashbillIssues,
   openCashbillReceipt,
+  syncCashbillStates,
   type CashbillIssueRow,
 } from '../../api/cashbillIssues';
+import { markReceiptStateSynced, receiptOpenOverDay, receiptStateSyncDue } from '../../utils/receiptStateSync';
 import { CashbillIssueForm, type CashbillIssueSeed } from '../../components/cashbill/CashbillIssueForm';
 import { ReceiptExtraNote } from '../../components/receipts/ReceiptExtraNote';
 import { ReceiptIssueTabs } from '../../components/ui/ReceiptIssueTabs';
@@ -41,8 +44,8 @@ function kstYmdNow(): string {
 
 const STATES = [
   ['', '전체 상태'],
-  ['2000', '발급 완료 · 국세청 전송 대기'],
-  ['2500', '국세청 전송 대기'],
+  ['2000', '발급완료 · 국세청 전송 대기'],
+  ['2500', '발급완료 · 국세청 전송 대기'],
   ['3000', '국세청 전송 완료'],
   ['4000', '전송 실패'],
   ['7000', '발급 취소'],
@@ -144,6 +147,18 @@ export function AdminCashbillListPage() {
     };
   }, [datePreset, monthKey, dayKey, state, brandId, queryText, extraOnly, pageSize, safePage, reload]);
 
+  const CASH_SYNC_KEY = 'receipt-cashbill-state-sync-at';
+
+  async function refreshStates() {
+    try {
+      await syncCashbillStates();
+      markReceiptStateSynced(CASH_SYNC_KEY);
+      setReload((n) => n + 1);
+    } catch (err) {
+      showReceiptFailure('상태를 새로고치지 못했어요', err instanceof Error ? err.message : null);
+    }
+  }
+
   async function cancelRow(issueId: string) {
     setCancellingId(issueId);
     try {
@@ -172,6 +187,21 @@ export function AdminCashbillListPage() {
   const blocking = shouldShowListBlockingLoading(loading, items.length);
   const selectedBrand = brands.find((brand) => brand.id === brandId);
   const needsLink = !loading && (brands.length === 0 || (selectedBrand ? !selectedBrand.linked : brands.every((brand) => !brand.linked)));
+
+  useEffect(() => {
+    if (tab !== 'history' || needsLink) return;
+    if (!receiptStateSyncDue(CASH_SYNC_KEY)) return;
+    if (summary.waitingCount <= 0 && !items.some((row) => cashbillStateOpen(row))) return;
+    let stop = false;
+    void syncCashbillStates()
+      .then(() => {
+        if (stop) return;
+        markReceiptStateSynced(CASH_SYNC_KEY);
+        setReload((n) => n + 1);
+      })
+      .catch(() => undefined);
+    return () => { stop = true; };
+  }, [tab, needsLink, summary.waitingCount, items]);
 
   return (
     <ReceiptWalletProvider>
@@ -216,6 +246,7 @@ export function AdminCashbillListPage() {
         />
       ) : null}
       {tab === 'history' && !needsLink ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
+        <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
         <div className="inline-flex gap-0.5 rounded-lg border border-slate-200 p-0.5">
           {([['today', '당일'], ['week', '이번주'], ['month', '월별'], ['day', '날짜']] as const).map(([id, label]) => (
             <button key={id} type="button" className={`${SEG} ${datePreset === id ? SEG_ON : 'text-slate-700'}`} onClick={() => patch({ datePreset: id, page: '1' })}>
@@ -410,7 +441,13 @@ function StatusBadge({ row }: { row: CashbillIssueRow }) {
         : row.barobillState === '2000' || row.barobillState === '2500'
           ? 'border border-[#b9cdf7] bg-[#e8f0ff] text-[#1f4fb8]'
           : 'border border-slate-200 bg-slate-50 text-slate-700';
-  return <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${tone}`}>{label}</span>;
+  const needCheck = cashbillStateOpen(row) && receiptOpenOverDay(row.createdAt);
+  return (
+    <span className="inline-flex flex-wrap items-center justify-center gap-1">
+      <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${tone}`}>{label}</span>
+      {needCheck ? <span className="whitespace-nowrap text-fluid-2xs font-medium text-amber-800">확인 필요</span> : null}
+    </span>
+  );
 }
 
 function ReceiptActions({

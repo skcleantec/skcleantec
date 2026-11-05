@@ -774,9 +774,10 @@ export async function listTaxInvoices(tenantId: string, query: {
   };
 }
 
-export async function syncOpenTaxInvoiceStates(): Promise<{ checked: number; updated: number }> {
+export async function syncOpenTaxInvoiceStates(tenantId?: string): Promise<{ checked: number; updated: number }> {
   const open = await prisma.taxInvoiceIssue.findMany({
     where: {
+      ...(tenantId ? { tenantId } : {}),
       chargedKrw: { gt: 0 },
       OR: [{ ntsSendState: null }, { ntsSendState: { in: OPEN_NTS } }],
       NOT: { barobillState: '5031' },

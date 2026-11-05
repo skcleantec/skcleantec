@@ -62,8 +62,8 @@ export const CASHBILL_KIND_LABEL: Record<CashbillKind, string> = {
 
 export const CASHBILL_STATE_LABEL: Record<string, string> = {
   '1000': '임시저장',
-  '2000': '발급 완료 · 국세청 전송 대기',
-  '2500': '국세청 전송 대기',
+  '2000': '발급완료 · 국세청 전송 대기',
+  '2500': '발급완료 · 국세청 전송 대기',
   '3000': '국세청 전송 완료',
   '4000': '전송 실패',
   '7000': '발급 취소',
@@ -73,6 +73,19 @@ export function cashbillStateLabel(state: string | null, lastError: string | nul
   if (state && CASHBILL_STATE_LABEL[state]) return CASHBILL_STATE_LABEL[state];
   if (lastError) return '실패';
   return '처리 중';
+}
+
+/** 국세청 전송 전·중(열린 건). */
+export function cashbillStateOpen(row: Pick<CashbillIssueRow, 'barobillState' | 'kind' | 'cancelled' | 'lastError'>): boolean {
+  if (row.kind === 'CANCEL' || row.cancelled) return false;
+  if (row.barobillState === '2000' || row.barobillState === '2500') return true;
+  return !row.barobillState && !row.lastError;
+}
+
+export async function syncCashbillStates(): Promise<{ checked: number; updated: number; skipped?: boolean }> {
+  const res = await fetch(`${API}/cashbill/issues/sync-states`, { method: 'POST', headers: headers() });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '현금영수증 상태를 새로고치지 못했습니다.'));
+  return res.json() as Promise<{ checked: number; updated: number; skipped?: boolean }>;
 }
 
 function headers(): HeadersInit {
@@ -155,7 +168,7 @@ export async function listCashbillIssues(qs: URLSearchParams): Promise<{
 }> {
   const res = await fetch(`${API}/cashbill/issues?${qs.toString()}`, { headers: headers() });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '현금영수증 목록을 불러오지 못했습니다.'));
-  return res.json() as Promise<{ items: CashbillIssueRow[]; total: number; brands: { id: string; name: string; linked: boolean }[] }>;
+  return res.json() as Promise<{ items: CashbillIssueRow[]; total: number; brands: { id: string; name: string; linked: boolean }[]; summary?: { issuedCount: number; issuedWon: number; waitingCount: number; failedCount: number; costWon: number } }>;
 }
 
 export async function openCashbillReceipt(issueId: string): Promise<void> {

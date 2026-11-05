@@ -15,7 +15,9 @@ import {
   linkCashbillInquiry,
   listCashbillIssues,
   searchCashbillInquiries,
+  syncOpenCashbillStates,
 } from './cashbillIssue.service.js';
+import { takeReceiptStateSyncSlot } from '../receipts/receiptStateSyncGate.js';
 import { getReceiptWalletSummary, listReceiptWalletLedger, parseWalletLedgerFilter } from '../wallet/receiptWallet.service.js';
 
 const router = Router();
@@ -74,6 +76,22 @@ router.get('/issues', async (req, res) => {
     }));
   } catch (err) {
     sendError(res, err, '현금영수증 목록을 불러오지 못했습니다.');
+  }
+});
+
+router.post('/issues/sync-states', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  if (!takeReceiptStateSyncSlot(`cashbill:${tenantId}`)) {
+    res.json({ checked: 0, updated: 0, skipped: true });
+    return;
+  }
+  try {
+    res.json({ ...(await syncOpenCashbillStates(tenantId)), skipped: false });
+  } catch (err) {
+    sendError(res, err, '현금영수증 상태를 새로고치지 못했습니다.');
   }
 });
 

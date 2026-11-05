@@ -114,10 +114,12 @@ export function taxStatusView(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSen
     return { label: '전송 실패', className: 'border border-[#f3b8b1] bg-[#fdecea] text-[#b42318]' };
   }
   if (row.ntsSendState === '4') return { label: '국세청 전송 완료', className: 'border border-[#a9dfc1] bg-[#e3f6ec] text-[#126b3f]' };
-  if (row.ntsSendState === '2' || row.ntsSendState === '3') return { label: '전송 중', className: NTS_WAIT };
+  if (row.ntsSendState === '2' || row.ntsSendState === '3') {
+    return { label: '발급완료 · 국세청 전송 중', className: NTS_WAIT };
+  }
   if (row.ntsSendState === '1') {
     const when = row.ntsNextDay ? ` · ${nextNtsMd(row.createdAt)} 14시` : '';
-    return { label: `전송 전${when}`, className: NTS_WAIT };
+    return { label: `발급완료 · 국세청 전송 대기${when}`, className: NTS_WAIT };
   }
   return { label: taxBarobillStateLabel(row.barobillState), className: 'border border-slate-200 bg-slate-50 text-slate-700' };
 }
@@ -136,6 +138,19 @@ export function taxNtsStateLabel(state: string | null): string {
   if (state === '4') return '성공';
   if (state === '5') return '실패';
   return '확인 중';
+}
+
+/** 국세청 전송 전·중(열린 건). */
+export function taxInvoiceStateOpen(row: Pick<TaxInvoiceRow, 'barobillState' | 'ntsSendState' | 'lastError'>): boolean {
+  if (row.barobillState === '5031') return false;
+  if (!row.barobillState && row.lastError) return false;
+  return row.ntsSendState === '1' || row.ntsSendState === '2' || row.ntsSendState === '3';
+}
+
+export async function syncTaxInvoiceStates(): Promise<{ checked: number; updated: number; skipped?: boolean }> {
+  const res = await fetch(`${API}/tax-invoices/sync-states`, { method: 'POST', headers: headers() });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '세금계산서 상태를 새로고치지 못했습니다.'));
+  return res.json() as Promise<{ checked: number; updated: number; skipped?: boolean }>;
 }
 
 export async function searchTaxInvoiceInquiries(q: string, inquiryId?: string): Promise<TaxInvoiceSearchHit[]> {
