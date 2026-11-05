@@ -50,6 +50,7 @@ import {
 } from '../../api/team';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { formatInquiryListAreaOrServiceLabel, formatInquiryAreaCompactKo } from '../../utils/inquiryAreaDisplay';
+import { OneRoomStructureChips } from '../../components/ui/OneRoomStructureChips';
 import { isAirconOrderFormTemplate } from '@shared/orderFormServiceKind';
 import type { InquiryIntakeFormProfile } from '@shared/inquiryFormProfile';
 import type { OrderFormListSnapshot } from '@shared/orderFormListSnapshot';
@@ -251,6 +252,8 @@ export interface InquiryItem {
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
   isOneRoom?: boolean | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   buildingType?: string | null;
   moveInTiming?: import('@shared/orderFormMoveInTiming').MoveInTiming | null;
   moveInDate?: string | null;
@@ -544,7 +547,14 @@ export function TeamInquiryAreaListBadge({
 }: {
   item: Pick<
     InquiryItem,
-    'areaBasis' | 'areaPyeong' | 'exclusiveAreaSqm' | 'isOneRoom' | 'orderForm' | 'intakeFormProfile'
+    | 'areaBasis'
+    | 'areaPyeong'
+    | 'exclusiveAreaSqm'
+    | 'isOneRoom'
+    | 'oneRoomLoft'
+    | 'oneRoomSlidingPartition'
+    | 'orderForm'
+    | 'intakeFormProfile'
   >;
   className?: string;
 }) {
@@ -552,11 +562,18 @@ export function TeamInquiryAreaListBadge({
   if (!label) return null;
   const detail = formatTeamInquiryAreaSummary(item);
   return (
-    <span
-      className={`inline-flex shrink-0 items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-800 ring-1 ring-slate-200/80 tabular-nums ${className}`}
-      title={detail !== teamT('team.common.emDash') ? detail : undefined}
-    >
-      {label}
+    <span className={`inline-flex shrink-0 items-center gap-1 ${className}`}>
+      <span
+        className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-800 ring-1 ring-slate-200/80 tabular-nums"
+        title={detail !== teamT('team.common.emDash') ? detail : undefined}
+      >
+        {label}
+      </span>
+      <OneRoomStructureChips
+        isOneRoom={item.isOneRoom}
+        oneRoomLoft={item.oneRoomLoft}
+        oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+      />
     </span>
   );
 }
@@ -1786,7 +1803,14 @@ export function TeamInquiryDetailModal({
                 <TeamModalRow
                   label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
-                  <span className="text-gray-800">{formatTeamInquiryAreaSummary(item)}</span>
+                  <span className="inline-flex flex-wrap items-center gap-1 text-gray-800">
+                    {formatTeamInquiryAreaSummary(item)}
+                    <OneRoomStructureChips
+                      isOneRoom={item.isOneRoom}
+                      oneRoomLoft={item.oneRoomLoft}
+                      oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                    />
+                  </span>
                 </TeamModalRow>
               ) : null}
               {formatTeamInquiryStructure(item) !== teamT('team.common.emDash') ? (

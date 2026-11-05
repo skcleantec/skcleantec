@@ -272,6 +272,8 @@ const scheduleListSelectLite = {
   propertyType: true,
   isOneRoom: true,
   oneTwoRoomKind: true,
+  oneRoomLoft: true,
+  oneRoomSlidingPartition: true,
   roomCount: true,
   bathroomCount: true,
   balconyCount: true,

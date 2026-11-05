@@ -106,7 +106,19 @@ export function buildCrmLookupApply(
     balconyCount: formatSoomgoCountForCrm(inquiry?.balconyCount ?? followup?.balconyCount),
     propertyType: inquiry?.propertyType?.trim() ?? '',
     buildingType: inquiry?.buildingType?.trim() ?? '',
-    isOneRoom: inquiry?.isOneRoom === true,
+    ...(inquiry?.isOneRoom
+      ? {
+          isOneRoom: true,
+          oneRoomLoft: inquiry.oneRoomLoft ?? null,
+          oneRoomSlidingPartition: inquiry.oneRoomSlidingPartition ?? null,
+        }
+      : followup?.isOneRoom
+        ? {
+            isOneRoom: true,
+            oneRoomLoft: followup.oneRoomLoft ?? null,
+            oneRoomSlidingPartition: followup.oneRoomSlidingPartition ?? null,
+          }
+        : { isOneRoom: false, oneRoomLoft: null, oneRoomSlidingPartition: null }),
     kind: followup ? intakeKindFromFollowupStatus(followup.status) : 'absent',
     goldDb: followup?.goldDb === true,
     leadSource: followup?.leadSource?.trim() || inquiry?.source?.trim() || '',

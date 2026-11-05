@@ -23,6 +23,10 @@ export type CrmIntakeFormSnapshot = {
   /** 건물 형태(신축·구축 등) — 발주서 선택지 저장값 */
   buildingType?: string;
   isOneRoom?: boolean;
+  /** 원룸 복층. null = 아직 확인 안 함 */
+  oneRoomLoft?: boolean | null;
+  /** 원룸 미닫이 분리형. null = 아직 확인 안 함 */
+  oneRoomSlidingPartition?: boolean | null;
   kind: CrmIntakeKind;
   goldDb: boolean;
   leadSource: string;

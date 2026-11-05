@@ -14,6 +14,7 @@ import { runTelecrmCallWithSoomgoAuto } from '../../../utils/soomgoCallAutoSend'
 import { getToken } from '../../../stores/auth';
 import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { formatWon } from '../settings/telecrmSettingsUi';
+import { OneRoomStructureChips } from '../../ui/OneRoomStructureChips';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
@@ -157,6 +158,21 @@ export function CrmInquiryBriefPanel({
             {inquiry.address || '—'}
           </dd>
         </div>
+        {inquiry.isOneRoom ? (
+          <div>
+            <dt className="text-fluid-2xs font-bold uppercase tracking-wide text-emerald-700/80">원룸</dt>
+            <dd className="mt-0.5 inline-flex flex-wrap items-center gap-1">
+              <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-rose-800 ring-1 ring-rose-300/90">
+                원룸
+              </span>
+              <OneRoomStructureChips
+                isOneRoom
+                oneRoomLoft={inquiry.oneRoomLoft}
+                oneRoomSlidingPartition={inquiry.oneRoomSlidingPartition}
+              />
+            </dd>
+          </div>
+        ) : null}
         {inquiry.areaPyeong ? (
           <div>
             <dt className="text-fluid-2xs font-bold uppercase tracking-wide text-emerald-700/80">평수</dt>

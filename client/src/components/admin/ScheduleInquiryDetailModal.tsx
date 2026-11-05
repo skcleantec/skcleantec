@@ -2531,6 +2531,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     propertyType={editForm.propertyType?.trim() || item.propertyType}
                     isOneRoom={editForm.isOneRoom}
                     oneTwoRoomKind={editForm.oneTwoRoomKind}
+                    oneRoomLoft={item.oneRoomLoft}
+                    oneRoomSlidingPartition={item.oneRoomSlidingPartition}
                     oneRoomTitle={oneRoomLabel}
                     className="shrink-0 hidden sm:inline-flex"
                   />
