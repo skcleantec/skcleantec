@@ -12,6 +12,8 @@ import {
   type CashbillIssueRow,
 } from '../../api/cashbillIssues';
 import { CashbillIssueForm, type CashbillIssueSeed } from '../../components/cashbill/CashbillIssueForm';
+import { ReceiptExtraNote } from '../../components/receipts/ReceiptExtraNote';
+import { ReceiptIssueTabs } from '../../components/ui/ReceiptIssueTabs';
 import { ReceiptInquiryLinkModal } from '../../components/receipts/ReceiptInquiryLinkModal';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
 import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
@@ -55,6 +57,9 @@ export function AdminCashbillListPage() {
   const state = searchParams.get('state') || '';
   const brandId = searchParams.get('brandId') || '';
   const queryText = searchParams.get('q') || '';
+  const extraOnly = searchParams.get('extra') === '1';
+  const seedInquiryId = searchParams.get('inquiryId') || '';
+  const tab = searchParams.get('tab') === 'issue' ? 'issue' : 'history';
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
   const page = parseListPage(searchParams.get('page'));
   const [items, setItems] = useState<CashbillIssueRow[]>([]);
@@ -64,7 +69,6 @@ export function AdminCashbillListPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [issueOpen, setIssueOpen] = useState(false);
   const [issueSeed, setIssueSeed] = useState<CashbillIssueSeed | null>(null);
   const fromId = searchParams.get('from') || '';
   const [reload, setReload] = useState(0);
@@ -99,7 +103,7 @@ export function AdminCashbillListPage() {
           askIdentity: true,
           customerName: src.customerName ?? '',
         });
-        setIssueOpen(true);
+        patch({ tab: 'issue' });
       })
       .catch((err: unknown) => {
         if (!stop) setError(err instanceof Error ? err.message : '다시 발행할 내용을 불러오지 못했습니다.');
@@ -115,6 +119,7 @@ export function AdminCashbillListPage() {
     if (state) qs.set('state', state);
     if (brandId) qs.set('brandId', brandId);
     if (queryText) qs.set('q', queryText);
+    if (extraOnly) qs.set('extra', '1');
     qs.set('limit', String(pageSize));
     qs.set('offset', String((safePage - 1) * pageSize));
     let cancelled = false;
@@ -137,7 +142,7 @@ export function AdminCashbillListPage() {
     return () => {
       cancelled = true;
     };
-  }, [datePreset, monthKey, dayKey, state, brandId, queryText, pageSize, safePage, reload]);
+  }, [datePreset, monthKey, dayKey, state, brandId, queryText, extraOnly, pageSize, safePage, reload]);
 
   async function cancelRow(issueId: string) {
     setCancellingId(issueId);
@@ -171,7 +176,8 @@ export function AdminCashbillListPage() {
   return (
     <ReceiptWalletProvider>
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
-      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} onIssue={() => { setIssueSeed(null); patch({ from: null }); setIssueOpen(true); }} />
+      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} onIssue={() => { setIssueSeed(null); patch({ tab: 'issue', from: null }); }} />
+      <ReceiptIssueTabs value={tab} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />
       {needsLink ? (
@@ -185,14 +191,16 @@ export function AdminCashbillListPage() {
           </Link>
         </div>
       ) : null}
-      {!needsLink && issueOpen ? (
+      {!needsLink && tab === 'issue' ? (
         <CashbillIssueForm
-          key={fromId || 'new'}
+          key={`${fromId || 'new'}-${seedInquiryId}`}
+          embedded
           brands={brands}
           seed={issueSeed}
-          onClose={() => { setIssueOpen(false); patch({ from: null }); }}
+          seedInquiryId={seedInquiryId}
+          onClose={() => patch({ tab: null, from: null })}
           onDone={(issueId) => {
-            setIssueOpen(false);
+            patch({ tab: null, from: null, inquiryId: null });
             setHighlightId(issueId);
             showReceiptDone(
               '현금영수증을 발행했어요',
@@ -207,7 +215,7 @@ export function AdminCashbillListPage() {
           }}
         />
       ) : null}
-      {!needsLink ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
+      {tab === 'history' && !needsLink ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
         <div className="inline-flex gap-0.5 rounded-lg border border-slate-200 p-0.5">
           {([['today', '당일'], ['week', '이번주'], ['month', '월별'], ['day', '날짜']] as const).map(([id, label]) => (
             <button key={id} type="button" className={`${SEG} ${datePreset === id ? SEG_ON : 'text-slate-700'}`} onClick={() => patch({ datePreset: id, page: '1' })}>
@@ -243,11 +251,15 @@ export function AdminCashbillListPage() {
             if (event.key === 'Enter') patch({ q: (event.target as HTMLInputElement).value.trim(), page: '1' });
           }}
         />
+        <label className="inline-flex min-h-9 items-center gap-1.5 text-fluid-xs text-slate-700">
+          <input type="checkbox" checked={extraOnly} onChange={(event) => patch({ extra: event.target.checked ? '1' : null, page: '1' })} />
+          추가금액 있는 건만
+        </label>
       </div> : null}
-      {!needsLink ? <ListPaginationBar mode="summary" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} /> : null}
+      {tab === 'history' && !needsLink ? <ListPaginationBar mode="summary" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} /> : null}
       {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">{error}</p> : null}
       {blocking ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
-      {!needsLink && !blocking ? (
+      {tab === 'history' && !needsLink && !blocking ? (
         <>
           <div className="space-y-2 lg:hidden">
             {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} highlight={highlightId === row.id} />)}
@@ -277,7 +289,10 @@ export function AdminCashbillListPage() {
                       <InquiryCell row={row} onLink={() => setLinkIssueId(row.id)} />
                     </td>
                     <td className={`truncate px-2 py-2 text-left ${NARROW_HIDE}`} title={row.itemName}>{row.itemName}</td>
-                    <td className={`whitespace-nowrap px-2 py-2 text-right font-medium tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</td>
+                    <td className="px-2 py-2 text-right">
+                      <p className={`whitespace-nowrap font-medium tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</p>
+                      <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
+                    </td>
                     <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
                     <td className={`truncate px-2 py-2 text-center tabular-nums text-slate-600 ${XL_HIDE}`} title={row.ntsConfirmNum ?? ''}>{row.ntsConfirmNum || '—'}</td>
                     <td className="truncate px-2 py-2 text-center text-slate-600" title={row.issuerName ?? ''}>{row.issuerName || '—'}</td>
@@ -291,7 +306,7 @@ export function AdminCashbillListPage() {
           </div>
         </>
       ) : null}
-      {!needsLink && !loading ? (
+      {tab === 'history' && !needsLink && !loading ? (
         <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
       ) : null}
       {linkIssueId ? (
@@ -451,7 +466,10 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
           {name ? <p className="truncate text-fluid-sm font-semibold text-slate-900">{name}</p> : <p className="text-fluid-sm text-slate-400">연계 없음</p>}
           <p className="truncate text-fluid-2xs tabular-nums text-slate-500">{identityText(row)} · {usageLabel(row)}{name && !row.linked ? ' · 직접 입력' : ''}</p>
         </div>
-        <p className={`shrink-0 text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalWon) || 'text-slate-900'}`}>{formatSignedWon(row.totalWon)}</p>
+        <div className="shrink-0 text-right">
+          <p className={`text-fluid-sm font-semibold tabular-nums ${signedWonTextClass(row.totalWon) || 'text-slate-900'}`}>{formatSignedWon(row.totalWon)}</p>
+          <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fluid-2xs text-slate-500">
         <span className="tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</span>

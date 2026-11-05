@@ -17,6 +17,8 @@ import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisib
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { SupplierInfoModal } from './SupplierInfoModal';
 import { clearTaxInvoiceDraft, readTaxInvoiceDraft, writeTaxInvoiceDraft, type TaxInvoiceDraft } from './taxInvoiceDraft';
+import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
+import { ReceiptExtraConfirm } from '../ui/ReceiptExtraConfirm';
 import { TaxInvoiceMobileCards, TaxInvoicePaper, type TaxFormProps } from './TaxInvoiceFormViews';
 import {
   emptyLine,
@@ -84,7 +86,7 @@ function supplierParty(supplier: TaxInvoiceSupplier | null | undefined): TaxPart
   };
 }
 
-export function TaxInvoiceIssueWorkspace() {
+export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedded?: boolean; onDone?: (issueId: string) => void } = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inquiryId = searchParams.get('inquiryId') || '';
@@ -109,6 +111,8 @@ export function TaxInvoiceIssueWorkspace() {
   const [credit, setCredit] = useState('');
   const [preview, setPreview] = useState(false);
   const [paperOpen, setPaperOpen] = useState(false);
+  const [extraReason, setExtraReason] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftOffer, setDraftOffer] = useState<TaxInvoiceDraft | null>(null);
@@ -315,6 +319,11 @@ export function TaxInvoiceIssueWorkspace() {
         note,
         credit,
         taxKind: activeKind,
+        extraReason: (() => {
+          const remainNow = picked && !unmatched && typeof picked.remainingWon === 'number' ? picked.remainingWon : null;
+          const extraNow = remainNow != null ? Math.max(0, supplySum + taxSum - remainNow) : 0;
+          return extraNow > 0 ? extraReason.trim() : undefined;
+        })(),
         lines: lines.map((line) => ({
           name: line.name,
           month: line.month,
@@ -329,7 +338,8 @@ export function TaxInvoiceIssueWorkspace() {
       });
       await reload();
       clearTaxInvoiceDraft(unmatched || !picked ? brandId : picked.brandId);
-      navigate('/admin/inquiries/receipts/taxinvoice', { state: { taxIssuedId: issued.id } });
+      if (onDone) onDone(issued.id);
+      else navigate('/admin/inquiries/receipts/taxinvoice', { state: { taxIssuedId: issued.id } });
     } catch (err) {
       setPreview(false);
       setError(err instanceof Error ? err.message : '세금계산서 발행에 실패했습니다.');
@@ -379,8 +389,20 @@ export function TaxInvoiceIssueWorkspace() {
     supplierAttention,
   };
 
+  const invoiceTotal = supplySum + taxSum;
+  const remainWon = picked && !unmatched && typeof picked.remainingWon === 'number' ? picked.remainingWon : null;
+  const over = remainWon != null ? Math.max(0, invoiceTotal - remainWon) : 0;
+
   function issue() {
     if (preview) {
+      if (over > 0 && !extraReason.trim()) {
+        setError('추가 금액 사유를 입력해 주세요.');
+        return;
+      }
+      if (over > 0) {
+        setConfirmOpen(true);
+        return;
+      }
       void submit();
       return;
     }
@@ -446,7 +468,7 @@ export function TaxInvoiceIssueWorkspace() {
 
       <section className="hidden flex-col gap-4 lg:flex">
         <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200">
-          <Link to="/admin/inquiries/receipts/taxinvoice" className="text-sm text-gray-500 hover:text-gray-900">← 목록</Link>
+          {embedded ? null : <Link to="/admin/inquiries/receipts/taxinvoice" className="text-sm text-gray-500 hover:text-gray-900">← 목록</Link>}
           <span className="h-4 w-px bg-gray-200" />
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="shrink-0 text-xs font-medium text-gray-500">접수 연결</span>
@@ -475,11 +497,12 @@ export function TaxInvoiceIssueWorkspace() {
           <ul className="rounded-xl bg-white ring-1 ring-gray-200">
             {hits.map((hit) => (
               <li key={hit.id}>
-                <button type="button" className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50" onClick={() => { applyHit(hit); setHits([]); }}>{hit.customerName} · {hit.inquiryNumber} · {hit.brandName}{hit.buyer ? ' · 견적서 있음' : ''}</button>
+                <button type="button" className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50" onClick={() => { applyHit(hit); setHits([]); }}>{hit.displayName || hit.customerName} · {hit.inquiryNumber} · {hit.brandName}{hit.buyer ? ' · 견적서 있음' : ''}</button>
               </li>
             ))}
           </ul>
         ) : null}
+        <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
         {!picked || unmatched ? (
           <label className="flex max-w-xs items-center gap-2 text-xs text-gray-500">
             브랜드
@@ -513,7 +536,7 @@ export function TaxInvoiceIssueWorkspace() {
 
       <section className="flex flex-col lg:hidden">
         <header className="flex items-center gap-3 bg-white px-4 py-3 ring-1 ring-gray-200">
-          <Link to="/admin/inquiries/receipts/taxinvoice" className="flex h-9 w-9 items-center justify-center rounded-full text-lg" aria-label="뒤로">‹</Link>
+          {embedded ? null : <Link to="/admin/inquiries/receipts/taxinvoice" className="flex h-9 w-9 items-center justify-center rounded-full text-lg" aria-label="뒤로">‹</Link>}
           <h2 className="flex-1 text-[15px] font-bold">세금계산서 발행</h2>
           {brand?.certValid ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">인증서 ✓</span> : null}
         </header>
@@ -534,11 +557,12 @@ export function TaxInvoiceIssueWorkspace() {
             {hits.length > 0 && !picked ? (
               <ul className="mt-2">
                 {hits.map((hit) => (
-                  <li key={hit.id}><button type="button" className="w-full py-2 text-left text-sm" onClick={() => { applyHit(hit); setHits([]); }}>{hit.customerName} · {hit.inquiryNumber}</button></li>
+                  <li key={hit.id}><button type="button" className="w-full py-2 text-left text-sm" onClick={() => { applyHit(hit); setHits([]); }}>{hit.displayName || hit.customerName} · {hit.inquiryNumber}</button></li>
                 ))}
               </ul>
             ) : null}
           </div>
+          <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
           {!picked || unmatched ? (
             <label className="block text-[11px] text-gray-500">
               브랜드
@@ -591,6 +615,15 @@ export function TaxInvoiceIssueWorkspace() {
           }}
         />
       ) : null}
+      <ReceiptExtraConfirm
+        open={confirmOpen}
+        remainWon={remainWon ?? 0}
+        extraWon={over}
+        totalWon={invoiceTotal}
+        busy={saving}
+        onCancel={() => setConfirmOpen(false)}
+        onIssue={() => { setConfirmOpen(false); void submit(); }}
+      />
     </div>
   );
 }

@@ -19,6 +19,8 @@ export type CashbillIssueRow = {
   ntsConfirmNum: string | null;
   chargedKrw: number;
   lastError: string | null;
+  extraAmountWon?: number | null;
+  extraReason?: string | null;
   cancelOfId: string | null;
   createdAt: string;
   copyReady?: boolean;
@@ -40,6 +42,7 @@ export type CashbillSearchHit = {
   id: string;
   inquiryNumber: string | null;
   customerName: string;
+  displayName?: string;
   customerPhone: string | null;
   brandId: string;
   brandName: string;
@@ -76,8 +79,11 @@ function headers(): HeadersInit {
   return { Authorization: `Bearer ${getToken() ?? ''}`, 'Content-Type': 'application/json' };
 }
 
-export async function searchCashbillInquiries(q: string): Promise<CashbillSearchHit[]> {
-  const res = await fetch(`${API}/cashbill/inquiry-search?q=${encodeURIComponent(q)}`, { headers: headers() });
+export async function searchCashbillInquiries(q: string, inquiryId?: string): Promise<CashbillSearchHit[]> {
+  const qs = new URLSearchParams();
+  if (q) qs.set('q', q);
+  if (inquiryId) qs.set('inquiryId', inquiryId);
+  const res = await fetch(`${API}/cashbill/inquiry-search?${qs.toString()}`, { headers: headers() });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '접수를 검색하지 못했습니다.'));
   const body = (await res.json()) as { items: CashbillSearchHit[] };
   return body.items;
@@ -118,6 +124,8 @@ export async function issueCashbill(body: {
   email?: string;
   internalMemo?: string;
   customerName?: string;
+  extraAmountWon?: number;
+  extraReason?: string;
   requestId: string;
 }): Promise<CashbillIssueRow> {
   const res = await fetch(`${API}/cashbill/issues`, {

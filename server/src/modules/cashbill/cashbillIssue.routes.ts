@@ -44,8 +44,9 @@ router.get('/inquiry-search', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const q = typeof req.query.q === 'string' ? req.query.q : '';
+  const inquiryId = typeof req.query.inquiryId === 'string' ? req.query.inquiryId : '';
   try {
-    res.json({ items: await searchCashbillInquiries(tenantId, q) });
+    res.json({ items: await searchCashbillInquiries(tenantId, q, inquiryId) });
   } catch (err) {
     sendError(res, err, '접수를 검색하지 못했습니다.');
   }
@@ -66,6 +67,8 @@ router.get('/issues', async (req, res) => {
       state: typeof req.query.state === 'string' ? req.query.state : undefined,
       operatingCompanyId: typeof req.query.brandId === 'string' ? req.query.brandId : undefined,
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
+      inquiryId: typeof req.query.inquiryId === 'string' ? req.query.inquiryId : undefined,
+      extraOnly: req.query.extra === '1',
       limit,
       offset,
     }));
