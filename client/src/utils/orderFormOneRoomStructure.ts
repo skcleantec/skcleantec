@@ -56,17 +56,30 @@ export function homeStructureForSave(
   };
 }
 
-/** 상담사가 일부만 true 로 남기면 나머지는 false 로 맞춰 고객 화면에 답한 상태로 보이게 함 */
+/**
+ * 상담사 선입력 정규화 — 체크한 것만 true, 나머지는 null 유지.
+ * (미체크를 false 로 채우면 고객이 「해당 없음」·다른 항목을 고르기 전에 잠기거나 헷갈림)
+ */
 export function coercePartialHomeStructure(flags: HomeStructureFlags): HomeStructureFlags {
-  const anyTrue =
-    flags.structureBalconyNonExpanded === true ||
-    flags.structurePartitionWall === true ||
-    flags.structureOutdoorTerrace === true;
-  if (!anyTrue) return flags;
   return {
-    structureBalconyNonExpanded: flags.structureBalconyNonExpanded === true,
-    structurePartitionWall: flags.structurePartitionWall === true,
-    structureOutdoorTerrace: flags.structureOutdoorTerrace === true,
+    structureBalconyNonExpanded:
+      flags.structureBalconyNonExpanded === true
+        ? true
+        : flags.structureBalconyNonExpanded === false
+          ? false
+          : null,
+    structurePartitionWall:
+      flags.structurePartitionWall === true
+        ? true
+        : flags.structurePartitionWall === false
+          ? false
+          : null,
+    structureOutdoorTerrace:
+      flags.structureOutdoorTerrace === true
+        ? true
+        : flags.structureOutdoorTerrace === false
+          ? false
+          : null,
   };
 }
 
