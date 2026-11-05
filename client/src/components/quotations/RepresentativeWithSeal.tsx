@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useTrimmedSealUrl } from '../../hooks/useTrimmedSealUrl';
 
 /**
- * 대표명(왼쪽) + 「(인)」·직인(오른쪽 끝 전용 칸).
- * 직인은 「(인)」 중앙에 absolute 겹침 — 이름은 밀지 않고, 도장 칸과 글자가 겹치지 않음.
+ * 대표명(왼쪽) + 「(인)」(오른쪽). 직인은 absolute로 「(인)」 중앙에만 찍혀
+ * 줄 높이는 다른 공급자 줄과 같다(60px 칸 높이로 줄을 키우지 않음).
  */
 export function RepresentativeWithSeal({
   repName,
@@ -31,15 +31,15 @@ export function RepresentativeWithSeal({
 
   return (
     <p
-      className={`relative z-[1] flex w-full min-w-0 items-center justify-between gap-3 overflow-visible leading-snug ${className}`}
+      className={`relative z-[1] flex w-full min-w-0 items-baseline justify-between gap-3 overflow-visible leading-snug ${className}`}
     >
       <span className="min-w-0 truncate whitespace-nowrap">대표 {repName}</span>
+      {/* 가로는 직인 폭만 예약, 세로는 글자 줄높이 — 도장은 absolute로 위·아래 빈 칸에 걸쳐짐 */}
       <span
-        className="relative inline-flex shrink-0 items-center justify-center overflow-visible"
-        style={{ width: sealWidth, height: sealWidth }}
-        aria-hidden={sealFailed ? undefined : true}
+        className="relative inline-block shrink-0 overflow-visible whitespace-nowrap text-center align-baseline"
+        style={{ width: sealWidth }}
       >
-        <span className="relative z-0 select-none whitespace-nowrap">(인)</span>
+        (인)
         {!sealFailed ? (
           <img
             src={displayUrl}

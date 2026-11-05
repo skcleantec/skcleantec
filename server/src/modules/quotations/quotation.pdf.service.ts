@@ -230,13 +230,9 @@ export async function buildQuotationPdfBuffer(
         const sealPt = resolveQuotationSealDisplayWidth(company?.sealDisplayWidthPx);
         const sealUrl = company?.sealSecureUrl?.trim();
         const hasSealSlot = Boolean(sealUrl && company?.representativeName?.trim());
-        /* 직인 오른쪽 칸 높이·안쪽 여백 — 칸 밖으로 안 잘리게 */
-        const sealPad = hasSealSlot ? Math.ceil(sealPt * 0.55) : 0;
-        const boxH = Math.max(
-          88 + sealPad,
-          22 + Math.max(supplierLineCount, rightLines.length) * 13 + 8 + sealPad,
-          hasSealSlot ? sealPt + 36 : 0,
-        );
+        /* 줄 간격은 동일. 직인은 absolute처럼 그려 줄 높이를 키우지 않음 — 칸만 도장이 안 잘리게 키움 */
+        const contentH = 22 + Math.max(supplierLineCount, rightLines.length) * 13 + 8;
+        const boxH = Math.max(88, contentH, hasSealSlot ? contentH + Math.ceil(sealPt * 0.35) : 0);
         const boxY = doc.y;
 
         drawBox(doc, ml, boxY, boxW, boxH, '#f9fafb');
@@ -247,7 +243,7 @@ export async function buildQuotationPdfBuffer(
         doc.text('공급받는자', ml + boxW + 20, boxY + 6);
 
         doc.fontSize(9).fillColor('#111');
-        let leftY = boxY + 18 + Math.floor(sealPad * 0.25);
+        let leftY = boxY + 18;
         let sealBuf: Buffer | null = null;
         if (sealUrl) {
           const raw = await fetchImageBuffer(sealUrl);
@@ -256,7 +252,7 @@ export async function buildQuotationPdfBuffer(
 
         const boxInnerLeft = ml + 8;
         const boxInnerRight = ml + boxW - 8;
-        /* 글자 영역: 오른쪽 직인 칸(sealPt) + 간격 4pt 확보 — 글자와 도장 겹침 방지 */
+        /* 글자 영역: 오른쪽 직인 칸(sealPt) + 간격 4pt — 글자와 도장 겹침 방지 */
         const textMaxW = sealBuf ? Math.max(40, boxW - 16 - sealPt - 4) : boxW - 16;
 
         const repName = company?.representativeName?.trim();
@@ -274,7 +270,7 @@ export async function buildQuotationPdfBuffer(
           if (drawRep !== repText) drawRep = `${drawRep.slice(0, -1)}…`;
           doc.text(drawRep, boxInnerLeft, leftY, { lineBreak: false });
           if (sealBuf) {
-            // 「(인)」·직인: 공급자 칸 오른쪽 끝 전용 칸 중앙
+            // 「(인)」은 오른쪽, 직인은 그 중앙에 겹침 — leftY 증분은 일반 줄과 동일
             const markText = '(인)';
             const markW = doc.widthOfString(markText);
             const sealColLeft = boxInnerRight - sealPt;

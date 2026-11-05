@@ -181,9 +181,9 @@ export function OperatingCompanyRegistrationFields({ value, onChange, idPrefix =
           ) : null}
         </div>
         {sealPreviewUrl ? (
-          <div className="overflow-visible rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-4">
+          <div className="overflow-visible rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-6">
             <p className="mb-2 text-fluid-2xs text-slate-500">미리보기 (공급자 칸 · 직인 오른쪽)</p>
-            <div className="space-y-0.5 text-fluid-sm text-slate-800">
+            <div className="relative space-y-0.5 overflow-visible text-fluid-sm text-slate-800">
               <p style={{ paddingRight: sealWidthPx + 4 }}>
                 {value.companyName?.trim() || '상호'}
               </p>
