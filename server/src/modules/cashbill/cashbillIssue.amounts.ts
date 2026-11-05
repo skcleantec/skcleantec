@@ -57,9 +57,21 @@ export function cashbillRemaining(total: number, cardPaidWon: number, issuedWon:
   return Math.max(0, Math.round(total) - Math.max(0, Math.round(cardPaidWon)) - Math.max(0, Math.round(issuedWon)));
 }
 
-/** 일반과세. 공급가액 = round(합계/1.1), 부가세 = 합계 − 공급가액. */
-export function splitCashbillTax(totalWon: number): { amount: number; tax: number; serviceCharge: number } {
+/** 현금영수증 과세구분. 바로빌 CashBillEx에는 TaxType 필드가 없어 Amount/Tax로만 표현한다. */
+export type CashbillTaxKind = 'taxable' | 'exempt';
+
+/**
+ * 과세: 공급가액 = round(합계/1.1), 부가세 = 합계 − 공급가액.
+ * 면세: Amount=합계 전액, Tax=0 (CASHBILL.asmx?WSDL CashBillEx — TaxType 없음).
+ */
+export function splitCashbillTax(
+  totalWon: number,
+  taxKind: CashbillTaxKind = 'taxable',
+): { amount: number; tax: number; serviceCharge: number } {
   const total = Math.max(0, Math.round(totalWon));
+  if (taxKind === 'exempt') {
+    return { amount: total, tax: 0, serviceCharge: 0 };
+  }
   const amount = Math.round(total / 1.1);
   return { amount, tax: total - amount, serviceCharge: 0 };
 }

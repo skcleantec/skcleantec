@@ -46,6 +46,7 @@
 - 취소: `CancelCashBillEx`(전액, 새 "취소거래" 건 발급, CancelMgtKey 필요) / `CancelCashBillPartialEx`(부분). 임시저장·취소 상태만 `DeleteCashBill`.
 - 상태: `GetCashBillState(s)` → BarobillState 1000 임시저장 · 2000 발급완료 · 2500 국세청 전송중 · **3000 전송완료** · **4000 전송실패** · 7000 취소완료(전송전).
 - CashBillEx 핵심: MgtKey(≤24, 회원사 단위 고유), Franchise*(가맹점=업체 정보, FranchiseMemberID=바로빌 아이디), IdentityNum(휴대폰/사업자번호/카드번호, 자진발급 010-000-1234), TradeType N/D, TradeUsage 1 소득공제 · 2 지출증빙, TradeMethod 5 휴대폰, Amount/Tax/ServiceCharge(문자열), TradeDate(**D-1 까지만 소급**), ItemName.
+- **과세·면세 표시 (CashBillEx)**: 출처 `https://ws.baroservice.com/CASHBILL.asmx?WSDL` `complexType CashBillEx`(2026-11-05 확인). 필드에 **TaxType(과세구분)이 없고** `Amount` · `Tax` · `ServiceCharge`만 있다. 목록용 `SimpleCashBillEx`에만 `FranchiseTaxType`(가맹점 과세유형)이 있다. 따라서 **면세 = Amount에 합계 전액, Tax="0"** 으로 보낸다. 과세는 기존처럼 Amount=round(합계/1.1), Tax=합계−Amount.
 - 고객용 화면 URL: `GetCashBillMailURL`. 현금영수증 API 레퍼런스(2026-10-29)에 유효기간 문구가 없다. 공급자용 `GetCashBillPopUpURL`·`GetCashBillPrintURL` 만 「60초동안만 유효」이고, 인쇄 URL은 회원 아이디로 로그인된 화면이다. PDF 전용 API는 없다.
 - 세금계산서도 같다. 거래처용은 `GetTaxinvoiceMailURL`(유효기간 문구 없음). 인쇄는 `GetTaxInvoicePrintURL`(60초, `PWD` 빈 문자열). PDF 전용 API는 없다.
 

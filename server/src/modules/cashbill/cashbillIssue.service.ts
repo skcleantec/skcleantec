@@ -9,7 +9,7 @@ import { CASHBILL_UNIT_PRICE_KRW } from '../../lib/barobill/policy.js';
 import { addDaysToKstYmd, createdAtRangeFromQuery, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isValidKoreanBizNumberChecksum } from '../../lib/barobill/bizNumber.js';
-import { cashbillRemaining, splitCashbillTax, type CashbillPartKind } from './cashbillIssue.amounts.js';
+import { cashbillRemaining, splitCashbillTax, type CashbillPartKind, type CashbillTaxKind } from './cashbillIssue.amounts.js';
 import {
   cancelCashBillFull,
   fetchCashbillMailUrl,
@@ -225,6 +225,7 @@ async function mapCashSearch(tenantId: string, found: CashSearchRow[]) {
       brandName: inquiry.operatingCompany.name,
       linked,
       simplified: member?.taxType === '2',
+      taxType: member?.taxType ?? null,
       remainingWon: cashbillRemaining(amountsOf(inquiry).total, paid, issuedWonOf(issued)),
       totalWon: amountsOf(inquiry).total,
       createdAt: inquiry.createdAt.toISOString(),
@@ -272,6 +273,10 @@ export async function searchCashbillInquiries(tenantId: string, rawQuery: string
   return mapCashSearch(tenantId, picked);
 }
 
+function cashbillTaxKindOf(raw: unknown): CashbillTaxKind {
+  return raw === 'exempt' ? 'exempt' : 'taxable';
+}
+
 function toPublicIssue(row: CashBillIssue) {
   return {
     id: row.id,
@@ -280,6 +285,7 @@ function toPublicIssue(row: CashBillIssue) {
     identityMasked: row.identityMasked,
     customerName: row.customerName,
     itemName: row.itemName,
+    taxKind: cashbillTaxKindOf(row.taxKind),
     totalWon: row.totalWon,
     amount: row.amount,
     tax: row.tax,
@@ -371,6 +377,7 @@ export async function issueCashbill(
     customerName?: string;
     extraAmountWon?: number;
     extraReason?: string;
+    taxKind?: unknown;
   },
 ) {
   const inquiry = input.inquiryId ? await loadInquiry(tenantId, input.inquiryId) : null;
@@ -403,7 +410,9 @@ export async function issueCashbill(
   const itemName = itemNameOf(input.itemName);
   const email = customerEmailOf(input.email);
   const date = tradeDateYmd(input.tradeDate);
-  const tax = splitCashbillTax(totalWon);
+  // 면세사업자(taxType 4)는 면세 고정. 바로빌 CashBillEx에 TaxType 없어 Amount/Tax로만 표현.
+  const taxKind: CashbillTaxKind = member.taxType === '4' ? 'exempt' : cashbillTaxKindOf(input.taxKind);
+  const tax = splitCashbillTax(totalWon, taxKind);
   const key = mgtKey('i', input.requestId);
   const plan = await tenantPlan(tenantId);
   const existing = await prisma.cashBillIssue.findFirst({ where: { tenantId, memberId: member.id, mgtKey: key } });
@@ -422,6 +431,7 @@ export async function issueCashbill(
         identityMasked: who.masked,
         customerName: customerNameOf(input.customerName) || inquiry?.customerName?.trim().slice(0, 64) || null,
         itemName,
+        taxKind,
         amount: tax.amount,
         tax: tax.tax,
         serviceCharge: tax.serviceCharge,
@@ -539,6 +549,7 @@ export async function cancelCashbillIssue(
       identityMasked: original.identityMasked,
       customerName: original.customerName,
       itemName: original.itemName,
+      taxKind: cashbillTaxKindOf(original.taxKind),
       amount: original.amount,
       tax: original.tax,
       serviceCharge: original.serviceCharge,
@@ -652,7 +663,7 @@ export async function listCashbillIssues(tenantId: string, query: {
       select: {
         id: true,
         name: true,
-        barobillMember: { select: { status: true, barobillUserId: true } },
+        barobillMember: { select: { status: true, barobillUserId: true, taxType: true } },
       },
       orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
     }),
@@ -698,6 +709,7 @@ export async function listCashbillIssues(tenantId: string, query: {
       id: brand.id,
       name: brand.name,
       linked: brand.barobillMember?.status === 'ACTIVE' && Boolean(brand.barobillMember.barobillUserId.trim()),
+      taxType: brand.barobillMember?.taxType ?? null,
     })),
     summary: {
       issuedCount: issuedAgg._count._all,
@@ -817,5 +829,6 @@ export async function cashbillReissueSource(tenantId: string, issueId: string) {
     itemName: row.itemName,
     memo: row.internalMemo ?? '',
     customerName: row.customerName ?? '',
+    taxKind: cashbillTaxKindOf(row.taxKind),
   };
 }

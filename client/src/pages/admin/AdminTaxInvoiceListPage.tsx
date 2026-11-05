@@ -79,7 +79,7 @@ export function AdminTaxInvoiceListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const datePreset = searchParams.get('datePreset') || 'today';
+  const datePreset = searchParams.get('datePreset') || 'month';
   const monthKey = searchParams.get('month') || kstMonthKeyNow();
   const dayKey = searchParams.get('day') || kstYmdNow();
   const state = searchParams.get('state') || '';
