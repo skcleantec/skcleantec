@@ -169,6 +169,9 @@ export function CrmInquiryBriefPanel({
                 isOneRoom
                 oneRoomLoft={inquiry.oneRoomLoft}
                 oneRoomSlidingPartition={inquiry.oneRoomSlidingPartition}
+                                structureBalconyNonExpanded={inquiry.structureBalconyNonExpanded}
+                                structurePartitionWall={inquiry.structurePartitionWall}
+                                structureOutdoorTerrace={inquiry.structureOutdoorTerrace}
               />
             </dd>
           </div>

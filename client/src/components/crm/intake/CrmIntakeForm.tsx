@@ -132,6 +132,9 @@ export function CrmIntakeForm({
   const [isOneRoom, setIsOneRoom] = useState(false);
   const [oneRoomLoft, setOneRoomLoft] = useState<boolean | null>(null);
   const [oneRoomSlidingPartition, setOneRoomSlidingPartition] = useState<boolean | null>(null);
+  const [structureBalconyNonExpanded, setStructureBalconyNonExpanded] = useState<boolean | null>(null);
+  const [structurePartitionWall, setStructurePartitionWall] = useState<boolean | null>(null);
+  const [structureOutdoorTerrace, setStructureOutdoorTerrace] = useState<boolean | null>(null);
   const propertyChoices = useCrmPropertyChoiceOptions();
   const [kind, setKind] = useState<CrmIntakeKind>('absent');
   const [goldDb, setGoldDb] = useState(false);
@@ -208,6 +211,9 @@ export function CrmIntakeForm({
     setOneRoomSlidingPartition(
       initialFormDraft.isOneRoom ? (initialFormDraft.oneRoomSlidingPartition ?? null) : null,
     );
+    setStructureBalconyNonExpanded(initialFormDraft.structureBalconyNonExpanded ?? null);
+    setStructurePartitionWall(initialFormDraft.structurePartitionWall ?? null);
+    setStructureOutdoorTerrace(initialFormDraft.structureOutdoorTerrace ?? null);
     if (initialFormDraft.kind != null) setKind(initialFormDraft.kind);
     if (initialFormDraft.goldDb != null) setGoldDb(initialFormDraft.goldDb);
     if (initialFormDraft.leadSource != null) setLeadSource(initialFormDraft.leadSource);
@@ -253,6 +259,9 @@ export function CrmIntakeForm({
         isOneRoom,
         oneRoomLoft,
         oneRoomSlidingPartition,
+        structureBalconyNonExpanded,
+        structurePartitionWall,
+        structureOutdoorTerrace,
         kind,
         goldDb,
         leadSource,
@@ -274,6 +283,9 @@ export function CrmIntakeForm({
     isOneRoom,
     oneRoomLoft,
     oneRoomSlidingPartition,
+    structureBalconyNonExpanded,
+    structurePartitionWall,
+    structureOutdoorTerrace,
     kind,
     goldDb,
     leadSource,
@@ -324,6 +336,9 @@ export function CrmIntakeForm({
           isOneRoom,
           oneRoomLoft,
           oneRoomSlidingPartition,
+          structureBalconyNonExpanded,
+          structurePartitionWall,
+          structureOutdoorTerrace,
           kind,
           goldDb,
           leadSource,
@@ -633,6 +648,38 @@ export function CrmIntakeForm({
                 </label>
               </div>
             ) : null}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={structureBalconyNonExpanded === true}
+                  onChange={(e) => setStructureBalconyNonExpanded(e.target.checked)}
+                  disabled={saving}
+                  className="border-slate-300"
+                />
+                비확장 베란다
+              </label>
+              <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={structurePartitionWall === true}
+                  onChange={(e) => setStructurePartitionWall(e.target.checked)}
+                  disabled={saving}
+                  className="border-slate-300"
+                />
+                증축(가벽)
+              </label>
+              <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={structureOutdoorTerrace === true}
+                  onChange={(e) => setStructureOutdoorTerrace(e.target.checked)}
+                  disabled={saving}
+                  className="border-slate-300"
+                />
+                야외 테라스
+              </label>
+            </div>
           </div>
           {kind !== 'received' ? (
             <label className="block">

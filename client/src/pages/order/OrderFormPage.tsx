@@ -88,8 +88,7 @@ import {
 } from '@shared/orderFormCleaningKind';
 import { OrderFormCleaningKindPicker } from '../../components/orderform/OrderFormCleaningKindPicker';
 import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes, hasOrderFormBuildingTypeChoice } from '../../utils/orderFormOneRoom';
-import { parseOneRoomYesNo } from '../../utils/orderFormOneRoomStructure';
-import { OneRoomLoftChoices, OneRoomSlidingChoices } from '../../components/orderform/oneRoomStructureCards';
+import { coercePartialHomeStructure, parseOneRoomYesNo } from '../../utils/orderFormOneRoomStructure';
 import { resolvePublicTenantSlug, resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import {
   normalizeOrderFormRouteToken,
@@ -867,6 +866,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           'customerName', 'customerPhone', 'customerEmail', 'customerPhone2', 'address', 'addressDetail',
           'propertyType', 'buildingType', 'moveInTiming', 'moveInDate', 'moveInDateUndecided',
           'roomCount', 'balconyCount', 'bathroomCount', 'kitchenCount', 'specialNotes', 'isOneRoom',
+          'oneRoomLoft', 'oneRoomSlidingPartition',
+          'structureBalconyNonExpanded', 'structurePartitionWall', 'structureOutdoorTerrace',
           'professionalOptionIds', 'cleaningKind',
         ]);
         for (const [k, v] of Object.entries(pf)) {
@@ -955,6 +956,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             pf['isOneRoom'] === true ? parseOneRoomYesNo(pf['oneRoomLoft']) : null,
           oneRoomSlidingPartition:
             pf['isOneRoom'] === true ? parseOneRoomYesNo(pf['oneRoomSlidingPartition']) : null,
+          ...coercePartialHomeStructure({
+            structureBalconyNonExpanded: parseOneRoomYesNo(pf['structureBalconyNonExpanded']),
+            structurePartitionWall: parseOneRoomYesNo(pf['structurePartitionWall']),
+            structureOutdoorTerrace: parseOneRoomYesNo(pf['structureOutdoorTerrace']),
+          }),
         }));
         setClassicKindConfirmed(false);
         const pfProf = pf['professionalOptionIds'];
@@ -1467,6 +1473,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         oneRoomLoft: stdFieldOn('propertyType') && form.isOneRoom ? form.oneRoomLoft : null,
         oneRoomSlidingPartition:
           stdFieldOn('propertyType') && form.isOneRoom ? form.oneRoomSlidingPartition : null,
+        structureBalconyNonExpanded: form.structureBalconyNonExpanded,
+        structurePartitionWall: form.structurePartitionWall,
+        structureOutdoorTerrace: form.structureOutdoorTerrace,
         specialNotes: stdFieldOn('specialNotes') ? form.specialNotes.trim() || undefined : undefined,
         professionalOptionIds:
           stdFieldOn('professionalOptions') && profSelections.length
@@ -1538,8 +1547,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       moveInDate: form.moveInDateUndecided ? undefined : form.moveInDate.trim() || undefined,
       moveInDateUndecided: form.moveInDateUndecided || undefined,
       isOneRoom: form.isOneRoom,
-      oneRoomLoft: form.isOneRoom ? form.oneRoomLoft : null,
-      oneRoomSlidingPartition: form.isOneRoom ? form.oneRoomSlidingPartition : null,
+      oneRoomLoft: form.isOneRoom && form.oneRoomLoft === true ? true : null,
+      oneRoomSlidingPartition: form.isOneRoom && form.oneRoomSlidingPartition === true ? true : null,
+      structureBalconyNonExpanded: form.structureBalconyNonExpanded === true ? true : null,
+      structurePartitionWall: form.structurePartitionWall === true ? true : null,
+      structureOutdoorTerrace: form.structureOutdoorTerrace === true ? true : null,
       specialNotes: form.specialNotes.trim() || undefined,
       professionalOptionIds: profSelections.length
         ? serializeProfessionalOptionSelections(profSelections)
@@ -2942,34 +2954,81 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 return nodes;
               })()}
             </div>
-            {form.isOneRoom ? (
-              <div className="mt-3 space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-2.5">
-                <div>
-                  <p className="mb-1 text-fluid-xs font-semibold text-slate-900">복층 구조인가요?</p>
-                  <p className="mb-2 text-fluid-2xs leading-snug text-slate-500">
-                    위층(다락) 공간이 계단·사다리로 이어져 있으면 「예」를 골라 주세요.
-                  </p>
-                  <OneRoomLoftChoices
-                    compact
-                    value={form.oneRoomLoft}
-                    disabled={lockKey('isOneRoom')}
-                    onChange={(oneRoomLoft) => setForm((f) => ({ ...f, oneRoomLoft }))}
-                  />
-                </div>
-                <div>
-                  <p className="mb-1 text-fluid-xs font-semibold text-slate-900">미닫이문으로 나뉜 구조인가요?</p>
-                  <p className="mb-2 text-fluid-2xs leading-snug text-slate-500">
-                    방 가운데에 옆으로 미는 문이 있어 공간이 둘로 나뉘면 「예」를 골라 주세요.
-                  </p>
-                  <OneRoomSlidingChoices
-                    compact
-                    value={form.oneRoomSlidingPartition}
-                    disabled={lockKey('isOneRoom')}
-                    onChange={(oneRoomSlidingPartition) => setForm((f) => ({ ...f, oneRoomSlidingPartition }))}
-                  />
-                </div>
-              </div>
-            ) : null}
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {form.isOneRoom ? (
+                <>
+                  <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={form.oneRoomLoft === true}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, oneRoomLoft: e.target.checked ? true : null }))
+                      }
+                      disabled={lockKey('isOneRoom')}
+                      className="border-slate-300"
+                    />
+                    복층
+                  </label>
+                  <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={form.oneRoomSlidingPartition === true}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          oneRoomSlidingPartition: e.target.checked ? true : null,
+                        }))
+                      }
+                      disabled={lockKey('isOneRoom')}
+                      className="border-slate-300"
+                    />
+                    미닫이 분리형
+                  </label>
+                </>
+              ) : null}
+              <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={form.structureBalconyNonExpanded === true}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      structureBalconyNonExpanded: e.target.checked ? true : null,
+                    }))
+                  }
+                  className="border-slate-300"
+                />
+                비확장 베란다
+              </label>
+              <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={form.structurePartitionWall === true}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      structurePartitionWall: e.target.checked ? true : null,
+                    }))
+                  }
+                  className="border-slate-300"
+                />
+                증축(가벽)
+              </label>
+              <label className="inline-flex items-center gap-1 text-fluid-2xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={form.structureOutdoorTerrace === true}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      structureOutdoorTerrace: e.target.checked ? true : null,
+                    }))
+                  }
+                  className="border-slate-300"
+                />
+                야외 테라스
+              </label>
+            </div>
             </div>
             ) : null}
             {stdFieldOn('areaPyeong') ? (

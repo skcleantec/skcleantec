@@ -43,6 +43,9 @@ export interface ScheduleItem {
   oneTwoRoomKind?: 'ONE' | 'TWO' | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;

@@ -260,6 +260,24 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
                 ? false
                 : null
             : null,
+        structureBalconyNonExpanded:
+          body.structureBalconyNonExpanded === true || body.structureBalconyNonExpanded === 'true'
+            ? true
+            : body.structureBalconyNonExpanded === false || body.structureBalconyNonExpanded === 'false'
+              ? false
+              : null,
+        structurePartitionWall:
+          body.structurePartitionWall === true || body.structurePartitionWall === 'true'
+            ? true
+            : body.structurePartitionWall === false || body.structurePartitionWall === 'false'
+              ? false
+              : null,
+        structureOutdoorTerrace:
+          body.structureOutdoorTerrace === true || body.structureOutdoorTerrace === 'true'
+            ? true
+            : body.structureOutdoorTerrace === false || body.structureOutdoorTerrace === 'false'
+              ? false
+              : null,
         roomCount: body.roomCount != null ? Number(body.roomCount) : null,
         bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,
         balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,

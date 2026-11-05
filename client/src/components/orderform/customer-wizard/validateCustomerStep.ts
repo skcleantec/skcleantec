@@ -94,6 +94,12 @@ export function validateCustomerStep(args: {
       return form.isOneRoom && form.oneRoomSlidingPartition == null
         ? '미닫이문 분리형인지 골라 주세요.'
         : null;
+    case 'homeStructure':
+      return form.structureBalconyNonExpanded == null ||
+        form.structurePartitionWall == null ||
+        form.structureOutdoorTerrace == null
+        ? '해당하는 구조를 고르거나 「해당 없음」을 눌러 주세요.'
+        : null;
     case 'area': {
       if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
         return '면적 기준으로 공급면적 또는 전용면적을 선택해주세요.';

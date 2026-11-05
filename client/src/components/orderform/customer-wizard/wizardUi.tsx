@@ -12,10 +12,12 @@ export const WIZARD_SECONDARY_CLS =
 export function WizardQuestion({
   title,
   hint,
+  notice,
   children,
 }: {
   title: string;
   hint?: string;
+  notice?: string;
   children: ReactNode;
 }) {
   return (
@@ -27,6 +29,11 @@ export function WizardQuestion({
         >
           {title}
         </h2>
+        {notice ? (
+          <p className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-fluid-sm font-medium leading-snug text-violet-900">
+            {notice}
+          </p>
+        ) : null}
         {hint ? (
           <p className="order-wizard-q-hint whitespace-pre-line text-fluid-sm leading-relaxed text-slate-500">{hint}</p>
         ) : null}

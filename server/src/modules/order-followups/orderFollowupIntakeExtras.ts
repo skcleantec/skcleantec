@@ -9,6 +9,9 @@ export type FollowupIntakeExtrasFields = {
   isOneRoom?: boolean | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
 };
 
 function parseOptionalBool(raw: unknown): boolean | null | undefined {
@@ -71,6 +74,15 @@ export function parseFollowupIntakeExtrasFromBody(
   if (out.isOneRoom !== false && Object.prototype.hasOwnProperty.call(body, 'oneRoomSlidingPartition')) {
     out.oneRoomSlidingPartition = parseOptionalBool(body.oneRoomSlidingPartition) ?? null;
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'structureBalconyNonExpanded')) {
+    out.structureBalconyNonExpanded = parseOptionalBool(body.structureBalconyNonExpanded) ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'structurePartitionWall')) {
+    out.structurePartitionWall = parseOptionalBool(body.structurePartitionWall) ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'structureOutdoorTerrace')) {
+    out.structureOutdoorTerrace = parseOptionalBool(body.structureOutdoorTerrace) ?? null;
+  }
 
   return out;
 }
@@ -89,6 +101,15 @@ export function followupIntakeExtrasToPrismaData(
   if (extras.oneRoomLoft !== undefined) data.oneRoomLoft = extras.oneRoomLoft;
   if (extras.oneRoomSlidingPartition !== undefined) {
     data.oneRoomSlidingPartition = extras.oneRoomSlidingPartition;
+  }
+  if (extras.structureBalconyNonExpanded !== undefined) {
+    data.structureBalconyNonExpanded = extras.structureBalconyNonExpanded;
+  }
+  if (extras.structurePartitionWall !== undefined) {
+    data.structurePartitionWall = extras.structurePartitionWall;
+  }
+  if (extras.structureOutdoorTerrace !== undefined) {
+    data.structureOutdoorTerrace = extras.structureOutdoorTerrace;
   }
   return data;
 }

@@ -14,7 +14,12 @@ import {
   AREA_BASIS_COST_WARNING,
   ORDER_FORM_PREFERRED_DATE_PENALTY_NOTICE,
 } from '../../../../pages/order/orderFormModel.types';
-import { OneRoomLoftChoices, OneRoomSlidingChoices } from '../../oneRoomStructureCards';
+import {
+  HomeStructureMultiChoices,
+  OneRoomLoftChoices,
+  OneRoomSlidingChoices,
+} from '../../oneRoomStructureCards';
+import { Button } from '../../../ui/Button';
 import { WizardChipGrid, WizardChoiceChip, WizardQuestion, WIZARD_INPUT_CLS } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
 
@@ -89,7 +94,7 @@ export function PropertyStep({
 
 export function OneRoomLoftStep({ form, setForm, step, goNext }: CustomerStepBodyProps) {
   return (
-    <WizardQuestion title={step.title} hint={step.hint}>
+    <WizardQuestion title={step.title} hint={step.hint} notice={step.notice}>
       <OneRoomLoftChoices
         value={form.oneRoomLoft}
         onChange={(next) => {
@@ -103,7 +108,7 @@ export function OneRoomLoftStep({ form, setForm, step, goNext }: CustomerStepBod
 
 export function OneRoomSlidingStep({ form, setForm, step, goNext }: CustomerStepBodyProps) {
   return (
-    <WizardQuestion title={step.title} hint={step.hint}>
+    <WizardQuestion title={step.title} hint={step.hint} notice={step.notice}>
       <OneRoomSlidingChoices
         value={form.oneRoomSlidingPartition}
         onChange={(next) => {
@@ -111,6 +116,29 @@ export function OneRoomSlidingStep({ form, setForm, step, goNext }: CustomerStep
           window.setTimeout(goNext, 220);
         }}
       />
+    </WizardQuestion>
+  );
+}
+
+export function HomeStructureStep({ form, setForm, step, goNext }: CustomerStepBodyProps) {
+  const flags = {
+    structureBalconyNonExpanded: form.structureBalconyNonExpanded,
+    structurePartitionWall: form.structurePartitionWall,
+    structureOutdoorTerrace: form.structureOutdoorTerrace,
+  };
+  const answered =
+    flags.structureBalconyNonExpanded != null &&
+    flags.structurePartitionWall != null &&
+    flags.structureOutdoorTerrace != null;
+  return (
+    <WizardQuestion title={step.title} hint={step.hint} notice={step.notice}>
+      <HomeStructureMultiChoices
+        value={flags}
+        onChange={(next) => setForm((f) => ({ ...f, ...next }))}
+      />
+      <Button type="button" variant="primary" size="lg" className="mt-4 w-full" disabled={!answered} onClick={goNext}>
+        다음
+      </Button>
     </WizardQuestion>
   );
 }

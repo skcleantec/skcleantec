@@ -517,6 +517,9 @@ interface InquiryItem {
   oneTwoRoomKind?: 'ONE' | 'TWO' | null;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
@@ -3587,6 +3590,9 @@ export function AdminInquiriesPage() {
                                 isOneRoom={item.isOneRoom}
                                 oneRoomLoft={item.oneRoomLoft}
                                 oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                                structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                                structurePartitionWall={item.structurePartitionWall}
+                                structureOutdoorTerrace={item.structureOutdoorTerrace}
                               />
                             </span>
                           </p>
@@ -4125,6 +4131,9 @@ export function AdminInquiriesPage() {
                             isOneRoom={item.isOneRoom}
                             oneRoomLoft={item.oneRoomLoft}
                             oneRoomSlidingPartition={item.oneRoomSlidingPartition}
+                                structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                                structurePartitionWall={item.structurePartitionWall}
+                                structureOutdoorTerrace={item.structureOutdoorTerrace}
                           />
                         </span>
                       </InquiryListQuickEditTrigger>

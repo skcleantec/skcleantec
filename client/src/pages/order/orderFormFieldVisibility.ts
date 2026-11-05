@@ -106,7 +106,15 @@ export function isOrderFormPrefillLocked(
   if (key === 'cleaningKind') return false;
   const v = prefillMap[key];
   if (v == null) return false;
-  if (key === 'oneRoomLoft' || key === 'oneRoomSlidingPartition') return typeof v === 'boolean';
+  if (
+    key === 'oneRoomLoft' ||
+    key === 'oneRoomSlidingPartition' ||
+    key === 'structureBalconyNonExpanded' ||
+    key === 'structurePartitionWall' ||
+    key === 'structureOutdoorTerrace'
+  ) {
+    return typeof v === 'boolean';
+  }
   if (typeof v === 'string') return v.trim().length > 0;
   if (Array.isArray(v)) return v.length > 0;
   if (typeof v === 'boolean') return v === true;

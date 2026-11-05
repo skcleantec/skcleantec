@@ -104,6 +104,9 @@ export type FinalizeTelecrmConsultationQuoteBody = {
   isOneRoom?: boolean;
   oneRoomLoft?: boolean | null;
   oneRoomSlidingPartition?: boolean | null;
+  structureBalconyNonExpanded?: boolean | null;
+  structurePartitionWall?: boolean | null;
+  structureOutdoorTerrace?: boolean | null;
   followupStatus: 'ABSENT' | 'ON_HOLD';
   extraMemo?: string | null;
   actorName?: string | null;
