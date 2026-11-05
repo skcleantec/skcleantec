@@ -3584,11 +3584,13 @@ export function AdminInquiriesPage() {
                             {collabMarketer ? (
                               <span className="text-slate-400"> · 협업 {collabMarketer}</span>
                             ) : null}
-                            <span className="inline-flex min-w-0 max-w-full items-baseline gap-1 text-slate-600">
-                              <span className="min-w-0 truncate">· {mobileSpecsTail}</span>
+                            <span className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1 text-slate-600">
+                              <span className="shrink-0 whitespace-nowrap break-keep">
+                                · {mobileSpecsTail}
+                              </span>
                               <OneRoomStructureChips
                                 compact
-                                className="shrink min-w-0"
+                                className="min-w-0 max-w-[8rem]"
                                 isOneRoom={item.isOneRoom}
                                 oneRoomLoft={item.oneRoomLoft}
                                 oneRoomSlidingPartition={item.oneRoomSlidingPartition}
@@ -3871,8 +3873,8 @@ export function AdminInquiriesPage() {
                     <col className="w-[4%]" />
                     <col className="w-[11%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[4%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[7%]" />
                     <col className="w-[6%]" />
                     <col className="w-[6%]" />
                     <col className="w-[6%]" />
@@ -3881,7 +3883,7 @@ export function AdminInquiriesPage() {
                     <col className="w-[3%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
-                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '13%' }} />
                   </>
                 ) : (
                   <>
@@ -3891,8 +3893,8 @@ export function AdminInquiriesPage() {
                     <col className="w-[4%]" />
                     <col className="w-[11%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[5%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[7%]" />
                     <col className="w-[7%]" />
                     <col className="w-[6%]" />
                     <col className="w-[7%]" />
@@ -3900,7 +3902,7 @@ export function AdminInquiriesPage() {
                     <col className="w-[3%]" />
                     <col className="w-[3%]" />
                     <col className="w-[8%]" />
-                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '11%' }} />
                   </>
                 )}
               </colgroup>
@@ -4119,7 +4121,7 @@ export function AdminInquiriesPage() {
                       <span className="block break-keep">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
-                      className={`min-w-0 max-w-[5.5rem] px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight tabular-nums text-slate-600 xl:max-w-[6.5rem] xl:px-1 xl:py-0.5 2xl:text-[12px] ${pBorder}`}
+                      className={`min-w-[6.75rem] px-0.5 py-0.5 align-middle text-center text-[11px] leading-tight tabular-nums text-slate-600 xl:min-w-[7.5rem] xl:px-1 xl:py-0.5 2xl:text-[12px] ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -4127,12 +4129,14 @@ export function AdminInquiriesPage() {
                         onClick={() => setListQuickEdit({ field: 'area', item })}
                       >
                         <span
-                          className="flex max-w-full flex-col items-center justify-center gap-0 overflow-hidden leading-tight"
+                          className="flex w-full flex-col items-center justify-center gap-0 leading-tight"
                           title={formatInquiryAreaKoLine(item)}
                         >
-                          <span className="line-clamp-1 max-w-full break-words">
+                          {/* 1줄: 평수·원/투룸 — 말줄임 금지 */}
+                          <span className="whitespace-nowrap break-keep">
                             {formatInquiryListAreaOrServiceLabel(item, { oneRoomLabel })}
                           </span>
+                          {/* 2줄: 구조 compact 만 말줄임 */}
                           <OneRoomStructureChips
                             compact
                             className="max-w-full"

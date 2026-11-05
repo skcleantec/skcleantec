@@ -3,7 +3,7 @@ import { isHttpsHostedImageUrl } from './storedObjectUrl.js';
 
 /** @see shared/quotationSeal.ts — 클라이언트와 동기화 */
 export const QUOTATION_SEAL_SOURCE_PX = 200;
-export const QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT = 72;
+export const QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT = 60;
 export const QUOTATION_SEAL_DISPLAY_WIDTH_MIN = 48;
 export const QUOTATION_SEAL_DISPLAY_WIDTH_MAX = 120;
 
