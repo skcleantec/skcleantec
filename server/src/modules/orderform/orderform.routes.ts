@@ -2981,13 +2981,7 @@ router.post('/submit/:token', async (req, res) => {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });
     return;
   }
-  if (
-    isOneRoom &&
-    (oneRoomStructure.oneRoomLoft == null || oneRoomStructure.oneRoomSlidingPartition == null)
-  ) {
-    res.status(400).json({ error: '복층 구조와 미닫이문 분리형을 모두 선택해 주세요.' });
-    return;
-  }
+  /* 복층·미닫이 null 허용 — 접수에 「구조 확인 전」. 필수 검사는 고객 위저드 단계 이동에서만. */
   if (!isHomeStructureAnswered(homeStructure)) {
     res.status(400).json({ error: '집 구조를 골라 주세요. 없으면 「해당 없음」을 선택해 주세요.' });
     return;

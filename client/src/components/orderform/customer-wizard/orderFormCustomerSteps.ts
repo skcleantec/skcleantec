@@ -373,6 +373,8 @@ export function wizardStepIdForSubmitField(fieldId?: string): OrderFormCustomerS
   if (fieldId.includes('customerPhone') || fieldId.includes('Phone2')) return 'phones';
   if (fieldId.includes('customerEmail')) return 'email';
   if (fieldId.includes('propertyType')) return 'property';
+  if (fieldId.includes('oneRoomLoft') || fieldId.includes('oneRoomSliding')) return 'oneRoomLoft';
+  if (fieldId.includes('homeStructure') || fieldId.includes('structureBalcony')) return 'homeStructure';
   if (fieldId.includes('area')) return 'area';
   if (fieldId.includes('preferredTimeDetail')) return 'timeDetail';
   if (fieldId.includes('preferredTime')) return 'time';

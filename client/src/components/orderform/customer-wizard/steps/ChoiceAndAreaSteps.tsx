@@ -29,7 +29,6 @@ export function PropertyStep({
   step,
   propertyTypeOptions,
   oneRoomLabel,
-  goNext,
 }: CustomerStepBodyProps) {
   const typeChosen =
     !form.isOneRoom && propertyTypeOptions.some((o) => o.value === form.propertyType);
@@ -45,13 +44,10 @@ export function PropertyStep({
       oneRoomSlidingPartition: null,
       specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, false),
     }));
-    window.setTimeout(goNext, 220);
+    /* 자동 넘김 없음 — 「다음」만. (원룸 삽입 전 goNext가 집 구조로 두 칸 건너뛰는 사고 방지) */
   };
   const selectOneRoom = () => {
-    if (oneLocked && form.isOneRoom) {
-      window.setTimeout(goNext, 220);
-      return;
-    }
+    if (oneLocked && form.isOneRoom) return;
     if (oneLocked) return;
     setForm((f) => ({
       ...f,
@@ -61,7 +57,7 @@ export function PropertyStep({
       oneRoomSlidingPartition: f.isOneRoom ? f.oneRoomSlidingPartition : null,
       specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, true),
     }));
-    window.setTimeout(goNext, 220);
+    /* 원룸 선택 후 복층·미닫이 단계가 steps에 붙은 뒤 「다음」으로만 이동 */
   };
   return (
     <WizardQuestion title={step.title} hint={step.hint}>

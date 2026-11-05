@@ -1507,7 +1507,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
       await finishSubmit();
     } catch (e) {
-      showSubmitError(e instanceof Error ? e.message : '제출에 실패했습니다.');
+      const msg = e instanceof Error ? e.message : '제출에 실패했습니다.';
+      const loftHint =
+        /복층|미닫이/.test(msg) ? 'order-field-oneRoomLoft' : undefined;
+      showSubmitError(msg, loftHint);
     } finally {
       setSubmitting(false);
     }
