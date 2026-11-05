@@ -8,6 +8,7 @@ import { ORDER_FOLLOWUP_STATUS_LABEL, type OrderFollowupStatus } from '../../../
 import { INQUIRY_STATUS_LABELS } from '../../inquiries/inquiriesUiParts';
 import { CrmActionButton, CrmIconSearch, CrmIconUser, CrmSectionLabel } from '../crmUi';
 import { CrmInquiryBriefPanel } from './CrmInquiryBriefPanel';
+import { OneRoomStructureChips } from '../../ui/OneRoomStructureChips';
 import { formatTelecrmQuoteWon } from '@shared/telecrmConsultationQuote';
 import type { TelecrmConsultationQuoteDto } from '../../../api/telecrmConsultationQuote';
 
@@ -246,7 +247,19 @@ export function CrmCustomerHistoryPanel({
                     onSelectFollowup ? 'cursor-pointer' : ''
                   }`}
                 >
-                <span className="font-semibold text-amber-900">{followupStatusLabel(row.status)}</span>
+                <span className="inline-flex flex-wrap items-center gap-1">
+                  <span className="font-semibold text-amber-900">{followupStatusLabel(row.status)}</span>
+                  {row.isOneRoom ? (
+                    <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-rose-800 ring-1 ring-rose-300/90">
+                      원룸
+                    </span>
+                  ) : null}
+                  <OneRoomStructureChips
+                    isOneRoom={row.isOneRoom}
+                    oneRoomLoft={row.oneRoomLoft}
+                    oneRoomSlidingPartition={row.oneRoomSlidingPartition}
+                  />
+                </span>
                 <span className="mx-1 text-slate-400">·</span>
                 {fmtDate(row.createdAt)}
                 {row.memo ? <p className="line-clamp-1 text-slate-600">{row.memo}</p> : null}

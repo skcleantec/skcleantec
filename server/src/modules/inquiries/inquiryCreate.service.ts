@@ -243,7 +243,23 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
         })(),
         propertyType: body.propertyType ? String(body.propertyType) : null,
         buildingType: body.buildingType ? String(body.buildingType) : null,
-        ...(body.isOneRoom === true || body.isOneRoom === 'true' ? { isOneRoom: true } : {}),
+        isOneRoom: body.isOneRoom === true || body.isOneRoom === 'true',
+        oneRoomLoft:
+          body.isOneRoom === true || body.isOneRoom === 'true'
+            ? body.oneRoomLoft === true || body.oneRoomLoft === 'true'
+              ? true
+              : body.oneRoomLoft === false || body.oneRoomLoft === 'false'
+                ? false
+                : null
+            : null,
+        oneRoomSlidingPartition:
+          body.isOneRoom === true || body.isOneRoom === 'true'
+            ? body.oneRoomSlidingPartition === true || body.oneRoomSlidingPartition === 'true'
+              ? true
+              : body.oneRoomSlidingPartition === false || body.oneRoomSlidingPartition === 'false'
+                ? false
+                : null
+            : null,
         roomCount: body.roomCount != null ? Number(body.roomCount) : null,
         bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,
         balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,

@@ -105,6 +105,8 @@ export type TelecrmInquiryBriefDto = {
   propertyType?: string | null;
   buildingType?: string | null;
   isOneRoom?: boolean;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   source: string | null;
   preferredDate: string | null;
   preferredTime: string | null;
@@ -154,6 +156,9 @@ export type TelecrmCustomerLookupDto = {
     roomCount: number | null;
     bathroomCount: number | null;
     balconyCount: number | null;
+    isOneRoom?: boolean;
+    oneRoomLoft?: boolean | null;
+    oneRoomSlidingPartition?: boolean | null;
     leadSource: string | null;
   }[];
   csReports: {

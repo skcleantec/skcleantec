@@ -334,6 +334,9 @@ export type FinalizeTelecrmConsultationQuoteInput = {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+  isOneRoom?: boolean | null;
+  oneRoomLoft?: boolean | null;
+  oneRoomSlidingPartition?: boolean | null;
   followupStatus: 'ABSENT' | 'ON_HOLD';
   extraMemo?: string | null;
   actorName?: string | null;
@@ -405,12 +408,21 @@ export async function finalizeTelecrmConsultationQuote(
   });
   const followupMemo = extraMemo ? `${autoMemo}\n${extraMemo}` : autoMemo;
 
-  const intakeExtrasData: Record<string, string | number | null> = {};
+  const intakeExtrasData: Record<string, string | number | boolean | null> = {};
   if (input.address !== undefined) intakeExtrasData.address = input.address;
   if (input.areaPyeong !== undefined) intakeExtrasData.areaPyeong = input.areaPyeong;
   if (input.roomCount !== undefined) intakeExtrasData.roomCount = input.roomCount;
   if (input.bathroomCount !== undefined) intakeExtrasData.bathroomCount = input.bathroomCount;
   if (input.balconyCount !== undefined) intakeExtrasData.balconyCount = input.balconyCount;
+  if (input.isOneRoom === true) {
+    intakeExtrasData.isOneRoom = true;
+    intakeExtrasData.oneRoomLoft = input.oneRoomLoft ?? null;
+    intakeExtrasData.oneRoomSlidingPartition = input.oneRoomSlidingPartition ?? null;
+  } else if (input.isOneRoom === false) {
+    intakeExtrasData.isOneRoom = false;
+    intakeExtrasData.oneRoomLoft = null;
+    intakeExtrasData.oneRoomSlidingPartition = null;
+  }
 
   const phone2Input =
     typeof input.customerPhone2 === 'string' ? input.customerPhone2.trim().slice(0, 32) || null : null;
