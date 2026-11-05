@@ -229,8 +229,9 @@ export async function buildQuotationPdfBuffer(
           ].filter(Boolean).length;
         const sealPt = resolveQuotationSealDisplayWidth(company?.sealDisplayWidthPx);
         const sealUrl = company?.sealSecureUrl?.trim();
+        /* 직인이 (인) 위에만 겹치고 사업자번호 줄은 읽히도록 여유는 절반 수준 */
         const sealPad =
-          sealUrl && company?.representativeName?.trim() ? Math.ceil(sealPt * 0.45) : 0;
+          sealUrl && company?.representativeName?.trim() ? Math.ceil(sealPt * 0.28) : 0;
         const boxH = Math.max(
           88 + sealPad,
           22 + Math.max(supplierLineCount, rightLines.length) * 13 + 8 + sealPad,

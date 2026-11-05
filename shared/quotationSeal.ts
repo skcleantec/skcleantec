@@ -6,12 +6,12 @@
 export const QUOTATION_SEAL_SOURCE_PX = 200;
 
 /** 화면·PDF 표시 기본 너비(px / PDF pt 동일 스케일) */
-export const QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT = 72;
+export const QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT = 60;
 
 export const QUOTATION_SEAL_DISPLAY_WIDTH_MIN = 48;
 export const QUOTATION_SEAL_DISPLAY_WIDTH_MAX = 120;
 
-/** 예전 기본·소형 저장값(≤48)은 새 기본 72로 본다 */
+/** 예전 기본·소형 저장값(≤48)은 새 기본 60으로 본다 */
 const QUOTATION_SEAL_LEGACY_WIDTH_CEILING = 48;
 
 export function resolveQuotationSealDisplayWidth(raw: number | undefined | null): number {
