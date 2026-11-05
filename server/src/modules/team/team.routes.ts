@@ -109,6 +109,8 @@ import teamLeaderTrainingTeamRoutes from '../team-leader-training/teamLeaderTrai
 import teamLeaderHouseholdLedgerRoutes from '../team-leader-household-ledger/teamLeaderHouseholdLedger.routes.js';
 import teamNaviRoutes from './teamNavi.routes.js';
 import {
+  attachTeamPropertyChoiceLabels,
+  attachTeamPropertyChoiceLabelsOne,
   serializeTeamInquiryOperatingCompanies,
   serializeTeamInquiryOperatingCompany,
   serializeTeamInquiryPreferredDatesKst,
@@ -317,6 +319,14 @@ const teamScheduleInquirySelect = {
   addressDetail: true,
   areaPyeong: true,
   areaBasis: true,
+  propertyType: true,
+  buildingType: true,
+  isOneRoom: true,
+  oneRoomLoft: true,
+  oneRoomSlidingPartition: true,
+  structureBalconyNonExpanded: true,
+  structurePartitionWall: true,
+  structureOutdoorTerrace: true,
   roomCount: true,
   bathroomCount: true,
   balconyCount: true,
@@ -331,6 +341,7 @@ const teamScheduleInquirySelect = {
   crewMemberNote: true,
   crewMeetingTime: true,
   crewMeetingTimeShared: true,
+  createdAt: true,
   operatingCompanyId: true,
   operatingCompany: { select: operatingCompanySummarySelect },
   createdBy: { select: { id: true, name: true, phone: true } },
@@ -628,9 +639,10 @@ async function respondTeamInquiryOne<T extends { id?: string; crewMemberNote: st
   const enriched = await attachCrewMembersOne(item, tenantId, viewerTeamLeaderId);
   if (!enriched) return null;
   const withIntake = await attachIntakeFormProfileOne(prisma, tenantId, enriched);
+  const withLabels = await attachTeamPropertyChoiceLabelsOne(tenantId, withIntake);
   return serializeTeamInquiryPreferredDateKst(
     serializeTeamInquiryOperatingCompany(
-      withIntake as Parameters<typeof serializeTeamInquiryOperatingCompany>[0],
+      withLabels as Parameters<typeof serializeTeamInquiryOperatingCompany>[0],
     ),
   );
 }
@@ -1714,7 +1726,8 @@ router.get('/inquiries/:id', async (req, res) => {
     tenantId,
     attachInspectionSummaryToInquiry(withHandoff),
   );
-  res.json(serializeTeamInquiryPreferredDateKst(serializeTeamInquiryOperatingCompany(withIntake)));
+  const withLabels = await attachTeamPropertyChoiceLabelsOne(tenantId, withIntake);
+  res.json(serializeTeamInquiryPreferredDateKst(serializeTeamInquiryOperatingCompany(withLabels)));
 });
 
 router.get('/inquiries', async (req, res) => {
@@ -1780,8 +1793,9 @@ router.get('/inquiries', async (req, res) => {
             withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
           ),
         );
+        const withLabels = await attachTeamPropertyChoiceLabels(tenantId, withIntake);
         const serialized = serializeTeamInquiryPreferredDatesKst(
-          serializeTeamInquiryOperatingCompanies(withIntake),
+          serializeTeamInquiryOperatingCompanies(withLabels),
         ) as unknown as Array<{ id: string }>;
         for (const item of serialized) fullById.set(item.id, item);
       }
@@ -1817,8 +1831,9 @@ router.get('/inquiries', async (req, res) => {
         withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
       ),
     );
+    const withLabels = await attachTeamPropertyChoiceLabels(tenantId, withIntake);
     res.json({
-      items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withIntake)),
+      items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withLabels)),
     });
     return;
   }
@@ -1844,8 +1859,9 @@ router.get('/inquiries', async (req, res) => {
       tenantId,
       attachInspectionSummaries(items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>),
     );
+    const withLabels = await attachTeamPropertyChoiceLabels(tenantId, withIntake);
     res.json({
-      items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withIntake)),
+      items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withLabels)),
       total,
     });
   } catch (e) {
@@ -1909,8 +1925,9 @@ router.get('/schedule', async (req, res) => {
   });
   const withCrew = await attachCrewMembers(rows, tenantId, userId);
   const items = await attachIntakeFormProfiles(prisma, tenantId, attachInspectionSummaries(withCrew));
+  const withLabels = await attachTeamPropertyChoiceLabels(tenantId, items);
   res.json({
-    items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(items)),
+    items: serializeTeamInquiryPreferredDatesKst(serializeTeamInquiryOperatingCompanies(withLabels)),
   });
 });
 

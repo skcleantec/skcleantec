@@ -3593,6 +3593,7 @@ export function AdminInquiriesPage() {
                                 structureBalconyNonExpanded={item.structureBalconyNonExpanded}
                                 structurePartitionWall={item.structurePartitionWall}
                                 structureOutdoorTerrace={item.structureOutdoorTerrace}
+                                createdAt={item.createdAt}
                               />
                             </span>
                           </p>
@@ -4131,9 +4132,10 @@ export function AdminInquiriesPage() {
                             isOneRoom={item.isOneRoom}
                             oneRoomLoft={item.oneRoomLoft}
                             oneRoomSlidingPartition={item.oneRoomSlidingPartition}
-                                structureBalconyNonExpanded={item.structureBalconyNonExpanded}
-                                structurePartitionWall={item.structurePartitionWall}
-                                structureOutdoorTerrace={item.structureOutdoorTerrace}
+                            structureBalconyNonExpanded={item.structureBalconyNonExpanded}
+                            structurePartitionWall={item.structurePartitionWall}
+                            structureOutdoorTerrace={item.structureOutdoorTerrace}
+                            createdAt={item.createdAt}
                           />
                         </span>
                       </InquiryListQuickEditTrigger>
