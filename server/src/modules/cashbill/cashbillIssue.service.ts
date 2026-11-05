@@ -768,9 +768,10 @@ export async function listCashbillPlatformHolds() {
   }));
 }
 
-export async function syncOpenCashbillStates(): Promise<{ checked: number; updated: number }> {
+export async function syncOpenCashbillStates(tenantId?: string): Promise<{ checked: number; updated: number }> {
   const open = await prisma.cashBillIssue.findMany({
     where: {
+      ...(tenantId ? { tenantId } : {}),
       chargedKrw: { gt: 0 },
       OR: [{ barobillState: null }, { barobillState: { notIn: [...FINAL_STATES] } }],
     },
@@ -780,6 +781,7 @@ export async function syncOpenCashbillStates(): Promise<{ checked: number; updat
   });
   const groups = new Map<string, typeof open>();
   for (const row of open) {
+    if (row.member.tenantId !== row.tenantId) continue;
     const key = `${row.member.corpNum}:${row.member.barobillUserId}`;
     const list = groups.get(key) ?? [];
     list.push(row);
