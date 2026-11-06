@@ -106,13 +106,15 @@ const ENV_TEMPLATE_MAP: Record<AlimtalkTemplateCode, string> = {
   CBISEO_CUST_ORDER_LINK: 'SOLAPI_ALIMTALK_TEMPLATE_ORDER_LINK',
   CBISEO_CUST_ORDER_DONE: 'SOLAPI_ALIMTALK_TEMPLATE_ORDER_DONE',
   CBISEO_CUST_SCHEDULE_D2: 'SOLAPI_ALIMTALK_TEMPLATE_SCHEDULE_D2',
+  CBISEO_CUST_PAY_LINK: 'SOLAPI_ALIMTALK_TEMPLATE_PAY_LINK',
 };
 
-/** 카카오 검수 승인 templateId — env 미설정 시 폴백 */
+/** 카카오 검수 승인 templateId — env 미설정 시 폴백 (PAY_LINK는 승인 후 env로 채움) */
 export const DEFAULT_SOLAPI_TEMPLATE_IDS: Record<AlimtalkTemplateCode, string> = {
   CBISEO_CUST_ORDER_LINK: 'KA01TP260821085834166DanPJHVm7HA',
   CBISEO_CUST_ORDER_DONE: 'KA01TP2608210907017889JVtrqGLFhq',
   CBISEO_CUST_SCHEDULE_D2: 'KA01TP260827075253460PXsiB9GyDMa',
+  CBISEO_CUST_PAY_LINK: '',
 };
 
 export function solapiTemplateIdFromEnv(code: AlimtalkTemplateCode): string | null {
@@ -197,6 +199,9 @@ export const ALIMTALK_TEMPLATE_SEED: {
       ? '[고객] 발주서 작성·예약 안내'
       : code === 'CBISEO_CUST_ORDER_DONE'
         ? '[고객] 예약(발주서) 접수 완료'
-        : '[고객] 예약 일정 확인(무위약 마감일)',
-  triggerType: code === 'CBISEO_CUST_ORDER_LINK' ? 'manual' : 'auto',
+        : code === 'CBISEO_CUST_PAY_LINK'
+          ? '[고객] 청소비 결제 안내'
+          : '[고객] 예약 일정 확인(무위약 마감일)',
+  triggerType:
+    code === 'CBISEO_CUST_ORDER_LINK' || code === 'CBISEO_CUST_PAY_LINK' ? 'manual' : 'auto',
 }));

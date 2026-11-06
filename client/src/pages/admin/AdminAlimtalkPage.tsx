@@ -53,11 +53,13 @@ function formatPreferredDateShort(ymd: string | null): string {
 export function AdminAlimtalkPage() {
   const token = getToken();
   const [settings, setSettings] = useState<TenantAlimtalkSettings | null>(null);
-  const [templateEnabled, setTemplateEnabled] = useState<Record<AlimtalkTemplateCode, boolean>>({
-    CBISEO_CUST_ORDER_LINK: true,
-    CBISEO_CUST_ORDER_DONE: true,
-    CBISEO_CUST_SCHEDULE_D2: true,
-  });
+  const [templateEnabled, setTemplateEnabled] = useState<Record<AlimtalkTemplateCode, boolean>>(
+    () =>
+      Object.fromEntries(ALIMTALK_TEMPLATE_CODES.map((code) => [code, true])) as Record<
+        AlimtalkTemplateCode,
+        boolean
+      >,
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
@@ -74,11 +76,9 @@ export function AdminAlimtalkPage() {
     try {
       const data = await getTenantAlimtalkSettings(token);
       setSettings(data);
-      const next: Record<AlimtalkTemplateCode, boolean> = {
-        CBISEO_CUST_ORDER_LINK: true,
-        CBISEO_CUST_ORDER_DONE: true,
-        CBISEO_CUST_SCHEDULE_D2: true,
-      };
+      const next: Record<AlimtalkTemplateCode, boolean> = Object.fromEntries(
+        ALIMTALK_TEMPLATE_CODES.map((code) => [code, true]),
+      ) as Record<AlimtalkTemplateCode, boolean>;
       for (const t of data.templates) {
         if (ALIMTALK_TEMPLATE_CODES.includes(t.code as AlimtalkTemplateCode)) {
           next[t.code as AlimtalkTemplateCode] = t.enabled;

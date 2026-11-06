@@ -60,6 +60,9 @@ export const ALIMTALK_FILLABLE_VARIABLES = [
   '#{주소}',
   '#{무위약마감일}',
   '#{동의일시}',
+  '#{결제내용}',
+  '#{결제금액}',
+  '#{결제토큰}',
 ] as const;
 
 export type AlimtalkTemplateBuildContext = {
@@ -247,6 +250,39 @@ export async function buildScheduleD2AlimtalkVariables(
   };
 }
 
+export type PayLinkAlimtalkBuildContext = {
+  tenant: Pick<Tenant, 'id' | 'slug'>;
+  customerName: string;
+  goodsName: string;
+  amountWon: number;
+  payToken: string;
+  brandOperatingCompany?: OperatingCompany | null;
+  brandOperatingCompanyId?: string | null;
+};
+
+/** 결제 링크 안내 — 업체명·문의전화는 발주서와 같은 영업 브랜드 규칙 */
+export async function buildPayLinkAlimtalkVariables(
+  params: PayLinkAlimtalkBuildContext,
+): Promise<Record<string, string>> {
+  const { trust, brandDisplay } = await loadBrandBundle({
+    tenantId: params.tenant.id,
+    tenantSlug: params.tenant.slug,
+    operatingCompany: params.brandOperatingCompany ?? null,
+    operatingCompanyId: params.brandOperatingCompanyId ?? null,
+    displayNameFallback: params.customerName,
+    preferredTime: null,
+  });
+  const amountLabel = `${formatWonAmount(params.amountWon)}원`;
+  return {
+    '#{고객명}': params.customerName.trim() || '고객',
+    '#{업체명}': trust?.companyName ?? brandDisplay,
+    '#{결제내용}': params.goodsName.trim() || '청소 서비스',
+    '#{결제금액}': amountLabel,
+    '#{문의전화}': trust?.phone?.trim() ?? '—',
+    '#{결제토큰}': params.payToken.trim(),
+  };
+}
+
 export async function buildAlimtalkVariables(
   code: AlimtalkTemplateCode,
   ctx: AlimtalkTemplateBuildContext,
@@ -259,6 +295,9 @@ export async function buildAlimtalkVariables(
   }
   if (code === 'CBISEO_CUST_SCHEDULE_D2') {
     return buildScheduleD2AlimtalkVariables(ctx);
+  }
+  if (code === 'CBISEO_CUST_PAY_LINK') {
+    throw new Error('CBISEO_CUST_PAY_LINK는 buildPayLinkAlimtalkVariables를 사용하세요.');
   }
   throw new Error(`템플릿 ${code} 변수 빌더는 아직 구현되지 않았습니다.`);
 }

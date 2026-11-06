@@ -21,6 +21,7 @@ export const BAROBILL_TEMPLATE_NAME_BY_CODE: Record<AlimtalkTemplateCode, string
   CBISEO_CUST_ORDER_LINK: '[고객] 발주서 작성·예약 안내',
   CBISEO_CUST_ORDER_DONE: '[고객] 예약(발주서) 접수 완료',
   CBISEO_CUST_SCHEDULE_D2: '[고객] 예약 일정 확인(무위약 마감일)',
+  CBISEO_CUST_PAY_LINK: '[고객] 청소비 결제 안내',
 };
 
 const SYNC_INTERVAL_MS = 20 * 60 * 60 * 1000;

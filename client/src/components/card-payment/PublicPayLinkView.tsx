@@ -122,12 +122,6 @@ export function PublicPayLinkView({
                     <dd className="text-right tabular-nums">{view.orderNo}</dd>
                   </>
                 ) : null}
-                {view.deadlineLabel ? (
-                  <>
-                    <dt className={MUTED}>결제 기한</dt>
-                    <dd className="text-right tabular-nums">{view.deadlineLabel}</dd>
-                  </>
-                ) : null}
               </dl>
             </section>
             <section className={`grid gap-2.5 ${CARD} text-fluid-2xs ${MUTED}`} aria-label="안전 안내">
@@ -219,7 +213,7 @@ export function PublicPayLinkView({
             <div className="grid size-14 place-items-center rounded-full bg-[#F1F5F9] text-[#64748B]">
               <LineMdIcon name="watch-off" className="size-7" />
             </div>
-            <h2 className="text-fluid-lg font-bold">{view.offTitle || '결제 기한이 지났어요'}</h2>
+            <h2 className="text-fluid-lg font-bold">{view.offTitle || '이 링크는 더 이상 결제할 수 없어요'}</h2>
             <p className={`text-fluid-xs ${MUTED}`}>
               결제가 필요하면 <b className={`font-medium ${INK}`}>{view.sellerName}</b>에 새 링크를 요청해
               주세요.
@@ -264,10 +258,10 @@ export function PublicPayLinkView({
               onClick={onPay}
               className="h-[54px] w-full rounded-[14px] text-fluid-sm"
             >
-              {opening ? '결제창 여는 중' : `${won(view.amountKrw)} 결제하기`}
+              {opening ? '결제창 여는 중' : '지금 결제해 주세요'}
             </Button>
             <small className={`text-center text-fluid-2xs ${MUTED}`}>
-              카드사 인증 결제창으로 연결 · 결제대행 페이시스
+              {won(view.amountKrw)} · 카드사 인증 결제창으로 연결
             </small>
           </div>
         </div>

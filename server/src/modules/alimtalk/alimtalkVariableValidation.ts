@@ -55,5 +55,27 @@ export function validateAlimtalkTemplateVariables(
     return null;
   }
 
+  if (templateCode === 'CBISEO_CUST_PAY_LINK') {
+    if (!isUsableAlimtalkText(variables['#{고객명}'])) {
+      return '고객명이 없어 알림톡을 보낼 수 없습니다.';
+    }
+    if (!isUsableAlimtalkText(variables['#{업체명}'])) {
+      return '업체명이 없습니다. 접수 영업 브랜드·업체등록 정보를 확인해 주세요.';
+    }
+    if (!isUsableAlimtalkText(variables['#{결제내용}'])) {
+      return '결제 내용이 없습니다.';
+    }
+    if (!isUsableAlimtalkText(variables['#{결제금액}'])) {
+      return '결제 금액이 없습니다.';
+    }
+    if (!isUsablePhoneDisplay(variables['#{문의전화}'])) {
+      return '문의 전화번호가 없습니다. 설정 → 업체등록정보 또는 브랜드 등록 전화를 입력해 주세요.';
+    }
+    if (!isUsableAlimtalkText(variables['#{결제토큰}'])) {
+      return '결제 링크 토큰이 없습니다.';
+    }
+    return null;
+  }
+
   return null;
 }

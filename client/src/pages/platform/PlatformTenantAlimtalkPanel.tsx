@@ -23,11 +23,13 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
   const [licensed, setLicensed] = useState(false);
   const [monthlyFreeEnabled, setMonthlyFreeEnabled] = useState(true);
   const [monthlyFreeUnlimited, setMonthlyFreeUnlimited] = useState(false);
-  const [templateEnabled, setTemplateEnabled] = useState<Record<AlimtalkTemplateCode, boolean>>({
-    CBISEO_CUST_ORDER_LINK: true,
-    CBISEO_CUST_ORDER_DONE: true,
-    CBISEO_CUST_SCHEDULE_D2: true,
-  });
+  const [templateEnabled, setTemplateEnabled] = useState<Record<AlimtalkTemplateCode, boolean>>(
+    () =>
+      Object.fromEntries(ALIMTALK_TEMPLATE_CODES.map((code) => [code, true])) as Record<
+        AlimtalkTemplateCode,
+        boolean
+      >,
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -44,11 +46,9 @@ export function PlatformTenantAlimtalkPanel({ tenantId, disabled, onSaved }: Pro
       setLicensed(data.licensed);
       setMonthlyFreeEnabled(data.monthlyFreeEnabled);
       setMonthlyFreeUnlimited(Boolean(data.monthlyFreeUnlimited));
-      const next: Record<AlimtalkTemplateCode, boolean> = {
-        CBISEO_CUST_ORDER_LINK: true,
-        CBISEO_CUST_ORDER_DONE: true,
-        CBISEO_CUST_SCHEDULE_D2: true,
-      };
+      const next: Record<AlimtalkTemplateCode, boolean> = Object.fromEntries(
+        ALIMTALK_TEMPLATE_CODES.map((code) => [code, true]),
+      ) as Record<AlimtalkTemplateCode, boolean>;
       for (const t of data.templates) {
         if (ALIMTALK_TEMPLATE_CODES.includes(t.code as AlimtalkTemplateCode)) {
           next[t.code as AlimtalkTemplateCode] = t.enabled;
