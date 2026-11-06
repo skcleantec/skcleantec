@@ -327,6 +327,80 @@ export async function confirmCardPaymentLink(token: string, id: string) {
   }>;
 }
 
+export type PayLinkAlimtalkReady = {
+  ready: boolean;
+  reason: string | null;
+  label: string;
+  barobillStatus: number | null;
+  barobillStatusLabel: string | null;
+};
+
+export async function fetchPayLinkAlimtalkReady(token: string) {
+  const res = await fetch(`${API}/card-payments/alimtalk/pay-link-ready`, {
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<PayLinkAlimtalkReady>;
+}
+
+export async function fetchCardPaymentStatus(token: string, id: string) {
+  const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/status`, {
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{
+    id: string;
+    status: CardPaymentStatus;
+    amountWon: number;
+    approvalNo: string | null;
+    paidAt: string | null;
+    customerName: string;
+    cardLast4: string | null;
+    goodsName: string | null;
+    waiting: boolean;
+  }>;
+}
+
+export async function previewCardPaymentAlimtalk(
+  token: string,
+  id: string,
+  body: { payTokenOrUrl: string; toPhone?: string | null },
+) {
+  const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/alimtalk/preview`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{
+    ok: true;
+    toPhone: string;
+    maskedPhone: string;
+    previewText: string;
+    ready: PayLinkAlimtalkReady;
+  }>;
+}
+
+export async function sendCardPaymentAlimtalk(
+  token: string,
+  id: string,
+  body: { payTokenOrUrl: string; toPhone?: string | null },
+) {
+  const res = await fetch(`${API}/card-payments/${encodeURIComponent(id)}/alimtalk`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{
+    ok: true;
+    logId: string;
+    maskedPhone?: string;
+    previewText?: string;
+    sentAtIso?: string;
+  }>;
+}
+
 export async function fetchPublicServiceBridgeLink(token: string) {
   const res = await fetch(`${API}/public/card-payment/sb/${encodeURIComponent(token)}`);
   if (!res.ok) throw new Error(await parseError(res));

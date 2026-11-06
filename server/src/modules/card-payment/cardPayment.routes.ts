@@ -412,6 +412,101 @@ router.post('/:id/link', async (req, res) => {
   res.json(result);
 });
 
+router.get('/alimtalk/pay-link-ready', async (req, res) => {
+  const user = scoped(req).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const { getPayLinkAlimtalkReady } = await import('../alimtalk/alimtalkPayLink.service.js');
+  res.json(await getPayLinkAlimtalkReady(tenantId));
+});
+
+router.get('/:id/status', async (req, res) => {
+  const user = scoped(req).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const row = await prisma.cardPayment.findFirst({
+    where: { id: String(req.params.id), tenantId },
+    select: {
+      id: true,
+      status: true,
+      amountWon: true,
+      approvalNo: true,
+      paidAt: true,
+      customerName: true,
+      cardLast4: true,
+      inquiryId: true,
+      goodsName: true,
+    },
+  });
+  if (!row) {
+    res.status(404).json({ error: '결제 건을 찾을 수 없습니다.' });
+    return;
+  }
+  const ok = row.inquiryId ? await canUseInquiry(tenantId, user, row.inquiryId) : user.role === 'ADMIN';
+  if (!ok && row.inquiryId) {
+    res.status(403).json({ error: '이 결제 건을 볼 권한이 없습니다.' });
+    return;
+  }
+  res.json({
+    id: row.id,
+    status: row.status,
+    amountWon: row.amountWon,
+    approvalNo: row.approvalNo,
+    paidAt: row.paidAt?.toISOString() ?? null,
+    customerName: row.customerName,
+    cardLast4: row.cardLast4,
+    goodsName: row.goodsName,
+    waiting: row.status !== 'APPROVED' && row.status !== 'CANCELLED' && row.status !== 'FAILED',
+  });
+});
+
+router.post('/:id/alimtalk/preview', async (req, res) => {
+  const user = scoped(req).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = req.body as { payTokenOrUrl?: string; toPhone?: string | null };
+  const { previewPayLinkAlimtalk } = await import('../alimtalk/alimtalkPayLink.service.js');
+  const result = await previewPayLinkAlimtalk({
+    tenantId,
+    paymentId: String(req.params.id),
+    payTokenOrUrl: String(body.payTokenOrUrl ?? ''),
+    toPhone: body.toPhone,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json(result);
+});
+
+router.post('/:id/alimtalk', async (req, res) => {
+  const user = scoped(req).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = req.body as { payTokenOrUrl?: string; toPhone?: string | null };
+  const { triggerAlimtalkPayLink } = await import('../alimtalk/alimtalkPayLink.service.js');
+  const result = await triggerAlimtalkPayLink({
+    tenantId,
+    paymentId: String(req.params.id),
+    payTokenOrUrl: String(body.payTokenOrUrl ?? ''),
+    toPhone: body.toPhone,
+    actorUserId: user.userId,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json({
+    ok: true,
+    logId: result.logId,
+    messageId: result.messageId,
+    chargeStatus: result.chargeStatus,
+    maskedPhone: result.maskedPhone,
+    previewText: result.previewText,
+    sentAtIso: result.sentAtIso,
+  });
+});
+
 router.post('/:id/cancel', async (req, res) => {
   const user = scoped(req).user;
   const tenantId = await requireTenantIdFromAuth(res, user);

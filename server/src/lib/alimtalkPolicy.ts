@@ -11,6 +11,7 @@ export const ALIMTALK_TEMPLATE_CODES = [
   'CBISEO_CUST_ORDER_LINK',
   'CBISEO_CUST_ORDER_DONE',
   'CBISEO_CUST_SCHEDULE_D2',
+  'CBISEO_CUST_PAY_LINK',
 ] as const;
 
 export type AlimtalkTemplateCode = (typeof ALIMTALK_TEMPLATE_CODES)[number];
@@ -19,6 +20,7 @@ export const ALIMTALK_TEMPLATE_LABELS: Record<AlimtalkTemplateCode, string> = {
   CBISEO_CUST_ORDER_LINK: '발주 링크 안내 (수동)',
   CBISEO_CUST_ORDER_DONE: '발주 제출 완료 (자동)',
   CBISEO_CUST_SCHEDULE_D2: '무위약 마감일 (자동)',
+  CBISEO_CUST_PAY_LINK: '결제 링크 안내 (수동)',
 };
 
 export const ALIMTALK_UNIT_PRICE_ATA_KRW = 20;

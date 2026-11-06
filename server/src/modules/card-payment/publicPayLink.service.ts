@@ -164,7 +164,7 @@ export async function buildTenantPayLinkView(tokenHash: string): Promise<PublicP
     offTitle = '이 링크는 더 이상 결제할 수 없어요';
   } else if (expired) {
     state = 'expired';
-    offTitle = '결제 기한이 지났어요';
+    offTitle = '이 링크는 더 이상 결제할 수 없어요';
   }
   return {
     ...seller,
@@ -175,7 +175,8 @@ export async function buildTenantPayLinkView(tokenHash: string): Promise<PublicP
     serviceDateLabel: row.inquiry?.preferredDate ? kstDay(row.inquiry.preferredDate) : null,
     customerMasked: maskPersonName(row.customerName),
     orderNo: row.inquiryNumber?.trim() || null,
-    deadlineLabel: row.linkExpiresAt ? `${kstStamp(row.linkExpiresAt)}까지` : null,
+    /** 현장 결제 — 화면·문자에 기한 날짜를 보여 주지 않음 (링크 유효는 서버에서만) */
+    deadlineLabel: null,
     paidAtLabel: row.paidAt ? kstStamp(row.paidAt) : null,
     cardLabel: row.cardLast4 ? `····${row.cardLast4}` : null,
     approvalNo: row.approvalNo,

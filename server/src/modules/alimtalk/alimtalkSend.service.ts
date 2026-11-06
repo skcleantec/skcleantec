@@ -56,7 +56,7 @@ async function assertAlimtalkLicensed(
   return { ok: true };
 }
 
-async function executeAlimtalkSend(params: {
+export async function executeAlimtalkSend(params: {
   billingTenantId: string;
   tenant: TenantGateRow;
   templateCode: AlimtalkTemplateCode;
@@ -67,6 +67,10 @@ async function executeAlimtalkSend(params: {
   customerFacingTenantId: string;
   customerFacingOperatingCompanyId: string | null;
 }): Promise<TriggerAlimtalkResult> {
+  const { assertAlimtalkRecipientAllowed } = await import('./alimtalkStagingPhoneGuard.js');
+  const stagingBlock = assertAlimtalkRecipientAllowed(params.toPhone);
+  if (stagingBlock) return { ok: false, error: stagingBlock };
+
   const preflight = await preflightAlimtalkSend(params.billingTenantId, params.tenant.plan, 'ATA');
   if (!preflight.ok) return { ok: false, error: preflight.error };
 

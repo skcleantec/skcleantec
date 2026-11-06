@@ -6,11 +6,20 @@ import {
   confirmCardPaymentLink,
   createCardPayment,
   fetchCardPaymentPrefill,
+  fetchCardPaymentStatus,
+  fetchPayLinkAlimtalkReady,
+  previewCardPaymentAlimtalk,
+  sendCardPaymentAlimtalk,
   type CardPaymentRow,
+  type PayLinkAlimtalkReady,
 } from '../../api/cardPayment';
 import { TeamCardPaymentAmountFields } from '../../components/team/card-payment/TeamCardPaymentAmountFields';
 import { TeamCardPaymentKeyinForm, type TeamKeyinCard } from '../../components/team/card-payment/TeamCardPaymentKeyinForm';
-import { TeamCardPaymentShareSheet } from '../../components/team/card-payment/TeamCardPaymentShareSheet';
+import {
+  TeamCardPaymentAlimtalkConfirm,
+  TeamCardPaymentShareSheet,
+  usePayCelebrate,
+} from '../../components/team/card-payment/TeamCardPaymentShareSheet';
 import { CardPaymentApprovedAlert } from '../../components/card-payment/CardPaymentApprovedAlert';
 import {
   TEAM_PAY_CARD,
@@ -30,6 +39,15 @@ import { copyTextToClipboard } from '../../utils/clipboard';
 type Step = 'pick' | 'keyin' | 'auth' | 'link' | 'paid';
 type PickMethod = 'keyin' | 'link';
 
+type LinkSession = {
+  paymentId: string;
+  linkUrl: string;
+  amountWon: number;
+  goodsName: string;
+  alimtalkSentAt?: string;
+  alimtalkMaskedPhone?: string;
+};
+
 function readToken() {
   return getTeamToken() || getToken();
 }
@@ -42,15 +60,45 @@ function leavePay(staff: boolean) {
   window.location.assign(staff ? '/admin/inquiries' : '/team/schedule');
 }
 
-function formatLinkDeadline(days = 7): string {
-  const d = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+function linkSessionKey(inquiryId: string) {
+  return `cbiseo:pay-link:${inquiryId}`;
+}
+
+function loadLinkSession(inquiryId: string): LinkSession | null {
+  try {
+    const raw = sessionStorage.getItem(linkSessionKey(inquiryId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LinkSession;
+    if (!parsed?.paymentId || !parsed?.linkUrl) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveLinkSession(inquiryId: string, session: LinkSession) {
+  try {
+    sessionStorage.setItem(linkSessionKey(inquiryId), JSON.stringify(session));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearLinkSession(inquiryId: string) {
+  try {
+    sessionStorage.removeItem(linkSessionKey(inquiryId));
+  } catch {
+    /* ignore */
+  }
+}
+
+function formatSentClock(iso: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
-    month: 'numeric',
-    day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(d);
+    hourCycle: 'h23',
+  }).format(new Date(iso));
 }
 
 function installmentLabel(code: string): string {
@@ -87,14 +135,22 @@ export function TeamCardPaymentPage() {
   const [extraAmount, setExtraAmount] = useState('');
   const [goodsName, setGoodsName] = useState('청소비');
   const [linkUrl, setLinkUrl] = useState('');
-  const [linkDeadline, setLinkDeadline] = useState('');
+  const [linkPaymentId, setLinkPaymentId] = useState('');
   const [copied, setCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [alimtalkReady, setAlimtalkReady] = useState<PayLinkAlimtalkReady | null>(null);
+  const [alimtalkPhone, setAlimtalkPhone] = useState('');
+  const [alimtalkSentAt, setAlimtalkSentAt] = useState<string | null>(null);
+  const [alimtalkMaskedPhone, setAlimtalkMaskedPhone] = useState<string | null>(null);
+  const [alimtalkConfirmOpen, setAlimtalkConfirmOpen] = useState(false);
+  const [alimtalkPreview, setAlimtalkPreview] = useState<{ text: string; masked: string } | null>(null);
+  const [alimtalkBusy, setAlimtalkBusy] = useState(false);
   const [paidPayment, setPaidPayment] = useState<CardPaymentRow | null>(null);
   const [paidInstallment, setPaidInstallment] = useState('00');
   const [paidMessage, setPaidMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const celebrate = usePayCelebrate();
 
   useEffect(() => {
     const token = readToken();
@@ -109,6 +165,7 @@ export function TeamCardPaymentPage() {
         setLinkConnected(res.linkConnected);
         setCustomerName(res.customerName);
         setCustomerPhone(res.customerPhone || '');
+        setAlimtalkPhone(res.customerPhone || '');
         setInquiryNumber(res.inquiryNumber);
         setCompanyName(res.companyName || '');
         setIncludeCompanyName(res.includeCompanyName !== false && Boolean(res.companyName?.trim()));
@@ -122,7 +179,116 @@ export function TeamCardPaymentPage() {
         setGoodsName(res.customerName ? `${res.customerName} ${word}비` : `${word}비`);
       })
       .catch(() => setPgConnected(false));
+
+    void fetchPayLinkAlimtalkReady(token)
+      .then(setAlimtalkReady)
+      .catch(() =>
+        setAlimtalkReady({
+          ready: false,
+          reason: '카카오 승인 대기 중 — 공유·복사로 보내 주세요',
+          label: '결제 링크 안내 (수동)',
+          barobillStatus: null,
+          barobillStatusLabel: null,
+        }),
+      );
+
+    const saved = loadLinkSession(inquiryId);
+    if (!saved) return;
+    void fetchCardPaymentStatus(token, saved.paymentId)
+      .then((st) => {
+        setLinkPaymentId(saved.paymentId);
+        setLinkUrl(saved.linkUrl);
+        setAlimtalkSentAt(saved.alimtalkSentAt ?? null);
+        setAlimtalkMaskedPhone(saved.alimtalkMaskedPhone ?? null);
+        if (st.status === 'APPROVED') {
+          setPaidPayment({
+            id: st.id,
+            inquiryId,
+            inquiryNumber: null,
+            method: 'CUSTOMER_LINK',
+            status: 'APPROVED',
+            amountWon: st.amountWon,
+            tenantFeeBps: 0,
+            platformCostBps: 0,
+            tenantFeeWon: 0,
+            platformCostWon: 0,
+            platformSpreadWon: 0,
+            tenantNetWon: st.amountWon,
+            customerName: st.customerName,
+            customerPhoneMasked: null,
+            cardLast4: st.cardLast4,
+            approvalNo: st.approvalNo,
+            pgOrderId: null,
+            paidAt: st.paidAt,
+            failReason: null,
+            createdAt: st.paidAt || new Date().toISOString(),
+            createdBy: { id: '', name: '' },
+          });
+          setPaidMessage(st.approvalNo ? `승인번호 ${st.approvalNo}` : '');
+          setGoodsName(st.goodsName || saved.goodsName);
+          setStep('paid');
+          return;
+        }
+        if (st.waiting) {
+          setAmount(String(saved.amountWon));
+          setGoodsName(saved.goodsName);
+          setStep('link');
+        } else {
+          clearLinkSession(inquiryId);
+        }
+      })
+      .catch(() => clearLinkSession(inquiryId));
   }, [inquiryId]);
+
+  useEffect(() => {
+    if (step !== 'link' || !linkPaymentId) return;
+    const token = readToken();
+    if (!token) return;
+    let cancelled = false;
+    const tick = () => {
+      void fetchCardPaymentStatus(token, linkPaymentId)
+        .then((st) => {
+          if (cancelled) return;
+          if (st.status !== 'APPROVED') return;
+          setPaidPayment({
+            id: st.id,
+            inquiryId: inquiryId || null,
+            inquiryNumber: null,
+            method: 'CUSTOMER_LINK',
+            status: 'APPROVED',
+            amountWon: st.amountWon,
+            tenantFeeBps: 0,
+            platformCostBps: 0,
+            tenantFeeWon: 0,
+            platformCostWon: 0,
+            platformSpreadWon: 0,
+            tenantNetWon: st.amountWon,
+            customerName: st.customerName,
+            customerPhoneMasked: null,
+            cardLast4: st.cardLast4,
+            approvalNo: st.approvalNo,
+            pgOrderId: null,
+            paidAt: st.paidAt,
+            failReason: null,
+            createdAt: st.paidAt || new Date().toISOString(),
+            createdBy: { id: '', name: '' },
+          });
+          setPaidMessage(st.approvalNo ? `승인번호 ${st.approvalNo}` : '');
+          if (st.goodsName) setGoodsName(st.goodsName);
+          setStep('paid');
+          celebrate();
+        })
+        .catch(() => {
+          /* keep polling */
+        });
+    };
+    tick();
+    const id = window.setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [step, linkPaymentId, inquiryId, celebrate]);
 
   const baseWon = Math.round(Number(amount.replace(/[^\d]/g, '')) || 0);
   const extraWon = Math.round(Number(extraAmount.replace(/[^\d]/g, '')) || 0);
@@ -144,12 +310,26 @@ export function TeamCardPaymentPage() {
     setError(null);
     setCopied(false);
     setShareOpen(false);
+    setAlimtalkConfirmOpen(false);
   };
 
   const goNextFromPick = () => {
     if (!picked) return;
     setError(null);
     setStep(picked === 'keyin' ? 'keyin' : 'auth');
+  };
+
+  const persistLinkSession = (patch: Partial<LinkSession> & Pick<LinkSession, 'paymentId' | 'linkUrl'>) => {
+    if (!inquiryId) return;
+    const next: LinkSession = {
+      paymentId: patch.paymentId,
+      linkUrl: patch.linkUrl,
+      amountWon: patch.amountWon ?? amountWon,
+      goodsName: patch.goodsName ?? (goodsName.trim() || '청소비'),
+      alimtalkSentAt: patch.alimtalkSentAt ?? alimtalkSentAt ?? undefined,
+      alimtalkMaskedPhone: patch.alimtalkMaskedPhone ?? alimtalkMaskedPhone ?? undefined,
+    };
+    saveLinkSession(inquiryId, next);
   };
 
   const makeLink = () => {
@@ -170,12 +350,73 @@ export function TeamCardPaymentPage() {
       .then((created) => confirmCardPaymentLink(token, created.payment.id))
       .then((sent) => {
         setLinkUrl(sent.linkUrl);
-        setLinkDeadline(formatLinkDeadline(7));
+        setLinkPaymentId(sent.payment.id);
+        setAlimtalkSentAt(null);
+        setAlimtalkMaskedPhone(null);
+        setAlimtalkPhone(customerPhone);
+        persistLinkSession({
+          paymentId: sent.payment.id,
+          linkUrl: sent.linkUrl,
+          amountWon,
+          goodsName: goodsName.trim() || '청소비',
+          alimtalkSentAt: undefined,
+          alimtalkMaskedPhone: undefined,
+        });
         setStep('link');
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '링크를 만들지 못했습니다.'))
       .finally(() => setBusy(false));
   };
+
+  const openAlimtalkConfirm = () => {
+    const token = readToken();
+    if (!token || !linkPaymentId || !linkUrl) return;
+    if (alimtalkReady && !alimtalkReady.ready) return;
+    if (alimtalkSentAt) {
+      const ok = window.confirm('이미 알림톡을 보냈습니다. 다시 보낼까요?');
+      if (!ok) return;
+    }
+    setAlimtalkBusy(true);
+    setError(null);
+    void previewCardPaymentAlimtalk(token, linkPaymentId, {
+      payTokenOrUrl: linkUrl,
+      toPhone: alimtalkPhone,
+    })
+      .then((res) => {
+        setAlimtalkPreview({ text: res.previewText, masked: res.maskedPhone });
+        setAlimtalkConfirmOpen(true);
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : '미리보기를 불러오지 못했습니다.'))
+      .finally(() => setAlimtalkBusy(false));
+  };
+
+  const confirmAlimtalkSend = () => {
+    const token = readToken();
+    if (!token || !linkPaymentId || !linkUrl) return;
+    setAlimtalkBusy(true);
+    setError(null);
+    void sendCardPaymentAlimtalk(token, linkPaymentId, {
+      payTokenOrUrl: linkUrl,
+      toPhone: alimtalkPhone,
+    })
+      .then((res) => {
+        const sentAt = res.sentAtIso || new Date().toISOString();
+        const masked = res.maskedPhone || alimtalkPreview?.masked || '';
+        setAlimtalkSentAt(sentAt);
+        setAlimtalkMaskedPhone(masked);
+        setAlimtalkConfirmOpen(false);
+        persistLinkSession({
+          paymentId: linkPaymentId,
+          linkUrl,
+          alimtalkSentAt: sentAt,
+          alimtalkMaskedPhone: masked,
+        });
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : '알림톡 발송에 실패했습니다.'))
+      .finally(() => setAlimtalkBusy(false));
+  };
+
+  const alimtalkEnabled = Boolean(alimtalkReady?.ready);
 
   const approveKeyin = (card: TeamKeyinCard) => {
     const token = readToken();
@@ -394,15 +635,40 @@ export function TeamCardPaymentPage() {
 
           {step === 'link' && linkUrl ? (
             <div className="space-y-3 pb-28">
+              <section className="rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-center shadow-sm">
+                <p className="text-fluid-sm font-bold text-amber-900">고객 결제 기다리는 중</p>
+                <p className="mt-1 text-fluid-2xs text-amber-800/80">5초마다 결제 상태를 확인합니다.</p>
+                <p
+                  className="mt-3 tabular-nums text-amber-950"
+                  style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.15 }}
+                >
+                  {formatWon(amountWon)}
+                </p>
+              </section>
               <section className={TEAM_PAY_CARD}>
                 <p className="text-fluid-sm font-bold text-[#0F172A]">결제 링크를 만들었어요</p>
-                {linkDeadline ? (
-                  <p className="mt-1 text-fluid-2xs text-slate-500">유효기한 {linkDeadline}까지</p>
+                <p className="mt-1 text-fluid-2xs text-slate-500">지금 결제해 달라고 안내해 주세요.</p>
+                <label className="mt-3 block">
+                  <span className="text-fluid-2xs text-slate-500">받는 번호</span>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    className="login-field-input mt-1 w-full min-h-11 rounded-xl border border-slate-200 px-3 text-fluid-sm tabular-nums"
+                    value={alimtalkPhone}
+                    onChange={(e) => setAlimtalkPhone(e.target.value)}
+                    placeholder="01012345678"
+                  />
+                </label>
+                {alimtalkSentAt ? (
+                  <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs text-emerald-800">
+                    알림톡을 보냈어요 · {alimtalkMaskedPhone || '번호'} · {formatSentClock(alimtalkSentAt)}
+                  </p>
                 ) : null}
-                <div className="mt-4 rounded-2xl rounded-tl-md bg-[#EFF6FF] px-3.5 py-3 text-fluid-xs leading-relaxed text-slate-800">
-                  <p className="mb-1 text-fluid-2xs font-medium text-[#1D4ED8]">고객 문자 미리보기</p>
-                  <p className="whitespace-pre-wrap break-all">{shareMessage}</p>
-                </div>
+                {!alimtalkEnabled ? (
+                  <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs leading-snug text-slate-600">
+                    {alimtalkReady?.reason || '카카오 승인 대기 중 — 공유·복사로 보내 주세요'}
+                  </p>
+                ) : null}
                 <div className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-[#F4F6FA] px-3 py-2.5">
                   <code className="min-w-0 flex-1 truncate text-fluid-2xs text-slate-700">{linkUrl}</code>
                 </div>
@@ -412,11 +678,21 @@ export function TeamCardPaymentPage() {
                   type="button"
                   variant="primary"
                   size="lg"
+                  disabled={!alimtalkEnabled || alimtalkBusy}
+                  className="h-[54px] w-full rounded-[14px]"
+                  onClick={openAlimtalkConfirm}
+                >
+                  <LineMdIcon name="chat" className="size-4" />
+                  {alimtalkBusy ? '준비 중…' : alimtalkSentAt ? '알림톡 다시 보내기' : '알림톡 보내기'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="lg"
                   className="h-[54px] w-full rounded-[14px]"
                   onClick={() => setShareOpen(true)}
                 >
-                  <LineMdIcon name="chat" className="size-4" />
-                  고객에게 보내기
+                  공유
                 </Button>
                 <Button
                   type="button"
@@ -436,17 +712,21 @@ export function TeamCardPaymentPage() {
 
           {step === 'paid' ? (
             <div className="space-y-3 pb-28">
-              <section className={`${TEAM_PAY_CARD} flex flex-col items-center text-center`}>
+              <section className={`${TEAM_PAY_CARD} flex flex-col items-center text-center border-emerald-200 bg-emerald-50`}>
                 <span className="flex size-14 items-center justify-center rounded-full bg-[#DCFCE7] text-[#15803D]">
                   <LineMdIcon name="confirm" className="size-7" />
                 </span>
-                <p className="mt-3 text-fluid-lg font-bold text-[#0F172A]">결제가 완료됐어요</p>
+                <p className="mt-3 text-fluid-lg font-bold text-emerald-900">
+                  결제 완료 · {formatWon(paidPayment?.amountWon ?? amountWon)}
+                  {paidPayment?.approvalNo ? ` · ${paidPayment.approvalNo}` : ''}
+                </p>
                 <p
-                  className="mt-2 tabular-nums text-[#0F172A]"
+                  className="mt-2 tabular-nums text-emerald-950"
                   style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.2 }}
                 >
                   {formatWon(paidPayment?.amountWon ?? amountWon)}
                 </p>
+                <p className="mt-2 text-fluid-sm font-semibold text-emerald-800">철수해도 돼요</p>
                 {paidMessage ? <p className="mt-1 text-fluid-2xs text-slate-500">{paidMessage}</p> : null}
               </section>
               <section className={TEAM_PAY_CARD}>
@@ -527,9 +807,17 @@ export function TeamCardPaymentPage() {
 
       <TeamCardPaymentShareSheet
         open={shareOpen}
-        phone={customerPhone}
+        phone={alimtalkPhone || customerPhone}
         message={shareMessage}
         onClose={() => setShareOpen(false)}
+      />
+      <TeamCardPaymentAlimtalkConfirm
+        open={alimtalkConfirmOpen}
+        previewText={alimtalkPreview?.text || ''}
+        maskedPhone={alimtalkPreview?.masked || ''}
+        busy={alimtalkBusy}
+        onConfirm={confirmAlimtalkSend}
+        onClose={() => setAlimtalkConfirmOpen(false)}
       />
     </div>
   );

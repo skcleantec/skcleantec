@@ -21,6 +21,11 @@ export const ALIMTALK_TEMPLATE_HELP: Record<AlimtalkTemplateCode, AlimtalkTempla
       '자동 — 브랜드 위약일(무위약 기준일)이 설정된 접수의 **무위약 마감일 당일** 매일 낮 12시(KST), 접수당 1회',
     note: '위약 없이 바꿀 수 있는 마지막 날은 영업브랜드 → 위약금에서 정합니다. 알림톡 화면의 「브랜드 위약금 설정 바로가기」로 이동합니다. 기준일이 없으면 보내지 않습니다.',
   },
+  CBISEO_CUST_PAY_LINK: {
+    where: '팀장·관리 카드결제 → 고객 링크 만든 뒤 「알림톡 보내기」',
+    when: '수동 — 현장 인증결제 링크를 만든 뒤 고객 번호 확인·미리보기 후 발송',
+    note: '카카오 승인·동기화 전이거나 서식이 꺼져 있으면 버튼이 비활성되고 공유·복사로 보낼 수 있습니다.',
+  },
 };
 
 export function formatAlimtalkTemplateHelpText(code: AlimtalkTemplateCode): string {

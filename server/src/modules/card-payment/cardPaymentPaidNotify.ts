@@ -47,11 +47,12 @@ export async function notifyCardPaymentApproved(tenantId: string, inquiryId: str
 
   const pushByUserId: Record<string, StaffAppPushPayload> = {};
   if (payment) {
-    const body = `${payment.customerName.trim() || '고객'} 고객님 ${wonLabel(payment.amountWon)} 결제되었습니다. 철수하셔도 됩니다.`;
+    const name = payment.customerName.trim() || '고객';
+    const body = `${name} 님 ${wonLabel(payment.amountWon)} 결제 완료`;
     for (const id of leaderIds) {
       pushByUserId[id] = {
         kind: 'schedule_alert',
-        title: '카드결재 완료',
+        title: '결제 완료',
         body,
         path: '/team/schedule',
       };
@@ -61,7 +62,7 @@ export async function notifyCardPaymentApproved(tenantId: string, inquiryId: str
       if (row.role !== 'ADMIN' && row.id !== payment.createdById) continue;
       pushByUserId[row.id] = {
         kind: 'schedule_alert',
-        title: '카드결재 완료',
+        title: '결제 완료',
         body,
         path: staffPath,
       };
