@@ -2628,7 +2628,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           className="modal-form-scroll-surface min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
           onFocusCapture={onInquiryEditFieldFocus}
         >
-        <div className="space-y-4">
+        <div className="space-y-4 pb-[min(70dvh,28rem)]">
         {isCreate && isExternalIntakeMode ? (
           <div>
             <label className="block text-sm text-gray-700 mb-1">수기 제목</label>

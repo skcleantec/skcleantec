@@ -1,5 +1,6 @@
-import { useLayoutEffect, useState, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import {
+  INQ_EDIT_EXPAND_EVENT,
   INQUIRY_EDIT_SECTION_ANCHOR_ORDER,
   INQUIRY_EDIT_SECTION_SHORT_LABELS,
   inquiryEditSecDomId,
@@ -7,10 +8,10 @@ import {
 
 /**
  * 접수 수정 — 섹션 이동 목록 (UI 규칙 v2)
- * - 예전 오른쪽 숫자(1~11) 막대와 같은 고정 번호로, 같은 방식(scrollIntoView block:start)으로 이동한다.
- * - 이름을 붙여 보여 주고, 지금 보고 있는 칸을 표시한다.
- * - PC(넓은 창): 창 왼쪽 목록 / 모바일·패널: 머리 아래 가로 칩 줄.
- * - 번호 없는 칸(발주서 추가 정보·내 추가 캘린더·견적서·클레임)은 「·」로 함께 보여 준다.
+ * - PC: 왼쪽 이름 목록 / 모바일·패널: 머리 아래 숫자 칩
+ * - 번호 없는 칸(견적서·클레임 등)은 「·」
+ * - 클릭 시 접힌 칸을 펼치고 제목이 본문 맨 위에 오도록 스크롤
+ * - 클릭 직후 스크롤이 끝날 때까지 활성 표시를 고정(스크롤스파이가 덮어쓰지 않음)
  */
 
 type Props = {
@@ -45,20 +46,52 @@ function readItems(scroller: HTMLElement | null): NavItem[] {
   });
 }
 
-/** 예전 숫자 버튼과 같은 이동: 고정 번호 → `#inq-edit-sec-{anchor}` 맨 위로 (본문 스크롤만) */
-function jumpTo(scroller: HTMLElement, item: NavItem) {
-  const id = item.num != null
-    ? inquiryEditSecDomId(INQUIRY_EDIT_SECTION_ANCHOR_ORDER[item.num - 1]!)
-    : item.domId;
-  const el = scroller.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
+function resolveSectionEl(scroller: HTMLElement, item: NavItem): HTMLElement | null {
+  const id =
+    item.num != null
+      ? inquiryEditSecDomId(INQUIRY_EDIT_SECTION_ANCHOR_ORDER[item.num - 1]!)
+      : item.domId;
+  return scroller.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
+}
+
+/** 접힌 details면 펼침 요청. 높이 변화 여부 반환 */
+function requestExpandSection(el: HTMLElement): boolean {
+  const details = el.querySelector(':scope > details') as HTMLDetailsElement | null;
+  if (!details || details.open) return false;
+  el.dispatchEvent(new Event(INQ_EDIT_EXPAND_EVENT));
+  return true;
+}
+
+function waitFrames(n: number): Promise<void> {
+  return new Promise((resolve) => {
+    const step = (left: number) => {
+      if (left <= 0) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(() => step(left - 1));
+    };
+    step(n);
+  });
+}
+
+/** 본문 스크롤만 — 섹션 제목이 스크롤 영역 맨 위 */
+async function jumpTo(scroller: HTMLElement, item: NavItem): Promise<void> {
+  const el = resolveSectionEl(scroller, item);
   if (!el) return;
-  // scrollIntoView는 바깥 창(overflow-hidden)까지 밀어 올려 머리가 사라지고 아래가 비는 문제가 있어, 본문 스크롤만 움직인다.
+  const didExpand = requestExpandSection(el);
+  if (didExpand) {
+    // React open + 본문 마운트 후 높이 반영
+    await waitFrames(3);
+  }
   scroller.scrollTo({ top: Math.max(0, getScrollYForSection(el, scroller)), behavior: 'auto' });
 }
 
 export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props) {
   const [items, setItems] = useState<NavItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  /** 클릭 직후 스크롤스파이 덮어쓰기 방지 */
+  const pinRef = useRef<{ id: string; until: number } | null>(null);
 
   useLayoutEffect(() => {
     const sc = scrollContainerRef.current;
@@ -73,6 +106,13 @@ export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props
       }
     };
     const onScroll = () => {
+      const pin = pinRef.current;
+      if (pin && Date.now() < pin.until) {
+        setActiveId(pin.id);
+        return;
+      }
+      if (pin) pinRef.current = null;
+
       const sections = collectSections(sc);
       if (sections.length === 0) return;
       const st = sc.scrollTop;
@@ -80,7 +120,10 @@ export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props
       for (const s of sections) {
         if (getScrollYForSection(s, sc) <= st + 24) current = s.id;
       }
-      if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) current = sections[sections.length - 1]!.id;
+      // 맨 아래 여백이 있어도 스크롤 끝이면 마지막 칸 — 핀이 없을 때만
+      if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) {
+        current = sections[sections.length - 1]!.id;
+      }
       setActiveId(current);
     };
     sync();
@@ -97,7 +140,6 @@ export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props
     };
   }, [scrollContainerRef]);
 
-
   if (items.length === 0) return null;
 
   /** 숫자 칸만(모바일 줄). 지금 보는 칸이 번호 없는 칸이면 바로 앞 번호 칸을 표시 */
@@ -111,7 +153,13 @@ export function InquiryEditSectionNav({ scrollContainerRef, wide = true }: Props
   const onPick = (item: NavItem) => {
     const sc = scrollContainerRef.current;
     if (!sc) return;
-    jumpTo(sc, item);
+    pinRef.current = { id: item.domId, until: Date.now() + 1500 };
+    setActiveId(item.domId);
+    void jumpTo(sc, item).then(() => {
+      // 스크롤·펼침 직후에도 잠시 고정
+      pinRef.current = { id: item.domId, until: Date.now() + 500 };
+      setActiveId(item.domId);
+    });
   };
 
   return (

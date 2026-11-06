@@ -58,3 +58,6 @@ export function getInquiryEditSectionNumber(anchor: string | undefined): number 
 export function inquiryEditSecDomId(anchor: string): string {
   return `inq-edit-sec-${anchor}`;
 }
+
+/** 섹션 네비 클릭 → 접힌 `<details>` 펼침 (AdminScheduleDetailSection이 수신) */
+export const INQ_EDIT_EXPAND_EVENT = 'inq-edit-expand';
