@@ -1,4 +1,4 @@
-import type { FormEvent, ReactNode } from 'react';
+﻿import type { FormEvent, ReactNode } from 'react';
 import type { PgOnboardingRow } from '../../../api/cardPayment';
 import { TENANT_PG_ONBOARDING_STATUS_LABEL, type TenantPgOnboardingStatus } from '@shared/cardPayment';
 import { LineMdIcon } from '../../ui/LineMdIcon';
@@ -186,7 +186,7 @@ export function PgOnboardingForm({
       <section className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
         <p className="text-fluid-xs font-medium text-slate-800">신청 서비스</p>
         <p className="mt-1 text-fluid-sm text-slate-900">수기결제, 인증결제</p>
-        <p className="mt-1 text-fluid-2xs text-slate-500">가맹점 카드결재는 이 두 가지입니다. 다른 결제 채널은 신청하지 않습니다.</p>
+        <p className="mt-1 text-fluid-2xs text-slate-500">가맹점 카드결제는 이 두 가지입니다. 다른 결제 채널은 신청하지 않습니다.</p>
       </section>
 
       {value.businessKind === 'CORPORATE' ? (
@@ -267,7 +267,7 @@ export function PgOnboardingForm({
           title="이용 안내"
           onChange={(on) => setConsent('consentTerms', on)}
         >
-          청소 대금의 수기결제와 인증결제를 받기 위해 가맹을 신청합니다. 신청 내용은 청소비서가 원성페이먼츠에 전달하고, 심사가 끝나기 전에는 팀장이 카드결재를 쓸 수 없습니다.
+          청소 대금의 수기결제와 인증결제를 받기 위해 가맹을 신청합니다. 신청 내용은 청소비서가 원성페이먼츠에 전달하고, 심사가 끝나기 전에는 팀장이 카드결제를 쓸 수 없습니다.
         </ConsentRow>
         <ConsentRow
           required

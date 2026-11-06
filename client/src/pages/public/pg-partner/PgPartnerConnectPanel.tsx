@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
 
@@ -97,7 +97,7 @@ export function PgPartnerConnectPanel({ onboardingId, onSaved }: { onboardingId:
               return;
             }
             if (!res.ok) throw new Error(body?.error || '연동하지 못했습니다.');
-            setDone('연동했습니다. 이 업체 팀장이 카드결재를 쓸 수 있습니다.');
+            setDone('연동했습니다. 이 업체 팀장이 카드결제를 쓸 수 있습니다.');
             onSaved();
           })
           .catch((err: unknown) => setError(err instanceof Error ? err.message : '연동하지 못했습니다.'))

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { PgConnectionSheet, type SellerCenterView } from '../../../components/admin/card-payment/PgConnectionSheet';
@@ -101,7 +101,7 @@ function AdminCardPaymentPgInner() {
               : view === '반려'
                 ? '신청이 반려되었습니다. 내용을 고쳐 다시 신청할 수 있습니다.'
                 : view === '해제'
-                  ? '가맹 연결이 해제되었습니다. 카드결재를 받을 수 없습니다.'
+                  ? '가맹 연결이 해제되었습니다. 카드결제를 받을 수 없습니다.'
                   : '아직 PG가 연결되지 않았습니다.';
 
   const uploadRegistration = async (file: File) => {

@@ -1,4 +1,4 @@
-/** 카드결재 목록 시각. 서버는 UTC ISO를 주고, 화면은 한국시간으로 보여 준다. */
+/** 카드결제 목록 시각. 서버는 UTC ISO를 주고, 화면은 한국시간으로 보여 준다. */
 export function formatCardPaymentKst(iso: string | null | undefined): string {
   if (!iso) return '—';
   const date = new Date(iso);

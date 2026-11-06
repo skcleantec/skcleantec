@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { matchPath, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { resolveEffectiveStaffAdminFromMe, canBulkDeleteInquiriesFromMe } from '../../utils/staffAdminAccess';
@@ -60,7 +60,7 @@ export function AdminTeamLeadersLayout() {
     const skMail = tenantSlug === 'sk' || tenantSlug === 'skcleanteck';
     const withoutCard = pgConnected
       ? ADMIN_TEAM_LEADERS_NAV_ITEMS
-      : ADMIN_TEAM_LEADERS_NAV_ITEMS.filter((item) => item.type !== 'group' || item.label !== '카드결재');
+      : ADMIN_TEAM_LEADERS_NAV_ITEMS.filter((item) => item.type !== 'group' || item.label !== '카드결제');
     const source = skMail
       ? withoutCard
       : withoutCard.map((item) =>

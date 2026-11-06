@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import type { TenantPgCredentialSlot } from '../../../api/cardPayment';
 import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
 import { LineMdIcon } from '../../ui/LineMdIcon';
@@ -72,12 +72,12 @@ export function PgConnectionSheet({
         {cell('접속주소', seller?.portalUrl || 'https://wspay.net')}
         {cell('아이디', seller?.loginId || '')}
         {cell('비밀번호', seller?.password || '')}
-        {cell('수기결재', slotLine(keyin))}
-        {cell('인증결재', slotLine(link))}
+        {cell('수기결제', slotLine(keyin))}
+        {cell('인증결제', slotLine(link))}
       </div>
       {openError ? <p className="border-t border-red-100 px-3 py-2 text-fluid-2xs text-red-700">{openError}</p> : null}
       <p className="border-t border-slate-100 px-3 py-2 text-fluid-2xs leading-snug text-slate-500">
-        원성페이접속을 누르면 새 창에서 위 아이디로 판매자센터에 로그인됩니다. 당일 결재만 취소할 수 있습니다.
+        원성페이접속을 누르면 새 창에서 위 아이디로 판매자센터에 로그인됩니다. 당일 결제만 취소할 수 있습니다.
       </p>
     </section>
   );

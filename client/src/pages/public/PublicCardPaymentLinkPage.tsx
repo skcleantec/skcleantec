@@ -21,7 +21,7 @@ export function PublicCardPaymentLinkPage() {
 
   if (!data) {
     return (
-      <div className="min-h-dvh bg-[#f3f5f8] px-4 py-10 text-sm text-[#6b7280] dark:bg-[#0d1117]">
+      <div className="min-h-dvh bg-[#F4F6FA] px-4 py-10 text-fluid-xs text-[#64748B]">
         {error ?? '결제 정보를 불러오는 중입니다.'}
       </div>
     );

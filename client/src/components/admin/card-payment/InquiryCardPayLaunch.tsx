@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+﻿import { useCallback, useState } from 'react';
 import { fetchCardPaymentPrefill } from '../../../api/cardPayment';
 import { TeamCardPaymentPgRequiredDialog } from '../../team/card-payment/TeamCardPaymentPgRequiredDialog';
 import { STAFF_INQUIRY_CARD_PAY_PATH } from '../../../constants/teamCardPayment';
@@ -36,7 +36,7 @@ export function InquiryCardPayLaunch({ inquiryId, token }: { inquiryId: string; 
         disabled={checking}
         className="flex min-h-10 w-full items-center justify-center rounded-lg bg-slate-900 px-3 text-fluid-xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
       >
-        {checking ? '확인 중' : '카드결재'}
+        {checking ? '확인 중' : '카드결제'}
       </button>
       <TeamCardPaymentPgRequiredDialog open={pgRequired} onClose={() => setPgRequired(false)} />
     </>
