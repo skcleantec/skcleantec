@@ -4,7 +4,10 @@ import {
   allowedPreferredTimeDetailValues,
   configuredTimeDetailsForOrder,
 } from '../../../constants/orderFormPreferredTimeDetail';
-import { validateOrderFormSpaceCounts } from '@shared/orderFormSpaceCounts';
+import {
+  validateOrderFormSpaceCountFields,
+  validateOrderFormSpaceCounts,
+} from '@shared/orderFormSpaceCounts';
 import {
   normalizeOrderFormYmd,
   parseMoveInTiming,
@@ -63,8 +66,9 @@ export function validateCustomerStep(args: {
       }
       const addressLockedByPrefill =
         isCustomerAddressLocked(isEditor, prefill) && isRealCustomerAddress(form.address);
-      const viaSearch = addressLockedByPrefill || addressConfirmedViaSearch;
-      if (!isEditor && !viaSearch && isRealCustomerAddress(form.address)) {
+      const viaSearch =
+        addressLockedByPrefill || addressConfirmedViaSearch || isRealCustomerAddress(form.address);
+      if (!isEditor && !viaSearch) {
         return '「주소 검색」 버튼으로 주소를 선택해 주세요.';
       }
       if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
@@ -152,15 +156,20 @@ export function validateCustomerStep(args: {
       }
       return null;
     }
-    case 'rooms':
-      return (
-        validateOrderFormSpaceCounts({
-          roomCount: form.roomCount,
-          balconyCount: form.balconyCount,
-          bathroomCount: form.bathroomCount,
-          kitchenCount: form.kitchenCount,
-        }) ?? null
-      );
+    case 'rooms': {
+      const spaceSource = {
+        roomCount: form.roomCount,
+        balconyCount: form.balconyCount,
+        bathroomCount: form.bathroomCount,
+        kitchenCount: form.kitchenCount,
+      };
+      const fieldErrors = validateOrderFormSpaceCountFields(spaceSource);
+      const missing = Object.values(fieldErrors).filter(Boolean);
+      if (missing.length > 1) {
+        return missing.join(' ');
+      }
+      return validateOrderFormSpaceCounts(spaceSource) ?? null;
+    }
     case 'building':
       return form.buildingType
         ? null

@@ -7,7 +7,7 @@ import { OrderFormPlatformFooter } from '../OrderFormPlatformFooter';
 import { useLoginScrollSurface } from '../../../hooks/useMobileInputVisibility';
 import { validateCustomerStep } from './validateCustomerStep';
 import { WIZARD_CTA_CLS, WIZARD_SECONDARY_CLS } from './wizardUi';
-import type { CustomerWizardShared } from './customerStepTypes';
+import type { CustomerStepBodyProps, CustomerWizardShared } from './customerStepTypes';
 import type { OrderFormCustomerStep } from './orderFormCustomerSteps';
 import { WelcomeStep, NameStep, PhonesStep, EmailStep, NotesStep } from './steps/WelcomeAndInputSteps';
 import {
@@ -36,7 +36,7 @@ import type { PublicOperatingCompanyBranding, PublicOrderFormCompanyTrust } from
 const PREVIEW_CTA_CLS =
   'w-full min-h-10 rounded-lg bg-slate-900 py-2 text-fluid-xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-45 disabled:pointer-events-none';
 
-function StepBody(props: CustomerWizardShared & { step: OrderFormCustomerStep }) {
+function StepBody(props: CustomerStepBodyProps) {
   switch (props.step.id) {
     case 'welcome':
       return null;
@@ -313,7 +313,13 @@ export function OrderFormCustomerWizard({
                 lines={currentStep.lines}
               />
             ) : (
-              <StepBody {...shared} step={currentStep} goNext={goNext} goTo={shared.goTo} />
+              <StepBody
+                {...shared}
+                step={currentStep}
+                fieldErrorsActive={Boolean(stepError)}
+                goNext={goNext}
+                goTo={shared.goTo}
+              />
             )}
           </div>
 

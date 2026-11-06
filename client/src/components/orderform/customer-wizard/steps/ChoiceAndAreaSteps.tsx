@@ -8,7 +8,15 @@ import { isOrderTimeSlotValue, resolvePreferredTimeSlotForDetail } from '@shared
 import { YmdSelect } from '../../../ui/DateQuerySelects';
 import { kstTodayYmd } from '../../../../utils/dateFormat';
 import { normalizeOrderFormYmd } from '@shared/orderFormMoveInTiming';
-import { ORDER_FORM_SPACE_COUNT_FIELDS, ORDER_FORM_SPACE_COUNT_HINT } from '@shared/orderFormSpaceCounts';
+import {
+  ORDER_FORM_SPACE_COUNT_DEFAULT_ZERO_KEYS,
+  ORDER_FORM_SPACE_COUNT_FIELDS,
+  ORDER_FORM_SPACE_COUNT_HINT,
+  parseOrderFormSpaceCount,
+  validateOrderFormSpaceCountFields,
+  type OrderFormSpaceCountKey,
+} from '@shared/orderFormSpaceCounts';
+import { Button } from '../../../ui/Button';
 import { isOrderFormSpaceCountLocked } from '../../../../pages/order/orderFormFieldVisibility';
 import {
   AREA_BASIS_COST_WARNING,
@@ -321,12 +329,46 @@ export function AreaStep({
   );
 }
 
-export function RoomsStep({ form, setForm, order, step }: CustomerStepBodyProps) {
+export function RoomsStep({ form, setForm, order, step, fieldErrorsActive }: CustomerStepBodyProps) {
+  useEffect(() => {
+    setForm((f) => {
+      let changed = false;
+      const next = { ...f };
+      for (const key of ORDER_FORM_SPACE_COUNT_DEFAULT_ZERO_KEYS) {
+        if (!String(f[key] ?? '').trim()) {
+          next[key] = '0';
+          changed = true;
+        }
+      }
+      return changed ? next : f;
+    });
+  }, [setForm]);
+
+  const fieldErrors = fieldErrorsActive
+    ? validateOrderFormSpaceCountFields({
+        roomCount: form.roomCount,
+        balconyCount: form.balconyCount,
+        bathroomCount: form.bathroomCount,
+        kitchenCount: form.kitchenCount,
+      })
+    : {};
+
+  const bump = (key: OrderFormSpaceCountKey, delta: number) => {
+    setForm((f) => {
+      const cur = parseOrderFormSpaceCount(f[key]);
+      const base = cur ?? (ORDER_FORM_SPACE_COUNT_DEFAULT_ZERO_KEYS.includes(key) ? 0 : 0);
+      const next = Math.max(0, base + delta);
+      return { ...f, [key]: String(next) };
+    });
+  };
+
   return (
     <WizardQuestion title={step.title} hint={step.hint ?? ORDER_FORM_SPACE_COUNT_HINT}>
       <div className="grid grid-cols-2 gap-3">
         {ORDER_FORM_SPACE_COUNT_FIELDS.map(({ key, label }) => {
           const locked = isOrderFormSpaceCountLocked(false, order?.prefillAnswers, key);
+          const err = fieldErrors[key];
+          const display = form[key];
           return (
             <div key={key}>
               <label
@@ -335,15 +377,47 @@ export function RoomsStep({ form, setForm, order, step }: CustomerStepBodyProps)
               >
                 {label}
               </label>
-              <input
-                id={`order-field-${key}`}
-                inputMode="numeric"
-                className={WIZARD_INPUT_CLS}
-                value={form[key]}
-                disabled={locked}
-                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                placeholder="0"
-              />
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="lg"
+                  icon
+                  disabled={locked}
+                  aria-label={`${label} 감소`}
+                  onClick={() => bump(key, -1)}
+                  className="shrink-0"
+                >
+                  −
+                </Button>
+                <input
+                  id={`order-field-${key}`}
+                  inputMode="numeric"
+                  className={`${WIZARD_INPUT_CLS} min-w-0 flex-1 text-center tabular-nums ${
+                    err ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : ''
+                  }`}
+                  value={display}
+                  disabled={locked}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^\d]/g, '');
+                    setForm((f) => ({ ...f, [key]: raw }));
+                  }}
+                  placeholder="-"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="lg"
+                  icon
+                  disabled={locked}
+                  aria-label={`${label} 증가`}
+                  onClick={() => bump(key, 1)}
+                  className="shrink-0"
+                >
+                  +
+                </Button>
+              </div>
+              {err ? <p className="mt-1 text-fluid-2xs font-medium text-red-600">{err}</p> : null}
             </div>
           );
         })}

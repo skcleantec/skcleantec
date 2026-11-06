@@ -1,15 +1,18 @@
 import { useEffect, useRef } from 'react';
 import type { ProfessionalOptionSelection } from '../constants/professionalSpecialtyOptions';
 import type { OrderFormFields } from '../pages/order/orderFormModel.types';
+import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
 
 const DRAFT_PREFIX = 'orderFormDraft:';
 
 type OrderFormCustomerDraft = {
-  v: 1;
+  /** v2: addressConfirmedViaSearch 포함 */
+  v: 1 | 2;
   form: OrderFormFields;
   customAnswers: Record<string, unknown>;
   profSelections: ProfessionalOptionSelection[];
   guideTermsAt: string | null;
+  addressConfirmedViaSearch?: boolean;
 };
 
 function draftKey(token: string): string {
@@ -22,17 +25,20 @@ export function readOrderFormCustomerDraft(token: string): OrderFormCustomerDraf
     const raw = sessionStorage.getItem(draftKey(token));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as OrderFormCustomerDraft;
-    if (!parsed || parsed.v !== 1 || !parsed.form) return null;
+    if (!parsed || (parsed.v !== 1 && parsed.v !== 2) || !parsed.form) return null;
     return parsed;
   } catch {
     return null;
   }
 }
 
-export function writeOrderFormCustomerDraft(token: string, draft: Omit<OrderFormCustomerDraft, 'v'>): void {
+export function writeOrderFormCustomerDraft(
+  token: string,
+  draft: Omit<OrderFormCustomerDraft, 'v'> & { addressConfirmedViaSearch?: boolean },
+): void {
   if (!token || typeof sessionStorage === 'undefined') return;
   try {
-    const payload: OrderFormCustomerDraft = { v: 1, ...draft };
+    const payload: OrderFormCustomerDraft = { v: 2, ...draft };
     sessionStorage.setItem(draftKey(token), JSON.stringify(payload));
   } catch {
     /* quota / private mode */
@@ -46,6 +52,12 @@ export function clearOrderFormCustomerDraft(token: string): void {
   } catch {
     /* ignore */
   }
+}
+
+/** 초안에 도로명이 있으면 검색 확정으로 본다(경고·상세 초기화 방지). */
+export function draftAddressConfirmedViaSearch(draft: OrderFormCustomerDraft): boolean {
+  if (draft.addressConfirmedViaSearch === true) return true;
+  return isRealCustomerAddress(draft.form?.address ?? '');
 }
 
 /** 서버 로드 이후 초안을 빈 칸에만 덮어씀(선입력·잠금 값은 유지). */
@@ -87,8 +99,17 @@ export function useOrderFormCustomerDraftPersist(args: {
   customAnswers: Record<string, unknown>;
   profSelections: ProfessionalOptionSelection[];
   guideTermsAt: string | null;
+  addressConfirmedViaSearch?: boolean;
 }): void {
-  const { token, enabled, form, customAnswers, profSelections, guideTermsAt } = args;
+  const {
+    token,
+    enabled,
+    form,
+    customAnswers,
+    profSelections,
+    guideTermsAt,
+    addressConfirmedViaSearch,
+  } = args;
   const readyRef = useRef(false);
   useEffect(() => {
     if (!enabled || !token) return;
@@ -105,6 +126,7 @@ export function useOrderFormCustomerDraftPersist(args: {
       customAnswers,
       profSelections,
       guideTermsAt: null,
+      addressConfirmedViaSearch: Boolean(addressConfirmedViaSearch),
     });
-  }, [enabled, token, form, customAnswers, profSelections, guideTermsAt]);
+  }, [enabled, token, form, customAnswers, profSelections, guideTermsAt, addressConfirmedViaSearch]);
 }
