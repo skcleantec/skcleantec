@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
@@ -414,7 +414,7 @@ function DeleteMerchantModal({
           }}
         >
           <p className="text-fluid-xs leading-snug text-slate-700">
-            {name}의 가맹 연결을 끊습니다. 업체와 지난 결제 내역은 남고, 다시 카드결재를 받으려면 코드를 새로 연결해야 합니다.
+            {name}의 가맹 연결을 끊습니다. 업체와 지난 결제 내역은 남고, 다시 카드결제를 받으려면 코드를 새로 연결해야 합니다.
           </p>
           <label className="block text-fluid-xs text-slate-600">
             비밀번호

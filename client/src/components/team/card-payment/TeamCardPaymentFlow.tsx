@@ -71,7 +71,7 @@ export function TeamCardPaymentMethodStep({
         onClick={() => onPick('PAY_WINDOW')}
         className="flex min-h-12 flex-col items-center justify-center rounded-xl bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
       >
-        <span className="text-fluid-sm font-semibold">결제창에서 결재</span>
+        <span className="text-fluid-sm font-semibold">결제창에서 결제</span>
         <span className="text-fluid-2xs font-normal text-slate-200">인증결제 · 카드번호는 그 창에 입력</span>
       </button>
       <button
@@ -80,7 +80,7 @@ export function TeamCardPaymentMethodStep({
         onClick={() => onPick('KEYIN')}
         className="flex min-h-12 flex-col items-center justify-center rounded-xl bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
       >
-        <span className="text-fluid-sm font-semibold">수기결재 준비</span>
+        <span className="text-fluid-sm font-semibold">수기결제 준비</span>
         <span className="text-fluid-2xs font-normal text-slate-200">카드번호는 이 화면에 입력하지 않음</span>
       </button>
       <button

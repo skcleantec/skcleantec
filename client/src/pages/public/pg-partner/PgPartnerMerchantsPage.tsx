@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clearPgPartnerToken, readPgPartnerToken } from './pgPartnerSession';
 import { PgPartnerModal } from './PgPartnerModal';
@@ -199,7 +199,7 @@ function MerchantModal({ tenantId, onClose }: { tenantId: string; onClose: () =>
             }
             void Promise.all(jobs)
               .then(() => {
-                setDone(detail.role === 'AGENCY' ? '저장했습니다. 이용료 카드결재에 반영됩니다.' : '저장했습니다. 팀장 카드결재에 바로 반영됩니다.');
+                setDone(detail.role === 'AGENCY' ? '저장했습니다. 이용료 카드결제에 반영됩니다.' : '저장했습니다. 팀장 카드결제에 바로 반영됩니다.');
                 setReloadKey((n) => n + 1);
               })
               .catch((err: unknown) => setError(err instanceof Error ? err.message : '저장하지 못했습니다.'))

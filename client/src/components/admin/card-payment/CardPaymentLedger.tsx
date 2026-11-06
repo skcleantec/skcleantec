@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   cancelCardPayment,
@@ -155,7 +155,7 @@ export function CardPaymentLedger() {
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
       <div className="rounded-xl border border-slate-200 bg-white p-2 sm:p-4">
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-slate-600">
-          시각은 한국시간입니다. 오늘 링크 결제는 결제 취소로 바로 취소되고, 수기와 지난 결제는 취소 요청을 올립니다. 결재완료와 취소 건은 삭제할 수 없습니다.
+          시각은 한국시간입니다. 오늘 링크 결제는 결제 취소로 바로 취소되고, 수기와 지난 결제는 취소 요청을 올립니다. 결제완료와 취소 건은 삭제할 수 없습니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {PRESETS.map((p) => (
@@ -175,7 +175,7 @@ export function CardPaymentLedger() {
           <div className="mt-2 flex flex-wrap gap-1">
             {[
               { id: '', label: '전체' },
-              { id: 'APPROVED', label: '결재완료' },
+              { id: 'APPROVED', label: '결제완료' },
               { id: 'PENDING', label: '대기' },
               { id: 'LINK_SENT', label: '결제 대기' },
               { id: 'DRAFT', label: '작성 대기' },
@@ -223,7 +223,7 @@ export function CardPaymentLedger() {
         {cancelError ? <p className="px-2 pb-2 text-fluid-xs text-red-700">{cancelError}</p> : null}
         {confirmRow ? (
           <InlineConfirm
-            question="이 인증결재를 전액 취소할까요?"
+            question="이 인증결제를 전액 취소할까요?"
             confirmLabel="전액 취소"
             busy={cancellingId === confirmRow.id}
             onConfirm={runDirectCancel}

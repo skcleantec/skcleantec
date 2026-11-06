@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 import { openPaymentKakao, openPaymentSms } from '../../../utils/cardPaymentShare';
 import { copyTextToClipboard } from '../../../utils/clipboard';
-import { TEAM_PAY_BTN, TEAM_PAY_DIALOG, TEAM_PAY_OVERLAY } from './teamCardPaymentUi';
+import { TEAM_PAY_BTN_GHOST, TEAM_PAY_BTN_NAVY, TEAM_PAY_DIALOG, TEAM_PAY_OVERLAY } from './teamCardPaymentUi';
 
 export function TeamCardPaymentShareSheet({
   open,
@@ -33,8 +33,8 @@ export function TeamCardPaymentShareSheet({
       <div className={TEAM_PAY_DIALOG} role="dialog" aria-modal="true" aria-labelledby="team-card-share-title">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p id="team-card-share-title" className="text-fluid-sm font-semibold text-slate-900">
-              공유하기
+            <p id="team-card-share-title" className="text-fluid-sm font-semibold text-[#0F172A]">
+              고객에게 보내기
             </p>
             <p className="mt-1 text-fluid-2xs leading-snug text-slate-500">보낼 앱을 고르면 그 화면으로 이동합니다.</p>
           </div>
@@ -50,18 +50,18 @@ export function TeamCardPaymentShareSheet({
         <div className="mt-4 grid gap-2">
           <button
             type="button"
-            className={`${TEAM_PAY_BTN} bg-slate-900 text-white hover:bg-slate-800`}
+            className={TEAM_PAY_BTN_NAVY}
             onClick={() => {
               openPaymentSms(phone, message);
               onClose();
             }}
           >
             <LineMdIcon name="phone" className="size-4" />
-            문자
+            문자로 보내기
           </button>
           <button
             type="button"
-            className={`${TEAM_PAY_BTN} border border-slate-300 bg-white text-slate-900 hover:bg-slate-50`}
+            className={TEAM_PAY_BTN_GHOST}
             onClick={() => {
               void copyTextToClipboard(message).finally(() => {
                 openPaymentKakao(message);
@@ -69,7 +69,7 @@ export function TeamCardPaymentShareSheet({
               });
             }}
           >
-            카카오톡
+            카카오톡으로 보내기
           </button>
         </div>
       </div>

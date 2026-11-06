@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { TEAM_PAY_DIALOG, TEAM_PAY_OVERLAY } from './teamCardPaymentUi';
 
-/** PG가 연결되지 않은 업체에서 카드결재를 눌렀을 때. */
+/** PG가 연결되지 않은 업체에서 카드결제를 눌렀을 때. */
 export function TeamCardPaymentPgRequiredDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
   return createPortal(
@@ -14,7 +14,7 @@ export function TeamCardPaymentPgRequiredDialog({ open, onClose }: { open: boole
         onClick={(e) => e.stopPropagation()}
       >
         <p id="team-card-pg-required-title" className="text-fluid-sm font-semibold text-slate-900">
-          카드결재
+          카드결제
         </p>
         <p className="mt-2 text-fluid-xs leading-snug text-slate-700">PG사 신청 후 사용 가능합니다.</p>
         <button

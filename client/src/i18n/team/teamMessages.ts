@@ -320,14 +320,14 @@ export const teamMessages = {
   'team.crewAddress.copyFail': { ko: '복사 실패' },
   'team.crewAddress.empty': { ko: '등록된 주소가 없습니다.' },
 
-  'team.modal.cardPayment': { ko: '카드결재' },
+  'team.modal.cardPayment': { ko: '카드결제' },
   'team.modal.cardPaymentTitle': {
-    ko: 'PG가 연결된 업체만 카드결재를 엽니다. 연결 전에는 신청 안내가 나옵니다.',
+    ko: 'PG가 연결된 업체만 카드결제를 엽니다. 연결 전에는 신청 안내가 나옵니다.',
   },
-  'team.cardPayment.pageTitle': { ko: '카드결재' },
-  'team.cardPayment.heading': { ko: '카드결재' },
+  'team.cardPayment.pageTitle': { ko: '카드결제' },
+  'team.cardPayment.heading': { ko: '카드결제' },
   'team.cardPayment.body': {
-    ko: '수기결재 또는 인증결재를 고릅니다.',
+    ko: '수기결제 또는 인증결제를 고릅니다.',
   },
   'team.cardPayment.redirecting': { ko: '이동 중…' },
   'team.cardPayment.redirectFailed': { ko: '자동 이동이 차단되었을 수 있습니다. 아래 버튼을 눌러 주세요.' },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 
@@ -47,11 +47,11 @@ export function CardPaymentDeleteDialog({
           onFocusCapture={onFieldFocus}
         >
           <h2 id="card-payment-delete-title" className="text-fluid-sm font-semibold text-slate-900">
-            결재 삭제
+            결제 삭제
           </h2>
           <p className="mt-2 text-fluid-xs leading-snug text-slate-600">
-            {customerName ? `${customerName} 결재 건을 지웁니다. ` : ''}
-            결재완료와 취소 건은 지울 수 없습니다. 본인 비밀번호를 입력해 주세요.
+            {customerName ? `${customerName} 결제 건을 지웁니다. ` : ''}
+            결제완료와 취소 건은 지울 수 없습니다. 본인 비밀번호를 입력해 주세요.
           </p>
           <input
             type="password"

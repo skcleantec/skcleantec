@@ -1,6 +1,6 @@
 import { formatWon } from '@shared/cardPayment';
 
-/** 고객이 문자·카카오톡에서 그대로 읽는 인증결재 안내. */
+/** 고객이 문자·카카오톡에서 그대로 읽는 인증결제 안내. */
 export function buildCardPaymentShareMessage(input: {
   companyName?: string;
   includeCompanyName?: boolean;
@@ -15,7 +15,7 @@ export function buildCardPaymentShareMessage(input: {
   const company = input.includeCompanyName === false ? '' : (input.companyName ?? '').trim();
   const lines = ['안녕하세요?'];
   if (company) lines.push(`${company}입니다.`);
-  lines.push(`${word}비용 결재부탁드립니다.`);
+  lines.push(`${word}비용 결제부탁드립니다.`);
   lines.push('');
   lines.push(`${word}비용 : ${formatWon(input.cleaningWon)}`);
   lines.push(`예약금 : ${formatWon(input.depositWon)}`);
@@ -25,7 +25,7 @@ export function buildCardPaymentShareMessage(input: {
   }
   lines.push('');
   lines.push('감사합니다.');
-  lines.push('아래 링크를 통해 결재해 주세요.');
+  lines.push('아래 링크를 통해 결제해 주세요.');
   if (input.linkUrl.trim()) lines.push(input.linkUrl.trim());
   return lines.join('\n');
 }
