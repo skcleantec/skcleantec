@@ -13,6 +13,7 @@ import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { formatYmdDot, shiftPayrollCyclePayYmd } from '../../utils/payrollCycleClient';
+import { CREW_CARD } from './crewUi';
 
 export function CrewHomePage() {
   const outlet = useOutletContext<CrewLayoutContext | undefined>();
@@ -146,39 +147,56 @@ export function CrewHomePage() {
 
   if (!outlet) {
     return (
-      <p className="text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-4">
-        화면 레이아웃을 불러오지 못했습니다. 상단 메뉴를 눌러 다시 시도하거나 페이지를 새로고침해 주세요.
+      <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-[13px] text-gray-600">
+        <CrewBiLine id="crew.common.outletMissing" />
       </p>
     );
   }
 
   if (!me) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-[13px] text-gray-500">
         <CrewBiLine id="crew.common.loading" />
       </p>
     );
   }
 
   return (
-    <div className="min-w-0">
-      <section className="mb-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
-          <h2 className="text-sm font-semibold text-slate-900 shrink-0">사무실 공지</h2>
+    <div className="min-w-0 space-y-3">
+      <section className={`${CREW_CARD} min-w-0 px-3 py-3`}>
+        <div className="mb-2 flex min-w-0 items-center gap-2">
+          <span
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-[#0F172A]"
+            aria-hidden
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </span>
+          <h2 className="min-w-0 flex-1 text-[14px] font-semibold text-[#0F172A]">
+            <CrewBiLine id="crew.home.noticeTitle" />
+          </h2>
           {staffNoticesLoading ? (
-            <span className="text-[11px] text-slate-400 truncate">불러오는 중…</span>
+            <span className="truncate text-[12px] text-slate-400">
+              <CrewBiLine id="crew.common.loading" />
+            </span>
           ) : null}
         </div>
         {!staffNoticesLoading && staffNotices.length === 0 ? (
-          <p className="text-xs text-slate-500">등록된 공지가 없습니다.</p>
+          <p className="text-[12px] text-slate-500">
+            <CrewBiLine id="crew.home.noticeEmpty" />
+          </p>
         ) : staffNoticesLoading && staffNotices.length === 0 ? (
-          <p className="text-xs text-slate-500">불러오는 중…</p>
+          <p className="text-[12px] text-slate-500">
+            <CrewBiLine id="crew.common.loading" />
+          </p>
         ) : (
-          <ul className="space-y-2 max-h-52 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+          <ul className="max-h-52 space-y-2 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
             {staffNotices.map((n) => (
-              <li key={n.id} className="rounded-lg border border-slate-100 bg-slate-50/90 px-2.5 py-2 text-xs min-w-0">
-                <p className="font-medium text-slate-800 whitespace-pre-wrap break-words">{n.content}</p>
-                <p className="mt-1 text-[11px] text-slate-500 tabular-nums truncate" title={n.sender.name}>
+              <li key={n.id} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/90 px-2.5 py-2 text-[12px]">
+                <p className="whitespace-pre-wrap break-words font-medium text-slate-800">{n.content}</p>
+                <p className="mt-1 truncate text-[12px] tabular-nums text-slate-500" title={n.sender.name}>
                   {n.sender.name} · {formatDateTimeCompactWithWeekday(n.createdAt)}
                 </p>
               </li>
@@ -187,20 +205,20 @@ export function CrewHomePage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-indigo-100/80 bg-gradient-to-b from-indigo-50/40 via-white to-white shadow-[0_4px_24px_-4px_rgba(79,70,229,0.12)] overflow-hidden">
+      <section className={`${CREW_CARD} overflow-hidden`}>
         {payDayGroups.length > 0 ? (
-          <div className="px-3 pt-2.5 pb-2 border-b border-indigo-100/60 bg-white/70 backdrop-blur-sm">
-            <div className="flex flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] pb-0.5">
+          <div className="border-b border-slate-100 bg-slate-50/60 px-3 pb-2 pt-2.5">
+            <div className="flex flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch]">
               {payDayGroups.map((day) => {
                 const active = selectedPayDay === day;
                 return (
                   <button
                     key={day}
                     type="button"
-                    className={`shrink-0 rounded-lg border px-2.5 py-1 text-[0.65rem] font-medium transition-colors ${
+                    className={`min-h-11 shrink-0 rounded-xl border px-3 text-[12px] font-semibold transition-colors ${
                       active
-                        ? 'border-indigo-600 bg-indigo-600 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'border-[#0F172A] bg-[#0F172A] text-white'
+                        : 'border-slate-200 bg-white text-slate-700'
                     }`}
                     onClick={() => {
                       setSelectedPayDay(day);
@@ -216,29 +234,24 @@ export function CrewHomePage() {
           </div>
         ) : null}
 
-        <div className="px-3 py-2.5 flex items-center gap-2 min-w-0 border-b border-indigo-100/60 bg-white/70 backdrop-blur-sm">
+        <div className="flex min-w-0 items-center gap-2 border-b border-slate-100 px-3 py-2.5">
           <button
             type="button"
-            className="shrink-0 w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center text-sm disabled:opacity-40"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-[15px] text-slate-600 disabled:opacity-40"
             aria-label={t('crew.home.prevMonthAria')}
             disabled={!canShiftCycle || statsLoading}
             onClick={() => shiftCycle(-1)}
           >
             ‹
           </button>
-          <div className="flex-1 min-w-0 text-center">
-            <div className="text-[0.68rem] font-semibold text-slate-900 tabular-nums truncate" title={periodLabel}>
+          <div className="min-w-0 flex-1 text-center">
+            <div className="truncate text-[13px] font-semibold tabular-nums text-[#0F172A]" title={periodLabel}>
               {periodLabel || '—'}
             </div>
-            {selectedPayDay != null ? (
-              <div className="text-[0.58rem] text-slate-500 mt-0.5">
-                {t('crew.home.payDayGroupLabel', { day: String(selectedPayDay) })}
-              </div>
-            ) : null}
           </div>
           <button
             type="button"
-            className="shrink-0 w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center text-sm disabled:opacity-40"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-[15px] text-slate-600 disabled:opacity-40"
             aria-label={t('crew.home.nextMonthAria')}
             disabled={!canShiftCycle || statsLoading}
             onClick={() => shiftCycle(1)}
@@ -247,17 +260,17 @@ export function CrewHomePage() {
           </button>
         </div>
 
-        <div className="px-3 py-3 space-y-3">
-          <h3 className="text-[0.7rem] font-semibold text-slate-800">
+        <div className="space-y-3 px-3 py-3">
+          <h3 className="text-[13px] font-semibold text-[#0F172A]">
             <CrewBiLine id="crew.home.statsTitle" koClassName="font-semibold" />
           </h3>
 
           {statsLoading ? (
-            <p className="text-[0.65rem] text-slate-500 py-4 text-center">{t('crew.home.statsLoading')}</p>
+            <p className="py-4 text-center text-[12px] text-slate-500">{t('crew.home.statsLoading')}</p>
           ) : statsError ? (
-            <p className="text-[0.65rem] text-red-600 py-2 text-center">{t('crew.home.statsError')}</p>
+            <p className="py-2 text-center text-[12px] text-red-600">{t('crew.home.statsError')}</p>
           ) : payDayGroups.length === 0 ? (
-            <p className="text-[0.65rem] text-slate-500 py-4 text-center">
+            <p className="py-4 text-center text-[12px] text-slate-500">
               <CrewBiLine id="crew.home.statsNoPayDay" />
             </p>
           ) : (
@@ -266,54 +279,44 @@ export function CrewHomePage() {
                 const th = row.nameTh?.trim() ? row.nameTh.trim() : '';
                 const inactive = !row.isActive;
                 const nameCls = inactive ? 'text-slate-400 line-through' : 'text-slate-800';
-                const thCls = inactive ? 'text-slate-400' : 'text-indigo-700';
+                const thCls = inactive ? 'text-slate-400' : 'text-slate-500';
                 const pct = (row.inquiryCount / maxCount) * 100;
                 return (
                   <li key={row.teamMemberId} className="min-w-0">
-                    <div className="flex items-baseline justify-between gap-2 mb-1 min-w-0">
+                    <div className="mb-1 flex min-w-0 items-baseline justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-1 min-w-0">
-                          <span className="tabular-nums text-slate-400 shrink-0 w-4 text-right text-[0.68rem]">
+                        <div className="flex min-w-0 items-baseline gap-1">
+                          <span className="w-5 shrink-0 text-right text-[12px] tabular-nums text-slate-400">
                             {idx + 1}.
                           </span>
-                          <span
-                            className={`min-w-0 truncate text-[0.68rem] font-medium ${nameCls}`}
-                            title={row.name}
-                          >
+                          <span className={`min-w-0 truncate text-[12px] font-medium ${nameCls}`} title={row.name}>
                             {row.name}
                           </span>
                           {th ? (
-                            <span
-                              className={`shrink-0 text-[0.62rem] font-medium max-w-[42%] sm:max-w-[55%] truncate ${thCls}`}
-                              title={th}
-                            >
+                            <span className={`max-w-[45%] shrink-0 truncate text-[12px] font-medium ${thCls}`} title={th}>
                               · {th}
                             </span>
                           ) : null}
                         </div>
                         {memberPeriodLabel ? (
-                          <p className="text-[0.58rem] text-slate-500 tabular-nums pl-5 truncate" title={memberPeriodLabel}>
+                          <p className="truncate pl-6 text-[12px] tabular-nums text-slate-400" title={memberPeriodLabel}>
                             {memberPeriodLabel}
                           </p>
                         ) : null}
                       </div>
                       <span
-                        className={`shrink-0 text-[0.68rem] tabular-nums font-semibold ${
-                          row.inquiryCount > 0 ? 'text-indigo-700' : 'text-slate-400'
+                        className={`shrink-0 text-[12px] font-semibold tabular-nums ${
+                          row.inquiryCount > 0 ? 'text-[#0F172A]' : 'text-slate-400'
                         }`}
                       >
                         {row.inquiryCount}
-                        <span className="text-[0.58rem] font-normal text-slate-500 ml-0.5">
-                          {statsUnit}
-                        </span>
+                        <span className="ml-0.5 text-[12px] font-normal text-slate-500">{statsUnit}</span>
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-slate-100/90 overflow-hidden ring-1 ring-inset ring-slate-200/50">
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                       <div
                         className={`h-full rounded-full transition-[width] duration-500 ease-out ${
-                          inactive
-                            ? 'bg-slate-300/80'
-                            : 'bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 shadow-sm'
+                          inactive ? 'bg-slate-300' : 'bg-[#0F172A]'
                         }`}
                         style={{ width: `${pct}%` }}
                       />
@@ -324,7 +327,7 @@ export function CrewHomePage() {
             </ul>
           )}
 
-          <p className="text-[0.55rem] text-slate-500 leading-snug pt-1 border-t border-slate-100">
+          <p className="border-t border-slate-100 pt-2 text-[12px] leading-snug text-slate-500">
             <CrewBiLine id="crew.home.statsFootnote" />
           </p>
         </div>

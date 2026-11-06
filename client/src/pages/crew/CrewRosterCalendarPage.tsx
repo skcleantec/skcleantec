@@ -6,6 +6,7 @@ import { getCrewDayRoster, type CrewMeResponse } from '../../api/crew';
 import { kstTodayYmd, WEEKDAY_EN } from '../../utils/dateFormat';
 import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
 import { useCrewUiLang, type CrewUiLangKey } from '../../i18n/crew/crewUiLanguageContext';
+import { CREW_CARD } from './crewUi';
 
 function pad2(n: number) {
   return n < 10 ? `0${n}` : `${n}`;
@@ -125,8 +126,8 @@ export function CrewRosterCalendarPage() {
 
   if (!outlet) {
     return (
-      <p className="text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-4">
-        화면 레이아웃을 불러오지 못했습니다. 상단 「홈」을 누른 뒤 다시 시도하거나 페이지를 새로고침해 주세요.
+      <p className="text-[13px] text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <CrewBiLine id="crew.common.outletMissing" />
       </p>
     );
   }
@@ -140,102 +141,86 @@ export function CrewRosterCalendarPage() {
   }
 
   const navBtn =
-    'shrink-0 flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-800 text-sm font-semibold shadow-sm active:bg-gray-100 disabled:opacity-40';
+    'shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[14px] font-medium text-slate-700 disabled:opacity-40';
 
   return (
-    <div className="space-y-1.5 min-w-0">
-      <div className="bg-white border border-gray-200 rounded-lg px-2 py-1.5">
-        <div className="flex items-start gap-1.5 min-w-0">
-          <h1 className="text-xs font-semibold text-gray-900 leading-tight min-w-0 flex-1">
-            <CrewBiLine id="crew.roster.title" koClassName="font-semibold" />
+    <div className="space-y-3 min-w-0">
+      {/* ─── Header + month nav ─── */}
+      <div className={`${CREW_CARD} px-3 py-2.5 space-y-2`}>
+        <div className="flex items-start gap-2 min-w-0">
+          <h1 className="text-[14px] font-semibold text-[#0F172A] leading-tight min-w-0 flex-1">
+            <CrewBiLine id="crew.roster.title" />
           </h1>
           <button
             type="button"
             aria-expanded={helpOpen}
             aria-label={t('crew.roster.helpToggleAria')}
             onClick={() => setHelpOpen((v) => !v)}
-            className="shrink-0 w-6 h-6 rounded-full border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 flex items-center justify-center"
+            className="shrink-0 min-h-9 min-w-9 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 flex items-center justify-center"
           >
-            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor" aria-hidden>
+            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden>
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" />
             </svg>
           </button>
         </div>
         {helpOpen ? (
-          <div className="mt-1 p-2 rounded-md border border-gray-200 bg-gray-50 text-[0.58rem] text-gray-600 leading-snug space-y-1.5">
+          <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 text-[12px] text-slate-600 leading-snug space-y-1">
             {canEdit ? <CrewBiLine id="crew.roster.hintEdit" /> : <CrewBiLine id="crew.roster.hintView" />}
             <CrewBiLine id="crew.roster.calendarNavHint" />
           </div>
         ) : null}
-        <div className="flex items-center gap-1 mt-1 min-w-0">
-          <button
-            type="button"
-            className={navBtn}
-            onClick={goPrevMonth}
-            aria-label={t('crew.roster.prevMonthAria')}
-          >
+        <div className="flex items-center gap-2 min-w-0">
+          <button type="button" className={navBtn} onClick={goPrevMonth} aria-label={t('crew.roster.prevMonthAria')}>
             ‹
           </button>
           <select
             value={y}
             onChange={(e) => setY(Number(e.target.value))}
-            className="min-w-0 flex-1 max-w-[5.5rem] px-1.5 py-1 border border-gray-300 rounded text-[0.7rem] tabular-nums"
+            className="min-w-0 flex-1 min-h-11 px-2 border border-slate-200 rounded-xl text-[13px] tabular-nums bg-white"
           >
             {yearOpts.map((yy) => (
-              <option key={yy} value={yy}>
-                {yy}
-              </option>
+              <option key={yy} value={yy}>{yy}</option>
             ))}
           </select>
           <select
             value={m}
             onChange={(e) => setM(Number(e.target.value))}
-            className="min-w-0 flex-1 max-w-[4.5rem] px-1.5 py-1 border border-gray-300 rounded text-[0.7rem] tabular-nums"
+            className="min-w-0 flex-1 min-h-11 px-2 border border-slate-200 rounded-xl text-[13px] tabular-nums bg-white"
           >
             {Array.from({ length: 12 }, (_, i) => i + 1).map((mm) => (
-              <option key={mm} value={mm}>
-                {mm}월
-              </option>
+              <option key={mm} value={mm}>{mm}월</option>
             ))}
           </select>
-          <button
-            type="button"
-            className={navBtn}
-            onClick={goNextMonth}
-            aria-label={t('crew.roster.nextMonthAria')}
-          >
+          <button type="button" className={navBtn} onClick={goNextMonth} aria-label={t('crew.roster.nextMonthAria')}>
             ›
           </button>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-xs text-gray-500 px-0.5">
+        <p className="text-[13px] text-slate-500 py-6 text-center">
           <CrewBiLine id="crew.common.loading" />
         </p>
       ) : (
-        <div className="rounded-lg border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden">
-          <div className="bg-white p-1 sm:p-1.5">
-            <div className="grid grid-cols-7 gap-px bg-gray-200/90 mb-px">
+        <div className={`${CREW_CARD} overflow-hidden`}>
+          <div className="p-1.5">
+            <div className="grid grid-cols-7 gap-px bg-slate-100 mb-px rounded-t-xl overflow-hidden">
               {WEEKDAY_EN.map((w, i) => (
                 <div
                   key={w}
-                  className={`text-center text-[0.58rem] font-semibold py-1 tabular-nums bg-gray-100 ${
-                    i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-600'
+                  className={`text-center text-[12px] font-semibold py-1.5 bg-slate-50 ${
+                    i === 0 ? 'text-red-600' : i === 6 ? 'text-[#1D4ED8]' : 'text-slate-600'
                   }`}
                 >
                   {w}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-px bg-gray-200/90">
+            <div className="grid grid-cols-7 gap-px bg-slate-100">
               {calendarDays.map((d, idx) => {
                 if (d == null) {
                   return (
-                    <div
-                      key={`e-${idx}`}
-                      className="min-h-[2.85rem] sm:min-h-[3.1rem] bg-gray-50/90 min-w-0"
-                    />
+                    <div key={`e-${idx}`} className="min-h-[2.85rem] bg-slate-50 min-w-0" />
                   );
                 }
                 const key = ymd(d);
@@ -245,31 +230,31 @@ export function CrewRosterCalendarPage() {
                 const wk = new Date(y, m - 1, d).getDay();
                 const isSun = wk === 0;
                 const isSat = wk === 6;
-                const dayNumMuted = isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-gray-800';
+                const dayNumMuted = isSun ? 'text-red-600' : isSat ? 'text-[#1D4ED8]' : 'text-slate-700';
                 return (
                   <button
                     key={key}
                     type="button"
                     onClick={() => openDay(d)}
-                    title={`${key}`}
-                    className="relative w-full min-h-[2.85rem] sm:min-h-[3.1rem] min-w-0 px-0.5 py-0.5 bg-white text-left transition-colors hover:bg-gray-50/95 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-900"
+                    title={key}
+                    className="relative w-full min-h-[2.85rem] min-w-0 px-0.5 py-0.5 bg-white transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0F172A]"
                   >
                     <span
-                      className={`absolute top-0.5 left-0.5 inline-flex h-[1.125rem] min-w-[1.125rem] px-0.5 items-center justify-center text-[0.58rem] font-bold tabular-nums leading-none sm:h-5 sm:min-w-[1.25rem] sm:text-[0.62rem] ${
+                      className={`absolute top-0.5 left-0.5 inline-flex h-5 min-w-[1.25rem] px-0.5 items-center justify-center text-[12px] font-bold tabular-nums leading-none ${
                         isTodayCell
-                          ? 'rounded-full bg-gray-900 text-white shadow-sm ring-1 ring-gray-700/90'
+                          ? 'rounded-full bg-[#0F172A] text-white'
                           : dayNumMuted
                       }`}
                     >
                       {d}
                     </span>
-                    <div className="absolute bottom-0.5 left-0 right-0 px-0.5 flex flex-col items-center justify-end gap-0 pointer-events-none">
+                    <div className="absolute bottom-0.5 left-0 right-0 px-0.5 flex flex-col items-center justify-end pointer-events-none">
                       {cnt > 0 ? (
-                        <span className="inline-flex items-center justify-center rounded-full bg-emerald-100 text-emerald-900 px-1 py-px text-[0.55rem] font-semibold tabular-nums leading-none border border-emerald-200/70">
+                        <span className="inline-flex items-center justify-center rounded-full bg-[#15803D]/10 text-[#15803D] px-1 py-px text-[11px] font-semibold tabular-nums leading-none">
                           {cntLabel}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center justify-center rounded-full bg-gray-100 text-gray-500 px-1 py-px text-[0.5rem] font-medium leading-none border border-gray-200/80">
+                        <span className="inline-flex items-center justify-center rounded-full bg-slate-100 text-slate-400 px-1 py-px text-[11px] font-medium leading-none">
                           {t('crew.roster.unsetBadge')}
                         </span>
                       )}
@@ -278,7 +263,7 @@ export function CrewRosterCalendarPage() {
                 );
               })}
             </div>
-            <p className="text-[0.55rem] text-gray-400 mt-1 text-center leading-none">
+            <p className="text-[12px] text-slate-400 mt-1.5 text-center">
               {t('crew.roster.memberPoolHint')}{' '}
               <span className="tabular-nums">({members.length})</span>
             </p>

@@ -10,8 +10,22 @@ import {
 import { AuthSessionExpiredError } from '../../api/auth';
 import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
 import { crewUiLanguageShowsAltMemberName } from '@shared/crewGroupSettings';
+import { toast } from '../../components/ui/Toast';
 
 export type CrewTeamExpensesTabVariant = 'page' | 'embedded';
+
+const THAI_MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+function thaiMonthLabel(monthKey: string): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  return `${THAI_MONTHS_FULL[m - 1] ?? ''} ${y}`;
+}
+function shiftMonth(monthKey: string, delta: number): string {
+  let [y, m] = monthKey.split('-').map(Number);
+  m += delta;
+  if (m > 12) { m = 1; y++; }
+  if (m < 1) { m = 12; y--; }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
 
 export function CrewTeamExpensesTab({
   variant,
@@ -21,6 +35,7 @@ export function CrewTeamExpensesTab({
   me: CrewMeResponse | null;
 }) {
   const [month, setMonth] = useState(() => kstMonthKeyNow());
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<CrewExpenseListItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,11 +91,11 @@ export function CrewTeamExpensesTab({
     if (!token || !canEdit) return;
     const amt = Number.parseInt(amountInput.replace(/,/g, '').trim(), 10);
     if (!memberId.trim()) {
-      alert(t('crew.expenses.errMember'));
+      toast.error(t('crew.expenses.errMember'));
       return;
     }
     if (!Number.isFinite(amt) || amt < 1) {
-      alert(t('crew.expenses.errAmount'));
+      toast.error(t('crew.expenses.errAmount'));
       return;
     }
     const fd = new FormData();
@@ -95,13 +110,13 @@ export function CrewTeamExpensesTab({
     setSaving(true);
     try {
       await postCrewExpense(token, fd);
-      alert(t('crew.expenses.saved'));
+      toast.success(t('crew.expenses.saved'));
       setAmountInput('');
       setMemoInput('');
       setFiles([]);
       await reload();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Error');
+      toast.error(e instanceof Error ? e.message : t('crew.expenses.errAmount'));
     } finally {
       setSaving(false);
     }
@@ -113,10 +128,10 @@ export function CrewTeamExpensesTab({
     if (!window.confirm(t('crew.expenses.confirmDelete'))) return;
     try {
       await deleteCrewExpense(token, id);
-      alert(t('crew.expenses.deleted'));
+      toast.success(t('crew.expenses.deleted'));
       await reload();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Error');
+      toast.error(e instanceof Error ? e.message : t('crew.expenses.errAmount'));
     }
   };
 
@@ -136,16 +151,25 @@ export function CrewTeamExpensesTab({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="text-fluid-xs text-gray-600 whitespace-nowrap">
-          <CrewBiLine id="crew.expenses.monthLabel" />
-        </label>
-        <input
-          type="month"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums bg-white"
-        />
+      {/* Thai month nav */}
+      <div className="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] px-3 py-2">
+        <button
+          type="button"
+          className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[14px] text-slate-700"
+          onClick={() => setMonth((m) => shiftMonth(m, -1))}
+        >
+          ‹
+        </button>
+        <div className="flex-1 text-center text-[14px] font-semibold text-[#0F172A] tabular-nums">
+          {thaiMonthLabel(month)}
+        </div>
+        <button
+          type="button"
+          className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[14px] text-slate-700"
+          onClick={() => setMonth((m) => shiftMonth(m, 1))}
+        >
+          ›
+        </button>
       </div>
 
       {!canEdit ? (
@@ -197,24 +221,34 @@ export function CrewTeamExpensesTab({
               className="w-full px-2 py-2 border border-gray-300 rounded text-fluid-sm min-w-0"
             />
           </label>
-          <label className="block min-w-0">
+          <div className="min-w-0">
             <span className="block text-fluid-2xs text-gray-600 mb-1">
               <CrewBiLine id="crew.expenses.imagesLabel" />{' '}
-              <span className="text-gray-400 font-normal">
-                ({t('crew.expenses.imagesHint')})
-              </span>
+              <span className="text-gray-400 font-normal">({t('crew.expenses.imagesHint')})</span>
             </span>
             <input
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               multiple
               onChange={(e) => onPickFiles(e.target.files)}
-              className="block w-full text-fluid-xs text-gray-700"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
             />
-            {files.length > 0 ? (
-              <p className="mt-1 text-fluid-2xs text-gray-500">{files.length} files</p>
-            ) : null}
-          </label>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-700"
+            >
+              <CrewBiLine id="crew.expenses.pickImage" />
+              {files.length > 0 ? (
+                <span className="ml-2 rounded-lg bg-[#0F172A] px-2 py-0.5 text-[12px] text-white tabular-nums">
+                  {files.length}
+                </span>
+              ) : null}
+            </button>
+          </div>
           <button
             type="button"
             disabled={saving}

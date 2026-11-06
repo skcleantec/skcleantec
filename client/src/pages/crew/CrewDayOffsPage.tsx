@@ -8,8 +8,9 @@ import { AuthSessionExpiredError } from '../../api/auth';
 import { isCrewGroupDayOffMode } from '@shared/crewGroupSettings';
 import { CrewUiLine, crewText } from '../../i18n/crew/crewI18n';
 import { useCrewUiLang } from '../../i18n/crew/crewUiLanguageContext';
+import { toast } from '../../components/ui/Toast';
 
-const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -137,7 +138,7 @@ export function CrewDayOffsPage() {
       setConfirmModal(null);
     } catch (e) {
       if (e instanceof AuthSessionExpiredError) throw e;
-      alert(e instanceof Error ? e.message : '처리에 실패했습니다.');
+      toast.error(e instanceof Error ? e.message : crewText('crew.dayoffs.alertFail', lang));
     } finally {
       setConfirmBusy(false);
     }
@@ -209,7 +210,7 @@ export function CrewDayOffsPage() {
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="grid grid-cols-7 text-center text-xs">
-            {WEEKDAY_KO.map((label, wi) => (
+            {WEEKDAY_LABELS.map((label, wi) => (
               <div
                 key={label}
                 className={`py-2 font-medium ${wi === 0 ? 'text-red-600' : wi === 6 ? 'text-blue-600' : 'text-gray-600'}`}

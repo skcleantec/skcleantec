@@ -10,17 +10,29 @@ import {
 } from '../../api/crew';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
-import { CrewBiLine, CrewBiInline, useCrewText } from '../../i18n/crew/crewI18n';
-import { CrewMemberNameLines } from '../../components/crew/CrewMemberNameLines';
-import {
-  CrewScheduleLeaderNames,
-  crewScheduleLeadersPlain,
-} from '../../components/crew/CrewScheduleLeaderNames';
+import { kstTodayYmd } from '../../utils/dateFormat';
+import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
+import { CREW_CARD, CREW_SEG, CREW_SEG_OFF, CREW_SEG_ON } from './crewUi';
 
-function formatVehicles(leaders: CrewFieldLeader[]): string {
-  const parts = leaders.map((l) => (l.vehicleNumber ?? '').trim()).filter(Boolean);
-  return parts.length ? parts.join('·') : '—';
+const THAI_MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const THAI_WEEKDAY_SHORT = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+
+function pad2(n: number) {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+
+function addDaysYmd(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + delta);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+}
+
+function formatDateNav(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const dow = dt.getDay();
+  return `${THAI_WEEKDAY_SHORT[dow]} ${d} ${THAI_MONTHS_SHORT[m - 1]}`;
 }
 
 function formatCrewPreferredTime(
@@ -35,134 +47,79 @@ function formatCrewPreferredTime(
   return s || '—';
 }
 
-function MeetingTimeEditedBadgeInline() {
-  const t = useCrewText();
-  const label = t('crew.schedule.meetingTimeEditedBadge');
-  return (
-    <span
-      className="inline-block rounded bg-amber-50 px-1 py-px text-[0.58rem] sm:text-[0.6rem] font-medium text-amber-900 leading-tight max-w-[5.5rem] text-center shrink-0"
-      title={label}
-    >
-      {label}
-    </span>
-  );
+function isAmTime(raw: string): boolean {
+  const s = raw.trim();
+  return s === '오전' || s.toUpperCase() === 'AM';
+}
+function isPmTime(raw: string): boolean {
+  const s = raw.trim();
+  return s === '오후' || s.toUpperCase() === 'PM';
 }
 
-type TodayRow = {
+type TeamRow = {
   key: string;
-  memberName: string;
-  memberNameTh?: string | null;
-  leaderLeaders: CrewFieldLeader[];
-  timeText: string;
-  /** 팀장 지정 미팅 HH:mm, 없으면 null */
+  inquiryId: string;
+  leaders: CrewFieldLeader[];
+  rawTime: string;
   meetingTime: string | null;
-  /** 팀장이 미팅 시각 저장·변경 후 true — 태국어 «수정됨» 배지 */
   meetingTimeEdited?: boolean;
-  /** 접수 없음 + 크루장 「대기」 */
-  isStandby?: boolean;
-  vehicleText: string;
-  inactive: boolean;
+  members: Array<{ name: string; nameTh?: string | null; isGroupLeader?: boolean; inactive: boolean }>;
 };
 
-function MeetingCellContent({ row }: { row: TodayRow }) {
-  if (row.meetingTime) {
-    return (
-      <span className="inline-flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
-        <span className="whitespace-nowrap">{row.meetingTime}</span>
-        {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
-      </span>
-    );
-  }
-  if (row.isStandby) {
-    return (
-      <CrewBiInline id="crew.schedule.standbyLabel" className="text-amber-800 font-medium leading-tight" />
-    );
-  }
-  return <>—</>;
-}
+type NoWorkMember = { name: string; nameTh?: string | null; inactive: boolean };
 
-function MeetingSnippetInline({
-  row,
-  meetingLabel,
-}: {
-  row: TodayRow;
-  meetingLabel: string;
-}) {
-  if (row.meetingTime) {
-    return (
-      <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
-        <span className="text-gray-600">{meetingLabel}</span>
-        <span className="tabular-nums">{row.meetingTime}</span>
-        {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
-      </span>
-    );
-  }
-  if (row.isStandby) {
-    return (
-      <CrewBiInline id="crew.schedule.standbyLabel" className="text-amber-800 font-medium leading-tight" />
-    );
-  }
-  return null;
-}
-
-function buildDayList(
+function buildTeamRows(
   day: CrewFieldDay | undefined,
   groupMembers: CrewMeResponse['group']['members'],
-  labelTime: (raw: string) => string,
-): TodayRow[] {
-  const rows: TodayRow[] = [];
-  const byId = new Map((day?.members ?? []).map((m) => [m.teamMemberId, m]));
+): { rows: TeamRow[]; noWorkMembers: NoWorkMember[] } {
+  const inquiryMap = new Map<string, TeamRow>();
+  const noWorkMembers: NoWorkMember[] = [];
+
+  const membersByApiId = new Map((day?.members ?? []).map((m) => [m.teamMemberId, m]));
 
   for (const gm of groupMembers) {
-    const m = byId.get(gm.teamMemberId);
+    const m = membersByApiId.get(gm.teamMemberId);
 
     if (!m || !Array.isArray(m.inquiries) || m.inquiries.length === 0) {
-      rows.push({
-        key: `${gm.teamMemberId}-none`,
-        memberName: gm.name,
-        memberNameTh: gm.nameTh,
-        leaderLeaders: [],
-        timeText: '—',
-        meetingTime: null,
-        meetingTimeEdited: false,
-        isStandby: Boolean(m?.isStandby),
-        vehicleText: '—',
-        inactive: !gm.isActive,
-      });
+      noWorkMembers.push({ name: gm.name, nameTh: gm.nameTh, inactive: !gm.isActive });
       continue;
     }
 
-    m.inquiries.forEach((inq, i) => {
-      const meetingRaw = (inq.crewMeetingTime ?? '').trim();
-      const edited = Boolean(inq.crewMeetingTimeEdited);
-      const rawTime = (inq.preferredTime ?? '').trim();
-      rows.push({
-        key: `${gm.teamMemberId}-${inq.inquiryId}-${i}`,
-        memberName: gm.name,
-        memberNameTh: gm.nameTh,
-        leaderLeaders: inq.leaders,
-        timeText: rawTime ? labelTime(rawTime) : '—',
-        meetingTime: meetingRaw || null,
-        meetingTimeEdited: edited,
-        vehicleText: formatVehicles(inq.leaders),
-        inactive: !gm.isActive,
-      });
-    });
+    for (const inq of m.inquiries) {
+      const inqId = inq.inquiryId;
+      const existing = inquiryMap.get(inqId);
+      if (existing) {
+        // only add if not already in the list
+        if (!existing.members.some((em) => em.name === gm.name)) {
+          existing.members.push({ name: gm.name, nameTh: gm.nameTh, isGroupLeader: gm.isGroupLeader, inactive: !gm.isActive });
+        }
+      } else {
+        inquiryMap.set(inqId, {
+          key: inqId,
+          inquiryId: inqId,
+          leaders: inq.leaders,
+          rawTime: (inq.preferredTime ?? '').trim(),
+          meetingTime: (inq.crewMeetingTime ?? '').trim() || null,
+          meetingTimeEdited: Boolean(inq.crewMeetingTimeEdited),
+          members: [{ name: gm.name, nameTh: gm.nameTh, isGroupLeader: gm.isGroupLeader, inactive: !gm.isActive }],
+        });
+      }
+    }
   }
 
-  return rows;
+  return { rows: [...inquiryMap.values()], noWorkMembers };
 }
 
-const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+type FilterKey = 'all' | 'am' | 'pm' | 'mine';
 
 export function CrewFieldSchedulePage() {
   const outlet = useOutletContext<CrewLayoutContext | undefined>();
   const me = outlet?.me ?? null;
   const t = useCrewText();
-  /** 첫 진입·리셋 시 한국 달력 기준 오늘 */
   const [selectedYmd, setSelectedYmd] = useState(() => kstTodayYmd());
   const [days, setDays] = useState<CrewFieldDay[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<FilterKey>('all');
 
   const fetchSeq = useMemo(() => ({ n: 0 }), []);
 
@@ -196,7 +153,6 @@ export function CrewFieldSchedulePage() {
     () => void fetchSchedule({ silent: true }),
     Boolean(token && me),
   );
-  /** WS 연결 시 폴링·마운트 추가 호출 끔(-1). 미연결일 때만 25초 폴링. */
   useVisibilityInterval(
     () => void fetchSchedule({ silent: true }),
     token && me && !wsConnected ? 25000 : -1,
@@ -205,263 +161,180 @@ export function CrewFieldSchedulePage() {
   const kstToday = kstTodayYmd();
   const safeDays = Array.isArray(days) ? days : [];
   const dayForSelected = safeDays.find((d) => d.date === selectedYmd);
+  const { rows: allRows, noWorkMembers } = useMemo(
+    () => (me ? buildTeamRows(dayForSelected, me.group.members) : { rows: [], noWorkMembers: [] }),
+    [dayForSelected, me],
+  );
+
+  const isLeader = me?.crewViewerRole === 'LEADER';
+
+  const filteredRows = useMemo(() => {
+    if (filter === 'am') return allRows.filter((r) => isAmTime(r.rawTime));
+    if (filter === 'pm') return allRows.filter((r) => isPmTime(r.rawTime));
+    if (filter === 'mine') {
+      if (isLeader) {
+        return allRows.filter((r) => r.members.some((m) => m.isGroupLeader));
+      }
+      return allRows; // MEMBER: all
+    }
+    return allRows;
+  }, [allRows, filter, isLeader]);
+
   const labelTime = useCallback(
     (raw: string) => formatCrewPreferredTime(raw, t as (id: 'crew.schedule.timeAm' | 'crew.schedule.timePm' | 'crew.schedule.timeBetween' | 'crew.schedule.timeFlexible') => string),
     [t],
   );
-  const rows = useMemo(
-    () => (me ? buildDayList(dayForSelected, me.group.members, labelTime) : []),
-    [dayForSelected, me, labelTime],
-  );
 
   if (!outlet) {
     return (
-      <p className="text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-4">
-        화면 레이아웃을 불러오지 못했습니다. 상단 「홈」을 누른 뒤 다시 시도하거나 페이지를 새로고침해 주세요.
+      <p className="text-[13px] text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <CrewBiLine id="crew.common.outletMissing" />
       </p>
     );
   }
 
   if (!me) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-[13px] text-slate-500 py-6 text-center">
         <CrewBiLine id="crew.common.loading" />
       </p>
     );
   }
 
-  const dateAria = t('crew.schedule.dateLabel');
-  const wsBadgeTitle = wsConnected ? t('crew.schedule.wsConnected') : t('crew.schedule.wsFallback');
-  const wsHeaderLabel = t(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff');
+  const isToday = selectedYmd === kstToday;
+  const wsBadge = wsConnected
+    ? <span className="rounded-lg bg-[#15803D]/10 px-1.5 py-0.5 text-[12px] font-medium text-[#15803D]">{t('crew.schedule.headerWsOn')}</span>
+    : <span className="rounded-lg bg-amber-50 px-1.5 py-0.5 text-[12px] font-medium text-amber-800">{t('crew.schedule.headerWsOff')}</span>;
+
+  const filters: { key: FilterKey; label: string }[] = [
+    { key: 'all', label: t('crew.schedule.filterAll') },
+    { key: 'am', label: t('crew.schedule.filterAm') },
+    { key: 'pm', label: t('crew.schedule.filterPm') },
+    { key: 'mine', label: t('crew.schedule.filterMine') },
+  ];
 
   return (
-    <div className="space-y-1 lg:space-y-2 min-w-0">
-      <div className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 sm:px-2.5 sm:py-2">
-        <div className="flex flex-nowrap items-center justify-between gap-1.5 min-w-0">
-          <div className="min-w-0 flex-1 flex items-center gap-x-1 leading-tight overflow-hidden">
-            <span className="text-[0.8125rem] sm:text-sm font-semibold text-gray-900 truncate shrink-0">
-              {t('crew.schedule.title')}
-            </span>
-            <span className="text-[0.62rem] sm:text-[0.7rem] text-gray-600 tabular-nums truncate min-w-0">
-              · {formatDateCompactWithWeekday(selectedYmd)}
-            </span>
-          </div>
-          <span
-            className={`shrink-0 text-[0.58rem] sm:text-[0.6rem] leading-none rounded px-1 py-px sm:px-1.5 sm:py-0.5 tabular-nums ${
-              wsConnected ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'
-            }`}
-            title={wsBadgeTitle}
-          >
-            {wsHeaderLabel}
-          </span>
-        </div>
-        <div className="mt-1 flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0">
-          <input
-            type="date"
-            value={selectedYmd}
-            aria-label={dateAria}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (YMD_RE.test(v)) setSelectedYmd(v);
-            }}
-            className="min-w-0 flex-1 min-h-[30px] sm:min-h-0 py-0.5 px-1.5 sm:py-1 sm:px-2 border border-gray-300 rounded text-[14px] sm:text-sm text-gray-900 bg-white tabular-nums"
-          />
+    <div className="space-y-3 min-w-0">
+      {/* ─── Date nav ─── */}
+      <div className={`${CREW_CARD} px-3 py-2.5`}>
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setSelectedYmd(kstTodayYmd())}
-            className={`shrink-0 py-0.5 px-2 sm:py-1 sm:px-2.5 text-[0.6875rem] sm:text-xs rounded border leading-none sm:leading-tight ${
-              selectedYmd === kstToday
-                ? 'border-gray-200 bg-gray-100 text-gray-500'
-                : 'border-indigo-300 bg-indigo-50 text-indigo-800'
-            }`}
+            className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[14px] font-medium text-slate-700"
+            onClick={() => setSelectedYmd((d) => addDaysYmd(d, -1))}
           >
-            {t('crew.schedule.todayButton')}
+            ‹
           </button>
+          <div className="flex-1 min-w-0 text-center">
+            <button
+              type="button"
+              className="text-[14px] font-semibold text-[#0F172A] tabular-nums"
+              onClick={() => setSelectedYmd(kstTodayYmd())}
+              title={t('crew.schedule.todayButton')}
+            >
+              {formatDateNav(selectedYmd)}
+              {isToday ? (
+                <span className="ml-1.5 text-[12px] font-medium text-[#1D4ED8]">
+                  ({t('crew.schedule.todayButton')})
+                </span>
+              ) : null}
+            </button>
+          </div>
+          <div className="shrink-0 flex items-center gap-1.5">
+            {wsBadge}
+            <button
+              type="button"
+              className="min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[14px] font-medium text-slate-700"
+              onClick={() => setSelectedYmd((d) => addDaysYmd(d, 1))}
+            >
+              ›
+            </button>
+          </div>
         </div>
-        <p className="hidden lg:block text-[0.6rem] text-gray-500 mt-1 leading-snug">{t('crew.schedule.intro')}</p>
       </div>
 
+      {/* ─── Filter segments ─── */}
+      <div className={`${CREW_CARD} p-1`}>
+        <div className="flex gap-1">
+          {filters.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              className={`${CREW_SEG} ${filter === key ? CREW_SEG_ON : CREW_SEG_OFF}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── Team rows ─── */}
       {loading ? (
-        <p className="text-sm text-gray-500 px-1">
+        <p className="text-[13px] text-slate-500 py-6 text-center">
           <CrewBiLine id="crew.common.loading" />
         </p>
+      ) : filteredRows.length === 0 && noWorkMembers.length === 0 ? (
+        <div className={`${CREW_CARD} px-3 py-8 text-center`}>
+          <p className="text-[13px] text-slate-500">{t('crew.schedule.noWorkCount', { n: String(0) })}</p>
+        </div>
       ) : (
-        <>
-          <p className="text-[0.55rem] text-gray-500 px-0.5 leading-tight hidden lg:block">
-            {t('crew.schedule.emptyTodayHint')}
-          </p>
+        <div className={`${CREW_CARD} overflow-hidden`}>
+          {filteredRows.length === 0 ? (
+            <div className="px-3 py-6 text-center text-[13px] text-slate-400">—</div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {filteredRows.map((row) => {
+                const timeText = row.rawTime ? labelTime(row.rawTime) : '—';
+                const isAm = isAmTime(row.rawTime);
+                const isPm = isPmTime(row.rawTime);
+                const timeColor = isAm
+                  ? 'text-[#1D4ED8]'
+                  : isPm
+                    ? 'text-[#B45309]'
+                    : 'text-slate-500';
+                const leaderName = row.leaders[0]?.name ?? '—';
+                const vehicle = row.leaders[0]?.vehicleNumber ?? '';
+                const leaderVehicle = vehicle ? `${leaderName} / ${vehicle}` : leaderName;
+                const memberNames = row.members.map((m) => m.nameTh?.trim() || m.name).join(' · ');
 
-          {rows.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/90 px-2 py-4 sm:px-3 sm:py-8 text-center">
-              <p className="text-[0.8125rem] sm:text-fluid-sm text-gray-600 leading-snug">
-                이 날짜에 표시할 일정이 없습니다.
-              </p>
-              <p className="text-[0.58rem] sm:text-[0.65rem] text-gray-500 mt-0.5 sm:mt-1 leading-tight sm:leading-snug hidden sm:block">
-                날짜를 변경하거나 일자 명단·접수 메모를 확인해 주세요.
+                return (
+                  <li key={row.key} className="flex items-center min-h-[52px] px-3 py-2.5 gap-3 min-w-0">
+                    {/* Left: meeting time + AM/PM */}
+                    <div className="shrink-0 w-16 text-right">
+                      {row.meetingTime ? (
+                        <div className="text-[13px] font-semibold text-[#0F172A] tabular-nums leading-tight">{row.meetingTime}</div>
+                      ) : null}
+                      <div className={`text-[12px] font-medium leading-tight ${timeColor}`}>{timeText}</div>
+                    </div>
+
+                    {/* Center: leader + vehicle / members */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-medium text-[#0F172A] truncate">{leaderVehicle}</div>
+                      <div className="text-[12px] text-slate-500 truncate mt-0.5">{memberNames}</div>
+                    </div>
+
+                    {/* Right: N คน */}
+                    <div className="shrink-0 text-right">
+                      <span className="text-[12px] font-semibold text-slate-700 tabular-nums">
+                        {t('crew.schedule.memberCount', { n: String(row.members.length) })}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {/* Bottom: no work count */}
+          {noWorkMembers.length > 0 ? (
+            <div className="px-3 py-2 border-t border-slate-100 bg-slate-50/60">
+              <p className="text-[12px] text-slate-500">
+                {t('crew.schedule.noWorkCount', { n: String(noWorkMembers.length) })}
               </p>
             </div>
-          ) : (
-            <>
-              <ul className="lg:hidden list-none space-y-1 min-w-0 w-full max-w-full -mx-3 px-3 sm:mx-0 sm:px-0">
-                {rows.map((row) => {
-                  const plainLeaders = crewScheduleLeadersPlain(row.leaderLeaders);
-                  const v = (row.vehicleText ?? '').trim();
-                  const hasVehicle = v && v !== '—';
-                  const leadersOnly = plainLeaders !== '—';
-                  const meetingLabel = t('crew.schedule.colMeeting');
-                  const hasMeeting = Boolean(row.meetingTime);
-                  const hasStandbyOnly = Boolean(row.isStandby && !row.meetingTime);
-                  const leaderVehicleLine =
-                    !leadersOnly && !hasVehicle
-                      ? '—'
-                      : !leadersOnly
-                        ? v || '—'
-                        : !hasVehicle
-                          ? plainLeaders
-                          : `${plainLeaders} / ${v}`;
-                  const a11y = [row.memberName, row.timeText, leaderVehicleLine, hasMeeting ? row.meetingTime : '']
-                    .filter(Boolean)
-                    .join(' · ');
-                  return (
-                    <li
-                      key={row.key}
-                      className={`rounded-md border border-gray-200 bg-white px-2 py-1.5 min-w-0 ${row.inactive ? 'opacity-[0.72]' : ''}`}
-                      title={a11y}
-                      aria-label={a11y}
-                    >
-                      <div className="flex items-start justify-between gap-2 min-w-0">
-                        <div className="min-w-0 flex-1 text-[0.7rem] leading-tight">
-                          <CrewMemberNameLines
-                            name={row.memberName}
-                            nameTh={row.memberNameTh}
-                            inactive={row.inactive}
-                            className="!justify-start"
-                          />
-                        </div>
-                        <div
-                          className="shrink-0 text-[0.7rem] font-medium tabular-nums text-gray-900 leading-none pt-px"
-                          title={`${t('crew.schedule.colTimeOnly')} ${row.timeText}`}
-                        >
-                          {row.timeText}
-                        </div>
-                      </div>
-                      <div
-                        className="mt-0.5 min-w-0 max-w-full overflow-x-auto text-left text-[0.62rem] sm:text-[0.65rem] leading-tight text-gray-900 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin]"
-                        title={leaderVehicleLine !== '—' ? leaderVehicleLine : undefined}
-                      >
-                        {!leadersOnly && !hasVehicle ? (
-                          hasMeeting || hasStandbyOnly ? (
-                            <MeetingSnippetInline row={row} meetingLabel={meetingLabel} />
-                          ) : (
-                            <span className="text-gray-500">—</span>
-                          )
-                        ) : !leadersOnly ? (
-                          <span className="tabular-nums inline-block min-w-0">
-                            {v || '—'}
-                            {hasMeeting || hasStandbyOnly ? (
-                              <>
-                                <span className="text-gray-400"> · </span>
-                                <MeetingSnippetInline row={row} meetingLabel={meetingLabel} />
-                              </>
-                            ) : null}
-                          </span>
-                        ) : !hasVehicle ? (
-                          <span className="min-w-0 block">
-                            <span className="truncate inline align-middle">{plainLeaders}</span>
-                            {hasMeeting || hasStandbyOnly ? (
-                              <>
-                                <span className="text-gray-400"> · </span>
-                                <MeetingSnippetInline row={row} meetingLabel={meetingLabel} />
-                              </>
-                            ) : null}
-                          </span>
-                        ) : (
-                          <span className="inline-block min-w-0 max-w-none whitespace-nowrap">
-                            <span>{plainLeaders}</span>
-                            <span className="text-gray-400"> / </span>
-                            <span className="tabular-nums">{v}</span>
-                            {hasMeeting || hasStandbyOnly ? (
-                              <>
-                                <span className="text-gray-400"> · </span>
-                                <MeetingSnippetInline row={row} meetingLabel={meetingLabel} />
-                              </>
-                            ) : null}
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              <div className="hidden lg:block w-full min-w-0 overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0">
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden sm:rounded-lg">
-                  <table className="w-full min-w-[360px] border-collapse text-[0.7rem] sm:text-fluid-2xs table-fixed">
-                    <colgroup>
-                      <col className="w-[18%]" />
-                      <col className="w-[28%]" />
-                      <col className="w-[14%]" />
-                      <col className="w-[14%]" />
-                      <col className="w-[26%]" />
-                    </colgroup>
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="border-b border-gray-200 px-1 py-1.5 text-center align-middle font-medium text-gray-800">
-                          <CrewBiInline id="crew.schedule.colMember" className="leading-tight" />
-                        </th>
-                        <th className="border-b border-gray-200 px-1 py-1.5 text-center align-middle font-medium text-gray-800">
-                          <CrewBiInline id="crew.schedule.colAssignLeader" className="leading-tight" />
-                        </th>
-                        <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
-                          <CrewBiInline id="crew.schedule.colTimeOnly" className="leading-tight" />
-                        </th>
-                        <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
-                          <CrewBiInline id="crew.schedule.colMeeting" className="leading-tight" />
-                        </th>
-                        <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
-                          <CrewBiInline id="crew.schedule.colVehicleOnly" className="leading-tight" />
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((row) => (
-                        <tr key={row.key} className="hover:bg-gray-50/80">
-                          <td className="border-b border-gray-100 px-1 py-1.5 text-center align-middle">
-                            <div className="tabular-nums leading-tight break-words">
-                              <CrewMemberNameLines
-                                name={row.memberName}
-                                nameTh={row.memberNameTh}
-                                inactive={row.inactive}
-                              />
-                            </div>
-                          </td>
-                          <td
-                            className="border-b border-gray-100 px-1 py-1.5 text-center align-middle text-gray-800 truncate"
-                            title={crewScheduleLeadersPlain(row.leaderLeaders)}
-                          >
-                            <CrewScheduleLeaderNames leaders={row.leaderLeaders} />
-                          </td>
-                          <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 whitespace-nowrap">
-                            {row.timeText}
-                          </td>
-                          <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 tabular-nums">
-                            <MeetingCellContent row={row} />
-                          </td>
-                          <td
-                            className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 truncate"
-                            title={row.vehicleText}
-                          >
-                            {row.vehicleText}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </>
+          ) : null}
+        </div>
       )}
     </div>
   );
