@@ -272,6 +272,8 @@ export interface DayRosterItem {
   teamMemberIds?: string[];
   /** 조회용 — 대기 표시 멤버 */
   standbyTeamMemberIds?: string[];
+  /** 조회용 — 그날 휴무 등록 멤버 */
+  dayOffTeamMemberIds?: string[];
 }
 
 export async function getCrewDayRoster(token: string, start: string, end: string) {

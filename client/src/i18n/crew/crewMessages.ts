@@ -348,6 +348,22 @@ export const crewMessages = {
     ko: '시간',
     th: 'เวลา',
   },
+  'crew.schedule.timeAm': {
+    ko: '오전',
+    th: 'ช่วงเช้า',
+  },
+  'crew.schedule.timePm': {
+    ko: '오후',
+    th: 'ช่วงบ่าย',
+  },
+  'crew.schedule.timeBetween': {
+    ko: '사이청소',
+    th: 'งานระหว่างช่วง',
+  },
+  'crew.schedule.timeFlexible': {
+    ko: '조율',
+    th: 'นัดหมายได้',
+  },
   'crew.schedule.colVehicleOnly': {
     ko: '차량',
     th: 'ทะเบียน',
@@ -485,8 +501,8 @@ export const crewMessages = {
     th: 'เลือกสมาชิกที่ทำงานวันนี้',
   },
   'crew.roster.dayEditorHintLeader': {
-    ko: '왼쪽에서 멤버를 눌러 선택한 뒤 → 를 누르면 오른쪽(일할 멤버)으로 옮깁니다. 오른쪽에서 선택 후 ← 를 누르면 빠집니다.',
-    th: 'แตะชื่อซ้าย แล้วกด → เพื่อย้ายไปขวา (คนทำงาน). เลือกขวาแล้วกด ← เพื่อเอาออก',
+    ko: '이름을 한 번 누르면 반대쪽 목록으로 바로 옮깁니다. 「전체 선택」은 그날 휴무가 아닌 멤버만 고릅니다.',
+    th: 'แตะชื่อครั้งเดียวเพื่อย้ายไปอีกฝั่ง 「เลือกทั้งหมด」จะเลือกเฉพาะคนที่ไม่ได้ลาในวันนั้น',
   },
   'crew.roster.helpToggleAria': {
     ko: '사용 방법 보기',
@@ -499,6 +515,70 @@ export const crewMessages = {
   'crew.roster.columnWorking': {
     ko: '일할 멤버',
     th: 'คนทำงานวันนี้',
+  },
+  'crew.roster.selectAll': {
+    ko: '전체 선택',
+    th: 'เลือกทั้งหมด',
+  },
+  'crew.roster.clearAll': {
+    ko: '전체 해제',
+    th: 'ยกเลิกทั้งหมด',
+  },
+  'crew.roster.dayOffBadge': {
+    ko: '휴무',
+    th: 'ลา',
+  },
+  'crew.roster.copyYesterday': {
+    ko: '어제와 같게',
+    th: 'เหมือนเมื่อวาน',
+  },
+  'crew.roster.copySameWeekday': {
+    ko: '지난주 같은 요일',
+    th: 'วันเดียวกันสัปดาห์ก่อน',
+  },
+  'crew.roster.copyEmpty': {
+    ko: '불러올 명단이 없습니다.',
+    th: 'ไม่มีรายชื่อให้โหลด',
+  },
+  'crew.roster.copyLoaded': {
+    ko: '명단을 불러왔습니다. 저장을 눌러 반영하세요.',
+    th: 'โหลดรายชื่อแล้ว กดบันทึกเพื่อใช้',
+  },
+  'crew.roster.applyOtherDays': {
+    ko: '다른 날에도 적용',
+    th: 'ใช้กับวันอื่นด้วย',
+  },
+  'crew.roster.applyRestOfWeek': {
+    ko: '이번 주 남은 날',
+    th: 'วันที่เหลือสัปดาห์นี้',
+  },
+  'crew.roster.applyPickDays': {
+    ko: '달력에서 여러 날 고르기',
+    th: 'เลือกหลายวันจากปฏิทิน',
+  },
+  'crew.roster.applyPickHint': {
+    ko: '적용할 날짜를 눌러 고르세요. (오늘 제외)',
+    th: 'แตะวันที่ต้องการใช้ (ไม่รวมวันนี้)',
+  },
+  'crew.roster.unsetBadge': {
+    ko: '미정',
+    th: 'ยังไม่กำหนด',
+  },
+  'crew.roster.overwriteConfirmTitle': {
+    ko: '이미 명단이 있는 날이 있습니다',
+    th: 'มีวันที่ตั้งรายชื่อไว้แล้ว',
+  },
+  'crew.roster.overwriteConfirmBody': {
+    ko: '{dates} — 같은 명단으로 덮어쓸까요?',
+    th: '{dates} — ต้องการเขียนทับด้วยรายชื่อเดียวกันหรือไม่?',
+  },
+  'crew.roster.overwriteConfirmOk': {
+    ko: '덮어쓰기',
+    th: 'เขียนทับ',
+  },
+  'crew.roster.sessionExpired': {
+    ko: '세션이 만료되었습니다. 다시 로그인해 주세요.',
+    th: 'เซสชันหมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่',
   },
   'crew.roster.transferToWorking': {
     ko: '선택한 멤버를 일할 멤버로',

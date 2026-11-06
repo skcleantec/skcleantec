@@ -32,6 +32,8 @@ export type DayRosterEntryOut = {
   teamMemberIds: string[];
   /** 현장 일정 「대기」 표시 대상 */
   standbyTeamMemberIds: string[];
+  /** 그날 휴무 등록된 그룹 멤버 (명단 배정 시 제외·표시용) */
+  dayOffTeamMemberIds: string[];
 };
 
 export type DayRosterEntryIn = {
@@ -77,11 +79,24 @@ export async function getDayRosterInRange(
 ): Promise<DayRosterEntryOut[]> {
   const start = parseYmdToDate(startYmd);
   const end = parseYmdToDate(endYmd);
-  const rows = await prisma.teamCrewGroupDayRoster.findMany({
-    where: { groupId, date: { gte: start, lte: end } },
-    orderBy: [{ date: 'asc' }, { teamMemberId: 'asc' }],
-    select: { date: true, teamMemberId: true, isStandby: true },
-  });
+  const allowed = await getGroupTeamMemberIdSet(groupId);
+  const memberIdList = [...allowed];
+  const [rows, offRows] = await Promise.all([
+    prisma.teamCrewGroupDayRoster.findMany({
+      where: { groupId, date: { gte: start, lte: end } },
+      orderBy: [{ date: 'asc' }, { teamMemberId: 'asc' }],
+      select: { date: true, teamMemberId: true, isStandby: true },
+    }),
+    memberIdList.length === 0
+      ? Promise.resolve([] as { date: Date; teamMemberId: string }[])
+      : prisma.teamMemberDayOff.findMany({
+          where: {
+            teamMemberId: { in: memberIdList },
+            date: { gte: start, lte: end },
+          },
+          select: { date: true, teamMemberId: true },
+        }),
+  ]);
   const byDate = new Map<string, DayRosterMemberOut[]>();
   for (const r of rows) {
     const k = r.date.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
@@ -89,12 +104,27 @@ export async function getDayRosterInRange(
     arr.push({ teamMemberId: r.teamMemberId, isStandby: r.isStandby });
     byDate.set(k, arr);
   }
-  return [...byDate.entries()].map(([date, members]) => ({
-    date,
-    members,
-    teamMemberIds: members.map((m) => m.teamMemberId),
-    standbyTeamMemberIds: members.filter((m) => m.isStandby).map((m) => m.teamMemberId),
-  }));
+  const offByDate = new Map<string, string[]>();
+  for (const r of offRows) {
+    if (!allowed.has(r.teamMemberId)) continue;
+    const k = r.date.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+    const arr = offByDate.get(k) ?? [];
+    arr.push(r.teamMemberId);
+    offByDate.set(k, arr);
+  }
+  const allDates = new Set<string>([...byDate.keys(), ...offByDate.keys()]);
+  return [...allDates]
+    .sort()
+    .map((date) => {
+      const members = byDate.get(date) ?? [];
+      return {
+        date,
+        members,
+        teamMemberIds: members.map((m) => m.teamMemberId),
+        standbyTeamMemberIds: members.filter((m) => m.isStandby).map((m) => m.teamMemberId),
+        dayOffTeamMemberIds: offByDate.get(date) ?? [],
+      };
+    });
 }
 
 /** 날짜별 명단 일괄 저장(각 날짜는 전체 교체) */

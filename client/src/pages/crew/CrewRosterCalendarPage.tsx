@@ -269,7 +269,9 @@ export function CrewRosterCalendarPage() {
                           {cntLabel}
                         </span>
                       ) : (
-                        <span className="text-[0.5rem] text-gray-300 tabular-nums">·</span>
+                        <span className="inline-flex items-center justify-center rounded-full bg-gray-100 text-gray-500 px-1 py-px text-[0.5rem] font-medium leading-none border border-gray-200/80">
+                          {t('crew.roster.unsetBadge')}
+                        </span>
                       )}
                     </div>
                   </button>

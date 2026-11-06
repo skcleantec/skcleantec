@@ -12,6 +12,9 @@ export function useVisibilityInterval(callback: () => void, intervalMs: number) 
   });
 
   useEffect(() => {
+    /** 음수면 완전 비활성(마운트·탭 복귀 호출 없음). 0이면 마운트·탭 복귀만. */
+    if (intervalMs < 0) return;
+
     const tick = () => {
       if (document.visibilityState === 'visible') cbRef.current();
     };
