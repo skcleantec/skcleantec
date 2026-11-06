@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { getInquiryEditSectionNumber } from '../../../constants/inquiryEditSectionOrder';
+import {
+  getInquiryEditSectionNumber,
+  INQ_EDIT_EXPAND_EVENT,
+} from '../../../constants/inquiryEditSectionOrder';
 import {
   inqEditSectionBody,
   inqEditSectionHeader,
@@ -41,6 +44,7 @@ export function AdminScheduleDetailSection({
   );
   const [open, setOpen] = useState(defaultOpen);
   const userToggledRef = useRef(false);
+  const sectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     userToggledRef.current = false;
@@ -52,9 +56,23 @@ export function AdminScheduleDetailSection({
     setOpen(defaultOpen);
   }, [defaultOpen]);
 
+  /** 왼쪽·칩 메뉴에서 칸으로 이동할 때 접힌 섹션을 펼침 */
+  useEffect(() => {
+    if (!collapsible) return;
+    const el = sectionRef.current;
+    if (!el) return;
+    const onExpand = () => {
+      userToggledRef.current = true;
+      setOpen(true);
+    };
+    el.addEventListener(INQ_EDIT_EXPAND_EVENT, onExpand);
+    return () => el.removeEventListener(INQ_EDIT_EXPAND_EVENT, onExpand);
+  }, [collapsible]);
+
   if (!collapsible) {
     return (
       <section
+        ref={sectionRef}
         className={inqEditSectionShell}
         id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
         data-inq-edit-section={sectionAnchor ? '' : undefined}
@@ -68,6 +86,7 @@ export function AdminScheduleDetailSection({
 
   return (
     <section
+      ref={sectionRef}
       className={inqEditSectionShell}
       id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
       data-inq-edit-section={sectionAnchor ? '' : undefined}
