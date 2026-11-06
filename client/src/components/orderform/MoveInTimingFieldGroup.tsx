@@ -1,4 +1,5 @@
 import { YmdSelect } from '../ui/DateQuerySelects';
+import { Button } from '../ui/Button';
 import {
   MOVE_IN_TIMING_OPTIONS,
   applyMoveInTimingSideEffects,
@@ -24,6 +25,8 @@ export type MoveInTimingFieldGroupProps = {
   compact?: boolean;
   dateInputClassName?: string;
   undecidedLabel?: string;
+  /** 고객 위저드: 큰 카드 버튼 / 관리: 라디오 */
+  layout?: 'radio' | 'cards';
 };
 
 export function MoveInTimingFieldGroup({
@@ -40,6 +43,7 @@ export function MoveInTimingFieldGroup({
   compact = false,
   dateInputClassName,
   undecidedLabel = '미정 (이사일 추후 확정)',
+  layout = 'radio',
 }: MoveInTimingFieldGroupProps) {
   const dateDisabled =
     fieldsLocked || isMoveInDateInputDisabled(moveInTiming || null) || moveInDateUndecided;
@@ -52,6 +56,18 @@ export function MoveInTimingFieldGroup({
       })
     : null;
 
+  const applyTiming = (value: MoveInTiming) => {
+    onTimingChange(value);
+    const next = applyMoveInTimingSideEffects(value, {
+      moveInDate,
+      moveInDateUndecided,
+    });
+    if (next.moveInDate !== moveInDate) onDateChange(next.moveInDate);
+    if (next.moveInDateUndecided !== moveInDateUndecided) {
+      onUndecidedChange(next.moveInDateUndecided);
+    }
+  };
+
   return (
     <div className="space-y-2">
       {summary ? (
@@ -59,34 +75,46 @@ export function MoveInTimingFieldGroup({
           선택: {summary}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {MOVE_IN_TIMING_OPTIONS.map((opt) => (
-          <label
-            key={opt.value}
-            className="flex cursor-pointer items-center gap-1.5 text-fluid-sm text-gray-800"
-          >
-            <input
-              type="radio"
-              name={`${idPrefix}-move-in-timing`}
-              className="h-4 w-4 border-gray-300 disabled:cursor-not-allowed"
-              checked={moveInTiming === opt.value}
-              disabled={timingLocked || fieldsLocked}
-              onChange={() => {
-                onTimingChange(opt.value);
-                const next = applyMoveInTimingSideEffects(opt.value, {
-                  moveInDate,
-                  moveInDateUndecided,
-                });
-                if (next.moveInDate !== moveInDate) onDateChange(next.moveInDate);
-                if (next.moveInDateUndecided !== moveInDateUndecided) {
-                  onUndecidedChange(next.moveInDateUndecided);
-                }
-              }}
-            />
-            {opt.label}
-          </label>
-        ))}
-      </div>
+      {layout === 'cards' ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="이사 시기">
+          {MOVE_IN_TIMING_OPTIONS.map((opt) => {
+            const selected = moveInTiming === opt.value;
+            return (
+              <Button
+                key={opt.value}
+                type="button"
+                variant={selected ? 'primary' : 'secondary'}
+                size="lg"
+                disabled={timingLocked || fieldsLocked}
+                aria-pressed={selected}
+                className={`min-h-11 w-full justify-center ${selected ? '' : 'bg-white'}`}
+                onClick={() => applyTiming(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {MOVE_IN_TIMING_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className="flex cursor-pointer items-center gap-1.5 text-fluid-sm text-gray-800"
+            >
+              <input
+                type="radio"
+                name={`${idPrefix}-move-in-timing`}
+                className="h-4 w-4 border-gray-300 disabled:cursor-not-allowed"
+                checked={moveInTiming === opt.value}
+                disabled={timingLocked || fieldsLocked}
+                onChange={() => applyTiming(opt.value)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      )}
       <YmdSelect
         className={dateInputClassName}
         value={moveInDate}

@@ -47,4 +47,6 @@ export type CustomerWizardShared = {
 
 export type CustomerStepBodyProps = CustomerWizardShared & {
   step: OrderFormCustomerStep;
+  /** 「다음」 검증 실패 후 필드별 빨간 안내 */
+  fieldErrorsActive?: boolean;
 };

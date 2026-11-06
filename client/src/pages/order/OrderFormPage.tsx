@@ -64,7 +64,7 @@ import {
 } from '../../utils/orderFormIssueAmountInput';
 import {
   ORDER_FORM_SPACE_COUNT_HINT,
-  parseOrderFormSpaceCount,
+  coerceOrderFormSpaceCounts,
   validateOrderFormSpaceCounts,
 } from '@shared/orderFormSpaceCounts';
 
@@ -475,6 +475,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     setTimeSlotAckOpen(false);
   }, [isValidOrderTimeSlot]);
 
+  /** 바깥·Esc·닫기 — 창만 닫고 고른 날짜 유지 */
+  const dismissServiceDateAck = useCallback(() => {
+    submitResumeAfterServiceDateAckRef.current = false;
+    setPendingServiceDate(null);
+    setServiceDateAckOpen(false);
+  }, []);
+
+  /** 「취소」— 날짜·시간 비움 */
   const cancelServiceDateAck = useCallback(() => {
     submitResumeAfterServiceDateAckRef.current = false;
     setPendingServiceDate(null);
@@ -670,11 +678,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   useEffect(() => {
     if (!serviceDateAckOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') cancelServiceDateAck();
+      if (e.key === 'Escape') dismissServiceDateAck();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [serviceDateAckOpen, cancelServiceDateAck]);
+  }, [serviceDateAckOpen, dismissServiceDateAck]);
 
   const toggleProfOption = useCallback(
     (id: string) => {
@@ -1097,9 +1105,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
   }, [order, form.preferredTime, form.preferredTimeDetail]);
 
-  /** 주소 검색 전 상세주소만 입력하는 경우 방지 */
+  /** 주소 검색 전 상세주소만 입력하는 경우 방지(임시저장·실주소는 유지) */
   useEffect(() => {
     if (isEditor || addressConfirmedViaSearch) return;
+    if (isRealCustomerAddress(form.address)) return;
     const pm = order?.prefillAnswers as Record<string, unknown> | null | undefined;
     const detailLocked =
       pm != null &&
@@ -1109,7 +1118,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     if (form.addressDetail) {
       setForm((f) => ({ ...f, addressDetail: '' }));
     }
-  }, [isEditor, addressConfirmedViaSearch, order?.prefillAnswers, form.addressDetail]);
+  }, [isEditor, addressConfirmedViaSearch, order?.prefillAnswers, form.address, form.addressDetail]);
 
   const showSubmitIssues = (issues: SubmitValidationIssue[]) => {
     if (issues.length === 0) return;
@@ -1188,8 +1197,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         const addressLockedByPrefill =
           isMarketerLockedOrderFormAddress(prefillMap) &&
           isRealCustomerAddress(form.address);
-        addressViaSearchOk = addressLockedByPrefill || addressConfirmedViaSearch;
-        if (!isEditor && !addressViaSearchOk && isRealCustomerAddress(form.address)) {
+        addressViaSearchOk =
+          addressLockedByPrefill ||
+          addressConfirmedViaSearch ||
+          isRealCustomerAddress(form.address);
+        if (!isEditor && !addressViaSearchOk) {
           addIssue('「주소 검색」 버튼으로 주소를 선택해 주세요.', 'order-field-address');
         }
         if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
@@ -1197,7 +1209,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         }
         if (
           !isEditor &&
-          !addressConfirmedViaSearch &&
+          !addressViaSearchOk &&
           !addressLockedByPrefill &&
           form.addressDetail.trim()
         ) {
@@ -1451,18 +1463,22 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         preferredDate: stdFieldOn('preferredDate') ? useDate : undefined,
         preferredTime: stdFieldOn('preferredTime') ? useTime : undefined,
         preferredTimeDetail: stdFieldOn('preferredTimeDetail') ? useTimeDetail ?? null : undefined,
-        roomCount: stdFieldOn('roomCount')
-          ? parseOrderFormSpaceCount(form.roomCount) ?? undefined
-          : undefined,
-        balconyCount: stdFieldOn('roomCount')
-          ? parseOrderFormSpaceCount(form.balconyCount) ?? undefined
-          : undefined,
-        bathroomCount: stdFieldOn('roomCount')
-          ? parseOrderFormSpaceCount(form.bathroomCount) ?? undefined
-          : undefined,
-        kitchenCount: stdFieldOn('roomCount')
-          ? parseOrderFormSpaceCount(form.kitchenCount) ?? undefined
-          : undefined,
+        ...(stdFieldOn('roomCount')
+          ? (() => {
+              const space = coerceOrderFormSpaceCounts(form);
+              return {
+                roomCount: space.roomCount ?? undefined,
+                balconyCount: space.balconyCount ?? undefined,
+                bathroomCount: space.bathroomCount ?? undefined,
+                kitchenCount: space.kitchenCount ?? undefined,
+              };
+            })()
+          : {
+              roomCount: undefined,
+              balconyCount: undefined,
+              bathroomCount: undefined,
+              kitchenCount: undefined,
+            }),
         buildingType: stdFieldOn('buildingType') ? form.buildingType : undefined,
         moveInTiming:
           stdFieldOn('moveInDate') && form.moveInTiming ? form.moveInTiming : undefined,
@@ -1755,6 +1771,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     isEditor,
     guideTermsAt: guideTermsConsent?.at ?? null,
     setGuideTermsConsent,
+    addressConfirmedViaSearch,
+    setAddressConfirmedViaSearch,
   });
   wizardGoToRef.current = customerWizard.goTo;
 
@@ -1871,7 +1889,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     lockKey(key) ? `${base} ${lockedInputCls}` : base;
   const addressFieldLocked = !isEditor && isMarketerLockedOrderFormAddress(prefillMap);
   const addressDetailFieldDisabled =
-    lockKey('addressDetail') || (!isEditor && !addressConfirmedViaSearch);
+    lockKey('addressDetail') ||
+    (!isEditor && !addressConfirmedViaSearch && !isRealCustomerAddress(form.address));
   const profLocked = lockKey('professionalOptionIds');
   const moveLocked =
     lockKey('moveInTiming') || lockKey('moveInDate') || lockKey('moveInDateUndecided');
@@ -2134,7 +2153,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             aria-modal="true"
             aria-labelledby="service-date-ack-title"
             aria-describedby="service-date-ack-desc"
-            onClick={() => cancelServiceDateAck()}
+            onClick={() => dismissServiceDateAck()}
           >
             <div
               className="w-full max-h-[min(92dvh,640px)] sm:max-h-[85vh] max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
@@ -2784,7 +2803,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               mobilePreferred
               disabled={addressFieldLocked}
             />
-            {!isEditor && !addressFieldLocked && form.address.trim() && !addressConfirmedViaSearch ? (
+            {!isEditor &&
+            !addressFieldLocked &&
+            form.address.trim() &&
+            !addressConfirmedViaSearch &&
+            !isRealCustomerAddress(form.address) ? (
               <p className="mb-2 text-xs text-amber-800">
                 주소가 입력되어 있어도 「주소 검색」 버튼으로 다시 선택해야 합니다.
               </p>
@@ -2809,7 +2832,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               disabled={addressDetailFieldDisabled}
               readOnly={addressDetailFieldDisabled}
             />
-            {!isEditor && !addressConfirmedViaSearch && !lockKey('addressDetail') ? (
+            {!isEditor &&
+            !addressConfirmedViaSearch &&
+            !isRealCustomerAddress(form.address) &&
+            !lockKey('addressDetail') ? (
               <p className="mt-1 text-xs text-gray-500">주소 검색을 완료하면 상세주소를 입력할 수 있습니다.</p>
             ) : null}
           </div>

@@ -17,7 +17,11 @@ import {
   shouldShowCustomerTimeWizardStep,
   customerMayEditFillKey,
 } from '../../../pages/order/orderFormFieldVisibility';
-import type { OrderFormFields, OrderFormLoadedOrder } from '../../../pages/order/orderFormModel.types';
+import {
+  EMPTY_ORDER_FORM_FIELDS,
+  type OrderFormFields,
+  type OrderFormLoadedOrder,
+} from '../../../pages/order/orderFormModel.types';
 import type { OrderFormPublicTemplateField } from '../../../api/orderform';
 import { shouldCollectOrderFormCleaningKind } from '@shared/orderFormCleaningKind';
 import {
@@ -359,6 +363,31 @@ export function resolveOrderFormCustomerSteps(args: {
     hint: copy('guide')?.hint,
   });
   return steps;
+}
+
+/**
+ * 진행률 「N / 전체」의 분모 — 원룸·시간 상세 등 조건부 단계를 처음부터 포함해
+ * 선택이 바뀌어도 전체 수가 흔들리지 않게 한다.
+ */
+export function resolveOrderFormCustomerProgressSteps(args: {
+  order: OrderFormLoadedOrder | null;
+  customFields: OrderFormPublicTemplateField[];
+  isEditor: boolean;
+}): OrderFormCustomerStep[] {
+  const maxForm: OrderFormFields = {
+    ...EMPTY_ORDER_FORM_FIELDS,
+    isOneRoom: true,
+    preferredTime: '사이청소',
+    balconyCount: '0',
+    kitchenCount: '0',
+  };
+  return resolveOrderFormCustomerSteps({
+    order: args.order,
+    form: maxForm,
+    customFields: args.customFields,
+    isEditor: args.isEditor,
+    skipLocked: false,
+  });
 }
 
 /** 제출 검증 fieldId → 고객 위저드 질문 */

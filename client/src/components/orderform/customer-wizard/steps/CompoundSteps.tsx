@@ -35,6 +35,7 @@ import {
 } from '@shared/orderFormCustomerPages';
 import { labelForMoveInTiming } from '@shared/orderFormMoveInTiming';
 import { formatOrderFormSpaceCountsLine } from '@shared/orderFormSpaceCounts';
+import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
 import { labelForTimeSlot } from '../../../../constants/orderFormSchedule';
 import { WIZARD_CTA_CLS, WIZARD_INPUT_CLS, WIZARD_SECONDARY_CLS, WizardQuestion } from '../wizardUi';
 import type { CustomerStepBodyProps } from '../customerStepTypes';
@@ -49,7 +50,9 @@ export function AddressStep({
   setAddressConfirmedViaSearch,
   addressFieldLocked,
 }: CustomerStepBodyProps) {
-  const detailDisabled = lockKey('addressDetail') || (!addressConfirmedViaSearch && !addressFieldLocked);
+  const addressReady =
+    addressConfirmedViaSearch || addressFieldLocked || isRealCustomerAddress(form.address);
+  const detailDisabled = lockKey('addressDetail') || (!addressReady && !addressFieldLocked);
   return (
     <WizardQuestion title={step.title} hint={step.hint}>
       {addressFieldLocked ? (
@@ -68,7 +71,7 @@ export function AddressStep({
           mobilePreferred
         />
       )}
-      {!addressFieldLocked && form.address.trim() && !addressConfirmedViaSearch ? (
+      {!addressFieldLocked && form.address.trim() && !addressReady ? (
         <p className="mb-3 text-fluid-2xs text-amber-800">
           「주소 검색」 버튼으로 다시 선택해야 합니다.
         </p>
@@ -94,6 +97,7 @@ export function MoveInStep({ form, setForm, lockKey, step }: CustomerStepBodyPro
     <WizardQuestion title={step.title} hint={step.hint}>
       <MoveInTimingFieldGroup
         idPrefix="order-wizard-movein"
+        layout="cards"
         moveInTiming={form.moveInTiming}
         moveInDate={form.moveInDate}
         moveInDateUndecided={form.moveInDateUndecided}

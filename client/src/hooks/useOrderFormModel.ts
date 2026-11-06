@@ -4,6 +4,7 @@ import type { ProfessionalOptionSelection } from '../constants/professionalSpeci
 import type { OrderFormPublicTemplateField } from '../api/orderform';
 import {
   isOrderFormCustomerStepId,
+  resolveOrderFormCustomerProgressSteps,
   resolveOrderFormCustomerSteps,
   type OrderFormCustomerStep,
   type OrderFormCustomerStepId,
@@ -14,6 +15,7 @@ import {
 } from '@shared/orderFormPreviewWalk';
 import { isOrderFormStaffView } from '../utils/orderFormStaffView';
 import {
+  draftAddressConfirmedViaSearch,
   mergeDraftIntoForm,
   readOrderFormCustomerDraft,
   useOrderFormCustomerDraftPersist,
@@ -40,6 +42,8 @@ export function useOrderFormModel(args: {
   isEditor: boolean;
   guideTermsAt: string | null;
   setGuideTermsConsent: (v: { at: string; signaturePng: string; typedName: string } | null) => void;
+  addressConfirmedViaSearch?: boolean;
+  setAddressConfirmedViaSearch?: (v: boolean) => void;
 }) {
   const {
     token,
@@ -55,6 +59,8 @@ export function useOrderFormModel(args: {
     customFields,
     isEditor,
     guideTermsAt,
+    addressConfirmedViaSearch = false,
+    setAddressConfirmedViaSearch,
   } = args;
 
   const stdFieldOn = useCallback((key: string) => isStdFieldOn(order, key), [order]);
@@ -157,6 +163,9 @@ export function useOrderFormModel(args: {
       return next;
     });
     setProfSelections((prev) => (prev.length > 0 ? prev : draft.profSelections ?? []));
+    if (setAddressConfirmedViaSearch && draftAddressConfirmedViaSearch(draft)) {
+      setAddressConfirmedViaSearch(true);
+    }
     // 서명은 임시저장하지 않음 — 다시 열고 서명해야 함
     // 초안은 로드 직후 한 번만
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,6 +178,7 @@ export function useOrderFormModel(args: {
     customAnswers,
     profSelections,
     guideTermsAt,
+    addressConfirmedViaSearch,
   });
 
   const stepsRef = useRef(steps);
@@ -201,9 +211,25 @@ export function useOrderFormModel(args: {
     [steps, setStepId],
   );
 
-  const progressCount = steps.filter((s) => s.kind !== 'welcome').length;
-  const progressDone = Math.max(0, stepIndex - (steps[0]?.kind === 'welcome' ? 1 : 0));
-  const progressRatio = progressCount <= 0 ? 0 : Math.min(1, progressDone / progressCount);
+  const progressSteps = useMemo(
+    () =>
+      resolveOrderFormCustomerProgressSteps({
+        order,
+        customFields,
+        isEditor,
+      }),
+    [order, customFields, isEditor],
+  );
+  const progressCount = progressSteps.filter((s) => s.kind !== 'welcome').length;
+  const progressIndexInMax = currentStep
+    ? progressSteps.findIndex((s) => s.id === currentStep.id)
+    : -1;
+  const progressDone = Math.max(
+    0,
+    (progressIndexInMax >= 0 ? progressIndexInMax : stepIndex) -
+      (progressSteps[0]?.kind === 'welcome' ? 1 : 0),
+  );
+  const progressRatio = progressCount <= 0 ? 0 : Math.min(1, (progressDone + 1) / progressCount);
 
   return {
     stdFieldOn,
