@@ -2,13 +2,62 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import type { CrewLayoutContext } from '../../components/layout/CrewLayout';
 import { getCrewToken } from '../../stores/crewAuth';
-import { getCrewDayRoster, putCrewDayRoster, type CrewMeResponse } from '../../api/crew';
+import {
+  getCrewDayRoster,
+  putCrewDayRoster,
+  type CrewMeResponse,
+  type DayRosterItem,
+} from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { CrewBiLine, CrewBiInline, useCrewText } from '../../i18n/crew/crewI18n';
 import { CrewMemberNameLines } from '../../components/crew/CrewMemberNameLines';
+import { confirmDialog, toast } from '../../components/ui/Toast';
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function pad2(n: number) {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+
+function addDaysYmd(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + delta);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+}
+
+/** KST 달력 기준 이번 주(일~토)에서 ymd 다음 날부터 토요일까지 */
+function restOfWeekYmds(ymd: string): string[] {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const dow = dt.getDay();
+  const out: string[] = [];
+  for (let i = 1; i <= 6 - dow; i++) out.push(addDaysYmd(ymd, i));
+  return out;
+}
+
+function parseRosterRow(row: DayRosterItem | undefined): {
+  ids: string[];
+  standby: Set<string>;
+  dayOff: Set<string>;
+} {
+  let ids: string[] = [];
+  let standby = new Set<string>();
+  if (row) {
+    if (Array.isArray(row.members) && row.members.length > 0) {
+      ids = row.members.map((m) => m.teamMemberId);
+      standby = new Set(row.members.filter((m) => m.isStandby).map((m) => m.teamMemberId));
+    } else if (Array.isArray(row.teamMemberIds)) {
+      ids = row.teamMemberIds;
+      standby = new Set(Array.isArray(row.standbyTeamMemberIds) ? row.standbyTeamMemberIds : []);
+    }
+  }
+  const dayOff = new Set(Array.isArray(row?.dayOffTeamMemberIds) ? row!.dayOffTeamMemberIds! : []);
+  return { ids, standby, dayOff };
+}
+
+type ApplyMode = 'none' | 'restWeek' | 'pick';
 
 export function CrewRosterDayPage() {
   const { ymd } = useParams<{ ymd: string }>();
@@ -19,13 +68,15 @@ export function CrewRosterDayPage() {
 
   const [workingIds, setWorkingIds] = useState<Set<string>>(new Set());
   const [standbyIds, setStandbyIds] = useState<Set<string>>(new Set());
-  const [highlightPool, setHighlightPool] = useState<Set<string>>(new Set());
-  const [highlightWorking, setHighlightWorking] = useState<Set<string>>(new Set());
+  const [dayOffIds, setDayOffIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [modalPassword, setModalPassword] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
+  const [applyMode, setApplyMode] = useState<ApplyMode>('none');
+  const [pickedDates, setPickedDates] = useState<Set<string>>(new Set());
+  const [monthRosterDates, setMonthRosterDates] = useState<Set<string>>(new Set());
   const t = useCrewText();
 
   const canEdit = me?.crewViewerRole === 'LEADER';
@@ -38,31 +89,33 @@ export function CrewRosterDayPage() {
     if (!token || !me || !ymd || !YMD_RE.test(ymd)) return;
     setLoading(true);
     try {
-      const r = await getCrewDayRoster(token, ymd, ymd);
+      const [y, m] = ymd.split('-').map(Number);
+      const monthStart = `${y}-${pad2(m)}-01`;
+      const monthEnd = `${y}-${pad2(m)}-${pad2(new Date(y, m, 0).getDate())}`;
+      const r = await getCrewDayRoster(token, monthStart, monthEnd);
       const items = Array.isArray(r.items) ? r.items : [];
       const row = items.find((it) => it && it.date === ymd);
-      let ids: string[] = [];
-      let standby = new Set<string>();
-      if (row) {
-        if (Array.isArray(row.members) && row.members.length > 0) {
-          ids = row.members.map((m) => m.teamMemberId);
-          standby = new Set(row.members.filter((m) => m.isStandby).map((m) => m.teamMemberId));
-        } else if (Array.isArray(row.teamMemberIds)) {
-          ids = row.teamMemberIds;
-          standby = new Set(
-            Array.isArray(row.standbyTeamMemberIds) ? row.standbyTeamMemberIds : [],
-          );
-        }
+      const parsed = parseRosterRow(row);
+      setWorkingIds(new Set(parsed.ids));
+      setStandbyIds(parsed.standby);
+      setDayOffIds(parsed.dayOff);
+      const withRoster = new Set<string>();
+      for (const it of items) {
+        if (!it?.date || !YMD_RE.test(it.date)) continue;
+        const n =
+          Array.isArray(it.members) && it.members.length > 0
+            ? it.members.length
+            : Array.isArray(it.teamMemberIds)
+              ? it.teamMemberIds.length
+              : 0;
+        if (n > 0) withRoster.add(it.date);
       }
-      setWorkingIds(new Set(ids));
-      setStandbyIds(standby);
-      setHighlightPool(new Set());
-      setHighlightWorking(new Set());
+      setMonthRosterDates(withRoster);
     } catch {
       setWorkingIds(new Set());
       setStandbyIds(new Set());
-      setHighlightPool(new Set());
-      setHighlightWorking(new Set());
+      setDayOffIds(new Set());
+      setMonthRosterDates(new Set());
     } finally {
       setLoading(false);
     }
@@ -80,54 +133,64 @@ export function CrewRosterDayPage() {
     () => members.filter((m) => workingIds.has(m.teamMemberId)),
     [members, workingIds],
   );
+  const selectablePoolIds = useMemo(
+    () => poolMembers.filter((m) => !dayOffIds.has(m.teamMemberId)).map((m) => m.teamMemberId),
+    [poolMembers, dayOffIds],
+  );
 
   const goCalendar = () => {
     navigate('/crew/roster');
   };
 
-  const togglePoolHighlight = (id: string) => {
-    if (!canEdit) return;
-    setHighlightPool((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleWorkingHighlight = (id: string) => {
-    if (!canEdit) return;
-    setHighlightWorking((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const moveToWorking = () => {
-    if (!canEdit || highlightPool.size === 0) return;
+  const moveOneToWorking = (id: string) => {
+    if (!canEdit || dayOffIds.has(id)) return;
     setWorkingIds((prev) => {
       const next = new Set(prev);
-      for (const id of highlightPool) next.add(id);
+      next.add(id);
       return next;
     });
-    setHighlightPool(new Set());
   };
 
-  const moveToPool = () => {
-    if (!canEdit || highlightWorking.size === 0) return;
+  const moveOneToPool = (id: string) => {
+    if (!canEdit) return;
     setWorkingIds((prev) => {
       const next = new Set(prev);
-      for (const id of highlightWorking) next.delete(id);
+      next.delete(id);
       return next;
     });
     setStandbyIds((prev) => {
       const next = new Set(prev);
-      for (const id of highlightWorking) next.delete(id);
+      next.delete(id);
       return next;
     });
-    setHighlightWorking(new Set());
+  };
+
+  const selectAllPool = () => {
+    if (!canEdit || selectablePoolIds.length === 0) return;
+    setWorkingIds((prev) => {
+      const next = new Set(prev);
+      for (const id of selectablePoolIds) next.add(id);
+      return next;
+    });
+  };
+
+  const clearAllPool = () => {
+    if (!canEdit) return;
+    setWorkingIds(new Set());
+    setStandbyIds(new Set());
+  };
+
+  const clearAllWorking = () => {
+    if (!canEdit) return;
+    setWorkingIds(new Set());
+    setStandbyIds(new Set());
+  };
+
+  const selectAllWorking = () => {
+    if (!canEdit) return;
+    setWorkingIds(
+      new Set(members.filter((m) => !dayOffIds.has(m.teamMemberId)).map((m) => m.teamMemberId)),
+    );
   };
 
   const toggleStandby = (id: string) => {
@@ -139,6 +202,47 @@ export function CrewRosterDayPage() {
       return next;
     });
   };
+
+  const fillFromDate = async (sourceYmd: string) => {
+    const token = getCrewToken();
+    if (!token || !canEdit) return;
+    try {
+      const r = await getCrewDayRoster(token, sourceYmd, sourceYmd);
+      const row = (Array.isArray(r.items) ? r.items : []).find((it) => it?.date === sourceYmd);
+      const parsed = parseRosterRow(row);
+      const next = new Set(parsed.ids.filter((id) => !dayOffIds.has(id)));
+      if (next.size === 0 && parsed.ids.length === 0) {
+        toast.info(t('crew.roster.copyEmpty'));
+        return;
+      }
+      const nextStandby = new Set(
+        [...parsed.standby].filter((id) => next.has(id) && !dayOffIds.has(id)),
+      );
+      setWorkingIds(next);
+      setStandbyIds(nextStandby);
+      toast.success(t('crew.roster.copyLoaded'));
+    } catch (e) {
+      if (e instanceof AuthSessionExpiredError) {
+        toast.error({ title: t('crew.roster.alertSaveFail'), body: t('crew.roster.sessionExpired') });
+        return;
+      }
+      toast.error(e instanceof Error ? e.message : t('crew.roster.alertSaveFail'));
+    }
+  };
+
+  const targetApplyDates = useMemo(() => {
+    if (!ymd || applyMode === 'none') return [] as string[];
+    if (applyMode === 'restWeek') return restOfWeekYmds(ymd);
+    return [...pickedDates].filter((d) => d !== ymd).sort();
+  }, [ymd, applyMode, pickedDates]);
+
+  const buildEntry = (date: string) => ({
+    date,
+    members: [...workingIds].map((teamMemberId) => ({
+      teamMemberId,
+      isStandby: standbyIds.has(teamMemberId),
+    })),
+  });
 
   const requestSave = () => {
     if (!canEdit || loading) return;
@@ -153,36 +257,62 @@ export function CrewRosterDayPage() {
   const performSave = async (settingsPassword?: string) => {
     const token = getCrewToken();
     if (!token || !canEdit || !ymd || !YMD_RE.test(ymd)) {
-      alert(t('crew.roster.alertSaveSkipped'));
+      toast.error(t('crew.roster.alertSaveSkipped'));
       return;
     }
+
+    const extraDates = targetApplyDates;
+    let occupied = extraDates.filter((d) => monthRosterDates.has(d));
+    const unknownDates = extraDates.filter((d) => !monthRosterDates.has(d));
+    if (unknownDates.length > 0) {
+      try {
+        const lo = [...unknownDates].sort()[0];
+        const hi = [...unknownDates].sort()[unknownDates.length - 1];
+        const r = await getCrewDayRoster(token, lo, hi);
+        for (const it of Array.isArray(r.items) ? r.items : []) {
+          if (!it?.date || !unknownDates.includes(it.date)) continue;
+          const n =
+            Array.isArray(it.members) && it.members.length > 0
+              ? it.members.length
+              : Array.isArray(it.teamMemberIds)
+                ? it.teamMemberIds.length
+                : 0;
+          if (n > 0) occupied.push(it.date);
+        }
+      } catch {
+        /* 확인 생략하고 저장 진행 */
+      }
+    }
+    occupied = [...new Set(occupied)].sort();
+    if (occupied.length > 0) {
+      const ok = await confirmDialog({
+        title: t('crew.roster.overwriteConfirmTitle'),
+        body: t('crew.roster.overwriteConfirmBody', {
+          dates: occupied.map((d) => d.slice(5)).join(', '),
+        }),
+        confirmLabel: t('crew.roster.overwriteConfirmOk'),
+        cancelLabel: t('crew.roster.modalCancel'),
+        danger: true,
+      });
+      if (!ok) return;
+    }
+
     setSaving(true);
     try {
-      await putCrewDayRoster(
-        token,
-        [
-          {
-            date: ymd,
-            members: [...workingIds].map((teamMemberId) => ({
-              teamMemberId,
-              isStandby: standbyIds.has(teamMemberId),
-            })),
-          },
-        ],
-        {
-          settingsPassword: needsSensitivePassword ? settingsPassword : undefined,
-        },
-      );
+      const entries = [buildEntry(ymd), ...extraDates.map((d) => buildEntry(d))];
+      await putCrewDayRoster(token, entries, {
+        settingsPassword: needsSensitivePassword ? settingsPassword : undefined,
+      });
       await reloadMe?.();
-      alert(t('crew.roster.alertSaved'));
+      toast.success(t('crew.roster.alertSaved'));
       goCalendar();
     } catch (e) {
       if (e instanceof AuthSessionExpiredError) {
-        alert(`${t('crew.roster.alertSaveFail')}\n세션이 만료되었습니다. 다시 로그인해 주세요.`);
+        toast.error({ title: t('crew.roster.alertSaveFail'), body: t('crew.roster.sessionExpired') });
         return;
       }
       const detail = e instanceof Error && e.message.trim() ? e.message.trim() : t('crew.roster.alertSaveFail');
-      alert(`${t('crew.roster.alertSaveFail')}\n${detail}`);
+      toast.error({ title: t('crew.roster.alertSaveFail'), body: detail });
     } finally {
       setSaving(false);
     }
@@ -191,7 +321,7 @@ export function CrewRosterDayPage() {
   const confirmPasswordModal = () => {
     const p = modalPassword.trim();
     if (!p) {
-      alert(t('crew.roster.modalPasswordRequired'));
+      toast.error(t('crew.roster.modalPasswordRequired'));
       return;
     }
     setPasswordModalOpen(false);
@@ -203,6 +333,18 @@ export function CrewRosterDayPage() {
     setPasswordModalOpen(false);
     setModalPassword('');
   };
+
+  const pickMonthDays = useMemo(() => {
+    if (!ymd) return [] as string[];
+    const [y, m] = ymd.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    const days: string[] = [];
+    for (let d = 1; d <= last; d++) {
+      const key = `${y}-${pad2(m)}-${pad2(d)}`;
+      if (key !== ymd) days.push(key);
+    }
+    return days;
+  }, [ymd]);
 
   if (!outlet) {
     return (
@@ -227,15 +369,15 @@ export function CrewRosterDayPage() {
   const dateLine = formatDateCompactWithWeekday(ymd);
   const isToday = ymd === kstTodayYmd();
 
-  const listBtn = (on: boolean) =>
-    on
-      ? 'bg-indigo-100 border-indigo-400 text-indigo-950 ring-1 ring-indigo-300'
-      : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-50';
-
+  const listBtn =
+    'bg-white border-gray-200 text-gray-800 hover:bg-gray-50 active:bg-indigo-50';
   const standbyBtn = (on: boolean) =>
     on
       ? 'bg-amber-500 border-amber-600 text-white shadow-sm'
       : 'bg-white border-gray-300 text-gray-700 hover:bg-amber-50';
+
+  const chipBtn =
+    'px-2 py-1 text-[0.65rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40';
 
   return (
     <div className="min-w-0 min-h-[60vh] flex flex-col">
@@ -291,30 +433,71 @@ export function CrewRosterDayPage() {
           </div>
         ) : null}
 
+        {canEdit && !loading ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              className={chipBtn}
+              disabled={saving}
+              onClick={() => void fillFromDate(addDaysYmd(ymd, -1))}
+            >
+              {t('crew.roster.copyYesterday')}
+            </button>
+            <button
+              type="button"
+              className={chipBtn}
+              disabled={saving}
+              onClick={() => void fillFromDate(addDaysYmd(ymd, -7))}
+            >
+              {t('crew.roster.copySameWeekday')}
+            </button>
+          </div>
+        ) : null}
+
         {loading ? (
           <p className="text-sm text-gray-500 mt-3">
             <CrewBiLine id="crew.common.loading" />
           </p>
         ) : (
-          <div className="mt-3 flex gap-1 sm:gap-2 min-h-0 min-w-0 items-stretch">
-            {/* 왼쪽: 멤버 풀 */}
+          <div className="mt-3 flex gap-1.5 sm:gap-2 min-h-0 min-w-0 items-stretch">
             <div className="flex-1 min-w-0 flex flex-col border border-gray-200 rounded-md overflow-hidden bg-gray-50/50">
               <div className="px-1.5 py-1 bg-gray-100 border-b border-gray-200 text-center">
                 <CrewBiInline id="crew.roster.columnMembers" className="text-[0.65rem] font-medium text-gray-800" />
               </div>
+              {canEdit ? (
+                <div className="flex gap-1 px-1 py-1 border-b border-gray-200 bg-white">
+                  <button
+                    type="button"
+                    className="flex-1 py-1 text-[0.6rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40"
+                    disabled={selectablePoolIds.length === 0 || saving}
+                    onClick={selectAllPool}
+                  >
+                    {t('crew.roster.selectAll')}
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 py-1 text-[0.6rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40"
+                    disabled={workingMembers.length === 0 || saving}
+                    onClick={clearAllPool}
+                    title={t('crew.roster.clearAll')}
+                  >
+                    {t('crew.roster.clearAll')}
+                  </button>
+                </div>
+              ) : null}
               <ul className="max-h-[min(50vh,22rem)] overflow-y-auto overscroll-y-contain divide-y divide-gray-100">
                 {poolMembers.length === 0 ? (
                   <li className="px-2 py-3 text-center text-[0.65rem] text-gray-400">—</li>
                 ) : (
                   poolMembers.map((mem) => {
-                    const hi = highlightPool.has(mem.teamMemberId);
+                    const off = dayOffIds.has(mem.teamMemberId);
                     return (
                       <li key={mem.teamMemberId}>
-                        {canEdit ? (
+                        {canEdit && !off ? (
                           <button
                             type="button"
-                            onClick={() => togglePoolHighlight(mem.teamMemberId)}
-                            className={`w-full text-left px-2 py-2 text-sm border-l-2 transition-colors ${listBtn(hi)}`}
+                            onClick={() => moveOneToWorking(mem.teamMemberId)}
+                            className={`w-full text-left px-2 py-2 text-sm border-l-2 border-transparent transition-colors ${listBtn}`}
                           >
                             <CrewMemberNameLines
                               className="text-sm"
@@ -324,13 +507,24 @@ export function CrewRosterDayPage() {
                             />
                           </button>
                         ) : (
-                          <div className="px-2 py-2 text-sm text-gray-600">
-                            <CrewMemberNameLines
-                              className="text-sm"
-                              name={mem.name}
-                              nameTh={mem.nameTh}
-                              inactive={!mem.isActive}
-                            />
+                          <div
+                            className={`px-2 py-2 text-sm flex items-center gap-1 min-w-0 ${
+                              off ? 'bg-gray-100 text-gray-400' : 'text-gray-600'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <CrewMemberNameLines
+                                className="text-sm"
+                                name={mem.name}
+                                nameTh={mem.nameTh}
+                                inactive={!mem.isActive || off}
+                              />
+                            </div>
+                            {off ? (
+                              <span className="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 text-[0.6rem] font-medium text-gray-500">
+                                {t('crew.roster.dayOffBadge')}
+                              </span>
+                            ) : null}
                           </div>
                         )}
                       </li>
@@ -340,41 +534,35 @@ export function CrewRosterDayPage() {
               </ul>
             </div>
 
-            {/* 가운데: 화살표 */}
-            <div className="shrink-0 flex flex-col justify-center gap-2 py-1">
-              <button
-                type="button"
-                disabled={!canEdit || saving || highlightPool.size === 0}
-                onClick={moveToWorking}
-                title={t('crew.roster.transferToWorking')}
-                className="min-h-[2.75rem] min-w-[2.5rem] rounded-lg border border-gray-300 bg-white text-lg font-semibold text-gray-800 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:bg-gray-100"
-                aria-label={t('crew.roster.transferToWorking')}
-              >
-                →
-              </button>
-              <button
-                type="button"
-                disabled={!canEdit || saving || highlightWorking.size === 0}
-                onClick={moveToPool}
-                title={t('crew.roster.transferToPool')}
-                className="min-h-[2.75rem] min-w-[2.5rem] rounded-lg border border-gray-300 bg-white text-lg font-semibold text-gray-800 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:bg-gray-100"
-                aria-label={t('crew.roster.transferToPool')}
-              >
-                ←
-              </button>
-            </div>
-
-            {/* 오른쪽: 일할 멤버 */}
             <div className="flex-1 min-w-0 flex flex-col border border-emerald-200/80 rounded-md overflow-hidden bg-emerald-50/30">
               <div className="px-1.5 py-1 bg-emerald-100/90 border-b border-emerald-200 text-center">
                 <CrewBiInline id="crew.roster.columnWorking" className="text-[0.65rem] font-medium text-emerald-950" />
               </div>
+              {canEdit ? (
+                <div className="flex gap-1 px-1 py-1 border-b border-emerald-200 bg-white">
+                  <button
+                    type="button"
+                    className="flex-1 py-1 text-[0.6rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40"
+                    disabled={saving}
+                    onClick={selectAllWorking}
+                  >
+                    {t('crew.roster.selectAll')}
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 py-1 text-[0.6rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40"
+                    disabled={workingMembers.length === 0 || saving}
+                    onClick={clearAllWorking}
+                  >
+                    {t('crew.roster.clearAll')}
+                  </button>
+                </div>
+              ) : null}
               <ul className="max-h-[min(50vh,22rem)] overflow-y-auto overscroll-y-contain divide-y divide-emerald-100">
                 {workingMembers.length === 0 ? (
                   <li className="px-2 py-3 text-center text-[0.65rem] text-gray-400">—</li>
                 ) : (
                   workingMembers.map((mem) => {
-                    const hi = highlightWorking.has(mem.teamMemberId);
                     const onStandby = standbyIds.has(mem.teamMemberId);
                     const standbyLabel = t('crew.roster.standbyButton');
                     return (
@@ -383,8 +571,8 @@ export function CrewRosterDayPage() {
                           <div className="flex items-stretch gap-0.5 min-w-0">
                             <button
                               type="button"
-                              onClick={() => toggleWorkingHighlight(mem.teamMemberId)}
-                              className={`flex-1 min-w-0 text-left px-2 py-2 text-sm border-l-2 transition-colors ${listBtn(hi)}`}
+                              onClick={() => moveOneToPool(mem.teamMemberId)}
+                              className={`flex-1 min-w-0 text-left px-2 py-2 text-sm border-l-2 border-transparent transition-colors ${listBtn}`}
                             >
                               <CrewMemberNameLines
                                 className="text-sm"
@@ -433,6 +621,82 @@ export function CrewRosterDayPage() {
             </div>
           </div>
         )}
+
+        {canEdit && !loading ? (
+          <div className="mt-3 rounded-md border border-gray-200 bg-gray-50/80 px-2 py-2 space-y-2">
+            <label className="flex items-center gap-2 text-[0.7rem] text-gray-800">
+              <input
+                type="checkbox"
+                checked={applyMode !== 'none'}
+                onChange={(e) => {
+                  if (e.target.checked) setApplyMode('restWeek');
+                  else {
+                    setApplyMode('none');
+                    setPickedDates(new Set());
+                  }
+                }}
+              />
+              {t('crew.roster.applyOtherDays')}
+            </label>
+            {applyMode !== 'none' ? (
+              <div className="flex flex-col gap-1.5 pl-1">
+                <label className="flex items-center gap-2 text-[0.65rem] text-gray-700">
+                  <input
+                    type="radio"
+                    name="crew-roster-apply"
+                    checked={applyMode === 'restWeek'}
+                    onChange={() => setApplyMode('restWeek')}
+                  />
+                  {t('crew.roster.applyRestOfWeek')}
+                  {applyMode === 'restWeek' && targetApplyDates.length > 0 ? (
+                    <span className="text-gray-500 tabular-nums">({targetApplyDates.length})</span>
+                  ) : null}
+                </label>
+                <label className="flex items-center gap-2 text-[0.65rem] text-gray-700">
+                  <input
+                    type="radio"
+                    name="crew-roster-apply"
+                    checked={applyMode === 'pick'}
+                    onChange={() => setApplyMode('pick')}
+                  />
+                  {t('crew.roster.applyPickDays')}
+                </label>
+                {applyMode === 'pick' ? (
+                  <div className="mt-1">
+                    <p className="text-[0.6rem] text-gray-500 mb-1">{t('crew.roster.applyPickHint')}</p>
+                    <div className="grid grid-cols-7 gap-0.5">
+                      {pickMonthDays.map((key) => {
+                        const picked = pickedDates.has(key);
+                        const dayNum = Number(key.slice(8));
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => {
+                              setPickedDates((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(key)) next.delete(key);
+                                else next.add(key);
+                                return next;
+                              });
+                            }}
+                            className={`h-7 rounded text-[0.6rem] tabular-nums border ${
+                              picked
+                                ? 'border-gray-900 bg-gray-900 text-white'
+                                : 'border-gray-200 bg-white text-gray-700'
+                            }`}
+                          >
+                            {dayNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {canEdit ? (
           <div className="mt-3">

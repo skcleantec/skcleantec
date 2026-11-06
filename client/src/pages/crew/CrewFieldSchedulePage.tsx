@@ -23,6 +23,18 @@ function formatVehicles(leaders: CrewFieldLeader[]): string {
   return parts.length ? parts.join('·') : '—';
 }
 
+function formatCrewPreferredTime(
+  raw: string,
+  t: (id: 'crew.schedule.timeAm' | 'crew.schedule.timePm' | 'crew.schedule.timeBetween' | 'crew.schedule.timeFlexible') => string,
+): string {
+  const s = raw.trim();
+  if (s === '오전' || s.toUpperCase() === 'AM') return t('crew.schedule.timeAm');
+  if (s === '오후' || s.toUpperCase() === 'PM') return t('crew.schedule.timePm');
+  if (s === '사이청소') return t('crew.schedule.timeBetween');
+  if (s === '조율') return t('crew.schedule.timeFlexible');
+  return s || '—';
+}
+
 function MeetingTimeEditedBadgeInline() {
   const t = useCrewText();
   const label = t('crew.schedule.meetingTimeEditedBadge');
@@ -96,6 +108,7 @@ function MeetingSnippetInline({
 function buildDayList(
   day: CrewFieldDay | undefined,
   groupMembers: CrewMeResponse['group']['members'],
+  labelTime: (raw: string) => string,
 ): TodayRow[] {
   const rows: TodayRow[] = [];
   const byId = new Map((day?.members ?? []).map((m) => [m.teamMemberId, m]));
@@ -122,12 +135,13 @@ function buildDayList(
     m.inquiries.forEach((inq, i) => {
       const meetingRaw = (inq.crewMeetingTime ?? '').trim();
       const edited = Boolean(inq.crewMeetingTimeEdited);
+      const rawTime = (inq.preferredTime ?? '').trim();
       rows.push({
         key: `${gm.teamMemberId}-${inq.inquiryId}-${i}`,
         memberName: gm.name,
         memberNameTh: gm.nameTh,
         leaderLeaders: inq.leaders,
-        timeText: (inq.preferredTime ?? '').trim() || '—',
+        timeText: rawTime ? labelTime(rawTime) : '—',
         meetingTime: meetingRaw || null,
         meetingTimeEdited: edited,
         vehicleText: formatVehicles(inq.leaders),
@@ -150,45 +164,54 @@ export function CrewFieldSchedulePage() {
   const [days, setDays] = useState<CrewFieldDay[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const silentRefresh = useCallback(async () => {
-    const token = getCrewToken();
-    if (!token || !me) return;
-    try {
-      const r = await getCrewFieldSchedule(token, selectedYmd, selectedYmd);
-      setDays(Array.isArray(r.days) ? r.days : []);
-    } catch {
-      setDays([]);
-    }
-  }, [me, selectedYmd]);
+  const fetchSeq = useMemo(() => ({ n: 0 }), []);
 
-  const load = useCallback(async () => {
-    const token = getCrewToken();
-    if (!token || !me) return;
-    setLoading(true);
-    try {
-      const r = await getCrewFieldSchedule(token, selectedYmd, selectedYmd);
-      setDays(Array.isArray(r.days) ? r.days : []);
-    } catch {
-      setDays([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [me, selectedYmd]);
+  const fetchSchedule = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const token = getCrewToken();
+      if (!token || !me) return;
+      const seq = ++fetchSeq.n;
+      if (!opts?.silent) setLoading(true);
+      try {
+        const r = await getCrewFieldSchedule(token, selectedYmd, selectedYmd);
+        if (seq !== fetchSeq.n) return;
+        setDays(Array.isArray(r.days) ? r.days : []);
+      } catch {
+        if (seq !== fetchSeq.n) return;
+        setDays([]);
+      } finally {
+        if (seq === fetchSeq.n && !opts?.silent) setLoading(false);
+      }
+    },
+    [me, selectedYmd, fetchSeq],
+  );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void fetchSchedule();
+  }, [fetchSchedule]);
 
   const token = getCrewToken();
-  const { connected: wsConnected } = useInboxRealtime(token, () => void silentRefresh(), Boolean(token && me));
-  useVisibilityInterval(() => void silentRefresh(), token && me && !wsConnected ? 25000 : 0);
+  const { connected: wsConnected } = useInboxRealtime(
+    token,
+    () => void fetchSchedule({ silent: true }),
+    Boolean(token && me),
+  );
+  /** WS 연결 시 폴링·마운트 추가 호출 끔(-1). 미연결일 때만 25초 폴링. */
+  useVisibilityInterval(
+    () => void fetchSchedule({ silent: true }),
+    token && me && !wsConnected ? 25000 : -1,
+  );
 
   const kstToday = kstTodayYmd();
   const safeDays = Array.isArray(days) ? days : [];
   const dayForSelected = safeDays.find((d) => d.date === selectedYmd);
+  const labelTime = useCallback(
+    (raw: string) => formatCrewPreferredTime(raw, t as (id: 'crew.schedule.timeAm' | 'crew.schedule.timePm' | 'crew.schedule.timeBetween' | 'crew.schedule.timeFlexible') => string),
+    [t],
+  );
   const rows = useMemo(
-    () => (me ? buildDayList(dayForSelected, me.group.members) : []),
-    [dayForSelected, me],
+    () => (me ? buildDayList(dayForSelected, me.group.members, labelTime) : []),
+    [dayForSelected, me, labelTime],
   );
 
   if (!outlet) {
