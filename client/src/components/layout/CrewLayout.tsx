@@ -1,18 +1,25 @@
-import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { useState, useEffect, useCallback, useSyncExternalStore, useMemo } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { getCrewToken, subscribeCrewAuth, clearCrewToken } from '../../stores/crewAuth';
-import { setToken } from '../../stores/auth';
-import { DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY } from '../../constants/devPreviewAuth';
 import { getCrewMe } from '../../api/crew';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import type { CrewMeResponse } from '../../api/crew';
 import { CrewUiLine, crewText, crewUiLanguageToKey } from '../../i18n/crew/crewI18n';
+import type { CrewMessageId } from '../../i18n/crew/crewMessages';
 import { CrewUiLanguageProvider } from '../../i18n/crew/crewUiLanguageContext';
 import { isCrewGroupRosterMode } from '@shared/crewGroupSettings';
 import { RosterAckBanner } from '../common/RosterAckBanner';
 import { useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
+import { DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY } from '../../constants/devPreviewAuth';
+import { CREW_PAGE_BG, CREW_SHELL } from '../../pages/crew/crewUi';
 
-function CrewNavIcon({ type, className }: { type: 'home' | 'schedule' | 'roster' | 'dayoffs' | 'settlement' | 'settings'; className?: string }) {
+function CrewNavIcon({
+  type,
+  className,
+}: {
+  type: 'home' | 'schedule' | 'roster' | 'settlement' | 'settings';
+  className?: string;
+}) {
   if (type === 'home') {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -39,18 +46,6 @@ function CrewNavIcon({ type, className }: { type: 'home' | 'schedule' | 'roster'
       </svg>
     );
   }
-  if (type === 'dayoffs') {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-        <line x1="9" y1="14" x2="15" y2="18" />
-        <line x1="15" y1="14" x2="9" y2="18" />
-      </svg>
-    );
-  }
   if (type === 'settlement') {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -59,15 +54,22 @@ function CrewNavIcon({ type, className }: { type: 'home' | 'schedule' | 'roster'
       </svg>
     );
   }
-  if (type === 'settings') {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-      </svg>
-    );
-  }
-  return null;
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function pageTitleKey(pathname: string): CrewMessageId {
+  if (pathname === '/crew' || pathname === '/crew/') return 'crew.layout.pageHome';
+  if (pathname.startsWith('/crew/schedule')) return 'crew.layout.pageSchedule';
+  if (pathname.startsWith('/crew/roster')) return 'crew.layout.pageRoster';
+  if (pathname.startsWith('/crew/day-offs')) return 'crew.layout.pageDayOffs';
+  if (pathname.startsWith('/crew/settlement') || pathname === '/crew/expenses') return 'crew.layout.pageSettlement';
+  if (pathname.startsWith('/crew/settings')) return 'crew.layout.pageSettings';
+  return 'crew.layout.titlePrefix';
 }
 
 export function CrewLayout() {
@@ -123,7 +125,7 @@ export function CrewLayout() {
     }
   }, []);
 
-  const outletCtx: CrewLayoutContext = { me, reloadMe };
+  const outletCtx: CrewLayoutContext = { me, reloadMe, hasAdminBackup, setHasAdminBackup };
 
   const groupMode =
     me?.group.availabilityMode ?? (me?.group.useDailyRosterOnly ? 'ROSTER' : 'DAY_OFF');
@@ -132,192 +134,112 @@ export function CrewLayout() {
     Boolean(me && !rosterMode && me.group.allowCrewDayOffEdit && me.crewViewerRole === 'LEADER');
   const uiLang = crewUiLanguageToKey(me?.group.crewUiLanguage);
 
+  const titleKey = useMemo(() => pageTitleKey(pathname), [pathname]);
+
+  const settlementTo =
+    me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview'
+      ? '/crew/settlement'
+      : '/crew/settlement?tab=expenses';
+
+  const logout = () => {
+    try {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k?.startsWith('crewSensitivePwd:')) sessionStorage.removeItem(k);
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      sessionStorage.removeItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY);
+    } catch {
+      /* ignore */
+    }
+    setHasAdminBackup(false);
+    clearCrewToken();
+    navigate('/login', { replace: true });
+  };
+
+  const tabClass = ({ isActive }: { isActive: boolean }) =>
+    `flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 px-1 pt-1 pb-1.5 text-[12px] font-medium transition-colors ${
+      isActive ? 'text-[#1D4ED8]' : 'text-slate-500'
+    }`;
+
   return (
     <CrewUiLanguageProvider crewUiLanguage={me?.group.crewUiLanguage}>
-    <div className="relative min-h-screen bg-[#edf0f5] flex flex-col font-sans antialiased">
-      {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 max-lg:bg-[#edf0f5]" aria-hidden="true">
-        <div className="hidden lg:block absolute -top-[20%] -left-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-indigo-500/16 to-purple-500/10 blur-[100px] opacity-80" />
-        <div className="hidden lg:block absolute -bottom-[20%] -right-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-blue-500/16 to-sky-500/10 blur-[100px] opacity-80" />
-        <div className="hidden lg:block absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-[800px] h-[350px] rounded-full bg-indigo-500/8 blur-[120px] opacity-80" />
-      </div>
-      <div className="staff-top-safe shrink-0 relative z-20">
-      {rosterAckBanner ? (
-        <RosterAckBanner payload={rosterAckBanner} onDismiss={dismissRosterAckBanner} />
-      ) : null}
-      <header className="shadow-md theme-dark-header">
-        <div className="max-w-4xl mx-auto px-4 py-2.5 flex flex-col gap-2 min-w-0">
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <div className="min-w-0 flex-1 leading-tight">
-              <div className="text-fluid-sm font-semibold text-white truncate">
-                <CrewUiLine id="crew.layout.titlePrefix" className="inline" />{' '}
-                <span>{me?.group.name ?? '…'}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {hasAdminBackup ? (
-                <button
-                  type="button"
-                  className="shrink-0 self-center px-2 py-1 rounded text-fluid-xs text-indigo-800 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
-                  onClick={() => {
-                    try {
-                      const t = sessionStorage.getItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY);
-                      if (t) {
-                        setToken(t);
-                        sessionStorage.removeItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY);
-                        setHasAdminBackup(false);
-                        clearCrewToken();
-                        navigate('/admin/dashboard', { replace: true });
-                      }
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                >
-                  <CrewUiLine id="crew.layout.goAdmin" />
-                </button>
-              ) : null}
+      <div className={`relative flex min-h-screen flex-col font-sans antialiased ${CREW_PAGE_BG}`}>
+        <div className="staff-top-safe relative z-20 shrink-0">
+          {rosterAckBanner ? (
+            <RosterAckBanner payload={rosterAckBanner} onDismiss={dismissRosterAckBanner} />
+          ) : null}
+          <header className="border-b border-slate-200/80 bg-white">
+            <div className={`${CREW_SHELL} flex min-h-12 items-center justify-between gap-2 px-4 py-2`}>
+              <h1 className="min-w-0 flex-1 truncate text-[16px] font-semibold text-[#0F172A]">
+                <CrewUiLine id={titleKey} />
+              </h1>
               <button
                 type="button"
-                className="shrink-0 self-center px-2 py-1 rounded text-fluid-xs text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100"
-                onClick={() => {
-                  try {
-                    for (let i = sessionStorage.length - 1; i >= 0; i--) {
-                      const k = sessionStorage.key(i);
-                      if (k?.startsWith('crewSensitivePwd:')) sessionStorage.removeItem(k);
-                    }
-                  } catch {
-                    /* ignore */
-                  }
-                  try {
-                    sessionStorage.removeItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY);
-                  } catch {
-                    /* ignore */
-                  }
-                  setHasAdminBackup(false);
-                  clearCrewToken();
-                  navigate('/login', { replace: true });
-                }}
+                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100"
+                aria-label={crewText('crew.layout.logout', uiLang)}
+                onClick={logout}
               >
-                <CrewUiLine id="crew.layout.logout" />
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
               </button>
             </div>
-          </div>
-          <nav
-            className="relative min-w-0 -mx-4 px-4 sm:mx-0 sm:px-0"
-            aria-label={crewText('crew.layout.navAriaLabel', uiLang)}
-          >
-            <div
-              className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5 text-fluid-xs [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              style={{ WebkitOverflowScrolling: 'touch' }}
-            >
-              <NavLink
-                to="/crew"
-                end
-                className={({ isActive }) =>
-                  `shrink-0 whitespace-nowrap px-3 py-1 text-fluid-xs font-semibold rounded-xl inline-flex items-center transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/10'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-                  }`
-                }
-              >
-                <CrewNavIcon type="home" className="w-4 h-4 mr-1.5 shrink-0" />
-                <CrewUiLine id="crew.layout.navHome" />
-              </NavLink>
-              <NavLink
-                to="/crew/schedule"
-                className={({ isActive }) =>
-                  `shrink-0 whitespace-nowrap px-3 py-1 text-fluid-xs font-semibold rounded-xl inline-flex items-center transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/10'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-                  }`
-                }
-              >
-                <CrewNavIcon type="schedule" className="w-4 h-4 mr-1.5 shrink-0" />
-                <CrewUiLine id="crew.layout.navSchedule" />
-              </NavLink>
-              {rosterMode ? (
-              <NavLink
-                to="/crew/roster"
-                className={() =>
-                  `shrink-0 whitespace-nowrap px-3 py-1 text-fluid-xs font-semibold rounded-xl inline-flex items-center transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
-                    pathname.startsWith('/crew/roster')
-                      ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/10'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-                  }`
-                }
-              >
-                <CrewNavIcon type="roster" className="w-4 h-4 mr-1.5 shrink-0" />
-                <CrewUiLine id="crew.layout.navRoster" />
-              </NavLink>
-              ) : null}
-              {showDayOffsNav ? (
-              <NavLink
-                to="/crew/day-offs"
-                className={({ isActive }) =>
-                  `shrink-0 whitespace-nowrap px-3 py-1 text-fluid-xs font-semibold rounded-xl inline-flex items-center transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/10'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-                  }`
-                }
-              >
-                <CrewNavIcon type="dayoffs" className="w-4 h-4 mr-1.5 shrink-0" />
-                <CrewUiLine id="crew.layout.navDayOffs" />
-              </NavLink>
-              ) : null}
-              <NavLink
-                to={
-                  me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview'
-                    ? '/crew/settlement'
-                    : '/crew/settlement?tab=expenses'
-                }
-                className={() => {
-                  const settlementActive =
-                    pathname.startsWith('/crew/settlement') || pathname === '/crew/expenses';
-                  return `shrink-0 whitespace-nowrap px-3 py-1 text-fluid-xs font-semibold rounded-xl inline-flex items-center transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
-                    settlementActive
-                      ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/10'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-                  }`;
-                }}
-              >
-                <CrewNavIcon type="settlement" className="w-4 h-4 mr-1.5 shrink-0" />
-                {me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview' ? (
-                  <CrewUiLine id="crew.layout.navSettlement" />
-                ) : (
-                  <CrewUiLine id="crew.layout.navTeamExpenses" />
-                )}
-              </NavLink>
-              {me?.crewViewerRole === 'LEADER' ? (
-                <NavLink
-                  to="/crew/settings"
-                  className={({ isActive }) =>
-                    `shrink-0 whitespace-nowrap px-3 py-1 text-fluid-xs font-semibold rounded-xl inline-flex items-center transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
-                      isActive
-                        ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/10'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-                    }`
-                  }
-                >
-                  <CrewNavIcon type="settings" className="w-4 h-4 mr-1.5 shrink-0" />
-                  <CrewUiLine id="crew.layout.navSettings" />
-                </NavLink>
-              ) : null}
-            </div>
-            <p className="mt-1 text-[11px] text-gray-400 sm:hidden px-0.5">
-              <CrewUiLine id="crew.layout.navScrollHint" />
-            </p>
-          </nav>
+          </header>
         </div>
-      </header>
+
+        <main className={`staff-app-surface relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto ${CREW_SHELL} px-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] pt-3`}>
+          <Outlet context={outletCtx} />
+        </main>
+
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200/80 bg-white pb-[env(safe-area-inset-bottom,0px)]"
+          aria-label={crewText('crew.layout.navAriaLabel', uiLang)}
+        >
+          <div className={`${CREW_SHELL} flex items-stretch`}>
+            <NavLink to="/crew" end className={tabClass}>
+              <CrewNavIcon type="home" className="h-5 w-5" />
+              <CrewUiLine id="crew.layout.navHome" />
+            </NavLink>
+            <NavLink to="/crew/schedule" className={tabClass}>
+              <CrewNavIcon type="schedule" className="h-5 w-5" />
+              <CrewUiLine id="crew.layout.navSchedule" />
+            </NavLink>
+            <NavLink
+              to={showDayOffsNav ? '/crew/day-offs' : '/crew/roster'}
+              className={() => {
+                const active = showDayOffsNav
+                  ? pathname.startsWith('/crew/day-offs')
+                  : pathname.startsWith('/crew/roster');
+                return tabClass({ isActive: active });
+              }}
+            >
+              <CrewNavIcon type="roster" className="h-5 w-5" />
+              <CrewUiLine id={showDayOffsNav ? 'crew.layout.navDayOffs' : 'crew.layout.navRoster'} />
+            </NavLink>
+            <NavLink
+              to={settlementTo}
+              className={() =>
+                tabClass({
+                  isActive: pathname.startsWith('/crew/settlement') || pathname === '/crew/expenses',
+                })
+              }
+            >
+              <CrewNavIcon type="settlement" className="h-5 w-5" />
+              <CrewUiLine id="crew.layout.navSettlement" />
+            </NavLink>
+            <NavLink to="/crew/settings" className={tabClass}>
+              <CrewNavIcon type="settings" className="h-5 w-5" />
+              <CrewUiLine id="crew.layout.navSettings" />
+            </NavLink>
+          </div>
+        </nav>
       </div>
-      <main className="staff-app-surface relative z-10 flex-1 min-h-0 min-w-0 max-w-4xl w-full mx-auto px-3 py-2.5 sm:px-4 sm:py-4 overflow-y-auto">
-        <Outlet context={outletCtx} />
-      </main>
-    </div>
     </CrewUiLanguageProvider>
   );
 }
@@ -325,4 +247,6 @@ export function CrewLayout() {
 export type CrewLayoutContext = {
   me: CrewMeResponse | null;
   reloadMe: () => Promise<void>;
+  hasAdminBackup?: boolean;
+  setHasAdminBackup?: (v: boolean) => void;
 };

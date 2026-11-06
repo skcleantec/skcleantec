@@ -9,10 +9,16 @@ import {
   type DayRosterItem,
 } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
-import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
-import { CrewBiLine, CrewBiInline, useCrewText } from '../../i18n/crew/crewI18n';
+import { kstTodayYmd } from '../../utils/dateFormat';
+import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
+import { useCrewUiLang } from '../../i18n/crew/crewUiLanguageContext';
 import { CrewMemberNameLines } from '../../components/crew/CrewMemberNameLines';
 import { confirmDialog, toast } from '../../components/ui/Toast';
+import { CREW_CARD, CREW_SHELL } from './crewUi';
+
+const THAI_MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const THAI_WEEKDAY_SHORT = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+const KO_WEEKDAY_SHORT = ['일','월','화','수','목','금','토'];
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -35,6 +41,16 @@ function restOfWeekYmds(ymd: string): string[] {
   const out: string[] = [];
   for (let i = 1; i <= 6 - dow; i++) out.push(addDaysYmd(ymd, i));
   return out;
+}
+
+function formatDayHeader(ymd: string, lang: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const dow = dt.getDay();
+  if (lang === 'th') {
+    return `${THAI_WEEKDAY_SHORT[dow]} ${d} ${THAI_MONTHS_SHORT[m - 1]} ${y + 543}`;
+  }
+  return `${y}/${pad2(m)}/${pad2(d)} (${KO_WEEKDAY_SHORT[dow]})`;
 }
 
 function parseRosterRow(row: DayRosterItem | undefined): {
@@ -65,6 +81,7 @@ export function CrewRosterDayPage() {
   const outlet = useOutletContext<CrewLayoutContext | undefined>();
   const me = outlet?.me ?? null;
   const reloadMe = outlet?.reloadMe;
+  const lang = useCrewUiLang();
 
   const [workingIds, setWorkingIds] = useState<Set<string>>(new Set());
   const [standbyIds, setStandbyIds] = useState<Set<string>>(new Set());
@@ -73,7 +90,6 @@ export function CrewRosterDayPage() {
   const [saving, setSaving] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [modalPassword, setModalPassword] = useState('');
-  const [helpOpen, setHelpOpen] = useState(false);
   const [applyMode, setApplyMode] = useState<ApplyMode>('none');
   const [pickedDates, setPickedDates] = useState<Set<string>>(new Set());
   const [monthRosterDates, setMonthRosterDates] = useState<Set<string>>(new Set());
@@ -144,40 +160,18 @@ export function CrewRosterDayPage() {
 
   const moveOneToWorking = (id: string) => {
     if (!canEdit || dayOffIds.has(id)) return;
-    setWorkingIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
+    setWorkingIds((prev) => { const n = new Set(prev); n.add(id); return n; });
   };
 
   const moveOneToPool = (id: string) => {
     if (!canEdit) return;
-    setWorkingIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    setStandbyIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+    setWorkingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    setStandbyIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
   };
 
   const selectAllPool = () => {
     if (!canEdit || selectablePoolIds.length === 0) return;
-    setWorkingIds((prev) => {
-      const next = new Set(prev);
-      for (const id of selectablePoolIds) next.add(id);
-      return next;
-    });
-  };
-
-  const clearAllPool = () => {
-    if (!canEdit) return;
-    setWorkingIds(new Set());
-    setStandbyIds(new Set());
+    setWorkingIds((prev) => { const n = new Set(prev); for (const id of selectablePoolIds) n.add(id); return n; });
   };
 
   const clearAllWorking = () => {
@@ -186,20 +180,12 @@ export function CrewRosterDayPage() {
     setStandbyIds(new Set());
   };
 
-  const selectAllWorking = () => {
-    if (!canEdit) return;
-    setWorkingIds(
-      new Set(members.filter((m) => !dayOffIds.has(m.teamMemberId)).map((m) => m.teamMemberId)),
-    );
-  };
-
   const toggleStandby = (id: string) => {
     if (!canEdit) return;
     setStandbyIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
     });
   };
 
@@ -215,9 +201,7 @@ export function CrewRosterDayPage() {
         toast.info(t('crew.roster.copyEmpty'));
         return;
       }
-      const nextStandby = new Set(
-        [...parsed.standby].filter((id) => next.has(id) && !dayOffIds.has(id)),
-      );
+      const nextStandby = new Set([...parsed.standby].filter((id) => next.has(id) && !dayOffIds.has(id)));
       setWorkingIds(next);
       setStandbyIds(nextStandby);
       toast.success(t('crew.roster.copyLoaded'));
@@ -348,15 +332,15 @@ export function CrewRosterDayPage() {
 
   if (!outlet) {
     return (
-      <p className="text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-4">
-        화면 레이아웃을 불러오지 못했습니다. 상단 「홈」을 누른 뒤 다시 시도하거나 페이지를 새로고침해 주세요.
+      <p className="text-sm text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <CrewBiLine id="crew.common.outletMissing" />
       </p>
     );
   }
 
   if (!me) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-[13px] text-slate-500 py-6 text-center">
         <CrewBiLine id="crew.common.loading" />
       </p>
     );
@@ -366,377 +350,325 @@ export function CrewRosterDayPage() {
     return <Navigate to="/crew/roster" replace />;
   }
 
-  const dateLine = formatDateCompactWithWeekday(ymd);
   const isToday = ymd === kstTodayYmd();
-
-  const listBtn =
-    'bg-white border-gray-200 text-gray-800 hover:bg-gray-50 active:bg-indigo-50';
-  const standbyBtn = (on: boolean) =>
-    on
-      ? 'bg-amber-500 border-amber-600 text-white shadow-sm'
-      : 'bg-white border-gray-300 text-gray-700 hover:bg-amber-50';
-
-  const chipBtn =
-    'px-2 py-1 text-[0.65rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40';
+  const dayHeaderText = formatDayHeader(ymd, lang);
 
   return (
-    <div className="min-w-0 min-h-[60vh] flex flex-col">
-      <div className="sticky top-0 z-20 bg-white border border-gray-200 rounded-lg shadow-sm px-2 py-2 mb-2 -mx-0">
-        <div className="flex items-center gap-2 min-w-0">
+    <div className="min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
+      {/* ─── Header ─── */}
+      <div className={`${CREW_CARD} px-3 py-2.5 mb-3`}>
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => navigate(`/crew/roster/${addDaysYmd(ymd, -1)}`)}
+            className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[15px] font-medium text-slate-700"
+            aria-label={t('crew.roster.prevDayAria')}
+          >
+            ‹
+          </button>
           <button
             type="button"
             onClick={goCalendar}
-            className="shrink-0 px-2 py-1 rounded border border-gray-300 bg-white text-gray-800 text-left leading-tight"
+            className="min-w-0 flex-1 text-center rounded-xl px-1 py-1"
           >
-            <span className="text-xs font-medium">←</span>
-            <span className="block text-[0.6rem]">{t('crew.roster.backToCalendar')}</span>
-          </button>
-          <div className="min-w-0 flex-1 text-center">
-            <div className="text-xs font-semibold text-gray-900 truncate tabular-nums">{dateLine}</div>
+            <div className="text-[14px] font-semibold text-[#0F172A] truncate tabular-nums">{dayHeaderText}</div>
             {isToday ? (
-              <div className="text-[0.6rem] text-indigo-700">
+              <div className="text-[12px] text-[#1D4ED8] font-medium mt-0.5">
                 <CrewBiLine id="crew.roster.todayBadge" />
               </div>
             ) : null}
-          </div>
+          </button>
           <button
             type="button"
-            onClick={goCalendar}
-            className="shrink-0 px-2 py-1.5 text-xs rounded border border-gray-200 text-gray-600"
+            onClick={() => navigate(`/crew/roster/${addDaysYmd(ymd, 1)}`)}
+            className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[15px] font-medium text-slate-700"
+            aria-label={t('crew.roster.nextDayAria')}
           >
-            {t('crew.roster.close')}
+            ›
           </button>
         </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-lg px-2 py-2 flex-1 min-w-0">
-        <div className="flex items-start gap-1.5 min-w-0">
-          <h2 className="text-sm font-semibold text-gray-900 min-w-0 flex-1">
-            <CrewBiLine id="crew.roster.dayEditorTitle" koClassName="font-semibold" />
-          </h2>
-          <button
-            type="button"
-            aria-expanded={helpOpen}
-            aria-label={t('crew.roster.helpToggleAria')}
-            onClick={() => setHelpOpen((v) => !v)}
-            className="shrink-0 mt-0.5 w-6 h-6 rounded-full border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 flex items-center justify-center"
-          >
-            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor" aria-hidden>
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" />
-            </svg>
-          </button>
-        </div>
-        {helpOpen ? (
-          <div className="mt-1.5 p-2 rounded-md border border-gray-200 bg-gray-50 text-[0.65rem] text-gray-600 leading-snug space-y-1">
-            {canEdit ? <CrewBiLine id="crew.roster.dayEditorHintLeader" /> : <CrewBiLine id="crew.roster.hintView" />}
-            {canEdit ? <CrewBiLine id="crew.roster.standbyHint" /> : null}
-          </div>
-        ) : null}
 
         {canEdit && !loading ? (
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-2.5 flex gap-2">
             <button
               type="button"
-              className={chipBtn}
+              className="flex-1 min-h-11 rounded-xl border border-slate-200 bg-white text-[12px] font-medium text-slate-700 disabled:opacity-40"
               disabled={saving}
               onClick={() => void fillFromDate(addDaysYmd(ymd, -1))}
             >
-              {t('crew.roster.copyYesterday')}
+              <CrewBiLine id="crew.roster.copyYesterday" />
             </button>
             <button
               type="button"
-              className={chipBtn}
+              className="flex-1 min-h-11 rounded-xl border border-slate-200 bg-white text-[12px] font-medium text-slate-700 disabled:opacity-40"
               disabled={saving}
               onClick={() => void fillFromDate(addDaysYmd(ymd, -7))}
             >
-              {t('crew.roster.copySameWeekday')}
+              <CrewBiLine id="crew.roster.copySameWeekday" />
             </button>
           </div>
         ) : null}
+      </div>
 
-        {loading ? (
-          <p className="text-sm text-gray-500 mt-3">
-            <CrewBiLine id="crew.common.loading" />
-          </p>
-        ) : (
-          <div className="mt-3 flex gap-1.5 sm:gap-2 min-h-0 min-w-0 items-stretch">
-            <div className="flex-1 min-w-0 flex flex-col border border-gray-200 rounded-md overflow-hidden bg-gray-50/50">
-              <div className="px-1.5 py-1 bg-gray-100 border-b border-gray-200 text-center">
-                <CrewBiInline id="crew.roster.columnMembers" className="text-[0.65rem] font-medium text-gray-800" />
-              </div>
+      {loading ? (
+        <p className="text-[13px] text-slate-500 py-6 text-center">
+          <CrewBiLine id="crew.common.loading" />
+        </p>
+      ) : (
+        <>
+          {/* ─── Working (TOP) ─── */}
+          <div className={`${CREW_CARD} mb-3 overflow-hidden`}>
+            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[#15803D]/10 border-b border-[#15803D]/20">
+              <span className="text-[13px] font-semibold text-[#15803D]">
+                {t('crew.roster.workingHeader', { n: String(workingMembers.length) })}
+              </span>
               {canEdit ? (
-                <div className="flex gap-1 px-1 py-1 border-b border-gray-200 bg-white">
-                  <button
-                    type="button"
-                    className="flex-1 py-1 text-[0.6rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40"
-                    disabled={selectablePoolIds.length === 0 || saving}
-                    onClick={selectAllPool}
-                  >
-                    {t('crew.roster.selectAll')}
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 py-1 text-[0.6rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40"
-                    disabled={workingMembers.length === 0 || saving}
-                    onClick={clearAllPool}
-                    title={t('crew.roster.clearAll')}
-                  >
-                    {t('crew.roster.clearAll')}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="text-[12px] text-slate-600 min-h-9 px-2 rounded-lg border border-slate-200 bg-white"
+                  disabled={workingMembers.length === 0 || saving}
+                  onClick={clearAllWorking}
+                >
+                  <CrewBiLine id="crew.roster.clearAll" />
+                </button>
               ) : null}
-              <ul className="max-h-[min(50vh,22rem)] overflow-y-auto overscroll-y-contain divide-y divide-gray-100">
-                {poolMembers.length === 0 ? (
-                  <li className="px-2 py-3 text-center text-[0.65rem] text-gray-400">—</li>
-                ) : (
-                  poolMembers.map((mem) => {
-                    const off = dayOffIds.has(mem.teamMemberId);
-                    return (
-                      <li key={mem.teamMemberId}>
-                        {canEdit && !off ? (
+            </div>
+            {workingMembers.length === 0 ? (
+              <div className="px-3 py-4 text-center text-[13px] text-slate-400">—</div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {workingMembers.map((mem) => {
+                  const onStandby = standbyIds.has(mem.teamMemberId);
+                  return (
+                    <li key={mem.teamMemberId}>
+                      <div className="flex items-center min-w-0">
+                        {canEdit ? (
                           <button
                             type="button"
-                            onClick={() => moveOneToWorking(mem.teamMemberId)}
-                            className={`w-full text-left px-2 py-2 text-sm border-l-2 border-transparent transition-colors ${listBtn}`}
+                            onClick={() => moveOneToPool(mem.teamMemberId)}
+                            className="flex-1 min-w-0 min-h-11 text-left px-3 py-2"
                           >
                             <CrewMemberNameLines
-                              className="text-sm"
                               name={mem.name}
                               nameTh={mem.nameTh}
                               inactive={!mem.isActive}
+                              variant="emerald"
                             />
                           </button>
                         ) : (
-                          <div
-                            className={`px-2 py-2 text-sm flex items-center gap-1 min-w-0 ${
-                              off ? 'bg-gray-100 text-gray-400' : 'text-gray-600'
+                          <div className="flex-1 min-w-0 px-3 py-2">
+                            <CrewMemberNameLines
+                              name={mem.name}
+                              nameTh={mem.nameTh}
+                              inactive={!mem.isActive}
+                              variant="emerald"
+                            />
+                          </div>
+                        )}
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleStandby(mem.teamMemberId); }}
+                            aria-pressed={onStandby}
+                            className={`shrink-0 mr-3 min-h-9 px-2.5 rounded-lg border text-[12px] font-semibold leading-none ${
+                              onStandby
+                                ? 'border-amber-500 bg-amber-500 text-white'
+                                : 'border-slate-300 bg-white text-slate-600'
                             }`}
                           >
-                            <div className="min-w-0 flex-1">
-                              <CrewMemberNameLines
-                                className="text-sm"
-                                name={mem.name}
-                                nameTh={mem.nameTh}
-                                inactive={!mem.isActive || off}
-                              />
-                            </div>
-                            {off ? (
-                              <span className="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 text-[0.6rem] font-medium text-gray-500">
-                                {t('crew.roster.dayOffBadge')}
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })
-                )}
+                            <CrewBiLine id="crew.roster.standbyButton" />
+                          </button>
+                        ) : onStandby ? (
+                          <span className="shrink-0 mr-3 px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-[12px] font-medium">
+                            <CrewBiLine id="crew.roster.standbyButton" />
+                          </span>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
-            </div>
+            )}
+          </div>
 
-            <div className="flex-1 min-w-0 flex flex-col border border-emerald-200/80 rounded-md overflow-hidden bg-emerald-50/30">
-              <div className="px-1.5 py-1 bg-emerald-100/90 border-b border-emerald-200 text-center">
-                <CrewBiInline id="crew.roster.columnWorking" className="text-[0.65rem] font-medium text-emerald-950" />
-              </div>
+          {/* ─── Pool (BOTTOM) ─── */}
+          <div className={`${CREW_CARD} mb-3 overflow-hidden`}>
+            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200">
+              <span className="text-[13px] font-semibold text-slate-700">
+                {t('crew.roster.poolHeader', { n: String(poolMembers.length) })}
+              </span>
               {canEdit ? (
-                <div className="flex gap-1 px-1 py-1 border-b border-emerald-200 bg-white">
-                  <button
-                    type="button"
-                    className="flex-1 py-1 text-[0.6rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40"
-                    disabled={saving}
-                    onClick={selectAllWorking}
-                  >
-                    {t('crew.roster.selectAll')}
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 py-1 text-[0.6rem] rounded border border-gray-300 bg-white text-gray-800 disabled:opacity-40"
-                    disabled={workingMembers.length === 0 || saving}
-                    onClick={clearAllWorking}
-                  >
-                    {t('crew.roster.clearAll')}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="text-[12px] text-slate-600 min-h-9 px-2 rounded-lg border border-slate-200 bg-white disabled:opacity-40"
+                  disabled={selectablePoolIds.length === 0 || saving}
+                  onClick={selectAllPool}
+                >
+                  <CrewBiLine id="crew.roster.selectAll" />
+                </button>
               ) : null}
-              <ul className="max-h-[min(50vh,22rem)] overflow-y-auto overscroll-y-contain divide-y divide-emerald-100">
-                {workingMembers.length === 0 ? (
-                  <li className="px-2 py-3 text-center text-[0.65rem] text-gray-400">—</li>
-                ) : (
-                  workingMembers.map((mem) => {
-                    const onStandby = standbyIds.has(mem.teamMemberId);
-                    const standbyLabel = t('crew.roster.standbyButton');
+            </div>
+            {poolMembers.length === 0 ? (
+              <div className="px-3 py-4 text-center text-[13px] text-slate-400">—</div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {poolMembers.map((mem) => {
+                  const off = dayOffIds.has(mem.teamMemberId);
+                  if (!canEdit || off) {
                     return (
                       <li key={mem.teamMemberId}>
-                        {canEdit ? (
-                          <div className="flex items-stretch gap-0.5 min-w-0">
-                            <button
-                              type="button"
-                              onClick={() => moveOneToPool(mem.teamMemberId)}
-                              className={`flex-1 min-w-0 text-left px-2 py-2 text-sm border-l-2 border-transparent transition-colors ${listBtn}`}
-                            >
-                              <CrewMemberNameLines
-                                className="text-sm"
-                                name={mem.name}
-                                nameTh={mem.nameTh}
-                                inactive={!mem.isActive}
-                                variant="emerald"
-                              />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleStandby(mem.teamMemberId);
-                              }}
-                              title={standbyLabel}
-                              aria-pressed={onStandby}
-                              className={`shrink-0 self-center mx-0.5 px-1.5 py-1 rounded border text-[0.6rem] font-semibold leading-none min-w-[2rem] ${standbyBtn(onStandby)}`}
-                            >
-                              {standbyLabel}
-                            </button>
+                        <div className={`flex items-center min-h-11 px-3 py-2 min-w-0 ${off ? 'bg-slate-50' : ''}`}>
+                          <div className="flex-1 min-w-0">
+                            <CrewMemberNameLines
+                              name={mem.name}
+                              nameTh={mem.nameTh}
+                              inactive={!mem.isActive || off}
+                            />
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-1 px-2 py-2 text-sm text-emerald-900 min-w-0">
-                            <div className="flex-1 min-w-0">
-                              <CrewMemberNameLines
-                                className="text-sm"
-                                name={mem.name}
-                                nameTh={mem.nameTh}
-                                inactive={!mem.isActive}
-                                variant="emerald"
-                              />
-                            </div>
-                            {onStandby ? (
-                              <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[0.6rem] font-medium">
-                                {standbyLabel}
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
+                          {off ? (
+                            <span className="shrink-0 ml-2 rounded-lg bg-slate-200 px-2 py-0.5 text-[12px] font-medium text-slate-500">
+                              <CrewBiLine id="crew.roster.dayOffBadge" />
+                            </span>
+                          ) : null}
+                        </div>
                       </li>
                     );
-                  })
-                )}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {canEdit && !loading ? (
-          <div className="mt-3 rounded-md border border-gray-200 bg-gray-50/80 px-2 py-2 space-y-2">
-            <label className="flex items-center gap-2 text-[0.7rem] text-gray-800">
-              <input
-                type="checkbox"
-                checked={applyMode !== 'none'}
-                onChange={(e) => {
-                  if (e.target.checked) setApplyMode('restWeek');
-                  else {
-                    setApplyMode('none');
-                    setPickedDates(new Set());
                   }
-                }}
-              />
-              {t('crew.roster.applyOtherDays')}
-            </label>
-            {applyMode !== 'none' ? (
-              <div className="flex flex-col gap-1.5 pl-1">
-                <label className="flex items-center gap-2 text-[0.65rem] text-gray-700">
+                  return (
+                    <li key={mem.teamMemberId}>
+                      <button
+                        type="button"
+                        onClick={() => moveOneToWorking(mem.teamMemberId)}
+                        className="w-full text-left min-h-11 px-3 py-2"
+                      >
+                        <CrewMemberNameLines
+                          name={mem.name}
+                          nameTh={mem.nameTh}
+                          inactive={!mem.isActive}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* ─── Apply-other-days options (shown when checkbox checked) ─── */}
+          {canEdit && applyMode !== 'none' ? (
+            <div className={`${CREW_CARD} px-3 py-3 mb-3 space-y-2`}>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 text-[13px] text-slate-700">
                   <input
                     type="radio"
                     name="crew-roster-apply"
                     checked={applyMode === 'restWeek'}
                     onChange={() => setApplyMode('restWeek')}
                   />
-                  {t('crew.roster.applyRestOfWeek')}
+                  <CrewBiLine id="crew.roster.applyRestOfWeek" />
                   {applyMode === 'restWeek' && targetApplyDates.length > 0 ? (
-                    <span className="text-gray-500 tabular-nums">({targetApplyDates.length})</span>
+                    <span className="text-slate-500 tabular-nums text-[12px]">({targetApplyDates.length})</span>
                   ) : null}
                 </label>
-                <label className="flex items-center gap-2 text-[0.65rem] text-gray-700">
+                <label className="flex items-center gap-2 text-[13px] text-slate-700">
                   <input
                     type="radio"
                     name="crew-roster-apply"
                     checked={applyMode === 'pick'}
                     onChange={() => setApplyMode('pick')}
                   />
-                  {t('crew.roster.applyPickDays')}
+                  <CrewBiLine id="crew.roster.applyPickDays" />
                 </label>
-                {applyMode === 'pick' ? (
-                  <div className="mt-1">
-                    <p className="text-[0.6rem] text-gray-500 mb-1">{t('crew.roster.applyPickHint')}</p>
-                    <div className="grid grid-cols-7 gap-0.5">
-                      {pickMonthDays.map((key) => {
-                        const picked = pickedDates.has(key);
-                        const dayNum = Number(key.slice(8));
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() => {
-                              setPickedDates((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(key)) next.delete(key);
-                                else next.add(key);
-                                return next;
-                              });
-                            }}
-                            className={`h-7 rounded text-[0.6rem] tabular-nums border ${
-                              picked
-                                ? 'border-gray-900 bg-gray-900 text-white'
-                                : 'border-gray-200 bg-white text-gray-700'
-                            }`}
-                          >
-                            {dayNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
               </div>
-            ) : null}
-          </div>
-        ) : null}
+              {applyMode === 'pick' ? (
+                <div>
+                  <p className="text-[12px] text-slate-500 mb-1.5">{t('crew.roster.applyPickHint')}</p>
+                  <div className="grid grid-cols-7 gap-0.5">
+                    {pickMonthDays.map((key) => {
+                      const picked = pickedDates.has(key);
+                      const dayNum = Number(key.slice(8));
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setPickedDates((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(key)) next.delete(key); else next.add(key);
+                              return next;
+                            });
+                          }}
+                          className={`h-9 rounded-xl text-[12px] tabular-nums border ${
+                            picked
+                              ? 'border-[#0F172A] bg-[#0F172A] text-white'
+                              : 'border-slate-200 bg-white text-slate-700'
+                          }`}
+                        >
+                          {dayNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      )}
 
-        {canEdit ? (
-          <div className="mt-3">
+      {/* ─── Sticky footer above bottom tab ─── */}
+      {canEdit ? (
+        <div
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom,0px)]"
+          style={{ bottom: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))' }}
+        >
+          <div className={`${CREW_SHELL} flex items-center gap-3 px-3 py-2`}>
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 shrink-0">
+              <input
+                type="checkbox"
+                checked={applyMode !== 'none'}
+                onChange={(e) => {
+                  if (e.target.checked) setApplyMode('restWeek');
+                  else { setApplyMode('none'); setPickedDates(new Set()); }
+                }}
+                className="h-4 w-4"
+              />
+              <CrewBiLine id="crew.roster.applyOtherDays" />
+            </label>
             <button
               type="button"
               disabled={saving || loading}
               onClick={() => requestSave()}
-              className="w-full px-2 py-1.5 text-xs leading-tight bg-gray-900 text-white rounded-md disabled:opacity-50"
+              className="flex-1 min-h-11 rounded-xl bg-[#0F172A] text-[14px] font-semibold text-white disabled:opacity-50"
             >
-              {saving ? (
-                <span className="block text-[0.65rem]">{t('crew.roster.saving')}</span>
-              ) : (
-                <span className="block font-medium">{t('crew.roster.saveDay')}</span>
-              )}
+              {saving
+                ? t('crew.roster.saving')
+                : t('crew.roster.saveDayCount', { n: String(workingMembers.length) })}
             </button>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
+      {/* ─── Password modal ─── */}
       {passwordModalOpen ? (
         <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="crew-roster-pw-modal-title"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closePasswordModal();
-          }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closePasswordModal(); }}
         >
           <div
-            className="w-full max-w-md rounded-t-xl sm:rounded-xl bg-white shadow-lg border border-gray-200 p-4 sm:p-5 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-md rounded-t-2xl sm:rounded-2xl bg-white shadow-lg border border-slate-200 p-4 sm:p-5 max-h-[90vh] overflow-y-auto"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 id="crew-roster-pw-modal-title" className="text-sm font-semibold text-gray-900">
-              <CrewBiLine id="crew.roster.modalPasswordTitle" koClassName="font-semibold" />
+            <h3 id="crew-roster-pw-modal-title" className="text-[15px] font-semibold text-[#0F172A]">
+              <CrewBiLine id="crew.roster.modalPasswordTitle" />
             </h3>
-            <p className="text-[0.7rem] text-gray-600 mt-2 leading-snug">
+            <p className="text-[13px] text-slate-600 mt-2 leading-snug">
               <CrewBiLine id="crew.roster.modalPasswordHint" />
             </p>
-            <label className="block text-[0.65rem] text-gray-700 mt-3 mb-1">
+            <label className="block text-[12px] text-slate-700 mt-3 mb-1">
               <CrewBiLine id="crew.roster.sensitivePasswordLabel" />
             </label>
             <input
@@ -749,21 +681,21 @@ export function CrewRosterDayPage() {
                 if (e.key === 'Enter') confirmPasswordModal();
               }}
               placeholder={t('crew.roster.sensitivePasswordPlaceholder')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-[14px]"
               autoFocus
             />
             <div className="mt-4 flex gap-2 justify-end">
               <button
                 type="button"
                 onClick={closePasswordModal}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-800"
+                className="px-4 py-2.5 text-[13px] border border-slate-200 rounded-xl bg-white text-slate-700 min-h-11"
               >
                 {t('crew.roster.modalCancel')}
               </button>
               <button
                 type="button"
                 onClick={() => confirmPasswordModal()}
-                className="px-3 py-2 text-sm rounded-lg bg-gray-900 text-white"
+                className="px-4 py-2.5 text-[13px] rounded-xl bg-[#0F172A] text-white min-h-11 font-semibold"
               >
                 {t('crew.roster.modalConfirmSave')}
               </button>

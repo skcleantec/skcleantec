@@ -28,11 +28,11 @@ export const crewMessages = {
   },
   'crew.layout.navSchedule': {
     ko: '현장 일정',
-    th: 'ตารางงานภาคสนาม',
+    th: 'ตารางงาน',
   },
   'crew.layout.navRoster': {
     ko: '일자 명단',
-    th: 'รายชื่อรายวัน',
+    th: 'รายชื่อ',
   },
   'crew.layout.navDayOffs': {
     ko: '휴무일',
@@ -80,7 +80,7 @@ export const crewMessages = {
   },
   'crew.layout.navSettlement': {
     ko: '정산',
-    th: 'สรุปค่าจ้าง',
+    th: 'ค่าจ้าง',
   },
   'crew.layout.navTeamExpenses': {
     ko: '팀 지출',
@@ -89,6 +89,38 @@ export const crewMessages = {
   'crew.layout.navSettings': {
     ko: '설정',
     th: 'ตั้งค่า',
+  },
+
+  /** 페이지 타이틀 — CrewLayout pageTitleKey() */
+  'crew.layout.pageHome': {
+    ko: '크루 홈',
+    th: 'หน้าแรก',
+  },
+  'crew.layout.pageSchedule': {
+    ko: '현장 일정',
+    th: 'ตารางงาน',
+  },
+  'crew.layout.pageRoster': {
+    ko: '일자 명단',
+    th: 'รายชื่อรายวัน',
+  },
+  'crew.layout.pageDayOffs': {
+    ko: '휴무일',
+    th: 'วันหยุด',
+  },
+  'crew.layout.pageSettlement': {
+    ko: '정산',
+    th: 'ค่าจ้าง',
+  },
+  'crew.layout.pageSettings': {
+    ko: '설정',
+    th: 'ตั้งค่า',
+  },
+
+  /** 공통 — outlet 누락 메시지 */
+  'crew.common.outletMissing': {
+    ko: '화면 레이아웃을 불러오지 못했습니다. 페이지를 새로고침해 주세요.',
+    th: 'โหลดหน้าจอไม่สำเร็จ กรุณารีเฟรช',
   },
   'crew.layout.logout': {
     ko: '로그아웃',
@@ -136,9 +168,17 @@ export const crewMessages = {
     ko: '멤버',
     th: 'สมาชิก',
   },
+  'crew.home.noticeTitle': {
+    ko: '사무실 공지',
+    th: 'ประกาศจากสำนักงาน',
+  },
+  'crew.home.noticeEmpty': {
+    ko: '등록된 공지가 없습니다.',
+    th: 'ยังไม่มีประกาศ',
+  },
   'crew.home.statsTitle': {
-    ko: '일한 내역',
-    th: 'งานที่ทำแล้ว',
+    ko: '이번 주기 근무일',
+    th: 'วันทำงานในรอบนี้',
   },
   'crew.home.statsFootnote': {
     ko: '선택한 월급일 그룹·그룹 「급여·실적 집계」 설정에 따라 근무일 또는 접수 건으로 셉니다. 취소·보류는 제외하고 현장 인원 메모에 이름이 적힌 접수만 반영합니다.',
@@ -491,6 +531,14 @@ export const crewMessages = {
   'crew.roster.nextMonthAria': {
     ko: '다음 달',
     th: 'เดือนถัดไป',
+  },
+  'crew.roster.prevDayAria': {
+    ko: '이전 날',
+    th: 'วันก่อน',
+  },
+  'crew.roster.nextDayAria': {
+    ko: '다음 날',
+    th: 'วันถัดไป',
   },
   'crew.roster.memberPoolHint': {
     ko: '그룹 멤버',
@@ -970,6 +1018,70 @@ export const crewMessages = {
   'crew.expenses.attachShort': {
     ko: '첨부',
     th: 'แนบ',
+  },
+  'crew.expenses.pickImage': {
+    ko: '사진 선택',
+    th: 'เลือกรูป',
+  },
+
+  /** CrewRosterDayPage — 스택 헤더 */
+  'crew.roster.workingHeader': {
+    ko: '일할 멤버 {n}명',
+    th: 'ทำงานวันนี้ {n} คน',
+  },
+  'crew.roster.poolHeader': {
+    ko: '대기 멤버 {n}명',
+    th: 'ไม่ได้ทำงาน {n} คน',
+  },
+  'crew.roster.saveDayCount': {
+    ko: '저장 · {n}명',
+    th: 'บันทึก · {n} คน',
+  },
+
+  /** CrewFieldSchedulePage — 필터 */
+  'crew.schedule.filterAll': {
+    ko: '전체',
+    th: 'ทั้งหมด',
+  },
+  'crew.schedule.filterAm': {
+    ko: '오전',
+    th: 'เช้า',
+  },
+  'crew.schedule.filterPm': {
+    ko: '오후',
+    th: 'บ่าย',
+  },
+  'crew.schedule.filterMine': {
+    ko: '내 팀',
+    th: 'ของฉัน',
+  },
+  'crew.schedule.noWorkCount': {
+    ko: '미배정 {n}명',
+    th: 'ไม่มีงานวันนี้ {n} คน',
+  },
+  'crew.schedule.memberCount': {
+    ko: '{n}명',
+    th: '{n} คน',
+  },
+
+  /** CrewSettingsPage — 검색·어코디언·배치 저장 */
+  'crew.settings.search': {
+    ko: '이름 검색',
+    th: 'ค้นหาชื่อ',
+  },
+  'crew.settings.dirty': {
+    ko: '수정됨',
+    th: 'แก้ไขแล้ว',
+  },
+  'crew.settings.batchSave': {
+    ko: '저장',
+    th: 'บันทึก',
+  },
+
+  /** CrewDayOffsPage */
+  'crew.dayoffs.alertFail': {
+    ko: '처리에 실패했습니다.',
+    th: 'ดำเนินการไม่สำเร็จ',
   },
 } as const;
 

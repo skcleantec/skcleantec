@@ -15,6 +15,7 @@ import { AuthSessionExpiredError } from '../../api/auth';
 import { CrewBiLine, CrewBiInline, useCrewText } from '../../i18n/crew/crewI18n';
 import { useCrewUiLang } from '../../i18n/crew/crewUiLanguageContext';
 import { CrewTeamExpensesTab } from './CrewTeamExpensesTab';
+import { CREW_CARD, CREW_NAVY, CREW_SEG, CREW_SEG_OFF, CREW_SEG_ON } from './crewUi';
 
 const TAB_EXPENSES = 'expenses';
 
@@ -210,26 +211,18 @@ export function CrewSettlementPage() {
       ) : (
         <>
           {canSeePayroll ? (
-            <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+            <div className={`${CREW_CARD} p-1 flex gap-1`}>
               <button
                 type="button"
                 onClick={() => setTab('sheet')}
-                className={`px-3 py-1.5 rounded-md text-fluid-xs font-medium ${
-                  activeTab === 'sheet'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                }`}
+                className={`${CREW_SEG} ${activeTab === 'sheet' ? CREW_SEG_ON : CREW_SEG_OFF}`}
               >
                 <CrewBiLine id="crew.settlement.tabSheet" />
               </button>
               <button
                 type="button"
                 onClick={() => setTab(TAB_EXPENSES)}
-                className={`px-3 py-1.5 rounded-md text-fluid-xs font-medium ${
-                  activeTab === TAB_EXPENSES
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                }`}
+                className={`${CREW_SEG} ${activeTab === TAB_EXPENSES ? CREW_SEG_ON : CREW_SEG_OFF}`}
               >
                 <CrewBiLine id="crew.settlement.tabExpenses" />
               </button>
@@ -346,19 +339,47 @@ function CrewSettlementSheetPanel({ me }: { me: NonNullable<CrewLayoutContext['m
     void fetchSheet({ overridePassword: pwdGate }).catch(() => {});
   };
 
+  const unpaidCount = rows.filter((r) => !r.poolSettlementComplete).length;
+  const totalNet = rows.reduce((s, r) => s + (r.amountNet ?? 0), 0);
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="text-fluid-xs text-gray-600 whitespace-nowrap">
-          <CrewBiLine id="crew.expenses.monthLabel" />
-        </label>
-        <input
-          type="month"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="px-2 py-1 border border-gray-300 rounded text-fluid-xs tabular-nums bg-white"
-        />
+      {/* Month nav with Thai label */}
+      <div className={`${CREW_CARD} flex items-center gap-2 px-3 py-2`}>
+        <button
+          type="button"
+          className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[14px] text-slate-700"
+          onClick={() => setMonth((m) => shiftMonth(m, -1))}
+        >
+          ‹
+        </button>
+        <div className="flex-1 text-center text-[14px] font-semibold text-[#0F172A] tabular-nums">
+          {thaiMonthLabel(month)}
+        </div>
+        <button
+          type="button"
+          className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[14px] text-slate-700"
+          onClick={() => setMonth((m) => shiftMonth(m, 1))}
+        >
+          ›
+        </button>
       </div>
+
+      {/* Navy summary card */}
+      {rows.length > 0 ? (
+        <div className="rounded-2xl px-4 py-3 text-white" style={{ background: CREW_NAVY }}>
+          <div className="flex justify-between items-center gap-3">
+            <div>
+              <p className="text-[12px] text-white/70"><CrewBiLine id="crew.settlement.sheetColNet" /></p>
+              <p className="text-[18px] font-bold tabular-nums mt-0.5">{fmtWon(totalNet)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[12px] text-white/70"><CrewBiLine id="crew.settlement.sheetSettlementPending" /></p>
+              <p className="text-[18px] font-bold tabular-nums mt-0.5">{unpaidCount}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {!preview && needsPwdUi ? (
         <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-2 shadow-sm">
@@ -892,6 +913,21 @@ function fmtIsoShort(iso: string): string {
 
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+
+const THAI_MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+function thaiMonthLabel(monthKey: string): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  return `${THAI_MONTHS_FULL[m - 1] ?? ''} ${y}`;
+}
+
+function shiftMonth(monthKey: string, delta: number): string {
+  let [y, m] = monthKey.split('-').map(Number);
+  m += delta;
+  if (m > 12) { m = 1; y++; }
+  if (m < 1) { m = 12; y--; }
+  return `${y}-${String(m).padStart(2, '0')}`;
 }
 
 /** @deprecated 라우트 `/crew/expenses` 전용 리다이렉트 */
