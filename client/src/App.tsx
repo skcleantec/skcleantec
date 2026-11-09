@@ -91,6 +91,7 @@ import {
   CsReportPage,
   ReviewPaybackPage,
   PublicDepositConfirmPage,
+  PublicWalletChargeConfirmPage,
   InspectionCustomerViewPage,
   PublicReceiptPage,
   AdminReviewPaybackPage,
@@ -614,6 +615,7 @@ function App() {
         <Route path="/pay/paysis/fail" element={<SuspensePage><PaysisCheckoutFailPage /></SuspensePage>} />
         <Route path="/pay/paysis/close" element={<SuspensePage><PaysisCheckoutClosePage /></SuspensePage>} />
         <Route path="/ops/deposit-confirm" element={<SuspensePage><PublicDepositConfirmPage /></SuspensePage>} />
+        <Route path="/ops/wallet-charge-confirm" element={<SuspensePage><PublicWalletChargeConfirmPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
         <Route
           path="/admin/inquiries/card-pay"
