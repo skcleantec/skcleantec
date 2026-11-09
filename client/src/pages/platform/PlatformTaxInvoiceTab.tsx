@@ -1,19 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   listPlatformTaxInvoices,
   issuePlatformTaxInvoice,
   cancelPlatformTaxInvoice,
   fetchPlatformTaxInvoiceMonthStats,
   fetchPlatformTenantsForBuyer,
-  fetchPlatformReceiptCert,
+  downloadPlatformTaxInvoiceExcel,
   type PlatformTaxInvoiceRow,
   type PlatformReceiptMonthStats,
   type PlatformBuyerTenant,
-  type PlatformReceiptCert,
 } from '../../api/platformReceipts';
 import { BTN_PRIMARY, BTN_SECONDARY, BTN_DANGER, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
-import { PlatformCertRegisterModal } from './PlatformCertRegisterModal';
+import { parseListPage } from '../../utils/listPagination';
+import { PlatformReceiptsFilterBar, useReceiptFilterRange } from './PlatformReceiptsFilterBar';
+import { parseReceiptStatus } from './platformReceiptsFilters';
 
 const PAGE_SIZE = 30;
 
@@ -36,21 +38,23 @@ function statusLabel(status: PlatformTaxInvoiceRow['status']): string {
   return '실패';
 }
 
-function certExpireLabel(expireDate: string | null): string {
-  if (!expireDate) return '만료일 미상';
-  return new Date(expireDate).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
-}
+export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolean }) {
+  const [params, setParams] = useSearchParams();
+  const page = parseListPage(params.get('page'));
+  const range = useReceiptFilterRange(params);
+  const status = parseReceiptStatus(params.get('status'));
+  const q = params.get('q') || '';
+  const filterKey = useMemo(
+    () => `${range.from}|${range.to}|${status}|${q}|${page}`,
+    [range.from, range.to, status, q, page],
+  );
 
-export function PlatformTaxInvoiceTab() {
   const [stats, setStats] = useState<PlatformReceiptMonthStats | null>(null);
   const [items, setItems] = useState<PlatformTaxInvoiceRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [listErr, setListErr] = useState<string | null>(null);
   const [buyers, setBuyers] = useState<PlatformBuyerTenant[]>([]);
-  const [cert, setCert] = useState<PlatformReceiptCert | null>(null);
-  const [certLoading, setCertLoading] = useState(true);
-  const [showCertModal, setShowCertModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Issue form state
   const [showForm, setShowForm] = useState(false);
@@ -75,22 +79,48 @@ export function PlatformTaxInvoiceTab() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
 
+  const listFilter = useMemo(
+    () => ({
+      from: range.from,
+      to: range.to,
+      status: status || undefined,
+      q: q || undefined,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    }),
+    [range.from, range.to, status, q, page],
+  );
+
   const loadList = useCallback(() => {
-    listPlatformTaxInvoices(PAGE_SIZE, (page - 1) * PAGE_SIZE)
+    listPlatformTaxInvoices(listFilter)
       .then((res) => { setItems(res.items); setTotal(res.total); setListErr(null); })
       .catch((e: unknown) => setListErr(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.'));
-  }, [page]);
+  }, [listFilter]);
 
-  useEffect(() => { loadList(); }, [loadList]);
+  useEffect(() => { loadList(); }, [loadList, filterKey]);
 
   useEffect(() => {
-    fetchPlatformTaxInvoiceMonthStats().then(setStats).catch(() => undefined);
+    fetchPlatformTaxInvoiceMonthStats({
+      from: range.from,
+      to: range.to,
+      status: status || undefined,
+      q: q || undefined,
+    }).then(setStats).catch(() => undefined);
+  }, [range.from, range.to, status, q]);
+
+  useEffect(() => {
     fetchPlatformTenantsForBuyer().then((r) => setBuyers(r.items)).catch(() => undefined);
-    fetchPlatformReceiptCert()
-      .then(setCert)
-      .catch(() => undefined)
-      .finally(() => setCertLoading(false));
   }, []);
+
+  function patchParams(patch: Record<string, string | null>, resetPage = false) {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(patch)) {
+      if (!value) next.delete(key);
+      else next.set(key, value);
+    }
+    if (resetPage) next.set('page', '1');
+    setParams(next, { replace: true });
+  }
 
   const supplyNum = Number(supplyText.replace(/\D/g, '')) || 0;
   const vatNum = autoVat ? Math.round(supplyNum * 0.1) : (Number(vatText.replace(/\D/g, '')) || 0);
@@ -111,6 +141,7 @@ export function PlatformTaxInvoiceTab() {
   }
 
   async function handleIssue() {
+    if (!certValid) { setIssueErr('공동인증서를 먼저 등록해 주세요.'); return; }
     if (!corpNum.trim()) { setIssueErr('사업자번호를 입력해 주세요.'); return; }
     if (!corpName.trim()) { setIssueErr('법인명을 입력해 주세요.'); return; }
     if (!supplyNum) { setIssueErr('공급가액을 입력해 주세요.'); return; }
@@ -132,7 +163,6 @@ export function PlatformTaxInvoiceTab() {
         itemName,
         memo: memo.trim() || undefined,
       });
-      // Reset form
       setCorpNum('');
       setCorpName('');
       setCeoName('');
@@ -145,12 +175,33 @@ export function PlatformTaxInvoiceTab() {
       setMemo('');
       setSelectedTenantId('');
       setShowForm(false);
-      fetchPlatformTaxInvoiceMonthStats().then(setStats).catch(() => undefined);
+      fetchPlatformTaxInvoiceMonthStats({
+        from: range.from,
+        to: range.to,
+        status: status || undefined,
+        q: q || undefined,
+      }).then(setStats).catch(() => undefined);
       loadList();
     } catch (e) {
       setIssueErr(e instanceof Error ? e.message : '발행에 실패했습니다.');
     } finally {
       setIssuing(false);
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await downloadPlatformTaxInvoiceExcel({
+        from: range.from,
+        to: range.to,
+        status: status || undefined,
+        q: q || undefined,
+      });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '엑셀을 받지 못했습니다.');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -168,42 +219,17 @@ export function PlatformTaxInvoiceTab() {
     }
   }
 
-  const certValid = cert?.valid === true;
-
   return (
     <div className="space-y-4">
-      {showCertModal ? (
-        <PlatformCertRegisterModal
-          onClose={() => setShowCertModal(false)}
-          onRegistered={(c) => { setCert(c); setShowCertModal(false); }}
-        />
-      ) : null}
+      <PlatformReceiptsFilterBar params={params} onChange={patchParams} onExport={() => void handleExport()} exporting={exporting} />
 
-      {/* 공동인증서 상태 배너 */}
-      {!certLoading ? (
-        <div className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${certValid ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-          <div>
-            <p className={`text-sm font-medium ${certValid ? 'text-emerald-800' : 'text-amber-800'}`}>
-              {certValid ? `✓ 공동인증서 등록됨 (만료: ${certExpireLabel(cert?.expireDate ?? null)})` : '공동인증서가 없거나 만료되었습니다'}
-            </p>
-            {!certValid ? (
-              <p className="mt-0.5 text-xs text-amber-700">세금계산서를 발행하려면 먼저 공동인증서를 등록해 주세요.</p>
-            ) : null}
-          </div>
-          <button type="button" className={BTN_SECONDARY} onClick={() => setShowCertModal(true)}>
-            {certValid ? '인증서 갱신' : '인증서 등록'}
-          </button>
-        </div>
-      ) : null}
-
-      {/* 이달 통계 */}
       {stats ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: '이달 발행 건수', value: `${stats.count.toLocaleString('ko-KR')}건` },
-            { label: '바로빌 원가 합계', value: won(stats.costKrw ?? 0) },
-            { label: '공급가액 합계', value: won(stats.supplyAmountKrw) },
-            { label: '총액 합계', value: won(stats.totalAmountKrw) },
+            { label: `발행 건수 · ${range.label}`, value: `${stats.count.toLocaleString('ko-KR')}건` },
+            { label: `바로빌 원가 · ${range.label}`, value: won(stats.costKrw ?? 0) },
+            { label: `공급가 · ${range.label}`, value: won(stats.supplyAmountKrw) },
+            { label: `총액 · ${range.label}`, value: won(stats.totalAmountKrw) },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-xl border border-gray-200 bg-white p-3">
               <p className="text-xs text-gray-500">{label}</p>
@@ -220,7 +246,7 @@ export function PlatformTaxInvoiceTab() {
           <button
             type="button"
             className={BTN_PRIMARY}
-            disabled={!certValid && !certLoading}
+            disabled={!certValid}
             title={!certValid ? '공동인증서를 먼저 등록해 주세요' : undefined}
             onClick={() => setShowForm((v) => !v)}
           >
@@ -368,7 +394,7 @@ export function PlatformTaxInvoiceTab() {
           page={page}
           pageSize={PAGE_SIZE}
           total={total}
-          onPageChange={setPage}
+          onPageChange={(next) => patchParams({ page: String(next) })}
           onPageSizeChange={() => undefined}
         />
         {/* 모바일 카드 */}
@@ -443,7 +469,7 @@ export function PlatformTaxInvoiceTab() {
           page={page}
           pageSize={PAGE_SIZE}
           total={total}
-          onPageChange={setPage}
+          onPageChange={(next) => patchParams({ page: String(next) })}
           onPageSizeChange={() => undefined}
         />
       </section>

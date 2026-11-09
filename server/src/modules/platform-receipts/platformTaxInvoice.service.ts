@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { TAXINVOICE_COST_KRW } from '../../lib/barobill/policy.js';
 import { readPlatformIssuer } from './platformIssuer.js';
@@ -8,6 +9,10 @@ import {
   fetchTaxInvoiceStates,
   type TaxInvoiceLine,
 } from '../taxinvoice/taxInvoice.barobill.js';
+import {
+  tradeDateRangeFilter,
+  type PlatformReceiptStatusFilter,
+} from './platformReceiptsQuery.js';
 
 export type PlatformTaxInvoiceInput = {
   purposeType: 1 | 2;
@@ -111,26 +116,86 @@ export async function cancelPlatformTaxInvoice(id: string) {
   });
 }
 
+async function resolveTenantIdsByName(q: string): Promise<string[]> {
+  if (!q) return [];
+  const tenants = await prisma.tenant.findMany({
+    where: { name: { contains: q, mode: 'insensitive' } },
+    select: { id: true },
+    take: 200,
+  });
+  return tenants.map((t) => t.id);
+}
+
+export async function buildPlatformTaxInvoiceWhere(params: {
+  fromYmd?: string;
+  toYmd?: string;
+  status?: PlatformReceiptStatusFilter;
+  q?: string;
+  buyerTenantId?: string;
+}): Promise<Prisma.PlatformTaxInvoiceIssueWhereInput> {
+  const where: Prisma.PlatformTaxInvoiceIssueWhereInput = {
+    modifyCode: null,
+  };
+  if (params.buyerTenantId) where.buyerTenantId = params.buyerTenantId;
+  const range = tradeDateRangeFilter(params.fromYmd ?? '', params.toYmd ?? '');
+  if (range) where.writeDate = range;
+
+  if (params.status === 'ISSUED') {
+    where.lastError = null;
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      { OR: [{ barobillState: null }, { NOT: { barobillState: { in: ['ISSUE_CANCEL', '5031'] } } }] },
+    ];
+  } else if (params.status === 'CANCELLED') {
+    where.barobillState = { in: ['ISSUE_CANCEL', '5031'] };
+  } else if (params.status === 'FAILED') {
+    where.NOT = { lastError: null };
+  }
+
+  const q = (params.q ?? '').trim();
+  if (q) {
+    const tenantIds = await resolveTenantIdsByName(q);
+    const nameOr: Prisma.PlatformTaxInvoiceIssueWhereInput[] = [
+      { buyerCorpName: { contains: q, mode: 'insensitive' } },
+      { buyerCeoName: { contains: q, mode: 'insensitive' } },
+      { buyerCorpNum: { contains: q.replace(/\D/g, '') } },
+      ...(tenantIds.length ? [{ buyerTenantId: { in: tenantIds } }] : []),
+    ];
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      { OR: nameOr },
+    ];
+  }
+  return where;
+}
+
 export async function listPlatformTaxInvoices(params: {
   limit?: number;
   offset?: number;
   buyerTenantId?: string;
+  fromYmd?: string;
+  toYmd?: string;
+  status?: PlatformReceiptStatusFilter;
+  q?: string;
 }) {
   const take = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const skip = Math.max(params.offset ?? 0, 0);
-  const where = params.buyerTenantId ? { buyerTenantId: params.buyerTenantId } : {};
+  const where = await buildPlatformTaxInvoiceWhere(params);
   const [rows, total] = await Promise.all([
-    prisma.platformTaxInvoiceIssue.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
+    prisma.platformTaxInvoiceIssue.findMany({ where, orderBy: [{ writeDate: 'desc' }, { createdAt: 'desc' }], take, skip }),
     prisma.platformTaxInvoiceIssue.count({ where }),
   ]);
   return { total, items: rows };
 }
 
-export async function platformTaxInvoiceMonthStats(yearMonth: string) {
-  const start = new Date(`${yearMonth}-01T00:00:00+09:00`);
-  const nextMonth = new Date(start);
-  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
-  const where = { modifyCode: null, createdAt: { gte: start, lt: nextMonth } };
+export async function platformTaxInvoiceStats(params: {
+  fromYmd?: string;
+  toYmd?: string;
+  status?: PlatformReceiptStatusFilter;
+  q?: string;
+  buyerTenantId?: string;
+}) {
+  const where = await buildPlatformTaxInvoiceWhere(params);
   const [count, agg] = await Promise.all([
     prisma.platformTaxInvoiceIssue.count({ where }),
     prisma.platformTaxInvoiceIssue.aggregate({
@@ -145,6 +210,30 @@ export async function platformTaxInvoiceMonthStats(yearMonth: string) {
     supplyWon: agg._sum.supplyKrw ?? 0,
     taxWon: agg._sum.taxKrw ?? 0,
   };
+}
+
+/** @deprecated use platformTaxInvoiceStats */
+export async function platformTaxInvoiceMonthStats(yearMonth: string) {
+  const start = `${yearMonth.replace(/\D/g, '').slice(0, 6)}01`;
+  const y = Number(yearMonth.slice(0, 4));
+  const m = Number(yearMonth.slice(5, 7));
+  const next = m === 12 ? `${y + 1}0101` : `${y}${String(m + 1).padStart(2, '0')}01`;
+  const endNum = Number(next) - 1;
+  return platformTaxInvoiceStats({ fromYmd: start, toYmd: String(endNum) });
+}
+
+export async function listPlatformTaxInvoicesForExport(params: {
+  fromYmd?: string;
+  toYmd?: string;
+  status?: PlatformReceiptStatusFilter;
+  q?: string;
+}) {
+  const where = await buildPlatformTaxInvoiceWhere(params);
+  return prisma.platformTaxInvoiceIssue.findMany({
+    where,
+    orderBy: [{ writeDate: 'desc' }, { createdAt: 'desc' }],
+    take: 5000,
+  });
 }
 
 export async function syncPlatformTaxInvoiceStates(ids: string[]) {

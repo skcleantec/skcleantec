@@ -17,10 +17,31 @@ async function parseError(res: Response, fallback: string): Promise<string> {
   }
 }
 
+export type PlatformReceiptListFilter = {
+  from?: string;
+  to?: string;
+  status?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+function filterQuery(filter: PlatformReceiptListFilter): URLSearchParams {
+  const q = new URLSearchParams();
+  if (filter.from) q.set('from', filter.from.replace(/\D/g, ''));
+  if (filter.to) q.set('to', filter.to.replace(/\D/g, ''));
+  if (filter.status) q.set('status', filter.status);
+  if (filter.q) q.set('q', filter.q);
+  q.set('limit', String(filter.limit ?? 30));
+  q.set('offset', String(filter.offset ?? 0));
+  return q;
+}
+
 // ── 발급자(Issuer) ─────────────────────────────────────────────────────────
 
 export type PlatformReceiptIssuer = {
   corpNum: string;
+  corpNumDisplay?: string;
   corpNumMasked: string;
   corpName: string;
   ceoName: string | null;
@@ -62,6 +83,7 @@ export type PlatformCashbillRow = {
   status: 'ISSUED' | 'CANCELLED' | 'FAILED';
   taxKind: 'taxable' | 'exempt';
   usage: 'phone' | 'biz' | 'voluntary';
+  usageLabel?: string;
   identity: string | null;
   itemName: string;
   amountKrw: number;
@@ -76,6 +98,7 @@ export type PlatformCashbillRow = {
   memo: string | null;
   error: string | null;
   tenantName: string | null;
+  ntsConfirmNum?: string | null;
 };
 
 export type PlatformReceiptMonthStats = {
@@ -86,9 +109,12 @@ export type PlatformReceiptMonthStats = {
   vatAmountKrw: number;
 };
 
-export async function listPlatformCashbills(limit: number, offset: number): Promise<{ items: PlatformCashbillRow[]; total: number }> {
-  const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  const res = await fetch(`${API}/platform/receipts/cashbills?${q}`, { headers: platformHeaders() });
+export async function listPlatformCashbills(
+  filter: PlatformReceiptListFilter,
+): Promise<{ items: PlatformCashbillRow[]; total: number }> {
+  const res = await fetch(`${API}/platform/receipts/cashbills?${filterQuery(filter)}`, {
+    headers: platformHeaders(),
+  });
   if (!res.ok) throw new Error(await parseError(res, '현금영수증 목록을 불러오지 못했습니다.'));
   return res.json() as Promise<{ items: PlatformCashbillRow[]; total: number }>;
 }
@@ -125,10 +151,36 @@ export async function cancelPlatformCashbill(id: string): Promise<{ ok: true }> 
   return res.json() as Promise<{ ok: true }>;
 }
 
-export async function fetchPlatformCashbillMonthStats(): Promise<PlatformReceiptMonthStats> {
-  const res = await fetch(`${API}/platform/receipts/cashbills/month-stats`, { headers: platformHeaders() });
-  if (!res.ok) throw new Error(await parseError(res, '이달 통계를 불러오지 못했습니다.'));
+export async function fetchPlatformCashbillMonthStats(
+  filter: Pick<PlatformReceiptListFilter, 'from' | 'to' | 'status' | 'q'> = {},
+): Promise<PlatformReceiptMonthStats> {
+  const q = filterQuery({ ...filter, limit: 1, offset: 0 });
+  q.delete('limit');
+  q.delete('offset');
+  const res = await fetch(`${API}/platform/receipts/cashbills/month-stats?${q}`, {
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '통계를 불러오지 못했습니다.'));
   return res.json() as Promise<PlatformReceiptMonthStats>;
+}
+
+export async function downloadPlatformCashbillExcel(
+  filter: Pick<PlatformReceiptListFilter, 'from' | 'to' | 'status' | 'q'>,
+): Promise<void> {
+  const q = filterQuery({ ...filter, limit: 1, offset: 0 });
+  q.delete('limit');
+  q.delete('offset');
+  const res = await fetch(`${API}/platform/receipts/cashbills/export?${q}`, {
+    headers: { Authorization: `Bearer ${getPlatformToken() ?? ''}` },
+  });
+  if (!res.ok) throw new Error(await parseError(res, '엑셀을 받지 못했습니다.'));
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `플랫폼_현금영수증.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── 세금계산서(Tax Invoice) ────────────────────────────────────────────────
@@ -151,11 +203,16 @@ export type PlatformTaxInvoiceRow = {
   memo: string | null;
   error: string | null;
   tenantName: string | null;
+  usageLabel?: string;
+  ntsConfirmNum?: string | null;
 };
 
-export async function listPlatformTaxInvoices(limit: number, offset: number): Promise<{ items: PlatformTaxInvoiceRow[]; total: number }> {
-  const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  const res = await fetch(`${API}/platform/receipts/tax-invoices?${q}`, { headers: platformHeaders() });
+export async function listPlatformTaxInvoices(
+  filter: PlatformReceiptListFilter,
+): Promise<{ items: PlatformTaxInvoiceRow[]; total: number }> {
+  const res = await fetch(`${API}/platform/receipts/tax-invoices?${filterQuery(filter)}`, {
+    headers: platformHeaders(),
+  });
   if (!res.ok) throw new Error(await parseError(res, '세금계산서 목록을 불러오지 못했습니다.'));
   return res.json() as Promise<{ items: PlatformTaxInvoiceRow[]; total: number }>;
 }
@@ -195,10 +252,36 @@ export async function cancelPlatformTaxInvoice(id: string): Promise<{ ok: true }
   return res.json() as Promise<{ ok: true }>;
 }
 
-export async function fetchPlatformTaxInvoiceMonthStats(): Promise<PlatformReceiptMonthStats> {
-  const res = await fetch(`${API}/platform/receipts/tax-invoices/month-stats`, { headers: platformHeaders() });
-  if (!res.ok) throw new Error(await parseError(res, '이달 통계를 불러오지 못했습니다.'));
+export async function fetchPlatformTaxInvoiceMonthStats(
+  filter: Pick<PlatformReceiptListFilter, 'from' | 'to' | 'status' | 'q'> = {},
+): Promise<PlatformReceiptMonthStats> {
+  const q = filterQuery({ ...filter, limit: 1, offset: 0 });
+  q.delete('limit');
+  q.delete('offset');
+  const res = await fetch(`${API}/platform/receipts/tax-invoices/month-stats?${q}`, {
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '통계를 불러오지 못했습니다.'));
   return res.json() as Promise<PlatformReceiptMonthStats>;
+}
+
+export async function downloadPlatformTaxInvoiceExcel(
+  filter: Pick<PlatformReceiptListFilter, 'from' | 'to' | 'status' | 'q'>,
+): Promise<void> {
+  const q = filterQuery({ ...filter, limit: 1, offset: 0 });
+  q.delete('limit');
+  q.delete('offset');
+  const res = await fetch(`${API}/platform/receipts/tax-invoices/export?${q}`, {
+    headers: { Authorization: `Bearer ${getPlatformToken() ?? ''}` },
+  });
+  if (!res.ok) throw new Error(await parseError(res, '엑셀을 받지 못했습니다.'));
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `플랫폼_세금계산서.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── 매수인 업체 목록 ───────────────────────────────────────────────────────
