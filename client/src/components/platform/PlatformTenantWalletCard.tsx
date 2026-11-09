@@ -6,6 +6,8 @@ import {
   postPlatformTenantAlimtalkCharge,
   type PlatformAlimtalkPolicyResponse,
 } from '../../api/platformTenants';
+import { fetchPlatformReceiptViewUrl } from '../../api/platformReceipts';
+import { openReceiptWindow } from '../receipts/receiptListDisplay';
 import { getPlatformToken } from '../../stores/platformAuth';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE, PlatformAlert } from '../../utils/platformUi';
 import { ensureInputVisibleAboveKeyboard } from '../../hooks/useMobileInputVisibility';
@@ -38,6 +40,7 @@ export function PlatformTenantWalletCard({ tenantId, tenantName, disabled }: Pro
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [viewingLogId, setViewingLogId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const token = getPlatformToken();
@@ -272,21 +275,69 @@ export function PlatformTenantWalletCard({ tenantId, tenantName, disabled }: Pro
           <div className="mt-4 border-t border-gray-100 pt-3">
             <h3 className="text-fluid-xs font-medium text-gray-700">최근 충전 이력</h3>
             {settings.recentChargeLogs?.length ? (
-              <ul className="mt-2 space-y-1.5">
-                {settings.recentChargeLogs.map((log) => (
-                  <li key={log.id} className="flex flex-wrap items-baseline justify-between gap-x-2 text-fluid-xs text-gray-600">
-                    <span className="tabular-nums">
-                      {log.tenantLabel ?? '충전'} {log.amountKrw > 0 ? '+' : ''}
-                      {log.amountKrw.toLocaleString('ko-KR')}원 → 잔액 {log.balanceAfterKrw.toLocaleString('ko-KR')}원
-                    </span>
-                    <span className="text-gray-400">
-                      {new Date(log.createdAt).toLocaleString('ko-KR')}
-                      {log.actorName ? ` · ${log.actorName}` : ''}
-                      {log.kind === 'paid' ? ' · 입금 확인(유상)' : log.kind === 'grant' ? ' · 무상 지급' : log.kind === 'clawback' ? ' · 회수(차감)' : ''}
-                      {log.reason ? ` · ${log.reason}` : ''}
-                    </span>
-                  </li>
-                ))}
+              <ul className="mt-2 space-y-2">
+                {settings.recentChargeLogs.map((log) => {
+                  const tax = log.taxInvoice;
+                  return (
+                    <li key={log.id} className="rounded-lg border border-gray-100 px-2 py-1.5 text-fluid-xs text-gray-600">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                        <span className="tabular-nums text-gray-900">
+                          {log.tenantLabel ?? '충전'} {log.amountKrw > 0 ? '+' : ''}
+                          {log.amountKrw.toLocaleString('ko-KR')}원 → 잔액 {log.balanceAfterKrw.toLocaleString('ko-KR')}원
+                        </span>
+                        <span className="text-gray-400">
+                          {new Date(log.createdAt).toLocaleString('ko-KR')}
+                          {log.actorName ? ` · ${log.actorName}` : ''}
+                          {log.kind === 'paid'
+                            ? ' · 입금 확인(유상)'
+                            : log.kind === 'grant'
+                              ? ' · 무상 지급'
+                              : log.kind === 'clawback'
+                                ? ' · 회수(차감)'
+                                : log.kind === 'card'
+                                  ? ' · 카드'
+                                  : ''}
+                          {log.reason ? ` · ${log.reason}` : ''}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="text-gray-500">세금계산서</span>
+                        <span className="font-medium text-gray-800">{tax?.label ?? '—'}</span>
+                        {tax?.status === 'ISSUED' && tax.ntsConfirmNum ? (
+                          <span className="tabular-nums text-gray-500">{tax.ntsConfirmNum}</span>
+                        ) : null}
+                        {tax?.status === 'ISSUED' ? (
+                          <button
+                            type="button"
+                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            disabled={viewingLogId === log.id}
+                            onClick={() => {
+                              setViewingLogId(log.id);
+                              void fetchPlatformReceiptViewUrl({
+                                source: 'wallet_taxinvoice',
+                                id: tax.walletInvoiceId ?? undefined,
+                                paymentId: tax.paymentId ?? undefined,
+                                tenantId,
+                              })
+                                .then((url) => openReceiptWindow(url))
+                                .catch((e: unknown) =>
+                                  setError(e instanceof Error ? e.message : '영수증을 열 수 없습니다.'),
+                                )
+                                .finally(() => setViewingLogId(null));
+                            }}
+                          >
+                            보기
+                          </button>
+                        ) : null}
+                        {log.cardReceipt?.approvalNo ? (
+                          <span className="text-gray-500">
+                            카드 영수증 · 승인번호 {log.cardReceipt.approvalNo}
+                          </span>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="mt-2 text-fluid-xs text-gray-400">최근 충전 이력 없음</p>

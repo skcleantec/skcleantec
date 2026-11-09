@@ -186,8 +186,10 @@ export type UsageFeeCardPaymentRow = {
   needsReconcile?: boolean;
   cancelBlockReason?: string | null;
   walletTaxInvoice?: {
+    id?: string | null;
     status: 'PENDING' | 'ISSUED' | 'FAILED' | 'SKIPPED';
     error: string | null;
+    ntsConfirmNum?: string | null;
   } | null;
 };
 

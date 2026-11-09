@@ -356,6 +356,17 @@ export type PlatformAlimtalkPolicyResponse = {
     kind?: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
     reason?: string | null;
     tenantLabel?: string;
+    taxInvoice?: {
+      status: 'PENDING' | 'ISSUED' | 'FAILED' | 'SKIPPED' | 'NONE';
+      ntsConfirmNum: string | null;
+      paymentId: string | null;
+      walletInvoiceId: string | null;
+      label: string;
+    };
+    cardReceipt?: {
+      paymentId: string | null;
+      approvalNo: string | null;
+    } | null;
   }[];
   pendingChargeRequests: {
     id: string;

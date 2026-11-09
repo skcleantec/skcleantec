@@ -1,5 +1,6 @@
 export type ReceiptPeriod = 'thisMonth' | 'lastMonth' | 'last3Months' | 'custom';
 export type ReceiptStatusFilter = '' | 'ISSUED' | 'CANCELLED' | 'FAILED';
+export type ReceiptKindFilter = '' | 'cashbill' | 'taxinvoice';
 
 export function kstYmd(date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -57,6 +58,11 @@ export function parseReceiptPeriod(raw: string | null): ReceiptPeriod {
 
 export function parseReceiptStatus(raw: string | null): ReceiptStatusFilter {
   if (raw === 'ISSUED' || raw === 'CANCELLED' || raw === 'FAILED') return raw;
+  return '';
+}
+
+export function parseReceiptKind(raw: string | null): ReceiptKindFilter {
+  if (raw === 'cashbill' || raw === 'taxinvoice') return raw;
   return '';
 }
 

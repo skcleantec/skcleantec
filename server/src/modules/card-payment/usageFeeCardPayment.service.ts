@@ -335,7 +335,7 @@ export async function listUsageFeeCardPayments(
       ? []
       : await prisma.platformWalletInvoice.findMany({
           where: { paymentId: { in: walletPaymentIds } },
-          select: { paymentId: true, status: true, error: true },
+          select: { id: true, paymentId: true, status: true, error: true, ntsSendKey: true },
         });
   const walletInvoiceByPayment = new Map(walletInvoices.map((wi) => [wi.paymentId, wi]));
   return {
@@ -345,9 +345,14 @@ export async function listUsageFeeCardPayments(
       const copyable = Boolean(row.linkToken) && statusLabel === '결제 대기';
       const wi = walletInvoiceByPayment.get(row.id);
       const walletTaxInvoice = wi
-        ? { status: wi.status, error: wi.error ?? null }
+        ? {
+            id: wi.id,
+            status: wi.status,
+            error: wi.error ?? null,
+            ntsConfirmNum: wi.ntsSendKey ?? null,
+          }
         : isWalletPayment(row) && (row.payMethod === 'KEYIN' || row.payMethod === 'PAY_WINDOW')
-          ? { status: 'SKIPPED' as const, error: null }
+          ? { id: null, status: 'SKIPPED' as const, error: null, ntsConfirmNum: null }
           : null;
       return {
         id: row.id,

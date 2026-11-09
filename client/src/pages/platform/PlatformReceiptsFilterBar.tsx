@@ -1,7 +1,9 @@
 import {
+  parseReceiptKind,
   parseReceiptPeriod,
   parseReceiptStatus,
   resolveReceiptDateRange,
+  type ReceiptKindFilter,
   type ReceiptPeriod,
   type ReceiptStatusFilter,
 } from './platformReceiptsFilters';
@@ -21,19 +23,28 @@ const STATUSES: { id: ReceiptStatusFilter; label: string }[] = [
   { id: 'FAILED', label: '실패' },
 ];
 
+const KINDS: { id: ReceiptKindFilter; label: string }[] = [
+  { id: '', label: '종류 전체' },
+  { id: 'cashbill', label: '현금영수증' },
+  { id: 'taxinvoice', label: '세금계산서' },
+];
+
 export function PlatformReceiptsFilterBar({
   params,
   onChange,
   onExport,
   exporting,
+  showKind = false,
 }: {
   params: URLSearchParams;
   onChange: (patch: Record<string, string | null>, resetPage?: boolean) => void;
   onExport: () => void;
   exporting?: boolean;
+  showKind?: boolean;
 }) {
   const period = parseReceiptPeriod(params.get('period'));
   const status = parseReceiptStatus(params.get('status'));
+  const kind = parseReceiptKind(params.get('kind'));
   const from = params.get('from') || '';
   const to = params.get('to') || '';
   const q = params.get('q') || '';
@@ -77,6 +88,19 @@ export function PlatformReceiptsFilterBar({
               onChange={(e) => onChange({ period: 'custom', to: e.target.value }, true)}
             />
           </>
+        ) : null}
+        {showKind ? (
+          <select
+            className={`${INPUT_BASE} !w-auto !py-1.5 text-xs`}
+            value={kind}
+            onChange={(e) => onChange({ kind: e.target.value || null }, true)}
+          >
+            {KINDS.map((item) => (
+              <option key={item.id || 'all-kind'} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         ) : null}
         <select
           className={`${INPUT_BASE} !w-auto !py-1.5 text-xs`}

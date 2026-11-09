@@ -6,6 +6,7 @@ import {
   registAndIssueTaxInvoice,
   cancelIssuedTaxInvoice,
   fetchTaxInvoiceStates,
+  fetchTaxInvoiceMailUrl,
 } from '../taxinvoice/taxInvoice.barobill.js';
 
 function kstYmd(date: Date): string {
@@ -268,8 +269,8 @@ export async function cancelOrModifyForPayment(paymentId: string): Promise<void>
 
 export async function retryFailedWalletInvoice(paymentId: string): Promise<void> {
   const walletInvoice = await prisma.platformWalletInvoice.findUnique({ where: { paymentId } });
-  if (!walletInvoice || walletInvoice.status !== 'FAILED') {
-    throw new Error('실패 상태 건만 재시도할 수 있습니다.');
+  if (!walletInvoice || (walletInvoice.status !== 'FAILED' && walletInvoice.status !== 'PENDING')) {
+    throw new Error('대기·실패 상태 건만 발행할 수 있습니다.');
   }
 
   await prisma.platformWalletInvoice.update({
@@ -287,9 +288,146 @@ export async function retryFailedWalletInvoice(paymentId: string): Promise<void>
   });
 }
 
+export async function retryWalletInvoicesBatch(paymentIds: string[]): Promise<{ ok: number; failed: number }> {
+  let ok = 0;
+  let failed = 0;
+  for (const paymentId of paymentIds) {
+    try {
+      await retryFailedWalletInvoice(paymentId);
+      ok += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  return { ok, failed };
+}
+
+type PlatformWalletInvoiceStatus = 'PENDING' | 'ISSUED' | 'FAILED' | 'SKIPPED';
+const QUEUE_STATUSES: PlatformWalletInvoiceStatus[] = ['PENDING', 'FAILED'];
+
+export async function countWalletInvoiceQueue(): Promise<number> {
+  return prisma.platformWalletInvoice.count({
+    where: {
+      status: { in: QUEUE_STATUSES },
+      payment: { payMethod: 'BANK' },
+    },
+  });
+}
+
+export type WalletInvoiceQueueRow = {
+  id: string;
+  paymentId: string;
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+  paidAt: string;
+  supplyAmountKrw: number;
+  vatAmountKrw: number;
+  totalAmountKrw: number;
+  status: 'PENDING' | 'FAILED';
+  error: string | null;
+  missingBizInfo: boolean;
+};
+
+export async function listWalletInvoiceQueue(params: {
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: WalletInvoiceQueueRow[]; total: number }> {
+  const take = Math.min(Math.max(params.limit ?? 50, 1), 100);
+  const skip = Math.max(params.offset ?? 0, 0);
+  const where = {
+    status: { in: QUEUE_STATUSES },
+    payment: { payMethod: 'BANK' as const },
+  };
+  const [rows, total] = await Promise.all([
+    prisma.platformWalletInvoice.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }],
+      take,
+      skip,
+      select: {
+        id: true,
+        paymentId: true,
+        tenantId: true,
+        status: true,
+        error: true,
+        payment: {
+          select: {
+            paidAt: true,
+            supplyAmountKrw: true,
+            vatAmountKrw: true,
+            amountKrw: true,
+            payMethod: true,
+          },
+        },
+      },
+    }),
+    prisma.platformWalletInvoice.count({ where }),
+  ]);
+
+  const tenantIds = [...new Set(rows.map((r) => r.tenantId).filter(Boolean))];
+  const tenants = tenantIds.length
+    ? await prisma.tenant.findMany({
+        where: { id: { in: tenantIds } },
+        select: { id: true, name: true, slug: true },
+      })
+    : [];
+  const tenantMap = new Map(tenants.map((t) => [t.id, t]));
+
+  const items: WalletInvoiceQueueRow[] = rows.map((r) => {
+    const tenant = tenantMap.get(r.tenantId);
+    const err = r.error?.trim() || null;
+    return {
+      id: r.id,
+      paymentId: r.paymentId,
+      tenantId: r.tenantId,
+      tenantName: tenant?.name ?? '업체',
+      tenantSlug: tenant?.slug ?? '',
+      paidAt: (r.payment?.paidAt ?? new Date()).toISOString(),
+      supplyAmountKrw: r.payment?.supplyAmountKrw ?? 0,
+      vatAmountKrw: r.payment?.vatAmountKrw ?? 0,
+      totalAmountKrw: r.payment?.amountKrw ?? 0,
+      status: r.status === 'FAILED' ? 'FAILED' : 'PENDING',
+      error: err,
+      missingBizInfo: err === '업체 사업자정보 없음',
+    };
+  });
+
+  return { items, total };
+}
+
+export async function getWalletInvoiceViewUrl(input: {
+  walletInvoiceId?: string;
+  paymentId?: string;
+  tenantId?: string | null;
+}): Promise<string> {
+  const row = input.walletInvoiceId
+    ? await prisma.platformWalletInvoice.findUnique({ where: { id: input.walletInvoiceId } })
+    : input.paymentId
+      ? await prisma.platformWalletInvoice.findUnique({ where: { paymentId: input.paymentId } })
+      : null;
+  if (!row) throw new Error('세금계산서를 찾을 수 없습니다.');
+  if (input.tenantId && row.tenantId !== input.tenantId) {
+    throw new Error('이 업체의 영수증이 아닙니다.');
+  }
+  if (row.status !== 'ISSUED' || !row.mgtKey) {
+    throw new Error('발행된 세금계산서만 볼 수 있습니다.');
+  }
+  const issuer = readPlatformIssuer();
+  return fetchTaxInvoiceMailUrl({ corpNum: issuer.corpNum, mgtKey: row.mgtKey });
+}
+
 export async function getWalletInvoiceForPayment(paymentId: string) {
   return prisma.platformWalletInvoice.findUnique({
     where: { paymentId },
-    select: { status: true, error: true, issuedAt: true, cancelledAt: true },
+    select: {
+      id: true,
+      status: true,
+      error: true,
+      issuedAt: true,
+      cancelledAt: true,
+      ntsSendKey: true,
+      mgtKey: true,
+    },
   });
 }
