@@ -1,33 +1,42 @@
 import { Router } from 'express';
 import { platformAuthMiddleware, type PlatformScopedRequest } from '../platform/platformAuth.middleware.js';
 import { maskIssuer, readPlatformIssuer, refreshPlatformIssuerCert, platformIssuerCertRegisterUrl } from './platformIssuer.js';
+import * as XLSX from 'xlsx';
 import {
   issuePlatformCashBill,
   cancelPlatformCashBill,
   listPlatformCashBills,
-  platformCashBillMonthStats,
+  listPlatformCashBillsForExport,
+  platformCashBillStats,
 } from './platformCashbill.service.js';
 import {
   issuePlatformTaxInvoice,
   cancelPlatformTaxInvoice,
   listPlatformTaxInvoices,
-  platformTaxInvoiceMonthStats,
+  listPlatformTaxInvoicesForExport,
+  platformTaxInvoiceStats,
 } from './platformTaxInvoice.service.js';
 import { retryFailedWalletInvoice } from './platformWalletInvoice.service.js';
 import { prisma } from '../../lib/prisma.js';
 import { splitCashbillTax } from '../cashbill/cashbillIssue.amounts.js';
+import { formatCorpNumDisplay, parsePlatformReceiptListQuery } from './platformReceiptsQuery.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
 
-function kstYearMonth(date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' })
-    .format(date)
-    .slice(0, 7);
-}
-
 function ymd8(raw: string): string {
   return String(raw ?? '').replace(/\D/g, '').slice(0, 8);
+}
+
+function dashYmd(ymd: string): string {
+  if (ymd.length !== 8) return ymd;
+  return `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`;
+}
+
+function cashbillUsageLabel(usage: string): string {
+  if (usage === 'biz') return '지출증빙';
+  if (usage === 'voluntary') return '자진발급';
+  return '소득공제';
 }
 
 function cashbillPublic(row: {
@@ -49,8 +58,9 @@ function cashbillPublic(row: {
   kind: string;
   costKrw: number;
   buyerTenantId: string | null;
+  ntsConfirmNum?: string | null;
 }) {
-  const cancelled = row.kind === 'CANCEL' || Boolean(row.cancelOfId);
+  const cancelled = row.kind === 'CANCELLED' || row.kind === 'CANCEL' || Boolean(row.cancelOfId);
   const usage = row.identityMasked === '자진발급' ? 'voluntary' : row.tradeUsage === '2' ? 'biz' : 'phone';
   const taxKind = row.taxKind.includes('면') ? 'exempt' : 'taxable';
   return {
@@ -58,14 +68,13 @@ function cashbillPublic(row: {
     status: row.lastError ? 'FAILED' : cancelled ? 'CANCELLED' : 'ISSUED',
     taxKind,
     usage,
+    usageLabel: cashbillUsageLabel(usage),
     identity: row.identityMasked,
     itemName: row.itemName,
     amountKrw: row.totalWon,
     supplyAmountKrw: row.amount,
     vatAmountKrw: row.tax,
-    tradeDate: row.tradeDate.length === 8
-      ? `${row.tradeDate.slice(0, 4)}-${row.tradeDate.slice(4, 6)}-${row.tradeDate.slice(6, 8)}`
-      : row.tradeDate,
+    tradeDate: dashYmd(row.tradeDate),
     issuedAt: row.issuedAt?.toISOString() ?? new Date().toISOString(),
     cancelledAt: cancelled ? row.issuedAt?.toISOString() ?? null : null,
     buyerName: row.customerName,
@@ -76,11 +85,13 @@ function cashbillPublic(row: {
     tenantName: null as string | null,
     costKrw: row.costKrw,
     buyerTenantId: row.buyerTenantId,
+    ntsConfirmNum: row.ntsConfirmNum ?? null,
   };
 }
 
 function taxInvoicePublic(row: {
   id: string;
+  purposeType?: number;
   writeDate: string;
   buyerCorpNum: string;
   buyerCorpName: string;
@@ -95,6 +106,7 @@ function taxInvoicePublic(row: {
   internalMemo: string | null;
   modifyCode: string | null;
   barobillState: string | null;
+  ntsSendKey?: string | null;
   costKrw: number;
   createdAt: Date;
   buyerTenantId: string | null;
@@ -105,9 +117,9 @@ function taxInvoicePublic(row: {
   return {
     id: row.id,
     status: row.lastError ? 'FAILED' : cancelled ? 'CANCELLED' : 'ISSUED',
-    writeDate: row.writeDate.length === 8
-      ? `${row.writeDate.slice(0, 4)}-${row.writeDate.slice(4, 6)}-${row.writeDate.slice(6, 8)}`
-      : row.writeDate,
+    purposeType: row.purposeType ?? 1,
+    usageLabel: (row.purposeType ?? 1) === 2 ? '청구' : '영수',
+    writeDate: dashYmd(row.writeDate),
     issuedAt: row.createdAt.toISOString(),
     cancelledAt: cancelled ? row.createdAt.toISOString() : null,
     buyerCorpNum: row.buyerCorpNum,
@@ -124,17 +136,36 @@ function taxInvoicePublic(row: {
     tenantName: null as string | null,
     costKrw: row.costKrw,
     buyerTenantId: row.buyerTenantId,
+    ntsConfirmNum: row.ntsSendKey ?? null,
   };
+}
+
+async function tenantNameMap(ids: (string | null | undefined)[]) {
+  const tenantIds = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  if (tenantIds.length === 0) return new Map<string, string>();
+  const tenants = await prisma.tenant.findMany({ where: { id: { in: tenantIds } }, select: { id: true, name: true } });
+  return new Map(tenants.map((t) => [t.id, t.name]));
+}
+
+function sendXlsx(res: import('express').Response, filename: string, rows: Record<string, string | number>[]) {
+  const sheet = XLSX.utils.json_to_sheet(rows);
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, '영수증');
+  const buffer = XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+  res.send(buffer);
 }
 
 router.get('/issuer', (_req, res) => {
   try {
     const issuer = readPlatformIssuer();
     const masked = maskIssuer(issuer);
-    const corp = issuer.corpNum.replace(/\D/g, '');
     res.json({
       ...masked,
-      corpNumMasked: corp.length >= 10 ? `${corp.slice(0, 3)}-${corp.slice(3, 5)}-*****` : corp,
+      corpNum: issuer.corpNum.replace(/\D/g, ''),
+      corpNumDisplay: formatCorpNumDisplay(issuer.corpNum),
+      corpNumMasked: formatCorpNumDisplay(issuer.corpNum),
     });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : '발행자 정보 없음' });
@@ -158,15 +189,18 @@ router.post('/issuer/cert-url', async (_req, res) => {
 });
 
 router.get('/cashbills', async (req, res) => {
-  const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
-  const offset = Math.max(Number(req.query.offset) || 0, 0);
+  const parsed = parsePlatformReceiptListQuery(req.query as Record<string, unknown>);
   const buyerTenantId = typeof req.query.buyerTenantId === 'string' ? req.query.buyerTenantId.trim() : undefined;
-  const result = await listPlatformCashBills({ limit, offset, buyerTenantId });
-  const tenantIds = [...new Set(result.items.map((r) => r.buyerTenantId).filter((id): id is string => Boolean(id)))];
-  const tenants = tenantIds.length
-    ? await prisma.tenant.findMany({ where: { id: { in: tenantIds } }, select: { id: true, name: true } })
-    : [];
-  const names = new Map(tenants.map((t) => [t.id, t.name]));
+  const result = await listPlatformCashBills({
+    limit: parsed.limit,
+    offset: parsed.offset,
+    buyerTenantId,
+    fromYmd: parsed.fromYmd,
+    toYmd: parsed.toYmd,
+    status: parsed.status,
+    q: parsed.q,
+  });
+  const names = await tenantNameMap(result.items.map((r) => r.buyerTenantId));
   res.json({
     total: result.total,
     items: result.items.map((row) => ({
@@ -174,6 +208,35 @@ router.get('/cashbills', async (req, res) => {
       tenantName: row.buyerTenantId ? names.get(row.buyerTenantId) ?? null : null,
     })),
   });
+});
+
+router.get('/cashbills/export', async (req, res) => {
+  try {
+    const parsed = parsePlatformReceiptListQuery(req.query as Record<string, unknown>);
+    const rows = await listPlatformCashBillsForExport({
+      fromYmd: parsed.fromYmd,
+      toYmd: parsed.toYmd,
+      status: parsed.status,
+      q: parsed.q,
+    });
+    const names = await tenantNameMap(rows.map((r) => r.buyerTenantId));
+    const excelRows = rows.map((row) => {
+      const pub = cashbillPublic(row);
+      return {
+        거래일: pub.tradeDate,
+        '업체/고객': names.get(row.buyerTenantId ?? '') || row.customerName || '',
+        용도: pub.usageLabel,
+        공급가: pub.supplyAmountKrw,
+        부가세: pub.vatAmountKrw,
+        합계: pub.amountKrw,
+        상태: pub.status === 'ISSUED' ? '발행' : pub.status === 'CANCELLED' ? '취소' : '실패',
+        '국세청 승인번호': row.ntsConfirmNum ?? '',
+      };
+    });
+    sendXlsx(res, `플랫폼_현금영수증_${parsed.fromYmd || 'all'}_${parsed.toYmd || 'all'}.xlsx`, excelRows);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : '엑셀 내보내기 실패' });
+  }
 });
 
 router.post('/cashbills', async (req, res) => {
@@ -255,10 +318,13 @@ router.post('/cashbills/:id/cancel', async (req, res) => {
 });
 
 router.get('/cashbills/month-stats', async (req, res) => {
-  const yearMonth = typeof req.query.yearMonth === 'string' && /^\d{4}-\d{2}$/.test(req.query.yearMonth)
-    ? req.query.yearMonth
-    : kstYearMonth();
-  const result = await platformCashBillMonthStats(yearMonth);
+  const parsed = parsePlatformReceiptListQuery(req.query as Record<string, unknown>);
+  const result = await platformCashBillStats({
+    fromYmd: parsed.fromYmd,
+    toYmd: parsed.toYmd,
+    status: parsed.status,
+    q: parsed.q,
+  });
   res.json({
     count: result.count,
     costKrw: result.costKrw,
@@ -269,15 +335,18 @@ router.get('/cashbills/month-stats', async (req, res) => {
 });
 
 router.get('/tax-invoices', async (req, res) => {
-  const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
-  const offset = Math.max(Number(req.query.offset) || 0, 0);
+  const parsed = parsePlatformReceiptListQuery(req.query as Record<string, unknown>);
   const buyerTenantId = typeof req.query.buyerTenantId === 'string' ? req.query.buyerTenantId.trim() : undefined;
-  const result = await listPlatformTaxInvoices({ limit, offset, buyerTenantId });
-  const tenantIds = [...new Set(result.items.map((r) => r.buyerTenantId).filter((id): id is string => Boolean(id)))];
-  const tenants = tenantIds.length
-    ? await prisma.tenant.findMany({ where: { id: { in: tenantIds } }, select: { id: true, name: true } })
-    : [];
-  const names = new Map(tenants.map((t) => [t.id, t.name]));
+  const result = await listPlatformTaxInvoices({
+    limit: parsed.limit,
+    offset: parsed.offset,
+    buyerTenantId,
+    fromYmd: parsed.fromYmd,
+    toYmd: parsed.toYmd,
+    status: parsed.status,
+    q: parsed.q,
+  });
+  const names = await tenantNameMap(result.items.map((r) => r.buyerTenantId));
   res.json({
     total: result.total,
     items: result.items.map((row) => ({
@@ -285,6 +354,35 @@ router.get('/tax-invoices', async (req, res) => {
       tenantName: row.buyerTenantId ? names.get(row.buyerTenantId) ?? null : null,
     })),
   });
+});
+
+router.get('/tax-invoices/export', async (req, res) => {
+  try {
+    const parsed = parsePlatformReceiptListQuery(req.query as Record<string, unknown>);
+    const rows = await listPlatformTaxInvoicesForExport({
+      fromYmd: parsed.fromYmd,
+      toYmd: parsed.toYmd,
+      status: parsed.status,
+      q: parsed.q,
+    });
+    const names = await tenantNameMap(rows.map((r) => r.buyerTenantId));
+    const excelRows = rows.map((row) => {
+      const pub = taxInvoicePublic(row);
+      return {
+        거래일: pub.writeDate,
+        '업체/고객': names.get(row.buyerTenantId ?? '') || row.buyerCorpName || '',
+        용도: pub.usageLabel,
+        공급가: pub.supplyAmountKrw,
+        부가세: pub.vatAmountKrw,
+        합계: pub.totalAmountKrw,
+        상태: pub.status === 'ISSUED' ? '발행' : pub.status === 'CANCELLED' ? '취소' : '실패',
+        '국세청 승인번호': row.ntsSendKey ?? '',
+      };
+    });
+    sendXlsx(res, `플랫폼_세금계산서_${parsed.fromYmd || 'all'}_${parsed.toYmd || 'all'}.xlsx`, excelRows);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : '엑셀 내보내기 실패' });
+  }
 });
 
 router.post('/tax-invoices', async (req, res) => {
@@ -349,10 +447,13 @@ router.post('/tax-invoices/:id/cancel', async (req, res) => {
 });
 
 router.get('/tax-invoices/month-stats', async (req, res) => {
-  const yearMonth = typeof req.query.yearMonth === 'string' && /^\d{4}-\d{2}$/.test(req.query.yearMonth)
-    ? req.query.yearMonth
-    : kstYearMonth();
-  const result = await platformTaxInvoiceMonthStats(yearMonth);
+  const parsed = parsePlatformReceiptListQuery(req.query as Record<string, unknown>);
+  const result = await platformTaxInvoiceStats({
+    fromYmd: parsed.fromYmd,
+    toYmd: parsed.toYmd,
+    status: parsed.status,
+    q: parsed.q,
+  });
   res.json({
     count: result.count,
     costKrw: result.costKrw,

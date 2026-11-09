@@ -1,16 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   listPlatformCashbills,
   issuePlatformCashbill,
   cancelPlatformCashbill,
   fetchPlatformCashbillMonthStats,
   fetchPlatformTenantsForBuyer,
+  downloadPlatformCashbillExcel,
   type PlatformCashbillRow,
   type PlatformReceiptMonthStats,
   type PlatformBuyerTenant,
 } from '../../api/platformReceipts';
 import { BTN_PRIMARY, BTN_SECONDARY, BTN_DANGER, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import { parseListPage } from '../../utils/listPagination';
+import { PlatformReceiptsFilterBar, useReceiptFilterRange } from './PlatformReceiptsFilterBar';
+import { parseReceiptStatus } from './platformReceiptsFilters';
 
 const PAGE_SIZE = 30;
 
@@ -39,12 +44,22 @@ function usageLabel(usage: PlatformCashbillRow['usage']): string {
 }
 
 export function PlatformCashbillTab() {
+  const [params, setParams] = useSearchParams();
+  const page = parseListPage(params.get('page'));
+  const range = useReceiptFilterRange(params);
+  const status = parseReceiptStatus(params.get('status'));
+  const q = params.get('q') || '';
+  const filterKey = useMemo(
+    () => `${range.from}|${range.to}|${status}|${q}|${page}`,
+    [range.from, range.to, status, q, page],
+  );
+
   const [stats, setStats] = useState<PlatformReceiptMonthStats | null>(null);
   const [items, setItems] = useState<PlatformCashbillRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [listErr, setListErr] = useState<string | null>(null);
   const [buyers, setBuyers] = useState<PlatformBuyerTenant[]>([]);
+  const [exporting, setExporting] = useState(false);
 
   // Issue form state
   const [showForm, setShowForm] = useState(false);
@@ -65,22 +80,52 @@ export function PlatformCashbillTab() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
 
+  const listFilter = useMemo(
+    () => ({
+      from: range.from,
+      to: range.to,
+      status: status || undefined,
+      q: q || undefined,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    }),
+    [range.from, range.to, status, q, page],
+  );
+
   const loadList = useCallback(() => {
-    listPlatformCashbills(PAGE_SIZE, (page - 1) * PAGE_SIZE)
+    listPlatformCashbills(listFilter)
       .then((res) => { setItems(res.items); setTotal(res.total); setListErr(null); })
       .catch((e: unknown) => setListErr(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.'));
-  }, [page]);
+  }, [listFilter]);
 
-  useEffect(() => { loadList(); }, [loadList]);
+  useEffect(() => { loadList(); }, [loadList, filterKey]);
 
   useEffect(() => {
-    fetchPlatformCashbillMonthStats()
+    fetchPlatformCashbillMonthStats({
+      from: range.from,
+      to: range.to,
+      status: status || undefined,
+      q: q || undefined,
+    })
       .then(setStats)
       .catch(() => undefined);
+  }, [range.from, range.to, status, q]);
+
+  useEffect(() => {
     fetchPlatformTenantsForBuyer()
       .then((res) => setBuyers(res.items))
       .catch(() => undefined);
   }, []);
+
+  function patchParams(patch: Record<string, string | null>, resetPage = false) {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(patch)) {
+      if (!value) next.delete(key);
+      else next.set(key, value);
+    }
+    if (resetPage) next.set('page', '1');
+    setParams(next, { replace: true });
+  }
 
   function selectTenant(id: string) {
     setSelectedTenantId(id);
@@ -116,7 +161,12 @@ export function PlatformCashbillTab() {
       setBuyerName('');
       setSelectedTenantId('');
       setShowForm(false);
-      fetchPlatformCashbillMonthStats().then(setStats).catch(() => undefined);
+      fetchPlatformCashbillMonthStats({
+        from: range.from,
+        to: range.to,
+        status: status || undefined,
+        q: q || undefined,
+      }).then(setStats).catch(() => undefined);
       loadList();
     } catch (e) {
       setIssueErr(e instanceof Error ? e.message : '발행에 실패했습니다.');
@@ -139,20 +189,37 @@ export function PlatformCashbillTab() {
     }
   }
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await downloadPlatformCashbillExcel({
+        from: range.from,
+        to: range.to,
+        status: status || undefined,
+        q: q || undefined,
+      });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '엑셀을 받지 못했습니다.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const amountNum = Number(amountText.replace(/\D/g, '')) || 0;
   const supply = taxKind === 'exempt' ? amountNum : Math.round(amountNum / 1.1);
   const vat = taxKind === 'exempt' ? 0 : Math.max(0, amountNum - supply);
 
   return (
     <div className="space-y-4">
-      {/* 이달 통계 */}
+      <PlatformReceiptsFilterBar params={params} onChange={patchParams} onExport={() => void handleExport()} exporting={exporting} />
+
       {stats ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: '이달 발행 건수', value: `${stats.count.toLocaleString('ko-KR')}건` },
-            { label: '바로빌 원가 합계', value: won(stats.costKrw ?? 0) },
-            { label: '공급가액 합계', value: won(stats.supplyAmountKrw) },
-            { label: '총액 합계', value: won(stats.totalAmountKrw) },
+            { label: `발행 건수 · ${range.label}`, value: `${stats.count.toLocaleString('ko-KR')}건` },
+            { label: `바로빌 원가 · ${range.label}`, value: won(stats.costKrw ?? 0) },
+            { label: `공급가 · ${range.label}`, value: won(stats.supplyAmountKrw) },
+            { label: `총액 · ${range.label}`, value: won(stats.totalAmountKrw) },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-xl border border-gray-200 bg-white p-3">
               <p className="text-xs text-gray-500">{label}</p>
@@ -339,7 +406,7 @@ export function PlatformCashbillTab() {
           page={page}
           pageSize={PAGE_SIZE}
           total={total}
-          onPageChange={setPage}
+          onPageChange={(next) => patchParams({ page: String(next) })}
           onPageSizeChange={() => undefined}
         />
         {/* 모바일 카드 */}
@@ -427,7 +494,7 @@ export function PlatformCashbillTab() {
           page={page}
           pageSize={PAGE_SIZE}
           total={total}
-          onPageChange={setPage}
+          onPageChange={(next) => patchParams({ page: String(next) })}
           onPageSizeChange={() => undefined}
         />
       </section>
