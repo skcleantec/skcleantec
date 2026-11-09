@@ -185,6 +185,8 @@ export function PlatformPartnerPromoSettingsPage() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  /** 방금 추가한 배너 행 잠깐 강조 */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -234,12 +236,18 @@ export function PlatformPartnerPromoSettingsPage() {
       if (editingId) {
         await updatePlatformPartnerPromo(editingId, body);
         setMessage('수정했습니다.');
+        setModalOpen(false);
+        await load();
       } else {
-        await createPlatformPartnerPromo(body);
+        const created = await createPlatformPartnerPromo(body);
         setMessage('추가했습니다.');
+        setModalOpen(false);
+        setHighlightId(created.id);
+        await load();
+        window.setTimeout(() => {
+          setHighlightId((cur) => (cur === created.id ? null : cur));
+        }, 2500);
       }
-      setModalOpen(false);
-      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -398,7 +406,14 @@ export function PlatformPartnerPromoSettingsPage() {
               </thead>
               <tbody>
                 {items.map((item, i) => (
-                  <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/80">
+                  <tr
+                    key={item.id}
+                    className={`border-b border-slate-100 transition-colors ${
+                      highlightId === item.id
+                        ? 'bg-sky-50 ring-2 ring-inset ring-sky-400'
+                        : 'hover:bg-slate-50/80'
+                    }`}
+                  >
                     <td className="px-2 py-2 text-center">
                       <div className="inline-flex gap-1">
                         <button type="button" className={BTN_SECONDARY} disabled={i === 0} onClick={() => void move(item.id, -1)}>
