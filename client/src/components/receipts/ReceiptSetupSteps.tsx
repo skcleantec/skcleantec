@@ -26,7 +26,7 @@ const GHOST =
 const INPUT =
   'mt-1 block w-full min-h-11 rounded-lg border border-[#dde3ea] px-3 py-2 text-fluid-xs text-[#141b26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50';
 
-const CHARGE_PRESETS = [10_000, 30_000, 50_000, 100_000] as const;
+const CHARGE_PRESETS = [50_000, 100_000, 200_000, 300_000] as const;
 
 function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
@@ -119,7 +119,7 @@ function Step1Explain() {
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className="rounded-[10px] border border-[#dde3ea] px-3 py-2">
-          <p className="text-fluid-2xs text-[#5d6878]">건당 요금</p>
+          <p className="text-fluid-2xs text-[#5d6878]">건당 요금 · 부가세 별도</p>
           <p className="text-fluid-xs text-[#141b26]">
             현금영수증 {won(CASHBILL_UNIT_PRICE_KRW)}
             <br />
@@ -240,7 +240,7 @@ export function ReceiptSetupSteps({
 }) {
   const { openCharge } = useReceiptWallet();
   const [certOpen, setCertOpen] = useState(false);
-  const [chargePick, setChargePick] = useState<number>(30_000);
+  const [chargePick, setChargePick] = useState<number>(50_000);
   const member = brand.member;
   const certDone = member?.certValid === true;
   const unit = kind === 'cashbill' ? CASHBILL_UNIT_PRICE_KRW : TAXINVOICE_UNIT_PRICE_KRW;
@@ -408,14 +408,19 @@ export function ReceiptSetupSteps({
               <dt className="text-[#5d6878]">충전 금액</dt>
               <dd className="tabular-nums text-[#141b26]">{won(chargePick)}</dd>
               <dt className="text-[#5d6878]">충전 후 잔액</dt>
-              <dd className="tabular-nums font-semibold text-[#141b26]">{won(afterBalance)}</dd>
+              <dd className="tabular-nums text-[#141b26]">{won(afterBalance)}</dd>
+              <dt className="text-[#5d6878]">부가세 10%</dt>
+              <dd className="tabular-nums text-[#141b26]">{won(Math.round(chargePick * 0.1))}</dd>
+              <dt className="font-semibold text-[#141b26]">결제 금액</dt>
+              <dd className="font-semibold tabular-nums text-[#141b26]">{won(chargePick + Math.round(chargePick * 0.1))}</dd>
             </dl>
             <p className="text-fluid-2xs text-[#5d6878]">
               이 화면 요금 기준 약 {approxIssueCount(afterBalance, unit)}건 발행 가능
             </p>
             <button type="button" className={BTN} onClick={() => openCharge(chargePick)}>
-              {won(chargePick)} 충전하기
+              {won(chargePick + Math.round(chargePick * 0.1))} 결제하고 충전
             </button>
+            <p className="text-fluid-2xs text-[#5d6878]">결제 후 세금계산서가 담당 이메일로 가요</p>
           </div>
         </div>
       ) : null}
@@ -440,7 +445,7 @@ export function ReceiptReadyStatusBar({
       : '인증서 없음';
   const cashLeft = approxIssueCount(balanceKrw, CASHBILL_UNIT_PRICE_KRW);
   const taxLeft = approxIssueCount(balanceKrw, TAXINVOICE_UNIT_PRICE_KRW);
-  const lowCash = balanceKrw > 0 && balanceKrw < CASHBILL_UNIT_PRICE_KRW * 100;
+  const lowCash = balanceKrw > 0 && balanceKrw < 3_000;
   const GHOST_SM =
     'min-h-11 rounded-lg border border-[#dde3ea] bg-white px-3 text-fluid-xs font-medium text-[#141b26] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
 

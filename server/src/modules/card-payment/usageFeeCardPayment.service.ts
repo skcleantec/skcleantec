@@ -460,9 +460,13 @@ export async function openTenantUsageFeeWindow(
 /** 업체 관리자가 청소비서 지갑을 같은 이용료 결제창으로 충전한다. 승인 통지가 오기 전에는 잔액이 안 변한다. */
 export async function openTenantWalletWindow(
   tenantId: string,
-  amountKrw: number,
-): Promise<{ error: string; status: 400 | 404 } | { result: { redirectUrl: string; amountKrw: number } }> {
-  const invalid = validateWalletChargeAmountKrw(amountKrw);
+  /** 충전금(공급가). 결제창에는 부가세 10%를 더한 금액을 넘긴다. */
+  supplyAmountKrw: number,
+): Promise<
+  | { error: string; status: 400 | 404 }
+  | { result: { redirectUrl: string; amountKrw: number; supplyAmountKrw: number; vatAmountKrw: number } }
+> {
+  const invalid = validateWalletChargeAmountKrw(supplyAmountKrw);
   if (invalid) return { error: invalid, status: 400 };
   const tenant = await prisma.tenant.findFirst({ where: { id: tenantId }, select: { id: true, name: true } });
   if (!tenant) return { error: '업체를 찾을 수 없습니다.', status: 404 };
@@ -471,6 +475,8 @@ export async function openTenantWalletWindow(
   const orderNo = buildWspayOrderId(app.oid, `wal${Date.now().toString(36)}`)?.slice(0, 30);
   if (!orderNo) return { error: '주문번호를 만들지 못했습니다.', status: 400 };
   const base = getPublicAppBaseUrl();
+  const vatAmountKrw = usageFeeVatKrw(supplyAmountKrw);
+  const amountKrw = supplyAmountKrw + vatAmountKrw;
   const pending = await prisma.usageFeeCardPayment.create({
     data: {
       purpose: 'OTHER',
@@ -478,8 +484,8 @@ export async function openTenantWalletWindow(
       status: 'PENDING',
       tenantId,
       goodsName: WALLET_CARD_GOODS_NAME,
-      supplyAmountKrw: splitTaxIncluded(amountKrw).supplyKrw,
-      vatAmountKrw: splitTaxIncluded(amountKrw).vatKrw,
+      supplyAmountKrw,
+      vatAmountKrw,
       amountKrw,
       pgOrderId: orderNo,
       pgMid: app.mid,
@@ -509,7 +515,7 @@ export async function openTenantWalletWindow(
     await prisma.usageFeeCardPayment.deleteMany({ where: { id: pending.id, tenantId } });
     return { error: window.message, status: 400 };
   }
-  return { result: { redirectUrl: window.redirectUrl, amountKrw } };
+  return { result: { redirectUrl: window.redirectUrl, amountKrw, supplyAmountKrw, vatAmountKrw } };
 }
 
 function isSameDayCardCancel(row: { status: string; payMethod: string; paidAt: Date; pgOrderId: string | null; pgMid: string | null }): boolean {

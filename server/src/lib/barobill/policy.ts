@@ -5,7 +5,8 @@
 
 export const CASHBILL_MODULE_ID = 'mod_cashbill' as const;
 
-export const CASHBILL_UNIT_PRICE_KRW = 22;
+/** 지갑 차감 단가 — 부가세 별도(공급가). shared/barobillPolicy.ts 와 동기화. */
+export const CASHBILL_UNIT_PRICE_KRW = 100;
 export const CASHBILL_COST_KRW = 11;
 export const TAXINVOICE_UNIT_PRICE_KRW = 150;
 export const TAXINVOICE_COST_KRW = 110;
