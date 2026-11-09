@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { walletChargePayKrw, walletChargeVatKrw, walletSupplyFromPayKrw } from '@shared/alimtalkPolicy';
 import {
   getPlatformTenantAlimtalkPolicy,
   postPlatformTenantAlimtalkCharge,
@@ -32,6 +33,7 @@ export function PlatformTenantWalletCard({ tenantId, tenantName, disabled }: Pro
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [amountText, setAmountText] = useState('');
   const [kind, setKind] = useState<Kind>('paid');
+  const [fromPayAmount, setFromPayAmount] = useState(false);
   const [chargeMemo, setChargeMemo] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');
@@ -55,7 +57,22 @@ export function PlatformTenantWalletCard({ tenantId, tenantName, disabled }: Pro
     void load();
   }, [load]);
 
-  const amountKrw = Math.round(Number(amountText.replace(/[^\d]/g, '')));
+  const rawAmount = Math.round(Number(amountText.replace(/[^\d]/g, '')));
+  const paidSplit = useMemo(() => {
+    if (kind !== 'paid' || !Number.isInteger(rawAmount) || rawAmount <= 0) {
+      return { supplyKrw: rawAmount, vatKrw: 0, payKrw: rawAmount };
+    }
+    if (fromPayAmount) {
+      const split = walletSupplyFromPayKrw(rawAmount);
+      return { supplyKrw: split.supplyKrw, vatKrw: split.vatKrw, payKrw: rawAmount };
+    }
+    return {
+      supplyKrw: rawAmount,
+      vatKrw: walletChargeVatKrw(rawAmount),
+      payKrw: walletChargePayKrw(rawAmount),
+    };
+  }, [kind, rawAmount, fromPayAmount]);
+  const amountKrw = kind === 'paid' ? paidSplit.supplyKrw : rawAmount;
   const reasonNeeded = kind !== 'paid';
   const amountOk = Number.isInteger(amountKrw) && amountKrw >= 1 && amountKrw <= MAX_KRW;
   const reasonOk = !reasonNeeded || chargeMemo.trim().length > 0;
@@ -75,9 +92,14 @@ export function PlatformTenantWalletCard({ tenantId, tenantName, disabled }: Pro
       setSettings(data);
       setChargeMemo('');
       setAmountText('');
+      setFromPayAmount(false);
       setConfirmOpen(false);
       const verb = kind === 'clawback' ? '회수' : '반영';
-      setMessage(`${amountKrw.toLocaleString('ko-KR')}원을 ${verb}했습니다.`);
+      const suffix =
+        kind === 'paid'
+          ? ` (받을 금액 ${paidSplit.payKrw.toLocaleString('ko-KR')}원 · 부가세 ${paidSplit.vatKrw.toLocaleString('ko-KR')}원)`
+          : '';
+      setMessage(`${amountKrw.toLocaleString('ko-KR')}원을 ${verb}했습니다.${suffix}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : '반영에 실패했습니다.');
     } finally {
@@ -185,7 +207,7 @@ export function PlatformTenantWalletCard({ tenantId, tenantName, disabled }: Pro
             }}
           >
             <label className="block text-fluid-xs text-gray-500">
-              금액
+              {kind === 'paid' ? (fromPayAmount ? '입금액(부가세 포함)' : '충전금(공급가)') : '금액'}
               <input
                 inputMode="numeric"
                 className={`${INPUT_BASE} mt-1 tabular-nums`}
@@ -195,10 +217,43 @@ export function PlatformTenantWalletCard({ tenantId, tenantName, disabled }: Pro
                 onChange={(e) => setAmountText(e.target.value.replace(/[^\d]/g, ''))}
               />
             </label>
+            {kind === 'paid' ? (
+              <div className="space-y-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-700">
+                <label className="inline-flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={fromPayAmount}
+                    disabled={disabled || charging || !licensed}
+                    onChange={(e) => setFromPayAmount(e.target.checked)}
+                  />
+                  입금액으로 계산
+                </label>
+                <p>
+                  받을 금액(부가세 포함){' '}
+                  <span className="font-semibold tabular-nums text-gray-900">
+                    {paidSplit.payKrw > 0 ? `${paidSplit.payKrw.toLocaleString('ko-KR')}원` : '—'}
+                  </span>
+                  {paidSplit.supplyKrw > 0 ? (
+                    <span className="text-gray-500">
+                      {' '}· 충전금 {paidSplit.supplyKrw.toLocaleString('ko-KR')}원 · 부가세 {paidSplit.vatKrw.toLocaleString('ko-KR')}원
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2 text-fluid-xs">
               {KINDS.map(([id, label]) => (
                 <label key={id} className="inline-flex items-center gap-1 text-gray-700">
-                  <input type="radio" name={`wallet-kind-${tenantId}`} checked={kind === id} disabled={disabled || charging || !licensed} onChange={() => setKind(id)} />
+                  <input
+                    type="radio"
+                    name={`wallet-kind-${tenantId}`}
+                    checked={kind === id}
+                    disabled={disabled || charging || !licensed}
+                    onChange={() => {
+                      setKind(id);
+                      if (id !== 'paid') setFromPayAmount(false);
+                    }}
+                  />
                   {label}
                 </label>
               ))}

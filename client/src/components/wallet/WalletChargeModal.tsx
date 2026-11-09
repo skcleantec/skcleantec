@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { TENANT_ALIMTALK_CHARGE_PRESETS_KRW, postTenantAlimtalkChargeRequest } from '../../api/alimtalk';
+import {
+  ALIMTALK_CHARGE_MIN_KRW,
+  TENANT_ALIMTALK_CHARGE_PRESETS_KRW,
+  postTenantAlimtalkChargeRequest,
+  validateAlimtalkTopUpAmountKrw,
+  walletChargePayKrw,
+  walletChargeVatKrw,
+} from '../../api/alimtalk';
 import { fetchReceiptWallet, type ReceiptWalletSummary } from '../../api/receiptWallet';
 import { openTenantWalletWindow } from '../../api/tenantBilling';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
@@ -24,6 +31,11 @@ function clock(iso: string): string {
   return date.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+function defaultSupply(initial?: number): number {
+  if (initial && initial >= ALIMTALK_CHARGE_MIN_KRW) return initial;
+  return TENANT_ALIMTALK_CHARGE_PRESETS_KRW[0];
+}
+
 export function WalletChargeModal({
   onClose,
   onDone,
@@ -31,16 +43,15 @@ export function WalletChargeModal({
 }: {
   onClose: () => void;
   onDone: () => void;
-  /** 영수증 첫 시작 등에서 넘긴 금액(1만·3만·5만·10만) */
+  /** 충전금(공급가) */
   initialAmountKrw?: number;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
   const admin = bootstrapAuthMeFromLocal(getToken() ?? '')?.role === 'ADMIN';
   const [summary, setSummary] = useState<ReceiptWalletSummary | null>(null);
-  const [amount, setAmount] = useState<number>(
-    initialAmountKrw && initialAmountKrw > 0 ? initialAmountKrw : TENANT_ALIMTALK_CHARGE_PRESETS_KRW[0],
-  );
+  const [amount, setAmount] = useState<number>(defaultSupply(initialAmountKrw));
+  const [customText, setCustomText] = useState('');
   const [method, setMethod] = useState<'card' | 'bank'>('card');
   const [depositor, setDepositor] = useState('');
   const [busy, setBusy] = useState(false);
@@ -75,12 +86,13 @@ export function WalletChargeModal({
   const samePending = pending != null && pending.amountKrw === amount;
   const balance = summary?.balanceKrw ?? 0;
   const bank = [summary?.bank.bankName, summary?.bank.accountNumber, summary?.bank.accountHolder].filter(Boolean).join(' ');
-  const baseChoices = (() => {
-    const set = new Set<number>([...TENANT_ALIMTALK_CHARGE_PRESETS_KRW]);
-    if (initialAmountKrw && initialAmountKrw > 0) set.add(initialAmountKrw);
-    return [...set].sort((a, b) => a - b);
-  })();
-  const choices = summary?.testAmountEnabled ? [...baseChoices, TEST_AMOUNT] : baseChoices;
+  const choices = summary?.testAmountEnabled
+    ? [...TENANT_ALIMTALK_CHARGE_PRESETS_KRW, TEST_AMOUNT]
+    : [...TENANT_ALIMTALK_CHARGE_PRESETS_KRW];
+  const amountError = amount === TEST_AMOUNT ? null : validateAlimtalkTopUpAmountKrw(amount);
+  const vat = amount === TEST_AMOUNT ? 0 : walletChargeVatKrw(amount);
+  const pay = amount === TEST_AMOUNT ? amount : walletChargePayKrw(amount);
+  const canSubmit = !busy && admin && !amountError;
 
   async function copyBank() {
     if (!bank) return;
@@ -93,7 +105,7 @@ export function WalletChargeModal({
 
   async function payCard() {
     const token = getToken();
-    if (!token) return;
+    if (!token || amountError) return;
     setBusy(true);
     setError(null);
     try {
@@ -107,7 +119,7 @@ export function WalletChargeModal({
 
   async function requestBank() {
     const token = getToken();
-    if (!token || !admin) return;
+    if (!token || !admin || amountError) return;
     if (!depositor.trim()) {
       setError('입금자명을 입력해 주세요.');
       return;
@@ -116,7 +128,7 @@ export function WalletChargeModal({
     setError(null);
     try {
       await postTenantAlimtalkChargeRequest(token, { amountKrw: amount, memo: depositor.trim() });
-      setDone(`${won(amount)} 충전 신청을 접수했습니다. 확인되면 알림으로 알려드립니다.`);
+      setDone(`${won(amount)} 충전 신청을 접수했습니다. 확인되면 알림으로 알려드립니다. (입금 ${won(pay)})`);
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : '충전 신청에 실패했습니다.');
@@ -149,24 +161,62 @@ export function WalletChargeModal({
           <p className="text-fluid-xs text-slate-600">
             현재 잔액 <span className="text-fluid-lg font-semibold tabular-nums text-slate-900">{summary ? won(balance) : '…'}</span>
           </p>
-          <div>
-            <p className="text-fluid-xs text-slate-700">충전 금액</p>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {choices.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <p className="text-fluid-xs text-slate-700">충전 금액</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {choices.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    disabled={busy}
+                    className={`min-h-10 rounded-lg border px-3 text-fluid-xs tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ${amount === preset ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`}
+                    onClick={() => {
+                      setAmount(preset);
+                      setCustomText('');
+                      setError(null);
+                    }}
+                  >
+                    {preset === TEST_AMOUNT ? '1,000 TEST' : won(preset)}
+                  </button>
+                ))}
+              </div>
+              <label className="mt-2 block text-fluid-2xs text-slate-600">
+                직접 입력 (1만 원 단위 · 5만 원부터)
+                <input
+                  className="mt-1 min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs tabular-nums"
+                  inputMode="numeric"
+                  value={customText}
                   disabled={busy}
-                  className={`min-h-10 rounded-lg border px-3 text-fluid-xs tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ${amount === preset ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`}
-                  onClick={() => setAmount(preset)}
-                >
-                  {preset === TEST_AMOUNT ? '1,000 TEST' : won(preset)}
-                </button>
-              ))}
+                  placeholder="예: 70000"
+                  onChange={(event) => {
+                    const digits = event.target.value.replace(/[^\d]/g, '');
+                    setCustomText(digits);
+                    const next = Number(digits);
+                    if (Number.isInteger(next) && next > 0) setAmount(next);
+                  }}
+                />
+              </label>
+              {amountError ? <p className="mt-1 text-fluid-xs text-red-700">{amountError}</p> : null}
             </div>
-            <p className="mt-1 text-fluid-xs text-slate-600">
-              충전 후 잔액 <span className="font-semibold tabular-nums text-slate-900">{won(balance + amount)}</span>
-            </p>
+            <dl className="space-y-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-fluid-xs">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-600">충전 금액</dt>
+                <dd className="tabular-nums text-slate-900">{won(amount)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-600">충전 후 잔액</dt>
+                <dd className="tabular-nums text-slate-900">{won(balance + amount)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-600">부가세 10%</dt>
+                <dd className="tabular-nums text-slate-900">{won(vat)}</dd>
+              </div>
+              <div className="flex justify-between gap-2 border-t border-slate-200 pt-1">
+                <dt className="font-semibold text-slate-800">결제 금액</dt>
+                <dd className="font-semibold tabular-nums text-slate-900">{won(pay)}</dd>
+              </div>
+            </dl>
           </div>
           <div>
             <p className="text-fluid-xs text-slate-700">결제 방법</p>
@@ -198,6 +248,7 @@ export function WalletChargeModal({
                   <button type="button" className={GHOST} onClick={() => void copyBank()}>복사</button>
                 ) : null}
               </p>
+              <p className="text-fluid-2xs text-slate-600">입금액은 부가세 포함 {won(pay)}입니다.</p>
               <label className="block text-fluid-2xs text-slate-600">
                 입금자명
                 <input className="mt-1 min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs" value={depositor} disabled={busy || Boolean(pending)} onChange={(event) => setDepositor(event.target.value)} />
@@ -205,18 +256,19 @@ export function WalletChargeModal({
               <p className="text-fluid-2xs text-slate-600">입금 후 아래 버튼을 눌러주세요. 확인되면 알림으로 알려드립니다.</p>
             </div>
           )}
+          <p className="text-fluid-2xs text-slate-500">결제 후 세금계산서가 담당 이메일로 가요</p>
           {!admin ? <p className="text-fluid-xs text-slate-700">관리자만 충전할 수 있습니다.</p> : null}
           {done ? <p className="text-fluid-xs text-emerald-800">{done}</p> : null}
           {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
         </div>
         <footer className="shrink-0 border-t border-slate-200 px-3 py-2">
           {method === 'card' ? (
-            <button type="button" className={BTN} disabled={busy || !admin} onClick={() => void payCard()}>
-              {busy ? '결제창 여는 중' : `${won(amount)} 카드로 결제`}
+            <button type="button" className={BTN} disabled={!canSubmit} onClick={() => void payCard()}>
+              {busy ? '결제창 여는 중' : `${won(pay)} 결제하고 충전`}
             </button>
           ) : (
-            <button type="button" className={BTN} disabled={busy || !admin || Boolean(pending) || samePending} onClick={() => void requestBank()}>
-              {busy ? '신청 중…' : `입금했어요 · ${won(amount)} 충전 신청`}
+            <button type="button" className={BTN} disabled={!canSubmit || Boolean(pending) || samePending} onClick={() => void requestBank()}>
+              {busy ? '신청 중…' : `입금했어요 · ${won(pay)} 충전 신청`}
             </button>
           )}
         </footer>

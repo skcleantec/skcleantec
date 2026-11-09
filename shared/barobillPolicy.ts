@@ -1,15 +1,15 @@
 /**
- * 바로빌 과금 단가 — 사용자 확정, VAT 포함.
+ * 바로빌 지갑 차감 단가 — 부가세 별도(공급가).
  * 서버 복제본: server/src/lib/barobill/policy.ts (숫자만 동기화)
  */
 
 export const CASHBILL_MODULE_ID = 'mod_cashbill' as const;
 
-/** 업체 지갑 차감. 원가 11원. */
-export const CASHBILL_UNIT_PRICE_KRW = 22;
+/** 업체 지갑 차감(공급가). 원가 참고용. */
+export const CASHBILL_UNIT_PRICE_KRW = 100;
 export const CASHBILL_COST_KRW = 11;
 
-/** 업체 지갑 차감. 원가 110원. */
+/** 업체 지갑 차감(공급가). 원가 참고용. */
 export const TAXINVOICE_UNIT_PRICE_KRW = 150;
 export const TAXINVOICE_COST_KRW = 110;
 

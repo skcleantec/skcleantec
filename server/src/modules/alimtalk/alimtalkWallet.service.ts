@@ -9,6 +9,7 @@ import {
   validateAlimtalkTopUpAmountKrw,
   type AlimtalkTemplateCode,
 } from '../../lib/alimtalkPolicy.js';
+import { validateWalletChargeAmountKrw } from '../../lib/paymentTestAmount.js';
 import { kstYm } from './alimtalkKst.js';
 import { ALIMTALK_TEMPLATE_SEED, solapiTemplateIdFromEnv } from './alimtalkSolapi.client.js';
 import { recordWalletUsage } from '../wallet/walletUsageLog.js';
@@ -265,6 +266,9 @@ async function recordPaidWalletDeposit(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   params: { tenantId: string; amountKrw: number; reason: string | null; actorPlatformUserId: string | null },
 ): Promise<void> {
+  /** amountKrw = 충전금(공급가). 결제·세금계산서용으로 부가세 10%를 붙인다. */
+  const supplyAmountKrw = params.amountKrw;
+  const vatAmountKrw = Math.round(supplyAmountKrw * 0.1);
   await tx.usageFeeCardPayment.create({
     data: {
       purpose: 'OTHER',
@@ -272,9 +276,9 @@ async function recordPaidWalletDeposit(
       status: 'APPROVED',
       tenantId: params.tenantId,
       goodsName: '청소비서 지갑',
-      supplyAmountKrw: params.amountKrw,
-      vatAmountKrw: 0,
-      amountKrw: params.amountKrw,
+      supplyAmountKrw,
+      vatAmountKrw,
+      amountKrw: supplyAmountKrw + vatAmountKrw,
       pgOrderId: `wlt${randomBytes(12).toString('hex')}`,
       memo: params.reason || '입금 확인',
       invoiceApplied: true,
@@ -374,7 +378,7 @@ export async function creditWalletFromCardOnce(params: {
   amountKrw: number;
   pgOrderId: string;
 }): Promise<{ already: boolean }> {
-  const validationError = validateAlimtalkTopUpAmountKrw(params.amountKrw);
+  const validationError = validateWalletChargeAmountKrw(params.amountKrw);
   if (validationError) throw new Error(validationError);
   const memo = `card:${params.pgOrderId}`;
   const tenant = await prisma.tenant.findUnique({

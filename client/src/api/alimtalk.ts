@@ -1,8 +1,4 @@
-import {
-  ALIMTALK_CHARGE_MAX_KRW,
-  ALIMTALK_CHARGE_UNIT_KRW,
-  type AlimtalkTemplateCode,
-} from '@shared/alimtalkPolicy';
+import { type AlimtalkTemplateCode } from '@shared/alimtalkPolicy';
 import { SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX } from '@shared/alimtalkScheduleD2Timing';
 import { API, apiErrorMessage } from './apiPrefix';
 
@@ -125,11 +121,15 @@ export async function postTenantAlimtalkChargeRequest(
   return res.json() as Promise<TenantAlimtalkSettings>;
 }
 
-export const TENANT_ALIMTALK_CHARGE_PRESETS_KRW = [
-  ALIMTALK_CHARGE_UNIT_KRW,
-  ALIMTALK_CHARGE_UNIT_KRW * 2,
-  ALIMTALK_CHARGE_UNIT_KRW * 3,
+export {
+  ALIMTALK_CHARGE_PRESETS_KRW as TENANT_ALIMTALK_CHARGE_PRESETS_KRW,
+  ALIMTALK_CHARGE_MIN_KRW,
   ALIMTALK_CHARGE_MAX_KRW,
-] as const;
+  ALIMTALK_CHARGE_STEP_KRW,
+  ALIMTALK_CHARGE_UNIT_KRW,
+  validateAlimtalkTopUpAmountKrw,
+  walletChargePayKrw,
+  walletChargeVatKrw,
+} from '@shared/alimtalkPolicy';
 
 export { SCHEDULE_D2_DAYS_BEFORE_PENALTY_MAX };
