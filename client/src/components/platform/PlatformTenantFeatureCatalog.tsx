@@ -47,6 +47,13 @@ function ModuleToggle({
   );
 }
 
+function cashbillSwitchStatus(meta: PlatformTenantFeatureRow | undefined): string {
+  if (!meta) return '꺼짐';
+  if (meta.enabled && meta.inPlan && (meta.override == null)) return '프리미엄 자동 포함';
+  if (meta.enabled) return '켜짐';
+  return '꺼짐';
+}
+
 function ModuleBadge({
   moduleId,
   features,
@@ -64,6 +71,7 @@ function ModuleBadge({
   const meta = featureMeta(features, moduleId);
   const tier = TENANT_FEATURE_MODULES[moduleId]?.tier;
   const label = TENANT_FEATURE_MODULES[moduleId]?.label ?? moduleId;
+  const cashbillStatus = moduleId === 'mod_cashbill' ? cashbillSwitchStatus(meta) : null;
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       <span className="text-[11px] text-gray-500">{label}</span>
@@ -73,6 +81,19 @@ function ModuleBadge({
       ) : null}
       {meta && !meta.inPlan ? (
         <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-600">플랜 외</span>
+      ) : null}
+      {cashbillStatus ? (
+        <span
+          className={
+            cashbillStatus === '꺼짐'
+              ? 'rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600'
+              : cashbillStatus === '프리미엄 자동 포함'
+                ? 'rounded bg-violet-50 px-1.5 py-0.5 text-[11px] text-violet-700'
+                : 'rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700'
+          }
+        >
+          {cashbillStatus}
+        </span>
       ) : null}
     </span>
   );

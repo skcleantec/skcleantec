@@ -31,6 +31,7 @@ import { FailReasonChip, showReceiptDone, showReceiptFailure } from '../../compo
 import { ToastButton } from '../../components/ui/Toast';
 import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider';
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
+import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 
 const SEG =
   'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
@@ -208,7 +209,7 @@ export function AdminCashbillListPage() {
   return (
     <ReceiptWalletProvider>
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
-      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} hideIssue={tab === 'issue'} onIssue={() => { setIssueSeed(null); patch({ tab: 'issue', from: null }); }} />
+      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} hideIssue={tab === 'issue'} unitPriceKrw={CASHBILL_UNIT_PRICE_KRW} onIssue={() => { setIssueSeed(null); patch({ tab: 'issue', from: null }); }} />
       <ReceiptIssueTabs value={tab} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />

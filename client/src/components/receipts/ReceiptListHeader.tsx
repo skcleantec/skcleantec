@@ -20,6 +20,7 @@ export function ReceiptListHeader({
   issueDisabled,
   hideIssue,
   statusChip,
+  unitPriceKrw,
 }: {
   title: string;
   path: string;
@@ -28,20 +29,44 @@ export function ReceiptListHeader({
   issueDisabled?: boolean;
   hideIssue?: boolean;
   statusChip?: ReactNode;
+  /** 현금영수증 22 · 세금계산서 150 */
+  unitPriceKrw: number;
 }) {
   const { summary, openCharge, openHistory } = useReceiptWallet();
+  const balanceKrw = summary?.balanceKrw;
+  const walletShort = balanceKrw != null && balanceKrw < unitPriceKrw;
+  const blocked = Boolean(issueDisabled) || walletShort;
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <PageTitleWithFavorite label={title} path={path}>
-        <h1 className="text-fluid-lg font-semibold text-slate-900">{title}</h1>
-      </PageTitleWithFavorite>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-fluid-sm font-semibold tabular-nums text-slate-900">지갑 {summary ? won(summary.balanceKrw) : '…'}</span>
-        <button type="button" className={GHOST} onClick={openHistory}>내역</button>
-        <button type="button" className={GHOST} onClick={openCharge}>충전</button>
-        {statusChip}
-        {hideIssue ? null : <button type="button" className={PRIMARY} disabled={issueDisabled} onClick={onIssue}>{issueLabel}</button>}
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <PageTitleWithFavorite label={title} path={path}>
+          <h1 className="text-fluid-lg font-semibold text-slate-900">{title}</h1>
+        </PageTitleWithFavorite>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-fluid-sm font-semibold tabular-nums text-slate-900">
+            지갑 {summary ? won(summary.balanceKrw) : '…'}
+          </span>
+          <span className="text-fluid-xs tabular-nums text-slate-600">건당 {won(unitPriceKrw)}</span>
+          <button type="button" className={GHOST} onClick={openHistory}>내역</button>
+          {walletShort ? (
+            <button type="button" className={PRIMARY} onClick={openCharge}>충전하기</button>
+          ) : (
+            <button type="button" className={GHOST} onClick={openCharge}>충전</button>
+          )}
+          {statusChip}
+          {hideIssue ? null : (
+            <button type="button" className={PRIMARY} disabled={blocked} onClick={onIssue}>
+              {issueLabel}
+            </button>
+          )}
+        </div>
       </div>
+      {walletShort ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-950">
+          청소비서 지갑 잔액이 건당 요금({won(unitPriceKrw)})보다 적어 발행할 수 없습니다. 충전 후 다시 시도해 주세요.
+        </p>
+      ) : null}
     </div>
   );
 }
