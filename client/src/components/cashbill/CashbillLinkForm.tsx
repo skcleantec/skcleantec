@@ -26,6 +26,8 @@ export function CashbillLinkForm({
   canRegister,
   mode,
   onDone,
+  submitLabel,
+  requirePaidConsent = false,
 }: {
   brand: Brand;
   prefill: CashbillSettings['prefill'];
@@ -34,6 +36,9 @@ export function CashbillLinkForm({
   canRegister: boolean;
   mode: 'join' | 'edit';
   onDone: (message: string) => void;
+  submitLabel?: string;
+  /** 영수증 첫 시작: 이용약관·유료 발행 동의 체크 */
+  requirePaidConsent?: boolean;
 }) {
   const member = brand.member;
   const extra = !brand.isDefault && mode === 'join';
@@ -52,12 +57,20 @@ export function CashbillLinkForm({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paidConsent, setPaidConsent] = useState(false);
   const gapOpen = !extra && mode === 'join' && missing.length > 0;
   const gapValue = (key: CashbillSettings['missing'][number]) => (
     key === 'corpNum' ? corpNum : key === 'corpName' ? corpName : key === 'ceoName' ? ceoName : gapAddr
   );
   const gapsFilled = !gapOpen || missing.every((key) => !isBlankSupplierField(gapValue(key)) && (key !== 'corpNum' || corpNum.replace(/\D/g, '').length === 10));
-  const ready = bizType.trim() && bizClass.trim() && contactTel.trim() && contactEmail.trim() && gapsFilled && (!extra || (corpName.trim() && ceoName.trim() && imageUrl));
+  const ready =
+    bizType.trim() &&
+    bizClass.trim() &&
+    contactTel.trim() &&
+    contactEmail.trim() &&
+    gapsFilled &&
+    (!extra || (corpName.trim() && ceoName.trim() && imageUrl)) &&
+    (!requirePaidConsent || paidConsent);
   const locked = (!canRegister && mode === 'join') || (gapOpen && !canEditCompany);
 
   async function onFile(file: File | null) {
@@ -137,19 +150,27 @@ export function CashbillLinkForm({
     }
   }
 
-  const buttonLabel = mode === 'edit' ? '저장' : extra ? (member?.status === 'REJECTED' ? '다시 제출' : '검토 요청') : '바로빌 연결하기';
+  const buttonLabel =
+    submitLabel ??
+    (mode === 'edit' ? '저장' : extra ? (member?.status === 'REJECTED' ? '다시 제출' : '검토 요청') : '바로빌 연결하기');
 
   return (
     <div className="max-w-[640px] space-y-2">
       {!extra && mode === 'join' ? (
-        <div className="flex items-start justify-between gap-3 rounded-[10px] border border-[#dde3ea] px-3.5 py-3">
-          <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-fluid-xs">
-            <dt className="text-fluid-2xs text-[#5d6878]">상호</dt>
-            <dd className="break-all">{prefill.corpName.trim() || '없음'}</dd>
-            <dt className="text-fluid-2xs text-[#5d6878]">대표자</dt>
-            <dd className="break-all">{prefill.ceoName.trim() || '없음'}</dd>
-            <dt className="text-fluid-2xs text-[#5d6878]">주소</dt>
-            <dd className="break-all">{prefill.addr1.trim() || '없음'}</dd>
+        <div className="flex items-start justify-between gap-3 rounded-[10px] border border-[#dde3ea] bg-[#f4f6f8] px-3.5 py-3">
+          <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-fluid-xs text-[#5d6878]">
+            <dt className="text-fluid-2xs">상호</dt>
+            <dd className="break-all text-[#141b26]">{prefill.corpName.trim() || '없음'}</dd>
+            <dt className="text-fluid-2xs">사업자번호</dt>
+            <dd className="break-all text-[#141b26]">{formatBizNumberDisplay(prefill.corpNum) || '없음'}</dd>
+            <dt className="text-fluid-2xs">대표자</dt>
+            <dd className="break-all text-[#141b26]">{prefill.ceoName.trim() || '없음'}</dd>
+            <dt className="text-fluid-2xs">업태·종목</dt>
+            <dd className="break-all text-[#141b26]">
+              {[bizType.trim(), bizClass.trim()].filter(Boolean).join(' · ') || '아래에서 입력'}
+            </dd>
+            <dt className="text-fluid-2xs">주소</dt>
+            <dd className="break-all text-[#141b26]">{prefill.addr1.trim() || '없음'}</dd>
           </dl>
           <Link to={BUSINESS_PATH} className={LINK_BTN}>사업자정보 수정</Link>
         </div>
@@ -193,6 +214,18 @@ export function CashbillLinkForm({
       </div>
       {!extra && mode === 'join' ? (
         <p className="text-fluid-2xs text-[#5d6878]">업태·종목은 사업자등록증에 적힌 대로 넣어 주세요.</p>
+      ) : null}
+      {requirePaidConsent && mode === 'join' ? (
+        <label className="flex items-start gap-2 text-fluid-xs text-[#141b26]">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 rounded border-slate-300"
+            checked={paidConsent}
+            disabled={locked || saving}
+            onChange={(e) => setPaidConsent(e.target.checked)}
+          />
+          <span>바로빌 이용약관과 유료 발행(건당 차감)에 동의해요</span>
+        </label>
       ) : null}
       {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
       <button type="button" className={`${BTN}${mode === 'edit' ? ' sticky bottom-0 z-10 bg-slate-900' : ''}`} disabled={locked || saving || uploading || !ready} onClick={() => void submit()}>

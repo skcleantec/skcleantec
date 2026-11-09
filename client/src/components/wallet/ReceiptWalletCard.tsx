@@ -33,7 +33,7 @@ export function ReceiptWalletCard() {
         <p className="mt-1 text-fluid-2xs text-amber-900">충전 신청 중 {won(summary.pendingChargeKrw)}</p>
       ) : null}
       <div className="mt-2 flex flex-wrap gap-2">
-        <button type="button" className={BTN} onClick={openCharge}>충전하기</button>
+        <button type="button" className={BTN} onClick={() => openCharge()}>충전하기</button>
         <button type="button" className={BTN_GHOST} onClick={openHistory}>충전·사용 내역 보기</button>
       </div>
     </section>

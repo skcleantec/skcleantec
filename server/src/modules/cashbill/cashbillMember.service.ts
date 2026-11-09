@@ -194,6 +194,11 @@ export async function getCashbillSettings(tenantId: string) {
     },
   });
 
+  const wallet = await prisma.tenantAlimtalkWallet.findUnique({
+    where: { tenantId },
+    select: { prepaidBalanceKrw: true },
+  });
+
   return {
     env,
     businessType: profile.businessType,
@@ -201,6 +206,8 @@ export async function getCashbillSettings(tenantId: string) {
     blockReason: individual
       ? '개인(비사업자) 업체는 현금영수증 회원사에 가입할 수 없습니다. 사업자등록 업체만 가입할 수 있습니다.'
       : null,
+    /** 청소비서 지갑 잔액 — 영수증 첫 시작 게이트용 */
+    walletBalanceKrw: wallet?.prepaidBalanceKrw ?? 0,
     prefill: {
       corpNum: profile.corpNum,
       corpName: profile.corpName,
