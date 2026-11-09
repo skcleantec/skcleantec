@@ -1,9 +1,12 @@
 import { prisma } from '../../lib/prisma.js';
 import { ALIMTALK_TEMPLATE_CODES } from '../../lib/alimtalkPolicy.js';
+import { parsePaymentNotifyEmailsFromSettings } from '../../lib/platformBillingNotifyEmails.js';
 import { validateWalletChargeAmountKrw } from '../../lib/paymentTestAmount.js';
 import { applyPlatformAlimtalkTopUp } from './alimtalkWallet.service.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
+import { ensurePlatformBillingSettings } from '../billing/tenantBilling.service.js';
 import { scheduleIssueForBankWalletPayment } from '../platform-receipts/platformWalletInvoice.service.js';
+import { notifyWalletChargeRequestByEmail } from './walletChargeRequest.email.js';
 
 export type AlimtalkChargeRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
@@ -79,16 +82,30 @@ export async function createAlimtalkChargeRequest(params: {
     tenantId: params.tenantId,
     title: '청소비서 지갑 충전 신청',
     body: `${row.amountKrw.toLocaleString('ko-KR')}원`,
+    email: false,
   }).catch((err) => console.error('[platform-inbox] wallet charge', err));
+  void sendWalletChargeRequestEmails({
+    tenantId: params.tenantId,
+    chargeRequestId: row.id,
+    amountKrw: row.amountKrw,
+    memo: row.memo,
+    requestedByUserId: params.requestedByUserId,
+    requestedAt: row.createdAt.toISOString(),
+  }).catch((err) => console.error('[wallet-charge-mail] notify', err));
   return mapChargeRequestDto(row);
 }
+
+export type ApproveAlimtalkChargeRequestResult = {
+  balanceAfterKrw: number;
+  bankPaymentId: string | null;
+};
 
 export async function approveAlimtalkChargeRequest(params: {
   tenantId: string;
   chargeRequestId: string;
   actorPlatformUserId?: string | null;
   memo?: string | null;
-}): Promise<void> {
+}): Promise<ApproveAlimtalkChargeRequestResult> {
   const request = await prisma.alimtalkChargeRequest.findFirst({
     where: { id: params.chargeRequestId, tenantId: params.tenantId },
   });
@@ -119,8 +136,12 @@ export async function approveAlimtalkChargeRequest(params: {
       revenue: true,
     });
     if (topUp.bankPaymentId) {
-      void scheduleIssueForBankWalletPayment(topUp.bankPaymentId);
+      await scheduleIssueForBankWalletPayment(topUp.bankPaymentId);
     }
+    return {
+      balanceAfterKrw: topUp.balanceAfterKrw,
+      bankPaymentId: topUp.bankPaymentId,
+    };
   } catch (err) {
     await prisma.alimtalkChargeRequest.updateMany({
       where: { id: request.id, tenantId: params.tenantId, status: 'APPROVED' },
@@ -128,6 +149,52 @@ export async function approveAlimtalkChargeRequest(params: {
     });
     throw err;
   }
+}
+
+async function sendWalletChargeRequestEmails(input: {
+  tenantId: string;
+  chargeRequestId: string;
+  amountKrw: number;
+  memo: string | null;
+  requestedByUserId: string;
+  requestedAt: string;
+}): Promise<void> {
+  const [settings, tenant, requester] = await Promise.all([
+    ensurePlatformBillingSettings(),
+    prisma.tenant.findUnique({
+      where: { id: input.tenantId },
+      select: { name: true, slug: true },
+    }),
+    prisma.user.findFirst({
+      where: { id: input.requestedByUserId, tenantId: input.tenantId },
+      select: { name: true, email: true },
+    }),
+  ]);
+  if (!tenant) return;
+
+  const notifyEmails = parsePaymentNotifyEmailsFromSettings(settings);
+  if (notifyEmails.length === 0) {
+    console.warn('[wallet-charge-mail] no notify emails configured');
+    return;
+  }
+
+  const requesterName = requester?.name?.trim() || requester?.email || '업체 관리자';
+  const mailPayload = {
+    tenantName: tenant.name,
+    tenantSlug: tenant.slug,
+    tenantId: input.tenantId,
+    chargeRequestId: input.chargeRequestId,
+    supplyAmountKrw: input.amountKrw,
+    memo: input.memo,
+    requesterName,
+    requestedAt: input.requestedAt,
+  };
+
+  await Promise.all(
+    notifyEmails.map((notifyEmail) =>
+      notifyWalletChargeRequestByEmail({ ...mailPayload, notifyEmail }),
+    ),
+  );
 }
 
 export async function upsertTenantAlimtalkTemplateSettings(

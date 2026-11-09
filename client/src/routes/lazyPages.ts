@@ -246,6 +246,11 @@ export const PublicDepositConfirmPage = lazyWithRetry(() =>
     default: m.PublicDepositConfirmPage,
   }))
 );
+export const PublicWalletChargeConfirmPage = lazyWithRetry(() =>
+  import('../pages/public/PublicWalletChargeConfirmPage').then((m) => ({
+    default: m.PublicWalletChargeConfirmPage,
+  }))
+);
 export const InspectionCustomerViewPage = lazyWithRetry(() =>
   import('../pages/inspection/InspectionCustomerViewPage').then((m) => ({
     default: m.InspectionCustomerViewPage,
