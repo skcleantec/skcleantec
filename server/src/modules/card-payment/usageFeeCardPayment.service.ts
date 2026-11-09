@@ -13,6 +13,7 @@ import { buildWspayOrderId } from './wspayOrderId.js';
 import { instrumentKeyNames, monthsFromInstallmentCode, paidSourceFromScreen, readCardInstrument } from './cardInstrument.js';
 import { splitTaxIncluded } from './cardVat.js';
 import { serviceBridgePayNos } from './publicPayLink.service.js';
+import { ensureSkippedForCardPayment, cancelOrModifyForPayment } from '../platform-receipts/platformWalletInvoice.service.js';
 
 /** shared/tenantBilling.ts usageFeeVatKrw 와 동일 */
 function usageFeeVatKrw(supplyKrw: number): number {
@@ -293,7 +294,13 @@ export async function listUsageFeeCardPayments(
   const walletTenantIds = [
     ...new Set(
       rows
-        .filter((row) => isWalletPayment(row) && row.invoiceApplied && row.tenantId && isSameDayCardCancel(row))
+        .filter(
+          (row) =>
+            isWalletPayment(row) &&
+            row.invoiceApplied &&
+            row.tenantId &&
+            (isSameDayCardCancel(row) || isWalletBankCancelable(row)),
+        )
         .map((row) => row.tenantId as string),
     ),
   ];
@@ -322,11 +329,26 @@ export async function listUsageFeeCardPayments(
     }),
   );
   const payNos = await serviceBridgePayNos(rows);
+  const walletPaymentIds = rows.filter((r) => isWalletPayment(r)).map((r) => r.id);
+  const walletInvoices =
+    walletPaymentIds.length === 0
+      ? []
+      : await prisma.platformWalletInvoice.findMany({
+          where: { paymentId: { in: walletPaymentIds } },
+          select: { paymentId: true, status: true, error: true },
+        });
+  const walletInvoiceByPayment = new Map(walletInvoices.map((wi) => [wi.paymentId, wi]));
   return {
     total,
     items: rows.map((row) => {
       const statusLabel = usageFeeStatusLabel(row);
       const copyable = Boolean(row.linkToken) && statusLabel === '결제 대기';
+      const wi = walletInvoiceByPayment.get(row.id);
+      const walletTaxInvoice = wi
+        ? { status: wi.status, error: wi.error ?? null }
+        : isWalletPayment(row) && (row.payMethod === 'KEYIN' || row.payMethod === 'PAY_WINDOW')
+          ? { status: 'SKIPPED' as const, error: null }
+          : null;
       return {
         id: row.id,
         purpose: row.purpose,
@@ -335,7 +357,7 @@ export async function listUsageFeeCardPayments(
         methodLabel: usageFeeMethodLabel(row),
         status: row.status,
         statusLabel,
-        cancelable: isSameDayCardCancel(row),
+        cancelable: isSameDayCardCancel(row) || isWalletBankCancelable(row),
         tenantName: row.tenant?.name ?? null,
         inquiryLabel: row.inquiryId ? inquiryLabel.get(row.inquiryId) ?? null : null,
         inquiryNumber: row.inquiryId ? inquiries.find((item) => item.id === row.inquiryId)?.inquiryNumber ?? null : null,
@@ -364,6 +386,7 @@ export async function listUsageFeeCardPayments(
         paidAt: row.paidAt.toISOString(),
         needsReconcile: row.status === 'CANCELLED' && row.memo === USAGE_FEE_RECONCILE_MEMO,
         cancelBlockReason: walletCancelBlockReason(row, balanceByTenant),
+        walletTaxInvoice,
       };
     }),
   };
@@ -373,7 +396,8 @@ function walletCancelBlockReason(
   row: { purpose: string; goodsName: string; invoiceApplied: boolean; tenantId: string | null; supplyAmountKrw: number; status: string; payMethod: string; paidAt: Date; pgOrderId: string | null; pgMid: string | null },
   balanceByTenant: Map<string, number>,
 ): string | null {
-  if (!isWalletPayment(row) || !row.invoiceApplied || !row.tenantId || !isSameDayCardCancel(row)) return null;
+  const canCancel = isSameDayCardCancel(row) || isWalletBankCancelable(row);
+  if (!isWalletPayment(row) || !row.invoiceApplied || !row.tenantId || !canCancel) return null;
   const balance = balanceByTenant.get(row.tenantId) ?? 0;
   if (balance >= row.supplyAmountKrw) return null;
   return walletFullCancelBlockedMessage(balance);
@@ -525,6 +549,50 @@ function isSameDayCardCancel(row: { status: string; payMethod: string; paidAt: D
   return row.payMethod === 'PAY_WINDOW' && Boolean(row.pgOrderId && row.pgMid);
 }
 
+function isWalletBankCancelable(row: {
+  status: string;
+  payMethod: string;
+  purpose: string;
+  goodsName: string;
+  invoiceApplied: boolean;
+}): boolean {
+  return row.status === 'APPROVED' && row.payMethod === 'BANK' && row.invoiceApplied && isWalletPayment(row);
+}
+
+async function reverseBankWalletDeposit(params: {
+  tenantId: string;
+  amountKrw: number;
+  paymentId: string;
+}): Promise<void> {
+  const memo = `bank-cancel:${params.paymentId}`;
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.alimtalkWalletChargeLog.findFirst({
+      where: { tenantId: params.tenantId, memo },
+      select: { id: true },
+    });
+    if (existing) return;
+    const claimed = await tx.tenantAlimtalkWallet.updateMany({
+      where: { tenantId: params.tenantId, prepaidBalanceKrw: { gte: params.amountKrw } },
+      data: { prepaidBalanceKrw: { decrement: params.amountKrw } },
+    });
+    if (claimed.count !== 1) {
+      throw new Error('잔액을 이미 사용해 입금 취소를 반영할 수 없습니다.');
+    }
+    const wallet = await tx.tenantAlimtalkWallet.findUnique({
+      where: { tenantId: params.tenantId },
+      select: { prepaidBalanceKrw: true },
+    });
+    await tx.alimtalkWalletChargeLog.create({
+      data: {
+        tenantId: params.tenantId,
+        amountKrw: -params.amountKrw,
+        balanceAfterKrw: wallet?.prepaidBalanceKrw ?? 0,
+        memo,
+      },
+    });
+  });
+}
+
 async function reopenInvoiceAfterCardCancel(invoiceId: string, tenantId: string) {
   await prisma.tenantInvoice.updateMany({
     where: { id: invoiceId, tenantId, status: 'PAID' },
@@ -545,6 +613,7 @@ async function markUsageFeeCancelled(row: {
   goodsName: string;
   supplyAmountKrw: number;
   pgOrderId: string | null;
+  payMethod: string;
 }) {
   const updated = await prisma.usageFeeCardPayment.updateMany({
     where: { id: row.id, status: 'APPROVED' },
@@ -552,18 +621,29 @@ async function markUsageFeeCancelled(row: {
   });
   if (updated.count === 0) return;
   try {
-    if (isWalletPayment(row) && row.invoiceApplied && row.tenantId && row.pgOrderId) {
-      await reverseWalletCardOnce({
-        tenantId: row.tenantId,
-        amountKrw: row.supplyAmountKrw,
-        pgOrderId: row.pgOrderId,
-      });
+    if (isWalletPayment(row) && row.invoiceApplied && row.tenantId) {
+      if (row.payMethod === 'BANK') {
+        await reverseBankWalletDeposit({
+          tenantId: row.tenantId,
+          amountKrw: row.supplyAmountKrw,
+          paymentId: row.id,
+        });
+      } else if (row.pgOrderId) {
+        await reverseWalletCardOnce({
+          tenantId: row.tenantId,
+          amountKrw: row.supplyAmountKrw,
+          pgOrderId: row.pgOrderId,
+        });
+      }
     } else if (row.invoiceApplied && row.invoiceId && row.tenantId) {
       await reopenInvoiceAfterCardCancel(row.invoiceId, row.tenantId);
     }
     await prisma.usageFeeCardPayment.updateMany({
       where: { id: row.id, status: 'CANCELLED' },
       data: { invoiceApplied: false },
+    });
+    void cancelOrModifyForPayment(row.id).catch((err) => {
+      console.error('[usage-fee cancel] cancelOrModifyForPayment error', err instanceof Error ? err.message : err);
     });
   } catch (err) {
     await flagUsageFeeReconcile(row);
@@ -588,12 +668,33 @@ async function flagUsageFeeReconcile(row: { id: string; tenantId: string | null 
   });
 }
 
-/** 정산의 당일 전액 취소. 결제창만 페이시스로 취소한다. 수기는 판매자센터다. */
+/** 정산의 당일 전액 취소. 결제창만 페이시스로 취소한다. 수기는 판매자센터다. 지갑 통장 입금은 당일·이후 모두 취소 가능(세금계산서는 당일 취소·이후 수정발행). */
 export async function cancelUsageFeeCardPayment(
   id: string,
 ): Promise<{ error: string; status: 400 | 404 } | { ok: true; needsReconcile?: boolean; message?: string }> {
   const row = await prisma.usageFeeCardPayment.findFirst({ where: { id } });
   if (!row) return { error: '정산 기록을 찾을 수 없습니다.', status: 404 };
+
+  if (isWalletBankCancelable(row)) {
+    if (row.tenantId) {
+      const wallet = await prisma.tenantAlimtalkWallet.findUnique({
+        where: { tenantId: row.tenantId },
+        select: { prepaidBalanceKrw: true },
+      });
+      const balance = wallet?.prepaidBalanceKrw ?? 0;
+      if (balance < row.supplyAmountKrw) {
+        return { error: walletFullCancelBlockedMessage(balance), status: 400 };
+      }
+    }
+    try {
+      await markUsageFeeCancelled(row);
+    } catch (err) {
+      console.error('[usage-fee bank cancel]', err);
+      return { error: err instanceof Error ? err.message : '입금 취소에 실패했습니다.', status: 400 };
+    }
+    return { ok: true };
+  }
+
   if (!isSameDayCardCancel(row)) return { error: '결제 당일에만 전액 취소할 수 있습니다.', status: 400 };
   if (row.payMethod === 'KEYIN') {
     return { error: '수기 승인은 원성 판매자센터에서 당일 전액 취소합니다.', status: 400 };
@@ -654,6 +755,7 @@ export async function applyUsageFeePaysisCancel(rec: Record<string, unknown>): P
 }
 
 async function applyUsageFeeSideEffect(row: {
+  id: string;
   purpose: string;
   goodsName: string;
   tenantId: string | null;
@@ -668,6 +770,9 @@ async function applyUsageFeeSideEffect(row: {
       tenantId: row.tenantId,
       amountKrw: row.supplyAmountKrw,
       pgOrderId: row.pgOrderId,
+    });
+    void ensureSkippedForCardPayment(row.id).catch((err) => {
+      console.error('[usage-fee wallet] ensureSkipped error', err instanceof Error ? err.message : err);
     });
     return { invoiceId: null, invoiceApplied: true };
   }

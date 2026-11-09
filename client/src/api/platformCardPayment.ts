@@ -185,6 +185,10 @@ export type UsageFeeCardPaymentRow = {
   paidAt: string;
   needsReconcile?: boolean;
   cancelBlockReason?: string | null;
+  walletTaxInvoice?: {
+    status: 'PENDING' | 'ISSUED' | 'FAILED' | 'SKIPPED';
+    error: string | null;
+  } | null;
 };
 
 export async function fetchUsageFeeCardPayments(

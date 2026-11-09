@@ -210,13 +210,17 @@ export async function chargeAlimtalkWalletForPlatform(
       actorPlatformUserId,
     });
   } else {
-    await applyPlatformAlimtalkTopUp({
+    const topUp = await applyPlatformAlimtalkTopUp({
       tenantId,
       amountKrw: input.amountKrw,
       memo: `cbiseo:${kind}:${reason}`,
       actorPlatformUserId,
       revenue: kind === 'paid',
     });
+    if (kind === 'paid' && topUp.bankPaymentId) {
+      const { scheduleIssueForBankWalletPayment } = await import('../platform-receipts/platformWalletInvoice.service.js');
+      void scheduleIssueForBankWalletPayment(topUp.bankPaymentId);
+    }
   }
   return getAlimtalkSettingsForPlatform(tenantId);
 }

@@ -629,3 +629,8 @@ export const TelecrmCallActivityPage = lazyWithRetry(() =>
     default: m.TelecrmCallActivityPage,
   }))
 );
+export const PlatformReceiptsPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformReceiptsPage').then((m) => ({
+    default: m.PlatformReceiptsPage,
+  }))
+);

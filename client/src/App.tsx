@@ -172,6 +172,7 @@ import {
   PlatformUnpaidPopupSettingsPage,
   PlatformPartnerPromoSettingsPage,
   PlatformSettingsPage,
+  PlatformReceiptsPage,
   HelpPage,
   TelecrmAppInstallPage,
   CrmPopupEntry,
@@ -245,6 +246,7 @@ function App() {
           <Route path="popups/partner-promo" element={<SuspensePage><PlatformPartnerPromoSettingsPage /></SuspensePage>} />
           <Route path="popups" element={<Navigate to="unpaid" replace />} />
           <Route path="settings" element={<Navigate to="smtp" replace />} />
+          <Route path="receipts" element={<SuspensePage><PlatformReceiptsPage /></SuspensePage>} />
           <Route path="settings/:tab" element={<SuspensePage><PlatformSettingsPage /></SuspensePage>} />
           <Route index element={<Navigate to="tenants" replace />} />
         </Route>
