@@ -6,7 +6,7 @@ import { ReceiptWalletHistoryModal } from './ReceiptWalletHistoryModal';
 type ReceiptWalletContextValue = {
   summary: ReceiptWalletSummary | null;
   reload: () => Promise<void>;
-  openCharge: () => void;
+  openCharge: (amountKrw?: number) => void;
   openHistory: () => void;
 };
 
@@ -29,6 +29,7 @@ export function useReceiptWallet(): ReceiptWalletContextValue {
 export function ReceiptWalletProvider({ children }: { children: ReactNode }) {
   const [summary, setSummary] = useState<ReceiptWalletSummary | null>(null);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [chargeAmount, setChargeAmount] = useState<number | undefined>(undefined);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const reload = useCallback(async () => {
@@ -54,7 +55,10 @@ export function ReceiptWalletProvider({ children }: { children: ReactNode }) {
     () => ({
       summary,
       reload,
-      openCharge: () => setChargeOpen(true),
+      openCharge: (amountKrw?: number) => {
+        setChargeAmount(typeof amountKrw === 'number' && Number.isFinite(amountKrw) ? amountKrw : undefined);
+        setChargeOpen(true);
+      },
       openHistory: () => setHistoryOpen(true),
     }),
     [summary, reload],
@@ -64,7 +68,15 @@ export function ReceiptWalletProvider({ children }: { children: ReactNode }) {
     <ReceiptWalletContext.Provider value={value}>
       {children}
       {chargeOpen ? (
-        <WalletChargeModal onClose={() => setChargeOpen(false)} onDone={() => void reload()} />
+        <WalletChargeModal
+          key={chargeAmount ?? 'default'}
+          initialAmountKrw={chargeAmount}
+          onClose={() => {
+            setChargeOpen(false);
+            setChargeAmount(undefined);
+          }}
+          onDone={() => void reload()}
+        />
       ) : null}
       {historyOpen ? <ReceiptWalletHistoryModal onClose={() => setHistoryOpen(false)} /> : null}
     </ReceiptWalletContext.Provider>

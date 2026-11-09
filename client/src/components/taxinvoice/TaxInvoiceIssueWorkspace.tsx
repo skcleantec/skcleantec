@@ -528,7 +528,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
               <button type="button" className="h-11 rounded-lg px-4 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50" onClick={() => setPreview(false)}>다시 수정</button>
             ) : null}
             {short ? (
-              <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black" onClick={openCharge}>충전하기</button>
+              <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black" onClick={() => openCharge()}>충전하기</button>
             ) : (
               <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
                 {saving ? '발행 중…' : preview ? '이대로 발행' : '미리보고 발행'}
@@ -589,7 +589,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
             <button type="button" className="mb-2 h-11 w-full rounded-xl text-sm font-medium text-gray-700 ring-1 ring-gray-300" onClick={() => setPreview(false)}>다시 수정</button>
           ) : null}
           {short ? (
-            <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white" onClick={openCharge}>충전하기</button>
+            <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white" onClick={() => openCharge()}>충전하기</button>
           ) : (
             <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
               {saving ? '발행 중…' : preview ? '이대로 발행' : `${won(supplySum + taxSum)}원 미리보고 발행`}

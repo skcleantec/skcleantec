@@ -254,7 +254,7 @@ export function CashbillIssueForm({
           <div className="flex gap-2">
             <button type="button" className={BTN_GHOST} onClick={onClose}>취소</button>
             {short ? (
-              <button type="button" className={BTN} onClick={openCharge}>충전하기</button>
+              <button type="button" className={BTN} onClick={() => openCharge()}>충전하기</button>
             ) : (
               <button type="button" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0} onClick={askIssue}>
                 {busy ? '발행 중…' : '발행하기'}

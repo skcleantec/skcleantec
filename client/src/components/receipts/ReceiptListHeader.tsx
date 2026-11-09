@@ -50,9 +50,9 @@ export function ReceiptListHeader({
           <span className="text-fluid-xs tabular-nums text-slate-600">건당 {won(unitPriceKrw)}</span>
           <button type="button" className={GHOST} onClick={openHistory}>내역</button>
           {walletShort ? (
-            <button type="button" className={PRIMARY} onClick={openCharge}>충전하기</button>
+            <button type="button" className={PRIMARY} onClick={() => openCharge()}>충전하기</button>
           ) : (
-            <button type="button" className={GHOST} onClick={openCharge}>충전</button>
+            <button type="button" className={GHOST} onClick={() => openCharge()}>충전</button>
           )}
           {statusChip}
           {hideIssue ? null : (

@@ -8,6 +8,8 @@ export type CashbillSettings = {
   businessType: 'registered_business' | 'individual' | null;
   canRegister: boolean;
   blockReason: string | null;
+  /** 청소비서 지갑 잔액(원). 첫 시작 게이트·상태줄용 */
+  walletBalanceKrw?: number;
   prefill: {
     corpNum: string;
     corpName: string;

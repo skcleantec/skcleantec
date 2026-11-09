@@ -24,12 +24,23 @@ function clock(iso: string): string {
   return date.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-export function WalletChargeModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+export function WalletChargeModal({
+  onClose,
+  onDone,
+  initialAmountKrw,
+}: {
+  onClose: () => void;
+  onDone: () => void;
+  /** 영수증 첫 시작 등에서 넘긴 금액(1만·3만·5만·10만) */
+  initialAmountKrw?: number;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
   const admin = bootstrapAuthMeFromLocal(getToken() ?? '')?.role === 'ADMIN';
   const [summary, setSummary] = useState<ReceiptWalletSummary | null>(null);
-  const [amount, setAmount] = useState<number>(TENANT_ALIMTALK_CHARGE_PRESETS_KRW[0]);
+  const [amount, setAmount] = useState<number>(
+    initialAmountKrw && initialAmountKrw > 0 ? initialAmountKrw : TENANT_ALIMTALK_CHARGE_PRESETS_KRW[0],
+  );
   const [method, setMethod] = useState<'card' | 'bank'>('card');
   const [depositor, setDepositor] = useState('');
   const [busy, setBusy] = useState(false);
@@ -64,9 +75,12 @@ export function WalletChargeModal({ onClose, onDone }: { onClose: () => void; on
   const samePending = pending != null && pending.amountKrw === amount;
   const balance = summary?.balanceKrw ?? 0;
   const bank = [summary?.bank.bankName, summary?.bank.accountNumber, summary?.bank.accountHolder].filter(Boolean).join(' ');
-  const choices = summary?.testAmountEnabled
-    ? [...TENANT_ALIMTALK_CHARGE_PRESETS_KRW, TEST_AMOUNT]
-    : TENANT_ALIMTALK_CHARGE_PRESETS_KRW;
+  const baseChoices = (() => {
+    const set = new Set<number>([...TENANT_ALIMTALK_CHARGE_PRESETS_KRW]);
+    if (initialAmountKrw && initialAmountKrw > 0) set.add(initialAmountKrw);
+    return [...set].sort((a, b) => a - b);
+  })();
+  const choices = summary?.testAmountEnabled ? [...baseChoices, TEST_AMOUNT] : baseChoices;
 
   async function copyBank() {
     if (!bank) return;
