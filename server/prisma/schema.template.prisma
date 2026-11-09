@@ -1549,6 +1549,23 @@ model HelpCmsArticle {
   @@map("help_cms_articles")
 }
 
+/// 도움말 CMS — 마케터 에이전트 자동 게시 기록 (API 키 인증)
+model HelpCmsPublishLog {
+  id        String   @id @default(uuid())
+  /// 예: marketer-agent / X-Help-Publish-Actor
+  actor     String   @db.VarChar(128)
+  /// image | article_create | article_update
+  action    String   @db.VarChar(32)
+  slug      String?  @db.VarChar(128)
+  detail    String?  @db.Text
+  requestIp String?  @map("request_ip") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([slug, createdAt])
+  @@map("help_cms_publish_logs")
+}
+
 /// 플랫폼 고객센터 — 보드 종류 (공지·문의 등)
 enum PlatformBoardType {
   NOTICE
