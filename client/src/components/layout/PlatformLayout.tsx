@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PLATFORM_NAV_GROUPS, isPlatformNavActive } from '../../constants/platformNav';
 import { fetchPlatformInbox } from '../../api/platformInbox';
+import { fetchWalletInvoiceQueueCount } from '../../api/platformReceipts';
 import { usePlatformOpsAlert, type PlatformOpsAlert } from '../../hooks/usePlatformOpsAlert';
 import { clearPlatformToken } from '../../stores/platformAuth';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
@@ -9,10 +10,12 @@ import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 function SidebarNav({
   pathname,
   pendingTotal,
+  receiptsQueueCount,
   onNavigate,
 }: {
   pathname: string;
   pendingTotal: number;
+  receiptsQueueCount: number;
   onNavigate?: () => void;
 }) {
   return (
@@ -22,7 +25,12 @@ function SidebarNav({
           <p className="px-3 pb-1 pt-3 text-xs font-semibold text-gray-500">{group.label}</p>
           {group.items.map((item) => {
             const active = isPlatformNavActive(pathname, item.to);
-            const showBadge = item.to === '/platform/inbox' && pendingTotal > 0;
+            const badge =
+              item.to === '/platform/inbox' && pendingTotal > 0
+                ? pendingTotal
+                : item.to === '/platform/receipts' && receiptsQueueCount > 0
+                  ? receiptsQueueCount
+                  : 0;
             return (
               <NavLink
                 key={item.to}
@@ -37,9 +45,9 @@ function SidebarNav({
                 ].join(' ')}
               >
                 <span>{item.label}</span>
-                {showBadge ? (
+                {badge > 0 ? (
                   <span className="rounded-full bg-amber-400 px-1.5 py-0 text-fluid-2xs font-semibold text-gray-900">
-                    {pendingTotal}
+                    {badge}
                   </span>
                 ) : null}
               </NavLink>
@@ -56,13 +64,18 @@ export function PlatformLayout() {
   const location = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [pendingTotal, setPendingTotal] = useState(0);
+  const [receiptsQueueCount, setReceiptsQueueCount] = useState(0);
   const [toast, setToast] = useState<PlatformOpsAlert | null>(null);
   const pathname = location.pathname;
 
   const refreshBadge = useCallback(async () => {
     try {
-      const inbox = await fetchPlatformInbox();
+      const [inbox, queueCount] = await Promise.all([
+        fetchPlatformInbox(),
+        fetchWalletInvoiceQueueCount().catch(() => 0),
+      ]);
       setPendingTotal(inbox.pendingTotal);
+      setReceiptsQueueCount(queueCount);
     } catch {
       /* 배지 실패는 화면을 막지 않는다 */
     }
@@ -71,8 +84,17 @@ export function PlatformLayout() {
   useEffect(() => {
     void refreshBadge();
     const onAlert = () => void refreshBadge();
+    const onQueue = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ count?: number }>).detail;
+      if (typeof detail?.count === 'number') setReceiptsQueueCount(detail.count);
+      else void refreshBadge();
+    };
     window.addEventListener('cbiseo:platform-alert', onAlert);
-    return () => window.removeEventListener('cbiseo:platform-alert', onAlert);
+    window.addEventListener('cbiseo:receipts-queue', onQueue);
+    return () => {
+      window.removeEventListener('cbiseo:platform-alert', onAlert);
+      window.removeEventListener('cbiseo:receipts-queue', onQueue);
+    };
   }, [refreshBadge]);
 
   usePlatformOpsAlert(true, (alert) => {
@@ -93,7 +115,12 @@ export function PlatformLayout() {
           <span className="text-xs font-normal text-gray-500">Platform</span>
         </Link>
       </div>
-      <SidebarNav pathname={pathname} pendingTotal={pendingTotal} onNavigate={onNavigate} />
+      <SidebarNav
+        pathname={pathname}
+        pendingTotal={pendingTotal}
+        receiptsQueueCount={receiptsQueueCount}
+        onNavigate={onNavigate}
+      />
       <div className="mt-auto shrink-0 space-y-1 border-t border-white/10 p-3">
         <button
           type="button"

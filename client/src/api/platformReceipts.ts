@@ -22,6 +22,7 @@ export type PlatformReceiptListFilter = {
   to?: string;
   status?: string;
   q?: string;
+  kind?: string;
   limit?: number;
   offset?: number;
 };
@@ -32,6 +33,7 @@ function filterQuery(filter: PlatformReceiptListFilter): URLSearchParams {
   if (filter.to) q.set('to', filter.to.replace(/\D/g, ''));
   if (filter.status) q.set('status', filter.status);
   if (filter.q) q.set('q', filter.q);
+  if (filter.kind) q.set('kind', filter.kind);
   q.set('limit', String(filter.limit ?? 30));
   q.set('offset', String(filter.offset ?? 0));
   return q;
@@ -314,4 +316,127 @@ export async function retryPlatformWalletInvoice(paymentId: string): Promise<{ o
   });
   if (!res.ok) throw new Error(await parseError(res, '세금계산서 재발행에 실패했습니다.'));
   return res.json() as Promise<{ ok: true }>;
+}
+
+export async function retryPlatformWalletInvoicesBatch(
+  paymentIds: string[],
+): Promise<{ ok: number; failed: number }> {
+  const res = await fetch(`${API}/platform/receipts/wallet-invoices/retry-batch`, {
+    method: 'POST',
+    headers: platformHeaders(),
+    body: JSON.stringify({ paymentIds }),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '일괄 발행에 실패했습니다.'));
+  return res.json() as Promise<{ ok: number; failed: number }>;
+}
+
+export type PlatformWalletInvoiceQueueRow = {
+  id: string;
+  paymentId: string;
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+  paidAt: string;
+  supplyAmountKrw: number;
+  vatAmountKrw: number;
+  totalAmountKrw: number;
+  status: 'PENDING' | 'FAILED';
+  error: string | null;
+  missingBizInfo: boolean;
+};
+
+export async function fetchWalletInvoiceQueue(limit = 50, offset = 0) {
+  const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const res = await fetch(`${API}/platform/receipts/wallet-invoices/queue?${q}`, {
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '발행할 목록을 불러오지 못했습니다.'));
+  return res.json() as Promise<{ items: PlatformWalletInvoiceQueueRow[]; total: number }>;
+}
+
+export async function fetchWalletInvoiceQueueCount(): Promise<number> {
+  const res = await fetch(`${API}/platform/receipts/wallet-invoices/queue-count`, {
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '건수를 불러오지 못했습니다.'));
+  const body = (await res.json()) as { count: number };
+  return body.count ?? 0;
+}
+
+export type PlatformIssuedReceiptRow = {
+  id: string;
+  source: 'cashbill' | 'taxinvoice' | 'wallet_taxinvoice';
+  kind: 'cashbill' | 'taxinvoice';
+  purpose: 'wallet' | 'direct';
+  purposeLabel: string;
+  kindLabel: string;
+  issuedAt: string;
+  partyName: string;
+  tenantId: string | null;
+  supplyAmountKrw: number;
+  vatAmountKrw: number;
+  totalAmountKrw: number;
+  status: 'ISSUED' | 'CANCELLED' | 'FAILED';
+  ntsConfirmNum: string | null;
+  paymentId: string | null;
+  error: string | null;
+  canCancel: boolean;
+  canView: boolean;
+};
+
+export async function listPlatformIssuedReceipts(filter: PlatformReceiptListFilter) {
+  const res = await fetch(`${API}/platform/receipts/issued?${filterQuery(filter)}`, {
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '발행 목록을 불러오지 못했습니다.'));
+  return res.json() as Promise<{
+    items: PlatformIssuedReceiptRow[];
+    total: number;
+    stats: PlatformReceiptMonthStats;
+  }>;
+}
+
+export async function downloadPlatformIssuedExcel(
+  filter: Pick<PlatformReceiptListFilter, 'from' | 'to' | 'status' | 'q' | 'kind'>,
+): Promise<void> {
+  const q = filterQuery({ ...filter, limit: 1, offset: 0 });
+  q.delete('limit');
+  q.delete('offset');
+  const res = await fetch(`${API}/platform/receipts/issued/export?${q}`, {
+    headers: { Authorization: `Bearer ${getPlatformToken() ?? ''}` },
+  });
+  if (!res.ok) throw new Error(await parseError(res, '엑셀을 받지 못했습니다.'));
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `플랫폼_발행목록.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function cancelPlatformWalletInvoice(paymentId: string): Promise<{ ok: true }> {
+  const res = await fetch(
+    `${API}/platform/receipts/wallet-invoices/${encodeURIComponent(paymentId)}/cancel`,
+    { method: 'POST', headers: platformHeaders() },
+  );
+  if (!res.ok) throw new Error(await parseError(res, '취소에 실패했습니다.'));
+  return res.json() as Promise<{ ok: true }>;
+}
+
+export async function fetchPlatformReceiptViewUrl(input: {
+  source: 'cashbill' | 'taxinvoice' | 'wallet_taxinvoice';
+  id?: string;
+  paymentId?: string;
+  tenantId?: string | null;
+}): Promise<string> {
+  const q = new URLSearchParams({ source: input.source });
+  if (input.id) q.set('id', input.id);
+  if (input.paymentId) q.set('paymentId', input.paymentId);
+  if (input.tenantId) q.set('tenantId', input.tenantId);
+  const res = await fetch(`${API}/platform/receipts/view-url?${q}`, { headers: platformHeaders() });
+  if (!res.ok) throw new Error(await parseError(res, '영수증을 열 수 없습니다.'));
+  const body = (await res.json()) as { url?: string };
+  if (!body.url) throw new Error('영수증을 열 수 없습니다.');
+  return body.url;
 }

@@ -8,6 +8,7 @@ import {
   listPlatformCashBills,
   listPlatformCashBillsForExport,
   platformCashBillStats,
+  getPlatformCashBillViewUrl,
 } from './platformCashbill.service.js';
 import {
   issuePlatformTaxInvoice,
@@ -15,8 +16,21 @@ import {
   listPlatformTaxInvoices,
   listPlatformTaxInvoicesForExport,
   platformTaxInvoiceStats,
+  getPlatformTaxInvoiceViewUrl,
 } from './platformTaxInvoice.service.js';
-import { retryFailedWalletInvoice } from './platformWalletInvoice.service.js';
+import {
+  retryFailedWalletInvoice,
+  retryWalletInvoicesBatch,
+  countWalletInvoiceQueue,
+  listWalletInvoiceQueue,
+  getWalletInvoiceViewUrl,
+  cancelOrModifyForPayment,
+} from './platformWalletInvoice.service.js';
+import {
+  listIssuedReceipts,
+  listIssuedReceiptsForExport,
+  type IssuedReceiptKindFilter,
+} from './platformIssuedList.service.js';
 import { prisma } from '../../lib/prisma.js';
 import { splitCashbillTax } from '../cashbill/cashbillIssue.amounts.js';
 import { formatCorpNumDisplay, parsePlatformReceiptListQuery } from './platformReceiptsQuery.js';
@@ -498,6 +512,136 @@ router.post('/wallet-invoices/:paymentId/retry', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : '재시도 실패' });
+  }
+});
+
+router.post('/wallet-invoices/retry-batch', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.paymentIds)
+      ? (req.body.paymentIds as unknown[]).filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      : [];
+    if (ids.length === 0) {
+      res.status(400).json({ error: '발행할 건을 선택해 주세요.' });
+      return;
+    }
+    const result = await retryWalletInvoicesBatch(ids.slice(0, 50));
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '일괄 발행 실패' });
+  }
+});
+
+router.get('/wallet-invoices/queue', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const result = await listWalletInvoiceQueue({ limit, offset });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : '대기 목록을 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/wallet-invoices/queue-count', async (_req, res) => {
+  try {
+    const count = await countWalletInvoiceQueue();
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : '건수를 불러오지 못했습니다.' });
+  }
+});
+
+router.post('/wallet-invoices/:paymentId/cancel', async (req, res) => {
+  try {
+    await cancelOrModifyForPayment(req.params.paymentId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '취소에 실패했습니다.' });
+  }
+});
+
+router.get('/issued', async (req, res) => {
+  try {
+    const q = parsePlatformReceiptListQuery(req.query as Record<string, unknown>);
+    const kindRaw = String(req.query.kind ?? '').trim().toLowerCase();
+    const kind: IssuedReceiptKindFilter =
+      kindRaw === 'cashbill' || kindRaw === 'taxinvoice' ? kindRaw : '';
+    const result = await listIssuedReceipts({
+      fromYmd: q.fromYmd,
+      toYmd: q.toYmd,
+      status: q.status,
+      kind,
+      q: q.q,
+      limit: q.limit,
+      offset: q.offset,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : '발행 목록을 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/issued/export', async (req, res) => {
+  try {
+    const q = parsePlatformReceiptListQuery(req.query as Record<string, unknown>);
+    const kindRaw = String(req.query.kind ?? '').trim().toLowerCase();
+    const kind: IssuedReceiptKindFilter =
+      kindRaw === 'cashbill' || kindRaw === 'taxinvoice' ? kindRaw : '';
+    const rows = await listIssuedReceiptsForExport({
+      fromYmd: q.fromYmd,
+      toYmd: q.toYmd,
+      status: q.status,
+      kind,
+      q: q.q,
+    });
+    sendXlsx(
+      res,
+      '플랫폼_발행목록.xlsx',
+      rows.map((r) => ({
+        발행일: r.issuedAt.slice(0, 10),
+        종류: r.kindLabel,
+        '업체/고객': r.partyName,
+        용도: r.purposeLabel,
+        공급가: r.supplyAmountKrw,
+        부가세: r.vatAmountKrw,
+        합계: r.totalAmountKrw,
+        상태: r.status,
+        국세청승인번호: r.ntsConfirmNum ?? '',
+      })),
+    );
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : '엑셀을 받지 못했습니다.' });
+  }
+});
+
+router.get('/view-url', async (req, res) => {
+  try {
+    const source = String(req.query.source ?? '').trim();
+    const id = String(req.query.id ?? '').trim();
+    const paymentId = String(req.query.paymentId ?? '').trim();
+    const tenantId = String(req.query.tenantId ?? '').trim() || null;
+    if (!source || (!id && !paymentId)) {
+      res.status(400).json({ error: '보기 대상이 없습니다.' });
+      return;
+    }
+    let url: string;
+    if (source === 'cashbill') {
+      url = await getPlatformCashBillViewUrl(id, tenantId);
+    } else if (source === 'taxinvoice') {
+      url = await getPlatformTaxInvoiceViewUrl(id, tenantId);
+    } else if (source === 'wallet_taxinvoice') {
+      url = await getWalletInvoiceViewUrl({
+        walletInvoiceId: id || undefined,
+        paymentId: paymentId || undefined,
+        tenantId,
+      });
+    } else {
+      res.status(400).json({ error: '알 수 없는 영수증 종류입니다.' });
+      return;
+    }
+    res.json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '영수증을 열 수 없습니다.' });
   }
 });
 

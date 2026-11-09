@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { fetchUsageFeeCardPayments, type UsageFeeCardPaymentRow } from '../../api/platformCardPayment';
-import { retryPlatformWalletInvoice } from '../../api/platformReceipts';
+import { fetchPlatformReceiptViewUrl, retryPlatformWalletInvoice } from '../../api/platformReceipts';
 import { UsageFeeSameDayCancelButton } from '../../components/platform/UsageFeeSameDayCancelButton';
+import { openReceiptWindow } from '../../components/receipts/receiptListDisplay';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { CARD_SECTION } from '../../utils/platformUi';
 import { INQUIRY_LIST_PAGE_SIZE_OPTIONS, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
@@ -85,6 +86,25 @@ export function PlatformBillingSettlementPage() {
     }
   }
 
+  async function handleViewInvoice(row: UsageFeeCardPaymentRow) {
+    const wi = row.walletTaxInvoice;
+    if (!wi || wi.status !== 'ISSUED') return;
+    setRetryingId(row.id);
+    setRetryMsg(null);
+    try {
+      const url = await fetchPlatformReceiptViewUrl({
+        source: 'wallet_taxinvoice',
+        id: wi.id ?? undefined,
+        paymentId: row.id,
+      });
+      openReceiptWindow(url);
+    } catch (e) {
+      setRetryMsg({ id: row.id, msg: e instanceof Error ? e.message : '영수증을 열 수 없습니다.', ok: false });
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
   function writeQuery(next: { page?: number; pageSize?: number; method?: string }) {
     const query = new URLSearchParams(params);
     query.set('page', String(next.page ?? page));
@@ -158,16 +178,28 @@ export function PlatformBillingSettlementPage() {
                     ) : wiBadge ? (
                       <>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${wiBadge.cls}`}>세금계산서 {wiBadge.label}</span>
-                        {wi?.status === 'FAILED' ? (
-                          <button
-                            type="button"
-                            className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-                            disabled={retryingId === row.id}
-                            onClick={() => void handleRetryInvoice(row.id)}
-                          >
-                            {retryingId === row.id ? '요청 중…' : '다시 발행'}
-                          </button>
-                        ) : null}
+                        <div className="flex flex-wrap gap-1">
+                          {wi?.status === 'ISSUED' ? (
+                            <button
+                              type="button"
+                              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                              disabled={retryingId === row.id}
+                              onClick={() => void handleViewInvoice(row)}
+                            >
+                              영수증 보기
+                            </button>
+                          ) : null}
+                          {wi?.status === 'FAILED' || wi?.status === 'PENDING' ? (
+                            <button
+                              type="button"
+                              className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                              disabled={retryingId === row.id}
+                              onClick={() => void handleRetryInvoice(row.id)}
+                            >
+                              {retryingId === row.id ? '요청 중…' : '다시 발행'}
+                            </button>
+                          ) : null}
+                        </div>
                       </>
                     ) : (
                       <span className="text-xs text-gray-400">세금계산서 —</span>
@@ -230,7 +262,17 @@ export function PlatformBillingSettlementPage() {
                     ) : wiBadge ? (
                       <div className="flex flex-col items-center gap-1">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${wiBadge.cls}`}>{wiBadge.label}</span>
-                        {wi?.status === 'FAILED' ? (
+                        {wi?.status === 'ISSUED' ? (
+                          <button
+                            type="button"
+                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            disabled={retryingId === row.id}
+                            onClick={() => void handleViewInvoice(row)}
+                          >
+                            영수증 보기
+                          </button>
+                        ) : null}
+                        {wi?.status === 'FAILED' || wi?.status === 'PENDING' ? (
                           <button
                             type="button"
                             className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50"

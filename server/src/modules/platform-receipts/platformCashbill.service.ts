@@ -7,6 +7,7 @@ import {
   registAndIssueCashBill,
   cancelCashBillFull,
   fetchCashbillState,
+  fetchCashbillMailUrl,
 } from '../cashbill/cashbillIssue.barobill.js';
 import {
   tradeDateRangeFilter,
@@ -282,5 +283,22 @@ export async function syncPlatformCashBillState(id: string) {
   return prisma.platformCashBillIssue.update({
     where: { id },
     data: { barobillState: state.barobillState, ntsConfirmNum: state.ntsConfirmNum ?? null },
+  });
+}
+
+export async function getPlatformCashBillViewUrl(id: string, tenantId?: string | null): Promise<string> {
+  const record = await prisma.platformCashBillIssue.findFirst({ where: { id } });
+  if (!record) throw new Error('현금영수증을 찾을 수 없습니다.');
+  if (tenantId && record.buyerTenantId && record.buyerTenantId !== tenantId) {
+    throw new Error('이 업체의 영수증이 아닙니다.');
+  }
+  if (record.lastError || record.cancelOfId || record.kind === 'CANCELLED' || record.kind === 'CANCEL') {
+    throw new Error('발행된 현금영수증만 볼 수 있습니다.');
+  }
+  const issuer = readPlatformIssuer();
+  return fetchCashbillMailUrl({
+    corpNum: issuer.corpNum,
+    userId: issuer.barobillUserId,
+    mgtKey: record.mgtKey,
   });
 }
