@@ -16,7 +16,8 @@ globs: server/prisma/**
 
 ## 2. 스키마 변경 = 마이그레이션 동반 (코딩 시)
 
-- **`schema.prisma` / `schema.template.prisma`**만 고치고 **`prisma/migrations`에 새 SQL이 없는 PR**은 **완료로 보지 않는다.**
+- **Prisma 모델 수정 원본은 `schema.template.prisma`다.** `schema.prisma`는 `prepare-schema.js`가 template으로 덮어쓰는 **생성물**이므로, 모델·필드 추가는 **반드시 template에** 넣고 schema.prisma만 고치지 않는다.
+- **`schema.template.prisma`(및 동기화된 schema)·`migrations`**만 고치고 **`prisma/migrations`에 새 SQL이 없는 PR**은 **완료로 보지 않는다.**
 - 예외: 사용자가 명시적으로 “마이그레이션 없이 문서·주석만” 등 — 그때도 **DB 의미 있는 변경이 없음**을 PR 설명에 적는다.
 - 코딩 마무리: 프로젝트 표준대로 **`npx prisma generate`**; 마이그레이션을 **추가·수정**했으면 **`cd server` 후 `npx prisma migrate deploy`** 로 현재 `DATABASE_URL` DB에 적용한다 (원격 DB 쓰기 금지가 명시된 경우만 생략). 상세: **`.cursor/rules/project-standards.mdc`**, **`.cursor/rules/local-dev-remote-db.mdc`**.
 
