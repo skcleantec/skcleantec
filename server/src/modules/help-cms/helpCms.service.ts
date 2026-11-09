@@ -88,7 +88,7 @@ function normalizeArticleBody(input: {
   return { contentFormat: 'html', bodyHtml, bodyMarkdown: null };
 }
 
-function toArticleDto(row: {
+export function toArticleDto(row: {
   id: string;
   categoryId: string;
   slug: string;
