@@ -97,7 +97,7 @@ export function PlatformTenantWalletCard({ tenantId, tenantName, disabled }: Pro
       const verb = kind === 'clawback' ? '회수' : '반영';
       const suffix =
         kind === 'paid'
-          ? ` (받을 금액 ${paidSplit.payKrw.toLocaleString('ko-KR')}원 · 부가세 ${paidSplit.vatKrw.toLocaleString('ko-KR')}원)`
+          ? ` (받을 금액 ${paidSplit.payKrw.toLocaleString('ko-KR')}원 · 부가세 ${paidSplit.vatKrw.toLocaleString('ko-KR')}원 · 세금계산서 자동 발행 요청)`
           : '';
       setMessage(`${amountKrw.toLocaleString('ko-KR')}원을 ${verb}했습니다.${suffix}`);
     } catch (e) {

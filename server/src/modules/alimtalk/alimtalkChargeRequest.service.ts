@@ -3,6 +3,7 @@ import { ALIMTALK_TEMPLATE_CODES } from '../../lib/alimtalkPolicy.js';
 import { validateWalletChargeAmountKrw } from '../../lib/paymentTestAmount.js';
 import { applyPlatformAlimtalkTopUp } from './alimtalkWallet.service.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
+import { scheduleIssueForBankWalletPayment } from '../platform-receipts/platformWalletInvoice.service.js';
 
 export type AlimtalkChargeRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
@@ -110,13 +111,16 @@ export async function approveAlimtalkChargeRequest(params: {
   if (claimed.count !== 1) throw new Error('이미 처리된 충전 신청입니다.');
 
   try {
-    await applyPlatformAlimtalkTopUp({
+    const topUp = await applyPlatformAlimtalkTopUp({
       tenantId: params.tenantId,
       amountKrw: request.amountKrw,
       memo,
       actorPlatformUserId: params.actorPlatformUserId ?? null,
       revenue: true,
     });
+    if (topUp.bankPaymentId) {
+      void scheduleIssueForBankWalletPayment(topUp.bankPaymentId);
+    }
   } catch (err) {
     await prisma.alimtalkChargeRequest.updateMany({
       where: { id: request.id, tenantId: params.tenantId, status: 'APPROVED' },

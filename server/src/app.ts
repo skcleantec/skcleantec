@@ -95,6 +95,7 @@ import platformHelpCmsRoutes from './modules/help-cms/platformHelpCms.routes.js'
 import publicHelpCmsRoutes from './modules/help-cms/publicHelpCms.routes.js';
 import helpCmsPublishRoutes from './modules/help-cms/helpCmsPublish.routes.js';
 import platformBoardRoutes from './modules/platform-board/platformBoard.routes.js';
+import platformReceiptsRoutes from './modules/platform-receipts/platformReceipts.routes.js';
 import publicPlatformBoardRoutes from './modules/platform-board/publicPlatformBoard.routes.js';
 import publicRssRoutes from './modules/public-seo/publicRss.routes.js';
 import publicSitemapRoutes from './modules/public-seo/publicSitemap.routes.js';
@@ -173,6 +174,7 @@ app.use('/api/platform/referrers', platformReferrersRoutes);
 app.use('/api/platform/help-cms', platformHelpCmsRoutes);
 app.use('/api/help-cms/publish', helpCmsPublishRoutes);
 app.use('/api/platform/customer-boards', platformBoardRoutes);
+app.use('/api/platform/receipts', platformReceiptsRoutes);
 app.use('/api/platform/legal', platformLegalRoutes);
 app.use('/api/platform/partner-promos', platformPartnerPromoRoutes);
 app.use('/api/admin/platform-promos', adminPlatformPromoRoutes);

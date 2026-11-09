@@ -265,11 +265,11 @@ export async function listRecentAlimtalkChargeLogs(
 async function recordPaidWalletDeposit(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   params: { tenantId: string; amountKrw: number; reason: string | null; actorPlatformUserId: string | null },
-): Promise<void> {
+): Promise<string> {
   /** amountKrw = 충전금(공급가). 결제·세금계산서용으로 부가세 10%를 붙인다. */
   const supplyAmountKrw = params.amountKrw;
   const vatAmountKrw = Math.round(supplyAmountKrw * 0.1);
-  await tx.usageFeeCardPayment.create({
+  const payment = await tx.usageFeeCardPayment.create({
     data: {
       purpose: 'OTHER',
       payMethod: 'BANK',
@@ -286,6 +286,7 @@ async function recordPaidWalletDeposit(
       createdByPlatformUserId: params.actorPlatformUserId,
     },
   });
+  return payment.id;
 }
 
 export async function applyPlatformAlimtalkTopUp(params: {
@@ -295,7 +296,7 @@ export async function applyPlatformAlimtalkTopUp(params: {
   actorPlatformUserId?: string | null;
   /** 입금 확인(유상)이면 입금 내역에 통장 건으로 남긴다. */
   revenue?: boolean;
-}): Promise<{ balanceAfterKrw: number; logId: string }> {
+}): Promise<{ balanceAfterKrw: number; logId: string; bankPaymentId: string | null }> {
   const validationError = params.memo?.startsWith('cbiseo:')
     ? validatePlatformWalletAdjustKrw(params.amountKrw)
     : validateAlimtalkTopUpAmountKrw(params.amountKrw);
@@ -323,16 +324,17 @@ export async function applyPlatformAlimtalkTopUp(params: {
         actorPlatformUserId: params.actorPlatformUserId ?? null,
       },
     });
+    let bankPaymentId: string | null = null;
     if (params.revenue) {
       const shown = walletChargePresentation(params.memo ?? null);
-      await recordPaidWalletDeposit(tx, {
+      bankPaymentId = await recordPaidWalletDeposit(tx, {
         tenantId: params.tenantId,
         amountKrw: params.amountKrw,
         reason: shown.reason,
         actorPlatformUserId: params.actorPlatformUserId ?? null,
       });
     }
-    return { balanceAfterKrw: wallet.prepaidBalanceKrw, logId: log.id };
+    return { balanceAfterKrw: wallet.prepaidBalanceKrw, logId: log.id, bankPaymentId: bankPaymentId ?? null };
   });
 }
 

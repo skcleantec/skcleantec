@@ -927,9 +927,10 @@ model UsageFeeCardPayment {
   createdByPlatformUserId String?                     @map("created_by_platform_user_id")
   createdAt               DateTime                    @default(now()) @map("created_at")
 
-  tenant    Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  invoice   TenantInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  createdBy PlatformUser?  @relation(fields: [createdByPlatformUserId], references: [id], onDelete: SetNull)
+  tenant               Tenant?               @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoice              TenantInvoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdBy            PlatformUser?         @relation(fields: [createdByPlatformUserId], references: [id], onDelete: SetNull)
+  platformWalletInvoice PlatformWalletInvoice?
 
   @@index([tenantId, paidAt])
   @@index([status, paidAt])
@@ -5533,4 +5534,100 @@ model TenantWalletUsageLog {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([tenantId, type, createdAt(sort: Desc)])
   @@map("tenant_wallet_usage_logs")
+}
+
+enum PlatformWalletInvoiceStatus {
+  PENDING
+  ISSUED
+  FAILED
+  SKIPPED
+}
+
+/// 서비스브릿지(플랫폼) 발행 세금계산서 — BANK 지갑 충전 건당 1:1.
+model PlatformWalletInvoice {
+  id           String                     @id @default(uuid())
+  paymentId    String                     @unique @map("payment_id")
+  tenantId     String                     @map("tenant_id")
+  status       PlatformWalletInvoiceStatus @default(PENDING)
+  mgtKey       String?                    @map("mgt_key") @db.VarChar(100)
+  ntsSendKey   String?                    @map("nts_send_key") @db.VarChar(100)
+  costKrw      Int                        @default(0) @map("cost_krw")
+  error        String?                    @db.VarChar(500)
+  issuedAt     DateTime?                  @map("issued_at")
+  cancelledAt  DateTime?                  @map("cancelled_at")
+  createdAt    DateTime                   @default(now()) @map("created_at")
+  updatedAt    DateTime                   @updatedAt @map("updated_at")
+
+  payment UsageFeeCardPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("platform_wallet_invoices")
+}
+
+/// 서비스브릿지(플랫폼) 직접 발행 현금영수증.
+model PlatformCashBillIssue {
+  id                     String   @id @default(uuid())
+  mgtKey                 String   @unique @map("mgt_key") @db.VarChar(100)
+  tradeUsage             String   @map("trade_usage") @db.VarChar(2)
+  identityMasked         String   @map("identity_masked") @db.VarChar(40)
+  customerName           String?  @map("customer_name") @db.VarChar(80)
+  itemName               String   @map("item_name") @db.VarChar(100)
+  taxKind                String   @map("tax_kind") @db.VarChar(10)
+  amount                 Int
+  tax                    Int
+  serviceCharge          Int      @map("service_charge")
+  totalWon               Int      @map("total_won")
+  tradeDate              String   @map("trade_date") @db.VarChar(8)
+  barobillState          String?  @map("barobill_state") @db.VarChar(20)
+  ntsConfirmNum          String?  @map("nts_confirm_num") @db.VarChar(40)
+  issuedAt               DateTime? @map("issued_at")
+  costKrw                Int      @default(0) @map("cost_krw")
+  lastError              String?  @map("last_error") @db.VarChar(500)
+  internalMemo           String?  @map("internal_memo") @db.VarChar(300)
+  buyerTenantId          String?  @map("buyer_tenant_id")
+  buyerCorpNum           String?  @map("buyer_corp_num") @db.VarChar(20)
+  createdByPlatformUserId String? @map("created_by_platform_user_id")
+  cancelOfId             String?  @map("cancel_of_id")
+  kind                   String   @default("FULL") @db.VarChar(10)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@index([buyerTenantId, createdAt(sort: Desc)])
+  @@map("platform_cash_bill_issues")
+}
+
+/// 서비스브릿지(플랫폼) 직접 발행 세금계산서.
+model PlatformTaxInvoiceIssue {
+  id                     String   @id @default(uuid())
+  mgtKey                 String   @unique @map("mgt_key") @db.VarChar(100)
+  purposeType            Int      @map("purpose_type")
+  writeDate              String   @map("write_date") @db.VarChar(8)
+  buyerCorpNum           String   @map("buyer_corp_num") @db.VarChar(20)
+  buyerCorpName          String   @map("buyer_corp_name") @db.VarChar(100)
+  buyerCeoName           String   @default("") @map("buyer_ceo_name") @db.VarChar(80)
+  buyerAddr              String   @default("") @map("buyer_addr") @db.VarChar(200)
+  buyerEmail             String   @default("") @map("buyer_email") @db.VarChar(200)
+  buyerContactName       String   @default("") @map("buyer_contact_name") @db.VarChar(80)
+  supplyKrw              Int      @map("supply_krw")
+  taxKrw                 Int      @map("tax_krw")
+  totalKrw               Int      @map("total_krw")
+  lines                  Json     @default("[]")
+  barobillState          String?  @map("barobill_state") @db.VarChar(20)
+  ntsSendState           String?  @map("nts_send_state") @db.VarChar(10)
+  ntsSendKey             String?  @map("nts_send_key") @db.VarChar(100)
+  costKrw                Int      @default(0) @map("cost_krw")
+  lastError              String?  @map("last_error") @db.VarChar(500)
+  internalMemo           String?  @map("internal_memo") @db.VarChar(300)
+  buyerTenantId          String?  @map("buyer_tenant_id")
+  modifyCode             String?  @map("modify_code") @db.VarChar(4)
+  originalIssueId        String?  @map("original_issue_id")
+  createdByPlatformUserId String? @map("created_by_platform_user_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@index([buyerTenantId, createdAt(sort: Desc)])
+  @@map("platform_tax_invoice_issues")
 }
