@@ -16,7 +16,8 @@ alwaysApply: false
 ## 구조
 - 파트너 = 서비스브릿지 1개. 업체·브랜드는 **사업자번호 1개 = 바로빌 회원사 1개**. 브랜드(OperatingCompany)는 별도 사업자 → 브랜드 1 : 회원사 1.
 - 알림톡은 회원사 가입과 무관 — 항상 **서비스브릿지 회원사 + 청소비서 채널**로 발송, 업체명은 템플릿 변수.
-- 과금 = **파트너 결제**. 업체 차감은 청소비서 지갑(`TenantAlimtalkWallet.prepaidBalanceKrw`, 화면 표기 "청소비서 지갑")에서. 단가는 `shared/barobillPolicy.ts` 상수만 사용 (현금영수증 발행·취소 각 22원, 세금계산서 150원, VAT 포함). 요금제 무료 제공량 없음 — Standard 이상 + 지갑 별도 충전.
+- 과금 = **파트너 결제**. 업체 차감은 청소비서 지갑(`TenantAlimtalkWallet.prepaidBalanceKrw`, 화면 표기 "청소비서 지갑")에서. 단가는 `shared/barobillPolicy.ts` 상수만 사용 (현금영수증 발행·취소 각 22원, 세금계산서 150원, VAT 포함). 요금제 무료 제공량 없음 — **Premium 기본**(또는 플랫폼에서 `mod_cashbill` 켠 업체) + 지갑 별도 충전.
+- `BAROBILL_OPEN` 은 **비상 차단**만: `off`면 전체 닫기, 그 외(값 없음·all·pilot 등)는 업체별 `mod_cashbill`만 따른다. `BAROBILL_PILOT_TENANT_IDS` 의존 없음.
 - 테스트/운영은 `BAROBILL_ENV=test|prod`. 회원사 레코드는 env 별로 따로 저장(바로빌 DB가 분리돼 있음).
 
 ## 호출

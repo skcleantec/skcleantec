@@ -23,7 +23,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_quick_paste: { label: '빠른등록', tier: 'standard' as const, defaultOn: true },
   mod_alimtalk: { label: '알림톡', tier: 'standard' as const, defaultOn: true },
   mod_card_payment: { label: '카드결재', tier: 'standard' as const, defaultOn: true },
-  mod_cashbill: { label: '현금영수증', tier: 'standard' as const, defaultOn: true },
+  mod_cashbill: { label: '현금영수증', tier: 'premium' as const, defaultOn: false },
   mod_ai_dispatch: { label: 'AI 미리 배정', tier: 'premium' as const, defaultOn: false },
 } as const;
 
@@ -49,7 +49,6 @@ export const TENANT_PREMIUM_BUSINESS_MODULE_IDS = [
   'mod_quick_paste',
   'mod_alimtalk',
   'mod_card_payment',
-  'mod_cashbill',
 ] as const satisfies readonly TenantFeatureModuleId[];
 
 export const TENANT_PLANS = {
@@ -74,7 +73,6 @@ export const TENANT_PLANS = {
       'mod_quick_paste',
       'mod_alimtalk',
       'mod_card_payment',
-      'mod_cashbill',
     ] as TenantFeatureModuleId[],
   },
   standard_plus: {
@@ -83,7 +81,7 @@ export const TENANT_PLANS = {
   },
   premium: {
     label: 'Premium',
-    modules: [...TENANT_PREMIUM_BUSINESS_MODULE_IDS, 'mod_ai_dispatch'] as TenantFeatureModuleId[],
+    modules: [...TENANT_PREMIUM_BUSINESS_MODULE_IDS, 'mod_cashbill', 'mod_ai_dispatch'] as TenantFeatureModuleId[],
   },
 } as const;
 

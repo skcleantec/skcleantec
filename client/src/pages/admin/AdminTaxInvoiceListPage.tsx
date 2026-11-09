@@ -36,6 +36,7 @@ import { FailReasonChip, showReceiptDone, showReceiptFailure } from '../../compo
 import { ToastButton } from '../../components/ui/Toast';
 import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider';
 import { approvalTail, groupTaxInvoiceRows, type TaxListConnect } from '../../utils/taxInvoiceListGroup';
+import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 
 const SEG = 'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
 const SEG_ON = 'bg-slate-900 text-white hover:bg-slate-800';
@@ -234,6 +235,7 @@ export function AdminTaxInvoiceListPage() {
         issueLabel="+ 세금계산서 발행"
         issueDisabled={needsLink || certMissing}
         hideIssue={tab === 'issue'}
+        unitPriceKrw={TAXINVOICE_UNIT_PRICE_KRW}
         onIssue={() => patch({ tab: 'issue', from: null })}
         statusChip={certChip ? (
           <button type="button" className={`min-h-11 rounded-full border px-3 text-fluid-2xs font-medium hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${certChip.className}`} onClick={() => setCertBrandId(certChip.id)}>
