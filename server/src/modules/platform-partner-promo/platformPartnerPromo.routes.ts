@@ -166,28 +166,33 @@ router.post('/', async (req, res) => {
       res.status(400).json({ error: '종료일은 시작일 이후여야 합니다.' });
       return;
     }
-    const maxSort = await prisma.platformPartnerPromo.aggregate({ _max: { sortOrder: true } });
-    const row = await prisma.platformPartnerPromo.create({
-      data: {
-        title,
-        mobileImageUrl,
-        desktopImageUrl,
-        linkUrl,
-        linkTarget,
-        startsAt,
-        endsAt,
-        isActive: parseBool(req.body?.isActive, true),
-        showOnMobile: parseBool(req.body?.showOnMobile, true),
-        showOnDesktop: parseBool(req.body?.showOnDesktop, parseBool(req.body?.showOnMobile, true)),
-        showToExternalPartner: parseBool(req.body?.showToExternalPartner, true),
-        showToTenantStaff: parseBool(req.body?.showToTenantStaff, false),
-        showOnTeamDashboard: parseBool(req.body?.showOnTeamDashboard, true),
-        showOnTeamAssignments: parseBool(req.body?.showOnTeamAssignments, true),
-        showOnTeamSchedule: parseBool(req.body?.showOnTeamSchedule, true),
-        orderModeOverride: parseOrderModeOverride(req.body?.orderModeOverride) ?? 'INHERIT',
-        sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
-        createdByPlatformUserId: user.platformUserId,
-      },
+    // 새 배너는 목록·고정 슬롯 기준 맨 위(sortOrder 0). 기존 배너 상대 순서는 +1로 유지.
+    const row = await prisma.$transaction(async (tx) => {
+      await tx.platformPartnerPromo.updateMany({
+        data: { sortOrder: { increment: 1 } },
+      });
+      return tx.platformPartnerPromo.create({
+        data: {
+          title,
+          mobileImageUrl,
+          desktopImageUrl,
+          linkUrl,
+          linkTarget,
+          startsAt,
+          endsAt,
+          isActive: parseBool(req.body?.isActive, true),
+          showOnMobile: parseBool(req.body?.showOnMobile, true),
+          showOnDesktop: parseBool(req.body?.showOnDesktop, parseBool(req.body?.showOnMobile, true)),
+          showToExternalPartner: parseBool(req.body?.showToExternalPartner, true),
+          showToTenantStaff: parseBool(req.body?.showToTenantStaff, false),
+          showOnTeamDashboard: parseBool(req.body?.showOnTeamDashboard, true),
+          showOnTeamAssignments: parseBool(req.body?.showOnTeamAssignments, true),
+          showOnTeamSchedule: parseBool(req.body?.showOnTeamSchedule, true),
+          orderModeOverride: parseOrderModeOverride(req.body?.orderModeOverride) ?? 'INHERIT',
+          sortOrder: 0,
+          createdByPlatformUserId: user.platformUserId,
+        },
+      });
     });
     res.status(201).json(serializeAdminPromo(row));
   } catch (e) {
