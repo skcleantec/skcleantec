@@ -14,6 +14,7 @@ import {
 import { createPlatformCashbillAdapter } from '../../components/cashbill/cashbillIssueAdapter';
 import { CashbillIssueForm } from '../../components/cashbill/CashbillIssueForm';
 import { ReceiptIssueSettingsModal } from '../../components/receipts/ReceiptIssueSettingsModal';
+import { ReceiptWalletStubProvider } from '../../components/wallet/ReceiptWalletProvider';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import type { CashbillBrand } from '../../api/cashbillIssues';
 import { BTN_PRIMARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
@@ -199,40 +200,42 @@ export function PlatformCashbillTab() {
         </div>
         <ReceiptIssueSettingsModal kind="cashbill" mode="platform" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         {showForm ? (
-          <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-            {/* 업체 선택 */}
-            <label className="block space-y-1 text-sm text-gray-700">
-              업체 (선택 시 발행 내역에 연결됨)
-              <select
-                value={selectedTenantId}
-                onChange={(e) => setSelectedTenantId(e.target.value)}
-                className={`${INPUT_BASE} mt-1`}
-              >
-                <option value="">업체 선택 안 함</option>
-                {buyers.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </label>
-            <CashbillIssueForm
-              brands={[PLATFORM_CASHBILL_BRAND]}
-              embedded
-              adapter={platformAdapter}
-              platformTenantId={selectedTenantId || undefined}
-              onClose={() => setShowForm(false)}
-              onDone={(_id) => {
-                setShowForm(false);
-                setSelectedTenantId('');
-                loadList();
-                fetchPlatformCashbillMonthStats({
-                  from: range.from,
-                  to: range.to,
-                  status: status || undefined,
-                  q: q || undefined,
-                }).then(setStats).catch(() => undefined);
-              }}
-            />
-          </div>
+          <ReceiptWalletStubProvider>
+            <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+              {/* 업체 선택 */}
+              <label className="block space-y-1 text-sm text-gray-700">
+                업체 (선택 시 발행 내역에 연결됨)
+                <select
+                  value={selectedTenantId}
+                  onChange={(e) => setSelectedTenantId(e.target.value)}
+                  className={`${INPUT_BASE} mt-1`}
+                >
+                  <option value="">업체 선택 안 함</option>
+                  {buyers.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </label>
+              <CashbillIssueForm
+                brands={[PLATFORM_CASHBILL_BRAND]}
+                embedded
+                adapter={platformAdapter}
+                platformTenantId={selectedTenantId || undefined}
+                onClose={() => setShowForm(false)}
+                onDone={(_id) => {
+                  setShowForm(false);
+                  setSelectedTenantId('');
+                  loadList();
+                  fetchPlatformCashbillMonthStats({
+                    from: range.from,
+                    to: range.to,
+                    status: status || undefined,
+                    q: q || undefined,
+                  }).then(setStats).catch(() => undefined);
+                }}
+              />
+            </div>
+          </ReceiptWalletStubProvider>
         ) : null}
       </section>
 

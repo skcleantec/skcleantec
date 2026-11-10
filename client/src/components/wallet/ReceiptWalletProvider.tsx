@@ -26,6 +26,20 @@ export function useReceiptWallet(): ReceiptWalletContextValue {
   return value;
 }
 
+/** 플랫폼 영수증처럼 테넌트 지갑이 없는 화면 — CashbillIssueForm 훅만 통과 */
+export function ReceiptWalletStubProvider({ children }: { children: ReactNode }) {
+  const value = useMemo<ReceiptWalletContextValue>(
+    () => ({
+      summary: null,
+      reload: async () => undefined,
+      openCharge: () => undefined,
+      openHistory: () => undefined,
+    }),
+    [],
+  );
+  return <ReceiptWalletContext.Provider value={value}>{children}</ReceiptWalletContext.Provider>;
+}
+
 export function ReceiptWalletProvider({ children }: { children: ReactNode }) {
   const [summary, setSummary] = useState<ReceiptWalletSummary | null>(null);
   const [chargeOpen, setChargeOpen] = useState(false);
