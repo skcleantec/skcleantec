@@ -18,7 +18,12 @@ import {
   syncOpenCashbillStates,
 } from './cashbillIssue.service.js';
 import { takeReceiptStateSyncSlot } from '../receipts/receiptStateSyncGate.js';
-import { getReceiptWalletSummary, listReceiptWalletLedger, parseWalletLedgerFilter } from '../wallet/receiptWallet.service.js';
+import {
+  getReceiptWalletSummary,
+  getTenantWalletTaxInvoiceViewUrl,
+  listReceiptWalletLedger,
+  parseWalletLedgerFilter,
+} from '../wallet/receiptWallet.service.js';
 
 const router = Router();
 router.use(authMiddleware, requireTenantAuth, requireFeature(CASHBILL_MODULE_ID));
@@ -197,6 +202,29 @@ router.get('/wallet/ledger', async (req, res) => {
   const offset = Math.max(0, Number(req.query.offset) || 0);
   const filter = parseWalletLedgerFilter(req.query.type);
   res.json(await listReceiptWalletLedger(tenantId, filter, limit, offset));
+});
+
+/** GET /api/cashbill/wallet/tax-invoice-view-url — 자기 업체 지갑 세금계산서만 */
+router.get('/wallet/tax-invoice-view-url', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    const walletInvoiceId = typeof req.query.id === 'string' ? req.query.id.trim() : '';
+    const paymentId = typeof req.query.paymentId === 'string' ? req.query.paymentId.trim() : '';
+    if (!walletInvoiceId && !paymentId) {
+      res.status(400).json({ error: '보기 대상이 없습니다.' });
+      return;
+    }
+    const url = await getTenantWalletTaxInvoiceViewUrl(tenantId, {
+      walletInvoiceId: walletInvoiceId || undefined,
+      paymentId: paymentId || undefined,
+    });
+    res.json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '영수증을 열 수 없습니다.' });
+  }
 });
 
 export default router;

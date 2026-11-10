@@ -25,6 +25,9 @@ import {
   type AlimtalkChargeRequestDto,
 } from './alimtalkChargeRequest.service.js';
 
+import type { ChargeTaxInvoiceInfo, ChargeCardReceiptInfo } from '../wallet/walletChargeReceiptEnrich.service.js';
+import { enrichChargesWithReceipts } from '../wallet/walletChargeReceiptEnrich.service.js';
+
 export type AlimtalkChargeLogDto = {
   id: string;
   amountKrw: number;
@@ -35,17 +38,8 @@ export type AlimtalkChargeLogDto = {
   kind: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
   reason: string | null;
   tenantLabel: string;
-  taxInvoice: {
-    status: 'PENDING' | 'ISSUED' | 'FAILED' | 'SKIPPED' | 'NONE';
-    ntsConfirmNum: string | null;
-    paymentId: string | null;
-    walletInvoiceId: string | null;
-    label: string;
-  };
-  cardReceipt: {
-    paymentId: string | null;
-    approvalNo: string | null;
-  } | null;
+  taxInvoice: ChargeTaxInvoiceInfo;
+  cardReceipt: ChargeCardReceiptInfo;
 };
 
 export type AlimtalkSettingsForPlatform = {
@@ -84,7 +78,28 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
   const recentChargeLogs = await listRecentAlimtalkChargeLogs(tenantId, 10);
   const pendingChargeRequests = await listPendingAlimtalkChargeRequestsForTenant(tenantId);
   const monthUsage = await walletMonthUsage(tenantId);
-  const enrichedLogs = await enrichChargeLogsWithReceipts(tenantId, recentChargeLogs);
+  const receipts = await enrichChargesWithReceipts(
+    tenantId,
+    recentChargeLogs.map((log) => ({
+      id: log.id,
+      amountKrw: log.amountKrw,
+      createdAt: log.createdAt,
+      kind: log.kind,
+    })),
+  );
+  const enrichedLogs: AlimtalkChargeLogDto[] = recentChargeLogs.map((log, i) => ({
+    id: log.id,
+    amountKrw: log.amountKrw,
+    balanceAfterKrw: log.balanceAfterKrw,
+    memo: log.reason,
+    createdAt: log.createdAt.toISOString(),
+    actorName: log.actorName,
+    kind: log.kind,
+    reason: log.reason,
+    tenantLabel: log.tenantLabel,
+    taxInvoice: receipts[i]!.taxInvoice,
+    cardReceipt: receipts[i]!.cardReceipt,
+  }));
 
   return {
     licensed,
@@ -105,133 +120,6 @@ export async function getAlimtalkSettingsForPlatform(tenantId: string): Promise<
     pendingChargeRequests,
     monthUsage,
   };
-}
-
-async function enrichChargeLogsWithReceipts(
-  tenantId: string,
-  logs: Awaited<ReturnType<typeof listRecentAlimtalkChargeLogs>>,
-): Promise<AlimtalkChargeLogDto[]> {
-  if (logs.length === 0) return [];
-
-  const payments = await prisma.usageFeeCardPayment.findMany({
-    where: {
-      tenantId,
-      goodsName: '청소비서 지갑',
-      status: 'APPROVED',
-    },
-    orderBy: { paidAt: 'desc' },
-    take: 40,
-    select: {
-      id: true,
-      payMethod: true,
-      supplyAmountKrw: true,
-      paidAt: true,
-      approvalNo: true,
-      platformWalletInvoice: {
-        select: {
-          id: true,
-          status: true,
-          ntsSendKey: true,
-          error: true,
-        },
-      },
-    },
-  });
-
-  const usedPaymentIds = new Set<string>();
-
-  return logs.map((log) => {
-    const base = {
-      id: log.id,
-      amountKrw: log.amountKrw,
-      balanceAfterKrw: log.balanceAfterKrw,
-      memo: log.reason,
-      createdAt: log.createdAt.toISOString(),
-      actorName: log.actorName,
-      kind: log.kind,
-      reason: log.reason,
-      tenantLabel: log.tenantLabel,
-    };
-
-    if (log.kind === 'grant' || log.kind === 'clawback' || log.kind === 'other') {
-      return {
-        ...base,
-        taxInvoice: {
-          status: 'NONE' as const,
-          ntsConfirmNum: null,
-          paymentId: null,
-          walletInvoiceId: null,
-          label: '해당 없음',
-        },
-        cardReceipt: null,
-      };
-    }
-
-    const match = payments.find((p) => {
-      if (usedPaymentIds.has(p.id)) return false;
-      if (p.supplyAmountKrw !== log.amountKrw) return false;
-      const delta = Math.abs(p.paidAt.getTime() - log.createdAt.getTime());
-      if (delta > 5 * 60_000) return false;
-      if (log.kind === 'card') return p.payMethod === 'KEYIN' || p.payMethod === 'PAY_WINDOW';
-      if (log.kind === 'paid') return p.payMethod === 'BANK';
-      return true;
-    });
-
-    if (match) usedPaymentIds.add(match.id);
-
-    if (log.kind === 'card' || (match && (match.payMethod === 'KEYIN' || match.payMethod === 'PAY_WINDOW'))) {
-      return {
-        ...base,
-        taxInvoice: {
-          status: 'NONE' as const,
-          ntsConfirmNum: null,
-          paymentId: match?.id ?? null,
-          walletInvoiceId: null,
-          label: '해당 없음(카드)',
-        },
-        cardReceipt: match
-          ? { paymentId: match.id, approvalNo: match.approvalNo }
-          : null,
-      };
-    }
-
-    const wi = match?.platformWalletInvoice;
-    if (!wi) {
-      return {
-        ...base,
-        taxInvoice: {
-          status: log.kind === 'paid' ? ('PENDING' as const) : ('NONE' as const),
-          ntsConfirmNum: null,
-          paymentId: match?.id ?? null,
-          walletInvoiceId: null,
-          label: log.kind === 'paid' ? '발행 준비 중' : '해당 없음',
-        },
-        cardReceipt: null,
-      };
-    }
-
-    const status = wi.status as 'PENDING' | 'ISSUED' | 'FAILED' | 'SKIPPED';
-    const label =
-      status === 'ISSUED'
-        ? '발행됨'
-        : status === 'PENDING'
-          ? '발행 준비 중'
-          : status === 'FAILED'
-            ? '발행 실패'
-            : '해당 없음';
-
-    return {
-      ...base,
-      taxInvoice: {
-        status,
-        ntsConfirmNum: wi.ntsSendKey,
-        paymentId: match?.id ?? null,
-        walletInvoiceId: wi.id,
-        label,
-      },
-      cardReceipt: null,
-    };
-  });
 }
 
 const WALLET_MONTH_BUCKETS: { key: 'alimtalk' | 'cashbill' | 'taxinvoice'; label: string; types: WalletUsageType[] }[] = [

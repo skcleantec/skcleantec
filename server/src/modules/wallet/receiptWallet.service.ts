@@ -5,9 +5,19 @@ import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.
 import { ensurePlatformBillingSettings } from '../billing/tenantBilling.service.js';
 import { isPaymentTestAmountEnabled } from '../../lib/paymentTestAmount.js';
 import { ensureTenantAlimtalkDefaults, walletChargePresentation } from '../alimtalk/alimtalkWallet.service.js';
+import { getWalletInvoiceViewUrl } from '../platform-receipts/platformWalletInvoice.service.js';
+import {
+  awaitingChargeRequestReceipt,
+  enrichChargesWithReceipts,
+  type ChargeTaxInvoiceInfo,
+  type ChargeCardReceiptInfo,
+} from './walletChargeReceiptEnrich.service.js';
 
 const LEDGER_FILTERS = ['all', 'charge', 'cashbill', 'taxinvoice', 'alimtalk'] as const;
 export type WalletLedgerFilter = (typeof LEDGER_FILTERS)[number];
+
+export type TenantChargeTaxInvoice = ChargeTaxInvoiceInfo;
+export type TenantChargeCardReceipt = ChargeCardReceiptInfo;
 
 export async function getReceiptWalletSummary(tenantId: string) {
   const tenant = await prisma.tenant.findFirst({ where: { id: tenantId }, select: { plan: true, name: true } });
@@ -15,7 +25,7 @@ export async function getReceiptWalletSummary(tenantId: string) {
   await ensureTenantAlimtalkDefaults(tenantId, tenant.plan);
   const monthKey = kstTodayYmd().slice(0, 7);
   const range = kstMonthRangeYm(monthKey);
-  const [wallet, pendingRow, grouped, billing] = await Promise.all([
+  const [wallet, pendingRow, grouped, billing, latestChargeRow] = await Promise.all([
     prisma.tenantAlimtalkWallet.findUnique({ where: { tenantId }, select: { prepaidBalanceKrw: true } }),
     prisma.alimtalkChargeRequest.findFirst({
       where: { tenantId, status: 'PENDING' },
@@ -31,6 +41,11 @@ export async function getReceiptWalletSummary(tenantId: string) {
         })
       : Promise.resolve([]),
     ensurePlatformBillingSettings(),
+    prisma.alimtalkWalletChargeLog.findFirst({
+      where: { tenantId, amountKrw: { gt: 0 } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, amountKrw: true, createdAt: true, memo: true },
+    }),
   ]);
   const balanceKrw = wallet?.prepaidBalanceKrw ?? 0;
   const spent = (prefix: string, kinds: string[]) => {
@@ -60,6 +75,42 @@ export async function getReceiptWalletSummary(tenantId: string) {
     });
     alimtalkKrw += extra._sum.tenantUnitPriceKrw ?? 0;
   }
+
+  let latestCharge: {
+    id: string;
+    amountKrw: number;
+    createdAt: string;
+    taxInvoice: TenantChargeTaxInvoice;
+  } | null = null;
+  if (latestChargeRow) {
+    const shown = walletChargePresentation(latestChargeRow.memo);
+    const [receipt] = await enrichChargesWithReceipts(
+      tenantId,
+      [
+        {
+          id: latestChargeRow.id,
+          amountKrw: latestChargeRow.amountKrw,
+          createdAt: latestChargeRow.createdAt,
+          kind: shown.kind,
+        },
+      ],
+      { tenantFacing: true },
+    );
+    latestCharge = {
+      id: latestChargeRow.id,
+      amountKrw: latestChargeRow.amountKrw,
+      createdAt: latestChargeRow.createdAt.toISOString(),
+      taxInvoice: receipt?.taxInvoice ?? {
+        status: 'NONE',
+        ntsConfirmNum: null,
+        paymentId: null,
+        walletInvoiceId: null,
+        label: '해당 없음',
+        canView: false,
+      },
+    };
+  }
+
   return {
     balanceKrw,
     lowBalance: balanceKrw < WALLET_LOW_BALANCE_KRW,
@@ -67,6 +118,7 @@ export async function getReceiptWalletSummary(tenantId: string) {
     pendingCharge: pendingRow
       ? { amountKrw: pendingRow.amountKrw, createdAt: pendingRow.createdAt.toISOString() }
       : null,
+    latestCharge,
     tenantName: tenant.name,
     testAmountEnabled: isPaymentTestAmountEnabled(),
     month: {
@@ -153,24 +205,74 @@ export async function listReceiptWalletLedger(tenantId: string, filter: WalletLe
     ORDER BY created_at DESC
     LIMIT 30
   `;
+
+  const chargeInputs = rows
+    .filter((row) => row.kind === 'CHARGE')
+    .map((row) => {
+      const shown = walletChargePresentation(row.memo);
+      return {
+        id: row.id,
+        amountKrw: row.amount_krw,
+        createdAt: row.created_at,
+        kind: shown.kind,
+      };
+    });
+  const chargeReceipts = await enrichChargesWithReceipts(tenantId, chargeInputs, { tenantFacing: true });
+  const receiptById = new Map(chargeInputs.map((input, i) => [input.id, chargeReceipts[i]!]));
+
+  const pendingRequests =
+    filter === 'all' || filter === 'charge'
+      ? await prisma.alimtalkChargeRequest.findMany({
+          where: { tenantId, status: 'PENDING' },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: { id: true, amountKrw: true, memo: true, createdAt: true, status: true },
+        })
+      : [];
+
+  const awaiting = awaitingChargeRequestReceipt();
+
   return {
     items: rows.map((row) => {
       const shown = row.kind === 'CHARGE' ? walletChargePresentation(row.memo) : null;
+      const receipt = row.kind === 'CHARGE' ? receiptById.get(row.id) : null;
       return {
         id: row.id,
-        kind: row.kind === 'CHARGE' ? 'CHARGE' as const : 'USAGE' as const,
+        kind: row.kind === 'CHARGE' ? ('CHARGE' as const) : ('USAGE' as const),
         type: row.type,
         amountKrw: row.amount_krw,
         balanceAfterKrw: row.balance_after_krw,
         createdAt: row.created_at.toISOString(),
         memo: shown && shown.kind !== 'other' ? shown.reason : row.memo,
         tenantLabel: shown?.tenantLabel ?? null,
+        chargeKind: shown?.kind ?? null,
+        taxInvoice: receipt?.taxInvoice ?? null,
+        cardReceipt: receipt?.cardReceipt ?? null,
       };
     }),
+    pendingChargeRequests: pendingRequests.map((req) => ({
+      id: req.id,
+      amountKrw: req.amountKrw,
+      memo: req.memo,
+      createdAt: req.createdAt.toISOString(),
+      status: req.status,
+      taxInvoice: awaiting.taxInvoice,
+    })),
     total: Number(totalRows[0]?.n ?? 0),
     trend: trendDesc.reverse().map((row) => ({
       at: row.created_at.toISOString(),
       balanceAfterKrw: row.balance_after_krw,
     })),
   };
+}
+
+export async function getTenantWalletTaxInvoiceViewUrl(
+  tenantId: string,
+  input: { walletInvoiceId?: string; paymentId?: string },
+): Promise<string> {
+  return getWalletInvoiceViewUrl({
+    walletInvoiceId: input.walletInvoiceId,
+    paymentId: input.paymentId,
+    tenantId,
+  });
 }

@@ -43,6 +43,19 @@ export type TenantAlimtalkSettings = {
     createdAt: string;
     tenantLabel?: string;
     reason?: string | null;
+    kind?: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
+    taxInvoice?: {
+      status: 'PENDING' | 'ISSUED' | 'FAILED' | 'SKIPPED' | 'NONE' | 'AWAITING';
+      ntsConfirmNum: string | null;
+      paymentId: string | null;
+      walletInvoiceId: string | null;
+      label: string;
+      canView: boolean;
+    };
+    cardReceipt?: {
+      paymentId: string | null;
+      approvalNo: string | null;
+    } | null;
   }[];
 };
 
