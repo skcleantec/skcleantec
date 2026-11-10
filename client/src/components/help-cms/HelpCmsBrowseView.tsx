@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   fetchPublicHelpCmsArticle,
   fetchPublicHelpCmsArticles,
@@ -12,6 +12,12 @@ import { HelpCmsArticleCard, HelpCmsArticleReadLayout } from './HelpCmsArticleRe
 import { HelpCmsArticlePublicView } from './HelpCmsArticlePublicView';
 import { HelpCmsArticleFeedbackBar } from './HelpCmsArticleFeedbackBar';
 import { HelpCmsHomeView } from './HelpCmsHomeView';
+import { HelpCmsUsageBreadcrumb } from './HelpCmsUsageBreadcrumb';
+import {
+  helpUsageArticlePath,
+  helpUsageHomePath,
+  helpUsageSectionPath,
+} from './helpCmsUsagePaths';
 import { usePublicSeoMeta } from '../../hooks/usePublicSeoMeta';
 
 type Props = {
@@ -168,6 +174,11 @@ export function HelpCmsBrowseView({
     };
   }, [searchQuery]);
 
+  useEffect(() => {
+    if (!sectionSlug && !articleSlug && !searchQuery) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [sectionSlug, articleSlug, searchQuery]);
+
   usePublicSeoMeta({
     title: article?.title
       ? `${article.title} | 청소비서`
@@ -182,14 +193,6 @@ export function HelpCmsBrowseView({
   });
 
   const activeCategory = categories.find((c) => c.slug === sectionSlug) ?? null;
-
-  const openArticle = useCallback(
-    (slug: string, categorySlug?: string) => {
-      onSearchChange(null);
-      onArticleChange(slug, categorySlug ?? sectionSlug);
-    },
-    [onArticleChange, onSearchChange, sectionSlug],
-  );
 
   const goInquiryPrefill = useCallback(
     (prefill: { title: string; bodyHint: string }) => {
@@ -230,12 +233,7 @@ export function HelpCmsBrowseView({
     label: cat.label,
     count: cat.articleCount,
     active: cat.slug === sectionSlug,
-    onSelect: () => {
-      onSearchChange(null);
-      onSectionChange(cat.slug);
-      onArticleChange(null);
-      setSidebarArticlesOpen(true);
-    },
+    href: helpUsageSectionPath(cat.slug),
   }));
 
   const articleSidebar =
@@ -244,22 +242,19 @@ export function HelpCmsBrowseView({
           id: row.id,
           title: row.title,
           active: row.slug === articleSlug,
-          onSelect: () => openArticle(row.slug, sectionSlug),
+          href: helpUsageArticlePath(sectionSlug, row.slug),
         }))
       : [];
 
   if (showSearch) {
     return (
       <HelpCmsArticleCard>
+        <HelpCmsUsageBreadcrumb />
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-bold text-slate-900">「{searchQuery}」 검색 결과</h2>
-          <button
-            type="button"
-            onClick={() => onSearchChange(null)}
-            className="text-fluid-2xs text-slate-500 hover:text-slate-800"
-          >
+          <Link to={helpUsageHomePath()} className="text-[14px] font-semibold text-[#0284c7] hover:underline">
             ← 사용법 홈
-          </button>
+          </Link>
         </div>
         {loading ? (
           <p className="mt-6 text-fluid-sm text-slate-500">검색 중…</p>
@@ -283,9 +278,8 @@ export function HelpCmsBrowseView({
           <ul className="mt-4 divide-y divide-slate-100">
             {searchHits.map((hit) => (
               <li key={hit.slug}>
-                <button
-                  type="button"
-                  onClick={() => openArticle(hit.slug, hit.categorySlug)}
+                <Link
+                  to={helpUsageArticlePath(hit.categorySlug, hit.slug)}
                   className="flex w-full flex-col gap-1 rounded-lg px-2 py-3 text-left hover:bg-slate-50"
                 >
                   <span className="font-semibold text-slate-900">{hit.title}</span>
@@ -295,7 +289,7 @@ export function HelpCmsBrowseView({
                   <span className="inline-flex w-fit rounded-full bg-sky-50 px-2 py-0.5 text-fluid-2xs font-medium text-sky-800">
                     {hit.categoryLabel}
                   </span>
-                </button>
+                </Link>
               </li>
             ))}
           </ul>
@@ -311,12 +305,8 @@ export function HelpCmsBrowseView({
         articlesBySlug={homeArticlesBySlug}
         loadingArticles={loading}
         onSearch={(q) => onSearchChange(q)}
-        onOpenArticle={(section, article) => openArticle(article, section)}
-        onOpenSection={(section) => {
-          onSearchChange(null);
-          onSectionChange(section);
-          onArticleChange(null);
-        }}
+        onOpenArticle={(section, articleSlugNext) => onArticleChange(articleSlugNext, section)}
+        onOpenSection={(section) => onSectionChange(section)}
         onScrollToCategories={() => {
           document.getElementById('help-home-categories')?.scrollIntoView({ behavior: 'smooth' });
         }}
@@ -333,30 +323,16 @@ export function HelpCmsBrowseView({
       showArticleSidebar={Boolean(sectionSlug) && sidebarArticlesOpen}
       articleItems={articleSidebar}
       articlesLoading={loading && Boolean(sectionSlug) && articles.length === 0}
+      showUsageHomeLink
     >
       {articleSlug ? (
         article ? (
           <HelpCmsArticleCard>
-            <nav className="mb-3 text-fluid-2xs text-slate-500">
-              <button
-                type="button"
-                className="hover:text-sky-700 hover:underline"
-                onClick={() => {
-                  onArticleChange(null);
-                  onSectionChange(null);
-                }}
-              >
-                사용법
-              </button>
-              <span className="mx-1">›</span>
-              <button
-                type="button"
-                className="hover:text-sky-700 hover:underline"
-                onClick={() => onArticleChange(null)}
-              >
-                {activeCategory?.label ?? article.categoryLabel}
-              </button>
-            </nav>
+            <HelpCmsUsageBreadcrumb
+              sectionSlug={sectionSlug ?? article.categorySlug}
+              sectionLabel={activeCategory?.label ?? article.categoryLabel}
+              articleTitle={article.title}
+            />
             <HelpCmsArticlePublicView
               title={article.title}
               publishedAt={article.publishedAt}
@@ -378,15 +354,12 @@ export function HelpCmsBrowseView({
         )
       ) : (
         <HelpCmsArticleCard>
+          <HelpCmsUsageBreadcrumb
+            sectionSlug={sectionSlug}
+            sectionLabel={activeCategory?.label ?? sectionSlug}
+          />
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-bold text-slate-900">{activeCategory?.label}</h2>
-            <button
-              type="button"
-              onClick={() => onSectionChange(null)}
-              className="text-fluid-2xs text-slate-500 hover:text-slate-800"
-            >
-              ← 전체 분류
-            </button>
           </div>
           {activeCategory?.description ? (
             <p className="mt-1 text-fluid-sm text-slate-600">{activeCategory.description}</p>
@@ -406,16 +379,15 @@ export function HelpCmsBrowseView({
             <ul className="mt-4 divide-y divide-slate-100">
               {articles.map((row) => (
                 <li key={row.id}>
-                  <button
-                    type="button"
-                    onClick={() => openArticle(row.slug)}
+                  <Link
+                    to={helpUsageArticlePath(sectionSlug!, row.slug)}
                     className="flex w-full flex-col gap-1 rounded-lg px-2 py-3 text-left hover:bg-slate-50"
                   >
                     <span className="font-semibold text-slate-900">{row.title}</span>
                     {row.excerpt ? (
                       <span className="line-clamp-2 text-fluid-2xs text-slate-600">{row.excerpt}</span>
                     ) : null}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>

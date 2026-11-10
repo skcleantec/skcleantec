@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import {
   HELP_CMS_ARTICLE_CARD,
   HELP_CMS_BROWSE_ROW,
@@ -8,12 +9,14 @@ import {
   HELP_CMS_SIDEBAR_ITEM_IDLE,
   HELP_CMS_SIDEBAR_LABEL,
 } from './helpCmsArticleLayout';
+import { helpUsageHomePath } from './helpCmsUsagePaths';
 
 export type HelpCmsSidebarItem = {
   id: string;
   label: string;
   count?: number;
   active?: boolean;
+  href?: string;
   onSelect?: () => void;
 };
 
@@ -22,6 +25,7 @@ export type HelpCmsSidebarArticleItem = {
   title: string;
   active?: boolean;
   muted?: boolean;
+  href?: string;
   onSelect?: () => void;
 };
 
@@ -32,6 +36,8 @@ type Props = {
   articleItems?: HelpCmsSidebarArticleItem[];
   articlesLoading?: boolean;
   showArticleSidebar?: boolean;
+  /** 사이드바 맨 위·모바일 헤더 「사용법 홈」 */
+  showUsageHomeLink?: boolean;
   children: ReactNode;
 };
 
@@ -42,38 +48,60 @@ export function HelpCmsArticleReadLayout({
   articleItems = [],
   articlesLoading = false,
   showArticleSidebar = false,
+  showUsageHomeLink = false,
   children,
 }: Props) {
-  const renderSidebarButton = (
-    item: HelpCmsSidebarItem | HelpCmsSidebarArticleItem,
-    label: string,
-    countEl: ReactNode,
-    idleHover: string,
-  ) => {
-    const className = item.active ? HELP_CMS_SIDEBAR_ITEM_ACTIVE : HELP_CMS_SIDEBAR_ITEM_IDLE;
-    const muted = 'muted' in item && item.muted;
+  const homePath = helpUsageHomePath();
 
-    if (item.onSelect) {
+  const renderNavItem = (
+    key: string,
+    label: string,
+    opts: {
+      active?: boolean;
+      muted?: boolean;
+      href?: string;
+      onSelect?: () => void;
+      countEl?: ReactNode;
+      idleHover: string;
+    },
+  ) => {
+    const className = opts.active ? HELP_CMS_SIDEBAR_ITEM_ACTIVE : HELP_CMS_SIDEBAR_ITEM_IDLE;
+    const extra = `${opts.active ? '' : opts.idleHover} ${opts.muted && !opts.active ? 'text-slate-500' : ''}`;
+
+    if (opts.href) {
       return (
-        <button
-          key={item.id}
-          type="button"
-          onClick={item.onSelect}
+        <Link
+          key={key}
+          to={opts.href}
           title={label}
-          className={`transition-colors ${className} ${item.active ? '' : idleHover} ${
-            muted && !item.active ? 'text-slate-500' : ''
-          }`}
+          className={`transition-colors ${className} ${extra}`}
+          aria-current={opts.active ? 'page' : undefined}
         >
           <span className="line-clamp-2">{label}</span>
-          {countEl}
+          {opts.countEl}
+        </Link>
+      );
+    }
+
+    if (opts.onSelect) {
+      return (
+        <button
+          key={key}
+          type="button"
+          onClick={opts.onSelect}
+          title={label}
+          className={`transition-colors ${className} ${extra}`}
+        >
+          <span className="line-clamp-2">{label}</span>
+          {opts.countEl}
         </button>
       );
     }
 
     return (
-      <div key={item.id} className={`${className} ${muted ? 'text-slate-500' : ''}`}>
+      <div key={key} className={`${className} ${opts.muted ? 'text-slate-500' : ''}`}>
         <span className="line-clamp-2">{label}</span>
-        {countEl}
+        {opts.countEl}
       </div>
     );
   };
@@ -83,7 +111,25 @@ export function HelpCmsArticleReadLayout({
       <aside
         className={`${HELP_CMS_SIDEBAR_ASIDE} lg:sticky lg:top-24 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto lg:overscroll-y-contain`}
       >
-        <p className={HELP_CMS_SIDEBAR_LABEL}>{sidebarLabel}</p>
+        <div className="mb-1 flex items-center justify-between gap-2 px-1">
+          <p className={`${HELP_CMS_SIDEBAR_LABEL} mb-0`}>{sidebarLabel}</p>
+          {showUsageHomeLink ? (
+            <Link
+              to={homePath}
+              className="shrink-0 rounded-md px-2 py-1 text-[13px] font-semibold text-[#0284c7] hover:bg-sky-50 hover:underline lg:hidden"
+            >
+              홈
+            </Link>
+          ) : null}
+        </div>
+
+        {showUsageHomeLink
+          ? renderNavItem('usage-home', '← 사용법 홈', {
+              href: homePath,
+              idleHover: 'hover:bg-sky-50 text-[#0284c7] font-semibold ring-sky-200',
+            })
+          : null}
+
         {sidebarItems.map((item) => {
           const countEl =
             item.count != null ? (
@@ -91,7 +137,13 @@ export function HelpCmsArticleReadLayout({
                 {item.count}
               </span>
             ) : null;
-          return renderSidebarButton(item, item.label, countEl, 'hover:bg-slate-50');
+          return renderNavItem(item.id, item.label, {
+            active: item.active,
+            href: item.href,
+            onSelect: item.onSelect,
+            countEl,
+            idleHover: 'hover:bg-slate-50',
+          });
         })}
 
         {showArticleSidebar ? (
@@ -104,7 +156,13 @@ export function HelpCmsArticleReadLayout({
             ) : (
               <div className="space-y-1">
                 {articleItems.map((item) =>
-                  renderSidebarButton(item, item.title, null, 'hover:bg-slate-50'),
+                  renderNavItem(item.id, item.title, {
+                    active: item.active,
+                    muted: item.muted,
+                    href: item.href,
+                    onSelect: item.onSelect,
+                    idleHover: 'hover:bg-slate-50',
+                  }),
                 )}
               </div>
             )}
