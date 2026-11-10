@@ -42,6 +42,10 @@ import {
   updateTaxInvoiceBuyer,
   deleteTaxInvoiceBuyer,
 } from '../taxinvoice/taxInvoiceBuyer.service.js';
+import {
+  getReceiptIssueSettings,
+  upsertReceiptIssueSettings,
+} from '../receipts/receiptIssueSettings.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -650,6 +654,39 @@ router.get('/view-url', async (req, res) => {
     res.json({ url });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : '영수증을 열 수 없습니다.' });
+  }
+});
+
+// ── 플랫폼 발행 기본설정 ────────────────────────────────────────────────────
+
+router.get('/issue-settings', async (req, res) => {
+  const kindRaw = typeof req.query.kind === 'string' ? req.query.kind.toUpperCase() : '';
+  const kind = kindRaw === 'CASHBILL' || kindRaw === 'TAXINVOICE' ? kindRaw : null;
+  if (!kind) {
+    res.status(400).json({ error: 'kind=CASHBILL|TAXINVOICE 가 필요합니다.' });
+    return;
+  }
+  try {
+    const data = await getReceiptIssueSettings({ type: 'PLATFORM' }, kind, null);
+    res.json({ ...data, canEdit: true });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : '발행 기본설정을 불러오지 못했습니다.' });
+  }
+});
+
+router.put('/issue-settings', async (req, res) => {
+  const body = (req.body ?? {}) as { kind?: unknown; values?: unknown };
+  const kindRaw = typeof body.kind === 'string' ? body.kind.toUpperCase() : '';
+  const kind = kindRaw === 'CASHBILL' || kindRaw === 'TAXINVOICE' ? kindRaw : null;
+  if (!kind) {
+    res.status(400).json({ error: 'kind=CASHBILL|TAXINVOICE 가 필요합니다.' });
+    return;
+  }
+  try {
+    const data = await upsertReceiptIssueSettings({ type: 'PLATFORM' }, kind, null, body.values);
+    res.json({ ...data, canEdit: true });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '발행 기본설정을 저장하지 못했습니다.' });
   }
 });
 

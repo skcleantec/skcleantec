@@ -13,6 +13,7 @@ import {
 } from '../../api/platformReceipts';
 import { createPlatformCashbillAdapter } from '../../components/cashbill/cashbillIssueAdapter';
 import { CashbillIssueForm } from '../../components/cashbill/CashbillIssueForm';
+import { ReceiptIssueSettingsModal } from '../../components/receipts/ReceiptIssueSettingsModal';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import type { CashbillBrand } from '../../api/cashbillIssues';
 import { BTN_PRIMARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
@@ -71,6 +72,7 @@ export function PlatformCashbillTab() {
 
   // 발행 폼 토글
   const [showForm, setShowForm] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // 업체 선택 (플랫폼 발행 시 tenantId)
   const [selectedTenantId, setSelectedTenantId] = useState('');
 
@@ -182,14 +184,20 @@ export function PlatformCashbillTab() {
       <section className={CARD_SECTION}>
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-gray-900">현금영수증 발행</h2>
-          <button
-            type="button"
-            className={BTN_PRIMARY}
-            onClick={() => setShowForm((v) => !v)}
-          >
-            {showForm ? '닫기' : '+ 발행하기'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 hover:bg-slate-50" onClick={() => setSettingsOpen(true)}>
+              설정
+            </button>
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              onClick={() => setShowForm((v) => !v)}
+            >
+              {showForm ? '닫기' : '+ 발행하기'}
+            </button>
+          </div>
         </div>
+        <ReceiptIssueSettingsModal kind="cashbill" mode="platform" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         {showForm ? (
           <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
             {/* 업체 선택 */}

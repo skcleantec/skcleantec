@@ -23,6 +23,7 @@ export function ReceiptListHeader({
   hideIssue,
   statusChip,
   unitPriceKrw,
+  onOpenSettings,
 }: {
   title: string;
   path: string;
@@ -33,6 +34,8 @@ export function ReceiptListHeader({
   statusChip?: ReactNode;
   /** 현금영수증 22 · 세금계산서 150 */
   unitPriceKrw: number;
+  /** 발행 기본설정 모달 */
+  onOpenSettings?: () => void;
 }) {
   const permissions = useMarketerPermissions();
   const canCharge = permissions.me?.role === 'ADMIN';
@@ -75,6 +78,11 @@ export function ReceiptListHeader({
                 충전
               </button>
             )
+          ) : null}
+          {onOpenSettings ? (
+            <button type="button" className={GHOST} onClick={onOpenSettings}>
+              설정
+            </button>
           ) : null}
           {statusChip}
           {hideIssue ? null : (

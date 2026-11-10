@@ -11,6 +11,7 @@ import {
 } from '../../api/platformReceipts';
 import { createPlatformTaxInvoiceAdapter } from '../../components/taxinvoice/taxInvoiceIssueAdapter';
 import { TaxInvoiceIssueWorkspace } from '../../components/taxinvoice/TaxInvoiceIssueWorkspace';
+import { ReceiptIssueSettingsModal } from '../../components/receipts/ReceiptIssueSettingsModal';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { BTN_PRIMARY, CARD_SECTION } from '../../utils/platformUi';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -54,6 +55,7 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
 
   // 발행 폼 표시 여부
   const [showForm, setShowForm] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // 취소
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -155,16 +157,22 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
       <section className={CARD_SECTION}>
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-gray-900">세금계산서 발행</h2>
-          <button
-            type="button"
-            className={BTN_PRIMARY}
-            disabled={!certValid}
-            title={!certValid ? '공동인증서를 먼저 등록해 주세요' : undefined}
-            onClick={() => setShowForm((v) => !v)}
-          >
-            {showForm ? '닫기' : '+ 발행하기'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 hover:bg-slate-50" onClick={() => setSettingsOpen(true)}>
+              설정
+            </button>
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              disabled={!certValid}
+              title={!certValid ? '공동인증서를 먼저 등록해 주세요' : undefined}
+              onClick={() => setShowForm((v) => !v)}
+            >
+              {showForm ? '닫기' : '+ 발행하기'}
+            </button>
+          </div>
         </div>
+        <ReceiptIssueSettingsModal kind="taxinvoice" mode="platform" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         {showForm ? (
           <div className="mt-4 border-t border-gray-100 pt-2">
             <TaxInvoiceIssueWorkspace

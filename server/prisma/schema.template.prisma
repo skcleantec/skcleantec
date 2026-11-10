@@ -334,6 +334,7 @@ model Tenant {
   cashBillIssues CashBillIssue[]
   taxInvoiceIssues TaxInvoiceIssue[]
   taxInvoiceBuyers TaxInvoiceBuyer[]
+  receiptIssueSettings ReceiptIssueSetting[]
   cashbillPlatformHolds CashbillPlatformHold[]
   userOperatingCompanies UserOperatingCompany[]
   partnershipsAsLow TenantPartnership[] @relation("TenantPartnershipLow")
@@ -1722,6 +1723,7 @@ model OperatingCompany {
   barobillMember   BarobillMember? @relation(fields: [barobillMemberId], references: [id], onDelete: SetNull)
   cashBillIssues   CashBillIssue[]
   taxInvoiceIssues TaxInvoiceIssue[]
+  receiptIssueSettings ReceiptIssueSetting[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -5601,6 +5603,26 @@ model PlatformWalletInvoice {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@map("platform_wallet_invoices")
+}
+
+/// 현금영수증·세금계산서 발행 기본값(업체 브랜드별 · 플랫폼 1줄).
+model ReceiptIssueSetting {
+  id                   String   @id @default(uuid())
+  /// TENANT | PLATFORM
+  ownerType            String   @map("owner_type") @db.VarChar(16)
+  tenantId             String?  @map("tenant_id")
+  tenant               Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// TENANT 일 때 영업브랜드. null 이면 업체 공통 기본.
+  operatingCompanyId   String?  @map("operating_company_id")
+  operatingCompany     OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  /// CASHBILL | TAXINVOICE
+  kind                 String   @db.VarChar(16)
+  values               Json
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerType, tenantId, kind])
+  @@map("receipt_issue_settings")
 }
 
 /// 세금계산서 공급받는자 거래처(업체·플랫폼 격리).

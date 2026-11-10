@@ -1,6 +1,6 @@
 import type { Prisma, TaxInvoiceIssue } from '@prisma/client';
 import { issuerNameMap } from '../receipts/receiptHistory.js';
-import { receiptCustomerLabel, receiptNameKey, receiptRealName } from '../receipts/receiptNameSearch.js';
+import { findInquiryIdsByReceiptName, receiptCustomerLabel, receiptRealName } from '../receipts/receiptNameSearch.js';
 import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
 import { resolveBarobillEnv } from '../../lib/barobill/env.js';
@@ -299,6 +299,7 @@ const taxSearchSelect = {
   nickname: true,
   customerPhone: true,
   customerPhone2: true,
+  preferredDate: true,
   createdAt: true,
   operatingCompanyId: true,
   serviceTotalAmount: true,
@@ -322,11 +323,6 @@ async function taxRemainWon(tenantId: string, inquiryId: string, inquiryTotal: n
   return Math.max(0, inquiryTotal - (issued._sum.totalAmount ?? 0));
 }
 
-function taxNameHit(row: TaxSearchRow, key: string): boolean {
-  if (!key) return false;
-  return [row.customerName, row.nickname ?? '', row.orderForm?.customerName ?? ''].some((name) => receiptNameKey(name).includes(key));
-}
-
 async function mapTaxSearch(tenantId: string, found: TaxSearchRow[]) {
   return Promise.all(found.map(async (inquiry) => {
     const quote = inquiry.quotations[0];
@@ -339,6 +335,9 @@ async function mapTaxSearch(tenantId: string, found: TaxSearchRow[]) {
       customerName: realName,
       displayName: receiptCustomerLabel(realName, inquiry.nickname),
       customerPhone: inquiry.customerPhone,
+      preferredDate: inquiry.preferredDate
+        ? inquiry.preferredDate.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)
+        : null,
       brandId: inquiry.operatingCompanyId,
       brandName: inquiry.operatingCompany.name,
       linked: member?.status === 'ACTIVE' && Boolean(member.barobillUserId.trim()),
@@ -361,16 +360,9 @@ export async function searchTaxInvoiceInquiries(tenantId: string, rawQuery: stri
   }
   const q = rawQuery.trim().slice(0, 40);
   const phone = q.replace(/\D/g, '');
-  const key = receiptNameKey(q);
   if (q.length < 2 && phone.length < 3) return [];
-  const recent = key
-    ? await prisma.inquiry.findMany({
-      where: { tenantId, deletedAt: null },
-      select: taxSearchSelect,
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    })
-    : [];
+
+  const nameIds = q.length >= 2 ? await findInquiryIdsByReceiptName(tenantId, q, 20) : [];
   const phoneHits = phone.length >= 3
     ? await prisma.inquiry.findMany({
       where: {
@@ -383,13 +375,19 @@ export async function searchTaxInvoiceInquiries(tenantId: string, rawQuery: stri
       take: 20,
     })
     : [];
+  const nameHits = nameIds.length
+    ? await prisma.inquiry.findMany({
+      where: { tenantId, deletedAt: null, id: { in: nameIds } },
+      select: taxSearchSelect,
+    })
+    : [];
   const merged = new Map<string, TaxSearchRow>();
-  for (const row of [...phoneHits, ...recent]) {
-    if (merged.has(row.id)) continue;
-    const phoneOk = phone.length >= 3 && (row.customerPhone.includes(phone) || (row.customerPhone2 ?? '').includes(phone));
-    if (taxNameHit(row, key) || phoneOk) merged.set(row.id, row);
+  for (const row of [...phoneHits, ...nameHits]) {
+    if (!merged.has(row.id)) merged.set(row.id, row);
   }
-  const picked = [...merged.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 8);
+  const picked = [...merged.values()]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 20);
   return mapTaxSearch(tenantId, picked);
 }
 
