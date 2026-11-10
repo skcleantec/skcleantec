@@ -44,8 +44,15 @@ export function parseHelpCmsTabGroup(raw: unknown): string | null {
   return TAB_GROUPS.has(v) ? v : null;
 }
 
-export function stripDangerousHtml(html: string): string {
+/** 에디터 사진 크기 메뉴가 본문에 섞인 경우 제거 (저장·표시 공통) */
+export function stripImageResizeUiFromHtml(html: string): string {
   return html
+    .replace(/<div[^>]*(?:data-img-resize-ui|cbiseo-img-resize-ui)[^>]*>[\s\S]*?<\/div>/gi, '')
+    .replace(/작게\s*절반\s*크게\s*가득\s*사진 바꾸기/g, '');
+}
+
+export function stripDangerousHtml(html: string): string {
+  return stripImageResizeUiFromHtml(html)
     .replace(/<script\b(?![^>]*type=["']application\/ld\+json["'])[\s\S]*?<\/script>/gi, '')
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/javascript:/gi, '');

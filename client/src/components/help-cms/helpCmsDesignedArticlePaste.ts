@@ -4,6 +4,7 @@ import {
   DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS,
   DESIGNED_ARTICLE_SCOPE_CLASS,
 } from './helpCmsDesignedArticleCss';
+import { stripHelpCmsImageResizeUi } from './helpCmsEditorImageResize';
 
 const CLASS_HINTS = [
   'post-title',
@@ -248,14 +249,14 @@ export function serializeEditorHtmlWithDesigned(editor: EditorLike): string {
       if (node.type.name === 'paragraph' && node.content.size === 0) return;
       onlyDesigned = false;
     });
-    if (onlyDesigned) return designed[0];
+    if (onlyDesigned) return stripHelpCmsImageResizeUi(designed[0]);
   }
   if (designed.length > 0) {
     let html = editor.getHTML();
     for (const block of designed) {
       html = html.replace(/<div[^>]*data-designed-article="1"[^>]*>\s*<\/div>/i, block);
     }
-    return html;
+    return stripHelpCmsImageResizeUi(html);
   }
-  return editor.getHTML();
+  return stripHelpCmsImageResizeUi(editor.getHTML());
 }

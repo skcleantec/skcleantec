@@ -22,26 +22,50 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-function scoreArticle(
-  q: string,
-  row: { title: string; excerpt: string | null; keywords: string[]; bodyHtml: string },
+/** 공백 분리, 1글자 제외, 최대 5개 */
+export function tokenizeHelpSearchQuery(qRaw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of qRaw.trim().slice(0, 120).split(/\s+/)) {
+    const t = part.trim().toLowerCase();
+    if (t.length < 2 || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
+function scoreToken(
+  needle: string,
+  row: { title: string; excerpt: string | null; keywords: string[]; bodyText: string },
 ): number {
-  const needle = q.toLowerCase();
   let score = 0;
   if (row.title.toLowerCase().includes(needle)) score += 100;
   if (row.keywords.some((k) => k.toLowerCase().includes(needle))) score += 50;
   if ((row.excerpt ?? '').toLowerCase().includes(needle)) score += 30;
-  if (stripHtml(row.bodyHtml).toLowerCase().includes(needle)) score += 10;
+  if (row.bodyText.includes(needle)) score += 10;
   return score;
 }
 
-/** 공개 usage 분류의 공개 글만 검색 (제목 > keywords > excerpt > 본문) */
+type Scored = {
+  r: {
+    slug: string;
+    title: string;
+    excerpt: string | null;
+    category: { slug: string; label: string };
+  };
+  matched: number;
+  score: number;
+};
+
+/** 공개 usage 분류의 공개 글만 검색 — 단어별 매칭 + 가중치 */
 export async function searchHelpCmsArticlesPublic(
   qRaw: string,
   limit = 20,
 ): Promise<{ items: HelpCmsSearchHit[] }> {
-  const q = qRaw.trim().slice(0, 80);
-  if (!q) return { items: [] };
+  const tokens = tokenizeHelpSearchQuery(qRaw);
+  if (tokens.length === 0) return { items: [] };
 
   const rows = await prisma.helpCmsArticle.findMany({
     where: {
@@ -58,14 +82,36 @@ export async function searchHelpCmsArticlesPublic(
     },
   });
 
-  const scored = rows
-    .map((r) => ({ r, score: scoreArticle(q, r) }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score || a.r.title.localeCompare(b.r.title, 'ko'))
-    .slice(0, Math.min(50, Math.max(1, limit)));
+  const scored: Scored[] = [];
+  for (const r of rows) {
+    const bodyText = stripHtml(r.bodyHtml).toLowerCase();
+    const fields = {
+      title: r.title,
+      excerpt: r.excerpt,
+      keywords: r.keywords ?? [],
+      bodyText,
+    };
+    let matched = 0;
+    let score = 0;
+    for (const token of tokens) {
+      const s = scoreToken(token, fields);
+      if (s > 0) {
+        matched += 1;
+        score += s;
+      }
+    }
+    if (matched === 0) continue;
+    scored.push({ r, matched, score });
+  }
+
+  scored.sort((a, b) => {
+    if (b.matched !== a.matched) return b.matched - a.matched;
+    if (b.score !== a.score) return b.score - a.score;
+    return a.r.title.localeCompare(b.r.title, 'ko');
+  });
 
   return {
-    items: scored.map(({ r }) => ({
+    items: scored.slice(0, Math.min(50, Math.max(1, limit))).map(({ r }) => ({
       slug: r.slug,
       title: r.title,
       excerpt: r.excerpt,

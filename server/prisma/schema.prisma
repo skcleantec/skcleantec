@@ -1350,7 +1350,7 @@ model HelpInquirySettings {
   contactEmail    String   @default("pyo0829@gmail.com") @map("contact_email") @db.VarChar(256)
   notifyEmail     String   @default("pyo0829@gmail.com") @map("notify_email") @db.VarChar(256)
   composeHelpText String?  @map("compose_help_text") @db.Text
-  categoriesJson  Json     @default("[{\"id\":\"general\",\"label\":\"일반 문의\",\"sortOrder\":0},{\"id\":\"feature\",\"label\":\"기능 요청\",\"sortOrder\":1},{\"id\":\"bug\",\"label\":\"버그 신고\",\"sortOrder\":2}]") @map("categories_json")
+  categoriesJson  Json     @default("[{\"id\":\"general\",\"label\":\"사용 방법\",\"sortOrder\":0},{\"id\":\"billing\",\"label\":\"요금·결제\",\"sortOrder\":1},{\"id\":\"bug\",\"label\":\"오류 신고\",\"sortOrder\":2},{\"id\":\"feature\",\"label\":\"기능 요청\",\"sortOrder\":3},{\"id\":\"sales\",\"label\":\"도입·상담\",\"sortOrder\":4}]") @map("categories_json")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("help_inquiry_settings")
