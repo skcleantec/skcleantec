@@ -24,6 +24,7 @@ export type HelpCmsArticleListItem = {
   title: string;
   excerpt: string | null;
   coverImageUrl: string | null;
+  keywords?: string[];
   sortOrder: number;
   isPublished: boolean;
   publishedAt: string | null;
@@ -31,6 +32,8 @@ export type HelpCmsArticleListItem = {
   authorName: string | null;
   createdAt: string;
   updatedAt: string;
+  feedbackYesCount?: number;
+  feedbackNoCount?: number;
 };
 
 export type HelpCmsArticle = HelpCmsArticleListItem & {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { HelpCmsArticleBody } from '../help-cms/HelpCmsArticleBody';
 import { HelpCmsRichEditor } from '../help-cms/HelpCmsRichEditor';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
@@ -14,6 +15,7 @@ import {
   type PlatformBoardPost,
   type PublicCustomerBoardSettings,
 } from '../../api/publicCustomerBoard';
+import { HelpInquiryComposeAssist } from './HelpInquiryComposeAssist';
 
 type View = 'list' | 'detail' | 'compose';
 
@@ -39,6 +41,8 @@ function formatWhen(iso: string): string {
 
 export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange }: Props) {
   const isInquiry = boardSlug === 'inquiry';
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [settings, setSettings] = useState<PublicCustomerBoardSettings | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [view, setView] = useState<View>(postIdFromUrl ? 'detail' : 'list');
@@ -86,6 +90,23 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
       })
       .catch(() => {});
   }, [isInquiry, view]);
+
+  useEffect(() => {
+    if (!isInquiry) return;
+    if (searchParams.get('compose') !== '1') return;
+    setView('compose');
+    const t = searchParams.get('title');
+    const hint = searchParams.get('hint');
+    if (t) setTitle(t);
+    if (hint) {
+      const safe = hint
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br/>');
+      setBodyHtml(`<p>${safe}</p>`);
+    }
+  }, [isInquiry, searchParams]);
 
   const loadList = useCallback(() => {
     setListLoading(true);
@@ -296,9 +317,17 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
                       onClick={() => openDetail(row.id)}
                       className="group flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-slate-50 sm:px-4"
                     >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-fluid-2xs font-bold text-white">
-                        {isInquiry ? '?' : 'N'}
-                      </span>
+                      {!isInquiry && row.thumbnailUrl ? (
+                        <img
+                          src={row.thumbnailUrl}
+                          alt=""
+                          className="h-14 w-14 shrink-0 rounded-lg object-cover sm:h-16 sm:w-16"
+                        />
+                      ) : (
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-fluid-2xs font-bold text-white sm:h-16 sm:w-16">
+                          {isInquiry ? '?' : 'N'}
+                        </span>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           <span className="truncate text-fluid-sm font-medium text-slate-900 group-hover:text-slate-700">
@@ -403,96 +432,106 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
       ) : null}
 
       {view === 'compose' && isInquiry ? (
-        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-fluid-sm font-bold text-slate-900">문의하기</h2>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1 space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-fluid-sm font-bold text-slate-900">문의하기</h2>
+              <button
+                type="button"
+                onClick={goList}
+                className="text-fluid-xs text-slate-600 hover:text-slate-900"
+              >
+                취소
+              </button>
+            </div>
+            {settings?.composeHelpText ? (
+              <p className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-fluid-2xs text-sky-900">
+                {settings.composeHelpText}
+              </p>
+            ) : null}
+            <label className="block space-y-1">
+              <span className="text-fluid-2xs font-medium text-slate-600">문의 종류</span>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                {settings?.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1">
+                <span className="text-fluid-2xs font-medium text-slate-600">이름</span>
+                <input
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-fluid-2xs font-medium text-slate-600">이메일</span>
+                <input
+                  type="email"
+                  value={authorEmail}
+                  onChange={(e) => setAuthorEmail(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </label>
+            </div>
+            <label className="block space-y-1">
+              <span className="text-fluid-2xs font-medium text-slate-600">제목</span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-fluid-xs text-slate-700">
+              <input
+                type="checkbox"
+                checked={isSecret}
+                onChange={(e) => setIsSecret(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              비밀글 (본문은 작성자 이메일로만 열람)
+            </label>
+            <div>
+              <p className="mb-1 text-fluid-2xs font-medium text-slate-600">내용</p>
+              <HelpCmsRichEditor
+                editorKey="help-inquiry-compose"
+                value={bodyHtml}
+                onChange={setBodyHtml}
+                enterAsLineBreak
+                onUploadImage={(file) => uploadPublicCustomerBoardImage(boardSlug, file)}
+                placeholder="어느 화면에서, 무엇을 눌렀을 때, 어떻게 됐는지 적어 주세요."
+              />
+            </div>
+            {submitMsg ? (
+              <p
+                className={`text-fluid-xs ${submitMsg.includes('실패') ? 'text-red-600' : 'text-emerald-700'}`}
+              >
+                {submitMsg}
+              </p>
+            ) : null}
             <button
               type="button"
-              onClick={goList}
-              className="text-fluid-xs text-slate-600 hover:text-slate-900"
+              disabled={submitting}
+              onClick={() => void handleSubmitInquiry()}
+              className="w-full rounded-lg bg-slate-900 py-2.5 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none sm:w-auto sm:px-8"
             >
-              취소
+              {submitting ? '등록 중…' : '등록'}
             </button>
           </div>
-          {settings?.composeHelpText ? (
-            <p className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-fluid-2xs text-sky-900">
-              {settings.composeHelpText}
-            </p>
-          ) : null}
-          <label className="block space-y-1">
-            <span className="text-fluid-2xs font-medium text-slate-600">카테고리</span>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
-            >
-              {settings?.categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1">
-              <span className="text-fluid-2xs font-medium text-slate-600">이름</span>
-              <input
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-fluid-2xs font-medium text-slate-600">이메일</span>
-              <input
-                type="email"
-                value={authorEmail}
-                onChange={(e) => setAuthorEmail(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
-              />
-            </label>
-          </div>
-          <label className="block space-y-1">
-            <span className="text-fluid-2xs font-medium text-slate-600">제목</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+          <aside className="w-full shrink-0 lg:w-72">
+            <HelpInquiryComposeAssist
+              title={title}
+              onPickArticle={(path) => navigate(path)}
             />
-          </label>
-          <label className="flex items-center gap-2 text-fluid-xs text-slate-700">
-            <input
-              type="checkbox"
-              checked={isSecret}
-              onChange={(e) => setIsSecret(e.target.checked)}
-              className="rounded border-slate-300"
-            />
-            비밀글 (본문은 작성자 이메일로만 열람)
-          </label>
-          <div>
-            <p className="mb-1 text-fluid-2xs font-medium text-slate-600">내용</p>
-            <HelpCmsRichEditor
-              editorKey="help-inquiry-compose"
-              value={bodyHtml}
-              onChange={setBodyHtml}
-              enterAsLineBreak
-              onUploadImage={(file) => uploadPublicCustomerBoardImage(boardSlug, file)}
-              placeholder="문의 내용을 입력하세요. Enter는 한 줄, 사진은 툴바 또는 붙여넣기."
-            />
-          </div>
-          {submitMsg ? (
-            <p className={`text-fluid-xs ${submitMsg.includes('실패') ? 'text-red-600' : 'text-emerald-700'}`}>
-              {submitMsg}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => void handleSubmitInquiry()}
-            className="w-full rounded-lg bg-slate-900 py-2.5 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none sm:w-auto sm:px-8"
-          >
-            {submitting ? '등록 중…' : '등록'}
-          </button>
+          </aside>
         </div>
       ) : null}
     </div>

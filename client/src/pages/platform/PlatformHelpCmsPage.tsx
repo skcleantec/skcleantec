@@ -131,6 +131,8 @@ export function PlatformHelpCmsPage() {
                 <tr className="border-b border-slate-200 text-gray-600">
                   <th className="py-2 px-2 text-center font-medium">제목</th>
                   <th className="py-2 px-2 text-center font-medium">카테고리</th>
+                  <th className="py-2 px-2 text-center font-medium">도움됨</th>
+                  <th className="py-2 px-2 text-center font-medium">안됨</th>
                   <th className="py-2 px-2 text-center font-medium">게시</th>
                   <th className="py-2 px-2 text-center font-medium">수정일</th>
                   <th className="py-2 px-2 text-center font-medium">액션</th>
@@ -144,6 +146,12 @@ export function PlatformHelpCmsPage() {
                       <div className="text-xs text-gray-400">{row.slug}</div>
                     </td>
                     <td className="py-2 px-2 text-center text-gray-700">{row.categoryLabel}</td>
+                    <td className="py-2 px-2 text-center tabular-nums text-emerald-700">
+                      {row.feedbackYesCount ?? 0}
+                    </td>
+                    <td className="py-2 px-2 text-center tabular-nums text-slate-500">
+                      {row.feedbackNoCount ?? 0}
+                    </td>
                     <td className="py-2 px-2 text-center">
                       {row.isPublished ? (
                         <span className="text-emerald-700">게시</span>

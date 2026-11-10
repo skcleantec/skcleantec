@@ -51,24 +51,114 @@ export function sanitizeBoardBodyHtml(html: string): string {
   return stripDangerousHtml(String(html ?? '').trim());
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function inlineMarkdown(text: string): string {
+  let s = escapeHtml(text);
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_m, alt, url) => {
+    const safe = String(url).replace(/"/g, '');
+    return `<img src="${safe}" alt="${escapeHtml(String(alt))}" />`;
+  });
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label, url) => {
+    const safe = String(url).replace(/"/g, '');
+    return `<a href="${safe}" rel="noopener noreferrer">${label}</a>`;
+  });
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  return s;
+}
+
+/** 게시 API 미러 — 굵게·제목·목록·표·이미지를 HTML로 */
 export function markdownWithImagesToHtml(bodyMarkdown: string, imageUrls: string[]): string {
-  const lines = bodyMarkdown.split('\n');
+  const lines = String(bodyMarkdown ?? '').replace(/\r\n/g, '\n').split('\n');
   const parts: string[] = [];
-  for (const line of lines) {
-    const t = line.trim();
-    if (!t) continue;
-    const escaped = t
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    parts.push(`<p>${escaped}</p>`);
+  let i = 0;
+  let listBuf: string[] = [];
+  let tableBuf: string[] = [];
+
+  const flushList = () => {
+    if (listBuf.length === 0) return;
+    parts.push(`<ul>${listBuf.map((li) => `<li>${inlineMarkdown(li)}</li>`).join('')}</ul>`);
+    listBuf = [];
+  };
+  const flushTable = () => {
+    if (tableBuf.length === 0) return;
+    const rows = tableBuf
+      .filter((row) => !/^\s*\|?\s*:?-{3,}/.test(row.replace(/\|/g, '|')))
+      .map((row) => {
+        const cells = row
+          .replace(/^\|/, '')
+          .replace(/\|$/, '')
+          .split('|')
+          .map((c) => c.trim());
+        return cells;
+      })
+      .filter((cells) => cells.some((c) => c.length > 0));
+    if (rows.length === 0) {
+      tableBuf = [];
+      return;
+    }
+    const [head, ...body] = rows;
+    const thead = `<thead><tr>${head.map((c) => `<th>${inlineMarkdown(c)}</th>`).join('')}</tr></thead>`;
+    const tbody = `<tbody>${body
+      .map((r) => `<tr>${r.map((c) => `<td>${inlineMarkdown(c)}</td>`).join('')}</tr>`)
+      .join('')}</tbody>`;
+    parts.push(`<table>${thead}${tbody}</table>`);
+    tableBuf = [];
+  };
+
+  while (i < lines.length) {
+    const raw = lines[i] ?? '';
+    const t = raw.trim();
+    if (!t) {
+      flushList();
+      flushTable();
+      i += 1;
+      continue;
+    }
+    if (t.includes('|') && (t.startsWith('|') || t.includes('|'))) {
+      flushList();
+      tableBuf.push(t);
+      i += 1;
+      continue;
+    }
+    if (tableBuf.length) flushTable();
+
+    const heading = /^(#{1,3})\s+(.+)$/.exec(t);
+    if (heading) {
+      flushList();
+      const level = heading[1].length;
+      parts.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+      i += 1;
+      continue;
+    }
+
+    const bullet = /^[-*+]\s+(.+)$/.exec(t);
+    if (bullet) {
+      listBuf.push(bullet[1]);
+      i += 1;
+      continue;
+    }
+
+    flushList();
+    parts.push(`<p>${inlineMarkdown(t)}</p>`);
+    i += 1;
   }
+  flushList();
+  flushTable();
+
   for (const url of imageUrls) {
     if (typeof url === 'string' && url.trim()) {
-      parts.push(`<p><img src="${url.trim()}" alt="" /></p>`);
+      parts.push(`<p><img src="${escapeHtml(url.trim())}" alt="" /></p>`);
     }
   }
-  return parts.length > 0 ? parts.join('') : '<p></p>';
+  return parts.length > 0 ? sanitizeBoardBodyHtml(parts.join('')) : '<p></p>';
 }
 
 export function mapBoardError(msg: string): { status: number; error: string } {

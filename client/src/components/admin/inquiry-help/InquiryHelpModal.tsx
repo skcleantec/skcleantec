@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
 import type { HelpUiTokenId } from '@shared/helpUiTokens';
 import {
   INQUIRY_EDIT_SECTION_TITLE_HINTS,
@@ -697,12 +696,14 @@ export function InquiryHelpModal({ open, onClose }: Props) {
         </div>
 
         <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3 sm:px-5 bg-slate-50/80">
-          <Link
-            to="/help"
-            className="text-fluid-2xs sm:text-fluid-xs font-medium text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded"
+          <a
+            href="/help?category=usage&section=intake&article=intake-list"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-fluid-2xs sm:text-fluid-xs font-medium text-sky-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded"
           >
-            도움말 센터에서 더 보기
-          </Link>
+            도움말에서 자세히 보기 →
+          </a>
           <button
             type="button"
             onClick={onClose}

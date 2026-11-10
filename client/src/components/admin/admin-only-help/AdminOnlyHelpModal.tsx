@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import { LineMdIcon } from '../../ui/LineMdIcon';
 import { ModalCloseButton } from '../ModalCloseButton';
+import { HelpCmsDeepLink } from '../../help-cms/HelpCmsDeepLink';
 import type { AdminOnlyHelpPage } from './adminOnlyHelpContent';
 
 type Props = {
@@ -12,6 +14,7 @@ type Props = {
 };
 
 export function AdminOnlyHelpModal({ open, onClose, page }: Props) {
+  const { pathname } = useLocation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
 
@@ -96,7 +99,10 @@ export function AdminOnlyHelpModal({ open, onClose, page }: Props) {
           ) : null}
         </div>
 
-        <div className="shrink-0 border-t border-slate-100 bg-slate-50/90 px-4 py-3">
+        <div className="shrink-0 space-y-2 border-t border-slate-100 bg-slate-50/90 px-4 py-3">
+          <div className="text-center">
+            <HelpCmsDeepLink pathname={pathname} />
+          </div>
           <button
             type="button"
             onClick={onClose}

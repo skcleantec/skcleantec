@@ -169,6 +169,7 @@ router.post('/boards/:slug/posts', platformSuperAdminOnly, async (req, res) => {
     excerpt?: string | null;
     bodyHtml?: string;
     slug?: string | null;
+    thumbnailUrl?: string | null;
     isPinned?: boolean;
     isPublished?: boolean;
   };
@@ -181,6 +182,7 @@ router.post('/boards/:slug/posts', platformSuperAdminOnly, async (req, res) => {
       excerpt: body.excerpt,
       bodyHtml: String(body.bodyHtml ?? ''),
       slug: body.slug,
+      thumbnailUrl: body.thumbnailUrl,
       isPinned: body.isPinned,
       isPublished: body.isPublished,
       authorPlatformUserId: platformReq.platformUser?.platformUserId ?? null,
@@ -201,6 +203,7 @@ router.patch('/posts/:id', platformSuperAdminOnly, async (req, res) => {
     excerpt?: string | null;
     bodyHtml?: string;
     slug?: string | null;
+    thumbnailUrl?: string | null;
     isPinned?: boolean;
     isPublished?: boolean;
     status?: 'OPEN' | 'ANSWERED' | 'HIDDEN';

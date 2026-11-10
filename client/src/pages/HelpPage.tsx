@@ -30,6 +30,7 @@ export function HelpPage() {
   const sectionParam = searchParams.get('section') || '';
   const articleParam = searchParams.get('article') || '';
   const postParam = searchParams.get('post') || '';
+  const cmsSearchQ = searchParams.get('q') || '';
   const hasRoleParam = searchParams.has('role');
 
   const [mainCategory, setMainCategory] = useState<MainCategory>(categoryParam);
@@ -114,6 +115,23 @@ export function HelpPage() {
         next.delete('role');
         next.delete('chapter');
         next.delete('q');
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const setCmsSearch = useCallback(
+    (q: string | null) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('category', 'usage');
+        next.delete('section');
+        next.delete('article');
+        next.delete('role');
+        next.delete('chapter');
+        if (q?.trim()) next.set('q', q.trim());
+        else next.delete('q');
         return next;
       });
     },
@@ -250,8 +268,10 @@ export function HelpPage() {
               tabGroup="usage"
               sectionSlug={sectionParam || null}
               articleSlug={articleParam || null}
+              searchQuery={hasRoleParam ? null : cmsSearchQ || null}
               onSectionChange={setCmsSection}
               onArticleChange={setCmsArticle}
+              onSearchChange={setCmsSearch}
             />
           ) : isAdminGuideView ? (
             <AdminGuideHelpLayout
