@@ -148,6 +148,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '앱·푸시 알림 정책',
       },
       {
+        to: '/admin/team-leaders/wallet',
+        label: '청소비서 지갑',
+        title: '잔액·충전·건당 요금·충전·사용 내역',
+      },
+      {
         to: '/admin/team-leaders/alimtalk',
         label: '알림톡',
         title: '알림톡 이용·충전·발송 설정',

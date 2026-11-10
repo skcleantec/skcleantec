@@ -357,6 +357,11 @@ export const AdminAlimtalkPage = lazyWithRetry(() =>
     default: m.AdminAlimtalkPage,
   }))
 );
+export const AdminWalletPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminWalletPage').then((m) => ({
+    default: m.AdminWalletPage,
+  }))
+);
 export const AdminCashbillSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminCashbillSettingsPage').then((m) => ({
     default: m.AdminCashbillSettingsPage,

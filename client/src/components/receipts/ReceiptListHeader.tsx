@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
@@ -44,9 +45,13 @@ export function ReceiptListHeader({
           <h1 className="text-fluid-lg font-semibold text-slate-900">{title}</h1>
         </PageTitleWithFavorite>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-fluid-sm font-semibold tabular-nums text-slate-900">
+          <Link
+            to="/admin/team-leaders/wallet"
+            className="text-fluid-sm font-semibold tabular-nums text-slate-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            title="청소비서 지갑"
+          >
             지갑 {summary ? won(summary.balanceKrw) : '…'}
-          </span>
+          </Link>
           <span className="text-fluid-xs tabular-nums text-slate-600">건당 {won(unitPriceKrw)}</span>
           <button type="button" className={GHOST} onClick={openHistory}>내역</button>
           {walletShort ? (
