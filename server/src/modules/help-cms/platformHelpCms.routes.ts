@@ -158,6 +158,7 @@ router.post('/articles', async (req, res) => {
     bodyHtml?: string;
     bodyMarkdown?: string | null;
     contentFormat?: string;
+    keywords?: string[];
     sortOrder?: number;
     isPublished?: boolean;
   };
@@ -175,6 +176,7 @@ router.post('/articles', async (req, res) => {
       bodyHtml: body.bodyHtml,
       bodyMarkdown: body.bodyMarkdown,
       contentFormat: body.contentFormat,
+      keywords: body.keywords,
       sortOrder: body.sortOrder,
       isPublished: body.isPublished,
     });
@@ -197,6 +199,7 @@ router.patch('/articles/:id', async (req, res) => {
     bodyHtml?: string;
     bodyMarkdown?: string | null;
     contentFormat?: string;
+    keywords?: string[];
     sortOrder?: number;
     isPublished?: boolean;
   };

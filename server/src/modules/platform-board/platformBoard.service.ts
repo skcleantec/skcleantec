@@ -60,6 +60,7 @@ export type PlatformBoardPostDto = {
   isPublished: boolean;
   publishedAt: string | null;
   viewCount: number;
+  thumbnailUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -130,6 +131,7 @@ function toPostDto(
     isPublished: boolean;
     publishedAt: Date | null;
     viewCount: number;
+    thumbnailUrl?: string | null;
     createdAt: Date;
     updatedAt: Date;
     board: { slug: string; label: string; boardType: PlatformBoardType; settings: unknown };
@@ -167,6 +169,7 @@ function toPostDto(
     isPublished: row.isPublished,
     publishedAt: row.publishedAt?.toISOString() ?? null,
     viewCount: row.viewCount,
+    thumbnailUrl: row.thumbnailUrl ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -472,6 +475,7 @@ export async function createPlatformBoardPost(input: {
   excerpt?: string | null;
   bodyHtml: string;
   slug?: string | null;
+  thumbnailUrl?: string | null;
   isPinned?: boolean;
   isPublished?: boolean;
   authorPlatformUserId?: string | null;
@@ -497,6 +501,7 @@ export async function createPlatformBoardPost(input: {
       title,
       excerpt: input.excerpt?.trim().slice(0, 500) || null,
       bodyHtml,
+      thumbnailUrl: input.thumbnailUrl?.trim().slice(0, 512) || null,
       isPinned: input.isPinned ?? false,
       isPublished: input.isPublished ?? true,
       publishedAt: input.isPublished !== false ? new Date() : null,
@@ -515,6 +520,7 @@ export async function updatePlatformBoardPost(
     excerpt?: string | null;
     bodyHtml?: string;
     slug?: string | null;
+    thumbnailUrl?: string | null;
     isPinned?: boolean;
     isPublished?: boolean;
     status?: PlatformBoardPostStatus;
@@ -543,6 +549,10 @@ export async function updatePlatformBoardPost(
       excerpt: input.excerpt !== undefined ? input.excerpt?.trim().slice(0, 500) || null : undefined,
       bodyHtml,
       slug: input.slug !== undefined ? input.slug?.trim().slice(0, 128) || null : undefined,
+      thumbnailUrl:
+        input.thumbnailUrl !== undefined
+          ? input.thumbnailUrl?.trim().slice(0, 512) || null
+          : undefined,
       isPinned: input.isPinned,
       isPublished: input.isPublished,
       status: input.status,

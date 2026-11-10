@@ -59,6 +59,7 @@ export type PlatformBoardPost = {
   isPublished: boolean;
   publishedAt: string | null;
   viewCount: number;
+  thumbnailUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -8,6 +8,7 @@ import {
   stripDangerousHtml,
   type HelpCmsContentFormat,
 } from './helpCms.helpers.js';
+import { countHelpCmsFeedbackByArticleIds } from './helpCmsSearch.service.js';
 
 export type HelpCmsCategoryDto = {
   id: string;
@@ -35,6 +36,7 @@ export type HelpCmsArticleDto = {
   bodyHtml: string;
   bodyMarkdown: string | null;
   contentFormat: HelpCmsContentFormat;
+  keywords: string[];
   sortOrder: number;
   isPublished: boolean;
   publishedAt: string | null;
@@ -42,6 +44,8 @@ export type HelpCmsArticleDto = {
   authorName: string | null;
   createdAt: string;
   updatedAt: string;
+  feedbackYesCount?: number;
+  feedbackNoCount?: number;
 };
 
 export type HelpCmsArticleListItem = Omit<HelpCmsArticleDto, 'bodyHtml' | 'bodyMarkdown'>;
@@ -98,6 +102,7 @@ export function toArticleDto(row: {
   bodyHtml: string;
   bodyMarkdown: string | null;
   contentFormat: string;
+  keywords?: string[] | null;
   sortOrder: number;
   isPublished: boolean;
   publishedAt: Date | null;
@@ -120,6 +125,7 @@ export function toArticleDto(row: {
     bodyHtml: row.bodyHtml,
     bodyMarkdown: row.bodyMarkdown,
     contentFormat: parseHelpCmsContentFormat(row.contentFormat),
+    keywords: Array.isArray(row.keywords) ? row.keywords : [],
     sortOrder: row.sortOrder,
     isPublished: row.isPublished,
     publishedAt: row.publishedAt?.toISOString() ?? null,
@@ -128,6 +134,18 @@ export function toArticleDto(row: {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+function normalizeKeywords(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const t = item.trim().slice(0, 64);
+    if (t && !out.includes(t)) out.push(t);
+    if (out.length >= 40) break;
+  }
+  return out;
 }
 
 function toListItem(row: HelpCmsArticleDto): HelpCmsArticleListItem {
@@ -309,8 +327,18 @@ export async function listHelpCmsArticlesPlatform(params: {
     prisma.helpCmsArticle.count({ where }),
   ]);
 
+  const feedbackMap = await countHelpCmsFeedbackByArticleIds(rows.map((r) => r.id));
+
   return {
-    items: rows.map((r) => toListItem(toArticleDto(r))),
+    items: rows.map((r) => {
+      const item = toListItem(toArticleDto(r));
+      const fb = feedbackMap.get(r.id);
+      return {
+        ...item,
+        feedbackYesCount: fb?.yes ?? 0,
+        feedbackNoCount: fb?.no ?? 0,
+      };
+    }),
     total,
   };
 }
@@ -477,6 +505,7 @@ export async function createHelpCmsArticle(
     bodyHtml?: string;
     bodyMarkdown?: string | null;
     contentFormat?: HelpCmsContentFormat | string;
+    keywords?: string[];
     sortOrder?: number;
     isPublished?: boolean;
   },
@@ -507,6 +536,7 @@ export async function createHelpCmsArticle(
       bodyHtml: body.bodyHtml,
       bodyMarkdown: body.bodyMarkdown,
       contentFormat: body.contentFormat,
+      keywords: normalizeKeywords(input.keywords),
       sortOrder: input.sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
       isPublished,
       publishedAt: isPublished ? new Date() : null,
@@ -528,6 +558,7 @@ export async function updateHelpCmsArticle(
     bodyHtml?: string;
     bodyMarkdown?: string | null;
     contentFormat?: HelpCmsContentFormat | string;
+    keywords?: string[];
     sortOrder?: number;
     isPublished?: boolean;
   },
@@ -576,6 +607,7 @@ export async function updateHelpCmsArticle(
       ...(input.title !== undefined ? { title: input.title.trim() } : {}),
       ...(input.excerpt !== undefined ? { excerpt: input.excerpt?.trim().slice(0, 500) || null } : {}),
       ...(input.coverImageUrl !== undefined ? { coverImageUrl: input.coverImageUrl?.trim() || null } : {}),
+      ...(input.keywords !== undefined ? { keywords: normalizeKeywords(input.keywords) } : {}),
       ...(bodyPatch
         ? {
             bodyHtml: bodyPatch.bodyHtml,

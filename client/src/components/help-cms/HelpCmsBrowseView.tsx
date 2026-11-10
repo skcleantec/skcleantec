@@ -1,37 +1,49 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   fetchPublicHelpCmsArticle,
   fetchPublicHelpCmsArticles,
   fetchPublicHelpCmsCategories,
+  searchPublicHelpCms,
+  type HelpCmsSearchHit,
 } from '../../api/publicHelpCms';
 import type { HelpCmsArticle, HelpCmsArticleListItem, HelpCmsCategory } from '../../api/platformHelpCms';
 import { HelpCmsArticleCard, HelpCmsArticleReadLayout } from './HelpCmsArticleReadLayout';
 import { HelpCmsArticlePublicView } from './HelpCmsArticlePublicView';
+import { HelpCmsArticleFeedbackBar } from './HelpCmsArticleFeedbackBar';
+import { HelpCmsHomeView } from './HelpCmsHomeView';
 import { usePublicSeoMeta } from '../../hooks/usePublicSeoMeta';
 
 type Props = {
   tabGroup: 'usage' | 'notice';
   sectionSlug: string | null;
   articleSlug: string | null;
+  searchQuery: string | null;
   onSectionChange: (slug: string | null) => void;
   onArticleChange: (slug: string | null, sectionForArticle?: string | null) => void;
+  onSearchChange: (q: string | null) => void;
 };
 
 export function HelpCmsBrowseView({
   tabGroup,
   sectionSlug,
   articleSlug,
+  searchQuery,
   onSectionChange,
   onArticleChange,
+  onSearchChange,
 }: Props) {
+  const navigate = useNavigate();
   const [categories, setCategories] = useState<HelpCmsCategory[]>([]);
   const [articles, setArticles] = useState<HelpCmsArticleListItem[]>([]);
   const [homeArticlesBySlug, setHomeArticlesBySlug] = useState<
     Record<string, HelpCmsArticleListItem[]>
   >({});
   const [article, setArticle] = useState<HelpCmsArticle | null>(null);
+  const [searchHits, setSearchHits] = useState<HelpCmsSearchHit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarArticlesOpen, setSidebarArticlesOpen] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,11 +67,13 @@ export function HelpCmsBrowseView({
     };
   }, [tabGroup]);
 
-  /** 기본 화면 — 분류별 글 목록을 한꺼번에 불러 카드로 보여 준다 */
   useEffect(() => {
-    if (sectionSlug || categories.length === 0) {
-      if (!sectionSlug) setHomeArticlesBySlug({});
-      return;
+    if (sectionSlug || searchQuery || categories.length === 0) {
+      if (!sectionSlug && !searchQuery) {
+        /* home loads below */
+      } else {
+        return;
+      }
     }
     let cancelled = false;
     setLoading(true);
@@ -85,7 +99,7 @@ export function HelpCmsBrowseView({
     return () => {
       cancelled = true;
     };
-  }, [sectionSlug, categories]);
+  }, [sectionSlug, searchQuery, categories]);
 
   useEffect(() => {
     if (!sectionSlug) {
@@ -131,8 +145,35 @@ export function HelpCmsBrowseView({
     };
   }, [articleSlug]);
 
+  useEffect(() => {
+    const q = searchQuery?.trim() ?? '';
+    if (!q) {
+      setSearchHits([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    searchPublicHelpCms(q, 20)
+      .then((items) => {
+        if (!cancelled) setSearchHits(items);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : '검색 실패');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery]);
+
   usePublicSeoMeta({
-    title: article?.title ? `${article.title} | 청소비서` : '사용법 | 청소비서',
+    title: article?.title
+      ? `${article.title} | 청소비서`
+      : searchQuery
+        ? `「${searchQuery}」 검색 | 청소비서`
+        : '사용법 | 청소비서',
     description:
       article?.excerpt?.trim() ||
       article?.title ||
@@ -144,9 +185,23 @@ export function HelpCmsBrowseView({
 
   const openArticle = useCallback(
     (slug: string, categorySlug?: string) => {
+      onSearchChange(null);
       onArticleChange(slug, categorySlug ?? sectionSlug);
     },
-    [onArticleChange, sectionSlug],
+    [onArticleChange, onSearchChange, sectionSlug],
+  );
+
+  const goInquiryPrefill = useCallback(
+    (prefill: { title: string; bodyHint: string }) => {
+      const sp = new URLSearchParams({
+        category: 'inquiry',
+        compose: '1',
+        title: prefill.title,
+        hint: prefill.bodyHint.slice(0, 1500),
+      });
+      navigate(`/help?${sp.toString()}`);
+    },
+    [navigate],
   );
 
   if (loading && categories.length === 0) {
@@ -167,87 +222,141 @@ export function HelpCmsBrowseView({
     );
   }
 
-  return (
-    <HelpCmsArticleReadLayout
-      sidebarItems={categories.map((cat) => ({
-        id: cat.id,
-        label: cat.label,
-        count: cat.articleCount,
-        active: cat.slug === sectionSlug,
-        onSelect: () => {
-          onSectionChange(cat.slug);
-          onArticleChange(null);
-        },
-      }))}
-    >
-      {!sectionSlug ? (
-        <div className="space-y-4">
-          <HelpCmsArticleCard>
-            <h2 className="text-xl font-bold text-slate-900">청소비서 사용법</h2>
-            <p className="mt-2 text-fluid-sm text-slate-600">
-              주제를 고르면 그 분류의 글이 보입니다. 휴대폰에서는 위쪽 분류를 먼저 접어 둡니다.
-            </p>
-          </HelpCmsArticleCard>
-          {loading && Object.keys(homeArticlesBySlug).length === 0 ? (
-            <p className="py-6 text-center text-fluid-sm text-slate-500">글 목록 불러오는 중…</p>
-          ) : (
-            categories.map((cat) => {
-              const rows = homeArticlesBySlug[cat.slug] ?? [];
-              return (
-                <HelpCmsArticleCard key={cat.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSectionChange(cat.slug);
-                      onArticleChange(null);
-                    }}
-                    className="flex w-full items-baseline justify-between gap-2 text-left"
-                  >
-                    <h3 className="text-lg font-bold text-slate-900">{cat.label}</h3>
-                    <span className="shrink-0 text-fluid-2xs tabular-nums text-slate-400">
-                      {cat.articleCount}건
-                    </span>
-                  </button>
-                  {cat.description ? (
-                    <p className="mt-1 text-fluid-sm text-slate-600">{cat.description}</p>
-                  ) : null}
-                  {rows.length === 0 ? (
-                    <p className="mt-4 text-fluid-2xs text-slate-500">게시된 글이 없습니다.</p>
-                  ) : (
-                    <ul className="mt-3 divide-y divide-slate-100">
-                      {rows.map((row) => (
-                        <li key={row.id}>
-                          <button
-                            type="button"
-                            onClick={() => openArticle(row.slug, cat.slug)}
-                            className="flex w-full flex-col gap-0.5 rounded-lg px-1 py-2.5 text-left hover:bg-slate-50"
-                          >
-                            <span className="font-semibold text-slate-900">{row.title}</span>
-                            {row.excerpt ? (
-                              <span className="line-clamp-2 text-fluid-2xs text-slate-600">
-                                {row.excerpt}
-                              </span>
-                            ) : null}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </HelpCmsArticleCard>
-              );
-            })
-          )}
+  const showHome = !sectionSlug && !articleSlug && !searchQuery;
+  const showSearch = Boolean(searchQuery?.trim()) && !articleSlug;
+
+  const sidebarItems = categories.map((cat) => ({
+    id: cat.id,
+    label: cat.label,
+    count: cat.articleCount,
+    active: cat.slug === sectionSlug,
+    onSelect: () => {
+      onSearchChange(null);
+      onSectionChange(cat.slug);
+      onArticleChange(null);
+      setSidebarArticlesOpen(true);
+    },
+  }));
+
+  const articleSidebar =
+    sectionSlug && (articles.length > 0 || loading)
+      ? articles.map((row) => ({
+          id: row.id,
+          title: row.title,
+          active: row.slug === articleSlug,
+          onSelect: () => openArticle(row.slug, sectionSlug),
+        }))
+      : [];
+
+  if (showSearch) {
+    return (
+      <HelpCmsArticleCard>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-bold text-slate-900">「{searchQuery}」 검색 결과</h2>
+          <button
+            type="button"
+            onClick={() => onSearchChange(null)}
+            className="text-fluid-2xs text-slate-500 hover:text-slate-800"
+          >
+            ← 사용법 홈
+          </button>
         </div>
-      ) : articleSlug ? (
-        article ? (
-          <HelpCmsArticleCard>
+        {loading ? (
+          <p className="mt-6 text-fluid-sm text-slate-500">검색 중…</p>
+        ) : searchHits.length === 0 ? (
+          <div className="mt-6 space-y-3">
+            <p className="text-fluid-sm text-slate-600">찾는 답이 없어요.</p>
             <button
               type="button"
-              onClick={() => onArticleChange(null)}
-              className="mb-4 text-fluid-2xs text-slate-500 hover:text-slate-800"
+              onClick={() =>
+                goInquiryPrefill({
+                  title: String(searchQuery ?? ''),
+                  bodyHint: '어느 화면에서, 무엇을 눌렀을 때, 어떻게 됐는지 적어 주세요.',
+                })
+              }
+              className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-semibold text-white"
             >
-              ← {activeCategory?.label ?? '목록'}
+              고객문의로 남기기
             </button>
+          </div>
+        ) : (
+          <ul className="mt-4 divide-y divide-slate-100">
+            {searchHits.map((hit) => (
+              <li key={hit.slug}>
+                <button
+                  type="button"
+                  onClick={() => openArticle(hit.slug, hit.categorySlug)}
+                  className="flex w-full flex-col gap-1 rounded-lg px-2 py-3 text-left hover:bg-slate-50"
+                >
+                  <span className="font-semibold text-slate-900">{hit.title}</span>
+                  {hit.excerpt ? (
+                    <span className="line-clamp-2 text-fluid-2xs text-slate-600">{hit.excerpt}</span>
+                  ) : null}
+                  <span className="inline-flex w-fit rounded-full bg-sky-50 px-2 py-0.5 text-fluid-2xs font-medium text-sky-800">
+                    {hit.categoryLabel}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </HelpCmsArticleCard>
+    );
+  }
+
+  if (showHome) {
+    return (
+      <HelpCmsHomeView
+        categories={categories}
+        articlesBySlug={homeArticlesBySlug}
+        loadingArticles={loading}
+        onSearch={(q) => onSearchChange(q)}
+        onOpenArticle={(section, article) => openArticle(article, section)}
+        onOpenSection={(section) => {
+          onSearchChange(null);
+          onSectionChange(section);
+          onArticleChange(null);
+        }}
+        onScrollToCategories={() => {
+          document.getElementById('help-home-categories')?.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onGoInquiry={() => navigate('/help?category=inquiry')}
+        onGoNotice={() => navigate('/help?category=notice')}
+      />
+    );
+  }
+
+  return (
+    <HelpCmsArticleReadLayout
+      sidebarLabel="카테고리"
+      sidebarItems={sidebarItems}
+      showArticleSidebar={Boolean(sectionSlug) && sidebarArticlesOpen}
+      articleItems={articleSidebar}
+      articlesLoading={loading && Boolean(sectionSlug) && articles.length === 0}
+    >
+      {articleSlug ? (
+        article ? (
+          <HelpCmsArticleCard>
+            <nav className="mb-3 text-fluid-2xs text-slate-500">
+              <button
+                type="button"
+                className="hover:text-sky-700 hover:underline"
+                onClick={() => {
+                  onArticleChange(null);
+                  onSectionChange(null);
+                }}
+              >
+                사용법
+              </button>
+              <span className="mx-1">›</span>
+              <button
+                type="button"
+                className="hover:text-sky-700 hover:underline"
+                onClick={() => onArticleChange(null)}
+              >
+                {activeCategory?.label ?? article.categoryLabel}
+              </button>
+            </nav>
             <HelpCmsArticlePublicView
               title={article.title}
               publishedAt={article.publishedAt}
@@ -256,10 +365,15 @@ export function HelpCmsBrowseView({
               bodyHtml={article.bodyHtml}
               bodyMarkdown={article.bodyMarkdown}
             />
+            <HelpCmsArticleFeedbackBar
+              articleSlug={article.slug}
+              articleTitle={article.title}
+              onAskInquiry={goInquiryPrefill}
+            />
           </HelpCmsArticleCard>
         ) : (
           <HelpCmsArticleCard>
-            <p className="text-fluid-sm text-slate-500 py-8 text-center">글을 불러오는 중…</p>
+            <p className="py-8 text-center text-fluid-sm text-slate-500">글을 불러오는 중…</p>
           </HelpCmsArticleCard>
         )
       ) : (
@@ -277,6 +391,13 @@ export function HelpCmsBrowseView({
           {activeCategory?.description ? (
             <p className="mt-1 text-fluid-sm text-slate-600">{activeCategory.description}</p>
           ) : null}
+          <button
+            type="button"
+            className="mt-3 text-fluid-2xs font-semibold text-sky-700 lg:hidden"
+            onClick={() => setSidebarArticlesOpen((v) => !v)}
+          >
+            {sidebarArticlesOpen ? '글 목록 접기' : '글 목록 펼치기'}
+          </button>
           {loading ? (
             <p className="mt-6 text-fluid-sm text-slate-500">불러오는 중…</p>
           ) : articles.length === 0 ? (
@@ -293,11 +414,6 @@ export function HelpCmsBrowseView({
                     <span className="font-semibold text-slate-900">{row.title}</span>
                     {row.excerpt ? (
                       <span className="line-clamp-2 text-fluid-2xs text-slate-600">{row.excerpt}</span>
-                    ) : null}
-                    {row.publishedAt ? (
-                      <span className="text-fluid-2xs text-slate-400">
-                        {new Date(row.publishedAt).toLocaleDateString('ko-KR')}
-                      </span>
                     ) : null}
                   </button>
                 </li>
