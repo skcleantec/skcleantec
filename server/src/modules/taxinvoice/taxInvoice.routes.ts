@@ -43,6 +43,18 @@ function sendError(res: Response, err: unknown, fallback: string): void {
     res.status(err.statusCode).json({ error: err.message, code: err.code });
     return;
   }
+  if (err instanceof Error) {
+    const msg = err.message;
+    if (
+      msg.includes('체크섬') ||
+      msg.includes('상호') ||
+      msg.includes('찾을 수 없') ||
+      msg.includes('사업자')
+    ) {
+      res.status(400).json({ error: msg });
+      return;
+    }
+  }
   console.error('[tax-invoice]', err instanceof Error ? err.name : 'error');
   res.status(500).json({ error: fallback });
 }
