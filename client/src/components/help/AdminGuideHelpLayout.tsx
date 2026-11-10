@@ -103,18 +103,31 @@ export function AdminGuideHelpLayout({
   }, [chapterParam, activeChapter, setSearchParams]);
 
   useEffect(() => {
+    // CMS 분류(section) 화면에서는 role·chapter를 다시 붙이지 않는다.
+    if (searchParams.get('section')) return;
     if (selectedRole === 'admin' && !activeChapter && !loading && !workflowLoading) {
       setSearchParams(
         (prev) => {
+          if (prev.get('section')) return prev;
           const next = new URLSearchParams(prev);
           next.set('role', 'admin');
           next.set('chapter', defaultHelpGuideChapter(workflowChapter));
+          next.delete('section');
+          next.delete('article');
           return next;
         },
         { replace: true },
       );
     }
-  }, [selectedRole, activeChapter, loading, workflowLoading, workflowChapter, setSearchParams]);
+  }, [
+    selectedRole,
+    activeChapter,
+    loading,
+    workflowLoading,
+    workflowChapter,
+    searchParams,
+    setSearchParams,
+  ]);
 
   const changeChapter = useCallback(
     (chapterId: string) => {

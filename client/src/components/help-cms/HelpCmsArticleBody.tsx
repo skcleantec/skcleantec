@@ -1,8 +1,39 @@
+import { useCallback, type MouseEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { HelpUiEmbed } from '../help/ui/helpUiRegistry';
 import { isHelpUiTokenId } from '@shared/helpUiTokens';
 import { DESIGNED_ARTICLE_FALLBACK_CSS, DESIGNED_ARTICLE_GENERIC_LAYOUT_CSS } from './helpCmsDesignedArticleCss';
 import { isPackagedDesignedArticleHtml } from './helpCmsDesignedArticlePaste';
 import { HelpCmsDesignedArticleView } from './HelpCmsDesignedArticleView';
+
+/** 본문 안 `/help?...` 링크는 SPA로 이동 (전체 새로고침 없이) */
+function useHelpInternalLinkClick() {
+  const navigate = useNavigate();
+  return useCallback(
+    (e: MouseEvent<HTMLElement>) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      const anchor = (e.target as HTMLElement | null)?.closest?.('a');
+      if (!anchor || !(anchor instanceof HTMLAnchorElement)) return;
+      if (anchor.target && anchor.target !== '_self') return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+        return;
+      }
+      try {
+        const url = new URL(href, window.location.origin);
+        if (url.origin !== window.location.origin) return;
+        if (url.pathname !== '/help') return;
+        e.preventDefault();
+        navigate(`${url.pathname}${url.search}${url.hash}`);
+      } catch {
+        /* ignore bad href */
+      }
+    },
+    [navigate],
+  );
+}
 
 const UI_EMBED_RE = /<(?:div|span)[^>]*\sdata-help-ui="([^"]+)"[^>]*>\s*<\/(?:div|span)>/gi;
 
@@ -36,6 +67,7 @@ const ARTICLE_CLASS =
 export function HelpCmsArticleBody({ html }: { html: string }) {
   const parts = splitHelpCmsHtmlParts(html);
   const designed = isPackagedDesignedArticleHtml(html);
+  const onInternalHelpLink = useHelpInternalLinkClick();
 
   return (
     <>
@@ -75,7 +107,10 @@ export function HelpCmsArticleBody({ html }: { html: string }) {
           margin: 0.75rem 0;
         }
       `}</style>
-      <article className={designed ? `${ARTICLE_CLASS} not-prose` : ARTICLE_CLASS}>
+      <article
+        className={designed ? `${ARTICLE_CLASS} not-prose` : ARTICLE_CLASS}
+        onClick={onInternalHelpLink}
+      >
         {parts.map((part, index) => {
           if (part.kind === 'ui') {
             if (isHelpUiTokenId(part.tokenId)) {
