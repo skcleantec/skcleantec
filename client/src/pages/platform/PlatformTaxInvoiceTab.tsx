@@ -2,26 +2,23 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   listPlatformTaxInvoices,
-  issuePlatformTaxInvoice,
   cancelPlatformTaxInvoice,
   fetchPlatformTaxInvoiceMonthStats,
-  fetchPlatformTenantsForBuyer,
+  fetchPlatformReceiptMailUrl,
   downloadPlatformTaxInvoiceExcel,
   type PlatformTaxInvoiceRow,
   type PlatformReceiptMonthStats,
-  type PlatformBuyerTenant,
 } from '../../api/platformReceipts';
-import { BTN_PRIMARY, BTN_SECONDARY, BTN_DANGER, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
+import { createPlatformTaxInvoiceAdapter } from '../../components/taxinvoice/taxInvoiceIssueAdapter';
+import { TaxInvoiceIssueWorkspace } from '../../components/taxinvoice/TaxInvoiceIssueWorkspace';
+import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
+import { BTN_PRIMARY, CARD_SECTION } from '../../utils/platformUi';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { parseListPage } from '../../utils/listPagination';
 import { PlatformReceiptsFilterBar, useReceiptFilterRange } from './PlatformReceiptsFilterBar';
 import { parseReceiptStatus } from './platformReceiptsFilters';
 
 const PAGE_SIZE = 30;
-
-function kstToday(): string {
-  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
-}
 
 function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
@@ -53,31 +50,17 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
   const [items, setItems] = useState<PlatformTaxInvoiceRow[]>([]);
   const [total, setTotal] = useState(0);
   const [listErr, setListErr] = useState<string | null>(null);
-  const [buyers, setBuyers] = useState<PlatformBuyerTenant[]>([]);
   const [exporting, setExporting] = useState(false);
 
-  // Issue form state
+  // 발행 폼 표시 여부
   const [showForm, setShowForm] = useState(false);
-  const [selectedTenantId, setSelectedTenantId] = useState('');
-  const [writeDate, setWriteDate] = useState(kstToday());
-  const [corpNum, setCorpNum] = useState('');
-  const [corpName, setCorpName] = useState('');
-  const [ceoName, setCeoName] = useState('');
-  const [addr, setAddr] = useState('');
-  const [bizType, setBizType] = useState('');
-  const [bizClass, setBizClass] = useState('');
-  const [buyerEmail, setBuyerEmail] = useState('');
-  const [supplyText, setSupplyText] = useState('');
-  const [vatText, setVatText] = useState('');
-  const [autoVat, setAutoVat] = useState(true);
-  const [itemName, setItemName] = useState('청소비서 이용료');
-  const [memo, setMemo] = useState('');
-  const [issuing, setIssuing] = useState(false);
-  const [issueErr, setIssueErr] = useState<string | null>(null);
 
-  // Cancel state
+  // 취소
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
+
+  // 플랫폼 어댑터 (마운트 시 1회 생성)
+  const platformAdapter = useMemo(() => createPlatformTaxInvoiceAdapter(), []);
 
   const listFilter = useMemo(
     () => ({
@@ -108,10 +91,6 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
     }).then(setStats).catch(() => undefined);
   }, [range.from, range.to, status, q]);
 
-  useEffect(() => {
-    fetchPlatformTenantsForBuyer().then((r) => setBuyers(r.items)).catch(() => undefined);
-  }, []);
-
   function patchParams(patch: Record<string, string | null>, resetPage = false) {
     const next = new URLSearchParams(params);
     for (const [key, value] of Object.entries(patch)) {
@@ -120,73 +99,6 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
     }
     if (resetPage) next.set('page', '1');
     setParams(next, { replace: true });
-  }
-
-  const supplyNum = Number(supplyText.replace(/\D/g, '')) || 0;
-  const vatNum = autoVat ? Math.round(supplyNum * 0.1) : (Number(vatText.replace(/\D/g, '')) || 0);
-  const totalNum = supplyNum + vatNum;
-
-  function selectTenant(id: string) {
-    setSelectedTenantId(id);
-    const t = buyers.find((b) => b.id === id);
-    if (t) {
-      setCorpNum(t.corpNum ?? '');
-      setCorpName(t.corpName ?? t.name);
-      setCeoName(t.ceoName ?? '');
-      setAddr(t.addr ?? '');
-      setBizType(t.bizType ?? '');
-      setBizClass(t.bizClass ?? '');
-      setBuyerEmail(t.email ?? '');
-    }
-  }
-
-  async function handleIssue() {
-    if (!certValid) { setIssueErr('공동인증서를 먼저 등록해 주세요.'); return; }
-    if (!corpNum.trim()) { setIssueErr('사업자번호를 입력해 주세요.'); return; }
-    if (!corpName.trim()) { setIssueErr('법인명을 입력해 주세요.'); return; }
-    if (!supplyNum) { setIssueErr('공급가액을 입력해 주세요.'); return; }
-    setIssuing(true);
-    setIssueErr(null);
-    try {
-      await issuePlatformTaxInvoice({
-        tenantId: selectedTenantId || undefined,
-        writeDate,
-        corpNum: corpNum.trim(),
-        corpName: corpName.trim(),
-        ceoName: ceoName.trim() || undefined,
-        addr: addr.trim() || undefined,
-        email: buyerEmail.trim() || undefined,
-        bizType: bizType.trim() || undefined,
-        bizClass: bizClass.trim() || undefined,
-        supplyAmountKrw: supplyNum,
-        vatAmountKrw: vatNum,
-        itemName,
-        memo: memo.trim() || undefined,
-      });
-      setCorpNum('');
-      setCorpName('');
-      setCeoName('');
-      setAddr('');
-      setBizType('');
-      setBizClass('');
-      setBuyerEmail('');
-      setSupplyText('');
-      setVatText('');
-      setMemo('');
-      setSelectedTenantId('');
-      setShowForm(false);
-      fetchPlatformTaxInvoiceMonthStats({
-        from: range.from,
-        to: range.to,
-        status: status || undefined,
-        q: q || undefined,
-      }).then(setStats).catch(() => undefined);
-      loadList();
-    } catch (e) {
-      setIssueErr(e instanceof Error ? e.message : '발행에 실패했습니다.');
-    } finally {
-      setIssuing(false);
-    }
   }
 
   async function handleExport() {
@@ -254,132 +166,26 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
           </button>
         </div>
         {showForm ? (
-          <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-            {issueErr ? (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{issueErr}</p>
-            ) : null}
-
-            {/* 업체 선택 */}
-            <label className="block space-y-1 text-sm text-gray-700">
-              업체 (선택 시 자동 입력)
-              <select
-                value={selectedTenantId}
-                onChange={(e) => selectTenant(e.target.value)}
-                className={`${INPUT_BASE} mt-1`}
-              >
-                <option value="">업체 선택 안 함 (직접 입력)</option>
-                {buyers.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </label>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block space-y-1 text-sm text-gray-700">
-                사업자번호 <span className="text-red-500">*</span>
-                <input
-                  className={`${INPUT_BASE} mt-1`}
-                  value={corpNum}
-                  onChange={(e) => setCorpNum(e.target.value.replace(/\D/g, ''))}
-                  maxLength={10}
-                  placeholder="숫자 10자리"
-                />
-              </label>
-              <label className="block space-y-1 text-sm text-gray-700">
-                법인·상호명 <span className="text-red-500">*</span>
-                <input
-                  className={`${INPUT_BASE} mt-1`}
-                  value={corpName}
-                  onChange={(e) => setCorpName(e.target.value)}
-                  placeholder="주식회사 OO"
-                />
-              </label>
-              <label className="block space-y-1 text-sm text-gray-700">
-                대표자명
-                <input className={`${INPUT_BASE} mt-1`} value={ceoName} onChange={(e) => setCeoName(e.target.value)} placeholder="홍길동" />
-              </label>
-              <label className="block space-y-1 text-sm text-gray-700">
-                업태
-                <input className={`${INPUT_BASE} mt-1`} value={bizType} onChange={(e) => setBizType(e.target.value)} />
-              </label>
-              <label className="block space-y-1 text-sm text-gray-700">
-                종목
-                <input className={`${INPUT_BASE} mt-1`} value={bizClass} onChange={(e) => setBizClass(e.target.value)} />
-              </label>
-              <label className="block space-y-1 text-sm text-gray-700">
-                이메일 (전자계산서 발송)
-                <input type="email" className={`${INPUT_BASE} mt-1`} value={buyerEmail} onChange={(e) => setBuyerEmail(e.target.value)} />
-              </label>
-            </div>
-
-            <label className="block space-y-1 text-sm text-gray-700">
-              주소
-              <input className={`${INPUT_BASE} mt-1`} value={addr} onChange={(e) => setAddr(e.target.value)} />
-            </label>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block space-y-1 text-sm text-gray-700">
-                공급가액 <span className="text-red-500">*</span>
-                <div className="flex items-center gap-1 mt-1">
-                  <input
-                    inputMode="numeric"
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-                    value={supplyNum > 0 ? supplyNum.toLocaleString('ko-KR') : ''}
-                    onChange={(e) => setSupplyText(e.target.value.replace(/\D/g, ''))}
-                  />
-                  <span className="text-sm">원</span>
-                </div>
-              </label>
-              <label className="block space-y-1 text-sm text-gray-700">
-                <span className="flex items-center gap-2">
-                  부가세
-                  <label className="inline-flex items-center gap-1 text-xs text-gray-500 font-normal">
-                    <input
-                      type="checkbox"
-                      checked={autoVat}
-                      onChange={(e) => { setAutoVat(e.target.checked); setVatText(''); }}
-                    />
-                    자동(10%)
-                  </label>
-                </span>
-                <div className="flex items-center gap-1 mt-1">
-                  <input
-                    inputMode="numeric"
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-                    value={autoVat ? (vatNum > 0 ? vatNum.toLocaleString('ko-KR') : '') : (Number(vatText.replace(/\D/g, '')) > 0 ? Number(vatText.replace(/\D/g, '')).toLocaleString('ko-KR') : '')}
-                    readOnly={autoVat}
-                    onChange={(e) => { if (!autoVat) setVatText(e.target.value.replace(/\D/g, '')); }}
-                  />
-                  <span className="text-sm">원</span>
-                </div>
-              </label>
-            </div>
-
-            {totalNum > 0 ? (
-              <p className="text-xs text-gray-500">합계 {won(totalNum)}</p>
-            ) : null}
-
-            <label className="block space-y-1 text-sm text-gray-700">
-              품목명
-              <input className={`${INPUT_BASE} mt-1`} value={itemName} onChange={(e) => setItemName(e.target.value)} />
-            </label>
-
-            <label className="block space-y-1 text-sm text-gray-700">
-              작성일
-              <input type="date" className={`${INPUT_BASE} mt-1`} value={writeDate} max={kstToday()} onChange={(e) => setWriteDate(e.target.value)} />
-            </label>
-
-            <label className="block space-y-1 text-sm text-gray-700">
-              내부 메모 (선택)
-              <textarea className={`${INPUT_BASE} mt-1 min-h-16 resize-none`} value={memo} onChange={(e) => setMemo(e.target.value)} />
-            </label>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className={BTN_SECONDARY} onClick={() => setShowForm(false)}>취소</button>
-              <button type="button" className={BTN_PRIMARY} disabled={issuing} onClick={() => void handleIssue()}>
-                {issuing ? '발행 중…' : '발행하기'}
-              </button>
-            </div>
+          <div className="mt-4 border-t border-gray-100 pt-2">
+            <TaxInvoiceIssueWorkspace
+              embedded
+              adapter={platformAdapter}
+              onDone={(id) => {
+                setShowForm(false);
+                loadList();
+                fetchPlatformTaxInvoiceMonthStats({
+                  from: range.from,
+                  to: range.to,
+                  status: status || undefined,
+                  q: q || undefined,
+                }).then(setStats).catch(() => undefined);
+                // toast with copy buttons would be nice; for now just reload
+                void fetchPlatformReceiptMailUrl('taxinvoice', id, 'mail').then((url) => {
+                  // pre-warm the url — ignore result
+                  void url;
+                }).catch(() => undefined);
+              }}
+            />
           </div>
         ) : null}
       </section>
@@ -410,13 +216,21 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
                 <p className="shrink-0 text-right text-sm tabular-nums text-gray-900">{won(row.totalAmountKrw)}</p>
               </div>
               {row.error ? <p className="mt-1 text-xs text-red-600">{row.error}</p> : null}
-              {row.status === 'ISSUED' ? (
-                <div className="mt-2 flex justify-end">
-                  <button type="button" className={`${BTN_DANGER} py-1 text-xs`} disabled={cancellingId === row.id} onClick={() => void handleCancel(row.id)}>
-                    {cancellingId === row.id ? '취소 중…' : '취소'}
-                  </button>
-                </div>
-              ) : null}
+              <div className="mt-2 flex justify-end gap-2">
+                {row.status === 'ISSUED' ? (
+                  <ReceiptRowMenu
+                    kind="taxinvoice"
+                    issueId={row.id}
+                    official={row.status === 'ISSUED'}
+                    publicToken={null}
+                    copyReady={false}
+                    canCancel={row.status === 'ISSUED'}
+                    cancelling={cancellingId === row.id}
+                    onCancel={() => void handleCancel(row.id)}
+                    mailUrlResolver={(mode) => fetchPlatformReceiptMailUrl('taxinvoice', row.id, mode)}
+                  />
+                ) : null}
+              </div>
             </article>
           ))}
           {items.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">발행 내역이 없습니다.</p> : null}
@@ -433,7 +247,7 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
                 <th className="px-2 py-2 text-right">공급가</th>
                 <th className="px-2 py-2 text-right">부가세</th>
                 <th className="px-2 py-2 text-right">합계</th>
-                <th className="px-2 py-2 text-center">취소</th>
+                <th className="px-2 py-2 text-center">작업</th>
               </tr>
             </thead>
             <tbody>
@@ -450,11 +264,18 @@ export function PlatformTaxInvoiceTab({ certValid = true }: { certValid?: boolea
                   <td className="px-2 py-2 text-right tabular-nums text-xs">{won(row.vatAmountKrw)}</td>
                   <td className="px-2 py-2 text-right tabular-nums font-medium">{won(row.totalAmountKrw)}</td>
                   <td className="px-2 py-2 text-center">
-                    {row.status === 'ISSUED' ? (
-                      <button type="button" className={`${BTN_DANGER} py-1 text-xs`} disabled={cancellingId === row.id} onClick={() => void handleCancel(row.id)}>
-                        {cancellingId === row.id ? '취소 중…' : '취소'}
-                      </button>
-                    ) : '—'}
+                    <ReceiptRowMenu
+                      kind="taxinvoice"
+                      issueId={row.id}
+                      official={row.status === 'ISSUED'}
+                      publicToken={null}
+                      copyReady={false}
+                      canCancel={row.status === 'ISSUED'}
+                      cancelling={cancellingId === row.id}
+                      onCancel={() => void handleCancel(row.id)}
+                      compact
+                      mailUrlResolver={(mode) => fetchPlatformReceiptMailUrl('taxinvoice', row.id, mode)}
+                    />
                   </td>
                 </tr>
               ))}

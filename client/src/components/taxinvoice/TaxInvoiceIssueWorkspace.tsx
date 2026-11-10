@@ -4,15 +4,12 @@ import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { isValidKoreanBizNumberChecksum } from '@shared/authSignup';
 import { isBlankSupplierField, supplierIncompleteMessage } from '@shared/supplierFieldText';
 import {
-  fetchTaxInvoiceSource,
-  issueTaxInvoice,
-  listTaxInvoices,
-  searchTaxInvoiceInquiries,
   taxNtsIssueNotice,
   type TaxInvoiceBrand,
   type TaxInvoiceSearchHit,
   type TaxInvoiceSupplier,
 } from '../../api/taxInvoices';
+import type { PlatformBuyerTenant } from '../../api/platformReceipts';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { SupplierInfoModal } from './SupplierInfoModal';
@@ -21,6 +18,11 @@ import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
 import { ReceiptExtraConfirm } from '../ui/ReceiptExtraConfirm';
 import { TaxInvoiceMobileCards, TaxInvoicePaper, type TaxFormProps } from './TaxInvoiceFormViews';
+import TaxInvoiceBuyerPicker from './TaxInvoiceBuyerPicker';
+import {
+  tenantTaxInvoiceAdapter,
+  type TaxInvoiceIssuerAdapter,
+} from './taxInvoiceIssueAdapter';
 import {
   emptyLine,
   emptyParty,
@@ -87,7 +89,7 @@ function supplierParty(supplier: TaxInvoiceSupplier | null | undefined): TaxPart
   };
 }
 
-export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedded?: boolean; onDone?: (issueId: string) => void } = {}) {
+export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: adapterProp = tenantTaxInvoiceAdapter }: { embedded?: boolean; onDone?: (issueId: string) => void; adapter?: TaxInvoiceIssuerAdapter } = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inquiryId = searchParams.get('inquiryId') || '';
@@ -118,14 +120,28 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
   const [error, setError] = useState<string | null>(null);
   const [draftOffer, setDraftOffer] = useState<TaxInvoiceDraft | null>(null);
   const [supplierOpen, setSupplierOpen] = useState(false);
+  const [saveBuyer, setSaveBuyer] = useState(true);
+  const [buyerTenantId, setBuyerTenantId] = useState('');
+  const [tenantBuyers, setTenantBuyers] = useState<PlatformBuyerTenant[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true, 96);
 
+  // stable adapter ref — prevents dependency churn on callback/effect deps
+  const adapterRef = useRef(adapterProp);
+  adapterRef.current = adapterProp;
+
+  // load tenants for platform buyer picker
+  useEffect(() => {
+    const loadTenants = adapterRef.current.loadTenantBuyers;
+    if (!loadTenants) return;
+    void loadTenants().then(setTenantBuyers).catch(() => undefined);
+  }, []); // only on mount
+
   const reloadBrands = useCallback((announce: boolean) => {
-    listTaxInvoices(new URLSearchParams({ datePreset: 'today', limit: '1' }))
-      .then((res) => {
-        setBrands(res.brands);
-        setBrandId((prev) => prev || res.brands.find((brand) => brand.linked)?.id || res.brands[0]?.id || '');
+    adapterRef.current.loadBrands()
+      .then((loadedBrands) => {
+        setBrands(loadedBrands);
+        setBrandId((prev) => prev || loadedBrands.find((brand) => brand.linked)?.id || loadedBrands[0]?.id || '');
       })
       .catch((err: unknown) => {
         if (announce) setError(err instanceof Error ? err.message : '브랜드를 불러오지 못했습니다.');
@@ -150,9 +166,9 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
   }, [reloadBrands]);
 
   useEffect(() => {
-    if (!inquiryId) return;
+    if (!inquiryId || !adapterRef.current.allowInquiry || !adapterRef.current.searchInquiries) return;
     let stop = false;
-    searchTaxInvoiceInquiries('', inquiryId)
+    adapterRef.current.searchInquiries('', inquiryId)
       .then((items) => {
         if (!stop && items[0]) applyHit(items[0]);
       })
@@ -170,21 +186,25 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
     email: supplier.email,
     contactName: brand?.supplier?.contactName,
   });
-  const supplierBlocked = supplierGap != null;
-  const supplierAttention = isBlankSupplierField(supplier.corpName) || isBlankSupplierField(supplier.ceoName) || isBlankSupplierField(supplier.addr);
+  const supplierBlocked = adapterProp.supplierLocked ? false : supplierGap != null;
+  const supplierAttention = !adapterProp.supplierLocked && (isBlankSupplierField(supplier.corpName) || isBlankSupplierField(supplier.ceoName) || isBlankSupplierField(supplier.addr));
+
   const blocked = brand?.simplified
     ? '간이과세자는 세금계산서를 발행할 수 없습니다'
     : brand && !brand.certValid
-      ? '공동인증서가 없거나 만료되었습니다. 계산서 연결에서 공동인증서 등록을 해 주세요.'
+      ? (adapterProp.supplierLocked
+          ? '관리자가 공동인증서를 등록해야 해요'
+          : '공동인증서가 없거나 만료되었습니다. 계산서 연결에서 공동인증서 등록을 해 주세요.')
       : null;
+
   const digits = buyer.corpNum.replace(/\D/g, '');
   const corpState = digits.length < 10 ? 'empty' : isValidKoreanBizNumberChecksum(digits) ? 'ok' : 'bad';
   const activeKind: TaxKind = exemptLocked ? 'exempt' : taxKind;
 
   useEffect(() => {
-    if (!fromId) return;
+    if (!fromId || !adapterRef.current.loadSource) return;
     let stop = false;
-    fetchTaxInvoiceSource(fromId)
+    adapterRef.current.loadSource(fromId)
       .then((src) => {
         if (stop) return;
         const today = kstToday();
@@ -231,7 +251,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
 
   useEffect(() => {
     if (!brandId || fromId) return;
-    setDraftOffer(readTaxInvoiceDraft(brandId));
+    setDraftOffer(readTaxInvoiceDraft(brandId, adapterRef.current.draftScope));
   }, [brandId, fromId]);
 
   useEffect(() => {
@@ -251,13 +271,14 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
         note,
         credit,
         writeDate,
-      });
+      }, adapterRef.current.draftScope);
     }, 1000);
     return () => window.clearTimeout(handle);
   }, [brandId, draftOffer, buyer, lines, activeKind, purpose, remark, cash, chkBill, note, credit, writeDate]);
+
   const supplySum = lines.reduce((sum, line) => sum + lineSupply(line), 0);
   const taxSum = lines.reduce((sum, line) => sum + lineTax(line, activeKind), 0);
-  const short = summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW;
+  const short = adapterProp.useWallet ? (summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW) : false;
 
   function applyHit(hit: TaxInvoiceSearchHit) {
     setPicked(hit);
@@ -282,16 +303,17 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
   }
 
   async function search() {
+    if (!adapterRef.current.searchInquiries) return;
     setError(null);
     try {
-      setHits(await searchTaxInvoiceInquiries(query));
+      setHits(await adapterRef.current.searchInquiries(query));
     } catch (err) {
       setError(err instanceof Error ? err.message : '접수를 찾지 못했습니다.');
     }
   }
 
   async function submit() {
-    if (supplierGap) {
+    if (!adapterRef.current.supplierLocked && supplierGap) {
       setError(supplierGap);
       return;
     }
@@ -306,7 +328,9 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
     setSaving(true);
     setError(null);
     try {
-      const issued = await issueTaxInvoice({
+      const remainNow = picked && !unmatched && typeof picked.remainingWon === 'number' ? picked.remainingWon : null;
+      const extraNow = remainNow != null ? Math.max(0, supplySum + taxSum - remainNow) : 0;
+      const issued = await adapterRef.current.issue({
         inquiryId: unmatched ? null : picked?.id ?? null,
         operatingCompanyId: unmatched || !picked ? brandId : picked.brandId,
         requestId: crypto.randomUUID(),
@@ -328,11 +352,8 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
         note,
         credit,
         taxKind: activeKind,
-        extraReason: (() => {
-          const remainNow = picked && !unmatched && typeof picked.remainingWon === 'number' ? picked.remainingWon : null;
-          const extraNow = remainNow != null ? Math.max(0, supplySum + taxSum - remainNow) : 0;
-          return extraNow > 0 ? extraReason.trim() : undefined;
-        })(),
+        buyerTenantId: buyerTenantId || undefined,
+        extraReason: extraNow > 0 ? extraReason.trim() : undefined,
         lines: lines.map((line) => ({
           name: line.name,
           month: line.month,
@@ -345,10 +366,33 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
           remark: line.remark,
         })),
       });
-      await reload();
-      clearTaxInvoiceDraft(unmatched || !picked ? brandId : picked.brandId);
-      if (onDone) onDone(issued.id);
-      else navigate('/admin/inquiries/receipts/taxinvoice', { state: { taxIssuedId: issued.id } });
+
+      if (adapterRef.current.useWallet) await reload();
+
+      const draftBrandId = unmatched || !picked ? brandId : picked.brandId;
+      clearTaxInvoiceDraft(draftBrandId, adapterRef.current.draftScope);
+
+      if (saveBuyer && digits.length >= 10) {
+        try {
+          await adapterRef.current.saveBuyerAfterIssue({
+            bizNumber: digits,
+            corpName: buyer.corpName,
+            ceoName: buyer.ceoName || undefined,
+            addr: buyer.addr || undefined,
+            bizType: buyer.bizType || undefined,
+            bizClass: buyer.bizClass || undefined,
+            email: buyer.email || undefined,
+          });
+        } catch {
+          // buyer save failure does NOT block issue success
+        }
+      }
+
+      if (onDone) {
+        onDone(issued.id);
+      } else if (adapterRef.current.mode !== 'platform') {
+        navigate('/admin/inquiries/receipts/taxinvoice', { state: { taxIssuedId: issued.id } });
+      }
     } catch (err) {
       setPreview(false);
       setError(err instanceof Error ? err.message : '세금계산서 발행에 실패했습니다.');
@@ -392,7 +436,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
     taxSum,
     totalSum: supplySum + taxSum,
     taxKind: activeKind,
-    onEditSupplier: brand ? () => setSupplierOpen(true) : undefined,
+    onEditSupplier: (brand && !adapterProp.supplierLocked) ? () => setSupplierOpen(true) : undefined,
     supplierAttention,
   };
 
@@ -416,9 +460,70 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
     setPreview(true);
   }
 
-  const walletLine = short
-    ? '잔액이 부족합니다'
-    : `발행 비용 ${TAXINVOICE_UNIT_PRICE_KRW.toLocaleString('ko-KR')}원 · 지갑 ${summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}`;
+  const walletLine = adapterProp.useWallet
+    ? (short
+        ? '잔액이 부족합니다'
+        : `발행 비용 ${TAXINVOICE_UNIT_PRICE_KRW.toLocaleString('ko-KR')}원 · 지갑 ${summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}`)
+    : `발행 원가 ${adapterProp.unitPriceKrw.toLocaleString('ko-KR')}원`;
+
+  // buyer picker helper
+  function applyBuyerRow(b: Parameters<typeof TaxInvoiceBuyerPicker>[0] extends { onPick: (row: infer R) => void } ? R : never) {
+    setBuyer({
+      corpNum: formatBizInput(b.bizNumber),
+      taxRegId: '',
+      corpName: b.corpName,
+      ceoName: b.ceoName ?? '',
+      addr: b.addr ?? '',
+      bizType: b.bizType ?? '',
+      bizClass: b.bizClass ?? '',
+      email: b.email ?? '',
+    });
+  }
+
+  function applyTenantBuyer(tid: string) {
+    setBuyerTenantId(tid);
+    const t = tenantBuyers.find((b) => b.id === tid);
+    if (t) {
+      setBuyer((prev) => ({
+        ...prev,
+        corpNum: formatBizInput(t.corpNum ?? ''),
+        corpName: t.corpName ?? t.name,
+        ceoName: t.ceoName ?? '',
+        addr: t.addr ?? '',
+        bizType: t.bizType ?? '',
+        bizClass: t.bizClass ?? '',
+        email: t.email ?? '',
+      }));
+    }
+  }
+
+  const buyerPickerRow = (
+    <div className="flex flex-wrap items-center gap-2">
+      <TaxInvoiceBuyerPicker
+        api={adapterProp.buyerApi}
+        onPick={applyBuyerRow}
+        title="거래처 선택"
+      />
+      {adapterProp.loadTenantBuyers && tenantBuyers.length > 0 ? (
+        <select
+          value={buyerTenantId}
+          onChange={(e) => applyTenantBuyer(e.target.value)}
+          className="h-9 rounded-lg bg-white px-2 text-sm ring-1 ring-gray-200"
+          aria-label="청소비서 업체에서 고르기"
+        >
+          <option value="">청소비서 업체에서 고르기</option>
+          {tenantBuyers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      ) : null}
+    </div>
+  );
+
+  const saveBuyerCheckbox = (
+    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-500">
+      <input type="checkbox" checked={saveBuyer} onChange={(e) => setSaveBuyer(e.target.checked)} className="rounded" />
+      이 거래처 저장
+    </label>
+  );
 
   return (
     <div ref={scrollRef} className="taxinvoice-issue modal-form-scroll-surface -mx-4 flex max-h-[calc(100dvh-3.5rem)] min-h-0 flex-col gap-5 overflow-y-auto bg-[#eef0f3] px-4 py-6" onFocusCapture={onFieldFocus}>
@@ -431,7 +536,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
       {blocked ? (
         <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
           {blocked}{' '}
-          {!brand?.simplified ? <Link className="font-medium underline" to="/admin/team-leaders/cashbill">공동인증서 등록</Link> : null}
+          {!brand?.simplified && !adapterProp.supplierLocked ? <Link className="font-medium underline" to="/admin/team-leaders/cashbill">공동인증서 등록</Link> : null}
         </p>
       ) : null}
       {draftOffer ? (
@@ -463,7 +568,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
             type="button"
             className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
             onClick={() => {
-              clearTaxInvoiceDraft(brandId);
+              clearTaxInvoiceDraft(brandId, adapterRef.current.draftScope);
               setDraftOffer(null);
             }}
           >
@@ -473,20 +578,25 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
       ) : null}
       {error ? <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800 ring-1 ring-red-200">{error}</p> : null}
 
+      {/* ── Desktop ── */}
       <section className="hidden flex-col gap-4 lg:flex">
         <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200">
           {embedded ? null : <Link to="/admin/inquiries/receipts/taxinvoice" className="text-sm text-gray-500 hover:text-gray-900">← 목록</Link>}
-          <span className="h-4 w-px bg-gray-200" />
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="shrink-0 text-xs font-medium text-gray-500">접수 연결</span>
-            <form className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-200" onSubmit={(event) => { event.preventDefault(); if (!(picked && !unmatched)) void search(); }}>
-              <svg className="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-              <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="고객명·전화번호로 접수 찾기 (선택)" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
-            </form>
-            {picked && !unmatched ? (
-              <Button size="sm" variant="secondary" onClick={chooseOtherCustomer}>다른 고객</Button>
-            ) : null}
-          </div>
+          {adapterProp.allowInquiry ? (
+            <>
+              <span className="h-4 w-px bg-gray-200" />
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="shrink-0 text-xs font-medium text-gray-500">접수 연결</span>
+                <form className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-200" onSubmit={(event) => { event.preventDefault(); if (!(picked && !unmatched)) void search(); }}>
+                  <svg className="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                  <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="고객명·전화번호로 접수 찾기 (선택)" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
+                </form>
+                {picked && !unmatched ? (
+                  <Button size="sm" variant="secondary" onClick={chooseOtherCustomer}>다른 고객</Button>
+                ) : null}
+              </div>
+            </>
+          ) : null}
           <span className="h-4 w-px bg-gray-200" />
           <div className="flex shrink-0 items-center gap-2">
             <span className="text-xs font-medium text-gray-500">과세 구분</span>
@@ -497,7 +607,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
           ) : null}
         </div>
         <p id="tt-hint" className="-mt-2 px-1 text-xs text-gray-500">{TAX_KIND_HINT[activeKind]}</p>
-        {hits.length > 0 && !picked ? (
+        {adapterProp.allowInquiry && hits.length > 0 && !picked ? (
           <ul className="rounded-xl bg-white ring-1 ring-gray-200">
             {hits.map((hit) => (
               <li key={hit.id}>
@@ -507,7 +617,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
           </ul>
         ) : null}
         <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
-        {!picked || unmatched ? (
+        {(!picked || unmatched) && !adapterProp.supplierLocked ? (
           <label className="flex max-w-xs items-center gap-2 text-xs text-gray-500">
             브랜드
             <select className="h-9 flex-1 rounded-lg bg-white px-2 text-sm ring-1 ring-gray-200" aria-label="브랜드" value={brandId} onChange={(event) => setBrandId(event.target.value)}>
@@ -515,19 +625,28 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
             </select>
           </label>
         ) : null}
+        {/* buyer picker row */}
+        {buyerPickerRow}
         <TaxInvoicePaper {...form} />
         <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/95 px-5 py-3 shadow-[0_-4px_16px_rgba(17,24,39,.06)] ring-1 ring-gray-200 backdrop-blur">
           <p className="w-full text-xs font-medium text-slate-800">{taxNtsIssueNotice(brand)}</p>
           <div className="flex items-center gap-4 text-sm">
             <div><span className="text-gray-500">합계</span> <b className="num ml-1 text-lg">{won(supplySum + taxSum)}원</b></div>
             <span className="h-5 w-px bg-gray-200" />
-            <div className={short ? 'text-red-700' : 'text-gray-500'}>{short ? walletLine : <>발행 비용 <b className="num text-gray-900">150원</b> · 지갑 <span className="num">{summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}</span></>}</div>
+            {adapterProp.useWallet ? (
+              <div className={short ? 'text-red-700' : 'text-gray-500'}>
+                {short ? walletLine : <>발행 비용 <b className="num text-gray-900">150원</b> · 지갑 <span className="num">{summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}</span></>}
+              </div>
+            ) : (
+              <span className="text-gray-500">{walletLine}</span>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {saveBuyerCheckbox}
             {preview ? (
               <button type="button" className="h-11 rounded-lg px-4 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50" onClick={() => setPreview(false)}>다시 수정</button>
             ) : null}
-            {short ? (
+            {adapterProp.useWallet && short ? (
               <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black" onClick={() => openCharge()}>충전하기</button>
             ) : (
               <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
@@ -538,6 +657,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
         </div>
       </section>
 
+      {/* ── Mobile ── */}
       <section className="flex flex-col lg:hidden">
         <header className="flex items-center gap-3 bg-white px-4 py-3 ring-1 ring-gray-200">
           {embedded ? null : <Link to="/admin/inquiries/receipts/taxinvoice" className="flex h-9 w-9 items-center justify-center rounded-full text-lg" aria-label="뒤로">‹</Link>}
@@ -549,24 +669,26 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
           <p className="mt-1.5 text-[11px] text-gray-500">면세를 고르면 「전자계산서」로 바뀌고 세액 칸이 사라집니다.</p>
         </div>
         <div className="space-y-3 px-3 py-3 pb-28">
-          <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-gray-200">
-            <p className="text-[11px] text-gray-500">접수 연결</p>
-            <form className="mt-1 flex gap-2" onSubmit={(event) => { event.preventDefault(); if (!(picked && !unmatched)) void search(); }}>
-              <input className="h-11 min-w-0 flex-1 rounded-lg bg-gray-50 px-3 text-sm ring-1 ring-gray-200" placeholder="고객명·전화번호" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
-              {picked && !unmatched ? (
-                <Button size="sm" variant="secondary" onClick={chooseOtherCustomer}>다른 고객</Button>
+          {adapterProp.allowInquiry ? (
+            <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-gray-200">
+              <p className="text-[11px] text-gray-500">접수 연결</p>
+              <form className="mt-1 flex gap-2" onSubmit={(event) => { event.preventDefault(); if (!(picked && !unmatched)) void search(); }}>
+                <input className="h-11 min-w-0 flex-1 rounded-lg bg-gray-50 px-3 text-sm ring-1 ring-gray-200" placeholder="고객명·전화번호" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
+                {picked && !unmatched ? (
+                  <Button size="sm" variant="secondary" onClick={chooseOtherCustomer}>다른 고객</Button>
+                ) : null}
+              </form>
+              {hits.length > 0 && !picked ? (
+                <ul className="mt-2">
+                  {hits.map((hit) => (
+                    <li key={hit.id}><button type="button" className="w-full py-2 text-left text-sm" onClick={() => { applyHit(hit); setHits([]); }}>{hit.displayName || hit.customerName} · {hit.inquiryNumber}</button></li>
+                  ))}
+                </ul>
               ) : null}
-            </form>
-            {hits.length > 0 && !picked ? (
-              <ul className="mt-2">
-                {hits.map((hit) => (
-                  <li key={hit.id}><button type="button" className="w-full py-2 text-left text-sm" onClick={() => { applyHit(hit); setHits([]); }}>{hit.displayName || hit.customerName} · {hit.inquiryNumber}</button></li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
-          {!picked || unmatched ? (
+          {(!picked || unmatched) && !adapterProp.supplierLocked ? (
             <label className="block text-[11px] text-gray-500">
               브랜드
               <select className="mt-1 h-11 w-full rounded-lg bg-white px-3 text-sm ring-1 ring-gray-200" aria-label="브랜드" value={brandId} onChange={(event) => setBrandId(event.target.value)}>
@@ -574,6 +696,10 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
               </select>
             </label>
           ) : null}
+          {/* buyer picker row (mobile) */}
+          <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-gray-200">
+            {buyerPickerRow}
+          </div>
           <TaxInvoiceMobileCards {...form} />
           <button type="button" className="w-full rounded-xl bg-white py-3 text-[13px] font-medium text-gray-700 ring-1 ring-gray-200" onClick={() => setPaperOpen((open) => !open)}>
             {paperOpen ? '실제 양식 접기' : '실제 양식으로 보기'}
@@ -582,13 +708,18 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
         </div>
         <footer className="fixed inset-x-0 bottom-0 z-[80] border-t border-gray-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 lg:hidden">
           <p className="mb-1 text-center text-[11px] font-medium text-slate-800">{taxNtsIssueNotice(brand)}</p>
-          <p className={`num mb-2 text-center text-[11px] ${short ? 'text-red-700' : 'text-gray-500'}`}>
-            {short ? '잔액이 부족합니다' : `발행 비용 150원 · 잔액 ${summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}`}
-          </p>
+          {adapterProp.useWallet ? (
+            <p className={`num mb-2 text-center text-[11px] ${short ? 'text-red-700' : 'text-gray-500'}`}>
+              {short ? '잔액이 부족합니다' : `발행 비용 150원 · 잔액 ${summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}`}
+            </p>
+          ) : (
+            <p className="num mb-2 text-center text-[11px] text-gray-500">{walletLine}</p>
+          )}
+          <div className="mb-2 flex justify-center">{saveBuyerCheckbox}</div>
           {preview && !short ? (
             <button type="button" className="mb-2 h-11 w-full rounded-xl text-sm font-medium text-gray-700 ring-1 ring-gray-300" onClick={() => setPreview(false)}>다시 수정</button>
           ) : null}
-          {short ? (
+          {adapterProp.useWallet && short ? (
             <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white" onClick={() => openCharge()}>충전하기</button>
           ) : (
             <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
@@ -597,7 +728,8 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone }: { embedde
           )}
         </footer>
       </section>
-      {supplierOpen && brand ? (
+
+      {supplierOpen && brand && !adapterProp.supplierLocked ? (
         <SupplierInfoModal
           operatingCompanyId={brand.id}
           corpNum={supplier.corpNum}

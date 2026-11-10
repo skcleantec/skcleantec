@@ -424,6 +424,101 @@ export async function cancelPlatformWalletInvoice(paymentId: string): Promise<{ 
   return res.json() as Promise<{ ok: true }>;
 }
 
+// ── 플랫폼 거래처(Buyer) CRUD ──────────────────────────────────────────────
+
+export type PlatformTaxInvoiceBuyerRow = {
+  id: string;
+  bizNumber: string;
+  corpName: string;
+  ceoName: string;
+  addr: string;
+  bizType: string;
+  bizClass: string;
+  email: string;
+  email2: string;
+  contactName: string;
+  tel: string;
+  memo: string;
+  lastUsedAt: string;
+  useCount: number;
+};
+
+export type PlatformTaxInvoiceBuyerInput = {
+  bizNumber: string;
+  corpName: string;
+  ceoName?: string;
+  addr?: string;
+  bizType?: string;
+  bizClass?: string;
+  email?: string;
+  email2?: string;
+  contactName?: string;
+  tel?: string;
+  memo?: string;
+};
+
+export type PlatformTaxInvoiceBuyerPatch = Partial<Omit<PlatformTaxInvoiceBuyerInput, 'bizNumber'>>;
+
+export async function listPlatformTaxInvoiceBuyers(q = ''): Promise<PlatformTaxInvoiceBuyerRow[]> {
+  const qs = new URLSearchParams({ limit: '30' });
+  if (q) qs.set('q', q);
+  const res = await fetch(`${API}/platform/receipts/buyers?${qs}`, { headers: platformHeaders() });
+  if (!res.ok) throw new Error(await parseError(res, '거래처 목록을 불러오지 못했습니다.'));
+  const body = (await res.json()) as { items: PlatformTaxInvoiceBuyerRow[] };
+  return body.items;
+}
+
+export async function upsertPlatformTaxInvoiceBuyer(
+  input: PlatformTaxInvoiceBuyerInput,
+): Promise<PlatformTaxInvoiceBuyerRow> {
+  const res = await fetch(`${API}/platform/receipts/buyers`, {
+    method: 'POST',
+    headers: platformHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '거래처를 저장하지 못했습니다.'));
+  return res.json() as Promise<PlatformTaxInvoiceBuyerRow>;
+}
+
+export async function updatePlatformTaxInvoiceBuyer(
+  id: string,
+  patch: PlatformTaxInvoiceBuyerPatch,
+): Promise<PlatformTaxInvoiceBuyerRow> {
+  const res = await fetch(`${API}/platform/receipts/buyers/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: platformHeaders(),
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '거래처를 수정하지 못했습니다.'));
+  return res.json() as Promise<PlatformTaxInvoiceBuyerRow>;
+}
+
+export async function removePlatformTaxInvoiceBuyer(id: string): Promise<void> {
+  const res = await fetch(`${API}/platform/receipts/buyers/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '거래처를 삭제하지 못했습니다.'));
+}
+
+// ── 개별 세금계산서/현금영수증 메일·인쇄 URL ──────────────────────────────
+
+export async function fetchPlatformReceiptMailUrl(
+  kind: 'taxinvoice' | 'cashbill',
+  id: string,
+  mode: 'mail' | 'print' = 'mail',
+): Promise<string> {
+  const path = kind === 'taxinvoice' ? 'tax-invoices' : 'cashbills';
+  const q = new URLSearchParams({ kind: mode });
+  const res = await fetch(`${API}/platform/receipts/${path}/${encodeURIComponent(id)}/mail-url?${q}`, {
+    headers: platformHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, '영수증 주소를 받지 못했습니다.'));
+  const body = (await res.json()) as { url?: string };
+  if (!body.url) throw new Error('영수증 주소를 받지 못했습니다.');
+  return body.url;
+}
+
 export async function fetchPlatformReceiptViewUrl(input: {
   source: 'cashbill' | 'taxinvoice' | 'wallet_taxinvoice';
   id?: string;

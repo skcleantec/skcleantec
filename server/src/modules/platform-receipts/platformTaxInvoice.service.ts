@@ -8,6 +8,7 @@ import {
   cancelIssuedTaxInvoice,
   fetchTaxInvoiceStates,
   fetchTaxInvoiceMailUrl,
+  fetchTaxInvoicePrintUrl,
   type TaxInvoiceLine,
 } from '../taxinvoice/taxInvoice.barobill.js';
 import {
@@ -272,4 +273,14 @@ export async function getPlatformTaxInvoiceViewUrl(id: string, tenantId?: string
   }
   const issuer = readPlatformIssuer();
   return fetchTaxInvoiceMailUrl({ corpNum: issuer.corpNum, mgtKey: record.mgtKey });
+}
+
+export async function getPlatformTaxInvoicePrintUrl(id: string): Promise<string> {
+  const record = await prisma.platformTaxInvoiceIssue.findFirst({ where: { id } });
+  if (!record) throw new Error('세금계산서를 찾을 수 없습니다.');
+  if (record.lastError || record.barobillState === 'ISSUE_CANCEL' || record.barobillState === '5031') {
+    throw new Error('발행된 세금계산서만 인쇄할 수 있습니다.');
+  }
+  const issuer = readPlatformIssuer();
+  return fetchTaxInvoicePrintUrl({ corpNum: issuer.corpNum, userId: issuer.barobillUserId, mgtKey: record.mgtKey });
 }

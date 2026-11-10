@@ -32,6 +32,7 @@ export function ReceiptCopyButtons({
   menu = false,
   shareOnly = false,
   inToast = false,
+  mailUrlResolver,
 }: {
   kind: Kind;
   issueId: string;
@@ -42,18 +43,25 @@ export function ReceiptCopyButtons({
   shareOnly?: boolean;
   /** 결과 팝업 안: 팝업 버튼 모양으로, 감싸는 div 없이 */
   inToast?: boolean;
+  /** 제공 시 tenant 기본 mail-url 대신 이 resolver 를 사용 */
+  mailUrlResolver?: (mode: 'mail' | 'print') => Promise<string>;
 }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [fallback, setFallback] = useState(false);
   const readyCopy = copyReady && Boolean(publicToken);
 
+  async function resolveUrl(mode: 'mail' | 'print'): Promise<string> {
+    if (mailUrlResolver) return mailUrlResolver(mode);
+    return officialUrl(kind, issueId, mode);
+  }
+
   const share = async () => {
     setBusy(true);
     setNote('');
     try {
       const link = official
-        ? await officialUrl(kind, issueId, 'mail')
+        ? await resolveUrl('mail')
         : publicToken
           ? `${window.location.origin}/receipt/${publicToken}`
           : '';
@@ -84,7 +92,7 @@ export function ReceiptCopyButtons({
     setBusy(true);
     setNote('');
     try {
-      const link = await officialUrl(kind, issueId, 'print');
+      const link = await resolveUrl('print');
       const opened = window.open(link, 'cbiseoReceiptPrint', 'popup,width=820,height=760');
       if (!opened) throw new Error('인쇄 창이 브라우저에 막혔습니다. 팝업을 허용해 주세요.');
     } catch (err) {

@@ -333,6 +333,7 @@ model Tenant {
   barobillMembers BarobillMember[]
   cashBillIssues CashBillIssue[]
   taxInvoiceIssues TaxInvoiceIssue[]
+  taxInvoiceBuyers TaxInvoiceBuyer[]
   cashbillPlatformHolds CashbillPlatformHold[]
   userOperatingCompanies UserOperatingCompany[]
   partnershipsAsLow TenantPartnership[] @relation("TenantPartnershipLow")
@@ -5581,6 +5582,36 @@ model PlatformWalletInvoice {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@map("platform_wallet_invoices")
+}
+
+/// 세금계산서 공급받는자 거래처(업체·플랫폼 격리).
+model TaxInvoiceBuyer {
+  id        String   @id @default(uuid())
+  /// TENANT | PLATFORM
+  ownerType String   @map("owner_type") @db.VarChar(16)
+  /// TENANT 일 때만 채움. PLATFORM 은 null.
+  tenantId  String?  @map("tenant_id")
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bizNumber String   @map("biz_number") @db.VarChar(10)
+  corpName  String   @map("corp_name") @db.VarChar(128)
+  ceoName   String   @default("") @map("ceo_name") @db.VarChar(128)
+  addr      String   @default("") @db.VarChar(300)
+  bizType   String   @default("") @map("biz_type") @db.VarChar(64)
+  bizClass  String   @default("") @map("biz_class") @db.VarChar(64)
+  email     String   @default("") @db.VarChar(256)
+  email2    String   @default("") @db.VarChar(256)
+  contactName String @default("") @map("contact_name") @db.VarChar(80)
+  tel       String   @default("") @db.VarChar(40)
+  memo      String   @default("") @db.VarChar(300)
+  lastUsedAt DateTime @default(now()) @map("last_used_at")
+  useCount  Int      @default(0) @map("use_count")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// 유니크 제약은 migration.sql 의 COALESCE partial index 로 처리 (NULL tenantId 대응).
+  @@index([ownerType, tenantId, lastUsedAt(sort: Desc)])
+  @@index([ownerType, tenantId, corpName])
+  @@map("tax_invoice_buyers")
 }
 
 /// 서비스브릿지(플랫폼) 직접 발행 현금영수증.

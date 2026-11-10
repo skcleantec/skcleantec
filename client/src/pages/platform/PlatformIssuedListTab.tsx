@@ -5,12 +5,14 @@ import {
   cancelPlatformTaxInvoice,
   cancelPlatformWalletInvoice,
   downloadPlatformIssuedExcel,
+  fetchPlatformReceiptMailUrl,
   fetchPlatformReceiptViewUrl,
   listPlatformIssuedReceipts,
   type PlatformIssuedReceiptRow,
   type PlatformReceiptMonthStats,
 } from '../../api/platformReceipts';
 import { openReceiptWindow } from '../../components/receipts/receiptListDisplay';
+import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { BTN_DANGER, BTN_SECONDARY, CARD_SECTION } from '../../utils/platformUi';
 import { parseListPage } from '../../utils/listPagination';
@@ -188,8 +190,7 @@ export function PlatformIssuedListTab() {
                 <th className="px-2 py-2 text-center">합계</th>
                 <th className="px-2 py-2 text-center">상태</th>
                 <th className="px-2 py-2 text-center">국세청 승인번호</th>
-                <th className="px-2 py-2 text-center">보기</th>
-                <th className="px-2 py-2 text-center">취소</th>
+                <th className="px-2 py-2 text-center">작업</th>
               </tr>
             </thead>
             <tbody>
@@ -209,7 +210,20 @@ export function PlatformIssuedListTab() {
                   </td>
                   <td className="px-2 py-2 text-center text-xs tabular-nums">{row.ntsConfirmNum ?? '—'}</td>
                   <td className="px-2 py-2 text-center">
-                    {row.canView ? (
+                    {row.source === 'taxinvoice' || row.source === 'cashbill' ? (
+                      <ReceiptRowMenu
+                        kind={row.source}
+                        issueId={row.id}
+                        official={row.status === 'ISSUED'}
+                        publicToken={null}
+                        copyReady={false}
+                        canCancel={row.canCancel}
+                        cancelling={busyId === row.id}
+                        onCancel={() => void cancelRow(row)}
+                        compact
+                        mailUrlResolver={(mode) => fetchPlatformReceiptMailUrl(row.source as 'taxinvoice' | 'cashbill', row.id, mode)}
+                      />
+                    ) : row.canView ? (
                       <button
                         type="button"
                         className={BTN_SECONDARY}
@@ -218,23 +232,7 @@ export function PlatformIssuedListTab() {
                       >
                         영수증 보기
                       </button>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-center">
-                    {row.canCancel ? (
-                      <button
-                        type="button"
-                        className={BTN_DANGER}
-                        disabled={busyId === row.id}
-                        onClick={() => void cancelRow(row)}
-                      >
-                        취소
-                      </button>
-                    ) : (
-                      '—'
-                    )}
+                    ) : '—'}
                   </td>
                 </tr>
               ))}
@@ -253,26 +251,42 @@ export function PlatformIssuedListTab() {
               </p>
               <p className="mt-1 text-sm tabular-nums text-gray-900">{won(row.totalAmountKrw)}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {row.canView ? (
-                  <button
-                    type="button"
-                    className={BTN_SECONDARY}
-                    disabled={busyId === row.id}
-                    onClick={() => void openView(row)}
-                  >
-                    영수증 보기
-                  </button>
-                ) : null}
-                {row.canCancel ? (
-                  <button
-                    type="button"
-                    className={BTN_DANGER}
-                    disabled={busyId === row.id}
-                    onClick={() => void cancelRow(row)}
-                  >
-                    취소
-                  </button>
-                ) : null}
+                {row.source === 'taxinvoice' || row.source === 'cashbill' ? (
+                  <ReceiptRowMenu
+                    kind={row.source}
+                    issueId={row.id}
+                    official={row.status === 'ISSUED'}
+                    publicToken={null}
+                    copyReady={false}
+                    canCancel={row.canCancel}
+                    cancelling={busyId === row.id}
+                    onCancel={() => void cancelRow(row)}
+                    mailUrlResolver={(mode) => fetchPlatformReceiptMailUrl(row.source as 'taxinvoice' | 'cashbill', row.id, mode)}
+                  />
+                ) : (
+                  <>
+                    {row.canView ? (
+                      <button
+                        type="button"
+                        className={BTN_SECONDARY}
+                        disabled={busyId === row.id}
+                        onClick={() => void openView(row)}
+                      >
+                        영수증 보기
+                      </button>
+                    ) : null}
+                    {row.canCancel ? (
+                      <button
+                        type="button"
+                        className={BTN_DANGER}
+                        disabled={busyId === row.id}
+                        onClick={() => void cancelRow(row)}
+                      >
+                        취소
+                      </button>
+                    ) : null}
+                  </>
+                )}
               </div>
             </article>
           ))}

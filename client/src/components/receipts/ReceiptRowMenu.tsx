@@ -18,6 +18,7 @@ export function ReceiptRowMenu({
   onLinkInquiry,
   onModify,
   compact = false,
+  mailUrlResolver,
 }: {
   kind: 'cashbill' | 'taxinvoice';
   issueId: string;
@@ -31,12 +32,14 @@ export function ReceiptRowMenu({
   onModify?: () => void;
   /** 표 작업 칸: ⋯ 28px */
   compact?: boolean;
+  /** 제공 시 tenant 기본 mail-url 대신 이 resolver 사용 */
+  mailUrlResolver?: (mode: 'mail' | 'print') => Promise<string>;
 }) {
   return (
     <AnchoredMenu label="더 보기" size={compact ? 'sm' : 'md'}>
       {(close) => (
         <>
-          <ReceiptCopyButtons kind={kind} issueId={issueId} official={official} publicToken={publicToken} copyReady={copyReady} menu />
+          <ReceiptCopyButtons kind={kind} issueId={issueId} official={official} publicToken={publicToken} copyReady={copyReady} menu mailUrlResolver={mailUrlResolver} />
           {onLinkInquiry ? (
             <button type="button" className={ITEM} onClick={() => { close(); onLinkInquiry(); }}>접수 연결</button>
           ) : null}
