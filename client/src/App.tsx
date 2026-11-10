@@ -118,6 +118,7 @@ import {
   AdminOperatingCompanyPolicyPage,
   AdminNotificationPolicyPage,
   AdminAlimtalkPage,
+  AdminWalletPage,
   AdminCashbillSettingsPage,
   AdminCashbillListPage,
   AdminTaxInvoiceListPage,
@@ -432,6 +433,10 @@ function App() {
             />
             <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
             <Route path="notification-policy" element={<SuspensePage><AdminNotificationPolicyPage /></SuspensePage>} />
+            <Route
+              path="wallet"
+              element={<SuspensePage><AdminWalletPage /></SuspensePage>}
+            />
             <Route
               path="alimtalk"
               element={

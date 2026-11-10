@@ -3,6 +3,11 @@ import { WALLET_LOW_BALANCE_KRW } from '@shared/walletPolicy';
 import { openTenantWalletTaxInvoiceView } from '../../api/receiptWallet';
 import { useReceiptWallet } from './ReceiptWalletProvider';
 
+type Props = {
+  /** 내역 버튼을 모달 대신 앵커/페이지 링크로 쓸 때 */
+  historyHref?: string;
+};
+
 function won(n: number): string {
   return `${Number(n).toLocaleString('ko-KR')}원`;
 }
@@ -26,7 +31,7 @@ const BTN_GHOST =
 const VIEW_BTN =
   'inline min-h-7 rounded border border-slate-300 bg-white px-1.5 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
-export function ReceiptWalletCard() {
+export function ReceiptWalletCard({ historyHref }: Props) {
   const { summary, openCharge, openHistory } = useReceiptWallet();
   const [viewBusy, setViewBusy] = useState(false);
   const [viewError, setViewError] = useState<string | null>(null);
@@ -84,8 +89,18 @@ export function ReceiptWalletCard() {
       ) : null}
       {viewError ? <p className="mt-1 text-fluid-2xs text-red-700">{viewError}</p> : null}
       <div className="mt-2 flex flex-wrap gap-2">
-        <button type="button" className={BTN} onClick={() => openCharge()}>충전하기</button>
-        <button type="button" className={BTN_GHOST} onClick={openHistory}>충전·사용 내역 보기</button>
+        <button type="button" className={BTN} onClick={() => openCharge()}>
+          충전하기
+        </button>
+        {historyHref ? (
+          <a href={historyHref} className={`${BTN_GHOST} inline-flex items-center`}>
+            충전·사용 내역 보기
+          </a>
+        ) : (
+          <button type="button" className={BTN_GHOST} onClick={openHistory}>
+            충전·사용 내역 보기
+          </button>
+        )}
       </div>
     </section>
   );

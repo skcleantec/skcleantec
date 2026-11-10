@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ALIMTALK_TEMPLATE_CODES,
   ALIMTALK_TEMPLATE_LABELS,
@@ -246,7 +247,15 @@ export function AdminAlimtalkPage() {
 
           <section className={CARD}>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-fluid-sm font-semibold text-gray-900">지갑 충전</h2>
+              <h2 className="text-fluid-sm font-semibold text-gray-900">
+                <Link
+                  to="/admin/team-leaders/wallet"
+                  className="underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                >
+                  지갑
+                </Link>{' '}
+                충전
+              </h2>
               <button
                 type="button"
                 className={BTN_PRIMARY}
@@ -256,7 +265,13 @@ export function AdminAlimtalkPage() {
                 충전
               </button>
             </div>
-            <p className="text-fluid-2xs text-gray-500">영수증과 같은 청소비서 지갑입니다. 카드는 바로 반영되고, 무통장 입금은 확인 후 반영됩니다.</p>
+            <p className="text-fluid-2xs text-gray-500">
+              영수증과 같은 청소비서 지갑입니다.{' '}
+              <Link to="/admin/team-leaders/wallet" className="font-medium text-sky-700 hover:underline">
+                잔액·내역 보기
+              </Link>
+              . 카드는 바로 반영되고, 무통장 입금은 확인 후 반영됩니다.
+            </p>
             {chargeOpen ? (
               <WalletChargeModal
                 onClose={() => setChargeOpen(false)}
