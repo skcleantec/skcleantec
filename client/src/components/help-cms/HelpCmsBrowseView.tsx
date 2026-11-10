@@ -230,6 +230,7 @@ export function HelpCmsBrowseView({
   const sidebarItems = categories.map((cat) => ({
     id: cat.id,
     label: cat.label,
+    slug: cat.slug,
     count: cat.articleCount,
     active: cat.slug === sectionSlug,
     href: helpUsageSectionPath(cat.slug),
@@ -316,20 +317,20 @@ export function HelpCmsBrowseView({
   }
 
   const sectionLabel = activeCategory?.label ?? article?.categoryLabel ?? sectionSlug ?? '분류';
-  const relatedArticles = articles
-    .filter((row) => row.slug !== articleSlug)
-    .slice(0, 5);
+  const otherInSection = articles.filter((row) => row.slug !== articleSlug);
+  const relatedArticles = otherInSection.slice(0, 5);
+  const hasMoreRelated = otherInSection.length > 5;
 
   return (
     <HelpCmsArticleReadLayout
-      sidebarLabel="카테고리"
       sidebarItems={sidebarItems}
-      showArticleSidebar={Boolean(sectionSlug)}
       articleItems={articleSidebar}
       articlesLoading={loading && Boolean(sectionSlug) && articles.length === 0}
-      showUsageHomeLink
       mobileSectionLabel={sectionLabel}
       mobileArticleTitle={articleSlug ? article?.title ?? null : null}
+      activeSectionSlug={sectionSlug}
+      activeArticleSlug={articleSlug}
+      activeSectionArticles={articles}
     >
       {articleSlug ? (
         article ? (
@@ -355,18 +356,29 @@ export function HelpCmsBrowseView({
             {relatedArticles.length > 0 && sectionSlug ? (
               <section className="mt-8 border-t border-slate-100 pt-5">
                 <h3 className="text-fluid-sm font-bold text-slate-900">같은 분류의 다른 글</h3>
-                <ul className="mt-2 space-y-1">
+                <ul className="mt-2 space-y-0.5">
                   {relatedArticles.map((row) => (
                     <li key={row.id}>
                       <Link
                         to={helpUsageArticlePath(sectionSlug, row.slug)}
-                        className="block truncate rounded-lg px-1 py-2 text-[14px] text-[#0284c7] hover:bg-sky-50 hover:underline"
+                        className="flex items-start gap-1.5 rounded-lg px-1 py-1.5 text-[15px] text-[#0369a1] hover:bg-sky-50 hover:underline"
                       >
-                        {row.title}
+                        <span className="shrink-0" aria-hidden>
+                          →
+                        </span>
+                        <span className="min-w-0 truncate">{row.title}</span>
                       </Link>
                     </li>
                   ))}
                 </ul>
+                {hasMoreRelated ? (
+                  <Link
+                    to={helpUsageSectionPath(sectionSlug)}
+                    className="mt-2 inline-block text-[13px] font-semibold text-[#0284c7] hover:underline"
+                  >
+                    분류 전체 보기
+                  </Link>
+                ) : null}
               </section>
             ) : null}
           </HelpCmsArticleCard>
@@ -397,11 +409,11 @@ export function HelpCmsBrowseView({
                 <li key={row.id}>
                   <Link
                     to={helpUsageArticlePath(sectionSlug!, row.slug)}
-                    className="flex w-full flex-col gap-1 rounded-lg px-2 py-3 text-left hover:bg-slate-50"
+                    className="flex w-full flex-col gap-1 rounded-lg px-2 py-3 text-left hover:bg-sky-50"
                   >
-                    <span className="font-semibold text-slate-900">{row.title}</span>
+                    <span className="text-[16px] font-bold text-slate-900">{row.title}</span>
                     {row.excerpt ? (
-                      <span className="line-clamp-2 text-fluid-2xs text-slate-600">{row.excerpt}</span>
+                      <span className="line-clamp-2 text-[13px] text-slate-500">{row.excerpt}</span>
                     ) : null}
                   </Link>
                 </li>
