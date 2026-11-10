@@ -17,3 +17,13 @@ export function maskPhone(raw: string | null | undefined): string {
 export function certExpireLabel(expireDate: string | null | undefined): string {
   return expireDate?.slice(0, 10) || '확인 중';
 }
+
+/** YY.MM.DD 또는 YYYY.MM.DD 표시 */
+export function formatCertExpireDot(expireDate: string | null | undefined): string | null {
+  if (!expireDate) return null;
+  const digits = String(expireDate).replace(/\D/g, '');
+  if (digits.length >= 8) {
+    return `${digits.slice(2, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
+  }
+  return expireDate.slice(0, 10);
+}

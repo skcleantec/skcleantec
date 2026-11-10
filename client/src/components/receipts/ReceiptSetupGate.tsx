@@ -147,7 +147,9 @@ export function ReceiptSetupGate({
 
   return (
     <>
-      <ReceiptReadyStatusBar kind={kind} brand={brand} balanceKrw={balanceKrw} />
+      <div className={kind === 'cashbill' ? 'lg:hidden' : undefined}>
+        <ReceiptReadyStatusBar kind={kind} brand={brand} balanceKrw={balanceKrw} />
+      </div>
       {children}
     </>
   );
