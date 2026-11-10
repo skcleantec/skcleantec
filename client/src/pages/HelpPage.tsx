@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { helpUsageHomePath } from '../components/help-cms/helpCmsUsagePaths';
 import { AdminGuideHelpLayout } from '../components/help/AdminGuideHelpLayout';
 import { TeamGuideHelpLayout } from '../components/help/TeamGuideHelpLayout';
 import { HelpUiGallery } from '../components/help/ui/HelpUiGallery';
@@ -72,16 +73,14 @@ export function HelpPage() {
     };
   }, [mainCategory]);
 
+  /** 분류 이동 — section·article·q를 한 번의 push로 맞춤 (연달아 setSearchParams 금지) */
   const setCmsSection = useCallback(
     (section: string | null) => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.set('category', 'usage');
-        if (section) {
-          next.set('section', section);
-        } else {
-          next.delete('section');
-        }
+        if (section) next.set('section', section);
+        else next.delete('section');
         next.delete('article');
         next.delete('role');
         next.delete('chapter');
@@ -104,6 +103,7 @@ export function HelpPage() {
     [setSearchParams],
   );
 
+  /** 글 이동 — section+article(+q 삭제)을 한 번의 push로 */
   const setCmsArticle = useCallback(
     (article: string | null, sectionForArticle?: string | null) => {
       setSearchParams((prev) => {
@@ -204,9 +204,12 @@ export function HelpPage() {
         <div className="mx-auto max-w-screen-2xl px-4 py-2.5 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+              <Link
+                to={helpUsageHomePath()}
+                className="text-lg font-bold tracking-tight text-white transition-opacity hover:opacity-90 sm:text-xl"
+              >
                 📚 청소비서 도움말
-              </h1>
+              </Link>
             </div>
 
             <nav className="flex flex-wrap items-center gap-2">
