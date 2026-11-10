@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   fetchPlatformReceiptCert,
@@ -7,13 +7,12 @@ import {
   type PlatformReceiptCert,
   type PlatformReceiptIssuer,
 } from '../../api/platformReceipts';
-import { BTN_SECONDARY, CARD_SECTION } from '../../utils/platformUi';
 import { PlatformCashbillTab } from './PlatformCashbillTab';
 import { PlatformCertRegisterModal } from './PlatformCertRegisterModal';
 import { PlatformIssueQueueTab } from './PlatformIssueQueueTab';
 import { PlatformIssuedListTab } from './PlatformIssuedListTab';
 import { PlatformTaxInvoiceTab } from './PlatformTaxInvoiceTab';
-import { formatCertExpireDot } from './platformReceiptsFilters';
+import { platformCertLineStatus } from './platformReceiptsFilters';
 
 type TabId = 'queue' | 'issued' | 'cashbill' | 'taxinvoice';
 
@@ -60,13 +59,12 @@ export function PlatformReceiptsPage() {
   }
 
   const certValid = cert?.valid === true;
-  const expireDot = formatCertExpireDot(cert?.expireDate ?? null);
-  const corpLine = [
-    issuer?.corpName || '주식회사 서비스브릿지',
-    issuer?.corpNumDisplay || issuer?.corpNumMasked || '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const certLine = useMemo(
+    () => platformCertLineStatus(certValid, cert?.expireDate ?? null),
+    [certValid, cert?.expireDate],
+  );
+  const issuerShort =
+    (issuer?.corpName || '서비스브릿지').replace(/^주식회사\s*/, '').trim() || '서비스브릿지';
 
   const tabBtn = (id: TabId, label: string, badge?: number | null) => (
     <button
@@ -103,27 +101,32 @@ export function PlatformReceiptsPage() {
         />
       ) : null}
 
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">영수증</h1>
-        <p className="mt-1 text-sm text-gray-500">플랫폼 명의로 현금영수증·세금계산서를 발행합니다.</p>
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold text-gray-900">영수증</h1>
+          <p className="mt-1 text-sm text-gray-500">플랫폼 명의로 현금영수증·세금계산서를 발행합니다.</p>
+        </div>
+        <div className="flex h-7 shrink-0 flex-wrap items-center gap-1.5 text-[12px] leading-7 text-[#64748B] sm:pt-0.5">
+          <span>{issuerShort}</span>
+          <span className="text-slate-300" aria-hidden>·</span>
+          <span
+            className={`inline-flex items-center gap-1.5 ${certLine.ok ? 'text-emerald-700' : 'text-amber-700'}`}
+          >
+            <span
+              className={`size-1.5 shrink-0 rounded-full ${certLine.ok ? 'bg-emerald-500' : 'bg-amber-500'}`}
+              aria-hidden
+            />
+            {certLine.label}
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-7 items-center px-0.5 text-[12px] font-medium text-sky-600 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+            onClick={() => setShowCertModal(true)}
+          >
+            {certLine.action}
+          </button>
+        </div>
       </div>
-
-      <section className={`${CARD_SECTION} flex flex-wrap items-center justify-between gap-3`}>
-        <p className="text-sm text-gray-800">
-          {corpLine}
-          <span className="mx-1.5 text-gray-300">·</span>
-          {certValid ? (
-            <span className="text-emerald-700">
-              공동인증서 ✓ 등록됨{expireDot ? `(만료 ${expireDot})` : ''}
-            </span>
-          ) : (
-            <span className="text-amber-700">공동인증서 미등록</span>
-          )}
-        </p>
-        <button type="button" className={BTN_SECONDARY} onClick={() => setShowCertModal(true)}>
-          인증서 등록·갱신
-        </button>
-      </section>
 
       <div className="inline-flex flex-wrap gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-0.5">
         {tabBtn('queue', '발행할 목록', queueCount)}
