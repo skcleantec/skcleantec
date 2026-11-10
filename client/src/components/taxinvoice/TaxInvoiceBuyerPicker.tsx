@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { TaxInvoiceBuyerRow, TaxInvoiceBuyerInput, TaxInvoiceBuyerPatch } from '../../api/taxInvoiceBuyers';
+import { LineMdIcon } from '../ui/LineMdIcon';
 
 // ── 타입 ───────────────────────────────────────────────────────────────────
 
@@ -12,10 +13,27 @@ export type TaxInvoiceBuyerApi = {
   remove: (id: string) => Promise<void>;
 };
 
+/** 플랫폼 모드에서 공급받는자로 선택 가능한 청소비서 업체 항목 */
+export type TenantBuyerItem = {
+  id: string;
+  name: string;
+  corpNum?: string | null;
+  corpName?: string | null;
+  ceoName?: string | null;
+  addr?: string | null;
+  bizType?: string | null;
+  bizClass?: string | null;
+  email?: string | null;
+};
+
 type Props = {
   api: TaxInvoiceBuyerApi;
   onPick: (buyer: TaxInvoiceBuyerRow) => void;
+  /** API 호환용 — 트리거 레이블로 사용하지 않음 */
   title?: string;
+  /** 플랫폼 모드: 드롭다운에 「청소비서 업체」 섹션 추가 */
+  tenantBuyers?: TenantBuyerItem[];
+  onPickTenant?: (id: string) => void;
 };
 
 // ── 사업자번호 포맷 ─────────────────────────────────────────────────────────
@@ -130,13 +148,13 @@ function BuyerEditForm({ initial, onSave, onCancel, saving, error }: EditFormPro
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       <div className="flex gap-2 justify-end pt-1">
-        <button type="button" onClick={onCancel} className="px-4 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+        <button type="button" onClick={onCancel} className="px-4 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
           취소
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="px-4 py-1.5 text-sm rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50 transition-colors"
+          className="px-4 py-1.5 text-sm rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none"
         >
           {saving ? '저장 중…' : '저장'}
         </button>
@@ -147,66 +165,129 @@ function BuyerEditForm({ initial, onSave, onCancel, saving, error }: EditFormPro
 
 // ── 메인 컴포넌트 ───────────────────────────────────────────────────────────
 
-export default function TaxInvoiceBuyerPicker({ api, onPick, title = '거래처 선택' }: Props) {
-  const [open, setOpen] = useState(false);
+export default function TaxInvoiceBuyerPicker({ api, onPick, tenantBuyers, onPickTenant }: Props) {
+  // ── 인라인 검색 콤보박스 상태 ──
   const [q, setQ] = useState('');
   const [items, setItems] = useState<TaxInvoiceBuyerRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [listError, setListError] = useState('');
+  const [dropOpen, setDropOpen] = useState(false);
 
-  // 편집 상태
+  // ── 거래처 관리 모달 상태 ──
+  const [manageOpen, setManageOpen] = useState(false);
+  const [manageQ, setManageQ] = useState('');
+  const [manageItems, setManageItems] = useState<TaxInvoiceBuyerRow[]>([]);
+  const [manageLoading, setManageLoading] = useState(false);
+  const [manageError, setManageError] = useState('');
   const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
   const [editTarget, setEditTarget] = useState<TaxInvoiceBuyerRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-
-  // 삭제 확인
   const [deleteTarget, setDeleteTarget] = useState<TaxInvoiceBuyerRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const searchRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (search: string) => {
+  // ── 청소비서 업체 필터링 ──
+  const matchedTenants = React.useMemo(() => {
+    if (!tenantBuyers || q.trim().length < 2) return [];
+    const lq = q.toLowerCase();
+    const ld = q.replace(/\D/g, '');
+    return tenantBuyers.filter((t) =>
+      (t.name || '').toLowerCase().includes(lq) ||
+      (t.corpName || '').toLowerCase().includes(lq) ||
+      (ld.length >= 2 && (t.corpNum || '').replace(/\D/g, '').includes(ld)),
+    );
+  }, [tenantBuyers, q]);
+
+  // ── 디바운스 검색 ──
+  useEffect(() => {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+      setItems([]);
+      setDropOpen(false);
+      return;
+    }
+    setDropOpen(true);
+    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     setLoading(true);
-    setListError('');
-    try {
-      const rows = await api.list(search);
-      setItems(rows);
-    } catch (e) {
-      setListError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
-    } finally {
-      setLoading(false);
+    fetchTimerRef.current = setTimeout(async () => {
+      try {
+        const rows = await api.list(trimmed);
+        setItems(rows.slice(0, 8));
+      } catch {
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 200);
+    return () => {
+      if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+    };
+  }, [q, api]);
+
+  // ── 바깥 클릭으로 드롭다운 닫기 ──
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setDropOpen(false);
+      }
     }
-  }, [api]);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
+
+  // ── 관리 모달: 목록 로드 ──
+  const loadManage = useCallback(
+    async (search: string) => {
+      setManageLoading(true);
+      setManageError('');
+      try {
+        const rows = await api.list(search);
+        setManageItems(rows);
+      } catch (e) {
+        setManageError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
+      } finally {
+        setManageLoading(false);
+      }
+    },
+    [api],
+  );
 
   useEffect(() => {
-    if (!open) return;
-    void load(q);
-  }, [open, q, load]);
+    if (!manageOpen) return;
+    void loadManage(manageQ);
+  }, [manageOpen, manageQ, loadManage]);
 
-  useEffect(() => {
-    if (open && mode === 'list') {
-      setTimeout(() => searchRef.current?.focus(), 50);
-    }
-  }, [open, mode]);
+  // ── 핸들러 ──
+  function handlePick(buyer: TaxInvoiceBuyerRow) {
+    onPick(buyer);
+    setDropOpen(false);
+    setQ('');
+    setItems([]);
+  }
 
-  function handleOpen() {
-    setOpen(true);
-    setMode('list');
+  function handlePickTenant(id: string) {
+    onPickTenant?.(id);
+    setDropOpen(false);
     setQ('');
   }
 
-  function handleClose() {
-    setOpen(false);
+  function openManage() {
+    setManageOpen(true);
+    setMode('list');
+    setManageQ('');
+    setSaveError('');
+    setDeleteTarget(null);
+    setDropOpen(false);
+  }
+
+  function closeManage() {
+    setManageOpen(false);
     setMode('list');
     setEditTarget(null);
     setSaveError('');
     setDeleteTarget(null);
-  }
-
-  function handlePick(buyer: TaxInvoiceBuyerRow) {
-    onPick(buyer);
-    handleClose();
   }
 
   async function handleSave(data: TaxInvoiceBuyerInput) {
@@ -221,7 +302,7 @@ export default function TaxInvoiceBuyerPicker({ api, onPick, title = '거래처 
       }
       setMode('list');
       setEditTarget(null);
-      void load(q);
+      void loadManage(manageQ);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : '저장에 실패했습니다.');
     } finally {
@@ -235,60 +316,133 @@ export default function TaxInvoiceBuyerPicker({ api, onPick, title = '거래처 
     try {
       await api.remove(deleteTarget.id);
       setDeleteTarget(null);
-      void load(q);
+      void loadManage(manageQ);
     } catch (e) {
-      setListError(e instanceof Error ? e.message : '삭제에 실패했습니다.');
+      setManageError(e instanceof Error ? e.message : '삭제에 실패했습니다.');
       setDeleteTarget(null);
     } finally {
       setDeleting(false);
     }
   }
 
+  // ── 렌더 ──────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* 트리거 버튼 */}
-      <button
-        type="button"
-        onClick={handleOpen}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-      >
-        <span className="text-base leading-none">📋</span>
-        {title}
-      </button>
+      {/* 인라인 검색 콤보박스 */}
+      <div ref={containerRef} className="relative">
+        <div className="relative w-[240px]">
+          <LineMdIcon
+            name="search"
+            className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#94A3B8]"
+          />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onFocus={() => { if (q.trim().length >= 2) setDropOpen(true); }}
+            placeholder="거래처 상호·사업자번호"
+            className="h-[30px] w-[240px] rounded-[8px] border-0 bg-[#F4F6FA] pl-8 pr-3 text-[12px] text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+          />
+        </div>
 
-      {/* 모달 오버레이 */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
-          <div className="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden">
+        {/* 드롭다운 */}
+        {dropOpen && (
+          <div className="absolute left-0 top-full z-20 mt-1 w-[320px] overflow-hidden rounded-[10px] bg-white shadow-[0_4px_24px_rgba(17,24,39,.12)] ring-1 ring-slate-100">
+            {/* 청소비서 업체 섹션 */}
+            {matchedTenants.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-[11px] font-medium text-[#94A3B8]">청소비서 업체</div>
+                {matchedTenants.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className="w-full px-3 py-2 text-left hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
+                    onClick={() => handlePickTenant(t.id)}
+                  >
+                    <div className="text-[13px] font-medium text-slate-800">{t.corpName || t.name}</div>
+                    <div className="text-[12px] text-[#64748B]">
+                      {[t.corpNum ? formatBizNum(t.corpNum) : null, t.ceoName].filter(Boolean).join(' · ')}
+                    </div>
+                  </button>
+                ))}
+                {items.length > 0 && <div className="mx-3 border-t border-slate-100" />}
+              </>
+            )}
 
+            {/* 일반 거래처 목록 */}
+            <div className="max-h-[240px] overflow-y-auto">
+              {loading && (
+                <div className="px-3 py-4 text-center text-[12px] text-slate-400">불러오는 중…</div>
+              )}
+              {!loading && items.length === 0 && matchedTenants.length === 0 && (
+                <div className="px-3 py-4 text-center text-[12px] text-slate-400">검색 결과가 없습니다</div>
+              )}
+              {!loading && items.map((buyer) => (
+                <button
+                  key={buyer.id}
+                  type="button"
+                  className="w-full px-3 py-2 text-left hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
+                  onClick={() => handlePick(buyer)}
+                >
+                  <div className="text-[13px] font-medium text-slate-800">{buyer.corpName}</div>
+                  <div className="text-[12px] text-[#64748B]">
+                    {[formatBizNum(buyer.bizNumber), buyer.ceoName].filter(Boolean).join(' · ')}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* 푸터 — 거래처 관리 */}
+            <div className="border-t border-slate-100 px-3 py-2">
+              <button
+                type="button"
+                className="text-[11px] text-[#64748B] hover:text-slate-900 focus-visible:outline-none"
+                onClick={openManage}
+              >
+                거래처 관리
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 거래처 관리 모달 */}
+      {manageOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) closeManage(); }}
+        >
+          <div className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden">
             {/* 헤더 */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <h2 className="text-base font-semibold text-slate-800">
-                {mode === 'list' && title}
+                {mode === 'list' && '거래처 관리'}
                 {mode === 'add' && '거래처 추가'}
                 {mode === 'edit' && '거래처 수정'}
               </h2>
-              <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors" aria-label="닫기">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <button
+                onClick={closeManage}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                aria-label="닫기"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
             {/* 본문 */}
             <div className="flex-1 overflow-y-auto px-5 py-4">
-
               {/* 목록 모드 */}
               {mode === 'list' && (
                 <div className="space-y-3">
-                  {/* 검색 + 추가 버튼 */}
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                       <input
-                        ref={searchRef}
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
+                        value={manageQ}
+                        onChange={(e) => setManageQ(e.target.value)}
                         placeholder="상호 또는 사업자번호 검색"
                         className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
                       />
@@ -296,31 +450,25 @@ export default function TaxInvoiceBuyerPicker({ api, onPick, title = '거래처 
                     <button
                       type="button"
                       onClick={() => { setMode('add'); setSaveError(''); }}
-                      className="px-3 py-2 text-sm bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors whitespace-nowrap"
+                      className="px-3 py-2 text-sm bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                     >
                       + 추가
                     </button>
                   </div>
 
-                  {/* 목록 */}
-                  {loading && (
-                    <div className="text-center py-8 text-sm text-slate-400">불러오는 중…</div>
-                  )}
-                  {!loading && listError && (
-                    <div className="text-center py-8 text-sm text-red-500">{listError}</div>
-                  )}
-                  {!loading && !listError && items.length === 0 && (
+                  {manageLoading && <div className="text-center py-8 text-sm text-slate-400">불러오는 중…</div>}
+                  {!manageLoading && manageError && <div className="text-center py-8 text-sm text-red-500">{manageError}</div>}
+                  {!manageLoading && !manageError && manageItems.length === 0 && (
                     <div className="text-center py-10 text-sm text-slate-400">
-                      {q ? '검색 결과가 없습니다.' : '저장된 거래처가 없습니다. + 추가를 눌러 등록하세요.'}
+                      {manageQ ? '검색 결과가 없습니다.' : '저장된 거래처가 없습니다. + 추가를 눌러 등록하세요.'}
                     </div>
                   )}
-                  {!loading && items.map((buyer) => (
+                  {!manageLoading && manageItems.map((buyer) => (
                     <div key={buyer.id} className="flex items-start gap-2 p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors group">
-                      {/* 클릭 영역 (선택) */}
                       <button
                         type="button"
                         className="flex-1 text-left min-w-0"
-                        onClick={() => handlePick(buyer)}
+                        onClick={() => { handlePick(buyer); closeManage(); }}
                       >
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm text-slate-800">{buyer.corpName}</span>
@@ -334,17 +482,13 @@ export default function TaxInvoiceBuyerPicker({ api, onPick, title = '거래처 
                             {[buyer.ceoName, buyer.addr].filter(Boolean).join(' · ')}
                           </div>
                         )}
-                        {buyer.email && (
-                          <div className="text-xs text-slate-400 truncate">{buyer.email}</div>
-                        )}
                       </button>
 
-                      {/* 편집/삭제 버튼 */}
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setEditTarget(buyer); setMode('edit'); setSaveError(''); }}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                           title="수정"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,7 +498,7 @@ export default function TaxInvoiceBuyerPicker({ api, onPick, title = '거래처 
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setDeleteTarget(buyer); }}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
                           title="삭제"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +535,7 @@ export default function TaxInvoiceBuyerPicker({ api, onPick, title = '거래처 
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(null)}
-                      className="px-4 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                      className="px-4 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                     >
                       취소
                     </button>
@@ -399,7 +543,7 @@ export default function TaxInvoiceBuyerPicker({ api, onPick, title = '거래처 
                       type="button"
                       onClick={handleDelete}
                       disabled={deleting}
-                      className="px-4 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+                      className="px-4 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 disabled:pointer-events-none"
                     >
                       {deleting ? '삭제 중…' : '삭제'}
                     </button>

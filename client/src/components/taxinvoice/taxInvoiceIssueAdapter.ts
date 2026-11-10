@@ -19,7 +19,6 @@ import {
 import {
   tenantTaxInvoiceBuyerApi,
   type TaxInvoiceBuyerApi,
-  type TaxInvoiceBuyerInput,
 } from '../../api/taxInvoiceBuyers';
 import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 
@@ -39,7 +38,6 @@ export type TaxInvoiceIssuerAdapter = {
   issue: (payload: TaxInvoiceIssuePayload) => Promise<{ id: string }>;
   loadSource?: (id: string) => Promise<TaxInvoiceReissueSource>;
   searchInquiries?: (q: string, inquiryId?: string) => Promise<TaxInvoiceSearchHit[]>;
-  saveBuyerAfterIssue: (input: TaxInvoiceBuyerInput) => Promise<void>;
 };
 
 export const tenantTaxInvoiceAdapter: TaxInvoiceIssuerAdapter = {
@@ -58,9 +56,6 @@ export const tenantTaxInvoiceAdapter: TaxInvoiceIssuerAdapter = {
   issue: (payload) => issueTaxInvoice(payload),
   loadSource: fetchTaxInvoiceSource,
   searchInquiries: (q, inquiryId) => searchTaxInvoiceInquiries(q, inquiryId),
-  saveBuyerAfterIssue: async (input) => {
-    await tenantTaxInvoiceBuyerApi.upsert(input);
-  },
 };
 
 export function createPlatformTaxInvoiceAdapter(): TaxInvoiceIssuerAdapter {
@@ -138,9 +133,6 @@ export function createPlatformTaxInvoiceAdapter(): TaxInvoiceIssuerAdapter {
         tenantId: typeof payload.buyerTenantId === 'string' ? payload.buyerTenantId : undefined,
       });
       return { id: row.id };
-    },
-    saveBuyerAfterIssue: async (input) => {
-      await buyerApi.upsert(input);
     },
   };
 }

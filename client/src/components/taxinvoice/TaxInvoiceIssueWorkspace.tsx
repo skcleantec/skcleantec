@@ -18,7 +18,7 @@ import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { TaxInvoiceMobileCards, TaxInvoicePaper, type TaxFormProps } from './TaxInvoiceFormViews';
-import TaxInvoiceBuyerPicker from './TaxInvoiceBuyerPicker';
+import TaxInvoiceBuyerPicker, { type TaxInvoiceBuyerRow } from './TaxInvoiceBuyerPicker';
 import {
   tenantTaxInvoiceAdapter,
   type TaxInvoiceIssuerAdapter,
@@ -140,19 +140,29 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
   const [error, setError] = useState<string | null>(null);
   const [draftOffer, setDraftOffer] = useState<TaxInvoiceDraft | null>(null);
   const [supplierOpen, setSupplierOpen] = useState(false);
-  const [saveBuyer, setSaveBuyer] = useState(true);
   const [buyerTenantId, setBuyerTenantId] = useState('');
   const [tenantBuyers, setTenantBuyers] = useState<PlatformBuyerTenant[]>([]);
   const [defaults, setDefaults] = useState<TaxInvoiceIssueDefaults>(TAXINVOICE_DEFAULT_FALLBACK);
   const defaultsRef = useRef(defaults);
   defaultsRef.current = defaults;
   const [defaultsReady, setDefaultsReady] = useState(false);
+
+  // ── 거래처 자동채움 상태 ──
+  const [buyerSuggestRows, setBuyerSuggestRows] = useState<TaxInvoiceBuyerRow[]>([]);
+  const [buyerSavedBadge, setBuyerSavedBadge] = useState(false);
+  const [undoBuyer, setUndoBuyer] = useState<TaxParty | null>(null);
+  const buyerRef = useRef(buyer);
+  const autofillTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true, 96);
 
   // stable adapter ref — prevents dependency churn on callback/effect deps
   const adapterRef = useRef(adapterProp);
   adapterRef.current = adapterProp;
+  // buyer ref — always latest value for autofill closure
+  buyerRef.current = buyer;
 
   useEffect(() => {
     let stop = false;
@@ -460,22 +470,6 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
       const draftBrandId = unmatched || !picked ? brandId : picked.brandId;
       clearTaxInvoiceDraft(draftBrandId, adapterRef.current.draftScope);
 
-      if (saveBuyer && digits.length >= 10) {
-        try {
-          await adapterRef.current.saveBuyerAfterIssue({
-            bizNumber: digits,
-            corpName: buyer.corpName,
-            ceoName: buyer.ceoName || undefined,
-            addr: buyer.addr || undefined,
-            bizType: buyer.bizType || undefined,
-            bizClass: buyer.bizClass || undefined,
-            email: buyer.email || undefined,
-          });
-        } catch {
-          // buyer save failure does NOT block issue success
-        }
-      }
-
       if (onDone) {
         onDone(issued.id);
       } else if (adapterRef.current.mode !== 'platform') {
@@ -496,7 +490,13 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
     readOnly: preview,
     supplier,
     buyer,
-    onBuyer: (patch) => setBuyer((prev) => ({ ...prev, ...patch, corpNum: patch.corpNum != null ? formatBizInput(patch.corpNum) : prev.corpNum })),
+    onBuyer: (patch) => {
+      if (patch.corpNum != null) {
+        handleBuyerCorpNumChange(patch.corpNum);
+      } else {
+        setBuyer((prev) => ({ ...prev, ...patch }));
+      }
+    },
     corpState,
     writeDate,
     dateMin,
@@ -526,6 +526,34 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
     taxKind: activeKind,
     onEditSupplier: (brand && !adapterProp.supplierLocked) ? () => setSupplierOpen(true) : undefined,
     supplierAttention,
+    buyerSavedBadge,
+    onUndoBuyerAutofill: undoBuyer ? () => {
+      setBuyer(undoBuyer);
+      setBuyerSavedBadge(false);
+      setUndoBuyer(null);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    } : null,
+    buyerSuggestions: buyerSuggestRows.map((r) => ({ id: r.id, bizNumber: r.bizNumber, corpName: r.corpName, ceoName: r.ceoName })),
+    onPickBuyerSuggestion: (id: string) => {
+      const row = buyerSuggestRows.find((r) => r.id === id);
+      if (!row) return;
+      const snapshot = { ...buyerRef.current };
+      setBuyer((prev) => ({
+        ...prev,
+        corpNum: formatBizInput(row.bizNumber),
+        corpName: row.corpName,
+        ceoName: row.ceoName,
+        addr: row.addr,
+        bizType: row.bizType,
+        bizClass: row.bizClass,
+        email: row.email,
+      }));
+      setBuyerSavedBadge(true);
+      setBuyerSuggestRows([]);
+      setUndoBuyer(snapshot);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = setTimeout(() => setUndoBuyer(null), 5000);
+    },
   };
 
   const invoiceTotal = supplySum + taxSum;
@@ -554,18 +582,65 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
         : `발행 비용 ${TAXINVOICE_UNIT_PRICE_KRW.toLocaleString('ko-KR')}원 · 지갑 ${summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}`)
     : `발행 원가 ${adapterProp.unitPriceKrw.toLocaleString('ko-KR')}원`;
 
-  // buyer picker helper
-  function applyBuyerRow(b: Parameters<typeof TaxInvoiceBuyerPicker>[0] extends { onPick: (row: infer R) => void } ? R : never) {
+  // ── 거래처 corpNum 타이핑 → 자동채움 ──────────────────────────────────────
+  function handleBuyerCorpNumChange(rawCorpNum: string) {
+    const formatted = formatBizInput(rawCorpNum);
+    const d = formatted.replace(/\D/g, '');
+    setBuyer((prev) => ({ ...prev, corpNum: formatted }));
+    setBuyerSavedBadge(false);
+
+    if (autofillTimerRef.current) clearTimeout(autofillTimerRef.current);
+    if (d.length < 3) {
+      setBuyerSuggestRows([]);
+      return;
+    }
+
+    autofillTimerRef.current = setTimeout(async () => {
+      try {
+        const rows = await adapterRef.current.buyerApi.list(d);
+        setBuyerSuggestRows(rows.slice(0, 8));
+        if (d.length === 10) {
+          const exact = rows.find((r) => r.bizNumber.replace(/\D/g, '') === d);
+          if (exact) {
+            const snapshot = { ...buyerRef.current };
+            setUndoBuyer(snapshot);
+            setBuyer((prev) => ({
+              ...prev,
+              corpName: exact.corpName,
+              ceoName: exact.ceoName ?? '',
+              addr: exact.addr ?? '',
+              bizType: exact.bizType ?? '',
+              bizClass: exact.bizClass ?? '',
+              email: exact.email ?? '',
+            }));
+            setBuyerSavedBadge(true);
+            setBuyerSuggestRows([]);
+            if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+            undoTimerRef.current = setTimeout(() => setUndoBuyer(null), 5000);
+          } else {
+            setBuyerSavedBadge(false);
+          }
+        }
+      } catch {
+        setBuyerSuggestRows([]);
+      }
+    }, 200);
+  }
+
+  // ── 거래처 picker / tenant 선택 ───────────────────────────────────────────
+  function applyBuyerRow(b: TaxInvoiceBuyerRow) {
     setBuyer({
       corpNum: formatBizInput(b.bizNumber),
       taxRegId: '',
       corpName: b.corpName,
-      ceoName: b.ceoName ?? '',
-      addr: b.addr ?? '',
-      bizType: b.bizType ?? '',
-      bizClass: b.bizClass ?? '',
-      email: b.email ?? '',
+      ceoName: b.ceoName,
+      addr: b.addr,
+      bizType: b.bizType,
+      bizClass: b.bizClass,
+      email: b.email,
     });
+    setBuyerSavedBadge(true);
+    setBuyerSuggestRows([]);
   }
 
   function applyTenantBuyer(tid: string) {
@@ -582,6 +657,8 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
         bizClass: t.bizClass ?? '',
         email: t.email ?? '',
       }));
+      setBuyerSavedBadge(true);
+      setBuyerSuggestRows([]);
     }
   }
 
@@ -590,27 +667,11 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
       <TaxInvoiceBuyerPicker
         api={adapterProp.buyerApi}
         onPick={applyBuyerRow}
-        title="거래처 선택"
+        tenantBuyers={adapterProp.mode === 'platform' ? tenantBuyers : undefined}
+        onPickTenant={adapterProp.mode === 'platform' ? applyTenantBuyer : undefined}
       />
-      {adapterProp.loadTenantBuyers && tenantBuyers.length > 0 ? (
-        <select
-          value={buyerTenantId}
-          onChange={(e) => applyTenantBuyer(e.target.value)}
-          className="h-9 rounded-lg bg-white px-2 text-sm ring-1 ring-gray-200"
-          aria-label="청소비서 업체에서 고르기"
-        >
-          <option value="">청소비서 업체에서 고르기</option>
-          {tenantBuyers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-      ) : null}
+      <span className="text-[12px] text-[#64748B]">발행하면 거래처가 자동 저장돼요</span>
     </div>
-  );
-
-  const saveBuyerCheckbox = (
-    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-500">
-      <input type="checkbox" checked={saveBuyer} onChange={(e) => setSaveBuyer(e.target.checked)} className="rounded" />
-      이 거래처 저장
-    </label>
   );
 
   return (
@@ -730,7 +791,6 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
             )}
           </div>
           <div className="flex items-center gap-2">
-            {saveBuyerCheckbox}
             {preview ? (
               <button type="button" className="h-11 rounded-lg px-4 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50" onClick={() => setPreview(false)}>다시 수정</button>
             ) : null}
@@ -803,7 +863,6 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
           ) : (
             <p className="num mb-2 text-center text-[11px] text-gray-500">{walletLine}</p>
           )}
-          <div className="mb-2 flex justify-center">{saveBuyerCheckbox}</div>
           {preview && !short ? (
             <button type="button" className="mb-2 h-11 w-full rounded-xl text-sm font-medium text-gray-700 ring-1 ring-gray-300" onClick={() => setPreview(false)}>다시 수정</button>
           ) : null}

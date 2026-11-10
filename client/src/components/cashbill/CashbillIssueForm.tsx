@@ -24,7 +24,7 @@ import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
 import { LineMdIcon } from '../ui/LineMdIcon';
 import { SegmentedControl } from '../ui/SegmentedControl';
-import TaxInvoiceBuyerPicker from '../taxinvoice/TaxInvoiceBuyerPicker';
+import TaxInvoiceBuyerPicker, { type TaxInvoiceBuyerRow } from '../taxinvoice/TaxInvoiceBuyerPicker';
 import { CashbillIssuePreview } from './CashbillIssuePreview';
 
 function kstToday(): string {
@@ -143,7 +143,13 @@ export function CashbillIssueForm({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saveBuyer, setSaveBuyer] = useState(true);
+
+  // ── 지출증빙(biz) 거래처 자동채움 ──
+  const [bizSuggestRows, setBizSuggestRows] = useState<TaxInvoiceBuyerRow[]>([]);
+  const [bizSavedBadge, setBizSavedBadge] = useState(false);
+  const [undoCustomerName, setUndoCustomerName] = useState<string | null>(null);
+  const bizAutofillTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bizUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeBrand = brands.find((brand) => brand.id === brandId) ?? linkedBrands[0];
   const brandTaxType = selected && !unmatched ? selected.taxType : activeBrand?.taxType;
@@ -317,20 +323,6 @@ export function CashbillIssueForm({
         issueId = issued.id;
       }
 
-      if (saveBuyer && usage === 'biz') {
-        const biz = identity.replace(/\D/g, '');
-        if (biz.length >= 10) {
-          try {
-            await buyerApi.upsert({
-              bizNumber: biz,
-              corpName: (customerName || selected?.customerName || '').trim() || biz,
-            });
-          } catch {
-            /* 발행은 성공 — 거래처 저장 실패는 무시 */
-          }
-        }
-      }
-
       setQuery('');
       setHits([]);
       setSelected(null);
@@ -344,6 +336,39 @@ export function CashbillIssueForm({
     } finally {
       setBusy(false);
     }
+  }
+
+  // ── 지출증빙 identity 타이핑 → 거래처 자동채움 ──────────────────────────
+  function onBizIdentityChange(value: string) {
+    setIdentity(value);
+    setBizSavedBadge(false);
+    const d = value.replace(/\D/g, '');
+    if (bizAutofillTimerRef.current) clearTimeout(bizAutofillTimerRef.current);
+    if (d.length < 3) {
+      setBizSuggestRows([]);
+      return;
+    }
+    bizAutofillTimerRef.current = setTimeout(async () => {
+      try {
+        const rows = await buyerApi.list(d);
+        setBizSuggestRows(rows.slice(0, 8));
+        if (d.length === 10) {
+          const exact = rows.find((r) => r.bizNumber.replace(/\D/g, '') === d);
+          if (exact && exact.corpName) {
+            setUndoCustomerName(customerName);
+            setCustomerName(exact.corpName);
+            setBizSavedBadge(true);
+            setBizSuggestRows([]);
+            if (bizUndoTimerRef.current) clearTimeout(bizUndoTimerRef.current);
+            bizUndoTimerRef.current = setTimeout(() => setUndoCustomerName(null), 5000);
+          } else {
+            setBizSavedBadge(false);
+          }
+        }
+      } catch {
+        setBizSuggestRows([]);
+      }
+    }, 200);
   }
 
   const total = Math.round(Number(amount) || 0);
@@ -765,10 +790,10 @@ export function CashbillIssueForm({
                 ) : null}
                 {usage === 'biz' ? (
                   <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative flex flex-wrap items-center gap-2">
                       <input
                         value={identity}
-                        onChange={(e) => setIdentity(e.target.value)}
+                        onChange={(e) => onBizIdentityChange(e.target.value)}
                         placeholder="사업자번호"
                         maxLength={12}
                         aria-label="사업자번호"
@@ -776,13 +801,47 @@ export function CashbillIssueForm({
                       />
                       <TaxInvoiceBuyerPicker
                         api={buyerApi}
-                        title="거래처에서 고르기"
                         onPick={(row) => {
                           setIdentity(row.bizNumber);
                           if (row.corpName.trim()) setCustomerName(row.corpName);
+                          setBizSavedBadge(true);
+                          setBizSuggestRows([]);
                         }}
                       />
+                      {bizSuggestRows.length > 0 ? (
+                        <div className="absolute left-0 top-full z-20 mt-1 w-full overflow-hidden rounded-[10px] bg-white shadow-[0_4px_24px_rgba(17,24,39,.12)] ring-1 ring-slate-100">
+                          {bizSuggestRows.map((r) => (
+                            <button
+                              key={r.id}
+                              type="button"
+                              className="w-full px-3 py-2 text-left hover:bg-slate-50 focus-visible:outline-none"
+                              onClick={() => {
+                                setIdentity(r.bizNumber);
+                                setCustomerName(r.corpName);
+                                setBizSavedBadge(true);
+                                setBizSuggestRows([]);
+                              }}
+                            >
+                              <div className="text-[13px] font-medium text-slate-800">{r.corpName}</div>
+                              <div className="text-[12px] text-[#64748B]">{r.bizNumber.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3')}{r.ceoName ? ` · ${r.ceoName}` : ''}</div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
+                    {bizSavedBadge ? (
+                      <span className="text-[11px] text-emerald-600">✓ 저장된 거래처</span>
+                    ) : null}
+                    {undoCustomerName !== null ? (
+                      <button
+                        type="button"
+                        className="text-[11px] text-[#64748B] hover:text-slate-900 focus-visible:outline-none"
+                        onClick={() => { setCustomerName(undoCustomerName); setUndoCustomerName(null); setBizSavedBadge(false); }}
+                      >
+                        되돌리기
+                      </button>
+                    ) : null}
+                    <p className="text-[11px] text-[#64748B]">발행하면 거래처가 자동 저장돼요</p>
                   </div>
                 ) : null}
               </div>
@@ -808,24 +867,60 @@ export function CashbillIssueForm({
                   />
                 ) : null}
                 {usage === 'biz' ? (
-                  <>
-                    <input
-                      value={identity}
-                      onChange={(e) => setIdentity(e.target.value)}
-                      placeholder="사업자번호"
-                      maxLength={12}
-                      aria-label="사업자번호"
-                      className={`${INPUT} w-[220px]`}
-                    />
+                  <div className="flex flex-wrap items-start gap-2">
+                    <div className="relative">
+                      <input
+                        value={identity}
+                        onChange={(e) => onBizIdentityChange(e.target.value)}
+                        placeholder="사업자번호"
+                        maxLength={12}
+                        aria-label="사업자번호"
+                        className={`${INPUT} w-[220px]`}
+                      />
+                      {bizSuggestRows.length > 0 ? (
+                        <div className="absolute left-0 top-full z-20 mt-1 w-[280px] overflow-hidden rounded-[10px] bg-white shadow-[0_4px_24px_rgba(17,24,39,.12)] ring-1 ring-slate-100">
+                          {bizSuggestRows.map((r) => (
+                            <button
+                              key={r.id}
+                              type="button"
+                              className="w-full px-3 py-2 text-left hover:bg-slate-50 focus-visible:outline-none"
+                              onClick={() => {
+                                setIdentity(r.bizNumber);
+                                setCustomerName(r.corpName);
+                                setBizSavedBadge(true);
+                                setBizSuggestRows([]);
+                              }}
+                            >
+                              <div className="text-[13px] font-medium text-slate-800">{r.corpName}</div>
+                              <div className="text-[12px] text-[#64748B]">{r.bizNumber.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3')}{r.ceoName ? ` · ${r.ceoName}` : ''}</div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {bizSavedBadge ? (
+                        <div className="mt-1 text-[11px] text-emerald-600">✓ 저장된 거래처</div>
+                      ) : null}
+                      {undoCustomerName !== null ? (
+                        <button
+                          type="button"
+                          className="mt-0.5 text-[11px] text-[#64748B] hover:text-slate-900 focus-visible:outline-none"
+                          onClick={() => { setCustomerName(undoCustomerName); setUndoCustomerName(null); setBizSavedBadge(false); }}
+                        >
+                          되돌리기
+                        </button>
+                      ) : null}
+                    </div>
                     <TaxInvoiceBuyerPicker
                       api={buyerApi}
-                      title="거래처에서 고르기"
                       onPick={(row) => {
                         setIdentity(row.bizNumber);
                         if (row.corpName.trim()) setCustomerName(row.corpName);
+                        setBizSavedBadge(true);
+                        setBizSuggestRows([]);
                       }}
                     />
-                  </>
+                    <span className="self-center text-[12px] text-[#64748B]">발행하면 거래처가 자동 저장돼요</span>
+                  </div>
                 ) : null}
                 <button type="button" className="shrink-0 text-[12px] text-[#64748B] no-underline" onClick={() => setUsage('voluntary')}>
                   자진발급
@@ -834,17 +929,6 @@ export function CashbillIssueForm({
             </>
           )}
           {identityHint ? <p className="text-[12px] text-amber-800">{identityHint}</p> : null}
-          {usage === 'biz' ? (
-            <label className="inline-flex items-center gap-2 text-[12px] text-slate-700">
-              <input
-                type="checkbox"
-                checked={saveBuyer}
-                onChange={(e) => setSaveBuyer(e.target.checked)}
-                className="size-3.5 rounded border-slate-300 text-[#1e3a5f] accent-[#1e3a5f]"
-              />
-              이 거래처 저장
-            </label>
-          ) : null}
           {allowInquiry && phoneHits.length > 0 ? (
             <div className="space-y-1 rounded-[10px] bg-[#F3F7FF] px-2.5 py-2">
               <p className="text-[11px] font-medium text-[#1f4fb8]">이 번호로 받은 접수가 있어요. 연결하면 고객명과 발행 가능 금액이 함께 들어갑니다.</p>

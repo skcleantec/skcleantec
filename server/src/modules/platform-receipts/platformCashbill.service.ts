@@ -14,6 +14,7 @@ import {
   tradeDateRangeFilter,
   type PlatformReceiptStatusFilter,
 } from './platformReceiptsQuery.js';
+import { tryUpsertBuyerAfterIssue } from '../taxinvoice/taxInvoiceBuyer.service.js';
 
 export type PlatformCashBillInput = {
   tradeUsage: '1' | '2';
@@ -109,6 +110,16 @@ export async function issuePlatformCashBill(input: PlatformCashBillInput) {
       kind: 'FULL',
     },
   });
+  // 지출증빙(tradeUsage 2)만 거래처 자동 저장
+  if (input.tradeUsage === '2') {
+    void tryUpsertBuyerAfterIssue(
+      { type: 'PLATFORM' },
+      {
+        bizNumber: input.buyerCorpNum || input.identityNum,
+        corpName: input.customerName,
+      },
+    );
+  }
   return record;
 }
 
