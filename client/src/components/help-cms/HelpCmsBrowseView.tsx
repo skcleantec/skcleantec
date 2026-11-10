@@ -49,7 +49,6 @@ export function HelpCmsBrowseView({
   const [searchHits, setSearchHits] = useState<HelpCmsSearchHit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarArticlesOpen, setSidebarArticlesOpen] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -316,14 +315,21 @@ export function HelpCmsBrowseView({
     );
   }
 
+  const sectionLabel = activeCategory?.label ?? article?.categoryLabel ?? sectionSlug ?? '분류';
+  const relatedArticles = articles
+    .filter((row) => row.slug !== articleSlug)
+    .slice(0, 5);
+
   return (
     <HelpCmsArticleReadLayout
       sidebarLabel="카테고리"
       sidebarItems={sidebarItems}
-      showArticleSidebar={Boolean(sectionSlug) && sidebarArticlesOpen}
+      showArticleSidebar={Boolean(sectionSlug)}
       articleItems={articleSidebar}
       articlesLoading={loading && Boolean(sectionSlug) && articles.length === 0}
       showUsageHomeLink
+      mobileSectionLabel={sectionLabel}
+      mobileArticleTitle={articleSlug ? article?.title ?? null : null}
     >
       {articleSlug ? (
         article ? (
@@ -346,6 +352,23 @@ export function HelpCmsBrowseView({
               articleTitle={article.title}
               onAskInquiry={goInquiryPrefill}
             />
+            {relatedArticles.length > 0 && sectionSlug ? (
+              <section className="mt-8 border-t border-slate-100 pt-5">
+                <h3 className="text-fluid-sm font-bold text-slate-900">같은 분류의 다른 글</h3>
+                <ul className="mt-2 space-y-1">
+                  {relatedArticles.map((row) => (
+                    <li key={row.id}>
+                      <Link
+                        to={helpUsageArticlePath(sectionSlug, row.slug)}
+                        className="block truncate rounded-lg px-1 py-2 text-[14px] text-[#0284c7] hover:bg-sky-50 hover:underline"
+                      >
+                        {row.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
           </HelpCmsArticleCard>
         ) : (
           <HelpCmsArticleCard>
@@ -364,13 +387,6 @@ export function HelpCmsBrowseView({
           {activeCategory?.description ? (
             <p className="mt-1 text-fluid-sm text-slate-600">{activeCategory.description}</p>
           ) : null}
-          <button
-            type="button"
-            className="mt-3 text-fluid-2xs font-semibold text-sky-700 lg:hidden"
-            onClick={() => setSidebarArticlesOpen((v) => !v)}
-          >
-            {sidebarArticlesOpen ? '글 목록 접기' : '글 목록 펼치기'}
-          </button>
           {loading ? (
             <p className="mt-6 text-fluid-sm text-slate-500">불러오는 중…</p>
           ) : articles.length === 0 ? (
