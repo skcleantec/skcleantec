@@ -38,6 +38,7 @@ import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider'
 import { approvalTail, groupTaxInvoiceRows, type TaxListConnect } from '../../utils/taxInvoiceListGroup';
 import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { ReceiptSetupGate } from '../../components/receipts/ReceiptSetupGate';
+import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
 
 const SEG = 'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
 const SEG_ON = 'bg-slate-900 text-white hover:bg-slate-800';
@@ -80,6 +81,8 @@ function kstYmdNow(): string {
 export function AdminTaxInvoiceListPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const permissions = useMarketerPermissions();
+  const isTenantAdmin = permissions.me?.role === 'ADMIN';
   const [searchParams, setSearchParams] = useSearchParams();
   const datePreset = searchParams.get('datePreset') || 'month';
   const monthKey = searchParams.get('month') || kstMonthKeyNow();
@@ -239,28 +242,38 @@ export function AdminTaxInvoiceListPage() {
         hideIssue={tab === 'issue'}
         unitPriceKrw={TAXINVOICE_UNIT_PRICE_KRW}
         onIssue={() => patch({ tab: 'issue', from: null })}
-        statusChip={certChip ? (
-          <button type="button" className={`min-h-11 rounded-full border px-3 text-fluid-2xs font-medium hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${certChip.className}`} onClick={() => setCertBrandId(certChip.id)}>
-            {certChip.label}
-          </button>
-        ) : null}
+        statusChip={
+          certChip && isTenantAdmin ? (
+            <button type="button" className={`min-h-11 rounded-full border px-3 text-fluid-2xs font-medium hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${certChip.className}`} onClick={() => setCertBrandId(certChip.id)}>
+              {certChip.label}
+            </button>
+          ) : certChip ? (
+            <span className={`inline-flex min-h-11 items-center rounded-full border px-3 text-fluid-2xs font-medium ${certChip.className}`}>{certChip.label}</span>
+          ) : null
+        }
       />
       <ReceiptIssueTabs value={tab === 'issue' ? 'issue' : 'history'} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'nts5', page: '1' })} onIssueFailed={() => patch({ state: 'failed', page: '1' })} />
-      {!needsLink && bandBrand ? (
+      {!needsLink && bandBrand && isTenantAdmin ? (
         <TaxInvoiceCertBand expireDate={soonestExpire} onRegister={() => setCertBrandId(bandBrand.id)} />
       ) : null}
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
-          <p>계산서 연결을 먼저 해주세요.</p>
-          <Link to="/admin/team-leaders/cashbill" className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">계산서 연결로 가기</Link>
+          <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'}</p>
+          {isTenantAdmin ? (
+            <Link to="/admin/team-leaders/cashbill" className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">계산서 연결로 가기</Link>
+          ) : null}
         </div>
       ) : null}
       {certMissing && !needsLink ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-950">
-          공동인증서를 등록해야 세금계산서를 발행할 수 있습니다
-          <button type="button" className="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => missingCert && setCertBrandId(missingCert.id)}>공동인증서 등록</button>
+          {isTenantAdmin
+            ? '공동인증서를 등록해야 세금계산서를 발행할 수 있습니다'
+            : '세금계산서는 관리자가 공동인증서를 등록해야 해요.'}
+          {isTenantAdmin ? (
+            <button type="button" className="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => missingCert && setCertBrandId(missingCert.id)}>공동인증서 등록</button>
+          ) : null}
         </div>
       ) : null}
       {tab === 'issue' && !needsLink && !certMissing ? (

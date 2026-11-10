@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
 import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
@@ -33,6 +34,8 @@ export function ReceiptListHeader({
   /** 현금영수증 22 · 세금계산서 150 */
   unitPriceKrw: number;
 }) {
+  const permissions = useMarketerPermissions();
+  const canCharge = permissions.me?.role === 'ADMIN';
   const { summary, openCharge, openHistory } = useReceiptWallet();
   const balanceKrw = summary?.balanceKrw;
   const walletShort = balanceKrw != null && balanceKrw < unitPriceKrw;
@@ -45,20 +48,34 @@ export function ReceiptListHeader({
           <h1 className="text-fluid-lg font-semibold text-slate-900">{title}</h1>
         </PageTitleWithFavorite>
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to="/admin/team-leaders/wallet"
-            className="text-fluid-sm font-semibold tabular-nums text-slate-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-            title="청소비서 지갑"
-          >
-            지갑 {summary ? won(summary.balanceKrw) : '…'}
-          </Link>
-          <span className="text-fluid-xs tabular-nums text-slate-600">건당 {won(unitPriceKrw)}</span>
-          <button type="button" className={GHOST} onClick={openHistory}>내역</button>
-          {walletShort ? (
-            <button type="button" className={PRIMARY} onClick={() => openCharge()}>충전하기</button>
+          {canCharge ? (
+            <Link
+              to="/admin/team-leaders/wallet"
+              className="text-fluid-sm font-semibold tabular-nums text-slate-900 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              title="청소비서 지갑"
+            >
+              지갑 {summary ? won(summary.balanceKrw) : '…'}
+            </Link>
           ) : (
-            <button type="button" className={GHOST} onClick={() => openCharge()}>충전</button>
+            <span className="text-fluid-sm font-semibold tabular-nums text-slate-900" title="청소비서 지갑">
+              지갑 {summary ? won(summary.balanceKrw) : '…'}
+            </span>
           )}
+          <span className="text-fluid-xs tabular-nums text-slate-600">건당 {won(unitPriceKrw)}</span>
+          <button type="button" className={GHOST} onClick={openHistory}>
+            내역
+          </button>
+          {canCharge ? (
+            walletShort ? (
+              <button type="button" className={PRIMARY} onClick={() => openCharge()}>
+                충전하기
+              </button>
+            ) : (
+              <button type="button" className={GHOST} onClick={() => openCharge()}>
+                충전
+              </button>
+            )
+          ) : null}
           {statusChip}
           {hideIssue ? null : (
             <button type="button" className={PRIMARY} disabled={blocked} onClick={onIssue}>
@@ -69,7 +86,9 @@ export function ReceiptListHeader({
       </div>
       {walletShort ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-950">
-          청소비서 지갑 잔액이 건당 요금({won(unitPriceKrw)})보다 적어 발행할 수 없습니다. 충전 후 다시 시도해 주세요.
+          {canCharge
+            ? `청소비서 지갑 잔액이 건당 요금(${won(unitPriceKrw)})보다 적어 발행할 수 없습니다. 충전 후 다시 시도해 주세요.`
+            : `청소비서 지갑 잔액이 건당 요금(${won(unitPriceKrw)})보다 적어 발행할 수 없습니다. 관리자에게 충전을 요청해 주세요.`}
         </p>
       ) : null}
     </div>

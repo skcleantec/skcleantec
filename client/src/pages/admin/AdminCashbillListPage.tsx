@@ -33,6 +33,7 @@ import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider'
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { ReceiptSetupGate } from '../../components/receipts/ReceiptSetupGate';
+import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
 
 const SEG =
   'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
@@ -56,6 +57,8 @@ const STATES = [
 ] as const;
 
 export function AdminCashbillListPage() {
+  const permissions = useMarketerPermissions();
+  const isTenantAdmin = permissions.me?.role === 'ADMIN';
   const [searchParams, setSearchParams] = useSearchParams();
   const datePreset = searchParams.get('datePreset') || 'month';
   const monthKey = searchParams.get('month') || kstMonthKeyNow();
@@ -217,13 +220,15 @@ export function AdminCashbillListPage() {
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
-          <p>계산서 연결을 먼저 해주세요.</p>
-          <Link
-            to="/admin/team-leaders/cashbill"
-            className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-          >
-            계산서 연결로 가기
-          </Link>
+          <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'}</p>
+          {isTenantAdmin ? (
+            <Link
+              to="/admin/team-leaders/cashbill"
+              className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 px-3 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            >
+              계산서 연결로 가기
+            </Link>
+          ) : null}
         </div>
       ) : null}
       {!needsLink && tab === 'issue' ? (

@@ -33,6 +33,68 @@ function requireTenantAdmin(res: Response, user: AuthPayload): boolean {
   return true;
 }
 
+/** 조회만 — ADMIN·MARKETER */
+function requireTenantStaff(res: Response, user: AuthPayload): boolean {
+  if (user.role !== 'ADMIN' && user.role !== 'MARKETER') {
+    res.status(403).json({ error: '권한이 없습니다.' });
+    return false;
+  }
+  return true;
+}
+
+type CashbillSettingsDto = Awaited<ReturnType<typeof getCashbillSettings>>;
+
+/** 마케터에게는 가입 상태·인증서·브랜드명·잔액만. 바로빌 아이디·연락처·사업자번호 등은 가림. */
+function maskCashbillSettingsForMarketer(settings: CashbillSettingsDto): CashbillSettingsDto {
+  return {
+    ...settings,
+    prefill: {
+      corpNum: '',
+      corpName: '',
+      ceoName: '',
+      addr1: '',
+      contactName: '',
+      contactTel: '',
+      contactEmail: '',
+    },
+    missing: [],
+    brands: settings.brands.map((brand) => ({
+      operatingCompanyId: brand.operatingCompanyId,
+      name: brand.name,
+      isDefault: brand.isDefault,
+      member: brand.member
+        ? {
+            id: brand.member.id,
+            status: brand.member.status,
+            taxType: brand.member.taxType,
+            lastError: null,
+            corpNumMasked: '',
+            corpNum: '',
+            corpName: '',
+            ceoName: '',
+            addr1: '',
+            rejectReason: null,
+            businessRegistrationImageUrl: null,
+            businessRegistrationImagePublicId: null,
+            linked: brand.member.linked,
+            certValid: brand.member.certValid,
+            certExpireDate: brand.member.certExpireDate,
+            bizType: '',
+            bizClass: '',
+            contactName: '',
+            contactTel: '',
+            contactEmail: '',
+            linkRequestedAt: null,
+            linkRequestUserIdHint: null,
+            createdAt: brand.member.createdAt,
+            reviewedAt: null,
+            updatedAt: brand.member.updatedAt,
+          }
+        : null,
+    })),
+  };
+}
+
 function sendError(res: Response, err: unknown, fallback: string): void {
   if (err instanceof CashbillMemberError) {
     res.status(err.statusCode).json({ error: err.message });
@@ -44,11 +106,12 @@ function sendError(res: Response, err: unknown, fallback: string): void {
 
 router.get('/settings', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  if (!requireTenantAdmin(res, user)) return;
+  if (!requireTenantStaff(res, user)) return;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
-    res.json(await getCashbillSettings(tenantId));
+    const settings = await getCashbillSettings(tenantId);
+    res.json(user.role === 'MARKETER' ? maskCashbillSettingsForMarketer(settings) : settings);
   } catch (err) {
     sendError(res, err, '계산서 연결을 불러오지 못했습니다.');
   }
@@ -56,7 +119,7 @@ router.get('/settings', async (req, res) => {
 
 router.get('/certificate-status', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  if (!requireTenantAdmin(res, user)) return;
+  if (!requireTenantStaff(res, user)) return;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const operatingCompanyId = typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : '';
