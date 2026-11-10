@@ -85,6 +85,8 @@ export function CashbillIssueForm({
   adapter,
   platformTenantId,
   pcAsideExtra,
+  pageLayout = false,
+  onDirtyChange,
 }: {
   brands: CashbillBrand[];
   onClose: () => void;
@@ -96,12 +98,21 @@ export function CashbillIssueForm({
   platformTenantId?: string;
   /** PC(lg+) 미리보기 아래 — 요약 카드 등 */
   pcAsideExtra?: ReactNode;
+  /** 페이지 레이아웃: 왼쪽 흰 카드 + 오른쪽 프리뷰 (lg+) */
+  pageLayout?: boolean;
+  /** 사용자가 편집하면 호출 (마운트 초기화 완료 후만) */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { summary, openCharge, reload } = useReceiptWallet();
   const allowInquiry = !adapter || adapter.allowInquiry;
   const useWallet = !adapter || adapter.useWallet;
   const buyerApi = adapter?.buyerApi ?? tenantTaxInvoiceBuyerApi;
   const isPlatform = adapter?.mode === 'platform';
+  const initializedRef = useRef(false);
+
+  function markDirty() {
+    if (initializedRef.current && onDirtyChange) onDirtyChange(true);
+  }
 
   const linkedBrands = brands.filter((brand) => brand.linked);
   const today = kstToday();
@@ -157,9 +168,10 @@ export function CashbillIssueForm({
         setTaxKind(values.taxKind);
       }
       setDefaultsReady(true);
+      initializedRef.current = true;
     };
     void load().catch(() => {
-      if (!stop) setDefaultsReady(true);
+      if (!stop) { setDefaultsReady(true); initializedRef.current = true; }
     });
     return () => { stop = true; };
   }, [brandId, isPlatform, seed]);
@@ -387,61 +399,65 @@ export function CashbillIssueForm({
       balanceKrw={summary?.balanceKrw ?? null}
       onIssue={askIssue}
       onCharge={() => openCharge()}
+      pageLayout={pageLayout}
     />
   );
 
+  const footerJSX = (
+    <div className="border-t border-[#F1F5F9] pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className={`text-[12px] ${short ? 'font-medium text-red-700' : 'text-[#64748B]'}`}>
+          {useWallet
+            ? (short
+              ? '잔액이 부족합니다'
+              : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑 ${summary ? won(summary.balanceKrw) : '…'}`)
+            : `원가 ${won(CASHBILL_COST_KRW)}`}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {!embedded && !pageLayout ? (
+            <button
+              type="button"
+              className="h-[38px] rounded-[10px] px-3 text-[13px] text-[#64748B] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+              onClick={onClose}
+            >
+              취소
+            </button>
+          ) : null}
+          {useWallet && short ? (
+            <button
+              type="button"
+              className="h-[46px] min-w-[160px] rounded-[12px] bg-[#1e3a5f] px-5 text-[14px] font-semibold text-white hover:bg-[#152a45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+              onClick={() => openCharge()}
+            >
+              충전하기
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="h-[46px] min-w-[160px] rounded-[12px] bg-[#1e3a5f] px-5 text-[14px] font-semibold text-white hover:bg-[#152a45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50"
+              disabled={issueDisabled}
+              onClick={askIssue}
+            >
+              {issueLabel}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className={embedded ? 'lg:flex lg:items-start lg:gap-4' : undefined}>
-    <div className={embedded ? 'min-w-0 lg:w-[700px] lg:shrink-0' : undefined}>
+    <div className={pageLayout ? 'lg:flex lg:w-[1040px] lg:items-start lg:gap-6' : embedded ? 'lg:flex lg:items-start lg:gap-4' : undefined}>
+    <div className={pageLayout ? 'min-w-0 lg:w-[640px] lg:shrink-0' : embedded ? 'min-w-0 lg:w-[700px] lg:shrink-0' : undefined}>
     <IssueModalFrame
-      inline={embedded}
+      inline={embedded || pageLayout}
       softCard
+      pageCard={pageLayout}
       hideHeader
-      hideFooterOnLg={embedded}
+      hideFooterOnLg={embedded || pageLayout}
       title="현금영수증 발행"
       onClose={onClose}
-      footer={(
-        <div className="border-t border-[#F1F5F9] pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className={`text-[12px] ${short ? 'font-medium text-red-700' : 'text-[#64748B]'}`}>
-              {useWallet
-                ? (short
-                  ? '잔액이 부족합니다'
-                  : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑 ${summary ? won(summary.balanceKrw) : '…'}`)
-                : `원가 ${won(CASHBILL_COST_KRW)}`}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {!embedded ? (
-                <button
-                  type="button"
-                  className="h-[38px] rounded-[10px] px-3 text-[13px] text-[#64748B] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                  onClick={onClose}
-                >
-                  취소
-                </button>
-              ) : null}
-              {useWallet && short ? (
-                <button
-                  type="button"
-                  className="h-[46px] min-w-[160px] rounded-[12px] bg-[#1e3a5f] px-5 text-[14px] font-semibold text-white hover:bg-[#152a45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                  onClick={() => openCharge()}
-                >
-                  충전하기
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="h-[46px] min-w-[160px] rounded-[12px] bg-[#1e3a5f] px-5 text-[14px] font-semibold text-white hover:bg-[#152a45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50"
-                  disabled={issueDisabled}
-                  onClick={askIssue}
-                >
-                  {issueLabel}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      footer={footerJSX}
     >
       {confirmOpen ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
@@ -495,7 +511,8 @@ export function CashbillIssueForm({
         ) : null}
       </div>
 
-      {error ? <p className="mb-3 rounded-[10px] bg-red-50 px-3 py-2 text-[12px] text-red-800">{error}</p> : null}
+      <div className={pageLayout ? 'space-y-4' : undefined}>
+      {error ? <p className="rounded-[10px] bg-red-50 px-3 py-2 text-[12px] text-red-800">{error}</p> : null}
 
       {/* 2) 고객 */}
       {allowInquiry ? (
@@ -532,7 +549,7 @@ export function CashbillIssueForm({
                 />
                 <button
                   type="button"
-                  className="hidden text-[12px] font-medium text-sky-600 hover:text-sky-700 lg:inline"
+                  className="hidden text-[12px] font-medium text-[#475569] hover:text-slate-900 lg:inline"
                   onClick={() => {
                     setUnmatched(false);
                     setPhoneHits([]);
@@ -572,7 +589,7 @@ export function CashbillIssueForm({
                   </div>
                   <button
                     type="button"
-                    className="hidden shrink-0 text-[12px] font-medium text-sky-600 hover:text-sky-700 lg:inline"
+                    className="hidden shrink-0 text-[12px] font-medium text-[#475569] hover:text-slate-900 lg:inline"
                     onClick={() => clearMatch()}
                   >
                     접수 없이 직접 입력
@@ -613,29 +630,46 @@ export function CashbillIssueForm({
         </FieldRow>
       )}
 
-      <hr className={DIVIDER} />
+      {pageLayout ? null : <hr className={DIVIDER} />}
 
       {/* 3) 금액 */}
       <FieldRow label="금액">
         <div className="space-y-1.5">
-          <div className="flex items-baseline gap-1 border-b border-slate-200 pb-1">
-            <input
-              inputMode="numeric"
-              value={amount ? Number(amount).toLocaleString('ko-KR') : ''}
-              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
-              aria-label="금액"
-              className="w-full border-0 bg-transparent text-[22px] font-bold tabular-nums text-slate-900 placeholder:font-normal placeholder:text-slate-300 focus-visible:outline-none"
-              placeholder="0"
-            />
-            <span className="shrink-0 text-[14px] text-[#64748B]">원</span>
-          </div>
+          {pageLayout ? (
+            <div className="flex flex-wrap items-baseline gap-1.5">
+              <input
+                inputMode="numeric"
+                value={amount ? Number(amount).toLocaleString('ko-KR') : ''}
+                onChange={(e) => { setAmount(e.target.value.replace(/\D/g, '')); markDirty(); }}
+                aria-label="금액"
+                className="h-[38px] w-[160px] rounded-[10px] border-0 bg-[#F4F6FA] px-3 text-[16px] font-bold tabular-nums text-slate-900 placeholder:font-normal placeholder:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                placeholder="0"
+              />
+              <span className="shrink-0 text-[14px] text-[#64748B]">원</span>
+              {selected && !unmatched ? (
+                <span className="text-[12px] text-[#64748B]">발행 가능 한도 {won(selected.remainingWon)}</span>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-1 border-b border-slate-200 pb-1">
+              <input
+                inputMode="numeric"
+                value={amount ? Number(amount).toLocaleString('ko-KR') : ''}
+                onChange={(e) => { setAmount(e.target.value.replace(/\D/g, '')); markDirty(); }}
+                aria-label="금액"
+                className="w-full border-0 bg-transparent text-[22px] font-bold tabular-nums text-slate-900 placeholder:font-normal placeholder:text-slate-300 focus-visible:outline-none"
+                placeholder="0"
+              />
+              <span className="shrink-0 text-[14px] text-[#64748B]">원</span>
+            </div>
+          )}
           <p className="text-[12px] text-[#64748B]">
             {activeKind === 'exempt'
               ? '면세 · 부가세 없음'
               : total > 0
                 ? `공급가액 ${won(supply)} · 부가세 ${won(vat)}`
                 : '공급가액 · 부가세'}
-            {selected && !unmatched ? ` · 발행 가능 한도 ${won(selected.remainingWon)}` : null}
+            {!pageLayout && selected && !unmatched ? ` · 발행 가능 한도 ${won(selected.remainingWon)}` : null}
           </p>
           {allowInquiry ? (
             <div className="[&_input]:h-[38px] [&_input]:rounded-[10px] [&_input]:border-0 [&_input]:bg-[#F4F6FA] [&_input]:px-3 [&_input]:text-[14px] [&_input]:focus-visible:outline-none [&_input]:focus-visible:ring-2 [&_input]:focus-visible:ring-slate-300">
@@ -645,7 +679,7 @@ export function CashbillIssueForm({
         </div>
       </FieldRow>
 
-      <hr className={DIVIDER} />
+      {pageLayout ? null : <hr className={DIVIDER} />}
 
       {/* 4) 거래유형 */}
       <FieldRow label="거래유형">
@@ -691,7 +725,7 @@ export function CashbillIssueForm({
         </div>
       </FieldRow>
 
-      <hr className={DIVIDER} />
+      {pageLayout ? null : <hr className={DIVIDER} />}
 
       {/* 5) 용도 */}
       <FieldRow label="용도">
@@ -699,7 +733,7 @@ export function CashbillIssueForm({
           {usage === 'voluntary' ? (
             <div className="space-y-1.5">
               <p className="text-[13px] text-slate-700">자진발급 010-000-1234</p>
-              <button type="button" className="text-[12px] font-medium text-[#64748B] underline" onClick={() => setUsage('phone')}>
+              <button type="button" className="text-[12px] font-medium text-[#64748B] no-underline" onClick={() => setUsage('phone')}>
                 소득공제·지출증빙으로 바꾸기
               </button>
             </div>
@@ -716,7 +750,7 @@ export function CashbillIssueForm({
                     { value: 'biz', label: '지출증빙' },
                   ]}
                 />
-                <button type="button" className="text-[12px] text-[#64748B] underline" onClick={() => setUsage('voluntary')}>
+                <button type="button" className="text-[12px] text-[#64748B] no-underline" onClick={() => setUsage('voluntary')}>
                   자진발급
                 </button>
                 {usage === 'phone' ? (
@@ -793,7 +827,7 @@ export function CashbillIssueForm({
                     />
                   </>
                 ) : null}
-                <button type="button" className="shrink-0 text-[12px] text-[#64748B] underline" onClick={() => setUsage('voluntary')}>
+                <button type="button" className="shrink-0 text-[12px] text-[#64748B] no-underline" onClick={() => setUsage('voluntary')}>
                   자진발급
                 </button>
               </div>
@@ -827,7 +861,7 @@ export function CashbillIssueForm({
         </div>
       </FieldRow>
 
-      <hr className={DIVIDER} />
+      {pageLayout ? null : <hr className={DIVIDER} />}
 
       {/* 6) 이메일 · 품목 · 거래일 */}
       <FieldRow label="이메일">
@@ -840,7 +874,7 @@ export function CashbillIssueForm({
         />
       </FieldRow>
       {/* 모바일: 품목·거래일 분리 */}
-      <div className="mt-4 space-y-4 lg:hidden">
+      <div className={`${pageLayout ? '' : 'mt-4 '}space-y-4 lg:hidden`}>
         <FieldRow label="품목">
           <input value={itemName} onChange={(e) => setItemName(e.target.value)} className={INPUT} />
         </FieldRow>
@@ -857,7 +891,7 @@ export function CashbillIssueForm({
         </FieldRow>
       </div>
       {/* PC: 품목 · 거래일 한 줄 */}
-      <div className="mt-4 hidden lg:block">
+      <div className={`${pageLayout ? '' : 'mt-4 '}hidden lg:block`}>
         <FieldRow label="품목 · 거래일">
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -879,7 +913,7 @@ export function CashbillIssueForm({
         </FieldRow>
       </div>
 
-      <hr className={DIVIDER} />
+      {pageLayout ? null : <hr className={DIVIDER} />}
 
       {/* 7) 메모 — 항상 표시 */}
       <FieldRow label="메모">
@@ -894,12 +928,17 @@ export function CashbillIssueForm({
           <p className="text-[11px] text-[#64748B]">우리끼리 보는 메모예요. 고객 영수증에는 안 나가요.</p>
         </div>
       </FieldRow>
+      </div>
     </IssueModalFrame>
     </div>
-    {embedded ? (
-      <aside className="mt-4 hidden min-w-0 flex-1 space-y-3 lg:sticky lg:top-4 lg:mt-0 lg:block">
+    {(embedded || pageLayout) ? (
+      <aside className={
+        pageLayout
+          ? 'mt-4 hidden lg:sticky lg:top-4 lg:mt-0 lg:block lg:w-[376px] lg:shrink-0'
+          : 'mt-4 hidden min-w-0 flex-1 space-y-3 lg:sticky lg:top-4 lg:mt-0 lg:block'
+      }>
         {preview}
-        {pcAsideExtra}
+        {!pageLayout ? pcAsideExtra : null}
       </aside>
     ) : null}
     </div>

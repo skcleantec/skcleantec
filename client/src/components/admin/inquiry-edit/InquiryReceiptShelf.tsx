@@ -33,7 +33,7 @@ export function InquiryReceiptShelf({ inquiryId }: { inquiryId: string }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        <Link className={linkClass} to={`/admin/inquiries/receipts/cashbill?tab=issue&inquiryId=${encodeURIComponent(inquiryId)}`}>현금영수증 발행</Link>
+        <Link className={linkClass} to={`/admin/inquiries/receipts/cashbill/new?inquiryId=${encodeURIComponent(inquiryId)}`}>현금영수증 발행</Link>
         <Link className={linkClass} to={`/admin/inquiries/receipts/taxinvoice?tab=issue&inquiryId=${encodeURIComponent(inquiryId)}`}>세금계산서 발행</Link>
       </div>
       {cash.length === 0 && tax.length === 0 ? (

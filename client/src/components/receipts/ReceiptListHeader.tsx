@@ -112,7 +112,7 @@ export function ReceiptListHeader({
         </div>
       </div>
 
-      {/* PC 한 줄 */}
+      {/* PC 한 줄 — 탭 있음 */}
       {compactPc && tab && onTabChange ? (
         <div className="hidden items-center justify-between gap-3 lg:flex">
           <div className="flex min-w-0 items-center gap-3">
@@ -169,6 +169,66 @@ export function ReceiptListHeader({
                 <LineMdIcon name="cog" className="size-4" />
               </button>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* PC 한 줄 — 탭 없음 (목록 전용) */}
+      {compactPc && !tab ? (
+        <div className="hidden items-center justify-between gap-3 lg:flex">
+          <PageTitleWithFavorite label={title} path={path}>
+            <h1 className="text-[22px] font-bold text-slate-900">{title}</h1>
+          </PageTitleWithFavorite>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 text-[12px] text-[#64748B]">
+            {connectionStatus ? (
+              <span className={`inline-flex items-center gap-1.5 ${connectionStatus.ok ? 'text-emerald-700' : 'text-amber-700'}`}>
+                <span
+                  className={`size-1.5 shrink-0 rounded-full ${connectionStatus.ok ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                  aria-hidden
+                />
+                {connectionStatus.label}
+              </span>
+            ) : null}
+            <span className="text-slate-300" aria-hidden>|</span>
+            <span className="tabular-nums text-slate-700">
+              지갑 {summary ? won(summary.balanceKrw) : '…'} · 건당 {won(unitPriceKrw)}
+            </span>
+            {canCharge ? (
+              <button
+                type="button"
+                className="inline-flex h-[30px] items-center px-1 text-[12px] font-medium text-[#64748B] hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                onClick={() => openCharge()}
+              >
+                충전
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="inline-flex h-[30px] items-center px-1 text-[12px] font-medium text-[#64748B] hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+              onClick={openHistory}
+            >
+              내역
+            </button>
+            {onOpenSettings ? (
+              <button
+                type="button"
+                className="inline-flex size-[30px] items-center justify-center rounded-[8px] text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                aria-label="설정"
+                onClick={onOpenSettings}
+              >
+                <LineMdIcon name="cog" className="size-4" />
+              </button>
+            ) : null}
+            {hideIssue ? null : (
+              <button
+                type="button"
+                disabled={blocked}
+                onClick={onIssue}
+                className="inline-flex h-[36px] items-center rounded-[10px] bg-[#1e3a5f] px-3 text-[13px] font-semibold text-white hover:bg-[#152a45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50"
+              >
+                {issueLabel}
+              </button>
+            )}
           </div>
         </div>
       ) : null}
@@ -236,38 +296,44 @@ export function ReceiptSummaryCards({
     );
   }
 
-  const card = 'min-w-[9rem] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2';
+  const card = 'min-w-0 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3';
   return (
     <div className="flex flex-wrap gap-2">
       <section className={card}>
-        <p className="text-fluid-2xs text-slate-500">이번 달 발행</p>
-        <p className="text-fluid-sm font-semibold tabular-nums text-slate-900">{issuedCount}건 · {won(issuedWon)}</p>
+        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-[12px] text-slate-500">이번 달 발행</span>
+          <span className="text-[16px] font-bold tabular-nums text-slate-900">{issuedCount}건</span>
+          <span className="text-[12px] tabular-nums text-slate-500">{won(issuedWon)}</span>
+        </p>
       </section>
       <section className={card}>
-        <p className="inline-flex items-center gap-1 text-fluid-2xs text-slate-500">
-          국세청 전송
-          <HelpTooltip text="발급완료 후 국세청 전송을 기다리는 건" />
-        </p>
-        <p className="text-fluid-sm text-slate-800">
-          국세청 전송 대기 {waitingCount}
-          {' · '}
-          {failedCount > 0 ? (
-            <button type="button" className="font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" onClick={onFailed}>
-              실패 {failedCount}
-            </button>
-          ) : (
-            <span className="text-slate-600">실패 0</span>
-          )}
+        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="inline-flex items-center gap-1 text-[12px] text-slate-500">
+            국세청 전송
+            <HelpTooltip text="발급완료 후 국세청 전송을 기다리는 건" />
+          </span>
+          <span className="text-[16px] font-bold tabular-nums text-slate-900">대기 {waitingCount}</span>
+          <span className="text-[12px] text-slate-500">
+            {failedCount > 0 ? (
+              <button type="button" className="font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2" onClick={onFailed}>
+                실패 {failedCount}
+              </button>
+            ) : (
+              '실패 0'
+            )}
+          </span>
         </p>
         {onIssueFailed ? (
-          <button type="button" className="mt-1 text-fluid-xs font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" onClick={onIssueFailed}>
+          <button type="button" className="mt-1 text-[12px] font-semibold text-red-700 underline hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2" onClick={onIssueFailed}>
             발행 실패 {issueFailCount ?? 0}
           </button>
         ) : null}
       </section>
       <section className={card}>
-        <p className="text-fluid-2xs text-slate-500">이번 달 비용</p>
-        <p className="text-fluid-lg font-semibold tabular-nums text-slate-900">{won(costWon)}</p>
+        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-[12px] text-slate-500">이번 달 비용</span>
+          <span className="text-[16px] font-bold tabular-nums text-slate-900">{won(costWon)}</span>
+        </p>
       </section>
     </div>
   );
