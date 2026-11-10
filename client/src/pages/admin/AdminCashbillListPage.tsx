@@ -16,11 +16,13 @@ import {
 } from '../../api/cashbillIssues';
 import { markReceiptStateSynced, receiptOpenOverDay, receiptStateSyncDue } from '../../utils/receiptStateSync';
 import { CashbillIssueForm, type CashbillIssueSeed } from '../../components/cashbill/CashbillIssueForm';
+import { certDaysLeft, formatCertExpireDot } from '../../components/cashbill/cashbillCertDisplay';
+import { fetchCashbillSettings } from '../../api/cashbill';
 import { ReceiptExtraNote } from '../../components/receipts/ReceiptExtraNote';
 import { ReceiptIssueTabs } from '../../components/ui/ReceiptIssueTabs';
 import { ReceiptInquiryLinkModal } from '../../components/receipts/ReceiptInquiryLinkModal';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
-import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
+import { ReceiptListHeader, ReceiptSummaryCards, type ReceiptConnectionStatus } from '../../components/receipts/ReceiptListHeader';
 import { ReceiptIssueSettingsModal } from '../../components/receipts/ReceiptIssueSettingsModal';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
@@ -34,6 +36,7 @@ import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider'
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { ReceiptSetupGate } from '../../components/receipts/ReceiptSetupGate';
+import { defaultBrand, isBarobillJoined } from '../../components/receipts/receiptSetupState';
 import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
 
 const SEG =
@@ -86,7 +89,44 @@ export function AdminCashbillListPage() {
   const [linkIssueId, setLinkIssueId] = useState<string | null>(null);
   const [walletTick, setWalletTick] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ReceiptConnectionStatus | null>(null);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
+
+  useEffect(() => {
+    let stop = false;
+    fetchCashbillSettings()
+      .then((settings) => {
+        if (stop) return;
+        const brand = defaultBrand(settings);
+        const member = brand?.member ?? null;
+        if (!isBarobillJoined(member)) {
+          setConnectionStatus({ ok: false, label: '바로빌 미가입' });
+          return;
+        }
+        if (!member?.certValid) {
+          setConnectionStatus({ ok: false, label: '바로빌 연결 · 인증서 미등록' });
+          return;
+        }
+        const left = certDaysLeft(member.certExpireDate);
+        if (left != null && left < 0) {
+          setConnectionStatus({ ok: false, label: '인증서 만료' });
+          return;
+        }
+        if (left != null && left <= 30) {
+          setConnectionStatus({ ok: false, label: `인증서 ${left}일 남음` });
+          return;
+        }
+        const until = formatCertExpireDot(member.certExpireDate);
+        setConnectionStatus({
+          ok: true,
+          label: until ? `바로빌 연결 · 인증서 ${until}까지` : '바로빌 연결',
+        });
+      })
+      .catch(() => {
+        if (!stop) setConnectionStatus(null);
+      });
+    return () => { stop = true; };
+  }, [reload]);
 
   const patch = useCallback((next: Record<string, string | null>) => {
     setSearchParams((prev) => {
@@ -216,11 +256,28 @@ export function AdminCashbillListPage() {
     <ReceiptWalletProvider>
     <ReceiptSetupGate kind="cashbill">
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
-      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} hideIssue={tab === 'issue'} unitPriceKrw={CASHBILL_UNIT_PRICE_KRW} onIssue={() => { setIssueSeed(null); patch({ tab: 'issue', from: null }); }} onOpenSettings={() => setSettingsOpen(true)} />
+      <ReceiptListHeader
+        title="현금영수증"
+        path="/admin/inquiries/receipts/cashbill"
+        issueLabel="+ 현금영수증 발행"
+        issueDisabled={needsLink}
+        hideIssue={tab === 'issue'}
+        unitPriceKrw={CASHBILL_UNIT_PRICE_KRW}
+        onIssue={() => { setIssueSeed(null); patch({ tab: 'issue', from: null }); }}
+        onOpenSettings={() => setSettingsOpen(true)}
+        compactPc
+        tab={tab}
+        onTabChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })}
+        connectionStatus={connectionStatus}
+      />
       <ReceiptIssueSettingsModal kind="cashbill" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <ReceiptIssueTabs value={tab} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
+      <div className="lg:hidden">
+        <ReceiptIssueTabs value={tab} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
+      </div>
       <ReceiptWalletRefresh tick={walletTick} />
-      <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />
+      <div className={tab === 'issue' ? 'lg:hidden' : undefined}>
+        <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />
+      </div>
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
           <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'}</p>
@@ -241,6 +298,13 @@ export function AdminCashbillListPage() {
           brands={brands}
           seed={issueSeed}
           seedInquiryId={seedInquiryId}
+          pcAsideExtra={(
+            <ReceiptSummaryCards
+              compact
+              {...summary}
+              onFailed={() => patch({ state: 'failed', page: '1' })}
+            />
+          )}
           onClose={() => patch({ tab: null, from: null })}
           onDone={(issueId) => {
             patch({ tab: null, from: null, inquiryId: null });

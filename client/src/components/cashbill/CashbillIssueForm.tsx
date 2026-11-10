@@ -22,8 +22,10 @@ import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
+import { LineMdIcon } from '../ui/LineMdIcon';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import TaxInvoiceBuyerPicker from '../taxinvoice/TaxInvoiceBuyerPicker';
+import { CashbillIssuePreview } from './CashbillIssuePreview';
 
 function kstToday(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
@@ -49,7 +51,7 @@ const INPUT =
   'h-[38px] w-full rounded-[10px] border-0 bg-[#F4F6FA] px-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300';
 const TEXTAREA =
   'w-full resize-none rounded-[10px] border-0 bg-[#F4F6FA] px-3 py-2 text-[14px] text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300';
-const ROW = 'grid grid-cols-1 items-start gap-2 sm:grid-cols-[72px_1fr] sm:gap-x-3 sm:gap-y-0';
+const ROW = 'grid grid-cols-1 items-start gap-2 sm:grid-cols-[72px_1fr] sm:gap-x-3 sm:gap-y-0 lg:grid-cols-[88px_1fr]';
 const LABEL = 'pt-0 text-[13px] font-medium text-[#64748B] sm:pt-[9px]';
 const DIVIDER = 'my-4 border-0 border-t border-[#F1F5F9]';
 
@@ -82,6 +84,7 @@ export function CashbillIssueForm({
   seedInquiryId = '',
   adapter,
   platformTenantId,
+  pcAsideExtra,
 }: {
   brands: CashbillBrand[];
   onClose: () => void;
@@ -91,6 +94,8 @@ export function CashbillIssueForm({
   seedInquiryId?: string;
   adapter?: CashbillIssuerAdapter;
   platformTenantId?: string;
+  /** PC(lg+) 미리보기 아래 — 요약 카드 등 */
+  pcAsideExtra?: ReactNode;
 }) {
   const { summary, openCharge, reload } = useReceiptWallet();
   const allowInquiry = !adapter || adapter.allowInquiry;
@@ -354,12 +359,45 @@ export function CashbillIssueForm({
   const customerMode = unmatched ? 'manual' : 'search';
   const selectedName = selected ? (selected.displayName || selected.customerName) : '';
   const cleanDay = selected?.createdAt?.slice(0, 10) ?? '';
+  const previewCustomer =
+    unmatched
+      ? (customerName.trim() || '직접 입력')
+      : selected
+        ? selectedName
+        : '고객 미선택';
+  const issueDisabled = busy || (!selected && !unmatched) || linkedBrands.length === 0;
+
+  const preview = (
+    <CashbillIssuePreview
+      customerLabel={previewCustomer}
+      itemName={itemName}
+      tradeDate={tradeDate}
+      taxKind={activeKind}
+      usage={usage}
+      supply={supply}
+      vat={vat}
+      total={total}
+      defaultsReady={defaultsReady}
+      defaults={defaults}
+      issueLabel={issueLabel}
+      busy={busy}
+      disabled={issueDisabled}
+      short={Boolean(short)}
+      useWallet={useWallet}
+      balanceKrw={summary?.balanceKrw ?? null}
+      onIssue={askIssue}
+      onCharge={() => openCharge()}
+    />
+  );
 
   return (
+    <div className={embedded ? 'lg:flex lg:items-start lg:gap-4' : undefined}>
+    <div className={embedded ? 'min-w-0 lg:w-[700px] lg:shrink-0' : undefined}>
     <IssueModalFrame
       inline={embedded}
       softCard
       hideHeader
+      hideFooterOnLg={embedded}
       title="현금영수증 발행"
       onClose={onClose}
       footer={(
@@ -394,7 +432,7 @@ export function CashbillIssueForm({
                 <button
                   type="button"
                   className="h-[46px] min-w-[160px] rounded-[12px] bg-[#1e3a5f] px-5 text-[14px] font-semibold text-white hover:bg-[#152a45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50"
-                  disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0}
+                  disabled={issueDisabled}
                   onClick={askIssue}
                 >
                   {issueLabel}
@@ -463,31 +501,47 @@ export function CashbillIssueForm({
       {allowInquiry ? (
         <FieldRow label="고객">
           <div className="space-y-2">
-            <SegmentedControl
-              ariaLabel="고객 입력 방식"
-              value={customerMode}
-              onChange={(next) => {
-                if (next === 'manual') clearMatch();
-                else {
-                  setUnmatched(false);
-                  setPhoneHits([]);
-                  if (selected) chooseOtherCustomer();
-                }
-              }}
-              options={[
-                { value: 'search', label: '접수에서 찾기' },
-                { value: 'manual', label: '직접 입력' },
-              ]}
-            />
-            {unmatched ? (
-              <input
-                autoFocus
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                maxLength={64}
-                placeholder="고객명 (선택)"
-                className={INPUT}
+            {/* 모바일: 세그먼트 유지 */}
+            <div className="lg:hidden">
+              <SegmentedControl
+                ariaLabel="고객 입력 방식"
+                value={customerMode}
+                onChange={(next) => {
+                  if (next === 'manual') clearMatch();
+                  else {
+                    setUnmatched(false);
+                    setPhoneHits([]);
+                    if (selected) chooseOtherCustomer();
+                  }
+                }}
+                options={[
+                  { value: 'search', label: '접수에서 찾기' },
+                  { value: 'manual', label: '직접 입력' },
+                ]}
               />
+            </div>
+            {unmatched ? (
+              <div className="space-y-2">
+                <input
+                  autoFocus
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  maxLength={64}
+                  placeholder="고객명 (선택)"
+                  className={INPUT}
+                />
+                <button
+                  type="button"
+                  className="hidden text-[12px] font-medium text-sky-600 hover:text-sky-700 lg:inline"
+                  onClick={() => {
+                    setUnmatched(false);
+                    setPhoneHits([]);
+                    setCustomerName('');
+                  }}
+                >
+                  접수로 찾기
+                </button>
+              </div>
             ) : selected ? (
               <div className="flex items-center gap-3 rounded-[14px] bg-[#F8FAFC] px-3 py-2.5">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#E0E7FF] text-[14px] font-semibold text-[#3730A3]">
@@ -505,13 +559,25 @@ export function CashbillIssueForm({
               </div>
             ) : (
               <>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="고객명 또는 전화번호"
-                  className={INPUT}
-                  aria-label="고객 검색"
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative min-w-0 flex-1">
+                    <LineMdIcon name="search" className="pointer-events-none absolute left-3 top-1/2 hidden size-4 -translate-y-1/2 text-[#94A3B8] lg:block" />
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="고객명 또는 전화번호"
+                      className={`${INPUT} lg:pl-9`}
+                      aria-label="고객 검색"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="hidden shrink-0 text-[12px] font-medium text-sky-600 hover:text-sky-700 lg:inline"
+                    onClick={() => clearMatch()}
+                  >
+                    접수 없이 직접 입력
+                  </button>
+                </div>
                 {!selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
                   <p className="text-[12px] text-[#64748B]">찾는 접수가 없어요. 「직접 입력」으로 발행할 수 있어요.</p>
                 ) : null}
@@ -639,61 +705,111 @@ export function CashbillIssueForm({
             </div>
           ) : (
             <>
-              <SegmentedControl
-                ariaLabel="용도"
-                value={usage === 'biz' ? 'biz' : 'phone'}
-                onChange={(next) => setUsage(next)}
-                options={[
-                  { value: 'phone', label: '소득공제' },
-                  { value: 'biz', label: '지출증빙' },
-                ]}
-              />
-              <button type="button" className="text-[12px] text-[#64748B] underline" onClick={() => setUsage('voluntary')}>
-                자진발급
-              </button>
+              {/* 모바일: 기존 세로 배치 */}
+              <div className="space-y-2 lg:hidden">
+                <SegmentedControl
+                  ariaLabel="용도"
+                  value={usage === 'biz' ? 'biz' : 'phone'}
+                  onChange={(next) => setUsage(next)}
+                  options={[
+                    { value: 'phone', label: '소득공제' },
+                    { value: 'biz', label: '지출증빙' },
+                  ]}
+                />
+                <button type="button" className="text-[12px] text-[#64748B] underline" onClick={() => setUsage('voluntary')}>
+                  자진발급
+                </button>
+                {usage === 'phone' ? (
+                  <input
+                    value={identity}
+                    onChange={(e) => setIdentity(e.target.value)}
+                    placeholder="휴대폰"
+                    maxLength={13}
+                    aria-label="휴대폰 번호"
+                    className={INPUT}
+                  />
+                ) : null}
+                {usage === 'biz' ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        value={identity}
+                        onChange={(e) => setIdentity(e.target.value)}
+                        placeholder="사업자번호"
+                        maxLength={12}
+                        aria-label="사업자번호"
+                        className={`${INPUT} min-w-0 flex-1`}
+                      />
+                      <TaxInvoiceBuyerPicker
+                        api={buyerApi}
+                        title="거래처에서 고르기"
+                        onPick={(row) => {
+                          setIdentity(row.bizNumber);
+                          if (row.corpName.trim()) setCustomerName(row.corpName);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              {/* PC: 한 줄 */}
+              <div className="hidden flex-wrap items-center gap-2 lg:flex">
+                <SegmentedControl
+                  ariaLabel="용도"
+                  value={usage === 'biz' ? 'biz' : 'phone'}
+                  onChange={(next) => setUsage(next)}
+                  options={[
+                    { value: 'phone', label: '소득공제' },
+                    { value: 'biz', label: '지출증빙' },
+                  ]}
+                />
+                {usage === 'phone' ? (
+                  <input
+                    value={identity}
+                    onChange={(e) => setIdentity(e.target.value)}
+                    placeholder="휴대폰"
+                    maxLength={13}
+                    aria-label="휴대폰 번호"
+                    className={`${INPUT} w-[180px]`}
+                  />
+                ) : null}
+                {usage === 'biz' ? (
+                  <>
+                    <input
+                      value={identity}
+                      onChange={(e) => setIdentity(e.target.value)}
+                      placeholder="사업자번호"
+                      maxLength={12}
+                      aria-label="사업자번호"
+                      className={`${INPUT} w-[220px]`}
+                    />
+                    <TaxInvoiceBuyerPicker
+                      api={buyerApi}
+                      title="거래처에서 고르기"
+                      onPick={(row) => {
+                        setIdentity(row.bizNumber);
+                        if (row.corpName.trim()) setCustomerName(row.corpName);
+                      }}
+                    />
+                  </>
+                ) : null}
+                <button type="button" className="shrink-0 text-[12px] text-[#64748B] underline" onClick={() => setUsage('voluntary')}>
+                  자진발급
+                </button>
+              </div>
             </>
           )}
           {identityHint ? <p className="text-[12px] text-amber-800">{identityHint}</p> : null}
-          {usage === 'phone' ? (
-            <input
-              value={identity}
-              onChange={(e) => setIdentity(e.target.value)}
-              placeholder="휴대폰"
-              maxLength={13}
-              aria-label="휴대폰 번호"
-              className={INPUT}
-            />
-          ) : null}
           {usage === 'biz' ? (
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  value={identity}
-                  onChange={(e) => setIdentity(e.target.value)}
-                  placeholder="사업자번호"
-                  maxLength={12}
-                  aria-label="사업자번호"
-                  className={`${INPUT} min-w-0 flex-1`}
-                />
-                <TaxInvoiceBuyerPicker
-                  api={buyerApi}
-                  title="거래처에서 고르기"
-                  onPick={(row) => {
-                    setIdentity(row.bizNumber);
-                    if (row.corpName.trim()) setCustomerName(row.corpName);
-                  }}
-                />
-              </div>
-              <label className="inline-flex items-center gap-2 text-[12px] text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={saveBuyer}
-                  onChange={(e) => setSaveBuyer(e.target.checked)}
-                  className="size-3.5 rounded border-slate-300 text-[#1e3a5f] accent-[#1e3a5f]"
-                />
-                이 거래처 저장
-              </label>
-            </div>
+            <label className="inline-flex items-center gap-2 text-[12px] text-slate-700">
+              <input
+                type="checkbox"
+                checked={saveBuyer}
+                onChange={(e) => setSaveBuyer(e.target.checked)}
+                className="size-3.5 rounded border-slate-300 text-[#1e3a5f] accent-[#1e3a5f]"
+              />
+              이 거래처 저장
+            </label>
           ) : null}
           {allowInquiry && phoneHits.length > 0 ? (
             <div className="space-y-1 rounded-[10px] bg-[#F3F7FF] px-2.5 py-2">
@@ -720,15 +836,14 @@ export function CashbillIssueForm({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="선택 · 넣으면 영수증 메일이 가요"
-          className={INPUT}
+          className={`${INPUT} lg:w-[360px]`}
         />
       </FieldRow>
-      <div className="mt-4">
+      {/* 모바일: 품목·거래일 분리 */}
+      <div className="mt-4 space-y-4 lg:hidden">
         <FieldRow label="품목">
           <input value={itemName} onChange={(e) => setItemName(e.target.value)} className={INPUT} />
         </FieldRow>
-      </div>
-      <div className="mt-4">
         <FieldRow label="거래일">
           <SegmentedControl
             ariaLabel="거래일"
@@ -739,6 +854,28 @@ export function CashbillIssueForm({
               { value: 'yesterday', label: '어제' },
             ]}
           />
+        </FieldRow>
+      </div>
+      {/* PC: 품목 · 거래일 한 줄 */}
+      <div className="mt-4 hidden lg:block">
+        <FieldRow label="품목 · 거래일">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={itemName}
+              onChange={(e) => setItemName(e.target.value)}
+              className={`${INPUT} w-[220px]`}
+              aria-label="품목"
+            />
+            <SegmentedControl
+              ariaLabel="거래일"
+              value={tradeDate === yesterday ? 'yesterday' : 'today'}
+              onChange={(next) => setTradeDate(next === 'yesterday' ? yesterday : today)}
+              options={[
+                { value: 'today', label: '오늘' },
+                { value: 'yesterday', label: '어제' },
+              ]}
+            />
+          </div>
         </FieldRow>
       </div>
 
@@ -758,5 +895,13 @@ export function CashbillIssueForm({
         </div>
       </FieldRow>
     </IssueModalFrame>
+    </div>
+    {embedded ? (
+      <aside className="mt-4 hidden min-w-0 flex-1 space-y-3 lg:sticky lg:top-4 lg:mt-0 lg:block">
+        {preview}
+        {pcAsideExtra}
+      </aside>
+    ) : null}
+    </div>
   );
 }

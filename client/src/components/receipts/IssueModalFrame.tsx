@@ -11,6 +11,7 @@ export function IssueModalFrame({
   inline = false,
   hideHeader = false,
   softCard = false,
+  hideFooterOnLg = false,
 }: {
   title: string;
   onClose: () => void;
@@ -21,6 +22,8 @@ export function IssueModalFrame({
   hideHeader?: boolean;
   /** 흰 카드 + 바깥 #F1F4F9 (현금영수증 발행 폼) */
   softCard?: boolean;
+  /** PC에서 미리보기 쪽 발행 버튼을 쓸 때 */
+  hideFooterOnLg?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
@@ -74,7 +77,9 @@ export function IssueModalFrame({
           >
             {children}
           </div>
-          {footer ? <footer className="shrink-0 px-5 pb-5 pt-0">{footer}</footer> : null}
+          {footer ? (
+            <footer className={`shrink-0 px-5 pb-5 pt-0 ${hideFooterOnLg ? 'lg:hidden' : ''}`}>{footer}</footer>
+          ) : null}
         </div>
       ) : (
         <>
