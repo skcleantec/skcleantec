@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CASHBILL_COST_KRW, CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import {
   issueCashbill,
   searchCashbillInquiries,
@@ -22,12 +22,8 @@ import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
+import { SegmentedControl } from '../ui/SegmentedControl';
 import TaxInvoiceBuyerPicker from '../taxinvoice/TaxInvoiceBuyerPicker';
-
-const BTN =
-  'min-h-11 rounded-lg bg-slate-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
-const BTN_GHOST =
-  'min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
 function kstToday(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
@@ -44,11 +40,25 @@ function won(n: number): string {
   return `${Number(n).toLocaleString('ko-KR')}원`;
 }
 
-function DefaultChip({ text }: { text: string }) {
+function initialOf(name: string): string {
+  const t = name.trim();
+  return t ? t.slice(0, 1) : '?';
+}
+
+const INPUT =
+  'h-[38px] w-full rounded-[10px] border-0 bg-[#F4F6FA] px-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300';
+const TEXTAREA =
+  'w-full resize-none rounded-[10px] border-0 bg-[#F4F6FA] px-3 py-2 text-[14px] text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300';
+const ROW = 'grid grid-cols-1 items-start gap-2 sm:grid-cols-[72px_1fr] sm:gap-x-3 sm:gap-y-0';
+const LABEL = 'pt-0 text-[13px] font-medium text-[#64748B] sm:pt-[9px]';
+const DIVIDER = 'my-4 border-0 border-t border-[#F1F5F9]';
+
+function FieldRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <span className="ml-1 inline-flex rounded-md border border-orange-300 bg-orange-50 px-1.5 py-0.5 text-fluid-2xs font-semibold text-orange-800">
-      기본: {text}
-    </span>
+    <div className={ROW}>
+      <span className={LABEL}>{label}</span>
+      <div className="min-w-0">{children}</div>
+    </div>
   );
 }
 
@@ -62,11 +72,6 @@ export type CashbillIssueSeed = {
   customerName?: string;
   taxKind?: CashbillTaxKind;
 };
-
-const KIND_BTN =
-  'min-h-9 rounded-lg border px-2 text-fluid-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
-const KIND_ON = 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800';
-const KIND_OFF = 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50';
 
 export function CashbillIssueForm({
   brands,
@@ -117,7 +122,6 @@ export function CashbillIssueForm({
   const [email, setEmail] = useState('');
   const [customerName, setCustomerName] = useState(seed?.customerName ?? '');
   const [phoneHits, setPhoneHits] = useState<CashbillSearchHit[]>([]);
-  const [memoOpen, setMemoOpen] = useState(Boolean(seed?.memo));
   const [memo, setMemo] = useState(seed?.memo ?? '');
   const [extraReason, setExtraReason] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -143,10 +147,7 @@ export function CashbillIssueForm({
         setTaxKind(values.taxKind);
         setUsage(values.usage);
         setItemName(values.itemName || '청소 서비스');
-        if (values.memo) {
-          setMemo(values.memo);
-          setMemoOpen(true);
-        }
+        if (values.memo) setMemo(values.memo);
       } else if (seed.taxKind == null) {
         setTaxKind(values.taxKind);
       }
@@ -342,35 +343,64 @@ export function CashbillIssueForm({
   const supply = activeKind === 'exempt' ? total : Math.round(total / 1.1);
   const vat = activeKind === 'exempt' ? 0 : Math.max(0, total - supply);
   const short = useWallet && summary != null && summary.balanceKrw < CASHBILL_UNIT_PRICE_KRW;
-  const after = summary ? summary.balanceKrw - CASHBILL_UNIT_PRICE_KRW : 0;
+
+  const taxDiffers = defaultsReady && activeKind !== defaults.taxKind;
+  const issueLabel = busy
+    ? '발행 중…'
+    : taxDiffers
+      ? `${cashbillTaxKindLabel(activeKind)}로 발행`
+      : '발행하기';
+
+  const customerMode = unmatched ? 'manual' : 'search';
+  const selectedName = selected ? (selected.displayName || selected.customerName) : '';
+  const cleanDay = selected?.createdAt?.slice(0, 10) ?? '';
 
   return (
     <IssueModalFrame
       inline={embedded}
+      softCard
+      hideHeader
       title="현금영수증 발행"
       onClose={onClose}
       footer={(
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {useWallet ? (
-            <p className={`text-fluid-xs ${short ? 'text-red-700' : 'text-slate-600'}`}>
-              {short ? '잔액이 부족합니다' : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑 ${summary ? won(summary.balanceKrw) : '…'} → ${won(after)}`}
+        <div className="border-t border-[#F1F5F9] pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className={`text-[12px] ${short ? 'font-medium text-red-700' : 'text-[#64748B]'}`}>
+              {useWallet
+                ? (short
+                  ? '잔액이 부족합니다'
+                  : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑 ${summary ? won(summary.balanceKrw) : '…'}`)
+                : `원가 ${won(CASHBILL_COST_KRW)}`}
             </p>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            {usage === 'biz' ? (
-              <label className="inline-flex items-center gap-1.5 text-fluid-xs text-slate-700">
-                <input type="checkbox" checked={saveBuyer} onChange={(e) => setSaveBuyer(e.target.checked)} className="rounded" />
-                이 거래처 저장
-              </label>
-            ) : null}
-            <button type="button" className={BTN_GHOST} onClick={onClose}>취소</button>
-            {useWallet && short ? (
-              <button type="button" className={BTN} onClick={() => openCharge()}>충전하기</button>
-            ) : (
-              <button type="button" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0} onClick={askIssue}>
-                {busy ? '발행 중…' : '발행하기'}
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {!embedded ? (
+                <button
+                  type="button"
+                  className="h-[38px] rounded-[10px] px-3 text-[13px] text-[#64748B] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  onClick={onClose}
+                >
+                  취소
+                </button>
+              ) : null}
+              {useWallet && short ? (
+                <button
+                  type="button"
+                  className="h-[46px] min-w-[160px] rounded-[12px] bg-[#1e3a5f] px-5 text-[14px] font-semibold text-white hover:bg-[#152a45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  onClick={() => openCharge()}
+                >
+                  충전하기
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="h-[46px] min-w-[160px] rounded-[12px] bg-[#1e3a5f] px-5 text-[14px] font-semibold text-white hover:bg-[#152a45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50"
+                  disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0}
+                  onClick={askIssue}
+                >
+                  {issueLabel}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -378,240 +408,355 @@ export function CashbillIssueForm({
       {confirmOpen ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl">
-            <p className="text-fluid-sm font-semibold text-slate-900">발행을 진행할까요?</p>
+            <p className="text-[14px] font-semibold text-slate-900">발행을 진행할까요?</p>
             {diffs.length > 0 ? (
-              <p className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-fluid-xs text-orange-950">
+              <p className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-[12px] text-orange-950">
                 기본설정과 다름: {diffs.join(' · ')}
               </p>
             ) : null}
             {over > 0 ? (
-              <p className="mt-2 text-fluid-xs text-slate-700">
+              <p className="mt-2 text-[12px] text-slate-700">
                 한도 {won(selected?.remainingWon ?? 0)} + 추가 {won(over)} = {won(total)}
               </p>
             ) : null}
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" className={BTN_GHOST} onClick={() => setConfirmOpen(false)}>취소</button>
-              <button type="button" className={BTN} disabled={busy} onClick={() => { setConfirmOpen(false); void submit(); }}>발행</button>
+              <button type="button" className="h-[38px] rounded-[10px] px-3 text-[13px] text-[#64748B] hover:bg-slate-50" onClick={() => setConfirmOpen(false)}>취소</button>
+              <button
+                type="button"
+                className="h-[38px] rounded-[10px] bg-[#1e3a5f] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
+                disabled={busy}
+                onClick={() => { setConfirmOpen(false); void submit(); }}
+              >
+                발행
+              </button>
             </div>
           </div>
         </div>
       ) : null}
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-xs text-red-800">{error}</p> : null}
 
-      <div className="space-y-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-fluid-sm font-semibold text-slate-800">과세 / 면세</p>
-          {defaultsReady && activeKind !== defaults.taxKind ? <DefaultChip text={cashbillTaxKindLabel(defaults.taxKind)} /> : null}
-        </div>
-        <div role="radiogroup" aria-label="과세 구분" className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            disabled={exemptLocked}
-            aria-checked={activeKind === 'taxable'}
-            className={`min-h-12 rounded-xl border-2 text-fluid-sm font-bold disabled:opacity-50 ${activeKind === 'taxable' ? 'border-sky-500 bg-sky-100 text-sky-950' : 'border-slate-200 bg-white text-slate-600'}`}
-            onClick={() => setTaxKind('taxable')}
-          >
-            과세
-          </button>
-          <button
-            type="button"
-            aria-checked={activeKind === 'exempt'}
-            className={`min-h-12 rounded-xl border-2 text-fluid-sm font-bold ${activeKind === 'exempt' ? 'border-emerald-500 bg-emerald-100 text-emerald-950' : 'border-slate-200 bg-white text-slate-600'}`}
-            onClick={() => setTaxKind('exempt')}
-          >
-            면세
-          </button>
-        </div>
-        {exemptLocked ? <span className="text-fluid-2xs text-slate-500">면세사업자는 면세로 고정됩니다.</span> : null}
-      </div>
-
-      {linkedBrands.length > 1 ? (
-        <label className="block space-y-1 text-fluid-xs text-slate-700">
-          <span>브랜드</span>
+      {/* 1) 제목 + 브랜드 */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[16px] font-bold text-slate-900">현금영수증 발행</h2>
+        {linkedBrands.length > 1 ? (
           <select
             value={brandId}
+            aria-label="브랜드"
             onChange={(e) => {
               const next = e.target.value;
               setBrandId(next);
               if (brands.find((brand) => brand.id === next)?.taxType === '4') setTaxKind('exempt');
             }}
-            className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+            className="h-[30px] max-w-[160px] truncate rounded-full border-0 bg-[#EEF1F6] px-3 text-[12px] font-medium text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
           >
             {linkedBrands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
           </select>
-        </label>
-      ) : null}
+        ) : linkedBrands[0] ? (
+          <span className="inline-flex h-[30px] items-center rounded-full bg-[#EEF1F6] px-3 text-[12px] font-medium text-slate-700">
+            {linkedBrands[0].name}
+          </span>
+        ) : null}
+      </div>
+
+      {error ? <p className="mb-3 rounded-[10px] bg-red-50 px-3 py-2 text-[12px] text-red-800">{error}</p> : null}
+
+      {/* 2) 고객 */}
       {allowInquiry ? (
-        <>
-          {unmatched ? (
-            <div className="space-y-1">
-              <div className="flex items-end gap-2">
-                <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
-                  <span>① 고객명 (선택)</span>
-                  <input
-                    autoFocus
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    maxLength={64}
-                    placeholder="예: 홍길동"
-                    className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
-                  />
-                </label>
-                <button type="button" className={BTN_GHOST} onClick={() => { setUnmatched(false); setPhoneHits([]); }}>접수에서 찾기</button>
+        <FieldRow label="고객">
+          <div className="space-y-2">
+            <SegmentedControl
+              ariaLabel="고객 입력 방식"
+              value={customerMode}
+              onChange={(next) => {
+                if (next === 'manual') clearMatch();
+                else {
+                  setUnmatched(false);
+                  setPhoneHits([]);
+                  if (selected) chooseOtherCustomer();
+                }
+              }}
+              options={[
+                { value: 'search', label: '접수에서 찾기' },
+                { value: 'manual', label: '직접 입력' },
+              ]}
+            />
+            {unmatched ? (
+              <input
+                autoFocus
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                maxLength={64}
+                placeholder="고객명 (선택)"
+                className={INPUT}
+              />
+            ) : selected ? (
+              <div className="flex items-center gap-3 rounded-[14px] bg-[#F8FAFC] px-3 py-2.5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#E0E7FF] text-[14px] font-semibold text-[#3730A3]">
+                  {initialOf(selectedName)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-semibold text-slate-900">{selectedName}</p>
+                  <p className="truncate text-[12px] text-[#64748B]">
+                    {[selected.customerPhone || '번호 없음', selected.inquiryNumber || '접수', cleanDay].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <button type="button" className="shrink-0 text-[12px] font-medium text-[#64748B] hover:text-slate-900" onClick={chooseOtherCustomer}>
+                  다른 고객
+                </button>
               </div>
-              <p className="text-fluid-2xs text-slate-500">접수 없이 발행합니다. 이름을 적어 두면 목록에서 누구 건인지 보이고, 비우면 「연계 없음」으로 보입니다.</p>
-            </div>
-          ) : (
-            <div className="flex items-end gap-2">
-              <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
-                <span>① 고객</span>
+            ) : (
+              <>
                 <input
-                  readOnly={Boolean(selected)}
-                  value={selected ? (selected.displayName || selected.customerName) : query}
-                  onChange={(e) => { if (!selected) setQuery(e.target.value); }}
-                  placeholder="고객명 또는 전화번호로 접수 찾기"
-                  className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="고객명 또는 전화번호"
+                  className={INPUT}
+                  aria-label="고객 검색"
                 />
-              </label>
-              <button type="button" className={BTN_GHOST} onClick={selected ? chooseOtherCustomer : clearMatch}>{selected ? '다른 고객' : '직접 입력'}</button>
-            </div>
-          )}
-          {!unmatched && !selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
-            <p className="text-fluid-2xs text-slate-500">찾는 접수가 없어요. 접수 없이 발행하려면 「직접 입력」을 누르세요.</p>
-          ) : null}
-          {!unmatched && !selected && hits.length > 0 ? (
-            <ul className="space-y-1">
-              {hits.map((hit) => (
-                <li key={hit.id}>
-                  <button type="button" className={`${BTN_GHOST} w-full text-left`} onClick={() => pick(hit)}>
-                    {hit.displayName || hit.customerName} · {hit.customerPhone || '번호 없음'} · {hit.createdAt?.slice(0, 10) ?? ''} · 총액 {won(hit.totalWon ?? hit.remainingWon)} · 발행 가능 {won(hit.remainingWon)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {selected && !unmatched ? (
-            <p className="text-fluid-xs text-slate-700">접수 {selected.displayName || selected.customerName} · {selected.brandName} · 가능 {won(selected.remainingWon)}</p>
-          ) : null}
-        </>
+                {!selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
+                  <p className="text-[12px] text-[#64748B]">찾는 접수가 없어요. 「직접 입력」으로 발행할 수 있어요.</p>
+                ) : null}
+                {hits.length > 0 ? (
+                  <ul className="max-h-40 space-y-1 overflow-y-auto">
+                    {hits.map((hit) => (
+                      <li key={hit.id}>
+                        <button
+                          type="button"
+                          className="w-full rounded-[10px] bg-[#F4F6FA] px-3 py-2 text-left text-[13px] text-slate-800 hover:bg-[#EEF1F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                          onClick={() => pick(hit)}
+                        >
+                          <span className="font-semibold">{hit.displayName || hit.customerName}</span>
+                          <span className="text-[#64748B]"> · {hit.customerPhone || '번호 없음'} · {hit.createdAt?.slice(0, 10) ?? ''} · 가능 {won(hit.remainingWon)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </>
+            )}
+          </div>
+        </FieldRow>
       ) : (
-        <label className="block space-y-1 text-fluid-xs text-slate-700">
-          <span>① 고객명 (선택)</span>
+        <FieldRow label="고객">
           <input
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             maxLength={64}
-            placeholder="예: 홍길동"
-            className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+            placeholder="고객명 (선택)"
+            className={INPUT}
           />
-        </label>
+        </FieldRow>
       )}
-      <label className="block space-y-1 text-fluid-xs text-slate-700">
-        <span>② 금액</span>
-        <span className="flex items-center gap-2">
-          <input inputMode="numeric" value={amount ? Number(amount).toLocaleString('ko-KR') : ''} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))} className="min-h-9 w-36 rounded-lg border border-slate-300 px-2 text-right tabular-nums" aria-label="금액" />
-          <span>원</span>
-        </span>
-        {selected && !unmatched ? <span className="text-fluid-2xs text-slate-500">발행 가능 한도 {won(selected.remainingWon)}</span> : null}
-        {allowInquiry ? <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} /> : null}
-        {total > 0 ? <span className="text-fluid-2xs text-slate-600">공급가액 {won(supply)} · 부가세 {won(vat)}</span> : null}
-      </label>
-      <div className="space-y-1">
-        <p className="text-fluid-xs text-slate-700">
-          ③ 용도
-          {defaultsReady && usage !== defaults.usage ? <DefaultChip text={cashbillUsageLabel(defaults.usage)} /> : null}
-        </p>
-        <div className="flex flex-wrap gap-1">
-          {([
-            ['phone', '소득공제(휴대폰)'],
-            ['biz', '지출증빙(사업자)'],
-            ['voluntary', '자진발급'],
-          ] as const).map(([id, label]) => (
-            <button key={id} type="button" className={`${KIND_BTN} ${usage === id ? KIND_ON : KIND_OFF}`} onClick={() => setUsage(id)}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {identityHint ? <p className="text-fluid-xs text-amber-800">{identityHint}</p> : null}
-      {usage === 'biz' ? (
-        <div className="space-y-2">
-          <TaxInvoiceBuyerPicker
-            api={buyerApi}
-            title="거래처에서 고르기"
-            onPick={(row) => {
-              setIdentity(row.bizNumber);
-              if (row.corpName.trim()) setCustomerName(row.corpName);
-            }}
-          />
-          <input
-            value={identity}
-            onChange={(e) => setIdentity(e.target.value)}
-            placeholder="사업자번호 10자리"
-            maxLength={12}
-            aria-label="사업자번호"
-            className="min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs"
-          />
-        </div>
-      ) : usage === 'voluntary' ? (
-        <p className="text-fluid-xs text-slate-600">자진발급 010-000-1234</p>
-      ) : (
-        <input
-          value={identity}
-          onChange={(e) => setIdentity(e.target.value)}
-          placeholder="휴대폰 11자리"
-          maxLength={13}
-          aria-label="휴대폰 번호"
-          className="min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs"
-        />
-      )}
-      {allowInquiry && phoneHits.length > 0 ? (
-        <div className="space-y-1 rounded-lg border border-[#b9cdf7] bg-[#f3f7ff] px-2.5 py-2">
-          <p className="text-fluid-2xs font-medium text-[#1f4fb8]">이 번호로 받은 접수가 있어요. 연결하면 고객명과 발행 가능 금액이 함께 들어갑니다.</p>
-          {phoneHits.map((hit) => (
-            <div key={hit.id} className="flex items-center justify-between gap-2">
-              <span className="min-w-0 truncate text-fluid-xs text-slate-800">
-                <b className="font-semibold">{hit.displayName || hit.customerName}</b> · {hit.inquiryNumber ?? '접수'} · {hit.createdAt?.slice(5, 10).replace('-', '.') ?? ''} · 가능 {won(hit.remainingWon)}
-              </span>
-              <Button size="sm" variant="primary" onClick={() => pick(hit)}>연결</Button>
+
+      <hr className={DIVIDER} />
+
+      {/* 3) 금액 */}
+      <FieldRow label="금액">
+        <div className="space-y-1.5">
+          <div className="flex items-baseline gap-1 border-b border-slate-200 pb-1">
+            <input
+              inputMode="numeric"
+              value={amount ? Number(amount).toLocaleString('ko-KR') : ''}
+              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
+              aria-label="금액"
+              className="w-full border-0 bg-transparent text-[22px] font-bold tabular-nums text-slate-900 placeholder:font-normal placeholder:text-slate-300 focus-visible:outline-none"
+              placeholder="0"
+            />
+            <span className="shrink-0 text-[14px] text-[#64748B]">원</span>
+          </div>
+          <p className="text-[12px] text-[#64748B]">
+            {activeKind === 'exempt'
+              ? '면세 · 부가세 없음'
+              : total > 0
+                ? `공급가액 ${won(supply)} · 부가세 ${won(vat)}`
+                : '공급가액 · 부가세'}
+            {selected && !unmatched ? ` · 발행 가능 한도 ${won(selected.remainingWon)}` : null}
+          </p>
+          {allowInquiry ? (
+            <div className="[&_input]:h-[38px] [&_input]:rounded-[10px] [&_input]:border-0 [&_input]:bg-[#F4F6FA] [&_input]:px-3 [&_input]:text-[14px] [&_input]:focus-visible:outline-none [&_input]:focus-visible:ring-2 [&_input]:focus-visible:ring-slate-300">
+              <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
             </div>
-          ))}
+          ) : null}
         </div>
-      ) : null}
-      <label className="block space-y-1 text-fluid-xs text-slate-700">
-        <span>④ 고객 이메일 (선택)</span>
+      </FieldRow>
+
+      <hr className={DIVIDER} />
+
+      {/* 4) 거래유형 */}
+      <FieldRow label="거래유형">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <SegmentedControl
+              ariaLabel="과세 구분"
+              value={activeKind}
+              onChange={(next) => setTaxKind(next)}
+              options={[
+                {
+                  value: 'taxable',
+                  label: (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <span className="size-1.5 rounded-full bg-[#3B82F6]" aria-hidden />
+                      과세
+                    </span>
+                  ),
+                  disabled: exemptLocked,
+                },
+                {
+                  value: 'exempt',
+                  label: (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <span className="size-1.5 rounded-full bg-[#10B981]" aria-hidden />
+                      면세
+                    </span>
+                  ),
+                },
+              ]}
+            />
+            {defaultsReady && !taxDiffers ? (
+              <span className="text-[12px] text-[#64748B]">기본값</span>
+            ) : null}
+            {defaultsReady && taxDiffers ? (
+              <span className="inline-flex items-center gap-1 text-[12px] font-medium text-orange-700">
+                <span aria-hidden>⚠</span>
+                기본은 {cashbillTaxKindLabel(defaults.taxKind)}예요
+              </span>
+            ) : null}
+          </div>
+          {exemptLocked ? <p className="text-[11px] text-[#64748B]">면세사업자는 면세로 고정됩니다.</p> : null}
+        </div>
+      </FieldRow>
+
+      <hr className={DIVIDER} />
+
+      {/* 5) 용도 */}
+      <FieldRow label="용도">
+        <div className="space-y-2">
+          {usage === 'voluntary' ? (
+            <div className="space-y-1.5">
+              <p className="text-[13px] text-slate-700">자진발급 010-000-1234</p>
+              <button type="button" className="text-[12px] font-medium text-[#64748B] underline" onClick={() => setUsage('phone')}>
+                소득공제·지출증빙으로 바꾸기
+              </button>
+            </div>
+          ) : (
+            <>
+              <SegmentedControl
+                ariaLabel="용도"
+                value={usage === 'biz' ? 'biz' : 'phone'}
+                onChange={(next) => setUsage(next)}
+                options={[
+                  { value: 'phone', label: '소득공제' },
+                  { value: 'biz', label: '지출증빙' },
+                ]}
+              />
+              <button type="button" className="text-[12px] text-[#64748B] underline" onClick={() => setUsage('voluntary')}>
+                자진발급
+              </button>
+            </>
+          )}
+          {identityHint ? <p className="text-[12px] text-amber-800">{identityHint}</p> : null}
+          {usage === 'phone' ? (
+            <input
+              value={identity}
+              onChange={(e) => setIdentity(e.target.value)}
+              placeholder="휴대폰"
+              maxLength={13}
+              aria-label="휴대폰 번호"
+              className={INPUT}
+            />
+          ) : null}
+          {usage === 'biz' ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  value={identity}
+                  onChange={(e) => setIdentity(e.target.value)}
+                  placeholder="사업자번호"
+                  maxLength={12}
+                  aria-label="사업자번호"
+                  className={`${INPUT} min-w-0 flex-1`}
+                />
+                <TaxInvoiceBuyerPicker
+                  api={buyerApi}
+                  title="거래처에서 고르기"
+                  onPick={(row) => {
+                    setIdentity(row.bizNumber);
+                    if (row.corpName.trim()) setCustomerName(row.corpName);
+                  }}
+                />
+              </div>
+              <label className="inline-flex items-center gap-2 text-[12px] text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={saveBuyer}
+                  onChange={(e) => setSaveBuyer(e.target.checked)}
+                  className="size-3.5 rounded border-slate-300 text-[#1e3a5f] accent-[#1e3a5f]"
+                />
+                이 거래처 저장
+              </label>
+            </div>
+          ) : null}
+          {allowInquiry && phoneHits.length > 0 ? (
+            <div className="space-y-1 rounded-[10px] bg-[#F3F7FF] px-2.5 py-2">
+              <p className="text-[11px] font-medium text-[#1f4fb8]">이 번호로 받은 접수가 있어요. 연결하면 고객명과 발행 가능 금액이 함께 들어갑니다.</p>
+              {phoneHits.map((hit) => (
+                <div key={hit.id} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-[12px] text-slate-800">
+                    <b className="font-semibold">{hit.displayName || hit.customerName}</b> · {hit.inquiryNumber ?? '접수'} · 가능 {won(hit.remainingWon)}
+                  </span>
+                  <Button size="sm" variant="primary" onClick={() => pick(hit)}>연결</Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </FieldRow>
+
+      <hr className={DIVIDER} />
+
+      {/* 6) 이메일 · 품목 · 거래일 */}
+      <FieldRow label="이메일">
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+          placeholder="선택 · 넣으면 영수증 메일이 가요"
+          className={INPUT}
         />
-        <span className="text-fluid-2xs text-slate-500">입력하면 바로빌이 공식 영수증 메일을 보냅니다</span>
-      </label>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="space-y-1 text-fluid-xs text-slate-700">
-          <span>
-            ⑤ 품목명
-            {defaultsReady && (itemName.trim() || '청소 서비스') !== (defaults.itemName.trim() || '청소 서비스') ? (
-              <DefaultChip text={defaults.itemName || '청소 서비스'} />
-            ) : null}
-          </span>
-          <input value={itemName} onChange={(e) => setItemName(e.target.value)} className="min-h-9 rounded-lg border border-slate-300 px-2" />
-        </label>
-        <label className="space-y-1 text-fluid-xs text-slate-700">
-          <span>거래일</span>
-          <select value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} className="min-h-9 rounded-lg border border-slate-300 px-2">
-            <option value={today}>오늘</option>
-            <option value={yesterday}>어제</option>
-          </select>
-        </label>
+      </FieldRow>
+      <div className="mt-4">
+        <FieldRow label="품목">
+          <input value={itemName} onChange={(e) => setItemName(e.target.value)} className={INPUT} />
+        </FieldRow>
       </div>
-      <button type="button" className="text-fluid-xs text-slate-600 underline hover:text-slate-900" onClick={() => setMemoOpen((open) => !open)}>
-        + 내부 메모 추가 (고객에게 안 보임)
-      </button>
-      {memoOpen ? (
-        <textarea value={memo} onChange={(e) => setMemo(e.target.value)} className="min-h-16 w-full rounded-lg border border-slate-300 px-2 py-1 text-fluid-xs" placeholder="내부 메모" />
-      ) : null}
+      <div className="mt-4">
+        <FieldRow label="거래일">
+          <SegmentedControl
+            ariaLabel="거래일"
+            value={tradeDate === yesterday ? 'yesterday' : 'today'}
+            onChange={(next) => setTradeDate(next === 'yesterday' ? yesterday : today)}
+            options={[
+              { value: 'today', label: '오늘' },
+              { value: 'yesterday', label: '어제' },
+            ]}
+          />
+        </FieldRow>
+      </div>
+
+      <hr className={DIVIDER} />
+
+      {/* 7) 메모 — 항상 표시 */}
+      <FieldRow label="메모">
+        <div className="space-y-1">
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            rows={2}
+            placeholder="예) 잔금 현금 입금분, 고객 요청으로 발행"
+            className={TEXTAREA}
+          />
+          <p className="text-[11px] text-[#64748B]">우리끼리 보는 메모예요. 고객 영수증에는 안 나가요.</p>
+        </div>
+      </FieldRow>
     </IssueModalFrame>
   );
 }
