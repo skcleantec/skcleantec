@@ -23,6 +23,7 @@ import {
 import { certBlockMessage, refreshBarobillCerts } from './taxInvoiceCert.service.js';
 import { isBlankSupplierField, supplierIncompleteMessage } from './supplierFieldText.js';
 import { safeRenderTaxInvoiceCopy } from '../receipts/receiptCopy.service.js';
+import { tryUpsertBuyerAfterIssue } from './taxInvoiceBuyer.service.js';
 
 export const TAX_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
 export const TAX_SIMPLIFIED_MESSAGE = '간이과세자는 세금계산서를 발행할 수 없습니다';
@@ -571,6 +572,19 @@ export async function issueTaxInvoice(
     await failIssue(chargedRow, err, plan);
   }
   const saved = await prisma.taxInvoiceIssue.findFirst({ where: { id: created.id, tenantId } });
+  // 발행 트랜잭션 밖 — 실패해도 발행 성공 유지
+  void tryUpsertBuyerAfterIssue(
+    { type: 'TENANT', tenantId },
+    {
+      bizNumber: buyer.corpNum,
+      corpName: buyer.corpName,
+      ceoName: buyer.ceoName,
+      addr: buyer.addr,
+      bizType: buyer.bizType,
+      bizClass: buyer.bizClass,
+      email: buyer.email,
+    },
+  );
   return { ...toPublic(saved ?? chargedRow), barobillCode };
 }
 

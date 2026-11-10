@@ -15,6 +15,7 @@ import {
   tradeDateRangeFilter,
   type PlatformReceiptStatusFilter,
 } from './platformReceiptsQuery.js';
+import { tryUpsertBuyerAfterIssue } from '../taxinvoice/taxInvoiceBuyer.service.js';
 
 export type PlatformTaxInvoiceInput = {
   purposeType: 1 | 2;
@@ -101,6 +102,19 @@ export async function issuePlatformTaxInvoice(input: PlatformTaxInvoiceInput) {
       createdByPlatformUserId: input.createdByPlatformUserId ?? null,
     },
   });
+  void tryUpsertBuyerAfterIssue(
+    { type: 'PLATFORM' },
+    {
+      bizNumber: input.buyerCorpNum,
+      corpName: input.buyerCorpName,
+      ceoName: input.buyerCeoName,
+      addr: input.buyerAddr,
+      bizType: input.buyerBizType,
+      bizClass: input.buyerBizClass,
+      email: input.buyerEmail,
+      contactName: input.buyerContactName,
+    },
+  );
   return record;
 }
 

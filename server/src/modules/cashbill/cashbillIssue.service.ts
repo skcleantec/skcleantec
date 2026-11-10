@@ -21,6 +21,7 @@ import {
 } from './cashbillIssue.barobill.js';
 import { chargeCashbillWallet, CASHBILL_WALLET_SHORT_MESSAGE, refundCashbillWallet } from './cashbillWallet.js';
 import { safeRenderCashbillCopy } from '../receipts/receiptCopy.service.js';
+import { tryUpsertBuyerAfterIssue } from '../taxinvoice/taxInvoiceBuyer.service.js';
 
 export const CASHBILL_LINK_MESSAGE = '계산서 연결을 먼저 해주세요.';
 export const CASHBILL_SIMPLIFIED_MESSAGE = '간이과세자 현금영수증은 바로빌 답변 전까지 발급할 수 없습니다.';
@@ -485,6 +486,17 @@ export async function issueCashbill(
     await applyBarobillFailure(chargedRow, err, plan);
   }
   const saved = await prisma.cashBillIssue.findFirst({ where: { id: created.id, tenantId } });
+  // 지출증빙만 거래처 자동 저장 (트랜잭션 밖 — 실패해도 발행 성공)
+  if (mode === 'biz') {
+    const name =
+      customerNameOf(input.customerName) ||
+      inquiry?.customerName?.trim().slice(0, 64) ||
+      '';
+    void tryUpsertBuyerAfterIssue(
+      { type: 'TENANT', tenantId },
+      { bizNumber: who.num, corpName: name },
+    );
+  }
   return saved ? toPublicIssue(saved) : toPublicIssue(chargedRow);
 }
 

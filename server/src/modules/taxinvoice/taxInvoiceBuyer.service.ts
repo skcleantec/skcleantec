@@ -109,6 +109,18 @@ export async function listTaxInvoiceBuyers(
   return rows.map(toRow);
 }
 
+export async function findTaxInvoiceBuyerByBiz(
+  owner: TaxInvoiceBuyerOwner,
+  bizNumberRaw: string,
+): Promise<TaxInvoiceBuyerRow | null> {
+  const bizNumber = normalizeBizDigits(bizNumberRaw);
+  if (bizNumber.length !== 10) return null;
+  const row = await prisma.taxInvoiceBuyer.findFirst({
+    where: { ...ownerWhere(owner), bizNumber },
+  });
+  return row ? toRow(row) : null;
+}
+
 export async function upsertTaxInvoiceBuyer(
   owner: TaxInvoiceBuyerOwner,
   input: TaxInvoiceBuyerInput,
@@ -158,6 +170,46 @@ export async function upsertTaxInvoiceBuyer(
     },
   });
   return toRow(created);
+}
+
+/** 발행 성공 후 거래처 자동 저장. 실패·체크섬 오류는 삼키고 발행 결과에 영향 없음. */
+export async function tryUpsertBuyerAfterIssue(
+  owner: TaxInvoiceBuyerOwner,
+  input: {
+    bizNumber?: string | null;
+    corpName?: string | null;
+    ceoName?: string | null;
+    addr?: string | null;
+    bizType?: string | null;
+    bizClass?: string | null;
+    email?: string | null;
+    email2?: string | null;
+    contactName?: string | null;
+    tel?: string | null;
+    memo?: string | null;
+  },
+): Promise<void> {
+  try {
+    const bizNumber = normalizeBizDigits(String(input.bizNumber ?? ''));
+    if (bizNumber.length !== 10 || !isValidKoreanBizNumberChecksum(bizNumber)) return;
+    const corpName = String(input.corpName ?? '').trim();
+    if (!corpName) return;
+    await upsertTaxInvoiceBuyer(owner, {
+      bizNumber,
+      corpName,
+      ceoName: input.ceoName ?? undefined,
+      addr: input.addr ?? undefined,
+      bizType: input.bizType ?? undefined,
+      bizClass: input.bizClass ?? undefined,
+      email: input.email ?? undefined,
+      email2: input.email2 ?? undefined,
+      contactName: input.contactName ?? undefined,
+      tel: input.tel ?? undefined,
+      memo: input.memo ?? undefined,
+    });
+  } catch {
+    // 발행은 이미 성공 — 거래처 저장 실패는 무시
+  }
 }
 
 export async function updateTaxInvoiceBuyer(

@@ -35,6 +35,13 @@ export type TaxFormProps = {
   taxKind: TaxKind;
   onEditSupplier?: () => void;
   supplierAttention?: boolean;
+  /** 저장된 거래처 배지 — corpNum 셀 우측 emerald 표기 */
+  buyerSavedBadge?: boolean;
+  /** 자동채움 되돌리기 — set 시 corpNum 셀 아래 「되돌리기」 버튼 5초 표시 */
+  onUndoBuyerAutofill?: (() => void) | null;
+  /** corpNum 입력 중 매칭된 거래처 제안 — corpNum 셀 아래 드롭다운 */
+  buyerSuggestions?: Array<{ id: string; bizNumber: string; corpName: string; ceoName: string }>;
+  onPickBuyerSuggestion?: (id: string) => void;
 };
 
 function supplierEditClass(attention?: boolean): string {
@@ -112,9 +119,35 @@ export function TaxInvoicePaper({ idPrefix = 'pc', ...props }: TaxFormProps & { 
             <div className="flex-1 text-[13px]">
               <div className="grid grid-cols-[84px_1fr_64px_88px]">
                 <label htmlFor={`${idPrefix}-r-biz`} className="lbl border-b border-r px-2.5 py-2" style={{ borderColor: BLUE }}>등록번호 <span style={{ color: 'var(--red)' }}>*</span></label>
-                <div className="cell num flex items-center gap-1 border-b border-r px-2.5 py-1.5 text-[15px] font-semibold" style={{ borderColor: BLUE }}>
-                  <input id={`${idPrefix}-r-biz`} value={formatBizInput(buyer.corpNum)} inputMode="numeric" readOnly={readOnly} onChange={(event) => props.onBuyer({ corpNum: event.target.value })} />
-                  {bizMark ? <span className={`text-xs font-medium ${props.corpState === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>{bizMark}</span> : null}
+                <div className="cell num relative border-b border-r px-2.5 py-1.5 text-[15px] font-semibold" style={{ borderColor: BLUE }}>
+                  <div className="flex items-center gap-1">
+                    <input id={`${idPrefix}-r-biz`} value={formatBizInput(buyer.corpNum)} inputMode="numeric" readOnly={readOnly} onChange={(event) => props.onBuyer({ corpNum: event.target.value })} />
+                    {props.buyerSavedBadge ? (
+                      <span className="whitespace-nowrap text-[11px] text-emerald-600">✓ 저장된 거래처</span>
+                    ) : (
+                      bizMark ? <span className={`text-xs font-medium ${props.corpState === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>{bizMark}</span> : null
+                    )}
+                  </div>
+                  {props.onUndoBuyerAutofill ? (
+                    <button type="button" onClick={props.onUndoBuyerAutofill} className="mt-0.5 text-[11px] text-[#64748B] hover:text-slate-900 focus-visible:outline-none">
+                      되돌리기
+                    </button>
+                  ) : null}
+                  {!readOnly && props.buyerSuggestions && props.buyerSuggestions.length > 0 ? (
+                    <div className="absolute left-0 top-full z-20 mt-0.5 min-w-[280px] overflow-hidden rounded-[10px] bg-white shadow-[0_4px_24px_rgba(17,24,39,.12)] ring-1 ring-slate-100">
+                      {props.buyerSuggestions.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className="w-full px-3 py-2 text-left hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
+                          onClick={() => props.onPickBuyerSuggestion?.(s.id)}
+                        >
+                          <div className="text-[13px] font-medium text-slate-800">{s.corpName}</div>
+                          <div className="text-[12px] text-[#64748B]">{formatBizInput(s.bizNumber)}{s.ceoName ? ` · ${s.ceoName}` : ''}</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <label htmlFor={`${idPrefix}-r-sub`} className="lbl border-b border-r px-2 py-2" style={{ borderColor: BLUE }}>종사업장</label>
                 <div className="cell border-b px-2 py-1.5" style={{ borderColor: BLUE }}>
@@ -277,9 +310,35 @@ export function TaxInvoiceMobileCards(props: TaxFormProps) {
         <div className="border-l-4 px-3 py-2.5 text-xs font-bold" style={{ borderColor: 'var(--blue)', color: 'var(--blue)' }}>공급받는자</div>
         <div className="space-y-3 border-t border-gray-100 px-3 py-3">
           <MobileField label="등록번호 *">
-            <div className="mt-1 flex items-center gap-2 rounded-lg px-3 ring-1 ring-gray-300">
-              <input className="num h-11 flex-1 bg-transparent text-[15px] font-semibold outline-none" inputMode="numeric" aria-label="등록번호" value={formatBizInput(buyer.corpNum)} readOnly={readOnly} onChange={(event) => props.onBuyer({ corpNum: event.target.value })} />
-              {bizMark ? <span className={props.corpState === 'ok' ? 'text-emerald-600' : 'text-red-600'}>{bizMark}</span> : null}
+            <div className="relative mt-1">
+              <div className="flex items-center gap-2 rounded-lg px-3 ring-1 ring-gray-300">
+                <input className="num h-11 flex-1 bg-transparent text-[15px] font-semibold outline-none" inputMode="numeric" aria-label="등록번호" value={formatBizInput(buyer.corpNum)} readOnly={readOnly} onChange={(event) => props.onBuyer({ corpNum: event.target.value })} />
+                {props.buyerSavedBadge ? (
+                  <span className="whitespace-nowrap text-[11px] text-emerald-600">✓ 저장된 거래처</span>
+                ) : (
+                  bizMark ? <span className={props.corpState === 'ok' ? 'text-emerald-600' : 'text-red-600'}>{bizMark}</span> : null
+                )}
+              </div>
+              {props.onUndoBuyerAutofill ? (
+                <button type="button" onClick={props.onUndoBuyerAutofill} className="mt-1 text-[11px] text-[#64748B] hover:text-slate-900 focus-visible:outline-none">
+                  되돌리기
+                </button>
+              ) : null}
+              {!readOnly && props.buyerSuggestions && props.buyerSuggestions.length > 0 ? (
+                <div className="absolute left-0 top-full z-20 mt-1 w-full min-w-[240px] overflow-hidden rounded-[10px] bg-white shadow-[0_4px_24px_rgba(17,24,39,.12)] ring-1 ring-slate-100">
+                  {props.buyerSuggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 focus-visible:outline-none"
+                      onClick={() => props.onPickBuyerSuggestion?.(s.id)}
+                    >
+                      <div className="text-[13px] font-medium text-slate-800">{s.corpName}</div>
+                      <div className="text-[12px] text-[#64748B]">{formatBizInput(s.bizNumber)}{s.ceoName ? ` · ${s.ceoName}` : ''}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </MobileField>
           <div className="grid grid-cols-[1fr_96px] gap-2">
