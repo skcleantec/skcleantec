@@ -8,26 +8,13 @@ import {
   HELP_CMS_SIDEBAR_ITEM_ACTIVE,
   HELP_CMS_SIDEBAR_ITEM_IDLE,
   HELP_CMS_SIDEBAR_LABEL,
+  type HelpCmsSidebarArticleItem,
+  type HelpCmsSidebarItem,
 } from './helpCmsArticleLayout';
+import { HelpCmsMobileNavBar } from './HelpCmsMobileNavBar';
 import { helpUsageHomePath } from './helpCmsUsagePaths';
 
-export type HelpCmsSidebarItem = {
-  id: string;
-  label: string;
-  count?: number;
-  active?: boolean;
-  href?: string;
-  onSelect?: () => void;
-};
-
-export type HelpCmsSidebarArticleItem = {
-  id: string;
-  title: string;
-  active?: boolean;
-  muted?: boolean;
-  href?: string;
-  onSelect?: () => void;
-};
+export type { HelpCmsSidebarArticleItem, HelpCmsSidebarItem };
 
 type Props = {
   sidebarLabel?: string;
@@ -36,8 +23,11 @@ type Props = {
   articleItems?: HelpCmsSidebarArticleItem[];
   articlesLoading?: boolean;
   showArticleSidebar?: boolean;
-  /** 사이드바 맨 위·모바일 헤더 「사용법 홈」 */
+  /** 사이드바 맨 위 「사용법 홈」(PC) */
   showUsageHomeLink?: boolean;
+  /** 모바일 막대에 표시할 현재 분류·글 */
+  mobileSectionLabel?: string;
+  mobileArticleTitle?: string | null;
   children: ReactNode;
 };
 
@@ -49,6 +39,8 @@ export function HelpCmsArticleReadLayout({
   articlesLoading = false,
   showArticleSidebar = false,
   showUsageHomeLink = false,
+  mobileSectionLabel,
+  mobileArticleTitle = null,
   children,
 }: Props) {
   const homePath = helpUsageHomePath();
@@ -106,22 +98,25 @@ export function HelpCmsArticleReadLayout({
     );
   };
 
+  const sectionLabel =
+    mobileSectionLabel?.trim() ||
+    sidebarItems.find((c) => c.active)?.label ||
+    sidebarLabel;
+
   return (
     <div className={HELP_CMS_BROWSE_ROW}>
+      <HelpCmsMobileNavBar
+        sectionLabel={sectionLabel}
+        articleTitle={mobileArticleTitle}
+        sidebarItems={sidebarItems}
+        articleItems={articleItems}
+        articlesLoading={articlesLoading}
+      />
+
       <aside
-        className={`${HELP_CMS_SIDEBAR_ASIDE} lg:sticky lg:top-24 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto lg:overscroll-y-contain`}
+        className={`hidden ${HELP_CMS_SIDEBAR_ASIDE} lg:block lg:sticky lg:top-24 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto lg:overscroll-y-contain`}
       >
-        <div className="mb-1 flex items-center justify-between gap-2 px-1">
-          <p className={`${HELP_CMS_SIDEBAR_LABEL} mb-0`}>{sidebarLabel}</p>
-          {showUsageHomeLink ? (
-            <Link
-              to={homePath}
-              className="shrink-0 rounded-md px-2 py-1 text-[13px] font-semibold text-[#0284c7] hover:bg-sky-50 hover:underline lg:hidden"
-            >
-              홈
-            </Link>
-          ) : null}
-        </div>
+        <p className={HELP_CMS_SIDEBAR_LABEL}>{sidebarLabel}</p>
 
         {showUsageHomeLink
           ? renderNavItem('usage-home', '← 사용법 홈', {
