@@ -26,14 +26,14 @@ function tenantId(): string {
   }
 }
 
-export function taxInvoiceDraftKey(brandId: string): string {
-  return `cbiseo-taxinvoice-draft:${tenantId()}:${brandId}`;
+export function taxInvoiceDraftKey(brandId: string, scope?: string): string {
+  return `cbiseo-taxinvoice-draft:${scope ?? tenantId()}:${brandId}`;
 }
 
-export function readTaxInvoiceDraft(brandId: string): TaxInvoiceDraft | null {
+export function readTaxInvoiceDraft(brandId: string, scope?: string): TaxInvoiceDraft | null {
   if (!brandId) return null;
   try {
-    const raw = localStorage.getItem(taxInvoiceDraftKey(brandId));
+    const raw = localStorage.getItem(taxInvoiceDraftKey(brandId, scope));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as TaxInvoiceDraft;
     if (!parsed || parsed.brandId !== brandId || !parsed.buyer || !Array.isArray(parsed.lines)) return null;
@@ -43,18 +43,18 @@ export function readTaxInvoiceDraft(brandId: string): TaxInvoiceDraft | null {
   }
 }
 
-export function writeTaxInvoiceDraft(draft: TaxInvoiceDraft): void {
+export function writeTaxInvoiceDraft(draft: TaxInvoiceDraft, scope?: string): void {
   try {
-    localStorage.setItem(taxInvoiceDraftKey(draft.brandId), JSON.stringify(draft));
+    localStorage.setItem(taxInvoiceDraftKey(draft.brandId, scope), JSON.stringify(draft));
   } catch {
     /* Safari 개인정보 보호 모드 등 */
   }
 }
 
-export function clearTaxInvoiceDraft(brandId: string): void {
+export function clearTaxInvoiceDraft(brandId: string, scope?: string): void {
   if (!brandId) return;
   try {
-    localStorage.removeItem(taxInvoiceDraftKey(brandId));
+    localStorage.removeItem(taxInvoiceDraftKey(brandId, scope));
   } catch {
     /* ignore */
   }

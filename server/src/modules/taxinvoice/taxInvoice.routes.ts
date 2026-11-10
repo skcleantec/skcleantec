@@ -20,6 +20,12 @@ import {
 import { modifyTaxInvoice } from './taxInvoiceModify.service.js';
 import { updateBarobillSupplier } from './taxInvoiceSupplier.service.js';
 import { takeReceiptStateSyncSlot } from '../receipts/receiptStateSyncGate.js';
+import {
+  listTaxInvoiceBuyers,
+  upsertTaxInvoiceBuyer,
+  updateTaxInvoiceBuyer,
+  deleteTaxInvoiceBuyer,
+} from './taxInvoiceBuyer.service.js';
 
 const router = Router();
 router.use(authMiddleware, requireTenantAuth, requireFeature(CASHBILL_MODULE_ID));
@@ -127,6 +133,66 @@ router.post('/', async (req, res) => {
     const body = (req.body ?? {}) as { inquiryId?: unknown; buyer?: { corpName?: unknown } };
     void logTaxInvoiceFailure({ tenantId, actorId: user.userId, action: 'issue', err, inquiryId: body.inquiryId, buyerName: body.buyer?.corpName });
     sendError(res, err, '세금계산서 발행에 실패했습니다.');
+  }
+});
+
+// ── 거래처(Buyer) CRUD ────────────────────────────────────────────────────
+
+router.get('/buyers', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 30;
+  try {
+    const items = await listTaxInvoiceBuyers({ type: 'TENANT', tenantId }, { q, limit });
+    res.json({ items });
+  } catch (err) {
+    sendError(res, err, '거래처 목록을 불러오지 못했습니다.');
+  }
+});
+
+router.post('/buyers', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    const buyer = await upsertTaxInvoiceBuyer({ type: 'TENANT', tenantId }, req.body ?? {});
+    res.json(buyer);
+  } catch (err) {
+    sendError(res, err, '거래처를 저장하지 못했습니다.');
+  }
+});
+
+router.patch('/buyers/:id', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    const buyer = await updateTaxInvoiceBuyer(
+      { type: 'TENANT', tenantId },
+      String(req.params.id ?? ''),
+      req.body ?? {},
+    );
+    res.json(buyer);
+  } catch (err) {
+    sendError(res, err, '거래처를 수정하지 못했습니다.');
+  }
+});
+
+router.delete('/buyers/:id', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    await deleteTaxInvoiceBuyer({ type: 'TENANT', tenantId }, String(req.params.id ?? ''));
+    res.json({ ok: true });
+  } catch (err) {
+    sendError(res, err, '거래처를 삭제하지 못했습니다.');
   }
 });
 

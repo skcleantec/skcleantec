@@ -8,6 +8,7 @@ import {
   type CashbillTaxKind,
   type CashbillUsage,
 } from '../../api/cashbillIssues';
+import type { CashbillIssuerAdapter } from './cashbillIssueAdapter';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
@@ -57,6 +58,8 @@ export function CashbillIssueForm({
   seed,
   embedded = false,
   seedInquiryId = '',
+  adapter,
+  platformTenantId,
 }: {
   brands: CashbillBrand[];
   onClose: () => void;
@@ -64,8 +67,15 @@ export function CashbillIssueForm({
   seed?: CashbillIssueSeed | null;
   embedded?: boolean;
   seedInquiryId?: string;
+  /** 플랫폼 전용 어댑터: 지갑·접수 검색 숨김, 발급 API 교체 */
+  adapter?: CashbillIssuerAdapter;
+  /** 플랫폼 전용: 업체 ID (탭에서 선택한 값) */
+  platformTenantId?: string;
 }) {
   const { summary, openCharge, reload } = useReceiptWallet();
+  const allowInquiry = !adapter || adapter.allowInquiry;
+  const useWallet = !adapter || adapter.useWallet;
+
   const linkedBrands = brands.filter((brand) => brand.linked);
   const today = kstToday();
   const yesterday = previousYmd(today);
@@ -73,7 +83,8 @@ export function CashbillIssueForm({
   const [hits, setHits] = useState<CashbillSearchHit[]>([]);
   const [searched, setSearched] = useState('');
   const [selected, setSelected] = useState<CashbillSearchHit | null>(null);
-  const [unmatched, setUnmatched] = useState(false);
+  // 플랫폼 모드에서는 기본적으로 직접 입력(unmatched) 상태
+  const [unmatched, setUnmatched] = useState(!allowInquiry);
   const [brandId, setBrandId] = useState(seed?.brandId || linkedBrands[0]?.id || '');
   const [amount, setAmount] = useState(seed?.amount ?? '');
   const [taxKind, setTaxKind] = useState<CashbillTaxKind>(seed?.taxKind ?? 'taxable');
@@ -194,30 +205,48 @@ export function CashbillIssueForm({
     setBusy(true);
     setError(null);
     try {
-      const issued = await issueCashbill({
-        inquiryId: unmatched ? null : selected?.id,
-        operatingCompanyId: unmatched ? brandId : selected?.brandId,
-        amount: Math.round(Number(amount.replace(/,/g, ''))),
-        usage,
-        identity: usage === 'voluntary' ? undefined : identity.trim(),
-        itemName,
-        tradeDate,
-        email: email.trim() || undefined,
-        internalMemo: memo.trim() || undefined,
-        customerName: (unmatched ? customerName : selected?.customerName ?? '').trim() || undefined,
-        extraAmountWon: over > 0 ? over : undefined,
-        extraReason: over > 0 ? extraReason.trim() : undefined,
-        taxKind: activeKind,
-        requestId: crypto.randomUUID(),
-      });
+      let issueId: string;
+      if (adapter) {
+        const issued = await adapter.issue({
+          amount: Math.round(Number(amount.replace(/,/g, ''))),
+          usage,
+          identity: usage === 'voluntary' ? undefined : identity.trim(),
+          taxKind: activeKind,
+          itemName,
+          tradeDate,
+          email: email.trim() || undefined,
+          customerName: (unmatched ? customerName : selected?.customerName ?? '').trim() || undefined,
+          internalMemo: memo.trim() || undefined,
+          tenantId: platformTenantId || undefined,
+        });
+        issueId = issued.id;
+      } else {
+        const issued = await issueCashbill({
+          inquiryId: unmatched ? null : selected?.id,
+          operatingCompanyId: unmatched ? brandId : selected?.brandId,
+          amount: Math.round(Number(amount.replace(/,/g, ''))),
+          usage,
+          identity: usage === 'voluntary' ? undefined : identity.trim(),
+          itemName,
+          tradeDate,
+          email: email.trim() || undefined,
+          internalMemo: memo.trim() || undefined,
+          customerName: (unmatched ? customerName : selected?.customerName ?? '').trim() || undefined,
+          extraAmountWon: over > 0 ? over : undefined,
+          extraReason: over > 0 ? extraReason.trim() : undefined,
+          taxKind: activeKind,
+          requestId: crypto.randomUUID(),
+        });
+        issueId = issued.id;
+      }
       setQuery('');
       setHits([]);
       setSelected(null);
       setAmount('');
       setIdentity('');
       setCustomerName('');
-      await reload();
-      onDone(issued.id);
+      if (useWallet) await reload();
+      onDone(issueId);
     } catch (err) {
       setError(err instanceof Error ? err.message : '현금영수증 발급에 실패했습니다.');
     } finally {
@@ -228,17 +257,17 @@ export function CashbillIssueForm({
   const total = Math.round(Number(amount) || 0);
   const over = selected && !unmatched ? Math.max(0, total - selected.remainingWon) : 0;
   function askIssue() {
-    if (over > 0 && !extraReason.trim()) {
+    if (!adapter && over > 0 && !extraReason.trim()) {
       setError('추가 금액 사유를 입력해 주세요.');
       return;
     }
     setError(null);
-    if (over > 0) setConfirmOpen(true);
+    if (!adapter && over > 0) setConfirmOpen(true);
     else void submit();
   }
   const supply = activeKind === 'exempt' ? total : Math.round(total / 1.1);
   const vat = activeKind === 'exempt' ? 0 : Math.max(0, total - supply);
-  const short = summary != null && summary.balanceKrw < CASHBILL_UNIT_PRICE_KRW;
+  const short = useWallet && summary != null && summary.balanceKrw < CASHBILL_UNIT_PRICE_KRW;
   const after = summary ? summary.balanceKrw - CASHBILL_UNIT_PRICE_KRW : 0;
 
   return (
@@ -248,12 +277,14 @@ export function CashbillIssueForm({
       onClose={onClose}
       footer={(
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className={`text-fluid-xs ${short ? 'text-red-700' : 'text-slate-600'}`}>
-            {short ? '잔액이 부족합니다' : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑 ${summary ? won(summary.balanceKrw) : '…'} → ${won(after)}`}
-          </p>
+          {useWallet ? (
+            <p className={`text-fluid-xs ${short ? 'text-red-700' : 'text-slate-600'}`}>
+              {short ? '잔액이 부족합니다' : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑 ${summary ? won(summary.balanceKrw) : '…'} → ${won(after)}`}
+            </p>
+          ) : null}
           <div className="flex gap-2">
             <button type="button" className={BTN_GHOST} onClick={onClose}>취소</button>
-            {short ? (
+            {useWallet && short ? (
               <button type="button" className={BTN} onClick={() => openCharge()}>충전하기</button>
             ) : (
               <button type="button" className={BTN} disabled={busy || (!selected && !unmatched) || linkedBrands.length === 0} onClick={askIssue}>
@@ -290,56 +321,72 @@ export function CashbillIssueForm({
           </select>
         </label>
       ) : null}
-      {unmatched ? (
-        <div className="space-y-1">
-          <div className="flex items-end gap-2">
-            <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
-              <span>① 고객명 (선택)</span>
-              <input
-                autoFocus
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                maxLength={64}
-                placeholder="예: 홍길동"
-                className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
-              />
-            </label>
-            <button type="button" className={BTN_GHOST} onClick={() => { setUnmatched(false); setPhoneHits([]); }}>접수에서 찾기</button>
-          </div>
-          <p className="text-fluid-2xs text-slate-500">접수 없이 발행합니다. 이름을 적어 두면 목록에서 누구 건인지 보이고, 비우면 「연계 없음」으로 보입니다.</p>
-        </div>
+      {allowInquiry ? (
+        <>
+          {unmatched ? (
+            <div className="space-y-1">
+              <div className="flex items-end gap-2">
+                <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
+                  <span>① 고객명 (선택)</span>
+                  <input
+                    autoFocus
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    maxLength={64}
+                    placeholder="예: 홍길동"
+                    className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+                  />
+                </label>
+                <button type="button" className={BTN_GHOST} onClick={() => { setUnmatched(false); setPhoneHits([]); }}>접수에서 찾기</button>
+              </div>
+              <p className="text-fluid-2xs text-slate-500">접수 없이 발행합니다. 이름을 적어 두면 목록에서 누구 건인지 보이고, 비우면 「연계 없음」으로 보입니다.</p>
+            </div>
+          ) : (
+            <div className="flex items-end gap-2">
+              <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
+                <span>① 고객</span>
+                <input
+                  readOnly={Boolean(selected)}
+                  value={selected ? (selected.displayName || selected.customerName) : query}
+                  onChange={(e) => { if (!selected) setQuery(e.target.value); }}
+                  placeholder="고객명 또는 전화번호로 접수 찾기"
+                  className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+                />
+              </label>
+              <button type="button" className={BTN_GHOST} onClick={selected ? chooseOtherCustomer : clearMatch}>{selected ? '다른 고객' : '직접 입력'}</button>
+            </div>
+          )}
+          {!unmatched && !selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
+            <p className="text-fluid-2xs text-slate-500">찾는 접수가 없어요. 접수 없이 발행하려면 「직접 입력」을 누르세요.</p>
+          ) : null}
+          {!unmatched && !selected && hits.length > 0 ? (
+            <ul className="space-y-1">
+              {hits.map((hit) => (
+                <li key={hit.id}>
+                  <button type="button" className={`${BTN_GHOST} w-full text-left`} onClick={() => pick(hit)}>
+                    {hit.displayName || hit.customerName} · {hit.customerPhone || '번호 없음'} · {hit.createdAt?.slice(0, 10) ?? ''} · 총액 {won(hit.totalWon ?? hit.remainingWon)} · 발행 가능 {won(hit.remainingWon)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {selected && !unmatched ? (
+            <p className="text-fluid-xs text-slate-700">접수 {selected.displayName || selected.customerName} · {selected.brandName} · 가능 {won(selected.remainingWon)}</p>
+          ) : null}
+        </>
       ) : (
-        <div className="flex items-end gap-2">
-          <label className="min-w-0 flex-1 space-y-1 text-fluid-xs text-slate-700">
-            <span>① 고객</span>
-            <input
-              readOnly={Boolean(selected)}
-              value={selected ? (selected.displayName || selected.customerName) : query}
-              onChange={(e) => { if (!selected) setQuery(e.target.value); }}
-              placeholder="고객명 또는 전화번호로 접수 찾기"
-              className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
-            />
-          </label>
-          <button type="button" className={BTN_GHOST} onClick={selected ? chooseOtherCustomer : clearMatch}>{selected ? '다른 고객' : '직접 입력'}</button>
-        </div>
+        // 플랫폼 모드: 고객명만 입력
+        <label className="block space-y-1 text-fluid-xs text-slate-700">
+          <span>① 고객명 (선택)</span>
+          <input
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            maxLength={64}
+            placeholder="예: 홍길동"
+            className="min-h-9 w-full rounded-lg border border-slate-300 px-2"
+          />
+        </label>
       )}
-      {!unmatched && !selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
-        <p className="text-fluid-2xs text-slate-500">찾는 접수가 없어요. 접수 없이 발행하려면 「직접 입력」을 누르세요.</p>
-      ) : null}
-      {!unmatched && !selected && hits.length > 0 ? (
-        <ul className="space-y-1">
-          {hits.map((hit) => (
-            <li key={hit.id}>
-              <button type="button" className={`${BTN_GHOST} w-full text-left`} onClick={() => pick(hit)}>
-                {hit.displayName || hit.customerName} · {hit.customerPhone || '번호 없음'} · {hit.createdAt?.slice(0, 10) ?? ''} · 총액 {won(hit.totalWon ?? hit.remainingWon)} · 발행 가능 {won(hit.remainingWon)}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {selected && !unmatched ? (
-        <p className="text-fluid-xs text-slate-700">접수 {selected.displayName || selected.customerName} · {selected.brandName} · 가능 {won(selected.remainingWon)}</p>
-      ) : null}
       <label className="block space-y-1 text-fluid-xs text-slate-700">
         <span>② 금액</span>
         <span className="flex items-center gap-2">
@@ -347,7 +394,7 @@ export function CashbillIssueForm({
           <span>원</span>
         </span>
         {selected && !unmatched ? <span className="text-fluid-2xs text-slate-500">발행 가능 한도 {won(selected.remainingWon)}</span> : null}
-        <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
+        {allowInquiry ? <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} /> : null}
         <div className="space-y-1 pt-1">
           <p className="text-fluid-xs text-slate-700">거래유형</p>
           <div role="radiogroup" aria-label="거래유형" className="flex flex-wrap gap-1">
@@ -399,7 +446,7 @@ export function CashbillIssueForm({
           className="min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs"
         />
       )}
-      {phoneHits.length > 0 ? (
+      {allowInquiry && phoneHits.length > 0 ? (
         <div className="space-y-1 rounded-lg border border-[#b9cdf7] bg-[#f3f7ff] px-2.5 py-2">
           <p className="text-fluid-2xs font-medium text-[#1f4fb8]">이 번호로 받은 접수가 있어요. 연결하면 고객명과 발행 가능 금액이 함께 들어갑니다.</p>
           {phoneHits.map((hit) => (

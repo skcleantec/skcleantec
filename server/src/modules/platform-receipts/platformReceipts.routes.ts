@@ -9,6 +9,7 @@ import {
   listPlatformCashBillsForExport,
   platformCashBillStats,
   getPlatformCashBillViewUrl,
+  getPlatformCashBillPrintUrl,
 } from './platformCashbill.service.js';
 import {
   issuePlatformTaxInvoice,
@@ -17,6 +18,7 @@ import {
   listPlatformTaxInvoicesForExport,
   platformTaxInvoiceStats,
   getPlatformTaxInvoiceViewUrl,
+  getPlatformTaxInvoicePrintUrl,
 } from './platformTaxInvoice.service.js';
 import {
   retryFailedWalletInvoice,
@@ -34,6 +36,12 @@ import {
 import { prisma } from '../../lib/prisma.js';
 import { splitCashbillTax } from '../cashbill/cashbillIssue.amounts.js';
 import { formatCorpNumDisplay, parsePlatformReceiptListQuery } from './platformReceiptsQuery.js';
+import {
+  listTaxInvoiceBuyers,
+  upsertTaxInvoiceBuyer,
+  updateTaxInvoiceBuyer,
+  deleteTaxInvoiceBuyer,
+} from '../taxinvoice/taxInvoiceBuyer.service.js';
 
 const router = Router();
 router.use(platformAuthMiddleware);
@@ -642,6 +650,82 @@ router.get('/view-url', async (req, res) => {
     res.json({ url });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : '영수증을 열 수 없습니다.' });
+  }
+});
+
+// ── 플랫폼 거래처(Buyer) CRUD ──────────────────────────────────────────────
+
+router.get('/buyers', async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 30;
+  try {
+    const items = await listTaxInvoiceBuyers({ type: 'PLATFORM' }, { q, limit });
+    res.json({ items });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : '거래처 목록을 불러오지 못했습니다.' });
+  }
+});
+
+router.post('/buyers', async (req, res) => {
+  try {
+    const buyer = await upsertTaxInvoiceBuyer({ type: 'PLATFORM' }, req.body ?? {});
+    res.json(buyer);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '거래처를 저장하지 못했습니다.' });
+  }
+});
+
+router.patch('/buyers/:id', async (req, res) => {
+  try {
+    const buyer = await updateTaxInvoiceBuyer(
+      { type: 'PLATFORM' },
+      String(req.params.id ?? ''),
+      req.body ?? {},
+    );
+    res.json(buyer);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '거래처를 수정하지 못했습니다.' });
+  }
+});
+
+router.delete('/buyers/:id', async (req, res) => {
+  try {
+    await deleteTaxInvoiceBuyer({ type: 'PLATFORM' }, String(req.params.id ?? ''));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '거래처를 삭제하지 못했습니다.' });
+  }
+});
+
+// ── 개별 세금계산서/현금영수증 메일·인쇄 URL ──────────────────────────────
+
+router.get('/tax-invoices/:id/mail-url', async (req, res) => {
+  const kind = req.query.kind === 'print' ? 'print' : 'mail';
+  try {
+    let url: string;
+    if (kind === 'print') {
+      url = await getPlatformTaxInvoicePrintUrl(req.params.id);
+    } else {
+      url = await getPlatformTaxInvoiceViewUrl(req.params.id, null);
+    }
+    res.json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '영수증 주소를 받지 못했습니다.' });
+  }
+});
+
+router.get('/cashbills/:id/mail-url', async (req, res) => {
+  const kind = req.query.kind === 'print' ? 'print' : 'mail';
+  try {
+    let url: string;
+    if (kind === 'print') {
+      url = await getPlatformCashBillPrintUrl(req.params.id);
+    } else {
+      url = await getPlatformCashBillViewUrl(req.params.id, null);
+    }
+    res.json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : '영수증 주소를 받지 못했습니다.' });
   }
 });
 
