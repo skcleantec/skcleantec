@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import {
   issueCashbill,
@@ -8,12 +8,21 @@ import {
   type CashbillTaxKind,
   type CashbillUsage,
 } from '../../api/cashbillIssues';
+import {
+  CASHBILL_DEFAULT_FALLBACK,
+  cashbillTaxKindLabel,
+  cashbillUsageLabel,
+  fetchCashbillIssueSettings,
+  fetchPlatformIssueSettings,
+  type CashbillIssueDefaults,
+} from '../../api/receiptIssueSettings';
+import { tenantTaxInvoiceBuyerApi } from '../../api/taxInvoiceBuyers';
 import type { CashbillIssuerAdapter } from './cashbillIssueAdapter';
 import { useReceiptWallet } from '../wallet/ReceiptWalletProvider';
 import { IssueModalFrame } from '../receipts/IssueModalFrame';
 import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
-import { ReceiptExtraConfirm } from '../ui/ReceiptExtraConfirm';
+import TaxInvoiceBuyerPicker from '../taxinvoice/TaxInvoiceBuyerPicker';
 
 const BTN =
   'min-h-11 rounded-lg bg-slate-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
@@ -33,6 +42,14 @@ function previousYmd(ymd: string): string {
 
 function won(n: number): string {
   return `${Number(n).toLocaleString('ko-KR')}원`;
+}
+
+function DefaultChip({ text }: { text: string }) {
+  return (
+    <span className="ml-1 inline-flex rounded-md border border-orange-300 bg-orange-50 px-1.5 py-0.5 text-fluid-2xs font-semibold text-orange-800">
+      기본: {text}
+    </span>
+  );
 }
 
 export type CashbillIssueSeed = {
@@ -67,23 +84,27 @@ export function CashbillIssueForm({
   seed?: CashbillIssueSeed | null;
   embedded?: boolean;
   seedInquiryId?: string;
-  /** 플랫폼 전용 어댑터: 지갑·접수 검색 숨김, 발급 API 교체 */
   adapter?: CashbillIssuerAdapter;
-  /** 플랫폼 전용: 업체 ID (탭에서 선택한 값) */
   platformTenantId?: string;
 }) {
   const { summary, openCharge, reload } = useReceiptWallet();
   const allowInquiry = !adapter || adapter.allowInquiry;
   const useWallet = !adapter || adapter.useWallet;
+  const buyerApi = adapter?.buyerApi ?? tenantTaxInvoiceBuyerApi;
+  const isPlatform = adapter?.mode === 'platform';
 
   const linkedBrands = brands.filter((brand) => brand.linked);
   const today = kstToday();
   const yesterday = previousYmd(today);
+  const [defaults, setDefaults] = useState<CashbillIssueDefaults>(CASHBILL_DEFAULT_FALLBACK);
+  const defaultsRef = useRef(defaults);
+  defaultsRef.current = defaults;
+  const [defaultsReady, setDefaultsReady] = useState(false);
+
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<CashbillSearchHit[]>([]);
   const [searched, setSearched] = useState('');
   const [selected, setSelected] = useState<CashbillSearchHit | null>(null);
-  // 플랫폼 모드에서는 기본적으로 직접 입력(unmatched) 상태
   const [unmatched, setUnmatched] = useState(!allowInquiry);
   const [brandId, setBrandId] = useState(seed?.brandId || linkedBrands[0]?.id || '');
   const [amount, setAmount] = useState(seed?.amount ?? '');
@@ -102,11 +123,40 @@ export function CashbillIssueForm({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveBuyer, setSaveBuyer] = useState(true);
 
   const activeBrand = brands.find((brand) => brand.id === brandId) ?? linkedBrands[0];
   const brandTaxType = selected && !unmatched ? selected.taxType : activeBrand?.taxType;
   const exemptLocked = brandTaxType === '4';
   const activeKind: CashbillTaxKind = exemptLocked ? 'exempt' : taxKind;
+
+  useEffect(() => {
+    let stop = false;
+    const load = async () => {
+      const data = isPlatform
+        ? await fetchPlatformIssueSettings('CASHBILL')
+        : await fetchCashbillIssueSettings(brandId || null);
+      if (stop) return;
+      const values = data.values as CashbillIssueDefaults;
+      setDefaults(values);
+      if (!seed) {
+        setTaxKind(values.taxKind);
+        setUsage(values.usage);
+        setItemName(values.itemName || '청소 서비스');
+        if (values.memo) {
+          setMemo(values.memo);
+          setMemoOpen(true);
+        }
+      } else if (seed.taxKind == null) {
+        setTaxKind(values.taxKind);
+      }
+      setDefaultsReady(true);
+    };
+    void load().catch(() => {
+      if (!stop) setDefaultsReady(true);
+    });
+    return () => { stop = true; };
+  }, [brandId, isPlatform, seed]);
 
   useEffect(() => {
     if (!seedInquiryId) return;
@@ -144,7 +194,6 @@ export function CashbillIssueForm({
     };
   }, [query]);
 
-  // 직접 입력 중 휴대폰 번호가 접수에 있으면 연결을 제안한다.
   const identityDigits = identity.replace(/\D/g, '');
   useEffect(() => {
     if (!unmatched || usage !== 'phone' || identityDigits.length < 10) {
@@ -168,12 +217,13 @@ export function CashbillIssueForm({
   }, [unmatched, usage, identityDigits]);
 
   function pick(hit: CashbillSearchHit) {
+    const basis = defaultsRef.current.amountBasis;
     setSelected(hit);
     setUnmatched(false);
     setPhoneHits([]);
     setCustomerName(hit.customerName ?? '');
     setBrandId(hit.brandId);
-    setAmount(String(hit.remainingWon));
+    setAmount(String(basis === 'total' ? (hit.totalWon ?? hit.remainingWon) : hit.remainingWon));
     if (hit.taxType === '4') setTaxKind('exempt');
     if (usage === 'phone') setIdentity(hit.customerPhone ?? '');
     setError(hit.simplified ? '간이과세자 현금영수증은 바로빌 답변 전까지 발급할 수 없습니다.' : null);
@@ -199,9 +249,18 @@ export function CashbillIssueForm({
     setIdentity('');
   }
 
+  const diffs = useMemo(() => {
+    if (!defaultsReady) return [] as string[];
+    const out: string[] = [];
+    if (activeKind !== defaults.taxKind) out.push(cashbillTaxKindLabel(activeKind));
+    if (usage !== defaults.usage) out.push(cashbillUsageLabel(usage));
+    if ((itemName.trim() || '청소 서비스') !== (defaults.itemName.trim() || '청소 서비스')) out.push(`품목 ${itemName.trim() || '—'}`);
+    return out;
+  }, [activeKind, usage, itemName, defaults, defaultsReady]);
+
   async function submit() {
     const issuedTotal = Math.round(Number(amount) || 0);
-    const over = selected && !unmatched ? Math.max(0, issuedTotal - selected.remainingWon) : 0;
+    const overWon = selected && !unmatched ? Math.max(0, issuedTotal - selected.remainingWon) : 0;
     setBusy(true);
     setError(null);
     try {
@@ -232,13 +291,28 @@ export function CashbillIssueForm({
           email: email.trim() || undefined,
           internalMemo: memo.trim() || undefined,
           customerName: (unmatched ? customerName : selected?.customerName ?? '').trim() || undefined,
-          extraAmountWon: over > 0 ? over : undefined,
-          extraReason: over > 0 ? extraReason.trim() : undefined,
+          extraAmountWon: overWon > 0 ? overWon : undefined,
+          extraReason: overWon > 0 ? extraReason.trim() : undefined,
           taxKind: activeKind,
           requestId: crypto.randomUUID(),
         });
         issueId = issued.id;
       }
+
+      if (saveBuyer && usage === 'biz') {
+        const biz = identity.replace(/\D/g, '');
+        if (biz.length >= 10) {
+          try {
+            await buyerApi.upsert({
+              bizNumber: biz,
+              corpName: (customerName || selected?.customerName || '').trim() || biz,
+            });
+          } catch {
+            /* 발행은 성공 — 거래처 저장 실패는 무시 */
+          }
+        }
+      }
+
       setQuery('');
       setHits([]);
       setSelected(null);
@@ -262,7 +336,7 @@ export function CashbillIssueForm({
       return;
     }
     setError(null);
-    if (!adapter && over > 0) setConfirmOpen(true);
+    if ((!adapter && over > 0) || diffs.length > 0) setConfirmOpen(true);
     else void submit();
   }
   const supply = activeKind === 'exempt' ? total : Math.round(total / 1.1);
@@ -282,7 +356,13 @@ export function CashbillIssueForm({
               {short ? '잔액이 부족합니다' : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑 ${summary ? won(summary.balanceKrw) : '…'} → ${won(after)}`}
             </p>
           ) : null}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {usage === 'biz' ? (
+              <label className="inline-flex items-center gap-1.5 text-fluid-xs text-slate-700">
+                <input type="checkbox" checked={saveBuyer} onChange={(e) => setSaveBuyer(e.target.checked)} className="rounded" />
+                이 거래처 저장
+              </label>
+            ) : null}
             <button type="button" className={BTN_GHOST} onClick={onClose}>취소</button>
             {useWallet && short ? (
               <button type="button" className={BTN} onClick={() => openCharge()}>충전하기</button>
@@ -295,16 +375,56 @@ export function CashbillIssueForm({
         </div>
       )}
     >
-      <ReceiptExtraConfirm
-        open={confirmOpen}
-        remainWon={selected?.remainingWon ?? 0}
-        extraWon={over}
-        totalWon={total}
-        busy={busy}
-        onCancel={() => setConfirmOpen(false)}
-        onIssue={() => { setConfirmOpen(false); void submit(); }}
-      />
+      {confirmOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl">
+            <p className="text-fluid-sm font-semibold text-slate-900">발행을 진행할까요?</p>
+            {diffs.length > 0 ? (
+              <p className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-fluid-xs text-orange-950">
+                기본설정과 다름: {diffs.join(' · ')}
+              </p>
+            ) : null}
+            {over > 0 ? (
+              <p className="mt-2 text-fluid-xs text-slate-700">
+                한도 {won(selected?.remainingWon ?? 0)} + 추가 {won(over)} = {won(total)}
+              </p>
+            ) : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className={BTN_GHOST} onClick={() => setConfirmOpen(false)}>취소</button>
+              <button type="button" className={BTN} disabled={busy} onClick={() => { setConfirmOpen(false); void submit(); }}>발행</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-xs text-red-800">{error}</p> : null}
+
+      <div className="space-y-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-fluid-sm font-semibold text-slate-800">과세 / 면세</p>
+          {defaultsReady && activeKind !== defaults.taxKind ? <DefaultChip text={cashbillTaxKindLabel(defaults.taxKind)} /> : null}
+        </div>
+        <div role="radiogroup" aria-label="과세 구분" className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={exemptLocked}
+            aria-checked={activeKind === 'taxable'}
+            className={`min-h-12 rounded-xl border-2 text-fluid-sm font-bold disabled:opacity-50 ${activeKind === 'taxable' ? 'border-sky-500 bg-sky-100 text-sky-950' : 'border-slate-200 bg-white text-slate-600'}`}
+            onClick={() => setTaxKind('taxable')}
+          >
+            과세
+          </button>
+          <button
+            type="button"
+            aria-checked={activeKind === 'exempt'}
+            className={`min-h-12 rounded-xl border-2 text-fluid-sm font-bold ${activeKind === 'exempt' ? 'border-emerald-500 bg-emerald-100 text-emerald-950' : 'border-slate-200 bg-white text-slate-600'}`}
+            onClick={() => setTaxKind('exempt')}
+          >
+            면세
+          </button>
+        </div>
+        {exemptLocked ? <span className="text-fluid-2xs text-slate-500">면세사업자는 면세로 고정됩니다.</span> : null}
+      </div>
+
       {linkedBrands.length > 1 ? (
         <label className="block space-y-1 text-fluid-xs text-slate-700">
           <span>브랜드</span>
@@ -394,32 +514,13 @@ export function CashbillIssueForm({
         </span>
         {selected && !unmatched ? <span className="text-fluid-2xs text-slate-500">발행 가능 한도 {won(selected.remainingWon)}</span> : null}
         {allowInquiry ? <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} /> : null}
-        <div className="space-y-1 pt-1">
-          <p className="text-fluid-xs text-slate-700">거래유형</p>
-          <div role="radiogroup" aria-label="거래유형" className="flex flex-wrap gap-1">
-            {([
-              ['taxable', '과세'],
-              ['exempt', '면세'],
-            ] as const).map(([id, label]) => (
-              <Button
-                key={id}
-                type="button"
-                size="sm"
-                variant={activeKind === id ? 'primary' : 'secondary'}
-                disabled={exemptLocked && id !== 'exempt'}
-                aria-checked={activeKind === id}
-                onClick={() => setTaxKind(id)}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-          {exemptLocked ? <span className="text-fluid-2xs text-slate-500">면세사업자는 면세로 고정됩니다.</span> : null}
-        </div>
         {total > 0 ? <span className="text-fluid-2xs text-slate-600">공급가액 {won(supply)} · 부가세 {won(vat)}</span> : null}
       </label>
       <div className="space-y-1">
-        <p className="text-fluid-xs text-slate-700">③ 용도</p>
+        <p className="text-fluid-xs text-slate-700">
+          ③ 용도
+          {defaultsReady && usage !== defaults.usage ? <DefaultChip text={cashbillUsageLabel(defaults.usage)} /> : null}
+        </p>
         <div className="flex flex-wrap gap-1">
           {([
             ['phone', '소득공제(휴대폰)'],
@@ -433,15 +534,34 @@ export function CashbillIssueForm({
         </div>
       </div>
       {identityHint ? <p className="text-fluid-xs text-amber-800">{identityHint}</p> : null}
-      {usage === 'voluntary' ? (
+      {usage === 'biz' ? (
+        <div className="space-y-2">
+          <TaxInvoiceBuyerPicker
+            api={buyerApi}
+            title="거래처에서 고르기"
+            onPick={(row) => {
+              setIdentity(row.bizNumber);
+              if (row.corpName.trim()) setCustomerName(row.corpName);
+            }}
+          />
+          <input
+            value={identity}
+            onChange={(e) => setIdentity(e.target.value)}
+            placeholder="사업자번호 10자리"
+            maxLength={12}
+            aria-label="사업자번호"
+            className="min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs"
+          />
+        </div>
+      ) : usage === 'voluntary' ? (
         <p className="text-fluid-xs text-slate-600">자진발급 010-000-1234</p>
       ) : (
         <input
           value={identity}
           onChange={(e) => setIdentity(e.target.value)}
-          placeholder={usage === 'phone' ? '휴대폰 11자리' : '사업자번호 10자리'}
-          maxLength={usage === 'phone' ? 13 : 12}
-          aria-label={usage === 'phone' ? '휴대폰 번호' : '사업자번호'}
+          placeholder="휴대폰 11자리"
+          maxLength={13}
+          aria-label="휴대폰 번호"
           className="min-h-9 w-full rounded-lg border border-slate-300 px-2 text-fluid-xs"
         />
       )}
@@ -470,7 +590,12 @@ export function CashbillIssueForm({
       </label>
       <div className="flex flex-wrap items-end gap-2">
         <label className="space-y-1 text-fluid-xs text-slate-700">
-          <span>⑤ 품목명</span>
+          <span>
+            ⑤ 품목명
+            {defaultsReady && (itemName.trim() || '청소 서비스') !== (defaults.itemName.trim() || '청소 서비스') ? (
+              <DefaultChip text={defaults.itemName || '청소 서비스'} />
+            ) : null}
+          </span>
           <input value={itemName} onChange={(e) => setItemName(e.target.value)} className="min-h-9 rounded-lg border border-slate-300 px-2" />
         </label>
         <label className="space-y-1 text-fluid-xs text-slate-700">

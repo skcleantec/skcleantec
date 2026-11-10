@@ -7,6 +7,7 @@ import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects
 import { CashbillCertRegisterModal } from '../../components/cashbill/CashbillCertRegisterModal';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
 import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
+import { ReceiptIssueSettingsModal } from '../../components/receipts/ReceiptIssueSettingsModal';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
 import { ApprovalNumberCell } from '../../components/receipts/ApprovalNumberCell';
@@ -107,6 +108,7 @@ export function AdminTaxInvoiceListPage() {
   const [linkIssueId, setLinkIssueId] = useState<string | null>(null);
   const [modifyRow, setModifyRow] = useState<TaxInvoiceRow | null>(null);
   const [walletTick, setWalletTick] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
 
   const patch = useCallback((next: Record<string, string | null>) => {
@@ -242,6 +244,7 @@ export function AdminTaxInvoiceListPage() {
         hideIssue={tab === 'issue'}
         unitPriceKrw={TAXINVOICE_UNIT_PRICE_KRW}
         onIssue={() => patch({ tab: 'issue', from: null })}
+        onOpenSettings={() => setSettingsOpen(true)}
         statusChip={
           certChip && isTenantAdmin ? (
             <button type="button" className={`min-h-11 rounded-full border px-3 text-fluid-2xs font-medium hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${certChip.className}`} onClick={() => setCertBrandId(certChip.id)}>
@@ -252,6 +255,7 @@ export function AdminTaxInvoiceListPage() {
           ) : null
         }
       />
+      <ReceiptIssueSettingsModal kind="taxinvoice" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ReceiptIssueTabs value={tab === 'issue' ? 'issue' : 'history'} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'nts5', page: '1' })} onIssueFailed={() => patch({ state: 'failed', page: '1' })} />

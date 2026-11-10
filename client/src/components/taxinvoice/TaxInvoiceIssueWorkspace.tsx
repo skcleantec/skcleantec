@@ -16,7 +16,6 @@ import { SupplierInfoModal } from './SupplierInfoModal';
 import { clearTaxInvoiceDraft, readTaxInvoiceDraft, writeTaxInvoiceDraft, type TaxInvoiceDraft } from './taxInvoiceDraft';
 import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
-import { ReceiptExtraConfirm } from '../ui/ReceiptExtraConfirm';
 import { TaxInvoiceMobileCards, TaxInvoicePaper, type TaxFormProps } from './TaxInvoiceFormViews';
 import TaxInvoiceBuyerPicker from './TaxInvoiceBuyerPicker';
 import {
@@ -39,38 +38,62 @@ import {
   type TaxKind,
   type TaxParty,
 } from './taxInvoiceFormModel';
+import {
+  TAXINVOICE_DEFAULT_FALLBACK,
+  taxInvoiceTaxKindLabel,
+  fetchPlatformIssueSettings,
+  fetchTaxInvoiceIssueSettings,
+  type TaxInvoiceIssueDefaults,
+} from '../../api/receiptIssueSettings';
 import './taxinvoice-issue.css';
 
 const TAX_KIND_LABEL: Record<TaxKind, string> = { taxable: '과세', zero: '영세', exempt: '면세' };
+const TAX_KIND_ON: Record<TaxKind, string> = {
+  taxable: 'border-sky-500 bg-sky-100 text-sky-950',
+  zero: 'border-indigo-500 bg-indigo-100 text-indigo-950',
+  exempt: 'border-emerald-500 bg-emerald-100 text-emerald-950',
+};
 
-function TaxKindSwitch({ kind, locked, disabled, mobile, onChange }: {
+function DefaultChip({ text }: { text: string }) {
+  return (
+    <span className="ml-1 inline-flex rounded-md border border-orange-300 bg-orange-50 px-1.5 py-0.5 text-[11px] font-semibold text-orange-800">
+      기본: {text}
+    </span>
+  );
+}
+
+function TaxKindSwitch({ kind, locked, disabled, mobile, onChange, defaultKind }: {
   kind: TaxKind;
   locked: boolean;
   disabled: boolean;
   mobile?: boolean;
   onChange: (kind: TaxKind) => void;
+  defaultKind?: TaxKind;
 }) {
   const items: TaxKind[] = ['taxable', 'zero', 'exempt'];
-  if (mobile) {
-    return (
-      <div role="radiogroup" aria-label="과세 구분" className="grid grid-cols-3 rounded-lg bg-gray-100 p-0.5 text-[13px] font-semibold">
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-1">
+        {defaultKind && kind !== defaultKind ? <DefaultChip text={TAX_KIND_LABEL[defaultKind]} /> : null}
+      </div>
+      <div role="radiogroup" aria-label="과세 구분" className={mobile ? 'grid grid-cols-3 gap-1.5' : 'inline-flex flex-wrap gap-1.5'}>
         {items.map((item) => {
           const on = kind === item;
           return (
-            <button key={item} type="button" role="radio" aria-checked={on} disabled={disabled || (locked && item !== 'exempt')} className={on ? 'rounded-md bg-white py-2 text-center shadow-sm' : 'py-2 text-center text-gray-500'} onClick={() => onChange(item)}>{TAX_KIND_LABEL[item]}</button>
+            <button
+              key={item}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              disabled={disabled || (locked && item !== 'exempt')}
+              className={`tt min-h-10 rounded-xl border-2 px-3 text-sm font-bold disabled:opacity-50 ${on ? TAX_KIND_ON[item] : 'border-slate-200 bg-white text-gray-500'}`}
+              onClick={() => onChange(item)}
+            >
+              {TAX_KIND_LABEL[item]}
+            </button>
           );
         })}
       </div>
-    );
-  }
-  return (
-    <div role="radiogroup" aria-label="과세 구분" className="inline-flex rounded-lg bg-gray-100 p-0.5 text-sm">
-      {items.map((item) => {
-        const on = kind === item;
-        return (
-          <button key={item} type="button" role="radio" aria-checked={on} disabled={disabled || (locked && item !== 'exempt')} className={`tt rounded-md px-3 py-1.5 font-semibold ${on ? 'bg-white shadow-sm' : 'text-gray-500'}`} onClick={() => onChange(item)}>{TAX_KIND_LABEL[item]}</button>
-        );
-      })}
     </div>
   );
 }
@@ -123,12 +146,49 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
   const [saveBuyer, setSaveBuyer] = useState(true);
   const [buyerTenantId, setBuyerTenantId] = useState('');
   const [tenantBuyers, setTenantBuyers] = useState<PlatformBuyerTenant[]>([]);
+  const [defaults, setDefaults] = useState<TaxInvoiceIssueDefaults>(TAXINVOICE_DEFAULT_FALLBACK);
+  const defaultsRef = useRef(defaults);
+  defaultsRef.current = defaults;
+  const [defaultsReady, setDefaultsReady] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true, 96);
 
   // stable adapter ref — prevents dependency churn on callback/effect deps
   const adapterRef = useRef(adapterProp);
   adapterRef.current = adapterProp;
+
+  useEffect(() => {
+    let stop = false;
+    const load = async () => {
+      const data =
+        adapterRef.current.mode === 'platform'
+          ? await fetchPlatformIssueSettings('TAXINVOICE')
+          : await fetchTaxInvoiceIssueSettings(brandId || null);
+      if (stop) return;
+      const values = data.values as TaxInvoiceIssueDefaults;
+      setDefaults(values);
+      if (!fromId && !inquiryId) {
+        setTaxKind(values.taxKind);
+        setPurpose(values.purposeType === 2 ? 2 : 1);
+        setRemark(values.remark || '');
+        if (values.buyerEmail) {
+          setBuyer((prev) => ({ ...prev, email: prev.email || values.buyerEmail }));
+        }
+        if (values.itemName.trim()) {
+          setLines((prev) => {
+            const next = prev.length ? [...prev] : [emptyLine(dates[0] ?? kstToday())];
+            next[0] = { ...next[0], name: values.itemName };
+            return next;
+          });
+        }
+      }
+      setDefaultsReady(true);
+    };
+    void load().catch(() => {
+      if (!stop) setDefaultsReady(true);
+    });
+    return () => { stop = true; };
+  }, [brandId, fromId, inquiryId, dates]);
 
   // load tenants for platform buyer picker
   useEffect(() => {
@@ -286,9 +346,30 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
     setHits([]);
     setBrandId(hit.brandId);
     if (hit.buyer) {
-      setBuyer((prev) => ({ ...prev, corpName: hit.buyer?.corpName ?? '', email: hit.buyer?.email ?? '', addr: hit.buyer?.addr ?? '' }));
+      setBuyer((prev) => ({
+        ...prev,
+        corpName: hit.buyer?.corpName ?? '',
+        email: hit.buyer?.email || defaultsRef.current.buyerEmail || prev.email,
+        addr: hit.buyer?.addr ?? '',
+      }));
+    } else if (defaultsRef.current.buyerEmail) {
+      setBuyer((prev) => ({ ...prev, email: prev.email || defaultsRef.current.buyerEmail }));
+    }
+    if (defaultsRef.current.writeDateBasis === 'preferredDate' && hit.preferredDate) {
+      changeWriteDate(hit.preferredDate);
     }
   }
+
+  const settingDiffs = useMemo(() => {
+    if (!defaultsReady) return [] as string[];
+    const out: string[] = [];
+    if (activeKind !== defaults.taxKind) out.push(taxInvoiceTaxKindLabel(activeKind));
+    if (purpose !== defaults.purposeType) out.push(purpose === 2 ? '청구' : '영수');
+    const lineName = (lines[0]?.name ?? '').trim();
+    const defName = defaults.itemName.trim();
+    if (defName && lineName && lineName !== defName) out.push(`품목 ${lineName}`);
+    return out;
+  }, [activeKind, purpose, lines, defaults, defaultsReady]);
 
   function chooseOtherCustomer() {
     setPicked(null);
@@ -450,7 +531,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
         setError('추가 금액 사유를 입력해 주세요.');
         return;
       }
-      if (over > 0) {
+      if (over > 0 || settingDiffs.length > 0) {
         setConfirmOpen(true);
         return;
       }
@@ -600,7 +681,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
           <span className="h-4 w-px bg-gray-200" />
           <div className="flex shrink-0 items-center gap-2">
             <span className="text-xs font-medium text-gray-500">과세 구분</span>
-            <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} onChange={setTaxKind} />
+            <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} onChange={setTaxKind} defaultKind={defaultsReady ? defaults.taxKind : undefined} />
           </div>
           {brand?.certValid && brand.certExpireDate ? (
             <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">● 인증서 {brand.certExpireDate.slice(0, 10)}</span>
@@ -665,7 +746,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
           {brand?.certValid ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">인증서 ✓</span> : null}
         </header>
         <div className="bg-white px-3 pb-2.5">
-          <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} mobile onChange={setTaxKind} />
+          <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} mobile onChange={setTaxKind} defaultKind={defaultsReady ? defaults.taxKind : undefined} />
           <p className="mt-1.5 text-[11px] text-gray-500">면세를 고르면 「전자계산서」로 바뀌고 세액 칸이 사라집니다.</p>
         </div>
         <div className="space-y-3 px-3 py-3 pb-28">
@@ -750,15 +831,27 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
           }}
         />
       ) : null}
-      <ReceiptExtraConfirm
-        open={confirmOpen}
-        remainWon={remainWon ?? 0}
-        extraWon={over}
-        totalWon={invoiceTotal}
-        busy={saving}
-        onCancel={() => setConfirmOpen(false)}
-        onIssue={() => { setConfirmOpen(false); void submit(); }}
-      />
+      {confirmOpen ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl" role="dialog" aria-modal="true">
+            <p className="text-sm font-semibold text-slate-900">발행을 진행할까요?</p>
+            {settingDiffs.length > 0 ? (
+              <p className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-950">
+                기본설정과 다름: {settingDiffs.join(' · ')}
+              </p>
+            ) : null}
+            {over > 0 ? (
+              <p className="mt-2 text-sm text-slate-800">
+                접수 금액 {won(remainWon ?? 0)}원 + 추가 {won(over)}원 = {won(invoiceTotal)}원
+              </p>
+            ) : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => setConfirmOpen(false)} disabled={saving}>취소</button>
+              <button type="button" className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-50" disabled={saving} onClick={() => { setConfirmOpen(false); void submit(); }}>발행</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

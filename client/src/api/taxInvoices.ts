@@ -7,6 +7,7 @@ export type TaxInvoiceSearchHit = {
   customerName: string;
   displayName?: string;
   customerPhone: string | null;
+  preferredDate?: string | null;
   totalWon?: number;
   remainingWon?: number | null;
   brandId: string;

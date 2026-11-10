@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { issuerNameMap } from '../receipts/receiptHistory.js';
-import { receiptCustomerLabel, receiptNameKey, receiptRealName } from '../receipts/receiptNameSearch.js';
+import { findInquiryIdsByReceiptName, receiptCustomerLabel, receiptRealName } from '../receipts/receiptNameSearch.js';
 import type { CashBillIssue, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
@@ -203,11 +203,6 @@ const cashSearchSelect = {
 
 type CashSearchRow = Prisma.InquiryGetPayload<{ select: typeof cashSearchSelect }>;
 
-function cashNameHit(row: CashSearchRow, key: string): boolean {
-  if (!key) return false;
-  return [row.customerName, row.nickname ?? '', row.orderForm?.customerName ?? ''].some((name) => receiptNameKey(name).includes(key));
-}
-
 async function mapCashSearch(tenantId: string, found: CashSearchRow[]) {
   return Promise.all(found.map(async (inquiry) => {
     const issued = await issueRows(tenantId, inquiry.id);
@@ -241,16 +236,9 @@ export async function searchCashbillInquiries(tenantId: string, rawQuery: string
   }
   const q = rawQuery.trim().slice(0, 40);
   const phone = digits(q);
-  const key = receiptNameKey(q);
   if (q.length < 2 && phone.length < 3) return [];
-  const recent = key
-    ? await prisma.inquiry.findMany({
-      where: { tenantId, deletedAt: null },
-      select: cashSearchSelect,
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    })
-    : [];
+
+  const nameIds = q.length >= 2 ? await findInquiryIdsByReceiptName(tenantId, q, 20) : [];
   const phoneHits = phone.length >= 3
     ? await prisma.inquiry.findMany({
       where: {
@@ -263,13 +251,24 @@ export async function searchCashbillInquiries(tenantId: string, rawQuery: string
       take: 20,
     })
     : [];
+  const nameHits = nameIds.length
+    ? await prisma.inquiry.findMany({
+      where: { tenantId, deletedAt: null, id: { in: nameIds } },
+      select: cashSearchSelect,
+    })
+    : [];
   const merged = new Map<string, CashSearchRow>();
-  for (const row of [...phoneHits, ...recent]) {
-    if (merged.has(row.id)) continue;
-    const phoneOk = phone.length >= 3 && (row.customerPhone.includes(phone) || (row.customerPhone2 ?? '').includes(phone));
-    if (cashNameHit(row, key) || phoneOk) merged.set(row.id, row);
+  for (const row of [...phoneHits, ...nameHits]) {
+    if (!merged.has(row.id)) merged.set(row.id, row);
   }
-  const picked = [...merged.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 8);
+  const order = new Map(nameIds.map((nid, i) => [nid, i]));
+  const picked = [...merged.values()]
+    .sort((a, b) => {
+      const byTime = b.createdAt.getTime() - a.createdAt.getTime();
+      if (byTime !== 0) return byTime;
+      return (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99);
+    })
+    .slice(0, 20);
   return mapCashSearch(tenantId, picked);
 }
 

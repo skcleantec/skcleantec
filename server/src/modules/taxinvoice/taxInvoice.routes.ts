@@ -26,6 +26,10 @@ import {
   updateTaxInvoiceBuyer,
   deleteTaxInvoiceBuyer,
 } from './taxInvoiceBuyer.service.js';
+import {
+  getReceiptIssueSettings,
+  upsertReceiptIssueSettings,
+} from '../receipts/receiptIssueSettings.service.js';
 
 const router = Router();
 router.use(authMiddleware, requireTenantAuth, requireFeature(CASHBILL_MODULE_ID));
@@ -33,6 +37,14 @@ router.use(authMiddleware, requireTenantAuth, requireFeature(CASHBILL_MODULE_ID)
 function staff(res: Response, user: AuthPayload): boolean {
   if (user.role !== 'ADMIN' && user.role !== 'MARKETER') {
     res.status(403).json({ error: '관리자와 마케터만 이용할 수 있습니다.' });
+    return false;
+  }
+  return true;
+}
+
+function adminOnly(res: Response, user: AuthPayload): boolean {
+  if (user.role !== 'ADMIN') {
+    res.status(403).json({ error: '관리자만 기본설정을 저장할 수 있습니다.' });
     return false;
   }
   return true;
@@ -145,6 +157,44 @@ router.post('/', async (req, res) => {
     const body = (req.body ?? {}) as { inquiryId?: unknown; buyer?: { corpName?: unknown } };
     void logTaxInvoiceFailure({ tenantId, actorId: user.userId, action: 'issue', err, inquiryId: body.inquiryId, buyerName: body.buyer?.corpName });
     sendError(res, err, '세금계산서 발행에 실패했습니다.');
+  }
+});
+
+router.get('/issue-settings', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const brandId = typeof req.query.brandId === 'string' ? req.query.brandId : null;
+  try {
+    const data = await getReceiptIssueSettings({ type: 'TENANT', tenantId }, 'TAXINVOICE', brandId);
+    res.json({ ...data, canEdit: user.role === 'ADMIN' });
+  } catch (err) {
+    sendError(res, err, '발행 기본설정을 불러오지 못했습니다.');
+  }
+});
+
+router.put('/issue-settings', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user) || !adminOnly(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = (req.body ?? {}) as { brandId?: unknown; values?: unknown };
+  const brandId = typeof body.brandId === 'string' ? body.brandId : null;
+  try {
+    const data = await upsertReceiptIssueSettings(
+      { type: 'TENANT', tenantId },
+      'TAXINVOICE',
+      brandId,
+      body.values,
+    );
+    res.json({ ...data, canEdit: true });
+  } catch (err) {
+    if (err instanceof Error) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    sendError(res, err, '발행 기본설정을 저장하지 못했습니다.');
   }
 });
 

@@ -21,6 +21,7 @@ import { ReceiptIssueTabs } from '../../components/ui/ReceiptIssueTabs';
 import { ReceiptInquiryLinkModal } from '../../components/receipts/ReceiptInquiryLinkModal';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
 import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
+import { ReceiptIssueSettingsModal } from '../../components/receipts/ReceiptIssueSettingsModal';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
@@ -84,6 +85,7 @@ export function AdminCashbillListPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [linkIssueId, setLinkIssueId] = useState<string | null>(null);
   const [walletTick, setWalletTick] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
 
   const patch = useCallback((next: Record<string, string | null>) => {
@@ -214,7 +216,8 @@ export function AdminCashbillListPage() {
     <ReceiptWalletProvider>
     <ReceiptSetupGate kind="cashbill">
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
-      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} hideIssue={tab === 'issue'} unitPriceKrw={CASHBILL_UNIT_PRICE_KRW} onIssue={() => { setIssueSeed(null); patch({ tab: 'issue', from: null }); }} />
+      <ReceiptListHeader title="현금영수증" path="/admin/inquiries/receipts/cashbill" issueLabel="+ 현금영수증 발행" issueDisabled={needsLink} hideIssue={tab === 'issue'} unitPriceKrw={CASHBILL_UNIT_PRICE_KRW} onIssue={() => { setIssueSeed(null); patch({ tab: 'issue', from: null }); }} onOpenSettings={() => setSettingsOpen(true)} />
+      <ReceiptIssueSettingsModal kind="cashbill" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ReceiptIssueTabs value={tab} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />
