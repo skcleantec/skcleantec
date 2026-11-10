@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { WALLET_USAGE_LABEL, type WalletUsageType } from '@shared/walletPolicy';
-import { fetchReceiptWalletLedger, type ReceiptWalletLedgerItem } from '../../api/receiptWallet';
+import {
+  fetchReceiptWalletLedger,
+  openTenantWalletTaxInvoiceView,
+  type ReceiptWalletLedgerItem,
+  type ReceiptWalletPendingChargeRequest,
+  type TenantChargeTaxInvoice,
+} from '../../api/receiptWallet';
 
 const FILTERS = [
   ['all', '전체'],
@@ -13,6 +19,9 @@ const FILTERS = [
 
 const PAGE = 30;
 
+const VIEW_BTN =
+  'min-h-8 shrink-0 rounded-md border border-slate-300 bg-white px-2 text-fluid-2xs text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+
 function won(n: number): string {
   const sign = n > 0 ? '+' : '';
   return `${sign}${Number(n).toLocaleString('ko-KR')}원`;
@@ -22,6 +31,37 @@ function labelOf(row: ReceiptWalletLedgerItem): string {
   if (row.kind === 'CHARGE') return row.tenantLabel || '충전';
   if (row.type && row.type in WALLET_USAGE_LABEL) return WALLET_USAGE_LABEL[row.type as WalletUsageType];
   return '사용';
+}
+
+function TaxInvoiceLine({
+  tax,
+  cardApprovalNo,
+  busy,
+  onView,
+}: {
+  tax: TenantChargeTaxInvoice | null | undefined;
+  cardApprovalNo?: string | null;
+  busy?: boolean;
+  onView?: () => void;
+}) {
+  if (!tax) return null;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-fluid-2xs text-slate-600">
+      <span className="text-slate-500">세금계산서</span>
+      <span className="font-medium text-slate-800">{tax.label}</span>
+      {tax.status === 'ISSUED' && tax.ntsConfirmNum ? (
+        <span className="break-all tabular-nums text-slate-500">{tax.ntsConfirmNum}</span>
+      ) : null}
+      {tax.canView ? (
+        <button type="button" className={VIEW_BTN} disabled={busy} onClick={onView}>
+          보기
+        </button>
+      ) : null}
+      {cardApprovalNo ? (
+        <span className="w-full text-slate-500 sm:w-auto">카드 영수증 · 승인번호 {cardApprovalNo}</span>
+      ) : null}
+    </div>
+  );
 }
 
 function Trend({ points }: { points: { balanceAfterKrw: number }[] }) {
@@ -46,9 +86,11 @@ export function ReceiptWalletHistoryModal({ onClose }: { onClose: () => void }) 
   const [type, setType] = useState<(typeof FILTERS)[number][0]>('all');
   const [page, setPage] = useState(0);
   const [items, setItems] = useState<ReceiptWalletLedgerItem[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<ReceiptWalletPendingChargeRequest[]>([]);
   const [total, setTotal] = useState(0);
   const [trend, setTrend] = useState<{ at: string; balanceAfterKrw: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +98,7 @@ export function ReceiptWalletHistoryModal({ onClose }: { onClose: () => void }) 
       .then((res) => {
         if (cancelled) return;
         setItems(res.items);
+        setPendingRequests(page === 0 ? res.pendingChargeRequests : []);
         setTotal(res.total);
         setTrend(res.trend);
         setError(null);
@@ -67,6 +110,21 @@ export function ReceiptWalletHistoryModal({ onClose }: { onClose: () => void }) 
       cancelled = true;
     };
   }, [page, type]);
+
+  const openView = async (rowId: string, tax: TenantChargeTaxInvoice) => {
+    setViewingId(rowId);
+    setError(null);
+    try {
+      await openTenantWalletTaxInvoiceView({
+        walletInvoiceId: tax.walletInvoiceId,
+        paymentId: tax.paymentId,
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '영수증을 열 수 없습니다.');
+    } finally {
+      setViewingId(null);
+    }
+  };
 
   return createPortal(
     <div className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 lg:items-center">
@@ -94,19 +152,41 @@ export function ReceiptWalletHistoryModal({ onClose }: { onClose: () => void }) 
           </div>
           {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
           <ul className="space-y-1.5">
+            {pendingRequests.map((req) => (
+              <li key={`pending-${req.id}`} className="rounded-lg border border-amber-200 bg-amber-50/60 px-2 py-1.5">
+                <p className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-fluid-xs text-slate-900">
+                  <span className="min-w-0 break-words">충전 신청{req.memo ? ` · ${req.memo}` : ''}</span>
+                  <span className="shrink-0 tabular-nums">{won(req.amountKrw)}</span>
+                </p>
+                <p className="text-fluid-2xs text-slate-500">
+                  {new Date(req.createdAt).toLocaleString('ko-KR')} · 입금 확인 대기
+                </p>
+                <TaxInvoiceLine tax={req.taxInvoice} />
+              </li>
+            ))}
             {items.map((row) => (
               <li key={`${row.kind}-${row.id}`} className="rounded-lg border border-slate-200 px-2 py-1.5">
-                <p className="flex items-center justify-between gap-2 text-fluid-xs text-slate-900">
-                  <span className="truncate">{labelOf(row)}{row.memo ? ` · ${row.memo}` : ''}</span>
+                <p className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-fluid-xs text-slate-900">
+                  <span className="min-w-0 break-words">{labelOf(row)}{row.memo ? ` · ${row.memo}` : ''}</span>
                   <span className="shrink-0 tabular-nums">{won(row.amountKrw)}</span>
                 </p>
                 <p className="text-fluid-2xs text-slate-500">
                   {new Date(row.createdAt).toLocaleString('ko-KR')} · 잔액 {row.balanceAfterKrw.toLocaleString('ko-KR')}원
                 </p>
+                {row.kind === 'CHARGE' ? (
+                  <TaxInvoiceLine
+                    tax={row.taxInvoice}
+                    cardApprovalNo={row.cardReceipt?.approvalNo}
+                    busy={viewingId === row.id}
+                    onView={() => row.taxInvoice && void openView(row.id, row.taxInvoice)}
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
-          {items.length === 0 && !error ? <p className="text-fluid-xs text-slate-500">내역이 없습니다.</p> : null}
+          {items.length === 0 && pendingRequests.length === 0 && !error ? (
+            <p className="text-fluid-xs text-slate-500">내역이 없습니다.</p>
+          ) : null}
           {total > PAGE ? (
             <div className="flex items-center justify-between gap-2">
               <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-fluid-xs hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none" disabled={page === 0} onClick={() => setPage((n) => Math.max(0, n - 1))}>이전</button>

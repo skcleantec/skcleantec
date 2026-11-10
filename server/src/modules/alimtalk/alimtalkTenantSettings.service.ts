@@ -28,6 +28,11 @@ import {
   listRecentAlimtalkChargeLogs,
   type AlimtalkWalletChargeLogView,
 } from './alimtalkWallet.service.js';
+import {
+  enrichChargesWithReceipts,
+  type ChargeCardReceiptInfo,
+  type ChargeTaxInvoiceInfo,
+} from '../wallet/walletChargeReceiptEnrich.service.js';
 
 export type AlimtalkBankGuideDto = {
   bankName: string | null;
@@ -65,11 +70,23 @@ export type AlimtalkSettingsForTenantAdmin = {
     kind: 'paid' | 'grant' | 'clawback' | 'card' | 'other';
     reason: string | null;
     tenantLabel: string;
+    taxInvoice: ChargeTaxInvoiceInfo;
+    cardReceipt: ChargeCardReceiptInfo;
   }[];
 };
 
-function mapChargeLogs(logs: AlimtalkWalletChargeLogView[]) {
-  return logs.map((log) => ({
+async function mapChargeLogs(tenantId: string, logs: AlimtalkWalletChargeLogView[]) {
+  const receipts = await enrichChargesWithReceipts(
+    tenantId,
+    logs.map((log) => ({
+      id: log.id,
+      amountKrw: log.amountKrw,
+      createdAt: log.createdAt,
+      kind: log.kind,
+    })),
+    { tenantFacing: true },
+  );
+  return logs.map((log, i) => ({
     id: log.id,
     amountKrw: log.amountKrw,
     balanceAfterKrw: log.balanceAfterKrw,
@@ -79,6 +96,8 @@ function mapChargeLogs(logs: AlimtalkWalletChargeLogView[]) {
     kind: log.kind,
     reason: log.reason,
     tenantLabel: log.tenantLabel,
+    taxInvoice: receipts[i]!.taxInvoice,
+    cardReceipt: receipts[i]!.cardReceipt,
   }));
 }
 
@@ -151,7 +170,7 @@ export async function getAlimtalkSettingsForTenantAdmin(
     scheduleD2SendHourKst: SCHEDULE_D2_SEND_HOUR_KST,
     pendingChargeRequest,
     recentChargeRequests,
-    recentChargeLogs: mapChargeLogs(recentChargeLogs),
+    recentChargeLogs: await mapChargeLogs(tenantId, recentChargeLogs),
   };
 }
 

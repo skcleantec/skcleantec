@@ -11,6 +11,7 @@ import {
   saveAlimtalkTemplatesForTenantAdmin,
 } from './alimtalkTenantSettings.service.js';
 import { listAlimtalkSendLogsForTenantAdmin } from './alimtalkSendLog.service.js';
+import { getTenantWalletTaxInvoiceViewUrl } from '../wallet/receiptWallet.service.js';
 
 const router = Router();
 
@@ -128,6 +129,29 @@ router.post('/charge-requests', async (req, res) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : '충전 신청에 실패했습니다.';
     res.status(400).json({ error: msg });
+  }
+});
+
+/** GET /api/alimtalk/wallet/tax-invoice-view-url — 자기 업체 지갑 세금계산서만 */
+router.get('/wallet/tax-invoice-view-url', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!requireTenantAdmin(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  try {
+    const walletInvoiceId = typeof req.query.id === 'string' ? req.query.id.trim() : '';
+    const paymentId = typeof req.query.paymentId === 'string' ? req.query.paymentId.trim() : '';
+    if (!walletInvoiceId && !paymentId) {
+      res.status(400).json({ error: '보기 대상이 없습니다.' });
+      return;
+    }
+    const url = await getTenantWalletTaxInvoiceViewUrl(tenantId, {
+      walletInvoiceId: walletInvoiceId || undefined,
+      paymentId: paymentId || undefined,
+    });
+    res.json({ url });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '영수증을 열 수 없습니다.' });
   }
 });
 
