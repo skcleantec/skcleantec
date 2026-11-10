@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import type { HelpCmsArticleListItem } from '../../api/platformHelpCms';
 import {
   HELP_CMS_ARTICLE_CARD,
   HELP_CMS_BROWSE_ROW,
@@ -12,158 +12,131 @@ import {
   type HelpCmsSidebarItem,
 } from './helpCmsArticleLayout';
 import { HelpCmsMobileNavBar } from './HelpCmsMobileNavBar';
-import { helpUsageHomePath } from './helpCmsUsagePaths';
+import { HelpCmsPcTocTree } from './HelpCmsPcTocTree';
 
 export type { HelpCmsSidebarArticleItem, HelpCmsSidebarItem };
 
 type Props = {
-  sidebarLabel?: string;
   sidebarItems: HelpCmsSidebarItem[];
-  articleSidebarLabel?: string;
   articleItems?: HelpCmsSidebarArticleItem[];
   articlesLoading?: boolean;
+  /** 플랫폼 편집 미리보기용 — 예전 카드 목록 유지 */
   showArticleSidebar?: boolean;
-  /** 사이드바 맨 위 「사용법 홈」(PC) */
-  showUsageHomeLink?: boolean;
-  /** 모바일 막대에 표시할 현재 분류·글 */
   mobileSectionLabel?: string;
   mobileArticleTitle?: string | null;
+  activeSectionSlug?: string | null;
+  activeArticleSlug?: string | null;
+  activeSectionArticles?: HelpCmsArticleListItem[];
   children: ReactNode;
 };
 
-export function HelpCmsArticleReadLayout({
-  sidebarLabel = '카테고리',
+function EditorSidebar({
   sidebarItems,
-  articleSidebarLabel = '글',
+  articleItems,
+  articlesLoading,
+  showArticleSidebar,
+}: {
+  sidebarItems: HelpCmsSidebarItem[];
+  articleItems: HelpCmsSidebarArticleItem[];
+  articlesLoading: boolean;
+  showArticleSidebar: boolean;
+}) {
+  return (
+    <aside
+      className={`hidden ${HELP_CMS_SIDEBAR_ASIDE} space-y-1 lg:block lg:sticky lg:top-24 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto`}
+    >
+      <p className={HELP_CMS_SIDEBAR_LABEL}>카테고리</p>
+      {sidebarItems.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={item.onSelect}
+          className={item.active ? HELP_CMS_SIDEBAR_ITEM_ACTIVE : HELP_CMS_SIDEBAR_ITEM_IDLE}
+        >
+          <span className="line-clamp-2">{item.label}</span>
+          {item.count != null ? (
+            <span className={`ml-1 tabular-nums ${item.active ? 'text-slate-300' : 'text-slate-400'}`}>
+              {item.count}
+            </span>
+          ) : null}
+        </button>
+      ))}
+      {showArticleSidebar ? (
+        <div className="mt-3 border-t border-slate-200 pt-3">
+          <p className={HELP_CMS_SIDEBAR_LABEL}>글</p>
+          {articlesLoading ? (
+            <p className="px-3 py-2 text-fluid-2xs text-slate-500">불러오는 중…</p>
+          ) : articleItems.length === 0 ? (
+            <p className="px-3 py-2 text-fluid-2xs text-slate-500">글이 없습니다.</p>
+          ) : (
+            <div className="space-y-1">
+              {articleItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={item.onSelect}
+                  className={`${item.active ? HELP_CMS_SIDEBAR_ITEM_ACTIVE : HELP_CMS_SIDEBAR_ITEM_IDLE} ${
+                    item.muted && !item.active ? 'text-slate-500' : ''
+                  }`}
+                >
+                  <span className="line-clamp-2">{item.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+    </aside>
+  );
+}
+
+export function HelpCmsArticleReadLayout({
+  sidebarItems,
   articleItems = [],
   articlesLoading = false,
   showArticleSidebar = false,
-  showUsageHomeLink = false,
   mobileSectionLabel,
   mobileArticleTitle = null,
+  activeSectionSlug = null,
+  activeArticleSlug = null,
+  activeSectionArticles = [],
   children,
 }: Props) {
-  const homePath = helpUsageHomePath();
-
-  const renderNavItem = (
-    key: string,
-    label: string,
-    opts: {
-      active?: boolean;
-      muted?: boolean;
-      href?: string;
-      onSelect?: () => void;
-      countEl?: ReactNode;
-      idleHover: string;
-    },
-  ) => {
-    const className = opts.active ? HELP_CMS_SIDEBAR_ITEM_ACTIVE : HELP_CMS_SIDEBAR_ITEM_IDLE;
-    const extra = `${opts.active ? '' : opts.idleHover} ${opts.muted && !opts.active ? 'text-slate-500' : ''}`;
-
-    if (opts.href) {
-      return (
-        <Link
-          key={key}
-          to={opts.href}
-          title={label}
-          className={`transition-colors ${className} ${extra}`}
-          aria-current={opts.active ? 'page' : undefined}
-        >
-          <span className="line-clamp-2">{label}</span>
-          {opts.countEl}
-        </Link>
-      );
-    }
-
-    if (opts.onSelect) {
-      return (
-        <button
-          key={key}
-          type="button"
-          onClick={opts.onSelect}
-          title={label}
-          className={`transition-colors ${className} ${extra}`}
-        >
-          <span className="line-clamp-2">{label}</span>
-          {opts.countEl}
-        </button>
-      );
-    }
-
-    return (
-      <div key={key} className={`${className} ${opts.muted ? 'text-slate-500' : ''}`}>
-        <span className="line-clamp-2">{label}</span>
-        {opts.countEl}
-      </div>
-    );
-  };
-
+  const usePublicToc = sidebarItems.some((c) => Boolean(c.slug || c.href));
   const sectionLabel =
     mobileSectionLabel?.trim() ||
     sidebarItems.find((c) => c.active)?.label ||
-    sidebarLabel;
+    '분류';
 
   return (
     <div className={HELP_CMS_BROWSE_ROW}>
-      <HelpCmsMobileNavBar
-        sectionLabel={sectionLabel}
-        articleTitle={mobileArticleTitle}
-        sidebarItems={sidebarItems}
-        articleItems={articleItems}
-        articlesLoading={articlesLoading}
-      />
+      {usePublicToc ? (
+        <HelpCmsMobileNavBar
+          sectionLabel={sectionLabel}
+          articleTitle={mobileArticleTitle}
+          sidebarItems={sidebarItems}
+          articleItems={articleItems}
+          articlesLoading={articlesLoading}
+        />
+      ) : null}
 
-      <aside
-        className={`hidden ${HELP_CMS_SIDEBAR_ASIDE} lg:block lg:sticky lg:top-24 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto lg:overscroll-y-contain`}
-      >
-        <p className={HELP_CMS_SIDEBAR_LABEL}>{sidebarLabel}</p>
+      {usePublicToc ? (
+        <HelpCmsPcTocTree
+          categories={sidebarItems}
+          activeSectionSlug={activeSectionSlug}
+          activeArticleSlug={activeArticleSlug}
+          activeSectionArticles={activeSectionArticles}
+          activeSectionArticlesLoading={articlesLoading}
+        />
+      ) : (
+        <EditorSidebar
+          sidebarItems={sidebarItems}
+          articleItems={articleItems}
+          articlesLoading={articlesLoading}
+          showArticleSidebar={showArticleSidebar}
+        />
+      )}
 
-        {showUsageHomeLink
-          ? renderNavItem('usage-home', '← 사용법 홈', {
-              href: homePath,
-              idleHover: 'hover:bg-sky-50 text-[#0284c7] font-semibold ring-sky-200',
-            })
-          : null}
-
-        {sidebarItems.map((item) => {
-          const countEl =
-            item.count != null ? (
-              <span className={`ml-1 tabular-nums ${item.active ? 'text-slate-300' : 'text-slate-400'}`}>
-                {item.count}
-              </span>
-            ) : null;
-          return renderNavItem(item.id, item.label, {
-            active: item.active,
-            href: item.href,
-            onSelect: item.onSelect,
-            countEl,
-            idleHover: 'hover:bg-slate-50',
-          });
-        })}
-
-        {showArticleSidebar ? (
-          <div className="mt-3 border-t border-slate-200 pt-3">
-            <p className={HELP_CMS_SIDEBAR_LABEL}>{articleSidebarLabel}</p>
-            {articlesLoading ? (
-              <p className="px-3 py-2 text-fluid-2xs text-slate-500">불러오는 중…</p>
-            ) : articleItems.length === 0 ? (
-              <p className="px-3 py-2 text-fluid-2xs text-slate-500">글이 없습니다.</p>
-            ) : (
-              <div className="space-y-1">
-                {articleItems.map((item) =>
-                  renderNavItem(item.id, item.title, {
-                    active: item.active,
-                    muted: item.muted,
-                    href: item.href,
-                    onSelect: item.onSelect,
-                    idleHover: 'hover:bg-slate-50',
-                  }),
-                )}
-              </div>
-            )}
-          </div>
-        ) : null}
-      </aside>
       <main className={HELP_CMS_MAIN_COLUMN}>{children}</main>
     </div>
   );

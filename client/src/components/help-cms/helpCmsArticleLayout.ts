@@ -1,8 +1,10 @@
-/** `/help` CMS 글 상세·편집 미리보기 — 동일 가로 폭 (HelpPage max-w-screen-2xl + 사이드바 w-56 + 본문 flex-1) */
+/** `/help` CMS 글 상세·편집 미리보기 — 동일 가로 폭 (HelpPage max-w-screen-2xl + 사이드바 + 본문 flex-1) */
 
 export type HelpCmsSidebarItem = {
   id: string;
   label: string;
+  /** 분류 slug — PC 트리·모바일 목록용 */
+  slug?: string;
   count?: number;
   active?: boolean;
   href?: string;
@@ -23,7 +25,7 @@ export const HELP_CMS_PAGE_OUTER = 'mx-auto w-full max-w-screen-2xl px-4 sm:px-6
 export const HELP_CMS_BROWSE_ROW =
   'flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-6';
 
-export const HELP_CMS_SIDEBAR_ASIDE = 'lg:w-56 shrink-0 space-y-1';
+export const HELP_CMS_SIDEBAR_ASIDE = 'lg:w-[260px] shrink-0';
 
 export const HELP_CMS_MAIN_COLUMN = 'min-w-0 flex-1';
 
