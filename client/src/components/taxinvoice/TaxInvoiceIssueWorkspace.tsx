@@ -16,6 +16,7 @@ import { SupplierInfoModal } from './SupplierInfoModal';
 import { clearTaxInvoiceDraft, readTaxInvoiceDraft, writeTaxInvoiceDraft, type TaxInvoiceDraft } from './taxInvoiceDraft';
 import { ReceiptOverAmountFields } from '../receipts/ReceiptOverAmountFields';
 import { Button } from '../ui/Button';
+import { SegmentedControl } from '../ui/SegmentedControl';
 import { TaxInvoiceMobileCards, TaxInvoicePaper, type TaxFormProps } from './TaxInvoiceFormViews';
 import TaxInvoiceBuyerPicker from './TaxInvoiceBuyerPicker';
 import {
@@ -48,21 +49,13 @@ import {
 import './taxinvoice-issue.css';
 
 const TAX_KIND_LABEL: Record<TaxKind, string> = { taxable: '과세', zero: '영세', exempt: '면세' };
-const TAX_KIND_ON: Record<TaxKind, string> = {
-  taxable: 'border-sky-500 bg-sky-100 text-sky-950',
-  zero: 'border-indigo-500 bg-indigo-100 text-indigo-950',
-  exempt: 'border-emerald-500 bg-emerald-100 text-emerald-950',
+const TAX_KIND_DOT: Record<TaxKind, string> = {
+  taxable: 'bg-[#3B82F6]',
+  zero: 'bg-[#8B5CF6]',
+  exempt: 'bg-[#10B981]',
 };
 
-function DefaultChip({ text }: { text: string }) {
-  return (
-    <span className="ml-1 inline-flex rounded-md border border-orange-300 bg-orange-50 px-1.5 py-0.5 text-[11px] font-semibold text-orange-800">
-      기본: {text}
-    </span>
-  );
-}
-
-function TaxKindSwitch({ kind, locked, disabled, mobile, onChange, defaultKind }: {
+function TaxKindSwitch({ kind, locked, disabled, onChange, defaultKind }: {
   kind: TaxKind;
   locked: boolean;
   disabled: boolean;
@@ -70,30 +63,34 @@ function TaxKindSwitch({ kind, locked, disabled, mobile, onChange, defaultKind }
   onChange: (kind: TaxKind) => void;
   defaultKind?: TaxKind;
 }) {
-  const items: TaxKind[] = ['taxable', 'zero', 'exempt'];
+  const differs = Boolean(defaultKind && kind !== defaultKind);
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-1">
-        {defaultKind && kind !== defaultKind ? <DefaultChip text={TAX_KIND_LABEL[defaultKind]} /> : null}
-      </div>
-      <div role="radiogroup" aria-label="과세 구분" className={mobile ? 'grid grid-cols-3 gap-1.5' : 'inline-flex flex-wrap gap-1.5'}>
-        {items.map((item) => {
-          const on = kind === item;
-          return (
-            <button
-              key={item}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              disabled={disabled || (locked && item !== 'exempt')}
-              className={`tt min-h-10 rounded-xl border-2 px-3 text-sm font-bold disabled:opacity-50 ${on ? TAX_KIND_ON[item] : 'border-slate-200 bg-white text-gray-500'}`}
-              onClick={() => onChange(item)}
-            >
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <SegmentedControl
+        ariaLabel="과세 구분"
+        className="max-w-md"
+        value={kind}
+        onChange={onChange}
+        options={(['taxable', 'zero', 'exempt'] as TaxKind[]).map((item) => ({
+          value: item,
+          disabled: disabled || (locked && item !== 'exempt'),
+          label: (
+            <span className="inline-flex items-center justify-center gap-1.5">
+              <span className={`size-1.5 rounded-full ${TAX_KIND_DOT[item]}`} aria-hidden />
               {TAX_KIND_LABEL[item]}
-            </button>
-          );
-        })}
-      </div>
+            </span>
+          ),
+        }))}
+      />
+      {defaultKind && !differs ? (
+        <span className="text-[12px] text-[#64748B]">기본값</span>
+      ) : null}
+      {defaultKind && differs ? (
+        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-orange-700">
+          <span aria-hidden>⚠</span>
+          기본은 {TAX_KIND_LABEL[defaultKind]}예요
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -339,6 +336,16 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
   const supplySum = lines.reduce((sum, line) => sum + lineSupply(line), 0);
   const taxSum = lines.reduce((sum, line) => sum + lineTax(line, activeKind), 0);
   const short = adapterProp.useWallet ? (summary != null && summary.balanceKrw < TAXINVOICE_UNIT_PRICE_KRW) : false;
+  const taxDiffers = defaultsReady && activeKind !== defaults.taxKind;
+  function issueButtonLabel(mode: 'desktop' | 'mobile'): string {
+    if (saving) return '발행 중…';
+    if (preview) {
+      return taxDiffers ? `${taxInvoiceTaxKindLabel(activeKind)}로 발행` : '이대로 발행';
+    }
+    if (taxDiffers) return `${taxInvoiceTaxKindLabel(activeKind)}로 미리보고 발행`;
+    if (mode === 'mobile') return `${won(supplySum + taxSum)}원 미리보고 발행`;
+    return '미리보고 발행';
+  }
 
   function applyHit(hit: TaxInvoiceSearchHit) {
     setPicked(hit);
@@ -731,7 +738,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
               <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black" onClick={() => openCharge()}>충전하기</button>
             ) : (
               <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
-                {saving ? '발행 중…' : preview ? '이대로 발행' : '미리보고 발행'}
+                {issueButtonLabel('desktop')}
               </button>
             )}
           </div>
@@ -804,7 +811,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
             <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white" onClick={() => openCharge()}>충전하기</button>
           ) : (
             <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
-              {saving ? '발행 중…' : preview ? '이대로 발행' : `${won(supplySum + taxSum)}원 미리보고 발행`}
+              {issueButtonLabel('mobile')}
             </button>
           )}
         </footer>

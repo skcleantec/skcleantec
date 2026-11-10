@@ -72,3 +72,49 @@ export function formatCertExpireDot(expireDate: string | null): string | null {
   if (digits.length >= 8) return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
   return expireDate;
 }
+
+/** 인증서 만료일을 YYYY-MM-DD 로 정규화 */
+export function certExpireYmd(expireDate: string | null): string | null {
+  if (!expireDate) return null;
+  const digits = expireDate.replace(/\D/g, '');
+  if (digits.length >= 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(expireDate)) return expireDate.slice(0, 10);
+  return null;
+}
+
+export function certDaysLeft(expireDate: string | null): number | null {
+  const ymd = certExpireYmd(expireDate);
+  if (!ymd) return null;
+  const end = Date.parse(`${ymd}T00:00:00+09:00`);
+  const start = Date.parse(`${kstYmd()}T00:00:00+09:00`);
+  if (!Number.isFinite(end) || !Number.isFinite(start)) return null;
+  return Math.round((end - start) / 86_400_000);
+}
+
+export type PlatformCertLineStatus = {
+  ok: boolean;
+  label: string;
+  action: '등록' | '갱신';
+};
+
+/** 플랫폼 영수증 제목 줄용 인증서 한 줄 상태 */
+export function platformCertLineStatus(
+  valid: boolean,
+  expireDate: string | null,
+): PlatformCertLineStatus {
+  const left = certDaysLeft(expireDate);
+  if (!valid || left == null || left < 0) {
+    return { ok: false, label: '인증서 미등록', action: '등록' };
+  }
+  if (left <= 30) {
+    return { ok: false, label: `인증서 ${left}일 남음`, action: '갱신' };
+  }
+  const until = formatCertExpireDot(expireDate);
+  return {
+    ok: true,
+    label: until ? `인증서 등록됨 (${until}까지)` : '인증서 등록됨',
+    action: '갱신',
+  };
+}
