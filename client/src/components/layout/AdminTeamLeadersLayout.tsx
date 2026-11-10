@@ -58,9 +58,16 @@ export function AdminTeamLeadersLayout() {
 
   const navItems = useMemo(() => {
     const skMail = tenantSlug === 'sk' || tenantSlug === 'skcleanteck';
+    // PG 미연결 시 「결제 내역」「PG 연동」만 숨김. 「PG 신청」은 신청용으로 남긴다.
     const withoutCard = pgConnected
       ? ADMIN_TEAM_LEADERS_NAV_ITEMS
-      : ADMIN_TEAM_LEADERS_NAV_ITEMS.filter((item) => item.type !== 'group' || item.label !== '카드결제');
+      : ADMIN_TEAM_LEADERS_NAV_ITEMS.map((item) => {
+          if (item.type !== 'group' || item.label !== '결제·PG') return item;
+          return {
+            ...item,
+            children: item.children.filter((child) => child.to.includes('/pg-onboarding')),
+          };
+        }).filter((item) => item.type !== 'group' || item.children.length > 0);
     const source = skMail
       ? withoutCard
       : withoutCard.map((item) =>

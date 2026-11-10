@@ -19,10 +19,34 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '업체 기본 사업자 정보·견적 직인',
       },
       {
+        to: '/admin/team-leaders/wallet',
+        label: '청소비서 지갑',
+        title: '잔액·충전·건당 요금·충전·사용 내역',
+      },
+      {
+        to: '/admin/team-leaders/cashbill',
+        label: '계산서 연결',
+        title: '브랜드별 현금영수증 회원사 가입',
+      },
+    ],
+  },
+  {
+    type: 'group',
+    label: '결제·PG',
+    children: [
+      { to: '/admin/team-leaders/card-payment', end: true, label: '결제 내역' },
+      {
         to: '/admin/team-leaders/pg-onboarding',
-        label: 'PG신청',
+        label: 'PG 신청',
         title: '원성페이먼츠 PG 신청',
       },
+      { to: '/admin/team-leaders/card-payment/pg', label: 'PG 연동' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '메일·알림',
+    children: [
       {
         to: '/admin/team-leaders/company-profile/outbound-email',
         end: true,
@@ -35,14 +59,16 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         label: '홈페이지 문의메일',
         title: '옛 홈페이지 문의가 들어오는 네이버 메일',
       },
-    ],
-  },
-  {
-    type: 'group',
-    label: '카드결제',
-    children: [
-      { to: '/admin/team-leaders/card-payment', end: true, label: '결제 내역' },
-      { to: '/admin/team-leaders/card-payment/pg', label: 'PG 연동' },
+      {
+        to: '/admin/team-leaders/alimtalk',
+        label: '알림톡',
+        title: '알림톡 이용·충전·발송 설정',
+      },
+      {
+        to: '/admin/team-leaders/notification-policy',
+        label: '알림설정',
+        title: '앱·푸시 알림 정책',
+      },
     ],
   },
   {
@@ -121,11 +147,16 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         label: '휴일캘린더',
         title: '휴일 캘린더',
       },
+      {
+        to: '/admin/team-leaders/staff-access',
+        label: '직원권한',
+        title: '마케터 관리자 권한',
+      },
     ],
   },
   {
     type: 'group',
-    label: '설정',
+    label: '운영 설정',
     children: [
       {
         to: '/admin/team-leaders/page-settings',
@@ -133,34 +164,9 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '페이지 설정',
       },
       {
-        to: '/admin/team-leaders/staff-access',
-        label: '직원권한',
-        title: '마케터 관리자 권한',
-      },
-      {
         to: '/admin/team-leaders/operating-policy',
         label: '브랜드정책',
         title: '영업 브랜드 운영 정책',
-      },
-      {
-        to: '/admin/team-leaders/notification-policy',
-        label: '알림설정',
-        title: '앱·푸시 알림 정책',
-      },
-      {
-        to: '/admin/team-leaders/wallet',
-        label: '청소비서 지갑',
-        title: '잔액·충전·건당 요금·충전·사용 내역',
-      },
-      {
-        to: '/admin/team-leaders/alimtalk',
-        label: '알림톡',
-        title: '알림톡 이용·충전·발송 설정',
-      },
-      {
-        to: '/admin/team-leaders/cashbill',
-        label: '계산서 연결',
-        title: '브랜드별 현금영수증 회원사 가입',
       },
       {
         to: '/admin/team-leaders/inspection-template',
@@ -172,6 +178,12 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         label: '팀장교육자료',
         title: '현장팀장 교육자료 PDF',
       },
+    ],
+  },
+  {
+    type: 'group',
+    label: '접수 정리',
+    children: [
       {
         to: '/admin/team-leaders/inquiry-trash',
         label: '휴지통',

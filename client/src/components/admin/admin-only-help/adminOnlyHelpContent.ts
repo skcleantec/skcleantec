@@ -65,7 +65,7 @@ export const ADMIN_ONLY_HELP_PAGES: AdminOnlyHelpPage[] = [
   },
   {
     path: '/admin/team-leaders/pg-onboarding',
-    title: 'PG신청',
+    title: 'PG 신청',
     intro: '카드 결제를 받으려면 PG를 신청하는 화면입니다. 신청 전에는 미연결로 보입니다.',
     steps: [
       {
