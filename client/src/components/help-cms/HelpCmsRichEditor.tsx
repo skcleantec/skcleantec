@@ -26,10 +26,10 @@ import {
   injectUploadedImagesIntoDesignedHtml,
 } from './helpCmsEditorImageDrop';
 import { HelpCmsEditorUploadContext } from './helpCmsEditorUploadContext';
-import { attachDesignedImageResize } from './helpCmsEditorImageResize';
+import { attachDesignedImageResize, stripHelpCmsImageResizeUi } from './helpCmsEditorImageResize';
 
 /** HMR·코드 변경 후에도 확장이 빠진 구 에디터 인스턴스가 남지 않게 */
-const EDITOR_BUILD = 'help-cms-blog-v8';
+const EDITOR_BUILD = 'help-cms-blog-v9';
 
 const EDITOR_PROSE_CLASS =
   'min-h-[420px] rounded-b-xl border border-slate-200 border-t-0 bg-white px-4 py-4 text-fluid-sm leading-relaxed text-slate-900 focus:outline-none prose prose-slate max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-li:text-slate-700 prose-img:rounded-xl prose-img:shadow-sm prose-a:text-sky-700';
@@ -230,13 +230,14 @@ export function HelpCmsRichEditor({
       editor.commands.setContent(
         {
           type: 'doc',
-          content: [{ type: 'designedArticle', attrs: { html: incoming } }],
+          content: [{ type: 'designedArticle', attrs: { html: stripHelpCmsImageResizeUi(incoming) } }],
         },
         { emitUpdate: false },
       );
       return;
     }
-    editor.commands.setContent(incoming === '' ? '<p></p>' : incoming, { emitUpdate: false });
+    const cleaned = stripHelpCmsImageResizeUi(incoming);
+    editor.commands.setContent(cleaned === '' ? '<p></p>' : cleaned, { emitUpdate: false });
   }, [value, editor]);
 
   const insertImages = useCallback(
@@ -507,55 +508,6 @@ export function HelpCmsRichEditor({
         .help-cms-rich-editor .cbiseo-designed-article-host .frame img,
         .help-cms-rich-editor .cbiseo-designed-article-host figure img {
           width: 100%;
-        }
-        .help-cms-rich-editor .cbiseo-img-resize-ui {
-          position: absolute;
-          z-index: 25;
-          pointer-events: none;
-        }
-        .help-cms-rich-editor .cbiseo-img-resize-box {
-          box-sizing: border-box;
-          height: 100%;
-          border: 2px solid #0f172a;
-        }
-        .help-cms-rich-editor .cbiseo-img-resize-handle {
-          pointer-events: auto;
-          position: absolute;
-          width: 14px;
-          height: 14px;
-          background: #0f172a;
-          border: 2px solid #fff;
-          border-radius: 3px;
-          cursor: nwse-resize;
-        }
-        .help-cms-rich-editor .cbiseo-img-resize-bar {
-          pointer-events: auto;
-          position: absolute;
-          left: 0;
-          top: calc(100% + 8px);
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-        }
-        .help-cms-rich-editor .cbiseo-img-resize-bar button {
-          border: 1px solid #cbd5e1;
-          background: #fff;
-          color: #0f172a;
-          border-radius: 6px;
-          padding: 4px 8px;
-          font-size: 12px;
-          line-height: 1.2;
-        }
-        .help-cms-rich-editor .cbiseo-img-resize-bar button:hover {
-          background: #f1f5f9;
-        }
-        .help-cms-rich-editor .cbiseo-img-resize-bar button:focus-visible {
-          outline: none;
-          box-shadow: 0 0 0 2px #fff, 0 0 0 4px #94a3b8;
-        }
-        .help-cms-rich-editor .cbiseo-img-resize-bar button:disabled {
-          opacity: 0.5;
-          pointer-events: none;
         }
       `}</style>
       <div className="sticky top-0 z-30 flex flex-wrap items-center gap-1 rounded-t-xl border-b border-slate-200 bg-white px-2 py-2 shadow-sm">

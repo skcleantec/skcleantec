@@ -31,15 +31,93 @@ function parentWidth(target: HTMLElement): number {
   return parent?.clientWidth || target.clientWidth || 1;
 }
 
-/** 에디터에서 사진·사진 칸 크기를 끌어 조절 */
+const STYLE_ID = 'cbiseo-img-resize-ui-style';
+
+function ensureResizeUiStyles() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    .cbiseo-img-resize-ui {
+      position: fixed;
+      z-index: 680;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+    .cbiseo-img-resize-ui[hidden] { display: none !important; }
+    .cbiseo-img-resize-box {
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      border: 2px solid #0f172a;
+    }
+    .cbiseo-img-resize-handle {
+      pointer-events: auto;
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      right: -7px;
+      bottom: -7px;
+      background: #0f172a;
+      border: 2px solid #fff;
+      border-radius: 3px;
+      cursor: nwse-resize;
+    }
+    .cbiseo-img-resize-bar {
+      pointer-events: auto;
+      position: absolute;
+      left: 0;
+      top: calc(100% + 8px);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .cbiseo-img-resize-bar button {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #0f172a;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    .cbiseo-img-resize-bar button:hover { background: #f1f5f9; }
+  `;
+  document.head.appendChild(style);
+}
+
+/** 저장 HTML에 섞인 리사이즈 UI 찌꺼기 제거 */
+export function stripHelpCmsImageResizeUi(html: string): string {
+  if (!html) return html;
+  const hasUi =
+    html.includes('cbiseo-img-resize') ||
+    html.includes('data-img-resize-ui') ||
+    /작게\s*절반\s*크게\s*가득\s*사진 바꾸기/.test(html);
+  if (!hasUi) return html;
+  if (typeof document === 'undefined') {
+    return html
+      .replace(/<div[^>]*(?:data-img-resize-ui|cbiseo-img-resize-ui)[^>]*>[\s\S]*?<\/div>/gi, '')
+      .replace(/작게\s*절반\s*크게\s*가득\s*사진 바꾸기/g, '');
+  }
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('[data-img-resize-ui], .cbiseo-img-resize-ui').forEach((el) => el.remove());
+  return wrap.innerHTML.replace(/작게\s*절반\s*크게\s*가득\s*사진 바꾸기/g, '');
+}
+
+/** 에디터에서 사진·사진 칸 크기를 끌어 조절 — body 포털(본문 HTML에 안 들어감) */
 export function attachDesignedImageResize(
   root: HTMLElement,
   opts: DesignedImageResizeOptions,
 ): { destroy: () => void } {
+  ensureResizeUiStyles();
+
   const ui = document.createElement('div');
   ui.setAttribute('data-img-resize-ui', '1');
   ui.className = 'cbiseo-img-resize-ui';
   ui.hidden = true;
+  ui.setAttribute('contenteditable', 'false');
   ui.innerHTML = `
     <div class="cbiseo-img-resize-box"></div>
     <button type="button" class="cbiseo-img-resize-handle" data-handle="se" aria-label="크기 조절"></button>
@@ -51,7 +129,7 @@ export function attachDesignedImageResize(
       <button type="button" data-replace="1">사진 바꾸기</button>
     </div>
   `;
-  root.appendChild(ui);
+  document.body.appendChild(ui);
 
   let selected: HTMLImageElement | null = null;
   let dragging = false;
@@ -62,18 +140,13 @@ export function attachDesignedImageResize(
   const layoutUi = () => {
     if (!selected || ui.hidden) return;
     const target = resizeTarget(selected);
-    const host = root.getBoundingClientRect();
     const rect = target.getBoundingClientRect();
-    const top = rect.top - host.top + root.scrollTop;
-    const left = rect.left - host.left + root.scrollLeft;
-    ui.style.top = `${top}px`;
-    ui.style.left = `${left}px`;
+    ui.style.top = `${rect.top}px`;
+    ui.style.left = `${rect.left}px`;
     ui.style.width = `${rect.width}px`;
     ui.style.height = `${rect.height}px`;
     boxEl.style.width = '100%';
     boxEl.style.height = '100%';
-    handleEl.style.right = '-7px';
-    handleEl.style.bottom = '-7px';
   };
 
   const select = (img: HTMLImageElement | null) => {

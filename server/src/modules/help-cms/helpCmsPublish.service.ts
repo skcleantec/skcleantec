@@ -78,7 +78,7 @@ async function mirrorToNoticeBoard(input: {
       label: input.categoryLabel,
       sortOrder: 0,
     },
-    update: { label: input.categoryLabel },
+    update: {},
   });
 
   const bodyHtml =

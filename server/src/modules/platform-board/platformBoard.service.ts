@@ -219,10 +219,11 @@ async function runLegacyMigration(): Promise<void> {
       const slug = normalizeBoardSlug(c.id) ?? `cat-${i}`;
       const label = String(c.label ?? slug).trim().slice(0, 128);
       if (!label) continue;
+      // 이미 있으면 label·sortOrder를 덮어쓰지 않음 (플랫폼에서 바꾼 이름 유지)
       await prisma.platformBoardCategory.upsert({
         where: { boardId_slug: { boardId: inquiryBoard.id, slug } },
         create: { boardId: inquiryBoard.id, slug, label, sortOrder: c.sortOrder ?? i },
-        update: { label, sortOrder: c.sortOrder ?? i },
+        update: {},
       });
     }
   }
@@ -263,6 +264,7 @@ async function runLegacyMigration(): Promise<void> {
   });
   for (const c of noticeCategories) {
     const slug = normalizeBoardSlug(c.slug) ?? c.slug;
+    // 이미 있으면 label·sortOrder를 덮어쓰지 않음
     await prisma.platformBoardCategory.upsert({
       where: { boardId_slug: { boardId: noticeBoard.id, slug } },
       create: {
@@ -271,7 +273,7 @@ async function runLegacyMigration(): Promise<void> {
         label: c.label,
         sortOrder: c.sortOrder,
       },
-      update: { label: c.label, sortOrder: c.sortOrder },
+      update: {},
     });
   }
 
