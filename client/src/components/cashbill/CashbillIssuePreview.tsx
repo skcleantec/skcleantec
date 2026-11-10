@@ -34,6 +34,7 @@ export function CashbillIssuePreview({
   balanceKrw,
   onIssue,
   onCharge,
+  pageLayout,
 }: {
   customerLabel: string;
   itemName: string;
@@ -53,12 +54,14 @@ export function CashbillIssuePreview({
   balanceKrw: number | null;
   onIssue: () => void;
   onCharge?: () => void;
+  /** 발행 페이지 레이아웃 (사이드바 미리보기) */
+  pageLayout?: boolean;
 }) {
   const taxDiffers = defaultsReady && taxKind !== defaults.taxKind;
   const badgeExempt = taxKind === 'exempt';
 
   return (
-    <section className="rounded-[20px] bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]">
+    <section className="rounded-[20px] bg-white px-[22px] py-[20px] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-[16px] font-bold text-slate-900">발행 미리보기</h3>
         <span
@@ -125,10 +128,12 @@ export function CashbillIssuePreview({
           {useWallet
             ? short
               ? '잔액이 부족합니다'
-              : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑에서 빠져요`
+              : pageLayout
+                ? `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 발행하면 목록으로 돌아가요`
+                : `발행 비용 ${won(CASHBILL_UNIT_PRICE_KRW)} · 지갑에서 빠져요`
             : `원가 ${won(CASHBILL_COST_KRW)}`}
         </p>
-        {useWallet && !short && balanceKrw != null ? (
+        {useWallet && !short && !pageLayout && balanceKrw != null ? (
           <p className="mt-0.5 text-center text-[11px] tabular-nums text-[#94A3B8]">지갑 {won(balanceKrw)}</p>
         ) : null}
       </div>

@@ -122,6 +122,7 @@ import {
   AdminWalletPage,
   AdminCashbillSettingsPage,
   AdminCashbillListPage,
+  AdminCashbillIssuePage,
   AdminTaxInvoiceListPage,
   AdminTaxInvoiceIssuePage,
   AdminNotificationSettingsPage,
@@ -304,6 +305,14 @@ function App() {
               element={
                 <FeatureGate module="mod_cashbill">
                   <SuspensePage><AdminCashbillListPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="receipts/cashbill/new"
+              element={
+                <FeatureGate module="mod_cashbill">
+                  <SuspensePage><AdminCashbillIssuePage /></SuspensePage>
                 </FeatureGate>
               }
             />

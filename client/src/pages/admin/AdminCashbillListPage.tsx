@@ -1,27 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
-import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
+import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import {
   cancelCashbillIssue,
   cashbillStateOpen,
   cashbillStatusView,
-  fetchCashbillSource,
   linkCashbillInquiry,
   listCashbillIssues,
   openCashbillReceipt,
   syncCashbillStates,
-  type CashbillBrand,
   type CashbillIssueRow,
 } from '../../api/cashbillIssues';
 import { markReceiptStateSynced, receiptOpenOverDay, receiptStateSyncDue } from '../../utils/receiptStateSync';
-import { CashbillIssueForm, type CashbillIssueSeed } from '../../components/cashbill/CashbillIssueForm';
 import { certDaysLeft, formatCertExpireDot } from '../../components/cashbill/cashbillCertDisplay';
 import { fetchCashbillSettings } from '../../api/cashbill';
 import { ReceiptExtraNote } from '../../components/receipts/ReceiptExtraNote';
-import { ReceiptIssueTabs } from '../../components/ui/ReceiptIssueTabs';
 import { ReceiptInquiryLinkModal } from '../../components/receipts/ReceiptInquiryLinkModal';
-import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
 import { ReceiptListHeader, ReceiptSummaryCards, type ReceiptConnectionStatus } from '../../components/receipts/ReceiptListHeader';
 import { ReceiptIssueSettingsModal } from '../../components/receipts/ReceiptIssueSettingsModal';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
@@ -31,59 +26,69 @@ import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { Button } from '../../components/ui/Button';
 import { FailReasonChip, showReceiptDone, showReceiptFailure } from '../../components/receipts/receiptToasts';
-import { ToastButton } from '../../components/ui/Toast';
 import { useReceiptWallet } from '../../components/wallet/ReceiptWalletProvider';
 import { displayReceiptBiz, displayReceiptPhone, formatReceiptIssuedAt } from '../../components/receipts/receiptListDisplay';
 import { CASHBILL_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { ReceiptSetupGate } from '../../components/receipts/ReceiptSetupGate';
 import { defaultBrand, isBarobillJoined } from '../../components/receipts/receiptSetupState';
 import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
-
-const SEG =
-  'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
-const SEG_ON = 'bg-slate-900 text-white hover:bg-slate-800';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+function kstLastMonthKey(): string {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
 }
 function kstYmdNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
-const STATES = [
-  ['', '전체 상태'],
-  ['2000', '발급완료 · 국세청 전송 대기'],
-  ['2500', '발급완료 · 국세청 전송 대기'],
-  ['3000', '전송완료'],
-  ['4000', '전송 실패'],
-  ['7000', '발급 취소'],
-  ['failed', '실패'],
-] as const;
+type PeriodSeg = 'thisMonth' | 'lastMonth' | 'custom';
+
+function toPeriodSeg(datePreset: string, monthKey: string): PeriodSeg {
+  if (datePreset === 'day') return 'custom';
+  if (monthKey === kstLastMonthKey()) return 'lastMonth';
+  return 'thisMonth';
+}
 
 export function AdminCashbillListPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const permissions = useMarketerPermissions();
   const isTenantAdmin = permissions.me?.role === 'ADMIN';
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // ?tab=issue 리디렉션
+  const tabParam = searchParams.get('tab');
+  useEffect(() => {
+    if (tabParam === 'issue') {
+      const inquiryId = searchParams.get('inquiryId') || '';
+      const from = searchParams.get('from') || '';
+      const target = `/admin/inquiries/receipts/cashbill/new${
+        inquiryId ? `?inquiryId=${encodeURIComponent(inquiryId)}` :
+        from ? `?from=${encodeURIComponent(from)}` : ''
+      }`;
+      navigate(target, { replace: true });
+    }
+  }, [tabParam, searchParams, navigate]);
+
   const datePreset = searchParams.get('datePreset') || 'month';
   const monthKey = searchParams.get('month') || kstMonthKeyNow();
   const dayKey = searchParams.get('day') || kstYmdNow();
-  const state = searchParams.get('state') || '';
-  const brandId = searchParams.get('brandId') || '';
   const queryText = searchParams.get('q') || '';
-  const extraOnly = searchParams.get('extra') === '1';
-  const seedInquiryId = searchParams.get('inquiryId') || '';
-  const tab = searchParams.get('tab') === 'issue' ? 'issue' : 'history';
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
   const page = parseListPage(searchParams.get('page'));
+
   const [items, setItems] = useState<CashbillIssueRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [brands, setBrands] = useState<CashbillBrand[]>([]);
   const [summary, setSummary] = useState({ issuedCount: 0, issuedWon: 0, waitingCount: 0, failedCount: 0, costWon: 0 });
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [issueSeed, setIssueSeed] = useState<CashbillIssueSeed | null>(null);
-  const fromId = searchParams.get('from') || '';
   const [reload, setReload] = useState(0);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [linkIssueId, setLinkIssueId] = useState<string | null>(null);
@@ -91,6 +96,18 @@ export function AdminCashbillListPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ReceiptConnectionStatus | null>(null);
   const safePage = useMemo(() => clampListPage(page, total, pageSize), [page, total, pageSize]);
+
+  // location.state로 넘어온 highlightId 처리
+  const highlightHandledRef = useRef(false);
+  useEffect(() => {
+    if (highlightHandledRef.current) return;
+    const stateHighlight = (location.state as { highlightId?: string } | null)?.highlightId;
+    if (!stateHighlight) return;
+    highlightHandledRef.current = true;
+    setHighlightId(stateHighlight);
+    navigate(location.pathname + location.search, { replace: true, state: null });
+    window.setTimeout(() => setHighlightId(null), 3000);
+  }, [location.state, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     let stop = false;
@@ -122,9 +139,7 @@ export function AdminCashbillListPage() {
           label: until ? `바로빌 연결 · 인증서 ${until}까지` : '바로빌 연결',
         });
       })
-      .catch(() => {
-        if (!stop) setConnectionStatus(null);
-      });
+      .catch(() => { if (!stop) setConnectionStatus(null); });
     return () => { stop = true; };
   }, [reload]);
 
@@ -140,38 +155,11 @@ export function AdminCashbillListPage() {
   }, [setSearchParams]);
 
   useEffect(() => {
-    if (!fromId) return;
-    let stop = false;
-    fetchCashbillSource(fromId)
-      .then((src) => {
-        if (stop) return;
-        setIssueSeed({
-          brandId: src.operatingCompanyId,
-          amount: String(src.amount),
-          usage: src.usage,
-          itemName: src.itemName,
-          memo: src.memo,
-          askIdentity: true,
-          customerName: src.customerName ?? '',
-          taxKind: src.taxKind ?? 'taxable',
-        });
-        patch({ tab: 'issue' });
-      })
-      .catch((err: unknown) => {
-        if (!stop) setError(err instanceof Error ? err.message : '다시 발행할 내용을 불러오지 못했습니다.');
-      });
-    return () => { stop = true; };
-  }, [fromId]);
-
-  useEffect(() => {
     const qs = new URLSearchParams();
     qs.set('datePreset', datePreset);
     if (datePreset === 'month') qs.set('month', monthKey);
     if (datePreset === 'day') qs.set('day', dayKey);
-    if (state) qs.set('state', state);
-    if (brandId) qs.set('brandId', brandId);
     if (queryText) qs.set('q', queryText);
-    if (extraOnly) qs.set('extra', '1');
     qs.set('limit', String(pageSize));
     qs.set('offset', String((safePage - 1) * pageSize));
     let cancelled = false;
@@ -181,7 +169,6 @@ export function AdminCashbillListPage() {
         if (cancelled) return;
         setItems(res.items);
         setTotal(res.total);
-        setBrands(res.brands);
         if (res.summary) setSummary(res.summary);
         setError(null);
       })
@@ -191,10 +178,8 @@ export function AdminCashbillListPage() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [datePreset, monthKey, dayKey, state, brandId, queryText, extraOnly, pageSize, safePage, reload]);
+    return () => { cancelled = true; };
+  }, [datePreset, monthKey, dayKey, queryText, pageSize, safePage, reload]);
 
   const CASH_SYNC_KEY = 'receipt-cashbill-state-sync-at';
 
@@ -213,18 +198,7 @@ export function AdminCashbillListPage() {
     try {
       await cancelCashbillIssue(issueId, crypto.randomUUID());
       setWalletTick((n) => n + 1);
-      const qs = new URLSearchParams();
-      qs.set('datePreset', datePreset);
-      if (datePreset === 'month') qs.set('month', monthKey);
-      if (datePreset === 'day') qs.set('day', dayKey);
-      if (state) qs.set('state', state);
-      if (brandId) qs.set('brandId', brandId);
-      qs.set('limit', String(pageSize));
-      qs.set('offset', String((safePage - 1) * pageSize));
-      const res = await listCashbillIssues(qs);
-      setItems(res.items);
-      setTotal(res.total);
-      setBrands(res.brands);
+      setReload((n) => n + 1);
       showReceiptDone('발급을 취소했어요', '국세청에 취소분이 함께 전송됩니다.');
     } catch (err) {
       showReceiptFailure('발급을 취소하지 못했어요', err instanceof Error ? err.message : '현금영수증 취소에 실패했습니다.');
@@ -234,11 +208,11 @@ export function AdminCashbillListPage() {
   }
 
   const blocking = shouldShowListBlockingLoading(loading, items.length);
-  const selectedBrand = brands.find((brand) => brand.id === brandId);
-  const needsLink = !loading && (brands.length === 0 || (selectedBrand ? !selectedBrand.linked : brands.every((brand) => !brand.linked)));
+
+  const needsLink = !loading && items.length === 0 && summary.issuedCount === 0;
 
   useEffect(() => {
-    if (tab !== 'history' || needsLink) return;
+    if (needsLink) return;
     if (!receiptStateSyncDue(CASH_SYNC_KEY)) return;
     if (summary.waitingCount <= 0 && !items.some((row) => cashbillStateOpen(row))) return;
     let stop = false;
@@ -250,35 +224,44 @@ export function AdminCashbillListPage() {
       })
       .catch(() => undefined);
     return () => { stop = true; };
-  }, [tab, needsLink, summary.waitingCount, items]);
+  }, [needsLink, summary.waitingCount, items]);
+
+  const period = toPeriodSeg(datePreset, monthKey);
+
+  function setPeriod(next: PeriodSeg) {
+    if (next === 'custom') {
+      patch({ datePreset: 'day', page: '1' });
+    } else if (next === 'lastMonth') {
+      patch({ datePreset: 'month', month: kstLastMonthKey(), page: '1' });
+    } else {
+      patch({ datePreset: 'month', month: kstMonthKeyNow(), page: '1' });
+    }
+  }
 
   return (
     <ReceiptWalletProvider>
     <ReceiptSetupGate kind="cashbill">
-    <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
+    <div className="flex min-w-0 w-full max-w-[1120px] flex-col gap-2 sm:gap-4">
       <ReceiptListHeader
         title="현금영수증"
         path="/admin/inquiries/receipts/cashbill"
         issueLabel="+ 현금영수증 발행"
-        issueDisabled={needsLink}
-        hideIssue={tab === 'issue'}
+        issueDisabled={false}
+        hideIssue={false}
         unitPriceKrw={CASHBILL_UNIT_PRICE_KRW}
-        onIssue={() => { setIssueSeed(null); patch({ tab: 'issue', from: null }); }}
+        onIssue={() => navigate('/admin/inquiries/receipts/cashbill/new')}
         onOpenSettings={() => setSettingsOpen(true)}
         compactPc
-        tab={tab}
-        onTabChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })}
         connectionStatus={connectionStatus}
       />
       <ReceiptIssueSettingsModal kind="cashbill" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <div className="lg:hidden">
-        <ReceiptIssueTabs value={tab} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
-      </div>
       <ReceiptWalletRefresh tick={walletTick} />
-      <div className={tab === 'issue' ? 'lg:hidden' : undefined}>
-        <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'failed', page: '1' })} />
-      </div>
-      {needsLink ? (
+
+      {/* 요약 카드 */}
+      <ReceiptSummaryCards {...summary} onFailed={() => patch({ datePreset: 'month', month: kstMonthKeyNow(), page: '1' })} />
+
+      {/* needsLink 안내 */}
+      {needsLink && !loading ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
           <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'}</p>
           {isTenantAdmin ? (
@@ -291,133 +274,167 @@ export function AdminCashbillListPage() {
           ) : null}
         </div>
       ) : null}
-      {!needsLink && tab === 'issue' ? (
-        <CashbillIssueForm
-          key={`${fromId || 'new'}-${seedInquiryId}`}
-          embedded
-          brands={brands}
-          seed={issueSeed}
-          seedInquiryId={seedInquiryId}
-          pcAsideExtra={(
-            <ReceiptSummaryCards
-              compact
-              {...summary}
-              onFailed={() => patch({ state: 'failed', page: '1' })}
+
+      {/* PC 테이블 카드 (필터 포함) */}
+      <div className="hidden lg:block">
+        <div className="rounded-[20px] border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]">
+          {/* 필터 행 */}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-100">
+            <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
+            <SegmentedControl
+              ariaLabel="발행 기간"
+              value={period}
+              onChange={setPeriod}
+              options={[
+                { value: 'thisMonth', label: '이번 달' },
+                { value: 'lastMonth', label: '지난 달' },
+                { value: 'custom', label: '직접' },
+              ]}
             />
-          )}
-          onClose={() => patch({ tab: null, from: null })}
-          onDone={(issueId) => {
-            patch({ tab: null, from: null, inquiryId: null });
-            setHighlightId(issueId);
-            showReceiptDone(
-              '현금영수증을 발행했어요',
-              '목록 맨 위에 표시해 두었어요.',
-              <>
-                <ReceiptCopyButtons kind="cashbill" issueId={issueId} official publicToken={null} copyReady={false} shareOnly inToast />
-                <ToastButton variant="primary" onClick={() => void openCashbillReceipt(issueId).catch((err: unknown) => showReceiptFailure('영수증을 열지 못했어요', err instanceof Error ? err.message : null))}>영수증 보기</ToastButton>
-              </>,
-            );
-            setReload((n) => n + 1);
-            window.setTimeout(() => setHighlightId(null), 4000);
-          }}
-        />
-      ) : null}
-      {tab === 'history' && !needsLink ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
-        <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
-        <div className="inline-flex gap-0.5 rounded-lg border border-slate-200 p-0.5">
-          {([['today', '당일'], ['week', '이번주'], ['month', '월별'], ['day', '날짜']] as const).map(([id, label]) => (
-            <button key={id} type="button" className={`${SEG} ${datePreset === id ? SEG_ON : 'text-slate-700'}`} onClick={() => patch({ datePreset: id, page: '1' })}>
-              {label}
-            </button>
-          ))}
-        </div>
-        {datePreset === 'month' ? <YearMonthSelect value={monthKey} onChange={(month) => patch({ month, page: '1' })} /> : null}
-        {datePreset === 'day' ? <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} /> : null}
-        <select
-          value={state}
-          onChange={(e) => patch({ state: e.target.value, page: '1' })}
-          className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-xs"
-          aria-label="상태"
-        >
-          {STATES.map(([id, label]) => <option key={id || 'all'} value={id}>{label}</option>)}
-        </select>
-        <select
-          value={brandId}
-          onChange={(e) => patch({ brandId: e.target.value, page: '1' })}
-          className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-xs"
-          aria-label="브랜드"
-        >
-          <option value="">전체 브랜드</option>
-          {brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
-        </select>
-        <input
-          defaultValue={queryText}
-          placeholder="고객명·발급번호·접수번호"
-          aria-label="고객명·발급번호·접수번호"
-          className="min-h-9 min-w-[10rem] flex-1 rounded-lg border border-slate-300 px-2 text-fluid-xs"
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') patch({ q: (event.target as HTMLInputElement).value.trim(), page: '1' });
-          }}
-        />
-        <label className="inline-flex min-h-9 items-center gap-1.5 text-fluid-xs text-slate-700">
-          <input type="checkbox" checked={extraOnly} onChange={(event) => patch({ extra: event.target.checked ? '1' : null, page: '1' })} />
-          추가금액 있는 건만
-        </label>
-      </div> : null}
-      {tab === 'history' && !needsLink ? <ListPaginationBar mode="summary" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} /> : null}
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">{error}</p> : null}
-      {blocking ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
-      {tab === 'history' && !needsLink && !blocking ? (
-        <>
-          <div className="space-y-2 lg:hidden">
-            {items.map((row) => <CashbillCard key={row.id} row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} highlight={highlightId === row.id} />)}
-            {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
+            {period === 'custom' ? (
+              <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} />
+            ) : null}
+            <input
+              defaultValue={queryText}
+              placeholder="고객명·발급번호·접수번호"
+              aria-label="검색"
+              className="h-9 w-[280px] rounded-lg border-0 bg-[#F4F6FA] px-3 text-fluid-xs placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') patch({ q: (event.target as HTMLInputElement).value.trim(), page: '1' });
+              }}
+            />
+            <div className="ml-auto">
+              <ListPaginationBar mode="summary" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
+            </div>
           </div>
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
+
+          {error ? <p className="px-4 py-3 text-fluid-xs text-red-800">{error}</p> : null}
+          {blocking ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
+
+          {!blocking ? (
             <table className="w-full table-fixed border-collapse text-fluid-xs">
-              <thead className="bg-slate-100">
+              <thead style={{ background: '#F8FAFC' }}>
                 <tr>
-                  {CASH_COLS.map((col) => (
-                    <th key={col.key} style={col.width ? { width: col.width } : undefined} className={`whitespace-nowrap px-2 py-2 font-medium text-slate-700 ${col.align} ${col.hide}`}>{col.label}</th>
-                  ))}
+                  <th style={{ width: '110px' }} className="px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">발행일</th>
+                  <th className="px-3 py-2.5 text-left text-[12px] font-medium text-slate-600">고객</th>
+                  <th style={{ width: '140px' }} className="px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">휴대폰·사업자</th>
+                  <th style={{ width: '80px' }} className="px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">구분</th>
+                  <th style={{ width: '120px' }} className="px-3 py-2.5 text-right text-[12px] font-medium text-slate-600">금액</th>
+                  <th style={{ width: '110px' }} className="px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">상태</th>
+                  <th style={{ width: '44px' }} className="px-1 py-2.5 text-center text-[12px] font-medium text-slate-600"></th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((row) => (
-                  <tr key={row.id} className={`h-[52px] border-t border-slate-100 ${highlightId === row.id ? 'bg-emerald-50' : ''}`}>
-                    <td className="whitespace-nowrap px-2 py-2 text-center tabular-nums text-slate-600">{formatReceiptIssuedAt(row.createdAt)}</td>
-                    <td className="px-2 py-2 text-left">
-                      <CustomerNameCell row={row} />
+                  <tr key={row.id} className={`border-t border-[#F1F5F9] ${highlightId === row.id ? 'bg-[#F0FDF4]' : 'hover:bg-slate-50'}`}>
+                    <td className="whitespace-nowrap px-3 py-3 text-center tabular-nums text-slate-600 text-[12px]">{formatReceiptIssuedAt(row.createdAt)}</td>
+                    <td className="px-3 py-3">
+                      <PcCustomerCell row={row} />
                     </td>
-                    <td className="px-2 py-2 text-left">
-                      <p className="truncate tabular-nums text-slate-900" title={identityText(row)}>{identityText(row)}</p>
-                      <p className="text-fluid-2xs text-slate-500">{usageLabel(row)}</p>
+                    <td className="px-3 py-3 text-center">
+                      <p className="truncate tabular-nums text-slate-900 text-[12px]" title={identityText(row)}>{identityText(row)}</p>
+                      <p className="text-[11px] text-slate-500">{usageLabel(row)}</p>
                     </td>
-                    <td className="px-2 py-2 text-center">
-                      <InquiryCell row={row} onLink={() => setLinkIssueId(row.id)} />
+                    <td className="px-3 py-3 text-center">
+                      <TaxKindBadge kind={row.taxKind} />
                     </td>
-                    <td className={`truncate px-2 py-2 text-left ${NARROW_HIDE}`} title={row.itemName}>{row.itemName}</td>
-                    <td className="px-2 py-2 text-right">
-                      <p className={`whitespace-nowrap font-medium tabular-nums ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</p>
+                    <td className="px-3 py-3 text-right">
+                      <p className={`whitespace-nowrap font-medium tabular-nums text-[13px] ${signedWonTextClass(row.totalWon)}`}>{formatSignedWon(row.totalWon)}</p>
                       <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
                     </td>
-                    <td className={`px-2 py-2 text-center ${NARROW_HIDE}`}><CashTaxKindBadge kind={row.taxKind} /></td>
-                    <td className="px-2 py-2 text-center"><StatusBadge row={row} /></td>
-                    <td className={`truncate px-2 py-2 text-center tabular-nums text-slate-600 ${XL_HIDE}`} title={row.ntsConfirmNum ?? ''}>{row.ntsConfirmNum || '—'}</td>
-                    <td className="truncate px-2 py-2 text-center text-slate-600" title={row.issuerName ?? ''}>{row.issuerName || '—'}</td>
-                    <td className="px-2 py-2 text-right">
-                      <ReceiptActions compact row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} onReissue={() => patch({ from: row.id })} onLink={() => setLinkIssueId(row.id)} />
+                    <td className="px-3 py-3 text-center">
+                      <StatusDot row={row} />
+                    </td>
+                    <td className="px-1 py-3 text-center">
+                      <ReceiptRowMenu
+                        kind="cashbill"
+                        issueId={row.id}
+                        official={canViewReceipt(row)}
+                        publicToken={row.publicToken ?? null}
+                        copyReady={Boolean(row.copyReady)}
+                        canCancel={Boolean(row.canCancel)}
+                        cancelling={cancellingId === row.id}
+                        onCancel={() => void cancelRow(row.id)}
+                        onLinkInquiry={row.kind === 'CANCEL' ? undefined : () => setLinkIssueId(row.id)}
+                        onModify={isFailedRow(row) || row.barobillState === '7000' || row.kind === 'CANCEL' ? () => navigate(`/admin/inquiries/receipts/cashbill/new?from=${encodeURIComponent(row.id)}`) : undefined}
+                        compact
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          ) : null}
+          {!blocking && items.length === 0 ? <p className="p-8 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
+
+          {!loading ? (
+            <div className="border-t border-slate-100 px-4 py-3">
+              <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* 모바일 필터 + 카드 */}
+      <div className="lg:hidden">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
+          <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
+          <SegmentedControl
+            ariaLabel="발행 기간"
+            value={period}
+            onChange={setPeriod}
+            options={[
+              { value: 'thisMonth', label: '이번 달' },
+              { value: 'lastMonth', label: '지난 달' },
+                { value: 'custom', label: '직접' },
+              ]}
+            />
+            {period === 'custom' ? (
+              <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} />
+            ) : null}
+            <input
+              defaultValue={queryText}
+              placeholder="고객명·발급번호"
+              aria-label="검색"
+              className="min-h-9 min-w-[10rem] flex-1 rounded-lg border border-slate-300 px-2 text-fluid-xs"
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') patch({ q: (event.target as HTMLInputElement).value.trim(), page: '1' });
+            }}
+          />
+        </div>
+
+        <div className="mt-2">
+          <ListPaginationBar mode="summary" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
+        </div>
+
+        {error ? <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">{error}</p> : null}
+        {blocking ? <p className="mt-4 p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
+
+        {!blocking ? (
+          <div className="mt-2 space-y-2">
+            {items.map((row) => (
+              <CashbillCard
+                key={row.id}
+                row={row}
+                cancelling={cancellingId === row.id}
+                onCancel={() => void cancelRow(row.id)}
+                onError={(message) => showReceiptFailure('처리하지 못했어요', message)}
+                onReissue={() => navigate(`/admin/inquiries/receipts/cashbill/new?from=${encodeURIComponent(row.id)}`)}
+                onLink={() => setLinkIssueId(row.id)}
+                highlight={highlightId === row.id}
+              />
+            ))}
+            {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발급 내역이 없습니다.</p> : null}
           </div>
-        </>
-      ) : null}
-      {tab === 'history' && !needsLink && !loading ? (
-        <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
-      ) : null}
+        ) : null}
+
+        {!loading ? (
+          <div className="mt-2">
+            <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
+          </div>
+        ) : null}
+      </div>
+
       {linkIssueId ? (
         <ReceiptInquiryLinkModal
           kind="cashbill"
@@ -442,33 +459,16 @@ function usageLabel(row: CashbillIssueRow): string {
   return '소득공제';
 }
 
-function CashTaxKindBadge({ kind }: { kind?: CashbillIssueRow['taxKind'] }) {
-  const label = kind === 'exempt' ? '면세' : '과세';
-  return <span className="inline-flex rounded-full bg-slate-100 px-1.5 py-0 text-fluid-2xs font-medium text-slate-700">{label}</span>;
-}
-
-const NARROW_HIDE = 'hidden min-[1440px]:table-cell';
-const XL_HIDE = 'hidden xl:table-cell';
-
-/** 고객명·품목은 남는 폭을 나눠 쓰고, 좁은 화면에서는 품목→승인번호 순으로 숨긴다. */
-const CASH_COLS = [
-  { key: 'at', label: '발급일시', width: '96px', align: 'text-center', hide: '' },
-  { key: 'name', label: '고객명', width: undefined, align: 'text-left', hide: '' },
-  { key: 'id', label: '발급번호', width: '140px', align: 'text-left', hide: '' },
-  { key: 'inq', label: '접수', width: '112px', align: 'text-center', hide: '' },
-  { key: 'item', label: '품목', width: undefined, align: 'text-left', hide: NARROW_HIDE },
-  { key: 'won', label: '금액', width: '100px', align: 'text-right', hide: '' },
-  { key: 'kind', label: '과세구분', width: '72px', align: 'text-center', hide: NARROW_HIDE },
-  { key: 'st', label: '상태', width: '190px', align: 'text-center', hide: '' },
-  { key: 'nts', label: '승인번호', width: '108px', align: 'text-center', hide: XL_HIDE },
-  { key: 'by', label: '발급자', width: '84px', align: 'text-center', hide: '' },
-  { key: 'act', label: '', width: '120px', align: 'text-right', hide: '' },
-] as const;
-
-/** 고객명: 접수 이름 → 발급 때 적은 이름 → 「연계 없음」 */
-function customerNameOf(row: CashbillIssueRow): string | null {
-  const name = row.customerName?.trim() ?? '';
-  return name && name !== '매칭 없음' ? name : null;
+function TaxKindBadge({ kind }: { kind?: CashbillIssueRow['taxKind'] }) {
+  const exempt = kind === 'exempt';
+  return (
+    <span
+      className="inline-flex rounded-full px-1.5 py-0 text-[11px] font-medium"
+      style={exempt ? { background: '#ECFDF5', color: '#047857' } : { background: '#EFF6FF', color: '#1D4ED8' }}
+    >
+      {exempt ? '면세' : '과세'}
+    </span>
+  );
 }
 
 function identityText(row: CashbillIssueRow): string {
@@ -477,32 +477,9 @@ function identityText(row: CashbillIssueRow): string {
   return text && text !== '—' ? text : '—';
 }
 
-function CustomerNameCell({ row }: { row: CashbillIssueRow }) {
-  const name = customerNameOf(row);
-  return (
-    <div className="min-w-0">
-      {name ? (
-        <p className="truncate font-semibold text-slate-900" title={name}>{name}</p>
-      ) : (
-        <p className="truncate text-slate-400">연계 없음</p>
-      )}
-      {name && !row.linked ? (
-        <p className="text-fluid-2xs text-slate-500">직접 입력</p>
-      ) : null}
-    </div>
-  );
-}
-
-function InquiryCell({ row, onLink, size = 'sm' }: { row: CashbillIssueRow; onLink: () => void; size?: 'sm' | 'md' }) {
-  if (row.inquiryNumber) {
-    return (
-      <Link className="whitespace-nowrap tabular-nums text-[#1f4fb8] underline-offset-2 hover:underline" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`} title="접수 보기">
-        {row.inquiryNumber}
-      </Link>
-    );
-  }
-  if (row.kind === 'CANCEL') return <span className="text-slate-400">—</span>;
-  return <Button size={size} variant="secondary" onClick={onLink}>접수 연결</Button>;
+function customerNameOf(row: CashbillIssueRow): string | null {
+  const name = row.customerName?.trim() ?? '';
+  return name && name !== '매칭 없음' ? name : null;
 }
 
 function isFailedRow(row: CashbillIssueRow): boolean {
@@ -513,70 +490,63 @@ function canViewReceipt(row: CashbillIssueRow): boolean {
   return row.barobillState === '2000' || row.barobillState === '2500' || row.barobillState === '3000' || row.barobillState === '7000';
 }
 
-function StatusBadge({ row }: { row: CashbillIssueRow }) {
+function PcCustomerCell({ row }: { row: CashbillIssueRow }) {
+  const name = customerNameOf(row);
+  return (
+    <div className="min-w-0">
+      {name ? (
+        <p className="truncate text-[13px] font-semibold text-slate-900" title={name}>{name}</p>
+      ) : (
+        <p className="truncate text-[12px] text-slate-400">연계 없음</p>
+      )}
+      {row.inquiryNumber ? (
+        <Link
+          className="text-[11px] text-slate-500 underline-offset-2 hover:underline"
+          to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}
+        >
+          {row.inquiryNumber}
+        </Link>
+      ) : name && !row.linked ? (
+        <p className="text-[11px] text-slate-400">직접 입력</p>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusDot({ row }: { row: CashbillIssueRow }) {
   const { openCharge } = useReceiptWallet();
   const view = cashbillStatusView(row);
-  if (isFailedRow(row) && row.kind !== 'CANCEL') return <FailReasonChip label={view.label} reason={row.lastError} onCharge={openCharge} />;
+  if (isFailedRow(row) && row.kind !== 'CANCEL') {
+    return <FailReasonChip label={view.label} reason={row.lastError} onCharge={openCharge} />;
+  }
   const needCheck = cashbillStateOpen(row) && receiptOpenOverDay(row.createdAt);
+  const dot = view.className?.includes('emerald') ? '#10b981' : view.className?.includes('amber') ? '#f59e0b' : '#94a3b8';
   return (
     <span className="inline-flex flex-col items-center gap-0.5">
-      <span className="inline-flex flex-wrap items-center justify-center gap-1">
-        <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0 text-fluid-2xs ${view.className}`}>{view.label}</span>
-        {needCheck ? <span className="whitespace-nowrap text-fluid-2xs font-medium text-amber-800">확인 필요</span> : null}
+      <span className="inline-flex items-center gap-1 text-[12px]">
+        <span className="size-1.5 shrink-0 rounded-full" style={{ background: dot }} aria-hidden />
+        <span className={view.className}>{view.label}</span>
       </span>
-      {view.detail ? <span className="whitespace-nowrap text-fluid-2xs text-slate-500">{view.detail}</span> : null}
+      {needCheck ? <span className="text-[11px] font-medium text-amber-700">확인 필요</span> : null}
+      {view.detail ? <span className="text-[11px] text-slate-500">{view.detail}</span> : null}
     </span>
   );
 }
 
-function ReceiptActions({
-  row,
-  cancelling,
-  onCancel,
-  onError,
-  onReissue,
-  onLink,
-  compact = false,
-}: {
+function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, highlight }: {
   row: CashbillIssueRow;
   cancelling: boolean;
   onCancel: () => void;
   onError: (message: string) => void;
   onReissue: () => void;
   onLink: () => void;
-  compact?: boolean;
+  highlight: boolean;
 }) {
-  const size = compact ? 'sm' : 'md';
-  const failed = isFailedRow(row) || row.barobillState === '7000' || row.kind === 'CANCEL';
-  return (
-    <div className="inline-flex items-center justify-end gap-1">
-      {failed ? (
-        <Button size={size} onClick={onReissue}>다시 발행</Button>
-      ) : (
-        <Button size={size} disabled={!canViewReceipt(row)} onClick={() => void openCashbillReceipt(row.id).catch((err: unknown) => onError(err instanceof Error ? err.message : '영수증을 열지 못했습니다.'))}>
-          영수증
-        </Button>
-      )}
-      <ReceiptRowMenu
-        kind="cashbill"
-        issueId={row.id}
-        official={canViewReceipt(row)}
-        publicToken={row.publicToken ?? null}
-        copyReady={Boolean(row.copyReady)}
-        canCancel={Boolean(row.canCancel)}
-        cancelling={cancelling}
-        onCancel={onCancel}
-        onLinkInquiry={row.kind === 'CANCEL' ? undefined : onLink}
-        compact={compact}
-      />
-    </div>
-  );
-}
-
-function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, highlight }: { row: CashbillIssueRow; cancelling: boolean; onCancel: () => void; onError: (message: string) => void; onReissue: () => void; onLink: () => void; highlight: boolean }) {
   const name = customerNameOf(row);
+  const view = cashbillStatusView(row);
+  const failed = isFailedRow(row);
   return (
-    <article className={`space-y-1.5 rounded-xl border border-slate-200 p-3 ${highlight ? 'bg-emerald-50' : 'bg-white'}`}>
+    <article className={`space-y-1.5 rounded-xl border border-slate-200 p-3 ${highlight ? 'bg-[#F0FDF4]' : 'bg-white'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           {name ? <p className="truncate text-fluid-sm font-semibold text-slate-900">{name}</p> : <p className="text-fluid-sm text-slate-400">연계 없음</p>}
@@ -589,16 +559,31 @@ function CashbillCard({ row, cancelling, onCancel, onError, onReissue, onLink, h
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fluid-2xs text-slate-500">
         <span className="tabular-nums">{formatReceiptIssuedAt(row.createdAt)}</span>
-        <CashTaxKindBadge kind={row.taxKind} />
-        <span className="truncate">{row.itemName}</span>
+        <TaxKindBadge kind={row.taxKind} />
+        <span className={view.className}>{view.label}</span>
         {row.issuerName ? <span className="truncate">발급 {row.issuerName}</span> : null}
-        <StatusBadge row={row} />
       </div>
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
-        {row.inquiryNumber ? (
-          <p className="min-w-0 truncate text-fluid-xs text-slate-500">접수 <InquiryCell row={row} onLink={onLink} /></p>
-        ) : row.kind === 'CANCEL' ? <span /> : <InquiryCell row={row} onLink={onLink} size="md" />}
-        <ReceiptActions row={row} cancelling={cancelling} onCancel={onCancel} onError={onError} onReissue={onReissue} onLink={onLink} />
+      <div className="flex items-center justify-end gap-1 border-t border-slate-100 pt-2">
+        {failed || row.barobillState === '7000' || row.kind === 'CANCEL' ? (
+          <Button size="sm" onClick={onReissue}>다시 발행</Button>
+        ) : (
+          <Button size="sm" disabled={!canViewReceipt(row)} onClick={() => void openCashbillReceipt(row.id).catch((err: unknown) => onError(err instanceof Error ? err.message : '영수증을 열지 못했습니다.'))}>
+            영수증
+          </Button>
+        )}
+        <ReceiptRowMenu
+          kind="cashbill"
+          issueId={row.id}
+          official={canViewReceipt(row)}
+          publicToken={row.publicToken ?? null}
+          copyReady={Boolean(row.copyReady)}
+          canCancel={Boolean(row.canCancel)}
+          cancelling={cancelling}
+          onCancel={onCancel}
+          onLinkInquiry={row.kind === 'CANCEL' ? undefined : onLink}
+          onModify={failed || row.barobillState === '7000' || row.kind === 'CANCEL' ? onReissue : undefined}
+          compact
+        />
       </div>
     </article>
   );

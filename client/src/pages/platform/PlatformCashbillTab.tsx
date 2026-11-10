@@ -22,6 +22,7 @@ import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { parseListPage } from '../../utils/listPagination';
 import { PlatformReceiptsFilterBar, useReceiptFilterRange } from './PlatformReceiptsFilterBar';
 import { parseReceiptStatus } from './platformReceiptsFilters';
+import { CASHBILL_COST_KRW } from '@shared/barobillPolicy';
 
 const PAGE_SIZE = 30;
 
@@ -71,11 +72,13 @@ export function PlatformCashbillTab() {
   const [buyers, setBuyers] = useState<PlatformBuyerTenant[]>([]);
   const [exporting, setExporting] = useState(false);
 
-  // 발행 폼 토글
-  const [showForm, setShowForm] = useState(false);
+  const showForm = params.get('issue') === '1';
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 업체 선택 (플랫폼 발행 시 tenantId)
   const [selectedTenantId, setSelectedTenantId] = useState('');
+
+  function openIssueLayout() { patchParams({ issue: '1' }); }
+  function closeIssueLayout() { patchParams({ issue: null }); }
 
   // 취소
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -161,6 +164,62 @@ export function PlatformCashbillTab() {
     }
   }
 
+  if (showForm) {
+    return (
+      <div className="w-full space-y-4 lg:w-[1040px] lg:max-w-[1040px]">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={closeIssueLayout}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            aria-label="목록으로"
+          >
+            ←
+          </button>
+          <h2 className="text-[22px] font-bold text-slate-900">현금영수증 발행</h2>
+          <div className="ml-auto shrink-0 text-[12px] text-[#64748B]">
+            원가 {won(CASHBILL_COST_KRW)}
+          </div>
+        </div>
+
+        <label className="block space-y-1 text-sm text-gray-700 lg:w-[640px]">
+          업체 (선택 시 발행 내역에 연결됨)
+          <select
+            value={selectedTenantId}
+            onChange={(e) => setSelectedTenantId(e.target.value)}
+            className={`${INPUT_BASE} mt-1`}
+          >
+            <option value="">업체 선택 안 함</option>
+            {buyers.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <ReceiptWalletStubProvider>
+          <CashbillIssueForm
+            brands={[PLATFORM_CASHBILL_BRAND]}
+            pageLayout
+            adapter={platformAdapter}
+            platformTenantId={selectedTenantId || undefined}
+            onClose={closeIssueLayout}
+            onDone={(_id) => {
+              closeIssueLayout();
+              setSelectedTenantId('');
+              loadList();
+              fetchPlatformCashbillMonthStats({
+                from: range.from,
+                to: range.to,
+                status: status || undefined,
+                q: q || undefined,
+              }).then(setStats).catch(() => undefined);
+            }}
+          />
+        </ReceiptWalletStubProvider>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <PlatformReceiptsFilterBar params={params} onChange={patchParams} onExport={() => void handleExport()} exporting={exporting} />
@@ -192,51 +251,13 @@ export function PlatformCashbillTab() {
             <button
               type="button"
               className={BTN_PRIMARY}
-              onClick={() => setShowForm((v) => !v)}
+              onClick={openIssueLayout}
             >
-              {showForm ? '닫기' : '+ 발행하기'}
+              + 발행하기
             </button>
           </div>
         </div>
         <ReceiptIssueSettingsModal kind="cashbill" mode="platform" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-        {showForm ? (
-          <ReceiptWalletStubProvider>
-            <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-              {/* 업체 선택 */}
-              <label className="block space-y-1 text-sm text-gray-700">
-                업체 (선택 시 발행 내역에 연결됨)
-                <select
-                  value={selectedTenantId}
-                  onChange={(e) => setSelectedTenantId(e.target.value)}
-                  className={`${INPUT_BASE} mt-1`}
-                >
-                  <option value="">업체 선택 안 함</option>
-                  {buyers.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
-              </label>
-              <CashbillIssueForm
-                brands={[PLATFORM_CASHBILL_BRAND]}
-                embedded
-                adapter={platformAdapter}
-                platformTenantId={selectedTenantId || undefined}
-                onClose={() => setShowForm(false)}
-                onDone={(_id) => {
-                  setShowForm(false);
-                  setSelectedTenantId('');
-                  loadList();
-                  fetchPlatformCashbillMonthStats({
-                    from: range.from,
-                    to: range.to,
-                    status: status || undefined,
-                    q: q || undefined,
-                  }).then(setStats).catch(() => undefined);
-                }}
-              />
-            </div>
-          </ReceiptWalletStubProvider>
-        ) : null}
       </section>
 
       {/* 목록 */}

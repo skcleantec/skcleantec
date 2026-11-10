@@ -12,6 +12,7 @@ export function IssueModalFrame({
   hideHeader = false,
   softCard = false,
   hideFooterOnLg = false,
+  pageCard = false,
 }: {
   title: string;
   onClose: () => void;
@@ -24,6 +25,8 @@ export function IssueModalFrame({
   softCard?: boolean;
   /** PC에서 미리보기 쪽 발행 버튼을 쓸 때 */
   hideFooterOnLg?: boolean;
+  /** lg+에서 gray 바깥 없이 흰 카드만 (페이지 레이아웃용) */
+  pageCard?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, true);
@@ -42,7 +45,7 @@ export function IssueModalFrame({
       className={
         softCard
           ? inline
-            ? 'flex w-full flex-col rounded-[20px] bg-[#F1F4F9] p-3 sm:p-4'
+            ? `flex w-full flex-col rounded-[20px] bg-[#F1F4F9] p-3 sm:p-4${pageCard ? ' lg:bg-transparent lg:p-0' : ''}`
             : 'modal-mobile-fullscreen-panel flex max-h-[100dvh] w-full flex-col bg-[#F1F4F9] p-3 lg:max-h-[90vh] lg:max-w-[640px] lg:rounded-[20px]'
           : inline
             ? 'flex w-full flex-col rounded-xl border border-slate-200 bg-white'
@@ -72,7 +75,7 @@ export function IssueModalFrame({
           )}
           <div
             ref={scrollRef}
-            className="modal-form-scroll-surface min-h-0 flex-1 space-y-0 overflow-y-auto px-5 py-5"
+            className={`modal-form-scroll-surface min-h-0 flex-1 space-y-0 overflow-y-auto px-5 py-5${pageCard ? ' lg:px-[26px] lg:py-[22px]' : ''}`}
             onFocusCapture={onFieldFocus}
           >
             {children}

@@ -372,6 +372,11 @@ export const AdminCashbillListPage = lazyWithRetry(() =>
     default: m.AdminCashbillListPage,
   }))
 );
+export const AdminCashbillIssuePage = lazyWithRetry(() =>
+  import('../pages/admin/AdminCashbillIssuePage').then((m) => ({
+    default: m.AdminCashbillIssuePage,
+  }))
+);
 export const AdminTaxInvoiceListPage = lazyWithRetry(() =>
   import('../pages/admin/AdminTaxInvoiceListPage').then((m) => ({
     default: m.AdminTaxInvoiceListPage,
