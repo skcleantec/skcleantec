@@ -1,16 +1,16 @@
 /**
  * 「답장 받는 메일함」(IMAP)에서 1:1 문의 답장을 가져온다.
  * - 안 읽은 메일 중 제목에 #번호가 있는 것만 본다. 없으면 건드리지 않는다.
- * - 담당자(notifyEmails) → 답변 저장 + 고객 메일, 작성자 → 추가 질문 + 담당자 알림, 그 외 → 로그만.
+ * - 담당자(운영 알림 메일 + 게시판 알림 메일) → 답변 저장 + 고객 메일, 작성자 → 추가 질문 + 담당자 알림, 그 외 → 로그만.
  * - 처리한 메일은 읽음 표시 후 「청소비서처리됨」 폴더로 옮긴다.
  */
 import { simpleParser } from 'mailparser';
 import { ImapFlow } from 'imapflow';
 import { prisma } from '../../lib/prisma.js';
 import { decryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
-import { parseBoardSettings, parseReplyInboxStored, type PlatformBoardReplyInboxStored } from './platformBoard.helpers.js';
+import { parseReplyInboxStored, type PlatformBoardReplyInboxStored } from './platformBoard.helpers.js';
 import { setReplyInboxStatus } from './platformBoard.service.js';
-import { applyInboundInquiryMail } from './platformBoardReply.service.js';
+import { applyInboundInquiryMail, resolveInquiryStaffEmails } from './platformBoardReply.service.js';
 import {
   classifyInquirySender,
   extractReplyToken,
@@ -105,7 +105,7 @@ async function pullBoardInbox(
     });
     return result;
   }
-  const notifyEmails = parseBoardSettings(board.settings).notifyEmails;
+  const notifyEmails = await resolveInquiryStaffEmails(board.settings);
   const client = newClient(box, password);
   try {
     await client.connect();

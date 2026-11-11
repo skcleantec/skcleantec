@@ -143,7 +143,9 @@ export function PlatformInquiryMailSettings({
       <section className="flex flex-col gap-2">
         <h3 className="text-fluid-sm font-bold text-slate-900">문의 알림 받을 메일</h3>
         <p className="text-fluid-xs text-slate-500">
-          새 문의·추가 질문이 오면 여기 적힌 메일로 한 통씩 보내요. 이 메일에서 바로 답장하면 고객에게 답변이 가요.
+          새 문의·추가 질문은 <b className="font-semibold text-slate-700">운영 알림 메일</b>(입금 확인 요청을 받는 메일)로
+          「[청소비서 문의 #번호]」 제목을 달아 보내요. 그 메일에서 바로 답장하면 고객에게 답변이 가요. 다른 담당자도 받게
+          하려면 아래에 더 넣어 주세요.
         </p>
         {value.notifyEmails.length > 0 ? (
           <ul className="flex flex-wrap gap-1.5">
@@ -161,9 +163,7 @@ export function PlatformInquiryMailSettings({
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="text-fluid-xs text-orange-700">알림 받을 메일이 없어요. 문의가 와도 메일이 가지 않아요.</p>
-        )}
+        ) : null}
         <div className="flex max-w-[480px] gap-2">
           <input
             type="email"
@@ -175,7 +175,7 @@ export function PlatformInquiryMailSettings({
                 addEmail();
               }
             }}
-            placeholder="담당자 메일 주소"
+            placeholder="더 받을 담당자 메일 (선택)"
             className={INPUT}
           />
           <Button variant="secondary" onClick={addEmail}>
