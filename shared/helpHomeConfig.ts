@@ -114,3 +114,36 @@ export function helpCmsArticlePath(section: string, article: string): string {
   });
   return `/help?${sp.toString()}`;
 }
+
+/** /help 첫 화면 「새 기능·공지」 배너 — 공지 분류 라벨별 바탕·글자 색 (없으면 사용 방법 색) */
+export const HELP_NOTICE_BANNER_TINT: Record<string, { bg: string; ink: string }> = {
+  '사용 방법': { bg: '#e0f2fe', ink: '#0369a1' },
+  업데이트: { bg: '#d1fae5', ink: '#047857' },
+  공지사항: { bg: '#fef3c7', ink: '#b45309' },
+  결재관련: { bg: '#ffe4e6', ink: '#be123c' },
+};
+export const HELP_NOTICE_BANNER_DEFAULT_TINT = HELP_NOTICE_BANNER_TINT['사용 방법']!;
+
+/** 공지 제목을 처음 나오는 ` — ` / ` - ` / `, ` 에서 나눠 큰 제목·작은 설명으로 */
+export function splitNoticeBannerTitle(
+  title: string,
+  excerpt?: string | null,
+): { head: string; sub: string | null } {
+  const t = String(title ?? '').trim();
+  let cut = -1;
+  let sepLen = 0;
+  for (const sep of [' — ', ' - ', ', ']) {
+    const i = t.indexOf(sep);
+    if (i > 0 && (cut < 0 || i < cut)) {
+      cut = i;
+      sepLen = sep.length;
+    }
+  }
+  if (cut > 0) {
+    const head = t.slice(0, cut).trim();
+    const sub = t.slice(cut + sepLen).trim();
+    if (head && sub) return { head, sub };
+  }
+  const ex = String(excerpt ?? '').trim();
+  return { head: t, sub: ex || null };
+}
