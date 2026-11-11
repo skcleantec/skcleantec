@@ -132,9 +132,8 @@ async function pullBoardInbox(
           select: { id: true, authorEmail: true },
         });
         if (!post) {
-          console.warn('[help-inquiry-mail] no post for token', token);
+          // 다른 서버(staging·운영)가 같은 메일함을 볼 수 있다 — 내 문의가 아니면 건드리지 않는다
           result.skipped += 1;
-          await markHandled(client, uid, folder);
           continue;
         }
         const kind = classifyInquirySender(fromEmail, notifyEmails, post.authorEmail);
