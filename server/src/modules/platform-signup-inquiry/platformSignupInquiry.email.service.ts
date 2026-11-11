@@ -1,4 +1,5 @@
 import { sendPlatformMail } from '../../lib/platformSmtp.service.js';
+import { withOperationNotifyEmails } from '../../lib/operationNotifyEmails.js';
 import { getPlatformSignupInquirySettings } from './platformSignupInquiry.settings.service.js';
 
 function escapeHtml(s: string): string {
@@ -27,7 +28,9 @@ export async function notifyPlatformSignupInquiryByEmail(
 ): Promise<{ sent: number; skipped?: string }> {
   const settings = await getPlatformSignupInquirySettings();
   if (!settings.isActive) return { sent: 0, skipped: 'INACTIVE' };
-  if (settings.notifyEmails.length === 0) return { sent: 0, skipped: 'NO_NOTIFY_EMAILS' };
+  // 운영 알림 메일 + 도입 상담 설정에 따로 넣은 메일
+  const recipients = await withOperationNotifyEmails(settings.notifyEmails);
+  if (recipients.length === 0) return { sent: 0, skipped: 'NO_NOTIFY_EMAILS' };
 
   const html = `
     <h2>청소비서 — 도입 상담 신청</h2>
@@ -75,7 +78,7 @@ export async function notifyPlatformSignupInquiryByEmail(
     .join('\n');
 
   let sent = 0;
-  for (const to of settings.notifyEmails) {
+  for (const to of recipients) {
     const result = await sendPlatformMail({
       to,
       subject: `[청소비서 도입상담] ${inquiry.companyName} — ${inquiry.contactName}`,

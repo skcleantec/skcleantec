@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { sendPlatformMail } from '../../lib/platformSmtp.service.js';
+import { withOperationNotifyEmails } from '../../lib/operationNotifyEmails.js';
 import { platformInboxAbsoluteUrl } from '../platform/platformInboxNotify.service.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -71,7 +72,8 @@ export async function notifyPgApplicationSubmitted(input: {
   contactEmail: string | null;
   submittedAt: string | null;
 }): Promise<{ sent: number; skipped?: string }> {
-  const emails = await getPgApplicationNotifyEmails();
+  // PG사 받는 사람 + 운영 알림 메일
+  const emails = await withOperationNotifyEmails(await getPgApplicationNotifyEmails());
   if (emails.length === 0) return { sent: 0, skipped: 'NO_NOTIFY_EMAILS' };
 
   const tenant = await prisma.tenant.findFirst({
@@ -122,7 +124,8 @@ export async function notifyPgContractSubmitted(input: {
   contractNo: string | null;
   signedAt: string | null;
 }): Promise<{ sent: number; skipped?: string }> {
-  const emails = await getPgApplicationNotifyEmails();
+  // PG사 받는 사람 + 운영 알림 메일
+  const emails = await withOperationNotifyEmails(await getPgApplicationNotifyEmails());
   if (emails.length === 0) return { sent: 0, skipped: 'NO_NOTIFY_EMAILS' };
   const [tenant, row] = await Promise.all([
     prisma.tenant.findFirst({ where: { id: input.tenantId }, select: { name: true } }),

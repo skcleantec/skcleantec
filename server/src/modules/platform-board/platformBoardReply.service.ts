@@ -6,7 +6,7 @@ import { getPlatformBoardPost, toReplyDto, type PlatformBoardReplyDto } from './
 import { parseBoardSettings, parseReplyInboxStored, sanitizeBoardBodyHtml } from './platformBoard.helpers.js';
 import { notifyInquiryStaff, sendInquiryAnswerToCustomer } from './platformBoard.email.service.js';
 import { MAX_NOTIFY_EMAILS, htmlToPlainText, plainTextToSafeHtml } from './platformBoardInquiry.helpers.js';
-import { parsePaymentNotifyEmailsFromSettings } from '../../lib/platformBillingNotifyEmails.js';
+import { withOperationNotifyEmails } from '../../lib/operationNotifyEmails.js';
 
 type BoardMailContext = { notifyEmails: string[]; replyInboxEmail: string | null };
 
@@ -15,21 +15,7 @@ type BoardMailContext = { notifyEmails: string[]; replyInboxEmail: string | null
  * 답장 메일의 발신자가 이 안에 있으면 담당자 답변으로 본다.
  */
 export async function resolveInquiryStaffEmails(boardSettings: unknown): Promise<string[]> {
-  const billing = await prisma.platformBillingSettings.findFirst({
-    select: { dunningPaymentNotifyEmails: true, dunningPaymentNotifyEmail: true },
-  });
-  const ops = billing ? parsePaymentNotifyEmailsFromSettings(billing) : [];
-  const extra = parseBoardSettings(boardSettings).notifyEmails;
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const e of [...ops, ...extra]) {
-    const key = e.trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(e.trim());
-    if (out.length >= MAX_NOTIFY_EMAILS) break;
-  }
-  return out;
+  return withOperationNotifyEmails(parseBoardSettings(boardSettings).notifyEmails, MAX_NOTIFY_EMAILS);
 }
 
 async function boardMailContext(boardId: string): Promise<BoardMailContext> {
