@@ -6,11 +6,10 @@ import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { CashbillCertRegisterModal } from '../../components/cashbill/CashbillCertRegisterModal';
 import { ReceiptCopyButtons } from '../../components/receipts/ReceiptCopyButtons';
-import { ReceiptListHeader, ReceiptSummaryCards } from '../../components/receipts/ReceiptListHeader';
+import { ReceiptListHeader, ReceiptSummaryCards, type ReceiptConnectionStatus } from '../../components/receipts/ReceiptListHeader';
 import { ReceiptIssueSettingsModal } from '../../components/receipts/ReceiptIssueSettingsModal';
 import { ReceiptRowMenu } from '../../components/receipts/ReceiptRowMenu';
 import { ReceiptWalletProvider, ReceiptWalletRefresh } from '../../components/wallet/ReceiptWalletProvider';
-import { ApprovalNumberCell } from '../../components/receipts/ApprovalNumberCell';
 import { ReceiptInquiryLinkModal } from '../../components/receipts/ReceiptInquiryLinkModal';
 import { formatReceiptIssuedAt, openReceiptWindow } from '../../components/receipts/receiptListDisplay';
 import {
@@ -26,11 +25,10 @@ import {
 import { markReceiptStateSynced, receiptOpenOverDay, receiptStateSyncDue } from '../../utils/receiptStateSync';
 import { clampListPage, parseInquiryListPageSize, parseListPage } from '../../utils/listPagination';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
-import { TaxInvoiceCertBand } from '../../components/taxinvoice/TaxInvoiceCertBand';
 import { TaxInvoiceModifyModal } from '../../components/taxinvoice/TaxInvoiceModifyModal';
-import { TaxInvoiceIssueWorkspace } from '../../components/taxinvoice/TaxInvoiceIssueWorkspace';
 import { ReceiptExtraNote } from '../../components/receipts/ReceiptExtraNote';
-import { ReceiptIssueTabs } from '../../components/ui/ReceiptIssueTabs';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { certDaysLeft, formatCertExpireDot } from '../../components/cashbill/cashbillCertDisplay';
 import { formatSignedWon, signedWonTextClass } from '../../utils/signedWon';
 import { Button } from '../../components/ui/Button';
 import { FailReasonChip, showReceiptDone, showReceiptFailure } from '../../components/receipts/receiptToasts';
@@ -41,8 +39,6 @@ import { TAXINVOICE_UNIT_PRICE_KRW } from '@shared/barobillPolicy';
 import { ReceiptSetupGate } from '../../components/receipts/ReceiptSetupGate';
 import { useMarketerPermissions } from '../../hooks/useMarketerPermissions';
 
-const SEG = 'rounded-md px-2 py-1 text-fluid-2xs hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2';
-const SEG_ON = 'bg-slate-900 text-white hover:bg-slate-800';
 const STATES = [
   ['', '전체 상태'],
   ['3014', '발급완료'],
@@ -55,23 +51,8 @@ const STATES = [
   ['failed', '발행 실패'],
 ] as const;
 
-/** PC 표 열. 좁은 화면(1440 미만)에서는 덜 중요한 열을 숨기고, 1280 미만에서는 승인번호도 숨긴다. */
-const NARROW_HIDE = 'hidden min-[1440px]:table-cell';
+const ISSUE_PATH = '/admin/inquiries/receipts/taxinvoice/new';
 const XL_HIDE = 'hidden xl:table-cell';
-const TAX_COLS: Array<{ key: string; label: string; width?: string; hide?: string }> = [
-  { key: 'at', label: '발급일시', width: 'w-[108px]' },
-  { key: 'customer', label: '고객' },
-  { key: 'corp', label: '상호' },
-  { key: 'corpNum', label: '사업자번호', width: 'w-[120px]' },
-  { key: 'kind', label: '과세구분', width: 'w-[72px]', hide: NARROW_HIDE },
-  { key: 'item', label: '품목', hide: NARROW_HIDE },
-  { key: 'amount', label: '금액', width: 'w-[112px]' },
-  { key: 'purpose', label: '영수/청구', width: 'w-[80px]', hide: NARROW_HIDE },
-  { key: 'status', label: '상태', width: 'w-[180px]' },
-  { key: 'approval', label: '승인번호', width: 'w-[140px]', hide: XL_HIDE },
-  { key: 'by', label: '발급자', width: 'w-[84px]' },
-  { key: 'act', label: '', width: 'w-[128px]' },
-];
 
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -92,7 +73,17 @@ export function AdminTaxInvoiceListPage() {
   const brandId = searchParams.get('brandId') || '';
   const queryText = searchParams.get('q') || '';
   const extraOnly = searchParams.get('extra') === '1';
-  const tab = searchParams.get('tab') === 'issue' || Boolean(searchParams.get('from')) ? 'issue' : 'history';
+  // 예전 ?tab=issue·?from= 주소는 발행 페이지로 보낸다.
+  const tabParam = searchParams.get('tab');
+  const legacyFrom = searchParams.get('from');
+  useEffect(() => {
+    if (tabParam !== 'issue' && !legacyFrom) return;
+    const qs = new URLSearchParams();
+    const inquiryId = searchParams.get('inquiryId');
+    if (legacyFrom) qs.set('from', legacyFrom);
+    else if (inquiryId) qs.set('inquiryId', inquiryId);
+    navigate(`${ISSUE_PATH}${qs.toString() ? `?${qs.toString()}` : ''}`, { replace: true });
+  }, [tabParam, legacyFrom, searchParams, navigate]);
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
   const page = parseListPage(searchParams.get('page'));
   const [items, setItems] = useState<TaxInvoiceRow[]>([]);
@@ -164,7 +155,7 @@ export function AdminTaxInvoiceListPage() {
     );
     setReload((n) => n + 1);
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-    window.setTimeout(() => setHighlightId(null), 4000);
+    window.setTimeout(() => setHighlightId(null), 3000);
   }, [location.pathname, location.search, location.state, navigate]);
 
   async function cancelRow(issueId: string) {
@@ -198,12 +189,17 @@ export function AdminTaxInvoiceListPage() {
   const missingCert = certTargets.find((brand) => !brand.certValid) ?? null;
   const expireDates = certTargets.map((brand) => brand.certExpireDate).filter((day): day is string => Boolean(day)).sort();
   const soonestExpire = expireDates[0] ?? null;
-  const bandBrand = certTargets.find((brand) => brand.certExpireDate === soonestExpire) ?? certTargets[0] ?? null;
-  const certChip = !needsLink && certTargets.length > 0
-    ? missingCert
-      ? { id: missingCert.id, label: '인증서 미등록', className: 'border-amber-300 bg-amber-50 text-amber-950' }
-      : { id: certTargets[0].id, label: `인증서 ~${(expireDates[0] ?? '').slice(0, 10)}`, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' }
-    : null;
+  const connectionStatus: ReceiptConnectionStatus | null = (() => {
+    if (loading) return null;
+    if (needsLink) return { ok: false, label: '바로빌 미가입' };
+    if (missingCert) return { ok: false, label: '바로빌 연결 · 인증서 미등록' };
+    const left = certDaysLeft(soonestExpire);
+    if (left != null && left < 0) return { ok: false, label: '인증서 만료' };
+    if (left != null && left <= 30) return { ok: false, label: `인증서 ${left}일 남음` };
+    const until = formatCertExpireDot(soonestExpire);
+    return { ok: true, label: until ? `바로빌 연결 · 인증서 ${until}까지` : '바로빌 연결' };
+  })();
+  const goReissue = (id: string) => navigate(`${ISSUE_PATH}?from=${encodeURIComponent(id)}`);
 
   const TAX_SYNC_KEY = 'receipt-taxinvoice-state-sync-at';
 
@@ -218,7 +214,7 @@ export function AdminTaxInvoiceListPage() {
   }
 
   useEffect(() => {
-    if (tab !== 'history' || needsLink) return;
+    if (needsLink) return;
     if (!receiptStateSyncDue(TAX_SYNC_KEY)) return;
     if (summary.waitingCount <= 0 && !items.some((row) => taxInvoiceStateOpen(row))) return;
     let stop = false;
@@ -230,38 +226,36 @@ export function AdminTaxInvoiceListPage() {
       })
       .catch(() => undefined);
     return () => { stop = true; };
-  }, [tab, needsLink, summary.waitingCount, items]);
+  }, [needsLink, summary.waitingCount, items]);
+
+  const PRESETS = [
+    { value: 'today', label: '당일' },
+    { value: 'week', label: '이번주' },
+    { value: 'month', label: '월별' },
+    { value: 'day', label: '날짜' },
+  ] as const;
+  type Preset = (typeof PRESETS)[number]['value'];
+  const preset = (PRESETS.some((item) => item.value === datePreset) ? datePreset : 'month') as Preset;
 
   return (
     <ReceiptWalletProvider>
     <ReceiptSetupGate kind="taxinvoice">
-    <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:gap-4">
+    <div className="flex min-w-0 w-full max-w-[1120px] flex-col gap-2 sm:gap-4">
       <ReceiptListHeader
         title="세금계산서"
         path="/admin/inquiries/receipts/taxinvoice"
         issueLabel="+ 세금계산서 발행"
         issueDisabled={needsLink || certMissing}
-        hideIssue={tab === 'issue'}
+        hideIssue={false}
         unitPriceKrw={TAXINVOICE_UNIT_PRICE_KRW}
-        onIssue={() => patch({ tab: 'issue', from: null })}
+        onIssue={() => navigate(ISSUE_PATH)}
         onOpenSettings={() => setSettingsOpen(true)}
-        statusChip={
-          certChip && isTenantAdmin ? (
-            <button type="button" className={`min-h-11 rounded-full border px-3 text-fluid-2xs font-medium hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${certChip.className}`} onClick={() => setCertBrandId(certChip.id)}>
-              {certChip.label}
-            </button>
-          ) : certChip ? (
-            <span className={`inline-flex min-h-11 items-center rounded-full border px-3 text-fluid-2xs font-medium ${certChip.className}`}>{certChip.label}</span>
-          ) : null
-        }
+        compactPc
+        connectionStatus={connectionStatus}
       />
       <ReceiptIssueSettingsModal kind="taxinvoice" open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <ReceiptIssueTabs value={tab === 'issue' ? 'issue' : 'history'} onChange={(next) => patch({ tab: next === 'history' ? null : 'issue', from: next === 'history' ? null : searchParams.get('from') })} />
       <ReceiptWalletRefresh tick={walletTick} />
       <ReceiptSummaryCards {...summary} onFailed={() => patch({ state: 'nts5', page: '1' })} onIssueFailed={() => patch({ state: 'failed', page: '1' })} />
-      {!needsLink && bandBrand && isTenantAdmin ? (
-        <TaxInvoiceCertBand expireDate={soonestExpire} onRegister={() => setCertBrandId(bandBrand.id)} />
-      ) : null}
       {needsLink ? (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-fluid-sm text-amber-950">
           <p>{isTenantAdmin ? '계산서 연결을 먼저 해주세요.' : '관리자가 바로빌 가입을 마쳐야 발행할 수 있어요.'}</p>
@@ -276,118 +270,146 @@ export function AdminTaxInvoiceListPage() {
             ? '공동인증서를 등록해야 세금계산서를 발행할 수 있습니다'
             : '세금계산서는 관리자가 공동인증서를 등록해야 해요.'}
           {isTenantAdmin ? (
-            <button type="button" className="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-3 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => missingCert && setCertBrandId(missingCert.id)}>공동인증서 등록</button>
+            <Button size="sm" onClick={() => missingCert && setCertBrandId(missingCert.id)}>공동인증서 등록</Button>
           ) : null}
         </div>
       ) : null}
-      {tab === 'issue' && !needsLink && !certMissing ? (
-        <TaxInvoiceIssueWorkspace
-          embedded
-          onDone={(issueId) => {
-            patch({ tab: null, from: null, inquiryId: null });
-            setHighlightId(issueId);
-            showReceiptDone('세금계산서를 발행했어요', '목록 맨 위에 표시해 두었어요.');
-            setReload((n) => n + 1);
-            window.setTimeout(() => setHighlightId(null), 4000);
-          }}
-        />
-      ) : null}
-      {tab === 'history' && !needsLink ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
-          <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
-          <div className="inline-flex gap-0.5 rounded-lg border border-slate-200 p-0.5">
-            {([['today', '당일'], ['week', '이번주'], ['month', '월별'], ['day', '날짜']] as const).map(([id, label]) => (
-              <button key={id} type="button" className={`${SEG} ${datePreset === id ? SEG_ON : 'text-slate-700'}`} onClick={() => patch({ datePreset: id, page: '1' })}>{label}</button>
-            ))}
-          </div>
-          {datePreset === 'month' ? <YearMonthSelect value={monthKey} onChange={(month) => patch({ month, page: '1' })} /> : null}
-          {datePreset === 'day' ? <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} /> : null}
-          <select value={state} aria-label="상태" className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-xs" onChange={(e) => patch({ state: e.target.value, page: '1' })}>
-            {STATES.map(([id, label]) => <option key={id || 'all'} value={id}>{label}</option>)}
-          </select>
-          <select value={brandId} aria-label="브랜드" className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-xs" onChange={(e) => patch({ brandId: e.target.value, page: '1' })}>
-            <option value="">전체 브랜드</option>
-            {brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
-          </select>
-          <input
-            defaultValue={queryText}
-            placeholder="고객명·번호"
-            aria-label="고객명·번호"
-            className="min-h-9 min-w-[10rem] flex-1 rounded-lg border border-slate-300 px-2 text-fluid-xs"
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') patch({ q: (event.target as HTMLInputElement).value.trim(), page: '1' });
-            }}
-          />
-          <label className="inline-flex min-h-9 items-center gap-1.5 text-fluid-xs text-slate-700">
-            <input type="checkbox" checked={extraOnly} onChange={(event) => patch({ extra: event.target.checked ? '1' : null, page: '1' })} />
-            추가금액 있는 건만
-          </label>
-        </div>
-      ) : null}
-      {tab === 'history' && !needsLink ? <ListPaginationBar mode="summary" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} /> : null}
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">{error}</p> : null}
-      {blocking ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
-      {tab === 'history' && !needsLink && !blocking ? (
+      {!needsLink ? (
         <>
-          <div className="space-y-1.5 lg:hidden">
-            {mobileGroups(slots).map((group) => (
-              <div key={group[0].row.id} className={group.length > 1 ? 'space-y-1.5 border-l border-slate-300 pl-2' : 'space-y-1.5'}>
-                {group.map((slot) => (
-                  <TaxCard key={slot.row.id} row={slot.row} nested={slot.nested} cancelling={cancellingId === slot.row.id} onCancel={() => void cancelRow(slot.row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice?tab=issue&from=${encodeURIComponent(slot.row.id)}`)} onLink={() => setLinkIssueId(slot.row.id)} onModify={() => setModifyRow(slot.row)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} onFocusOriginal={focusOriginal} highlight={highlightId === slot.row.id} />
-                ))}
+          {/* PC: 필터 + 표 한 카드 */}
+          <div className="hidden lg:block">
+            <div className="rounded-[20px] border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+                <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
+                <SegmentedControl ariaLabel="발행 기간" value={preset} onChange={(next) => patch({ datePreset: next, page: '1' })} options={PRESETS.map((item) => ({ value: item.value, label: item.label }))} />
+                {preset === 'month' ? <YearMonthSelect value={monthKey} onChange={(month) => patch({ month, page: '1' })} /> : null}
+                {preset === 'day' ? <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} /> : null}
+                <input
+                  defaultValue={queryText}
+                  placeholder="상호·사업자번호·고객 이름"
+                  aria-label="검색"
+                  className="h-9 w-[240px] rounded-lg border-0 bg-[#F4F6FA] px-3 text-fluid-xs placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') patch({ q: (event.target as HTMLInputElement).value.trim(), page: '1' });
+                  }}
+                />
+                <select value={state} aria-label="상태" className="h-9 rounded-lg border-0 bg-[#F4F6FA] px-2 text-fluid-xs" onChange={(e) => patch({ state: e.target.value, page: '1' })}>
+                  {STATES.map(([id, label]) => <option key={id || 'all'} value={id}>{label}</option>)}
+                </select>
+                {brands.length > 1 ? (
+                  <select value={brandId} aria-label="브랜드" className="h-9 rounded-lg border-0 bg-[#F4F6FA] px-2 text-fluid-xs" onChange={(e) => patch({ brandId: e.target.value, page: '1' })}>
+                    <option value="">전체 브랜드</option>
+                    {brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
+                  </select>
+                ) : null}
+                <label className="inline-flex min-h-9 items-center gap-1.5 text-fluid-xs text-slate-600">
+                  <input type="checkbox" checked={extraOnly} onChange={(event) => patch({ extra: event.target.checked ? '1' : null, page: '1' })} />
+                  추가금액 있는 건만
+                </label>
+                <div className="ml-auto">
+                  <ListPaginationBar mode="summary" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
+                </div>
               </div>
-            ))}
-            {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
+              {error ? <p className="px-4 py-3 text-fluid-xs text-red-800">{error}</p> : null}
+              {blocking ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
+              {!blocking ? (
+                <table className="w-full table-fixed border-collapse text-fluid-xs">
+                  <thead className="bg-[#F8FAFC]">
+                    <tr>
+                      <th className="w-[104px] px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">발급일시</th>
+                      <th className="px-3 py-2.5 text-left text-[12px] font-medium text-slate-600">공급받는자</th>
+                      <th className={`w-[120px] px-3 py-2.5 text-left text-[12px] font-medium text-slate-600 ${XL_HIDE}`}>품목</th>
+                      <th className="w-[64px] px-2 py-2.5 text-center text-[12px] font-medium text-slate-600">구분</th>
+                      <th className="w-[108px] px-3 py-2.5 text-right text-[12px] font-medium text-slate-600">공급가액</th>
+                      <th className="w-[92px] px-3 py-2.5 text-right text-[12px] font-medium text-slate-600">세액</th>
+                      <th className="w-[140px] px-2 py-2.5 text-center text-[12px] font-medium text-slate-600">상태</th>
+                      <th className="w-[120px] px-2 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {slots.map((slot) => {
+                      const row = slot.row;
+                      return (
+                        <tr key={row.id} data-tax-row={row.id} className={`border-t border-[#F1F5F9] ${highlightId === row.id ? 'bg-[#F0FDF4]' : 'hover:bg-slate-50'}`}>
+                          <td className={`relative whitespace-nowrap px-3 py-3 text-center text-[12px] tabular-nums text-slate-600 ${slot.nested ? 'pl-5' : ''}`}>
+                            <ConnectRail connect={slot.connect} />
+                            {formatReceiptIssuedAt(row.createdAt)}
+                          </td>
+                          <td className="px-3 py-3">
+                            <p className="truncate text-[13px] font-semibold text-slate-900" title={row.buyerCorpName}>{row.buyerCorpName || '—'}</p>
+                            <p className="truncate text-[11px] text-slate-500">
+                              <span className="tabular-nums">{row.buyerCorpNum || '—'}</span>
+                              {row.inquiryNumber ? (
+                                <> · <Link className="underline-offset-2 hover:underline" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.customerName} {row.inquiryNumber}</Link></>
+                              ) : null}
+                            </p>
+                          </td>
+                          <td className={`truncate px-3 py-3 text-[12px] text-slate-600 ${XL_HIDE}`} title={row.itemName || '청소 서비스'}>{row.itemName || '청소 서비스'}</td>
+                          <td className="px-2 py-3 text-center"><TaxKindBadge kind={row.taxKind} /></td>
+                          <td className="px-3 py-3 text-right">
+                            <p className={`whitespace-nowrap text-[13px] font-medium tabular-nums ${signedWonTextClass(row.supplyAmount)}`}>{formatSignedWon(row.supplyAmount)}</p>
+                            <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right text-[12px] tabular-nums text-slate-600">{row.taxKind === 'exempt' ? '—' : formatSignedWon(row.taxAmount)}</td>
+                          <td className="px-2 py-3 text-center">
+                            <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
+                              <TaxStatus row={row} />
+                              <OriginalLink row={row} onFocus={focusOriginal} />
+                            </div>
+                          </td>
+                          <td className="px-2 py-3 text-right"><RowAction compact row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => goReissue(row.id)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} /></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : null}
+              {!blocking && items.length === 0 ? <p className="p-8 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
+              {!loading ? (
+                <div className="border-t border-slate-100 px-4 py-3">
+                  <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
+                </div>
+              ) : null}
+            </div>
           </div>
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
-            <table className="w-full table-fixed border-collapse text-fluid-xs">
-              <thead className="bg-slate-100">
-                <tr>
-                  {TAX_COLS.map((col) => (
-                    <th key={col.key} className={`whitespace-nowrap px-2 py-2 text-center font-medium text-slate-700 ${col.width ?? ''} ${col.hide ?? ''}`}>{col.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {slots.map((slot) => {
-                  const row = slot.row;
-                  const cell = 'h-[52px] max-h-[52px] overflow-hidden px-2 py-0 align-middle';
-                  return (
-                  <tr key={row.id} data-tax-row={row.id} className={`h-[52px] border-t border-slate-100 ${highlightId === row.id ? 'bg-amber-50' : ''}`}>
-                    <td className={`relative whitespace-nowrap text-center tabular-nums ${cell} ${slot.nested ? 'pl-4' : ''}`}>
-                      <ConnectRail connect={slot.connect} />
-                      {formatReceiptIssuedAt(row.createdAt)}
-                    </td>
-                    <td className={`text-center ${cell}`}>
-                      <p className="truncate" title={row.customerName}>{row.customerName}</p>
-                      {row.inquiryNumber ? <Link className="text-fluid-2xs text-slate-600 underline hover:text-slate-900" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.inquiryNumber}</Link> : null}
-                    </td>
-                    <td className={`truncate text-center ${cell}`} title={row.buyerCorpName}>{row.buyerCorpName}</td>
-                    <td className={`text-center tabular-nums ${cell}`}>{row.buyerCorpNum || '—'}</td>
-                    <td className={`text-center ${cell} ${NARROW_HIDE}`}><TaxKindBadge kind={row.taxKind} /></td>
-                    <td className={`truncate text-center ${cell} ${NARROW_HIDE}`} title={row.itemName || '청소 서비스'}>{row.itemName || '청소 서비스'}</td>
-                    <td className={`text-right ${cell}`}>
-                      <p className={`whitespace-nowrap tabular-nums ${signedWonTextClass(row.totalAmount)}`}>{formatSignedWon(row.totalAmount)}</p>
-                      <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
-                    </td>
-                    <td className={`text-center ${cell} ${NARROW_HIDE}`}>{row.purposeType === 2 ? '청구' : '영수'}</td>
-                    <td className="h-[52px] px-2 py-0 text-center align-middle">
-                      <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
-                        <TaxStatus row={row} />
-                        <OriginalLink row={row} onFocus={focusOriginal} />
-                      </div>
-                    </td>
-                    <td className={`text-center ${cell} ${XL_HIDE}`}><ApprovalNumberCell value={row.ntsSendKey} /></td>
-                    <td className={`truncate text-center text-slate-600 ${cell}`} title={row.issuerName ?? ''}>{row.issuerName || '—'}</td>
-                    <td className="h-[52px] px-2 py-0 text-right align-middle"><RowAction compact row={row} cancelling={cancellingId === row.id} onCancel={() => void cancelRow(row.id)} onReissue={() => navigate(`/admin/inquiries/receipts/taxinvoice?tab=issue&from=${encodeURIComponent(row.id)}`)} onLink={() => setLinkIssueId(row.id)} onModify={() => setModifyRow(row)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} /></td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {items.length === 0 ? <p className="p-6 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
+
+          {/* 모바일: 필터 + 카드 */}
+          <div className="space-y-2 lg:hidden">
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
+              <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
+              <SegmentedControl ariaLabel="발행 기간" value={preset} onChange={(next) => patch({ datePreset: next, page: '1' })} options={PRESETS.map((item) => ({ value: item.value, label: item.label }))} />
+              {preset === 'month' ? <YearMonthSelect value={monthKey} onChange={(month) => patch({ month, page: '1' })} /> : null}
+              {preset === 'day' ? <YmdSelect value={dayKey} onChange={(day) => patch({ day, page: '1' })} /> : null}
+              <select value={state} aria-label="상태" className="min-h-9 rounded-lg border border-slate-300 px-2 text-fluid-xs" onChange={(e) => patch({ state: e.target.value, page: '1' })}>
+                {STATES.map(([id, label]) => <option key={id || 'all'} value={id}>{label}</option>)}
+              </select>
+              <input
+                defaultValue={queryText}
+                placeholder="상호·고객명·번호"
+                aria-label="검색"
+                className="min-h-9 min-w-[10rem] flex-1 rounded-lg border border-slate-300 px-2 text-fluid-xs"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') patch({ q: (event.target as HTMLInputElement).value.trim(), page: '1' });
+                }}
+              />
+            </div>
+            <ListPaginationBar mode="summary" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
+            {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">{error}</p> : null}
+            {blocking ? <p className="p-8 text-center text-fluid-sm text-slate-500">불러오는 중…</p> : null}
+            {!blocking ? (
+              <div className="space-y-1.5">
+                {mobileGroups(slots).map((group) => (
+                  <div key={group[0].row.id} className={group.length > 1 ? 'space-y-1.5 border-l border-slate-300 pl-2' : 'space-y-1.5'}>
+                    {group.map((slot) => (
+                      <TaxCard key={slot.row.id} row={slot.row} nested={slot.nested} cancelling={cancellingId === slot.row.id} onCancel={() => void cancelRow(slot.row.id)} onReissue={() => goReissue(slot.row.id)} onLink={() => setLinkIssueId(slot.row.id)} onModify={() => setModifyRow(slot.row)} onError={(message) => showReceiptFailure('처리하지 못했어요', message)} onFocusOriginal={focusOriginal} highlight={highlightId === slot.row.id} />
+                    ))}
+                  </div>
+                ))}
+                {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-fluid-sm text-slate-500">발행 내역이 없습니다.</p> : null}
+              </div>
+            ) : null}
+            {!loading ? <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} /> : null}
           </div>
-          <ListPaginationBar mode="nav" page={safePage} pageSize={pageSize} total={total} onPageChange={(next) => patch({ page: String(next) })} onPageSizeChange={(next) => patch({ pageSize: String(next), page: '1' })} />
         </>
       ) : null}
       {linkIssueId ? (
@@ -415,7 +437,7 @@ export function AdminTaxInvoiceListPage() {
           onRegistered={(status) => {
             setBrands((prev) => prev.map((brand) => brand.id === certBrandId ? { ...brand, certValid: true, certExpireDate: status.expireDate } : brand));
           }}
-          onIssue={() => patch({ tab: 'issue', from: null })}
+          onIssue={() => navigate(ISSUE_PATH)}
         />
       ) : null}
     </div>
@@ -430,7 +452,12 @@ function taxFailed(row: TaxInvoiceRow): boolean {
 
 function TaxKindBadge({ kind }: { kind?: TaxInvoiceRow['taxKind'] }) {
   const label = kind === 'zero' ? '영세' : kind === 'exempt' ? '면세' : '과세';
-  return <span className="mr-1 inline-flex rounded-full bg-gray-100 px-1.5 py-0 text-fluid-2xs font-medium text-gray-700">{label}</span>;
+  const tone = kind === 'exempt'
+    ? 'bg-[#ECFDF5] text-[#047857]'
+    : kind === 'zero'
+      ? 'bg-[#F5F3FF] text-[#6D28D9]'
+      : 'bg-[#EFF6FF] text-[#1D4ED8]';
+  return <span className={`mr-1 inline-flex rounded-full px-1.5 py-0 text-[11px] font-medium ${tone}`}>{label}</span>;
 }
 
 function TaxStatus({ row }: { row: TaxInvoiceRow }) {
@@ -524,7 +551,7 @@ async function openTaxMail(issueId: string): Promise<void> {
 
 function TaxCard({ row, nested, cancelling, onCancel, onReissue, onLink, onModify, onError, onFocusOriginal, highlight }: { row: TaxInvoiceRow; nested: boolean; cancelling: boolean; onCancel: () => void; onReissue: () => void; onLink: () => void; onModify: () => void; onError: (message: string) => void; onFocusOriginal: (id: string) => void; highlight: boolean }) {
   return (
-    <article data-tax-row={row.id} className={`space-y-1 rounded-lg border border-slate-200 p-2 ${nested ? 'ml-2' : ''} ${highlight ? 'bg-amber-50' : 'bg-white'}`}>
+    <article data-tax-row={row.id} className={`space-y-1 rounded-lg border border-slate-200 p-2 ${nested ? 'ml-2' : ''} ${highlight ? 'bg-[#F0FDF4]' : 'bg-white'}`}>
       <p className="text-fluid-2xs tabular-nums text-slate-500">{formatReceiptIssuedAt(row.createdAt)}{row.issuerName ? ` · 발급 ${row.issuerName}` : ''}</p>
       <p className="truncate text-fluid-sm font-medium text-slate-900" title={row.customerName}>{row.customerName}</p>
       <p className="truncate text-fluid-xs text-slate-700" title={row.buyerCorpName}>{row.buyerCorpName} · {row.buyerCorpNum || '—'}</p>

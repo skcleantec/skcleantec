@@ -62,3 +62,8 @@
 @media (prefers-reduced-motion: reduce) {
   .taxinvoice-issue * { transition: none !important; }
 }
+
+/* 발행 화면: 손으로 적는 칸만 아주 연한 파란 바탕 */
+.taxinvoice-issue.tt-editing .cell {
+  background: #f8fbff;
+}
