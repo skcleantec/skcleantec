@@ -210,6 +210,7 @@ export function UserProfileMenu({
             </button>
             <Link
               to="/help?category=inquiry"
+              data-soft-nav="true"
               onClick={(e) => {
                 e.preventDefault();
                 setMenuOpen(false);
