@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { isAuthSessionExpiredError, updateMyProfile } from '../../api/auth';
 import { StaffAppProfileUpdateRow } from '../staff/StaffAppProfileUpdateRow';
 import { AddressSearch } from '../forms/AddressSearch';
+import { openHelpCenterWindow } from '../../utils/openHelpCenterWindow';
 
 type TeamEContractDropdown = {
   listHref: string;
@@ -209,12 +210,14 @@ export function UserProfileMenu({
             </button>
             <Link
               to="/help?category=inquiry"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setMenuOpen(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                setMenuOpen(false);
+                openHelpCenterWindow('/help?category=inquiry');
+              }}
               className="block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
-              도움말 · 문의
+              고객센터 · 문의
             </Link>
             {teamEContractMenu ? (
               <div className="border-t border-slate-100 pt-2 mt-1">
