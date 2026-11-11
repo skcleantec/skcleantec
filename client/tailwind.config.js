@@ -19,6 +19,18 @@ export default {
           'sans-serif',
         ],
       },
+      /** 디자인 규칙 v3 (docs/design/ui-rules.md) — 바탕·입력칸·선택 트랙 */
+      colors: {
+        canvas: '#F1F4F9',
+        field: '#F4F6FA',
+        track: '#EEF1F6',
+      },
+      /** 디자인 규칙 v3 — 카드는 테두리 대신 그림자, 하단 고정 실행줄 */
+      boxShadow: {
+        card: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)',
+        bar: '0 -1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.12)',
+        thumb: '0 1px 2px rgba(15,23,42,0.12), 0 1px 1px rgba(15,23,42,0.04)',
+      },
       fontSize: {
         /** Tailwind xs/sm — fluid 스케일과 동일 +1px (12→13, 14→15) */
         xs: ['0.8125rem', { lineHeight: '1.25' }],

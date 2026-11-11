@@ -4,5 +4,7 @@
   "plain-font": 2271,
   "gray-palette": 7112,
   "off-radius": 1567,
-  "accent-bg": 370
+  "accent-bg": 370,
+  "px-radius": 119,
+  "native-dialog": 115
 }

@@ -87,6 +87,8 @@ alwaysApply: true
 
 ## 7. 디자인
 
+- **화면 디자인은 Claude가 한다(개발자 결정, 2026-11-11).** 화면 모양이 바뀌는 일은 Claude 디자인 캔버스 시안을 개발자가 확정한 뒤 코딩하고, 시안을 그대로 옮긴다. 아래 항목과 다르면 **`.cursor/rules/ui-design-v3.mdc`** · **`docs/design/ui-rules.md`(v3)** 가 우선한다.
+
 - **모바일 키보드 — 입력 필드 가시성**: **`.cursor/rules/mobile-keyboard-input-visibility.mdc`**
 - **슬레이트 프리미엄 SaaS**: 심플·간결, `slate` 계열 + 부드러운 shadow·`rounded-xl`/`rounded-2xl`
 - 전역 폰트 **Inter + Noto Sans KR** (`client/src/index.css`)

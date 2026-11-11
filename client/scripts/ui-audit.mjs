@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * UI 규칙 v2 위반 개수 검사 (docs/design/ui-rules.md)
+ * 디자인 규칙 v3 위반 개수 검사 (docs/design/ui-rules.md)
  *   node scripts/ui-audit.mjs            → 규칙별 개수와 기준값 비교. 늘어나면 실패(exit 1)
  *   node scripts/ui-audit.mjs --update   → 지금 개수를 기준값으로 저장(줄였을 때만 쓰기)
  *   node scripts/ui-audit.mjs --files    → 규칙별 위반이 많은 파일 상위 목록
@@ -20,6 +20,8 @@ const RULES = [
   { id: 'plain-font', desc: 'text-xs·text-sm·text-base 등 (text-fluid-* 5단계 사용)', re: /\btext-(?:xs|sm|base|lg|xl|2xl|3xl)\b/g },
   { id: 'gray-palette', desc: 'gray-* 회색 (slate-* 로 통일)', re: /\b(?:text|bg|border|ring|divide|placeholder)-gray-\d{2,3}\b/g },
   { id: 'off-radius', desc: 'rounded·rounded-md·rounded-sm (lg·xl·2xl·full 만)', re: /\brounded(?:-md|-sm)?(?![\w-])/g },
+  { id: 'px-radius', desc: 'rounded-[Npx] 숫자 모서리 (lg·xl·2xl·full 만)', re: /\brounded(?:-[a-z]{1,2})?-\[\d+(?:\.\d+)?(?:px|rem)\]/g },
+  { id: 'native-dialog', desc: 'window.alert·window.confirm (toast·confirmDialog 사용)', re: /\bwindow\.(?:alert|confirm)\(/g },
   { id: 'accent-bg', desc: '파랑·보라·초록 등 진한 바탕 버튼색', re: /\bbg-(?:blue|indigo|violet|purple|sky|emerald|teal|green|cyan|fuchsia|pink|rose)-(?:5|6|7|8|9)00\b/g },
 ];
 
@@ -63,7 +65,7 @@ if (args.has('--files')) {
 
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : {};
 let failed = false;
-console.log('UI 규칙 v2 위반 개수 (기준값 → 지금)');
+console.log('디자인 규칙 v3 위반 개수 (기준값 → 지금)');
 for (const rule of RULES) {
   const base = baseline[rule.id];
   const now = counts[rule.id];
