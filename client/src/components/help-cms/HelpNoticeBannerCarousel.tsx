@@ -43,7 +43,6 @@ function Thumb({ url, size }: { url: string | null | undefined; size: 'pc' | 'mo
         src={url}
         alt=""
         aria-hidden="true"
-        loading="lazy"
         className={`${box} block shrink-0 object-cover ${size === 'pc' ? 'shadow-[0_6px_16px_rgba(15,23,42,0.12)]' : ''}`}
       />
     );
