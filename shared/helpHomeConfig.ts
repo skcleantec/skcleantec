@@ -11,6 +11,8 @@ export const HELP_HOME_AUDIENCE = [
   {
     id: 'newcomer',
     title: '처음 왔어요',
+    desc: '가입하고 첫 접수까지',
+    art: '/help/art/role-new.svg',
     cta: '30분 만에 시작하기',
     tone: 'navy' as const,
     kind: 'article' as const,
@@ -21,6 +23,8 @@ export const HELP_HOME_AUDIENCE = [
   {
     id: 'admin',
     title: '사장님·관리자·마케터',
+    desc: '접수, 배정, 결제, 정산',
+    art: '/help/art/role-admin.svg',
     cta: '접수부터 정산까지',
     tone: 'navy' as const,
     kind: 'scrollCategories' as const,
@@ -29,6 +33,8 @@ export const HELP_HOME_AUDIENCE = [
   {
     id: 'team',
     title: '팀장님',
+    desc: '현장 사진, 잔금, 가계부',
+    art: '/help/art/role-team.svg',
     cta: '팀장 앱 쓰는 법',
     tone: 'green' as const,
     kind: 'section' as const,
@@ -36,6 +42,28 @@ export const HELP_HOME_AUDIENCE = [
     mobileOrder: 1,
   },
 ] as const;
+
+/** 분류 slug → 그림·연한 바탕·진한 글자 색 (없는 slug면 그림 없이) */
+export const HELP_CATEGORY_ART: Record<string, { icon: string; tint: string; ink: string }> = {
+  start: { icon: '/help/art/cat-start.svg', tint: '#e0f2fe', ink: '#0369a1' },
+  intake: { icon: '/help/art/cat-intake.svg', tint: '#e0e7ff', ink: '#4338ca' },
+  'order-form': { icon: '/help/art/cat-order-form.svg', tint: '#ede9fe', ink: '#6d28d9' },
+  schedule: { icon: '/help/art/cat-schedule.svg', tint: '#ccfbf1', ink: '#0f766e' },
+  'team-app': { icon: '/help/art/cat-team-app.svg', tint: '#d1fae5', ink: '#047857' },
+  customer: { icon: '/help/art/cat-customer.svg', tint: '#fef3c7', ink: '#b45309' },
+  payment: { icon: '/help/art/cat-payment.svg', tint: '#ffe4e6', ink: '#be123c' },
+  settle: { icon: '/help/art/cat-settle.svg', tint: '#ffedd5', ink: '#c2410c' },
+  account: { icon: '/help/art/cat-account.svg', tint: '#e2e8f0', ink: '#334155' },
+  faq: { icon: '/help/art/cat-faq.svg', tint: '#cffafe', ink: '#0e7490' },
+};
+
+export const HELP_ART = {
+  hero: '/help/art/hero.svg',
+  contact: '/help/art/contact.svg',
+  roleNew: '/help/art/role-new.svg',
+  roleAdmin: '/help/art/role-admin.svg',
+  roleTeam: '/help/art/role-team.svg',
+} as const;
 
 export const HELP_HOME_POPULAR_ARTICLES = [
   { slug: 'intake-new', section: 'intake' },

@@ -19,6 +19,8 @@ import {
   helpUsageSectionPath,
 } from './helpCmsUsagePaths';
 import { usePublicSeoMeta } from '../../hooks/usePublicSeoMeta';
+import { HELP_CATEGORY_ART } from '@shared/helpHomeConfig';
+import { HelpCategoryIcon } from './HelpCategoryIcon';
 
 type Props = {
   tabGroup: 'usage' | 'notice';
@@ -192,6 +194,7 @@ export function HelpCmsBrowseView({
   });
 
   const activeCategory = categories.find((c) => c.slug === sectionSlug) ?? null;
+  const sectionArt = sectionSlug ? HELP_CATEGORY_ART[sectionSlug] : undefined;
 
   const goInquiryPrefill = useCallback(
     (prefill: { title: string; bodyHint: string }) => {
@@ -388,39 +391,65 @@ export function HelpCmsBrowseView({
           </HelpCmsArticleCard>
         )
       ) : (
-        <HelpCmsArticleCard>
+        <div className="flex flex-col gap-3.5">
           <HelpCmsUsageBreadcrumb
             sectionSlug={sectionSlug}
             sectionLabel={activeCategory?.label ?? sectionSlug}
+            compact
           />
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-bold text-slate-900">{activeCategory?.label}</h2>
+          <section
+            className={`flex items-center gap-4 rounded-2xl p-[18px] lg:gap-5 lg:px-7 lg:py-6 ${
+              sectionArt ? '' : 'bg-white shadow-card'
+            }`}
+            style={sectionArt ? { backgroundColor: sectionArt.tint } : undefined}
+          >
+            <HelpCategoryIcon slug={sectionSlug} className="h-14 w-14 lg:h-[72px] lg:w-[72px]" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <h1 className="text-fluid-xl font-bold text-slate-900">{activeCategory?.label}</h1>
+              <p className="text-fluid-sm text-slate-600">
+                {[activeCategory?.description, `글 ${activeCategory?.articleCount ?? articles.length}개`]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+            </div>
+          </section>
+          <div className="rounded-2xl bg-white px-2 py-1.5 shadow-card">
+            {loading ? (
+              <p className="p-3.5 text-fluid-sm text-slate-500">불러오는 중…</p>
+            ) : articles.length === 0 ? (
+              <p className="p-3.5 text-fluid-sm text-slate-500">게시된 글이 없습니다.</p>
+            ) : (
+              <ul>
+                {articles.map((row, idx) => (
+                  <li key={row.id}>
+                    <Link
+                      to={helpUsageArticlePath(sectionSlug!, row.slug)}
+                      className="flex w-full items-center gap-3.5 rounded-xl p-3.5 text-left hover:bg-slate-50"
+                    >
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-fluid-xs font-bold ${
+                          sectionArt ? '' : 'bg-slate-100 text-slate-700'
+                        }`}
+                        style={sectionArt ? { backgroundColor: sectionArt.tint, color: sectionArt.ink } : undefined}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="text-fluid-sm font-bold text-slate-900">{row.title}</span>
+                        {row.excerpt ? (
+                          <span className="line-clamp-2 text-fluid-xs text-slate-600">{row.excerpt}</span>
+                        ) : null}
+                      </span>
+                      <span className="shrink-0 text-slate-400" aria-hidden>
+                        ›
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {activeCategory?.description ? (
-            <p className="mt-1 text-fluid-sm text-slate-600">{activeCategory.description}</p>
-          ) : null}
-          {loading ? (
-            <p className="mt-6 text-fluid-sm text-slate-500">불러오는 중…</p>
-          ) : articles.length === 0 ? (
-            <p className="mt-6 text-fluid-sm text-slate-500">게시된 글이 없습니다.</p>
-          ) : (
-            <ul className="mt-4 divide-y divide-slate-100">
-              {articles.map((row) => (
-                <li key={row.id}>
-                  <Link
-                    to={helpUsageArticlePath(sectionSlug!, row.slug)}
-                    className="flex w-full flex-col gap-1 rounded-lg px-2 py-3 text-left hover:bg-sky-50"
-                  >
-                    <span className="text-[16px] font-bold text-slate-900">{row.title}</span>
-                    {row.excerpt ? (
-                      <span className="line-clamp-2 text-[13px] text-slate-500">{row.excerpt}</span>
-                    ) : null}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </HelpCmsArticleCard>
+        </div>
       )}
     </HelpCmsArticleReadLayout>
   );

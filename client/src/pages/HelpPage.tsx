@@ -199,7 +199,7 @@ export function HelpPage() {
   const isCmsUsageView = mainCategory === 'usage' && !isHtmlGuideView;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-canvas">
       <header
         id="help-app-header"
         className="sticky top-0 z-30 border-b border-slate-700 bg-slate-900 shadow-lg"
@@ -209,9 +209,15 @@ export function HelpPage() {
             <div className="flex items-center gap-3">
               <Link
                 to={helpUsageHomePath()}
-                className="text-lg font-bold tracking-tight text-white transition-opacity hover:opacity-90 sm:text-xl"
+                className="flex items-center gap-2 text-fluid-base font-bold tracking-tight text-white transition-opacity hover:opacity-90"
               >
-                📚 청소비서 도움말
+                <img
+                  src="/help/art/cat-start.svg"
+                  alt=""
+                  aria-hidden="true"
+                  className="block h-6 w-6 sm:h-[26px] sm:w-[26px]"
+                />
+                청소비서 도움말
               </Link>
             </div>
 

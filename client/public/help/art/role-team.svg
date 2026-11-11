@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" font-family="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', sans-serif" width="160" height="104" viewBox="0 0 160 104">
+ <rect x="52" y="4" width="56" height="98" rx="12" fill="#064e3b"/>
+ <rect x="56" y="8" width="48" height="90" rx="9" fill="#fff"/>
+ <rect x="72" y="12" width="16" height="4" rx="2" fill="#064e3b"/>
+ <rect x="61" y="22" width="38" height="24" rx="6" fill="#ecfdf5"/><rect x="61" y="22" width="3" height="24" rx="1.5" fill="#10b981"/>
+ <rect x="67" y="28" width="24" height="4" rx="2" fill="#047857"/><rect x="67" y="36" width="18" height="4" rx="2" fill="#a7f3d0"/>
+ <rect x="61" y="51" width="38" height="18" rx="6" fill="#f1f5f9"/><rect x="67" y="58" width="20" height="4" rx="2" fill="#cbd5e1"/>
+ <rect x="61" y="76" width="18" height="12" rx="4" fill="#0284c7"/><rect x="81" y="76" width="18" height="12" rx="4" fill="#047857"/>
+ <path d="M126 30c-7 0-12 5-12 11.5 0 8.5 12 20.5 12 20.5s12-12 12-20.5C138 35 133 30 126 30z" fill="#10b981" stroke="#047857" stroke-width="2"/>
+ <circle cx="126" cy="41.5" r="4.5" fill="#fff"/>
+ <circle cx="32" cy="70" r="14" fill="#fff" stroke="#a7f3d0" stroke-width="2"/><path d="M26 70l4 4 8-8.5" fill="none" stroke="#047857" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

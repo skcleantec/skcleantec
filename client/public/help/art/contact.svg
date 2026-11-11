@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" font-family="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', sans-serif" width="250" height="130" viewBox="0 0 250 130">
+ <defs><filter id="sh3" x="-20%" y="-30%" width="140%" height="180%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#020617" flood-opacity=".4"/></filter></defs>
+ <g filter="url(#sh3)">
+  <path d="M10 22a12 12 0 0 1 12-12h146a12 12 0 0 1 12 12v18a12 12 0 0 1-12 12H36l-14 10V51.5A12 12 0 0 1 10 40z" fill="#fee500"/>
+  <text x="95" y="36" font-size="12.5" font-weight="700" fill="#3c1e1e" text-anchor="middle">발주서 링크는 어디서 보내요?</text>
+  <path d="M240 68a12 12 0 0 0-12-12H96a12 12 0 0 0-12 12v18a12 12 0 0 0 12 12h110l14 10V97.5A12 12 0 0 0 240 86z" fill="#fff"/>
+  <text x="162" y="82" font-size="12.5" font-weight="700" fill="#0f172a" text-anchor="middle">바로 알려 드릴게요!</text>
+ </g>
+</svg>

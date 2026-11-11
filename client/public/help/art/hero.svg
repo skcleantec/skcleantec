@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" font-family="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', sans-serif" width="580" height="390" viewBox="-10 -6 580 390">
+<defs>
+ <filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#020617" flood-opacity=".45"/></filter>
+ <filter id="sh2" x="-30%" y="-40%" width="160%" height="200%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#020617" flood-opacity=".35"/></filter>
+ <radialGradient id="glow"><stop offset="0" stop-color="#38bdf8" stop-opacity=".30"/><stop offset=".7" stop-color="#38bdf8" stop-opacity=".06"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
+</defs>
+<ellipse cx="290" cy="190" rx="280" ry="190" fill="url(#glow)"/>
+<!-- 브라우저 -->
+<g filter="url(#sh)">
+ <rect x="18" y="52" width="400" height="262" rx="14" fill="#fff"/>
+ <path d="M18 66a14 14 0 0 1 14-14h372a14 14 0 0 1 14 14v12H18z" fill="#f1f5f9"/>
+ <circle cx="36" cy="66" r="4" fill="#fca5a5"/><circle cx="50" cy="66" r="4" fill="#fcd34d"/><circle cx="64" cy="66" r="4" fill="#86efac"/>
+ <rect x="150" y="59" width="136" height="14" rx="7" fill="#fff"/><text x="218" y="70" font-size="9" fill="#94a3b8" text-anchor="middle">cbiseo.com</text>
+ <!-- 왼쪽 메뉴 -->
+ <rect x="18" y="78" width="74" height="236" fill="#0f172a"/>
+ <path d="M18 300v0" />
+ <rect x="30" y="92" width="44" height="7" rx="3.5" fill="#38bdf8"/>
+ <g fill="#334155"><rect x="30" y="112" width="48" height="6" rx="3"/><rect x="30" y="126" width="38" height="6" rx="3"/><rect x="30" y="140" width="44" height="6" rx="3"/><rect x="30" y="154" width="34" height="6" rx="3"/><rect x="30" y="168" width="42" height="6" rx="3"/></g>
+ <rect x="26" y="122" width="58" height="14" rx="5" fill="#1e293b"/><rect x="30" y="126" width="38" height="6" rx="3" fill="#7dd3fc"/>
+ <!-- 머리 -->
+ <text x="106" y="100" font-size="12" font-weight="700" fill="#0f172a">스케쥴</text>
+ <rect x="330" y="88" width="74" height="18" rx="6" fill="#0f172a"/><text x="367" y="100.5" font-size="8.5" fill="#fff" text-anchor="middle" font-weight="700">AI 팀장배정</text>
+ <!-- 달력 -->
+ <g font-size="8" fill="#94a3b8" text-anchor="middle"><text x="125" y="122">일</text><text x="170" y="122">월</text><text x="215" y="122">화</text><text x="260" y="122">수</text><text x="305" y="122">목</text><text x="350" y="122">금</text><text x="392" y="122">토</text></g>
+ <g fill="#f8fafc" stroke="#eef2f7">
+  <rect x="104" y="128" width="42" height="44" rx="6"/><rect x="149" y="128" width="42" height="44" rx="6"/><rect x="194" y="128" width="42" height="44" rx="6"/><rect x="239" y="128" width="42" height="44" rx="6"/><rect x="284" y="128" width="42" height="44" rx="6"/><rect x="329" y="128" width="42" height="44" rx="6"/><rect x="374" y="128" width="36" height="44" rx="6"/>
+  <rect x="104" y="176" width="42" height="44" rx="6"/><rect x="149" y="176" width="42" height="44" rx="6"/><rect x="239" y="176" width="42" height="44" rx="6"/><rect x="284" y="176" width="42" height="44" rx="6"/><rect x="329" y="176" width="42" height="44" rx="6"/><rect x="374" y="176" width="36" height="44" rx="6"/>
+  <rect x="104" y="224" width="42" height="44" rx="6"/><rect x="149" y="224" width="42" height="44" rx="6"/><rect x="194" y="224" width="42" height="44" rx="6"/><rect x="239" y="224" width="42" height="44" rx="6"/><rect x="284" y="224" width="42" height="44" rx="6"/><rect x="329" y="224" width="42" height="44" rx="6"/><rect x="374" y="224" width="36" height="44" rx="6"/>
+  <rect x="104" y="272" width="42" height="30" rx="6"/><rect x="149" y="272" width="42" height="30" rx="6"/><rect x="194" y="272" width="42" height="30" rx="6"/><rect x="239" y="272" width="42" height="30" rx="6"/>
+ </g>
+ <rect x="194" y="176" width="42" height="44" rx="6" fill="#fff" stroke="#0f172a" stroke-width="1.6"/>
+ <g>
+  <rect x="153" y="140" width="34" height="7" rx="3.5" fill="#bae6fd"/><rect x="153" y="151" width="24" height="7" rx="3.5" fill="#a7f3d0"/>
+  <rect x="243" y="140" width="34" height="7" rx="3.5" fill="#fde68a"/>
+  <rect x="288" y="140" width="34" height="7" rx="3.5" fill="#bae6fd"/><rect x="288" y="151" width="30" height="7" rx="3.5" fill="#ddd6fe"/>
+  <rect x="333" y="140" width="28" height="7" rx="3.5" fill="#a7f3d0"/>
+  <rect x="198" y="188" width="34" height="7" rx="3.5" fill="#38bdf8"/><rect x="198" y="199" width="34" height="7" rx="3.5" fill="#34d399"/><rect x="198" y="210" width="22" height="6" rx="3" fill="#fbbf24"/>
+  <rect x="153" y="188" width="30" height="7" rx="3.5" fill="#fecdd3"/>
+  <rect x="288" y="188" width="34" height="7" rx="3.5" fill="#bae6fd"/>
+  <rect x="333" y="188" width="34" height="7" rx="3.5" fill="#ddd6fe"/><rect x="333" y="199" width="26" height="7" rx="3.5" fill="#a7f3d0"/>
+  <rect x="108" y="236" width="30" height="7" rx="3.5" fill="#a7f3d0"/>
+  <rect x="198" y="236" width="34" height="7" rx="3.5" fill="#fde68a"/><rect x="198" y="247" width="24" height="7" rx="3.5" fill="#bae6fd"/>
+  <rect x="288" y="236" width="34" height="7" rx="3.5" fill="#bae6fd"/>
+  <rect x="378" y="236" width="28" height="7" rx="3.5" fill="#fecdd3"/>
+  <rect x="153" y="284" width="30" height="7" rx="3.5" fill="#ddd6fe"/>
+ </g>
+ <g font-size="7.5" fill="#64748b" font-weight="700"><text x="109" y="137">1</text><text x="154" y="137">2</text><text x="199" y="137">3</text><text x="244" y="137">4</text><text x="289" y="137">5</text><text x="334" y="137">6</text><text x="378" y="137" fill="#0284c7">7</text>
+ <text x="109" y="185">8</text><text x="154" y="185">9</text><text x="199" y="185" fill="#0f172a">10</text><text x="244" y="185">11</text><text x="289" y="185">12</text><text x="334" y="185">13</text><text x="378" y="185" fill="#0284c7">14</text></g>
+</g>
+<!-- 휴대폰 -->
+<g filter="url(#sh)">
+ <rect x="386" y="96" width="150" height="256" rx="26" fill="#1e293b"/>
+ <rect x="393" y="103" width="136" height="242" rx="20" fill="#f8fafc"/>
+ <rect x="440" y="109" width="42" height="9" rx="4.5" fill="#1e293b"/>
+ <text x="405" y="138" font-size="10.5" font-weight="700" fill="#0f172a">오늘 일정</text>
+ <rect x="490" y="128" width="28" height="13" rx="6.5" fill="#d1fae5"/><text x="504" y="137.5" font-size="7.5" font-weight="700" fill="#047857" text-anchor="middle">3건</text>
+ <g>
+  <rect x="402" y="148" width="118" height="50" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="402" y="148" width="4" height="50" rx="2" fill="#0284c7"/>
+  <text x="413" y="164" font-size="8" font-weight="700" fill="#0284c7">오전 9:00 · 입주청소</text>
+  <rect x="413" y="171" width="70" height="6" rx="3" fill="#cbd5e1"/><rect x="413" y="182" width="48" height="6" rx="3" fill="#e2e8f0"/>
+  <rect x="402" y="206" width="118" height="50" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="402" y="206" width="4" height="50" rx="2" fill="#10b981"/>
+  <text x="413" y="222" font-size="8" font-weight="700" fill="#047857">오후 2:00 · 이사청소</text>
+  <rect x="413" y="229" width="64" height="6" rx="3" fill="#cbd5e1"/><rect x="413" y="240" width="52" height="6" rx="3" fill="#e2e8f0"/>
+  <rect x="402" y="264" width="118" height="26" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="413" y="274" width="58" height="6" rx="3" fill="#e2e8f0"/>
+ </g>
+ <rect x="402" y="300" width="56" height="26" rx="9" fill="#0284c7"/><text x="430" y="317" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">청소 전 촬영</text>
+ <rect x="464" y="300" width="56" height="26" rx="9" fill="#047857"/><text x="492" y="317" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">카드결제</text>
+</g>
+<!-- 알림 -->
+<g filter="url(#sh2)">
+ <rect x="236" y="14" width="192" height="40" rx="20" fill="#fff"/>
+ <circle cx="257" cy="34" r="11" fill="#d1fae5"/><path d="M252 34l3.5 3.5 6.5-7" fill="none" stroke="#047857" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+ <text x="275" y="38.5" font-size="12" font-weight="700" fill="#0f172a">현금영수증 발행 완료</text>
+</g>
+<g filter="url(#sh2)">
+ <rect x="0" y="276" width="150" height="40" rx="20" fill="#fff"/>
+ <circle cx="21" cy="296" r="11" fill="#e0f2fe"/><circle cx="21" cy="293" r="4" fill="#0284c7"/><path d="M14.5 302.5a7 7 0 0 1 13 0" fill="#0284c7"/>
+ <text x="39" y="300.5" font-size="12" font-weight="700" fill="#0f172a">팀장 배정 완료</text>
+</g>
+</svg>
