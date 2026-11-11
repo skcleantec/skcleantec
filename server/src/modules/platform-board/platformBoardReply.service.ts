@@ -5,16 +5,38 @@ import { prisma } from '../../lib/prisma.js';
 import { getPlatformBoardPost, toReplyDto, type PlatformBoardReplyDto } from './platformBoard.service.js';
 import { parseBoardSettings, parseReplyInboxStored, sanitizeBoardBodyHtml } from './platformBoard.helpers.js';
 import { notifyInquiryStaff, sendInquiryAnswerToCustomer } from './platformBoard.email.service.js';
-import { htmlToPlainText, plainTextToSafeHtml } from './platformBoardInquiry.helpers.js';
+import { MAX_NOTIFY_EMAILS, htmlToPlainText, plainTextToSafeHtml } from './platformBoardInquiry.helpers.js';
+import { parsePaymentNotifyEmailsFromSettings } from '../../lib/platformBillingNotifyEmails.js';
 
 type BoardMailContext = { notifyEmails: string[]; replyInboxEmail: string | null };
 
+/**
+ * 문의 알림 받는 사람 = 운영 알림 메일(입금 확인 요청 받는 메일) + 게시판에 따로 넣은 메일.
+ * 답장 메일의 발신자가 이 안에 있으면 담당자 답변으로 본다.
+ */
+export async function resolveInquiryStaffEmails(boardSettings: unknown): Promise<string[]> {
+  const billing = await prisma.platformBillingSettings.findFirst({
+    select: { dunningPaymentNotifyEmails: true, dunningPaymentNotifyEmail: true },
+  });
+  const ops = billing ? parsePaymentNotifyEmailsFromSettings(billing) : [];
+  const extra = parseBoardSettings(boardSettings).notifyEmails;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const e of [...ops, ...extra]) {
+    const key = e.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(e.trim());
+    if (out.length >= MAX_NOTIFY_EMAILS) break;
+  }
+  return out;
+}
+
 async function boardMailContext(boardId: string): Promise<BoardMailContext> {
   const board = await prisma.platformBoard.findUnique({ where: { id: boardId }, select: { settings: true } });
-  const settings = parseBoardSettings(board?.settings);
   const inbox = parseReplyInboxStored(board?.settings);
   return {
-    notifyEmails: settings.notifyEmails,
+    notifyEmails: await resolveInquiryStaffEmails(board?.settings),
     replyInboxEmail: inbox?.passEnc ? inbox.email : null,
   };
 }
