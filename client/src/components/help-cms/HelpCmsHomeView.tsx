@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { HelpCmsArticleListItem, HelpCmsCategory } from '../../api/platformHelpCms';
-import { fetchPublicCustomerBoardPosts } from '../../api/publicCustomerBoard';
-import type { PlatformBoardPost } from '../../api/platformCustomerBoard';
 import {
   HELP_ART,
   HELP_HOME_AUDIENCE,
@@ -12,6 +10,7 @@ import {
   HELP_HOME_TROUBLE_ARTICLES,
 } from '@shared/helpHomeConfig';
 import { HelpCategoryIcon } from './HelpCategoryIcon';
+import { HelpNoticeBannerCarousel } from './HelpNoticeBannerCarousel';
 
 const AUDIENCE_ORDER_CLASS: Record<string, string> = {
   newcomer: 'order-2 lg:order-1',
@@ -46,22 +45,6 @@ export function HelpCmsHomeView({
   onGoNotice,
 }: Props) {
   const [q, setQ] = useState('');
-  const [notices, setNotices] = useState<PlatformBoardPost[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchPublicCustomerBoardPosts({ boardSlug: 'notice', limit: 2, offset: 0 })
-      .then((r) => {
-        if (!cancelled) setNotices(r.items);
-      })
-      .catch(() => {
-        if (!cancelled) setNotices([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const popularRows = useMemo(() => {
     const flat = Object.values(articlesBySlug).flat();
     return HELP_HOME_POPULAR_ARTICLES.map((cfg) => {
@@ -162,6 +145,8 @@ export function HelpCmsHomeView({
           })}
         </div>
       </section>
+
+      <HelpNoticeBannerCarousel onGoNotice={onGoNotice} />
 
       <section>
         <h3 className={SECTION_TITLE}>자주 찾는 글</h3>
@@ -284,50 +269,6 @@ export function HelpCmsHomeView({
         </div>
       </section>
 
-      <section>
-        <div className="mb-3 flex items-baseline justify-between gap-2">
-          <h3 className="text-fluid-base font-bold text-slate-900">새 기능·공지</h3>
-          <button
-            type="button"
-            onClick={onGoNotice}
-            className="text-fluid-sm font-bold text-sky-700 hover:underline"
-          >
-            전체 보기 →
-          </button>
-        </div>
-        {notices.length === 0 ? (
-          <p className="text-fluid-sm text-slate-500">등록된 공지가 없습니다.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {notices.map((n) => (
-              <button
-                key={n.id}
-                type="button"
-                onClick={onGoNotice}
-                className={`${CARD} flex w-full items-center gap-3.5 p-3.5 text-left hover:bg-slate-50`}
-              >
-                {n.thumbnailUrl ? (
-                  <img
-                    src={n.thumbnailUrl}
-                    alt=""
-                    className="h-14 w-14 shrink-0 rounded-xl object-cover lg:h-16 lg:w-16"
-                  />
-                ) : (
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-fluid-sm font-bold text-slate-500 lg:h-16 lg:w-16">
-                    N
-                  </span>
-                )}
-                <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="line-clamp-1 text-fluid-sm font-bold text-slate-900">{n.title}</span>
-                  {n.excerpt ? (
-                    <span className="line-clamp-1 text-fluid-2xs text-slate-500">{n.excerpt}</span>
-                  ) : null}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }
