@@ -1407,6 +1407,7 @@ export function AdminLayout() {
           <div className="hidden md:flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
             <a
               href="/help"
+              data-soft-nav="true"
               onClick={(e) => {
                 e.preventDefault();
                 openHelpCenterWindow('/help');
