@@ -88,10 +88,10 @@ function TaxKindSwitch({ kind, locked, disabled, onChange, defaultKind }: {
         }))}
       />
       {defaultKind && !differs ? (
-        <span className="text-[12px] text-[#64748B]">기본값</span>
+        <span className="text-fluid-2xs text-slate-500">기본값</span>
       ) : null}
       {defaultKind && differs ? (
-        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-orange-700">
+        <span className="inline-flex items-center gap-1 text-fluid-2xs font-medium text-orange-700">
           <span aria-hidden>⚠</span>
           기본은 {TAX_KIND_LABEL[defaultKind]}예요
         </span>
@@ -682,7 +682,7 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, pageLayout = false,
         tenantBuyers={adapterProp.mode === 'platform' ? tenantBuyers : undefined}
         onPickTenant={adapterProp.mode === 'platform' ? applyTenantBuyer : undefined}
       />
-      <span className="text-[12px] text-[#64748B]">발행하면 거래처가 자동 저장돼요</span>
+      <span className="text-fluid-2xs text-slate-500">발행하면 거래처가 자동 저장돼요</span>
     </div>
   );
 
@@ -747,16 +747,16 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, pageLayout = false,
 
       {/* ── Desktop ── */}
       <section className="hidden flex-col gap-3 lg:flex">
-        <div className="flex flex-wrap items-center gap-2.5 rounded-[14px] bg-white py-2 pl-3.5 pr-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="flex flex-wrap items-center gap-2.5 rounded-xl bg-white py-2 pl-3.5 pr-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           {(!picked || unmatched) && !adapterProp.supplierLocked && linkedBrands.length > 1 ? (
             <>
-              <select className="h-[30px] rounded-[8px] border-0 bg-[#F4F6FA] px-2 text-[12px] text-slate-800" aria-label="브랜드" value={brandId} onChange={(event) => setBrandId(event.target.value)}>
+              <select className="h-[30px] rounded-lg border-0 bg-[#F4F6FA] px-2 text-fluid-2xs text-slate-800" aria-label="브랜드" value={brandId} onChange={(event) => setBrandId(event.target.value)}>
                 {linkedBrands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
               <span className="h-[18px] w-px bg-slate-200" aria-hidden />
             </>
           ) : null}
-          <span className="text-[12px] text-[#64748B]">공급받는자</span>
+          <span className="text-fluid-2xs text-slate-500">공급받는자</span>
           <TaxInvoiceBuyerPicker
             api={adapterProp.buyerApi}
             onPick={applyBuyerRow}
@@ -765,14 +765,14 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, pageLayout = false,
           />
           {adapterProp.allowInquiry ? (
             picked && !unmatched ? (
-              <span className="inline-flex h-[30px] items-center gap-1.5 rounded-[8px] bg-[#F4F6FA] pl-2.5 pr-1 text-[12px] text-slate-800">
+              <span className="inline-flex h-[30px] items-center gap-1.5 rounded-lg bg-[#F4F6FA] pl-2.5 pr-1 text-fluid-2xs text-slate-800">
                 접수 {picked.displayName || picked.customerName}
-                <button type="button" className="h-6 rounded-md px-1.5 text-[11px] text-[#475569] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" onClick={chooseOtherCustomer}>다른 고객</button>
+                <button type="button" className="h-6 rounded-lg px-1.5 text-fluid-2xs text-slate-600 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" onClick={chooseOtherCustomer}>다른 고객</button>
               </span>
             ) : (
               <form className="relative" onSubmit={(event) => { event.preventDefault(); void search(); }}>
                 <input
-                  className="h-[30px] w-[200px] rounded-[8px] border-0 bg-[#F4F6FA] px-2.5 text-[12px] text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  className="h-[30px] w-[200px] rounded-lg border-0 bg-[#F4F6FA] px-2.5 text-fluid-2xs text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
                   placeholder="접수 연결 · 고객명·전화"
                   aria-label="접수 연결"
                   value={query}
@@ -782,43 +782,43 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, pageLayout = false,
             )
           ) : null}
           <span className="h-[18px] w-px bg-slate-200" aria-hidden />
-          <span className="text-[12px] text-[#64748B]">과세 구분</span>
+          <span className="text-fluid-2xs text-slate-500">과세 구분</span>
           <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} onChange={setTaxKind} defaultKind={defaultsReady ? defaults.taxKind : undefined} />
-          <span className="ml-auto text-[12px] text-[#64748B]">발행하면 거래처가 자동 저장돼요</span>
+          <span className="ml-auto text-fluid-2xs text-slate-500">발행하면 거래처가 자동 저장돼요</span>
         </div>
         {adapterProp.allowInquiry && hits.length > 0 && !picked ? (
-          <ul className="max-w-[640px] overflow-hidden rounded-[12px] bg-white shadow-[0_4px_24px_rgba(17,24,39,.08)]">
+          <ul className="max-w-[640px] overflow-hidden rounded-xl bg-white shadow-[0_4px_24px_rgba(17,24,39,.08)]">
             {hits.map((hit) => (
               <li key={hit.id}>
-                <button type="button" className="w-full px-4 py-2 text-left text-[13px] hover:bg-slate-50" onClick={() => { applyHit(hit); setHits([]); }}>{hit.displayName || hit.customerName} · {hit.inquiryNumber} · {hit.brandName}{hit.buyer ? ' · 견적서 있음' : ''}</button>
+                <button type="button" className="w-full px-4 py-2 text-left text-fluid-xs hover:bg-slate-50" onClick={() => { applyHit(hit); setHits([]); }}>{hit.displayName || hit.customerName} · {hit.inquiryNumber} · {hit.brandName}{hit.buyer ? ' · 견적서 있음' : ''}</button>
               </li>
             ))}
           </ul>
         ) : null}
         <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
         <TaxInvoicePaper {...form} />
-        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-4 rounded-[16px] bg-white py-2.5 pl-5 pr-3 shadow-[0_-1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.12)]">
-          <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${TAX_KIND_TONE[activeKind]}`}>
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-4 rounded-xl bg-white py-2.5 pl-5 pr-3 shadow-[0_-1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.12)]">
+          <span className={`rounded-lg px-2 py-0.5 text-fluid-2xs font-semibold ${TAX_KIND_TONE[activeKind]}`}>
             {TAX_KIND_LABEL[activeKind]} · {purpose === 2 ? '청구' : '영수'}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[13px] text-slate-700">{buyer.corpName.trim() || '공급받는자 미입력'} · 품목 {lines.length}줄</p>
-            <p className="truncate text-[11px] text-[#64748B]">{taxNtsIssueNotice(brand)}</p>
+            <p className="truncate text-fluid-xs text-slate-700">{buyer.corpName.trim() || '공급받는자 미입력'} · 품목 {lines.length}줄</p>
+            <p className="truncate text-fluid-2xs text-slate-500">{taxNtsIssueNotice(brand)}</p>
           </div>
-          <span className={`ml-auto text-[12px] ${short ? 'font-medium text-red-700' : 'text-[#64748B]'}`}>
+          <span className={`ml-auto text-fluid-2xs ${short ? 'font-medium text-red-700' : 'text-slate-500'}`}>
             {adapterProp.useWallet
               ? (short ? '잔액이 부족합니다' : `발행 비용 ${TAXINVOICE_UNIT_PRICE_KRW.toLocaleString('ko-KR')}원`)
               : walletLine}
           </span>
-          <span className="text-[13px] text-slate-600">합계 <b className="num text-[18px] text-slate-900">{won(supplySum + taxSum)}원</b></span>
-          {taxDiffers ? <span className="text-[12px] font-medium text-orange-700">기본과 다름</span> : null}
+          <span className="text-fluid-xs text-slate-600">합계 <b className="num text-fluid-base text-slate-900">{won(supplySum + taxSum)}원</b></span>
+          {taxDiffers ? <span className="text-fluid-2xs font-medium text-orange-700">기본과 다름</span> : null}
           {preview ? (
-            <button type="button" className="h-[42px] rounded-[12px] px-4 text-[13px] font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" onClick={() => setPreview(false)}>다시 수정</button>
+            <button type="button" className="h-[42px] rounded-xl px-4 text-fluid-xs font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" onClick={() => setPreview(false)}>다시 수정</button>
           ) : null}
           {adapterProp.useWallet && short ? (
-            <button type="button" className="h-[42px] min-w-[150px] rounded-[12px] bg-slate-900 px-5 text-[14px] font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => openCharge()}>충전하기</button>
+            <button type="button" className="h-[42px] min-w-[150px] rounded-xl bg-slate-900 px-5 text-fluid-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => openCharge()}>충전하기</button>
           ) : (
-            <button type="button" className="h-[42px] min-w-[150px] rounded-[12px] bg-slate-900 px-5 text-[14px] font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
+            <button type="button" className="h-[42px] min-w-[150px] rounded-xl bg-slate-900 px-5 text-fluid-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
               {issueButtonLabel('desktop')}
             </button>
           )}
@@ -827,21 +827,21 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, pageLayout = false,
 
       {/* ── Mobile ── */}
       <section className="flex flex-col lg:hidden">
-        <header className={pageLayout ? 'hidden' : 'flex items-center gap-3 bg-white px-4 py-3 ring-1 ring-gray-200'}>
+        <header className={pageLayout ? 'hidden' : 'flex items-center gap-3 bg-white px-4 py-3 ring-1 ring-slate-200'}>
           {embedded ? null : <Link to="/admin/inquiries/receipts/taxinvoice" className="flex h-9 w-9 items-center justify-center rounded-full text-lg" aria-label="뒤로">‹</Link>}
-          <h2 className="flex-1 text-[15px] font-bold">세금계산서 발행</h2>
-          {brand?.certValid ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">인증서 ✓</span> : null}
+          <h2 className="flex-1 text-fluid-sm font-bold">세금계산서 발행</h2>
+          {brand?.certValid ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-fluid-2xs font-medium text-emerald-800">인증서 ✓</span> : null}
         </header>
         <div className="bg-white px-3 pb-2.5">
           <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} mobile onChange={setTaxKind} defaultKind={defaultsReady ? defaults.taxKind : undefined} />
-          <p className="mt-1.5 text-[11px] text-gray-500">면세를 고르면 「전자계산서」로 바뀌고 세액 칸이 사라집니다.</p>
+          <p className="mt-1.5 text-fluid-2xs text-slate-500">면세를 고르면 「전자계산서」로 바뀌고 세액 칸이 사라집니다.</p>
         </div>
         <div className="space-y-3 px-3 py-3 pb-28">
           {adapterProp.allowInquiry ? (
-            <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-gray-200">
-              <p className="text-[11px] text-gray-500">접수 연결</p>
+            <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-200">
+              <p className="text-fluid-2xs text-slate-500">접수 연결</p>
               <form className="mt-1 flex gap-2" onSubmit={(event) => { event.preventDefault(); if (!(picked && !unmatched)) void search(); }}>
-                <input className="h-11 min-w-0 flex-1 rounded-lg bg-gray-50 px-3 text-sm ring-1 ring-gray-200" placeholder="고객명·전화번호" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
+                <input className="h-11 min-w-0 flex-1 rounded-lg bg-slate-50 px-3 text-sm ring-1 ring-slate-200" placeholder="고객명·전화번호" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
                 {picked && !unmatched ? (
                   <Button size="sm" variant="secondary" onClick={chooseOtherCustomer}>다른 고객</Button>
                 ) : null}
@@ -857,39 +857,39 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, pageLayout = false,
           ) : null}
           <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
           {(!picked || unmatched) && !adapterProp.supplierLocked ? (
-            <label className="block text-[11px] text-gray-500">
+            <label className="block text-fluid-2xs text-slate-500">
               브랜드
-              <select className="mt-1 h-11 w-full rounded-lg bg-white px-3 text-sm ring-1 ring-gray-200" aria-label="브랜드" value={brandId} onChange={(event) => setBrandId(event.target.value)}>
+              <select className="mt-1 h-11 w-full rounded-lg bg-white px-3 text-sm ring-1 ring-slate-200" aria-label="브랜드" value={brandId} onChange={(event) => setBrandId(event.target.value)}>
                 {linkedBrands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
           ) : null}
           {/* buyer picker row (mobile) */}
-          <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-gray-200">
+          <div className="rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-200">
             {buyerPickerRow}
           </div>
           <TaxInvoiceMobileCards {...form} />
-          <button type="button" className="w-full rounded-xl bg-white py-3 text-[13px] font-medium text-gray-700 ring-1 ring-gray-200" onClick={() => setPaperOpen((open) => !open)}>
+          <button type="button" className="w-full rounded-xl bg-white py-3 text-fluid-xs font-medium text-slate-700 ring-1 ring-slate-200" onClick={() => setPaperOpen((open) => !open)}>
             {paperOpen ? '실제 양식 접기' : '실제 양식으로 보기'}
           </button>
           {paperOpen ? <TaxInvoicePaper {...form} readOnly idPrefix="sheet" /> : null}
         </div>
-        <footer className="fixed inset-x-0 bottom-0 z-[80] border-t border-gray-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 lg:hidden">
-          <p className="mb-1 text-center text-[11px] font-medium text-slate-800">{taxNtsIssueNotice(brand)}</p>
+        <footer className="fixed inset-x-0 bottom-0 z-[80] border-t border-slate-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 lg:hidden">
+          <p className="mb-1 text-center text-fluid-2xs font-medium text-slate-800">{taxNtsIssueNotice(brand)}</p>
           {adapterProp.useWallet ? (
-            <p className={`num mb-2 text-center text-[11px] ${short ? 'text-red-700' : 'text-gray-500'}`}>
+            <p className={`num mb-2 text-center text-fluid-2xs ${short ? 'text-red-700' : 'text-slate-500'}`}>
               {short ? '잔액이 부족합니다' : `발행 비용 150원 · 잔액 ${summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}`}
             </p>
           ) : (
-            <p className="num mb-2 text-center text-[11px] text-gray-500">{walletLine}</p>
+            <p className="num mb-2 text-center text-fluid-2xs text-slate-500">{walletLine}</p>
           )}
           {preview && !short ? (
-            <button type="button" className="mb-2 h-11 w-full rounded-xl text-sm font-medium text-gray-700 ring-1 ring-gray-300" onClick={() => setPreview(false)}>다시 수정</button>
+            <button type="button" className="mb-2 h-11 w-full rounded-xl text-sm font-medium text-slate-700 ring-1 ring-slate-300" onClick={() => setPreview(false)}>다시 수정</button>
           ) : null}
           {adapterProp.useWallet && short ? (
-            <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white" onClick={() => openCharge()}>충전하기</button>
+            <button type="button" className="h-12 w-full rounded-xl bg-slate-900 text-fluid-sm font-semibold text-white" onClick={() => openCharge()}>충전하기</button>
           ) : (
-            <button type="button" className="h-12 w-full rounded-xl bg-gray-900 text-[15px] font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
+            <button type="button" className="h-12 w-full rounded-xl bg-slate-900 text-fluid-sm font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
               {issueButtonLabel('mobile')}
             </button>
           )}

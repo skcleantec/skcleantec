@@ -278,7 +278,7 @@ export function AdminTaxInvoiceListPage() {
         <>
           {/* PC: 필터 + 표 한 카드 */}
           <div className="hidden lg:block">
-            <div className="rounded-[20px] border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]">
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]">
               <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
                 <Button size="sm" variant="quiet" className="underline" onClick={() => void refreshStates()}>상태 새로고침</Button>
                 <SegmentedControl ariaLabel="발행 기간" value={preset} onChange={(next) => patch({ datePreset: next, page: '1' })} options={PRESETS.map((item) => ({ value: item.value, label: item.label }))} />
@@ -316,13 +316,13 @@ export function AdminTaxInvoiceListPage() {
                 <table className="w-full table-fixed border-collapse text-fluid-xs">
                   <thead className="bg-[#F8FAFC]">
                     <tr>
-                      <th className="w-[104px] px-3 py-2.5 text-center text-[12px] font-medium text-slate-600">발급일시</th>
-                      <th className="px-3 py-2.5 text-left text-[12px] font-medium text-slate-600">공급받는자</th>
-                      <th className={`w-[120px] px-3 py-2.5 text-left text-[12px] font-medium text-slate-600 ${XL_HIDE}`}>품목</th>
-                      <th className="w-[64px] px-2 py-2.5 text-center text-[12px] font-medium text-slate-600">구분</th>
-                      <th className="w-[108px] px-3 py-2.5 text-right text-[12px] font-medium text-slate-600">공급가액</th>
-                      <th className="w-[92px] px-3 py-2.5 text-right text-[12px] font-medium text-slate-600">세액</th>
-                      <th className="w-[140px] px-2 py-2.5 text-center text-[12px] font-medium text-slate-600">상태</th>
+                      <th className="w-[104px] px-3 py-2.5 text-center text-fluid-2xs font-medium text-slate-600">발급일시</th>
+                      <th className="px-3 py-2.5 text-left text-fluid-2xs font-medium text-slate-600">공급받는자</th>
+                      <th className={`w-[120px] px-3 py-2.5 text-left text-fluid-2xs font-medium text-slate-600 ${XL_HIDE}`}>품목</th>
+                      <th className="w-[64px] px-2 py-2.5 text-center text-fluid-2xs font-medium text-slate-600">구분</th>
+                      <th className="w-[108px] px-3 py-2.5 text-right text-fluid-2xs font-medium text-slate-600">공급가액</th>
+                      <th className="w-[92px] px-3 py-2.5 text-right text-fluid-2xs font-medium text-slate-600">세액</th>
+                      <th className="w-[140px] px-2 py-2.5 text-center text-fluid-2xs font-medium text-slate-600">상태</th>
                       <th className="w-[120px] px-2 py-2.5" />
                     </tr>
                   </thead>
@@ -331,26 +331,26 @@ export function AdminTaxInvoiceListPage() {
                       const row = slot.row;
                       return (
                         <tr key={row.id} data-tax-row={row.id} className={`border-t border-[#F1F5F9] ${highlightId === row.id ? 'bg-[#F0FDF4]' : 'hover:bg-slate-50'}`}>
-                          <td className={`relative whitespace-nowrap px-3 py-3 text-center text-[12px] tabular-nums text-slate-600 ${slot.nested ? 'pl-5' : ''}`}>
+                          <td className={`relative whitespace-nowrap px-3 py-3 text-center text-fluid-2xs tabular-nums text-slate-600 ${slot.nested ? 'pl-5' : ''}`}>
                             <ConnectRail connect={slot.connect} />
                             {formatReceiptIssuedAt(row.createdAt)}
                           </td>
                           <td className="px-3 py-3">
-                            <p className="truncate text-[13px] font-semibold text-slate-900" title={row.buyerCorpName}>{row.buyerCorpName || '—'}</p>
-                            <p className="truncate text-[11px] text-slate-500">
+                            <p className="truncate text-fluid-xs font-semibold text-slate-900" title={row.buyerCorpName}>{row.buyerCorpName || '—'}</p>
+                            <p className="truncate text-fluid-2xs text-slate-500">
                               <span className="tabular-nums">{row.buyerCorpNum || '—'}</span>
                               {row.inquiryNumber ? (
                                 <> · <Link className="underline-offset-2 hover:underline" to={`/admin/inquiries?q=${encodeURIComponent(row.inquiryNumber)}`}>{row.customerName} {row.inquiryNumber}</Link></>
                               ) : null}
                             </p>
                           </td>
-                          <td className={`truncate px-3 py-3 text-[12px] text-slate-600 ${XL_HIDE}`} title={row.itemName || '청소 서비스'}>{row.itemName || '청소 서비스'}</td>
+                          <td className={`truncate px-3 py-3 text-fluid-2xs text-slate-600 ${XL_HIDE}`} title={row.itemName || '청소 서비스'}>{row.itemName || '청소 서비스'}</td>
                           <td className="px-2 py-3 text-center"><TaxKindBadge kind={row.taxKind} /></td>
                           <td className="px-3 py-3 text-right">
-                            <p className={`whitespace-nowrap text-[13px] font-medium tabular-nums ${signedWonTextClass(row.supplyAmount)}`}>{formatSignedWon(row.supplyAmount)}</p>
+                            <p className={`whitespace-nowrap text-fluid-xs font-medium tabular-nums ${signedWonTextClass(row.supplyAmount)}`}>{formatSignedWon(row.supplyAmount)}</p>
                             <ReceiptExtraNote amount={row.extraAmountWon} reason={row.extraReason} />
                           </td>
-                          <td className="whitespace-nowrap px-3 py-3 text-right text-[12px] tabular-nums text-slate-600">{row.taxKind === 'exempt' ? '—' : formatSignedWon(row.taxAmount)}</td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right text-fluid-2xs tabular-nums text-slate-600">{row.taxKind === 'exempt' ? '—' : formatSignedWon(row.taxAmount)}</td>
                           <td className="px-2 py-3 text-center">
                             <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
                               <TaxStatus row={row} />
@@ -457,7 +457,7 @@ function TaxKindBadge({ kind }: { kind?: TaxInvoiceRow['taxKind'] }) {
     : kind === 'zero'
       ? 'bg-[#F5F3FF] text-[#6D28D9]'
       : 'bg-[#EFF6FF] text-[#1D4ED8]';
-  return <span className={`mr-1 inline-flex rounded-full px-1.5 py-0 text-[11px] font-medium ${tone}`}>{label}</span>;
+  return <span className={`mr-1 inline-flex rounded-full px-1.5 py-0 text-fluid-2xs font-medium ${tone}`}>{label}</span>;
 }
 
 function TaxStatus({ row }: { row: TaxInvoiceRow }) {
