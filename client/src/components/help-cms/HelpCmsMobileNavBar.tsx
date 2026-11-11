@@ -83,7 +83,10 @@ export function HelpCmsMobileNavBar({
           ← 홈
         </Link>
         <div className="min-w-0 flex-1 px-1 text-center">
-          <p className="truncate text-[13px] font-semibold text-slate-900">{sectionLabel}</p>
+          <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-slate-900">
+            <HelpCategoryIcon slug={sidebarItems.find((c) => c.active)?.slug} size={20} />
+            <span className="truncate">{sectionLabel}</span>
+          </p>
           {articleTitle ? (
             <p className="truncate text-[11px] leading-tight text-slate-500">{articleTitle}</p>
           ) : null}
