@@ -61,6 +61,29 @@ async function bootstrap() {
       console.error('[startup] 유입경로 기본 옵션 확인 실패:', e)
     );
   });
+  /**
+   * 배포 교체 시 Railway가 이전 컨테이너에 SIGTERM을 보낸다.
+   * 처리기가 없으면 신호로 죽어 비정상 종료(코드 143)로 보고되고 「Deploy Crashed」 메일이 온다.
+   * 새 요청을 막고 진행 중 요청을 마친 뒤 정상 종료(0)한다. 최대 8초 기다린다.
+   */
+  let shuttingDown = false;
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[서버] ${signal} 받음 — 정상 종료 중`);
+    const force = setTimeout(() => process.exit(0), 8000);
+    force.unref();
+    server.close(() => {
+      void prisma
+        .$disconnect()
+        .catch(() => undefined)
+        .finally(() => process.exit(0));
+    });
+    server.closeIdleConnections?.();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       console.error(

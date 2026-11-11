@@ -64,4 +64,4 @@ COPY --from=build /app/server/scripts ./scripts
 COPY --from=build /app/server/assets/sk-team-leader-training ./assets/sk-team-leader-training
 COPY --from=build /app/client/dist /app/client/dist
 
-CMD ["npm", "run", "start"]
+CMD ["node", "dist/index.js"]
