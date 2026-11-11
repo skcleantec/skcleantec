@@ -32,7 +32,6 @@ import {
   lineTax,
   shownUnitPrice,
   patchLine,
-  TAX_KIND_HINT,
   won,
   writeDateOptions,
   type TaxFormLine,
@@ -53,6 +52,12 @@ const TAX_KIND_DOT: Record<TaxKind, string> = {
   taxable: 'bg-[#3B82F6]',
   zero: 'bg-[#8B5CF6]',
   exempt: 'bg-[#10B981]',
+};
+
+const TAX_KIND_TONE: Record<TaxKind, string> = {
+  taxable: 'bg-[#EFF6FF] text-[#1D4ED8]',
+  zero: 'bg-[#F5F3FF] text-[#6D28D9]',
+  exempt: 'bg-[#ECFDF5] text-[#047857]',
 };
 
 function TaxKindSwitch({ kind, locked, disabled, onChange, defaultKind }: {
@@ -109,7 +114,7 @@ function supplierParty(supplier: TaxInvoiceSupplier | null | undefined): TaxPart
   };
 }
 
-export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: adapterProp = tenantTaxInvoiceAdapter }: { embedded?: boolean; onDone?: (issueId: string) => void; adapter?: TaxInvoiceIssuerAdapter } = {}) {
+export function TaxInvoiceIssueWorkspace({ embedded = false, pageLayout = false, onDone, onDirtyChange, adapter: adapterProp = tenantTaxInvoiceAdapter }: { embedded?: boolean; /** 발행 전용 페이지: 바깥 머리줄이 뒤로가기·제목을 맡는다 */ pageLayout?: boolean; onDone?: (issueId: string) => void; onDirtyChange?: (dirty: boolean) => void; adapter?: TaxInvoiceIssuerAdapter } = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inquiryId = searchParams.get('inquiryId') || '';
@@ -342,6 +347,13 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
     }, 1000);
     return () => window.clearTimeout(handle);
   }, [brandId, draftOffer, buyer, lines, activeKind, purpose, remark, cash, chkBill, note, credit, writeDate]);
+
+  const dirtyRef = useRef(onDirtyChange);
+  dirtyRef.current = onDirtyChange;
+  useEffect(() => {
+    const dirty = Boolean(buyer.corpNum || buyer.corpName || buyer.ceoName) || lines.some((line) => Boolean(line.unitPrice || line.supply));
+    dirtyRef.current?.(dirty);
+  }, [buyer, lines]);
 
   const supplySum = lines.reduce((sum, line) => sum + lineSupply(line), 0);
   const taxSum = lines.reduce((sum, line) => sum + lineTax(line, activeKind), 0);
@@ -675,7 +687,13 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
   );
 
   return (
-    <div ref={scrollRef} className="taxinvoice-issue modal-form-scroll-surface -mx-4 flex max-h-[calc(100dvh-3.5rem)] min-h-0 flex-col gap-5 overflow-y-auto bg-[#eef0f3] px-4 py-6" onFocusCapture={onFieldFocus}>
+    <div
+      ref={scrollRef}
+      className={pageLayout
+        ? `taxinvoice-issue ${preview ? '' : 'tt-editing'} flex min-w-0 flex-col gap-3`
+        : `taxinvoice-issue ${preview ? '' : 'tt-editing'} modal-form-scroll-surface -mx-4 flex max-h-[calc(100dvh-3.5rem)] min-h-0 flex-col gap-5 overflow-y-auto bg-[#eef0f3] px-4 py-6`}
+      onFocusCapture={onFieldFocus}
+    >
       {supplierBlocked ? (
         <p className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
           {supplierGap}
@@ -728,86 +746,88 @@ export function TaxInvoiceIssueWorkspace({ embedded = false, onDone, adapter: ad
       {error ? <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800 ring-1 ring-red-200">{error}</p> : null}
 
       {/* ── Desktop ── */}
-      <section className="hidden flex-col gap-4 lg:flex">
-        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200">
-          {embedded ? null : <Link to="/admin/inquiries/receipts/taxinvoice" className="text-sm text-gray-500 hover:text-gray-900">← 목록</Link>}
-          {adapterProp.allowInquiry ? (
+      <section className="hidden flex-col gap-3 lg:flex">
+        <div className="flex flex-wrap items-center gap-2.5 rounded-[14px] bg-white py-2 pl-3.5 pr-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          {(!picked || unmatched) && !adapterProp.supplierLocked && linkedBrands.length > 1 ? (
             <>
-              <span className="h-4 w-px bg-gray-200" />
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="shrink-0 text-xs font-medium text-gray-500">접수 연결</span>
-                <form className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-200" onSubmit={(event) => { event.preventDefault(); if (!(picked && !unmatched)) void search(); }}>
-                  <svg className="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                  <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="고객명·전화번호로 접수 찾기 (선택)" aria-label="고객 검색" readOnly={Boolean(picked && !unmatched)} value={picked && !unmatched ? (picked.displayName || picked.customerName) : query} onChange={(event) => { if (!(picked && !unmatched)) setQuery(event.target.value); }} />
-                </form>
-                {picked && !unmatched ? (
-                  <Button size="sm" variant="secondary" onClick={chooseOtherCustomer}>다른 고객</Button>
-                ) : null}
-              </div>
+              <select className="h-[30px] rounded-[8px] border-0 bg-[#F4F6FA] px-2 text-[12px] text-slate-800" aria-label="브랜드" value={brandId} onChange={(event) => setBrandId(event.target.value)}>
+                {linkedBrands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <span className="h-[18px] w-px bg-slate-200" aria-hidden />
             </>
           ) : null}
-          <span className="h-4 w-px bg-gray-200" />
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="text-xs font-medium text-gray-500">과세 구분</span>
-            <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} onChange={setTaxKind} defaultKind={defaultsReady ? defaults.taxKind : undefined} />
-          </div>
-          {brand?.certValid && brand.certExpireDate ? (
-            <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">● 인증서 {brand.certExpireDate.slice(0, 10)}</span>
+          <span className="text-[12px] text-[#64748B]">공급받는자</span>
+          <TaxInvoiceBuyerPicker
+            api={adapterProp.buyerApi}
+            onPick={applyBuyerRow}
+            tenantBuyers={adapterProp.mode === 'platform' ? tenantBuyers : undefined}
+            onPickTenant={adapterProp.mode === 'platform' ? applyTenantBuyer : undefined}
+          />
+          {adapterProp.allowInquiry ? (
+            picked && !unmatched ? (
+              <span className="inline-flex h-[30px] items-center gap-1.5 rounded-[8px] bg-[#F4F6FA] pl-2.5 pr-1 text-[12px] text-slate-800">
+                접수 {picked.displayName || picked.customerName}
+                <button type="button" className="h-6 rounded-md px-1.5 text-[11px] text-[#475569] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" onClick={chooseOtherCustomer}>다른 고객</button>
+              </span>
+            ) : (
+              <form className="relative" onSubmit={(event) => { event.preventDefault(); void search(); }}>
+                <input
+                  className="h-[30px] w-[200px] rounded-[8px] border-0 bg-[#F4F6FA] px-2.5 text-[12px] text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  placeholder="접수 연결 · 고객명·전화"
+                  aria-label="접수 연결"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </form>
+            )
           ) : null}
+          <span className="h-[18px] w-px bg-slate-200" aria-hidden />
+          <span className="text-[12px] text-[#64748B]">과세 구분</span>
+          <TaxKindSwitch kind={activeKind} locked={exemptLocked} disabled={preview} onChange={setTaxKind} defaultKind={defaultsReady ? defaults.taxKind : undefined} />
+          <span className="ml-auto text-[12px] text-[#64748B]">발행하면 거래처가 자동 저장돼요</span>
         </div>
-        <p id="tt-hint" className="-mt-2 px-1 text-xs text-gray-500">{TAX_KIND_HINT[activeKind]}</p>
         {adapterProp.allowInquiry && hits.length > 0 && !picked ? (
-          <ul className="rounded-xl bg-white ring-1 ring-gray-200">
+          <ul className="max-w-[640px] overflow-hidden rounded-[12px] bg-white shadow-[0_4px_24px_rgba(17,24,39,.08)]">
             {hits.map((hit) => (
               <li key={hit.id}>
-                <button type="button" className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50" onClick={() => { applyHit(hit); setHits([]); }}>{hit.displayName || hit.customerName} · {hit.inquiryNumber} · {hit.brandName}{hit.buyer ? ' · 견적서 있음' : ''}</button>
+                <button type="button" className="w-full px-4 py-2 text-left text-[13px] hover:bg-slate-50" onClick={() => { applyHit(hit); setHits([]); }}>{hit.displayName || hit.customerName} · {hit.inquiryNumber} · {hit.brandName}{hit.buyer ? ' · 견적서 있음' : ''}</button>
               </li>
             ))}
           </ul>
         ) : null}
         <ReceiptOverAmountFields overWon={over} reason={extraReason} onReason={setExtraReason} />
-        {(!picked || unmatched) && !adapterProp.supplierLocked ? (
-          <label className="flex max-w-xs items-center gap-2 text-xs text-gray-500">
-            브랜드
-            <select className="h-9 flex-1 rounded-lg bg-white px-2 text-sm ring-1 ring-gray-200" aria-label="브랜드" value={brandId} onChange={(event) => setBrandId(event.target.value)}>
-              {linkedBrands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          </label>
-        ) : null}
-        {/* buyer picker row */}
-        {buyerPickerRow}
         <TaxInvoicePaper {...form} />
-        <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/95 px-5 py-3 shadow-[0_-4px_16px_rgba(17,24,39,.06)] ring-1 ring-gray-200 backdrop-blur">
-          <p className="w-full text-xs font-medium text-slate-800">{taxNtsIssueNotice(brand)}</p>
-          <div className="flex items-center gap-4 text-sm">
-            <div><span className="text-gray-500">합계</span> <b className="num ml-1 text-lg">{won(supplySum + taxSum)}원</b></div>
-            <span className="h-5 w-px bg-gray-200" />
-            {adapterProp.useWallet ? (
-              <div className={short ? 'text-red-700' : 'text-gray-500'}>
-                {short ? walletLine : <>발행 비용 <b className="num text-gray-900">150원</b> · 지갑 <span className="num">{summary ? `${won(summary.balanceKrw)}원 → ${won(summary.balanceKrw - TAXINVOICE_UNIT_PRICE_KRW)}원` : '…'}</span></>}
-              </div>
-            ) : (
-              <span className="text-gray-500">{walletLine}</span>
-            )}
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-4 rounded-[16px] bg-white py-2.5 pl-5 pr-3 shadow-[0_-1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.12)]">
+          <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${TAX_KIND_TONE[activeKind]}`}>
+            {TAX_KIND_LABEL[activeKind]} · {purpose === 2 ? '청구' : '영수'}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[13px] text-slate-700">{buyer.corpName.trim() || '공급받는자 미입력'} · 품목 {lines.length}줄</p>
+            <p className="truncate text-[11px] text-[#64748B]">{taxNtsIssueNotice(brand)}</p>
           </div>
-          <div className="flex items-center gap-2">
-            {preview ? (
-              <button type="button" className="h-11 rounded-lg px-4 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50" onClick={() => setPreview(false)}>다시 수정</button>
-            ) : null}
-            {adapterProp.useWallet && short ? (
-              <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black" onClick={() => openCharge()}>충전하기</button>
-            ) : (
-              <button type="button" className="h-11 rounded-lg bg-gray-900 px-6 text-sm font-semibold text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
-                {issueButtonLabel('desktop')}
-              </button>
-            )}
-          </div>
+          <span className={`ml-auto text-[12px] ${short ? 'font-medium text-red-700' : 'text-[#64748B]'}`}>
+            {adapterProp.useWallet
+              ? (short ? '잔액이 부족합니다' : `발행 비용 ${TAXINVOICE_UNIT_PRICE_KRW.toLocaleString('ko-KR')}원`)
+              : walletLine}
+          </span>
+          <span className="text-[13px] text-slate-600">합계 <b className="num text-[18px] text-slate-900">{won(supplySum + taxSum)}원</b></span>
+          {taxDiffers ? <span className="text-[12px] font-medium text-orange-700">기본과 다름</span> : null}
+          {preview ? (
+            <button type="button" className="h-[42px] rounded-[12px] px-4 text-[13px] font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" onClick={() => setPreview(false)}>다시 수정</button>
+          ) : null}
+          {adapterProp.useWallet && short ? (
+            <button type="button" className="h-[42px] min-w-[150px] rounded-[12px] bg-slate-900 px-5 text-[14px] font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" onClick={() => openCharge()}>충전하기</button>
+          ) : (
+            <button type="button" className="h-[42px] min-w-[150px] rounded-[12px] bg-slate-900 px-5 text-[14px] font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" disabled={saving || Boolean(blocked) || supplierBlocked} onClick={issue}>
+              {issueButtonLabel('desktop')}
+            </button>
+          )}
         </div>
       </section>
 
       {/* ── Mobile ── */}
       <section className="flex flex-col lg:hidden">
-        <header className="flex items-center gap-3 bg-white px-4 py-3 ring-1 ring-gray-200">
+        <header className={pageLayout ? 'hidden' : 'flex items-center gap-3 bg-white px-4 py-3 ring-1 ring-gray-200'}>
           {embedded ? null : <Link to="/admin/inquiries/receipts/taxinvoice" className="flex h-9 w-9 items-center justify-center rounded-full text-lg" aria-label="뒤로">‹</Link>}
           <h2 className="flex-1 text-[15px] font-bold">세금계산서 발행</h2>
           {brand?.certValid ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">인증서 ✓</span> : null}
