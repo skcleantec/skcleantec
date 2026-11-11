@@ -9,6 +9,12 @@ import {
   type PlatformBoardPostStatus,
 } from '../../api/platformCustomerBoard';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import {
+  PlatformInquiryMailSettings,
+  initialInquiryMailSettings,
+  inquiryMailSettingsPatch,
+  type InquiryMailSettingsValue,
+} from '../../components/platform/PlatformInquiryMailSettings';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
 
 function formatWhen(iso: string): string {
@@ -50,6 +56,7 @@ export function PlatformCustomerBoardsPage() {
   const [notifyEmail, setNotifyEmail] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [composeHelpText, setComposeHelpText] = useState('');
+  const [mailSettings, setMailSettings] = useState<InquiryMailSettingsValue | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
 
   const activeBoard = useMemo(
@@ -65,6 +72,7 @@ export function PlatformCustomerBoardsPage() {
       setNotifyEmail(cur.settings.notifyEmail ?? '');
       setContactEmail(cur.settings.contactEmail ?? '');
       setComposeHelpText(cur.settings.composeHelpText ?? '');
+      setMailSettings(cur.boardType === 'INQUIRY' ? initialInquiryMailSettings(cur) : null);
     }
   }, [boardSlug]);
 
@@ -114,11 +122,18 @@ export function PlatformCustomerBoardsPage() {
     setSavingSettings(true);
     try {
       await updatePlatformCustomerBoard(activeBoard.slug, {
-        settings: {
-          notifyEmail,
-          contactEmail,
-          composeHelpText: composeHelpText.trim() || null,
-        },
+        settings:
+          activeBoard.boardType === 'INQUIRY' && mailSettings
+            ? {
+                ...inquiryMailSettingsPatch(mailSettings),
+                contactEmail,
+                composeHelpText: composeHelpText.trim() || null,
+              }
+            : {
+                notifyEmail,
+                contactEmail,
+                composeHelpText: composeHelpText.trim() || null,
+              },
       });
       await loadBoards();
       setSettingsOpen(false);
@@ -184,14 +199,18 @@ export function PlatformCustomerBoardsPage() {
       {settingsOpen && activeBoard ? (
         <div className={`${CARD_SECTION} space-y-3`}>
           <h2 className="text-fluid-sm font-semibold text-slate-900">{activeBoard.label} 설정</h2>
-          <label className="block space-y-1">
-            <span className="text-fluid-2xs text-slate-600">알림 수신 이메일</span>
-            <input
-              value={notifyEmail}
-              onChange={(e) => setNotifyEmail(e.target.value)}
-              className={INPUT_BASE}
-            />
-          </label>
+          {activeBoard.boardType === 'INQUIRY' && mailSettings ? (
+            <PlatformInquiryMailSettings board={activeBoard} value={mailSettings} onChange={setMailSettings} />
+          ) : (
+            <label className="block space-y-1">
+              <span className="text-fluid-2xs text-slate-600">알림 수신 이메일</span>
+              <input
+                value={notifyEmail}
+                onChange={(e) => setNotifyEmail(e.target.value)}
+                className={INPUT_BASE}
+              />
+            </label>
+          )}
           <label className="block space-y-1">
             <span className="text-fluid-2xs text-slate-600">고객센터 연락 이메일</span>
             <input

@@ -15,6 +15,7 @@ import {
   type PlatformBoardPostStatus,
 } from '../../api/platformCustomerBoard';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
+import { PlatformInquiryReplyPanel } from '../../components/platform/PlatformInquiryReplyPanel';
 
 export function PlatformCustomerBoardPostEditPage() {
   const { boardSlug, id } = useParams<{ boardSlug?: string; id?: string }>();
@@ -305,6 +306,11 @@ export function PlatformCustomerBoardPostEditPage() {
           </button>
         ) : null}
       </div>
+      {boardType === 'INQUIRY' && !isNew && post ? (
+        <div className={CARD_SECTION}>
+          <PlatformInquiryReplyPanel post={post} onChanged={() => setStatus('ANSWERED')} />
+        </div>
+      ) : null}
     </div>
   );
 }

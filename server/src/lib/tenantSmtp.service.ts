@@ -332,6 +332,9 @@ export async function sendMailWithTransport(
       html: input.html,
       text: input.text,
       attachments: input.attachments,
+      messageId: input.messageId,
+      inReplyTo: input.inReplyTo,
+      references: input.references,
     });
     return { messageId: typeof info.messageId === 'string' ? info.messageId : undefined };
   } catch (e) {

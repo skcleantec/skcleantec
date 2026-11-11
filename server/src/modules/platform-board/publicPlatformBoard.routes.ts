@@ -10,10 +10,10 @@ import {
   getPublicBoardSettings,
   listPublicBoardPosts,
 } from './platformBoard.service.js';
-import { notifyPlatformInquiryPostByEmail } from './platformBoard.email.service.js';
-import { parseBoardSettings, mapBoardError } from './platformBoard.helpers.js';
+import { mapBoardError } from './platformBoard.helpers.js';
+import { notifyNewInquiry } from './platformBoardReply.service.js';
+import { INQUIRY_FIELD_MESSAGES, InquiryValidationError } from './platformBoardInquiry.helpers.js';
 import { uploadPlatformBoardImageBuffer } from './platformBoard.upload.js';
-import { getPlatformBoardBySlug } from './platformBoard.service.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -91,6 +91,9 @@ router.post('/boards/:slug/posts', async (req, res) => {
     categoryId?: string;
     authorName?: string;
     authorEmail?: string;
+    authorPhone?: string;
+    privacyConsent?: unknown;
+    consentVersion?: unknown;
     title?: string;
     bodyHtml?: string;
     isSecret?: boolean;
@@ -107,11 +110,14 @@ router.post('/boards/:slug/posts', async (req, res) => {
       if (!authorEmail) authorEmail = auth.email;
     }
 
-    const post = await createPublicInquiryPost({
+    const created = await createPublicInquiryPost({
       boardSlug: String(req.params.slug ?? ''),
       categoryId: String(body.categoryId ?? ''),
       authorName,
       authorEmail,
+      authorPhone: String(body.authorPhone ?? ''),
+      privacyConsent: body.privacyConsent,
+      consentVersion: body.consentVersion,
       title: String(body.title ?? ''),
       bodyHtml: String(body.bodyHtml ?? ''),
       isSecret: body.isSecret === true,
@@ -119,26 +125,25 @@ router.post('/boards/:slug/posts', async (req, res) => {
       tenantId,
     });
 
-    const board = await getPlatformBoardBySlug(String(req.params.slug ?? ''));
-    const settings = parseBoardSettings(board?.settings);
     let emailSent = false;
-    let emailSkipReason: string | undefined;
-    if (settings.notifyEmail) {
-      try {
-        const mail = await notifyPlatformInquiryPostByEmail(settings.notifyEmail, post);
-        emailSent = mail.sent;
-        emailSkipReason = mail.reason;
-      } catch (err) {
-        console.error('[platform-board] email notify failed', err);
-        emailSkipReason = 'SEND_FAILED';
-      }
+    try {
+      const mail = await notifyNewInquiry(created.id);
+      emailSent = mail.sent > 0;
+    } catch (err) {
+      console.error('[platform-board] inquiry notify failed', err instanceof Error ? err.message : 'error');
     }
 
-    res.status(201).json({ post, emailSent, emailSkipReason });
+    // 공개 응답에는 휴대폰·문의 번호·동의 시각을 넣지 않는다
+    const { authorPhone: _p, replyToken: _t, privacyConsentAt: _c, ...post } = created;
+    res.status(201).json({ post, emailSent });
   } catch (e) {
+    if (e instanceof InquiryValidationError) {
+      res.status(400).json({ error: INQUIRY_FIELD_MESSAGES[e.field], code: 'VALIDATION', field: e.field });
+      return;
+    }
     const msg = e instanceof Error ? e.message : '';
     const mapped = mapBoardError(msg);
-    if (mapped.status >= 500) console.error('[platform-board] create post', e);
+    if (mapped.status >= 500) console.error('[platform-board] create post', e instanceof Error ? e.message : 'error');
     res.status(mapped.status).json({ error: mapped.error });
   }
 });

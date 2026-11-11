@@ -10,6 +10,10 @@ export type MailSendInput = {
   from?: string;
   replyTo?: string;
   attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
+  /** 메일 묶음(스레드)용 — `<id@host>` 형식 */
+  messageId?: string;
+  inReplyTo?: string;
+  references?: string | string[];
 };
 
 export function isSmtpConfigured(): boolean {

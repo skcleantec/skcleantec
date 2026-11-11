@@ -1598,6 +1598,36 @@ enum PlatformBoardPostStatus {
   HIDDEN
 }
 
+enum PlatformBoardReplyAuthorType {
+  ADMIN
+  CUSTOMER
+}
+
+enum PlatformBoardReplySource {
+  PLATFORM
+  EMAIL
+}
+
+/// 1:1 문의 답변·추가 질문 (플랫폼 작성 또는 메일 답장)
+model PlatformBoardReply {
+  id             String                       @id @default(uuid())
+  postId         String                       @map("post_id")
+  post           PlatformBoardPost            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorType     PlatformBoardReplyAuthorType @map("author_type")
+  source         PlatformBoardReplySource
+  bodyHtml       String                       @map("body_html") @db.Text
+  bodyText       String                       @map("body_text") @db.Text
+  fromEmail      String?                      @map("from_email") @db.VarChar(320)
+  platformUserId String?                      @map("platform_user_id")
+  messageId      String?                      @unique @map("message_id") @db.VarChar(512)
+  emailSentAt    DateTime?                    @map("email_sent_at")
+  emailError     String?                      @map("email_error") @db.VarChar(500)
+  createdAt      DateTime                     @default(now()) @map("created_at")
+
+  @@index([postId, createdAt])
+  @@map("platform_board_replies")
+}
+
 /// 플랫폼 고객센터 — 게시판 정의 (공지·문의 등, 플랫폼 전역)
 model PlatformBoard {
   id          String            @id @default(uuid())
@@ -1661,6 +1691,13 @@ model PlatformBoardPost {
   authorPlatformUser   PlatformUser?           @relation(fields: [authorPlatformUserId], references: [id], onDelete: SetNull)
   legacyHelpInquiryId  String?                 @unique @map("legacy_help_inquiry_id") @db.VarChar(64)
   legacyHelpCmsSlug    String?                 @unique @map("legacy_help_cms_slug") @db.VarChar(128)
+  /// 1:1 문의 — 휴대폰(공개 응답에 넣지 않음)
+  authorPhone           String?                 @map("author_phone") @db.VarChar(20)
+  privacyConsentAt      DateTime?               @map("privacy_consent_at")
+  privacyConsentVersion String?                 @map("privacy_consent_version") @db.VarChar(32)
+  /// 메일 제목 #번호 — 답장 메일을 문의에 붙일 때 쓴다
+  replyToken            String?                 @unique @map("reply_token") @db.VarChar(12)
+  replies               PlatformBoardReply[]
   createdAt            DateTime                @default(now()) @map("created_at")
   updatedAt            DateTime                @updatedAt @map("updated_at")
 

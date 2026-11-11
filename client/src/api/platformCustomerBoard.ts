@@ -4,11 +4,38 @@ import { getPlatformToken } from '../stores/platformAuth';
 export type PlatformBoardType = 'NOTICE' | 'INQUIRY';
 export type PlatformBoardPostStatus = 'OPEN' | 'ANSWERED' | 'HIDDEN';
 
+export type PlatformBoardReplyInbox = {
+  email: string;
+  host: string;
+  port: number;
+  passwordConfigured: boolean;
+  lastSyncAt: string | null;
+  lastError: string | null;
+};
+
 export type PlatformBoardSettings = {
   notifyEmail?: string;
+  notifyEmails?: string[];
   contactEmail?: string;
   composeHelpText?: string | null;
   maskAuthorNames?: boolean;
+  replyInbox?: PlatformBoardReplyInbox | null;
+};
+
+/** 저장할 때만 — 비밀번호는 비우면 그대로 둔다 */
+export type PlatformBoardSettingsPatch = Omit<PlatformBoardSettings, 'replyInbox'> & {
+  replyInbox?: { email: string; host?: string; port?: number; password?: string } | null;
+};
+
+export type PlatformBoardReply = {
+  id: string;
+  authorType: 'ADMIN' | 'CUSTOMER';
+  source: 'PLATFORM' | 'EMAIL';
+  bodyHtml: string;
+  createdAt: string;
+  fromEmail?: string | null;
+  emailSentAt?: string | null;
+  emailError?: string | null;
 };
 
 export type PlatformBoard = {
@@ -62,6 +89,11 @@ export type PlatformBoardPost = {
   thumbnailUrl?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** 플랫폼 화면에서만 */
+  authorPhone?: string | null;
+  replyToken?: string | null;
+  privacyConsentAt?: string | null;
+  replies?: PlatformBoardReply[];
 };
 
 function headers(json = true) {
@@ -91,7 +123,7 @@ export async function fetchPlatformCustomerBoard(slug: string): Promise<Platform
 export async function updatePlatformCustomerBoard(
   slug: string,
   body: Partial<Pick<PlatformBoard, 'label' | 'isPublished' | 'listPublic'>> & {
-    settings?: PlatformBoardSettings;
+    settings?: PlatformBoardSettingsPatch;
   },
 ): Promise<PlatformBoard> {
   const res = await fetch(`${API}/platform/customer-boards/boards/${encodeURIComponent(slug)}`, {
@@ -272,4 +304,59 @@ export async function uploadPlatformCustomerBoardFile(
 export async function uploadPlatformCustomerBoardImage(boardSlug: string, file: File): Promise<string> {
   const uploaded = await uploadPlatformCustomerBoardFile(boardSlug, file);
   return uploaded.url;
+}
+
+async function postJson<T>(url: string, body: unknown, fallback: string): Promise<T> {
+  const res = await fetch(url, { method: 'POST', headers: headers(), body: JSON.stringify(body ?? {}) });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? fallback);
+  }
+  return res.json() as Promise<T>;
+}
+
+/** 답변 쓰기 → 고객 메일 */
+export async function createPlatformCustomerBoardReply(postId: string, bodyHtml: string): Promise<PlatformBoardReply> {
+  const data = await postJson<{ reply: PlatformBoardReply }>(
+    `${API}/platform/customer-boards/posts/${encodeURIComponent(postId)}/replies`,
+    { bodyHtml },
+    '답변을 저장하지 못했어요.',
+  );
+  return data.reply;
+}
+
+export async function resendPlatformCustomerBoardReply(postId: string, replyId: string): Promise<PlatformBoardReply> {
+  const data = await postJson<{ reply: PlatformBoardReply }>(
+    `${API}/platform/customer-boards/posts/${encodeURIComponent(postId)}/replies/${encodeURIComponent(replyId)}/resend`,
+    {},
+    '메일을 다시 보내지 못했어요.',
+  );
+  return data.reply;
+}
+
+export async function testPlatformReplyInbox(
+  boardSlug: string,
+  body: { email: string; host?: string; port?: number; password?: string },
+): Promise<void> {
+  await postJson<{ ok: true }>(
+    `${API}/platform/customer-boards/boards/${encodeURIComponent(boardSlug)}/reply-inbox/test`,
+    body,
+    '연결을 확인하지 못했어요.',
+  );
+}
+
+export type ReplyInboxPullResult = {
+  scanned: number;
+  answers: number;
+  followups: number;
+  skipped: number;
+  unknownSenders: number;
+};
+
+export async function pullPlatformReplyInbox(boardSlug: string): Promise<ReplyInboxPullResult> {
+  return postJson<ReplyInboxPullResult>(
+    `${API}/platform/customer-boards/boards/${encodeURIComponent(boardSlug)}/reply-inbox/pull`,
+    {},
+    '메일을 가져오지 못했어요.',
+  );
 }

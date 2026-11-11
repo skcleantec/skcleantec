@@ -12,6 +12,17 @@ export type PublicCustomerBoardSettings = {
   categories: { id: string; slug: string; label: string; sortOrder: number }[];
 };
 
+/** 서버가 막은 칸 이름(field)을 같이 넘긴다 */
+export class InquirySubmitError extends Error {
+  readonly field: string | null;
+  constructor(message: string, field: string | null) {
+    super(message);
+    this.field = field;
+  }
+}
+
+export const INQUIRY_CONSENT_VERSION = 'inquiry-2026-11-11';
+
 function authHeaders(json = true): Record<string, string> {
   const h: Record<string, string> = {};
   if (json) h['Content-Type'] = 'application/json';
@@ -67,6 +78,9 @@ export async function createPublicCustomerInquiryPost(
     categoryId: string;
     authorName: string;
     authorEmail: string;
+    authorPhone: string;
+    privacyConsent: boolean;
+    consentVersion: string;
     title: string;
     bodyHtml: string;
     isSecret?: boolean;
@@ -78,8 +92,8 @@ export async function createPublicCustomerInquiryPost(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(err.error ?? '등록에 실패했습니다.');
+    const err = (await res.json().catch(() => ({}))) as { error?: string; field?: string };
+    throw new InquirySubmitError(err.error ?? '등록에 실패했습니다.', err.field ?? null);
   }
   return res.json() as Promise<{ post: PlatformBoardPost; emailSent: boolean }>;
 }
@@ -97,3 +111,4 @@ export async function uploadPublicCustomerBoardImage(boardSlug: string, file: Fi
 }
 
 export type { PlatformBoardPost, PlatformBoardPostStatus };
+export type { PlatformBoardReply } from './platformCustomerBoard';
