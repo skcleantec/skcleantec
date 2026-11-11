@@ -7,8 +7,20 @@ import {
   parseBoardSettings,
   sanitizeBoardBodyHtml,
   slugFromCategoryLabel,
+  parseReplyInboxStored,
   type PlatformBoardSettings,
 } from './platformBoard.helpers.js';
+import {
+  INQUIRY_PRIVACY_CONSENT_VERSION,
+  MAX_NOTIFY_EMAILS,
+  defaultImapHostForEmail,
+  generateReplyToken,
+  htmlToPlainText,
+  isValidEmail,
+  parseNotifyEmails,
+  validateInquiryInput,
+} from './platformBoardInquiry.helpers.js';
+import { encryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
 
 let legacyMigrationPromise: Promise<void> | null = null;
 
@@ -63,7 +75,53 @@ export type PlatformBoardPostDto = {
   thumbnailUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  /** 플랫폼 관리자 화면에서만 채운다(공개 응답에는 없음) */
+  authorPhone?: string | null;
+  replyToken?: string | null;
+  privacyConsentAt?: string | null;
+  /** 답변·추가 질문 — 글 상세에서만 */
+  replies?: PlatformBoardReplyDto[];
 };
+
+export type PlatformBoardReplyDto = {
+  id: string;
+  authorType: 'ADMIN' | 'CUSTOMER';
+  source: 'PLATFORM' | 'EMAIL';
+  bodyHtml: string;
+  createdAt: string;
+  /** 아래 셋은 플랫폼 관리자 화면에서만 */
+  fromEmail?: string | null;
+  emailSentAt?: string | null;
+  emailError?: string | null;
+};
+
+type ReplyRow = {
+  id: string;
+  authorType: 'ADMIN' | 'CUSTOMER';
+  source: 'PLATFORM' | 'EMAIL';
+  bodyHtml: string;
+  createdAt: Date;
+  fromEmail: string | null;
+  emailSentAt: Date | null;
+  emailError: string | null;
+};
+
+export function toReplyDto(row: ReplyRow, opts?: { includeContact?: boolean }): PlatformBoardReplyDto {
+  const base: PlatformBoardReplyDto = {
+    id: row.id,
+    authorType: row.authorType,
+    source: row.source,
+    bodyHtml: row.bodyHtml,
+    createdAt: row.createdAt.toISOString(),
+  };
+  if (!opts?.includeContact) return base;
+  return {
+    ...base,
+    fromEmail: row.fromEmail,
+    emailSentAt: row.emailSentAt?.toISOString() ?? null,
+    emailError: row.emailError,
+  };
+}
 
 function toBoardDto(row: {
   id: string;
@@ -137,8 +195,12 @@ function toPostDto(
     board: { slug: string; label: string; boardType: PlatformBoardType; settings: unknown };
     category: { slug: string; label: string } | null;
     tenant: { name: string } | null;
+    authorPhone?: string | null;
+    replyToken?: string | null;
+    privacyConsentAt?: Date | null;
+    replies?: ReplyRow[];
   },
-  opts?: { includeBody?: boolean; maskAuthor?: boolean },
+  opts?: { includeBody?: boolean; maskAuthor?: boolean; includeContact?: boolean; includeReplies?: boolean },
 ): PlatformBoardPostDto {
   const includeBody = opts?.includeBody !== false;
   const maskAuthor = opts?.maskAuthor === true;
@@ -172,8 +234,29 @@ function toPostDto(
     thumbnailUrl: row.thumbnailUrl ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    ...(opts?.includeContact
+      ? {
+          authorPhone: row.authorPhone ?? null,
+          replyToken: row.replyToken ?? null,
+          privacyConsentAt: row.privacyConsentAt?.toISOString() ?? null,
+        }
+      : {}),
+    ...(opts?.includeReplies && row.replies
+      ? { replies: row.replies.map((r) => toReplyDto(r, { includeContact: opts?.includeContact })) }
+      : {}),
   };
 }
+
+const replySelect = {
+  id: true,
+  authorType: true,
+  source: true,
+  bodyHtml: true,
+  createdAt: true,
+  fromEmail: true,
+  emailSentAt: true,
+  emailError: true,
+} as const;
 
 const postInclude = {
   board: { select: { slug: true, label: true, boardType: true, settings: true } },
@@ -198,19 +281,32 @@ async function runLegacyMigration(): Promise<void> {
 
   const inquirySettings = await prisma.helpInquirySettings.findUnique({ where: { id: 'default' } });
   if (inquirySettings) {
-    const settings = parseBoardSettings(inquiryBoard.settings);
-    await prisma.platformBoard.update({
-      where: { id: inquiryBoard.id },
-      data: {
-        settings: {
-          ...settings,
-          notifyEmail: inquirySettings.notifyEmail,
-          contactEmail: inquirySettings.contactEmail,
-          composeHelpText: inquirySettings.composeHelpText,
-          maskAuthorNames: true,
-        },
-      },
-    });
+    // 예전 문의 설정은 비어 있는 칸만 채운다 — 플랫폼에서 저장한 값(알림 메일·답장 메일함)을 덮어쓰지 않는다
+    const raw = rawSettingsObject(inquiryBoard.settings);
+    const next: Record<string, unknown> = { ...raw };
+    let changed = false;
+    if (raw.notifyEmail === undefined && raw.notifyEmails === undefined && inquirySettings.notifyEmail) {
+      next.notifyEmail = inquirySettings.notifyEmail;
+      changed = true;
+    }
+    if (raw.contactEmail === undefined && inquirySettings.contactEmail) {
+      next.contactEmail = inquirySettings.contactEmail;
+      changed = true;
+    }
+    if (raw.composeHelpText === undefined && inquirySettings.composeHelpText) {
+      next.composeHelpText = inquirySettings.composeHelpText;
+      changed = true;
+    }
+    if (raw.maskAuthorNames === undefined) {
+      next.maskAuthorNames = true;
+      changed = true;
+    }
+    if (changed) {
+      await prisma.platformBoard.update({
+        where: { id: inquiryBoard.id },
+        data: { settings: next as Prisma.InputJsonValue },
+      });
+    }
 
     const cats = Array.isArray(inquirySettings.categoriesJson)
       ? (inquirySettings.categoriesJson as { id?: string; label?: string; sortOrder?: number }[])
@@ -328,29 +424,110 @@ export async function getPlatformBoardBySlug(slug: string): Promise<PlatformBoar
   return row ? toBoardDto(row) : null;
 }
 
+export type PlatformBoardSettingsPatch = {
+  notifyEmail?: string;
+  notifyEmails?: string[];
+  contactEmail?: string;
+  composeHelpText?: string | null;
+  maskAuthorNames?: boolean;
+  /** null 이면 답장 메일함 연결 해제. password 를 비우면 저장된 비밀번호 유지 */
+  replyInbox?: { email?: string; host?: string; port?: number; password?: string } | null;
+};
+
+export function rawSettingsObject(raw: unknown): Record<string, unknown> {
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {};
+}
+
+/** 설정 patch → 저장할 settings JSON (암호화·검사 포함) */
+export function applyBoardSettingsPatch(
+  current: unknown,
+  patch: PlatformBoardSettingsPatch,
+): Record<string, unknown> {
+  const next = rawSettingsObject(current);
+  if (patch.notifyEmails !== undefined) {
+    const input = Array.isArray(patch.notifyEmails) ? patch.notifyEmails : [];
+    const trimmed = input.map((e) => String(e ?? '').trim()).filter(Boolean);
+    if (trimmed.length > MAX_NOTIFY_EMAILS) throw new Error('TOO_MANY_NOTIFY_EMAILS');
+    if (trimmed.some((e) => !isValidEmail(e))) throw new Error('INVALID_NOTIFY_EMAIL');
+    const list = parseNotifyEmails({ notifyEmails: trimmed });
+    next.notifyEmails = list;
+    next.notifyEmail = list[0] ?? '';
+  } else if (patch.notifyEmail !== undefined) {
+    const one = String(patch.notifyEmail ?? '').trim();
+    if (one && !isValidEmail(one)) throw new Error('INVALID_NOTIFY_EMAIL');
+    next.notifyEmail = one;
+    next.notifyEmails = one ? [one] : [];
+  }
+  if (patch.contactEmail !== undefined) next.contactEmail = String(patch.contactEmail ?? '').trim();
+  if (patch.composeHelpText !== undefined) next.composeHelpText = patch.composeHelpText;
+  if (patch.maskAuthorNames !== undefined) next.maskAuthorNames = patch.maskAuthorNames;
+  if (patch.replyInbox === null) {
+    delete next.replyInbox;
+  } else if (patch.replyInbox) {
+    const prev = parseReplyInboxStored(current);
+    const email = String(patch.replyInbox.email ?? '').trim();
+    if (!isValidEmail(email)) throw new Error('INVALID_INBOX_EMAIL');
+    const host =
+      String(patch.replyInbox.host ?? '').trim() || defaultImapHostForEmail(email) || '';
+    if (!host || !/^[a-z0-9.-]+$/i.test(host)) throw new Error('INVALID_INBOX_HOST');
+    const portNum = Number(patch.replyInbox.port ?? 993);
+    const port = Number.isInteger(portNum) && portNum > 0 && portNum < 65536 ? portNum : 993;
+    const password = String(patch.replyInbox.password ?? '');
+    const sameBox = prev && prev.email.toLowerCase() === email.toLowerCase();
+    const passEnc = password ? encryptTenantSecret(password) : sameBox ? prev?.passEnc : undefined;
+    next.replyInbox = {
+      email,
+      host,
+      port,
+      ...(passEnc ? { passEnc } : {}),
+      lastSyncAt: sameBox ? prev?.lastSyncAt ?? null : null,
+      lastError: null,
+    };
+  }
+  return next;
+}
+
 export async function updatePlatformBoard(
   slug: string,
   input: {
     label?: string;
     isPublished?: boolean;
     listPublic?: boolean;
-    settings?: PlatformBoardSettings;
+    settings?: PlatformBoardSettingsPatch;
   },
 ): Promise<PlatformBoardDto> {
   const board = await prisma.platformBoard.findUnique({ where: { slug } });
   if (!board) throw new Error('BOARD_NOT_FOUND');
-  const prev = parseBoardSettings(board.settings);
+  const settings = input.settings ? applyBoardSettingsPatch(board.settings, input.settings) : undefined;
   const row = await prisma.platformBoard.update({
     where: { id: board.id },
     data: {
       label: input.label?.trim().slice(0, 128) || undefined,
       isPublished: input.isPublished,
       listPublic: input.listPublic,
-      settings: input.settings ? { ...prev, ...input.settings } : undefined,
+      settings: settings ? (settings as Prisma.InputJsonValue) : undefined,
     },
     include: { _count: { select: { categories: true, posts: true } } },
   });
   return toBoardDto(row);
+}
+
+/** 답장 메일함 마지막 확인 시각·오류만 바꾼다(다른 설정은 그대로) */
+export async function setReplyInboxStatus(
+  boardId: string,
+  status: { lastSyncAt: Date; lastError: string | null },
+): Promise<void> {
+  const board = await prisma.platformBoard.findUnique({ where: { id: boardId }, select: { settings: true } });
+  if (!board) return;
+  const raw = rawSettingsObject(board.settings);
+  const box = raw.replyInbox;
+  if (!box || typeof box !== 'object') return;
+  raw.replyInbox = {
+    ...(box as Record<string, unknown>),
+    lastSyncAt: status.lastSyncAt.toISOString(),
+    lastError: status.lastError ? status.lastError.slice(0, 300) : null,
+  };
+  await prisma.platformBoard.update({ where: { id: boardId }, data: { settings: raw as Prisma.InputJsonValue } });
 }
 
 export async function listPlatformBoardCategories(boardSlug: string): Promise<PlatformBoardCategoryDto[]> {
@@ -465,9 +642,9 @@ export async function listPlatformBoardPosts(params: {
 export async function getPlatformBoardPost(id: string): Promise<PlatformBoardPostDto | null> {
   const row = await prisma.platformBoardPost.findUnique({
     where: { id },
-    include: postInclude,
+    include: { ...postInclude, replies: { select: replySelect, orderBy: { createdAt: 'asc' } } },
   });
-  return row ? toPostDto(row) : null;
+  return row ? toPostDto(row, { includeContact: true, includeReplies: true }) : null;
 }
 
 export async function createPlatformBoardPost(input: {
@@ -645,7 +822,7 @@ export async function getPublicBoardPost(params: {
       isPublished: true,
       status: { not: 'HIDDEN' },
     },
-    include: postInclude,
+    include: { ...postInclude, replies: { select: replySelect, orderBy: { createdAt: 'asc' } } },
   });
   if (!row) throw new Error('NOT_FOUND');
 
@@ -667,7 +844,7 @@ export async function getPublicBoardPost(params: {
     data: { viewCount: { increment: 1 } },
   });
 
-  return toPostDto(row, { maskAuthor: board.boardType === 'INQUIRY' });
+  return toPostDto(row, { maskAuthor: board.boardType === 'INQUIRY', includeReplies: true });
 }
 
 export async function createPublicInquiryPost(input: {
@@ -675,12 +852,28 @@ export async function createPublicInquiryPost(input: {
   categoryId: string;
   authorName: string;
   authorEmail: string;
+  authorPhone: string;
+  privacyConsent: unknown;
+  consentVersion: unknown;
   title: string;
   bodyHtml: string;
   isSecret?: boolean;
   authorUserId?: string | null;
   tenantId?: string | null;
 }): Promise<PlatformBoardPostDto> {
+  const bodyHtml = sanitizeBoardBodyHtml(input.bodyHtml);
+  const bodyText = htmlToPlainText(bodyHtml) || (/<img\b/i.test(bodyHtml) ? '사진' : '');
+  const valid = validateInquiryInput({
+    categoryId: input.categoryId,
+    authorName: input.authorName,
+    authorPhone: input.authorPhone,
+    authorEmail: input.authorEmail,
+    title: input.title,
+    bodyText,
+    privacyConsent: input.privacyConsent,
+    consentVersion: input.consentVersion,
+  });
+
   const board = await prisma.platformBoard.findFirst({
     where: { slug: input.boardSlug, isPublished: true, boardType: 'INQUIRY' },
   });
@@ -691,31 +884,38 @@ export async function createPublicInquiryPost(input: {
   });
   if (!cat) throw new Error('INVALID_CATEGORY');
 
-  const authorName = input.authorName.trim().slice(0, 64);
-  const authorEmail = input.authorEmail.trim().slice(0, 256);
-  const title = input.title.trim().slice(0, 256);
-  const bodyHtml = sanitizeBoardBodyHtml(input.bodyHtml);
-  if (!authorName || !authorEmail.includes('@') || !title || !bodyHtml || bodyHtml === '<p></p>') {
-    throw new Error('VALIDATION');
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const row = await prisma.platformBoardPost.create({
+        data: {
+          boardId: board.id,
+          categoryId: cat.id,
+          title: valid.title,
+          bodyHtml,
+          authorName: valid.authorName,
+          authorEmail: valid.authorEmail,
+          authorPhone: valid.authorPhone,
+          privacyConsentAt: new Date(),
+          privacyConsentVersion: INQUIRY_PRIVACY_CONSENT_VERSION,
+          replyToken: generateReplyToken(),
+          authorUserId: input.authorUserId ?? null,
+          tenantId: input.tenantId ?? null,
+          isSecret: input.isSecret === true,
+          status: 'OPEN',
+          isPublished: true,
+        },
+        include: postInclude,
+      });
+      return toPostDto(row, { includeContact: true });
+    } catch (e) {
+      const dup =
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002' &&
+        String((e.meta as { target?: unknown } | undefined)?.target ?? '').includes('reply_token');
+      if (!dup) throw e;
+    }
   }
-
-  const row = await prisma.platformBoardPost.create({
-    data: {
-      boardId: board.id,
-      categoryId: cat.id,
-      title,
-      bodyHtml,
-      authorName,
-      authorEmail,
-      authorUserId: input.authorUserId ?? null,
-      tenantId: input.tenantId ?? null,
-      isSecret: input.isSecret === true,
-      status: 'OPEN',
-      isPublished: true,
-    },
-    include: postInclude,
-  });
-  return toPostDto(row);
+  throw new Error('REPLY_TOKEN_EXHAUSTED');
 }
 
 export type PlatformBoardSeoPost = {

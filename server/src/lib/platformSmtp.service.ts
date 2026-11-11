@@ -257,7 +257,7 @@ export async function sendPlatformMail(
   const payload: MailSendInput = {
     ...input,
     from: delivery.from,
-    replyTo: 'replyTo' in delivery ? delivery.replyTo : undefined,
+    replyTo: input.replyTo?.trim() || ('replyTo' in delivery ? delivery.replyTo : undefined),
   };
   try {
     const result = await sendMailWithTransport(transport, payload);

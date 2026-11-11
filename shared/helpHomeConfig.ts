@@ -95,8 +95,6 @@ export const HELP_HOME_TROUBLE_ARTICLES = [
 export const HELP_HOME_CONTACT = {
   title: '찾는 답이 없으신가요?',
   hours: '평일 오전 10시~오후 7시에 답해 드려요.',
-  kakaoUrl: 'http://pf.kakao.com/_vnxjSX',
-  kakaoLabel: '카카오톡으로 묻기',
   phone: '010-6862-8692',
   phoneTel: 'tel:01068628692',
   email: 'cto@service-bridges.com',

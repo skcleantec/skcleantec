@@ -1,20 +1,79 @@
 import { stripDangerousHtml } from '../help-cms/helpCms.helpers.js';
+import { parseNotifyEmails } from './platformBoardInquiry.helpers.js';
+
+export type PlatformBoardReplyInboxPublic = {
+  email: string;
+  host: string;
+  port: number;
+  /** 비밀번호는 내보내지 않는다 */
+  passwordConfigured: boolean;
+  lastSyncAt: string | null;
+  lastError: string | null;
+};
 
 export type PlatformBoardSettings = {
+  /** 예전 단일 알림 메일 — notifyEmails 첫 칸과 같다 */
   notifyEmail?: string;
+  /** 문의 알림 받을 메일(최대 10) */
+  notifyEmails: string[];
   contactEmail?: string;
   composeHelpText?: string | null;
   maskAuthorNames?: boolean;
+  /** 답장 받는 메일함(IMAP) */
+  replyInbox: PlatformBoardReplyInboxPublic | null;
 };
 
-export function parseBoardSettings(raw: unknown): PlatformBoardSettings {
-  if (!raw || typeof raw !== 'object') return {};
-  const o = raw as Record<string, unknown>;
+/** DB에 저장된 답장 메일함(암호화된 앱 비밀번호 포함) — 서버 안에서만 */
+export type PlatformBoardReplyInboxStored = {
+  email: string;
+  host: string;
+  port: number;
+  passEnc?: string;
+  lastSyncAt?: string | null;
+  lastError?: string | null;
+};
+
+export function parseReplyInboxStored(raw: unknown): PlatformBoardReplyInboxStored | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const settings = raw as Record<string, unknown>;
+  const box = settings.replyInbox;
+  if (!box || typeof box !== 'object') return null;
+  const o = box as Record<string, unknown>;
+  const email = typeof o.email === 'string' ? o.email.trim() : '';
+  const host = typeof o.host === 'string' ? o.host.trim() : '';
+  if (!email || !host) return null;
+  const port = typeof o.port === 'number' && o.port > 0 ? o.port : 993;
   return {
-    notifyEmail: typeof o.notifyEmail === 'string' ? o.notifyEmail : undefined,
+    email,
+    host,
+    port,
+    passEnc: typeof o.passEnc === 'string' && o.passEnc ? o.passEnc : undefined,
+    lastSyncAt: typeof o.lastSyncAt === 'string' ? o.lastSyncAt : null,
+    lastError: typeof o.lastError === 'string' ? o.lastError : null,
+  };
+}
+
+export function parseBoardSettings(raw: unknown): PlatformBoardSettings {
+  if (!raw || typeof raw !== 'object') return { notifyEmails: [], replyInbox: null };
+  const o = raw as Record<string, unknown>;
+  const notifyEmails = parseNotifyEmails(o);
+  const inbox = parseReplyInboxStored(raw);
+  return {
+    notifyEmail: notifyEmails[0],
+    notifyEmails,
     contactEmail: typeof o.contactEmail === 'string' ? o.contactEmail : undefined,
     composeHelpText: typeof o.composeHelpText === 'string' ? o.composeHelpText : null,
     maskAuthorNames: o.maskAuthorNames !== false,
+    replyInbox: inbox
+      ? {
+          email: inbox.email,
+          host: inbox.host,
+          port: inbox.port,
+          passwordConfigured: Boolean(inbox.passEnc),
+          lastSyncAt: inbox.lastSyncAt ?? null,
+          lastError: inbox.lastError ?? null,
+        }
+      : null,
   };
 }
 
@@ -179,6 +238,14 @@ export function mapBoardError(msg: string): { status: number; error: string } {
       return { status: 403, error: '열람 권한이 없습니다.' };
     case 'CONTENT_REQUIRED':
       return { status: 400, error: '본문을 입력해 주세요.' };
+    case 'INVALID_NOTIFY_EMAIL':
+      return { status: 400, error: '알림 받을 메일 주소를 확인해 주세요.' };
+    case 'TOO_MANY_NOTIFY_EMAILS':
+      return { status: 400, error: '알림 받을 메일은 10개까지 넣을 수 있어요.' };
+    case 'INVALID_INBOX_EMAIL':
+      return { status: 400, error: '답장 받는 메일 주소를 확인해 주세요.' };
+    case 'INVALID_INBOX_HOST':
+      return { status: 400, error: 'IMAP 서버 주소를 넣어 주세요.' };
     default:
       return { status: 500, error: '처리 중 오류가 발생했습니다.' };
   }

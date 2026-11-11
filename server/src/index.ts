@@ -15,6 +15,7 @@ import {
   purgeExpiredInspectionChecklists,
 } from './modules/inquiry-inspection/inquiryInspection.retention.service.js';
 import { isBenignClientAbortError } from './lib/httpClientAbort.js';
+import { startHelpInquiryMailScheduler } from './modules/platform-board/helpInquiryMail.pull.js';
 
 async function bootstrap() {
   try {
@@ -111,6 +112,9 @@ async function bootstrap() {
     }, intervalMs);
     keepAlive.unref();
   }
+
+  /** 1:1 문의 답장 메일함 — 5분마다(연결된 메일함이 있을 때만 접속) */
+  startHelpInquiryMailScheduler();
 
   /** 완료 검수본 보관 만료 — INSPECTION_RETENTION_CRON_ENABLED=true 시 24h마다 1회 */
   const retentionOpts = parseInspectionRetentionOptionsFromEnv();

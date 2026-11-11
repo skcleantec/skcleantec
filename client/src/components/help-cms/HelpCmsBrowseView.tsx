@@ -313,7 +313,7 @@ export function HelpCmsBrowseView({
         onScrollToCategories={() => {
           document.getElementById('help-home-categories')?.scrollIntoView({ behavior: 'smooth' });
         }}
-        onGoInquiry={() => navigate('/help?category=inquiry')}
+        onGoInquiry={() => navigate('/help?category=inquiry&compose=1')}
         onGoNotice={() => navigate('/help?category=notice')}
       />
     );

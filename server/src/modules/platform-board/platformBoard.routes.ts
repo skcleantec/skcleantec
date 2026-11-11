@@ -19,7 +19,11 @@ import {
   updatePlatformBoardCategory,
   updatePlatformBoardPost,
 } from './platformBoard.service.js';
-import { mapBoardError } from './platformBoard.helpers.js';
+import { mapBoardError, parseReplyInboxStored } from './platformBoard.helpers.js';
+import { createPlatformInquiryReply, resendPlatformInquiryReply } from './platformBoardReply.service.js';
+import { pullHelpInquiryMail, testReplyInbox } from './helpInquiryMail.pull.js';
+import { defaultImapHostForEmail, isValidEmail } from './platformBoardInquiry.helpers.js';
+import { prisma } from '../../lib/prisma.js';
 import { uploadPlatformBoardImageBuffer } from './platformBoard.upload.js';
 
 const router = Router();
@@ -57,9 +61,11 @@ router.patch('/boards/:slug', platformSuperAdminOnly, async (req, res) => {
     listPublic?: boolean;
     settings?: {
       notifyEmail?: string;
+      notifyEmails?: string[];
       contactEmail?: string;
       composeHelpText?: string | null;
       maskAuthorNames?: boolean;
+      replyInbox?: { email?: string; host?: string; port?: number; password?: string } | null;
     };
   };
   try {
@@ -259,6 +265,86 @@ router.post('/boards/:slug/upload', platformSuperAdminOnly, upload.single('file'
     }
     console.error('[platform-board] upload', e);
     res.status(500).json({ error: '업로드에 실패했습니다.' });
+  }
+});
+
+/** 답장 받는 메일함 — 로그인만 해 본다(저장하지 않음). 비밀번호를 비우면 저장된 것으로 */
+router.post('/boards/:slug/reply-inbox/test', platformSuperAdminOnly, async (req, res) => {
+  const body = req.body as { email?: string; host?: string; port?: number; password?: string };
+  try {
+    const board = await prisma.platformBoard.findUnique({
+      where: { slug: String(req.params.slug ?? '') },
+      select: { settings: true },
+    });
+    if (!board) {
+      res.status(404).json({ error: '게시판을 찾을 수 없습니다.' });
+      return;
+    }
+    const email = String(body.email ?? '').trim();
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: '답장 받는 메일 주소를 확인해 주세요.' });
+      return;
+    }
+    const host = String(body.host ?? '').trim() || defaultImapHostForEmail(email) || '';
+    if (!host) {
+      res.status(400).json({ error: 'IMAP 서버 주소를 넣어 주세요.' });
+      return;
+    }
+    const stored = parseReplyInboxStored(board.settings);
+    const sameBox = stored && stored.email.toLowerCase() === email.toLowerCase();
+    const r = await testReplyInbox({
+      email,
+      host,
+      port: Number(body.port) > 0 ? Number(body.port) : 993,
+      password: String(body.password ?? ''),
+      storedPassEnc: sameBox ? stored?.passEnc : undefined,
+    });
+    if (r.ok) res.json({ ok: true });
+    else res.status(400).json({ error: r.error });
+  } catch (e) {
+    console.error('[platform-board] inbox test', e instanceof Error ? e.message : 'error');
+    res.status(500).json({ error: '연결을 확인하지 못했어요.' });
+  }
+});
+
+/** 「지금 가져오기」 */
+router.post('/boards/:slug/reply-inbox/pull', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const result = await pullHelpInquiryMail({ boardSlug: String(req.params.slug ?? '') });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '메일을 가져오지 못했어요.' });
+  }
+});
+
+/** 플랫폼에서 답변 쓰기 → 고객 메일 */
+router.post('/posts/:id/replies', platformSuperAdminOnly, async (req, res) => {
+  const body = req.body as { bodyHtml?: string };
+  const platformReq = req as PlatformScopedRequest;
+  try {
+    const reply = await createPlatformInquiryReply({
+      postId: String(req.params.id ?? ''),
+      bodyHtml: String(body.bodyHtml ?? ''),
+      platformUserId: platformReq.platformUser?.platformUserId ?? null,
+    });
+    res.status(201).json({ reply });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    const mapped = mapBoardError(msg);
+    if (mapped.status >= 500) console.error('[platform-board] reply', e instanceof Error ? e.message : 'error');
+    res.status(mapped.status).json({ error: mapped.error });
+  }
+});
+
+/** 메일 못 보낸 답변 다시 보내기 */
+router.post('/posts/:id/replies/:replyId/resend', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const reply = await resendPlatformInquiryReply(String(req.params.id ?? ''), String(req.params.replyId ?? ''));
+    res.json({ reply });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    const mapped = mapBoardError(msg);
+    res.status(mapped.status).json({ error: mapped.error });
   }
 });
 

@@ -1,21 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { HelpCmsArticleBody } from '../help-cms/HelpCmsArticleBody';
-import { HelpCmsRichEditor } from '../help-cms/HelpCmsRichEditor';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
 import { usePublicSeoMeta } from '../../hooks/usePublicSeoMeta';
-import { getMe } from '../../api/auth';
-import { getToken } from '../../stores/auth';
 import {
-  createPublicCustomerInquiryPost,
   fetchPublicCustomerBoardPost,
   fetchPublicCustomerBoardPosts,
   fetchPublicCustomerBoardSettings,
-  uploadPublicCustomerBoardImage,
   type PlatformBoardPost,
   type PublicCustomerBoardSettings,
 } from '../../api/publicCustomerBoard';
-import { HelpInquiryComposeAssist } from './HelpInquiryComposeAssist';
+import { toast } from '../ui/Toast';
+import { HelpInquiryComposeForm } from './HelpInquiryComposeForm';
+import { HelpInquiryReplies } from './HelpInquiryReplies';
 
 type View = 'list' | 'detail' | 'compose';
 
@@ -42,7 +39,7 @@ function formatWhen(iso: string): string {
 export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange }: Props) {
   const isInquiry = boardSlug === 'inquiry';
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [settings, setSettings] = useState<PublicCustomerBoardSettings | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [view, setView] = useState<View>(postIdFromUrl ? 'detail' : 'list');
@@ -61,52 +58,34 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
   const [accessEmailInput, setAccessEmailInput] = useState('');
   const [needSecretUnlock, setNeedSecretUnlock] = useState(false);
 
-  const [categoryId, setCategoryId] = useState('');
-  const [authorName, setAuthorName] = useState('');
-  const [authorEmail, setAuthorEmail] = useState('');
-  const [title, setTitle] = useState('');
-  const [bodyHtml, setBodyHtml] = useState('<p></p>');
-  const [isSecret, setIsSecret] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitMsg, setSubmitMsg] = useState<string | null>(null);
+  const [composeTitle, setComposeTitle] = useState('');
+  const [composeBody, setComposeBody] = useState('');
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPublicCustomerBoardSettings(boardSlug)
-      .then((s) => {
-        setSettings(s);
-        if (s.categories[0]) setCategoryId(s.categories[0].id);
-      })
+      .then((s) => setSettings(s))
       .catch((e) => setSettingsError(e instanceof Error ? e.message : '설정 로드 실패'));
   }, [boardSlug]);
 
   useEffect(() => {
-    if (!isInquiry || view !== 'compose') return;
-    const token = getToken();
-    if (!token) return;
-    getMe(token)
-      .then((me) => {
-        if (me.name) setAuthorName(me.name);
-        if (me.email) setAuthorEmail(me.email);
-      })
-      .catch(() => {});
-  }, [isInquiry, view]);
-
-  useEffect(() => {
     if (!isInquiry) return;
     if (searchParams.get('compose') !== '1') return;
+    setComposeTitle(searchParams.get('title') ?? '');
+    setComposeBody(searchParams.get('hint') ?? '');
     setView('compose');
-    const t = searchParams.get('title');
-    const hint = searchParams.get('hint');
-    if (t) setTitle(t);
-    if (hint) {
-      const safe = hint
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\n/g, '<br/>');
-      setBodyHtml(`<p>${safe}</p>`);
-    }
-  }, [isInquiry, searchParams]);
+    // 한 번 열었으면 주소에서 지운다 — 목록으로 돌아갈 때 다시 열리지 않게
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('compose');
+        next.delete('title');
+        next.delete('hint');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [isInquiry, searchParams, setSearchParams]);
 
   const loadList = useCallback(() => {
     setListLoading(true);
@@ -178,27 +157,11 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
     setAccessEmail(accessEmailInput.trim());
   };
 
-  const handleSubmitInquiry = async () => {
-    if (!settings) return;
-    setSubmitting(true);
-    setSubmitMsg(null);
-    try {
-      const r = await createPublicCustomerInquiryPost(boardSlug, {
-        categoryId,
-        authorName,
-        authorEmail,
-        title,
-        bodyHtml,
-        isSecret,
-      });
-      setSubmitMsg(r.emailSent ? '문의가 등록되었습니다.' : '문의가 등록되었습니다. (알림 메일 미발송)');
-      openDetail(r.post.id);
-    } catch (e) {
-      setSubmitMsg(e instanceof Error ? e.message : '등록 실패');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  useEffect(() => {
+    if (!highlightId) return;
+    const t = window.setTimeout(() => setHighlightId(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [highlightId]);
 
   const categoryLabel = useMemo(() => {
     if (!settings) return '';
@@ -215,7 +178,7 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={view === 'compose' ? 'mx-auto max-w-[1120px]' : 'mx-auto max-w-3xl'}>
       {/* 필터 · 검색 — 레퍼런스 HELP 스타일 */}
       {view === 'list' ? (
         <div className="mb-4 space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
@@ -290,15 +253,14 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
               <button
                 type="button"
                 onClick={() => {
+                  setComposeTitle('');
+                  setComposeBody('');
                   setView('compose');
-                  setSubmitMsg(null);
-                  setTitle('');
-                  setBodyHtml('<p></p>');
-                  setIsSecret(false);
+                  window.scrollTo({ top: 0 });
                 }}
                 className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               >
-                문의하기
+                1:1 문의 남기기
               </button>
             ) : null}
           </div>
@@ -315,7 +277,9 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
                     <button
                       type="button"
                       onClick={() => openDetail(row.id)}
-                      className="group flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-slate-50 sm:px-4"
+                      className={`group flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-slate-50 sm:px-4 ${
+                        row.id === highlightId ? 'bg-[#F0FDF4]' : ''
+                      }`}
                     >
                       {!isInquiry && row.thumbnailUrl ? (
                         <img
@@ -426,113 +390,31 @@ export function HelpCustomerBoardView({ boardSlug, postIdFromUrl, onPostIdChange
               <h1 className="mb-2 text-fluid-base font-bold text-slate-900 sm:text-fluid-lg">{detail.title}</h1>
               <p className="mb-4 text-fluid-2xs text-slate-500">{formatWhen(detail.createdAt)}</p>
               {detail.bodyHtml ? <HelpCmsArticleBody html={detail.bodyHtml} /> : null}
+              {isInquiry && detail.bodyHtml ? <HelpInquiryReplies replies={detail.replies ?? []} /> : null}
             </article>
           )}
         </div>
       ) : null}
 
-      {view === 'compose' && isInquiry ? (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <div className="min-w-0 flex-1 space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-fluid-sm font-bold text-slate-900">문의하기</h2>
-              <button
-                type="button"
-                onClick={goList}
-                className="text-fluid-xs text-slate-600 hover:text-slate-900"
-              >
-                취소
-              </button>
-            </div>
-            {settings?.composeHelpText ? (
-              <p className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-fluid-2xs text-sky-900">
-                {settings.composeHelpText}
-              </p>
-            ) : null}
-            <label className="block space-y-1">
-              <span className="text-fluid-2xs font-medium text-slate-600">문의 종류</span>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
-              >
-                {settings?.categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-1">
-                <span className="text-fluid-2xs font-medium text-slate-600">이름</span>
-                <input
-                  value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-fluid-2xs font-medium text-slate-600">이메일</span>
-                <input
-                  type="email"
-                  value={authorEmail}
-                  onChange={(e) => setAuthorEmail(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
-                />
-              </label>
-            </div>
-            <label className="block space-y-1">
-              <span className="text-fluid-2xs font-medium text-slate-600">제목</span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-fluid-xs text-slate-700">
-              <input
-                type="checkbox"
-                checked={isSecret}
-                onChange={(e) => setIsSecret(e.target.checked)}
-                className="rounded border-slate-300"
-              />
-              비밀글 (본문은 작성자 이메일로만 열람)
-            </label>
-            <div>
-              <p className="mb-1 text-fluid-2xs font-medium text-slate-600">내용</p>
-              <HelpCmsRichEditor
-                editorKey="help-inquiry-compose"
-                value={bodyHtml}
-                onChange={setBodyHtml}
-                enterAsLineBreak
-                onUploadImage={(file) => uploadPublicCustomerBoardImage(boardSlug, file)}
-                placeholder="어느 화면에서, 무엇을 눌렀을 때, 어떻게 됐는지 적어 주세요."
-              />
-            </div>
-            {submitMsg ? (
-              <p
-                className={`text-fluid-xs ${submitMsg.includes('실패') ? 'text-red-600' : 'text-emerald-700'}`}
-              >
-                {submitMsg}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => void handleSubmitInquiry()}
-              className="w-full rounded-lg bg-slate-900 py-2.5 text-fluid-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none sm:w-auto sm:px-8"
-            >
-              {submitting ? '등록 중…' : '등록'}
-            </button>
-          </div>
-          <aside className="w-full shrink-0 lg:w-72">
-            <HelpInquiryComposeAssist
-              title={title}
-              onPickArticle={(path) => navigate(path)}
-            />
-          </aside>
-        </div>
+      {view === 'compose' && isInquiry && settings ? (
+        <HelpInquiryComposeForm
+          boardSlug={boardSlug}
+          settings={settings}
+          initialTitle={composeTitle}
+          initialBody={composeBody}
+          onCancel={goList}
+          onPickArticle={(path) => navigate(path)}
+          onSubmitted={(post, email) => {
+            toast.success(`문의를 남겼어요. 답변은 ${email} 로 보내 드려요.`);
+            setHighlightId(post.id);
+            setCategorySlug('');
+            setSearchQ('');
+            setSearchInput('');
+            setPage(1);
+            goList();
+            window.scrollTo({ top: 0 });
+          }}
+        />
       ) : null}
     </div>
   );

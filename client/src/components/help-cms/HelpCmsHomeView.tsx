@@ -267,14 +267,6 @@ export function HelpCmsHomeView({
           <h3 className="text-fluid-base font-bold">{HELP_HOME_CONTACT.title}</h3>
           <p className="text-fluid-sm text-slate-300">{HELP_HOME_CONTACT.hours}</p>
           <div className="mt-2.5 flex flex-col gap-1.5 lg:mt-3 lg:flex-row lg:flex-wrap lg:gap-2">
-            <a
-              href={HELP_HOME_CONTACT.kakaoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#fee500] px-4 text-fluid-sm font-bold text-[#191919] lg:rounded-lg"
-            >
-              {HELP_HOME_CONTACT.kakaoLabel}
-            </a>
             <button
               type="button"
               onClick={onGoInquiry}
