@@ -1,4 +1,5 @@
 import { sendPlatformMail } from '../../lib/platformSmtp.service.js';
+import { withOperationNotifyEmails } from '../../lib/operationNotifyEmails.js';
 import type { HelpInquiryPostDto } from './helpInquiry.types.js';
 
 function escapeHtml(s: string): string {
@@ -13,8 +14,9 @@ export async function notifyHelpInquiryPostByEmail(
   notifyEmail: string,
   post: HelpInquiryPostDto,
 ): Promise<{ sent: boolean; reason?: string }> {
-  const to = notifyEmail.trim();
-  if (!to) return { sent: false, reason: 'NO_NOTIFY_EMAIL' };
+  // 운영 알림 메일 + 예전 문의 설정 메일
+  const recipients = await withOperationNotifyEmails([notifyEmail]);
+  if (recipients.length === 0) return { sent: false, reason: 'NO_NOTIFY_EMAIL' };
 
   const imageBlock =
     post.imageUrls.length > 0
@@ -51,10 +53,17 @@ export async function notifyHelpInquiryPostByEmail(
     .filter(Boolean)
     .join('\n');
 
-  return sendPlatformMail({
-    to,
-    subject: `[청소비서 문의] ${post.title}`,
-    html,
-    text,
-  });
+  let sent = false;
+  let reason: string | undefined;
+  for (const to of recipients) {
+    const r = await sendPlatformMail({
+      to,
+      subject: `[청소비서 문의] ${post.title}`,
+      html,
+      text,
+    });
+    if (r.sent) sent = true;
+    else reason = r.reason;
+  }
+  return sent ? { sent } : { sent, reason };
 }
