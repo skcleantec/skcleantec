@@ -196,12 +196,15 @@ export function HelpInquiryComposeForm({
           {settings.categories.length > 0 ? (
             <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-0">
               <span className={`${LABEL} lg:w-[88px]`}>문의 종류</span>
-              <SegmentedControl
-                ariaLabel="문의 종류"
-                value={categoryId}
-                onChange={setCategoryId}
-                options={settings.categories.map((c) => ({ value: c.id, label: c.label }))}
-              />
+              <div className="-mx-1 overflow-x-auto px-1 lg:mx-0 lg:overflow-visible lg:px-0">
+                <SegmentedControl
+                  ariaLabel="문의 종류"
+                  value={categoryId}
+                  onChange={setCategoryId}
+                  className="!w-max whitespace-nowrap"
+                  options={settings.categories.map((c) => ({ value: c.id, label: c.label }))}
+                />
+              </div>
             </div>
           ) : null}
 
@@ -319,6 +322,7 @@ export function HelpInquiryComposeForm({
               ) : null}
               <div className="flex flex-wrap items-center gap-3">
                 <input
+                  id="inquiry-photo"
                   ref={fileRef}
                   type="file"
                   accept="image/*"
@@ -326,14 +330,15 @@ export function HelpInquiryComposeForm({
                   className="hidden"
                   onChange={(e) => void addPhotos(e.target.files)}
                 />
-                <Button
-                  variant="secondary"
-                  disabled={uploading || photos.length >= 5}
-                  onClick={() => fileRef.current?.click()}
-                  className="border-transparent bg-track font-bold text-slate-700"
+                <label
+                  htmlFor="inquiry-photo"
+                  aria-disabled={uploading || photos.length >= 5}
+                  className={`inline-flex h-9 cursor-pointer items-center rounded-lg bg-track px-3.5 text-fluid-sm font-bold text-slate-700 ${
+                    uploading || photos.length >= 5 ? 'pointer-events-none opacity-50' : 'hover:bg-slate-200'
+                  }`}
                 >
                   {uploading ? '올리는 중…' : '화면 사진 첨부'}
-                </Button>
+                </label>
                 <label className="flex items-center gap-1.5 text-fluid-sm text-slate-600">
                   <input
                     type="checkbox"
