@@ -61,6 +61,7 @@ import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { PlanLockBadge } from '../ui/PlanLockBadge';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
+import { openHelpCenterWindow } from '../../utils/openHelpCenterWindow';
 import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
 import { BillingDunningModal } from '../admin/BillingDunningModal';
 import {
@@ -1404,6 +1405,22 @@ export function AdminLayout() {
             </DarkHeaderNavScroll>
           </div>
           <div className="hidden md:flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+            <a
+              href="/help"
+              onClick={(e) => {
+                e.preventDefault();
+                openHelpCenterWindow('/help');
+              }}
+              title="고객센터 · 도움말 (새 창)"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-fluid-xs font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 5h16v11H8l-4 4z" />
+                <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.4" />
+                <path d="M12 15h.01" />
+              </svg>
+              고객센터
+            </a>
             {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
             {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
             {adminToken ? (
