@@ -5,6 +5,8 @@ import {
   HELP_HOME_AUDIENCE,
   HELP_HOME_FAQ_ARTICLE,
   HELP_HOME_HERO,
+  HELP_HOME_INTRO_ARTICLE,
+  helpCmsArticlePath,
   HELP_HOME_POPULAR_ARTICLES,
   HELP_HOME_TROUBLE_ARTICLES,
 } from '@shared/helpHomeConfig';
@@ -121,6 +123,20 @@ export function HelpCmsHomeView({
               </button>
             ))}
           </div>
+          <a
+            href={helpCmsArticlePath(HELP_HOME_INTRO_ARTICLE.section, HELP_HOME_INTRO_ARTICLE.slug)}
+            onClick={(e) => {
+              e.preventDefault();
+              onOpenArticle(HELP_HOME_INTRO_ARTICLE.section, HELP_HOME_INTRO_ARTICLE.slug);
+            }}
+            className="mt-4 flex w-full items-center gap-3 rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/15 hover:bg-white/15 lg:mt-5 lg:inline-flex lg:w-auto"
+          >
+            <HelpCategoryIcon slug="start" size={32} />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-fluid-2xs font-bold text-[#7dd3fc]">{HELP_HOME_INTRO_ARTICLE.eyebrow}</span>
+              <span className="text-fluid-sm font-bold text-white">{HELP_HOME_INTRO_ARTICLE.label} →</span>
+            </span>
+          </a>
         </div>
       </section>
 

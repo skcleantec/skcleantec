@@ -7,6 +7,14 @@ export const HELP_HOME_HERO = {
   popularChips: ['현금영수증', '배정', '발주서 링크', '카드결제', '월정산표'] as const,
 } as const;
 
+/** 첫 화면 검색 영역 — 처음 온 업체에게 가장 먼저 보여 줄 글 */
+export const HELP_HOME_INTRO_ARTICLE = {
+  section: 'start',
+  slug: 'start-what-is',
+  eyebrow: '청소비서가 처음이세요?',
+  label: '청소비서는 어떤 프로그램인가요',
+} as const;
+
 export const HELP_HOME_AUDIENCE = [
   {
     id: 'newcomer',

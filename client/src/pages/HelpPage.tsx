@@ -8,7 +8,6 @@ import type { HelpRole } from '../types/helpContent';
 import {
   HELP_WORKFLOW_CHAPTER_ID,
   parseHelpRole,
-  WORKFLOW_GUIDE_URL,
 } from '../utils/helpContent';
 import { checkHelpEditPermission } from '../api/help';
 import { HelpCustomerBoardView } from '../components/customer-board/HelpCustomerBoardView';
@@ -242,26 +241,6 @@ export function HelpPage() {
                   </button>
                 );
               })}
-              {canEdit ? (
-                <a
-                  href="/help?category=usage&ui=gallery"
-                  className={`rounded-lg px-3 py-1.5 text-fluid-2xs font-medium ${
-                    showUiGallery
-                      ? 'bg-sky-500 text-white'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  UI 갤러리
-                </a>
-              ) : null}
-              <a
-                href={WORKFLOW_GUIDE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-slate-500 bg-slate-800 px-4 py-1.5 text-fluid-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700"
-              >
-                소개서
-              </a>
             </nav>
           </div>
         </div>
