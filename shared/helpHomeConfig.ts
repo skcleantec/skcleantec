@@ -63,6 +63,11 @@ export const HELP_ART = {
   roleNew: '/help/art/role-new.svg',
   roleAdmin: '/help/art/role-admin.svg',
   roleTeam: '/help/art/role-team.svg',
+  /** 검색 영역 사진 — PC 2400×1018, 휴대폰 1000×800 */
+  heroPhoto: '/help/art/help-hero.jpg',
+  heroPhotoMobile: '/help/art/help-hero-m.jpg',
+  /** 고객센터 영역 사진 1200×896 */
+  contactPhoto: '/help/art/help-contact.jpg',
 } as const;
 
 export const HELP_HOME_POPULAR_ARTICLES = [

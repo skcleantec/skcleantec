@@ -3,7 +3,6 @@ import type { HelpCmsArticleListItem, HelpCmsCategory } from '../../api/platform
 import {
   HELP_ART,
   HELP_HOME_AUDIENCE,
-  HELP_HOME_CONTACT,
   HELP_HOME_FAQ_ARTICLE,
   HELP_HOME_HERO,
   HELP_HOME_POPULAR_ARTICLES,
@@ -11,6 +10,7 @@ import {
 } from '@shared/helpHomeConfig';
 import { HelpCategoryIcon } from './HelpCategoryIcon';
 import { HelpNoticeBannerCarousel } from './HelpNoticeBannerCarousel';
+import { HelpContactBand } from './HelpContactBand';
 
 const AUDIENCE_ORDER_CLASS: Record<string, string> = {
   newcomer: 'order-2 lg:order-1',
@@ -55,14 +55,40 @@ export function HelpCmsHomeView({
 
   return (
     <div className="space-y-[26px] lg:space-y-9">
-      <section className="overflow-hidden rounded-2xl bg-[#0f172a] px-[18px] pt-6 text-white lg:flex lg:items-center lg:gap-6 lg:py-10 lg:pl-12 lg:pr-0">
-        <div className="min-w-0 lg:flex-1">
+      <section className="relative overflow-hidden rounded-2xl bg-[#0f172a] text-white lg:flex lg:min-h-[400px] lg:items-center">
+        <picture>
+          <source media="(min-width: 1024px)" srcSet={HELP_ART.heroPhoto} width={2400} height={1018} />
+          <img
+            src={HELP_ART.heroPhotoMobile}
+            alt=""
+            aria-hidden="true"
+            width={1000}
+            height={800}
+            loading="eager"
+            // @ts-expect-error React 18 은 fetchpriority 소문자 속성을 그대로 넘긴다
+            fetchpriority="high"
+            className="block h-[190px] w-full object-cover lg:absolute lg:inset-0 lg:h-full lg:object-[75%_50%]"
+          />
+        </picture>
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-[100px] h-[90px] bg-gradient-to-b from-transparent to-[#0f172a] lg:hidden"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 hidden lg:block"
+          style={{
+            background:
+              'linear-gradient(90deg, rgba(15,23,42,.94) 0%, rgba(15,23,42,.82) 40%, rgba(15,23,42,.10) 72%)',
+          }}
+        />
+        <div className="relative -mt-2 px-[18px] pb-[22px] lg:mt-0 lg:w-[520px] lg:max-w-full lg:p-12">
           <p className="mb-2.5 hidden text-fluid-xs font-bold text-[#7dd3fc] lg:block">청소비서 도움말 센터</p>
-          <h2 className="text-fluid-xl font-bold tracking-tight">{HELP_HOME_HERO.title}</h2>
+          <h2 className="text-fluid-xl font-extrabold leading-snug tracking-tight">{HELP_HOME_HERO.title}</h2>
           <p className="mt-1.5 text-fluid-sm leading-relaxed text-slate-300 lg:mt-2.5">{HELP_HOME_HERO.subtitle}</p>
           <form
             role="search"
-            className="mt-4 flex gap-1.5 rounded-xl bg-white p-1.5 lg:mt-[22px] lg:gap-2"
+            className="mt-3.5 flex gap-1.5 rounded-xl bg-white p-1.5 lg:mt-[22px] lg:gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               onSearch(q.trim());
@@ -89,18 +115,13 @@ export function HelpCmsHomeView({
                 key={chip}
                 type="button"
                 onClick={() => onSearch(chip)}
-                className="rounded-full bg-slate-800 px-3 py-1 text-fluid-2xs text-slate-200 hover:bg-slate-700"
+                className="rounded-full bg-slate-800/85 px-3 py-1 text-fluid-2xs text-slate-200 hover:bg-slate-700"
               >
                 {chip}
               </button>
             ))}
           </div>
         </div>
-        <img
-          src={HELP_ART.hero}
-          alt="청소비서 스케쥴 화면과 팀장 앱 그림"
-          className="mx-auto mb-[-6px] mt-3.5 block h-auto w-[330px] max-w-full lg:mx-0 lg:mb-0 lg:mr-[-8px] lg:mt-0 lg:w-[520px] lg:shrink"
-        />
       </section>
 
       <section>
@@ -241,33 +262,7 @@ export function HelpCmsHomeView({
         </div>
       </section>
 
-      <section className="flex flex-col gap-1.5 rounded-2xl bg-[#0f172a] px-[18px] py-[22px] text-white lg:flex-row lg:items-center lg:justify-between lg:gap-5 lg:py-7 lg:pl-10 lg:pr-8">
-        <img
-          src={HELP_ART.contact}
-          alt=""
-          aria-hidden="true"
-          className="mb-2 block h-auto w-[220px] lg:order-2 lg:mb-0 lg:w-[250px] lg:shrink-0"
-        />
-        <div className="flex min-w-0 flex-col gap-1.5 lg:order-1 lg:flex-1">
-          <h3 className="text-fluid-base font-bold">{HELP_HOME_CONTACT.title}</h3>
-          <p className="text-fluid-sm text-slate-300">{HELP_HOME_CONTACT.hours}</p>
-          <div className="mt-2.5 flex flex-col gap-1.5 lg:mt-3 lg:flex-row lg:flex-wrap lg:gap-2">
-            <button
-              type="button"
-              onClick={onGoInquiry}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white px-4 text-fluid-sm font-bold text-slate-900 lg:rounded-lg"
-            >
-              1:1 문의 남기기
-            </button>
-            <a
-              href={HELP_HOME_CONTACT.phoneTel}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-600 px-4 text-fluid-sm font-bold text-white lg:rounded-lg"
-            >
-              전화 {HELP_HOME_CONTACT.phone}
-            </a>
-          </div>
-        </div>
-      </section>
+      <HelpContactBand onGoInquiry={onGoInquiry} />
 
     </div>
   );
