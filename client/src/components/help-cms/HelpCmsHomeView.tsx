@@ -3,6 +3,7 @@ import type { HelpCmsArticleListItem, HelpCmsCategory } from '../../api/platform
 import { fetchPublicCustomerBoardPosts } from '../../api/publicCustomerBoard';
 import type { PlatformBoardPost } from '../../api/platformCustomerBoard';
 import {
+  HELP_ART,
   HELP_HOME_AUDIENCE,
   HELP_HOME_CONTACT,
   HELP_HOME_FAQ_ARTICLE,
@@ -10,13 +11,16 @@ import {
   HELP_HOME_POPULAR_ARTICLES,
   HELP_HOME_TROUBLE_ARTICLES,
 } from '@shared/helpHomeConfig';
-import { HelpCmsArticleCard } from './HelpCmsArticleReadLayout';
+import { HelpCategoryIcon } from './HelpCategoryIcon';
 
 const AUDIENCE_ORDER_CLASS: Record<string, string> = {
-  newcomer: 'order-2 sm:order-1',
-  admin: 'order-3 sm:order-2',
-  team: 'order-1 sm:order-3',
+  newcomer: 'order-2 lg:order-1',
+  admin: 'order-3 lg:order-2',
+  team: 'order-1 lg:order-3',
 };
+
+const CARD = 'rounded-2xl bg-white shadow-card';
+const SECTION_TITLE = 'mb-3 text-fluid-base font-bold text-slate-900';
 
 type Props = {
   categories: HelpCmsCategory[];
@@ -67,118 +71,140 @@ export function HelpCmsHomeView({
   }, [articlesBySlug]);
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl bg-[#0f172a] px-5 py-8 text-white shadow-lg sm:px-8">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{HELP_HOME_HERO.title}</h2>
-        <p className="mt-2 max-w-2xl text-fluid-sm text-slate-300">{HELP_HOME_HERO.subtitle}</p>
-        <form
-          className="mt-5 flex flex-col gap-2 sm:flex-row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSearch(q.trim());
-          }}
-        >
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={HELP_HOME_HERO.searchPlaceholder}
-            className="min-w-0 flex-1 rounded-xl border-0 bg-white px-4 py-3 text-fluid-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400"
-          />
-          <button
-            type="submit"
-            className="rounded-xl bg-sky-600 px-5 py-3 text-fluid-sm font-semibold text-white hover:bg-sky-500"
+    <div className="space-y-[26px] lg:space-y-9">
+      <section className="overflow-hidden rounded-2xl bg-[#0f172a] px-[18px] pt-6 text-white lg:flex lg:items-center lg:gap-6 lg:py-10 lg:pl-12 lg:pr-0">
+        <div className="min-w-0 lg:flex-1">
+          <p className="mb-2.5 hidden text-fluid-xs font-bold text-[#7dd3fc] lg:block">청소비서 도움말 센터</p>
+          <h2 className="text-fluid-xl font-bold tracking-tight">{HELP_HOME_HERO.title}</h2>
+          <p className="mt-1.5 text-fluid-sm leading-relaxed text-slate-300 lg:mt-2.5">{HELP_HOME_HERO.subtitle}</p>
+          <form
+            role="search"
+            className="mt-4 flex gap-1.5 rounded-xl bg-white p-1.5 lg:mt-[22px] lg:gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSearch(q.trim());
+            }}
           >
-            검색
-          </button>
-        </form>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="text-fluid-2xs text-slate-400">많이 찾는 말</span>
-          {HELP_HOME_HERO.popularChips.map((chip) => (
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={HELP_HOME_HERO.searchPlaceholder}
+              aria-label="도움말 검색"
+              className="min-w-0 flex-1 border-0 bg-transparent px-2.5 py-2 text-fluid-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+            />
             <button
-              key={chip}
-              type="button"
-              onClick={() => onSearch(chip)}
-              className="rounded-full bg-white/10 px-3 py-1 text-fluid-2xs font-medium text-white hover:bg-white/20"
+              type="submit"
+              className="min-h-[44px] rounded-lg bg-sky-600 px-3.5 text-fluid-sm font-bold text-white hover:bg-sky-500 lg:px-5"
             >
-              {chip}
+              검색
             </button>
-          ))}
+          </form>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 lg:mt-3.5">
+            <span className="mr-1 hidden text-fluid-2xs text-slate-400 lg:inline">많이 찾는 말</span>
+            {HELP_HOME_HERO.popularChips.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => onSearch(chip)}
+                className="rounded-full bg-slate-800 px-3 py-1 text-fluid-2xs text-slate-200 hover:bg-slate-700"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
         </div>
+        <img
+          src={HELP_ART.hero}
+          alt="청소비서 스케쥴 화면과 팀장 앱 그림"
+          className="mx-auto mb-[-6px] mt-3.5 block h-auto w-[330px] max-w-full lg:mx-0 lg:mb-0 lg:mr-[-8px] lg:mt-0 lg:w-[520px] lg:shrink"
+        />
       </section>
 
       <section>
-        <h3 className="mb-3 text-fluid-sm font-semibold text-slate-500">누구세요?</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {HELP_HOME_AUDIENCE.map((card) => (
-            <button
-              key={card.id}
-              type="button"
-              onClick={() => {
-                if (card.kind === 'article' && 'articleSlug' in card && 'sectionSlug' in card) {
-                  onOpenArticle(card.sectionSlug, card.articleSlug);
-                } else if (card.kind === 'section' && 'sectionSlug' in card) {
-                  onOpenSection(card.sectionSlug);
-                } else {
-                  onScrollToCategories();
-                }
-              }}
-              className={`${AUDIENCE_ORDER_CLASS[card.id] ?? ''} rounded-2xl border p-4 text-left shadow-sm transition hover:shadow-md ${
-                card.tone === 'green'
-                  ? 'border-emerald-200 bg-emerald-50'
-                  : 'border-slate-200 bg-white'
-              }`}
-            >
-              <p
-                className={`text-fluid-sm font-bold ${
-                  card.tone === 'green' ? 'text-[#047857]' : 'text-slate-900'
+        <h3 className={SECTION_TITLE}>누구세요?</h3>
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-3 lg:gap-3.5">
+          {HELP_HOME_AUDIENCE.map((card) => {
+            const green = card.tone === 'green';
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => {
+                  if (card.kind === 'article' && 'articleSlug' in card && 'sectionSlug' in card) {
+                    onOpenArticle(card.sectionSlug, card.articleSlug);
+                  } else if (card.kind === 'section' && 'sectionSlug' in card) {
+                    onOpenSection(card.sectionSlug);
+                  } else {
+                    onScrollToCategories();
+                  }
+                }}
+                className={`${AUDIENCE_ORDER_CLASS[card.id] ?? ''} flex min-h-[44px] items-center justify-between gap-2 rounded-2xl py-3.5 pl-[18px] pr-2.5 text-left shadow-card lg:py-5 lg:pl-[22px] lg:pr-4 ${
+                  green ? 'bg-[#ecfdf5]' : 'bg-white'
                 }`}
               >
-                {card.title}
-              </p>
-              <p className="mt-2 text-fluid-sm font-semibold text-sky-700">{card.cta} →</p>
-            </button>
-          ))}
+                <span className="flex min-w-0 flex-col gap-1 lg:gap-1.5">
+                  <span className={`text-fluid-base font-bold ${green ? 'text-[#047857]' : 'text-slate-900'}`}>
+                    {card.title}
+                  </span>
+                  <span className="hidden text-fluid-sm text-slate-600 lg:block">{card.desc}</span>
+                  <span className={`text-fluid-sm font-bold ${green ? 'text-[#047857]' : 'text-sky-600'}`}>
+                    {card.cta} →
+                  </span>
+                </span>
+                <img
+                  src={card.art}
+                  alt=""
+                  aria-hidden="true"
+                  className="block h-auto w-[108px] shrink-0 lg:w-[132px]"
+                />
+              </button>
+            );
+          })}
         </div>
       </section>
 
       <section>
-        <h3 className="mb-3 text-fluid-sm font-semibold text-slate-500">자주 찾는 글</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <h3 className={SECTION_TITLE}>자주 찾는 글</h3>
+        <div className="rounded-2xl bg-white px-1.5 py-1 shadow-card lg:grid lg:grid-cols-2 lg:gap-3 lg:bg-transparent lg:p-0 lg:shadow-none">
           {popularRows.map((row) => (
             <button
               key={row.slug}
               type="button"
               onClick={() => onOpenArticle(row.section, row.slug)}
-              className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-sky-200 hover:shadow-md"
+              className="flex w-full items-center gap-3 rounded-xl px-2.5 py-3 text-left hover:bg-slate-50 lg:items-start lg:gap-3.5 lg:rounded-2xl lg:bg-white lg:px-[18px] lg:py-4 lg:shadow-card"
             >
-              <p className="font-semibold text-slate-900">{row.title}</p>
-              {row.excerpt ? (
-                <p className="mt-1 line-clamp-2 text-fluid-2xs text-slate-600">{row.excerpt}</p>
-              ) : null}
+              <HelpCategoryIcon slug={row.section} className="h-8 w-8 lg:h-10 lg:w-10" />
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="text-fluid-sm font-semibold text-slate-900 lg:font-bold">{row.title}</span>
+                {row.excerpt ? (
+                  <span className="hidden text-fluid-xs leading-relaxed text-slate-600 lg:line-clamp-2">
+                    {row.excerpt}
+                  </span>
+                ) : null}
+              </span>
             </button>
           ))}
         </div>
       </section>
 
       <section id="help-home-categories">
-        <h3 className="mb-3 text-fluid-sm font-semibold text-slate-500">하고 싶은 일로 찾기</h3>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <h3 className={SECTION_TITLE}>하고 싶은 일로 찾기</h3>
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 lg:gap-3">
           {categories.map((cat) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => onOpenSection(cat.slug)}
-              className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-sky-200"
+              className={`${CARD} flex flex-col items-start gap-2 p-3.5 text-left hover:bg-slate-50 lg:flex-row lg:items-center lg:gap-3.5 lg:p-[18px]`}
             >
-              <p className="font-bold text-slate-900">{cat.label}</p>
-              {cat.description ? (
-                <p className="mt-1 line-clamp-2 text-fluid-2xs text-slate-600">{cat.description}</p>
-              ) : null}
-              <p className="mt-2 text-fluid-2xs font-medium text-amber-700">
-                <span className="rounded-full bg-[#fffbeb] px-2 py-0.5 text-[#b45309]">
-                  글 {cat.articleCount}개
-                </span>
-              </p>
+              <HelpCategoryIcon slug={cat.slug} className="h-10 w-10 lg:h-[52px] lg:w-[52px]" />
+              <span className="flex min-w-0 flex-col gap-1 lg:flex-1">
+                <span className="text-fluid-sm font-bold text-slate-900">{cat.label}</span>
+                {cat.description ? (
+                  <span className="hidden text-fluid-xs text-slate-600 lg:line-clamp-2">{cat.description}</span>
+                ) : null}
+              </span>
+              <span className="shrink-0 text-fluid-2xs text-slate-500">글 {cat.articleCount}</span>
             </button>
           ))}
         </div>
@@ -187,10 +213,13 @@ export function HelpCmsHomeView({
         ) : null}
       </section>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <HelpCmsArticleCard>
-          <h3 className="font-bold text-slate-900">자주 묻는 질문</h3>
-          <ul className="mt-3 space-y-2">
+      <section className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+        <div className={`${CARD} px-[22px] py-5`}>
+          <h3 className="mb-2.5 flex items-center gap-2.5 text-fluid-base font-bold text-slate-900">
+            <HelpCategoryIcon slug="faq" size={28} />
+            자주 묻는 질문
+          </h3>
+          <ul className="flex flex-col gap-2.5">
             {HELP_HOME_FAQ_ARTICLE.prompts.map((prompt) => (
               <li key={prompt}>
                 <button
@@ -205,10 +234,13 @@ export function HelpCmsHomeView({
               </li>
             ))}
           </ul>
-        </HelpCmsArticleCard>
-        <HelpCmsArticleCard>
-          <h3 className="font-bold text-slate-900">이럴 땐 여기부터</h3>
-          <ul className="mt-3 space-y-2">
+        </div>
+        <div className={`${CARD} px-[22px] py-5`}>
+          <h3 className="mb-2.5 flex items-center gap-2.5 text-fluid-base font-bold text-slate-900">
+            <HelpCategoryIcon slug="account" size={28} />
+            이럴 땐 여기부터
+          </h3>
+          <ul className="flex flex-col gap-2.5">
             {HELP_HOME_TROUBLE_ARTICLES.map((row) => (
               <li key={row.slug}>
                 <button
@@ -221,84 +253,89 @@ export function HelpCmsHomeView({
               </li>
             ))}
           </ul>
-        </HelpCmsArticleCard>
+        </div>
       </section>
 
-      <section className="rounded-2xl bg-[#0f172a] px-5 py-6 text-white sm:px-8">
-        <h3 className="text-lg font-bold">{HELP_HOME_CONTACT.title}</h3>
-        <p className="mt-1 text-fluid-sm text-slate-300">{HELP_HOME_CONTACT.hours}</p>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <a
-            href={HELP_HOME_CONTACT.kakaoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-xl bg-[#fee500] px-4 py-2.5 text-fluid-sm font-bold text-slate-900"
-          >
-            {HELP_HOME_CONTACT.kakaoLabel}
-          </a>
-          <button
-            type="button"
-            onClick={onGoInquiry}
-            className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-fluid-sm font-semibold text-slate-900"
-          >
-            1:1 문의 남기기
-          </button>
-          <a
-            href={HELP_HOME_CONTACT.phoneTel}
-            className="inline-flex items-center justify-center rounded-xl border border-white/30 px-4 py-2.5 text-fluid-sm font-semibold text-white"
-          >
-            전화 {HELP_HOME_CONTACT.phone}
-          </a>
+      <section className="flex flex-col gap-1.5 rounded-2xl bg-[#0f172a] px-[18px] py-[22px] text-white lg:flex-row lg:items-center lg:justify-between lg:gap-5 lg:py-7 lg:pl-10 lg:pr-8">
+        <img
+          src={HELP_ART.contact}
+          alt=""
+          aria-hidden="true"
+          className="mb-2 block h-auto w-[220px] lg:order-2 lg:mb-0 lg:w-[250px] lg:shrink-0"
+        />
+        <div className="flex min-w-0 flex-col gap-1.5 lg:order-1 lg:flex-1">
+          <h3 className="text-fluid-base font-bold">{HELP_HOME_CONTACT.title}</h3>
+          <p className="text-fluid-sm text-slate-300">{HELP_HOME_CONTACT.hours}</p>
+          <div className="mt-2.5 flex flex-col gap-1.5 lg:mt-3 lg:flex-row lg:flex-wrap lg:gap-2">
+            <a
+              href={HELP_HOME_CONTACT.kakaoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#fee500] px-4 text-fluid-sm font-bold text-[#191919] lg:rounded-lg"
+            >
+              {HELP_HOME_CONTACT.kakaoLabel}
+            </a>
+            <button
+              type="button"
+              onClick={onGoInquiry}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white px-4 text-fluid-sm font-bold text-slate-900 lg:rounded-lg"
+            >
+              1:1 문의 남기기
+            </button>
+            <a
+              href={HELP_HOME_CONTACT.phoneTel}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-600 px-4 text-fluid-sm font-bold text-white lg:rounded-lg"
+            >
+              전화 {HELP_HOME_CONTACT.phone}
+            </a>
+          </div>
         </div>
       </section>
 
       <section>
         <div className="mb-3 flex items-baseline justify-between gap-2">
-          <h3 className="text-fluid-sm font-semibold text-slate-500">새 기능·공지</h3>
+          <h3 className="text-fluid-base font-bold text-slate-900">새 기능·공지</h3>
           <button
             type="button"
             onClick={onGoNotice}
-            className="text-fluid-2xs font-semibold text-sky-700 hover:underline"
+            className="text-fluid-sm font-bold text-sky-700 hover:underline"
           >
-            전체 보기
+            전체 보기 →
           </button>
         </div>
-        <div className="space-y-2">
-          {notices.length === 0 ? (
-            <p className="text-fluid-sm text-slate-500">등록된 공지가 없습니다.</p>
-          ) : (
-            notices.map((n) => (
+        {notices.length === 0 ? (
+          <p className="text-fluid-sm text-slate-500">등록된 공지가 없습니다.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {notices.map((n) => (
               <button
                 key={n.id}
                 type="button"
                 onClick={onGoNotice}
-                className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left hover:bg-slate-50"
+                className={`${CARD} flex w-full items-center gap-3.5 p-3.5 text-left hover:bg-slate-50`}
               >
                 {n.thumbnailUrl ? (
                   <img
                     src={n.thumbnailUrl}
                     alt=""
-                    className="h-14 w-14 shrink-0 rounded-lg object-cover sm:h-16 sm:w-16"
+                    className="h-14 w-14 shrink-0 rounded-xl object-cover lg:h-16 lg:w-16"
                   />
                 ) : (
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-fluid-sm font-bold text-slate-500 sm:h-16 sm:w-16">
+                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-fluid-sm font-bold text-slate-500 lg:h-16 lg:w-16">
                     N
                   </span>
                 )}
-                <span className="min-w-0 flex-1">
-                  <span className="line-clamp-1 font-semibold text-slate-900">{n.title}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="line-clamp-1 text-fluid-sm font-bold text-slate-900">{n.title}</span>
                   {n.excerpt ? (
-                    <span className="mt-0.5 line-clamp-1 block text-fluid-2xs text-slate-600">
-                      {n.excerpt}
-                    </span>
+                    <span className="line-clamp-1 text-fluid-2xs text-slate-500">{n.excerpt}</span>
                   ) : null}
                 </span>
               </button>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
-
     </div>
   );
 }

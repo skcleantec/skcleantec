@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { HelpCmsSidebarArticleItem, HelpCmsSidebarItem } from './helpCmsArticleLayout';
 import { helpUsageHomePath } from './helpCmsUsagePaths';
+import { HelpCategoryIcon } from './HelpCategoryIcon';
 
 type Props = {
   sectionLabel: string;
@@ -120,7 +121,10 @@ export function HelpCmsMobileNavBar({
                           : 'font-medium text-slate-800 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="min-w-0 truncate">{cat.label}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <HelpCategoryIcon slug={cat.slug} size={20} />
+                        <span className="truncate">{cat.label}</span>
+                      </span>
                       {cat.count != null ? (
                         <span className="shrink-0 tabular-nums text-[12px] text-slate-400">{cat.count}</span>
                       ) : null}

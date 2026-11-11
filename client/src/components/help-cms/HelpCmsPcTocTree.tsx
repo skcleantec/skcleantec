@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { fetchPublicHelpCmsArticles } from '../../api/publicHelpCms';
 import type { HelpCmsArticleListItem } from '../../api/platformHelpCms';
 import type { HelpCmsSidebarItem } from './helpCmsArticleLayout';
+import { HelpCategoryIcon } from './HelpCategoryIcon';
 import { helpUsageArticlePath, helpUsageHomePath, helpUsageSectionPath } from './helpCmsUsagePaths';
 
 type Props = {
@@ -136,7 +137,10 @@ export function HelpCmsPcTocTree({
                     isActiveSection ? 'font-bold text-[#0369a1]' : 'font-semibold text-[#0f172a]'
                   }`}
                 >
-                  <span className="truncate">{cat.label}</span>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <HelpCategoryIcon slug={slug} size={24} />
+                    <span className="truncate">{cat.label}</span>
+                  </span>
                   {cat.count != null ? (
                     <span className="shrink-0 whitespace-nowrap text-[12px] font-normal tabular-nums text-[#94a3b8]">
                       {cat.count}
