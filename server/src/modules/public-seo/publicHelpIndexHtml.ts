@@ -101,8 +101,24 @@ export async function resolveHelpPublicSeo(query: HelpQuery): Promise<HelpSeoPag
         publishedAt: article.publishedAt,
       };
     } catch {
-      /* 없는 글은 목록 메타 */
+      /* 없는 글(지워진 옛 사용법 등) — 검색엔진에 올리지 않고 도움말 첫 화면을 대표 주소로 */
+      return {
+        indexable: false,
+        title: '도움말 | 청소비서',
+        description: '청소비서 사용법·공지사항. 청소업체 업무관리 SaaS 안내.',
+        canonical: `${baseUrl}/help`,
+      };
     }
+  }
+
+  if (postId) {
+    /* 없거나 비공개 공지 */
+    return {
+      indexable: false,
+      title: '공지사항 | 청소비서',
+      description: '청소비서 서비스 공지와 업데이트 안내.',
+      canonical: `${baseUrl}/help?category=notice`,
+    };
   }
 
   if (category === 'notice') {

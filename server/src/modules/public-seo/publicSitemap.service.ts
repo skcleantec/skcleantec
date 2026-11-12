@@ -39,11 +39,6 @@ export async function buildPublicSitemapXml(): Promise<string> {
     { loc: `${baseUrl}/`, changefreq: 'weekly', priority: '1.0' },
     { loc: `${baseUrl}/help`, changefreq: 'weekly', priority: '0.8' },
     {
-      loc: `${baseUrl}/help?category=usage`,
-      changefreq: 'weekly',
-      priority: '0.7',
-    },
-    {
       loc: `${baseUrl}/help?category=notice`,
       changefreq: 'daily',
       priority: '0.8',
