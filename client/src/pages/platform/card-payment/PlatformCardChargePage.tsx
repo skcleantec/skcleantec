@@ -87,17 +87,18 @@ export function PlatformCardChargePage() {
         ))}
       </div>
       {tab === 'tenant' ? <PlatformTenantPayHistory /> : null}
+      {/* 수기 결제 폼은 자체 카드 테두리가 있어 바깥 상자 없이 바로 보여 준다 */}
+      {tab === 'keyin' ? (
+        <PlatformUsageFeeKeyinForm
+          onPaid={() => undefined}
+          onOpenHistory={() => openTab('list')}
+          onSendLink={(seed) => {
+            setLinkSeed(seed);
+            openTab('link');
+          }}
+        />
+      ) : null}
       <section className={tab === 'keyin' || tab === 'tenant' ? 'hidden' : 'rounded-2xl border border-gray-200 bg-white p-4'}>
-        {tab === 'keyin' ? (
-          <PlatformUsageFeeKeyinForm
-            onPaid={() => undefined}
-            onOpenHistory={() => openTab('list')}
-            onSendLink={(seed) => {
-              setLinkSeed(seed);
-              openTab('link');
-            }}
-          />
-        ) : null}
         {tab === 'link' ? <PlatformPayLinkPanel seed={linkSeed} /> : null}
         {tab === 'list' ? <PlatformPayHistory /> : null}
       </section>
