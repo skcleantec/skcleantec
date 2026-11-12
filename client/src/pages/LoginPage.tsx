@@ -35,7 +35,7 @@ import {
 } from '../api/sessionGate';
 import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
 import { PlayStoreStaffAppLink } from '../components/auth/PlayStoreStaffAppLink';
-import { LoginMobileBand, LoginNoticePill, LoginShowcasePanel } from '../components/auth/LoginShowcase';
+import { LoginMobileBand, LoginNoticePill } from '../components/auth/LoginShowcase';
 import { ORDER_FORM_PLATFORM_FOOTER } from '@shared/orderFormPlatformFooter';
 
 /** ProtectedRoute / TeamProtectedRoute / CrmPopupEntry 가 넘긴 `state.from` 만 안전하게 읽기 */
@@ -543,16 +543,10 @@ export function LoginPage() {
       className="login-surface relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#F5F7FB] sm:h-auto sm:max-h-none sm:min-h-dvh"
       onFocusCapture={onFieldFocus}
     >
-      <div className="lg:grid lg:min-h-dvh lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <LoginShowcasePanel />
+      <div className="flex min-h-full flex-col sm:min-h-dvh">
         <LoginMobileBand signupHref="/signup" />
-        <main className="relative -mt-6 flex min-h-0 flex-1 flex-col rounded-t-[24px] bg-[#F5F7FB] lg:mt-0 lg:min-h-dvh lg:rounded-none">
-          <div className="hidden items-center justify-end px-8 pt-10 lg:flex">
-            <Link to="/signup" className="text-[13px] text-[#4A5877] hover:text-slate-900">
-              처음이신가요? <span className="font-semibold text-[#2F6BFF]">회원가입</span>
-            </Link>
-          </div>
-          <div className="flex flex-1 flex-col items-center justify-center px-4 pb-6 pt-6 sm:px-6 lg:py-10">
+        <main className="relative -mt-6 flex flex-1 flex-col rounded-t-[24px] bg-[#F5F7FB]">
+          <div className="flex flex-1 flex-col items-center px-4 pb-6 pt-6 sm:pb-10">
             <div className="login-scroll-content w-full max-w-[420px]">
               <LoginNoticePill />
               <div className="rounded-[20px] border border-[#E6ECF5] bg-white p-5 shadow-[0_12px_40px_rgba(17,26,46,0.07)] sm:p-8">
@@ -840,7 +834,7 @@ export function LoginPage() {
               </nav>
             </div>
           </div>
-          <footer className="login-page-footer grid gap-1 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-fluid-2xs text-[#7C8AA5] sm:px-8 lg:grid-flow-col lg:justify-between lg:text-left">
+          <footer className="login-page-footer grid gap-1 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-fluid-2xs text-[#7C8AA5] sm:px-8">
             <Link to="/platform/login" className="underline-offset-2 hover:text-[#4A5877] hover:underline">
               {PLATFORM_NAME} 운영 콘솔
             </Link>
