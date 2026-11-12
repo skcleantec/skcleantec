@@ -11,7 +11,7 @@ import { getPlatformToken } from '../../../stores/platformAuth';
 import { INPUT_BASE } from '../../../utils/platformUi';
 import { Button } from '../../../components/ui/Button';
 import { PlatformPayInquiryPick } from './PlatformPayInquiryPick';
-import type { PayLinkSeed } from './keyinPayUi';
+import { MANUAL_COMPANY, type PayLinkSeed } from './keyinPayUi';
 
 type Purpose = 'INVOICE' | 'CLEANING_PROXY' | 'OTHER';
 
@@ -21,6 +21,7 @@ type MadeLink = {
   amountKrw: number;
   buyerName: string | null;
   tenantName: string | null;
+  companyManual?: boolean;
   expiresAt: string;
   goodsName: string;
 };
@@ -39,6 +40,8 @@ export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
   const [purpose, setPurpose] = useState<Purpose>('CLEANING_PROXY');
   const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
   const [tenantId, setTenantId] = useState('');
+  const [externalCompanyName, setExternalCompanyName] = useState('');
+  const [externalCompanyPhone, setExternalCompanyPhone] = useState('');
   const [inquiryId, setInquiryId] = useState('');
   const [periods, setPeriods] = useState<UsageFeeOpenPeriod[]>([]);
   const [periodStartYmd, setPeriodStartYmd] = useState('');
@@ -58,8 +61,15 @@ export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
   useEffect(() => {
     if (!seed) return;
     setPurpose(seed.purpose);
-    setTenantId(seed.tenantId);
-    setInquiryId(seed.inquiryId);
+    const typedName = seed.externalCompanyName?.trim() ?? '';
+    setTenantId(
+      seed.purpose === 'CLEANING_PROXY' && !seed.tenantId && typedName
+        ? MANUAL_COMPANY
+        : seed.tenantId,
+    );
+    setExternalCompanyName(typedName);
+    setExternalCompanyPhone(seed.externalCompanyPhone ?? '');
+    setInquiryId(seed.purpose === 'CLEANING_PROXY' && !seed.tenantId ? '' : seed.inquiryId);
     setPeriodStartYmd(seed.periodStartYmd);
     setGoodsName(seed.goodsName);
     setAmountWon(seed.amountWon);
@@ -95,11 +105,14 @@ export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
     setBusy(true);
     setError(null);
     setToast(null);
+    const manualCompany = purpose === 'CLEANING_PROXY' && tenantId === MANUAL_COMPANY;
     void createPlatformPayLink({
       purpose,
-      tenantId: tenantId || undefined,
+      tenantId: manualCompany ? undefined : tenantId || undefined,
       periodStartYmd: purpose === 'INVOICE' ? periodStartYmd : undefined,
-      inquiryId: purpose === 'CLEANING_PROXY' ? inquiryId || undefined : undefined,
+      inquiryId: purpose === 'CLEANING_PROXY' && !manualCompany ? inquiryId || undefined : undefined,
+      externalCompanyName: manualCompany ? externalCompanyName.trim() : undefined,
+      externalCompanyPhone: manualCompany ? externalCompanyPhone.trim() || undefined : undefined,
       goodsName,
       amountWon: Number(amountWon.replace(/[^\d]/g, '')),
       buyerName,
@@ -114,6 +127,7 @@ export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
       .finally(() => setBusy(false));
   }
 
+  const manualCompany = purpose === 'CLEANING_PROXY' && tenantId === MANUAL_COMPANY;
   const amount = Number(amountWon.replace(/[^\d]/g, '')) || 0;
   const previewGoods = goodsName.trim() || '상품명';
 
@@ -143,6 +157,7 @@ export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
                 onChange={() => {
                   setPurpose(value);
                   setInquiryId('');
+                  if (value !== 'CLEANING_PROXY' && tenantId === MANUAL_COMPANY) setTenantId('');
                   if (value === 'INVOICE') setGoodsName('솔루션 이용료');
                   if (value === 'CLEANING_PROXY') setGoodsName('입주청소 서비스');
                   if (value === 'OTHER') setGoodsName('기타');
@@ -176,6 +191,7 @@ export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
                   {tenant.name}
                 </option>
               ))}
+              {purpose === 'CLEANING_PROXY' ? <option value={MANUAL_COMPANY}>직접 입력</option> : null}
             </select>
           </label>
         ) : (
@@ -213,7 +229,33 @@ export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
             </select>
           </label>
         ) : null}
-        {purpose === 'CLEANING_PROXY' ? (
+        {manualCompany ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block text-xs text-gray-600">
+              업체명
+              <input
+                className={`${INPUT_BASE} mt-1`}
+                value={externalCompanyName}
+                maxLength={40}
+                required
+                autoComplete="organization"
+                onChange={(e) => setExternalCompanyName(e.target.value.slice(0, 40))}
+              />
+            </label>
+            <label className="block text-xs text-gray-600">
+              업체 연락처 (선택)
+              <input
+                className={`${INPUT_BASE} mt-1`}
+                value={externalCompanyPhone}
+                maxLength={32}
+                inputMode="tel"
+                autoComplete="off"
+                onChange={(e) => setExternalCompanyPhone(e.target.value.slice(0, 32))}
+              />
+            </label>
+          </div>
+        ) : null}
+        {purpose === 'CLEANING_PROXY' && !manualCompany ? (
           <PlatformPayInquiryPick tenantId={tenantId} inquiryId={inquiryId} onChange={(id) => setInquiryId(id)} />
         ) : null}
         <label className="block text-xs text-gray-600">
@@ -288,7 +330,10 @@ export function PlatformPayLinkPanel({ seed }: { seed?: PayLinkSeed | null }) {
             <dt className="text-gray-500">고객</dt>
             <dd className="text-right">{made.buyerName ?? '—'}</dd>
             <dt className="text-gray-500">청소한 업체</dt>
-            <dd className="text-right">{made.tenantName ?? '—'}</dd>
+            <dd className="text-right">
+              {made.tenantName ?? '—'}
+              {made.companyManual ? <span className="ml-1 text-[11px] font-normal text-gray-500">직접 입력</span> : null}
+            </dd>
             <dt className="text-gray-500">열림</dt>
             <dd className="text-right">{when(made.expiresAt)}까지</dd>
           </dl>

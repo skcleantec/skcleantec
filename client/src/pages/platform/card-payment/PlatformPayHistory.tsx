@@ -157,7 +157,10 @@ export function PlatformPayHistory() {
                 <Chip label={row.statusLabel ?? ''} />
                 <RowActions action={rowActions.action} menu={rowActions.menu} />
               </span>
-              <span className="truncate text-xs tabular-nums text-[#5d6878]">{formatWhen(row.paidAt)} · {row.methodLabel}</span>
+              <span className="truncate text-xs tabular-nums text-[#5d6878]">
+                {formatWhen(row.paidAt)} · {row.methodLabel}
+                {row.companyManual && row.tenantName ? <> · {row.tenantName}<span className="ml-1 text-[11px]">직접 입력</span></> : null}
+              </span>
             </article>
           );
         })}
@@ -179,7 +182,10 @@ export function PlatformPayHistory() {
                     <td className="h-12 whitespace-nowrap px-3.5 text-center tabular-nums">{formatWhen(row.paidAt)}</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center">{row.methodLabel}</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center">{row.purposeLabel}</td>
-                    <td className="h-12 max-w-[180px] truncate whitespace-nowrap px-3.5 text-center" title={party(row)}>{party(row)}</td>
+                    <td className="h-12 max-w-[180px] truncate whitespace-nowrap px-3.5 text-center" title={party(row)}>
+                      {party(row)}
+                      {row.companyManual ? <span className="ml-1 text-[11px] font-normal text-[#5d6878]">직접 입력</span> : null}
+                    </td>
                     <td className="h-12 max-w-[160px] truncate whitespace-nowrap px-3.5 text-center" title={row.goodsName}>{row.goodsName}</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-right tabular-nums">{row.amountKrw.toLocaleString('ko-KR')}원</td>
                     <td className="h-12 whitespace-nowrap px-3.5 text-center"><Chip label={row.statusLabel ?? ''} /></td>

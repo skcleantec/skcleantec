@@ -24,7 +24,7 @@ export function PayDetailSection({
   empty,
 }: {
   title: string;
-  rows: Array<{ label: string; value?: string | null }>;
+  rows: Array<{ label: string; value?: string | null; hint?: string | null }>;
   empty?: string;
 }) {
   const visible = rows.filter((row) => Boolean(row.value && row.value.trim()));
@@ -36,7 +36,10 @@ export function PayDetailSection({
       {visible.map((row) => (
         <div key={row.label} className="flex items-start justify-between gap-3 border-b border-[#eef2f6] py-2 text-sm">
           <span className="text-[#5d6878]">{row.label}</span>
-          <span className="min-w-0 text-right text-[#141b26]">{row.value}</span>
+          <span className="min-w-0 text-right text-[#141b26]">
+            {row.value}
+            {row.hint ? <span className="ml-1 text-[11px] font-normal text-[#5d6878]">{row.hint}</span> : null}
+          </span>
         </div>
       ))}
     </section>

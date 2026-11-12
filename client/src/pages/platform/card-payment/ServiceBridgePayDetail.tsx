@@ -78,7 +78,11 @@ export function ServiceBridgePayDetail({
         title="대상"
         rows={[
           { label: '용도', value: row.purposeLabel },
-          { label: row.purpose === 'CLEANING_PROXY' ? '청소한 업체' : '업체', value: row.tenantName },
+          {
+            label: row.purpose === 'CLEANING_PROXY' ? '청소한 업체' : '업체',
+            value: row.tenantName,
+            hint: row.companyManual ? '직접 입력' : null,
+          },
           { label: '접수', value: row.inquiryNumber || row.inquiryLabel },
           { label: '고객 연락처', value: row.customerPhoneMasked },
         ]}

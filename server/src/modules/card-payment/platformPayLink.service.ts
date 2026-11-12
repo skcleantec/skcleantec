@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
 import { PLATFORM_PG_AGENCY_ID, readPlatformAgencySecrets } from './platformPgAgency.service.js';
-import { listUsageFeeOpenPeriods, usageFeeStatusLabel } from './usageFeeCardPayment.service.js';
+import { listUsageFeeOpenPeriods, readExternalCompany, usageFeeStatusLabel } from './usageFeeCardPayment.service.js';
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { requestPaysisPaymentWindow } from './paysisWindow.adapter.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
@@ -115,6 +115,7 @@ export async function createPlatformPayLink(
         amountKrw: number;
         buyerName: string | null;
         tenantName: string | null;
+        companyManual: boolean;
         expiresAt: string;
         goodsName: string;
       };
@@ -140,6 +141,8 @@ export async function createPlatformPayLink(
   const taxed = splitTaxIncluded(amountWon);
   let supplyAmountKrw = taxed.supplyKrw;
   let vatAmountKrw = taxed.vatKrw;
+  let externalCompanyName: string | null = null;
+  let externalCompanyPhone: string | null = null;
   if (purpose === 'INVOICE') {
     const periodStartYmd = clip(raw.periodStartYmd, 10);
     if (!tenantId) return { error: '업체를 선택하세요.', status: 400 as const };
@@ -155,7 +158,13 @@ export async function createPlatformPayLink(
     supplyAmountKrw = period.supplyAmountKrw;
     vatAmountKrw = period.vatAmountKrw;
   } else if (purpose === 'CLEANING_PROXY') {
-    if (!tenantId) return { error: '청소한 업체를 선택하세요.', status: 400 as const };
+    const external = readExternalCompany(raw);
+    if ('error' in external) return { error: external.error, status: 400 as const };
+    if (!tenantId) {
+      if (!external.name) return { error: '청소한 업체를 선택하거나 업체명을 입력하세요.', status: 400 as const };
+      externalCompanyName = external.name;
+      externalCompanyPhone = external.phone;
+    }
   } else if (!memo) {
     return { error: '기타 결제는 내부 메모를 입력하세요.', status: 400 as const };
   }
@@ -196,7 +205,9 @@ export async function createPlatformPayLink(
       amountKrw: amountWon,
       buyerName,
       buyerPhone: buyerPhone || null,
-      inquiryId: inquiryId || null,
+      externalCompanyName,
+      externalCompanyPhone,
+      inquiryId: tenantId ? inquiryId || null : null,
       memo: memo || null,
       linkToken: token,
       linkExpiresAt: expires,
@@ -212,7 +223,8 @@ export async function createPlatformPayLink(
       url: serviceBridgePayUrl(token),
       amountKrw: row.amountKrw,
       buyerName: row.buyerName,
-      tenantName: row.tenant?.name ?? null,
+      tenantName: row.tenant?.name ?? row.externalCompanyName ?? null,
+      companyManual: !row.tenantId && Boolean(row.externalCompanyName),
       expiresAt: expires.toISOString(),
       goodsName: row.goodsName,
     },
