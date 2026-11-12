@@ -524,8 +524,16 @@ if (clientDir) {
       if (!isBenignClientAbortError(err)) next(err);
     }
   };
-  app.get('/help', sendHelpSpa);
-  app.get('/help/', sendHelpSpa);
+  /** 도움말 주소는 `/help?…` 한 가지로 — `/help/?…` 는 영구 이동 (Express 기본 라우팅은 끝 `/` 를 구분하지 않음) */
+  app.get('/help', (req, res, next) => {
+    const qIdx = req.originalUrl.indexOf('?');
+    const pathname = qIdx >= 0 ? req.originalUrl.slice(0, qIdx) : req.originalUrl;
+    if (pathname === '/help/') {
+      res.redirect(301, `/help${qIdx >= 0 ? req.originalUrl.slice(qIdx) : ''}`);
+      return;
+    }
+    void sendHelpSpa(req, res, next);
+  });
 
   app.use(
     express.static(clientDir, {

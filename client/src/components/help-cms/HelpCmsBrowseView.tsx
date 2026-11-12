@@ -190,7 +190,8 @@ export function HelpCmsBrowseView({
       article?.excerpt?.trim() ||
       article?.title ||
       '청소비서 사용법 — 접수·배정·정산을 화면 그대로 안내합니다.',
-    robots: 'index,follow',
+    /** 없는 글(옛 주소)·검색 결과는 검색엔진에 올리지 않는다 */
+    robots: (articleSlug && !article && !loading) || searchQuery ? 'noindex,nofollow' : 'index,follow',
   });
 
   const activeCategory = categories.find((c) => c.slug === sectionSlug) ?? null;
