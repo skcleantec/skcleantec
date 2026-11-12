@@ -21,6 +21,7 @@ import {
   usePayCelebrate,
 } from '../../components/team/card-payment/TeamCardPaymentShareSheet';
 import { CardPaymentApprovedAlert } from '../../components/card-payment/CardPaymentApprovedAlert';
+import { PgCardReceiptLink } from '../../components/card-payment/PgCardReceiptLink';
 import {
   TEAM_PAY_CARD,
   TEAM_PAY_FOOTER,
@@ -764,15 +765,11 @@ export function TeamCardPaymentPage() {
                 </dl>
               </section>
               <div className={`${TEAM_PAY_FOOTER} grid gap-2`}>
-                <Button
-                  type="button"
-                  variant="secondary"
+                <PgCardReceiptLink
+                  url={paidPayment?.pgReceiptUrl}
                   size="lg"
                   className="h-[54px] w-full rounded-[14px]"
-                  onClick={() => window.alert('카드사 영수증은 카드사 문자·앱에서 확인할 수 있어요.')}
-                >
-                  영수증 보기
-                </Button>
+                />
                 <Button
                   type="button"
                   variant="primary"

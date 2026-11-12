@@ -1,3 +1,4 @@
+import { PgCardReceiptLink } from './PgCardReceiptLink';
 import { Button } from '../ui/Button';
 import { LineMdIcon } from '../ui/LineMdIcon';
 
@@ -21,6 +22,7 @@ export type PublicPayLinkViewData = {
   paidAtLabel: string | null;
   cardLabel: string | null;
   approvalNo: string | null;
+  pgReceiptUrl?: string | null;
   cancelledAtLabel: string | null;
   offTitle: string | null;
 };
@@ -200,6 +202,7 @@ export function PublicPayLinkView({
                   </>
                 ) : null}
               </dl>
+              <PgCardReceiptLink url={view.pgReceiptUrl} size="lg" className="mt-4 w-full" />
               <div className="my-4 h-px bg-[#E2E8F0]" />
               <p className={`text-fluid-2xs ${MUTED}`}>
                 카드사 영수증은 카드사 문자·앱에서 확인할 수 있어요. 이 화면을 닫아도 결제는 그대로예요.

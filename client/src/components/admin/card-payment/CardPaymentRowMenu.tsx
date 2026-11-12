@@ -22,11 +22,17 @@ export function CardPaymentRowMenu({
 }) {
   const canCancel = row.status === 'APPROVED' && Boolean(onCancel);
   const canDelete = Boolean(onDelete) && canDeleteCardPaymentStatus(row.status);
-  if (!canCancel && !canDelete) return <span className="text-slate-400">—</span>;
+  const receiptUrl = typeof row.pgReceiptUrl === 'string' && /^https?:\/\//i.test(row.pgReceiptUrl) ? row.pgReceiptUrl : '';
+  if (!canCancel && !canDelete && !receiptUrl) return <span className="text-slate-400">—</span>;
   return (
     <AnchoredMenu label="더 보기">
       {(close) => (
         <>
+          {receiptUrl ? (
+            <a href={receiptUrl} target="_blank" rel="noopener" className={ITEM} onClick={close}>
+              카드 영수증 보기
+            </a>
+          ) : null}
           {canCancel ? (
             <button type="button" className={ITEM} disabled={cancelling} onClick={() => { close(); onCancel?.(row); }}>
               {cancelling ? '취소 중' : row.cancelVia === 'api' ? '결제 취소' : '취소 요청'}

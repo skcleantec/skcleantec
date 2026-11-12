@@ -9,7 +9,7 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { InlineConfirm } from '../../../components/ui/InlineConfirm';
 import { openSellerCenterLoggedIn } from '../../../utils/openSellerCenterLogin';
-import { PayDetailHeader, PayDetailHistory, PayDetailSection } from './PayDetailSections';
+import { PayDetailHeader, PayDetailHistory, PayDetailReceiptLink, PayDetailSection } from './PayDetailSections';
 import { installmentLabel, kstStamp, statusLabel, won } from './tenantPayFormat';
 
 function filled(value: string | null | undefined): string | null {
@@ -73,6 +73,7 @@ export function PlatformTenantPayDetail({
           { label: '가맹점 번호', value: row.pgMidTail ? `····${row.pgMidTail}` : null },
         ]}
       />
+      <PayDetailReceiptLink url={row.pgReceiptUrl} />
 
       <PayDetailSection
         title="업체"

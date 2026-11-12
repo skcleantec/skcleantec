@@ -31,6 +31,7 @@ export type TenantPayRow = {
   cancelRequested: boolean;
   paidAt: string | null;
   approvalNo: string | null;
+  pgReceiptUrl?: string | null;
 };
 
 export type TenantPayDetail = TenantPayRow & {

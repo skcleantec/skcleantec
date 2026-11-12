@@ -164,6 +164,9 @@ export async function confirmKeyin(input: {
       approvalNo: approved ? charged.result.approvalNo ?? null : null,
       paidAt: approved ? new Date() : null,
       failReason: approved ? null : charged.result.message.slice(0, 256),
+      pgResponseMeta: charged.result.pgResponseMeta ?? undefined,
+      pgTid: charged.result.pgTid ?? null,
+      pgReceiptUrl: charged.result.pgReceiptUrl ?? null,
     },
     include: PAYMENT_INCLUDE,
   });

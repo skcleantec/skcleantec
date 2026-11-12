@@ -5,6 +5,7 @@ import {
   useCardPaymentApprovedRealtime,
   type CardPaymentApprovedPayload,
 } from '../../hooks/useInboxRealtime';
+import { PgCardReceiptLink } from './PgCardReceiptLink';
 import { Button } from '../ui/Button';
 import { LineMdIcon } from '../ui/LineMdIcon';
 
@@ -60,17 +61,7 @@ export function CardPaymentApprovedAlert({
         </dl>
 
         <div className="mt-4 grid gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            className="h-[54px] w-full rounded-[14px]"
-            onClick={() => {
-              window.alert('카드사 영수증은 카드사 문자·앱에서 확인할 수 있어요.');
-            }}
-          >
-            영수증 보기
-          </Button>
+          <PgCardReceiptLink url={item.pgReceiptUrl} size="lg" className="h-[54px] w-full rounded-[14px]" />
           <Button type="button" variant="primary" size="lg" className="h-[54px] w-full rounded-[14px]" onClick={() => setItem(null)}>
             닫기
           </Button>

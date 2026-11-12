@@ -254,6 +254,7 @@ export type CardPaymentApprovedPayload = {
   customerName: string;
   inquiryNumber: string | null;
   amountWon: number;
+  pgReceiptUrl?: string | null;
 };
 
 function parseCardPaymentApprovedPayload(d: unknown): CardPaymentApprovedPayload | null {
@@ -269,6 +270,7 @@ function parseCardPaymentApprovedPayload(d: unknown): CardPaymentApprovedPayload
     customerName: o.customerName,
     inquiryNumber: typeof o.inquiryNumber === 'string' ? o.inquiryNumber : null,
     amountWon,
+    pgReceiptUrl: typeof o.pgReceiptUrl === 'string' ? o.pgReceiptUrl : null,
   };
 }
 

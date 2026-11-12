@@ -167,6 +167,8 @@ export type UsageFeeCardPaymentRow = {
   amountKrw: number;
   approvalNo: string | null;
   cardLast4: string | null;
+  pgReceiptUrl?: string | null;
+  pgResponseMeta?: unknown;
   buyerName: string | null;
   buyerPhone?: string | null;
   customerPhoneMasked?: string | null;
@@ -318,6 +320,7 @@ export async function payPlatformUsageFeeKeyin(input: {
     orderNo?: string;
     amountWon?: number;
     cardLast4?: string;
+    pgReceiptUrl?: string | null;
     invoiceApplied?: boolean;
   }>;
 }
