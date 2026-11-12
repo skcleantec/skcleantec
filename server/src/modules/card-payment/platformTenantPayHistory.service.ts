@@ -104,6 +104,7 @@ function rowView(row: Prisma.CardPaymentGetPayload<{ include: typeof LIST_INCLUD
     cancelRequested: row.cancelRequests.length > 0,
     paidAt: row.paidAt?.toISOString() ?? null,
     approvalNo: row.approvalNo,
+    pgReceiptUrl: row.pgReceiptUrl,
   };
 }
 

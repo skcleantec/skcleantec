@@ -1,3 +1,9 @@
+import { PgCardReceiptLink } from '../../../components/card-payment/PgCardReceiptLink';
+
+export function PayDetailReceiptLink({ url }: { url?: string | null }) {
+  return <PgCardReceiptLink url={url} size="sm" />;
+}
+
 export function PayDetailHeader({
   chipText,
   chipClassName,

@@ -24,6 +24,7 @@ export type CardPaymentRow = {
   cardLast4: string | null;
   approvalNo: string | null;
   pgOrderId: string | null;
+  pgReceiptUrl?: string | null;
   paidAt: string | null;
   failReason: string | null;
   cancelable?: boolean;

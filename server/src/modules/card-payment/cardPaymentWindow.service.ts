@@ -7,6 +7,7 @@ import { buildWspayOrderId } from './wspayOrderId.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
 import { notifyCardPaymentApproved } from './cardPaymentPaidNotify.js';
 import { instrumentKeyNames, paidSourceFromScreen, readCardInstrument } from './cardInstrument.js';
+import { capturePgResponse } from './pgResponseMeta.js';
 import { hashLinkToken } from './cardPayment.mask.js';
 
 const PAYMENT_INCLUDE = {
@@ -121,11 +122,12 @@ export async function applyPaysisNotification(body: unknown): Promise<'SUCCESS' 
   if (Number(amount) !== row.amountWon) return 'FAIL';
   const expected = paysisSha256([row.pgMid, row.payScreen, orderNo, amount]);
   if (expected !== givenHash) return 'FAIL';
+  const captured = capturePgResponse(rec);
+  console.info('[card-instrument] paysis keys', instrumentKeyNames(rec).join(','));
   if (row.status !== 'APPROVED') {
     const masked = String(rec.cardNo ?? '');
     const last4 = masked.includes('*') ? masked.replace(/\D/g, '').slice(-4) : null;
     const instrument = readCardInstrument(rec);
-    console.info('[card-instrument] paysis keys', instrumentKeyNames(rec).join(','));
     await prisma.cardPayment.update({
       where: { id: row.id },
       data: {
@@ -138,9 +140,21 @@ export async function applyPaysisNotification(body: unknown): Promise<'SUCCESS' 
         cardKind: instrument.cardKind,
         paidSource: row.paidSource ?? paidSourceFromScreen(row.payScreen),
         failReason: null,
+        pgResponseMeta: captured.meta,
+        pgTid: captured.pgTid,
+        pgReceiptUrl: captured.pgReceiptUrl,
       },
     });
     await notifyCardPaymentApproved(row.tenantId, row.inquiryId);
+  } else if (!row.pgReceiptUrl && captured.pgReceiptUrl) {
+    await prisma.cardPayment.updateMany({
+      where: { id: row.id, tenantId: row.tenantId, pgReceiptUrl: null },
+      data: {
+        pgResponseMeta: captured.meta,
+        pgTid: captured.pgTid,
+        pgReceiptUrl: captured.pgReceiptUrl,
+      },
+    });
   }
   return 'SUCCESS';
 }

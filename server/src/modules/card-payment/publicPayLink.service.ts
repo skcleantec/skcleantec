@@ -24,6 +24,7 @@ export type PublicPayLinkView = {
   paidAtLabel: string | null;
   cardLabel: string | null;
   approvalNo: string | null;
+  pgReceiptUrl: string | null;
   cancelledAtLabel: string | null;
   offTitle: string | null;
 };
@@ -180,6 +181,7 @@ export async function buildTenantPayLinkView(tokenHash: string): Promise<PublicP
     paidAtLabel: row.paidAt ? kstStamp(row.paidAt) : null,
     cardLabel: row.cardLast4 ? `····${row.cardLast4}` : null,
     approvalNo: row.approvalNo,
+    pgReceiptUrl: row.pgReceiptUrl,
     cancelledAtLabel: row.status === 'CANCELLED' ? kstStamp(row.updatedAt) : null,
     offTitle,
   };
@@ -232,6 +234,7 @@ export async function buildServiceBridgePayLinkView(token: string): Promise<Publ
     paidAtLabel: row.status === 'APPROVED' ? kstStamp(row.paidAt) : null,
     cardLabel: row.cardLast4 ? `····${row.cardLast4}` : null,
     approvalNo: row.approvalNo,
+    pgReceiptUrl: row.pgReceiptUrl,
     cancelledAtLabel: null,
     offTitle,
   };

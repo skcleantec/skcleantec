@@ -2,6 +2,8 @@ import { prisma } from '../../lib/prisma.js';
 import { newWebhookEventId } from './cardPaymentIntent.service.js';
 import { notifyCardPaymentApproved } from './cardPaymentPaidNotify.js';
 import { serializeCardPayment } from './cardPayment.serialize.js';
+import { instrumentKeyNames } from './cardInstrument.js';
+import { capturePgResponse } from './pgResponseMeta.js';
 
 /**
  * 웹훅 본문 필드는 문서 확정 전 최소만 읽는다.
@@ -28,6 +30,8 @@ export async function applyWspayWebhook(body: unknown, rawBody: string) {
     return { ok: true as const, duplicate: true as const, payment: serializeCardPayment(dup) };
   }
 
+  const approved = event === 'payment.approved' || event === 'APPROVED' || event === 'approved';
+  const cancelled = event === 'payment.cancelled' || event === 'CANCELLED' || event === 'cancelled';
   const row = await prisma.cardPayment.findFirst({
     where: { pgOrderId },
     include: {
@@ -35,12 +39,24 @@ export async function applyWspayWebhook(body: unknown, rawBody: string) {
       inquiry: { select: { id: true, inquiryNumber: true, customerName: true, customerPhone: true } },
     },
   });
+  const captured = capturePgResponse(rec);
+  console.info('[card-instrument] webhook keys', instrumentKeyNames(rec).join(','));
   if (!row) {
-    return { error: 'unknown_order' as const, status: 404 };
+    const usage = await prisma.usageFeeCardPayment.findFirst({ where: { pgOrderId } });
+    if (!usage) return { error: 'unknown_order' as const, status: 404 };
+    if (approved) {
+      await prisma.usageFeeCardPayment.updateMany({
+        where: { id: usage.id },
+        data: {
+          pgResponseMeta: captured.meta,
+          pgTid: usage.pgTid ?? captured.pgTid,
+          pgReceiptUrl: usage.pgReceiptUrl ?? captured.pgReceiptUrl,
+        },
+      });
+    }
+    return approved ? { ok: true as const } : { ok: true as const, ignored: true as const };
   }
 
-  const approved = event === 'payment.approved' || event === 'APPROVED' || event === 'approved';
-  const cancelled = event === 'payment.cancelled' || event === 'CANCELLED' || event === 'cancelled';
   if (!approved && !cancelled) {
     return { ok: true as const, ignored: true as const };
   }
@@ -55,6 +71,9 @@ export async function applyWspayWebhook(body: unknown, rawBody: string) {
       approvalNo: [rec.approvalNo, rec.approval_number, nested.approval_number]
         .map((value) => (typeof value === 'string' ? value.trim().slice(0, 64) : ''))
         .find((value) => value.length > 0) ?? row.approvalNo,
+      pgResponseMeta: captured.meta,
+      pgTid: row.pgTid ?? captured.pgTid,
+      pgReceiptUrl: row.pgReceiptUrl ?? captured.pgReceiptUrl,
     },
     include: {
       createdBy: { select: { id: true, name: true } },

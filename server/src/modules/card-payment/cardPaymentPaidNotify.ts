@@ -14,7 +14,7 @@ export async function notifyCardPaymentApproved(tenantId: string, inquiryId: str
     prisma.cardPayment.findFirst({
       where: { tenantId, inquiryId, status: 'APPROVED', method: 'CUSTOMER_LINK' },
       orderBy: { paidAt: 'desc' },
-      select: { amountWon: true, customerName: true, inquiryNumber: true, createdById: true },
+      select: { amountWon: true, customerName: true, inquiryNumber: true, createdById: true, pgReceiptUrl: true },
     }),
     prisma.assignment.findMany({
       where: { tenantId, inquiryId },
@@ -37,6 +37,7 @@ export async function notifyCardPaymentApproved(tenantId: string, inquiryId: str
         customerName: payment.customerName,
         inquiryNumber: payment.inquiryNumber,
         amountWon: payment.amountWon,
+        pgReceiptUrl: payment.pgReceiptUrl,
       }
     : null;
 

@@ -7,6 +7,7 @@ import {
 } from '../../../api/platformCardPayment';
 import { usageFeeChargeKrw } from '@shared/tenantBilling';
 import { getPlatformToken } from '../../../stores/platformAuth';
+import { PgCardReceiptLink } from '../../../components/card-payment/PgCardReceiptLink';
 import { Button } from '../../../components/ui/Button';
 import { PlatformPayInquiryPick } from './PlatformPayInquiryPick';
 import { cardBrand, friendlyKeyinFailure, MANUAL_COMPANY, splitVatIncluded, type PayLinkSeed } from './keyinPayUi';
@@ -32,6 +33,7 @@ type OkResult = {
   approvalNo: string;
   buyerName: string;
   when: string;
+  pgReceiptUrl: string | null;
 };
 
 export function PlatformUsageFeeKeyinForm({
@@ -172,6 +174,7 @@ export function PlatformUsageFeeKeyinForm({
           approvalNo: result.approvalNo || '',
           buyerName,
           when: `${now.getMonth() + 1}.${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+          pgReceiptUrl: result.pgReceiptUrl ?? null,
         });
         clearCard();
         onPaid();
@@ -201,6 +204,7 @@ export function PlatformUsageFeeKeyinForm({
         </dl>
         <p className="text-xs text-[#5d6878]">오늘 안에는 결제 내역에서 전액 취소할 수 있어요. 카드번호·비밀번호는 저장하지 않았어요.</p>
         <div className="flex flex-wrap gap-2">
+          <PgCardReceiptLink url={ok.pgReceiptUrl} size="lg" />
           <Button variant="primary" size="lg" onClick={() => setOk(null)}>새 결제</Button>
           <Button variant="secondary" size="lg" onClick={onOpenHistory}>결제 내역 보기</Button>
         </div>

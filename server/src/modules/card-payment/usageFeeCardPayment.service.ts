@@ -11,6 +11,7 @@ import { paysisSha256, requestPaysisFullCancel, requestPaysisPaymentWindow } fro
 import { loadServiceBridgeMerchants } from './serviceBridgeWspay.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { instrumentKeyNames, monthsFromInstallmentCode, paidSourceFromScreen, readCardInstrument } from './cardInstrument.js';
+import { capturePgResponse } from './pgResponseMeta.js';
 import { splitTaxIncluded } from './cardVat.js';
 import { serviceBridgePayNos } from './publicPayLink.service.js';
 import { ensureSkippedForCardPayment, cancelOrModifyForPayment } from '../platform-receipts/platformWalletInvoice.service.js';
@@ -200,7 +201,20 @@ export async function payAndRecordUsageFee(
 
   const charged = await chargeUsageFeeKeyin(parsed.input);
   if ('error' in charged) return charged;
-  if (!charged.result.ok || !charged.result.orderNo) return { result: { ...charged.result, invoiceApplied: false } };
+  if (!charged.result.ok || !charged.result.orderNo) {
+    return {
+      result: {
+        ok: charged.result.ok,
+        message: charged.result.message,
+        approvalNo: charged.result.approvalNo,
+        orderNo: charged.result.orderNo,
+        amountWon: charged.result.amountWon,
+        cardLast4: charged.result.cardLast4,
+        pgReceiptUrl: charged.result.pgReceiptUrl ?? null,
+        invoiceApplied: false,
+      },
+    };
+  }
 
   let invoiceId: string | null = null;
   let invoiceApplied = false;
@@ -245,6 +259,9 @@ export async function payAndRecordUsageFee(
         buyerPhone: parsed.input.buyerPhone || null,
         externalCompanyName: linked.link.purpose === 'CLEANING_PROXY' ? linked.link.externalCompanyName : null,
         externalCompanyPhone: linked.link.purpose === 'CLEANING_PROXY' ? linked.link.externalCompanyPhone : null,
+        pgResponseMeta: charged.result.pgResponseMeta ?? undefined,
+        pgTid: charged.result.pgTid ?? null,
+        pgReceiptUrl: charged.result.pgReceiptUrl ?? null,
         inquiryId: linked.link.purpose === 'CLEANING_PROXY' ? linked.link.inquiryId : null,
         memo:
           linked.link.purpose === 'INVOICE'
@@ -264,7 +281,18 @@ export async function payAndRecordUsageFee(
   else if (applyNote) parts.push(`승인은 되었으나 청구 반영은 되지 않았습니다. ${applyNote}`);
   if (!recorded) parts.push('승인 기록 저장에 실패했습니다. 같은 카드로 다시 결제하지 마세요.');
   const message = parts.join(' ');
-  return { result: { ...charged.result, message, invoiceApplied } };
+  return {
+    result: {
+      ok: charged.result.ok,
+      message,
+      approvalNo: charged.result.approvalNo,
+      orderNo: charged.result.orderNo,
+      amountWon: charged.result.amountWon,
+      cardLast4: charged.result.cardLast4,
+      pgReceiptUrl: charged.result.pgReceiptUrl ?? null,
+      invoiceApplied,
+    },
+  };
 }
 
 function linkRowClosed(row: { status: string; linkClosedAt: Date | null; linkExpiresAt: Date | null }): boolean {
@@ -430,6 +458,8 @@ export async function listUsageFeeCardPayments(
         amountKrw: row.amountKrw,
         approvalNo: row.approvalNo,
         cardLast4: row.cardLast4,
+        pgReceiptUrl: row.pgReceiptUrl,
+        pgResponseMeta: row.pgResponseMeta,
         buyerName: row.buyerName,
         buyerPhone: null,
         memo: row.memo,
@@ -863,6 +893,17 @@ export async function applyUsageFeePaysisNotification(
   if (row.status === 'CANCELLED' || row.status === 'FAILED') return 'FAIL';
   console.info('[card-instrument] usage-fee paysis keys', instrumentKeyNames(rec).join(','));
   const instrument = readCardInstrument(rec);
+  const captured = capturePgResponse(rec);
+  if (row.status === 'APPROVED' && !row.pgReceiptUrl && captured.pgReceiptUrl) {
+    await prisma.usageFeeCardPayment.updateMany({
+      where: { id: row.id, pgReceiptUrl: null },
+      data: {
+        pgResponseMeta: captured.meta,
+        pgTid: captured.pgTid,
+        pgReceiptUrl: captured.pgReceiptUrl,
+      },
+    });
+  }
   if (row.status === 'APPROVED' && row.invoiceApplied) return 'SUCCESS';
 
   const masked = String(rec.cardNo ?? '');
@@ -881,6 +922,9 @@ export async function applyUsageFeePaysisNotification(
         cardKind: instrument.cardKind,
         paidSource: row.paidSource ?? paidSourceFromScreen(row.payScreen),
         paidAt: new Date(),
+        pgResponseMeta: captured.meta,
+        pgTid: captured.pgTid,
+        pgReceiptUrl: captured.pgReceiptUrl,
       },
     });
     if (claimed.count !== 1) {

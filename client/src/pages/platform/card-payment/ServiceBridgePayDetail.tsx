@@ -3,7 +3,7 @@ import type { UsageFeeCardPaymentRow } from '../../../api/platformCardPayment';
 import { Button } from '../../../components/ui/Button';
 import { InlineConfirm } from '../../../components/ui/InlineConfirm';
 import { splitTaxIncluded } from '@shared/cardPayment';
-import { PayDetailHeader, PayDetailHistory, PayDetailSection } from './PayDetailSections';
+import { PayDetailHeader, PayDetailHistory, PayDetailReceiptLink, PayDetailSection } from './PayDetailSections';
 import { installmentLabel, kstStamp, won } from './tenantPayFormat';
 
 function chipOf(label: string): string {
@@ -74,6 +74,7 @@ export function ServiceBridgePayDetail({
           { label: '부가세', value: `${split.vatKrw.toLocaleString('ko-KR')}원` },
         ] : []}
       />
+      <PayDetailReceiptLink url={row.pgReceiptUrl} />
       <PayDetailSection
         title="대상"
         rows={[
@@ -136,6 +137,12 @@ export function ServiceBridgePayDetail({
           )}
         </section>
       ) : null}
+      <details className="rounded-xl border border-[#dde3ea] bg-white">
+        <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-[#141b26]">PG 응답 원문</summary>
+        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all px-3 pb-3 text-[11px] leading-5 text-[#141b26]">
+          {row.pgResponseMeta ? JSON.stringify(row.pgResponseMeta, null, 2) : '저장된 응답이 없어요.'}
+        </pre>
+      </details>
     </div>
   );
 }

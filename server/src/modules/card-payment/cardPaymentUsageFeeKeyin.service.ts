@@ -7,6 +7,7 @@ import {
 } from './wspayAdapter.js';
 import { buildWspayOrderId } from './wspayOrderId.js';
 import { instrumentKeyNames, readCardInstrument, type CardInstrument } from './cardInstrument.js';
+import { capturePgResponse, type PgCapture } from './pgResponseMeta.js';
 
 export type UsageFeeKeyinInput = {
   goodsName: string;
@@ -29,6 +30,9 @@ export type UsageFeeKeyinResult = {
   amountWon?: number;
   cardLast4?: string;
   instrument?: CardInstrument;
+  pgReceiptUrl?: string | null;
+  pgTid?: string | null;
+  pgResponseMeta?: PgCapture['meta'];
 };
 
 function digits(value: string): string {
@@ -128,6 +132,7 @@ export async function chargeWspayKeyin(
         : '결제에 실패했습니다.',
   );
   console.info('[card-instrument] keyin keys', instrumentKeyNames(data).join(','));
+  const captured = capturePgResponse(parsed);
   const approved = parsed.success === true;
   const approvalNo = typeof data.app_no === 'string' ? data.app_no : undefined;
   const instrument = readCardInstrument(data);
@@ -144,6 +149,9 @@ export async function chargeWspayKeyin(
       amountWon: input.amountWon,
       cardLast4: input.cardNo.slice(-4),
       instrument,
+      pgReceiptUrl: captured.pgReceiptUrl,
+      pgTid: captured.pgTid,
+      pgResponseMeta: captured.meta,
     },
   };
 }
