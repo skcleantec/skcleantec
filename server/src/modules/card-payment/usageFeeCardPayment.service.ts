@@ -83,7 +83,29 @@ export async function listUsageFeeOpenPeriods(
 type PayLink =
   | { purpose: 'INVOICE'; tenantId: string; periodStartYmd: string }
   | { purpose: 'OTHER'; tenantId: string | null; memo: string }
-  | { purpose: 'CLEANING_PROXY'; tenantId: string; inquiryId: string | null; memo: string };
+  | {
+      purpose: 'CLEANING_PROXY';
+      tenantId: string | null;
+      inquiryId: string | null;
+      memo: string;
+      externalCompanyName: string | null;
+      externalCompanyPhone: string | null;
+    };
+
+function readText(raw: unknown): string {
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+/** 목록에 없는 청소 업체. 이름 40자, 연락처 32자. 비어 있으면 null. */
+export function readExternalCompany(
+  body: Record<string, unknown>,
+): { error: string } | { name: string | null; phone: string | null } {
+  const name = readText(body.externalCompanyName);
+  const phone = readText(body.externalCompanyPhone);
+  if (name.length > 40) return { error: '업체명은 40자까지예요.' };
+  if (phone.length > 32) return { error: '업체 연락처는 32자까지예요.' };
+  return { name: name || null, phone: phone || null };
+}
 
 function readLink(body: Record<string, unknown>): { error: string } | { link: PayLink } {
   const purpose =
@@ -98,9 +120,32 @@ function readLink(body: Record<string, unknown>): { error: string } | { link: Pa
     return { link: { purpose, tenantId, periodStartYmd } };
   }
   if (purpose === 'CLEANING_PROXY') {
-    if (!tenantId) return { error: '청소한 업체를 선택하세요.' };
+    const external = readExternalCompany(body);
+    if ('error' in external) return external;
     const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId.trim() : '';
-    return { link: { purpose, tenantId, inquiryId: inquiryId || null, memo } };
+    if (!tenantId) {
+      if (!external.name) return { error: '청소한 업체를 선택하거나 업체명을 입력하세요.' };
+      return {
+        link: {
+          purpose,
+          tenantId: null,
+          inquiryId: null,
+          memo,
+          externalCompanyName: external.name,
+          externalCompanyPhone: external.phone,
+        },
+      };
+    }
+    return {
+      link: {
+        purpose,
+        tenantId,
+        inquiryId: inquiryId || null,
+        memo,
+        externalCompanyName: null,
+        externalCompanyPhone: null,
+      },
+    };
   }
   if (!memo) return { error: '기타 결제는 내용을 입력하세요.' };
   return { link: { purpose, tenantId: tenantId || null, memo } };
@@ -145,7 +190,7 @@ export async function payAndRecordUsageFee(
     const tenant = await prisma.tenant.findFirst({ where: { id: linked.link.tenantId }, select: { id: true } });
     if (!tenant) return { error: '업체를 찾을 수 없습니다.', status: 404 };
   }
-  if (linked.link.purpose === 'CLEANING_PROXY' && linked.link.inquiryId) {
+  if (linked.link.purpose === 'CLEANING_PROXY' && linked.link.inquiryId && linked.link.tenantId) {
     const inquiry = await prisma.inquiry.findFirst({
       where: { id: linked.link.inquiryId, tenantId: linked.link.tenantId },
       select: { id: true },
@@ -198,6 +243,8 @@ export async function payAndRecordUsageFee(
         cardKind: charged.result.instrument?.cardKind ?? null,
         buyerName: parsed.input.buyerName,
         buyerPhone: parsed.input.buyerPhone || null,
+        externalCompanyName: linked.link.purpose === 'CLEANING_PROXY' ? linked.link.externalCompanyName : null,
+        externalCompanyPhone: linked.link.purpose === 'CLEANING_PROXY' ? linked.link.externalCompanyPhone : null,
         inquiryId: linked.link.purpose === 'CLEANING_PROXY' ? linked.link.inquiryId : null,
         memo:
           linked.link.purpose === 'INVOICE'
@@ -363,7 +410,8 @@ export async function listUsageFeeCardPayments(
         status: row.status,
         statusLabel,
         cancelable: isSameDayCardCancel(row) || isWalletBankCancelable(row),
-        tenantName: row.tenant?.name ?? null,
+        tenantName: row.tenant?.name ?? row.externalCompanyName ?? null,
+        companyManual: !row.tenantId && Boolean(row.externalCompanyName),
         inquiryLabel: row.inquiryId ? inquiryLabel.get(row.inquiryId) ?? null : null,
         inquiryNumber: row.inquiryId ? inquiries.find((item) => item.id === row.inquiryId)?.inquiryNumber ?? null : null,
         payNo: payNos.get(row.id) ?? null,

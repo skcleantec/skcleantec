@@ -919,6 +919,8 @@ model UsageFeeCardPayment {
   paidSource              String?                     @map("paid_source") @db.VarChar(16)
   buyerName               String?                     @map("buyer_name") @db.VarChar(40)
   buyerPhone              String?                     @map("buyer_phone") @db.VarChar(32)
+  externalCompanyName     String?                     @map("external_company_name") @db.VarChar(40)
+  externalCompanyPhone    String?                     @map("external_company_phone") @db.VarChar(32)
   inquiryId               String?                     @map("inquiry_id")
   linkToken               String?                     @unique @map("link_token") @db.VarChar(16)
   linkExpiresAt           DateTime?                   @map("link_expires_at")

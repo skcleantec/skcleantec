@@ -158,6 +158,7 @@ export type UsageFeeCardPaymentRow = {
   statusLabel?: string;
   cancelable: boolean;
   tenantName: string | null;
+  companyManual?: boolean;
   inquiryLabel?: string | null;
   periodStart: string | null;
   goodsName: string;
@@ -250,6 +251,8 @@ export async function createPlatformPayLink(input: {
   tenantId?: string;
   periodStartYmd?: string;
   inquiryId?: string;
+  externalCompanyName?: string;
+  externalCompanyPhone?: string;
   goodsName: string;
   amountWon: number;
   buyerName: string;
@@ -268,6 +271,7 @@ export async function createPlatformPayLink(input: {
     amountKrw: number;
     buyerName: string | null;
     tenantName: string | null;
+    companyManual?: boolean;
     expiresAt: string;
     goodsName: string;
   }>;
@@ -287,6 +291,8 @@ export async function payPlatformUsageFeeKeyin(input: {
   tenantId?: string;
   periodStartYmd?: string;
   inquiryId?: string;
+  externalCompanyName?: string;
+  externalCompanyPhone?: string;
   memo?: string;
   goodsName: string;
   amountWon: number;

@@ -9,7 +9,7 @@ import { usageFeeChargeKrw } from '@shared/tenantBilling';
 import { getPlatformToken } from '../../../stores/platformAuth';
 import { Button } from '../../../components/ui/Button';
 import { PlatformPayInquiryPick } from './PlatformPayInquiryPick';
-import { cardBrand, friendlyKeyinFailure, splitVatIncluded, type PayLinkSeed } from './keyinPayUi';
+import { cardBrand, friendlyKeyinFailure, MANUAL_COMPANY, splitVatIncluded, type PayLinkSeed } from './keyinPayUi';
 
 const INSTALLMENTS = [
   { value: '00', label: '일시불' },
@@ -47,6 +47,8 @@ export function PlatformUsageFeeKeyinForm({
   const [inquiryId, setInquiryId] = useState('');
   const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
   const [tenantId, setTenantId] = useState('');
+  const [externalCompanyName, setExternalCompanyName] = useState('');
+  const [externalCompanyPhone, setExternalCompanyPhone] = useState('');
   const [periods, setPeriods] = useState<UsageFeeOpenPeriod[]>([]);
   const [periodStartYmd, setPeriodStartYmd] = useState('');
   const [memo, setMemo] = useState('');
@@ -63,6 +65,7 @@ export function PlatformUsageFeeKeyinForm({
   const [ok, setOk] = useState<OkResult | null>(null);
   const [fail, setFail] = useState<{ easy: string; pg: string | null } | null>(null);
 
+  const manualCompany = purpose === 'CLEANING_PROXY' && tenantId === MANUAL_COMPANY;
   const amount = Number(amountWon.replace(/[^\d]/g, '')) || 0;
   const installmentOk = amount >= 50000;
   const brand = cardBrand(cardNo);
@@ -106,7 +109,19 @@ export function PlatformUsageFeeKeyinForm({
   }, [installmentOk, installment]);
 
   function seed(): PayLinkSeed {
-    return { purpose, tenantId, inquiryId, periodStartYmd, goodsName, amountWon: String(amount), buyerName, buyerPhone, memo };
+    return {
+      purpose,
+      tenantId: manualCompany ? '' : tenantId,
+      inquiryId: manualCompany ? '' : inquiryId,
+      periodStartYmd,
+      goodsName,
+      amountWon: String(amount),
+      buyerName,
+      buyerPhone,
+      memo,
+      externalCompanyName: manualCompany ? externalCompanyName.trim() : '',
+      externalCompanyPhone: manualCompany ? externalCompanyPhone.trim() : '',
+    };
   }
 
   function clearCard() {
@@ -125,10 +140,12 @@ export function PlatformUsageFeeKeyinForm({
     setFail(null);
     void payPlatformUsageFeeKeyin({
       purpose,
-      tenantId: tenantId || undefined,
+      tenantId: manualCompany ? undefined : tenantId || undefined,
       periodStartYmd: purpose === 'INVOICE' ? periodStartYmd : undefined,
       memo: purpose === 'INVOICE' ? undefined : memo,
-      inquiryId: purpose === 'CLEANING_PROXY' ? inquiryId || undefined : undefined,
+      inquiryId: purpose === 'CLEANING_PROXY' && !manualCompany ? inquiryId || undefined : undefined,
+      externalCompanyName: manualCompany ? externalCompanyName.trim() : undefined,
+      externalCompanyPhone: manualCompany ? externalCompanyPhone.trim() || undefined : undefined,
       goodsName,
       amountWon: amount,
       buyerName,
@@ -226,6 +243,7 @@ export function PlatformUsageFeeKeyinForm({
                 className={`grid gap-0.5 rounded-[10px] border px-2.5 py-2 text-left text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4fb8] ${purpose === id ? 'border-[#111a2b] font-bold shadow-[0_0_0_1px_#111a2b]' : 'border-[#dde3ea] bg-white'}`}
                 onClick={() => {
                   setPurpose(id);
+                  if (id !== 'CLEANING_PROXY' && tenantId === MANUAL_COMPANY) setTenantId('');
                   if (id === 'OTHER') setGoodsName('기타 결제');
                   if (id === 'CLEANING_PROXY') setGoodsName('입주청소 서비스');
                   if (id !== 'INVOICE') setAmountWon('');
@@ -240,13 +258,14 @@ export function PlatformUsageFeeKeyinForm({
             고객 카드 영수증에 서비스브릿지가 찍힙니다.
           </div>
           <div className="grid grid-cols-2 gap-2.5">
-            <label className="grid gap-1 text-[13px] text-[#5d6878]">
+            <label className={`grid gap-1 text-[13px] text-[#5d6878] ${manualCompany ? 'col-span-2' : ''}`}>
               {purpose === 'CLEANING_PROXY' ? '청소한 업체' : `업체${purpose === 'OTHER' ? ' (선택)' : ''}`}
               <select className={FIELD} value={tenantId} required={purpose !== 'OTHER'} autoComplete="off" onChange={(e) => { setTenantId(e.target.value); setInquiryId(''); }}>
                 <option value="">{purpose === 'OTHER' ? '업체 없음' : '업체를 선택하세요'}</option>
                 {tenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
                 ))}
+                {purpose === 'CLEANING_PROXY' ? <option value={MANUAL_COMPANY}>직접 입력</option> : null}
               </select>
             </label>
             {purpose === 'INVOICE' ? (
@@ -259,18 +278,30 @@ export function PlatformUsageFeeKeyinForm({
                   ))}
                 </select>
               </label>
-            ) : purpose === 'CLEANING_PROXY' ? (
+            ) : purpose === 'CLEANING_PROXY' && !manualCompany ? (
               <div className="grid gap-1 text-[13px] text-[#5d6878]">
                 접수 건 (선택)
                 <PlatformPayInquiryPick tenantId={tenantId} inquiryId={inquiryId} onChange={setInquiryId} />
               </div>
-            ) : (
+            ) : purpose === 'OTHER' ? (
               <label className="grid gap-1 text-[13px] text-[#5d6878]">
                 내용
                 <input className={FIELD} value={memo} required onChange={(e) => setMemo(e.target.value)} />
               </label>
-            )}
+            ) : null}
           </div>
+          {manualCompany ? (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <label className="grid gap-1 text-[13px] text-[#5d6878]">
+                업체명
+                <input className={FIELD} value={externalCompanyName} required maxLength={40} autoComplete="organization" onChange={(e) => setExternalCompanyName(e.target.value.slice(0, 40))} />
+              </label>
+              <label className="grid gap-1 text-[13px] text-[#5d6878]">
+                업체 연락처 (선택)
+                <input className={FIELD} value={externalCompanyPhone} maxLength={32} autoComplete="off" inputMode="tel" onChange={(e) => setExternalCompanyPhone(e.target.value.slice(0, 32))} />
+              </label>
+            </div>
+          ) : null}
           {purpose === 'CLEANING_PROXY' ? (
             <label className="grid gap-1 text-[13px] text-[#5d6878]">
               내부 메모

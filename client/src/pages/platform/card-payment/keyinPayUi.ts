@@ -1,5 +1,8 @@
 import { splitTaxIncluded } from '@shared/cardPayment';
 
+/** 목록에 없는 업체를 고를 때 select 값. 서버로는 보내지 않는다. */
+export const MANUAL_COMPANY = 'manual';
+
 export type PayLinkSeed = {
   purpose: 'INVOICE' | 'OTHER' | 'CLEANING_PROXY';
   tenantId: string;
@@ -10,6 +13,8 @@ export type PayLinkSeed = {
   buyerName: string;
   buyerPhone: string;
   memo: string;
+  externalCompanyName: string;
+  externalCompanyPhone: string;
 };
 
 export function splitVatIncluded(amount: number): { supply: number; vat: number } {
