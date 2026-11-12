@@ -21,7 +21,7 @@ import { KakaoSignupButton } from '../components/auth/KakaoSignupButton';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
-import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
+import { PLATFORM_NAME } from '@shared/platformBrand';
 import { resolveTenantSlugForLoginForm, sanitizeLoginTenantSlug } from '../utils/loginTenantSlug';
 import { saveTenantSlug } from '../utils/tenantSlug';
 import {
@@ -35,7 +35,7 @@ import {
 } from '../api/sessionGate';
 import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
 import { PlayStoreStaffAppLink } from '../components/auth/PlayStoreStaffAppLink';
-import { LOGIN_BACKGROUND_SRC } from '@shared/brandLogo';
+import { LoginMobileBand, LoginNoticePill, LoginShowcasePanel } from '../components/auth/LoginShowcase';
 import { ORDER_FORM_PLATFORM_FOOTER } from '@shared/orderFormPlatformFooter';
 
 /** ProtectedRoute / TeamProtectedRoute / CrmPopupEntry 가 넘긴 `state.from` 만 안전하게 읽기 */
@@ -535,66 +535,38 @@ export function LoginPage() {
   };
 
   const inputClass =
-    'login-field-input w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-3.5 py-2.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-sky-500/80 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-500/10';
+    'login-field-input h-11 w-full rounded-[10px] border border-[#E6ECF5] bg-white px-3.5 text-fluid-sm text-slate-900 placeholder:text-[#7C8AA5] transition-colors hover:border-[#D3DBE8] focus:border-[#2F6BFF] focus:outline-none focus:ring-4 focus:ring-[#2F6BFF]/10';
 
   return (
     <div
       ref={scrollRef}
-      className="login-surface relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#f8f7f4] sm:h-auto sm:max-h-none sm:min-h-dvh"
+      className="login-surface relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#F5F7FB] sm:h-auto sm:max-h-none sm:min-h-dvh"
       onFocusCapture={onFieldFocus}
     >
-      <div
-        className="pointer-events-none fixed inset-0 z-0 bg-[#f8f7f4] bg-left-top bg-repeat bg-[length:320px_auto]"
-        style={{ backgroundImage: `url(${LOGIN_BACKGROUND_SRC})` }}
-        aria-hidden
-      />
-      <div className="relative z-10 flex w-full flex-col items-stretch justify-start px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:px-4 sm:py-8 lg:py-10">
-        <div className="login-scroll-content mx-auto w-full max-w-[420px]">
-          <div className="login-brand-block relative mb-3 pt-1 text-center sm:mb-6 sm:pt-0">
-            <div
-              className="login-brand-mist pointer-events-none absolute inset-x-[-10%] bottom-[-0.5rem] top-0 hidden overflow-visible sm:inset-x-[-14%] sm:block sm:-top-4"
-              aria-hidden
-            >
-              <div className="absolute left-1/2 top-1/2 h-44 w-[120%] max-w-none -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-[radial-gradient(ellipse_80%_60%_at_50%_45%,rgba(203,213,225,0.35),rgba(241,245,249,0.12)_42%,transparent_70%)] blur-3xl motion-safe:animate-login-mist-drift motion-reduce:opacity-45" />
-              <div className="absolute left-1/2 top-[44%] h-28 w-full max-w-none -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-[radial-gradient(ellipse_70%_55%_at_42%_48%,rgba(255,255,255,0.6),rgba(226,232,240,0.18)_48%,transparent_68%)] blur-2xl motion-safe:animate-login-mist-drift motion-reduce:opacity-40 [animation-delay:-7s]" />
-            </div>
-            <div className="relative space-y-2 py-0.5 sm:space-y-3 sm:py-1">
-              <p className="login-brand-subline-en text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-slate-400 sm:text-[0.6875rem] sm:tracking-[0.34em] motion-safe:animate-login-subline-shine motion-reduce:animate-none motion-reduce:opacity-90">
-                {PLATFORM_NAME_EN}
-              </p>
-              <div className="relative inline-block px-1">
-                <span
-                  className="pointer-events-none absolute inset-x-[-14%] -inset-y-2 -z-10 hidden rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.55),rgba(203,213,225,0.2)_42%,transparent_72%)] blur-2xl motion-safe:animate-login-silver-sparkle motion-reduce:opacity-40 sm:-inset-y-4 sm:block"
-                  aria-hidden
-                />
-                <h1 className="text-[1.5rem] font-bold sm:text-[2rem]">
-                  <span
-                    className="inline-block tracking-[0.16em] sm:tracking-[0.24em] bg-[linear-gradient(105deg,#475569_0%,#94a3b8_24%,#f8fafc_48%,#cbd5e1_52%,#64748b_76%,#334155_100%)] bg-[length:280%_100%] bg-clip-text text-transparent motion-safe:animate-login-title-sheen motion-reduce:animate-none motion-reduce:bg-none motion-reduce:text-slate-800"
-                  >
-                    {PLATFORM_NAME}
-                  </span>
-                </h1>
-              </div>
-              <div className="login-brand-divider hidden items-center justify-center gap-3 pt-0.5 sm:flex" aria-hidden>
-                <span className="h-px w-9 origin-center bg-gradient-to-r from-transparent via-slate-300/80 to-slate-400/50 motion-safe:animate-login-line-grow motion-reduce:scale-x-100 motion-reduce:opacity-70" />
-                <span className="h-1 w-1 rounded-full bg-slate-300/80 motion-safe:animate-login-subline-shine motion-reduce:opacity-80 [animation-delay:-1.5s]" />
-                <span className="h-px w-9 origin-center bg-gradient-to-l from-transparent via-slate-300/80 to-slate-400/50 motion-safe:animate-login-line-grow motion-reduce:scale-x-100 motion-reduce:opacity-70 [animation-delay:-2.5s]" />
-              </div>
-            </div>
+      <div className="lg:grid lg:min-h-dvh lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <LoginShowcasePanel />
+        <LoginMobileBand signupHref="/signup" />
+        <main className="relative -mt-6 flex min-h-0 flex-1 flex-col rounded-t-[24px] bg-[#F5F7FB] lg:mt-0 lg:min-h-dvh lg:rounded-none">
+          <div className="hidden items-center justify-end px-8 pt-10 lg:flex">
+            <Link to="/signup" className="text-[13px] text-[#4A5877] hover:text-slate-900">
+              처음이신가요? <span className="font-semibold text-[#2F6BFF]">회원가입</span>
+            </Link>
           </div>
-
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] sm:rounded-3xl sm:bg-white/95 sm:p-8 sm:backdrop-blur-md">
-            <div className="mb-4 border-b border-slate-100 pb-4 text-center sm:mb-6 sm:pb-5">
-              {tenantBrand ? (
-                <p className="mb-1.5 inline-flex max-w-full items-center justify-center truncate rounded-full bg-slate-100 px-3 py-1 text-fluid-2xs font-semibold text-slate-700">
-                  {tenantBrand.displayName}
-                </p>
-              ) : null}
-              <h2 className="text-fluid-base font-semibold tracking-tight text-slate-900">로그인</h2>
-              <p className="mt-1.5 text-fluid-2xs leading-relaxed text-slate-500">
-                {tenantBrand?.loginSubtitle?.trim() || '업무 계정으로 안전하게 접속하세요.'}
-              </p>
-            </div>
+          <div className="flex flex-1 flex-col items-center justify-center px-4 pb-6 pt-6 sm:px-6 lg:py-10">
+            <div className="login-scroll-content w-full max-w-[420px]">
+              <LoginNoticePill />
+              <div className="rounded-[20px] border border-[#E6ECF5] bg-white p-5 shadow-[0_12px_40px_rgba(17,26,46,0.07)] sm:p-8">
+                <div className="mb-5">
+                  {tenantBrand ? (
+                    <p className="mb-2 inline-flex max-w-full items-center truncate rounded-full bg-[#EEF3FF] px-3 py-1 text-fluid-2xs font-semibold text-[#2F6BFF]">
+                      {tenantBrand.displayName}
+                    </p>
+                  ) : null}
+                  <h1 className="text-[22px] font-bold tracking-[-0.02em] text-slate-900 sm:text-[24px]">로그인</h1>
+                  <p className="mt-1 text-fluid-sm text-[#4A5877]">
+                    {tenantBrand?.loginSubtitle?.trim() || '업무 계정으로 접속하세요.'}
+                  </p>
+                </div>
             {passwordResetComplete ? (
               <div
                 className="mb-6 flex gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3.5 py-3 text-fluid-sm text-emerald-950"
@@ -669,34 +641,36 @@ export function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-5">
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-slate-50/50 px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-fluid-xs font-medium text-slate-800">팀원계정로그인</p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={crewLoginMode}
-                  aria-label="팀원계정로그인"
-                  onClick={toggleCrewLoginMode}
-                  className={`relative h-6 w-10 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
-                    crewLoginMode ? 'bg-blue-600' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1/2 left-0.5 h-4 w-4 -translate-y-1/2 rounded-full bg-white shadow transition-transform duration-200 ease-out ${
-                      crewLoginMode ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div
+                className="grid grid-cols-2 rounded-[10px] bg-[#F5F7FB] p-1 text-fluid-xs font-semibold"
+                role="tablist"
+                aria-label="로그인 계정 종류"
+              >
+                {([false, true] as const).map((crew) => {
+                  const active = crewLoginMode === crew;
+                  return (
+                    <button
+                      key={crew ? 'crew' : 'biz'}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => {
+                        if (!active) toggleCrewLoginMode();
+                      }}
+                      className={`h-9 rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/40 ${
+                        active
+                          ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(11,18,32,0.08)]'
+                          : 'text-[#7C8AA5] hover:text-[#4A5877]'
+                      }`}
+                    >
+                      {crew ? '팀원 계정' : '업체 계정'}
+                    </button>
+                  );
+                })}
               </div>
-
               {!crewLoginMode && showSnsOAuthSection ? (
                 <div className="space-y-2">
-                  <p className="text-fluid-2xs text-slate-500">
-                    SNS로 연결한 계정 — 업체 코드 없이 로그인 (관리자·마케터·팀장)
-                  </p>
                   <div className="space-y-2">
                     {showGoogleOAuthLogin ? (
                       <GoogleSignupButton
@@ -715,22 +689,20 @@ export function LoginPage() {
                       />
                     ) : null}
                   </div>
+                  <p className="text-fluid-2xs text-[#7C8AA5]">SNS를 연결한 계정은 업체 코드 없이 들어가요.</p>
                   {oauthVerifying ? (
                     <p className="text-center text-fluid-2xs text-slate-500">카카오 로그인 확인 중…</p>
                   ) : null}
-                  <div className="relative py-1">
-                    <div className="absolute inset-0 flex items-center" aria-hidden>
-                      <div className="w-full border-t border-slate-200" />
-                    </div>
-                    <div className="relative flex justify-center">
-                      <span className="bg-white px-2 text-fluid-2xs text-slate-400">또는 아이디·비밀번호</span>
-                    </div>
+                  <div className="flex items-center gap-3 py-1 text-fluid-2xs text-[#7C8AA5]">
+                    <span className="h-px flex-1 bg-[#E6ECF5]" aria-hidden />
+                    또는 아이디로 로그인
+                    <span className="h-px flex-1 bg-[#E6ECF5]" aria-hidden />
                   </div>
                 </div>
               ) : null}
 
               <div className="space-y-1.5">
-                <label htmlFor="login-tenant" className="block text-fluid-xs font-medium text-slate-600">
+                <label htmlFor="login-tenant" className="block text-fluid-xs font-medium text-[#4A5877]">
                   업체 코드
                 </label>
                 <input
@@ -739,7 +711,7 @@ export function LoginPage() {
                   value={tenantSlug}
                   onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
                   className={inputClass}
-                  placeholder="업체코드를 넣어주세요"
+                  placeholder="업체 코드를 입력하세요"
                   autoComplete="organization"
                   enterKeyHint="next"
                   required={crewLoginMode || !showSnsOAuthSection}
@@ -747,7 +719,7 @@ export function LoginPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="login-id" className="block text-fluid-xs font-medium text-slate-600">
+                <label htmlFor="login-id" className="block text-fluid-xs font-medium text-[#4A5877]">
                   {crewLoginMode ? '크루 로그인 ID' : '아이디'}
                 </label>
                 <input
@@ -756,7 +728,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={inputClass}
-                  placeholder={crewLoginMode ? '그룹 로그인 ID' : '아이디를 적어주세요'}
+                  placeholder={crewLoginMode ? '그룹 로그인 ID' : '아이디를 입력하세요'}
                   autoComplete="username"
                   enterKeyHint="next"
                   required
@@ -765,15 +737,15 @@ export function LoginPage() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="login-password" className="block text-fluid-xs font-medium text-slate-600">
+                  <label htmlFor="login-password" className="block text-fluid-xs font-medium text-[#4A5877]">
                     비밀번호
                   </label>
                   {!crewLoginMode ? (
                     <Link
                       to="/forgot-password"
-                      className="text-fluid-2xs font-medium text-sky-700 underline-offset-2 hover:underline"
+                      className="text-fluid-2xs font-medium text-[#2F6BFF] underline-offset-2 hover:underline"
                     >
-                      비밀번호 찾기 · 설정
+                      비밀번호 찾기·설정
                     </Link>
                   ) : null}
                 </div>
@@ -790,12 +762,12 @@ export function LoginPage() {
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-fluid-xs text-slate-600">
+                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-fluid-xs text-[#4A5877]">
                   <input
                     type="checkbox"
                     checked={rememberLogin}
                     onChange={(e) => setRememberLogin(e.target.checked)}
-                    className="h-4 w-4 shrink-0 rounded border-slate-300 text-slate-900 focus:ring-sky-500/30"
+                    className="h-4 w-4 shrink-0 rounded border-[#C9D2E0] text-[#2F6BFF] accent-[#2F6BFF] focus:ring-[#2F6BFF]/30"
                   />
                   로그인 정보 저장
                 </label>
@@ -827,7 +799,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || oauthVerifying}
-                className="w-full rounded-xl bg-slate-900 py-3 text-fluid-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                className="h-11 w-full rounded-[10px] bg-[#2F6BFF] text-fluid-sm font-semibold text-white shadow-[0_6px_16px_rgba(47,107,255,0.25)] transition hover:bg-[#1E54E0] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
                 {loading || oauthVerifying ? (
                   <span className="inline-flex items-center justify-center gap-2">
@@ -858,29 +830,25 @@ export function LoginPage() {
                 )}
               </button>
             </form>
-
-            <Link
-              to="/signup"
-              className="mt-4 flex w-full items-center justify-center rounded-xl border-2 border-slate-900 bg-white py-3 text-fluid-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
-            >
-              회원가입
+              </div>
+              <nav className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-fluid-xs text-[#4A5877]" aria-label="도움 링크">
+                <a href="/help" className="hover:text-slate-900">도움말</a>
+                <span className="h-3 w-px bg-[#D3DBE8]" aria-hidden />
+                <a href="/education" className="hover:text-slate-900">교육 신청</a>
+                <span className="h-3 w-px bg-[#D3DBE8]" aria-hidden />
+                <a href="/#contact" className="hover:text-slate-900">도입 문의</a>
+              </nav>
+            </div>
+          </div>
+          <footer className="login-page-footer grid gap-1 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-fluid-2xs text-[#7C8AA5] sm:px-8 lg:grid-flow-col lg:justify-between lg:text-left">
+            <Link to="/platform/login" className="underline-offset-2 hover:text-[#4A5877] hover:underline">
+              {PLATFORM_NAME} 운영 콘솔
             </Link>
-          </div>
-
-          <div className="login-page-footer mt-3 space-y-1 text-center sm:mt-6">
-            <p className="text-fluid-2xs text-slate-500">
-              <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
-                {PLATFORM_NAME} 운영 콘솔
-              </Link>
-            </p>
-            <p className="text-fluid-2xs text-slate-400">
-              서비스는 {ORDER_FORM_PLATFORM_FOOTER.operatorName}에서 제공합니다.
-            </p>
-            <p className="text-fluid-2xs text-slate-400">
-              © {new Date().getFullYear()} {PLATFORM_NAME}
-            </p>
-          </div>
-        </div>
+            <span>
+              서비스는 {ORDER_FORM_PLATFORM_FOOTER.operatorName}에서 제공합니다. © {new Date().getFullYear()} {PLATFORM_NAME}
+            </span>
+          </footer>
+        </main>
       </div>
     </div>
   );
