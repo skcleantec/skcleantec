@@ -47,7 +47,6 @@ export function PlatformCardPaymentPage() {
         <p className="mt-1 text-sm text-gray-500">가맹점 진행 현황 · 키 연결 · 수수료(부가세 포함)</p>
       </div>
 
-      <PlatformPgMerchantStatusSection />
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       <section aria-label="PG 도구" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -90,6 +89,8 @@ export function PlatformCardPaymentPage() {
           </button>
         ))}
       </section>
+
+      <PlatformPgMerchantStatusSection />
 
       {tool === 'keys' ? (
         <ToolModal title="업체 결제 키" onClose={() => setTool(null)} wide>
