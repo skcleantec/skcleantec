@@ -25,6 +25,7 @@ import {
   searchPayLinkInquiries,
 } from './platformPayLink.service.js';
 import { getPgContractTemplate, savePgContractTemplate } from './pgMerchantContract.service.js';
+import { listPgMerchantStatusForPlatform } from './pgMerchantStatus.service.js';
 import { deletePgMerchant, feePercentToBps, listPgFeeLedger, setMerchantFeeBps } from './pgFeeLedger.service.js';
 import { platformUserCanManagePgFees, verifyPyoPassword } from './pgFeeAccess.js';
 import {
@@ -132,6 +133,14 @@ router.put('/contract', async (req, res) => {
     res.json(saved);
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '저장하지 못했습니다.' });
+  }
+});
+
+router.get('/merchant-status', async (_req, res) => {
+  try {
+    res.json({ items: await listPgMerchantStatusForPlatform() });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : '불러오지 못했습니다.' });
   }
 });
 

@@ -333,3 +333,31 @@ export async function probePlatformUsageFeeKeyin() {
   if (!res.ok) throw new Error(await parseError(res));
   return res.json() as Promise<{ ok: boolean; message: string }>;
 }
+
+/** 가맹점 진행 단계 — 미신청 / 작성 중 / 신청 접수 / PG 심사 중 / 계약 대기 / 계약 완료 / 반려 */
+export type PgMerchantStage =
+  | 'NOT_APPLIED'
+  | 'DRAFTING'
+  | 'SUBMITTED'
+  | 'FORWARDED'
+  | 'CONTRACT_PENDING'
+  | 'CONTRACT_DONE'
+  | 'REJECTED';
+
+export type PgMerchantStatusRow = {
+  tenant: { id: string; name: string; slug: string };
+  stage: PgMerchantStage;
+  onboardingStatus: string | null;
+  submittedAt: string | null;
+  forwardedAt: string | null;
+  decidedAt: string | null;
+  contractSignedAt: string | null;
+  contractMailedAt: string | null;
+  keyConnected: boolean;
+};
+
+export async function fetchPlatformPgMerchantStatus() {
+  const res = await fetch(`${API}/platform/card-payment/merchant-status`, { headers: platformHeaders() });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ items: PgMerchantStatusRow[] }>;
+}
