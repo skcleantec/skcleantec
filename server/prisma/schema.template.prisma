@@ -835,6 +835,10 @@ model TenantBillingProfile {
   billingStartDate       DateTime?                @map("billing_start_date") @db.Date
   autoIssueEnabled       Boolean                  @default(true) @map("auto_issue_enabled")
   contractMemo           String?                  @map("contract_memo") @db.Text
+  /// 이용료 면제 업체 (월 이용료 0원, 미납·접속 제한 없음)
+  feeExempt              Boolean                  @default(false) @map("fee_exempt")
+  /// 면제 업체의 부가 요금(랜딩 문의 링크 등)까지 면제
+  feeExemptAddons        Boolean                  @default(false) @map("fee_exempt_addons")
   createdAt              DateTime                 @default(now()) @map("created_at")
   updatedAt              DateTime                 @updatedAt @map("updated_at")
 

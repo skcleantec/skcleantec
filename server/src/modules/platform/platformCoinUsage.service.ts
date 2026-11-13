@@ -33,6 +33,8 @@ export type PlatformCoinUsageRow = {
   status: TenantStatus;
   unlimited: boolean;
   graceActive: boolean;
+  /** 이용료 면제 업체 */
+  billingFeeExempt: boolean;
   allowance: number | null;
   spent: number;
   remaining: number | null;
@@ -348,6 +350,12 @@ export async function listPlatformCoinUsage(
     telecrmAiUsersByTenant.set(tenantId, list);
   }
 
+  const feeExemptRows = await prisma.tenantBillingProfile.findMany({
+    where: { tenantId: { in: tenants.map((t) => t.id) }, feeExempt: true },
+    select: { tenantId: true },
+  });
+  const feeExemptTenantIds = new Set(feeExemptRows.map((r) => r.tenantId));
+
   let rows: PlatformCoinUsageRow[] = tenants.map((t) => {
     const planId = normalizePlanId(t.plan);
     const graceActive = isSignupCoinGraceActive(t);
@@ -381,6 +389,7 @@ export async function listPlatformCoinUsage(
       status: t.status,
       unlimited,
       graceActive,
+      billingFeeExempt: feeExemptTenantIds.has(t.id),
       allowance,
       spent,
       remaining,

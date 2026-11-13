@@ -13,6 +13,7 @@ import {
 } from '../../api/platformTenants';
 import { PlatformTenantAdminsSection } from './PlatformTenantAdminsSection';
 import { PlatformTenantBillingPanel } from './PlatformTenantBillingPanel';
+import { PlatformTenantBillingSummaryStrip } from '../../components/platform/PlatformTenantBillingSummaryStrip';
 import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
 import { PlatformTenantAlimtalkPanel } from './PlatformTenantAlimtalkPanel';
 import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
@@ -52,12 +53,7 @@ import {
   SignupAuthMethodBadge,
   StatusBadge,
 } from '../../utils/platformUi';
-import {
-  TENANT_PLAN_PRESENTATIONS,
-  planLimitsSummary,
-  type TenantPlanPresentation,
-} from '@shared/tenantPlanCatalog';
-import { TENANT_PLAN_IDS, normalizePlanId } from '@shared/tenantPlanNormalize';
+import { normalizePlanId } from '@shared/tenantPlanNormalize';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
 
 const SETTINGS_FIELDS: {
@@ -137,6 +133,7 @@ export function PlatformTenantDetailPage() {
   const [admins, setAdmins] = useState<PlatformTenantAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const setActiveTab = (tab: TenantDetailTabId, section?: string) => {
@@ -227,30 +224,6 @@ export function PlatformTenantDetailPage() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handlePlanSelect = async (pid: TenantPlanId) => {
-    const token = getPlatformToken();
-    if (!token || !id || saving) return;
-    setPlan(pid);
-    if (pid === detail?.tenant.plan) return;
-    setSaving(true);
-    setMessage('');
-    setError('');
-    try {
-      await patchPlatformTenant(token, id, { plan: pid });
-      const data = await resetPlatformTenantFeaturesFromPlan(token, id);
-      setDetail(data);
-      setAdmins(normalizePlatformTenantAdmins(data));
-      setFeatures(data.features.map((f) => ({ ...f })));
-      setPlan(normalizePlanId(data.tenant.plan));
-      setMessage('플랜을 변경하고 기능 모듈을 재설정했습니다.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '플랜 변경 실패');
-      if (detail) setPlan(normalizePlanId(detail.tenant.plan));
     } finally {
       setSaving(false);
     }
@@ -431,6 +404,8 @@ export function PlatformTenantDetailPage() {
         </div>
       </div>
 
+      {id ? <PlatformTenantBillingSummaryStrip tenantId={id} refreshKey={billingRefreshKey} /> : null}
+
       {message ? <PlatformAlert message={message} variant="success" /> : null}
       {error ? <PlatformAlert message={error} variant="error" /> : null}
 
@@ -478,6 +453,7 @@ export function PlatformTenantDetailPage() {
               onOpenTab={setActiveTab}
             />
           ) : null}
+          {id ? <PlatformTenantUsagePanel tenantId={id} compact /> : null}
           {id ? <PlatformTenantPartnershipsCard tenantId={id} /> : null}
         </div>
       ) : null}
@@ -561,98 +537,12 @@ export function PlatformTenantDetailPage() {
                 <PlatformTenantAlimtalkPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
                 <PlatformTenantAddonStatus tenantId={id} />
                 <PlatformTenantTelecrmPanel tenantId={id} disabled={saving} onSaved={() => void load()} />
-                <div className="lg:col-span-2">
-                  <PlatformTenantUsagePanel tenantId={id} />
-                </div>
               </div>
             </>
           ) : null}
 
           {(activeTab === 'billing' || activeTab === 'features') ? (
             <>
-          {activeTab === 'billing' ? (
-          <section id="section-plan" className={`${CARD_SECTION} scroll-mt-24`}>
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-semibold text-gray-900">플랜 선택</h2>
-              <p className="text-xs text-gray-400">변경 시 기능 모듈이 자동 재설정됩니다</p>
-            </div>
-            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {TENANT_PLAN_IDS.map((pid) => {
-                const isSelected = normalizePlanId(plan) === pid;
-                const desc: TenantPlanPresentation = TENANT_PLAN_PRESENTATIONS[pid];
-                const limits = planLimitsSummary(pid);
-                return (
-                  <button
-                    key={pid}
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void handlePlanSelect(pid)}
-                    className={[
-                      'relative rounded-xl border-2 p-4 text-left transition-all',
-                      pid === 'premium' && isSelected
-                        ? 'border-purple-500 bg-purple-50'
-                        : pid === 'standard' && isSelected
-                          ? 'border-blue-500 bg-blue-50'
-                          : isSelected
-                            ? 'border-gray-900 bg-gray-50'
-                            : 'border-gray-200 hover:border-gray-300',
-                    ].join(' ')}
-                  >
-                    {desc.recommended ? (
-                      <span className="absolute right-3 top-3 rounded-full bg-blue-600 px-2 py-0.5 text-fluid-2xs font-medium text-white">
-                        추천
-                      </span>
-                    ) : null}
-                    <div
-                      className={[
-                        'mb-1 text-sm font-bold',
-                        pid === 'premium' && isSelected
-                          ? 'text-purple-700'
-                          : pid === 'standard' && isSelected
-                            ? 'text-blue-700'
-                            : 'text-gray-900',
-                      ].join(' ')}
-                    >
-                      {desc.label}
-                      {isSelected ? ' ✓' : ''}
-                    </div>
-                    <p className="mb-1 text-fluid-xs text-gray-500">{desc.tagline}</p>
-                    <p className="text-fluid-sm font-semibold tabular-nums text-gray-900">{desc.monthlyPriceHint}</p>
-                    <p className="text-fluid-2xs text-gray-500">{desc.annualPriceHint}</p>
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-fluid-2xs text-gray-500">포함 기능</summary>
-                      <ul className="mt-1 space-y-1">
-                        {desc.features.map((f) => (
-                          <li key={f} className="text-fluid-xs text-gray-600">
-                            · {f}
-                          </li>
-                        ))}
-                      </ul>
-                      <ul className="mt-2 space-y-0.5 border-t border-gray-100 pt-2">
-                        {limits.map((line) => (
-                          <li key={line} className="text-fluid-2xs text-gray-500">
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-3 flex justify-end border-t border-gray-100 pt-3">
-              <button
-                type="button"
-                onClick={() => void saveBasics()}
-                disabled={saving}
-                className={BTN_PRIMARY}
-              >
-                플랜 저장
-              </button>
-            </div>
-          </section>
-          ) : null}
-
           {activeTab === 'features' ? (
           <section className={CARD_SECTION}>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -705,7 +595,14 @@ export function PlatformTenantDetailPage() {
       ) : null}
 
       {activeTab === 'billing' && id ? (
-        <PlatformTenantBillingPanel tenantId={id} compact />
+        <PlatformTenantBillingPanel
+          tenantId={id}
+          compact
+          onTenantChanged={() => {
+            setBillingRefreshKey((k) => k + 1);
+            void load();
+          }}
+        />
       ) : null}
 
       {activeTab === 'account' ? (

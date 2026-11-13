@@ -148,6 +148,14 @@ export type TenantBillingSummaryDto = {
   currentPeriodDueDate: string | null;
   operationalStatus: TenantBillingOperationalStatus;
   paymentConfirmationEnabled: boolean;
+  /** 이용료 면제 업체 */
+  billingFeeExempt: boolean;
+  /** 부가 요금까지 면제 */
+  feeExemptAddons: boolean;
+  /** 승인된 랜딩 문의 링크 유료 슬롯 수 */
+  landingContactLinkCount: number;
+  /** 월 부가 요금 (면제 전 금액) */
+  monthlyAddonKrw: number;
 };
 
 function mapInvoice(row: {
@@ -247,7 +255,7 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
         })
       : [];
 
-  return { tenant, profile, billingStart, schedule, invoices, adjustments };
+  return { tenant, profile, billingStart, schedule, invoices, adjustments, paidLinkCount, monthlyAddonKrw };
 }
 
 export async function getTenantBillingSchedule(
@@ -585,7 +593,9 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     billingAccessBlockedAt: tenant.billingAccessBlockedAt?.toISOString() ?? null,
     amountKrw,
     amountLabel: billingFeeExempt
-      ? '이용료 면제 (약정 0원)'
+      ? profile.feeExemptAddons
+        ? '이용료·부가 요금 면제'
+        : '이용료 면제'
       : `${amountKrw.toLocaleString('ko-KR')}원 (VAT 별도)`,
     bank: {
       bankName: settings.bankName,
@@ -602,6 +612,10 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     currentPeriodDueDate: currentPeriod?.dueDate ?? null,
     operationalStatus,
     paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings),
+    billingFeeExempt,
+    feeExemptAddons: billingFeeExempt && profile.feeExemptAddons,
+    landingContactLinkCount: scheduleCtx?.paidLinkCount ?? 0,
+    monthlyAddonKrw: scheduleCtx?.monthlyAddonKrw ?? 0,
   };
 }
 

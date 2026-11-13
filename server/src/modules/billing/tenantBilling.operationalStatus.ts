@@ -78,7 +78,7 @@ export function resolveTenantBillingOperationalStatus(input: {
     if (input.status === 'SUSPENDED' && (input.suspendReason === 'PLATFORM' || input.suspendReason == null)) {
       return { code: 'SUSPENDED', label: '중지', detail: '플랫폼' };
     }
-    return { code: 'ACTIVE_OK', label: '면제 이용', detail: '약정 0원 · 이용료 없음' };
+    return { code: 'ACTIVE_OK', label: '면제 이용', detail: '이용료 없음' };
   }
 
   if (input.status === 'SUSPENDED') {
