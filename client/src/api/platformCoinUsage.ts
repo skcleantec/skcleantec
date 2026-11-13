@@ -25,6 +25,8 @@ export type PlatformCoinUsageRow = {
   status: string;
   unlimited: boolean;
   graceActive: boolean;
+  /** 이용료 면제 업체 */
+  billingFeeExempt?: boolean;
   allowance: number | null;
   spent: number;
   remaining: number | null;

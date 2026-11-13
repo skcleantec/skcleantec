@@ -8,6 +8,7 @@ import { resolvePeriodBaseAmountKrw, type BillingProfileInput } from './tenantBi
 
 /** 약정(CUSTOM) 금액 0원 — 이용료·청구·접속 제한 없이 이용 */
 export function isBillingProfileFeeExempt(profile: BillingProfileInput, plan: string): boolean {
+  if (profile.feeExempt) return true;
   if (profile.pricingMode !== 'CUSTOM') return false;
   return resolvePeriodBaseAmountKrw(profile, plan, profile.billingCycle) <= 0;
 }
@@ -59,9 +60,13 @@ export async function applyTenantBillingFeeExemptState(tenantId: string): Promis
     tenant.serviceStartedAt == null ||
     tenant.prepaidConfirmedAt == null;
 
-  const openInvoices = await prisma.tenantInvoice.count({
-    where: { tenantId, status: { in: ['ISSUED', 'OVERDUE'] } },
-  });
+  /** 부가 요금은 받는 면제 업체 — 열린 청구서(부가 요금)는 그대로 둔다 */
+  const voidOpenInvoices = !(profile.feeExempt && !profile.feeExemptAddons);
+  const openInvoices = voidOpenInvoices
+    ? await prisma.tenantInvoice.count({
+        where: { tenantId, status: { in: ['ISSUED', 'OVERDUE'] } },
+      })
+    : 0;
 
   if (!needsTenantPatch && openInvoices === 0) return false;
 

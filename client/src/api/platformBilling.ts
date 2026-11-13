@@ -140,6 +140,10 @@ export type BillingProfileRow = {
   billingStartDate: string | null;
   autoIssueEnabled: boolean;
   contractMemo: string | null;
+  /** 이용료 면제 업체 */
+  feeExempt?: boolean;
+  /** 부가 요금까지 면제 */
+  feeExemptAddons?: boolean;
 };
 
 export type BillingAdjustmentRow = {
@@ -160,6 +164,10 @@ export type BillingScheduleRow = {
   catalogAmountKrw: number;
   status: BillingScheduleItemStatus;
   invoiceId: string | null;
+  baseAmountKrw?: number;
+  addonAmountKrw?: number;
+  feeExempt?: boolean;
+  addonExempt?: boolean;
   adjustment: {
     id: string;
     type: TenantBillingAdjustmentType;
@@ -207,6 +215,10 @@ export type PlatformTenantBillingDetail = {
       label: string;
       detail: string | null;
     };
+    billingFeeExempt?: boolean;
+    feeExemptAddons?: boolean;
+    landingContactLinkCount?: number;
+    monthlyAddonKrw?: number;
   };
   invoices: TenantInvoiceRow[];
   adjustments: BillingAdjustmentRow[];
@@ -241,6 +253,8 @@ export type PatchBillingProfileBody = {
   billingStartDate?: string | null;
   autoIssueEnabled?: boolean;
   contractMemo?: string | null;
+  feeExempt?: boolean;
+  feeExemptAddons?: boolean;
 };
 
 export async function getPlatformBillingSettings(token: string) {

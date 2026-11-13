@@ -27,6 +27,10 @@ export type BillingProfileInput = {
   customMonthlyAmountKrw: number | null;
   customAnnualAmountKrw: number | null;
   billingDueDay: number;
+  /** 이용료 면제 업체 */
+  feeExempt?: boolean;
+  /** 면제 업체의 부가 요금까지 면제 */
+  feeExemptAddons?: boolean;
 };
 
 export type BillingAdjustmentInput = {
@@ -60,6 +64,14 @@ export type BillingScheduleItem = {
   catalogAmountKrw: number;
   status: BillingScheduleItemStatus;
   invoiceId: string | null;
+  /** 이용료 몫 (부가 요금 제외) */
+  baseAmountKrw: number;
+  /** 부가 요금 몫 (랜딩 문의 링크 등) */
+  addonAmountKrw: number;
+  /** 업체 면제로 이용료가 0원 */
+  feeExempt: boolean;
+  /** 업체 면제로 부가 요금이 0원 */
+  addonExempt: boolean;
   adjustment: {
     id: string;
     type: TenantBillingAdjustmentType;
@@ -82,6 +94,7 @@ export function resolvePeriodBaseAmountKrw(
   cycle: TenantBillingCycle,
   activeBrandCount = 1,
 ): number {
+  if (profile.feeExempt) return 0;
   const catalogMonthly = calculateBillingAmountKrw(plan, 'MONTHLY', activeBrandCount);
   if (profile.pricingMode === 'CUSTOM') {
     const monthly = profile.customMonthlyAmountKrw ?? catalogMonthly;
@@ -129,8 +142,15 @@ export function computeBillingSchedule(input: {
   } = input;
 
   const cycle = profile.billingCycle;
+  const feeExempt = profile.feeExempt === true;
+  const addonExempt = feeExempt && profile.feeExemptAddons === true && monthlyAddonKrw > 0;
   const addonForCycle =
-    monthlyAddonKrw > 0 ? (cycle === 'ANNUAL' ? monthlyAddonKrw * 12 : monthlyAddonKrw) : 0;
+    monthlyAddonKrw > 0 && !addonExempt
+      ? cycle === 'ANNUAL'
+        ? monthlyAddonKrw * 12
+        : monthlyAddonKrw
+      : 0;
+  const exemptFlags = { feeExempt, addonExempt };
   const invoicesByStart = new Map<string, BillingInvoiceInput>();
   for (const inv of invoices) {
     if (inv.status === 'VOID') continue;
@@ -164,6 +184,9 @@ export function computeBillingSchedule(input: {
         catalogAmountKrw: catalogAmount,
         status: 'SKIPPED',
         invoiceId: null,
+        baseAmountKrw: 0,
+        addonAmountKrw: 0,
+        ...exemptFlags,
         adjustment: { id: adj.id, type: adj.type, reason: adj.reason },
       });
       cursor = nextPeriodStartAfter(periodEnd);
@@ -180,6 +203,9 @@ export function computeBillingSchedule(input: {
         catalogAmountKrw: catalogAmount,
         status: 'DEFERRED',
         invoiceId: null,
+        baseAmountKrw: baseAmount,
+        addonAmountKrw: 0,
+        ...exemptFlags,
         adjustment: { id: adj.id, type: adj.type, reason: adj.reason, deferMode: 'SHIFT' },
       });
       cursor = advanceCursorAfterShift(periodEnd, cycle);
@@ -197,6 +223,9 @@ export function computeBillingSchedule(input: {
         catalogAmountKrw: catalogAmount,
         status: 'DEFERRED',
         invoiceId: null,
+        baseAmountKrw: baseAmount,
+        addonAmountKrw: 0,
+        ...exemptFlags,
         adjustment: { id: adj.id, type: adj.type, reason: adj.reason, deferMode: 'MERGE' },
       });
       cursor = nextPeriodStartAfter(periodEnd);
@@ -214,11 +243,15 @@ export function computeBillingSchedule(input: {
     let status: BillingScheduleItem['status'];
     if (existingInv) {
       status = existingInv.status;
-    } else if (periodStart.getTime() > todayStart.getTime()) {
-      status = 'SCHEDULED';
+    } else if (feeExempt && customOverride == null && amountKrw <= 0) {
+      /** 면제 업체 — 청구할 금액이 없는 회차는 면제로 표시 */
+      status = 'SKIPPED';
     } else {
       status = 'SCHEDULED';
     }
+    const baseShare =
+      customOverride != null ? amountKrw : Math.max(0, amountKrw - addonForCycle);
+    const addonShare = customOverride != null ? 0 : Math.min(addonForCycle, amountKrw);
 
     items.push({
       periodStart: periodStart.toISOString(),
@@ -228,6 +261,9 @@ export function computeBillingSchedule(input: {
       catalogAmountKrw: catalogAmount,
       status,
       invoiceId: existingInv?.id ?? null,
+      baseAmountKrw: existingInv ? Math.max(0, existingInv.amountKrw - addonShare) : baseShare,
+      addonAmountKrw: existingInv ? Math.min(addonShare, existingInv.amountKrw) : addonShare,
+      ...exemptFlags,
       adjustment:
         adj?.type === 'CUSTOM_AMOUNT'
           ? { id: adj.id, type: adj.type, reason: adj.reason }
@@ -237,7 +273,9 @@ export function computeBillingSchedule(input: {
     cursor = nextPeriodStartAfter(periodEnd);
 
     const futureScheduled = items.filter(
-      (i) => i.status === 'SCHEDULED' && new Date(i.periodStart).getTime() > todayStart.getTime(),
+      (i) =>
+        (i.status === 'SCHEDULED' || (feeExempt && i.status === 'SKIPPED' && i.adjustment == null)) &&
+        new Date(i.periodStart).getTime() > todayStart.getTime(),
     ).length;
     const lastPeriodStart = new Date(items[items.length - 1]!.periodStart);
     if (futureScheduled >= futureScheduledMin && lastPeriodStart.getTime() > todayStart.getTime()) {

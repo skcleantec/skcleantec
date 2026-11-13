@@ -22,6 +22,8 @@ export type BillingProfileDto = {
   billingStartDate: string | null;
   autoIssueEnabled: boolean;
   contractMemo: string | null;
+  feeExempt: boolean;
+  feeExemptAddons: boolean;
 };
 
 export type BillingAdjustmentDto = {
@@ -43,6 +45,8 @@ export function mapBillingProfile(row: {
   billingStartDate: Date | null;
   autoIssueEnabled: boolean;
   contractMemo: string | null;
+  feeExempt?: boolean;
+  feeExemptAddons?: boolean;
 }): BillingProfileDto {
   return {
     billingCycle: row.billingCycle,
@@ -53,6 +57,8 @@ export function mapBillingProfile(row: {
     billingStartDate: row.billingStartDate?.toISOString() ?? null,
     autoIssueEnabled: row.autoIssueEnabled,
     contractMemo: row.contractMemo,
+    feeExempt: row.feeExempt === true,
+    feeExemptAddons: row.feeExemptAddons === true,
   };
 }
 
@@ -84,6 +90,8 @@ export async function updateTenantBillingProfileContract(
     billingStartDate?: string | null;
     autoIssueEnabled?: boolean;
     contractMemo?: string | null;
+    feeExempt?: boolean;
+    feeExemptAddons?: boolean;
   },
 ): Promise<BillingProfileDto> {
   const tenant = await prisma.tenant.findUnique({
@@ -135,6 +143,8 @@ export async function updateTenantBillingProfileContract(
       billingStartDate: billingStartDate ?? tenant.serviceStartedAt ?? null,
       autoIssueEnabled: input.autoIssueEnabled ?? true,
       contractMemo: input.contractMemo?.trim() || null,
+      feeExempt: input.feeExempt === true,
+      feeExemptAddons: input.feeExempt === true && input.feeExemptAddons === true,
     },
     update: {
       ...(input.billingCycle !== undefined ? { billingCycle: input.billingCycle } : {}),
@@ -152,6 +162,10 @@ export async function updateTenantBillingProfileContract(
         : {}),
       ...(input.autoIssueEnabled !== undefined ? { autoIssueEnabled: input.autoIssueEnabled } : {}),
       ...(input.contractMemo !== undefined ? { contractMemo: input.contractMemo?.trim() || null } : {}),
+      ...(input.feeExempt !== undefined ? { feeExempt: input.feeExempt === true } : {}),
+      ...(input.feeExemptAddons !== undefined || input.feeExempt === false
+        ? { feeExemptAddons: input.feeExempt !== false && input.feeExemptAddons === true }
+        : {}),
     },
   });
 

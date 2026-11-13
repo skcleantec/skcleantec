@@ -12,6 +12,7 @@ import {
   voidPlatformBillingAdjustment,
   voidPlatformInvoice,
   type BillingScheduleRow,
+  type TenantInvoiceRow,
 } from '../../api/platformBilling';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -30,6 +31,8 @@ type DatePreset = 'today' | 'all' | 'month' | 'day';
 type Props = {
   tenantId: string;
   onMutate?: () => void;
+  /** 무효 처리된 청구서 (「무효 청구서 보기」에서만 표시) */
+  voidInvoices?: TenantInvoiceRow[];
 };
 
 function parseDatePreset(raw: string | null): DatePreset {
@@ -40,7 +43,9 @@ function parseDatePreset(raw: string | null): DatePreset {
 export function PlatformTenantBillingScheduleSection({
   tenantId,
   onMutate,
+  voidInvoices = [],
 }: Props) {
+  const [showVoid, setShowVoid] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [schedule, setSchedule] = useState<BillingScheduleRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -220,88 +225,88 @@ export function PlatformTenantBillingScheduleSection({
   };
 
   return (
-    <div className="mt-2 space-y-3">
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+    <section className="rounded-xl border border-gray-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+        <h3 className="text-base font-semibold text-gray-900">청구 일정</h3>
+        {voidInvoices.length > 0 ? (
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-500">
+            <input
+              type="checkbox"
+              checked={showVoid}
+              onChange={(e) => setShowVoid(e.target.checked)}
+              className="h-3.5 w-3.5 accent-gray-900"
+            />
+            무효 청구서 보기 ({voidInvoices.length})
+          </label>
+        ) : null}
+      </div>
 
-      <div className="flex flex-col gap-3 border-b border-gray-100 pb-3">
-        <div className="flex flex-col gap-2 min-w-0 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
-            <span className="text-xs font-semibold text-gray-700 shrink-0">이용 시작일</span>
-            <div className="inline-flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded border border-gray-300 overflow-hidden text-xs shrink-0">
-                {(
-                  [
-                    ['today', '당일'],
-                    ['all', '전체'],
-                    ['month', '월별'],
-                    ['day', '날짜'],
-                  ] as const
-                ).map(([value, label], idx) => (
-                  <button
-                    key={value}
-                    type="button"
-                    disabled={saving}
-                    onClick={() =>
-                      patchParams(
-                        {
-                          schPreset: value,
-                          schPage: '1',
-                          ...(value === 'month' && !searchParams.get('schMonth')
-                            ? { schMonth: kstTodayYmd().slice(0, 7) }
-                            : {}),
-                          ...(value === 'day' && !searchParams.get('schDay')
-                            ? { schDay: kstTodayYmd() }
-                            : {}),
-                        },
-                        true,
-                      )
-                    }
-                    className={[
-                      'px-3 py-1.5 font-medium',
-                      idx > 0 ? 'border-l border-gray-300' : '',
-                      datePreset === value
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50',
-                    ].join(' ')}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {datePreset === 'month' ? (
-                <YearMonthSelect
-                  value={monthKey}
-                  onChange={(v) => patchParams({ schMonth: v, schPage: '1' }, true)}
-                  idPrefix="billing-schedule-month"
-                  className="items-center"
-                />
-              ) : null}
-              {datePreset === 'day' ? (
-                <YmdSelect
-                  value={dayKey}
-                  onChange={(v) => patchParams({ schDay: v, schPage: '1' }, true)}
-                  idPrefix="billing-schedule-day"
-                  className="items-center"
-                />
-              ) : null}
-            </div>
-          </div>
-          <ListPaginationBar
-            mode="summary"
-            page={safePage}
-            pageSize={pageSize}
-            total={total}
-            onPageChange={(p) => patchParams({ schPage: String(p) })}
-            onPageSizeChange={(size) =>
-              patchParams({ schPageSize: String(size), schPage: '1' }, true)
-            }
-            className="shrink-0"
-          />
+      {error ? <p className="px-5 pt-3 text-sm text-rose-600">{error}</p> : null}
+
+      <div className="flex flex-col gap-2 px-5 py-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+        <div className="inline-flex w-fit overflow-hidden rounded-lg border border-gray-200 text-xs">
+          {(
+            [
+              ['all', '전체'],
+              ['today', '당일'],
+              ['month', '월별'],
+              ['day', '날짜'],
+            ] as const
+          ).map(([value, label], idx) => (
+            <button
+              key={value}
+              type="button"
+              disabled={saving}
+              onClick={() =>
+                patchParams(
+                  {
+                    schPreset: value,
+                    schPage: '1',
+                    ...(value === 'month' && !searchParams.get('schMonth')
+                      ? { schMonth: kstTodayYmd().slice(0, 7) }
+                      : {}),
+                    ...(value === 'day' && !searchParams.get('schDay')
+                      ? { schDay: kstTodayYmd() }
+                      : {}),
+                  },
+                  true,
+                )
+              }
+              className={[
+                'px-3 py-1.5 font-medium',
+                idx > 0 ? 'border-l border-gray-200' : '',
+                datePreset === value ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <p className="text-xs text-gray-500">
-          과금 시작일부터 이용 기간이 순서대로 쌓입니다. 미래 회차는 다음 1회만 미리 표시됩니다.
-          입금완료는 청구서 발행 없이도 누를 수 있으며, 이용료 입금 확인은 이 버튼으로만 처리합니다.
-        </p>
+        {datePreset === 'month' ? (
+          <YearMonthSelect
+            value={monthKey}
+            onChange={(v) => patchParams({ schMonth: v, schPage: '1' }, true)}
+            idPrefix="billing-schedule-month"
+            className="items-center"
+          />
+        ) : null}
+        {datePreset === 'day' ? (
+          <YmdSelect
+            value={dayKey}
+            onChange={(v) => patchParams({ schDay: v, schPage: '1' }, true)}
+            idPrefix="billing-schedule-day"
+            className="items-center"
+          />
+        ) : null}
+        <ListPaginationBar
+          mode="summary"
+          page={safePage}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={(p) => patchParams({ schPage: String(p) })}
+          onPageSizeChange={(size) => patchParams({ schPageSize: String(size), schPage: '1' }, true)}
+          className="shrink-0 lg:ml-auto"
+        />
       </div>
 
       {loading ? (
@@ -310,6 +315,7 @@ export function PlatformTenantBillingScheduleSection({
         <>
           <PlatformTenantBillingScheduleTable
             schedule={schedule}
+            voidInvoices={showVoid ? voidInvoices : []}
             saving={saving}
             onApplyAdjustment={onApplyAdjustment}
             onVoidAdjustment={onVoidAdjustment}
@@ -317,31 +323,34 @@ export function PlatformTenantBillingScheduleSection({
             onConfirmPayment={onConfirmPayment}
             onVoidInvoice={onVoidInvoice}
           />
-          {total > 0 ? (
-            <ListPaginationBar
-              mode="nav"
-              page={safePage}
-              pageSize={pageSize}
-              total={total}
-              onPageChange={(p) => patchParams({ schPage: String(p) })}
-              onPageSizeChange={(size) =>
-                patchParams({ schPageSize: String(size), schPage: '1' }, true)
-              }
-            />
+          {total > pageSize ? (
+            <div className="px-5 pb-2">
+              <ListPaginationBar
+                mode="nav"
+                page={safePage}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={(p) => patchParams({ schPage: String(p) })}
+                onPageSizeChange={(size) => patchParams({ schPageSize: String(size), schPage: '1' }, true)}
+              />
+            </div>
           ) : null}
         </>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-5 py-3">
+        <p className="text-xs text-gray-400">
+          미래 회차는 다음 1회까지만 보여요. 「입금완료」는 청구서를 발행하지 않아도 누를 수 있어요.
+        </p>
         <button
           type="button"
           disabled={saving || loading}
           onClick={() => void loadSchedule()}
-          className={BTN_SECONDARY}
+          className={`${BTN_SECONDARY} px-3 py-1.5 text-xs`}
         >
           새로고침
         </button>
       </div>
-    </div>
+    </section>
   );
 }
