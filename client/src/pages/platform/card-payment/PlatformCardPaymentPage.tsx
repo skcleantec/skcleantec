@@ -4,13 +4,9 @@ import { CARD_SECTION, BTN_SECONDARY } from '../../../utils/platformUi';
 import { PlatformCardPaymentKeySection } from './PlatformCardPaymentKeySection';
 import { PlatformUsageFeeCheck } from './PlatformUsageFeeCheck';
 import { PlatformCardPaymentTabs } from './PlatformCardPaymentTabs';
-import {
-  fetchPlatformCardPaymentSettings,
-  fetchPlatformPgOnboardings,
-  patchPlatformPgOnboarding,
-} from '../../../api/platformCardPayment';
-import { formatWon, TENANT_PG_ONBOARDING_STATUS_LABEL } from '@shared/cardPayment';
-import type { TenantPgOnboardingStatus } from '@shared/cardPayment';
+import { PlatformPgMerchantStatusSection } from './PlatformPgMerchantStatusSection';
+import { fetchPlatformCardPaymentSettings } from '../../../api/platformCardPayment';
+import { formatWon } from '@shared/cardPayment';
 
 export function PlatformCardPaymentPage() {
   const [summary, setSummary] = useState({
@@ -20,20 +16,16 @@ export function PlatformCardPaymentPage() {
     platformCostWon: 0,
     platformSpreadWon: 0,
   });
-  const [items, setItems] = useState<
-    Awaited<ReturnType<typeof fetchPlatformPgOnboardings>>['items']
-  >([]);
   const [error, setError] = useState<string | null>(null);
   const [serviceBridge, setServiceBridge] = useState<
     Awaited<ReturnType<typeof fetchPlatformCardPaymentSettings>>['serviceBridge']
   >(undefined);
 
   const reload = () => {
-    void Promise.all([fetchPlatformCardPaymentSettings(), fetchPlatformPgOnboardings({ limit: 50, offset: 0 })])
-      .then(([s, list]) => {
+    void fetchPlatformCardPaymentSettings()
+      .then((s) => {
         setSummary(s.summary);
         setServiceBridge(s.serviceBridge);
-        setItems(list.items);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '불러오지 못했습니다.'));
   };
@@ -47,9 +39,10 @@ export function PlatformCardPaymentPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-900">카드결제 PG</h1>
         <PlatformCardPaymentTabs />
-        <p className="mt-1 text-sm text-gray-500">테넌트 가입 신청 · 키 연결 · 수수료(부가세 포함)</p>
+        <p className="mt-1 text-sm text-gray-500">가맹점 진행 현황 · 키 연결 · 수수료(부가세 포함)</p>
       </div>
 
+      <PlatformPgMerchantStatusSection />
       <section className={CARD_SECTION}>
         <h2 className="text-sm font-semibold text-gray-900">원성 로그인 주소</h2>
         <p className="mt-1 text-xs text-gray-500">원성 본사에서 PG 신청과 취소·환불을 보는 주소입니다.</p>
@@ -106,32 +99,6 @@ export function PlatformCardPaymentPage() {
         <PlatformCardPaymentKeySection />
       </section>
 
-      <section className={CARD_SECTION}>
-        <h2 className="text-sm font-semibold text-gray-900">가입 신청</h2>
-        <div className="mt-3 space-y-2">
-          {items.length === 0 ? <p className="text-sm text-gray-500">신청이 없습니다.</p> : null}
-          {items.map((row) => (
-            <article key={row.id} className="rounded-lg border border-gray-200 p-3 text-sm">
-              <p className="font-medium text-gray-900">
-                {row.tenant.name} <span className="text-xs text-gray-500">({row.tenant.slug})</span>
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                {TENANT_PG_ONBOARDING_STATUS_LABEL[row.status as TenantPgOnboardingStatus]} · {row.businessName ?? '상호 없음'} ·{' '}
-                {row.contactPhone ?? ''}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={BTN_SECONDARY}
-                  onClick={() => void patchPlatformPgOnboarding(row.tenant.id, { status: 'FORWARDED_TO_PG' }).then(reload)}
-                >
-                  PG 전달
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
