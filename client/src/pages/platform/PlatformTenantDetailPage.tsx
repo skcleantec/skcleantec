@@ -17,8 +17,6 @@ import { PlatformTenantBillingSummaryStrip } from '../../components/platform/Pla
 import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
 import { PlatformTenantAlimtalkPanel } from './PlatformTenantAlimtalkPanel';
 import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
-import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
-import { PlatformTenantFeatureReasonTable } from '../../components/platform/PlatformTenantFeatureReasonTable';
 import {
   featureSelectMode,
   previewEffective,
@@ -54,6 +52,8 @@ import {
   StatusBadge,
 } from '../../utils/platformUi';
 import { normalizePlanId } from '@shared/tenantPlanNormalize';
+import { TENANT_PLAN_PRESENTATIONS } from '@shared/tenantPlanCatalog';
+import { PlatformTenantFeatureSwitchBoard } from '../../components/platform/PlatformTenantFeatureSwitchBoard';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
 
 const SETTINGS_FIELDS: {
@@ -544,50 +544,17 @@ export function PlatformTenantDetailPage() {
           {(activeTab === 'billing' || activeTab === 'features') ? (
             <>
           {activeTab === 'features' ? (
-          <section className={CARD_SECTION}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-base font-semibold text-gray-900">기능 모듈</h2>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  개별 설정은 기본 따름·켜기·끄기입니다. 최종과 이유는 저장 전에 바로 바뀝니다. 기능 저장은 플랜과 다른 값만 남깁니다.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleResetFromPlan()}
-                disabled={saving}
-                className={`${BTN_SECONDARY} px-3 py-1.5 text-xs`}
-              >
-                플랜 기본값으로 재설정
-              </button>
-            </div>
-            <div className="mt-3">
-              <PlatformTenantFeatureReasonTable
-                features={features}
-                plan={detail.tenant.plan}
-                disabled={saving}
-                onChange={applyFeatureChoice}
-              />
-            </div>
-            <details open className="mt-3 rounded-lg border border-gray-200 p-3">
-              <summary className="cursor-pointer text-sm font-medium text-gray-800">화면 표시 설정</summary>
-              <PlatformTenantFeatureCatalog
-                features={features}
-                onToggle={toggleFeature}
-                disabled={saving}
-              />
-            </details>
-            <div className="flex justify-end border-t border-gray-100 pt-3">
-              <button
-                type="button"
-                onClick={() => void handleSaveFeatures()}
-                disabled={saving}
-                className={BTN_PRIMARY}
-              >
-                {saving ? '저장 중…' : '기능 저장'}
-              </button>
-            </div>
-          </section>
+            <PlatformTenantFeatureSwitchBoard
+              features={features}
+              savedFeatures={detail.features}
+              planLabel={TENANT_PLAN_PRESENTATIONS[normalizePlanId(detail.tenant.plan)].label}
+              saving={saving}
+              onToggle={toggleFeature}
+              onUseDefault={(moduleId) => applyFeatureChoice(moduleId, 'inherit')}
+              onResetFromPlan={() => void handleResetFromPlan()}
+              onUndo={() => setFeatures(detail.features.map((f) => ({ ...f })))}
+              onSave={() => void handleSaveFeatures()}
+            />
           ) : null}
             </>
           ) : null}
@@ -765,7 +732,7 @@ export function PlatformTenantDetailPage() {
           </div>
         </div>
       ) : null}
-      {unsavedCount > 0 ? (
+      {unsavedCount > 0 && activeTab !== 'features' ? (
         <div className="sticky bottom-3 z-20 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-950 shadow-sm">
           저장 안 된 변경 {unsavedCount}개 · 각 카드의 저장 버튼을 누르세요.
         </div>
