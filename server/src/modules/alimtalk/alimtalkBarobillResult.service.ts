@@ -5,6 +5,10 @@ import { applyAlimtalkCharge } from './alimtalkWallet.service.js';
 
 const BATCH = 100;
 const UNCONFIRMED_MS = 30 * 60 * 1000;
+const POLL_MS = 60_000;
+
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollRunning = false;
 
 /**
  * SmsSendState 관측값 (전화번호·인증키 제외).
@@ -91,6 +95,46 @@ async function notifyUnconfirmed(): Promise<number> {
   return rows.length;
 }
 
+export function alimtalkBarobillResultPollEnabled(): boolean {
+  const raw = (process.env.ALIMTALK_BAROBILL_RESULT_POLL ?? 'on').trim().toLowerCase();
+  return raw !== 'off';
+}
+
+/** 서버 프로세스 안에서 60초마다. 이전 회차가 돌고 있으면 건너뛴다. */
+export function startAlimtalkBarobillResultPoll(): void {
+  if (!alimtalkBarobillResultPollEnabled()) {
+    console.info('[alimtalk-barobill-result] poll off');
+    return;
+  }
+  if (pollTimer) return;
+  const tick = () => {
+    if (pollRunning) return;
+    pollRunning = true;
+    void runAlimtalkBarobillResultJob()
+      .then((summary) => {
+        if (summary.checked > 0 || summary.unconfirmed > 0) {
+          console.info('[alimtalk-barobill-result] poll', summary);
+        }
+      })
+      .catch((err) => {
+        console.error('[alimtalk-barobill-result] poll failed', err instanceof Error ? err.name : 'error');
+      })
+      .finally(() => {
+        pollRunning = false;
+      });
+  };
+  tick();
+  pollTimer = setInterval(tick, POLL_MS);
+  pollTimer.unref();
+  console.info('[alimtalk-barobill-result] poll every 60s');
+}
+
+export function stopAlimtalkBarobillResultPoll(): void {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+
 export async function runAlimtalkBarobillResultJob(): Promise<AlimtalkBarobillResultJob> {
   const summary: AlimtalkBarobillResultJob = {
     checked: 0,
@@ -101,6 +145,10 @@ export async function runAlimtalkBarobillResultJob(): Promise<AlimtalkBarobillRe
     pending: 0,
     unconfirmed: 0,
   };
+  const waiting = await prisma.alimtalkSendLog.count({
+    where: { chargeStatus: 'AWAITING_RESULT' },
+  });
+  if (waiting === 0) return summary;
   const rows = await prisma.alimtalkSendLog.findMany({
     where: {
       chargeStatus: 'AWAITING_RESULT',
@@ -210,6 +258,7 @@ async function finalizeCharge(
     const claimed = await tx.alimtalkSendLog.updateMany({
       where: { id: row.id, chargeStatus: 'AWAITING_RESULT' },
       data: {
+        chargeStatus: 'PENDING',
         sendStatus: result.SendStatus,
         smsSendState: smsState || null,
         resultMessage: null,
