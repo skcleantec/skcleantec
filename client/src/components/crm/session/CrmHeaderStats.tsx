@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchCrmQuickSchedule } from '../../../api/crmQuickSchedule';
+import { subscribeCrmQuickSchedule } from '../../../utils/crmQuickScheduleChannel';
 import { fetchOrderFollowupHotSummary } from '../../../api/orderFollowups';
 import { getToken } from '../../../stores/auth';
 import { fetchTelecrmWorkdeskStats, type TelecrmWorkdeskStatsDto } from '../../../api/telecrm';
@@ -74,10 +75,14 @@ export function CrmHeaderStats({
     const onRefresh = () => void load();
     window.addEventListener('crm-hot-summary-refresh', onRefresh);
     window.addEventListener('crm-quick-schedule-refresh', onRefresh);
+    const unsubscribeQuick = subscribeCrmQuickSchedule((message) => {
+      if (message.type === 'refresh') onRefresh();
+    });
     return () => {
       window.clearInterval(id);
       window.removeEventListener('crm-hot-summary-refresh', onRefresh);
       window.removeEventListener('crm-quick-schedule-refresh', onRefresh);
+      unsubscribeQuick();
     };
   }, [load]);
 

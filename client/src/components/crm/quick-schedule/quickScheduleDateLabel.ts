@@ -43,6 +43,17 @@ export function quickWhenBadge(
   return { text: '날짜 미정', tone: 'slate' };
 }
 
+export function formatKstClock(at: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(at);
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${pick('hour')}:${pick('minute')}`;
+}
+
 export function formatFetchedAt(iso: string): string {
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return '';

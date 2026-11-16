@@ -1,6 +1,7 @@
 import type { MisoExtractPayload } from '@shared/misoBridge';
 import type { SoomgoExtractedChat } from '@shared/soomgoBridge';
 import { saveCrmQuickScheduleLead } from '../api/crmQuickSchedule';
+import { postCrmQuickSchedule } from './crmQuickScheduleChannel';
 import { getToken } from '../stores/auth';
 import { resolveMisoAddress } from './crmMisoImport';
 import { parseMisoPyeong } from './crmMisoImport';
@@ -51,7 +52,10 @@ export function captureQuickScheduleLead(input: {
     areaPyeong: input.areaPyeong,
   })
     .then((res) => {
-      if (res.saved) window.dispatchEvent(new Event('crm-quick-schedule-refresh'));
+      if (res.saved) {
+        window.dispatchEvent(new Event('crm-quick-schedule-refresh'));
+        postCrmQuickSchedule({ type: 'refresh' });
+      }
     })
     .catch(() => undefined);
 }

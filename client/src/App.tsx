@@ -179,6 +179,7 @@ import {
   HelpPage,
   TelecrmAppInstallPage,
   CrmPopupEntry,
+  CrmQuickScheduleWindowEntry,
   CrmSoomgoCompanionEntry,
   TelecrmSettingsLayout,
   TelecrmScriptSettingsPage,
@@ -564,6 +565,14 @@ function App() {
           </Route>
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
+        <Route
+          path="/admin/crm/quick-schedule-window"
+          element={
+            <SuspensePage>
+              <CrmQuickScheduleWindowEntry />
+            </SuspensePage>
+          }
+        />
         <Route
           path="/admin/crm"
           element={
