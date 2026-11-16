@@ -261,8 +261,18 @@ function parsePrefillMoveInDate(raw: unknown): Date | null {
 }
 
 /**
+ * 선입력 특이사항은 고객 발주서용이다.
+ * 키가 없거나 공백이면 null. Inquiry.specialNotes(내부 메모)에는 넣지 않는다.
+ */
+export function customerSpecialNotesFromPrefill(prefill: PrefillMap): string | null {
+  if (typeof prefill.specialNotes !== 'string') return null;
+  return prefill.specialNotes.trim() || null;
+}
+
+/**
  * 마케터 선입력(prefillAnswers) → 연결 pending Inquiry 동기화 필드.
  * 면적·날짜·시간은 POST /prefill 라우트에서 typed 컬럼으로 별도 반영한다.
+ * specialNotes 는 고객용이므로 이 패치에 포함하지 않는다.
  */
 export function inquiryUpdateDataFromPrefillMap(prefill: PrefillMap): Prisma.InquiryUpdateInput {
   const data: Prisma.InquiryUpdateInput = {};
@@ -313,10 +323,6 @@ export function inquiryUpdateDataFromPrefillMap(prefill: PrefillMap): Prisma.Inq
   if (balconyCount != null) data.balconyCount = balconyCount;
   const kitchenCount = parsePrefillCount(prefill.kitchenCount);
   if (kitchenCount != null) data.kitchenCount = kitchenCount;
-
-  if (typeof prefill.specialNotes === 'string') {
-    data.specialNotes = prefill.specialNotes.trim() || null;
-  }
 
   if (prefill.moveInDateUndecided === true) {
     data.moveInDateUndecided = true;

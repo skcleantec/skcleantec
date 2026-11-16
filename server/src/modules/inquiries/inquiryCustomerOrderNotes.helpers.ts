@@ -3,8 +3,6 @@ import { resolveOneRoomSpecialNotes } from '../orderform/orderFormOneRoom.js';
 
 export type CustomerOrderNotesPlan = {
   next: string | null;
-  /** 구데이터: 고객 문구가 접수 specialNotes에만 있음. 이 칸을 저장하면 그 칸은 비운다. */
-  legacyClearInquirySpecialNotes: boolean;
   changeLine: string | null;
   /** 제출 스냅샷의 특이사항. 스냅샷이 없으면 undefined */
   snapshot?: Prisma.InputJsonValue;
@@ -12,6 +10,20 @@ export type CustomerOrderNotesPlan = {
 
 function shownNotes(value: string | null | undefined): string {
   return String(value ?? '').trim();
+}
+
+/**
+ * 원룸 여부만 바뀔 때 고객 발주서 특이사항.
+ * 비어 있으면 원룸 문구만 넣고, 접수 내부 메모(specialNotes)는 넣지 않는다.
+ */
+export function customerOrderNotesAfterOneRoomChange(
+  customerSpecialNotes: string | null | undefined,
+  isOneRoom: boolean,
+  omitAutoPhrase: boolean,
+): string | null {
+  return resolveOneRoomSpecialNotes(shownNotes(customerSpecialNotes), isOneRoom, {
+    omitAutoPhrase,
+  });
 }
 
 function patchSubmissionSnapshotSpecialNotes(
@@ -31,6 +43,7 @@ function patchSubmissionSnapshotSpecialNotes(
 /**
  * 접수 수정에서 「고객 발주서 특이사항」을 저장할 계획.
  * body에 키가 없으면 null. 발주서가 없는데 키가 있으면 error 문자열.
+ * Inquiry.specialNotes(내부 메모)는 바꾸지 않는다.
  */
 export function planCustomerOrderNotesSave(opts: {
   body: Record<string, unknown>;
@@ -39,10 +52,8 @@ export function planCustomerOrderNotesSave(opts: {
     customerSpecialNotes: string | null;
     customerSubmissionSnapshot: unknown;
   } | null;
-  inquirySpecialNotes: string | null;
   isOneRoom: boolean;
   omitAutoPhrase: boolean;
-  inquirySpecialNotesInPatch: boolean;
 }): CustomerOrderNotesPlan | { error: string } | null {
   if (!Object.prototype.hasOwnProperty.call(opts.body, 'customerSpecialNotes')) return null;
   if (!opts.orderForm) {
@@ -50,10 +61,7 @@ export function planCustomerOrderNotesSave(opts: {
   }
   const raw = opts.body.customerSpecialNotes;
   const typed = raw == null ? '' : String(raw).trim();
-  const prevForm = shownNotes(opts.orderForm.customerSpecialNotes);
-  const prevInquiry = shownNotes(opts.inquirySpecialNotes);
-  const legacy = Boolean(opts.orderForm.submittedAt) && !prevForm && Boolean(prevInquiry);
-  const beforeShown = prevForm || (legacy ? prevInquiry : '');
+  const beforeShown = shownNotes(opts.orderForm.customerSpecialNotes);
   const next =
     typed === ''
       ? null
@@ -68,7 +76,6 @@ export function planCustomerOrderNotesSave(opts: {
   );
   return {
     next,
-    legacyClearInquirySpecialNotes: legacy && !opts.inquirySpecialNotesInPatch,
     changeLine:
       beforeShown !== afterShown
         ? `고객 발주서 특이사항: ${fmt(beforeShown)} → ${fmt(afterShown)}`
