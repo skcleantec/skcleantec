@@ -4,13 +4,15 @@ import {
   barobillKakaoChannelId,
   describeBarobillKakaoConfigGap,
   getChannels,
-  getPartnerBalance,
+  getMemberBalance,
+  getPartnerBalanceOfInterOP,
   getTemplates,
   missingBarobillKakaoEnv,
   type BarobillKakaoButton,
   type BarobillKakaoChannel,
   type BarobillKakaoTemplate,
 } from '../../lib/barobill/kakaotalk.js';
+import { redactSecrets } from '../../lib/barobill/mask.js';
 import { BarobillCallError, formatBarobillCallError } from '../../lib/barobill/soap.js';
 import { prisma } from '../../lib/prisma.js';
 import { notifyPlatformOps } from '../platform/platformInboxNotify.service.js';
@@ -40,10 +42,23 @@ export function barobillChannelStatusLabel(status: number | null | undefined): s
   return `상태 ${status}`;
 }
 
+function stripPublicText(raw: string): string {
+  return redactSecrets(raw)
+    .replace(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
+}
+
 function publicCallError(err: unknown): string {
   if (err instanceof BarobillCallError) return formatBarobillCallError(err);
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) return stripPublicText(err.message) || '바로빌 조회에 실패했습니다.';
   return '바로빌 조회에 실패했습니다.';
+}
+
+function syncSaveError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : '';
+  return stripPublicText(raw) || '저장하지 못했습니다.';
 }
 
 function unknownVariables(text: string): string[] {
@@ -100,7 +115,8 @@ async function notifyIfReviewBlocked(input: {
     problems.push(`채널 상태 ${barobillChannelStatusLabel(input.channel.Status)}`);
   }
   for (const row of input.rows) {
-    if (row.status !== 3) problems.push(`${row.templateName}: ${row.statusLabel}`);
+    if (row.status == null || row.status === 3) continue;
+    problems.push(`${row.templateName}: ${row.statusLabel}`);
   }
   if (problems.length === 0) return false;
   await notifyPlatformOps({
@@ -151,9 +167,25 @@ export async function syncBarobillAlimtalkTemplates(options?: {
   const byName = new Map(remote.map((row) => [row.TemplateName, row]));
   const templates: BarobillTemplateSyncRow[] = [];
   const missing: string[] = [];
+  const existing = await prisma.alimtalkTemplate.findMany({
+    where: { code: { in: [...ALIMTALK_TEMPLATE_CODES] } },
+    select: { code: true },
+  });
+  const have = new Set(existing.map((row) => row.code));
 
   for (const code of ALIMTALK_TEMPLATE_CODES) {
     const templateName = BAROBILL_TEMPLATE_NAME_BY_CODE[code];
+    if (!have.has(code)) {
+      templates.push({
+        code,
+        templateName,
+        status: null,
+        statusLabel: 'DB 서식 없음',
+        warnings: [],
+        saved: false,
+      });
+      continue;
+    }
     const found = byName.get(templateName);
     if (!found) {
       missing.push(templateName);
@@ -168,27 +200,49 @@ export async function syncBarobillAlimtalkTemplates(options?: {
       continue;
     }
     const warnings = templateVariableWarnings(found);
-    await prisma.alimtalkTemplate.update({
-      where: { code },
-      data: {
-        barobillTemplateName: found.TemplateName,
-        barobillContent: found.TemplateContent,
-        barobillTitle: found.TemplateTitle,
-        barobillSubtitle: found.TemplateSubtitle,
-        barobillExtra: found.TemplateExtra,
-        barobillButtonsJson: buttonsJson(found.Buttons),
-        barobillStatus: found.Status,
-        barobillSyncedAt: new Date(),
-      },
-    });
-    templates.push({
-      code,
-      templateName,
-      status: found.Status,
-      statusLabel: barobillTemplateStatusLabel(found.Status),
-      warnings,
-      saved: true,
-    });
+    try {
+      const updated = await prisma.alimtalkTemplate.updateMany({
+        where: { code },
+        data: {
+          barobillTemplateName: found.TemplateName,
+          barobillContent: found.TemplateContent,
+          barobillTitle: found.TemplateTitle,
+          barobillSubtitle: found.TemplateSubtitle,
+          barobillExtra: found.TemplateExtra,
+          barobillButtonsJson: buttonsJson(found.Buttons),
+          barobillStatus: found.Status,
+          barobillSyncedAt: new Date(),
+        },
+      });
+      if (updated.count < 1) {
+        templates.push({
+          code,
+          templateName,
+          status: null,
+          statusLabel: 'DB 서식 없음',
+          warnings: [],
+          saved: false,
+        });
+        continue;
+      }
+      templates.push({
+        code,
+        templateName,
+        status: found.Status,
+        statusLabel: barobillTemplateStatusLabel(found.Status),
+        warnings,
+        saved: true,
+      });
+    } catch (err) {
+      templates.push({
+        code,
+        templateName,
+        status: found.Status,
+        statusLabel: barobillTemplateStatusLabel(found.Status),
+        warnings: [syncSaveError(err)],
+        saved: false,
+      });
+    }
   }
 
   let notified = false;
@@ -214,6 +268,8 @@ export type BarobillAlimtalkOverview = {
   channel: { channelId: string; channelName: string; status: number; statusLabel: string } | null;
   channels: { channelId: string; channelName: string; status: number; statusLabel: string }[];
   balanceKrw: number | null;
+  partnerBalanceKrw: number | null;
+  memberBalanceKrw: number | null;
   callError: string | null;
   templates: {
     code: string;
@@ -254,11 +310,22 @@ export async function loadBarobillAlimtalkOverview(): Promise<BarobillAlimtalkOv
   }));
 
   if (missingEnv.includes('BAROBILL_CERTKEY')) {
-    return { configGap, missingEnv, channel: null, channels: [], balanceKrw: null, callError: null, templates };
+    return {
+      configGap,
+      missingEnv,
+      channel: null,
+      channels: [],
+      balanceKrw: null,
+      partnerBalanceKrw: null,
+      memberBalanceKrw: null,
+      callError: null,
+      templates,
+    };
   }
 
   let channels: BarobillKakaoChannel[] = [];
-  let balanceKrw: number | null = null;
+  let partnerBalanceKrw: number | null = null;
+  let memberBalanceKrw: number | null = null;
   let callError: string | null = null;
   try {
     channels = await getChannels();
@@ -266,7 +333,12 @@ export async function loadBarobillAlimtalkOverview(): Promise<BarobillAlimtalkOv
     callError = publicCallError(err);
   }
   try {
-    balanceKrw = await getPartnerBalance();
+    partnerBalanceKrw = await getPartnerBalanceOfInterOP();
+  } catch (err) {
+    callError = callError ?? publicCallError(err);
+  }
+  try {
+    memberBalanceKrw = await getMemberBalance();
   } catch (err) {
     callError = callError ?? publicCallError(err);
   }
@@ -290,7 +362,9 @@ export async function loadBarobillAlimtalkOverview(): Promise<BarobillAlimtalkOv
       status: row.Status,
       statusLabel: barobillChannelStatusLabel(row.Status),
     })),
-    balanceKrw,
+    balanceKrw: partnerBalanceKrw,
+    partnerBalanceKrw,
+    memberBalanceKrw,
     callError,
     templates,
   };
