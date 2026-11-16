@@ -43,6 +43,7 @@ import { TelecrmAccessModal } from '../../../components/admin/TelecrmAccessModal
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
 import { CrmFollowupDrawer } from '../../../components/crm/followup/CrmFollowupDrawer';
+import { CrmQuickScheduleDrawer } from '../../../components/crm/quick-schedule/CrmQuickScheduleDrawer';
 import { useCrmPanelUrl } from '../../../hooks/useCrmPanelUrl';
 import { useTelecrmIncomingRingRealtime } from '../../../hooks/useInboxRealtime';
 import type { CrmOrderIssueSeed } from '../../../components/orderform/OrderIssueInlinePanel';
@@ -347,6 +348,10 @@ export function CrmPage() {
     openIssue,
     openFollowup,
     openHotFollowups,
+    openQuickSchedule,
+    isQuickOpen,
+    quickTab,
+    setQuickTab,
     setFollowupId,
     closePanel,
     setSettingsTab,
@@ -1205,6 +1210,7 @@ export function CrmPage() {
   const misoBridge = useCrmMisoBridge({
     misoBarOpen,
     pollEnabled: !isMobileApp,
+    operatingCompanyId: activeOperatingCompanyId,
     onDispatchNotice: showDispatchNotice,
     onImport: handleMisoImport,
   });
@@ -2003,7 +2009,12 @@ export function CrmPage() {
                   미저장
                 </span>
               ) : null}
-              <CrmHeaderStats refreshKey={statsRefreshKey} onOpenHotFollowups={openHotFollowups} />
+              <CrmHeaderStats
+                refreshKey={statsRefreshKey}
+                operatingCompanyId={activeOperatingCompanyId}
+                onOpenHotFollowups={openHotFollowups}
+                onOpenQuickSchedule={openQuickSchedule}
+              />
               <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 lg:ml-0 lg:flex-nowrap">
                 {isMobileApp ? (
                   <button
@@ -2383,6 +2394,22 @@ export function CrmPage() {
             onIssued={(order) => void handleOrderIssued(order)}
           />
         ) : null}
+        <CrmQuickScheduleDrawer
+          open={isQuickOpen}
+          tab={quickTab}
+          onTabChange={setQuickTab}
+          operatingCompanyId={activeOperatingCompanyId}
+          marketerName={crmMarketerName}
+          onClose={closePanel}
+          onApplyFollowup={handleApplyFollowupItem}
+          onApplySnapshot={(snapshot) =>
+            applyFollowupFieldsToCrm(snapshot, {
+              closeDrawer: true,
+              notice: '빠른일정 고객을 접수란으로 가져왔습니다.',
+            })
+          }
+          onNotice={showDispatchNotice}
+        />
         {canFollowupEdit ? (
           <CrmFollowupDrawer
             open={isFollowupOpen}

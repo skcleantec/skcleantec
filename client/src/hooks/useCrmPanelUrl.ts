@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-export type CrmPanel = 'settings' | 'issue' | 'followup';
+export type CrmPanel = 'settings' | 'issue' | 'followup' | 'quick';
+export type CrmQuickTab = 'all' | 'asap' | 'week';
 export type CrmSettingsTab =
   | 'scripts'
   | 'pricing'
@@ -40,7 +41,11 @@ export function useCrmPanelUrl() {
   const [searchParams, setSearchParams] = useSearchParams();
   const panelRaw = searchParams.get('panel');
   const panel =
-    panelRaw === 'settings' || panelRaw === 'issue' || panelRaw === 'followup' ? panelRaw : null;
+    panelRaw === 'settings' || panelRaw === 'issue' || panelRaw === 'followup' || panelRaw === 'quick'
+      ? panelRaw
+      : null;
+  const quickTabRaw = searchParams.get('quickTab');
+  const quickTab: CrmQuickTab = quickTabRaw === 'asap' || quickTabRaw === 'week' ? quickTabRaw : 'all';
   const settingsTab = parseSettingsTab(searchParams.get('tab'));
   const catalogScope = parseCatalogScope(searchParams.get('catalog'));
   const pendingInquiryId = searchParams.get('pendingInquiryId')?.trim() || '';
@@ -73,6 +78,7 @@ export function useCrmPanelUrl() {
         );
         next.delete('pendingInquiryId');
         next.delete('followupId');
+        next.delete('quickTab');
       });
     },
     [patchParams],
@@ -86,6 +92,7 @@ export function useCrmPanelUrl() {
         next.delete('followupId');
         if (inquiryId?.trim()) next.set('pendingInquiryId', inquiryId.trim());
         else next.delete('pendingInquiryId');
+        next.delete('quickTab');
       });
     },
     [patchParams],
@@ -99,6 +106,7 @@ export function useCrmPanelUrl() {
         next.delete('pendingInquiryId');
         if (id?.trim()) next.set('followupId', id.trim());
         else next.delete('followupId');
+        next.delete('quickTab');
       });
     },
     [patchParams],
@@ -114,8 +122,29 @@ export function useCrmPanelUrl() {
       next.set('fuDatePreset', 'all');
       next.delete('fuMonth');
       next.delete('fuDay');
+      next.delete('quickTab');
     });
   }, [patchParams]);
+
+  const openQuickSchedule = useCallback(() => {
+    patchParams((next) => {
+      next.set('panel', 'quick');
+      next.delete('tab');
+      next.delete('pendingInquiryId');
+      next.delete('followupId');
+      if (!next.get('quickTab')) next.set('quickTab', 'all');
+    });
+  }, [patchParams]);
+
+  const setQuickTab = useCallback(
+    (tab: CrmQuickTab) => {
+      patchParams((next) => {
+        next.set('panel', 'quick');
+        next.set('quickTab', tab);
+      });
+    },
+    [patchParams],
+  );
 
   const setFollowupId = useCallback(
     (id: string | null) => {
@@ -134,6 +163,7 @@ export function useCrmPanelUrl() {
       next.delete('catalog');
       next.delete('pendingInquiryId');
       next.delete('followupId');
+      next.delete('quickTab');
     });
   }, [patchParams]);
 
@@ -192,10 +222,14 @@ export function useCrmPanelUrl() {
     isSettingsOpen: panel === 'settings',
     isIssueOpen: panel === 'issue',
     isFollowupOpen: panel === 'followup',
+    isQuickOpen: panel === 'quick',
+    quickTab,
     openSettings,
     openIssue,
     openFollowup,
     openHotFollowups,
+    openQuickSchedule,
+    setQuickTab,
     setFollowupId,
     closePanel,
     setSettingsTab,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { fetchCrmQuickSchedule } from '../../../api/crmQuickSchedule';
 import { fetchOrderFollowupHotSummary } from '../../../api/orderFollowups';
 import { getToken } from '../../../stores/auth';
 import { fetchTelecrmWorkdeskStats, type TelecrmWorkdeskStatsDto } from '../../../api/telecrm';
@@ -25,13 +26,18 @@ function StatChip({ label, value }: { label: string; value: string }) {
 export function CrmHeaderStats({
   refreshKey = 0,
   onOpenHotFollowups,
+  onOpenQuickSchedule,
+  operatingCompanyId = null,
 }: {
   refreshKey?: number;
   onOpenHotFollowups?: () => void;
+  onOpenQuickSchedule?: () => void;
+  operatingCompanyId?: string | null;
 }) {
   const token = getToken();
   const [stats, setStats] = useState<TelecrmWorkdeskStatsDto | null>(null);
   const [hot, setHot] = useState<{ today: number; overdue: number } | null>(null);
+  const [quickCount, setQuickCount] = useState(0);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -47,7 +53,17 @@ export function CrmHeaderStats({
     } catch {
       setHot(null);
     }
-  }, [token]);
+    if (operatingCompanyId) {
+      try {
+        const quick = await fetchCrmQuickSchedule(token, operatingCompanyId);
+        setQuickCount(quick.counts.all);
+      } catch {
+        setQuickCount(0);
+      }
+    } else {
+      setQuickCount(0);
+    }
+  }, [token, operatingCompanyId]);
 
   useEffect(() => {
     void load();
@@ -57,9 +73,11 @@ export function CrmHeaderStats({
     const id = window.setInterval(() => void load(), 60_000);
     const onRefresh = () => void load();
     window.addEventListener('crm-hot-summary-refresh', onRefresh);
+    window.addEventListener('crm-quick-schedule-refresh', onRefresh);
     return () => {
       window.clearInterval(id);
       window.removeEventListener('crm-hot-summary-refresh', onRefresh);
+      window.removeEventListener('crm-quick-schedule-refresh', onRefresh);
     };
   }, [load]);
 
@@ -79,6 +97,17 @@ export function CrmHeaderStats({
         <StatChip label="연결시간" value={formatDuration(stats.connectedDurationSec)} />
         <StatChip label="예약완료" value={`${stats.receivedCount}건`} />
         <StatChip label="부재·보류" value={`${stats.absentHoldCount}건`} />
+        <button
+          type="button"
+          onClick={onOpenQuickSchedule}
+          className="relative flex flex-col items-center justify-center gap-0.5 px-2.5"
+        >
+          <span className="absolute right-1 top-0.5 h-1.5 w-1.5 rounded-full bg-orange-400" aria-hidden />
+          <span className="whitespace-nowrap text-fluid-2xs font-medium leading-none text-orange-200">빠른일정</span>
+          <span className="whitespace-nowrap text-fluid-xs font-semibold leading-none tabular-nums text-orange-100">
+            {quickCount}건
+          </span>
+        </button>
         <HotHeaderStatButton
           today={hot?.today ?? 0}
           overdue={hot?.overdue ?? 0}

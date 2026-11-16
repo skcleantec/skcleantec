@@ -277,6 +277,7 @@ model Tenant {
   teams Team[]
   orderFollowups OrderFollowup[]
   orderFollowupHotMarks OrderFollowupHotMark[]
+  crmQuickScheduleLeads CrmQuickScheduleLead[]
   inquiryStatusEvents InquiryStatusEvent[]
   reviewPaybackRequests ReviewPaybackRequest[]
   csReports CsReport[]
@@ -1763,6 +1764,7 @@ model OperatingCompany {
   landingContactInquiries    LandingContactInquiry[]
   landingContactSourceLinks  LandingContactSourceLink[]
   orderFollowups             OrderFollowup[]
+  crmQuickScheduleLeads      CrmQuickScheduleLead[]
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSmsTemplates         TelecrmSmsTemplate[]
@@ -2184,6 +2186,7 @@ model User {
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
   orderFollowupHotMarks         OrderFollowupHotMark[]
+  crmQuickScheduleLeadsFetched  CrmQuickScheduleLead[] @relation("CrmQuickScheduleLeadFetchedBy")
   quotationsCreated             Quotation[]            @relation("QuotationCreatedBy")
   quotationEmailsSent           QuotationEmailLog[]    @relation("QuotationEmailSentBy")
   reviewPaybacksHandled         ReviewPaybackRequest[] @relation("ReviewPaybackHandledBy")
@@ -4569,6 +4572,37 @@ model OrderFollowupHotMark {
   @@unique([followupId, userId])
   @@index([tenantId, userId, outcome, nextContactAt])
   @@map("order_followup_hot_marks")
+}
+
+/// 텔레CRM 정보 가져오기 — 「서비스를 받고 싶은 날」 답. 같은 번호는 다시 가져오면 덮어쓴다.
+model CrmQuickScheduleLead {
+  id                   String   @id @default(uuid())
+  tenantId             String   @map("tenant_id")
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId   String   @map("operating_company_id")
+  operatingCompany     OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  customerName         String   @map("customer_name") @db.VarChar(128)
+  nickname             String?  @map("nickname") @db.VarChar(128)
+  customerPhone        String   @map("customer_phone") @db.VarChar(32)
+  customerPhoneDigits  String   @map("customer_phone_digits") @db.VarChar(20)
+  /// 숨고 | 미소
+  leadSource           String   @map("lead_source") @db.VarChar(16)
+  preferredAnswerRaw   String   @map("preferred_answer_raw") @db.Text
+  /// ASAP | DATE | WITHIN_WEEK | FLEXIBLE | UNKNOWN
+  preferredKind        String   @map("preferred_kind") @db.VarChar(16)
+  preferredYmd         String?  @map("preferred_ymd") @db.VarChar(10)
+  serviceType          String?  @map("service_type") @db.VarChar(128)
+  address              String?  @map("address") @db.Text
+  areaPyeong           Float?   @map("area_pyeong")
+  fetchedAt            DateTime @map("fetched_at")
+  fetchedByUserId      String   @map("fetched_by_user_id")
+  fetchedBy            User     @relation("CrmQuickScheduleLeadFetchedBy", fields: [fetchedByUserId], references: [id], onDelete: Restrict)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, operatingCompanyId, customerPhoneDigits])
+  @@index([tenantId, operatingCompanyId, fetchedAt])
+  @@map("crm_quick_schedule_leads")
 }
 
 enum ReviewPaybackStatus {
