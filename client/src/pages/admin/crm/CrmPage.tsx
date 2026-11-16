@@ -44,6 +44,8 @@ import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsD
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
 import { CrmFollowupDrawer } from '../../../components/crm/followup/CrmFollowupDrawer';
 import { CrmQuickScheduleDrawer } from '../../../components/crm/quick-schedule/CrmQuickScheduleDrawer';
+import { CrmQuickScheduleCenterNotice } from '../../../components/crm/quick-schedule/CrmQuickScheduleCenterNotice';
+import { buildQuickScheduleSnapshot } from '../../../components/crm/quick-schedule/quickScheduleSnapshot';
 import { useCrmPanelUrl } from '../../../hooks/useCrmPanelUrl';
 import { useTelecrmIncomingRingRealtime } from '../../../hooks/useInboxRealtime';
 import type { CrmOrderIssueSeed } from '../../../components/orderform/OrderIssueInlinePanel';
@@ -137,7 +139,7 @@ import {
   resolveSoomgoChatSearchQuery,
   type CrmFollowupApplySnapshot,
 } from '../../../utils/crmFollowupApply';
-import type { OrderFollowupItem } from '../../../api/orderFollowups';
+import { fetchOrderFollowup, type OrderFollowupItem } from '../../../api/orderFollowups';
 import type { TelecrmCustomerLookupDto } from '../../../api/telecrm';
 import { useCrmPropertyChoiceOptions } from '../../../components/crm/intake/useCrmPropertyChoiceOptions';
 import { matchCrmImportedPropertyChoice } from '../../../utils/crmPropertyChoiceMatch';
@@ -146,6 +148,8 @@ import {
   sendSoomgoQuoteAutoMessage,
 } from '../../../utils/soomgoQuoteAutoSend';
 import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
+import { postCrmQuickSchedule, subscribeCrmQuickSchedule } from '../../../utils/crmQuickScheduleChannel';
+import { openCrmQuickScheduleWindow } from '../../../utils/openCrmQuickScheduleWindow';
 
 export function CrmPage() {
   const [searchParams] = useSearchParams();
@@ -256,6 +260,7 @@ export function CrmPage() {
   const [draftRestoredPhone, setDraftRestoredPhone] = useState<string | null>(null);
   const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
   const [dispatchNotice, setDispatchNotice] = useState<string | null>(null);
+  const [quickPopupBlocked, setQuickPopupBlocked] = useState(false);
   const [dispatchNoticeAction, setDispatchNoticeAction] = useState<{
     label: string;
     run: () => void;
@@ -296,6 +301,15 @@ export function CrmPage() {
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
+  const quickBridgeRef = useRef<{
+    applyItem: (item: OrderFollowupItem) => void;
+    applySnapshot: (
+      snapshot: CrmFollowupApplySnapshot,
+      opts?: { closeDrawer?: boolean; notice?: string },
+    ) => void;
+    notice: (message: string, action?: { label: string; run: () => void } | null) => void;
+    isBusy: () => boolean;
+  } | null>(null);
   /** 「이전 입력 복구」 — 10분 안의 내 초안(화면에는 바로 넣지 않음) */
   const [recoverableDraft, setRecoverableDraft] = useState<CrmIntakeDraft | null>(null);
   /** 접수란 내용이 속한 숨고 채팅방(가져오기·빈 접수란에서 방 진입 시) */
@@ -615,6 +629,68 @@ export function CrmPage() {
       setDispatchNotice(null);
       setDispatchNoticeAction(null);
     }, action ? 20000 : 4000);
+  }, []);
+
+  const handleOpenQuickSchedule = useCallback(() => {
+    const narrow = window.matchMedia('(max-width: 767px)').matches;
+    if (isMobileApp || narrow || !activeOperatingCompanyId) {
+      openQuickSchedule();
+      return;
+    }
+    const popup = openCrmQuickScheduleWindow(activeOperatingCompanyId);
+    if (!popup) {
+      openQuickSchedule();
+      setQuickPopupBlocked(true);
+    }
+  }, [activeOperatingCompanyId, isMobileApp, openQuickSchedule]);
+
+  useEffect(() => {
+    if (!activeOperatingCompanyId) return;
+    postCrmQuickSchedule({ type: 'brand', operatingCompanyId: activeOperatingCompanyId });
+  }, [activeOperatingCompanyId]);
+
+  useEffect(() => {
+    return subscribeCrmQuickSchedule((message) => {
+      if (message.type !== 'apply') return;
+      const run = async () => {
+        const bridge = quickBridgeRef.current;
+        if (!bridge) return;
+        try {
+          if (message.item.followup) {
+            const token = getToken();
+            if (!token) return;
+            const res = await fetchOrderFollowup(token, message.item.followup.id);
+            bridge.applyItem(res.item);
+          } else {
+            bridge.applySnapshot(buildQuickScheduleSnapshot(message.item), {
+              closeDrawer: false,
+              notice: '빠른일정 고객을 접수란으로 가져왔습니다.',
+            });
+          }
+          postCrmQuickSchedule({ type: 'applied', requestId: message.requestId, id: message.item.id });
+          try {
+            window.focus();
+          } catch {
+            /* 브라우저가 포커스를 막을 수 있습니다. */
+          }
+        } catch (e) {
+          bridge.notice(e instanceof Error ? e.message : '빠른일정 고객을 불러오지 못했습니다.');
+        }
+      };
+      const bridge = quickBridgeRef.current;
+      if (!bridge) return;
+      if (bridge.isBusy()) {
+        postCrmQuickSchedule({ type: 'confirm', requestId: message.requestId, id: message.item.id });
+        try {
+          window.focus();
+        } catch {
+          /* 브라우저가 포커스를 막을 수 있습니다. */
+        }
+        bridge.notice(`빠른일정 · ${message.item.customerName}`, { label: '불러오기', run: () => void run() });
+        return;
+      }
+      void run();
+    });
   }, []);
 
   const applyMobileIncomingRing = useCallback(
@@ -1767,6 +1843,38 @@ export function CrmPage() {
     [applyFollowupToCrm],
   );
 
+  quickBridgeRef.current = {
+    applyItem: handleApplyFollowupItem,
+    applySnapshot: applyFollowupFieldsToCrm,
+    notice: showDispatchNotice,
+    isBusy: () => {
+      const form = formSnapshotRef.current;
+      return (
+        Boolean(followupImport) ||
+        quoteLines.length > 0 ||
+        baseEstimateOverrideWon != null ||
+        hasUnsavedDraft ||
+        crmIntakeDraftHasContent({
+          contactPhone,
+          safePhone,
+          customerName,
+          pyeong,
+          nickname: form?.nickname,
+          address: form?.address,
+          preferredMoveInCleanYmd: form?.preferredMoveInCleanYmd,
+          requestMemo: form?.requestMemo,
+          leadSource: form?.leadSource,
+          roomCount: form?.roomCount,
+          bathroomCount: form?.bathroomCount,
+          balconyCount: form?.balconyCount,
+          propertyType: form?.propertyType,
+          buildingType: form?.buildingType,
+          isOneRoom: form?.isOneRoom,
+        })
+      );
+    },
+  };
+
   const handleSelectFollowupFromLookup = useCallback(
     (row: TelecrmCustomerLookupDto['followups'][number]) => {
       applyFollowupToCrm(crmFollowupApplyFromLookupRow(row), { closeDrawer: false });
@@ -2007,7 +2115,7 @@ export function CrmPage() {
                 refreshKey={statsRefreshKey}
                 operatingCompanyId={activeOperatingCompanyId}
                 onOpenHotFollowups={openHotFollowups}
-                onOpenQuickSchedule={openQuickSchedule}
+                onOpenQuickSchedule={handleOpenQuickSchedule}
               />
               <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 lg:ml-0 lg:flex-nowrap">
                 {isMobileApp ? (
@@ -2414,6 +2522,12 @@ export function CrmPage() {
             onSelectFollowupId={setFollowupId}
             onApplyToCrm={handleApplyFollowupItem}
             onSaved={handleFollowupSaved}
+          />
+        ) : null}
+        {quickPopupBlocked ? (
+          <CrmQuickScheduleCenterNotice
+            text="팝업이 막혀 있어 이 창 안에서 열었어요. 주소창 오른쪽에서 팝업을 허용하면 따로 띄울 수 있어요."
+            onClose={() => setQuickPopupBlocked(false)}
           />
         ) : null}
         {dispatchNotice ? (

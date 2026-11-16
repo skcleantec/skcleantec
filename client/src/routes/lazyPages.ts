@@ -603,6 +603,9 @@ export const CrmPage = lazyWithRetry(() =>
 export const CrmPopupEntry = lazyWithRetry(() =>
   import('../pages/admin/crm/CrmPopupEntry').then((m) => ({ default: m.CrmPopupEntry }))
 );
+export const CrmQuickScheduleWindowEntry = lazyWithRetry(() =>
+  import('../pages/admin/crm/CrmQuickScheduleWindowEntry').then((m) => ({ default: m.CrmQuickScheduleWindowEntry }))
+);
 export const CrmSoomgoCompanionEntry = lazyWithRetry(() =>
   import('../pages/admin/crm/CrmSoomgoCompanionEntry').then((m) => ({ default: m.CrmSoomgoCompanionEntry }))
 );
