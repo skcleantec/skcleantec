@@ -16,6 +16,10 @@ import {
 } from './modules/inquiry-inspection/inquiryInspection.retention.service.js';
 import { isBenignClientAbortError } from './lib/httpClientAbort.js';
 import { startHelpInquiryMailScheduler } from './modules/platform-board/helpInquiryMail.pull.js';
+import {
+  startAlimtalkBarobillResultPoll,
+  stopAlimtalkBarobillResultPoll,
+} from './modules/alimtalk/alimtalkBarobillResult.service.js';
 
 async function bootstrap() {
   try {
@@ -71,6 +75,7 @@ async function bootstrap() {
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
+    stopAlimtalkBarobillResultPoll();
     console.log(`[서버] ${signal} 받음 — 정상 종료 중`);
     const force = setTimeout(() => process.exit(0), 8000);
     force.unref();
@@ -115,6 +120,9 @@ async function bootstrap() {
 
   /** 1:1 문의 답장 메일함 — 5분마다(연결된 메일함이 있을 때만 접속) */
   startHelpInquiryMailScheduler();
+
+  /** 바로빌 알림톡 결과 — 60초마다. ALIMTALK_BAROBILL_RESULT_POLL=off 이면 멈춘다. */
+  startAlimtalkBarobillResultPoll();
 
   /** 완료 검수본 보관 만료 — INSPECTION_RETENTION_CRON_ENABLED=true 시 24h마다 1회 */
   const retentionOpts = parseInspectionRetentionOptionsFromEnv();
