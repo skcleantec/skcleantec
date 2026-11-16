@@ -4,7 +4,7 @@ import { normalizeKrPhoneDigits } from '../cs/matchInquiryForCs.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { classifyPreferredAnswer, type PreferredKind } from './crmQuickScheduleClassify.js';
 
-/** 예약완료(RECEIVED) 이후. 대기·보류·취소는 아직 예약이 아니다. */
+/** 지금 진행 중인 예약. 완료·CS 는 재문의로 보고 빼지 않는다. */
 const BOOKED_INQUIRY_STATUSES: InquiryStatus[] = [
   'RECEIVED',
   'DEPOSIT_PENDING',
@@ -12,8 +12,6 @@ const BOOKED_INQUIRY_STATUSES: InquiryStatus[] = [
   'ORDER_FORM_PENDING',
   'ASSIGNED',
   'IN_PROGRESS',
-  'COMPLETED',
-  'CS_PROCESSING',
 ];
 
 const CLOSED_FOLLOWUP_STATUSES: OrderFollowupStatus[] = ['RESERVED', 'FULFILLED'];
@@ -113,8 +111,12 @@ type LeadRow = {
   fetchedAt: Date;
 };
 
-function inWindow(kind: string, ymd: string | null, today: string, until: string): boolean {
-  if (kind === 'ASAP') return true;
+function kstYmdOf(at: Date): string {
+  return at.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+function inWindow(kind: string, ymd: string | null, fetchedAt: Date, today: string, until: string): boolean {
+  if (kind === 'ASAP') return addDaysToKstYmd(kstYmdOf(fetchedAt), 7) >= today;
   if ((kind === 'DATE' || kind === 'WITHIN_WEEK') && ymd && ymd >= today && ymd <= until) return true;
   return false;
 }
@@ -139,7 +141,7 @@ export async function listQuickScheduleLeads(tenantId: string, operatingCompanyI
     },
     orderBy: { fetchedAt: 'desc' },
   });
-  const windowed = rows.filter((row) => inWindow(row.preferredKind, row.preferredYmd, today, until));
+  const windowed = rows.filter((row) => inWindow(row.preferredKind, row.preferredYmd, row.fetchedAt, today, until));
   const phones = [...new Set(windowed.map((row) => row.customerPhoneDigits).filter((d) => d.length >= 8))];
 
   const booked = new Set<string>();
@@ -150,9 +152,17 @@ export async function listQuickScheduleLeads(tenantId: string, operatingCompanyI
   >();
 
   if (phones.length > 0) {
+    const inquirySince = new Date(`${addDaysToKstYmd(today, -365)}T00:00:00+09:00`);
+    const leadFetchedAt = new Map(windowed.map((row) => [row.customerPhoneDigits, row.fetchedAt]));
     const [inquiries, followups] = await Promise.all([
       prisma.inquiry.findMany({
-        where: { tenantId, operatingCompanyId: brand.id, deletedAt: null, status: { not: 'CANCELLED' } },
+        where: {
+          tenantId,
+          operatingCompanyId: brand.id,
+          deletedAt: null,
+          status: { not: 'CANCELLED' },
+          createdAt: { gte: inquirySince },
+        },
         select: { id: true, status: true, customerPhone: true, customerPhone2: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       }),
@@ -176,7 +186,10 @@ export async function listQuickScheduleLeads(tenantId: string, operatingCompanyI
       for (const raw of [row.customerPhone, row.customerPhone2]) {
         const d = digitsOf(raw);
         if (!wanted.has(d)) continue;
-        if ((BOOKED_INQUIRY_STATUSES as string[]).includes(row.status)) booked.add(d);
+        const fetchedAt = leadFetchedAt.get(d);
+        const active = (BOOKED_INQUIRY_STATUSES as string[]).includes(row.status);
+        const completedAfterFetch = row.status === 'COMPLETED' && fetchedAt != null && row.createdAt.getTime() > fetchedAt.getTime();
+        if (active || completedAfterFetch) booked.add(d);
         if (!inquiryByPhone.has(d)) inquiryByPhone.set(d, row.id);
       }
     }
@@ -184,7 +197,12 @@ export async function listQuickScheduleLeads(tenantId: string, operatingCompanyI
       for (const raw of [row.customerPhone, row.customerPhone2]) {
         const d = digitsOf(raw);
         if (!wanted.has(d)) continue;
-        if ((CLOSED_FOLLOWUP_STATUSES as string[]).includes(row.status)) booked.add(d);
+        const fetchedAt = leadFetchedAt.get(d);
+        const closedAfterFetch =
+          (CLOSED_FOLLOWUP_STATUSES as string[]).includes(row.status) &&
+          fetchedAt != null &&
+          row.updatedAt.getTime() > fetchedAt.getTime();
+        if (closedAfterFetch) booked.add(d);
         if (!followupByPhone.has(d) && !(CLOSED_FOLLOWUP_STATUSES as string[]).includes(row.status)) {
           followupByPhone.set(d, {
             id: row.id,
