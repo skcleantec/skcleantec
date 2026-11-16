@@ -41,16 +41,27 @@ export function parsePreferredYmd(raw: string, fetchedAt: Date): string | null {
   return first;
 }
 
+/** 「빨리」 앞에 이미 날짜가 있으면 급한 일정으로 보지 않는다. */
+function hasDateBefore(text: string, needle: string, fetchedAt: Date): boolean {
+  const idx = text.indexOf(needle);
+  if (idx <= 0) return false;
+  return parsePreferredYmd(text.slice(0, idx), fetchedAt) != null;
+}
+
 /**
  * 「서비스를 받고 싶은 날」 답변 분류.
  * ASAP·일주일 이내·협의 문구를 날짜보다 먼저 본다.
+ * 단독 「바로」는 급한 일정이 아니다.
  */
 export function classifyPreferredAnswer(raw: string, fetchedAt: Date): PreferredClassification {
   const text = raw.trim();
   if (!text) return { kind: 'UNKNOWN', ymd: null };
   const compact = text.replace(/\s+/g, '').toLowerCase();
 
-  if (/가장빠른|최대한빨리|빠를수록|급해요|급합니다|asap|바로/.test(compact)) {
+  if (/가장빠른|최대한빨리|빠를수록|급해요|급합니다|asap|바로가능|바로해주|바로원해|바로와|오늘당장|당장/.test(compact)) {
+    return { kind: 'ASAP', ymd: null };
+  }
+  if (compact.includes('빨리') && !hasDateBefore(text, '빨리', fetchedAt)) {
     return { kind: 'ASAP', ymd: null };
   }
   if (/일주일이내|1주일안|1주일이내|이번주|7일이내/.test(compact)) {
