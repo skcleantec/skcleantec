@@ -181,7 +181,7 @@ import {
   buildPrefillFromPayload,
   lockedKeysFromPrefill,
   overlayPrefillOntoSubmitBody,
-  customerSpecialNotesFromPrefill,
+  customerSpecialNotesUpdateFromPrefill,
   inquiryUpdateDataFromPrefillMap,
 } from './orderFormPrefill.js';
 import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes, hasOrderFormBuildingTypeChoice, orderFormPropertyTypeDisplay } from './orderFormOneRoom.js';
@@ -2064,7 +2064,7 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
 
   const customFieldKeys = await listTemplateCustomFieldKeysForPrefill(prisma, tenantId, form.templateId);
   const prefill = buildPrefillFromPayload(body, customFieldKeys);
-  const prefillCustomerNotes = customerSpecialNotesFromPrefill(prefill);
+  const prefillCustomerNotes = customerSpecialNotesUpdateFromPrefill(prefill);
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
@@ -2079,7 +2079,7 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
           areaPyeong: lockAreaPyeong,
           areaBasis: lockAreaBasis,
           prefillAnswers: prefill as Prisma.InputJsonValue,
-          customerSpecialNotes: prefillCustomerNotes,
+          ...prefillCustomerNotes,
         },
       });
       const pending = await tx.inquiry.findFirst({

@@ -262,11 +262,23 @@ function parsePrefillMoveInDate(raw: unknown): Date | null {
 
 /**
  * 선입력 특이사항은 고객 발주서용이다.
- * 키가 없거나 공백이면 null. Inquiry.specialNotes(내부 메모)에는 넣지 않는다.
+ * 키가 없으면 undefined(기존 customerSpecialNotes 유지). 빈 값이면 null.
+ * Inquiry.specialNotes(내부 메모)에는 넣지 않는다.
  */
-export function customerSpecialNotesFromPrefill(prefill: PrefillMap): string | null {
-  if (typeof prefill.specialNotes !== 'string') return null;
-  return prefill.specialNotes.trim() || null;
+export function customerSpecialNotesFromPrefill(prefill: PrefillMap): string | null | undefined {
+  if (!Object.prototype.hasOwnProperty.call(prefill, 'specialNotes')) return undefined;
+  const raw = prefill.specialNotes;
+  if (typeof raw !== 'string') return null;
+  return raw.trim() || null;
+}
+
+/** 키가 있을 때만 발주서 customerSpecialNotes 컬럼에 쓸 값. 없으면 undefined. */
+export function customerSpecialNotesUpdateFromPrefill(
+  prefill: PrefillMap,
+): { customerSpecialNotes: string | null } | undefined {
+  const notes = customerSpecialNotesFromPrefill(prefill);
+  if (notes === undefined) return undefined;
+  return { customerSpecialNotes: notes };
 }
 
 /**
