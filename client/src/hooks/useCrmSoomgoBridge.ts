@@ -46,6 +46,7 @@ import {
   readSoomgoSplitBoundsAfterCrmResize,
 } from '../utils/crmSoomgoSplitLayout';
 import { telecrmDispatchNotice, telecrmPrefillPhone } from '../utils/telecrmNativeBridge';
+import { captureSoomgoQuickSchedule } from '../utils/crmQuickScheduleCapture';
 
 export function useCrmSoomgoBridge({
   onImport,
@@ -617,6 +618,7 @@ export function useCrmSoomgoBridge({
       const data = await extractSoomgoCurrentChat();
       setPreview(data);
       onImport(data);
+      captureSoomgoQuickSchedule(operatingCompanyId, data);
       if (data.phone?.trim()) {
         const result = await telecrmPrefillPhone(data.phone.trim(), { customerMatch: 'new' });
         const prefillNotice = telecrmDispatchNotice(result, 'prefill');
@@ -632,7 +634,7 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusyAction(null);
     }
-  }, [bridgeManifest, notify, onImport, onImportNotice, refreshStatus]);
+  }, [bridgeManifest, notify, onImport, onImportNotice, operatingCompanyId, refreshStatus]);
 
   const callFromChat = useCallback(async () => {
     setBusyAction('call');
@@ -701,6 +703,7 @@ export function useCrmSoomgoBridge({
         const data = await extractSoomgoCurrentChat();
         setPreview(data);
         onImport(data);
+        captureSoomgoQuickSchedule(operatingCompanyId, data);
         if (data.phone?.trim()) {
           const result = await telecrmPrefillPhone(data.phone.trim(), { customerMatch: 'new' });
           const prefillNotice = telecrmDispatchNotice(result, 'prefill');
@@ -719,7 +722,7 @@ export function useCrmSoomgoBridge({
         setBusyAction(null);
       }
     },
-    [bridgeManifest, notify, onImport, onImportNotice, openSoomgo, refreshStatus],
+    [bridgeManifest, notify, onImport, onImportNotice, openSoomgo, operatingCompanyId, refreshStatus],
   );
 
   const restartBridge = useCallback(async () => {

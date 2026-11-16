@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MisoBridgeStatus, MisoChatListItem, MisoExtractPayload } from '@shared/misoBridge';
+import { captureMisoQuickSchedule } from '../utils/crmQuickScheduleCapture';
 import {
   extractMisoCurrentChat,
   fetchMisoBridgeStatus,
@@ -15,11 +16,13 @@ import {
 export function useCrmMisoBridge({
   misoBarOpen = false,
   pollEnabled = true,
+  operatingCompanyId = null,
   onDispatchNotice,
   onImport,
 }: {
   misoBarOpen?: boolean;
   pollEnabled?: boolean;
+  operatingCompanyId?: string | null;
   onDispatchNotice?: (message: string) => void;
   onImport?: (data: MisoExtractPayload) => void;
 }) {
@@ -113,6 +116,7 @@ export function useCrmMisoBridge({
           return null;
         }
         onImport?.(data);
+        captureMisoQuickSchedule(operatingCompanyId, data);
         if (data.chatId) setActiveChatId(data.chatId);
         const phoneHint =
           data.phoneAvailable && data.phone
@@ -133,7 +137,7 @@ export function useCrmMisoBridge({
         setBusyAction(null);
       }
     },
-    [activeChatId, chatItems, notify, onImport, refreshStatus],
+    [activeChatId, chatItems, notify, onImport, operatingCompanyId, refreshStatus],
   );
 
   const sendMessage = useCallback(
