@@ -17,17 +17,12 @@ export function buildInquiryQuotationPrefill(row: Record<string, unknown>): {
     typeof row.addressDetail === 'string' ? row.addressDetail.trim() : '';
   const customerAddress =
     address && addressDetail ? `${address} ${addressDetail}` : address || addressDetail;
-  const consultationMemo =
-    typeof row.consultationMemo === 'string' ? row.consultationMemo.trim() : '';
-  const specialNotes =
-    typeof row.specialNotes === 'string' ? row.specialNotes.trim() : '';
-  const memo = consultationMemo || specialNotes || '';
   return {
     customerName,
     customerPhone,
     customerEmail: '',
     customerAddress,
-    memo,
+    memo: '',
   };
 }
 
