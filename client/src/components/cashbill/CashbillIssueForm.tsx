@@ -218,27 +218,11 @@ export function CashbillIssueForm({
     };
   }, [query]);
 
-  const identityDigits = identity.replace(/\D/g, '');
   useEffect(() => {
-    if (!unmatched || usage !== 'phone' || identityDigits.length < 10) {
-      setPhoneHits([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      searchCashbillInquiries(identityDigits)
-        .then((items) => {
-          if (!cancelled) setPhoneHits(items.filter((hit) => (hit.customerPhone ?? '').replace(/\D/g, '') === identityDigits).slice(0, 3));
-        })
-        .catch(() => {
-          if (!cancelled) setPhoneHits([]);
-        });
-    }, 300);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [unmatched, usage, identityDigits]);
+    // 접수와 연결을 끈 상태에서는 번호로 접수를 찾지 않는다.
+    if (!unmatched) return;
+    setPhoneHits([]);
+  }, [unmatched]);
 
   function pick(hit: CashbillSearchHit) {
     const basis = defaultsRef.current.amountBasis;
