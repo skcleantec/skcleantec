@@ -253,15 +253,22 @@ export function CashbillIssueForm({
     setError(hit.simplified ? '간이과세자 현금영수증은 바로빌 답변 전까지 발급할 수 없습니다.' : null);
   }
 
-  function clearMatch() {
-    if (selected) setCustomerName('');
+  /** 접수 연결 없이 발행 — 금액은 남기고 이름·번호만 비운다 */
+  function detachMatch() {
     setQuery('');
     setHits([]);
     setSelected(null);
     setUnmatched(true);
-    setBrandId(linkedBrands[0]?.id ?? '');
-    setAmount('');
+    setPhoneHits([]);
+    setCustomerName('');
     setIdentity('');
+    if (!selected) setBrandId(linkedBrands[0]?.id ?? '');
+  }
+
+  function attachMode() {
+    setUnmatched(false);
+    setPhoneHits([]);
+    setCustomerName('');
   }
 
   function chooseOtherCustomer() {
@@ -393,7 +400,6 @@ export function CashbillIssueForm({
       ? `${cashbillTaxKindLabel(activeKind)}로 발행`
       : '발행하기';
 
-  const customerMode = unmatched ? 'manual' : 'search';
   const selectedName = selected ? (selected.displayName || selected.customerName) : '';
   const cleanDay = selected?.createdAt?.slice(0, 10) ?? '';
   const previewCustomer =
@@ -543,25 +549,6 @@ export function CashbillIssueForm({
       {allowInquiry ? (
         <FieldRow label="고객">
           <div className="space-y-2">
-            {/* 모바일: 세그먼트 유지 */}
-            <div className="lg:hidden">
-              <SegmentedControl
-                ariaLabel="고객 입력 방식"
-                value={customerMode}
-                onChange={(next) => {
-                  if (next === 'manual') clearMatch();
-                  else {
-                    setUnmatched(false);
-                    setPhoneHits([]);
-                    if (selected) chooseOtherCustomer();
-                  }
-                }}
-                options={[
-                  { value: 'search', label: '접수에서 찾기' },
-                  { value: 'manual', label: '직접 입력' },
-                ]}
-              />
-            </div>
             {unmatched ? (
               <div className="space-y-2">
                 <input
@@ -569,20 +556,9 @@ export function CashbillIssueForm({
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   maxLength={64}
-                  placeholder="고객명 (선택)"
+                  placeholder="영수증에 넣을 이름 (선택)"
                   className={INPUT}
                 />
-                <button
-                  type="button"
-                  className="hidden text-[12px] font-medium text-[#475569] hover:text-slate-900 lg:inline"
-                  onClick={() => {
-                    setUnmatched(false);
-                    setPhoneHits([]);
-                    setCustomerName('');
-                  }}
-                >
-                  접수로 찾기
-                </button>
               </div>
             ) : selected ? (
               <div className="flex items-center gap-3 rounded-[14px] bg-[#F8FAFC] px-3 py-2.5">
@@ -612,16 +588,9 @@ export function CashbillIssueForm({
                       aria-label="고객 검색"
                     />
                   </div>
-                  <button
-                    type="button"
-                    className="hidden shrink-0 text-[12px] font-medium text-[#475569] hover:text-slate-900 lg:inline"
-                    onClick={() => clearMatch()}
-                  >
-                    접수 없이 직접 입력
-                  </button>
                 </div>
                 {!selected && query.trim().length >= 2 && searched === query.trim() && hits.length === 0 ? (
-                  <p className="text-[12px] text-[#64748B]">찾는 접수가 없어요. 「직접 입력」으로 발행할 수 있어요.</p>
+                  <p className="text-[12px] text-[#64748B]">찾는 접수가 없어요. 아래 「접수와 연결 안 함」을 켜면 바로 발행할 수 있어요.</p>
                 ) : null}
                 {hits.length > 0 ? (
                   <ul className="max-h-40 space-y-1 overflow-y-auto">
@@ -641,6 +610,16 @@ export function CashbillIssueForm({
                 ) : null}
               </>
             )}
+            <label className="flex w-fit cursor-pointer items-center gap-2 text-[12px] text-[#475569]">
+              <input
+                type="checkbox"
+                checked={unmatched}
+                onChange={(e) => (e.target.checked ? detachMatch() : attachMode())}
+                className="size-4 rounded border-[#CBD5E1] accent-slate-900"
+              />
+              접수와 연결 안 함
+              <span className="text-[#94A3B8]">· 다른 사람 이름·번호로 발행할 때</span>
+            </label>
           </div>
         </FieldRow>
       ) : (
@@ -929,7 +908,7 @@ export function CashbillIssueForm({
             </>
           )}
           {identityHint ? <p className="text-[12px] text-amber-800">{identityHint}</p> : null}
-          {allowInquiry && phoneHits.length > 0 ? (
+          {allowInquiry && !unmatched && phoneHits.length > 0 ? (
             <div className="space-y-1 rounded-[10px] bg-[#F3F7FF] px-2.5 py-2">
               <p className="text-[11px] font-medium text-[#1f4fb8]">이 번호로 받은 접수가 있어요. 연결하면 고객명과 발행 가능 금액이 함께 들어갑니다.</p>
               {phoneHits.map((hit) => (
