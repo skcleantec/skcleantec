@@ -17,9 +17,28 @@ type Props = {
   onProvider: (code: string, provider: PlatformAlimtalkProvider) => void;
 };
 
-function won(value: number | null): string {
+function won(value: number | null | undefined): string {
   if (value == null) return '—';
   return `${Math.trunc(value).toLocaleString('ko-KR')}원`;
+}
+
+function BalanceCell({
+  label,
+  value,
+  warn,
+}: {
+  label: string;
+  value: number | null | undefined;
+  warn: string;
+}) {
+  const low = value != null && value < 10_000;
+  return (
+    <div>
+      <dt className="text-slate-500">{label}</dt>
+      <dd className={`tabular-nums ${low ? 'font-medium text-red-700' : ''}`}>{won(value)}</dd>
+      {low ? <p className="mt-1 text-fluid-xs text-red-700">{warn}</p> : null}
+    </div>
+  );
 }
 
 export function PlatformAlimtalkScreen({
@@ -51,19 +70,16 @@ export function PlatformAlimtalkScreen({
                 : '—'}
             </dd>
           </div>
-          <div>
-            <dt className="text-slate-500">파트너 잔액</dt>
-            <dd
-              className={`tabular-nums ${
-                overview?.balanceKrw != null && overview.balanceKrw < 10_000 ? 'font-medium text-red-700' : ''
-              }`}
-            >
-              {won(overview?.balanceKrw ?? null)}
-            </dd>
-            {overview?.balanceKrw != null && overview.balanceKrw < 10_000 ? (
-              <p className="mt-1 text-fluid-xs text-red-700">파트너 잔액이 1만 원 미만입니다. 바로빌 잔액을 충전해 주세요.</p>
-            ) : null}
-          </div>
+          <BalanceCell
+            label="파트너 잔액"
+            value={overview?.partnerBalanceKrw ?? overview?.balanceKrw}
+            warn="파트너 잔액이 1만 원 미만입니다. 바로빌 잔액을 충전해 주세요."
+          />
+          <BalanceCell
+            label="서비스브릿지 회원사 잔액"
+            value={overview?.memberBalanceKrw}
+            warn="서비스브릿지 회원사 잔액이 1만 원 미만입니다. 바로빌 잔액을 충전해 주세요."
+          />
         </dl>
         <div className="flex flex-wrap gap-2">
           <button type="button" className={BTN} disabled={busy} onClick={() => onPopup('channel')}>

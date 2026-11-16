@@ -20,6 +20,8 @@ export type PlatformAlimtalkOverview = {
   channel: { channelId: string; channelName: string; status: number; statusLabel: string } | null;
   channels: { channelId: string; channelName: string; status: number; statusLabel: string }[];
   balanceKrw: number | null;
+  partnerBalanceKrw: number | null;
+  memberBalanceKrw: number | null;
   callError: string | null;
   templates: PlatformAlimtalkTemplateRow[];
 };

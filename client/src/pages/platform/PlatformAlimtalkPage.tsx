@@ -41,10 +41,19 @@ export function PlatformAlimtalkPage() {
       if (result.configGap) {
         setError(result.configGap);
       } else {
-        const warnings = result.templates.flatMap((row) => row.warnings.map((token) => `${row.templateName} ${token}`));
+        const absent = result.templates
+          .filter((row) => row.statusLabel === 'DB 서식 없음')
+          .map((row) => `${row.templateName} DB 서식 없음`);
+        const saveFailed = result.templates
+          .filter((row) => !row.saved && row.statusLabel !== 'DB 서식 없음' && row.warnings.length > 0)
+          .flatMap((row) => row.warnings.map((token) => `${row.templateName} ${token}`));
+        const warnings = result.templates
+          .filter((row) => row.saved)
+          .flatMap((row) => row.warnings.map((token) => `${row.templateName} ${token}`));
         const missing = result.missing.length > 0 ? `없는 템플릿: ${result.missing.join(', ')}` : '';
+        const failed = saveFailed.length > 0 ? `저장하지 못한 서식: ${saveFailed.join(', ')}` : '';
         const warn = warnings.length > 0 ? `채울 수 없는 변수: ${warnings.join(', ')}` : '';
-        setMessage([missing, warn, '템플릿을 동기화했습니다.'].filter(Boolean).join(' '));
+        setMessage([absent.join(' '), missing, failed, warn, '템플릿을 동기화했습니다.'].filter(Boolean).join(' '));
       }
       await load();
     } catch (err) {

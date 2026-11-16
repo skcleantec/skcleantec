@@ -7,12 +7,24 @@ import {
   getHistoryUrl,
   getTemplateManagementUrl,
 } from '../../lib/barobill/kakaotalk.js';
+import { redactSecrets } from '../../lib/barobill/mask.js';
 import { BarobillCallError, platformBarobillCause } from '../../lib/barobill/soap.js';
 import {
   loadBarobillAlimtalkOverview,
   setAlimtalkTemplateProvider,
   syncBarobillAlimtalkTemplates,
 } from './alimtalkBarobillSync.service.js';
+
+function syncRouteError(err: unknown): string {
+  if (err instanceof BarobillCallError) return platformBarobillCause(err);
+  const raw = err instanceof Error ? err.message : '';
+  const cleaned = redactSecrets(raw)
+    .replace(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
+  return cleaned || '바로빌 템플릿 동기화에 실패했습니다.';
+}
 
 const router = Router();
 
@@ -33,7 +45,7 @@ router.post('/barobill/sync', platformSuperAdminOnly, async (_req, res) => {
     const result = await syncBarobillAlimtalkTemplates({ force: true });
     res.json(result);
   } catch (err) {
-    const message = err instanceof BarobillCallError ? platformBarobillCause(err) : '바로빌 템플릿 동기화에 실패했습니다.';
+    const message = syncRouteError(err);
     res.status(502).json({ error: message });
   }
 });

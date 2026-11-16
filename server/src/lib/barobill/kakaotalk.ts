@@ -292,13 +292,29 @@ export async function cancelReserved(sendKey: string): Promise<number> {
   return asInt(value);
 }
 
-export async function getPartnerBalance(): Promise<number> {
+function asBalance(value: unknown, label: string): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) throw new Error(`${label} 형식이 올바르지 않습니다.`);
+  return n;
+}
+
+/** 서비스브릿지 회원사 잔액. GetBalanceCostAmountEx */
+export async function getMemberBalance(): Promise<number> {
   const value = await callBarobill('KAKAOTALK', 'GetBalanceCostAmountEx', {
     CorpNum: SERVICE_BRIDGE_CORP_NUM,
   });
-  const n = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(n)) throw new Error('바로빌 잔액 형식이 올바르지 않습니다.');
-  return n;
+  return asBalance(value, '바로빌 회원사 잔액');
+}
+
+/** 파트너 잔액. GetBalanceCostAmountOfInterOPEx 는 인증키만 받는다. */
+export async function getPartnerBalanceOfInterOP(): Promise<number> {
+  const value = await callBarobill('KAKAOTALK', 'GetBalanceCostAmountOfInterOPEx', {});
+  return asBalance(value, '바로빌 파트너 잔액');
+}
+
+/** 회원사 잔액. 이름은 예전 호출과 맞춘다. 파트너 잔액은 getPartnerBalanceOfInterOP. */
+export async function getPartnerBalance(): Promise<number> {
+  return getMemberBalance();
 }
 
 export function barobillKakaoSenderId(): string {
