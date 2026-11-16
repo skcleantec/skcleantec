@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ONE_ROOM_SPECIAL_NOTES_PHRASE } from '../orderform/orderFormOneRoom.js';
 import {
+  buildPrefillFromPayload,
   customerSpecialNotesFromPrefill,
+  customerSpecialNotesUpdateFromPrefill,
   inquiryUpdateDataFromPrefillMap,
 } from '../orderform/orderFormPrefill.js';
 import {
@@ -59,8 +61,21 @@ test('다: 발주서 선입력 특이사항은 접수 내부 메모 패치에 �
   assert.equal(Object.prototype.hasOwnProperty.call(patch, 'specialNotes'), false);
   assert.equal(patch.roomCount, 2);
   assert.equal(customerSpecialNotesFromPrefill(prefill), '고객 선입력');
-  assert.equal(customerSpecialNotesFromPrefill({ roomCount: 1 }), null);
+  assert.equal(customerSpecialNotesFromPrefill({ roomCount: 1 }), undefined);
   assert.equal(customerSpecialNotesFromPrefill({ specialNotes: '   ' }), null);
+});
+
+test('고객 임시 저장 특이사항은 특이사항 없는 미리 채움으로 지워지지 않는다', () => {
+  const draft = '고객 임시 저장';
+  const prefill = buildPrefillFromPayload({ customerName: '홍길동', roomCount: 2 }, []);
+  assert.equal(Object.prototype.hasOwnProperty.call(prefill, 'specialNotes'), false);
+  const update = customerSpecialNotesUpdateFromPrefill(prefill);
+  assert.equal(update, undefined);
+  const kept = update === undefined ? draft : update.customerSpecialNotes;
+  assert.equal(kept, draft);
+  assert.deepEqual(customerSpecialNotesUpdateFromPrefill({ specialNotes: '마케터 문구' }), {
+    customerSpecialNotes: '마케터 문구',
+  });
 });
 
 test('라: 고객 특이사항을 저장해도 내부 메모를 비우거나 이전 값으로 쓰지 않는다', () => {
