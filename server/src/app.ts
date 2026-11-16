@@ -117,6 +117,7 @@ import skHomepageMailRoutes from './modules/sk-homepage-mail/skHomepageMail.rout
 import skHomepageMailCronRoutes from './modules/sk-homepage-mail/skHomepageMail.cron.routes.js';
 import helpInquiryMailCronRoutes from './modules/platform-board/helpInquiryMail.cron.routes.js';
 import alimtalkScheduleD2CronRoutes from './modules/alimtalk/alimtalkScheduleD2.cron.routes.js';
+import alimtalkBarobillResultCronRoutes from './modules/alimtalk/alimtalkBarobillResult.cron.routes.js';
 import platformSignupInquiryPublicRoutes from './modules/platform-signup-inquiry/platformSignupInquiry.public.routes.js';
 import platformSignupInquiryRoutes from './modules/platform-signup-inquiry/platformSignupInquiry.routes.js';
 import platformReferrersRoutes from './modules/platform-referrals/platformReferrers.routes.js';
@@ -224,6 +225,7 @@ app.use('/api/admin/cron', skHomepageMailCronRoutes);
 app.use('/api/admin/cron', helpInquiryMailCronRoutes);
 app.use('/api/admin/sk-homepage-mail', skHomepageMailRoutes);
 app.use('/api/admin/cron', alimtalkScheduleD2CronRoutes);
+app.use('/api/admin/cron', alimtalkBarobillResultCronRoutes);
 app.use('/api/admin/cron', cashbillStateCronRoutes);
 app.use('/api/admin/notification-policy', notificationPolicyRoutes);
 app.use('/api/admin/notification-preferences', adminNotificationPrefRoutes);

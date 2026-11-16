@@ -32,17 +32,28 @@ const BTN_SECONDARY =
 const CARD =
   'rounded-xl border border-gray-200 bg-white p-3 sm:p-4 space-y-3';
 
+function failureReasonText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (!text || text === '[object Object]' || /^[A-Z0-9_]+$/.test(text)) return '';
+  return text;
+}
+
 function formatSendLogStatus(row: AlimtalkSendLogListItem): { label: string; className: string } {
-  if (row.status === 'success') {
-    if (row.deliveredChannel === 'LMS') {
-      return { label: 'LMS 대체', className: 'text-amber-700' };
-    }
-    return { label: '알림톡', className: 'text-emerald-700' };
+  if (row.status === 'awaiting') {
+    return { label: '결과 확인 중', className: 'text-amber-800' };
   }
   if (row.status === 'pending') {
-    return { label: '처리 중', className: 'text-gray-500' };
+    return { label: '처리 중', className: 'text-slate-500' };
   }
-  return { label: '실패', className: 'text-red-700' };
+  if (row.status === 'failed') {
+    const reason = failureReasonText(row.errorMessage);
+    return { label: reason ? `실패(${reason})` : '실패', className: 'text-red-700' };
+  }
+  if (row.deliveredChannel === 'LMS' || row.deliveredChannel === 'SMS') {
+    return { label: '문자로 대체', className: 'text-amber-800' };
+  }
+  return { label: '알림톡', className: 'text-emerald-800' };
 }
 
 function formatPreferredDateShort(ymd: string | null): string {
@@ -376,9 +387,28 @@ export function AdminAlimtalkPage() {
                 <p className="text-fluid-2xs text-gray-500">아직 발송 내역이 없습니다.</p>
               ) : (
                 <>
-                  <p className="text-fluid-2xs text-gray-500 lg:hidden">표는 좌우로 스크롤할 수 있습니다.</p>
+                  <ul className="space-y-2 lg:hidden">
+                    {sendLogs.map((row) => {
+                      const status = formatSendLogStatus(row);
+                      return (
+                        <li key={row.id} className="rounded-xl border border-slate-200 px-3 py-2">
+                          <p className="text-fluid-2xs tabular-nums text-slate-500">
+                            {new Date(row.createdAt).toLocaleString('ko-KR')}
+                          </p>
+                          <p className="truncate text-fluid-xs text-slate-900">
+                            {row.inquiryNumber ?? '—'} · {row.customerName ?? '—'} ·{' '}
+                            {formatPreferredDateShort(row.preferredDateYmd)}
+                          </p>
+                          <p className={`break-words text-fluid-xs font-medium ${status.className}`} title={status.label}>
+                            {status.label}
+                          </p>
+                          <p className="text-fluid-2xs text-slate-500">{row.toPhone}</p>
+                        </li>
+                      );
+                    })}
+                  </ul>
                   <div
-                    className="-mx-4 w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:px-0"
+                    className="-mx-4 hidden w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:px-0 lg:block"
                     style={{ WebkitOverflowScrolling: 'touch' }}
                   >
                     <table className="w-full min-w-[640px] table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs">
@@ -418,16 +448,11 @@ export function AdminAlimtalkPage() {
                               >
                                 {row.customerName ?? '—'} · {formatPreferredDateShort(row.preferredDateYmd)}
                               </td>
-                              <td className={`px-2 py-2 text-center font-medium ${status.className}`}>
+                              <td className={`break-words px-2 py-2 text-center font-medium ${status.className}`} title={status.label}>
                                 {status.label}
                               </td>
-                              <td
-                                className="px-2 py-2 text-center truncate text-gray-500"
-                                title={row.errorMessage ?? row.toPhone}
-                              >
-                                {row.status === 'failed'
-                                  ? row.errorMessage ?? '발송 실패'
-                                  : row.toPhone}
+                              <td className="px-2 py-2 text-center truncate text-gray-500" title={row.toPhone}>
+                                {row.toPhone}
                               </td>
                             </tr>
                           );

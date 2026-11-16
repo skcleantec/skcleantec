@@ -68,8 +68,8 @@ export type AlimtalkSendLogListItem = {
   customerName: string | null;
   preferredDateYmd: string | null;
   toPhone: string;
-  status: 'success' | 'failed' | 'pending';
-  deliveredChannel: string | null;
+  status: 'success' | 'failed' | 'pending' | 'awaiting';
+  deliveredChannel: 'ATA' | 'LMS' | 'SMS' | null;
   errorMessage: string | null;
 };
 

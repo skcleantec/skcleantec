@@ -26,7 +26,15 @@ export const ALIMTALK_TEMPLATE_LABELS: Record<AlimtalkTemplateCode, string> = {
 /** 알림톡 지갑 차감 단가 — 부가세 별도(공급가). */
 export const ALIMTALK_UNIT_PRICE_ATA_KRW = 20;
 export const ALIMTALK_UNIT_PRICE_LMS_KRW = 60;
+/**
+ * 대체 SMS 단가. 바로빌 결과의 본문이 90바이트 이하면 SMS.
+ * 우선 LMS와 같은 60원. 무료 건수 차감도 LMS(3건)와 같다.
+ */
+export const ALIMTALK_UNIT_PRICE_SMS_KRW = 60;
 export const ALIMTALK_LMS_FREE_UNITS = 3;
+
+/** 이미 접수·발송된 것으로 보고 다시 보내지 않는 상태. FAILED 는 재시도 가능. */
+export const ALIMTALK_ALREADY_SENT_CHARGE_STATUSES = ['FREE', 'PAID', 'PENDING', 'AWAITING_RESULT'] as const;
 
 export const ALIMTALK_MONTHLY_FREE_BY_PLAN: Record<TenantPlanId, number> = {
   free: 0,
