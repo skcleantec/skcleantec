@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   ALIMTALK_LMS_FREE_UNITS,
   ALIMTALK_TEMPLATE_CODES,
   ALIMTALK_UNIT_PRICE_ATA_KRW,
   ALIMTALK_UNIT_PRICE_LMS_KRW,
+  ALIMTALK_UNIT_PRICE_SMS_KRW,
   alimtalkMonthlyFreeQuotaForPlan,
   validateAlimtalkTopUpAmountKrw,
   type AlimtalkTemplateCode,
@@ -105,25 +107,37 @@ export async function getAlimtalkWalletView(tenantId: string, plan: string): Pro
   };
 }
 
+export type AlimtalkBillChannel = 'ATA' | 'LMS' | 'SMS';
+
 export type AlimtalkPreflightResult =
   | { ok: true; wallet: AlimtalkWalletView }
   | { ok: false; error: string };
 
+/** ATA 1건·20원. LMS·SMS 는 무료 3건·유료는 각 단가. SMS 단가는 지금 LMS와 같다. */
+export function alimtalkBillUnits(channel: AlimtalkBillChannel): { needFree: number; unitPrice: number } {
+  if (channel === 'ATA') {
+    return { needFree: 1, unitPrice: ALIMTALK_UNIT_PRICE_ATA_KRW };
+  }
+  return {
+    needFree: ALIMTALK_LMS_FREE_UNITS,
+    unitPrice: channel === 'SMS' ? ALIMTALK_UNIT_PRICE_SMS_KRW : ALIMTALK_UNIT_PRICE_LMS_KRW,
+  };
+}
+
 export async function preflightAlimtalkSend(
   tenantId: string,
   plan: string,
-  channel: 'ATA' | 'LMS',
+  channel: AlimtalkBillChannel,
 ): Promise<AlimtalkPreflightResult> {
   const wallet = await getAlimtalkWalletView(tenantId, plan);
   if (wallet.monthlyFreeUnlimited) {
     return { ok: true, wallet };
   }
-  const needFree = channel === 'LMS' ? ALIMTALK_LMS_FREE_UNITS : 1;
-  const needPaid = channel === 'LMS' ? ALIMTALK_UNIT_PRICE_LMS_KRW : ALIMTALK_UNIT_PRICE_ATA_KRW;
+  const { needFree, unitPrice } = alimtalkBillUnits(channel);
   if (wallet.monthlyFreeRemaining >= needFree) {
     return { ok: true, wallet };
   }
-  if (wallet.prepaidBalanceKrw >= needPaid) {
+  if (wallet.prepaidBalanceKrw >= unitPrice) {
     return { ok: true, wallet };
   }
   return {
@@ -135,23 +149,24 @@ export async function preflightAlimtalkSend(
 export async function applyAlimtalkCharge(params: {
   tenantId: string;
   plan: string;
-  channel: 'ATA' | 'LMS';
+  channel: AlimtalkBillChannel;
   refId: string;
+  /** 넘기면 그 트랜잭션 안에서 차감한다. 결과 확인이 두 번 차감하지 않게. */
+  db?: Prisma.TransactionClient;
 }): Promise<{ chargeStatus: 'FREE' | 'PAID'; freeUnitsConsumed: number; tenantUnitPriceKrw: number }> {
   const wallet = await getAlimtalkWalletView(params.tenantId, params.plan);
-  const needFree = params.channel === 'LMS' ? ALIMTALK_LMS_FREE_UNITS : 1;
-  const unitPrice =
-    params.channel === 'LMS' ? ALIMTALK_UNIT_PRICE_LMS_KRW : ALIMTALK_UNIT_PRICE_ATA_KRW;
+  const { needFree, unitPrice } = alimtalkBillUnits(params.channel);
+  const db = params.db ?? prisma;
 
   if (wallet.monthlyFreeUnlimited || wallet.monthlyFreeRemaining >= needFree) {
-    await prisma.tenantAlimtalkWallet.update({
+    await db.tenantAlimtalkWallet.update({
       where: { tenantId: params.tenantId },
       data: { monthlyFreeUsed: wallet.monthlyFreeUsed + needFree },
     });
     return { chargeStatus: 'FREE', freeUnitsConsumed: needFree, tenantUnitPriceKrw: 0 };
   }
 
-  await prisma.$transaction(async (tx) => {
+  const pay = async (tx: Prisma.TransactionClient) => {
     const updated = await tx.tenantAlimtalkWallet.update({
       where: { tenantId: params.tenantId },
       data: { prepaidBalanceKrw: { decrement: unitPrice } },
@@ -163,7 +178,9 @@ export async function applyAlimtalkCharge(params: {
       amountKrw: -unitPrice,
       balanceAfterKrw: updated.prepaidBalanceKrw,
     });
-  });
+  };
+  if (params.db) await pay(params.db);
+  else await prisma.$transaction(pay);
   return { chargeStatus: 'PAID', freeUnitsConsumed: 0, tenantUnitPriceKrw: unitPrice };
 }
 

@@ -11,20 +11,30 @@ export type AlimtalkSendLogListItem = {
   customerName: string | null;
   preferredDateYmd: string | null;
   toPhone: string;
-  status: 'success' | 'failed' | 'pending';
-  deliveredChannel: string | null;
+  status: 'success' | 'failed' | 'pending' | 'awaiting';
+  deliveredChannel: 'ATA' | 'LMS' | 'SMS' | null;
   errorMessage: string | null;
 };
 
-function mapSendLogStatus(row: {
-  chargeStatus: string;
-  errorMessage: string | null;
-  deliveredChannel: string | null;
-}): AlimtalkSendLogListItem['status'] {
-  if (row.chargeStatus === 'FAILED') return 'failed';
-  if (row.chargeStatus === 'PENDING') return 'pending';
-  if (row.chargeStatus === 'FREE' || row.chargeStatus === 'PAID') return 'success';
+function humanSendText(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (!text || text === '[object Object]' || text.startsWith('sms-bytes:')) return null;
+  if (/^[A-Z0-9_]+$/.test(text)) return null;
+  return text;
+}
+
+function mapSendLogStatus(chargeStatus: string): AlimtalkSendLogListItem['status'] {
+  if (chargeStatus === 'AWAITING_RESULT') return 'awaiting';
+  if (chargeStatus === 'FAILED') return 'failed';
+  if (chargeStatus === 'PENDING') return 'pending';
+  if (chargeStatus === 'FREE' || chargeStatus === 'PAID') return 'success';
   return 'failed';
+}
+
+function mapDeliveredChannel(value: string | null): AlimtalkSendLogListItem['deliveredChannel'] {
+  if (value === 'ATA' || value === 'LMS' || value === 'SMS') return value;
+  return null;
 }
 
 function formatPreferredDateYmd(preferredDate: Date | null): string | null {
@@ -60,6 +70,7 @@ export async function listAlimtalkSendLogsForTenantAdmin(params: {
         chargeStatus: true,
         deliveredChannel: true,
         errorMessage: true,
+        resultMessage: true,
       },
     }),
   ]);
@@ -90,9 +101,12 @@ export async function listAlimtalkSendLogsForTenantAdmin(params: {
       customerName: inquiry?.customerName ?? null,
       preferredDateYmd: formatPreferredDateYmd(inquiry?.preferredDate ?? null),
       toPhone: maskAlimtalkPhone(row.toPhone),
-      status: mapSendLogStatus(row),
-      deliveredChannel: row.deliveredChannel,
-      errorMessage: row.errorMessage,
+      status: mapSendLogStatus(row.chargeStatus),
+      deliveredChannel: mapDeliveredChannel(row.deliveredChannel),
+      errorMessage:
+        row.chargeStatus === 'FAILED'
+          ? humanSendText(row.errorMessage) ?? humanSendText(row.resultMessage) ?? '발송 실패'
+          : null,
     };
   });
 

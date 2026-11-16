@@ -1,6 +1,7 @@
 import type { InquiryStatus, Tenant } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
+  ALIMTALK_ALREADY_SENT_CHARGE_STATUSES,
   ALIMTALK_MODULE_ID,
   ALIMTALK_TEMPLATE_CODES,
   ALIMTALK_TEMPLATE_LABELS,
@@ -30,6 +31,7 @@ import {
   preflightAlimtalkSend,
   resolveSolapiTemplateId,
 } from './alimtalkWallet.service.js';
+import { sendAlimtalkViaBarobill } from './alimtalkBarobillSend.js';
 
 export type TriggerAlimtalkResult =
   | { ok: true; logId: string; messageId?: string; chargeStatus: string; publicUrl?: string }
@@ -71,8 +73,16 @@ export async function executeAlimtalkSend(params: {
   const stagingBlock = assertAlimtalkRecipientAllowed(params.toPhone);
   if (stagingBlock) return { ok: false, error: stagingBlock };
 
-  const preflight = await preflightAlimtalkSend(params.billingTenantId, params.tenant.plan, 'ATA');
+  const preflight = await preflightAlimtalkSend(params.billingTenantId, params.tenant.plan, 'LMS');
   if (!preflight.ok) return { ok: false, error: preflight.error };
+
+  const providerRow = await prisma.alimtalkTemplate.findFirst({
+    where: { code: params.templateCode },
+    select: { provider: true },
+  });
+  if (providerRow?.provider === 'barobill') {
+    return sendAlimtalkViaBarobill(params);
+  }
 
   const templateId = await resolveSolapiTemplateId(params.templateCode);
   if (!templateId) {
@@ -282,7 +292,7 @@ export async function triggerAlimtalkScheduleD2(
       tenantId: ctx.billingTenantId,
       inquiryId: ctx.sourceInquiryId,
       templateCode,
-      chargeStatus: { in: ['FREE', 'PAID', 'PENDING'] },
+      chargeStatus: { in: [...ALIMTALK_ALREADY_SENT_CHARGE_STATUSES] },
     },
     select: { id: true },
   });

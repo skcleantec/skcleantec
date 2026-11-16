@@ -39,6 +39,7 @@ import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateForma
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
+import { alimtalkChargeStatusLabel } from '@shared/alimtalkPolicy';
 import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
@@ -641,12 +642,7 @@ export function AdminOrderFormPage() {
       const result = await sendOrderFormOrderLinkAlimtalk(token, order.id, {
         toPhone: order.customerPhone,
       });
-      const chargeLabel =
-        result.chargeStatus === 'FREE'
-          ? '월 무료'
-          : result.chargeStatus === 'PAID'
-            ? '선불 차감'
-            : result.chargeStatus;
+      const chargeLabel = alimtalkChargeStatusLabel(result.chargeStatus);
       const msg = `알림톡을 발송했습니다. (${chargeLabel})`;
       if (opts?.closeListModal) {
         alert(msg);

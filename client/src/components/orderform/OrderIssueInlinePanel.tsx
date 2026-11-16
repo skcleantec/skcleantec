@@ -31,6 +31,7 @@ import {
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
 import { HelpTooltip } from '../ui/HelpTooltip';
+import { alimtalkChargeStatusLabel } from '@shared/alimtalkPolicy';
 import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
 
 export type CrmOrderIssueSeed = {
@@ -290,12 +291,7 @@ export function OrderIssueInlinePanel({
       const result = await sendOrderFormOrderLinkAlimtalk(token, newOrder.id, {
         toPhone: newOrder.customerPhone,
       });
-      const chargeLabel =
-        result.chargeStatus === 'FREE'
-          ? '월 무료'
-          : result.chargeStatus === 'PAID'
-            ? '선불 차감'
-            : result.chargeStatus;
+      const chargeLabel = alimtalkChargeStatusLabel(result.chargeStatus);
       setAlimtalkHint(`알림톡을 발송했습니다. (${chargeLabel})`);
     } catch (e) {
       alert(e instanceof Error ? e.message : '알림톡 발송에 실패했습니다.');
