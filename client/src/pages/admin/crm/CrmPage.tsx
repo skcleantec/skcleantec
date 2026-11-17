@@ -32,6 +32,8 @@ import { CrmIconPhone, CrmIconMiso, CrmIconSoomgo, CrmIconReset } from '../../..
 import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
+import { useCrmSoomgoRoomLeave } from '../../../hooks/useCrmSoomgoRoomLeave';
+import type { SoomgoSelfNavKind } from '../../../utils/crmSoomgoRoomLeave';
 import { useCrmMisoBridge } from '../../../hooks/useCrmMisoBridge';
 import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
 import { isMisoBridgeReachable } from '../../../api/misoBridge';
@@ -323,9 +325,9 @@ export function CrmPage() {
   const lastIntakeChatIdRef = useRef<string | null>(null);
   /** 기존 고객 찾기로 숨고 채팅방을 연 고객 — 같은 고객을 다시 불러와도 또 이동하지 않게 */
   const lookupChatOpenedKeyRef = useRef<string | null>(null);
-  /** 우리가 직접 숨고 창을 옮긴 직후에는 채팅방 변경으로 보지 않음 */
-  const soomgoSelfNavUntilRef = useRef(0);
-  const soomgoRoomChangeStreakRef = useRef<{ key: string; count: number } | null>(null);
+  /** CRM이 숨고 창을 옮긴 직후 12초. 다른 방으로 연 것만 접수란 비우기에서 뺀다. */
+  const soomgoSelfNavRef = useRef<{ until: number; kind: SoomgoSelfNavKind } | null>(null);
+  const [soomgoLeaveNotice, setSoomgoLeaveNotice] = useState<string | null>(null);
 
   const resetQuotePricingState = useCallback(() => {
     setQuoteLines([]);
@@ -944,7 +946,6 @@ export function CrmPage() {
       pricingContextPhoneRef.current = '';
       lastIntakeChatIdRef.current = null;
       lookupChatOpenedKeyRef.current = null;
-      soomgoRoomChangeStreakRef.current = null;
       if (notice) showDispatchNotice(notice);
     },
     [resetQuotePricingState, showDispatchNotice],
@@ -1013,7 +1014,6 @@ export function CrmPage() {
   const handleSoomgoImport = useCallback(
     (data: SoomgoExtractedChat) => {
       if (data.chatId?.trim()) lastIntakeChatIdRef.current = data.chatId.trim();
-      soomgoRoomChangeStreakRef.current = null;
       const mergeBase = followupSoomgoMergeRef.current;
       if (mergeBase) {
         followupSoomgoMergeRef.current = null;
@@ -1204,6 +1204,7 @@ export function CrmPage() {
     onChatAlerts: handleSoomgoChatAlerts,
     onChatListSnapshot: handleSoomgoChatListSnapshot,
     pollEnabled: !isMobileApp,
+    intakeRoomWatch: Boolean(buildCurrentIntakeDraft()),
     isPopup,
     operatingCompanyId: activeOperatingCompanyId,
     refreshManifest,
@@ -1232,92 +1233,64 @@ export function CrmPage() {
     updateBusy: soomgoUpdateBusy,
   } = soomgoBridge;
 
-  /** 우리가 숨고 창을 옮기는 동안·직후(약 12초)는 채팅방 변경 감지에서 제외 */
-  const markSoomgoSelfNav = useCallback(() => {
-    soomgoSelfNavUntilRef.current = Date.now() + 12_000;
-    soomgoRoomChangeStreakRef.current = null;
+  /** 다른 방으로 연 직후만 방 전환 비우기에서 뺀다. 목록으로 나간 것은 비운다. */
+  const markSoomgoSelfNav = useCallback((kind: SoomgoSelfNavKind) => {
+    soomgoSelfNavRef.current = { until: Date.now() + 12_000, kind };
   }, []);
   const openChatByNickname = useCallback(
     async (...args: Parameters<typeof openChatByNicknameRaw>) => {
-      markSoomgoSelfNav();
+      markSoomgoSelfNav('open-room');
       try {
         const opened = await openChatByNicknameRaw(...args);
-        // 우리가 이 고객 방으로 옮긴 것 — 「방이 바뀌었다」로 보고 접수란을 비우지 않게 기준 방을 바꿔 둠
         const openedChatId = opened?.chatId != null ? String(opened.chatId).trim() : '';
         if (openedChatId) lastIntakeChatIdRef.current = openedChatId;
         return opened;
       } finally {
-        markSoomgoSelfNav();
+        markSoomgoSelfNav('open-room');
       }
     },
     [markSoomgoSelfNav, openChatByNicknameRaw],
   );
   const openChatRoomAndExtract = useCallback(
     async (...args: Parameters<typeof openChatRoomAndExtractRaw>) => {
-      markSoomgoSelfNav();
+      markSoomgoSelfNav('open-room');
       try {
         return await openChatRoomAndExtractRaw(...args);
       } finally {
-        markSoomgoSelfNav();
+        markSoomgoSelfNav('open-room');
       }
     },
     [markSoomgoSelfNav, openChatRoomAndExtractRaw],
   );
   const returnToChatList = useCallback(async () => {
-    markSoomgoSelfNav();
+    markSoomgoSelfNav('return-list');
     try {
       return await returnToChatListRaw();
     } finally {
-      markSoomgoSelfNav();
+      markSoomgoSelfNav('return-list');
     }
   }, [markSoomgoSelfNav, returnToChatListRaw]);
 
-  /**
-   * 숨고 창에서 채팅방을 나가거나 다른 방으로 옮기면 접수란을 비움(연속 2번 확인).
-   * 비우기 전 내용은 「이전 입력 복구」로 10분간 되살릴 수 있음.
-   */
-  useEffect(() => {
-    const st = soomgoStatus;
-    if (!st?.bridgeRunning) {
-      soomgoRoomChangeStreakRef.current = null;
-      return;
-    }
-    if (
-      Date.now() < soomgoSelfNavUntilRef.current ||
-      soomgoBusyAction === 'open' ||
-      soomgoBusyAction === 'extract'
-    ) {
-      soomgoRoomChangeStreakRef.current = null;
-      return;
-    }
-    const inRoom = Boolean(st.inChatRoom) || st.pageMode === 'chat_room';
-    const currentChatId = inRoom ? st.chatId?.trim() || null : null;
-    const prevChatId = lastIntakeChatIdRef.current;
-    const formDraftNow = buildCurrentIntakeDraft();
-    if (!prevChatId) {
-      soomgoRoomChangeStreakRef.current = null;
-      if (inRoom && currentChatId && !formDraftNow) lastIntakeChatIdRef.current = currentChatId;
-      return;
-    }
-    const changed = !inRoom || (currentChatId != null && currentChatId !== prevChatId);
-    if (!changed) {
-      soomgoRoomChangeStreakRef.current = null;
-      return;
-    }
-    const key = currentChatId ?? '__left__';
-    const streak = soomgoRoomChangeStreakRef.current;
-    if (streak?.key === key) streak.count += 1;
-    else soomgoRoomChangeStreakRef.current = { key, count: 1 };
-    if ((soomgoRoomChangeStreakRef.current?.count ?? 0) < 2) return;
-    soomgoRoomChangeStreakRef.current = null;
-    if (!formDraftNow) {
-      lastIntakeChatIdRef.current = currentChatId;
-      return;
-    }
-    resetIntakeFormState('숨고 채팅방이 바뀌어 접수란을 비웠어요.');
-    saveCrmIntakeRecoverDraft(formDraftNow);
-    setRecoverableDraft(formDraftNow);
-  }, [soomgoStatus, soomgoBusyAction, buildCurrentIntakeDraft, resetIntakeFormState]);
+  useCrmSoomgoRoomLeave({
+    status: soomgoStatus,
+    busy: soomgoBusyAction === 'open' || soomgoBusyAction === 'extract',
+    selfNavRef: soomgoSelfNavRef,
+    buildDraft: buildCurrentIntakeDraft,
+    refreshStatus: refreshSoomgoStatus,
+    onRoomSeen: (chatId) => {
+      lastIntakeChatIdRef.current = chatId;
+    },
+    onLeave: (decision, draft) => {
+      resetIntakeFormState(null);
+      saveCrmIntakeRecoverDraft(draft);
+      setRecoverableDraft(draft);
+      setSoomgoLeaveNotice(
+        decision === 'clear-list'
+          ? '숨고 채팅 목록으로 나와서 접수란을 비웠어요.'
+          : '숨고 채팅방이 바뀌어 접수란을 비웠어요.',
+      );
+    },
+  });
 
   const soomgoPanelBusy = soomgoBusy || soomgoStaleCleanupRunning;
   const soomgoPanelBusyLabel = soomgoStaleCleanupRunning
@@ -2575,6 +2548,18 @@ export function CrmPage() {
           <CrmQuickScheduleCenterNotice
             text="팝업이 막혀 있어 이 창 안에서 열었어요. 주소창 오른쪽에서 팝업을 허용하면 따로 띄울 수 있어요."
             onClose={() => setQuickPopupBlocked(false)}
+          />
+        ) : null}
+        {soomgoLeaveNotice ? (
+          <CrmQuickScheduleCenterNotice
+            text={soomgoLeaveNotice}
+            actionLabel="이전 입력 복구"
+            onAction={() => {
+              setSoomgoLeaveNotice(null);
+              applyRecoverableDraft();
+            }}
+            secondaryLabel="닫기"
+            onSecondary={() => setSoomgoLeaveNotice(null)}
           />
         ) : null}
         {dispatchNotice ? (

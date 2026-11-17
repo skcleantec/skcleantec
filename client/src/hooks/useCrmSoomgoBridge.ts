@@ -63,6 +63,7 @@ export function useCrmSoomgoBridge({
   soomgoBarOpen: _soomgoBarOpen = false,
   soomgoAlertDrawerOpen = false,
   inboxWatchChatIds = [],
+  intakeRoomWatch = false,
 }: {
   onImport: (data: SoomgoExtractedChat) => void;
   onImportPhone?: (phone: string) => void;
@@ -82,6 +83,8 @@ export function useCrmSoomgoBridge({
   soomgoAlertDrawerOpen?: boolean;
   /** 대기(집중 감시) chatId — 브릿지 동기화 */
   inboxWatchChatIds?: string[];
+  /** 접수란에 내용이 있음 — 채팅방일 때 목록으로 나갔는지 더 자주 확인 */
+  intakeRoomWatch?: boolean;
 }) {
   const [status, setStatus] = useState<SoomgoBridgeStatus | null>(null);
   const [preview, setPreview] = useState<SoomgoExtractedChat | null>(null);
@@ -104,6 +107,8 @@ export function useCrmSoomgoBridge({
   soomgoAlertDrawerOpenRef.current = soomgoAlertDrawerOpen;
   const inboxWatchChatIdsRef = useRef(inboxWatchChatIds);
   inboxWatchChatIdsRef.current = inboxWatchChatIds;
+  const intakeRoomWatchRef = useRef(intakeRoomWatch);
+  intakeRoomWatchRef.current = intakeRoomWatch;
   const lastSyncedWatchKeyRef = useRef('');
   const notify = useCallback((msg: string) => onDispatchNotice?.(msg), [onDispatchNotice]);
 
@@ -330,7 +335,17 @@ export function useCrmSoomgoBridge({
         soomgoAlertDrawerOpenRef.current ||
         inboxWatchChatIdsRef.current.length > 0 ||
         busy === 'open';
-      const baseInterval = fastPoll ? 2200 : busy === 'open' ? 5000 : s.bridgeRunning ? 5000 : 12000;
+      const inRoom = Boolean(s.inChatRoom) || s.pageMode === 'chat_room';
+      const watchLeave = intakeRoomWatchRef.current && inRoom && s.bridgeRunning;
+      const baseInterval = watchLeave
+        ? 2500
+        : fastPoll
+          ? 2200
+          : busy === 'open'
+            ? 5000
+            : s.bridgeRunning
+              ? 5000
+              : 12000;
       const interval = failStreak > 0 ? Math.min(60_000, baseInterval * 2 ** failStreak) : baseInterval;
       timer = window.setTimeout(poll, interval);
     };
