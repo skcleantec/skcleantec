@@ -3,7 +3,12 @@ import { prisma } from '../../lib/prisma.js';
 import { sendAlimtalkOpsMail } from './alimtalkBarobillOpsMail.js';
 import { BAROBILL_TEMPLATE_NAME_BY_CODE } from './alimtalkBarobillSync.service.js';
 import { ensureBrandChannelSetupFee, readBrandChannelFees } from './alimtalkBrandChannel.fee.js';
-import { normalizeSearchId } from './alimtalkBrandChannel.select.js';
+import {
+  BRAND_CHANNEL_TEMPLATE_CODES,
+  isBrandChannelTemplateCode,
+  isPlatformDefaultChannel,
+  normalizeSearchId,
+} from './alimtalkBrandChannel.select.js';
 
 const BIZ = new Set(['DONE', 'IN_REVIEW', 'NONE']);
 
@@ -41,7 +46,7 @@ export async function listTenantBrandChannels(tenantId: string) {
     customCopyFeeKrw: fees.customCopyFeeKrw,
     brands: brands.map((brand) => {
       const channel = brand.alimtalkBrandChannel;
-      const templates = channel?.templates ?? [];
+      const templates = (channel?.templates ?? []).filter((row) => isBrandChannelTemplateCode(row.templateCode));
       const approved = templates.filter((row) => row.status === 'APPROVED').length;
       return {
         operatingCompanyId: brand.id,
@@ -57,7 +62,7 @@ export async function listTenantBrandChannels(tenantId: string) {
               setupFeeKrw: channel.setupFeeKrw,
               step: stepIndex(channel.status, approved),
               approved,
-              templateCount: templates.length,
+              templateCount: BRAND_CHANNEL_TEMPLATE_CODES.length,
               note:
                 channel.status === 'REQUESTED'
                   ? '신청을 받았어요. 담당자가 채널 연결을 시작해요.'
@@ -130,7 +135,7 @@ export async function listPlatformBrandChannels() {
     },
     orderBy: { requestedAt: 'desc' },
   });
-  const templates = rows.flatMap((row) => row.templates);
+  const templates = rows.flatMap((row) => row.templates).filter((row) => isBrandChannelTemplateCode(row.templateCode));
   return {
     fees,
     summary: {
@@ -148,9 +153,9 @@ export async function listPlatformBrandChannels() {
       searchId: row.searchId,
       status: row.status,
       badge: channelBadge(row.status, row.searchId),
-      approved: row.templates.filter((item) => item.status === 'APPROVED').length,
-      templateCount: Object.keys(BAROBILL_TEMPLATE_NAME_BY_CODE).length,
-      templates: row.templates.map((item) => ({
+      approved: row.templates.filter((item) => isBrandChannelTemplateCode(item.templateCode) && item.status === 'APPROVED').length,
+      templateCount: BRAND_CHANNEL_TEMPLATE_CODES.length,
+      templates: row.templates.filter((item) => isBrandChannelTemplateCode(item.templateCode)).map((item) => ({
         code: item.templateCode,
         label: ALIMTALK_TEMPLATE_LABELS[item.templateCode as AlimtalkTemplateCode] ?? item.providerTemplateName,
         status: item.status,
@@ -176,7 +181,8 @@ export async function listTenantBrandChannelDetail(tenantId: string) {
   const byBrand = new Map(channels.map((row) => [row.operatingCompanyId, row]));
   return brands.map((brand) => {
     const channel = byBrand.get(brand.id) ?? null;
-    const approved = channel?.templates.filter((item) => item.status === 'APPROVED').length ?? 0;
+    const tracked = channel?.templates.filter((item) => isBrandChannelTemplateCode(item.templateCode)) ?? [];
+    const approved = tracked.filter((item) => item.status === 'APPROVED').length;
     return {
       operatingCompanyId: brand.id,
       name: brand.name,
@@ -185,9 +191,9 @@ export async function listTenantBrandChannelDetail(tenantId: string) {
       status: channel?.status ?? null,
       badge: channel ? channelBadge(channel.status, channel.searchId) : channelBadge('NONE', ''),
       approved,
-      templateCount: Object.keys(BAROBILL_TEMPLATE_NAME_BY_CODE).length,
+      templateCount: BRAND_CHANNEL_TEMPLATE_CODES.length,
       setupFeeExcluded: channel?.setupFeeExcluded ?? false,
-      templates: (channel?.templates ?? []).map((item) => ({
+      templates: tracked.map((item) => ({
         label: ALIMTALK_TEMPLATE_LABELS[item.templateCode as AlimtalkTemplateCode] ?? item.providerTemplateName,
         statusLabel: templateStatusLabel(item.status),
         status: item.status,
@@ -207,6 +213,10 @@ export async function linkBrandChannel(input: {
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const providerChannelId = input.providerChannelId.trim();
   if (!providerChannelId) return { ok: false, error: '연결할 채널을 선택해 주세요.' };
+  const platformChannelId = process.env.BAROBILL_KAKAO_CHANNEL_ID?.trim() ?? '';
+  if (isPlatformDefaultChannel(providerChannelId, platformChannelId)) {
+    return { ok: false, error: '청소비서 기본 채널은 연결할 수 없어요.' };
+  }
   const taken = await prisma.alimtalkBrandChannel.findFirst({
     where: {
       providerChannelId,
@@ -242,7 +252,8 @@ export async function linkBrandChannel(input: {
     },
   });
   if (input.createTemplates) {
-    for (const [templateCode, providerTemplateName] of Object.entries(BAROBILL_TEMPLATE_NAME_BY_CODE)) {
+    for (const templateCode of BRAND_CHANNEL_TEMPLATE_CODES) {
+      const providerTemplateName = BAROBILL_TEMPLATE_NAME_BY_CODE[templateCode];
       await prisma.alimtalkBrandTemplate.upsert({
         where: { brandChannelId_templateCode: { brandChannelId: channel.id, templateCode } },
         create: { brandChannelId: channel.id, templateCode, providerTemplateName, status: 'READY' },
@@ -251,7 +262,11 @@ export async function linkBrandChannel(input: {
     }
   }
   const approved = await prisma.alimtalkBrandTemplate.count({
-    where: { brandChannelId: channel.id, status: 'APPROVED' },
+    where: {
+      brandChannelId: channel.id,
+      status: 'APPROVED',
+      templateCode: { in: [...BRAND_CHANNEL_TEMPLATE_CODES] },
+    },
   });
   if (approved > 0) {
     await prisma.alimtalkBrandChannel.update({ where: { id: channel.id }, data: { status: 'ACTIVE' } });

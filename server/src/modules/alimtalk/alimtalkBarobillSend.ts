@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import type { AlimtalkTemplateCode } from '../../lib/alimtalkPolicy.js';
 import { notifyAlimtalkOpsOnceToday, safeOpsSentence } from './alimtalkBarobillOpsMail.js';
 import { prepareBarobillMessage } from './alimtalkBarobillMessage.js';
-import { chooseAlimtalkSendChannel } from './alimtalkBrandChannel.select.js';
+import { chooseAlimtalkSendChannel, isBrandChannelTemplateCode } from './alimtalkBrandChannel.select.js';
 import type { TriggerAlimtalkResult } from './alimtalkSend.service.js';
 
 const BALANCE_ERROR_CODES = new Set([-26006, -26011]);
@@ -63,15 +63,28 @@ export async function sendAlimtalkViaBarobill(params: {
     params.templateCode,
   );
   const gap = describeBarobillKakaoConfigGap();
-  const prepared = template ? prepareBarobillMessage(template, params.variables) : null;
+  const brandBody = brandChoice.route === 'brand' ? brandChoice.body : null;
+  const messageSource =
+    template && brandChoice.route === 'brand'
+      ? {
+          barobillContent: brandBody?.content ?? '',
+          barobillTitle: brandBody?.title ?? '',
+          barobillButtonsJson: brandBody?.buttons ?? null,
+          barobillSmsSubject: template.barobillSmsSubject,
+          barobillSmsMessage: template.barobillSmsMessage,
+        }
+      : template;
+  const prepared = messageSource ? prepareBarobillMessage(messageSource, params.variables) : null;
   const templateName =
     brandChoice.route === 'brand' ? brandChoice.templateName : template?.barobillTemplateName?.trim() ?? '';
   const blocked = !template
     ? '알림톡 서식이 없습니다.'
     : gap
       ? gap.replace(/바로빌/g, '발송 서비스')
-      : brandChoice.route === 'platform' && template.barobillStatus !== 3
-        ? '알림톡 서식 심사가 끝나지 않았습니다.'
+      : brandChoice.route === 'brand' && !brandBody?.content?.trim()
+        ? '승인된 서식 본문이 없습니다.'
+        : brandChoice.route === 'platform' && template.barobillStatus !== 3
+          ? '알림톡 서식 심사가 끝나지 않았습니다.'
         : !templateName
           ? '알림톡 서식 이름이 없습니다.'
           : prepared && !prepared.ok
@@ -152,8 +165,18 @@ async function resolveBrandSendChoice(
   tenantId: string,
   operatingCompanyId: string | null,
   templateCode: AlimtalkTemplateCode,
-) {
-  if (!operatingCompanyId) return chooseAlimtalkSendChannel({ channel: null, template: null });
+): Promise<
+  | { route: 'platform' }
+  | {
+      route: 'brand';
+      channelId: string;
+      templateName: string;
+      body: { content: string; title: string; buttons: unknown };
+    }
+> {
+  if (!operatingCompanyId || !isBrandChannelTemplateCode(templateCode)) {
+    return { route: 'platform' };
+  }
   const channel = await prisma.alimtalkBrandChannel.findFirst({
     where: { tenantId, operatingCompanyId },
     select: {
@@ -161,13 +184,26 @@ async function resolveBrandSendChoice(
       providerChannelId: true,
       templates: {
         where: { templateCode },
-        select: { status: true, providerTemplateName: true },
+        select: { status: true, providerTemplateName: true, content: true, title: true, buttonsJson: true },
         take: 1,
       },
     },
   });
-  return chooseAlimtalkSendChannel({
+  const row = channel?.templates[0] ?? null;
+  const choice = chooseAlimtalkSendChannel({
     channel: channel ? { status: channel.status, providerChannelId: channel.providerChannelId } : null,
-    template: channel?.templates[0] ?? null,
+    template: row,
+    templateCode,
   });
+  if (choice.route === 'platform') return { route: 'platform' };
+  return {
+    route: 'brand',
+    channelId: choice.channelId,
+    templateName: choice.templateName,
+    body: {
+      content: row?.content ?? '',
+      title: row?.title ?? '',
+      buttons: row?.buttonsJson ?? null,
+    },
+  };
 }
