@@ -8,6 +8,7 @@ import {
 } from '../../api/platformCoinUsage';
 import { getPlatformToken } from '../../stores/platformAuth';
 import { PlanBadge, PlatformAlert, SignupAuthMethodBadge, StatusBadge, CARD_SECTION, BTN_PRIMARY, BTN_SECONDARY } from '../../utils/platformUi';
+import { EventTrialBadge, TenantSignupLine } from './platformTenantSignupMarks';
 import { YearMonthSelect } from '../../components/ui/DateQuerySelects';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import {
@@ -21,6 +22,7 @@ const EMPTY_KPI: PlatformCoinUsageKpi = {
   activeCount: 0,
   trialCount: 0,
   suspendedCount: 0,
+  newSignupCount: 0,
   tenantCount: 0,
   totalSpent: 0,
   unlimitedTenantCount: 0,
@@ -39,7 +41,7 @@ function formatCoins(n: number) {
   return `${n.toLocaleString('ko-KR')}코인`;
 }
 
-type UsageFocus = '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai';
+type UsageFocus = '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai' | 'new';
 
 const FOCUS_LABEL: Record<Exclude<UsageFocus, ''>, string> = {
   near_limit: '한도 80%↑',
@@ -47,6 +49,7 @@ const FOCUS_LABEL: Record<Exclude<UsageFocus, ''>, string> = {
   unlimited: '무제한 업체',
   limited: '한도제 업체',
   ai: 'AI 사용',
+  new: '신규가입',
 };
 
 function parseUsageFocus(raw: string | null): UsageFocus {
@@ -55,14 +58,15 @@ function parseUsageFocus(raw: string | null): UsageFocus {
     raw === 'zero' ||
     raw === 'unlimited' ||
     raw === 'limited' ||
-    raw === 'ai'
+    raw === 'ai' ||
+    raw === 'new'
   ) {
     return raw;
   }
   return '';
 }
 
-function kpiTileClass(active: boolean, accent?: 'indigo' | 'emerald' | 'purple' | 'amber' | 'slate' | 'rose') {
+function kpiTileClass(active: boolean, accent?: 'indigo' | 'emerald' | 'purple' | 'amber' | 'slate' | 'rose' | 'sky') {
   const base =
     'rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:p-3.5';
   if (active) return `${base} border-slate-900 bg-slate-900 text-white shadow-sm`;
@@ -77,6 +81,8 @@ function kpiTileClass(active: boolean, accent?: 'indigo' | 'emerald' | 'purple' 
       return `${base} border-amber-100 bg-white hover:border-amber-200`;
     case 'rose':
       return `${base} border-rose-100 bg-white hover:border-rose-200`;
+    case 'sky':
+      return `${base} border-sky-100 bg-sky-50/60 hover:border-sky-200`;
     case 'slate':
       return `${base} border-gray-200 bg-white hover:border-gray-300 text-slate-500`;
     default:
@@ -84,7 +90,7 @@ function kpiTileClass(active: boolean, accent?: 'indigo' | 'emerald' | 'purple' 
   }
 }
 
-function kpiValueClass(active: boolean, accent?: 'indigo' | 'emerald' | 'purple' | 'amber' | 'slate' | 'rose') {
+function kpiValueClass(active: boolean, accent?: 'indigo' | 'emerald' | 'purple' | 'amber' | 'slate' | 'rose' | 'sky') {
   if (active) return 'text-xl font-bold tabular-nums text-white sm:text-2xl';
   switch (accent) {
     case 'indigo':
@@ -97,6 +103,8 @@ function kpiValueClass(active: boolean, accent?: 'indigo' | 'emerald' | 'purple'
       return 'text-xl font-bold tabular-nums text-amber-700 sm:text-2xl';
     case 'rose':
       return 'text-xl font-bold tabular-nums text-rose-600 sm:text-2xl';
+    case 'sky':
+      return 'text-xl font-bold tabular-nums text-sky-700 sm:text-2xl';
     case 'slate':
       return 'text-xl font-bold tabular-nums text-slate-500 sm:text-2xl';
     default:
@@ -104,12 +112,13 @@ function kpiValueClass(active: boolean, accent?: 'indigo' | 'emerald' | 'purple'
   }
 }
 
-function kpiLabelClass(active: boolean, accent?: 'indigo' | 'emerald' | 'rose' | 'amber') {
+function kpiLabelClass(active: boolean, accent?: 'indigo' | 'emerald' | 'rose' | 'amber' | 'sky') {
   if (active) return 'mt-1 text-fluid-2xs text-white/80';
   if (accent === 'indigo') return 'mt-1 text-fluid-2xs text-indigo-700/80';
   if (accent === 'emerald') return 'mt-1 text-fluid-2xs text-emerald-700/80';
   if (accent === 'rose') return 'mt-1 text-fluid-2xs text-rose-600/80';
   if (accent === 'amber') return 'mt-1 text-fluid-2xs text-amber-700/80';
+  if (accent === 'sky') return 'mt-1 text-fluid-2xs text-sky-700/80';
   return 'mt-1 text-fluid-2xs text-gray-500';
 }
 
@@ -275,7 +284,8 @@ export function PlatformTenantListPage() {
     | 'spent_asc'
     | 'name'
     | 'ai_desc'
-    | 'ai_asc';
+    | 'ai_asc'
+    | 'signup_desc';
   const focus = parseUsageFocus(searchParams.get('focus'));
   const page = parseListPage(searchParams.get('page'));
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
@@ -341,7 +351,16 @@ export function PlatformTenantListPage() {
   }, [load]);
 
   const clampedPage = clampListPage(page, total, pageSize);
-  const setFocus = (next: UsageFocus) => patchParams({ focus: next || null }, true);
+  const setFocus = (next: UsageFocus) => {
+    if (next === 'new') {
+      patchParams(
+        focus === 'new' ? { focus: null } : { focus: 'new', status: null, sort: 'signup_desc' },
+        true,
+      );
+      return;
+    }
+    patchParams({ focus: next || null }, true);
+  };
   const setStatusFilter = (next: '' | 'ACTIVE' | 'TRIAL' | 'SUSPENDED') =>
     patchParams({ status: next || null, focus: null }, true);
   const clearSummaryFilters = () => patchParams({ status: null, focus: null }, true);
@@ -374,7 +393,7 @@ export function PlatformTenantListPage() {
 
       <section className={`${CARD_SECTION} space-y-4`}>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
             <button
               type="button"
               className={kpiTileClass(!filterStatus && !focus)}
@@ -406,6 +425,17 @@ export function PlatformTenantListPage() {
             >
               <div className={kpiValueClass(filterStatus === 'SUSPENDED', 'rose')}>{kpi.suspendedCount}</div>
               <div className={kpiLabelClass(filterStatus === 'SUSPENDED', 'rose')}>중지</div>
+            </button>
+            <button
+              type="button"
+              className={kpiTileClass(focus === 'new', 'sky')}
+              onClick={() => setFocus('new')}
+            >
+              <div className={kpiValueClass(focus === 'new', 'sky')}>{kpi.newSignupCount ?? 0}</div>
+              <div className={kpiLabelClass(focus === 'new', 'sky')}>신규가입</div>
+              <div className={focus === 'new' ? 'text-[10px] text-white/70' : 'text-[10px] text-gray-400'}>
+                최근 30일
+              </div>
             </button>
           </div>
 
@@ -543,6 +573,7 @@ export function PlatformTenantListPage() {
               <option value="ai_desc">AI 많은 순</option>
               <option value="ai_asc">AI 적은 순</option>
               <option value="name">업체명</option>
+              <option value="signup_desc">가입 최신순</option>
             </select>
           </label>
         </div>
@@ -607,8 +638,8 @@ export function PlatformTenantListPage() {
                           </Link>
                           <span className="mt-0.5 block truncate text-fluid-2xs text-gray-400" title={row.slug}>
                             {row.slug}
-                            {row.graceActive ? ' · 가입 grace' : ''}
                           </span>
+                          <TenantSignupLine row={row} />
                         </td>
                         <td className="px-2 py-2.5 text-center">
                           <SignupAuthMethodBadge
@@ -621,6 +652,7 @@ export function PlatformTenantListPage() {
                         </td>
                         <td className="px-2 py-2.5 text-center">
                           <StatusBadge status={row.status} />
+                          <EventTrialBadge row={row} />
                           {row.billingFeeExempt ? (
                           <span className="ml-1 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
                             면제
@@ -669,6 +701,7 @@ export function PlatformTenantListPage() {
                     <div className="min-w-0">
                       <div className="truncate text-fluid-xs font-semibold text-gray-900">{row.name}</div>
                       <div className="mt-0.5 truncate font-mono text-fluid-2xs text-gray-400">{row.slug}</div>
+                      <TenantSignupLine row={row} align="start" />
                       <div className="mt-1 flex flex-wrap items-center gap-1">
                         <SignupAuthMethodBadge
                           label={row.signupAuthLabel}
@@ -676,6 +709,7 @@ export function PlatformTenantListPage() {
                         />
                         <PlanBadge plan={row.plan} />
                         <StatusBadge status={row.status} />
+                        <EventTrialBadge row={row} />
                         {row.billingFeeExempt ? (
                           <span className="ml-1 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
                             면제
