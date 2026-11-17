@@ -101,6 +101,12 @@ describe('업체 채널용 알림톡 문구', () => {
       for (const token of templateTokens(variant)) {
         assert.equal(before.has(token), true, token);
       }
+      const again = buildBrandTemplateVariant(variant);
+      assert.equal(again.content, variant.content);
+      assert.equal(
+        again.content.split('\n').filter((line) => line.trim() === '궁금한 점은 이 대화방에 바로 남겨 주세요.').length,
+        1,
+      );
     });
   }
 });
