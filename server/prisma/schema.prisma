@@ -5559,6 +5559,8 @@ model AlimtalkSendLog {
   customerFacingTenantId      String?  @map("customer_facing_tenant_id")
   customerFacingOperatingCompanyId String? @map("customer_facing_operating_company_id")
   errorMessage                String?  @map("error_message") @db.Text
+  /// 결과 미확정 운영 메일에 넣은 시각. 있으면 같은 발송을 다시 보내지 않는다.
+  unconfirmedMailAt           DateTime? @map("unconfirmed_mail_at")
   createdAt                   DateTime @default(now()) @map("created_at")
 
   @@index([tenantId, createdAt(sort: Desc)])
