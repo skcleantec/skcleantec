@@ -50,7 +50,23 @@ export type TeamCashbillIssueResult = {
   customerName: string;
   phone: string;
   warning: string | null;
+  brandName: string;
+  shareUrl: string;
 };
+
+export type TeamCashbillShare = {
+  url: string;
+  brandName: string;
+  totalWon: number;
+  ntsConfirmNum: string;
+  phone: string;
+};
+
+export function cashbillCustomerSms(input: { brandName: string; totalWon: number; ntsConfirmNum: string; url: string }): string {
+  const brand = input.brandName.trim();
+  const head = brand ? `${brand} 현금영수증이 발행되었습니다.` : '현금영수증이 발행되었습니다.';
+  return `${head}\n금액 ${input.totalWon.toLocaleString('ko-KR')}원 · 승인번호 ${input.ntsConfirmNum}\n영수증 보기: ${input.url}`;
+}
 
 export type TeamCashbillMine = {
   id: string;
@@ -63,6 +79,7 @@ export type TeamCashbillMine = {
   ntsConfirmNum: string | null;
   status: string;
   canRequestCancel: boolean;
+  canSendReceipt: boolean;
   createdAt: string;
   lastError: string | null;
 };
@@ -106,6 +123,15 @@ export async function listMyTeamCashbill(): Promise<{ items: TeamCashbillMine[] 
   const res = await fetch(withTeamPreviewQuery(`${API}/team/cashbill/issues`), { headers: headers(token) });
   if (!res.ok) throw await readError(res, '발행 내역을 불러오지 못했습니다.');
   return res.json() as Promise<{ items: TeamCashbillMine[] }>;
+}
+
+export async function fetchTeamCashbillShare(id: string): Promise<TeamCashbillShare> {
+  const token = tokenOrThrow();
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/cashbill/issues/${encodeURIComponent(id)}/share`), {
+    headers: headers(token),
+  });
+  if (!res.ok) throw await readError(res, '영수증 주소를 받지 못했습니다.');
+  return res.json() as Promise<TeamCashbillShare>;
 }
 
 export async function requestTeamCashbillCancel(id: string): Promise<void> {

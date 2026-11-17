@@ -6,11 +6,13 @@ import { readCashbillWalletBalance } from './cashbillWallet.js';
 import { cashbillRemaining } from './cashbillIssue.amounts.js';
 import { CashbillIssueError, issueCashbill } from './cashbillIssue.service.js';
 import {
+  teamCashbillCanShare,
   teamCashbillOverTotalWarning,
   teamCashbillReasonRequired,
   teamCashbillUsage,
   teamCashbillVisible,
 } from './teamCashbill.access.js';
+import { ensureCashbillShareUrl } from './cashbillShare.service.js';
 
 const ISSUED = ['2000', '2500', '3000'];
 const CANCEL_DONE = ['2000', '2500', '3000', '7000'];
@@ -249,6 +251,12 @@ export async function teamIssueCashbill(
     userId,
     `[현금영수증] ${user.name} 팀장이 ${name} ${amount.toLocaleString('ko-KR')}원 현금영수증을 발행했습니다.${inquiryId ? '' : ' (연결 없음)'}`,
   ).catch(() => undefined);
+  const issuedRow = await prisma.cashBillIssue.findFirst({
+    where: { id: saved.id, tenantId },
+    select: { operatingCompany: { select: { name: true, tenantId: true } } },
+  });
+  const shareUrl = await ensureCashbillShareUrl(tenantId, saved.id).catch(() => '');
+  const brandName = issuedRow?.operatingCompany.tenantId === tenantId ? issuedRow.operatingCompany.name.trim() : '';
   return {
     id: saved.id,
     ntsConfirmNum: saved.ntsConfirmNum,
@@ -256,6 +264,8 @@ export async function teamIssueCashbill(
     customerName: name,
     phone: String(input.identity ?? '').replace(/\D/g, ''),
     warning,
+    brandName,
+    shareUrl,
   };
 }
 
@@ -311,10 +321,49 @@ export async function listTeamCashbillIssues(tenantId: string, userId: string) {
         ntsConfirmNum: row.ntsConfirmNum,
         status,
         canRequestCancel: row.kind !== 'CANCEL' && issued && !cancelled && !row.cancelRequestedAt,
+        canSendReceipt: row.kind !== 'CANCEL' && issued && !cancelled && !row.cancelRequestedAt && Boolean(row.ntsConfirmNum),
         createdAt: row.createdAt.toISOString(),
         lastError: plainError(row.lastError),
       };
     }),
+  };
+}
+
+export async function teamCashbillShareLink(tenantId: string, userId: string, issueId: string) {
+  await gate(tenantId, userId);
+  const row = await prisma.cashBillIssue.findFirst({
+    where: { id: issueId, tenantId },
+    select: {
+      id: true,
+      createdById: true,
+      inquiryId: true,
+      kind: true,
+      totalWon: true,
+      ntsConfirmNum: true,
+      tradeUsage: true,
+      cancelRequestedAt: true,
+      operatingCompany: { select: { name: true, tenantId: true } },
+      inquiry: { select: { customerPhone: true } },
+      cancellations: { select: { barobillState: true } },
+    },
+  });
+  if (!row || row.operatingCompany.tenantId !== tenantId) {
+    throw new CashbillIssueError('영수증을 찾을 수 없습니다.', 404);
+  }
+  const assigned = row.inquiryId ? await ownsInquiry(tenantId, userId, row.inquiryId) : false;
+  if (!teamCashbillCanShare({ issuedByMe: row.createdById === userId, assignedInquiry: assigned })) {
+    throw new CashbillIssueError('이 영수증은 보낼 수 없습니다.', 403);
+  }
+  const cancelled = row.cancellations.some((child) => child.barobillState && CANCEL_DONE.includes(child.barobillState));
+  if (row.kind === 'CANCEL' || cancelled || row.cancelRequestedAt || !row.ntsConfirmNum) {
+    throw new CashbillIssueError('보낼 수 있는 영수증이 아닙니다.');
+  }
+  return {
+    url: await ensureCashbillShareUrl(tenantId, row.id),
+    brandName: row.operatingCompany.name.trim(),
+    totalWon: row.totalWon,
+    ntsConfirmNum: row.ntsConfirmNum,
+    phone: row.tradeUsage === 2 ? '' : (row.inquiry?.customerPhone ?? '').replace(/\D/g, ''),
   };
 }
 

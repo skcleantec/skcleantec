@@ -31,6 +31,7 @@ import reviewPaybackPublicRoutes from './modules/review-payback/reviewPayback.pu
 import reviewPaybackAdminRoutes from './modules/review-payback/reviewPayback.admin.routes.js';
 import inquiryInspectionPublicRoutes from './modules/inquiry-inspection/inquiryInspection.public.routes.js';
 import receiptCopyPublicRoutes from './modules/receipts/receiptCopy.public.routes.js';
+import cashbillSharePublicRoutes from './modules/cashbill/cashbillShare.public.routes.js';
 import inquiryInspectionTemplateRoutes from './modules/inquiry-inspection/inquiryInspection.template.routes.js';
 import orderFormTemplatesRoutes from './modules/orderform-templates/orderFormTemplates.routes.js';
 import csRoutes from './modules/cs/cs.routes.js';
@@ -211,6 +212,7 @@ app.use('/api/inquiry-lead-sources', inquiryLeadSourceRoutes);
 app.use('/api/public/review-payback', reviewPaybackPublicRoutes);
 app.use('/api/public/inspection', inquiryInspectionPublicRoutes);
 app.use('/api/public/receipts', receiptCopyPublicRoutes);
+app.use('/r/c', cashbillSharePublicRoutes);
 app.use('/api/inspection-template', inquiryInspectionTemplateRoutes);
 app.use('/api/review-paybacks', reviewPaybackAdminRoutes);
 app.use('/api/cs', csRoutes);

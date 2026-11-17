@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  cashbillCustomerSms,
   fetchTeamCashbillPrefill,
   issueTeamCashbill,
   requestTeamCashbillCharge,
@@ -20,6 +21,8 @@ type Issued = {
   customerName: string;
   phone: string;
   usage: Usage;
+  brandName: string;
+  shareUrl: string;
 };
 
 function usageLabel(usage: Usage): string {
@@ -169,6 +172,8 @@ export function TeamCashbillIssueSheet({
           customerName: res.customerName,
           phone: res.phone || digits(phone),
           usage,
+          brandName: res.brandName,
+          shareUrl: res.shareUrl,
         });
       })
       .catch((err: unknown) => {
@@ -362,14 +367,19 @@ export function TeamCashbillIssueSheet({
         <p className="mt-2 text-fluid-xs text-slate-600">승인번호</p>
         <p className="mt-1 text-fluid-base font-semibold tabular-nums text-slate-900">{issued.ntsConfirmNum || '확인 중'}</p>
         <div className="mt-3 grid grid-cols-1 gap-1.5">
-          {issued.ntsConfirmNum && issued.usage === 'phone' ? (
+          {issued.ntsConfirmNum && issued.usage === 'phone' && issued.shareUrl ? (
             <button
               type="button"
               className={teamFooterActionPrimaryClass}
               onClick={() =>
                 openPaymentSms(
                   issued.phone,
-                  `현금영수증이 발행되었습니다.\n승인번호 ${issued.ntsConfirmNum}\n금액 ${issued.totalWon.toLocaleString('ko-KR')}원`,
+                  cashbillCustomerSms({
+                    brandName: issued.brandName,
+                    totalWon: issued.totalWon,
+                    ntsConfirmNum: issued.ntsConfirmNum ?? '',
+                    url: issued.shareUrl,
+                  }),
                 )
               }
             >

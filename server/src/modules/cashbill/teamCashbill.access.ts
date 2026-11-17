@@ -26,6 +26,11 @@ export function teamCashbillUsage(raw: unknown): 'phone' | 'biz' {
   return raw === 'biz' ? 'biz' : 'phone';
 }
 
+/** 팀장이 영수증 주소를 받을 수 있는지. 본인 발행 또는 본인 배정 접수만. */
+export function teamCashbillCanShare(input: { issuedByMe: boolean; assignedInquiry: boolean }): boolean {
+  return input.issuedByMe || input.assignedInquiry;
+}
+
 /** 금액이 접수 총액보다 클 때 확인 문구. 막지는 않는다. */
 export function teamCashbillOverTotalWarning(amount: number, total: number): string | null {
   if (total > 0 && amount > total) return '금액이 접수 총액보다 큽니다. 맞는지 확인해 주세요.';

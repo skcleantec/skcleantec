@@ -17,9 +17,9 @@ async function officialUrl(kind: Kind, issueId: string, mode: 'mail' | 'print'):
   const res = await fetch(`${API}/${path}/${issueId}/mail-url?kind=${mode}`, {
     headers: { Authorization: `Bearer ${getToken() ?? ''}` },
   });
-  if (!res.ok) throw new Error(await apiErrorMessage(res, '바로빌 주소를 받지 못했습니다.'));
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '영수증 주소를 받지 못했습니다.'));
   const body = (await res.json()) as { url?: string };
-  if (!body.url) throw new Error('바로빌 주소를 받지 못했습니다.');
+  if (!body.url) throw new Error('영수증 주소를 받지 못했습니다.');
   return body.url;
 }
 
@@ -75,7 +75,7 @@ export function ReceiptCopyButtons({
         try {
           await navigator.clipboard.writeText(link);
           setFallback(true);
-          setNote('바로빌 주소를 받지 못해 확인용 링크를 복사했습니다');
+          setNote('영수증 주소를 받지 못해 확인용 링크를 복사했습니다');
           return;
         } catch {
           setNote(link);

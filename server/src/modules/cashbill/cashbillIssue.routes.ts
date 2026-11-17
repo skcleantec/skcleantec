@@ -9,7 +9,6 @@ import { CASHBILL_MODULE_ID } from '../../lib/barobill/policy.js';
 import {
   cancelCashbillIssue,
   cashbillReissueSource,
-  cashbillCustomerUrl,
   cashbillPrintUrl,
   CashbillIssueError,
   issueCashbill,
@@ -18,6 +17,7 @@ import {
   searchCashbillInquiries,
   syncOpenCashbillStates,
 } from './cashbillIssue.service.js';
+import { ensureCashbillShareUrl } from './cashbillShare.service.js';
 import { takeReceiptStateSyncSlot } from '../receipts/receiptStateSyncGate.js';
 import {
   getReceiptWalletSummary,
@@ -238,7 +238,7 @@ router.get('/issues/:issueId/mail-url', async (req, res) => {
     const kind = req.query.kind === 'print' ? 'print' : 'mail';
     const url = kind === 'print'
       ? await cashbillPrintUrl(tenantId, String(req.params.issueId ?? ''))
-      : await cashbillCustomerUrl(tenantId, String(req.params.issueId ?? ''));
+      : await ensureCashbillShareUrl(tenantId, String(req.params.issueId ?? ''));
     res.json({ url });
   } catch (err) {
     sendError(res, err, '영수증 주소를 받지 못했습니다.');
