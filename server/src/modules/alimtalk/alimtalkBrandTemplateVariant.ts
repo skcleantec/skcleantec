@@ -19,6 +19,7 @@ export type BrandTemplateSource = {
 
 const PLATFORM_EXTRA = '고객관리 솔루션 - 청소비서';
 const BRAND_EXTRA = '청소 예약 안내';
+const BRAND_CLOSING = '궁금한 점은 이 대화방에 바로 남겨 주세요.';
 const TOKEN_RE = /#\{[^}]+\}/g;
 
 export function templateTokens(source: Pick<BrandTemplateSource, 'title' | 'extra' | 'content' | 'buttons'>): string[] {
@@ -47,7 +48,7 @@ export function buildBrandTemplateVariant(platformTemplate: BrandTemplateSource)
     emphasizeType: platformTemplate.emphasizeType,
     title: platformTemplate.title,
     extra: platformTemplate.extra.split(PLATFORM_EXTRA).join(BRAND_EXTRA),
-    content: stripPlatformDisclaimer(platformTemplate.content),
+    content: `${stripPlatformDisclaimer(platformTemplate.content)}\n\n${BRAND_CLOSING}`,
     buttons: platformTemplate.buttons.map((button) => ({ ...button })),
   };
 }
