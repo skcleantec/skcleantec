@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   brandTemplateCategory,
+  brandTemplateCopyMeta,
   buildBrandTemplateVariant,
   emphasizeTypeLabel,
   readBrandExtra,
@@ -130,8 +131,17 @@ describe('업체 채널용 알림톡 문구', () => {
   });
 
   it('카테고리는 2단계다', () => {
+    const done = brandTemplateCopyMeta('CBISEO_CUST_ORDER_DONE');
+    const link = brandTemplateCopyMeta('CBISEO_CUST_ORDER_LINK');
+    const schedule = brandTemplateCopyMeta('CBISEO_CUST_SCHEDULE_D2');
+    assert.equal(done.emphasizeType, '강조표기형');
+    assert.equal(link.emphasizeType, '강조 없음');
+    assert.equal(schedule.emphasizeType, '강조표기형');
+    assert.equal(readBrandExtra(done.emphasizeType, '', done.platformExtra), '청소 예약 안내');
+    assert.equal(readBrandExtra(schedule.emphasizeType, '', schedule.platformExtra), '청소 예약 안내');
+    assert.equal(readBrandExtra(link.emphasizeType, '고객관리 솔루션 - 청소비서', ''), '');
     assert.equal(brandTemplateCategory('CBISEO_CUST_ORDER_DONE'), '예약 > 예약완료/예약내역');
-    assert.equal(brandTemplateCategory('CBISEO_CUST_ORDER_LINK'), '예약 > 예약상태');
+    assert.equal(brandTemplateCategory('CBISEO_CUST_ORDER_LINK'), '예약 > 예약완료/예약내역');
     assert.equal(brandTemplateCategory('CBISEO_CUST_SCHEDULE_D2'), '예약 > 예약상태');
   });
 });

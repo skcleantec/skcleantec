@@ -28,10 +28,35 @@ export function emphasizeTypeLabel(type: number | null | undefined): string {
   return '강조 없음';
 }
 
-/** 승인본 카테고리 2단계. 발송 서비스 응답에는 카테고리가 없다. */
+/** 승인 화면 기준. 발송 서비스 목록에는 카테고리가 없고, 강조 숫자는 화면과 한 칸 어긋난다. */
+const BRAND_TEMPLATE_COPY_META: Record<string, { emphasizeType: string; category: string; platformExtra: string }> = {
+  CBISEO_CUST_ORDER_DONE: {
+    emphasizeType: '강조표기형',
+    category: '예약 > 예약완료/예약내역',
+    platformExtra: PLATFORM_EXTRA,
+  },
+  CBISEO_CUST_ORDER_LINK: {
+    emphasizeType: '강조 없음',
+    category: '예약 > 예약완료/예약내역',
+    platformExtra: '',
+  },
+  CBISEO_CUST_SCHEDULE_D2: {
+    emphasizeType: '강조표기형',
+    category: '예약 > 예약상태',
+    platformExtra: PLATFORM_EXTRA,
+  },
+};
+
+export function brandTemplateCopyMeta(code: string): { emphasizeType: string; category: string; platformExtra: string } {
+  return BRAND_TEMPLATE_COPY_META[code] ?? {
+    emphasizeType: '강조 없음',
+    category: '예약 > 예약상태',
+    platformExtra: '',
+  };
+}
+
 export function brandTemplateCategory(code: string): string {
-  if (code === 'CBISEO_CUST_ORDER_DONE') return '예약 > 예약완료/예약내역';
-  return '예약 > 예약상태';
+  return brandTemplateCopyMeta(code).category;
 }
 
 /** 보조문구는 강조표기형만. 자막이 없으면 부가문구를 쓴다. */
