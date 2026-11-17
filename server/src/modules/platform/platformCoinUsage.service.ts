@@ -15,6 +15,7 @@ import {
   type TenantSignupAuthCategory,
   type TenantSignupAuthMethod,
 } from './tenantSignupAuthMethod.helpers.js';
+import { isNewTenantSignup, platformTenantSignupMeta } from './platformTenantListSignup.js';
 
 export type PlatformAiUsageUserBreakdown = {
   userId: string | null;
@@ -33,6 +34,12 @@ export type PlatformCoinUsageRow = {
   status: TenantStatus;
   unlimited: boolean;
   graceActive: boolean;
+  createdAt: string;
+  trialEndsAt: string | null;
+  eventEndsAt: string | null;
+  eventTrialActive: boolean;
+  eventName: string | null;
+  newSignup: boolean;
   /** 이용료 면제 업체 */
   billingFeeExempt: boolean;
   allowance: number | null;
@@ -59,6 +66,7 @@ export type PlatformCoinUsageKpi = {
   activeCount: number;
   trialCount: number;
   suspendedCount: number;
+  newSignupCount: number;
   tenantCount: number;
   totalSpent: number;
   unlimitedTenantCount: number;
@@ -102,8 +110,8 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
   q: string;
   plan: string;
   status: string;
-  focus: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai';
-  sort: 'spent_desc' | 'spent_asc' | 'name' | 'ai_desc' | 'ai_asc';
+  focus: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai' | 'new';
+  sort: 'spent_desc' | 'spent_asc' | 'name' | 'ai_desc' | 'ai_asc' | 'signup_desc';
   page: number;
   pageSize: number;
 } {
@@ -117,7 +125,8 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
     focusRaw === 'zero' ||
     focusRaw === 'unlimited' ||
     focusRaw === 'limited' ||
-    focusRaw === 'ai'
+    focusRaw === 'ai' ||
+    focusRaw === 'new'
       ? focusRaw
       : ('' as const);
   const sortRaw = String(query.sort ?? 'spent_desc');
@@ -125,7 +134,8 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
     sortRaw === 'spent_asc' ||
     sortRaw === 'name' ||
     sortRaw === 'ai_desc' ||
-    sortRaw === 'ai_asc'
+    sortRaw === 'ai_asc' ||
+    sortRaw === 'signup_desc'
       ? sortRaw
       : ('spent_desc' as const);
   const pageSizeRaw = Number(query.pageSize ?? query.limit ?? 30);
@@ -137,7 +147,7 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
 
 function applyCoinUsageFocusFilter(
   rows: PlatformCoinUsageRow[],
-  focus: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai',
+  focus: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai' | 'new',
 ): PlatformCoinUsageRow[] {
   switch (focus) {
     case 'near_limit':
@@ -150,6 +160,8 @@ function applyCoinUsageFocusFilter(
       return rows.filter((r) => !r.unlimited);
     case 'ai':
       return rows.filter((r) => r.aiUsageCount > 0 || r.telecrmAiUsageCount > 0);
+    case 'new':
+      return rows.filter((r) => r.newSignup);
     default:
       return rows;
   }
@@ -172,6 +184,7 @@ export async function listPlatformCoinUsage(
         plan: true,
         status: true,
         config: true,
+        createdAt: true,
         trialEndsAt: true,
       },
       orderBy: { name: 'asc' },
@@ -359,6 +372,7 @@ export async function listPlatformCoinUsage(
   let rows: PlatformCoinUsageRow[] = tenants.map((t) => {
     const planId = normalizePlanId(t.plan);
     const graceActive = isSignupCoinGraceActive(t);
+    const signupMeta = platformTenantSignupMeta(t);
     const unlimited = planHasUnlimitedCoins(planId) || graceActive;
     const allowance = monthlyCoinAllowance(planId);
     const spent = spentByTenant.get(t.id) ?? 0;
@@ -389,6 +403,12 @@ export async function listPlatformCoinUsage(
       status: t.status,
       unlimited,
       graceActive,
+      createdAt: signupMeta.createdAt,
+      trialEndsAt: signupMeta.trialEndsAt,
+      eventEndsAt: signupMeta.eventEndsAt,
+      eventTrialActive: signupMeta.eventTrialActive,
+      eventName: signupMeta.eventName,
+      newSignup: signupMeta.newSignup,
       billingFeeExempt: feeExemptTenantIds.has(t.id),
       allowance,
       spent,
@@ -430,6 +450,7 @@ export async function listPlatformCoinUsage(
     activeCount: tenants.filter((t) => t.status === 'ACTIVE').length,
     trialCount: tenants.filter((t) => t.status === 'TRIAL').length,
     suspendedCount: tenants.filter((t) => t.status === 'SUSPENDED').length,
+    newSignupCount: tenants.filter((t) => isNewTenantSignup(t.createdAt)).length,
     tenantCount: rows.length,
     totalSpent: rows.reduce((s, r) => s + r.spent, 0),
     unlimitedTenantCount: rows.filter((r) => r.unlimited).length,
@@ -444,17 +465,22 @@ export async function listPlatformCoinUsage(
 
   rows = applyCoinUsageFocusFilter(rows, focus);
 
-  if (sort === 'spent_asc') {
+  const listSort = focus === 'new' && sort === 'spent_desc' ? 'signup_desc' : sort;
+  if (listSort === 'signup_desc') {
+    rows.sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || a.name.localeCompare(b.name, 'ko'),
+    );
+  } else if (listSort === 'spent_asc') {
     rows.sort((a, b) => a.spent - b.spent || a.name.localeCompare(b.name, 'ko'));
-  } else if (sort === 'name') {
+  } else if (listSort === 'name') {
     rows.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  } else if (sort === 'ai_asc') {
+  } else if (listSort === 'ai_asc') {
     rows.sort(
       (a, b) =>
         a.aiUsageCount + a.telecrmAiUsageCount - (b.aiUsageCount + b.telecrmAiUsageCount) ||
         a.name.localeCompare(b.name, 'ko'),
     );
-  } else if (sort === 'ai_desc') {
+  } else if (listSort === 'ai_desc') {
     rows.sort(
       (a, b) =>
         b.aiUsageCount + b.telecrmAiUsageCount - (a.aiUsageCount + a.telecrmAiUsageCount) ||

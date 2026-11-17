@@ -25,6 +25,12 @@ export type PlatformCoinUsageRow = {
   status: string;
   unlimited: boolean;
   graceActive: boolean;
+  createdAt?: string;
+  trialEndsAt?: string | null;
+  eventEndsAt?: string | null;
+  eventTrialActive?: boolean;
+  eventName?: string | null;
+  newSignup?: boolean;
   /** 이용료 면제 업체 */
   billingFeeExempt?: boolean;
   allowance: number | null;
@@ -51,6 +57,7 @@ export type PlatformCoinUsageKpi = {
   activeCount: number;
   trialCount: number;
   suspendedCount: number;
+  newSignupCount?: number;
   tenantCount: number;
   totalSpent: number;
   unlimitedTenantCount: number;
@@ -76,8 +83,8 @@ export type ListPlatformCoinUsageParams = {
   q?: string;
   plan?: string;
   status?: string;
-  focus?: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai';
-  sort?: 'spent_desc' | 'spent_asc' | 'name' | 'ai_desc' | 'ai_asc';
+  focus?: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai' | 'new';
+  sort?: 'spent_desc' | 'spent_asc' | 'name' | 'ai_desc' | 'ai_asc' | 'signup_desc';
   page?: number;
   pageSize?: number;
 };
