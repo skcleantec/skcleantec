@@ -72,6 +72,10 @@ export type BillingScheduleItem = {
   feeExempt: boolean;
   /** 업체 면제로 부가 요금이 0원 */
   addonExempt: boolean;
+  /** 이번 회차에만 더하는 1회 항목. VAT 별도. */
+  oneTimeAmountKrw?: number;
+  oneTimeLabels?: string[];
+  oneTimeChargeIds?: string[];
   adjustment: {
     id: string;
     type: TenantBillingAdjustmentType;
@@ -128,6 +132,8 @@ export function computeBillingSchedule(input: {
   futureScheduledMin?: number;
   /** 아직 청구서가 없는 기간에만 더한다. 문의 유료 링크 등 월 가산. */
   monthlyAddonKrw?: number;
+  /** 다음 청구 회차에 한 번만 더한다. 이용료 면제여도 포함한다. */
+  oneTimeCharges?: BillingOneTimeInput[];
 }): BillingScheduleItem[] {
   const {
     plan,
@@ -283,7 +289,35 @@ export function computeBillingSchedule(input: {
     }
   }
 
-  return items;
+  return attachBillingOneTimeCharges(items, input.oneTimeCharges ?? []);
+}
+
+export type BillingOneTimeInput = { id: string; label: string; amountKrw: number };
+
+/** 청구서가 아직 없는 가장 가까운 회차에 1회 항목을 붙인다. */
+export function attachBillingOneTimeCharges(
+  items: BillingScheduleItem[],
+  charges: BillingOneTimeInput[],
+): BillingScheduleItem[] {
+  const pending = charges.filter((charge) => charge.amountKrw > 0);
+  if (pending.length === 0) return items;
+  const index = items.findIndex(
+    (item) => !item.invoiceId && item.status !== 'DEFERRED' && (item.status === 'SCHEDULED' || item.status === 'SKIPPED'),
+  );
+  if (index < 0) return items;
+  const sum = pending.reduce((total, charge) => total + charge.amountKrw, 0);
+  return items.map((item, itemIndex) => {
+    if (itemIndex !== index) return item;
+    const amountKrw = item.amountKrw + sum;
+    return {
+      ...item,
+      amountKrw,
+      status: item.status === 'SKIPPED' && amountKrw > 0 ? 'SCHEDULED' : item.status,
+      oneTimeAmountKrw: sum,
+      oneTimeLabels: pending.map((charge) => `${charge.label} ${charge.amountKrw.toLocaleString('ko-KR')}원`),
+      oneTimeChargeIds: pending.map((charge) => charge.id),
+    };
+  });
 }
 
 export function findAutoIssueScheduleItems(

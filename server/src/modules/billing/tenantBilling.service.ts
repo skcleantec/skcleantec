@@ -210,7 +210,7 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
   });
   if (!tenant) throw new TenantNotFoundError();
 
-  const [profileRow, invoices, adjustments] = await Promise.all([
+  const [profileRow, invoices, adjustments, oneTimeCharges] = await Promise.all([
     ensureTenantBillingProfile(tenantId),
     prisma.tenantInvoice.findMany({
       where: { tenantId },
@@ -218,6 +218,10 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
     }),
     prisma.tenantBillingAdjustment.findMany({
       where: { tenantId, voidedAt: null },
+    }),
+    prisma.tenantBillingOneTimeCharge.findMany({
+      where: { tenantId, voidedAt: null, invoiceId: null },
+      orderBy: { createdAt: 'asc' },
     }),
   ]);
 
@@ -252,6 +256,11 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
           })),
           futureScheduledMin: 1,
           monthlyAddonKrw,
+          oneTimeCharges: oneTimeCharges.map((charge) => ({
+            id: charge.id,
+            label: charge.label,
+            amountKrw: charge.amountKrw,
+          })),
         })
       : [];
 
@@ -302,6 +311,7 @@ async function createInvoiceFromScheduleItem(
     paidLinkCount > 0
       ? `문의 링크 ${paidLinkCount}개 × ${LANDING_CONTACT_EXTRA_LINK_MONTHLY_KRW.toLocaleString('ko-KR')}원`
       : null;
+  const oneTimeMemo = item.oneTimeLabels?.length ? item.oneTimeLabels.join(' · ') : null;
   const row = await prisma.tenantInvoice.create({
     data: {
       tenantId,
@@ -315,10 +325,32 @@ async function createInvoiceFromScheduleItem(
       status: 'ISSUED',
       source,
       adjustmentId: item.adjustment?.id ?? null,
-      memo: linkMemo,
+      memo: [linkMemo, oneTimeMemo].filter(Boolean).join('\n') || null,
     },
   });
+  await claimBillingOneTimeCharges(tenantId, row.id, item.oneTimeChargeIds ?? []);
   return mapInvoice(row);
+}
+
+async function claimBillingOneTimeCharges(tenantId: string, invoiceId: string, chargeIds: string[]): Promise<void> {
+  if (chargeIds.length === 0) return;
+  const charges = await prisma.tenantBillingOneTimeCharge.findMany({
+    where: { id: { in: chargeIds }, tenantId, invoiceId: null, voidedAt: null },
+    select: { id: true, sourceKey: true },
+  });
+  if (charges.length === 0) return;
+  await prisma.tenantBillingOneTimeCharge.updateMany({
+    where: { id: { in: charges.map((charge) => charge.id) }, tenantId },
+    data: { invoiceId },
+  });
+  const channelIds = charges
+    .map((charge) => (charge.sourceKey.startsWith('alimtalk-channel:') ? charge.sourceKey.slice('alimtalk-channel:'.length) : ''))
+    .filter(Boolean);
+  if (channelIds.length === 0) return;
+  await prisma.alimtalkBrandChannel.updateMany({
+    where: { id: { in: channelIds }, tenantId, setupFeeBilledAt: null },
+    data: { setupFeeBilledAt: new Date() },
+  });
 }
 
 export async function issueInvoiceForTenant(

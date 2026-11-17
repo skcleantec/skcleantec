@@ -12,6 +12,7 @@ import {
 } from './alimtalkTenantSettings.service.js';
 import { listAlimtalkSendLogsForTenantAdmin } from './alimtalkSendLog.service.js';
 import { getTenantWalletTaxInvoiceViewUrl } from '../wallet/receiptWallet.service.js';
+import { listTenantBrandChannels, requestBrandChannel } from './alimtalkBrandChannel.service.js';
 
 const router = Router();
 
@@ -153,6 +154,42 @@ router.get('/wallet/tax-invoice-view-url', async (req, res) => {
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '영수증을 열 수 없습니다.' });
   }
+});
+
+router.get('/brand-channels', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!requireTenantAdmin(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  res.json(await listTenantBrandChannels(tenantId));
+});
+
+router.post('/brand-channels', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!requireTenantAdmin(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const body = req.body as {
+    operatingCompanyId?: string;
+    searchId?: string;
+    adminPhone?: string;
+    bizVerify?: string;
+    publicReady?: boolean;
+    feeAccepted?: boolean;
+  };
+  const result = await requestBrandChannel(tenantId, {
+    operatingCompanyId: String(body.operatingCompanyId ?? ''),
+    searchId: String(body.searchId ?? ''),
+    adminPhone: String(body.adminPhone ?? ''),
+    bizVerify: String(body.bizVerify ?? ''),
+    publicReady: body.publicReady === true,
+    feeAccepted: body.feeAccepted === true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 export default router;

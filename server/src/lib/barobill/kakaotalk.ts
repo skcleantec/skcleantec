@@ -207,15 +207,18 @@ export async function sendAT(input: {
   templateName: string;
   sendDt?: string;
   smsReply?: BarobillSmsReply;
+  /** 브랜드 채널. 없으면 청소비서 채널. 실패 시 다른 채널로 다시 보내지 않는다. */
+  yellowId?: string;
   message: BarobillAtMessage;
 }): Promise<string> {
+  const yellowId = input.yellowId?.trim() || readEnv('BAROBILL_KAKAO_CHANNEL_ID');
   const value = await callBarobill(
     'KAKAOTALK',
     'SendATKakaotalkEx',
     {
       CorpNum: SERVICE_BRIDGE_CORP_NUM,
       SenderID: readEnv('BAROBILL_KAKAO_SENDER_ID'),
-      YellowId: readEnv('BAROBILL_KAKAO_CHANNEL_ID'),
+      YellowId: yellowId,
       TemplateName: input.templateName,
       SendDT: input.sendDt ?? '',
       SmsReply: input.smsReply ?? 'E',

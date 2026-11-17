@@ -20,6 +20,7 @@ import {
   startAlimtalkBarobillResultPoll,
   stopAlimtalkBarobillResultPoll,
 } from './modules/alimtalk/alimtalkBarobillResult.service.js';
+import { startAlimtalkBrandChannelSync } from './modules/alimtalk/alimtalkBrandChannel.sync.js';
 
 async function bootstrap() {
   try {
@@ -123,6 +124,7 @@ async function bootstrap() {
 
   /** 바로빌 알림톡 결과 — 60초마다. ALIMTALK_BAROBILL_RESULT_POLL=off 이면 멈춘다. */
   startAlimtalkBarobillResultPoll();
+  startAlimtalkBrandChannelSync();
 
   /** 완료 검수본 보관 만료 — INSPECTION_RETENTION_CRON_ENABLED=true 시 24h마다 1회 */
   const retentionOpts = parseInspectionRetentionOptionsFromEnv();

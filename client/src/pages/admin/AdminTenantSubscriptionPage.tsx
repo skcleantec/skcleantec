@@ -487,6 +487,7 @@ export function AdminTenantSubscriptionPage() {
                         </td>
                         <td className={`${tableCellClass} tabular-nums`}>
                           {inv.amountKrw.toLocaleString('ko-KR')}원
+                          {inv.memo ? <p className="mt-0.5 text-fluid-2xs text-gray-500">{inv.memo}</p> : null}
                         </td>
                         <td className={tableCellClass}>
                           {TENANT_INVOICE_STATUS_LABEL[inv.status as keyof typeof TENANT_INVOICE_STATUS_LABEL] ??
