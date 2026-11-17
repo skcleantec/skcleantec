@@ -5623,7 +5623,7 @@ model AlimtalkBrandChannel {
   adminPhone          String    @map("admin_phone") @db.VarChar(32)
   /// DONE 승인 완료 · IN_REVIEW 심사 중 · NONE 아직 안 함
   bizVerify           String    @map("biz_verify") @db.VarChar(16)
-  /// REQUESTED 신청 · LINKED 연결 · ACTIVE 서식 승인 · REJECTED · DISCONNECTED
+  /// PAYMENT_PENDING 입금 대기 · REQUESTED 연결 대기 · LINKED 연결 · ACTIVE 서식 승인 · REJECTED · DISCONNECTED
   status              String    @db.VarChar(16)
   providerChannelId   String?   @map("provider_channel_id") @db.VarChar(64)
   requestedAt         DateTime  @default(now()) @map("requested_at")

@@ -76,6 +76,8 @@ export type BillingScheduleItem = {
   oneTimeAmountKrw?: number;
   oneTimeLabels?: string[];
   oneTimeChargeIds?: string[];
+  /** 이용료 회차와 따로 입금완료 처리하는 청구서 */
+  paymentKey?: string;
   adjustment: {
     id: string;
     type: TenantBillingAdjustmentType;

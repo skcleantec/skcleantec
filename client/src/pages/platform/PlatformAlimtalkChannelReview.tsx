@@ -38,6 +38,7 @@ export function PlatformAlimtalkChannelReview() {
   const summary = data?.summary;
   const tiles = [
     ['연결된 브랜드', summary?.linked ?? 0],
+    ['입금 대기', summary?.paymentPending ?? 0],
     ['심사 중', summary?.inReview ?? 0],
     ['반려', summary?.rejected ?? 0],
     ['신청 대기', summary?.ready ?? 0],
@@ -48,11 +49,11 @@ export function PlatformAlimtalkChannelReview() {
       <section className={CARD_SECTION}>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="text-fluid-2xs text-gray-500">
-            세팅비 (VAT 별도)
+            세팅비 (부가세 포함)
             <input className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm" value={setupFee} onChange={(e) => setSetupFee(e.target.value)} />
           </label>
           <label className="text-fluid-2xs text-gray-500">
-            문구 커스텀 건당 (VAT 별도)
+            문구 커스텀 건당 (부가세 포함)
             <input className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm" value={copyFee} onChange={(e) => setCopyFee(e.target.value)} />
           </label>
         </div>
@@ -68,7 +69,7 @@ export function PlatformAlimtalkChannelReview() {
           금액 저장
         </button>
       </section>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {tiles.map(([label, value]) => (
           <div key={label} className="rounded-xl border border-gray-200 bg-white p-3">
             <p className="text-xl font-bold tabular-nums text-slate-900">{value}</p>
@@ -105,6 +106,7 @@ export function PlatformAlimtalkChannelReview() {
               <th className="px-3 py-2 text-left font-medium">업체</th>
               <th className="px-3 py-2 text-left font-medium">브랜드</th>
               <th className="px-3 py-2 text-left font-medium">채널</th>
+              <th className="px-3 py-2 text-left font-medium">상태</th>
               <th className="px-3 py-2 text-left font-medium">서식</th>
               <th className="px-3 py-2 text-left font-medium" />
             </tr>
@@ -115,6 +117,7 @@ export function PlatformAlimtalkChannelReview() {
                 <td className="px-3 py-2">{row.tenantName}</td>
                 <td className="px-3 py-2">{row.brandName}</td>
                 <td className="px-3 py-2">{row.searchId}</td>
+                <td className="px-3 py-2">{row.badge?.label ?? row.status}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-1">
                     {row.templates.map((item) => (

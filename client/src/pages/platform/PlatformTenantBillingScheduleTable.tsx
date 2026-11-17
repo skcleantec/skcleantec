@@ -135,6 +135,7 @@ type ViewRow = {
   muted: boolean;
   canPay: boolean;
   periodYmd: string | null;
+  paymentKey: string | null;
   menu: MenuItem[];
 };
 
@@ -156,6 +157,7 @@ export function PlatformTenantBillingScheduleTable({
     const periodYmd = ymdFromIso(row.periodStart);
     const hasAdj = row.adjustment != null;
     const canAdjust =
+      !row.paymentKey &&
       !hasAdj &&
       row.status !== 'PAID' &&
       row.status !== 'SKIPPED' &&
@@ -219,6 +221,7 @@ export function PlatformTenantBillingScheduleTable({
       muted: false,
       canPay,
       periodYmd,
+      paymentKey: row.paymentKey ?? null,
       menu,
     };
   });
@@ -236,6 +239,7 @@ export function PlatformTenantBillingScheduleTable({
     muted: true,
     canPay: false,
     periodYmd: null,
+    paymentKey: null,
     menu: [],
   }));
 
@@ -251,7 +255,7 @@ export function PlatformTenantBillingScheduleTable({
         <button
           type="button"
           disabled={saving}
-          onClick={() => void onConfirmPayment(r.periodYmd!)}
+          onClick={() => void onConfirmPayment(r.paymentKey ?? r.periodYmd!)}
           className="whitespace-nowrap rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-40"
         >
           입금완료

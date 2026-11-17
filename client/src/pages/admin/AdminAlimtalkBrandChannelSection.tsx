@@ -5,10 +5,12 @@ import {
   requestTenantBrandChannel,
   type TenantBrandChannelView,
 } from '../../api/alimtalkBrandChannel';
+import { TenantUsageFeeWindowButton } from '../../components/admin/TenantUsageFeeWindowButton';
+import { getToken } from '../../stores/auth';
 
 const BTN_PRIMARY =
   'rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50';
-const STEPS = ['신청 접수', '채널 연결', '문구 심사', '우리 채널로 발송'] as const;
+const STEPS = ['신청 접수', '입금 확인', '채널 연결', '문구 심사', '우리 채널로 발송'] as const;
 
 const PREP = [
   {
@@ -32,9 +34,9 @@ const PREP = [
     body: '① 채널 공개 켜기 ② 검색 허용 켜기 ③ 프로필 설정 → 채널 정보에 고객센터 전화번호 넣기. 이 3가지가 없으면 알림톡을 연결할 수 없어요.',
   },
   {
-    title: '청소비서에 신청',
+    title: '청소비서에 신청 · 세팅비 입금',
     time: '',
-    body: '신청하면 담당자가 채널을 연결하고 알림톡 문구 심사를 대신 넣어 드려요. 연결할 때 채널 관리자에게 인증 요청이 한 번 가요.',
+    body: '신청 후 세팅비를 입금하면 담당자가 채널을 연결하고 알림톡 문구 심사를 대신 넣어 드려요. 연결할 때 채널 관리자에게 인증 요청이 한 번 가요.',
   },
   {
     title: '알림톡 문구 심사',
@@ -82,7 +84,7 @@ export function AdminAlimtalkBrandChannelSection() {
     setBusy(true);
     setError('');
     try {
-      await requestTenantBrandChannel({
+      const result = await requestTenantBrandChannel({
         operatingCompanyId: brandId,
         searchId,
         adminPhone: phone,
@@ -91,7 +93,11 @@ export function AdminAlimtalkBrandChannelSection() {
         feeAccepted,
       });
       setOpen(false);
-      setNotice('신청했어요. 담당자가 연결을 시작해요.');
+      setNotice(
+        result.status === 'PAYMENT_PENDING'
+          ? '신청했어요. 세팅비를 입금하시면 연결을 시작해요.'
+          : '신청했어요. 담당자가 연결을 시작해요.',
+      );
       setSearchId('');
       setPhone('');
       setPublicReady(false);
@@ -147,7 +153,7 @@ export function AdminAlimtalkBrandChannelSection() {
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-lg bg-slate-50 p-2.5">
-              <p className="text-fluid-2xs text-gray-400">세팅비 · VAT 별도</p>
+              <p className="text-fluid-2xs text-gray-400">세팅비 · 부가세 포함</p>
               <p className="text-fluid-xs font-semibold text-gray-900">브랜드당 1회 {won(fee)}</p>
             </div>
             <div className="rounded-lg bg-slate-50 p-2.5">
@@ -181,7 +187,7 @@ export function AdminAlimtalkBrandChannelSection() {
                       {row.channel?.badge.label}
                     </span>
                   </div>
-                  <ol className="mt-2 grid grid-cols-4 gap-1 text-center">
+                  <ol className="mt-2 grid grid-cols-5 gap-1 text-center">
                     {STEPS.map((label, index) => {
                       const current = row.channel?.step ?? 0;
                       const tone =
@@ -191,12 +197,33 @@ export function AdminAlimtalkBrandChannelSection() {
                             ? 'bg-amber-50 text-amber-700'
                             : 'bg-slate-50 text-gray-400';
                       return (
-                        <li key={label} className={`rounded-md px-1 py-1 text-[11px] font-semibold ${tone}`}>
+                        <li key={label} className={`whitespace-normal rounded-md px-1 py-1 text-[11px] font-semibold leading-tight ${tone}`}>
                           {label}
                         </li>
                       );
                     })}
                   </ol>
+                  {row.channel?.deposit ? (
+                    <div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2.5 text-fluid-2xs text-gray-700">
+                      <p className="font-semibold text-gray-900">{won(row.channel.deposit.grossKrw)} (부가세 포함)</p>
+                      {[row.channel.deposit.bankName, row.channel.deposit.accountNumber, row.channel.deposit.accountHolder].filter(Boolean).length > 0 ? (
+                        <p>
+                          입금 계좌{' '}
+                          {[row.channel.deposit.bankName, row.channel.deposit.accountNumber, row.channel.deposit.accountHolder]
+                            .filter(Boolean)
+                            .join(' ')}
+                        </p>
+                      ) : null}
+                      <p>입금하시면 담당자가 확인 후 연결을 시작해요</p>
+                      {row.channel.deposit.payKey && getToken() ? (
+                        <TenantUsageFeeWindowButton
+                          token={getToken() ?? ''}
+                          periodStart={row.channel.deposit.payKey}
+                          supplyKrw={row.channel.deposit.supplyKrw}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
                   {row.channel?.note ? <p className="mt-1.5 text-fluid-2xs text-gray-500">{row.channel.note}</p> : null}
                 </div>
               ))}
@@ -310,7 +337,7 @@ export function AdminAlimtalkBrandChannelSection() {
                   </label>
                   <label className="flex items-start gap-2 text-fluid-2xs text-gray-700">
                     <input type="checkbox" checked={feeAccepted} onChange={(event) => setFeeAccepted(event.target.checked)} />
-                    세팅비 {won(fee)}(VAT 별도)은 다음 이용료 청구서에 함께 청구돼요
+                    세팅비 {won(fee)}(부가세 포함)을 입금하면 연결을 시작해요
                   </label>
                 </div>
               )}

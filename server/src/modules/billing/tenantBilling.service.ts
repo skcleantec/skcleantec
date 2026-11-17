@@ -47,6 +47,7 @@ import {
   paginateBillingScheduleItems,
   type BillingScheduleListQuery,
 } from './tenantBilling.scheduleList.js';
+import { advanceBrandChannelAfterSetupPaid, BRAND_CHANNEL_FEE_SOURCE_PREFIX } from '../alimtalk/alimtalkBrandChannel.fee.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import {
   resolveTenantBillingOperationalStatus,
@@ -210,7 +211,7 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
   });
   if (!tenant) throw new TenantNotFoundError();
 
-  const [profileRow, invoices, adjustments, oneTimeCharges] = await Promise.all([
+  const [profileRow, invoices, adjustments, oneTimeCharges, setupCharges] = await Promise.all([
     ensureTenantBillingProfile(tenantId),
     prisma.tenantInvoice.findMany({
       where: { tenantId },
@@ -223,6 +224,15 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
       where: { tenantId, voidedAt: null, invoiceId: null },
       orderBy: { createdAt: 'asc' },
     }),
+    prisma.tenantBillingOneTimeCharge.findMany({
+      where: {
+        tenantId,
+        voidedAt: null,
+        invoiceId: { not: null },
+        sourceKey: { startsWith: BRAND_CHANNEL_FEE_SOURCE_PREFIX },
+      },
+      select: { id: true, invoiceId: true, label: true },
+    }),
   ]);
 
   const profile = mapBillingProfile(profileRow);
@@ -233,13 +243,16 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
       ? new Date(profile.billingStartDate)
       : tenant.serviceStartedAt;
 
+  const setupInvoiceIds = new Set(setupCharges.map((charge) => charge.invoiceId).filter((id): id is string => id != null));
   const schedule =
     billingStart != null
       ? computeBillingSchedule({
           plan: tenant.plan,
           profile,
           billingStart,
-          invoices: invoices.map((i) => ({
+          invoices: invoices
+            .filter((invoice) => !setupInvoiceIds.has(invoice.id))
+            .map((i) => ({
             id: i.id,
             periodStart: i.periodStart,
             periodEnd: i.periodEnd,
@@ -263,8 +276,43 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
           })),
         })
       : [];
+  const setupRows: BillingScheduleItem[] = setupCharges.flatMap((charge) => {
+    const invoice = invoices.find((row) => row.id === charge.invoiceId);
+    if (!invoice || invoice.status === 'VOID' || !charge.invoiceId) return [];
+    return [
+      {
+        periodStart: invoice.periodStart.toISOString(),
+        periodEnd: invoice.periodEnd.toISOString(),
+        dueDate: invoice.dueDate.toISOString(),
+        amountKrw: invoice.amountKrw,
+        catalogAmountKrw: invoice.catalogAmountKrw ?? invoice.amountKrw,
+        status: invoice.status,
+        invoiceId: invoice.id,
+        baseAmountKrw: 0,
+        addonAmountKrw: 0,
+        feeExempt: false,
+        addonExempt: false,
+        oneTimeAmountKrw: invoice.amountKrw,
+        oneTimeLabels: [charge.label],
+        oneTimeChargeIds: [charge.id],
+        paymentKey: invoice.id,
+        adjustment: null,
+      },
+    ];
+  });
+  const openSetup = setupRows.filter((row) => row.status === 'ISSUED' || row.status === 'OVERDUE');
+  const closedSetup = setupRows.filter((row) => row.status !== 'ISSUED' && row.status !== 'OVERDUE');
 
-  return { tenant, profile, billingStart, schedule, invoices, adjustments, paidLinkCount, monthlyAddonKrw };
+  return {
+    tenant,
+    profile,
+    billingStart,
+    schedule: [...openSetup, ...schedule, ...closedSetup],
+    invoices,
+    adjustments,
+    paidLinkCount,
+    monthlyAddonKrw,
+  };
 }
 
 export async function getTenantBillingSchedule(
@@ -990,6 +1038,9 @@ export async function confirmInvoicePayment(
     return inv;
   });
 
+  await advanceBrandChannelAfterSetupPaid(invoiceId).catch((err) => {
+    console.error('[brand-channel] setup paid', err instanceof Error ? err.message : err);
+  });
   return mapInvoice(updated);
 }
 
