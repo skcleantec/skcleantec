@@ -41,6 +41,13 @@ export function stripPlatformDisclaimer(content: string): string {
   return kept.join('\n').replace(/\n+$/g, '');
 }
 
+function withBrandClosing(content: string): string {
+  const body = stripPlatformDisclaimer(content);
+  const already = body.split('\n').some((line) => line.trim() === BRAND_CLOSING);
+  if (already) return body;
+  return `${body}\n\n${BRAND_CLOSING}`;
+}
+
 export function buildBrandTemplateVariant(platformTemplate: BrandTemplateSource): BrandTemplateSource {
   return {
     name: platformTemplate.name,
@@ -48,7 +55,7 @@ export function buildBrandTemplateVariant(platformTemplate: BrandTemplateSource)
     emphasizeType: platformTemplate.emphasizeType,
     title: platformTemplate.title,
     extra: platformTemplate.extra.split(PLATFORM_EXTRA).join(BRAND_EXTRA),
-    content: `${stripPlatformDisclaimer(platformTemplate.content)}\n\n${BRAND_CLOSING}`,
+    content: withBrandClosing(platformTemplate.content),
     buttons: platformTemplate.buttons.map((button) => ({ ...button })),
   };
 }
