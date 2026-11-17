@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  brandTemplateCategory,
   buildBrandTemplateVariant,
+  emphasizeTypeLabel,
+  readBrandExtra,
   templateTokens,
   type BrandTemplateSource,
 } from './alimtalkBrandTemplateVariant.js';
@@ -77,7 +80,7 @@ const cases: BrandTemplateSource[] = [
     { ...orderButton, name: '발주서 확인' },
     infoButton,
   ]),
-  source('[고객] 발주서 작성·예약 안내', orderLink, '', '기본형', [orderButton]),
+  source('[고객] 발주서 작성·예약 안내', orderLink, '', '강조 없음', [orderButton]),
   source('[고객] 예약 일정 확인(무위약 마감일)', schedule, '#{브랜드명} 청소 일정 안내', '강조표기형', [
     { ...orderButton, name: '발주서 확인' },
     infoButton,
@@ -91,7 +94,7 @@ describe('업체 채널용 알림톡 문구', () => {
       assert.equal(variant.content.includes('청소비서'), false);
       assert.equal(variant.content.endsWith('\n\n궁금한 점은 이 대화방에 바로 남겨 주세요.'), true);
       assert.equal(variant.content.endsWith('\n'), false);
-      assert.equal(variant.extra, '청소 예약 안내');
+      assert.equal(variant.extra, platform.emphasizeType === '강조표기형' ? '청소 예약 안내' : '');
       assert.equal(variant.name, platform.name);
       assert.equal(variant.category, platform.category);
       assert.equal(variant.emphasizeType, platform.emphasizeType);
@@ -109,4 +112,26 @@ describe('업체 채널용 알림톡 문구', () => {
       );
     });
   }
+
+  it('강조 유형은 0이 강조 없음이다', () => {
+    assert.equal(emphasizeTypeLabel(0), '강조 없음');
+    assert.equal(emphasizeTypeLabel(1), '강조표기형');
+    assert.equal(emphasizeTypeLabel(2), '이미지형');
+    const done = buildBrandTemplateVariant({ ...cases[0], emphasizeType: emphasizeTypeLabel(1) });
+    const link = buildBrandTemplateVariant({ ...cases[1], emphasizeType: emphasizeTypeLabel(0) });
+    assert.equal(done.emphasizeType, '강조표기형');
+    assert.equal(link.emphasizeType, '강조 없음');
+  });
+
+  it('보조문구는 강조표기형만 바꾼다', () => {
+    assert.equal(readBrandExtra('강조표기형', '고객관리 솔루션 - 청소비서', ''), '청소 예약 안내');
+    assert.equal(readBrandExtra('강조표기형', '', '고객관리 솔루션 - 청소비서'), '청소 예약 안내');
+    assert.equal(readBrandExtra('강조 없음', '고객관리 솔루션 - 청소비서', '고객관리 솔루션 - 청소비서'), '');
+  });
+
+  it('카테고리는 2단계다', () => {
+    assert.equal(brandTemplateCategory('CBISEO_CUST_ORDER_DONE'), '예약 > 예약완료/예약내역');
+    assert.equal(brandTemplateCategory('CBISEO_CUST_ORDER_LINK'), '예약 > 예약상태');
+    assert.equal(brandTemplateCategory('CBISEO_CUST_SCHEDULE_D2'), '예약 > 예약상태');
+  });
 });

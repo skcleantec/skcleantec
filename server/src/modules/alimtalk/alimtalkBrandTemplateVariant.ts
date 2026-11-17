@@ -20,6 +20,26 @@ export type BrandTemplateSource = {
 const PLATFORM_EXTRA = '고객관리 솔루션 - 청소비서';
 const BRAND_EXTRA = '청소 예약 안내';
 const BRAND_CLOSING = '궁금한 점은 이 대화방에 바로 남겨 주세요.';
+
+/** 발송 서비스 강조 유형. 0 강조 없음, 1 강조표기형, 2 이미지형. */
+export function emphasizeTypeLabel(type: number | null | undefined): string {
+  if (type === 1) return '강조표기형';
+  if (type === 2) return '이미지형';
+  return '강조 없음';
+}
+
+/** 승인본 카테고리 2단계. 발송 서비스 응답에는 카테고리가 없다. */
+export function brandTemplateCategory(code: string): string {
+  if (code === 'CBISEO_CUST_ORDER_DONE') return '예약 > 예약완료/예약내역';
+  return '예약 > 예약상태';
+}
+
+/** 보조문구는 강조표기형만. 자막이 없으면 부가문구를 쓴다. */
+export function readBrandExtra(emphasizeType: string, subtitle: string, extra: string): string {
+  if (emphasizeType !== '강조표기형') return '';
+  const raw = subtitle.trim() || extra.trim();
+  return raw.split(PLATFORM_EXTRA).join(BRAND_EXTRA);
+}
 const TOKEN_RE = /#\{[^}]+\}/g;
 
 export function templateTokens(source: Pick<BrandTemplateSource, 'title' | 'extra' | 'content' | 'buttons'>): string[] {
@@ -54,7 +74,7 @@ export function buildBrandTemplateVariant(platformTemplate: BrandTemplateSource)
     category: platformTemplate.category,
     emphasizeType: platformTemplate.emphasizeType,
     title: platformTemplate.title,
-    extra: platformTemplate.extra.split(PLATFORM_EXTRA).join(BRAND_EXTRA),
+    extra: readBrandExtra(platformTemplate.emphasizeType, '', platformTemplate.extra),
     content: withBrandClosing(platformTemplate.content),
     buttons: platformTemplate.buttons.map((button) => ({ ...button })),
   };
