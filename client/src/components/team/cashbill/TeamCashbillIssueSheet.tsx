@@ -10,6 +10,7 @@ import {
 import { useModalScrollKeyboardAvoidance } from '../../../hooks/useMobileInputVisibility';
 import { teamFooterActionPrimaryClass, teamFooterActionSecondaryClass } from '../../../utils/teamInspectionDisplay';
 import { openPaymentSms } from '../../../utils/cardPaymentShare';
+import { STAFF_APP_SAFE_OVERLAY } from '../../../utils/staffAppSafeArea';
 
 type Usage = 'phone' | 'biz';
 
@@ -183,12 +184,12 @@ export function TeamCashbillIssueSheet({
   };
 
   const sheet = (
-    <div className="fixed inset-0 z-[640] flex items-end justify-center bg-slate-900/45">
+    <div className={`${STAFF_APP_SAFE_OVERLAY} fixed inset-0 z-[640] flex items-end justify-center bg-slate-900/45 pt-[max(1.5rem,env(safe-area-inset-top,0px),var(--cbiseo-safe-area-top,0px))] pb-[max(0px,env(safe-area-inset-bottom,0px),var(--cbiseo-safe-area-bottom,0px))]`}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl"
+        className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
           <h2 id={titleId} className="text-fluid-sm font-semibold text-slate-900">
@@ -298,7 +299,7 @@ export function TeamCashbillIssueSheet({
           {chargeSent ? <p className="text-fluid-xs text-emerald-800">사무실에 충전 요청을 보냈습니다.</p> : null}
           {error ? <p className="text-fluid-xs text-red-700">{error}</p> : null}
         </div>
-        <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 px-3 py-2">
           <button type="button" onClick={onClose} className={teamFooterActionSecondaryClass}>
             닫기
           </button>
@@ -317,7 +318,7 @@ export function TeamCashbillIssueSheet({
   );
 
   const confirm = confirming ? (
-    <div className="fixed inset-0 z-[660] flex items-center justify-center bg-slate-900/45 p-4">
+    <div className={`${STAFF_APP_SAFE_OVERLAY} fixed inset-0 z-[660] flex items-center justify-center bg-slate-900/45 p-4 pt-[max(1.5rem,env(safe-area-inset-top,0px),var(--cbiseo-safe-area-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px),var(--cbiseo-safe-area-bottom,0px))]`}>
       <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl">
         <p className="text-fluid-sm font-semibold text-slate-900">이 내용으로 발행할까요?</p>
         <p className="mt-2 text-fluid-xs text-slate-700">
@@ -341,7 +342,7 @@ export function TeamCashbillIssueSheet({
   ) : null;
 
   const done = issued ? (
-    <div className="fixed inset-0 z-[680] flex items-center justify-center bg-slate-900/45 p-4">
+    <div className={`${STAFF_APP_SAFE_OVERLAY} fixed inset-0 z-[680] flex items-center justify-center bg-slate-900/45 p-4 pt-[max(1.5rem,env(safe-area-inset-top,0px),var(--cbiseo-safe-area-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px),var(--cbiseo-safe-area-bottom,0px))]`}>
       <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white p-4 text-center shadow-xl">
         <p className="text-fluid-sm font-semibold text-slate-900">발행했습니다</p>
         <p className="mt-2 text-fluid-xs text-slate-600">승인번호</p>
