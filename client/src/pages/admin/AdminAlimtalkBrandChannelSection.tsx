@@ -363,12 +363,22 @@ export function AdminAlimtalkBrandChannelSection() {
             NEW · 부가서비스
           </span>
           <div>
-            <p className="text-[22px] font-extrabold leading-tight tracking-tight text-gray-900 sm:text-[28px]">
+            <p className="text-[24px] font-black leading-[1.15] tracking-[-0.03em] text-[#3C1E1E] sm:text-[34px]">
               우리 카카오 채널로
-              <br className="sm:hidden" /> 알림톡 보내기!!
+              <br className="sm:hidden" />{' '}
+              <span className="mx-0.5 inline-block -rotate-1 rounded-lg bg-[#3C1E1E] px-2 py-0.5 text-[#FEE500] shadow-[0_3px_0_rgba(60,30,30,0.35)]">
+                알림톡
+              </span>{' '}
+              보내기<span className="text-[#E8452C]">!!</span>
             </p>
-            <p className="mt-1.5 text-[13px] font-semibold text-gray-800 sm:text-[15px]">
-              고객과의 소통과 자연스러운 마케팅 효과 급증
+            <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-bold text-[#3C1E1E]/85 sm:text-[16px]">
+              <span>고객과의 소통과</span>
+              <span className="bg-[linear-gradient(transparent_55%,rgba(255,255,255,0.8)_55%)] px-0.5 text-[#3C1E1E]">
+                자연스러운 마케팅 효과
+              </span>
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-[#E8452C] px-1.5 py-0.5 text-[12px] font-black text-white shadow-sm sm:text-[14px]">
+                급증 ↑
+              </span>
             </p>
           </div>
           {linked.length > 0 ? (
