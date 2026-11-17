@@ -86,7 +86,7 @@ function moneyOf(inquiry: {
   const deposit = inquiry.serviceDepositAmount ?? inquiry.orderForm?.depositAmount ?? 0;
   const stored = inquiry.serviceBalanceAmount ?? inquiry.orderForm?.balanceAmount;
   const balance = typeof stored === 'number' && stored > 0 ? stored : Math.max(0, total - deposit);
-  return { total, balance };
+  return { total, deposit, balance };
 }
 
 async function issuedSummary(tenantId: string, inquiryId: string) {
@@ -141,10 +141,13 @@ export async function teamCashbillPrefill(tenantId: string, userId: string, inqu
   const brands = await linkedBrands(tenantId);
   const base = {
     walletShort: balance < CASHBILL_UNIT_PRICE_KRW,
+    walletBalanceKrw: balance,
+    unitKrw: CASHBILL_UNIT_PRICE_KRW,
     brands,
     customerName: '',
     customerPhone: '',
     defaultAmountWon: 0,
+    depositWon: 0,
     totalWon: 0,
     remainingWon: 0,
     alreadyIssued: false,
@@ -172,6 +175,7 @@ export async function teamCashbillPrefill(tenantId: string, userId: string, inqu
     customerName: inquiry.customerName?.trim() ?? '',
     customerPhone: inquiry.customerPhone?.trim() ?? '',
     defaultAmountWon: money.balance,
+    depositWon: money.deposit,
     totalWon: money.total,
     remainingWon: cashbillRemaining(money.total, issued.cardPaidWon, issued.issuedWon),
     alreadyIssued: issued.alreadyIssued,
