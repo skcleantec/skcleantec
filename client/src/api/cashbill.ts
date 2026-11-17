@@ -159,6 +159,22 @@ export async function requestCashbillLink(memberId: string, barobillUserIdHint: 
   if (!res.ok) throw new Error(await apiErrorMessage(res, '연결 요청을 보내지 못했습니다.'));
 }
 
+export async function fetchTeamCashbillIssueSetting(): Promise<{ enabled: boolean }> {
+  const res = await fetch(`${API}/cashbill/team-issue-setting`, { headers: headers() });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '팀장 발행 설정을 불러오지 못했습니다.'));
+  return res.json() as Promise<{ enabled: boolean }>;
+}
+
+export async function saveTeamCashbillIssueSetting(enabled: boolean): Promise<{ enabled: boolean }> {
+  const res = await fetch(`${API}/cashbill/team-issue-setting`, {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '팀장 발행 설정을 저장하지 못했습니다.'));
+  return res.json() as Promise<{ enabled: boolean }>;
+}
+
 export async function cancelCashbillLinkRequest(memberId: string): Promise<void> {
   const res = await fetch(`${API}/cashbill/members/${memberId}/link-request/cancel`, {
     method: 'POST',

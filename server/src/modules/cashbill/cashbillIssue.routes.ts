@@ -1,4 +1,5 @@
 import { Router, type Response } from 'express';
+import { prisma } from '../../lib/prisma.js';
 import { logCashbillFailure, logCashbillHistory } from '../receipts/receiptHistory.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantAuth } from '../tenants/tenant.middleware.js';
@@ -109,6 +110,35 @@ router.put('/issue-settings', async (req, res) => {
   }
 });
 
+router.get('/team-issue-setting', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!staff(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const tenant = await prisma.tenant.findFirst({
+    where: { id: tenantId },
+    select: { teamCashbillIssueEnabled: true },
+  });
+  res.json({ enabled: tenant?.teamCashbillIssueEnabled !== false });
+});
+
+router.put('/team-issue-setting', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!adminOnly(res, user)) return;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const enabled = (req.body as { enabled?: unknown }).enabled;
+  if (typeof enabled !== 'boolean') {
+    res.status(400).json({ error: '켜짐 또는 꺼짐을 선택해 주세요.' });
+    return;
+  }
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { teamCashbillIssueEnabled: enabled },
+  });
+  res.json({ enabled });
+});
+
 router.get('/issues', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   if (!staff(res, user)) return;
@@ -126,6 +156,7 @@ router.get('/issues', async (req, res) => {
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
       inquiryId: typeof req.query.inquiryId === 'string' ? req.query.inquiryId : undefined,
       extraOnly: req.query.extra === '1',
+      issuer: typeof req.query.issuer === 'string' ? req.query.issuer : undefined,
       limit,
       offset,
     }));

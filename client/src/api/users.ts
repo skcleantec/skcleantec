@@ -23,6 +23,8 @@ export interface UserItem {
   resignationDate?: string | null;
   /** 팀장만: 본인 휴무일 등록·삭제 허용(관리자 설정) */
   allowSelfDayOffEdit?: boolean;
+  /** 팀장만: 현금영수증 발행 허용 */
+  cashbillIssueEnabled?: boolean;
   /** 마케터만: NONE | LIMITED(일부) | FULL(전체) */
   marketerAdminLevel?: MarketerAdminLevel;
   /** @deprecated marketerAdminLevel 사용 */
@@ -191,6 +193,7 @@ export async function updateUser(
     hireDate?: string | null;
     resignationDate?: string | null;
     allowSelfDayOffEdit?: boolean;
+    cashbillIssueEnabled?: boolean;
     marketerAdminLevel?: MarketerAdminLevel;
     hasAdminPrivileges?: boolean;
     payrollMonthlySalary?: number | null;

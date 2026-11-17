@@ -283,6 +283,7 @@ export function AdminTeamLeadersPage() {
   const [staffIdCardBusy, setStaffIdCardBusy] = useState(false);
   const staffIdCardInputRef = useRef<HTMLInputElement>(null);
   const [dayOffSwitchId, setDayOffSwitchId] = useState<string | null>(null);
+  const [cashbillSwitchId, setCashbillSwitchId] = useState<string | null>(null);
   const [bulkDayOffLoading, setBulkDayOffLoading] = useState(false);
   const [depositPolicyOpen, setDepositPolicyOpen] = useState(false);
   const [form, setForm] = useState<RegisterFormState>(() => emptyRegisterForm());
@@ -734,6 +735,19 @@ export function AdminTeamLeadersPage() {
     }
   };
 
+  const handleCashbillToggle = async (item: UserItem, next: boolean) => {
+    if (!token) return;
+    setCashbillSwitchId(item.id);
+    try {
+      await updateUser(token, item.id, { cashbillIssueEnabled: next });
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '설정을 바꾸지 못했습니다.');
+    } finally {
+      setCashbillSwitchId(null);
+    }
+  };
+
   const handleAllowSelfDayOffToggle = async (item: UserItem, next: boolean) => {
     if (!token) return;
     setDayOffSwitchId(item.id);
@@ -973,6 +987,25 @@ export function AdminTeamLeadersPage() {
                             />
                           </button>
                           <span className="text-gray-300">|</span>
+                          <span className="shrink-0 text-fluid-2xs font-medium text-gray-600">현금영수증</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={item.cashbillIssueEnabled !== false}
+                            aria-label="현금영수증 발행 허용"
+                            disabled={cashbillSwitchId === item.id}
+                            onClick={() => void handleCashbillToggle(item, item.cashbillIssueEnabled === false)}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
+                              item.cashbillIssueEnabled !== false ? 'bg-emerald-500' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                item.cashbillIssueEnabled !== false ? 'translate-x-[1.375rem]' : 'translate-x-0.5'
+                              }`}
+                            />
+                          </button>
+                          <span className="text-gray-300">|</span>
                           <button
                             type="button"
                             onClick={() => openEdit(item)}
@@ -1010,6 +1043,9 @@ export function AdminTeamLeadersPage() {
                           <br />
                           <span className="font-normal text-fluid-2xs text-gray-500">등록 허용</span>
                         </th>
+                        <th className="px-2 py-3 text-center font-medium text-gray-700 w-[6.5rem] whitespace-nowrap">
+                          현금영수증
+                        </th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
                       </tr>
                     </thead>
@@ -1037,6 +1073,30 @@ export function AdminTeamLeadersPage() {
                                   aria-checked={on}
                                   disabled={dayOffSwitchId === item.id}
                                   onClick={() => void handleAllowSelfDayOffToggle(item, !on)}
+                                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
+                                    on ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                      on ? 'translate-x-[1.375rem]' : 'translate-x-0.5'
+                                    }`}
+                                  />
+                                </button>
+                              );
+                            })()}
+                          </td>
+                          <td className="px-2 py-3 text-center whitespace-nowrap">
+                            {(() => {
+                              const on = item.cashbillIssueEnabled !== false;
+                              return (
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={on}
+                                  aria-label="현금영수증 발행 허용"
+                                  disabled={cashbillSwitchId === item.id}
+                                  onClick={() => void handleCashbillToggle(item, !on)}
                                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
                                     on ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}

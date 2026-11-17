@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { issuerNameMap } from '../receipts/receiptHistory.js';
 import { findInquiryIdsByReceiptName, receiptCustomerLabel, receiptRealName } from '../receipts/receiptNameSearch.js';
 import type { CashBillIssue, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
@@ -627,6 +626,8 @@ export async function listCashbillIssues(tenantId: string, query: {
   q?: string;
   inquiryId?: string;
   extraOnly?: boolean;
+  /** team | staff */
+  issuer?: string;
   limit: number;
   offset: number;
 }) {
@@ -653,6 +654,16 @@ export async function listCashbillIssues(tenantId: string, query: {
     where.lastError = { not: null };
   } else if (query.state) {
     where.barobillState = query.state;
+  }
+  if (query.issuer === 'team' || query.issuer === 'staff') {
+    const people = await prisma.user.findMany({
+      where: {
+        tenantId,
+        role: query.issuer === 'team' ? 'TEAM_LEADER' : { in: ['ADMIN', 'MARKETER', 'OFFICE_STAFF'] },
+      },
+      select: { id: true },
+    });
+    where.createdById = { in: people.map((person) => person.id) };
   }
   const monthRange = kstMonthRangeYm(kstTodayYmd().slice(0, 7));
   const monthWhere: Prisma.CashBillIssueWhereInput = monthRange ? { tenantId, createdAt: monthRange } : { tenantId };
@@ -703,11 +714,24 @@ export async function listCashbillIssues(tenantId: string, query: {
       _sum: { chargedKrw: true },
     }),
   ]);
-  const issuers = await issuerNameMap(items.map((row) => row.createdById));
+  const issuerIds = [...new Set(items.map((row) => row.createdById).filter((id): id is string => Boolean(id)))];
+  const issuerRows = issuerIds.length
+    ? await prisma.user.findMany({
+        where: { tenantId, id: { in: issuerIds } },
+        select: { id: true, name: true, role: true },
+      })
+    : [];
+  const issuers = new Map(issuerRows.map((person) => [person.id, person]));
   return {
     items: items.map((row) => ({
       ...toPublicIssue(row),
-      issuerName: row.createdById ? issuers.get(row.createdById) ?? '탈퇴한 사용자' : null,
+      issuerName: row.createdById ? issuers.get(row.createdById)?.name ?? '탈퇴한 사용자' : null,
+      issuerRole: row.createdById
+        ? issuers.get(row.createdById)?.role === 'TEAM_LEADER'
+          ? 'TEAM_LEADER'
+          : 'STAFF'
+        : null,
+      cancelRequestedAt: row.cancelRequestedAt ? row.cancelRequestedAt.toISOString() : null,
       inquiryNumber: row.inquiry?.inquiryNumber ?? null,
       customerName: row.inquiry?.customerName?.trim() || row.customerName?.trim() || null,
       linked: Boolean(row.inquiryId),

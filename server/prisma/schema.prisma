@@ -264,6 +264,8 @@ model Tenant {
   serviceStartedAt       DateTime?            @map("service_started_at")
   suspendReason          TenantSuspendReason? @map("suspend_reason")
   billingAccessBlockedAt DateTime?            @map("billing_access_blocked_at")
+  /// 팀장 앱에서 현금영수증 발행 허용. 기본 켜짐.
+  teamCashbillIssueEnabled Boolean @default(true) @map("team_cashbill_issue_enabled")
 
   users     User[]
   inquiries Inquiry[]
@@ -1909,6 +1911,9 @@ model CashBillIssue {
   copyPdfUrl         String?           @map("copy_pdf_url") @db.VarChar(2048)
   publicToken        String?           @unique @map("public_token") @db.VarChar(64)
   createdById        String?           @map("created_by_id")
+  /// 팀장이 사무실에 취소를 요청한 시각. 취소 자체는 관리자만 한다.
+  cancelRequestedAt  DateTime?         @map("cancel_requested_at")
+  cancelRequestedById String?          @map("cancel_requested_by_id")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
@@ -2118,6 +2123,8 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   /// 팀장 본인 휴무일 등록·삭제 허용(관리자 사용자 목록에서 제어). 기본 true.
   allowSelfDayOffEdit Boolean @default(true) @map("allow_self_day_off_edit")
+  /// 팀장 현금영수증 발행 허용. 업체 설정이 켜져 있을 때 팀장별로 끌 수 있다. 기본 true.
+  cashbillIssueEnabled Boolean @default(true) @map("cashbill_issue_enabled")
   /// 고객 대면용 사원증 이미지(Cloudinary). 팀장·마케터 — 관리자 업로드.
   staffIdCardPublicId String? @map("staff_id_card_public_id") @db.VarChar(512)
   staffIdCardUrl      String? @map("staff_id_card_url") @db.VarChar(2048)

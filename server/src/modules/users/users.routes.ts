@@ -274,6 +274,7 @@ router.get('/', staffMarketerRoleOnly, async (req, res) => {
       hireDate: true,
       resignationDate: true,
       allowSelfDayOffEdit: true,
+      cashbillIssueEnabled: true,
       marketerAdminLevel: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
@@ -319,6 +320,7 @@ router.get('/', staffMarketerRoleOnly, async (req, res) => {
         hireDate: true,
         resignationDate: true,
         allowSelfDayOffEdit: true,
+        cashbillIssueEnabled: true,
         marketerAdminLevel: true,
         payrollMonthlySalary: true,
         payrollPayDay: true,
@@ -370,6 +372,7 @@ router.get('/', staffMarketerRoleOnly, async (req, res) => {
       externalCompanyId: u.externalCompany?.id ?? null,
       externalCompanyName: u.externalCompany?.name ?? null,
       allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
+      cashbillIssueEnabled: u.role === 'TEAM_LEADER' ? u.cashbillIssueEnabled : true,
       marketerAdminLevel: u.role === 'MARKETER' ? u.marketerAdminLevel : 'NONE',
       payrollMonthlySalary: u.payrollMonthlySalary ?? null,
       payrollPayDay: u.payrollPayDay ?? null,
@@ -871,6 +874,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     hireDate?: string | null;
     resignationDate?: string | null;
     allowSelfDayOffEdit?: boolean;
+    cashbillIssueEnabled?: boolean;
     /** @deprecated marketerAdminLevel 사용 */
     hasAdminPrivileges?: boolean;
     marketerAdminLevel?: MarketerAdminLevel | string;
@@ -961,6 +965,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     hireDate?: Date | null;
     resignationDate?: Date | null;
     allowSelfDayOffEdit?: boolean;
+    cashbillIssueEnabled?: boolean;
     marketerAdminLevel?: MarketerAdminLevel;
     marketerPermissions?: Prisma.NullableJsonNullValueInput;
     payrollMonthlySalary?: number | null;
@@ -1069,6 +1074,14 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
       return;
     }
     data.allowSelfDayOffEdit = Boolean(body.allowSelfDayOffEdit);
+  }
+
+  if (body.cashbillIssueEnabled !== undefined) {
+    if (existing.role !== 'TEAM_LEADER') {
+      res.status(400).json({ error: '현금영수증 발행 허용은 팀장 계정만 변경할 수 있습니다.' });
+      return;
+    }
+    data.cashbillIssueEnabled = Boolean(body.cashbillIssueEnabled);
   }
 
   if (body.marketerAdminLevel !== undefined || body.hasAdminPrivileges !== undefined) {
@@ -1206,6 +1219,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     hireDate: true,
     resignationDate: true,
     allowSelfDayOffEdit: true,
+    cashbillIssueEnabled: true,
     marketerAdminLevel: true,
     payrollMonthlySalary: true,
     payrollPayDay: true,

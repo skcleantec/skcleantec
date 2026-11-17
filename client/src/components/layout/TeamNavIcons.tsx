@@ -8,7 +8,8 @@ export type TeamNavIconType =
   | 'dayoffs'
   | 'cs'
   | 'messages'
-  | 'e-contracts';
+  | 'e-contracts'
+  | 'cashbill';
 
 export function TeamNavIcon({
   type,
@@ -95,6 +96,15 @@ export function TeamNavIcon({
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
         <polyline points="22,6 12,13 2,6" />
+      </svg>
+    );
+  }
+  if (type === 'cashbill') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M6 3h9l5 5v13H6z" />
+        <path d="M15 3v5h5" />
+        <path d="M9 12h6M9 16h4" />
       </svg>
     );
   }

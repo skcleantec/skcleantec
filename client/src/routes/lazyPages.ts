@@ -119,6 +119,9 @@ export const TeamQuotationEditorPage = lazyWithRetry(() =>
 export const TeamCardPaymentPage = lazyWithRetry(() =>
   import('../pages/team/TeamCardPaymentPage').then((m) => ({ default: m.TeamCardPaymentPage }))
 );
+export const TeamCashbillPage = lazyWithRetry(() =>
+  import('../pages/team/TeamCashbillPage').then((m) => ({ default: m.TeamCashbillPage }))
+);
 export const StaffInquiryCardPayEntry = lazyWithRetry(() =>
   import('../pages/admin/card-payment/StaffInquiryCardPayEntry').then((m) => ({
     default: m.StaffInquiryCardPayEntry,
